@@ -1,4 +1,9 @@
-OCAMLBUILDFLAGS=-I src -package zarith
+OCAMLBUILD=ocamlbuild -I src -package zarith
 
 all:
-	ocamlbuild $(OCAMLBUILDFLAGS) Kremlin.native
+	# Workaround Windows bug in OCamlbuild
+	-@rm Kremlin.native
+	$(OCAMLBUILD) Kremlin.native
+
+clean:
+	$(OCAMLBUILD) -clean
