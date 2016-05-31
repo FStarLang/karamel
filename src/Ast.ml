@@ -1,5 +1,7 @@
 (** Definition of the input format. *)
 
+open Utils
+
 (** The input AST *)
 
 type program =
@@ -10,7 +12,7 @@ and decl =
 
 and expr =
   | EBound of var
-  | EOpen of atom
+  | EOpen of binder
   | EQualified of lident
   | EConstant of constant
   | EUnit
@@ -31,11 +33,11 @@ and constant =
 and var =
   int (** a De Bruijn index *)
 
-and atom =
-  Atom.t
-
-and binder =
-  ident * typ * bool (** bool is for mutable *)
+and binder = {
+  name: ident;
+  typ: typ;
+  mut: bool;
+}
 
 and ident =
   string (** for pretty-printing *)
@@ -64,8 +66,8 @@ class virtual ['env, 'result] visitor = object (self)
     match e with
     | EBound var ->
         self#ebound env var
-    | EOpen atom ->
-        self#eopen env atom
+    | EOpen binder ->
+        self#eopen env binder
     | EQualified lident ->
         self#equalified env lident
     | EConstant c ->
@@ -92,7 +94,7 @@ class virtual ['env, 'result] visitor = object (self)
         self#ebufsub env e1 e2 e3
 
   method virtual ebound: 'env -> var -> 'result
-  method virtual eopen: 'env -> atom -> 'result
+  method virtual eopen: 'env -> binder -> 'result
   method virtual equalified: 'env -> lident -> 'result
   method virtual econstant: 'env -> constant -> 'result
   method virtual eunit: 'env -> 'result
@@ -116,8 +118,8 @@ class ['env] map = object (self)
   method ebound _env var =
     EBound var
 
-  method eopen _env atom =
-    EOpen atom
+  method eopen _env binder =
+    EOpen binder
 
   method equalified _env lident =
     EQualified lident
@@ -166,15 +168,118 @@ let current_version: version = 1
 type format = version * program
 
 let read_file (f: string): program =
-  let ic = open_in f in
-  let contents: format = input_value ic in
-  close_in ic;
+  let contents: format = with_open_in f input_value in
   let version, program = contents in
   if version <> current_version then
     failwith "This file is for an older version of KreMLin";
   program
 
 let write_file (p: program) (f: string): unit =
-  let oc = open_out f in
-  output_value oc (current_version, p);
-  close_out oc
+  with_open_out f (fun oc ->
+    output_value oc (current_version, p);
+  )
+
+
+module Print = struct
+  (** A few helpers stolen from Mezzo's source code and François' extra PPrint combinators. *)
+  open PPrint
+
+  (** Sniff the size of the terminal for optimal use of the width. *)
+  let theight, twidth =
+    let height, width = ref 0, ref 0 in
+    match
+      Scanf.sscanf (run_and_read "stty size") "%d %d" (fun h w ->
+        height := h;
+        width := w);
+      !height, !width
+    with
+    | exception _ ->
+        24, 80
+    | 0, 0 ->
+        24, 80
+    | h, w ->
+        h, w
+  ;;
+
+  let jump ?(indent=2) body =
+    jump indent 1 body
+
+  let parens_with_nesting contents =
+    surround 2 0 lparen contents rparen
+
+  let braces_with_nesting contents =
+    surround 2 1 lbrace contents rbrace
+
+  let int i = string (string_of_int i)
+
+  (* ------------------------------------------------------------------------ *)
+
+  let rec print_program decls =
+    separate_map (hardline ^^ hardline) print_decl decls
+
+  and print_decl = function
+    | DFunction (name, binders, body) ->
+        string "function" ^/^ parens_with_nesting (
+          separate_map (comma ^^ break 1) print_binder binders
+        ) ^/^ braces_with_nesting (
+          print_expr body
+        )
+
+  and print_binder { name; typ; mut } =
+    group (
+      if mut then string "mutable" else empty ^/^
+      string name ^^ colon ^/^
+      print_typ typ
+    )
+
+  and print_typ = function
+    | TInt32 ->
+        string "int32"
+    | TBuf t ->
+        print_typ t ^^ star
+
+  and print_expr = function
+    | EBound v ->
+        at ^^ int v
+    | EOpen { name; _ } ->
+        string name
+    | EQualified lident ->
+        print_lident lident
+    | EConstant c ->
+        print_constant c
+    | EUnit ->
+        string "()"
+    | EApp (e, es) ->
+        print_app (print_expr e) es
+    | ELet (binder, e1, e2) ->
+        string "let" ^/^ print_binder binder ^/^ equals ^/^
+        jump (print_expr e1) ^/^ string "in" ^/^ print_expr e2
+    | EIfThenElse (e1, e2, e3) ->
+        string "if" ^/^ print_expr e1 ^/^ string "then" ^/^
+        jump (print_expr e2) ^/^ string "else" ^/^
+        jump (print_expr e3)
+    | ESequence (e1, e2) ->
+        print_expr e1 ^^ semi ^^ hardline ^^ print_expr e2
+    | EAssign (e1, e2) ->
+        print_expr e1 ^/^ string "<-" ^/^ print_expr e2
+    | EBufCreate (e1, e2) ->
+        print_app (string "newbuf") [e1; e2]
+    | EBufRead (e1, e2) ->
+        print_expr e1 ^^ lbracket ^^ print_expr e2 ^^ rbracket
+    | EBufWrite (e1, e2, e3) ->
+        print_expr e1 ^^ lbracket ^^ print_expr e2 ^^ rbracket ^/^
+        string "<-" ^/^ print_expr e3
+    | EBufSub (e1, e2, e3) ->
+        print_app (string "subbuf") [e1; e2; e3]
+
+  and print_app e es =
+    prefix 2 1 e (separate_map (break 1) print_expr es)
+
+  and print_constant = function
+    | CInt i ->
+        string (Z.to_string i)
+
+  and print_lident (idents, ident) =
+    separate_map dot string (idents @ [ ident ])
+
+end
