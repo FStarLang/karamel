@@ -2,13 +2,14 @@
 
 open Utils
 
-(** The input AST *)
+(** The input AST. Note: F* doesn't have flat data constructors, so we need to introduce
+ * (inefficient) boxing for the sake of interop. *)
 
 type program =
   decl list
 
 and decl =
-  | DFunction of typ * ident * binder list * expr
+  | DFunction of (typ * ident * binder list * expr)
 
 and expr =
   | EBound of var
@@ -16,16 +17,16 @@ and expr =
   | EQualified of lident
   | EConstant of constant
   | EUnit
-  | EApp of expr * expr list
-  | ELet of binder * expr * expr
-  | EIfThenElse of expr * expr * expr
-  | ESequence of expr * expr
-  | EAssign of expr * expr
+  | EApp of (expr * expr list)
+  | ELet of (binder * expr * expr)
+  | EIfThenElse of (expr * expr * expr)
+  | ESequence of (expr * expr)
+  | EAssign of (expr * expr)
     (** left expression can only be a EBound of EOpen *)
-  | EBufCreate of expr * expr
-  | EBufRead of expr * expr
-  | EBufWrite of expr * expr * expr
-  | EBufSub of expr * expr * expr
+  | EBufCreate of (expr * expr)
+  | EBufRead of (expr * expr)
+  | EBufWrite of (expr * expr * expr)
+  | EBufSub of (expr * expr * expr)
 
 and constant =
   | CInt of string
