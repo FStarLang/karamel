@@ -170,16 +170,16 @@ end
 
 (** Input / output of ASTs *)
 
-let read_file (f: string): program =
+let read_file (f: string): file list =
   let contents: binary_format = with_open_in f input_value in
-  let version, program = contents in
+  let version, files = contents in
   if version <> current_version then
     failwith "This file is for an older version of KreMLin";
-  program
+  files
 
-let write_file (p: program) (f: string): unit =
+let write_file (files: file list) (f: string): unit =
   with_open_out f (fun oc ->
-    output_value oc (current_version, p);
+    output_value oc (current_version, files);
   )
 
 
@@ -191,7 +191,7 @@ module Print = struct
   let theight, twidth =
     let height, width = ref 0, ref 0 in
     match
-      Scanf.sscanf (run_and_read "stty size") "%d %d" (fun h w ->
+      Scanf.sscanf (run_and_read "stty" [|"size"|]) "%d %d" (fun h w ->
         height := h;
         width := w);
       !height, !width
@@ -202,7 +202,6 @@ module Print = struct
         24, 80
     | h, w ->
         h, w
-  ;;
 
   let jump ?(indent=2) body =
     jump indent 1 body
@@ -221,10 +220,10 @@ module Print = struct
     separate_map (hardline ^^ hardline) print_decl decls
 
   and print_decl = function
-    | DFunction (name, binders, body) ->
+    | DFunction (typ, name, binders, body) ->
         string "function" ^/^ parens_with_nesting (
           separate_map (comma ^^ break 1) print_binder binders
-        ) ^/^ braces_with_nesting (
+        ) ^^ colon ^/^ print_typ typ ^/^ braces_with_nesting (
           print_expr body
         )
 
@@ -240,6 +239,8 @@ module Print = struct
         string "int32"
     | TBuf t ->
         print_typ t ^^ star
+    | TUnit ->
+        string "()"
 
   and print_expr = function
     | EBound v ->
@@ -280,9 +281,22 @@ module Print = struct
 
   and print_constant = function
     | CInt i ->
-        string (Z.to_string i)
+        string i
 
   and print_lident (idents, ident) =
     separate_map dot string (idents @ [ ident ])
+
+  let print_files (files: file list) =
+    separate_map hardline (fun (f, p) ->
+      string (String.uppercase f) ^^ colon ^^ jump (print_program p)
+    ) files
+
+  let render doc =
+    let buf = Buffer.create 1024 in
+    PPrint.ToBuffer.pretty 0.95 twidth buf doc;
+    Buffer.contents buf
+
+  let print doc =
+    PPrint.ToChannel.pretty 0.95 twidth stdout doc
 
 end
