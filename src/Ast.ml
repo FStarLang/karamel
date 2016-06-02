@@ -8,7 +8,7 @@ type program =
   decl list
 
 and decl =
-  | DFunction of ident * binder list * expr
+  | DFunction of typ * ident * binder list * expr
 
 and expr =
   | EBound of var
@@ -28,7 +28,7 @@ and expr =
   | EBufSub of expr * expr * expr
 
 and constant =
-  | CInt of Z.t
+  | CInt of string
 
 and var =
   int (** a De Bruijn index *)
@@ -48,6 +48,15 @@ and lident =
 and typ =
   | TInt32
   | TBuf of typ
+  | TUnit
+
+(** Versioned binary writing/reading of ASTs *)
+
+type version = int
+let current_version: version = 1
+
+type file = string * program
+type binary_format = version * file list
 
 
 (** Some visitors for our AST of expressions *)
@@ -159,16 +168,10 @@ class ['env] map = object (self)
 
 end
 
-
-(** Versioned binary writing/reading of ASTs *)
-
-type version = int
-let current_version: version = 1
-
-type format = version * program
+(** Input / output of ASTs *)
 
 let read_file (f: string): program =
-  let contents: format = with_open_in f input_value in
+  let contents: binary_format = with_open_in f input_value in
   let version, program = contents in
   if version <> current_version then
     failwith "This file is for an older version of KreMLin";
