@@ -222,15 +222,15 @@ module Print = struct
 
   and print_decl = function
     | DFunction (typ, name, binders, body) ->
-        string "function" ^/^ parens_with_nesting (
+        group (string "function" ^/^ parens_with_nesting (
           separate_map (comma ^^ break 1) print_binder binders
-        ) ^^ colon ^/^ print_typ typ ^/^ braces_with_nesting (
+        ) ^^ colon ^/^ print_typ typ) ^/^ braces_with_nesting (
           print_expr body
         )
 
   and print_binder { name; typ; mut } =
     group (
-      if mut then string "mutable" else empty ^/^
+      if mut then string "mutable" ^^ break 1 else empty ^^
       string name ^^ colon ^/^
       print_typ typ
     )
