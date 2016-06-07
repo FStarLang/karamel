@@ -13,6 +13,8 @@ let _ =
   ) usage;
 
   let files = Ast.read_file !filename in
+  let files = Simplify.simplify files in
   if !arg_print then
     let open PPrint in
+    Printf.printf "Read [%s]. Printing with w=%d\n" (!filename) Ast.Print.twidth;
     Ast.Print.print (Ast.Print.print_files files ^^ hardline)

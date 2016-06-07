@@ -20,13 +20,26 @@ and expr =
   | EApp of (expr * expr list)
   | ELet of (binder * expr * expr)
   | EIfThenElse of (expr * expr * expr)
-  | ESequence of (expr * expr)
+  | ESequence of expr list
   | EAssign of (expr * expr)
     (** left expression can only be a EBound of EOpen *)
   | EBufCreate of (expr * expr)
   | EBufRead of (expr * expr)
   | EBufWrite of (expr * expr * expr)
   | EBufSub of (expr * expr * expr)
+  | EMatch of (expr * branches)
+  | EOp of op
+
+and op = Add | Sub | Div | Mult | Mod
+
+and branches =
+  branch list
+
+and branch =
+  pattern * expr
+
+and pattern =
+  | PUnit
 
 and constant =
   | CInt of string
@@ -90,8 +103,8 @@ class virtual ['env, 'result] visitor = object (self)
         self#elet env b e1 e2
     | EIfThenElse (e1, e2, e3) ->
         self#eifthenelse env e1 e2 e3
-    | ESequence (e1, e2) ->
-        self#esequence env e1 e2
+    | ESequence es ->
+        self#esequence env es
     | EAssign (e1, e2) ->
         self#eassign env e1 e2
     | EBufCreate (e1, e2) ->
@@ -102,6 +115,10 @@ class virtual ['env, 'result] visitor = object (self)
         self#ebufwrite env e1 e2 e3
     | EBufSub (e1, e2, e3) ->
         self#ebufsub env e1 e2 e3
+    | EMatch (e, branches) ->
+        self#ematch env e branches
+    | EOp op ->
+        self#eop env op
 
   method virtual ebound: 'env -> var -> 'result
   method virtual eopen: 'env -> binder -> 'result
@@ -111,12 +128,14 @@ class virtual ['env, 'result] visitor = object (self)
   method virtual eapp: 'env -> expr -> expr list -> 'result
   method virtual elet: 'env -> binder -> expr -> expr -> 'result
   method virtual eifthenelse: 'env -> expr -> expr -> expr -> 'result
-  method virtual esequence: 'env -> expr -> expr -> 'result
+  method virtual esequence: 'env -> expr list -> 'result
   method virtual eassign: 'env -> expr -> expr -> 'result
   method virtual ebufcreate: 'env -> expr -> expr -> 'result
   method virtual ebufread: 'env -> expr -> expr -> 'result
   method virtual ebufwrite: 'env -> expr -> expr -> expr -> 'result
   method virtual ebufsub: 'env -> expr -> expr -> expr -> 'result
+  method virtual ematch: 'env -> expr -> branches -> 'result
+  method virtual eop: 'env -> op -> 'result
 
 end
 
@@ -149,8 +168,8 @@ class ['env] map = object (self)
   method eifthenelse env e1 e2 e3 =
     EIfThenElse (self#visit env e1, self#visit env e2, self#visit env e3)
 
-  method esequence env e1 e2 =
-    ESequence (self#visit env e1, self#visit env e2)
+  method esequence env es =
+    ESequence (List.map (self#visit env) es)
 
   method eassign env e1 e2 =
     EAssign (self#visit env e1, self#visit env e2)
@@ -166,6 +185,17 @@ class ['env] map = object (self)
 
   method ebufsub env e1 e2 e3 =
     EBufSub (self#visit env e1, self#visit env e2, self#visit env e3)
+
+  method ematch env e branches =
+    EMatch (self#visit env e, self#branches env branches)
+
+  method eop env o =
+    EOp o
+
+  method branches env branches =
+    List.map (fun (pat, expr) ->
+      pat, self#visit env expr
+    ) branches
 
 end
 
@@ -215,14 +245,23 @@ module Print = struct
 
   let int i = string (string_of_int i)
 
+  let arrow = string "->"
+
   (* ------------------------------------------------------------------------ *)
+
+  let print_app f head g arguments =
+    group (
+      f head ^^ jump (
+        separate_map (break 1) g arguments
+      )
+    )
 
   let rec print_program decls =
     separate_map (hardline ^^ hardline) print_decl decls
 
   and print_decl = function
     | DFunction (typ, name, binders, body) ->
-        group (string "function" ^/^ parens_with_nesting (
+        group (string "function" ^/^ string name ^/^ parens_with_nesting (
           separate_map (comma ^^ break 1) print_binder binders
         ) ^^ colon ^/^ print_typ typ) ^/^ braces_with_nesting (
           print_expr body
@@ -230,7 +269,7 @@ module Print = struct
 
   and print_binder { name; typ; mut } =
     group (
-      if mut then string "mutable" ^^ break 1 else empty ^^
+      (if mut then string "mutable" ^^ break 1 else empty) ^^
       string name ^^ colon ^/^
       print_typ typ
     )
@@ -255,30 +294,51 @@ module Print = struct
     | EUnit ->
         string "()"
     | EApp (e, es) ->
-        print_app (print_expr e) es
+        print_app print_expr e print_expr es
     | ELet (binder, e1, e2) ->
-        string "let" ^/^ print_binder binder ^/^ equals ^/^
-        jump (print_expr e1) ^/^ string "in" ^/^ print_expr e2
+        group (group (string "let" ^/^ print_binder binder ^/^ equals) ^^
+        jump (print_expr e1) ^/^ string "in") ^/^ print_expr e2
     | EIfThenElse (e1, e2, e3) ->
-        string "if" ^/^ print_expr e1 ^/^ string "then" ^/^
-        jump (print_expr e2) ^/^ string "else" ^/^
+        string "if" ^/^ print_expr e1 ^/^ string "then" ^^
+        jump (print_expr e2) ^/^ string "else" ^^
         jump (print_expr e3)
-    | ESequence (e1, e2) ->
-        print_expr e1 ^^ semi ^^ hardline ^^ print_expr e2
+    | ESequence es ->
+        separate_map (semi ^^ hardline) print_expr es
     | EAssign (e1, e2) ->
-        print_expr e1 ^/^ string "<-" ^/^ print_expr e2
+        group (print_expr e1 ^/^ string "<-" ^/^ print_expr e2)
     | EBufCreate (e1, e2) ->
-        print_app (string "newbuf") [e1; e2]
+        print_app string "newbuf" print_expr [e1; e2]
     | EBufRead (e1, e2) ->
         print_expr e1 ^^ lbracket ^^ print_expr e2 ^^ rbracket
     | EBufWrite (e1, e2, e3) ->
         print_expr e1 ^^ lbracket ^^ print_expr e2 ^^ rbracket ^/^
         string "<-" ^/^ print_expr e3
     | EBufSub (e1, e2, e3) ->
-        print_app (string "subbuf") [e1; e2; e3]
+        print_app string "subbuf" print_expr [e1; e2; e3]
+    | EMatch (e, branches) ->
+        group (string "match" ^/^ print_expr e ^/^ string "with") ^^
+        jump ~indent:0 (print_branches branches)
+    | EOp Mod ->
+        string "(%)"
+    | EOp Div ->
+        string "(/)"
+    | EOp Mult ->
+        string "(*)"
+    | EOp Sub ->
+        string "(-)"
+    | EOp Add ->
+        string "(+)"
 
-  and print_app e es =
-    prefix 2 1 e (separate_map (break 1) print_expr es)
+  and print_branches branches =
+    separate_map (break 1) (fun b -> group (print_branch b)) branches
+
+  and print_branch (pat, expr) =
+    group (bar ^^ space ^^ print_pat pat ^^ space ^^ arrow) ^^
+    jump ~indent:4 (print_expr expr)
+
+  and print_pat = function
+    | PUnit ->
+        string "()"
 
   and print_constant = function
     | CInt i ->
