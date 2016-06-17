@@ -12,6 +12,11 @@ let _ =
     filename := f
   ) usage;
 
+  if !filename = "" then begin
+    print_endline usage;
+    exit 1
+  end;
+
   let files = Ast.read_file !filename in
   let files = Simplify.simplify files in
   if !arg_print then

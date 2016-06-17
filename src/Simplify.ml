@@ -7,6 +7,8 @@ open Ast
 let visit_decl (env: 'env) (mapper: 'env map) = function
   | DFunction (ret, name, binders, expr) ->
       DFunction (ret, name, binders, mapper # visit env expr)
+  | DTypeAlias t ->
+      DTypeAlias t
 
 let visit_program (env: 'env) (mapper: 'env map) (program: program) =
   List.map (visit_decl env mapper) program

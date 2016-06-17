@@ -10,6 +10,7 @@ type program =
 
 and decl =
   | DFunction of (typ * ident * binder list * expr)
+  | DTypeAlias of (ident * typ)
 
 and expr =
   | EBound of var
@@ -30,7 +31,7 @@ and expr =
   | EMatch of (expr * branches)
   | EOp of op
 
-and op = Add | Sub | Div | Mult | Mod
+and op = Add | AddW | Sub | Div | Mult | Mod | Or | And | Xor | ShiftL | ShiftR
 
 and branches =
   branch list
@@ -42,7 +43,14 @@ and pattern =
   | PUnit
 
 and constant =
-  | CInt of string
+  | CUInt8 of string
+  | CUInt16 of string
+  | CUInt32 of string
+  | CUInt64 of string
+  | CInt8 of string
+  | CInt16 of string
+  | CInt32 of string
+  | CInt64 of string
 
 and var =
   int (** a De Bruijn index *)
@@ -60,9 +68,17 @@ and lident =
   ident list * ident
 
 and typ =
+  | TUInt8
+  | TUInt16
+  | TUInt32
+  | TUInt64
+  | TInt8
+  | TInt16
   | TInt32
+  | TInt64
   | TBuf of typ
   | TUnit
+  | TAlias of ident
 
 (** Versioned binary writing/reading of ASTs *)
 
@@ -267,6 +283,10 @@ module Print = struct
           print_expr body
         )
 
+    | DTypeAlias (name, typ) ->
+        group (string "type" ^/^ string name ^/^ equals) ^^
+        jump (print_typ typ)
+
   and print_binder { name; typ; mut } =
     group (
       (if mut then string "mutable" ^^ break 1 else empty) ^^
@@ -275,12 +295,17 @@ module Print = struct
     )
 
   and print_typ = function
-    | TInt32 ->
-        string "int32"
-    | TBuf t ->
-        print_typ t ^^ star
-    | TUnit ->
-        string "()"
+    | TUInt8 -> string "uint8"
+    | TUInt16 -> string "uint16"
+    | TUInt32 -> string "uint32"
+    | TUInt64 -> string "uint64"
+    | TInt8 -> string "int8"
+    | TInt16 -> string "int16"
+    | TInt32 -> string "int32"
+    | TInt64 -> string "int64"
+    | TBuf t -> print_typ t ^^ star
+    | TUnit -> string "()"
+    | TAlias name -> string name
 
   and print_expr = function
     | EBound v ->
@@ -296,16 +321,16 @@ module Print = struct
     | EApp (e, es) ->
         print_app print_expr e print_expr es
     | ELet (binder, e1, e2) ->
-        group (group (string "let" ^/^ print_binder binder ^/^ equals) ^^
+        group (string "let" ^/^ print_binder binder ^/^ equals ^^
         jump (print_expr e1) ^/^ string "in") ^/^ print_expr e2
     | EIfThenElse (e1, e2, e3) ->
         string "if" ^/^ print_expr e1 ^/^ string "then" ^^
         jump (print_expr e2) ^/^ string "else" ^^
         jump (print_expr e3)
     | ESequence es ->
-        separate_map (semi ^^ hardline) print_expr es
+        separate_map (semi ^^ hardline) (fun e -> group (print_expr e)) es
     | EAssign (e1, e2) ->
-        group (print_expr e1 ^/^ string "<-" ^/^ print_expr e2)
+        print_expr e1 ^/^ string "<-" ^/^ print_expr e2
     | EBufCreate (e1, e2) ->
         print_app string "newbuf" print_expr [e1; e2]
     | EBufRead (e1, e2) ->
@@ -318,16 +343,18 @@ module Print = struct
     | EMatch (e, branches) ->
         group (string "match" ^/^ print_expr e ^/^ string "with") ^^
         jump ~indent:0 (print_branches branches)
-    | EOp Mod ->
-        string "(%)"
-    | EOp Div ->
-        string "(/)"
-    | EOp Mult ->
-        string "(*)"
-    | EOp Sub ->
-        string "(-)"
-    | EOp Add ->
-        string "(+)"
+
+    | EOp Add -> string "(+)"
+    | EOp AddW -> string "(+w)"
+    | EOp Sub -> string "(-)"
+    | EOp Div -> string "(/)"
+    | EOp Mult -> string "(*)"
+    | EOp Mod -> string "(%)"
+    | EOp Or -> string "(|)"
+    | EOp And -> string "(&)"
+    | EOp Xor -> string "(^)"
+    | EOp ShiftL -> string "(<<)"
+    | EOp ShiftR -> string "(>>)"
 
   and print_branches branches =
     separate_map (break 1) (fun b -> group (print_branch b)) branches
@@ -341,8 +368,14 @@ module Print = struct
         string "()"
 
   and print_constant = function
-    | CInt i ->
-        string i
+    | CUInt8 s -> string s ^^ string "u8"
+    | CUInt16 s -> string s ^^ string "u16"
+    | CUInt32 s -> string s ^^ string "u32"
+    | CUInt64 s -> string s ^^ string "u64"
+    | CInt8 s -> string s ^^ string "8"
+    | CInt16 s -> string s ^^ string "16"
+    | CInt32 s -> string s ^^ string "32"
+    | CInt64 s -> string s ^^ string "64"
 
   and print_lident (idents, ident) =
     separate_map dot string (idents @ [ ident ])
