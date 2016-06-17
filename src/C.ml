@@ -1,5 +1,7 @@
 (** Definition of C* *)
 
+module C = Constant
+
 type program =
   decl list
 
@@ -8,13 +10,19 @@ and decl =
   | TypeAlias of (ident * typ)
 
 and stmt =
-  | Call of (expr * expr list)
-  | Decl of (binder * expr * expr)
-  | IfThenElse of (expr * expr * expr)
+  | Return of expr
+  | Ignore of expr
+  | Decl of (binder * expr)
+    (** Scope is: statements that follow. *)
+  | IfThenElse of (expr * block * block)
   | Assign of (expr * expr)
+    (** First expression has to be a [Bound] or [Open]. *)
   | BufWrite of (expr * expr * expr)
+    (** First expression has to be a [Bound] or [Open]. *)
 
 and expr =
+  | Call of (expr * expr list)
+    (** First expression has to be a [Qualified] or an [Op]. *)
   | Bound of var
   | Open of binder
   | Qualified of lident
@@ -34,6 +42,7 @@ and var =
 
 and binder = {
   name: ident;
+    (** Dirty trick to enable constant-time renamings. *)
   typ: typ;
 }
 
@@ -44,7 +53,7 @@ and lident =
   ident list * ident
 
 and typ =
-  | TInt of Constant.width
-  | TBuf of typ
-  | TVoid
-  | TAlias of ident
+  | Int of Constant.width
+  | Buf of typ
+  | Void
+  | Alias of ident

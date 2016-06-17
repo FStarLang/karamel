@@ -38,3 +38,19 @@ let run_and_read exe args =
     len = max
   end do () done;
   String.concat "" (List.rev !bufs)
+
+(** Sniff the size of the terminal for optimal use of the width. *)
+let theight, twidth =
+  let height, width = ref 0, ref 0 in
+  match
+    Scanf.sscanf (run_and_read "stty" [|"size"|]) "%d %d" (fun h w ->
+      height := h;
+      width := w);
+    !height, !width
+  with
+  | exception _ ->
+      24, 80
+  | 0, 0 ->
+      24, 80
+  | h, w ->
+      h, w
