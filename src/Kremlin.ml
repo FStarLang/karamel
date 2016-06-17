@@ -8,7 +8,7 @@ let _ =
     Usage: " ^ Sys.argv.(0) ^ " [OPTIONS] FILE\n"
   in
   Arg.parse [
-    "-dast", Arg.Set arg_print_ast, " pretty-print the input AST"
+    "-dast", Arg.Set arg_print_ast, " pretty-print the input AST";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C"
   ] (fun f ->
     filename := f

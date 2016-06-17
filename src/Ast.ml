@@ -2,7 +2,7 @@
 
 open Utils
 
-module C = Constant
+module K = Constant
 
 (** The input AST. Note: F* doesn't have flat data constructors, so we need to introduce
  * (inefficient) boxing for the sake of interop. *)
@@ -18,7 +18,7 @@ and expr =
   | EBound of var
   | EOpen of binder
   | EQualified of lident
-  | EConstant of C.t
+  | EConstant of K.t
   | EUnit
   | EApp of (expr * expr list)
   | ELet of (binder * expr * expr)
@@ -31,7 +31,7 @@ and expr =
   | EBufWrite of (expr * expr * expr)
   | EBufSub of (expr * expr * expr)
   | EMatch of (expr * branches)
-  | EOp of C.op
+  | EOp of K.op
 
 
 and branches =
@@ -59,7 +59,7 @@ and lident =
   ident list * ident
 
 and typ =
-  | TInt of C.width
+  | TInt of K.width
   | TBuf of typ
   | TUnit
   | TAlias of ident
@@ -123,7 +123,7 @@ class virtual ['env, 'result] visitor = object (self)
   method virtual ebound: 'env -> var -> 'result
   method virtual eopen: 'env -> binder -> 'result
   method virtual equalified: 'env -> lident -> 'result
-  method virtual econstant: 'env -> C.t -> 'result
+  method virtual econstant: 'env -> K.t -> 'result
   method virtual eunit: 'env -> 'result
   method virtual eapp: 'env -> expr -> expr list -> 'result
   method virtual elet: 'env -> binder -> expr -> expr -> 'result
@@ -135,7 +135,7 @@ class virtual ['env, 'result] visitor = object (self)
   method virtual ebufwrite: 'env -> expr -> expr -> expr -> 'result
   method virtual ebufsub: 'env -> expr -> expr -> expr -> 'result
   method virtual ematch: 'env -> expr -> branches -> 'result
-  method virtual eop: 'env -> C.op -> 'result
+  method virtual eop: 'env -> K.op -> 'result
 
 end
 

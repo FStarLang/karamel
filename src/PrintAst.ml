@@ -4,6 +4,8 @@ open Utils
 open PPrint
 open Ast
 
+module K = Constant
+
 let jump ?(indent=2) body =
   jump indent 1 body
 
@@ -49,14 +51,14 @@ and print_binder { name; typ; mut } =
   )
 
 and print_typ = function
-  | TInt C.UInt8 -> string "uint8_t"
-  | TInt C.UInt16 -> string "uint16_t"
-  | TInt C.UInt32 -> string "uint32_t"
-  | TInt C.UInt64 -> string "uint64_t"
-  | TInt C.Int8 -> string "int8_t"
-  | TInt C.Int16 -> string "int16_t"
-  | TInt C.Int32 -> string "int32_t"
-  | TInt C.Int64 -> string "int64_t"
+  | TInt K.UInt8 -> string "uint8_t"
+  | TInt K.UInt16 -> string "uint16_t"
+  | TInt K.UInt32 -> string "uint32_t"
+  | TInt K.UInt64 -> string "uint64_t"
+  | TInt K.Int8 -> string "int8_t"
+  | TInt K.Int16 -> string "int16_t"
+  | TInt K.Int32 -> string "int32_t"
+  | TInt K.Int64 -> string "int64_t"
   | TBuf t -> print_typ t ^^ star
   | TUnit -> string "()"
   | TAlias name -> string name
@@ -98,17 +100,17 @@ and print_expr = function
       group (string "match" ^/^ print_expr e ^/^ string "with") ^^
       jump ~indent:0 (print_branches branches)
 
-  | EOp C.Add -> string "(+)"
-  | EOp C.AddW -> string "(+w)"
-  | EOp C.Sub -> string "(-)"
-  | EOp C.Div -> string "(/)"
-  | EOp C.Mult -> string "(*)"
-  | EOp C.Mod -> string "(%)"
-  | EOp C.Or -> string "(|)"
-  | EOp C.And -> string "(&)"
-  | EOp C.Xor -> string "(^)"
-  | EOp C.ShiftL -> string "(<<)"
-  | EOp C.ShiftR -> string "(>>)"
+  | EOp K.Add -> string "(+)"
+  | EOp K.AddW -> string "(+w)"
+  | EOp K.Sub -> string "(-)"
+  | EOp K.Div -> string "(/)"
+  | EOp K.Mult -> string "(*)"
+  | EOp K.Mod -> string "(%)"
+  | EOp K.Or -> string "(|)"
+  | EOp K.And -> string "(&)"
+  | EOp K.Xor -> string "(^)"
+  | EOp K.ShiftL -> string "(<<)"
+  | EOp K.ShiftR -> string "(>>)"
 
 and print_branches branches =
   separate_map (break 1) (fun b -> group (print_branch b)) branches
@@ -122,14 +124,14 @@ and print_pat = function
       string "()"
 
 and print_constant = function
-  | C.UInt8, s -> string s ^^ string "u8"
-  | C.UInt16, s -> string s ^^ string "u16"
-  | C.UInt32, s -> string s ^^ string "u32"
-  | C.UInt64, s -> string s ^^ string "u64"
-  | C.Int8, s -> string s ^^ string "8"
-  | C.Int16, s -> string s ^^ string "16"
-  | C.Int32, s -> string s ^^ string "32"
-  | C.Int64, s -> string s ^^ string "64"
+  | K.UInt8, s -> string s ^^ string "u8"
+  | K.UInt16, s -> string s ^^ string "u16"
+  | K.UInt32, s -> string s ^^ string "u32"
+  | K.UInt64, s -> string s ^^ string "u64"
+  | K.Int8, s -> string s ^^ string "8"
+  | K.Int16, s -> string s ^^ string "16"
+  | K.Int32, s -> string s ^^ string "32"
+  | K.Int64, s -> string s ^^ string "64"
 
 and print_lident (idents, ident) =
   separate_map dot string (idents @ [ ident ])

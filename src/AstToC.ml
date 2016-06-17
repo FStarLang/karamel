@@ -35,7 +35,7 @@ let reset_block env = {
   env with in_block = []
 }
 
-let push env binder = {
+let push env binder = C.{
   names = binder.name :: env.names;
   in_block = binder.name :: env.in_block
 }
@@ -59,8 +59,8 @@ let ensure_fresh env name =
 let rec translate_expr env = function
   | EBound var ->
       C.Bound var
-  | EOpen binder ->
-      C.Open binder
+  | EOpen { name; typ } ->
+      C.Open { C.name; typ = translate_type env typ }
   | EQualified lident ->
       C.Qualified lident
   | EConstant c ->
@@ -93,7 +93,7 @@ let rec translate_expr env = function
 
 and collect (env, acc) = function
   | ELet (binder, e1, e2) ->
-      let binder = { binder with name = ensure_fresh name } in
+      let env, binder = translate_and_push_binder env binder in
       let acc = C.Decl (binder, translate_expr env e1) :: acc in
       collect (env, acc) e2
 
@@ -105,11 +105,11 @@ and collect (env, acc) = function
       List.fold_left collect (env, acc) es
 
   | EAssign (e1, e2) ->
-      let e = C.EAssign (translate_expr env e1, translate_expr env e2) in
+      let e = C.Assign (translate_expr env e1, translate_expr env e2) in
       env, e :: acc
 
-  | EBufWrite (e1, e2) ->
-      let e = C.EBufWrite (translate_expr env e1, translate_expr env e2) in
+  | EBufWrite (e1, e2, e3) ->
+      let e = C.BufWrite (translate_expr env e1, translate_expr env e2, translate_expr env e3) in
       env, e :: acc
 
   | EMatch _ ->
@@ -119,7 +119,8 @@ and collect (env, acc) = function
       env, acc
 
   | e ->
-      C.Ignore (translate_expr env e)
+      let e = C.Ignore (translate_expr env e) in
+      env, e :: acc
 
 
 and translate_block env e =
@@ -141,21 +142,46 @@ and translate_function_block env e t =
       List.rev stmts
 
   | _, C.Ignore e :: stmts ->
-      List.rev (C.Return t :: stmts)
+      List.rev (C.Return e :: stmts)
 
   | _, _ ->
       failwith "[translate_function_block]: violated invariant"
 
 
+and translate_type env = function
+  | TInt w ->
+      C.Int w
+  | TBuf t ->
+      C.Pointer (translate_type env t)
+  | TUnit ->
+      C.Void
+  | TAlias name ->
+      C.Named name
+
+
+and translate_and_push_binders env binders =
+  let env, acc = List.fold_left (fun (env, acc) binder ->
+    let env, binder = translate_and_push_binder env binder in
+    env, binder :: acc
+  ) (env, []) binders in
+  env, List.rev acc
+
+and translate_and_push_binder env binder =
+  let binder = {
+    C.name = ensure_fresh env binder.name;
+    typ = translate_type env binder.typ
+  } in
+  push env binder, binder
+
 and translate_declaration env = function
   | DFunction (t, name, binders, body) ->
       let t = translate_type env t in
-      let env = List.fold_left push env binders in
-      let body = translate_function_block env body in
+      let env, binders = translate_and_push_binders env binders in
+      let body = translate_function_block env body t in
       C.Function (t, name, binders, body)
 
   | DTypeAlias (name, t) ->
-      TypeAlias (name, translate_type env t)
+      C.TypeAlias (name, translate_type env t)
 
 
 and translate_program decls =
