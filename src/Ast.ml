@@ -2,6 +2,8 @@
 
 open Utils
 
+module C = Constant
+
 (** The input AST. Note: F* doesn't have flat data constructors, so we need to introduce
  * (inefficient) boxing for the sake of interop. *)
 
@@ -16,22 +18,21 @@ and expr =
   | EBound of var
   | EOpen of binder
   | EQualified of lident
-  | EConstant of Constant.t
+  | EConstant of C.t
   | EUnit
   | EApp of (expr * expr list)
   | ELet of (binder * expr * expr)
   | EIfThenElse of (expr * expr * expr)
   | ESequence of expr list
   | EAssign of (expr * expr)
-    (** left expression can only be a EBound of EOpen *)
+    (** left expression can only be a EBound or EOpen *)
   | EBufCreate of (expr * expr)
   | EBufRead of (expr * expr)
   | EBufWrite of (expr * expr * expr)
   | EBufSub of (expr * expr * expr)
   | EMatch of (expr * branches)
-  | EOp of op
+  | EOp of C.op
 
-and op = Add | AddW | Sub | Div | Mult | Mod | Or | And | Xor | ShiftL | ShiftR
 
 and branches =
   branch list
@@ -58,7 +59,7 @@ and lident =
   ident list * ident
 
 and typ =
-  | TInt of Constant.width
+  | TInt of C.width
   | TBuf of typ
   | TUnit
   | TAlias of ident
@@ -122,7 +123,7 @@ class virtual ['env, 'result] visitor = object (self)
   method virtual ebound: 'env -> var -> 'result
   method virtual eopen: 'env -> binder -> 'result
   method virtual equalified: 'env -> lident -> 'result
-  method virtual econstant: 'env -> Constant.t -> 'result
+  method virtual econstant: 'env -> C.t -> 'result
   method virtual eunit: 'env -> 'result
   method virtual eapp: 'env -> expr -> expr list -> 'result
   method virtual elet: 'env -> binder -> expr -> expr -> 'result
@@ -134,7 +135,7 @@ class virtual ['env, 'result] visitor = object (self)
   method virtual ebufwrite: 'env -> expr -> expr -> expr -> 'result
   method virtual ebufsub: 'env -> expr -> expr -> expr -> 'result
   method virtual ematch: 'env -> expr -> branches -> 'result
-  method virtual eop: 'env -> op -> 'result
+  method virtual eop: 'env -> C.op -> 'result
 
 end
 
@@ -278,14 +279,14 @@ module Print = struct
     )
 
   and print_typ = function
-    | TInt Constant.UInt8 -> string "uint8"
-    | TInt Constant.UInt16 -> string "uint16"
-    | TInt Constant.UInt32 -> string "uint32"
-    | TInt Constant.UInt64 -> string "uint64"
-    | TInt Constant.Int8 -> string "int8"
-    | TInt Constant.Int16 -> string "int16"
-    | TInt Constant.Int32 -> string "int32"
-    | TInt Constant.Int64 -> string "int64"
+    | TInt C.UInt8 -> string "uint8"
+    | TInt C.UInt16 -> string "uint16"
+    | TInt C.UInt32 -> string "uint32"
+    | TInt C.UInt64 -> string "uint64"
+    | TInt C.Int8 -> string "int8"
+    | TInt C.Int16 -> string "int16"
+    | TInt C.Int32 -> string "int32"
+    | TInt C.Int64 -> string "int64"
     | TBuf t -> print_typ t ^^ star
     | TUnit -> string "()"
     | TAlias name -> string name
@@ -327,17 +328,17 @@ module Print = struct
         group (string "match" ^/^ print_expr e ^/^ string "with") ^^
         jump ~indent:0 (print_branches branches)
 
-    | EOp Add -> string "(+)"
-    | EOp AddW -> string "(+w)"
-    | EOp Sub -> string "(-)"
-    | EOp Div -> string "(/)"
-    | EOp Mult -> string "(*)"
-    | EOp Mod -> string "(%)"
-    | EOp Or -> string "(|)"
-    | EOp And -> string "(&)"
-    | EOp Xor -> string "(^)"
-    | EOp ShiftL -> string "(<<)"
-    | EOp ShiftR -> string "(>>)"
+    | EOp C.Add -> string "(+)"
+    | EOp C.AddW -> string "(+w)"
+    | EOp C.Sub -> string "(-)"
+    | EOp C.Div -> string "(/)"
+    | EOp C.Mult -> string "(*)"
+    | EOp C.Mod -> string "(%)"
+    | EOp C.Or -> string "(|)"
+    | EOp C.And -> string "(&)"
+    | EOp C.Xor -> string "(^)"
+    | EOp C.ShiftL -> string "(<<)"
+    | EOp C.ShiftR -> string "(>>)"
 
   and print_branches branches =
     separate_map (break 1) (fun b -> group (print_branch b)) branches
@@ -351,14 +352,14 @@ module Print = struct
         string "()"
 
   and print_constant = function
-    | Constant.UInt8, s -> string s ^^ string "u8"
-    | Constant.UInt16, s -> string s ^^ string "u16"
-    | Constant.UInt32, s -> string s ^^ string "u32"
-    | Constant.UInt64, s -> string s ^^ string "u64"
-    | Constant.Int8, s -> string s ^^ string "8"
-    | Constant.Int16, s -> string s ^^ string "16"
-    | Constant.Int32, s -> string s ^^ string "32"
-    | Constant.Int64, s -> string s ^^ string "64"
+    | C.UInt8, s -> string s ^^ string "u8"
+    | C.UInt16, s -> string s ^^ string "u16"
+    | C.UInt32, s -> string s ^^ string "u32"
+    | C.UInt64, s -> string s ^^ string "u64"
+    | C.Int8, s -> string s ^^ string "8"
+    | C.Int16, s -> string s ^^ string "16"
+    | C.Int32, s -> string s ^^ string "32"
+    | C.Int64, s -> string s ^^ string "64"
 
   and print_lident (idents, ident) =
     separate_map dot string (idents @ [ ident ])

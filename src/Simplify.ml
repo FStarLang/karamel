@@ -42,4 +42,4 @@ let simplify (files: file list): file list =
 
 
 (* TODO: no inner let-bindings, figure out calls to frame, lift definitions at
- * the beginning of the block (or assume C99), etc. *)
+ * the beginning of the block (or assume C99), flatten sequences, etc. *)
