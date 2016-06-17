@@ -39,3 +39,7 @@ end
 let simplify (files: file list): file list =
   let files = visit_files () (new dummymatch) files in
   files
+
+
+(* TODO: no inner let-bindings, figure out calls to frame, lift definitions at
+ * the beginning of the block (or assume C99), etc. *)

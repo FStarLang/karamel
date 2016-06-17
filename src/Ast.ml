@@ -16,7 +16,7 @@ and expr =
   | EBound of var
   | EOpen of binder
   | EQualified of lident
-  | EConstant of constant
+  | EConstant of Constant.t
   | EUnit
   | EApp of (expr * expr list)
   | ELet of (binder * expr * expr)
@@ -42,16 +42,6 @@ and branch =
 and pattern =
   | PUnit
 
-and constant =
-  | CUInt8 of string
-  | CUInt16 of string
-  | CUInt32 of string
-  | CUInt64 of string
-  | CInt8 of string
-  | CInt16 of string
-  | CInt32 of string
-  | CInt64 of string
-
 and var =
   int (** a De Bruijn index *)
 
@@ -68,14 +58,7 @@ and lident =
   ident list * ident
 
 and typ =
-  | TUInt8
-  | TUInt16
-  | TUInt32
-  | TUInt64
-  | TInt8
-  | TInt16
-  | TInt32
-  | TInt64
+  | TInt of Constant.width
   | TBuf of typ
   | TUnit
   | TAlias of ident
@@ -139,7 +122,7 @@ class virtual ['env, 'result] visitor = object (self)
   method virtual ebound: 'env -> var -> 'result
   method virtual eopen: 'env -> binder -> 'result
   method virtual equalified: 'env -> lident -> 'result
-  method virtual econstant: 'env -> constant -> 'result
+  method virtual econstant: 'env -> Constant.t -> 'result
   method virtual eunit: 'env -> 'result
   method virtual eapp: 'env -> expr -> expr list -> 'result
   method virtual elet: 'env -> binder -> expr -> expr -> 'result
@@ -295,14 +278,14 @@ module Print = struct
     )
 
   and print_typ = function
-    | TUInt8 -> string "uint8"
-    | TUInt16 -> string "uint16"
-    | TUInt32 -> string "uint32"
-    | TUInt64 -> string "uint64"
-    | TInt8 -> string "int8"
-    | TInt16 -> string "int16"
-    | TInt32 -> string "int32"
-    | TInt64 -> string "int64"
+    | TInt Constant.UInt8 -> string "uint8"
+    | TInt Constant.UInt16 -> string "uint16"
+    | TInt Constant.UInt32 -> string "uint32"
+    | TInt Constant.UInt64 -> string "uint64"
+    | TInt Constant.Int8 -> string "int8"
+    | TInt Constant.Int16 -> string "int16"
+    | TInt Constant.Int32 -> string "int32"
+    | TInt Constant.Int64 -> string "int64"
     | TBuf t -> print_typ t ^^ star
     | TUnit -> string "()"
     | TAlias name -> string name
@@ -368,14 +351,14 @@ module Print = struct
         string "()"
 
   and print_constant = function
-    | CUInt8 s -> string s ^^ string "u8"
-    | CUInt16 s -> string s ^^ string "u16"
-    | CUInt32 s -> string s ^^ string "u32"
-    | CUInt64 s -> string s ^^ string "u64"
-    | CInt8 s -> string s ^^ string "8"
-    | CInt16 s -> string s ^^ string "16"
-    | CInt32 s -> string s ^^ string "32"
-    | CInt64 s -> string s ^^ string "64"
+    | Constant.UInt8, s -> string s ^^ string "u8"
+    | Constant.UInt16, s -> string s ^^ string "u16"
+    | Constant.UInt32, s -> string s ^^ string "u32"
+    | Constant.UInt64, s -> string s ^^ string "u64"
+    | Constant.Int8, s -> string s ^^ string "8"
+    | Constant.Int16, s -> string s ^^ string "16"
+    | Constant.Int32, s -> string s ^^ string "32"
+    | Constant.Int64, s -> string s ^^ string "64"
 
   and print_lident (idents, ident) =
     separate_map dot string (idents @ [ ident ])
