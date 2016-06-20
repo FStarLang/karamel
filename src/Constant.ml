@@ -19,3 +19,8 @@ let is_signed = function
   | UInt8 | UInt16 | UInt32 | UInt64 -> false
 
 let is_unsigned w = not (is_signed w)
+
+let without_wrap = function
+  | AddW -> Add
+  | SubW -> Sub
+  | _ -> raise (Invalid_argument "without_wrap")

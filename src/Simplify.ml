@@ -1,4 +1,5 @@
-(** Various peephole optimizations *)
+(** This module rewrites the original AST to send it into Low*, the subset we
+ * know how to translate to C. *)
 
 open Ast
 open DeBruijn
@@ -25,7 +26,7 @@ let visit_files (env: 'env) (mapper: 'env -> expr -> expr) (files: file list) =
   List.map (visit_file env mapper) files
 
 
-(* The peephole optimizations themselves **************************************)
+(* F* extraction generates these degenerate cases *****************************)
 
 class dummy_match = object (self)
 
@@ -40,20 +41,24 @@ class dummy_match = object (self)
 
 end
 
+
+(* Get wraparound semantics for arithemtic operations using casts to uint_* ***)
+
 class wrapping_arithmetic = object (self)
 
   inherit [unit] map
 
   method eapp () e es =
     match e, es with
-    | EOp ((K.AddW | K.SubW), w), [ e1; e2 ] when K.is_signed w ->
-        let e = self # visit () e in
+    | EOp (((K.AddW | K.SubW) as op), w), [ e1; e2 ] when K.is_signed w ->
+        let e = EOp (K.without_wrap op, K.unsigned_of_signed w) in
         let e1 = self # visit () e1 in
         let e2 = self # visit () e2 in
         ECast (EApp (e, [ ECast (e1, TInt (K.unsigned_of_signed w)); e2 ]), TInt w)
     | e, es ->
         EApp (self # visit () e, List.map (self # visit ()) es)
 end
+
 
 (* No left-nested let-bindings ************************************************)
 
@@ -63,8 +68,12 @@ let nest (lhs: (binder * expr) list) (e2: expr) =
     ELet (binder, e1, e2)
   ) lhs e2
 
-(* A toplevel context is one where let-bindings may appear; therefore, this
- * function may return an [ELet] node. *)
+(* In a toplevel context, let-bindings may appear. A toplevel context
+ * is defined inductively as:
+ * - a node that stands for a function body;
+ * - the continuation of an [ELet] node in a toplevel context;
+ * - an element of an [ESequence] that is already in a toplevel context.
+ * As soon as we leave a toplevel context, we jump into [hoist]. *)
 let rec hoist_t e =
   match e with
   | EBound _
@@ -134,8 +143,11 @@ let rec hoist_t e =
   | EMatch _ ->
       failwith "[hoist_t]: EMatch not properly desugared"
 
-(* This traversal guarantees that none of the sub-terms contains a let-binding.
- * It returns a [(binder * expr) list] of all the hoisted terms. *)
+(* This traversal guarantees that no let-bindings are left in the visited term.
+ * It returns a [(binder * expr) list] of all the hoisted bindings. It is up to
+ * the caller to rewrite the bindings somehow and call [close_binder] on the
+ * [binder]s. The bindings are ordered in the evaluation order (i.e. the first
+ * binding returned should be evaluated first). *)
 and hoist e =
   match e with
   | EBound _
@@ -155,7 +167,8 @@ and hoist e =
   | ELet (binder, e1, e2) ->
       let lhs1, e1 = hoist e1 in
       let e2 = open_binder binder e2 in
-      (* [nest] will take care of closing this binder. *)
+      (* The caller (e.g. [hoist_t]) takes care, via [nest], of closing this
+       * binder. *)
       let lhs2, e2 = hoist e2 in
       (binder, e1) :: lhs1 @ lhs2, e2
 
@@ -199,6 +212,7 @@ and hoist e =
 
   | EMatch _ ->
       failwith "[hoist_t]: EMatch"
+
 
 (* Everything composed together ***********************************************)
 
