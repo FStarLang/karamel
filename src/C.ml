@@ -31,6 +31,7 @@ and expr =
   | BufRead of expr * expr
   | BufSub of expr * expr * expr
   | Op of op
+  | Cast of expr * typ
 
 and block =
   stmt list

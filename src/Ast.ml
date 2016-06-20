@@ -31,7 +31,8 @@ and expr =
   | EBufWrite of (expr * expr * expr)
   | EBufSub of (expr * expr * expr)
   | EMatch of (expr * branches)
-  | EOp of K.op
+  | EOp of (K.op * K.width)
+  | ECast of (expr * typ)
 
 
 and branches =
@@ -117,8 +118,10 @@ class virtual ['env, 'result] visitor = object (self)
         self#ebufsub env e1 e2 e3
     | EMatch (e, branches) ->
         self#ematch env e branches
-    | EOp op ->
-        self#eop env op
+    | EOp (op, w) ->
+        self#eop env op w
+    | ECast (e, t) ->
+        self#ecast env e t
 
   method virtual ebound: 'env -> var -> 'result
   method virtual eopen: 'env -> binder -> 'result
@@ -135,7 +138,8 @@ class virtual ['env, 'result] visitor = object (self)
   method virtual ebufwrite: 'env -> expr -> expr -> expr -> 'result
   method virtual ebufsub: 'env -> expr -> expr -> expr -> 'result
   method virtual ematch: 'env -> expr -> branches -> 'result
-  method virtual eop: 'env -> K.op -> 'result
+  method virtual eop: 'env -> K.op -> K.width -> 'result
+  method virtual ecast: 'env -> expr -> typ -> 'result
 
 end
 
@@ -189,8 +193,11 @@ class ['env] map = object (self)
   method ematch env e branches =
     EMatch (self#visit env e, self#branches env branches)
 
-  method eop env o =
-    EOp o
+  method eop env o w =
+    EOp (o, w)
+
+  method ecast env e t =
+    ECast (self#visit env e, t)
 
   method branches env branches =
     List.map (fun (pat, expr) ->

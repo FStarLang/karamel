@@ -51,14 +51,7 @@ and print_binder { name; typ; mut } =
   )
 
 and print_typ = function
-  | TInt K.UInt8 -> string "uint8_t"
-  | TInt K.UInt16 -> string "uint16_t"
-  | TInt K.UInt32 -> string "uint32_t"
-  | TInt K.UInt64 -> string "uint64_t"
-  | TInt K.Int8 -> string "int8_t"
-  | TInt K.Int16 -> string "int16_t"
-  | TInt K.Int32 -> string "int32_t"
-  | TInt K.Int64 -> string "int64_t"
+  | TInt w -> print_width w ^^ string "_t"
   | TBuf t -> print_typ t ^^ star
   | TUnit -> string "()"
   | TAlias name -> string name
@@ -100,17 +93,21 @@ and print_expr = function
       group (string "match" ^/^ print_expr e ^/^ string "with") ^^
       jump ~indent:0 (print_branches branches)
 
-  | EOp K.Add -> string "(+)"
-  | EOp K.AddW -> string "(+w)"
-  | EOp K.Sub -> string "(-)"
-  | EOp K.Div -> string "(/)"
-  | EOp K.Mult -> string "(*)"
-  | EOp K.Mod -> string "(%)"
-  | EOp K.Or -> string "(|)"
-  | EOp K.And -> string "(&)"
-  | EOp K.Xor -> string "(^)"
-  | EOp K.ShiftL -> string "(<<)"
-  | EOp K.ShiftR -> string "(>>)"
+  | EOp (K.Add, w) -> string "(+," ^^ print_width w ^^ string ")"
+  | EOp (K.AddW, w) -> string "(+w," ^^ print_width w ^^ string ")"
+  | EOp (K.Sub, w) -> string "(-," ^^ print_width w ^^ string ")"
+  | EOp (K.SubW, w) -> string "(-," ^^ print_width w ^^ string ")"
+  | EOp (K.Div, w) -> string "(/," ^^ print_width w ^^ string ")"
+  | EOp (K.Mult, w) -> string "(*," ^^ print_width w ^^ string ")"
+  | EOp (K.Mod, w) -> string "(%," ^^ print_width w ^^ string ")"
+  | EOp (K.Or, w) -> string "(|," ^^ print_width w ^^ string ")"
+  | EOp (K.And, w) -> string "(&," ^^ print_width w ^^ string ")"
+  | EOp (K.Xor, w) -> string "(^," ^^ print_width w ^^ string ")"
+  | EOp (K.ShiftL, w) -> string "(<<," ^^ print_width w ^^ string ")"
+  | EOp (K.ShiftR, w) -> string "(>>," ^^ print_width w ^^ string ")"
+
+  | ECast (e, t) ->
+      parens_with_nesting (print_expr e ^^ colon ^/^ print_typ t)
 
 and print_branches branches =
   separate_map (break 1) (fun b -> group (print_branch b)) branches
@@ -124,14 +121,17 @@ and print_pat = function
       string "()"
 
 and print_constant = function
-  | K.UInt8, s -> string s ^^ string "u8"
-  | K.UInt16, s -> string s ^^ string "u16"
-  | K.UInt32, s -> string s ^^ string "u32"
-  | K.UInt64, s -> string s ^^ string "u64"
-  | K.Int8, s -> string s ^^ string "8"
-  | K.Int16, s -> string s ^^ string "16"
-  | K.Int32, s -> string s ^^ string "32"
-  | K.Int64, s -> string s ^^ string "64"
+  | w, s -> string s ^^ print_width w
+
+and print_width = function
+  | K.UInt8 -> string "u8"
+  | K.UInt16 -> string "u16"
+  | K.UInt32 -> string "u32"
+  | K.UInt64 -> string "u64"
+  | K.Int8 -> string "8"
+  | K.Int16 -> string "16"
+  | K.Int32 -> string "32"
+  | K.Int64 -> string "64"
 
 and print_lident (idents, ident) =
   separate_map dot string (idents @ [ ident ])

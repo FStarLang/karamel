@@ -27,7 +27,7 @@ let visit_files (env: 'env) (mapper: 'env -> expr -> expr) (files: file list) =
 
 (* The peephole optimizations themselves **************************************)
 
-class dummymatch = object (self)
+class dummy_match = object (self)
 
   inherit [unit] map
 
@@ -38,6 +38,21 @@ class dummymatch = object (self)
     | _ ->
         EMatch (e, self # branches () branches)
 
+end
+
+class wrapping_arithmetic = object (self)
+
+  inherit [unit] map
+
+  method eapp () e es =
+    match e, es with
+    | EOp ((K.AddW | K.SubW), w), [ e1; e2 ] when K.is_signed w ->
+        let e = self # visit () e in
+        let e1 = self # visit () e1 in
+        let e2 = self # visit () e2 in
+        ECast (EApp (e, [ ECast (e1, TInt (K.unsigned_of_signed w)); e2 ]), TInt w)
+    | e, es ->
+        EApp (self # visit () e, List.map (self # visit ()) es)
 end
 
 (* No left-nested let-bindings ************************************************)
@@ -112,6 +127,10 @@ let rec hoist_t e =
       let lhs3, e3 = hoist e3 in
       nest (lhs1 @ lhs2 @ lhs3) (EBufSub (e1, e2, e3))
 
+  | ECast (e, t) ->
+      let lhs, e = hoist e in
+      nest lhs (ECast (e, t))
+
   | EMatch _ ->
       failwith "[hoist_t]: EMatch not properly desugared"
 
@@ -174,12 +193,17 @@ and hoist e =
       let lhs3, e3 = hoist e3 in
       lhs1 @ lhs2 @ lhs3, EBufSub (e1, e2, e3)
 
+  | ECast (e, t) ->
+      let lhs, e = hoist e in
+      lhs, ECast (e, t)
+
   | EMatch _ ->
       failwith "[hoist_t]: EMatch"
 
 (* Everything composed together ***********************************************)
 
 let simplify (files: file list): file list =
-  let files = visit_files () (new dummymatch # visit) files in
+  let files = visit_files () (new dummy_match # visit) files in
+  let files = visit_files () (new wrapping_arithmetic # visit) files in
   let files = visit_files () (fun () -> hoist_t) files in
   files

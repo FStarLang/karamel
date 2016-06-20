@@ -73,8 +73,10 @@ let rec translate_expr env = function
       C.BufRead (translate_expr env e1, translate_expr env e2)
   | EBufSub (e1, e2, e3) ->
       C.BufSub (translate_expr env e1, translate_expr env e2, translate_expr env e3)
-  | EOp c ->
+  | EOp (c, _) ->
       C.Op c
+  | ECast (e, t) ->
+      C.Cast (translate_expr env e, translate_type env t)
   | EUnit ->
       failwith "[AstToC.translate_expr EUnit]: not implemented"
   | ELet _ ->
