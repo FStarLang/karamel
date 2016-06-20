@@ -2,6 +2,7 @@
 
 let _ =
   let arg_print_ast = ref false in
+  let arg_print_simplify = ref false in
   let arg_print_c = ref false in
   let filename = ref "" in
   let usage = "KreMLin: from a ML-like subset to C\n\
@@ -9,6 +10,7 @@ let _ =
   in
   Arg.parse [
     "-dast", Arg.Set arg_print_ast, " pretty-print the input AST";
+    "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the input AST after simplification";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C"
   ] (fun f ->
     filename := f
@@ -19,17 +21,20 @@ let _ =
     exit 1
   end;
 
-  let files = Ast.read_file !filename in
-  let files = Simplify.simplify files in
-  if !arg_print_ast then begin
+  let print f files =
     let open PPrint in
     Printf.printf "Read [%s]. Printing with w=%d\n" !filename Utils.twidth;
-    Print.print (PrintAst.print_files files ^^ hardline)
-  end;
+    Print.print (f files ^^ hardline)
+  in
+
+  let files = Ast.read_file !filename in
+  if !arg_print_ast then
+    print PrintAst.print_files files;
+
+  let files = Simplify.simplify files in
+  if !arg_print_simplify then
+    print PrintAst.print_files files;
 
   let files = AstToC.translate_files files in
-  if !arg_print_c then begin
-    let open PPrint in
-    Printf.printf "Read [%s]. Printing with w=%d\n" !filename Utils.twidth;
-    Print.print (PrintC.print_files files ^^ hardline)
-  end
+  if !arg_print_c then
+    print PrintC.print_files files

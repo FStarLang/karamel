@@ -72,7 +72,20 @@ end
 let close (b: binder) (i: int) (e: expr) =
   (new close b) # visit i e
 
+let close_binder b e =
+  close b 0 e
+
 (* ---------------------------------------------------------------------------- *)
 
 let open_binder b e1 =
   subst (EOpen b) 0 e1
+
+let open_function_binders =
+  List.fold_right open_binder
+
+let close_function_binders bs e1 =
+  let rec close_binderi i e1 = function
+    | b :: bs -> close_binderi (i + 1) (close b i e1) bs
+    | [] -> e1
+  in
+  close_binderi 0 e1 (List.rev bs)

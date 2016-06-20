@@ -7,7 +7,10 @@ open DeBruijn
 
 let visit_decl (env: 'env) (mapper: 'env -> expr -> expr) = function
   | DFunction (ret, name, binders, expr) ->
-      DFunction (ret, name, binders, mapper env expr)
+      let expr = open_function_binders binders expr in
+      let expr = mapper env expr in
+      let expr = close_function_binders binders expr in
+      DFunction (ret, name, binders, expr)
   | DTypeAlias t ->
       DTypeAlias t
 
@@ -67,8 +70,9 @@ let rec hoist_t e =
       (* At top-level, bindings may nest on the right-hand side of let-bindings,
        * but not on the left-hand side. *)
       let lhs, e1 = hoist e1 in
+      let e2 = open_binder binder e2 in
       let e2 = hoist_t e2 in
-      nest lhs (ELet (binder, e1, e2))
+      nest lhs (close_binder binder (ELet (binder, e1, e2)))
 
   | EIfThenElse (e1, e2, e3) ->
       let lhs, e1 = hoist e1 in
@@ -132,6 +136,7 @@ and hoist e =
   | ELet (binder, e1, e2) ->
       let lhs1, e1 = hoist e1 in
       let e2 = open_binder binder e2 in
+      (* [nest] will take care of closing this binder. *)
       let lhs2, e2 = hoist e2 in
       (binder, e1) :: lhs1 @ lhs2, e2
 
