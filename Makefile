@@ -8,3 +8,6 @@ all:
 
 clean:
 	$(OCAMLBUILD) -clean
+
+tags:
+	ctags -R .
