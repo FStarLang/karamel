@@ -122,7 +122,7 @@ let mk_spec_and_decl name (t: typ): c_type_spec * c_decl =
 let rec print_cstar_decl = function
   | TypeAlias (name, t) ->
       let spec, decl = mk_spec_and_decl name t in
-      print_c_decl spec ~stor:Typedef [ decl, None ]
+      group (print_c_decl spec ~stor:Typedef [ decl, None ] ^^ semi)
 
   | Function (return_type, name, parameters, body) ->
       empty
