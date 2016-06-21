@@ -95,7 +95,7 @@ let print_c_decl (spec: c_type_spec) ?(stor:c_storage_spec option) (decl_and_ini
   separate_map (comma ^^ break 1) print_decl_and_init decl_and_inits
 
 
-(* Helpers to convert from C* to actual C *************************************)
+(* Helpers to convert from C* to actual C syntax ******************************)
 
 (* Turns the ML declaration inside-out to match the C reading of a type. *)
 let mk_spec_and_decl name (t: typ): c_type_spec * c_decl =
@@ -117,7 +117,7 @@ let mk_spec_and_decl name (t: typ): c_type_spec * c_decl =
   mk name t (fun d -> d)
 
 
-(* C* to actual C grammar + pretty printing ***********************************)
+(* Using helpers, converts from C* to actual C grammar and prints it **********)
 
 let rec print_cstar_decl = function
   | TypeAlias (name, t) ->
