@@ -1,25 +1,12 @@
 (* A pretty-printer for ASTs *)
-
 open Utils
 open PPrint
+open PrintCommon
 open Ast
 
-module K = Constant
-
-let jump ?(indent=2) body =
-  jump indent 1 body
-
-let parens_with_nesting contents =
-  surround 2 0 lparen contents rparen
-
-let braces_with_nesting contents =
-  surround 2 1 lbrace contents rbrace
-
-let int i = string (string_of_int i)
+(* ------------------------------------------------------------------------ *)
 
 let arrow = string "->"
-
-(* ------------------------------------------------------------------------ *)
 
 let print_app f head g arguments =
   group (
@@ -28,10 +15,7 @@ let print_app f head g arguments =
     )
   )
 
-let rec print_program decls =
-  separate_map (hardline ^^ hardline) print_decl decls
-
-and print_decl = function
+let rec print_decl = function
   | DFunction (typ, name, binders, body) ->
       group (string "function" ^/^ string name ^/^ parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders
@@ -93,18 +77,7 @@ and print_expr = function
       group (string "match" ^/^ print_expr e ^/^ string "with") ^^
       jump ~indent:0 (print_branches branches)
 
-  | EOp (K.Add, w) -> string "(+," ^^ print_width w ^^ string ")"
-  | EOp (K.AddW, w) -> string "(+w," ^^ print_width w ^^ string ")"
-  | EOp (K.Sub, w) -> string "(-," ^^ print_width w ^^ string ")"
-  | EOp (K.SubW, w) -> string "(-," ^^ print_width w ^^ string ")"
-  | EOp (K.Div, w) -> string "(/," ^^ print_width w ^^ string ")"
-  | EOp (K.Mult, w) -> string "(*," ^^ print_width w ^^ string ")"
-  | EOp (K.Mod, w) -> string "(%," ^^ print_width w ^^ string ")"
-  | EOp (K.Or, w) -> string "(|," ^^ print_width w ^^ string ")"
-  | EOp (K.And, w) -> string "(&," ^^ print_width w ^^ string ")"
-  | EOp (K.Xor, w) -> string "(^," ^^ print_width w ^^ string ")"
-  | EOp (K.ShiftL, w) -> string "(<<," ^^ print_width w ^^ string ")"
-  | EOp (K.ShiftR, w) -> string "(>>," ^^ print_width w ^^ string ")"
+  | EOp (o, w) -> string "(" ^^ print_op o ^^ string "," ^^ print_width w ^^ string ")"
 
   | ECast (e, t) ->
       parens_with_nesting (print_expr e ^^ colon ^/^ print_typ t)
@@ -120,24 +93,4 @@ and print_pat = function
   | PUnit ->
       string "()"
 
-and print_constant = function
-  | w, s -> string s ^^ print_width w
-
-and print_width = function
-  | K.UInt8 -> string "u8"
-  | K.UInt16 -> string "u16"
-  | K.UInt32 -> string "u32"
-  | K.UInt64 -> string "u64"
-  | K.Int8 -> string "8"
-  | K.Int16 -> string "16"
-  | K.Int32 -> string "32"
-  | K.Int64 -> string "64"
-
-and print_lident (idents, ident) =
-  separate_map dot string (idents @ [ ident ])
-
-let print_files (files: file list) =
-  separate_map hardline (fun (f, p) ->
-    string (String.uppercase f) ^^ colon ^^ jump (print_program p)
-  ) files
-
+let print_files = print_files print_decl

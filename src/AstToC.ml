@@ -40,6 +40,9 @@ let push env binder = C.{
   in_block = binder.name :: env.in_block
 }
 
+let find env i =
+  List.nth env.names i
+
 (* If the name already exists in the block, then we have to pick a new one for
  * it. But we should make sure we don't accidentally shadow an existing name
  * defined in another block higher up. This is, naturally, a conservative
@@ -58,9 +61,9 @@ let ensure_fresh env name =
 
 let rec translate_expr env = function
   | EBound var ->
-      C.Bound var
+      C.Var (find env var)
   | EOpen { name; typ } ->
-      C.Open { C.name; typ = translate_type env typ }
+      failwith "[AstToC.translate_expr EOpen]: invalid argument"
   | EQualified lident ->
       C.Qualified lident
   | EConstant c ->
@@ -175,7 +178,8 @@ and translate_and_push_binder env binder =
   } in
   push env binder, binder
 
-and translate_declaration env = function
+and translate_declaration env d: C.decl =
+  match d with
   | DFunction (t, name, binders, body) ->
       let t = translate_type env t in
       let env, binders = translate_and_push_binders env binders in

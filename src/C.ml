@@ -23,8 +23,7 @@ and stmt =
 and expr =
   | Call of expr * expr list
     (** First expression has to be a [Qualified] or an [Op]. *)
-  | Bound of var
-  | Open of binder
+  | Var of ident
   | Qualified of lident
   | Constant of K.t
   | BufCreate of expr * expr
@@ -57,3 +56,5 @@ and typ =
   | Pointer of typ
   | Void
   | Named of ident
+  | Array of typ * int
+  | Function of typ * typ list
