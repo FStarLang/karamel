@@ -130,11 +130,10 @@ let rec hoist_t e =
       let lhs3, e3 = hoist e3 in
       nest (lhs1 @ lhs2 @ lhs3) (EBufWrite (e1, e2, e3))
 
-  | EBufSub (e1, e2, e3) ->
+  | EBufSub (e1, e2) ->
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
-      let lhs3, e3 = hoist e3 in
-      nest (lhs1 @ lhs2 @ lhs3) (EBufSub (e1, e2, e3))
+      nest (lhs1 @ lhs2) (EBufSub (e1, e2))
 
   | ECast (e, t) ->
       let lhs, e = hoist e in
@@ -172,7 +171,7 @@ and hoist e =
       let lhs2, e2 = hoist e2 in
       (binder, e1) :: lhs1 @ lhs2, e2
 
-  | EIfThenElse (e1, e2, e3) ->
+  | EIfThenElse _ ->
       failwith "[hoist]: EIfThenElse not properly lifted"
 
   | ESequence es ->
@@ -200,11 +199,10 @@ and hoist e =
       let lhs3, e3 = hoist e3 in
       lhs1 @ lhs2 @ lhs3, EBufWrite (e1, e2, e3)
 
-  | EBufSub (e1, e2, e3) ->
+  | EBufSub (e1, e2) ->
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
-      let lhs3, e3 = hoist e3 in
-      lhs1 @ lhs2 @ lhs3, EBufSub (e1, e2, e3)
+      lhs1 @ lhs2, EBufSub (e1, e2)
 
   | ECast (e, t) ->
       let lhs, e = hoist e in

@@ -35,6 +35,7 @@ let _ =
   if !arg_print_simplify then
     print PrintAst.print_files files;
 
-  let files = AstToC.translate_files files in
+  let files = AstToCStar.translate_files files in
+  let files = CStarToC.mk_files files in
   if !arg_print_c then
     print PrintC.print_files files

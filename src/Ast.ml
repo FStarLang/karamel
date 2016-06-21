@@ -29,7 +29,7 @@ and expr =
   | EBufCreate of (expr * expr)
   | EBufRead of (expr * expr)
   | EBufWrite of (expr * expr * expr)
-  | EBufSub of (expr * expr * expr)
+  | EBufSub of (expr * expr)
   | EMatch of (expr * branches)
   | EOp of (K.op * K.width)
   | ECast of (expr * typ)
@@ -114,8 +114,8 @@ class virtual ['env, 'result] visitor = object (self)
         self#ebufread env e1 e2
     | EBufWrite (e1, e2, e3) ->
         self#ebufwrite env e1 e2 e3
-    | EBufSub (e1, e2, e3) ->
-        self#ebufsub env e1 e2 e3
+    | EBufSub (e1, e2) ->
+        self#ebufsub env e1 e2
     | EMatch (e, branches) ->
         self#ematch env e branches
     | EOp (op, w) ->
@@ -136,7 +136,7 @@ class virtual ['env, 'result] visitor = object (self)
   method virtual ebufcreate: 'env -> expr -> expr -> 'result
   method virtual ebufread: 'env -> expr -> expr -> 'result
   method virtual ebufwrite: 'env -> expr -> expr -> expr -> 'result
-  method virtual ebufsub: 'env -> expr -> expr -> expr -> 'result
+  method virtual ebufsub: 'env -> expr -> expr -> 'result
   method virtual ematch: 'env -> expr -> branches -> 'result
   method virtual eop: 'env -> K.op -> K.width -> 'result
   method virtual ecast: 'env -> expr -> typ -> 'result
@@ -187,13 +187,13 @@ class ['env] map = object (self)
   method ebufwrite env e1 e2 e3 =
     EBufWrite (self#visit env e1, self#visit env e2, self#visit env e3)
 
-  method ebufsub env e1 e2 e3 =
-    EBufSub (self#visit env e1, self#visit env e2, self#visit env e3)
+  method ebufsub env e1 e2 =
+    EBufSub (self#visit env e1, self#visit env e2)
 
   method ematch env e branches =
     EMatch (self#visit env e, self#branches env branches)
 
-  method eop env o w =
+  method eop _env o w =
     EOp (o, w)
 
   method ecast env e t =

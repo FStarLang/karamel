@@ -35,7 +35,7 @@ let reset_block env = {
   env with in_block = []
 }
 
-let push env binder = C.{
+let push env binder = CStar.{
   names = binder.name :: env.names;
   in_block = binder.name :: env.in_block
 }
@@ -61,70 +61,70 @@ let ensure_fresh env name =
 
 let rec translate_expr env = function
   | EBound var ->
-      C.Var (find env var)
-  | EOpen { name; typ } ->
-      failwith "[AstToC.translate_expr EOpen]: invalid argument"
+      CStar.Var (find env var)
+  | EOpen _ ->
+      failwith "[AstToCStar.translate_expr EOpen]: invalid argument"
   | EQualified lident ->
-      C.Qualified lident
+      CStar.Qualified lident
   | EConstant c ->
-      C.Constant c
+      CStar.Constant c
   | EApp (e, es) ->
-      C.Call (translate_expr env e, List.map (translate_expr env) es)
+      CStar.Call (translate_expr env e, List.map (translate_expr env) es)
   | EBufCreate (e1, e2) ->
-      C.BufCreate (translate_expr env e1, translate_expr env e2)
+      CStar.BufCreate (translate_expr env e1, translate_expr env e2)
   | EBufRead (e1, e2) ->
-      C.BufRead (translate_expr env e1, translate_expr env e2)
-  | EBufSub (e1, e2, e3) ->
-      C.BufSub (translate_expr env e1, translate_expr env e2, translate_expr env e3)
+      CStar.BufRead (translate_expr env e1, translate_expr env e2)
+  | EBufSub (e1, e2) ->
+      CStar.BufSub (translate_expr env e1, translate_expr env e2)
   | EOp (c, _) ->
-      C.Op c
+      CStar.Op c
   | ECast (e, t) ->
-      C.Cast (translate_expr env e, translate_type env t)
+      CStar.Cast (translate_expr env e, translate_type env t)
   | EUnit ->
-      failwith "[AstToC.translate_expr EUnit]: not implemented"
+      failwith "[AstToCStar.translate_expr EUnit]: not implemented"
   | ELet _ ->
-      failwith "[AstToC.translate_expr ELet]: not implemented"
+      failwith "[AstToCStar.translate_expr ELet]: not implemented"
   | EIfThenElse _ ->
-      failwith "[AstToC.translate_expr EIfThenElse]: not implemented"
+      failwith "[AstToCStar.translate_expr EIfThenElse]: not implemented"
   | ESequence _ ->
-      failwith "[AstToC.translate_expr ESequence]: not implemented"
+      failwith "[AstToCStar.translate_expr ESequence]: not implemented"
   | EAssign _ ->
-      failwith "[AstToC.translate_expr EAssign]: not implemented"
+      failwith "[AstToCStar.translate_expr EAssign]: not implemented"
   | EBufWrite _ ->
-      failwith "[AstToC.translate_expr EBufWrite]: not implemented"
+      failwith "[AstToCStar.translate_expr EBufWrite]: not implemented"
   | EMatch _ ->
-      failwith "[AstToC.translate_expr EMatch]: not implemented"
+      failwith "[AstToCStar.translate_expr EMatch]: not implemented"
 
 
 and collect (env, acc) = function
   | ELet (binder, e1, e2) ->
       let env, binder = translate_and_push_binder env binder in
-      let acc = C.Decl (binder, translate_expr env e1) :: acc in
+      let acc = CStar.Decl (binder, translate_expr env e1) :: acc in
       collect (env, acc) e2
 
   | EIfThenElse (e1, e2, e3) ->
-      let e = C.IfThenElse (translate_expr env e1, translate_block env e2, translate_block env e3) in
+      let e = CStar.IfThenElse (translate_expr env e1, translate_block env e2, translate_block env e3) in
       env, e :: acc
 
   | ESequence es ->
       List.fold_left collect (env, acc) es
 
   | EAssign (e1, e2) ->
-      let e = C.Assign (translate_expr env e1, translate_expr env e2) in
+      let e = CStar.Assign (translate_expr env e1, translate_expr env e2) in
       env, e :: acc
 
   | EBufWrite (e1, e2, e3) ->
-      let e = C.BufWrite (translate_expr env e1, translate_expr env e2, translate_expr env e3) in
+      let e = CStar.BufWrite (translate_expr env e1, translate_expr env e2, translate_expr env e3) in
       env, e :: acc
 
   | EMatch _ ->
-      failwith "[AstToC.collect EMatch]: not implemented"
+      failwith "[AstToCStar.collect EMatch]: not implemented"
 
   | EUnit ->
       env, acc
 
   | e ->
-      let e = C.Ignore (translate_expr env e) in
+      let e = CStar.Ignore (translate_expr env e) in
       env, e :: acc
 
 
@@ -132,22 +132,22 @@ and translate_block env e =
   List.rev (snd (collect (reset_block env, []) e))
 
 
-(** If the return type is != [C.Void], then the head of the accumulator is the
+(** If the return type is != [CStar.Void], then the head of the accumulator is the
  * final value returned by the function. Only two nodes may have non-void return
- * types; the first one is [C.Ignore] and we make it a proper [C.Return]. The
- * second one is [C.IfThenElse]; but we do not allow conditionals in expressions
+ * types; the first one is [CStar.Ignore] and we make it a proper [CStar.Return]. The
+ * second one is [CStar.IfThenElse]; but we do not allow conditionals in expressions
  * in C*; so, [Simplify] and other passes must guarantees all [EIfThenElse] are
  * transformed to have type [TUnit].
  *)
 and translate_function_block env e t =
   let stmts = snd (collect (reset_block env, []) e) in
   match t, stmts with
-  | C.Void, _ ->
+  | CStar.Void, _ ->
       (* TODO: type aliases *)
       List.rev stmts
 
-  | _, C.Ignore e :: stmts ->
-      List.rev (C.Return e :: stmts)
+  | _, CStar.Ignore e :: stmts ->
+      List.rev (CStar.Return e :: stmts)
 
   | _, _ ->
       failwith "[translate_function_block]: violated invariant"
@@ -155,13 +155,13 @@ and translate_function_block env e t =
 
 and translate_type env = function
   | TInt w ->
-      C.Int w
+      CStar.Int w
   | TBuf t ->
-      C.Pointer (translate_type env t)
+      CStar.Pointer (translate_type env t)
   | TUnit ->
-      C.Void
+      CStar.Void
   | TAlias name ->
-      C.Named name
+      CStar.Named name
 
 
 and translate_and_push_binders env binders =
@@ -173,21 +173,21 @@ and translate_and_push_binders env binders =
 
 and translate_and_push_binder env binder =
   let binder = {
-    C.name = ensure_fresh env binder.name;
+    CStar.name = ensure_fresh env binder.name;
     typ = translate_type env binder.typ
   } in
   push env binder, binder
 
-and translate_declaration env d: C.decl =
+and translate_declaration env d: CStar.decl =
   match d with
   | DFunction (t, name, binders, body) ->
       let t = translate_type env t in
       let env, binders = translate_and_push_binders env binders in
       let body = translate_function_block env body t in
-      C.Function (t, name, binders, body)
+      CStar.Function (t, name, binders, body)
 
   | DTypeAlias (name, t) ->
-      C.TypeAlias (name, translate_type env t)
+      CStar.TypeAlias (name, translate_type env t)
 
 
 and translate_program decls =

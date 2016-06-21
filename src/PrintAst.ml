@@ -1,5 +1,4 @@
 (* A pretty-printer for ASTs *)
-open Utils
 open PPrint
 open PrintCommon
 open Ast
@@ -71,8 +70,8 @@ and print_expr = function
   | EBufWrite (e1, e2, e3) ->
       print_expr e1 ^^ lbracket ^^ print_expr e2 ^^ rbracket ^/^
       string "<-" ^/^ print_expr e3
-  | EBufSub (e1, e2, e3) ->
-      print_app string "subbuf" print_expr [e1; e2; e3]
+  | EBufSub (e1, e2) ->
+      print_app string "subbuf" print_expr [e1; e2]
   | EMatch (e, branches) ->
       group (string "match" ^/^ print_expr e ^/^ string "with") ^^
       jump ~indent:0 (print_branches branches)

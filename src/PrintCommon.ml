@@ -1,6 +1,4 @@
-open Utils
 open PPrint
-open Ast
 
 module K = Constant
 
