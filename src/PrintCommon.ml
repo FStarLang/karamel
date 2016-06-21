@@ -34,11 +34,11 @@ let print_op = function
   | K.Div -> string "/"
   | K.Mult -> string "*"
   | K.Mod -> string "%"
-  | K.Or -> string "|"
-  | K.And -> string "&"
-  | K.Xor -> string "^"
-  | K.ShiftL -> string "<<"
-  | K.ShiftR -> string ">>"
+  | K.BOr -> string "|"
+  | K.BAnd -> string "&"
+  | K.BXor -> string "^"
+  | K.BShiftL -> string "<<"
+  | K.BShiftR -> string ">>"
 
 let print_lident (idents, ident) =
   separate_map dot string (idents @ [ ident ])

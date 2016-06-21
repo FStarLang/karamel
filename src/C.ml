@@ -28,15 +28,15 @@ and expr =
   | Op1 of K.op * expr
   | Op2 of K.op * expr * expr
   | Index of expr * expr
-  | Deref of expr * expr
-  | Address of expr * expr
+  | Deref of expr
+  | Address of expr
   | Member of expr * expr
   | MemberP of expr * expr
   | Assign of expr * expr
     (** not covering *=, +=, etc. *)
   | Call of expr * expr list
   | Name of ident
-  | Cast of expr * type_name
+  | Cast of type_name * expr
   | Constant of K.t
 
 (** this is a WILD approximation of the notion of "type name" in C _and_ a hack

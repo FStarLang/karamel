@@ -5,7 +5,7 @@ type t = width * string
 and width =
   UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64
 
-type op = Add | AddW | Sub | SubW | Div | Mult | Mod | Or | And | Xor | ShiftL | ShiftR
+type op = Add | AddW | Sub | SubW | Div | Mult | Mod | BOr | BAnd | BXor | BShiftL | BShiftR
 
 let unsigned_of_signed = function
   | Int8 -> UInt8

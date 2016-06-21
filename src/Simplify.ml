@@ -55,6 +55,13 @@ class wrapping_arithmetic = object (self)
         let e1 = self # visit () e1 in
         let e2 = self # visit () e2 in
         ECast (EApp (e, [ ECast (e1, TInt (K.unsigned_of_signed w)); e2 ]), TInt w)
+
+    | EOp (((K.AddW | K.SubW) as op), w), [ e1; e2 ] when K.is_unsigned w ->
+        let e = EOp (K.without_wrap op, w) in
+        let e1 = self # visit () e1 in
+        let e2 = self # visit () e2 in
+        EApp (e, [ e1; e2 ])
+
     | e, es ->
         EApp (self # visit () e, List.map (self # visit ()) es)
 end

@@ -4,7 +4,10 @@ open C
 open CStar
 
 let string_of_lident (idents, ident) =
-  String.concat "_" idents ^ "_" ^ ident
+  if List.length idents > 0 then
+    String.concat "_" idents ^ "_" ^ ident
+  else
+    ident
 
 (* Turns the ML declaration inside-out to match the C reading of a type. *)
 let mk_spec_and_declarator, mk_spec_and_declarator_f =
@@ -123,7 +126,7 @@ and mk_expr (e: expr): C.expr =
       Op2 (K.Add, mk_expr e1, mk_expr e2)
 
   | Cast (e, t) ->
-      Cast (mk_expr e, mk_type t)
+      Cast (mk_type t, mk_expr e)
 
   | Op _ ->
       failwith "[mk_expr]: impossible, should've caught it earlier..."
