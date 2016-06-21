@@ -98,8 +98,9 @@ let rec translate_expr env = function
 
 and collect (env, acc) = function
   | ELet (binder, e1, e2) ->
+      let e1 = translate_expr env e1 in
       let env, binder = translate_and_push_binder env binder in
-      let acc = CStar.Decl (binder, translate_expr env e1) :: acc in
+      let acc = CStar.Decl (binder, e1) :: acc in
       collect (env, acc) e2
 
   | EIfThenElse (e1, e2, e3) ->
@@ -107,7 +108,7 @@ and collect (env, acc) = function
       env, e :: acc
 
   | ESequence es ->
-      List.fold_left collect (env, acc) es
+      List.fold_left (fun (_, acc) -> collect (env, acc)) (env, acc) es
 
   | EAssign (e1, e2) ->
       let e = CStar.Assign (translate_expr env e1, translate_expr env e2) in
