@@ -30,6 +30,7 @@ and c_decl =
   | Function of c_decl * c_params
 
 and c_expr =
+  (* TODO *)
   C.expr
 
 and c_params =
@@ -52,8 +53,16 @@ and c_init =
 let print_c_storage_spec = function
   | Typedef -> string "typedef"
 
-let print_init _ =
-  failwith "TODO"
+let _print_c_expr = ref (fun _ -> assert false)
+let print_c_expr e =
+  (* TODO *)
+  !_print_c_expr e
+
+let print_init = function
+  | Expr e ->
+      print_c_expr e
+  | _ ->
+      failwith "[print_init]: TODO"
 
 let print_type_spec = function
   | Int w -> print_width w ^^ string "_t"
@@ -120,10 +129,41 @@ let mk_spec_and_decl, mk_spec_and_decl_f =
     mk name ret_t (fun d -> Function (d, List.map (fun (n, t) -> mk n t (fun d -> d)) params)))
 
 
-
 (* Using helpers, converts from C* to actual C grammar and prints it **********)
+let brace_if b f x =
+  if b then
+    braces_with_nesting (f x)
+  else
+    jump (f x)
 
-let rec print_cstar_decl = function
+let rec print_cstar_stmt = function
+  | Return e ->
+      string "return" ^/^ print_cstar_expr e ^^ semi
+  | Ignore e ->
+      print_cstar_expr e ^^ semi
+  | Decl (binder, e) ->
+      let spec, decl = mk_spec_and_decl binder.name binder.typ in
+      print_c_decl spec [ decl, Some (Expr e) ] ^^ semi
+  | IfThenElse (e, b1, b2) ->
+      string "if" ^/^ lparen ^^ print_cstar_expr e ^^ rparen ^/^ string "then" ^^
+      brace_if (List.length b1 > 1) print_cstar_block b1 ^/^ string "else" ^^
+      brace_if (List.length b2 > 1) print_cstar_block b2
+  | Assign (e1, e2) ->
+      print_cstar_expr e1 ^/^ equals ^/^ print_cstar_expr e2 ^^ semi
+  | BufWrite (e1, e2, e3) ->
+      print_cstar_expr e1 ^^ lbracket ^^ print_cstar_expr e2 ^^ rbracket ^/^ equals ^/^
+      print_cstar_expr e3 ^^ semi
+
+and print_cstar_block stmts =
+  separate_map hardline (fun s -> group (print_cstar_stmt s)) stmts
+
+and print_cstar_expr = function
+  | _ -> empty
+
+let _horrible_hack =
+  _print_c_expr := print_cstar_expr
+
+let print_cstar_decl = function
   | TypeAlias (name, t) ->
       let spec, decl = mk_spec_and_decl name t in
       group (print_c_decl spec ~stor:Typedef [ decl, None ] ^^ semi)
@@ -132,7 +172,6 @@ let rec print_cstar_decl = function
       let parameters = List.map (fun { name; typ } -> name, typ) parameters in
       let spec, decl = mk_spec_and_decl_f name return_type parameters in
       group (print_c_decl spec [ decl, None ]) ^/^
-      braces_with_nesting empty
-
+      braces_with_nesting (print_cstar_block body)
 
 let print_files = print_files print_cstar_decl
