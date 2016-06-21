@@ -16,14 +16,14 @@ let braces_with_nesting contents =
 let int i = string (string_of_int i)
 
 let print_width = function
-  | K.UInt8 -> string "u8"
-  | K.UInt16 -> string "u16"
-  | K.UInt32 -> string "u32"
-  | K.UInt64 -> string "u64"
-  | K.Int8 -> string "8"
-  | K.Int16 -> string "16"
-  | K.Int32 -> string "32"
-  | K.Int64 -> string "64"
+  | K.UInt8 -> string "uint8"
+  | K.UInt16 -> string "uint16"
+  | K.UInt32 -> string "uint32"
+  | K.UInt64 -> string "uint64"
+  | K.Int8 -> string "int8"
+  | K.Int16 -> string "int16"
+  | K.Int32 -> string "int32"
+  | K.Int64 -> string "int64"
 
 let print_constant = function
   | w, s -> string s ^^ print_width w

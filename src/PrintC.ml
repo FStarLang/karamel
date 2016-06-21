@@ -69,7 +69,7 @@ let print_type_decl d =
     | Function (d, params) ->
         p_noptr d ^^ lparen ^^ separate_map (comma ^^ space) (fun (spec, decl) ->
           print_type_spec spec ^/^ p_any decl
-        ) params
+        ) params ^^ rparen
     | d ->
         lparen ^^ p_any d ^^ rparen
   and p_any = function
@@ -86,19 +86,19 @@ let print_decl_and_init (decl, init) =
         break 1 ^^ equals ^/^ print_init init
     | None -> empty
   in
-  print_type_decl decl ^^ init
+  group (print_type_decl decl ^^ init)
 
 (* Omitting type qualifiers and alignment specifiers. *)
 let print_c_decl (spec: c_type_spec) ?(stor:c_storage_spec option) (decl_and_inits: c_decl_and_inits) =
   let stor = match stor with Some stor -> print_c_storage_spec stor ^^ break 1 | None -> empty in
-  stor ^^ print_type_spec spec ^/^
-  separate_map (comma ^^ break 1) print_decl_and_init decl_and_inits
+  stor ^^ group (print_type_spec spec) ^/^
+  group (separate_map (comma ^^ break 1) print_decl_and_init decl_and_inits)
 
 
 (* Helpers to convert from C* to actual C syntax ******************************)
 
 (* Turns the ML declaration inside-out to match the C reading of a type. *)
-let mk_spec_and_decl name (t: typ): c_type_spec * c_decl =
+let mk_spec_and_decl, mk_spec_and_decl_f =
   let rec mk name (t: typ) (k: c_decl -> c_decl): c_type_spec * c_decl =
     match t with
     | Pointer t ->
@@ -114,7 +114,11 @@ let mk_spec_and_decl name (t: typ): c_type_spec * c_decl =
     | Named n ->
         Named n, k (Ident name)
   in
-  mk name t (fun d -> d)
+  (fun name t ->
+    mk name t (fun d -> d)),
+  (fun name ret_t params ->
+    mk name ret_t (fun d -> Function (d, List.map (fun (n, t) -> mk n t (fun d -> d)) params)))
+
 
 
 (* Using helpers, converts from C* to actual C grammar and prints it **********)
@@ -125,7 +129,10 @@ let rec print_cstar_decl = function
       group (print_c_decl spec ~stor:Typedef [ decl, None ] ^^ semi)
 
   | Function (return_type, name, parameters, body) ->
-      empty
+      let parameters = List.map (fun { name; typ } -> name, typ) parameters in
+      let spec, decl = mk_spec_and_decl_f name return_type parameters in
+      group (print_c_decl spec [ decl, None ]) ^/^
+      braces_with_nesting empty
 
 
 let print_files = print_files print_cstar_decl
