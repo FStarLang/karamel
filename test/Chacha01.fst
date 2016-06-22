@@ -89,10 +89,9 @@ let uint32_of_bytes (b:bytes{length b >= 4}) =
   (* TODO *)
   assume (v r = UInt8.v b0 * pow2 8 * UInt8.v b1  + pow2 16 * UInt8.v b2 + pow2 24 * UInt8.v b3);
   r
-(*
 
-let op_Hat_Greater_Greater = op_Greater_Greater_Hat
-let op_Hat_Star = op_Star_Hat
+let op_Hat_Greater_Greater x y = op_Greater_Greater_Hat x y
+let op_Hat_Star x y = op_Star_Hat x y
 
 #reset-options "--z3timeout 20"
 
@@ -121,6 +120,7 @@ let rec bytes_of_uint32s output m len =
 
 #set-options "--lax" // TODO
 
+(*
 val xor_bytes: output:bytes -> in1:bytes -> in2:bytes{disjoint in1 in2 /\ disjoint in1 output /\ disjoint in2 output} -> len:u32{v len <= length output /\ v len <= length in1 /\ v len <= length in2} -> STL unit
   (requires (fun h -> live h output /\ live h in1 /\ live h in2))
   (ensures  (fun h0 _ h1 -> live h0 output /\ live h0 in1 /\ live h0 in2 

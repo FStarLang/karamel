@@ -163,6 +163,9 @@ and translate_type env = function
       CStar.Void
   | TAlias name ->
       CStar.Named name
+  | TBool ->
+      (* C99 *)
+      CStar.Named "_Bool"
 
 
 and translate_and_push_binders env binders =

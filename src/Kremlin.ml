@@ -34,6 +34,7 @@ let _ =
     print PrintAst.print_files files;
 
   let files = Simplify.simplify files in
+
   if !arg_print_simplify then
     print PrintAst.print_files files;
 

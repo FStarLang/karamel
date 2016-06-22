@@ -6,24 +6,39 @@ open DeBruijn
 
 (* Some helpers ***************************************************************)
 
-let visit_decl (env: 'env) (mapper: 'env -> expr -> expr) = function
+let visit_decl (env: 'env) mapper = function
   | DFunction (ret, name, binders, expr) ->
-      let expr = open_function_binders binders expr in
-      let expr = mapper env expr in
-      let expr = close_function_binders binders expr in
-      DFunction (ret, name, binders, expr)
+      mapper#dfunction env ret name binders expr
   | DTypeAlias t ->
       DTypeAlias t
 
-let visit_program (env: 'env) (mapper: 'env -> expr -> expr) (program: program) =
+let visit_program (env: 'env) mapper (program: program) =
   List.map (visit_decl env mapper) program
 
-let visit_file (env: 'env) (mapper: 'env -> expr -> expr) (file: file) =
+let visit_file (env: 'env) mapper (file: file) =
   let name, program = file in
   name, visit_program env mapper program
 
-let visit_files (env: 'env) (mapper: 'env -> expr -> expr) (files: file list) =
+let visit_files (env: 'env) (mapper: < dfunction: 'env -> typ -> ident -> binder list -> expr -> decl; .. >) (files: file list) =
   List.map (visit_file env mapper) files
+
+
+(* Count the number of occurrences of each variable ***************************)
+
+class count_use = object
+
+  inherit [binder list] map
+
+  method extend env binder =
+    binder :: env
+
+  method ebound env i =
+    let b = List.nth env i in
+    b.mark <- b.mark + 1;
+    Printf.eprintf "INCR %d\n" b.mark;
+    EBound i
+
+end
 
 
 (* F* extraction generates these degenerate cases *****************************)
@@ -222,7 +237,14 @@ and hoist e =
 (* Everything composed together ***********************************************)
 
 let simplify (files: file list): file list =
-  let files = visit_files () (new dummy_match # visit) files in
-  let files = visit_files () (new wrapping_arithmetic # visit) files in
-  let files = visit_files () (fun () -> hoist_t) files in
+  let files = visit_files [] (new count_use) files in
+  let files = visit_files () (new dummy_match) files in
+  let files = visit_files () (new wrapping_arithmetic) files in
+  let files = visit_files () (object
+    method dfunction () ret name binders expr =
+      let expr = open_function_binders binders expr in
+      let expr = hoist_t expr in
+      let expr = close_function_binders binders expr in
+      DFunction (ret, name, binders, expr)
+  end) files in
   files

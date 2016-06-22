@@ -39,6 +39,7 @@ let print_op = function
   | K.BXor -> string "^"
   | K.BShiftL -> string "<<"
   | K.BShiftR -> string ">>"
+  | K.Eq -> string "=="
 
 let print_lident (idents, ident) =
   separate_map dot string (idents @ [ ident ])

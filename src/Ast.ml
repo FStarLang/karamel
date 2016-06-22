@@ -43,6 +43,8 @@ and branch =
 
 and pattern =
   | PUnit
+  | PBool of bool
+  | PVar of binder
 
 and var =
   int (** a De Bruijn index *)
@@ -51,6 +53,7 @@ and binder = {
   name: ident;
   typ: typ;
   mut: bool;
+  mutable mark: int;
 }
 
 and ident =
@@ -64,17 +67,25 @@ and typ =
   | TBuf of typ
   | TUnit
   | TAlias of ident
+  | TBool
 
 (** Versioned binary writing/reading of ASTs *)
 
 type version = int
-let current_version: version = 1
+let current_version: version = 2
 
 type file = string * program
 type binary_format = version * file list
 
 
 (** Some visitors for our AST of expressions *)
+
+let binders_of_pat = function
+  | PVar b ->
+      [ b ]
+  | PUnit
+  | PBool _ ->
+      []
 
 class virtual ['env, 'result] visitor = object (self)
 
@@ -167,7 +178,9 @@ class ['env] map = object (self)
     EApp (self#visit env e, List.map (self#visit env) es)
 
   method elet env b e1 e2 =
-    ELet (b, self#visit env e1, self#visit (self#extend env b) e2)
+    let r = ELet (b, self#visit env e1, self#visit (self#extend env b) e2) in
+    Printf.eprintf "INCR'D %d\n" b.mark;
+    r
 
   method eifthenelse env e1 e2 e3 =
     EIfThenElse (self#visit env e1, self#visit env e2, self#visit env e3)
@@ -201,8 +214,17 @@ class ['env] map = object (self)
 
   method branches env branches =
     List.map (fun (pat, expr) ->
+      let binders = binders_of_pat pat in
+      let env = List.fold_left self#extend env binders in
       pat, self#visit env expr
     ) branches
+
+  method extend_many env binders =
+    List.fold_left self#extend env binders
+
+  method dfunction env ret name binders expr =
+    let env = self#extend_many env binders in
+    DFunction (ret, name, binders, self#visit env expr)
 
 end
 
@@ -212,7 +234,7 @@ let read_file (f: string): file list =
   let contents: binary_format = with_open_in f input_value in
   let version, files = contents in
   if version <> current_version then
-    failwith "This file is for an older version of KreMLin";
+    failwith "This file is for a different version of KreMLin";
   files
 
 let write_file (files: file list) (f: string): unit =

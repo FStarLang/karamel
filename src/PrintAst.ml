@@ -26,10 +26,11 @@ let rec print_decl = function
       group (string "type" ^/^ string name ^/^ equals) ^^
       jump (print_typ typ)
 
-and print_binder { name; typ; mut } =
+and print_binder { name; typ; mut; mark } =
+  Printf.eprintf "MARK %d\n" mark;
   group (
     (if mut then string "mutable" ^^ break 1 else empty) ^^
-    string name ^^ colon ^/^
+    string name ^^ lparen ^^ int mark ^^ rparen ^^ colon ^/^
     print_typ typ
   )
 
@@ -38,6 +39,7 @@ and print_typ = function
   | TBuf t -> print_typ t ^^ star
   | TUnit -> string "()"
   | TAlias name -> string name
+  | TBool -> string "bool"
 
 and print_expr = function
   | EBound v ->
@@ -91,5 +93,9 @@ and print_branch (pat, expr) =
 and print_pat = function
   | PUnit ->
       string "()"
+  | PBool b ->
+      string (string_of_bool b)
+  | PVar b ->
+      print_binder b
 
 let print_files = print_files print_decl
