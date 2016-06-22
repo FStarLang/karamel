@@ -36,7 +36,7 @@ GCC="$GCC $OPTS"
 FILES=Chacha01
 
 for f in $FILES; do
-  $FSTAR $f.fst
+  # $FSTAR $f.fst
   ../Kremlin.native -write out.krml
   if $HAS_CLANG; then
     $CLANG $f.c main.c -o $f

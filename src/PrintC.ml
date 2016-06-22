@@ -93,7 +93,7 @@ let rec p_expr curr = function
       let mine, left, right = 14, 13, 14 in
       let e1 = p_expr left e1 in
       let e2 = p_expr right e2 in
-      paren_if curr mine (e1 ^/^ equals ^/^ e2)
+      paren_if curr mine (group (e1 ^/^ equals) ^^ jump e2)
   | Call (e, es) ->
       let mine, left, arg = 1, 1, 15 in
       let e = p_expr left e in
@@ -121,17 +121,16 @@ let rec p_init (i: init) =
       braces_with_nesting (separate_map (comma ^^ break 1) p_init inits)
 
 let p_decl_and_init (decl, init) =
-  let init = match init with
+  group (p_type_declarator decl ^^ match init with
     | Some init ->
-        break 1 ^^ equals ^/^ p_init init
-    | None -> empty
-  in
-  group (p_type_declarator decl ^^ init)
+        space ^^ equals ^^ jump (p_init init)
+    | None ->
+        empty)
 
 let p_declaration (spec, stor, decl_and_inits) =
   let stor = match stor with Some stor -> p_storage_spec stor ^^ break 1 | None -> empty in
-  stor ^^ group (p_type_spec spec) ^/^
-  group (separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits)
+  stor ^^ group (p_type_spec spec) ^^ space ^^
+  separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
 let rec p_stmt (s: stmt) =
   (* [p_stmt] is responsible for appending [semi] and calling [group]! *)
