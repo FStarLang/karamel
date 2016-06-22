@@ -136,7 +136,8 @@ let rec p_stmt (s: stmt) =
   (* [p_stmt] is responsible for appending [semi] and calling [group]! *)
   match s with
   | Compound stmts ->
-      braces_with_nesting (separate_map hardline p_stmt stmts)
+      lbrace ^^ nest 2 (hardline ^^ separate_map hardline p_stmt stmts) ^^
+      hardline ^^ rbrace
   | Expr expr ->
       group (p_expr expr ^^ semi)
   | SelectIf (e, stmt) ->

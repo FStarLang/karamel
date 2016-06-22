@@ -103,7 +103,7 @@ let rec hoist_t e =
       let lhs, e1 = hoist e1 in
       let e2 = open_binder binder e2 in
       let e2 = hoist_t e2 in
-      nest lhs (close_binder binder (ELet (binder, e1, e2)))
+      nest lhs (ELet (binder, e1, close_binder binder e2))
 
   | EIfThenElse (e1, e2, e3) ->
       let lhs, e1 = hoist e1 in

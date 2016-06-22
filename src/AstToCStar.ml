@@ -144,7 +144,7 @@ and translate_function_block env e t =
   let stmts = snd (collect (reset_block env, []) e) in
   match t, stmts with
   | CStar.Void, _ ->
-      (* TODO: type aliases *)
+      (* TODO: type aliases for void *)
       List.rev stmts
 
   | _, CStar.Ignore e :: stmts ->
