@@ -1,5 +1,3 @@
-language: csharp
-
 matrix:
   include:
     - env: Ubuntu=14.04
