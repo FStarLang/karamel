@@ -42,5 +42,7 @@ let _ =
   if !arg_print_c then
     print PrintC.print_files files;
 
-  if !arg_write then
+  if !arg_write then begin
+    Printf.printf "KreMLin: writing out files\n";
     Output.write files
+  end
