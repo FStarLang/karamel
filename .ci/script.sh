@@ -11,7 +11,7 @@ export PATH=/home/travis/build/FStarLang/kremlin/fstar/bin:$PATH;
 export PATH=/home/travis/build/FStarLang/kremlin/$CLANG/bin:$PATH;
 
 echo "<$Z3>: -traverse" >> _tags
-echo "<$CLANG>: -traverse" >> _tags
+echo "<\"$CLANG\">: -traverse" >> _tags
 echo "<fstar>: -traverse" >> _tags
 
 echo -e "\e[31m=== Some info about the environment ===\e[0m"
