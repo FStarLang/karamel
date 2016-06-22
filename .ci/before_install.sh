@@ -19,6 +19,3 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   done
   free -h;
 fi
-
-git clone https://github.com/FStarLang/FStar.git fstar
-make -C fstar/src/ocaml-output

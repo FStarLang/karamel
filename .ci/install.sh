@@ -27,3 +27,6 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
 fi
 
 ocamlfind ocamlopt -config
+
+git clone https://github.com/FStarLang/FStar.git fstar
+make -C fstar/src/ocaml-output
