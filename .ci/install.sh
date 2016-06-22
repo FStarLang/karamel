@@ -6,6 +6,7 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   sudo apt-get install --yes libssl-dev opam libgmp-dev libsqlite3-dev g++-5 gcc-5 clang-3.8;
   sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 200;
   sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-5 200;
+  tar xJvf clang+llvm-*
 fi
 
 export OPAMYES=true
