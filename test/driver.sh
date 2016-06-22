@@ -24,7 +24,7 @@ else
   GCC=gcc
 fi
 echo GCC is $GCC
-  
+echo HAS_CLANG is $HAS_CLANG
 
 HYPERSTACK_LIB="$FSTAR_HOME/examples/low-level/ulib/hyperstack/"
 FSTAR_OPTIONS="--lax --trace_error --universes --codegen Kremlin"
