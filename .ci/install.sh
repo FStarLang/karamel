@@ -3,7 +3,7 @@
 set -e
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-  sudo apt-get install --yes libssl-dev opam libgmp-dev libsqlite3-dev g++-5 gcc-5 clang;
+  sudo apt-get install --yes libssl-dev opam libgmp-dev libsqlite3-dev g++-5 gcc-5 clang-3.8;
   sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 200;
   sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-5 200;
 fi
@@ -25,10 +25,6 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   unzip $Z3.zip;
   export PATH=/home/travis/build/FStarLang/FStar/$Z3/bin:/home/travis/build/FStarLang/FStar/bin:$PATH;
 fi
-
-ocamlfind ocamlopt -config
-gcc --version
-clang --version
 
 git clone https://github.com/FStarLang/FStar.git fstar
 make -C fstar/src/ocaml-output
