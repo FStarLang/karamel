@@ -11,3 +11,6 @@ clean:
 
 tags:
 	ctags -R .
+
+test: all
+	./Tests.native

@@ -4,6 +4,7 @@ let _ =
   let arg_print_ast = ref false in
   let arg_print_simplify = ref false in
   let arg_print_c = ref false in
+  let arg_write = ref false in
   let filename = ref "" in
   let usage = "KreMLin: from a ML-like subset to C\n\
     Usage: " ^ Sys.argv.(0) ^ " [OPTIONS] FILE\n"
@@ -11,7 +12,8 @@ let _ =
   Arg.parse [
     "-dast", Arg.Set arg_print_ast, " pretty-print the input AST";
     "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the input AST after simplification";
-    "-dc", Arg.Set arg_print_c, " pretty-print the output C"
+    "-dc", Arg.Set arg_print_c, " pretty-print the output C";
+    "-write", Arg.Set arg_write, " write an output C file for each file contained in the input file";
   ] (fun f ->
     filename := f
   ) usage;
@@ -38,4 +40,7 @@ let _ =
   let files = AstToCStar.translate_files files in
   let files = CStarToC.mk_files files in
   if !arg_print_c then
-    print PrintC.print_files files
+    print PrintC.print_files files;
+
+  if !arg_write then
+    Output.write files
