@@ -30,9 +30,12 @@ and expr =
   | EBufRead of (expr * expr)
   | EBufWrite of (expr * expr * expr)
   | EBufSub of (expr * expr)
+  | EBufBlit of (expr * expr * expr * expr * expr)
   | EMatch of (expr * branches)
   | EOp of (K.op * K.width)
   | ECast of (expr * typ)
+  | EPushFrame
+  | EPopFrame
 
 
 and branches =
@@ -72,7 +75,7 @@ and typ =
 (** Versioned binary writing/reading of ASTs *)
 
 type version = int
-let current_version: version = 2
+let current_version: version = 3
 
 type file = string * program
 type binary_format = version * file list
@@ -125,6 +128,8 @@ class virtual ['env, 'result] visitor = object (self)
         self#ebufread env e1 e2
     | EBufWrite (e1, e2, e3) ->
         self#ebufwrite env e1 e2 e3
+    | EBufBlit (e1, e2, e3, e4, e5) ->
+        self#ebufblit env e1 e2 e3 e4 e5
     | EBufSub (e1, e2) ->
         self#ebufsub env e1 e2
     | EMatch (e, branches) ->
@@ -133,6 +138,10 @@ class virtual ['env, 'result] visitor = object (self)
         self#eop env op w
     | ECast (e, t) ->
         self#ecast env e t
+    | EPushFrame ->
+        self#epushframe env
+    | EPopFrame ->
+        self#epopframe env
 
   method virtual ebound: 'env -> var -> 'result
   method virtual eopen: 'env -> binder -> 'result
@@ -147,10 +156,13 @@ class virtual ['env, 'result] visitor = object (self)
   method virtual ebufcreate: 'env -> expr -> expr -> 'result
   method virtual ebufread: 'env -> expr -> expr -> 'result
   method virtual ebufwrite: 'env -> expr -> expr -> expr -> 'result
+  method virtual ebufblit: 'env -> expr -> expr -> expr -> expr -> expr -> 'result
   method virtual ebufsub: 'env -> expr -> expr -> 'result
   method virtual ematch: 'env -> expr -> branches -> 'result
   method virtual eop: 'env -> K.op -> K.width -> 'result
   method virtual ecast: 'env -> expr -> typ -> 'result
+  method virtual epushframe: 'env -> 'result
+  method virtual epopframe: 'env -> 'result
 
 end
 
@@ -198,6 +210,9 @@ class ['env] map = object (self)
   method ebufwrite env e1 e2 e3 =
     EBufWrite (self#visit env e1, self#visit env e2, self#visit env e3)
 
+  method ebufblit env e1 e2 e3 e4 e5 =
+    EBufBlit (self#visit env e1, self#visit env e2, self#visit env e3, self#visit env e4, self#visit env e5)
+
   method ebufsub env e1 e2 =
     EBufSub (self#visit env e1, self#visit env e2)
 
@@ -209,6 +224,12 @@ class ['env] map = object (self)
 
   method ecast env e t =
     ECast (self#visit env e, t)
+
+  method epopframe _env =
+    EPopFrame
+
+  method epushframe _env =
+    EPushFrame
 
   method branches env branches =
     List.map (fun (pat, expr) ->

@@ -209,7 +209,6 @@ let sum_matrixes m m0 =
   upd m 15ul (index m 15ul +%^ index m0 15ul);
   ()
 
-(*
 val chacha20_block: output:bytes{length output = 64} -> 
   state:uint32s{length state = 16 /\ disjoint state output} -> 
   key:bytes{length key = 32 /\ disjoint state key /\ disjoint output key} -> 
@@ -247,7 +246,9 @@ val chacha20_encrypt_loop:
   state:uint32s{length state = 16} -> key:bytes{length key = 32 /\ disjoint state key} -> 
   counter:u32 -> nonce:bytes{length nonce = 12 /\ disjoint state nonce /\ disjoint key nonce} -> 
   plaintext:bytes{disjoint state plaintext /\ disjoint key plaintext /\ disjoint nonce plaintext} -> 
-  ciphertext:bytes{disjoint state ciphertext /\ disjoint key ciphertext /\ disjoint nonce ciphertext /\ disjoint plaintext ciphertext} -> j:u32 -> max:u32{v j <= v max /\ v counter + v max < pow2 n} -> 
+  ciphertext:bytes{disjoint state ciphertext /\ disjoint key ciphertext /\ disjoint nonce ciphertext /\ disjoint plaintext ciphertext} ->
+  j:u32 ->
+  max:u32{v j <= v max /\ v counter + v max < pow2 n} -> 
   STL unit
     (requires (fun h -> live h state /\ live h key /\ live h nonce /\ live h plaintext  /\ live h ciphertext
       /\ length plaintext >= (v max-v j) * 64  /\ length ciphertext >= (v max-v j) * 64 ))
@@ -255,8 +256,7 @@ val chacha20_encrypt_loop:
       /\ HH.modifies_just (Set.union (Set.singleton (frameOf state)) (Set.singleton (frameOf ciphertext))) h0.h h1.h ))
       (* /\ modifies_buf (only ciphertext ++ state) h0 h1)) *)
 let rec chacha20_encrypt_loop state key counter nonce plaintext ciphertext j max =
-  let h0 = HST.get() in
-  if j = max then ()
+  if j =^ max then ()
   else 
     begin
       (* Generate new state for block *)
@@ -265,42 +265,14 @@ let rec chacha20_encrypt_loop state key counter nonce plaintext ciphertext j max
       let plain_block = sub plaintext 0ul 64ul in
       let plaintext' = sub plaintext 64ul (64ul ^* (max -^ j -^ 1ul)) in
       chacha20_block cipher_block state key (counter +^ j) nonce; 
-	(** Lemmas **)
-	let h1 = HST.get() in
-	aux_lemma plain_block cipher_block state;
-	(* eq_lemma h0 h1 plain_block (only cipher_block ++ state);  *)
-	(** End lemmas **)
       (* XOR the key stream with the plaintext *)
       xor_bytes cipher_block cipher_block plain_block 64ul; 
-	(** Lemmas **)
-	let h2 = HST.get() in
-	(* eq_lemma h1 h2 plain_block (only cipher_block ++ state);  *)
-	aux_lemma' state cipher_block; 
-	(* eq_lemma h1 h2 state (only cipher_block);  *)
-	aux_lemma nonce cipher_block state;
-	(* eq_lemma h0 h2 nonce (only cipher_block ++ state);  *)
-	aux_lemma key cipher_block state;
-	(* eq_lemma h0 h2 key (only cipher_block ++ state);  *)
-	aux_lemma plaintext' cipher_block state;
-	(* eq_lemma h0 h2 plaintext' (only cipher_block ++ state);  *)
-	aux_lemma ciphertext' cipher_block state;
-	(* eq_lemma h0 h2 ciphertext' (only cipher_block ++ state);  *)
-	(** End lemmas **)
       (* Apply Chacha20 to the next blocks *)
-      chacha20_encrypt_loop state key counter nonce plaintext' ciphertext' (j +^ 1ul) max;
-	(** Lemmas **)
-	let h3 = HST.get() in
-	aux_lemma'' state cipher_block;
-	aux_lemma'' state ciphertext';
-	aux_lemma'' state ciphertext;
-	(* modifies_subbuffer_lemma h0 h2 (only state) cipher_block ciphertext; *)
-	(* modifies_subbuffer_lemma h2 h3 (only state) ciphertext' ciphertext *)
-	()
-	(** End lemmas **)
+      chacha20_encrypt_loop state key counter nonce plaintext' ciphertext' (j +^ 1ul) max
     end
 
-let op_Hat_Slash = op_Slash_Hat
-let op_Hat_Percent = op_Percent_Hat
+let op_Hat_Slash a b = op_Slash_Hat a b
+let op_Hat_Percent a b = op_Percent_Hat a b
 
 val chacha20_encrypt: 
   ciphertext:bytes -> key:bytes{length key = 32 /\ disjoint ciphertext key} -> counter:u32 -> 
@@ -312,23 +284,13 @@ val chacha20_encrypt:
       /\ modifies_buf (frameOf ciphertext) (only ciphertext) Set.empty h0 h1))
 let chacha20_encrypt ciphertext key counter nonce plaintext len = 
   push_frame ();
-  let h0 = HST.get() in
   (* Allocate the internal state *)
   let state = create 0ul 16ul  in
   (* Compute number of iterations *)
   let max = (len ^/ 64ul) in 
   let rem = len ^% 64ul in
-    (** Lemmas **)
-    cut (length ciphertext >= v len /\ length ciphertext >= v max * 64); 
-    cut (length plaintext >= v len /\ length plaintext >= v max * 64); 
-    let h1 = HST.get() in
-    (** End lemmas **)    
   (* Apply Chacha20 max times **)  
   chacha20_encrypt_loop state key counter nonce plaintext ciphertext 0ul max; 
-    (** Lemmas **)
-    let h2 = HST.get() in
-    modifies_fresh h0 h2 (only ciphertext) Set.empty state;
-    (** End lemmas **)
   if rem =^ 0ul then 
     begin
       (** Lemmas **)
@@ -350,21 +312,7 @@ let chacha20_encrypt ciphertext key counter nonce plaintext len =
       (* let cipher_block' = offset ciphertext (max*64) in *)
       (* let plain_block = offset plaintext (max*64) in *)
       chacha20_block cipher_block state key (counter +^ max) nonce; 
-	(** Lemmas **)
-	let h3 = HST.get() in
-	cut (v rem < 64 /\ length cipher_block >= v rem /\ v len = Prims.op_Addition (v max * 64) (v rem)); 
-	cut (True /\ length plain_block >= v len - (v max * 64)); 
-	(** End lemmas **)	
       (* XOR the key stream with the plaintext *)
-      xor_bytes cipher_block' cipher_block plain_block rem;
-	(** Lemmas **)
-	let h4 = HST.get() in 
-	aux_lemma'' state cipher_block;
-	modifies_fresh h2 h3 (only state) Set.empty cipher_block; 
-	(* modifies_subbuffer_lemma h3 h4 empty cipher_block' ciphertext;  *)
-	empty_lemma ciphertext;
-	modifies_fresh h0 h4 (only ciphertext) Set.empty state
-	(** End lemmas **)	
+      xor_bytes cipher_block' cipher_block plain_block rem
     end;
     pop_frame ()
-*)

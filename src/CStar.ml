@@ -19,6 +19,9 @@ and stmt =
     (** First expression has to be a [Bound] or [Open]. *)
   | BufWrite of expr * expr * expr
     (** First expression has to be a [Bound] or [Open]. *)
+  | BufBlit of expr * expr * expr * expr * expr
+  | PushFrame
+  | PopFrame
 
 and expr =
   | Call of expr * expr list

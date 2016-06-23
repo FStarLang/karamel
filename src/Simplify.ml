@@ -105,6 +105,7 @@ let rec hoist_t e =
   | EQualified _
   | EConstant _
   | EUnit
+  | EPushFrame | EPopFrame
   | EOp _ ->
       e
 
@@ -154,6 +155,14 @@ let rec hoist_t e =
       let lhs3, e3 = hoist e3 in
       nest (lhs1 @ lhs2 @ lhs3) (EBufWrite (e1, e2, e3))
 
+  | EBufBlit (e1, e2, e3, e4, e5) ->
+      let lhs1, e1 = hoist e1 in
+      let lhs2, e2 = hoist e2 in
+      let lhs3, e3 = hoist e3 in
+      let lhs4, e4 = hoist e4 in
+      let lhs5, e5 = hoist e5 in
+      nest (lhs1 @ lhs2 @ lhs3 @ lhs4 @ lhs5) (EBufBlit (e1, e2, e3, e4, e5))
+
   | EBufSub (e1, e2) ->
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
@@ -178,6 +187,7 @@ and hoist e =
   | EQualified _
   | EConstant _
   | EUnit
+  | EPushFrame | EPopFrame
   | EOp _ ->
       [], e
 
@@ -222,6 +232,14 @@ and hoist e =
       let lhs2, e2 = hoist e2 in
       let lhs3, e3 = hoist e3 in
       lhs1 @ lhs2 @ lhs3, EBufWrite (e1, e2, e3)
+
+  | EBufBlit (e1, e2, e3, e4, e5) ->
+      let lhs1, e1 = hoist e1 in
+      let lhs2, e2 = hoist e2 in
+      let lhs3, e3 = hoist e3 in
+      let lhs4, e4 = hoist e4 in
+      let lhs5, e5 = hoist e5 in
+      lhs1 @ lhs2 @ lhs3 @ lhs4 @ lhs5, EBufBlit (e1, e2, e3, e4, e5)
 
   | EBufSub (e1, e2) ->
       let lhs1, e1 = hoist e1 in

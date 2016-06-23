@@ -37,9 +37,9 @@ let p_type_declarator d =
     | Array (d, s) ->
         p_noptr d ^^ lbracket ^^ p_constant s ^^ rbracket
     | Function (d, params) ->
-        p_noptr d ^^ lparen ^^ separate_map (comma ^^ space) (fun (spec, decl) ->
-          p_type_spec spec ^/^ p_any decl
-        ) params ^^ rparen
+        p_noptr d ^^ parens_with_nesting (separate_map (comma ^^ break 1) (fun (spec, decl) ->
+          group (p_type_spec spec ^/^ p_any decl)
+        ) params)
     | d ->
         lparen ^^ p_any d ^^ rparen
   and p_any = function
@@ -98,7 +98,7 @@ let rec p_expr curr = function
   | Call (e, es) ->
       let mine, left, arg = 1, 1, 15 in
       let e = p_expr left e in
-      let es = separate_map (comma ^^ break 1) (p_expr arg) es in
+      let es = nest 2 (separate_map (comma ^^ break 1) (fun e -> group (p_expr arg e)) es) in
       paren_if curr mine (e ^^ lparen ^^ es ^^ rparen)
   | Name s ->
       string s
@@ -109,7 +109,11 @@ let rec p_expr curr = function
       paren_if curr mine (lparen ^^ t ^^ rparen ^^ e)
   | Constant c ->
       p_constant c
-  | _ ->
+  | Sizeof e ->
+      let mine, right = 2, 2 in
+      let e = p_expr right e in
+      paren_if curr mine (string "sizeof" ^^ space ^^ e)
+  | Op1 _ | Deref _ | Address _ | Member _ | MemberP _ ->
       failwith "[p_expr]: not implemented"
 
 let p_expr = p_expr 15

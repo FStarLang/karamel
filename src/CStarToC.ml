@@ -57,7 +57,7 @@ let rec mk_stmt (stmt: stmt): C.stmt =
   | Ignore e ->
       Expr (mk_expr e)
 
-  | Decl (binder, BufCreate (size, init)) ->
+  | Decl (binder, BufCreate (init, size)) ->
       (* In the case where this is a buffer creation in the C* meaning, then we
        * declare a fixed-length array; this is an "upcast" from pointer type to
        * array type, in the C sense. *)
@@ -92,6 +92,15 @@ let rec mk_stmt (stmt: stmt): C.stmt =
 
   | BufWrite (e1, e2, e3) ->
       Expr (Assign (Index (mk_expr e1, mk_expr e2), mk_expr e3))
+
+  | BufBlit (e1, e2, e3, e4, e5) ->
+      Expr (Call (Name "memcpy", [
+        Op2 (K.Add, mk_expr e1, mk_expr e2);
+        Op2 (K.Add, mk_expr e3, mk_expr e4);
+        Op2 (K.Mult, mk_expr e5, Sizeof (mk_expr e2))]))
+
+  | PushFrame | PopFrame ->
+      failwith "[mk_stmt]: nested frames not supported"
 
 and mk_stmts stmts =
   List.map mk_stmt stmts

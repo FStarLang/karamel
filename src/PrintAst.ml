@@ -73,6 +73,8 @@ and print_expr = function
       string "<-" ^/^ print_expr e3
   | EBufSub (e1, e2) ->
       print_app string "subbuf" print_expr [e1; e2]
+  | EBufBlit (e1, e2, e3, e4, e5) ->
+      print_app string "blitbuf" print_expr [e1; e2; e3; e4; e5]
   | EMatch (e, branches) ->
       group (string "match" ^/^ print_expr e ^/^ string "with") ^^
       jump ~indent:0 (print_branches branches)
@@ -81,6 +83,12 @@ and print_expr = function
 
   | ECast (e, t) ->
       parens_with_nesting (print_expr e ^^ colon ^/^ print_typ t)
+
+  | EPopFrame ->
+      string "pop_frame"
+
+  | EPushFrame ->
+      string "push_frame"
 
 and print_branches branches =
   separate_map (break 1) (fun b -> group (print_branch b)) branches

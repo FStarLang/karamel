@@ -48,6 +48,11 @@ let find env i =
  * defined in another block higher up. This is, naturally, a conservative
  * choice. *)
 let ensure_fresh env name =
+  let is_valid = function
+    | 'a'..'z' | 'A'..'Z' | '0'..'9' | '_' -> true
+    | _ -> false
+  in
+  let name = String.map (fun c -> if not (is_valid c) then '_' else c) name in
   if List.exists ((=) name) env.in_block then
     let i = ref 0 in
     let mk () = name ^ string_of_int !i in
@@ -62,8 +67,6 @@ let ensure_fresh env name =
 let rec translate_expr env = function
   | EBound var ->
       CStar.Var (find env var)
-  | EOpen _ ->
-      failwith "[AstToCStar.translate_expr EOpen]: invalid argument"
   | EQualified lident ->
       CStar.Qualified lident
   | EConstant c ->
@@ -80,6 +83,8 @@ let rec translate_expr env = function
       CStar.Op c
   | ECast (e, t) ->
       CStar.Cast (translate_expr env e, translate_type env t)
+  | EOpen _ | EPopFrame | EPushFrame | EBufBlit _ ->
+      failwith "[AstToCStar.translate_expr]: invalid argument"
   | EUnit ->
       failwith "[AstToCStar.translate_expr EUnit]: not implemented"
   | ELet _ ->
@@ -114,6 +119,10 @@ and collect (env, acc) = function
       let e = CStar.Assign (translate_expr env e1, translate_expr env e2) in
       env, e :: acc
 
+  | EBufBlit (e1, e2, e3, e4, e5) ->
+      let e = CStar.BufBlit (translate_expr env e1, translate_expr env e2, translate_expr env e3, translate_expr env e4, translate_expr env e5) in
+      env, e :: acc
+
   | EBufWrite (e1, e2, e3) ->
       let e = CStar.BufWrite (translate_expr env e1, translate_expr env e2, translate_expr env e3) in
       env, e :: acc
@@ -123,6 +132,12 @@ and collect (env, acc) = function
 
   | EUnit ->
       env, acc
+
+  | EPushFrame ->
+      env, CStar.PushFrame :: acc
+
+  | EPopFrame ->
+      env, CStar.PopFrame :: acc
 
   | e ->
       let e = CStar.Ignore (translate_expr env e) in
@@ -142,15 +157,31 @@ and translate_block env e =
  *)
 and translate_function_block env e t =
   let stmts = snd (collect (reset_block env, []) e) in
-  match t, stmts with
-  | CStar.Void, _ ->
-      (* TODO: type aliases for void *)
-      List.rev stmts
+  let strip_final_pop_if = function
+    | CStar.PopFrame :: stmts -> stmts, true
+    | stmts -> stmts, false
+  in
+  let strip_first_push_if had_pop = function
+    | CStar.PushFrame :: stmts ->
+        if had_pop then
+          stmts
+        else
+          failwith "[translate_function_block]: ill-parenthesized push/pop frame"
+    | stmts ->
+        if had_pop then
+          failwith "[translate_function_block]: ill-parenthesized push/pop frame"
+        else
+          stmts
+  in
+  match t, strip_final_pop_if stmts with
+  | CStar.Void, (stmts, had_pop) ->
+      strip_first_push_if had_pop (List.rev stmts)
 
-  | _, CStar.Ignore e :: stmts ->
+  | _, (CStar.Ignore e :: stmts, _) ->
       List.rev (CStar.Return e :: stmts)
 
   | _, _ ->
+      (* TODO: type aliases for void *)
       failwith "[translate_function_block]: violated invariant"
 
 
