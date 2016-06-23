@@ -120,7 +120,6 @@ let rec bytes_of_uint32s output m len =
 
 #set-options "--lax" // TODO
 
-(*
 val xor_bytes: output:bytes -> in1:bytes -> in2:bytes{disjoint in1 in2 /\ disjoint in1 output /\ disjoint in2 output} -> len:u32{v len <= length output /\ v len <= length in1 /\ v len <= length in2} -> STL unit
   (requires (fun h -> live h output /\ live h in1 /\ live h in2))
   (ensures  (fun h0 _ h1 -> live h0 output /\ live h0 in1 /\ live h0 in2 
@@ -147,10 +146,10 @@ val initialize_state: state:uint32s{length state = 16} -> key:bytes{length key =
     /\ modifies_buf (frameOf state) (only state) Set.empty h0 h1))
 let initialize_state state key counter nonce =
   (* Constant part *)
-  upd state 0ul (of_string "0x61707865");
-  upd state 1ul (of_string "0x3320646e");
-  upd state 2ul (of_string "0x79622d32");
-  upd state 3ul (of_string "0x6b206574");
+  upd state 0ul 0x61707865ul;
+  upd state 1ul 0x3320646eul;
+  upd state 2ul 0x79622d32ul;
+  upd state 3ul 0x6b206574ul;
   (* Key part *)
   let k0 = sub key 0ul  4ul in 
   let k1 = sub key 4ul  4ul in 
@@ -210,6 +209,7 @@ let sum_matrixes m m0 =
   upd m 15ul (index m 15ul +%^ index m0 15ul);
   ()
 
+(*
 val chacha20_block: output:bytes{length output = 64} -> 
   state:uint32s{length state = 16 /\ disjoint state output} -> 
   key:bytes{length key = 32 /\ disjoint state key /\ disjoint output key} -> 
@@ -221,14 +221,11 @@ val chacha20_block: output:bytes{length output = 64} ->
       (* /\ modifies_buf (only output ++ state) h0 h1 *)))
 let chacha20_block output m key counter nonce =
   push_frame ();
-    let h0 = HST.get() in
   (* Initialize internal state *)
   initialize_state m key counter nonce;
-    let h1 = HST.get() in
   (* Initial state *) 
   let m0 = create 0ul 16ul in
   blit m 0ul m0 0ul 16ul;
-    let h1' = HST.get() in cut (modifies_buf (frameOf m) (only m) Set.empty h0 h1 /\ modifies_buf h1.tip Set.empty Set.empty h1 h1'); 
   (* 20 rounds *)
   column_round m; diagonal_round m; 
   column_round m; diagonal_round m;
@@ -240,16 +237,10 @@ let chacha20_block output m key counter nonce =
   column_round m; diagonal_round m;
   column_round m; diagonal_round m;
   column_round m; diagonal_round m; 
-    let h2 = HST.get() in
-    cut (live h2 m /\ modifies_buf (frameOf m) (only m) Set.empty h0 h2); 
   (* Sum the matrixes *)
   sum_matrixes m m0;
-    let h3 = HST.get() in 
-    aux_lemma' output m; (* eq_lemma h0 h3 output (only m);  *)
   (* Serialize the state into byte stream *)
   bytes_of_uint32s output m 16ul;
-    let h4 = HST.get() in
-    aux_lemma' m output; (* eq_lemma h3 h4 m (only output); *)
   pop_frame ()
 
 val chacha20_encrypt_loop: 
