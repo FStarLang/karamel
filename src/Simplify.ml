@@ -35,7 +35,6 @@ class count_use = object
   method ebound env i =
     let b = List.nth env i in
     b.mark <- b.mark + 1;
-    Printf.eprintf "INCR %d\n" b.mark;
     EBound i
 
 end
@@ -51,6 +50,9 @@ class dummy_match = object (self)
     match e, branches with
     | EUnit, [ PUnit, body ] ->
         self # visit () body
+    | _, [ PBool true, b1; PVar v, b2 ] when v.mark = 0 ->
+        let b2 = open_binder v b2 in
+        EIfThenElse (e, b1, b2)
     | _ ->
         EMatch (e, self # branches () branches)
 

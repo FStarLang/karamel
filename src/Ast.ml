@@ -178,9 +178,7 @@ class ['env] map = object (self)
     EApp (self#visit env e, List.map (self#visit env) es)
 
   method elet env b e1 e2 =
-    let r = ELet (b, self#visit env e1, self#visit (self#extend env b) e2) in
-    Printf.eprintf "INCR'D %d\n" b.mark;
-    r
+    ELet (b, self#visit env e1, self#visit (self#extend env b) e2)
 
   method eifthenelse env e1 e2 e3 =
     EIfThenElse (self#visit env e1, self#visit env e2, self#visit env e3)

@@ -51,7 +51,7 @@ let p_type_declarator d =
   p_any d
 
 let p_type_name (spec, decl) =
-  p_type_spec spec ^/^ p_type_declarator decl
+  p_type_spec spec ^^ space ^^ p_type_declarator decl
 
 (* http:/ /en.cppreference.com/w/c/language/operator_precedence *)
 let prec_of_op2 op =
@@ -142,13 +142,13 @@ let rec p_stmt (s: stmt) =
   | Expr expr ->
       group (p_expr expr ^^ semi)
   | SelectIf (e, stmt) ->
-      group (string "if" ^/^ p_expr e) ^/^
-      braces_with_nesting (p_stmt stmt)
+      group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^/^
+      p_stmt stmt
   | SelectIfElse (e, s1, s2) ->
-      group (string "if" ^/^ p_expr e) ^/^
-      braces_with_nesting (p_stmt s1) ^/^
+      group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^/^
+      p_stmt s1 ^/^
       string "else" ^/^
-      braces_with_nesting (p_stmt s2) 
+      p_stmt s2
   | Return None ->
       group (string "return" ^^ semi)
   | Return (Some e) ->

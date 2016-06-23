@@ -27,7 +27,6 @@ let rec print_decl = function
       jump (print_typ typ)
 
 and print_binder { name; typ; mut; mark } =
-  Printf.eprintf "MARK %d\n" mark;
   group (
     (if mut then string "mutable" ^^ break 1 else empty) ^^
     string name ^^ lparen ^^ int mark ^^ rparen ^^ colon ^/^
