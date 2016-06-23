@@ -14,9 +14,10 @@ install:
 script:
   - ./.ci/script.sh
 
-# notifications:
-#   slack:
-#     secure: HvfVJFkn9PhK5k6VPWK/URUPcseMEy1lGNLJWFr4j5b1ETLx8xrmZcQD7x9zMLO7aD3b5pc9XrNmvYe4phfGOm0PagKbvkYxt7L2ZY8Gp3WqgTHgjamcK/lObB0MGVwNGd/x7HzjWyNsgKqjvAY9vhk5l2kr1v3t2ql+MN1epAY=
-
 git:
     depth: 3
+
+notifications:
+    slack:
+          rooms:
+                  - everestexpedition:8zdq1MdZaq7vdODNQ5LUhpth#kremlin
