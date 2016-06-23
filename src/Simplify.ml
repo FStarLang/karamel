@@ -11,6 +11,8 @@ let visit_decl (env: 'env) mapper = function
       mapper#dfunction env ret name binders expr
   | DTypeAlias t ->
       DTypeAlias t
+  | DGlobal (name, typ, expr) ->
+      mapper#dglobal env name typ expr
 
 let visit_program (env: 'env) mapper (program: program) =
   List.map (visit_decl env mapper) program
@@ -25,7 +27,7 @@ let visit_files (env: 'env) (mapper: < dfunction: 'env -> typ -> ident -> binder
 
 (* Count the number of occurrences of each variable ***************************)
 
-class count_use = object
+class count_use = object (self)
 
   inherit [binder list] map
 
@@ -36,6 +38,17 @@ class count_use = object
     let b = List.nth env i in
     b.mark <- b.mark + 1;
     EBound i
+
+  method elet env b e1 e2 =
+    (* Remove unused variables. Important to get rid of calls to [HST.get()]. *)
+    let e1 = self#visit env e1 in
+    let env = self#extend env b in
+    let e2 = self#visit env e2 in
+    match e1, b.mark with
+    | EConstant _, 0 ->
+        open_binder b e2
+    | _ ->
+        ELet (b, e1, e2)
 
 end
 
@@ -266,5 +279,9 @@ let simplify (files: file list): file list =
       let expr = hoist_t expr in
       let expr = close_function_binders binders expr in
       DFunction (ret, name, binders, expr)
+
+    method dglobal () name typ expr =
+      (* TODO: figure something out about this *)
+      DGlobal (name, typ, expr)
   end) files in
   files

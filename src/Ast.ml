@@ -13,6 +13,7 @@ type program =
 and decl =
   | DFunction of (typ * ident * binder list * expr)
   | DTypeAlias of (ident * typ)
+  | DGlobal of (ident * typ * expr)
 
 and expr =
   | EBound of var
@@ -71,6 +72,8 @@ and typ =
   | TUnit
   | TAlias of ident
   | TBool
+  | TAny
+  | TArrow of (typ * typ)
 
 (** Versioned binary writing/reading of ASTs *)
 
@@ -244,6 +247,9 @@ class ['env] map = object (self)
   method dfunction env ret name binders expr =
     let env = self#extend_many env binders in
     DFunction (ret, name, binders, self#visit env expr)
+
+  method dglobal env name typ expr =
+    DGlobal (name, typ, self#visit env expr)
 
 end
 

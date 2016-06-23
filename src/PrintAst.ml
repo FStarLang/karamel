@@ -26,6 +26,9 @@ let rec print_decl = function
       group (string "type" ^/^ string name ^/^ equals) ^^
       jump (print_typ typ)
 
+  | DGlobal (name, typ, expr) ->
+      print_typ typ ^^ space ^^ string name ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
+
 and print_binder { name; typ; mut; mark } =
   group (
     (if mut then string "mutable" ^^ break 1 else empty) ^^
@@ -39,6 +42,8 @@ and print_typ = function
   | TUnit -> string "()"
   | TAlias name -> string name
   | TBool -> string "bool"
+  | TAny -> string "any"
+  | TArrow (t1, t2) -> print_typ t1 ^^ space ^^ string "->" ^/^ nest 2 (print_typ t2)
 
 and print_expr = function
   | EBound v ->

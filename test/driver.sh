@@ -26,14 +26,15 @@ fi
 echo GCC is $GCC
 echo HAS_CLANG is $HAS_CLANG
 
-HYPERSTACK_LIB="$FSTAR_HOME/examples/low-level/ulib/hyperstack/"
+HYPERSTACK_LIB="$FSTAR_HOME/examples/low-level/"
 FSTAR_OPTIONS="--lax --trace_error --universes --codegen Kremlin"
 FSTAR="fstar.exe --include $HYPERSTACK_LIB $FSTAR_OPTIONS"
 OPTS="-Wall -Werror -Wno-parentheses -Wno-unused-variable"
 CLANG="clang -fsanitize=undefined,integer $OPTS"
 GCC="$GCC $OPTS"
 
-FILES=Chacha01
+# Currently sitting in examples/low-level
+FILES=Chacha
 
 for f in $FILES; do
   $FSTAR $f.fst

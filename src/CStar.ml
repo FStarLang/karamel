@@ -6,8 +6,9 @@ type program =
   decl list
 
 and decl =
-  | Function of (typ * ident * binder list * block)
-  | TypeAlias of (ident * typ)
+  | Function of typ * ident * binder list * block
+  | TypeAlias of ident * typ
+  | Global of ident * typ * expr
 
 and stmt =
   | Return of expr

@@ -157,6 +157,12 @@ let mk_decl_or_function (d: decl): C.declaration_or_function =
       let body = ensure_compound (mk_stmts body) in
       Function ((spec, None, [ decl, None ]), body)
 
+  | Global (name, t, expr) ->
+      let t = match t with Function _ -> Pointer t | _ -> t in
+      let spec, decl = mk_spec_and_declarator name t in
+      let expr = mk_expr expr in
+      Decl (spec, None, [ decl, Some (Expr expr) ])
+
 let mk_program decls =
   List.map mk_decl_or_function decls
 

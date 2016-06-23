@@ -197,6 +197,15 @@ and translate_type env = function
   | TBool ->
       (* C99 *)
       CStar.Named "_Bool"
+  | TAny ->
+      CStar.Pointer CStar.Void
+  | TArrow _ as t ->
+      let rec flatten_arrow acc = function
+        | TArrow (t1, t2) -> flatten_arrow (t1 :: acc) t2
+        | t -> t, List.rev acc
+      in
+      let ret, args = flatten_arrow [] t in
+      CStar.Function (translate_type env ret, List.map (translate_type env) args)
 
 
 and translate_and_push_binders env binders =
@@ -223,6 +232,9 @@ and translate_declaration env d: CStar.decl =
 
   | DTypeAlias (name, t) ->
       CStar.TypeAlias (name, translate_type env t)
+
+  | DGlobal (name, t, body) ->
+      CStar.Global (name, translate_type env t, translate_expr env body)
 
 
 and translate_program decls =
