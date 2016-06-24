@@ -97,7 +97,7 @@ and mk_stmt (stmt: stmt): C.stmt =
       Expr (Call (Name "memcpy", [
         Op2 (K.Add, mk_expr e1, mk_expr e2);
         Op2 (K.Add, mk_expr e3, mk_expr e4);
-        Op2 (K.Mult, mk_expr e5, Sizeof (mk_expr e2))]))
+        Op2 (K.Mult, mk_expr e5, Sizeof (Index (mk_expr e1, Constant (K.UInt8, "0"))))]))
 
   | PushFrame | PopFrame ->
       failwith "[mk_stmt]: nested frames not supported"
