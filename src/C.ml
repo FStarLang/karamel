@@ -21,7 +21,7 @@ and declarator_and_inits =
 and declarator =
   | Ident of ident
   | Pointer of declarator
-  | Array of declarator * K.t
+  | Array of declarator * expr
   | Function of declarator * params
 
 and expr =

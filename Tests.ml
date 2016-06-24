@@ -13,10 +13,10 @@ let _ =
     | _ ->
         assert false
   in
-  let t: CStar.typ = Array (Pointer (Int UInt8), (UInt8, "4")) in
+  let t: CStar.typ = Array (Pointer (Int UInt8), Constant (UInt8, "4")) in
   p t;
-  let t: CStar.typ = Pointer (Array (Int UInt8, (UInt8, "4"))) in
+  let t: CStar.typ = Pointer (Array (Int UInt8, Constant (UInt8, "4"))) in
   p t;
-  let t: CStar.typ = Pointer (Function (Pointer (Array (Int UInt8, (UInt8, "3"))), [Int UInt32])) in
+  let t: CStar.typ = Pointer (Function (Pointer (Array (Int UInt8, Constant (UInt8, "3"))), [Int UInt32])) in
   p t;
 ;;

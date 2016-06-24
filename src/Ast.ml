@@ -74,6 +74,7 @@ and typ =
   | TBool
   | TAny
   | TArrow of (typ * typ)
+  | TZ
 
 (** Versioned binary writing/reading of ASTs *)
 

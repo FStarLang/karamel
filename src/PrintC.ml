@@ -30,12 +30,12 @@ let p_type_spec = function
   | Void -> string "void"
   | Named s -> string s
 
-let p_type_declarator d =
+let rec p_type_declarator d =
   let rec p_noptr = function
     | Ident n ->
         string n
     | Array (d, s) ->
-        p_noptr d ^^ lbracket ^^ p_constant s ^^ rbracket
+        p_noptr d ^^ lbracket ^^ p_expr 15 s ^^ rbracket
     | Function (d, params) ->
         p_noptr d ^^ parens_with_nesting (separate_map (comma ^^ break 1) (fun (spec, decl) ->
           group (p_type_spec spec ^/^ p_any decl)
@@ -50,11 +50,11 @@ let p_type_declarator d =
   in
   p_any d
 
-let p_type_name (spec, decl) =
+and p_type_name (spec, decl) =
   p_type_spec spec ^^ space ^^ p_type_declarator decl
 
 (* http:/ /en.cppreference.com/w/c/language/operator_precedence *)
-let prec_of_op2 op =
+and prec_of_op2 op =
   let open Constant in
   match op with
   | AddW | SubW -> failwith "[prec_of_op]: should've been desugared"
@@ -73,13 +73,13 @@ let prec_of_op2 op =
 (* The precedence level [curr] is the maximum precedence the current node should
  * have. If it doesn't, then it should be parenthesized. Lower numbers bind
  * tighter. *)
-let paren_if curr mine doc =
+and paren_if curr mine doc =
   if curr < mine then
     group (lparen ^^ doc ^^ rparen)
   else
     doc
 
-let rec p_expr curr = function
+and p_expr curr = function
   | Op2 (op, e1, e2) ->
       let mine, left, right = prec_of_op2 op in
       let e1 = p_expr left e1 in
@@ -104,7 +104,7 @@ let rec p_expr curr = function
       string s
   | Cast (t, e) ->
       let mine, right = 2, 2 in
-      let e = p_expr right e in
+      let e = group (p_expr right e) in
       let t = p_type_name t in
       paren_if curr mine (lparen ^^ t ^^ rparen ^^ e)
   | Constant c ->

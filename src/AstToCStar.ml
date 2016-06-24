@@ -195,8 +195,7 @@ and translate_type env = function
   | TAlias name ->
       CStar.Named name
   | TBool ->
-      (* C99 *)
-      CStar.Named "_Bool"
+      CStar.Bool
   | TAny ->
       CStar.Pointer CStar.Void
   | TArrow _ as t ->
@@ -206,6 +205,8 @@ and translate_type env = function
       in
       let ret, args = flatten_arrow [] t in
       CStar.Function (translate_type env ret, List.map (translate_type env) args)
+  | TZ ->
+      CStar.Z
 
 
 and translate_and_push_binders env binders =

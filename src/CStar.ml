@@ -60,5 +60,7 @@ and typ =
   | Pointer of typ
   | Void
   | Named of ident
-  | Array of typ * K.t
+  | Array of typ * expr
   | Function of typ * typ list
+  | Bool
+  | Z

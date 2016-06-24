@@ -10,30 +10,34 @@ let string_of_lident (idents, ident) =
     ident
 
 (* Turns the ML declaration inside-out to match the C reading of a type. *)
-let mk_spec_and_declarator, mk_spec_and_declarator_f =
-  let rec mk name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
-    match t with
-    | Pointer t ->
-        mk name t (fun d -> Pointer (k d))
-    | Array (t, size) ->
-        mk name t (fun d -> Array (k d, size))
-    | Function (t, ts) ->
-        mk name t (fun d -> Function (k d, List.map (fun t -> mk "" t (fun d -> d)) ts))
-    | Int w ->
-        Int w, k (Ident name)
-    | Void ->
-        Void, k (Ident name)
-    | Named n ->
-        Named n, k (Ident name)
-  in
-  (fun name t ->
-    mk name t (fun d -> d)),
-  (fun name ret_t params ->
-    mk name ret_t (fun d -> Function (d, List.map (fun (n, t) -> mk n t (fun d -> d)) params)))
+let rec mk_sad name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
+  match t with
+  | Pointer t ->
+      mk_sad name t (fun d -> Pointer (k d))
+  | Array (t, size) ->
+      mk_sad name t (fun d -> Array (k d, mk_expr size))
+  | Function (t, ts) ->
+      mk_sad name t (fun d -> Function (k d, List.map (fun t -> mk_sad "" t (fun d -> d)) ts))
+  | Int w ->
+      Int w, k (Ident name)
+  | Void ->
+      Void, k (Ident name)
+  | Named n ->
+      Named n, k (Ident name)
+  | Z ->
+      Named "mpz_t", k (Ident name)
+  | Bool ->
+      Named "_Bool", k (Ident name)
+
+and mk_spec_and_declarator name t =
+  mk_sad name t (fun d -> d)
+
+and mk_spec_and_declarator_f name ret_t params =
+  mk_sad name ret_t (fun d -> Function (d, List.map (fun (n, t) -> mk_sad n t (fun d -> d)) params))
 
 (* Enforce the invariant that declarations are wrapped in compound statements
  * and cannot appear "alone". *)
-let mk_compound_if (stmts: C.stmt list): C.stmt =
+and mk_compound_if (stmts: C.stmt list): C.stmt =
   match stmts with
   | [ Decl _ ] ->
       Compound stmts
@@ -42,14 +46,14 @@ let mk_compound_if (stmts: C.stmt list): C.stmt =
   | _ ->
       Compound stmts
 
-let ensure_compound (stmts: C.stmt list): C.stmt =
+and ensure_compound (stmts: C.stmt list): C.stmt =
   match stmts with
   | [ Compound _ as stmt ] ->
       stmt
   | _ ->
       Compound stmts
 
-let rec mk_stmt (stmt: stmt): C.stmt =
+and mk_stmt (stmt: stmt): C.stmt =
   match stmt with
   | Return e ->
       Return (Some (mk_expr e))
@@ -61,10 +65,6 @@ let rec mk_stmt (stmt: stmt): C.stmt =
       (* In the case where this is a buffer creation in the C* meaning, then we
        * declare a fixed-length array; this is an "upcast" from pointer type to
        * array type, in the C sense. *)
-      let size = match size with
-        | Constant k -> k
-        | _ -> failwith "[mk_stmt]: non constant-size arrays not supported"
-      in
       let t = match binder.typ with
         | Pointer t -> Array (t, size)
         | _ -> failwith "impossible"

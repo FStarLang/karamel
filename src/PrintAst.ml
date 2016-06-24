@@ -44,6 +44,7 @@ and print_typ = function
   | TBool -> string "bool"
   | TAny -> string "any"
   | TArrow (t1, t2) -> print_typ t1 ^^ space ^^ string "->" ^/^ nest 2 (print_typ t2)
+  | TZ -> string "mpz_t"
 
 and print_expr = function
   | EBound v ->
