@@ -40,11 +40,11 @@ for f in $FILES; do
   $FSTAR $f.fst
   ../Kremlin.native -write out.krml
   if $HAS_CLANG; then
-    $CLANG $f.c main.c -o $f
+    $CLANG $f.c main-$f.c -o $f
     ./$f
     echo "$f/clang exited with $?"
   fi
-  $GCC $f.c main.c -o $f
+  $GCC $f.c main-$f.c -o $f
   ./$f
   echo "$f/gcc exited with $?"
 done
