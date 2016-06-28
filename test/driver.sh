@@ -15,6 +15,15 @@ else
   HAS_CLANG=false
 fi
 
+# Detection
+OPTS="-Wall -Werror -Wno-parentheses -Wno-unused-variable -std=c11"
+CLANG_UB="-fsanitize=undefined,integer"
+if $HAS_CLANG && clang $CLANG_UB main.c; then
+  CLANG="clang $CLANG_UB $OPTS"
+else
+  CLANG="clang $OPTS"
+fi
+
 # On OSX, actual GCC is gcc-5; on other systems, gcc gets some recent gcc.
 if which gcc-5 >/dev/null 2>&1; then
   GCC=gcc-5
@@ -23,15 +32,14 @@ elif which x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
 else
   GCC=gcc
 fi
+GCC="$GCC $OPTS"
+
 echo GCC is $GCC
 echo HAS_CLANG is $HAS_CLANG
 
 HYPERSTACK_LIB="$FSTAR_HOME/examples/low-level/"
 FSTAR_OPTIONS="--lax --trace_error --universes --codegen Kremlin"
 FSTAR="fstar.exe --include $HYPERSTACK_LIB $FSTAR_OPTIONS"
-OPTS="-Wall -Werror -Wno-parentheses -Wno-unused-variable -std=c11"
-CLANG="clang -fsanitize=undefined,integer $OPTS"
-GCC="$GCC $OPTS"
 
 # Currently sitting in examples/low-level
 FILES=Chacha
