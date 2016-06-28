@@ -18,7 +18,7 @@ fi
 # Detection
 OPTS="-Wall -Werror -Wno-parentheses -Wno-unused-variable -std=c11"
 CLANG_UB="-fsanitize=undefined,integer"
-if $HAS_CLANG && clang $CLANG_UB main.c; then
+if $HAS_CLANG && clang $CLANG_UB main.c >/dev/null 2>&1; then
   CLANG="clang $CLANG_UB $OPTS"
 else
   CLANG="clang $OPTS"
@@ -36,6 +36,9 @@ GCC="$GCC $OPTS"
 
 echo GCC is $GCC
 echo HAS_CLANG is $HAS_CLANG
+if $HAS_CLANG; then
+  echo "CLANG is $CLANG"
+fi
 
 HYPERSTACK_LIB="$FSTAR_HOME/examples/low-level/"
 FSTAR_OPTIONS="--lax --trace_error --universes --codegen Kremlin"
