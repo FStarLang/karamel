@@ -29,7 +29,7 @@ echo HAS_CLANG is $HAS_CLANG
 HYPERSTACK_LIB="$FSTAR_HOME/examples/low-level/"
 FSTAR_OPTIONS="--lax --trace_error --universes --codegen Kremlin"
 FSTAR="fstar.exe --include $HYPERSTACK_LIB $FSTAR_OPTIONS"
-OPTS="-Wall -Werror -Wno-parentheses -Wno-unused-variable"
+OPTS="-Wall -Werror -Wno-parentheses -Wno-unused-variable -std=c11"
 CLANG="clang -fsanitize=undefined,integer $OPTS"
 GCC="$GCC $OPTS"
 
