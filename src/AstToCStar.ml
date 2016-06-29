@@ -18,7 +18,7 @@
  *)
 
 open Ast
-open Misc
+open Idents
 open Error
 
 let map_flatten f l = List.flatten (List.map f l)

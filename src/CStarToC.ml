@@ -2,7 +2,7 @@
 
 open C
 open CStar
-open Misc
+open Idents
 
 (* Turns the ML declaration inside-out to match the C reading of a type. *)
 let rec mk_sad name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =

@@ -2,7 +2,7 @@
 open PPrint
 open PrintCommon
 open Ast
-open Misc
+open Idents
 
 (* ------------------------------------------------------------------------ *)
 

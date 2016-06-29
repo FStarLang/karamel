@@ -76,6 +76,13 @@ and typ =
   | TArrow of (typ * typ)
   | TZ
 
+let flatten_arrow =
+  let rec flatten_arrow acc = function
+    | TArrow (t1, t2) -> flatten_arrow (t1 :: acc) t2
+    | t -> t, List.rev acc
+  in
+  flatten_arrow []
+
 (** Versioned binary writing/reading of ASTs *)
 
 type version = int

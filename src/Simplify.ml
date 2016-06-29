@@ -3,7 +3,7 @@
 
 open Ast
 open DeBruijn
-open Misc
+open Idents
 open Error
 
 (* Some helpers ***************************************************************)
