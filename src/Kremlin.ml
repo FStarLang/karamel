@@ -44,6 +44,7 @@ let _ =
     print PrintC.print_files files;
 
   if !arg_write then begin
+    flush stderr;
     Printf.printf "KreMLin: writing out C files for %s\n" (String.concat ", " (List.map fst files));
     Output.write files
   end

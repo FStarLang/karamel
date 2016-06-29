@@ -73,21 +73,21 @@ let rec translate_expr env = function
   | ECast (e, t) ->
       CStar.Cast (translate_expr env e, translate_type env t)
   | EOpen _ | EPopFrame | EPushFrame | EBufBlit _ ->
-      failwith "[AstToCStar.translate_expr]: invalid argument"
+      throw_error "[AstToCStar.translate_expr]: invalid argument"
   | EUnit ->
-      failwith "[AstToCStar.translate_expr EUnit]: not implemented"
+      throw_error "[AstToCStar.translate_expr EUnit]: not implemented"
   | ELet _ ->
-      failwith "[AstToCStar.translate_expr ELet]: not implemented"
+      throw_error "[AstToCStar.translate_expr ELet]: not implemented"
   | EIfThenElse _ ->
-      failwith "[AstToCStar.translate_expr EIfThenElse]: not implemented"
+      throw_error "[AstToCStar.translate_expr EIfThenElse]: not implemented"
   | ESequence _ ->
-      failwith "[AstToCStar.translate_expr ESequence]: not implemented"
+      throw_error "[AstToCStar.translate_expr ESequence]: not implemented"
   | EAssign _ ->
-      failwith "[AstToCStar.translate_expr EAssign]: not implemented"
+      throw_error "[AstToCStar.translate_expr EAssign]: not implemented"
   | EBufWrite _ ->
-      failwith "[AstToCStar.translate_expr EBufWrite]: not implemented"
+      throw_error "[AstToCStar.translate_expr EBufWrite]: not implemented"
   | EMatch _ ->
-      failwith "[AstToCStar.translate_expr EMatch]: not implemented"
+      throw_error "[AstToCStar.translate_expr EMatch]: not implemented"
 
 
 and collect (env, acc) = function
@@ -117,7 +117,7 @@ and collect (env, acc) = function
       env, e :: acc
 
   | EMatch _ ->
-      failwith "[AstToCStar.collect EMatch]: not implemented"
+      throw_error "[AstToCStar.collect EMatch]: not implemented"
 
   | EUnit ->
       env, acc
@@ -155,10 +155,10 @@ and translate_function_block env e t =
         if had_pop then
           stmts
         else
-          failwith "[translate_function_block]: ill-parenthesized push/pop frame"
+          throw_error "[translate_function_block]: ill-parenthesized push/pop frame"
     | stmts ->
         if had_pop then
-          failwith "[translate_function_block]: ill-parenthesized push/pop frame"
+          throw_error "[translate_function_block]: ill-parenthesized push/pop frame"
         else
           stmts
   in
@@ -171,7 +171,7 @@ and translate_function_block env e t =
 
   | _, _ ->
       (* TODO: type aliases for void *)
-      failwith "[translate_function_block]: violated invariant"
+      throw_error "[translate_function_block]: violated invariant"
 
 
 and translate_type env = function
@@ -234,6 +234,6 @@ and translate_files files =
     try
       Some (translate_file f)
     with Error e ->
-      Printf.eprintf "Couldn't translate %s to CStar: %s\n" (fst f) e;
+      Printf.eprintf "Warning: dropping %s [in ast-to-cstar]: %s\n" (fst f) e;
       None
   ) files

@@ -28,7 +28,7 @@ let visit_files (env: 'env) (mapper: < dfunction: 'env -> typ -> ident -> binder
     try
       Some (visit_file env mapper f)
     with Error e ->
-      Printf.eprintf "Couldn't simplify %s: %s\n" (fst f) e;
+      Printf.eprintf "Warning: dropping %s [in simplify]: %s\n" (fst f) e;
       None
   ) files
 
@@ -46,7 +46,7 @@ end
 
 (* Count the number of occurrences of each variable ***************************)
 
-class count_use = object (self)
+let count_use = object (self)
 
   inherit [binder list] map
 
@@ -74,7 +74,7 @@ end
 
 (* F* extraction generates these degenerate cases *****************************)
 
-class dummy_match = object (self)
+let dummy_match = object (self)
 
   inherit [unit] map
 
@@ -91,9 +91,9 @@ class dummy_match = object (self)
 end
 
 
-(* Get wraparound semantics for arithemtic operations using casts to uint_* ***)
+(* Get wraparound semantics for arithmetic operations using casts to uint_* ***)
 
-class wrapping_arithmetic = object (self)
+let wrapping_arithmetic = object (self)
 
   inherit [unit] map
 
@@ -307,8 +307,9 @@ let eta_expand = object
         DGlobal (name, t, body)
 end
 
+
 (* Make top-level names C-compatible with a global translation table **********)
-let record_everything = object
+let record_toplevel_names = object
 
   method dglobal () name t body =
     DGlobal (GlobalNames.record name, t, body)
@@ -320,22 +321,23 @@ let record_everything = object
     DTypeAlias (GlobalNames.record name, t)
 end
 
-let replace_everything = object
+let replace_references_to_toplevel_names = object
   inherit [unit] map
 
   method equalified () lident =
     EQualified ([], GlobalNames.translate (string_of_lident lident))
 end
 
+
 (* Everything composed together ***********************************************)
 
 let simplify (files: file list): file list =
-  let files = visit_files () record_everything files in
-  let files = visit_files () replace_everything files in
+  let files = visit_files () record_toplevel_names files in
+  let files = visit_files () replace_references_to_toplevel_names files in
   let files = visit_files () eta_expand files in
-  let files = visit_files [] (new count_use) files in
-  let files = visit_files () (new dummy_match) files in
-  let files = visit_files () (new wrapping_arithmetic) files in
+  let files = visit_files [] count_use files in
+  let files = visit_files () dummy_match files in
+  let files = visit_files () wrapping_arithmetic files in
   let files = visit_files () (object
     inherit ignore_everything
 
