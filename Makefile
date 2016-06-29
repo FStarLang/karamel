@@ -1,9 +1,11 @@
+.PHONY: all tags clean test
+
 OCAMLBUILD=ocamlbuild -I src -I lib -package zarith -package pprint -package unix
 TARGETS=Kremlin.native Tests.native
 
 all:
 	@# Workaround Windows bug in OCamlbuild
-	@-rm $(TARGETS)
+	$(shell [ -f Kremlin.native ] && rm Kremlin.native; [ -f Tests.native ] && rm Tests.native)
 	$(OCAMLBUILD) $(TARGETS)
 	ln -sf Kremlin.native krml
 
@@ -12,7 +14,7 @@ clean:
 	rm -f krml
 
 tags:
-	ctags -R .
+	ctags -R --exclude=_build .
 
 test: all
 	./Tests.native

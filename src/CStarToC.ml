@@ -2,12 +2,7 @@
 
 open C
 open CStar
-
-let string_of_lident (idents, ident) =
-  if List.length idents > 0 then
-    String.concat "_" idents ^ "_" ^ ident
-  else
-    ident
+open Misc
 
 (* Turns the ML declaration inside-out to match the C reading of a type. *)
 let rec mk_sad name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
@@ -22,8 +17,8 @@ let rec mk_sad name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.
       Int w, k (Ident name)
   | Void ->
       Void, k (Ident name)
-  | Named n ->
-      Named n, k (Ident name)
+  | Qualified l ->
+      Named (string_of_lident l), k (Ident name)
   | Z ->
       Named "mpz_t", k (Ident name)
   | Bool ->
@@ -144,7 +139,8 @@ and mk_expr (e: expr): C.expr =
 and mk_type t =
   (* hack alert *)
   mk_spec_and_declarator "" t
-  
+
+
 let mk_decl_or_function (d: decl): C.declaration_or_function =
   match d with
   | TypeAlias (name, t) ->

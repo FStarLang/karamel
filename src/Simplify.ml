@@ -3,14 +3,16 @@
 
 open Ast
 open DeBruijn
+open Misc
+open Error
 
 (* Some helpers ***************************************************************)
 
 let visit_decl (env: 'env) mapper = function
   | DFunction (ret, name, binders, expr) ->
       mapper#dfunction env ret name binders expr
-  | DTypeAlias t ->
-      DTypeAlias t
+  | DTypeAlias (name, t) ->
+      mapper#dtypealias env name t
   | DGlobal (name, typ, expr) ->
       mapper#dglobal env name typ expr
 
@@ -22,7 +24,24 @@ let visit_file (env: 'env) mapper (file: file) =
   name, visit_program env mapper program
 
 let visit_files (env: 'env) (mapper: < dfunction: 'env -> typ -> ident -> binder list -> expr -> decl; .. >) (files: file list) =
-  List.map (visit_file env mapper) files
+  KList.filter_map (fun f ->
+    try
+      Some (visit_file env mapper f)
+    with Error e ->
+      Printf.eprintf "Couldn't simplify %s: %s\n" (fst f) e;
+      None
+  ) files
+
+class ignore_everything = object
+  method dfunction () ret name binders expr =
+    DFunction (ret, name, binders, expr)
+
+  method dglobal () name typ expr =
+    DGlobal (name, typ, expr)
+
+  method dtypealias () name t =
+    DTypeAlias (name, t)
+end
 
 
 (* Count the number of occurrences of each variable ***************************)
@@ -267,21 +286,64 @@ and hoist e =
       failwith "[hoist_t]: EMatch"
 
 
+(* No partial applications ****************************************************)
+
+let eta_expand = object
+  inherit ignore_everything
+
+  method dglobal () name t body =
+    (* TODO: eta-expand partially applied functions *)
+    match t with
+    | TArrow _ ->
+        let tret, targs = flatten_arrow t in
+        let n = List.length targs in
+        let binders, args = List.split (List.mapi (fun i t ->
+          { name = Printf.sprintf "x%d" i; typ = t; mut = false; mark = 0 },
+          EBound (n - i - 1)
+        ) targs) in
+        let body = EApp (body, args) in
+        DFunction (tret, name, binders, body)
+    | _ ->
+        DGlobal (name, t, body)
+end
+
+(* Make top-level names C-compatible with a global translation table **********)
+let record_everything = object
+
+  method dglobal () name t body =
+    DGlobal (GlobalNames.record name, t, body)
+
+  method dfunction () ret name args body =
+    DFunction (ret, GlobalNames.record name, args, body)
+
+  method dtypealias () name t =
+    DTypeAlias (GlobalNames.record name, t)
+end
+
+let replace_everything = object
+  inherit [unit] map
+
+  method equalified () lident =
+    EQualified ([], GlobalNames.translate (string_of_lident lident))
+end
+
 (* Everything composed together ***********************************************)
 
 let simplify (files: file list): file list =
+  let files = visit_files () record_everything files in
+  let files = visit_files () replace_everything files in
+  let files = visit_files () eta_expand files in
   let files = visit_files [] (new count_use) files in
   let files = visit_files () (new dummy_match) files in
   let files = visit_files () (new wrapping_arithmetic) files in
   let files = visit_files () (object
+    inherit ignore_everything
+
     method dfunction () ret name binders expr =
+      (* TODO: no nested let-bindings in top-level value declarations either *)
       let expr = open_function_binders binders expr in
       let expr = hoist_t expr in
       let expr = close_function_binders binders expr in
       DFunction (ret, name, binders, expr)
-
-    method dglobal () name typ expr =
-      (* TODO: figure something out about this *)
-      DGlobal (name, typ, expr)
   end) files in
   files

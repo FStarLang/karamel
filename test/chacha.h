@@ -1,6 +1,6 @@
 #include <inttypes.h>
 
-void chacha20_encrypt(
+void Chacha_chacha20_encrypt(
   uint8_t *ciphertext,
   uint8_t *key,
   uint32_t counter,

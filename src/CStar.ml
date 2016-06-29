@@ -59,7 +59,7 @@ and typ =
   | Int of Constant.width
   | Pointer of typ
   | Void
-  | Named of ident
+  | Qualified of lident
   | Array of typ * expr
   | Function of typ * typ list
   | Bool

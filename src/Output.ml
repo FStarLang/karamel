@@ -17,7 +17,7 @@ let write_one (name, program) =
       string boilerplate ^^ hardline ^^
       separate_map (hardline ^^ hardline) PrintC.p_decl_or_function program
     in
-    PPrint.ToChannel.pretty 0.95 80 oc doc
+    PPrint.ToChannel.pretty 0.95 100 oc doc
   )
 
 let write files =

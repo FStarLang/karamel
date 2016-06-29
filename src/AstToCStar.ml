@@ -18,6 +18,8 @@
  *)
 
 open Ast
+open Misc
+open Error
 
 let map_flatten f l = List.flatten (List.map f l)
 
@@ -48,20 +50,7 @@ let find env i =
  * defined in another block higher up. This is, naturally, a conservative
  * choice. *)
 let ensure_fresh env name =
-  let is_valid = function
-    | 'a'..'z' | 'A'..'Z' | '0'..'9' | '_' -> true
-    | _ -> false
-  in
-  let name = String.map (fun c -> if not (is_valid c) then '_' else c) name in
-  if List.exists ((=) name) env.in_block then
-    let i = ref 0 in
-    let mk () = name ^ string_of_int !i in
-    while List.exists ((=) (mk ())) env.names do
-      incr i
-    done;
-    mk ()
-  else
-    name
+  mk_fresh name (fun tentative -> List.exists ((=) tentative) env.in_block)
 
 
 let rec translate_expr env = function
@@ -192,18 +181,14 @@ and translate_type env = function
       CStar.Pointer (translate_type env t)
   | TUnit ->
       CStar.Void
-  | TAlias name ->
-      CStar.Named name
+  | TQualified name ->
+      CStar.Qualified name
   | TBool ->
       CStar.Bool
   | TAny ->
       CStar.Pointer CStar.Void
   | TArrow _ as t ->
-      let rec flatten_arrow acc = function
-        | TArrow (t1, t2) -> flatten_arrow (t1 :: acc) t2
-        | t -> t, List.rev acc
-      in
-      let ret, args = flatten_arrow [] t in
+      let ret, args = flatten_arrow t in
       CStar.Function (translate_type env ret, List.map (translate_type env) args)
   | TZ ->
       CStar.Z
@@ -245,4 +230,10 @@ and translate_file (name, program) =
   name, translate_program program
 
 and translate_files files =
-  List.map translate_file files
+  KList.filter_map (fun f ->
+    try
+      Some (translate_file f)
+    with Error e ->
+      Printf.eprintf "Couldn't translate %s to CStar: %s\n" (fst f) e;
+      None
+  ) files

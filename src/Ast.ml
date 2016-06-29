@@ -70,7 +70,7 @@ and typ =
   | TInt of K.width
   | TBuf of typ
   | TUnit
-  | TAlias of ident
+  | TQualified of lident
   | TBool
   | TAny
   | TArrow of (typ * typ)
@@ -79,7 +79,7 @@ and typ =
 (** Versioned binary writing/reading of ASTs *)
 
 type version = int
-let current_version: version = 3
+let current_version: version = 4
 
 type file = string * program
 type binary_format = version * file list
@@ -252,6 +252,8 @@ class ['env] map = object (self)
   method dglobal env name typ expr =
     DGlobal (name, typ, self#visit env expr)
 
+  method dtypealias (_: 'env) name typ =
+    DTypeAlias (name, typ)
 end
 
 (** Input / output of ASTs *)

@@ -2,6 +2,7 @@
 open PPrint
 open PrintCommon
 open Ast
+open Misc
 
 (* ------------------------------------------------------------------------ *)
 
@@ -40,7 +41,7 @@ and print_typ = function
   | TInt w -> print_width w ^^ string "_t"
   | TBuf t -> print_typ t ^^ star
   | TUnit -> string "()"
-  | TAlias name -> string name
+  | TQualified name -> string (string_of_lident name)
   | TBool -> string "bool"
   | TAny -> string "any"
   | TArrow (t1, t2) -> print_typ t1 ^^ space ^^ string "->" ^/^ nest 2 (print_typ t2)
