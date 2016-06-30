@@ -75,7 +75,7 @@ let rec translate_expr env = function
   | EOpen _ | EPopFrame | EPushFrame | EBufBlit _ ->
       throw_error "[AstToCStar.translate_expr]: invalid argument"
   | EUnit ->
-      throw_error "[AstToCStar.translate_expr EUnit]: not implemented"
+      CStar.Constant (K.UInt8, "0")
   | ELet _ ->
       throw_error "[AstToCStar.translate_expr ELet]: not implemented"
   | EIfThenElse _ ->
@@ -174,7 +174,7 @@ and translate_function_block env e t =
       throw_error "[translate_function_block]: violated invariant"
 
 
-and translate_type env = function
+and translate_return_type env = function
   | TInt w ->
       CStar.Int w
   | TBuf t ->
@@ -189,10 +189,15 @@ and translate_type env = function
       CStar.Pointer CStar.Void
   | TArrow _ as t ->
       let ret, args = flatten_arrow t in
-      CStar.Function (translate_type env ret, List.map (translate_type env) args)
+      CStar.Function (translate_return_type env ret, List.map (translate_type env) args)
   | TZ ->
       CStar.Z
 
+and translate_type env = function
+  | TUnit ->
+      CStar.Pointer CStar.Void
+  | t ->
+      translate_return_type env t
 
 and translate_and_push_binders env binders =
   let env, acc = List.fold_left (fun (env, acc) binder ->
@@ -211,7 +216,7 @@ and translate_and_push_binder env binder =
 and translate_declaration env d: CStar.decl =
   match d with
   | DFunction (t, name, binders, body) ->
-      let t = translate_type env t in
+      let t = translate_return_type env t in
       let env, binders = translate_and_push_binders env binders in
       let body = translate_function_block env body t in
       CStar.Function (t, name, binders, body)

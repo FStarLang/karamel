@@ -19,4 +19,5 @@ let translate name =
   try
     Hashtbl.find c_of_original name
   with Not_found ->
-    throw_error "Unresolved global name: %s" name
+    (* Assuming some externally-realized function. *)
+    to_c_identifier name
