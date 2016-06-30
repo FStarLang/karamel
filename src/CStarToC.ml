@@ -48,13 +48,13 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
   | _ ->
       Compound stmts
 
-and mk_stmt (stmt: stmt): C.stmt =
+and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
   | Return e ->
-      Return (Some (mk_expr e))
+      [ Return (Some (mk_expr e)) ]
 
   | Ignore e ->
-      Expr (mk_expr e)
+      [ Expr (mk_expr e) ]
 
   | Decl (binder, BufCreate (init, size)) ->
       (* In the case where this is a buffer creation in the C* meaning, then we
@@ -64,41 +64,54 @@ and mk_stmt (stmt: stmt): C.stmt =
         | Pointer t -> Array (t, size)
         | _ -> failwith "impossible"
       in
-      let init: C.init = match init with
-        | Constant ((_, "0") as k) -> Initializer [ Expr (C.Constant k) ]
+      let maybe_init: C.init option = match init with
+        | Constant ((_, "0") as k) ->
+            begin match !Options.vla with
+            | true -> None
+            | false -> Some (Initializer [ Expr (C.Constant k) ])
+            end
         | _ -> failwith "[mk_stmt]: non zero-initialized arrays not supported"
       in
       let spec, decl = mk_spec_and_declarator binder.name t in
-      Decl (spec, None, [ decl, Some init ])
+      let memset: C.stmt list =
+        if !Options.vla then
+          [ Expr (Call (Name "memset", [
+              Name binder.name;
+              Constant (K.UInt8, "0");
+              Op2 (K.Mult, mk_expr size, Sizeof (mk_expr init))])) ]
+        else
+          [ ]
+      in
+      Decl (spec, None, [ decl, maybe_init ]) :: memset
 
   | Decl (binder, e) ->
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
       let e = mk_expr e in
-      Decl (spec, None, [ decl, Some (Expr e) ])
+      [ Decl (spec, None, [ decl, Some (Expr e) ]) ]
 
   | IfThenElse (e, b1, b2) ->
       if List.length b2 > 0 then
-        SelectIfElse (mk_expr e, mk_compound_if (mk_stmts b1), mk_compound_if (mk_stmts b2))
+        [ SelectIfElse (mk_expr e, mk_compound_if (mk_stmts b1), mk_compound_if (mk_stmts b2)) ]
       else
-        SelectIf (mk_expr e, mk_compound_if (mk_stmts b1))
+        [ SelectIf (mk_expr e, mk_compound_if (mk_stmts b1)) ]
 
   | Assign (e1, e2) ->
-      Expr (Assign (mk_expr e1, mk_expr e2))
+      [ Expr (Assign (mk_expr e1, mk_expr e2)) ]
 
   | BufWrite (e1, e2, e3) ->
-      Expr (Assign (Index (mk_expr e1, mk_expr e2), mk_expr e3))
+      [ Expr (Assign (Index (mk_expr e1, mk_expr e2), mk_expr e3)) ]
 
   | BufBlit (e1, e2, e3, e4, e5) ->
-      Expr (Call (Name "memcpy", [
+      [ Expr (Call (Name "memcpy", [
         Op2 (K.Add, mk_expr e3, mk_expr e4);
         Op2 (K.Add, mk_expr e1, mk_expr e2);
-        Op2 (K.Mult, mk_expr e5, Sizeof (Index (mk_expr e1, Constant (K.UInt8, "0"))))]))
+        Op2 (K.Mult, mk_expr e5, Sizeof (Index (mk_expr e1, Constant (K.UInt8, "0"))))])) ]
 
   | PushFrame | PopFrame ->
       failwith "[mk_stmt]: nested frames not supported"
 
 and mk_stmts stmts =
-  List.map mk_stmt stmts
+  KList.map_flatten mk_stmt stmts
 
 and mk_expr (e: expr): C.expr =
   match e with

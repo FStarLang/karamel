@@ -13,6 +13,7 @@ let _ =
     "-dast", Arg.Set arg_print_ast, " pretty-print the input AST";
     "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the input AST after simplification";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
+    "-vla", Arg.Set Options.vla, " code may contain variable-length arrays; initialize with memset";
     "-write", Arg.Set arg_write, " write an output C file for each file contained in the input file";
   ] (fun f ->
     filename := f

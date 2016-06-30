@@ -44,18 +44,24 @@ HYPERSTACK_LIB="$FSTAR_HOME/examples/low-level/"
 FSTAR_OPTIONS="--lax --trace_error --codegen Kremlin"
 FSTAR="fstar.exe --include $HYPERSTACK_LIB $FSTAR_OPTIONS"
 
-# Currently sitting in examples/low-level
-FILES=Chacha
-
-for f in $FILES; do
-  $FSTAR $f.fst
-  ../Kremlin.native -write out.krml
+function test () {
+  local fstar_file=$1
+  local c_main=$2
+  local krml_options=$3
+  local out=${fstar_file%fst}exe
+  echo "Extracting [$krml_options] $fstar_file + $c_main => $out"
+  $FSTAR $fstar_file
+  ../Kremlin.native -write out.krml $krml_options
   if $HAS_CLANG; then
-    $CLANG main-$f.c -o $f
-    ./$f
-    echo "$f/clang exited with $?"
+    $CLANG $c_main -o $out
+    ./$out
+    echo "$out/clang exited with $?"
   fi
-  $GCC main-$f.c -o $f
-  ./$f
-  echo "$f/gcc exited with $?"
-done
+  $GCC $c_main -o $out
+  ./$out
+  echo "$out/gcc exited with $?"
+}
+
+# These files currently sitting in examples/low-level
+test Poly.Poly1305.fst main-Poly1305.c "-vla"
+test Chacha.fst main-Chacha.c

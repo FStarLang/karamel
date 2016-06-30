@@ -20,12 +20,7 @@ let c99_macro_for_width w =
   | Int64  -> "INT64_C"
 
 let p_constant (w, s) =
-  (* An unprefixed C literal must fit (since C99) in [unsigned long int] or
-   * [long long int]. This is a very conservative estimate. *)
-  if String.length s <= 5 && let i = int_of_string s in -65536 <= i && i <= 65535 then
-    string s
-  else
-    string (c99_macro_for_width w) ^^ lparen ^^ string s ^^ rparen
+  string (c99_macro_for_width w) ^^ lparen ^^ string s ^^ rparen
 
 let p_storage_spec = function
   | Typedef -> string "typedef"

@@ -34,7 +34,7 @@ int main () {
     key[i] = i;
   uint32_t counter = 1;
   uint8_t nonce[12] = { 0, 0, 0, 0, 0, 0, 0, 0x4a, 0, 0, 0, 0 };
-  uint8_t ciphertext[LEN];
+  uint8_t ciphertext[LEN] = { 0 };
 
   Chacha_chacha20_encrypt(ciphertext, key, counter, nonce, plaintext, LEN);
   if (memcmp(expected, ciphertext, LEN) != 0) {

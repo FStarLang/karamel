@@ -8,3 +8,6 @@ let rec filter_map f l =
           x :: filter_map f l
       | None ->
           filter_map f l
+
+let map_flatten f l =
+  List.flatten (List.map f l)
