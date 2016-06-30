@@ -61,8 +61,8 @@ and print_expr = function
   | EApp (e, es) ->
       print_app print_expr e print_expr es
   | ELet (binder, e1, e2) ->
-      group (string "let" ^/^ print_binder binder ^/^ equals ^^
-      jump (print_expr e1) ^/^ string "in") ^/^ print_expr e2
+      group (group (string "let" ^/^ print_binder binder ^/^ equals) ^^
+      jump (print_expr e1) ^/^ string "in") ^/^ group (print_expr e2)
   | EIfThenElse (e1, e2, e3) ->
       string "if" ^/^ print_expr e1 ^/^ string "then" ^^
       jump (print_expr e2) ^/^ string "else" ^^
