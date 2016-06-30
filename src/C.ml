@@ -38,6 +38,7 @@ and expr =
   | Name of ident
   | Cast of type_name * expr
   | Constant of K.t
+  | Bool of bool
   | Sizeof of expr
 
 (** this is a WILD approximation of the notion of "type name" in C _and_ a hack

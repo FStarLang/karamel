@@ -37,6 +37,7 @@ and expr =
   | ECast of (expr * typ)
   | EPushFrame
   | EPopFrame
+  | EBool of bool
 
 
 and branches =
@@ -153,6 +154,8 @@ class virtual ['env, 'result] visitor = object (self)
         self#epushframe env
     | EPopFrame ->
         self#epopframe env
+    | EBool b ->
+        self#ebool env b
 
   method virtual ebound: 'env -> var -> 'result
   method virtual eopen: 'env -> binder -> 'result
@@ -174,6 +177,7 @@ class virtual ['env, 'result] visitor = object (self)
   method virtual ecast: 'env -> expr -> typ -> 'result
   method virtual epushframe: 'env -> 'result
   method virtual epopframe: 'env -> 'result
+  method virtual ebool: 'env -> bool -> 'result
 
 end
 
@@ -241,6 +245,9 @@ class ['env] map = object (self)
 
   method epushframe _env =
     EPushFrame
+
+  method ebool _env b =
+    EBool b
 
   method branches env branches =
     List.map (fun (pat, expr) ->

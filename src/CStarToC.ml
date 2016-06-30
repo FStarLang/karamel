@@ -22,7 +22,7 @@ let rec mk_sad name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.
   | Z ->
       Named "mpz_t", k (Ident name)
   | Bool ->
-      Named "_Bool", k (Ident name)
+      Named "bool", k (Ident name)
 
 and mk_spec_and_declarator name t =
   mk_sad name t (fun d -> d)
@@ -134,6 +134,9 @@ and mk_expr (e: expr): C.expr =
 
   | Op _ ->
       failwith "[mk_expr]: impossible, should've caught it earlier..."
+
+  | Bool b ->
+      Bool b
 
 
 and mk_type t =

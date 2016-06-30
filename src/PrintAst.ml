@@ -97,6 +97,9 @@ and print_expr = function
   | EPushFrame ->
       string "push_frame"
 
+  | EBool b ->
+      string (string_of_bool b)
+
 and print_branches branches =
   separate_map (break 1) (fun b -> group (print_branch b)) branches
 

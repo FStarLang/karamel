@@ -140,6 +140,7 @@ let rec hoist_t e =
   | EConstant _
   | EUnit
   | EPushFrame | EPopFrame
+  | EBool _
   | EOp _ ->
       e
 
@@ -222,6 +223,7 @@ and hoist e =
   | EConstant _
   | EUnit
   | EPushFrame | EPopFrame
+  | EBool _
   | EOp _ ->
       [], e
 

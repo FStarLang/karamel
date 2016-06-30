@@ -35,6 +35,7 @@ and expr =
   | BufSub of expr * expr
   | Op of op
   | Cast of expr * typ
+  | Bool of bool
 
 and block =
   stmt list

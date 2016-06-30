@@ -132,6 +132,8 @@ let rec translate_expr env = function
       throw_error "[AstToCStar.translate_expr EBufWrite]: not implemented"
   | EMatch _ ->
       throw_error "[AstToCStar.translate_expr EMatch]: not implemented"
+  | EBool b ->
+      CStar.Bool b
 
 
 and collect (env, acc) = function

@@ -8,6 +8,7 @@ let boilerplate =
 #include <inttypes.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 |}
 
 let write_one (name, program) =

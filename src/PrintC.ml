@@ -121,6 +121,8 @@ and p_expr curr = function
       paren_if curr mine (string "sizeof" ^^ space ^^ e)
   | Op1 _ | Deref _ | Address _ | Member _ | MemberP _ ->
       failwith "[p_expr]: not implemented"
+  | Bool b ->
+      string (string_of_bool b)
 
 let p_expr = p_expr 15
 
@@ -143,6 +145,19 @@ let p_declaration (spec, stor, decl_and_inits) =
   stor ^^ group (p_type_spec spec) ^^ space ^^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
+(* This is abusing the definition of a compound statement to ensure it is printed with braces. *)
+let nest_if f stmt =
+  match stmt with
+  | Compound _ ->
+      hardline ^^ f stmt
+  | _ ->
+      nest 2 (hardline ^^ f stmt)
+
+let protect_solo_if s =
+  match s with
+  | SelectIf _ -> Compound [ s ]
+  | _ -> s
+
 let rec p_stmt (s: stmt) =
   (* [p_stmt] is responsible for appending [semi] and calling [group]! *)
   match s with
@@ -152,13 +167,13 @@ let rec p_stmt (s: stmt) =
   | Expr expr ->
       group (p_expr expr ^^ semi)
   | SelectIf (e, stmt) ->
-      group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^/^
-      p_stmt stmt
+      group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^^
+      nest_if p_stmt stmt
   | SelectIfElse (e, s1, s2) ->
-      group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^/^
-      p_stmt s1 ^/^
-      string "else" ^/^
-      p_stmt s2
+      group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^^
+      nest_if p_stmt (protect_solo_if s1) ^^ hardline ^^
+      string "else" ^^
+      nest_if p_stmt s2
   | Return None ->
       group (string "return" ^^ semi)
   | Return (Some e) ->
