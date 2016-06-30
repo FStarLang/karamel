@@ -74,6 +74,7 @@ and prec_of_op2 op =
   | BShiftL -> 5, 5, 4
   | BShiftR -> 5, 5, 4
   | Eq -> 7, 7, 7
+  | Lt | Lte | Gt | Gte -> 6, 6, 5
 
 (* The precedence level [curr] is the maximum precedence the current node should
  * have. If it doesn't, then it should be parenthesized. Lower numbers bind

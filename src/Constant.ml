@@ -8,7 +8,7 @@ and width =
 type op =
   | Add | AddW | Sub | SubW | Div | Mult | Mod
   | BOr | BAnd | BXor | BShiftL | BShiftR
-  | Eq
+  | Eq | Lt | Lte | Gt | Gte
 
 let unsigned_of_signed = function
   | Int8 -> UInt8

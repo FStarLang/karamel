@@ -86,7 +86,7 @@ let flatten_arrow =
 (** Versioned binary writing/reading of ASTs *)
 
 type version = int
-let current_version: version = 4
+let current_version: version = 5
 
 type file = string * program
 type binary_format = version * file list

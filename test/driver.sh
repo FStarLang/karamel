@@ -41,7 +41,7 @@ if $HAS_CLANG; then
 fi
 
 HYPERSTACK_LIB="$FSTAR_HOME/examples/low-level/"
-FSTAR_OPTIONS="--lax --trace_error --universes --codegen Kremlin"
+FSTAR_OPTIONS="--lax --trace_error --codegen Kremlin"
 FSTAR="fstar.exe --include $HYPERSTACK_LIB $FSTAR_OPTIONS"
 
 # Currently sitting in examples/low-level

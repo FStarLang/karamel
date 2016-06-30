@@ -45,12 +45,56 @@ let push env binder = CStar.{
 let find env i =
   List.nth env.names i
 
-(* If the name already exists in the block, then we have to pick a new one for
- * it. But we should make sure we don't accidentally shadow an existing name
- * defined in another block higher up. This is, naturally, a conservative
- * choice. *)
-let ensure_fresh env name =
-  mk_fresh name (fun tentative -> List.exists ((=) tentative) env.in_block)
+(* Freshness is a pain. Name conflicts can arise from the following situations.
+
+  ML: shadowing within your own block
+    let x = ... in
+    let x = ... x ... in
+  C:
+    int x = ...;
+    int x1 = ... x ...;
+  This is caught by the (List.exists ...) test.
+
+  ML: shadowing outside of your own block WITH references to the shadowed variable
+    fun x ->
+      let x = x + 1 in
+  bad C:
+    void f(x) {
+      int x = x + 1;
+  correct C:
+    void f(x) {
+      int x1 = x + 1;
+  This is caught by the visitor that checks whether the body of the definition
+  mentions ANY variable by the same name.
+
+  ML: shadowing outside of your own block WITHOUT references to the shadowed variable
+    fun x ->
+      let x = 1 in
+  C:
+    void f(x) {
+      int x = 1;
+  This is fine.
+*)
+let ensure_fresh env name body =
+  let tricky_shadowing_see_comment_above name =
+    match body with
+    | None ->
+        false
+    | Some body ->
+        let r = ref false in
+        ignore ((object
+          inherit [string list] map
+          method extend env binder =
+            Printf.eprintf "extend %s\n" binder.name;
+            binder.name :: env
+          method ebound env i =
+            r := !r || name = List.nth env i;
+            EBound i
+        end) # visit env.names body);
+        !r
+  in
+  mk_fresh name (fun tentative ->
+    tricky_shadowing_see_comment_above tentative || List.exists ((=) tentative) env.in_block)
 
 
 let rec translate_expr env = function
@@ -92,8 +136,8 @@ let rec translate_expr env = function
 
 and collect (env, acc) = function
   | ELet (binder, e1, e2) ->
-      let e1 = translate_expr env e1 in
-      let env, binder = translate_and_push_binder env binder in
+      let env, binder = translate_and_push_binder env binder (Some e1)
+      and e1 = translate_expr env e1 in
       let acc = CStar.Decl (binder, e1) :: acc in
       collect (env, acc) e2
 
@@ -201,14 +245,14 @@ and translate_type env = function
 
 and translate_and_push_binders env binders =
   let env, acc = List.fold_left (fun (env, acc) binder ->
-    let env, binder = translate_and_push_binder env binder in
+    let env, binder = translate_and_push_binder env binder None in
     env, binder :: acc
   ) (env, []) binders in
   env, List.rev acc
 
-and translate_and_push_binder env binder =
+and translate_and_push_binder env binder body =
   let binder = {
-    CStar.name = ensure_fresh env binder.name;
+    CStar.name = ensure_fresh env binder.name body;
     typ = translate_type env binder.typ
   } in
   push env binder, binder

@@ -1,6 +1,5 @@
 open PPrint
-
-module K = Constant
+open Constant
 
 let jump ?(indent=2) body =
   jump indent 1 body
@@ -14,32 +13,36 @@ let braces_with_nesting contents =
 let int i = string (string_of_int i)
 
 let print_width = function
-  | K.UInt8 -> string "uint8"
-  | K.UInt16 -> string "uint16"
-  | K.UInt32 -> string "uint32"
-  | K.UInt64 -> string "uint64"
-  | K.Int8 -> string "int8"
-  | K.Int16 -> string "int16"
-  | K.Int32 -> string "int32"
-  | K.Int64 -> string "int64"
+  | UInt8 -> string "uint8"
+  | UInt16 -> string "uint16"
+  | UInt32 -> string "uint32"
+  | UInt64 -> string "uint64"
+  | Int8 -> string "int8"
+  | Int16 -> string "int16"
+  | Int32 -> string "int32"
+  | Int64 -> string "int64"
 
 let print_constant = function
   | w, s -> string s ^^ print_width w
 
 let print_op = function
-  | K.Add -> string "+"
-  | K.AddW -> string "+w"
-  | K.Sub -> string "-"
-  | K.SubW -> string "-"
-  | K.Div -> string "/"
-  | K.Mult -> string "*"
-  | K.Mod -> string "%"
-  | K.BOr -> string "|"
-  | K.BAnd -> string "&"
-  | K.BXor -> string "^"
-  | K.BShiftL -> string "<<"
-  | K.BShiftR -> string ">>"
-  | K.Eq -> string "=="
+  | Add -> string "+"
+  | AddW -> string "+w"
+  | Sub -> string "-"
+  | SubW -> string "-"
+  | Div -> string "/"
+  | Mult -> string "*"
+  | Mod -> string "%"
+  | BOr -> string "|"
+  | BAnd -> string "&"
+  | BXor -> string "^"
+  | BShiftL -> string "<<"
+  | BShiftR -> string ">>"
+  | Eq -> string "=="
+  | Lt -> string "<"
+  | Lte -> string "<="
+  | Gt -> string ">"
+  | Gte -> string ">="
 
 let print_lident (idents, ident) =
   separate_map dot string (idents @ [ ident ])

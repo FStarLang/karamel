@@ -83,7 +83,9 @@ let dummy_match = object (self)
     | EUnit, [ PUnit, body ] ->
         self # visit () body
     | _, [ PBool true, b1; PVar v, b2 ] when v.mark = 0 ->
+        let b1 = self # visit () b1 in
         let b2 = open_binder v b2 in
+        let b2 = self # visit () b2 in
         EIfThenElse (e, b1, b2)
     | _ ->
         EMatch (e, self # branches () branches)
