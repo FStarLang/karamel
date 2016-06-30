@@ -173,7 +173,11 @@ let rec p_stmt (s: stmt) =
       group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^^
       nest_if p_stmt (protect_solo_if s1) ^^ hardline ^^
       string "else" ^^
-      nest_if p_stmt s2
+      (match s2 with
+      | SelectIf _ | SelectIfElse _ ->
+          space ^^ p_stmt s2
+      | _ ->
+        nest_if p_stmt s2)
   | Return None ->
       group (string "return" ^^ semi)
   | Return (Some e) ->
