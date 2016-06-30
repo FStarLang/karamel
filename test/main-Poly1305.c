@@ -33,7 +33,7 @@ uint8_t expected[] = {
 int main() {
   uint8_t hash[16];
   Poly_Poly1305_poly1305_mac(hash, msg, 34, key);
-  for (int i = 0; i < 34; ++i) {
+  for (int i = 0; i < 16; ++i) {
     if (hash[i] != expected[i]) {
       fprintf(stderr, "hash and expected differ at byte %d\n", i);
       return EXIT_FAILURE;
