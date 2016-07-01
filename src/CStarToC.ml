@@ -78,7 +78,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
           [ Expr (Call (Name "memset", [
               Name binder.name;
               Constant (K.UInt8, "0");
-              Op2 (K.Mult, mk_expr size, Sizeof (mk_expr init))])) ]
+              Op2 (K.Mult,
+                mk_expr size,
+                Sizeof (Index (Name binder.name, Constant (K.UInt8, "0"))))])) ]
         else
           [ ]
       in

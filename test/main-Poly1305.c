@@ -39,6 +39,11 @@ int main() {
       return EXIT_FAILURE;
     }
   }
-  printf("success");
+
+  char hash_string[33] = { 0 };
+  for (int i = 0; i < 16; ++i)
+    sprintf(hash_string+2*i, "%02x", hash[i]);
+  printf("Success! Hash is %s\n", hash_string);
+
   return EXIT_SUCCESS;
 }
