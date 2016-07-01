@@ -24,7 +24,8 @@ else
   CLANG="clang $OPTS"
 fi
 
-# On OSX, actual GCC is gcc-5; on other systems, gcc gets some recent gcc.
+# On OSX, to get GCC, one needs to call gcc-5; on other systems, the gcc command
+# is wired to a recent GCC.
 if which gcc-5 >/dev/null 2>&1; then
   GCC=gcc-5
 elif which x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
@@ -35,9 +36,10 @@ fi
 GCC="$GCC $OPTS"
 
 echo GCC is $GCC
-echo HAS_CLANG is $HAS_CLANG
 if $HAS_CLANG; then
   echo "CLANG is $CLANG"
+else
+  echo "CLANG was not detected"
 fi
 
 HYPERSTACK_LIB="$FSTAR_HOME/examples/low-level/"

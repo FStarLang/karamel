@@ -17,7 +17,7 @@ static const uint8_t expected[LEN] = {
   0x5a, 0xf9, 0x0b, 0xbf, 0x74, 0xa3, 0x5b, 0xe6, 0xb4, 0x0b, 0x8e, 0xed, 0xf2, 0x78, 0x5e, 0x42,
   0x87, 0x4d };
 
-void hexdump(uint8_t *buf, size_t len) {
+void hexdump(const uint8_t *buf, size_t len) {
   for (int i = 0; i < len; ++i) {
     if (i == len - 1)
       printf("0x%02" PRIx8 "\n", buf[i]);
@@ -39,8 +39,12 @@ int main () {
   Chacha_chacha20_encrypt(ciphertext, key, counter, nonce, plaintext, LEN);
   if (memcmp(expected, ciphertext, LEN) != 0) {
     printf("[Chacha]: encryption FAILED\n");
+    printf("\nPLAINTEXT:\n");
     hexdump(plaintext, LEN);
+    printf("\nCIPHERTEXT:\n");
     hexdump(ciphertext, LEN);
+    printf("\nEXPECTED:\n");
+    hexdump(expected, LEN);
     return EXIT_FAILURE;
   } else {
     printf("[Chacha]: encryption PASSED\n");
