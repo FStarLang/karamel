@@ -5,7 +5,7 @@ set -e
 # Path-conversion for Windows
 FSTAR_HOME="$(dirname $(which fstar.exe))/.."
 if which cygpath >/dev/null 2>&1; then
-  FSTAR_HOME=$(cygpath -m $FSTAR_HOME)
+  FSTAR_HOME=$(cygpath -m "$FSTAR_HOME")
 fi
 
 # Couldn't get clang to work on Windows...
