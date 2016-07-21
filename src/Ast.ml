@@ -9,6 +9,7 @@ module K = Constant
 
 type program =
   decl list
+  [@@deriving yojson]
 
 and decl =
   | DFunction of (typ * ident * binder list * expr)
@@ -87,10 +88,13 @@ let flatten_arrow =
 (** Versioned binary writing/reading of ASTs *)
 
 type version = int
+  [@@deriving yojson]
 let current_version: version = 5
 
 type file = string * program
+  [@@deriving yojson]
 type binary_format = version * file list
+  [@@deriving yojson]
 
 
 (** Some visitors for our AST of expressions *)

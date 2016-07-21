@@ -1,6 +1,6 @@
 .PHONY: all tags clean test
 
-OCAMLBUILD=ocamlbuild -I src -I lib -package zarith -package pprint -package unix
+OCAMLBUILD=ocamlbuild -I src -I lib -use-ocamlfind
 TARGETS=Kremlin.native Tests.native
 
 all:
@@ -10,8 +10,7 @@ all:
 	ln -sf Kremlin.native krml
 
 clean:
-	$(OCAMLBUILD) -clean
-	rm -f krml
+	rm -rf krml _build
 
 tags:
 	ctags -R --exclude=_build .

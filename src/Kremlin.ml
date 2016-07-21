@@ -2,6 +2,7 @@
 
 let _ =
   let arg_print_ast = ref false in
+  let arg_print_json = ref false in
   let arg_print_simplify = ref false in
   let arg_print_c = ref false in
   let arg_write = ref false in
@@ -11,6 +12,7 @@ let _ =
   in
   Arg.parse [
     "-dast", Arg.Set arg_print_ast, " pretty-print the input AST";
+    "-djson", Arg.Set arg_print_json, " dump the input AST as JSON";
     "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the input AST after simplification";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-vla", Arg.Set Options.vla, " code may contain variable-length arrays; initialize with memset";
@@ -33,6 +35,9 @@ let _ =
   let files = Ast.read_file !filename in
   if !arg_print_ast then
     print PrintAst.print_files files;
+
+  if !arg_print_json then
+    Yojson.Safe.to_channel stdout (Ast.binary_format_to_yojson (Ast.current_version, files));
 
   let files = Simplify.simplify files in
 
