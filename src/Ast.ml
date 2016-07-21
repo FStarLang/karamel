@@ -277,7 +277,18 @@ end
 (** Input / output of ASTs *)
 
 let read_file (f: string): file list =
-  let contents: binary_format = with_open_in f input_value in
+  let contents: binary_format =
+    if Filename.check_suffix f ".json" then
+      let open Result in
+      match binary_format_of_yojson (with_open_in f Yojson.Safe.from_channel) with
+      | Ok x ->
+          x
+      | Error e ->
+          Printf.eprintf "Couldn't read from .json file: %s\n" e;
+          exit 1
+    else
+      with_open_in f input_value
+  in
   let version, files = contents in
   if version <> current_version then
     failwith "This file is for a different version of KreMLin";
