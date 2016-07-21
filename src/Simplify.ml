@@ -71,7 +71,6 @@ let count_use = object (self)
 
 end
 
-
 (* F* extraction generates these degenerate cases *****************************)
 
 let dummy_match = object (self)

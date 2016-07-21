@@ -112,8 +112,18 @@ and mk_stmt (stmt: stmt): C.stmt list =
   | PushFrame | PopFrame ->
       failwith "[mk_stmt]: nested frames not supported"
 
-and mk_stmts stmts =
-  KList.map_flatten mk_stmt stmts
+and mk_stmts stmts: C.stmt list =
+  let mk = KList.map_flatten mk_stmt in
+  match stmts with
+  | PushFrame :: stmts ->
+      begin match List.rev stmts with
+      | PopFrame :: stmts ->
+          [ Compound (mk (List.rev stmts)) ]
+      | _ ->
+          failwith "[mk_stmts]: unmatched push_frame"
+      end
+  | _ ->
+      mk stmts
 
 and mk_expr (e: expr): C.expr =
   match e with
