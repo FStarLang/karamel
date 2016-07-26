@@ -3,17 +3,8 @@
 #include <string.h>
 #include <inttypes.h>
 #include <assert.h>
-
-typedef __int128 FStar_UInt128_t;
-typedef void *Prims_pos, *Prims_nat;
-
-uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
-  return x >= y ? UINT64_C(0xffffffffffffffff) : 0;
-}
-
-uint64_t FStar_UInt64_eq_mask(uint64_t x, uint64_t y) {
-  return x == y ? UINT64_C(0xffffffffffffffff) : 0;
-}
+#include "../kremlib/kremlib.h"
+#include "testlib.h"
 
 /* https://tools.ietf.org/html/rfc7539#section-2.8.1 */
 uint8_t plaintext[] = "Ladies and Gentlemen of the class of '99: "
@@ -58,23 +49,6 @@ uint8_t expected_tag[] = {
 _Static_assert(sizeof plaintext == sizeof plaintext[0] * TEXT_SIZE + 1, "wrong size");
 _Static_assert(sizeof expected_tag == sizeof expected_tag[0] * TAG_SIZE, "wrong size");
 _Static_assert(sizeof expected_ciphertext == sizeof expected_ciphertext[0] * TEXT_SIZE, "wrong size");
-
-void compare_and_print(const char *txt, uint8_t *reference, uint8_t *output, int size) {
-  char str[2*size + 1];
-  for (int i = 0; i < size; ++i)
-    sprintf(str+2*i, "%02x", output[i]);
-  str[2*size] = '\0';
-  printf("[aead] output %s is %s\n", txt, str);
-
-  for (int i = 0; i < size; ++i) {
-    if (output[i] != reference[i]) {
-      fprintf(stderr, "[aead] reference %s and expected %s differ at byte %d\n", txt, txt, i);
-      exit(EXIT_FAILURE);
-    }
-  }
-
-  printf("[aead] %s is a success\n", txt);
-}
 
 int main() {
   uint8_t ciphertext[TEXT_SIZE];

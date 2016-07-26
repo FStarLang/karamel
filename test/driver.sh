@@ -16,7 +16,8 @@ else
 fi
 
 # Detection
-OPTS="-Wall -Werror -Wno-parentheses -Wno-unused-variable -std=c11"
+KREMLIB="../kremlib"
+OPTS="-Wall -Werror -Wno-parentheses -Wno-unused-variable -std=c11 -I $KREMLIB"
 CLANG_UB="-fsanitize=undefined,integer"
 if $HAS_CLANG && clang $CLANG_UB main.c >/dev/null 2>&1; then
   CLANG="clang $CLANG_UB $OPTS"
@@ -46,6 +47,19 @@ HYPERSTACK_LIB="$FSTAR_HOME/examples/low-level/"
 FSTAR_OPTIONS="--lax --trace_error --codegen Kremlin"
 FSTAR="fstar.exe --include $HYPERSTACK_LIB $FSTAR_OPTIONS"
 
+function compile_libs () {
+  # The "kremlib", i.e. the glue code that realizes various functions modelized in F*
+  $GCC -c $KREMLIB/kremlib.c
+  # Some utilities to compare expected/actual outputs, etc.
+  $GCC -c testlib.c
+}
+
+OBJS="kremlib.o testlib.o"
+
+function color () {
+  echo -e "\033[0;31m$1\033[0m"
+}
+
 function test () {
   local fstar_file=$1
   local c_main=$2
@@ -55,14 +69,17 @@ function test () {
   $FSTAR $fstar_file
   ../Kremlin.native -write out.krml $krml_options
   if $HAS_CLANG; then
-    $CLANG $c_main -o $out
+    $CLANG $OBJS $c_main -o $out
     ./$out
-    echo "$out/clang exited with $?"
+    color "$out/clang exited with $?"
   fi
-  $GCC $c_main -o $out
+  $GCC $OBJS $c_main -o $out
   ./$out
-  echo "$out/gcc exited with $?"
+  color "$out/gcc exited with $?"
 }
+
+# Kremlib, testlib
+compile_libs
 
 # These files currently sitting in examples/low-level
 test Poly.Poly1305.fst main-Poly1305.c "-vla"
