@@ -73,7 +73,7 @@ void compare_and_print(const char *txt, uint8_t *reference, uint8_t *output, int
     }
   }
 
-  printf("[aead]: %s is a success\n", txt);
+  printf("[aead] %s is a success\n", txt);
 }
 
 int main() {
@@ -82,7 +82,7 @@ int main() {
 
   AEAD_Chacha20_Poly1305_chacha20_aead_encrypt(ciphertext,
     tag, aad, key, iv,
-    common_part, plaintext, TEXT_SIZE, TAG_SIZE);
+    common_part, plaintext, TEXT_SIZE, 12);
 
   compare_and_print("tag", expected_tag, tag, TAG_SIZE);
   compare_and_print("ciphertext", expected_ciphertext, ciphertext, TEXT_SIZE);
