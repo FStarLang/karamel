@@ -3,7 +3,15 @@
 #include <string.h>
 #include <inttypes.h>
 #include <assert.h>
+
 #include "../kremlib/kremlib.h"
+#include "Chacha_wip.c"
+#include "Poly_Parameters.c"
+#include "Poly_Bigint.c"
+#include "Poly_Bignum.c"
+#include "Poly_Poly1305_wip.c"
+#include "AEAD_Chacha20_Poly1305.c"
+
 #include "testlib.h"
 
 /* https://tools.ietf.org/html/rfc7539#section-2.8.1 */
@@ -36,13 +44,6 @@ uint8_t expected_ciphertext[] = {
 uint8_t expected_tag[] = {
   0x1a, 0xe1, 0x0b, 0x59, 0x4f, 0x09, 0xe2, 0x6a, 0x7e, 0x90, 0x2e, 0xcb, 0xd0, 0x60, 0x06, 0x91
 };
-
-#include "Chacha_wip.c"
-#include "Poly_Parameters.c"
-#include "Poly_Bigint.c"
-#include "Poly_Bignum.c"
-#include "Poly_Poly1305_wip.c"
-#include "AEAD_Chacha20_Poly1305.c"
 
 #define TEXT_SIZE 114
 #define TAG_SIZE 16
