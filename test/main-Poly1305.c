@@ -25,7 +25,7 @@ uint8_t key[] = {
   0xf6, 0xaf, 0x41, 0x49, 0xf5, 0x1b
 };
 uint8_t *msg = (uint8_t*)"Cryptographic Forum Research Group";
-uint8_t expected[] = {
+uint8_t expected_ciphertext[] = {
   0xa8, 0x06, 0x1d, 0xc1, 0x30, 0x51, 0x36, 0xc6, 0xc2, 0x2b, 0x8b, 0xaf, 0x0c,
   0x01, 0x27, 0xa9
 };
@@ -34,8 +34,8 @@ int main() {
   uint8_t hash[16];
   Poly_Poly1305_poly1305_mac(hash, msg, 34, key);
   for (int i = 0; i < 16; ++i) {
-    if (hash[i] != expected[i]) {
-      fprintf(stderr, "hash and expected differ at byte %d\n", i);
+    if (hash[i] != expected_ciphertext[i]) {
+      fprintf(stderr, "hash and expected_ciphertext differ at byte %d\n", i);
       return EXIT_FAILURE;
     }
   }
@@ -44,6 +44,5 @@ int main() {
   for (int i = 0; i < 16; ++i)
     sprintf(hash_string+2*i, "%02x", hash[i]);
   printf("Success! Hash is %s\n", hash_string);
-
   return EXIT_SUCCESS;
 }

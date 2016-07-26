@@ -10,17 +10,22 @@ open C
 let c99_macro_for_width w =
   let open Constant in
   match w with
-  | UInt8  -> "UINT8_C"
-  | UInt16 -> "UINT16_C"
-  | UInt32 -> "UINT32_C"
-  | UInt64 -> "UINT64_C"
-  | Int8   -> "INT8_C"
-  | Int16  -> "INT16_C"
-  | Int32  -> "INT32_C"
-  | Int64  -> "INT64_C"
+  | UInt8  -> Some "UINT8_C"
+  | UInt16 -> Some "UINT16_C"
+  | UInt32 -> Some "UINT32_C"
+  | UInt64 -> Some "UINT64_C"
+  | Int8   -> Some "INT8_C"
+  | Int16  -> Some "INT16_C"
+  | Int32  -> Some "INT32_C"
+  | Int64  -> Some "INT64_C"
+  | Bool -> None
 
 let p_constant (w, s) =
-  string (c99_macro_for_width w) ^^ lparen ^^ string s ^^ rparen
+  match c99_macro_for_width w with
+  | Some m ->
+      string m ^^ lparen ^^ string s ^^ rparen
+  | None ->
+      string s
 
 let p_storage_spec = function
   | Typedef -> string "typedef"
@@ -65,11 +70,20 @@ and prec_of_op2 op =
   | Mod -> 3, 3, 2
   | BOr -> 10, 10, 10
   | BAnd -> 8, 8, 8
-  | BXor -> 9, 9, 9
+  | BXor | Xor -> 9, 9, 9
   | BShiftL -> 5, 5, 4
   | BShiftR -> 5, 5, 4
-  | Eq -> 7, 7, 7
+  | Eq | Neq -> 7, 7, 7
   | Lt | Lte | Gt | Gte -> 6, 6, 5
+  | And -> 11, 11, 11
+  | Or -> 12, 12, 12
+  | Not -> raise (Invalid_argument "prec_of_op2")
+
+and prec_of_op1 op =
+  let open Constant in
+  match op with
+  | Not -> 2
+  | _ -> raise (Invalid_argument "prec_of_op1")
 
 (* The precedence level [curr] is the maximum precedence the current node should
  * have. If it doesn't, then it should be parenthesized. Lower numbers bind
@@ -81,6 +95,10 @@ and paren_if curr mine doc =
     doc
 
 and p_expr curr = function
+  | Op1 (op, e1) ->
+      let mine = prec_of_op1 op in
+      let e1 = p_expr mine e1 in
+      paren_if curr mine (print_op op ^^ e1)
   | Op2 (op, e1, e2) ->
       let mine, left, right = prec_of_op2 op in
       let e1 = p_expr left e1 in
@@ -114,7 +132,7 @@ and p_expr curr = function
       let mine, right = 2, 2 in
       let e = p_expr right e in
       paren_if curr mine (string "sizeof" ^^ space ^^ e)
-  | Op1 _ | Deref _ | Address _ | Member _ | MemberP _ ->
+  | Deref _ | Address _ | Member _ | MemberP _ ->
       failwith "[p_expr]: not implemented"
   | Bool b ->
       string (string_of_bool b)

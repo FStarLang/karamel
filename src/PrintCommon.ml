@@ -21,6 +21,7 @@ let print_width = function
   | Int16 -> string "int16"
   | Int32 -> string "int32"
   | Int64 -> string "int64"
+  | Bool -> string "bool"
 
 let print_constant = function
   | w, s -> string s ^^ print_width w
@@ -39,10 +40,15 @@ let print_op = function
   | BShiftL -> string "<<"
   | BShiftR -> string ">>"
   | Eq -> string "=="
+  | Neq -> string "!="
   | Lt -> string "<"
   | Lte -> string "<="
   | Gt -> string ">"
   | Gte -> string ">="
+  | And -> string "&&"
+  | Or -> string "||"
+  | Xor -> string "^"
+  | Not -> string "!"
 
 let print_lident (idents, ident) =
   separate_map dot string (idents @ [ ident ])

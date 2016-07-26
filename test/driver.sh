@@ -67,3 +67,4 @@ function test () {
 # These files currently sitting in examples/low-level
 test Poly.Poly1305.fst main-Poly1305.c "-vla"
 test Chacha.fst main-Chacha.c
+test AEAD.Chacha20_Poly1305.fst main-Aead.c "-vla"
