@@ -66,6 +66,9 @@ function test () {
   local krml_options=$3
   local out=${fstar_file%fst}exe
   echo "Extracting [$krml_options] $fstar_file + $c_main => $out"
+  if $DEBUG; then
+    echo $FSTAR $fstar_file
+  fi
   $FSTAR $fstar_file
   ../Kremlin.native -write out.krml $krml_options
   if $HAS_CLANG; then

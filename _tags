@@ -3,3 +3,4 @@
 true: annot, warn(@1-2+3@8..12@14..21@23..29-30@31..38-39@40-41@43), \
   package(ppx_deriving.std), package(ppx_deriving_yojson), \
   package(zarith), package(pprint), package(unix)
+<test>: -traverse

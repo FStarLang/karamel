@@ -10,7 +10,7 @@ all:
 	ln -sf Kremlin.native krml
 
 clean:
-	rm -rf krml _build
+	rm -rf krml _build test/*.o
 
 tags:
 	ctags -R --exclude=_build .
