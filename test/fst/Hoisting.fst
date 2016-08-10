@@ -7,6 +7,7 @@ assume val ignore: unit -> ML unit
 
 let test () =
   ignore ();
+  let z = 0l in
   let x =
     let y = true in
     let a = 0l in
@@ -26,5 +27,6 @@ let test () =
       a -^ b
     end
   in
-  krml_print x;
+  let y = 0l in
+  krml_print (x +^ y +^ z);
   x

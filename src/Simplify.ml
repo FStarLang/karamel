@@ -191,7 +191,7 @@ let let_if_to_assign = object (self)
         let e_else = nest_assign e_else in
         ELet (b, EAny,
           close_binder b (lift 1 (ELet (sequence_binding, EIfThenElse (cond, e_then, e_else, TUnit),
-            self#visit () e2))))
+            lift 1 (self#visit () e2)))))
     | _ ->
         (* There are no more nested lets at this stage *)
         ELet (b, e1, self#visit () e2)
