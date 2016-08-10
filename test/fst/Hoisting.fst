@@ -34,3 +34,14 @@ let test () =
   let y = 0l in
   krml_print (x +^ y +^ z);
   x
+
+let test' (): Int32.t =
+  let x = true in
+  if x = false then
+    ()
+  else begin
+    let x = 0l in
+    let y =  x +^ 0l in
+    krml_print y
+  end;
+  1l

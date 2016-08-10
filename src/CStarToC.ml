@@ -160,9 +160,11 @@ and mk_expr (e: expr): C.expr =
   | Cast (e, t) ->
       Cast (mk_type t, mk_expr e)
 
-  | Any
+  | Any ->
+      failwith "[mk_expr]: any should've been caught"
+
   | Op _ ->
-      failwith "[mk_expr]: impossible, should've caught it earlier..."
+      failwith "[mk_expr]: op should've been caught"
 
   | Bool b ->
       Bool b

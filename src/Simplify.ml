@@ -182,8 +182,8 @@ let let_if_to_assign = object (self)
   inherit [unit] map
 
   method! elet () b e1 e2 =
-    match e1 with
-    | EIfThenElse (cond, e_then, e_else, _) ->
+    match e1, b.meta with
+    | EIfThenElse (cond, e_then, e_else, _), None ->
         let b = { b with mut = true } in
         let e2 = open_binder b e2 in
         let nest_assign = nest_in_lets (fun innermost -> EAssign (EOpen b, innermost)) in
