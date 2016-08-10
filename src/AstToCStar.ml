@@ -20,6 +20,8 @@
 open Ast
 open Idents
 open Error
+let pexpr = PrintAst.pexpr
+let ptyp = PrintAst.ptyp
 
 let map_flatten f l = List.flatten (List.map f l)
 
@@ -97,7 +99,8 @@ let ensure_fresh env name body =
     tricky_shadowing_see_comment_above tentative || List.exists ((=) tentative) env.in_block)
 
 
-let rec translate_expr env = function
+let rec translate_expr env e =
+  match e with
   | EBound var ->
       CStar.Var (find env var)
   | EQualified lident ->
@@ -117,9 +120,11 @@ let rec translate_expr env = function
   | ECast (e, t) ->
       CStar.Cast (translate_expr env e, translate_type env t)
   | EOpen _ | EPopFrame | EPushFrame | EBufBlit _ ->
-      throw_error "[AstToCStar.translate_expr]: invalid argument"
+      throw_error "[AstToCStar.translate_expr]: invalid argument (%a)" pexpr e
   | EUnit ->
       CStar.Constant (K.UInt8, "0")
+  | EAny ->
+      CStar.Any
   | ELet _ ->
       throw_error "[AstToCStar.translate_expr ELet]: not implemented"
   | EIfThenElse _ ->
@@ -143,7 +148,7 @@ and collect (env, acc) = function
       let acc = CStar.Decl (binder, e1) :: acc in
       collect (env, acc) e2
 
-  | EIfThenElse (e1, e2, e3) ->
+  | EIfThenElse (e1, e2, e3, _) ->
       let e = CStar.IfThenElse (translate_expr env e1, translate_block env e2, translate_block env e3) in
       env, e :: acc
 

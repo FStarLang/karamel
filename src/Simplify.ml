@@ -6,6 +6,9 @@ open DeBruijn
 open Idents
 open Error
 
+let ptyp = PrintAst.ptyp
+let pexpr = PrintAst.pexpr
+
 (* Some helpers ***************************************************************)
 
 let visit_decl (env: 'env) mapper = function
@@ -50,15 +53,15 @@ let count_use = object (self)
 
   inherit [binder list] map
 
-  method extend env binder =
+  method! extend env binder =
     binder :: env
 
-  method ebound env i =
+  method! ebound env i =
     let b = List.nth env i in
     b.mark <- b.mark + 1;
     EBound i
 
-  method elet env b e1 e2 =
+  method! elet env b e1 e2 =
     (* Remove unused variables. Important to get rid of calls to [HST.get()]. *)
     let e1 = self#visit env e1 in
     let env = self#extend env b in
@@ -77,7 +80,7 @@ let dummy_match = object (self)
 
   inherit [unit] map
 
-  method ematch () e branches =
+  method! ematch () e branches t =
     match e, branches with
     | EUnit, [ PUnit, body ] ->
         self # visit () body
@@ -85,9 +88,9 @@ let dummy_match = object (self)
         let b1 = self # visit () b1 in
         let b2 = open_binder v b2 in
         let b2 = self # visit () b2 in
-        EIfThenElse (e, b1, b2)
+        EIfThenElse (e, b1, b2, t)
     | _ ->
-        EMatch (e, self # branches () branches)
+        EMatch (e, self # branches () branches, t)
 
 end
 
@@ -98,7 +101,7 @@ let wrapping_arithmetic = object (self)
 
   inherit [unit] map
 
-  method eapp () e es =
+  method! eapp () e es =
     match e, es with
     | EOp (((K.AddW | K.SubW) as op), w), [ e1; e2 ] when K.is_signed w ->
         let e = EOp (K.without_wrap op, K.unsigned_of_signed w) in
@@ -117,6 +120,84 @@ let wrapping_arithmetic = object (self)
 end
 
 
+(* Convert back and forth between [e1; e2] and [let _ = e1 in e2]. *)
+
+let sequence_binding = {
+  name = "_";
+  typ = TUnit;
+  mut = false;
+  mark = 0;
+  meta = Some MetaSequence
+}
+
+let sequence_to_let = object (self)
+
+  inherit [unit] map
+
+  method! esequence () es =
+    let es = List.map (self#visit ()) es in
+    match List.rev es with
+    | last :: first_fews ->
+        List.fold_left (fun cont e ->
+          ELet (sequence_binding, e, lift 1 cont)
+        ) last first_fews
+    | [] ->
+        failwith "[sequence_to_let]: impossible (empty sequence)"
+
+end
+
+let let_to_sequence = object (self)
+
+  inherit [unit] map
+
+  method! elet env b e1 e2 =
+    match b.meta with
+    | Some MetaSequence ->
+        let e1 = self#visit env e1 in
+        let e2 = open_binder b e2 in
+        let e2 = self#visit env e2 in
+        assert (b.typ = TUnit && b.name = "_");
+        begin match e2 with
+        | EUnit ->
+            e1
+        | ESequence es ->
+            ESequence (e1 :: es)
+        | _ ->
+            ESequence [e1; e2]
+        end
+    | None ->
+        let e2 = self#visit env e2 in
+        ELet (b, e1, e2)
+
+end
+
+let rec nest_in_lets f = function
+  | ELet (b, e1, e2) ->
+      ELet (b, e1, nest_in_lets f e2)
+  | e ->
+      f e
+
+let let_if_to_assign = object (self)
+
+  inherit [unit] map
+
+  method! elet () b e1 e2 =
+    match e1 with
+    | EIfThenElse (cond, e_then, e_else, _) ->
+        let b = { b with mut = true } in
+        let e2 = open_binder b e2 in
+        let nest_assign = nest_in_lets (fun innermost -> EAssign (EOpen b, innermost)) in
+        let e_then = nest_assign e_then in
+        let e_else = nest_assign e_else in
+        ELet (b, EAny,
+          close_binder b (lift 1 (ELet (sequence_binding, EIfThenElse (cond, e_then, e_else, TUnit),
+            self#visit () e2))))
+    | _ ->
+        (* There are no more nested lets at this stage *)
+        ELet (b, e1, self#visit () e2)
+
+end
+
 (* No left-nested let-bindings ************************************************)
 
 let nest (lhs: (binder * expr) list) (e2: expr) =
@@ -133,6 +214,7 @@ let nest (lhs: (binder * expr) list) (e2: expr) =
  * As soon as we leave a toplevel context, we jump into [hoist]. *)
 let rec hoist_t e =
   match e with
+  | EAny
   | EBound _
   | EOpen _
   | EQualified _
@@ -149,6 +231,15 @@ let rec hoist_t e =
       let lhs = lhs @ List.flatten lhss in
       nest lhs (EApp (e, es))
 
+  | ELet (binder, EIfThenElse (e'1, e'2, e'3, t), e2) ->
+      (* Will be translated into an assignment later on *)
+      let lhs, e'1 = hoist e'1 in
+      let e'2 = hoist_t e'2 in
+      let e'3 = hoist_t e'3 in
+      let e2 = open_binder binder e2 in
+      let e2 = hoist_t e2 in
+      nest lhs (ELet (binder, EIfThenElse (e'1, e'2, e'3, t), close_binder binder e2))
+
   | ELet (binder, e1, e2) ->
       (* At top-level, bindings may nest on the right-hand side of let-bindings,
        * but not on the left-hand side. *)
@@ -157,16 +248,14 @@ let rec hoist_t e =
       let e2 = hoist_t e2 in
       nest lhs (ELet (binder, e1, close_binder binder e2))
 
-  | EIfThenElse (e1, e2, e3) ->
+  | EIfThenElse (e1, e2, e3, t) ->
       let lhs, e1 = hoist e1 in
       let e2 = hoist_t e2 in
       let e3 = hoist_t e3 in
-      nest lhs (EIfThenElse (e1, e2, e3))
+      nest lhs (EIfThenElse (e1, e2, e3, t))
 
-  | ESequence es ->
-      (* At top-level, let-bindings may appear within sequences, as they will be
-       * translated into top-level [C.Decl] nodes. *)
-      ESequence (List.map hoist_t es)
+  | ESequence _ ->
+      failwith "[hoist_t]: sequences should've been translated as let _ ="
 
   | EAssign (e1, e2) ->
       let lhs1, e1 = hoist e1 in
@@ -216,6 +305,7 @@ let rec hoist_t e =
  * binding returned should be evaluated first). *)
 and hoist e =
   match e with
+  | EAny
   | EBound _
   | EOpen _
   | EQualified _
@@ -227,8 +317,12 @@ and hoist e =
       [], e
 
   | EApp (e, es) ->
+      (* TODO: assert that in the case of a lazily evaluated boolean operator,
+       * there are no intermediary let-bindings there... or does F* guarantee
+       * that no effectful computations can occur there? *)
       let lhs, e = hoist e in
       let lhss, es = List.split (List.map hoist es) in
+      (* TODO: reverse the order and use [rev_append] here *)
       let lhs = lhs @ List.flatten lhss in
       lhs, EApp (e, es)
 
@@ -240,12 +334,15 @@ and hoist e =
       let lhs2, e2 = hoist e2 in
       (binder, e1) :: lhs1 @ lhs2, e2
 
-  | EIfThenElse _ ->
-      failwith "[hoist]: EIfThenElse not properly lifted"
+  | EIfThenElse (e1, e2, e3, t) ->
+      let lhs1, e1 = hoist e1 in
+      let e2 = hoist_t e2 in
+      let e3 = hoist_t e3 in
+      let b = { name = "ite"; typ = t; mut = false; mark = 0; meta = None } in
+      lhs1 @ [ b, EIfThenElse (e1, e2, e3, t) ], EOpen b
 
-  | ESequence es ->
-      let lhs, es = List.split (List.map hoist es) in
-      List.flatten lhs, ESequence es
+  | ESequence _ ->
+      failwith "[hoist_t]: sequences should've been translated as let _ ="
 
   | EAssign (e1, e2) ->
       let lhs1, e1 = hoist e1 in
@@ -301,7 +398,7 @@ let eta_expand = object
         let tret, targs = flatten_arrow t in
         let n = List.length targs in
         let binders, args = List.split (List.mapi (fun i t ->
-          { name = Printf.sprintf "x%d" i; typ = t; mut = false; mark = 0 },
+          { name = Printf.sprintf "x%d" i; typ = t; mut = false; mark = 0; meta = None },
           EBound (n - i - 1)
         ) targs) in
         let body = EApp (body, args) in
@@ -311,7 +408,8 @@ let eta_expand = object
 end
 
 
-(* Make top-level names C-compatible with a global translation table **********)
+(* Make top-level names C-compatible using a global translation table **********)
+
 let record_toplevel_names = object
 
   method dglobal () name t body =
@@ -341,6 +439,7 @@ let simplify (files: file list): file list =
   let files = visit_files [] count_use files in
   let files = visit_files () dummy_match files in
   let files = visit_files () wrapping_arithmetic files in
+  let files = visit_files () sequence_to_let files in
   let files = visit_files () (object
     inherit ignore_everything
 
@@ -351,4 +450,6 @@ let simplify (files: file list): file list =
       let expr = close_function_binders binders expr in
       DFunction (ret, name, binders, expr)
   end) files in
+  let files = visit_files () let_if_to_assign files in
+  let files = visit_files () let_to_sequence files in
   files

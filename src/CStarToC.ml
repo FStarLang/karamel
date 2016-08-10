@@ -88,8 +88,8 @@ and mk_stmt (stmt: stmt): C.stmt list =
 
   | Decl (binder, e) ->
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
-      let e = mk_expr e in
-      [ Decl (spec, None, [ decl, Some (Expr e) ]) ]
+      let init: init option = match e with Any -> None | _ -> Some (Expr (mk_expr e)) in
+      [ Decl (spec, None, [ decl, init ]) ]
 
   | IfThenElse (e, b1, b2) ->
       if List.length b2 > 0 then
@@ -157,6 +157,7 @@ and mk_expr (e: expr): C.expr =
   | Cast (e, t) ->
       Cast (mk_type t, mk_expr e)
 
+  | Any
   | Op _ ->
       failwith "[mk_expr]: impossible, should've caught it earlier..."
 

@@ -24,7 +24,7 @@ and expr =
   | EUnit
   | EApp of (expr * expr list)
   | ELet of (binder * expr * expr)
-  | EIfThenElse of (expr * expr * expr)
+  | EIfThenElse of (expr * expr * expr * typ)
   | ESequence of expr list
   | EAssign of (expr * expr)
     (** left expression can only be a EBound or EOpen *)
@@ -33,12 +33,15 @@ and expr =
   | EBufWrite of (expr * expr * expr)
   | EBufSub of (expr * expr)
   | EBufBlit of (expr * expr * expr * expr * expr)
-  | EMatch of (expr * branches)
+  | EMatch of (expr * branches * typ)
   | EOp of (K.op * K.width)
   | ECast of (expr * typ)
   | EPushFrame
   | EPopFrame
   | EBool of bool
+  | EAny
+    (** to indicate that the initial value of a mutable let-binding does not
+     * matter *)
 
 
 and branches =
@@ -60,7 +63,11 @@ and binder = {
   typ: typ;
   mut: bool;
   mutable mark: int;
+  meta: meta option;
 }
+
+and meta =
+  | MetaSequence
 
 and ident =
   string (** for pretty-printing *)
@@ -89,7 +96,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 6
+let current_version: version = 7
 
 type file = string * program
   [@@deriving yojson]
@@ -132,8 +139,8 @@ class virtual ['env, 'result] visitor = object (self)
         self#eapp env e es
     | ELet (b, e1, e2) ->
         self#elet env b e1 e2
-    | EIfThenElse (e1, e2, e3) ->
-        self#eifthenelse env e1 e2 e3
+    | EIfThenElse (e1, e2, e3, t) ->
+        self#eifthenelse env e1 e2 e3 t
     | ESequence es ->
         self#esequence env es
     | EAssign (e1, e2) ->
@@ -148,8 +155,8 @@ class virtual ['env, 'result] visitor = object (self)
         self#ebufblit env e1 e2 e3 e4 e5
     | EBufSub (e1, e2) ->
         self#ebufsub env e1 e2
-    | EMatch (e, branches) ->
-        self#ematch env e branches
+    | EMatch (e, branches, t) ->
+        self#ematch env e branches t
     | EOp (op, w) ->
         self#eop env op w
     | ECast (e, t) ->
@@ -160,15 +167,18 @@ class virtual ['env, 'result] visitor = object (self)
         self#epopframe env
     | EBool b ->
         self#ebool env b
+    | EAny ->
+        self#eany env
 
   method virtual ebound: 'env -> var -> 'result
   method virtual eopen: 'env -> binder -> 'result
   method virtual equalified: 'env -> lident -> 'result
   method virtual econstant: 'env -> K.t -> 'result
   method virtual eunit: 'env -> 'result
+  method virtual eany: 'env -> 'result
   method virtual eapp: 'env -> expr -> expr list -> 'result
   method virtual elet: 'env -> binder -> expr -> expr -> 'result
-  method virtual eifthenelse: 'env -> expr -> expr -> expr -> 'result
+  method virtual eifthenelse: 'env -> expr -> expr -> expr -> typ -> 'result
   method virtual esequence: 'env -> expr list -> 'result
   method virtual eassign: 'env -> expr -> expr -> 'result
   method virtual ebufcreate: 'env -> expr -> expr -> 'result
@@ -176,7 +186,7 @@ class virtual ['env, 'result] visitor = object (self)
   method virtual ebufwrite: 'env -> expr -> expr -> expr -> 'result
   method virtual ebufblit: 'env -> expr -> expr -> expr -> expr -> expr -> 'result
   method virtual ebufsub: 'env -> expr -> expr -> 'result
-  method virtual ematch: 'env -> expr -> branches -> 'result
+  method virtual ematch: 'env -> expr -> branches -> typ -> 'result
   method virtual eop: 'env -> K.op -> K.width -> 'result
   method virtual ecast: 'env -> expr -> typ -> 'result
   method virtual epushframe: 'env -> 'result
@@ -202,6 +212,9 @@ class ['env] map = object (self)
   method econstant _env constant =
     EConstant constant
 
+  method eany _env =
+    EAny
+
   method eunit _env =
     EUnit
 
@@ -211,8 +224,8 @@ class ['env] map = object (self)
   method elet env b e1 e2 =
     ELet (b, self#visit env e1, self#visit (self#extend env b) e2)
 
-  method eifthenelse env e1 e2 e3 =
-    EIfThenElse (self#visit env e1, self#visit env e2, self#visit env e3)
+  method eifthenelse env e1 e2 e3 t =
+    EIfThenElse (self#visit env e1, self#visit env e2, self#visit env e3, t)
 
   method esequence env es =
     ESequence (List.map (self#visit env) es)
@@ -235,8 +248,8 @@ class ['env] map = object (self)
   method ebufsub env e1 e2 =
     EBufSub (self#visit env e1, self#visit env e2)
 
-  method ematch env e branches =
-    EMatch (self#visit env e, self#branches env branches)
+  method ematch env e branches t =
+    EMatch (self#visit env e, self#branches env branches, t)
 
   method eop _env o w =
     EOp (o, w)

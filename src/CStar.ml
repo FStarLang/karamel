@@ -36,6 +36,7 @@ and expr =
   | Op of op
   | Cast of expr * typ
   | Bool of bool
+  | Any
 
 and block =
   stmt list

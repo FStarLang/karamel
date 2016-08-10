@@ -30,12 +30,18 @@ let rec print_decl = function
   | DGlobal (name, typ, expr) ->
       print_typ typ ^^ space ^^ string name ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
-and print_binder { name; typ; mut; mark } =
+and print_binder { name; typ; mut; mark; meta } =
   group (
     (if mut then string "mutable" ^^ break 1 else empty) ^^
-    string name ^^ lparen ^^ int mark ^^ rparen ^^ colon ^/^
+    string name ^^ lparen ^^ int mark ^^ comma ^^ space ^^ print_meta meta ^^ rparen ^^ colon ^/^
     print_typ typ
   )
+
+and print_meta = function
+  | Some MetaSequence ->
+      semi
+  | None ->
+      empty
 
 and print_typ = function
   | TInt w -> print_width w ^^ string "_t"
@@ -48,10 +54,12 @@ and print_typ = function
   | TZ -> string "mpz_t"
 
 and print_expr = function
+  | EAny ->
+      string "$any"
   | EBound v ->
       at ^^ int v
   | EOpen { name; _ } ->
-      string name
+      bang ^^ string name
   | EQualified lident ->
       print_lident lident
   | EConstant c ->
@@ -63,10 +71,11 @@ and print_expr = function
   | ELet (binder, e1, e2) ->
       group (group (string "let" ^/^ print_binder binder ^/^ equals) ^^
       jump (print_expr e1) ^/^ string "in") ^/^ group (print_expr e2)
-  | EIfThenElse (e1, e2, e3) ->
+  | EIfThenElse (e1, e2, e3, t) ->
       string "if" ^/^ print_expr e1 ^/^ string "then" ^^
       jump (print_expr e2) ^/^ string "else" ^^
-      jump (print_expr e3)
+      jump (print_expr e3) ^/^
+      at ^^ print_typ t
   | ESequence es ->
       separate_map (semi ^^ hardline) (fun e -> group (print_expr e)) es
   | EAssign (e1, e2) ->
@@ -82,9 +91,10 @@ and print_expr = function
       print_app string "subbuf" print_expr [e1; e2]
   | EBufBlit (e1, e2, e3, e4, e5) ->
       print_app string "blitbuf" print_expr [e1; e2; e3; e4; e5]
-  | EMatch (e, branches) ->
+  | EMatch (e, branches, t) ->
       group (string "match" ^/^ print_expr e ^/^ string "with") ^^
-      jump ~indent:0 (print_branches branches)
+      jump ~indent:0 (print_branches branches) ^/^
+      at ^^ print_typ t
 
   | EOp (o, w) -> string "(" ^^ print_op o ^^ string "," ^^ print_width w ^^ string ")"
 
@@ -116,3 +126,7 @@ and print_pat = function
       print_binder b
 
 let print_files = print_files print_decl
+
+let mk_p f = fun buf t -> PPrint.ToBuffer.compact buf (f t)
+let ptyp = mk_p print_typ
+let pexpr = mk_p print_expr

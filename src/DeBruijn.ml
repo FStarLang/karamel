@@ -11,7 +11,7 @@ class map_counting = object
   inherit [int] map
   (* The environment [i] keeps track of how many binders have been
      entered. It is incremented at each binder. *)
-  method extend i (_: binder) =
+  method! extend i (_: binder) =
     i + 1
 end
 
@@ -23,7 +23,7 @@ class lift (k: int) = object
   inherit map_counting
   (* A local variable (one that is less than [i]) is unaffected;
      a free variable is lifted up by [k]. *)
-  method tybound i j =
+  method! ebound i j =
     if j < i then
       EBound j
     else
@@ -45,7 +45,7 @@ class subst (e2: expr) = object
   inherit map_counting
   (* The target variable [i] is replaced with [t2]. Any other
      variable is unaffected. *)
-  method ebound i j =
+  method! ebound i j =
     if j = i then
       lift i e2
     else
@@ -62,7 +62,7 @@ let subst (e2: expr) (i: int) (e1: expr) =
 class close (binder: binder) = object
   inherit map_counting
 
-  method eopen i b =
+  method! eopen i b =
     if b == binder then
       EBound i
     else
