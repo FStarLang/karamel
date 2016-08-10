@@ -157,10 +157,16 @@ let let_to_sequence = object (self)
         let e2 = open_binder b e2 in
         let e2 = self#visit env e2 in
         assert (b.typ = TUnit && b.name = "_");
-        begin match e2 with
-        | EUnit ->
+        begin match e1, e2 with
+        | _, ECast (EUnit, _)
+        | _, EUnit ->
+            (* let _ = e1 in () *)
             e1
-        | ESequence es ->
+        | ECast (EUnit, _), _
+        | EUnit, _ ->
+            (* let _ = () in e2 *)
+            e2
+        | _, ESequence es ->
             ESequence (e1 :: es)
         | _ ->
             ESequence [e1; e2]

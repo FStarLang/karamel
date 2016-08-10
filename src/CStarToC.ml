@@ -3,6 +3,7 @@
 open C
 open CStar
 open Idents
+open KPrint
 
 (* Turns the ML declaration inside-out to match the C reading of a type. *)
 let rec mk_sad name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
@@ -182,10 +183,15 @@ let mk_decl_or_function (d: decl): C.declaration_or_function =
       Decl (spec, Some Typedef, [ decl, None ])
 
   | Function (return_type, name, parameters, body) ->
-      let parameters = List.map (fun { name; typ } -> name, typ) parameters in
-      let spec, decl = mk_spec_and_declarator_f name return_type parameters in
-      let body = ensure_compound (mk_stmts body) in
-      Function ((spec, None, [ decl, None ]), body)
+      begin try
+        let parameters = List.map (fun { name; typ } -> name, typ) parameters in
+        let spec, decl = mk_spec_and_declarator_f name return_type parameters in
+        let body = ensure_compound (mk_stmts body) in
+        Function ((spec, None, [ decl, None ]), body)
+      with e ->
+        beprintf "Fatal exception raised in %s\n" name;
+        raise e
+      end
 
   | Global (name, t, expr) ->
       let t = match t with Function _ -> Pointer t | _ -> t in

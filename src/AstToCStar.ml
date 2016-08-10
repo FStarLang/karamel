@@ -217,7 +217,7 @@ and translate_function_block env e t =
           stmts
   in
   match t, strip_final_pop_if stmts with
-  | CStar.Void, (stmts, had_pop) ->
+  | (CStar.Void | CStar.Pointer CStar.Void), (stmts, had_pop) ->
       strip_first_push_if had_pop (List.rev stmts)
 
   | _, (CStar.Ignore e :: stmts, _) ->
