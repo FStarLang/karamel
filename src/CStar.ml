@@ -23,6 +23,7 @@ and stmt =
   | BufBlit of expr * expr * expr * expr * expr
   | PushFrame
   | PopFrame
+  | Abort
 
 and expr =
   | Call of expr * expr list

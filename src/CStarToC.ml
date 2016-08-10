@@ -109,6 +109,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
         Op2 (K.Add, mk_expr e1, mk_expr e2);
         Op2 (K.Mult, mk_expr e5, Sizeof (Index (mk_expr e1, Constant (K.UInt8, "0"))))])) ]
 
+  | Abort ->
+      [ Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])) ]
+
   | PushFrame | PopFrame ->
       failwith "[mk_stmt]: nested frames not supported"
 

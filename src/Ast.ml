@@ -42,6 +42,8 @@ and expr =
   | EAny
     (** to indicate that the initial value of a mutable let-binding does not
      * matter *)
+  | EAbort
+    (** exits the program prematurely *)
 
 
 and branches =
@@ -169,6 +171,8 @@ class virtual ['env, 'result] visitor = object (self)
         self#ebool env b
     | EAny ->
         self#eany env
+    | EAbort ->
+        self#eabort env
 
   method virtual ebound: 'env -> var -> 'result
   method virtual eopen: 'env -> binder -> 'result
@@ -176,6 +180,7 @@ class virtual ['env, 'result] visitor = object (self)
   method virtual econstant: 'env -> K.t -> 'result
   method virtual eunit: 'env -> 'result
   method virtual eany: 'env -> 'result
+  method virtual eabort: 'env -> 'result
   method virtual eapp: 'env -> expr -> expr list -> 'result
   method virtual elet: 'env -> binder -> expr -> expr -> 'result
   method virtual eifthenelse: 'env -> expr -> expr -> expr -> typ -> 'result
@@ -211,6 +216,9 @@ class ['env] map = object (self)
 
   method econstant _env constant =
     EConstant constant
+
+  method eabort _env =
+    EAbort
 
   method eany _env =
     EAny

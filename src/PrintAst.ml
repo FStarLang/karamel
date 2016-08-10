@@ -56,6 +56,8 @@ and print_typ = function
 and print_expr = function
   | EAny ->
       string "$any"
+  | EAbort ->
+      string "$abort"
   | EBound v ->
       at ^^ int v
   | EOpen { name; _ } ->

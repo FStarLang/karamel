@@ -214,6 +214,7 @@ let nest (lhs: (binder * expr) list) (e2: expr) =
  * As soon as we leave a toplevel context, we jump into [hoist]. *)
 let rec hoist_t e =
   match e with
+  | EAbort
   | EAny
   | EBound _
   | EOpen _
@@ -305,6 +306,7 @@ let rec hoist_t e =
  * binding returned should be evaluated first). *)
 and hoist e =
   match e with
+  | EAbort
   | EAny
   | EBound _
   | EOpen _

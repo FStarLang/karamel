@@ -119,7 +119,7 @@ let rec translate_expr env e =
       CStar.Op c
   | ECast (e, t) ->
       CStar.Cast (translate_expr env e, translate_type env t)
-  | EOpen _ | EPopFrame | EPushFrame | EBufBlit _ ->
+  | EOpen _ | EPopFrame | EPushFrame | EBufBlit _ | EAbort ->
       throw_error "[AstToCStar.translate_expr]: invalid argument (%a)" pexpr e
   | EUnit ->
       CStar.Constant (K.UInt8, "0")
@@ -179,6 +179,9 @@ and collect (env, acc) = function
   | EPopFrame ->
       env, CStar.PopFrame :: acc
 
+  | EAbort ->
+      env, CStar.Abort :: acc
+
   | e ->
       let e = CStar.Ignore (translate_expr env e) in
       env, e :: acc
@@ -219,6 +222,9 @@ and translate_function_block env e t =
 
   | _, (CStar.Ignore e :: stmts, _) ->
       List.rev (CStar.Return e :: stmts)
+
+  | _, (CStar.Abort :: _, _) ->
+      List.rev stmts
 
   | _, _ ->
       (* TODO: type aliases for void *)
@@ -265,12 +271,20 @@ and translate_and_push_binder env binder body =
   push env binder, binder
 
 and translate_declaration env d: CStar.decl =
+  let wrap_throw name (comp: CStar.decl Lazy.t) =
+    try Lazy.force comp with
+    | Error e ->
+        throw_error "(in %s) %s" name e
+  in
+
   match d with
   | DFunction (t, name, binders, body) ->
-      let t = translate_return_type env t in
-      let env, binders = translate_and_push_binders env binders in
-      let body = translate_function_block env body t in
-      CStar.Function (t, name, binders, body)
+      wrap_throw name (lazy begin
+        let t = translate_return_type env t in
+        let env, binders = translate_and_push_binders env binders in
+        let body = translate_function_block env body t in
+        CStar.Function (t, name, binders, body)
+      end)
 
   | DTypeAlias (name, t) ->
       CStar.TypeAlias (name, translate_type env t)
