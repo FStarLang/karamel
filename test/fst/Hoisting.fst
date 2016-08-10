@@ -9,7 +9,11 @@ let test () =
   ignore ();
   let z = 0l in
   let x =
-    let y = true in
+    let y =
+      let b1 = true in
+      let b2 = true in
+      b1 || b2
+    in
     let a = 0l in
     krml_print a;
     let b = 0l in

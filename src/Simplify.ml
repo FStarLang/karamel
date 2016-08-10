@@ -334,7 +334,7 @@ and hoist e =
       (* The caller (e.g. [hoist_t]) takes care, via [nest], of closing this
        * binder. *)
       let lhs2, e2 = hoist e2 in
-      (binder, e1) :: lhs1 @ lhs2, e2
+      lhs1 @ [ binder, e1 ] @ lhs2, e2
 
   | EIfThenElse (e1, e2, e3, t) ->
       let lhs1, e1 = hoist e1 in
