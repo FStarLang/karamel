@@ -60,16 +60,23 @@ function color () {
   echo -e "\033[0;31m$1\033[0m"
 }
 
+function log_if () {
+  if [ "$CI" != "" ]; then
+    echo "travis_fold:start:log"
+    cat log
+    echo "travis_fold:end:log"
+  fi
+}
+
 function test () {
   local fstar_file=$1
   local c_main=$2
   local krml_options=$3
   local out=${fstar_file%fst}exe
   echo "Extracting [$krml_options] $fstar_file + $c_main => $out"
-  if $DEBUG; then
-    echo $FSTAR $fstar_file
-  fi
-  $FSTAR $fstar_file
+  $FSTAR $fstar_file > log 2>&1 || (cat log && exit 1)
+  log_if
+
   ../Kremlin.native -write out.krml $krml_options
   if $HAS_CLANG; then
     $CLANG $OBJS $c_main -o $out
