@@ -234,6 +234,9 @@ and translate_function_block env e t =
           throw_error "[translate_function_block]: invariant broken \
             (well-parenthesized push/pop, but function's return type is not \
             void!)"
+      | _, CStar.PushFrame :: _, _ ->
+          throw_error "[translate_function_block]: invariant broken \
+            (unmatched push_frame, not a TAny)"
       | CStar.Void, stmts, _ ->
           stmts
       | _, _, CStar.Ignore e :: rest ->
