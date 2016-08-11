@@ -295,19 +295,19 @@ and translate_declaration env d: CStar.decl =
 
   match d with
   | DFunction (t, name, binders, body) ->
-      wrap_throw name (lazy begin
+      wrap_throw (string_of_lident name) (lazy begin
         let t = translate_return_type env t in
         assert (env.names = []);
         let env, binders = translate_and_push_binders env binders in
         let body = translate_function_block env body t in
-        CStar.Function (t, name, binders, body)
+        CStar.Function (t, (string_of_lident name), binders, body)
       end)
 
   | DTypeAlias (name, t) ->
-      CStar.TypeAlias (name, translate_type env t)
+      CStar.TypeAlias (string_of_lident name, translate_type env t)
 
   | DGlobal (name, t, body) ->
-      CStar.Global (name, translate_type env t, translate_expr env body)
+      CStar.Global (string_of_lident name, translate_type env t, translate_expr env body)
 
 
 and translate_program decls =

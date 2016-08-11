@@ -12,9 +12,9 @@ type program =
   [@@deriving yojson]
 
 and decl =
-  | DFunction of (typ * ident * binder list * expr)
-  | DTypeAlias of (ident * typ)
-  | DGlobal of (ident * typ * expr)
+  | DFunction of (typ * lident * binder list * expr)
+  | DTypeAlias of (lident * typ)
+  | DGlobal of (lident * typ * expr)
 
 and expr =
   | EBound of var
@@ -98,7 +98,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 7
+let current_version: version = 8
 
 type file = string * program
   [@@deriving yojson]

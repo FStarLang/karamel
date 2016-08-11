@@ -16,10 +16,16 @@ let _ =
     "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the input AST after simplification";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-vla", Arg.Set Options.vla, " code may contain variable-length arrays; initialize with memset";
+    "-no-prefix", Arg.Set Options.no_prefix, " don't prepend the module name to each declaration";
     "-write", Arg.Set arg_write, " write an output C file for each file contained in the input file";
+    "-add-include",
+      Arg.String (fun s -> Options.add_include := s :: !Options.add_include),
+      " prepend #include the-argument to the generated file";
   ] (fun f ->
     filename := f
   ) usage;
+  
+  Printf.printf "add_include: %s\n" (String.concat " " !Options.add_include);
 
   if !filename = "" then begin
     print_endline usage;

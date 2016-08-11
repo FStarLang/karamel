@@ -16,3 +16,13 @@ void compare_and_print(const char *txt, uint8_t *reference, uint8_t *output, int
 
   printf("[aead] %s is a success\n", txt);
 }
+
+void TestLib_touch(int32_t x) {
+}
+
+void TestLib_check(int32_t x, int32_t y) {
+  if (x != y) {
+    printf("Test check failure: %"PRId32" != %"PRId32"\n", x, y);
+    exit(253);
+  }
+}

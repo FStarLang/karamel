@@ -44,7 +44,7 @@ else
 fi
 
 HYPERSTACK_LIB="$FSTAR_HOME/examples/low-level/"
-FSTAR_OPTIONS="--lax --trace_error --codegen Kremlin"
+FSTAR_OPTIONS="--lax --trace_error --codegen Kremlin --include $KREMLIB"
 FSTAR="fstar.exe --include $HYPERSTACK_LIB $FSTAR_OPTIONS"
 
 function compile_libs () {
@@ -60,11 +60,14 @@ function color () {
   echo -e "\033[0;31m$1\033[0m"
 }
 
+count=0
+
 function log_if () {
   if [ "$CI" != "" ]; then
-    echo "travis_fold:start:log"
+    count=$(( $count + 1 ))
+    echo "travis_fold:start:log$count"
     cat log
-    echo "travis_fold:end:log"
+    echo "travis_fold:end:log$count"
   fi
 }
 
@@ -95,3 +98,8 @@ compile_libs
 test Poly.Poly1305.fst main-Poly1305.c "-vla"
 test Chacha.fst main-Chacha.c
 test AEAD.Chacha20_Poly1305.fst main-Aead.c "-vla"
+
+# Some unit-tests
+TEST_ARGS="-no-prefix -add-include \"testlib.h\" -add-include \"kremlib.h\""
+test Hoisting.fst Hoisting.c "$TEST_ARGS"
+test Renaming.fst Renaming.c "$TEST_ARGS"

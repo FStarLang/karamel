@@ -17,18 +17,18 @@ let print_app f head g arguments =
 
 let rec print_decl = function
   | DFunction (typ, name, binders, body) ->
-      group (string "function" ^/^ string name ^/^ parens_with_nesting (
+      group (string "function" ^/^ string (string_of_lident name) ^/^ parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders
       ) ^^ colon ^/^ print_typ typ) ^/^ braces_with_nesting (
         print_expr body
       )
 
   | DTypeAlias (name, typ) ->
-      group (string "type" ^/^ string name ^/^ equals) ^^
+      group (string "type" ^/^ string (string_of_lident name) ^/^ equals) ^^
       jump (print_typ typ)
 
   | DGlobal (name, typ, expr) ->
-      print_typ typ ^^ space ^^ string name ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
+      print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
 and print_binder { name; typ; mut; mark; meta } =
   group (

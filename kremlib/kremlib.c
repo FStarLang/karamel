@@ -12,3 +12,5 @@ uint64_t FStar_UInt64_eq_mask(uint64_t x, uint64_t y) {
 Prims_int FStar_UInt32_v(uint32_t x) {
   exit(254);
 }
+
+int C_exit_success = 0;

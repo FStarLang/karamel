@@ -26,7 +26,7 @@ let visit_file (env: 'env) mapper (file: file) =
   let name, program = file in
   name, visit_program env mapper program
 
-let visit_files (env: 'env) (mapper: < dfunction: 'env -> typ -> ident -> binder list -> expr -> decl; .. >) (files: file list) =
+let visit_files (env: 'env) (mapper: < dfunction: 'env -> typ -> lident -> binder list -> expr -> decl; .. >) (files: file list) =
   KList.filter_map (fun f ->
     try
       Some (visit_file env mapper f)
@@ -417,16 +417,20 @@ end
 
 (* Make top-level names C-compatible using a global translation table **********)
 
+let record_name lident =
+  let desired_name = if !Options.no_prefix then snd lident else string_of_lident lident in
+  [], GlobalNames.record (string_of_lident lident) desired_name
+
 let record_toplevel_names = object
 
   method dglobal () name t body =
-    DGlobal (GlobalNames.record name, t, body)
+    DGlobal (record_name name, t, body)
 
   method dfunction () ret name args body =
-    DFunction (ret, GlobalNames.record name, args, body)
+    DFunction (ret, record_name name, args, body)
 
   method dtypealias () name t =
-    DTypeAlias (GlobalNames.record name, t)
+    DTypeAlias (record_name name, t)
 end
 
 let replace_references_to_toplevel_names = object
