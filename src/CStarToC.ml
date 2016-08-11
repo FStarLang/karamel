@@ -5,6 +5,9 @@ open CStar
 open Idents
 open KPrint
 
+let any = 
+  Cast (Constant (K.UInt8, "0"), Pointer Void)
+
 (* Turns the ML declaration inside-out to match the C reading of a type. *)
 let rec mk_sad name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
   match t with
@@ -162,7 +165,7 @@ and mk_expr (e: expr): C.expr =
       Cast (mk_type t, mk_expr e)
 
   | Any ->
-      failwith "[mk_expr]: any should've been caught"
+      mk_expr any
 
   | Op _ ->
       failwith "[mk_expr]: op should've been caught"

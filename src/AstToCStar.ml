@@ -199,37 +199,34 @@ and translate_block env e =
  * transformed to have type [TUnit].
  *)
 and translate_function_block env e t =
+  (* The list is returned in reverse order. *)
   let stmts = snd (collect (reset_block env, []) e) in
-  let strip_final_pop_if = function
-    | CStar.PopFrame :: stmts -> stmts, true
-    | stmts -> stmts, false
-  in
-  let strip_first_push_if had_pop = function
-    | CStar.PushFrame :: stmts ->
-        if had_pop then
-          stmts
-        else
-          throw_error "[translate_function_block]: ill-parenthesized push/pop frame"
-    | stmts ->
-        if had_pop then
-          throw_error "[translate_function_block]: ill-parenthesized push/pop frame"
-        else
-          stmts
-  in
-  match t, strip_final_pop_if stmts with
-  | (CStar.Void | CStar.Pointer CStar.Void), (stmts, had_pop) ->
-      strip_first_push_if had_pop (List.rev stmts)
-
-  | _, (CStar.Ignore e :: stmts, _) ->
-      List.rev (CStar.Return e :: stmts)
-
-  | _, (CStar.Abort :: _, _) ->
-      List.rev stmts
-
-  | _, _ ->
+  match t, stmts with
+  | CStar.Void, [] ->
+      []
+  | _, [] ->
       (* TODO: type aliases for void *)
-      throw_error "[translate_function_block]: violated invariant"
-
+      throw_error "[translate_function_block]: invariant broken (empty function \
+        body, but non-void return type)"
+  | _ ->
+      match t, List.rev stmts, stmts with
+      | CStar.Void, CStar.PushFrame :: _, CStar.PopFrame :: rest ->
+          List.tl (List.rev rest)
+      | CStar.Pointer CStar.Void, CStar.PushFrame :: _, CStar.Ignore _ :: CStar.PopFrame :: rest -> 
+          List.tl (List.rev (CStar.Return CStar.Any :: rest))
+      | _, CStar.PushFrame :: _, CStar.PopFrame :: _ ->
+          throw_error "[translate_function_block]: invariant broken \
+            (well-parenthesized push/pop, but function's return type is not \
+            void!)"
+      | CStar.Void, stmts, _ ->
+          stmts
+      | _, _, CStar.Ignore e :: rest ->
+          List.rev (CStar.Return e :: rest)
+      | _, stmts, CStar.Abort :: _ ->
+          stmts
+      | _ ->
+          throw_error "[translate_function_block]: invariant broken (non-void \
+            function does not end with something we can return)"
 
 and translate_return_type env = function
   | TInt w ->

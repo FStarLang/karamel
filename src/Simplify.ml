@@ -158,7 +158,6 @@ let let_to_sequence = object (self)
         let e2 = self#visit env e2 in
         assert (b.typ = TUnit && b.name = "_");
         begin match e1, e2 with
-        | _, ECast (EUnit, _)
         | _, EUnit ->
             (* let _ = e1 in () *)
             e1
