@@ -44,6 +44,17 @@ let push env binder = CStar.{
   in_block = binder.name :: env.in_block
 }
 
+let pnames buf env =
+  match env.names with
+  | [] ->
+      Buffer.add_string buf "no names!"
+  | name :: names ->
+      Buffer.add_string buf name;
+      List.iter (fun name ->
+        Buffer.add_string buf ", ";
+        Buffer.add_string buf name
+      ) names
+
 let find env i =
   List.nth env.names i
 
@@ -191,16 +202,21 @@ and translate_block env e =
   List.rev (snd (collect (reset_block env, []) e))
 
 
-(** If the return type is != [CStar.Void], then the head of the accumulator is the
- * final value returned by the function. Only two nodes may have non-void return
- * types; the first one is [CStar.Ignore] and we make it a proper [CStar.Return]. The
- * second one is [CStar.IfThenElse]; but we do not allow conditionals in expressions
- * in C*; so, [Simplify] and other passes must guarantees all [EIfThenElse] are
- * transformed to have type [TUnit].
+(** This enforces the push/pop frame invariant. The invariant can be described
+ * as follows (the extra cases are here to provide better error messages):
+ * - a function may choose not to use push/pop frame (it's a pure computation);
+ * - if it chooses to use push/pop frame, then either:
+ *   - it starts with push_frame and ends with pop_frame (implies the return type
+ *     is void)
+ *   - it starts with push_frame and ends with pop_frame, and returns a value
+ *     immediately after the pop_frame; this only makes sense if the value
+ *     requires no allocations in the current frame, which at the moment we only
+ *     guarantee for computation of type any (the result of erasure)
  *)
 and translate_function_block env e t =
-  (* The list is returned in reverse order. *)
-  let stmts = snd (collect (reset_block env, []) e) in
+  (** This function expects an environment where names and in_block have been
+   * populated with the function's parameters. *)
+  let stmts = snd (collect (env, []) e) in
   match t, stmts with
   | CStar.Void, [] ->
       []
@@ -278,6 +294,7 @@ and translate_declaration env d: CStar.decl =
   | DFunction (t, name, binders, body) ->
       wrap_throw name (lazy begin
         let t = translate_return_type env t in
+        assert (env.names = []);
         let env, binders = translate_and_push_binders env binders in
         let body = translate_function_block env body t in
         CStar.Function (t, name, binders, body)
