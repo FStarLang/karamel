@@ -5,7 +5,7 @@
 #include <assert.h>
 
 #include "../kremlib/kremlib.h"
-#include "Buffer_utils.c"
+#include "Buffer_Utils.c"
 #include "Chacha_wip.c"
 #include "Poly_Parameters.c"
 #include "Poly_Bigint.c"
