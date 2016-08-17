@@ -15,6 +15,7 @@ and decl =
   | DFunction of (typ * lident * binder list * expr)
   | DTypeAlias of (lident * typ)
   | DGlobal of (lident * typ * expr)
+  | DTypeFlat of (lident * (ident * typ) list)
 
 and expr =
   | EBound of var
@@ -45,6 +46,10 @@ and expr =
   | EAbort
     (** exits the program prematurely *)
   | EReturn of expr
+  | EFlat of (lident * (ident * expr) list)
+    (** contains the name of the type we're building *)
+  | EField of (lident * expr * ident)
+    (** contains the name of the type we're selecting from *)
 
 
 and branches =
@@ -99,7 +104,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 8
+let current_version: version = 9
 
 type file = string * program
   [@@deriving yojson]
