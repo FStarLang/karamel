@@ -304,6 +304,10 @@ let rec hoist_t e =
   | EMatch _ ->
       failwith "[hoist_t]: EMatch not properly desugared"
 
+  | EReturn e ->
+      let lhs, e = hoist e in
+      nest lhs (EReturn e)
+
 (* This traversal guarantees that no let-bindings are left in the visited term.
  * It returns a [(binder * expr) list] of all the hoisted bindings. It is up to
  * the caller to rewrite the bindings somehow and call [close_binder] on the
@@ -391,6 +395,9 @@ and hoist e =
 
   | EMatch _ ->
       failwith "[hoist_t]: EMatch"
+
+  | EReturn _ ->
+      throw_error "[return] expressions should only appear in statement position"
 
 
 (* No partial applications ****************************************************)

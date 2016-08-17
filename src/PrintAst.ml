@@ -97,20 +97,18 @@ and print_expr = function
       group (string "match" ^/^ print_expr e ^/^ string "with") ^^
       jump ~indent:0 (print_branches branches) ^/^
       at ^^ print_typ t
-
-  | EOp (o, w) -> string "(" ^^ print_op o ^^ string "," ^^ print_width w ^^ string ")"
-
+  | EOp (o, w) ->
+      string "(" ^^ print_op o ^^ string "," ^^ print_width w ^^ string ")"
   | ECast (e, t) ->
       parens_with_nesting (print_expr e ^^ colon ^/^ print_typ t)
-
   | EPopFrame ->
       string "pop_frame"
-
   | EPushFrame ->
       string "push_frame"
-
   | EBool b ->
       string (string_of_bool b)
+  | EReturn e ->
+      string "return" ^/^ (nest 2 (print_expr e))
 
 and print_branches branches =
   separate_map (break 1) (fun b -> group (print_branch b)) branches

@@ -24,8 +24,6 @@ let _ =
   ] (fun f ->
     filename := f
   ) usage;
-  
-  Printf.printf "add_include: %s\n" (String.concat " " !Options.add_include);
 
   if !filename = "" then begin
     print_endline usage;

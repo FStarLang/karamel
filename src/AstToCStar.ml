@@ -150,6 +150,8 @@ let rec translate_expr env e =
       throw_error "[AstToCStar.translate_expr EMatch]: not implemented"
   | EBool b ->
       CStar.Bool b
+  | EReturn _ ->
+      throw_error "[AstToCStar.translate_expr EReturn]: not implemented"
 
 
 and collect (env, acc) = function
@@ -192,6 +194,9 @@ and collect (env, acc) = function
 
   | EAbort ->
       env, CStar.Abort :: acc
+
+  | EReturn e ->
+      env, CStar.Return (translate_expr env e) :: acc
 
   | e ->
       let e = CStar.Ignore (translate_expr env e) in

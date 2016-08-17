@@ -44,6 +44,7 @@ and expr =
      * matter *)
   | EAbort
     (** exits the program prematurely *)
+  | EReturn of expr
 
 
 and branches =
@@ -173,6 +174,8 @@ class virtual ['env, 'result] visitor = object (self)
         self#eany env
     | EAbort ->
         self#eabort env
+    | EReturn e ->
+        self#ereturn env e
 
   method virtual ebound: 'env -> var -> 'result
   method virtual eopen: 'env -> binder -> 'result
@@ -197,6 +200,7 @@ class virtual ['env, 'result] visitor = object (self)
   method virtual epushframe: 'env -> 'result
   method virtual epopframe: 'env -> 'result
   method virtual ebool: 'env -> bool -> 'result
+  method virtual ereturn: 'env -> expr -> 'result
 
 end
 
@@ -273,6 +277,9 @@ class ['env] map = object (self)
 
   method ebool _env b =
     EBool b
+
+  method ereturn env e =
+    EReturn (self#visit env e)
 
   method branches env branches =
     List.map (fun (pat, expr) ->
