@@ -178,6 +178,16 @@ and mk_expr (e: expr): C.expr =
   | Bool b ->
       Bool b
 
+  | Struct (name, fields) ->
+      let inits =
+        List.map (function
+          | Some field, e -> Designated (Dot field, mk_expr e)
+          | None, e -> Expr (mk_expr e)
+        ) fields
+      in
+      (* TODO really properly specify C's type_name *)
+      CompoundLiteral ((Named name, Ident ""), inits)
+
 
 and mk_type t =
   (* hack alert *)

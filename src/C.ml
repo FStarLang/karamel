@@ -42,6 +42,7 @@ and expr =
   | Constant of K.t
   | Bool of bool
   | Sizeof of expr
+  | CompoundLiteral of type_name * init list
 
 (** this is a WILD approximation of the notion of "type name" in C _and_ a hack
  * because there's the invariant that the ident found at the bottom of the
@@ -65,7 +66,12 @@ and ident =
 
 and init =
   | Expr of expr
+  | Designated of designator * expr
   | Initializer of init list
+
+and designator =
+  | Dot of ident
+  | Bracket of int
 
 (** Note: according to http:/ /en.cppreference.com/w/c/language/statements,
  * declarations can only be part of a compound statement... we do not enforce

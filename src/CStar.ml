@@ -37,6 +37,8 @@ and expr =
   | Op of op
   | Cast of expr * typ
   | Bool of bool
+  | Struct of ident * (ident option * expr) list
+    (** Either all names are provided, or no names are provided *)
   | Any
 
 and block =
