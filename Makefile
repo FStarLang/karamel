@@ -1,6 +1,6 @@
 .PHONY: all tags clean test
 
-OCAMLBUILD=ocamlbuild -I src -I lib -use-ocamlfind
+OCAMLBUILD=ocamlbuild -I src -I lib -use-ocamlfind -classic-display
 TARGETS=Kremlin.native Tests.native
 
 all:

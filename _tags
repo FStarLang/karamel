@@ -1,6 +1,7 @@
 # Reinstate @39 once https://github.com/whitequark/ppx_deriving_yojson/issues/21
 # is fixed
-true: annot, warn(@1-2+3@8..12@14..21@23..29-30@31..38-39@40-41@43), \
+# Reinstate @3 once we move to 4.03.0
+true: annot, bin_annot, warn(@1-2-3@8..12@14..21@23..29-30@31..38-39@40-41@43), \
   package(ppx_deriving.std), package(ppx_deriving_yojson), \
   package(zarith), package(pprint), package(unix), debug
 <test>: -traverse

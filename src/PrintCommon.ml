@@ -1,6 +1,8 @@
 open PPrint
 open Constant
 
+let break1 = break 1
+
 let jump ?(indent=2) body =
   jump indent 1 body
 

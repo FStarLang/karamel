@@ -18,6 +18,8 @@ let visit_decl (env: 'env) mapper = function
       mapper#dtypealias env name t
   | DGlobal (name, typ, expr) ->
       mapper#dglobal env name typ expr
+  | DTypeFlat (name, fields) ->
+      mapper#dtypeflat env name fields
 
 let visit_program (env: 'env) mapper (program: program) =
   List.map (visit_decl env mapper) program
@@ -44,6 +46,9 @@ class ignore_everything = object
 
   method dtypealias () name t =
     DTypeAlias (name, t)
+
+  method dtypeflat () name fields =
+    DTypeFlat (name, fields)
 end
 
 
@@ -308,6 +313,17 @@ let rec hoist_t e =
       let lhs, e = hoist e in
       nest lhs (EReturn e)
 
+  | EField (t, e, f) ->
+      let lhs, e = hoist e in
+      nest lhs (EField (t, e, f))
+
+  | EFlat (t, fields) ->
+      let lhs, fields = List.split (List.map (fun (ident, expr) ->
+        let lhs, expr = hoist expr in
+        lhs, (ident, expr)
+      ) fields) in
+      nest (List.flatten lhs) (EFlat (t, fields))
+
 (* This traversal guarantees that no let-bindings are left in the visited term.
  * It returns a [(binder * expr) list] of all the hoisted bindings. It is up to
  * the caller to rewrite the bindings somehow and call [close_binder] on the
@@ -399,6 +415,18 @@ and hoist e =
   | EReturn _ ->
       throw_error "[return] expressions should only appear in statement position"
 
+  | EField (t, e, f) ->
+      let lhs, e = hoist e in
+      lhs, EField (t, e, f)
+
+  | EFlat (t, fields) ->
+      let lhs, fields = List.split (List.map (fun (ident, expr) ->
+        let lhs, expr = hoist expr in
+        lhs, (ident, expr)
+      ) fields) in
+      List.flatten lhs, EFlat (t, fields)
+
+
 
 (* No partial applications ****************************************************)
 
@@ -438,6 +466,9 @@ let record_toplevel_names = object
 
   method dtypealias () name t =
     DTypeAlias (record_name name, t)
+
+  method dtypeflat () name fields =
+    DTypeFlat (record_name name, fields)
 end
 
 let replace_references_to_toplevel_names = object

@@ -137,21 +137,23 @@ let rec translate_expr env e =
   | EAny ->
       CStar.Any
   | ELet _ ->
-      throw_error "[AstToCStar.translate_expr ELet]: not implemented"
+      throw_error "[AstToCStar.translate_expr ELet]: should not be here"
   | EIfThenElse _ ->
-      throw_error "[AstToCStar.translate_expr EIfThenElse]: not implemented"
+      throw_error "[AstToCStar.translate_expr EIfThenElse]: should not be here"
   | ESequence _ ->
-      throw_error "[AstToCStar.translate_expr ESequence]: not implemented"
+      throw_error "[AstToCStar.translate_expr ESequence]: should not be here"
   | EAssign _ ->
-      throw_error "[AstToCStar.translate_expr EAssign]: not implemented"
+      throw_error "[AstToCStar.translate_expr EAssign]: should not be here"
   | EBufWrite _ ->
-      throw_error "[AstToCStar.translate_expr EBufWrite]: not implemented"
+      throw_error "[AstToCStar.translate_expr EBufWrite]: should not be here"
   | EMatch _ ->
-      throw_error "[AstToCStar.translate_expr EMatch]: not implemented"
+      throw_error "[AstToCStar.translate_expr EMatch]: should not be here"
+  | EReturn _ ->
+      throw_error "[AstToCStar.translate_expr EReturn]: should not be here"
   | EBool b ->
       CStar.Bool b
-  | EReturn _ ->
-      throw_error "[AstToCStar.translate_expr EReturn]: not implemented"
+  | EField _ | EFlat _ ->
+      failwith "TODO"
 
 
 and collect (env, acc) = function
@@ -313,6 +315,9 @@ and translate_declaration env d: CStar.decl =
 
   | DGlobal (name, t, body) ->
       CStar.Global (string_of_lident name, translate_type env t, translate_expr env body)
+
+  | DTypeFlat _ ->
+      failwith "TODO: DTypleFlat"
 
 
 and translate_program decls =

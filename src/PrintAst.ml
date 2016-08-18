@@ -30,6 +30,12 @@ let rec print_decl = function
   | DGlobal (name, typ, expr) ->
       print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
+  | DTypeFlat (name, fields) ->
+      group (string "flat type" ^/^ string (string_of_lident name) ^/^ equals) ^^
+      jump (concat_map (fun (ident, typ) ->
+        group (string ident ^^ colon ^/^ print_typ typ ^^ semi)
+      ) fields)
+
 and print_binder { name; typ; mut; mark; meta } =
   group (
     (if mut then string "mutable" ^^ break 1 else empty) ^^
@@ -109,6 +115,14 @@ and print_expr = function
       string (string_of_bool b)
   | EReturn e ->
       string "return" ^/^ (nest 2 (print_expr e))
+  | EFlat (lid, fields) ->
+      braces_with_nesting (separate_map break1 (fun (name, expr) ->
+        group (string name ^/^ equals ^/^ print_expr expr ^^ semi)
+      ) fields) ^^ at ^^ print_lident lid
+  | EField (lid, expr, field) ->
+      parens_with_nesting (print_expr expr) ^^ dot ^^ string field ^/^
+      at ^^ print_lident lid
+
 
 and print_branches branches =
   separate_map (break 1) (fun b -> group (print_branch b)) branches

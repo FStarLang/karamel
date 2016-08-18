@@ -181,6 +181,10 @@ class virtual ['env, 'result] visitor = object (self)
         self#eabort env
     | EReturn e ->
         self#ereturn env e
+    | EFlat (tname, fields) ->
+        self#eflat env tname fields
+    | EField (tname, e, field) ->
+        self#efield env tname e field
 
   method virtual ebound: 'env -> var -> 'result
   method virtual eopen: 'env -> binder -> 'result
@@ -206,6 +210,8 @@ class virtual ['env, 'result] visitor = object (self)
   method virtual epopframe: 'env -> 'result
   method virtual ebool: 'env -> bool -> 'result
   method virtual ereturn: 'env -> expr -> 'result
+  method virtual eflat: 'env -> lident -> (ident * expr) list -> 'result
+  method virtual efield: 'env -> lident -> expr -> ident -> 'result
 
 end
 
@@ -286,6 +292,15 @@ class ['env] map = object (self)
   method ereturn env e =
     EReturn (self#visit env e)
 
+  method eflat env tname fields =
+    EFlat (tname, self#fields env fields)
+
+  method efield env tname e field =
+    EField (tname, self#visit env e, field)
+
+  method fields env fields =
+    List.map (fun (ident, expr) -> ident, self#visit env expr) fields
+
   method branches env branches =
     List.map (fun (pat, expr) ->
       let binders = binders_of_pat pat in
@@ -305,6 +320,9 @@ class ['env] map = object (self)
 
   method dtypealias (_: 'env) name typ =
     DTypeAlias (name, typ)
+
+  method dtypeflat (_: 'env) name fields =
+    DTypeFlat (name, fields)
 end
 
 (** Input / output of ASTs *)
