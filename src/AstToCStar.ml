@@ -311,13 +311,18 @@ and translate_declaration env d: CStar.decl =
       end)
 
   | DTypeAlias (name, t) ->
-      CStar.TypeAlias (string_of_lident name, translate_type env t)
+      CStar.Type (string_of_lident name, translate_type env t)
 
   | DGlobal (name, t, body) ->
       CStar.Global (string_of_lident name, translate_type env t, translate_expr env body)
 
-  | DTypeFlat _ ->
-      failwith "TODO: DTypleFlat"
+  | DTypeFlat (name, fields) ->
+      let name = string_of_lident name in
+      (* TODO: avoid collisions since "_s" is not going through the name
+       * generator *)
+      CStar.Type (name, CStar.Struct (Some (name ^ "_s"), List.map (fun (field, typ) ->
+        field, translate_type env typ
+      ) fields))
 
 
 and translate_program decls =

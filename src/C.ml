@@ -8,6 +8,8 @@ type type_spec =
   | Int of Constant.width
   | Void
   | Named of ident
+  | Struct of ident option * declaration list
+    (** not encoding all the invariants here *)
 
 and storage_spec =
   | Typedef

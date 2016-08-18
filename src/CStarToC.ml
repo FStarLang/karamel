@@ -9,14 +9,14 @@ let any =
   Cast (Constant (K.UInt8, "0"), Pointer Void)
 
 (* Turns the ML declaration inside-out to match the C reading of a type. *)
-let rec mk_sad name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
+let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
   match t with
   | Pointer t ->
-      mk_sad name t (fun d -> Pointer (k d))
+      mk_spec_and_decl name t (fun d -> Pointer (k d))
   | Array (t, size) ->
-      mk_sad name t (fun d -> Array (k d, mk_expr size))
+      mk_spec_and_decl name t (fun d -> Array (k d, mk_expr size))
   | Function (t, ts) ->
-      mk_sad name t (fun d -> Function (k d, List.map (fun t -> mk_sad "" t (fun d -> d)) ts))
+      mk_spec_and_decl name t (fun d -> Function (k d, List.map (fun t -> mk_spec_and_decl "" t (fun d -> d)) ts))
   | Int w ->
       Int w, k (Ident name)
   | Void ->
@@ -27,12 +27,17 @@ let rec mk_sad name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.
       Named "mpz_t", k (Ident name)
   | Bool ->
       Named "bool", k (Ident name)
+  | Struct (struct_name, fields) ->
+      Struct (struct_name, List.map (fun (name, typ) ->
+        let spec, decl = mk_spec_and_declarator name typ in
+        spec, None, [ decl, None ]
+      ) fields), k (Ident name)
 
 and mk_spec_and_declarator name t =
-  mk_sad name t (fun d -> d)
+  mk_spec_and_decl name t (fun d -> d)
 
 and mk_spec_and_declarator_f name ret_t params =
-  mk_sad name ret_t (fun d -> Function (d, List.map (fun (n, t) -> mk_sad n t (fun d -> d)) params))
+  mk_spec_and_decl name ret_t (fun d -> Function (d, List.map (fun (n, t) -> mk_spec_and_decl n t (fun d -> d)) params))
 
 (* Enforce the invariant that declarations are wrapped in compound statements
  * and cannot appear "alone". *)
@@ -181,7 +186,7 @@ and mk_type t =
 
 let mk_decl_or_function (d: decl): C.declaration_or_function =
   match d with
-  | TypeAlias (name, t) ->
+  | Type (name, t) ->
       let spec, decl = mk_spec_and_declarator name t in
       Decl (spec, Some Typedef, [ decl, None ])
 
@@ -201,6 +206,7 @@ let mk_decl_or_function (d: decl): C.declaration_or_function =
       let spec, decl = mk_spec_and_declarator name t in
       let expr = mk_expr expr in
       Decl (spec, None, [ decl, Some (Expr expr) ])
+
 
 let mk_program decls =
   List.map mk_decl_or_function decls

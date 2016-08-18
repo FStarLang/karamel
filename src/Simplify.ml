@@ -471,11 +471,20 @@ let record_toplevel_names = object
     DTypeFlat (record_name name, fields)
 end
 
-let replace_references_to_toplevel_names = object
+let t lident =
+  [], GlobalNames.translate (string_of_lident lident)
+
+let replace_references_to_toplevel_names = object(self)
   inherit [unit] map
 
   method equalified () lident =
-    EQualified ([], GlobalNames.translate (string_of_lident lident))
+    EQualified (t lident)
+
+  method eflat () lident fields =
+    EFlat (t lident, self#fields () fields)
+
+  method efield () lident e field =
+    EField (t lident, self#visit () e, field)
 end
 
 

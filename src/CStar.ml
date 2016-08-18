@@ -6,9 +6,9 @@ type program =
   decl list
 
 and decl =
-  | Function of typ * ident * binder list * block
-  | TypeAlias of ident * typ
   | Global of ident * typ * expr
+  | Function of typ * ident * binder list * block
+  | Type of ident * typ
 
 and stmt =
   | Return of expr
@@ -67,3 +67,4 @@ and typ =
   | Function of typ * typ list
   | Bool
   | Z
+  | Struct of ident option * (ident * typ) list

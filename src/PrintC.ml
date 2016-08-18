@@ -30,17 +30,21 @@ let p_constant (w, s) =
 let p_storage_spec = function
   | Typedef -> string "typedef"
 
-let p_type_spec = function
+let rec p_type_spec = function
   | Int w -> print_width w ^^ string "_t"
   | Void -> string "void"
   | Named s -> string s
+  | Struct (name, decls) ->
+      string "struct" ^/^
+      (match name with Some name -> string name ^^ break1 | None -> empty) ^^
+      braces_with_nesting (separate_map break1 (fun p -> group (p_declaration p)) decls)
 
-let rec p_type_declarator d =
+and p_type_declarator d =
   let rec p_noptr = function
     | Ident n ->
         string n
     | Array (d, s) ->
-        p_noptr d ^^ lbracket ^^ p_expr 15 s ^^ rbracket
+        p_noptr d ^^ lbracket ^^ p_expr s ^^ rbracket
     | Function (d, params) ->
         p_noptr d ^^ parens_with_nesting (separate_map (comma ^^ break 1) (fun (spec, decl) ->
           group (p_type_spec spec ^/^ p_any decl)
@@ -94,66 +98,66 @@ and paren_if curr mine doc =
   else
     doc
 
-and p_expr curr = function
+and p_expr' curr = function
   | Op1 (op, e1) ->
       let mine = prec_of_op1 op in
-      let e1 = p_expr mine e1 in
+      let e1 = p_expr' mine e1 in
       paren_if curr mine (print_op op ^^ e1)
   | Op2 (op, e1, e2) ->
       let mine, left, right = prec_of_op2 op in
-      let e1 = p_expr left e1 in
-      let e2 = p_expr right e2 in
+      let e1 = p_expr' left e1 in
+      let e2 = p_expr' right e2 in
       paren_if curr mine (e1 ^/^ print_op op ^^ jump e2)
   | Index (e1, e2) ->
       let mine, left, right = 1, 1, 15 in
-      let e1 = p_expr left e1 in
-      let e2 = p_expr right e2 in
+      let e1 = p_expr' left e1 in
+      let e2 = p_expr' right e2 in
       paren_if curr mine (e1 ^^ lbracket ^^ e2 ^^ rbracket)
   | Assign (e1, e2) ->
       let mine, left, right = 14, 13, 14 in
-      let e1 = p_expr left e1 in
-      let e2 = p_expr right e2 in
+      let e1 = p_expr' left e1 in
+      let e2 = p_expr' right e2 in
       paren_if curr mine (group (e1 ^/^ equals) ^^ jump e2)
   | Call (e, es) ->
       let mine, left, arg = 1, 1, 15 in
-      let e = p_expr left e in
-      let es = nest 2 (separate_map (comma ^^ break 1) (fun e -> group (p_expr arg e)) es) in
+      let e = p_expr' left e in
+      let es = nest 2 (separate_map (comma ^^ break 1) (fun e -> group (p_expr' arg e)) es) in
       paren_if curr mine (e ^^ lparen ^^ es ^^ rparen)
   | Name s ->
       string s
   | Cast (t, e) ->
       let mine, right = 2, 2 in
-      let e = group (p_expr right e) in
+      let e = group (p_expr' right e) in
       let t = p_type_name t in
       paren_if curr mine (lparen ^^ t ^^ rparen ^^ e)
   | Constant c ->
       p_constant c
   | Sizeof e ->
       let mine, right = 2, 2 in
-      let e = p_expr right e in
+      let e = p_expr' right e in
       paren_if curr mine (string "sizeof" ^^ space ^^ e)
   | Deref _ | Address _ | Member _ | MemberP _ ->
-      failwith "[p_expr]: not implemented"
+      failwith "[p_expr']: not implemented"
   | Bool b ->
       string (string_of_bool b)
 
-let p_expr = p_expr 15
+and p_expr e = p_expr' 15 e
 
-let rec p_init (i: init) =
+and p_init (i: init) =
   match i with
   | Expr e ->
       p_expr e
   | Initializer inits ->
       braces_with_nesting (separate_map (comma ^^ break 1) p_init inits)
 
-let p_decl_and_init (decl, init) =
+and p_decl_and_init (decl, init) =
   group (p_type_declarator decl ^^ match init with
     | Some init ->
         space ^^ equals ^^ jump (p_init init)
     | None ->
         empty)
 
-let p_declaration (spec, stor, decl_and_inits) =
+and p_declaration (spec, stor, decl_and_inits) =
   let stor = match stor with Some stor -> p_storage_spec stor ^^ break 1 | None -> empty in
   stor ^^ group (p_type_spec spec) ^^ space ^^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
