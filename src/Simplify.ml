@@ -11,31 +11,24 @@ let pexpr = PrintAst.pexpr
 
 (* Some helpers ***************************************************************)
 
-let visit_decl (env: 'env) mapper = function
-  | DFunction (ret, name, binders, expr) ->
-      mapper#dfunction env ret name binders expr
-  | DTypeAlias (name, t) ->
-      mapper#dtypealias env name t
-  | DGlobal (name, typ, expr) ->
-      mapper#dglobal env name typ expr
-  | DTypeFlat (name, fields) ->
-      mapper#dtypeflat env name fields
+type ('a, 'b, 'c, 'd, 'e) visitor = ('a, 'b, 'c, 'd) #Ast.visitor as 'e
 
-let visit_program (env: 'env) mapper (program: program) =
-  List.map (visit_decl env mapper) program
+let visit_program (env: 'env) (visitor: _ visitor) (program: program) =
+  List.map (visitor#visit_d env) program
 
-let visit_file (env: 'env) mapper (file: file) =
+let visit_file (env: 'env) (visitor: _ visitor) (file: file) =
   let name, program = file in
-  name, visit_program env mapper program
+  name, visit_program env visitor program
 
-let visit_files (env: 'env) (mapper: < dfunction: 'env -> typ -> lident -> binder list -> expr -> decl; .. >) (files: file list) =
+let visit_files (env: 'env) (visitor: _ visitor) (files: file list) =
   KList.filter_map (fun f ->
     try
-      Some (visit_file env mapper f)
+      Some (visit_file env visitor f)
     with Error e ->
       Printf.eprintf "Warning: dropping %s [in simplify]: %s\n" (fst f) e;
       None
   ) files
+
 
 class ignore_everything = object
   method dfunction () ret name binders expr =
@@ -431,6 +424,7 @@ and hoist e =
 (* No partial applications ****************************************************)
 
 let eta_expand = object
+  inherit [_] map
   inherit ignore_everything
 
   method dglobal () name t body =
@@ -458,6 +452,8 @@ let record_name lident =
 
 let record_toplevel_names = object
 
+  inherit [_] map
+
   method dglobal () name t body =
     DGlobal (record_name name, t, body)
 
@@ -476,6 +472,9 @@ let t lident =
 
 let replace_references_to_toplevel_names = object(self)
   inherit [unit] map
+
+  method tqualified () lident =
+    TQualified (t lident)
 
   method equalified () lident =
     EQualified (t lident)
@@ -500,6 +499,7 @@ let simplify (files: file list): file list =
   let files = visit_files () sequence_to_let files in
   let files = visit_files () (object
     inherit ignore_everything
+    inherit [_] map
 
     method dfunction () ret name binders expr =
       (* TODO: no nested let-bindings in top-level value declarations either *)

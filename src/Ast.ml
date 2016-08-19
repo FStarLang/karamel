@@ -121,7 +121,7 @@ let binders_of_pat = function
   | PBool _ ->
       []
 
-class virtual ['env, 'result] visitor = object (self)
+class virtual ['env, 'result, 'tresult, 'dresult] visitor = object (self)
 
   (* This method, whose default implementation is the identity,
      can be used to extend the environment when a binding is
@@ -213,18 +213,61 @@ class virtual ['env, 'result] visitor = object (self)
   method virtual eflat: 'env -> lident -> (ident * expr) list -> 'result
   method virtual efield: 'env -> lident -> expr -> ident -> 'result
 
+  method visit_t (env: 'env) (t: typ): 'tresult =
+    match t with
+    | TInt w ->
+        self#tint env w
+    | TBuf t ->
+        self#tbuf env t
+    | TUnit ->
+        self#tunit env
+    | TQualified lid ->
+        self#tqualified env lid
+    | TBool ->
+        self#tbool env
+    | TAny ->
+        self#tany env
+    | TArrow (t1, t2) ->
+        self#tarrow env t1 t2
+    | TZ ->
+        self#tz env
+
+  method virtual tint: 'env -> K.width -> 'tresult
+  method virtual tbuf: 'env -> typ -> 'tresult
+  method virtual tunit: 'env ->  'tresult
+  method virtual tqualified: 'env -> lident -> 'tresult
+  method virtual tbool: 'env -> 'tresult
+  method virtual tany: 'env -> 'tresult
+  method virtual tarrow: 'env -> typ -> typ -> 'tresult
+  method virtual tz: 'env -> 'tresult
+
+  method visit_d (env: 'env) (d: decl): 'dresult =
+    match d with
+    | DFunction (ret, name, binders, expr) ->
+        self#dfunction env ret name binders expr
+    | DTypeAlias (name, t) ->
+        self#dtypealias env name t
+    | DGlobal (name, typ, expr) ->
+        self#dglobal env name typ expr
+    | DTypeFlat (name, fields) ->
+        self#dtypeflat env name fields
+
+  method virtual dfunction: 'env -> typ -> lident -> binder list -> expr -> 'dresult
+  method virtual dtypealias: 'env -> lident -> typ -> 'dresult
+  method virtual dglobal: 'env -> lident -> typ -> expr -> 'dresult
+  method virtual dtypeflat: 'env -> lident -> (ident * typ) list -> 'dresult
 end
 
 
 class ['env] map = object (self)
 
-  inherit ['env, expr] visitor
+  inherit ['env, expr, typ, decl] visitor
 
   method ebound _env var =
     EBound var
 
-  method eopen _env binder =
-    EOpen binder
+  method eopen env binder =
+    EOpen { binder with typ = self#visit_t env binder.typ }
 
   method equalified _env lident =
     EQualified lident
@@ -245,6 +288,7 @@ class ['env] map = object (self)
     EApp (self#visit env e, List.map (self#visit env) es)
 
   method elet env b e1 e2 =
+    let b = { b with typ = self#visit_t env b.typ } in
     ELet (b, self#visit env e1, self#visit (self#extend env b) e2)
 
   method eifthenelse env e1 e2 e3 t =
@@ -278,7 +322,7 @@ class ['env] map = object (self)
     EOp (o, w)
 
   method ecast env e t =
-    ECast (self#visit env e, t)
+    ECast (self#visit env e, self#visit_t env t)
 
   method epopframe _env =
     EPopFrame
@@ -311,18 +355,47 @@ class ['env] map = object (self)
   method extend_many env binders =
     List.fold_left self#extend env binders
 
+  method tint _env w =
+    TInt w
+
+  method tbuf env t =
+    TBuf (self#visit_t env t)
+
+  method tunit _env =
+    TUnit
+
+  method tqualified _env lid =
+    TQualified lid
+
+  method tbool _env =
+    TBool
+
+  method tany _env =
+    TAny
+
+  method tarrow env t1 t2 =
+    TArrow (self#visit_t env t1, self#visit_t env t2)
+
+  method tz _env =
+    TZ
+
   method dfunction env ret name binders expr =
+    let binders =
+      List.map (fun binder -> { binder with typ = self#visit_t env binder.typ }) binders
+    in
     let env = self#extend_many env binders in
     DFunction (ret, name, binders, self#visit env expr)
 
   method dglobal env name typ expr =
-    DGlobal (name, typ, self#visit env expr)
+    DGlobal (name, self#visit_t env typ, self#visit env expr)
 
-  method dtypealias (_: 'env) name typ =
-    DTypeAlias (name, typ)
+  method dtypealias env name t =
+    DTypeAlias (name, self#visit_t env t)
 
-  method dtypeflat (_: 'env) name fields =
+  method dtypeflat env name fields =
+    let fields = List.map (fun (name, t) -> name, self#visit_t env t) fields in
     DTypeFlat (name, fields)
+
 end
 
 (** Input / output of ASTs *)

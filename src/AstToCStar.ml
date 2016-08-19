@@ -152,8 +152,12 @@ let rec translate_expr env e =
       throw_error "[AstToCStar.translate_expr EReturn]: should not be here"
   | EBool b ->
       CStar.Bool b
-  | EField _ | EFlat _ ->
-      failwith "TODO"
+  | EFlat (typ, fields) ->
+      CStar.Struct (string_of_lident typ, List.map (fun (name, expr) ->
+        Some name, translate_expr env expr
+      ) fields)
+  | EField (_typ, expr, field) ->
+      CStar.Field (translate_expr env expr, field)
 
 
 and collect (env, acc) = function

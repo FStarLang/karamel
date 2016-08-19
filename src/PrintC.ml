@@ -143,17 +143,21 @@ and p_expr' curr = function
   | CompoundLiteral (t, init) ->
       lparen ^^ p_type_name t ^^ rparen ^^
       braces_with_nesting (separate_map (comma ^^ break1) p_init init)
+  | MemberAccess (expr, member) ->
+      p_expr' 1 expr ^^ dot ^^ string member
 
 and p_expr e = p_expr' 15 e
 
-and p_init (i: init) =
+and p_init' l (i: init) =
   match i with
   | Designated (designator, expr) ->
-      group (p_designator designator ^/^ equals ^/^ p_expr expr)
+      group (p_designator designator ^/^ equals ^/^ p_expr' l expr)
   | Expr e ->
       p_expr e
   | Initializer inits ->
       braces_with_nesting (separate_map (comma ^^ break 1) p_init inits)
+
+and p_init i = p_init' 15 i
 
 and p_designator = function
   | Dot ident ->

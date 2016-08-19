@@ -95,6 +95,11 @@ and mk_stmt (stmt: stmt): C.stmt list =
       in
       Decl (spec, None, [ decl, maybe_init ]) :: memset
 
+  | Decl (binder, Struct (_typ, fields)) ->
+      let spec, decl = mk_spec_and_declarator binder.name binder.typ in
+      let init = initializer_of_fields fields in
+      [ Decl (spec, None, [ decl, Some (Initializer init) ]) ]
+
   | Decl (binder, e) ->
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
       let init: init option = match e with Any -> None | _ -> Some (Expr (mk_expr e)) in
@@ -179,14 +184,19 @@ and mk_expr (e: expr): C.expr =
       Bool b
 
   | Struct (name, fields) ->
-      let inits =
-        List.map (function
-          | Some field, e -> Designated (Dot field, mk_expr e)
-          | None, e -> Expr (mk_expr e)
-        ) fields
-      in
-      (* TODO really properly specify C's type_name *)
+      let inits = initializer_of_fields fields in
+      (* TODO really properly specify C's type_name! *)
       CompoundLiteral ((Named name, Ident ""), inits)
+
+  | Field (e, field) ->
+      MemberAccess (mk_expr e, field)
+
+
+and initializer_of_fields fields =
+  List.map (function
+    | Some field, e -> Designated (Dot field, mk_expr e)
+    | None, e -> Expr (mk_expr e)
+  ) fields
 
 
 and mk_type t =
