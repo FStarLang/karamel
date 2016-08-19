@@ -56,7 +56,7 @@ let count_use = object (self)
 
   method! ebound env i =
     let b = List.nth env i in
-    b.mark <- b.mark + 1;
+    incr b.mark;
     EBound i
 
   method! elet env b e1 e2 =
@@ -64,9 +64,9 @@ let count_use = object (self)
     let e1 = self#visit env e1 in
     let env = self#extend env b in
     let e2 = self#visit env e2 in
-    match e1, b.mark with
+    match e1, !(b.mark) with
     | EConstant _, 0 ->
-        open_binder b e2
+        snd (open_binder b e2)
     | _ ->
         ELet (b, e1, e2)
 
@@ -82,9 +82,9 @@ let dummy_match = object (self)
     match e, branches with
     | EUnit, [ PUnit, body ] ->
         self # visit () body
-    | _, [ PBool true, b1; PVar v, b2 ] when v.mark = 0 ->
+    | _, [ PBool true, b1; PVar v, b2 ] when !(v.mark) = 0 ->
         let b1 = self # visit () b1 in
-        let b2 = open_binder v b2 in
+        let _, b2 = open_binder v b2 in
         let b2 = self # visit () b2 in
         EIfThenElse (e, b1, b2, t)
     | _ ->
@@ -120,12 +120,13 @@ end
 
 (* Convert back and forth between [e1; e2] and [let _ = e1 in e2]. *)
 
-let sequence_binding = {
+let sequence_binding () = {
   name = "_";
   typ = TUnit;
   mut = false;
-  mark = 0;
-  meta = Some MetaSequence
+  mark = ref 0;
+  meta = Some MetaSequence;
+  atom = Atom.fresh ()
 }
 
 let sequence_to_let = object (self)
@@ -137,7 +138,7 @@ let sequence_to_let = object (self)
     match List.rev es with
     | last :: first_fews ->
         List.fold_left (fun cont e ->
-          ELet (sequence_binding, e, lift 1 cont)
+          ELet (sequence_binding (), e, lift 1 cont)
         ) last first_fews
     | [] ->
         failwith "[sequence_to_let]: impossible (empty sequence)"
@@ -152,7 +153,7 @@ let let_to_sequence = object (self)
     match b.meta with
     | Some MetaSequence ->
         let e1 = self#visit env e1 in
-        let e2 = open_binder b e2 in
+        let b, e2 = open_binder b e2 in
         let e2 = self#visit env e2 in
         assert (b.typ = TUnit && b.name = "_");
         begin match e1, e2 with
@@ -188,12 +189,12 @@ let let_if_to_assign = object (self)
     match e1, b.meta with
     | EIfThenElse (cond, e_then, e_else, _), None ->
         let b = { b with mut = true } in
-        let e2 = open_binder b e2 in
-        let nest_assign = nest_in_lets (fun innermost -> EAssign (EOpen b, innermost)) in
+        let b, e2 = open_binder b e2 in
+        let nest_assign = nest_in_lets (fun innermost -> EAssign (EOpen (b.name, b.atom), innermost)) in
         let e_then = nest_assign e_then in
         let e_else = nest_assign e_else in
         ELet (b, EAny,
-          close_binder b (lift 1 (ELet (sequence_binding, EIfThenElse (cond, e_then, e_else, TUnit),
+          close_binder b (lift 1 (ELet (sequence_binding (), EIfThenElse (cond, e_then, e_else, TUnit),
             lift 1 (self#visit () e2)))))
     | _ ->
         (* There are no more nested lets at this stage *)
@@ -205,7 +206,7 @@ end
 
 let nest (lhs: (binder * expr) list) (e2: expr) =
   List.fold_right (fun (binder, e1) e2 ->
-    let e2 = close binder 0 e2 in
+    let e2 = close_binder binder e2 in
     ELet (binder, e1, e2)
   ) lhs e2
 
@@ -240,7 +241,7 @@ let rec hoist_t e =
       let lhs, e'1 = hoist e'1 in
       let e'2 = hoist_t e'2 in
       let e'3 = hoist_t e'3 in
-      let e2 = open_binder binder e2 in
+      let binder, e2 = open_binder binder e2 in
       let e2 = hoist_t e2 in
       nest lhs (ELet (binder, EIfThenElse (e'1, e'2, e'3, t), close_binder binder e2))
 
@@ -248,7 +249,7 @@ let rec hoist_t e =
       (* At top-level, bindings may nest on the right-hand side of let-bindings,
        * but not on the left-hand side. *)
       let lhs, e1 = hoist e1 in
-      let e2 = open_binder binder e2 in
+      let binder, e2 = open_binder binder e2 in
       let e2 = hoist_t e2 in
       nest lhs (ELet (binder, e1, close_binder binder e2))
 
@@ -348,7 +349,7 @@ and hoist e =
 
   | ELet (binder, e1, e2) ->
       let lhs1, e1 = hoist e1 in
-      let e2 = open_binder binder e2 in
+      let binder, e2 = open_binder binder e2 in
       (* The caller (e.g. [hoist_t]) takes care, via [nest], of closing this
        * binder. *)
       let lhs2, e2 = hoist e2 in
@@ -358,8 +359,8 @@ and hoist e =
       let lhs1, e1 = hoist e1 in
       let e2 = hoist_t e2 in
       let e3 = hoist_t e3 in
-      let b = { name = "ite"; typ = t; mut = false; mark = 0; meta = None } in
-      lhs1 @ [ b, EIfThenElse (e1, e2, e3, t) ], EOpen b
+      let b = { name = "ite"; typ = t; mut = false; mark = ref 0; meta = None; atom = Atom.fresh () } in
+      lhs1 @ [ b, EIfThenElse (e1, e2, e3, t) ], EOpen (b.name, b.atom)
 
   | ESequence _ ->
       failwith "[hoist_t]: sequences should've been translated as let _ ="
@@ -434,7 +435,7 @@ let eta_expand = object
         let tret, targs = flatten_arrow t in
         let n = List.length targs in
         let binders, args = List.split (List.mapi (fun i t ->
-          { name = Printf.sprintf "x%d" i; typ = t; mut = false; mark = 0; meta = None },
+          { name = Printf.sprintf "x%d" i; typ = t; mut = false; mark = ref 0; meta = None; atom = Atom.fresh () },
           EBound (n - i - 1)
         ) targs) in
         let body = EApp (body, args) in
@@ -503,7 +504,7 @@ let simplify (files: file list): file list =
 
     method dfunction () ret name binders expr =
       (* TODO: no nested let-bindings in top-level value declarations either *)
-      let expr = open_function_binders binders expr in
+      let binders, expr = open_function_binders binders expr in
       let expr = hoist_t expr in
       let expr = close_function_binders binders expr in
       DFunction (ret, name, binders, expr)

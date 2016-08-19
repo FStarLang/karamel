@@ -5,10 +5,11 @@
 #include "../kremlib/kremlib.h"
 #include "testlib.h"
 
-#include "Poly_Parameters.c"
-#include "Poly_Bigint.c"
-#include "Poly_Bignum.c"
-#include "Poly_Poly1305.c"
+#include "Buffer_Utils.c"
+#include "Crypto_Symmetric_Poly1305_Parameters.c"
+#include "Crypto_Symmetric_Poly1305_Bigint.c"
+#include "Crypto_Symmetric_Poly1305_Bignum.c"
+#include "Crypto_Symmetric_Poly1305.c"
 
 uint8_t key[] = {
   0x85, 0xd6, 0xbe, 0x78, 0x57, 0x55, 0x6d, 0x33, 0x7f, 0x44, 0x52, 0xfe, 0x42,
@@ -25,7 +26,7 @@ uint8_t expected_hash[] = {
 
 int main() {
   uint8_t hash[HASH_SIZE];
-  Poly_Poly1305_poly1305_mac(hash, msg, 34, key);
+  Crypto_Symmetric_Poly1305_poly1305_mac(hash, msg, 34, key);
   compare_and_print("mac", hash, expected_hash, HASH_SIZE);
   return EXIT_SUCCESS;
 }

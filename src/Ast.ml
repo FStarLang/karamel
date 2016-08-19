@@ -19,7 +19,8 @@ and decl =
 
 and expr =
   | EBound of var
-  | EOpen of binder
+  | EOpen of (ident * Atom.t)
+    (** [ident] for debugging purposes only *)
   | EQualified of lident
   | EConstant of K.t
   | EUnit
@@ -70,8 +71,10 @@ and binder = {
   name: ident;
   typ: typ;
   mut: bool;
-  mutable mark: int;
+  mark: int ref;
   meta: meta option;
+  atom: Atom.t;
+    (** Only makes sense when opened! *)
 }
 
 and meta =
@@ -104,7 +107,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 9
+let current_version: version = 10
 
 type file = string * program
   [@@deriving yojson]
@@ -135,8 +138,8 @@ class virtual ['env, 'result, 'tresult, 'dresult] visitor = object (self)
     match e with
     | EBound var ->
         self#ebound env var
-    | EOpen binder ->
-        self#eopen env binder
+    | EOpen (name, atom) ->
+        self#eopen env name atom
     | EQualified lident ->
         self#equalified env lident
     | EConstant c ->
@@ -187,7 +190,7 @@ class virtual ['env, 'result, 'tresult, 'dresult] visitor = object (self)
         self#efield env tname e field
 
   method virtual ebound: 'env -> var -> 'result
-  method virtual eopen: 'env -> binder -> 'result
+  method virtual eopen: 'env -> ident -> Atom.t -> 'result
   method virtual equalified: 'env -> lident -> 'result
   method virtual econstant: 'env -> K.t -> 'result
   method virtual eunit: 'env -> 'result
@@ -266,8 +269,8 @@ class ['env] map = object (self)
   method ebound _env var =
     EBound var
 
-  method eopen env binder =
-    EOpen { binder with typ = self#visit_t env binder.typ }
+  method eopen _env name atom =
+    EOpen (name, atom)
 
   method equalified _env lident =
     EQualified lident

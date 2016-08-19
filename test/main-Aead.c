@@ -6,12 +6,15 @@
 
 #include "../kremlib/kremlib.h"
 #include "Buffer_Utils.c"
-#include "Chacha_wip.c"
-#include "Poly_Parameters.c"
-#include "Poly_Bigint.c"
-#include "Poly_Bignum.c"
-#include "Poly_Poly1305_wip.c"
-#include "AEAD_Chacha20_Poly1305.c"
+#include "Crypto_Symmetric_Chacha20.c"
+#include "Math_Axioms.c"
+#include "Math_Lemmas.c"
+#include "Crypto_Symmetric_Poly1305_Parameters.c"
+#include "Crypto_Symmetric_Poly1305_Bigint.c"
+#include "Crypto_Symmetric_Poly1305_Bignum.c"
+#include "Crypto_Symmetric_Poly1305_Lemmas.c"
+#include "Crypto_Symmetric_Poly1305.c"
+#include "Crypto_AEAD_Chacha20Poly1305.c"
 
 #include "testlib.h"
 
@@ -56,7 +59,7 @@ int main() {
   uint8_t ciphertext[TEXT_SIZE];
   uint8_t tag[TAG_SIZE];
 
-  AEAD_Chacha20_Poly1305_chacha20_aead_encrypt(ciphertext,
+  Crypto_AEAD_Chacha20Poly1305_chacha20_aead_encrypt(ciphertext,
     tag, aad, key, iv,
     common_part, plaintext, TEXT_SIZE, 12);
 

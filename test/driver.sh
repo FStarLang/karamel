@@ -43,9 +43,10 @@ else
   echo "CLANG was not detected"
 fi
 
-HYPERSTACK_LIB="$FSTAR_HOME/examples/low-level/"
+LOWLEVEL_LIB="$FSTAR_HOME/examples/low-level/"
+CRYPTO_LIB="$FSTAR_HOME/examples/low-level/crypto/"
 FSTAR_OPTIONS="--lax --trace_error --codegen Kremlin --include $KREMLIB"
-FSTAR="fstar.exe --include $HYPERSTACK_LIB $FSTAR_OPTIONS"
+FSTAR="fstar.exe --include $LOWLEVEL_LIB --include $CRYPTO_LIB $FSTAR_OPTIONS"
 
 function compile_libs () {
   # The "kremlib", i.e. the glue code that realizes various functions modelized in F*
@@ -95,9 +96,9 @@ function test () {
 compile_libs
 
 # These files currently sitting in examples/low-level
-test Poly.Poly1305.fst main-Poly1305.c "-vla"
-test Chacha.fst main-Chacha.c
-test AEAD.Chacha20_Poly1305.fst main-Aead.c "-vla"
+test Crypto.Symmetric.Poly1305.fst main-Poly1305.c "-vla"
+test Crypto.Symmetric.Chacha20.fst main-Chacha.c
+test Crypto.AEAD.Chacha20Poly1305.fst main-Aead.c "-vla"
 
 # Some unit-tests
 TEST_ARGS="-no-prefix -add-include \"testlib.h\" -add-include \"kremlib.h\""

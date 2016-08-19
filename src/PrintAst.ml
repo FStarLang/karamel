@@ -36,10 +36,10 @@ let rec print_decl = function
         group (string ident ^^ colon ^/^ print_typ typ ^^ semi)
       ) fields)
 
-and print_binder { name; typ; mut; mark; meta } =
+and print_binder { name; typ; mut; meta; mark; _ } =
   group (
     (if mut then string "mutable" ^^ break 1 else empty) ^^
-    string name ^^ lparen ^^ int mark ^^ comma ^^ space ^^ print_meta meta ^^ rparen ^^ colon ^/^
+    string name ^^ lparen ^^ int !mark ^^ comma ^^ space ^^ print_meta meta ^^ rparen ^^ colon ^/^
     print_typ typ
   )
 
@@ -66,7 +66,7 @@ and print_expr = function
       string "$abort"
   | EBound v ->
       at ^^ int v
-  | EOpen { name; _ } ->
+  | EOpen (name, _) ->
       bang ^^ string name
   | EQualified lident ->
       print_lident lident

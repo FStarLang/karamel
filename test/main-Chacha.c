@@ -3,7 +3,8 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "Chacha.c"
+#include "Buffer_utils.c"
+#include "Crypto_Symmetric_Chacha20.c"
 
 #define LEN 114
 static /* const */ uint8_t plaintext[LEN] = "Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it.";
@@ -33,10 +34,11 @@ int main () {
   for (uint8_t i = 0; i < 32; ++i)
     key[i] = i;
   uint32_t counter = 1;
-  uint8_t nonce[12] = { 0, 0, 0, 0, 0, 0, 0, 0x4a, 0, 0, 0, 0 };
+  uint64_t iv = 0x4a000000;
+  uint32_t constant = 0;
   uint8_t ciphertext[LEN] = { 0 };
 
-  Chacha_chacha20_encrypt(ciphertext, key, counter, nonce, plaintext, LEN);
+  Crypto_Symmetric_Chacha20_chacha20_encrypt(ciphertext, key, counter, iv, constant, plaintext, LEN);
   if (memcmp(expected, ciphertext, LEN) != 0) {
     printf("[Chacha]: encryption FAILED\n");
     printf("\nPLAINTEXT:\n");
