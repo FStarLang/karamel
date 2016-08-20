@@ -3,7 +3,7 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "Buffer_utils.c"
+#include "Buffer_Utils.c"
 #include "Crypto_Symmetric_Chacha20.c"
 
 #define LEN 114
