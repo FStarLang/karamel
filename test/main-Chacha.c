@@ -3,6 +3,7 @@
 #include <string.h>
 #include <inttypes.h>
 
+#include "kremlib.h"
 #include "Buffer_Utils.c"
 #include "Crypto_Symmetric_Chacha20.c"
 

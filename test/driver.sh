@@ -78,6 +78,7 @@ function test () {
   local krml_options=$3
   local out=${fstar_file%fst}exe
   echo "Extracting [$krml_options] $fstar_file + $c_main => $out"
+  echo "Calling $FSTAR $fstar_file"
   $FSTAR $fstar_file > log 2>&1 || (cat log && exit 1)
   log_if
 
