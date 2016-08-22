@@ -16,6 +16,7 @@ and stmt =
   | Decl of binder * expr
     (** Scope is: statements that follow. *)
   | IfThenElse of expr * block * block
+  | While of expr * block
   | Assign of expr * expr
     (** First expression has to be a [Bound] or [Open]. *)
   | BufWrite of expr * expr * expr
@@ -32,6 +33,7 @@ and expr =
   | Qualified of lident
   | Constant of K.t
   | BufCreate of expr * expr
+  | BufCreateL of expr list
   | BufRead of expr * expr
   | BufSub of expr * expr
   | Op of op

@@ -17,7 +17,7 @@ fi
 
 # Detection
 KREMLIB="../kremlib"
-OPTS="-Wall -Werror -Wno-parentheses -Wno-unused-variable -std=c11 -I $KREMLIB"
+OPTS="-Wall -Werror -Wno-parentheses -Wno-unused-variable -Wno-unused-but-set-variable -std=c11 -I $KREMLIB"
 CLANG_UB="-fsanitize=undefined,integer"
 if $HAS_CLANG && clang $CLANG_UB main.c >/dev/null 2>&1; then
   CLANG="clang $CLANG_UB $OPTS"
@@ -96,12 +96,13 @@ function test () {
 compile_libs
 
 # These files currently sitting in examples/low-level
-test Crypto.Symmetric.Poly1305.fst main-Poly1305.c "-vla"
+test Crypto.Symmetric.Poly1305.fst main-Poly1305.c
 test Crypto.Symmetric.Chacha20.fst main-Chacha.c
-test Crypto.AEAD.Chacha20Poly1305.fst main-Aead.c "-vla"
+test Crypto.AEAD.Chacha20Poly1305.fst main-Aead.c
 
 # Some unit-tests
 TEST_ARGS="-no-prefix -add-include \"testlib.h\" -add-include \"kremlib.h\""
 test Hoisting.fst Hoisting.c "$TEST_ARGS"
 test Renaming.fst Renaming.c "$TEST_ARGS"
 test Flat.fst Flat.c "$TEST_ARGS"
+test Vla.fst Vla.c "$TEST_ARGS"

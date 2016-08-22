@@ -15,7 +15,6 @@ let _ =
     "-djson", Arg.Set arg_print_json, " dump the input AST as JSON";
     "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the input AST after simplification";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
-    "-vla", Arg.Set Options.vla, " code may contain variable-length arrays; initialize with memset";
     "-no-prefix", Arg.Set Options.no_prefix, " don't prepend the module name to each declaration";
     "-write", Arg.Set arg_write, " write an output C file for each file contained in the input file";
     "-add-include",

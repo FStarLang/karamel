@@ -259,6 +259,11 @@ let rec hoist_t e =
       let e3 = hoist_t e3 in
       nest lhs (EIfThenElse (e1, e2, e3, t))
 
+  | EWhile (e1, e2) ->
+      let lhs, e1 = hoist e1 in
+      let e2 = hoist_t e2 in
+      nest lhs (EWhile (e1, e2))
+
   | ESequence _ ->
       failwith "[hoist_t]: sequences should've been translated as let _ ="
 
@@ -271,6 +276,10 @@ let rec hoist_t e =
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
       nest (lhs1 @ lhs2) (EBufCreate (e1, e2))
+
+  | EBufCreateL es ->
+      let lhs, es = List.split (List.map hoist es) in
+      nest (List.flatten lhs) (EBufCreateL es)
 
   | EBufRead (e1, e2) ->
       let lhs1, e1 = hoist e1 in
@@ -362,6 +371,9 @@ and hoist e =
       let b = { name = "ite"; typ = t; mut = false; mark = ref 0; meta = None; atom = Atom.fresh () } in
       lhs1 @ [ b, EIfThenElse (e1, e2, e3, t) ], EOpen (b.name, b.atom)
 
+  | EWhile _ ->
+      throw_error "No [EWhile] in expression position"
+
   | ESequence _ ->
       failwith "[hoist_t]: sequences should've been translated as let _ ="
 
@@ -374,6 +386,10 @@ and hoist e =
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
       lhs1 @ lhs2, EBufCreate (e1, e2)
+
+  | EBufCreateL es ->
+      let lhs, es = List.split (List.map hoist es) in
+      List.flatten lhs, EBufCreateL es
 
   | EBufRead (e1, e2) ->
       let lhs1, e1 = hoist e1 in

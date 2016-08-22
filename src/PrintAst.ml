@@ -122,6 +122,11 @@ and print_expr = function
   | EField (lid, expr, field) ->
       parens_with_nesting (print_expr expr) ^^ dot ^^ string field ^/^
       at ^^ print_lident lid
+  | EWhile (e1, e2) ->
+      string "while" ^/^ parens_with_nesting (print_expr e1) ^/^
+      braces_with_nesting (print_expr e2)
+  | EBufCreateL es ->
+      string "newbuf" ^/^ braces_with_nesting (separate_map (comma ^^ break1) print_expr es)
 
 
 and print_branches branches =

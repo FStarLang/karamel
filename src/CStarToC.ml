@@ -73,27 +73,49 @@ and mk_stmt (stmt: stmt): C.stmt list =
         | Pointer t -> Array (t, size)
         | _ -> failwith "impossible"
       in
-      let maybe_init: C.init option = match init with
-        | Constant ((_, "0") as k) ->
-            begin match !Options.vla with
-            | true -> None
-            | false -> Some (Initializer [ Expr (C.Constant k) ])
-            end
-        | _ -> failwith "[mk_stmt]: non zero-initialized arrays not supported"
+      let module T = struct type init = Nope | Memset | Forloop end in
+      let (maybe_init, init_type): C.init option * T.init = match init, size with
+        | Constant ((_, "0") as k), Constant _ ->
+            (* The only case the we can initialize statically is a known, static
+             * size _and_ a zero initializer. *)
+            Some (Initializer [ InitExpr (C.Constant k) ]), T.Nope
+        | Constant ((_, "0")), _ ->
+            None, T.Memset
+        | _ ->
+            None, T.Forloop
       in
       let spec, decl = mk_spec_and_declarator binder.name t in
-      let memset: C.stmt list =
-        if !Options.vla then
-          [ Expr (Call (Name "memset", [
-              Name binder.name;
-              Constant (K.UInt8, "0");
-              Op2 (K.Mult,
-                mk_expr size,
-                Sizeof (Index (Name binder.name, Constant (K.UInt8, "0"))))])) ]
-        else
-          [ ]
+      let extra_stmt: C.stmt list =
+        match init_type with
+        | T.Memset ->
+            [ Expr (Call (Name "memset", [
+                Name binder.name;
+                Constant (K.UInt8, "0");
+                Op2 (K.Mult,
+                  mk_expr size,
+                  Sizeof (Index (Name binder.name, Constant (K.UInt8, "0"))))]))]
+        | T.Nope ->
+            [ ]
+        | T.Forloop ->
+            (* Note: only works if the length and initial value are pure
+             * computations... which F* guarantees! *)
+            [ For (
+                (Int K.Int, None, [ Ident "i", Some (InitExpr (Constant (K.Int, "0")))]),
+                Op2 (K.Lt, Name "i", mk_expr size),
+                Op1 (K.PreIncr, Name "i"),
+                Expr (Op2 (K.Assign, Index (Name binder.name, Name "i"), mk_expr init)))]
       in
-      Decl (spec, None, [ decl, maybe_init ]) :: memset
+      Decl (spec, None, [ decl, maybe_init ]) :: extra_stmt
+
+  | Decl (binder, BufCreateL inits) ->
+      let t = match binder.typ with
+        | Pointer t -> Array (t, Constant (Constant.of_int (List.length inits)))
+        | _ -> failwith "impossible"
+      in
+      let spec, decl = mk_spec_and_declarator binder.name t in
+      [ Decl (spec, None, [ decl, Some (Initializer (List.map (fun e ->
+        InitExpr (mk_expr e)
+      ) inits))])]
 
   | Decl (binder, Struct (_typ, fields)) ->
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
@@ -102,14 +124,14 @@ and mk_stmt (stmt: stmt): C.stmt list =
 
   | Decl (binder, e) ->
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
-      let init: init option = match e with Any -> None | _ -> Some (Expr (mk_expr e)) in
+      let init: init option = match e with Any -> None | _ -> Some (InitExpr (mk_expr e)) in
       [ Decl (spec, None, [ decl, init ]) ]
 
   | IfThenElse (e, b1, b2) ->
       if List.length b2 > 0 then
-        [ SelectIfElse (mk_expr e, mk_compound_if (mk_stmts b1), mk_compound_if (mk_stmts b2)) ]
+        [ IfElse (mk_expr e, mk_compound_if (mk_stmts b1), mk_compound_if (mk_stmts b2)) ]
       else
-        [ SelectIf (mk_expr e, mk_compound_if (mk_stmts b1)) ]
+        [ If (mk_expr e, mk_compound_if (mk_stmts b1)) ]
 
   | Assign (e1, e2) ->
       [ Expr (Assign (mk_expr e1, mk_expr e2)) ]
@@ -125,6 +147,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
 
   | Abort ->
       [ Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])) ]
+
+  | While (e1, e2) ->
+      [ While (mk_expr e1, mk_compound_if (mk_stmts e2)) ]
 
   | PushFrame | PopFrame ->
       failwith "[mk_stmt]: nested frames not supported"
@@ -162,8 +187,8 @@ and mk_expr (e: expr): C.expr =
   | Constant k ->
       Constant k
 
-  | BufCreate _ ->
-      failwith "[mk_expr]: Buffer.create may only appear as let ... = Buffer.create"
+  | BufCreate _ | BufCreateL _ ->
+      failwith "[mk_expr]: Buffer.create; Buffer.createl may only appear as let ... = Buffer.create"
 
   | BufRead (e1, e2) ->
       Index (mk_expr e1, mk_expr e2)
@@ -195,7 +220,7 @@ and mk_expr (e: expr): C.expr =
 and initializer_of_fields fields =
   List.map (function
     | Some field, e -> Designated (Dot field, mk_expr e)
-    | None, e -> Expr (mk_expr e)
+    | None, e -> InitExpr (mk_expr e)
   ) fields
 
 
@@ -225,7 +250,7 @@ let mk_decl_or_function (d: decl): C.declaration_or_function =
       let t = match t with Function _ -> Pointer t | _ -> t in
       let spec, decl = mk_spec_and_declarator name t in
       let expr = mk_expr expr in
-      Decl (spec, None, [ decl, Some (Expr expr) ])
+      Decl (spec, None, [ decl, Some (InitExpr expr) ])
 
 
 let mk_program decls =

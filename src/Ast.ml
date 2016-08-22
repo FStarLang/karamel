@@ -51,6 +51,8 @@ and expr =
     (** contains the name of the type we're building *)
   | EField of (lident * expr * ident)
     (** contains the name of the type we're selecting from *)
+  | EWhile of (expr * expr)
+  | EBufCreateL of expr list
 
 
 and branches =
@@ -188,6 +190,10 @@ class virtual ['env, 'result, 'tresult, 'dresult] visitor = object (self)
         self#eflat env tname fields
     | EField (tname, e, field) ->
         self#efield env tname e field
+    | EWhile (e1, e2) ->
+        self#ewhile env e1 e2
+    | EBufCreateL es ->
+        self#ebufcreatel env es
 
   method virtual ebound: 'env -> var -> 'result
   method virtual eopen: 'env -> ident -> Atom.t -> 'result
@@ -215,6 +221,8 @@ class virtual ['env, 'result, 'tresult, 'dresult] visitor = object (self)
   method virtual ereturn: 'env -> expr -> 'result
   method virtual eflat: 'env -> lident -> (ident * expr) list -> 'result
   method virtual efield: 'env -> lident -> expr -> ident -> 'result
+  method virtual ewhile: 'env -> expr -> expr -> 'result
+  method virtual ebufcreatel: 'env -> expr list -> 'result
 
   method visit_t (env: 'env) (t: typ): 'tresult =
     match t with
@@ -344,6 +352,12 @@ class ['env] map = object (self)
 
   method efield env tname e field =
     EField (tname, self#visit env e, field)
+
+  method ewhile env e1 e2 =
+    EWhile (self#visit env e1, self#visit env e2)
+
+  method ebufcreatel env es =
+    EBufCreateL (List.map (self#visit env) es)
 
   method fields env fields =
     List.map (fun (ident, expr) -> ident, self#visit env expr) fields

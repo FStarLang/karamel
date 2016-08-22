@@ -122,6 +122,8 @@ let rec translate_expr env e =
       CStar.Call (translate_expr env e, List.map (translate_expr env) es)
   | EBufCreate (e1, e2) ->
       CStar.BufCreate (translate_expr env e1, translate_expr env e2)
+  | EBufCreateL es ->
+      CStar.BufCreateL (List.map (translate_expr env) es)
   | EBufRead (e1, e2) ->
       CStar.BufRead (translate_expr env e1, translate_expr env e2)
   | EBufSub (e1, e2) ->
@@ -139,6 +141,8 @@ let rec translate_expr env e =
   | ELet _ ->
       throw_error "[AstToCStar.translate_expr ELet]: should not be here"
   | EIfThenElse _ ->
+      throw_error "[AstToCStar.translate_expr EIfThenElse]: should not be here"
+  | EWhile _ ->
       throw_error "[AstToCStar.translate_expr EIfThenElse]: should not be here"
   | ESequence _ ->
       throw_error "[AstToCStar.translate_expr ESequence]: should not be here"
@@ -166,6 +170,10 @@ and collect (env, acc) = function
       and e1 = translate_expr env e1 in
       let acc = CStar.Decl (binder, e1) :: acc in
       collect (env, acc) e2
+
+  | EWhile (e1, e2) ->
+      let e = CStar.While (translate_expr env e1, translate_block env e2) in
+      env, e :: acc
 
   | EIfThenElse (e1, e2, e3, _) ->
       let e = CStar.IfThenElse (translate_expr env e1, translate_block env e2, translate_block env e3) in
