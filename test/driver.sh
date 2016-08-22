@@ -17,7 +17,7 @@ fi
 
 # Detection
 KREMLIB="../kremlib"
-OPTS="-Wall -Werror -Wno-parentheses -Wno-unused-variable -Wno-unused-but-set-variable -std=c11 -I $KREMLIB"
+OPTS="-Wall -Werror -Wno-parentheses -Wno-unused-variable -std=c11 -I $KREMLIB"
 CLANG_UB="-fsanitize=undefined,integer"
 if $HAS_CLANG && clang $CLANG_UB main.c >/dev/null 2>&1; then
   CLANG="clang $CLANG_UB $OPTS"
@@ -34,7 +34,7 @@ elif which x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
 else
   GCC=gcc
 fi
-GCC="$GCC $OPTS"
+GCC="$GCC $OPTS -Wno-unused-but-set-variable"
 
 echo GCC is $GCC
 if $HAS_CLANG; then
