@@ -188,11 +188,11 @@ and infer_expr env = function
       | EBound i ->
           let binder = find env i in
           if not binder.mut then
-            throw_error "In %a, this is not a mutable binding" ploc env.location;
+            throw_error "In %a, %a (a.k.a. %s) is not a mutable binding" ploc env.location pexpr e1 binder.name;
           check_expr env binder.typ e2;
           binder.typ
       | _ ->
-          throw_error "In %a, there is an assignment to a non-local" ploc env.location
+          throw_error "In %a, the lhs of an assignment should be an EBound" ploc env.location
       end
 
   | EBufCreate (e1, e2) ->
