@@ -42,6 +42,7 @@ let _ =
   if !arg_print_json then
     Yojson.Safe.to_channel stdout (Ast.binary_format_to_yojson (Ast.current_version, files));
 
+  Checker.check_everything files;
   let files = Simplify.simplify files in
 
   if !arg_print_simplify then

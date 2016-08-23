@@ -68,3 +68,10 @@ let print_files print_decl files =
     string (String.uppercase f) ^^ colon ^^ jump (print_program print_decl p)
   ) files
 
+let printf_of_pprint f =
+  fun buf t ->
+    PPrint.ToBuffer.compact buf (f t)
+
+let printf_of_pprint_pretty f =
+  fun buf t ->
+    PPrint.ToBuffer.pretty 0.95 Utils.twidth buf (f t)

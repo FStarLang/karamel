@@ -146,6 +146,5 @@ and print_pat = function
 
 let print_files = print_files print_decl
 
-let mk_p f = fun buf t -> PPrint.ToBuffer.compact buf (f t)
-let ptyp = mk_p print_typ
-let pexpr = mk_p print_expr
+let ptyp = printf_of_pprint print_typ
+let pexpr = printf_of_pprint print_expr

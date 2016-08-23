@@ -31,10 +31,15 @@ and expr =
   | EAssign of (expr * expr)
     (** left expression can only be a EBound or EOpen *)
   | EBufCreate of (expr * expr)
+    (** initial value, length *)
   | EBufRead of (expr * expr)
+    (** e1[e2] *)
   | EBufWrite of (expr * expr * expr)
+    (** e1[e2] <- e3 *)
   | EBufSub of (expr * expr)
+    (** e1 + e2 *)
   | EBufBlit of (expr * expr * expr * expr * expr)
+    (** e1, index; e2, index; len *)
   | EMatch of (expr * branches * typ)
   | EOp of (K.op * K.width)
   | ECast of (expr * typ)
@@ -96,6 +101,7 @@ and typ =
   | TBool
   | TAny
   | TArrow of (typ * typ)
+      (** t1 -> t2 *)
   | TZ
 
 let flatten_arrow =

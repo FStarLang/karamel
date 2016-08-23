@@ -70,6 +70,7 @@ and typ =
   | Qualified of lident
   | Array of typ * expr
   | Function of typ * typ list
+      (** Return type, arguments *)
   | Bool
   | Z
   | Struct of ident option * (ident * typ) list
