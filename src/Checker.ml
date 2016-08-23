@@ -125,7 +125,8 @@ and check_decl env d =
        * really. *)
       ()
 
-and infer_expr env = function
+and infer_expr env e =
+  match e with
   | EBound i ->
       begin try
         (find env i).typ
@@ -157,7 +158,7 @@ and infer_expr env = function
         let ts = List.map (infer_expr env) es in
         let t_ret, t_args = flatten_arrow t in
         if List.length t_args = 0 then
-          throw_error "In %a, not a function being applied" ploc env.location;
+          throw_error "In %a, not a function being applied:\n%a" ploc env.location pexpr e;
         if List.length t_args <> List.length ts then
           throw_error "In %a, this is a partial application:\n%a" ploc env.location pexpr e;
         List.iter2 (check_types_equal env) ts t_args;
@@ -244,7 +245,7 @@ and infer_expr env = function
       | Not ->
           TArrow (TBool, TBool)
       | Assign | PreIncr | PreDecr | PostIncr | PostDecr ->
-          throw_error "In %a, this operator for internal use only" ploc env.location;
+          throw_error "In %a, operator %a is for internal use only" ploc env.location pexpr e;
       end
 
   | EPushFrame | EPopFrame ->
@@ -310,7 +311,7 @@ and assert_buffer env e1 =
   | TBuf t1 ->
       t1
   | _ ->
-      throw_error "In %a, this is not a buffer" ploc env.location
+      throw_error "In %a, %a is not a buffer" ploc env.location pexpr e1
 
 and check_expr env t e =
   let t' = infer_expr env e in
