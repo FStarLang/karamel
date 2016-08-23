@@ -47,6 +47,11 @@ end
 
 (* Count the number of occurrences of each variable ***************************)
 
+let rec is_pure = function
+  | EConstant _ -> true
+  | ECast (e, _) -> is_pure e
+  | _ -> false
+
 let count_use = object (self)
 
   inherit [binder list] map
@@ -65,7 +70,7 @@ let count_use = object (self)
     let env = self#extend env b in
     let e2 = self#visit env e2 in
     match e1, !(b.mark) with
-    | EConstant _, 0 ->
+    | e, 0 when is_pure e ->
         snd (open_binder b e2)
     | _ ->
         ELet (b, e1, e2)

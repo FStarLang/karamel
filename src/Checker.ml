@@ -15,6 +15,7 @@ let ploc = printf_of_pprint print_location
 let plid = printf_of_pprint print_lident
 let ptyp = printf_of_pprint PrintAst.print_typ
 let pdecl = printf_of_pprint_pretty PrintAst.print_decl
+let pexpr = printf_of_pprint_pretty PrintAst.print_expr
 
 (** Environments ------------------------------------------------------------ *)
 
@@ -158,7 +159,7 @@ and infer_expr env = function
         if List.length t_args = 0 then
           throw_error "In %a, not a function being applied" ploc env.location;
         if List.length t_args <> List.length ts then
-          throw_error "In %a, this is a partial application" ploc env.location;
+          throw_error "In %a, this is a partial application:\n%a" ploc env.location pexpr e;
         List.iter2 (check_types_equal env) ts t_args;
         t_ret
 
@@ -238,8 +239,10 @@ and infer_expr env = function
           TArrow (TAny, TArrow (TAny, TBool))
       | Lt | Lte | Gt | Gte ->
           TArrow (TInt w, TArrow (TInt w, TBool))
-      | And | Or | Xor | Not ->
+      | And | Or | Xor ->
           TArrow (TBool, TArrow (TBool, TBool))
+      | Not ->
+          TArrow (TBool, TBool)
       | Assign | PreIncr | PreDecr | PostIncr | PostDecr ->
           throw_error "In %a, this operator for internal use only" ploc env.location;
       end
