@@ -108,18 +108,22 @@ let wrapping_arithmetic = object (self)
     match e, es with
     | EOp (((K.AddW | K.SubW) as op), w), [ e1; e2 ] when K.is_signed w ->
         let e = EOp (K.without_wrap op, K.unsigned_of_signed w) in
-        let e1 = self # visit () e1 in
-        let e2 = self # visit () e2 in
-        ECast (EApp (e, [ ECast (e1, TInt (K.unsigned_of_signed w)); e2 ]), TInt w)
+        let e1 = self#visit () e1 in
+        let e2 = self#visit () e2 in
+        let c e = ECast (e, TInt (K.unsigned_of_signed w)) in
+        (** TODO: the second call to [c] is optional per the C semantics, but in
+         * order to preserve typing, we have to insert it... maybe recognize
+         * that pattern later on at the C emission level? *)
+        ECast (EApp (e, [ c e1; c e2 ]), TInt w)
 
     | EOp (((K.AddW | K.SubW) as op), w), [ e1; e2 ] when K.is_unsigned w ->
         let e = EOp (K.without_wrap op, w) in
-        let e1 = self # visit () e1 in
-        let e2 = self # visit () e2 in
+        let e1 = self#visit () e1 in
+        let e2 = self#visit () e2 in
         EApp (e, [ e1; e2 ])
 
     | e, es ->
-        EApp (self # visit () e, List.map (self # visit ()) es)
+        EApp (self#visit () e, List.map (self#visit ()) es)
 end
 
 
@@ -506,6 +510,19 @@ let replace_references_to_toplevel_names = object(self)
 
   method efield () lident e field =
     EField (t lident, self#visit () e, field)
+
+  method dglobal () name typ body =
+    DGlobal (t name, self#visit_t () typ, self#visit () body)
+
+  method dfunction () ret name args body =
+    DFunction (self#visit_t () ret, t name, self#binders () args, self#visit () body)
+
+  method dtypealias () name typ =
+    DTypeAlias (t name, self#visit_t () typ)
+
+  method dtypeflat () name fields =
+    DTypeFlat (t name, self#fields_t () fields)
+
 end
 
 

@@ -402,10 +402,11 @@ class ['env] map = object (self)
   method tz _env =
     TZ
 
+  method binders env binders =
+    List.map (fun binder -> { binder with typ = self#visit_t env binder.typ }) binders
+
   method dfunction env ret name binders expr =
-    let binders =
-      List.map (fun binder -> { binder with typ = self#visit_t env binder.typ }) binders
-    in
+    let binders = self#binders env binders in
     let env = self#extend_many env binders in
     DFunction (ret, name, binders, self#visit env expr)
 
@@ -415,8 +416,11 @@ class ['env] map = object (self)
   method dtypealias env name t =
     DTypeAlias (name, self#visit_t env t)
 
+  method fields_t env fields =
+    List.map (fun (name, t) -> name, self#visit_t env t) fields
+
   method dtypeflat env name fields =
-    let fields = List.map (fun (name, t) -> name, self#visit_t env t) fields in
+    let fields = self#fields_t env fields in
     DTypeFlat (name, fields)
 
 end

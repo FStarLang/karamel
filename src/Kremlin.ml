@@ -47,6 +47,7 @@ let _ =
 
   if !arg_print_simplify then
     print PrintAst.print_files files;
+  Checker.check_everything files;
 
   let files = AstToCStar.translate_files files in
   let files = CStarToC.mk_files files in

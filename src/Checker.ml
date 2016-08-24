@@ -171,8 +171,8 @@ and infer_expr env e =
 
   | EIfThenElse (e1, e2, e3, typ) ->
       check_expr env TBool e1;
-      check_expr env typ e2;
-      check_expr env typ e3;
+      check_expr (locate env ([], "if-then")) typ e2;
+      check_expr (locate env ([], "if-else")) typ e3;
       typ
 
   | ESequence es ->
@@ -191,7 +191,7 @@ and infer_expr env e =
           if not binder.mut then
             throw_error "In %a, %a (a.k.a. %s) is not a mutable binding" ploc env.location pexpr e1 binder.name;
           check_expr env binder.typ e2;
-          binder.typ
+          TUnit
       | _ ->
           throw_error "In %a, the lhs of an assignment should be an EBound" ploc env.location
       end
@@ -311,7 +311,13 @@ and assert_buffer env e1 =
   | TBuf t1 ->
       t1
   | _ ->
-      throw_error "In %a, %a is not a buffer" ploc env.location pexpr e1
+      match e1 with
+      | EBound i ->
+          let b = find env i in
+          throw_error "In %a, %a (a.k.a. %s) is not a buffer but a %a"
+            ploc env.location pexpr e1 b.name ptyp b.typ
+      | _ ->
+          throw_error "In %a, %a is not a buffer" ploc env.location pexpr e1
 
 and check_expr env t e =
   let t' = infer_expr env e in
@@ -346,7 +352,8 @@ and types_equal env t1 t2 =
 
 and check_types_equal env t1 t2 =
   if not (types_equal env t1 t2) then
-    throw_error "In %a, type mismatch, %a vs %a" ploc env.location ptyp t1 ptyp t2
+    throw_error "In %a, type mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
+      ploc env.location ptyp t1 ptyp (reduce env t1) ptyp t2 ptyp (reduce env t2)
 
 and reduce env t =
   match t with
