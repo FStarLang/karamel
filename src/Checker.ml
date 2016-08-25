@@ -310,14 +310,17 @@ and assert_buffer env e1 =
   match reduce env (infer_expr env e1) with
   | TBuf t1 ->
       t1
-  | _ ->
+  | TAny ->
+      TAny
+  | t ->
       match e1 with
       | EBound i ->
           let b = find env i in
           throw_error "In %a, %a (a.k.a. %s) is not a buffer but a %a"
             ploc env.location pexpr e1 b.name ptyp b.typ
       | _ ->
-          throw_error "In %a, %a is not a buffer" ploc env.location pexpr e1
+          throw_error "In %a, %a is not a buffer but a %a"
+            ploc env.location pexpr e1 ptyp t
 
 and check_expr env t e =
   let t' = infer_expr env e in
