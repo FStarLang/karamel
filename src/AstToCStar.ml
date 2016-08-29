@@ -19,7 +19,7 @@
 
 open Ast
 open Idents
-open Error
+open Warnings
 let pexpr = PrintAst.pexpr
 let ptyp = PrintAst.ptyp
 
@@ -98,7 +98,6 @@ let ensure_fresh env name body =
         ignore ((object
           inherit [string list] map
           method extend env binder =
-            Printf.eprintf "extend %s\n" binder.name;
             binder.name :: env
           method ebound env i =
             r := !r || name = List.nth env i;
@@ -133,27 +132,27 @@ let rec translate_expr env e =
   | ECast (e, t) ->
       CStar.Cast (translate_expr env e, translate_type env t)
   | EOpen _ | EPopFrame | EPushFrame | EBufBlit _ | EAbort ->
-      throw_error "[AstToCStar.translate_expr]: invalid argument (%a)" pexpr e
+      fatal_error "[AstToCStar.translate_expr]: should not be here (%a)" pexpr e
   | EUnit ->
       CStar.Constant (K.UInt8, "0")
   | EAny ->
       CStar.Any
   | ELet _ ->
-      throw_error "[AstToCStar.translate_expr ELet]: should not be here"
+      fatal_error "[AstToCStar.translate_expr ELet]: should not be here"
   | EIfThenElse _ ->
-      throw_error "[AstToCStar.translate_expr EIfThenElse]: should not be here"
+      fatal_error "[AstToCStar.translate_expr EIfThenElse]: should not be here"
   | EWhile _ ->
-      throw_error "[AstToCStar.translate_expr EIfThenElse]: should not be here"
+      fatal_error "[AstToCStar.translate_expr EIfThenElse]: should not be here"
   | ESequence _ ->
-      throw_error "[AstToCStar.translate_expr ESequence]: should not be here"
+      fatal_error "[AstToCStar.translate_expr ESequence]: should not be here"
   | EAssign _ ->
-      throw_error "[AstToCStar.translate_expr EAssign]: should not be here"
+      fatal_error "[AstToCStar.translate_expr EAssign]: should not be here"
   | EBufWrite _ ->
-      throw_error "[AstToCStar.translate_expr EBufWrite]: should not be here"
+      fatal_error "[AstToCStar.translate_expr EBufWrite]: should not be here"
   | EMatch _ ->
-      throw_error "[AstToCStar.translate_expr EMatch]: should not be here"
+      fatal_error "[AstToCStar.translate_expr EMatch]: should not be here"
   | EReturn _ ->
-      throw_error "[AstToCStar.translate_expr EReturn]: should not be here"
+      fatal_error "[AstToCStar.translate_expr EReturn]: should not be here"
   | EBool b ->
       CStar.Bool b
   | EFlat (typ, fields) ->
@@ -195,7 +194,7 @@ and collect (env, acc) = function
       env, e :: acc
 
   | EMatch _ ->
-      throw_error "[AstToCStar.collect EMatch]: not implemented"
+      fatal_error "[AstToCStar.collect EMatch]: not implemented"
 
   | EUnit ->
       env, acc
@@ -241,21 +240,18 @@ and translate_function_block env e t =
       []
   | _, [] ->
       (* TODO: type aliases for void *)
-      throw_error "[translate_function_block]: invariant broken (empty function \
-        body, but non-void return type)"
+      raise_error (BadFrame "empty function body, but non-void return type")
   | _ ->
       match t, List.rev stmts, stmts with
       | CStar.Void, CStar.PushFrame :: _, CStar.PopFrame :: rest ->
           List.tl (List.rev rest)
-      | CStar.Pointer CStar.Void, CStar.PushFrame :: _, CStar.Ignore _ :: CStar.PopFrame :: rest -> 
+      | CStar.Pointer CStar.Void, CStar.PushFrame :: _, CStar.Ignore _ :: CStar.PopFrame :: rest ->
           List.tl (List.rev (CStar.Return CStar.Any :: rest))
       | _, CStar.PushFrame :: _, CStar.PopFrame :: _ ->
-          throw_error "[translate_function_block]: invariant broken \
-            (well-parenthesized push/pop, but function's return type is not \
-            void!)"
+          raise_error (BadFrame ("well-parenthesized push/pop, but function's \
+            return type is not void!)"))
       | _, CStar.PushFrame :: _, _ ->
-          throw_error "[translate_function_block]: invariant broken \
-            (unmatched push_frame, not a TAny)"
+          raise_error (BadFrame ("unmatched push_frame, not a TAny"))
       | CStar.Void, stmts, _ ->
           stmts
       | _, _, CStar.Ignore e :: rest ->
@@ -263,8 +259,7 @@ and translate_function_block env e t =
       | _, stmts, CStar.Abort :: _ ->
           stmts
       | _ ->
-          throw_error "[translate_function_block]: invariant broken (non-void \
-            function does not end with something we can return)"
+          raise_error (BadFrame ("non-void function does not end with something we can return"))
 
 and translate_return_type env = function
   | TInt w ->
@@ -309,7 +304,7 @@ and translate_declaration env d: CStar.decl =
   let wrap_throw name (comp: CStar.decl Lazy.t) =
     try Lazy.force comp with
     | Error e ->
-        throw_error "(in %s) %s" name e
+        raise_error_l (locate name e)
   in
 
   match d with
@@ -348,6 +343,6 @@ and translate_files files =
     try
       Some (translate_file f)
     with Error e ->
-      Printf.eprintf "Warning: dropping %s [in ast-to-cstar]: %s\n" (fst f) e;
+      Warnings.maybe_raise_error (fst e, Dropping (fst f, e));
       None
   ) files

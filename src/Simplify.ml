@@ -4,7 +4,7 @@
 open Ast
 open DeBruijn
 open Idents
-open Error
+open Warnings
 
 let ptyp = PrintAst.ptyp
 let pexpr = PrintAst.pexpr
@@ -25,7 +25,7 @@ let visit_files (env: 'env) (visitor: _ visitor) (files: file list) =
     try
       Some (visit_file env visitor f)
     with Error e ->
-      Printf.eprintf "Warning: dropping %s [in simplify]: %s\n" (fst f) e;
+      maybe_raise_error (fst f ^ "/" ^ fst e, snd e);
       None
   ) files
 
@@ -381,10 +381,10 @@ and hoist e =
       lhs1 @ [ b, EIfThenElse (e1, e2, e3, t) ], EOpen (b.name, b.atom)
 
   | EWhile _ ->
-      throw_error "No [EWhile] in expression position"
+      raise_error (Unsupported "[EWhile] in expression position")
 
   | ESequence _ ->
-      failwith "[hoist_t]: sequences should've been translated as let _ ="
+      fatal_error "[hoist_t]: sequences should've been translated as let _ ="
 
   | EAssign (e1, e2) ->
       let lhs1, e1 = hoist e1 in
@@ -432,7 +432,7 @@ and hoist e =
       failwith "[hoist_t]: EMatch"
 
   | EReturn _ ->
-      throw_error "[return] expressions should only appear in statement position"
+      raise_error (Unsupported "[return] expressions should only appear in statement position")
 
   | EField (t, e, f) ->
       let lhs, e = hoist e in

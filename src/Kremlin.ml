@@ -6,6 +6,9 @@ let _ =
   let arg_print_simplify = ref false in
   let arg_print_c = ref false in
   let arg_write = ref false in
+  let arg_out = ref false in
+  let arg_compile = ref false in
+  let arg_warn_error = ref "" in
   let filename = ref "" in
   let usage = "KreMLin: from a ML-like subset to C\n\
     Usage: " ^ Sys.argv.(0) ^ " [OPTIONS] FILE\n"
@@ -15,12 +18,16 @@ let _ =
     "-djson", Arg.Set arg_print_json, " dump the input AST as JSON";
     "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the input AST after simplification";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
+    "-warn-error", Arg.Set_string arg_warn_error, "  Decide which errors are fatal / warnings / silent.";
     "-no-prefix", Arg.Set Options.no_prefix, " don't prepend the module name to each declaration";
-    "-write", Arg.Set arg_write, " write an output C file for each file contained in the input file";
     "-add-include",
       Arg.String (fun s -> Options.add_include := s :: !Options.add_include),
       " prepend #include the-argument to the generated file";
+    "-out", Arg.Set arg_out, " output directory for .c and .h files";
+    "-write", Arg.Set arg_write, " write an output C file for each file contained in the input file";
+    "-compile", Arg.Set arg_compile, " compile .c files and generate an executable";
   ] (fun f ->
+    (* TODO: match if .o or something else *)
     filename := f
   ) usage;
 
@@ -28,6 +35,13 @@ let _ =
     print_endline usage;
     exit 1
   end;
+
+  (* First enable the default warn-error string. *)
+  Warnings.parse_warn_error !Options.warn_error;
+
+  (* Then refine that based on the user's preferences. *)
+  if !arg_warn_error <> "" then
+    Warnings.parse_warn_error !arg_warn_error;
 
   let print f files =
     let open PPrint in

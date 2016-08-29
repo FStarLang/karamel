@@ -1,7 +1,7 @@
 (** Checking the well-formedness of a program in [Ast] *)
 
 open Ast
-open Error
+open Warnings
 open Constant
 open PrintCommon
 open PPrint
@@ -53,25 +53,25 @@ let find env i =
 let lookup_type env lid =
   match M.find lid env.types with
   | exception Not_found ->
-      throw_error "[Checker.lookup_type] internal error %a not found" plid lid
+      fatal_error "[Checker.lookup_type] internal error %a not found" plid lid
   | x ->
       x
 
 let possibly_warn =
   let h = Hashtbl.create 41 in
-  fun lid ->
+  fun env lid ->
     match Hashtbl.find h lid with
     | exception Not_found ->
         Hashtbl.add h lid ();
-        KPrint.beprintf "Notice: global name %a referenced but not defined, \
-          please provide a C-level implementation!\n" plid lid
+        maybe_raise_error (KPrint.bsprintf "%a" ploc env.location,
+          UnboundReference (KPrint.bsprintf "%a" plid lid))
     | () ->
         ()
 
 let lookup_global env lid =
   match M.find lid env.globals with
   | exception Not_found ->
-      possibly_warn lid;
+      possibly_warn env lid;
       TAny
   | x ->
       x
@@ -93,6 +93,13 @@ let locate env lid =
   { env with location = lid :: env.location }
 
 
+(** Errors ------------------------------------------------------------------ *)
+
+let type_error env fmt =
+  Printf.kbprintf (fun buf ->
+    raise_error_l (KPrint.bsprintf "%a" ploc env.location, TypeError (Buffer.contents buf))
+  ) (Buffer.create 16) fmt
+
 (** Checking ---------------------------------------------------------------- *)
 
 let rec check_everything files =
@@ -103,22 +110,12 @@ and check_program env (_, decls) =
   List.iter (check_decl env) decls
 
 and check_decl env d =
-  let check env name t body =
-    begin try
-      let env = locate env name in
-      check_expr env t body
-    with Error msg ->
-      KPrint.beprintf "%s\nDefinition:\n%a\n" msg pdecl d;
-      Printexc.print_backtrace stderr;
-      exit 253
-    end
-  in
   match d with
-  | DFunction (t, name, binders, body) ->
+  | DFunction (t, _name, binders, body) ->
       let env = List.fold_left push env binders in
-      check env name t body
-  | DGlobal (name, t, body) ->
-      check env name t body
+      check_expr env t body
+  | DGlobal (_name, t, body) ->
+      check_expr env t body
   | DTypeAlias _
   | DTypeFlat _ ->
       (* Barring any parameterized types, there's is nothing to check here
@@ -131,11 +128,11 @@ and infer_expr env e =
       begin try
         (find env i).typ
       with Not_found ->
-        throw_error "In %a, bound variable %d is malformed" ploc env.location i
+        type_error env "bound variable %d is malformed" i
       end
 
   | EOpen (name, _) ->
-      throw_error "In %a, there is an open variable %s" ploc env.location name
+      type_error env "there is an open variable %s" name
 
   | EQualified lid ->
       lookup_global env lid
@@ -158,9 +155,9 @@ and infer_expr env e =
         let ts = List.map (infer_expr env) es in
         let t_ret, t_args = flatten_arrow t in
         if List.length t_args = 0 then
-          throw_error "In %a, not a function being applied:\n%a" ploc env.location pexpr e;
+          type_error env "Not a function being applied:\n%a" pexpr e;
         if List.length t_args <> List.length ts then
-          throw_error "In %a, this is a partial application:\n%a" ploc env.location pexpr e;
+          type_error env "This is a partial application:\n%a" pexpr e;
         List.iter2 (check_types_equal env) ts t_args;
         t_ret
 
@@ -181,7 +178,7 @@ and infer_expr env e =
           List.iter (check_expr env TUnit) (List.rev rest);
           infer_expr env last
       | [] ->
-        throw_error "In %a, there is an empty sequence" ploc env.location;
+          type_error env "Empty sequence"
       end
 
   | EAssign (e1, e2) ->
@@ -189,11 +186,11 @@ and infer_expr env e =
       | EBound i ->
           let binder = find env i in
           if not binder.mut then
-            throw_error "In %a, %a (a.k.a. %s) is not a mutable binding" ploc env.location pexpr e1 binder.name;
+            type_error env "%a (a.k.a. %s) is not a mutable binding" pexpr e1 binder.name;
           check_expr env binder.typ e2;
           TUnit
       | _ ->
-          throw_error "In %a, the lhs of an assignment should be an EBound" ploc env.location
+          type_error env "the lhs of an assignment should be an EBound"
       end
 
   | EBufCreate (e1, e2) ->
@@ -245,7 +242,7 @@ and infer_expr env e =
       | Not ->
           TArrow (TBool, TBool)
       | Assign | PreIncr | PreDecr | PostIncr | PostDecr ->
-          throw_error "In %a, operator %a is for internal use only" ploc env.location pexpr e;
+          fatal_error "In %a, operator %a is for internal use only" ploc env.location pexpr e;
       end
 
   | EPushFrame | EPopFrame ->
@@ -277,7 +274,7 @@ and infer_expr env e =
   | EBufCreateL es ->
       begin match es with
       | [] ->
-          throw_error "In %a, there is an empty buf create sequence" ploc env.location
+          fatal_error "In %a, there is an empty buf create sequence" ploc env.location
       | first :: others ->
           let t = infer_expr env first in
           List.iter (check_expr env t) others;
@@ -304,7 +301,7 @@ and assert_flat env t =
   | Flat def ->
       def
   | _ ->
-      throw_error "In %a, this is not a record definition" ploc env.location
+      fatal_error "In %a, this is not a record definition" ploc env.location
 
 and assert_buffer env e1 =
   match reduce env (infer_expr env e1) with
@@ -316,11 +313,9 @@ and assert_buffer env e1 =
       match e1 with
       | EBound i ->
           let b = find env i in
-          throw_error "In %a, %a (a.k.a. %s) is not a buffer but a %a"
-            ploc env.location pexpr e1 b.name ptyp b.typ
+          type_error env "%a (a.k.a. %s) is not a buffer but a %a" pexpr e1 b.name ptyp b.typ
       | _ ->
-          throw_error "In %a, %a is not a buffer but a %a"
-            ploc env.location pexpr e1 ptyp t
+          type_error env "%a is not a buffer but a %a" pexpr e1 ptyp t
 
 and check_expr env t e =
   let t' = infer_expr env e in
@@ -355,7 +350,7 @@ and types_equal env t1 t2 =
 
 and check_types_equal env t1 t2 =
   if not (types_equal env t1 t2) then
-    throw_error "In %a, type mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
+    fatal_error "In %a, type mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
       ploc env.location ptyp t1 ptyp (reduce env t1) ptyp t2 ptyp (reduce env t2)
 
 and reduce env t =
