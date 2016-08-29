@@ -37,8 +37,12 @@ let detect_fstar () =
     else if try ignore (String.index me '/'); true with Not_found -> false then
       Sys.getcwd () ^^ me
     else
-      try String.trim (Utils.run_and_read "which" [| Sys.argv.(0) |])
-      with _ -> fatal_error "Could not compute full krml path"
+      let f =
+        try String.trim (Utils.run_and_read "which" [| Sys.argv.(0) |])
+        with _ -> fatal_error "Could not compute full krml path (which)"
+      in
+      try String.trim (Utils.run_and_read readlink [| "-f"; f |])
+      with _ -> fatal_error "Could not compute full krml path (readlink)"
   in
   (* ../_build/src/Kremlin.native *)
   log "the Kremlin executable is: %s" real_krml;
