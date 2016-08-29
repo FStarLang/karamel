@@ -34,7 +34,7 @@ let detect_fstar () =
     let me = Sys.argv.(0) in
     if not (Filename.is_relative me) then
       me
-    else if String.index me '/' >= 0 then
+    else if try ignore (String.index me '/'); true with Not_found -> false then
       Sys.getcwd () ^^ me
     else
       try String.trim (Utils.run_and_read "which" [| Sys.argv.(0) |])
