@@ -30,19 +30,20 @@ let drain pipe =
   let bufs = ref [] in
   let buf = Bytes.create max in
   while begin
-    let len = Unix.read pipe buf 0 2048 in
+    let len = Unix.read pipe buf 0 max in
     bufs := Bytes.to_string (Bytes.sub buf 0 len) :: !bufs;
     len = max
   end do () done;
   String.concat "" (List.rev !bufs)
 
 let run exe args =
-  let pipe_out, pipe_in = Unix.pipe () in
+  let pipe_in, pipe_out = Unix.pipe () in
   let args = Array.append [| exe |] args in
-  let pid = Unix.create_process exe args Unix.stdin pipe_in Unix.stderr in
-  let out = drain pipe_out in
+  let pid = Unix.create_process exe args Unix.stdin pipe_out Unix.stderr in
+  let output = drain pipe_in in
+  Unix.close pipe_out;
   let _pid, status = Unix.waitpid [] pid in
-  status, out
+  status, output
 
 let run_and_read exe args =
   let _, out = run exe args in
