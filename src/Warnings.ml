@@ -55,7 +55,7 @@ let rec perr buf (loc, raw_error) =
   | Unsupported e ->
       p "Unsupported: %s" e
 
-let flags = Array.make 2 CError;;
+let flags = Array.make 3 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -65,9 +65,9 @@ let flags = Array.make 2 CError;;
  *)
 let errno_of_error = function
   | Dropping _ ->
-      0
-  | UnboundReference _ ->
       1
+  | UnboundReference _ ->
+      2
   | _ ->
       (** Things that cannot be silenced! *)
       0
