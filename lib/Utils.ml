@@ -27,22 +27,23 @@ let with_open_out file_path f =
 
 let drain pipe =
   let max = 2048 in
-  let bufs = ref [] in
-  let buf = Bytes.create max in
+  let buf = Buffer.create 2048 in
+  let tmp = Bytes.create max in
   while begin
-    let len = Unix.read pipe buf 0 max in
-    bufs := Bytes.to_string (Bytes.sub buf 0 len) :: !bufs;
+    let len = Unix.read pipe tmp 0 max in
+    Buffer.add_subbytes buf tmp 0 len;
     len = max
   end do () done;
-  String.concat "" (List.rev !bufs)
+  Buffer.contents buf
 
 let run exe args =
   let pipe_in, pipe_out = Unix.pipe () in
   let args = Array.append [| exe |] args in
   let pid = Unix.create_process exe args Unix.stdin pipe_out Unix.stderr in
   let output = drain pipe_in in
+  Unix.close pipe_in;
   Unix.close pipe_out;
-  let _pid, status = Unix.waitpid [] pid in
+  let _pid, status = Unix.waitpid [ Unix.WNOHANG ] pid in
   status, output
 
 let run_and_read exe args =

@@ -17,7 +17,12 @@ let boilerplate () =
   default_includes ^^ hardline ^^ extra_includes
 
 let write_one (name, program) =
-  let f = name ^ ".c" in
+  let f =
+    if !Options.tmpdir <> "" then
+      !Options.tmpdir ^ "/" ^ name ^ ".c"
+    else
+      name ^ ".c"
+  in
   with_open_out f (fun oc ->
     let doc =
       boilerplate () ^^ hardline ^^ hardline ^^

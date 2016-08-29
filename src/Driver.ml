@@ -43,7 +43,7 @@ let detect_fstar () =
   (* ../_build/src/Kremlin.native *)
   log "the Kremlin executable is: %s" real_krml;
 
-  let home = d (d (d real_krml)) in
+  let home = d real_krml ^^ ".." ^^ ".." in
   log "KreMLin home is: %s" home;
   krml_home := home;
 

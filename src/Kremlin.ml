@@ -5,7 +5,6 @@ let _ =
   let arg_print_json = ref false in
   let arg_print_simplify = ref false in
   let arg_print_c = ref false in
-  let arg_write = ref false in
   let arg_warn_error = ref "" in
   let c_files = ref [] in
   let o_files = ref [] in
@@ -87,8 +86,6 @@ let _ =
   if !arg_print_c then
     print PrintC.print_files files;
 
-  if !arg_write then begin
-    flush stderr;
-    Printf.printf "KreMLin: writing out C files for %s\n" (String.concat ", " (List.map fst files));
-    Output.write files
-  end
+  flush stderr;
+  Printf.printf "KreMLin: writing out C files for %s\n" (String.concat ", " (List.map fst files));
+  Output.write files
