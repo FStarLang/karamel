@@ -11,13 +11,16 @@ let log fmt =
   Printf.kbprintf (fun buf ->
     Buffer.add_string buf Ansi.reset;
     Buffer.add_string buf "\n";
-    Buffer.output_buffer stdout buf
+    Buffer.output_buffer stdout buf;
+    flush stdout
   ) buf fmt
 
 let detect_fstar () =
   (* All our paths use "/" as a separator, INCLUDING windows paths because
    * they're run through cygpath -m *)
   let (^^) x y = x ^ "/" ^ y  in
+  let d = Filename.dirname in
+  log "called via: %s" Sys.argv.(0);
 
   let readlink =
     if Sys.command "which greadlink" = 0 then
@@ -28,17 +31,21 @@ let detect_fstar () =
   log "readlink is: %s" readlink;
 
   let real_krml =
-    try String.trim (Utils.run_and_read readlink [| "-f"; Sys.argv.(0) |])
-    with _ -> fatal_error "Could not compute full krml path"
+    let me = Sys.argv.(0) in
+    if not (Filename.is_relative me) then
+      me
+    else if String.index me '/' >= 0 then
+      Sys.getcwd () ^^ me
+    else
+      try String.trim (Utils.run_and_read "which" [| Sys.argv.(0) |])
+      with _ -> fatal_error "Could not compute full krml path"
   in
+  (* ../_build/src/Kremlin.native *)
   log "the Kremlin executable is: %s" real_krml;
 
-  let output =
-    try String.trim (Utils.run_and_read "dirname" [| real_krml |])
-    with _ -> fatal_error "Could not compute krml home"
-  in
-  log "KreMLin home is: %s" output;
-  krml_home := output;
+  let home = d (d (d real_krml)) in
+  log "KreMLin home is: %s" home;
+  krml_home := home;
 
   let output =
     try String.trim (Utils.run_and_read "which" [| "fstar.exe" |])
@@ -47,12 +54,9 @@ let detect_fstar () =
   log "fstar is: %s" output;
   fstar := output;
 
-  let output =
-    try String.trim (Utils.run_and_read readlink [| "-f"; !fstar ^^ ".." |])
-    with _ -> fatal_error "Could not locate $FSTAR_HOME"
-  in
-  log "fstar home is: %s" output;
-  fstar_home := output;
+  let home = d (d !fstar) in
+  log "fstar home is: %s" home;
+  fstar_home := home;
 
   let has_cygpath = Sys.command "which cygpath" = 0 in
   if has_cygpath then begin
