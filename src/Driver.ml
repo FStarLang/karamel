@@ -48,7 +48,7 @@ let detect_fstar () =
   fstar := output;
 
   let output =
-    try String.trim (Utils.run_and_read "readlink" [| "-f"; !fstar ^^ ".." |])
+    try String.trim (Utils.run_and_read readlink [| "-f"; !fstar ^^ ".." |])
     with _ -> fatal_error "Could not locate $FSTAR_HOME"
   in
   log "fstar home is: %s" output;
