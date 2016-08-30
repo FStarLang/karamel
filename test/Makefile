@@ -22,6 +22,8 @@ Chacha20.exe: main-Chacha.c testlib.c
 Aead.exe: main-Aead.c testlib.c
 	$(KRML) $(OPTS) Crypto.AEAD.Chacha20Poly1305.fst $^ -o $@
 
+FIND=$(shell which gfind >/dev/null 2>/dev/null && echo "gfind" || echo "find")
+
 clean:
-	find out -\( -not -iname '.gitignore' -and -type f -\) -delete
-	find . -\( -iname '*.exe' -or -iname 'out.krml' -\) -delete
+	$(FIND) out -\( -not -iname '.gitignore' -and -type f -\) -delete
+	$(FIND) . -\( -iname '*.exe' -or -iname 'out.krml' -\) -delete
