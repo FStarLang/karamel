@@ -12,9 +12,11 @@ extern int C_exit_success;
 // signatures of ghost functions, meaning that it suffices to give them (any)
 // definition.
 typedef __int128 FStar_UInt128_t;
-typedef void *Prims_pos, *Prims_nat, *FStar_Seq_seq, *Prims_int, *FStar_HyperStack_mem;
-
-Prims_int FStar_UInt32_v(uint32_t x);
+typedef void *Prims_pos, *Prims_nat, *FStar_Seq_seq, *Prims_int,
+        *FStar_HyperStack_mem, *FStar_Set_set, *Prims_st_pre_h,
+        *Prims_all_pre_h, *FStar_TSet_set, *Prims_string, *Prims_list,
+        *FStar_Map_t, *FStar_UInt32_t_, *FStar_UInt_uint_t, *FStar_Int32_t_,
+        *FStar_Int_int_t, *FStar_Int_int_t;
 
 // Some actual functions that are expected to be realized in C.
 uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y);
