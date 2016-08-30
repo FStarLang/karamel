@@ -13,6 +13,7 @@ type type_spec =
 
 and storage_spec =
   | Typedef
+  | Extern
 
 and declarator_and_init =
   declarator * init option

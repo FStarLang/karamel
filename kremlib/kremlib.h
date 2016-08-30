@@ -2,15 +2,13 @@
 #define __KREMLIB_H
 
 #include <inttypes.h>
+#include <stdlib.h>
 
 // Types and values exposed via C.fsti
 typedef char C_char;
 typedef int C_int;
 extern int C_exit_success;
 
-// Some types that KreMLin has no special knowledge of; many of them appear in
-// signatures of ghost functions, meaning that it suffices to give them (any)
-// definition.
 typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
 typedef uint64_t FStar_UInt64_t, FStar_UInt64_t_;
 typedef int64_t FStar_Int64_t, FStar_Int64_t_;
@@ -21,6 +19,9 @@ typedef int16_t FStar_Int16_t, FStar_Int16_t_;
 typedef uint8_t FStar_UInt8_t, FStar_UInt8_t_;
 typedef int8_t FStar_Int8_t, FStar_Int8_t_;
 
+// Some types that KreMLin has no special knowledge of; many of them appear in
+// signatures of ghost functions, meaning that it suffices to give them (any)
+// definition.
 typedef void *Prims_pos, *Prims_nat, *FStar_Seq_seq, *Prims_int,
         *FStar_HyperStack_mem, *FStar_Set_set, *Prims_st_pre_h,
         *Prims_all_pre_h, *FStar_TSet_set, *Prims_string, *Prims_list,

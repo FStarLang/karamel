@@ -29,6 +29,7 @@ let p_constant (w, s) =
 
 let p_storage_spec = function
   | Typedef -> string "typedef"
+  | Extern -> string "extern"
 
 let rec p_type_spec = function
   | Int w -> print_width w ^^ string "_t"

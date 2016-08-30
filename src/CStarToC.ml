@@ -260,28 +260,30 @@ let mk_files files =
   List.map (fun (name, program) -> name, mk_program program) files
 
 
-let mk_stub_or_function (d: decl): C.declaration_or_function option =
+let mk_stub_or_function (d: decl): C.declaration_or_function =
   match d with
   | Type (name, t) ->
       let spec, decl = mk_spec_and_declarator name t in
-      Some (Decl (spec, Some Typedef, [ decl, None ]))
+      Decl (spec, Some Typedef, [ decl, None ])
 
   | Function (return_type, name, parameters, _) ->
       begin try
         let parameters = List.map (fun { name; typ } -> name, typ) parameters in
         let spec, decl = mk_spec_and_declarator_f name return_type parameters in
-        Some (Decl (spec, None, [ decl, None ]))
+        Decl (spec, None, [ decl, None ])
       with e ->
         beprintf "Fatal exception raised in %s\n" name;
         raise e
       end
 
-  | Global _ ->
-      None
+  | Global (name, t, _) ->
+      let t = match t with Function _ -> Pointer t | _ -> t in
+      let spec, decl = mk_spec_and_declarator name t in
+      Decl (spec, Some Extern, [ decl, None ])
 
 
 let mk_header decls =
-  KList.filter_map mk_stub_or_function decls
+  List.map mk_stub_or_function decls
 
 let mk_headers files =
   List.map (fun (name, program) -> name, mk_header program) files
