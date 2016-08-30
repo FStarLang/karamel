@@ -1,4 +1,6 @@
-OPTS=-tmpdir out
+# A minimalistic Makefile for calling Kremlin... KOPTS is for user-defined flags
+# (e.g. -verbose).
+OPTS=-tmpdir out $(KOPTS)
 TESTOPTS=$(OPTS) -add-include '"testlib.h"' -I . testlib.c
 KRML=../krml
 
@@ -8,7 +10,7 @@ all: Hoisting.exe Flat.exe Renaming.exe Vla.exe \
 
 # Standalone test files that have a main in F* (hence -no-prefix)
 %.exe: %.fst
-	$(KRML) $(TESTOPTS) -no-prefix $* -o $@ $(KOPTS) $<
+	$(KRML) $(TESTOPTS) -no-prefix $* -o $@ $<
 
 # Test files that have an "external" main written by hand...
 Poly1305.exe: main-Poly1305.c testlib.c

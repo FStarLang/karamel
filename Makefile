@@ -11,7 +11,8 @@ all:
 	ln -sf Kremlin.$(FLAVOR) krml
 
 clean:
-	rm -rf krml _build test/*.o Tests.$(FLAVOR) Kremlin.$(FLAVOR)
+	rm -rf krml _build Tests.$(FLAVOR) Kremlin.$(FLAVOR)
+	make -C test clean
 
 tags:
 	ctags -R --exclude=_build .

@@ -5,6 +5,8 @@ let _ =
   let arg_print_json = ref false in
   let arg_print_simplify = ref false in
   let arg_print_c = ref false in
+  let arg_skip_compilation = ref false in
+  let arg_skip_linking = ref false in
   let arg_warn_error = ref "" in
   let c_files = ref [] in
   let o_files = ref [] in
@@ -16,15 +18,18 @@ let _ =
 Usage: %s [OPTIONS] FILES
 
 High-level description:
-  - If some FILES end with .fst, KreMLin will call [fstar] on them to produce [out.krml],
-    and will process [out.krml] as if it had been passed as a FILE.
-  - If exactly one FILE ends with [.krml] or [.json], KreMLin will generate a series of [.c]
-    and [.h] files in the directory specified by [-tmpdir], or in the current
-    directory.
-  - If some FILES end with [.c], KreMLin will compile them along with the [.c]
-    files generated at the previous step to obtain a series of [.o] files.
-  - If some FILES end with [.o], KreMLin will link them along with the [.o] files
-    obtained at the previous step to obtain a final executable.
+  1. If some FILES end with .fst, KreMLin will call [fstar] on them to produce [out.krml],
+     and jumps to step 2.
+  2. If exactly one FILE ends with [.krml] or [.json], or if a [.krml] file was
+     produced at step 1., KreMLin will generate a series of [.c] and [.h] files
+     in the directory specified by [-tmpdir], or in the current directory.
+  3. If some FILES end with [.c], KreMLin will compile them along with the [.c]
+     files generated at step 2. to obtain a series of [.o] files.
+  4. If some FILES end with [.o], KreMLin will link them along with the [.o] files
+     obtained at step 3. to obtain a final executable.
+
+The [-skip-compilation] option will stop KreMLin after step 2.
+The [-skip-linking] option will stop KreMLin after step 3.
 
 Supported options:|} Sys.argv.(0)
   in
@@ -35,13 +40,15 @@ Supported options:|} Sys.argv.(0)
     "-djson", Arg.Set arg_print_json, " dump the input AST as JSON";
     "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the input AST after simplification";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
-    "-warn-error", Arg.Set_string arg_warn_error, "  Decide which errors are fatal / warnings / silent.";
-    "-o", Arg.Set_string Options.exe_name, "  Name of the resulting executable";
-    "-verbose", Arg.Set Options.verbose, "  Show the output of intermediary tools when acting as a driver for F* or the C compiler";
+    "-skip-compilation", Arg.Set arg_skip_compilation, " stop after step 2.";
+    "-skip-linking", Arg.Set arg_skip_linking, " stop after step 3.";
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";
-    "-I", Arg.String (prepend Options.includes), " add to search path";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to the generated file";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
+    "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";
+    "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
+    "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are fatal / warnings / silent.";
+    "-verbose", Arg.Set Options.verbose, "  show the output of intermediary tools when acting as a driver for F* or the C compiler";
   ] in
   let spec = Arg.align spec in
   Arg.parse spec (fun f ->
@@ -60,7 +67,10 @@ Supported options:|} Sys.argv.(0)
     found_file := true
   ) usage;
 
-  if not !found_file || (List.length !fst_files = 0 && !filename = "") then begin
+  if not !found_file ||
+     List.length !fst_files = 0 && !filename = "" ||
+     List.length !fst_files > 0 && !filename <> ""
+  then begin
     print_endline (Arg.usage_string spec usage);
     exit 1
   end;
@@ -86,23 +96,30 @@ Supported options:|} Sys.argv.(0)
     Print.print (f files ^^ hardline)
   in
 
+  (* -dast *)
   let files = Ast.read_file filename in
   if !arg_print_ast then
     print PrintAst.print_files files;
 
+  (* -djson *)
   if !arg_print_json then
     Yojson.Safe.to_channel stdout (Ast.binary_format_to_yojson (Ast.current_version, files));
 
+  (* Type-check all files, then perform a whole-program rewriting. *)
   Checker.check_everything files;
   let files = Simplify.simplify files in
 
+  (* -dsimplify *)
   if !arg_print_simplify then
     print PrintAst.print_files files;
   Checker.check_everything files;
 
+  (* Translate to C*, then to C. *)
   let files = AstToCStar.translate_files files in
   let headers = CStarToC.mk_headers files in
   let files = CStarToC.mk_files files in
+
+  (* -dc *)
   if !arg_print_c then
     print PrintC.print_files files;
 
@@ -111,4 +128,10 @@ Supported options:|} Sys.argv.(0)
   Output.write_c files;
   Output.write_h headers;
 
-  Driver.compile_and_link (List.map fst files) !c_files !o_files
+  if !arg_skip_compilation then
+    exit 0;
+  let remaining_c_files = Driver.compile (List.map fst files) !c_files in
+
+  if !arg_skip_linking then
+    exit 0;
+  Driver.link remaining_c_files !o_files
