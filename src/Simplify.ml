@@ -473,7 +473,12 @@ end
 (* Make top-level names C-compatible using a global translation table **********)
 
 let record_name lident =
-  let desired_name = if !Options.no_prefix then snd lident else string_of_lident lident in
+  let desired_name =
+    if List.exists ((=) (String.concat "." (fst lident))) !Options.no_prefix then
+      snd lident
+    else
+      string_of_lident lident
+  in
   [], GlobalNames.record (string_of_lident lident) desired_name
 
 let record_toplevel_names = object

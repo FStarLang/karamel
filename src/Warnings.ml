@@ -11,6 +11,7 @@ and raw_error =
   | BadFrame of string
   | TypeError of string
   | Unsupported of string
+  | ExternalError of string * string
 
 and location =
   string
@@ -39,7 +40,7 @@ let fatal_error fmt =
 
 let rec perr buf (loc, raw_error) =
   (* Now, print an error-specific message. *)
-  let p = Printf.bprintf buf "In %s: %( %s %)\n" loc in
+  let p fmt = Printf.bprintf buf ("In %s: " ^^ fmt ^^ "\n") loc in
   match raw_error with
   | Dropping (d, e) ->
       p "Not generating code for top-level declaration: %s" d;
@@ -54,8 +55,10 @@ let rec perr buf (loc, raw_error) =
       p "Malformed input:\n%s" e
   | Unsupported e ->
       p "Unsupported: %s" e
+  | ExternalError (t, e) ->
+      p "%s%s exited abnormally!%s\n%s\n" Ansi.red t Ansi.reset e
 
-let flags = Array.make 3 CError;;
+let flags = Array.make 4 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -68,6 +71,8 @@ let errno_of_error = function
       1
   | UnboundReference _ ->
       2
+  | ExternalError _ ->
+      3
   | _ ->
       (** Things that cannot be silenced! *)
       0

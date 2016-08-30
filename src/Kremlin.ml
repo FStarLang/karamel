@@ -29,6 +29,7 @@ High-level description:
 Supported options:|} Sys.argv.(0)
   in
   let found_file = ref false in
+  let prepend r = fun s -> r := s :: !r in
   let spec = [
     "-dast", Arg.Set arg_print_ast, " pretty-print the input AST";
     "-djson", Arg.Set arg_print_json, " dump the input AST as JSON";
@@ -36,11 +37,10 @@ Supported options:|} Sys.argv.(0)
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-warn-error", Arg.Set_string arg_warn_error, "  Decide which errors are fatal / warnings / silent.";
     "-verbose", Arg.Set Options.verbose, "  Show the output of intermediary tools when acting as a driver for F* or the C compiler";
-    "-no-prefix", Arg.Set Options.no_prefix, " don't prepend the module name to each declaration";
-    "-I", Arg.String (fun s -> Options.includes := s :: !Options.includes),
+    "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";
+    "-I", Arg.String (prepend Options.includes),
       " add search path";
-    "-add-include", Arg.String (fun s -> Options.add_include := s :: !Options.add_include),
-      " prepend #include the-argument to the generated file";
+    "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to the generated file";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
   ] in
   let spec = Arg.align spec in
@@ -109,4 +109,6 @@ Supported options:|} Sys.argv.(0)
   flush stderr;
   Printf.printf "KreMLin: writing out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
   Output.write_c files;
-  Output.write_h headers
+  Output.write_h headers;
+
+  Driver.compile_and_link (List.map fst files) !c_files !o_files

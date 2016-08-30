@@ -1,9 +1,22 @@
+(** A very boring module that detects the environment and figures out how to
+ * call the tools. *)
+
 open Warnings
 
 let fstar = ref ""
 let fstar_home = ref ""
 let fstar_options = ref []
 let krml_home = ref ""
+let gcc = ref ""
+let gcc_args = ref []
+
+let (^^) x y = x ^ "/" ^ y
+let d = Filename.dirname
+
+let success cmd args =
+  match Utils.run cmd args with
+  | Unix.WEXITED 0, _, _ -> true
+  | _ -> false
 
 let detect_fstar () =
   KPrint.bprintf "%sKreMLin will drive F*.%s Here's what we found:\n" Ansi.blue Ansi.reset;
@@ -11,14 +24,6 @@ let detect_fstar () =
 
   (* All our paths use "/" as a separator, INCLUDING windows paths because
    * they're run through cygpath -m *)
-  let (^^) x y = x ^ "/" ^ y  in
-  let d = Filename.dirname in
-
-  let success cmd args =
-    match Utils.run cmd args with
-    | Unix.WEXITED 0, _, _ -> true
-    | _ -> false
-  in
 
   let readlink =
     if success "which" [| "greadlink" |] then
@@ -74,7 +79,7 @@ let detect_fstar () =
   ] @ !Options.includes in
   fstar_options := [
     "--lax"; "--trace_error"; "--codegen"; "Kremlin"
-  ] @ List.flatten (List.map (fun d -> ["--include"; d]) fstar_includes);
+  ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
   KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
 
   flush stdout
@@ -87,6 +92,21 @@ let verbose_msg () =
   if !Options.verbose then ""
   else " (use -verbose to see the output)"
 
+let run_or_warn str exe args =
+  let debug_str = KPrint.bsprintf "%s %s" exe (String.concat " " args) in
+  if !Options.verbose then
+    print_endline debug_str;
+  match Utils.run exe (Array.of_list args) with
+  | Unix.WEXITED 0, stdout, _ ->
+      KPrint.bprintf "%s%s exited normally%s%s\n" Ansi.green str Ansi.reset (verbose_msg ());
+      if !Options.verbose then
+        print_string stdout;
+      true
+  | _, _, err ->
+      maybe_raise_error (debug_str, ExternalError (str, err));
+      flush stderr;
+      false
+
 let run_fstar files =
   assert (List.length files > 0);
   detect_fstar_if ();
@@ -94,13 +114,55 @@ let run_fstar files =
   let args = !fstar_options @ files in
   KPrint.bprintf "%sCalling F*%s\n" Ansi.blue Ansi.reset;
   flush stdout;
-  match Utils.run !fstar (Array.of_list args) with
-  | Unix.WEXITED 0, stdout, _ ->
-      KPrint.bprintf "%sfstar exited normally%s%s\n" Ansi.green Ansi.reset (verbose_msg ());
-      if !Options.verbose then
-        print_string stdout;
-      "out.krml"
-  | _, _, stderr ->
-      KPrint.bprintf "%sfstar exited abnormally!%s\n" Ansi.red Ansi.reset;
-      print_string stderr;
-      exit 252
+  if not (run_or_warn "fstar" !fstar args) then
+    fatal_error "F* failed";
+  "out.krml"
+
+let detect_gcc () =
+  KPrint.bprintf "%sKreMLin will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+  if success "which" [| "gcc-5" |] then
+    gcc := "gcc-5"
+  else if success "which" [| "x86_64-w64-mingw32-gcc" |] then
+    gcc := "x86_64-w64-mingw32-gcc"
+  else if success "which" [| "gcc" |] then
+    gcc := "gcc"
+  else
+    Warnings.fatal_error "gcc not found in path!";
+  KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !gcc;
+
+  gcc_args := [
+    "-Wall";
+    "-Werror";
+    "-Wno-parentheses";
+    "-Wno-unused-variable";
+    "-std=c11"
+  ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes));
+  KPrint.bprintf "%sgcc options are:%s %s\n" Ansi.underline Ansi.reset
+    (String.concat " " !gcc_args)
+
+let detect_gcc_if () =
+  if !gcc = "" then
+    detect_gcc ()
+
+let compile_and_link files c_files o_files =
+  assert (List.length files > 0);
+  detect_gcc_if ();
+  flush stdout;
+
+  let files = List.map (fun f -> !Options.tmpdir ^^ f ^ ".c") files in
+  KPrint.bprintf "%sGenerating object files%s\n" Ansi.blue Ansi.reset;
+  let gcc_c file =
+    print_endline file;
+    flush stdout;
+    run_or_warn "gcc (compile)" !gcc (!gcc_args @ [ "-c"; file ])
+  in
+  let files = List.filter gcc_c files in
+
+  let objects = List.map (fun f -> f ^ ".o") files @
+    List.map (fun f -> Filename.chop_suffix f ".c" ^ ".o") c_files @
+    o_files
+  in
+  if run_or_warn "gcc (link)" !gcc (!gcc_args @ objects) then
+    KPrint.bprintf "%sAll files linked successfully%s 👍" Ansi.green Ansi.reset
+  else
+    KPrint.bprintf "%sgcc failed at the final linking phase%s\n" Ansi.red Ansi.reset
