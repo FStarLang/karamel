@@ -21,4 +21,5 @@ Aead.exe: main-Aead.c testlib.c
 	$(KRML) $(OPTS) Crypto.AEAD.Chacha20Poly1305.fst $^ -o $@
 
 clean:
-	find out -not -iname '.gitignore' -and -type f -delete
+	find out -\( -not -iname '.gitignore' -and -type f -\) -delete
+	find . -\( -iname '*.exe' -or -iname 'out.krml' -\) -delete
