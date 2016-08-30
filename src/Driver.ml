@@ -42,7 +42,8 @@ let detect_fstar () =
     if not (Filename.is_relative me) then
       me
     else if try ignore (String.index me '/'); true with Not_found -> false then
-      Sys.getcwd () ^^ me
+      try read_one_line readlink [| "-f"; me |]
+      with _ -> fatal_error "Could not compute full krml path (readlink)"
     else
       let f =
         try read_one_line "which" [| Sys.argv.(0) |]
@@ -130,6 +131,8 @@ let detect_gcc () =
   KPrint.bprintf "%sKreMLin will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
   if success "which" [| "gcc-5" |] then
     gcc := "gcc-5"
+  else if success "which" [| "gcc-6" |] then
+    gcc := "gcc-6"
   else if success "which" [| "x86_64-w64-mingw32-gcc" |] then
     gcc := "x86_64-w64-mingw32-gcc"
   else if success "which" [| "gcc" |] then
