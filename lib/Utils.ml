@@ -30,24 +30,31 @@ let drain pipe =
   let buf = Buffer.create 2048 in
   let tmp = Bytes.create max in
   while begin
-    let len = Unix.read pipe tmp 0 max in
-    Buffer.add_subbytes buf tmp 0 len;
-    len = max
+    try
+      let len = Unix.read pipe tmp 0 max in
+      Buffer.add_subbytes buf tmp 0 len;
+      len > 0
+    with _ ->
+      false
   end do () done;
   Buffer.contents buf
 
 let run exe args =
-  let pipe_in, pipe_out = Unix.pipe () in
+  let out_in, out_out = Unix.pipe () in
+  let err_in, err_out = Unix.pipe () in
   let args = Array.append [| exe |] args in
-  let pid = Unix.create_process exe args Unix.stdin pipe_out Unix.stderr in
-  let output = drain pipe_in in
-  Unix.close pipe_in;
-  Unix.close pipe_out;
-  let _pid, status = Unix.waitpid [ Unix.WNOHANG ] pid in
-  status, output
+  let pid = Unix.create_process exe args Unix.stdin out_out err_out in
+  Unix.close out_out;
+  Unix.close err_out;
+  let output = drain out_in in
+  let error = drain err_in in
+  Unix.close out_in;
+  Unix.close err_in;
+  let _pid, status = Unix.waitpid [ ] pid in
+  status, output, error
 
 let run_and_read exe args =
-  let _, out = run exe args in
+  let _, out, _ = run exe args in
   out
 
 (** Sniff the size of the terminal for optimal use of the width. *)

@@ -5,30 +5,28 @@ let fstar_home = ref ""
 let fstar_options = ref []
 let krml_home = ref ""
 
-let log fmt =
-  let buf = Buffer.create 16 in
-  Buffer.add_string buf Ansi.blue;
-  Printf.kbprintf (fun buf ->
-    Buffer.add_string buf Ansi.reset;
-    Buffer.add_string buf "\n";
-    Buffer.output_buffer stdout buf;
-    flush stdout
-  ) buf fmt
-
 let detect_fstar () =
+  KPrint.bprintf "%sKreMLin will drive F*.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+  KPrint.bprintf "%sKreMLin called via:%s %s\n" Ansi.underline Ansi.reset Sys.argv.(0);
+
   (* All our paths use "/" as a separator, INCLUDING windows paths because
    * they're run through cygpath -m *)
   let (^^) x y = x ^ "/" ^ y  in
   let d = Filename.dirname in
-  log "called via: %s" Sys.argv.(0);
+
+  let success cmd args =
+    match Utils.run cmd args with
+    | Unix.WEXITED 0, _, _ -> true
+    | _ -> false
+  in
 
   let readlink =
-    if Sys.command "which greadlink" = 0 then
+    if success "which" [| "greadlink" |] then
       "greadlink"
     else
       "readlink"
   in
-  log "readlink is: %s" readlink;
+  KPrint.bprintf "%sreadlink is:%s %s\n" Ansi.underline Ansi.reset readlink;
 
   let real_krml =
     let me = Sys.argv.(0) in
@@ -45,29 +43,28 @@ let detect_fstar () =
       with _ -> fatal_error "Could not compute full krml path (readlink)"
   in
   (* ../_build/src/Kremlin.native *)
-  log "the Kremlin executable is: %s" real_krml;
+  KPrint.bprintf "%sthe Kremlin executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
 
   let home = d real_krml ^^ ".." ^^ ".." in
-  log "KreMLin home is: %s" home;
+  KPrint.bprintf "%sKreMLin home is:%s %s\n" Ansi.underline Ansi.reset home;
   krml_home := home;
 
   let output =
     try String.trim (Utils.run_and_read "which" [| "fstar.exe" |])
-    with _ -> fatal_error "Could not locate fstar.exe"
+    with e -> Printexc.print_backtrace stdout; print_endline (Printexc.to_string e); raise e
   in
-  log "fstar is: %s" output;
+  KPrint.bprintf "%sfstar is:%s %s\n" Ansi.underline Ansi.reset output;
   fstar := output;
 
   let home = d (d !fstar) in
-  log "fstar home is: %s" home;
+  KPrint.bprintf "%sfstar home is:%s %s\n" Ansi.underline Ansi.reset home;
   fstar_home := home;
 
-  let has_cygpath = Sys.command "which cygpath" = 0 in
-  if has_cygpath then begin
+  if success "which" [| "cygpath" |] then begin
     fstar := String.trim (Utils.run_and_read "cygpath" [| "-m"; !fstar |]);
-    log "fstar converted to windows path: %s" !fstar;
+    KPrint.bprintf "%sfstar converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar;
     fstar_home := String.trim (Utils.run_and_read "cygpath" [| "-m"; !fstar_home |]);
-    log "fstar home converted to windows path: %s" !fstar_home
+    KPrint.bprintf "%sfstar home converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_home
   end;
 
   let fstar_includes = [
@@ -78,7 +75,9 @@ let detect_fstar () =
   fstar_options := [
     "--lax"; "--trace_error"; "--codegen"; "Kremlin"
   ] @ List.flatten (List.map (fun d -> ["--include"; d]) fstar_includes);
-  log "fstar is: %s %s" !fstar (String.concat " " !fstar_options)
+  KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
+
+  flush stdout
 
 let detect_fstar_if () =
   if !fstar = "" then
@@ -93,12 +92,15 @@ let run_fstar files =
   detect_fstar_if ();
 
   let args = !fstar_options @ files in
-  log "calling: %s %s" !fstar (String.concat " " args);
+  KPrint.bprintf "%sCalling F*%s\n" Ansi.blue Ansi.reset;
+  flush stdout;
   match Utils.run !fstar (Array.of_list args) with
-  | Unix.WEXITED 0, stdout ->
-      log "fstar exited normally%s" (verbose_msg ());
+  | Unix.WEXITED 0, stdout, _ ->
+      KPrint.bprintf "%sfstar exited normally%s%s\n" Ansi.green Ansi.reset (verbose_msg ());
       if !Options.verbose then
         print_string stdout;
       "out.krml"
-  | _ ->
-      fatal_error "fstar exited abnormally!"
+  | _, _, stderr ->
+      KPrint.bprintf "%sfstar exited abnormally!%s\n" Ansi.red Ansi.reset;
+      print_string stderr;
+      exit 252
