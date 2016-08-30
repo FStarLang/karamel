@@ -11,7 +11,7 @@ and raw_error =
   | BadFrame of string
   | TypeError of string
   | Unsupported of string
-  | ExternalError of string * string
+  | ExternalError of string
 
 and location =
   string
@@ -55,8 +55,8 @@ let rec perr buf (loc, raw_error) =
       p "Malformed input:\n%s" e
   | Unsupported e ->
       p "Unsupported: %s" e
-  | ExternalError (t, e) ->
-      p "%s%s exited abnormally!%s\n%s\n" Ansi.red t Ansi.reset e
+  | ExternalError c ->
+      p "the following command failed:\n%s" c
 
 let flags = Array.make 4 CError;;
 

@@ -14,8 +14,8 @@ let (^^) x y = x ^ "/" ^ y
 let d = Filename.dirname
 
 let success cmd args =
-  match Utils.run cmd args with
-  | Unix.WEXITED 0, _, _ -> true
+  match Process.run cmd args with
+  | { Process.Output.exit_status = Process.Exit.Exit 0; _ } -> true
   | _ -> false
 
 let detect_fstar () =
@@ -33,6 +33,10 @@ let detect_fstar () =
   in
   KPrint.bprintf "%sreadlink is:%s %s\n" Ansi.underline Ansi.reset readlink;
 
+  let read_one_line cmd args =
+    String.trim (List.hd (Process.read_stdout cmd args))
+  in
+
   let real_krml =
     let me = Sys.argv.(0) in
     if not (Filename.is_relative me) then
@@ -41,10 +45,10 @@ let detect_fstar () =
       Sys.getcwd () ^^ me
     else
       let f =
-        try String.trim (Utils.run_and_read "which" [| Sys.argv.(0) |])
+        try read_one_line "which" [| Sys.argv.(0) |]
         with _ -> fatal_error "Could not compute full krml path (which)"
       in
-      try String.trim (Utils.run_and_read readlink [| "-f"; f |])
+      try read_one_line readlink [| "-f"; f |]
       with _ -> fatal_error "Could not compute full krml path (readlink)"
   in
   (* ../_build/src/Kremlin.native *)
@@ -55,7 +59,7 @@ let detect_fstar () =
   krml_home := home;
 
   let output =
-    try String.trim (Utils.run_and_read "which" [| "fstar.exe" |])
+    try read_one_line "which" [| "fstar.exe" |]
     with e -> Printexc.print_backtrace stdout; print_endline (Printexc.to_string e); raise e
   in
   KPrint.bprintf "%sfstar is:%s %s\n" Ansi.underline Ansi.reset output;
@@ -66,9 +70,9 @@ let detect_fstar () =
   fstar_home := home;
 
   if success "which" [| "cygpath" |] then begin
-    fstar := String.trim (Utils.run_and_read "cygpath" [| "-m"; !fstar |]);
+    fstar := read_one_line "cygpath" [| "-m"; !fstar |];
     KPrint.bprintf "%sfstar converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar;
-    fstar_home := String.trim (Utils.run_and_read "cygpath" [| "-m"; !fstar_home |]);
+    fstar_home := read_one_line "cygpath" [| "-m"; !fstar_home |];
     KPrint.bprintf "%sfstar home converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_home
   end;
 
@@ -96,14 +100,18 @@ let run_or_warn str exe args =
   let debug_str = KPrint.bsprintf "%s %s" exe (String.concat " " args) in
   if !Options.verbose then
     print_endline debug_str;
-  match Utils.run exe (Array.of_list args) with
-  | Unix.WEXITED 0, stdout, _ ->
-      KPrint.bprintf "%s%s exited normally%s%s\n" Ansi.green str Ansi.reset (verbose_msg ());
+  let open Process in
+  match run exe (Array.of_list args) with
+  | { Output.exit_status = Exit.Exit 0; stdout; _ } ->
+      KPrint.bprintf "%s✔%s %s%s\n" Ansi.green Ansi.reset str (verbose_msg ());
       if !Options.verbose then
-        print_string stdout;
+        List.iter print_endline stdout;
       true
-  | _, _, err ->
-      maybe_raise_error (debug_str, ExternalError (str, err));
+  | { Output.stderr = err; _ } ->
+      KPrint.bprintf "%s✘%s %s%s\n" Ansi.red Ansi.reset str (verbose_msg ());
+      if !Options.verbose then
+        List.iter print_endline err;
+      maybe_raise_error ("run_or_warn", ExternalError debug_str);
       flush stderr;
       false
 
@@ -114,7 +122,7 @@ let run_fstar files =
   let args = !fstar_options @ files in
   KPrint.bprintf "%sCalling F*%s\n" Ansi.blue Ansi.reset;
   flush stdout;
-  if not (run_or_warn "fstar" !fstar args) then
+  if not (run_or_warn "[fstar,extract]" !fstar args) then
     fatal_error "F* failed";
   "out.krml"
 
@@ -152,9 +160,9 @@ let compile_and_link files c_files o_files =
   let files = List.map (fun f -> !Options.tmpdir ^^ f ^ ".c") files in
   KPrint.bprintf "%sGenerating object files%s\n" Ansi.blue Ansi.reset;
   let gcc_c file =
-    print_endline file;
     flush stdout;
-    run_or_warn "gcc (compile)" !gcc (!gcc_args @ [ "-c"; file ])
+    let info = Printf.sprintf "[gcc,compile,%s]" file in
+    run_or_warn info !gcc (!gcc_args @ [ "-c"; file ])
   in
   let files = List.filter gcc_c files in
   let c_files = List.filter gcc_c c_files in
@@ -164,7 +172,7 @@ let compile_and_link files c_files o_files =
     List.map o_of_c c_files @
     o_files
   in
-  if run_or_warn "gcc (link)" !gcc (!gcc_args @ objects) then
+  if run_or_warn "[gcc,link]" !gcc (!gcc_args @ objects) then
     KPrint.bprintf "%sAll files linked successfully%s 👍" Ansi.green Ansi.reset
   else
     KPrint.bprintf "%sgcc failed at the final linking phase%s\n" Ansi.red Ansi.reset
