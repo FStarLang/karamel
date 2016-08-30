@@ -1,11 +1,5 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <inttypes.h>
-
 #include "kremlib.h"
-#include "Buffer_Utils.c"
-#include "Crypto_Symmetric_Chacha20.c"
+#include "Crypto_Symmetric_Chacha20.h"
 
 #define LEN 114
 static /* const */ uint8_t plaintext[LEN] = "Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it.";

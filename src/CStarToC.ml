@@ -228,8 +228,7 @@ and mk_type t =
   (* hack alert *)
   mk_spec_and_declarator "" t
 
-(** Here, we are making the assumption that every file foo will eventually contain
- * #include "foo.h" *)
+(** .c files include their own header *)
 let mk_decl_or_function (d: decl): C.declaration_or_function option =
   match d with
   | Type _ ->

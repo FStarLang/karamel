@@ -3,6 +3,9 @@
 
 #include <inttypes.h>
 #include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdbool.h>
 
 // Types and values exposed via C.fsti
 typedef char C_char;

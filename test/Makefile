@@ -2,10 +2,26 @@ OPTS=-tmpdir out
 TESTOPTS=$(OPTS) -add-include '"testlib.h"' -I . testlib.c
 KRML=../krml
 
-all: Hoisting.test Flat.test Renaming.test Vla.test
+all: Hoisting.exe Flat.exe Renaming.exe Vla.exe \
+  Poly1305.exe Chacha20.exe Aead.exe
 
-%.test: %.fst
-	$(KRML) $(TESTOPTS) -no-prefix $* -o $*.exe $(KOPTS) $<
+# Standalone test files that have a main in F* (hence -no-prefix)
+%.exe: %.fst
+	$(KRML) $(TESTOPTS) -no-prefix $* -o $@ $(KOPTS) $<
 	./$*.exe
 
+# Test files that have an "external" main written by hand...
+Poly1305.exe: main-Poly1305.c testlib.c
+	$(KRML) $(OPTS) Crypto.Symmetric.Poly1305.fst $^ -o $@
+	./$@
 
+Chacha20.exe: main-Chacha.c testlib.c
+	$(KRML) $(OPTS) Crypto.Symmetric.Chacha20.fst $^ -o $@
+	./$@
+
+Aead.exe: main-Aead.c testlib.c
+	$(KRML) $(OPTS) Crypto.AEAD.Chacha20Poly1305.fst $^ -o $@
+	./$@
+
+clean:
+	find out -not -iname '.gitignore' -and -type f -delete

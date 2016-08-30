@@ -18,4 +18,4 @@ tags:
 
 test: all
 	./Tests.native
-	cd test && ./driver.sh
+	$(MAKE) -C test

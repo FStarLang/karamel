@@ -1,22 +1,6 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <inttypes.h>
-#include <assert.h>
-
-#include "../kremlib/kremlib.h"
-#include "Buffer_Utils.c"
-#include "Crypto_Symmetric_Chacha20.c"
-#include "Math_Axioms.c"
-#include "Math_Lemmas.c"
-#include "Crypto_Symmetric_Poly1305_Parameters.c"
-#include "Crypto_Symmetric_Poly1305_Bigint.c"
-#include "Crypto_Symmetric_Poly1305_Bignum.c"
-#include "Crypto_Symmetric_Poly1305_Lemmas.c"
-#include "Crypto_Symmetric_Poly1305.c"
-#include "Crypto_AEAD_Chacha20Poly1305.c"
-
+#include "kremlib.h"
 #include "testlib.h"
+#include "Crypto_AEAD_Chacha20Poly1305.h"
 
 /* https://tools.ietf.org/html/rfc7539#section-2.8.1 */
 uint8_t plaintext[] = "Ladies and Gentlemen of the class of '99: "

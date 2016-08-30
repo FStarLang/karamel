@@ -1,15 +1,6 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <inttypes.h>
-#include "../kremlib/kremlib.h"
+#include "kremlib.h"
 #include "testlib.h"
-
-#include "Buffer_Utils.c"
-#include "Crypto_Symmetric_Poly1305_Parameters.c"
-#include "Crypto_Symmetric_Poly1305_Bigint.c"
-#include "Crypto_Symmetric_Poly1305_Bignum.c"
-#include "Crypto_Symmetric_Poly1305.c"
+#include "Crypto_Symmetric_Poly1305.h"
 
 uint8_t key[] = {
   0x85, 0xd6, 0xbe, 0x78, 0x57, 0x55, 0x6d, 0x33, 0x7f, 0x44, 0x52, 0xfe, 0x42,
