@@ -18,4 +18,4 @@ tags:
 
 test: all
 	./Tests.native
-	$(MAKE) -C test
+	+make -C test

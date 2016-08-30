@@ -5,9 +5,9 @@ let _ =
   let open PPrint in
   let p t =
     let d: CStar.decl = Type ("t", t) in
-    let d = CStarToC.mk_decl_or_function d in
+    let d = CStarToC.mk_stub_or_function d in
     match d with
-    | Some (C.Decl d) ->
+    | C.Decl d ->
         Print.print (group (PrintC.p_declaration d));
         print_newline ()
     | _ ->
