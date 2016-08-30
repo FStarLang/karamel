@@ -36,10 +36,10 @@ Supported options:|} Sys.argv.(0)
     "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the input AST after simplification";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-warn-error", Arg.Set_string arg_warn_error, "  Decide which errors are fatal / warnings / silent.";
+    "-o", Arg.Set_string Options.exe_name, "  Name of the resulting executable";
     "-verbose", Arg.Set Options.verbose, "  Show the output of intermediary tools when acting as a driver for F* or the C compiler";
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";
-    "-I", Arg.String (prepend Options.includes),
-      " add search path";
+    "-I", Arg.String (prepend Options.includes), " add to search path";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to the generated file";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
   ] in
@@ -60,7 +60,7 @@ Supported options:|} Sys.argv.(0)
     found_file := true
   ) usage;
 
-  if not !found_file then begin
+  if not !found_file || (List.length !fst_files = 0 && !filename = "") then begin
     print_endline (Arg.usage_string spec usage);
     exit 1
   end;

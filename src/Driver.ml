@@ -76,10 +76,10 @@ let detect_fstar () =
     KPrint.bprintf "%sfstar home converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_home
   end;
 
+  Options.includes := (!krml_home ^^ "kremlib") :: !Options.includes;
   let fstar_includes = [
     !fstar_home ^^ "examples" ^^ "low-level";
     !fstar_home ^^ "examples" ^^ "low-level" ^^ "crypto";
-    !krml_home ^^ "kremlib"
   ] @ !Options.includes in
   fstar_options := [
     "--lax"; "--trace_error"; "--codegen"; "Kremlin"
@@ -143,6 +143,7 @@ let detect_gcc () =
     "-Werror";
     "-Wno-parentheses";
     "-Wno-unused-variable";
+    "-Wno-unused-but-set-variable";
     "-std=c11"
   ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes));
   KPrint.bprintf "%sgcc options are:%s %s\n" Ansi.underline Ansi.reset
@@ -154,25 +155,28 @@ let detect_gcc_if () =
 
 let compile_and_link files c_files o_files =
   assert (List.length files > 0);
+  detect_fstar_if ();
   detect_gcc_if ();
   flush stdout;
+  let c_files = (!krml_home ^^ "kremlib" ^^ "kremlib.c") :: c_files in
 
   let files = List.map (fun f -> !Options.tmpdir ^^ f ^ ".c") files in
   KPrint.bprintf "%sGenerating object files%s\n" Ansi.blue Ansi.reset;
+  let o_of_c f = !Options.tmpdir ^^ Filename.chop_suffix (Filename.basename f) ".c" ^ ".o" in
   let gcc_c file =
     flush stdout;
     let info = Printf.sprintf "[gcc,compile,%s]" file in
-    run_or_warn info !gcc (!gcc_args @ [ "-c"; file ])
+    run_or_warn info !gcc (!gcc_args @ [ "-c"; file; "-o"; o_of_c file ])
   in
   let files = List.filter gcc_c files in
   let c_files = List.filter gcc_c c_files in
 
-  let o_of_c f = Filename.chop_suffix f ".c" ^ ".o" in
   let objects = List.map o_of_c files @
     List.map o_of_c c_files @
     o_files
   in
-  if run_or_warn "[gcc,link]" !gcc (!gcc_args @ objects) then
-    KPrint.bprintf "%sAll files linked successfully%s 👍" Ansi.green Ansi.reset
+  let extra_arg = if !Options.exe_name <> "" then [ "-o"; !Options.exe_name ] else [] in
+  if run_or_warn "[gcc,link]" !gcc (!gcc_args @ objects @ extra_arg) then
+    KPrint.bprintf "%sAll files linked successfully%s 👍\n" Ansi.green Ansi.reset
   else
     KPrint.bprintf "%sgcc failed at the final linking phase%s\n" Ansi.red Ansi.reset
