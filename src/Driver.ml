@@ -157,6 +157,7 @@ let compile_and_link files c_files o_files =
     run_or_warn "gcc (compile)" !gcc (!gcc_args @ [ "-c"; file ])
   in
   let files = List.filter gcc_c files in
+  let c_files = List.filter gcc_c c_files in
 
   let o_of_c f = Filename.chop_suffix f ".c" ^ ".o" in
   let objects = List.map o_of_c files @
