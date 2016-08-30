@@ -1,3 +1,6 @@
+#ifndef __KREMLIB_H
+#define __KREMLIB_H
+
 #include <inttypes.h>
 
 // Types and values exposed via C.fsti
@@ -16,3 +19,5 @@ Prims_int FStar_UInt32_v(uint32_t x);
 // Some actual functions that are expected to be realized in C.
 uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y);
 uint64_t FStar_UInt64_eq_mask(uint64_t x, uint64_t y);
+
+#endif

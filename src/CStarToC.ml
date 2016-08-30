@@ -228,19 +228,19 @@ and mk_type t =
   (* hack alert *)
   mk_spec_and_declarator "" t
 
-
-let mk_decl_or_function (d: decl): C.declaration_or_function =
+(** Here, we are making the assumption that every file foo will eventually contain
+ * #include "foo.h" *)
+let mk_decl_or_function (d: decl): C.declaration_or_function option =
   match d with
-  | Type (name, t) ->
-      let spec, decl = mk_spec_and_declarator name t in
-      Decl (spec, Some Typedef, [ decl, None ])
+  | Type _ ->
+      None
 
   | Function (return_type, name, parameters, body) ->
       begin try
         let parameters = List.map (fun { name; typ } -> name, typ) parameters in
         let spec, decl = mk_spec_and_declarator_f name return_type parameters in
         let body = ensure_compound (mk_stmts body) in
-        Function ((spec, None, [ decl, None ]), body)
+        Some (Function ((spec, None, [ decl, None ]), body))
       with e ->
         beprintf "Fatal exception raised in %s\n" name;
         raise e
@@ -250,11 +250,38 @@ let mk_decl_or_function (d: decl): C.declaration_or_function =
       let t = match t with Function _ -> Pointer t | _ -> t in
       let spec, decl = mk_spec_and_declarator name t in
       let expr = mk_expr expr in
-      Decl (spec, None, [ decl, Some (InitExpr expr) ])
+      Some (Decl (spec, None, [ decl, Some (InitExpr expr) ]))
 
 
 let mk_program decls =
-  List.map mk_decl_or_function decls
+  KList.filter_map mk_decl_or_function decls
 
 let mk_files files =
   List.map (fun (name, program) -> name, mk_program program) files
+
+
+let mk_stub_or_function (d: decl): C.declaration_or_function option =
+  match d with
+  | Type (name, t) ->
+      let spec, decl = mk_spec_and_declarator name t in
+      Some (Decl (spec, Some Typedef, [ decl, None ]))
+
+  | Function (return_type, name, parameters, _) ->
+      begin try
+        let parameters = List.map (fun { name; typ } -> name, typ) parameters in
+        let spec, decl = mk_spec_and_declarator_f name return_type parameters in
+        Some (Decl (spec, None, [ decl, None ]))
+      with e ->
+        beprintf "Fatal exception raised in %s\n" name;
+        raise e
+      end
+
+  | Global _ ->
+      None
+
+
+let mk_header decls =
+  KList.filter_map mk_stub_or_function decls
+
+let mk_headers files =
+  List.map (fun (name, program) -> name, mk_header program) files

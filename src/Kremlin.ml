@@ -10,11 +10,26 @@ let _ =
   let o_files = ref [] in
   let fst_files = ref [] in
   let filename = ref "" in
-  let usage = "KreMLin: from a ML-like subset to C\n\
-    Usage: " ^ Sys.argv.(0) ^ " [OPTIONS] FILE\n"
+  let usage = Printf.sprintf
+{|KreMLin: from a ML-like subset to C
+
+Usage: %s [OPTIONS] FILES
+
+High-level description:
+  - If some FILES end with .fst, KreMLin will call [fstar] on them to produce [out.krml],
+    and will process [out.krml] as if it had been passed as a FILE.
+  - If exactly one FILE ends with [.krml] or [.json], KreMLin will generate a series of [.c]
+    and [.h] files in the directory specified by [-tmpdir], or in the current
+    directory.
+  - If some FILES end with [.c], KreMLin will compile them along with the [.c]
+    files generated at the previous step to obtain a series of [.o] files.
+  - If some FILES end with [.o], KreMLin will link them along with the [.o] files
+    obtained at the previous step to obtain a final executable.
+
+Supported options:|} Sys.argv.(0)
   in
   let found_file = ref false in
-  Arg.parse [
+  let spec = [
     "-dast", Arg.Set arg_print_ast, " pretty-print the input AST";
     "-djson", Arg.Set arg_print_json, " dump the input AST as JSON";
     "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the input AST after simplification";
@@ -27,22 +42,26 @@ let _ =
     "-add-include", Arg.String (fun s -> Options.add_include := s :: !Options.add_include),
       " prepend #include the-argument to the generated file";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
-  ] (fun f ->
+  ] in
+  let spec = Arg.align spec in
+  Arg.parse spec (fun f ->
     if Filename.check_suffix f ".fst" then
       fst_files := f :: !fst_files
     else if Filename.check_suffix f ".o" then
       o_files := f :: !o_files
     else if Filename.check_suffix f ".c" then
       c_files := f :: !c_files
-    else if Filename.check_suffix f ".json" || Filename.check_suffix f ".out" then
+    else if Filename.check_suffix f ".json" || Filename.check_suffix f ".krml" then begin
+      if !filename <> "" then
+        Warnings.fatal_error "At most one [.json] or [.krml] file supported";
       filename := f
-    else
+    end else
       Warnings.fatal_error "Unknown file extension for %s\n" f;
     found_file := true
   ) usage;
 
   if not !found_file then begin
-    print_endline usage;
+    print_endline (Arg.usage_string spec usage);
     exit 1
   end;
 
@@ -82,10 +101,12 @@ let _ =
   Checker.check_everything files;
 
   let files = AstToCStar.translate_files files in
+  let headers = CStarToC.mk_headers files in
   let files = CStarToC.mk_files files in
   if !arg_print_c then
     print PrintC.print_files files;
 
   flush stderr;
-  Printf.printf "KreMLin: writing out C files for %s\n" (String.concat ", " (List.map fst files));
-  Output.write files
+  Printf.printf "KreMLin: writing out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
+  Output.write_c files;
+  Output.write_h headers

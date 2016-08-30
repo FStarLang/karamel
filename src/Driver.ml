@@ -71,7 +71,7 @@ let detect_fstar () =
     !fstar_home ^^ "examples" ^^ "low-level";
     !fstar_home ^^ "examples" ^^ "low-level" ^^ "crypto";
     !krml_home ^^ "kremlib"
-  ] in
+  ] @ !Options.includes in
   fstar_options := [
     "--lax"; "--trace_error"; "--codegen"; "Kremlin"
   ] @ List.flatten (List.map (fun d -> ["--include"; d]) fstar_includes);
