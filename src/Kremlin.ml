@@ -47,7 +47,7 @@ Supported options:|} Sys.argv.(0)
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
     "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";
     "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
-    "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are fatal / warnings / silent.";
+    "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are fatal / warnings / silent (default: " ^ !Options.warn_error ^")";
     "-verbose", Arg.Set Options.verbose, "  show the output of intermediary tools when acting as a driver for F* or the C compiler";
   ] in
   let spec = Arg.align spec in
@@ -107,6 +107,7 @@ Supported options:|} Sys.argv.(0)
 
   (* Type-check all files, then perform a whole-program rewriting. *)
   Checker.check_everything files;
+  Frames.debug files;
   let files = Simplify.simplify files in
 
   (* -dsimplify *)

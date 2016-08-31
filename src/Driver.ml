@@ -105,8 +105,6 @@ let verbose_msg () =
  * (depending on -warn-error) if the command failed. *)
 let run_or_warn str exe args =
   let debug_str = KPrint.bsprintf "%s %s" exe (String.concat " " args) in
-  if !Options.verbose then
-    print_endline debug_str;
   let open Process in
   match run exe (Array.of_list args) with
   | { Output.exit_status = Exit.Exit 0; stdout; _ } ->
@@ -114,12 +112,14 @@ let run_or_warn str exe args =
       if !Options.verbose then
         List.iter print_endline stdout;
       true
-  | { Output.stderr = err; _ } ->
+  | { Output.stderr; stdout; _ } ->
       KPrint.bprintf "%s✘%s %s%s\n" Ansi.red Ansi.reset str (verbose_msg ());
-      if !Options.verbose then
-        List.iter print_endline err;
+      if !Options.verbose then begin
+        List.iter print_endline stderr;
+        List.iter print_endline stdout
+      end;
       maybe_raise_error ("run_or_warn", ExternalError debug_str);
-      flush stderr;
+      Pervasives.(flush stdout; flush stderr);
       false
 
 (** Called from the top-level file; runs [fstar] on the [.fst] files

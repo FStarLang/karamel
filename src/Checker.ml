@@ -12,10 +12,10 @@ let print_location lids =
   separate_map (string ", in ") print_lident lids
 
 let ploc = printf_of_pprint print_location
-let plid = printf_of_pprint print_lident
-let ptyp = printf_of_pprint PrintAst.print_typ
-let pdecl = printf_of_pprint_pretty PrintAst.print_decl
-let pexpr = printf_of_pprint_pretty PrintAst.print_expr
+let plid = PrintAst.plid
+let ptyp = PrintAst.ptyp
+let pdecl = PrintAst.pdecl
+let pexpr = PrintAst.pexpr
 
 (** Environments ------------------------------------------------------------ *)
 

@@ -148,3 +148,5 @@ let print_files = print_files print_decl
 
 let ptyp = printf_of_pprint print_typ
 let pexpr = printf_of_pprint print_expr
+let plid = printf_of_pprint print_lident
+let pdecl = printf_of_pprint_pretty print_decl
