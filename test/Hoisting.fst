@@ -1,5 +1,6 @@
 module Hoisting
 open FStar.Int32
+open FStar.HST
 
 open TestLib
 
@@ -44,8 +45,11 @@ let test' (): Int32.t =
   end;
   4l
 
-val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) -> HST.Stl C.int
+val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
+  HST.Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
+  push_frame ();
   check (test ()) 44l;
   check (test' ()) 4l;
+  pop_frame ();
   C.exit_success

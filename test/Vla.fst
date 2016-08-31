@@ -6,7 +6,7 @@ open TestLib
 
 module U32 = FStar.UInt32
 
-let test (_: unit): Stl unit =
+let test (_: unit): Stack unit (fun _ -> true) (fun _ _ _ -> true) =
   push_frame ();
   // Generates a zero-filled buffer.
   let b1 = Buffer.create 0ul 256ul in
@@ -18,8 +18,11 @@ let test (_: unit): Stl unit =
   let b4 = Buffer.createL [ 0x0ul; 0x1ul; 0x2ul; 0x3ul ] in
   pop_frame ()
 
-val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) -> Stl C.int
+val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
+  Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
+  push_frame ();
   test ();
+  pop_frame ();
   C.exit_success
 

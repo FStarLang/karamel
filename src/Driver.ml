@@ -87,8 +87,10 @@ let detect_fstar () =
     !fstar_home ^^ "examples" ^^ "low-level" ^^ "crypto";
   ] @ !Options.includes in
   fstar_options := [
-    "--lax"; "--trace_error"; "--codegen"; "Kremlin"
+    "--trace_error"; "--codegen"; "Kremlin"
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
+  if !Options.lax then
+    fstar_options := "--lax" :: !fstar_options;
   KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
 
   flush stdout

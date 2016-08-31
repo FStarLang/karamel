@@ -43,6 +43,7 @@ Supported options:|} Sys.argv.(0)
     "-skip-compilation", Arg.Set arg_skip_compilation, " stop after step 2.";
     "-skip-linking", Arg.Set arg_skip_linking, " stop after step 3.";
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";
+    "--lax", Arg.Set Options.lax, " forward --lax to F*";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to the generated file";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
     "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";

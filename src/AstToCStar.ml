@@ -247,6 +247,8 @@ and translate_function_block env e t =
           List.tl (List.rev rest)
       | CStar.Pointer CStar.Void, CStar.PushFrame :: _, CStar.Ignore _ :: CStar.PopFrame :: rest ->
           List.tl (List.rev (CStar.Return CStar.Any :: rest))
+      | CStar.Int _, CStar.PushFrame :: _, (CStar.Ignore (_ as e)) :: CStar.PopFrame :: rest ->
+          List.tl (List.rev (CStar.Return e :: rest))
       | _, CStar.PushFrame :: _, CStar.PopFrame :: _ ->
           raise_error (BadFrame ("well-parenthesized push/pop, but function's \
             return type is not void!)"))
