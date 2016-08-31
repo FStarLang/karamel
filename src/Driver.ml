@@ -79,6 +79,15 @@ let detect_fstar () =
     KPrint.bprintf "%sfstar home converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_home
   end;
 
+  if Sys.is_directory (!fstar_home ^^ ".git") then begin
+    let cwd = Sys.getcwd () in
+    Sys.chdir !fstar_home;
+    let branch = read_one_line "git" [| "rev-parse"; "--abbrev-ref"; "HEAD" |] in
+    let color = if branch = "master" then Ansi.green else Ansi.orange in
+    KPrint.bprintf "fstar is on %sbranch %s%s\n" color branch Ansi.reset;
+    Sys.chdir cwd
+  end;
+
   (** Note: adding [kremlib/] as a default include path. *)
   Options.includes := (!krml_home ^^ "kremlib") :: !Options.includes;
 
