@@ -235,6 +235,13 @@ let nest (lhs: (binder * expr) list) (e2: expr) =
     { node = ELet (binder, e1, e2); mtyp = e2.mtyp }
   ) lhs e2
 
+(** Generates "let [[name]]: [[t]] = [[e]] in [[name]]" *)
+let mk_named_binding name t e =
+  let b = fresh_binder name t in
+  b,
+  { node = e; mtyp = t },
+  { node = EOpen (b.name, b.atom); mtyp = t }
+
 (* In a toplevel context, let-bindings may appear. A toplevel context
  * is defined inductively as:
  * - a node that stands for a function body;
@@ -317,11 +324,13 @@ let rec hoist_t e =
   | EBufCreate (e1, e2) ->
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
-      nest (lhs1 @ lhs2) (mk (EBufCreate (e1, e2)))
+      let b, body, cont = mk_named_binding "buf" e.mtyp (EBufCreate (e1, e2)) in
+      nest (lhs1 @ lhs2) (mk (ELet (b, body, close_binder b cont)))
 
   | EBufCreateL es ->
       let lhs, es = List.split (List.map hoist es) in
-      nest (List.flatten lhs) (mk (EBufCreateL es))
+      let b, body, cont = mk_named_binding "buf" e.mtyp (EBufCreateL es) in
+      nest (List.flatten lhs) (mk (ELet (b, body, close_binder b cont)))
 
   | EBufRead (e1, e2) ->
       let lhs1, e1 = hoist e1 in
@@ -411,8 +420,8 @@ and hoist e =
       let lhs1, e1 = hoist e1 in
       let e2 = hoist_t e2 in
       let e3 = hoist_t e3 in
-      let b = { name = "ite"; typ = t; mut = false; mark = ref 0; meta = None; atom = Atom.fresh () } in
-      lhs1 @ [ b, { node = EIfThenElse (e1, e2, e3); mtyp = t } ], mk (EOpen (b.name, b.atom))
+      let b, body, cont = mk_named_binding "ite" t (EIfThenElse (e1, e2, e3)) in
+      lhs1 @ [ b, body ], cont
 
   | EWhile _ ->
       raise_error (Unsupported "[EWhile] in expression position")
@@ -426,13 +435,17 @@ and hoist e =
       lhs1 @ lhs2, mk (EAssign (e1, e2))
 
   | EBufCreate (e1, e2) ->
+      let t = e.mtyp in
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
-      lhs1 @ lhs2, mk (EBufCreate (e1, e2))
+      let b, body, cont = mk_named_binding "buf" t (EBufCreate (e1, e2)) in
+      lhs1 @ lhs2 @ [ b, body ], cont
 
   | EBufCreateL es ->
+      let t = e.mtyp in
       let lhs, es = List.split (List.map hoist es) in
-      List.flatten lhs, mk (EBufCreateL es)
+      let b, body, cont = mk_named_binding "buf" t (EBufCreateL es) in
+      List.flatten lhs @ [ b, body ], cont
 
   | EBufRead (e1, e2) ->
       let lhs1, e1 = hoist e1 in

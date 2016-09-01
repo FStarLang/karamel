@@ -119,6 +119,9 @@ let flatten_arrow =
   in
   flatten_arrow []
 
+let fresh_binder ?(mut=false) name typ =
+  { name; typ; mut; mark = ref 0; meta = None; atom = Atom.fresh () }
+
 
 (** Some visitors for our AST of expressions *)
 

@@ -17,14 +17,8 @@ let rec mk_decl = function
 and mk_binders bs =
   List.map mk_binder bs
 
-and mk_binder { I.name; typ; mut } = {
-  name;
-  typ = mk_typ typ;
-  mut;
-  mark = ref 0;
-  meta = None;
-  atom = Atom.fresh ()
-}
+and mk_binder { I.name; typ; mut } =
+  fresh_binder ~mut name (mk_typ typ)
 
 and mk_tfields fields =
   List.map (fun (name, field) -> name, mk_typ field) fields

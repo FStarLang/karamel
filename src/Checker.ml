@@ -123,8 +123,12 @@ let type_of_op env op w =
 
 
 let rec check_everything files =
-  let env = populate_env files in
-  List.iter (check_program env) files
+  try
+    let env = populate_env files in
+    List.iter (check_program env) files
+  with Error e ->
+    KPrint.beprintf "%a" Warnings.perr e;
+    exit 251
 
 and check_program env (_, decls) =
   List.iter (check_decl env) decls
