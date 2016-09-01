@@ -97,14 +97,16 @@ Supported options:|} Sys.argv.(0)
     Print.print (f files ^^ hardline)
   in
 
-  (* -dast *)
-  let files = Ast.read_file filename in
-  if !arg_print_ast then
-    print PrintAst.print_files files;
+  let files = InputAst.read_file filename in
 
   (* -djson *)
   if !arg_print_json then
-    Yojson.Safe.to_channel stdout (Ast.binary_format_to_yojson (Ast.current_version, files));
+    Yojson.Safe.to_channel stdout (InputAst.binary_format_to_yojson (InputAst.current_version, files));
+
+  (* -dast *)
+  let files = InputAstToAst.mk_files files in
+  if !arg_print_ast then
+    print PrintAst.print_files files;
 
   (* Type-check all files, then perform a whole-program rewriting. *)
   Checker.check_everything files;
