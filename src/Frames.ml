@@ -73,31 +73,34 @@ let inline_analysis map =
    * function also is enough of a reason to inline. *)
   (** TODO: this criterion is not sound as it stands because we should also
    * check what happens _after_ the EPopFrame. *)
-  let contains_alloc valuation expr =
-    let module L = struct exception Found end in
+  let contains_alloc lid valuation expr =
+    let module L = struct exception Found of string end in
     try
       ignore ((object
         inherit [_] map as super
         method! ebufcreate () _ _ _ =
-          raise L.Found
+          raise (L.Found "bufcreate")
         method! ebufcreatel () _ _ =
-          raise L.Found
+          raise (L.Found "bufcreateL")
         method! equalified () t lid =
           (* In case we ever decide to allow wacky stuff like:
            *   let f = if ... then g else h in
            *   ignore f;
            * then this will become an over-approximation. *)
-          if valuation lid = MustInline then
-            raise L.Found
-          else
-            super#equalified () t lid
+          match t with
+          | TArrow _ when valuation lid = MustInline ->
+              raise (L.Found (KPrint.bsprintf "transitive: %a" plid lid))
+          | _ ->
+              super#equalified () t lid
       end)#visit () expr);
       Safe
-    with L.Found ->
+    with L.Found reason ->
+      if false then KPrint.bprintf "%a will be inlined because: %s\n" plid lid reason;
       MustInline
   in
 
   let must_inline lid valuation =
+    let contains_alloc = contains_alloc lid in
     let rec walk found e =
       match e.node with
       | ELet (_, body, cont) ->
@@ -132,14 +135,6 @@ let inline_as_required files =
    * cycles. *)
   let map = build_map files in
   let valuation = inline_analysis map in
-
-  let debug () =
-    Hashtbl.iter (fun lid _ ->
-      if valuation lid = MustInline then
-        KPrint.bprintf "%a will be inlined\n" plid lid
-    ) map;
-  in
-  if false then debug ();
 
   (* Because we want to recursively, lazily evaluate the inlining of each
    * function, we temporarily store the bodies of each function in a mutable map
@@ -182,7 +177,7 @@ let inline_as_required files =
   List.map (fun (file, decls) ->
     file, KList.filter_map (function
       | DFunction (ret, name, binders, _) ->
-          if valuation name = MustInline && string_of_lident main <> "main" then
+          if valuation name = MustInline && string_of_lident name <> "main" then
             None
           else
             Some (DFunction (ret, name, binders, inline_one name))
