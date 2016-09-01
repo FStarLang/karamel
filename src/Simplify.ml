@@ -25,7 +25,7 @@ let visit_files (env: 'env) (visitor: _ visitor) (files: file list) =
     try
       Some (visit_file env visitor f)
     with Error e ->
-      maybe_raise_error (fst f ^ "/" ^ fst e, snd e);
+      maybe_fatal_error (fst f ^ "/" ^ fst e, snd e);
       None
   ) files
 
@@ -123,7 +123,10 @@ let wrapping_arithmetic = object (self)
         ECast (unsigned_app, TInt w)
 
     | EOp (((K.AddW | K.SubW) as op), w), [ e1; e2 ] when K.is_unsigned w ->
-        let e = { node = EOp (K.without_wrap op, w); mtyp = TInt w }  in
+        let e = {
+          node = EOp (K.without_wrap op, w);
+          mtyp = Checker.type_of_op (K.without_wrap op) w
+        }  in
         let e1 = self#visit () e1 in
         let e2 = self#visit () e2 in
         EApp (e, [ e1; e2 ])
@@ -203,7 +206,7 @@ let let_if_to_assign = object (self)
 
   method! elet () _ b e1 e2 =
     match e1.node, b.meta with
-    | EIfThenElse (cond, e_then, e_else), None ->
+    | EIfThenElse (cond, e_then, e_else), _ ->
         let b = { b with mut = true } in
         let b, e2 = open_binder b e2 in
         let nest_assign = nest_in_lets (fun innermost -> {
@@ -600,5 +603,7 @@ let simplify (files: file list): file list =
       DFunction (ret, name, binders, expr)
   end) files in
   let files = visit_files () let_if_to_assign files in
+  ignore (Checker.check_everything files);
   let files = visit_files () let_to_sequence files in
+  ignore (Checker.check_everything files);
   files

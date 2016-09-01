@@ -109,14 +109,14 @@ Supported options:|} Sys.argv.(0)
     print PrintAst.print_files files;
 
   (* Type-check all files, then perform a whole-program rewriting. *)
-  Checker.check_everything files;
+  let files = Checker.check_everything files in
   Frames.debug files;
   let files = Simplify.simplify files in
 
   (* -dsimplify *)
   if !arg_print_simplify then
     print PrintAst.print_files files;
-  Checker.check_everything files;
+  let files = Checker.check_everything files in
 
   (* Translate to C*, then to C. *)
   let files = AstToCStar.translate_files files in

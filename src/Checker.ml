@@ -64,7 +64,7 @@ let possibly_warn =
     match Hashtbl.find h lid with
     | exception Not_found ->
         Hashtbl.add h lid ();
-        maybe_raise_error (KPrint.bsprintf "%a" ploc env.location,
+        maybe_fatal_error (KPrint.bsprintf "%a" ploc env.location,
           UnboundReference (KPrint.bsprintf "%a" plid lid))
     | () ->
         ()
@@ -123,14 +123,18 @@ let type_of_op env op w =
 
 
 let rec check_everything files =
-  try
-    let env = populate_env files in
-    List.iter (check_program env) files
-  with Error e ->
-    KPrint.beprintf "%a" Warnings.perr e;
-    exit 251
+  let env = populate_env files in
+  KList.filter_map (fun p ->
+    try
+      check_program env p;
+      Some p
+    with Error e ->
+      Warnings.maybe_fatal_error e;
+      None
+  ) files
 
-and check_program env (_, decls) =
+and check_program env (name, decls) =
+  let env = locate env ([], name) in
   List.iter (check_decl env) decls
 
 and check_decl env d =
@@ -148,6 +152,8 @@ and check_decl env d =
 
 and infer_expr env e =
   let t = infer_expr' env e.node e.mtyp in
+  if e.mtyp <> TAny then
+    check_types_equal env t e.mtyp;
   e.mtyp <- t;
   t
 
@@ -382,8 +388,8 @@ and types_equal env t1 t2 =
 
 and check_types_equal env t1 t2 =
   if not (types_equal env t1 t2) then
-    fatal_error "In %a, type mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
-      ploc env.location ptyp t1 ptyp (reduce env t1) ptyp t2 ptyp (reduce env t2)
+    raise_error (TypeError (KPrint.bsprintf "In %a, type mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
+      ploc env.location ptyp t1 ptyp (reduce env t1) ptyp t2 ptyp (reduce env t2)))
 
 and reduce env t =
   match t with

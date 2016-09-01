@@ -129,7 +129,7 @@ let run_or_warn str exe args =
         List.iter print_endline stderr;
         List.iter print_endline stdout
       end;
-      maybe_raise_error ("run_or_warn", ExternalError debug_str);
+      maybe_fatal_error ("run_or_warn", ExternalError debug_str);
       Pervasives.(flush stdout; flush stderr);
       false
 

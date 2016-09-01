@@ -58,7 +58,7 @@ let rec perr buf (loc, raw_error) =
   | ExternalError c ->
       p "the following command failed:\n%s" c
 
-let flags = Array.make 4 CError;;
+let flags = Array.make 5 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -73,16 +73,19 @@ let errno_of_error = function
       2
   | ExternalError _ ->
       3
+  | TypeError _ ->
+      4
   | _ ->
       (** Things that cannot be silenced! *)
       0
 ;;
 
-let maybe_raise_error error =
+let maybe_fatal_error error =
   let errno = errno_of_error (snd error) in
   match flags.(errno) with
   | CError ->
-      raise_error_l error
+      KPrint.beprintf "%a" perr error;
+      failwith "Fatal error"
   | CWarning ->
       KPrint.beprintf "%a" perr error
   | CSilent ->

@@ -347,6 +347,6 @@ and translate_files files =
     try
       Some (translate_file f)
     with Error e ->
-      Warnings.maybe_raise_error (fst e, Dropping (fst f, e));
+      Warnings.maybe_fatal_error (fst e, Dropping (fst f, e));
       None
   ) files
