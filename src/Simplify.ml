@@ -267,52 +267,27 @@ let rec hoist_t e =
       e
 
   | EApp (e, es) ->
-      let lhs, e = hoist e in
-      let lhss, es = List.split (List.map hoist es) in
+      let lhs, e = hoist false e in
+      let lhss, es = List.split (List.map (hoist false) es) in
       let lhs = lhs @ List.flatten lhss in
       nest lhs (mk (EApp (e, es)))
-
-  | ELet (binder, { node = EBufCreate (e'1, e'2); mtyp }, e2) ->
-      let lhs1, e'1 = hoist e'1 in
-      let lhs2, e'2 = hoist e'2 in
-      let lhs = lhs1 @ lhs2 in
-      let binder, e2 = open_binder binder e2 in
-      let e2 = hoist_t e2 in
-      nest lhs (mk (ELet (binder, { node = EBufCreate (e'1, e'2); mtyp }, close_binder binder e2)))
-
-  | ELet (binder, { node = EBufCreateL es; mtyp }, e2) ->
-      let lhs, es = List.split (List.map hoist es) in
-      let lhs = List.flatten lhs in
-      let binder, e2 = open_binder binder e2 in
-      let e2 = hoist_t e2 in
-      nest lhs (mk (ELet (binder, { node = EBufCreateL es; mtyp }, close_binder binder e2)))
-
-  | ELet (binder, { node = EIfThenElse (e'1, e'2, e'3); mtyp }, e2) ->
-      (* Will be translated into an assignment later on... so it's ok to have an
-       * if-then-else at depth 1. *)
-      let lhs, e'1 = hoist e'1 in
-      let e'2 = hoist_t e'2 in
-      let e'3 = hoist_t e'3 in
-      let binder, e2 = open_binder binder e2 in
-      let e2 = hoist_t e2 in
-      nest lhs (mk (ELet (binder, { node = EIfThenElse (e'1, e'2, e'3); mtyp }, close_binder binder e2)))
 
   | ELet (binder, e1, e2) ->
       (* At top-level, bindings may nest on the right-hand side of let-bindings,
        * but not on the left-hand side. *)
-      let lhs, e1 = hoist e1 in
+      let lhs, e1 = hoist true e1 in
       let binder, e2 = open_binder binder e2 in
       let e2 = hoist_t e2 in
       nest lhs (mk (ELet (binder, e1, close_binder binder e2)))
 
   | EIfThenElse (e1, e2, e3) ->
-      let lhs, e1 = hoist e1 in
+      let lhs, e1 = hoist false e1 in
       let e2 = hoist_t e2 in
       let e3 = hoist_t e3 in
       nest lhs (mk (EIfThenElse (e1, e2, e3)))
 
   | EWhile (e1, e2) ->
-      let lhs, e1 = hoist e1 in
+      let lhs, e1 = hoist false e1 in
       let e2 = hoist_t e2 in
       nest lhs (mk (EWhile (e1, e2)))
 
@@ -320,62 +295,62 @@ let rec hoist_t e =
       failwith "[hoist_t]: sequences should've been translated as let _ ="
 
   | EAssign (e1, e2) ->
-      let lhs1, e1 = hoist e1 in
-      let lhs2, e2 = hoist e2 in
+      let lhs1, e1 = hoist false e1 in
+      let lhs2, e2 = hoist false e2 in
       nest (lhs1 @ lhs2) (mk (EAssign (e1, e2)))
 
   | EBufCreate (e1, e2) ->
-      let lhs1, e1 = hoist e1 in
-      let lhs2, e2 = hoist e2 in
+      let lhs1, e1 = hoist false e1 in
+      let lhs2, e2 = hoist false e2 in
       let b, body, cont = mk_named_binding "buf" e.mtyp (EBufCreate (e1, e2)) in
       nest (lhs1 @ lhs2) (mk (ELet (b, body, close_binder b cont)))
 
   | EBufCreateL es ->
-      let lhs, es = List.split (List.map hoist es) in
+      let lhs, es = List.split (List.map (hoist false) es) in
       let b, body, cont = mk_named_binding "buf" e.mtyp (EBufCreateL es) in
       nest (List.flatten lhs) (mk (ELet (b, body, close_binder b cont)))
 
   | EBufRead (e1, e2) ->
-      let lhs1, e1 = hoist e1 in
-      let lhs2, e2 = hoist e2 in
+      let lhs1, e1 = hoist false e1 in
+      let lhs2, e2 = hoist false e2 in
       nest (lhs1 @ lhs2) (mk (EBufRead (e1, e2)))
 
   | EBufWrite (e1, e2, e3) ->
-      let lhs1, e1 = hoist e1 in
-      let lhs2, e2 = hoist e2 in
-      let lhs3, e3 = hoist e3 in
+      let lhs1, e1 = hoist false e1 in
+      let lhs2, e2 = hoist false e2 in
+      let lhs3, e3 = hoist false e3 in
       nest (lhs1 @ lhs2 @ lhs3) (mk (EBufWrite (e1, e2, e3)))
 
   | EBufBlit (e1, e2, e3, e4, e5) ->
-      let lhs1, e1 = hoist e1 in
-      let lhs2, e2 = hoist e2 in
-      let lhs3, e3 = hoist e3 in
-      let lhs4, e4 = hoist e4 in
-      let lhs5, e5 = hoist e5 in
+      let lhs1, e1 = hoist false e1 in
+      let lhs2, e2 = hoist false e2 in
+      let lhs3, e3 = hoist false e3 in
+      let lhs4, e4 = hoist false e4 in
+      let lhs5, e5 = hoist false e5 in
       nest (lhs1 @ lhs2 @ lhs3 @ lhs4 @ lhs5) (mk (EBufBlit (e1, e2, e3, e4, e5)))
   | EBufSub (e1, e2) ->
-      let lhs1, e1 = hoist e1 in
-      let lhs2, e2 = hoist e2 in
+      let lhs1, e1 = hoist false e1 in
+      let lhs2, e2 = hoist false e2 in
       nest (lhs1 @ lhs2) (mk (EBufSub (e1, e2)))
 
   | ECast (e, t) ->
-      let lhs, e = hoist e in
+      let lhs, e = hoist false e in
       nest lhs (mk (ECast (e, t)))
 
   | EMatch _ ->
       failwith "[hoist_t]: EMatch not properly desugared"
 
   | EReturn e ->
-      let lhs, e = hoist e in
+      let lhs, e = hoist false e in
       nest lhs (mk (EReturn e))
 
   | EField (e, f) ->
-      let lhs, e = hoist e in
+      let lhs, e = hoist false e in
       nest lhs (mk (EField (e, f)))
 
   | EFlat fields ->
       let lhs, fields = List.split (List.map (fun (ident, expr) ->
-        let lhs, expr = hoist expr in
+        let lhs, expr = hoist false expr in
         lhs, (ident, expr)
       ) fields) in
       nest (List.flatten lhs) (mk (EFlat fields))
@@ -385,7 +360,7 @@ let rec hoist_t e =
  * the caller to rewrite the bindings somehow and call [close_binder] on the
  * [binder]s. The bindings are ordered in the evaluation order (i.e. the first
  * binding returned should be evaluated first). *)
-and hoist e =
+and hoist under_let e =
   let mk node = { e with node } in
   match e.node with
   | EAbort
@@ -404,27 +379,30 @@ and hoist e =
       (* TODO: assert that in the case of a lazily evaluated boolean operator,
        * there are no intermediary let-bindings there... or does F* guarantee
        * that no effectful computations can occur there? *)
-      let lhs, e = hoist e in
-      let lhss, es = List.split (List.map hoist es) in
+      let lhs, e = hoist false e in
+      let lhss, es = List.split (List.map (hoist false) es) in
       (* TODO: reverse the order and use [rev_append] here *)
       let lhs = lhs @ List.flatten lhss in
       lhs, mk (EApp (e, es))
 
   | ELet (binder, e1, e2) ->
-      let lhs1, e1 = hoist e1 in
+      let lhs1, e1 = hoist true e1 in
       let binder, e2 = open_binder binder e2 in
       (* The caller (e.g. [hoist_t]) takes care, via [nest], of closing this
        * binder. *)
-      let lhs2, e2 = hoist e2 in
+      let lhs2, e2 = hoist false e2 in
       lhs1 @ [ binder, e1 ] @ lhs2, e2
 
   | EIfThenElse (e1, e2, e3) ->
       let t = e.mtyp in
-      let lhs1, e1 = hoist e1 in
+      let lhs1, e1 = hoist false e1 in
       let e2 = hoist_t e2 in
       let e3 = hoist_t e3 in
-      let b, body, cont = mk_named_binding "ite" t (EIfThenElse (e1, e2, e3)) in
-      lhs1 @ [ b, body ], cont
+      if under_let then
+        lhs1, mk (EIfThenElse (e1, e2, e3))
+      else
+        let b, body, cont = mk_named_binding "ite" t (EIfThenElse (e1, e2, e3)) in
+        lhs1 @ [ b, body ], cont
 
   | EWhile _ ->
       raise_error (Unsupported "[EWhile] in expression position")
@@ -433,49 +411,56 @@ and hoist e =
       fatal_error "[hoist_t]: sequences should've been translated as let _ ="
 
   | EAssign (e1, e2) ->
-      let lhs1, e1 = hoist e1 in
-      let lhs2, e2 = hoist e2 in
+      let lhs1, e1 = hoist false e1 in
+      let lhs2, e2 = hoist false e2 in
       lhs1 @ lhs2, mk (EAssign (e1, e2))
 
   | EBufCreate (e1, e2) ->
       let t = e.mtyp in
-      let lhs1, e1 = hoist e1 in
-      let lhs2, e2 = hoist e2 in
-      let b, body, cont = mk_named_binding "buf" t (EBufCreate (e1, e2)) in
-      lhs1 @ lhs2 @ [ b, body ], cont
+      let lhs1, e1 = hoist false e1 in
+      let lhs2, e2 = hoist false e2 in
+      if under_let then
+        lhs1 @ lhs2, mk (EBufCreate (e1, e2))
+      else
+        let b, body, cont = mk_named_binding "buf" t (EBufCreate (e1, e2)) in
+        lhs1 @ lhs2 @ [ b, body ], cont
 
   | EBufCreateL es ->
       let t = e.mtyp in
-      let lhs, es = List.split (List.map hoist es) in
-      let b, body, cont = mk_named_binding "buf" t (EBufCreateL es) in
-      List.flatten lhs @ [ b, body ], cont
+      let lhs, es = List.split (List.map (hoist false) es) in
+      let lhs = List.flatten lhs in
+      if under_let then
+        lhs, mk (EBufCreateL es)
+      else
+        let b, body, cont = mk_named_binding "buf" t (EBufCreateL es) in
+        lhs @ [ b, body ], cont
 
   | EBufRead (e1, e2) ->
-      let lhs1, e1 = hoist e1 in
-      let lhs2, e2 = hoist e2 in
+      let lhs1, e1 = hoist false e1 in
+      let lhs2, e2 = hoist false e2 in
       lhs1 @ lhs2, mk (EBufRead (e1, e2))
 
   | EBufWrite (e1, e2, e3) ->
-      let lhs1, e1 = hoist e1 in
-      let lhs2, e2 = hoist e2 in
-      let lhs3, e3 = hoist e3 in
+      let lhs1, e1 = hoist false e1 in
+      let lhs2, e2 = hoist false e2 in
+      let lhs3, e3 = hoist false e3 in
       lhs1 @ lhs2 @ lhs3, mk (EBufWrite (e1, e2, e3))
 
   | EBufBlit (e1, e2, e3, e4, e5) ->
-      let lhs1, e1 = hoist e1 in
-      let lhs2, e2 = hoist e2 in
-      let lhs3, e3 = hoist e3 in
-      let lhs4, e4 = hoist e4 in
-      let lhs5, e5 = hoist e5 in
+      let lhs1, e1 = hoist false e1 in
+      let lhs2, e2 = hoist false e2 in
+      let lhs3, e3 = hoist false e3 in
+      let lhs4, e4 = hoist false e4 in
+      let lhs5, e5 = hoist false e5 in
       lhs1 @ lhs2 @ lhs3 @ lhs4 @ lhs5, mk (EBufBlit (e1, e2, e3, e4, e5))
 
   | EBufSub (e1, e2) ->
-      let lhs1, e1 = hoist e1 in
-      let lhs2, e2 = hoist e2 in
+      let lhs1, e1 = hoist false e1 in
+      let lhs2, e2 = hoist false e2 in
       lhs1 @ lhs2, mk (EBufSub (e1, e2))
 
   | ECast (e, t) ->
-      let lhs, e = hoist e in
+      let lhs, e = hoist false e in
       lhs, mk (ECast (e, t))
 
   | EMatch _ ->
@@ -485,12 +470,12 @@ and hoist e =
       raise_error (Unsupported "[return] expressions should only appear in statement position")
 
   | EField (e, f) ->
-      let lhs, e = hoist e in
+      let lhs, e = hoist false e in
       lhs, mk (EField (e, f))
 
   | EFlat fields ->
       let lhs, fields = List.split (List.map (fun (ident, expr) ->
-        let lhs, expr = hoist expr in
+        let lhs, expr = hoist false expr in
         lhs, (ident, expr)
       ) fields) in
       List.flatten lhs, mk (EFlat fields)
@@ -577,13 +562,16 @@ end
 
 (* Everything composed together ***********************************************)
 
-let simplify (files: file list): file list =
+let simplify1 (files: file list): file list =
   let files = visit_files () record_toplevel_names files in
   let files = visit_files () replace_references_to_toplevel_names files in
   let files = visit_files () eta_expand files in
   let files = visit_files [] count_use files in
   let files = visit_files () dummy_match files in
   let files = visit_files () wrapping_arithmetic files in
+  files
+
+let simplify2 (files: file list): file list =
   let files = visit_files () sequence_to_let files in
   let files = visit_files () (object
     inherit ignore_everything

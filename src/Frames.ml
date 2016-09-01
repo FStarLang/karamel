@@ -14,6 +14,7 @@
 
 open Ast
 open Warnings
+open Idents
 
 let plid = PrintAst.plid
 
@@ -181,7 +182,7 @@ let inline_as_required files =
   List.map (fun (file, decls) ->
     file, KList.filter_map (function
       | DFunction (ret, name, binders, _) ->
-          if valuation name = MustInline then
+          if valuation name = MustInline && string_of_lident main <> "main" then
             None
           else
             Some (DFunction (ret, name, binders, inline_one name))

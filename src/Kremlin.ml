@@ -112,12 +112,13 @@ Supported options:|} Sys.argv.(0)
 
   (* Type-check all files, then perform a whole-program rewriting. *)
   let files = Checker.check_everything files in
+  let files = Simplify.simplify1 files in
   let files = Frames.inline_as_required files in
   if !arg_print_inline then
     print PrintAst.print_files files;
 
   (* -dsimplify *)
-  let files = Simplify.simplify files in
+  let files = Simplify.simplify2 files in
   if !arg_print_simplify then
     print PrintAst.print_files files;
   let files = Checker.check_everything files in

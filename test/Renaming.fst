@@ -17,5 +17,7 @@ let f msg =
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
   HST.Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
+  push_frame ();
   f 0L;
+  pop_frame ();
   C.exit_success
