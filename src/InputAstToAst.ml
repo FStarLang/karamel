@@ -97,8 +97,9 @@ and mk_expr = function
       mk (EReturn (mk_expr e))
   | I.EFlat (tname, fields) ->
       { node = EFlat (mk_fields fields); mtyp = TQualified tname }
-  | I.EField (tname, expr, field) ->
-      { node = EField (mk_expr expr, field); mtyp = TQualified tname }
+  | I.EField (tname, e, field) ->
+      let e = { (mk_expr e) with mtyp = TQualified tname } in
+      mk (EField (e, field))
 
 and mk node =
   { node; mtyp = TAny }

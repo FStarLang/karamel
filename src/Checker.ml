@@ -139,10 +139,12 @@ and check_program env (name, decls) =
 
 and check_decl env d =
   match d with
-  | DFunction (t, _name, binders, body) ->
+  | DFunction (t, name, binders, body) ->
       let env = List.fold_left push env binders in
+      let env = locate env name in
       check_expr env t body
-  | DGlobal (_name, t, body) ->
+  | DGlobal (name, t, body) ->
+      let env = locate env name in
       check_expr env t body
   | DTypeAlias _
   | DTypeFlat _ ->
@@ -152,8 +154,10 @@ and check_decl env d =
 
 and infer_expr env e =
   let t = infer_expr' env e.node e.mtyp in
-  if e.mtyp <> TAny then
+  if e.mtyp <> TAny then begin
+    KPrint.bprintf "Checking %a (previously: %a)\n" pexpr e ptyp e.mtyp;
     check_types_equal env t e.mtyp;
+  end;
   e.mtyp <- t;
   t
 
@@ -284,7 +288,7 @@ and infer_expr' env e t =
       TQualified lid
 
   | EField (e, field) ->
-      let lid = assert_qualified env t in
+      let lid = assert_qualified env e.mtyp in
       check_expr env (TQualified lid) e;
       List.assoc field (assert_flat env (lookup_type env lid))
 

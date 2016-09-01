@@ -196,7 +196,7 @@ end
 let rec nest_in_lets f e =
   match e.node with
   | ELet (b, e1, e2) ->
-      { e with node = ELet (b, e1, nest_in_lets f e2) }
+      { node = ELet (b, e1, nest_in_lets f e2); mtyp = TUnit }
   | _ ->
       f e
 
@@ -206,7 +206,7 @@ let let_if_to_assign = object (self)
 
   method! elet () _ b e1 e2 =
     match e1.node, b.meta with
-    | EIfThenElse (cond, e_then, e_else), _ ->
+    | EIfThenElse (cond, e_then, e_else), None ->
         let b = { b with mut = true } in
         let b, e2 = open_binder b e2 in
         let nest_assign = nest_in_lets (fun innermost -> {
@@ -560,12 +560,6 @@ let replace_references_to_toplevel_names = object(self)
   method equalified () _ lident =
     EQualified (t lident)
 
-  method eflat () _ fields =
-    EFlat (self#fields () fields)
-
-  method efield () _ e field =
-    EField (self#visit () e, field)
-
   method dglobal () name typ body =
     DGlobal (t name, self#visit_t () typ, self#visit () body)
 
@@ -603,7 +597,5 @@ let simplify (files: file list): file list =
       DFunction (ret, name, binders, expr)
   end) files in
   let files = visit_files () let_if_to_assign files in
-  ignore (Checker.check_everything files);
   let files = visit_files () let_to_sequence files in
-  ignore (Checker.check_everything files);
   files

@@ -208,5 +208,7 @@ let link c_files o_files =
   let extra_arg = if !Options.exe_name <> "" then [ "-o"; !Options.exe_name ] else [] in
   if run_or_warn "[gcc,link]" !gcc (!gcc_args @ objects @ extra_arg) then
     KPrint.bprintf "%sAll files linked successfully%s 👍\n" Ansi.green Ansi.reset
-  else
-    KPrint.bprintf "%sgcc failed at the final linking phase%s\n" Ansi.red Ansi.reset
+  else begin
+    KPrint.bprintf "%sgcc failed at the final linking phase%s\n" Ansi.red Ansi.reset;
+    exit 250
+  end
