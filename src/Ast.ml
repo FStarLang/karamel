@@ -108,7 +108,7 @@ and typ =
   | TQualified of lident
   | TBool
   | TAny
-  | TArrow of (typ * typ)
+  | TArrow of typ * typ
       (** t1 -> t2 *)
   | TZ
 
