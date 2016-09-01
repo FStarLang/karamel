@@ -4,6 +4,7 @@ let _ =
   let arg_print_ast = ref false in
   let arg_print_json = ref false in
   let arg_print_simplify = ref false in
+  let arg_print_inline = ref false in
   let arg_print_c = ref false in
   let arg_skip_compilation = ref false in
   let arg_skip_linking = ref false in
@@ -36,9 +37,10 @@ Supported options:|} Sys.argv.(0)
   let found_file = ref false in
   let prepend r = fun s -> r := s :: !r in
   let spec = [
-    "-dast", Arg.Set arg_print_ast, " pretty-print the input AST";
     "-djson", Arg.Set arg_print_json, " dump the input AST as JSON";
-    "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the input AST after simplification";
+    "-dast", Arg.Set arg_print_ast, " pretty-print the internal AST";
+    "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after inlining";
+    "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the internal AST after simplification";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-skip-compilation", Arg.Set arg_skip_compilation, " stop after step 2.";
     "-skip-linking", Arg.Set arg_skip_linking, " stop after step 3.";
@@ -110,10 +112,12 @@ Supported options:|} Sys.argv.(0)
 
   (* Type-check all files, then perform a whole-program rewriting. *)
   let files = Checker.check_everything files in
-  Frames.debug files;
-  let files = Simplify.simplify files in
+  let files = Frames.inline_as_required files in
+  if !arg_print_inline then
+    print PrintAst.print_files files;
 
   (* -dsimplify *)
+  let files = Simplify.simplify files in
   if !arg_print_simplify then
     print PrintAst.print_files files;
   let files = Checker.check_everything files in

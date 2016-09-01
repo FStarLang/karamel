@@ -155,7 +155,7 @@ and check_decl env d =
 and infer_expr env e =
   let t = infer_expr' env e.node e.mtyp in
   if e.mtyp <> TAny then begin
-    KPrint.bprintf "Checking %a (previously: %a)\n" pexpr e ptyp e.mtyp;
+    (* KPrint.bprintf "Checking %a (previously: %a)\n" pexpr e ptyp e.mtyp; *)
     check_types_equal env t e.mtyp;
   end;
   e.mtyp <- t;

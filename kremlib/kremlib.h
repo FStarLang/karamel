@@ -25,7 +25,7 @@ typedef int8_t FStar_Int8_t, FStar_Int8_t_;
 // Some types that KreMLin has no special knowledge of; many of them appear in
 // signatures of ghost functions, meaning that it suffices to give them (any)
 // definition.
-typedef void *Prims_pos, *Prims_nat, *FStar_Seq_seq, *Prims_int,
+typedef void *Prims_pos, *Prims_nat, *Prims_nonzero, *FStar_Seq_seq, *Prims_int,
         *FStar_HyperStack_mem, *FStar_Set_set, *Prims_st_pre_h,
         *Prims_all_pre_h, *FStar_TSet_set, *Prims_string, *Prims_list,
         *FStar_Map_t,
