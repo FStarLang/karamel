@@ -99,7 +99,7 @@ let ensure_fresh env name body =
           inherit [string list] map
           method extend env binder =
             binder.name :: env
-          method ebound env i =
+          method ebound env _ i =
             r := !r || name = List.nth env i;
             EBound i
         end) # visit env.names body);
@@ -110,7 +110,7 @@ let ensure_fresh env name body =
 
 
 let rec translate_expr env e =
-  match e with
+  match e.node with
   | EBound var ->
       CStar.Var (find env var)
   | EQualified lident ->
@@ -155,15 +155,17 @@ let rec translate_expr env e =
       fatal_error "[AstToCStar.translate_expr EReturn]: should not be here"
   | EBool b ->
       CStar.Bool b
-  | EFlat (typ, fields) ->
+  | EFlat fields ->
+      let typ = Checker.assert_qualified Checker.empty e.mtyp in
       CStar.Struct (string_of_lident typ, List.map (fun (name, expr) ->
         Some name, translate_expr env expr
       ) fields)
-  | EField (_typ, expr, field) ->
+  | EField (expr, field) ->
       CStar.Field (translate_expr env expr, field)
 
 
-and collect (env, acc) = function
+and collect (env, acc) e =
+  match e.node with
   | ELet (binder, e1, e2) ->
       let env, binder = translate_and_push_binder env binder (Some e1)
       and e1 = translate_expr env e1 in
@@ -174,7 +176,7 @@ and collect (env, acc) = function
       let e = CStar.While (translate_expr env e1, translate_block env e2) in
       env, e :: acc
 
-  | EIfThenElse (e1, e2, e3, _) ->
+  | EIfThenElse (e1, e2, e3) ->
       let e = CStar.IfThenElse (translate_expr env e1, translate_block env e2, translate_block env e3) in
       env, e :: acc
 
@@ -211,7 +213,7 @@ and collect (env, acc) = function
   | EReturn e ->
       env, CStar.Return (translate_expr env e) :: acc
 
-  | e ->
+  | _ ->
       let e = CStar.Ignore (translate_expr env e) in
       env, e :: acc
 

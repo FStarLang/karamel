@@ -72,11 +72,11 @@ let inline_analysis files =
     try
       ignore ((object
         inherit [_] map as super
-        method ebufcreate () _ _ =
+        method! ebufcreate () _ _ _ =
           raise L.Found
-        method ebufcreatel () _ =
+        method! ebufcreatel () _ _ =
           raise L.Found
-        method equalified () lid =
+        method! equalified () t lid =
           (* In case we ever decide to allow wacky stuff like:
            *   let f = if ... then g else h in
            *   ignore f;
@@ -84,7 +84,7 @@ let inline_analysis files =
           if valuation lid = MustInline then
             raise L.Found
           else
-            super#equalified () lid
+            super#equalified () t lid
       end)#visit () expr);
       Safe
     with L.Found ->
@@ -92,12 +92,13 @@ let inline_analysis files =
   in
 
   let must_inline lid valuation =
-    let rec walk found = function
+    let rec walk found e =
+      match e.node with
       | ELet (_, body, cont) ->
           walk (found ||| contains_alloc valuation body) cont
       | ESequence es ->
           let rec walk found = function
-            | EPushFrame :: _ ->
+            | { node = EPushFrame; _ } :: _ ->
                 found
             | e :: es ->
                 walk (found ||| contains_alloc valuation e) es
@@ -107,7 +108,7 @@ let inline_analysis files =
           walk found es
       | EPushFrame ->
           fatal_error "Malformed function body %a" plid lid
-      | e ->
+      | _ ->
           found ||| contains_alloc valuation e
     in
     try

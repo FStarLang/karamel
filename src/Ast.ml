@@ -17,7 +17,7 @@ and decl =
   | DGlobal of (lident * typ * expr)
   | DTypeFlat of (lident * (ident * typ) list)
 
-and expr =
+and expr' =
   | EBound of var
   | EOpen of (ident * Atom.t)
     (** [ident] for debugging purposes only *)
@@ -26,7 +26,7 @@ and expr =
   | EUnit
   | EApp of (expr * expr list)
   | ELet of (binder * expr * expr)
-  | EIfThenElse of (expr * expr * expr * typ)
+  | EIfThenElse of (expr * expr * expr)
   | ESequence of expr list
   | EAssign of (expr * expr)
     (** left expression can only be a EBound or EOpen *)
@@ -40,7 +40,7 @@ and expr =
     (** e1 + e2 *)
   | EBufBlit of (expr * expr * expr * expr * expr)
     (** e1, index; e2, index; len *)
-  | EMatch of (expr * branches * typ)
+  | EMatch of (expr * branches)
   | EOp of (K.op * K.width)
   | ECast of (expr * typ)
   | EPushFrame
@@ -52,13 +52,21 @@ and expr =
   | EAbort
     (** exits the program prematurely *)
   | EReturn of expr
-  | EFlat of (lident * (ident * expr) list)
+  | EFlat of (ident * expr) list
     (** contains the name of the type we're building *)
-  | EField of (lident * expr * ident)
+  | EField of (expr * ident)
     (** contains the name of the type we're selecting from *)
   | EWhile of (expr * expr)
   | EBufCreateL of expr list
 
+and expr =
+  expr' typed
+
+and 'a typed = {
+  node: 'a;
+  mutable mtyp: typ
+    (** Filled in by [Checker] *)
+}
 
 and branches =
   branch list
@@ -132,7 +140,7 @@ let binders_of_pat = function
   | PBool _ ->
       []
 
-class virtual ['env, 'result, 'tresult, 'dresult] visitor = object (self)
+class virtual ['env, 'result, 'tresult, 'dresult, 'extra] visitor = object (self)
 
   (* This method, whose default implementation is the identity,
      can be used to extend the environment when a binding is
@@ -140,95 +148,95 @@ class virtual ['env, 'result, 'tresult, 'dresult] visitor = object (self)
   method extend (env: 'env) (_: binder): 'env =
     env
 
-  (* The main visitor method inspects the structure of [ty] and
+  (* The main visitor method inspects the structure of [e] and
      dispatches control to the appropriate case method. *)
-  method visit (env: 'env) (e: expr): 'result =
+  method visit_e (env: 'env) (e: expr') (mtyp: 'extra): 'result =
     match e with
     | EBound var ->
-        self#ebound env var
+        self#ebound env mtyp var
     | EOpen (name, atom) ->
-        self#eopen env name atom
+        self#eopen env mtyp name atom
     | EQualified lident ->
-        self#equalified env lident
+        self#equalified env mtyp lident
     | EConstant c ->
-        self#econstant env c
+        self#econstant env mtyp c
     | EUnit ->
-        self#eunit env
+        self#eunit env mtyp
     | EApp (e, es) ->
-        self#eapp env e es
+        self#eapp env mtyp e es
     | ELet (b, e1, e2) ->
-        self#elet env b e1 e2
-    | EIfThenElse (e1, e2, e3, t) ->
-        self#eifthenelse env e1 e2 e3 t
+        self#elet env mtyp b e1 e2
+    | EIfThenElse (e1, e2, e3) ->
+        self#eifthenelse env mtyp e1 e2 e3
     | ESequence es ->
-        self#esequence env es
+        self#esequence env mtyp es
     | EAssign (e1, e2) ->
-        self#eassign env e1 e2
+        self#eassign env mtyp e1 e2
     | EBufCreate (e1, e2) ->
-        self#ebufcreate env e1 e2
+        self#ebufcreate env mtyp e1 e2
     | EBufRead (e1, e2) ->
-        self#ebufread env e1 e2
+        self#ebufread env mtyp e1 e2
     | EBufWrite (e1, e2, e3) ->
-        self#ebufwrite env e1 e2 e3
+        self#ebufwrite env mtyp e1 e2 e3
     | EBufBlit (e1, e2, e3, e4, e5) ->
-        self#ebufblit env e1 e2 e3 e4 e5
+        self#ebufblit env mtyp e1 e2 e3 e4 e5
     | EBufSub (e1, e2) ->
-        self#ebufsub env e1 e2
-    | EMatch (e, branches, t) ->
-        self#ematch env e branches t
+        self#ebufsub env mtyp e1 e2
+    | EMatch (e, branches) ->
+        self#ematch env mtyp e branches
     | EOp (op, w) ->
-        self#eop env op w
+        self#eop env mtyp op w
     | ECast (e, t) ->
-        self#ecast env e t
+        self#ecast env mtyp e t
     | EPushFrame ->
-        self#epushframe env
+        self#epushframe env mtyp
     | EPopFrame ->
-        self#epopframe env
+        self#epopframe env mtyp
     | EBool b ->
-        self#ebool env b
+        self#ebool env mtyp b
     | EAny ->
-        self#eany env
+        self#eany env mtyp
     | EAbort ->
-        self#eabort env
+        self#eabort env mtyp
     | EReturn e ->
-        self#ereturn env e
-    | EFlat (tname, fields) ->
-        self#eflat env tname fields
-    | EField (tname, e, field) ->
-        self#efield env tname e field
+        self#ereturn env mtyp e
+    | EFlat fields ->
+        self#eflat env mtyp fields
+    | EField (e, field) ->
+        self#efield env mtyp e field
     | EWhile (e1, e2) ->
-        self#ewhile env e1 e2
+        self#ewhile env mtyp e1 e2
     | EBufCreateL es ->
-        self#ebufcreatel env es
+        self#ebufcreatel env mtyp es
 
-  method virtual ebound: 'env -> var -> 'result
-  method virtual eopen: 'env -> ident -> Atom.t -> 'result
-  method virtual equalified: 'env -> lident -> 'result
-  method virtual econstant: 'env -> K.t -> 'result
-  method virtual eunit: 'env -> 'result
-  method virtual eany: 'env -> 'result
-  method virtual eabort: 'env -> 'result
-  method virtual eapp: 'env -> expr -> expr list -> 'result
-  method virtual elet: 'env -> binder -> expr -> expr -> 'result
-  method virtual eifthenelse: 'env -> expr -> expr -> expr -> typ -> 'result
-  method virtual esequence: 'env -> expr list -> 'result
-  method virtual eassign: 'env -> expr -> expr -> 'result
-  method virtual ebufcreate: 'env -> expr -> expr -> 'result
-  method virtual ebufread: 'env -> expr -> expr -> 'result
-  method virtual ebufwrite: 'env -> expr -> expr -> expr -> 'result
-  method virtual ebufblit: 'env -> expr -> expr -> expr -> expr -> expr -> 'result
-  method virtual ebufsub: 'env -> expr -> expr -> 'result
-  method virtual ematch: 'env -> expr -> branches -> typ -> 'result
-  method virtual eop: 'env -> K.op -> K.width -> 'result
-  method virtual ecast: 'env -> expr -> typ -> 'result
-  method virtual epushframe: 'env -> 'result
-  method virtual epopframe: 'env -> 'result
-  method virtual ebool: 'env -> bool -> 'result
-  method virtual ereturn: 'env -> expr -> 'result
-  method virtual eflat: 'env -> lident -> (ident * expr) list -> 'result
-  method virtual efield: 'env -> lident -> expr -> ident -> 'result
-  method virtual ewhile: 'env -> expr -> expr -> 'result
-  method virtual ebufcreatel: 'env -> expr list -> 'result
+  method virtual ebound: 'env -> 'extra -> var -> 'result
+  method virtual eopen: 'env -> 'extra -> ident -> Atom.t -> 'result
+  method virtual equalified: 'env -> 'extra -> lident -> 'result
+  method virtual econstant: 'env -> 'extra -> K.t -> 'result
+  method virtual eunit: 'env -> 'extra -> 'result
+  method virtual eany: 'env -> 'extra -> 'result
+  method virtual eabort: 'env -> 'extra -> 'result
+  method virtual eapp: 'env -> 'extra -> expr -> expr list -> 'result
+  method virtual elet: 'env -> 'extra -> binder -> expr -> expr -> 'result
+  method virtual eifthenelse: 'env -> 'extra -> expr -> expr -> expr -> 'result
+  method virtual esequence: 'env -> 'extra -> expr list -> 'result
+  method virtual eassign: 'env -> 'extra -> expr -> expr -> 'result
+  method virtual ebufcreate: 'env -> 'extra -> expr -> expr -> 'result
+  method virtual ebufread: 'env -> 'extra -> expr -> expr -> 'result
+  method virtual ebufwrite: 'env -> 'extra -> expr -> expr -> expr -> 'result
+  method virtual ebufblit: 'env -> 'extra -> expr -> expr -> expr -> expr -> expr -> 'result
+  method virtual ebufsub: 'env -> 'extra -> expr -> expr -> 'result
+  method virtual ematch: 'env -> 'extra -> expr -> branches -> 'result
+  method virtual eop: 'env -> 'extra -> K.op -> K.width -> 'result
+  method virtual ecast: 'env -> 'extra -> expr -> 'extra -> 'result
+  method virtual epushframe: 'env -> 'extra -> 'result
+  method virtual epopframe: 'env -> 'extra -> 'result
+  method virtual ebool: 'env -> 'extra -> bool -> 'result
+  method virtual ereturn: 'env -> 'extra -> expr -> 'result
+  method virtual eflat: 'env -> 'extra -> (ident * expr) list -> 'result
+  method virtual efield: 'env -> 'extra -> expr -> ident -> 'result
+  method virtual ewhile: 'env -> 'extra -> expr -> expr -> 'result
+  method virtual ebufcreatel: 'env -> 'extra -> expr list -> 'result
 
   method visit_t (env: 'env) (t: typ): 'tresult =
     match t with
@@ -278,91 +286,96 @@ end
 
 class ['env] map = object (self)
 
-  inherit ['env, expr, typ, decl] visitor
+  inherit ['env, expr', typ, decl, typ] visitor
 
-  method ebound _env var =
+  method visit env e: expr =
+    let mtyp = self#visit_t env e.mtyp in
+    let node = self#visit_e env e.node mtyp in
+    { node; mtyp }
+
+  method ebound _env _typ var =
     EBound var
 
-  method eopen _env name atom =
+  method eopen _env _typ name atom =
     EOpen (name, atom)
 
-  method equalified _env lident =
+  method equalified _env _typ lident =
     EQualified lident
 
-  method econstant _env constant =
+  method econstant _env _typ constant =
     EConstant constant
 
-  method eabort _env =
+  method eabort _env _typ =
     EAbort
 
-  method eany _env =
+  method eany _env _typ =
     EAny
 
-  method eunit _env =
+  method eunit _env _typ =
     EUnit
 
-  method eapp env e es =
+  method eapp env _typ e es =
     EApp (self#visit env e, List.map (self#visit env) es)
 
-  method elet env b e1 e2 =
+  method elet env _typ b e1 e2 =
     let b = { b with typ = self#visit_t env b.typ } in
     ELet (b, self#visit env e1, self#visit (self#extend env b) e2)
 
-  method eifthenelse env e1 e2 e3 t =
-    EIfThenElse (self#visit env e1, self#visit env e2, self#visit env e3, t)
+  method eifthenelse env _typ e1 e2 e3 =
+    EIfThenElse (self#visit env e1, self#visit env e2, self#visit env e3)
 
-  method esequence env es =
+  method esequence env _typ es =
     ESequence (List.map (self#visit env) es)
 
-  method eassign env e1 e2 =
+  method eassign env _typ e1 e2 =
     EAssign (self#visit env e1, self#visit env e2)
 
-  method ebufcreate env e1 e2 =
+  method ebufcreate env _typ e1 e2 =
     EBufCreate (self#visit env e1, self#visit env e2)
 
-  method ebufread env e1 e2 =
+  method ebufread env _typ e1 e2 =
     EBufRead (self#visit env e1, self#visit env e2)
 
-  method ebufwrite env e1 e2 e3 =
+  method ebufwrite env _typ e1 e2 e3 =
     EBufWrite (self#visit env e1, self#visit env e2, self#visit env e3)
 
-  method ebufblit env e1 e2 e3 e4 e5 =
+  method ebufblit env _typ e1 e2 e3 e4 e5 =
     EBufBlit (self#visit env e1, self#visit env e2, self#visit env e3, self#visit env e4, self#visit env e5)
 
-  method ebufsub env e1 e2 =
+  method ebufsub env _typ e1 e2 =
     EBufSub (self#visit env e1, self#visit env e2)
 
-  method ematch env e branches t =
-    EMatch (self#visit env e, self#branches env branches, t)
+  method ematch env _typ e branches =
+    EMatch (self#visit env e, self#branches env branches)
 
-  method eop _env o w =
+  method eop _env _typ o w =
     EOp (o, w)
 
-  method ecast env e t =
+  method ecast env _typ e t =
     ECast (self#visit env e, self#visit_t env t)
 
-  method epopframe _env =
+  method epopframe _env _typ =
     EPopFrame
 
-  method epushframe _env =
+  method epushframe _env _typ =
     EPushFrame
 
-  method ebool _env b =
+  method ebool _env _typ b =
     EBool b
 
-  method ereturn env e =
+  method ereturn env _typ e =
     EReturn (self#visit env e)
 
-  method eflat env tname fields =
-    EFlat (tname, self#fields env fields)
+  method eflat env _typ fields =
+    EFlat (self#fields env fields)
 
-  method efield env tname e field =
-    EField (tname, self#visit env e, field)
+  method efield env _typ e field =
+    EField (self#visit env e, field)
 
-  method ewhile env e1 e2 =
+  method ewhile env _typ e1 e2 =
     EWhile (self#visit env e1, self#visit env e2)
 
-  method ebufcreatel env es =
+  method ebufcreatel env _typ es =
     EBufCreateL (List.map (self#visit env) es)
 
   method fields env fields =

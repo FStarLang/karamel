@@ -23,7 +23,7 @@ class lift (k: int) = object
   inherit map_counting
   (* A local variable (one that is less than [i]) is unaffected;
      a free variable is lifted up by [k]. *)
-  method! ebound i j =
+  method! ebound i _ j =
     if j < i then
       EBound j
     else
@@ -45,9 +45,9 @@ class subst (e2: expr) = object
   inherit map_counting
   (* The target variable [i] is replaced with [t2]. Any other
      variable is unaffected. *)
-  method! ebound i j =
+  method! ebound i _ j =
     if j = i then
-      lift i e2
+      (lift i e2).node
     else
       EBound (if j < i then j else j-1)
 end
@@ -62,7 +62,7 @@ let subst (e2: expr) (i: int) (e1: expr) =
 class close (atom': Atom.t) = object
   inherit map_counting
 
-  method! eopen i name atom =
+  method! eopen i _ name atom =
     if Atom.equal atom atom' then
       EBound i
     else
@@ -80,7 +80,7 @@ let close_binder b e =
 let open_binder b e1 =
   let a = Atom.fresh () in
   let b = { b with atom = a } in
-  b, subst (EOpen (b.name, a)) 0 e1
+  b, subst { node = EOpen (b.name, a); mtyp = b.typ } 0 e1
 
 let open_function_binders binders term =
   List.fold_right (fun binder (acc, term) ->

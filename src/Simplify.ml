@@ -11,7 +11,7 @@ let pexpr = PrintAst.pexpr
 
 (* Some helpers ***************************************************************)
 
-type ('a, 'b, 'c, 'd, 'e) visitor = ('a, 'b, 'c, 'd) #Ast.visitor as 'e
+type ('a, 'b, 'c, 'd, 'e, 'f) visitor = ('a, 'b, 'c, 'd, 'e) #Ast.visitor as 'f
 
 let visit_program (env: 'env) (visitor: _ visitor) (program: program) =
   List.map (visitor#visit_d env) program
@@ -47,7 +47,8 @@ end
 
 (* Count the number of occurrences of each variable ***************************)
 
-let rec is_pure = function
+let rec is_pure { node; _ } =
+  match node with
   | EConstant _ -> true
   | ECast (e, _) -> is_pure e
   | _ -> false
@@ -59,19 +60,19 @@ let count_use = object (self)
   method! extend env binder =
     binder :: env
 
-  method! ebound env i =
+  method! ebound env _ i =
     let b = List.nth env i in
     incr b.mark;
     EBound i
 
-  method! elet env b e1 e2 =
+  method! elet env _ b e1 e2 =
     (* Remove unused variables. Important to get rid of calls to [HST.get()]. *)
     let e1 = self#visit env e1 in
     let env = self#extend env b in
     let e2 = self#visit env e2 in
     match e1, !(b.mark) with
     | e, 0 when is_pure e ->
-        snd (open_binder b e2)
+        (snd (open_binder b e2)).node
     | _ ->
         ELet (b, e1, e2)
 
@@ -83,17 +84,17 @@ let dummy_match = object (self)
 
   inherit [unit] map
 
-  method! ematch () e branches t =
-    match e, branches with
+  method! ematch () _ e branches =
+    match e.node, branches with
     | EUnit, [ PUnit, body ] ->
-        self # visit () body
+        (self#visit () body).node
     | _, [ PBool true, b1; PVar v, b2 ] when !(v.mark) = 0 ->
-        let b1 = self # visit () b1 in
+        let b1 = self#visit () b1 in
         let _, b2 = open_binder v b2 in
-        let b2 = self # visit () b2 in
-        EIfThenElse (e, b1, b2, t)
+        let b2 = self#visit () b2 in
+        EIfThenElse (e, b1, b2)
     | _ ->
-        EMatch (e, self # branches () branches, t)
+        EMatch (e, self#branches () branches)
 
 end
 
@@ -104,25 +105,30 @@ let wrapping_arithmetic = object (self)
 
   inherit [unit] map
 
-  method! eapp () e es =
-    match e, es with
+  method! eapp () _ e es =
+    match e.node, es with
     | EOp (((K.AddW | K.SubW) as op), w), [ e1; e2 ] when K.is_signed w ->
-        let e = EOp (K.without_wrap op, K.unsigned_of_signed w) in
+        let unsigned_w = K.unsigned_of_signed w in
+        let e = {
+          node = EOp (K.without_wrap op, unsigned_w);
+          mtyp = Checker.type_of_op (K.without_wrap op) unsigned_w
+        } in
         let e1 = self#visit () e1 in
         let e2 = self#visit () e2 in
-        let c e = ECast (e, TInt (K.unsigned_of_signed w)) in
+        let c e = { node = ECast (e, TInt unsigned_w); mtyp = TInt unsigned_w } in
         (** TODO: the second call to [c] is optional per the C semantics, but in
          * order to preserve typing, we have to insert it... maybe recognize
          * that pattern later on at the C emission level? *)
-        ECast (EApp (e, [ c e1; c e2 ]), TInt w)
+        let unsigned_app = { node = EApp (e, [ c e1; c e2 ]); mtyp = TInt unsigned_w } in
+        ECast (unsigned_app, TInt w)
 
     | EOp (((K.AddW | K.SubW) as op), w), [ e1; e2 ] when K.is_unsigned w ->
-        let e = EOp (K.without_wrap op, w) in
+        let e = { node = EOp (K.without_wrap op, w); mtyp = TInt w }  in
         let e1 = self#visit () e1 in
         let e2 = self#visit () e2 in
         EApp (e, [ e1; e2 ])
 
-    | e, es ->
+    | _, es ->
         EApp (self#visit () e, List.map (self#visit ()) es)
 end
 
@@ -142,13 +148,13 @@ let sequence_to_let = object (self)
 
   inherit [unit] map
 
-  method! esequence () es =
+  method! esequence () _ es =
     let es = List.map (self#visit ()) es in
     match List.rev es with
     | last :: first_fews ->
-        List.fold_left (fun cont e ->
-          ELet (sequence_binding (), e, lift 1 cont)
-        ) last first_fews
+        (List.fold_left (fun cont e ->
+          { node = ELet (sequence_binding (), e, lift 1 cont); mtyp = last.mtyp }
+        ) last first_fews).node
     | [] ->
         failwith "[sequence_to_let]: impossible (empty sequence)"
 
@@ -158,21 +164,21 @@ let let_to_sequence = object (self)
 
   inherit [unit] map
 
-  method! elet env b e1 e2 =
+  method! elet env _ b e1 e2 =
     match b.meta with
     | Some MetaSequence ->
         let e1 = self#visit env e1 in
         let b, e2 = open_binder b e2 in
         let e2 = self#visit env e2 in
         assert (b.typ = TUnit && b.name = "_");
-        begin match e1, e2 with
+        begin match e1.node, e2.node with
         | _, EUnit ->
             (* let _ = e1 in () *)
-            e1
-        | ECast (EUnit, _), _
+            e1.node
+        | ECast ({ node = EUnit; _ }, _), _
         | EUnit, _ ->
             (* let _ = () in e2 *)
-            e2
+            e2.node
         | _, ESequence es ->
             ESequence (e1 :: es)
         | _ ->
@@ -184,27 +190,37 @@ let let_to_sequence = object (self)
 
 end
 
-let rec nest_in_lets f = function
+let rec nest_in_lets f e =
+  match e.node with
   | ELet (b, e1, e2) ->
-      ELet (b, e1, nest_in_lets f e2)
-  | e ->
+      { e with node = ELet (b, e1, nest_in_lets f e2) }
+  | _ ->
       f e
 
 let let_if_to_assign = object (self)
 
   inherit [unit] map
 
-  method! elet () b e1 e2 =
-    match e1, b.meta with
-    | EIfThenElse (cond, e_then, e_else, _), None ->
+  method! elet () _ b e1 e2 =
+    match e1.node, b.meta with
+    | EIfThenElse (cond, e_then, e_else), None ->
         let b = { b with mut = true } in
         let b, e2 = open_binder b e2 in
-        let nest_assign = nest_in_lets (fun innermost -> EAssign (EOpen (b.name, b.atom), innermost)) in
+        let nest_assign = nest_in_lets (fun innermost -> {
+          node = EAssign ({ node = EOpen (b.name, b.atom); mtyp = b.typ }, innermost);
+          mtyp = TUnit
+        }) in
         let e_then = nest_assign e_then in
         let e_else = nest_assign e_else in
-        ELet (b, EAny,
-          close_binder b (lift 1 (ELet (sequence_binding (), EIfThenElse (cond, e_then, e_else, TUnit),
-            lift 1 (self#visit () e2)))))
+        let e_ifthenelse = {
+          node = EIfThenElse (cond, e_then, e_else);
+          mtyp = TUnit
+        } in
+        ELet (b, { node = EAny; mtyp = TAny },
+          close_binder b (lift 1 ({
+            node = ELet (sequence_binding (), e_ifthenelse, lift 1 (self#visit () e2));
+            mtyp = e2.mtyp
+          })))
     | _ ->
         (* There are no more nested lets at this stage *)
         ELet (b, e1, self#visit () e2)
@@ -216,7 +232,7 @@ end
 let nest (lhs: (binder * expr) list) (e2: expr) =
   List.fold_right (fun (binder, e1) e2 ->
     let e2 = close_binder binder e2 in
-    ELet (binder, e1, e2)
+    { node = ELet (binder, e1, e2); mtyp = e2.mtyp }
   ) lhs e2
 
 (* In a toplevel context, let-bindings may appear. A toplevel context
@@ -226,7 +242,8 @@ let nest (lhs: (binder * expr) list) (e2: expr) =
  * - an element of an [ESequence] that is already in a toplevel context.
  * As soon as we leave a toplevel context, we jump into [hoist]. *)
 let rec hoist_t e =
-  match e with
+  let mk node = { e with node } in
+  match e.node with
   | EAbort
   | EAny
   | EBound _
@@ -243,16 +260,32 @@ let rec hoist_t e =
       let lhs, e = hoist e in
       let lhss, es = List.split (List.map hoist es) in
       let lhs = lhs @ List.flatten lhss in
-      nest lhs (EApp (e, es))
+      nest lhs (mk (EApp (e, es)))
 
-  | ELet (binder, EIfThenElse (e'1, e'2, e'3, t), e2) ->
-      (* Will be translated into an assignment later on *)
+  | ELet (binder, { node = EBufCreate (e'1, e'2); mtyp }, e2) ->
+      let lhs1, e'1 = hoist e'1 in
+      let lhs2, e'2 = hoist e'2 in
+      let lhs = lhs1 @ lhs2 in
+      let binder, e2 = open_binder binder e2 in
+      let e2 = hoist_t e2 in
+      nest lhs (mk (ELet (binder, { node = EBufCreate (e'1, e'2); mtyp }, close_binder binder e2)))
+
+  | ELet (binder, { node = EBufCreateL es; mtyp }, e2) ->
+      let lhs, es = List.split (List.map hoist es) in
+      let lhs = List.flatten lhs in
+      let binder, e2 = open_binder binder e2 in
+      let e2 = hoist_t e2 in
+      nest lhs (mk (ELet (binder, { node = EBufCreateL es; mtyp }, close_binder binder e2)))
+
+  | ELet (binder, { node = EIfThenElse (e'1, e'2, e'3); mtyp }, e2) ->
+      (* Will be translated into an assignment later on... so it's ok to have an
+       * if-then-else at depth 1. *)
       let lhs, e'1 = hoist e'1 in
       let e'2 = hoist_t e'2 in
       let e'3 = hoist_t e'3 in
       let binder, e2 = open_binder binder e2 in
       let e2 = hoist_t e2 in
-      nest lhs (ELet (binder, EIfThenElse (e'1, e'2, e'3, t), close_binder binder e2))
+      nest lhs (mk (ELet (binder, { node = EIfThenElse (e'1, e'2, e'3); mtyp }, close_binder binder e2)))
 
   | ELet (binder, e1, e2) ->
       (* At top-level, bindings may nest on the right-hand side of let-bindings,
@@ -260,18 +293,18 @@ let rec hoist_t e =
       let lhs, e1 = hoist e1 in
       let binder, e2 = open_binder binder e2 in
       let e2 = hoist_t e2 in
-      nest lhs (ELet (binder, e1, close_binder binder e2))
+      nest lhs (mk (ELet (binder, e1, close_binder binder e2)))
 
-  | EIfThenElse (e1, e2, e3, t) ->
+  | EIfThenElse (e1, e2, e3) ->
       let lhs, e1 = hoist e1 in
       let e2 = hoist_t e2 in
       let e3 = hoist_t e3 in
-      nest lhs (EIfThenElse (e1, e2, e3, t))
+      nest lhs (mk (EIfThenElse (e1, e2, e3)))
 
   | EWhile (e1, e2) ->
       let lhs, e1 = hoist e1 in
       let e2 = hoist_t e2 in
-      nest lhs (EWhile (e1, e2))
+      nest lhs (mk (EWhile (e1, e2)))
 
   | ESequence _ ->
       failwith "[hoist_t]: sequences should've been translated as let _ ="
@@ -279,27 +312,27 @@ let rec hoist_t e =
   | EAssign (e1, e2) ->
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
-      nest (lhs1 @ lhs2) (EAssign (e1, e2))
+      nest (lhs1 @ lhs2) (mk (EAssign (e1, e2)))
 
   | EBufCreate (e1, e2) ->
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
-      nest (lhs1 @ lhs2) (EBufCreate (e1, e2))
+      nest (lhs1 @ lhs2) (mk (EBufCreate (e1, e2)))
 
   | EBufCreateL es ->
       let lhs, es = List.split (List.map hoist es) in
-      nest (List.flatten lhs) (EBufCreateL es)
+      nest (List.flatten lhs) (mk (EBufCreateL es))
 
   | EBufRead (e1, e2) ->
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
-      nest (lhs1 @ lhs2) (EBufRead (e1, e2))
+      nest (lhs1 @ lhs2) (mk (EBufRead (e1, e2)))
 
   | EBufWrite (e1, e2, e3) ->
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
       let lhs3, e3 = hoist e3 in
-      nest (lhs1 @ lhs2 @ lhs3) (EBufWrite (e1, e2, e3))
+      nest (lhs1 @ lhs2 @ lhs3) (mk (EBufWrite (e1, e2, e3)))
 
   | EBufBlit (e1, e2, e3, e4, e5) ->
       let lhs1, e1 = hoist e1 in
@@ -307,34 +340,33 @@ let rec hoist_t e =
       let lhs3, e3 = hoist e3 in
       let lhs4, e4 = hoist e4 in
       let lhs5, e5 = hoist e5 in
-      nest (lhs1 @ lhs2 @ lhs3 @ lhs4 @ lhs5) (EBufBlit (e1, e2, e3, e4, e5))
-
+      nest (lhs1 @ lhs2 @ lhs3 @ lhs4 @ lhs5) (mk (EBufBlit (e1, e2, e3, e4, e5)))
   | EBufSub (e1, e2) ->
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
-      nest (lhs1 @ lhs2) (EBufSub (e1, e2))
+      nest (lhs1 @ lhs2) (mk (EBufSub (e1, e2)))
 
   | ECast (e, t) ->
       let lhs, e = hoist e in
-      nest lhs (ECast (e, t))
+      nest lhs (mk (ECast (e, t)))
 
   | EMatch _ ->
       failwith "[hoist_t]: EMatch not properly desugared"
 
   | EReturn e ->
       let lhs, e = hoist e in
-      nest lhs (EReturn e)
+      nest lhs (mk (EReturn e))
 
-  | EField (t, e, f) ->
+  | EField (e, f) ->
       let lhs, e = hoist e in
-      nest lhs (EField (t, e, f))
+      nest lhs (mk (EField (e, f)))
 
-  | EFlat (t, fields) ->
+  | EFlat fields ->
       let lhs, fields = List.split (List.map (fun (ident, expr) ->
         let lhs, expr = hoist expr in
         lhs, (ident, expr)
       ) fields) in
-      nest (List.flatten lhs) (EFlat (t, fields))
+      nest (List.flatten lhs) (mk (EFlat fields))
 
 (* This traversal guarantees that no let-bindings are left in the visited term.
  * It returns a [(binder * expr) list] of all the hoisted bindings. It is up to
@@ -342,7 +374,8 @@ let rec hoist_t e =
  * [binder]s. The bindings are ordered in the evaluation order (i.e. the first
  * binding returned should be evaluated first). *)
 and hoist e =
-  match e with
+  let mk node = { e with node } in
+  match e.node with
   | EAbort
   | EAny
   | EBound _
@@ -363,7 +396,7 @@ and hoist e =
       let lhss, es = List.split (List.map hoist es) in
       (* TODO: reverse the order and use [rev_append] here *)
       let lhs = lhs @ List.flatten lhss in
-      lhs, EApp (e, es)
+      lhs, mk (EApp (e, es))
 
   | ELet (binder, e1, e2) ->
       let lhs1, e1 = hoist e1 in
@@ -373,12 +406,13 @@ and hoist e =
       let lhs2, e2 = hoist e2 in
       lhs1 @ [ binder, e1 ] @ lhs2, e2
 
-  | EIfThenElse (e1, e2, e3, t) ->
+  | EIfThenElse (e1, e2, e3) ->
+      let t = e.mtyp in
       let lhs1, e1 = hoist e1 in
       let e2 = hoist_t e2 in
       let e3 = hoist_t e3 in
       let b = { name = "ite"; typ = t; mut = false; mark = ref 0; meta = None; atom = Atom.fresh () } in
-      lhs1 @ [ b, EIfThenElse (e1, e2, e3, t) ], EOpen (b.name, b.atom)
+      lhs1 @ [ b, { node = EIfThenElse (e1, e2, e3); mtyp = t } ], mk (EOpen (b.name, b.atom))
 
   | EWhile _ ->
       raise_error (Unsupported "[EWhile] in expression position")
@@ -389,27 +423,27 @@ and hoist e =
   | EAssign (e1, e2) ->
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
-      lhs1 @ lhs2, EAssign (e1, e2)
+      lhs1 @ lhs2, mk (EAssign (e1, e2))
 
   | EBufCreate (e1, e2) ->
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
-      lhs1 @ lhs2, EBufCreate (e1, e2)
+      lhs1 @ lhs2, mk (EBufCreate (e1, e2))
 
   | EBufCreateL es ->
       let lhs, es = List.split (List.map hoist es) in
-      List.flatten lhs, EBufCreateL es
+      List.flatten lhs, mk (EBufCreateL es)
 
   | EBufRead (e1, e2) ->
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
-      lhs1 @ lhs2, EBufRead (e1, e2)
+      lhs1 @ lhs2, mk (EBufRead (e1, e2))
 
   | EBufWrite (e1, e2, e3) ->
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
       let lhs3, e3 = hoist e3 in
-      lhs1 @ lhs2 @ lhs3, EBufWrite (e1, e2, e3)
+      lhs1 @ lhs2 @ lhs3, mk (EBufWrite (e1, e2, e3))
 
   | EBufBlit (e1, e2, e3, e4, e5) ->
       let lhs1, e1 = hoist e1 in
@@ -417,16 +451,16 @@ and hoist e =
       let lhs3, e3 = hoist e3 in
       let lhs4, e4 = hoist e4 in
       let lhs5, e5 = hoist e5 in
-      lhs1 @ lhs2 @ lhs3 @ lhs4 @ lhs5, EBufBlit (e1, e2, e3, e4, e5)
+      lhs1 @ lhs2 @ lhs3 @ lhs4 @ lhs5, mk (EBufBlit (e1, e2, e3, e4, e5))
 
   | EBufSub (e1, e2) ->
       let lhs1, e1 = hoist e1 in
       let lhs2, e2 = hoist e2 in
-      lhs1 @ lhs2, EBufSub (e1, e2)
+      lhs1 @ lhs2, mk (EBufSub (e1, e2))
 
   | ECast (e, t) ->
       let lhs, e = hoist e in
-      lhs, ECast (e, t)
+      lhs, mk (ECast (e, t))
 
   | EMatch _ ->
       failwith "[hoist_t]: EMatch"
@@ -434,16 +468,16 @@ and hoist e =
   | EReturn _ ->
       raise_error (Unsupported "[return] expressions should only appear in statement position")
 
-  | EField (t, e, f) ->
+  | EField (e, f) ->
       let lhs, e = hoist e in
-      lhs, EField (t, e, f)
+      lhs, mk (EField (e, f))
 
-  | EFlat (t, fields) ->
+  | EFlat fields ->
       let lhs, fields = List.split (List.map (fun (ident, expr) ->
         let lhs, expr = hoist expr in
         lhs, (ident, expr)
       ) fields) in
-      List.flatten lhs, EFlat (t, fields)
+      List.flatten lhs, mk (EFlat fields)
 
 
 
@@ -461,9 +495,9 @@ let eta_expand = object
         let n = List.length targs in
         let binders, args = List.split (List.mapi (fun i t ->
           { name = Printf.sprintf "x%d" i; typ = t; mut = false; mark = ref 0; meta = None; atom = Atom.fresh () },
-          EBound (n - i - 1)
+          { node = EBound (n - i - 1); mtyp = t }
         ) targs) in
-        let body = EApp (body, args) in
+        let body = { node = EApp (body, args); mtyp = tret } in
         DFunction (tret, name, binders, body)
     | _ ->
         DGlobal (name, t, body)
@@ -507,14 +541,14 @@ let replace_references_to_toplevel_names = object(self)
   method tqualified () lident =
     TQualified (t lident)
 
-  method equalified () lident =
+  method equalified () _ lident =
     EQualified (t lident)
 
-  method eflat () lident fields =
-    EFlat (t lident, self#fields () fields)
+  method eflat () _ fields =
+    EFlat (self#fields () fields)
 
-  method efield () lident e field =
-    EField (t lident, self#visit () e, field)
+  method efield () _ e field =
+    EField (self#visit () e, field)
 
   method dglobal () name typ body =
     DGlobal (t name, self#visit_t () typ, self#visit () body)

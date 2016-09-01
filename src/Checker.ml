@@ -12,6 +12,7 @@ let print_location lids =
   separate_map (string ", in ") print_lident lids
 
 let ploc = printf_of_pprint print_location
+let pop = PrintAst.pop
 let plid = PrintAst.plid
 let ptyp = PrintAst.ptyp
 let pdecl = PrintAst.pdecl
@@ -102,6 +103,25 @@ let type_error env fmt =
 
 (** Checking ---------------------------------------------------------------- *)
 
+let type_of_op env op w =
+  match op with
+  | Add | AddW | Sub | SubW | Div | Mult | Mod
+  | BOr | BAnd | BXor ->
+      TArrow (TInt w, TArrow (TInt w, TInt w))
+  | BShiftL | BShiftR ->
+      TArrow (TInt w, TArrow (uint32, TInt w))
+  | Eq | Neq ->
+      TArrow (TAny, TArrow (TAny, TBool))
+  | Lt | Lte | Gt | Gte ->
+      TArrow (TInt w, TArrow (TInt w, TBool))
+  | And | Or | Xor ->
+      TArrow (TBool, TArrow (TBool, TBool))
+  | Not ->
+      TArrow (TBool, TBool)
+  | Assign | PreIncr | PreDecr | PostIncr | PostDecr ->
+      fatal_error "In %a, operator %a is for internal use only" ploc env.location pop op
+
+
 let rec check_everything files =
   let env = populate_env files in
   List.iter (check_program env) files
@@ -123,6 +143,11 @@ and check_decl env d =
       ()
 
 and infer_expr env e =
+  let t = infer_expr' env e.node e.mtyp in
+  e.mtyp <- t;
+  t
+
+and infer_expr' env e t =
   match e with
   | EBound i ->
       begin try
@@ -166,11 +191,12 @@ and infer_expr env e =
       let env = push env binder in
       infer_expr env cont
 
-  | EIfThenElse (e1, e2, e3, typ) ->
+  | EIfThenElse (e1, e2, e3) ->
       check_expr env TBool e1;
-      check_expr (locate env ([], "if-then")) typ e2;
-      check_expr (locate env ([], "if-else")) typ e3;
-      typ
+      let t1 = infer_expr (locate env ([], "if-then")) e2 in
+      let t2 = infer_expr (locate env ([], "if-else")) e3 in
+      check_types_equal env t1 t2;
+      t1
 
   | ESequence es ->
       begin match List.rev es with
@@ -182,7 +208,7 @@ and infer_expr env e =
       end
 
   | EAssign (e1, e2) ->
-      begin match e1 with
+      begin match e1.node with
       | EBound i ->
           let binder = find env i in
           if not binder.mut then
@@ -221,29 +247,13 @@ and infer_expr env e =
       check_expr env uint32 len;
       TUnit
 
-  | EMatch (e, bs, t_ret) ->
-      let t = infer_expr env e in
-      check_branches env t_ret bs t;
+  | EMatch (e, bs) ->
+      let t_scrutinee = infer_expr env e in
+      let t_ret = check_branches env t_scrutinee bs in
       t_ret
 
   | EOp (op, w) ->
-      begin match op with
-      | Add | AddW | Sub | SubW | Div | Mult | Mod
-      | BOr | BAnd | BXor ->
-          TArrow (TInt w, TArrow (TInt w, TInt w))
-      | BShiftL | BShiftR ->
-          TArrow (TInt w, TArrow (uint32, TInt w))
-      | Eq | Neq ->
-          TArrow (TAny, TArrow (TAny, TBool))
-      | Lt | Lte | Gt | Gte ->
-          TArrow (TInt w, TArrow (TInt w, TBool))
-      | And | Or | Xor ->
-          TArrow (TBool, TArrow (TBool, TBool))
-      | Not ->
-          TArrow (TBool, TBool)
-      | Assign | PreIncr | PreDecr | PostIncr | PostDecr ->
-          fatal_error "In %a, operator %a is for internal use only" ploc env.location pexpr e;
-      end
+      type_of_op env op w
 
   | EPushFrame | EPopFrame ->
       TUnit
@@ -255,14 +265,16 @@ and infer_expr env e =
   | EBool _ ->
       TBool
 
-  | EFlat (lid, fieldexprs) ->
+  | EFlat fieldexprs ->
+      let lid = assert_qualified env t in
       let fieldtyps = assert_flat env (lookup_type env lid) in
       List.iter (fun (field, expr) ->
         check_expr env (List.assoc field fieldtyps) expr
       ) fieldexprs;
       TQualified lid
 
-  | EField (lid, e, field) ->
+  | EField (e, field) ->
+      let lid = assert_qualified env t in
       check_expr env (TQualified lid) e;
       List.assoc field (assert_flat env (lookup_type env lid))
 
@@ -281,12 +293,21 @@ and infer_expr env e =
           TBuf t
       end
 
-and check_branches env t_ret branches t_scrutinee =
+and check_branches env t_scrutinee branches =
+  assert (List.length branches > 0);
+  let t_ret = ref None in
   List.iter (fun (pat, expr) ->
     check_pat env t_scrutinee pat;
     let env = List.fold_left push env (binders_of_pat pat) in
-    check_expr env t_ret expr
-  ) branches
+    match !t_ret with
+    | None ->
+        let t = infer_expr env expr in
+        t_ret := Some t
+    | Some t' ->
+        let t = infer_expr env expr in
+        check_types_equal env t t'
+  ) branches;
+  Option.must !t_ret
 
 and check_pat env t = function
   | PVar b ->
@@ -303,6 +324,13 @@ and assert_flat env t =
   | _ ->
       fatal_error "In %a, this is not a record definition" ploc env.location
 
+and assert_qualified env t =
+  match t with
+  | TQualified lid ->
+      lid
+  | _ ->
+      fatal_error "In %a, expected a provided type annotation" ploc env.location
+
 and assert_buffer env e1 =
   match reduce env (infer_expr env e1) with
   | TBuf t1 ->
@@ -310,7 +338,7 @@ and assert_buffer env e1 =
   | TAny ->
       TAny
   | t ->
-      match e1 with
+      match e1.node with
       | EBound i ->
           let b = find env i in
           type_error env "%a (a.k.a. %s) is not a buffer but a %a" pexpr e1 b.name ptyp b.typ
@@ -363,3 +391,5 @@ and reduce env t =
       end
   | _ ->
       t
+
+let type_of_op = type_of_op empty
