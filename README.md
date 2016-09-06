@@ -17,3 +17,16 @@ This new variant of F* is released under the [Apache 2.0 license];
 see `LICENSE` for more details.
 
 [Apache 2.0 license]: https://www.apache.org/licenses/LICENSE-2.0
+
+## Installation
+
+Make sure you run `opam update` to get `process-2.0.1` (version `2.0` doesn't
+work on Windows). Install all of the packages below, possibly following
+instructions from https://github.com/FStarLang/FStar/wiki for "difficult"
+packages (e.g. `ppx_deriving`) on Windows.
+
+`opam install ppx_deriving_yojson zarith pprint menhir ulex process fix`
+
+Make sure `fstar.exe` is in your path. Run `make`.
+
+File a bug if things don't work!
