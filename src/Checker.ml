@@ -168,6 +168,8 @@ and infer_expr' env e t =
         (find env i).typ
       with Not_found ->
         type_error env "bound variable %d is malformed" i
+      | Failure explanation ->
+        type_error env "bound variable %d is malformed - %s" i explanation
       end
 
   | EOpen (name, _) ->
