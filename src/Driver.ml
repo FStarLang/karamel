@@ -63,12 +63,19 @@ let detect_fstar () =
 
   let output =
     try read_one_line "which" [| "fstar.exe" |]
-    with e -> Printexc.print_backtrace stdout; print_endline (Printexc.to_string e); raise e
+    with _ -> fatal_error "Did not find fstar.exe in the PATH"
   in
   KPrint.bprintf "%sfstar is:%s %s\n" Ansi.underline Ansi.reset output;
   fstar := output;
 
-  let home = d (d !fstar) in
+  let home =
+    try
+      let r = Sys.getenv "FSTAR_HOME" in
+      KPrint.bprintf "read FSTAR_HOME via the environment\n";
+      r
+    with Not_found ->
+      d (d !fstar)
+  in
   KPrint.bprintf "%sfstar home is:%s %s\n" Ansi.underline Ansi.reset home;
   fstar_home := home;
 
@@ -79,7 +86,7 @@ let detect_fstar () =
     KPrint.bprintf "%sfstar home converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_home
   end;
 
-  if Sys.is_directory (!fstar_home ^^ ".git") then begin
+  if try Sys.is_directory (!fstar_home ^^ ".git") with Sys_error _ -> false then begin
     let cwd = Sys.getcwd () in
     Sys.chdir !fstar_home;
     let branch = read_one_line "git" [| "rev-parse"; "--abbrev-ref"; "HEAD" |] in
