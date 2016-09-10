@@ -331,7 +331,7 @@ and translate_declaration env d: CStar.decl =
       let name = string_of_lident name in
       (* TODO: avoid collisions since "_s" is not going through the name
        * generator *)
-      CStar.Type (name, CStar.Struct (Some (name ^ "_s"), List.map (fun (field, typ) ->
+      CStar.Type (name, CStar.Struct (Some (name ^ "_s"), List.map (fun (field, (typ, _)) ->
         field, translate_type env typ
       ) fields))
 
