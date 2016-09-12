@@ -21,7 +21,7 @@ and mk_binder { I.name; typ; mut } =
   fresh_binder ~mut name (mk_typ typ)
 
 and mk_tfields fields =
-  List.map (fun (name, field) -> name, mk_typ field) fields
+  List.map (fun (name, (field, mut)) -> name, (mk_typ field, mut)) fields
 
 and mk_fields fields =
   List.map (fun (name, field) -> name, mk_expr field) fields

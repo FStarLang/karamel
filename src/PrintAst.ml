@@ -32,8 +32,9 @@ let rec print_decl = function
 
   | DTypeFlat (name, fields) ->
       group (string "flat type" ^/^ string (string_of_lident name) ^/^ equals) ^^
-      jump (concat_map (fun (ident, typ) ->
-        group (string ident ^^ colon ^/^ print_typ typ ^^ semi)
+      jump (concat_map (fun (ident, (typ, mut)) ->
+        let mut = if mut then string "mutable " else empty in
+        group (mut ^^ string ident ^^ colon ^/^ print_typ typ ^^ semi)
       ) fields)
 
 and print_binder { name; typ; mut; meta; mark; _ } =

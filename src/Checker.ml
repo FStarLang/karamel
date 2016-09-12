@@ -27,7 +27,7 @@ end)
 
 type tdecl =
   | Abbrev of typ
-  | Flat of (ident * typ) list
+  | Flat of (ident * (typ * bool)) list
 
 let uint32 = TInt UInt32
 
@@ -222,16 +222,9 @@ and infer_expr' env e t =
       end
 
   | EAssign (e1, e2) ->
-      begin match e1.node with
-      | EBound i ->
-          let binder = find env i in
-          if not binder.mut then
-            type_error env "%a (a.k.a. %s) is not a mutable binding" pexpr e1 binder.name;
-          check_expr env binder.typ e2;
-          TUnit
-      | _ ->
-          type_error env "the lhs of an assignment should be an EBound"
-      end
+      let t = check_valid_assignment_lhs env e1 in
+      check_expr env t e2;
+      TUnit
 
   | EBufCreate (e1, e2) ->
       let t1 = infer_expr env e1 in
@@ -282,15 +275,19 @@ and infer_expr' env e t =
   | EFlat fieldexprs ->
       let lid = assert_qualified env t in
       let fieldtyps = assert_flat env (lookup_type env lid) in
+      if List.length fieldexprs <> List.length fieldtyps then
+        type_error env "some fields are either missing or superfluous";
       List.iter (fun (field, expr) ->
-        check_expr env (List.assoc field fieldtyps) expr
+        let t, _ = List.assoc field fieldtyps in
+        check_expr env t expr
       ) fieldexprs;
       TQualified lid
 
   | EField (e, field) ->
       let lid = assert_qualified env e.mtyp in
       check_expr env (TQualified lid) e;
-      List.assoc field (assert_flat env (lookup_type env lid))
+      fst (find_field env lid field)
+
 
   | EWhile (e1, e2) ->
       check_expr env TBool e1;
@@ -306,6 +303,54 @@ and infer_expr' env e t =
           List.iter (check_expr env t) others;
           TBuf t
       end
+
+and find_field env lid field =
+  begin try
+    List.assoc field (assert_flat env (lookup_type env lid))
+  with Not_found ->
+    type_error env "In %a, the type %a doesn't have a field named %s"
+      ploc env.location plid lid field
+  end
+
+
+(* Per Perry's definition, a path is a block id along with an offset, and a
+ * possibly empty sequence of field names. We don't check (TODO) that after
+ * rewritings, all paths are of that form. *)
+
+(** This function checks that the left-hand side of assignments satisfies a
+ * relaxed notion of path (to be formalized), which is either a locally mutable
+ * variable (an extension on Perry's formalism) or an array access followed by a
+ * non-empty series of field names, the last of which is mutable. *)
+and check_valid_assignment_lhs env e =
+  match e.node with
+  | EBound i ->
+      let binder = find env i in
+      if not binder.mut then
+        type_error env "%a (a.k.a. %s) is not a mutable binding" pexpr e binder.name;
+      binder.typ
+  | EField (e, f) ->
+      let t1 = check_valid_path env e in
+      let t2, mut = find_field env (assert_qualified env t1) f in
+      if not mut then
+        type_error env "the field %s of type %a is not marked as mutable" f ptyp t1;
+      t2
+  | _ ->
+      type_error env "EAssign wants a lhs that's a mutable, local variable, or a \
+        path to a mutable field"
+
+and check_valid_path env e =
+  match e.node with
+  | EField (e, f) ->
+      let t1 = check_valid_path env e in
+      fst (find_field env (assert_qualified env t1) f)
+
+  | EBufRead _
+  | EBound _ ->
+      infer_expr env e
+
+  | _ ->
+      type_error env "EAssign wants a lhs that's a mutable, local variable, or a \
+        path to a mutable field"
 
 and check_branches env t_scrutinee branches =
   assert (List.length branches > 0);
@@ -392,8 +437,8 @@ and types_equal env t1 t2 =
 
 and check_types_equal env t1 t2 =
   if not (types_equal env t1 t2) then
-    raise_error (TypeError (KPrint.bsprintf "In %a, type mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
-      ploc env.location ptyp t1 ptyp (reduce env t1) ptyp t2 ptyp (reduce env t2)))
+    type_error env "type mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
+      ptyp t1 ptyp (reduce env t1) ptyp t2 ptyp (reduce env t2)
 
 and reduce env t =
   match t with

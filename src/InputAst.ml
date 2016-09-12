@@ -15,7 +15,8 @@ and decl =
   | DFunction of (typ * lident * binder list * expr)
   | DTypeAlias of (lident * typ)
   | DGlobal of (lident * typ * expr)
-  | DTypeFlat of (lident * (ident * typ) list)
+  | DTypeFlat of (lident * (ident * (typ * bool)) list)
+      (** The boolean indicate if the field is mutable *)
 
 and expr =
   | EBound of var
@@ -106,7 +107,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 11
+let current_version: version = 12
 
 type file = string * program
   [@@deriving yojson]
