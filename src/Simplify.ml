@@ -404,8 +404,15 @@ and hoist under_let e =
         let b, body, cont = mk_named_binding "ite" t (EIfThenElse (e1, e2, e3)) in
         lhs1 @ [ b, body ], cont
 
-  | EWhile _ ->
-      raise_error (Unsupported "[EWhile] in expression position")
+  | EWhile (e1, e2) ->
+      let lhs1, e1 = hoist false e1 in
+      let e2 = hoist_t e2 in
+      (* TODO: this does not capture the entire invariant, which is that we
+       * should not only be directly under a let node, but more specifically,
+       * under a let node that has [meta = MetaSequence] *)
+      if not under_let then
+        fatal_error "[hoist_t]: while node at arbitrary depth in an expression";
+      lhs1, mk (EWhile (e1, e2))
 
   | ESequence _ ->
       fatal_error "[hoist_t]: sequences should've been translated as let _ ="
