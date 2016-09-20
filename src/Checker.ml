@@ -85,8 +85,11 @@ let populate_env files =
           { env with types = M.add lid (Abbrev typ) env.types }
       | DTypeFlat (lid, fields) ->
           { env with types = M.add lid (Flat fields) env.types }
-      | _ ->
-          env
+      | DGlobal (lid, t, _) ->
+          { env with globals = M.add lid t env.globals }
+      | DFunction (ret, lid, binders, _) ->
+          let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
+          { env with globals = M.add lid t env.globals }
     ) env decls
   ) empty files
 

@@ -110,7 +110,7 @@ Supported options:|} Sys.argv.(0)
   if !arg_print_ast then
     print PrintAst.print_files files;
 
-  (* Type-check all files, then perform a whole-program rewriting. *)
+  (* Perform a whole-program rewriting. *)
   let files = Checker.check_everything files in
   let files = Simplify.simplify1 files in
   let files = Frames.inline_as_required files in
