@@ -5,7 +5,7 @@ open CStar
 open Idents
 open KPrint
 
-let any = 
+let any =
   Cast (Constant (K.UInt8, "0"), Pointer Void)
 
 (* Turns the ML declaration inside-out to match the C reading of a type. *)
@@ -60,7 +60,7 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
   | Return e ->
-      [ Return (Some (mk_expr e)) ]
+      [ Return (Option.map mk_expr e) ]
 
   | Ignore e ->
       [ Expr (mk_expr e) ]

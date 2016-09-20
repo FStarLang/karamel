@@ -12,7 +12,7 @@ and decl =
   | External of ident * typ
 
 and stmt =
-  | Return of expr
+  | Return of expr option
   | Ignore of expr
   | Decl of binder * expr
     (** Scope is: statements that follow. *)
