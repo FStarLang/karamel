@@ -27,6 +27,10 @@ let rec print_decl = function
       group (string "type" ^/^ string (string_of_lident name) ^/^ equals) ^^
       jump (print_typ typ)
 
+  | DExternal (name, typ) ->
+      group (string "external" ^/^ string (string_of_lident name) ^/^ colon) ^^
+      jump (print_typ typ)
+
   | DGlobal (name, typ, expr) ->
       print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 

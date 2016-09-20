@@ -118,6 +118,12 @@ let rec translate_expr env e =
   | EConstant c ->
       CStar.Constant c
   | EApp (e, es) ->
+      (* Functions that only take a unit take no argument. Functions that only
+       * return a unit return void. *)
+      let es = match e.mtyp with
+        | TArrow (TUnit, _) -> []
+        | _ -> es
+      in
       CStar.Call (translate_expr env e, List.map (translate_expr env) es)
   | EBufCreate (e1, e2) ->
       CStar.BufCreate (translate_expr env e1, translate_expr env e2)
@@ -164,13 +170,13 @@ let rec translate_expr env e =
       CStar.Field (translate_expr env expr, field)
 
 
-and collect (env, acc) e =
+and collect (env, acc) return_pos e =
   match e.node with
   | ELet (binder, e1, e2) ->
       let env, binder = translate_and_push_binder env binder (Some e1)
       and e1 = translate_expr env e1 in
       let acc = CStar.Decl (binder, e1) :: acc in
-      collect (env, acc) e2
+      collect (env, acc) return_pos e2
 
   | EWhile (e1, e2) ->
       let e = CStar.While (translate_expr env e1, translate_block env e2) in
@@ -181,7 +187,11 @@ and collect (env, acc) e =
       env, e :: acc
 
   | ESequence es ->
-      List.fold_left (fun (_, acc) -> collect (env, acc)) (env, acc) es
+      let n = List.length es in
+      KList.fold_lefti (fun i (_, acc) e ->
+        let return_pos = i = n - 1 && return_pos in
+        collect (env, acc) return_pos e
+      ) (env, acc) es
 
   | EAssign (e1, e2) ->
       let e = CStar.Assign (translate_expr env e1, translate_expr env e2) in
@@ -211,15 +221,24 @@ and collect (env, acc) e =
       env, CStar.Abort :: acc
 
   | EReturn e ->
-      env, CStar.Return (translate_expr env e) :: acc
+      if e.mtyp = TUnit then
+        env, CStar.Return None :: acc
+      else
+        env, CStar.Return (Some (translate_expr env e)) :: acc
+
+  | _ when return_pos ->
+      KPrint.bprintf "inserting a return for t=%a, e=%a\n" ptyp e.mtyp pexpr e;
+      if e.mtyp = TUnit then
+        env, CStar.Return None :: acc
+      else
+        env, CStar.Return (Some (translate_expr env e)) :: acc
 
   | _ ->
       let e = CStar.Ignore (translate_expr env e) in
       env, e :: acc
 
-
 and translate_block env e =
-  List.rev (snd (collect (reset_block env, []) e))
+  List.rev (snd (collect (reset_block env, []) false e))
 
 
 (** This enforces the push/pop frame invariant. The invariant can be described
@@ -236,7 +255,7 @@ and translate_block env e =
 and translate_function_block env e t =
   (** This function expects an environment where names and in_block have been
    * populated with the function's parameters. *)
-  let stmts = snd (collect (env, []) e) in
+  let stmts = snd (collect (env, []) true e) in
   match t, stmts with
   | CStar.Void, [] ->
       []
@@ -247,19 +266,19 @@ and translate_function_block env e t =
       match t, List.rev stmts, stmts with
       | CStar.Void, CStar.PushFrame :: _, CStar.PopFrame :: rest ->
           List.tl (List.rev rest)
-      | CStar.Pointer CStar.Void, CStar.PushFrame :: _, CStar.Ignore _ :: CStar.PopFrame :: rest ->
-          List.tl (List.rev (CStar.Return CStar.Any :: rest))
-      | CStar.Int _, CStar.PushFrame :: _, (CStar.Ignore (_ as e)) :: CStar.PopFrame :: rest ->
-          List.tl (List.rev (CStar.Return e :: rest))
+      | CStar.Pointer CStar.Void, CStar.PushFrame :: _, CStar.Return _ :: CStar.PopFrame :: rest ->
+          List.tl (List.rev (CStar.Return (Some CStar.Any) :: rest))
+      | CStar.Int _, CStar.PushFrame :: _, ((CStar.Return (Some (CStar.Qualified _))) as e) :: CStar.PopFrame :: rest ->
+          List.tl (List.rev (e :: rest))
       | _, CStar.PushFrame :: _, CStar.PopFrame :: _ ->
           raise_error (BadFrame ("well-parenthesized push/pop, but function's \
             return type is not void!)"))
-      | _, CStar.PushFrame :: _, _ ->
-          raise_error (BadFrame ("unmatched push_frame, not a TAny"))
+      | _, CStar.PushFrame :: _, _
+      | _, _, CStar.PopFrame :: _ ->
+          raise_error (BadFrame ("unmatched push/pop_frame"))
       | CStar.Void, stmts, _ ->
           stmts
-      | _, _, CStar.Ignore e :: rest ->
-          List.rev (CStar.Return e :: rest)
+      | _, stmts, CStar.Return _ :: _
       | _, stmts, CStar.Abort :: _ ->
           stmts
       | _ ->
@@ -334,6 +353,9 @@ and translate_declaration env d: CStar.decl =
       CStar.Type (name, CStar.Struct (Some (name ^ "_s"), List.map (fun (field, (typ, _)) ->
         field, translate_type env typ
       ) fields))
+
+  | DExternal (name, t) ->
+      CStar.External (string_of_lident name, translate_type env t)
 
 
 and translate_program decls =

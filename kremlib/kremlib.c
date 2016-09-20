@@ -13,4 +13,4 @@ Prims_int FStar_UInt32_v(uint32_t x) {
   exit(254);
 }
 
-int C_exit_success = 0;
+int exit_success = 0;

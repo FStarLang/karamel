@@ -16,6 +16,7 @@ and decl =
   | DTypeAlias of lident * typ
   | DGlobal of lident * typ * expr
   | DTypeFlat of lident * (ident * (typ * bool)) list
+  | DExternal of lident * typ
 
 and expr' =
   | EBound of var
@@ -268,11 +269,14 @@ class virtual ['env, 'result, 'tresult, 'dresult, 'extra] visitor = object (self
         self#dglobal env name typ expr
     | DTypeFlat (name, fields) ->
         self#dtypeflat env name fields
+    | DExternal (name, t) ->
+        self#dexternal env name t
 
   method virtual dfunction: 'env -> typ -> lident -> binder list -> expr -> 'dresult
   method virtual dtypealias: 'env -> lident -> typ -> 'dresult
   method virtual dglobal: 'env -> lident -> typ -> expr -> 'dresult
   method virtual dtypeflat: 'env -> lident -> (ident * (typ * bool)) list -> 'dresult
+  method virtual dexternal: 'env -> lident -> typ -> 'dresult
 end
 
 
@@ -427,5 +431,8 @@ class ['env] map = object (self)
   method dtypeflat env name fields =
     let fields = self#fields_t env fields in
     DTypeFlat (name, fields)
+
+  method dexternal env name t =
+    DExternal (name, self#visit_t env t)
 
 end

@@ -5,7 +5,7 @@ open CStar
 open Idents
 open KPrint
 
-let any = 
+let any =
   Cast (Constant (K.UInt8, "0"), Pointer Void)
 
 (* Turns the ML declaration inside-out to match the C reading of a type. *)
@@ -60,7 +60,7 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
   | Return e ->
-      [ Return (Some (mk_expr e)) ]
+      [ Return (Option.map mk_expr e) ]
 
   | Ignore e ->
       [ Expr (mk_expr e) ]
@@ -231,6 +231,7 @@ and mk_type t =
 (** .c files include their own header *)
 let mk_decl_or_function (d: decl): C.declaration_or_function option =
   match d with
+  | External _
   | Type _ ->
       None
 
@@ -275,6 +276,7 @@ let mk_stub_or_function (d: decl): C.declaration_or_function =
         raise e
       end
 
+  | External (name, t)
   | Global (name, t, _) ->
       let t = match t with Function _ -> Pointer t | _ -> t in
       let spec, decl = mk_spec_and_declarator name t in

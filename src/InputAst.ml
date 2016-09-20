@@ -17,6 +17,7 @@ and decl =
   | DGlobal of (lident * typ * expr)
   | DTypeFlat of (lident * (ident * (typ * bool)) list)
       (** The boolean indicate if the field is mutable *)
+  | DExternal of (lident * typ)
 
 and expr =
   | EBound of var

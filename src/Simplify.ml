@@ -533,6 +533,9 @@ let record_toplevel_names = object
   method dfunction () ret name args body =
     DFunction (ret, record_name name, args, body)
 
+  method dexternal () name t =
+    DExternal (record_name name, t)
+
   method dtypealias () name t =
     DTypeAlias (record_name name, t)
 
@@ -560,6 +563,9 @@ let replace_references_to_toplevel_names = object(self)
 
   method dtypealias () name typ =
     DTypeAlias (t name, self#visit_t () typ)
+
+  method dexternal () name typ =
+    DExternal (t name, self#visit_t () typ)
 
   method dtypeflat () name fields =
     DTypeFlat (t name, self#fields_t () fields)

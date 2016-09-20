@@ -7,10 +7,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-// Types and values exposed via C.fsti
-typedef char C_char;
-typedef int C_int;
-extern int C_exit_success;
+// For types and values from C.fsti that do not exactly have the same name as
+// their C counterparts
+extern int exit_success;
 
 typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
 typedef uint64_t FStar_UInt64_t, FStar_UInt64_t_;
