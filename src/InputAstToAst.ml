@@ -13,6 +13,8 @@ let rec mk_decl = function
       DGlobal (name, mk_typ t, mk_expr e)
   | I.DTypeFlat (name, fields) ->
       DTypeFlat (name, mk_tfields fields)
+  | I.DExternal (name, t) ->
+      DExternal (name, mk_typ t)
 
 and mk_binders bs =
   List.map mk_binder bs

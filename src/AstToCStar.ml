@@ -335,6 +335,9 @@ and translate_declaration env d: CStar.decl =
         field, translate_type env typ
       ) fields))
 
+  | DExternal (name, t) ->
+      CStar.External (string_of_lident name, translate_type env t)
+
 
 and translate_program decls =
   List.map (translate_declaration empty) decls

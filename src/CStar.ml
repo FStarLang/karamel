@@ -9,6 +9,7 @@ and decl =
   | Global of ident * typ * expr
   | Function of typ * ident * binder list * block
   | Type of ident * typ
+  | External of ident * typ
 
 and stmt =
   | Return of expr

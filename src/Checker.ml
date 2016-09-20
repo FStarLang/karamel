@@ -90,6 +90,8 @@ let populate_env files =
       | DFunction (ret, lid, binders, _) ->
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
+      | DExternal (lid, typ) ->
+          { env with globals = M.add lid typ env.globals }
     ) env decls
   ) empty files
 
@@ -150,6 +152,7 @@ and check_decl env d =
       let env = locate env name in
       check_expr env t body
   | DTypeAlias _
+  | DExternal _
   | DTypeFlat _ ->
       (* Barring any parameterized types, there's is nothing to check here
        * really. *)

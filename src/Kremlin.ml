@@ -134,7 +134,9 @@ Supported options:|} Sys.argv.(0)
 
   flush stderr;
   Printf.printf "KreMLin: writing out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
+  let files = List.filter (fun (name, _) -> name <> "C") files in
   Output.write_c files;
+  let headers = List.filter (fun (name, _) -> name <> "C") headers in
   Output.write_h headers;
 
   if !arg_skip_compilation then

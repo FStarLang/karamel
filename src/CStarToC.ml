@@ -231,6 +231,7 @@ and mk_type t =
 (** .c files include their own header *)
 let mk_decl_or_function (d: decl): C.declaration_or_function option =
   match d with
+  | External _
   | Type _ ->
       None
 
@@ -275,6 +276,7 @@ let mk_stub_or_function (d: decl): C.declaration_or_function =
         raise e
       end
 
+  | External (name, t)
   | Global (name, t, _) ->
       let t = match t with Function _ -> Pointer t | _ -> t in
       let spec, decl = mk_spec_and_declarator name t in
