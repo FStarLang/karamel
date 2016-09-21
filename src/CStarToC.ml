@@ -276,7 +276,10 @@ let mk_stub_or_function (d: decl): C.declaration_or_function =
         raise e
       end
 
-  | External (name, t)
+  | External (name, t) ->
+      let spec, decl = mk_spec_and_declarator name t in
+      Decl (spec, Some Extern, [ decl, None ])
+
   | Global (name, t, _) ->
       let t = match t with Function _ -> Pointer t | _ -> t in
       let spec, decl = mk_spec_and_declarator name t in
