@@ -94,6 +94,7 @@ Supported options:|} Sys.argv.(0)
   in
 
   let print f files =
+    flush stderr;
     let open PPrint in
     Printf.printf "Read [%s]. Printing with w=%d\n" filename Utils.twidth;
     Print.print (f files ^^ hardline)
@@ -132,7 +133,6 @@ Supported options:|} Sys.argv.(0)
   if !arg_print_c then
     print PrintC.print_files files;
 
-  flush stderr;
   Printf.printf "KreMLin: writing out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
   let files = List.filter (fun (name, _) -> name <> "C") files in
   Output.write_c files;

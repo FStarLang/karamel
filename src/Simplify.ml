@@ -410,9 +410,9 @@ and hoist under_let e =
       if under_let then
         lhs1, mk (EWhile (e1, e2))
       else
-        let b, body, _ = mk_named_binding "_" TUnit (EWhile (e1, e2)) in
+        let b = fresh_binder "_" TUnit in
         let b = { b with meta = Some MetaSequence } in
-        lhs1 @ [ b, body ], mk EUnit
+        lhs1 @ [ b, mk (EWhile (e1, e2)) ], mk EUnit
 
   | ESequence _ ->
       fatal_error "[hoist_t]: sequences should've been translated as let _ ="
