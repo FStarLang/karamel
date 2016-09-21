@@ -227,7 +227,6 @@ and collect (env, acc) return_pos e =
         env, CStar.Return (Some (translate_expr env e)) :: acc
 
   | _ when return_pos ->
-      KPrint.bprintf "inserting a return for t=%a, e=%a\n" ptyp e.mtyp pexpr e;
       if e.mtyp = TUnit then
         env, CStar.Return None :: acc
       else
