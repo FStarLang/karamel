@@ -273,8 +273,9 @@ and translate_function_block env e t =
       | _, CStar.PushFrame :: _, CStar.PopFrame :: _ ->
           raise_error (BadFrame ("well-parenthesized push/pop, but function's \
             return type is not void!)"))
-      | _, CStar.PushFrame :: _, _
-      | _, _, CStar.PopFrame :: _ ->
+      | _, CStar.PushFrame :: _, _ ->
+          (* A trailing push frame is ok. It means that there's an inner block
+           * scope somewhere. *)
           raise_error (BadFrame ("unmatched push/pop_frame"))
       | CStar.Void, stmts, _ ->
           stmts
