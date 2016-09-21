@@ -118,8 +118,7 @@ let rec translate_expr env e =
   | EConstant c ->
       CStar.Constant c
   | EApp (e, es) ->
-      (* Functions that only take a unit take no argument. Functions that only
-       * return a unit return void. *)
+      (* Functions that only take a unit take no argument. *)
       let es = match e.mtyp with
         | TArrow (TUnit, _) -> []
         | _ -> es
@@ -221,13 +220,14 @@ and collect (env, acc) return_pos e =
       env, CStar.Abort :: acc
 
   | EReturn e ->
+      (** Functions that return unit return nothing. *)
       if e.mtyp = TUnit then
         env, CStar.Return None :: acc
       else
         env, CStar.Return (Some (translate_expr env e)) :: acc
 
   | _ when return_pos ->
-      KPrint.bprintf "inserting a return for t=%a, e=%a\n" ptyp e.mtyp pexpr e;
+      (** Functions that return unit return nothing. *)
       if e.mtyp = TUnit then
         env, CStar.Return None :: acc
       else
@@ -273,8 +273,9 @@ and translate_function_block env e t =
       | _, CStar.PushFrame :: _, CStar.PopFrame :: _ ->
           raise_error (BadFrame ("well-parenthesized push/pop, but function's \
             return type is not void!)"))
-      | _, CStar.PushFrame :: _, _
-      | _, _, CStar.PopFrame :: _ ->
+      | _, CStar.PushFrame :: _, _ ->
+          (* A trailing push frame is ok. It means that there's an inner block
+           * scope somewhere. *)
           raise_error (BadFrame ("unmatched push/pop_frame"))
       | CStar.Void, stmts, _ ->
           stmts
@@ -323,6 +324,22 @@ and translate_and_push_binder env binder body =
   } in
   push env binder, binder
 
+and drop_unit_or_error binders body =
+  (** A function that has a sole unit argument is a C* function with zero
+   * arguments. *)
+  match binders with
+  | [ { typ = TUnit; _ } ] ->
+      ignore ((object
+        inherit DeBruijn.map_counting
+        method! ebound i _ j =
+          if i = j then
+            fatal_error "Unsupported: function references its (sole) unit argument";
+          EBound j
+      end) # visit 0 body);
+      []
+  | _ ->
+      binders
+
 and translate_declaration env d: CStar.decl =
   let wrap_throw name (comp: CStar.decl Lazy.t) =
     try Lazy.force comp with
@@ -335,6 +352,7 @@ and translate_declaration env d: CStar.decl =
       wrap_throw (string_of_lident name) (lazy begin
         let t = translate_return_type env t in
         assert (env.names = []);
+        let binders = drop_unit_or_error binders body in
         let env, binders = translate_and_push_binders env binders in
         let body = translate_function_block env body t in
         CStar.Function (t, (string_of_lident name), binders, body)

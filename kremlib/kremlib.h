@@ -31,8 +31,4 @@ typedef void *Prims_pos, *Prims_nat, *Prims_nonzero, *FStar_Seq_seq, *Prims_int,
         *FStar_UInt63_t_, *FStar_Int63_t_,
         *FStar_UInt_uint_t, *FStar_Int_int_t;
 
-// Some actual functions that are expected to be realized in C.
-uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y);
-uint64_t FStar_UInt64_eq_mask(uint64_t x, uint64_t y);
-
 #endif

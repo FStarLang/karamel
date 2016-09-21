@@ -174,7 +174,8 @@ let detect_gcc () =
     "-Wno-parentheses";
     "-Wno-unused-variable";
     "-Wno-unused-but-set-variable";
-    "-std=c11"
+    "-std=c11";
+    "-g"
   ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes));
   KPrint.bprintf "%sgcc options are:%s %s\n" Ansi.underline Ansi.reset
     (String.concat " " !gcc_args)

@@ -94,6 +94,8 @@ Supported options:|} Sys.argv.(0)
   in
 
   let print f files =
+    flush stdout;
+    flush stderr;
     let open PPrint in
     Printf.printf "Read [%s]. Printing with w=%d\n" filename Utils.twidth;
     Print.print (f files ^^ hardline)
@@ -112,15 +114,19 @@ Supported options:|} Sys.argv.(0)
 
   (* Perform a whole-program rewriting. *)
   let files = Checker.check_everything files in
-  let files = Simplify.simplify1 files in
+
+  let files = Simplify.simplify files in
+  if !arg_print_simplify then
+    print PrintAst.print_files files;
+
+  (* The criterion for determining whether we should inline really works well
+   * after everything has been simplified, but inlining requires a new round of
+   * hoisting. *)
   let files = Frames.inline_as_required files in
+  let files = Simplify.simplify2 files in
   if !arg_print_inline then
     print PrintAst.print_files files;
 
-  (* -dsimplify *)
-  let files = Simplify.simplify2 files in
-  if !arg_print_simplify then
-    print PrintAst.print_files files;
   let files = Checker.check_everything files in
 
   (* Translate to C*, then to C. *)
@@ -132,6 +138,7 @@ Supported options:|} Sys.argv.(0)
   if !arg_print_c then
     print PrintC.print_files files;
 
+  flush stdout;
   flush stderr;
   Printf.printf "KreMLin: writing out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
   let files = List.filter (fun (name, _) -> name <> "C") files in

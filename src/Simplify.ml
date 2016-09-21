@@ -410,9 +410,9 @@ and hoist under_let e =
       if under_let then
         lhs1, mk (EWhile (e1, e2))
       else
-        let b, body, cont = mk_named_binding "_" TUnit (EWhile (e1, e2)) in
+        let b = fresh_binder "_" TUnit in
         let b = { b with meta = Some MetaSequence } in
-        lhs1 @ [ b, body ], cont
+        lhs1 @ [ b, mk (EWhile (e1, e2)) ], mk EUnit
 
   | ESequence _ ->
       fatal_error "[hoist_t]: sequences should've been translated as let _ ="
@@ -599,4 +599,9 @@ let simplify2 (files: file list): file list =
   end) files in
   let files = visit_files () let_if_to_assign files in
   let files = visit_files () let_to_sequence files in
+  files
+
+let simplify (files: file list): file list =
+  let files = simplify1 files in
+  let files = simplify2 files in
   files

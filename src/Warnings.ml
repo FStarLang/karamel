@@ -43,7 +43,7 @@ let rec perr buf (loc, raw_error) =
   let p fmt = Printf.bprintf buf ("In %s: " ^^ fmt ^^ "\n") loc in
   match raw_error with
   | Dropping (d, e) ->
-      p "Not generating code for top-level declaration: %s" d;
+      p "Not generating code for file: %s" d;
       Printf.bprintf buf "%a" perr e
   | UnboundReference r ->
       p "Reference to %s has no corresponding implementation; please \

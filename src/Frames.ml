@@ -17,6 +17,7 @@ open Warnings
 open Idents
 
 let plid = PrintAst.plid
+let pexpr = PrintAst.pexpr
 
 module LidMap = Map.Make(struct
   type t = lident
@@ -39,7 +40,6 @@ let lub x y =
   match x, y with
   | Safe, Safe -> Safe
   | _ -> MustInline
-let ( ||| ) = lub
 
 module Property = struct
   type nonrec property = property
@@ -66,6 +66,7 @@ let build_map files =
 
 let inline_analysis map =
   let lookup lid = snd (Hashtbl.find map lid) in
+  let debug_inline = false in
 
   (** To determine whether a function should be inlined, we use a syntactic
    * criterion: any buffer allocation that happens before a [push_frame] implies
@@ -93,39 +94,45 @@ let inline_analysis map =
           | _ ->
               super#equalified () t lid
       end)#visit () expr);
-      Safe
+      false
     with L.Found reason ->
-      if false then KPrint.bprintf "%a will be inlined because: %s\n" plid lid reason;
-      MustInline
+      if debug_inline then
+        KPrint.bprintf "%a will be inlined because: %s\n" plid lid reason;
+      true
   in
 
   let must_inline lid valuation =
     let contains_alloc = contains_alloc lid in
-    let rec walk found e =
+    let rec walk e =
       match e.node with
       | ELet (_, body, cont) ->
-          walk (found ||| contains_alloc valuation body) cont
+          contains_alloc valuation body || walk cont
       | ESequence es ->
-          let rec walk found = function
+          let rec walk = function
             | { node = EPushFrame; _ } :: _ ->
-                found
+                false
             | e :: es ->
-                walk (found ||| contains_alloc valuation e) es
+                contains_alloc valuation e || walk es
             | [] ->
-                found
+                false
           in
-          walk found es
+          walk es
       | EPushFrame ->
           fatal_error "Malformed function body %a" plid lid
       | _ ->
-          found ||| contains_alloc valuation e
+          contains_alloc valuation e
     in
     try
       let body = lookup lid in
-      walk Safe body
+      if walk body then
+        MustInline
+      else
+        Safe
     with Not_found ->
-      (* Reference to an undefined, external function *)
-      MustInline
+      (* Reference to an undefined, external function. This is sound only if
+       * externally-realized functions execute in their own stack frame, which
+       * is fine, because they actually are, well, functions written in C. *)
+      Safe
   in
 
   F.lfp must_inline
@@ -154,9 +161,11 @@ let inline_as_required files =
             let es = List.map (self#visit ()) es in
             match e.node with
             | EQualified lid when valuation lid = MustInline && Hashtbl.mem map lid ->
-                (List.fold_right (fun arg body ->
-                  DeBruijn.subst arg 0 body
-                ) es (inline_one lid)).node
+                let l = List.length es in
+                (KList.fold_lefti (fun i body arg ->
+                  let k = l - i - 1 in
+                  DeBruijn.subst arg k body
+                ) (inline_one lid) es).node
             | _ ->
                 EApp (self#visit () e, es)
           method equalified () t lid =

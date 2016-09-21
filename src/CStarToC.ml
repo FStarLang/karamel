@@ -152,20 +152,27 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ While (mk_expr e1, mk_compound_if (mk_stmts e2)) ]
 
   | PushFrame | PopFrame ->
-      failwith "[mk_stmt]: nested frames not supported"
+      failwith "[mk_stmt]: nested frames to be handled by [mk_stmts]"
 
 and mk_stmts stmts: C.stmt list =
-  let mk = KList.map_flatten mk_stmt in
   match stmts with
   | PushFrame :: stmts ->
-      begin match List.rev stmts with
-      | PopFrame :: stmts ->
-          [ Compound (mk (List.rev stmts)) ]
-      | _ ->
-          failwith "[mk_stmts]: unmatched push_frame"
-      end
-  | _ ->
-      mk stmts
+      mk_stmts' [] stmts
+  | stmt :: stmts ->
+      mk_stmt stmt @ mk_stmts stmts
+  | [] ->
+      []
+
+(** Create a new Compound because we found a PushFrame *)
+and mk_stmts' acc stmts: C.stmt list =
+  match stmts with
+  | PopFrame :: stmts ->
+      Compound (List.flatten (List.rev acc)) :: mk_stmts stmts
+  | stmt :: stmts ->
+      mk_stmts' (mk_stmt stmt :: acc) stmts
+  | [] ->
+      failwith "[mk_stmts']: unmatched push_frame"
+
 
 and mk_expr (e: expr): C.expr =
   match e with
@@ -276,7 +283,10 @@ let mk_stub_or_function (d: decl): C.declaration_or_function =
         raise e
       end
 
-  | External (name, t)
+  | External (name, t) ->
+      let spec, decl = mk_spec_and_declarator name t in
+      Decl (spec, Some Extern, [ decl, None ])
+
   | Global (name, t, _) ->
       let t = match t with Function _ -> Pointer t | _ -> t in
       let spec, decl = mk_spec_and_declarator name t in
