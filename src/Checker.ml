@@ -8,8 +8,27 @@ open PPrint
 
 (** Helpers ----------------------------------------------------------------- *)
 
-let print_location lids =
-  separate_map (string ", in ") print_lident lids
+type loc =
+  | In of string
+  | InTop of lident
+  | Then
+  | Else
+  | After of string
+
+let print_loc = function
+  | InTop l ->
+      string "in declaration " ^^ print_lident l
+  | In l ->
+      string "in the definition of " ^^ string l
+  | Then ->
+      string "in the then branch"
+  | Else ->
+      string "in the else branch"
+  | After s ->
+      string "after the definition of " ^^ string s
+
+let print_location locs =
+  separate_map (string ", ") print_loc locs
 
 let ploc = printf_of_pprint print_location
 let pop = PrintAst.pop
@@ -35,7 +54,7 @@ type env = {
   globals: typ M.t;
   locals: binder list;
   types: tdecl M.t;
-  location: lident list;
+  location: loc list;
 }
 
 let empty: env = {
@@ -95,9 +114,13 @@ let populate_env files =
     ) env decls
   ) empty files
 
-let locate env lid =
-  { env with location = lid :: env.location }
-
+let locate env loc =
+  { env with location =
+    match loc, env.location with
+    | After _, After _ :: locs ->
+        loc :: locs
+    | _ ->
+        loc :: env.location }
 
 (** Errors ------------------------------------------------------------------ *)
 
@@ -124,7 +147,7 @@ let type_of_op env op w =
   | Not ->
       TArrow (TBool, TBool)
   | Assign | PreIncr | PreDecr | PostIncr | PostDecr ->
-      fatal_error "In %a, operator %a is for internal use only" ploc env.location pop op
+      fatal_error "%a, operator %a is for internal use only" ploc env.location pop op
 
 
 let rec check_everything files =
@@ -139,17 +162,17 @@ let rec check_everything files =
   ) files
 
 and check_program env (name, decls) =
-  let env = locate env ([], name) in
+  let env = locate env (In name) in
   List.iter (check_decl env) decls
 
 and check_decl env d =
   match d with
   | DFunction (t, name, binders, body) ->
       let env = List.fold_left push env binders in
-      let env = locate env name in
+      let env = locate env (InTop name) in
       check_expr env t body
   | DGlobal (name, t, body) ->
-      let env = locate env name in
+      let env = locate env (InTop name) in
       check_expr env t body
   | DTypeAlias _
   | DExternal _
@@ -207,14 +230,14 @@ and infer_expr' env e t =
         t_ret
 
   | ELet (binder, body, cont) ->
-      check_expr (locate env ([], binder.name)) binder.typ body;
+      check_expr (locate env (In binder.name)) binder.typ body;
       let env = push env binder in
-      infer_expr env cont
+      infer_expr (locate env (After binder.name)) cont
 
   | EIfThenElse (e1, e2, e3) ->
       check_expr env TBool e1;
-      let t1 = infer_expr (locate env ([], "if-then")) e2 in
-      let t2 = infer_expr (locate env ([], "if-else")) e3 in
+      let t1 = infer_expr (locate env Then) e2 in
+      let t2 = infer_expr (locate env Else) e3 in
       check_types_equal env t1 t2;
       t1
 
@@ -303,7 +326,7 @@ and infer_expr' env e t =
   | EBufCreateL es ->
       begin match es with
       | [] ->
-          fatal_error "In %a, there is an empty buf create sequence" ploc env.location
+          fatal_error "%a, there is an empty buf create sequence" ploc env.location
       | first :: others ->
           let t = infer_expr env first in
           List.iter (check_expr env t) others;
@@ -314,7 +337,7 @@ and find_field env lid field =
   begin try
     List.assoc field (assert_flat env (lookup_type env lid))
   with Not_found ->
-    type_error env "In %a, the type %a doesn't have a field named %s"
+    type_error env "%a, the type %a doesn't have a field named %s"
       ploc env.location plid lid field
   end
 
@@ -387,14 +410,14 @@ and assert_flat env t =
   | Flat def ->
       def
   | _ ->
-      fatal_error "In %a, this is not a record definition" ploc env.location
+      fatal_error "%a, this is not a record definition" ploc env.location
 
 and assert_qualified env t =
   match t with
   | TQualified lid ->
       lid
   | _ ->
-      fatal_error "In %a, expected a provided type annotation" ploc env.location
+      fatal_error "%a, expected a provided type annotation" ploc env.location
 
 and assert_buffer env e1 =
   match reduce env (infer_expr env e1) with
