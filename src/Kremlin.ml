@@ -119,7 +119,11 @@ Supported options:|} Sys.argv.(0)
   if !arg_print_simplify then
     print PrintAst.print_files files;
 
+  (* The criterion for determining whether we should inline really works well
+   * after everything has been simplified, but inlining requires a new round of
+   * hoisting. *)
   let files = Frames.inline_as_required files in
+  let files = Simplify.simplify2 files in
   if !arg_print_inline then
     print PrintAst.print_files files;
 

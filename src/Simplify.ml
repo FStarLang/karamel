@@ -575,13 +575,16 @@ end
 
 (* Everything composed together ***********************************************)
 
-let simplify (files: file list): file list =
+let simplify1 (files: file list): file list =
   let files = visit_files () record_toplevel_names files in
   let files = visit_files () replace_references_to_toplevel_names files in
   let files = visit_files () eta_expand files in
   let files = visit_files [] count_use files in
   let files = visit_files () dummy_match files in
   let files = visit_files () wrapping_arithmetic files in
+  files
+
+let simplify2 (files: file list): file list =
   let files = visit_files () sequence_to_let files in
   let files = visit_files () (object
     inherit ignore_everything
@@ -596,4 +599,9 @@ let simplify (files: file list): file list =
   end) files in
   let files = visit_files () let_if_to_assign files in
   let files = visit_files () let_to_sequence files in
+  files
+
+let simplify (files: file list): file list =
+  let files = simplify1 files in
+  let files = simplify2 files in
   files

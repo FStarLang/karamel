@@ -17,6 +17,7 @@ open Warnings
 open Idents
 
 let plid = PrintAst.plid
+let pexpr = PrintAst.pexpr
 
 module LidMap = Map.Make(struct
   type t = lident
@@ -160,9 +161,11 @@ let inline_as_required files =
             let es = List.map (self#visit ()) es in
             match e.node with
             | EQualified lid when valuation lid = MustInline && Hashtbl.mem map lid ->
-                (List.fold_right (fun arg body ->
-                  DeBruijn.subst arg 0 body
-                ) es (inline_one lid)).node
+                let l = List.length es in
+                (KList.fold_lefti (fun i body arg ->
+                  let k = l - i - 1 in
+                  DeBruijn.subst arg k body
+                ) (inline_one lid) es).node
             | _ ->
                 EApp (self#visit () e, es)
           method equalified () t lid =
