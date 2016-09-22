@@ -12,7 +12,8 @@ open ML16Externals
 
 let test1 (_: unit): Stack unit (fun _ -> true) (fun _ _ _ -> true) =
   push_frame ();
-  print_int32 (C.rand ());
+  let b = Buffer.create 21l 2ul in
+  print_int32 (index b 0ul +%^ index b 1ul);
   pop_frame ()
 
 let test2 (_: unit):
