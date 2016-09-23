@@ -3,15 +3,20 @@
 
 open Warnings
 
-(** These four variables filled in by [detect_fstar] *)
+(** These three variables filled in by [detect_fstar] *)
 let fstar = ref ""
 let fstar_home = ref ""
 let fstar_options = ref []
+
+(** By [detect_kremlin] *)
 let krml_home = ref ""
 
 (** These two filled in by [detect_gcc] *)
 let gcc = ref ""
 let gcc_args = ref []
+
+(** The base tools *)
+let readlink = ref ""
 
 (* All our paths use "/" as a separator, INCLUDING windows paths because
  * they're run through cygpath -m *)
@@ -25,41 +30,60 @@ let success cmd args =
   | { Process.Output.exit_status = Process.Exit.Exit 0; _ } -> true
   | _ -> false
 
-(** Fills in fstar{,_home,_options} and krml_home, and prepends the path to
- * [kremlib] to [Options.includes] *)
-let detect_fstar () =
-  KPrint.bprintf "%sKreMLin will drive F*.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+let read_one_line cmd args =
+  String.trim (List.hd (Process.read_stdout cmd args))
+
+
+let detect_base_tools () =
+  KPrint.bprintf "%sKreMLin auto-detecting tools.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+
+  if success "which" [| "greadlink" |] then
+    readlink := "greadlink"
+  else
+    readlink := "readlink";
+  KPrint.bprintf "%sreadlink is:%s %s\n" Ansi.underline Ansi.reset !readlink
+
+let detect_base_tools_if () =
+  if !readlink = "" then
+    detect_base_tools ()
+
+
+(** Fills in krml_home, and prepends the path to [kremlib] to [Options.includes] *)
+let detect_kremlin () =
+  detect_base_tools_if ();
+
   KPrint.bprintf "%sKreMLin called via:%s %s\n" Ansi.underline Ansi.reset Sys.argv.(0);
-
-  let readlink =
-    if success "which" [| "greadlink" |] then
-      "greadlink"
-    else
-      "readlink"
-  in
-  KPrint.bprintf "%sreadlink is:%s %s\n" Ansi.underline Ansi.reset readlink;
-
-  let read_one_line cmd args =
-    String.trim (List.hd (Process.read_stdout cmd args))
-  in
 
   let real_krml =
     let me = Sys.argv.(0) in
     if Sys.os_type = "Win32" && not (Filename.is_relative me) then
       me
     else
-      try read_one_line readlink [| "-f"; read_one_line "which" [| me |] |]
+      try read_one_line !readlink [| "-f"; read_one_line "which" [| me |] |]
       with _ -> fatal_error "Could not compute full krml path"
   in
   (* ../_build/src/Kremlin.native *)
   KPrint.bprintf "%sthe Kremlin executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
 
   let home =
-    try read_one_line readlink [| "-f"; d real_krml ^^ ".." ^^ ".." |]
+    try read_one_line !readlink [| "-f"; d real_krml ^^ ".." ^^ ".." |]
     with _ -> fatal_error "Could not compute krml_home"
   in
   KPrint.bprintf "%sKreMLin home is:%s %s\n" Ansi.underline Ansi.reset home;
   krml_home := home;
+
+  Options.includes := (!krml_home ^^ "kremlib") :: !Options.includes
+
+let detect_kremlin_if () =
+  if !krml_home = "" then
+    detect_kremlin ()
+
+
+(** Fills in fstar{,_home,_options} *)
+let detect_fstar () =
+  detect_kremlin_if ();
+
+  KPrint.bprintf "%sKreMLin will drive F*.%s Here's what we found:\n" Ansi.blue Ansi.reset;
 
   let output =
     try read_one_line "which" [| "fstar.exe" |]
@@ -94,9 +118,6 @@ let detect_fstar () =
     KPrint.bprintf "fstar is on %sbranch %s%s\n" color branch Ansi.reset;
     Sys.chdir cwd
   end;
-
-  (** Note: adding [kremlib/] as a default include path. *)
-  Options.includes := (!krml_home ^^ "kremlib") :: !Options.includes;
 
   let fstar_includes = [
     !fstar_home ^^ "examples" ^^ "low-level";
@@ -155,6 +176,9 @@ let run_fstar files =
 
 (** Fills in [gcc] and [gcc_args]. *)
 let detect_gcc () =
+  (** For the side-effect of filling in [Options.include] *)
+  detect_kremlin_if ();
+
   KPrint.bprintf "%sKreMLin will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
   if success "which" [| "gcc-5" |] then
     gcc := "gcc-5"
@@ -192,7 +216,7 @@ let o_of_c f =
  * silently dropped, or KreMLin aborts if warning 3 is fatal. *)
 let compile files extra_c_files =
   assert (List.length files > 0);
-  detect_fstar_if ();
+  detect_kremlin_if ();
   detect_gcc_if ();
   flush stdout;
   let extra_c_files = (!krml_home ^^ "kremlib" ^^ "kremlib.c") :: extra_c_files in
