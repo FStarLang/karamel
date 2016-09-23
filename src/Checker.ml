@@ -294,7 +294,11 @@ and infer_expr' env e t =
   | EPushFrame | EPopFrame ->
       TUnit
 
-  | EAny | EAbort | EReturn _ ->
+  | EAny | EAbort ->
+      TAny
+
+  | EReturn e ->
+      ignore (infer_expr env e);
       (** TODO: check that [EReturn] matches the expected return type *)
       TAny
 

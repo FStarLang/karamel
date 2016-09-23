@@ -221,7 +221,7 @@ and collect (env, acc) return_pos e =
 
   | EReturn e ->
       (** Functions that return unit return nothing. *)
-      if e.mtyp = TUnit || e.node = EUnit then begin
+      if e.mtyp = TUnit then begin
         assert (e.node = EUnit);
         env, CStar.Return None :: acc
       end else

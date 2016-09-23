@@ -32,7 +32,19 @@ High-level description:
 The [-skip-compilation] option will stop KreMLin after step 2.
 The [-skip-linking] option will stop KreMLin after step 3.
 
-Supported options:|} Sys.argv.(0)
+The [-warn-error] option follows the OCaml syntax, namely:
+  - [r] is a range of warnings (either a number [n], or a range [n..n])
+  - [-r] silences range [r]
+  - [+r] enables range [r]
+  - [@r] makes [r] fatal.
+
+The default is %s and the available warnings are:
+  1: not generating code for a provided file
+  2: found a reference to a function without implementation
+  3: external command failed
+  4: type error / malformed input
+
+Supported options:|} Sys.argv.(0) !Options.warn_error
   in
   let found_file = ref false in
   let prepend r = fun s -> r := s :: !r in
