@@ -24,7 +24,7 @@ void hexdump(const uint8_t *buf, size_t len) {
   }
 }
 
-int main () {
+int main (int argc, char *argv[]) {
   uint8_t key[32] = { 0 };
   for (uint8_t i = 0; i < 32; ++i)
     key[i] = i;
@@ -33,7 +33,10 @@ int main () {
   uint32_t constant = 0;
   uint8_t ciphertext[LEN] = { 0 };
 
-  Crypto_Symmetric_Chacha20_chacha20_encrypt(ciphertext, key, counter, iv, constant, plaintext, LEN);
+  long n = argc > 1 ? strtol(argv[1], NULL, 10) : 1;
+
+  for (long i = 0; i < n; ++i)
+    Crypto_Symmetric_Chacha20_counter_mode(key, iv, counter, constant, LEN, plaintext, ciphertext);
   if (memcmp(expected, ciphertext, LEN) != 0) {
     printf("[Chacha]: encryption FAILED\n");
     printf("\nPLAINTEXT:\n");

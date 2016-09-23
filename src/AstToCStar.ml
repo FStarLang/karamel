@@ -221,15 +221,19 @@ and collect (env, acc) return_pos e =
 
   | EReturn e ->
       (** Functions that return unit return nothing. *)
-      if e.mtyp = TUnit then
+      if e.mtyp = TUnit || e.node = EUnit then begin
+        assert (e.node = EUnit);
         env, CStar.Return None :: acc
-      else
+      end else
         env, CStar.Return (Some (translate_expr env e)) :: acc
 
   | _ when return_pos ->
       (** Functions that return unit return nothing. *)
       if e.mtyp = TUnit then
-        env, CStar.Return None :: acc
+        if e.node = EUnit then
+          env, CStar.Return None :: acc
+        else
+          env, CStar.Return None :: CStar.Ignore (translate_expr env e) :: acc
       else
         env, CStar.Return (Some (translate_expr env e)) :: acc
 
@@ -240,7 +244,6 @@ and collect (env, acc) return_pos e =
 and translate_block env e =
   List.rev (snd (collect (reset_block env, []) false e))
 
-
 (** This enforces the push/pop frame invariant. The invariant can be described
  * as follows (the extra cases are here to provide better error messages):
  * - a function may choose not to use push/pop frame (it's a pure computation);
@@ -248,42 +251,55 @@ and translate_block env e =
  *   - it starts with push_frame and ends with pop_frame (implies the return type
  *     is void)
  *   - it starts with push_frame and ends with pop_frame, and returns a value
- *     immediately after the pop_frame; this only makes sense if the value
- *     requires no allocations in the current frame, which at the moment we only
- *     guarantee for computation of type any (the result of erasure)
+ *     immediately after the pop_frame; F* guarantees that this value is
+ *     well-scoped and requires no deep-copy (the user will perform it manually,
+ *     if needed)
+ *   - it uses push_frame and pop_frame in the middle of the function body... in
+ *     which case we check no special invariant
  *)
 and translate_function_block env e t =
   (** This function expects an environment where names and in_block have been
    * populated with the function's parameters. *)
   let stmts = snd (collect (env, []) true e) in
-  match t, stmts with
-  | CStar.Void, [] ->
+
+  (** This just enforces some invariants and drops push/pop frame when they span
+   * the entire function body (because it's redundant with the function frame). *)
+  match List.rev stmts, stmts with
+  | [], _ ->
+      if t <> CStar.Void then
+        (* TODO: type aliases for void *)
+        raise_error (BadFrame "empty function body, but non-void return type");
       []
-  | _, [] ->
-      (* TODO: type aliases for void *)
-      raise_error (BadFrame "empty function body, but non-void return type")
-  | _ ->
-      match t, List.rev stmts, stmts with
-      | CStar.Void, CStar.PushFrame :: _, CStar.PopFrame :: rest ->
-          List.tl (List.rev rest)
-      | CStar.Pointer CStar.Void, CStar.PushFrame :: _, CStar.Return _ :: CStar.PopFrame :: rest ->
-          List.tl (List.rev (CStar.Return (Some CStar.Any) :: rest))
-      | CStar.Int _, CStar.PushFrame :: _, ((CStar.Return (Some (CStar.Qualified _))) as e) :: CStar.PopFrame :: rest ->
-          List.tl (List.rev (e :: rest))
-      | _, CStar.PushFrame :: _, CStar.PopFrame :: _ ->
-          raise_error (BadFrame ("well-parenthesized push/pop, but function's \
-            return type is not void!)"))
-      | _, CStar.PushFrame :: _, _ ->
-          (* A trailing push frame is ok. It means that there's an inner block
-           * scope somewhere. *)
-          raise_error (BadFrame ("unmatched push/pop_frame"))
-      | CStar.Void, stmts, _ ->
-          stmts
-      | _, stmts, CStar.Return _ :: _
-      | _, stmts, CStar.Abort :: _ ->
-          stmts
+
+  | CStar.PushFrame :: _, CStar.PopFrame :: rest ->
+      if t <> CStar.Void then
+        (* TODO: type aliases for void *)
+        raise_error (BadFrame "push/pop spans function body, but return type is not void");
+      List.tl (List.rev rest)
+
+  | CStar.PushFrame :: _, e :: CStar.PopFrame :: rest ->
+      begin match e with
+      | CStar.Return None ->
+          if t <> CStar.Void then
+            raise_error (BadFrame ("empty return, but return type is not void"))
+      | CStar.Return (Some _) ->
+          (* Note: we could check that [e] is a value at this stage via some
+           * sort of sanity check, but this would be brittle and would only
+           * catch a small subset of the bad cases... so leaving it up to F* to
+           * enforce all of these invariants. *)
+          if t = CStar.Void then
+            raise_error (BadFrame ("non-empty return, but return type is void"))
       | _ ->
-          raise_error (BadFrame ("non-void function does not end with something we can return"))
+          fatal_error "Internal failure: didn't insert a return"
+      end;
+      List.tl (List.rev (e :: rest))
+
+  (* Note: block scopes may not fit the entire function body, so it's ok if we
+   * have an unmatched pushframe at the beginning (or an unmatched popframe at
+   * the end *)
+
+  | stmts, _ ->
+      stmts
 
 and translate_return_type env = function
   | TInt w ->

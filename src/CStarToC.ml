@@ -100,7 +100,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
             (* Note: only works if the length and initial value are pure
              * computations... which F* guarantees! *)
             [ For (
-                (Int K.Int, None, [ Ident "i", Some (InitExpr (Constant (K.Int, "0")))]),
+                (Int K.UInt, None, [ Ident "i", Some (InitExpr (Constant (K.Int, "0")))]),
                 Op2 (K.Lt, Name "i", mk_expr size),
                 Op1 (K.PreIncr, Name "i"),
                 Expr (Op2 (K.Assign, Index (Name binder.name, Name "i"), mk_expr init)))]
