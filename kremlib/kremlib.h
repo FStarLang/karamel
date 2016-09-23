@@ -11,7 +11,9 @@
 // their C counterparts
 extern int exit_success;
 
+#ifndef _MSC_VER
 typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
+#endif
 typedef uint64_t FStar_UInt64_t, FStar_UInt64_t_;
 typedef int64_t FStar_Int64_t, FStar_Int64_t_;
 typedef uint32_t FStar_UInt32_t, FStar_UInt32_t_;
