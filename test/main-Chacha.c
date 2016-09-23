@@ -33,7 +33,7 @@ int main () {
   uint32_t constant = 0;
   uint8_t ciphertext[LEN] = { 0 };
 
-  Crypto_Symmetric_Chacha20_chacha20_encrypt(ciphertext, key, counter, iv, constant, plaintext, LEN);
+  Crypto_Symmetric_Chacha20_counter_mode(key, iv, counter, constant, LEN, plaintext, ciphertext);
   if (memcmp(expected, ciphertext, LEN) != 0) {
     printf("[Chacha]: encryption FAILED\n");
     printf("\nPLAINTEXT:\n");

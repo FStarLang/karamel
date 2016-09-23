@@ -14,3 +14,7 @@ Prims_int FStar_UInt32_v(uint32_t x) {
 }
 
 int exit_success = 0;
+
+FStar_Seq_seq FStar_Seq_createEmpty(void *_) {
+  return 0;
+}

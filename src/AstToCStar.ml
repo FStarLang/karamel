@@ -221,15 +221,19 @@ and collect (env, acc) return_pos e =
 
   | EReturn e ->
       (** Functions that return unit return nothing. *)
-      if e.mtyp = TUnit then
+      if e.mtyp = TUnit then begin
+        assert (e.node = EUnit);
         env, CStar.Return None :: acc
-      else
+      end else
         env, CStar.Return (Some (translate_expr env e)) :: acc
 
   | _ when return_pos ->
       (** Functions that return unit return nothing. *)
       if e.mtyp = TUnit then
-        env, CStar.Return None :: acc
+        if e.node = EUnit then
+          env, CStar.Return None :: acc
+        else
+          env, CStar.Return None :: CStar.Ignore (translate_expr env e) :: acc
       else
         env, CStar.Return (Some (translate_expr env e)) :: acc
 
@@ -239,7 +243,6 @@ and collect (env, acc) return_pos e =
 
 and translate_block env e =
   List.rev (snd (collect (reset_block env, []) false e))
-
 
 (** This enforces the push/pop frame invariant. The invariant can be described
  * as follows (the extra cases are here to provide better error messages):
@@ -256,34 +259,36 @@ and translate_function_block env e t =
   (** This function expects an environment where names and in_block have been
    * populated with the function's parameters. *)
   let stmts = snd (collect (env, []) true e) in
-  match t, stmts with
-  | CStar.Void, [] ->
+  match t, List.rev stmts, stmts with
+  | CStar.Void, [], _ ->
       []
-  | _, [] ->
+
+  | _, [], _ ->
       (* TODO: type aliases for void *)
       raise_error (BadFrame "empty function body, but non-void return type")
-  | _ ->
-      match t, List.rev stmts, stmts with
-      | CStar.Void, CStar.PushFrame :: _, CStar.PopFrame :: rest ->
-          List.tl (List.rev rest)
-      | CStar.Pointer CStar.Void, CStar.PushFrame :: _, CStar.Return _ :: CStar.PopFrame :: rest ->
-          List.tl (List.rev (CStar.Return (Some CStar.Any) :: rest))
-      | CStar.Int _, CStar.PushFrame :: _, ((CStar.Return (Some (CStar.Qualified _))) as e) :: CStar.PopFrame :: rest ->
-          List.tl (List.rev (e :: rest))
-      | _, CStar.PushFrame :: _, CStar.PopFrame :: _ ->
-          raise_error (BadFrame ("well-parenthesized push/pop, but function's \
-            return type is not void!)"))
-      | _, CStar.PushFrame :: _, _ ->
-          (* A trailing push frame is ok. It means that there's an inner block
-           * scope somewhere. *)
-          raise_error (BadFrame ("unmatched push/pop_frame"))
-      | CStar.Void, stmts, _ ->
-          stmts
-      | _, stmts, CStar.Return _ :: _
-      | _, stmts, CStar.Abort :: _ ->
-          stmts
-      | _ ->
-          raise_error (BadFrame ("non-void function does not end with something we can return"))
+
+  | CStar.Void, CStar.PushFrame :: _, CStar.PopFrame :: rest ->
+      List.tl (List.rev rest)
+
+  | _, CStar.PushFrame :: _, CStar.PopFrame :: _ ->
+      raise_error (BadFrame ("well-parenthesized push/pop, but function's \
+        return type is not void!)"))
+
+  | _ , CStar.PushFrame :: _, CStar.Return e :: CStar.PopFrame :: rest ->
+      begin match e with
+      | None ->
+          raise_error (BadFrame ("empty return, but return type is not void"))
+      | Some e ->
+          List.tl (List.rev (CStar.Return (Some e) :: rest))
+      end;
+
+  | _, CStar.PushFrame :: _, _ ->
+      (* A trailing push frame is ok. It means that there's an inner block
+       * scope somewhere. *)
+      raise_error (BadFrame ("unmatched push/pop_frame"))
+
+  | _, stmts, _ ->
+      stmts
 
 and translate_return_type env = function
   | TInt w ->
