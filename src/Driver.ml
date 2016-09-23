@@ -36,7 +36,7 @@ let read_one_line cmd args =
 
 (** The tools we depend on; namely, readlink. *)
 let detect_base_tools () =
-  KPrint.bprintf "%sKreMLin auto-detecting tools.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+  KPrint.bprintf "%s⚙ KreMLin auto-detecting tools.%s Here's what we found:\n" Ansi.blue Ansi.reset;
 
   if success "which" [| "greadlink" |] then
     readlink := "greadlink"
@@ -84,7 +84,7 @@ let detect_kremlin_if () =
 let detect_fstar () =
   detect_kremlin_if ();
 
-  KPrint.bprintf "%sKreMLin will drive F*.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+  KPrint.bprintf "%s⚙ KreMLin will drive F*.%s Here's what we found:\n" Ansi.blue Ansi.reset;
 
   begin try
     let r = Sys.getenv "FSTAR_HOME" in
@@ -163,7 +163,7 @@ let run_fstar files =
   detect_fstar_if ();
 
   let args = !fstar_options @ files in
-  KPrint.bprintf "%sCalling F*%s\n" Ansi.blue Ansi.reset;
+  KPrint.bprintf "%s⚡ Calling F*%s\n" Ansi.blue Ansi.reset;
   flush stdout;
   if not (run_or_warn "[fstar,extract]" !fstar args) then
     fatal_error "F* failed";
@@ -174,7 +174,7 @@ let detect_gcc () =
   (** For the side-effect of filling in [Options.include] *)
   detect_kremlin_if ();
 
-  KPrint.bprintf "%sKreMLin will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+  KPrint.bprintf "%s⚙ KreMLin will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
   if success "which" [| "gcc-5" |] then
     gcc := "gcc-5"
   else if success "which" [| "gcc-6" |] then
@@ -217,7 +217,7 @@ let compile files extra_c_files =
   let extra_c_files = (!krml_home ^^ "kremlib" ^^ "kremlib.c") :: extra_c_files in
 
   let files = List.map (fun f -> !Options.tmpdir ^^ f ^ ".c") files in
-  KPrint.bprintf "%sGenerating object files%s\n" Ansi.blue Ansi.reset;
+  KPrint.bprintf "%s⚡ Generating object files%s\n" Ansi.blue Ansi.reset;
   let gcc_c file =
     flush stdout;
     let info = Printf.sprintf "[gcc,compile,%s]" file in
