@@ -34,6 +34,7 @@ let read_one_line cmd args =
   String.trim (List.hd (Process.read_stdout cmd args))
 
 
+(** The tools we depend on; namely, readlink. *)
 let detect_base_tools () =
   KPrint.bprintf "%sKreMLin auto-detecting tools.%s Here's what we found:\n" Ansi.blue Ansi.reset;
 
@@ -85,23 +86,17 @@ let detect_fstar () =
 
   KPrint.bprintf "%sKreMLin will drive F*.%s Here's what we found:\n" Ansi.blue Ansi.reset;
 
-  let output =
-    try read_one_line "which" [| "fstar.exe" |]
-    with _ -> fatal_error "Did not find fstar.exe in the PATH"
-  in
-  KPrint.bprintf "%sfstar is:%s %s\n" Ansi.underline Ansi.reset output;
-  fstar := output;
-
-  let home =
-    try
-      let r = Sys.getenv "FSTAR_HOME" in
-      KPrint.bprintf "read FSTAR_HOME via the environment\n";
-      r
-    with Not_found ->
-      d (d !fstar)
-  in
-  KPrint.bprintf "%sfstar home is:%s %s\n" Ansi.underline Ansi.reset home;
-  fstar_home := home;
+  begin try
+    let r = Sys.getenv "FSTAR_HOME" in
+    KPrint.bprintf "read FSTAR_HOME via the environment\n";
+    fstar_home := r;
+    fstar := r ^^ "bin" ^^ "fstar.exe"
+  with Not_found -> try
+    fstar := read_one_line "which" [| "fstar.exe" |];
+    fstar_home := d (d !fstar)
+  with _ ->
+    fatal_error "Did not find fstar.exe in PATH and FSTAR_HOME is not set"
+  end;
 
   if success "which" [| "cygpath" |] then begin
     fstar := read_one_line "cygpath" [| "-m"; !fstar |];
