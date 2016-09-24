@@ -321,8 +321,9 @@ and translate_return_type env = function
       CStar.Z
   | TBound _ ->
       fatal_error "Internal failure: no TBound here"
-  | TApp _ ->
-      fatal_error "Internal failure: didn't expand a type application"
+  | TApp (lid, _) ->
+      raise_error (ExternalTypeApp lid)
+
 
 and translate_type env = function
   | TUnit ->

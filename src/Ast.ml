@@ -143,6 +143,9 @@ class virtual ['env, 'result, 'tresult, 'dresult, 'extra] visitor = object (self
   method extend (env: 'env) (_: binder): 'env =
     env
 
+  method extend_t (env: 'env): 'env =
+    env
+
   (* The main visitor method inspects the structure of [e] and
      dispatches control to the appropriate case method. *)
   method visit_e (env: 'env) (e: expr') (mtyp: 'extra): 'result =
@@ -437,6 +440,13 @@ class ['env] map = object (self)
     DGlobal (name, self#visit_t env typ, self#visit env expr)
 
   method dtypealias env name n t =
+    let rec extend e n =
+      if n = 0 then
+        e
+      else
+        extend (self#extend_t e) (n - 1)
+    in
+    let env = extend env n in
     DTypeAlias (name, n, self#visit_t env t)
 
   method fields_t env fields =

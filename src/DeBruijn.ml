@@ -15,6 +15,15 @@ class map_counting = object
     i + 1
 end
 
+class map_t_counting = object
+  (* The environment [i] has type [int]. *)
+  inherit [int] map
+  (* The environment [i] keeps track of how many binders have been
+     entered. It is incremented at each binder. *)
+  method! extend_t i =
+    i + 1
+end
+
 (* ---------------------------------------------------------------------------- *)
 
 (* Lifting. *)
@@ -34,7 +43,22 @@ let lift (k: int) (expr: expr): expr =
   if k = 0 then
     expr
   else
-    (new lift k) # visit 0 expr
+    (new lift k)#visit 0 expr
+
+class lift_t (k: int) = object
+  inherit map_t_counting
+  method! tbound i j =
+    if j < i then
+      TBound j
+    else
+      TBound (j + k)
+end
+
+let lift_t (k: int) (typ: typ): typ =
+  if k = 0 then
+    typ
+  else
+    (new lift_t k)#visit_t 0 typ
 
 (* ---------------------------------------------------------------------------- *)
 
@@ -53,7 +77,38 @@ class subst (e2: expr) = object
 end
 
 let subst (e2: expr) (i: int) (e1: expr) =
-  (new subst e2) # visit i e1
+  (new subst e2)#visit i e1
+
+let subst_n e es =
+  let l = List.length es in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    subst arg k body
+  ) e es
+
+(* Substitute [t2] for [i] in [t1]. *)
+
+class subst_t (t2: typ) = object
+  (* The environment [i] is the variable that we are looking for. *)
+  inherit map_t_counting
+  (* The target variable [i] is replaced with [t2]. Any other
+     variable is unaffected. *)
+  method! tbound i j =
+    if j = i then
+      lift_t i t2
+    else
+      TBound (if j < i then j else j-1)
+end
+
+let subst_t (t2: typ) (i: int) (t1: typ) =
+  (new subst_t t2)#visit_t i t1
+
+let subst_tn t ts =
+  let l = List.length ts in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    subst_t arg k body
+  ) t ts
 
 (* ---------------------------------------------------------------------------- *)
 
@@ -70,7 +125,7 @@ class close (atom': Atom.t) = object
 end
 
 let close (a: Atom.t) (i: int) (e: expr) =
-  (new close a) # visit i e
+  (new close a)#visit i e
 
 let close_binder b e =
   close b.atom 0 e

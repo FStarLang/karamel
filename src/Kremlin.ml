@@ -43,6 +43,7 @@ The default is %s and the available warnings are:
   2: found a reference to a function without implementation
   3: external command failed
   4: type error / malformed input
+  5: type definition contains an application of an undefined type abbreviation
 
 Supported options:|} Sys.argv.(0) !Options.warn_error
   in
@@ -124,9 +125,13 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   if !arg_print_ast then
     print PrintAst.print_files files;
 
-  (* Perform a whole-program rewriting. *)
+  (* The first check can only occur after type abbreviations have been inlined,
+   * and type abbreviations we don't know about have been replaced by TAny.
+   * Otherwise, the checker is too stringent and will drop files. *)
+  let files = Inlining.inline_type_abbrevs files in
   let files = Checker.check_everything files in
-
+  
+  (* Perform a whole-program rewriting. *)
   let files = Simplify.simplify files in
   if !arg_print_simplify then
     print PrintAst.print_files files;
@@ -134,7 +139,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   (* The criterion for determining whether we should inline really works well
    * after everything has been simplified, but inlining requires a new round of
    * hoisting. *)
-  let files = Frames.inline_as_required files in
+  let files = Inlining.inline_function_frames files in
   let files = Simplify.simplify2 files in
   if !arg_print_inline then
     print PrintAst.print_files files;

@@ -549,6 +549,9 @@ let t lident =
 let replace_references_to_toplevel_names = object(self)
   inherit [unit] map
 
+  method tapp () lident args =
+    TApp (t lident, List.map (self#visit_t ()) args)
+
   method tqualified () lident =
     TQualified (t lident)
 
