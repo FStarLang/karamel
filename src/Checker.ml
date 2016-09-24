@@ -100,7 +100,7 @@ let populate_env files =
   List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
-      | DTypeAlias (lid, typ) ->
+      | DTypeAlias (lid, _, typ) ->
           { env with types = M.add lid (Abbrev typ) env.types }
       | DTypeFlat (lid, fields) ->
           { env with types = M.add lid (Flat fields) env.types }

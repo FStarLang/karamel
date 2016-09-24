@@ -319,6 +319,10 @@ and translate_return_type env = function
       CStar.Function (translate_return_type env ret, List.map (translate_type env) args)
   | TZ ->
       CStar.Z
+  | TBound _ ->
+      fatal_error "Internal failure: no TBound here"
+  | TApp _ ->
+      fatal_error "Internal failure: didn't expand a type application"
 
 and translate_type env = function
   | TUnit ->
@@ -356,7 +360,7 @@ and drop_unit_or_error binders body =
   | _ ->
       binders
 
-and translate_declaration env d: CStar.decl =
+and translate_declaration env d: CStar.decl option =
   let wrap_throw name (comp: CStar.decl Lazy.t) =
     try Lazy.force comp with
     | Error e ->
@@ -365,35 +369,42 @@ and translate_declaration env d: CStar.decl =
 
   match d with
   | DFunction (t, name, binders, body) ->
-      wrap_throw (string_of_lident name) (lazy begin
+      Some (wrap_throw (string_of_lident name) (lazy begin
         let t = translate_return_type env t in
         assert (env.names = []);
         let binders = drop_unit_or_error binders body in
         let env, binders = translate_and_push_binders env binders in
         let body = translate_function_block env body t in
         CStar.Function (t, (string_of_lident name), binders, body)
-      end)
+      end))
 
-  | DTypeAlias (name, t) ->
-      CStar.Type (string_of_lident name, translate_type env t)
+  | DTypeAlias (name, n, t) ->
+      if n = 0 then
+        Some (CStar.Type (string_of_lident name, translate_type env t))
+      else
+        None
 
   | DGlobal (name, t, body) ->
-      CStar.Global (string_of_lident name, translate_type env t, translate_expr env body)
+      Some (CStar.Global (
+        string_of_lident name,
+        translate_type env t,
+        translate_expr env body))
 
   | DTypeFlat (name, fields) ->
       let name = string_of_lident name in
       (* TODO: avoid collisions since "_s" is not going through the name
        * generator *)
-      CStar.Type (name, CStar.Struct (Some (name ^ "_s"), List.map (fun (field, (typ, _)) ->
-        field, translate_type env typ
-      ) fields))
+      Some (CStar.Type (
+        name, CStar.Struct (Some (name ^ "_s"), List.map (fun (field, (typ, _)) ->
+          field, translate_type env typ
+        ) fields)))
 
   | DExternal (name, t) ->
-      CStar.External (string_of_lident name, translate_type env t)
+      Some (CStar.External (string_of_lident name, translate_type env t))
 
 
 and translate_program decls =
-  List.map (translate_declaration empty) decls
+  KList.filter_map (translate_declaration empty) decls
 
 and translate_file (name, program) =
   name, translate_program program

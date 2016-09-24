@@ -5,7 +5,7 @@ TESTOPTS=$(OPTS) -add-include '"testlib.h"' -I . testlib.c
 KRML=../krml
 
 all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe Mutable.exe \
-  Poly1305.exe Chacha20.exe Aead.exe ML16.exe
+  Poly1305.exe Chacha20.exe Aead.exe ML16.exe Abbrev.exe
 	for f in $^; do echo $$f; ./$$f; done
 
 # Standalone test files that have a main in F* (hence -no-prefix)
