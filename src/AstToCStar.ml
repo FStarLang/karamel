@@ -119,9 +119,15 @@ let rec translate_expr env e =
       CStar.Constant c
   | EApp (e, es) ->
       (* Functions that only take a unit take no argument. *)
-      let es = match e.mtyp with
-        | TArrow (TUnit, _) -> []
-        | _ -> es
+      let es = match e.mtyp, es with
+        | TArrow (TUnit, _), [ { node = EUnit; _ } ] ->
+            []
+        | TArrow (TUnit, _), [ _ ] ->
+            failwith "Not supported: functions that take a unit argument can only be called with a constant unit"
+        | TArrow (TUnit, _), _ ->
+            failwith "impossible"
+        | _ ->
+            es
       in
       CStar.Call (translate_expr env e, List.map (translate_expr env) es)
   | EBufCreate (e1, e2) ->
@@ -345,21 +351,21 @@ and translate_and_push_binder env binder body =
   } in
   push env binder, binder
 
-and drop_unit_or_error binders body =
+and a_unit_is_a_unit binders body =
   (** A function that has a sole unit argument is a C* function with zero
    * arguments. *)
   match binders with
   | [ { typ = TUnit; _ } ] ->
-      ignore ((object
+      [], DeBruijn.lift 1 ((object
         inherit DeBruijn.map_counting
         method! ebound i _ j =
           if i = j then
-            fatal_error "Unsupported: function references its (sole) unit argument";
-          EBound j
-      end) # visit 0 body);
-      []
+            EUnit
+          else
+            EBound j
+      end) # visit 0 body)
   | _ ->
-      binders
+      binders, body
 
 and translate_declaration env d: CStar.decl option =
   let wrap_throw name (comp: CStar.decl Lazy.t) =
@@ -373,7 +379,7 @@ and translate_declaration env d: CStar.decl option =
       Some (wrap_throw (string_of_lident name) (lazy begin
         let t = translate_return_type env t in
         assert (env.names = []);
-        let binders = drop_unit_or_error binders body in
+        let binders, body = a_unit_is_a_unit binders body in
         let env, binders = translate_and_push_binders env binders in
         let body = translate_function_block env body t in
         CStar.Function (t, (string_of_lident name), binders, body)

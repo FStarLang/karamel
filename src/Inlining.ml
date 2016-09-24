@@ -209,6 +209,9 @@ let inline_type_abbrevs files =
         TAny
       end else
         DeBruijn.subst_tn (inline_one lid') ts
+    method tqualified () lid =
+      try inline_one lid
+      with Not_found -> TQualified lid
   end in
 
   let inline_one = memoize_inline map (fun recurse -> (inliner recurse)#visit_t ()) in
