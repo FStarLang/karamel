@@ -29,14 +29,14 @@ int main (int argc, char *argv[]) {
   for (uint8_t i = 0; i < 32; ++i)
     key[i] = i;
   uint32_t counter = 1;
-  uint64_t iv = 0x4a000000;
+  uint8_t iv[12] = { 0, 0, 0, 0, 0, 0, 0, 0x4a, 0, 0, 0, 0 };
   uint32_t constant = 0;
   uint8_t ciphertext[LEN] = { 0 };
 
   long n = argc > 1 ? strtol(argv[1], NULL, 10) : 1;
 
   for (long i = 0; i < n; ++i)
-    Crypto_Symmetric_Chacha20_counter_mode(key, iv, counter, constant, LEN, plaintext, ciphertext);
+    Crypto_Symmetric_Chacha20_counter_mode(key, iv, counter, LEN, plaintext, ciphertext);
   if (memcmp(expected, ciphertext, LEN) != 0) {
     printf("[Chacha]: encryption FAILED\n");
     printf("\nPLAINTEXT:\n");

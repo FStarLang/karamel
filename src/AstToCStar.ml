@@ -124,8 +124,6 @@ let rec translate_expr env e =
             []
         | TArrow (TUnit, _), [ _ ] ->
             failwith "Not supported: functions that take a unit argument can only be called with a constant unit"
-        | TArrow (TUnit, _), _ ->
-            failwith "impossible"
         | _ ->
             es
       in
@@ -410,17 +408,18 @@ and translate_declaration env d: CStar.decl option =
       Some (CStar.External (string_of_lident name, translate_type env t))
 
 
-and translate_program decls =
-  KList.filter_map (translate_declaration empty) decls
+and translate_program name decls =
+  KList.filter_map (fun d ->
+    let n = string_of_lident (PrintAst.decl_name d) in
+    try
+      translate_declaration empty d
+    with Error e -> 
+      Warnings.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
+      None
+  ) decls
 
 and translate_file (name, program) =
-  name, translate_program program
+  name, (translate_program name) program
 
 and translate_files files =
-  KList.filter_map (fun f ->
-    try
-      Some (translate_file f)
-    with Error e ->
-      Warnings.maybe_fatal_error (fst e, Dropping (fst f, e));
-      None
-  ) files
+  List.map translate_file files

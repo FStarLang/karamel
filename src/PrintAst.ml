@@ -8,6 +8,14 @@ open Idents
 
 let arrow = string "->"
 
+let decl_name (d: decl) =
+  match d with
+  | DFunction (_,lid,_,_)
+  | DTypeAlias (lid,_,_)
+  | DGlobal (lid,_,_)
+  | DTypeFlat (lid,_)
+  | DExternal (lid,_) -> lid
+
 let print_app f head g arguments =
   group (
     f head ^^ jump (

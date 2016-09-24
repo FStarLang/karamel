@@ -35,6 +35,7 @@ typedef void *Prims_pos, *Prims_nat, *Prims_nonzero, *FStar_Seq_seq, *Prims_int,
         *FStar_HyperStack_stackref, *FStar_HyperHeap_rid, *FStar_HyperHeap_t,
         *FStar_Heap_aref, *FStar_Buffer_abuffer;
 
-FStar_Seq_seq FStar_Seq_createEmpty(void *);
+FStar_Seq_seq FStar_Seq_createEmpty(void *_);
+Prims_int FStar_UInt32_v(uint32_t x);
 
 #endif

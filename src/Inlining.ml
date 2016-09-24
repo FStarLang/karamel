@@ -204,11 +204,9 @@ let inline_type_abbrevs files =
 
   let inliner inline_one = object
     inherit [unit] map
-    method tapp () lid' ts =
-      if not (Hashtbl.mem map lid') then begin
-        TAny
-      end else
-        DeBruijn.subst_tn (inline_one lid') ts
+    method tapp () lid ts =
+      try DeBruijn.subst_tn (inline_one lid) ts
+      with Not_found -> TAny
     method tqualified () lid =
       try inline_one lid
       with Not_found -> TQualified lid
@@ -216,13 +214,18 @@ let inline_type_abbrevs files =
 
   let inline_one = memoize_inline map (fun recurse -> (inliner recurse)#visit_t ()) in
 
-  let files = filter_decls (function
-    | DTypeAlias (lid, n, _) ->
+  Simplify.visit_files () (inliner inline_one) files
+
+
+let drop_type_abbrevs files =
+  filter_decls (function
+    | DTypeAlias (lid, n, def) ->
         if n = 0 then
-          Some (DTypeAlias (lid, n, inline_one lid))
+          Some (DTypeAlias (lid, n, def))
         else
+          (* A type definition with parameters is not something we'll be able to
+           * generate code for (at the moment). So, drop it. *)
           None
     | d ->
         Some d
-  ) files in
-  Simplify.visit_files () (inliner inline_one) files
+  ) files

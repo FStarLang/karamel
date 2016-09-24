@@ -145,6 +145,9 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     print PrintAst.print_files files;
 
   let files = Checker.check_everything files in
+  (* Do this at the last minute because the checker still needs these type
+   * abbreviations to check that our stuff makes sense. *)
+  let files = Inlining.drop_type_abbrevs files in
 
   (* Translate to C*, then to C. *)
   let files = AstToCStar.translate_files files in
