@@ -434,7 +434,7 @@ class ['env] map = object (self)
   method dfunction env ret name binders expr =
     let binders = self#binders env binders in
     let env = self#extend_many env binders in
-    DFunction (ret, name, binders, self#visit env expr)
+    DFunction (self#visit_t env ret, name, binders, self#visit env expr)
 
   method dglobal env name typ expr =
     DGlobal (name, self#visit_t env typ, self#visit env expr)
