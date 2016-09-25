@@ -52,15 +52,12 @@ module F = Fix.Make(ILidMap)(Property)
 
 type color = White | Gray | Black
 
-let build_map files =
+(** Build an empty map for an inlining traversal, where [f] is responsible for
+ * filling the initial values with the pair [(White, initial_body)]. *)
+let build_map files f =
   let map = Hashtbl.create 41 in
   List.iter (fun (_, decls) ->
-    List.iter (function
-      | DFunction (_, name, _, body) ->
-          Hashtbl.add map name (White, body)
-      | _ ->
-          ()
-    ) decls
+    List.iter (f map) decls
   ) files;
   map
 
@@ -137,60 +134,98 @@ let inline_analysis map =
 
   F.lfp must_inline
 
-let inline_as_required files =
+(* A generic graph traversal + memoization combinator we use for inline
+ * functions and types. *)
+let rec memoize_inline map visit lid =
+  let color, body = Hashtbl.find map lid in
+  match color with
+  | Gray ->
+      fatal_error "[Frames]: cyclic dependency on %a" plid lid
+  | Black ->
+      body
+  | White ->
+      Hashtbl.add map lid (Gray, body);
+      let body = visit (memoize_inline map visit) body in
+      Hashtbl.add map lid (Black, body);
+      body
+
+let filter_decls f files =
+  List.map (fun (file, decls) -> file, KList.filter_map f decls) files
+
+let inline_function_frames files =
   (* A stateful graph traversal that uses the textbook three colors to rule out
    * cycles. *)
-  let map = build_map files in
+  let map = build_map files (fun map -> function
+    | DFunction (_, name, _, body) -> Hashtbl.add map name (White, body)
+    | _ -> ()
+  ) in
   let valuation = inline_analysis map in
 
   (* Because we want to recursively, lazily evaluate the inlining of each
    * function, we temporarily store the bodies of each function in a mutable map
    * and inline them as we hit them. *)
-  let rec inline_one lid =
-    let color, body = Hashtbl.find map lid in
-    match color with
-    | Gray ->
-        fatal_error "[Frames]: cyclic dependency on %a" plid lid
-    | Black ->
-        body
-    | White ->
-        Hashtbl.add map lid (Gray, { node = EAny; mtyp = TAny });
-        let body = (object(self)
-          inherit [unit] map
-          method eapp () _ e es =
-            let es = List.map (self#visit ()) es in
-            match e.node with
-            | EQualified lid when valuation lid = MustInline && Hashtbl.mem map lid ->
-                let l = List.length es in
-                (KList.fold_lefti (fun i body arg ->
-                  let k = l - i - 1 in
-                  DeBruijn.subst arg k body
-                ) (inline_one lid) es).node
-            | _ ->
-                EApp (self#visit () e, es)
-          method equalified () t lid =
-            match t with
-            | TArrow _ when valuation lid = MustInline && Hashtbl.mem map lid ->
-                fatal_error "[Frames]: partially applied function; not meant to happen";
-            | _ ->
-                EQualified lid
-        end)#visit () body in
-        Hashtbl.add map lid (Black, body);
-        body
-  in
+  let inline_one = memoize_inline map (fun recurse -> (object(self)
+    inherit [unit] map
+    method eapp () _ e es =
+      let es = List.map (self#visit ()) es in
+      match e.node with
+      | EQualified lid when valuation lid = MustInline && Hashtbl.mem map lid ->
+          (DeBruijn.subst_n (recurse lid) es).node
+      | _ ->
+          EApp (self#visit () e, es)
+    method equalified () t lid =
+      match t with
+      | TArrow _ when valuation lid = MustInline && Hashtbl.mem map lid ->
+          fatal_error "[Frames]: partially applied function; not meant to happen";
+      | _ ->
+          EQualified lid
+  end)#visit ()) in
 
   (* This is where the evaluation of the inlining is forced: every function that
    * must be inlined is dropped (otherwise the C compiler is not going to be
    * very happy if it sees someone returning a stack pointer!); functions that
    * are meant to be kept are run through [inline_one]. *)
-  List.map (fun (file, decls) ->
-    file, KList.filter_map (function
-      | DFunction (ret, name, binders, _) ->
-          if valuation name = MustInline && string_of_lident name <> "main" then
-            None
-          else
-            Some (DFunction (ret, name, binders, inline_one name))
-      | d ->
-          Some d
-    ) decls
+  filter_decls (function
+    | DFunction (ret, name, binders, _) ->
+        if valuation name = MustInline && string_of_lident name <> "main" then
+          None
+        else
+          Some (DFunction (ret, name, binders, inline_one name))
+    | d ->
+        Some d
+  ) files
+
+
+let inline_type_abbrevs files =
+  let map = build_map files (fun map -> function
+    | DTypeAlias (lid, _, t) -> Hashtbl.add map lid (White, t)
+    | _ -> ()
+  ) in
+
+  let inliner inline_one = object
+    inherit [unit] map
+    method tapp () lid ts =
+      try DeBruijn.subst_tn (inline_one lid) ts
+      with Not_found -> TAny
+    method tqualified () lid =
+      try inline_one lid
+      with Not_found -> TQualified lid
+  end in
+
+  let inline_one = memoize_inline map (fun recurse -> (inliner recurse)#visit_t ()) in
+
+  Simplify.visit_files () (inliner inline_one) files
+
+
+let drop_type_abbrevs files =
+  filter_decls (function
+    | DTypeAlias (lid, n, def) ->
+        if n = 0 then
+          Some (DTypeAlias (lid, n, def))
+        else
+          (* A type definition with parameters is not something we'll be able to
+           * generate code for (at the moment). So, drop it. *)
+          None
+    | d ->
+        Some d
   ) files

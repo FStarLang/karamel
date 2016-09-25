@@ -8,6 +8,14 @@ open Idents
 
 let arrow = string "->"
 
+let decl_name (d: decl) =
+  match d with
+  | DFunction (_,lid,_,_)
+  | DTypeAlias (lid,_,_)
+  | DGlobal (lid,_,_)
+  | DTypeFlat (lid,_)
+  | DExternal (lid,_) -> lid
+
 let print_app f head g arguments =
   group (
     f head ^^ jump (
@@ -23,8 +31,10 @@ let rec print_decl = function
         print_expr body
       )
 
-  | DTypeAlias (name, typ) ->
-      group (string "type" ^/^ string (string_of_lident name) ^/^ equals) ^^
+  | DTypeAlias (name, n, typ) ->
+      let args = KList.make n (fun i -> string ("t" ^ string_of_int i)) in
+      let args = separate space args in
+      group (string "type" ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
       jump (print_typ typ)
 
   | DExternal (name, typ) ->
@@ -63,6 +73,9 @@ and print_typ = function
   | TAny -> string "any"
   | TArrow (t1, t2) -> print_typ t1 ^^ space ^^ string "->" ^/^ nest 2 (print_typ t2)
   | TZ -> string "mpz_t"
+  | TBound i -> int i
+  | TApp (lid, args) ->
+      string (string_of_lident lid) ^/^ separate_map space print_typ args
 
 and print_expr { node; _ } =
   match node with

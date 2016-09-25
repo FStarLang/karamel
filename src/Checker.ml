@@ -100,7 +100,7 @@ let populate_env files =
   List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
-      | DTypeAlias (lid, typ) ->
+      | DTypeAlias (lid, _, typ) ->
           { env with types = M.add lid (Abbrev typ) env.types }
       | DTypeFlat (lid, fields) ->
           { env with types = M.add lid (Flat fields) env.types }
@@ -158,6 +158,7 @@ let rec check_everything files =
       Some p
     with Error e ->
       Warnings.maybe_fatal_error e;
+      KPrint.beprintf "Dropping %s (at checking time)\n" (fst p);
       None
   ) files
 
@@ -465,6 +466,10 @@ and types_equal env t1 t2 =
       true
   | TZ, TZ ->
       true
+  | TBound i, TBound i' ->
+      i = i'
+  | TApp (lid, args), TApp (lid', args') ->
+      lid = lid' && List.for_all2 (types_equal env) args args'
   | _ ->
       false
 
@@ -479,6 +484,12 @@ and reduce env t =
       begin match M.find lid env.types with
       | exception Not_found -> t
       | Abbrev t -> reduce env t
+      | _ -> t
+      end
+  | TApp (lid, args) ->
+      begin match M.find lid env.types with
+      | exception Not_found -> t
+      | Abbrev t -> reduce env (DeBruijn.subst_tn t args)
       | _ -> t
       end
   | _ ->

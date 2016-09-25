@@ -20,7 +20,7 @@ see `LICENSE` for more details.
 
 ## Installation
 
-Make sure you run `opam update` to get `process-2.0.1` (version `2.0` doesn't
+Make sure you run `opam update` to get `process-0.2.1` (version `0.2` doesn't
 work on Windows). Install all of the packages below, possibly following
 instructions from https://github.com/FStarLang/FStar/wiki for "difficult"
 packages (e.g. `ppx_deriving`) on Windows.

@@ -13,7 +13,7 @@ and file =
 
 and decl =
   | DFunction of typ * lident * binder list * expr
-  | DTypeAlias of lident * typ
+  | DTypeAlias of lident * int * typ
   | DGlobal of lident * typ * expr
   | DTypeFlat of lident * (ident * (typ * bool)) list
   | DExternal of lident * typ
@@ -112,6 +112,8 @@ and typ =
   | TArrow of typ * typ
       (** t1 -> t2 *)
   | TZ
+  | TBound of int
+  | TApp of lident * typ list
 
 let flatten_arrow =
   let rec flatten_arrow acc = function
@@ -139,6 +141,9 @@ class virtual ['env, 'result, 'tresult, 'dresult, 'extra] visitor = object (self
      can be used to extend the environment when a binding is
      entered. *)
   method extend (env: 'env) (_: binder): 'env =
+    env
+
+  method extend_t (env: 'env): 'env =
     env
 
   (* The main visitor method inspects the structure of [e] and
@@ -249,6 +254,10 @@ class virtual ['env, 'result, 'tresult, 'dresult, 'extra] visitor = object (self
         self#tarrow env t1 t2
     | TZ ->
         self#tz env
+    | TBound i ->
+        self#tbound env i
+    | TApp (name, args) ->
+        self#tapp env name (List.map (self#visit_t env) args)
 
   method virtual tint: 'env -> K.width -> 'tresult
   method virtual tbuf: 'env -> typ -> 'tresult
@@ -258,13 +267,15 @@ class virtual ['env, 'result, 'tresult, 'dresult, 'extra] visitor = object (self
   method virtual tany: 'env -> 'tresult
   method virtual tarrow: 'env -> typ -> typ -> 'tresult
   method virtual tz: 'env -> 'tresult
+  method virtual tbound: 'env -> int -> 'tresult
+  method virtual tapp: 'env -> lident -> typ list -> 'tresult
 
   method visit_d (env: 'env) (d: decl): 'dresult =
     match d with
     | DFunction (ret, name, binders, expr) ->
         self#dfunction env ret name binders expr
-    | DTypeAlias (name, t) ->
-        self#dtypealias env name t
+    | DTypeAlias (name, n, t) ->
+        self#dtypealias env name n t
     | DGlobal (name, typ, expr) ->
         self#dglobal env name typ expr
     | DTypeFlat (name, fields) ->
@@ -273,7 +284,7 @@ class virtual ['env, 'result, 'tresult, 'dresult, 'extra] visitor = object (self
         self#dexternal env name t
 
   method virtual dfunction: 'env -> typ -> lident -> binder list -> expr -> 'dresult
-  method virtual dtypealias: 'env -> lident -> typ -> 'dresult
+  method virtual dtypealias: 'env -> lident -> int -> typ -> 'dresult
   method virtual dglobal: 'env -> lident -> typ -> expr -> 'dresult
   method virtual dtypeflat: 'env -> lident -> (ident * (typ * bool)) list -> 'dresult
   method virtual dexternal: 'env -> lident -> typ -> 'dresult
@@ -411,19 +422,32 @@ class ['env] map = object (self)
   method tz _env =
     TZ
 
+  method tbound _env i =
+    TBound i
+
+  method tapp env lid ts =
+    TApp (lid, List.map (self#visit_t env) ts)
+
   method binders env binders =
     List.map (fun binder -> { binder with typ = self#visit_t env binder.typ }) binders
 
   method dfunction env ret name binders expr =
     let binders = self#binders env binders in
     let env = self#extend_many env binders in
-    DFunction (ret, name, binders, self#visit env expr)
+    DFunction (self#visit_t env ret, name, binders, self#visit env expr)
 
   method dglobal env name typ expr =
     DGlobal (name, self#visit_t env typ, self#visit env expr)
 
-  method dtypealias env name t =
-    DTypeAlias (name, self#visit_t env t)
+  method dtypealias env name n t =
+    let rec extend e n =
+      if n = 0 then
+        e
+      else
+        extend (self#extend_t e) (n - 1)
+    in
+    let env = extend env n in
+    DTypeAlias (name, n, self#visit_t env t)
 
   method fields_t env fields =
     List.map (fun (name, (t, mut)) -> name, (self#visit_t env t, mut)) fields

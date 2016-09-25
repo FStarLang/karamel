@@ -37,8 +37,8 @@ class ignore_everything = object
   method dglobal () name typ expr =
     DGlobal (name, typ, expr)
 
-  method dtypealias () name t =
-    DTypeAlias (name, t)
+  method dtypealias () name n t =
+    DTypeAlias (name, n, t)
 
   method dtypeflat () name fields =
     DTypeFlat (name, fields)
@@ -536,8 +536,8 @@ let record_toplevel_names = object
   method dexternal () name t =
     DExternal (record_name name, t)
 
-  method dtypealias () name t =
-    DTypeAlias (record_name name, t)
+  method dtypealias () name n t =
+    DTypeAlias (record_name name, n, t)
 
   method dtypeflat () name fields =
     DTypeFlat (record_name name, fields)
@@ -548,6 +548,9 @@ let t lident =
 
 let replace_references_to_toplevel_names = object(self)
   inherit [unit] map
+
+  method tapp () lident args =
+    TApp (t lident, List.map (self#visit_t ()) args)
 
   method tqualified () lident =
     TQualified (t lident)
@@ -561,8 +564,8 @@ let replace_references_to_toplevel_names = object(self)
   method dfunction () ret name args body =
     DFunction (self#visit_t () ret, t name, self#binders () args, self#visit () body)
 
-  method dtypealias () name typ =
-    DTypeAlias (t name, self#visit_t () typ)
+  method dtypealias () name n typ =
+    DTypeAlias (t name, n, self#visit_t () typ)
 
   method dexternal () name typ =
     DExternal (t name, self#visit_t () typ)

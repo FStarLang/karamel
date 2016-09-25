@@ -7,8 +7,8 @@ module I = InputAst
 let rec mk_decl = function
   | I.DFunction (t, name, binders, body) ->
       DFunction (mk_typ t, name, mk_binders binders, mk_expr body)
-  | I.DTypeAlias (name, t) ->
-      DTypeAlias (name, mk_typ t)
+  | I.DTypeAlias (name, n, t) ->
+      DTypeAlias (name, n, mk_typ t)
   | I.DGlobal (name, t, e) ->
       DGlobal (name, mk_typ t, mk_expr e)
   | I.DTypeFlat (name, fields) ->
@@ -45,6 +45,10 @@ and mk_typ = function
       TArrow (mk_typ t1, mk_typ t2)
   | I.TZ ->
       TZ
+  | I.TBound i ->
+      TBound i
+  | I.TApp (lid, ts) ->
+      TApp (lid, List.map mk_typ ts)
 
 and mk_expr = function
   | I.EBound i ->

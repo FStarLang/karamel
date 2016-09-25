@@ -13,10 +13,11 @@ type program =
 
 and decl =
   | DFunction of (typ * lident * binder list * expr)
-  | DTypeAlias of (lident * typ)
+  | DTypeAlias of (lident * int * typ)
+      (** Name, number of parameters (De Bruijn), definition. *)
   | DGlobal of (lident * typ * expr)
   | DTypeFlat of (lident * (ident * (typ * bool)) list)
-      (** The boolean indicate if the field is mutable *)
+      (** The boolean indicates if the field is mutable *)
   | DExternal of (lident * typ)
 
 and expr =
@@ -96,6 +97,8 @@ and typ =
   | TArrow of (typ * typ)
       (** t1 -> t2 *)
   | TZ
+  | TBound of int
+  | TApp of (lident * typ list)
 
 let flatten_arrow =
   let rec flatten_arrow acc = function
@@ -108,7 +111,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 12
+let current_version: version = 13
 
 type file = string * program
   [@@deriving yojson]

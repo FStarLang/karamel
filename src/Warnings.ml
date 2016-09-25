@@ -1,6 +1,8 @@
 (** Unified warning handling *)
 
 open Flags
+open Ast
+open PrintAst
 
 type error = location * raw_error
   (** TODO: error = location * raw_error *)
@@ -12,6 +14,7 @@ and raw_error =
   | TypeError of string
   | Unsupported of string
   | ExternalError of string
+  | ExternalTypeApp of lident
 
 and location =
   string
@@ -57,8 +60,11 @@ let rec perr buf (loc, raw_error) =
       p "Unsupported: %s" e
   | ExternalError c ->
       p "the following command failed:\n%s" c
+  | ExternalTypeApp lid ->
+      p "hit a type application of %a, which is not defined; dropping"
+        plid lid
 
-let flags = Array.make 5 CError;;
+let flags = Array.make 6 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -75,6 +81,8 @@ let errno_of_error = function
       3
   | TypeError _ ->
       4
+  | ExternalTypeApp _ ->
+      5
   | _ ->
       (** Things that cannot be silenced! *)
       0
