@@ -487,6 +487,17 @@ and hoist under_let e =
       ) fields) in
       List.flatten lhs, mk (EFlat fields)
 
+let hoist = object
+  inherit ignore_everything
+  inherit [_] map
+
+  method dfunction () ret name binders expr =
+    (* TODO: no nested let-bindings in top-level value declarations either *)
+    let binders, expr = open_function_binders binders expr in
+    let expr = hoist_t expr in
+    let expr = close_function_binders binders expr in
+    DFunction (ret, name, binders, expr)
+end
 
 
 (* No partial applications ****************************************************)
@@ -514,14 +525,17 @@ end
 
 (* Make top-level names C-compatible using a global translation table **********)
 
+let skip_prefix prefix =
+  List.exists ((=) (String.concat "." prefix)) !Options.no_prefix
+
+let target_c_name lident =
+  if skip_prefix (fst lident) then
+    snd lident
+  else
+    string_of_lident lident
+
 let record_name lident =
-  let desired_name =
-    if List.exists ((=) (String.concat "." (fst lident))) !Options.no_prefix then
-      snd lident
-    else
-      string_of_lident lident
-  in
-  [], GlobalNames.record (string_of_lident lident) desired_name
+  [], GlobalNames.record (string_of_lident lident) (target_c_name lident)
 
 let record_toplevel_names = object
 
@@ -544,7 +558,7 @@ let record_toplevel_names = object
 end
 
 let t lident =
-  [], GlobalNames.translate (string_of_lident lident)
+  [], GlobalNames.translate (string_of_lident lident) (target_c_name lident)
 
 let replace_references_to_toplevel_names = object(self)
   inherit [unit] map
@@ -589,17 +603,7 @@ let simplify1 (files: file list): file list =
 
 let simplify2 (files: file list): file list =
   let files = visit_files () sequence_to_let files in
-  let files = visit_files () (object
-    inherit ignore_everything
-    inherit [_] map
-
-    method dfunction () ret name binders expr =
-      (* TODO: no nested let-bindings in top-level value declarations either *)
-      let binders, expr = open_function_binders binders expr in
-      let expr = hoist_t expr in
-      let expr = close_function_binders binders expr in
-      DFunction (ret, name, binders, expr)
-  end) files in
+  let files = visit_files () hoist files in
   let files = visit_files () let_if_to_assign files in
   let files = visit_files () let_to_sequence files in
   files

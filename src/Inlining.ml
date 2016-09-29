@@ -17,6 +17,7 @@ open Warnings
 open Idents
 
 let plid = PrintAst.plid
+let ptyp = PrintAst.ptyp
 let pexpr = PrintAst.pexpr
 
 module LidMap = Map.Make(struct
@@ -205,6 +206,7 @@ let inline_type_abbrevs files =
   let inliner inline_one = object
     inherit [unit] map
     method tapp () lid ts =
+      assert (List.length ts > 0);
       try DeBruijn.subst_tn (inline_one lid) ts
       with Not_found -> TAny
     method tqualified () lid =
