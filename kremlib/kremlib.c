@@ -1,7 +1,8 @@
 #include <stdlib.h>
 #include "kremlib.h"
 
-int exit_success = 0;
+int exit_success = EXIT_SUCCESS;
+int exit_failure = EXIT_FAILURE;
 
 uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
   return x >= y ? UINT64_C(0xffffffffffffffff) : 0;
