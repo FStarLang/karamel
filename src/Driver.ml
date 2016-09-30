@@ -114,6 +114,8 @@ let detect_fstar () =
     Sys.chdir cwd
   end;
 
+  (* Add default include directories, those specified by the user, and skip a
+   * set of known failing modules. *)
   let fstar_includes = [
     !fstar_home ^^ "examples" ^^ "low-level";
     !fstar_home ^^ "examples" ^^ "low-level" ^^ "crypto";
@@ -138,8 +140,10 @@ let detect_fstar_if () =
     detect_fstar ()
 
 let verbose_msg () =
-  if !Options.verbose then ""
-  else " (use -verbose to see the output)"
+  if !Options.verbose then
+    ""
+  else
+    " (use -verbose to see the output)"
 
 (** Run a command, print its output if [-verbose] is passed, and possibly abort
  * (depending on -warn-error) if the command failed. *)
@@ -200,7 +204,8 @@ let detect_gcc () =
     "-Wno-unused-variable";
     "-Wno-unused-but-set-variable";
     "-std=c11";
-    "-g"
+    "-g";
+    "-O3"
   ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes));
   KPrint.bprintf "%sgcc options are:%s %s\n" Ansi.underline Ansi.reset
     (String.concat " " !gcc_args)
