@@ -27,10 +27,12 @@ typedef int8_t FStar_Int8_t, FStar_Int8_t_;
 // signatures of ghost functions, meaning that it suffices to give them (any)
 // definition.
 typedef void *Prims_pos, *Prims_nat, *Prims_nonzero, *FStar_Seq_seq, *Prims_int,
-        *FStar_HyperStack_mem, *FStar_Set_set, *Prims_st_pre_h,
+        *Prims_prop,
+        *FStar_HyperStack_mem, *FStar_Set_set, *Prims_st_pre_h, *FStar_Heap_heap,
         *Prims_all_pre_h, *FStar_TSet_set, *Prims_string, *Prims_list,
         *FStar_Map_t,
         *FStar_UInt63_t_, *FStar_Int63_t_,
+        *FStar_UInt63_t, *FStar_Int63_t,
         *FStar_UInt_uint_t, *FStar_Int_int_t,
         *FStar_HyperStack_stackref, *FStar_HyperHeap_rid, *FStar_HyperHeap_t,
         *FStar_Heap_aref, *FStar_Buffer_abuffer;

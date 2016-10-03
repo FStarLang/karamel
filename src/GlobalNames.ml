@@ -15,9 +15,9 @@ let record original_name desired_name =
   | _ ->
       fatal_error "Duplicate global name: %s" original_name
 
-let translate name =
+let translate name fallback =
   try
     Hashtbl.find c_of_original name
   with Not_found ->
     (* Assuming some externally-realized function. *)
-    to_c_identifier name
+    to_c_identifier fallback
