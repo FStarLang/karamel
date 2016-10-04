@@ -197,7 +197,7 @@ let rec translate_expr env e =
       CStar.Field (translate_expr env expr, field)
 
 
-and extract_stmts env e =
+and extract_stmts env e ret_type =
   let rec collect (env, acc) return_pos e =
     match e.node with
     | ELet (binder, e1, e2) ->
@@ -236,9 +236,6 @@ and extract_stmts env e =
     | EMatch _ ->
         fatal_error "[AstToCStar.collect EMatch]: not implemented"
 
-    | EUnit ->
-        env, acc
-
     | EPushFrame ->
         env, CStar.PushFrame :: acc
 
@@ -265,9 +262,9 @@ and extract_stmts env e =
     List.rev (snd (collect (reset_block env, []) return_pos e))
 
   and translate_as_return env e acc =
-    if e.mtyp = TUnit && is_value e.node then
+    if ret_type = CStar.Void && is_value e.node then
       env, CStar.Return None :: acc
-    else if e.mtyp = TUnit then
+    else if ret_type = CStar.Void then
       env, CStar.Return None :: CStar.Ignore (translate_expr env e) :: acc
     else
       env, CStar.Return (Some (translate_expr env e)) :: acc
@@ -310,7 +307,7 @@ and extract_stmts env e =
 and translate_function_block env e t =
   (** This function expects an environment where names and in_block have been
    * populated with the function's parameters. *)
-  let stmts = extract_stmts env e in
+  let stmts = extract_stmts env e t in
 
   (** This just enforces some invariants and drops push/pop frame when they span
    * the entire function body (because it's redundant with the function frame). *)
