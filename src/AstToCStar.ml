@@ -106,8 +106,27 @@ let ensure_fresh env name body =
         !r
   in
   mk_fresh name (fun tentative ->
-    tricky_shadowing_see_comment_above tentative || List.exists ((=) tentative) env.in_block)
+    tricky_shadowing_see_comment_above tentative ||
+    List.exists ((=) tentative) env.in_block)
 
+
+(** AstToCStar performs a unit-to-void conversion.
+ *
+ * Functions that TAKE a single unit argument are translated as functions that
+ * take zero arguments. If the argument is a EUnit expression, we drop it;
+ * otherwise, we use a comma operator to make sure we don't discard the
+ * (potential) side effect of the argument, EVEN THOUGH F* guarantees that an
+ * effectful argument is hoisted (see [translate_expr]).
+ *
+ * Function that RETURN a single unit argument are translated as functions that
+ * return void; this means that any [EReturn e] where [e] has type unit becomes
+ * a [Return None]. If [e] is not a value, we can use a sequence (see
+ * [translate_expr] again). If a function that has undergone unit to void
+ * conversion appears in an expression, again, a comma expression comes to the
+ * rescue.
+ *
+ * The translation of function types is aware of this, too.
+ *)
 
 let rec translate_expr env e =
   match e.node with
@@ -119,14 +138,19 @@ let rec translate_expr env e =
       CStar.Constant c
   | EApp (e, es) ->
       (* Functions that only take a unit take no argument. *)
-      let es = match e.mtyp, es with
-        | TArrow (TUnit, _), [ { node = EUnit; _ } ] ->
+      let _t, ts = flatten_arrow e.mtyp in
+      let es = match ts, es with
+        | [ TUnit ], [ { node = EUnit; _ } ] ->
             []
-        | TArrow (TUnit, _), [ _ ] ->
+        | [ TUnit ], [ _e' ] ->
+            (** TODO: translate as [Cs.Comma (_e', CStar.Call (e, []))] *)
             failwith "Not supported: functions that take a unit argument can only be called with a constant unit"
         | _ ->
             es
       in
+      (** TODO: if [t] is [TUnit], then insert a comma and an EUnit. This
+       * currently causes translation mismatches and subsequent compilation
+       * errors. *)
       CStar.Call (translate_expr env e, List.map (translate_expr env) es)
   | EBufCreate (e1, e2) ->
       CStar.BufCreate (translate_expr env e1, translate_expr env e2)
@@ -225,29 +249,46 @@ and extract_stmts env e =
         env, CStar.Abort :: acc
 
     | EReturn e ->
-        (** Functions that return unit return nothing. *)
-        if e.mtyp = TUnit then begin
-          assert (e.node = EUnit);
-          env, CStar.Return None :: acc
-        end else
-          env, CStar.Return (Some (translate_expr env e)) :: acc
+        translate_as_return env e acc
 
     | _ when return_pos ->
-        (** Functions that return unit return nothing. *)
-        if e.mtyp = TUnit then
-          if e.node = EUnit then
-            env, CStar.Return None :: acc
-          else
-            env, CStar.Return None :: CStar.Ignore (translate_expr env e) :: acc
-        else
-          env, CStar.Return (Some (translate_expr env e)) :: acc
+        translate_as_return env e acc
 
     | _ ->
-        let e = CStar.Ignore (translate_expr env e) in
-        env, e :: acc
+        if is_value e.node then
+          env, acc
+        else
+          let e = CStar.Ignore (translate_expr env e) in
+          env, e :: acc
 
   and translate_block env return_pos e =
     List.rev (snd (collect (reset_block env, []) return_pos e))
+
+  and translate_as_return env e acc =
+    if e.mtyp = TUnit && is_value e.node then
+      env, CStar.Return None :: acc
+    else if e.mtyp = TUnit then
+      env, CStar.Return None :: CStar.Ignore (translate_expr env e) :: acc
+    else
+      env, CStar.Return (Some (translate_expr env e)) :: acc
+
+  and is_value x =
+    match x with
+    | EBound _
+    | EOpen _
+    | EQualified _
+    | EConstant _
+    | EUnit
+    | EOp _
+    | EBool _
+    | EAny
+    | EFlat _
+    | EField _ ->
+        true
+    | ECast (e,_) ->
+        is_value e.node
+    | _ ->
+        false
 
   in
 

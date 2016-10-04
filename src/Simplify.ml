@@ -190,6 +190,7 @@ let let_to_sequence = object (self)
     | None ->
         begin match e2.node with
         | EBound 0 ->
+            (* let x = e1 in x *)
             e1.node
         | _ ->
             let e2 = self#visit env e2 in
