@@ -58,7 +58,6 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     "-skip-compilation", Arg.Set arg_skip_compilation, " stop after step 2.";
     "-skip-linking", Arg.Set arg_skip_linking, " stop after step 3.";
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";
-    "--lax", Arg.Set Options.lax, " forward --lax to F*";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to the generated file";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
     "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";
@@ -148,6 +147,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   (* Do this at the last minute because the checker still needs these type
    * abbreviations to check that our stuff makes sense. *)
   let files = Inlining.drop_type_abbrevs files in
+  let files = Inlining.drop_unused files in
 
   (* Translate to C*, then to C. *)
   let files = AstToCStar.translate_files files in

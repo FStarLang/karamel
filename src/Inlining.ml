@@ -153,11 +153,16 @@ let rec memoize_inline map visit lid =
 let filter_decls f files =
   List.map (fun (file, decls) -> file, KList.filter_map f decls) files
 
+let iter_decls f files =
+  List.iter (fun (_, decls) -> List.iter f decls) files
+
+(* Inline function bodies *****************************************************)
+
 let inline_function_frames files =
   (* A stateful graph traversal that uses the textbook three colors to rule out
    * cycles. *)
   let map = build_map files (fun map -> function
-    | DFunction (_, name, _, body) -> Hashtbl.add map name (White, body)
+    | DFunction (_, _, name, _, body) -> Hashtbl.add map name (White, body)
     | _ -> ()
   ) in
   let valuation = inline_analysis map in
@@ -187,15 +192,17 @@ let inline_function_frames files =
    * very happy if it sees someone returning a stack pointer!); functions that
    * are meant to be kept are run through [inline_one]. *)
   filter_decls (function
-    | DFunction (ret, name, binders, _) ->
+    | DFunction (flags, ret, name, binders, _) ->
         if valuation name = MustInline && string_of_lident name <> "main" then
           None
         else
-          Some (DFunction (ret, name, binders, inline_one name))
+          Some (DFunction (flags, ret, name, binders, inline_one name))
     | d ->
         Some d
   ) files
 
+
+(* Monomorphize types *********************************************************)
 
 let inline_type_abbrevs files =
   let map = build_map files (fun map -> function
@@ -228,6 +235,59 @@ let drop_type_abbrevs files =
           (* A type definition with parameters is not something we'll be able to
            * generate code for (at the moment). So, drop it. *)
           None
+    | d ->
+        Some d
+  ) files
+
+
+(* Drop unused private functions **********************************************)
+
+let drop_unused files =
+  let visited = Hashtbl.create 41 in
+  let must_keep = Hashtbl.create 41 in
+  let body_of_lid = build_map files (fun map -> function
+    | DFunction (_, _, name, _, body)
+    | DGlobal (_, name, _, body) ->
+        Hashtbl.add map name body
+    | _ ->
+        ()
+  ) in
+  let rec visit lid =
+    if Hashtbl.mem visited lid then
+      ()
+    else begin
+      Hashtbl.add visited lid ();
+      Hashtbl.add must_keep lid ();
+      match Hashtbl.find body_of_lid lid with
+      | exception Not_found -> ()
+      | body -> visit_e body
+    end
+  and visit_e body =
+    ignore ((object
+      inherit [_] map
+      method equalified () _ lid =
+        visit lid;
+        EQualified lid
+    end)#visit () body)
+  in
+  iter_decls (function
+    | DFunction (flags, _, lid, _, body) ->
+        if (not (List.exists ((=) Private) flags)) then begin
+          Hashtbl.add must_keep lid ();
+          visit_e body
+        end
+    | DGlobal (_, _, _, body) ->
+        visit_e body
+    | _ ->
+        ()
+  ) files;
+  filter_decls (function
+    | DFunction (flags, _, lid, _, _) as d ->
+        if not (Hashtbl.mem must_keep lid) then begin
+          assert (List.exists ((=) Private) flags);
+          None
+        end else
+          Some d
     | d ->
         Some d
   ) files

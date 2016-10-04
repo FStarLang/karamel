@@ -5,16 +5,23 @@ open Ast
 module I = InputAst
 
 let rec mk_decl = function
-  | I.DFunction (t, name, binders, body) ->
-      DFunction (mk_typ t, name, mk_binders binders, mk_expr body)
+  | I.DFunction (flags, t, name, binders, body) ->
+      DFunction (mk_flags flags, mk_typ t, name, mk_binders binders, mk_expr body)
   | I.DTypeAlias (name, n, t) ->
       DTypeAlias (name, n, mk_typ t)
-  | I.DGlobal (name, t, e) ->
-      DGlobal (name, mk_typ t, mk_expr e)
+  | I.DGlobal (flags, name, t, e) ->
+      DGlobal (mk_flags flags, name, mk_typ t, mk_expr e)
   | I.DTypeFlat (name, fields) ->
       DTypeFlat (name, mk_tfields fields)
   | I.DExternal (name, t) ->
       DExternal (name, mk_typ t)
+
+and mk_flags flags =
+  List.map mk_flag flags
+
+and mk_flag = function
+  | I.Private ->
+      Private
 
 and mk_binders bs =
   List.map mk_binder bs

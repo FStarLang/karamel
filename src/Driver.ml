@@ -121,10 +121,8 @@ let detect_fstar () =
     !fstar_home ^^ "examples" ^^ "low-level" ^^ "crypto";
   ] @ !Options.includes in
   fstar_options := [
-    "--trace_error"; "--codegen"; "Kremlin"
+    "--trace_error"; "--codegen"; "Kremlin"; "--lax"
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
-  if !Options.lax then
-    fstar_options := "--lax" :: !fstar_options;
   List.iter (fun m ->
     fstar_options := "--no_extract" :: ("FStar." ^ m) :: !fstar_options
   ) [ "Mul"; "Int"; "UInt"; "Int.Cast";

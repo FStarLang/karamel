@@ -419,7 +419,7 @@ and translate_declaration env d: CStar.decl option =
   in
 
   match d with
-  | DFunction (t, name, binders, body) ->
+  | DFunction (_, t, name, binders, body) ->
       Some (wrap_throw (string_of_lident name) (lazy begin
         let t = translate_return_type env t in
         assert (env.names = []);
@@ -435,7 +435,7 @@ and translate_declaration env d: CStar.decl option =
       else
         None
 
-  | DGlobal (name, t, body) ->
+  | DGlobal (_, name, t, body) ->
       Some (CStar.Global (
         string_of_lident name,
         translate_type env t,
