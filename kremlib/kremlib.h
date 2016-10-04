@@ -43,10 +43,22 @@ typedef void *Prims_pos, *Prims_nat, *Prims_nonzero, *FStar_Seq_seq, *Prims_int,
 
 FStar_Seq_seq FStar_Seq_createEmpty(void *_);
 
+// Prims
 bool Prims_op_GreaterThanOrEqual(Prims_int x, Prims_int y);
+bool Prims_op_LessThanOrEqual(Prims_int x, Prims_int y);
+bool Prims_op_GreaterThan(Prims_int x, Prims_int y);
+bool Prims_op_LessThan(Prims_int x, Prims_int y);
+Prims_int Prims_pow2(Prims_int x);
+Prims_int Prims_op_Multiply(Prims_int x, Prims_int y);
+Prims_int Prims_op_Addition(Prims_int x, Prims_int y);
+Prims_int Prims_op_Subtraction(Prims_int x, Prims_int y);
+Prims_int Prims_op_Division(Prims_int x, Prims_int y);
+Prims_int Prims_op_Modulus(Prims_int x, Prims_int y);
+void *Prims_magic(void *_);
+void *Prims____Cons___tl(void *_);
+
 Prims_int FStar_UInt32_v(uint32_t x);
 Prims_int FStar_Mul_op_Star(Prims_int x, Prims_int y);
-Prims_int Prims_pow2(Prims_int x);
 Prims_int Math_Lib_div(Prims_int x, Prims_int y);
 Prims_int Math_Lib_signed_modulo(Prims_int x, Prims_int y);
 
