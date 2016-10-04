@@ -19,3 +19,23 @@ Prims_int FStar_UInt32_v(uint32_t x) {
 FStar_Seq_seq FStar_Seq_createEmpty(void *_) {
   exit(254);
 }
+
+bool Prims_op_GreaterThanOrEqual(Prims_int x, Prims_int y) {
+  exit(254);
+}
+
+Prims_int FStar_Mul_op_Star(Prims_int x, Prims_int y) {
+  exit(254);
+}
+
+Prims_int Prims_pow2(Prims_int x) {
+  exit(254);
+}
+
+Prims_int Math_Lib_div(Prims_int x, Prims_int y) {
+  exit(254);
+}
+
+Prims_int Math_Lib_signed_modulo(Prims_int x, Prims_int y) {
+  exit(254);
+}
