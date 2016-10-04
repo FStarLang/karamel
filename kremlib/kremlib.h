@@ -41,8 +41,9 @@ typedef void *Prims_pos, *Prims_nat, *Prims_nonzero, *FStar_Seq_seq, *Prims_int,
         *FStar_HyperStack_stackref, *FStar_HyperHeap_rid, *FStar_HyperHeap_t,
         *FStar_Heap_aref, *FStar_Buffer_abuffer;
 
-bool Prims_op_GreaterThanOrEqual(Prims_int x, Prims_int y);
 FStar_Seq_seq FStar_Seq_createEmpty(void *_);
+
+bool Prims_op_GreaterThanOrEqual(Prims_int x, Prims_int y);
 Prims_int FStar_UInt32_v(uint32_t x);
 Prims_int FStar_Mul_op_Star(Prims_int x, Prims_int y);
 Prims_int Prims_pow2(Prims_int x);
