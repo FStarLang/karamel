@@ -106,8 +106,27 @@ let ensure_fresh env name body =
         !r
   in
   mk_fresh name (fun tentative ->
-    tricky_shadowing_see_comment_above tentative || List.exists ((=) tentative) env.in_block)
+    tricky_shadowing_see_comment_above tentative ||
+    List.exists ((=) tentative) env.in_block)
 
+
+(** AstToCStar performs a unit-to-void conversion.
+ *
+ * Functions that TAKE a single unit argument are translated as functions that
+ * take zero arguments. If the argument is a EUnit expression, we drop it;
+ * otherwise, we use a comma operator to make sure we don't discard the
+ * (potential) side effect of the argument, EVEN THOUGH F* guarantees that an
+ * effectful argument is hoisted (see [translate_expr]).
+ *
+ * Function that RETURN a single unit argument are translated as functions that
+ * return void; this means that any [EReturn e] where [e] has type unit becomes
+ * a [Return None]. If [e] is not a value, we can use a sequence (see
+ * [translate_expr] again). If a function that has undergone unit to void
+ * conversion appears in an expression, again, a comma expression comes to the
+ * rescue.
+ *
+ * The translation of function types is aware of this, too.
+ *)
 
 let rec translate_expr env e =
   match e.node with
@@ -119,14 +138,19 @@ let rec translate_expr env e =
       CStar.Constant c
   | EApp (e, es) ->
       (* Functions that only take a unit take no argument. *)
-      let es = match e.mtyp, es with
-        | TArrow (TUnit, _), [ { node = EUnit; _ } ] ->
+      let _t, ts = flatten_arrow e.mtyp in
+      let es = match ts, es with
+        | [ TUnit ], [ { node = EUnit; _ } ] ->
             []
-        | TArrow (TUnit, _), [ _ ] ->
+        | [ TUnit ], [ _e' ] ->
+            (** TODO: translate as [Cs.Comma (_e', CStar.Call (e, []))] *)
             failwith "Not supported: functions that take a unit argument can only be called with a constant unit"
         | _ ->
             es
       in
+      (** TODO: if [t] is [TUnit], then insert a comma and an EUnit. This
+       * currently causes translation mismatches and subsequent compilation
+       * errors. *)
       CStar.Call (translate_expr env e, List.map (translate_expr env) es)
   | EBufCreate (e1, e2) ->
       CStar.BufCreate (translate_expr env e1, translate_expr env e2)
@@ -173,80 +197,99 @@ let rec translate_expr env e =
       CStar.Field (translate_expr env expr, field)
 
 
-and collect (env, acc) return_pos e =
-  match e.node with
-  | ELet (binder, e1, e2) ->
-      let env, binder = translate_and_push_binder env binder (Some e1)
-      and e1 = translate_expr env e1 in
-      let acc = CStar.Decl (binder, e1) :: acc in
-      collect (env, acc) return_pos e2
+and extract_stmts env e ret_type =
+  let rec collect (env, acc) return_pos e =
+    match e.node with
+    | ELet (binder, e1, e2) ->
+        let env, binder = translate_and_push_binder env binder (Some e1)
+        and e1 = translate_expr env e1 in
+        let acc = CStar.Decl (binder, e1) :: acc in
+        collect (env, acc) return_pos e2
 
-  | EWhile (e1, e2) ->
-      let e = CStar.While (translate_expr env e1, translate_block env e2) in
-      env, e :: acc
+    | EWhile (e1, e2) ->
+        let e = CStar.While (translate_expr env e1, translate_block env false e2) in
+        env, e :: acc
 
-  | EIfThenElse (e1, e2, e3) ->
-      let e = CStar.IfThenElse (translate_expr env e1, translate_block env e2, translate_block env e3) in
-      env, e :: acc
+    | EIfThenElse (e1, e2, e3) ->
+        let e = CStar.IfThenElse (translate_expr env e1, translate_block env return_pos e2, translate_block env return_pos e3) in
+        env, e :: acc
 
-  | ESequence es ->
-      let n = List.length es in
-      KList.fold_lefti (fun i (_, acc) e ->
-        let return_pos = i = n - 1 && return_pos in
-        collect (env, acc) return_pos e
-      ) (env, acc) es
+    | ESequence es ->
+        let n = List.length es in
+        KList.fold_lefti (fun i (_, acc) e ->
+          let return_pos = i = n - 1 && return_pos in
+          collect (env, acc) return_pos e
+        ) (env, acc) es
 
-  | EAssign (e1, e2) ->
-      let e = CStar.Assign (translate_expr env e1, translate_expr env e2) in
-      env, e :: acc
+    | EAssign (e1, e2) ->
+        let e = CStar.Assign (translate_expr env e1, translate_expr env e2) in
+        env, e :: acc
 
-  | EBufBlit (e1, e2, e3, e4, e5) ->
-      let e = CStar.BufBlit (translate_expr env e1, translate_expr env e2, translate_expr env e3, translate_expr env e4, translate_expr env e5) in
-      env, e :: acc
+    | EBufBlit (e1, e2, e3, e4, e5) ->
+        let e = CStar.BufBlit (translate_expr env e1, translate_expr env e2, translate_expr env e3, translate_expr env e4, translate_expr env e5) in
+        env, e :: acc
 
-  | EBufWrite (e1, e2, e3) ->
-      let e = CStar.BufWrite (translate_expr env e1, translate_expr env e2, translate_expr env e3) in
-      env, e :: acc
+    | EBufWrite (e1, e2, e3) ->
+        let e = CStar.BufWrite (translate_expr env e1, translate_expr env e2, translate_expr env e3) in
+        env, e :: acc
 
-  | EMatch _ ->
-      fatal_error "[AstToCStar.collect EMatch]: not implemented"
+    | EMatch _ ->
+        fatal_error "[AstToCStar.collect EMatch]: not implemented"
 
-  | EUnit ->
-      env, acc
+    | EPushFrame ->
+        env, CStar.PushFrame :: acc
 
-  | EPushFrame ->
-      env, CStar.PushFrame :: acc
+    | EPopFrame ->
+        env, CStar.PopFrame :: acc
 
-  | EPopFrame ->
-      env, CStar.PopFrame :: acc
+    | EAbort ->
+        env, CStar.Abort :: acc
 
-  | EAbort ->
-      env, CStar.Abort :: acc
+    | EReturn e ->
+        translate_as_return env e acc
 
-  | EReturn e ->
-      (** Functions that return unit return nothing. *)
-      if e.mtyp = TUnit then begin
-        assert (e.node = EUnit);
-        env, CStar.Return None :: acc
-      end else
-        env, CStar.Return (Some (translate_expr env e)) :: acc
+    | _ when return_pos ->
+        translate_as_return env e acc
 
-  | _ when return_pos ->
-      (** Functions that return unit return nothing. *)
-      if e.mtyp = TUnit then
-        if e.node = EUnit then
-          env, CStar.Return None :: acc
+    | _ ->
+        if is_value e.node then
+          env, acc
         else
-          env, CStar.Return None :: CStar.Ignore (translate_expr env e) :: acc
-      else
-        env, CStar.Return (Some (translate_expr env e)) :: acc
+          let e = CStar.Ignore (translate_expr env e) in
+          env, e :: acc
 
-  | _ ->
-      let e = CStar.Ignore (translate_expr env e) in
-      env, e :: acc
+  and translate_block env return_pos e =
+    List.rev (snd (collect (reset_block env, []) return_pos e))
 
-and translate_block env e =
-  List.rev (snd (collect (reset_block env, []) false e))
+  and translate_as_return env e acc =
+    if ret_type = CStar.Void && is_value e.node then
+      env, CStar.Return None :: acc
+    else if ret_type = CStar.Void then
+      env, CStar.Return None :: CStar.Ignore (translate_expr env e) :: acc
+    else
+      env, CStar.Return (Some (translate_expr env e)) :: acc
+
+  and is_value x =
+    match x with
+    | EBound _
+    | EOpen _
+    | EQualified _
+    | EConstant _
+    | EUnit
+    | EOp _
+    | EBool _
+    | EAny
+    | EFlat _
+    | EField _ ->
+        true
+    | ECast (e,_) ->
+        is_value e.node
+    | _ ->
+        false
+
+  in
+
+  snd (collect (env, []) true e)
 
 (** This enforces the push/pop frame invariant. The invariant can be described
  * as follows (the extra cases are here to provide better error messages):
@@ -264,7 +307,7 @@ and translate_block env e =
 and translate_function_block env e t =
   (** This function expects an environment where names and in_block have been
    * populated with the function's parameters. *)
-  let stmts = snd (collect (env, []) true e) in
+  let stmts = extract_stmts env e t in
 
   (** This just enforces some invariants and drops push/pop frame when they span
    * the entire function body (because it's redundant with the function frame). *)
@@ -373,7 +416,7 @@ and translate_declaration env d: CStar.decl option =
   in
 
   match d with
-  | DFunction (t, name, binders, body) ->
+  | DFunction (_, t, name, binders, body) ->
       Some (wrap_throw (string_of_lident name) (lazy begin
         let t = translate_return_type env t in
         assert (env.names = []);
@@ -389,7 +432,7 @@ and translate_declaration env d: CStar.decl option =
       else
         None
 
-  | DGlobal (name, t, body) ->
+  | DGlobal (_, name, t, body) ->
       Some (CStar.Global (
         string_of_lident name,
         translate_type env t,

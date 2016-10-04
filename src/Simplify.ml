@@ -31,11 +31,11 @@ let visit_files (env: 'env) (visitor: _ visitor) (files: file list) =
 
 
 class ignore_everything = object
-  method dfunction () ret name binders expr =
-    DFunction (ret, name, binders, expr)
+  method dfunction () flags ret name binders expr =
+    DFunction (flags, ret, name, binders, expr)
 
-  method dglobal () name typ expr =
-    DGlobal (name, typ, expr)
+  method dglobal () flags name typ expr =
+    DGlobal (flags, name, typ, expr)
 
   method dtypealias () name n t =
     DTypeAlias (name, n, t)
@@ -188,8 +188,14 @@ let let_to_sequence = object (self)
             ESequence [e1; e2]
         end
     | None ->
-        let e2 = self#visit env e2 in
-        ELet (b, e1, e2)
+        begin match e2.node with
+        | EBound 0 ->
+            (* let x = e1 in x *)
+            e1.node
+        | _ ->
+            let e2 = self#visit env e2 in
+            ELet (b, e1, e2)
+        end
 
 end
 
@@ -491,12 +497,12 @@ let hoist = object
   inherit ignore_everything
   inherit [_] map
 
-  method dfunction () ret name binders expr =
+  method dfunction () flags ret name binders expr =
     (* TODO: no nested let-bindings in top-level value declarations either *)
     let binders, expr = open_function_binders binders expr in
     let expr = hoist_t expr in
     let expr = close_function_binders binders expr in
-    DFunction (ret, name, binders, expr)
+    DFunction (flags, ret, name, binders, expr)
 end
 
 
@@ -506,7 +512,7 @@ let eta_expand = object
   inherit [_] map
   inherit ignore_everything
 
-  method dglobal () name t body =
+  method dglobal () flags name t body =
     (* TODO: eta-expand partially applied functions *)
     match t with
     | TArrow _ ->
@@ -517,9 +523,9 @@ let eta_expand = object
           { node = EBound (n - i - 1); mtyp = t }
         ) targs) in
         let body = { node = EApp (body, args); mtyp = tret } in
-        DFunction (tret, name, binders, body)
+        DFunction (flags, tret, name, binders, body)
     | _ ->
-        DGlobal (name, t, body)
+        DGlobal (flags, name, t, body)
 end
 
 
@@ -541,11 +547,11 @@ let record_toplevel_names = object
 
   inherit [_] map
 
-  method dglobal () name t body =
-    DGlobal (record_name name, t, body)
+  method dglobal () flags name t body =
+    DGlobal (flags, record_name name, t, body)
 
-  method dfunction () ret name args body =
-    DFunction (ret, record_name name, args, body)
+  method dfunction () flags ret name args body =
+    DFunction (flags, ret, record_name name, args, body)
 
   method dexternal () name t =
     DExternal (record_name name, t)
@@ -572,11 +578,11 @@ let replace_references_to_toplevel_names = object(self)
   method equalified () _ lident =
     EQualified (t lident)
 
-  method dglobal () name typ body =
-    DGlobal (t name, self#visit_t () typ, self#visit () body)
+  method dglobal () flags name typ body =
+    DGlobal (flags, t name, self#visit_t () typ, self#visit () body)
 
-  method dfunction () ret name args body =
-    DFunction (self#visit_t () ret, t name, self#binders () args, self#visit () body)
+  method dfunction () flags ret name args body =
+    DFunction (flags, self#visit_t () ret, t name, self#binders () args, self#visit () body)
 
   method dtypealias () name n typ =
     DTypeAlias (t name, n, self#visit_t () typ)

@@ -12,11 +12,14 @@ and file =
   string * program
 
 and decl =
-  | DFunction of typ * lident * binder list * expr
+  | DFunction of flag list * typ * lident * binder list * expr
+  | DGlobal of flag list * lident * typ * expr
   | DTypeAlias of lident * int * typ
-  | DGlobal of lident * typ * expr
   | DTypeFlat of lident * (ident * (typ * bool)) list
   | DExternal of lident * typ
+
+and flag =
+  | Private
 
 and expr' =
   | EBound of var
@@ -272,20 +275,20 @@ class virtual ['env, 'result, 'tresult, 'dresult, 'extra] visitor = object (self
 
   method visit_d (env: 'env) (d: decl): 'dresult =
     match d with
-    | DFunction (ret, name, binders, expr) ->
-        self#dfunction env ret name binders expr
+    | DFunction (flags, ret, name, binders, expr) ->
+        self#dfunction env flags ret name binders expr
     | DTypeAlias (name, n, t) ->
         self#dtypealias env name n t
-    | DGlobal (name, typ, expr) ->
-        self#dglobal env name typ expr
+    | DGlobal (flags, name, typ, expr) ->
+        self#dglobal env flags name typ expr
     | DTypeFlat (name, fields) ->
         self#dtypeflat env name fields
     | DExternal (name, t) ->
         self#dexternal env name t
 
-  method virtual dfunction: 'env -> typ -> lident -> binder list -> expr -> 'dresult
+  method virtual dfunction: 'env -> flag list -> typ -> lident -> binder list -> expr -> 'dresult
   method virtual dtypealias: 'env -> lident -> int -> typ -> 'dresult
-  method virtual dglobal: 'env -> lident -> typ -> expr -> 'dresult
+  method virtual dglobal: 'env -> flag list -> lident -> typ -> expr -> 'dresult
   method virtual dtypeflat: 'env -> lident -> (ident * (typ * bool)) list -> 'dresult
   method virtual dexternal: 'env -> lident -> typ -> 'dresult
 end
@@ -431,13 +434,13 @@ class ['env] map = object (self)
   method binders env binders =
     List.map (fun binder -> { binder with typ = self#visit_t env binder.typ }) binders
 
-  method dfunction env ret name binders expr =
+  method dfunction env flags ret name binders expr =
     let binders = self#binders env binders in
     let env = self#extend_many env binders in
-    DFunction (self#visit_t env ret, name, binders, self#visit env expr)
+    DFunction (flags, self#visit_t env ret, name, binders, self#visit env expr)
 
-  method dglobal env name typ expr =
-    DGlobal (name, self#visit_t env typ, self#visit env expr)
+  method dglobal env flags name typ expr =
+    DGlobal (flags, name, self#visit_t env typ, self#visit env expr)
 
   method dtypealias env name n t =
     let rec extend e n =

@@ -12,13 +12,16 @@ type program =
   [@@deriving yojson]
 
 and decl =
-  | DFunction of (typ * lident * binder list * expr)
+  | DGlobal of (flag list * lident * typ * expr)
+  | DFunction of (flag list * typ * lident * binder list * expr)
   | DTypeAlias of (lident * int * typ)
       (** Name, number of parameters (De Bruijn), definition. *)
-  | DGlobal of (lident * typ * expr)
   | DTypeFlat of (lident * (ident * (typ * bool)) list)
       (** The boolean indicates if the field is mutable *)
   | DExternal of (lident * typ)
+
+and flag =
+  | Private
 
 and expr =
   | EBound of var
@@ -111,7 +114,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 13
+let current_version: version = 14
 
 type file = string * program
   [@@deriving yojson]

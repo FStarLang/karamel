@@ -10,9 +10,9 @@ let arrow = string "->"
 
 let decl_name (d: decl) =
   match d with
-  | DFunction (_,lid,_,_)
+  | DFunction (_, _,lid,_,_)
   | DTypeAlias (lid,_,_)
-  | DGlobal (lid,_,_)
+  | DGlobal (_, lid,_,_)
   | DTypeFlat (lid,_)
   | DExternal (lid,_) -> lid
 
@@ -24,8 +24,8 @@ let print_app f head g arguments =
   )
 
 let rec print_decl = function
-  | DFunction (typ, name, binders, body) ->
-      group (string "function" ^/^ string (string_of_lident name) ^/^ parens_with_nesting (
+  | DFunction (flags, typ, name, binders, body) ->
+      print_flags flags ^^ group (string "function" ^/^ string (string_of_lident name) ^/^ parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders
       ) ^^ colon ^/^ print_typ typ) ^/^ braces_with_nesting (
         print_expr body
@@ -41,8 +41,8 @@ let rec print_decl = function
       group (string "external" ^/^ string (string_of_lident name) ^/^ colon) ^^
       jump (print_typ typ)
 
-  | DGlobal (name, typ, expr) ->
-      print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
+  | DGlobal (flags, name, typ, expr) ->
+      print_flags flags ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
   | DTypeFlat (name, fields) ->
       group (string "flat type" ^/^ string (string_of_lident name) ^/^ equals) ^^
@@ -50,6 +50,13 @@ let rec print_decl = function
         let mut = if mut then string "mutable " else empty in
         group (mut ^^ string ident ^^ colon ^/^ print_typ typ ^^ semi)
       ) fields)
+
+and print_flags flags =
+  separate_map space print_flag flags
+
+and print_flag = function
+  | Private ->
+      string "private"
 
 and print_binder { name; typ; mut; meta; mark; _ } =
   group (

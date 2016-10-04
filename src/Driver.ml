@@ -114,21 +114,20 @@ let detect_fstar () =
     Sys.chdir cwd
   end;
 
+  (* Add default include directories, those specified by the user, and skip a
+   * set of known failing modules. *)
   let fstar_includes = [
     !fstar_home ^^ "examples" ^^ "low-level";
     !fstar_home ^^ "examples" ^^ "low-level" ^^ "crypto";
   ] @ !Options.includes in
   fstar_options := [
-    "--trace_error"; "--codegen"; "Kremlin"
+    "--trace_error"; "--codegen"; "Kremlin"; "--lax"
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
-  if !Options.lax then
-    fstar_options := "--lax" :: !fstar_options;
   List.iter (fun m ->
     fstar_options := "--no_extract" :: ("FStar." ^ m) :: !fstar_options
-  ) [ "Mul"; "Int"; "UInt"; "Int.Cast";
-      "Int8"; "UInt8"; "Int16"; "UInt16"; "Int31"; "UInt31"; "Int32"; "UInt32";
+  ) [ "Int8"; "UInt8"; "Int16"; "UInt16"; "Int31"; "UInt31"; "Int32"; "UInt32";
       "Int63"; "UInt63"; "Int64"; "UInt64"; "Int128"; "UInt128";
-      "HyperHeap"; "HyperStack"; "HST" ];
+      "HyperStack"; "HST" ];
   KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
 
   flush stdout
@@ -138,8 +137,10 @@ let detect_fstar_if () =
     detect_fstar ()
 
 let verbose_msg () =
-  if !Options.verbose then ""
-  else " (use -verbose to see the output)"
+  if !Options.verbose then
+    ""
+  else
+    " (use -verbose to see the output)"
 
 (** Run a command, print its output if [-verbose] is passed, and possibly abort
  * (depending on -warn-error) if the command failed. *)
@@ -200,7 +201,8 @@ let detect_gcc () =
     "-Wno-unused-variable";
     "-Wno-unused-but-set-variable";
     "-std=c11";
-    "-g"
+    "-g";
+    "-O3"
   ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes));
   KPrint.bprintf "%sgcc options are:%s %s\n" Ansi.underline Ansi.reset
     (String.concat " " !gcc_args)

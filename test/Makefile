@@ -5,7 +5,8 @@ TESTOPTS=$(OPTS) -add-include '"testlib.h"' -I . testlib.c
 KRML=../krml
 
 all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe Mutable.exe \
-  Poly1305.exe Chacha20.exe Aead.exe ML16.exe Abbrev.exe
+  Private.exe ML16.exe Abbrev.exe \
+  Poly1305.exe Chacha20.exe
 	for f in $^; do echo $$f; ./$$f; done
 
 # Standalone test files that have a main in F* (hence -no-prefix)
@@ -14,13 +15,13 @@ all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe Mutable.exe \
 
 # Test files that have an "external" main written by hand...
 Poly1305.exe: main-Poly1305.c testlib.c
-	$(KRML) --lax $(OPTS) Crypto.Symmetric.Poly1305.fst $^ -o $@
+	$(KRML) $(OPTS) Crypto.Symmetric.Poly1305.fst $^ -o $@
 
 Chacha20.exe: main-Chacha.c testlib.c
-	$(KRML) --lax $(OPTS) Crypto.Symmetric.Chacha20.fst $^ -o $@
+	$(KRML) $(OPTS) Crypto.Symmetric.Chacha20.fst $^ -o $@
 
 Aead.exe: main-Aead.c testlib.c
-	$(KRML) --lax $(OPTS) Crypto.AEAD.Chacha20Poly1305.fst $^ -o $@
+	$(KRML) $(OPTS) Crypto.AEAD.Chacha20Poly1305.fst $^ -o $@
 
 ML16.exe: ML16.fst ml16-native.c
 	$(KRML) $(OPTS) -no-prefix ML16 $^ -o $@

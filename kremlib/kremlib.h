@@ -23,6 +23,10 @@ typedef int16_t FStar_Int16_t, FStar_Int16_t_;
 typedef uint8_t FStar_UInt8_t, FStar_UInt8_t_;
 typedef int8_t FStar_Int8_t, FStar_Int8_t_;
 
+// These actually need to be properly implemented in C
+uint64_t FStar_UInt64_eq_mask(uint64_t x, uint64_t y);
+uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y);
+
 // Some types that KreMLin has no special knowledge of; many of them appear in
 // signatures of ghost functions, meaning that it suffices to give them (any)
 // definition.
@@ -37,7 +41,21 @@ typedef void *Prims_pos, *Prims_nat, *Prims_nonzero, *FStar_Seq_seq, *Prims_int,
         *FStar_HyperStack_stackref, *FStar_HyperHeap_rid, *FStar_HyperHeap_t,
         *FStar_Heap_aref, *FStar_Buffer_abuffer;
 
-FStar_Seq_seq FStar_Seq_createEmpty(void *_);
+// Prims
+bool Prims_op_GreaterThanOrEqual(Prims_int x, Prims_int y);
+bool Prims_op_LessThanOrEqual(Prims_int x, Prims_int y);
+bool Prims_op_GreaterThan(Prims_int x, Prims_int y);
+bool Prims_op_LessThan(Prims_int x, Prims_int y);
+Prims_int Prims_pow2(Prims_int x);
+Prims_int Prims_op_Multiply(Prims_int x, Prims_int y);
+Prims_int Prims_op_Addition(Prims_int x, Prims_int y);
+Prims_int Prims_op_Subtraction(Prims_int x, Prims_int y);
+Prims_int Prims_op_Division(Prims_int x, Prims_int y);
+Prims_int Prims_op_Modulus(Prims_int x, Prims_int y);
+void *Prims_magic(void *_);
+void *Prims____Cons___tl(void *_);
+
 Prims_int FStar_UInt32_v(uint32_t x);
+FStar_Seq_seq FStar_Seq_createEmpty(void *_);
 
 #endif
