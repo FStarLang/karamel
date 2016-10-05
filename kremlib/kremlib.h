@@ -11,7 +11,7 @@
 // their C counterparts
 extern int exit_success;
 
-#ifdef __GCC__
+#ifdef __GNUC__
 typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
 #else
 typedef void *FStar_UInt128_t, *FStar_UInt128_t_;
@@ -28,6 +28,8 @@ typedef int8_t FStar_Int8_t, FStar_Int8_t_;
 // These actually need to be properly implemented in C
 uint64_t FStar_UInt64_eq_mask(uint64_t x, uint64_t y);
 uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y);
+uint8_t FStar_UInt8_eq_mask(uint8_t x, uint8_t y);
+bool FStar_UInt128_op_Greater_Greater_Hat(FStar_UInt128_t x, FStar_UInt32_t y);
 
 // Some types that KreMLin has no special knowledge of; many of them appear in
 // signatures of ghost functions, meaning that it suffices to give them (any)
@@ -58,7 +60,10 @@ void *Prims_magic(void *_);
 void *Prims____Cons___tl(void *_);
 
 Prims_int FStar_UInt32_v(uint32_t x);
+Prims_int FStar_Int_op_At_Percent(Prims_int x, Prims_int y);
 FStar_Seq_seq FStar_Seq_createEmpty(void *_);
 FStar_Seq_seq FStar_SeqProperties_snoc(FStar_Seq_seq x, Prims_nat y);
+FStar_Seq_seq FStar_SeqProperties_cons(int x, FStar_Seq_seq y);
+int FStar_Seq_index(FStar_Seq_seq x, Prims_int y);
 
 #endif

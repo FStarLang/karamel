@@ -102,7 +102,7 @@ let type_error env fmt =
 
 let type_of_op env op w =
   match op with
-  | Add | AddW | Sub | SubW | Div | Mult | Mod
+  | Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
   | BOr | BAnd | BXor ->
       TArrow (TInt w, TArrow (TInt w, TInt w))
   | BShiftL | BShiftR ->
@@ -115,6 +115,8 @@ let type_of_op env op w =
       TArrow (TBool, TArrow (TBool, TBool))
   | Not ->
       TArrow (TBool, TBool)
+  | BNot ->
+      TArrow (TInt w, TInt w)
   | Assign | PreIncr | PreDecr | PostIncr | PostDecr | Comma ->
       fatal_error "%a, operator %a is for internal use only" ploc env.location pop op
 

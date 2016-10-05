@@ -202,16 +202,17 @@ let detect_gnu flavor =
     "-Wno-parentheses";
     "-Wno-unused-variable";
     "-Wno-unused-but-set-variable";
-    "-std=c11";
     "-g";
-    "-O3"
+    "-O3";
+    "-fwrapv"
   ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
     @ List.rev !Options.ccopts;
   KPrint.bprintf "%s%s options are:%s %s\n" Ansi.underline !cc Ansi.reset
     (String.concat " " !cc_args)
 
 let detect_gcc () =
-  detect_gnu "gcc"
+  detect_gnu "gcc";
+  cc_args := "-std=c11" :: !cc_args
 
 let detect_gpp () =
   detect_gnu "g++"

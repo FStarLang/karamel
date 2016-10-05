@@ -67,7 +67,7 @@ and p_type_name (spec, decl) =
 and prec_of_op2 op =
   let open Constant in
   match op with
-  | AddW | SubW -> failwith "[prec_of_op]: should've been desugared"
+  | AddW | SubW | MultW | DivW -> failwith "[prec_of_op]: should've been desugared"
   | Add -> 4, 4, 4
   | Sub -> 4, 4, 3
   | Div -> 3, 3, 2
@@ -84,19 +84,19 @@ and prec_of_op2 op =
   | Or -> 12, 12, 12
   | Assign -> 14, 13, 14
   | Comma -> 15, 15, 14
-  | PreIncr | PostIncr | PreDecr | PostDecr | Not -> raise (Invalid_argument "prec_of_op2")
+  | PreIncr | PostIncr | PreDecr | PostDecr | Not | BNot -> raise (Invalid_argument "prec_of_op2")
 
 and prec_of_op1 op =
   let open Constant in
   match op with
-  | PreDecr | PreIncr | Not -> 2
+  | PreDecr | PreIncr | Not | BNot -> 2
   | PostDecr | PostIncr -> 1
   | _ -> raise (Invalid_argument "prec_of_op1")
 
 and is_prefix op =
   let open Constant in
   match op with
-  | PreDecr | PreIncr | Not -> true
+  | PreDecr | PreIncr | Not | BNot -> true
   | PostDecr | PostIncr -> false
   | _ -> raise (Invalid_argument "is_prefix")
 

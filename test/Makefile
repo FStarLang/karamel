@@ -24,7 +24,7 @@ Chacha20.exe: main-Chacha.c testlib.c
 	$(KRML) $(OPTS) Crypto.Symmetric.Chacha20.fst $^ -o $@
 
 Aead.exe: main-Aead.c testlib.c
-	$(KRML) $(OPTS) Crypto.AEAD.Chacha20Poly1305.fst $^ -o $@
+	$(KRML) $(OPTS) Crypto.AEAD.Chacha20Poly1305.Ideal.fst $^ -o $@
 
 ML16.exe: ML16.fst ml16-native.c
 	$(KRML) $(OPTS) -no-prefix ML16 $^ -o $@
