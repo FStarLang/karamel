@@ -207,6 +207,34 @@ let detect_gcc () =
   KPrint.bprintf "%sgcc options are:%s %s\n" Ansi.underline Ansi.reset
     (String.concat " " !cc_args)
 
+let detect_gpp () =
+  (** For the side-effect of filling in [Options.include] *)
+  detect_kremlin_if ();
+
+  KPrint.bprintf "%s⚙ KreMLin will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+  if success "which" [| "g++-5" |] then
+    cc := "g++-5"
+  else if success "which" [| "g++-6" |] then
+    cc := "g++-6"
+  else if success "which" [| "x86_64-w64-mingw32-g++" |] then
+    cc := "x86_64-w64-mingw32-g++"
+  else if success "which" [| "g++" |] then
+    cc := "g++"
+  else
+    Warnings.fatal_error "g++ not found in path!";
+  KPrint.bprintf "%sg++ is:%s %s\n" Ansi.underline Ansi.reset !cc;
+
+  cc_args := [
+    "-Wall";
+    "-Werror";
+    "-Wno-parentheses";
+    "-Wno-unused-variable";
+    "-Wno-unused-but-set-variable";
+    "-g";
+    "-O3"
+  ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes));
+  KPrint.bprintf "%sg++ options are:%s %s\n" Ansi.underline Ansi.reset
+    (String.concat " " !cc_args)
 
 let detect_compcert () =
   if success "which" [| "ccomp" |] then
@@ -227,6 +255,8 @@ let detect_cc_if () =
         detect_gcc ()
     | "compcert" ->
         detect_compcert ()
+    | "g++" ->
+        detect_gpp ()
     | _ ->
         fatal_error "Unrecognized value for -cc: %s" !Options.cc
 
@@ -247,7 +277,7 @@ let compile files extra_c_files =
   KPrint.bprintf "%s⚡ Generating object files%s\n" Ansi.blue Ansi.reset;
   let gcc_c file =
     flush stdout;
-    let info = Printf.sprintf "[gcc,compile,%s]" file in
+    let info = Printf.sprintf "[CC,%s]" file in
     run_or_warn info !cc (!cc_args @ [ "-c"; file; "-o"; o_of_c file ])
   in
   let files = List.filter gcc_c files in
@@ -260,7 +290,7 @@ let compile files extra_c_files =
 let link c_files o_files =
   let objects = List.map o_of_c c_files @ o_files in
   let extra_arg = if !Options.exe_name <> "" then [ "-o"; !Options.exe_name ] else [] in
-  if run_or_warn "[gcc,link]" !cc (!cc_args @ objects @ extra_arg) then
+  if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg) then
     KPrint.bprintf "%sAll files linked successfully%s 👍\n" Ansi.green Ansi.reset
   else begin
     KPrint.bprintf "%sgcc failed at the final linking phase%s\n" Ansi.red Ansi.reset;
