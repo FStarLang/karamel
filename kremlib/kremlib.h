@@ -57,5 +57,6 @@ void *Prims____Cons___tl(void *_);
 
 Prims_int FStar_UInt32_v(uint32_t x);
 FStar_Seq_seq FStar_Seq_createEmpty(void *_);
+FStar_Seq_seq FStar_SeqProperties_snoc(FStar_Seq_seq x, Prims_nat y);
 
 #endif
