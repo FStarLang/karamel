@@ -20,4 +20,4 @@ gcc --version
 clang --version
 fstar.exe --version
 
-make test
+make test KOPTS=-verbose
