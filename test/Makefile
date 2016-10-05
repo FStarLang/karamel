@@ -9,7 +9,7 @@ all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
   Poly1305.exe Chacha20.exe
 	for f in $^; do echo $$f; ./$$f; done
 
-broken: Mutable.exe
+broken: Mutable.exe Aead.exe
 	for f in $^; do echo $$f; ./$$f; done
 
 # Standalone test files that have a main in F* (hence -no-prefix)

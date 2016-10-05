@@ -176,22 +176,24 @@ let run_fstar files =
     fatal_error "F* failed";
   "out.krml"
 
-(** Fills in [gcc] and [gcc_args]. *)
-let detect_gcc () =
+(** Fills in [cc] and [cc_args]. *)
+let detect_gnu flavor =
   (** For the side-effect of filling in [Options.include] *)
   detect_kremlin_if ();
 
   KPrint.bprintf "%s⚙ KreMLin will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
-  if success "which" [| "gcc-5" |] then
-    cc := "gcc-5"
-  else if success "which" [| "gcc-6" |] then
-    cc := "gcc-6"
-  else if success "which" [| "x86_64-w64-mingw32-gcc" |] then
-    cc := "x86_64-w64-mingw32-gcc"
-  else if success "which" [| "gcc" |] then
-    cc := "gcc"
-  else
-    Warnings.fatal_error "gcc not found in path!";
+  let rec search = function
+    | fmt :: rest ->
+        let cmd = KPrint.bsprintf fmt flavor in
+        if success "which" [| cmd |] then
+          cc := cmd
+        else
+          search rest
+    | [] ->
+        Warnings.fatal_error "gcc not found in path!";
+  in
+  search [ "%s-5"; "%s-6"; "x86_64-w64-mingw32-%s"; "%s" ];
+
   KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !cc;
 
   cc_args := [
@@ -203,38 +205,16 @@ let detect_gcc () =
     "-std=c11";
     "-g";
     "-O3"
-  ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes));
-  KPrint.bprintf "%sgcc options are:%s %s\n" Ansi.underline Ansi.reset
+  ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
+    @ List.rev !Options.ccopts;
+  KPrint.bprintf "%s%s options are:%s %s\n" Ansi.underline !cc Ansi.reset
     (String.concat " " !cc_args)
+
+let detect_gcc () =
+  detect_gnu "gcc"
 
 let detect_gpp () =
-  (** For the side-effect of filling in [Options.include] *)
-  detect_kremlin_if ();
-
-  KPrint.bprintf "%s⚙ KreMLin will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
-  if success "which" [| "g++-5" |] then
-    cc := "g++-5"
-  else if success "which" [| "g++-6" |] then
-    cc := "g++-6"
-  else if success "which" [| "x86_64-w64-mingw32-g++" |] then
-    cc := "x86_64-w64-mingw32-g++"
-  else if success "which" [| "g++" |] then
-    cc := "g++"
-  else
-    Warnings.fatal_error "g++ not found in path!";
-  KPrint.bprintf "%sg++ is:%s %s\n" Ansi.underline Ansi.reset !cc;
-
-  cc_args := [
-    "-Wall";
-    "-Werror";
-    "-Wno-parentheses";
-    "-Wno-unused-variable";
-    "-Wno-unused-but-set-variable";
-    "-g";
-    "-O3"
-  ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes));
-  KPrint.bprintf "%sg++ options are:%s %s\n" Ansi.underline Ansi.reset
-    (String.concat " " !cc_args)
+  detect_gnu "g++"
 
 let detect_compcert () =
   if success "which" [| "ccomp" |] then
@@ -246,6 +226,7 @@ let detect_compcert () =
     "-g";
     "-O3"
   ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
+    @ List.rev !Options.ccopts
 
 
 let detect_cc_if () =

@@ -11,6 +11,7 @@ let record original_name desired_name =
   | exception Not_found ->
       let unique_c_name = mk_fresh desired_name (Hashtbl.mem used_c_names) in
       Hashtbl.add c_of_original original_name unique_c_name;
+      Hashtbl.add used_c_names unique_c_name ();
       unique_c_name
   | _ ->
       fatal_error "Duplicate global name: %s" original_name
