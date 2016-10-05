@@ -20,19 +20,26 @@
 open Ast
 open Idents
 open Warnings
+open Location
+
 let pexpr = PrintAst.pexpr
 let ptyp = PrintAst.ptyp
 
 let map_flatten f l = List.flatten (List.map f l)
 
 type env = {
+  location: loc list;
   names: ident list;
   in_block: ident list;
 }
 
+let locate env loc =
+  { env with location = update_location env.location loc }
+
 let empty: env = {
   names = [];
   in_block = [];
+  location = [];
 }
 
 let reset_block env = {
@@ -41,7 +48,8 @@ let reset_block env = {
 
 let push env binder = CStar.{
   names = binder.name :: env.names;
-  in_block = binder.name :: env.in_block
+  in_block = binder.name :: env.in_block;
+  location = env.location
 }
 
 let pnames buf env =
@@ -179,21 +187,21 @@ let rec translate_expr env in_stmt e =
   | EAny ->
       CStar.Any
   | ELet _ ->
-      fatal_error "[AstToCStar.translate_expr ELet]: should not be here"
+      fatal_error "[AstToCStar.translate_expr ELet]: should not be here %a" ploc env.location
   | EIfThenElse _ ->
-      fatal_error "[AstToCStar.translate_expr EIfThenElse]: should not be here"
+      fatal_error "[AstToCStar.translate_expr EIfThenElse]: should not be here %a" ploc env.location
   | EWhile _ ->
-      fatal_error "[AstToCStar.translate_expr EIfThenElse]: should not be here"
+      fatal_error "[AstToCStar.translate_expr EIfThenElse]: should not be here %a" ploc env.location
   | ESequence _ ->
-      fatal_error "[AstToCStar.translate_expr ESequence]: should not be here"
+      fatal_error "[AstToCStar.translate_expr ESequence]: should not be here %a" ploc env.location
   | EAssign _ ->
-      fatal_error "[AstToCStar.translate_expr EAssign]: should not be here"
+      fatal_error "[AstToCStar.translate_expr EAssign]: should not be here %a" ploc env.location
   | EBufWrite _ ->
-      fatal_error "[AstToCStar.translate_expr EBufWrite]: should not be here"
+      fatal_error "[AstToCStar.translate_expr EBufWrite]: should not be here %a" ploc env.location
   | EMatch _ ->
-      fatal_error "[AstToCStar.translate_expr EMatch]: should not be here"
+      fatal_error "[AstToCStar.translate_expr EMatch]: should not be here %a" ploc env.location
   | EReturn _ ->
-      fatal_error "[AstToCStar.translate_expr EReturn]: should not be here"
+      fatal_error "[AstToCStar.translate_expr EReturn]: should not be here %a" ploc env.location
   | EBool b ->
       CStar.Bool b
   | EFlat fields ->
@@ -420,11 +428,12 @@ and translate_declaration env d: CStar.decl option =
   let wrap_throw name (comp: CStar.decl Lazy.t) =
     try Lazy.force comp with
     | Error e ->
-        raise_error_l (locate name e)
+        raise_error_l (Warnings.locate name e)
   in
 
   match d with
   | DFunction (_, t, name, binders, body) ->
+      let env = locate env (InTop name) in
       Some (wrap_throw (string_of_lident name) (lazy begin
         let t = translate_return_type env t in
         assert (env.names = []);
@@ -441,6 +450,7 @@ and translate_declaration env d: CStar.decl option =
         None
 
   | DGlobal (_, name, t, body) ->
+      let env = locate env (InTop name) in
       Some (CStar.Global (
         string_of_lident name,
         translate_type env t,

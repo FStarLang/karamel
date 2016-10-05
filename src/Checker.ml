@@ -3,34 +3,8 @@
 open Ast
 open Warnings
 open Constant
-open PrintCommon
-open PPrint
+open Location
 
-(** Helpers ----------------------------------------------------------------- *)
-
-type loc =
-  | In of string
-  | InTop of lident
-  | Then
-  | Else
-  | After of string
-
-let print_loc = function
-  | InTop l ->
-      string "in declaration " ^^ print_lident l
-  | In l ->
-      string "in the definition of " ^^ string l
-  | Then ->
-      string "in the then branch"
-  | Else ->
-      string "in the else branch"
-  | After s ->
-      string "after the definition of " ^^ string s
-
-let print_location locs =
-  separate_map (string ", ") print_loc locs
-
-let ploc = printf_of_pprint print_location
 let pop = PrintAst.pop
 let plid = PrintAst.plid
 let ptyp = PrintAst.ptyp
@@ -115,12 +89,7 @@ let populate_env files =
   ) empty files
 
 let locate env loc =
-  { env with location =
-    match loc, env.location with
-    | After _, After _ :: locs ->
-        loc :: locs
-    | _ ->
-        loc :: env.location }
+  { env with location = update_location env.location loc }
 
 (** Errors ------------------------------------------------------------------ *)
 
