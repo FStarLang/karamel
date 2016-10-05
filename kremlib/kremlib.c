@@ -34,7 +34,6 @@ void *Prims_magic(void *_) { exit(254); }
 void *Prims____Cons___tl(void *_) { exit(254); }
 
 Prims_int FStar_UInt32_v(uint32_t x) { exit(254); }
-Prims_int FStar_Int_op_At_Percent(Prims_int x, Prims_int y) { exit(254); }
 FStar_Seq_seq FStar_Seq_createEmpty(void *_) { exit(254); }
 FStar_Seq_seq FStar_SeqProperties_snoc(FStar_Seq_seq x, Prims_nat y) { exit(254); }
 FStar_Seq_seq FStar_SeqProperties_cons(int x, FStar_Seq_seq y) { exit(254); }

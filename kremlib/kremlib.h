@@ -10,6 +10,7 @@
 // For types and values from C.fsti that do not exactly have the same name as
 // their C counterparts
 extern int exit_success;
+extern int exit_failure;
 
 #ifdef __GNUC__
 typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
@@ -45,7 +46,7 @@ typedef void *Prims_pos, *Prims_nat, *Prims_nonzero, *FStar_Seq_seq, *Prims_int,
         *FStar_HyperStack_stackref,
         *FStar_Heap_aref, *FStar_Buffer_abuffer;
 
-// Prims
+// Prims; all of the functions below abort;
 bool Prims_op_GreaterThanOrEqual(Prims_int x, Prims_int y);
 bool Prims_op_LessThanOrEqual(Prims_int x, Prims_int y);
 bool Prims_op_GreaterThan(Prims_int x, Prims_int y);
@@ -59,8 +60,8 @@ Prims_int Prims_op_Modulus(Prims_int x, Prims_int y);
 void *Prims_magic(void *_);
 void *Prims____Cons___tl(void *_);
 
+// Misc
 Prims_int FStar_UInt32_v(uint32_t x);
-Prims_int FStar_Int_op_At_Percent(Prims_int x, Prims_int y);
 FStar_Seq_seq FStar_Seq_createEmpty(void *_);
 FStar_Seq_seq FStar_SeqProperties_snoc(FStar_Seq_seq x, Prims_nat y);
 FStar_Seq_seq FStar_SeqProperties_cons(int x, FStar_Seq_seq y);
