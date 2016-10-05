@@ -10,3 +10,4 @@ let tmpdir = ref "."
 let includes: string list ref = ref []
 let verbose = ref false
 let exe_name = ref ""
+let cc = ref "gcc"

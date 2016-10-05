@@ -11,8 +11,10 @@
 // their C counterparts
 extern int exit_success;
 
-#ifndef _MSC_VER
+#ifdef __GCC__
 typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
+#else
+typedef void *FStar_UInt128_t, *FStar_UInt128_t_;
 #endif
 typedef uint64_t FStar_UInt64_t, FStar_UInt64_t_;
 typedef int64_t FStar_Int64_t, FStar_Int64_t_;
@@ -38,7 +40,7 @@ typedef void *Prims_pos, *Prims_nat, *Prims_nonzero, *FStar_Seq_seq, *Prims_int,
         *FStar_UInt63_t_, *FStar_Int63_t_,
         *FStar_UInt63_t, *FStar_Int63_t,
         *FStar_UInt_uint_t, *FStar_Int_int_t,
-        *FStar_HyperStack_stackref, *FStar_HyperHeap_rid, *FStar_HyperHeap_t,
+        *FStar_HyperStack_stackref,
         *FStar_Heap_aref, *FStar_Buffer_abuffer;
 
 // Prims
