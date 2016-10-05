@@ -17,7 +17,11 @@ uint8_t FStar_UInt8_eq_mask(uint8_t x, uint8_t y) {
 }
 
 bool FStar_UInt128_op_Greater_Greater_Hat(FStar_UInt128_t x, FStar_UInt32_t y) {
+#ifdef __GNUC__
   return x >> y;
+#else
+  exit(254);
+#endif
 }
 
 bool Prims_op_GreaterThanOrEqual(Prims_int x, Prims_int y) { exit(254); }
