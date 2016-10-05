@@ -20,6 +20,8 @@ type op =
   | And | Or | Xor | Not
   (* Effectful operations *)
   | Assign | PreIncr | PreDecr | PostIncr | PostDecr
+  (* Misc *)
+  | Comma
   [@@deriving yojson]
 
 let unsigned_of_signed = function

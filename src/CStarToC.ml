@@ -182,6 +182,9 @@ and mk_expr (e: expr): C.expr =
   | Call (Op o, [ e1; e2 ]) ->
       Op2 (o, mk_expr e1, mk_expr e2)
 
+  | Comma (e1, e2) ->
+      Op2 (K.Comma, mk_expr e1, mk_expr e2)
+
   | Call (e, es) ->
       Call (mk_expr e, List.map mk_expr es)
 

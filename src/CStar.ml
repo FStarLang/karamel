@@ -43,6 +43,7 @@ and expr =
   | Struct of ident * (ident option * expr) list
     (** Either all names are provided, or no names are provided *)
   | Field of expr * ident
+  | Comma of expr * expr
   | Any
 
 and block =

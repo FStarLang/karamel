@@ -56,6 +56,7 @@ let print_op = function
   | PostIncr | PreIncr -> string "++"
   | PostDecr | PreDecr -> string "--"
   | Assign -> string "="
+  | Comma -> string ","
 
 let print_lident (idents, ident) =
   separate_map dot string (idents @ [ ident ])

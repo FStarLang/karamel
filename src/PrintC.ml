@@ -83,6 +83,7 @@ and prec_of_op2 op =
   | And -> 11, 11, 11
   | Or -> 12, 12, 12
   | Assign -> 14, 13, 14
+  | Comma -> 15, 15, 14
   | PreIncr | PostIncr | PreDecr | PostDecr | Not -> raise (Invalid_argument "prec_of_op2")
 
 and prec_of_op1 op =
@@ -158,16 +159,14 @@ and p_expr' curr = function
 
 and p_expr e = p_expr' 15 e
 
-and p_init' l (i: init) =
+and p_init (i: init) =
   match i with
   | Designated (designator, expr) ->
-      group (p_designator designator ^/^ equals ^/^ p_expr' l expr)
+      group (p_designator designator ^/^ equals ^/^ p_expr' 14 expr)
   | InitExpr e ->
-      p_expr e
+      p_expr' 14 e
   | Initializer inits ->
       braces_with_nesting (separate_map (comma ^^ break 1) p_init inits)
-
-and p_init i = p_init' 15 i
 
 and p_designator = function
   | Dot ident ->

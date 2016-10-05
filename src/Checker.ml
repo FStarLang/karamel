@@ -146,7 +146,7 @@ let type_of_op env op w =
       TArrow (TBool, TArrow (TBool, TBool))
   | Not ->
       TArrow (TBool, TBool)
-  | Assign | PreIncr | PreDecr | PostIncr | PostDecr ->
+  | Assign | PreIncr | PreDecr | PostIncr | PostDecr | Comma ->
       fatal_error "%a, operator %a is for internal use only" ploc env.location pop op
 
 

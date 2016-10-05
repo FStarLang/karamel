@@ -128,7 +128,8 @@ let ensure_fresh env name body =
  * The translation of function types is aware of this, too.
  *)
 
-let rec translate_expr env e =
+let rec translate_expr env in_stmt e =
+  let translate_expr env e = translate_expr env false e in
   match e.node with
   | EBound var ->
       CStar.Var (find env var)
@@ -138,7 +139,7 @@ let rec translate_expr env e =
       CStar.Constant c
   | EApp (e, es) ->
       (* Functions that only take a unit take no argument. *)
-      let _t, ts = flatten_arrow e.mtyp in
+      let t, ts = flatten_arrow e.mtyp in
       let es = match ts, es with
         | [ TUnit ], [ { node = EUnit; _ } ] ->
             []
@@ -148,10 +149,17 @@ let rec translate_expr env e =
         | _ ->
             es
       in
-      (** TODO: if [t] is [TUnit], then insert a comma and an EUnit. This
-       * currently causes translation mismatches and subsequent compilation
-       * errors. *)
-      CStar.Call (translate_expr env e, List.map (translate_expr env) es)
+      (* This function call was originally typed as returning [TUnit], a.k.a.
+       * [void*]. However, we optimize these functions to return [void], meaning
+       * that we can't take their return value as an expression, since there's
+       * no return value. So, if such a function appears in an expression, use a
+       * comma operator to provide a placeholder value. This situation arises
+       * after erasure of lemmas. *)
+      let call = CStar.Call (translate_expr env e, List.map (translate_expr env) es) in
+      if not in_stmt && t = TUnit then
+        CStar.Comma (call, CStar.Any)
+      else
+        call
   | EBufCreate (e1, e2) ->
       CStar.BufCreate (translate_expr env e1, translate_expr env e2)
   | EBufCreateL es ->
@@ -202,16 +210,16 @@ and extract_stmts env e ret_type =
     match e.node with
     | ELet (binder, e1, e2) ->
         let env, binder = translate_and_push_binder env binder (Some e1)
-        and e1 = translate_expr env e1 in
+        and e1 = translate_expr env false e1 in
         let acc = CStar.Decl (binder, e1) :: acc in
         collect (env, acc) return_pos e2
 
     | EWhile (e1, e2) ->
-        let e = CStar.While (translate_expr env e1, translate_block env false e2) in
+        let e = CStar.While (translate_expr env false e1, translate_block env false e2) in
         env, e :: acc
 
     | EIfThenElse (e1, e2, e3) ->
-        let e = CStar.IfThenElse (translate_expr env e1, translate_block env return_pos e2, translate_block env return_pos e3) in
+        let e = CStar.IfThenElse (translate_expr env true e1, translate_block env return_pos e2, translate_block env return_pos e3) in
         env, e :: acc
 
     | ESequence es ->
@@ -222,15 +230,15 @@ and extract_stmts env e ret_type =
         ) (env, acc) es
 
     | EAssign (e1, e2) ->
-        let e = CStar.Assign (translate_expr env e1, translate_expr env e2) in
+        let e = CStar.Assign (translate_expr env true e1, translate_expr env true e2) in
         env, e :: acc
 
     | EBufBlit (e1, e2, e3, e4, e5) ->
-        let e = CStar.BufBlit (translate_expr env e1, translate_expr env e2, translate_expr env e3, translate_expr env e4, translate_expr env e5) in
+        let e = CStar.BufBlit (translate_expr env true e1, translate_expr env true e2, translate_expr env true e3, translate_expr env true e4, translate_expr env true e5) in
         env, e :: acc
 
     | EBufWrite (e1, e2, e3) ->
-        let e = CStar.BufWrite (translate_expr env e1, translate_expr env e2, translate_expr env e3) in
+        let e = CStar.BufWrite (translate_expr env true e1, translate_expr env true e2, translate_expr env true e3) in
         env, e :: acc
 
     | EMatch _ ->
@@ -255,7 +263,7 @@ and extract_stmts env e ret_type =
         if is_value e.node then
           env, acc
         else
-          let e = CStar.Ignore (translate_expr env e) in
+          let e = CStar.Ignore (translate_expr env true e) in
           env, e :: acc
 
   and translate_block env return_pos e =
@@ -265,9 +273,9 @@ and extract_stmts env e ret_type =
     if ret_type = CStar.Void && is_value e.node then
       env, CStar.Return None :: acc
     else if ret_type = CStar.Void then
-      env, CStar.Return None :: CStar.Ignore (translate_expr env e) :: acc
+      env, CStar.Return None :: CStar.Ignore (translate_expr env true e) :: acc
     else
-      env, CStar.Return (Some (translate_expr env e)) :: acc
+      env, CStar.Return (Some (translate_expr env false e)) :: acc
 
   and is_value x =
     match x with
@@ -436,7 +444,7 @@ and translate_declaration env d: CStar.decl option =
       Some (CStar.Global (
         string_of_lident name,
         translate_type env t,
-        translate_expr env body))
+        translate_expr env false body))
 
   | DTypeFlat (name, fields) ->
       let name = string_of_lident name in
