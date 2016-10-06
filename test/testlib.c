@@ -1,7 +1,7 @@
 #include "testlib.h"
 
 void compare_and_print(const char *txt, uint8_t *reference, uint8_t *output, int size) {
-  char str[2*size + 1];
+  char *str = malloc(2*size + 1);
   for (int i = 0; i < size; ++i)
     sprintf(str+2*i, "%02x", output[i]);
   str[2*size] = '\0';
@@ -15,6 +15,8 @@ void compare_and_print(const char *txt, uint8_t *reference, uint8_t *output, int
   }
 
   printf("[aead] %s is a success\n", txt);
+
+  free(str);
 }
 
 void TestLib_touch(int32_t x) {
