@@ -24,6 +24,7 @@ open Location
 
 let pexpr = PrintAst.pexpr
 let ptyp = PrintAst.ptyp
+let plid = PrintAst.plid
 
 let map_flatten f l = List.flatten (List.map f l)
 
@@ -148,14 +149,13 @@ let rec translate_expr env in_stmt e =
   | EApp (e, es) ->
       (* Functions that only take a unit take no argument. *)
       let t, ts = flatten_arrow e.mtyp in
-      let es = match ts, es with
+      let call = match ts, es with
         | [ TUnit ], [ { node = EUnit; _ } ] ->
-            []
-        | [ TUnit ], [ _e' ] ->
-            (** TODO: translate as [Cs.Comma (_e', CStar.Call (e, []))] *)
-            failwith "Not supported: functions that take a unit argument can only be called with a constant unit"
+            CStar.Call (translate_expr env e, [])
+        | [ TUnit ], [ e' ] ->
+            CStar.Comma (translate_expr env e', CStar.Call (translate_expr env e, []))
         | _ ->
-            es
+            CStar.Call (translate_expr env e, List.map (translate_expr env) es)
       in
       (* This function call was originally typed as returning [TUnit], a.k.a.
        * [void*]. However, we optimize these functions to return [void], meaning
@@ -163,7 +163,6 @@ let rec translate_expr env in_stmt e =
        * no return value. So, if such a function appears in an expression, use a
        * comma operator to provide a placeholder value. This situation arises
        * after erasure of lemmas. *)
-      let call = CStar.Call (translate_expr env e, List.map (translate_expr env) es) in
       if not in_stmt && t = TUnit then
         CStar.Comma (call, CStar.Any)
       else

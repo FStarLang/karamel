@@ -217,7 +217,11 @@ FStar_UInt128_t FStar_UInt128_gte_mask(FStar_UInt128_t x, FStar_UInt128_t y){
 #endif
 
 bool FStar_UInt128_op_Greater_Greater_Hat(FStar_UInt128_t x, FStar_UInt32_t y) {
+#ifdef __GNUC__
   return x >> y;
+#else
+  exit(254);
+#endif
 }
 
 bool Prims_op_GreaterThanOrEqual(Prims_int x, Prims_int y) { exit(254); }
