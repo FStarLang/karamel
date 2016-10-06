@@ -117,8 +117,8 @@ let detect_fstar () =
   (* Add default include directories, those specified by the user, and skip a
    * set of known failing modules. *)
   let fstar_includes = [
-    !fstar_home ^^ "examples" ^^ "low-level";
-    !fstar_home ^^ "examples" ^^ "low-level" ^^ "crypto";
+    (* !fstar_home ^^ "examples" ^^ "low-level"; *)
+    (* !fstar_home ^^ "examples" ^^ "low-level" ^^ "crypto"; *)
   ] @ !Options.includes in
   fstar_options := [
     "--trace_error"; "--codegen"; "Kremlin"; "--lax"
