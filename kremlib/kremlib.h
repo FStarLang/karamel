@@ -44,13 +44,14 @@ FStar_UInt128_t FStar_UInt128_sub_mod(FStar_UInt128_t x, FStar_UInt128_t y);
 FStar_UInt128_t FStar_UInt128_logand(FStar_UInt128_t x, FStar_UInt128_t y);
 FStar_UInt128_t FStar_UInt128_logor(FStar_UInt128_t x, FStar_UInt128_t y);
 FStar_UInt128_t FStar_UInt128_logxor(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_lognot(FStar_UInt128_t x, FStar_UInt128_t y);
+FStar_UInt128_t FStar_UInt128_lognot(FStar_UInt128_t x);
 FStar_UInt128_t FStar_UInt128_shift_left(FStar_UInt128_t x, FStar_UInt32_t y);
 FStar_UInt128_t FStar_UInt128_shift_right(FStar_UInt128_t x, FStar_UInt32_t y);
 FStar_UInt128_t FStar_Int_Cast_uint64_to_uint128(uint64_t x);
 uint64_t FStar_Int_Cast_uint128_to_uint64(FStar_UInt128_t x);
 FStar_UInt128_t FStar_UInt128_eq_mask(FStar_UInt128_t x, FStar_UInt128_t y);
 FStar_UInt128_t FStar_UInt128_gte_mask(FStar_UInt128_t x, FStar_UInt128_t y);
+FStar_UInt128_t FStar_UInt128_mul_wide(uint64_t x, uint64_t y);
 
 // Some types that KreMLin has no special knowledge of; many of them appear in
 // signatures of ghost functions, meaning that it suffices to give them (any)

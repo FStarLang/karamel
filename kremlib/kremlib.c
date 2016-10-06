@@ -77,8 +77,8 @@ FStar_UInt128_t FStar_UInt128_logxor(FStar_UInt128_t x, FStar_UInt128_t y){
   return x ^ y;
 }
 
-FStar_UInt128_t FStar_UInt128_lognot(FStar_UInt128_t x, FStar_UInt128_t y){
-  return ~y;
+FStar_UInt128_t FStar_UInt128_lognot(FStar_UInt128_t x){
+  return ~x;
 }
 
 /* y >= 128 should never happen */
@@ -111,6 +111,9 @@ FStar_UInt128_t FStar_UInt128_gte_mask(FStar_UInt128_t x, FStar_UInt128_t y){
   return ((FStar_UInt128_t)mask) << 64 | mask;
 }
 
+FStar_UInt128_t FStar_UInt128_mul_wide(uint64_t x, uint64_t y){
+  return (FStar_UInt128_t)x * y;
+}
 #else
 
 /* From OPENSSL's code base */
@@ -213,6 +216,23 @@ FStar_UInt128_t FStar_UInt128_gte_mask(FStar_UInt128_t x, FStar_UInt128_t y){
   uint64_t mask = (FStar_UInt64_gte_mask(x.high, y.high) & ~(FStar_UInt64_eq_mask(x.high, y.high)))
     | (FStar_UInt64_eq_mask(x.high, y.high) & FStar_UInt64_gte_mask(x.low, y.low));
   return (FStar_UInt128_t){.high = mask, .low = mask};
+}
+
+FStar_UInt128_t FStar_UInt128_mul_wide(uint64_t x, uint64_t y){
+  uint64_t u1, v1, t, w3, k, w1;
+  u1 = (x & 0xffffffff);
+  v1 = (y & 0xffffffff);
+  t = (u1 * v1);
+  w3 = (t & 0xffffffff);
+  k = (t >> 32);
+  x >>= 32;
+  t = (x * v1) + k;
+  k = (t & 0xffffffff);
+  w1 = (t >> 32);
+  y >>= 32;
+  t = (u1 * y) + k;
+  k = (t >> 32);
+  return (FStar_UInt128_t){.high = (x * y) + w1 + k, .low = (t << 32) + w3};
 }
 #endif
 
