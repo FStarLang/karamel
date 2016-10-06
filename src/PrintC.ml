@@ -130,7 +130,7 @@ and p_expr' curr = function
       let e2 = p_expr' right e2 in
       paren_if curr mine (group (e1 ^/^ equals) ^^ jump e2)
   | Call (e, es) ->
-      let mine, left, arg = 1, 1, 15 in
+      let mine, left, arg = 1, 1, 14 in
       let e = p_expr' left e in
       let es = nest 2 (separate_map (comma ^^ break 1) (fun e -> group (p_expr' arg e)) es) in
       paren_if curr mine (e ^^ lparen ^^ es ^^ rparen)
