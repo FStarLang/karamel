@@ -261,8 +261,12 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
   | Global (name, t, expr) ->
       let t = match t with Function _ -> Pointer t | _ -> t in
       let spec, decl = mk_spec_and_declarator name t in
-      let expr = mk_expr expr in
-      Some (Decl (spec, None, [ decl, Some (InitExpr expr) ]))
+      match expr with
+      | Any ->
+          Some (Decl (spec, None, [ decl, None ]))
+      | _ ->
+          let expr = mk_expr expr in
+          Some (Decl (spec, None, [ decl, Some (InitExpr expr) ]))
 
 
 let mk_program decls =
