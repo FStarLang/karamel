@@ -12,8 +12,8 @@ let fstar_options = ref []
 let krml_home = ref ""
 
 (** These two filled in by [detect_gcc] *)
-let gcc = ref ""
-let gcc_args = ref []
+let cc = ref ""
+let cc_args = ref []
 
 (** The base tools *)
 let readlink = ref ""
@@ -176,40 +176,71 @@ let run_fstar files =
     fatal_error "F* failed";
   "out.krml"
 
-(** Fills in [gcc] and [gcc_args]. *)
-let detect_gcc () =
+(** Fills in [cc] and [cc_args]. *)
+let detect_gnu flavor =
   (** For the side-effect of filling in [Options.include] *)
   detect_kremlin_if ();
 
   KPrint.bprintf "%s⚙ KreMLin will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
-  if success "which" [| "gcc-5" |] then
-    gcc := "gcc-5"
-  else if success "which" [| "gcc-6" |] then
-    gcc := "gcc-6"
-  else if success "which" [| "x86_64-w64-mingw32-gcc" |] then
-    gcc := "x86_64-w64-mingw32-gcc"
-  else if success "which" [| "gcc" |] then
-    gcc := "gcc"
-  else
-    Warnings.fatal_error "gcc not found in path!";
-  KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !gcc;
+  let rec search = function
+    | fmt :: rest ->
+        let cmd = KPrint.bsprintf fmt flavor in
+        if success "which" [| cmd |] then
+          cc := cmd
+        else
+          search rest
+    | [] ->
+        Warnings.fatal_error "gcc not found in path!";
+  in
+  search [ "%s-5"; "%s-6"; "x86_64-w64-mingw32-%s"; "%s" ];
 
-  gcc_args := [
+  KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !cc;
+
+  cc_args := [
     "-Wall";
     "-Werror";
     "-Wno-parentheses";
     "-Wno-unused-variable";
     "-Wno-unused-but-set-variable";
-    "-std=c11";
+    "-g";
+    "-O3";
+    "-fwrapv"
+  ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
+    @ List.rev !Options.ccopts;
+  KPrint.bprintf "%s%s options are:%s %s\n" Ansi.underline !cc Ansi.reset
+    (String.concat " " !cc_args)
+
+let detect_gcc () =
+  detect_gnu "gcc";
+  cc_args := "-std=c11" :: !cc_args
+
+let detect_gpp () =
+  detect_gnu "g++"
+
+let detect_compcert () =
+  if success "which" [| "ccomp" |] then
+    cc := "ccomp"
+  else
+    Warnings.fatal_error "ccomp not found in path!";
+
+  cc_args := [
     "-g";
     "-O3"
-  ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes));
-  KPrint.bprintf "%sgcc options are:%s %s\n" Ansi.underline Ansi.reset
-    (String.concat " " !gcc_args)
+  ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
+    @ List.rev !Options.ccopts
 
-let detect_gcc_if () =
-  if !gcc = "" then
-    detect_gcc ()
+
+let detect_cc_if () =
+  if !cc = "" then
+    match !Options.cc with
+    | "gcc" ->
+        detect_gcc ()
+    | "compcert" ->
+        detect_compcert ()
+    | "g++" ->
+        detect_gpp ()
+    | _ ->
+        fatal_error "Unrecognized value for -cc: %s" !Options.cc
 
 let o_of_c f =
   !Options.tmpdir ^^ Filename.chop_suffix (Filename.basename f) ".c" ^ ".o"
@@ -220,7 +251,7 @@ let o_of_c f =
 let compile files extra_c_files =
   assert (List.length files > 0);
   detect_kremlin_if ();
-  detect_gcc_if ();
+  detect_cc_if ();
   flush stdout;
   let extra_c_files = (!krml_home ^^ "kremlib" ^^ "kremlib.c") :: extra_c_files in
 
@@ -228,8 +259,8 @@ let compile files extra_c_files =
   KPrint.bprintf "%s⚡ Generating object files%s\n" Ansi.blue Ansi.reset;
   let gcc_c file =
     flush stdout;
-    let info = Printf.sprintf "[gcc,compile,%s]" file in
-    run_or_warn info !gcc (!gcc_args @ [ "-c"; file; "-o"; o_of_c file ])
+    let info = Printf.sprintf "[CC,%s]" file in
+    run_or_warn info !cc (!cc_args @ [ "-c"; file; "-o"; o_of_c file ])
   in
   let files = List.filter gcc_c files in
   let extra_c_files = List.filter gcc_c extra_c_files in
@@ -241,7 +272,7 @@ let compile files extra_c_files =
 let link c_files o_files =
   let objects = List.map o_of_c c_files @ o_files in
   let extra_arg = if !Options.exe_name <> "" then [ "-o"; !Options.exe_name ] else [] in
-  if run_or_warn "[gcc,link]" !gcc (!gcc_args @ objects @ extra_arg) then
+  if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg) then
     KPrint.bprintf "%sAll files linked successfully%s 👍\n" Ansi.green Ansi.reset
   else begin
     KPrint.bprintf "%sgcc failed at the final linking phase%s\n" Ansi.red Ansi.reset;

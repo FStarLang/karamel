@@ -41,29 +41,6 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let rec perr buf (loc, raw_error) =
-  (* Now, print an error-specific message. *)
-  let p fmt = Printf.bprintf buf ("In %s: " ^^ fmt ^^ "\n") loc in
-  match raw_error with
-  | Dropping (d, e) ->
-      p "Not generating code for file: %s" d;
-      Printf.bprintf buf "%a" perr e
-  | UnboundReference r ->
-      p "Reference to %s has no corresponding implementation; please \
-        provide a C implementation"
-        r
-  | BadFrame f ->
-      p "The push/pop frame invariant is broken because:\n  %s" f
-  | TypeError e ->
-      p "Malformed input:\n%s" e
-  | Unsupported e ->
-      p "Unsupported: %s" e
-  | ExternalError c ->
-      p "the following command failed:\n%s" c
-  | ExternalTypeApp lid ->
-      p "hit a type application of %a, which is not defined; dropping"
-        plid lid
-
 let flags = Array.make 6 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
@@ -87,6 +64,29 @@ let errno_of_error = function
       (** Things that cannot be silenced! *)
       0
 ;;
+
+let rec perr buf (loc, raw_error) =
+  (* Now, print an error-specific message. *)
+  let p fmt = Printf.bprintf buf ("Warning %d: %s: " ^^ fmt ^^ "\n") (errno_of_error raw_error) loc in
+  match raw_error with
+  | Dropping (d, e) ->
+      p "Not generating code for file: %s" d;
+      Printf.bprintf buf "%a" perr e
+  | UnboundReference r ->
+      p "Reference to %s has no corresponding implementation; please \
+        provide a C implementation"
+        r
+  | BadFrame f ->
+      p "The push/pop frame invariant is broken because:\n  %s" f
+  | TypeError e ->
+      p "Malformed input:\n%s" e
+  | Unsupported e ->
+      p "Unsupported: %s" e
+  | ExternalError c ->
+      p "the following command failed:\n%s" c
+  | ExternalTypeApp lid ->
+      p "hit a type application of %a, which is not defined; dropping"
+        plid lid
 
 let maybe_fatal_error error =
   let errno = errno_of_error (snd error) in

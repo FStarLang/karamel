@@ -11,15 +11,17 @@ and width =
 
 type op =
   (* Arithmetic operations *)
-  | Add | AddW | Sub | SubW | Div | Mult | Mod
+  | Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
   (* Bitwise operations *)
-  | BOr | BAnd | BXor | BShiftL | BShiftR
+  | BOr | BAnd | BXor | BShiftL | BShiftR | BNot
   (* Arithmetic comparisons / boolean comparisons *)
   | Eq | Neq | Lt | Lte | Gt | Gte
   (* Boolean operations *)
   | And | Or | Xor | Not
   (* Effectful operations *)
   | Assign | PreIncr | PreDecr | PostIncr | PostDecr
+  (* Misc *)
+  | Comma
   [@@deriving yojson]
 
 let unsigned_of_signed = function
@@ -40,6 +42,8 @@ let is_unsigned w = not (is_signed w)
 let without_wrap = function
   | AddW -> Add
   | SubW -> Sub
+  | MultW -> Mult
+  | DivW -> Div
   | _ -> raise (Invalid_argument "without_wrap")
 
 let of_int i =

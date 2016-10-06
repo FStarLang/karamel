@@ -167,7 +167,9 @@ and mk_stmts stmts: C.stmt list =
 and mk_stmts' acc stmts: C.stmt list =
   match stmts with
   | PopFrame :: stmts ->
-      Compound (List.flatten (List.rev acc)) :: mk_stmts stmts
+      (* Extending the lifetime here because of scoping issues. *)
+      (* Compound (List.flatten (List.rev acc)) :: mk_stmts stmts *)
+      List.flatten (List.rev acc) @ mk_stmts stmts
   | stmt :: stmts ->
       mk_stmts' (mk_stmt stmt :: acc) stmts
   | [] ->
@@ -181,6 +183,9 @@ and mk_expr (e: expr): C.expr =
 
   | Call (Op o, [ e1; e2 ]) ->
       Op2 (o, mk_expr e1, mk_expr e2)
+
+  | Comma (e1, e2) ->
+      Op2 (K.Comma, mk_expr e1, mk_expr e2)
 
   | Call (e, es) ->
       Call (mk_expr e, List.map mk_expr es)

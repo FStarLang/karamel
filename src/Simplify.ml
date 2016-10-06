@@ -107,7 +107,7 @@ let wrapping_arithmetic = object (self)
 
   method! eapp () _ e es =
     match e.node, es with
-    | EOp (((K.AddW | K.SubW) as op), w), [ e1; e2 ] when K.is_signed w ->
+    | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), w), [ e1; e2 ] when K.is_signed w ->
         let unsigned_w = K.unsigned_of_signed w in
         let e = {
           node = EOp (K.without_wrap op, unsigned_w);
@@ -122,7 +122,7 @@ let wrapping_arithmetic = object (self)
         let unsigned_app = { node = EApp (e, [ c e1; c e2 ]); mtyp = TInt unsigned_w } in
         ECast (unsigned_app, TInt w)
 
-    | EOp (((K.AddW | K.SubW) as op), w), [ e1; e2 ] when K.is_unsigned w ->
+    | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), w), [ e1; e2 ] when K.is_unsigned w ->
         let e = {
           node = EOp (K.without_wrap op, w);
           mtyp = Checker.type_of_op (K.without_wrap op) w

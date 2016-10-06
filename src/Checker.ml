@@ -3,34 +3,8 @@
 open Ast
 open Warnings
 open Constant
-open PrintCommon
-open PPrint
+open Location
 
-(** Helpers ----------------------------------------------------------------- *)
-
-type loc =
-  | In of string
-  | InTop of lident
-  | Then
-  | Else
-  | After of string
-
-let print_loc = function
-  | InTop l ->
-      string "in declaration " ^^ print_lident l
-  | In l ->
-      string "in the definition of " ^^ string l
-  | Then ->
-      string "in the then branch"
-  | Else ->
-      string "in the else branch"
-  | After s ->
-      string "after the definition of " ^^ string s
-
-let print_location locs =
-  separate_map (string ", ") print_loc locs
-
-let ploc = printf_of_pprint print_location
 let pop = PrintAst.pop
 let plid = PrintAst.plid
 let ptyp = PrintAst.ptyp
@@ -108,6 +82,7 @@ let populate_env files =
           { env with globals = M.add lid t env.globals }
       | DFunction (_, ret, lid, binders, _) ->
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
+          KPrint.bprintf "%a has type %a\n" plid lid ptyp t;
           { env with globals = M.add lid t env.globals }
       | DExternal (lid, typ) ->
           { env with globals = M.add lid typ env.globals }
@@ -115,12 +90,7 @@ let populate_env files =
   ) empty files
 
 let locate env loc =
-  { env with location =
-    match loc, env.location with
-    | After _, After _ :: locs ->
-        loc :: locs
-    | _ ->
-        loc :: env.location }
+  { env with location = update_location env.location loc }
 
 (** Errors ------------------------------------------------------------------ *)
 
@@ -133,7 +103,7 @@ let type_error env fmt =
 
 let type_of_op env op w =
   match op with
-  | Add | AddW | Sub | SubW | Div | Mult | Mod
+  | Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
   | BOr | BAnd | BXor ->
       TArrow (TInt w, TArrow (TInt w, TInt w))
   | BShiftL | BShiftR ->
@@ -146,7 +116,9 @@ let type_of_op env op w =
       TArrow (TBool, TArrow (TBool, TBool))
   | Not ->
       TArrow (TBool, TBool)
-  | Assign | PreIncr | PreDecr | PostIncr | PostDecr ->
+  | BNot ->
+      TArrow (TInt w, TInt w)
+  | Assign | PreIncr | PreDecr | PostIncr | PostDecr | Comma ->
       fatal_error "%a, operator %a is for internal use only" ploc env.location pop op
 
 
@@ -219,6 +191,7 @@ and infer_expr' env e t =
   | EApp (e, es) ->
       let t = infer_expr env e in
       if t = TAny then
+        let _ = List.map (infer_expr env) es in
         TAny
       else
         let ts = List.map (infer_expr env) es in

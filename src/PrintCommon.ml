@@ -36,11 +36,14 @@ let print_op = function
   | Sub -> string "-"
   | SubW -> string "-"
   | Div -> string "/"
+  | DivW -> string "/w"
   | Mult -> string "*"
+  | MultW -> string "*w"
   | Mod -> string "%"
   | BOr -> string "|"
   | BAnd -> string "&"
   | BXor -> string "^"
+  | BNot -> string "~"
   | BShiftL -> string "<<"
   | BShiftR -> string ">>"
   | Eq -> string "=="
@@ -56,6 +59,7 @@ let print_op = function
   | PostIncr | PreIncr -> string "++"
   | PostDecr | PreDecr -> string "--"
   | Assign -> string "="
+  | Comma -> string ","
 
 let print_lident (idents, ident) =
   separate_map dot string (idents @ [ ident ])
