@@ -225,7 +225,8 @@ let detect_compcert () =
 
   cc_args := [
     "-g";
-    "-O3"
+    "-O3";
+    "-fstruct-passing"
   ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
     @ List.rev !Options.ccopts
 

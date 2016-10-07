@@ -82,7 +82,6 @@ let populate_env files =
           { env with globals = M.add lid t env.globals }
       | DFunction (_, ret, lid, binders, _) ->
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
-          KPrint.bprintf "%a has type %a\n" plid lid ptyp t;
           { env with globals = M.add lid t env.globals }
       | DExternal (lid, typ) ->
           { env with globals = M.add lid typ env.globals }
