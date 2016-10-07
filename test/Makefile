@@ -3,6 +3,7 @@
 OPTS=-tmpdir out $(KOPTS)
 TESTOPTS=$(OPTS) -add-include '"testlib.h"' -I . testlib.c
 KRML=../krml
+FSTAR_HOME?=$(KRML)/fstar
 INCLUDE_CRYPTO=-I $(FSTAR_HOME)/examples/low-level/crypto
 
 all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
