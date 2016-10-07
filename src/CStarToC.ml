@@ -8,7 +8,27 @@ open KPrint
 let any =
   Cast (Constant (K.UInt8, "0"), Pointer Void)
 
-(* Turns the ML declaration inside-out to match the C reading of a type. *)
+(* Function types are pointers to function types, except in the top-level
+ * declarator for a function, which gets special treatment via
+ * mk_spec_and_declarator_f. *)
+let rec adapt (t: CStar.typ) =
+  match t with
+  | Bool
+  | Z
+  | Void
+  | Int _ -> t
+  | Pointer t ->
+      Pointer (adapt t)
+  | Qualified _ -> t
+  | Array (t, e) ->
+      Array (adapt t, e)
+  | Function (t, ts) ->
+      Pointer (Function (adapt t, List.map adapt ts))
+  | Struct (name, fields) ->
+      Struct (name, List.map (fun (field, t) -> field, adapt t) fields)
+
+(* Turns the ML declaration inside-out to match the C reading of a type.
+ * See en.cppreference.com/w/c/language/declarations *)
 let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
   match t with
   | Pointer t ->
@@ -16,7 +36,9 @@ let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type
   | Array (t, size) ->
       mk_spec_and_decl name t (fun d -> Array (k d, mk_expr size))
   | Function (t, ts) ->
-      mk_spec_and_decl name t (fun d -> Function (k d, List.map (fun t -> mk_spec_and_decl "" t (fun d -> d)) ts))
+      mk_spec_and_decl name t (fun d ->
+        Function (k d, List.mapi (fun i t ->
+          mk_spec_and_decl (KPrint.bsprintf "x%d" i) t (fun d -> d)) ts))
   | Int w ->
       Int w, k (Ident name)
   | Void ->
@@ -34,10 +56,11 @@ let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type
       ) fields), k (Ident name)
 
 and mk_spec_and_declarator name t =
-  mk_spec_and_decl name t (fun d -> d)
+  mk_spec_and_decl name (adapt t) (fun d -> d)
 
 and mk_spec_and_declarator_f name ret_t params =
-  mk_spec_and_decl name ret_t (fun d -> Function (d, List.map (fun (n, t) -> mk_spec_and_decl n t (fun d -> d)) params))
+  mk_spec_and_decl name (adapt ret_t) (fun d ->
+    Function (d, List.map (fun (n, t) -> mk_spec_and_decl n (adapt t) (fun d -> d)) params))
 
 (* Enforce the invariant that declarations are wrapped in compound statements
  * and cannot appear "alone". *)
@@ -291,6 +314,12 @@ let mk_stub_or_function (d: decl): C.declaration_or_function =
         beprintf "Fatal exception raised in %s\n" name;
         raise e
       end
+
+  | External (name, Function (t, ts)) ->
+      let spec, decl = mk_spec_and_declarator_f name t (List.mapi (fun i t ->
+        KPrint.bsprintf "x%d" i, t
+      ) ts) in
+      Decl (spec, Some Extern, [ decl, None ])
 
   | External (name, t) ->
       let spec, decl = mk_spec_and_declarator name t in
