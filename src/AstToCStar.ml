@@ -153,7 +153,10 @@ let rec translate_expr env in_stmt e =
         | [ TUnit ], [ { node = EUnit; _ } ] ->
             CStar.Call (translate_expr env e, [])
         | [ TUnit ], [ e' ] ->
-            CStar.Comma (translate_expr env e', CStar.Call (translate_expr env e, []))
+            if is_value e' then
+              CStar.Call (translate_expr env e, [])
+            else
+              CStar.Comma (translate_expr env e', CStar.Call (translate_expr env e, []))
         | _ ->
             CStar.Call (translate_expr env e, List.map (translate_expr env) es)
       in
@@ -267,7 +270,7 @@ and extract_stmts env e ret_type =
         translate_as_return env e acc
 
     | _ ->
-        if is_value e.node then
+        if is_value e then
           env, acc
         else
           let e = CStar.Ignore (translate_expr env true e) in
@@ -277,34 +280,34 @@ and extract_stmts env e ret_type =
     List.rev (snd (collect (reset_block env, []) return_pos e))
 
   and translate_as_return env e acc =
-    if ret_type = CStar.Void && is_value e.node then
+    if ret_type = CStar.Void && is_value e then
       env, CStar.Return None :: acc
     else if ret_type = CStar.Void then
       env, CStar.Return None :: CStar.Ignore (translate_expr env true e) :: acc
     else
       env, CStar.Return (Some (translate_expr env false e)) :: acc
 
-  and is_value x =
-    match x with
-    | EBound _
-    | EOpen _
-    | EQualified _
-    | EConstant _
-    | EUnit
-    | EOp _
-    | EBool _
-    | EAny
-    | EFlat _
-    | EField _ ->
-        true
-    | ECast (e,_) ->
-        is_value e.node
-    | _ ->
-        false
-
   in
 
   snd (collect (env, []) true e)
+
+and is_value x =
+  match x.node with
+  | EBound _
+  | EOpen _
+  | EQualified _
+  | EConstant _
+  | EUnit
+  | EOp _
+  | EBool _
+  | EAny
+  | EFlat _
+  | EField _ ->
+      true
+  | ECast (e,_) ->
+      is_value e
+  | _ ->
+      false
 
 (** This enforces the push/pop frame invariant. The invariant can be described
  * as follows (the extra cases are here to provide better error messages):
