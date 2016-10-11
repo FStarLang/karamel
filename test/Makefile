@@ -1,10 +1,8 @@
 # A minimalistic Makefile for calling Kremlin... KOPTS is for user-defined flags
 # (e.g. -verbose).
-OPTS=-tmpdir out $(KOPTS)
+OPTS=-tmpdir out $(KOPTS) -I FSTAR_HOME/examples/low-level/crypto
 TESTOPTS=$(OPTS) -add-include '"testlib.h"' -I . testlib.c
 KRML=../krml
-FSTAR_HOME?=../fstar
-INCLUDE_CRYPTO=-I $(FSTAR_HOME)/examples/low-level/crypto
 
 all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
   Private.exe ML16.exe Abbrev.exe TSet.exe \
@@ -20,13 +18,13 @@ broken: Mutable.exe Aead.exe
 
 # Test files that have an "external" main written by hand...
 Poly1305.exe: main-Poly1305.c testlib.c
-	$(KRML) $(OPTS) Crypto.Symmetric.Poly1305.fst $^ -o $@ $(INCLUDE_CRYPTO)
+	$(KRML) $(OPTS) Crypto.Symmetric.Poly1305.fst $^ -o $@
 
 Chacha20.exe: main-Chacha.c testlib.c
-	$(KRML) $(OPTS) Crypto.Symmetric.Chacha20.fst $^ -o $@ $(INCLUDE_CRYPTO)
+	$(KRML) $(OPTS) Crypto.Symmetric.Chacha20.fst $^ -o $@
 
 Aead.exe: main-Aead.c testlib.c
-	$(KRML) $(OPTS) Crypto.AEAD.Chacha20Poly1305.Ideal.fst $^ -o $@ $(INCLUDE_CRYPTO)
+	$(KRML) $(OPTS) Crypto.AEAD.Chacha20Poly1305.Ideal.fst $^ -o $@
 
 ML16.exe: ML16.fst ml16-native.c
 	$(KRML) $(OPTS) -no-prefix ML16 $^ -o $@

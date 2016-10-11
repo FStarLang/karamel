@@ -29,6 +29,7 @@ typedef int16_t FStar_Int16_t, FStar_Int16_t_;
 typedef uint8_t FStar_UInt8_t, FStar_UInt8_t_;
 typedef int8_t FStar_Int8_t, FStar_Int8_t_;
 
+// Constant-time comparisons
 uint64_t FStar_UInt64_eq_mask(uint64_t x, uint64_t y);
 uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y);
 uint32_t FStar_UInt32_eq_mask(uint32_t x, uint32_t y);
@@ -36,7 +37,7 @@ uint32_t FStar_UInt32_gte_mask(uint32_t x, uint32_t y);
 uint8_t FStar_UInt8_eq_mask(uint8_t x, uint8_t y);
 uint8_t FStar_UInt8_gte_mask(uint8_t x, uint8_t y);
 
-// 128bit integers
+// 128-bit arithmetic
 FStar_UInt128_t FStar_UInt128_add(FStar_UInt128_t x, FStar_UInt128_t y);
 FStar_UInt128_t FStar_UInt128_add_mod(FStar_UInt128_t x, FStar_UInt128_t y);
 FStar_UInt128_t FStar_UInt128_sub(FStar_UInt128_t x, FStar_UInt128_t y);

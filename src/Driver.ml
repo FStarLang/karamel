@@ -33,6 +33,14 @@ let success cmd args =
 let read_one_line cmd args =
   String.trim (List.hd (Process.read_stdout cmd args))
 
+let expand_fstar_home s =
+  let s' = "FSTAR_HOME" in
+  let l = String.length s in
+  let l' = String.length s' in
+  if l >= l' && String.sub s 0 (String.length s') = s' then
+    !fstar_home ^ String.sub s l' (l - l')
+  else
+    s
 
 (** The tools we depend on; namely, readlink. *)
 let detect_base_tools () =
@@ -116,10 +124,7 @@ let detect_fstar () =
 
   (* Add default include directories, those specified by the user, and skip a
    * set of known failing modules. *)
-  let fstar_includes = [
-    (* !fstar_home ^^ "examples" ^^ "low-level"; *)
-    (* !fstar_home ^^ "examples" ^^ "low-level" ^^ "crypto"; *)
-  ] @ !Options.includes in
+  let fstar_includes = List.map expand_fstar_home !Options.includes in
   fstar_options := [
     "--trace_error"; "--codegen"; "Kremlin"; "--lax"
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
