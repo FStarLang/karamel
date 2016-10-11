@@ -44,6 +44,7 @@ The default is %s and the available warnings are:
   3: external command failed
   4: type error / malformed input
   5: type definition contains an application of an undefined type abbreviation
+  6: variable-length array
 
 Supported options:|} Sys.argv.(0) !Options.warn_error
   in
