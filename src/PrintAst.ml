@@ -11,9 +11,8 @@ let arrow = string "->"
 let decl_name (d: decl) =
   match d with
   | DFunction (_, _,lid,_,_)
-  | DTypeAlias (lid,_,_)
+  | DType (lid,_)
   | DGlobal (_, lid,_,_)
-  | DTypeFlat (lid,_)
   | DExternal (lid,_) -> lid
 
 let print_app f head g arguments =
@@ -31,7 +30,7 @@ let rec print_decl = function
         print_expr body
       )
 
-  | DTypeAlias (name, n, typ) ->
+  | DType (name, Abbrev (n, typ)) ->
       let args = KList.make n (fun i -> string ("t" ^ string_of_int i)) in
       let args = separate space args in
       group (string "type" ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
@@ -44,12 +43,22 @@ let rec print_decl = function
   | DGlobal (flags, name, typ, expr) ->
       print_flags flags ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
-  | DTypeFlat (name, fields) ->
+  | DType (name, Flat fields) ->
       group (string "flat type" ^/^ string (string_of_lident name) ^/^ equals) ^^
-      jump (concat_map (fun (ident, (typ, mut)) ->
-        let mut = if mut then string "mutable " else empty in
-        group (mut ^^ string ident ^^ colon ^/^ print_typ typ ^^ semi)
-      ) fields)
+      jump (print_fields_t fields)
+
+  | DType (name, Variant branches) ->
+      group (string "data" ^/^ string (string_of_lident name) ^/^ equals) ^^
+      let branches = List.map (fun (ident, fields) ->
+        string ident ^/^ braces_with_nesting (print_fields_t fields)
+      ) branches in
+      jump ~indent:0 (ifflat empty (bar ^^ space) ^^ separate (break 1 ^^ bar ^^ space) branches)
+
+and print_fields_t fields =
+  concat_map (fun (ident, (typ, mut)) ->
+    let mut = if mut then string "mutable " else empty in
+    group (mut ^^ string ident ^^ colon ^/^ print_typ typ ^^ semi)
+  ) fields
 
 and print_flags flags =
   separate_map space print_flag flags

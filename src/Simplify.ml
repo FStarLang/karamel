@@ -38,10 +38,13 @@ class ignore_everything = object
     DGlobal (flags, name, typ, expr)
 
   method dtypealias () name n t =
-    DTypeAlias (name, n, t)
+    DType (name, Abbrev (n, t))
 
   method dtypeflat () name fields =
-    DTypeFlat (name, fields)
+    DType (name, Flat fields)
+
+  method dtypevariant () name branches =
+    DType (name, Variant branches)
 end
 
 
@@ -557,10 +560,13 @@ let record_toplevel_names = object
     DExternal (record_name name, t)
 
   method dtypealias () name n t =
-    DTypeAlias (record_name name, n, t)
+    DType (record_name name, Abbrev (n, t))
 
   method dtypeflat () name fields =
-    DTypeFlat (record_name name, fields)
+    DType (record_name name, Flat fields)
+
+  method dtypevariant () name branches =
+    DType (record_name name, Variant branches)
 end
 
 let t lident =
@@ -584,15 +590,17 @@ let replace_references_to_toplevel_names = object(self)
   method dfunction () flags ret name args body =
     DFunction (flags, self#visit_t () ret, t name, self#binders () args, self#visit () body)
 
-  method dtypealias () name n typ =
-    DTypeAlias (t name, n, self#visit_t () typ)
-
   method dexternal () name typ =
     DExternal (t name, self#visit_t () typ)
 
-  method dtypeflat () name fields =
-    DTypeFlat (t name, self#fields_t () fields)
+  method dtypealias () name n typ =
+    DType (t name, Abbrev (n, self#visit_t () typ))
 
+  method dtypeflat () name fields =
+    DType (t name, Flat (self#fields_t () fields))
+
+  method dtypevariant () name branches =
+    DType (record_name name, Variant (self#branches_t () branches))
 end
 
 

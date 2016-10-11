@@ -14,9 +14,19 @@ and file =
 and decl =
   | DFunction of flag list * typ * lident * binder list * expr
   | DGlobal of flag list * lident * typ * expr
-  | DTypeAlias of lident * int * typ
-  | DTypeFlat of lident * (ident * (typ * bool)) list
   | DExternal of lident * typ
+  | DType of lident * type_def 
+
+and type_def =
+  | Abbrev of int * typ
+  | Flat of fields_t
+  | Variant of (ident * fields_t) list
+
+and fields_t =
+  (ident * (typ * bool)) list
+
+and branches_t =
+  (ident * fields_t) list
 
 and flag =
   | Private
@@ -277,20 +287,23 @@ class virtual ['env, 'result, 'tresult, 'dresult, 'extra] visitor = object (self
     match d with
     | DFunction (flags, ret, name, binders, expr) ->
         self#dfunction env flags ret name binders expr
-    | DTypeAlias (name, n, t) ->
-        self#dtypealias env name n t
     | DGlobal (flags, name, typ, expr) ->
         self#dglobal env flags name typ expr
-    | DTypeFlat (name, fields) ->
-        self#dtypeflat env name fields
     | DExternal (name, t) ->
         self#dexternal env name t
+    | DType (name, Flat fields) ->
+        self#dtypeflat env name fields
+    | DType (name, Abbrev (n, t)) ->
+        self#dtypealias env name n t
+    | DType (name, Variant branches) ->
+        self#dtypevariant env name branches
 
   method virtual dfunction: 'env -> flag list -> typ -> lident -> binder list -> expr -> 'dresult
   method virtual dtypealias: 'env -> lident -> int -> typ -> 'dresult
   method virtual dglobal: 'env -> flag list -> lident -> typ -> expr -> 'dresult
-  method virtual dtypeflat: 'env -> lident -> (ident * (typ * bool)) list -> 'dresult
+  method virtual dtypeflat: 'env -> lident -> fields_t -> 'dresult
   method virtual dexternal: 'env -> lident -> typ -> 'dresult
+  method virtual dtypevariant: 'env -> lident -> branches_t -> 'dresult
 end
 
 
@@ -450,16 +463,22 @@ class ['env] map = object (self)
         extend (self#extend_t e) (n - 1)
     in
     let env = extend env n in
-    DTypeAlias (name, n, self#visit_t env t)
+    DType (name, Abbrev (n, self#visit_t env t))
 
   method fields_t env fields =
     List.map (fun (name, (t, mut)) -> name, (self#visit_t env t, mut)) fields
 
   method dtypeflat env name fields =
     let fields = self#fields_t env fields in
-    DTypeFlat (name, fields)
+    DType (name, Flat fields)
 
   method dexternal env name t =
     DExternal (name, self#visit_t env t)
+
+  method dtypevariant env name branches =
+    DType (name, Variant (self#branches_t env branches))
+
+  method branches_t env branches =
+    List.map (fun (ident, fields) -> ident, self#fields_t env fields) branches
 
 end

@@ -18,16 +18,12 @@ module M = Map.Make(struct
   let compare = compare
 end)
 
-type tdecl =
-  | Abbrev of typ
-  | Flat of (ident * (typ * bool)) list
-
 let uint32 = TInt UInt32
 
 type env = {
   globals: typ M.t;
   locals: binder list;
-  types: tdecl M.t;
+  types: type_def M.t;
   location: loc list;
 }
 
@@ -74,10 +70,8 @@ let populate_env files =
   List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
-      | DTypeAlias (lid, _, typ) ->
-          { env with types = M.add lid (Abbrev typ) env.types }
-      | DTypeFlat (lid, fields) ->
-          { env with types = M.add lid (Flat fields) env.types }
+      | DType (lid, typ) ->
+          { env with types = M.add lid typ env.types }
       | DGlobal (_, lid, t, _) ->
           { env with globals = M.add lid t env.globals }
       | DFunction (_, ret, lid, binders, _) ->
@@ -146,9 +140,8 @@ and check_decl env d =
   | DGlobal (_, name, t, body) ->
       let env = locate env (InTop name) in
       check_expr env t body
-  | DTypeAlias _
   | DExternal _
-  | DTypeFlat _ ->
+  | DType _ ->
       (* Barring any parameterized types, there's is nothing to check here
        * really. *)
       ()
@@ -455,13 +448,13 @@ and reduce env t =
   | TQualified lid ->
       begin match M.find lid env.types with
       | exception Not_found -> t
-      | Abbrev t -> reduce env t
+      | Abbrev (_, t) -> reduce env t
       | _ -> t
       end
   | TApp (lid, args) ->
       begin match M.find lid env.types with
       | exception Not_found -> t
-      | Abbrev t -> reduce env (DeBruijn.subst_tn t args)
+      | Abbrev (_, t) -> reduce env (DeBruijn.subst_tn t args)
       | _ -> t
       end
   | _ ->

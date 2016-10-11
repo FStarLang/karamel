@@ -12,13 +12,23 @@ type program =
   [@@deriving yojson]
 
 and decl =
+  (* Code *)
   | DGlobal of (flag list * lident * typ * expr)
   | DFunction of (flag list * typ * lident * binder list * expr)
+  (* Types *)
   | DTypeAlias of (lident * int * typ)
       (** Name, number of parameters (De Bruijn), definition. *)
-  | DTypeFlat of (lident * (ident * (typ * bool)) list)
+  | DTypeFlat of (lident * fields_t)
       (** The boolean indicates if the field is mutable *)
+  | DTypeVariant of (lident * branches_t)
+  (* Assumed things that the type-checker of KreMLin needs to be aware of *)
   | DExternal of (lident * typ)
+
+and fields_t =
+  (ident * (typ * bool)) list
+
+and branches_t =
+  (ident * fields_t) list
 
 and flag =
   | Private

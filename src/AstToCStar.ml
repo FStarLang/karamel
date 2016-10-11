@@ -291,6 +291,8 @@ and extract_stmts env e ret_type =
 
   snd (collect (env, []) true e)
 
+(* Things that will generate warnings such as "left-hand operand of comma
+ * expression has no effect". *)
 and is_value x =
   match x.node with
   | EBound _
@@ -445,12 +447,6 @@ and translate_declaration env d: CStar.decl option =
         CStar.Function (t, (string_of_lident name), binders, body)
       end))
 
-  | DTypeAlias (name, n, t) ->
-      if n = 0 then
-        Some (CStar.Type (string_of_lident name, translate_type env t))
-      else
-        None
-
   | DGlobal (_, name, t, body) ->
       let env = locate env (InTop name) in
       Some (CStar.Global (
@@ -458,7 +454,10 @@ and translate_declaration env d: CStar.decl option =
         translate_type env t,
         translate_expr env false body))
 
-  | DTypeFlat (name, fields) ->
+  | DExternal (name, t) ->
+      Some (CStar.External (string_of_lident name, translate_type env t))
+
+  | DType (name, Flat fields) ->
       let name = string_of_lident name in
       (* TODO: avoid collisions since "_s" is not going through the name
        * generator *)
@@ -467,8 +466,14 @@ and translate_declaration env d: CStar.decl option =
           field, translate_type env typ
         ) fields)))
 
-  | DExternal (name, t) ->
-      Some (CStar.External (string_of_lident name, translate_type env t))
+  | DType (name, Abbrev (n, t)) ->
+      if n = 0 then
+        Some (CStar.Type (string_of_lident name, translate_type env t))
+      else
+        None
+
+  | DType (_name, Variant _) ->
+      failwith "TODO"
 
 
 and translate_program name decls =
