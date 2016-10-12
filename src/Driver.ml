@@ -206,7 +206,6 @@ let detect_gnu flavor =
     "-Werror";
     "-Wno-parentheses";
     "-Wno-unused-variable";
-    "-Wno-unused-but-set-variable";
     "-g";
     "-O3";
     "-fwrapv"
@@ -217,10 +216,14 @@ let detect_gnu flavor =
 
 let detect_gcc () =
   detect_gnu "gcc";
-  cc_args := "-std=c11" :: !cc_args
+  cc_args := "-Wno-unused-but-set-variable" :: "-std=c11" :: !cc_args
 
 let detect_gpp () =
-  detect_gnu "g++"
+  detect_gnu "g++";
+  cc_args := "-Wno-unused-but-set-variable" :: !cc_args
+
+let detect_clang () =
+  detect_gnu "clang"
 
 let detect_compcert () =
   if success "which" [| "ccomp" |] then
@@ -245,6 +248,8 @@ let detect_cc_if () =
         detect_compcert ()
     | "g++" ->
         detect_gpp ()
+    | "clang" ->
+        detect_clang ()
     | _ ->
         fatal_error "Unrecognized value for -cc: %s" !Options.cc
 
