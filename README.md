@@ -21,17 +21,17 @@ for "difficult" packages (e.g. `ppx_deriving`).
 
 To build just run `make` from this directory.
 
-If you have the latest version of F* (make sure `fstar.exe` is in your
-path) then you can run the KreMLin test suite by doing `make test`.
+If you have the latest version of F* and `fstar.exe` is in your
+`PATH` then you can run the KreMLin test suite by doing `make test`.
 
 File a bug if things don't work!
 
 ## Documentation
 
 The simple example from the [ML Workshop Paper] is available in
-`test/ML16.fst`; you can compile it with `make ML16.exe`.
+`test/ML16.fst` and you can compile it with `make ML16.exe`.
 
-Also check this out the `--help` flag:
+Also check out the `--help` flag:
 ```
 $ _build/src/Kremlin.native --help`
 ```
