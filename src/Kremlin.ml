@@ -132,6 +132,9 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
    * Otherwise, the checker is too stringent and will drop files. *)
   let files = Inlining.inline_type_abbrevs files in
   let files = Checker.check_everything files in
+
+  (* Remove patterns. *)
+  let files = Patterns.drop_tuples files in
   
   (* Perform a whole-program rewriting. *)
   let files = Simplify.simplify files in
