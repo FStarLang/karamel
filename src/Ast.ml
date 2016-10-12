@@ -286,7 +286,7 @@ class virtual ['env] map = object (self)
     EBufSub (self#visit env e1, self#visit env e2)
 
   method ematch env _typ e branches =
-    EMatch (self#visit env e, self#branches env branches)
+    EMatch (self#visit env e, self#branches env e.mtyp branches)
 
   method eop _env _typ o w =
     EOp (o, w)
@@ -329,13 +329,15 @@ class virtual ['env] map = object (self)
   method fields env fields =
     List.map (fun (ident, expr) -> ident, self#visit env expr) fields
 
-  method branches env branches =
+  method branches env t_scrutinee branches =
     List.map (fun (pat, expr) ->
       let binders = binders_of_pat pat in
       let env = List.fold_left self#extend env binders in
-      pat, self#visit env expr
+      self#pattern env t_scrutinee pat, self#visit env expr
     ) branches
 
+  method pattern _env _t pat =
+    pat
 
   (* Types *)
 

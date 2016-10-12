@@ -95,7 +95,7 @@ let dummy_match = object (self)
         let b2 = self#visit () b2 in
         EIfThenElse (e, b1, b2)
     | _ ->
-        EMatch (e, self#branches () branches)
+        EMatch (e, self#branches () e.mtyp branches)
 
 end
 
