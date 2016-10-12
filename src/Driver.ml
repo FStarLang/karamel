@@ -278,7 +278,7 @@ let compile files extra_c_files =
 let link c_files o_files =
   let objects = List.map o_of_c c_files @ o_files in
   let extra_arg = if !Options.exe_name <> "" then [ "-o"; !Options.exe_name ] else [] in
-  if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg) then
+  if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg @ List.rev !Options.ldopts) then
     KPrint.bprintf "%sAll files linked successfully%s 👍\n" Ansi.green Ansi.reset
   else begin
     KPrint.bprintf "%sgcc failed at the final linking phase%s\n" Ansi.red Ansi.reset;

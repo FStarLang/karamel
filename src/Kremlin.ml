@@ -57,7 +57,8 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the internal AST after simplification";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), compcert, g++";
-    "-ccopt", Arg.String (prepend Options.ccopts), " option to pass to the C compiler";
+    "-ccopt", Arg.String (prepend Options.ccopts), " option to pass to the C compiler and linker";
+    "-ldopt", Arg.String (prepend Options.ldopts), " option to pass to the C linker";
     "-skip-compilation", Arg.Set arg_skip_compilation, " stop after step 2.";
     "-skip-linking", Arg.Set arg_skip_linking, " stop after step 3.";
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";

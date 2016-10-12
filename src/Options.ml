@@ -12,3 +12,4 @@ let verbose = ref false
 let exe_name = ref ""
 let cc = ref "gcc"
 let ccopts: string list ref = ref []
+let ldopts: string list ref = ref []
