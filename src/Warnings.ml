@@ -15,6 +15,7 @@ and raw_error =
   | Unsupported of string
   | ExternalError of string
   | ExternalTypeApp of lident
+  | Vla of ident
 
 and location =
   string
@@ -41,7 +42,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 6 CError;;
+let flags = Array.make 7 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -60,6 +61,8 @@ let errno_of_error = function
       4
   | ExternalTypeApp _ ->
       5
+  | Vla _ ->
+      6
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -87,6 +90,9 @@ let rec perr buf (loc, raw_error) =
   | ExternalTypeApp lid ->
       p "hit a type application of %a, which is not defined; dropping"
         plid lid
+  | Vla id ->
+      p "%s is a non-constant size, stack-allocated array; this is not supported \
+        by CompCert" id
 
 let maybe_fatal_error error =
   let errno = errno_of_error (snd error) in
