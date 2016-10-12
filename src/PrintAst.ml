@@ -92,6 +92,8 @@ and print_typ = function
   | TBound i -> int i
   | TApp (lid, args) ->
       string (string_of_lident lid) ^/^ separate_map space print_typ args
+  | TTuple ts ->
+      separate_map (space ^^ star ^^ space) print_typ ts
 
 and print_expr { node; _ } =
   match node with
@@ -159,6 +161,10 @@ and print_expr { node; _ } =
       braces_with_nesting (print_expr e2)
   | EBufCreateL es ->
       string "newbuf" ^/^ braces_with_nesting (separate_map (comma ^^ break1) print_expr es)
+  | ECons (ident, es) ->
+      string ident ^/^ parens_with_nesting (separate_map (comma ^^ break1) print_expr es)
+  | ETuple es ->
+      parens_with_nesting (separate_map (comma ^^ break1) print_expr es)
 
 
 and print_branches branches =
@@ -175,6 +181,14 @@ and print_pat = function
       string (string_of_bool b)
   | PVar b ->
       print_binder b
+  | PCons (ident, pats) ->
+      string ident ^/^ parens_with_nesting (separate_map (comma ^^ break1) print_pat pats)
+  | PRecord fields ->
+      braces_with_nesting (separate_map break1 (fun (name, pat) ->
+        group (string name ^/^ equals ^/^ print_pat pat ^^ semi)
+      ) fields)
+  | PTuple ps ->
+      parens_with_nesting (separate_map (comma ^^ break1) print_pat ps)
 
 let print_files = print_files print_decl
 

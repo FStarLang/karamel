@@ -282,6 +282,13 @@ and infer_expr' env e t =
       ) fieldexprs;
       TQualified lid
 
+  | ECons (ident, exprs) ->
+      let lid = assert_qualified env t in
+      let ts = List.map (infer_expr env) exprs in
+      let ts' = fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident)))) in
+      List.iter2 (check_types_equal env) ts ts';
+      TQualified lid 
+
   | EField (e, field) ->
       let lid = assert_qualified env e.mtyp in
       check_expr env (TQualified lid) e;
@@ -302,6 +309,9 @@ and infer_expr' env e t =
           List.iter (check_expr env t) others;
           TBuf t
       end
+
+  | ETuple es ->
+      TTuple (List.map (infer_expr env) es)
 
 and find_field env lid field =
   begin try
@@ -374,6 +384,33 @@ and check_pat env t = function
       check_types_equal env t TUnit
   | PBool _ ->
       check_types_equal env t TBool
+  | PTuple ps ->
+      let ts = assert_tuple env t in
+      List.iter2 (check_pat env) ts ps
+  | PCons (ident, pats) ->
+      let lid = assert_qualified env t in
+      let ts = fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident)))) in
+      List.iter2 (check_pat env) ts pats
+  | PRecord fieldpats ->
+      let lid = assert_qualified env t in
+      let fieldtyps = assert_flat env (lookup_type env lid) in
+      List.iter (fun (field, pat) ->
+        let t, _ =
+          try
+            List.assoc field fieldtyps
+          with Not_found ->
+            fatal_error "%a, type %a has no field named %s" ploc env.location plid lid field
+        in
+        check_pat env t pat
+      ) fieldpats
+
+
+and assert_tuple env t =
+  match t with
+  | TTuple ts ->
+      ts
+  | _ ->
+      fatal_error "%a, this is not a tuple type" ploc env.location
 
 and assert_flat env t =
   match t with
@@ -402,6 +439,17 @@ and assert_buffer env e1 =
           type_error env "%a (a.k.a. %s) is not a buffer but a %a" pexpr e1 b.name ptyp b.typ
       | _ ->
           type_error env "%a is not a buffer but a %a" pexpr e1 ptyp t
+
+and assert_cons_of env t id: fields_t =
+  match t with
+  | Variant branches ->
+      begin try
+        List.assoc id branches
+      with Not_found ->
+        fatal_error "%a, %s is not a constructor of the annotated type" ploc env.location id
+      end
+  | _ ->
+      fatal_error "%a the annotated type is not a variant type" ploc env.location
 
 and check_expr env t e =
   let t' = infer_expr env e in

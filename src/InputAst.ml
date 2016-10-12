@@ -20,9 +20,9 @@ and decl =
       (** Name, number of parameters (De Bruijn), definition. *)
   | DTypeFlat of (lident * fields_t)
       (** The boolean indicates if the field is mutable *)
-  | DTypeVariant of (lident * branches_t)
   (* Assumed things that the type-checker of KreMLin needs to be aware of *)
   | DExternal of (lident * typ)
+  | DTypeVariant of (lident * branches_t)
 
 and fields_t =
   (ident * (typ * bool)) list
@@ -72,6 +72,9 @@ and expr =
     (** contains the name of the type we're selecting from *)
   | EWhile of (expr * expr)
   | EBufCreateL of expr list
+  | ETuple of expr list
+    (** desugared before AST into a struct *)
+  | ECons of (lident * ident * expr list)
 
 
 and branches =
@@ -84,6 +87,10 @@ and pattern =
   | PUnit
   | PBool of bool
   | PVar of binder
+  | PCons of (ident * pattern list)
+  | PTuple of pattern list
+    (** desugared before AST into a record pattern *)
+  | PRecord of (ident * pattern) list
 
 and var =
   int (** a De Bruijn index *)
@@ -112,6 +119,7 @@ and typ =
   | TZ
   | TBound of int
   | TApp of (lident * typ list)
+  | TTuple of typ list
 
 let flatten_arrow =
   let rec flatten_arrow acc = function

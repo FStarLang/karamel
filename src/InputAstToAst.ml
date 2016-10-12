@@ -4,6 +4,31 @@ open Ast
 
 module I = InputAst
 
+(* Tuples are converted on-the-fly to structs that belong to the [K] namespace. *)
+module Gen = struct
+  let type_defs = ref []
+
+  let tuple (ts: typ list) =
+    try
+      TQualified (fst (List.assoc ts !type_defs))
+    with Not_found ->
+      let doc =
+        let open PPrint in
+        let open PrintAst in
+        separate_map underscore print_typ ts
+      in
+      let lid = [ "K" ], KPrint.bsprintf "%a" PrintCommon.pdoc doc in
+      let fields = List.mapi (fun i t ->
+        Printf.sprintf "f%d" i, (t, false)
+      ) ts in
+      let type_def = DType (lid, Flat fields) in
+      type_defs := (ts, (lid, type_def)) :: !type_defs;
+      TQualified lid
+
+  let get () =
+    snd (List.split !type_defs)
+end
+
 let rec mk_decl = function
   | I.DFunction (flags, t, name, binders, body) ->
       DFunction (mk_flags flags, mk_typ t, name, mk_binders binders, mk_expr body)
@@ -59,6 +84,8 @@ and mk_typ = function
       TBound i
   | I.TApp (lid, ts) ->
       TApp (lid, List.map mk_typ ts)
+  | I.TTuple ts ->
+      Gen.tuple (List.map mk_typ ts)
 
 and mk_expr = function
   | I.EBound i ->
@@ -116,6 +143,10 @@ and mk_expr = function
   | I.EField (tname, e, field) ->
       let e = { (mk_expr e) with mtyp = TQualified tname } in
       mk (EField (e, field))
+  | I.ETuple es ->
+      mk (ETuple (List.map mk_expr es))
+  | I.ECons (lid, id, es) ->
+      { node = ECons (id, List.map mk_expr es); mtyp = TQualified lid }
 
 and mk node =
   { node; mtyp = TAny }
@@ -133,6 +164,14 @@ and mk_pat = function
       PBool b
   | I.PVar b ->
       PVar (mk_binder b)
+  | I.PTuple pats ->
+      PTuple (List.map mk_pat pats)
+  | I.PCons (id, pats) ->
+      PCons (id, List.map mk_pat pats)
+  | I.PRecord fields ->
+      PRecord (List.map (fun (field, pat) ->
+        field, mk_pat pat
+      ) fields)
 
 and mk_files files =
   List.map mk_program files

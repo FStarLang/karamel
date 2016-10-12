@@ -11,16 +11,14 @@ let pexpr = PrintAst.pexpr
 
 (* Some helpers ***************************************************************)
 
-type ('a, 'b, 'c, 'd, 'e, 'f) visitor = ('a, 'b, 'c, 'd, 'e) #Ast.visitor as 'f
-
-let visit_program (env: 'env) (visitor: _ visitor) (program: program) =
+let visit_program (env: 'env) (visitor: _ map) (program: program) =
   List.map (visitor#visit_d env) program
 
-let visit_file (env: 'env) (visitor: _ visitor) (file: file) =
+let visit_file (env: 'env) (visitor: _ map) (file: file) =
   let name, program = file in
   name, visit_program env visitor program
 
-let visit_files (env: 'env) (visitor: _ visitor) (files: file list) =
+let visit_files (env: 'env) (visitor: _ map) (files: file list) =
   KList.filter_map (fun f ->
     try
       Some (visit_file env visitor f)
@@ -349,6 +347,9 @@ let rec hoist_t e =
   | EMatch _ ->
       failwith "[hoist_t]: EMatch not properly desugared"
 
+  | ETuple _ ->
+      failwith "[hoist_t]: ETuple not properly desugared"
+
   | EReturn e ->
       let lhs, e = hoist false e in
       nest lhs (mk (EReturn e))
@@ -363,6 +364,10 @@ let rec hoist_t e =
         lhs, (ident, expr)
       ) fields) in
       nest (List.flatten lhs) (mk (EFlat fields))
+
+  | ECons (ident, es) ->
+      let lhs, es = List.split (List.map (hoist false) es) in
+      nest (List.flatten lhs) (mk (ECons (ident, es)))
 
 (* This traversal guarantees that no let-bindings are left in the visited term.
  * It returns a [(binder * expr) list] of all the hoisted bindings. It is up to
@@ -425,6 +430,9 @@ and hoist under_let e =
 
   | ESequence _ ->
       fatal_error "[hoist_t]: sequences should've been translated as let _ ="
+
+  | ETuple _ ->
+      failwith "[hoist_t]: ETuple not properly desugared"
 
   | EAssign (e1, e2) ->
       let lhs1, e1 = hoist false e1 in
@@ -495,6 +503,10 @@ and hoist under_let e =
         lhs, (ident, expr)
       ) fields) in
       List.flatten lhs, mk (EFlat fields)
+
+  | ECons (ident, es) ->
+      let lhs, es = List.split (List.map (hoist false) es) in
+      List.flatten lhs, mk (ECons (ident, es))
 
 let hoist = object
   inherit ignore_everything

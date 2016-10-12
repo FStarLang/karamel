@@ -79,3 +79,6 @@ let printf_of_pprint f =
 let printf_of_pprint_pretty f =
   fun buf t ->
     PPrint.ToBuffer.pretty 0.95 Utils.twidth buf (f t)
+
+let pdoc buf d =
+  PPrint.ToBuffer.compact buf d

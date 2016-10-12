@@ -204,6 +204,10 @@ let rec translate_expr env in_stmt e =
       fatal_error "[AstToCStar.translate_expr EMatch]: should not be here %a" ploc env.location
   | EReturn _ ->
       fatal_error "[AstToCStar.translate_expr EReturn]: should not be here %a" ploc env.location
+  | ECons _ ->
+      fatal_error "[AstToCStar.translate_expr ECons]: should not be here %a" ploc env.location
+  | ETuple _ ->
+      fatal_error "[AstToCStar.translate_expr ETuple]: should not be here %a" ploc env.location
   | EBool b ->
       CStar.Bool b
   | EFlat fields ->
@@ -390,6 +394,8 @@ and translate_return_type env = function
       fatal_error "Internal failure: no TBound here"
   | TApp (lid, _) ->
       raise_error (ExternalTypeApp lid)
+  | TTuple _ ->
+      fatal_error "Internal failure: TTuple not desugared here"
 
 
 and translate_type env = function
