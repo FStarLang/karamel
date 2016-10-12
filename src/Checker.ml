@@ -147,12 +147,12 @@ and check_decl env d =
       ()
 
 and infer_expr env e =
-  let t = infer_expr' env e.node e.mtyp in
-  if e.mtyp <> TAny then begin
-    (* KPrint.bprintf "Checking %a (previously: %a)\n" pexpr e ptyp e.mtyp; *)
-    check_types_equal env t e.mtyp;
+  let t = infer_expr' env e.node e.typ in
+  if e.typ <> TAny then begin
+    (* KPrint.bprintf "Checking %a (previously: %a)\n" pexpr e ptyp e.typ; *)
+    check_types_equal env t e.typ;
   end;
-  e.mtyp <- t;
+  e.typ <- t;
   t
 
 and infer_expr' env e t =
@@ -196,9 +196,9 @@ and infer_expr' env e t =
         t_ret
 
   | ELet (binder, body, cont) ->
-      check_expr (locate env (In binder.name)) binder.typ body;
+      check_expr (locate env (In binder.node.name)) binder.typ body;
       let env = push env binder in
-      infer_expr (locate env (After binder.name)) cont
+      infer_expr (locate env (After binder.node.name)) cont
 
   | EIfThenElse (e1, e2, e3) ->
       check_expr env TBool e1;
@@ -290,7 +290,7 @@ and infer_expr' env e t =
       TQualified lid 
 
   | EField (e, field) ->
-      let lid = assert_qualified env e.mtyp in
+      let lid = assert_qualified env e.typ in
       check_expr env (TQualified lid) e;
       fst (find_field env lid field)
 
@@ -334,8 +334,8 @@ and check_valid_assignment_lhs env e =
   match e.node with
   | EBound i ->
       let binder = find env i in
-      if not binder.mut then
-        type_error env "%a (a.k.a. %s) is not a mutable binding" pexpr e binder.name;
+      if not binder.node.mut then
+        type_error env "%a (a.k.a. %s) is not a mutable binding" pexpr e binder.node.name;
       binder.typ
   | EField (e, f) ->
       let t1 = check_valid_path env e in
@@ -377,22 +377,34 @@ and check_branches env t_scrutinee branches =
   ) branches;
   Option.must !t_ret
 
-and check_pat env t = function
+and check_pat env t_context pat =
+  match pat.node with
   | PVar b ->
-      check_types_equal env t b.typ
+      check_types_equal env t_context b.typ;
+      b.typ <- t_context;
+      check_types_equal env t_context pat.typ;
+      pat.typ <- t_context
   | PUnit ->
-      check_types_equal env t TUnit
+      check_types_equal env t_context TUnit;
+      pat.typ <- t_context
+
   | PBool _ ->
-      check_types_equal env t TBool
+      check_types_equal env t_context TBool;
+      pat.typ <- t_context
+
   | PTuple ps ->
-      let ts = assert_tuple env t in
-      List.iter2 (check_pat env) ts ps
+      let ts = assert_tuple env t_context in
+      List.iter2 (check_pat env) ts ps;
+      pat.typ <- t_context
+
   | PCons (ident, pats) ->
-      let lid = assert_qualified env t in
+      let lid = assert_qualified env t_context in
       let ts = fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident)))) in
-      List.iter2 (check_pat env) ts pats
+      List.iter2 (check_pat env) ts pats;
+      pat.typ <- t_context
+
   | PRecord fieldpats ->
-      let lid = assert_qualified env t in
+      let lid = assert_qualified env t_context in
       let fieldtyps = assert_flat env (lookup_type env lid) in
       List.iter (fun (field, pat) ->
         let t, _ =
@@ -402,7 +414,8 @@ and check_pat env t = function
             fatal_error "%a, type %a has no field named %s" ploc env.location plid lid field
         in
         check_pat env t pat
-      ) fieldpats
+      ) fieldpats;
+      pat.typ <- t_context
 
 
 and assert_tuple env t =
@@ -436,7 +449,7 @@ and assert_buffer env e1 =
       match e1.node with
       | EBound i ->
           let b = find env i in
-          type_error env "%a (a.k.a. %s) is not a buffer but a %a" pexpr e1 b.name ptyp b.typ
+          type_error env "%a (a.k.a. %s) is not a buffer but a %a" pexpr e1 b.node.name ptyp b.typ
       | _ ->
           type_error env "%a is not a buffer but a %a" pexpr e1 ptyp t
 

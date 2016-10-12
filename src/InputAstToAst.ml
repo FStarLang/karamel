@@ -4,6 +4,9 @@ open Ast
 
 module I = InputAst
 
+let mk (type a) (node: a): a with_type =
+  { node; typ = TAny }
+
 let rec mk_decl = function
   | I.DFunction (flags, t, name, binders, body) ->
       DFunction (mk_flags flags, mk_typ t, name, mk_binders binders, mk_expr body)
@@ -114,17 +117,14 @@ and mk_expr = function
   | I.EReturn e ->
       mk (EReturn (mk_expr e))
   | I.EFlat (tname, fields) ->
-      { node = EFlat (mk_fields fields); mtyp = TQualified tname }
+      { node = EFlat (mk_fields fields); typ = TQualified tname }
   | I.EField (tname, e, field) ->
-      let e = { (mk_expr e) with mtyp = TQualified tname } in
+      let e = { (mk_expr e) with typ = TQualified tname } in
       mk (EField (e, field))
   | I.ETuple es ->
       mk (ETuple (List.map mk_expr es))
   | I.ECons (lid, id, es) ->
-      { node = ECons (id, List.map mk_expr es); mtyp = TQualified lid }
-
-and mk node =
-  { node; mtyp = TAny }
+      { node = ECons (id, List.map mk_expr es); typ = TQualified lid }
 
 and mk_branches branches =
   List.map mk_branch branches
@@ -134,19 +134,19 @@ and mk_branch (pat, body) =
 
 and mk_pat = function
   | I.PUnit ->
-      PUnit
+      mk PUnit
   | I.PBool b ->
-      PBool b
+      mk (PBool b)
   | I.PVar b ->
-      PVar (mk_binder b)
+      mk (PVar (mk_binder b))
   | I.PTuple pats ->
-      PTuple (List.map mk_pat pats)
+      mk (PTuple (List.map mk_pat pats))
   | I.PCons (id, pats) ->
-      PCons (id, List.map mk_pat pats)
+      mk (PCons (id, List.map mk_pat pats))
   | I.PRecord fields ->
-      PRecord (List.map (fun (field, pat) ->
+      mk (PRecord (List.map (fun (field, pat) ->
         field, mk_pat pat
-      ) fields)
+      ) fields))
 
 and mk_files files =
   List.map mk_program files

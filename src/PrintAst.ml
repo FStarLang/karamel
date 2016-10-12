@@ -67,7 +67,7 @@ and print_flag = function
   | Private ->
       string "private"
 
-and print_binder { name; typ; mut; meta; mark; _ } =
+and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   group (
     (if mut then string "mutable" ^^ break 1 else empty) ^^
     string name ^^ lparen ^^ int !mark ^^ comma ^^ space ^^ print_meta meta ^^ rparen ^^ colon ^/^
@@ -174,7 +174,8 @@ and print_branch (pat, expr) =
   group (bar ^^ space ^^ print_pat pat ^^ space ^^ arrow) ^^
   jump ~indent:4 (print_expr expr)
 
-and print_pat = function
+and print_pat p =
+  match p.node with
   | PUnit ->
       string "()"
   | PBool b ->

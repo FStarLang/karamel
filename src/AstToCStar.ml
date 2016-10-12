@@ -107,7 +107,7 @@ let ensure_fresh env name body =
         ignore ((object
           inherit [string list] map
           method extend env binder =
-            binder.name :: env
+            binder.node.name :: env
           method ebound env _ i =
             r := !r || name = List.nth env i;
             EBound i
@@ -148,7 +148,7 @@ let rec translate_expr env in_stmt e =
       CStar.Constant c
   | EApp (e, es) ->
       (* Functions that only take a unit take no argument. *)
-      let t, ts = flatten_arrow e.mtyp in
+      let t, ts = flatten_arrow e.typ in
       let call = match ts, es with
         | [ TUnit ], [ { node = EUnit; _ } ] ->
             CStar.Call (translate_expr env e, [])
@@ -211,7 +211,7 @@ let rec translate_expr env in_stmt e =
   | EBool b ->
       CStar.Bool b
   | EFlat fields ->
-      let typ = Checker.assert_qualified Checker.empty e.mtyp in
+      let typ = Checker.assert_qualified Checker.empty e.typ in
       CStar.Struct (string_of_lident typ, List.map (fun (name, expr) ->
         Some name, translate_expr env expr
       ) fields)
@@ -413,7 +413,7 @@ and translate_and_push_binders env binders =
 
 and translate_and_push_binder env binder body =
   let binder = {
-    CStar.name = ensure_fresh env binder.name body;
+    CStar.name = ensure_fresh env binder.node.name body;
     typ = translate_type env binder.typ
   } in
   push env binder, binder
