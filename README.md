@@ -10,11 +10,12 @@ more information.
 
 ## Trying out KreMLin
 
-Make sure you run `opam update` first, so that by running the
-`opam install` you get `process-0.2.1` (`process` version `0.2` doesn't
-work on Windows). Install all of the packages below, possibly following
-instructions from https://github.com/FStarLang/FStar/wiki for "difficult"
-packages (e.g. `ppx_deriving`) on Windows.
+Make sure you run `opam update` first, so that by running the `opam
+install` command below you get `process-0.2.1` (`process` version
+`0.2` doesn't work on Windows). Install all of the packages below, on
+Windows possibly following instructions from
+https://github.com/protz/ocaml-installer/wiki
+for "difficult" packages (e.g. `ppx_deriving`).
 
 `$ opam install ppx_deriving_yojson zarith pprint menhir ulex process fix`
 
