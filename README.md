@@ -3,13 +3,38 @@ KreMLin
 
 [![Build Status](https://travis-ci.org/FStarLang/kremlin.svg?branch=master)](https://travis-ci.org/FStarLang/kremlin)
 
-Transforms a subset of F* into C code. See the [ML Workshop
-Paper](https://jonathan.protzenko.fr/papers/ml16.pdf) for more information.
+Transforms a subset of F* into C code. See the [ML Workshop Paper] for
+more information.
 
-## Build
+[ML Workshop Paper]: https://jonathan.protzenko.fr/papers/ml16.pdf
 
-Just run `make` from this directory. The test suite (`make test`) requires the
-latest version of F*.
+## Trying out KreMLin
+
+Make sure you run `opam update` first, so that by running the `opam
+install` command below you get `process-0.2.1` (`process` version
+`0.2` doesn't work on Windows). Install all of the packages below, on
+Windows possibly following instructions from
+https://github.com/protz/ocaml-installer/wiki
+for "difficult" packages (e.g. `ppx_deriving`).
+
+`$ opam install ppx_deriving_yojson zarith pprint menhir ulex process fix`
+
+To build just run `make` from this directory.
+
+If you have the latest version of F* (make sure `fstar.exe` is in your
+path) then you can run the KreMLin test suite by doing `make test`.
+
+File a bug if things don't work!
+
+## Documentation
+
+The simple example from the [ML Workshop Paper] is available in
+`test/ML16.fst`; you can compile it with `make ML16.exe`.
+
+Also check this out the `--help` flag:
+```
+$ _build/src/Kremlin.native --help`
+```
 
 ## License
 
@@ -17,16 +42,3 @@ This new variant of F* is released under the [Apache 2.0 license];
 see `LICENSE` for more details.
 
 [Apache 2.0 license]: https://www.apache.org/licenses/LICENSE-2.0
-
-## Installation
-
-Make sure you run `opam update` to get `process-0.2.1` (version `0.2` doesn't
-work on Windows). Install all of the packages below, possibly following
-instructions from https://github.com/FStarLang/FStar/wiki for "difficult"
-packages (e.g. `ppx_deriving`) on Windows.
-
-`opam install ppx_deriving_yojson zarith pprint menhir ulex process fix`
-
-Make sure `fstar.exe` is in your path. Run `make`.
-
-File a bug if things don't work!
