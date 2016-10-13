@@ -611,7 +611,7 @@ let replace_references_to_toplevel_names = object(self)
     DType (t name, Flat (self#fields_t () fields))
 
   method dtypevariant () name branches =
-    DType (record_name name, Variant (self#branches_t () branches))
+    DType (t name, Variant (self#branches_t () branches))
 end
 
 
