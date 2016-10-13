@@ -9,6 +9,7 @@ type type_spec =
   | Void
   | Named of ident
   | Struct of ident option * declaration list
+  | Enum of ident option * ident list
     (** not encoding all the invariants here *)
 
 and storage_spec =

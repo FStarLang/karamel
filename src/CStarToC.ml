@@ -16,6 +16,7 @@ let rec adapt (t: CStar.typ) =
   | Bool
   | Z
   | Void
+  | Enum _
   | Int _ -> t
   | Pointer t ->
       Pointer (adapt t)
@@ -45,6 +46,8 @@ let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type
       Void, k (Ident name)
   | Qualified l ->
       Named (string_of_lident l), k (Ident name)
+  | Enum (enum_name, tags) ->
+      Enum (enum_name, tags), k (Ident name)
   | Z ->
       Named "mpz_t", k (Ident name)
   | Bool ->

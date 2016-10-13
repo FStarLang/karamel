@@ -39,6 +39,11 @@ let rec p_type_spec = function
       group (string "struct" ^/^
       (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
       braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
+  | Enum (name, tags) ->
+      group (string "enum" ^/^
+      (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
+      braces_with_nesting (separate_map (comma ^^ break1) string tags)
+
 
 and p_type_declarator d =
   let rec p_noptr = function

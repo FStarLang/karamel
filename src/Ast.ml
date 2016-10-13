@@ -21,6 +21,7 @@ and type_def =
   | Abbrev of int * typ
   | Flat of fields_t
   | Variant of (ident * fields_t) list
+  | Enum of lident list
 
 and fields_t =
   (ident * (typ * bool)) list
@@ -471,6 +472,8 @@ class virtual ['env] map = object (self)
         self#dtypealias env name n t
     | DType (name, Variant branches) ->
         self#dtypevariant env name branches
+    | DType (name, Enum tags) ->
+        self#denum env name tags
 
   method binders env binders =
     List.map (fun binder -> { binder with typ = self#visit_t env binder.typ }) binders
@@ -505,6 +508,9 @@ class virtual ['env] map = object (self)
 
   method dtypevariant env name branches =
     DType (name, Variant (self#branches_t env branches))
+
+  method denum _env name tags =
+    DType (name, Enum tags)
 
   method branches_t env branches =
     List.map (fun (ident, fields) -> ident, self#fields_t env fields) branches

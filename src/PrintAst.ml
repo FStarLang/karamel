@@ -54,6 +54,12 @@ let rec print_decl = function
       ) branches in
       jump ~indent:0 (ifflat empty (bar ^^ space) ^^ separate (break 1 ^^ bar ^^ space) branches)
 
+  | DType (name, Enum tags) ->
+      group (group (string "enum" ^/^ string (string_of_lident name)) ^/^
+        braces_with_nesting (separate_map (comma ^^ break1) (fun lid ->
+          string (string_of_lident lid)
+        ) tags))
+
 and print_fields_t fields =
   concat_map (fun (ident, (typ, mut)) ->
     let mut = if mut then string "mutable " else empty in

@@ -76,3 +76,4 @@ and typ =
   | Bool
   | Z
   | Struct of ident option * (ident * typ) list
+  | Enum of ident option * ident list

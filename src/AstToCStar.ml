@@ -465,8 +465,8 @@ and translate_declaration env d: CStar.decl option =
 
   | DType (name, Flat fields) ->
       let name = string_of_lident name in
-      (* TODO: avoid collisions since "_s" is not going through the name
-       * generator *)
+      (* Not naming the structs or enums here, because they're going to be
+       * typedef'd and we'll only refer to the typedef'd name. *)
       Some (CStar.Type (
         name, CStar.Struct (None, List.map (fun (field, (typ, _)) ->
           field, translate_type env typ
@@ -480,6 +480,10 @@ and translate_declaration env d: CStar.decl option =
 
   | DType (_name, Variant _) ->
       failwith "TODO"
+
+  | DType (name, Enum tags) ->
+      Some (CStar.Type (string_of_lident name,
+        CStar.Enum (None, List.map string_of_lident tags)))
 
 
 and translate_program name decls =
