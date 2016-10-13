@@ -82,7 +82,9 @@ Prims_int Prims_op_Modulus(Prims_int x, Prims_int y);
 void *Prims_magic(void *_);
 void *Prims____Cons___tl(void *_);
 
-// Misc
+// Misc; many of these are polymorphic, hence not extracted (yet) by Kremlin,
+// which means that writing them out here only works as long as they are used
+// monomorphically.
 Prims_int FStar_UInt32_v(uint32_t x);
 FStar_Seq_seq FStar_Seq_createEmpty(void *_);
 FStar_Seq_seq FStar_Seq_create(Prims_nat len, void *init);

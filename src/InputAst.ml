@@ -12,13 +12,23 @@ type program =
   [@@deriving yojson]
 
 and decl =
+  (* Code *)
   | DGlobal of (flag list * lident * typ * expr)
   | DFunction of (flag list * typ * lident * binder list * expr)
+  (* Types *)
   | DTypeAlias of (lident * int * typ)
       (** Name, number of parameters (De Bruijn), definition. *)
-  | DTypeFlat of (lident * (ident * (typ * bool)) list)
+  | DTypeFlat of (lident * fields_t)
       (** The boolean indicates if the field is mutable *)
+  (* Assumed things that the type-checker of KreMLin needs to be aware of *)
   | DExternal of (lident * typ)
+  | DTypeVariant of (lident * branches_t)
+
+and fields_t =
+  (ident * (typ * bool)) list
+
+and branches_t =
+  (ident * fields_t) list
 
 and flag =
   | Private
@@ -62,6 +72,8 @@ and expr =
     (** contains the name of the type we're selecting from *)
   | EWhile of (expr * expr)
   | EBufCreateL of expr list
+  | ETuple of expr list
+  | ECons of (lident * ident * expr list)
 
 
 and branches =
@@ -74,6 +86,9 @@ and pattern =
   | PUnit
   | PBool of bool
   | PVar of binder
+  | PCons of (ident * pattern list)
+  | PTuple of pattern list
+  | PRecord of (ident * pattern) list
 
 and var =
   int (** a De Bruijn index *)
@@ -102,6 +117,7 @@ and typ =
   | TZ
   | TBound of int
   | TApp of (lident * typ list)
+  | TTuple of typ list
 
 let flatten_arrow =
   let rec flatten_arrow acc = function
@@ -114,7 +130,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 15
+let current_version: version = 16
 
 type file = string * program
   [@@deriving yojson]

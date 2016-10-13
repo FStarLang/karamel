@@ -18,16 +18,12 @@ module M = Map.Make(struct
   let compare = compare
 end)
 
-type tdecl =
-  | Abbrev of typ
-  | Flat of (ident * (typ * bool)) list
-
 let uint32 = TInt UInt32
 
 type env = {
   globals: typ M.t;
   locals: binder list;
-  types: tdecl M.t;
+  types: type_def M.t;
   location: loc list;
 }
 
@@ -74,10 +70,8 @@ let populate_env files =
   List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
-      | DTypeAlias (lid, _, typ) ->
-          { env with types = M.add lid (Abbrev typ) env.types }
-      | DTypeFlat (lid, fields) ->
-          { env with types = M.add lid (Flat fields) env.types }
+      | DType (lid, typ) ->
+          { env with types = M.add lid typ env.types }
       | DGlobal (_, lid, t, _) ->
           { env with globals = M.add lid t env.globals }
       | DFunction (_, ret, lid, binders, _) ->
@@ -146,20 +140,19 @@ and check_decl env d =
   | DGlobal (_, name, t, body) ->
       let env = locate env (InTop name) in
       check_expr env t body
-  | DTypeAlias _
   | DExternal _
-  | DTypeFlat _ ->
+  | DType _ ->
       (* Barring any parameterized types, there's is nothing to check here
        * really. *)
       ()
 
 and infer_expr env e =
-  let t = infer_expr' env e.node e.mtyp in
-  if e.mtyp <> TAny then begin
-    (* KPrint.bprintf "Checking %a (previously: %a)\n" pexpr e ptyp e.mtyp; *)
-    check_types_equal env t e.mtyp;
+  let t = infer_expr' env e.node e.typ in
+  if e.typ <> TAny then begin
+    (* KPrint.bprintf "Checking %a (previously: %a)\n" pexpr e ptyp e.typ; *)
+    check_types_equal env t e.typ;
   end;
-  e.mtyp <- t;
+  e.typ <- t;
   t
 
 and infer_expr' env e t =
@@ -203,9 +196,9 @@ and infer_expr' env e t =
         t_ret
 
   | ELet (binder, body, cont) ->
-      check_expr (locate env (In binder.name)) binder.typ body;
+      check_expr (locate env (In binder.node.name)) binder.typ body;
       let env = push env binder in
-      infer_expr (locate env (After binder.name)) cont
+      infer_expr (locate env (After binder.node.name)) cont
 
   | EIfThenElse (e1, e2, e3) ->
       check_expr env TBool e1;
@@ -289,8 +282,15 @@ and infer_expr' env e t =
       ) fieldexprs;
       TQualified lid
 
+  | ECons (ident, exprs) ->
+      let lid = assert_qualified env t in
+      let ts = List.map (infer_expr env) exprs in
+      let ts' = fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident)))) in
+      List.iter2 (check_types_equal env) ts ts';
+      TQualified lid 
+
   | EField (e, field) ->
-      let lid = assert_qualified env e.mtyp in
+      let lid = assert_qualified env e.typ in
       check_expr env (TQualified lid) e;
       fst (find_field env lid field)
 
@@ -309,6 +309,9 @@ and infer_expr' env e t =
           List.iter (check_expr env t) others;
           TBuf t
       end
+
+  | ETuple es ->
+      TTuple (List.map (infer_expr env) es)
 
 and find_field env lid field =
   begin try
@@ -331,8 +334,8 @@ and check_valid_assignment_lhs env e =
   match e.node with
   | EBound i ->
       let binder = find env i in
-      if not binder.mut then
-        type_error env "%a (a.k.a. %s) is not a mutable binding" pexpr e binder.name;
+      if not binder.node.mut then
+        type_error env "%a (a.k.a. %s) is not a mutable binding" pexpr e binder.node.name;
       binder.typ
   | EField (e, f) ->
       let t1 = check_valid_path env e in
@@ -374,13 +377,53 @@ and check_branches env t_scrutinee branches =
   ) branches;
   Option.must !t_ret
 
-and check_pat env t = function
+and check_pat env t_context pat =
+  match pat.node with
   | PVar b ->
-      check_types_equal env t b.typ
+      check_types_equal env t_context b.typ;
+      b.typ <- t_context;
+      check_types_equal env t_context pat.typ;
+      pat.typ <- t_context
   | PUnit ->
-      check_types_equal env t TUnit
+      check_types_equal env t_context TUnit;
+      pat.typ <- t_context
+
   | PBool _ ->
-      check_types_equal env t TBool
+      check_types_equal env t_context TBool;
+      pat.typ <- t_context
+
+  | PTuple ps ->
+      let ts = assert_tuple env t_context in
+      List.iter2 (check_pat env) ts ps;
+      pat.typ <- t_context
+
+  | PCons (ident, pats) ->
+      let lid = assert_qualified env t_context in
+      let ts = fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident)))) in
+      List.iter2 (check_pat env) ts pats;
+      pat.typ <- t_context
+
+  | PRecord fieldpats ->
+      let lid = assert_qualified env t_context in
+      let fieldtyps = assert_flat env (lookup_type env lid) in
+      List.iter (fun (field, pat) ->
+        let t, _ =
+          try
+            List.assoc field fieldtyps
+          with Not_found ->
+            fatal_error "%a, type %a has no field named %s" ploc env.location plid lid field
+        in
+        check_pat env t pat
+      ) fieldpats;
+      pat.typ <- t_context
+
+
+and assert_tuple env t =
+  match t with
+  | TTuple ts ->
+      ts
+  | _ ->
+      fatal_error "%a, this is not a tuple type" ploc env.location
 
 and assert_flat env t =
   match t with
@@ -406,9 +449,20 @@ and assert_buffer env e1 =
       match e1.node with
       | EBound i ->
           let b = find env i in
-          type_error env "%a (a.k.a. %s) is not a buffer but a %a" pexpr e1 b.name ptyp b.typ
+          type_error env "%a (a.k.a. %s) is not a buffer but a %a" pexpr e1 b.node.name ptyp b.typ
       | _ ->
           type_error env "%a is not a buffer but a %a" pexpr e1 ptyp t
+
+and assert_cons_of env t id: fields_t =
+  match t with
+  | Variant branches ->
+      begin try
+        List.assoc id branches
+      with Not_found ->
+        fatal_error "%a, %s is not a constructor of the annotated type" ploc env.location id
+      end
+  | _ ->
+      fatal_error "%a the annotated type is not a variant type" ploc env.location
 
 and check_expr env t e =
   let t' = infer_expr env e in
@@ -442,6 +496,9 @@ and types_equal env t1 t2 =
       i = i'
   | TApp (lid, args), TApp (lid', args') ->
       lid = lid' && List.for_all2 (types_equal env) args args'
+  | TTuple ts1, TTuple ts2 ->
+      List.length ts1 = List.length ts2 &&
+      List.for_all2 (types_equal env) ts1 ts2
   | _ ->
       false
 
@@ -455,13 +512,13 @@ and reduce env t =
   | TQualified lid ->
       begin match M.find lid env.types with
       | exception Not_found -> t
-      | Abbrev t -> reduce env t
+      | Abbrev (_, t) -> reduce env t
       | _ -> t
       end
   | TApp (lid, args) ->
       begin match M.find lid env.types with
       | exception Not_found -> t
-      | Abbrev t -> reduce env (DeBruijn.subst_tn t args)
+      | Abbrev (_, t) -> reduce env (DeBruijn.subst_tn t args)
       | _ -> t
       end
   | _ ->

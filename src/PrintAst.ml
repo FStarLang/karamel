@@ -11,9 +11,8 @@ let arrow = string "->"
 let decl_name (d: decl) =
   match d with
   | DFunction (_, _,lid,_,_)
-  | DTypeAlias (lid,_,_)
+  | DType (lid,_)
   | DGlobal (_, lid,_,_)
-  | DTypeFlat (lid,_)
   | DExternal (lid,_) -> lid
 
 let print_app f head g arguments =
@@ -31,7 +30,7 @@ let rec print_decl = function
         print_expr body
       )
 
-  | DTypeAlias (name, n, typ) ->
+  | DType (name, Abbrev (n, typ)) ->
       let args = KList.make n (fun i -> string ("t" ^ string_of_int i)) in
       let args = separate space args in
       group (string "type" ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
@@ -44,12 +43,22 @@ let rec print_decl = function
   | DGlobal (flags, name, typ, expr) ->
       print_flags flags ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
-  | DTypeFlat (name, fields) ->
+  | DType (name, Flat fields) ->
       group (string "flat type" ^/^ string (string_of_lident name) ^/^ equals) ^^
-      jump (concat_map (fun (ident, (typ, mut)) ->
-        let mut = if mut then string "mutable " else empty in
-        group (mut ^^ string ident ^^ colon ^/^ print_typ typ ^^ semi)
-      ) fields)
+      jump (print_fields_t fields)
+
+  | DType (name, Variant branches) ->
+      group (string "data" ^/^ string (string_of_lident name) ^/^ equals) ^^
+      let branches = List.map (fun (ident, fields) ->
+        string ident ^/^ braces_with_nesting (print_fields_t fields)
+      ) branches in
+      jump ~indent:0 (ifflat empty (bar ^^ space) ^^ separate (break 1 ^^ bar ^^ space) branches)
+
+and print_fields_t fields =
+  concat_map (fun (ident, (typ, mut)) ->
+    let mut = if mut then string "mutable " else empty in
+    group (mut ^^ string ident ^^ colon ^/^ print_typ typ ^^ semi)
+  ) fields
 
 and print_flags flags =
   separate_map space print_flag flags
@@ -58,7 +67,7 @@ and print_flag = function
   | Private ->
       string "private"
 
-and print_binder { name; typ; mut; meta; mark; _ } =
+and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   group (
     (if mut then string "mutable" ^^ break 1 else empty) ^^
     string name ^^ lparen ^^ int !mark ^^ comma ^^ space ^^ print_meta meta ^^ rparen ^^ colon ^/^
@@ -83,6 +92,8 @@ and print_typ = function
   | TBound i -> int i
   | TApp (lid, args) ->
       string (string_of_lident lid) ^/^ separate_map space print_typ args
+  | TTuple ts ->
+      separate_map (space ^^ star ^^ space) print_typ ts
 
 and print_expr { node; _ } =
   match node with
@@ -150,6 +161,10 @@ and print_expr { node; _ } =
       braces_with_nesting (print_expr e2)
   | EBufCreateL es ->
       string "newbuf" ^/^ braces_with_nesting (separate_map (comma ^^ break1) print_expr es)
+  | ECons (ident, es) ->
+      string ident ^/^ parens_with_nesting (separate_map (comma ^^ break1) print_expr es)
+  | ETuple es ->
+      parens_with_nesting (separate_map (comma ^^ break1) print_expr es)
 
 
 and print_branches branches =
@@ -159,13 +174,22 @@ and print_branch (pat, expr) =
   group (bar ^^ space ^^ print_pat pat ^^ space ^^ arrow) ^^
   jump ~indent:4 (print_expr expr)
 
-and print_pat = function
+and print_pat p =
+  match p.node with
   | PUnit ->
       string "()"
   | PBool b ->
       string (string_of_bool b)
   | PVar b ->
       print_binder b
+  | PCons (ident, pats) ->
+      string ident ^/^ parens_with_nesting (separate_map (comma ^^ break1) print_pat pats)
+  | PRecord fields ->
+      braces_with_nesting (separate_map break1 (fun (name, pat) ->
+        group (string name ^/^ equals ^/^ print_pat pat ^^ semi)
+      ) fields)
+  | PTuple ps ->
+      parens_with_nesting (separate_map (comma ^^ break1) print_pat ps)
 
 let print_files = print_files print_decl
 

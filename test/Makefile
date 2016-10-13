@@ -5,7 +5,7 @@ TESTOPTS=$(OPTS) -add-include '"testlib.h"' -I . testlib.c
 KRML=../krml
 
 all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
-  Private.exe ML16.exe Abbrev.exe TSet.exe \
+  Private.exe ML16.exe Abbrev.exe TSet.exe Tuples.exe \
   Poly1305.exe Chacha20.exe
 	for f in $^; do echo $$f; ./$$f; done
 

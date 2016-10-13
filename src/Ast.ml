@@ -14,9 +14,19 @@ and file =
 and decl =
   | DFunction of flag list * typ * lident * binder list * expr
   | DGlobal of flag list * lident * typ * expr
-  | DTypeAlias of lident * int * typ
-  | DTypeFlat of lident * (ident * (typ * bool)) list
   | DExternal of lident * typ
+  | DType of lident * type_def 
+
+and type_def =
+  | Abbrev of int * typ
+  | Flat of fields_t
+  | Variant of (ident * fields_t) list
+
+and fields_t =
+  (ident * (typ * bool)) list
+
+and branches_t =
+  (ident * fields_t) list
 
 and flag =
   | Private
@@ -57,18 +67,18 @@ and expr' =
     (** exits the program prematurely *)
   | EReturn of expr
   | EFlat of (ident * expr) list
-    (** contains the name of the type we're building *)
   | EField of expr * ident
-    (** contains the name of the type we're selecting from *)
   | EWhile of expr * expr
   | EBufCreateL of expr list
+  | ECons of ident * expr list
+  | ETuple of expr list
 
 and expr =
-  expr' typed
+  expr' with_type
 
-and 'a typed = {
+and 'a with_type = {
   node: 'a;
-  mutable mtyp: typ
+  mutable typ: typ
     (** Filled in by [Checker] *)
 }
 
@@ -78,23 +88,31 @@ and branches =
 and branch =
   pattern * expr
 
-and pattern =
+and pattern' =
   | PUnit
   | PBool of bool
   | PVar of binder
+  | PCons of ident * pattern list
+  | PTuple of pattern list
+  | PRecord of (ident * pattern) list
+
+and pattern =
+  pattern' with_type
 
 and var =
   int (** a De Bruijn index *)
 
-and binder = {
+and binder' = {
   name: ident;
-  typ: typ;
   mut: bool;
   mark: int ref;
   meta: meta option;
   atom: Atom.t;
     (** Only makes sense when opened! *)
 }
+
+and binder =
+  binder' with_type
 
 and meta =
   | MetaSequence
@@ -117,6 +135,10 @@ and typ =
   | TZ
   | TBound of int
   | TApp of lident * typ list
+  | TTuple of typ list
+
+let with_type typ node =
+  { typ; node }
 
 let flatten_arrow =
   let rec flatten_arrow acc = function
@@ -126,182 +148,99 @@ let flatten_arrow =
   flatten_arrow []
 
 let fresh_binder ?(mut=false) name typ =
-  { name; typ; mut; mark = ref 0; meta = None; atom = Atom.fresh () }
+  with_type typ { name; mut; mark = ref 0; meta = None; atom = Atom.fresh () }
 
 
 (** Some visitors for our AST of expressions *)
 
-let binders_of_pat = function
+let rec binders_of_pat p =
+  match p.node with
   | PVar b ->
       [ b ]
+  | PTuple ps
+  | PCons (_, ps) ->
+      KList.map_flatten binders_of_pat ps
+  | PRecord fields ->
+      KList.map_flatten binders_of_pat (snd (List.split fields))
   | PUnit
   | PBool _ ->
       []
 
-class virtual ['env, 'result, 'tresult, 'dresult, 'extra] visitor = object (self)
+class virtual ['env] map = object (self)
 
-  (* This method, whose default implementation is the identity,
-     can be used to extend the environment when a binding is
-     entered. *)
+  (* Extend the environment; these methods are meant to be overridden. *)
   method extend (env: 'env) (_: binder): 'env =
     env
+
+  method extend_many env binders =
+    List.fold_left self#extend env binders
 
   method extend_t (env: 'env): 'env =
     env
 
-  (* The main visitor method inspects the structure of [e] and
-     dispatches control to the appropriate case method. *)
-  method visit_e (env: 'env) (e: expr') (mtyp: 'extra): 'result =
+  (* Expression visitors. *)
+  method visit_e (env: 'env) (e: expr') (typ: 'extra): 'result =
     match e with
     | EBound var ->
-        self#ebound env mtyp var
+        self#ebound env typ var
     | EOpen (name, atom) ->
-        self#eopen env mtyp name atom
+        self#eopen env typ name atom
     | EQualified lident ->
-        self#equalified env mtyp lident
+        self#equalified env typ lident
     | EConstant c ->
-        self#econstant env mtyp c
+        self#econstant env typ c
     | EUnit ->
-        self#eunit env mtyp
+        self#eunit env typ
     | EApp (e, es) ->
-        self#eapp env mtyp e es
+        self#eapp env typ e es
     | ELet (b, e1, e2) ->
-        self#elet env mtyp b e1 e2
+        self#elet env typ b e1 e2
     | EIfThenElse (e1, e2, e3) ->
-        self#eifthenelse env mtyp e1 e2 e3
+        self#eifthenelse env typ e1 e2 e3
     | ESequence es ->
-        self#esequence env mtyp es
+        self#esequence env typ es
     | EAssign (e1, e2) ->
-        self#eassign env mtyp e1 e2
+        self#eassign env typ e1 e2
     | EBufCreate (e1, e2) ->
-        self#ebufcreate env mtyp e1 e2
+        self#ebufcreate env typ e1 e2
     | EBufRead (e1, e2) ->
-        self#ebufread env mtyp e1 e2
+        self#ebufread env typ e1 e2
     | EBufWrite (e1, e2, e3) ->
-        self#ebufwrite env mtyp e1 e2 e3
+        self#ebufwrite env typ e1 e2 e3
     | EBufBlit (e1, e2, e3, e4, e5) ->
-        self#ebufblit env mtyp e1 e2 e3 e4 e5
+        self#ebufblit env typ e1 e2 e3 e4 e5
     | EBufSub (e1, e2) ->
-        self#ebufsub env mtyp e1 e2
+        self#ebufsub env typ e1 e2
     | EMatch (e, branches) ->
-        self#ematch env mtyp e branches
+        self#ematch env typ e branches
     | EOp (op, w) ->
-        self#eop env mtyp op w
+        self#eop env typ op w
     | ECast (e, t) ->
-        self#ecast env mtyp e t
+        self#ecast env typ e t
     | EPushFrame ->
-        self#epushframe env mtyp
+        self#epushframe env typ
     | EPopFrame ->
-        self#epopframe env mtyp
+        self#epopframe env typ
     | EBool b ->
-        self#ebool env mtyp b
+        self#ebool env typ b
     | EAny ->
-        self#eany env mtyp
+        self#eany env typ
     | EAbort ->
-        self#eabort env mtyp
+        self#eabort env typ
     | EReturn e ->
-        self#ereturn env mtyp e
+        self#ereturn env typ e
     | EFlat fields ->
-        self#eflat env mtyp fields
+        self#eflat env typ fields
     | EField (e, field) ->
-        self#efield env mtyp e field
+        self#efield env typ e field
     | EWhile (e1, e2) ->
-        self#ewhile env mtyp e1 e2
+        self#ewhile env typ e1 e2
     | EBufCreateL es ->
-        self#ebufcreatel env mtyp es
-
-  method virtual ebound: 'env -> 'extra -> var -> 'result
-  method virtual eopen: 'env -> 'extra -> ident -> Atom.t -> 'result
-  method virtual equalified: 'env -> 'extra -> lident -> 'result
-  method virtual econstant: 'env -> 'extra -> K.t -> 'result
-  method virtual eunit: 'env -> 'extra -> 'result
-  method virtual eany: 'env -> 'extra -> 'result
-  method virtual eabort: 'env -> 'extra -> 'result
-  method virtual eapp: 'env -> 'extra -> expr -> expr list -> 'result
-  method virtual elet: 'env -> 'extra -> binder -> expr -> expr -> 'result
-  method virtual eifthenelse: 'env -> 'extra -> expr -> expr -> expr -> 'result
-  method virtual esequence: 'env -> 'extra -> expr list -> 'result
-  method virtual eassign: 'env -> 'extra -> expr -> expr -> 'result
-  method virtual ebufcreate: 'env -> 'extra -> expr -> expr -> 'result
-  method virtual ebufread: 'env -> 'extra -> expr -> expr -> 'result
-  method virtual ebufwrite: 'env -> 'extra -> expr -> expr -> expr -> 'result
-  method virtual ebufblit: 'env -> 'extra -> expr -> expr -> expr -> expr -> expr -> 'result
-  method virtual ebufsub: 'env -> 'extra -> expr -> expr -> 'result
-  method virtual ematch: 'env -> 'extra -> expr -> branches -> 'result
-  method virtual eop: 'env -> 'extra -> K.op -> K.width -> 'result
-  method virtual ecast: 'env -> 'extra -> expr -> 'extra -> 'result
-  method virtual epushframe: 'env -> 'extra -> 'result
-  method virtual epopframe: 'env -> 'extra -> 'result
-  method virtual ebool: 'env -> 'extra -> bool -> 'result
-  method virtual ereturn: 'env -> 'extra -> expr -> 'result
-  method virtual eflat: 'env -> 'extra -> (ident * expr) list -> 'result
-  method virtual efield: 'env -> 'extra -> expr -> ident -> 'result
-  method virtual ewhile: 'env -> 'extra -> expr -> expr -> 'result
-  method virtual ebufcreatel: 'env -> 'extra -> expr list -> 'result
-
-  method visit_t (env: 'env) (t: typ): 'tresult =
-    match t with
-    | TInt w ->
-        self#tint env w
-    | TBuf t ->
-        self#tbuf env t
-    | TUnit ->
-        self#tunit env
-    | TQualified lid ->
-        self#tqualified env lid
-    | TBool ->
-        self#tbool env
-    | TAny ->
-        self#tany env
-    | TArrow (t1, t2) ->
-        self#tarrow env t1 t2
-    | TZ ->
-        self#tz env
-    | TBound i ->
-        self#tbound env i
-    | TApp (name, args) ->
-        self#tapp env name (List.map (self#visit_t env) args)
-
-  method virtual tint: 'env -> K.width -> 'tresult
-  method virtual tbuf: 'env -> typ -> 'tresult
-  method virtual tunit: 'env ->  'tresult
-  method virtual tqualified: 'env -> lident -> 'tresult
-  method virtual tbool: 'env -> 'tresult
-  method virtual tany: 'env -> 'tresult
-  method virtual tarrow: 'env -> typ -> typ -> 'tresult
-  method virtual tz: 'env -> 'tresult
-  method virtual tbound: 'env -> int -> 'tresult
-  method virtual tapp: 'env -> lident -> typ list -> 'tresult
-
-  method visit_d (env: 'env) (d: decl): 'dresult =
-    match d with
-    | DFunction (flags, ret, name, binders, expr) ->
-        self#dfunction env flags ret name binders expr
-    | DTypeAlias (name, n, t) ->
-        self#dtypealias env name n t
-    | DGlobal (flags, name, typ, expr) ->
-        self#dglobal env flags name typ expr
-    | DTypeFlat (name, fields) ->
-        self#dtypeflat env name fields
-    | DExternal (name, t) ->
-        self#dexternal env name t
-
-  method virtual dfunction: 'env -> flag list -> typ -> lident -> binder list -> expr -> 'dresult
-  method virtual dtypealias: 'env -> lident -> int -> typ -> 'dresult
-  method virtual dglobal: 'env -> flag list -> lident -> typ -> expr -> 'dresult
-  method virtual dtypeflat: 'env -> lident -> (ident * (typ * bool)) list -> 'dresult
-  method virtual dexternal: 'env -> lident -> typ -> 'dresult
-end
-
-
-class ['env] map = object (self)
-
-  inherit ['env, expr', typ, decl, typ] visitor
-
-  method visit env e: expr =
-    let mtyp = self#visit_t env e.mtyp in
-    let node = self#visit_e env e.node mtyp in
-    { node; mtyp }
+        self#ebufcreatel env typ es
+    | ECons (cons, es) ->
+        self#econs env typ cons es
+    | ETuple es ->
+        self#etuple env typ es
 
   method ebound _env _typ var =
     EBound var
@@ -388,6 +327,14 @@ class ['env] map = object (self)
   method ebufcreatel env _typ es =
     EBufCreateL (List.map (self#visit env) es)
 
+  method econs env _typ ident es =
+    ECons (ident, List.map (self#visit env) es)
+
+  method etuple env _typ es =
+    ETuple (List.map (self#visit env) es)
+
+  (* Some helpers *)
+
   method fields env fields =
     List.map (fun (ident, expr) -> ident, self#visit env expr) fields
 
@@ -395,11 +342,71 @@ class ['env] map = object (self)
     List.map (fun (pat, expr) ->
       let binders = binders_of_pat pat in
       let env = List.fold_left self#extend env binders in
-      pat, self#visit env expr
+      self#visit_pattern env pat, self#visit env expr
     ) branches
 
-  method extend_many env binders =
-    List.fold_left self#extend env binders
+  (* Patterns *)
+
+  method visit_p env pat t =
+    match pat with
+    | PUnit ->
+        self#punit env
+    | PBool b ->
+        self#pbool env b
+    | PVar b ->
+        self#pvar env t b
+    | PCons (ident, fields) ->
+        self#pcons env t ident fields
+    | PTuple ps ->
+        self#ptuple env t ps
+    | PRecord fields ->
+        self#precord env t fields
+
+  method punit _env =
+    PUnit
+
+  method pbool _env b =
+    PBool b
+
+  method pvar _env _t b =
+    PVar b
+
+  method pcons env _t ident pats =
+    PCons (ident, List.map (self#visit_pattern env) pats)
+
+  method ptuple env _t pats =
+    PTuple (List.map (self#visit_pattern env) pats)
+
+  method precord env _t fields =
+    PRecord (List.map (fun (f, p) -> f, self#visit_pattern env p) fields)
+
+
+  (* Types *)
+
+  method visit_t (env: 'env) (t: typ): 'tresult =
+    match t with
+    | TInt w ->
+        self#tint env w
+    | TBuf t ->
+        self#tbuf env t
+    | TUnit ->
+        self#tunit env
+    | TQualified lid ->
+        self#tqualified env lid
+    | TBool ->
+        self#tbool env
+    | TAny ->
+        self#tany env
+    | TArrow (t1, t2) ->
+        self#tarrow env t1 t2
+    | TZ ->
+        self#tz env
+    | TBound i ->
+        self#tbound env i
+    | TApp (name, args) ->
+        self#tapp env name (List.map (self#visit_t env) args)
+    | TTuple ts ->
+        self#ttuple env (List.map (self#visit_t env) ts)
 
   method tint _env w =
     TInt w
@@ -431,6 +438,40 @@ class ['env] map = object (self)
   method tapp env lid ts =
     TApp (lid, List.map (self#visit_t env) ts)
 
+  method ttuple env ts =
+    TTuple (List.map (self#visit_t env) ts)
+
+  (* Once types and expressions can be visited, a more generic method that
+   * handles the type. *)
+
+  method visit_pattern env p: pattern =
+    let typ = self#visit_t env p.typ in
+    let node = self#visit_p env p.node typ in
+    { node; typ }
+
+  method visit env e: expr =
+    let typ = self#visit_t env e.typ in
+    let node = self#visit_e env e.node typ in
+    { node; typ }
+
+
+  (* Declarations *)
+
+  method visit_d (env: 'env) (d: decl): 'dresult =
+    match d with
+    | DFunction (flags, ret, name, binders, expr) ->
+        self#dfunction env flags ret name binders expr
+    | DGlobal (flags, name, typ, expr) ->
+        self#dglobal env flags name typ expr
+    | DExternal (name, t) ->
+        self#dexternal env name t
+    | DType (name, Flat fields) ->
+        self#dtypeflat env name fields
+    | DType (name, Abbrev (n, t)) ->
+        self#dtypealias env name n t
+    | DType (name, Variant branches) ->
+        self#dtypevariant env name branches
+
   method binders env binders =
     List.map (fun binder -> { binder with typ = self#visit_t env binder.typ }) binders
 
@@ -450,16 +491,21 @@ class ['env] map = object (self)
         extend (self#extend_t e) (n - 1)
     in
     let env = extend env n in
-    DTypeAlias (name, n, self#visit_t env t)
+    DType (name, Abbrev (n, self#visit_t env t))
 
   method fields_t env fields =
     List.map (fun (name, (t, mut)) -> name, (self#visit_t env t, mut)) fields
 
   method dtypeflat env name fields =
     let fields = self#fields_t env fields in
-    DTypeFlat (name, fields)
+    DType (name, Flat fields)
 
   method dexternal env name t =
     DExternal (name, self#visit_t env t)
 
+  method dtypevariant env name branches =
+    DType (name, Variant (self#branches_t env branches))
+
+  method branches_t env branches =
+    List.map (fun (ident, fields) -> ident, self#fields_t env fields) branches
 end
