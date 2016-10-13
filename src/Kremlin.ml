@@ -4,6 +4,7 @@ let _ =
   let arg_print_ast = ref false in
   let arg_print_json = ref false in
   let arg_print_simplify = ref false in
+  let arg_print_pattern = ref false in
   let arg_print_inline = ref false in
   let arg_print_c = ref false in
   let arg_skip_compilation = ref false in
@@ -53,8 +54,9 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   let spec = [
     "-djson", Arg.Set arg_print_json, " dump the input AST as JSON";
     "-dast", Arg.Set arg_print_ast, " pretty-print the internal AST";
-    "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after inlining";
+    "-dpattern", Arg.Set arg_print_pattern, " pretty-print after pattern removal";
     "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the internal AST after simplification";
+    "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after inlining";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), compcert, g++, clang";
     "-ccopt", Arg.String (prepend Options.ccopts), " option to pass to the C compiler and linker";
@@ -136,8 +138,9 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   let files = Checker.check_everything files in
 
   (* Remove patterns. *)
-  let files = Patterns.optimize files in
-  let files = Patterns.drop_tuples files in
+  let files = Patterns.everything files in
+  if !arg_print_pattern then
+    print PrintAst.print_files files;
   
   (* Perform a whole-program rewriting. *)
   let files = Simplify.simplify files in

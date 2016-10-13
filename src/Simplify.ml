@@ -254,12 +254,17 @@ let nest (lhs: (binder * expr) list) (e2: expr) =
     { node = ELet (binder, e1, e2); typ = e2.typ }
   ) lhs e2
 
-(** Generates "let [[name]]: [[t]] = [[e]] in [[name]]" *)
-let mk_named_binding name t e =
+let mk_binding name t =
   let b = fresh_binder name t in
   b,
-  { node = e; typ = t },
   { node = EOpen (b.node.name, b.node.atom); typ = t }
+
+(** Generates "let [[name]]: [[t]] = [[e]] in [[name]]" *)
+let mk_named_binding name t e =
+  let b, ref = mk_binding name t in
+  b,
+  { node = e; typ = t },
+  ref
 
 (* In a toplevel context, let-bindings may appear. A toplevel context
  * is defined inductively as:
@@ -435,14 +440,14 @@ and hoist under_let e =
         let b, body, cont = mk_named_binding "ite" t (EIfThenElse (e1, e2, e3)) in
         lhs1 @ [ b, body ], cont
 
-  | ESwitch (e, branches) ->
+  | ESwitch (e1, branches) ->
       let t = e.typ in
-      let lhs, e = hoist false e in
+      let lhs, e1 = hoist false e1 in
       let branches = List.map (fun (tag, e) -> tag, hoist_t e) branches in
       if under_let then
-        lhs, mk (ESwitch (e, branches))
+        lhs, mk (ESwitch (e1, branches))
       else
-        let b, body, cont = mk_named_binding "sw" t (ESwitch (e, branches)) in
+        let b, body, cont = mk_named_binding "sw" t (ESwitch (e1, branches)) in
         lhs @ [ b, body ], cont
 
   | EWhile (e1, e2) ->

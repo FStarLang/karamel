@@ -1,6 +1,7 @@
 (** Getting rid of patterns and decompiling pattern matches. *)
 
 open Ast
+open DeBruijn
 
 (* Zero-est thing: we need to be able to type-check the program without casts on
  * scrutinees, otherwise we won't be able to resolve anything. *)
@@ -93,7 +94,7 @@ let drop_tuples files =
  * tags (it's just an enum) and the trivial case of a type definition with one
  * branch (it's just a flat record). *)
 
-type optim = ToEnum | ToFlat of ident list
+type optim = ToEnum | ToFlat of ident list | Regular of branches_t
 
 let mk_tag_lid type_lid cons =
   let prefix, name = type_lid in
@@ -108,6 +109,8 @@ let optimize_visitor map = object(self)
     match Hashtbl.find map lid with
     | exception Not_found ->
         ECons (cons, List.map (self#visit ()) args)
+    | Regular _ ->
+        ECons (cons, List.map (self#visit ()) args)
     | ToEnum ->
         assert (List.length args = 0);
         EEnum (mk_tag_lid lid cons)
@@ -119,6 +122,8 @@ let optimize_visitor map = object(self)
     match Hashtbl.find map lid with
     | exception Not_found ->
         PCons (cons, List.map (self#visit_pattern ()) args)
+    | Regular _ ->
+        PCons (cons, List.map (self#visit_pattern ()) args)
     | ToEnum ->
         assert (List.length args = 0);
         PEnum (mk_tag_lid lid cons)
@@ -129,22 +134,110 @@ let optimize_visitor map = object(self)
     match Hashtbl.find map lid with
     | exception Not_found ->
         DType (lid, Variant branches)
+    | Regular _ ->
+        DType (lid, Variant branches)
     | ToEnum ->
         DType (lid, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
     | ToFlat _ ->
         DType (lid, Flat (snd (List.hd branches)))
 end
 
-
-let optimize files =
-  let map = Inlining.build_map files (fun map -> function
+let build_map files =
+  Inlining.build_map files (fun map -> function
     | DType (lid, Variant branches) ->
         if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
           Hashtbl.add map lid ToEnum
         else if List.length branches = 1 then
           Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
+        else
+          Hashtbl.add map lid (Regular branches)
     | _ ->
         ()
-  ) in
+  )
+
+let optimize files =
+  let map = build_map files in
   let files = Simplify.visit_files () (optimize_visitor map) files in
+  map, files
+
+
+(** Third thing: get rid of matches in favor of bindings, if-then-else, and
+ * switches. *)
+
+let mk_switch e branches =
+  ESwitch (e, List.map (fun (pat, e) ->
+    match pat.node with
+    | PEnum lid -> lid, e
+    | _ -> failwith "Pattern not simplified to enum"
+  ) branches)
+
+let is_trivial_record_pattern fields =
+  let binders = List.fold_left (fun acc (_field, pat) ->
+    match acc with
+    | None ->
+        None
+    | Some binders ->
+        match pat.node with
+        | PVar b ->
+            Some (b :: binders)
+        | _ ->
+            None
+  ) (Some []) fields in
+  Option.map List.rev binders
+
+let try_mk_flat e branches =
+  assert (List.length branches = 1);
+  match List.hd branches with
+  | { node = PRecord fields; _ }, body ->
+      begin match is_trivial_record_pattern fields with
+      | Some binders ->
+          (* match e with { f = x; ... } becomes
+           * let tmp = e in let x = e.f in *)
+          let binders, body = open_function_binders binders body in
+          let scrut, atom = Simplify.mk_binding "scrut" e.typ in
+          let bindings = List.map2 (fun b (f, _) ->
+            b, with_type b.typ (EField (atom, f))
+          ) binders fields in
+          (Simplify.nest ((scrut, e) :: bindings) body).node
+          
+      | None ->
+          EMatch (e, branches)
+      end
+  | _ ->
+      failwith "Pattern not simplified to record"
+
+
+let remove_match_visitor map = object(self)
+
+  inherit [unit] map
+
+  method ematch () _ e branches =
+    let e = self#visit () e in
+    let branches = self#branches () branches in
+    match e.typ with
+    | TQualified lid ->
+        begin match Hashtbl.find map lid with
+        | exception Not_found ->
+            EMatch (e, branches)
+        | Regular _ ->
+            EMatch (e, branches)
+        | ToEnum ->
+            mk_switch e branches
+        | ToFlat _ ->
+            try_mk_flat e branches
+        end
+    | _ ->
+        EMatch (e, branches)
+
+end
+
+let remove_matches map files =
+  let files = Simplify.visit_files () (remove_match_visitor map) files in
   files
+
+let everything files =
+  let map, files = optimize files in
+  let files = drop_tuples files in
+  let files = remove_matches map files in
+  files
+

@@ -20,7 +20,7 @@ and decl =
 and type_def =
   | Abbrev of int * typ
   | Flat of fields_t
-  | Variant of (ident * fields_t) list
+  | Variant of branches_t
   | Enum of lident list
 
 and fields_t =
