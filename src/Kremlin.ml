@@ -132,6 +132,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
    * and type abbreviations we don't know about have been replaced by TAny.
    * Otherwise, the checker is too stringent and will drop files. *)
   let files = Inlining.inline_type_abbrevs files in
+  let files = Patterns.drop_match_cast files in
   let files = Checker.check_everything files in
 
   (* Remove patterns. *)

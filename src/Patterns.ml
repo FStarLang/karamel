@@ -2,6 +2,22 @@
 
 open Ast
 
+(* Zero-est thing: we need to be able to type-check the program without casts on
+ * scrutinees, otherwise we won't be able to resolve anything. *)
+
+let drop_match_cast files =
+  Simplify.visit_files () (object
+    inherit [unit] map
+
+    method ematch () _ e branches =
+      match e.node with
+      | ECast (e, _) ->
+          EMatch (e, branches)
+      | _ ->
+          EMatch (e, branches)
+
+  end) files
+
 (* First thing: get rid of tuples, and allocate struct definitions for them. *)
 module Gen = struct
   let type_defs = ref []
