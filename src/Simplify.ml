@@ -573,6 +573,9 @@ let record_toplevel_names = object
 
   method dtypevariant () name branches =
     DType (record_name name, Variant branches)
+
+  method dtypeenum () name tags =
+    DType (record_name name, Enum tags)
 end
 
 let t lident =
@@ -607,6 +610,9 @@ let replace_references_to_toplevel_names = object(self)
 
   method dtypevariant () name branches =
     DType (t name, Variant (self#branches_t () branches))
+
+  method dtypeenum () name tags =
+    DType (t name, Enum tags)
 end
 
 

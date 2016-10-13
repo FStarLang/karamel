@@ -490,7 +490,7 @@ class virtual ['env] map = object (self)
     | DType (name, Variant branches) ->
         self#dtypevariant env name branches
     | DType (name, Enum tags) ->
-        self#denum env name tags
+        self#dtypeenum env name tags
 
   method binders env binders =
     List.map (fun binder -> { binder with typ = self#visit_t env binder.typ }) binders
@@ -526,7 +526,7 @@ class virtual ['env] map = object (self)
   method dtypevariant env name branches =
     DType (name, Variant (self#branches_t env branches))
 
-  method denum _env name tags =
+  method dtypeenum _env name tags =
     DType (name, Enum tags)
 
   method branches_t env branches =
