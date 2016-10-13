@@ -9,7 +9,7 @@ module Gen = struct
   let nth_field i =
     Printf.sprintf "f%d" i
 
-  let ns = [ "K" ]
+  let ns = [ "Pair" ]
 
   let tuple (ts: typ list) =
     try
@@ -29,7 +29,7 @@ module Gen = struct
       lid, type_def
 
   let get () =
-    List.map (fun (_, (_, d)) -> d) !type_defs
+    List.rev_map (fun (_, (_, d)) -> d) !type_defs
 end
 
 
@@ -46,11 +46,11 @@ let record_of_tuple = object(self)
     let lid, _ = Gen.tuple (List.map (self#visit_t ()) ts) in
     TQualified lid
 
-  method! ptuple () _t pats =
+  method! ptuple () _ pats =
     PRecord (List.mapi (fun i p -> Gen.nth_field i, self#visit_pattern () p) pats)
 
 end
 
 let drop_tuples files =
   let files = Simplify.visit_files () record_of_tuple files in
-  ("K", Gen.get ()) :: files
+  ("Pair", Gen.get ()) :: files

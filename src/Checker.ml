@@ -496,6 +496,9 @@ and types_equal env t1 t2 =
       i = i'
   | TApp (lid, args), TApp (lid', args') ->
       lid = lid' && List.for_all2 (types_equal env) args args'
+  | TTuple ts1, TTuple ts2 ->
+      List.length ts1 = List.length ts2 &&
+      List.for_all2 (types_equal env) ts1 ts2
   | _ ->
       false
 

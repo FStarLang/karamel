@@ -73,7 +73,6 @@ and expr =
   | EWhile of (expr * expr)
   | EBufCreateL of expr list
   | ETuple of expr list
-    (** desugared before AST into a struct *)
   | ECons of (lident * ident * expr list)
 
 
@@ -89,7 +88,6 @@ and pattern =
   | PVar of binder
   | PCons of (ident * pattern list)
   | PTuple of pattern list
-    (** desugared before AST into a record pattern *)
   | PRecord of (ident * pattern) list
 
 and var =
@@ -132,7 +130,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 15
+let current_version: version = 16
 
 type file = string * program
   [@@deriving yojson]
