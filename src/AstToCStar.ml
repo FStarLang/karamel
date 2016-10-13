@@ -142,6 +142,8 @@ let rec translate_expr env in_stmt e =
   match e.node with
   | EBound var ->
       CStar.Var (find env var)
+  | EEnum lident ->
+      CStar.Var (string_of_lident lident)
   | EQualified lident ->
       CStar.Qualified lident
   | EConstant c ->

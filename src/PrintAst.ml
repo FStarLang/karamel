@@ -171,6 +171,8 @@ and print_expr { node; _ } =
       string ident ^/^ parens_with_nesting (separate_map (comma ^^ break1) print_expr es)
   | ETuple es ->
       parens_with_nesting (separate_map (comma ^^ break1) print_expr es)
+  | EEnum lid ->
+      string (string_of_lident lid)
 
 
 and print_branches branches =
@@ -196,6 +198,8 @@ and print_pat p =
       ) fields)
   | PTuple ps ->
       parens_with_nesting (separate_map (comma ^^ break1) print_pat ps)
+  | PEnum lid ->
+      string (string_of_lident lid)
 
 let print_files = print_files print_decl
 

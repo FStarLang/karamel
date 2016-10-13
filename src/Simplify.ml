@@ -269,6 +269,7 @@ let rec hoist_t e =
   | EUnit
   | EPushFrame | EPopFrame
   | EBool _
+  | EEnum _
   | EOp _ ->
       e
 
@@ -385,6 +386,7 @@ and hoist under_let e =
   | EUnit
   | EPushFrame | EPopFrame
   | EBool _
+  | EEnum _
   | EOp _ ->
       [], e
 

@@ -25,13 +25,15 @@ type env = {
   locals: binder list;
   types: type_def M.t;
   location: loc list;
+  enums: lident M.t;
 }
 
 let empty: env = {
   globals = M.empty;
   locals = [];
   types = M.empty;
-  location = []
+  location = [];
+  enums = M.empty;
 }
 
 let push env binder =
@@ -71,6 +73,14 @@ let populate_env files =
     List.fold_left (fun env decl ->
       match decl with
       | DType (lid, typ) ->
+          let env = match typ with
+          | Enum tags ->
+              List.fold_left (fun env tag ->
+                { env with enums = M.add tag lid env.enums }
+              ) env tags
+          | _ ->
+              env
+          in
           { env with types = M.add lid typ env.types }
       | DGlobal (_, lid, t, _) ->
           { env with globals = M.add lid t env.globals }
@@ -312,6 +322,9 @@ and infer_expr' env e t =
 
   | ETuple es ->
       TTuple (List.map (infer_expr env) es)
+  
+  | EEnum tag ->
+      TQualified (M.find tag env.enums)
 
 and find_field env lid field =
   begin try
@@ -415,6 +428,11 @@ and check_pat env t_context pat =
         in
         check_pat env t pat
       ) fieldpats;
+      pat.typ <- t_context
+  
+  | PEnum tag ->
+      let lid = assert_qualified env t_context in
+      assert (lid = M.find tag env.enums);
       pat.typ <- t_context
 
 

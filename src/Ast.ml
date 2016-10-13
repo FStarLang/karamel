@@ -73,6 +73,7 @@ and expr' =
   | EBufCreateL of expr list
   | ECons of ident * expr list
   | ETuple of expr list
+  | EEnum of lident
 
 and expr =
   expr' with_type
@@ -94,6 +95,7 @@ and pattern' =
   | PBool of bool
   | PVar of binder
   | PCons of ident * pattern list
+  | PEnum of lident
   | PTuple of pattern list
   | PRecord of (ident * pattern) list
 
@@ -164,6 +166,7 @@ let rec binders_of_pat p =
   | PRecord fields ->
       KList.map_flatten binders_of_pat (snd (List.split fields))
   | PUnit
+  | PEnum _
   | PBool _ ->
       []
 
@@ -242,6 +245,8 @@ class virtual ['env] map = object (self)
         self#econs env typ cons es
     | ETuple es ->
         self#etuple env typ es
+    | EEnum lid ->
+        self#eenum env typ lid
 
   method ebound _env _typ var =
     EBound var
@@ -334,6 +339,9 @@ class virtual ['env] map = object (self)
   method etuple env _typ es =
     ETuple (List.map (self#visit env) es)
 
+  method eenum _env _typ lid =
+    EEnum lid
+
   (* Some helpers *)
 
   method fields env fields =
@@ -362,6 +370,8 @@ class virtual ['env] map = object (self)
         self#ptuple env t ps
     | PRecord fields ->
         self#precord env t fields
+    | PEnum lid ->
+        self#penum env t lid
 
   method punit _env =
     PUnit
@@ -381,6 +391,8 @@ class virtual ['env] map = object (self)
   method precord env _t fields =
     PRecord (List.map (fun (f, p) -> f, self#visit_pattern env p) fields)
 
+  method penum _env _t lid =
+    PEnum lid
 
   (* Types *)
 
