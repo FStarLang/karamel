@@ -7,7 +7,11 @@ module Gen = struct
   let type_defs = ref []
 
   let nth_field i =
-    Printf.sprintf "f%d" i
+    match i with
+    | 0 -> "fst"
+    | 1 -> "snd"
+    | 2 -> "thd"
+    | _ -> Printf.sprintf "f%d" i
 
   let ns = [ "Pair" ]
 

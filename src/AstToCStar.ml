@@ -468,7 +468,7 @@ and translate_declaration env d: CStar.decl option =
       (* TODO: avoid collisions since "_s" is not going through the name
        * generator *)
       Some (CStar.Type (
-        name, CStar.Struct (Some (name ^ "_s"), List.map (fun (field, (typ, _)) ->
+        name, CStar.Struct (None, List.map (fun (field, (typ, _)) ->
           field, translate_type env typ
         ) fields)))
 

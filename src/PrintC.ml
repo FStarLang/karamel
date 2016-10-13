@@ -38,7 +38,7 @@ let rec p_type_spec = function
   | Struct (name, decls) ->
       group (string "struct" ^/^
       (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
-      braces_with_nesting (separate_map break1 (fun p -> group (p_declaration p ^^ semi)) decls)
+      braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
 
 and p_type_declarator d =
   let rec p_noptr = function
@@ -183,7 +183,7 @@ and p_decl_and_init (decl, init) =
 
 and p_declaration (spec, stor, decl_and_inits) =
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
-  stor ^^ group (p_type_spec spec) ^^ space ^^
+  stor ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
 (* This is abusing the definition of a compound statement to ensure it is printed with braces. *)
