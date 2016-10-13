@@ -20,4 +20,4 @@ git:
 notifications:
     slack:
           rooms:
-                  - everestexpedition:8zdq1MdZaq7vdODNQ5LUhpth#kremlin-build
+                  - everestexpedition:8zdq1MdZaq7vdODNQ5LUhpth#kremlin-travis-build
