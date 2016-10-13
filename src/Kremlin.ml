@@ -136,6 +136,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
 
   (* Remove patterns. *)
   let files = Patterns.drop_tuples files in
+  let files = Patterns.optimize files in
   
   (* Perform a whole-program rewriting. *)
   let files = Simplify.simplify files in

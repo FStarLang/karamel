@@ -58,3 +58,64 @@ end
 let drop_tuples files =
   let files = Simplify.visit_files () record_of_tuple files in
   ("Pair", Gen.get ()) :: files
+
+
+(** Second thing: handle the trivial case of a data type definition with only
+ * tags (it's just an enum) and the trivial case of a type definition with one
+ * branch (it's just a flat record). *)
+
+type optim = ToEnum | ToFlat of ident list
+
+let mk_tag_lid type_lid cons =
+  let prefix, name = type_lid in
+  (prefix @ [ name ], cons)
+
+let optimize_visitor map = object(self)
+
+  inherit [unit] map
+
+  method econs () typ cons args =
+    let lid = match typ with TQualified lid -> lid | _ -> assert false in
+    match Hashtbl.find map lid with
+    | exception Not_found ->
+        ECons (cons, List.map (self#visit ()) args)
+    | ToEnum ->
+        assert (List.length args = 0);
+        EEnum (mk_tag_lid lid cons)
+    | ToFlat names ->
+        EFlat (List.map2 (fun n e -> n, e) names args)
+
+  method pcons () typ cons args =
+    let lid = match typ with TQualified lid -> lid | _ -> assert false in
+    match Hashtbl.find map lid with
+    | exception Not_found ->
+        PCons (cons, List.map (self#visit_pattern ()) args)
+    | ToEnum ->
+        assert (List.length args = 0);
+        PEnum (mk_tag_lid lid cons)
+    | ToFlat names ->
+        PRecord (List.map2 (fun n e -> n, e) names args)
+
+  method dtypevariant () lid branches =
+    match Hashtbl.find map lid with
+    | exception Not_found ->
+        DType (lid, Variant branches)
+    | ToEnum ->
+        DType (lid, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
+    | ToFlat _ ->
+        DType (lid, Flat (snd (List.hd branches)))
+end
+
+
+let optimize files =
+  let map = Inlining.build_map files (fun map -> function
+    | DType (lid, Variant branches) ->
+        if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
+          Hashtbl.add map lid ToEnum
+        else if List.length branches = 1 then
+          Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
+    | _ ->
+        ()
+  ) in
+  let files = Simplify.visit_files () (optimize_visitor map) files in
+  files
