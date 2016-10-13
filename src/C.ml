@@ -91,7 +91,8 @@ type stmt =
     (** "init_clause may be an expression or a declaration" -> only doing the
      * latter *)
   | Return of expr option
-  | Switch of expr * (expr * stmt) list
+  | Switch of expr * (expr * stmt) list * stmt
+    (** the last component is the default statement *)
   | Break
 
 and program =

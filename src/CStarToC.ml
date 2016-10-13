@@ -188,10 +188,13 @@ and mk_stmt (stmt: stmt): C.stmt list =
       failwith "[mk_stmt]: nested frames to be handled by [mk_stmts]"
 
   | Switch (e, branches) ->
-      [ Switch (mk_expr e, List.map (fun (ident, block) ->
-          Name ident, Compound (mk_stmts block @ [ Break ])
-        ) branches)
-      ]
+      [ Switch (
+          mk_expr e,
+          List.map (fun (ident, block) ->
+            Name ident, Compound (mk_stmts block @ [ Break ])
+          ) branches,
+          Expr (Call (Name "exit", [ Constant (K.UInt8, "253") ]))
+      )]
 
 and mk_stmts stmts: C.stmt list =
   match stmts with
