@@ -182,6 +182,11 @@ class virtual ['env] map = object (self)
   method extend_t (env: 'env): 'env =
     env
 
+  (* Toplevel visitor. *)
+  method visit_file (env: 'env) (file: file) =
+    let name, decls = file in
+    name, List.map (self#visit_d env) decls
+
   (* Expression visitors. *)
   method visit_e (env: 'env) (e: expr') (typ: 'extra): 'result =
     match e with

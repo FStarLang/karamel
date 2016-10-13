@@ -11,17 +11,10 @@ let pexpr = PrintAst.pexpr
 
 (* Some helpers ***************************************************************)
 
-let visit_program (env: 'env) (visitor: _ map) (program: program) =
-  List.map (visitor#visit_d env) program
-
-let visit_file (env: 'env) (visitor: _ map) (file: file) =
-  let name, program = file in
-  name, visit_program env visitor program
-
 let visit_files (env: 'env) (visitor: _ map) (files: file list) =
   KList.filter_map (fun f ->
     try
-      Some (visit_file env visitor f)
+      Some (visitor#visit_file env f)
     with Error e ->
       maybe_fatal_error (fst f ^ "/" ^ fst e, snd e);
       None

@@ -13,7 +13,7 @@ module Gen = struct
     | 2 -> "thd"
     | _ -> Printf.sprintf "f%d" i
 
-  let ns = [ "Pair" ]
+  let ns = [ "K" ]
 
   let tuple (ts: typ list) =
     try
@@ -32,14 +32,27 @@ module Gen = struct
       type_defs := (ts, (lid, type_def)) :: !type_defs;
       lid, type_def
 
-  let get () =
-    List.rev_map (fun (_, (_, d)) -> d) !type_defs
+  let clear () =
+    let r = List.rev_map (fun (_, (_, d)) -> d) !type_defs in
+    type_defs := [];
+    r
 end
 
 
 let record_of_tuple = object(self)
 
   inherit [unit] map
+
+  (* Generated pair declarations are inserted exactly in the right spot and
+   * spread out throughout the various files, as needed. Since a given file
+   * includes the header of ALL the files that precede it in the topological
+   * order, then it should be fine (famous last words). *)
+  method! visit_file () file =
+    let name, decls = file in
+    name, KList.map_flatten (fun d ->
+      let d = self#visit_d () d in
+      Gen.clear () @ [ d ]
+    ) decls
 
   method! etuple () _ es =
     EFlat (List.mapi (fun i e ->
@@ -57,7 +70,7 @@ end
 
 let drop_tuples files =
   let files = Simplify.visit_files () record_of_tuple files in
-  ("Pair", Gen.get ()) :: files
+  files
 
 
 (** Second thing: handle the trivial case of a data type definition with only
