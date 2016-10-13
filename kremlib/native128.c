@@ -2,6 +2,10 @@ FStar_UInt128_t FStar_UInt128_add(FStar_UInt128_t x, FStar_UInt128_t y) {
   return x + y;
 }
 
+FStar_UInt128_t FStar_UInt128_mul(FStar_UInt128_t x, FStar_UInt128_t y) {
+  return x * y;
+}
+
 FStar_UInt128_t FStar_UInt128_add_mod(FStar_UInt128_t x, FStar_UInt128_t y) {
   return x + y;
 }

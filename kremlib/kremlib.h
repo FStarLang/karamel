@@ -42,6 +42,7 @@ FStar_UInt128_t FStar_UInt128_add(FStar_UInt128_t x, FStar_UInt128_t y);
 FStar_UInt128_t FStar_UInt128_add_mod(FStar_UInt128_t x, FStar_UInt128_t y);
 FStar_UInt128_t FStar_UInt128_sub(FStar_UInt128_t x, FStar_UInt128_t y);
 FStar_UInt128_t FStar_UInt128_sub_mod(FStar_UInt128_t x, FStar_UInt128_t y);
+FStar_UInt128_t FStar_UInt128_mul(FStar_UInt128_t x, FStar_UInt128_t y);
 FStar_UInt128_t FStar_UInt128_logand(FStar_UInt128_t x, FStar_UInt128_t y);
 FStar_UInt128_t FStar_UInt128_logor(FStar_UInt128_t x, FStar_UInt128_t y);
 FStar_UInt128_t FStar_UInt128_logxor(FStar_UInt128_t x, FStar_UInt128_t y);
