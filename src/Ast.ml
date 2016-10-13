@@ -74,6 +74,7 @@ and expr' =
   | ECons of ident * expr list
   | ETuple of expr list
   | EEnum of lident
+  | ESwitch of expr * (lident * expr) list
 
 and expr =
   expr' with_type
@@ -252,6 +253,8 @@ class virtual ['env] map = object (self)
         self#etuple env typ es
     | EEnum lid ->
         self#eenum env typ lid
+    | ESwitch (e, branches) ->
+        self#eswitch env typ e branches
 
   method ebound _env _typ var =
     EBound var
@@ -346,6 +349,11 @@ class virtual ['env] map = object (self)
 
   method eenum _env _typ lid =
     EEnum lid
+
+  method eswitch env _ e branches =
+    ESwitch (self#visit env e, List.map (fun (lid, e) ->
+      lid, self#visit env e
+    ) branches)
 
   (* Some helpers *)
 

@@ -187,6 +187,12 @@ and mk_stmt (stmt: stmt): C.stmt list =
   | PushFrame | PopFrame ->
       failwith "[mk_stmt]: nested frames to be handled by [mk_stmts]"
 
+  | Switch (e, branches) ->
+      [ Switch (mk_expr e, List.map (fun (ident, block) ->
+          Name ident, Compound (mk_stmts block @ [ Break ])
+        ) branches)
+      ]
+
 and mk_stmts stmts: C.stmt list =
   match stmts with
   | PushFrame :: stmts ->

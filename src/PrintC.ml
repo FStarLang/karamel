@@ -239,6 +239,17 @@ let rec p_stmt (s: stmt) =
       group (string "return" ^/^ p_expr e ^^ semi)
   | Decl d ->
       group (p_declaration d ^^ semi)
+  | Switch (e, branches) ->
+      group (string "switch" ^/^ lparen ^^ p_expr e ^^ rparen) ^/^
+      braces_with_nesting (
+        separate_map hardline (fun (e, s) ->
+          group (string "case" ^/^ p_expr e ^^ colon) ^^ nest 2 (
+           hardline ^^ p_stmt s
+          )
+        ) branches
+      )
+  | Break ->
+     string "break" ^^ semi 
 
 
 let p_decl_or_function (df: declaration_or_function) =

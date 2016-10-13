@@ -210,6 +210,8 @@ let rec translate_expr env in_stmt e =
       fatal_error "[AstToCStar.translate_expr ECons]: should not be here %a" ploc env.location
   | ETuple _ ->
       fatal_error "[AstToCStar.translate_expr ETuple]: should not be here %a" ploc env.location
+  | ESwitch _ ->
+      fatal_error "[AstToCStar.translate_expr ESwitch]: should not be here %a" ploc env.location
   | EBool b ->
       CStar.Bool b
   | EFlat fields ->
@@ -268,6 +270,12 @@ and extract_stmts env e ret_type =
 
     | EAbort ->
         env, CStar.Abort :: acc
+
+    | ESwitch (e, branches) ->
+        env, CStar.Switch (translate_expr env true e,
+          List.map (fun (lid, e) ->
+            string_of_lident lid, translate_block env return_pos e
+          ) branches) :: acc
 
     | EReturn e ->
         translate_as_return env e acc

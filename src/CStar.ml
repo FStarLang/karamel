@@ -26,6 +26,7 @@ and stmt =
   | PushFrame
   | PopFrame
   | Abort
+  | Switch of expr * (ident * block) list
 
 and expr =
   | Call of expr * expr list

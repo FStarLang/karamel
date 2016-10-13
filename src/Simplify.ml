@@ -223,6 +223,23 @@ let let_if_to_assign = object (self)
             node = ELet (sequence_binding (), e_ifthenelse, lift 1 (self#visit () e2));
             typ = e2.typ
           })))
+    | ESwitch (e, branches), None ->
+        let b = { b with node = { b.node with mut = true }} in
+        let b, e2 = open_binder b e2 in
+        let nest_assign = nest_in_lets (fun innermost -> {
+          node = EAssign ({ node = EOpen (b.node.name, b.node.atom); typ = b.typ }, innermost);
+          typ = TUnit
+        }) in
+        let branches = List.map (fun (tag, e) -> tag, nest_assign e) branches in
+        let e_switch = {
+          node = ESwitch (e, branches);
+          typ = TUnit
+        } in
+        ELet (b, { node = EAny; typ = TAny },
+          close_binder b (lift 1 ({
+            node = ELet (sequence_binding (), e_switch, lift 1 (self#visit () e2));
+            typ = e2.typ
+        })))
     | _ ->
         (* There are no more nested lets at this stage *)
         ELet (b, e1, self#visit () e2)
@@ -286,6 +303,11 @@ let rec hoist_t e =
       let e3 = hoist_t e3 in
       nest lhs (mk (EIfThenElse (e1, e2, e3)))
 
+  | ESwitch (e, branches) ->
+      let lhs, e = hoist false e in
+      let branches = List.map (fun (tag, e) -> tag, hoist_t e) branches in
+      nest lhs (mk (ESwitch (e, branches)))
+
   | EWhile (e1, e2) ->
       let lhs, e1 = hoist false e1 in
       let e2 = hoist_t e2 in
@@ -328,6 +350,7 @@ let rec hoist_t e =
       let lhs4, e4 = hoist false e4 in
       let lhs5, e5 = hoist false e5 in
       nest (lhs1 @ lhs2 @ lhs3 @ lhs4 @ lhs5) (mk (EBufBlit (e1, e2, e3, e4, e5)))
+
   | EBufSub (e1, e2) ->
       let lhs1, e1 = hoist false e1 in
       let lhs2, e2 = hoist false e2 in
@@ -411,6 +434,16 @@ and hoist under_let e =
       else
         let b, body, cont = mk_named_binding "ite" t (EIfThenElse (e1, e2, e3)) in
         lhs1 @ [ b, body ], cont
+
+  | ESwitch (e, branches) ->
+      let t = e.typ in
+      let lhs, e = hoist false e in
+      let branches = List.map (fun (tag, e) -> tag, hoist_t e) branches in
+      if under_let then
+        lhs, mk (ESwitch (e, branches))
+      else
+        let b, body, cont = mk_named_binding "sw" t (ESwitch (e, branches)) in
+        lhs @ [ b, body ], cont
 
   | EWhile (e1, e2) ->
       let lhs1, e1 = hoist false e1 in

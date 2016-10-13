@@ -173,6 +173,12 @@ and print_expr { node; _ } =
       parens_with_nesting (separate_map (comma ^^ break1) print_expr es)
   | EEnum lid ->
       string (string_of_lident lid)
+  | ESwitch (e, branches) ->
+      string "switch" ^^ space ^^ print_expr e ^/^ braces_with_nesting (
+        separate_map hardline (fun (lid, e) ->
+          string "case" ^^ space ^^ string (string_of_lident lid) ^^ colon ^^
+          nest 2 (hardline ^^ print_expr e)
+        ) branches)
 
 
 and print_branches branches =

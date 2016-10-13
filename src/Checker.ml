@@ -326,6 +326,24 @@ and infer_expr' env e t =
   | EEnum tag ->
       TQualified (M.find tag env.enums)
 
+  | ESwitch (e, branches) ->
+      begin match infer_expr env e with
+      | TQualified lid ->
+          let t_ret = ref None in
+          List.iter (fun (tag, e) ->
+            if not (M.find tag env.enums = lid) then
+              type_error env "scrutinee has type %a but tag %a does not belong to \
+                this type" plid lid plid tag;
+            let t = infer_expr env e in
+            match !t_ret with
+            | Some t' -> check_types_equal env t t'
+            | None -> t_ret := Some t
+          ) branches;
+          Option.must !t_ret
+      | t ->
+          type_error env "cannot switch on element of type %a" ptyp t
+      end
+
 and find_field env lid field =
   begin try
     List.assoc field (assert_flat env (lookup_type env lid))
