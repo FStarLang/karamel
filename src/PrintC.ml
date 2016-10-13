@@ -36,8 +36,8 @@ let rec p_type_spec = function
   | Void -> string "void"
   | Named s -> string s
   | Struct (name, decls) ->
-      string "struct" ^/^
-      (match name with Some name -> string name ^^ break1 | None -> empty) ^^
+      group (string "struct" ^/^
+      (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
       braces_with_nesting (separate_map break1 (fun p -> group (p_declaration p ^^ semi)) decls)
 
 and p_type_declarator d =
@@ -182,7 +182,7 @@ and p_decl_and_init (decl, init) =
         empty)
 
 and p_declaration (spec, stor, decl_and_inits) =
-  let stor = match stor with Some stor -> p_storage_spec stor ^^ break 1 | None -> empty in
+  let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
   stor ^^ group (p_type_spec spec) ^^ space ^^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
