@@ -185,7 +185,8 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     let s = Wasmlib.Encode.encode module_ in
     if !Options.exe_name = "" then
       Options.exe_name := "out.wasm";
-    output_string (open_out !Options.exe_name) s
+    output_string (open_out !Options.exe_name) s;
+    KPrint.bprintf "Wrote WASM output to %s\n" !Options.exe_name
   else
     (* ... then to C *)
     let headers = CStarToC.mk_headers files in
