@@ -174,16 +174,15 @@ let run_fstar verify files =
   assert (List.length files > 0);
   detect_fstar_if ();
 
+  KPrint.bprintf "%s⚡ Calling F*%s\n" Ansi.blue Ansi.reset;
   let args = List.rev !Options.fsopts @ !fstar_options @ files in
   if verify then begin
-    KPrint.bprintf "%s⚡ Calling F* (verification)%s\n" Ansi.blue Ansi.reset;
     flush stdout;
     if not (run_or_warn "[F*,verify]" !fstar args) then
       fatal_error "F* failed"
   end;
 
   let args =  "--codegen" :: "Kremlin" :: "--lax" :: !fstar_options @ files in
-  KPrint.bprintf "%s⚡ Calling F* (extraction)%s\n" Ansi.blue Ansi.reset;
   flush stdout;
   if not (run_or_warn "[F*,extract]" !fstar args) then
     fatal_error "F* failed";
