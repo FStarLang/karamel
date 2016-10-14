@@ -88,8 +88,8 @@ bool FStar_HyperStack_is_eternal_color(Prims_int x0);
 #define FStar_ST_op_Bang(x) ((void*) 0)
 
 // Misc; many of these are polymorphic, hence not extracted (yet) by Kremlin,
-// which means that writing them out here only works as long as they are used
-// monomorphically.
+// which means that a macro is the "right" way to make they don't generate a
+// compilation error.
 Prims_int FStar_UInt32_v(uint32_t x);
 #define FStar_Seq_createEmpty(x) ((void*)0)
 #define FStar_Seq_create(len, init) ((void*)0)

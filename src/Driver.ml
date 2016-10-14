@@ -126,7 +126,7 @@ let detect_fstar () =
    * set of known failing modules. *)
   let fstar_includes = List.map expand_fstar_home !Options.includes in
   fstar_options := [
-    "--trace_error"; "--codegen"; "Kremlin"; "--lax"
+    "--trace_error";
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
   List.iter (fun m ->
     fstar_options := "--no_extract" :: ("FStar." ^ m) :: !fstar_options
@@ -170,15 +170,24 @@ let run_or_warn str exe args =
 
 (** Called from the top-level file; runs [fstar] on the [.fst] files
  * passed on the command-line, and returns the name of the generated file. *)
-let run_fstar files =
+let run_fstar verify files =
   assert (List.length files > 0);
   detect_fstar_if ();
 
-  let args = !fstar_options @ files in
-  KPrint.bprintf "%s⚡ Calling F*%s\n" Ansi.blue Ansi.reset;
+  let args = List.rev !Options.fsopts @ !fstar_options @ files in
+  if verify then begin
+    KPrint.bprintf "%s⚡ Calling F* (verification)%s\n" Ansi.blue Ansi.reset;
+    flush stdout;
+    if not (run_or_warn "[F*,verify]" !fstar args) then
+      fatal_error "F* failed"
+  end;
+
+  let args =  "--codegen" :: "Kremlin" :: "--lax" :: !fstar_options @ files in
+  KPrint.bprintf "%s⚡ Calling F* (extraction)%s\n" Ansi.blue Ansi.reset;
   flush stdout;
-  if not (run_or_warn "[fstar,extract]" !fstar args) then
+  if not (run_or_warn "[F*,extract]" !fstar args) then
     fatal_error "F* failed";
+
   "out.krml"
 
 (** Fills in [cc] and [cc_args]. *)

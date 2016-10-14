@@ -9,6 +9,7 @@ let _ =
   let arg_print_c = ref false in
   let arg_skip_compilation = ref false in
   let arg_skip_linking = ref false in
+  let arg_verify = ref false in
   let arg_warn_error = ref "" in
   let c_files = ref [] in
   let o_files = ref [] in
@@ -59,10 +60,12 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after inlining";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), compcert, g++, clang";
+    "-fsopt", Arg.String (prepend Options.fsopts), " option to pass to F*";
     "-ccopt", Arg.String (prepend Options.ccopts), " option to pass to the C compiler and linker";
     "-ldopt", Arg.String (prepend Options.ldopts), " option to pass to the C linker";
     "-skip-compilation", Arg.Set arg_skip_compilation, " stop after step 2.";
     "-skip-linking", Arg.Set arg_skip_linking, " stop after step 3.";
+    "-verify", Arg.Set arg_verify, " invoke F* without --lax first";
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to the generated file";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
@@ -106,7 +109,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   (* Shall we run F* first? *)
   let filename =
     if List.length !fst_files > 0 then
-      Driver.run_fstar !fst_files
+      Driver.run_fstar !arg_verify !fst_files
     else
       !filename
   in
