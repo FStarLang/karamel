@@ -74,12 +74,9 @@ Prims_int Prims_op_Modulus(Prims_int x, Prims_int y) { exit(254); }
 void *Prims_magic(void *_) { exit(254); }
 void *Prims____Cons___tl(void *_) { exit(254); }
 
+bool FStar_HyperStack_is_eternal_color(Prims_int x0) { exit(254); }
+
 Prims_int FStar_UInt32_v(uint32_t x) { exit(254); }
-FStar_Seq_seq FStar_Seq_createEmpty(void *_) { exit(254); }
-FStar_Seq_seq FStar_Seq_create(Prims_nat len, void *init) { exit(254); }
-FStar_Seq_seq FStar_Seq_upd(FStar_Seq_seq s, Prims_nat index, void *elt) {
-  exit(254);
-}
 FStar_Seq_seq FStar_Seq_append(FStar_Seq_seq x, FStar_Seq_seq y) { exit(254); }
 FStar_Seq_seq FStar_SeqProperties_snoc(FStar_Seq_seq x, Prims_nat y) {
   exit(254);

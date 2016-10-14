@@ -82,13 +82,18 @@ Prims_int Prims_op_Modulus(Prims_int x, Prims_int y);
 void *Prims_magic(void *_);
 void *Prims____Cons___tl(void *_);
 
+// Stubs to make ST happy
+bool FStar_HyperStack_is_eternal_color(Prims_int x0);
+#define FStar_ST_op_Colon_Equals(x, v) exit(252)
+#define FStar_ST_op_Bang(x) ((void*) 0)
+
 // Misc; many of these are polymorphic, hence not extracted (yet) by Kremlin,
 // which means that writing them out here only works as long as they are used
 // monomorphically.
 Prims_int FStar_UInt32_v(uint32_t x);
-FStar_Seq_seq FStar_Seq_createEmpty(void *_);
-FStar_Seq_seq FStar_Seq_create(Prims_nat len, void *init);
-FStar_Seq_seq FStar_Seq_upd(FStar_Seq_seq s, Prims_nat index, void *elt);
+#define FStar_Seq_createEmpty(x) ((void*)0)
+#define FStar_Seq_create(len, init) ((void*)0)
+#define FStar_Seq_upd(s, i, e) ((void*)0)
 FStar_Seq_seq FStar_Seq_append(FStar_Seq_seq x, FStar_Seq_seq y);
 FStar_Seq_seq FStar_SeqProperties_snoc(FStar_Seq_seq x, Prims_nat y);
 FStar_Seq_seq FStar_SeqProperties_cons(int x, FStar_Seq_seq y);

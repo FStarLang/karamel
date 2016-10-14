@@ -96,7 +96,7 @@ let drop_tuples files =
  * tags (it's just an enum) and the trivial case of a type definition with one
  * branch (it's just a flat record). *)
 
-type optim = ToEnum | ToFlat of ident list | Regular of branches_t
+type optim = ToEnum | ToFlat of ident list | Regular
 
 let mk_tag_lid type_lid cons =
   let prefix, name = type_lid in
@@ -111,7 +111,7 @@ let optimize_visitor map = object(self)
     match Hashtbl.find map lid with
     | exception Not_found ->
         ECons (cons, List.map (self#visit ()) args)
-    | Regular _ ->
+    | Regular ->
         ECons (cons, List.map (self#visit ()) args)
     | ToEnum ->
         assert (List.length args = 0);
@@ -124,7 +124,7 @@ let optimize_visitor map = object(self)
     match Hashtbl.find map lid with
     | exception Not_found ->
         PCons (cons, List.map (self#visit_pattern ()) args)
-    | Regular _ ->
+    | Regular ->
         PCons (cons, List.map (self#visit_pattern ()) args)
     | ToEnum ->
         assert (List.length args = 0);
@@ -136,7 +136,7 @@ let optimize_visitor map = object(self)
     match Hashtbl.find map lid with
     | exception Not_found ->
         DType (lid, Variant branches)
-    | Regular _ ->
+    | Regular ->
         DType (lid, Variant branches)
     | ToEnum ->
         DType (lid, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
@@ -152,7 +152,7 @@ let build_map files =
         else if List.length branches = 1 then
           Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
         else
-          Hashtbl.add map lid (Regular branches)
+          Hashtbl.add map lid Regular
     | _ ->
         ()
   )
@@ -188,9 +188,8 @@ let is_trivial_record_pattern fields =
   Option.map List.rev binders
 
 let try_mk_flat e branches =
-  assert (List.length branches = 1);
-  match List.hd branches with
-  | { node = PRecord fields; _ }, body ->
+  match branches with
+  | [ { node = PRecord fields; _ }, body ] ->
       begin match is_trivial_record_pattern fields with
       | Some binders ->
           (* match e with { f = x; ... } becomes
@@ -206,7 +205,7 @@ let try_mk_flat e branches =
           EMatch (e, branches)
       end
   | _ ->
-      failwith "Pattern not simplified to record"
+      EMatch (e, branches)
 
 
 let remove_match_visitor map = object(self)
@@ -220,9 +219,10 @@ let remove_match_visitor map = object(self)
     | TQualified lid ->
         begin match Hashtbl.find map lid with
         | exception Not_found ->
-            EMatch (e, branches)
-        | Regular _ ->
-            EMatch (e, branches)
+            (* This might be a record in the first place. *)
+            try_mk_flat e branches
+        | Regular ->
+            try_mk_flat e branches
         | ToEnum ->
             mk_switch e branches
         | ToFlat _ ->
@@ -238,8 +238,8 @@ let remove_matches map files =
   files
 
 let everything files =
-  let map, files = optimize files in
   let files = drop_tuples files in
+  let map, files = optimize files in
   let files = remove_matches map files in
   files
 
