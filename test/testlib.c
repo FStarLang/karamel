@@ -2,10 +2,14 @@
 
 void compare_and_print(const char *txt, uint8_t *reference, uint8_t *output, int size) {
   char *str = malloc(2*size + 1);
-  for (int i = 0; i < size; ++i)
+  char *str2 = malloc(2*size + 1);
+  for (int i = 0; i < size; ++i) {
     sprintf(str+2*i, "%02x", output[i]);
+    sprintf(str2+2*i, "%02x", reference[i]);
+  }
   str[2*size] = '\0';
-  printf("[test] output %s is %s\n", txt, str);
+  printf("[test] expected output %s is %s\n", txt, str2);
+  printf("[test] computed output %s is %s\n", txt, str);
 
   for (int i = 0; i < size; ++i) {
     if (output[i] != reference[i]) {
@@ -15,6 +19,27 @@ void compare_and_print(const char *txt, uint8_t *reference, uint8_t *output, int
   }
 
   printf("[test] %s is a success\n", txt);
+
+  free(str);
+  free(str2);
+}
+
+void compare_and_print2(uint8_t *reference, uint8_t *output, int size) {
+  char *str = malloc(2*size + 1);
+  for (int i = 0; i < size; ++i) {
+    sprintf(str+2*i, "%02x", output[i]);
+  }
+  str[2*size] = '\0';
+  printf("[test] computed output is %s\n", str);
+
+  for (int i = 0; i < size; ++i) {
+    if (output[i] != reference[i]) {
+      fprintf(stderr, "[test] reference bytes and expected bytes differ at byte %d\n", i);
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  printf("[test] is a success\n");
 
   free(str);
 }
