@@ -1,6 +1,6 @@
 module C
 
-open FStar.HST
+open FStar.ST
 open FStar.Buffer
 
 // This module contains a series of bindings that already exist in C. It receives

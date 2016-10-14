@@ -21,7 +21,8 @@ let drop_match_cast files =
 
 (* First thing: get rid of tuples, and allocate struct definitions for them. *)
 module Gen = struct
-  let type_defs = ref []
+  let generated_tuples = Hashtbl.create 41
+  let pending_defs = ref []
 
   let nth_field i =
     match i with
@@ -34,7 +35,7 @@ module Gen = struct
 
   let tuple (ts: typ list) =
     try
-      List.assoc ts !type_defs
+      Hashtbl.find generated_tuples ts
     with Not_found ->
       let doc =
         let open PPrint in
@@ -46,12 +47,13 @@ module Gen = struct
         nth_field i, (t, false)
       ) ts in
       let type_def = DType (lid, Flat fields) in
-      type_defs := (ts, (lid, type_def)) :: !type_defs;
-      lid, type_def
+      pending_defs := (ts, type_def) :: !pending_defs;
+      Hashtbl.add generated_tuples ts lid;
+      lid
 
   let clear () =
-    let r = List.rev_map (fun (_, (_, d)) -> d) !type_defs in
-    type_defs := [];
+    let r = List.rev_map snd !pending_defs in
+    pending_defs := [];
     r
 end
 
@@ -77,7 +79,7 @@ let record_of_tuple = object(self)
     ) es)
 
   method! ttuple () ts =
-    let lid, _ = Gen.tuple (List.map (self#visit_t ()) ts) in
+    let lid = Gen.tuple (List.map (self#visit_t ()) ts) in
     TQualified lid
 
   method! ptuple () _ pats =
