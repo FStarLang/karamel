@@ -11,6 +11,7 @@ let _ =
   let arg_skip_linking = ref false in
   let arg_verify = ref false in
   let arg_warn_error = ref "" in
+  let arg_wasm = ref false in
   let c_files = ref [] in
   let o_files = ref [] in
   let fst_files = ref [] in
@@ -21,8 +22,9 @@ let _ =
 Usage: %s [OPTIONS] FILES
 
 High-level description:
-  1. If some FILES end with .fst, KreMLin will call [fstar] on them to produce [out.krml],
-     and jumps to step 2.
+  1. If some FILES end with .fst, KreMLin will call [fstar] on them to produce
+     [out.krml]. If [-verify] is set, F* will, in addition to extraction, perform
+     verification.
   2. If exactly one FILE ends with [.krml] or [.json], or if a [.krml] file was
      produced at step 1., KreMLin will generate a series of [.c] and [.h] files
      in the directory specified by [-tmpdir], or in the current directory.
@@ -53,26 +55,35 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   let found_file = ref false in
   let prepend r = fun s -> r := s :: !r in
   let spec = [
-    "-djson", Arg.Set arg_print_json, " dump the input AST as JSON";
-    "-dast", Arg.Set arg_print_ast, " pretty-print the internal AST";
-    "-dpattern", Arg.Set arg_print_pattern, " pretty-print after pattern removal";
-    "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the internal AST after simplification";
-    "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after inlining";
-    "-dc", Arg.Set arg_print_c, " pretty-print the output C";
+    (* KreMLin as a driver *)
     "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), compcert, g++, clang";
     "-fsopt", Arg.String (prepend Options.fsopts), " option to pass to F*";
     "-ccopt", Arg.String (prepend Options.ccopts), " option to pass to the C compiler and linker";
     "-ldopt", Arg.String (prepend Options.ldopts), " option to pass to the C linker";
     "-skip-compilation", Arg.Set arg_skip_compilation, " stop after step 2.";
     "-skip-linking", Arg.Set arg_skip_linking, " stop after step 3.";
-    "-verify", Arg.Set arg_verify, " invoke F* without --lax first";
+    "-verify", Arg.Set arg_verify, " ask F* to verify the program";
+    "-verbose", Arg.Set Options.verbose, "  show the output of intermediary tools when acting as a driver for F* or the C compiler";
+    "-wasm", Arg.Set arg_wasm, "  emit a .wasm file instead of C";
+    "", Arg.Unit (fun _ -> ()), " ";
+
+    (* Controling the behavior of KreMLin *)
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";
-    "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to the generated file";
+    "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to every generated file";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
     "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";
     "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
     "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are fatal / warnings / silent (default: " ^ !Options.warn_error ^")";
-    "-verbose", Arg.Set Options.verbose, "  show the output of intermediary tools when acting as a driver for F* or the C compiler";
+    "", Arg.Unit (fun _ -> ()), " ";
+
+    (* For developers *)
+    "-djson", Arg.Set arg_print_json, " dump the input AST as JSON";
+    "-dast", Arg.Set arg_print_ast, " pretty-print the internal AST";
+    "-dpattern", Arg.Set arg_print_pattern, " pretty-print after pattern removal";
+    "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the internal AST after simplification";
+    "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after inlining";
+    "-dc", Arg.Set arg_print_c, " pretty-print the output C";
+    "", Arg.Unit (fun _ -> ()), " ";
   ] in
   let spec = Arg.align spec in
   Arg.parse spec (fun f ->
@@ -165,27 +176,37 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   let files = Inlining.drop_type_abbrevs files in
   let files = Inlining.drop_unused files in
 
-  (* Translate to C*, then to C. *)
+  (* Translate to C*... *)
   let files = AstToCStar.translate_files files in
-  let headers = CStarToC.mk_headers files in
-  let files = CStarToC.mk_files files in
 
-  (* -dc *)
-  if !arg_print_c then
-    print PrintC.print_files files;
+  if !arg_wasm then
+    (* ... then to Wasm *)
+    let module_ = CStarToWasm.mk_module files in
+    let s = Wasmlib.Encode.encode module_ in
+    if !Options.exe_name = "" then
+      Options.exe_name := "out.wasm";
+    output_string (open_out !Options.exe_name) s
+  else
+    (* ... then to C *)
+    let headers = CStarToC.mk_headers files in
+    let files = CStarToC.mk_files files in
 
-  flush stdout;
-  flush stderr;
-  Printf.printf "KreMLin: writing out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
-  let files = List.filter (fun (name, _) -> name <> "C") files in
-  Output.write_c files;
-  let headers = List.filter (fun (name, _) -> name <> "C") headers in
-  Output.write_h headers;
+    (* -dc *)
+    if !arg_print_c then
+      print PrintC.print_files files;
 
-  if !arg_skip_compilation then
-    exit 0;
-  let remaining_c_files = Driver.compile (List.map fst files) !c_files in
+    flush stdout;
+    flush stderr;
+    Printf.printf "KreMLin: writing out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
+    let files = List.filter (fun (name, _) -> name <> "C") files in
+    Output.write_c files;
+    let headers = List.filter (fun (name, _) -> name <> "C") headers in
+    Output.write_h headers;
 
-  if !arg_skip_linking then
-    exit 0;
-  Driver.link remaining_c_files !o_files
+    if !arg_skip_compilation then
+      exit 0;
+    let remaining_c_files = Driver.compile (List.map fst files) !c_files in
+
+    if !arg_skip_linking then
+      exit 0;
+    Driver.link remaining_c_files !o_files
