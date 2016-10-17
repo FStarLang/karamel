@@ -31,6 +31,9 @@ Aead.exe: main-Aead.c testlib.c
 ML16.exe: ML16.fst ml16-native.c
 	$(KRML) $(OPTS) -no-prefix ML16 $^ -o $@
 
+SimpleWasm.wasm: SimpleWasm.fst
+	$(KRML) $(OPTS) -verbose $^ -o $@ -wasm
+
 FIND=$(shell which gfind >/dev/null 2>/dev/null && echo "gfind" || echo "find")
 
 clean:

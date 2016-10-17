@@ -157,7 +157,7 @@ let build_map files =
         ()
   )
 
-let optimize files =
+let drop_simple_data_types files =
   let map = build_map files in
   let files = Simplify.visit_files () (optimize_visitor map) files in
   map, files
@@ -233,13 +233,13 @@ let remove_match_visitor map = object(self)
 
 end
 
-let remove_matches map files =
+let drop_simple_matches map files =
   let files = Simplify.visit_files () (remove_match_visitor map) files in
   files
 
 let everything files =
   let files = drop_tuples files in
-  let map, files = optimize files in
-  let files = remove_matches map files in
+  let map, files = drop_simple_data_types files in
+  let files = drop_simple_matches map files in
   files
 
