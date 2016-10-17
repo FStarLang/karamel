@@ -23,7 +23,7 @@ To build just run `make` from this directory.
 The WebASM branch uses a new package:
 
 ```
-$ opam repository add https://github.com/msprotz/opam-repository
+$ opam repository add jonathan git+https://github.com/msprotz/opam-repository
 $ opam install wasm
 ```
 
