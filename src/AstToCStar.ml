@@ -107,7 +107,7 @@ let ensure_fresh env name body =
         ignore ((object
           inherit [string list] map
           method extend env binder =
-            binder.name :: env
+            binder.node.name :: env
           method ebound env _ i =
             r := !r || name = List.nth env i;
             EBound i
@@ -142,13 +142,15 @@ let rec translate_expr env in_stmt e =
   match e.node with
   | EBound var ->
       CStar.Var (find env var)
+  | EEnum lident ->
+      CStar.Var (string_of_lident lident)
   | EQualified lident ->
       CStar.Qualified lident
   | EConstant c ->
       CStar.Constant c
   | EApp (e, es) ->
       (* Functions that only take a unit take no argument. *)
-      let t, ts = flatten_arrow e.mtyp in
+      let t, ts = flatten_arrow e.typ in
       let call = match ts, es with
         | [ TUnit ], [ { node = EUnit; _ } ] ->
             CStar.Call (translate_expr env e, [])
@@ -204,10 +206,16 @@ let rec translate_expr env in_stmt e =
       fatal_error "[AstToCStar.translate_expr EMatch]: should not be here %a" ploc env.location
   | EReturn _ ->
       fatal_error "[AstToCStar.translate_expr EReturn]: should not be here %a" ploc env.location
+  | ECons _ ->
+      fatal_error "[AstToCStar.translate_expr ECons]: should not be here %a" ploc env.location
+  | ETuple _ ->
+      fatal_error "[AstToCStar.translate_expr ETuple]: should not be here %a" ploc env.location
+  | ESwitch _ ->
+      fatal_error "[AstToCStar.translate_expr ESwitch]: should not be here %a" ploc env.location
   | EBool b ->
       CStar.Bool b
   | EFlat fields ->
-      let typ = Checker.assert_qualified Checker.empty e.mtyp in
+      let typ = Checker.assert_qualified Checker.empty e.typ in
       CStar.Struct (string_of_lident typ, List.map (fun (name, expr) ->
         Some name, translate_expr env expr
       ) fields)
@@ -263,6 +271,12 @@ and extract_stmts env e ret_type =
     | EAbort ->
         env, CStar.Abort :: acc
 
+    | ESwitch (e, branches) ->
+        env, CStar.Switch (translate_expr env true e,
+          List.map (fun (lid, e) ->
+            string_of_lident lid, translate_block env return_pos e
+          ) branches) :: acc
+
     | EReturn e ->
         translate_as_return env e acc
 
@@ -291,6 +305,8 @@ and extract_stmts env e ret_type =
 
   snd (collect (env, []) true e)
 
+(* Things that will generate warnings such as "left-hand operand of comma
+ * expression has no effect". *)
 and is_value x =
   match x.node with
   | EBound _
@@ -388,6 +404,8 @@ and translate_return_type env = function
       fatal_error "Internal failure: no TBound here"
   | TApp (lid, _) ->
       raise_error (ExternalTypeApp lid)
+  | TTuple _ ->
+      fatal_error "Internal failure: TTuple not desugared here"
 
 
 and translate_type env = function
@@ -405,7 +423,7 @@ and translate_and_push_binders env binders =
 
 and translate_and_push_binder env binder body =
   let binder = {
-    CStar.name = ensure_fresh env binder.name body;
+    CStar.name = ensure_fresh env binder.node.name body;
     typ = translate_type env binder.typ
   } in
   push env binder, binder
@@ -445,12 +463,6 @@ and translate_declaration env d: CStar.decl option =
         CStar.Function (t, (string_of_lident name), binders, body)
       end))
 
-  | DTypeAlias (name, n, t) ->
-      if n = 0 then
-        Some (CStar.Type (string_of_lident name, translate_type env t))
-      else
-        None
-
   | DGlobal (_, name, t, body) ->
       let env = locate env (InTop name) in
       Some (CStar.Global (
@@ -458,17 +470,30 @@ and translate_declaration env d: CStar.decl option =
         translate_type env t,
         translate_expr env false body))
 
-  | DTypeFlat (name, fields) ->
+  | DExternal (name, t) ->
+      Some (CStar.External (string_of_lident name, translate_type env t))
+
+  | DType (name, Flat fields) ->
       let name = string_of_lident name in
-      (* TODO: avoid collisions since "_s" is not going through the name
-       * generator *)
+      (* Not naming the structs or enums here, because they're going to be
+       * typedef'd and we'll only refer to the typedef'd name. *)
       Some (CStar.Type (
-        name, CStar.Struct (Some (name ^ "_s"), List.map (fun (field, (typ, _)) ->
+        name, CStar.Struct (None, List.map (fun (field, (typ, _)) ->
           field, translate_type env typ
         ) fields)))
 
-  | DExternal (name, t) ->
-      Some (CStar.External (string_of_lident name, translate_type env t))
+  | DType (name, Abbrev (n, t)) ->
+      if n = 0 then
+        Some (CStar.Type (string_of_lident name, translate_type env t))
+      else
+        None
+
+  | DType (_name, Variant _) ->
+      failwith "TODO"
+
+  | DType (name, Enum tags) ->
+      Some (CStar.Type (string_of_lident name,
+        CStar.Enum (None, List.map string_of_lident tags)))
 
 
 and translate_program name decls =

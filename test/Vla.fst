@@ -1,7 +1,7 @@
 module Vla
 
 //
-open FStar.HST
+open FStar.ST
 open TestLib
 
 module U32 = FStar.UInt32

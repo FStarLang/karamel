@@ -206,7 +206,7 @@ let inline_function_frames files =
 
 let inline_type_abbrevs files =
   let map = build_map files (fun map -> function
-    | DTypeAlias (lid, _, t) -> Hashtbl.add map lid (White, t)
+    | DType (lid, Abbrev (_, t)) -> Hashtbl.add map lid (White, t)
     | _ -> ()
   ) in
 
@@ -228,9 +228,9 @@ let inline_type_abbrevs files =
 
 let drop_type_abbrevs files =
   filter_decls (function
-    | DTypeAlias (lid, n, def) ->
+    | DType (lid, Abbrev (n, def)) ->
         if n = 0 then
-          Some (DTypeAlias (lid, n, def))
+          Some (DType (lid, Abbrev (n, def)))
         else
           (* A type definition with parameters is not something we'll be able to
            * generate code for (at the moment). So, drop it. *)

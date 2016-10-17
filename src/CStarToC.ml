@@ -16,6 +16,7 @@ let rec adapt (t: CStar.typ) =
   | Bool
   | Z
   | Void
+  | Enum _
   | Int _ -> t
   | Pointer t ->
       Pointer (adapt t)
@@ -45,6 +46,8 @@ let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type
       Void, k (Ident name)
   | Qualified l ->
       Named (string_of_lident l), k (Ident name)
+  | Enum (enum_name, tags) ->
+      Enum (enum_name, tags), k (Ident name)
   | Z ->
       Named "mpz_t", k (Ident name)
   | Bool ->
@@ -89,6 +92,13 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Expr (mk_expr e) ]
 
   | Decl (binder, BufCreate (init, size)) ->
+      begin match size with
+      | Constant _ ->
+          ()
+      | _ ->
+          Warnings.(maybe_fatal_error ("", Vla binder.name))
+      end;
+
       (* In the case where this is a buffer creation in the C* meaning, then we
        * declare a fixed-length array; this is an "upcast" from pointer type to
        * array type, in the C sense. *)
@@ -176,6 +186,15 @@ and mk_stmt (stmt: stmt): C.stmt list =
 
   | PushFrame | PopFrame ->
       failwith "[mk_stmt]: nested frames to be handled by [mk_stmts]"
+
+  | Switch (e, branches) ->
+      [ Switch (
+          mk_expr e,
+          List.map (fun (ident, block) ->
+            Name ident, Compound (mk_stmts block @ [ Break ])
+          ) branches,
+          Expr (Call (Name "exit", [ Constant (K.UInt8, "253") ]))
+      )]
 
 and mk_stmts stmts: C.stmt list =
   match stmts with

@@ -26,6 +26,7 @@ and stmt =
   | PushFrame
   | PopFrame
   | Abort
+  | Switch of expr * (ident * block) list
 
 and expr =
   | Call of expr * expr list
@@ -76,3 +77,4 @@ and typ =
   | Bool
   | Z
   | Struct of ident option * (ident * typ) list
+  | Enum of ident option * ident list

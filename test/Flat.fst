@@ -1,7 +1,7 @@
 module Flat
 
 open FStar
-open FStar.HST
+open FStar.ST
 
 type point = {
   x: Int32.t;
@@ -12,7 +12,7 @@ type point = {
 let x p = p.x
 
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
-  HST.Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
+  ST.Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
   push_frame ();
   let p = { x = 0l; y = 1l; z = -1l } in

@@ -9,6 +9,7 @@ type type_spec =
   | Void
   | Named of ident
   | Struct of ident option * declaration list
+  | Enum of ident option * ident list
     (** not encoding all the invariants here *)
 
 and storage_spec =
@@ -90,6 +91,9 @@ type stmt =
     (** "init_clause may be an expression or a declaration" -> only doing the
      * latter *)
   | Return of expr option
+  | Switch of expr * (expr * stmt) list * stmt
+    (** the last component is the default statement *)
+  | Break
 
 and program =
   declaration_or_function list

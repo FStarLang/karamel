@@ -36,9 +36,14 @@ let rec p_type_spec = function
   | Void -> string "void"
   | Named s -> string s
   | Struct (name, decls) ->
-      string "struct" ^/^
-      (match name with Some name -> string name ^^ break1 | None -> empty) ^^
-      braces_with_nesting (separate_map break1 (fun p -> group (p_declaration p ^^ semi)) decls)
+      group (string "struct" ^/^
+      (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
+      braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
+  | Enum (name, tags) ->
+      group (string "enum" ^/^
+      (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
+      braces_with_nesting (separate_map (comma ^^ break1) string tags)
+
 
 and p_type_declarator d =
   let rec p_noptr = function
@@ -182,8 +187,8 @@ and p_decl_and_init (decl, init) =
         empty)
 
 and p_declaration (spec, stor, decl_and_inits) =
-  let stor = match stor with Some stor -> p_storage_spec stor ^^ break 1 | None -> empty in
-  stor ^^ group (p_type_spec spec) ^^ space ^^
+  let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
+  stor ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
 (* This is abusing the definition of a compound statement to ensure it is printed with braces. *)
@@ -234,6 +239,20 @@ let rec p_stmt (s: stmt) =
       group (string "return" ^/^ p_expr e ^^ semi)
   | Decl d ->
       group (p_declaration d ^^ semi)
+  | Switch (e, branches, default) ->
+      group (string "switch" ^/^ lparen ^^ p_expr e ^^ rparen) ^/^
+      braces_with_nesting (
+        separate_map hardline (fun (e, s) ->
+          group (string "case" ^/^ p_expr e ^^ colon) ^^ nest 2 (
+           hardline ^^ p_stmt s
+          )
+        ) branches ^^ hardline ^^
+          string "default:" ^^ nest 2 (
+           hardline ^^ p_stmt default
+          )
+      )
+  | Break ->
+     string "break" ^^ semi 
 
 
 let p_decl_or_function (df: declaration_or_function) =

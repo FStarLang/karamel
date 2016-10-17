@@ -4,17 +4,23 @@ open Ast
 
 module I = InputAst
 
+let mk (type a) (node: a): a with_type =
+  { node; typ = TAny }
+
 let rec mk_decl = function
   | I.DFunction (flags, t, name, binders, body) ->
       DFunction (mk_flags flags, mk_typ t, name, mk_binders binders, mk_expr body)
   | I.DTypeAlias (name, n, t) ->
-      DTypeAlias (name, n, mk_typ t)
+      DType (name, Abbrev (n, mk_typ t))
   | I.DGlobal (flags, name, t, e) ->
       DGlobal (mk_flags flags, name, mk_typ t, mk_expr e)
   | I.DTypeFlat (name, fields) ->
-      DTypeFlat (name, mk_tfields fields)
+      DType (name, Flat (mk_tfields fields))
   | I.DExternal (name, t) ->
       DExternal (name, mk_typ t)
+  | I.DTypeVariant (name, branches) ->
+      DType (name,
+        Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
 
 and mk_flags flags =
   List.map mk_flag flags
@@ -56,6 +62,8 @@ and mk_typ = function
       TBound i
   | I.TApp (lid, ts) ->
       TApp (lid, List.map mk_typ ts)
+  | I.TTuple ts ->
+      TTuple (List.map mk_typ ts)
 
 and mk_expr = function
   | I.EBound i ->
@@ -109,13 +117,14 @@ and mk_expr = function
   | I.EReturn e ->
       mk (EReturn (mk_expr e))
   | I.EFlat (tname, fields) ->
-      { node = EFlat (mk_fields fields); mtyp = TQualified tname }
+      { node = EFlat (mk_fields fields); typ = TQualified tname }
   | I.EField (tname, e, field) ->
-      let e = { (mk_expr e) with mtyp = TQualified tname } in
+      let e = { (mk_expr e) with typ = TQualified tname } in
       mk (EField (e, field))
-
-and mk node =
-  { node; mtyp = TAny }
+  | I.ETuple es ->
+      mk (ETuple (List.map mk_expr es))
+  | I.ECons (lid, id, es) ->
+      { node = ECons (id, List.map mk_expr es); typ = TQualified lid }
 
 and mk_branches branches =
   List.map mk_branch branches
@@ -125,11 +134,19 @@ and mk_branch (pat, body) =
 
 and mk_pat = function
   | I.PUnit ->
-      PUnit
+      mk PUnit
   | I.PBool b ->
-      PBool b
+      mk (PBool b)
   | I.PVar b ->
-      PVar (mk_binder b)
+      mk (PVar (mk_binder b))
+  | I.PTuple pats ->
+      mk (PTuple (List.map mk_pat pats))
+  | I.PCons (id, pats) ->
+      mk (PCons (id, List.map mk_pat pats))
+  | I.PRecord fields ->
+      mk (PRecord (List.map (fun (field, pat) ->
+        field, mk_pat pat
+      ) fields))
 
 and mk_files files =
   List.map mk_program files

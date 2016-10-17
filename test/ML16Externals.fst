@@ -1,6 +1,6 @@
 module ML16Externals
 
-open FStar.HST
+open FStar.ST
 open FStar.Buffer
 
 // This function will be implemented by us on the C side.

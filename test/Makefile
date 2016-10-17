@@ -1,11 +1,13 @@
 # A minimalistic Makefile for calling Kremlin... KOPTS is for user-defined flags
 # (e.g. -verbose).
-OPTS=-tmpdir out $(KOPTS)
+CRYPTO=FSTAR_HOME/examples/low-level/crypto
+OPTS=-tmpdir out -I $(CRYPTO) -I $(CRYPTO)/real $(KOPTS)
 TESTOPTS=$(OPTS) -add-include '"testlib.h"' -I . testlib.c
 KRML=../krml
 
 all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
-  Private.exe ML16.exe Abbrev.exe TSet.exe \
+  Private.exe ML16.exe Abbrev.exe TSet.exe Tuples.exe \
+  DataTypesSimple.exe \
   Poly1305.exe Chacha20.exe
 	for f in $^; do echo $$f; ./$$f; done
 
@@ -28,6 +30,9 @@ Aead.exe: main-Aead.c testlib.c
 
 ML16.exe: ML16.fst ml16-native.c
 	$(KRML) $(OPTS) -no-prefix ML16 $^ -o $@
+
+SimpleWasm.wasm: SimpleWasm.fst
+	$(KRML) $(OPTS) -verbose $^ -o $@ -wasm
 
 FIND=$(shell which gfind >/dev/null 2>/dev/null && echo "gfind" || echo "find")
 

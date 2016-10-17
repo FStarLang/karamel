@@ -5,10 +5,12 @@
  *)
 let no_prefix: string list ref = ref [ "C" ]
 let add_include: string list ref = ref [ "\"kremlib.h\"" ]
-let warn_error = ref "+1-2+3..5"
+let warn_error = ref "+1-2+3..6"
 let tmpdir = ref "."
-let includes: string list ref = ref []
+let includes: string list ref = ref [ "FSTAR_HOME/ulib/hyperstack" ]
 let verbose = ref false
 let exe_name = ref ""
 let cc = ref "gcc"
+let fsopts: string list ref = ref []
 let ccopts: string list ref = ref []
+let ldopts: string list ref = ref []

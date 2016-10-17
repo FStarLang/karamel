@@ -33,6 +33,14 @@ let success cmd args =
 let read_one_line cmd args =
   String.trim (List.hd (Process.read_stdout cmd args))
 
+let expand_fstar_home s =
+  let s' = "FSTAR_HOME" in
+  let l = String.length s in
+  let l' = String.length s' in
+  if l >= l' && String.sub s 0 (String.length s') = s' then
+    !fstar_home ^ String.sub s l' (l - l')
+  else
+    s
 
 (** The tools we depend on; namely, readlink. *)
 let detect_base_tools () =
@@ -116,12 +124,9 @@ let detect_fstar () =
 
   (* Add default include directories, those specified by the user, and skip a
    * set of known failing modules. *)
-  let fstar_includes = [
-    !fstar_home ^^ "examples" ^^ "low-level";
-    !fstar_home ^^ "examples" ^^ "low-level" ^^ "crypto";
-  ] @ !Options.includes in
+  let fstar_includes = List.map expand_fstar_home !Options.includes in
   fstar_options := [
-    "--trace_error"; "--codegen"; "Kremlin"; "--lax"
+    "--trace_error";
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
   List.iter (fun m ->
     fstar_options := "--no_extract" :: ("FStar." ^ m) :: !fstar_options
@@ -165,16 +170,26 @@ let run_or_warn str exe args =
 
 (** Called from the top-level file; runs [fstar] on the [.fst] files
  * passed on the command-line, and returns the name of the generated file. *)
-let run_fstar files =
+let run_fstar verify skip_extract files =
   assert (List.length files > 0);
   detect_fstar_if ();
 
-  let args = !fstar_options @ files in
   KPrint.bprintf "%s⚡ Calling F*%s\n" Ansi.blue Ansi.reset;
-  flush stdout;
-  if not (run_or_warn "[fstar,extract]" !fstar args) then
-    fatal_error "F* failed";
-  "out.krml"
+  let args = List.rev !Options.fsopts @ !fstar_options @ files in
+  if verify then begin
+    flush stdout;
+    if not (run_or_warn "[F*,verify]" !fstar args) then
+      fatal_error "F* failed"
+  end;
+
+  if skip_extract then
+    exit 0
+  else
+    let args =  "--codegen" :: "Kremlin" :: "--lax" :: !fstar_options @ files in
+    flush stdout;
+    if not (run_or_warn "[F*,extract]" !fstar args) then
+      fatal_error "F* failed";
+    "out.krml"
 
 (** Fills in [cc] and [cc_args]. *)
 let detect_gnu flavor =
@@ -201,7 +216,6 @@ let detect_gnu flavor =
     "-Werror";
     "-Wno-parentheses";
     "-Wno-unused-variable";
-    "-Wno-unused-but-set-variable";
     "-g";
     "-O3";
     "-fwrapv"
@@ -212,10 +226,14 @@ let detect_gnu flavor =
 
 let detect_gcc () =
   detect_gnu "gcc";
-  cc_args := "-std=c11" :: !cc_args
+  cc_args := "-Wno-unused-but-set-variable" :: "-std=c11" :: !cc_args
 
 let detect_gpp () =
-  detect_gnu "g++"
+  detect_gnu "g++";
+  cc_args := "-Wno-unused-but-set-variable" :: !cc_args
+
+let detect_clang () =
+  detect_gnu "clang"
 
 let detect_compcert () =
   if success "which" [| "ccomp" |] then
@@ -240,6 +258,8 @@ let detect_cc_if () =
         detect_compcert ()
     | "g++" ->
         detect_gpp ()
+    | "clang" ->
+        detect_clang ()
     | _ ->
         fatal_error "Unrecognized value for -cc: %s" !Options.cc
 
@@ -273,7 +293,7 @@ let compile files extra_c_files =
 let link c_files o_files =
   let objects = List.map o_of_c c_files @ o_files in
   let extra_arg = if !Options.exe_name <> "" then [ "-o"; !Options.exe_name ] else [] in
-  if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg) then
+  if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg @ List.rev !Options.ldopts) then
     KPrint.bprintf "%sAll files linked successfully%s 👍\n" Ansi.green Ansi.reset
   else begin
     KPrint.bprintf "%sgcc failed at the final linking phase%s\n" Ansi.red Ansi.reset;

@@ -1,9 +1,9 @@
 module C
 
-open FStar.HST
+open FStar.ST
 open FStar.Buffer
 
-// This module exists a series of bindings that already exist in C. It receives
+// This module contains a series of bindings that already exist in C. It receives
 // a special treatment in Kremlin (no prefixes, no .c/.h generated).
 // - If a value already exists (e.g. char or srand), then it is defined via the
 //   default #includes.
