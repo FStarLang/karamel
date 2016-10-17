@@ -21,9 +21,3 @@ assume val char: Type0
 assume val int: Type0
 assume val exit_success: Int32.t
 assume val exit_failure: Int32.t
-assume val compare_and_print: buffer Int8.t -> buffer UInt8.t -> buffer UInt8.t -> UInt32.t -> Stack unit
-  (requires (fun h -> True))
-  (ensures  (fun h0 _ h1 -> True))
-assume val compare_and_print2: buffer UInt8.t -> buffer UInt8.t -> UInt32.t -> Stack unit
-  (requires (fun h -> True))
-  (ensures  (fun h0 _ h1 -> True))
