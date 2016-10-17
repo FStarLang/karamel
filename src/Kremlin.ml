@@ -186,7 +186,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   if !arg_wasm then
     (* ... then to Wasm *)
     let module_ = CStarToWasm.mk_module files in
-    let s = Wasmlib.Encode.encode module_ in
+    let s = Wasm.Encode.encode module_ in
     if !Options.exe_name = "" then
       Options.exe_name := "out.wasm";
     output_string (open_out !Options.exe_name) s;
