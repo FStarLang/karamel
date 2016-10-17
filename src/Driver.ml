@@ -170,7 +170,7 @@ let run_or_warn str exe args =
 
 (** Called from the top-level file; runs [fstar] on the [.fst] files
  * passed on the command-line, and returns the name of the generated file. *)
-let run_fstar verify files =
+let run_fstar verify extract files =
   assert (List.length files > 0);
   detect_fstar_if ();
 
@@ -182,12 +182,14 @@ let run_fstar verify files =
       fatal_error "F* failed"
   end;
 
-  let args =  "--codegen" :: "Kremlin" :: "--lax" :: !fstar_options @ files in
-  flush stdout;
-  if not (run_or_warn "[F*,extract]" !fstar args) then
-    fatal_error "F* failed";
-
-  "out.krml"
+  if extract then
+    let args =  "--codegen" :: "Kremlin" :: "--lax" :: !fstar_options @ files in
+    flush stdout;
+    if not (run_or_warn "[F*,extract]" !fstar args) then
+      fatal_error "F* failed";
+    "out.krml"
+  else
+    exit 0
 
 (** Fills in [cc] and [cc_args]. *)
 let detect_gnu flavor =

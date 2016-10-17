@@ -7,6 +7,7 @@ let _ =
   let arg_print_pattern = ref false in
   let arg_print_inline = ref false in
   let arg_print_c = ref false in
+  let arg_skip_extraction = ref false in
   let arg_skip_compilation = ref false in
   let arg_skip_linking = ref false in
   let arg_verify = ref false in
@@ -22,19 +23,21 @@ let _ =
 Usage: %s [OPTIONS] FILES
 
 High-level description:
-  1. If some FILES end with .fst, KreMLin will call [fstar] on them to produce
-     [out.krml]. If [-verify] is set, F* will, in addition to extraction, perform
-     verification.
-  2. If exactly one FILE ends with [.krml] or [.json], or if a [.krml] file was
-     produced at step 1., KreMLin will generate a series of [.c] and [.h] files
+  1. If some FILES end with .fst, and [-verify] is set, KreMLin will call
+     [fstar] on them to perform verification.
+  2. If some FILES end with .fst, KreMLin will call [fstar] on them to perform
+     extraction and produce [out.krml].
+  3. If exactly one FILE ends with [.krml] or [.json], or if a [.krml] file was
+     produced at step 2., KreMLin will generate a series of [.c] and [.h] files
      in the directory specified by [-tmpdir], or in the current directory.
-  3. If some FILES end with [.c], KreMLin will compile them along with the [.c]
-     files generated at step 2. to obtain a series of [.o] files.
-  4. If some FILES end with [.o], KreMLin will link them along with the [.o] files
-     obtained at step 3. to obtain a final executable.
+  4. If some FILES end with [.c], KreMLin will compile them along with the [.c]
+     files generated at step 3. to obtain a series of [.o] files.
+  5. If some FILES end with [.o], KreMLin will link them along with the [.o] files
+     obtained at step 4. to obtain a final executable.
 
-The [-skip-compilation] option will stop KreMLin after step 2.
-The [-skip-linking] option will stop KreMLin after step 3.
+The [-skip-extraction] option will stop KreMLin after step 1.
+The [-skip-compilation] option will stop KreMLin after step 3.
+The [-skip-linking] option will stop KreMLin after step 4.
 
 The [-warn-error] option follows the OCaml syntax, namely:
   - [r] is a range of warnings (either a number [n], or a range [n..n])
@@ -60,8 +63,9 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     "-fsopt", Arg.String (prepend Options.fsopts), " option to pass to F*";
     "-ccopt", Arg.String (prepend Options.ccopts), " option to pass to the C compiler and linker";
     "-ldopt", Arg.String (prepend Options.ldopts), " option to pass to the C linker";
-    "-skip-compilation", Arg.Set arg_skip_compilation, " stop after step 2.";
-    "-skip-linking", Arg.Set arg_skip_linking, " stop after step 3.";
+    "-skip-extraction", Arg.Set arg_skip_extraction, " stop after step 1.";
+    "-skip-compilation", Arg.Set arg_skip_compilation, " stop after step 3.";
+    "-skip-linking", Arg.Set arg_skip_linking, " stop after step 4.";
     "-verify", Arg.Set arg_verify, " ask F* to verify the program";
     "-verbose", Arg.Set Options.verbose, "  show the output of intermediary tools when acting as a driver for F* or the C compiler";
     "-wasm", Arg.Set arg_wasm, "  emit a .wasm file instead of C";
@@ -120,7 +124,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   (* Shall we run F* first? *)
   let filename =
     if List.length !fst_files > 0 then
-      Driver.run_fstar !arg_verify !fst_files
+      Driver.run_fstar !arg_verify !arg_skip_extraction !fst_files
     else
       !filename
   in
