@@ -23,8 +23,8 @@ To build just run `make` from this directory.
 The WebASM branch uses a new package:
 
 ```
-$ opam pin add wasmlib git://github.com/msprotz/spec
-$ opam install wasmlib
+$ opam repository add https://github.com/msprotz/spec
+$ opam install wasm
 ```
 
 If you have the latest version of F* and `fstar.exe` is in your `PATH` then you
