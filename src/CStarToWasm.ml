@@ -1,6 +1,6 @@
 open CStar
 
-module W = Wasmlib
+module W = Wasm
 
 let dummy_pos =
   W.Source.({ file = ""; line = 0; column = 0 })
