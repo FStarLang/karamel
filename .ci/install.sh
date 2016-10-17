@@ -11,9 +11,10 @@ fi
 
 export OPAMYES=true
 opam init
+opam repository add jonathan git+https://github.com/msprotz/opam-repository
 eval $(opam config env)
 opam install batteries sqlite3 fileutils stdint zarith yojson pprint \
-  ppx_deriving_yojson menhir ulex process fix
+  ppx_deriving_yojson menhir ulex process fix wasm
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   export Z3=z3-4.4.1-x64-ubuntu-14.04;
