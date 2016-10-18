@@ -1,9 +1,9 @@
 # A minimalistic Makefile for calling Kremlin... KOPTS is for user-defined flags
 # (e.g. -verbose).
-CRYPTO=FSTAR_HOME/examples/low-level/crypto
-OPTS=-I $(CRYPTO) -I $(CRYPTO)/real $(KOPTS)
-TESTOPTS=$(OPTS) -add-include '"testlib.h"' -I . testlib.c
-KRML=../krml
+CRYPTO	= FSTAR_HOME/examples/low-level/crypto
+OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real $(KOPTS)
+TESTOPTS= $(OPTS) -add-include '"testlib.h"' -I . testlib.c
+KRML	= ../krml
 
 all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
   Private.exe ML16.exe Abbrev.exe TSet.exe Tuples.exe \

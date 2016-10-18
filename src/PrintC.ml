@@ -139,6 +139,8 @@ and p_expr' curr = function
       let e = p_expr' left e in
       let es = nest 2 (separate_map (comma ^^ break 1) (fun e -> group (p_expr' arg e)) es) in
       paren_if curr mine (e ^^ lparen ^^ es ^^ rparen)
+  | Literal s ->
+      dquote ^^ string s ^^ dquote
   | Name s ->
       string s
   | Cast (t, e) ->

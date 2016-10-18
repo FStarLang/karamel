@@ -42,6 +42,7 @@ and expr =
   | Name of ident
   | Cast of type_name * expr
   | Constant of K.t
+  | Literal of string
   | Bool of bool
   | Sizeof of expr
   | CompoundLiteral of type_name * init list

@@ -182,7 +182,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
         Op2 (K.Mult, mk_expr e5, Sizeof (Index (mk_expr e1, Constant (K.UInt8, "0"))))])) ]
 
   | Abort ->
-      [ Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])) ]
+      [ Expr (Call (Name "printf", [
+          Literal "KreMLin abort at %s:%s\\n"; Name "__FILE__"; Name "__LINE__"  ]));
+        Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])) ]
 
   | While (e1, e2) ->
       [ While (mk_expr e1, mk_compound_if (mk_stmts e2)) ]
@@ -196,7 +198,11 @@ and mk_stmt (stmt: stmt): C.stmt list =
           List.map (fun (ident, block) ->
             Name ident, Compound (mk_stmts block @ [ Break ])
           ) branches,
-          Expr (Call (Name "exit", [ Constant (K.UInt8, "253") ]))
+          Compound [
+            Expr (Call (Name "printf", [
+              Literal "KreMLin incomplete match at %s:%s\\n"; Name "__FILE__"; Name "__LINE__"  ]));
+            Expr (Call (Name "exit", [ Constant (K.UInt8, "253") ]))
+          ]
       )]
 
 and mk_stmts stmts: C.stmt list =
