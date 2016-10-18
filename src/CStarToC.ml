@@ -271,6 +271,9 @@ and mk_expr (e: expr): C.expr =
       (* TODO really properly specify C's type_name! *)
       CompoundLiteral ((Named name, Ident ""), inits)
 
+  | Field (BufRead (e, Constant (_, "0")), field) ->
+      MemberAccessPointer (mk_expr e, field)
+
   | Field (e, field) ->
       MemberAccess (mk_expr e, field)
 

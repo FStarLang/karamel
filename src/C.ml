@@ -46,6 +46,7 @@ and expr =
   | Sizeof of expr
   | CompoundLiteral of type_name * init list
   | MemberAccess of expr * ident
+  | MemberAccessPointer of expr * ident
 
 (** this is a WILD approximation of the notion of "type name" in C _and_ a hack
  * because there's the invariant that the ident found at the bottom of the

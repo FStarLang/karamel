@@ -161,6 +161,8 @@ and p_expr' curr = function
       braces_with_nesting (separate_map (comma ^^ break1) p_init init)
   | MemberAccess (expr, member) ->
       p_expr' 1 expr ^^ dot ^^ string member
+  | MemberAccessPointer (expr, member) ->
+      p_expr' 1 expr ^^ string "->" ^^ string member
 
 and p_expr e = p_expr' 15 e
 
