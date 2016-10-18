@@ -1,4 +1,4 @@
 S src
 S lib
 B _build/*
-PKG ppx_deriving.std ppx_deriving_yojson zarith pprint unix
+PKG ppx_deriving.std ppx_deriving_yojson zarith pprint unix wasm
