@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <time.h>
 
 // For types and values from C.fsti that do not exactly have the same name as
 // their C counterparts
