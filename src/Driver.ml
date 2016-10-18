@@ -3,6 +3,10 @@
 
 open Warnings
 
+module P = Process
+(* Note: don't open [Process], otherwise any reference to [Output] will be
+ * understood as a cyclic dependency on our own [Output] module. *)
+
 (** These three variables filled in by [detect_fstar] *)
 let fstar = ref ""
 let fstar_home = ref ""
@@ -23,6 +27,19 @@ let readlink = ref ""
 let (^^) x y = x ^ "/" ^ y
 
 let d = Filename.dirname
+
+let rec mkdirp d =
+  if Sys.file_exists d then begin
+    if not (Sys.is_directory d) then
+      failwith "mkdirp: not a directory"
+  end else begin
+    mkdirp (Filename.dirname d);
+    Unix.mkdir d 0o755
+  end
+
+let mk_tmpdir_if () =
+  if !Options.tmpdir <> "" then
+    mkdirp !Options.tmpdir
 
 (** Check whether a command exited successfully *)
 let success cmd args =
@@ -151,14 +168,13 @@ let verbose_msg () =
  * (depending on -warn-error) if the command failed. *)
 let run_or_warn str exe args =
   let debug_str = KPrint.bsprintf "%s %s" exe (String.concat " " args) in
-  let open Process in
-  match run exe (Array.of_list args) with
-  | { Output.exit_status = Exit.Exit 0; stdout; _ } ->
+  match P.run exe (Array.of_list args) with
+  | { P.Output.exit_status = P.Exit.Exit 0; stdout; _ } ->
       KPrint.bprintf "%s✔%s %s%s\n" Ansi.green Ansi.reset str (verbose_msg ());
       if !Options.verbose then
         List.iter print_endline stdout;
       true
-  | { Output.stderr; stdout; _ } ->
+  | { P.Output.stderr; stdout; _ } ->
       KPrint.bprintf "%s✘%s %s%s\n" Ansi.red Ansi.reset str (verbose_msg ());
       if !Options.verbose then begin
         List.iter print_endline stderr;
@@ -185,11 +201,16 @@ let run_fstar verify skip_extract files =
   if skip_extract then
     exit 0
   else
-    let args =  "--codegen" :: "Kremlin" :: "--lax" :: !fstar_options @ files in
+    let args =
+      "--odir" :: !Options.tmpdir ::
+      "--codegen" :: "Kremlin" ::
+      "--lax" :: !fstar_options @ files
+    in
     flush stdout;
+    mk_tmpdir_if ();
     if not (run_or_warn "[F*,extract]" !fstar args) then
       fatal_error "F* failed";
-    "out.krml"
+    !Options.tmpdir ^^ "out.krml"
 
 (** Fills in [cc] and [cc_args]. *)
 let detect_gnu flavor =

@@ -32,7 +32,7 @@ and expr =
   | Call of expr * expr list
     (** First expression has to be a [Qualified] or an [Op]. *)
   | Var of ident
-  | Qualified of lident
+  | Qualified of ident
   | Constant of K.t
   | BufCreate of expr * expr
   | BufCreateL of expr list
@@ -63,14 +63,11 @@ and binder = {
 and ident =
   string
 
-and lident =
-  ident list * ident
-
 and typ =
   | Int of Constant.width
   | Pointer of typ
   | Void
-  | Qualified of lident
+  | Qualified of ident
   | Array of typ * expr
   | Function of typ * typ list
       (** Return type, arguments *)

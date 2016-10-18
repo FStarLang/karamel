@@ -1,41 +1,36 @@
 # A minimalistic Makefile for calling Kremlin... KOPTS is for user-defined flags
 # (e.g. -verbose).
 CRYPTO=FSTAR_HOME/examples/low-level/crypto
-OPTS=-tmpdir out -I $(CRYPTO) -I $(CRYPTO)/real $(KOPTS)
+OPTS=-I $(CRYPTO) -I $(CRYPTO)/real $(KOPTS)
 TESTOPTS=$(OPTS) -add-include '"testlib.h"' -I . testlib.c
 KRML=../krml
 
 all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
   Private.exe ML16.exe Abbrev.exe TSet.exe Tuples.exe \
   DataTypesSimple.exe \
-  Poly1305.exe Chacha20.exe
-	for f in $^; do echo $$f; ./$$f; done
+  Crypto.Symmetric.Poly1305.exe Crypto.Symmetric.Chacha20.exe
 
 broken: Mutable.exe Aead.exe
-	for f in $^; do echo $$f; ./$$f; done
 
 # Standalone test files that have a main in F* (hence -no-prefix)
 %.exe: %.fst
-	$(KRML) $(TESTOPTS) -no-prefix $* -o $@ $<
+	$(KRML) $(TESTOPTS) $(EXTRA) -tmpdir $(subst .exe,-out,$@) -no-prefix $* -o $@ $<
+	./$@
+
+ML16.exe: EXTRA = ml16-native.c
 
 # Test files that have an "external" main written by hand...
-Poly1305.exe: main-Poly1305.c testlib.c
-	$(KRML) $(OPTS) Crypto.Symmetric.Poly1305.fst $^ -o $@
+Crypto.%.exe:
+	$(KRML) $(OPTS) $(EXTRA) -tmpdir $(subst .exe,-out,$@) -o $@ $(subst .exe,.fst,$@)
+	./$@
 
-Chacha20.exe: main-Chacha.c testlib.c
-	$(KRML) $(OPTS) Crypto.Symmetric.Chacha20.fst $^ -o $@
+Crypto.Symmetric.Poly1305.exe: EXTRA = main-Poly1305.c testlib.c
+Crypto.Symmetric.Chacha20.exe: EXTRA = main-Chacha.c testlib.c
 
-Aead.exe: main-Aead.c testlib.c
-	$(KRML) $(OPTS) Crypto.AEAD.Chacha20Poly1305.Ideal.fst $^ -o $@
-
-ML16.exe: ML16.fst ml16-native.c
-	$(KRML) $(OPTS) -no-prefix ML16 $^ -o $@
+Aead.exe: EXTRA = main-Aead.c testlib.c
 
 SimpleWasm.wasm: SimpleWasm.fst
 	$(KRML) $(OPTS) -verbose $^ -o $@ -wasm
 
-FIND=$(shell which gfind >/dev/null 2>/dev/null && echo "gfind" || echo "find")
-
 clean:
-	$(FIND) out -\( -not -iname '.gitignore' -and -type f -\) -delete
-	$(FIND) . -\( -iname '*.exe' -or -iname 'out.krml' -\) -delete
+	rm -rf *.exe

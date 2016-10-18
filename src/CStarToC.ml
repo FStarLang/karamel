@@ -2,7 +2,6 @@
 
 open C
 open CStar
-open Idents
 open KPrint
 
 let any =
@@ -45,7 +44,7 @@ let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type
   | Void ->
       Void, k (Ident name)
   | Qualified l ->
-      Named (string_of_lident l), k (Ident name)
+      Named l, k (Ident name)
   | Enum (enum_name, tags) ->
       Enum (enum_name, tags), k (Ident name)
   | Z ->
@@ -239,8 +238,8 @@ and mk_expr (e: expr): C.expr =
   | Var ident ->
       Name ident
 
-  | Qualified lident ->
-      Name (string_of_lident lident)
+  | Qualified ident ->
+      Name ident
 
   | Constant k ->
       Constant k

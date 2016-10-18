@@ -145,7 +145,7 @@ let rec translate_expr env in_stmt e =
   | EEnum lident ->
       CStar.Var (string_of_lident lident)
   | EQualified lident ->
-      CStar.Qualified lident
+      CStar.Qualified (string_of_lident lident)
   | EConstant c ->
       CStar.Constant c
   | EApp (e, es) ->
@@ -390,7 +390,7 @@ and translate_return_type env = function
   | TUnit ->
       CStar.Void
   | TQualified name ->
-      CStar.Qualified name
+      CStar.Qualified (string_of_lident name)
   | TBool ->
       CStar.Bool
   | TAny ->
