@@ -183,7 +183,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
 
   | Abort ->
       [ Expr (Call (Name "printf", [
-          Literal "KreMLin abort at %s:%s\\n"; Name "__FILE__"; Name "__LINE__"  ]));
+          Literal "KreMLin abort at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
         Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])) ]
 
   | While (e1, e2) ->
@@ -200,7 +200,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
           ) branches,
           Compound [
             Expr (Call (Name "printf", [
-              Literal "KreMLin incomplete match at %s:%s\\n"; Name "__FILE__"; Name "__LINE__"  ]));
+              Literal "KreMLin incomplete match at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
             Expr (Call (Name "exit", [ Constant (K.UInt8, "253") ]))
           ]
       )]
