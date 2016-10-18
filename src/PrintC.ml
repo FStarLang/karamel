@@ -139,6 +139,8 @@ and p_expr' curr = function
       let e = p_expr' left e in
       let es = nest 2 (separate_map (comma ^^ break 1) (fun e -> group (p_expr' arg e)) es) in
       paren_if curr mine (e ^^ lparen ^^ es ^^ rparen)
+  | Literal s ->
+      dquote ^^ string s ^^ dquote
   | Name s ->
       string s
   | Cast (t, e) ->
@@ -161,6 +163,8 @@ and p_expr' curr = function
       braces_with_nesting (separate_map (comma ^^ break1) p_init init)
   | MemberAccess (expr, member) ->
       p_expr' 1 expr ^^ dot ^^ string member
+  | MemberAccessPointer (expr, member) ->
+      p_expr' 1 expr ^^ string "->" ^^ string member
 
 and p_expr e = p_expr' 15 e
 

@@ -42,10 +42,12 @@ and expr =
   | Name of ident
   | Cast of type_name * expr
   | Constant of K.t
+  | Literal of string
   | Bool of bool
   | Sizeof of expr
   | CompoundLiteral of type_name * init list
   | MemberAccess of expr * ident
+  | MemberAccessPointer of expr * ident
 
 (** this is a WILD approximation of the notion of "type name" in C _and_ a hack
  * because there's the invariant that the ident found at the bottom of the

@@ -18,6 +18,6 @@ uint8_t expected_hash[] = {
 int main() {
   uint8_t hash[HASH_SIZE];
   Crypto_Symmetric_Poly1305_poly1305_mac(hash, msg, 34, key);
-  compare_and_print("mac", hash, expected_hash, HASH_SIZE);
+  TestLib_compare_and_print("mac", hash, expected_hash, HASH_SIZE);
   return EXIT_SUCCESS;
 }

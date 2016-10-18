@@ -2,7 +2,6 @@
 
 open C
 open CStar
-open Idents
 open KPrint
 
 let any =
@@ -45,7 +44,7 @@ let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type
   | Void ->
       Void, k (Ident name)
   | Qualified l ->
-      Named (string_of_lident l), k (Ident name)
+      Named l, k (Ident name)
   | Enum (enum_name, tags) ->
       Enum (enum_name, tags), k (Ident name)
   | Z ->
@@ -83,6 +82,14 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
   | _ ->
       Compound stmts
 
+and is_constant = function
+  | Constant _ ->
+      true
+  | Cast (e, _) ->
+      is_constant e
+  | _ ->
+      false
+
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
   | Return e ->
@@ -92,12 +99,8 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Expr (mk_expr e) ]
 
   | Decl (binder, BufCreate (init, size)) ->
-      begin match size with
-      | Constant _ ->
-          ()
-      | _ ->
-          Warnings.(maybe_fatal_error ("", Vla binder.name))
-      end;
+      if not (is_constant size) then
+        Warnings.(maybe_fatal_error ("", Vla binder.name));
 
       (* In the case where this is a buffer creation in the C* meaning, then we
        * declare a fixed-length array; this is an "upcast" from pointer type to
@@ -179,7 +182,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
         Op2 (K.Mult, mk_expr e5, Sizeof (Index (mk_expr e1, Constant (K.UInt8, "0"))))])) ]
 
   | Abort ->
-      [ Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])) ]
+      [ Expr (Call (Name "printf", [
+          Literal "KreMLin abort at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
+        Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])) ]
 
   | While (e1, e2) ->
       [ While (mk_expr e1, mk_compound_if (mk_stmts e2)) ]
@@ -193,7 +198,11 @@ and mk_stmt (stmt: stmt): C.stmt list =
           List.map (fun (ident, block) ->
             Name ident, Compound (mk_stmts block @ [ Break ])
           ) branches,
-          Expr (Call (Name "exit", [ Constant (K.UInt8, "253") ]))
+          Compound [
+            Expr (Call (Name "printf", [
+              Literal "KreMLin incomplete match at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
+            Expr (Call (Name "exit", [ Constant (K.UInt8, "253") ]))
+          ]
       )]
 
 and mk_stmts stmts: C.stmt list =
@@ -235,8 +244,8 @@ and mk_expr (e: expr): C.expr =
   | Var ident ->
       Name ident
 
-  | Qualified lident ->
-      Name (string_of_lident lident)
+  | Qualified ident ->
+      Name ident
 
   | Constant k ->
       Constant k
@@ -266,6 +275,9 @@ and mk_expr (e: expr): C.expr =
       let inits = initializer_of_fields fields in
       (* TODO really properly specify C's type_name! *)
       CompoundLiteral ((Named name, Ident ""), inits)
+
+  | Field (BufRead (e, Constant (_, "0")), field) ->
+      MemberAccessPointer (mk_expr e, field)
 
   | Field (e, field) ->
       MemberAccess (mk_expr e, field)

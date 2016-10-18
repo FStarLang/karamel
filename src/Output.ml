@@ -21,9 +21,11 @@ let header name =
   prefix, string "#endif"
 
 let write_one name prefix program suffix =
+  Driver.mk_tmpdir_if ();
   let f =
+    let open Driver in
     if !Options.tmpdir <> "" then
-      !Options.tmpdir ^ "/" ^ name
+      !Options.tmpdir ^^ name
     else
       name
   in

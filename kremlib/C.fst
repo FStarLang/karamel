@@ -19,5 +19,11 @@ assume val exit: Int32.t -> unit
 
 assume val char: Type0
 assume val int: Type0
+assume val clock_t: Type0
+
+assume val clock: unit -> Stack clock_t
+  (requires (fun _ -> true))
+  (ensures (fun h0 _ h1 -> modifies_none h0 h1))
+
 assume val exit_success: Int32.t
 assume val exit_failure: Int32.t
