@@ -14,14 +14,14 @@ broken: Mutable.exe Crypto.AEAD.Chacha20Poly1305.exe
 
 # Standalone test files that have a main in F* (hence -no-prefix)
 %.exe: %.fst
-	$(KRML) $(TESTOPTS) $(EXTRA) -tmpdir $(subst .exe,-out,$@) -no-prefix $* -o $@ $<
+	$(KRML) $(TESTOPTS) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $* -o $@ $<
 	./$@
 
 ML16.exe: EXTRA = ml16-native.c
 
 # Test files that have an "external" main written by hand...
 Crypto.%.exe:
-	$(KRML) $(OPTS) $(EXTRA) -tmpdir $(subst .exe,-out,$@) -o $@ $(subst .exe,.fst,$@)
+	$(KRML) $(OPTS) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -o $@ $(subst .exe,.fst,$@)
 	./$@
 
 Crypto.Symmetric.Poly1305.exe: EXTRA = main-Poly1305.c testlib.c
