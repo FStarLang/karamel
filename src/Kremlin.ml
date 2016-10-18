@@ -190,7 +190,9 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     if !Options.exe_name = "" then
       Options.exe_name := "out.wasm";
     output_string (open_out !Options.exe_name) s;
-    KPrint.bprintf "Wrote WASM output to %s\n" !Options.exe_name
+    KPrint.bprintf "Wrote WASM output to %s\n" !Options.exe_name;
+    let pp  = Wasm.Arrange.module_  module_ in
+    Wasm.Sexpr.print 1 pp
   else
     (* ... then to C *)
     let headers = CStarToC.mk_headers files in
