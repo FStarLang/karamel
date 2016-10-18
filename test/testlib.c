@@ -1,6 +1,6 @@
 #include "testlib.h"
 
-void compare_and_print(const char *txt, uint8_t *reference, uint8_t *output, int size) {
+void TestLib_compare_and_print(const char *txt, uint8_t *reference, uint8_t *output, int size) {
   char *str = malloc(2*size + 1);
   char *str_ref = malloc(2*size + 1);
   for (int i = 0; i < size; ++i) {
@@ -35,10 +35,10 @@ void TestLib_check(int32_t x, int32_t y) {
   }
 }
 
-void *unsafe_malloc(size_t size) {
+void *TestLib_unsafe_malloc(size_t size) {
   return malloc(size);
 }
 
-void print_clock_diff(clock_t t1, clock_t t2) {
+void TestLib_print_clock_diff(clock_t t1, clock_t t2) {
   printf("User time: %f\n", ((double)t2 - t1)/CLOCKS_PER_SEC);
 }

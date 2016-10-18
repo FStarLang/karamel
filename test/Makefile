@@ -32,4 +32,4 @@ SimpleWasm.wasm: SimpleWasm.fst
 	$(KRML) $(OPTS) -verbose $^ -o $@ -wasm
 
 clean:
-	rm -rf *.exe
+	rm -rf *.exe *.dSYM *.out
