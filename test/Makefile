@@ -10,7 +10,7 @@ all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
   DataTypesSimple.exe \
   Crypto.Symmetric.Poly1305.exe Crypto.Symmetric.Chacha20.exe
 
-broken: Mutable.exe Aead.exe
+broken: Mutable.exe Crypto.AEAD.Chacha20Poly1305.exe
 
 # Standalone test files that have a main in F* (hence -no-prefix)
 %.exe: %.fst
@@ -26,8 +26,7 @@ Crypto.%.exe:
 
 Crypto.Symmetric.Poly1305.exe: EXTRA = main-Poly1305.c testlib.c
 Crypto.Symmetric.Chacha20.exe: EXTRA = main-Chacha.c testlib.c
-
-Aead.exe: EXTRA = main-Aead.c testlib.c
+Crypto.AEAD.Chacha20Poly1305.exe: EXTRA = main-Aead.c testlib.c
 
 SimpleWasm.wasm: SimpleWasm.fst
 	$(KRML) $(OPTS) -verbose $^ -o $@ -wasm
