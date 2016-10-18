@@ -83,6 +83,14 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
   | _ ->
       Compound stmts
 
+and is_constant = function
+  | Constant _ ->
+      true
+  | Cast (e, _) ->
+      is_constant e
+  | _ ->
+      false
+
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
   | Return e ->
@@ -92,12 +100,8 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Expr (mk_expr e) ]
 
   | Decl (binder, BufCreate (init, size)) ->
-      begin match size with
-      | Constant _ ->
-          ()
-      | _ ->
-          Warnings.(maybe_fatal_error ("", Vla binder.name))
-      end;
+      if not (is_constant size) then
+        Warnings.(maybe_fatal_error ("", Vla binder.name));
 
       (* In the case where this is a buffer creation in the C* meaning, then we
        * declare a fixed-length array; this is an "upcast" from pointer type to
