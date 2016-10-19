@@ -22,6 +22,7 @@ and type_def =
   | Flat of fields_t
   | Variant of branches_t
   | Enum of lident list
+  (* | Union of (lident option * type_def) list *)
 
 and fields_t =
   (ident * (typ * bool)) list
@@ -129,17 +130,27 @@ and lident =
 
 and typ =
   | TInt of K.width
-  | TBuf of typ
-  | TUnit
-  | TQualified of lident
   | TBool
+  | TUnit
   | TAny
+      (** appears because of casts introduced by erasure... eventually, should
+       * not appear! *)
+  | TBuf of typ
+      (** a buffer in the Low* sense *)
+  | TQualified of lident
+      (** a reference to a type that has been introduced via a DType *)
   | TArrow of typ * typ
       (** t1 -> t2 *)
-  | TZ
-  | TBound of int
   | TApp of lident * typ list
+      (** disappears after monomorphization *)
+  | TBound of int
+      (** appears in type definitions... also disappears after monorphization *)
   | TTuple of typ list
+      (** disappears after tuple removal *)
+  (* | TAnonymous of type_def *)
+      (** appears after data type translation to tagged enums *)
+  | TZ
+      (** unused *)
 
 let with_type typ node =
   { typ; node }
