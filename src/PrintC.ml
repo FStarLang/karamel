@@ -240,7 +240,7 @@ let rec p_stmt (s: stmt) =
   | Return None ->
       group (string "return" ^^ semi)
   | Return (Some e) ->
-      group (string "return" ^/^ p_expr e ^^ semi)
+      group (string "return" ^^ jump (p_expr e ^^ semi))
   | Decl d ->
       group (p_declaration d ^^ semi)
   | Switch (e, branches, default) ->
