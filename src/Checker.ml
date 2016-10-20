@@ -158,10 +158,7 @@ and check_decl env d =
 
 and infer_expr env e =
   let t = infer_expr' env e.node e.typ in
-  if e.typ <> TAny then begin
-    (* KPrint.bprintf "Checking %a (previously: %a)\n" pexpr e ptyp e.typ; *)
-    check_types_equal env t e.typ;
-  end;
+  check_subtype env t e.typ;
   e.typ <- t;
   t
 
@@ -202,7 +199,7 @@ and infer_expr' env e t =
           type_error env "Not a function being applied:\n%a" pexpr e;
         if List.length t_args <> List.length ts then
           type_error env "This is a partial application:\n%a" pexpr e;
-        List.iter2 (check_types_equal env) ts t_args;
+        List.iter2 (check_subtype env) ts t_args;
         t_ret
 
   | ELet (binder, body, cont) ->
@@ -214,7 +211,7 @@ and infer_expr' env e t =
       check_expr env TBool e1;
       let t1 = infer_expr (locate env Then) e2 in
       let t2 = infer_expr (locate env Else) e3 in
-      check_types_equal env t1 t2;
+      check_eqtype env t1 t2;
       t1
 
   | ESequence es ->
@@ -296,7 +293,7 @@ and infer_expr' env e t =
       let lid = assert_qualified env t in
       let ts = List.map (infer_expr env) exprs in
       let ts' = fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident)))) in
-      List.iter2 (check_types_equal env) ts ts';
+      List.iter2 (check_subtype env) ts ts';
       TQualified lid 
 
   | EField (e, field) ->
@@ -336,7 +333,7 @@ and infer_expr' env e t =
                 this type" plid lid plid tag;
             let t = infer_expr env e in
             match !t_ret with
-            | Some t' -> check_types_equal env t t'
+            | Some t' -> check_eqtype env t t'
             | None -> t_ret := Some t
           ) branches;
           Option.must !t_ret
@@ -404,23 +401,23 @@ and check_branches env t_scrutinee branches =
         t_ret := Some t
     | Some t' ->
         let t = infer_expr env expr in
-        check_types_equal env t t'
+        check_eqtype env t t'
   ) branches;
   Option.must !t_ret
 
 and check_pat env t_context pat =
   match pat.node with
   | PVar b ->
-      check_types_equal env t_context b.typ;
+      check_subtype env t_context b.typ;
       b.typ <- t_context;
-      check_types_equal env t_context pat.typ;
+      check_subtype env t_context pat.typ;
       pat.typ <- t_context
   | PUnit ->
-      check_types_equal env t_context TUnit;
+      check_subtype env t_context TUnit;
       pat.typ <- t_context
 
   | PBool _ ->
-      check_types_equal env t_context TBool;
+      check_subtype env t_context TBool;
       pat.typ <- t_context
 
   | PTuple ps ->
@@ -476,7 +473,7 @@ and assert_qualified env t =
       fatal_error "%a, expected a provided type annotation" ploc env.location
 
 and assert_buffer env e1 =
-  match reduce env (infer_expr env e1) with
+  match expand_abbrev env (infer_expr env e1) with
   | TBuf t1 ->
       t1
   | TAny ->
@@ -502,13 +499,13 @@ and assert_cons_of env t id: fields_t =
 
 and check_expr env t e =
   let t' = infer_expr env e in
-  check_types_equal env t t'
+  check_subtype env t' t
 
-and types_equal env t1 t2 =
-  match reduce env t1, reduce env t2 with
+and subtype env t1 t2 =
+  match expand_abbrev env t1, expand_abbrev env t2 with
   | TInt w1, TInt w2 when w1 = w2 ->
       true
-  | TBuf t1, TBuf t2 when types_equal env t1 t2 ->
+  | TBuf t1, TBuf t2 when subtype env t1 t2 ->
       true
   | TUnit, TUnit ->
       true
@@ -523,38 +520,46 @@ and types_equal env t1 t2 =
   | TAny, _ ->
       true
   | TArrow (t1, t2), TArrow (t'1, t'2) when
-    types_equal env t1 t'1 &&
-    types_equal env t2 t'2 ->
+    subtype env t1 t'1 &&
+    subtype env t2 t'2 ->
       true
   | TZ, TZ ->
       true
   | TBound i, TBound i' ->
       i = i'
   | TApp (lid, args), TApp (lid', args') ->
-      lid = lid' && List.for_all2 (types_equal env) args args'
+      lid = lid' && List.for_all2 (eqtype env) args args'
   | TTuple ts1, TTuple ts2 ->
       List.length ts1 = List.length ts2 &&
-      List.for_all2 (types_equal env) ts1 ts2
+      List.for_all2 (subtype env) ts1 ts2
   | _ ->
       false
 
-and check_types_equal env t1 t2 =
-  if not (types_equal env t1 t2) then
-    type_error env "type mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
-      ptyp t1 ptyp (reduce env t1) ptyp t2 ptyp (reduce env t2)
+and eqtype env t1 t2 =
+  subtype env t1 t2 && subtype env t2 t1
 
-and reduce env t =
+and check_eqtype env t1 t2 =
+  if not (eqtype env t1 t2) then
+    type_error env "eqtype mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
+      ptyp t1 ptyp (expand_abbrev env t1) ptyp t2 ptyp (expand_abbrev env t2)
+
+and check_subtype env t1 t2 =
+  if not (subtype env t1 t2) then
+    type_error env "subtype mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
+      ptyp t1 ptyp (expand_abbrev env t1) ptyp t2 ptyp (expand_abbrev env t2)
+
+and expand_abbrev env t =
   match t with
   | TQualified lid ->
       begin match M.find lid env.types with
       | exception Not_found -> t
-      | Abbrev (_, t) -> reduce env t
+      | Abbrev (_, t) -> expand_abbrev env t
       | _ -> t
       end
   | TApp (lid, args) ->
       begin match M.find lid env.types with
       | exception Not_found -> t
-      | Abbrev (_, t) -> reduce env (DeBruijn.subst_tn t args)
+      | Abbrev (_, t) -> expand_abbrev env (DeBruijn.subst_tn t args)
       | _ -> t
       end
   | _ ->
