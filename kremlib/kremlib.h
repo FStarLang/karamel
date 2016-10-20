@@ -13,7 +13,7 @@
 extern int exit_success;
 extern int exit_failure;
 
-#if defined(__GNUC__) /* && defined(__SIZEOF_INT128__) */
+#if defined(__GNUC__) && defined(__SIZEOF_INT128__)
 typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
 #define FStar_UInt128_add(x,y) (x + y)
 #define FStar_UInt128_mul(x,y) (x * y)

@@ -55,11 +55,11 @@ uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
 }
 
 // 128-bit arithmetic
-/* #if defined(__GNUC__) /\* && defined(__SIZEOF_INT128__) *\/ */
+#if defined(__GNUC__) && defined(__SIZEOF_INT128__)
 #include "native128.c"
-/* #else */
-/* #include "custom128.c" */
-/* #endif */
+#else
+#include "custom128.c"
+#endif
 
 #define KRML_EXIT \
   do { \
