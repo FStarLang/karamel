@@ -294,13 +294,25 @@ and infer_expr' env e t =
       let ts = List.map (infer_expr env) exprs in
       let ts' = fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident)))) in
       List.iter2 (check_subtype env) ts ts';
-      TQualified lid 
+      TQualified lid
 
   | EField (e, field) ->
-      let lid = assert_qualified env e.typ in
-      check_expr env (TQualified lid) e;
-      fst (find_field env lid field)
+      let t = infer_expr env e in
+      begin match t with
+      | TQualified lid ->
+          fst (find_field env lid field)
+      | TAnonymous def ->
+          fst (find_field_from_def env def field)
+      | _ ->
+          type_error env "this type doesn't have fields"
+      end
 
+  | EEnum tag ->
+      begin try
+        TQualified (M.find tag env.enums)
+      with Not_found ->
+        TAnonymous (Enum [ tag ])
+      end
 
   | EWhile (e1, e2) ->
       check_expr env TBool e1;
@@ -319,9 +331,6 @@ and infer_expr' env e t =
 
   | ETuple es ->
       TTuple (List.map (infer_expr env) es)
-  
-  | EEnum tag ->
-      TQualified (M.find tag env.enums)
 
   | ESwitch (e, branches) ->
       begin match infer_expr env e with
@@ -342,12 +351,26 @@ and infer_expr' env e t =
       end
 
 and find_field env lid field =
-  begin try
-    List.assoc field (assert_flat env (lookup_type env lid))
-  with Not_found ->
-    type_error env "%a, the type %a doesn't have a field named %s"
-      ploc env.location plid lid field
-  end
+  find_field_from_def env (lookup_type env lid) field
+
+and find_field_from_def env def field =
+  try begin match def with
+    | Flat fields ->
+        List.assoc field fields
+    | Union fields ->
+        begin match KList.find_opt (function
+          | Some field', t when field = field' ->
+              Some (t, false) (* not mutable *)
+          | _ ->
+              None
+        ) fields with
+        | Some t -> t
+        | None -> raise Not_found
+        end
+    | _ ->
+        raise Not_found
+  end with Not_found ->
+    type_error env "record or union type doesn't have a field named %s" field
 
 
 (* Per Perry's definition, a path is a block id along with an offset, and a
@@ -444,7 +467,7 @@ and check_pat env t_context pat =
         check_pat env t pat
       ) fieldpats;
       pat.typ <- t_context
-  
+
   | PEnum tag ->
       let lid = assert_qualified env t_context in
       assert (lid = M.find tag env.enums);

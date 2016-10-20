@@ -503,7 +503,7 @@ and translate_type_def env d: CStar.typ =
 
   | Union fields ->
       CStar.Union (List.map (fun (f, t) ->
-        Option.map string_of_lident f, translate_type env t
+        f, translate_type env t
       ) fields)
 
 

@@ -22,7 +22,7 @@ and type_def =
   | Flat of fields_t
   | Variant of branches_t
   | Enum of lident list
-  | Union of (lident option * typ) list
+  | Union of (ident option * typ) list
 
 and fields_t =
   (ident * (typ * bool)) list

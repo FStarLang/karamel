@@ -65,7 +65,7 @@ and print_type_def = function
             if name = None then
               empty
             else
-              string (string_of_lident (Option.must name)) ^/^ equals ^^ break1
+              string (Option.must name) ^/^ equals ^^ break1
           ) ^^ print_typ t)
         fields)
 
