@@ -13,13 +13,41 @@
 extern int exit_success;
 extern int exit_failure;
 
-#ifdef __GNUC__
+#if defined(__GNUC__) /* && defined(__SIZEOF_INT128__) */
 typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
+#define FStar_UInt128_add(x,y) (x + y)
+#define FStar_UInt128_mul(x,y) (x * y)
+#define FStar_UInt128_add_mod(x,y) (x + y)
+#define FStar_UInt128_sub(x,y) (x - y)
+#define FStar_UInt128_sub_mod(x,y) (x - y)
+#define FStar_UInt128_logand(x,y) (x & y)
+#define FStar_UInt128_logor(x,y) (x | y)
+#define FStar_UInt128_logxor(x,y) (x ^ y)
+#define FStar_UInt128_lognot(x) (~x)
+#define FStar_UInt128_shift_left(x, y) (x << y)
+#define FStar_UInt128_shift_right(x, y) (x >> y)
+#define FStar_Int_Cast_uint64_to_uint128(x) ((__int128)x)
+#define FStar_Int_Cast_uint128_to_uint64(x) ((uint64_t)x)
+#define FStar_UInt128_mul_wide(x, y) ((__int128)x * y)
 #else
 typedef struct {
   uint64_t high;
   uint64_t low;
 } FStar_UInt128_t, FStar_UInt128_t_;
+FStar_UInt128_t FStar_UInt128_add(FStar_UInt128_t x, FStar_UInt128_t y);
+FStar_UInt128_t FStar_UInt128_add_mod(FStar_UInt128_t x, FStar_UInt128_t y);
+FStar_UInt128_t FStar_UInt128_sub(FStar_UInt128_t x, FStar_UInt128_t y);
+FStar_UInt128_t FStar_UInt128_sub_mod(FStar_UInt128_t x, FStar_UInt128_t y);
+FStar_UInt128_t FStar_UInt128_mul(FStar_UInt128_t x, FStar_UInt128_t y);
+FStar_UInt128_t FStar_UInt128_logand(FStar_UInt128_t x, FStar_UInt128_t y);
+FStar_UInt128_t FStar_UInt128_logor(FStar_UInt128_t x, FStar_UInt128_t y);
+FStar_UInt128_t FStar_UInt128_logxor(FStar_UInt128_t x, FStar_UInt128_t y);
+FStar_UInt128_t FStar_UInt128_lognot(FStar_UInt128_t x);
+FStar_UInt128_t FStar_UInt128_shift_left(FStar_UInt128_t x, FStar_UInt32_t y);
+FStar_UInt128_t FStar_UInt128_shift_right(FStar_UInt128_t x, FStar_UInt32_t y);
+FStar_UInt128_t FStar_Int_Cast_uint64_to_uint128(uint64_t x);
+uint64_t FStar_Int_Cast_uint128_to_uint64(FStar_UInt128_t x);
+FStar_UInt128_t FStar_UInt128_mul_wide(uint64_t x, uint64_t y);
 #endif
 typedef uint64_t FStar_UInt64_t, FStar_UInt64_t_;
 typedef int64_t FStar_Int64_t, FStar_Int64_t_;
@@ -39,22 +67,8 @@ uint8_t FStar_UInt8_eq_mask(uint8_t x, uint8_t y);
 uint8_t FStar_UInt8_gte_mask(uint8_t x, uint8_t y);
 
 // 128-bit arithmetic
-FStar_UInt128_t FStar_UInt128_add(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_add_mod(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_sub(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_sub_mod(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_mul(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_logand(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_logor(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_logxor(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_lognot(FStar_UInt128_t x);
-FStar_UInt128_t FStar_UInt128_shift_left(FStar_UInt128_t x, FStar_UInt32_t y);
-FStar_UInt128_t FStar_UInt128_shift_right(FStar_UInt128_t x, FStar_UInt32_t y);
-FStar_UInt128_t FStar_Int_Cast_uint64_to_uint128(uint64_t x);
-uint64_t FStar_Int_Cast_uint128_to_uint64(FStar_UInt128_t x);
 FStar_UInt128_t FStar_UInt128_eq_mask(FStar_UInt128_t x, FStar_UInt128_t y);
 FStar_UInt128_t FStar_UInt128_gte_mask(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_mul_wide(uint64_t x, uint64_t y);
 
 // Some types that KreMLin has no special knowledge of; many of them appear in
 // signatures of ghost functions, meaning that it suffices to give them (any)

@@ -36,7 +36,11 @@ void TestLib_check(int32_t x, int32_t y) {
 }
 
 void *TestLib_unsafe_malloc(size_t size) {
-  return malloc(size);
+  void *memblob = malloc(size);
+  if (memblob == NULL){
+    printf(" WARNING : malloc failed in tests !\n");
+  }
+  return memblob;
 }
 
 void TestLib_print_clock_diff(clock_t t1, clock_t t2) {
