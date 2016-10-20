@@ -24,8 +24,10 @@ let rec adapt (t: CStar.typ) =
       Array (adapt t, e)
   | Function (t, ts) ->
       Pointer (Function (adapt t, List.map adapt ts))
-  | Struct (name, fields) ->
-      Struct (name, List.map (fun (field, t) -> field, adapt t) fields)
+  | Struct fields ->
+      Struct (List.map (fun (field, t) -> field, adapt t) fields)
+  | Union fields ->
+      Union (List.map (fun (field, t) -> field, adapt t) fields)
 
 (* Turns the ML declaration inside-out to match the C reading of a type.
  * See en.cppreference.com/w/c/language/declarations *)
@@ -45,14 +47,20 @@ let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type
       Void, k (Ident name)
   | Qualified l ->
       Named l, k (Ident name)
-  | Enum (enum_name, tags) ->
-      Enum (enum_name, tags), k (Ident name)
+  | Enum tags ->
+      Enum (None, tags), k (Ident name)
   | Z ->
       Named "mpz_t", k (Ident name)
   | Bool ->
       Named "bool", k (Ident name)
-  | Struct (struct_name, fields) ->
-      Struct (struct_name, List.map (fun (name, typ) ->
+  | Struct fields ->
+      Struct (None, List.map (fun (name, typ) ->
+        let spec, decl = mk_spec_and_declarator name typ in
+        spec, None, [ decl, None ]
+      ) fields), k (Ident name)
+  | Union fields ->
+      Union (None, List.map (fun (name, typ) ->
+        let name = match name with Some name -> name | None -> "" in
         let spec, decl = mk_spec_and_declarator name typ in
         spec, None, [ decl, None ]
       ) fields), k (Ident name)

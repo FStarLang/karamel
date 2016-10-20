@@ -35,6 +35,10 @@ let rec p_type_spec = function
   | Int w -> print_width w ^^ string "_t"
   | Void -> string "void"
   | Named s -> string s
+  | Union (name, decls) ->
+      group (string "union" ^/^
+      (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
+      braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
   | Struct (name, decls) ->
       group (string "struct" ^/^
       (match name with Some name -> string name ^^ break1 | None -> empty)) ^^

@@ -28,14 +28,8 @@ class ignore_everything = object
   method dglobal () flags name typ expr =
     DGlobal (flags, name, typ, expr)
 
-  method dtypealias () name n t =
-    DType (name, Abbrev (n, t))
-
-  method dtypeflat () name fields =
-    DType (name, Flat fields)
-
-  method dtypevariant () name branches =
-    DType (name, Variant branches)
+  method dtype () name t =
+    DType (name, t)
 end
 
 
@@ -591,7 +585,6 @@ let record_name lident =
   [], GlobalNames.record (string_of_lident lident) (target_c_name lident)
 
 let record_toplevel_names = object
-
   inherit [_] map
 
   method dglobal () flags name t body =
@@ -603,17 +596,8 @@ let record_toplevel_names = object
   method dexternal () name t =
     DExternal (record_name name, t)
 
-  method dtypealias () name n t =
-    DType (record_name name, Abbrev (n, t))
-
-  method dtypeflat () name fields =
-    DType (record_name name, Flat fields)
-
-  method dtypevariant () name branches =
-    DType (record_name name, Variant branches)
-
-  method dtypeenum () name tags =
-    DType (record_name name, Enum tags)
+  method dtype () name t =
+    DType (record_name name, t)
 end
 
 let t lident =
@@ -640,17 +624,8 @@ let replace_references_to_toplevel_names = object(self)
   method dexternal () name typ =
     DExternal (t name, self#visit_t () typ)
 
-  method dtypealias () name n typ =
-    DType (t name, Abbrev (n, self#visit_t () typ))
-
-  method dtypeflat () name fields =
-    DType (t name, Flat (self#fields_t () fields))
-
-  method dtypevariant () name branches =
-    DType (t name, Variant (self#branches_t () branches))
-
-  method dtypeenum () name tags =
-    DType (t name, Enum tags)
+  method dtype () name d =
+    DType (t name, self#type_def () d)
 end
 
 

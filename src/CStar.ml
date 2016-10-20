@@ -63,6 +63,10 @@ and binder = {
 and ident =
   string
 
+(** About data types (struct, enum, union):
+  * - they never carry a name (we never emit "struct foo { ... }");
+  * - they can appear in the body of type definitions, or
+  * - as "structural" types that carry no particular name *)
 and typ =
   | Int of Constant.width
   | Pointer of typ
@@ -73,5 +77,7 @@ and typ =
       (** Return type, arguments *)
   | Bool
   | Z
-  | Struct of ident option * (ident * typ) list
-  | Enum of ident option * ident list
+
+  | Struct of (ident * typ) list
+  | Enum of ident list
+  | Union of (ident option * typ) list

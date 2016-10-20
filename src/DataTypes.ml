@@ -132,16 +132,21 @@ let optimize_visitor map = object(self)
     | ToFlat names ->
         PRecord (List.map2 (fun n e -> n, e) names args)
 
-  method dtypevariant () lid branches =
-    match Hashtbl.find map lid with
-    | exception Not_found ->
-        DType (lid, Variant branches)
-    | Regular ->
-        DType (lid, Variant branches)
-    | ToEnum ->
-        DType (lid, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
-    | ToFlat _ ->
-        DType (lid, Flat (snd (List.hd branches)))
+  method dtype () lid def =
+    match def with
+    | Variant branches ->
+        begin match Hashtbl.find map lid with
+        | exception Not_found ->
+            DType (lid, Variant branches)
+        | Regular ->
+            DType (lid, Variant branches)
+        | ToEnum ->
+            DType (lid, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
+        | ToFlat _ ->
+            DType (lid, Flat (snd (List.hd branches)))
+        end
+    | _ ->
+        DType (lid, def)
 end
 
 let build_map files =
