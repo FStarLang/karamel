@@ -25,7 +25,7 @@ let mk_stmts (block: block) =
 
 let mk_decl (decl: decl) =
   match decl with
-  | Function (_ret_t, _name, _binders, body) ->
+  | Function (_, _ret_t, _name, _binders, body) ->
       begin try
         let body = mk_stmts body in
         Some (dummy_phrase W.Ast.({ ftype = dummy_phrase 0l; locals = []; body }))

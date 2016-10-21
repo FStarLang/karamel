@@ -84,10 +84,10 @@ let populate_env files =
           { env with types = M.add lid typ env.types }
       | DGlobal (_, lid, t, _) ->
           { env with globals = M.add lid t env.globals }
-      | DFunction (_, ret, lid, binders, _) ->
+      | DFunction (_, _, ret, lid, binders, _) ->
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
-      | DExternal (lid, typ) ->
+      | DExternal (_, lid, typ) ->
           { env with globals = M.add lid typ env.globals }
     ) env decls
   ) empty files
@@ -143,7 +143,7 @@ and check_program env (name, decls) =
 
 and check_decl env d =
   match d with
-  | DFunction (_, t, name, binders, body) ->
+  | DFunction (_, _, t, name, binders, body) ->
       let env = List.fold_left push env binders in
       let env = locate env (InTop name) in
       check_expr env t body

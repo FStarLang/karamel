@@ -12,9 +12,9 @@ and file =
   string * program
 
 and decl =
-  | DFunction of flag list * typ * lident * binder list * expr
+  | DFunction of CallingConvention.t option * flag list * typ * lident * binder list * expr
   | DGlobal of flag list * lident * typ * expr
-  | DExternal of lident * typ
+  | DExternal of CallingConvention.t option * lident * typ
   | DType of lident * type_def 
 
 and type_def =
@@ -501,12 +501,12 @@ class virtual ['env] map = object (self)
 
   method visit_d (env: 'env) (d: decl): 'dresult =
     match d with
-    | DFunction (flags, ret, name, binders, expr) ->
-        self#dfunction env flags ret name binders expr
+    | DFunction (cc, flags, ret, name, binders, expr) ->
+        self#dfunction env cc flags ret name binders expr
     | DGlobal (flags, name, typ, expr) ->
         self#dglobal env flags name typ expr
-    | DExternal (name, t) ->
-        self#dexternal env name t
+    | DExternal (cc, name, t) ->
+        self#dexternal env cc name t
     | DType (name, t) ->
         self#dtype env name t
 
@@ -529,16 +529,16 @@ class virtual ['env] map = object (self)
   method binders env binders =
     List.map (fun binder -> { binder with typ = self#visit_t env binder.typ }) binders
 
-  method dfunction env flags ret name binders expr =
+  method dfunction env cc flags ret name binders expr =
     let binders = self#binders env binders in
     let env = self#extend_many env binders in
-    DFunction (flags, self#visit_t env ret, name, binders, self#visit env expr)
+    DFunction (cc, flags, self#visit_t env ret, name, binders, self#visit env expr)
 
   method dglobal env flags name typ expr =
     DGlobal (flags, name, self#visit_t env typ, self#visit env expr)
 
-  method dexternal env name t =
-    DExternal (name, self#visit_t env t)
+  method dexternal env cc name t =
+    DExternal (cc, name, self#visit_t env t)
 
   method dtypealias env n t =
     let rec extend e n =

@@ -240,19 +240,8 @@ end
 let drop_simple_matches map files =
   Simplify.visit_files () (remove_match_visitor map) files
 
-(* Fourth step: implement the general transformation of data types into tagged
- * unions. *)
-let tagged_union_visitor = object(self)
-
-  inherit [unit] map
-
-  method d
-
-end
-
 let everything files =
   let files = drop_tuples files in
   let map, files = drop_simple_data_types files in
   let files = drop_simple_matches map files in
   files
-
