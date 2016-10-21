@@ -10,10 +10,10 @@ let arrow = string "->"
 
 let decl_name (d: decl) =
   match d with
-  | DFunction (_, _,lid,_,_)
+  | DFunction (_, _, _,lid,_,_)
   | DType (lid,_)
   | DGlobal (_, lid,_,_)
-  | DExternal (lid,_) -> lid
+  | DExternal (_, lid,_) -> lid
 
 let print_app f head g arguments =
   group (
@@ -23,15 +23,17 @@ let print_app f head g arguments =
   )
 
 let rec print_decl = function
-  | DFunction (flags, typ, name, binders, body) ->
-      print_flags flags ^^ group (string "function" ^/^ string (string_of_lident name) ^/^ parens_with_nesting (
+  | DFunction (cc, flags, typ, name, binders, body) ->
+      let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
+      cc ^^ print_flags flags ^^ group (string "function" ^/^ string (string_of_lident name) ^/^ parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders
       ) ^^ colon ^/^ print_typ typ) ^/^ braces_with_nesting (
         print_expr body
       )
 
-  | DExternal (name, typ) ->
-      group (string "external" ^/^ string (string_of_lident name) ^/^ colon) ^^
+  | DExternal (cc, name, typ) ->
+      let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
+      group (cc ^^ string "external" ^/^ string (string_of_lident name) ^/^ colon) ^^
       jump (print_typ typ)
 
   | DGlobal (flags, name, typ, expr) ->

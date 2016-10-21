@@ -454,7 +454,7 @@ and translate_declaration env d: CStar.decl option =
   in
 
   match d with
-  | DFunction (_, t, name, binders, body) ->
+  | DFunction (cc, _, t, name, binders, body) ->
       let env = locate env (InTop name) in
       Some (wrap_throw (string_of_lident name) (lazy begin
         let t = translate_return_type env t in
@@ -462,7 +462,7 @@ and translate_declaration env d: CStar.decl option =
         let binders, body = a_unit_is_a_unit binders body in
         let env, binders = translate_and_push_binders env binders in
         let body = translate_function_block env body t in
-        CStar.Function (t, (string_of_lident name), binders, body)
+        CStar.Function (cc, t, (string_of_lident name), binders, body)
       end))
 
   | DGlobal (_, name, t, body) ->
@@ -472,8 +472,8 @@ and translate_declaration env d: CStar.decl option =
         translate_type env t,
         translate_expr env false body))
 
-  | DExternal (name, t) ->
-      Some (CStar.External (string_of_lident name, translate_type env t))
+  | DExternal (cc, name, t) ->
+      Some (CStar.External (cc, string_of_lident name, translate_type env t))
 
   | DType (_, Abbrev (n, _)) when n <> 0 ->
       None

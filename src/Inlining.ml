@@ -162,7 +162,7 @@ let inline_function_frames files =
   (* A stateful graph traversal that uses the textbook three colors to rule out
    * cycles. *)
   let map = build_map files (fun map -> function
-    | DFunction (_, _, name, _, body) -> Hashtbl.add map name (White, body)
+    | DFunction (_, _, _, name, _, body) -> Hashtbl.add map name (White, body)
     | _ -> ()
   ) in
   let valuation = inline_analysis map in
@@ -192,11 +192,11 @@ let inline_function_frames files =
    * very happy if it sees someone returning a stack pointer!); functions that
    * are meant to be kept are run through [inline_one]. *)
   filter_decls (function
-    | DFunction (flags, ret, name, binders, _) ->
+    | DFunction (cc, flags, ret, name, binders, _) ->
         if valuation name = MustInline && string_of_lident name <> "main" then
           None
         else
-          Some (DFunction (flags, ret, name, binders, inline_one name))
+          Some (DFunction (cc, flags, ret, name, binders, inline_one name))
     | d ->
         Some d
   ) files
@@ -246,7 +246,7 @@ let drop_unused files =
   let visited = Hashtbl.create 41 in
   let must_keep = Hashtbl.create 41 in
   let body_of_lid = build_map files (fun map -> function
-    | DFunction (_, _, name, _, body)
+    | DFunction (_, _, _, name, _, body)
     | DGlobal (_, name, _, body) ->
         Hashtbl.add map name body
     | _ ->
@@ -271,7 +271,7 @@ let drop_unused files =
     end)#visit () body)
   in
   iter_decls (function
-    | DFunction (flags, _, lid, _, body) ->
+    | DFunction (_, flags, _, lid, _, body) ->
         if (not (List.exists ((=) Private) flags)) then begin
           Hashtbl.add must_keep lid ();
           visit_e body
@@ -282,7 +282,7 @@ let drop_unused files =
         ()
   ) files;
   filter_decls (function
-    | DFunction (flags, _, lid, _, _) as d ->
+    | DFunction (_, flags, _, lid, _, _) as d ->
         if not (Hashtbl.mem must_keep lid) then begin
           assert (List.exists ((=) Private) flags);
           None

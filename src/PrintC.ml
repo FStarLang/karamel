@@ -31,6 +31,9 @@ let p_storage_spec = function
   | Typedef -> string "typedef"
   | Extern -> string "extern"
 
+let p_function_spec = function
+  | CallingConvention cc -> print_cc cc
+
 let rec p_type_spec = function
   | Int w -> print_width w ^^ string "_t"
   | Void -> string "void"
@@ -194,8 +197,9 @@ and p_decl_and_init (decl, init) =
     | None ->
         empty)
 
-and p_declaration (spec, stor, decl_and_inits) =
+and p_declaration (spec, stor, fspec, decl_and_inits) =
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
+  separate_map space p_function_spec fspec ^/^
   stor ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 

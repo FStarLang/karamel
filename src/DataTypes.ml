@@ -270,4 +270,3 @@ let everything files =
   let map, files = drop_simple_data_types files in
   let files = drop_simple_matches map files in
   files
-
