@@ -13,6 +13,15 @@
 extern int exit_success;
 extern int exit_failure;
 
+typedef uint64_t FStar_UInt64_t, FStar_UInt64_t_;
+typedef int64_t FStar_Int64_t, FStar_Int64_t_;
+typedef uint32_t FStar_UInt32_t, FStar_UInt32_t_;
+typedef int32_t FStar_Int32_t, FStar_Int32_t_;
+typedef uint16_t FStar_UInt16_t, FStar_UInt16_t_;
+typedef int16_t FStar_Int16_t, FStar_Int16_t_;
+typedef uint8_t FStar_UInt8_t, FStar_UInt8_t_;
+typedef int8_t FStar_Int8_t, FStar_Int8_t_;
+
 #if defined(__GNUC__) && defined(__SIZEOF_INT128__)
 typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
 #define FStar_UInt128_add(x,y) ((x) + (y))
@@ -49,14 +58,6 @@ FStar_UInt128_t FStar_Int_Cast_uint64_to_uint128(uint64_t x);
 uint64_t FStar_Int_Cast_uint128_to_uint64(FStar_UInt128_t x);
 FStar_UInt128_t FStar_UInt128_mul_wide(uint64_t x, uint64_t y);
 #endif
-typedef uint64_t FStar_UInt64_t, FStar_UInt64_t_;
-typedef int64_t FStar_Int64_t, FStar_Int64_t_;
-typedef uint32_t FStar_UInt32_t, FStar_UInt32_t_;
-typedef int32_t FStar_Int32_t, FStar_Int32_t_;
-typedef uint16_t FStar_UInt16_t, FStar_UInt16_t_;
-typedef int16_t FStar_Int16_t, FStar_Int16_t_;
-typedef uint8_t FStar_UInt8_t, FStar_UInt8_t_;
-typedef int8_t FStar_Int8_t, FStar_Int8_t_;
 
 // Constant-time comparisons
 uint64_t FStar_UInt64_eq_mask(uint64_t x, uint64_t y);
