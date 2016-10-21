@@ -7,9 +7,9 @@ type program =
 
 and decl =
   | Global of ident * typ * expr
-  | Function of typ * ident * binder list * block
+  | Function of CallingConvention.t option * typ * ident * binder list * block
   | Type of ident * typ
-  | External of ident * typ
+  | External of CallingConvention.t option * ident * typ
 
 and stmt =
   | Return of expr option

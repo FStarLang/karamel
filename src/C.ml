@@ -17,6 +17,9 @@ and storage_spec =
   | Typedef
   | Extern
 
+and function_spec =
+  | CallingConvention of CallingConvention.t
+
 and declarator_and_init =
   declarator * init option
 
@@ -65,7 +68,8 @@ and param =
   type_spec * declarator
 
 and declaration =
-  type_spec * storage_spec option * declarator_and_inits
+  type_spec * storage_spec option * function_spec list * declarator_and_inits
+    (** [function_spec list] not empty only when declaring functions *)
 
 and ident =
   string

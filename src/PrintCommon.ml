@@ -1,5 +1,6 @@
 open PPrint
 open Constant
+open CallingConvention
 
 let break1 = break 1
 
@@ -60,6 +61,11 @@ let print_op = function
   | PostDecr | PreDecr -> string "--"
   | Assign -> string "="
   | Comma -> string ","
+
+let print_cc = function
+  | CDecl -> string "__cdecl"
+  | StdCall -> string "__stdcall"
+  | FastCall -> string "__fastcall"
 
 let print_lident (idents, ident) =
   separate_map dot string (idents @ [ ident ])
