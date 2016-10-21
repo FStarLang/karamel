@@ -63,7 +63,7 @@ and print_type_def = function
 
   | Union fields ->
       string "union" ^/^ braces_with_nesting
-        (separate_map (semi ^^ hardline) (fun (name, t) -> (
+        (separate_map (semi ^^ hardline) (fun (name, t) -> group (
             if name = None then
               empty
             else
@@ -78,9 +78,9 @@ and print_type_def = function
       jump (print_typ typ)
 
 and print_fields_t fields =
-  concat_map (fun (ident, (typ, mut)) ->
+  separate_map (semi ^^ hardline) (fun (ident, (typ, mut)) ->
     let mut = if mut then string "mutable " else empty in
-    group (mut ^^ string ident ^^ colon ^/^ print_typ typ ^^ semi)
+    group (group (mut ^^ string ident ^^ colon) ^/^ print_typ typ)
   ) fields
 
 and print_flags flags =

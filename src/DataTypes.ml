@@ -87,9 +87,6 @@ let record_of_tuple = object(self)
 
 end
 
-let drop_tuples files =
-  Simplify.visit_files () record_of_tuple files
-
 
 (** Second thing: handle the trivial case of a data type definition with only
  * tags (it's just an enum) and the trivial case of a type definition with one
@@ -161,11 +158,6 @@ let build_map files =
         ()
   )
 
-let drop_simple_data_types files =
-  let map = build_map files in
-  let files = Simplify.visit_files () (optimize_visitor map) files in
-  map, files
-
 
 (** Third thing: get rid of (trivial) matches in favor of bindings,
  * if-then-else, and switches. *)
@@ -204,7 +196,7 @@ let try_mk_flat e branches =
             b, with_type b.typ (EField (atom, f))
           ) binders fields in
           (Simplify.nest ((scrut, e) :: bindings) body).node
-          
+
       | None ->
           EMatch (e, branches)
       end
@@ -237,8 +229,6 @@ let remove_match_visitor map = object(self)
 
 end
 
-let drop_simple_matches map files =
-  Simplify.visit_files () (remove_match_visitor map) files
 
 let enum_tag_of_cons = (^) "t_"
 let union_field_of_cons = (^) "u_"
@@ -266,7 +256,9 @@ let tagged_union_visitor = object
 end
 
 let everything files =
-  let files = drop_tuples files in
-  let map, files = drop_simple_data_types files in
-  let files = drop_simple_matches map files in
+  let files = Simplify.visit_files () record_of_tuple files in
+  let map = build_map files in
+  let files = Simplify.visit_files () (optimize_visitor map) files in
+  let files = Simplify.visit_files () (remove_match_visitor map) files in
+  let files = Simplify.visit_files () tagged_union_visitor files in
   files
