@@ -29,3 +29,16 @@ let make n f =
       make (f (n - 1) :: acc) (n - 1) f
   in
   make [] n f
+
+let find_opt f l =
+  let rec find = function
+    | [] ->
+        None
+    | hd :: tl ->
+        match f hd with
+        | Some x ->
+            Some x
+        | None ->
+            find tl
+  in
+  find l

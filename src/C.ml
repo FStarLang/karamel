@@ -9,12 +9,16 @@ type type_spec =
   | Void
   | Named of ident
   | Struct of ident option * declaration list
+  | Union of ident option * declaration list
   | Enum of ident option * ident list
     (** not encoding all the invariants here *)
 
 and storage_spec =
   | Typedef
   | Extern
+
+and function_spec =
+  | CallingConvention of CallingConvention.t
 
 and declarator_and_init =
   declarator * init option
@@ -64,7 +68,8 @@ and param =
   type_spec * declarator
 
 and declaration =
-  type_spec * storage_spec option * declarator_and_inits
+  type_spec * storage_spec option * function_spec list * declarator_and_inits
+    (** [function_spec list] not empty only when declaring functions *)
 
 and ident =
   string

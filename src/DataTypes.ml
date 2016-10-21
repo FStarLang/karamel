@@ -88,8 +88,7 @@ let record_of_tuple = object(self)
 end
 
 let drop_tuples files =
-  let files = Simplify.visit_files () record_of_tuple files in
-  files
+  Simplify.visit_files () record_of_tuple files
 
 
 (** Second thing: handle the trivial case of a data type definition with only
@@ -132,16 +131,21 @@ let optimize_visitor map = object(self)
     | ToFlat names ->
         PRecord (List.map2 (fun n e -> n, e) names args)
 
-  method dtypevariant () lid branches =
-    match Hashtbl.find map lid with
-    | exception Not_found ->
-        DType (lid, Variant branches)
-    | Regular ->
-        DType (lid, Variant branches)
-    | ToEnum ->
-        DType (lid, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
-    | ToFlat _ ->
-        DType (lid, Flat (snd (List.hd branches)))
+  method dtype () lid def =
+    match def with
+    | Variant branches ->
+        begin match Hashtbl.find map lid with
+        | exception Not_found ->
+            DType (lid, Variant branches)
+        | Regular ->
+            DType (lid, Variant branches)
+        | ToEnum ->
+            DType (lid, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
+        | ToFlat _ ->
+            DType (lid, Flat (snd (List.hd branches)))
+        end
+    | _ ->
+        DType (lid, def)
 end
 
 let build_map files =
@@ -163,8 +167,8 @@ let drop_simple_data_types files =
   map, files
 
 
-(** Third thing: get rid of matches in favor of bindings, if-then-else, and
- * switches. *)
+(** Third thing: get rid of (trivial) matches in favor of bindings,
+ * if-then-else, and switches. *)
 
 let mk_switch e branches =
   ESwitch (e, List.map (fun (pat, e) ->
@@ -234,12 +238,10 @@ let remove_match_visitor map = object(self)
 end
 
 let drop_simple_matches map files =
-  let files = Simplify.visit_files () (remove_match_visitor map) files in
-  files
+  Simplify.visit_files () (remove_match_visitor map) files
 
 let everything files =
   let files = drop_tuples files in
   let map, files = drop_simple_data_types files in
   let files = drop_simple_matches map files in
   files
-

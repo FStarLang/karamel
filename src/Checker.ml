@@ -84,10 +84,10 @@ let populate_env files =
           { env with types = M.add lid typ env.types }
       | DGlobal (_, lid, t, _) ->
           { env with globals = M.add lid t env.globals }
-      | DFunction (_, ret, lid, binders, _) ->
+      | DFunction (_, _, ret, lid, binders, _) ->
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
-      | DExternal (lid, typ) ->
+      | DExternal (_, lid, typ) ->
           { env with globals = M.add lid typ env.globals }
     ) env decls
   ) empty files
@@ -143,7 +143,7 @@ and check_program env (name, decls) =
 
 and check_decl env d =
   match d with
-  | DFunction (_, t, name, binders, body) ->
+  | DFunction (_, _, t, name, binders, body) ->
       let env = List.fold_left push env binders in
       let env = locate env (InTop name) in
       check_expr env t body
@@ -158,10 +158,7 @@ and check_decl env d =
 
 and infer_expr env e =
   let t = infer_expr' env e.node e.typ in
-  if e.typ <> TAny then begin
-    (* KPrint.bprintf "Checking %a (previously: %a)\n" pexpr e ptyp e.typ; *)
-    check_types_equal env t e.typ;
-  end;
+  check_subtype env t e.typ;
   e.typ <- t;
   t
 
@@ -202,7 +199,7 @@ and infer_expr' env e t =
           type_error env "Not a function being applied:\n%a" pexpr e;
         if List.length t_args <> List.length ts then
           type_error env "This is a partial application:\n%a" pexpr e;
-        List.iter2 (check_types_equal env) ts t_args;
+        List.iter2 (check_subtype env) ts t_args;
         t_ret
 
   | ELet (binder, body, cont) ->
@@ -214,7 +211,7 @@ and infer_expr' env e t =
       check_expr env TBool e1;
       let t1 = infer_expr (locate env Then) e2 in
       let t2 = infer_expr (locate env Else) e3 in
-      check_types_equal env t1 t2;
+      check_eqtype env t1 t2;
       t1
 
   | ESequence es ->
@@ -259,11 +256,6 @@ and infer_expr' env e t =
       check_expr env uint32 len;
       TUnit
 
-  | EMatch (e, bs) ->
-      let t_scrutinee = infer_expr env e in
-      let t_ret = check_branches env t_scrutinee bs in
-      t_ret
-
   | EOp (op, w) ->
       type_of_op env op w
 
@@ -280,30 +272,6 @@ and infer_expr' env e t =
 
   | EBool _ ->
       TBool
-
-  | EFlat fieldexprs ->
-      let lid = assert_qualified env t in
-      let fieldtyps = assert_flat env (lookup_type env lid) in
-      if List.length fieldexprs <> List.length fieldtyps then
-        type_error env "some fields are either missing or superfluous";
-      List.iter (fun (field, expr) ->
-        let t, _ = List.assoc field fieldtyps in
-        check_expr env t expr
-      ) fieldexprs;
-      TQualified lid
-
-  | ECons (ident, exprs) ->
-      let lid = assert_qualified env t in
-      let ts = List.map (infer_expr env) exprs in
-      let ts' = fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident)))) in
-      List.iter2 (check_types_equal env) ts ts';
-      TQualified lid 
-
-  | EField (e, field) ->
-      let lid = assert_qualified env e.typ in
-      check_expr env (TQualified lid) e;
-      fst (find_field env lid field)
-
 
   | EWhile (e1, e2) ->
       check_expr env TBool e1;
@@ -322,35 +290,120 @@ and infer_expr' env e t =
 
   | ETuple es ->
       TTuple (List.map (infer_expr env) es)
-  
+
+  | ECons (ident, exprs) ->
+      (** The typing rules of matches and constructors are always nominal;
+       * structural types appear through simplification phases, which also
+       * remove matches in favor of switches or conditionals. *)
+      let lid = assert_qualified env t in
+      let ts = List.map (infer_expr env) exprs in
+      let ts' = fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident)))) in
+      List.iter2 (check_subtype env) ts ts';
+      TQualified lid
+
+  | EMatch (e, bs) ->
+      let t_scrutinee = infer_expr env e in
+      check_branches env t t_scrutinee bs
+
+  | EFlat fieldexprs ->
+      (** Just like a constructor and a match, a record and field expressions
+       * construct and destruct values of matching kinds, except that structural
+       * typing comes into play. Indeed, a flat record is typed nominally (if
+       * the context demands it) or structurally (default). TODO just type
+       * structurally, and let the subtyping relation do the rest? *)
+      begin try
+        let lid = assert_qualified env t in
+        let fieldtyps = assert_flat env (lookup_type env lid) in
+        if List.length fieldexprs <> List.length fieldtyps then
+          type_error env "some fields are either missing or superfluous";
+        List.iter (fun (field, expr) ->
+          let t, _ = List.assoc field fieldtyps in
+          check_expr env t expr
+        ) fieldexprs;
+        TQualified lid
+      with Not_found ->
+        TAnonymous (Flat (List.map (fun (f, e) ->
+          f, (infer_expr env e, false)
+        ) fieldexprs))
+      end
+
+  | EField (e, field) ->
+      (** Structs and unions have fields; they may be typed structurally or
+       * nominally, and we shall dereference a field in both cases. *)
+      let t = infer_expr env e in
+      begin match t with
+      | TQualified lid ->
+          fst (find_field env lid field)
+      | TAnonymous def ->
+          fst (find_field_from_def env def field)
+      | _ ->
+          type_error env "this type doesn't have fields"
+      end
+
   | EEnum tag ->
-      TQualified (M.find tag env.enums)
+      (** Enums / Switches behave just like Flats / Fields; the constructor
+       * gives rise to a structural or nominal type and the destructor works
+       * with either a nominal or a structural type. *)
+      begin try
+        TQualified (M.find tag env.enums)
+      with Not_found ->
+        TAnonymous (Enum [ tag ])
+      end
 
   | ESwitch (e, branches) ->
       begin match infer_expr env e with
       | TQualified lid ->
-          let t_ret = ref None in
-          List.iter (fun (tag, e) ->
+          check_eqntype env t (fun (tag, e) ->
             if not (M.find tag env.enums = lid) then
               type_error env "scrutinee has type %a but tag %a does not belong to \
                 this type" plid lid plid tag;
-            let t = infer_expr env e in
-            match !t_ret with
-            | Some t' -> check_types_equal env t t'
-            | None -> t_ret := Some t
-          ) branches;
-          Option.must !t_ret
+            infer_expr env e
+          ) branches
+
+      | TAnonymous (Enum tags) as t ->
+          check_eqntype env t (fun (tag, e) ->
+            if not (List.exists ((=) tag) tags) then
+              type_error env "scrutinee has type %a but tag %a does not belong to \
+                this type" ptyp t plid tag;
+            infer_expr env e
+          ) branches
+
       | t ->
           type_error env "cannot switch on element of type %a" ptyp t
       end
 
+and check_eqntype: 'a. env -> typ -> ('a -> typ) -> 'a list -> typ =
+  fun env t_context f l ->
+  let t_base = if t_context <> TAny then ref (Some t_context) else ref None in
+  List.iter (fun elt ->
+    let t = f elt in
+    match !t_base with
+    | Some t_base -> check_eqtype env t_base t
+    | None -> t_base := Some t
+  ) l;
+  Option.must !t_base
+
 and find_field env lid field =
-  begin try
-    List.assoc field (assert_flat env (lookup_type env lid))
-  with Not_found ->
-    type_error env "%a, the type %a doesn't have a field named %s"
-      ploc env.location plid lid field
-  end
+  find_field_from_def env (lookup_type env lid) field
+
+and find_field_from_def env def field =
+  try begin match def with
+    | Flat fields ->
+        List.assoc field fields
+    | Union fields ->
+        begin match KList.find_opt (function
+          | Some field', t when field = field' ->
+              Some (t, false) (* not mutable *)
+          | _ ->
+              None
+        ) fields with
+        | Some t -> t
+        | None -> raise Not_found
+        end
+    | _ ->
+        raise Not_found
+  end with Not_found ->
+    type_error env "record or union type doesn't have a field named %s" field
 
 
 (* Per Perry's definition, a path is a block id along with an offset, and a
@@ -392,35 +445,26 @@ and check_valid_path env e =
       type_error env "EAssign wants a lhs that's a mutable, local variable, or a \
         path to a mutable field"
 
-and check_branches env t_scrutinee branches =
-  assert (List.length branches > 0);
-  let t_ret = ref None in
-  List.iter (fun (pat, expr) ->
+and check_branches env t_context t_scrutinee branches =
+  check_eqntype env t_context (fun (pat, expr) ->
     check_pat env t_scrutinee pat;
     let env = List.fold_left push env (binders_of_pat pat) in
-    match !t_ret with
-    | None ->
-        let t = infer_expr env expr in
-        t_ret := Some t
-    | Some t' ->
-        let t = infer_expr env expr in
-        check_types_equal env t t'
-  ) branches;
-  Option.must !t_ret
+    infer_expr env expr
+  ) branches
 
 and check_pat env t_context pat =
   match pat.node with
   | PVar b ->
-      check_types_equal env t_context b.typ;
+      check_subtype env t_context b.typ;
       b.typ <- t_context;
-      check_types_equal env t_context pat.typ;
+      check_subtype env t_context pat.typ;
       pat.typ <- t_context
   | PUnit ->
-      check_types_equal env t_context TUnit;
+      check_subtype env t_context TUnit;
       pat.typ <- t_context
 
   | PBool _ ->
-      check_types_equal env t_context TBool;
+      check_subtype env t_context TBool;
       pat.typ <- t_context
 
   | PTuple ps ->
@@ -447,7 +491,7 @@ and check_pat env t_context pat =
         check_pat env t pat
       ) fieldpats;
       pat.typ <- t_context
-  
+
   | PEnum tag ->
       let lid = assert_qualified env t_context in
       assert (lid = M.find tag env.enums);
@@ -476,7 +520,7 @@ and assert_qualified env t =
       fatal_error "%a, expected a provided type annotation" ploc env.location
 
 and assert_buffer env e1 =
-  match reduce env (infer_expr env e1) with
+  match expand_abbrev env (infer_expr env e1) with
   | TBuf t1 ->
       t1
   | TAny ->
@@ -502,13 +546,13 @@ and assert_cons_of env t id: fields_t =
 
 and check_expr env t e =
   let t' = infer_expr env e in
-  check_types_equal env t t'
+  check_subtype env t' t
 
-and types_equal env t1 t2 =
-  match reduce env t1, reduce env t2 with
+and subtype env t1 t2 =
+  match expand_abbrev env t1, expand_abbrev env t2 with
   | TInt w1, TInt w2 when w1 = w2 ->
       true
-  | TBuf t1, TBuf t2 when types_equal env t1 t2 ->
+  | TBuf t1, TBuf t2 when subtype env t1 t2 ->
       true
   | TUnit, TUnit ->
       true
@@ -523,38 +567,46 @@ and types_equal env t1 t2 =
   | TAny, _ ->
       true
   | TArrow (t1, t2), TArrow (t'1, t'2) when
-    types_equal env t1 t'1 &&
-    types_equal env t2 t'2 ->
+    subtype env t1 t'1 &&
+    subtype env t2 t'2 ->
       true
   | TZ, TZ ->
       true
   | TBound i, TBound i' ->
       i = i'
   | TApp (lid, args), TApp (lid', args') ->
-      lid = lid' && List.for_all2 (types_equal env) args args'
+      lid = lid' && List.for_all2 (eqtype env) args args'
   | TTuple ts1, TTuple ts2 ->
       List.length ts1 = List.length ts2 &&
-      List.for_all2 (types_equal env) ts1 ts2
+      List.for_all2 (subtype env) ts1 ts2
   | _ ->
       false
 
-and check_types_equal env t1 t2 =
-  if not (types_equal env t1 t2) then
-    type_error env "type mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
-      ptyp t1 ptyp (reduce env t1) ptyp t2 ptyp (reduce env t2)
+and eqtype env t1 t2 =
+  subtype env t1 t2 && subtype env t2 t1
 
-and reduce env t =
+and check_eqtype env t1 t2 =
+  if not (eqtype env t1 t2) then
+    type_error env "eqtype mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
+      ptyp t1 ptyp (expand_abbrev env t1) ptyp t2 ptyp (expand_abbrev env t2)
+
+and check_subtype env t1 t2 =
+  if not (subtype env t1 t2) then
+    type_error env "subtype mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
+      ptyp t1 ptyp (expand_abbrev env t1) ptyp t2 ptyp (expand_abbrev env t2)
+
+and expand_abbrev env t =
   match t with
   | TQualified lid ->
       begin match M.find lid env.types with
       | exception Not_found -> t
-      | Abbrev (_, t) -> reduce env t
+      | Abbrev (_, t) -> expand_abbrev env t
       | _ -> t
       end
   | TApp (lid, args) ->
       begin match M.find lid env.types with
       | exception Not_found -> t
-      | Abbrev (_, t) -> reduce env (DeBruijn.subst_tn t args)
+      | Abbrev (_, t) -> expand_abbrev env (DeBruijn.subst_tn t args)
       | _ -> t
       end
   | _ ->

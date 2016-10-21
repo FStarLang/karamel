@@ -22,20 +22,14 @@ let visit_files (env: 'env) (visitor: _ map) (files: file list) =
 
 
 class ignore_everything = object
-  method dfunction () flags ret name binders expr =
-    DFunction (flags, ret, name, binders, expr)
+  method dfunction () cc flags ret name binders expr =
+    DFunction (cc, flags, ret, name, binders, expr)
 
   method dglobal () flags name typ expr =
     DGlobal (flags, name, typ, expr)
 
-  method dtypealias () name n t =
-    DType (name, Abbrev (n, t))
-
-  method dtypeflat () name fields =
-    DType (name, Flat fields)
-
-  method dtypevariant () name branches =
-    DType (name, Variant branches)
+  method dtype () name t =
+    DType (name, t)
 end
 
 
@@ -544,12 +538,12 @@ let hoist = object
   inherit ignore_everything
   inherit [_] map
 
-  method dfunction () flags ret name binders expr =
+  method dfunction () cc flags ret name binders expr =
     (* TODO: no nested let-bindings in top-level value declarations either *)
     let binders, expr = open_function_binders binders expr in
     let expr = hoist_t expr in
     let expr = close_function_binders binders expr in
-    DFunction (flags, ret, name, binders, expr)
+    DFunction (cc, flags, ret, name, binders, expr)
 end
 
 
@@ -570,7 +564,7 @@ let eta_expand = object
           { node = EBound (n - i - 1); typ = t }
         ) targs) in
         let body = { node = EApp (body, args); typ = tret } in
-        DFunction (flags, tret, name, binders, body)
+        DFunction (None, flags, tret, name, binders, body)
     | _ ->
         DGlobal (flags, name, t, body)
 end
@@ -591,29 +585,19 @@ let record_name lident =
   [], GlobalNames.record (string_of_lident lident) (target_c_name lident)
 
 let record_toplevel_names = object
-
   inherit [_] map
 
   method dglobal () flags name t body =
     DGlobal (flags, record_name name, t, body)
 
-  method dfunction () flags ret name args body =
-    DFunction (flags, ret, record_name name, args, body)
+  method dfunction () cc flags ret name args body =
+    DFunction (cc, flags, ret, record_name name, args, body)
 
-  method dexternal () name t =
-    DExternal (record_name name, t)
+  method dexternal () cc name t =
+    DExternal (cc, record_name name, t)
 
-  method dtypealias () name n t =
-    DType (record_name name, Abbrev (n, t))
-
-  method dtypeflat () name fields =
-    DType (record_name name, Flat fields)
-
-  method dtypevariant () name branches =
-    DType (record_name name, Variant branches)
-
-  method dtypeenum () name tags =
-    DType (record_name name, Enum tags)
+  method dtype () name t =
+    DType (record_name name, t)
 end
 
 let t lident =
@@ -634,23 +618,14 @@ let replace_references_to_toplevel_names = object(self)
   method dglobal () flags name typ body =
     DGlobal (flags, t name, self#visit_t () typ, self#visit () body)
 
-  method dfunction () flags ret name args body =
-    DFunction (flags, self#visit_t () ret, t name, self#binders () args, self#visit () body)
+  method dfunction () cc flags ret name args body =
+    DFunction (cc, flags, self#visit_t () ret, t name, self#binders () args, self#visit () body)
 
-  method dexternal () name typ =
-    DExternal (t name, self#visit_t () typ)
+  method dexternal () cc name typ =
+    DExternal (cc, t name, self#visit_t () typ)
 
-  method dtypealias () name n typ =
-    DType (t name, Abbrev (n, self#visit_t () typ))
-
-  method dtypeflat () name fields =
-    DType (t name, Flat (self#fields_t () fields))
-
-  method dtypevariant () name branches =
-    DType (t name, Variant (self#branches_t () branches))
-
-  method dtypeenum () name tags =
-    DType (t name, Enum tags)
+  method dtype () name d =
+    DType (t name, self#type_def () d)
 end
 
 

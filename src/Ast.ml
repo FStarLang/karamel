@@ -12,9 +12,9 @@ and file =
   string * program
 
 and decl =
-  | DFunction of flag list * typ * lident * binder list * expr
+  | DFunction of CallingConvention.t option * flag list * typ * lident * binder list * expr
   | DGlobal of flag list * lident * typ * expr
-  | DExternal of lident * typ
+  | DExternal of CallingConvention.t option * lident * typ
   | DType of lident * type_def 
 
 and type_def =
@@ -22,6 +22,7 @@ and type_def =
   | Flat of fields_t
   | Variant of branches_t
   | Enum of lident list
+  | Union of (ident option * typ) list
 
 and fields_t =
   (ident * (typ * bool)) list
@@ -129,17 +130,27 @@ and lident =
 
 and typ =
   | TInt of K.width
-  | TBuf of typ
-  | TUnit
-  | TQualified of lident
   | TBool
+  | TUnit
   | TAny
+      (** appears because of casts introduced by erasure... eventually, should
+       * not appear! *)
+  | TBuf of typ
+      (** a buffer in the Low* sense *)
+  | TQualified of lident
+      (** a reference to a type that has been introduced via a DType *)
   | TArrow of typ * typ
       (** t1 -> t2 *)
-  | TZ
-  | TBound of int
   | TApp of lident * typ list
+      (** disappears after monomorphization *)
+  | TBound of int
+      (** appears in type definitions... also disappears after monorphization *)
   | TTuple of typ list
+      (** disappears after tuple removal *)
+  | TAnonymous of type_def
+      (** appears after data type translation to tagged enums *)
+  | TZ
+      (** unused *)
 
 let with_type typ node =
   { typ; node }
@@ -433,6 +444,8 @@ class virtual ['env] map = object (self)
         self#tapp env name (List.map (self#visit_t env) args)
     | TTuple ts ->
         self#ttuple env (List.map (self#visit_t env) ts)
+    | TAnonymous t ->
+        self#tanonymous env t
 
   method tint _env w =
     TInt w
@@ -467,6 +480,9 @@ class virtual ['env] map = object (self)
   method ttuple env ts =
     TTuple (List.map (self#visit_t env) ts)
 
+  method tanonymous env d =
+    TAnonymous (self#type_def env d)
+
   (* Once types and expressions can be visited, a more generic method that
    * handles the type. *)
 
@@ -485,33 +501,46 @@ class virtual ['env] map = object (self)
 
   method visit_d (env: 'env) (d: decl): 'dresult =
     match d with
-    | DFunction (flags, ret, name, binders, expr) ->
-        self#dfunction env flags ret name binders expr
+    | DFunction (cc, flags, ret, name, binders, expr) ->
+        self#dfunction env cc flags ret name binders expr
     | DGlobal (flags, name, typ, expr) ->
         self#dglobal env flags name typ expr
-    | DExternal (name, t) ->
-        self#dexternal env name t
-    | DType (name, Flat fields) ->
-        self#dtypeflat env name fields
-    | DType (name, Abbrev (n, t)) ->
-        self#dtypealias env name n t
-    | DType (name, Variant branches) ->
-        self#dtypevariant env name branches
-    | DType (name, Enum tags) ->
-        self#dtypeenum env name tags
+    | DExternal (cc, name, t) ->
+        self#dexternal env cc name t
+    | DType (name, t) ->
+        self#dtype env name t
+
+  method dtype env name t =
+    DType (name, self#type_def env t)
+
+  method type_def (env: 'env) (d: type_def) =
+    match d with
+    | Flat fields ->
+        self#dtypeflat env fields
+    | Abbrev (n, t) ->
+        self#dtypealias env n t
+    | Variant branches ->
+        self#dtypevariant env branches
+    | Enum tags ->
+        self#dtypeenum env tags
+    | Union ts ->
+        self#dtypeunion env ts
 
   method binders env binders =
     List.map (fun binder -> { binder with typ = self#visit_t env binder.typ }) binders
 
-  method dfunction env flags ret name binders expr =
+  method dfunction env cc flags ret name binders expr =
     let binders = self#binders env binders in
     let env = self#extend_many env binders in
-    DFunction (flags, self#visit_t env ret, name, binders, self#visit env expr)
+    DFunction (cc, flags, self#visit_t env ret, name, binders, self#visit env expr)
 
   method dglobal env flags name typ expr =
     DGlobal (flags, name, self#visit_t env typ, self#visit env expr)
 
-  method dtypealias env name n t =
+  method dexternal env cc name t =
+    DExternal (cc, name, self#visit_t env t)
+
+  method dtypealias env n t =
     let rec extend e n =
       if n = 0 then
         e
@@ -519,23 +548,23 @@ class virtual ['env] map = object (self)
         extend (self#extend_t e) (n - 1)
     in
     let env = extend env n in
-    DType (name, Abbrev (n, self#visit_t env t))
+    Abbrev (n, self#visit_t env t)
 
   method fields_t env fields =
     List.map (fun (name, (t, mut)) -> name, (self#visit_t env t, mut)) fields
 
-  method dtypeflat env name fields =
+  method dtypeflat env fields =
     let fields = self#fields_t env fields in
-    DType (name, Flat fields)
+    Flat fields
 
-  method dexternal env name t =
-    DExternal (name, self#visit_t env t)
+  method dtypevariant env branches =
+    Variant (self#branches_t env branches)
 
-  method dtypevariant env name branches =
-    DType (name, Variant (self#branches_t env branches))
+  method dtypeenum _env tags =
+    Enum tags
 
-  method dtypeenum _env name tags =
-    DType (name, Enum tags)
+  method dtypeunion env ts =
+    Union (List.map (fun (name, t) -> name, self#visit_t env t) ts)
 
   method branches_t env branches =
     List.map (fun (ident, fields) -> ident, self#fields_t env fields) branches

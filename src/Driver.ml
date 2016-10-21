@@ -149,7 +149,7 @@ let detect_fstar () =
     fstar_options := "--no_extract" :: ("FStar." ^ m) :: !fstar_options
   ) [ "Int8"; "UInt8"; "Int16"; "UInt16"; "Int31"; "UInt31"; "Int32"; "UInt32";
       "Int63"; "UInt63"; "Int64"; "UInt64"; "Int128"; "UInt128";
-      "HyperStack"; "HST" ];
+      "HyperStack"; "HST" ; "Int.Cast"];
   KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
 
   flush stdout

@@ -55,7 +55,7 @@ uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
 }
 
 // 128-bit arithmetic
-#ifdef __GNUC__
+#if defined(__GNUC__) && defined(__SIZEOF_INT128__)
 #include "native128.c"
 #else
 #include "custom128.c"

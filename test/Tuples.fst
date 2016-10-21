@@ -9,5 +9,6 @@ let main argc argv =
   let x = 1ul, 2ul in
   let y = x, x in
   let z = 1ul, x, y in
+  let a, b = x in
   pop_frame ();
   C.exit_success

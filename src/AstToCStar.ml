@@ -406,6 +406,8 @@ and translate_return_type env = function
       raise_error (ExternalTypeApp lid)
   | TTuple _ ->
       fatal_error "Internal failure: TTuple not desugared here"
+  | TAnonymous t ->
+      translate_type_def env t
 
 
 and translate_type env = function
@@ -452,7 +454,7 @@ and translate_declaration env d: CStar.decl option =
   in
 
   match d with
-  | DFunction (_, t, name, binders, body) ->
+  | DFunction (cc, _, t, name, binders, body) ->
       let env = locate env (InTop name) in
       Some (wrap_throw (string_of_lident name) (lazy begin
         let t = translate_return_type env t in
@@ -460,7 +462,7 @@ and translate_declaration env d: CStar.decl option =
         let binders, body = a_unit_is_a_unit binders body in
         let env, binders = translate_and_push_binders env binders in
         let body = translate_function_block env body t in
-        CStar.Function (t, (string_of_lident name), binders, body)
+        CStar.Function (cc, t, (string_of_lident name), binders, body)
       end))
 
   | DGlobal (_, name, t, body) ->
@@ -470,30 +472,39 @@ and translate_declaration env d: CStar.decl option =
         translate_type env t,
         translate_expr env false body))
 
-  | DExternal (name, t) ->
-      Some (CStar.External (string_of_lident name, translate_type env t))
+  | DExternal (cc, name, t) ->
+      Some (CStar.External (cc, string_of_lident name, translate_type env t))
 
-  | DType (name, Flat fields) ->
+  | DType (_, Abbrev (n, _)) when n <> 0 ->
+      None
+
+  | DType (name, def) ->
       let name = string_of_lident name in
+      Some (CStar.Type (name, translate_type_def env def))
+
+and translate_type_def env d: CStar.typ =
+  match d with
+  | Flat fields ->
       (* Not naming the structs or enums here, because they're going to be
        * typedef'd and we'll only refer to the typedef'd name. *)
-      Some (CStar.Type (
-        name, CStar.Struct (None, List.map (fun (field, (typ, _)) ->
-          field, translate_type env typ
-        ) fields)))
+      CStar.Struct (List.map (fun (field, (typ, _)) ->
+        field, translate_type env typ
+      ) fields)
 
-  | DType (name, Abbrev (n, t)) ->
-      if n = 0 then
-        Some (CStar.Type (string_of_lident name, translate_type env t))
-      else
-        None
+  | Abbrev (n, t) ->
+      assert (n = 0);
+      translate_type env t
 
-  | DType (_name, Variant _) ->
-      failwith "TODO"
+  | Variant _ ->
+      failwith "Variant should've been desugared at this  stage"
 
-  | DType (name, Enum tags) ->
-      Some (CStar.Type (string_of_lident name,
-        CStar.Enum (None, List.map string_of_lident tags)))
+  | Enum tags ->
+      CStar.Enum (List.map string_of_lident tags)
+
+  | Union fields ->
+      CStar.Union (List.map (fun (f, t) ->
+        f, translate_type env t
+      ) fields)
 
 
 and translate_program name decls =

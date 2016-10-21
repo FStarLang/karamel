@@ -10,10 +10,10 @@ let arrow = string "->"
 
 let decl_name (d: decl) =
   match d with
-  | DFunction (_, _,lid,_,_)
+  | DFunction (_, _, _,lid,_,_)
   | DType (lid,_)
   | DGlobal (_, lid,_,_)
-  | DExternal (lid,_) -> lid
+  | DExternal (_, lid,_) -> lid
 
 let print_app f head g arguments =
   group (
@@ -23,42 +23,59 @@ let print_app f head g arguments =
   )
 
 let rec print_decl = function
-  | DFunction (flags, typ, name, binders, body) ->
-      print_flags flags ^^ group (string "function" ^/^ string (string_of_lident name) ^/^ parens_with_nesting (
+  | DFunction (cc, flags, typ, name, binders, body) ->
+      let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
+      cc ^^ print_flags flags ^^ group (string "function" ^/^ string (string_of_lident name) ^/^ parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders
       ) ^^ colon ^/^ print_typ typ) ^/^ braces_with_nesting (
         print_expr body
       )
 
-  | DType (name, Abbrev (n, typ)) ->
-      let args = KList.make n (fun i -> string ("t" ^ string_of_int i)) in
-      let args = separate space args in
-      group (string "type" ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
-      jump (print_typ typ)
-
-  | DExternal (name, typ) ->
-      group (string "external" ^/^ string (string_of_lident name) ^/^ colon) ^^
+  | DExternal (cc, name, typ) ->
+      let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
+      group (cc ^^ string "external" ^/^ string (string_of_lident name) ^/^ colon) ^^
       jump (print_typ typ)
 
   | DGlobal (flags, name, typ, expr) ->
       print_flags flags ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
-  | DType (name, Flat fields) ->
-      group (string "flat type" ^/^ string (string_of_lident name) ^/^ equals) ^^
-      jump (print_fields_t fields)
+  | DType (name, def) ->
+      group (string "type" ^/^ string (string_of_lident name) ^/^ equals) ^^
+      jump (print_type_def def)
 
-  | DType (name, Variant branches) ->
-      group (string "data" ^/^ string (string_of_lident name) ^/^ equals) ^^
+and print_type_def = function
+  | Flat fields ->
+      string "flat" ^/^
+      braces_with_nesting (print_fields_t fields)
+
+  | Variant branches ->
+      string "data" ^^
       let branches = List.map (fun (ident, fields) ->
         string ident ^/^ braces_with_nesting (print_fields_t fields)
       ) branches in
       jump ~indent:0 (ifflat empty (bar ^^ space) ^^ separate (break 1 ^^ bar ^^ space) branches)
 
-  | DType (name, Enum tags) ->
-      group (group (string "enum" ^/^ string (string_of_lident name)) ^/^
+  | Enum tags ->
+      string "enum" ^/^
         braces_with_nesting (separate_map (comma ^^ break1) (fun lid ->
           string (string_of_lident lid)
-        ) tags))
+        ) tags)
+
+  | Union fields ->
+      string "union" ^/^ braces_with_nesting
+        (separate_map (semi ^^ hardline) (fun (name, t) -> (
+            if name = None then
+              empty
+            else
+              string (Option.must name) ^/^ equals ^^ break1
+          ) ^^ print_typ t)
+        fields)
+
+  | Abbrev (n, typ) ->
+      let args = KList.make n (fun i -> string ("t" ^ string_of_int i)) in
+      let args = separate space args in
+      group (string "abbrev" ^/^ args) ^^
+      jump (print_typ typ)
 
 and print_fields_t fields =
   concat_map (fun (ident, (typ, mut)) ->
@@ -100,6 +117,8 @@ and print_typ = function
       string (string_of_lident lid) ^/^ separate_map space print_typ args
   | TTuple ts ->
       separate_map (space ^^ star ^^ space) print_typ ts
+  | TAnonymous t ->
+      print_type_def t
 
 and print_expr { node; _ } =
   match node with

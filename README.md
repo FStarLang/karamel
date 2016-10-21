@@ -4,7 +4,7 @@ KreMLin
 [![Build Status](https://travis-ci.org/FStarLang/kremlin.svg?branch=master)](https://travis-ci.org/FStarLang/kremlin)
 
 Transforms a subset of F* into C code. See the [ML Workshop Paper] for
-more information.
+more information, or DESIGN.md for some draft notes.
 
 [ML Workshop Paper]: https://jonathan.protzenko.fr/papers/ml16.pdf
 
@@ -39,7 +39,7 @@ The simple example from the [ML Workshop Paper] is available in
 
 Also check out the `--help` flag:
 ```
-$ _build/src/Kremlin.native --help`
+$ _build/src/Kremlin.native --help
 ```
 
 ## License

@@ -8,16 +8,16 @@ let mk (type a) (node: a): a with_type =
   { node; typ = TAny }
 
 let rec mk_decl = function
-  | I.DFunction (flags, t, name, binders, body) ->
-      DFunction (mk_flags flags, mk_typ t, name, mk_binders binders, mk_expr body)
+  | I.DFunction (cc, flags, t, name, binders, body) ->
+      DFunction (cc, mk_flags flags, mk_typ t, name, mk_binders binders, mk_expr body)
   | I.DTypeAlias (name, n, t) ->
       DType (name, Abbrev (n, mk_typ t))
   | I.DGlobal (flags, name, t, e) ->
       DGlobal (mk_flags flags, name, mk_typ t, mk_expr e)
   | I.DTypeFlat (name, fields) ->
       DType (name, Flat (mk_tfields fields))
-  | I.DExternal (name, t) ->
-      DExternal (name, mk_typ t)
+  | I.DExternal (cc, name, t) ->
+      DExternal (cc, name, mk_typ t)
   | I.DTypeVariant (name, branches) ->
       DType (name,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
