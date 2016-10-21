@@ -264,7 +264,7 @@ let rec p_stmt (s: stmt) =
           )
       )
   | Break ->
-     string "break" ^^ semi 
+     string "break" ^^ semi
 
 
 let p_decl_or_function (df: declaration_or_function) =

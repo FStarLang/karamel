@@ -512,7 +512,7 @@ and translate_program name decls =
     let n = string_of_lident (PrintAst.decl_name d) in
     try
       translate_declaration empty d
-    with Error e -> 
+    with Error e ->
       Warnings.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
       None
   ) decls

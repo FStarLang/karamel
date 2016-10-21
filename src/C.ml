@@ -2,7 +2,7 @@
 
 module K = Constant
 
-(* This pretty-printer based on: http:/ /en.cppreference.com/w/c/language/declarations 
+(* This pretty-printer based on: http:/ /en.cppreference.com/w/c/language/declarations
  * Many cases are omitted from this bare-bones C grammar; hopefully, to be extended. *)
 type type_spec =
   | Int of Constant.width

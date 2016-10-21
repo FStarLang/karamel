@@ -159,7 +159,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   let files = DataTypes.everything files in
   if !arg_print_pattern then
     print PrintAst.print_files files;
-  
+
   (* Perform a whole-program rewriting. *)
   let files = Simplify.simplify1 files in
   if !arg_print_simplify then

@@ -15,7 +15,7 @@ and decl =
   | DFunction of CallingConvention.t option * flag list * typ * lident * binder list * expr
   | DGlobal of flag list * lident * typ * expr
   | DExternal of CallingConvention.t option * lident * typ
-  | DType of lident * type_def 
+  | DType of lident * type_def
 
 and type_def =
   | Abbrev of int * typ
