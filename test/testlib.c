@@ -39,6 +39,7 @@ void *TestLib_unsafe_malloc(size_t size) {
   void *memblob = malloc(size);
   if (memblob == NULL){
     printf(" WARNING : malloc failed in tests !\n");
+    exit(EXIT_FAILURE);
   }
   return memblob;
 }
