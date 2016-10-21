@@ -39,14 +39,6 @@ typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
 #define FStar_Int_Cast_uint128_to_uint64(x) ((uint64_t)(x))
 #define FStar_UInt128_mul_wide(x, y) ((__int128)(x) * (y))
 #else
-typedef uint64_t FStar_UInt64_t, FStar_UInt64_t_;
-typedef int64_t FStar_Int64_t, FStar_Int64_t_;
-typedef uint32_t FStar_UInt32_t, FStar_UInt32_t_;
-typedef int32_t FStar_Int32_t, FStar_Int32_t_;
-typedef uint16_t FStar_UInt16_t, FStar_UInt16_t_;
-typedef int16_t FStar_Int16_t, FStar_Int16_t_;
-typedef uint8_t FStar_UInt8_t, FStar_UInt8_t_;
-typedef int8_t FStar_Int8_t, FStar_Int8_t_;
 typedef struct {
   uint64_t high;
   uint64_t low;
