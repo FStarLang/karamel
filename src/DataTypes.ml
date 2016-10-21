@@ -88,8 +88,7 @@ let record_of_tuple = object(self)
 end
 
 let drop_tuples files =
-  let files = Simplify.visit_files () record_of_tuple files in
-  files
+  Simplify.visit_files () record_of_tuple files
 
 
 (** Second thing: handle the trivial case of a data type definition with only
@@ -168,8 +167,8 @@ let drop_simple_data_types files =
   map, files
 
 
-(** Third thing: get rid of matches in favor of bindings, if-then-else, and
- * switches. *)
+(** Third thing: get rid of (trivial) matches in favor of bindings,
+ * if-then-else, and switches. *)
 
 let mk_switch e branches =
   ESwitch (e, List.map (fun (pat, e) ->
@@ -239,8 +238,17 @@ let remove_match_visitor map = object(self)
 end
 
 let drop_simple_matches map files =
-  let files = Simplify.visit_files () (remove_match_visitor map) files in
-  files
+  Simplify.visit_files () (remove_match_visitor map) files
+
+(* Fourth step: implement the general transformation of data types into tagged
+ * unions. *)
+let tagged_union_visitor = object(self)
+
+  inherit [unit] map
+
+  method d
+
+end
 
 let everything files =
   let files = drop_tuples files in
