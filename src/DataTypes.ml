@@ -3,6 +3,8 @@
 open Ast
 open DeBruijn
 
+module K = Constant
+
 (* Zero-est thing: we need to be able to type-check the program without casts on
  * scrutinees, otherwise we won't be able to resolve anything. *)
 
@@ -234,12 +236,77 @@ let union_field_of_cons = (^) "u_"
 let field_for_tag = "tag"
 let field_for_union = "val"
 
+let mk e =
+  with_type TAny e
+
+let mk_eq w e1 e2 =
+  mk (EApp (mk (EOp (K.Eq, w)), [ e1; e2 ]))
+
+let rec compile_pattern env scrut pat expr =
+  match pat.node with
+  | PCons _
+  | PTuple _ ->
+      failwith "should've been desugared"
+  | PUnit ->
+      [ mk_eq K.Int8 scrut (mk EUnit) ], expr
+  | PBool b ->
+      [ mk_eq K.Bool scrut (mk (EBool b)) ], expr
+  | PEnum lid ->
+      [ mk_eq K.Int32 scrut (mk (EEnum lid)) ], expr
+  | PRecord fields ->
+      let conds, expr =
+        List.fold_left (fun (conds, expr) (f, p) ->
+          let scrut = mk (EField (scrut, f)) in
+          let cond, expr = compile_pattern env scrut p expr in
+          cond @ conds, expr
+        ) ([], expr) fields
+      in
+      List.rev conds, expr
+  | PVar b ->
+      [], mk (ELet (b, scrut, close_binder b expr))
+
+
+let rec mk_conjunction = function
+  | [] ->
+      failwith "impossible"
+  | [ e1 ] ->
+      e1
+  | e1 :: es ->
+      mk (EApp (mk (EOp (K.BAnd, K.Bool)), [ e1; mk_conjunction es ]))
+
+let compile_branch env scrut (pat, expr): expr * expr =
+  let binders = binders_of_pat pat in
+  let binders, expr = open_function_binders binders expr in
+  (* Compile pattern also closes the binders one by one. *)
+  let conditionals, expr = compile_pattern env scrut pat expr in
+  mk_conjunction conditionals, expr
+
+let compile_match env t_ret e_scrut branches =
+  let b_scrut, name_scrut = Simplify.mk_binding "scrut" e_scrut.typ in
+  let branches = List.map (compile_branch env name_scrut) branches in
+  let rec fold_ite = function
+    | [] ->
+        failwith "impossible"
+    | [ cond, e ] ->
+        mk (EIfThenElse (cond, e, mk EAbort))
+    | (cond, e) :: bs ->
+        mk (EIfThenElse (cond, e, fold_ite bs))
+  in
+  mk (ELet (b_scrut, e_scrut, close_binder b_scrut (fold_ite branches)))
+
+
 (* Fourth step: implement the general transformation of data types into tagged
  * unions. *)
-let tagged_union_visitor map = object
+let tagged_union_visitor map = object (self)
 
   inherit [unit] map
 
+  (* A variant declaration is a struct declaration with two fields:
+   * - [field_for_tag] is the field that holds the "tag" whose type is an
+   *   anonymous union
+   * - [field_for_union] is the field that holds the actual value determined by
+   *   the tag; it is the union of several struct types, one for each
+   *   constructor. *)
   method dtypevariant _env lid branches =
     let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
     let structs = List.map (fun (cons, fields) ->
@@ -250,6 +317,8 @@ let tagged_union_visitor map = object
       field_for_union, (TAnonymous (Union structs), false)
     ]
 
+  (* A pattern on a constructor becomes a pattern on a struct and one of its
+   * union fields. *)
   method pcons _env t cons fields =
     (* We only have nominal typing for variants. *)
     let lid = match t with TQualified lid -> lid | _ -> assert false in
@@ -267,6 +336,47 @@ let tagged_union_visitor map = object
         union_field_of_cons cons, with_type TAny record_pat
       ])
     ]
+
+  (* The match transformation is tricky: we open all binders. *)
+  method dfunction env cc flags ret name binders expr =
+    let binders, expr = open_function_binders binders expr in
+    let expr = self#visit env expr in
+    let expr = close_function_binders binders expr in
+    DFunction (cc, flags, ret, name, binders, expr)
+
+  method elet env _ binder e1 e2 =
+    let e1 = self#visit env e1 in
+    let binder, e2 = open_binder binder e2 in
+    let e2 = self#visit env e2 in
+    let e2 = close_binder binder e2 in
+    ELet (binder, e1, e2)
+
+  method branches env branches =
+    List.map (fun (pat, expr) ->
+      let binders = binders_of_pat pat in
+      let binders, expr = open_function_binders binders expr in
+      let pat = self#visit_pattern env pat in
+      let expr = self#visit env expr in
+      let expr = close_function_binders binders expr in
+      pat, expr
+    ) branches
+
+  (* Then compile patterns for those matches whose scrutinee is a data type.
+   * Other matches remain (e.g. on units and booleans... [Simplify] will take
+   * care of those dummy matches. *)
+  method ematch env _t_ret e_scrut branches =
+    let e_scrut = self#visit env e_scrut in
+    let branches = self#branches env branches in
+    match e_scrut.typ with
+    | TQualified lid ->
+        begin match Hashtbl.find map lid with
+        | Regular def_branches ->
+            (compile_match env def_branches e_scrut branches).node
+        | _ ->
+            EMatch (e_scrut, branches)
+        end
+    | _ ->
+        EMatch (e_scrut, branches)
 
 
 end
