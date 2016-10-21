@@ -20,7 +20,9 @@ let main argc argv =
   let z = match x, y with
     | A _ _, C _ _ ->
         7y
-    | _, D (B c d e)
+    | _, D (B c d e) ->
+        (* TODO: or-patterns *)
+        FStar.Int8 (c +%^ d +%^ e)
     | B c d e, _ ->
         FStar.Int8 (c +%^ d +%^ e)
     | _, D _ ->

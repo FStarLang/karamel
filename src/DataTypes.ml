@@ -240,13 +240,28 @@ end
 let drop_simple_matches map files =
   Simplify.visit_files () (remove_match_visitor map) files
 
+let enum_tag_of_cons = (^) "t_"
+let union_field_of_cons = (^) "u_"
+let field_for_tag = "tag"
+let field_for_union = "val"
+
 (* Fourth step: implement the general transformation of data types into tagged
  * unions. *)
-let tagged_union_visitor = object(self)
+let tagged_union_visitor = object
 
   inherit [unit] map
 
-  method d
+  method dtypevariant _env branches =
+    let tags = List.map (fun (cons, _fields) ->
+      [], enum_tag_of_cons cons
+    ) branches in
+    let structs = List.map (fun (cons, fields) ->
+      Some (union_field_of_cons cons), TAnonymous (Flat fields)
+    ) branches in
+    Flat [
+      field_for_tag, (TAnonymous (Enum tags), false);
+      field_for_union, (TAnonymous (Union structs), false)
+    ]
 
 end
 
