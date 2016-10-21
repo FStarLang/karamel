@@ -481,7 +481,7 @@ class virtual ['env] map = object (self)
     TTuple (List.map (self#visit_t env) ts)
 
   method tanonymous env d =
-    TAnonymous (self#type_def env d)
+    TAnonymous (self#type_def env None d)
 
   (* Once types and expressions can be visited, a more generic method that
    * handles the type. *)
@@ -507,20 +507,20 @@ class virtual ['env] map = object (self)
         self#dglobal env flags name typ expr
     | DExternal (cc, name, t) ->
         self#dexternal env cc name t
-    | DType (name, t) ->
-        self#dtype env name t
+    | DType (name, d) ->
+        self#dtype env name d
 
-  method dtype env name t =
-    DType (name, self#type_def env t)
+  method dtype env name d =
+    DType (name, self#type_def env (Some name) d)
 
-  method type_def (env: 'env) (d: type_def) =
+  method type_def (env: 'env) (name: lident option) (d: type_def) =
     match d with
     | Flat fields ->
         self#dtypeflat env fields
     | Abbrev (n, t) ->
         self#dtypealias env n t
     | Variant branches ->
-        self#dtypevariant env branches
+        self#dtypevariant env (Option.must name) branches
     | Enum tags ->
         self#dtypeenum env tags
     | Union ts ->
@@ -557,7 +557,7 @@ class virtual ['env] map = object (self)
     let fields = self#fields_t env fields in
     Flat fields
 
-  method dtypevariant env branches =
+  method dtypevariant env _lid branches =
     Variant (self#branches_t env branches)
 
   method dtypeenum _env tags =

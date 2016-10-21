@@ -625,7 +625,7 @@ let replace_references_to_toplevel_names = object(self)
     DExternal (cc, t name, self#visit_t () typ)
 
   method dtype () name d =
-    DType (t name, self#type_def () d)
+    DType (t name, self#type_def () (Some name) d)
 end
 
 

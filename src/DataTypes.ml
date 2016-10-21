@@ -92,7 +92,7 @@ end
  * tags (it's just an enum) and the trivial case of a type definition with one
  * branch (it's just a flat record). *)
 
-type optim = ToEnum | ToFlat of ident list | Regular
+type optim = ToEnum | ToFlat of ident list | Regular of branches_t
 
 let mk_tag_lid type_lid cons =
   let prefix, name = type_lid in
@@ -107,7 +107,7 @@ let optimize_visitor map = object(self)
     match Hashtbl.find map lid with
     | exception Not_found ->
         ECons (cons, List.map (self#visit ()) args)
-    | Regular ->
+    | Regular _ ->
         ECons (cons, List.map (self#visit ()) args)
     | ToEnum ->
         assert (List.length args = 0);
@@ -120,7 +120,7 @@ let optimize_visitor map = object(self)
     match Hashtbl.find map lid with
     | exception Not_found ->
         PCons (cons, List.map (self#visit_pattern ()) args)
-    | Regular ->
+    | Regular _ ->
         PCons (cons, List.map (self#visit_pattern ()) args)
     | ToEnum ->
         assert (List.length args = 0);
@@ -134,7 +134,7 @@ let optimize_visitor map = object(self)
         begin match Hashtbl.find map lid with
         | exception Not_found ->
             DType (lid, Variant branches)
-        | Regular ->
+        | Regular _ ->
             DType (lid, Variant branches)
         | ToEnum ->
             DType (lid, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
@@ -153,7 +153,7 @@ let build_map files =
         else if List.length branches = 1 then
           Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
         else
-          Hashtbl.add map lid Regular
+          Hashtbl.add map lid (Regular branches)
     | _ ->
         ()
   )
@@ -217,7 +217,7 @@ let remove_match_visitor map = object(self)
         | exception Not_found ->
             (* This might be a record in the first place. *)
             try_mk_flat e branches
-        | Regular ->
+        | Regular _ ->
             try_mk_flat e branches
         | ToEnum ->
             mk_switch e branches
@@ -230,21 +230,18 @@ let remove_match_visitor map = object(self)
 end
 
 
-let enum_tag_of_cons = (^) "t_"
 let union_field_of_cons = (^) "u_"
 let field_for_tag = "tag"
 let field_for_union = "val"
 
 (* Fourth step: implement the general transformation of data types into tagged
  * unions. *)
-let tagged_union_visitor = object
+let tagged_union_visitor map = object
 
   inherit [unit] map
 
-  method dtypevariant _env branches =
-    let tags = List.map (fun (cons, _fields) ->
-      [], enum_tag_of_cons cons
-    ) branches in
+  method dtypevariant _env lid branches =
+    let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
     let structs = List.map (fun (cons, fields) ->
       Some (union_field_of_cons cons), TAnonymous (Flat fields)
     ) branches in
@@ -253,6 +250,25 @@ let tagged_union_visitor = object
       field_for_union, (TAnonymous (Union structs), false)
     ]
 
+  method pcons _env t cons fields =
+    (* We only have nominal typing for variants. *)
+    let lid = match t with TQualified lid -> lid | _ -> assert false in
+    let field_names =
+      match Hashtbl.find map lid with
+      | Regular branches ->
+          fst (List.split (List.assoc cons branches))
+      | _ ->
+          raise Not_found
+    in
+    let record_pat = PRecord (List.combine field_names fields) in
+    PRecord [
+      field_for_tag, with_type TAny (PEnum (mk_tag_lid lid cons));
+      field_for_union, with_type TAny (PRecord [
+        union_field_of_cons cons, with_type TAny record_pat
+      ])
+    ]
+
+
 end
 
 let everything files =
@@ -260,5 +276,5 @@ let everything files =
   let map = build_map files in
   let files = Simplify.visit_files () (optimize_visitor map) files in
   let files = Simplify.visit_files () (remove_match_visitor map) files in
-  let files = Simplify.visit_files () tagged_union_visitor files in
+  let files = Simplify.visit_files () (tagged_union_visitor map) files in
   files
