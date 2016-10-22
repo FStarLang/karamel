@@ -446,19 +446,24 @@ and check_valid_path env e =
         path to a mutable field"
 
 and check_branches env t_context t_scrutinee branches =
-  check_eqntype env t_context (fun (pat, expr) ->
+  check_eqntype env t_context (fun (binders, pat, expr) ->
+    let env = List.fold_left push env binders in
     check_pat env t_scrutinee pat;
-    let env = List.fold_left push env (binders_of_pat pat) in
     infer_expr env expr
   ) branches
 
 and check_pat env t_context pat =
   match pat.node with
-  | PVar b ->
+  | PBound i ->
+      let b = find env i in
       check_subtype env t_context b.typ;
       b.typ <- t_context;
       check_subtype env t_context pat.typ;
       pat.typ <- t_context
+
+  | POpen _ ->
+      failwith "checker does not open patterns"
+
   | PUnit ->
       check_subtype env t_context TUnit;
       pat.typ <- t_context

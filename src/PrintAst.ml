@@ -7,6 +7,7 @@ open Idents
 (* ------------------------------------------------------------------------ *)
 
 let arrow = string "->"
+let lambda = fancystring "λ" 1
 
 let decl_name (d: decl) =
   match d with
@@ -203,9 +204,12 @@ and print_expr { node; _ } =
 and print_branches branches =
   separate_map (break 1) (fun b -> group (print_branch b)) branches
 
-and print_branch (pat, expr) =
-  group (bar ^^ space ^^ print_pat pat ^^ space ^^ arrow) ^^
-  jump ~indent:4 (print_expr expr)
+and print_branch (binders, pat, expr) =
+  group (bar ^^ space ^^
+    lambda ^^ separate_map comma (fun b -> string b.node.name) binders ^^
+    dot ^^ space ^^
+    print_pat pat ^^ space ^^ arrow
+  ) ^^ jump ~indent:4 (print_expr expr)
 
 and print_pat p =
   match p.node with
@@ -213,8 +217,10 @@ and print_pat p =
       string "()"
   | PBool b ->
       string (string_of_bool b)
-  | PVar b ->
-      print_binder b
+  | PBound b ->
+      int b
+  | POpen (i, _) ->
+      string i
   | PCons (ident, pats) ->
       string ident ^/^ parens_with_nesting (separate_map (comma ^^ break1) print_pat pats)
   | PRecord fields ->

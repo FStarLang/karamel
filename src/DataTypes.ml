@@ -165,43 +165,29 @@ let build_map files =
  * if-then-else, and switches. *)
 
 let mk_switch e branches =
-  ESwitch (e, List.map (fun (pat, e) ->
+  ESwitch (e, List.map (fun (_, pat, e) ->
     match pat.node with
     | PEnum lid -> lid, e
     | _ -> failwith "Pattern not simplified to enum"
   ) branches)
 
 let is_trivial_record_pattern fields =
-  let binders = List.fold_left (fun acc (_field, pat) ->
-    match acc with
-    | None ->
-        None
-    | Some binders ->
-        match pat.node with
-        | PVar b ->
-            Some (b :: binders)
-        | _ ->
-            None
-  ) (Some []) fields in
-  Option.map List.rev binders
+  List.for_all (function (_, { node = PBound 0; _ }) -> true | _ -> false) fields
 
 let try_mk_flat e branches =
   match branches with
-  | [ { node = PRecord fields; _ }, body ] ->
-      begin match is_trivial_record_pattern fields with
-      | Some binders ->
-          (* match e with { f = x; ... } becomes
-           * let tmp = e in let x = e.f in *)
-          let binders, body = open_function_binders binders body in
-          let scrut, atom = Simplify.mk_binding "scrut" e.typ in
-          let bindings = List.map2 (fun b (f, _) ->
-            b, with_type b.typ (EField (atom, f))
-          ) binders fields in
-          (Simplify.nest ((scrut, e) :: bindings) body).node
-
-      | None ->
-          EMatch (e, branches)
-      end
+  | [ binders, { node = PRecord fields; _ }, body ] ->
+      if is_trivial_record_pattern fields then
+        (* match e with { f = x; ... } becomes
+         * let tmp = e in let x = e.f in *)
+        let binders, body = open_binders binders body in
+        let scrut, atom = Simplify.mk_binding "scrut" e.typ in
+        let bindings = List.map2 (fun b (f, _) ->
+          b, with_type b.typ (EField (atom, f))
+        ) binders fields in
+        (Simplify.nest ((scrut, e) :: bindings) body).node
+      else
+        EMatch (e, branches)
   | _ ->
       EMatch (e, branches)
 
@@ -258,12 +244,21 @@ let rec compile_pattern env scrut pat expr =
         List.fold_left (fun (conds, expr) (f, p) ->
           let scrut = mk (EField (scrut, f)) in
           let cond, expr = compile_pattern env scrut p expr in
-          cond @ conds, expr
+          cond :: conds, expr
         ) ([], expr) fields
       in
-      List.rev conds, expr
-  | PVar b ->
+      List.flatten (List.rev conds), expr
+  | POpen (i, b) ->
+      let b = with_type pat.typ {
+        name = i;
+        mut = false;
+        mark = ref 0;
+        meta = None;
+        atom = b
+      } in
       [], mk (ELet (b, scrut, close_binder b expr))
+  | PBound _ ->
+      failwith "pattern must've been opened"
 
 
 let rec mk_conjunction = function
@@ -274,14 +269,15 @@ let rec mk_conjunction = function
   | e1 :: es ->
       mk (EApp (mk (EOp (K.BAnd, K.Bool)), [ e1; mk_conjunction es ]))
 
-let compile_branch env scrut (pat, expr): expr * expr =
-  let binders = binders_of_pat pat in
-  let binders, expr = open_function_binders binders expr in
+let compile_branch env scrut (binders, pat, expr): expr * expr =
+  (* This should open the binders in the pattern, too... right now we're not
+   * getting the same atoms here and in PVars. See Arthur's paper. *)
+  let _binders, pat, expr = open_branch binders pat expr in
   (* Compile pattern also closes the binders one by one. *)
   let conditionals, expr = compile_pattern env scrut pat expr in
   mk_conjunction conditionals, expr
 
-let compile_match env t_ret e_scrut branches =
+let compile_match env _t_ret e_scrut branches =
   let b_scrut, name_scrut = Simplify.mk_binding "scrut" e_scrut.typ in
   let branches = List.map (compile_branch env name_scrut) branches in
   let rec fold_ite = function
@@ -331,6 +327,9 @@ let tagged_union_visitor map = object (self)
     in
     let record_pat = PRecord (List.combine field_names fields) in
     PRecord [
+      (** This is sound because we rely on left-to-right, lazy semantics for
+       * pattern-matching. So, we read the "right" field from the union only
+       * after we've ascertained that we're in the right case. *)
       field_for_tag, with_type TAny (PEnum (mk_tag_lid lid cons));
       field_for_union, with_type TAny (PRecord [
         union_field_of_cons cons, with_type TAny record_pat
@@ -339,9 +338,9 @@ let tagged_union_visitor map = object (self)
 
   (* The match transformation is tricky: we open all binders. *)
   method dfunction env cc flags ret name binders expr =
-    let binders, expr = open_function_binders binders expr in
+    let binders, expr = open_binders binders expr in
     let expr = self#visit env expr in
-    let expr = close_function_binders binders expr in
+    let expr = close_binders binders expr in
     DFunction (cc, flags, ret, name, binders, expr)
 
   method elet env _ binder e1 e2 =
@@ -352,13 +351,14 @@ let tagged_union_visitor map = object (self)
     ELet (binder, e1, e2)
 
   method branches env branches =
-    List.map (fun (pat, expr) ->
-      let binders = binders_of_pat pat in
-      let binders, expr = open_function_binders binders expr in
+    List.map (fun (binders, pat, expr) ->
+      (* Not opening the branch... since we don't have binders inside of
+       * patterns. *)
+      let binders, expr = open_binders binders expr in
       let pat = self#visit_pattern env pat in
       let expr = self#visit env expr in
-      let expr = close_function_binders binders expr in
-      pat, expr
+      let expr = close_binders binders expr in
+      binders, pat, expr
     ) branches
 
   (* Then compile patterns for those matches whose scrutinee is a data type.

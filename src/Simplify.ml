@@ -74,9 +74,9 @@ let dummy_match = object (self)
 
   method! ematch () _ e branches =
     match e.node, branches with
-    | EUnit, [ { node = PUnit; _ }, body ] ->
+    | EUnit, [ [], { node = PUnit; _ }, body ] ->
         (self#visit () body).node
-    | _, [ { node = PBool true; _ }, b1; { node = PVar v; _ }, b2 ] when !(v.node.mark) = 0 ->
+    | _, [ [], { node = PBool true; _ }, b1; [ v ], { node = PBound 0; _ }, b2 ] when !(v.node.mark) = 0 ->
         let b1 = self#visit () b1 in
         let _, b2 = open_binder v b2 in
         let b2 = self#visit () b2 in
@@ -540,9 +540,9 @@ let hoist = object
 
   method dfunction () cc flags ret name binders expr =
     (* TODO: no nested let-bindings in top-level value declarations either *)
-    let binders, expr = open_function_binders binders expr in
+    let binders, expr = open_binders binders expr in
     let expr = hoist_t expr in
-    let expr = close_function_binders binders expr in
+    let expr = close_binders binders expr in
     DFunction (cc, flags, ret, name, binders, expr)
 end
 

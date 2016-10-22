@@ -60,6 +60,21 @@ let lift_t (k: int) (typ: typ): typ =
   else
     (new lift_t k)#visit_t 0 typ
 
+class lift_p (k: int) = object
+  inherit map_counting
+  method! pbound i _ j =
+    if j < i then
+      PBound j
+    else
+      PBound (j + k)
+end
+
+let lift_p (k: int) (pat: pattern): pattern' =
+  if k = 0 then
+    pat.node
+  else
+    (new lift_p k)#visit_p 0 pat.node pat.typ
+
 (* ---------------------------------------------------------------------------- *)
 
 (* Substitute [e2] for [i] in [e1]. *)
@@ -110,6 +125,21 @@ let subst_tn t ts =
     subst_t arg k body
   ) t ts
 
+class subst_p (p2: pattern) = object
+  (* The environment [i] is the variable that we are looking for. *)
+  inherit map_counting
+  (* The target variable [i] is replaced with [t2]. Any other
+     variable is unaffected. *)
+  method! pbound i _ j =
+    if j = i then
+      lift_p i p2
+    else
+      PBound (if j < i then j else j-1)
+end
+
+let subst_p (p2: pattern) (i: int) (p1: pattern) =
+  (new subst_p p2)#visit_p i p1.node
+
 (* ---------------------------------------------------------------------------- *)
 
 (* Close [binder] into bound variable i *)
@@ -137,13 +167,23 @@ let open_binder b e1 =
   let b = { b with node = { b.node with atom = a } } in
   b, subst { node = EOpen (b.node.name, a); typ = b.typ } 0 e1
 
-let open_function_binders binders term =
+let open_binders binders term =
   List.fold_right (fun binder (acc, term) ->
     let binder, term = open_binder binder term in
     binder :: acc, term
   ) binders ([], term)
 
-let close_function_binders bs e1 =
+let open_branch bs pat expr =
+  List.fold_right (fun binder (bs, pat, expr) ->
+    let b, expr = open_binder binder expr in
+    let t = pat.typ in
+    let pat =
+      subst_p { node = POpen (b.node.name, b.node.atom); typ = b.typ } 0 pat pat.typ
+    in
+    b :: bs, with_type t pat, expr
+  ) bs ([], pat, expr)
+
+let close_binders bs e1 =
   let rec close_binderi i e1 = function
     | b :: bs -> close_binderi (i + 1) (close b.node.atom i e1) bs
     | [] -> e1

@@ -12,7 +12,7 @@ and file =
   string * program
 
 and decl =
-  | DFunction of CallingConvention.t option * flag list * typ * lident * binder list * expr
+  | DFunction of CallingConvention.t option * flag list * typ * lident * binders * expr
   | DGlobal of flag list * lident * typ * expr
   | DExternal of CallingConvention.t option * lident * typ
   | DType of lident * type_def
@@ -90,12 +90,24 @@ and branches =
   branch list
 
 and branch =
-  pattern * expr
+  (** In the internal AST, the binding structure is done properly for patterns;
+   * each branch introduces a set of binders; and the locally nameless approach
+   * itself is applied within the pattern (this is useful for non-linear
+   * binders, a.k.a. or-patterns). One can open a pattern; then, the binders
+   * appear as POpens. Note: I hesitated between [POpen of atom] and [PBinder of
+   * binder] for binders; the latter is more convenient for pattern-matching
+   * compilation phase, but then one may inadvertently rely on sharing between
+   * the [binders]  *)
+  binders * pattern * expr
+
+and binders =
+  binder list
 
 and pattern' =
   | PUnit
   | PBool of bool
-  | PVar of binder
+  | PBound of var
+  | POpen of ident * Atom.t
   | PCons of ident * pattern list
   | PEnum of lident
   | PTuple of pattern list
@@ -167,20 +179,6 @@ let fresh_binder ?(mut=false) name typ =
 
 
 (** Some visitors for our AST of expressions *)
-
-let rec binders_of_pat p =
-  match p.node with
-  | PVar b ->
-      [ b ]
-  | PTuple ps
-  | PCons (_, ps) ->
-      KList.map_flatten binders_of_pat ps
-  | PRecord fields ->
-      KList.map_flatten binders_of_pat (snd (List.split fields))
-  | PUnit
-  | PEnum _
-  | PBool _ ->
-      []
 
 class virtual ['env] map = object (self)
 
@@ -372,10 +370,10 @@ class virtual ['env] map = object (self)
     List.map (fun (ident, expr) -> ident, self#visit env expr) fields
 
   method branches env branches =
-    List.map (fun (pat, expr) ->
-      let binders = binders_of_pat pat in
+    List.map (fun (binders, pat, expr) ->
+      (* TODO extend_many here *)
       let env = List.fold_left self#extend env binders in
-      self#visit_pattern env pat, self#visit env expr
+      binders, self#visit_pattern env pat, self#visit env expr
     ) branches
 
   (* Patterns *)
@@ -386,8 +384,10 @@ class virtual ['env] map = object (self)
         self#punit env
     | PBool b ->
         self#pbool env b
-    | PVar b ->
-        self#pvar env t b
+    | PBound b ->
+        self#pbound env t b
+    | POpen (i, a) ->
+        self#popen env t i a
     | PCons (ident, fields) ->
         self#pcons env t ident fields
     | PTuple ps ->
@@ -403,8 +403,11 @@ class virtual ['env] map = object (self)
   method pbool _env b =
     PBool b
 
-  method pvar _env _t b =
-    PVar b
+  method pbound _env _t b =
+    PBound b
+
+  method popen _env _t i a =
+    POpen (i, a)
 
   method pcons env _t ident pats =
     PCons (ident, List.map (self#visit_pattern env) pats)
