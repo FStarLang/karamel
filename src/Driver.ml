@@ -67,6 +67,13 @@ let detect_base_tools () =
     readlink := "greadlink"
   else
     readlink := "readlink";
+  begin try
+    if read_one_line "uname" [||] = "Darwin" && !readlink = "readlink" then
+      KPrint.bprintf "Warning: OSX detected and no greadlink found. Suggestion: \
+        [brew install coreutils]\n";
+  with Process.Exit.Error _ ->
+    ()
+  end;
   KPrint.bprintf "%sreadlink is:%s %s\n" Ansi.underline Ansi.reset !readlink
 
 let detect_base_tools_if () =
