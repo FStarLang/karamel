@@ -522,6 +522,33 @@ let hoist = object
 end
 
 
+(* Relax the criterion a little bit for terminal positions ********************)
+
+let rec fixup_return_pos e =
+  (* We know how to insert returns and won't need assignments for things that
+   * are in terminal position. *)
+  with_type e.typ (match e.node with
+  | ELet (_, ({ node = (EIfThenElse _ | ESwitch _); _ } as e), { node = EBound 0; _ }) ->
+      (fixup_return_pos e).node
+  | EIfThenElse (e1, e2, e3) ->
+      EIfThenElse (e1, fixup_return_pos e2, fixup_return_pos e3)
+  | ESwitch (e1, branches) ->
+      ESwitch (e1, List.map (fun (t, e) -> t, fixup_return_pos e) branches)
+  | ELet (b, e1, e2) ->
+      ELet (b, e1, fixup_return_pos e2)
+  | e ->
+      e
+  )
+
+let fixup_hoist = object
+  inherit ignore_everything
+  inherit [_] map
+
+  method dfunction () cc flags ret name binders expr =
+    DFunction (cc, flags, ret, name, binders, fixup_return_pos expr)
+end
+
+
 (* No partial applications ****************************************************)
 
 let eta_expand = object
@@ -617,6 +644,7 @@ let simplify1 (files: file list): file list =
 let simplify2 (files: file list): file list =
   let files = visit_files () sequence_to_let files in
   let files = visit_files () hoist files in
+  let files = visit_files () fixup_hoist files in
   let files = visit_files () let_if_to_assign files in
   let files = visit_files () let_to_sequence files in
   files
