@@ -230,7 +230,6 @@ let mk_eq w e1 e2 =
 
 let rec compile_pattern env scrut pat expr =
   match pat.node with
-  | PCons _
   | PTuple _ ->
       failwith "should've been desugared"
   | PUnit ->
@@ -259,6 +258,8 @@ let rec compile_pattern env scrut pat expr =
       [], mk (ELet (b, scrut, close_binder b expr))
   | PBound _ ->
       failwith "pattern must've been opened"
+  | PCons (ident, _) ->
+      failwith ("constructor hasn't been desugared: " ^ ident)
 
 
 let rec mk_conjunction = function
@@ -291,6 +292,28 @@ let compile_match env e_scrut branches =
   mk (ELet (b_scrut, e_scrut, close_binder b_scrut (fold_ite branches)))
 
 
+(* Intermediary step: get rid of really dumb matches we don't want to go through
+ * our elaborate match-compilation scheme. *)
+
+let dummy_match = object (self)
+
+  inherit [unit] map
+
+  method! ematch () _ e branches =
+    match e.node, branches with
+    | EUnit, [ [], { node = PUnit; _ }, body ] ->
+        (self#visit () body).node
+    | _, [ [], { node = PBool true; _ }, b1; [ v ], { node = PBound 0; _ }, b2 ] when !(v.node.mark) = 0 ->
+        let b1 = self#visit () b1 in
+        let _, b2 = open_binder v b2 in
+        let b2 = self#visit () b2 in
+        EIfThenElse (e, b1, b2)
+    | _ ->
+        EMatch (e, self#branches () branches)
+
+end
+
+
 (* Fourth step: implement the general transformation of data types into tagged
  * unions. *)
 let tagged_union_visitor map = object (self)
@@ -315,7 +338,7 @@ let tagged_union_visitor map = object (self)
 
   (* A pattern on a constructor becomes a pattern on a struct and one of its
    * union fields. *)
-  method pcons _env t cons fields =
+  method pcons env t cons fields =
     (* We only have nominal typing for variants. *)
     let lid = match t with TQualified lid -> lid | _ -> assert false in
     let field_names =
@@ -325,6 +348,7 @@ let tagged_union_visitor map = object (self)
       | _ ->
           raise Not_found
     in
+    let fields = List.map (self#visit_pattern env) fields in
     let record_pat = PRecord (List.combine field_names fields) in
     PRecord [
       (** This is sound because we rely on left-to-right, lazy semantics for
@@ -367,20 +391,9 @@ let tagged_union_visitor map = object (self)
   method ematch env _t_ret e_scrut branches =
     let e_scrut = self#visit env e_scrut in
     let branches = self#branches env branches in
-    match e_scrut.typ with
-    | TQualified lid ->
-        begin match Hashtbl.find map lid with
-        | exception Not_found ->
-            KPrint.bprintf "%a not found\n" PrintAst.plid lid;
-            EMatch (e_scrut, branches)
-        | _ ->
-            KPrint.bprintf "compiling:\n%a\n" PrintAst.pexpr
-              (with_type _t_ret (EMatch (e_scrut, branches)));
-            (compile_match env e_scrut branches).node
-        end
-    | _ ->
-        EMatch (e_scrut, branches)
-
+    KPrint.bprintf "compiling:\n%a\n" PrintAst.pexpr
+      (with_type _t_ret (EMatch (e_scrut, branches)));
+    (compile_match env e_scrut branches).node
 
 end
 
@@ -389,5 +402,6 @@ let everything files =
   let map = build_map files in
   let files = Simplify.visit_files () (optimize_visitor map) files in
   let files = Simplify.visit_files () (remove_match_visitor map) files in
+  let files = Simplify.visit_files () dummy_match files in
   let files = Simplify.visit_files () (tagged_union_visitor map) files in
   files

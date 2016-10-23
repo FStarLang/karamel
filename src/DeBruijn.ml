@@ -69,11 +69,11 @@ class lift_p (k: int) = object
       PBound (j + k)
 end
 
-let lift_p (k: int) (pat: pattern): pattern' =
+let lift_p (k: int) (pat: pattern): pattern =
   if k = 0 then
-    pat.node
+    pat
   else
-    (new lift_p k)#visit_p 0 pat.node pat.typ
+    (new lift_p k)#visit_pattern 0 pat
 
 (* ---------------------------------------------------------------------------- *)
 
@@ -132,7 +132,7 @@ class subst_p (p2: pattern) = object
      variable is unaffected. *)
   method! pbound i _ j =
     if j = i then
-      lift_p i p2
+      (lift_p i p2).node
     else
       PBound (if j < i then j else j-1)
 end

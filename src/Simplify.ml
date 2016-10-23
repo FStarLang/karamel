@@ -66,26 +66,6 @@ let count_use = object (self)
 
 end
 
-(* F* extraction generates these degenerate cases *****************************)
-
-let dummy_match = object (self)
-
-  inherit [unit] map
-
-  method! ematch () _ e branches =
-    match e.node, branches with
-    | EUnit, [ [], { node = PUnit; _ }, body ] ->
-        (self#visit () body).node
-    | _, [ [], { node = PBool true; _ }, b1; [ v ], { node = PBound 0; _ }, b2 ] when !(v.node.mark) = 0 ->
-        let b1 = self#visit () b1 in
-        let _, b2 = open_binder v b2 in
-        let b2 = self#visit () b2 in
-        EIfThenElse (e, b1, b2)
-    | _ ->
-        EMatch (e, self#branches () branches)
-
-end
-
 
 (* Get wraparound semantics for arithmetic operations using casts to uint_* ***)
 
@@ -636,7 +616,6 @@ let simplify1 (files: file list): file list =
   let files = visit_files () replace_references_to_toplevel_names files in
   let files = visit_files () eta_expand files in
   let files = visit_files [] count_use files in
-  let files = visit_files () dummy_match files in
   let files = visit_files () wrapping_arithmetic files in
   files
 
