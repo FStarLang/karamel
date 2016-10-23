@@ -22,10 +22,10 @@ let main argc argv =
   let z = match x, y with
     | A l h, C l' h' ->
         (* Checks that the variables are not mixed up. *)
-        FStar.Int8 (int32_to_int8 l +%^
-          int64_to_int8 h +%^
-          int32_to_int8 l' +%^
-          int64_to_int8 h')
+        FStar.Int8 (int32_to_int8 l -%^ // 0 -
+          int32_to_int8 l' +%^ // 5 +
+          int64_to_int8 h -%^ // 1 -
+          int64_to_int8 h') // 6
     | _, D (B c d e) ->
         (* TODO: or-patterns *)
         FStar.Int8 (c +%^ d +%^ e)
@@ -34,5 +34,6 @@ let main argc argv =
     | _, D _ ->
         8y
   in
+  TestLib.check (int8_to_int32 z) (-10l);
   pop_frame ();
   C.exit_success
