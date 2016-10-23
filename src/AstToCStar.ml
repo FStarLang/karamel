@@ -96,9 +96,26 @@ let find env i =
     void f(x) {
       int x = 1;
   This is fine.
+
+  ML: shadowing within your own block after conversion to a C identifier
+    let x_ = ... in
+    let x' = ... in
+    ... x_ ...
+  InternalAST (DeBruijn):
+    let x = ... in
+    let x = ... in
+    ... @1 ...
+  C:
+    int x = ...;
+    int x1 = ... x ...;
+  This is caught by the visitor that visits the continuation of the let-binding.
+  Since I'm not opening binders, the reference 0 must be skipped (it's the
+  binding we're working) and since the binder has not been pushed into the
+  environment yet, we must shift by 1.
+
 *)
-let ensure_fresh env name body =
-  let tricky_shadowing_see_comment_above name =
+let ensure_fresh env name body cont =
+  let tricky_shadowing_see_comment_above name body k =
     match body with
     | None ->
         false
@@ -109,13 +126,15 @@ let ensure_fresh env name body =
           method extend env binder =
             binder.node.name :: env
           method ebound env _ i =
-            r := !r || name = List.nth env i;
+            if i - k >= 0 then
+              r := !r || name = List.nth env (i - k);
             EBound i
         end) # visit env.names body);
         !r
   in
   mk_fresh name (fun tentative ->
-    tricky_shadowing_see_comment_above tentative ||
+    tricky_shadowing_see_comment_above tentative body 0 ||
+    tricky_shadowing_see_comment_above tentative cont 1 ||
     List.exists ((=) tentative) env.in_block)
 
 
@@ -227,7 +246,7 @@ and extract_stmts env e ret_type =
   let rec collect (env, acc) return_pos e =
     match e.node with
     | ELet (binder, e1, e2) ->
-        let env, binder = translate_and_push_binder env binder (Some e1)
+        let env, binder = translate_and_push_binder env binder (Some e1) (Some e2)
         and e1 = translate_expr env false e1 in
         let acc = CStar.Decl (binder, e1) :: acc in
         collect (env, acc) return_pos e2
@@ -416,16 +435,18 @@ and translate_type env = function
   | t ->
       translate_return_type env t
 
+(* This one is used for function binders, which we assume are distinct from each
+ * other. *)
 and translate_and_push_binders env binders =
   let env, acc = List.fold_left (fun (env, acc) binder ->
-    let env, binder = translate_and_push_binder env binder None in
+    let env, binder = translate_and_push_binder env binder None None in
     env, binder :: acc
   ) (env, []) binders in
   env, List.rev acc
 
-and translate_and_push_binder env binder body =
+and translate_and_push_binder env binder body cont =
   let binder = {
-    CStar.name = ensure_fresh env binder.node.name body;
+    CStar.name = ensure_fresh env binder.node.name body cont;
     typ = translate_type env binder.typ
   } in
   push env binder, binder

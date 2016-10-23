@@ -1,5 +1,9 @@
 (** Checking the well-formedness of a program in [Ast] *)
 
+(** TODO this module needs to be rewritten properly with constraints and
+ * everything; the bidirectional algorithm is remarkably poor and extremely
+ * fragile! *)
+
 open Ast
 open Warnings
 open Constant
