@@ -14,3 +14,4 @@ let cc = ref "gcc"
 let fsopts: string list ref = ref []
 let ccopts: string list ref = ref []
 let ldopts: string list ref = ref []
+let in_kremlib: string list ref = ref [ "C"; "FStar_Int_Cast" ]

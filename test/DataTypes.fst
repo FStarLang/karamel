@@ -21,7 +21,7 @@ let main argc argv =
   let y = if something () then C 5l 6L else D x in
   let z = match x, y with
     | A l h, C l' h' ->
-        (** Checks that the variables are not mixed up. *)
+        (* Checks that the variables are not mixed up. *)
         FStar.Int8 (int32_to_int8 l +%^
           int64_to_int8 h +%^
           int32_to_int8 l' +%^

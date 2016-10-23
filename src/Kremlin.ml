@@ -161,6 +161,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     print PrintAst.print_files files;
 
   (* Perform a whole-program rewriting. *)
+  let files = Checker.check_everything files in
   let files = Simplify.simplify1 files in
   let files = Simplify.simplify2 files in
   if !arg_print_simplify then
@@ -203,9 +204,13 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     flush stdout;
     flush stderr;
     Printf.printf "KreMLin: writing out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
-    let files = List.filter (fun (name, _) -> name <> "C") files in
+    let files = List.filter (fun (name, _) ->
+      not (List.exists ((=) name) !Options.in_kremlib)
+    ) files in
     Output.write_c files;
-    let headers = List.filter (fun (name, _) -> name <> "C") headers in
+    let headers = List.filter (fun (name, _) ->
+      not (List.exists ((=) name) !Options.in_kremlib)
+    ) headers in
     Output.write_h headers;
 
     if !arg_skip_compilation then

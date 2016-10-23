@@ -199,7 +199,11 @@ and p_decl_and_init (decl, init) =
 
 and p_declaration (spec, stor, fspec, decl_and_inits) =
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
-  separate_map space p_function_spec fspec ^/^
+  let fspec = match fspec with
+    | [] -> empty
+    | _ -> separate_map space p_function_spec fspec ^^ space
+  in
+  fspec ^^
   stor ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 

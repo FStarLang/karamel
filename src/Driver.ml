@@ -140,7 +140,9 @@ let detect_fstar () =
   end;
 
   (* Add default include directories, those specified by the user, and skip a
-   * set of known failing modules. *)
+   * set of known failing modules. Adding a new module to the failing list is
+   * DANGEROUS: it will remove a bunch of [DExternal] declarations that the
+   * type-checker needs! *)
   let fstar_includes = List.map expand_fstar_home !Options.includes in
   fstar_options := [
     "--trace_error";
@@ -149,7 +151,7 @@ let detect_fstar () =
     fstar_options := "--no_extract" :: ("FStar." ^ m) :: !fstar_options
   ) [ "Int8"; "UInt8"; "Int16"; "UInt16"; "Int31"; "UInt31"; "Int32"; "UInt32";
       "Int63"; "UInt63"; "Int64"; "UInt64"; "Int128"; "UInt128";
-      "HyperStack"; "HST" ; "Int.Cast"];
+      "HyperStack"; "HST" ];
   KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
 
   flush stdout
