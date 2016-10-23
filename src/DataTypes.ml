@@ -172,7 +172,7 @@ let mk_switch e branches =
   ) branches)
 
 let is_trivial_record_pattern fields =
-  List.for_all (function (_, { node = PBound 0; _ }) -> true | _ -> false) fields
+  List.for_all (function (_, { node = PBound _; _ }) -> true | _ -> false) fields
 
 let try_mk_flat e branches =
   match branches with
@@ -277,7 +277,7 @@ let compile_branch env scrut (binders, pat, expr): expr * expr =
   let conditionals, expr = compile_pattern env scrut pat expr in
   mk_conjunction conditionals, expr
 
-let compile_match env _t_ret e_scrut branches =
+let compile_match env e_scrut branches =
   let b_scrut, name_scrut = Simplify.mk_binding "scrut" e_scrut.typ in
   let branches = List.map (compile_branch env name_scrut) branches in
   let rec fold_ite = function
@@ -370,10 +370,13 @@ let tagged_union_visitor map = object (self)
     match e_scrut.typ with
     | TQualified lid ->
         begin match Hashtbl.find map lid with
-        | Regular def_branches ->
-            (compile_match env def_branches e_scrut branches).node
-        | _ ->
+        | exception Not_found ->
+            KPrint.bprintf "%a not found\n" PrintAst.plid lid;
             EMatch (e_scrut, branches)
+        | _ ->
+            KPrint.bprintf "compiling:\n%a\n" PrintAst.pexpr
+              (with_type _t_ret (EMatch (e_scrut, branches)));
+            (compile_match env e_scrut branches).node
         end
     | _ ->
         EMatch (e_scrut, branches)

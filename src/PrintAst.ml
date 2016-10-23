@@ -218,9 +218,9 @@ and print_pat p =
   | PBool b ->
       string (string_of_bool b)
   | PBound b ->
-      int b
+      at ^^ int b
   | POpen (i, _) ->
-      string i
+      bang ^^ string i
   | PCons (ident, pats) ->
       string ident ^/^ parens_with_nesting (separate_map (comma ^^ break1) print_pat pats)
   | PRecord fields ->
