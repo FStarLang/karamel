@@ -234,8 +234,8 @@ let rec translate_expr env in_stmt e =
   | EBool b ->
       CStar.Bool b
   | EFlat fields ->
-      let typ = Checker.assert_qualified Checker.empty e.typ in
-      CStar.Struct (string_of_lident typ, List.map (fun (name, expr) ->
+      let name = match e.typ with TQualified lid -> Some (string_of_lident lid) | _ -> None in
+      CStar.Struct (name, List.map (fun (name, expr) ->
         Some name, translate_expr env expr
       ) fields)
   | EField (expr, field) ->

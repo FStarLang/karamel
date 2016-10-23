@@ -166,7 +166,10 @@ and p_expr' curr = function
   | Bool b ->
       string (string_of_bool b)
   | CompoundLiteral (t, init) ->
-      lparen ^^ p_type_name t ^^ rparen ^^
+      begin match t with
+      | Some t -> lparen ^^ p_type_name t ^^ rparen
+      | None -> empty
+      end ^^
       braces_with_nesting (separate_map (comma ^^ break1) p_init init)
   | MemberAccess (expr, member) ->
       p_expr' 1 expr ^^ dot ^^ string member
