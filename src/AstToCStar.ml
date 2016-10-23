@@ -156,6 +156,9 @@ let ensure_fresh env name body cont =
  * The translation of function types is aware of this, too.
  *)
 
+let small s = CStar.Constant (K.UInt8, s)
+let zero = small "0"
+
 let rec translate_expr env in_stmt e =
   let translate_expr env e = translate_expr env false e in
   match e.node with
@@ -203,10 +206,12 @@ let rec translate_expr env in_stmt e =
       CStar.Op c
   | ECast (e, t) ->
       CStar.Cast (translate_expr env e, translate_type env t)
-  | EOpen _ | EPopFrame | EPushFrame | EBufBlit _ | EAbort ->
+  | EOpen _ | EPopFrame | EPushFrame | EBufBlit _ ->
       fatal_error "[AstToCStar.translate_expr]: should not be here (%a)" pexpr e
+  | EAbort ->
+      CStar.Comma (CStar.Call (CStar.Qualified "exit", [ small "252" ]), small "0")
   | EUnit ->
-      CStar.Constant (K.UInt8, "0")
+      zero
   | EAny ->
       CStar.Any
   | ELet _ ->
