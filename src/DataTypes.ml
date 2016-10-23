@@ -313,6 +313,17 @@ let dummy_match = object (self)
 
 end
 
+let assert_lid t =
+  (* We only have nominal typing for variants. *)
+  match t with TQualified lid -> lid | _ -> assert false
+
+let field_names_for map lid cons =
+  match Hashtbl.find map lid with
+  | Regular branches ->
+      fst (List.split (List.assoc cons branches))
+  | _ ->
+      raise Not_found
+
 
 (* Fourth step: implement the general transformation of data types into tagged
  * unions. *)
@@ -339,15 +350,8 @@ let tagged_union_visitor map = object (self)
   (* A pattern on a constructor becomes a pattern on a struct and one of its
    * union fields. *)
   method pcons env t cons fields =
-    (* We only have nominal typing for variants. *)
-    let lid = match t with TQualified lid -> lid | _ -> assert false in
-    let field_names =
-      match Hashtbl.find map lid with
-      | Regular branches ->
-          fst (List.split (List.assoc cons branches))
-      | _ ->
-          raise Not_found
-    in
+    let lid = assert_lid t in
+    let field_names = field_names_for map lid cons in
     let fields = List.map (self#visit_pattern env) fields in
     let record_pat = PRecord (List.combine field_names fields) in
     PRecord [
@@ -357,6 +361,18 @@ let tagged_union_visitor map = object (self)
       field_for_tag, with_type TAny (PEnum (mk_tag_lid lid cons));
       field_for_union, with_type TAny (PRecord [
         union_field_of_cons cons, with_type TAny record_pat
+      ])
+    ]
+
+  method econs env t cons exprs =
+    let lid = assert_lid t in
+    let field_names = field_names_for map lid cons in
+    let exprs = List.map (self#visit env) exprs in
+    let record_expr = EFlat (List.combine field_names exprs) in
+    EFlat [
+      field_for_tag, with_type TAny (EEnum (mk_tag_lid lid cons));
+      field_for_union, with_type TAny (EFlat [
+        union_field_of_cons cons, with_type TAny record_expr
       ])
     ]
 
