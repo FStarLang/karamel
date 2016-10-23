@@ -418,8 +418,6 @@ let tagged_union_visitor map = object (self)
   method ematch env _t_ret e_scrut branches =
     let e_scrut = self#visit env e_scrut in
     let branches = self#branches env branches in
-    KPrint.bprintf "compiling:\n%a\n" PrintAst.pexpr
-      (with_type _t_ret (EMatch (e_scrut, branches)));
     (compile_match env e_scrut branches).node
 
 end
