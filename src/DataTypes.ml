@@ -268,7 +268,7 @@ let rec mk_conjunction = function
   | [ e1 ] ->
       e1
   | e1 :: es ->
-      mk (EApp (mk (EOp (K.BAnd, K.Bool)), [ e1; mk_conjunction es ]))
+      mk (EApp (mk (EOp (K.And, K.Bool)), [ e1; mk_conjunction es ]))
 
 let compile_branch env scrut (binders, pat, expr): expr * expr =
   (* This should open the binders in the pattern, too... right now we're not
@@ -317,12 +317,22 @@ let assert_lid t =
   (* We only have nominal typing for variants. *)
   match t with TQualified lid -> lid | _ -> assert false
 
-let field_names_for map lid cons =
+let assert_branches map lid =
   match Hashtbl.find map lid with
   | Regular branches ->
-      fst (List.split (List.assoc cons branches))
+      branches
   | _ ->
       raise Not_found
+
+let field_names_of_cons cons branches =
+  fst (List.split (List.assoc cons branches))
+
+let tag_and_val_type lid branches =
+  let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
+  let structs = List.map (fun (cons, fields) ->
+    Some (union_field_of_cons cons), TAnonymous (Flat fields)
+  ) branches in
+  TAnonymous (Enum tags), TAnonymous (Union structs)
 
 
 (* Fourth step: implement the general transformation of data types into tagged
@@ -338,40 +348,41 @@ let tagged_union_visitor map = object (self)
    *   the tag; it is the union of several struct types, one for each
    *   constructor. *)
   method dtypevariant _env lid branches =
-    let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
-    let structs = List.map (fun (cons, fields) ->
-      Some (union_field_of_cons cons), TAnonymous (Flat fields)
-    ) branches in
+    let t_tag, t_val = tag_and_val_type lid branches in
     Flat [
-      field_for_tag, (TAnonymous (Enum tags), false);
-      field_for_union, (TAnonymous (Union structs), false)
+      field_for_tag, (t_tag, false);
+      field_for_union, (t_val, false)
     ]
 
   (* A pattern on a constructor becomes a pattern on a struct and one of its
    * union fields. *)
   method pcons env t cons fields =
     let lid = assert_lid t in
-    let field_names = field_names_for map lid cons in
+    let branches = assert_branches map lid in
+    let field_names = field_names_of_cons cons branches in
     let fields = List.map (self#visit_pattern env) fields in
     let record_pat = PRecord (List.combine field_names fields) in
+    let t_tag, t_val = tag_and_val_type lid branches in
     PRecord [
       (** This is sound because we rely on left-to-right, lazy semantics for
        * pattern-matching. So, we read the "right" field from the union only
        * after we've ascertained that we're in the right case. *)
-      field_for_tag, with_type TAny (PEnum (mk_tag_lid lid cons));
-      field_for_union, with_type TAny (PRecord [
+      field_for_tag, with_type t_tag (PEnum (mk_tag_lid lid cons));
+      field_for_union, with_type t_val (PRecord [
         union_field_of_cons cons, with_type TAny record_pat
       ])
     ]
 
   method econs env t cons exprs =
     let lid = assert_lid t in
-    let field_names = field_names_for map lid cons in
+    let branches = assert_branches map lid in
+    let field_names = field_names_of_cons cons branches in
     let exprs = List.map (self#visit env) exprs in
     let record_expr = EFlat (List.combine field_names exprs) in
+    let t_tag, t_val = tag_and_val_type lid branches in
     EFlat [
-      field_for_tag, with_type TAny (EEnum (mk_tag_lid lid cons));
-      field_for_union, with_type TAny (EFlat [
+      field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons));
+      field_for_union, with_type t_val (EFlat [
         union_field_of_cons cons, with_type TAny record_expr
       ])
     ]
