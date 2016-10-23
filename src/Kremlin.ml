@@ -162,9 +162,9 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
 
   (* Perform a whole-program rewriting. *)
   let files = Simplify.simplify1 files in
+  let files = Simplify.simplify2 files in
   if !arg_print_simplify then
     print PrintAst.print_files files;
-  let files = Simplify.simplify2 files in
 
   (* The criterion for determining whether we should inline really works well
    * after everything has been simplified, but inlining requires a new round of
