@@ -166,7 +166,10 @@ and p_expr' curr = function
   | Bool b ->
       string (string_of_bool b)
   | CompoundLiteral (t, init) ->
-      lparen ^^ p_type_name t ^^ rparen ^^
+      begin match t with
+      | Some t -> lparen ^^ p_type_name t ^^ rparen
+      | None -> empty
+      end ^^
       braces_with_nesting (separate_map (comma ^^ break1) p_init init)
   | MemberAccess (expr, member) ->
       p_expr' 1 expr ^^ dot ^^ string member
@@ -199,7 +202,11 @@ and p_decl_and_init (decl, init) =
 
 and p_declaration (spec, stor, fspec, decl_and_inits) =
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
-  separate_map space p_function_spec fspec ^/^
+  let fspec = match fspec with
+    | [] -> empty
+    | _ -> separate_map space p_function_spec fspec ^^ space
+  in
+  fspec ^^
   stor ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
@@ -264,7 +271,7 @@ let rec p_stmt (s: stmt) =
           )
       )
   | Break ->
-     string "break" ^^ semi 
+     string "break" ^^ semi
 
 
 let p_decl_or_function (df: declaration_or_function) =

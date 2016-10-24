@@ -2,7 +2,7 @@
 
 module K = Constant
 
-(* This pretty-printer based on: http:/ /en.cppreference.com/w/c/language/declarations 
+(* This pretty-printer based on: http:/ /en.cppreference.com/w/c/language/declarations
  * Many cases are omitted from this bare-bones C grammar; hopefully, to be extended. *)
 type type_spec =
   | Int of Constant.width
@@ -49,7 +49,9 @@ and expr =
   | Literal of string
   | Bool of bool
   | Sizeof of expr
-  | CompoundLiteral of type_name * init list
+  | CompoundLiteral of type_name option * init list
+    (** TODO did this on the plane with no internet, check with cppreference
+     * that the type name is actually optional *)
   | MemberAccess of expr * ident
   | MemberAccessPointer of expr * ident
 

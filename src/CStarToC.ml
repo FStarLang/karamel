@@ -161,14 +161,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
         InitExpr (mk_expr e)
       ) inits))])]
 
-  | Decl (binder, Struct (_typ, fields)) ->
-      let spec, decl = mk_spec_and_declarator binder.name binder.typ in
-      let init = initializer_of_fields fields in
-      [ Decl (spec, None, [], [ decl, Some (Initializer init) ]) ]
-
   | Decl (binder, e) ->
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
-      let init: init option = match e with Any -> None | _ -> Some (InitExpr (mk_expr e)) in
+      let init: init option = match e with Any -> None | _ -> Some (mk_initexpr e) in
       [ Decl (spec, None, [], [ decl, init ]) ]
 
   | IfThenElse (e, b1, b2) ->
@@ -189,11 +184,6 @@ and mk_stmt (stmt: stmt): C.stmt list =
         Op2 (K.Add, mk_expr e1, mk_expr e2);
         Op2 (K.Mult, mk_expr e5, Sizeof (Index (mk_expr e1, Constant (K.UInt8, "0"))))])) ]
 
-  | Abort ->
-      [ Expr (Call (Name "printf", [
-          Literal "KreMLin abort at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
-        Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])) ]
-
   | While (e1, e2) ->
       [ While (mk_expr e1, mk_compound_if (mk_stmts e2)) ]
 
@@ -212,6 +202,12 @@ and mk_stmt (stmt: stmt): C.stmt list =
             Expr (Call (Name "exit", [ Constant (K.UInt8, "253") ]))
           ]
       )]
+
+  | Abort ->
+      [ Expr (Call (Name "printf", [
+          Literal "KreMLin abort at %s:%d\\n"; Name "__FILE__"; Name "__LINE__" ]));
+        Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])); ]
+
 
 and mk_stmts stmts: C.stmt list =
   match stmts with
@@ -279,10 +275,8 @@ and mk_expr (e: expr): C.expr =
   | Bool b ->
       Bool b
 
-  | Struct (name, fields) ->
-      let inits = initializer_of_fields fields in
-      (* TODO really properly specify C's type_name! *)
-      CompoundLiteral ((Named name, Ident ""), inits)
+  | Struct _ ->
+      mk_compound_literal e
 
   | Field (BufRead (e, Constant (_, "0")), field) ->
       MemberAccessPointer (mk_expr e, field)
@@ -291,11 +285,28 @@ and mk_expr (e: expr): C.expr =
       MemberAccess (mk_expr e, field)
 
 
-and initializer_of_fields fields =
+and mk_compound_literal e =
+  match e with
+  | Struct (None, fields) ->
+      CompoundLiteral (None, inits_of_fields fields)
+  | Struct (Some name, fields) ->
+      (* TODO really properly specify C's type_name! *)
+      CompoundLiteral (Some (Named name, Ident ""), inits_of_fields fields)
+  | e ->
+      mk_expr e
+
+and inits_of_fields fields =
   List.map (function
-    | Some field, e -> Designated (Dot field, mk_expr e)
-    | None, e -> InitExpr (mk_expr e)
+    | Some field, e -> Designated (Dot field, mk_compound_literal e)
+    | None, e -> InitExpr (mk_compound_literal e)
   ) fields
+
+and mk_initexpr e =
+  match e with
+  | Struct (_, fields) ->
+      Initializer (inits_of_fields fields)
+  | e ->
+      InitExpr (mk_expr e)
 
 
 and mk_type t =

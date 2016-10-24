@@ -12,6 +12,7 @@ and decl =
   | External of CallingConvention.t option * ident * typ
 
 and stmt =
+  | Abort
   | Return of expr option
   | Ignore of expr
   | Decl of binder * expr
@@ -25,7 +26,6 @@ and stmt =
   | BufBlit of expr * expr * expr * expr * expr
   | PushFrame
   | PopFrame
-  | Abort
   | Switch of expr * (ident * block) list
 
 and expr =
@@ -41,8 +41,13 @@ and expr =
   | Op of op
   | Cast of expr * typ
   | Bool of bool
-  | Struct of ident * (ident option * expr) list
-    (** Either all names are provided, or no names are provided *)
+  | Struct of ident option * (ident option * expr) list
+    (** Some invariants. A struct can appear in an expression (and comes with
+     * the name of the corresponding type definition), or within a struct (will
+     * be translated as an initializer list) and may not have a type annotation
+     * if the field of the corresponding type definition is anonymous. The
+     * expressions are annotated with an (optional) field name. Either all are
+     * annotated, or none. *)
   | Field of expr * ident
   | Comma of expr * expr
   | Any

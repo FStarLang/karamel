@@ -7,6 +7,20 @@ module I = InputAst
 let mk (type a) (node: a): a with_type =
   { node; typ = TAny }
 
+let rec binders_of_pat p =
+  let open I in
+  match p with
+  | PVar b ->
+      [ b ]
+  | PTuple ps
+  | PCons (_, ps) ->
+      KList.map_flatten binders_of_pat ps
+  | PRecord fields ->
+      KList.map_flatten binders_of_pat (snd (List.split fields))
+  | PUnit
+  | PBool _ ->
+      []
+
 let rec mk_decl = function
   | I.DFunction (cc, flags, t, name, binders, body) ->
       DFunction (cc, mk_flags flags, mk_typ t, name, mk_binders binders, mk_expr body)
@@ -130,15 +144,19 @@ and mk_branches branches =
   List.map mk_branch branches
 
 and mk_branch (pat, body) =
-  mk_pat pat, mk_expr body
+  (* This performs on-the-fly conversion to the proper multi-binder
+   * representation. *)
+  let binders = mk_binders (binders_of_pat pat) in
+  binders, mk_pat (List.rev binders) pat, mk_expr body
 
-and mk_pat = function
+and mk_pat binders pat =
+  let rec mk_pat = function
   | I.PUnit ->
       mk PUnit
   | I.PBool b ->
       mk (PBool b)
   | I.PVar b ->
-      mk (PVar (mk_binder b))
+      mk (PBound (KList.index (fun b' -> b'.node.name = b.I.name) binders))
   | I.PTuple pats ->
       mk (PTuple (List.map mk_pat pats))
   | I.PCons (id, pats) ->
@@ -147,6 +165,8 @@ and mk_pat = function
       mk (PRecord (List.map (fun (field, pat) ->
         field, mk_pat pat
       ) fields))
+  in
+  mk_pat pat
 
 and mk_files files =
   List.map mk_program files

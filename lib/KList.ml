@@ -42,3 +42,16 @@ let find_opt f l =
             find tl
   in
   find l
+
+let index p l =
+  let rec index i l =
+    match l with
+    | [] ->
+        raise Not_found
+    | hd :: tl ->
+        if p hd then
+          i
+        else
+          index (i + 1) tl
+  in
+  index 0 l

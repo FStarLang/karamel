@@ -1,5 +1,9 @@
 (** Checking the well-formedness of a program in [Ast] *)
 
+(** TODO this module needs to be rewritten properly with constraints and
+ * everything; the bidirectional algorithm is remarkably poor and extremely
+ * fragile! *)
+
 open Ast
 open Warnings
 open Constant
@@ -311,20 +315,20 @@ and infer_expr' env e t =
        * typing comes into play. Indeed, a flat record is typed nominally (if
        * the context demands it) or structurally (default). TODO just type
        * structurally, and let the subtyping relation do the rest? *)
-      begin try
-        let lid = assert_qualified env t in
-        let fieldtyps = assert_flat env (lookup_type env lid) in
-        if List.length fieldexprs <> List.length fieldtyps then
-          type_error env "some fields are either missing or superfluous";
-        List.iter (fun (field, expr) ->
-          let t, _ = List.assoc field fieldtyps in
-          check_expr env t expr
-        ) fieldexprs;
-        TQualified lid
-      with Not_found ->
-        TAnonymous (Flat (List.map (fun (f, e) ->
-          f, (infer_expr env e, false)
-        ) fieldexprs))
+      begin match t with
+      | TQualified lid ->
+          let fieldtyps = assert_flat env (lookup_type env lid) in
+          if List.length fieldexprs <> List.length fieldtyps then
+            type_error env "some fields are either missing or superfluous";
+          List.iter (fun (field, expr) ->
+            let t, _ = List.assoc field fieldtyps in
+            check_expr env t expr
+          ) fieldexprs;
+          TQualified lid
+      | _ ->
+          TAnonymous (Flat (List.map (fun (f, e) ->
+            f, (infer_expr env e, false)
+          ) fieldexprs))
       end
 
   | EField (e, field) ->
@@ -446,19 +450,24 @@ and check_valid_path env e =
         path to a mutable field"
 
 and check_branches env t_context t_scrutinee branches =
-  check_eqntype env t_context (fun (pat, expr) ->
+  check_eqntype env t_context (fun (binders, pat, expr) ->
+    let env = List.fold_left push env binders in
     check_pat env t_scrutinee pat;
-    let env = List.fold_left push env (binders_of_pat pat) in
     infer_expr env expr
   ) branches
 
 and check_pat env t_context pat =
   match pat.node with
-  | PVar b ->
+  | PBound i ->
+      let b = find env i in
       check_subtype env t_context b.typ;
       b.typ <- t_context;
       check_subtype env t_context pat.typ;
       pat.typ <- t_context
+
+  | POpen _ ->
+      failwith "checker does not open patterns"
+
   | PUnit ->
       check_subtype env t_context TUnit;
       pat.typ <- t_context
@@ -579,6 +588,28 @@ and subtype env t1 t2 =
   | TTuple ts1, TTuple ts2 ->
       List.length ts1 = List.length ts2 &&
       List.for_all2 (subtype env) ts1 ts2
+
+  | TAnonymous (Enum tags1), TAnonymous (Enum tags2) ->
+      List.for_all (fun t1 -> List.mem t1 tags2) tags1
+
+  | TAnonymous (Union fields1), TAnonymous (Union fields2) ->
+      List.length fields1 = List.length fields2 &&
+      List.for_all2 (fun (f1, t1) (f2, t2) ->
+        f1 = f2 && subtype env t1 t2
+      ) fields1 fields2
+
+  | TAnonymous (Flat fields1), TAnonymous (Flat fields2) ->
+      List.length fields1 = List.length fields2 &&
+      List.for_all2 (fun (f1, (t1, _)) (f2, (t2, _)) ->
+        f1 = f2 && subtype env t1 t2
+      ) fields1 fields2
+
+  | TAnonymous (Flat [ f, (t, _) ]), TAnonymous (Union ts) ->
+      List.exists (function
+        | Some f', t' -> f = f' && subtype env t t'
+        | _ -> false
+      ) ts
+
   | _ ->
       false
 

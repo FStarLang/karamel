@@ -7,7 +7,7 @@ KRML	= ../krml
 
 all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
   Private.exe ML16.exe Abbrev.exe TSet.exe Tuples.exe \
-  DataTypesSimple.exe \
+  DataTypesSimple.exe DataTypes.exe \
   Crypto.Symmetric.Poly1305.exe Crypto.Symmetric.Chacha20.exe
 
 broken: Mutable.exe Crypto.AEAD.Chacha20Poly1305.exe
