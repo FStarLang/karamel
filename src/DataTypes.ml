@@ -279,8 +279,6 @@ let compile_branch env scrut (binders, pat, expr): expr * expr =
   mk_conjunction conditionals, expr
 
 let compile_match env e_scrut branches =
-  let b_scrut, name_scrut = Simplify.mk_binding "scrut" e_scrut.typ in
-  let branches = List.map (compile_branch env name_scrut) branches in
   let rec fold_ite = function
     | [] ->
         failwith "impossible"
@@ -289,7 +287,15 @@ let compile_match env e_scrut branches =
     | (cond, e) :: bs ->
         mk (EIfThenElse (cond, e, fold_ite bs))
   in
-  mk (ELet (b_scrut, e_scrut, close_binder b_scrut (fold_ite branches)))
+  match e_scrut.node with
+  | EOpen _ ->
+      let name_scrut = e_scrut in
+      let branches = List.map (compile_branch env name_scrut) branches in
+      fold_ite branches
+  | _ ->
+      let b_scrut, name_scrut = Simplify.mk_binding "scrut" e_scrut.typ in
+      let branches = List.map (compile_branch env name_scrut) branches in
+      mk (ELet (b_scrut, e_scrut, close_binder b_scrut (fold_ite branches)))
 
 
 (* Intermediary step: get rid of really dumb matches we don't want to go through

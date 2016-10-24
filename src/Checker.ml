@@ -139,6 +139,9 @@ let rec check_everything files =
       Warnings.maybe_fatal_error e;
       KPrint.beprintf "Dropping %s (at checking time)\n" (fst p);
       None
+    | e ->
+      KPrint.beprintf "%s\nDropping %s (at checking time)\n" (Printexc.to_string e) (fst p);
+      None
   ) files
 
 and check_program env (name, decls) =
