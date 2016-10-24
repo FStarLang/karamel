@@ -20,11 +20,21 @@ packages (e.g. `ppx_deriving`).
 
 To build just run `make` from this directory.
 
-The WebASM branch uses a new package:
+The WebASM branch uses a new package. If you're not running Windows:
 
 ```
 $ opam repository add jonathan git+https://github.com/msprotz/opam-repository
 $ opam install wasm
+```
+
+If you're running Windows:
+
+```
+$ git clone https://github.com/WebAssembly/spec
+$ cd spec/interpreter
+$ mv aux foo
+$ sed -i s/aux/foo _tags Makefile
+$ make install
 ```
 
 If you have the latest version of F* and `fstar.exe` is in your `PATH` then you
