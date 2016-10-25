@@ -154,6 +154,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   let files = Inlining.inline_type_abbrevs files in
   let files = DataTypes.drop_match_cast files in
   let files = Checker.check_everything files in
+  KPrint.bprintf "%s✔%s Input file successfully checked\n" Ansi.green Ansi.reset;
 
   (* Simplify data types and remove patterns. *)
   let datatypes_state, files = DataTypes.everything files in
