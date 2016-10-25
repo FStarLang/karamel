@@ -163,7 +163,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
 
   | Decl (binder, e) ->
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
-      let init: init option = match e with Any -> None | _ -> Some (mk_initexpr e) in
+      let init: init option = match e with Any -> None | _ -> Some (struct_as_initializer e) in
       [ Decl (spec, None, [], [ decl, init ]) ]
 
   | IfThenElse (e, b1, b2) ->
@@ -275,8 +275,9 @@ and mk_expr (e: expr): C.expr =
   | Bool b ->
       Bool b
 
-  | Struct _ ->
-      mk_compound_literal e
+  | Struct (typ, fields) ->
+      let typ = Option.must typ in
+      mk_compound_literal typ fields
 
   | Field (BufRead (e, Constant (_, "0")), field) ->
       MemberAccessPointer (mk_expr e, field)
@@ -285,29 +286,21 @@ and mk_expr (e: expr): C.expr =
       MemberAccess (mk_expr e, field)
 
 
-and mk_compound_literal e =
-  match e with
-  | Struct (None, fields) ->
-      CompoundLiteral (None, inits_of_fields fields)
-  | Struct (Some name, fields) ->
-      (* TODO really properly specify C's type_name! *)
-      CompoundLiteral (Some (Named name, Ident ""), inits_of_fields fields)
-  | e ->
-      mk_expr e
+and mk_compound_literal name fields =
+  (* TODO really properly specify C's type_name! *)
+  CompoundLiteral ((Named name, Ident ""), fields_as_initializer_list fields)
 
-and inits_of_fields fields =
-  List.map (function
-    | Some field, e -> Designated (Dot field, mk_compound_literal e)
-    | None, e -> InitExpr (mk_compound_literal e)
-  ) fields
-
-and mk_initexpr e =
-  match e with
+and struct_as_initializer = function
   | Struct (_, fields) ->
-      Initializer (inits_of_fields fields)
+      Initializer (fields_as_initializer_list fields)
   | e ->
       InitExpr (mk_expr e)
 
+and fields_as_initializer_list fields =
+  List.map (function
+    | Some field, e -> Designated (Dot field, struct_as_initializer e)
+    | None, e -> struct_as_initializer e
+  ) fields
 
 and mk_type t =
   (* hack alert *)

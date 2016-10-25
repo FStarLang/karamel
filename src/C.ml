@@ -49,7 +49,7 @@ and expr =
   | Literal of string
   | Bool of bool
   | Sizeof of expr
-  | CompoundLiteral of type_name option * init list
+  | CompoundLiteral of type_name * init list
     (** TODO did this on the plane with no internet, check with cppreference
      * that the type name is actually optional *)
   | MemberAccess of expr * ident
@@ -78,7 +78,7 @@ and ident =
 
 and init =
   | InitExpr of expr
-  | Designated of designator * expr
+  | Designated of designator * init
   | Initializer of init list
 
 and designator =

@@ -166,10 +166,7 @@ and p_expr' curr = function
   | Bool b ->
       string (string_of_bool b)
   | CompoundLiteral (t, init) ->
-      begin match t with
-      | Some t -> lparen ^^ p_type_name t ^^ rparen
-      | None -> empty
-      end ^^
+      lparen ^^ p_type_name t ^^ rparen ^^
       braces_with_nesting (separate_map (comma ^^ break1) p_init init)
   | MemberAccess (expr, member) ->
       p_expr' 1 expr ^^ dot ^^ string member
@@ -180,8 +177,8 @@ and p_expr e = p_expr' 15 e
 
 and p_init (i: init) =
   match i with
-  | Designated (designator, expr) ->
-      group (p_designator designator ^/^ equals ^/^ p_expr' 14 expr)
+  | Designated (designator, i) ->
+      group (p_designator designator ^/^ equals ^/^ p_init i)
   | InitExpr e ->
       p_expr' 14 e
   | Initializer inits ->
