@@ -19,7 +19,7 @@ void TestLib_print_clock_diff(clock_t t1, clock_t t2);
 
 #if defined(__i386__)
 
-static __inline__ unsigned long long rdtsc(void)
+static __inline__ unsigned long long TestLib_rdtsc(void)
 {
   unsigned long long int x;
   __asm__ volatile (".byte 0x0f, 0x31" : "=A" (x));
@@ -28,7 +28,7 @@ static __inline__ unsigned long long rdtsc(void)
 #elif defined(__x86_64__)
 
 
-static __inline__ unsigned long long rdtsc(void)
+static __inline__ unsigned long long TestLib_rdtsc(void)
 {
   unsigned hi, lo;
   __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
@@ -38,7 +38,7 @@ static __inline__ unsigned long long rdtsc(void)
 #elif defined(__powerpc__)
 
 
-static __inline__ unsigned long long rdtsc(void)
+static __inline__ unsigned long long TestLib_rdtsc(void)
 {
   unsigned long long int result=0;
   unsigned long int upper, lower,tmp;
