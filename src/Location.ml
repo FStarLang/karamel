@@ -5,6 +5,7 @@ open PPrint
 open PrintCommon
 
 type loc =
+  | File of string
   | In of string
   | InTop of lident
   | Then
@@ -13,7 +14,9 @@ type loc =
 
 let print_loc = function
   | InTop l ->
-      string "in declaration " ^^ print_lident l
+      string "in top-level declaration " ^^ print_lident l
+  | File f ->
+      string "in file " ^^ string f
   | In l ->
       string "in the definition of " ^^ string l
   | Then ->

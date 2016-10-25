@@ -143,7 +143,7 @@ let rec check_everything files =
   ) files
 
 and check_program env (name, decls) =
-  let env = locate env (In name) in
+  let env = locate env (File name) in
   List.iter (check_decl env) decls
 
 and check_decl env d =
