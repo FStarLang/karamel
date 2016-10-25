@@ -6,9 +6,6 @@ open DeBruijn
 open Idents
 open Warnings
 
-let ptyp = PrintAst.ptyp
-let pexpr = PrintAst.pexpr
-
 (* Some helpers ***************************************************************)
 
 let visit_files (env: 'env) (visitor: _ map) (files: file list) =

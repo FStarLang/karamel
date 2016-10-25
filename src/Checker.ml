@@ -8,12 +8,7 @@ open Ast
 open Warnings
 open Constant
 open Location
-
-let pop = PrintAst.pop
-let plid = PrintAst.plid
-let ptyp = PrintAst.ptyp
-let pdecl = PrintAst.pdecl
-let pexpr = PrintAst.pexpr
+open PrintAst.Ops
 
 (** Environments ------------------------------------------------------------ *)
 
@@ -324,7 +319,8 @@ and infer_expr' env e t =
           if List.length fieldexprs <> List.length fieldtyps then
             type_error env "some fields are either missing or superfluous";
           List.iter (fun (field, expr) ->
-            let t, _ = List.assoc field fieldtyps in
+            let field = Option.must field in
+            let t, _ = KList.assoc_opt field fieldtyps in
             check_expr env t expr
           ) fieldexprs;
           TQualified lid
@@ -395,18 +391,10 @@ and find_field env lid field =
 
 and find_field_from_def env def field =
   try begin match def with
-    | Flat fields ->
-        List.assoc field fields
     | Union fields ->
-        begin match KList.find_opt (function
-          | Some field', t when field = field' ->
-              Some (t, false) (* not mutable *)
-          | _ ->
-              None
-        ) fields with
-        | Some t -> t
-        | None -> raise Not_found
-        end
+        List.assoc field fields, false (* not mutable *)
+    | Flat fields ->
+        KList.assoc_opt field fields
     | _ ->
         raise Not_found
   end with Not_found ->
@@ -493,10 +481,10 @@ and check_pat env t_context pat =
   | PRecord fieldpats ->
       let lid = assert_qualified env t_context in
       let fieldtyps = assert_flat env (lookup_type env lid) in
-      List.iter (fun (field, pat) ->
+      List.iter (fun ((field, pat): ident * pattern) ->
         let t, _ =
           try
-            List.assoc field fieldtyps
+            KList.assoc_opt field fieldtyps
           with Not_found ->
             fatal_error "%a, type %a has no field named %s" ploc env.location plid lid field
         in
@@ -607,11 +595,8 @@ and subtype env t1 t2 =
         f1 = f2 && subtype env t1 t2
       ) fields1 fields2
 
-  | TAnonymous (Flat [ f, (t, _) ]), TAnonymous (Union ts) ->
-      List.exists (function
-        | Some f', t' -> f = f' && subtype env t t'
-        | _ -> false
-      ) ts
+  | TAnonymous (Flat [ Some f, (t, _) ]), TAnonymous (Union ts) ->
+      List.exists (fun (f', t') -> f = f' && subtype env t t') ts
 
   | _ ->
       false

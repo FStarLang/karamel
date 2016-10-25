@@ -83,6 +83,7 @@ and typ =
   | Bool
   | Z
 
-  | Struct of (ident * typ) list
+  | Struct of (ident option * typ) list
+      (** In support of anonymous unions. *)
   | Enum of ident list
-  | Union of (ident option * typ) list
+  | Union of (ident * typ) list

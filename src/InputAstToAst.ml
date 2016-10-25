@@ -29,7 +29,7 @@ let rec mk_decl = function
   | I.DGlobal (flags, name, t, e) ->
       DGlobal (mk_flags flags, name, mk_typ t, mk_expr e)
   | I.DTypeFlat (name, fields) ->
-      DType (name, Flat (mk_tfields fields))
+      DType (name, Flat (mk_tfields_opt fields))
   | I.DExternal (cc, name, t) ->
       DExternal (cc, name, mk_typ t)
   | I.DTypeVariant (name, branches) ->
@@ -52,8 +52,11 @@ and mk_binder { I.name; typ; mut } =
 and mk_tfields fields =
   List.map (fun (name, (field, mut)) -> name, (mk_typ field, mut)) fields
 
+and mk_tfields_opt fields =
+  List.map (fun (name, (field, mut)) -> Some name, (mk_typ field, mut)) fields
+
 and mk_fields fields =
-  List.map (fun (name, field) -> name, mk_expr field) fields
+  List.map (fun (name, field) -> Some name, mk_expr field) fields
 
 and mk_typ = function
   | I.TInt x ->

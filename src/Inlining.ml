@@ -15,10 +15,7 @@
 open Ast
 open Warnings
 open Idents
-
-let plid = PrintAst.plid
-let ptyp = PrintAst.ptyp
-let pexpr = PrintAst.pexpr
+open PrintAst.Ops
 
 module LidMap = Map.Make(struct
   type t = lident

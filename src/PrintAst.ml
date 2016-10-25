@@ -47,7 +47,7 @@ let rec print_decl = function
 and print_type_def = function
   | Flat fields ->
       string "flat" ^/^
-      braces_with_nesting (print_fields_t fields)
+      braces_with_nesting (print_fields_opt_t fields)
 
   | Variant branches ->
       string "data" ^^
@@ -65,10 +65,7 @@ and print_type_def = function
   | Union fields ->
       string "union" ^/^ braces_with_nesting
         (separate_map (semi ^^ hardline) (fun (name, t) -> group (
-            if name = None then
-              empty
-            else
-              string (Option.must name) ^/^ equals ^^ break1
+            string name ^/^ equals ^^ break1
           ) ^^ print_typ t)
         fields)
 
@@ -82,6 +79,13 @@ and print_fields_t fields =
   separate_map (semi ^^ hardline) (fun (ident, (typ, mut)) ->
     let mut = if mut then string "mutable " else empty in
     group (group (mut ^^ string ident ^^ colon) ^/^ print_typ typ)
+  ) fields
+
+and print_fields_opt_t fields =
+  separate_map (semi ^^ hardline) (fun (ident, (typ, mut)) ->
+    let ident = if ident = None then empty else string (Option.must ident) in
+    let mut = if mut then string "mutable " else empty in
+    group (group (mut ^^ ident ^^ colon) ^/^ print_typ typ)
   ) fields
 
 and print_flags flags =
@@ -178,7 +182,8 @@ and print_expr { node; _ } =
       string "return" ^/^ (nest 2 (print_expr e))
   | EFlat fields ->
       braces_with_nesting (separate_map break1 (fun (name, expr) ->
-        group (string name ^/^ equals ^/^ print_expr expr ^^ semi)
+        let name = match name with Some name -> string name | None -> empty in
+        group (name ^/^ equals ^/^ print_expr expr ^^ semi)
       ) fields)
   | EField (expr, field) ->
       parens_with_nesting (print_expr expr) ^^ dot ^^ string field
@@ -234,8 +239,12 @@ and print_pat p =
 
 let print_files = print_files print_decl
 
-let ptyp = printf_of_pprint print_typ
-let pexpr = printf_of_pprint print_expr
-let plid = printf_of_pprint print_lident
-let pdecl = printf_of_pprint_pretty print_decl
-let pop = printf_of_pprint_pretty print_op
+module Ops = struct
+  let ptyp = printf_of_pprint print_typ
+  let pexpr = printf_of_pprint print_expr
+  let plid = printf_of_pprint print_lident
+  let pdecl = printf_of_pprint_pretty print_decl
+  let pop = printf_of_pprint_pretty print_op
+end
+
+include Ops

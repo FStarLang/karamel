@@ -19,10 +19,13 @@ and decl =
 
 and type_def =
   | Abbrev of int * typ
-  | Flat of fields_t
+  | Flat of fields_t_opt
   | Variant of branches_t
   | Enum of lident list
-  | Union of (ident option * typ) list
+  | Union of (ident * typ) list
+
+and fields_t_opt =
+  (ident option * (typ * bool)) list
 
 and fields_t =
   (ident * (typ * bool)) list
@@ -68,7 +71,7 @@ and expr' =
   | EAbort
     (** exits the program prematurely *)
   | EReturn of expr
-  | EFlat of (ident * expr) list
+  | EFlat of (ident option * expr) list
   | EField of expr * ident
   | EWhile of expr * expr
   | EBufCreateL of expr list
@@ -423,7 +426,7 @@ class virtual ['env] map = object (self)
 
   (* Types *)
 
-  method visit_t (env: 'env) (t: typ): 'tresult =
+  method visit_t (env: 'env) (t: typ): typ =
     match t with
     | TInt w ->
         self#tint env w
@@ -553,8 +556,9 @@ class virtual ['env] map = object (self)
     let env = extend env n in
     Abbrev (n, self#visit_t env t)
 
-  method fields_t env fields =
-    List.map (fun (name, (t, mut)) -> name, (self#visit_t env t, mut)) fields
+  method fields_t: 'a. 'env -> (('a * (typ * bool)) list) -> (('a * (typ * bool)) list) =
+    fun env fields ->
+      List.map (fun (name, (t, mut)) -> name, (self#visit_t env t, mut)) fields
 
   method dtypeflat env fields =
     let fields = self#fields_t env fields in

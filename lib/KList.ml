@@ -55,3 +55,15 @@ let index p l =
           index (i + 1) tl
   in
   index 0 l
+
+let assoc_opt k l =
+  begin match find_opt (function
+    | Some k', v when k' = k ->
+        Some v
+    | _ ->
+        None
+  ) l with
+  | Some v -> v
+  | None -> raise Not_found
+  end
+

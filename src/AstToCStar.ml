@@ -21,10 +21,7 @@ open Ast
 open Idents
 open Warnings
 open Location
-
-let pexpr = PrintAst.pexpr
-let ptyp = PrintAst.ptyp
-let plid = PrintAst.plid
+open PrintAst.Ops
 
 let map_flatten f l = List.flatten (List.map f l)
 
@@ -241,7 +238,7 @@ let rec translate_expr env in_stmt e =
   | EFlat fields ->
       let name = match e.typ with TQualified lid -> Some (string_of_lident lid) | _ -> None in
       CStar.Struct (name, List.map (fun (name, expr) ->
-        Some name, translate_expr env expr
+        name, translate_expr env expr
       ) fields)
   | EField (expr, field) ->
       CStar.Field (translate_expr env expr, field)

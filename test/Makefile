@@ -10,7 +10,7 @@ all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
   DataTypesSimple.exe DataTypes.exe \
   Crypto.Symmetric.Poly1305.exe Crypto.Symmetric.Chacha20.exe
 
-broken: Mutable.exe Crypto.AEAD.Chacha20Poly1305.exe
+broken: Mutable.exe Crypto.Test.exe
 
 # Standalone test files that have a main in F* (hence -no-prefix)
 %.exe: %.fst

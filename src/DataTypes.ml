@@ -2,6 +2,7 @@
 
 open Ast
 open DeBruijn
+(* open PrintAst.Ops *)
 
 module K = Constant
 
@@ -21,7 +22,8 @@ let drop_match_cast files =
 
   end) files
 
-(* First thing: get rid of tuples, and allocate struct definitions for them. *)
+(* First thing: get rid of tuples, and generate (monomorphize) struct
+ * definitions for them. *)
 module Gen = struct
   let generated_tuples = Hashtbl.create 41
   let pending_defs = ref []
@@ -46,7 +48,7 @@ module Gen = struct
       in
       let lid = ns, KPrint.bsprintf "%a" PrintCommon.pdoc doc in
       let fields = List.mapi (fun i t ->
-        nth_field i, (t, false)
+        Some (nth_field i), (t, false)
       ) ts in
       let type_def = DType (lid, Flat fields) in
       pending_defs := (ts, type_def) :: !pending_defs;
@@ -77,7 +79,7 @@ let record_of_tuple = object(self)
 
   method! etuple () _ es =
     EFlat (List.mapi (fun i e ->
-      Gen.nth_field i, self#visit () e
+      Some (Gen.nth_field i), self#visit () e
     ) es)
 
   method! ttuple () ts =
@@ -99,70 +101,6 @@ type optim = ToEnum | ToFlat of ident list | Regular of branches_t
 let mk_tag_lid type_lid cons =
   let prefix, name = type_lid in
   (prefix @ [ name ], cons)
-
-let optimize_visitor map = object(self)
-
-  inherit [unit] map
-
-  method econs () typ cons args =
-    let lid = match typ with TQualified lid -> lid | _ -> assert false in
-    match Hashtbl.find map lid with
-    | exception Not_found ->
-        ECons (cons, List.map (self#visit ()) args)
-    | Regular _ ->
-        ECons (cons, List.map (self#visit ()) args)
-    | ToEnum ->
-        assert (List.length args = 0);
-        EEnum (mk_tag_lid lid cons)
-    | ToFlat names ->
-        EFlat (List.map2 (fun n e -> n, e) names args)
-
-  method pcons () typ cons args =
-    let lid = match typ with TQualified lid -> lid | _ -> assert false in
-    match Hashtbl.find map lid with
-    | exception Not_found ->
-        PCons (cons, List.map (self#visit_pattern ()) args)
-    | Regular _ ->
-        PCons (cons, List.map (self#visit_pattern ()) args)
-    | ToEnum ->
-        assert (List.length args = 0);
-        PEnum (mk_tag_lid lid cons)
-    | ToFlat names ->
-        PRecord (List.map2 (fun n e -> n, e) names args)
-
-  method dtype () lid def =
-    match def with
-    | Variant branches ->
-        begin match Hashtbl.find map lid with
-        | exception Not_found ->
-            DType (lid, Variant branches)
-        | Regular _ ->
-            DType (lid, Variant branches)
-        | ToEnum ->
-            DType (lid, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
-        | ToFlat _ ->
-            DType (lid, Flat (snd (List.hd branches)))
-        end
-    | _ ->
-        DType (lid, def)
-end
-
-let build_map files =
-  Inlining.build_map files (fun map -> function
-    | DType (lid, Variant branches) ->
-        if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
-          Hashtbl.add map lid ToEnum
-        else if List.length branches = 1 then
-          Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
-        else
-          Hashtbl.add map lid (Regular branches)
-    | _ ->
-        ()
-  )
-
-
-(** Third thing: get rid of (trivial) matches in favor of bindings,
- * if-then-else, and switches. *)
 
 let mk_switch e branches =
   ESwitch (e, List.map (fun (_, pat, e) ->
@@ -191,10 +129,52 @@ let try_mk_flat e branches =
   | _ ->
       EMatch (e, branches)
 
-
-let remove_match_visitor map = object(self)
+let compile_simple_matches map = object(self)
 
   inherit [unit] map
+
+  method econs () typ cons args =
+    let lid = match typ with TQualified lid -> lid | _ -> assert false in
+    match Hashtbl.find map lid with
+    | exception Not_found ->
+        ECons (cons, List.map (self#visit ()) args)
+    | Regular _ ->
+        ECons (cons, List.map (self#visit ()) args)
+    | ToEnum ->
+        assert (List.length args = 0);
+        EEnum (mk_tag_lid lid cons)
+    | ToFlat names ->
+        EFlat (List.map2 (fun n e -> Some n, e) names args)
+
+  method pcons () typ cons args =
+    let lid = match typ with TQualified lid -> lid | _ -> assert false in
+    match Hashtbl.find map lid with
+    | exception Not_found ->
+        PCons (cons, List.map (self#visit_pattern ()) args)
+    | Regular _ ->
+        PCons (cons, List.map (self#visit_pattern ()) args)
+    | ToEnum ->
+        assert (List.length args = 0);
+        PEnum (mk_tag_lid lid cons)
+    | ToFlat names ->
+        PRecord (List.map2 (fun n e -> n, e) names args)
+
+  method dtype () lid def =
+    match def with
+    | Variant branches ->
+        begin match Hashtbl.find map lid with
+        | exception Not_found ->
+            DType (lid, Variant branches)
+        | Regular _ ->
+            DType (lid, Variant branches)
+        | ToEnum ->
+            DType (lid, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
+        | ToFlat _ ->
+            let fields = List.map (fun (f, t) -> Some f, t) (snd (List.hd branches)) in
+            DType (lid, Flat fields)
+        end
+    | _ ->
+        DType (lid, def)
 
   method ematch () _ e branches =
     let e = self#visit () e in
@@ -217,8 +197,45 @@ let remove_match_visitor map = object(self)
 
 end
 
+let build_map files =
+  Inlining.build_map files (fun map -> function
+    | DType (lid, Variant branches) ->
+        if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
+          Hashtbl.add map lid ToEnum
+        else if List.length branches = 1 then
+          Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
+        else
+          Hashtbl.add map lid (Regular branches)
+    | _ ->
+        ()
+  )
 
-let union_field_of_cons = (^) "u_"
+(* Third step: get rid of really dumb matches we don't want to go through
+ * our elaborate match-compilation scheme. *)
+
+let remove_trivial_matches = object (self)
+
+  inherit [unit] map
+
+  method! ematch () _ e branches =
+    match e.node, branches with
+    | EUnit, [ [], { node = PUnit; _ }, body ] ->
+        (self#visit () body).node
+    | _, [ [], { node = PBool true; _ }, b1; [ v ], { node = PBound 0; _ }, b2 ] when !(v.node.mark) = 0 ->
+        let b1 = self#visit () b1 in
+        let _, b2 = open_binder v b2 in
+        let b2 = self#visit () b2 in
+        EIfThenElse (e, b1, b2)
+    | _ ->
+        EMatch (e, self#branches () branches)
+
+end
+
+
+(* Fourth step is the core of this module: translating data types definitions as
+ * tagged unions, and compiling pattern matches. *)
+
+let union_field_of_cons = (^) "case_"
 let field_for_tag = "tag"
 let field_for_union = "val"
 
@@ -298,27 +315,6 @@ let compile_match env e_scrut branches =
       mk (ELet (b_scrut, e_scrut, close_binder b_scrut (fold_ite branches)))
 
 
-(* Intermediary step: get rid of really dumb matches we don't want to go through
- * our elaborate match-compilation scheme. *)
-
-let dummy_match = object (self)
-
-  inherit [unit] map
-
-  method! ematch () _ e branches =
-    match e.node, branches with
-    | EUnit, [ [], { node = PUnit; _ }, body ] ->
-        (self#visit () body).node
-    | _, [ [], { node = PBool true; _ }, b1; [ v ], { node = PBound 0; _ }, b2 ] when !(v.node.mark) = 0 ->
-        let b1 = self#visit () b1 in
-        let _, b2 = open_binder v b2 in
-        let b2 = self#visit () b2 in
-        EIfThenElse (e, b1, b2)
-    | _ ->
-        EMatch (e, self#branches () branches)
-
-end
-
 let assert_lid t =
   (* We only have nominal typing for variants. *)
   match t with TQualified lid -> lid | _ -> assert false
@@ -336,14 +332,15 @@ let field_names_of_cons cons branches =
 let tag_and_val_type lid branches =
   let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
   let structs = List.map (fun (cons, fields) ->
-    Some (union_field_of_cons cons), TAnonymous (Flat fields)
+    let fields = List.map (fun (f, t) -> Some f, t) fields in
+    union_field_of_cons cons, TAnonymous (Flat fields)
   ) branches in
   TAnonymous (Enum tags), TAnonymous (Union structs)
 
 
 (* Fourth step: implement the general transformation of data types into tagged
  * unions. *)
-let tagged_union_visitor map = object (self)
+let compile_all_matches map = object (self)
 
   inherit [unit] map
 
@@ -356,8 +353,8 @@ let tagged_union_visitor map = object (self)
   method dtypevariant _env lid branches =
     let t_tag, t_val = tag_and_val_type lid branches in
     Flat [
-      field_for_tag, (t_tag, false);
-      field_for_union, (t_val, false)
+      Some field_for_tag, (t_tag, false);
+      Some field_for_union, (t_val, false)
     ]
 
   (* A pattern on a constructor becomes a pattern on a struct and one of its
@@ -383,13 +380,14 @@ let tagged_union_visitor map = object (self)
     let lid = assert_lid t in
     let branches = assert_branches map lid in
     let field_names = field_names_of_cons cons branches in
+    let field_names = List.map (fun x -> Some x) field_names in
     let exprs = List.map (self#visit env) exprs in
     let record_expr = EFlat (List.combine field_names exprs) in
     let t_tag, t_val = tag_and_val_type lid branches in
     EFlat [
-      field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons));
-      field_for_union, with_type t_val (EFlat [
-        union_field_of_cons cons, with_type TAny record_expr
+      Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons));
+      Some field_for_union, with_type t_val (EFlat [
+        Some (union_field_of_cons cons), with_type TAny record_expr
       ])
     ]
 
@@ -428,11 +426,61 @@ let tagged_union_visitor map = object (self)
 
 end
 
+let is_tagged_union map lid =
+  match Hashtbl.find map lid with
+  | exception Not_found ->
+      false
+  | Regular _ ->
+      true
+  | _ ->
+      false
+
+(* Fifth step: if the compiler supports it, use C11 anonymous structs. *)
+
+let anonymous_unions map = object (self)
+  inherit [_] map
+
+  method efield () _t e f =
+    match e.typ with
+    | TQualified lid when f = field_for_union && is_tagged_union map lid ->
+        let e = self#visit () e in
+        e.node
+    | _ ->
+        EField (self#visit () e, f)
+
+  method type_def _env lid d =
+    match d, lid with
+    | Flat [ Some f1, t1; Some f2, t2 ], Some lid when
+      f1 = field_for_tag && f2 = field_for_union &&
+      is_tagged_union map lid ->
+        Flat [ Some f1, t1; None, t2 ]
+    | _ ->
+        d
+
+  method eflat _env t fields =
+    match fields, t with
+    | [ Some f1, t1; Some f2, t2 ], TQualified lid when
+      f1 = field_for_tag && f2 = field_for_union &&
+      is_tagged_union map lid ->
+        EFlat [ Some f1, t1; None, t2 ]
+    | _ ->
+        EFlat fields
+
+end
+
 let everything files =
   let files = Simplify.visit_files () record_of_tuple files in
   let map = build_map files in
-  let files = Simplify.visit_files () (optimize_visitor map) files in
-  let files = Simplify.visit_files () (remove_match_visitor map) files in
-  let files = Simplify.visit_files () dummy_match files in
-  let files = Simplify.visit_files () (tagged_union_visitor map) files in
-  files
+  let files = Simplify.visit_files () remove_trivial_matches files in
+  let files = Simplify.visit_files () (compile_simple_matches map) files in
+  let files = Simplify.visit_files () (compile_all_matches map) files in
+  map, files
+
+let anonymous_unions map files =
+  (* TODO: not really clean... this is run after C name translation has occured,
+   * but the map was built with original dot-names... so run this through the
+   * translation table using the global state. *)
+  let old_map = map in
+  let map = Hashtbl.create 41 in
+  Hashtbl.iter (fun k v -> Hashtbl.add map (Simplify.t k) v) old_map;
+  Simplify.visit_files () (anonymous_unions map) files

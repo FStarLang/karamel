@@ -55,12 +55,12 @@ let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type
       Named "bool", k (Ident name)
   | Struct fields ->
       Struct (None, List.map (fun (name, typ) ->
+        let name = match name with Some name -> name | None -> "" in
         let spec, decl = mk_spec_and_declarator name typ in
         spec, None, [], [ decl, None ]
       ) fields), k (Ident name)
   | Union fields ->
       Union (None, List.map (fun (name, typ) ->
-        let name = match name with Some name -> name | None -> "" in
         let spec, decl = mk_spec_and_declarator name typ in
         spec, None, [], [ decl, None ]
       ) fields), k (Ident name)

@@ -156,7 +156,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   let files = Checker.check_everything files in
 
   (* Simplify data types and remove patterns. *)
-  let files = DataTypes.everything files in
+  let datatypes_state, files = DataTypes.everything files in
   if !arg_print_pattern then
     print PrintAst.print_files files;
 
@@ -180,6 +180,14 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
    * abbreviations to check that our stuff makes sense. *)
   let files = Inlining.drop_type_abbrevs files in
   let files = Inlining.drop_unused files in
+
+  (* This breaks typing. *)
+  let files =
+    if !Options.cc <> "compcert" then
+      DataTypes.anonymous_unions datatypes_state files
+    else
+      files
+  in
 
   (* Translate to C*... *)
   let files = AstToCStar.translate_files files in
