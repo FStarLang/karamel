@@ -130,13 +130,16 @@ let rec check_everything files =
     try
       check_program env p;
       Some p
-    with Error e ->
-      Warnings.maybe_fatal_error e;
-      KPrint.beprintf "Dropping %s (at checking time)\n" (fst p);
-      None
+    with
+    | Error e ->
+        Warnings.maybe_fatal_error e;
+        KPrint.beprintf "Dropping %s (at checking time)\n" (fst p);
+        None
     | e ->
-      KPrint.beprintf "%s\nDropping %s (at checking time)\n" (Printexc.to_string e) (fst p);
-      None
+        let e = Printexc.to_string e in
+        Warnings.maybe_fatal_error ("<toplevel>", TypeError e);
+        KPrint.beprintf "Dropping %s (at checking time)\n" (fst p);
+        None
   ) files
 
 and check_program env (name, decls) =
