@@ -417,7 +417,7 @@ and hoist_expr under_stmt_let e =
       else
         let b = fresh_binder "_" TUnit in
         let b = { b with node = { b.node with meta = Some MetaSequence }} in
-        lhs1 @ [ b, mk (EAssign (e1, e2)) ], mk EUnit
+        lhs1 @ lhs2 @ [ b, mk (EAssign (e1, e2)) ], mk EUnit
 
   | EBufCreate (e1, e2) ->
       let t = e.typ in
