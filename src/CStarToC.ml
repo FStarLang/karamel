@@ -22,8 +22,8 @@ let rec adapt (t: CStar.typ) =
   | Qualified _ -> t
   | Array (t, e) ->
       Array (adapt t, e)
-  | Function (t, ts) ->
-      Pointer (Function (adapt t, List.map adapt ts))
+  | Function (cc, t, ts) ->
+      Pointer (Function (cc, adapt t, List.map adapt ts))
   | Struct fields ->
       Struct (List.map (fun (field, t) -> field, adapt t) fields)
   | Union fields ->
@@ -37,9 +37,9 @@ let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type
       mk_spec_and_decl name t (fun d -> Pointer (k d))
   | Array (t, size) ->
       mk_spec_and_decl name t (fun d -> Array (k d, mk_expr size))
-  | Function (t, ts) ->
+  | Function (cc, t, ts) ->
       mk_spec_and_decl name t (fun d ->
-        Function (k d, List.mapi (fun i t ->
+        Function (cc, k d, List.mapi (fun i t ->
           mk_spec_and_decl (KPrint.bsprintf "x%d" i) t (fun d -> d)) ts))
   | Int w ->
       Int w, k (Ident name)
@@ -57,20 +57,20 @@ let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type
       Struct (None, List.map (fun (name, typ) ->
         let name = match name with Some name -> name | None -> "" in
         let spec, decl = mk_spec_and_declarator name typ in
-        spec, None, [], [ decl, None ]
+        spec, None, [ decl, None ]
       ) fields), k (Ident name)
   | Union fields ->
       Union (None, List.map (fun (name, typ) ->
         let spec, decl = mk_spec_and_declarator name typ in
-        spec, None, [], [ decl, None ]
+        spec, None, [ decl, None ]
       ) fields), k (Ident name)
 
 and mk_spec_and_declarator name t =
   mk_spec_and_decl name (adapt t) (fun d -> d)
 
-and mk_spec_and_declarator_f name ret_t params =
+and mk_spec_and_declarator_f cc name ret_t params =
   mk_spec_and_decl name (adapt ret_t) (fun d ->
-    Function (d, List.map (fun (n, t) -> mk_spec_and_decl n (adapt t) (fun d -> d)) params))
+    Function (cc, d, List.map (fun (n, t) -> mk_spec_and_decl n (adapt t) (fun d -> d)) params))
 
 (* Enforce the invariant that declarations are wrapped in compound statements
  * and cannot appear "alone". *)
@@ -144,12 +144,12 @@ and mk_stmt (stmt: stmt): C.stmt list =
             (* Note: only works if the length and initial value are pure
              * computations... which F* guarantees! *)
             [ For (
-                (Int K.UInt, None, [], [ Ident "i", Some (InitExpr (Constant (K.Int, "0")))]),
+                (Int K.UInt, None, [ Ident "i", Some (InitExpr (Constant (K.Int, "0")))]),
                 Op2 (K.Lt, Name "i", mk_expr size),
                 Op1 (K.PreIncr, Name "i"),
                 Expr (Op2 (K.Assign, Index (Name binder.name, Name "i"), mk_expr init)))]
       in
-      Decl (spec, None, [], [ decl, maybe_init ]) :: extra_stmt
+      Decl (spec, None, [ decl, maybe_init ]) :: extra_stmt
 
   | Decl (binder, BufCreateL inits) ->
       let t = match binder.typ with
@@ -157,14 +157,14 @@ and mk_stmt (stmt: stmt): C.stmt list =
         | _ -> failwith "impossible"
       in
       let spec, decl = mk_spec_and_declarator binder.name t in
-      [ Decl (spec, None, [], [ decl, Some (Initializer (List.map (fun e ->
+      [ Decl (spec, None, [ decl, Some (Initializer (List.map (fun e ->
         InitExpr (mk_expr e)
       ) inits))])]
 
   | Decl (binder, e) ->
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
       let init: init option = match e with Any -> None | _ -> Some (struct_as_initializer e) in
-      [ Decl (spec, None, [], [ decl, init ]) ]
+      [ Decl (spec, None, [ decl, init ]) ]
 
   | IfThenElse (e, b1, b2) ->
       if List.length b2 > 0 then
@@ -306,13 +306,6 @@ and mk_type t =
   (* hack alert *)
   mk_spec_and_declarator "" t
 
-let mk_function_spec cc =
-  match cc with
-  | Some cc ->
-      [ CallingConvention cc ]
-  | None ->
-      []
-
 (** .c files include their own header *)
 let mk_decl_or_function (d: decl): C.declaration_or_function option =
   match d with
@@ -323,9 +316,9 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
   | Function (cc, return_type, name, parameters, body) ->
       begin try
         let parameters = List.map (fun { name; typ } -> name, typ) parameters in
-        let spec, decl = mk_spec_and_declarator_f name return_type parameters in
+        let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
         let body = ensure_compound (mk_stmts body) in
-        Some (Function ((spec, None, mk_function_spec cc, [ decl, None ]), body))
+        Some (Function ((spec, None, [ decl, None ]), body))
       with e ->
         beprintf "Fatal exception raised in %s\n" name;
         raise e
@@ -336,10 +329,10 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
       let spec, decl = mk_spec_and_declarator name t in
       match expr with
       | Any ->
-          Some (Decl (spec, None, [], [ decl, None ]))
+          Some (Decl (spec, None, [ decl, None ]))
       | _ ->
           let expr = mk_expr expr in
-          Some (Decl (spec, None, [], [ decl, Some (InitExpr expr) ]))
+          Some (Decl (spec, None, [ decl, Some (InitExpr expr) ]))
 
 
 let mk_program decls =
@@ -353,32 +346,32 @@ let mk_stub_or_function (d: decl): C.declaration_or_function =
   match d with
   | Type (name, t) ->
       let spec, decl = mk_spec_and_declarator name t in
-      Decl (spec, Some Typedef, [], [ decl, None ])
+      Decl (spec, Some Typedef, [ decl, None ])
 
   | Function (cc, return_type, name, parameters, _) ->
       begin try
         let parameters = List.map (fun { name; typ } -> name, typ) parameters in
-        let spec, decl = mk_spec_and_declarator_f name return_type parameters in
-        Decl (spec, None, mk_function_spec cc, [ decl, None ])
+        let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
+        Decl (spec, None, [ decl, None ])
       with e ->
         beprintf "Fatal exception raised in %s\n" name;
         raise e
       end
 
-  | External (cc, name, Function (t, ts)) ->
-      let spec, decl = mk_spec_and_declarator_f name t (List.mapi (fun i t ->
+  | External (name, Function (cc, t, ts)) ->
+      let spec, decl = mk_spec_and_declarator_f cc name t (List.mapi (fun i t ->
         KPrint.bsprintf "x%d" i, t
       ) ts) in
-      Decl (spec, Some Extern, mk_function_spec cc, [ decl, None ])
+      Decl (spec, Some Extern, [ decl, None ])
 
-  | External (_, name, t) ->
+  | External (name, t) ->
       let spec, decl = mk_spec_and_declarator name t in
-      Decl (spec, Some Extern, [], [ decl, None ])
+      Decl (spec, Some Extern, [ decl, None ])
 
   | Global (name, t, _) ->
       let t = match t with Function _ -> Pointer t | _ -> t in
       let spec, decl = mk_spec_and_declarator name t in
-      Decl (spec, Some Extern, [], [ decl, None ])
+      Decl (spec, Some Extern, [ decl, None ])
 
 
 let mk_header decls =

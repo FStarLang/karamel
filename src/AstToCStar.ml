@@ -418,7 +418,7 @@ and translate_return_type env = function
       CStar.Pointer CStar.Void
   | TArrow _ as t ->
       let ret, args = flatten_arrow t in
-      CStar.Function (translate_return_type env ret, List.map (translate_type env) args)
+      CStar.Function (None, translate_return_type env ret, List.map (translate_type env) args)
   | TZ ->
       CStar.Z
   | TBound _ ->
@@ -496,7 +496,16 @@ and translate_declaration env d: CStar.decl option =
         translate_expr env false body))
 
   | DExternal (cc, name, t) ->
-      Some (CStar.External (cc, string_of_lident name, translate_type env t))
+      let t = match translate_type env t with
+        | CStar.Function (None, ret, args) ->
+            CStar.Function (cc, ret, args)
+        | CStar.Function (Some _, _, _) ->
+            failwith "impossible"
+        | t ->
+            assert (cc = None);
+            t
+      in
+      Some (CStar.External (string_of_lident name, t))
 
   | DType (_, Abbrev (n, _)) when n <> 0 ->
       None

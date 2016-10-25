@@ -17,9 +17,6 @@ and storage_spec =
   | Typedef
   | Extern
 
-and function_spec =
-  | CallingConvention of CallingConvention.t
-
 and declarator_and_init =
   declarator * init option
 
@@ -30,7 +27,7 @@ and declarator =
   | Ident of ident
   | Pointer of declarator
   | Array of declarator * expr
-  | Function of declarator * params
+  | Function of CallingConvention.t option * declarator * params
 
 and expr =
   | Op1 of K.op * expr
@@ -70,8 +67,7 @@ and param =
   type_spec * declarator
 
 and declaration =
-  type_spec * storage_spec option * function_spec list * declarator_and_inits
-    (** [function_spec list] not empty only when declaring functions *)
+  type_spec * storage_spec option * declarator_and_inits
 
 and ident =
   string

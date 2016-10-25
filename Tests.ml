@@ -17,8 +17,8 @@ let _ =
   p t;
   let t: CStar.typ = Pointer (Array (Int UInt8, Constant (UInt8, "4"))) in
   p t;
-  let t: CStar.typ = Pointer (Function (Pointer (Array (Int UInt8, Constant (UInt8, "3"))), [Int UInt32])) in
+  let t: CStar.typ = Pointer (Function (None, Pointer (Array (Int UInt8, Constant (UInt8, "3"))), [Int UInt32])) in
   p t;
-  let t: CStar.typ = Pointer (Function (Struct ([ Some "bar", Int UInt8 ]), [Int UInt32])) in
+  let t: CStar.typ = Pointer (Function (None, Struct ([ Some "bar", Int UInt8 ]), [Int UInt32])) in
   p t;
 ;;

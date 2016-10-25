@@ -9,7 +9,7 @@ and decl =
   | Global of ident * typ * expr
   | Function of CallingConvention.t option * typ * ident * binder list * block
   | Type of ident * typ
-  | External of CallingConvention.t option * ident * typ
+  | External of ident * typ
 
 and stmt =
   | Abort
@@ -78,7 +78,7 @@ and typ =
   | Void
   | Qualified of ident
   | Array of typ * expr
-  | Function of typ * typ list
+  | Function of CallingConvention.t option * typ * typ list
       (** Return type, arguments *)
   | Bool
   | Z

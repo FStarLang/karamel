@@ -31,9 +31,6 @@ let p_storage_spec = function
   | Typedef -> string "typedef"
   | Extern -> string "extern"
 
-let p_function_spec = function
-  | CallingConvention cc -> print_cc cc
-
 let rec p_type_spec = function
   | Int w -> print_width w ^^ string "_t"
   | Void -> string "void"
@@ -58,10 +55,11 @@ and p_type_declarator d =
         string n
     | Array (d, s) ->
         p_noptr d ^^ lbracket ^^ p_expr s ^^ rbracket
-    | Function (d, params) ->
-        p_noptr d ^^ parens_with_nesting (separate_map (comma ^^ break 1) (fun (spec, decl) ->
+    | Function (cc, d, params) ->
+        let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
+        group (cc ^^ p_noptr d ^^ parens_with_nesting (separate_map (comma ^^ break 1) (fun (spec, decl) ->
           group (p_type_spec spec ^/^ p_any decl)
-        ) params)
+        ) params))
     | d ->
         lparen ^^ p_any d ^^ rparen
   and p_any = function
@@ -197,13 +195,8 @@ and p_decl_and_init (decl, init) =
     | None ->
         empty)
 
-and p_declaration (spec, stor, fspec, decl_and_inits) =
+and p_declaration (spec, stor, decl_and_inits) =
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
-  let fspec = match fspec with
-    | [] -> empty
-    | _ -> separate_map space p_function_spec fspec ^^ space
-  in
-  fspec ^^
   stor ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
