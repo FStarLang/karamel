@@ -211,11 +211,28 @@ let build_map files =
   )
 
 (* Third step: get rid of really dumb matches we don't want to go through
- * our elaborate match-compilation scheme. *)
+ * our elaborate match-compilation scheme. Also perform some other F*-specific
+ * cleanups. *)
+
+let is_special name =
+  name = "scrutinee" ||
+  KString.starts_with name "uu____"
+
+let pwild = with_type TAny PWild
+let eany = with_type TAny EAny
 
 let remove_trivial_matches = object (self)
 
   inherit [unit] map
+
+  method! elet () t b e1 e2 =
+    match open_binder b e2 with
+    | b, { node = EMatch ({ node = EOpen (_, a); _ }, branches); _ } when
+      is_special b.node.name && !(b.node.mark) = 1 &&
+      Atom.equal a b.node.atom ->
+        self#visit_e () (EMatch (e1, branches)) t
+    | _ ->
+        ELet (b, self#visit () e1, self#visit () e2)
 
   method! ematch () _ e branches =
     match e.node, branches with
@@ -229,6 +246,16 @@ let remove_trivial_matches = object (self)
     | _ ->
         EMatch (e, self#branches () branches)
 
+  method! branch env (binders, pat, expr) =
+    let _, binders, pat, expr = List.fold_left (fun (i, binders, pat, expr) b ->
+      KPrint.bprintf "name = %s, mark = %d, is_special = %b\n"
+        b.node.name !(b.node.mark)  (is_special b.node.name);
+      if !(b.node.mark) = 0 && is_special b.node.name then
+        i, binders, DeBruijn.subst_p pwild i pat, DeBruijn.subst eany i expr
+      else
+        i + 1, b :: binders, pat, expr
+    ) (0, [], pat, expr) (List.rev binders) in
+    binders, self#visit_pattern env pat, self#visit env expr
 end
 
 
@@ -273,6 +300,8 @@ let rec compile_pattern env scrut pat expr =
         atom = b
       } in
       [], mk (ELet (b, scrut, close_binder b expr))
+  | PWild ->
+      [], expr
   | PBound _ ->
       failwith "pattern must've been opened"
   | PCons (ident, _) ->
@@ -281,7 +310,7 @@ let rec compile_pattern env scrut pat expr =
 
 let rec mk_conjunction = function
   | [] ->
-      failwith "impossible"
+      mk (EBool true)
   | [ e1 ] ->
       e1
   | e1 :: es ->
@@ -470,6 +499,7 @@ end
 
 let everything files =
   let files = Simplify.visit_files () record_of_tuple files in
+  let files = Simplify.visit_files [] Simplify.count_use files in
   let map = build_map files in
   let files = Simplify.visit_files () remove_trivial_matches files in
   let files = Simplify.visit_files () (compile_simple_matches map) files in

@@ -138,7 +138,7 @@ class subst_p (p2: pattern) = object
 end
 
 let subst_p (p2: pattern) (i: int) (p1: pattern) =
-  (new subst_p p2)#visit_p i p1.node
+  (new subst_p p2)#visit_pattern i p1
 
 (* ---------------------------------------------------------------------------- *)
 
@@ -176,11 +176,10 @@ let open_binders binders term =
 let open_branch bs pat expr =
   List.fold_right (fun binder (bs, pat, expr) ->
     let b, expr = open_binder binder expr in
-    let t = pat.typ in
     let pat =
-      subst_p { node = POpen (b.node.name, b.node.atom); typ = b.typ } 0 pat pat.typ
+      subst_p { node = POpen (b.node.name, b.node.atom); typ = b.typ } 0 pat
     in
-    b :: bs, with_type t pat, expr
+    b :: bs, pat, expr
   ) bs ([], pat, expr)
 
 let close_binders bs e1 =

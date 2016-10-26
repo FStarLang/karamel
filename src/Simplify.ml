@@ -34,7 +34,9 @@ end
 
 let rec is_pure { node; _ } =
   match node with
+  | EBound _ | EOpen _
   | EConstant _ -> true
+  | EField (e, _)
   | ECast (e, _) -> is_pure e
   | _ -> false
 
@@ -43,6 +45,7 @@ let count_use = object (self)
   inherit [binder list] map
 
   method! extend env binder =
+    binder.node.mark := 0;
     binder :: env
 
   method! ebound env _ i =
@@ -661,7 +664,6 @@ let simplify1 (files: file list): file list =
   let files = visit_files () record_toplevel_names files in
   let files = visit_files () replace_references_to_toplevel_names files in
   let files = visit_files () eta_expand files in
-  let files = visit_files [] count_use files in
   let files = visit_files () wrapping_arithmetic files in
   files
 

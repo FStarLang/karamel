@@ -220,6 +220,8 @@ and print_branch (binders, pat, expr) =
 
 and print_pat p =
   match p.node with
+  | PWild ->
+      string "_"
   | PUnit ->
       string "()"
   | PBool b ->

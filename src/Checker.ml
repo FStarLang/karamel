@@ -460,6 +460,8 @@ and check_branches env t_context t_scrutinee branches =
 
 and check_pat env t_context pat =
   match pat.node with
+  | PWild ->
+      ()
   | PBound i ->
       let b = find env i in
       check_subtype env t_context b.typ;

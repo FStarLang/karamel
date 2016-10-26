@@ -121,6 +121,7 @@ and pattern' =
   | PEnum of lident
   | PTuple of pattern list
   | PRecord of (ident * pattern) list
+  | PWild
 
 and pattern =
   pattern' with_type
@@ -387,11 +388,11 @@ class virtual ['env] map = object (self)
     List.map (fun (ident, expr) -> ident, self#visit env expr) fields
 
   method branches env branches =
-    List.map (fun (binders, pat, expr) ->
-      (* TODO extend_many here *)
-      let env = List.fold_left self#extend env binders in
-      binders, self#visit_pattern env pat, self#visit env expr
-    ) branches
+    List.map (self#branch env) branches
+
+  method branch env (binders, pat, expr) =
+    let env = List.fold_left self#extend env binders in
+    binders, self#visit_pattern env pat, self#visit env expr
 
   (* Patterns *)
 
@@ -413,9 +414,14 @@ class virtual ['env] map = object (self)
         self#precord env t fields
     | PEnum lid ->
         self#penum env t lid
+    | PWild ->
+        self#pwild env
 
   method punit _env =
     PUnit
+
+  method pwild _env =
+    PWild
 
   method pbool _env b =
     PBool b
