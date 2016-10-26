@@ -609,6 +609,9 @@ let record_toplevel_names = object
 
   method dtype () name t =
     DType (record_name name, t)
+
+  method dtypeenum () tags =
+    Enum (List.map record_name tags)
 end
 
 let t lident =
@@ -637,6 +640,18 @@ let replace_references_to_toplevel_names = object(self)
 
   method dtype () name d =
     DType (t name, self#type_def () (Some name) d)
+
+  method dtypeenum () tags =
+    Enum (List.map t tags)
+
+  method penum () _ name =
+    PEnum (t name)
+
+  method eenum () _ name =
+    EEnum (t name)
+
+  method eswitch () _ e branches =
+    ESwitch (self#visit () e, List.map (fun (tag, e) -> t tag, self#visit () e) branches)
 end
 
 

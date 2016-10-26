@@ -137,6 +137,7 @@ let rec check_everything files =
         None
     | e ->
         let e = Printexc.to_string e in
+        Printexc.print_backtrace stderr;
         Warnings.maybe_fatal_error ("<toplevel>", TypeError e);
         KPrint.beprintf "Dropping %s (at checking time)\n" (fst p);
         None
@@ -201,11 +202,12 @@ and infer_expr' env e t =
         let ts = List.map (infer_expr env) es in
         let t_ret, t_args = flatten_arrow t in
         if List.length t_args = 0 then
-          type_error env "Not a function being applied:\n%a" pexpr e;
-        if List.length t_args <> List.length ts then
-          type_error env "This is a partial application:\n%a" pexpr e;
+          type_error env "This is not a function:\n%a" pexpr e;
+        if List.length ts > List.length t_args then
+          type_error env "Too many arguments for application:\n%a" pexpr e;
+        let t_args, t_remaining_args = KList.split (List.length ts) t_args in
         List.iter2 (check_subtype env) ts t_args;
-        t_ret
+        fold_arrow t_remaining_args t_ret
 
   | ELet (binder, body, cont) ->
       check_expr (locate env (In binder.node.name)) binder.typ body;

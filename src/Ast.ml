@@ -183,6 +183,9 @@ let flatten_arrow =
   in
   flatten_arrow []
 
+let fold_arrow ts t_ret =
+  List.fold_right (fun t arr -> TArrow (t, arr)) ts t_ret
+
 let fresh_binder ?(mut=false) name typ =
   with_type typ { name; mut; mark = ref 0; meta = None; atom = Atom.fresh () }
 

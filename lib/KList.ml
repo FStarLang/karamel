@@ -67,3 +67,14 @@ let assoc_opt k l =
   | None -> raise Not_found
   end
 
+let split i l =
+  let rec split acc i l =
+    if i = 0 then
+      List.rev acc, l
+    else match l with
+      | hd :: l ->
+          split (hd :: acc) (i - 1) l
+      | [] ->
+          raise (Invalid_argument "split")
+  in
+  split [] i l

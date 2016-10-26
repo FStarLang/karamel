@@ -154,11 +154,14 @@ let detect_fstar () =
   fstar_options := [
     "--trace_error";
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
+  (** We don't even try to extract the int modules, because Kremlin cannot
+   * type-check them, as it assumes a primitive notion of integers... see also
+   * [Options.in_kremlib] for modules that we're happy to let F* extract (for
+   * typing), but don't want to generate C for. *)
   List.iter (fun m ->
     fstar_options := "--no_extract" :: ("FStar." ^ m) :: !fstar_options
   ) [ "Int8"; "UInt8"; "Int16"; "UInt16"; "Int31"; "UInt31"; "Int32"; "UInt32";
-      "Int63"; "UInt63"; "Int64"; "UInt64"; "Int128"; "UInt128";
-      "HyperStack"; "HST" ];
+      "Int63"; "UInt63"; "Int64"; "UInt64"; "Int128"; "UInt128" ];
   KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
 
   flush stdout
