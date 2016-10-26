@@ -24,6 +24,7 @@ and stmt =
   | BufWrite of expr * expr * expr
     (** First expression has to be a [Bound] or [Open]. *)
   | BufBlit of expr * expr * expr * expr * expr
+  | BufFill of expr * expr * expr
   | PushFrame
   | PopFrame
   | Switch of expr * (ident * block) list

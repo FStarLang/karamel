@@ -61,12 +61,6 @@ uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
 #include "custom128.c"
 #endif
 
-#define KRML_EXIT \
-  do { \
-    printf("Unimplemented function at %s:%d\n", __FILE__, __LINE__); \
-    exit(254); \
-  } while (0)
-
 bool Prims_op_GreaterThanOrEqual(Prims_int x, Prims_int y) { KRML_EXIT; }
 bool Prims_op_LessThanOrEqual(Prims_int x, Prims_int y) { KRML_EXIT; }
 bool Prims_op_GreaterThan(Prims_int x, Prims_int y) { KRML_EXIT; }
@@ -81,9 +75,10 @@ void *Prims_magic(void *_) { KRML_EXIT; }
 void *Prims____Cons___tl(void *_) { KRML_EXIT; }
 
 bool FStar_HyperStack_is_eternal_color(Prims_int x0) { KRML_EXIT; }
+void FStar_ST_recall(void *x) { KRML_EXIT; }
 
 Prims_int FStar_UInt32_v(uint32_t x) { KRML_EXIT; }
 FStar_Seq_seq FStar_Seq_append(FStar_Seq_seq x, FStar_Seq_seq y) { KRML_EXIT; }
+FStar_Seq_seq FStar_Seq_slice(FStar_Seq_seq x, FStar_Seq_seq y, Prims_nat z) { KRML_EXIT; }
 FStar_Seq_seq FStar_SeqProperties_snoc(FStar_Seq_seq x, Prims_nat y) { KRML_EXIT; }
-FStar_Seq_seq FStar_SeqProperties_cons(int x, FStar_Seq_seq y) { KRML_EXIT; }
-int FStar_Seq_index(FStar_Seq_seq x, Prims_int y) { KRML_EXIT; }
+FStar_UInt32_t FStar_UInt32_uint_to_t(Prims_nat x) { KRML_EXIT; }

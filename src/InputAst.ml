@@ -74,6 +74,7 @@ and expr =
   | EBufCreateL of expr list
   | ETuple of expr list
   | ECons of (lident * ident * expr list)
+  | EBufFill of (expr * expr * expr)
 
 
 and branches =

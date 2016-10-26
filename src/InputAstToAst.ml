@@ -111,6 +111,8 @@ and mk_expr = function
       mk (EBufRead (mk_expr e1, mk_expr e2))
   | I.EBufWrite (e1, e2, e3) ->
       mk (EBufWrite (mk_expr e1, mk_expr e2, mk_expr e3))
+  | I.EBufFill (e1, e2, e3) ->
+      mk (EBufFill (mk_expr e1, mk_expr e2, mk_expr e3))
   | I.EBufSub (e1, e2) ->
       mk (EBufSub (mk_expr e1, mk_expr e2))
   | I.EBufBlit (e1, e2, e3, e4, e5) ->

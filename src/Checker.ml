@@ -253,6 +253,12 @@ and infer_expr' env e t =
       let t1 = assert_buffer env e1 in
       TBuf t1
 
+  | EBufFill (e1, e2, e3) ->
+      let t1 = assert_buffer env e1 in
+      check_expr env t1 e2;
+      check_expr env uint32 e3;
+      TUnit
+
   | EBufBlit (b1, i1, b2, i2, len) ->
       let t1 = assert_buffer env b1 in
       check_expr env (TBuf t1) b2;

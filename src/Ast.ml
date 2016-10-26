@@ -40,17 +40,28 @@ and expr' =
   | EBound of var
   | EOpen of ident * Atom.t
     (** [ident] for debugging purposes only *)
+
+  | EOp of K.op * K.width
   | EQualified of lident
   | EConstant of K.t
   | EUnit
+  | EBool of bool
+  | EAny
+    (** to indicate that the initial value of a mutable let-binding does not
+     * matter *)
+  | EAbort
+    (** exits the program prematurely *)
+
   | EApp of expr * expr list
   | ELet of binder * expr * expr
   | EIfThenElse of expr * expr * expr
   | ESequence of expr list
   | EAssign of expr * expr
     (** left expression can only be a EBound or EOpen *)
+
   | EBufCreate of expr * expr
     (** initial value, length *)
+  | EBufCreateL of expr list
   | EBufRead of expr * expr
     (** e1[e2] *)
   | EBufWrite of expr * expr * expr
@@ -59,26 +70,21 @@ and expr' =
     (** e1 + e2 *)
   | EBufBlit of expr * expr * expr * expr * expr
     (** e1, index; e2, index; len *)
-  | EMatch of expr * branches
-  | EOp of K.op * K.width
-  | ECast of expr * typ
+  | EBufFill of expr * expr * expr
   | EPushFrame
   | EPopFrame
-  | EBool of bool
-  | EAny
-    (** to indicate that the initial value of a mutable let-binding does not
-     * matter *)
-  | EAbort
-    (** exits the program prematurely *)
-  | EReturn of expr
+
+  | ETuple of expr list
+  | EMatch of expr * branches
+  | ECons of ident * expr list
+  | ESwitch of expr * (lident * expr) list
+  | EEnum of lident
   | EFlat of (ident option * expr) list
   | EField of expr * ident
+
+  | EReturn of expr
   | EWhile of expr * expr
-  | EBufCreateL of expr list
-  | ECons of ident * expr list
-  | ETuple of expr list
-  | EEnum of lident
-  | ESwitch of expr * (lident * expr) list
+  | ECast of expr * typ
 
 and expr =
   expr' with_type
@@ -231,6 +237,8 @@ class virtual ['env] map = object (self)
         self#ebufwrite env typ e1 e2 e3
     | EBufBlit (e1, e2, e3, e4, e5) ->
         self#ebufblit env typ e1 e2 e3 e4 e5
+    | EBufFill (e1, e2, e3) ->
+        self#ebuffill env typ e1 e2 e3
     | EBufSub (e1, e2) ->
         self#ebufsub env typ e1 e2
     | EMatch (e, branches) ->
@@ -310,6 +318,9 @@ class virtual ['env] map = object (self)
 
   method ebufread env _typ e1 e2 =
     EBufRead (self#visit env e1, self#visit env e2)
+
+  method ebuffill env _typ e1 e2 e3 =
+    EBufFill (self#visit env e1, self#visit env e2, self#visit env e3)
 
   method ebufwrite env _typ e1 e2 e3 =
     EBufWrite (self#visit env e1, self#visit env e2, self#visit env e3)

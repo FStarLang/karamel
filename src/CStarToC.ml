@@ -184,6 +184,18 @@ and mk_stmt (stmt: stmt): C.stmt list =
         Op2 (K.Add, mk_expr e1, mk_expr e2);
         Op2 (K.Mult, mk_expr e5, Sizeof (Index (mk_expr e1, Constant (K.UInt8, "0"))))])) ]
 
+  | BufFill (buf, v, size) ->
+      (* Again, assuming that these are non-effectful. *)
+      let buf = mk_expr buf in
+      let v = mk_expr v in
+      let size = mk_expr size in
+      [ For (
+          (Int K.UInt, None, [ Ident "i", Some (InitExpr (Constant (K.Int, "0")))]),
+          Op2 (K.Lt, Name "i", size),
+          Op1 (K.PreIncr, Name "i"),
+          Expr (Op2 (K.Assign, Index (buf, Name "i"), v)))]
+
+
   | While (e1, e2) ->
       [ While (mk_expr e1, mk_compound_if (mk_stmts e2)) ]
 

@@ -470,6 +470,18 @@ and hoist_expr under_stmt_let e =
         let b = { b with node = { b.node with meta = Some MetaSequence }} in
         lhs @ [ b, mk (EBufBlit (e1, e2, e3, e4, e5)) ], mk EUnit
 
+  | EBufFill (e1, e2, e3) ->
+      let lhs1, e1 = hoist_expr false e1 in
+      let lhs2, e2 = hoist_expr false e2 in
+      let lhs3, e3 = hoist_expr false e3 in
+      let lhs = lhs1 @ lhs2 @ lhs3 in
+      if under_stmt_let then
+        lhs, mk (EBufFill (e1, e2, e3))
+      else
+        let b = fresh_binder "_" TUnit in
+        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        lhs @ [ b, mk (EBufFill (e1, e2, e3)) ], mk EUnit
+
   | EBufSub (e1, e2) ->
       let lhs1, e1 = hoist_expr false e1 in
       let lhs2, e2 = hoist_expr false e2 in

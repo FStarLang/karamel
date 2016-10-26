@@ -165,6 +165,8 @@ and print_expr { node; _ } =
       print_app string "subbuf" print_expr [e1; e2]
   | EBufBlit (e1, e2, e3, e4, e5) ->
       print_app string "blitbuf" print_expr [e1; e2; e3; e4; e5]
+  | EBufFill (e1, e2, e3) ->
+      print_app string "fillbuf" print_expr [e1; e2; e3 ]
   | EMatch (e, branches) ->
       group (string "match" ^/^ print_expr e ^/^ string "with") ^^
       jump ~indent:0 (print_branches branches)

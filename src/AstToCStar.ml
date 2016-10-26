@@ -203,36 +203,12 @@ let rec translate_expr env in_stmt e =
       CStar.Op c
   | ECast (e, t) ->
       CStar.Cast (translate_expr env e, translate_type env t)
-  | EOpen _ | EPopFrame | EPushFrame | EBufBlit _ ->
-      fatal_error "[AstToCStar.translate_expr]: should not be here (%a)" pexpr e
   | EAbort ->
       CStar.Comma (CStar.Call (CStar.Qualified "exit", [ small "252" ]), small "0")
   | EUnit ->
       zero
   | EAny ->
       CStar.Any
-  | ELet _ ->
-      fatal_error "[AstToCStar.translate_expr ELet]: should not be here %a" ploc env.location
-  | EIfThenElse _ ->
-      fatal_error "[AstToCStar.translate_expr EIfThenElse]: should not be here %a" ploc env.location
-  | EWhile _ ->
-      fatal_error "[AstToCStar.translate_expr EIfThenElse]: should not be here %a" ploc env.location
-  | ESequence _ ->
-      fatal_error "[AstToCStar.translate_expr ESequence]: should not be here %a" ploc env.location
-  | EAssign _ ->
-      fatal_error "[AstToCStar.translate_expr EAssign]: should not be here %a" ploc env.location
-  | EBufWrite _ ->
-      fatal_error "[AstToCStar.translate_expr EBufWrite]: should not be here %a" ploc env.location
-  | EMatch _ ->
-      fatal_error "[AstToCStar.translate_expr EMatch]: should not be here %a" ploc env.location
-  | EReturn _ ->
-      fatal_error "[AstToCStar.translate_expr EReturn]: should not be here %a" ploc env.location
-  | ECons _ ->
-      fatal_error "[AstToCStar.translate_expr ECons]: should not be here %a" ploc env.location
-  | ETuple _ ->
-      fatal_error "[AstToCStar.translate_expr ETuple]: should not be here %a" ploc env.location
-  | ESwitch _ ->
-      fatal_error "[AstToCStar.translate_expr ESwitch]: should not be here %a" ploc env.location
   | EBool b ->
       CStar.Bool b
   | EFlat fields ->
@@ -242,6 +218,9 @@ let rec translate_expr env in_stmt e =
       ) fields)
   | EField (expr, field) ->
       CStar.Field (translate_expr env expr, field)
+
+  | _ ->
+      fatal_error "[AstToCStar.translate_expr]: should not be here (%a)" pexpr e
 
 
 and extract_stmts env e ret_type =
@@ -278,6 +257,10 @@ and extract_stmts env e ret_type =
 
     | EBufWrite (e1, e2, e3) ->
         let e = CStar.BufWrite (translate_expr env true e1, translate_expr env true e2, translate_expr env true e3) in
+        env, e :: acc
+
+    | EBufFill (e1, e2, e3) ->
+        let e = CStar.BufFill (translate_expr env true e1, translate_expr env true e2, translate_expr env true e3) in
         env, e :: acc
 
     | EMatch _ ->
