@@ -147,14 +147,21 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   let files = InputAstToAst.mk_files files in
   if !arg_print_ast then
     print PrintAst.print_files files;
+  flush stdout;
 
   (* The first check can only occur after type abbreviations have been inlined,
    * and type abbreviations we don't know about have been replaced by TAny.
    * Otherwise, the checker is too stringent and will drop files. *)
+  let l1 = List.length files in
   let files = Inlining.inline_type_abbrevs files in
   let files = DataTypes.drop_match_cast files in
   let files = Checker.check_everything files in
-  KPrint.bprintf "%s✔%s Input file successfully checked\n" Ansi.green Ansi.reset;
+  let l2 = List.length files in
+  flush stderr;
+  if l1 = l2 then
+    KPrint.bprintf "%s✔%s Input file successfully checked\n" Ansi.green Ansi.reset
+  else
+    KPrint.bprintf "%s⚠%s Dropped some files while checking\n" Ansi.orange Ansi.reset;
 
   (* Simplify data types and remove patterns. *)
   let datatypes_state, files = DataTypes.everything files in
