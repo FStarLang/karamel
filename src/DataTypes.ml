@@ -92,11 +92,31 @@ let record_of_tuple = object(self)
 end
 
 
+(** We need to keep track of which optimizations we performed on which data
+ * types... to this effect, we build a map that assigns to each lid the type of
+ * compilation scheme we adopt. Keep in mind that not all [lid]s are in the map,
+ * only those that were a data type in the first place. *)
+type scheme =
+  | ToEnum
+  | ToFlat of ident list
+  | ToTaggedUnion of branches_t
+
+let build_map files =
+  Inlining.build_map files (fun map -> function
+    | DType (lid, Variant branches) ->
+        if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
+          Hashtbl.add map lid ToEnum
+        else if List.length branches = 1 then
+          Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
+        else
+          Hashtbl.add map lid (ToTaggedUnion branches)
+    | _ ->
+        ()
+  )
+
 (** Second thing: handle the trivial case of a data type definition with only
  * tags (it's just an enum) and the trivial case of a type definition with one
- * branch (it's just a flat record). *)
-
-type optim = ToEnum | ToFlat of ident list | Regular of branches_t
+ * branch (it's just a flat record), i.e. the first two cases of [scheme] *)
 
 let mk_tag_lid type_lid cons =
   let prefix, name = type_lid in
@@ -138,7 +158,7 @@ let compile_simple_matches map = object(self)
     match Hashtbl.find map lid with
     | exception Not_found ->
         ECons (cons, List.map (self#visit ()) args)
-    | Regular _ ->
+    | ToTaggedUnion _ ->
         ECons (cons, List.map (self#visit ()) args)
     | ToEnum ->
         assert (List.length args = 0);
@@ -151,7 +171,7 @@ let compile_simple_matches map = object(self)
     match Hashtbl.find map lid with
     | exception Not_found ->
         PCons (cons, List.map (self#visit_pattern ()) args)
-    | Regular _ ->
+    | ToTaggedUnion _ ->
         PCons (cons, List.map (self#visit_pattern ()) args)
     | ToEnum ->
         assert (List.length args = 0);
@@ -165,7 +185,7 @@ let compile_simple_matches map = object(self)
         begin match Hashtbl.find map lid with
         | exception Not_found ->
             DType (lid, Variant branches)
-        | Regular _ ->
+        | ToTaggedUnion _ ->
             DType (lid, Variant branches)
         | ToEnum ->
             DType (lid, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
@@ -185,7 +205,7 @@ let compile_simple_matches map = object(self)
         | exception Not_found ->
             (* This might be a record in the first place. *)
             try_mk_flat e branches
-        | Regular _ ->
+        | ToTaggedUnion _ ->
             try_mk_flat e branches
         | ToEnum ->
             mk_switch e branches
@@ -196,19 +216,6 @@ let compile_simple_matches map = object(self)
         EMatch (e, branches)
 
 end
-
-let build_map files =
-  Inlining.build_map files (fun map -> function
-    | DType (lid, Variant branches) ->
-        if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
-          Hashtbl.add map lid ToEnum
-        else if List.length branches = 1 then
-          Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
-        else
-          Hashtbl.add map lid (Regular branches)
-    | _ ->
-        ()
-  )
 
 (* Third step: get rid of really dumb matches we don't want to go through
  * our elaborate match-compilation scheme. Also perform some other F*-specific
@@ -248,8 +255,6 @@ let remove_trivial_matches = object (self)
 
   method! branch env (binders, pat, expr) =
     let _, binders, pat, expr = List.fold_left (fun (i, binders, pat, expr) b ->
-      KPrint.bprintf "name = %s, mark = %d, is_special = %b\n"
-        b.node.name !(b.node.mark)  (is_special b.node.name);
       if !(b.node.mark) = 0 && is_special b.node.name then
         i, binders, DeBruijn.subst_p pwild i pat, DeBruijn.subst eany i expr
       else
@@ -317,8 +322,6 @@ let rec mk_conjunction = function
       mk (EApp (mk (EOp (K.And, K.Bool)), [ e1; mk_conjunction es ]))
 
 let compile_branch env scrut (binders, pat, expr): expr * expr =
-  (* This should open the binders in the pattern, too... right now we're not
-   * getting the same atoms here and in PVars. See Arthur's paper. *)
   let _binders, pat, expr = open_branch binders pat expr in
   (* Compile pattern also closes the binders one by one. *)
   let conditionals, expr = compile_pattern env scrut pat expr in
@@ -328,6 +331,8 @@ let compile_match env e_scrut branches =
   let rec fold_ite = function
     | [] ->
         failwith "impossible"
+    | [ { node = EBool true; _ }, e ] ->
+        e
     | [ cond, e ] ->
         mk (EIfThenElse (cond, e, mk EAbort))
     | (cond, e) :: bs ->
@@ -350,7 +355,7 @@ let assert_lid t =
 
 let assert_branches map lid =
   match Hashtbl.find map lid with
-  | Regular branches ->
+  | ToTaggedUnion branches ->
       branches
   | _ ->
       raise Not_found
@@ -459,7 +464,7 @@ let is_tagged_union map lid =
   match Hashtbl.find map lid with
   | exception Not_found ->
       false
-  | Regular _ ->
+  | ToTaggedUnion _ ->
       true
   | _ ->
       false
