@@ -72,6 +72,7 @@ Prims_int Prims_op_Subtraction(Prims_int x, Prims_int y) { KRML_EXIT; }
 Prims_int Prims_op_Division(Prims_int x, Prims_int y) { KRML_EXIT; }
 Prims_int Prims_op_Modulus(Prims_int x, Prims_int y) { KRML_EXIT; }
 void *Prims_magic(void *_) { KRML_EXIT; }
+void *Prims_admit(void *_) { KRML_EXIT; }
 void *Prims____Cons___tl(void *_) { KRML_EXIT; }
 
 bool FStar_HyperStack_is_eternal_color(Prims_int x0) { KRML_EXIT; }

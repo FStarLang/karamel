@@ -96,6 +96,7 @@ Prims_int Prims_op_Subtraction(Prims_int x, Prims_int y);
 Prims_int Prims_op_Division(Prims_int x, Prims_int y);
 Prims_int Prims_op_Modulus(Prims_int x, Prims_int y);
 void *Prims_magic(void *_);
+void *Prims_admit(void *x);
 void *Prims____Cons___tl(void *_);
 
 #define KRML_EXIT \
