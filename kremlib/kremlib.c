@@ -76,7 +76,6 @@ void *Prims_admit(void *_) { KRML_EXIT; }
 void *Prims____Cons___tl(void *_) { KRML_EXIT; }
 
 bool FStar_HyperStack_is_eternal_color(Prims_int x0) { KRML_EXIT; }
-void FStar_ST_recall(void *x) { KRML_EXIT; }
 
 Prims_int FStar_UInt32_v(uint32_t x) { KRML_EXIT; }
 FStar_Seq_seq FStar_Seq_append(FStar_Seq_seq x, FStar_Seq_seq y) { KRML_EXIT; }
