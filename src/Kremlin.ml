@@ -223,12 +223,13 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     flush stdout;
     flush stderr;
     Printf.printf "KreMLin: writing out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
+    let to_drop = List.map (String.map (function '.' -> '_' | x -> x)) !Options.in_kremlib in
     let files = List.filter (fun (name, _) ->
-      not (List.exists ((=) name) !Options.in_kremlib)
+      not (List.exists ((=) name) to_drop)
     ) files in
     Output.write_c files;
     let headers = List.filter (fun (name, _) ->
-      not (List.exists ((=) name) !Options.in_kremlib)
+      not (List.exists ((=) name) to_drop)
     ) headers in
     Output.write_h headers;
 
