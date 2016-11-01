@@ -490,12 +490,12 @@ and translate_declaration env d: CStar.decl option =
       in
       Some (CStar.External (string_of_lident name, t))
 
-  | DType (_, Abbrev (n, _)) when n <> 0 ->
-      None
-
-  | DType (name, def) ->
+  | DType (name, 0, def) ->
       let name = string_of_lident name in
       Some (CStar.Type (name, translate_type_def env def))
+
+  | DType _ ->
+      None
 
 and translate_type_def env d: CStar.typ =
   match d with
@@ -506,8 +506,7 @@ and translate_type_def env d: CStar.typ =
         field, translate_type env typ
       ) fields)
 
-  | Abbrev (n, t) ->
-      assert (n = 0);
+  | Abbrev t ->
       translate_type env t
 
   | Variant _ ->

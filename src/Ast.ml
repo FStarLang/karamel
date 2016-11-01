@@ -15,10 +15,10 @@ and decl =
   | DFunction of CallingConvention.t option * flag list * typ * lident * binders * expr
   | DGlobal of flag list * lident * typ * expr
   | DExternal of CallingConvention.t option * lident * typ
-  | DType of lident * type_def
+  | DType of lident * int * type_def
 
 and type_def =
-  | Abbrev of int * typ
+  | Abbrev of typ
   | Flat of fields_t_opt
   | Variant of branches_t
   | Enum of lident list
@@ -533,18 +533,19 @@ class virtual ['env] map = object (self)
         self#dglobal env flags name typ expr
     | DExternal (cc, name, t) ->
         self#dexternal env cc name t
-    | DType (name, d) ->
-        self#dtype env name d
+    | DType (name, n, d) ->
+        self#dtype env name n d
 
-  method dtype env name d =
-    DType (name, self#type_def env (Some name) d)
+  method dtype env name n d =
+    let env = self#extend_tmany env n in
+    DType (name, n, self#type_def env (Some name) d)
 
   method type_def (env: 'env) (name: lident option) (d: type_def) =
     match d with
     | Flat fields ->
         self#dtypeflat env fields
-    | Abbrev (n, t) ->
-        self#dtypealias env n t
+    | Abbrev t ->
+        self#dtypealias env t
     | Variant branches ->
         self#dtypevariant env (Option.must name) branches
     | Enum tags ->
@@ -566,15 +567,17 @@ class virtual ['env] map = object (self)
   method dexternal env cc name t =
     DExternal (cc, name, self#visit_t env t)
 
-  method dtypealias env n t =
+  method extend_tmany env n =
     let rec extend e n =
       if n = 0 then
         e
       else
         extend (self#extend_t e) (n - 1)
     in
-    let env = extend env n in
-    Abbrev (n, self#visit_t env t)
+    extend env n
+
+  method dtypealias env t =
+    Abbrev (self#visit_t env t)
 
   method fields_t: 'a. 'env -> (('a * (typ * bool)) list) -> (('a * (typ * bool)) list) =
     fun env fields ->

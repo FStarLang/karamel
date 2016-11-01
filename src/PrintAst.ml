@@ -12,7 +12,7 @@ let lambda = fancystring "λ" 1
 let decl_name (d: decl) =
   match d with
   | DFunction (_, _, _,lid,_,_)
-  | DType (lid,_)
+  | DType (lid,_,_)
   | DGlobal (_, lid,_,_)
   | DExternal (_, lid,_) -> lid
 
@@ -40,8 +40,10 @@ let rec print_decl = function
   | DGlobal (flags, name, typ, expr) ->
       print_flags flags ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
-  | DType (name, def) ->
-      group (string "type" ^/^ string (string_of_lident name) ^/^ equals) ^^
+  | DType (name, n, def) ->
+      let args = KList.make n (fun i -> string ("t" ^ string_of_int i)) in
+      let args = separate space args in
+      group (string "type" ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
       jump (print_type_def def)
 
 and print_type_def = function
@@ -69,10 +71,8 @@ and print_type_def = function
           ) ^^ print_typ t)
         fields)
 
-  | Abbrev (n, typ) ->
-      let args = KList.make n (fun i -> string ("t" ^ string_of_int i)) in
-      let args = separate space args in
-      group (string "abbrev" ^/^ args) ^^
+  | Abbrev typ ->
+      string "abbrev" ^/^
       jump (print_typ typ)
 
 and print_fields_t fields =

@@ -71,7 +71,7 @@ let populate_env files =
   List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
-      | DType (lid, typ) ->
+      | DType (lid, _, typ) ->
           let env = match typ with
           | Enum tags ->
               List.fold_left (fun env tag ->
@@ -308,11 +308,19 @@ and infer_expr' env e t =
       (** The typing rules of matches and constructors are always nominal;
        * structural types appear through simplification phases, which also
        * remove matches in favor of switches or conditionals. *)
-      let lid = assert_qualified env t in
+      let ts' =
+        match t with
+        | TQualified lid ->
+            fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident))))
+        | TApp (lid, args) ->
+            let ts' = fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident)))) in
+            List.map (fun t -> DeBruijn.subst_tn t args) ts'
+        | _ ->
+            type_error env "Type annotation is not an lid but %a" ptyp t
+      in
       let ts = List.map (infer_expr env) exprs in
-      let ts' = fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident)))) in
       List.iter2 (check_subtype env) ts ts';
-      TQualified lid
+      t
 
   | EMatch (e, bs) ->
       let t_scrutinee = infer_expr env e in
@@ -324,17 +332,27 @@ and infer_expr' env e t =
        * typing comes into play. Indeed, a flat record is typed nominally (if
        * the context demands it) or structurally (default). TODO just type
        * structurally, and let the subtyping relation do the rest? *)
+      let check_fields fieldexprs fieldtyps =
+        if List.length fieldexprs <> List.length fieldtyps then
+          type_error env "some fields are either missing or superfluous";
+        List.iter (fun (field, expr) ->
+          let field = Option.must field in
+          let t, _ = KList.assoc_opt field fieldtyps in
+          check_expr env t expr
+        ) fieldexprs
+      in
       begin match t with
       | TQualified lid ->
           let fieldtyps = assert_flat env (lookup_type env lid) in
-          if List.length fieldexprs <> List.length fieldtyps then
-            type_error env "some fields are either missing or superfluous";
-          List.iter (fun (field, expr) ->
-            let field = Option.must field in
-            let t, _ = KList.assoc_opt field fieldtyps in
-            check_expr env t expr
-          ) fieldexprs;
-          TQualified lid
+          check_fields fieldexprs fieldtyps;
+          t
+      | TApp (lid, ts) ->
+          let fieldtyps = assert_flat env (lookup_type env lid) in
+          let fieldtyps = List.map (fun (field, (typ, m)) ->
+            field, (DeBruijn.subst_tn typ ts, m)
+          ) fieldtyps in
+          check_fields fieldexprs fieldtyps;
+          t
       | _ ->
           TAnonymous (Flat (List.map (fun (f, e) ->
             f, (infer_expr env e, false)
@@ -348,6 +366,9 @@ and infer_expr' env e t =
       begin match t with
       | TQualified lid ->
           fst (find_field env lid field)
+      | TApp (lid, ts) ->
+          let t = fst (find_field env lid field) in
+          DeBruijn.subst_tn t ts
       | TAnonymous def ->
           fst (find_field_from_def env def field)
       | _ ->
@@ -632,14 +653,14 @@ and expand_abbrev env t =
   | TQualified lid ->
       begin match M.find lid env.types with
       | exception Not_found -> t
-      | Abbrev (_, t) -> expand_abbrev env t
+      | Abbrev t -> expand_abbrev env t
       | _ -> t
       end
   | TApp (lid, args) ->
       begin match M.find lid env.types with
       | exception Not_found -> t
-      | Abbrev (_, t) -> expand_abbrev env (DeBruijn.subst_tn t args)
-      | _ -> t
+      | Abbrev t -> expand_abbrev env (DeBruijn.subst_tn t args)
+      | _ -> TApp (lid, List.map (expand_abbrev env) args)
       end
   | _ ->
       t

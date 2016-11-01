@@ -18,11 +18,11 @@ and decl =
   (* Types *)
   | DTypeAlias of (lident * int * typ)
       (** Name, number of parameters (De Bruijn), definition. *)
-  | DTypeFlat of (lident * fields_t)
+  | DTypeFlat of (lident * int * fields_t)
       (** The boolean indicates if the field is mutable *)
   (* Assumed things that the type-checker of KreMLin needs to be aware of *)
   | DExternal of (CallingConvention.t option * lident * typ)
-  | DTypeVariant of (lident * branches_t)
+  | DTypeVariant of (lident * int * branches_t)
 
 and fields_t =
   (ident * (typ * bool)) list
@@ -66,14 +66,14 @@ and expr =
   | EAbort
     (** exits the program prematurely *)
   | EReturn of expr
-  | EFlat of (lident * (ident * expr) list)
+  | EFlat of (typ * (ident * expr) list)
     (** contains the name of the type we're building *)
-  | EField of (lident * expr * ident)
+  | EField of (typ * expr * ident)
     (** contains the name of the type we're selecting from *)
   | EWhile of (expr * expr)
   | EBufCreateL of expr list
   | ETuple of expr list
-  | ECons of (lident * ident * expr list)
+  | ECons of (typ * ident * expr list)
   | EBufFill of (expr * expr * expr)
 
 
@@ -131,7 +131,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 17
+let current_version: version = 18
 
 type file = string * program
   [@@deriving yojson]

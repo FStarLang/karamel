@@ -25,8 +25,8 @@ class ignore_everything = object
   method dglobal () flags name typ expr =
     DGlobal (flags, name, typ, expr)
 
-  method dtype () name t =
-    DType (name, t)
+  method dtype () name n t =
+    DType (name, n, t)
 end
 
 
@@ -610,8 +610,8 @@ let record_toplevel_names = object
   method dexternal () cc name t =
     DExternal (cc, record_name name, t)
 
-  method dtype () name t =
-    DType (record_name name, t)
+  method dtype () name n t =
+    DType (record_name name, n, t)
 
   method dtypeenum () tags =
     Enum (List.map record_name tags)
@@ -641,8 +641,8 @@ let replace_references_to_toplevel_names = object(self)
   method dexternal () cc name typ =
     DExternal (cc, t name, self#visit_t () typ)
 
-  method dtype () name d =
-    DType (t name, self#type_def () (Some name) d)
+  method dtype () name n d =
+    DType (t name, n, self#type_def () (Some name) d)
 
   method dtypeenum () tags =
     Enum (List.map t tags)

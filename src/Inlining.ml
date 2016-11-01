@@ -203,14 +203,13 @@ let inline_function_frames files =
 
 let inline_type_abbrevs files =
   let map = build_map files (fun map -> function
-    | DType (lid, Abbrev (_, t)) -> Hashtbl.add map lid (White, t)
+    | DType (lid, _, Abbrev t) -> Hashtbl.add map lid (White, t)
     | _ -> ()
   ) in
 
   let inliner inline_one = object
     inherit [unit] map
     method tapp () lid ts =
-      assert (List.length ts > 0);
       try DeBruijn.subst_tn (inline_one lid) ts
       with Not_found -> TAny
     method tqualified () lid =
@@ -225,9 +224,9 @@ let inline_type_abbrevs files =
 
 let drop_type_abbrevs files =
   filter_decls (function
-    | DType (lid, Abbrev (n, def)) ->
+    | DType (lid, n, Abbrev def) ->
         if n = 0 then
-          Some (DType (lid, Abbrev (n, def)))
+          Some (DType (lid, n, Abbrev def))
         else
           (* A type definition with parameters is not something we'll be able to
            * generate code for (at the moment). So, drop it. *)

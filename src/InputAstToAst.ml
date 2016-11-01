@@ -25,15 +25,15 @@ let rec mk_decl = function
   | I.DFunction (cc, flags, t, name, binders, body) ->
       DFunction (cc, mk_flags flags, mk_typ t, name, mk_binders binders, mk_expr body)
   | I.DTypeAlias (name, n, t) ->
-      DType (name, Abbrev (n, mk_typ t))
+      DType (name, n, Abbrev (mk_typ t))
   | I.DGlobal (flags, name, t, e) ->
       DGlobal (mk_flags flags, name, mk_typ t, mk_expr e)
-  | I.DTypeFlat (name, fields) ->
-      DType (name, Flat (mk_tfields_opt fields))
+  | I.DTypeFlat (name, n, fields) ->
+      DType (name, n, Flat (mk_tfields_opt fields))
   | I.DExternal (cc, name, t) ->
       DExternal (cc, name, mk_typ t)
-  | I.DTypeVariant (name, branches) ->
-      DType (name,
+  | I.DTypeVariant (name, n, branches) ->
+      DType (name, n,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
 
 and mk_flags flags =
@@ -136,14 +136,14 @@ and mk_expr = function
   | I.EReturn e ->
       mk (EReturn (mk_expr e))
   | I.EFlat (tname, fields) ->
-      { node = EFlat (mk_fields fields); typ = TQualified tname }
+      { node = EFlat (mk_fields fields); typ = mk_typ tname }
   | I.EField (tname, e, field) ->
-      let e = { (mk_expr e) with typ = TQualified tname } in
+      let e = { (mk_expr e) with typ = mk_typ tname } in
       mk (EField (e, field))
   | I.ETuple es ->
       mk (ETuple (List.map mk_expr es))
   | I.ECons (lid, id, es) ->
-      { node = ECons (id, List.map mk_expr es); typ = TQualified lid }
+      { node = ECons (id, List.map mk_expr es); typ = mk_typ lid }
 
 and mk_branches branches =
   List.map mk_branch branches

@@ -50,7 +50,7 @@ module Gen = struct
       let fields = List.mapi (fun i t ->
         Some (nth_field i), (t, false)
       ) ts in
-      let type_def = DType (lid, Flat fields) in
+      let type_def = DType (lid, 0, Flat fields) in
       pending_defs := (ts, type_def) :: !pending_defs;
       Hashtbl.add generated_tuples ts lid;
       lid
@@ -103,7 +103,7 @@ type scheme =
 
 let build_map files =
   Inlining.build_map files (fun map -> function
-    | DType (lid, Variant branches) ->
+    | DType (lid, 0, Variant branches) ->
         if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
           Hashtbl.add map lid ToEnum
         else if List.length branches = 1 then
@@ -182,22 +182,23 @@ let compile_simple_matches map = object(self)
     | ToFlat names ->
         PRecord (List.map2 (fun n e -> n, e) names args)
 
-  method dtype () lid def =
+  method dtype () lid n def =
+    assert (n = 0);
     match def with
     | Variant branches ->
         begin match Hashtbl.find map lid with
         | exception Not_found ->
-            DType (lid, Variant branches)
+            DType (lid, 0, Variant branches)
         | ToTaggedUnion _ ->
-            DType (lid, Variant branches)
+            DType (lid, 0, Variant branches)
         | ToEnum ->
-            DType (lid, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
+            DType (lid, 0, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
         | ToFlat _ ->
             let fields = List.map (fun (f, t) -> Some f, t) (snd (List.hd branches)) in
-            DType (lid, Flat fields)
+            DType (lid, 0, Flat fields)
         end
     | _ ->
-        DType (lid, def)
+        DType (lid, 0, def)
 
   method ematch () _ e branches =
     let e = self#visit () e in
