@@ -123,6 +123,9 @@ let mk_tag_lid type_lid cons =
   (prefix @ [ name ], cons)
 
 let mk_switch e branches =
+  (* TODO: this should be try_mk_switch because there may be a wildcard, or a
+   * binding name, or both, and this only takes into account exhaustive matches
+   * *)
   ESwitch (e, List.map (fun (_, pat, e) ->
     match pat.node with
     | PEnum lid -> lid, e
@@ -511,11 +514,10 @@ let everything files =
   let files = Simplify.visit_files () (compile_all_matches map) files in
   map, files
 
-let anonymous_unions map files =
+let anonymous_unions old_map files =
   (* TODO: not really clean... this is run after C name translation has occured,
    * but the map was built with original dot-names... so run this through the
    * translation table using the global state. *)
-  let old_map = map in
   let map = Hashtbl.create 41 in
   Hashtbl.iter (fun k v -> Hashtbl.add map (Simplify.t k) v) old_map;
   Simplify.visit_files () (anonymous_unions map) files

@@ -77,6 +77,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
     "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";
     "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
+    "-drop", Arg.String (prepend Options.in_kremlib), "  do not extract this module (but keep it for its signature and types)";
     "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are fatal / warnings / silent (default: " ^ !Options.warn_error ^")";
     "", Arg.Unit (fun _ -> ()), " ";
 
