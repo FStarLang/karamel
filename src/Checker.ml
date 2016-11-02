@@ -152,23 +152,241 @@ and check_decl env d =
   | DFunction (_, _, t, name, binders, body) ->
       let env = List.fold_left push env binders in
       let env = locate env (InTop name) in
-      check_expr env t body
+      check env t body
   | DGlobal (_, name, t, body) ->
       let env = locate env (InTop name) in
-      check_expr env t body
+      check env t body
   | DExternal _
   | DType _ ->
       (* Barring any parameterized types, there's is nothing to check here
        * really. *)
       ()
 
-and infer_expr env e =
-  let t = infer_expr' env e.node e.typ in
+and check_or_infer env e t =
+  if t = TAny then
+    infer env e
+  else begin
+    check env e t;
+    t
+  end
+
+and check env e t =
+  check' env e t;
+  e.typ <- t
+
+and check' env e t =
+  let c t' = check_subtype env t' t in
+  match e with
+  | EBound _
+  | EOpen _
+  | EQualified _
+  | EConstant _
+  | ECast _
+  | EUnit _
+  | EAssign _
+  | EApp _ ->
+      c (infer env e)
+
+  | ELet (binder, body, cont) ->
+      let t = check_or_infer (locate env (In binder.node.name)) body binder.typ in
+      binder.typ <- t;
+      let env = push env binder in
+      check (locate env (After binder.node.name)) cont t
+
+  | EIfThenElse (e1, e2, e3) ->
+      check env TBool e1;
+      check env e2 t;
+      check env e3 t
+
+  | ESequence es ->
+      begin match List.rev es with
+      | last :: rest ->
+          List.iter (check env TUnit) (List.rev rest);
+          check env last t
+      | [] ->
+          type_error env "Empty sequence"
+      end
+
+  | EBufCreate (e1, e2) ->
+      let t = assert_buffer env t in
+      check env e1 t;
+      check env uint32 e2;
+      c (TBuf t)
+
+  | EBufRead (e1, e2) ->
+      check env uint32 e2;
+      check env e1 (TBuf t)
+
+  | EBufWrite (e1, e2, e3) ->
+      check env uint32 e2;
+      let t1 = check_buffer env e1 in
+      check env t1 e3;
+      c TUnit
+
+  | EBufSub (e1, e2) ->
+      check env uint32 e2;
+      let t = assert_buffer t in
+      check env e1 (TBuf t)
+
+  | EBufFill (e1, e2, e3) ->
+      let t1 = check_buffer env e1 in
+      check env t1 e2;
+      check env uint32 e3;
+      c TUnit
+
+  | EBufBlit (b1, i1, b2, i2, len) ->
+      let t1 = check_buffer env b1 in
+      check env (TBuf t1) b2;
+      check env uint32 i1;
+      check env uint32 i2;
+      check env uint32 len;
+      c TUnit
+
+  | EOp (op, w) ->
+      c (type_of_op env op w)
+
+  | EPushFrame | EPopFrame ->
+      c TUnit
+
+  | EAny | EAbort ->
+      c TAny
+
+  | EReturn e ->
+      ignore (infer env e);
+      (** TODO: check that [EReturn] matches the expected return type *)
+      c TAny
+
+  | EBool _ ->
+      c TBool
+
+  | EWhile (e1, e2) ->
+      check env TBool e1;
+      check env TUnit e2;
+      c TUnit
+
+  | EBufCreateL es ->
+      begin match es with
+      | [] ->
+          fatal_error "%a, there is an empty buf create sequence" ploc env.location
+      | first :: others ->
+          let t = infer env first in
+          List.iter (check env t) others;
+          c (TBuf t)
+      end
+
+  | ETuple es ->
+      let ts = assert_tuple t in
+      if List.length ts <> List.length es then
+        type_error env "Tuple length mismatch";
+      List.iter2 (check env) ts es
+
+  | ECons (ident, exprs) ->
+      (** The typing rules of matches and constructors are always nominal;
+       * structural types appear through simplification phases, which also
+       * remove matches in favor of switches or conditionals. *)
+      let ts' =
+        match t with
+        | TQualified lid ->
+            fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident))))
+        | TApp (lid, args) ->
+            let ts' = fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident)))) in
+            List.map (fun t -> DeBruijn.subst_tn t args) ts'
+        | _ ->
+            type_error env "Type annotation is not an lid but %a" ptyp t
+      in
+      List.iter2 (check env) exprs ts'
+
+  | EMatch (e, bs) ->
+      let t_scrutinee = infer env e in
+      check_branches env t t_scrutinee bs
+
+  | EFlat fieldexprs ->
+      (** Just like a constructor and a match, a record and field expressions
+       * construct and destruct values of matching kinds, except that structural
+       * typing comes into play. Indeed, a flat record is typed nominally (if
+       * the context demands it) or structurally (default). TODO just type
+       * structurally, and let the subtyping relation do the rest? *)
+      let check_fields fieldexprs fieldtyps =
+        if List.length fieldexprs <> List.length fieldtyps then
+          type_error env "some fields are either missing or superfluous";
+        List.iter (fun (field, expr) ->
+          let field = Option.must field in
+          let t, _ = KList.assoc_opt field fieldtyps in
+          check env t expr
+        ) fieldexprs
+      in
+      begin match t with
+      | TQualified lid ->
+          let fieldtyps = assert_flat env (lookup_type env lid) in
+          check_fields fieldexprs fieldtyps
+      | TApp (lid, ts) ->
+          let fieldtyps = assert_flat env (lookup_type env lid) in
+          let fieldtyps = List.map (fun (field, (typ, m)) ->
+            field, (DeBruijn.subst_tn typ ts, m)
+          ) fieldtyps in
+          check_fields fieldexprs fieldtyps
+      | TAnonymous (Flat fieldtyps) ->
+          check_fields field_exprs fieldtyps
+      | _ ->
+          type_error env "Not a record"
+      end
+
+  | EField (e, field) ->
+      (** Structs and unions have fields; they may be typed structurally or
+       * nominally, and we shall dereference a field in both cases. *)
+      let t_lhs = infer env e in
+      let t = match t_lhs with
+        | TQualified lid ->
+            fst (find_field env lid field)
+        | TApp (lid, ts) ->
+            let t = fst (find_field env lid field) in
+            DeBruijn.subst_tn t ts
+        | TAnonymous def ->
+            fst (find_field_from_def env def field)
+        | _ ->
+            type_error env "this type doesn't have fields"
+      in
+      c t
+
+  | EEnum tag ->
+      (** Enums / Switches behave just like Flats / Fields; the constructor
+       * gives rise to a structural or nominal type and the destructor works
+       * with either a nominal or a structural type. *)
+      begin try
+        c (TQualified (M.find tag env.enums))
+      with Not_found ->
+        c (TAnonymous (Enum [ tag ]))
+      end
+
+  | ESwitch (e, branches) ->
+      begin match infer env e with
+      | TQualified lid ->
+          List.iter (fun (tag, e) ->
+            check env e t;
+            if not (M.find tag env.enums = lid) then
+              type_error env "scrutinee has type %a but tag %a does not belong to \
+                this type" plid lid plid tag
+          ) branches
+
+      | TAnonymous (Enum tags) as t' ->
+          List.iter (fun (tag, e) ->
+            check env e t;
+            if not (List.exists ((=) tag) tags) then
+              type_error env "scrutinee has type %a but tag %a does not belong to \
+                this type" ptyp t' plid tag
+          ) branches
+
+      | t ->
+          type_error env "cannot switch on element of type %a" ptyp t
+      end
+
+and infer env e =
+  let t = infer' env e.node e.typ in
   check_subtype env t e.typ;
   e.typ <- t;
   t
 
-and infer_expr' env e t =
+and infer' env e t =
   match e with
   | EBound i ->
       begin try
@@ -190,83 +408,85 @@ and infer_expr' env e t =
       TUnit
 
   | ECast (e, t) ->
-      check_expr env TAny e;
+      ignore (infer env e);
       t
 
   | EApp (e, es) ->
-      let t = infer_expr env e in
+      let t = infer env e in
       if t = TAny then
-        let _ = List.map (infer_expr env) es in
+        let _ = List.map (infer env) es in
+        Warnings.maybe_fatal_error (KPrint.bsprintf "%a" ploc env.location,
+          TypeError (KPrint.bsprintf "could not infer the type of: %a" pexpr e));
         TAny
       else
-        let ts = List.map (infer_expr env) es in
         let t_ret, t_args = flatten_arrow t in
         if List.length t_args = 0 then
           type_error env "This is not a function:\n%a" pexpr e;
-        if List.length ts > List.length t_args then
+        if List.length es > List.length t_args then
           type_error env "Too many arguments for application:\n%a" pexpr e;
-        let t_args, t_remaining_args = KList.split (List.length ts) t_args in
-        List.iter2 (check_subtype env) ts t_args;
+        let t_args, t_remaining_args = KList.split (List.length es) t_args in
+        List.iter2 (check env) t_args es;
         fold_arrow t_remaining_args t_ret
 
   | ELet (binder, body, cont) ->
-      check_expr (locate env (In binder.node.name)) binder.typ body;
+      let t = check_or_infer (locate env (In binder.node.name)) body binder.typ in
+      binder.typ <- t;
       let env = push env binder in
-      infer_expr (locate env (After binder.node.name)) cont
+      infer (locate env (After binder.node.name)) cont
 
   | EIfThenElse (e1, e2, e3) ->
-      check_expr env TBool e1;
-      let t1 = infer_expr (locate env Then) e2 in
-      let t2 = infer_expr (locate env Else) e3 in
+      check env TBool e1;
+      let t1 = infer (locate env Then) e2 in
+      let t2 = infer (locate env Else) e3 in
       check_eqtype env t1 t2;
       t1
 
   | ESequence es ->
       begin match List.rev es with
       | last :: rest ->
-          List.iter (check_expr env TUnit) (List.rev rest);
-          infer_expr env last
+          List.iter (check env TUnit) (List.rev rest);
+          infer env last
       | [] ->
           type_error env "Empty sequence"
       end
 
   | EAssign (e1, e2) ->
       let t = check_valid_assignment_lhs env e1 in
-      check_expr env t e2;
+      check env t e2;
       TUnit
 
   | EBufCreate (e1, e2) ->
-      let t1 = infer_expr env e1 in
-      check_expr env uint32 e2;
+      let t1 = infer env e1 in
+      check env uint32 e2;
       TBuf t1
 
   | EBufRead (e1, e2) ->
-      check_expr env uint32 e2;
-      assert_buffer env e1
+      check env uint32 e2;
+      infer_buffer env e1
 
   | EBufWrite (e1, e2, e3) ->
-      check_expr env uint32 e2;
-      let t1 = assert_buffer env e1 in
-      check_expr env t1 e3;
+      check env uint32 e2;
+      let t1 = infer_buffer env e1 in
+      check env t1 e3;
       TUnit
 
   | EBufSub (e1, e2) ->
-      check_expr env uint32 e2;
-      let t1 = assert_buffer env e1 in
+      check env uint32 e2;
+      let t1 = infer_buffer env e1 in
       TBuf t1
 
   | EBufFill (e1, e2, e3) ->
-      let t1 = assert_buffer env e1 in
-      check_expr env t1 e2;
-      check_expr env uint32 e3;
+      let t1 = infer_buffer env e1 in
+      check env t1 e2;
+      check env uint32 e3;
       TUnit
 
   | EBufBlit (b1, i1, b2, i2, len) ->
-      let t1 = assert_buffer env b1 in
-      check_expr env (TBuf t1) b2;
-      check_expr env uint32 i1;
-      check_expr env uint32 i2;
-      check_expr env uint32 len;
+      let t1 = infer_buffer env b1 in
+      check env (TBuf t1) b2;
+      check env uint32 i1;
+      check env uint32 i2;
+      check env uint32 len;
       TUnit
 
   | EOp (op, w) ->
@@ -279,7 +499,7 @@ and infer_expr' env e t =
       TAny
 
   | EReturn e ->
-      ignore (infer_expr env e);
+      ignore (infer env e);
       (** TODO: check that [EReturn] matches the expected return type *)
       TAny
 
@@ -287,8 +507,8 @@ and infer_expr' env e t =
       TBool
 
   | EWhile (e1, e2) ->
-      check_expr env TBool e1;
-      check_expr env TUnit e2;
+      check env TBool e1;
+      check env TUnit e2;
       TUnit
 
   | EBufCreateL es ->
@@ -296,73 +516,30 @@ and infer_expr' env e t =
       | [] ->
           fatal_error "%a, there is an empty buf create sequence" ploc env.location
       | first :: others ->
-          let t = infer_expr env first in
-          List.iter (check_expr env t) others;
+          let t = infer env first in
+          List.iter (check env t) others;
           TBuf t
       end
 
   | ETuple es ->
-      TTuple (List.map (infer_expr env) es)
+      TTuple (List.map (infer env) es)
 
   | ECons (ident, exprs) ->
-      (** The typing rules of matches and constructors are always nominal;
-       * structural types appear through simplification phases, which also
-       * remove matches in favor of switches or conditionals. *)
-      let ts' =
-        match t with
-        | TQualified lid ->
-            fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident))))
-        | TApp (lid, args) ->
-            let ts' = fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident)))) in
-            List.map (fun t -> DeBruijn.subst_tn t args) ts'
-        | _ ->
-            type_error env "Type annotation is not an lid but %a" ptyp t
-      in
-      let ts = List.map (infer_expr env) exprs in
-      List.iter2 (check_subtype env) ts ts';
-      t
+      type_error env "Cannot infer type of %a" pexpr e
 
   | EMatch (e, bs) ->
-      let t_scrutinee = infer_expr env e in
-      check_branches env t t_scrutinee bs
+      let t_scrutinee = infer env e in
+      infer_branches env t_scrutinee bs
 
   | EFlat fieldexprs ->
-      (** Just like a constructor and a match, a record and field expressions
-       * construct and destruct values of matching kinds, except that structural
-       * typing comes into play. Indeed, a flat record is typed nominally (if
-       * the context demands it) or structurally (default). TODO just type
-       * structurally, and let the subtyping relation do the rest? *)
-      let check_fields fieldexprs fieldtyps =
-        if List.length fieldexprs <> List.length fieldtyps then
-          type_error env "some fields are either missing or superfluous";
-        List.iter (fun (field, expr) ->
-          let field = Option.must field in
-          let t, _ = KList.assoc_opt field fieldtyps in
-          check_expr env t expr
-        ) fieldexprs
-      in
-      begin match t with
-      | TQualified lid ->
-          let fieldtyps = assert_flat env (lookup_type env lid) in
-          check_fields fieldexprs fieldtyps;
-          t
-      | TApp (lid, ts) ->
-          let fieldtyps = assert_flat env (lookup_type env lid) in
-          let fieldtyps = List.map (fun (field, (typ, m)) ->
-            field, (DeBruijn.subst_tn typ ts, m)
-          ) fieldtyps in
-          check_fields fieldexprs fieldtyps;
-          t
-      | _ ->
-          TAnonymous (Flat (List.map (fun (f, e) ->
-            f, (infer_expr env e, false)
-          ) fieldexprs))
-      end
+      TAnonymous (Flat (List.map (fun (f, e) ->
+        f, (infer env e, false)
+      ) fieldexprs))
 
   | EField (e, field) ->
       (** Structs and unions have fields; they may be typed structurally or
        * nominally, and we shall dereference a field in both cases. *)
-      let t = infer_expr env e in
+      let t = infer env e in
       begin match t with
       | TQualified lid ->
           fst (find_field env lid field)
@@ -386,13 +563,13 @@ and infer_expr' env e t =
       end
 
   | ESwitch (e, branches) ->
-      begin match infer_expr env e with
+      begin match infer env e with
       | TQualified lid ->
           check_eqntype env t (fun (tag, e) ->
             if not (M.find tag env.enums = lid) then
               type_error env "scrutinee has type %a but tag %a does not belong to \
                 this type" plid lid plid tag;
-            infer_expr env e
+            infer env e
           ) branches
 
       | TAnonymous (Enum tags) as t ->
@@ -400,7 +577,7 @@ and infer_expr' env e t =
             if not (List.exists ((=) tag) tags) then
               type_error env "scrutinee has type %a but tag %a does not belong to \
                 this type" ptyp t plid tag;
-            infer_expr env e
+            infer env e
           ) branches
 
       | t ->
@@ -466,7 +643,7 @@ and check_valid_path env e =
 
   | EBufRead _
   | EBound _ ->
-      infer_expr env e
+      infer env e
 
   | _ ->
       type_error env "EAssign wants a lhs that's a mutable, local variable, or a \
@@ -476,7 +653,7 @@ and check_branches env t_context t_scrutinee branches =
   check_eqntype env t_context (fun (binders, pat, expr) ->
     let env = List.fold_left push env binders in
     check_pat env t_scrutinee pat;
-    infer_expr env expr
+    infer env expr
   ) branches
 
 and check_pat env t_context pat =
@@ -553,19 +730,20 @@ and assert_qualified env t =
   | _ ->
       fatal_error "%a, expected a provided type annotation" ploc env.location
 
-and assert_buffer env e1 =
-  match expand_abbrev env (infer_expr env e1) with
+and assert_buffer env t =
+  match t with
   | TBuf t1 ->
       t1
-  | TAny ->
-      TAny
   | t ->
-      match e1.node with
-      | EBound i ->
-          let b = find env i in
-          type_error env "%a (a.k.a. %s) is not a buffer but a %a" pexpr e1 b.node.name ptyp b.typ
-      | _ ->
-          type_error env "%a is not a buffer but a %a" pexpr e1 ptyp t
+      type_error env "This is not a buffer: %a" pexpr e1
+
+and infer_buffer env e1 =
+  assert_buffer env (expand_abbrev env (infer env e1))
+
+and check_buffer env e1 t =
+  let t = assert_buffer (expand_abbrev env t) in
+  check env e1 (TBuf t);
+  t
 
 and assert_cons_of env t id: fields_t =
   match t with
@@ -577,10 +755,6 @@ and assert_cons_of env t id: fields_t =
       end
   | _ ->
       fatal_error "%a the annotated type is not a variant type" ploc env.location
-
-and check_expr env t e =
-  let t' = infer_expr env e in
-  check_subtype env t' t
 
 and subtype env t1 t2 =
   match expand_abbrev env t1, expand_abbrev env t2 with
