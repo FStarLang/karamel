@@ -253,6 +253,7 @@ module Ops = struct
   let plid = printf_of_pprint print_lident
   let pdecl = printf_of_pprint_pretty print_decl
   let pop = printf_of_pprint_pretty print_op
+  let ppat = printf_of_pprint_pretty print_pat
 end
 
 include Ops

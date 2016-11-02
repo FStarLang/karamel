@@ -2,7 +2,7 @@
 
 open Ast
 open DeBruijn
-(* open PrintAst.Ops *)
+open PrintAst.Ops
 
 module K = Constant
 
@@ -25,8 +25,22 @@ let drop_match_cast files =
 (* First thing: get rid of tuples, and generate (monomorphize) struct
  * definitions for them. *)
 module Gen = struct
-  let generated_tuples = Hashtbl.create 41
+  let generated_lids = Hashtbl.create 41
   let pending_defs = ref []
+
+  let gen_lid lid ts =
+    let doc =
+      let open PPrint in
+      let open PrintAst in
+      separate_map underscore print_typ ts
+    in
+    fst lid, snd lid ^ KPrint.bsprintf "__%a" PrintCommon.pdoc doc
+
+  let register_def original_lid ts lid def =
+    let type_def = DType (lid, 0, def) in
+    pending_defs := type_def :: !pending_defs;
+    Hashtbl.add generated_lids (original_lid, ts) lid;
+    lid
 
   let nth_field i =
     match i with
@@ -35,34 +49,54 @@ module Gen = struct
     | 2 -> "thd"
     | _ -> Printf.sprintf "f%d" i
 
-  let ns = [ "K" ]
-
   let tuple (ts: typ list) =
+    let tuple_lid = [ "K" ], "" in
     try
-      Hashtbl.find generated_tuples ts
+      Hashtbl.find generated_lids (tuple_lid, ts)
     with Not_found ->
-      let doc =
-        let open PPrint in
-        let open PrintAst in
-        separate_map underscore print_typ ts
-      in
-      let lid = ns, KPrint.bsprintf "%a" PrintCommon.pdoc doc in
+      let lid = gen_lid tuple_lid ts in
       let fields = List.mapi (fun i t ->
         Some (nth_field i), (t, false)
       ) ts in
-      let type_def = DType (lid, 0, Flat fields) in
-      pending_defs := (ts, type_def) :: !pending_defs;
-      Hashtbl.add generated_tuples ts lid;
-      lid
+      register_def tuple_lid ts lid (Flat fields)
+
+  let variant original_lid branches ts =
+    try
+      Hashtbl.find generated_lids (original_lid, ts)
+    with Not_found ->
+      let lid = gen_lid original_lid ts in
+      let branches = List.map (fun (cons, fields) ->
+        cons, List.map (fun (field, (t, m)) ->
+          field, (DeBruijn.subst_tn t ts, m)
+        ) fields
+      ) branches in
+      register_def original_lid ts lid (Variant branches)
+
+  let flat original_lid fields ts =
+    try
+      Hashtbl.find generated_lids (original_lid, ts)
+    with Not_found ->
+      let lid = gen_lid original_lid ts in
+      let fields = List.map (fun (field, (t, m)) ->
+        field, (DeBruijn.subst_tn t ts, m)
+      ) fields in
+      register_def original_lid ts lid (Flat fields)
 
   let clear () =
-    let r = List.rev_map snd !pending_defs in
+    let r = List.rev !pending_defs in
     pending_defs := [];
     r
 end
 
+let build_def_map files =
+  Inlining.build_map files (fun map -> function
+    | DType (lid, _, def) ->
+        Hashtbl.add map lid def
+    | _ ->
+        ()
+  )
 
-let record_of_tuple = object(self)
+let monorphize_data_types map = object(self)
 
   inherit [unit] map
 
@@ -89,7 +123,29 @@ let record_of_tuple = object(self)
   method! ptuple () _ pats =
     PRecord (List.mapi (fun i p -> Gen.nth_field i, self#visit_pattern () p) pats)
 
+  method! tapp () lid ts =
+    let ts = List.map (self#visit_t ()) ts in
+    if List.length ts > 0 then
+      match Hashtbl.find map lid with
+      | Variant branches ->
+          TQualified (Gen.variant lid branches ts)
+      | Flat fields ->
+          TQualified (Gen.flat lid fields ts)
+      | _ ->
+          TApp (lid, ts)
+    else
+      TApp (lid, ts)
+
 end
+
+let drop_parameterized_data_types =
+  Inlining.filter_decls (function
+    | DType (_, n, (Flat _ | Variant _)) when n > 0 ->
+        None
+    | d ->
+        Some d
+  )
+
 
 
 (** We need to keep track of which optimizations we performed on which data
@@ -101,7 +157,7 @@ type scheme =
   | ToFlat of ident list
   | ToTaggedUnion of branches_t
 
-let build_map files =
+let build_scheme_map files =
   Inlining.build_map files (fun map -> function
     | DType (lid, 0, Variant branches) ->
         if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
@@ -129,7 +185,7 @@ let mk_switch e branches =
   ESwitch (e, List.map (fun (_, pat, e) ->
     match pat.node with
     | PEnum lid -> lid, e
-    | _ -> failwith "Pattern not simplified to enum"
+    | _ -> Warnings.fatal_error "Pattern not simplified to enum: %a" ppat pat
   ) branches)
 
 let is_trivial_record_pattern fields =
@@ -183,9 +239,9 @@ let compile_simple_matches map = object(self)
         PRecord (List.map2 (fun n e -> n, e) names args)
 
   method dtype () lid n def =
-    assert (n = 0);
     match def with
     | Variant branches ->
+        assert (n = 0);
         begin match Hashtbl.find map lid with
         | exception Not_found ->
             DType (lid, 0, Variant branches)
@@ -198,7 +254,7 @@ let compile_simple_matches map = object(self)
             DType (lid, 0, Flat fields)
         end
     | _ ->
-        DType (lid, 0, def)
+        DType (lid, n, def)
 
   method ematch () _ e branches =
     let e = self#visit () e in
@@ -507,9 +563,11 @@ let anonymous_unions map = object (self)
 end
 
 let everything files =
-  let files = Simplify.visit_files () record_of_tuple files in
+  let map = build_def_map files in
+  let files = Simplify.visit_files () (monorphize_data_types map) files in
+  let files = drop_parameterized_data_types files in
   let files = Simplify.visit_files [] Simplify.count_use files in
-  let map = build_map files in
+  let map = build_scheme_map files in
   let files = Simplify.visit_files () remove_trivial_matches files in
   let files = Simplify.visit_files () (compile_simple_matches map) files in
   let files = Simplify.visit_files () (compile_all_matches map) files in

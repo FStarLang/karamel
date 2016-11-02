@@ -522,7 +522,7 @@ and infer' env e =
       end
 
   | ESwitch (e, branches) ->
-      begin match infer env e with
+      begin match expand_abbrev env (infer env e) with
       | TQualified lid ->
           infer_and_check_eq env (fun (tag, e) ->
             if not (M.find tag env.enums = lid) then
@@ -689,7 +689,7 @@ and assert_flat env t =
       fatal_error "%a, this is not a record definition" ploc env.location
 
 and assert_qualified env t =
-  match t with
+  match expand_abbrev env t with
   | TQualified lid ->
       lid
   | _ ->
