@@ -213,7 +213,11 @@ let compile_simple_matches map = object(self)
   inherit [unit] map
 
   method econs () typ cons args =
-    let lid = match typ with TQualified lid -> lid | _ -> assert false in
+    let lid =
+      match typ with
+      | TQualified lid -> lid
+      | _ -> Warnings.fatal_error "not an lid: %s: %a" cons ptyp typ
+    in
     match Hashtbl.find map lid with
     | exception Not_found ->
         ECons (cons, List.map (self#visit ()) args)
@@ -223,7 +227,7 @@ let compile_simple_matches map = object(self)
         assert (List.length args = 0);
         EEnum (mk_tag_lid lid cons)
     | ToFlat names ->
-        EFlat (List.map2 (fun n e -> Some n, e) names args)
+        EFlat (List.map2 (fun n e -> Some n, self#visit () e) names args)
 
   method pcons () typ cons args =
     let lid =
@@ -422,6 +426,7 @@ let assert_branches map lid =
   | ToTaggedUnion branches ->
       branches
   | _ ->
+      KPrint.beprintf "Not found: %a\n" plid lid;
       raise Not_found
 
 let field_names_of_cons cons branches =
@@ -566,12 +571,23 @@ let anonymous_unions map = object (self)
 
 end
 
+let debug_map map =
+  Hashtbl.iter (fun lid scheme ->
+    KPrint.bprintf "%a goes to %s\n" plid lid (
+      match scheme with
+      | ToEnum -> "enum"
+      | ToFlat _ -> "flat"
+      | ToTaggedUnion _ -> "tagged union"
+    )
+  ) map
+
 let everything files =
   let map = build_def_map files in
   let files = Simplify.visit_files () (monorphize_data_types map) files in
   let files = drop_parameterized_data_types files in
   let files = Simplify.visit_files [] Simplify.count_use files in
   let map = build_scheme_map files in
+  if false then debug_map map;
   let files = Simplify.visit_files () remove_trivial_matches files in
   let files = Simplify.visit_files () (compile_simple_matches map) files in
   let files = Simplify.visit_files () (compile_all_matches map) files in

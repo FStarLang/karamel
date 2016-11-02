@@ -7,6 +7,7 @@ let _ =
   let arg_print_pattern = ref false in
   let arg_print_inline = ref false in
   let arg_print_c = ref false in
+  let arg_print_check = ref 0 in
   let arg_skip_extraction = ref false in
   let arg_skip_compilation = ref false in
   let arg_skip_linking = ref false in
@@ -84,6 +85,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     (* For developers *)
     "-djson", Arg.Set arg_print_json, " dump the input AST as JSON";
     "-dast", Arg.Set arg_print_ast, " pretty-print the internal AST";
+    "-dcheck", Arg.Set_int arg_print_check, " N pretty-print the internal AST after Nth check";
     "-dpattern", Arg.Set arg_print_pattern, " pretty-print after pattern removal";
     "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the internal AST after simplification";
     "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after inlining";
@@ -135,7 +137,8 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     flush stderr;
     let open PPrint in
     Printf.printf "Read [%s]. Printing with w=%d\n" filename Utils.twidth;
-    Print.print (f files ^^ hardline)
+    Print.print (f files ^^ hardline);
+    flush stdout
   in
 
   let files = InputAst.read_file filename in
@@ -148,7 +151,6 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   let files = Builtin.prims :: InputAstToAst.mk_files files in
   if !arg_print_ast then
     print PrintAst.print_files files;
-  flush stdout;
 
   (* The first check can only occur after type abbreviations have been inlined,
    * and type abbreviations we don't know about have been replaced by TAny.
@@ -156,6 +158,8 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   let l = List.length files in
   let files = DataTypes.drop_match_cast files in
   let files = Checker.check_everything files in
+  if !arg_print_check = 1 then
+    print PrintAst.print_files files;
   let files = Inlining.inline_type_abbrevs files in
 
   (* Make sure implementors that target Kremlin can tell apart their bugs vs.
@@ -173,6 +177,8 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
 
   (* Perform a whole-program rewriting. *)
   let files = Checker.check_everything files in
+  if !arg_print_check = 2 then
+    print PrintAst.print_files files;
   let files = Simplify.simplify1 files in
   let files = Simplify.simplify2 files in
   if !arg_print_simplify then

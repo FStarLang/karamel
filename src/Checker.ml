@@ -175,7 +175,6 @@ and check_or_infer env t e =
   end
 
 and check env t e =
-  (* KPrint.bprintf "[check] %a %a\n" ptyp t pexpr e; *)
   check' env t e;
   e.typ <- t
 
@@ -302,8 +301,19 @@ and check' env t e =
           check_fields fieldexprs fieldtyps
       | TAnonymous (Flat fieldtyps) ->
           check_fields fieldexprs fieldtyps
+      | TAnonymous (Union fieldtyps) ->
+          begin match fieldexprs with
+          | [ Some f, e ] ->
+              begin try
+                check env (List.assoc f fieldtyps) e
+              with Not_found ->
+                type_error env "Union does not have such a field"
+              end
+          | _ ->
+              type_error env "Union expected, i.e. exactly one provided field";
+          end
       | _ ->
-          type_error env "Not a record"
+          type_error env "Not a record %a" ptyp t
       end
 
   | ESwitch (e, branches) ->
@@ -485,7 +495,9 @@ and infer' env e =
       TTuple (List.map (infer env) es)
 
   | ECons _ ->
-      TAny
+      (* Preserve the provided type annotation that (hopefully) was there in the
+       * first place. *)
+      e.typ
 
   | EMatch (e, bs) ->
       let t_scrutinee = infer env e in
@@ -624,8 +636,6 @@ and infer_branches env t_scrutinee branches =
   ) branches
 
 and check_pat env t_context pat =
-  if t_context = TAny then
-    failwith "meh";
   match pat.node with
   | PWild ->
       pat.typ <- t_context
