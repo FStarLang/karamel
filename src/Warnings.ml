@@ -36,6 +36,8 @@ let raise_error_l e =
 
 (** A printf-style routine for printing fatal errors. *)
 let fatal_error fmt =
+  flush stdout;
+  flush stderr;
   Printf.kbprintf (fun buf -> failwith (Buffer.contents buf)) (Buffer.create 16) fmt
 
 (* -------------------------------------------------------------------------- *)
@@ -95,6 +97,8 @@ let rec perr buf (loc, raw_error) =
         by CompCert" id
 
 let maybe_fatal_error error =
+  flush stdout;
+  flush stderr;
   let errno = errno_of_error (snd error) in
   match flags.(errno) with
   | CError ->

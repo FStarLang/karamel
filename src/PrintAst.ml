@@ -195,7 +195,11 @@ and print_expr { node; _ } =
   | EBufCreateL es ->
       string "newbuf" ^/^ braces_with_nesting (separate_map (comma ^^ break1) print_expr es)
   | ECons (ident, es) ->
-      string ident ^/^ parens_with_nesting (separate_map (comma ^^ break1) print_expr es)
+      string ident ^/^
+      if List.length es > 0 then
+        parens_with_nesting (separate_map (comma ^^ break1) print_expr es)
+      else
+        empty
   | ETuple es ->
       parens_with_nesting (separate_map (comma ^^ break1) print_expr es)
   | EEnum lid ->
