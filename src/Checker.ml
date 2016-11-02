@@ -484,7 +484,7 @@ and infer' env e =
       TTuple (List.map (infer env) es)
 
   | ECons _ ->
-      type_error env "Cannot infer type of %a" pexpr e
+      TAny
 
   | EMatch (e, bs) ->
       let t_scrutinee = infer env e in
@@ -499,7 +499,7 @@ and infer' env e =
       (** Structs and unions have fields; they may be typed structurally or
        * nominally, and we shall dereference a field in both cases. *)
       let t = infer env e in
-      begin match t with
+      begin match expand_abbrev env t with
       | TQualified lid ->
           fst (find_field env lid field)
       | TApp (lid, ts) ->
@@ -566,7 +566,7 @@ and find_field_from_def env def field =
     | _ ->
         raise Not_found
   end with Not_found ->
-    type_error env "record or union type doesn't have a field named %s" field
+    type_error env "record or union type %a doesn't have a field named %s" ptyp (TAnonymous def) field
 
 
 (* Per Perry's definition, a path is a block id along with an offset, and a
@@ -675,11 +675,11 @@ and check_pat env t_context pat =
 
 
 and assert_tuple env t =
-  match t with
+  match expand_abbrev env t with
   | TTuple ts ->
       ts
   | _ ->
-      fatal_error "%a, this is not a tuple type" ploc env.location
+      type_error env "%a is not a tuple type" ptyp t
 
 and assert_flat env t =
   match t with
@@ -696,17 +696,17 @@ and assert_qualified env t =
       fatal_error "%a, expected a provided type annotation" ploc env.location
 
 and assert_buffer env t =
-  match t with
+  match expand_abbrev env t with
   | TBuf t1 ->
       t1
   | t ->
       type_error env "This is not a buffer: %a" ptyp t
 
 and infer_buffer env e1 =
-  assert_buffer env (expand_abbrev env (infer env e1))
+  assert_buffer env (infer env e1)
 
 and check_buffer env t e1 =
-  let t = assert_buffer env (expand_abbrev env t) in
+  let t = assert_buffer env t in
   check env (TBuf t) e1
 
 and assert_cons_of env t id: fields_t =
@@ -728,11 +728,14 @@ and subtype env t1 t2 =
       true
   | TUnit, TUnit ->
       true
+  | TQualified lid, _
+  | TApp (lid, _), _
+  | _, TApp (lid, _)
+  | _, TQualified lid when not (known_type env lid) ->
+      (* Unsound approximation *)
+      true
   | TQualified lid1, TQualified lid2 ->
-      if not (known_type env lid1) || not (known_type env lid2) then
-        true
-      else
-        lid1 = lid2
+      lid1 = lid2
   | TBool, TBool
   | _, TAny
   | TAny, _ ->
