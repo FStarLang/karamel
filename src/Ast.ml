@@ -392,6 +392,7 @@ class virtual ['env] map = object (self)
 
   method branch env (binders, pat, expr) =
     let env = List.fold_left self#extend env binders in
+    let binders = List.map (fun b -> { b with typ = self#visit_t env b.typ }) binders in
     binders, self#visit_pattern env pat, self#visit env expr
 
   (* Patterns *)

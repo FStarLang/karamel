@@ -18,4 +18,4 @@ let ldopts: string list ref = ref []
 (** These are modules that we do not want to drop (because they have meaningful
  * function signatures); but do not want to compile them (because they have no
  * meaning, contain only models, etc.). *)
-let in_kremlib: string list ref = ref [ "C"; "FStar.Int.Cast" ]
+let in_kremlib: string list ref = ref [ "C"; "FStar.Int.Cast"; "FStar.Heap" ]

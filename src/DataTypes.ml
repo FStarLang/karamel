@@ -127,6 +127,8 @@ let monorphize_data_types map = object(self)
     let ts = List.map (self#visit_t ()) ts in
     if List.length ts > 0 then
       match Hashtbl.find map lid with
+      | exception Not_found ->
+          TApp (lid, ts)
       | Variant branches ->
           TQualified (Gen.variant lid branches ts)
       | Flat fields ->
@@ -135,7 +137,6 @@ let monorphize_data_types map = object(self)
           TApp (lid, ts)
     else
       TApp (lid, ts)
-
 end
 
 let drop_parameterized_data_types =
@@ -145,7 +146,6 @@ let drop_parameterized_data_types =
     | d ->
         Some d
   )
-
 
 
 (** We need to keep track of which optimizations we performed on which data
@@ -178,15 +178,15 @@ let mk_tag_lid type_lid cons =
   let prefix, name = type_lid in
   (prefix @ [ name ], cons)
 
-let mk_switch e branches =
-  (* TODO: this should be try_mk_switch because there may be a wildcard, or a
-   * binding name, or both, and this only takes into account exhaustive matches
-   * *)
-  ESwitch (e, List.map (fun (_, pat, e) ->
-    match pat.node with
-    | PEnum lid -> lid, e
-    | _ -> Warnings.fatal_error "Pattern not simplified to enum: %a" ppat pat
-  ) branches)
+let try_mk_switch e branches =
+  try
+    ESwitch (e, List.map (fun (_, pat, e) ->
+      match pat.node with
+      | PEnum lid -> lid, e
+      | _ -> raise Exit
+    ) branches)
+  with Exit ->
+    EMatch (e, branches)
 
 let is_trivial_record_pattern fields =
   List.for_all (function (_, { node = PBound _; _ }) -> true | _ -> false) fields
@@ -226,7 +226,11 @@ let compile_simple_matches map = object(self)
         EFlat (List.map2 (fun n e -> Some n, e) names args)
 
   method pcons () typ cons args =
-    let lid = match typ with TQualified lid -> lid | _ -> assert false in
+    let lid =
+      match typ with
+      | TQualified lid -> lid
+      | _ -> Warnings.fatal_error "not an lid: %s: %a" cons ptyp typ
+    in
     match Hashtbl.find map lid with
     | exception Not_found ->
         PCons (cons, List.map (self#visit_pattern ()) args)
@@ -268,7 +272,7 @@ let compile_simple_matches map = object(self)
         | ToTaggedUnion _ ->
             try_mk_flat e branches
         | ToEnum ->
-            mk_switch e branches
+            try_mk_switch e branches
         | ToFlat _ ->
             try_mk_flat e branches
         end

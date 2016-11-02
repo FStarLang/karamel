@@ -207,11 +207,11 @@ let inline_type_abbrevs files =
     | _ -> ()
   ) in
 
-  let inliner inline_one = object
+  let inliner inline_one = object(self)
     inherit [unit] map
     method tapp () lid ts =
       try DeBruijn.subst_tn (inline_one lid) ts
-      with Not_found -> TAny
+      with Not_found -> TApp (lid, List.map (self#visit_t ()) ts)
     method tqualified () lid =
       try inline_one lid
       with Not_found -> TQualified lid
@@ -223,6 +223,11 @@ let inline_type_abbrevs files =
 
 
 let drop_type_abbrevs files =
+  let files = Simplify.visit_files () (object
+    inherit [unit] map
+    method tapp _ _ _ =
+      TAny
+  end) files in
   filter_decls (function
     | DType (lid, n, Abbrev def) ->
         if n = 0 then

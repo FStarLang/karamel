@@ -217,7 +217,8 @@ and print_branches branches =
 
 and print_branch (binders, pat, expr) =
   group (bar ^^ space ^^
-    lambda ^^ separate_map comma (fun b -> string b.node.name) binders ^^
+    lambda ^^
+    separate_map (comma ^^ break 1) print_binder binders ^^
     dot ^^ space ^^
     print_pat pat ^^ space ^^ arrow
   ) ^^ jump ~indent:4 (print_expr expr)

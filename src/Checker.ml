@@ -272,7 +272,8 @@ and check' env t e =
       List.iter2 (check env) ts' exprs
 
   | EMatch (e, bs) ->
-      check_branches env t (infer env e) bs
+      let t_scrut = infer env e in
+      check_branches env t t_scrut bs
 
   | EFlat fieldexprs ->
       (** Just like a constructor and a match, a record and field expressions
@@ -623,9 +624,12 @@ and infer_branches env t_scrutinee branches =
   ) branches
 
 and check_pat env t_context pat =
+  if t_context = TAny then
+    failwith "meh";
   match pat.node with
   | PWild ->
-      ()
+      pat.typ <- t_context
+
   | PBound i ->
       let b = find env i in
       check_subtype env t_context b.typ;
