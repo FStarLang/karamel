@@ -4,12 +4,12 @@ Overview of KreMLin
 From a high-level perspective, KreMLin takes an input AST, translates it into a
 typed internal AST, then massages the program by performing repeated
 transformations until the program fits within a simple enough subset dubbed
-Low*. Once a program is valid Low*, it translates almost trivially into C*, an
+Low\*. Once a program is valid Low\*, it translates almost trivially into C\*, an
 idealized dialect of C. Then, the program is translated to an abstract C AST,
 and finally pretty-printed.
 
 The detailed steps are as follows. KreMLin:
-- loads an AST written by F* or Dafny (see `InputAst.ml`)
+- loads an AST written by F\* or Dafny (see `InputAst.ml`)
 - translates it into an AST where expressions and patterns are annotated with
   their types (see `InputAstToAst.ml`, `Ast.ml`)
 - re-checks the program to see that it makes sense; possibly drops some
@@ -44,7 +44,7 @@ The detailed steps are as follows. KreMLin:
 - performs part of the "round of transformations" again.
 
 At this stage, the (unverified) invariant is that the any program fits the
-definition of Low* and can be trivially translated to C*; KreMLin then:
+definition of Low\* and can be trivially translated to C\*; KreMLin then:
 - translates the program to C* (see `CStar.ml`, `AstToCStar.ml`); this involves
   * going from a lexical scope to a block scope while preserving names insofar
     as possible;
