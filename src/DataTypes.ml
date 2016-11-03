@@ -196,7 +196,7 @@ let is_trivial_record_pattern fields =
 let rec nest bs t e2 =
   match bs with
   | (b, e1) :: bs ->
-      { node = ELet (b, e1, close_binder b (nest bs t e2)); typ = t }
+      { node = ELet (b, e1, close_binder b (lift 1 (nest bs t e2))); typ = t }
   | [] ->
       e2
 
@@ -207,7 +207,6 @@ let try_mk_flat e t branches =
         (* match e with { f = x; ... } becomes
          * let tmp = e in let x = e.f in *)
         let binders, body = open_binders binders body in
-        KPrint.bprintf "body is %a\n" pexpr body;
         let scrut, atom = Simplify.mk_binding "scrut" e.typ in
         let bindings = List.map2 (fun b (f, _) ->
           b, with_type b.typ (EField (atom, f))

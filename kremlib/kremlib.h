@@ -123,7 +123,7 @@ Prims_int FStar_UInt32_v(uint32_t x);
 #define FStar_Seq_upd(s, i, e) 0
 FStar_Seq_seq FStar_Seq_append(FStar_Seq_seq x, FStar_Seq_seq y);
 FStar_Seq_seq FStar_Seq_slice(FStar_Seq_seq x, FStar_Seq_seq y, Prims_nat z);
-FStar_Seq_seq FStar_SeqProperties_snoc(FStar_Seq_seq x, Prims_nat y);
+#define FStar_SeqProperties_snoc(x, y) 0
 #define FStar_SeqProperties_cons(x, y) 0
 #define FStar_Seq_index(x, y) 0
 FStar_UInt32_t FStar_UInt32_uint_to_t(Prims_nat x);
