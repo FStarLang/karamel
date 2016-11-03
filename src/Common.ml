@@ -5,8 +5,8 @@ type calling_convention =
   [@@deriving yojson]
 
 type lifetime =
-  | Stack
   | Eternal
+  | Stack
   [@@deriving yojson]
 
 type flag =
