@@ -15,26 +15,28 @@ The detailed steps are as follows. KreMLin:
 - re-checks the program to see that it makes sense; possibly drops some
   ill-typed bits (see `Checker.ml`)
 - substitutes parameterized type abbreviations with their expansion (see
-  `Inlining.ml`); at this stage, `TBound` and `TApp` are gone; all `DType
-  (Abbrev, ...)` have zero parameters;
+  `Inlining.ml`); at this stage, all `DType (Abbrev, ...)` have zero parameters;
+- performs a whole-program monomorphization of data types (`Variant`, `Flat`);
+  at this stage, every single `DType` has zero parameters (see `DataTypes.ml`)
+  and `TBound` and `TApp` are gone;
+- removes tuples in favor of ad-hoc, monomorphic declarations; `TTuple`,
+  `ETuple` and `PTuple` nodes are gone;
+- removes dummy matches on booleans and units;
 - simplifies data types (see `DataTypes.ml`):
   * data types with only constant constructors are translated to `Enum`
     declarations and `ESwitch` expressions; `DType (Enum, ...)`, `ESwitch`,
     `EEnum` and `TEnum` start appearing in the AST;
   * data types with a single branch are simplified into a `DType (Flat, ...)`
     and `EMatch` nodes for such data types are turned into a series of bindings
-  * tuples are removed and ad-hoc tuple declarations are generated for all
-    instances; `TTuple`, `ETuple` and `PTuple` nodes are gone;
   * other data types are turned into a tagged enum; `TAnonymous` nodes may
     appear, possibly containing `Union` and `Struct` type declarations; `EMatch`
     expressions for such data types are turned into a series of conditionals and
     bindings; `DType (Variant, ...)` nodes are gone; `ECons`, `PCons` nodes are
     gone;
+  * at this stage, all `EMatch` expressions are gone;
 - performs a round of transformations (see `src/Simplify.ml`), namely:
   * turns global names into valid C identifiers;
   * eta-expands toplevel definitions (e.g. `let f = g`);
-  * removes dummy matches on booleans and units; at this stage, all `EMatch`
-    expressions are be gone;
   * inserts proper casts to get wraparound semantics for signed arithmetic
     operations;
   * goes from an expression language to a statement language, by hoisting all
@@ -50,7 +52,7 @@ definition of Low\* and can be trivially translated to C\*; KreMLin then:
     as possible;
   * optimizing functions that return unit into functions that return void;
   * optimizing functions that take unit into functions that take no parameters;
-- translate the C* program to an abstract C syntax tree (see `C.ml`,
+- translates the C* program to an abstract C syntax tree (see `C.ml`,
   `CStarToC.ml`); this involves:
   * turning ML-style types into specifiers and declarators;
   * replacing all high-level nodes with actual C constructs;
