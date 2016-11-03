@@ -187,7 +187,7 @@ let let_if_to_assign = object (self)
         (* Recursively transform *)
         let e_then = self#visit () e_then in
         let e_else = self#visit () e_else in
-        (* [b] holds the return value of the conditional *)
+        (* [b] holds the return value of the conditional *)
         let b = { b with node = { b.node with mut = true }} in
         let b, e2 = open_binder b e2 in
         let nest_assign = nest_in_return_pos (fun innermost -> {
@@ -378,7 +378,7 @@ and hoist_expr under_stmt_let e =
       let binder, e2 = open_binder binder e2 in
       (* The caller (e.g. [hoist_t]) takes care, via [nest], of closing this
        * binder. *)
-      let lhs2, e2 = hoist_expr false e2 in
+      let lhs2, e2 = hoist_expr under_stmt_let e2 in
       lhs1 @ [ binder, e1 ] @ lhs2, e2
 
   | EIfThenElse (e1, e2, e3) ->

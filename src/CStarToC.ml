@@ -121,7 +121,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
               C.Op2 (K.Mult, C.SizeofT type_name, mk_expr size)
             ])
       in
-      [ Decl (spec, None, [ decl, Some (Initializer [ InitExpr e ])])]
+      [ Decl (spec, None, [ decl, Some (InitExpr e)])]
 
   | Decl (binder, BufCreate (Stack, init, size)) ->
       if not (is_constant size) then
