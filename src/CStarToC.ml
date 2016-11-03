@@ -36,7 +36,13 @@ let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type
   | Pointer t ->
       mk_spec_and_decl name t (fun d -> Pointer (k d))
   | Array (t, size) ->
-      mk_spec_and_decl name t (fun d -> Array (k d, mk_expr size))
+      (* F* guarantees that the initial size of arrays is always something
+       * reasonable (i.e. <4GB). *)
+      let size = match size with
+        | Constant k -> C.Constant k
+        | _ -> mk_expr size
+      in
+      mk_spec_and_decl name t (fun d -> Array (k d, size))
   | Function (cc, t, ts) ->
       mk_spec_and_decl name t (fun d ->
         Function (cc, k d, List.mapi (fun i t ->
@@ -198,9 +204,17 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Expr (Assign (Index (mk_expr e1, mk_expr e2), mk_expr e3)) ]
 
   | BufBlit (e1, e2, e3, e4, e5) ->
+      let dest = match e4 with
+        | Constant (_, "0") -> mk_expr e3
+        | _ -> Op2 (K.Add, mk_expr e3, mk_expr e4)
+      in
+      let source = match e2 with
+        | Constant (_, "0") -> mk_expr e1
+        | _ -> Op2 (K.Add, mk_expr e1, mk_expr e2)
+      in
       [ Expr (Call (Name "memcpy", [
-        Op2 (K.Add, mk_expr e3, mk_expr e4);
-        Op2 (K.Add, mk_expr e1, mk_expr e2);
+        dest;
+        source;
         Op2 (K.Mult, mk_expr e5, Sizeof (Index (mk_expr e1, zero)))])) ]
 
   | BufFill (buf, v, size) ->

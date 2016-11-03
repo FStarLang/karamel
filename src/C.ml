@@ -49,8 +49,6 @@ and expr =
   | Sizeof of expr
   | SizeofT of type_name
   | CompoundLiteral of type_name * init list
-    (** TODO did this on the plane with no internet, check with cppreference
-     * that the type name is actually optional *)
   | MemberAccess of expr * ident
   | MemberAccessPointer of expr * ident
 

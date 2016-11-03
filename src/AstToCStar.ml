@@ -204,7 +204,7 @@ let rec translate_expr env in_stmt e =
   | ECast (e, t) ->
       CStar.Cast (translate_expr env e, translate_type env t)
   | EAbort ->
-      CStar.Comma (CStar.Call (CStar.Qualified "exit", [ small "252" ]), small "0")
+      CStar.Var "KRML_EABORT"
   | EUnit ->
       zero
   | EAny ->

@@ -105,18 +105,31 @@ void *Prims_magic(void *_);
 void *Prims_admit(void *x);
 void *Prims____Cons___tl(void *_);
 
+// Note: it's possible to define a statement that always exits cleanly, but
+// Kremlin generates calls to KRML_EABORT and it's not possible (as far as I
+// know) to define an expression that has a "universal size" and aborts when
+// evaluated...
 #define KRML_EXIT \
   do { \
     printf("Unimplemented function at %s:%d\n", __FILE__, __LINE__); \
     exit(254); \
   } while (0)
 
+#define KRML_EABORT \
+  (exit(252), 0)
+
 // Stubs to make ST happy
 bool FStar_HyperStack_is_eternal_color(Prims_int x0);
 #define FStar_ST_op_Colon_Equals(x, v) KRML_EXIT
-#define FStar_ST_op_Bang(x) KRML_EXIT
+#define FStar_ST_op_Bang(x) 0
+#define FStar_ST_salloc(x) 0
 #define FStar_ST_recall(x) do {} while (0)
 #define FStar_ST_recall_region(x) do {} while (0)
+
+#define FStar_Monotonic_RRef_m_recall(...) do {} while (0)
+#define FStar_Monotonic_RRef_m_write(...) do {} while (0)
+#define FStar_Monotonic_RRef_m_alloc(...) { 0 }
+
 
 // Misc; many of these are polymorphic, hence not extracted (yet) by Kremlin,
 // which means that a macro is the "right" way to make they don't generate a
@@ -127,6 +140,7 @@ Prims_int FStar_UInt32_v(uint32_t x);
 #define FStar_Seq_createEmpty(x) 0
 #define FStar_Seq_create(len, init) 0
 #define FStar_Seq_upd(s, i, e) 0
+#define FStar_Seq_eq(l1, l2) 0
 FStar_Seq_seq FStar_Seq_append(FStar_Seq_seq x, FStar_Seq_seq y);
 FStar_Seq_seq FStar_Seq_slice(FStar_Seq_seq x, FStar_Seq_seq y, Prims_nat z);
 #define FStar_SeqProperties_snoc(x, y) 0
