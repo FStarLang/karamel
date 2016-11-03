@@ -23,11 +23,11 @@ let rec binders_of_pat p =
 
 let rec mk_decl = function
   | I.DFunction (cc, flags, t, name, binders, body) ->
-      DFunction (cc, mk_flags flags, mk_typ t, name, mk_binders binders, mk_expr body)
+      DFunction (cc, flags, mk_typ t, name, mk_binders binders, mk_expr body)
   | I.DTypeAlias (name, n, t) ->
       DType (name, n, Abbrev (mk_typ t))
   | I.DGlobal (flags, name, t, e) ->
-      DGlobal (mk_flags flags, name, mk_typ t, mk_expr e)
+      DGlobal (flags, name, mk_typ t, mk_expr e)
   | I.DTypeFlat (name, n, fields) ->
       DType (name, n, Flat (mk_tfields_opt fields))
   | I.DExternal (cc, name, t) ->
@@ -35,13 +35,6 @@ let rec mk_decl = function
   | I.DTypeVariant (name, n, branches) ->
       DType (name, n,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
-
-and mk_flags flags =
-  List.map mk_flag flags
-
-and mk_flag = function
-  | I.Private ->
-      Private
 
 and mk_binders bs =
   List.map mk_binder bs
@@ -103,10 +96,10 @@ and mk_expr = function
       mk (ESequence (List.map mk_expr es))
   | I.EAssign (e1, e2) ->
       mk (EAssign (mk_expr e1, mk_expr e2))
-  | I.EBufCreate (e1, e2) ->
-      mk (EBufCreate (mk_expr e1, mk_expr e2))
-  | I.EBufCreateL es ->
-      mk (EBufCreateL (List.map mk_expr es))
+  | I.EBufCreate (l, e1, e2) ->
+      mk (EBufCreate (l, mk_expr e1, mk_expr e2))
+  | I.EBufCreateL (l, es) ->
+      mk (EBufCreateL (l, List.map mk_expr es))
   | I.EBufRead (e1, e2) ->
       mk (EBufRead (mk_expr e1, mk_expr e2))
   | I.EBufWrite (e1, e2, e3) ->

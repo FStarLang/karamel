@@ -219,7 +219,7 @@ and check' env t e =
           type_error env "Empty sequence"
       end
 
-  | EBufCreate (e1, e2) ->
+  | EBufCreate (_, e1, e2) ->
       let t = assert_buffer env t in
       check env t e1;
       check env uint32 e2;
@@ -253,7 +253,7 @@ and check' env t e =
       check env uint32 len;
       c TUnit
 
-  | EBufCreateL es ->
+  | EBufCreateL (_, es) ->
       let t = assert_buffer env t in
       List.iter (check env t) es
 
@@ -434,7 +434,7 @@ and infer' env e =
       check env t e2;
       TUnit
 
-  | EBufCreate (e1, e2) ->
+  | EBufCreate (_, e1, e2) ->
       let t1 = infer env e1 in
       check env uint32 e2;
       TBuf t1
@@ -490,7 +490,7 @@ and infer' env e =
       check env TUnit e2;
       TUnit
 
-  | EBufCreateL es ->
+  | EBufCreateL (_, es) ->
       begin match es with
       | [] ->
           fatal_error "%a, there is an empty buf create sequence" ploc env.location

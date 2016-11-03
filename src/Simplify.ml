@@ -422,24 +422,24 @@ and hoist_expr under_stmt_let e =
         let b = { b with node = { b.node with meta = Some MetaSequence }} in
         lhs1 @ lhs2 @ [ b, mk (EAssign (e1, e2)) ], mk EUnit
 
-  | EBufCreate (e1, e2) ->
+  | EBufCreate (l, e1, e2) ->
       let t = e.typ in
       let lhs1, e1 = hoist_expr false e1 in
       let lhs2, e2 = hoist_expr false e2 in
       if under_stmt_let then
-        lhs1 @ lhs2, mk (EBufCreate (e1, e2))
+        lhs1 @ lhs2, mk (EBufCreate (l, e1, e2))
       else
-        let b, body, cont = mk_named_binding "buf" t (EBufCreate (e1, e2)) in
+        let b, body, cont = mk_named_binding "buf" t (EBufCreate (l, e1, e2)) in
         lhs1 @ lhs2 @ [ b, body ], cont
 
-  | EBufCreateL es ->
+  | EBufCreateL (l, es) ->
       let t = e.typ in
       let lhs, es = List.split (List.map (hoist_expr false) es) in
       let lhs = List.flatten lhs in
       if under_stmt_let then
-        lhs, mk (EBufCreateL es)
+        lhs, mk (EBufCreateL (l, es))
       else
-        let b, body, cont = mk_named_binding "buf" t (EBufCreateL es) in
+        let b, body, cont = mk_named_binding "buf" t (EBufCreateL (l, es)) in
         lhs @ [ b, body ], cont
 
   | EBufRead (e1, e2) ->

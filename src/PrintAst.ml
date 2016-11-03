@@ -3,6 +3,7 @@ open PPrint
 open PrintCommon
 open Ast
 open Idents
+open Common
 
 (* ------------------------------------------------------------------------ *)
 
@@ -125,6 +126,10 @@ and print_typ = function
   | TAnonymous t ->
       print_type_def t
 
+and print_lifetime = function
+  | Stack -> string "stack"
+  | Eternal -> string "eternal"
+
 and print_expr { node; _ } =
   match node with
   | EAny ->
@@ -154,7 +159,8 @@ and print_expr { node; _ } =
       separate_map (semi ^^ hardline) (fun e -> group (print_expr e)) es
   | EAssign (e1, e2) ->
       print_expr e1 ^/^ string "<-" ^/^ print_expr e2
-  | EBufCreate (e1, e2) ->
+  | EBufCreate (l, e1, e2) ->
+      print_lifetime l ^^ space ^^
       print_app string "newbuf" print_expr [e1; e2]
   | EBufRead (e1, e2) ->
       print_expr e1 ^^ lbracket ^^ print_expr e2 ^^ rbracket
@@ -192,7 +198,8 @@ and print_expr { node; _ } =
   | EWhile (e1, e2) ->
       string "while" ^/^ parens_with_nesting (print_expr e1) ^/^
       braces_with_nesting (print_expr e2)
-  | EBufCreateL es ->
+  | EBufCreateL (l, es) ->
+      print_lifetime l ^/^
       string "newbuf" ^/^ braces_with_nesting (separate_map (comma ^^ break1) print_expr es)
   | ECons (ident, es) ->
       string ident ^/^

@@ -16,6 +16,7 @@ open Ast
 open Warnings
 open Idents
 open PrintAst.Ops
+open Common
 
 module LidMap = Map.Make(struct
   type t = lident

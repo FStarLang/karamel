@@ -1,6 +1,7 @@
 (** A (simplified) grammar of C. *)
 
 module K = Constant
+open Common
 
 (* This pretty-printer based on: http:/ /en.cppreference.com/w/c/language/declarations
  * Many cases are omitted from this bare-bones C grammar; hopefully, to be extended. *)
@@ -27,7 +28,7 @@ and declarator =
   | Ident of ident
   | Pointer of declarator
   | Array of declarator * expr
-  | Function of CallingConvention.t option * declarator * params
+  | Function of calling_convention option * declarator * params
 
 and expr =
   | Op1 of K.op * expr
@@ -42,10 +43,11 @@ and expr =
   | Call of expr * expr list
   | Name of ident
   | Cast of type_name * expr
-  | Constant of K.t
   | Literal of string
+  | Constant of K.t
   | Bool of bool
   | Sizeof of expr
+  | SizeofT of type_name
   | CompoundLiteral of type_name * init list
     (** TODO did this on the plane with no internet, check with cppreference
      * that the type name is actually optional *)

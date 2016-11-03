@@ -71,6 +71,11 @@ uint8_t FStar_UInt8_gte_mask(uint8_t x, uint8_t y);
 FStar_UInt128_t FStar_UInt128_eq_mask(FStar_UInt128_t x, FStar_UInt128_t y);
 FStar_UInt128_t FStar_UInt128_gte_mask(FStar_UInt128_t x, FStar_UInt128_t y);
 
+// Buffers (FIXME remove eqb!)
+#define FStar_Buffer_eqb(b1, b2, n) \
+  (memcmp((b1), (b2), (n)*sizeof((b1)[0])) == 0)
+void FStar_Buffer_recall(void *x);
+
 // Some types that KreMLin has no special knowledge of; many of them appear in
 // signatures of ghost functions, meaning that it suffices to give them (any)
 // definition.
@@ -110,7 +115,8 @@ void *Prims____Cons___tl(void *_);
 bool FStar_HyperStack_is_eternal_color(Prims_int x0);
 #define FStar_ST_op_Colon_Equals(x, v) KRML_EXIT
 #define FStar_ST_op_Bang(x) KRML_EXIT
-#define FStar_ST_recall(x) KRML_EXIT
+#define FStar_ST_recall(x) do {} while (0)
+#define FStar_ST_recall_region(x) do {} while (0)
 
 // Misc; many of these are polymorphic, hence not extracted (yet) by Kremlin,
 // which means that a macro is the "right" way to make they don't generate a

@@ -7,26 +7,6 @@ open C
 
 (* Pretty-printing of actual C syntax *****************************************)
 
-let c99_macro_for_width w =
-  let open Constant in
-  match w with
-  | UInt8  -> Some "UINT8_C"
-  | UInt16 -> Some "UINT16_C"
-  | UInt32 -> Some "UINT32_C"
-  | UInt64 -> Some "UINT64_C"
-  | Int8   -> Some "INT8_C"
-  | Int16  -> Some "INT16_C"
-  | Int32  -> Some "INT32_C"
-  | Int64  -> Some "INT64_C"
-  | Int | UInt | Bool -> None
-
-let p_constant (w, s) =
-  match c99_macro_for_width w with
-  | Some m ->
-      string m ^^ lparen ^^ string s ^^ rparen
-  | None ->
-      string s
-
 let p_storage_spec = function
   | Typedef -> string "typedef"
   | Extern -> string "extern"
@@ -146,6 +126,8 @@ and p_expr' curr = function
       paren_if curr mine (e ^^ lparen ^^ es ^^ rparen)
   | Literal s ->
       dquote ^^ string s ^^ dquote
+  | Constant (_, s) ->
+      string s
   | Name s ->
       string s
   | Cast (t, e) ->
@@ -153,8 +135,8 @@ and p_expr' curr = function
       let e = group (p_expr' right e) in
       let t = p_type_name t in
       paren_if curr mine (lparen ^^ t ^^ rparen ^^ e)
-  | Constant c ->
-      p_constant c
+  | SizeofT t ->
+      string "sizeof" ^^ space ^^ group (lparen ^^ p_type_name t ^^ rparen)
   | Sizeof e ->
       let mine, right = 2, 2 in
       let e = p_expr' right e in

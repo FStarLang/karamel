@@ -4,6 +4,7 @@
  * special-cased in [Checker], or we would have to switch to unification. *)
 
 module K = Constant
+open Common
 
 type program =
   decl list
@@ -12,9 +13,9 @@ and file =
   string * program
 
 and decl =
-  | DFunction of CallingConvention.t option * flag list * typ * lident * binders * expr
+  | DFunction of calling_convention option * flag list * typ * lident * binders * expr
   | DGlobal of flag list * lident * typ * expr
-  | DExternal of CallingConvention.t option * lident * typ
+  | DExternal of calling_convention option * lident * typ
   | DType of lident * int * type_def
 
 and type_def =
@@ -32,9 +33,6 @@ and fields_t =
 
 and branches_t =
   (ident * fields_t) list
-
-and flag =
-  | Private
 
 and expr' =
   | EBound of var
@@ -59,9 +57,9 @@ and expr' =
   | EAssign of expr * expr
     (** left expression can only be a EBound or EOpen *)
 
-  | EBufCreate of expr * expr
+  | EBufCreate of lifetime * expr * expr
     (** initial value, length *)
-  | EBufCreateL of expr list
+  | EBufCreateL of lifetime * expr list
   | EBufRead of expr * expr
     (** e1[e2] *)
   | EBufWrite of expr * expr * expr
@@ -233,8 +231,8 @@ class virtual ['env] map = object (self)
         self#esequence env typ es
     | EAssign (e1, e2) ->
         self#eassign env typ e1 e2
-    | EBufCreate (e1, e2) ->
-        self#ebufcreate env typ e1 e2
+    | EBufCreate (l, e1, e2) ->
+        self#ebufcreate env typ l e1 e2
     | EBufRead (e1, e2) ->
         self#ebufread env typ e1 e2
     | EBufWrite (e1, e2, e3) ->
@@ -269,8 +267,8 @@ class virtual ['env] map = object (self)
         self#efield env typ e field
     | EWhile (e1, e2) ->
         self#ewhile env typ e1 e2
-    | EBufCreateL es ->
-        self#ebufcreatel env typ es
+    | EBufCreateL (l, es) ->
+        self#ebufcreatel env typ l es
     | ECons (cons, es) ->
         self#econs env typ cons es
     | ETuple es ->
@@ -317,8 +315,8 @@ class virtual ['env] map = object (self)
   method eassign env _typ e1 e2 =
     EAssign (self#visit env e1, self#visit env e2)
 
-  method ebufcreate env _typ e1 e2 =
-    EBufCreate (self#visit env e1, self#visit env e2)
+  method ebufcreate env _typ l e1 e2 =
+    EBufCreate (l, self#visit env e1, self#visit env e2)
 
   method ebufread env _typ e1 e2 =
     EBufRead (self#visit env e1, self#visit env e2)
@@ -365,8 +363,8 @@ class virtual ['env] map = object (self)
   method ewhile env _typ e1 e2 =
     EWhile (self#visit env e1, self#visit env e2)
 
-  method ebufcreatel env _typ es =
-    EBufCreateL (List.map (self#visit env) es)
+  method ebufcreatel env _typ l es =
+    EBufCreateL (l, List.map (self#visit env) es)
 
   method econs env _typ ident es =
     ECons (ident, List.map (self#visit env) es)

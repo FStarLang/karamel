@@ -191,10 +191,10 @@ let rec translate_expr env in_stmt e =
         CStar.Comma (call, CStar.Any)
       else
         call
-  | EBufCreate (e1, e2) ->
-      CStar.BufCreate (translate_expr env e1, translate_expr env e2)
-  | EBufCreateL es ->
-      CStar.BufCreateL (List.map (translate_expr env) es)
+  | EBufCreate (l, e1, e2) ->
+      CStar.BufCreate (l, translate_expr env e1, translate_expr env e2)
+  | EBufCreateL (l, es) ->
+      CStar.BufCreateL (l, List.map (translate_expr env) es)
   | EBufRead (e1, e2) ->
       CStar.BufRead (translate_expr env e1, translate_expr env e2)
   | EBufSub (e1, e2) ->

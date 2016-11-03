@@ -65,11 +65,6 @@ module Gen = struct
       Hashtbl.find generated_lids (original_lid, ts)
     with Not_found ->
       let lid = gen_lid original_lid ts in
-      let branches = List.map (fun (cons, fields) ->
-        cons, List.map (fun (field, (t, m)) ->
-          field, (DeBruijn.subst_tn t ts, m)
-        ) fields
-      ) branches in
       register_def original_lid ts lid (Variant branches)
 
   let flat original_lid fields ts =
@@ -77,9 +72,6 @@ module Gen = struct
       Hashtbl.find generated_lids (original_lid, ts)
     with Not_found ->
       let lid = gen_lid original_lid ts in
-      let fields = List.map (fun (field, (t, m)) ->
-        field, (DeBruijn.subst_tn t ts, m)
-      ) fields in
       register_def original_lid ts lid (Flat fields)
 
   let clear () =
@@ -96,7 +88,7 @@ let build_def_map files =
         ()
   )
 
-let monorphize_data_types map = object(self)
+let monomorphize_data_types map = object(self)
 
   inherit [unit] map
 
@@ -125,18 +117,25 @@ let monorphize_data_types map = object(self)
 
   method! tapp () lid ts =
     let ts = List.map (self#visit_t ()) ts in
+    let subst fields = List.map (fun (field, (t, m)) ->
+      field, (DeBruijn.subst_tn t ts, m)
+    ) fields in
     if List.length ts > 0 then
       match Hashtbl.find map lid with
       | exception Not_found ->
           TApp (lid, ts)
       | Variant branches ->
+          let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
+          let branches = self#branches_t () branches in
           TQualified (Gen.variant lid branches ts)
       | Flat fields ->
+          let fields = subst fields in
+          let fields = self#fields_t () fields in
           TQualified (Gen.flat lid fields ts)
       | _ ->
           TApp (lid, ts)
     else
-      TApp (lid, ts)
+      failwith "impossible"
 end
 
 let drop_parameterized_data_types =
@@ -626,7 +625,7 @@ let debug_map map =
 
 let everything files =
   let map = build_def_map files in
-  let files = Simplify.visit_files () (monorphize_data_types map) files in
+  let files = Simplify.visit_files () (monomorphize_data_types map) files in
   let files = drop_parameterized_data_types files in
   let files = Simplify.visit_files [] Simplify.count_use files in
   let map = build_scheme_map files in

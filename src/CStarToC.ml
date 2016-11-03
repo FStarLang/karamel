@@ -3,9 +3,9 @@
 open C
 open CStar
 open KPrint
+open Common
 
-let any =
-  Cast (Constant (K.UInt8, "0"), Pointer Void)
+let zero = C.Constant (K.UInt8, "0")
 
 (* Function types are pointers to function types, except in the top-level
  * declarator for a function, which gets special treatment via
@@ -106,7 +106,24 @@ and mk_stmt (stmt: stmt): C.stmt list =
   | Ignore e ->
       [ Expr (mk_expr e) ]
 
-  | Decl (binder, BufCreate (init, size)) ->
+  | Decl (binder, BufCreate (Eternal, init, size)) ->
+      let spec, decl = mk_spec_and_declarator binder.name binder.typ in
+      let type_name =
+        match binder.typ with
+        | Pointer t -> mk_spec_and_declarator "" t
+        | _ -> failwith "impossible"
+      in
+      let e = match init with
+        | Constant (_, "0") ->
+            C.Call (C.Name "calloc", [ C.SizeofT type_name; mk_expr size ])
+        | _ ->
+            C.Call (C.Name "malloc", [
+              C.Op2 (K.Mult, C.SizeofT type_name, mk_expr size)
+            ])
+      in
+      [ Decl (spec, None, [ decl, Some (Initializer [ InitExpr e ])])]
+
+  | Decl (binder, BufCreate (Stack, init, size)) ->
       if not (is_constant size) then
         Warnings.(maybe_fatal_error ("", Vla binder.name));
 
@@ -123,7 +140,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
             (* The only case the we can initialize statically is a known, static
              * size _and_ a zero initializer. *)
             Some (Initializer [ InitExpr (C.Constant k) ]), T.Nope
-        | Constant ((_, "0")), _ ->
+        | Constant (_, "0"), _ ->
             None, T.Memset
         | _ ->
             None, T.Forloop
@@ -137,23 +154,25 @@ and mk_stmt (stmt: stmt): C.stmt list =
                 Constant (K.UInt8, "0");
                 Op2 (K.Mult,
                   mk_expr size,
-                  Sizeof (Index (Name binder.name, Constant (K.UInt8, "0"))))]))]
+                  Sizeof (Index (Name binder.name, zero)))]))]
         | T.Nope ->
             [ ]
         | T.Forloop ->
             (* Note: only works if the length and initial value are pure
              * computations... which F* guarantees! *)
             [ For (
-                (Int K.UInt, None, [ Ident "i", Some (InitExpr (Constant (K.Int, "0")))]),
+                (Int K.UInt, None, [ Ident "i", Some (InitExpr zero)]),
                 Op2 (K.Lt, Name "i", mk_expr size),
                 Op1 (K.PreIncr, Name "i"),
                 Expr (Op2 (K.Assign, Index (Name binder.name, Name "i"), mk_expr init)))]
       in
       Decl (spec, None, [ decl, maybe_init ]) :: extra_stmt
 
-  | Decl (binder, BufCreateL inits) ->
+  | Decl (binder, BufCreateL (l, inits)) ->
+      if l <> Stack then
+        failwith "TODO: createL / eternal";
       let t = match binder.typ with
-        | Pointer t -> Array (t, Constant (Constant.of_int (List.length inits)))
+        | Pointer t -> Array (t, Constant (K.of_int (List.length inits)))
         | _ -> failwith "impossible"
       in
       let spec, decl = mk_spec_and_declarator binder.name t in
@@ -182,7 +201,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Expr (Call (Name "memcpy", [
         Op2 (K.Add, mk_expr e3, mk_expr e4);
         Op2 (K.Add, mk_expr e1, mk_expr e2);
-        Op2 (K.Mult, mk_expr e5, Sizeof (Index (mk_expr e1, Constant (K.UInt8, "0"))))])) ]
+        Op2 (K.Mult, mk_expr e5, Sizeof (Index (mk_expr e1, zero)))])) ]
 
   | BufFill (buf, v, size) ->
       (* Again, assuming that these are non-effectful. *)
@@ -190,7 +209,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let v = mk_expr v in
       let size = mk_expr size in
       [ For (
-          (Int K.UInt, None, [ Ident "i", Some (InitExpr (Constant (K.Int, "0")))]),
+          (Int K.UInt, None, [ Ident "i", Some (InitExpr zero)]),
           Op2 (K.Lt, Name "i", size),
           Op1 (K.PreIncr, Name "i"),
           Expr (Op2 (K.Assign, Index (buf, Name "i"), v)))]
@@ -263,8 +282,8 @@ and mk_expr (e: expr): C.expr =
   | Qualified ident ->
       Name ident
 
-  | Constant k ->
-      Constant k
+  | Constant (w, c) ->
+      Cast ((Int w, Ident ""), Constant (w, c))
 
   | BufCreate _ | BufCreateL _ ->
       failwith "[mk_expr]: Buffer.create; Buffer.createl may only appear as let ... = Buffer.create"
@@ -279,7 +298,7 @@ and mk_expr (e: expr): C.expr =
       Cast (mk_type t, mk_expr e)
 
   | Any ->
-      mk_expr any
+      Cast ((Void, Pointer (Ident "")), zero)
 
   | Op _ ->
       failwith "[mk_expr]: op should've been caught"

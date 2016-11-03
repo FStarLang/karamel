@@ -61,6 +61,8 @@ uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
 #include "custom128.c"
 #endif
 
+void FStar_Buffer_recall(void *x) {}
+
 bool Prims_op_GreaterThanOrEqual(Prims_int x, Prims_int y) { KRML_EXIT; }
 bool Prims_op_LessThanOrEqual(Prims_int x, Prims_int y) { KRML_EXIT; }
 bool Prims_op_GreaterThan(Prims_int x, Prims_int y) { KRML_EXIT; }
@@ -80,5 +82,4 @@ bool FStar_HyperStack_is_eternal_color(Prims_int x0) { KRML_EXIT; }
 Prims_int FStar_UInt32_v(uint32_t x) { KRML_EXIT; }
 FStar_Seq_seq FStar_Seq_append(FStar_Seq_seq x, FStar_Seq_seq y) { KRML_EXIT; }
 FStar_Seq_seq FStar_Seq_slice(FStar_Seq_seq x, FStar_Seq_seq y, Prims_nat z) { KRML_EXIT; }
-FStar_Seq_seq FStar_SeqProperties_snoc(FStar_Seq_seq x, Prims_nat y) { KRML_EXIT; }
 FStar_UInt32_t FStar_UInt32_uint_to_t(Prims_nat x) { KRML_EXIT; }

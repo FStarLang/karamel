@@ -1,6 +1,7 @@
 (** Definition of the input format. *)
 
 open Utils
+open Common
 
 module K = Constant
 
@@ -14,14 +15,14 @@ type program =
 and decl =
   (* Code *)
   | DGlobal of (flag list * lident * typ * expr)
-  | DFunction of (CallingConvention.t option * flag list * typ * lident * binder list * expr)
+  | DFunction of (calling_convention option * flag list * typ * lident * binder list * expr)
   (* Types *)
   | DTypeAlias of (lident * int * typ)
       (** Name, number of parameters (De Bruijn), definition. *)
   | DTypeFlat of (lident * int * fields_t)
       (** The boolean indicates if the field is mutable *)
   (* Assumed things that the type-checker of KreMLin needs to be aware of *)
-  | DExternal of (CallingConvention.t option * lident * typ)
+  | DExternal of (calling_convention option * lident * typ)
   | DTypeVariant of (lident * int * branches_t)
 
 and fields_t =
@@ -29,9 +30,6 @@ and fields_t =
 
 and branches_t =
   (ident * fields_t) list
-
-and flag =
-  | Private
 
 and expr =
   | EBound of var
@@ -44,7 +42,7 @@ and expr =
   | ESequence of expr list
   | EAssign of (expr * expr)
     (** left expression can only be a EBound or EOpen *)
-  | EBufCreate of (expr * expr)
+  | EBufCreate of (lifetime * expr * expr)
     (** initial value, length *)
   | EBufRead of (expr * expr)
     (** e1[e2] *)
@@ -71,7 +69,7 @@ and expr =
   | EField of (typ * expr * ident)
     (** contains the name of the type we're selecting from *)
   | EWhile of (expr * expr)
-  | EBufCreateL of expr list
+  | EBufCreateL of (lifetime * expr list)
   | ETuple of expr list
   | ECons of (typ * ident * expr list)
   | EBufFill of (expr * expr * expr)
@@ -131,7 +129,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 18
+let current_version: version = 19
 
 type file = string * program
   [@@deriving yojson]
