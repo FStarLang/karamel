@@ -353,8 +353,17 @@ and infer env e =
   let t = infer' env e in
   (* KPrint.bprintf "[infer, got] %a\n" ptyp t; *)
   check_subtype env t e.typ;
-  e.typ <- t;
+  e.typ <- prefer_nominal t e.typ;
   t
+
+and prefer_nominal t1 t2 =
+  match t1, t2 with
+  | (TQualified _ | TApp _), _ ->
+      t1
+  | _, (TQualified _ | TApp _) ->
+      t2
+  | _, _ ->
+      t1
 
 and infer' env e =
   match e.node with
