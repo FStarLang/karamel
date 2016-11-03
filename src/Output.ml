@@ -9,8 +9,8 @@ let includes files =
   in
   let includes = separate_map hardline (fun i ->
     string "#include " ^^ dquote ^^ string i ^^ string ".h" ^^ dquote
-  ) files in
-  extra_includes ^^ hardline ^^ includes
+  ) (List.rev files) in
+  includes ^^ hardline ^^ extra_includes
 
 let header name =
   let prefix = string (Printf.sprintf
