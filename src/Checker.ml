@@ -743,10 +743,11 @@ and subtype env t1 t2 =
   | TUnit, TUnit ->
       true
   | TQualified lid, _
-  | TApp (lid, _), _
+  | TApp (lid, _), _ when not (known_type env lid) ->
+      (* God bless Warning 57. *)
+      true
   | _, TApp (lid, _)
   | _, TQualified lid when not (known_type env lid) ->
-      (* Unsound approximation *)
       true
   | TQualified lid1, TQualified lid2 ->
       lid1 = lid2
