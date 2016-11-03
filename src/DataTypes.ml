@@ -196,9 +196,9 @@ let is_trivial_record_pattern fields =
 let rec nest bs t e2 =
   match bs with
   | (b, e1) :: bs ->
-      { node = ELet (b, lift 1 e1, close_binder b (nest bs t e2)); typ = t }
+      { node = ELet (b, e1, close_binder b (nest bs t e2)); typ = t }
   | [] ->
-      lift 1 e2
+      e2
 
 let try_mk_flat e t branches =
   match branches with
@@ -212,7 +212,7 @@ let try_mk_flat e t branches =
         let bindings = List.map2 (fun b (f, _) ->
           b, with_type b.typ (EField (atom, f))
         ) binders fields in
-        ELet (scrut, e, close_binder scrut (nest bindings t body))
+        ELet (scrut, e, close_binder scrut (lift 1 (nest bindings t body)))
       else
         EMatch (e, branches)
   | _ ->
