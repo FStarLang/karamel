@@ -95,6 +95,8 @@ and print_flags flags =
 and print_flag = function
   | Private ->
       string "private"
+  | NoExtract ->
+      string "noextract"
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   group (

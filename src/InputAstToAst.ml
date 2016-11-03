@@ -1,6 +1,7 @@
 (** The translation from the input AST to the internal one. *)
 
 open Ast
+open Common
 
 module I = InputAst
 
@@ -23,7 +24,13 @@ let rec binders_of_pat p =
 
 let rec mk_decl = function
   | I.DFunction (cc, flags, t, name, binders, body) ->
-      DFunction (cc, flags, mk_typ t, name, mk_binders binders, mk_expr body)
+      let body =
+        if List.exists ((=) NoExtract) flags then
+          with_type TAny EAbort
+        else
+          mk_expr body
+      in
+      DFunction (cc, flags, mk_typ t, name, mk_binders binders, body)
   | I.DTypeAlias (name, n, t) ->
       DType (name, n, Abbrev (mk_typ t))
   | I.DGlobal (flags, name, t, e) ->

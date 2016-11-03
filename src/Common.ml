@@ -11,5 +11,6 @@ type lifetime =
 
 type flag =
   | Private
+  | NoExtract
   [@@deriving yojson]
 
