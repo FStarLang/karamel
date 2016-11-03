@@ -114,6 +114,20 @@ let inline_analysis map =
           walk es
       | EPushFrame ->
           fatal_error "Malformed function body %a" plid lid
+      | EIfThenElse (e1, e2, e3) ->
+          contains_alloc valuation e1 ||
+          walk e2 ||
+          walk e3
+      | ESwitch (e, branches) ->
+          contains_alloc valuation e ||
+          List.exists (fun (_, e) ->
+            walk e
+          ) branches
+      | EMatch (e, branches) ->
+          contains_alloc valuation e ||
+          List.exists (fun (_, _, e) ->
+            walk e
+          ) branches
       | _ ->
           contains_alloc valuation e
     in

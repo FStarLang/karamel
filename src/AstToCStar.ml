@@ -457,6 +457,9 @@ and translate_declaration env d: CStar.decl option =
     try Lazy.force comp with
     | Error e ->
         raise_error_l (Warnings.locate name e)
+    | e ->
+        KPrint.beprintf "Error in: %s\n" name;
+        raise e
   in
 
   match d with
