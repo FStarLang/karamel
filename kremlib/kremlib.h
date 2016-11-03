@@ -123,6 +123,8 @@ bool FStar_HyperStack_is_eternal_color(Prims_int x0);
 #define FStar_ST_op_Colon_Equals(x, v) KRML_EXIT
 #define FStar_ST_op_Bang(x) 0
 #define FStar_ST_salloc(x) 0
+#define FStar_ST_ralloc(x,y) 0
+#define FStar_ST_new_region(x) 0
 #define FStar_ST_recall(x) do {} while (0)
 #define FStar_ST_recall_region(x) do {} while (0)
 
@@ -130,6 +132,7 @@ bool FStar_HyperStack_is_eternal_color(Prims_int x0);
 #define FStar_Monotonic_RRef_m_write(...) do {} while (0)
 #define FStar_Monotonic_RRef_m_alloc(...) { 0 }
 
+#define FStar_HyperHeap_root 0
 
 // Misc; many of these are polymorphic, hence not extracted (yet) by Kremlin,
 // which means that a macro is the "right" way to make they don't generate a
