@@ -4,8 +4,8 @@ KreMLin
 [![Build Status](https://travis-ci.org/FStarLang/kremlin.svg?branch=master)](https://travis-ci.org/FStarLang/kremlin)
 
 Transforms a subset of F* into C code. See the [ML Workshop Paper] for
-more information, [DESIGN.md!](DESIGN.md) for some draft notes and
-[MANUAL.md!](MANUAL.md) for some instructions.
+more information, [DESIGN.md](DESIGN.md) for some draft notes and
+[MANUAL.md](MANUAL.md) for some instructions.
 
 [ML Workshop Paper]: https://jonathan.protzenko.fr/papers/ml16.pdf
 
