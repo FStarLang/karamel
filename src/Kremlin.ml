@@ -177,6 +177,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
 
   (* Perform a whole-program rewriting. *)
   let files = Checker.check_everything files in
+  KPrint.bprintf "%s✔%s Pattern compilation successfully checked\n" Ansi.green Ansi.reset;
   if !arg_print_check = 2 then
     print PrintAst.print_files files;
   let files = Simplify.simplify1 files in
@@ -193,6 +194,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     print PrintAst.print_files files;
 
   let files = Checker.check_everything files in
+  KPrint.bprintf "%s✔%s Simplifications successfully checked\n" Ansi.green Ansi.reset;
   (* Do this at the last minute because the checker still needs these type
    * abbreviations to check that our stuff makes sense. *)
   let files = Inlining.drop_type_abbrevs files in

@@ -769,6 +769,14 @@ and subtype env t1 t2 =
       List.length ts1 = List.length ts2 &&
       List.for_all2 (subtype env) ts1 ts2
 
+  (* TODO TApp case *)
+  | TAnonymous ((Enum _ | Union _ | Flat _)), TQualified lid ->
+      begin try
+        subtype env t1 (TAnonymous (M.find lid env.types))
+      with Not_found ->
+        false
+      end
+
   | TAnonymous (Enum tags1), TAnonymous (Enum tags2) ->
       List.for_all (fun t1 -> List.mem t1 tags2) tags1
 
