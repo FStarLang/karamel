@@ -50,15 +50,6 @@ let success cmd args =
 let read_one_line cmd args =
   String.trim (List.hd (Process.read_stdout cmd args))
 
-let expand_fstar_home s =
-  let s' = "FSTAR_HOME" in
-  let l = String.length s in
-  let l' = String.length s' in
-  if l >= l' && String.sub s 0 (String.length s') = s' then
-    !fstar_home ^ String.sub s l' (l - l')
-  else
-    s
-
 (** The tools we depend on; namely, readlink. *)
 let detect_base_tools () =
   KPrint.bprintf "%s⚙ KreMLin auto-detecting tools.%s Here's what we found:\n" Ansi.blue Ansi.reset;
@@ -111,6 +102,14 @@ let detect_kremlin_if () =
   if !krml_home = "" then
     detect_kremlin ()
 
+let expand_fstar_home fstar_home s =
+  let s' = "FSTAR_HOME" in
+  let l = String.length s in
+  let l' = String.length s' in
+  if l >= l' && String.sub s 0 (String.length s') = s' then
+    fstar_home ^ String.sub s l' (l - l')
+  else
+    s
 
 (** Fills in fstar{,_home,_options} *)
 let detect_fstar () =
@@ -150,7 +149,7 @@ let detect_fstar () =
    * set of known failing modules. Adding a new module to the failing list is
    * DANGEROUS: it will remove a bunch of [DExternal] declarations that the
    * type-checker needs! *)
-  let fstar_includes = List.map expand_fstar_home !Options.includes in
+  let fstar_includes = List.map (expand_fstar_home !fstar_home) !Options.includes in
   fstar_options := [
     "--trace_error";
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
@@ -170,6 +169,10 @@ let detect_fstar () =
 let detect_fstar_if () =
   if !fstar = "" then
     detect_fstar ()
+
+let expand_fstar_home s =
+  detect_fstar_if ();
+  expand_fstar_home !fstar_home s
 
 let verbose_msg () =
   if !Options.verbose then

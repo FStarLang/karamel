@@ -1,8 +1,8 @@
 # A minimalistic Makefile for calling Kremlin... KOPTS is for user-defined flags
-# (e.g. -verbose).
+# (e.g. KOPTS="-cc clang -ccopt -fsanitize=undefined,address -ccopt -Wno-non-literal-null-conversion -Wno-unused-value")
 CRYPTO	= FSTAR_HOME/examples/low-level/crypto
 OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real $(KOPTS)
-TESTOPTS= $(OPTS) -add-include '"testlib.h"' -I . testlib.c
+TESTOPTS= -add-include '"testlib.h"' -I . testlib.c
 KRML	= ../krml
 
 all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
@@ -16,7 +16,7 @@ broken: Mutable.exe Crypto.Test.exe
 
 # Standalone test files that have a main in F* (hence -no-prefix)
 %.exe: %.fst
-	$(KRML) $(TESTOPTS) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $* -o $@ $<
+	$(KRML) $(OPTS) $(TESTOPTS) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $* -o $@ $<
 	./$@
 
 ML16.exe: EXTRA = ml16-native.c
