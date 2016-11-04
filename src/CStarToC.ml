@@ -121,7 +121,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       in
       let e = match init with
         | Constant (_, "0") ->
-            C.Call (C.Name "calloc", [ C.SizeofT type_name; mk_expr size ])
+            C.Call (C.Name "calloc", [ mk_expr size; C.SizeofT type_name ])
         | _ ->
             C.Call (C.Name "malloc", [
               C.Op2 (K.Mult, C.SizeofT type_name, mk_expr size)
