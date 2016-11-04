@@ -8,6 +8,7 @@ KRML	= ../krml
 all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
   Private.exe ML16.exe Abbrev.exe TSet.exe Tuples.exe \
   DataTypesSimple.exe DataTypes.exe Parameterized.exe \
+  Scope.exe \
   Crypto.Symmetric.Poly1305.exe Crypto.Symmetric.Chacha20.exe \
   Crypto.KrmlTest.exe
 
