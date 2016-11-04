@@ -544,7 +544,8 @@ end
 
 let rec fixup_return_pos e =
   (* We know how to insert returns and won't need assignments for things that
-   * are in terminal position. *)
+   * are in terminal position. To keep in sync with [AstToCStar.extract_stmts]
+   * and [AstToCStar.translate_function_block]. *)
   with_type e.typ (match e.node with
   | ELet (_, ({ node = (EIfThenElse _ | ESwitch _); _ } as e), { node = EBound 0; _ }) ->
       (fixup_return_pos e).node

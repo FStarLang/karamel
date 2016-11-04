@@ -368,20 +368,9 @@ and translate_function_block env e t =
       List.tl (List.rev rest)
 
   | CStar.PushFrame :: _, e :: CStar.PopFrame :: rest ->
-      begin match e with
-      | CStar.Return None ->
-          if t <> CStar.Void then
-            raise_error (BadFrame ("empty return, but return type is not void"))
-      | CStar.Return (Some _) ->
-          (* Note: we could check that [e] is a value at this stage via some
-           * sort of sanity check, but this would be brittle and would only
-           * catch a small subset of the bad cases... so leaving it up to F* to
-           * enforce all of these invariants. *)
-          if t = CStar.Void then
-            raise_error (BadFrame ("non-empty return, but return type is void"))
-      | _ ->
-          fatal_error "Internal failure: didn't insert a return"
-      end;
+      (* Note: it is no longer the case that [e] ought to be a [Return]. It
+       * could be, for instance, an if-then-else with several [Returns] in
+       * terminal position. [Simplify.fixup_return_pos] is precisely about this. *)
       List.tl (List.rev (e :: rest))
 
   (* Note: block scopes may not fit the entire function body, so it's ok if we
