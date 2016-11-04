@@ -8,11 +8,10 @@ KRML	= ../krml
 all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
   Private.exe ML16.exe Abbrev.exe TSet.exe Tuples.exe \
   DataTypesSimple.exe DataTypes.exe Parameterized.exe \
-  Scope.exe \
-  Crypto.Symmetric.Poly1305.exe Crypto.Symmetric.Chacha20.exe \
+  Scope.exe Crypto.Symmetric.Chacha20.exe \
   Crypto.KrmlTest.exe
 
-broken: Mutable.exe Crypto.Test.exe
+broken: Crypto.Symmetric.Poly1305.exe Mutable.exe 
 
 # Standalone test files that have a main in F* (hence -no-prefix)
 %.exe: %.fst
@@ -20,6 +19,7 @@ broken: Mutable.exe Crypto.Test.exe
 	./$@
 
 ML16.exe: EXTRA = ml16-native.c
+Scope.exe: EXTRA = -ccopt -O3
 
 # Test files that have an "external" main written by hand...
 Crypto.%.exe:

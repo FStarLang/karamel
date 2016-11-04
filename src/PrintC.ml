@@ -141,13 +141,23 @@ and p_expr' curr = function
       let mine, right = 2, 2 in
       let e = p_expr' right e in
       paren_if curr mine (string "sizeof" ^^ space ^^ e)
-  | Deref _ | Address _ | Member _ | MemberP _ ->
+  | Address e ->
+      let mine, right = 2, 2 in
+      let e = p_expr' right e in
+      paren_if curr mine (ampersand ^^ e)
+  | Deref _ | Member _ | MemberP _ ->
       failwith "[p_expr']: not implemented"
   | Bool b ->
       string (string_of_bool b)
   | CompoundLiteral (t, init) ->
-      lparen ^^ p_type_name t ^^ rparen ^^
-      braces_with_nesting (separate_map (comma ^^ break1) p_init init)
+      (* NOTE: http://en.cppreference.com/w/c/language/operator_precedence
+       * claims this is at level 3 but clang parses:
+       * &(foo){ ... } with an error... *)
+      let mine = 3 in
+      paren_if curr mine (
+        lparen ^^ p_type_name t ^^ rparen ^^
+        braces_with_nesting (separate_map (comma ^^ break1) p_init init)
+      )
   | MemberAccess (expr, member) ->
       p_expr' 1 expr ^^ dot ^^ string member
   | MemberAccessPointer (expr, member) ->

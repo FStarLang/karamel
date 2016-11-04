@@ -157,6 +157,9 @@ and typ =
        * not appear! *)
   | TBuf of typ
       (** a buffer in the Low* sense *)
+  | TArray of typ * K.t
+      (** appears when we start hoisting buffer definitions to their enclosing
+       * push frame *)
   | TQualified of lident
       (** a reference to a type that has been introduced via a DType *)
   | TArrow of typ * typ
@@ -451,6 +454,8 @@ class virtual ['env] map = object (self)
         self#tint env w
     | TBuf t ->
         self#tbuf env t
+    | TArray (t, k) ->
+        self#tarray env t k
     | TUnit ->
         self#tunit env
     | TQualified lid ->
@@ -477,6 +482,9 @@ class virtual ['env] map = object (self)
 
   method tbuf env t =
     TBuf (self#visit_t env t)
+
+  method tarray env t k =
+    TArray (self#visit_t env t, k)
 
   method tunit _env =
     TUnit

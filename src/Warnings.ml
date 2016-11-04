@@ -27,6 +27,7 @@ let dummy_loc = "unknown"
 
 (** For user-controllable warnings and recoverable errors. *)
 exception Error of error
+exception Fatal of string
 
 let raise_error e =
   raise (Error (dummy_loc, e))
@@ -38,7 +39,7 @@ let raise_error_l e =
 let fatal_error fmt =
   flush stdout;
   flush stderr;
-  Printf.kbprintf (fun buf -> failwith (Buffer.contents buf)) (Buffer.create 16) fmt
+  Printf.kbprintf (fun buf -> raise (Fatal (Buffer.contents buf))) (Buffer.create 16) fmt
 
 (* -------------------------------------------------------------------------- *)
 

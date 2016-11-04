@@ -7,6 +7,8 @@ open Common
 
 let zero = C.Constant (K.UInt8, "0")
 
+let is_array = function Array _ -> true | _ -> false
+
 (* Function types are pointers to function types, except in the top-level
  * declarator for a function, which gets special treatment via
  * mk_spec_and_declarator_f. *)
@@ -104,6 +106,21 @@ and is_constant = function
   | _ ->
       false
 
+and mk_for_loop_initializer e_array e_size e_value =
+  For (
+    (Int K.UInt, None, [ Ident "i", Some (InitExpr zero)]),
+    Op2 (K.Lt, Name "i", e_size),
+    Op1 (K.PreIncr, Name "i"),
+    Expr (Op2 (K.Assign, Index (e_array, Name "i"), e_value)))
+
+and mk_memset_zero_initializer e_array e_size =
+  Expr (Call (Name "memset", [
+    e_array;
+    Constant (K.UInt8, "0");
+    Op2 (K.Mult,
+      e_size,
+      Sizeof (Index (e_array, zero)))]))
+
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
   | Return e ->
@@ -155,22 +172,13 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let extra_stmt: C.stmt list =
         match init_type with
         | T.Memset ->
-            [ Expr (Call (Name "memset", [
-                Name binder.name;
-                Constant (K.UInt8, "0");
-                Op2 (K.Mult,
-                  mk_expr size,
-                  Sizeof (Index (Name binder.name, zero)))]))]
+            [ mk_memset_zero_initializer (Name binder.name) (mk_expr size) ]
         | T.Nope ->
             [ ]
         | T.Forloop ->
             (* Note: only works if the length and initial value are pure
              * computations... which F* guarantees! *)
-            [ For (
-                (Int K.UInt, None, [ Ident "i", Some (InitExpr zero)]),
-                Op2 (K.Lt, Name "i", mk_expr size),
-                Op1 (K.PreIncr, Name "i"),
-                Expr (Op2 (K.Assign, Index (Name binder.name, Name "i"), mk_expr init)))]
+            [ mk_for_loop_initializer (Name binder.name) (mk_expr size) (mk_expr init) ]
       in
       Decl (spec, None, [ decl, maybe_init ]) :: extra_stmt
 
@@ -196,6 +204,31 @@ and mk_stmt (stmt: stmt): C.stmt list =
         [ IfElse (mk_expr e, mk_compound_if (mk_stmts b1), mk_compound_if (mk_stmts b2)) ]
       else
         [ If (mk_expr e, mk_compound_if (mk_stmts b1)) ]
+
+  | Copy (e1, _, BufCreate (Stack, init, size)) ->
+      begin match e1 with
+      | Var _ -> ()
+      | _ -> failwith "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = "
+      end;
+      begin match init with
+      | Constant (_, "0") ->
+          [ mk_memset_zero_initializer (mk_expr e1) (mk_expr size) ]
+      | _ ->
+          [ mk_for_loop_initializer (mk_expr e1) (mk_expr size) (mk_expr init) ]
+      end
+
+  | Copy (e1, typ, BufCreateL (Stack, elts)) ->
+      (* int x[5]; *)
+      (* memcpy(x, &((int[5]){ 1, 2, 3, 4, 5 }), sizeof x); *)
+      [ Expr (Call (Name "memcpy", [
+          mk_expr e1;
+          Address (CompoundLiteral (
+            mk_type typ,
+            List.map (fun e -> InitExpr (mk_expr e)) elts));
+          Sizeof (mk_expr e1)]))]
+
+  | Copy _ ->
+      failwith "impossible"
 
   | Assign (e1, e2) ->
       [ Expr (Assign (mk_expr e1, mk_expr e2)) ]

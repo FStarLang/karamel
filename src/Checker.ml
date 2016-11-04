@@ -207,8 +207,8 @@ and check' env t e =
 
   | EIfThenElse (e1, e2, e3) ->
       check env TBool e1;
-      check env t e2;
-      check env t e3
+      check (locate env Then) t e2;
+      check (locate env Else) t e3
 
   | ESequence es ->
       begin match List.rev es with
@@ -223,7 +223,7 @@ and check' env t e =
       let t = assert_buffer env t in
       check env t e1;
       check env uint32 e2;
-      c (TBuf t)
+      c (best_buffer_type t e2)
 
   | EBufRead (e1, e2) ->
       check env uint32 e2;
@@ -365,6 +365,14 @@ and prefer_nominal t1 t2 =
   | _, _ ->
       t1
 
+and best_buffer_type t1 e2 =
+  match e2.node with
+  | EConstant k ->
+      TArray (t1, k)
+  | _ ->
+      TBuf t1
+
+
 and infer' env e =
   match e.node with
   | EBound i ->
@@ -437,7 +445,7 @@ and infer' env e =
   | EBufCreate (_, e1, e2) ->
       let t1 = infer env e1 in
       check env uint32 e2;
-      TBuf t1
+      best_buffer_type t1 e2
 
   | EBufRead (e1, e2) ->
       check env uint32 e2;
@@ -497,7 +505,7 @@ and infer' env e =
       | first :: others ->
           let t = infer env first in
           List.iter (check env t) others;
-          TBuf t
+          TArray (t, (K.UInt32, string_of_int (List.length es)))
       end
 
   | ETuple es ->
@@ -722,6 +730,8 @@ and assert_buffer env t =
   match expand_abbrev env t with
   | TBuf t1 ->
       t1
+  | TArray (t1, _) ->
+      t1
   | t ->
       type_error env "This is not a buffer: %a" ptyp t
 
@@ -747,6 +757,9 @@ and subtype env t1 t2 =
   match expand_abbrev env t1, expand_abbrev env t2 with
   | TInt w1, TInt w2 when w1 = w2 ->
       true
+  | TArray (t1, (_, l1)), TArray (t2, (_, l2)) when subtype env t1 t2 && l1 = l2 ->
+      true
+  | TArray (t1, _), TBuf t2
   | TBuf t1, TBuf t2 when subtype env t1 t2 ->
       true
   | TUnit, TUnit ->

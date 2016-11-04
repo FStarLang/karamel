@@ -192,13 +192,6 @@ let try_mk_switch e branches =
 let is_trivial_record_pattern fields =
   List.for_all (function (_, { node = PBound _; _ }) -> true | _ -> false) fields
 
-let rec nest bs t e2 =
-  match bs with
-  | (b, e1) :: bs ->
-      { node = ELet (b, e1, close_binder b (lift 1 (nest bs t e2))); typ = t }
-  | [] ->
-      e2
-
 let try_mk_flat e t branches =
   match branches with
   | [ binders, { node = PRecord fields; _ }, body ] ->
@@ -210,7 +203,7 @@ let try_mk_flat e t branches =
         let bindings = List.map2 (fun b (f, _) ->
           b, with_type b.typ (EField (atom, f))
         ) binders fields in
-        ELet (scrut, e, close_binder scrut (lift 1 (nest bindings t body)))
+        ELet (scrut, e, close_binder scrut (lift 1 (Simplify.nest bindings t body)))
       else
         EMatch (e, branches)
   | _ ->

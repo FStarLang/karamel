@@ -23,13 +23,15 @@ and stmt =
   | While of expr * block
   | Assign of expr * expr
     (** First expression has to be a [Bound] or [Open]. *)
+  | Copy of expr * typ * expr
+  | Switch of expr * (ident * block) list
+
   | BufWrite of expr * expr * expr
     (** First expression has to be a [Bound] or [Open]. *)
   | BufBlit of expr * expr * expr * expr * expr
   | BufFill of expr * expr * expr
   | PushFrame
   | PopFrame
-  | Switch of expr * (ident * block) list
 
 and expr =
   | Call of expr * expr list

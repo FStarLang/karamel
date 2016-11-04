@@ -222,6 +222,7 @@ let rec translate_expr env in_stmt e =
   | _ ->
       fatal_error "[AstToCStar.translate_expr]: should not be here (%a)" pexpr e
 
+and is_array = function TArray _ -> true | _ -> false
 
 and extract_stmts env e ret_type =
   let rec collect (env, acc) return_pos e =
@@ -233,11 +234,11 @@ and extract_stmts env e ret_type =
         collect (env, acc) return_pos e2
 
     | EWhile (e1, e2) ->
-        let e = CStar.While (translate_expr env false e1, translate_block env false e2) in
+        let e = CStar.While (translate_expr env false e1, translate_block env true e2) in
         env, e :: acc
 
     | EIfThenElse (e1, e2, e3) ->
-        let e = CStar.IfThenElse (translate_expr env true e1, translate_block env return_pos e2, translate_block env return_pos e3) in
+        let e = CStar.IfThenElse (translate_expr env false e1, translate_block env return_pos e2, translate_block env return_pos e3) in
         env, e :: acc
 
     | ESequence es ->
@@ -247,20 +248,24 @@ and extract_stmts env e ret_type =
           collect (env, acc) return_pos e
         ) (env, acc) es
 
+    | EAssign (e1, ({ node = (EBufCreate _ | EBufCreateL _); _ } as e2)) when is_array e1.typ ->
+        let e = CStar.Copy (translate_expr env false e1, translate_type env e1.typ, translate_expr env false e2) in
+        env, e :: acc
+
     | EAssign (e1, e2) ->
-        let e = CStar.Assign (translate_expr env true e1, translate_expr env true e2) in
+        let e = CStar.Assign (translate_expr env false e1, translate_expr env false e2) in
         env, e :: acc
 
     | EBufBlit (e1, e2, e3, e4, e5) ->
-        let e = CStar.BufBlit (translate_expr env true e1, translate_expr env true e2, translate_expr env true e3, translate_expr env true e4, translate_expr env true e5) in
+        let e = CStar.BufBlit (translate_expr env false e1, translate_expr env false e2, translate_expr env false e3, translate_expr env false e4, translate_expr env false e5) in
         env, e :: acc
 
     | EBufWrite (e1, e2, e3) ->
-        let e = CStar.BufWrite (translate_expr env true e1, translate_expr env true e2, translate_expr env true e3) in
+        let e = CStar.BufWrite (translate_expr env false e1, translate_expr env false e2, translate_expr env false e3) in
         env, e :: acc
 
     | EBufFill (e1, e2, e3) ->
-        let e = CStar.BufFill (translate_expr env true e1, translate_expr env true e2, translate_expr env true e3) in
+        let e = CStar.BufFill (translate_expr env false e1, translate_expr env false e2, translate_expr env false e3) in
         env, e :: acc
 
     | EMatch _ ->
@@ -276,7 +281,7 @@ and extract_stmts env e ret_type =
         env, CStar.Abort :: acc
 
     | ESwitch (e, branches) ->
-        env, CStar.Switch (translate_expr env true e,
+        env, CStar.Switch (translate_expr env false e,
           List.map (fun (lid, e) ->
             string_of_lident lid, translate_block env return_pos e
           ) branches) :: acc
@@ -389,6 +394,8 @@ and translate_function_block env e t =
 and translate_return_type env = function
   | TInt w ->
       CStar.Int w
+  | TArray (t, k) ->
+      CStar.Array (translate_type env t, CStar.Constant k)
   | TBuf t ->
       CStar.Pointer (translate_type env t)
   | TUnit ->

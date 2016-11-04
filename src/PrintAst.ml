@@ -114,6 +114,7 @@ and print_meta = function
 and print_typ = function
   | TInt w -> print_width w ^^ string "_t"
   | TBuf t -> print_typ t ^^ star
+  | TArray (t, k) -> print_typ t ^^ lbracket ^^ print_constant k ^^ rbracket
   | TUnit -> string "()"
   | TQualified name -> string (string_of_lident name)
   | TBool -> string "bool"
@@ -160,7 +161,7 @@ and print_expr { node; _ } =
   | ESequence es ->
       separate_map (semi ^^ hardline) (fun e -> group (print_expr e)) es
   | EAssign (e1, e2) ->
-      print_expr e1 ^/^ string "<-" ^/^ print_expr e2
+      group (print_expr e1 ^/^ string "<-") ^^ (jump (print_expr e2))
   | EBufCreate (l, e1, e2) ->
       print_lifetime l ^^ space ^^
       print_app string "newbuf" print_expr [e1; e2]
