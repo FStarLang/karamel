@@ -305,6 +305,7 @@ let o_of_c f =
  * silently dropped, or KreMLin aborts if warning 3 is fatal. *)
 let compile files extra_c_files =
   assert (List.length files > 0);
+  let extra_c_files = List.map expand_fstar_home extra_c_files in
   detect_kremlin_if ();
   detect_cc_if ();
   flush stdout;
@@ -325,6 +326,7 @@ let compile files extra_c_files =
  * command-line are linked together; any [-o] option is passed to the final
  * invocation of [gcc]. *)
 let link c_files o_files =
+  let o_files = List.map expand_fstar_home o_files in
   let objects = List.map o_of_c c_files @ o_files in
   let extra_arg = if !Options.exe_name <> "" then [ "-o"; !Options.exe_name ] else [] in
   if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg @ List.rev !Options.ldopts) then

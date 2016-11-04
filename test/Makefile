@@ -8,7 +8,8 @@ KRML	= ../krml
 all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
   Private.exe ML16.exe Abbrev.exe TSet.exe Tuples.exe \
   DataTypesSimple.exe DataTypes.exe Parameterized.exe \
-  Crypto.Symmetric.Poly1305.exe Crypto.Symmetric.Chacha20.exe
+  Crypto.Symmetric.Poly1305.exe Crypto.Symmetric.Chacha20.exe \
+  Crypto.KrmlTest.exe
 
 broken: Mutable.exe Crypto.Test.exe
 
@@ -27,6 +28,7 @@ Crypto.%.exe:
 Crypto.Symmetric.Poly1305.exe: EXTRA = main-Poly1305.c testlib.c
 Crypto.Symmetric.Chacha20.exe: EXTRA = main-Chacha.c testlib.c
 Crypto.AEAD.Chacha20Poly1305.exe: EXTRA = main-Aead.c testlib.c
+Crypto.KrmlTest.exe: EXTRA = $(CRYPTO)/test_hacks.c -no-prefix Crypto.KrmlTest $(TESTOPTS) -ccopt -Wno-error=pointer-sign
 
 SimpleWasm.wasm: SimpleWasm.fst
 	$(KRML) $(OPTS) -verbose $^ -o $@ -wasm
