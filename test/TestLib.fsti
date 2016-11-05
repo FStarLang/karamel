@@ -12,5 +12,5 @@ val compare_and_print: buffer Int8.t -> buffer UInt8.t -> buffer UInt8.t -> UInt
 (* This function is for testing purposes only: this is an unmanaged, raw
  * pointer that cannot be freed. *)
 val unsafe_malloc: UInt32.t -> Stack (buffer UInt8.t) (fun _ -> true) (fun _ _ _ -> true)
-
+val perr: FStar.UInt32.t -> Stack unit (fun _ -> True) (fun _ _ _ -> True)
 val print_clock_diff: C.clock_t -> C.clock_t -> Stack unit (fun _ -> true) (fun _ _ _ -> true)

@@ -47,3 +47,7 @@ void *TestLib_unsafe_malloc(size_t size) {
 void TestLib_print_clock_diff(clock_t t1, clock_t t2) {
   printf("User time: %f\n", ((double)t2 - t1)/CLOCKS_PER_SEC);
 }
+
+void TestLib_perr(unsigned int err_code){
+  printf("Got error code %u.\n", err_code);
+}
