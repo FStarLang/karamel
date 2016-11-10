@@ -222,9 +222,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
       (* memcpy(x, &((int[5]){ 1, 2, 3, 4, 5 }), sizeof x); *)
       [ Expr (Call (Name "memcpy", [
           mk_expr e1;
-          Address (CompoundLiteral (
+          CompoundLiteral (
             mk_type typ,
-            List.map (fun e -> InitExpr (mk_expr e)) elts));
+            List.map (fun e -> InitExpr (mk_expr e)) elts);
           Sizeof (mk_expr e1)]))]
 
   | Copy _ ->

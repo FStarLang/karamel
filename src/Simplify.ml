@@ -420,7 +420,8 @@ and hoist_expr pos e =
 
   | EAssign (e1, e2) ->
       let lhs1, e1 = hoist_expr Unspecified e1 in
-      let lhs2, e2 = hoist_expr AssignRhs e2 in
+      let rhspos = if is_array e1.typ then AssignRhs else Unspecified in
+      let lhs2, e2 = hoist_expr rhspos e2 in
       if pos = UnderStmtLet then
         lhs1 @ lhs2, mk (EAssign (e1, e2))
       else

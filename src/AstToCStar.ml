@@ -222,8 +222,6 @@ let rec translate_expr env in_stmt e =
   | _ ->
       fatal_error "[AstToCStar.translate_expr]: should not be here (%a)" pexpr e
 
-and is_array = function TArray _ -> true | _ -> false
-
 and extract_stmts env e ret_type =
   let rec collect (env, acc) return_pos e =
     match e.node with

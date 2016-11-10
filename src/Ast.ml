@@ -185,6 +185,8 @@ let flatten_arrow =
   in
   flatten_arrow []
 
+let is_array = function TArray _ -> true | _ -> false
+
 let fold_arrow ts t_ret =
   List.fold_right (fun t arr -> TArrow (t, arr)) ts t_ret
 
