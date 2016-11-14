@@ -8,6 +8,8 @@
 #include <stdbool.h>
 #include <time.h>
 
+#include "nostruct.h"
+
 // For types and values from C.fsti that do not exactly have the same name as
 // their C counterparts
 extern int exit_success;
@@ -23,6 +25,9 @@ typedef uint8_t FStar_UInt8_t, FStar_UInt8_t_;
 typedef int8_t FStar_Int8_t, FStar_Int8_t_;
 
 #if defined(__GNUC__) && defined(__SIZEOF_INT128__)
+#ifdef __NOSTRUCT__
+#error __NOSTRUCT__ only needed with CompCert, where 128-bit integers are not defined. This cannot happen.
+#endif // __NOSTRUCT__
 typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
 #define FStar_UInt128_add(x,y) ((x) + (y))
 #define FStar_UInt128_mul(x,y) ((x) * (y))
@@ -38,26 +43,85 @@ typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
 #define FStar_Int_Cast_uint64_to_uint128(x) ((__int128)(x))
 #define FStar_Int_Cast_uint128_to_uint64(x) ((uint64_t)(x))
 #define FStar_UInt128_mul_wide(x, y) ((__int128)(x) * (y))
-#else
+#else //  defined(__GNUC__) && defined(__SIZEOF_INT128__)
 typedef struct {
   uint64_t high;
   uint64_t low;
 } FStar_UInt128_t, FStar_UInt128_t_;
-FStar_UInt128_t FStar_UInt128_add(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_add_mod(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_sub(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_sub_mod(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_mul(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_logand(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_logor(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_logxor(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_lognot(FStar_UInt128_t x);
-FStar_UInt128_t FStar_UInt128_shift_left(FStar_UInt128_t x, FStar_UInt32_t y);
-FStar_UInt128_t FStar_UInt128_shift_right(FStar_UInt128_t x, FStar_UInt32_t y);
-FStar_UInt128_t FStar_Int_Cast_uint64_to_uint128(uint64_t x);
-uint64_t FStar_Int_Cast_uint128_to_uint64(FStar_UInt128_t x);
-FStar_UInt128_t FStar_UInt128_mul_wide(uint64_t x, uint64_t y);
-#endif
+#ifdef __NOSTRUCT__
+#define DECL_BY_VAL_FStar_UInt128_t(NAME)   \
+  uint64_t NAME##_high,			    \
+  uint64_t NAME##_low
+#define DECL_LOCAL_FStar_UInt128_t(NAME) \
+  uint64_t NAME##_high; \
+  uint64_t NAME##_low
+#define LOCAL_TO_STRUCT_FStar_UInt128_t(dest, _high, _low) \
+  (*(dest)).high = _high; \
+  (*(dest)).low  = _low;
+#define PASS_LOCAL_FStar_UInt128_t(NAME) \
+  NAME##_high, \
+  NAME##_low
+#define ASSIGN_INIT_FStar_UInt128_t(NAME, field1, val1, field2, val2) \
+  NAME##_##field1 = val1; \
+  NAME##_##field2 = val2
+#define PASS_BY_COPY_FStar_UInt128_t(x) \
+  (x).high, \
+  (x).low
+#else // __NOSTRUCT__
+#define STRUCT_INIT_FStar_UInt128_t(field1, val1, field2, val2) \
+  .field1 = val1, .field2 = val2
+#endif // __NOSTRUCT__
+#define DECL_OP2_FStar_UInt128_t(NAME) \
+ DECL_RET_BY_VAL \
+ (						\
+  FStar_UInt128_t,				\
+  NAME,						\
+  DECL_BY_VAL(FStar_UInt128_t,x),		\
+  DECL_BY_VAL(FStar_UInt128_t,y)		\
+ );
+DECL_OP2_FStar_UInt128_t(FStar_UInt128_add);
+DECL_OP2_FStar_UInt128_t(FStar_UInt128_add_mod);
+DECL_OP2_FStar_UInt128_t(FStar_UInt128_sub);
+DECL_OP2_FStar_UInt128_t(FStar_UInt128_sub_mod);
+DECL_OP2_FStar_UInt128_t(FStar_UInt128_mul);
+DECL_OP2_FStar_UInt128_t(FStar_UInt128_logand);
+DECL_OP2_FStar_UInt128_t(FStar_UInt128_logor);
+DECL_OP2_FStar_UInt128_t(FStar_UInt128_logxor);
+DECL_RET_BY_VAL
+(
+ FStar_UInt128_t,
+ FStar_UInt128_lognot,
+ DECL_BY_VAL(FStar_UInt128_t,x)
+);
+DECL_RET_BY_VAL
+(
+ FStar_UInt128_t,
+ FStar_UInt128_shift_left,
+ DECL_BY_VAL(FStar_UInt128_t,x),
+ FStar_UInt32_t y
+);
+DECL_RET_BY_VAL
+(
+ FStar_UInt128_t,
+ FStar_UInt128_shift_right,
+ DECL_BY_VAL(FStar_UInt128_t,x),
+ FStar_UInt32_t y
+);
+DECL_RET_BY_VAL
+(
+ FStar_UInt128_t,
+ FStar_Int_Cast_uint64_to_uint128,
+ uint64_t x
+);
+uint64_t FStar_Int_Cast_uint128_to_uint64(DECL_BY_VAL(FStar_UInt128_t,x));
+DECL_RET_BY_VAL
+(
+ FStar_UInt128_t,
+ FStar_UInt128_mul_wide,
+ uint64_t x,
+ uint64_t y
+);
+#endif //  defined(__GNUC__) && defined(__SIZEOF_INT128__)
 
 // Constant-time comparisons
 uint64_t FStar_UInt64_eq_mask(uint64_t x, uint64_t y);
@@ -68,8 +132,19 @@ uint8_t FStar_UInt8_eq_mask(uint8_t x, uint8_t y);
 uint8_t FStar_UInt8_gte_mask(uint8_t x, uint8_t y);
 
 // 128-bit arithmetic
-FStar_UInt128_t FStar_UInt128_eq_mask(FStar_UInt128_t x, FStar_UInt128_t y);
-FStar_UInt128_t FStar_UInt128_gte_mask(FStar_UInt128_t x, FStar_UInt128_t y);
+DECL_RET_BY_VAL(
+ FStar_UInt128_t,
+ FStar_UInt128_eq_mask,
+ DECL_BY_VAL(FStar_UInt128_t,x),
+ DECL_BY_VAL(FStar_UInt128_t,y)
+);
+DECL_RET_BY_VAL
+(
+ FStar_UInt128_t,
+ FStar_UInt128_gte_mask,
+ DECL_BY_VAL(FStar_UInt128_t,x), 
+ DECL_BY_VAL(FStar_UInt128_t,y)
+ );
 
 // Buffers (FIXME remove eqb!)
 #define FStar_Buffer_eqb(b1, b2, n) \
