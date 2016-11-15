@@ -1,0 +1,32 @@
+StructErase.c and StructErase.h have been obtained using KreMLin:
+
+../../krml -cc compcert -skip-compilation StructErase.fst
+
+StructErase_instru.c and StructErase_instru.h are modified versions of
+the abovementioned files. By default, they are exactly
+equivalent. With -D__NOSTRUCT__ -U__SIZEOF_INT128__, the _instru
+version erases local structures and replaces them with the sequence of
+their non-compound fields.
+
+To run performance tests:
+
+./test.sh -Lpath_to_CompCert/runtime
+
+(NO WHITESPACE between -L and the path)
+
+Table: (on a 1.3 GHz 4-core i7, 8 Gb RAM, Linux 3.19.0-73-generic
+#81~14.04.1-Ubuntu SMP Wed Oct 19 00:03:45 UTC 2016 x86_64 x86_64
+x86_64 GNU/Linux)
+
+With CompCert 2.7 (compiled with Coq 8.4). Normally, CompCert 2.7.1
+should make no difference (they are functionally equivalent, the only
+difference is that CompCert 2.7.1 is compiled using Coq 8.5).
+
+Each figure is the minimum time reported over a sequence of 100 tests.
+
+            non-instru    instru
+CompCert    SEGFAULT      0.78
+gcc -O0     1.02          0.91
+gcc -O1     0.59          0.59
+gcc -O2     0.59          0.00
+gcc -O3     0.09          0.00
