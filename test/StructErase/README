@@ -30,3 +30,13 @@ gcc -O0     1.02          0.91
 gcc -O1     0.59          0.59
 gcc -O2     0.59          0.00
 gcc -O3     0.09          0.00
+
+With n=2^25 instead of 2^26 (change z in function StructErase_test, at
+StructErase_instru.c:24):
+
+            non-instru    instru
+CompCert    0.48          0.39
+gcc -O0     0.51          0.46
+gcc -O1     0.29          0.28
+gcc -O2     0.28          0.00
+gcc -O3     0.03          0.00
