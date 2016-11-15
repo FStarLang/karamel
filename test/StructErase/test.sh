@@ -1,7 +1,7 @@
 #!/bin/bash
 # additional argument: options to locate the CompCert runtime library.
 
-ulimit -S unlimited
+ulimit -s unlimited
 
 ccomp -o StructErase StructErase_instru.c StructErase_test.c -I ../../kremlib/ $* -fstruct-passing
 echo -n compcert:
