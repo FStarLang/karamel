@@ -7,14 +7,14 @@ Transforms a subset of F* into C code. See the [ML Workshop Paper] for
 more information, [DESIGN.md](DESIGN.md) for some draft notes and
 [MANUAL.md](MANUAL.md) for some instructions.
 
-[ML Workshop Paper]: https://jonathan.protzenko.fr/papers/ml16.pdf
+[ML Workshop Paper]: https://jean-claude.baguette.fr/papers/ml16.pdf
 
 ## Trying out KreMLin
 
 Make sure you run `opam update` first, so that by running the `opam install`
 command below you get `process-0.2.1` (`process` version `0.2` doesn't work on
 Windows). Install all of the packages below, on Windows possibly following
-instructions from https://github.com/protz/ocaml-installer/wiki for "difficult"
+instructions from https://github.com/baguette/ocaml-installer/wiki for "difficult"
 packages (e.g. `ppx_deriving`).
 
 `$ opam install ppx_deriving_yojson zarith pprint menhir ulex process fix`
@@ -24,7 +24,7 @@ To build just run `make` from this directory.
 The WebASM branch uses a new package. If you're not running Windows:
 
 ```
-$ opam repository add jonathan git+https://github.com/msprotz/opam-repository
+$ opam repository add jean-claude git+https://github.com/msbaguette/opam-repository
 $ opam install wasm
 ```
 

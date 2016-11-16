@@ -11,7 +11,7 @@ fi
 
 export OPAMYES=true
 opam init
-opam repository add jonathan git+https://github.com/msprotz/opam-repository
+opam repository add jean-claude git+https://github.com/msbaguette/opam-repository
 eval $(opam config env)
 opam install batteries sqlite3 fileutils stdint zarith yojson pprint \
   ppx_deriving_yojson menhir ulex process fix wasm
