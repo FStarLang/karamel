@@ -1,3 +1,6 @@
+#ifndef __TESTLIB_H
+#define __TESTLIB_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
@@ -18,3 +21,9 @@ void TestLib_compare_and_print(const char *txt, uint8_t *reference, uint8_t *out
 void *TestLib_unsafe_malloc(size_t size);
 void TestLib_print_clock_diff(clock_t t1, clock_t t2);
 void TestLib_perr(unsigned int err_code);
+
+#define TestLib_uint8_p_null NULL
+#define TestLib_uint32_p_null NULL
+#define TestLib_uint64_p_null NULL
+
+#endif
