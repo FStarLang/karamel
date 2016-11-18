@@ -16,3 +16,6 @@ type-check the rest of your program using these stubs. F*, however, just drops
 any `.fsti` file, meaning that you need to use an `.fst` instead for KreMLin to
 even be aware of these functions. The `-drop` option of KreMLin makes sure that
 no `.h` or `.c` is generated, and you can provide hand-written code instead.
+
+Note: you may need to add `-add-include '"stubs.h"'` too, and write `stubs.h` by
+hand.
