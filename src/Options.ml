@@ -11,6 +11,7 @@ let includes: string list ref = ref [ "FSTAR_HOME/ulib/hyperstack" ]
 let verbose = ref false
 let exe_name = ref ""
 let cc = ref "gcc"
+let m32 = ref false
 let fsopts: string list ref = ref []
 let ccopts: string list ref = ref []
 let ldopts: string list ref = ref []

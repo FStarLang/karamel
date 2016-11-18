@@ -244,7 +244,8 @@ let detect_gnu flavor =
     | [] ->
         Warnings.fatal_error "gcc not found in path!";
   in
-  search [ "%s-5"; "%s-6"; "x86_64-w64-mingw32-%s"; "%s" ];
+  let crosscc = if !Options.m32 then format_of_string "i686-w64-mingw32-%s" else format_of_string "x86_64-w64-mingw32-%s" in
+  search [ "%s-5"; "%s-6"; crosscc; "%s" ];
 
   KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !cc;
 
@@ -258,6 +259,7 @@ let detect_gnu flavor =
     "-fwrapv"
   ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
     @ List.rev !Options.ccopts;
+  if !Options.m32 then cc_args := "-m32" :: !cc_args;
   KPrint.bprintf "%s%s options are:%s %s\n" Ansi.underline !cc Ansi.reset
     (String.concat " " !cc_args)
 

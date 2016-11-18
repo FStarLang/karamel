@@ -61,6 +61,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   let spec = [
     (* KreMLin as a driver *)
     "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), compcert, g++, clang";
+    "-m32", Arg.Set Options.m32, " turn on 32-bit cross-compiling";
     "-fsopt", Arg.String (prepend Options.fsopts), " option to pass to F*";
     "-ccopt", Arg.String (prepend Options.ccopts), " option to pass to the C compiler and linker";
     "-ldopt", Arg.String (prepend Options.ldopts), " option to pass to the C linker";
