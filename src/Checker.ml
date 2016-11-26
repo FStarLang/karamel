@@ -25,6 +25,7 @@ type env = {
   types: type_def M.t;
   location: loc list;
   enums: lident M.t;
+  warn: bool;
 }
 
 let empty: env = {
@@ -33,6 +34,7 @@ let empty: env = {
   types = M.empty;
   location = [];
   enums = M.empty;
+  warn = false
 }
 
 let push env binder =
@@ -127,9 +129,18 @@ let type_of_op env op w =
   | Assign | PreIncr | PreDecr | PostIncr | PostDecr | Comma ->
       fatal_error "%a, operator %a is for internal use only" ploc env.location pop op
 
+let rec is_constant e =
+  match e.node with
+  | EConstant _ ->
+      true
+  | ECast (e, _) ->
+      is_constant e
+  | _ ->
+      false
 
-let rec check_everything files =
+let rec check_everything ?warn files =
   let env = populate_env files in
+  let env = match warn with Some true -> { env with warn = true } | _ -> env in
   KList.filter_map (fun p ->
     try
       check_program env p;
@@ -220,6 +231,11 @@ and check' env t e =
       end
 
   | EBufCreate (_, e1, e2) ->
+      if env.warn && not (is_constant e2) then begin
+        let e = KPrint.bsprintf "%a" pexpr e in
+        let loc = KPrint.bsprintf "%a" ploc env.location in
+        Warnings.(maybe_fatal_error (loc, Vla e))
+      end;
       let t = assert_buffer env t in
       check env t e1;
       check env uint32 e2;

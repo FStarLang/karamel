@@ -158,7 +158,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
    * Otherwise, the checker is too stringent and will drop files. *)
   let l = List.length files in
   let files = DataTypes.drop_match_cast files in
-  let files = Checker.check_everything files in
+  let files = Checker.check_everything ~warn:true files in
   if !arg_print_check = 1 then
     print PrintAst.print_files files;
   let files = Inlining.inline_type_abbrevs files in

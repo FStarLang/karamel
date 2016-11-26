@@ -98,14 +98,6 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
   | _ ->
       Compound stmts
 
-and is_constant = function
-  | Constant _ ->
-      true
-  | Cast (e, _) ->
-      is_constant e
-  | _ ->
-      false
-
 and mk_for_loop_initializer e_array e_size e_value =
   For (
     (Int K.UInt, None, [ Ident "i", Some (InitExpr zero)]),
@@ -147,9 +139,6 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Decl (spec, None, [ decl, Some (InitExpr e)])]
 
   | Decl (binder, BufCreate (Stack, init, size)) ->
-      if not (is_constant size) then
-        Warnings.(maybe_fatal_error ("", Vla binder.name));
-
       (* In the case where this is a buffer creation in the C* meaning, then we
        * declare a fixed-length array; this is an "upcast" from pointer type to
        * array type, in the C sense. *)
