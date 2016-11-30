@@ -32,10 +32,7 @@ If you're running Windows:
 
 ```
 $ git clone https://github.com/WebAssembly/spec
-$ cd spec/interpreter
-$ mv aux foo
-$ sed -i s/aux/foo _tags Makefile
-$ make install
+$ make -C interpreter install
 ```
 
 If you have the latest version of F* and `fstar.exe` is in your `PATH` then you
