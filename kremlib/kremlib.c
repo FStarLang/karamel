@@ -17,6 +17,19 @@ uint8_t FStar_UInt8_gte_mask(uint8_t x, uint8_t y) {
   return ~(uint8_t)(((int32_t)x - y) >> 31);
 }
 
+uint16_t FStar_UInt16_eq_mask(uint16_t x, uint16_t y) {
+  x = ~(x ^ y);
+  x &= x << 8;
+  x &= x << 4;
+  x &= x << 2;
+  x &= x << 1;
+  return (int16_t)x >> 15;
+}
+
+uint16_t FStar_UInt16_gte_mask(uint16_t x, uint16_t y) {
+  return ~(uint16_t)(((int32_t)x - y) >> 31);
+}
+
 uint32_t FStar_UInt32_eq_mask(uint32_t x, uint32_t y) {
   x = ~(x ^ y);
   x &= x << 16;

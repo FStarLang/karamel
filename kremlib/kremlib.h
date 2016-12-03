@@ -64,6 +64,8 @@ uint64_t FStar_UInt64_eq_mask(uint64_t x, uint64_t y);
 uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y);
 uint32_t FStar_UInt32_eq_mask(uint32_t x, uint32_t y);
 uint32_t FStar_UInt32_gte_mask(uint32_t x, uint32_t y);
+uint16_t FStar_UInt16_eq_mask(uint16_t x, uint16_t y);
+uint16_t FStar_UInt16_gte_mask(uint16_t x, uint16_t y);
 uint8_t FStar_UInt8_eq_mask(uint8_t x, uint8_t y);
 uint8_t FStar_UInt8_gte_mask(uint8_t x, uint8_t y);
 
