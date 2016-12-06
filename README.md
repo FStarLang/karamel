@@ -17,18 +17,12 @@ Windows). Install all of the packages below, on Windows possibly following
 instructions from https://github.com/protz/ocaml-installer/wiki for "difficult"
 packages (e.g. `ppx_deriving`).
 
-`$ opam install ppx_deriving_yojson zarith pprint menhir ulex process fix`
+`$ opam install ppx_deriving_yojson zarith pprint menhir ulex process fix wasm`
 
 To build just run `make` from this directory.
 
-The WebASM branch uses a new package. If you're not running Windows:
-
-```
-$ opam repository add jonathan git+https://github.com/msprotz/opam-repository
-$ opam install wasm
-```
-
-If you're running Windows:
+If you're running Windows, then it may be that the wasm package is not yet
+available on OPAM:
 
 ```
 $ git clone https://github.com/WebAssembly/spec
