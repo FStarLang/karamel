@@ -19,7 +19,7 @@ val unsafe_malloc: l:UInt32.t ->
       /\ HyperStack.is_eternal_region (frameOf b)
       /\ HyperStack.modifies (Set.singleton (frameOf b)) h0 h1
       /\ HyperStack.modifies_ref (frameOf b) (TSet.empty) h0 h1
-      /\ (FStar.HyperStack (Map.domain h0.h == Map.domain h1.h)))
+      /\ (FStar.HyperStack.(Map.domain h0.h == Map.domain h1.h)))
 val perr: FStar.UInt32.t -> Stack unit
   (requires (fun h -> true))
   (ensures (fun h0 _ h1 -> h0 == h1))
