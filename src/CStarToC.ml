@@ -380,12 +380,13 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
   | Type _ ->
       None
 
-  | Function (cc, return_type, name, parameters, body) ->
+  | Function (cc, flags, return_type, name, parameters, body) ->
       begin try
+        let static = if List.exists ((=) Private) flags then Some Static else None in
         let parameters = List.map (fun { name; typ } -> name, typ) parameters in
         let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
         let body = ensure_compound (mk_stmts body) in
-        Some (Function ((spec, None, [ decl, None ]), body))
+        Some (Function ((spec, static, [ decl, None ]), body))
       with e ->
         beprintf "Fatal exception raised in %s\n" name;
         raise e
@@ -415,11 +416,12 @@ let mk_stub_or_function (d: decl): C.declaration_or_function =
       let spec, decl = mk_spec_and_declarator name t in
       Decl (spec, Some Typedef, [ decl, None ])
 
-  | Function (cc, return_type, name, parameters, _) ->
+  | Function (cc, flags, return_type, name, parameters, _) ->
       begin try
+        let static = if List.exists ((=) Private) flags then Some Static else None in
         let parameters = List.map (fun { name; typ } -> name, typ) parameters in
         let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
-        Decl (spec, None, [ decl, None ])
+        Decl (spec, static, [ decl, None ])
       with e ->
         beprintf "Fatal exception raised in %s\n" name;
         raise e

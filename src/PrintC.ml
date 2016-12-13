@@ -10,6 +10,7 @@ open C
 let p_storage_spec = function
   | Typedef -> string "typedef"
   | Extern -> string "extern"
+  | Static -> string "static"
 
 let rec p_type_spec = function
   | Int w -> print_width w ^^ string "_t"
