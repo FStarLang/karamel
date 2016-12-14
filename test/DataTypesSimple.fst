@@ -8,7 +8,7 @@ type point = | Point2D: x:Int32.t -> y:Int32.t -> point
 
 let magnitude = function
   | Point2D x y ->
-      FStar.Int32 (x *%^ x +%^ y *%^ y)
+      FStar.Int32.(x *%^ x +%^ y *%^ y)
 
 let f (): ST.Stack t (fun _ -> true) (fun _ _ _ -> true) =
   Cons1

@@ -25,3 +25,5 @@ let mk_fresh name test =
   else
     name
 
+let fstar_name_of_mod =
+  String.map (function '.' -> '_' | x -> x)

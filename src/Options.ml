@@ -15,6 +15,7 @@ let m32 = ref false
 let fsopts: string list ref = ref []
 let ccopts: string list ref = ref []
 let ldopts: string list ref = ref []
+let bundle: string list ref = ref [ "FStar" ]
 
 (** These are modules that we do not want to drop (because they have meaningful
  * function signatures); but do not want to compile them (because they have no

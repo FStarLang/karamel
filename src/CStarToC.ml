@@ -410,41 +410,43 @@ let mk_files files =
   List.map (fun (name, program) -> name, mk_program program) files
 
 
-let mk_stub_or_function (d: decl): C.declaration_or_function =
+let mk_stub_or_function (d: decl): C.declaration_or_function option =
   match d with
   | Type (name, t) ->
       let spec, decl = mk_spec_and_declarator name t in
-      Decl (spec, Some Typedef, [ decl, None ])
+      Some (Decl (spec, Some Typedef, [ decl, None ]))
 
   | Function (cc, flags, return_type, name, parameters, _) ->
-      begin try
-        let static = if List.exists ((=) Private) flags then Some Static else None in
-        let parameters = List.map (fun { name; typ } -> name, typ) parameters in
-        let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
-        Decl (spec, static, [ decl, None ])
-      with e ->
-        beprintf "Fatal exception raised in %s\n" name;
-        raise e
-      end
+      if List.exists ((=) Private) flags then
+        None
+      else
+        begin try
+          let parameters = List.map (fun { name; typ } -> name, typ) parameters in
+          let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
+          Some (Decl (spec, None, [ decl, None ]))
+        with e ->
+          beprintf "Fatal exception raised in %s\n" name;
+          raise e
+        end
 
   | External (name, Function (cc, t, ts)) ->
       let spec, decl = mk_spec_and_declarator_f cc name t (List.mapi (fun i t ->
         KPrint.bsprintf "x%d" i, t
       ) ts) in
-      Decl (spec, Some Extern, [ decl, None ])
+      Some (Decl (spec, Some Extern, [ decl, None ]))
 
   | External (name, t) ->
       let spec, decl = mk_spec_and_declarator name t in
-      Decl (spec, Some Extern, [ decl, None ])
+      Some (Decl (spec, Some Extern, [ decl, None ]))
 
   | Global (name, t, _) ->
       let t = match t with Function _ -> Pointer t | _ -> t in
       let spec, decl = mk_spec_and_declarator name t in
-      Decl (spec, Some Extern, [ decl, None ])
+      Some (Decl (spec, Some Extern, [ decl, None ]))
 
 
 let mk_header decls =
-  List.map mk_stub_or_function decls
+  KList.filter_map mk_stub_or_function decls
 
 let mk_headers files =
   List.map (fun (name, program) -> name, mk_header program) files

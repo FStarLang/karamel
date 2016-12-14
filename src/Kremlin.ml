@@ -33,8 +33,8 @@ High-level description:
      in the directory specified by [-tmpdir], or in the current directory.
   4. If some FILES end with [.c], KreMLin will compile them along with the [.c]
      files generated at step 3. to obtain a series of [.o] files.
-  5. If some FILES end with [.o], KreMLin will link them along with the [.o] files
-     obtained at step 4. to obtain a final executable.
+  5. If some FILES end with [.o] or [.S], KreMLin will link them along with the
+     [.o] files obtained at step 4. to obtain a final executable.
 
 The [-skip-extraction] option will stop KreMLin after step 1.
 The [-skip-compilation] option will stop KreMLin after step 3.
@@ -75,6 +75,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
 
     (* Controling the behavior of KreMLin *)
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";
+    "-bundle", Arg.String (prepend Options.bundle), " group all modules in this namespace in one compilation unit (default: " ^ String.concat ", " !Options.bundle ^ ")";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to every generated file";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
     "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";
@@ -97,7 +98,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   Arg.parse spec (fun f ->
     if Filename.check_suffix f ".fst" then
       fst_files := f :: !fst_files
-    else if Filename.check_suffix f ".o" then
+    else if Filename.check_suffix f ".o" || Filename.check_suffix f ".S" then
       o_files := f :: !o_files
     else if Filename.check_suffix f ".c" then
       c_files := f :: !c_files
@@ -221,9 +222,14 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     output_string (open_out !Options.exe_name) s;
     KPrint.bprintf "Wrote WASM output to %s\n" !Options.exe_name
   else
+    let to_drop = List.map Idents.fstar_name_of_mod !Options.in_kremlib in
+    let files = List.filter (fun (name, _) ->
+      not (List.exists ((=) name) to_drop)
+    ) files in
+
     (* ... then to C *)
-    let headers = CStarToC.mk_headers files in
-    let files = CStarToC.mk_files files in
+    let headers = CStarToC.mk_headers (CStar.collapse_bundles_first files) in
+    let files = CStarToC.mk_files (CStar.collapse_bundles_last files) in
 
     (* -dc *)
     if !arg_print_c then
@@ -232,14 +238,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     flush stdout;
     flush stderr;
     Printf.printf "KreMLin: writing out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
-    let to_drop = List.map (String.map (function '.' -> '_' | x -> x)) !Options.in_kremlib in
-    let files = List.filter (fun (name, _) ->
-      not (List.exists ((=) name) to_drop)
-    ) files in
     Output.write_c files;
-    let headers = List.filter (fun (name, _) ->
-      not (List.exists ((=) name) to_drop)
-    ) headers in
     Output.write_h headers;
 
     if !arg_skip_compilation then
