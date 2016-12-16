@@ -338,6 +338,9 @@ let rec hoist_stmt e =
       let lhs, e = hoist_expr Unspecified e in
       nest lhs e.typ (mk (EReturn e))
 
+  | EComment (s, e, s') ->
+      mk (EComment (s, hoist_stmt e, s'))
+
   | EMatch _ ->
       failwith "[hoist_t]: EMatch not properly desugared"
 
@@ -368,6 +371,10 @@ and hoist_expr pos e =
   | EEnum _
   | EOp _ ->
       [], e
+
+  | EComment (s, e, s') ->
+      let lhs, e = hoist_expr Unspecified e in
+      lhs, mk (EComment (s, e, s'))
 
   | EApp (e, es) ->
       (* TODO: assert that in the case of a lazily evaluated boolean operator,

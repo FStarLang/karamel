@@ -83,6 +83,7 @@ and expr' =
   | EReturn of expr
   | EWhile of expr * expr
   | ECast of expr * typ
+  | EComment of string * expr * string
 
 and expr =
   expr' with_type
@@ -282,6 +283,8 @@ class virtual ['env] map = object (self)
         self#eenum env typ lid
     | ESwitch (e, branches) ->
         self#eswitch env typ e branches
+    | EComment (s, e, s') ->
+        self#ecomment env typ s e s'
 
   method ebound _env _typ var =
     EBound var
@@ -384,6 +387,9 @@ class virtual ['env] map = object (self)
     ESwitch (self#visit env e, List.map (fun (lid, e) ->
       lid, self#visit env e
     ) branches)
+
+  method ecomment env _ s e s' =
+    EComment (s, self#visit env e, s')
 
   (* Some helpers *)
 

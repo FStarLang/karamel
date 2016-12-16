@@ -188,7 +188,10 @@ let inline_function_frames files =
       let es = List.map (self#visit ()) es in
       match e.node with
       | EQualified lid when valuation lid = MustInline && Hashtbl.mem map lid ->
-          (DeBruijn.subst_n (recurse lid) es).node
+          EComment (
+            KPrint.bsprintf "start inlining %a" plid lid,
+            DeBruijn.subst_n (recurse lid) es,
+            KPrint.bsprintf "end inlining %a" plid lid)
       | _ ->
           EApp (self#visit () e, es)
     method equalified () t lid =

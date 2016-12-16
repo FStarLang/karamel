@@ -115,6 +115,8 @@ and mk_memset_zero_initializer e_array e_size =
 
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
+  | Comment s ->
+      [ Comment s ]
   | Return e ->
       [ Return (Option.map mk_expr e) ]
 
@@ -300,6 +302,9 @@ and mk_stmts' acc stmts: C.stmt list =
 
 and mk_expr (e: expr): C.expr =
   match e with
+  | InlineComment (s, e, s') ->
+      InlineComment (s, mk_expr e, s')
+
   | Call (Op o, [ e ]) ->
       Op1 (o, mk_expr e)
 

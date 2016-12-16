@@ -135,6 +135,8 @@ and print_lifetime = function
 
 and print_expr { node; _ } =
   match node with
+  | EComment (s, e, s') ->
+      surround 2 1 (string s) (print_expr e) (string s')
   | EAny ->
       string "$any"
   | EAbort ->

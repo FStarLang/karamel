@@ -163,6 +163,13 @@ and p_expr' curr = function
       p_expr' 1 expr ^^ dot ^^ string member
   | MemberAccessPointer (expr, member) ->
       p_expr' 1 expr ^^ string "->" ^^ string member
+  | InlineComment (s, e, s') ->
+      surround 2 1 (p_comment s) (p_expr' curr e) (p_comment s')
+
+and p_comment s =
+  (* TODO: escape *)
+  string "/* " ^^ nest 2 (separate break1 (words s)) ^^ string " */"
+
 
 and p_expr e = p_expr' 15 e
 
@@ -214,6 +221,8 @@ let rec p_stmt (s: stmt) =
       hardline ^^ rbrace
   | Expr expr ->
       group (p_expr expr ^^ semi)
+  | Comment s ->
+      group (separate break1 (words s))
   | For (decl, e2, e3, stmt) ->
       group (string "for" ^/^ lparen ^^ nest 2 (
         p_declaration decl ^^ semi ^^ break1 ^^

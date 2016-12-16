@@ -219,6 +219,9 @@ let rec translate_expr env in_stmt e =
   | EField (expr, field) ->
       CStar.Field (translate_expr env expr, field)
 
+  | EComment (s, e, s') ->
+      CStar.InlineComment (s, translate_expr env e, s')
+
   | _ ->
       fatal_error "[AstToCStar.translate_expr]: should not be here (%a)" pexpr e
 
@@ -286,6 +289,10 @@ and extract_stmts env e ret_type =
 
     | EReturn e ->
         translate_as_return env e acc
+
+    | EComment (s, e, s') ->
+        let env, stmts = collect (env, CStar.Comment s :: acc) return_pos e in
+        env, CStar.Comment s' :: stmts
 
     | _ when return_pos ->
         translate_as_return env e acc

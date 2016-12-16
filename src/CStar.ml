@@ -32,8 +32,10 @@ and stmt =
   | BufFill of expr * expr * expr
   | PushFrame
   | PopFrame
+  | Comment of string
 
 and expr =
+  | InlineComment of string * expr * string
   | Call of expr * expr list
     (** First expression has to be a [Qualified] or an [Op]. *)
   | Var of ident

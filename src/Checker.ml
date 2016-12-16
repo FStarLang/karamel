@@ -210,6 +210,9 @@ and check' env t e =
   | EApp _ ->
       c (infer env e)
 
+  | EComment (_, e, _) ->
+      check env t e
+
   | ELet (binder, body, cont) ->
       let t' = check_or_infer (locate env (In binder.node.name)) binder.typ body in
       binder.typ <- t';
@@ -588,6 +591,9 @@ and infer' env e =
       | t ->
           type_error env "cannot switch on element of type %a" ptyp t
       end
+
+  | EComment (_, e, _) ->
+      infer env e
 
 and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
   fun env f l ->
