@@ -94,7 +94,7 @@ and typ =
   | Union of (ident * typ) list
 
 
-let collapse_bundles_last files =
+let collapse_bundles outer inner files =
   let bundles = List.map Idents.fstar_name_of_mod !Options.bundle in
   let rec collapse acc files =
     match files with
@@ -109,32 +109,15 @@ let collapse_bundles_last files =
               List.partition (fun (name, _) -> KString.starts_with name bundle) files
             in
             let name = bundle in
-            let file = KList.map_flatten snd (List.rev (p :: in_bundle)) in
+            let file = KList.map_flatten snd (inner (p :: in_bundle)) in
             collapse ((name, file) :: acc) remaining
         | _ ->
             failwith "Two overlapping -bundle arguments"
   in
-  collapse [] (List.rev files)
+  outer (collapse [] files)
 
+let collapse_bundles_last files =
+  collapse_bundles (fun x -> x) List.rev (List.rev files)
 
 let collapse_bundles_first files =
-  let bundles = List.map Idents.fstar_name_of_mod !Options.bundle in
-  let rec collapse acc files =
-    match files with
-    | [] ->
-        acc
-    | (name, _) as p :: remaining ->
-        match List.filter (KString.starts_with name) bundles with
-        | [] ->
-            collapse (p :: acc) remaining
-        | bundle :: [] ->
-            let in_bundle, remaining =
-              List.partition (fun (name, _) -> KString.starts_with name bundle) files
-            in
-            let name = bundle in
-            let file = KList.map_flatten snd (p :: in_bundle) in
-            collapse ((name, file) :: acc) remaining
-        | _ ->
-            failwith "Two overlapping -bundle arguments"
-  in
-  List.rev (collapse [] files)
+  collapse_bundles List.rev (fun x -> x) files
