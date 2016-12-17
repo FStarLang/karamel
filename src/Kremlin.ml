@@ -201,6 +201,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
    * abbreviations to check that our stuff makes sense. *)
   let files = Inlining.drop_type_abbrevs files in
   let files = Inlining.drop_unused files in
+  let files = Simplify.to_c_names files in
 
   (* This breaks typing. *)
   let files =

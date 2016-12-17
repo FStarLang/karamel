@@ -202,19 +202,63 @@ let inline_function_frames files =
           EQualified lid
   end)#visit ()) in
 
+  let safely_private = Hashtbl.create 41 in
+  List.iter (fun (_, decls) ->
+    List.iter (function
+      | DFunction (_, flags, _, name, _, _) ->
+          if List.mem Private flags then
+            Hashtbl.add safely_private name ()
+      | _ ->
+          ()
+    ) decls
+  ) files;
+
   (* This is where the evaluation of the inlining is forced: every function that
    * must be inlined is dropped (otherwise the C compiler is not going to be
    * very happy if it sees someone returning a stack pointer!); functions that
    * are meant to be kept are run through [inline_one]. *)
-  filter_decls (function
+  let files = filter_decls (function
     | DFunction (cc, flags, ret, name, binders, _) ->
         if valuation name = MustInline && string_of_lident name <> "main" then
           None
         else
-          Some (DFunction (cc, flags, ret, name, binders, inline_one name))
+          let body = inline_one name in
+          ignore ((object(self)
+            inherit [unit] map
+            method eapp () _ e es =
+              match e.node with
+              | EQualified name' ->
+                  (* There is a cross-compilation-unit call from [name] to
+                   * [name‘], meaning that the latter cannot safely remain
+                   * inline. *)
+                  if fst name <> fst name' && Hashtbl.mem safely_private name' then begin
+                    Warnings.maybe_fatal_error ("", LostStatic (name, name'));
+                    Hashtbl.remove safely_private name'
+                  end;
+                  EApp (e, List.map (self#visit ()) es)
+              | _ ->
+                  EApp (self#visit () e, List.map (self#visit ()) es)
+          end)#visit () body);
+          Some (DFunction (cc, flags, ret, name, binders, body))
+    | d ->
+        Some d
+  ) files in
+
+  (* If after inlining, the function does not appear in [safely_private], then it
+   * certainly cannot keep its flag. *)
+  filter_decls (function
+    | DFunction (cc, flags, ret, name, binders, body) ->
+        let flags =
+          if not (Hashtbl.mem safely_private name) then
+            List.filter ((<>) Private) flags
+          else
+            flags
+        in
+        Some (DFunction (cc, flags, ret, name, binders, body))
     | d ->
         Some d
   ) files
+
 
 
 (* Monomorphize types *********************************************************)

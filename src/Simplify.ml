@@ -793,8 +793,6 @@ end
 (* Everything composed together ***********************************************)
 
 let simplify1 (files: file list): file list =
-  let files = visit_files () record_toplevel_names files in
-  let files = visit_files () replace_references_to_toplevel_names files in
   let files = visit_files () eta_expand files in
   let files = visit_files () wrapping_arithmetic files in
   files
@@ -811,4 +809,9 @@ let simplify2 (files: file list): file list =
 let simplify (files: file list): file list =
   let files = simplify1 files in
   let files = simplify2 files in
+  files
+
+let to_c_names (files: file list): file list =
+  let files = visit_files () record_toplevel_names files in
+  let files = visit_files () replace_references_to_toplevel_names files in
   files

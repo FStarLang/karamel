@@ -168,7 +168,7 @@ and p_expr' curr = function
 
 and p_comment s =
   (* TODO: escape *)
-  string "/* " ^^ nest 2 (separate break1 (words s)) ^^ string " */"
+  string "/* " ^^ nest 2 (flow space (words s)) ^^ string " */"
 
 
 and p_expr e = p_expr' 15 e
