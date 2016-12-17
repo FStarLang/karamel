@@ -14,7 +14,6 @@
 
 open Ast
 open Warnings
-open Idents
 open PrintAst.Ops
 open Common
 
@@ -219,7 +218,7 @@ let inline_function_frames files =
    * are meant to be kept are run through [inline_one]. *)
   let files = filter_decls (function
     | DFunction (cc, flags, ret, name, binders, _) ->
-        if valuation name = MustInline && string_of_lident name <> "main" then
+        if valuation name = MustInline && Simplify.target_c_name name <> "main" then
           None
         else
           let body = inline_one name in
