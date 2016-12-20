@@ -60,7 +60,7 @@ let build_map files f =
   map
 
 let inline_analysis map =
-  let lookup lid = snd (Hashtbl.find map lid) in
+  let lookup lid = Hashtbl.find map lid in
   let debug_inline = false in
 
   (** To determine whether a function should be inlined, we use a syntactic
@@ -131,17 +131,17 @@ let inline_analysis map =
       | _ ->
           contains_alloc valuation e
     in
-    try
-      let body = lookup lid in
-      if walk body then
-        MustInline
-      else
+    match lookup lid with
+    | exception Not_found ->
+        (* Reference to an undefined, external function. This is sound only if
+         * externally-realized functions execute in their own stack frame, which
+         * is fine, because they actually are, well, functions written in C. *)
         Safe
-    with Not_found ->
-      (* Reference to an undefined, external function. This is sound only if
-       * externally-realized functions execute in their own stack frame, which
-       * is fine, because they actually are, well, functions written in C. *)
-      Safe
+    | substitute, body ->
+        if substitute || walk body then
+          MustInline
+        else
+          Safe
   in
 
   F.lfp must_inline
@@ -171,16 +171,25 @@ let iter_decls f files =
 
 let inline_function_frames files =
   (* A stateful graph traversal that uses the textbook three colors to rule out
-   * cycles. *)
+   * cycles. The first component is used ONLY by [inline_analysis], while the
+   * color is used ONLY by [memoize_inline]. *)
   let map = build_map files (fun map -> function
-    | DFunction (_, _, _, name, _, body) -> Hashtbl.add map name (White, body)
-    | _ -> ()
+    | DFunction (_, flags, _, name, _, body) ->
+        Hashtbl.add map name (List.exists ((=) Substitute) flags, body)
+    | _ ->
+        ()
   ) in
   let valuation = inline_analysis map in
 
   (* Because we want to recursively, lazily evaluate the inlining of each
    * function, we temporarily store the bodies of each function in a mutable map
    * and inline them as we hit them. *)
+  let map = build_map files (fun map -> function
+    | DFunction (_, _, _, name, _, body) ->
+        Hashtbl.add map name (White, body)
+    | _ ->
+        ()
+  ) in
   let inline_one = memoize_inline map (fun recurse -> (object(self)
     inherit [unit] map
     method eapp () _ e es =
@@ -227,7 +236,7 @@ let inline_function_frames files =
             method eapp () _ e es =
               match e.node with
               | EQualified name' ->
-                  (* There is a cross-compilation-unit call from [name] to
+                  (* There is a cross-compilation-unit call from [name] to
                    * [name‘], meaning that the latter cannot safely remain
                    * inline. *)
                   if fst name <> fst name' && Hashtbl.mem safely_private name' then begin
