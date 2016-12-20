@@ -388,10 +388,11 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
   | Function (cc, flags, return_type, name, parameters, body) ->
       begin try
         let static = if List.exists ((=) Private) flags then Some Static else None in
+        let inline = List.exists ((=) CInline) flags in
         let parameters = List.map (fun { name; typ } -> name, typ) parameters in
         let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
         let body = ensure_compound (mk_stmts body) in
-        Some (Function ((spec, static, [ decl, None ]), body))
+        Some (Function (inline, (spec, static, [ decl, None ]), body))
       with e ->
         beprintf "Fatal exception raised in %s\n" name;
         raise e

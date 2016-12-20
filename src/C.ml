@@ -110,5 +110,5 @@ and program =
 
 and declaration_or_function =
   | Decl of declaration
-  | Function of declaration * stmt
-    (** [stmt] _must_ be a compound statement *)
+  | Function of bool * declaration * stmt
+    (** [stmt] _must_ be a compound statement; boolean is inline *)

@@ -12,5 +12,7 @@ type lifetime =
 type flag =
   | Private
   | NoExtract
+  | CInline
+  | Substitute
   [@@deriving yojson]
 

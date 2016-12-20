@@ -22,3 +22,55 @@ let translate name fallback =
   with Not_found ->
     (* Assuming some externally-realized function. *)
     to_c_identifier fallback
+
+let _ =
+  let keywords = [
+    "auto";
+    "break";
+    "case";
+    "char";
+    "const";
+    "continue";
+    "default";
+    "do";
+    "double";
+    "else";
+    "enum";
+    "extern";
+    "float";
+    "for";
+    "goto";
+    "if";
+    "inline";
+    "int";
+    "long";
+    "register";
+    "restrict";
+    "return";
+    "short";
+    "signed";
+    "sizeof";
+    "static";
+    "struct";
+    "switch";
+    "typedef";
+    "union";
+    "unsigned";
+    "void";
+    "volatile";
+    "while";
+    "_Alignas";
+    "_Alignof";
+    "_Atomic";
+    "_Bool";
+    "_Complex";
+    "_Generic";
+    "_Imaginary";
+    "_Noreturn";
+    "_Static_assert";
+    "_Thread_local";
+    "_Pragma";
+    "asm";
+    "fortran"
+  ] in
+  List.iter (fun k -> Hashtbl.add used_c_names k ()) keywords

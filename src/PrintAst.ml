@@ -97,6 +97,10 @@ and print_flag = function
       string "private"
   | NoExtract ->
       string "noextract"
+  | CInline ->
+      string "c_inline"
+  | Substitute ->
+      string "substitute"
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   group (

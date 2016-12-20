@@ -270,8 +270,9 @@ let p_decl_or_function (df: declaration_or_function) =
   match df with
   | Decl d ->
       group (p_declaration d ^^ semi)
-  | Function (d, stmt) ->
-      group (p_declaration d) ^/^ p_stmt stmt
+  | Function (inline, d, stmt) ->
+      let inline = if inline then string "inline" ^^ space else empty in
+      inline ^^ group (p_declaration d) ^/^ p_stmt stmt
 
 let print_files =
   PrintCommon.print_files p_decl_or_function
