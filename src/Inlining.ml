@@ -138,9 +138,11 @@ let inline_analysis map =
          * is fine, because they actually are, well, functions written in C. *)
         Safe
     | substitute, body ->
-        if substitute || walk body then
+        if substitute || walk body then begin
+          if not substitute then
+            Warnings.maybe_fatal_error ("", ShouldSubstitute lid);
           MustInline
-        else
+        end else
           Safe
   in
 

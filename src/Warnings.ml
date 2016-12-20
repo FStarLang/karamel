@@ -17,6 +17,7 @@ and raw_error =
   | ExternalTypeApp of lident
   | Vla of ident
   | LostStatic of lident * lident
+  | ShouldSubstitute of lident
 
 and location =
   string
@@ -46,7 +47,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 8 CError;;
+let flags = Array.make 9 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -69,6 +70,8 @@ let errno_of_error = function
       6
   | LostStatic _ ->
       7
+  | ShouldSubstitute _ ->
+      8
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -102,6 +105,9 @@ let rec perr buf (loc, raw_error) =
   | LostStatic (lid1, lid2) ->
       p "After inlining, %a calls %a -- removing the static qualifier from %a"
         plid lid1 plid lid2 plid lid2
+  | ShouldSubstitute lid ->
+      p "%a is going to be inlined but has no F* [@ \"substitute\" ] decoration"
+        plid lid
 
 
 let maybe_fatal_error error =

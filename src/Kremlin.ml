@@ -53,6 +53,9 @@ The default is %s and the available warnings are:
   4: type error / malformed input
   5: type definition contains an application of an undefined type abbreviation
   6: variable-length array
+  7: private F* function cannot be marked as C static
+  8: F* function must be inlined for soundness but has no [@ "substitute" ]
+     attribute
 
 Supported options:|} Sys.argv.(0) !Options.warn_error
   in
