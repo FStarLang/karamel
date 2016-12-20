@@ -111,7 +111,7 @@ let collapse_bundles outer inner files =
               List.partition (fun (name, _) -> KString.starts_with name bundle) files
             in
             let name = bundle in
-            let file = KList.map_flatten snd (inner (p :: in_bundle)) in
+            let file = KList.map_flatten snd (inner in_bundle) in
             collapse ((name, file) :: acc) remaining
         | _ ->
             failwith "Two overlapping -bundle arguments"
