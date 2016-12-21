@@ -153,4 +153,6 @@ FStar_Seq_seq FStar_Seq_slice(FStar_Seq_seq x, FStar_Seq_seq y, Prims_nat z);
 #define FStar_Seq_index(x, y) 0
 FStar_UInt32_t FStar_UInt32_uint_to_t(Prims_nat x);
 
+#define FStar_Buffer_to_seq_full(x) 0
+
 #endif
