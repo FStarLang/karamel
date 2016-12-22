@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <time.h>
 
+
 // For types and values from C.fsti that do not exactly have the same name as
 // their C counterparts
 extern int exit_success;
@@ -153,4 +154,59 @@ FStar_Seq_seq FStar_Seq_slice(FStar_Seq_seq x, FStar_Seq_seq y, Prims_nat z);
 #define FStar_Seq_index(x, y) 0
 FStar_UInt32_t FStar_UInt32_uint_to_t(Prims_nat x);
 
+
+// Endian-ness
+
+#if defined(__linux__) || defined(__CYGWIN__)
+
+#include <endian.h>
+
+#elif defined(__APPLE__)
+#include <libkern/OSByteOrder.h>
+#define htole64(x) OSSwapHostToLittleInt64(x)
+#define le64toh(x) OSSwapLittleToHostInt64(x)
+
+#define htole16(x) OSSwapHostToLittleInt16(x)
+#define le16toh(x) OSSwapLittleToHostInt16(x)
+ 
+#define htole32(x) OSSwapHostToLittleInt32(x)
+#define le32toh(x) OSSwapLittleToHostInt32(x)
+
+#elif (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) && !defined(__WINDOWS__)
+
+#include <winsock2.h>
+#include <sys/param.h>
+
+#if BYTE_ORDER == LITTLE_ENDIAN
+
+#define htole16(x) (x)
+#define le16toh(x) (x)
+ 
+#define htole32(x) (x)
+#define le32toh(x) (x)
+ 
+#define htole64(x) (x)
+#define le64toh(x) (x)
+
+#elif BYTE_ORDER == BIG_ENDIAN
+
+/* that would be xbox 360 */
+#define htole16(x) __builtin_bswap16(x)
+#define le16toh(x) __builtin_bswap16(x)
+ 
+#define htole32(x) __builtin_bswap32(x)
+#define le32toh(x) __builtin_bswap32(x)
+ 
+#define htole64(x) __builtin_bswap64(x)
+#define le64toh(x) __builtin_bswap64(x)
+
 #endif
+#endif
+
+#define load64_le(b) (le64toh(*((uint64_t*) b)))
+#define store64_le(b,i) (*((uint64_t*)b)=(htole64(i)))
+
+#undef force_inline
+#define force_inline __attribute__((always_inline))
+#endif
+
