@@ -3,6 +3,9 @@
 
 #include <inttypes.h>
 #include <stdlib.h>
+
+
+
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -201,10 +204,12 @@ FStar_UInt32_t FStar_UInt32_uint_to_t(Prims_nat x);
 #define le64toh(x) __builtin_bswap64(x)
 
 #endif
+
 #endif
 
 #define load64_le(b) (le64toh(*((uint64_t*) b)))
 #define store64_le(b,i) (*((uint64_t*)b)=(htole64(i)))
+#define FStar_Buffer_to_seq_full(x) 0
 
 #undef force_inline
 #define force_inline __attribute__((always_inline))

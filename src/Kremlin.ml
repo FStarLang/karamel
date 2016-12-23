@@ -225,15 +225,18 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
       Options.exe_name := "out.wasm";
     output_string (open_out !Options.exe_name) s;
     KPrint.bprintf "Wrote WASM output to %s\n" !Options.exe_name
-  else
-    let to_drop = List.map Idents.fstar_name_of_mod !Options.in_kremlib in
-    let files = List.filter (fun (name, _) ->
-      not (List.exists ((=) name) to_drop)
-    ) files in
 
+  else
     (* ... then to C *)
-    let headers = CStarToC.mk_headers (CStar.collapse_bundles_first files) in
-    let files = CStarToC.mk_files (CStar.collapse_bundles_last files) in
+    let to_drop = List.map Idents.fstar_name_of_mod !Options.in_kremlib in
+    let drop l = List.filter (fun (name, _) -> not (List.exists ((=) name) to_drop)) l in
+
+    (* Drop files (e.g. -drop FStar.Heap) *)
+    let files = drop files in
+
+    (* Drop bundles (e.g. -drop FStar) *)
+    let headers = drop (CStarToC.mk_headers (CStar.collapse_bundles_first files)) in
+    let files = drop (CStarToC.mk_files (CStar.collapse_bundles_last files)) in
 
     (* -dc *)
     if !arg_print_c then
