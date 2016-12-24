@@ -34,6 +34,24 @@ inline_for_extraction let f x = x * x
 At the time of writing, it seems like `inline_for_extraction` only applies to
 pure computations, possibly arising within effectful computations.
 
+The advantage of `inline_for_extraction` is that things such as:
+
+```
+let inline_for_extraction f (): Tot bool = false
+let g () =
+  if f () then
+    e1
+  else
+    e2
+```
+
+end up normalized as:
+
+```
+let g () =
+  e2
+```
+
 The `inline` keyword has more profound implications and has not much to do with
 extraction; see [the F\*
 wiki](https://github.com/FStarLang/FStar/wiki/Qualifiers-for-definitions-and-declarations#inline)
@@ -43,10 +61,8 @@ for more information.
 
 The KreMLin extraction pipeline of F\* now supports custom attributes. The
 `"substitute"` attribute means that KreMLin (not F\*!) will *always*,
-*everywhere*, replace any call to `f x` with its body `x * x`. Some notes.
-- This is super unsound! no one will check that your argument is pure! KreMLin
-  will happily substitute `f (g (); x)` with `(g (); x) * (g (); x)`.
-- KreMLin will not even emit a declaration for your function.
+*everywhere*, replace any call to `f x` with its body `x * x`. Notes that
+KreMLin will not even emit a declaration for your function.
 
 ```
 [@ "substitute" ]
@@ -81,3 +97,26 @@ says
 
 If you use `[@ "c_inline" ]` on a function that is called from another module,
 this is likely to fail, unless you use the `-bundle` option of KreMLin.
+
+## Generating `static` functions
+
+Functions that are marked `private` in F\* can usually be marked as `static` in
+the resulting C code, except for the following situation:
+
+```
+module M
+
+private let g () =
+  ...
+
+let f (): StackInline unit ... =
+  g ()
+
+module N
+
+let h () =
+  M.f ()
+```
+
+That case will trigger warning 7 ("private F\* function cannot be marked as C
+static").
