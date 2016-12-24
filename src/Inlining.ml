@@ -210,11 +210,10 @@ let inline_function_frames files =
           ) ([], []) es in
           let bs = List.rev bs in
           let es = List.rev es in
-          let n = List.length bs in
           EComment (
             KPrint.bsprintf "start inlining %a" plid lid,
             Simplify.nest bs t (
-              DeBruijn.subst_n (recurse lid) (List.map (DeBruijn.lift n) es)),
+              DeBruijn.subst_n (recurse lid) es),
             KPrint.bsprintf "end inlining %a" plid lid)
       | _ ->
           EApp (self#visit () e, es)
