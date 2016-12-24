@@ -194,13 +194,25 @@ let inline_function_frames files =
   ) in
   let inline_one = memoize_inline map (fun recurse -> (object(self)
     inherit [unit] map
-    method eapp () _ e es =
+    method eapp () t e es =
       let es = List.map (self#visit ()) es in
       match e.node with
       | EQualified lid when valuation lid = MustInline && Hashtbl.mem map lid ->
+          (* We use a syntactic criterion to ensure that all the arguments are
+           * values, i.e. can be safely substituted inside the function
+           * definition. *)
+          let bs, es = KList.fold_lefti (fun i (bs, es) e ->
+            if not (is_value e) then
+              let x, atom = Simplify.mk_binding (Printf.sprintf "x%d" i) e.typ in
+              (x, e) :: bs, atom :: es
+            else
+              bs, e :: es
+          ) ([], []) es in
+          let n = List.length bs in
           EComment (
             KPrint.bsprintf "start inlining %a" plid lid,
-            DeBruijn.subst_n (recurse lid) es,
+            Simplify.nest bs t (
+              DeBruijn.subst_n (recurse lid) (List.map (DeBruijn.lift n) es)),
             KPrint.bsprintf "end inlining %a" plid lid)
       | _ ->
           EApp (self#visit () e, es)

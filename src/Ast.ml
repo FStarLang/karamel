@@ -179,6 +179,8 @@ and typ =
 let with_type typ node =
   { typ; node }
 
+(** Some AST helpers *)
+
 let flatten_arrow =
   let rec flatten_arrow acc = function
     | TArrow (t1, t2) -> flatten_arrow (t1 :: acc) t2
@@ -187,6 +189,52 @@ let flatten_arrow =
   flatten_arrow []
 
 let is_array = function TArray _ -> true | _ -> false
+
+let rec is_value (e: expr) =
+  match e.node with
+  | EBound _
+  | EOpen _
+  | EOp _
+  | EQualified _
+  | EConstant _
+  | EUnit
+  | EBool _
+  | EEnum _
+  | EAny ->
+      true
+
+  | ETuple es
+  | ECons (_, es) ->
+      List.for_all is_value es
+
+  | EFlat identexprs ->
+      List.for_all (fun (_, e) -> is_value e) identexprs
+
+  | EField (e, _)
+  | EComment (_, e, _)
+  | ECast (e, _) ->
+      is_value e
+
+  | EAbort
+  | EApp _
+  | ELet _
+  | EIfThenElse _
+  | ESequence _
+  | EAssign _
+  | EBufCreate _
+  | EBufCreateL _
+  | EBufRead _
+  | EBufWrite _
+  | EBufSub _
+  | EBufBlit _
+  | EBufFill _
+  | EPushFrame
+  | EPopFrame
+  | EMatch _
+  | ESwitch _
+  | EReturn _
+  | EWhile _ ->
+      false
 
 let fold_arrow ts t_ret =
   List.fold_right (fun t arr -> TArrow (t, arr)) ts t_ret
