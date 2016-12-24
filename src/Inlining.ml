@@ -208,6 +208,8 @@ let inline_function_frames files =
             else
               bs, e :: es
           ) ([], []) es in
+          let bs = List.rev bs in
+          let es = List.rev es in
           let n = List.length bs in
           EComment (
             KPrint.bsprintf "start inlining %a" plid lid,

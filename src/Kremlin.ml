@@ -199,7 +199,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     print PrintAst.print_files files;
 
   let files = Checker.check_everything files in
-  KPrint.bprintf "%s✔%s Simplifications successfully checked\n" Ansi.green Ansi.reset;
+  KPrint.bprintf "%s✔%s Simplify + inlining successfully checked\n" Ansi.green Ansi.reset;
   (* Do this at the last minute because the checker still needs these type
    * abbreviations to check that our stuff makes sense. *)
   let files = Inlining.drop_type_abbrevs files in
