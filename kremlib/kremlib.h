@@ -42,6 +42,9 @@ typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
 #define FStar_Int_Cast_uint64_to_uint128(x) ((__int128)(x))
 #define FStar_Int_Cast_uint128_to_uint64(x) ((uint64_t)(x))
 #define FStar_UInt128_mul_wide(x, y) ((__int128)(x) * (y))
+
+#define FStar_UInt128_op_Hat_Hat(x,y) ((x) ^ (y))
+
 #else
 typedef struct {
   uint64_t high;
@@ -86,8 +89,7 @@ void FStar_Buffer_recall(void *x);
 // signatures of ghost functions, meaning that it suffices to give them (any)
 // definition.
 typedef void *Prims_pos, *Prims_nat, *Prims_nonzero, *FStar_Seq_seq, *Prims_int,
-        *Prims_prop,
-        *FStar_HyperStack_mem, *FStar_Set_set, *Prims_st_pre_h, *FStar_Heap_heap,
+  *Prims_prop, *FStar_HyperStack_mem, *FStar_Set_set, *Prims_st_pre_h, *FStar_Heap_heap,
         *Prims_all_pre_h, *FStar_TSet_set, *Prims_string, *Prims_list,
         *FStar_Map_t,
         *FStar_UInt63_t_, *FStar_Int63_t_,

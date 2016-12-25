@@ -31,7 +31,7 @@ val uint8_p_null: buffer UInt8.t
 val uint32_p_null: buffer UInt32.t
 val uint64_p_null: buffer UInt64.t
 
-type cycles
+val cycles: Type0
 val cpucycles: unit -> Stack cycles
   (requires (fun h -> true))
   (ensures (fun h0 _ h1 -> h0 == h1))
