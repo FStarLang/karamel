@@ -170,12 +170,18 @@ FStar_UInt32_t FStar_UInt32_uint_to_t(Prims_nat x);
 #include <libkern/OSByteOrder.h>
 #define htole64(x) OSSwapHostToLittleInt64(x)
 #define le64toh(x) OSSwapLittleToHostInt64(x)
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
 
 #define htole16(x) OSSwapHostToLittleInt16(x)
 #define le16toh(x) OSSwapLittleToHostInt16(x)
+#define htobe16(x) OSSwapHostToBigInt16(x)
+#define be16toh(x) OSSwapBigToHostInt16(x)
  
 #define htole32(x) OSSwapHostToLittleInt32(x)
 #define le32toh(x) OSSwapLittleToHostInt32(x)
+#define htobe32(x) OSSwapHostToBigInt32(x)
+#define be32toh(x) OSSwapBigToHostInt32(x)
 
 #elif (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) && !defined(__WINDOWS__)
 
@@ -184,25 +190,37 @@ FStar_UInt32_t FStar_UInt32_uint_to_t(Prims_nat x);
 
 #if BYTE_ORDER == LITTLE_ENDIAN
 
+#define htobe16(x) htons(x)
 #define htole16(x) (x)
+#define be16toh(x) ntohs(x)
 #define le16toh(x) (x)
  
+#define htobe32(x) htonl(x)
 #define htole32(x) (x)
+#define be32toh(x) ntohl(x)
 #define le32toh(x) (x)
  
+#define htobe64(x) htonll(x)
 #define htole64(x) (x)
+#define be64toh(x) ntohll(x)
 #define le64toh(x) (x)
 
 #elif BYTE_ORDER == BIG_ENDIAN
 
 /* that would be xbox 360 */
+#define htobe16(x) (x)
 #define htole16(x) __builtin_bswap16(x)
+#define be16toh(x) (x)
 #define le16toh(x) __builtin_bswap16(x)
  
+#define htobe32(x) (x)
 #define htole32(x) __builtin_bswap32(x)
+#define be32toh(x) (x)
 #define le32toh(x) __builtin_bswap32(x)
  
+#define htobe64(x) (x)
 #define htole64(x) __builtin_bswap64(x)
+#define be64toh(x) (x)
 #define le64toh(x) __builtin_bswap64(x)
 
 #endif
@@ -211,6 +229,9 @@ FStar_UInt32_t FStar_UInt32_uint_to_t(Prims_nat x);
 
 #define load64_le(b) (le64toh(*((uint64_t*) b)))
 #define store64_le(b,i) (*((uint64_t*)b)=(htole64(i)))
+#define load64_be(b) (be64toh(*((uint64_t*) b)))
+#define store64_be(b,i) (*((uint64_t*)b)=(htobe64(i)))
+
 #define FStar_Buffer_to_seq_full(x) 0
 
 #undef force_inline

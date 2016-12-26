@@ -49,3 +49,25 @@ assume val store64_le:
   Stack unit
     (requires (fun h -> Buffer.live h b))
     (ensures  (fun h0 _ h1 -> modifies_1 b h0 h1 /\ Buffer.live h1 b))
+
+assume val htobe16: UInt16.t -> Tot UInt16.t
+assume val be16toh: UInt16.t -> Tot UInt16.t
+
+assume val htobe32: UInt32.t -> Tot UInt32.t
+assume val be32toh: UInt32.t -> Tot UInt32.t
+
+assume val htobe64: UInt64.t -> Tot UInt64.t
+assume val be64toh: UInt64.t -> Tot UInt64.t
+
+assume val load64_be:
+  b:buffer UInt8.t{length b >= 8} ->
+  Stack UInt64.t
+    (requires (fun h -> Buffer.live h b))
+    (ensures  (fun h0 _ h1 -> h0 == h1))
+
+assume val store64_be:
+  b:buffer UInt8.t{length b >= 8} ->
+  z:UInt64.t ->
+  Stack unit
+    (requires (fun h -> Buffer.live h b))
+    (ensures  (fun h0 _ h1 -> modifies_1 b h0 h1 /\ Buffer.live h1 b))
