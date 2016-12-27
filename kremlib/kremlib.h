@@ -27,7 +27,7 @@ typedef uint8_t FStar_UInt8_t, FStar_UInt8_t_;
 typedef int8_t FStar_Int8_t, FStar_Int8_t_;
 
 #if defined(__GNUC__) && defined(__SIZEOF_INT128__)
-typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
+typedef unsigned __int128 FStar_UInt128_t, FStar_UInt128_t_;
 #define FStar_UInt128_add(x,y) ((x) + (y))
 #define FStar_UInt128_mul(x,y) ((x) * (y))
 #define FStar_UInt128_add_mod(x,y) ((x) + (y))
