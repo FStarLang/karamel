@@ -184,26 +184,45 @@ FStar_UInt32_t FStar_UInt32_uint_to_t(Prims_nat x);
 #define be32toh(x) OSSwapBigToHostInt32(x)
 
 #elif (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) && !defined(__WINDOWS__)
+#include <windows.h>
 
-#include <winsock2.h>
-#include <sys/param.h>
 
 #if BYTE_ORDER == LITTLE_ENDIAN
 
-#define htobe16(x) htons(x)
+#if defined(_MSC_VER)
+#include <stdlib.h>
+#define htobe16(x) _byteswap_ushort(x)
 #define htole16(x) (x)
-#define be16toh(x) ntohs(x)
+#define be16toh(x) _byteswap_ushort(x)
 #define le16toh(x) (x)
- 
-#define htobe32(x) htonl(x)
+
+#define htobe32(x) _byteswap_ulong(x)
 #define htole32(x) (x)
-#define be32toh(x) ntohl(x)
+#define be32toh(x) _byteswap_ulong(x)
 #define le32toh(x) (x)
- 
-#define htobe64(x) htonll(x)
+
+#define htobe64(x) _byteswap_uint64(x)
 #define htole64(x) (x)
-#define be64toh(x) ntohll(x)
+#define be64toh(x) _byteswap_uint64(x)
 #define le64toh(x) (x)
+
+#elif defined(__GNUC__) || defined(__clang__)
+
+#define htobe16(x) __builtin_bswap16(x)
+#define htole16(x) (x)
+#define be16toh(x) __builtin_bswap16(x)
+#define le16toh(x) (x)
+
+#define htobe32(x) __builtin_bswap32(x)
+#define htole32(x) (x)
+#define be32toh(x) __builtin_bswap32(x)
+#define le32toh(x) (x)
+
+#define htobe64(x) __builtin_bswap64(x)
+#define htole64(x) (x)
+#define be64toh(x) __builtin_bswap64(x)
+#define le64toh(x) (x)
+#endif
 
 #elif BYTE_ORDER == BIG_ENDIAN
 
