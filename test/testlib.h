@@ -26,4 +26,15 @@ void TestLib_perr(unsigned int err_code);
 #define TestLib_uint32_p_null NULL
 #define TestLib_uint64_p_null NULL
 
+typedef unsigned long long cycles;
+
+static __inline__ cycles TestLib_cpucycles(void)
+{
+  unsigned hi, lo;
+  __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
+  return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
+}
+void TestLib_print_cycles_per_round(cycles c1, cycles c2, uint32_t rounds);
+
+
 #endif

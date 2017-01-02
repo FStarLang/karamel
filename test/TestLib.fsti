@@ -30,3 +30,11 @@ val print_clock_diff: C.clock_t -> C.clock_t -> Stack unit
 val uint8_p_null: buffer UInt8.t
 val uint32_p_null: buffer UInt32.t
 val uint64_p_null: buffer UInt64.t
+
+val cycles: Type0
+val cpucycles: unit -> Stack cycles
+  (requires (fun h -> true))
+  (ensures (fun h0 _ h1 -> h0 == h1))
+val print_cycles_per_round: cycles -> cycles -> FStar.UInt32.t -> Stack unit
+  (requires (fun h -> true))
+  (ensures (fun h0 _ h1 -> h0 == h1))

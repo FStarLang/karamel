@@ -3,10 +3,14 @@
 
 #include <inttypes.h>
 #include <stdlib.h>
+
+
+
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <time.h>
+
 
 // For types and values from C.fsti that do not exactly have the same name as
 // their C counterparts
@@ -23,7 +27,7 @@ typedef uint8_t FStar_UInt8_t, FStar_UInt8_t_;
 typedef int8_t FStar_Int8_t, FStar_Int8_t_;
 
 #if defined(__GNUC__) && defined(__SIZEOF_INT128__)
-typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
+typedef unsigned __int128 FStar_UInt128_t, FStar_UInt128_t_;
 #define FStar_UInt128_add(x,y) ((x) + (y))
 #define FStar_UInt128_mul(x,y) ((x) * (y))
 #define FStar_UInt128_add_mod(x,y) ((x) + (y))
@@ -38,6 +42,9 @@ typedef __int128 FStar_UInt128_t, FStar_UInt128_t_;
 #define FStar_Int_Cast_uint64_to_uint128(x) ((__int128)(x))
 #define FStar_Int_Cast_uint128_to_uint64(x) ((uint64_t)(x))
 #define FStar_UInt128_mul_wide(x, y) ((__int128)(x) * (y))
+
+#define FStar_UInt128_op_Hat_Hat(x,y) ((x) ^ (y))
+
 #else
 typedef struct {
   uint64_t high;
@@ -82,8 +89,7 @@ void FStar_Buffer_recall(void *x);
 // signatures of ghost functions, meaning that it suffices to give them (any)
 // definition.
 typedef void *Prims_pos, *Prims_nat, *Prims_nonzero, *FStar_Seq_seq, *Prims_int,
-        *Prims_prop,
-        *FStar_HyperStack_mem, *FStar_Set_set, *Prims_st_pre_h, *FStar_Heap_heap,
+  *Prims_prop, *FStar_HyperStack_mem, *FStar_Set_set, *Prims_st_pre_h, *FStar_Heap_heap,
         *Prims_all_pre_h, *FStar_TSet_set, *Prims_string, *Prims_list,
         *FStar_Map_t,
         *FStar_UInt63_t_, *FStar_Int63_t_,
@@ -153,6 +159,101 @@ FStar_Seq_seq FStar_Seq_slice(FStar_Seq_seq x, FStar_Seq_seq y, Prims_nat z);
 #define FStar_Seq_index(x, y) 0
 FStar_UInt32_t FStar_UInt32_uint_to_t(Prims_nat x);
 
-#define FStar_Buffer_to_seq_full(x) 0
+
+// Endian-ness
+
+#if defined(__linux__) || defined(__CYGWIN__)
+
+#include <endian.h>
+
+#elif defined(__APPLE__)
+#include <libkern/OSByteOrder.h>
+#define htole64(x) OSSwapHostToLittleInt64(x)
+#define le64toh(x) OSSwapLittleToHostInt64(x)
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
+
+#define htole16(x) OSSwapHostToLittleInt16(x)
+#define le16toh(x) OSSwapLittleToHostInt16(x)
+#define htobe16(x) OSSwapHostToBigInt16(x)
+#define be16toh(x) OSSwapBigToHostInt16(x)
+ 
+#define htole32(x) OSSwapHostToLittleInt32(x)
+#define le32toh(x) OSSwapLittleToHostInt32(x)
+#define htobe32(x) OSSwapHostToBigInt32(x)
+#define be32toh(x) OSSwapBigToHostInt32(x)
+
+#elif (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) && !defined(__WINDOWS__)
+#include <windows.h>
+
+
+#if BYTE_ORDER == LITTLE_ENDIAN
+
+#if defined(_MSC_VER)
+#include <stdlib.h>
+#define htobe16(x) _byteswap_ushort(x)
+#define htole16(x) (x)
+#define be16toh(x) _byteswap_ushort(x)
+#define le16toh(x) (x)
+
+#define htobe32(x) _byteswap_ulong(x)
+#define htole32(x) (x)
+#define be32toh(x) _byteswap_ulong(x)
+#define le32toh(x) (x)
+
+#define htobe64(x) _byteswap_uint64(x)
+#define htole64(x) (x)
+#define be64toh(x) _byteswap_uint64(x)
+#define le64toh(x) (x)
+
+#elif defined(__GNUC__) || defined(__clang__)
+
+#define htobe16(x) __builtin_bswap16(x)
+#define htole16(x) (x)
+#define be16toh(x) __builtin_bswap16(x)
+#define le16toh(x) (x)
+
+#define htobe32(x) __builtin_bswap32(x)
+#define htole32(x) (x)
+#define be32toh(x) __builtin_bswap32(x)
+#define le32toh(x) (x)
+
+#define htobe64(x) __builtin_bswap64(x)
+#define htole64(x) (x)
+#define be64toh(x) __builtin_bswap64(x)
+#define le64toh(x) (x)
+#endif
+
+#elif BYTE_ORDER == BIG_ENDIAN
+
+/* that would be xbox 360 */
+#define htobe16(x) (x)
+#define htole16(x) __builtin_bswap16(x)
+#define be16toh(x) (x)
+#define le16toh(x) __builtin_bswap16(x)
+ 
+#define htobe32(x) (x)
+#define htole32(x) __builtin_bswap32(x)
+#define be32toh(x) (x)
+#define le32toh(x) __builtin_bswap32(x)
+ 
+#define htobe64(x) (x)
+#define htole64(x) __builtin_bswap64(x)
+#define be64toh(x) (x)
+#define le64toh(x) __builtin_bswap64(x)
 
 #endif
+
+#endif
+
+#define load64_le(b) (le64toh(*((uint64_t*) b)))
+#define store64_le(b,i) (*((uint64_t*)b)=(htole64(i)))
+#define load64_be(b) (be64toh(*((uint64_t*) b)))
+#define store64_be(b,i) (*((uint64_t*)b)=(htobe64(i)))
+
+#define FStar_Buffer_to_seq_full(x) 0
+
+#undef force_inline
+#define force_inline __attribute__((always_inline))
+#endif
+
