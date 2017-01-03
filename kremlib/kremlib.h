@@ -246,10 +246,10 @@ FStar_UInt32_t FStar_UInt32_uint_to_t(Prims_nat x);
 
 #endif
 
-#define load64_le(b) (le64toh(*((uint64_t*) b)))
-#define store64_le(b,i) (*((uint64_t*)b)=(htole64(i)))
-#define load64_be(b) (be64toh(*((uint64_t*) b)))
-#define store64_be(b,i) (*((uint64_t*)b)=(htobe64(i)))
+#define load64(b) (*((uint64_t*) b))
+#define store64(b,i) (*((uint64_t*)b)=i)
+#define load32(b) (*((uint32_t*) b))
+#define store32(b,i) (*((uint32_t*)b)=i)
 
 #define FStar_Buffer_to_seq_full(x) 0
 
