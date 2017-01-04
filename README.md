@@ -21,14 +21,6 @@ packages (e.g. `ppx_deriving`).
 
 To build just run `make` from this directory.
 
-If you're running Windows, then it may be that the wasm package is not yet
-available on OPAM:
-
-```
-$ git clone https://github.com/WebAssembly/spec
-$ make -C spec/interpreter install
-```
-
 If you have the latest version of F* and `fstar.exe` is in your `PATH` then you
 can run the KreMLin test suite by doing `make test`.
 
