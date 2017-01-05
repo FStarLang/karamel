@@ -33,7 +33,7 @@ High-level description:
      in the directory specified by [-tmpdir], or in the current directory.
   4. If some FILES end with [.c], KreMLin will compile them along with the [.c]
      files generated at step 3. to obtain a series of [.o] files.
-  5. If some FILES end with [.o] or [.S], KreMLin will link them along with the
+  5. If some FILES end with [.o], [.S] or [.a], KreMLin will link them along with the
      [.o] files obtained at step 4. to obtain a final executable.
 
 The [-skip-extraction] option will stop KreMLin after step 1.
@@ -101,7 +101,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   Arg.parse spec (fun f ->
     if Filename.check_suffix f ".fst" then
       fst_files := f :: !fst_files
-    else if Filename.check_suffix f ".o" || Filename.check_suffix f ".S" then
+    else if List.exists (Filename.check_suffix f) [ ".o"; ".S"; ".a" ] then
       o_files := f :: !o_files
     else if Filename.check_suffix f ".c" then
       c_files := f :: !c_files
