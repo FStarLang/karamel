@@ -483,16 +483,25 @@ and translate_declaration env d: CStar.decl option =
         translate_expr env false body))
 
   | DExternal (cc, name, t) ->
+      let to_void = match t with
+        | TArrow (TUnit, _) -> true
+        | _ -> false
+      in
+      let open CStar in
       let t = match translate_type env t with
-        | CStar.Function (None, ret, args) ->
-            CStar.Function (cc, ret, args)
-        | CStar.Function (Some _, _, _) ->
+        | Function (None, ret, args) ->
+            let args = match args with
+              | [ Pointer Void ] when to_void -> []
+              | _ -> args
+            in
+            Function (cc, ret, args)
+        | Function (Some _, _, _) ->
             failwith "impossible"
         | t ->
             assert (cc = None);
             t
       in
-      Some (CStar.External (string_of_lident name, t))
+      Some (External (string_of_lident name, t))
 
   | DType (name, 0, def) ->
       let name = string_of_lident name in

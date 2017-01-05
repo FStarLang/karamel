@@ -184,6 +184,8 @@ let verbose_msg () =
  * (depending on -warn-error) if the command failed. *)
 let run_or_warn str exe args =
   let debug_str = KPrint.bsprintf "%s %s" exe (String.concat " " args) in
+  if !Options.verbose then
+    print_endline debug_str;
   match P.run exe (Array.of_list args) with
   | { P.Output.exit_status = P.Exit.Exit 0; stdout; _ } ->
       KPrint.bprintf "%s✔%s %s%s\n" Ansi.green Ansi.reset str (verbose_msg ());
