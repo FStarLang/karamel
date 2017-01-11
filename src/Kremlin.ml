@@ -61,13 +61,19 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   in
   let found_file = ref false in
   let prepend r = fun s -> r := s :: !r in
+  let csv f s =
+    List.iter f (KString.split_on_char ',' s)
+  in
   let spec = [
     (* KreMLin as a driver *)
     "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), compcert, g++, clang";
     "-m32", Arg.Set Options.m32, " turn on 32-bit cross-compiling";
-    "-fsopt", Arg.String (prepend Options.fsopts), " option to pass to F*";
-    "-ccopt", Arg.String (prepend Options.ccopts), " option to pass to the C compiler and linker";
-    "-ldopt", Arg.String (prepend Options.ldopts), " option to pass to the C linker";
+    "-fsopt", Arg.String (prepend Options.fsopts), " option to pass to F* (use -fsopts to pass a comma-separated list of values)";
+    "-fsopts", Arg.String (csv (prepend Options.fsopts)), "";
+    "-ccopt", Arg.String (prepend Options.ccopts), " option to pass to the C compiler and linker (use -ccopts to pass a comma-separated list of values)";
+    "-ccopts", Arg.String (csv (prepend Options.ccopts)), "";
+    "-ldopt", Arg.String (prepend Options.ldopts), " option to pass to the C linker (use -ldopts to pass a comma-separated list of values)";
+    "-ldopts", Arg.String (csv (prepend Options.ldopts)), "";
     "-skip-extraction", Arg.Set arg_skip_extraction, " stop after step 1.";
     "-skip-compilation", Arg.Set arg_skip_compilation, " stop after step 3.";
     "-skip-linking", Arg.Set arg_skip_linking, " stop after step 4.";
