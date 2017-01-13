@@ -155,6 +155,8 @@ and print_expr { node; _ } =
       print_constant c
   | EUnit ->
       string "()"
+  | EString s ->
+      dquote ^^ string s ^^ dquote
   | EApp (e, es) ->
       print_app print_expr e print_expr es
   | ELet (binder, e1, e2) ->

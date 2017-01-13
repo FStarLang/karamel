@@ -57,6 +57,7 @@ and expr =
      * annotated, or none. *)
   | Field of expr * ident
   | Comma of expr * expr
+  | StringLiteral of string
   | Any
 
 and block =

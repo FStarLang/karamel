@@ -14,6 +14,8 @@
 extern int exit_success;
 extern int exit_failure;
 
+void print_string(const char *s);
+
 typedef uint64_t FStar_UInt64_t, FStar_UInt64_t_;
 typedef int64_t FStar_Int64_t, FStar_Int64_t_;
 typedef uint32_t FStar_UInt32_t, FStar_UInt32_t_;

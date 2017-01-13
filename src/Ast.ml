@@ -44,6 +44,7 @@ and expr' =
   | EConstant of K.t
   | EUnit
   | EBool of bool
+  | EString of string
   | EAny
     (** to indicate that the initial value of a mutable let-binding does not
      * matter *)
@@ -200,6 +201,7 @@ let rec is_value (e: expr) =
   | EUnit
   | EBool _
   | EEnum _
+  | EString _
   | EAny ->
       true
 
@@ -275,6 +277,8 @@ class virtual ['env] map = object (self)
         self#econstant env typ c
     | EUnit ->
         self#eunit env typ
+    | EString s ->
+        self#estring env typ s
     | EApp (e, es) ->
         self#eapp env typ e es
     | ELet (b, e1, e2) ->
@@ -354,6 +358,9 @@ class virtual ['env] map = object (self)
 
   method eunit _env _typ =
     EUnit
+
+  method estring _env _typ s =
+    EString s
 
   method eapp env _typ e es =
     EApp (self#visit env e, List.map (self#visit env) es)

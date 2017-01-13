@@ -368,6 +368,7 @@ and hoist_expr pos e =
   | EUnit
   | EPushFrame | EPopFrame
   | EBool _
+  | EString _
   | EEnum _
   | EOp _ ->
       [], e

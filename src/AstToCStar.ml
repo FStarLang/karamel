@@ -211,6 +211,8 @@ let rec translate_expr env in_stmt e =
       CStar.Any
   | EBool b ->
       CStar.Bool b
+  | EString s ->
+      CStar.StringLiteral s
   | EFlat fields ->
       let name = match e.typ with TQualified lid -> Some (string_of_lident lid) | _ -> None in
       CStar.Struct (name, List.map (fun (name, expr) ->

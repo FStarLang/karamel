@@ -18,6 +18,7 @@ module M = Map.Make(struct
 end)
 
 let uint32 = TInt UInt32
+let c_string = TQualified ([ "C" ], "string")
 
 type env = {
   globals: typ M.t;
@@ -207,6 +208,7 @@ and check' env t e =
   | EWhile _
   | EEnum _
   | EField _
+  | EString _
   | EApp _ ->
       c (infer env e)
 
@@ -511,6 +513,9 @@ and infer' env e =
 
   | EBool _ ->
       TBool
+
+  | EString _ ->
+      c_string
 
   | EWhile (e1, e2) ->
       check env TBool e1;

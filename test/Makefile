@@ -2,7 +2,7 @@
 # (e.g. KOPTS="-cc clang -ccopt -fsanitize=undefined,address -ccopt -Wno-non-literal-null-conversion -Wno-unused-value")
 CRYPTO	= FSTAR_HOME/examples/low-level/crypto
 OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real $(KOPTS)
-TESTOPTS= -add-include '"testlib.h"' -I . testlib.c
+TESTOPTS= -add-include '"testlib.h"' -I . ../kremlib/testlib.c
 KRML	= ../krml
 
 all: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \

@@ -4,6 +4,10 @@
 int exit_success = EXIT_SUCCESS;
 int exit_failure = EXIT_FAILURE;
 
+void print_string(const char *s) {
+  printf("%s", s);
+}
+
 // Constant time comparisons
 uint8_t FStar_UInt8_eq_mask(uint8_t x, uint8_t y) {
   x = ~(x ^ y);

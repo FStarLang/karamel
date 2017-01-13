@@ -31,6 +31,10 @@ let rec adapt (t: CStar.typ) =
   | Union fields ->
       Union (List.map (fun (field, t) -> field, adapt t) fields)
 
+let escape_string s =
+  (* TODO: dive into the C lexical conventions + fix the F\* lexer *)
+  String.escaped s
+
 (* Turns the ML declaration inside-out to match the C reading of a type.
  * See en.cppreference.com/w/c/language/declarations *)
 let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
@@ -356,6 +360,9 @@ and mk_expr (e: expr): C.expr =
 
   | Field (e, field) ->
       MemberAccess (mk_expr e, field)
+
+  | StringLiteral s ->
+      Literal (escape_string s)
 
 
 and mk_compound_literal name fields =
