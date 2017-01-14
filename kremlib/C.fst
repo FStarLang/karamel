@@ -47,7 +47,7 @@ assume val exit_failure: Int32.t
 // sequence is then used to initialize an array of static storage duration and length just
 // sufficient to contain the sequence."
 assume type string
-assume val string_of_literal: Prims.string -> string
+assume val string_of_literal: Prims.string -> Tot string
 
 // Note: this assumes a bytes-in, bytes-out semantics for strings in F* which is
 // most likely not the case using the F# build of F* -- also, we're confusing
