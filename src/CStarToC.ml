@@ -336,6 +336,9 @@ and mk_expr (e: expr): C.expr =
   | BufRead (e1, e2) ->
       Index (mk_expr e1, mk_expr e2)
 
+  | BufSub (e1, Constant (_, "0")) ->
+      mk_expr e1
+
   | BufSub (e1, e2) ->
       Op2 (K.Add, mk_expr e1, mk_expr e2)
 
