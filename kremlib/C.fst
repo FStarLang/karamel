@@ -58,6 +58,11 @@ assume val print_string: string -> Stack unit
   (requires (fun h -> True))
   (ensures (fun h0 _ h1 -> h0 == h1))
 
+assume val print_bytes: b:buffer UInt8.t -> len:UInt32.t{length b >= UInt32.v len} -> Stack unit
+  (requires (fun h -> Buffer.live h b))
+  (ensures  (fun h0 _ h1 -> h0 == h1))
+
+
 // Byte-level functions
 assume val htole16: UInt16.t -> Tot UInt16.t
 assume val le16toh: UInt16.t -> Tot UInt16.t
