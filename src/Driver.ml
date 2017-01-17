@@ -10,6 +10,7 @@ module P = Process
 (** These three variables filled in by [detect_fstar] *)
 let fstar = ref ""
 let fstar_home = ref ""
+let fstar_lib = ref ""
 let fstar_options = ref []
 
 (** By [detect_kremlin] *)
@@ -102,12 +103,11 @@ let detect_kremlin_if () =
   if !krml_home = "" then
     detect_kremlin ()
 
-let expand_fstar_home fstar_home s =
-  let s' = "FSTAR_HOME" in
-  let l = String.length s in
-  let l' = String.length s' in
-  if l >= l' && String.sub s 0 (String.length s') = s' then
-    fstar_home ^ String.sub s l' (l - l')
+let expand_fstar_home fstar_home fstar_lib s =
+  if KString.starts_with s "FSTAR_LIB" then
+    fstar_lib ^^ KString.chop s "FSTAR_LIB"
+  else if KString.starts_with s "FSTAR_HOME" then
+    fstar_home ^^ KString.chop s "FSTAR_HOME"
   else
     s
 
@@ -124,9 +124,17 @@ let detect_fstar () =
     fstar := r ^^ "bin" ^^ "fstar.exe"
   with Not_found -> try
     fstar := read_one_line "which" [| "fstar.exe" |];
-    fstar_home := d (d !fstar)
+    fstar_home := d (d !fstar);
+    KPrint.bprintf "FSTAR_HOME is %s (via fstar.exe in PATH)\n" !fstar_home
   with _ ->
     fatal_error "Did not find fstar.exe in PATH and FSTAR_HOME is not set"
+  end;
+
+  if KString.exists !fstar_home "opam"; then begin
+    KPrint.bprintf "Detected an OPAM setup of F*\n";
+    fstar_lib := !fstar_home ^^ "lib" ^^ "fstar"
+  end else begin
+    fstar_lib := !fstar_home ^^ "ulib"
   end;
 
   if success "which" [| "cygpath" |] then begin
@@ -149,7 +157,7 @@ let detect_fstar () =
    * set of known failing modules. Adding a new module to the failing list is
    * DANGEROUS: it will remove a bunch of [DExternal] declarations that the
    * type-checker needs! *)
-  let fstar_includes = List.map (expand_fstar_home !fstar_home) !Options.includes in
+  let fstar_includes = List.map (expand_fstar_home !fstar_home !fstar_lib) !Options.includes in
   fstar_options := [
     "--trace_error";
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
@@ -172,7 +180,7 @@ let detect_fstar_if () =
 
 let expand_fstar_home s =
   detect_fstar_if ();
-  expand_fstar_home !fstar_home s
+  expand_fstar_home !fstar_home !fstar_lib s
 
 let verbose_msg () =
   if !Options.verbose then

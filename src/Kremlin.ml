@@ -57,6 +57,13 @@ The default is %s and the available warnings are:
   8: F* function must be inlined for soundness but has no [@ "substitute" ]
      attribute
 
+All include directories and paths supports two special prefixes:
+  - if a path starts with FSTAR_LIB, this will expand to wherever F*'s ulib
+    directory is
+  - if a path starts with FSTAR_HOME, this will expand to wherever the source
+    checkout of F* is (this does not always exist, e.g. in the case of an OPAM
+    setup).
+
 Supported options:|} Sys.argv.(0) !Options.warn_error
   in
   let found_file = ref false in
