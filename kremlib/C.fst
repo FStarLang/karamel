@@ -42,7 +42,7 @@ assume val exit_failure: Int32.t
 //   this can cause an actual segmentation fault on some architectures
 // - add a mutability flag, and model literals as buffers who live in some eternal
 //   region of the heap and are immutable -- one could then offer
-//   buffer_of_literal that 
+//   buffer_of_literal that
 // See C11 standard, section 6.4.5. "The multibyte character
 // sequence is then used to initialize an array of static storage duration and length just
 // sufficient to contain the sequence."
@@ -58,7 +58,7 @@ assume val print_string: string -> Stack unit
   (requires (fun h -> True))
   (ensures (fun h0 _ h1 -> h0 == h1))
 
-assume val print_bytes: b:buffer UInt8.t -> len:UInt32.t{length b >= UInt32.v len} -> Stack unit
+assume val print_bytes: b:buffer UInt8.t -> len:UInt32.t{UInt32.v len <= length b} -> Stack unit
   (requires (fun h -> Buffer.live h b))
   (ensures  (fun h0 _ h1 -> h0 == h1))
 
