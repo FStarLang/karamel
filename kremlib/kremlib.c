@@ -8,6 +8,13 @@ void print_string(const char *s) {
   printf("%s", s);
 }
 
+void print_bytes(uint8_t *b, uint32_t len) {
+  for (uint32_t i = 0; i < len; i++){
+    printf("%02x", b[i]);
+  }
+  printf("\n");
+}
+
 // Constant time comparisons
 uint8_t FStar_UInt8_eq_mask(uint8_t x, uint8_t y) {
   x = ~(x ^ y);
