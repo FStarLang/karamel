@@ -8,14 +8,16 @@ module StringMap = Map.Make(String)
 
 let debug = false
 
-(** Returns a single file that is the result of bundling several other files,
- * possibly with extra private flags added depending on whether the bundle name
- * matches an existing file or not. We do not perform renamings.
- * TODO: figure out what happens with the checker when it sees multiple bindings
- * that have the same name *)
+(** This collects all the files that match a given bundle specification, while
+ * preserving their original dependency ordering within the bundle. If the
+ * bundle is of the form Api=Patterns, then the declarations from Api are kept
+ * as-is, while declarations from the modules that match the Patterns are marked
+ * as private. Assuming no cross-translation-unit calls happen, this means a C
+ * static qualifier in the extracted code. *)
 let make_one_bundle (bundle: Bundle.t) (files: file list) (used: bool StringMap.t) =
   let api, patterns = bundle in
-  let find_file is_api (used, found) pattern =
+  (* Find the files that match a given pattern *)
+  let find_files is_api (used, found) pattern =
     List.fold_left (fun (used, found) file ->
       let name = fst file in
       match pattern with
@@ -29,7 +31,10 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: bool StringMap.
           used, found
     ) (used, found) files
   in
-  let used, found = List.fold_left (find_file false) (used, []) patterns in
+  (* Find all the files that match the given patterns. *)
+  (* FIXME: this assumes that the patterns are non-overlapping. *)
+  let used, found = List.fold_left (find_files false) (used, []) patterns in
+  (* All the declarations that have matched the patterns are marked as private. *)
   let found = List.map (fun (old_name, decls) ->
     old_name, List.map (function 
       | DFunction (cc, flags, typ, name, binders, body) ->
@@ -40,8 +45,13 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: bool StringMap.
           decl
     ) decls
   ) found in
+  (* The Api module gets a special treatment; if it exists, it is not collected
+   * in the call to [fold_left] above; rather, it is taken now from the list of
+   * files so that its declarations do not get the special "private" treatment. *)
   let used, found = find_file true (used, found) (Module api) in
+  (* The name of the bundle is the name of the Api module *)
   let bundle = String.concat "_" api, List.flatten (List.rev_map snd found) in
+  (* We return the updated map of all "used" original files *)
   used, bundle
 
 type color = White | Gray | Black
@@ -54,20 +64,32 @@ let parse_arg arg =
   with Ulexing.Error | Parser.Error ->
     Warnings.fatal_error "Malformed bundle"
 
+(* This creates bundles for every [-bundle] argument that was passed on the
+ * command-line. *)
 let make_bundles files =
   if debug then
     KPrint.bprintf "List of files: %s\n" (String.concat " " (List.map fst files));
+
+  (* We create the set of files that are either freshly-generated bundles, or
+   * files that were not involved in the creation of a bundle and that,
+   * therefore, we probably should keep. *)
   let used, bundles = List.fold_left (fun (used, bundles) arg ->
     let used, bundle = make_one_bundle (parse_arg arg) files used in
     used, bundle :: bundles
   ) (StringMap.empty, []) !Options.bundle in
   let files = List.filter (fun (n, _) -> not (StringMap.mem n used)) files @ bundles in
+
   if debug then begin
     KPrint.bprintf "List of files used in bundling: %s\n"
       (String.concat " " (StringMap.fold (fun k _ acc -> k :: acc) used []));
     KPrint.bprintf "List of files after bundling: %s\n" (String.concat " " (List.map fst files));
   end;
 
+  (* We perform a dependency analysis on this set of files to figure out how to
+   * order them; this is the creation of the dependency graph. Instead of merely
+   * keeping a list of dependencies, we keep a hash-table that maps a dependency
+   * to the [lident] that is responsible for the dependency, to have better
+   * error messages. *)
   let graph = Hashtbl.create 41 in
   List.iter (fun file ->
     let deps = Hashtbl.create 41 in
@@ -93,6 +115,7 @@ let make_bundles files =
     Hashtbl.add graph (fst file) (ref White, deps, snd file)
   ) files;
 
+  (* en.wikipedia.org/wiki/Topological_sorting *)
   let stack = ref [] in
   let rec dfs debug file =
     match Hashtbl.find graph file with
