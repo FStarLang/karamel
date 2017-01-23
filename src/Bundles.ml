@@ -48,7 +48,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: bool StringMap.
   (* The Api module gets a special treatment; if it exists, it is not collected
    * in the call to [fold_left] above; rather, it is taken now from the list of
    * files so that its declarations do not get the special "private" treatment. *)
-  let used, found = find_file true (used, found) (Module api) in
+  let used, found = find_files true (used, found) (Module api) in
   (* The name of the bundle is the name of the Api module *)
   let bundle = String.concat "_" api, List.flatten (List.rev_map snd found) in
   (* We return the updated map of all "used" original files *)

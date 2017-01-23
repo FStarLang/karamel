@@ -122,7 +122,10 @@ void *Prims____Cons___tl(void *_);
 
 #define KRML_EABORT (exit(252), 0)
 
-// Stubs to make ST happy
+// Stubs to make ST happy. Important note: you must generate a use of the macro
+// argument, otherwise, you may have FStar_ST_recall(f) as the only use of f;
+// KreMLin will think that this is a valid use, but then the C compiler, after
+// macro expansion, will error out.
 bool FStar_HyperStack_is_eternal_color(Prims_int x0);
 #define FStar_ST_op_Colon_Equals(x, v) KRML_EXIT
 #define FStar_ST_op_Bang(x) 0
@@ -131,6 +134,7 @@ bool FStar_HyperStack_is_eternal_color(Prims_int x0);
 #define FStar_ST_new_region(x) 0
 #define FStar_ST_recall(x)                                                     \
   do {                                                                         \
+    (void) x;                                                                  \
   } while (0)
 #define FStar_ST_recall_region(x)                                              \
   do {                                                                         \

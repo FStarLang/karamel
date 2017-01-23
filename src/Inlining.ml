@@ -236,6 +236,21 @@ let inline_function_frames files =
     ) decls
   ) files;
 
+  (* Note that because of bundling, we no longer have the invariant that the
+   * left-hand-side of an [lident] maps to the name of the file it originates
+   * from. *)
+  let file_of = List.fold_left (fun map (name, decls) ->
+    List.fold_left (fun map decl ->
+      LidMap.add (lid_of_decl decl) name map
+    ) map decls
+  ) LidMap.empty files in
+  let file_of lid =
+    try
+      Some (LidMap.find lid file_of)
+    with Not_found ->
+      None
+  in
+
   (* This is where the evaluation of the inlining is forced: every function that
    * must be inlined is dropped (otherwise the C compiler is not going to be
    * very happy if it sees someone returning a stack pointer!); functions that
@@ -254,7 +269,7 @@ let inline_function_frames files =
                   (* There is a cross-compilation-unit call from [name] to
                    * [name‘], meaning that the latter cannot safely remain
                    * inline. *)
-                  if fst name <> fst name' && Hashtbl.mem safely_private name' then begin
+                  if file_of name <> file_of name' && Hashtbl.mem safely_private name' then begin
                     Warnings.maybe_fatal_error ("", LostStatic (name, name'));
                     Hashtbl.remove safely_private name'
                   end;
