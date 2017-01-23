@@ -189,6 +189,13 @@ let flatten_arrow =
   in
   flatten_arrow []
 
+let lid_of_decl = function
+  | DFunction (_, _, _, lid, _, _)
+  | DGlobal (_, lid, _, _)
+  | DExternal (_, lid, _)
+  | DType (lid, _, _) ->
+      lid
+
 let is_array = function TArray _ -> true | _ -> false
 
 let rec is_value (e: expr) =
