@@ -274,7 +274,7 @@ let inline_function_frames files =
   filter_decls (function
     | DFunction (cc, flags, ret, name, binders, body) ->
         let flags =
-          if not (Hashtbl.mem safely_private name) then
+          if not (Hashtbl.mem safely_private name) || Simplify.target_c_name name = "main" then
             List.filter ((<>) Private) flags
           else
             flags
