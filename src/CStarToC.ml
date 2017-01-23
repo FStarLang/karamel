@@ -408,15 +408,16 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
         raise e
       end
 
-  | Global (name, t, expr) ->
+  | Global (name, flags, t, expr) ->
       let t = match t with Function _ -> Pointer t | _ -> t in
       let spec, decl = mk_spec_and_declarator name t in
+      let static = if List.exists ((=) Private) flags then Some Static else None in
       match expr with
       | Any ->
-          Some (Decl (spec, None, [ decl, None ]))
+          Some (Decl (spec, static, [ decl, None ]))
       | _ ->
           let expr = mk_expr expr in
-          Some (Decl (spec, None, [ decl, Some (InitExpr expr) ]))
+          Some (Decl (spec, static, [ decl, Some (InitExpr expr) ]))
 
 
 let mk_program decls =
@@ -455,10 +456,13 @@ let mk_stub_or_function (d: decl): C.declaration_or_function option =
       let spec, decl = mk_spec_and_declarator name t in
       Some (Decl (spec, Some Extern, [ decl, None ]))
 
-  | Global (name, t, _) ->
-      let t = match t with Function _ -> Pointer t | _ -> t in
-      let spec, decl = mk_spec_and_declarator name t in
-      Some (Decl (spec, Some Extern, [ decl, None ]))
+  | Global (name, flags, t, _) ->
+      if List.exists ((=) Private) flags then
+        None
+      else
+        let t = match t with Function _ -> Pointer t | _ -> t in
+        let spec, decl = mk_spec_and_declarator name t in
+        Some (Decl (spec, Some Extern, [ decl, None ]))
 
 
 let mk_header decls =

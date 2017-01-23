@@ -477,10 +477,11 @@ and translate_declaration env d: CStar.decl option =
         CStar.Function (cc, flags, t, (string_of_lident name), binders, body)
       end))
 
-  | DGlobal (_, name, t, body) ->
+  | DGlobal (flags, name, t, body) ->
       let env = locate env (InTop name) in
       Some (CStar.Global (
         string_of_lident name,
+        flags,
         translate_type env t,
         translate_expr env false body))
 

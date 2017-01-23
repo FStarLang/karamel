@@ -8,7 +8,7 @@ type program =
   decl list
 
 and decl =
-  | Global of ident * typ * expr
+  | Global of ident * flag list * typ * expr
   | Function of calling_convention option * flag list * typ * ident * binder list * block
   | Type of ident * typ
   | External of ident * typ
