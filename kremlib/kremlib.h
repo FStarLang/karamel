@@ -152,8 +152,8 @@ bool FStar_HyperStack_is_eternal_color(Prims_int x0);
 #define FStar_HyperHeap_root 0
 
 // Misc; many of these are polymorphic, hence not extracted (yet) by Kremlin,
-// which means that a macro is the "right" way to make they don't generate a
-// compilation error.
+// which means that a macro is the "right" way to make sure they don't generate
+// a compilation error.
 Prims_int FStar_UInt32_v(uint32_t x);
 #define Prims_fst(x) (x).fst
 #define Prims_snd(x) (x).snd

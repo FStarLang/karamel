@@ -17,10 +17,7 @@ open Warnings
 open PrintAst.Ops
 open Common
 
-module LidMap = Map.Make(struct
-  type t = lident
-  let compare = compare
-end)
+module LidMap = Idents.LidMap
 
 module ILidMap = struct
   type key = lident
@@ -239,17 +236,7 @@ let inline_function_frames files =
   (* Note that because of bundling, we no longer have the invariant that the
    * left-hand-side of an [lident] maps to the name of the file it originates
    * from. *)
-  let file_of = List.fold_left (fun map (name, decls) ->
-    List.fold_left (fun map decl ->
-      LidMap.add (lid_of_decl decl) name map
-    ) map decls
-  ) LidMap.empty files in
-  let file_of lid =
-    try
-      Some (LidMap.find lid file_of)
-    with Not_found ->
-      None
-  in
+  let file_of = Bundles.mk_file_of files in
 
   (* This is where the evaluation of the inlining is forced: every function that
    * must be inlined is dropped (otherwise the C compiler is not going to be

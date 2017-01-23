@@ -64,6 +64,26 @@ let parse_arg arg =
   with Ulexing.Error | Parser.Error ->
     Warnings.fatal_error "Malformed bundle"
 
+module LidMap = Idents.LidMap
+
+(* Create a map from an lid to the file it now appears in (after bundling).
+ * FIXME we should take this as an opportunity to flag bundling errors, i.e.
+ * there's a cross-compilation-unit dependency on a function that is defined in
+ * several bundles... *)
+let mk_file_of files =
+  let file_of = List.fold_left (fun map (name, decls) ->
+    List.fold_left (fun map decl ->
+      LidMap.add (lid_of_decl decl) name map
+    ) map decls
+  ) LidMap.empty files in
+  let file_of lid =
+    try
+      Some (LidMap.find lid file_of)
+    with Not_found ->
+      None
+  in
+  file_of
+
 (* This creates bundles for every [-bundle] argument that was passed on the
  * command-line. *)
 let make_bundles files =
@@ -91,14 +111,16 @@ let make_bundles files =
    * to the [lident] that is responsible for the dependency, to have better
    * error messages. *)
   let graph = Hashtbl.create 41 in
+  let file_of = mk_file_of files in
   List.iter (fun file ->
     let deps = Hashtbl.create 41 in
     let current_decl = ref None in
     let prepend lid =
-      let f = String.concat "_" (fst lid) in
-      (* Don't take self-dependencies *)
-      if f <> (fst file) then
-        Hashtbl.replace deps f (Option.must !current_decl)
+      match file_of lid with
+      | Some f when f <> fst file ->
+          Hashtbl.replace deps f (Option.must !current_decl)
+      | _ ->
+          ()
     in
     ignore ((object
       inherit [unit] map as super
@@ -118,22 +140,18 @@ let make_bundles files =
   (* en.wikipedia.org/wiki/Topological_sorting *)
   let stack = ref [] in
   let rec dfs debug file =
-    match Hashtbl.find graph file with
-    | exception Not_found ->
-        (* This refers to a now-gone module that ended up in a bundle *)
+    let r, deps, contents = Hashtbl.find graph file in
+    match !r with
+    | Black ->
         ()
-    | r, deps, contents ->
-        match !r with
-        | Black ->
-            ()
-        | Gray ->
-            Warnings.fatal_error "Bundling creates a dependency cycle: %s"
-              (String.concat " <- " (List.map Idents.string_of_lident debug))
-        | White ->
-            r := Gray;
-            Hashtbl.iter (fun f lid -> dfs (lid :: debug) f) deps;
-            r := Black;
-            stack := (file, contents) :: !stack
+    | Gray ->
+        Warnings.fatal_error "Bundling creates a dependency cycle: %s"
+          (String.concat " <- " (List.map Idents.string_of_lident debug))
+    | White ->
+        r := Gray;
+        Hashtbl.iter (fun f lid -> dfs (lid :: debug) f) deps;
+        r := Black;
+        stack := (file, contents) :: !stack
   in
   List.iter (dfs []) (List.map fst files);
   List.rev !stack
