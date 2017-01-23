@@ -6,6 +6,8 @@ open Ast
 
 module StringMap = Map.Make(String)
 
+let debug = false
+
 (** Returns a single file that is the result of bundling several other files,
  * possibly with extra private flags added depending on whether the bundle name
  * matches an existing file or not. We do not perform renamings.
@@ -13,19 +15,21 @@ module StringMap = Map.Make(String)
  * that have the same name *)
 let make_one_bundle (bundle: Bundle.t) (files: file list) (used: bool StringMap.t) =
   let api, patterns = bundle in
-  let find_file (used, found) pattern =
+  let find_file is_api (used, found) pattern =
     List.fold_left (fun (used, found) file ->
       let name = fst file in
       match pattern with
-      | Module m when String.concat "_" m = name ->
+      | Module m when String.concat "_" m = name &&
+        (is_api || name <> String.concat "_" api) ->
           StringMap.add name true used, file :: found
-      | Prefix p when KString.starts_with name (String.concat "_" p) ->
+      | Prefix p when KString.starts_with name (String.concat "_" p) &&
+        (is_api || name <> String.concat "_" api) ->
           StringMap.add name true used, file :: found
       | _ ->
           used, found
     ) (used, found) files
   in
-  let used, found = List.fold_left find_file (used, []) patterns in
+  let used, found = List.fold_left (find_file false) (used, []) patterns in
   let found = List.map (fun (old_name, decls) ->
     old_name, List.map (function 
       | DFunction (cc, flags, typ, name, binders, body) ->
@@ -36,7 +40,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: bool StringMap.
           decl
     ) decls
   ) found in
-  let used, found = find_file (used, found) (Module api) in
+  let used, found = find_file true (used, found) (Module api) in
   let bundle = String.concat "_" api, List.flatten (List.rev_map snd found) in
   used, bundle
 
@@ -51,13 +55,18 @@ let parse_arg arg =
     Warnings.fatal_error "Malformed bundle"
 
 let make_bundles files =
-  KPrint.bprintf "List of files: %s\n" (String.concat " " (List.map fst files));
+  if debug then
+    KPrint.bprintf "List of files: %s\n" (String.concat " " (List.map fst files));
   let used, bundles = List.fold_left (fun (used, bundles) arg ->
     let used, bundle = make_one_bundle (parse_arg arg) files used in
     used, bundle :: bundles
   ) (StringMap.empty, []) !Options.bundle in
   let files = List.filter (fun (n, _) -> not (StringMap.mem n used)) files @ bundles in
-  KPrint.bprintf "List of files after bundling: %s\n" (String.concat " " (List.map fst files));
+  if debug then begin
+    KPrint.bprintf "List of files used in bundling: %s\n"
+      (String.concat " " (StringMap.fold (fun k _ acc -> k :: acc) used []));
+    KPrint.bprintf "List of files after bundling: %s\n" (String.concat " " (List.map fst files));
+  end;
 
   let graph = Hashtbl.create 41 in
   List.iter (fun file ->
