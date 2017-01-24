@@ -7,7 +7,6 @@ let _ =
   let arg_print_pattern = ref false in
   let arg_print_inline = ref false in
   let arg_print_c = ref false in
-  let arg_print_check = ref 0 in
   let arg_skip_extraction = ref false in
   let arg_skip_compilation = ref false in
   let arg_skip_linking = ref false in
@@ -57,6 +56,12 @@ The default is %s and the available warnings are:
   8: F* function must be inlined for soundness but has no [@ "substitute" ]
      attribute
 
+The [-bundle] option takes argument of the form ApiModule=Impl1,Prefix.*,...
+All declarations within a bundle are automatically marked as private. If
+ApiModule is found, it is appended to the bundle and the functions it defines
+are not marked as private. If creating a bundle results in cyclic dependency,
+KreMLin aborts.
+
 All include directories and paths supports two special prefixes:
   - if a path starts with FSTAR_LIB, this will expand to wherever F*'s ulib
     directory is
@@ -70,6 +75,11 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   let prepend r = fun s -> r := s :: !r in
   let csv f s =
     List.iter f (KString.split_on_char ',' s)
+  in
+  let default_bundle =
+    String.concat " " (KList.map_flatten (fun b ->
+      [ "-bundle"; b ]
+    ) !Options.bundle)
   in
   let spec = [
     (* KreMLin as a driver *)
@@ -91,19 +101,18 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
 
     (* Controling the behavior of KreMLin *)
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";
-    "-bundle", Arg.String (prepend Options.bundle), " group all modules in this namespace in one compilation unit (default: " ^ String.concat ", " !Options.bundle ^ ")";
+    "-bundle", Arg.String (prepend Options.bundle), " group all modules in this namespace in one compilation unit (default: " ^ default_bundle ^ ")";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to every generated file";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
     "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";
     "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
-    "-drop", Arg.String (prepend Options.in_kremlib), "  do not extract this module (but keep it for its signature and types)";
+    "-drop", Arg.String (prepend Options.drop), "  do not extract this module (but keep it for its signature and types)";
     "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are fatal / warnings / silent (default: " ^ !Options.warn_error ^")";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
     "-djson", Arg.Set arg_print_json, " dump the input AST as JSON";
     "-dast", Arg.Set arg_print_ast, " pretty-print the internal AST";
-    "-dcheck", Arg.Set_int arg_print_check, " N pretty-print the internal AST after Nth check";
     "-dpattern", Arg.Set arg_print_pattern, " pretty-print after pattern removal";
     "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the internal AST after simplification";
     "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after inlining";
@@ -176,9 +185,6 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   let l = List.length files in
   let files = DataTypes.drop_match_cast files in
   let files = Checker.check_everything ~warn:true files in
-  if !arg_print_check = 1 then
-    print PrintAst.print_files files;
-  let files = Inlining.inline_type_abbrevs files in
 
   (* Make sure implementors that target Kremlin can tell apart their bugs vs.
    * mine *)
@@ -188,6 +194,11 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   else
     KPrint.bprintf "%s⚠%s Dropped some files while checking\n" Ansi.orange Ansi.reset;
 
+  let files = Bundles.make_bundles files in
+  let files = Checker.check_everything files in
+
+  let files = Inlining.inline_type_abbrevs files in
+
   (* Simplify data types and remove patterns. *)
   let datatypes_state, files = DataTypes.everything files in
   if !arg_print_pattern then
@@ -196,8 +207,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   (* Perform a whole-program rewriting. *)
   let files = Checker.check_everything files in
   KPrint.bprintf "%s✔%s Pattern compilation successfully checked\n" Ansi.green Ansi.reset;
-  if !arg_print_check = 2 then
-    print PrintAst.print_files files;
+
   let files = Simplify.simplify1 files in
   let files = Simplify.simplify2 files in
   if !arg_print_simplify then
@@ -217,7 +227,6 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
    * abbreviations to check that our stuff makes sense. *)
   let files = Inlining.drop_type_abbrevs files in
   let files = Inlining.drop_unused files in
-  let files = Simplify.to_c_names files in
 
   (* This breaks typing. *)
   let files =
@@ -226,6 +235,29 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     else
       files
   in
+
+  (* Drop files (e.g. -drop FStar.Heap) *)
+  let drop l =
+    let should_drop name =
+      List.exists ((=) name) (List.map Idents.fstar_name_of_mod !Options.drop)
+    in
+    let l = List.filter (fun (name, _) -> not (should_drop name)) l in
+    (* Note that after bundling, we need to go inside bundles to find top-level
+     * names that originate from a module we were meant to drop, and drop
+     * individual declarations. *)
+    Inlining.filter_decls (fun d ->
+      let f = String.concat "_" (fst (Ast.lid_of_decl d)) in
+      if should_drop f then
+        None
+      else
+        Some d
+    ) l
+  in
+  let files = drop files in
+
+  (* The "drop files" pass above needs some properly-built names... do this at
+   * the last minute, really. *)
+  let files = Simplify.to_c_names files in
 
   (* Translate to C*... *)
   let files = AstToCStar.translate_files files in
@@ -241,15 +273,9 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
 
   else
     (* ... then to C *)
-    let to_drop = List.map Idents.fstar_name_of_mod !Options.in_kremlib in
-    let drop l = List.filter (fun (name, _) -> not (List.exists ((=) name) to_drop)) l in
 
-    (* Drop files (e.g. -drop FStar.Heap) *)
-    let files = drop files in
-
-    (* Drop bundles (e.g. -drop FStar) *)
-    let headers = drop (CStarToC.mk_headers (CStar.collapse_bundles_first files)) in
-    let files = drop (CStarToC.mk_files (CStar.collapse_bundles_last files)) in
+    let headers = CStarToC.mk_headers files in
+    let files = CStarToC.mk_files files in
 
     (* -dc *)
     if !arg_print_c then

@@ -17,10 +17,7 @@ open Warnings
 open PrintAst.Ops
 open Common
 
-module LidMap = Map.Make(struct
-  type t = lident
-  let compare = compare
-end)
+module LidMap = Idents.LidMap
 
 module ILidMap = struct
   type key = lident
@@ -228,6 +225,7 @@ let inline_function_frames files =
   let safely_private = Hashtbl.create 41 in
   List.iter (fun (_, decls) ->
     List.iter (function
+      | DGlobal (flags, name, _, _)
       | DFunction (_, flags, _, name, _, _) ->
           if List.mem Private flags then
             Hashtbl.add safely_private name ()
@@ -235,6 +233,38 @@ let inline_function_frames files =
           ()
     ) decls
   ) files;
+
+  (* Note that because of bundling, we no longer have the invariant that the
+   * left-hand-side of an [lident] maps to the name of the file it originates
+   * from. *)
+  let file_of = Bundles.mk_file_of files in
+
+  (* While we're at it, after inlining, we may drop some private qualifiers for
+   * functions in other modules that end up being called. *)
+  let unmark_private_in name body = 
+    ignore ((object(self)
+      inherit [unit] map
+      method eapp () _ e es =
+        match e.node with
+        | EQualified name' ->
+            (* There is a cross-compilation-unit call from [name] to
+             * [name‘], meaning that the latter cannot safely remain
+             * inline. *)
+            if file_of name <> file_of name' && Hashtbl.mem safely_private name' then begin
+              Warnings.maybe_fatal_error ("", LostStatic (name, name'));
+              Hashtbl.remove safely_private name'
+            end;
+            EApp (e, List.map (self#visit ()) es)
+        | _ ->
+            EApp (self#visit () e, List.map (self#visit ()) es)
+      method equalified () _ name' =
+        if file_of name <> file_of name' && Hashtbl.mem safely_private name' then begin
+          Warnings.maybe_fatal_error ("", LostStatic (name, name'));
+          Hashtbl.remove safely_private name'
+        end;
+        EQualified name'
+    end)#visit () body)
+  in
 
   (* This is where the evaluation of the inlining is forced: every function that
    * must be inlined is dropped (otherwise the C compiler is not going to be
@@ -246,38 +276,28 @@ let inline_function_frames files =
           None
         else
           let body = inline_one name in
-          ignore ((object(self)
-            inherit [unit] map
-            method eapp () _ e es =
-              match e.node with
-              | EQualified name' ->
-                  (* There is a cross-compilation-unit call from [name] to
-                   * [name‘], meaning that the latter cannot safely remain
-                   * inline. *)
-                  if fst name <> fst name' && Hashtbl.mem safely_private name' then begin
-                    Warnings.maybe_fatal_error ("", LostStatic (name, name'));
-                    Hashtbl.remove safely_private name'
-                  end;
-                  EApp (e, List.map (self#visit ()) es)
-              | _ ->
-                  EApp (self#visit () e, List.map (self#visit ()) es)
-          end)#visit () body);
+          unmark_private_in name body;
           Some (DFunction (cc, flags, ret, name, binders, body))
     | d ->
+        (* Note: not inlining globals because F* should forbid top-level
+         * effects...? *)
         Some d
   ) files in
+
+  let keep_private_if name flags =
+    if not (Hashtbl.mem safely_private name) || Simplify.target_c_name name = "main" then
+      List.filter ((<>) Private) flags
+    else
+      flags
+  in
 
   (* If after inlining, the function does not appear in [safely_private], then it
    * certainly cannot keep its flag. *)
   filter_decls (function
     | DFunction (cc, flags, ret, name, binders, body) ->
-        let flags =
-          if not (Hashtbl.mem safely_private name) then
-            List.filter ((<>) Private) flags
-          else
-            flags
-        in
-        Some (DFunction (cc, flags, ret, name, binders, body))
+        Some (DFunction (cc, keep_private_if name flags, ret, name, binders, body))
+    | DGlobal (flags, name, e, t) ->
+        Some (DGlobal (keep_private_if name flags, name, e, t))
     | d ->
         Some d
   ) files

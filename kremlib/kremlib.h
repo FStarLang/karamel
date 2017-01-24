@@ -123,7 +123,10 @@ void *Prims____Cons___tl(void *_);
 
 #define KRML_EABORT (exit(252), 0)
 
-// Stubs to make ST happy
+// Stubs to make ST happy. Important note: you must generate a use of the macro
+// argument, otherwise, you may have FStar_ST_recall(f) as the only use of f;
+// KreMLin will think that this is a valid use, but then the C compiler, after
+// macro expansion, will error out.
 bool FStar_HyperStack_is_eternal_color(Prims_int x0);
 #define FStar_ST_op_Colon_Equals(x, v) KRML_EXIT
 #define FStar_ST_op_Bang(x) 0
@@ -132,6 +135,7 @@ bool FStar_HyperStack_is_eternal_color(Prims_int x0);
 #define FStar_ST_new_region(x) 0
 #define FStar_ST_recall(x)                                                     \
   do {                                                                         \
+    (void) x;                                                                  \
   } while (0)
 #define FStar_ST_recall_region(x)                                              \
   do {                                                                         \
@@ -149,8 +153,8 @@ bool FStar_HyperStack_is_eternal_color(Prims_int x0);
 #define FStar_HyperHeap_root 0
 
 // Misc; many of these are polymorphic, hence not extracted (yet) by Kremlin,
-// which means that a macro is the "right" way to make they don't generate a
-// compilation error.
+// which means that a macro is the "right" way to make sure they don't generate
+// a compilation error.
 Prims_int FStar_UInt32_v(uint32_t x);
 #define Prims_fst(x) (x).fst
 #define Prims_snd(x) (x).snd
