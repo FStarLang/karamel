@@ -141,7 +141,9 @@ let detect_fstar () =
     fstar := read_one_line "cygpath" [| "-m"; !fstar |];
     KPrint.bprintf "%sfstar converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar;
     fstar_home := read_one_line "cygpath" [| "-m"; !fstar_home |];
-    KPrint.bprintf "%sfstar home converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_home
+    KPrint.bprintf "%sfstar home converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_home;
+    fstar_lib := read_one_line "cygpath" [| "-m"; !fstar_lib |];
+    KPrint.bprintf "%sfstar lib converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_lib
   end;
 
   if try Sys.is_directory (!fstar_home ^^ ".git") with Sys_error _ -> false then begin
