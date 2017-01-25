@@ -165,7 +165,7 @@ let detect_fstar () =
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
   (** We don't even try to extract the int modules, because Kremlin cannot
    * type-check them, as it assumes a primitive notion of integers... see also
-   * [Options.in_kremlib] for modules that we're happy to let F* extract (for
+   * [Options.drop] for modules that we're happy to let F* extract (for
    * typing), but don't want to generate C for. *)
   List.iter (fun m ->
     fstar_options := "--no_extract" :: ("FStar." ^ m) :: !fstar_options
@@ -271,7 +271,10 @@ let detect_gnu flavor =
     "-fwrapv"
   ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
     @ List.rev !Options.ccopts;
-  if !Options.m32 then cc_args := "-m32" :: !cc_args;
+  if !Options.m32 then
+    cc_args := "-m32" :: !cc_args;
+  if Sys.os_type = "Win32" then
+    cc_args := "-D__USE_MINGW_ANSI_STDIO" :: !cc_args;
   KPrint.bprintf "%s%s options are:%s %s\n" Ansi.underline !cc Ansi.reset
     (String.concat " " !cc_args)
 
