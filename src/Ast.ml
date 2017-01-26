@@ -44,6 +44,7 @@ and expr' =
   | EConstant of K.t
   | EUnit
   | EBool of bool
+  | EString of string
   | EAny
     (** to indicate that the initial value of a mutable let-binding does not
      * matter *)
@@ -83,6 +84,7 @@ and expr' =
   | EReturn of expr
   | EWhile of expr * expr
   | ECast of expr * typ
+  | EComment of string * expr * string
 
 and expr =
   expr' with_type
@@ -178,6 +180,8 @@ and typ =
 let with_type typ node =
   { typ; node }
 
+(** Some AST helpers *)
+
 let flatten_arrow =
   let rec flatten_arrow acc = function
     | TArrow (t1, t2) -> flatten_arrow (t1 :: acc) t2
@@ -185,7 +189,61 @@ let flatten_arrow =
   in
   flatten_arrow []
 
+let lid_of_decl = function
+  | DFunction (_, _, _, lid, _, _)
+  | DGlobal (_, lid, _, _)
+  | DExternal (_, lid, _)
+  | DType (lid, _, _) ->
+      lid
+
 let is_array = function TArray _ -> true | _ -> false
+
+let rec is_value (e: expr) =
+  match e.node with
+  | EBound _
+  | EOpen _
+  | EOp _
+  | EQualified _
+  | EConstant _
+  | EUnit
+  | EBool _
+  | EEnum _
+  | EString _
+  | EAny ->
+      true
+
+  | ETuple es
+  | ECons (_, es) ->
+      List.for_all is_value es
+
+  | EFlat identexprs ->
+      List.for_all (fun (_, e) -> is_value e) identexprs
+
+  | EField (e, _)
+  | EComment (_, e, _)
+  | ECast (e, _) ->
+      is_value e
+
+  | EAbort
+  | EApp _
+  | ELet _
+  | EIfThenElse _
+  | ESequence _
+  | EAssign _
+  | EBufCreate _
+  | EBufCreateL _
+  | EBufRead _
+  | EBufWrite _
+  | EBufSub _
+  | EBufBlit _
+  | EBufFill _
+  | EPushFrame
+  | EPopFrame
+  | EMatch _
+  | ESwitch _
+  | EReturn _
+  | EWhile _ ->
+      false
 
 let fold_arrow ts t_ret =
   List.fold_right (fun t arr -> TArrow (t, arr)) ts t_ret
@@ -226,6 +284,8 @@ class virtual ['env] map = object (self)
         self#econstant env typ c
     | EUnit ->
         self#eunit env typ
+    | EString s ->
+        self#estring env typ s
     | EApp (e, es) ->
         self#eapp env typ e es
     | ELet (b, e1, e2) ->
@@ -282,6 +342,8 @@ class virtual ['env] map = object (self)
         self#eenum env typ lid
     | ESwitch (e, branches) ->
         self#eswitch env typ e branches
+    | EComment (s, e, s') ->
+        self#ecomment env typ s e s'
 
   method ebound _env _typ var =
     EBound var
@@ -303,6 +365,9 @@ class virtual ['env] map = object (self)
 
   method eunit _env _typ =
     EUnit
+
+  method estring _env _typ s =
+    EString s
 
   method eapp env _typ e es =
     EApp (self#visit env e, List.map (self#visit env) es)
@@ -384,6 +449,9 @@ class virtual ['env] map = object (self)
     ESwitch (self#visit env e, List.map (fun (lid, e) ->
       lid, self#visit env e
     ) branches)
+
+  method ecomment env _ s e s' =
+    EComment (s, self#visit env e, s')
 
   (* Some helpers *)
 

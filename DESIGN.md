@@ -52,13 +52,15 @@ definition of Low\* and can be trivially translated to C\*; KreMLin then:
     as possible;
   * optimizing functions that return unit into functions that return void;
   * optimizing functions that take unit into functions that take no parameters;
+- groups files according to the `-bundle` arguments;
+- drops files according to the `-drop` arguments;
 - translates the C* program to an abstract C syntax tree (see `C.ml`,
   `CStarToC.ml`); this involves:
   * turning ML-style types into specifiers and declarators;
   * replacing all high-level nodes with actual C constructs;
   * making the initialization of buffers explicit;
-  * dealing with C ambiguities (e.g. dangling else)
 - prints the C abstract tree into actual syntax (see `PrintC.ml`); this
   involves:
   * respecting the precedence of operators;
+  * dealing with C ambiguities (e.g. dangling else)
   * introducing sensible indentation.

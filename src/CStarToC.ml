@@ -31,6 +31,10 @@ let rec adapt (t: CStar.typ) =
   | Union fields ->
       Union (List.map (fun (field, t) -> field, adapt t) fields)
 
+let escape_string s =
+  (* TODO: dive into the C lexical conventions + fix the F\* lexer *)
+  String.escaped s
+
 (* Turns the ML declaration inside-out to match the C reading of a type.
  * See en.cppreference.com/w/c/language/declarations *)
 let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
@@ -115,6 +119,8 @@ and mk_memset_zero_initializer e_array e_size =
 
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
+  | Comment s ->
+      [ Comment s ]
   | Return e ->
       [ Return (Option.map mk_expr e) ]
 
@@ -300,6 +306,9 @@ and mk_stmts' acc stmts: C.stmt list =
 
 and mk_expr (e: expr): C.expr =
   match e with
+  | InlineComment (s, e, s') ->
+      InlineComment (s, mk_expr e, s')
+
   | Call (Op o, [ e ]) ->
       Op1 (o, mk_expr e)
 
@@ -327,6 +336,9 @@ and mk_expr (e: expr): C.expr =
   | BufRead (e1, e2) ->
       Index (mk_expr e1, mk_expr e2)
 
+  | BufSub (e1, Constant (_, "0")) ->
+      mk_expr e1
+
   | BufSub (e1, e2) ->
       Op2 (K.Add, mk_expr e1, mk_expr e2)
 
@@ -351,6 +363,9 @@ and mk_expr (e: expr): C.expr =
 
   | Field (e, field) ->
       MemberAccess (mk_expr e, field)
+
+  | StringLiteral s ->
+      Literal (escape_string s)
 
 
 and mk_compound_literal name fields =
@@ -380,26 +395,29 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
   | Type _ ->
       None
 
-  | Function (cc, return_type, name, parameters, body) ->
+  | Function (cc, flags, return_type, name, parameters, body) ->
       begin try
+        let static = if List.exists ((=) Private) flags then Some Static else None in
+        let inline = List.exists ((=) CInline) flags in
         let parameters = List.map (fun { name; typ } -> name, typ) parameters in
         let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
         let body = ensure_compound (mk_stmts body) in
-        Some (Function ((spec, None, [ decl, None ]), body))
+        Some (Function (inline, (spec, static, [ decl, None ]), body))
       with e ->
         beprintf "Fatal exception raised in %s\n" name;
         raise e
       end
 
-  | Global (name, t, expr) ->
+  | Global (name, flags, t, expr) ->
       let t = match t with Function _ -> Pointer t | _ -> t in
       let spec, decl = mk_spec_and_declarator name t in
+      let static = if List.exists ((=) Private) flags then Some Static else None in
       match expr with
       | Any ->
-          Some (Decl (spec, None, [ decl, None ]))
+          Some (Decl (spec, static, [ decl, None ]))
       | _ ->
           let expr = mk_expr expr in
-          Some (Decl (spec, None, [ decl, Some (InitExpr expr) ]))
+          Some (Decl (spec, static, [ decl, Some (InitExpr expr) ]))
 
 
 let mk_program decls =
@@ -409,40 +427,46 @@ let mk_files files =
   List.map (fun (name, program) -> name, mk_program program) files
 
 
-let mk_stub_or_function (d: decl): C.declaration_or_function =
+let mk_stub_or_function (d: decl): C.declaration_or_function option =
   match d with
   | Type (name, t) ->
       let spec, decl = mk_spec_and_declarator name t in
-      Decl (spec, Some Typedef, [ decl, None ])
+      Some (Decl (spec, Some Typedef, [ decl, None ]))
 
-  | Function (cc, return_type, name, parameters, _) ->
-      begin try
-        let parameters = List.map (fun { name; typ } -> name, typ) parameters in
-        let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
-        Decl (spec, None, [ decl, None ])
-      with e ->
-        beprintf "Fatal exception raised in %s\n" name;
-        raise e
-      end
+  | Function (cc, flags, return_type, name, parameters, _) ->
+      if List.exists ((=) Private) flags then
+        None
+      else
+        begin try
+          let parameters = List.map (fun { name; typ } -> name, typ) parameters in
+          let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
+          Some (Decl (spec, None, [ decl, None ]))
+        with e ->
+          beprintf "Fatal exception raised in %s\n" name;
+          raise e
+        end
 
   | External (name, Function (cc, t, ts)) ->
       let spec, decl = mk_spec_and_declarator_f cc name t (List.mapi (fun i t ->
         KPrint.bsprintf "x%d" i, t
       ) ts) in
-      Decl (spec, Some Extern, [ decl, None ])
+      Some (Decl (spec, Some Extern, [ decl, None ]))
 
   | External (name, t) ->
       let spec, decl = mk_spec_and_declarator name t in
-      Decl (spec, Some Extern, [ decl, None ])
+      Some (Decl (spec, Some Extern, [ decl, None ]))
 
-  | Global (name, t, _) ->
-      let t = match t with Function _ -> Pointer t | _ -> t in
-      let spec, decl = mk_spec_and_declarator name t in
-      Decl (spec, Some Extern, [ decl, None ])
+  | Global (name, flags, t, _) ->
+      if List.exists ((=) Private) flags then
+        None
+      else
+        let t = match t with Function _ -> Pointer t | _ -> t in
+        let spec, decl = mk_spec_and_declarator name t in
+        Some (Decl (spec, Some Extern, [ decl, None ]))
 
 
 let mk_header decls =
-  List.map mk_stub_or_function decls
+  KList.filter_map mk_stub_or_function decls
 
 let mk_headers files =
   List.map (fun (name, program) -> name, mk_header program) files

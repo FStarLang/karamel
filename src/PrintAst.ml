@@ -97,6 +97,10 @@ and print_flag = function
       string "private"
   | NoExtract ->
       string "noextract"
+  | CInline ->
+      string "c_inline"
+  | Substitute ->
+      string "substitute"
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   group (
@@ -135,6 +139,8 @@ and print_lifetime = function
 
 and print_expr { node; _ } =
   match node with
+  | EComment (s, e, s') ->
+      surround 2 1 (string s) (print_expr e) (string s')
   | EAny ->
       string "$any"
   | EAbort ->
@@ -149,6 +155,8 @@ and print_expr { node; _ } =
       print_constant c
   | EUnit ->
       string "()"
+  | EString s ->
+      dquote ^^ string s ^^ dquote
   | EApp (e, es) ->
       print_app print_expr e print_expr es
   | ELet (binder, e1, e2) ->

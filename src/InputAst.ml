@@ -73,6 +73,7 @@ and expr =
   | ETuple of expr list
   | ECons of (typ * ident * expr list)
   | EBufFill of (expr * expr * expr)
+  | EString of string
 
 
 and branches =

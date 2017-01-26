@@ -10,6 +10,7 @@ open C
 let p_storage_spec = function
   | Typedef -> string "typedef"
   | Extern -> string "extern"
+  | Static -> string "static"
 
 let rec p_type_spec = function
   | Int w -> print_width w ^^ string "_t"
@@ -162,6 +163,13 @@ and p_expr' curr = function
       p_expr' 1 expr ^^ dot ^^ string member
   | MemberAccessPointer (expr, member) ->
       p_expr' 1 expr ^^ string "->" ^^ string member
+  | InlineComment (s, e, s') ->
+      surround 2 1 (p_comment s) (p_expr' curr e) (p_comment s')
+
+and p_comment s =
+  (* TODO: escape *)
+  string "/* " ^^ nest 2 (flow space (words s)) ^^ string " */"
+
 
 and p_expr e = p_expr' 15 e
 
@@ -213,6 +221,8 @@ let rec p_stmt (s: stmt) =
       hardline ^^ rbrace
   | Expr expr ->
       group (p_expr expr ^^ semi)
+  | Comment s ->
+      group (separate break1 (words s))
   | For (decl, e2, e3, stmt) ->
       group (string "for" ^/^ lparen ^^ nest 2 (
         p_declaration decl ^^ semi ^^ break1 ^^
@@ -260,8 +270,9 @@ let p_decl_or_function (df: declaration_or_function) =
   match df with
   | Decl d ->
       group (p_declaration d ^^ semi)
-  | Function (d, stmt) ->
-      group (p_declaration d) ^/^ p_stmt stmt
+  | Function (inline, d, stmt) ->
+      let inline = if inline then string "inline" ^^ space else empty in
+      inline ^^ group (p_declaration d) ^/^ p_stmt stmt
 
 let print_files =
   PrintCommon.print_files p_decl_or_function

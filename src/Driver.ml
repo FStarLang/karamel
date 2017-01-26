@@ -10,6 +10,7 @@ module P = Process
 (** These three variables filled in by [detect_fstar] *)
 let fstar = ref ""
 let fstar_home = ref ""
+let fstar_lib = ref ""
 let fstar_options = ref []
 
 (** By [detect_kremlin] *)
@@ -102,12 +103,11 @@ let detect_kremlin_if () =
   if !krml_home = "" then
     detect_kremlin ()
 
-let expand_fstar_home fstar_home s =
-  let s' = "FSTAR_HOME" in
-  let l = String.length s in
-  let l' = String.length s' in
-  if l >= l' && String.sub s 0 (String.length s') = s' then
-    fstar_home ^ String.sub s l' (l - l')
+let expand_fstar_home fstar_home fstar_lib s =
+  if KString.starts_with s "FSTAR_LIB" then
+    fstar_lib ^^ KString.chop s "FSTAR_LIB"
+  else if KString.starts_with s "FSTAR_HOME" then
+    fstar_home ^^ KString.chop s "FSTAR_HOME"
   else
     s
 
@@ -124,16 +124,26 @@ let detect_fstar () =
     fstar := r ^^ "bin" ^^ "fstar.exe"
   with Not_found -> try
     fstar := read_one_line "which" [| "fstar.exe" |];
-    fstar_home := d (d !fstar)
+    fstar_home := d (d !fstar);
+    KPrint.bprintf "FSTAR_HOME is %s (via fstar.exe in PATH)\n" !fstar_home
   with _ ->
     fatal_error "Did not find fstar.exe in PATH and FSTAR_HOME is not set"
+  end;
+
+  if KString.exists !fstar_home "opam"; then begin
+    KPrint.bprintf "Detected an OPAM setup of F*\n";
+    fstar_lib := !fstar_home ^^ "lib" ^^ "fstar"
+  end else begin
+    fstar_lib := !fstar_home ^^ "ulib"
   end;
 
   if success "which" [| "cygpath" |] then begin
     fstar := read_one_line "cygpath" [| "-m"; !fstar |];
     KPrint.bprintf "%sfstar converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar;
     fstar_home := read_one_line "cygpath" [| "-m"; !fstar_home |];
-    KPrint.bprintf "%sfstar home converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_home
+    KPrint.bprintf "%sfstar home converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_home;
+    fstar_lib := read_one_line "cygpath" [| "-m"; !fstar_lib |];
+    KPrint.bprintf "%sfstar lib converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_lib
   end;
 
   if try Sys.is_directory (!fstar_home ^^ ".git") with Sys_error _ -> false then begin
@@ -149,13 +159,13 @@ let detect_fstar () =
    * set of known failing modules. Adding a new module to the failing list is
    * DANGEROUS: it will remove a bunch of [DExternal] declarations that the
    * type-checker needs! *)
-  let fstar_includes = List.map (expand_fstar_home !fstar_home) !Options.includes in
+  let fstar_includes = List.map (expand_fstar_home !fstar_home !fstar_lib) !Options.includes in
   fstar_options := [
     "--trace_error";
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
   (** We don't even try to extract the int modules, because Kremlin cannot
    * type-check them, as it assumes a primitive notion of integers... see also
-   * [Options.in_kremlib] for modules that we're happy to let F* extract (for
+   * [Options.drop] for modules that we're happy to let F* extract (for
    * typing), but don't want to generate C for. *)
   List.iter (fun m ->
     fstar_options := "--no_extract" :: ("FStar." ^ m) :: !fstar_options
@@ -172,7 +182,7 @@ let detect_fstar_if () =
 
 let expand_fstar_home s =
   detect_fstar_if ();
-  expand_fstar_home !fstar_home s
+  expand_fstar_home !fstar_home !fstar_lib s
 
 let verbose_msg () =
   if !Options.verbose then
@@ -184,6 +194,8 @@ let verbose_msg () =
  * (depending on -warn-error) if the command failed. *)
 let run_or_warn str exe args =
   let debug_str = KPrint.bsprintf "%s %s" exe (String.concat " " args) in
+  if !Options.verbose then
+    print_endline debug_str;
   match P.run exe (Array.of_list args) with
   | { P.Output.exit_status = P.Exit.Exit 0; stdout; _ } ->
       KPrint.bprintf "%s✔%s %s%s\n" Ansi.green Ansi.reset str (verbose_msg ());
@@ -259,7 +271,10 @@ let detect_gnu flavor =
     "-fwrapv"
   ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
     @ List.rev !Options.ccopts;
-  if !Options.m32 then cc_args := "-m32" :: !cc_args;
+  if !Options.m32 then
+    cc_args := "-m32" :: !cc_args;
+  if Sys.os_type = "Win32" then
+    cc_args := "-D__USE_MINGW_ANSI_STDIO" :: !cc_args;
   KPrint.bprintf "%s%s options are:%s %s\n" Ansi.underline !cc Ansi.reset
     (String.concat " " !cc_args)
 

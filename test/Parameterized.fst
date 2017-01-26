@@ -14,7 +14,7 @@ let skey _ _ =
 let akey x y =
   option (skey x y)
 
-let get (k: akey unit unit { is_Some k }) =
+let get (k: akey unit unit { Some? k }) =
   match k with
   | Some k -> k
 

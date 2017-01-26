@@ -1,5 +1,10 @@
 (** Manipulation of identifiers *)
 
+module LidMap = Map.Make(struct
+  type t = string list * string
+  let compare = compare
+end)
+
 let string_of_lident (idents, ident) =
   if List.length idents > 0 then
     String.concat "_" idents ^ "_" ^ ident
@@ -25,3 +30,5 @@ let mk_fresh name test =
   else
     name
 
+let fstar_name_of_mod =
+  String.map (function '.' -> '_' | x -> x)

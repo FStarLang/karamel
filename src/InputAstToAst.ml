@@ -91,6 +91,8 @@ and mk_expr = function
       mk (EConstant k)
   | I.EUnit ->
       mk (EUnit)
+  | I.EString s ->
+      mk (EString s)
   | I.EApp (e, es) ->
       mk (EApp (mk_expr e, List.map mk_expr es))
   | I.ELet (b, e1, e2) ->

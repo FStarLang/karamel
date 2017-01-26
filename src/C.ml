@@ -17,6 +17,7 @@ type type_spec =
 and storage_spec =
   | Typedef
   | Extern
+  | Static
 
 and declarator_and_init =
   declarator * init option
@@ -51,6 +52,8 @@ and expr =
   | CompoundLiteral of type_name * init list
   | MemberAccess of expr * ident
   | MemberAccessPointer of expr * ident
+  | InlineComment of string * expr * string
+    (** note: this is not in the C grammar *)
 
 (** this is a WILD approximation of the notion of "type name" in C _and_ a hack
  * because there's the invariant that the ident found at the bottom of the
@@ -99,11 +102,13 @@ type stmt =
   | Switch of expr * (expr * stmt) list * stmt
     (** the last component is the default statement *)
   | Break
+  | Comment of string
+    (** note: this is not in the C grammar *)
 
 and program =
   declaration_or_function list
 
 and declaration_or_function =
   | Decl of declaration
-  | Function of declaration * stmt
-    (** [stmt] _must_ be a compound statement *)
+  | Function of bool * declaration * stmt
+    (** [stmt] _must_ be a compound statement; boolean is inline *)

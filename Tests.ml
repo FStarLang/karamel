@@ -7,7 +7,7 @@ let _ =
     let d: CStar.decl = Type ("t", t) in
     let d = CStarToC.mk_stub_or_function d in
     match d with
-    | C.Decl d ->
+    | Some (C.Decl d) ->
         Print.print (group (PrintC.p_declaration d));
         print_newline ()
     | _ ->

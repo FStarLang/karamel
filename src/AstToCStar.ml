@@ -211,6 +211,8 @@ let rec translate_expr env in_stmt e =
       CStar.Any
   | EBool b ->
       CStar.Bool b
+  | EString s ->
+      CStar.StringLiteral s
   | EFlat fields ->
       let name = match e.typ with TQualified lid -> Some (string_of_lident lid) | _ -> None in
       CStar.Struct (name, List.map (fun (name, expr) ->
@@ -218,6 +220,9 @@ let rec translate_expr env in_stmt e =
       ) fields)
   | EField (expr, field) ->
       CStar.Field (translate_expr env expr, field)
+
+  | EComment (s, e, s') ->
+      CStar.InlineComment (s, translate_expr env e, s')
 
   | _ ->
       fatal_error "[AstToCStar.translate_expr]: should not be here (%a)" pexpr e
@@ -286,6 +291,10 @@ and extract_stmts env e ret_type =
 
     | EReturn e ->
         translate_as_return env e acc
+
+    | EComment (s, e, s') ->
+        let env, stmts = collect (env, CStar.Comment s :: acc) return_pos e in
+        env, CStar.Comment s' :: stmts
 
     | _ when return_pos ->
         translate_as_return env e acc
@@ -457,7 +466,7 @@ and translate_declaration env d: CStar.decl option =
   in
 
   match d with
-  | DFunction (cc, _, t, name, binders, body) ->
+  | DFunction (cc, flags, t, name, binders, body) ->
       let env = locate env (InTop name) in
       Some (wrap_throw (string_of_lident name) (lazy begin
         let t = translate_return_type env t in
@@ -465,27 +474,37 @@ and translate_declaration env d: CStar.decl option =
         let binders, body = a_unit_is_a_unit binders body in
         let env, binders = translate_and_push_binders env binders in
         let body = translate_function_block env body t in
-        CStar.Function (cc, t, (string_of_lident name), binders, body)
+        CStar.Function (cc, flags, t, (string_of_lident name), binders, body)
       end))
 
-  | DGlobal (_, name, t, body) ->
+  | DGlobal (flags, name, t, body) ->
       let env = locate env (InTop name) in
       Some (CStar.Global (
         string_of_lident name,
+        flags,
         translate_type env t,
         translate_expr env false body))
 
   | DExternal (cc, name, t) ->
+      let to_void = match t with
+        | TArrow (TUnit, _) -> true
+        | _ -> false
+      in
+      let open CStar in
       let t = match translate_type env t with
-        | CStar.Function (None, ret, args) ->
-            CStar.Function (cc, ret, args)
-        | CStar.Function (Some _, _, _) ->
+        | Function (None, ret, args) ->
+            let args = match args with
+              | [ Pointer Void ] when to_void -> []
+              | _ -> args
+            in
+            Function (cc, ret, args)
+        | Function (Some _, _, _) ->
             failwith "impossible"
         | t ->
             assert (cc = None);
             t
       in
-      Some (CStar.External (string_of_lident name, t))
+      Some (External (string_of_lident name, t))
 
   | DType (name, 0, def) ->
       let name = string_of_lident name in

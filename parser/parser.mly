@@ -1,9 +1,15 @@
+%{
+  open Bundle
+%}
+
 %token<int>     INT
-%token          PLUS MINUS AT DOT EOF
+%token<string>  UIDENT
+%token          PLUS MINUS STAR AT DOT EOF COMMA EQUALS
 
 %start <(Flags.flag * (int * int)) list> warn_error_list
+%start <Bundle.t> bundle
 
-(* Parsing of command-line error/warning/silent flags. *)
+(** Parsing of command-line error/warning/silent flags. *)
 
 %%
 
@@ -29,3 +35,21 @@ range:
 | i = INT DOT DOT j = INT
   { i, j }
 
+
+(** Parsing of -bundle options *)
+
+pat:
+| u = UIDENT DOT STAR
+  { Prefix [ u ] }
+| u = UIDENT
+  { Module [ u ] }
+| u = UIDENT DOT p = pat
+  { match p with
+    | Module m ->
+        Module (u :: m)
+    | Prefix m ->
+        Prefix (u :: m) }
+
+bundle:
+| b = separated_list(DOT, u = UIDENT { u }) EQUALS l = separated_nonempty_list(COMMA, pat) EOF
+  { b, l }

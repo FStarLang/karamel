@@ -4,6 +4,17 @@
 int exit_success = EXIT_SUCCESS;
 int exit_failure = EXIT_FAILURE;
 
+void print_string(const char *s) {
+  printf("%s", s);
+}
+
+void print_bytes(uint8_t *b, uint32_t len) {
+  for (uint32_t i = 0; i < len; i++){
+    printf("%02x", b[i]);
+  }
+  printf("\n");
+}
+
 // Constant time comparisons
 uint8_t FStar_UInt8_eq_mask(uint8_t x, uint8_t y) {
   x = ~(x ^ y);
@@ -92,7 +103,9 @@ void *Prims____Cons___tl(void *_) { KRML_EXIT; }
 
 bool FStar_HyperStack_is_eternal_color(Prims_int x0) { KRML_EXIT; }
 
-Prims_int FStar_UInt32_v(uint32_t x) { return (void*)0; }
-FStar_Seq_Base_seq FStar_Seq_Base_append(FStar_Seq_Base_seq x, FStar_Seq_Base_seq y) { KRML_EXIT; }
-FStar_Seq_Base_seq FStar_Seq_Base_slice(FStar_Seq_Base_seq x, FStar_Seq_Base_seq y, Prims_nat z) { KRML_EXIT; }
+Prims_int FStar_UInt32_v(uint32_t x) { return (void *)0; }
+FStar_Seq_seq FStar_Seq_Base_append(FStar_Seq_seq x, FStar_Seq_seq y) { KRML_EXIT; }
+FStar_Seq_seq FStar_Seq_Base_slice(FStar_Seq_seq x, FStar_Seq_seq y, Prims_nat z) {
+  KRML_EXIT;
+}
 FStar_UInt32_t FStar_UInt32_uint_to_t(Prims_nat x) { KRML_EXIT; }

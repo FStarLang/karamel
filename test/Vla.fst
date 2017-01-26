@@ -11,7 +11,7 @@ let test (_: unit): Stack unit (fun _ -> true) (fun _ _ _ -> true) =
   // Generates a zero-filled buffer.
   let b1 = Buffer.create 0ul 256ul in
   // Generates a call to memset (non-constant size, until we implement constant folding)
-  let b2 = Buffer.create 0ul (U32 (128ul +^ 128ul)) in
+  let b2 = Buffer.create 0ul (U32.(128ul +^ 128ul)) in
   // Generates a for-loop (non-zero initializer)
   let b3 = Buffer.create 16ul 256ul in
   // Generates an initializer list

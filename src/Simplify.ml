@@ -338,6 +338,9 @@ let rec hoist_stmt e =
       let lhs, e = hoist_expr Unspecified e in
       nest lhs e.typ (mk (EReturn e))
 
+  | EComment (s, e, s') ->
+      mk (EComment (s, hoist_stmt e, s'))
+
   | EMatch _ ->
       failwith "[hoist_t]: EMatch not properly desugared"
 
@@ -365,9 +368,14 @@ and hoist_expr pos e =
   | EUnit
   | EPushFrame | EPopFrame
   | EBool _
+  | EString _
   | EEnum _
   | EOp _ ->
       [], e
+
+  | EComment (s, e, s') ->
+      let lhs, e = hoist_expr Unspecified e in
+      lhs, mk (EComment (s, e, s'))
 
   | EApp (e, es) ->
       (* TODO: assert that in the case of a lazily evaluated boolean operator,
@@ -786,8 +794,6 @@ end
 (* Everything composed together ***********************************************)
 
 let simplify1 (files: file list): file list =
-  let files = visit_files () record_toplevel_names files in
-  let files = visit_files () replace_references_to_toplevel_names files in
   let files = visit_files () eta_expand files in
   let files = visit_files () wrapping_arithmetic files in
   files
@@ -804,4 +810,9 @@ let simplify2 (files: file list): file list =
 let simplify (files: file list): file list =
   let files = simplify1 files in
   let files = simplify2 files in
+  files
+
+let to_c_names (files: file list): file list =
+  let files = visit_files () record_toplevel_names files in
+  let files = visit_files () replace_references_to_toplevel_names files in
   files
