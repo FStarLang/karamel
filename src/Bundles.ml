@@ -6,6 +6,14 @@ open Ast
 
 module StringMap = Map.Make(String)
 
+let parse arg =
+  let the_parser = MenhirLib.Convert.Simplified.traditional2revised Parser.bundle in
+  let lexbuf = Ulexing.from_utf8_string arg in
+  try
+    the_parser (fun _ -> Lexer.token lexbuf)
+  with Ulexing.Error | Parser.Error ->
+    Warnings.fatal_error "Malformed bundle"
+
 let debug = false
 
 (** This collects all the files that match a given bundle specification, while
@@ -56,14 +64,6 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: bool StringMap.
 
 type color = White | Gray | Black
 
-let parse_arg arg =
-  let the_parser = MenhirLib.Convert.Simplified.traditional2revised Parser.bundle in
-  let lexbuf = Ulexing.from_utf8_string arg in
-  try
-    the_parser (fun _ -> Lexer.token lexbuf)
-  with Ulexing.Error | Parser.Error ->
-    Warnings.fatal_error "Malformed bundle"
-
 module LidMap = Idents.LidMap
 
 (* Create a map from an lid to the file it now appears in (after bundling).
@@ -94,7 +94,7 @@ let make_bundles files =
    * files that were not involved in the creation of a bundle and that,
    * therefore, we probably should keep. *)
   let used, bundles = List.fold_left (fun (used, bundles) arg ->
-    let used, bundle = make_one_bundle (parse_arg arg) files used in
+    let used, bundle = make_one_bundle arg files used in
     used, bundle :: bundles
   ) (StringMap.empty, []) !Options.bundle in
   let files = List.filter (fun (n, _) -> not (StringMap.mem n used)) files @ bundles in

@@ -76,11 +76,6 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   let csv f s =
     List.iter f (KString.split_on_char ',' s)
   in
-  let default_bundle =
-    String.concat " " (KList.map_flatten (fun b ->
-      [ "-bundle"; b ]
-    ) !Options.bundle)
-  in
   let spec = [
     (* KreMLin as a driver *)
     "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), compcert, g++, clang";
@@ -101,7 +96,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
 
     (* Controling the behavior of KreMLin *)
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";
-    "-bundle", Arg.String (prepend Options.bundle), " group all modules in this namespace in one compilation unit (default: " ^ default_bundle ^ ")";
+    "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " group all modules in this namespace in one compilation unit (default: FStar=FStar.*)";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to every generated file";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
     "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";
