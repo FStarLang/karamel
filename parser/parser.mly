@@ -8,6 +8,7 @@
 
 %start <(Flags.flag * (int * int)) list> warn_error_list
 %start <Bundle.t> bundle
+%start <Bundle.pat> pat
 
 (** Parsing of command-line error/warning/silent flags. *)
 

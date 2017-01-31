@@ -76,6 +76,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   let csv f s =
     List.iter f (KString.split_on_char ',' s)
   in
+  Array.iter print_endline Sys.argv;
   let spec = [
     (* KreMLin as a driver *)
     "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), compcert, g++, clang";
@@ -94,14 +95,14 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     "-wasm", Arg.Set arg_wasm, "  emit a .wasm file instead of C";
     "", Arg.Unit (fun _ -> ()), " ";
 
-    (* Controling the behavior of KreMLin *)
+    (* Controlling the behavior of KreMLin *)
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";
     "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " group all modules in this namespace in one compilation unit (default: FStar=FStar.*)";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to every generated file";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
     "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";
     "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
-    "-drop", Arg.String (prepend Options.drop), "  do not extract this module (but keep it for its signature and types)";
+    "-drop", Arg.String (fun s -> prepend Options.drop (Utils.parse Parser.pat s)), "  do not extract this module (but keep it for its signature and types)";
     "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are fatal / warnings / silent (default: " ^ !Options.warn_error ^")";
     "", Arg.Unit (fun _ -> ()), " ";
 
@@ -234,7 +235,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
   (* Drop files (e.g. -drop FStar.Heap) *)
   let drop l =
     let should_drop name =
-      List.exists ((=) name) (List.map Idents.fstar_name_of_mod !Options.drop)
+      List.exists (fun p -> Bundles.pattern_matches p name) !Options.drop
     in
     let l = List.filter (fun (name, _) -> not (should_drop name)) l in
     (* Note that after bundling, we need to go inside bundles to find top-level
