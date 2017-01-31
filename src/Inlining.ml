@@ -377,18 +377,19 @@ let drop_unused files =
     end)#visit () body)
   in
   iter_decls (function
-    | DFunction (_, flags, _, lid, _, body) ->
+    | DFunction (_, flags, _, lid, _, body)
+    | DGlobal (flags, lid, _, body) ->
         if (not (List.exists ((=) Private) flags)) then begin
           Hashtbl.add must_keep lid ();
           visit_e body
-        end
-    | DGlobal (_, _, _, body) ->
-        visit_e body
+        end;
     | _ ->
         ()
   ) files;
-  filter_decls (function
-    | DFunction (_, flags, _, lid, _, _) as d ->
+  filter_decls (fun d ->
+    match d with
+    | DGlobal (flags, lid, _, _)
+    | DFunction (_, flags, _, lid, _, _) ->
         if not (Hashtbl.mem must_keep lid) then begin
           assert (List.exists ((=) Private) flags);
           None
