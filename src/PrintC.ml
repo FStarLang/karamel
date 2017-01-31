@@ -180,7 +180,13 @@ and p_init (i: init) =
   | InitExpr e ->
       p_expr' 14 e
   | Initializer inits ->
-      braces_with_nesting (separate_map (comma ^^ break 1) p_init inits)
+      let inits =
+        if List.length inits > 4 then
+          flow (comma ^^ break1) (List.map p_init inits)
+        else
+          separate_map (comma ^^ break1) p_init inits
+      in
+      braces_with_nesting inits
 
 and p_designator = function
   | Dot ident ->
