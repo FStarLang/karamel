@@ -33,10 +33,10 @@ Crypto.%.exe:
 Crypto.Symmetric.Poly1305.exe: EXTRA = main-Poly1305.c ../kremlib/testlib.c
 Crypto.Symmetric.Chacha20.exe: EXTRA = main-Chacha.c
 Crypto.AEAD.Chacha20Poly1305.exe: EXTRA = main-Aead.c ../kremlib/testlib.c
-Crypto.KrmlTest.exe: EXTRA = $(CRYPTO)/test_hacks.c -no-prefix Crypto.KrmlTest $(TEST_OPTS) -ccopt -Wno-error=pointer-sign
+Crypto.KrmlTest.exe: EXTRA = $(CRYPTO)/test_hacks.c -no-prefix Crypto.KrmlTest $(TEST_OPTS)
 
 %.wasm: %.fst
-	$(KRML) $(KOPTS) $(TEST_OPTS) $(EXTRA) $^ -wasm -tmpdir $(subst .wasm,.out,$@)
+	$(KRML) $(KOPTS) $(TEST_OPTS) $(EXTRA) $^ -wasm -tmpdir $(subst .wasm,.out,$@) -drop Prims -drop FStar
 
 clean:
 	rm -rf *.exe *.dSYM *.out

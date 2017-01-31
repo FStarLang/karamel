@@ -63,7 +63,7 @@ and expr =
 and block =
   stmt list
 
-and op = K.op
+and op = K.op * K.width
 
 and var =
   int

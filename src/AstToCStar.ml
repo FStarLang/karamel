@@ -199,8 +199,8 @@ let rec translate_expr env in_stmt e =
       CStar.BufRead (translate_expr env e1, translate_expr env e2)
   | EBufSub (e1, e2) ->
       CStar.BufSub (translate_expr env e1, translate_expr env e2)
-  | EOp (c, _) ->
-      CStar.Op c
+  | EOp (o, w) ->
+      CStar.Op (o, w)
   | ECast (e, t) ->
       CStar.Cast (translate_expr env e, translate_type env t)
   | EAbort ->

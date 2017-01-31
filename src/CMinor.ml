@@ -46,7 +46,7 @@ and expr =
   | Var of var
   | Qualified of ident
     (** A global, or an enum constant. *)
-  | Constant of K.t
+  | Constant of size * string
   | BufCreate of lifetime * expr * expr
   | BufCreateL of lifetime * expr list
   | BufRead of expr * expr
@@ -60,7 +60,7 @@ and expr =
 and block =
   stmt list
 
-and op = K.op
+and op = size * K.op
 
 and var =
   int

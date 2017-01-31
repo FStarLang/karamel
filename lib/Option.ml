@@ -5,3 +5,8 @@ let must = function
 let map f = function
   | Some x -> Some (f x)
   | None -> None
+
+let map_or f o d =
+  match o with
+  | Some x -> f x
+  | None -> d

@@ -1,6 +1,7 @@
 open CMinor
 
 module W = Wasm
+module K = Constant
 
 module StringMap = Map.Make(String)
 
@@ -36,12 +37,120 @@ let mk_value_type = function
   | I64 ->
       W.Types.I64Type
 
-let mk_stmt _env (stmt: stmt) =
+let sized_op (s: size) op =
+  match s with
+  | I32 ->
+      W.Values.I32 op
+  | I64 ->
+      W.Values.I64 op
+
+let mk_lit s lit =
+  match s with
+  | I32 ->
+      dummy_phrase (W.Values.I32 (Int32.of_string lit))
+  | I64 ->
+      dummy_phrase (W.Values.I64 (Int64.of_string lit))
+
+let mk_binop (o: K.op) =
+  let open W.Ast.IntOp in
+  match o with
+  | K.Add | K.AddW ->
+      Some Add
+  | K.Sub | K.SubW ->
+      Some Sub
+  | K.Div | K.DivW ->
+      failwith "todo div"
+  | K.Mult | K.MultW ->
+      Some Mul
+  | K.Mod ->
+      failwith "todo mod"
+  | K.BOr | K.Or ->
+      Some Or
+  | K.BAnd | K.And ->
+      Some And
+  | K.BXor | K.Xor ->
+      Some Xor
+  | K.BShiftL
+  | K.BShiftR ->
+      failwith "todo shift"
+  | _ ->
+      None
+
+let is_binop (o: K.op) =
+  mk_binop o <> None
+
+let mk_compop (o: K.op) =
+  let open W.Ast.IntOp in
+  match o with
+  | K.Eq ->
+      Some Eq
+  | K.Neq ->
+      Some Ne
+  | K.BNot | K.Not ->
+      failwith "todo not (zero minus?)"
+  | K.Lt
+  | K.Lte
+  | K.Gt
+  | K.Gte ->
+      failwith "todo comparisons"
+  | _ ->
+      None
+
+let is_compop (o: K.op) =
+  mk_compop o <> None
+
+let rec mk_expr env (e: expr): W.Ast.instr list =
+  match e with
+  | Var i ->
+      [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]
+
+  | Constant (s, lit) ->
+      [ dummy_phrase (W.Ast.Const (mk_lit s lit)) ]
+
+  | Call (Op (s, o), [ e1; e2 ]) when is_binop o ->
+      dummy_phrase (W.Ast.Binary (sized_op s (Option.must (mk_binop o)))) ::
+      mk_expr env e2 @
+      mk_expr env e1
+
+  | Call (Op (s, o), [ e1; e2 ]) when is_compop o ->
+      dummy_phrase (W.Ast.Compare (sized_op s (Option.must (mk_compop o)))) ::
+      mk_expr env e2 @
+      mk_expr env e1
+
+  | Call (Qualified name, es) ->
+      let index = StringMap.find name env.funcs in
+      dummy_phrase (W.Ast.Call (mk_var index)) ::
+      List.flatten (List.rev_map (mk_expr env) es)
+
+  | _ ->
+      failwith "not implemented"
+
+let rec mk_stmt env (stmt: stmt): W.Ast.instr list =
   match stmt with
-  | Return None ->
-      dummy_phrase W.Ast.Return
+  | Return e ->
+      dummy_phrase W.Ast.Return ::
+      Option.map_or (mk_expr env) e []
+
+  | IfThenElse (e, b1, b2) ->
+      let cond = mk_expr env e in
+      (* I assume that the [stack_type] is the *return* type of the
+       * if-then-else... since conditionals are always in statement position
+       * then it must be the case that the blocks return nothing. *)
+      let typ = [] in
+      let b1 = mk_stmts env b1 in
+      let b2 = mk_stmts env b2 in
+      dummy_phrase (W.Ast.If (typ, b1, b2)) ::
+      cond
+
+  | Assign (Var i, e) ->
+      dummy_phrase (W.Ast.SetLocal (mk_var i)) ::
+      mk_expr env e
+
   | _ ->
       failwith "Not implemented"
+
+and mk_stmts env (stmts: stmt list): W.Ast.instr list =
+  List.flatten (List.rev_map (mk_stmt env) stmts)
 
 let mk_func_type { args; ret; _ } =
   W.Types.( FuncType (
@@ -52,7 +161,7 @@ let mk_func env i { args; locals; body; _ } =
   let env = grow env args in
   let env = grow env locals in
 
-  let body = List.map (mk_stmt env) body in
+  let body = mk_stmts env body in
   let locals = List.map mk_value_type locals in
   let ftype = mk_var i in
   dummy_phrase W.Ast.({ locals; ftype; body })

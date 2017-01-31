@@ -324,10 +324,10 @@ and mk_expr (e: expr): C.expr =
   | InlineComment (s, e, s') ->
       InlineComment (s, mk_expr e, s')
 
-  | Call (Op o, [ e ]) ->
+  | Call (Op (o, _), [ e ]) ->
       Op1 (o, mk_expr e)
 
-  | Call (Op o, [ e1; e2 ]) ->
+  | Call (Op (o, _), [ e1; e2 ]) ->
       Op2 (o, mk_expr e1, mk_expr e2)
 
   | Comma (e1, e2) ->

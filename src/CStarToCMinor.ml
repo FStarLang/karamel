@@ -10,12 +10,17 @@ module StringMap = Map.Make(String)
 type size = CMinor.size =
   I32 | I64
 
+let size_of_width (w: width) =
+  match w with
+  | UInt64 | Int64 | UInt | Int ->
+      I64
+  | _ ->
+      I32
+
 let size_of (t: CS.typ): size =
   match t with
-  | CS.Int (UInt64 | Int64 | UInt | Int) ->
-      I64
-  | CS.Int _ ->
-      I32
+  | CS.Int w ->
+      size_of_width w
   | CS.Pointer _ ->
       I32
   | CS.Void  ->
@@ -42,7 +47,16 @@ let max s1 s2 =
 type locals = size list
 
 let merge (l1: locals) (l2: locals) =
-  List.map2 max l1 l2
+  let rec aux acc l1 l2 =
+    match l1, l2 with
+    | s1 :: l1, s2 :: l2 ->
+        aux (max s1 s2 :: acc) l1 l2
+    | [], l2 ->
+        List.rev_append acc l2
+    | l1, [] ->
+        List.rev_append acc l1
+  in
+  aux [] l1 l2
 
 type env = {
   map: int StringMap.t;
@@ -72,8 +86,14 @@ let rec translate_expr (env: env) (e: CS.expr): CM.expr =
   | CS.Call (e, es) ->
       CM.Call (translate_expr env e, List.map (translate_expr env) es)
 
-  | CS.Constant c ->
-      CM.Constant c
+  | CS.Constant (w, lit) ->
+      CM.Constant (size_of_width w, lit)
+
+  | CS.Op (o, w) ->
+      CM.Op (size_of_width w, o)
+
+  | CS.Qualified i ->
+      CM.Qualified i
 
   | _ ->
       failwith "not implemented (expr)"
@@ -125,8 +145,9 @@ let translate_module (name, decls) =
       Some (translate_decl d)
     with e ->
       (* Remove when everything starts working *)
-      KPrint.beprintf "[C*ToC-] Couldn't translate %s:\n%s\n"
-        (CS.ident_of_decl d) (Printexc.to_string e);
+      KPrint.beprintf "[C*ToC-] Couldn't translate %s:\n%s\n%s\n"
+        (CS.ident_of_decl d) (Printexc.to_string e)
+        (Printexc.get_backtrace ());
       None
   ) decls
 
