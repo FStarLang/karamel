@@ -64,7 +64,7 @@ assume val load32:
 
 assume val store32:
   b:buffer UInt8.t{length b >= 4} ->
-  z:UInt64.t ->
+  z:UInt32.t ->
   Stack unit
     (requires (fun h -> Buffer.live h b))
     (ensures  (fun h0 _ h1 -> modifies_1 b h0 h1 /\ Buffer.live h1 b))
