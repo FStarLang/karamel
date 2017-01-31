@@ -206,7 +206,7 @@ let rec translate_expr env in_stmt e =
   | EAbort ->
       CStar.Var "KRML_EABORT"
   | EUnit ->
-      zero
+      CStar.Cast (zero, CStar.Pointer CStar.Void)
   | EAny ->
       CStar.Any
   | EBool b ->

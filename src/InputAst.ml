@@ -60,7 +60,7 @@ and expr =
   | EBool of bool
   | EAny
     (** to indicate that the initial value of a mutable let-binding does not
-     * matter *)
+     * matter and may not be provided! if you need a dummy value, use EUnit *)
   | EAbort
     (** exits the program prematurely *)
   | EReturn of expr

@@ -229,7 +229,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Expr (Assign (mk_expr e1, mk_expr e2)) ]
 
   | BufWrite (e1, e2, e3) ->
-      [ Expr (Assign (Index (mk_expr e1, mk_expr e2), mk_expr e3)) ]
+      [ Expr (Assign (mk_index e1 e2, mk_expr e3)) ]
 
   | BufBlit (e1, e2, e3, e4, e5) ->
       let dest = match e4 with
@@ -304,6 +304,14 @@ and mk_stmts' acc stmts: C.stmt list =
       failwith "[mk_stmts']: unmatched push_frame"
 
 
+and mk_index (e1: expr) (e2: expr): C.expr =
+  match mk_expr e2 with
+  | Cast (_, (Constant _ as c)) ->
+      Index (mk_expr e1, c)
+  | _ ->
+      Index (mk_expr e1, mk_expr e2)
+
+
 and mk_expr (e: expr): C.expr =
   match e with
   | InlineComment (s, e, s') ->
@@ -334,7 +342,7 @@ and mk_expr (e: expr): C.expr =
       failwith "[mk_expr]: Buffer.create; Buffer.createl may only appear as let ... = Buffer.create"
 
   | BufRead (e1, e2) ->
-      Index (mk_expr e1, mk_expr e2)
+      mk_index e1 e2
 
   | BufSub (e1, Constant (_, "0")) ->
       mk_expr e1
@@ -342,8 +350,13 @@ and mk_expr (e: expr): C.expr =
   | BufSub (e1, e2) ->
       Op2 (K.Add, mk_expr e1, mk_expr e2)
 
-  | Cast (e, t) ->
-      Cast (mk_type t, mk_expr e)
+  | Cast (e, t') ->
+      begin match e with
+      | Cast (_, t) as e when t = t' || t = Int Constant.UInt8 && t' = Pointer Void ->
+          mk_expr e
+      | e ->
+          Cast (mk_type t', mk_expr e)
+      end
 
   | Any ->
       Cast ((Void, Pointer (Ident "")), zero)
