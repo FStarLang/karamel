@@ -229,7 +229,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Expr (Assign (mk_expr e1, mk_expr e2)) ]
 
   | BufWrite (e1, e2, e3) ->
-      [ Expr (Assign (Index (mk_expr e1, mk_expr e2), mk_expr e3)) ]
+      [ Expr (Assign (mk_index e1 e2, mk_expr e3)) ]
 
   | BufBlit (e1, e2, e3, e4, e5) ->
       let dest = match e4 with
@@ -285,23 +285,38 @@ and mk_stmt (stmt: stmt): C.stmt list =
 and mk_stmts stmts: C.stmt list =
   match stmts with
   | PushFrame :: stmts ->
-      mk_stmts' [] stmts
+      let frame, remaining = mk_stmts' [] stmts in
+      (* Not doing [Compound frame :: mk_stmts remaining] because of scoping
+       * issues. *)
+      frame @ mk_stmts remaining
   | stmt :: stmts ->
       mk_stmt stmt @ mk_stmts stmts
   | [] ->
       []
 
-(** Create a new Compound because we found a PushFrame *)
-and mk_stmts' acc stmts: C.stmt list =
+(** Consume the list of statements until the next pop frame, and return the
+ * translated statements within the frame, along with the remaining statements
+ * after the frame. *)
+and mk_stmts' acc stmts: C.stmt list * stmt list =
   match stmts with
+  | PushFrame :: stmts ->
+      let frame, remaining = mk_stmts' [] stmts in
+      (* Same comment as above (scoping issue). *)
+      mk_stmts' (frame :: acc) remaining
   | PopFrame :: stmts ->
-      (* Extending the lifetime here because of scoping issues. *)
-      (* Compound (List.flatten (List.rev acc)) :: mk_stmts stmts *)
-      List.flatten (List.rev acc) @ mk_stmts stmts
+      List.flatten (List.rev acc), stmts
   | stmt :: stmts ->
       mk_stmts' (mk_stmt stmt :: acc) stmts
   | [] ->
       failwith "[mk_stmts']: unmatched push_frame"
+
+
+and mk_index (e1: expr) (e2: expr): C.expr =
+  match mk_expr e2 with
+  | Cast (_, (Constant _ as c)) ->
+      Index (mk_expr e1, c)
+  | _ ->
+      Index (mk_expr e1, mk_expr e2)
 
 
 and mk_expr (e: expr): C.expr =
@@ -334,7 +349,7 @@ and mk_expr (e: expr): C.expr =
       failwith "[mk_expr]: Buffer.create; Buffer.createl may only appear as let ... = Buffer.create"
 
   | BufRead (e1, e2) ->
-      Index (mk_expr e1, mk_expr e2)
+      mk_index e1 e2
 
   | BufSub (e1, Constant (_, "0")) ->
       mk_expr e1
@@ -342,8 +357,13 @@ and mk_expr (e: expr): C.expr =
   | BufSub (e1, e2) ->
       Op2 (K.Add, mk_expr e1, mk_expr e2)
 
-  | Cast (e, t) ->
-      Cast (mk_type t, mk_expr e)
+  | Cast (e, t') ->
+      begin match e with
+      | Cast (_, t) as e when t = t' || t = Int Constant.UInt8 && t' = Pointer Void ->
+          mk_expr e
+      | e ->
+          Cast (mk_type t', mk_expr e)
+      end
 
   | Any ->
       Cast ((Void, Pointer (Ident "")), zero)

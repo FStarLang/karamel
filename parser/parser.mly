@@ -8,6 +8,7 @@
 
 %start <(Flags.flag * (int * int)) list> warn_error_list
 %start <Bundle.t> bundle
+%start <Bundle.pat> drop
 
 (** Parsing of command-line error/warning/silent flags. *)
 
@@ -49,6 +50,10 @@ pat:
         Module (u :: m)
     | Prefix m ->
         Prefix (u :: m) }
+
+drop:
+| p = pat EOF
+  { p }
 
 bundle:
 | b = separated_list(DOT, u = UIDENT { u }) EQUALS l = separated_nonempty_list(COMMA, pat) EOF

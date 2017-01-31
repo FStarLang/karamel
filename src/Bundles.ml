@@ -6,15 +6,18 @@ open Ast
 
 module StringMap = Map.Make(String)
 
-let parse arg =
-  let the_parser = MenhirLib.Convert.Simplified.traditional2revised Parser.bundle in
-  let lexbuf = Ulexing.from_utf8_string arg in
-  try
-    the_parser (fun _ -> Lexer.token lexbuf)
-  with Ulexing.Error | Parser.Error ->
-    Warnings.fatal_error "Malformed bundle"
+let parse = Utils.parse Parser.bundle
 
 let debug = false
+
+(** A given pattern matches an F* filename (i.e. a string using the underscore
+ * as a separator *)
+let pattern_matches (p: Bundle.pat) (m: string) =
+  match p with
+  | Module m' ->
+      String.concat "_" m' = m
+  | Prefix p ->
+      KString.starts_with m (String.concat "_" p)
 
 (** This collects all the files that match a given bundle specification, while
  * preserving their original dependency ordering within the bundle. If the
@@ -28,15 +31,10 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: bool StringMap.
   let find_files is_api (used, found) pattern =
     List.fold_left (fun (used, found) file ->
       let name = fst file in
-      match pattern with
-      | Module m when String.concat "_" m = name &&
-        (is_api || name <> String.concat "_" api) ->
-          StringMap.add name true used, file :: found
-      | Prefix p when KString.starts_with name (String.concat "_" p) &&
-        (is_api || name <> String.concat "_" api) ->
-          StringMap.add name true used, file :: found
-      | _ ->
-          used, found
+      if pattern_matches pattern name && (is_api || name <> String.concat "_" api) then
+        StringMap.add name true used, file :: found
+      else
+        used, found
     ) (used, found) files
   in
   (* Find all the files that match the given patterns. *)

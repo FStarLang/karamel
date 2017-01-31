@@ -25,4 +25,5 @@ let rec token = lexer
 | "," -> locate lexbuf COMMA
 | "=" -> locate lexbuf EQUALS
 | "*" -> locate lexbuf STAR
+| "\\*" -> locate lexbuf STAR
 | eof -> locate lexbuf EOF
