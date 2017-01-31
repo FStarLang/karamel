@@ -35,8 +35,8 @@ Crypto.Symmetric.Chacha20.exe: EXTRA = main-Chacha.c
 Crypto.AEAD.Chacha20Poly1305.exe: EXTRA = main-Aead.c ../kremlib/testlib.c
 Crypto.KrmlTest.exe: EXTRA = $(CRYPTO)/test_hacks.c -no-prefix Crypto.KrmlTest $(TEST_OPTS) -ccopt -Wno-error=pointer-sign
 
-SimpleWasm.wasm: SimpleWasm.fst
-	$(KRML) $(OPTS) -verbose $^ -o $@ -wasm
+%.wasm: %.fst
+	$(KRML) $(KOPTS) $(TEST_OPTS) $(EXTRA) $^ -wasm -tmpdir $(subst .wasm,.out,$@)
 
 clean:
 	rm -rf *.exe *.dSYM *.out

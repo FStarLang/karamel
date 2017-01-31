@@ -162,7 +162,7 @@ let rec translate_expr env in_stmt e =
   | EBound var ->
       CStar.Var (find env var)
   | EEnum lident ->
-      CStar.Var (string_of_lident lident)
+      CStar.Qualified (string_of_lident lident)
   | EQualified lident ->
       CStar.Qualified (string_of_lident lident)
   | EConstant c ->

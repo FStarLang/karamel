@@ -259,12 +259,15 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
 
   if !arg_wasm then
     (* ... then to Wasm *)
-    let module_ = CStarToWasm.mk_module files in
-    let s = Wasm.Encode.encode module_ in
-    if !Options.exe_name = "" then
-      Options.exe_name := "out.wasm";
-    output_string (open_out !Options.exe_name) s;
-    KPrint.bprintf "Wrote WASM output to %s\n" !Options.exe_name
+    let files = CStarToCMinor.translate_files files in
+    let modules = CMinorToWasm.mk_files files in
+    List.iter (fun (name, module_) ->
+      let s = Wasm.Encode.encode module_ in
+      let name = name ^ ".wasm" in
+      Utils.with_open_out (Filename.concat !Options.tmpdir name) (fun oc -> output_string oc s);
+      KPrint.bprintf "Wrote %s\n" name;
+      flush stderr
+    ) modules
 
   else
     (* ... then to C *)
