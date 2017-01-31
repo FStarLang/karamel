@@ -285,19 +285,26 @@ and mk_stmt (stmt: stmt): C.stmt list =
 and mk_stmts stmts: C.stmt list =
   match stmts with
   | PushFrame :: stmts ->
-      mk_stmts' [] stmts
+      let frame, remaining = mk_stmts' [] stmts in
+      (* Not doing [Compound frame :: mk_stmts remaining] because of scoping
+       * issues. *)
+      frame @ mk_stmts remaining
   | stmt :: stmts ->
       mk_stmt stmt @ mk_stmts stmts
   | [] ->
       []
 
-(** Create a new Compound because we found a PushFrame *)
-and mk_stmts' acc stmts: C.stmt list =
+(** Consume the list of statements until the next pop frame, and return the
+ * translated statements within the frame, along with the remaining statements
+ * after the frame. *)
+and mk_stmts' acc stmts: C.stmt list * stmt list =
   match stmts with
+  | PushFrame :: stmts ->
+      let frame, remaining = mk_stmts' [] stmts in
+      (* Same comment as above (scoping issue). *)
+      mk_stmts' (frame :: acc) remaining
   | PopFrame :: stmts ->
-      (* Extending the lifetime here because of scoping issues. *)
-      (* Compound (List.flatten (List.rev acc)) :: mk_stmts stmts *)
-      List.flatten (List.rev acc) @ mk_stmts stmts
+      List.flatten (List.rev acc), stmts
   | stmt :: stmts ->
       mk_stmts' (mk_stmt stmt :: acc) stmts
   | [] ->
