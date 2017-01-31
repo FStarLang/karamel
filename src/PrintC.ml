@@ -176,7 +176,7 @@ and p_expr e = p_expr' 15 e
 and p_init (i: init) =
   match i with
   | Designated (designator, i) ->
-      group (p_designator designator ^/^ equals ^/^ p_init i)
+      group (p_designator designator ^^ space ^^ equals ^^ space ^^ p_init i)
   | InitExpr e ->
       p_expr' 14 e
   | Initializer inits ->
