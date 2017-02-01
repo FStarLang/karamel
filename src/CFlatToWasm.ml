@@ -1,4 +1,4 @@
-open CMinor
+open CFlat
 
 module W = Wasm
 module K = Constant

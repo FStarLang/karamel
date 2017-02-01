@@ -1,13 +1,13 @@
-(** Going from CStar to CMinor *)
+(** Going from CStar to CFlat *)
 
 open Constant
 
 module CS = CStar
-module CM = CMinor
+module CF = CFlat
 
 module StringMap = Map.Make(String)
 
-type size = CMinor.size =
+type size = CFlat.size =
   I32 | I64
 
 let size_of_width (w: width) =
@@ -78,37 +78,37 @@ let extend (env: env) (binder: CS.binder): env * size =
 let grow (env: env) (size: int): env =
   { env with size = env.size + size }
 
-let rec translate_expr (env: env) (e: CS.expr): CM.expr =
+let rec translate_expr (env: env) (e: CS.expr): CF.expr =
   match e with
   | CS.Var i ->
-      CM.Var (StringMap.find i env.map)
+      CF.Var (StringMap.find i env.map)
 
   | CS.Call (e, es) ->
-      CM.Call (translate_expr env e, List.map (translate_expr env) es)
+      CF.Call (translate_expr env e, List.map (translate_expr env) es)
 
   | CS.Constant (w, lit) ->
-      CM.Constant (size_of_width w, lit)
+      CF.Constant (size_of_width w, lit)
 
   | CS.Op (o, w) ->
-      CM.Op (size_of_width w, o)
+      CF.Op (size_of_width w, o)
 
   | CS.Qualified i ->
-      CM.Qualified i
+      CF.Qualified i
 
   | _ ->
       failwith "not implemented (expr)"
 
-let rec translate_stmts (env: env) (stmts: CS.stmt list): locals * CM.stmt list =
+let rec translate_stmts (env: env) (stmts: CS.stmt list): locals * CF.stmt list =
   match stmts with
   | [] ->
       [], []
 
   | CS.Decl (binder, e) :: stmts ->
       let e = translate_expr env e in
-      let v = CM.Var env.size in
+      let v = CF.Var env.size in
       let env, local = extend env binder in
       let locals, stmts = translate_stmts env stmts in
-      local :: locals, CM.Assign (v, e) :: stmts
+      local :: locals, CF.Assign (v, e) :: stmts
 
   | CS.IfThenElse (e, stmts1, stmts2) :: stmts ->
       let e = translate_expr env e in
@@ -116,16 +116,16 @@ let rec translate_stmts (env: env) (stmts: CS.stmt list): locals * CM.stmt list 
       let locals2, stmts2 = translate_stmts env stmts2 in
       let locals_ite = merge locals1 locals2 in
       let locals, stmts = translate_stmts (grow env (List.length locals_ite)) stmts in
-      locals_ite @ locals, CM.IfThenElse (e, stmts1, stmts2) :: stmts
+      locals_ite @ locals, CF.IfThenElse (e, stmts1, stmts2) :: stmts
 
   | CS.Return e :: stmts ->
       let locals, stmts = translate_stmts env stmts in
-      locals, CM.Return (Option.map (translate_expr env) e) :: stmts
+      locals, CF.Return (Option.map (translate_expr env) e) :: stmts
 
   | _ ->
       failwith "not implemented (stmts)"
 
-let translate_decl (d: CS.decl): CM.decl =
+let translate_decl (d: CS.decl): CF.decl =
   match d with
   | CS.Function (_, flags, ret, name, args, body) ->
       let public = not (List.exists ((=) Common.Private) flags) in
@@ -135,7 +135,7 @@ let translate_decl (d: CS.decl): CM.decl =
       ) (empty, []) args in
       let locals, body = translate_stmts env body in
       let ret = [ size_of ret ] in
-      CM.(Function { name; args; ret; locals; body; public })
+      CF.(Function { name; args; ret; locals; body; public })
 
   | _ ->
       failwith "not implemented (decl)"

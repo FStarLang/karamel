@@ -261,8 +261,8 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
 
   if !arg_wasm then
     (* ... then to Wasm *)
-    let files = CStarToCMinor.translate_files files in
-    let modules = CMinorToWasm.mk_files files in
+    let files = CStarToCFlat.translate_files files in
+    let modules = CFlatToWasm.mk_files files in
     List.iter (fun (name, module_) ->
       let s = Wasm.Encode.encode module_ in
       let name = name ^ ".wasm" in
