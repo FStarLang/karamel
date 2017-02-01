@@ -24,6 +24,7 @@ and decl =
   (* Assumed things that the type-checker of KreMLin needs to be aware of *)
   | DExternal of (calling_convention option * lident * typ)
   | DTypeVariant of (lident * int * branches_t)
+  [@@deriving visitors { variety = "iter" }]
 
 and fields_t =
   (ident * (typ * bool)) list
