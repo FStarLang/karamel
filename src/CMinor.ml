@@ -19,6 +19,7 @@ and function_t = {
   ret: size list;
   locals: locals;
   body: stmt list;
+  public: bool;
 }
 
 (* This is NOT De Bruijn *)
