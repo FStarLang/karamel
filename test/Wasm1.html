@@ -5,9 +5,9 @@
     <title>Wasm browser test</title>
     <script type="application/javascript">
       var importObj = {
-        js: {
-      }};
-      fetch('./Wasm1.out/Wasm1.wasm').then(response =>
+        js: {}
+      };
+      fetch('Wasm1.wasm').then(response =>
         response.arrayBuffer()
       ).then(buffer =>
         WebAssembly.instantiate(buffer, importObj)

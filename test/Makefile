@@ -37,6 +37,7 @@ Crypto.KrmlTest.exe: EXTRA = $(CRYPTO)/test_hacks.c -no-prefix Crypto.KrmlTest $
 
 %.wasm: %.fst
 	$(KRML) $(KOPTS) $(TEST_OPTS) $(EXTRA) $^ -wasm -tmpdir $(subst .wasm,.out,$@) -drop Prims -drop FStar
+	cp $*.out/$@ .
 
 clean:
 	rm -rf *.exe *.dSYM *.out
