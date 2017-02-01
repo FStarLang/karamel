@@ -36,6 +36,7 @@ end
 
 let rec is_pure { node; _ } =
   match node with
+  | EAny | EUnit
   | EBound _ | EOpen _
   | EConstant _ -> true
   | EField (e, _)

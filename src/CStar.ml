@@ -63,7 +63,7 @@ and expr =
 and block =
   stmt list
 
-and op = K.op
+and op = K.op * K.width
 
 and var =
   int
@@ -95,3 +95,11 @@ and typ =
       (** In support of anonymous unions. *)
   | Enum of ident list
   | Union of (ident * typ) list
+
+let ident_of_decl (d: decl): string =
+  match d with
+  | Global (id, _, _, _)
+  | Function (_, _, _, id, _, _)
+  | Type (id, _)
+  | External (id, _) ->
+      id

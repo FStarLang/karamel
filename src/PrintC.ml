@@ -176,11 +176,17 @@ and p_expr e = p_expr' 15 e
 and p_init (i: init) =
   match i with
   | Designated (designator, i) ->
-      group (p_designator designator ^/^ equals ^/^ p_init i)
+      group (p_designator designator ^^ space ^^ equals ^^ space ^^ p_init i)
   | InitExpr e ->
       p_expr' 14 e
   | Initializer inits ->
-      braces_with_nesting (separate_map (comma ^^ break 1) p_init inits)
+      let inits =
+        if List.length inits > 4 then
+          flow (comma ^^ break1) (List.map p_init inits)
+        else
+          separate_map (comma ^^ break1) p_init inits
+      in
+      braces_with_nesting inits
 
 and p_designator = function
   | Dot ident ->
@@ -222,7 +228,7 @@ let rec p_stmt (s: stmt) =
   | Expr expr ->
       group (p_expr expr ^^ semi)
   | Comment s ->
-      group (separate break1 (words s))
+      group (string "/*" ^/^ separate break1 (words s) ^/^ string "*/")
   | For (decl, e2, e3, stmt) ->
       group (string "for" ^/^ lparen ^^ nest 2 (
         p_declaration decl ^^ semi ^^ break1 ^^

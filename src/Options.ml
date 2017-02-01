@@ -15,10 +15,15 @@ let m32 = ref false
 let fsopts: string list ref = ref []
 let ccopts: string list ref = ref []
 let ldopts: string list ref = ref []
-let bundle: string list ref = ref [ "FStar=FStar.*" ]
+let bundle: Bundle.t list ref = ref [ [ "FStar" ], [ Bundle.Prefix [ "FStar" ] ] ]
 
 (** These are modules that we do not want to drop (because they have meaningful
  * function signatures); but do not want to compile them (because they have no
  * meaning, contain only models, etc.). *)
-let drop: string list ref = ref [ "C"; "FStar.Int.Cast"; "FStar.Heap";
-  "FStar.Monotonic.RRef" ]
+let drop: Bundle.pat list ref =
+  ref Bundle.([
+    Module [ "C" ];
+    Module [ "FStar"; "Int"; "Cast" ];
+    Module [ "FStar"; "Heap"; ];
+    Module [ "FStar"; "Monotonic"; "RRef" ];
+  ])

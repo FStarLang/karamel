@@ -34,7 +34,7 @@ let test () =
   check (x +^ y +^ z) 45l;
   x +^ y
 
-let test' (): Int32.t =
+let test' (): St Int32.t =
   let x = true in
   if x = false then
     ()

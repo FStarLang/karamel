@@ -5,7 +5,7 @@ let regexp digit = ['0'-'9']
 let regexp int = digit+
 let regexp low_alpha = ['a'-'z']
 let regexp up_alpha =  ['A'-'Z']
-let regexp any = up_alpha | low_alpha | '_'
+let regexp any = up_alpha | low_alpha | '_' | digit
 let regexp lident = low_alpha any*
 let regexp uident = up_alpha any*
 
@@ -25,4 +25,5 @@ let rec token = lexer
 | "," -> locate lexbuf COMMA
 | "=" -> locate lexbuf EQUALS
 | "*" -> locate lexbuf STAR
+| "\\*" -> locate lexbuf STAR
 | eof -> locate lexbuf EOF

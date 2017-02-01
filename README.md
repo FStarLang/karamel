@@ -3,11 +3,32 @@ KreMLin
 
 [![Build Status](https://travis-ci.org/FStarLang/kremlin.svg?branch=master)](https://travis-ci.org/FStarLang/kremlin)
 
-Transforms a subset of F* into C code. See the [ML Workshop Paper] for
-more information, [DESIGN.md](DESIGN.md) for some draft notes and
-[MANUAL.md](MANUAL.md) for some instructions.
+KreMLin is a tool that extracts an F\* program to readable C code. If the F\*
+program verifies against a low-level memory model that talks about the stack and
+the heap; if it is first-order; if it obeys certain restrictions (e.g.
+non-recursive data types) then KreMLin will turn it into C.
+- [DESIGN.md](DESIGN.md) has a technical overview of the different
+  transformation passes performed by KreMLin
+- [MANUAL.md](MANUAL.md) contains some tips&tricks when working with KreMLin.
+
+This work has been formalized on paper. We state that the compilation of
+such F\* programs to C preserves semantics. We start from Low\*, a subset of
+F\*, and relate its semantics to [CompCert](http://compcert.inria.fr/)'s Clight.
+- the [ML Workshop Paper] provides a good, short overview
+- the [submission] provides a more in-depth formalization of our compilation
+  toolchain
+
+We have written 20,000 lines of low-level F\* code, implementing the [TLS
+1.3](https://tlswg.github.io/tls13-spec/) record layer. As such, KreMLin is a
+key component of [Project Everest](https://project-everest.github.io/).
+- [HACL*], our High Assurance Crypto Library, provides numerous cryptographic
+  primitives written in F\*; these primitives enjoy memory safety, functional
+  correctness, and some degree of side-channel resistance -- they extract to C
+  via KreMLin.
 
 [ML Workshop Paper]: https://jonathan.protzenko.fr/papers/ml16.pdf
+[HACL*]: https://github.com/mitls/hacl-star/
+[submission]: https://jonathan.protzenko.fr/papers/submission1-2017.pdf
 
 ## Trying out KreMLin
 
@@ -33,7 +54,7 @@ The simple example from the [ML Workshop Paper] is available in
 
 Also check out the `--help` flag:
 ```
-$ _build/src/Kremlin.native --help
+$ ./krml --help
 ```
 
 ## License
