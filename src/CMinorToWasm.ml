@@ -79,7 +79,7 @@ let mk_binop (o: K.op) =
 let is_binop (o: K.op) =
   mk_binop o <> None
 
-let mk_compop (o: K.op) =
+let mk_cmpop (o: K.op) =
   let open W.Ast.IntOp in
   match o with
   | K.Eq ->
@@ -96,8 +96,8 @@ let mk_compop (o: K.op) =
   | _ ->
       None
 
-let is_compop (o: K.op) =
-  mk_compop o <> None
+let is_cmpop (o: K.op) =
+  mk_cmpop o <> None
 
 let rec mk_expr env (e: expr): W.Ast.instr list =
   match e with
@@ -108,19 +108,19 @@ let rec mk_expr env (e: expr): W.Ast.instr list =
       [ dummy_phrase (W.Ast.Const (mk_lit s lit)) ]
 
   | Call (Op (s, o), [ e1; e2 ]) when is_binop o ->
-      dummy_phrase (W.Ast.Binary (sized_op s (Option.must (mk_binop o)))) ::
+      mk_expr env e1 @
       mk_expr env e2 @
-      mk_expr env e1
+      [ dummy_phrase (W.Ast.Binary (sized_op s (Option.must (mk_binop o)))) ]
 
-  | Call (Op (s, o), [ e1; e2 ]) when is_compop o ->
-      dummy_phrase (W.Ast.Compare (sized_op s (Option.must (mk_compop o)))) ::
+  | Call (Op (s, o), [ e1; e2 ]) when is_cmpop o ->
+      mk_expr env e1 @
       mk_expr env e2 @
-      mk_expr env e1
+      [ dummy_phrase (W.Ast.Compare (sized_op s (Option.must (mk_cmpop o)))) ]
 
   | Call (Qualified name, es) ->
       let index = StringMap.find name env.funcs in
-      dummy_phrase (W.Ast.Call (mk_var index)) ::
-      List.flatten (List.rev_map (mk_expr env) es)
+      KList.map_flatten (mk_expr env) es @
+      [ dummy_phrase (W.Ast.Call (mk_var index)) ]
 
   | _ ->
       failwith "not implemented"
@@ -128,29 +128,25 @@ let rec mk_expr env (e: expr): W.Ast.instr list =
 let rec mk_stmt env (stmt: stmt): W.Ast.instr list =
   match stmt with
   | Return e ->
-      dummy_phrase W.Ast.Return ::
-      Option.map_or (mk_expr env) e []
+      Option.map_or (mk_expr env) e [] @
+      [ dummy_phrase W.Ast.Return ]
 
   | IfThenElse (e, b1, b2) ->
-      let cond = mk_expr env e in
       (* I assume that the [stack_type] is the *return* type of the
        * if-then-else... since conditionals are always in statement position
        * then it must be the case that the blocks return nothing. *)
-      let typ = [] in
-      let b1 = mk_stmts env b1 in
-      let b2 = mk_stmts env b2 in
-      dummy_phrase (W.Ast.If (typ, b1, b2)) ::
-      cond
+      mk_expr env e @
+      [ dummy_phrase (W.Ast.If ([ W.Types.I32Type ], mk_stmts env b1, mk_stmts env b2)) ]
 
   | Assign (Var i, e) ->
-      dummy_phrase (W.Ast.SetLocal (mk_var i)) ::
-      mk_expr env e
+      mk_expr env e @
+      [ dummy_phrase (W.Ast.SetLocal (mk_var i)) ]
 
   | _ ->
       failwith "Not implemented"
 
 and mk_stmts env (stmts: stmt list): W.Ast.instr list =
-  List.flatten (List.rev_map (mk_stmt env) stmts)
+  KList.map_flatten (mk_stmt env) stmts
 
 let mk_func_type { args; ret; _ } =
   W.Types.( FuncType (

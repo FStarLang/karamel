@@ -7,6 +7,7 @@ let _ =
   let arg_print_pattern = ref false in
   let arg_print_inline = ref false in
   let arg_print_c = ref false in
+  let arg_print_wasm = ref false in
   let arg_skip_extraction = ref false in
   let arg_skip_compilation = ref false in
   let arg_skip_linking = ref false in
@@ -112,6 +113,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the internal AST after simplification";
     "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after inlining";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
+    "-dwasm", Arg.Set arg_print_wasm, " pretty-print the output Wasm";
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
   let spec = Arg.align spec in
@@ -266,6 +268,8 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
       let name = name ^ ".wasm" in
       Utils.with_open_out (Filename.concat !Options.tmpdir name) (fun oc -> output_string oc s);
       KPrint.bprintf "Wrote %s\n" name;
+      if !arg_print_wasm then
+        Wasm.Print.module_ stdout Utils.twidth module_;
       flush stderr
     ) modules
 
