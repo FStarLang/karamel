@@ -19,6 +19,16 @@ let pattern_matches (p: Bundle.pat) (m: string) =
   | Prefix p ->
       KString.starts_with m (String.concat "_" p)
 
+let bundle_name (api, patterns) =
+  match api with
+  | [] ->
+      String.concat "_" (KList.map_flatten (function
+        | Module m -> m
+        | Prefix p -> p
+      ) patterns)
+  | _ ->
+     String.concat "_" api
+
 (** This collects all the files that match a given bundle specification, while
  * preserving their original dependency ordering within the bundle. If the
  * bundle is of the form Api=Patterns, then the declarations from Api are kept
@@ -56,7 +66,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: bool StringMap.
    * files so that its declarations do not get the special "private" treatment. *)
   let used, found = find_files true (used, found) (Module api) in
   (* The name of the bundle is the name of the Api module *)
-  let bundle = String.concat "_" api, List.flatten (List.rev_map snd found) in
+  let bundle = bundle_name bundle, List.flatten (List.rev_map snd found) in
   (* We return the updated map of all "used" original files *)
   used, bundle
 
