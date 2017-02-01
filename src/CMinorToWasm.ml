@@ -176,12 +176,24 @@ let mk_module (name, decls): string * W.Ast.module_ =
 
   (* And translate them *)
   let types = List.map mk_func_type funcs in
+  let exports = KList.filter_map (fun { name; public; _ } ->
+    if public then
+      Some (dummy_phrase W.Ast.({
+        name;
+        ekind = dummy_phrase W.Ast.FuncExport;
+        item = mk_var (StringMap.find name env.funcs)
+      }))
+    else
+      None
+  ) funcs in
   let funcs = List.mapi (mk_func env) funcs in
+
 
   let module_ = dummy_phrase W.Ast.({
     empty_module with
     funcs;
-    types
+    types;
+    exports
   }) in
   name, module_
 

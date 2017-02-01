@@ -127,14 +127,15 @@ let rec translate_stmts (env: env) (stmts: CS.stmt list): locals * CM.stmt list 
 
 let translate_decl (d: CS.decl): CM.decl =
   match d with
-  | CS.Function (_, _, ret, name, args, body) ->
+  | CS.Function (_, flags, ret, name, args, body) ->
+      let public = not (List.exists ((=) Common.Private) flags) in
       let env, args = List.fold_left (fun (env, args) binder ->
         let env, arg = extend env binder in
         env, arg :: args
       ) (empty, []) args in
       let locals, body = translate_stmts env body in
       let ret = [ size_of ret ] in
-      CM.(Function { name; args; ret; locals; body })
+      CM.(Function { name; args; ret; locals; body; public })
 
   | _ ->
       failwith "not implemented (decl)"
