@@ -123,17 +123,16 @@ assume val store64_be:
     (requires (fun h -> Buffer.live h b))
     (ensures  (fun h0 _ h1 -> modifies_1 b h0 h1 /\ Buffer.live h1 b))
 
+
 assume val load128_le:
-  b:buffer UInt8.t{length b >= 16} ->
-  Stack FStar.UInt128.t
+  b:buffer UInt8.t{length b = 16} ->
+  Stack UInt128.t
     (requires (fun h -> Buffer.live h b))
     (ensures  (fun h0 _ h1 -> h0 == h1))
 
 assume val store128_le:
-  b:buffer UInt8.t{length b >= 16} ->
-  z:FStar.UInt128.t ->
+  b:buffer UInt8.t{length b = 16} ->
+  z:UInt128.t ->
   Stack unit
     (requires (fun h -> Buffer.live h b))
     (ensures  (fun h0 _ h1 -> modifies_1 b h0 h1 /\ Buffer.live h1 b))
-
-
