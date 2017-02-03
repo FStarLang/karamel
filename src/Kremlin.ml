@@ -54,8 +54,6 @@ The default is %s and the available warnings are:
   5: type definition contains an application of an undefined type abbreviation
   6: variable-length array
   7: private F* function cannot be marked as C static
-  8: F* function must be inlined for soundness but has no [@ "substitute" ]
-     attribute
 
 The [-bundle] option takes argument of the form ApiModule=Impl1,Prefix.*,...
 All declarations within a bundle are automatically marked as private. If

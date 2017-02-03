@@ -37,15 +37,22 @@ let bundle_name (api, patterns) =
  * The used parameter is just here to keep track of which files have been
  * involved in at least one bundle, so that we can drop them afterwards. *)
 let make_one_bundle (bundle: Bundle.t) (files: file list) (used: bool StringMap.t) =
+  let debug = Options.debug "bundle" in
+  if debug then
+    KPrint.bprintf "Starting creation of bundle %s\n" (bundle_name bundle);
+
   let api, patterns = bundle in
   (* Find the files that match a given pattern *)
   let find_files is_api (used, found) pattern =
     List.fold_left (fun (used, found) file ->
       let name = fst file in
-      if pattern_matches pattern name && (is_api || name <> String.concat "_" api) then
+      if pattern_matches pattern name && (is_api || name <> String.concat "_" api) then begin
+        if debug then
+          KPrint.bprintf "%s is a match\n" name;
         StringMap.add name true used, file :: found
-      else
+      end else begin
         used, found
+      end
     ) (used, found) files
   in
   (* Find all the files that match the given patterns. *)
@@ -70,6 +77,8 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: bool StringMap.
       used, found
     else
       let count = StringMap.cardinal used in
+      if debug then
+        KPrint.bprintf "Looking for bundle API\n";
       let used, found = find_files true (used, found) (Module api) in
       if StringMap.cardinal used <> count + 1 then
         Warnings.fatal_error "There an issue with your bundle.\n\
