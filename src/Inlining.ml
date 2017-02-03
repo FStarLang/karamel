@@ -134,10 +134,8 @@ let inline_analysis map =
          * externally-realized functions execute in their own stack frame, which
          * is fine, because they actually are, well, functions written in C. *)
         Safe
-    | substitute, body ->
-        if substitute || walk body then begin
-          if not substitute then
-            Warnings.maybe_fatal_error ("", ShouldSubstitute lid);
+    | body ->
+        if walk body then begin
           MustInline
         end else
           Safe
@@ -173,8 +171,8 @@ let inline_function_frames files =
    * cycles. The first component is used ONLY by [inline_analysis], while the
    * color is used ONLY by [memoize_inline]. *)
   let map = build_map files (fun map -> function
-    | DFunction (_, flags, _, name, _, body) ->
-        Hashtbl.add map name (List.exists ((=) Substitute) flags, body)
+    | DFunction (_, _, _, name, _, body) ->
+        Hashtbl.add map name body
     | _ ->
         ()
   ) in
