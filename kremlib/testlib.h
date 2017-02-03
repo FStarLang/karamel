@@ -34,6 +34,21 @@ static __inline__ cycles TestLib_cpucycles(void) {
   __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
   return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
 }
+
+static __inline__ cycles TestLib_cpucycles_begin(void)
+{
+  unsigned hi, lo;
+  __asm__ __volatile__ ("CPUID\n\t"  "RDTSC\n\t"  "mov %%edx, %0\n\t"  "mov %%eax, %1\n\t": "=r" (hi), "=r" (lo):: "%rax", "%rbx", "%rcx", "%rdx");
+  return ( (uint64_t)lo)|( ((uint64_t)hi)<<32 );
+}
+
+static __inline__ cycles TestLib_cpucycles_end(void)
+{
+  unsigned hi, lo;
+  __asm__ __volatile__ ("RDTSCP\n\t"  "mov %%edx, %0\n\t"  "mov %%eax, %1\n\t"  "CPUID\n\t": "=r" (hi), "=r" (lo)::     "%rax", "%rbx", "%rcx", "%rdx");
+  return ( (uint64_t)lo)|( ((uint64_t)hi)<<32 );
+}
+
 void TestLib_print_cycles_per_round(cycles c1, cycles c2, uint32_t rounds);
 
 #endif
