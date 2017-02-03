@@ -41,7 +41,11 @@ let raise_error_l e =
 let fatal_error fmt =
   flush stdout;
   flush stderr;
-  Printf.kbprintf (fun buf -> raise (Fatal (Buffer.contents buf))) (Buffer.create 16) fmt
+  Printf.kbprintf (fun buf ->
+    Buffer.add_string buf "\n";
+    Buffer.output_buffer stderr buf;
+    raise (Fatal "Unrecoverable error")
+  ) (Buffer.create 16) fmt
 
 (* -------------------------------------------------------------------------- *)
 

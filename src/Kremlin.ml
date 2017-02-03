@@ -114,6 +114,7 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
     "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after inlining";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-dwasm", Arg.Set arg_print_wasm, " pretty-print the output Wasm";
+    "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific comma-separated list of values; currently supported: inline,bundle";
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
   let spec = Arg.align spec in

@@ -15,11 +15,14 @@ let m32 = ref false
 let fsopts: string list ref = ref []
 let ccopts: string list ref = ref []
 let ldopts: string list ref = ref []
-let bundle: Bundle.t list ref = ref [ [ "FStar" ], [ Bundle.Prefix [ "FStar" ] ] ]
+let bundle: Bundle.t list ref = ref [ [ ], [ Bundle.Prefix [ "FStar" ] ] ]
+let debug_modules: string list ref = ref []
+let debug s = List.exists ((=) s) !debug_modules
 
-(** These are modules that we do not want to drop (because they have meaningful
- * function signatures); but do not want to compile them (because they have no
- * meaning, contain only models, etc.). *)
+(** These are modules that we want to see (because they have meaningful
+ * function signatures); but do not want to compile (because they have no
+ * meaning, contain only models, etc.). So instead of --no-extract'ing them, we
+ * drop them at C-generation time. *)
 let drop: Bundle.pat list ref =
   ref Bundle.([
     Module [ "C" ];

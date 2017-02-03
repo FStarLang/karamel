@@ -58,7 +58,7 @@ let build_map files f =
 
 let inline_analysis map =
   let lookup lid = Hashtbl.find map lid in
-  let debug_inline = false in
+  let debug_inline = Options.debug "inline" in
 
   (** To determine whether a function should be inlined, we use a syntactic
    * criterion: any buffer allocation that happens before a [push_frame] implies
