@@ -36,15 +36,15 @@ High-level description:
   5. If some FILES end with [.o], [.S] or [.a], KreMLin will link them along with the
      [.o] files obtained at step 4. to obtain a final executable.
 
-The [-skip-extraction] option will stop KreMLin after step 1.
-The [-skip-compilation] option will stop KreMLin after step 3.
-The [-skip-linking] option will stop KreMLin after step 4.
+The [-skip-extraction] option stops KreMLin after step 1.
+The [-skip-compilation] option stops KreMLin after step 3.
+The [-skip-linking] option stops KreMLin after step 4.
 
 The [-warn-error] option follows the OCaml syntax, namely:
   - [r] is a range of warnings (either a number [n], or a range [n..n])
   - [-r] silences range [r]
   - [+r] enables range [r]
-  - [@r] makes [r] fatal.
+  - [@r] makes range [r] fatal.
 
 The default is %s and the available warnings are:
   1: not generating code for a provided file
@@ -55,11 +55,19 @@ The default is %s and the available warnings are:
   6: variable-length array
   7: private F* function cannot be marked as C static
 
-The [-bundle] option takes argument of the form ApiModule=Impl1,Prefix.*,...
-All declarations within a bundle are automatically marked as private. If
-ApiModule is found, it is appended to the bundle and the functions it defines
-are not marked as private. If creating a bundle results in cyclic dependency,
-KreMLin aborts.
+The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
+where the Api= part is optional and a pattern is either Foo.Bar (exact match) or
+Foo.Baz.* (prefix). The semantics are as follows: all the modules that match a
+pattern are grouped into a single C translation unit, and their declarations are
+marked as static, inasmuch as cross-translation unit calls permit. If the Api=
+part is present, then the module named Api must be found within the
+set of input files, and its declarations are appended to the translation unit
+without any visibility modifications.
+
+The [-drop] option take a Pattern argument and skips code generation for the
+modules that match the pattern.
+
+The default arguments are: %s
 
 All include directories and paths supports two special prefixes:
   - if a path starts with FSTAR_LIB, this will expand to wherever F*'s ulib
@@ -68,7 +76,14 @@ All include directories and paths supports two special prefixes:
     checkout of F* is (this does not always exist, e.g. in the case of an OPAM
     setup).
 
-Supported options:|} Sys.argv.(0) !Options.warn_error
+Supported options:|}
+    Sys.argv.(0)
+    !Options.warn_error
+    (String.concat " " (KList.map_flatten (fun b ->
+      [ "-bundle"; Bundle.string_of_bundle b ]
+    ) !Options.bundle @ KList.map_flatten (fun p ->
+      [ "-drop"; Bundle.string_of_pat p ]
+    ) !Options.drop))
   in
   let found_file = ref false in
   let prepend r = fun s -> r := s :: !r in
@@ -95,12 +110,12 @@ Supported options:|} Sys.argv.(0) !Options.warn_error
 
     (* Controlling the behavior of KreMLin *)
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";
-    "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " group all modules in this namespace in one compilation unit (default: FStar=FStar.*)";
+    "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " group modules into a single C translation unit (see above)";
+    "-drop", Arg.String (fun s -> prepend Options.drop (Utils.parse Parser.drop s)), "  do not extract Code for this module (see above)";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to every generated file";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
     "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";
     "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
-    "-drop", Arg.String (fun s -> prepend Options.drop (Utils.parse Parser.drop s)), "  do not extract this module (but keep it for its signature and types)";
     "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are fatal / warnings / silent (default: " ^ !Options.warn_error ^")";
     "", Arg.Unit (fun _ -> ()), " ";
 

@@ -7,3 +7,19 @@ type t = string list * pat list
 and pat =
   | Module of string list
   | Prefix of string list
+
+
+let string_of_pat pat =
+  match pat with
+  | Module path ->
+      String.concat "." path
+  | Prefix path ->
+      String.concat "." (path @ [ "*" ])
+
+let string_of_bundle (name, pats) =
+  match name with
+  | [] ->
+      String.concat "," (List.map string_of_pat pats)
+  | path ->
+      String.concat "." path ^ "=" ^
+      String.concat "," (List.map string_of_pat pats)
