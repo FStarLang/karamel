@@ -1,6 +1,13 @@
-(** In CMinor, the size of stack frames has been computed. Structs, enums are
- * gone. The only two sizees left are I32 and I64. *)
+(** CFlat, without structures and with computed stack frames. *)
 
+(** The point of this IR is to:
+  * - compute the size of the stack frames;
+  * - remove structs and enums, favoring instead n-ary parameters and variables,
+  *   along with constant numbers for enums.
+  * We keep the size of machine operations, so that we know which sequence of
+  * instructions to emit (e.g. for small int types, we want to add a
+  * truncation); we also the signedness to pick the right operator.
+  *)
 open Common
 
 module K = Constant
@@ -11,7 +18,7 @@ type program =
 and decl =
   | Global of ident * size * expr
   | Function of function_t
-  | External of ident * size
+  | External of ident * size list (* args *) * size list (* ret *)
 
 and function_t = {
   name: ident;
@@ -32,10 +39,9 @@ and stmt =
   | Ignore of expr
   | IfThenElse of expr * block * block
   | While of expr * block
-  | Assign of expr * expr
+  | Assign of (var * size) * expr
   | Copy of expr * size * expr
   | Switch of expr * (ident * block) list
-      (** The ident is one of the constants *)
   | BufWrite of expr * expr * expr
   | BufBlit of expr * expr * expr * expr * expr
   | BufFill of expr * expr * expr
@@ -43,16 +49,18 @@ and stmt =
   | PopFrame
 
 and expr =
-  | Call of expr * expr list
-  | Var of var
-  | Qualified of ident
-    (** A global, or an enum constant. *)
-  | Constant of size * string
+  | CallOp of op * expr list
+  | CallFunc of ident * expr list
+  | Var of var * size
+  | Qualified of ident * size
+    (** Loading from a local or global slot requires knowing which size the
+     * resulting operand should have. For instance, we may end up loading a
+     * 32-bit variable from a 64-bit slot, or a byte from a word-sized slot. *)
+  | Constant of K.width * string
   | BufCreate of lifetime * expr * expr
   | BufCreateL of lifetime * expr list
   | BufRead of expr * expr
   | BufSub of expr * expr
-  | Op of op
   | Bool of bool
   | Comma of expr * expr
   | StringLiteral of string
@@ -61,7 +69,7 @@ and expr =
 and block =
   stmt list
 
-and op = size * K.op
+and op = K.width * K.op
 
 and var =
   int
@@ -72,3 +80,11 @@ and ident =
 and size =
   | I32
   | I64
+
+let size_of_width (w: K.width) =
+  let open K in
+  match w with
+  | UInt64 | Int64 | UInt | Int ->
+      I64
+  | _ ->
+      I32

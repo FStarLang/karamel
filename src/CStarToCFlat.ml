@@ -1,7 +1,5 @@
 (** Going from CStar to CFlat *)
 
-open Constant
-
 module CS = CStar
 module CF = CFlat
 
@@ -10,17 +8,10 @@ module StringMap = Map.Make(String)
 type size = CFlat.size =
   I32 | I64
 
-let size_of_width (w: width) =
-  match w with
-  | UInt64 | Int64 | UInt | Int ->
-      I64
-  | _ ->
-      I32
-
 let size_of (t: CS.typ): size =
   match t with
   | CS.Int w ->
-      size_of_width w
+      CF.size_of_width w
   | CS.Pointer _ ->
       I32
   | CS.Void  ->
@@ -59,7 +50,7 @@ let merge (l1: locals) (l2: locals) =
   aux [] l1 l2
 
 type env = {
-  map: int StringMap.t;
+  map: (int * size) StringMap.t;
   size: int;
 }
 
@@ -70,7 +61,7 @@ let empty = {
 
 let extend (env: env) (binder: CS.binder): env * size =
   let env = {
-    map = StringMap.add binder.CS.name env.size env.map;
+    map = StringMap.add binder.CS.name (env.size, size_of binder.CS.typ) env.map;
     size = env.size + 1
   } in
   env, size_of binder.CS.typ
@@ -81,19 +72,17 @@ let grow (env: env) (size: int): env =
 let rec translate_expr (env: env) (e: CS.expr): CF.expr =
   match e with
   | CS.Var i ->
-      CF.Var (StringMap.find i env.map)
+      let i, s = StringMap.find i env.map in
+      CF.Var (i, s)
 
-  | CS.Call (e, es) ->
-      CF.Call (translate_expr env e, List.map (translate_expr env) es)
+  | CS.Call (CS.Op (o, w), es) ->
+      CF.CallOp ((w, o), List.map (translate_expr env) es)
+
+  | CS.Call (CS.Qualified ident, es) ->
+      CF.CallFunc (ident, List.map (translate_expr env) es)
 
   | CS.Constant (w, lit) ->
-      CF.Constant (size_of_width w, lit)
-
-  | CS.Op (o, w) ->
-      CF.Op (size_of_width w, o)
-
-  | CS.Qualified i ->
-      CF.Qualified i
+      CF.Constant (w, lit)
 
   | _ ->
       failwith "not implemented (expr)"
@@ -105,10 +94,10 @@ let rec translate_stmts (env: env) (stmts: CS.stmt list): locals * CF.stmt list 
 
   | CS.Decl (binder, e) :: stmts ->
       let e = translate_expr env e in
-      let v = CF.Var env.size in
+      let v = env.size in
       let env, local = extend env binder in
       let locals, stmts = translate_stmts env stmts in
-      local :: locals, CF.Assign (v, e) :: stmts
+      local :: locals, CF.Assign ((v, local), e) :: stmts
 
   | CS.IfThenElse (e, stmts1, stmts2) :: stmts ->
       let e = translate_expr env e in

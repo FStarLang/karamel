@@ -5,6 +5,8 @@ module K = Constant
 
 module StringMap = Map.Make(String)
 
+(** Our environments map top-level function identifiers to their index in the
+ * global table. They also keep a map of each local stack index to its size. *)
 type env = {
   funcs: int StringMap.t;
   stack: size list
@@ -20,6 +22,11 @@ let grow env locals = {
   stack = env.stack @ locals
 }
 
+let size_at env i =
+  List.nth env.stack i
+
+(** We don't make any effort (yet) to keep track of positions even though Wasm
+ * really wants us to. *)
 let dummy_pos =
   W.Source.({ file = ""; line = 0; column = 0 })
 
@@ -29,29 +36,34 @@ let dummy_region =
 let dummy_phrase what =
   W.Source.({ at = dummy_region; it = what })
 
+(** A bunch of helpers *)
 let mk_var x = dummy_phrase (Int32.of_int x)
 
-let mk_value_type = function
+let mk_type = function
   | I32 ->
       W.Types.I32Type
   | I64 ->
       W.Types.I64Type
 
-let sized_op (s: size) op =
+let mk_value s x =
   match s with
   | I32 ->
-      W.Values.I32 op
+      W.Values.I32 x
   | I64 ->
-      W.Values.I64 op
+      W.Values.I64 x
 
-let mk_lit s lit =
-  match s with
-  | I32 ->
+let mk_lit w lit =
+  match w with
+  | K.Int32 | K.UInt32 ->
       dummy_phrase (W.Values.I32 (Int32.of_string lit))
-  | I64 ->
+  | K.Int64 | K.UInt64 ->
       dummy_phrase (W.Values.I64 (Int64.of_string lit))
+  | _ ->
+      failwith "mk_lit"
 
-let mk_binop (o: K.op) =
+(** Binary operations take a width and an operation, in order to pick the right
+ * flavor of signed vs. unsigned operation *)
+let mk_binop (w, o) =
   let open W.Ast.IntOp in
   match o with
   | K.Add | K.AddW ->
@@ -59,27 +71,39 @@ let mk_binop (o: K.op) =
   | K.Sub | K.SubW ->
       Some Sub
   | K.Div | K.DivW ->
-      failwith "todo div"
+      (* Fortunately, it looks like FStar.Int*, C and Wasm all adopt the
+       * "rounding towards zero" behavior. Phew! *)
+      if K.is_signed w then
+        Some DivS
+      else
+        Some DivU
   | K.Mult | K.MultW ->
       Some Mul
   | K.Mod ->
-      failwith "todo mod"
+      if K.is_signed w then
+        Some RemS
+      else
+        Some RemU
   | K.BOr | K.Or ->
       Some Or
   | K.BAnd | K.And ->
       Some And
   | K.BXor | K.Xor ->
       Some Xor
-  | K.BShiftL
+  | K.BShiftL ->
+      Some Shl
   | K.BShiftR ->
-      failwith "todo shift"
+      if K.is_signed w then
+        Some ShrS
+      else
+        Some ShrU
   | _ ->
       None
 
-let is_binop (o: K.op) =
+let is_binop (o: K.width * K.op) =
   mk_binop o <> None
 
-let mk_cmpop (o: K.op) =
+let mk_cmpop (w, o) =
   let open W.Ast.IntOp in
   match o with
   | K.Eq ->
@@ -88,36 +112,79 @@ let mk_cmpop (o: K.op) =
       Some Ne
   | K.BNot | K.Not ->
       failwith "todo not (zero minus?)"
-  | K.Lt
-  | K.Lte
-  | K.Gt
+  | K.Lt ->
+      if K.is_signed w then
+        Some LtS
+      else
+        Some LtU
+  | K.Lte ->
+      if K.is_signed w then
+        Some LeS
+      else
+        Some LeU
+  | K.Gt ->
+      if K.is_signed w then
+        Some GtS
+      else
+        Some GtU
   | K.Gte ->
-      failwith "todo comparisons"
+      if K.is_signed w then
+        Some GeS
+      else
+        Some GeU
   | _ ->
       None
 
-let is_cmpop (o: K.op) =
+let is_cmpop (o: K.width * K.op) =
   mk_cmpop o <> None
 
-let rec mk_expr env (e: expr): W.Ast.instr list =
+
+(** There are two types of conversions. The first one is load/store conversions,
+ * that require resizing from a possibly larger local size to the right operand
+ * size. *)
+let resize orig dest =
+  match orig, dest with
+  | I64, I32 ->
+      [ dummy_phrase (W.Ast.Convert (W.Values.I64 W.Ast.IntOp.WrapI64)) ]
+  | I32, I64 ->
+      [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.ExtendUI32)) ]
+  | _ ->
+      []
+
+let truncate w =
+  let open K in
+  match w with
+  | UInt32 | Int32 | UInt64 | Int64 ->
+      []
+  | _ ->
+      failwith "todo: truncate"
+
+let rec mk_callop2 env (w, o) e1 e2 =
+  (* TODO: check special byte semantics C / WASM *)
+  let size = size_of_width w in
+  mk_expr env e1 @
+  mk_expr env e2 @
+  if is_binop (w, o) then
+    [ dummy_phrase (W.Ast.Binary (mk_value size (Option.must (mk_binop (w, o))))) ] @
+    truncate w
+  else if is_cmpop (w, o) then
+    [ dummy_phrase (W.Ast.Compare (mk_value size (Option.must (mk_cmpop (w, o))))) ] @
+    truncate w
+  else
+    failwith "todo mk_callop2"
+
+and mk_expr env (e: expr): W.Ast.instr list =
   match e with
-  | Var i ->
-      [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]
+  | Var (i, s) ->
+      [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ] @ resize (size_at env i) s
 
-  | Constant (s, lit) ->
-      [ dummy_phrase (W.Ast.Const (mk_lit s lit)) ]
+  | Constant (w, lit) ->
+      [ dummy_phrase (W.Ast.Const (mk_lit w lit)) ]
 
-  | Call (Op (s, o), [ e1; e2 ]) when is_binop o ->
-      mk_expr env e1 @
-      mk_expr env e2 @
-      [ dummy_phrase (W.Ast.Binary (sized_op s (Option.must (mk_binop o)))) ]
+  | CallOp (o, [ e1; e2 ]) ->
+      mk_callop2 env o e1 e2
 
-  | Call (Op (s, o), [ e1; e2 ]) when is_cmpop o ->
-      mk_expr env e1 @
-      mk_expr env e2 @
-      [ dummy_phrase (W.Ast.Compare (sized_op s (Option.must (mk_cmpop o)))) ]
-
-  | Call (Qualified name, es) ->
+  | CallFunc (name, es) ->
       let index = StringMap.find name env.funcs in
       KList.map_flatten (mk_expr env) es @
       [ dummy_phrase (W.Ast.Call (mk_var index)) ]
@@ -138,8 +205,9 @@ let rec mk_stmt env (stmt: stmt): W.Ast.instr list =
       mk_expr env e @
       [ dummy_phrase (W.Ast.If ([ W.Types.I32Type ], mk_stmts env b1, mk_stmts env b2)) ]
 
-  | Assign (Var i, e) ->
+  | Assign ((i, s), e) ->
       mk_expr env e @
+      resize s (size_at env i) @
       [ dummy_phrase (W.Ast.SetLocal (mk_var i)) ]
 
   | _ ->
@@ -150,15 +218,15 @@ and mk_stmts env (stmts: stmt list): W.Ast.instr list =
 
 let mk_func_type { args; ret; _ } =
   W.Types.( FuncType (
-    List.map mk_value_type args,
-    List.map mk_value_type ret))
+    List.map mk_type args,
+    List.map mk_type ret))
 
 let mk_func env i { args; locals; body; _ } =
   let env = grow env args in
   let env = grow env locals in
 
   let body = mk_stmts env body in
-  let locals = List.map mk_value_type locals in
+  let locals = List.map mk_type locals in
   let ftype = mk_var i in
   dummy_phrase W.Ast.({ locals; ftype; body })
 
