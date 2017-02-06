@@ -48,6 +48,7 @@ and stmt =
   | BufFill of expr * expr * expr
   | PushFrame
   | PopFrame
+  [@@ deriving show]
 
 and expr =
   | CallOp of op * expr list

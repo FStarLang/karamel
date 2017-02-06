@@ -10,7 +10,8 @@ module StringMap = Map.Make(String)
 
 (** Sizes *)
 
-(** There are only two size in Wasm; we keep track of them. *)
+(** There are only two size in Wasm. A Low* 64-bit integer maps to I64;
+ * everything else maps to I32. *)
 type size = CFlat.size =
   I32 | I64
 

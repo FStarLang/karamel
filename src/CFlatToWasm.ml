@@ -187,7 +187,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
       [ dummy_phrase (W.Ast.Call (mk_var index)) ]
 
   | _ ->
-      failwith "not implemented"
+      failwith ("not implemented (expr); got: " ^ show_expr e)
 
 let rec mk_stmt env (stmt: stmt): W.Ast.instr list =
   match stmt with
@@ -207,7 +207,7 @@ let rec mk_stmt env (stmt: stmt): W.Ast.instr list =
       [ dummy_phrase (W.Ast.SetLocal (mk_var i)) ]
 
   | _ ->
-      failwith "Not implemented"
+      failwith ("not implemented (stmt); got: " ^ show_stmt stmt)
 
 and mk_stmts env (stmts: stmt list): W.Ast.instr list =
   KList.map_flatten (mk_stmt env) stmts
