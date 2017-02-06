@@ -39,24 +39,6 @@ let dummy_region =
 let dummy_phrase what =
   W.Source.({ at = dummy_region; it = what })
 
-(** Dealing with size mismatches *)
-let resize orig dest =
-  match orig, dest with
-  | I64, I32 ->
-      [ dummy_phrase (W.Ast.Convert (W.Values.I64 W.Ast.IntOp.WrapI64)) ]
-  | I32, I64 ->
-      [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.ExtendUI32)) ]
-  | _ ->
-      []
-
-let truncate w =
-  let open K in
-  match w with
-  | UInt32 | Int32 | UInt64 | Int64 ->
-      []
-  | _ ->
-      failwith "todo: truncate"
-
 (** A bunch of helpers *)
 let mk_var x = dummy_phrase (Int32.of_int x)
 
@@ -78,6 +60,9 @@ let mk_int32 i =
 
 let mk_int64 i =
   dummy_phrase (W.Values.I64 i)
+
+let mk_const c =
+  [ dummy_phrase (W.Ast.Const c) ]
 
 let mk_lit w lit =
   match w with
@@ -172,6 +157,9 @@ let is_cmpop (o: K.width * K.op) =
 let i32_mul =
   [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Mul)) ]
 
+let i32_and =
+  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.And)) ]
+
 let read_highwater =
   [ dummy_phrase (W.Ast.GetGlobal (mk_var 0)) ]
 
@@ -183,6 +171,31 @@ let grow_highwater =
   i32_mul @
   write_highwater
 
+(** Dealing with size mismatches *)
+let resize orig dest =
+  match orig, dest with
+  | I64, I32 ->
+      [ dummy_phrase (W.Ast.Convert (W.Values.I64 W.Ast.IntOp.WrapI64)) ]
+  | I32, I64 ->
+      [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.ExtendUI32)) ]
+  | _ ->
+      []
+
+let truncate w =
+  let open K in
+  match w with
+  | UInt32 | Int32 | UInt64 | Int64 | UInt | Int ->
+      []
+  | UInt16 | Int16 ->
+      mk_const (mk_int32 0xffffl) @
+      i32_and
+  | UInt8 | Int8 ->
+      mk_const (mk_int32 0xffl) @
+      i32_and
+  | _ ->
+      invalid_arg "truncate"
+
+(** Actual translations *)
 let rec mk_callop2 env (w, o) e1 e2 =
   (* TODO: check special byte semantics C / WASM *)
   let size = size_of_width w in
@@ -197,13 +210,16 @@ let rec mk_callop2 env (w, o) e1 e2 =
   else
     failwith "todo mk_callop2"
 
+and mk_size size =
+  [ dummy_phrase (W.Ast.Const (mk_int32 (Int32.of_int (bytes_in size)))) ]
+
 and mk_expr env (e: expr): W.Ast.instr list =
   match e with
   | Var i ->
       [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]
 
   | Constant (w, lit) ->
-      [ dummy_phrase (W.Ast.Const (mk_lit w lit)) ]
+      mk_const (mk_lit w lit)
 
   | CallOp (o, [ e1; e2 ]) ->
       mk_callop2 env o e1 e2
@@ -219,9 +235,29 @@ and mk_expr env (e: expr): W.Ast.instr list =
        * number of bytes *)
       read_highwater @
       mk_expr env n_elts @
-      [ dummy_phrase (W.Ast.Const (mk_int32 (Int32.of_int (bytes_in elt_size)))) ] @
+      mk_size elt_size @
       i32_mul @
       grow_highwater
+
+  | BufRead (e1, e2, size) ->
+      (* github.com/WebAssembly/spec/blob/master/interpreter/spec/eval.ml#L189 *)
+      mk_expr env e1 @
+      mk_expr env e2 @
+      mk_size size @
+      i32_mul @
+      [ dummy_phrase W.Ast.(Load {
+        (* the type we want on the operand stack *)
+        ty = mk_type (if size = A64 then I64 else I32); 
+        (* ignored *)
+        align = 0;
+        (* we've already done the multiplication ourselves *)
+        offset = 0l;
+        (* we store 32-bit integers in 32-bit slots, and smaller than that in
+         * 32-bit slots as well, so no conversion M32 for us *)
+        sz = match size with
+          | A16 -> Some W.Memory.(Mem16, ZX)
+          | A8 -> Some W.Memory.(Mem8, ZX)
+          | _ -> None })]
 
   | _ ->
       failwith ("not implemented (expr); got: " ^ show_expr e)

@@ -821,24 +821,24 @@ let remove_buffer_ops = object
     let b_size = mark_mut b_size in
     let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, ref_size)) in
     let with_t = with_type t in
-    ELet (b_init, body_init,
-    with_t (ELet (b_size, body_size,
-    with_t (ELet (b_buf, body_buf,
-    with_t (ESequence [
-      with_unit (EWhile (
-        with_type TBool (EApp (mk_op K.Gt K.Bool, [
-          ref_size;
-          zerou32
-        ])),
-        with_unit (ESequence [
-          with_unit (EBufWrite (ref_buf, ref_size, ref_init));
-          with_unit (EAssign (ref_size,
-            with_type uint32 (EApp (
+    ELet (b_init, body_init, close_binder b_init (with_t (
+    ELet (b_size, body_size, close_binder b_size (with_t (
+    ELet (b_buf, body_buf, close_binder b_buf (with_t (
+      ESequence [ with_unit (
+        EWhile (with_type TBool (
+          EApp (mk_op K.Gt K.UInt32, [
+            ref_size;
+            zerou32])), with_unit (
+          ESequence [ with_unit (
+            EBufWrite (ref_buf, ref_size, ref_init)); with_unit (
+            EAssign (
+              ref_size, with_type uint32 (
+              EApp (
               mk_op K.Sub K.UInt32, [
                 ref_size;
                 zerou32
               ]))))])));
-      ref_buf]))))))
+      ref_buf])))))))))
 
 end
 
