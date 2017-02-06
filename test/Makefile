@@ -15,8 +15,6 @@ standalone: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
 
 extra: Crypto.Symmetric.Chacha20.exe
 
-broken: Crypto.Symmetric.Poly1305.exe Mutable.exe Crypto.KrmlTest.exe
-
 # Standalone test files that have a main in F* (hence -no-prefix)
 %.exe: %.fst
 	$(KRML) $(KOPTS) $(TEST_OPTS) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $* -o $@ $<
@@ -30,14 +28,15 @@ Crypto.%.exe:
 	$(KRML) $(KOPTS) $(CRYPTO_OPTS) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -o $@ $(subst .exe,.fst,$@)
 	./$@
 
-Crypto.Symmetric.Poly1305.exe: EXTRA = main-Poly1305.c ../kremlib/testlib.c
 Crypto.Symmetric.Chacha20.exe: EXTRA = main-Chacha.c
-Crypto.AEAD.Chacha20Poly1305.exe: EXTRA = main-Aead.c ../kremlib/testlib.c
-Crypto.KrmlTest.exe: EXTRA = $(CRYPTO)/test_hacks.c -no-prefix Crypto.KrmlTest $(TEST_OPTS)
 
+# Wasm tests
 %.wasm: %.fst
 	$(KRML) $(KOPTS) $(TEST_OPTS) $(EXTRA) $^ -wasm -tmpdir $(subst .wasm,.out,$@) -drop Prims -drop FStar
 	cp $*.out/$@ .
 
+Crypto.%.wasm:
+	$(KRML) $(KOPTS) $(CRYPTO_OPTS) $(EXTRA) $(subst .wasm,.fst,$@) -wasm -tmpdir $(subst .wasm,.out,$@) -drop Prims -drop FStar
+
 clean:
-	rm -rf *.exe *.dSYM *.out
+	rm -rf *.exe *.dSYM *.out *.wasm

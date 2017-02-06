@@ -59,7 +59,6 @@ and expr =
   | BufCreateL of lifetime * expr list
   | BufRead of expr * expr
   | BufSub of expr * expr
-  | Bool of bool
   | Comma of expr * expr
   | StringLiteral of string
   | Any

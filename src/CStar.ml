@@ -60,6 +60,7 @@ and expr =
   | Comma of expr * expr
   | StringLiteral of string
   | Any
+  [@@deriving show]
 
 and block =
   stmt list
