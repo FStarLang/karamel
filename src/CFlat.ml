@@ -16,7 +16,7 @@ type program =
   decl list
 
 and decl =
-  | Global of ident * size * expr
+  | Global of ident * size * expr * bool
   | Function of function_t
   | External of ident * size list (* args *) * size list (* ret *)
 

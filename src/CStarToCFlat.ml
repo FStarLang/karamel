@@ -127,7 +127,7 @@ let rec translate_expr (env: env) (e: CS.expr): CF.expr =
       CF.Comma (translate_expr env e1, translate_expr env e2)
 
   | _ ->
-      failwith "not implemented (expr)"
+      failwith ("not implemented (expr); got: " ^ CS.show_expr e)
 
 let assert_var = function
   | CF.Var i -> i
@@ -230,7 +230,7 @@ let rec translate_stmts (env: env) (stmts: CS.stmt list): env * CF.stmt list =
   | CS.Comment _ :: stmts ->
       translate_stmts env stmts
 
-let translate_decl env (d: CS.decl): CF.decl =
+let translate_decl env (d: CS.decl): CF.decl option =
   match d with
   | CS.Function (_, flags, ret, name, args, body) ->
       let public = not (List.exists ((=) Common.Private) flags) in
@@ -243,7 +243,17 @@ let translate_decl env (d: CS.decl): CF.decl =
       let args, locals =
         KList.split_at (List.length args) (List.map (fun (_, (_, s)) -> s) env.vars)
       in
-      CF.(Function { name; args; ret; locals; body; public })
+      Some CF.(Function { name; args; ret; locals; body; public })
+
+  | CS.Type _ ->
+      (* Not translating type declarations. *)
+      None
+
+  | CS.Global (name, flags, typ, body) ->
+      let public = not (List.exists ((=) Common.Private) flags) in
+      let size = size_of typ in
+      let body = translate_expr env body in
+      Some (CF.Global (name, size, body, public))
 
   | _ ->
       failwith ("not implemented (decl); got: " ^ CS.show_decl d)
@@ -251,7 +261,7 @@ let translate_decl env (d: CS.decl): CF.decl =
 let translate_module env (name, decls) =
   name, KList.filter_map (fun d ->
     try
-      Some (translate_decl env d)
+      translate_decl env d
     with e ->
       (* Remove when everything starts working *)
       KPrint.beprintf "[C*ToC-] Couldn't translate %s:\n%s\n%s\n"
