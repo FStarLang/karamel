@@ -43,6 +43,7 @@ and expr =
   | Qualified of ident
   | Constant of K.t
   | BufCreate of lifetime * expr * expr * typ
+    (** initial value, length *)
   | BufCreateL of lifetime * expr list * typ
   | BufRead of expr * expr * typ
   | BufSub of expr * expr * typ

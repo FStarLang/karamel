@@ -9,3 +9,6 @@ let rec fact (x: nat): nat =
     1ul
   else
     x *%^ (fact (x -^ 1ul))
+
+let minus (x: nat) (y: nat { x >^ y }) =
+  x -^ y

@@ -128,11 +128,12 @@ let rec mk_expr (env: env) (e: CS.expr): CF.expr =
         CF.Qualified v
       end
 
-  | CS.BufCreate (l, e1, e2, t) ->
-      CF.BufCreate (l, mk_expr env e1, mk_expr env e2, array_size_of t)
+  | CS.BufCreate (l, e_init, e_len, t) ->
+      assert (e_init = CS.Any);
+      CF.BufCreate (l, mk_expr env e_len, array_size_of t)
 
-  | CS.BufCreateL (l, es, t) ->
-      CF.BufCreateL (l, List.map (mk_expr env) es, array_size_of t)
+  | CS.BufCreateL _ ->
+      invalid_arg "bufcreateL should've been desugared in Simplify.wasm"
 
   | CS.BufRead (e1, e2, t) ->
       CF.BufRead (mk_expr env e1, mk_expr env e2, array_size_of t)
@@ -226,21 +227,11 @@ let rec mk_stmts (env: env) (stmts: CS.stmt list): env * CF.stmt list =
       let e3 = mk_expr env e3 in
       env, CF.BufWrite (e1, e2, e3, array_size_of t) :: stmts
 
-  | CS.BufBlit (e1, e2, e3, e4, e5, t) :: stmts ->
-      let env, stmts = mk_stmts env stmts in
-      let e1 = mk_expr env e1 in
-      let e2 = mk_expr env e2 in
-      let e3 = mk_expr env e3 in
-      let e4 = mk_expr env e4 in
-      let e5 = mk_expr env e5 in
-      env, CF.BufBlit (e1, e2, e3, e4, e5, array_size_of t) :: stmts
+  | CS.BufBlit _ :: _ ->
+      invalid_arg "bufblit should've been desugared"
 
-  | CS.BufFill (e1, e2, e3, t) :: stmts ->
-      let env, stmts = mk_stmts env stmts in
-      let e1 = mk_expr env e1 in
-      let e2 = mk_expr env e2 in
-      let e3 = mk_expr env e3 in
-      env, CF.BufFill (e1, e2, e3, array_size_of t) :: stmts
+  | CS.BufFill _ :: _ ->
+      invalid_arg "buffill should've been desugared"
 
   | CS.PushFrame :: stmts ->
       let env, stmts = mk_stmts env stmts in

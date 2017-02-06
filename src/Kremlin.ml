@@ -219,6 +219,7 @@ Supported options:|}
   let files = Checker.check_everything files in
   KPrint.bprintf "%s✔%s Pattern compilation successfully checked\n" Ansi.green Ansi.reset;
 
+  let files = if !arg_wasm then Simplify.simplify_wasm files else files in
   let files = Simplify.simplify1 files in
   let files = Simplify.simplify2 files in
   if !arg_print_simplify then

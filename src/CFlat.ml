@@ -52,6 +52,11 @@ module Sizes = struct
     | Bool ->
         invalid_arg "array_size_of_width"
 
+  let bytes_in = function
+    | A8 -> 1
+    | A16 -> 2
+    | A32 -> 4
+    | A64 -> 8
 end
 
 open Sizes
@@ -88,8 +93,6 @@ and stmt =
     (** Destination, source, element size, number of elements *)
   | Switch of expr * (expr * block) list
   | BufWrite of expr * expr * expr * array_size
-  | BufBlit of expr * expr * expr * expr * expr * array_size
-  | BufFill of expr * expr * expr * array_size
   | PushFrame
   | PopFrame
   [@@ deriving show]
@@ -100,8 +103,7 @@ and expr =
   | Var of var
   | Qualified of ident
   | Constant of K.width * string
-  | BufCreate of lifetime * expr * expr * array_size
-  | BufCreateL of lifetime * expr list * array_size
+  | BufCreate of lifetime * expr * array_size
   | BufRead of expr * expr * array_size
   | BufSub of expr * expr * array_size
   | Comma of expr * expr
