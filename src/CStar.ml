@@ -22,8 +22,9 @@ and stmt =
   | IfThenElse of expr * block * block
   | While of expr * block
   | Assign of expr * expr
-    (** First expression has to be a [Bound] or [Open]. *)
+    (** Destination (i.e. Var), Source *)
   | Copy of expr * typ * expr
+    (** Destination, always Array (typ, size), Source *)
   | Switch of expr * (ident * block) list
 
   | BufWrite of expr * expr * expr

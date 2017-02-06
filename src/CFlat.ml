@@ -40,8 +40,9 @@ and stmt =
   | IfThenElse of expr * block * block
   | While of expr * block
   | Assign of (var * size) * expr
-  | Copy of expr * size * expr
-  | Switch of expr * (ident * block) list
+  | Copy of expr * expr * size * expr
+    (** Destination, source, element size, number of elements *)
+  | Switch of expr * (expr * block) list
   | BufWrite of expr * expr * expr
   | BufBlit of expr * expr * expr * expr * expr
   | BufFill of expr * expr * expr

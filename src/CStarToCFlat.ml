@@ -87,6 +87,10 @@ let rec translate_expr (env: env) (e: CS.expr): CF.expr =
   | _ ->
       failwith "not implemented (expr)"
 
+let assert_var = function
+  | CF.Var (i, s) -> i, s
+  | _ -> invalid_arg "assert_var"
+
 let rec translate_stmts (env: env) (stmts: CS.stmt list): locals * CF.stmt list =
   match stmts with
   | [] ->
@@ -111,8 +115,71 @@ let rec translate_stmts (env: env) (stmts: CS.stmt list): locals * CF.stmt list 
       let locals, stmts = translate_stmts env stmts in
       locals, CF.Return (Option.map (translate_expr env) e) :: stmts
 
-  | _ ->
-      failwith "not implemented (stmts)"
+  | CS.Abort :: _ ->
+      [], [ CF.Abort ]
+
+  | CS.Ignore e :: stmts ->
+      let locals, stmts = translate_stmts env stmts in
+      locals, CF.Ignore (translate_expr env e) :: stmts
+
+  | CS.While (e, block) :: stmts ->
+      let locals, block = translate_stmts env block in
+      let locals', stmts = translate_stmts env stmts in
+      locals @ locals', CF.While (translate_expr env e, block) :: stmts
+
+  | CS.Assign (e, e') :: stmts ->
+      let locals, stmts = translate_stmts env stmts in
+      let e = translate_expr env e in
+      let e' = translate_expr env e' in
+      locals, CF.Assign (assert_var e, e') :: stmts
+
+  | CS.Copy (dst, t, src) :: stmts ->
+      let elt_size, elt_count =
+        match t with
+        | CS.Array (t, e) -> size_of t, translate_expr env e
+        | _ -> failwith "Copy / Array?"
+      in
+      let dst = translate_expr env dst in
+      let src = translate_expr env src in
+      let locals, stmts = translate_stmts env stmts in
+      locals, CF.Copy (dst, src, elt_size, elt_count) :: stmts
+
+  | CS.Switch _ :: _ ->
+      failwith "todo: switch"
+
+  | CS.BufWrite (e1, e2, e3) :: stmts ->
+      let locals, stmts = translate_stmts env stmts in
+      let e1 = translate_expr env e1 in
+      let e2 = translate_expr env e2 in
+      let e3 = translate_expr env e3 in
+      locals, CF.BufWrite (e1, e2, e3) :: stmts
+
+  | CS.BufBlit (e1, e2, e3, e4, e5) :: stmts ->
+      let locals, stmts = translate_stmts env stmts in
+      let e1 = translate_expr env e1 in
+      let e2 = translate_expr env e2 in
+      let e3 = translate_expr env e3 in
+      let e4 = translate_expr env e4 in
+      let e5 = translate_expr env e5 in
+      locals, CF.BufBlit (e1, e2, e3, e4, e5) :: stmts
+
+  | CS.BufFill (e1, e2, e3) :: stmts ->
+      let locals, stmts = translate_stmts env stmts in
+      let e1 = translate_expr env e1 in
+      let e2 = translate_expr env e2 in
+      let e3 = translate_expr env e3 in
+      locals, CF.BufFill (e1, e2, e3) :: stmts
+
+  | CS.PushFrame :: stmts ->
+      let locals, stmts = translate_stmts env stmts in
+      locals, CF.PushFrame :: stmts
+
+  | CS.PopFrame :: stmts ->
+      let locals, stmts = translate_stmts env stmts in
+      locals, CF.PopFrame :: stmts
+
+  | CS.Comment _ :: stmts ->
+      translate_stmts env stmts
 
 let translate_decl (d: CS.decl): CF.decl =
   match d with
