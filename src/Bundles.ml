@@ -15,7 +15,7 @@ let pattern_matches (p: Bundle.pat) (m: string) =
   | Module m' ->
       String.concat "_" m' = m
   | Prefix p ->
-      KString.starts_with m (String.concat "_" p)
+      KString.starts_with m (String.concat "_" p ^ "_")
 
 let bundle_name (api, patterns) =
   match api with
