@@ -138,6 +138,12 @@ let mk_file_of files =
   in
   file_of
 
+type dependency = lident * string * lident * string
+
+let string_of_dependency (d1, f1, d2, f2) =
+  KPrint.bsprintf "%a (found in file %s) mentions %a (found in file %s)"
+    PrintAst.plid d1 f1 PrintAst.plid d2 f2
+
 (* This creates bundles for every [-bundle] argument that was passed on the
  * command-line. *)
 let make_bundles files =
@@ -163,7 +169,8 @@ let make_bundles files =
     let prepend lid =
       match file_of lid with
       | Some f when f <> fst file ->
-          Hashtbl.replace deps f (Option.must !current_decl)
+          let dep = (Option.must !current_decl, fst file, lid, f) in
+          Hashtbl.replace deps f dep
       | _ ->
           ()
     in
@@ -190,11 +197,11 @@ let make_bundles files =
     | Black ->
         ()
     | Gray ->
-        Warnings.fatal_error "Bundling creates a dependency cycle: %s"
-          (String.concat " <- " (List.map Idents.string_of_lident debug))
+        Warnings.fatal_error "Bundling creates a dependency cycle:\n%s"
+          (String.concat "\n" (List.map string_of_dependency debug))
     | White ->
         r := Gray;
-        Hashtbl.iter (fun f lid -> dfs (lid :: debug) f) deps;
+        Hashtbl.iter (fun f dep -> dfs (dep :: debug) f) deps;
         r := Black;
         stack := (file, contents) :: !stack
   in
