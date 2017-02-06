@@ -357,9 +357,9 @@ and mk_expr (e: expr): C.expr =
   | BufSub (e1, e2) ->
       Op2 (K.Add, mk_expr e1, mk_expr e2)
 
-  | Cast (e, t') ->
+  | Cast (e, _, t') ->
       begin match e with
-      | Cast (_, t) as e when t = t' || t = Int Constant.UInt8 && t' = Pointer Void ->
+      | Cast (_, _, t) as e when t = t' || t = Int Constant.UInt8 && t' = Pointer Void ->
           mk_expr e
       | e ->
           Cast (mk_type t', mk_expr e)

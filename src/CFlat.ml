@@ -61,6 +61,8 @@ and expr =
   | BufSub of expr * expr
   | Comma of expr * expr
   | StringLiteral of string
+  | Cast of expr * K.width * K.width
+      (** from; to *)
   | Any
 
 and block =

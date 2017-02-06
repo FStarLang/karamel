@@ -47,7 +47,8 @@ and expr =
   | BufRead of expr * expr
   | BufSub of expr * expr
   | Op of op
-  | Cast of expr * typ
+  | Cast of expr * typ * typ
+    (** from; to *)
   | Bool of bool
   | Struct of ident option * (ident option * expr) list
     (** Some invariants. A struct can appear in an expression (and comes with

@@ -202,11 +202,11 @@ let rec translate_expr env in_stmt e =
   | EOp (o, w) ->
       CStar.Op (o, w)
   | ECast (e, t) ->
-      CStar.Cast (translate_expr env e, translate_type env t)
+      CStar.Cast (translate_expr env e, translate_type env e.typ, translate_type env t)
   | EAbort ->
       CStar.Var "KRML_EABORT"
   | EUnit ->
-      CStar.Cast (zero, CStar.Pointer CStar.Void)
+      CStar.Cast (zero, CStar.Int K.UInt32, CStar.Pointer CStar.Void)
   | EAny ->
       CStar.Any
   | EBool b ->

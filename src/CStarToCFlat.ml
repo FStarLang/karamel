@@ -126,6 +126,9 @@ let rec translate_expr (env: env) (e: CS.expr): CF.expr =
   | CS.Comma (e1, e2) ->
       CF.Comma (translate_expr env e1, translate_expr env e2)
 
+  | CS.Cast (e, CS.Int wf, CS.Int wt) ->
+      CF.Cast (translate_expr env e, wf, wt)
+
   | _ ->
       failwith ("not implemented (expr); got: " ^ CS.show_expr e)
 
