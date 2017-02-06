@@ -271,11 +271,11 @@ Supported options:|}
   let files = Simplify.to_c_names files in
 
   (* Translate to C*... *)
-  let files = AstToCStar.translate_files files in
+  let files = AstToCStar.mk_files files in
 
   if !arg_wasm then
     (* ... then to Wasm *)
-    let files = CStarToCFlat.translate_files files in
+    let files = CStarToCFlat.mk_files files in
     let modules = CFlatToWasm.mk_files files in
     List.iter (fun (name, module_) ->
       let s = Wasm.Encode.encode module_ in

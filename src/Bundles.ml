@@ -52,7 +52,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
    * bundle. *)
   let this_round = uniq () in
 
-  (* Find the files that match a given pattern *)
+  (* Match a file against the given list of patterns. *)
   let match_file is_api patterns (used, found) file =
     List.fold_left (fun (used, found) pattern ->
       let name = fst file in
@@ -74,7 +74,6 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
   in
 
   (* Find all the files that match the given patterns. *)
-  (* FIXME: this assumes that the patterns are non-overlapping. *)
   let used, found = List.fold_left (match_file false patterns) (used, []) files in
 
   (* All the declarations that have matched the patterns are marked as private. *)

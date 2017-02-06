@@ -10,24 +10,20 @@ module StringMap = Map.Make(String)
 
 (** Sizes *)
 
-(** There are only two size in Wasm. A Low* 64-bit integer maps to I64;
- * everything else maps to I32. *)
-type size = CFlat.size =
-  I32 | I64
+open CFlat.Sizes
 
 (** We know how much space is needed to represent each C* type. *)
 let size_of (t: CS.typ): size =
   match t with
   | CS.Int w ->
-      CF.size_of_width w
+      size_of_width w
+  | CS.Array _
   | CS.Pointer _ ->
       I32
   | CS.Void  ->
       invalid_arg ("size_of: only for expression types, got: " ^ CS.show_typ t)
   | CS.Qualified _ ->
       invalid_arg "Inlining.ml should get rid of top-level qualified names"
-  | CS.Array _ ->
-      I32
   | CS.Enum _
   | CS.Bool ->
       I32
@@ -43,6 +39,29 @@ let max s1 s2 =
   match s1, s2 with
   | I32, I32 -> I32
   | _ -> I64
+
+let array_size_of (t: CS.typ): array_size =
+  match t with
+  | CS.Int w ->
+      array_size_of_width w
+  | CS.Array _
+  | CS.Pointer _ ->
+      A32
+  | CS.Void  ->
+      invalid_arg ("size_of: only for expression types, got: " ^ CS.show_typ t)
+  | CS.Qualified _ ->
+      invalid_arg "Inlining.ml should get rid of top-level qualified names"
+  | CS.Enum _ ->
+      A32
+  | CS.Bool ->
+      failwith "todo: packed arrays of bools"
+  | CS.Z ->
+      invalid_arg "Z is currently unused?!"
+  | CS.Struct _
+  | CS.Union _ ->
+      failwith "not implemented"
+  | CS.Function (_,_,_) ->
+      failwith "not implemented"
 
 
 (** Environments.
@@ -83,23 +102,23 @@ let find env v =
 
 (** The actual translation. *)
 
-let rec translate_expr (env: env) (e: CS.expr): CF.expr =
+let rec mk_expr (env: env) (e: CS.expr): CF.expr =
   match e with
   | CS.Var v ->
       let i, _ = find env v in
       CF.Var i
 
   | CS.Call (CS.Op (o, w), es) ->
-      CF.CallOp ((w, o), List.map (translate_expr env) es)
+      CF.CallOp ((w, o), List.map (mk_expr env) es)
 
   | CS.Call (CS.Qualified ident, es) ->
-      CF.CallFunc (ident, List.map (translate_expr env) es)
+      CF.CallFunc (ident, List.map (mk_expr env) es)
 
   | CS.Constant (w, lit) ->
       CF.Constant (w, lit)
 
   | CS.InlineComment (_, e, _) ->
-      translate_expr env e
+      mk_expr env e
 
   | CS.Qualified v ->
       (* JP: suboptimal, use an EEnum node instead in CStar? *)
@@ -109,26 +128,26 @@ let rec translate_expr (env: env) (e: CS.expr): CF.expr =
         CF.Qualified v
       end
 
-  | CS.BufCreate (l, e1, e2) ->
-      CF.BufCreate (l, translate_expr env e1, translate_expr env e2)
+  | CS.BufCreate (l, e1, e2, t) ->
+      CF.BufCreate (l, mk_expr env e1, mk_expr env e2, array_size_of t)
 
-  | CS.BufCreateL (l, es) ->
-      CF.BufCreateL (l, List.map (translate_expr env) es)
+  | CS.BufCreateL (l, es, t) ->
+      CF.BufCreateL (l, List.map (mk_expr env) es, array_size_of t)
 
-  | CS.BufRead (e1, e2) ->
-      CF.BufRead (translate_expr env e1, translate_expr env e2)
+  | CS.BufRead (e1, e2, t) ->
+      CF.BufRead (mk_expr env e1, mk_expr env e2, array_size_of t)
 
-  | CS.BufSub (e1, e2) ->
-      CF.BufSub (translate_expr env e1, translate_expr env e2)
+  | CS.BufSub (e1, e2, t) ->
+      CF.BufSub (mk_expr env e1, mk_expr env e2, array_size_of t)
 
   | CS.Bool b ->
       CF.Constant (K.Bool, if b then "1" else "0")
 
   | CS.Comma (e1, e2) ->
-      CF.Comma (translate_expr env e1, translate_expr env e2)
+      CF.Comma (mk_expr env e1, mk_expr env e2)
 
   | CS.Cast (e, CS.Int wf, CS.Int wt) ->
-      CF.Cast (translate_expr env e, wf, wt)
+      CF.Cast (mk_expr env e, wf, wt)
 
   | _ ->
       failwith ("not implemented (expr); got: " ^ CS.show_expr e)
@@ -137,109 +156,109 @@ let assert_var = function
   | CF.Var i -> i
   | _ -> invalid_arg "assert_var"
 
-let rec translate_stmts (env: env) (stmts: CS.stmt list): env * CF.stmt list =
+let rec mk_stmts (env: env) (stmts: CS.stmt list): env * CF.stmt list =
   match stmts with
   | [] ->
       env, []
 
   | CS.Decl (binder, e) :: stmts ->
-      let e = translate_expr env e in
+      let e = mk_expr env e in
       let env, v = bind env binder in
-      let env, stmts = translate_stmts env stmts in
+      let env, stmts = mk_stmts env stmts in
       env, CF.Assign (v, e) :: stmts
 
   | CS.IfThenElse (e, stmts1, stmts2) :: stmts ->
-      let e = translate_expr env e in
-      let env, stmts1 = translate_stmts env stmts1 in
-      let env, stmts2 = translate_stmts env stmts2 in
-      let env, stmts = translate_stmts env stmts in
+      let e = mk_expr env e in
+      let env, stmts1 = mk_stmts env stmts1 in
+      let env, stmts2 = mk_stmts env stmts2 in
+      let env, stmts = mk_stmts env stmts in
       env, CF.IfThenElse (e, stmts1, stmts2) :: stmts
 
   | CS.Return e :: stmts ->
-      let env, stmts = translate_stmts env stmts in
-      env, CF.Return (Option.map (translate_expr env) e) :: stmts
+      let env, stmts = mk_stmts env stmts in
+      env, CF.Return (Option.map (mk_expr env) e) :: stmts
 
   | CS.Abort :: _ ->
       env, [ CF.Abort ]
 
   | CS.Ignore e :: stmts ->
-      let env, stmts = translate_stmts env stmts in
-      env, CF.Ignore (translate_expr env e) :: stmts
+      let env, stmts = mk_stmts env stmts in
+      env, CF.Ignore (mk_expr env e) :: stmts
 
   | CS.While (e, block) :: stmts ->
-      let env, block = translate_stmts env block in
-      let env, stmts = translate_stmts env stmts in
-      env, CF.While (translate_expr env e, block) :: stmts
+      let env, block = mk_stmts env block in
+      let env, stmts = mk_stmts env stmts in
+      env, CF.While (mk_expr env e, block) :: stmts
 
   | CS.Assign (e, e') :: stmts ->
-      let env, stmts = translate_stmts env stmts in
-      let e = translate_expr env e in
-      let e' = translate_expr env e' in
+      let env, stmts = mk_stmts env stmts in
+      let e = mk_expr env e in
+      let e' = mk_expr env e' in
       env, CF.Assign (assert_var e, e') :: stmts
 
   | CS.Copy (dst, t, src) :: stmts ->
       let elt_size, elt_count =
         match t with
-        | CS.Array (t, e) -> size_of t, translate_expr env e
+        | CS.Array (t, e) -> size_of t, mk_expr env e
         | _ -> failwith "Copy / Array?"
       in
-      let dst = translate_expr env dst in
-      let src = translate_expr env src in
-      let env, stmts = translate_stmts env stmts in
+      let dst = mk_expr env dst in
+      let src = mk_expr env src in
+      let env, stmts = mk_stmts env stmts in
       env, CF.Copy (dst, src, elt_size, elt_count) :: stmts
 
   | CS.Switch (e, branches) :: stmts ->
-      let e = translate_expr env e in
+      let e = mk_expr env e in
       let env, branches = List.fold_left (fun (env, branches) branch ->
         let i, stmts = branch in
         let e = CF.Constant (K.UInt32, string_of_int (StringMap.find i env.enums)) in
-        let env, stmts = translate_stmts env stmts in
+        let env, stmts = mk_stmts env stmts in
         env, (e, stmts) :: branches
       ) (env, []) branches in
       let branches = List.rev branches in
-      let env, stmts = translate_stmts env stmts in
+      let env, stmts = mk_stmts env stmts in
       env, CF.Switch (e, branches) :: stmts
 
-  | CS.BufWrite (e1, e2, e3) :: stmts ->
-      let env, stmts = translate_stmts env stmts in
-      let e1 = translate_expr env e1 in
-      let e2 = translate_expr env e2 in
-      let e3 = translate_expr env e3 in
-      env, CF.BufWrite (e1, e2, e3) :: stmts
+  | CS.BufWrite (e1, e2, e3, t) :: stmts ->
+      let env, stmts = mk_stmts env stmts in
+      let e1 = mk_expr env e1 in
+      let e2 = mk_expr env e2 in
+      let e3 = mk_expr env e3 in
+      env, CF.BufWrite (e1, e2, e3, array_size_of t) :: stmts
 
-  | CS.BufBlit (e1, e2, e3, e4, e5) :: stmts ->
-      let env, stmts = translate_stmts env stmts in
-      let e1 = translate_expr env e1 in
-      let e2 = translate_expr env e2 in
-      let e3 = translate_expr env e3 in
-      let e4 = translate_expr env e4 in
-      let e5 = translate_expr env e5 in
-      env, CF.BufBlit (e1, e2, e3, e4, e5) :: stmts
+  | CS.BufBlit (e1, e2, e3, e4, e5, t) :: stmts ->
+      let env, stmts = mk_stmts env stmts in
+      let e1 = mk_expr env e1 in
+      let e2 = mk_expr env e2 in
+      let e3 = mk_expr env e3 in
+      let e4 = mk_expr env e4 in
+      let e5 = mk_expr env e5 in
+      env, CF.BufBlit (e1, e2, e3, e4, e5, array_size_of t) :: stmts
 
-  | CS.BufFill (e1, e2, e3) :: stmts ->
-      let env, stmts = translate_stmts env stmts in
-      let e1 = translate_expr env e1 in
-      let e2 = translate_expr env e2 in
-      let e3 = translate_expr env e3 in
-      env, CF.BufFill (e1, e2, e3) :: stmts
+  | CS.BufFill (e1, e2, e3, t) :: stmts ->
+      let env, stmts = mk_stmts env stmts in
+      let e1 = mk_expr env e1 in
+      let e2 = mk_expr env e2 in
+      let e3 = mk_expr env e3 in
+      env, CF.BufFill (e1, e2, e3, array_size_of t) :: stmts
 
   | CS.PushFrame :: stmts ->
-      let env, stmts = translate_stmts env stmts in
+      let env, stmts = mk_stmts env stmts in
       env, CF.PushFrame :: stmts
 
   | CS.PopFrame :: stmts ->
-      let env, stmts = translate_stmts env stmts in
+      let env, stmts = mk_stmts env stmts in
       env, CF.PopFrame :: stmts
 
   | CS.Comment _ :: stmts ->
-      translate_stmts env stmts
+      mk_stmts env stmts
 
-let translate_decl env (d: CS.decl): CF.decl option =
+let mk_decl env (d: CS.decl): CF.decl option =
   match d with
   | CS.Function (_, flags, ret, name, args, body) ->
       let public = not (List.exists ((=) Common.Private) flags) in
       let env = List.fold_left extend env args in
-      let env, body = translate_stmts env body in
+      let env, body = mk_stmts env body in
       let ret = match ret with
         | CS.Void -> []
         | _ -> [ size_of ret ]
@@ -256,16 +275,16 @@ let translate_decl env (d: CS.decl): CF.decl option =
   | CS.Global (name, flags, typ, body) ->
       let public = not (List.exists ((=) Common.Private) flags) in
       let size = size_of typ in
-      let body = translate_expr env body in
+      let body = mk_expr env body in
       Some (CF.Global (name, size, body, public))
 
   | _ ->
       failwith ("not implemented (decl); got: " ^ CS.show_decl d)
 
-let translate_module env (name, decls) =
+let mk_module env (name, decls) =
   name, KList.filter_map (fun d ->
     try
-      translate_decl env d
+      mk_decl env d
     with e ->
       (* Remove when everything starts working *)
       KPrint.beprintf "[C*ToC-] Couldn't translate %s:\n%s\n%s\n"
@@ -274,7 +293,7 @@ let translate_module env (name, decls) =
       None
   ) decls
 
-let translate_files files =
+let mk_files files =
   let env = List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
@@ -287,4 +306,4 @@ let translate_files files =
           env
     ) env decls
   ) empty files in
-  List.map (translate_module env) files
+  List.map (mk_module env) files

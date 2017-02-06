@@ -127,7 +127,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
   | Ignore e ->
       [ Expr (mk_expr e) ]
 
-  | Decl (binder, BufCreate (Eternal, init, size)) ->
+  | Decl (binder, BufCreate (Eternal, init, size, _)) ->
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
       let type_name =
         match binder.typ with
@@ -144,7 +144,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       in
       [ Decl (spec, None, [ decl, Some (InitExpr e)])]
 
-  | Decl (binder, BufCreate (Stack, init, size)) ->
+  | Decl (binder, BufCreate (Stack, init, size, _)) ->
       (* In the case where this is a buffer creation in the C* meaning, then we
        * declare a fixed-length array; this is an "upcast" from pointer type to
        * array type, in the C sense. *)
@@ -177,7 +177,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       in
       Decl (spec, None, [ decl, maybe_init ]) :: extra_stmt
 
-  | Decl (binder, BufCreateL (l, inits)) ->
+  | Decl (binder, BufCreateL (l, inits, _)) ->
       if l <> Stack then
         failwith "TODO: createL / eternal";
       let t = match binder.typ with
@@ -200,7 +200,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       else
         [ If (mk_expr e, mk_compound_if (mk_stmts b1)) ]
 
-  | Copy (e1, _, BufCreate (Stack, init, size)) ->
+  | Copy (e1, _, BufCreate (Stack, init, size, _)) ->
       begin match e1 with
       | Var _ -> ()
       | _ -> failwith "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = "
@@ -212,7 +212,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
           [ mk_for_loop_initializer (mk_expr e1) (mk_expr size) (mk_expr init) ]
       end
 
-  | Copy (e1, typ, BufCreateL (Stack, elts)) ->
+  | Copy (e1, typ, BufCreateL (Stack, elts, _)) ->
       (* int x[5]; *)
       (* memcpy(x, &((int[5]){ 1, 2, 3, 4, 5 }), sizeof x); *)
       [ Expr (Call (Name "memcpy", [
@@ -228,10 +228,10 @@ and mk_stmt (stmt: stmt): C.stmt list =
   | Assign (e1, e2) ->
       [ Expr (Assign (mk_expr e1, mk_expr e2)) ]
 
-  | BufWrite (e1, e2, e3) ->
+  | BufWrite (e1, e2, e3, _) ->
       [ Expr (Assign (mk_index e1 e2, mk_expr e3)) ]
 
-  | BufBlit (e1, e2, e3, e4, e5) ->
+  | BufBlit (e1, e2, e3, e4, e5, _) ->
       let dest = match e4 with
         | Constant (_, "0") -> mk_expr e3
         | _ -> Op2 (K.Add, mk_expr e3, mk_expr e4)
@@ -245,7 +245,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
         source;
         Op2 (K.Mult, mk_expr e5, Sizeof (Index (mk_expr e1, zero)))])) ]
 
-  | BufFill (buf, v, size) ->
+  | BufFill (buf, v, size, _) ->
       (* Again, assuming that these are non-effectful. *)
       let buf = mk_expr buf in
       let v = mk_expr v in
@@ -348,13 +348,13 @@ and mk_expr (e: expr): C.expr =
   | BufCreate _ | BufCreateL _ ->
       failwith "[mk_expr]: Buffer.create; Buffer.createl may only appear as let ... = Buffer.create"
 
-  | BufRead (e1, e2) ->
+  | BufRead (e1, e2, _) ->
       mk_index e1 e2
 
-  | BufSub (e1, Constant (_, "0")) ->
+  | BufSub (e1, Constant (_, "0"), _) ->
       mk_expr e1
 
-  | BufSub (e1, e2) ->
+  | BufSub (e1, e2, _) ->
       Op2 (K.Add, mk_expr e1, mk_expr e2)
 
   | Cast (e, _, t') ->
@@ -378,7 +378,7 @@ and mk_expr (e: expr): C.expr =
       let typ = Option.must typ in
       mk_compound_literal typ fields
 
-  | Field (BufRead (e, Constant (_, "0")), field) ->
+  | Field (BufRead (e, Constant (_, "0"), _), field) ->
       MemberAccessPointer (mk_expr e, field)
 
   | Field (e, field) ->

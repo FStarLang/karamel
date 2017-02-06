@@ -6,11 +6,55 @@
   *   along with constant numbers for enums.
   * We keep the size of machine operations, so that we know which sequence of
   * instructions to emit (e.g. for small int types, we want to add a
-  * truncation); we also the signedness to pick the right operator.
+  * truncation); we also keep the signedness to pick the right operator.
   *)
 open Common
 
 module K = Constant
+
+module Sizes = struct
+
+  (** There are only two sizes for values in Wasm. A Low* 64-bit integer maps to
+   * I64; everything else maps to I32. *)
+  type size =
+    | I32
+    | I64
+    [@@deriving show]
+
+  (* We may want, however, to adopt a more optimal representation for arrays, and
+   * store bytes within arrays. Therefore, there is a different notion of how
+   * arrays are indexed. *)
+  and array_size =
+    | A8
+    | A16
+    | A32
+    | A64
+
+  let size_of_width (w: K.width) =
+    let open K in
+    match w with
+    | UInt64 | Int64 | UInt | Int ->
+        I64
+    | _ ->
+        I32
+
+  let array_size_of_width (w: K.width) =
+    let open K in
+    match w with
+    | UInt64 | Int64 | UInt | Int ->
+        A64
+    | UInt32 | Int32 ->
+        A32
+    | UInt16 | Int16 ->
+        A16
+    | UInt8 | Int8 ->
+        A8
+    | Bool ->
+        invalid_arg "array_size_of_width"
+
+end
+
+open Sizes
 
 type program =
   decl list
@@ -43,9 +87,9 @@ and stmt =
   | Copy of expr * expr * size * expr
     (** Destination, source, element size, number of elements *)
   | Switch of expr * (expr * block) list
-  | BufWrite of expr * expr * expr
-  | BufBlit of expr * expr * expr * expr * expr
-  | BufFill of expr * expr * expr
+  | BufWrite of expr * expr * expr * array_size
+  | BufBlit of expr * expr * expr * expr * expr * array_size
+  | BufFill of expr * expr * expr * array_size
   | PushFrame
   | PopFrame
   [@@ deriving show]
@@ -56,10 +100,10 @@ and expr =
   | Var of var
   | Qualified of ident
   | Constant of K.width * string
-  | BufCreate of lifetime * expr * expr
-  | BufCreateL of lifetime * expr list
-  | BufRead of expr * expr
-  | BufSub of expr * expr
+  | BufCreate of lifetime * expr * expr * array_size
+  | BufCreateL of lifetime * expr list * array_size
+  | BufRead of expr * expr * array_size
+  | BufSub of expr * expr * array_size
   | Comma of expr * expr
   | StringLiteral of string
   | Cast of expr * K.width * K.width
@@ -76,15 +120,3 @@ and op = K.width * K.op
 
 and ident =
   string
-
-and size =
-  | I32
-  | I64
-
-let size_of_width (w: K.width) =
-  let open K in
-  match w with
-  | UInt64 | Int64 | UInt | Int ->
-      I64
-  | _ ->
-      I32

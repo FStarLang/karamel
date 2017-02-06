@@ -27,10 +27,10 @@ and stmt =
     (** Destination, always Array (typ, size), Source *)
   | Switch of expr * (ident * block) list
 
-  | BufWrite of expr * expr * expr
+  | BufWrite of expr * expr * expr * typ
     (** First expression has to be a [Bound] or [Open]. *)
-  | BufBlit of expr * expr * expr * expr * expr
-  | BufFill of expr * expr * expr
+  | BufBlit of expr * expr * expr * expr * expr * typ
+  | BufFill of expr * expr * expr * typ
   | PushFrame
   | PopFrame
   | Comment of string
@@ -42,10 +42,10 @@ and expr =
   | Var of ident
   | Qualified of ident
   | Constant of K.t
-  | BufCreate of lifetime * expr * expr
-  | BufCreateL of lifetime * expr list
-  | BufRead of expr * expr
-  | BufSub of expr * expr
+  | BufCreate of lifetime * expr * expr * typ
+  | BufCreateL of lifetime * expr list * typ
+  | BufRead of expr * expr * typ
+  | BufSub of expr * expr * typ
   | Op of op
   | Cast of expr * typ * typ
     (** from; to *)

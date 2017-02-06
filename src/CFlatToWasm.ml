@@ -1,4 +1,5 @@
 open CFlat
+open CFlat.Sizes
 
 module W = Wasm
 module K = Constant
