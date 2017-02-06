@@ -53,8 +53,8 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
   let this_round = uniq () in
 
   (* Find the files that match a given pattern *)
-  let find_files is_api (used, found) pattern =
-    List.fold_left (fun (used, found) file ->
+  let match_file is_api patterns (used, found) file =
+    List.fold_left (fun (used, found) pattern ->
       let name = fst file in
       if pattern_matches pattern name && (is_api || name <> String.concat "_" api) then begin
         if debug then
@@ -70,12 +70,12 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
       end else begin
         used, found
       end
-    ) (used, found) files
+    ) (used, found) patterns
   in
 
   (* Find all the files that match the given patterns. *)
   (* FIXME: this assumes that the patterns are non-overlapping. *)
-  let used, found = List.fold_left (find_files false) (used, []) patterns in
+  let used, found = List.fold_left (match_file false patterns) (used, []) files in
 
   (* All the declarations that have matched the patterns are marked as private. *)
   let found = List.map (fun (old_name, decls) ->
@@ -99,7 +99,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
       let count = StringMap.cardinal used in
       if debug then
         KPrint.bprintf "Looking for bundle API\n";
-      let used, found = find_files true (used, found) (Module api) in
+      let used, found = List.fold_left (match_file true [ Module api ]) (used, found) files in
       if StringMap.cardinal used <> count + 1 then
         Warnings.fatal_error "There an issue with your bundle.\n\
           You specified: -bundle %s=...\n\
