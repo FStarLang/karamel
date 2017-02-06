@@ -50,30 +50,29 @@ let merge (l1: locals) (l2: locals) =
   aux [] l1 l2
 
 type env = {
-  map: (int * size) StringMap.t;
-  size: int;
+  vars: (string * (int * size)) list;
 }
 
 let empty = {
-  map = StringMap.empty;
-  size = 0;
+  vars = []
 }
 
-let extend (env: env) (binder: CS.binder): env * size =
-  let env = {
-    map = StringMap.add binder.CS.name (env.size, size_of binder.CS.typ) env.map;
-    size = env.size + 1
-  } in
-  env, size_of binder.CS.typ
+let bind (env: env) (binder: CS.binder): env * CF.var =
+  let i = List.length env.vars in {
+    vars = (binder.CS.name, (i, size_of binder.CS.typ)) :: env.vars
+  }, i
 
-let grow (env: env) (size: int): env =
-  { env with size = env.size + size }
+let extend env binder =
+  fst (bind env binder)
+
+let find env v =
+  List.assoc v env.vars
 
 let rec translate_expr (env: env) (e: CS.expr): CF.expr =
   match e with
-  | CS.Var i ->
-      let i, s = StringMap.find i env.map in
-      CF.Var (i, s)
+  | CS.Var v ->
+      let i, _ = find env v in
+      CF.Var i
 
   | CS.Call (CS.Op (o, w), es) ->
       CF.CallOp ((w, o), List.map (translate_expr env) es)
@@ -88,50 +87,48 @@ let rec translate_expr (env: env) (e: CS.expr): CF.expr =
       failwith "not implemented (expr)"
 
 let assert_var = function
-  | CF.Var (i, s) -> i, s
+  | CF.Var i -> i
   | _ -> invalid_arg "assert_var"
 
-let rec translate_stmts (env: env) (stmts: CS.stmt list): locals * CF.stmt list =
+let rec translate_stmts (env: env) (stmts: CS.stmt list): env * CF.stmt list =
   match stmts with
   | [] ->
-      [], []
+      env, []
 
   | CS.Decl (binder, e) :: stmts ->
       let e = translate_expr env e in
-      let v = env.size in
-      let env, local = extend env binder in
-      let locals, stmts = translate_stmts env stmts in
-      local :: locals, CF.Assign ((v, local), e) :: stmts
+      let env, v = bind env binder in
+      let env, stmts = translate_stmts env stmts in
+      env, CF.Assign (v, e) :: stmts
 
   | CS.IfThenElse (e, stmts1, stmts2) :: stmts ->
       let e = translate_expr env e in
-      let locals1, stmts1 = translate_stmts env stmts1 in
-      let locals2, stmts2 = translate_stmts env stmts2 in
-      let locals_ite = merge locals1 locals2 in
-      let locals, stmts = translate_stmts (grow env (List.length locals_ite)) stmts in
-      locals_ite @ locals, CF.IfThenElse (e, stmts1, stmts2) :: stmts
+      let env, stmts1 = translate_stmts env stmts1 in
+      let env, stmts2 = translate_stmts env stmts2 in
+      let env, stmts = translate_stmts env stmts in
+      env, CF.IfThenElse (e, stmts1, stmts2) :: stmts
 
   | CS.Return e :: stmts ->
-      let locals, stmts = translate_stmts env stmts in
-      locals, CF.Return (Option.map (translate_expr env) e) :: stmts
+      let env, stmts = translate_stmts env stmts in
+      env, CF.Return (Option.map (translate_expr env) e) :: stmts
 
   | CS.Abort :: _ ->
-      [], [ CF.Abort ]
+      env, [ CF.Abort ]
 
   | CS.Ignore e :: stmts ->
-      let locals, stmts = translate_stmts env stmts in
-      locals, CF.Ignore (translate_expr env e) :: stmts
+      let env, stmts = translate_stmts env stmts in
+      env, CF.Ignore (translate_expr env e) :: stmts
 
   | CS.While (e, block) :: stmts ->
-      let locals, block = translate_stmts env block in
-      let locals', stmts = translate_stmts env stmts in
-      locals @ locals', CF.While (translate_expr env e, block) :: stmts
+      let env, block = translate_stmts env block in
+      let env, stmts = translate_stmts env stmts in
+      env, CF.While (translate_expr env e, block) :: stmts
 
   | CS.Assign (e, e') :: stmts ->
-      let locals, stmts = translate_stmts env stmts in
+      let env, stmts = translate_stmts env stmts in
       let e = translate_expr env e in
       let e' = translate_expr env e' in
-      locals, CF.Assign (assert_var e, e') :: stmts
+      env, CF.Assign (assert_var e, e') :: stmts
 
   | CS.Copy (dst, t, src) :: stmts ->
       let elt_size, elt_count =
@@ -141,42 +138,42 @@ let rec translate_stmts (env: env) (stmts: CS.stmt list): locals * CF.stmt list 
       in
       let dst = translate_expr env dst in
       let src = translate_expr env src in
-      let locals, stmts = translate_stmts env stmts in
-      locals, CF.Copy (dst, src, elt_size, elt_count) :: stmts
+      let env, stmts = translate_stmts env stmts in
+      env, CF.Copy (dst, src, elt_size, elt_count) :: stmts
 
   | CS.Switch _ :: _ ->
       failwith "todo: switch"
 
   | CS.BufWrite (e1, e2, e3) :: stmts ->
-      let locals, stmts = translate_stmts env stmts in
+      let env, stmts = translate_stmts env stmts in
       let e1 = translate_expr env e1 in
       let e2 = translate_expr env e2 in
       let e3 = translate_expr env e3 in
-      locals, CF.BufWrite (e1, e2, e3) :: stmts
+      env, CF.BufWrite (e1, e2, e3) :: stmts
 
   | CS.BufBlit (e1, e2, e3, e4, e5) :: stmts ->
-      let locals, stmts = translate_stmts env stmts in
+      let env, stmts = translate_stmts env stmts in
       let e1 = translate_expr env e1 in
       let e2 = translate_expr env e2 in
       let e3 = translate_expr env e3 in
       let e4 = translate_expr env e4 in
       let e5 = translate_expr env e5 in
-      locals, CF.BufBlit (e1, e2, e3, e4, e5) :: stmts
+      env, CF.BufBlit (e1, e2, e3, e4, e5) :: stmts
 
   | CS.BufFill (e1, e2, e3) :: stmts ->
-      let locals, stmts = translate_stmts env stmts in
+      let env, stmts = translate_stmts env stmts in
       let e1 = translate_expr env e1 in
       let e2 = translate_expr env e2 in
       let e3 = translate_expr env e3 in
-      locals, CF.BufFill (e1, e2, e3) :: stmts
+      env, CF.BufFill (e1, e2, e3) :: stmts
 
   | CS.PushFrame :: stmts ->
-      let locals, stmts = translate_stmts env stmts in
-      locals, CF.PushFrame :: stmts
+      let env, stmts = translate_stmts env stmts in
+      env, CF.PushFrame :: stmts
 
   | CS.PopFrame :: stmts ->
-      let locals, stmts = translate_stmts env stmts in
-      locals, CF.PopFrame :: stmts
+      let env, stmts = translate_stmts env stmts in
+      env, CF.PopFrame :: stmts
 
   | CS.Comment _ :: stmts ->
       translate_stmts env stmts
@@ -185,12 +182,12 @@ let translate_decl (d: CS.decl): CF.decl =
   match d with
   | CS.Function (_, flags, ret, name, args, body) ->
       let public = not (List.exists ((=) Common.Private) flags) in
-      let env, args = List.fold_left (fun (env, args) binder ->
-        let env, arg = extend env binder in
-        env, arg :: args
-      ) (empty, []) args in
-      let locals, body = translate_stmts env body in
+      let env = List.fold_left extend empty args in
+      let env, body = translate_stmts env body in
       let ret = [ size_of ret ] in
+      let args, locals =
+        KList.split_at (List.length args) (List.map (fun (_, (_, s)) -> s) env.vars)
+      in
       CF.(Function { name; args; ret; locals; body; public })
 
   | _ ->

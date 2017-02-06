@@ -139,9 +139,6 @@ let is_cmpop (o: K.width * K.op) =
   mk_cmpop o <> None
 
 
-(** There are two types of conversions. The first one is load/store conversions,
- * that require resizing from a possibly larger local size to the right operand
- * size. *)
 let resize orig dest =
   match orig, dest with
   | I64, I32 ->
@@ -175,8 +172,8 @@ let rec mk_callop2 env (w, o) e1 e2 =
 
 and mk_expr env (e: expr): W.Ast.instr list =
   match e with
-  | Var (i, s) ->
-      [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ] @ resize (size_at env i) s
+  | Var i ->
+      [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]
 
   | Constant (w, lit) ->
       [ dummy_phrase (W.Ast.Const (mk_lit w lit)) ]
@@ -205,9 +202,8 @@ let rec mk_stmt env (stmt: stmt): W.Ast.instr list =
       mk_expr env e @
       [ dummy_phrase (W.Ast.If ([ W.Types.I32Type ], mk_stmts env b1, mk_stmts env b2)) ]
 
-  | Assign ((i, s), e) ->
+  | Assign (i, e) ->
       mk_expr env e @
-      resize s (size_at env i) @
       [ dummy_phrase (W.Ast.SetLocal (mk_var i)) ]
 
   | _ ->

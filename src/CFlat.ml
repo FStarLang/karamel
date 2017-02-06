@@ -39,7 +39,7 @@ and stmt =
   | Ignore of expr
   | IfThenElse of expr * block * block
   | While of expr * block
-  | Assign of (var * size) * expr
+  | Assign of var * expr
   | Copy of expr * expr * size * expr
     (** Destination, source, element size, number of elements *)
   | Switch of expr * (expr * block) list
@@ -52,11 +52,8 @@ and stmt =
 and expr =
   | CallOp of op * expr list
   | CallFunc of ident * expr list
-  | Var of var * size
-  | Qualified of ident * size
-    (** Loading from a local or global slot requires knowing which size the
-     * resulting operand should have. For instance, we may end up loading a
-     * 32-bit variable from a 64-bit slot, or a byte from a word-sized slot. *)
+  | Var of var
+  | Qualified of ident
   | Constant of K.width * string
   | BufCreate of lifetime * expr * expr
   | BufCreateL of lifetime * expr list
@@ -70,10 +67,10 @@ and expr =
 and block =
   stmt list
 
-and op = K.width * K.op
-
 and var =
-  int
+  int (** NOT De Bruijn *)
+
+and op = K.width * K.op
 
 and ident =
   string
