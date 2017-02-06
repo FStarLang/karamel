@@ -27,6 +27,12 @@ let bundle_name (api, patterns) =
   | _ ->
      String.concat "_" api
 
+let uniq =
+  let r = ref 0 in
+  fun () ->
+    incr r;
+    !r
+
 (** This collects all the files that match a given bundle specification, while
  * preserving their original dependency ordering within the bundle. If the
  * bundle is of the form Api=Patterns, then the declarations from Api are kept
@@ -36,12 +42,16 @@ let bundle_name (api, patterns) =
  *
  * The used parameter is just here to keep track of which files have been
  * involved in at least one bundle, so that we can drop them afterwards. *)
-let make_one_bundle (bundle: Bundle.t) (files: file list) (used: bool StringMap.t) =
+let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t) =
   let debug = Options.debug "bundle" in
   if debug then
     KPrint.bprintf "Starting creation of bundle %s\n" (bundle_name bundle);
 
   let api, patterns = bundle in
+  (* The used map also allows us to detect when a file is used twice in a
+   * bundle. *)
+  let this_round = uniq () in
+
   (* Find the files that match a given pattern *)
   let find_files is_api (used, found) pattern =
     List.fold_left (fun (used, found) file ->
@@ -49,15 +59,24 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: bool StringMap.
       if pattern_matches pattern name && (is_api || name <> String.concat "_" api) then begin
         if debug then
           KPrint.bprintf "%s is a match\n" name;
-        StringMap.add name true used, file :: found
+
+        (* Be nice and give an error. *)
+        let prev_round = try StringMap.find name used with Not_found -> 0 in
+        if prev_round = this_round then
+          Warnings.fatal_error "The file %s is matched twice by bundle %s\n"
+            name (string_of_bundle bundle);
+
+        StringMap.add name this_round used, file :: found
       end else begin
         used, found
       end
     ) (used, found) files
   in
+
   (* Find all the files that match the given patterns. *)
   (* FIXME: this assumes that the patterns are non-overlapping. *)
   let used, found = List.fold_left (find_files false) (used, []) patterns in
+
   (* All the declarations that have matched the patterns are marked as private. *)
   let found = List.map (fun (old_name, decls) ->
     old_name, List.map (function 
@@ -69,6 +88,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: bool StringMap.
           decl
     ) decls
   ) found in
+
   (* The Api module gets a special treatment; if it exists, it is not collected
    * in the call to [fold_left] above; rather, it is taken now from the list of
    * files so that its declarations do not get the special "private" treatment. *)
