@@ -157,6 +157,9 @@ let is_cmpop (o: K.width * K.op) =
 let i32_mul =
   [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Mul)) ]
 
+let i32_add =
+  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Add)) ]
+
 let i32_and =
   [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.And)) ]
 
@@ -172,16 +175,33 @@ let grow_highwater =
   write_highwater
 
 (** Dealing with size mismatches *)
-let resize orig dest =
-  match orig, dest with
-  | I64, I32 ->
-      [ dummy_phrase (W.Ast.Convert (W.Values.I64 W.Ast.IntOp.WrapI64)) ]
-  | I32, I64 ->
-      [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.ExtendUI32)) ]
-  | _ ->
-      []
 
-let truncate w =
+(** The delicate question is how to handle integer types < 32 bits. Two options
+ * for signed integers:
+ * - keep the most significant bit as the sign bit (i.e; the 32nd bit), and use
+ *   the remaining lowest n-1 bits; this means that operations that need to care
+ *   about the sign (shift-right, division, remainder) can be builtin Wasm
+ *   operations; then, assuming we want to replicate the C semantics:
+ *   + signed to larger signed = no-op
+ *   + signed to smaller signed = mask & shift sign bit
+ *   + unsigned to smaller unsigned = mask
+ *   + unsigned to larger unsigned = no-op
+ *   + signed to smaller unsigned = mask
+ *   + signed to equal or greater unsigned = shift sign bit
+ *   + unsigned to smaller or equal signed = mask & shift sign bit
+ *   + unsigned to larger signed = no-op
+ * - use the lowest n bits and re-implement "by hand" operations that require us
+ *   to care about the sign
+ *   + signed to larger signed = sign-extension
+ *   + signed to smaller signed = mask
+ *   + unsigned to smaller unsigned = mask
+ *   + unsigned to larger unsigned = no-op
+ *   + signed to smaller unsigned = mask
+ *   + signed to greater unsigned = sign-extension
+ *   + unsigned to smaller or equal signed = mask
+ *   + unsigned to larger signed = no-op
+ *)
+let mk_mask w =
   let open K in
   match w with
   | UInt32 | Int32 | UInt64 | Int64 | UInt | Int ->
@@ -193,7 +213,37 @@ let truncate w =
       mk_const (mk_int32 0xffl) @
       i32_and
   | _ ->
-      invalid_arg "truncate"
+      []
+
+let mk_cast w_from w_to =
+  let open K in
+  match w_from, w_to with
+  | (UInt8 | UInt16 | UInt32), (Int64 | UInt64 | Int | UInt) ->
+      (* Zero-padding, C semantics. That's 12 cases. *)
+      [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.ExtendUI32)) ]
+  | Int32, (Int64 | UInt64 | Int | UInt) ->
+      (* Sign-extend, then re-interpret, also C semantics. That's 12 more cases. *)
+      [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.ExtendSI32)) ]
+  | (Int64 | UInt64 | Int | UInt), (Int32 | UInt32) ->
+      (* Truncate, still C semantics (famous last words?). That's 24 cases. *)
+      [ dummy_phrase (W.Ast.Convert (W.Values.I64 W.Ast.IntOp.WrapI64)) ] @
+      mk_mask w_to
+  | (Int8 | UInt8), (Int8 | UInt8)
+  | (Int16 | UInt16), (Int16 | UInt16)
+  | (Int32 | UInt32), (Int32 | UInt32)
+  | (Int64 | UInt64), (Int64 | UInt64) ->
+      []
+  | UInt8, (UInt16 | UInt32)
+  | UInt16, UInt32 ->
+      []
+  | UInt16, UInt8
+  | UInt32, (UInt16 | UInt8) ->
+      mk_mask w_to
+  | Bool, _ | _, Bool ->
+      invalid_arg "mk_cast"
+  | _ ->
+      failwith "todo: signed cast conversions"
+
 
 (** Actual translations *)
 let rec mk_callop2 env (w, o) e1 e2 =
@@ -203,10 +253,10 @@ let rec mk_callop2 env (w, o) e1 e2 =
   mk_expr env e2 @
   if is_binop (w, o) then
     [ dummy_phrase (W.Ast.Binary (mk_value size (Option.must (mk_binop (w, o))))) ] @
-    truncate w
+    mk_mask w
   else if is_cmpop (w, o) then
     [ dummy_phrase (W.Ast.Compare (mk_value size (Option.must (mk_cmpop (w, o))))) ] @
-    truncate w
+    mk_mask w
   else
     failwith "todo mk_callop2"
 
@@ -225,7 +275,11 @@ and mk_expr env (e: expr): W.Ast.instr list =
       mk_callop2 env o e1 e2
 
   | CallFunc (name, es) ->
-      let index = StringMap.find name env.funcs in
+      let index =
+        try StringMap.find name env.funcs
+        with Not_found ->
+          failwith ("not found :" ^ name)
+      in
       KList.map_flatten (mk_expr env) es @
       [ dummy_phrase (W.Ast.Call (mk_var index)) ]
 
@@ -259,6 +313,10 @@ and mk_expr env (e: expr): W.Ast.instr list =
           | A8 -> Some W.Memory.(Mem8, ZX)
           | _ -> None })]
 
+  | Cast (e1, w_from, w_to) ->
+      mk_expr env e1 @
+      mk_cast w_from w_to
+
   | _ ->
       failwith ("not implemented (expr); got: " ^ show_expr e)
 
@@ -278,6 +336,25 @@ let rec mk_stmt env (stmt: stmt): W.Ast.instr list =
   | Assign (i, e) ->
       mk_expr env e @
       [ dummy_phrase (W.Ast.SetLocal (mk_var i)) ]
+
+  | BufWrite (e1, e2, e3, size) ->
+      mk_expr env e1 @
+      mk_expr env e2 @
+      mk_size size @
+      i32_mul @
+      i32_add @
+      mk_expr env e3 @
+      [ dummy_phrase W.Ast.(Store {
+        ty = mk_type (if size = A64 then I64 else I32); 
+        align = 0;
+        offset = 0l;
+        sz = match size with
+          | A16 -> Some W.Memory.Mem16
+          | A8 -> Some W.Memory.Mem8
+          | _ -> None })]
+
+  | Ignore _ ->
+      []
 
   | _ ->
       failwith ("not implemented (stmt); got: " ^ show_stmt stmt)
