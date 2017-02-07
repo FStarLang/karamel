@@ -73,6 +73,11 @@ let mk_lit w lit =
   | _ ->
       failwith "mk_lit"
 
+let todo w =
+  match w with
+  | K.Int8 | K.Int16 -> failwith "todo"
+  | _ -> ()
+
 (** Binary operations take a width and an operation, in order to pick the right
  * flavor of signed vs. unsigned operation *)
 let mk_binop (w, o) =
@@ -83,6 +88,7 @@ let mk_binop (w, o) =
   | K.Sub | K.SubW ->
       Some Sub
   | K.Div | K.DivW ->
+      todo w;
       (* Fortunately, it looks like FStar.Int*, C and Wasm all adopt the
        * "rounding towards zero" behavior. Phew! *)
       if K.is_signed w then
@@ -92,6 +98,7 @@ let mk_binop (w, o) =
   | K.Mult | K.MultW ->
       Some Mul
   | K.Mod ->
+      todo w;
       if K.is_signed w then
         Some RemS
       else
@@ -105,6 +112,7 @@ let mk_binop (w, o) =
   | K.BShiftL ->
       Some Shl
   | K.BShiftR ->
+      todo w;
       if K.is_signed w then
         Some ShrS
       else
@@ -125,21 +133,25 @@ let mk_cmpop (w, o) =
   | K.BNot | K.Not ->
       failwith "todo not (zero minus?)"
   | K.Lt ->
+      todo w;
       if K.is_signed w then
         Some LtS
       else
         Some LtU
   | K.Lte ->
+      todo w;
       if K.is_signed w then
         Some LeS
       else
         Some LeU
   | K.Gt ->
+      todo w;
       if K.is_signed w then
         Some GtS
       else
         Some GtU
   | K.Gte ->
+      todo w;
       if K.is_signed w then
         Some GeS
       else
@@ -278,7 +290,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
       let index =
         try StringMap.find name env.funcs
         with Not_found ->
-          failwith ("not found :" ^ name)
+          failwith ("not found: " ^ name)
       in
       KList.map_flatten (mk_expr env) es @
       [ dummy_phrase (W.Ast.Call (mk_var index)) ]
@@ -384,8 +396,27 @@ let mk_global env size body =
     value = dummy_phrase body
   })
 
-let mk_module (name, decls): string * W.Ast.module_ =
-  (* Assign functions and global their index in the table *)
+let mk_module imports (name, decls): string * W.Ast.module_ =
+  let imports, types = List.split imports in
+
+  (* Assign imports their index in the table *)
+  let rec assign env i imports =
+    let funcs = env.funcs in
+    let open W.Ast in
+    let open W.Source in
+    match imports with
+    | { it = { item_name; ikind = { it = FuncImport n; _ }; _ }; _ } :: tl ->
+        let env = { env with funcs = StringMap.add item_name (Int32.to_int n.it) funcs } in
+        assign env (i + 1) tl
+    | _ :: tl ->
+        assign env i tl
+    | [] ->
+        env
+  in
+  let env = assign empty 0 imports in
+
+  (* Assign functions and globals their index in the table. Functions defined in
+   * the current module come after imports in the "function index space". *)
   let rec assign env f g = function
     | Function { name; _ } :: tl ->
         let env = { env with funcs = StringMap.add name f env.funcs } in
@@ -398,13 +429,13 @@ let mk_module (name, decls): string * W.Ast.module_ =
     | [] ->
         env
   in
-  (* The first global is the highwater mark *)
-  let env = assign empty 0 1 decls in
+  (* The first global is reserved for the highwater mark. *)
+  let env = assign env (List.length types) 1 decls in
 
   (* Generate types for the function declarations. There is the invariant that
    * the function at index i in the function table has type i in the types
    * table. *)
-  let types = KList.filter_map (function
+  let types = types @ KList.filter_map (function
     | Function f ->
         Some (mk_func_type f)
     | _ ->
@@ -453,9 +484,31 @@ let mk_module (name, decls): string * W.Ast.module_ =
     funcs;
     types;
     globals;
-    exports
+    exports;
+    imports
   }) in
   name, module_
 
 let mk_files files =
-  List.map mk_module files
+  let _, modules = List.fold_left (fun (imports, modules) file ->
+    let module_name, _ = file in
+    let module_ = mk_module imports file in
+    let offset = List.length imports in
+    let open W.Ast in
+    let open W.Source in
+    let imports = imports @ List.mapi (fun i x ->
+      match x.it with
+      | { name; ekind = { it = FuncExport; _ }; item } ->
+          dummy_phrase {
+            module_name;
+            item_name = name;
+            ikind = dummy_phrase (FuncImport (mk_var (offset + i)))
+          },
+          List.nth (snd module_).it.types (Int32.to_int item.it)
+      | _ ->
+          failwith "todo/import"
+    ) (snd module_).it.exports in
+    imports, module_ :: modules
+  ) ([], []) files in
+  List.rev modules
+
