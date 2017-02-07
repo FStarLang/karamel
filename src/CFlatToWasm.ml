@@ -499,13 +499,20 @@ let mk_module types imports (name, decls): string * W.Ast.module_ =
     ) decls
   in
 
+  let memories = [
+    dummy_phrase {
+      W.Ast.mtype = W.Types.MemoryType W.Types.({ min = 16l; max = None })
+    }
+  ] in
+
   let module_ = dummy_phrase W.Ast.({
     empty_module with
     funcs;
     types;
     globals;
     exports;
-    imports
+    imports;
+    memories
   }) in
   name, module_
 
