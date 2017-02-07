@@ -182,6 +182,9 @@ let i32_zero =
 let mk_unit =
   i32_zero
 
+let mk_drop =
+  [ dummy_phrase W.Ast.Drop ]
+
 let read_highwater =
   [ dummy_phrase (W.Ast.GetGlobal (mk_var 0)) ]
 
@@ -376,11 +379,12 @@ and mk_expr env (e: expr): W.Ast.instr list =
         mk_expr env e @
         i32_not @
         [ dummy_phrase (W.Ast.BrIf (mk_var 0)) ] @
-        mk_expr env expr)) ] @
+        mk_expr env expr @
+        mk_drop)) ] @
       mk_unit
 
   | Ignore _ ->
-      [ dummy_phrase W.Ast.Drop ]
+      mk_drop
 
   | Sequence es ->
       let es, e = KList.split_at_last es in
@@ -419,7 +423,7 @@ let mk_func env { args; locals; body; name; _ } =
 let mk_global env size body =
   let body = mk_expr env body in
   dummy_phrase W.Ast.({
-    gtype = W.Types.GlobalType (mk_type size, W.Types.Mutable);
+    gtype = W.Types.GlobalType (mk_type size, W.Types.Immutable);
     value = dummy_phrase body
   })
 
