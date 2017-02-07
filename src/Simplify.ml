@@ -796,7 +796,23 @@ end
 
 let with_unit = with_type TUnit
 let uint32 = TInt K.UInt32
+
 let zerou32 = with_type uint32 (EConstant (K.UInt32, "0"))
+let oneu32 = with_type uint32 (EConstant (K.UInt32, "1"))
+
+let minus_one e =
+  with_type uint32 (
+    EApp (
+      mk_op K.Sub K.UInt32, [
+      e;
+      oneu32
+    ]))
+
+let gt_zero e =
+  with_type TBool (
+    EApp (mk_op K.Gt K.UInt32, [
+      e;
+      zerou32]))
 
 let remove_buffer_ops = object
   inherit [unit] map
@@ -825,20 +841,36 @@ let remove_buffer_ops = object
     ELet (b_size, body_size, close_binder b_size (with_t (
     ELet (b_buf, body_buf, close_binder b_buf (with_t (
       ESequence [ with_unit (
-        EWhile (with_type TBool (
-          EApp (mk_op K.Gt K.UInt32, [
-            ref_size;
-            zerou32])), with_unit (
+        EWhile (
+          gt_zero ref_size, with_unit (
           ESequence [ with_unit (
-            EBufWrite (ref_buf, ref_size, ref_init)); with_unit (
-            EAssign (
-              ref_size, with_type uint32 (
-              EApp (
-              mk_op K.Sub K.UInt32, [
-                ref_size;
-                zerou32
-              ]))))])));
+            EBufWrite (ref_buf, minus_one ref_size, ref_init)); with_unit (
+            EAssign (ref_size, minus_one ref_size))])));
       ref_buf])))))))))
+
+  method ebufblit () t src_buf src_ofs dst_buf dst_ofs len =
+    let with_t = with_type t in
+    let b_src, body_src, ref_src =
+      mk_named_binding "src" src_buf.typ (EBufSub (src_buf, src_ofs))
+    in
+    let b_dst, body_dst, ref_dst =
+      mk_named_binding "dst" dst_buf.typ (EBufSub (dst_buf, dst_ofs))
+    in
+    let b_len, body_len, ref_len =
+      mk_named_binding "len" uint32 len.node
+    in
+    let b_len = mark_mut b_len in
+    ELet (b_src, body_src, close_binder b_src (with_unit (
+    ELet (b_dst, body_dst, close_binder b_dst (with_unit (
+    ELet (b_len, body_len, close_binder b_len (with_unit (
+      EWhile (
+        gt_zero ref_len, with_unit (
+        ESequence [ with_unit (
+          EBufWrite (
+            ref_dst,
+            minus_one ref_len,
+            with_t (EBufRead (ref_src, minus_one ref_len)))); with_unit (
+          EAssign (ref_len, minus_one ref_len))])))))))))))
 
 end
 
