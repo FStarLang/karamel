@@ -318,6 +318,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
       mk_expr env e2 @
       mk_size size @
       i32_mul @
+      i32_add @
       [ dummy_phrase W.Ast.(Load {
         (* the type we want on the operand stack *)
         ty = mk_type (if size = A64 then I64 else I32); 
