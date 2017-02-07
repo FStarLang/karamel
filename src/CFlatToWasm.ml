@@ -175,6 +175,13 @@ let i32_add =
 let i32_and =
   [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.And)) ]
 
+let i32_sub =
+  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Sub)) ]
+
+let i32_not =
+  mk_const (mk_int32 Int32.min_int) @
+  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Sub)) ]
+
 let read_highwater =
   [ dummy_phrase (W.Ast.GetGlobal (mk_var 0)) ]
 
@@ -325,6 +332,14 @@ and mk_expr env (e: expr): W.Ast.instr list =
           | A8 -> Some W.Memory.(Mem8, ZX)
           | _ -> None })]
 
+  | BufSub (e1, e2, size) ->
+      mk_expr env e1 @
+      mk_expr env e2 @
+      mk_size size @
+      i32_mul @
+      i32_add
+
+
   | Cast (e1, w_from, w_to) ->
       mk_expr env e1 @
       mk_cast w_from w_to
@@ -365,6 +380,13 @@ let rec mk_stmt env (stmt: stmt): W.Ast.instr list =
           | A8 -> Some W.Memory.Mem8
           | _ -> None })]
 
+  | While (e, stmts) ->
+      [ dummy_phrase (W.Ast.Block ([],
+        mk_expr env e @
+        i32_not @
+        [ dummy_phrase (W.Ast.BrIf (mk_var 0)) ] @
+        mk_stmts env stmts)) ]
+
   | Ignore _ ->
       []
 
@@ -396,9 +418,7 @@ let mk_global env size body =
     value = dummy_phrase body
   })
 
-let mk_module imports (name, decls): string * W.Ast.module_ =
-  let imports, types = List.split imports in
-
+let mk_module types imports (name, decls): string * W.Ast.module_ =
   (* Assign imports their index in the table *)
   let rec assign env i imports =
     let funcs = env.funcs in
@@ -490,25 +510,34 @@ let mk_module imports (name, decls): string * W.Ast.module_ =
   name, module_
 
 let mk_files files =
-  let _, modules = List.fold_left (fun (imports, modules) file ->
+  let _, _, modules = List.fold_left (fun (types, imports, modules) file ->
     let module_name, _ = file in
-    let module_ = mk_module imports file in
-    let offset = List.length imports in
+    let module_ = mk_module (List.rev types) (List.rev imports) file in
+    let offset = List.length types in
     let open W.Ast in
     let open W.Source in
-    let imports = imports @ List.mapi (fun i x ->
+    let _, types, imports = List.fold_left (fun (offset, types, imports) x ->
       match x.it with
       | { name; ekind = { it = FuncExport; _ }; item } ->
+          offset + 1,
+          List.nth (snd module_).it.types (Int32.to_int item.it) :: types,
           dummy_phrase {
             module_name;
             item_name = name;
-            ikind = dummy_phrase (FuncImport (mk_var (offset + i)))
-          },
-          List.nth (snd module_).it.types (Int32.to_int item.it)
+            ikind = dummy_phrase (FuncImport (mk_var offset))
+          } :: imports
+      | { name; ekind = { it = GlobalExport; _ }; item } ->
+          let t = List.nth (snd module_).it.globals (Int32.to_int item.it) in
+          offset,
+          types,
+          dummy_phrase {
+            module_name;
+            item_name = name;
+            ikind = dummy_phrase (GlobalImport t.it.gtype)
+          } :: imports
       | _ ->
           failwith "todo/import"
-    ) (snd module_).it.exports in
-    imports, module_ :: modules
-  ) ([], []) files in
+    ) (offset, types, imports) (snd module_).it.exports in
+    types, imports, module_ :: modules
+  ) ([], [], []) files in
   List.rev modules
-
