@@ -87,3 +87,7 @@ let split_at i l =
       split_at (i - 1) (List.hd l2 :: l1) (List.tl l2)
   in
   split_at i [] l
+
+let split_at_last l =
+  let l = List.rev l in
+  List.rev (List.tl l), List.hd l

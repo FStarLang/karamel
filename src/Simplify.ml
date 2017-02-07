@@ -817,7 +817,7 @@ let gt_zero e =
 let remove_buffer_ops = object
   inherit [unit] map
 
-  (* The relative simple:
+  (* The relatively simple:
    *
    *   bufcreate init size
    *

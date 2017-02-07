@@ -25,8 +25,6 @@ open PrintAst.Ops
 
 module C = Checker
 
-let map_flatten f l = List.flatten (List.map f l)
-
 type env = {
   location: loc list;
   names: ident list;
@@ -194,21 +192,21 @@ let rec mk_expr env in_stmt e =
       else
         call
   | EBufCreate (l, e1, e2) ->
-      CStar.BufCreate (l, mk_expr env e1, mk_expr env e2, mk_buf env e.typ)
+      CStar.BufCreate (l, mk_expr env e1, mk_expr env e2)
   | EBufCreateL (l, es) ->
-      CStar.BufCreateL (l, List.map (mk_expr env) es, mk_buf env e.typ)
+      CStar.BufCreateL (l, List.map (mk_expr env) es)
   | EBufRead (e1, e2) ->
-      CStar.BufRead (mk_expr env e1, mk_expr env e2, mk_buf env e1.typ)
+      CStar.BufRead (mk_expr env e1, mk_expr env e2)
   | EBufSub (e1, e2) ->
-      CStar.BufSub (mk_expr env e1, mk_expr env e2, mk_buf env e1.typ)
+      CStar.BufSub (mk_expr env e1, mk_expr env e2)
   | EOp (o, w) ->
       CStar.Op (o, w)
   | ECast (e, t) ->
-      CStar.Cast (mk_expr env e, mk_type env e.typ, mk_type env t)
+      CStar.Cast (mk_expr env e, mk_type env t)
   | EAbort ->
       CStar.Var "KRML_EABORT"
   | EUnit ->
-      CStar.Cast (zero, CStar.Int K.UInt32, CStar.Pointer CStar.Void)
+      CStar.Cast (zero, CStar.Pointer CStar.Void)
   | EAny ->
       CStar.Any
   | EBool b ->
@@ -236,7 +234,7 @@ and mk_buf env t =
   | _ ->
       invalid_arg "mk_buf"
 
-and extract_stmts env e ret_type =
+and mk_stmts env e ret_type =
   let rec collect (env, acc) return_pos e =
     match e.node with
     | ELet (binder, e1, e2) ->
@@ -274,8 +272,7 @@ and extract_stmts env e ret_type =
           mk_expr env false e2,
           mk_expr env false e3,
           mk_expr env false e4,
-          mk_expr env false e5,
-          mk_buf env e1.typ
+          mk_expr env false e5
         ) in
         env, e :: acc
 
@@ -283,8 +280,7 @@ and extract_stmts env e ret_type =
         let e = CStar.BufWrite (
           mk_expr env false e1,
           mk_expr env false e2,
-          mk_expr env false e3,
-          mk_buf env e1.typ
+          mk_expr env false e3
         ) in
         env, e :: acc
 
@@ -292,8 +288,7 @@ and extract_stmts env e ret_type =
         let e = CStar.BufFill (
           mk_expr env false e1,
           mk_expr env false e2,
-          mk_expr env false e3,
-          mk_buf env e1.typ
+          mk_expr env false e3
         ) in
         env, e :: acc
 
@@ -383,7 +378,7 @@ and is_value x =
 and mk_function_block env e t =
   (** This function expects an environment where names and in_block have been
    * populated with the function's parameters. *)
-  let stmts = extract_stmts env e t in
+  let stmts = mk_stmts env e t in
 
   (** This just enforces some invariants and drops push/pop frame when they span
    * the entire function body (because it's redundant with the function frame). *)

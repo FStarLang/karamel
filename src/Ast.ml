@@ -8,6 +8,7 @@ open Common
 
 type program =
   decl list
+  [@@deriving show]
 
 and file =
   string * program

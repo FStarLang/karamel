@@ -26,11 +26,10 @@ and stmt =
   | Copy of expr * typ * expr
     (** Destination, always Array (typ, size), Source *)
   | Switch of expr * (ident * block) list
-
-  | BufWrite of expr * expr * expr * typ
+  | BufWrite of expr * expr * expr
     (** First expression has to be a [Bound] or [Open]. *)
-  | BufBlit of expr * expr * expr * expr * expr * typ
-  | BufFill of expr * expr * expr * typ
+  | BufBlit of expr * expr * expr * expr * expr
+  | BufFill of expr * expr * expr
   | PushFrame
   | PopFrame
   | Comment of string
@@ -42,14 +41,14 @@ and expr =
   | Var of ident
   | Qualified of ident
   | Constant of K.t
-  | BufCreate of lifetime * expr * expr * typ
+  | BufCreate of lifetime * expr * expr
     (** initial value, length *)
-  | BufCreateL of lifetime * expr list * typ
-  | BufRead of expr * expr * typ
-  | BufSub of expr * expr * typ
+  | BufCreateL of lifetime * expr list
+  | BufRead of expr * expr
+  | BufSub of expr * expr
   | Op of op
-  | Cast of expr * typ * typ
-    (** from; to *)
+  | Cast of expr * typ
+    (** to *)
   | Bool of bool
   | Struct of ident option * (ident option * expr) list
     (** Some invariants. A struct can appear in an expression (and comes with

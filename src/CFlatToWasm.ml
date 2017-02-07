@@ -30,14 +30,8 @@ let size_at env i =
 
 (** We don't make any effort (yet) to keep track of positions even though Wasm
  * really wants us to. *)
-let dummy_pos =
-  W.Source.({ file = ""; line = 0; column = 0 })
-
-let dummy_region =
-  W.Source.({ left = dummy_pos; right = dummy_pos })
-
 let dummy_phrase what =
-  W.Source.({ at = dummy_region; it = what })
+  W.Source.(what @@ no_region)
 
 (** A bunch of helpers *)
 let mk_var x = dummy_phrase (Int32.of_int x)
@@ -66,7 +60,7 @@ let mk_const c =
 
 let mk_lit w lit =
   match w with
-  | K.Int32 | K.UInt32 ->
+  | K.Int32 | K.UInt32 | K.Bool ->
       mk_int32 (Int32.of_string lit)
   | K.Int64 | K.UInt64 ->
       mk_int64 (Int64.of_string lit)
@@ -181,6 +175,12 @@ let i32_sub =
 let i32_not =
   mk_const (mk_int32 Int32.min_int) @
   [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Sub)) ]
+
+let i32_zero =
+  mk_const (mk_int32 Int32.zero)
+
+let mk_unit =
+  i32_zero
 
 let read_highwater =
   [ dummy_phrase (W.Ast.GetGlobal (mk_var 0)) ]
@@ -339,30 +339,19 @@ and mk_expr env (e: expr): W.Ast.instr list =
       i32_mul @
       i32_add
 
-
   | Cast (e1, w_from, w_to) ->
       mk_expr env e1 @
       mk_cast w_from w_to
 
-  | _ ->
-      failwith ("not implemented (expr); got: " ^ show_expr e)
-
-let rec mk_stmt env (stmt: stmt): W.Ast.instr list =
-  match stmt with
-  | Return e ->
-      Option.map_or (mk_expr env) e [] @
-      [ dummy_phrase W.Ast.Return ]
-
-  | IfThenElse (e, b1, b2) ->
-      (* I assume that the [stack_type] is the *return* type of the
-       * if-then-else... since conditionals are always in statement position
-       * then it must be the case that the blocks return nothing. *)
+  | IfThenElse (e, b1, b2, s) ->
+      let s = mk_type s in
       mk_expr env e @
-      [ dummy_phrase (W.Ast.If ([ W.Types.I32Type ], mk_stmts env b1, mk_stmts env b2)) ]
+      [ dummy_phrase (W.Ast.If ([ s ], mk_expr env b1, mk_expr env b2)) ]
 
   | Assign (i, e) ->
       mk_expr env e @
-      [ dummy_phrase (W.Ast.SetLocal (mk_var i)) ]
+      [ dummy_phrase (W.Ast.SetLocal (mk_var i)) ] @
+      mk_unit
 
   | BufWrite (e1, e2, e3, size) ->
       mk_expr env e1 @
@@ -378,23 +367,38 @@ let rec mk_stmt env (stmt: stmt): W.Ast.instr list =
         sz = match size with
           | A16 -> Some W.Memory.Mem16
           | A8 -> Some W.Memory.Mem8
-          | _ -> None })]
+          | _ -> None })] @
+      mk_unit
 
-  | While (e, stmts) ->
-      [ dummy_phrase (W.Ast.Block ([],
+  | While (e, expr) ->
+      [ dummy_phrase (W.Ast.Loop ([],
         mk_expr env e @
         i32_not @
         [ dummy_phrase (W.Ast.BrIf (mk_var 0)) ] @
-        mk_stmts env stmts)) ]
+        mk_expr env expr)) ] @
+      mk_unit
 
   | Ignore _ ->
-      []
+      [ dummy_phrase W.Ast.Drop ]
+
+  | Sequence es ->
+      let es, e = KList.split_at_last es in
+      List.flatten (List.map (fun e ->
+        mk_expr env e @
+        [ dummy_phrase W.Ast.Drop ]
+      ) es) @
+      mk_expr env e
+
+  | PushFrame ->
+      read_highwater @
+      mk_unit
+
+  | PopFrame ->
+      write_highwater @
+      mk_unit
 
   | _ ->
-      failwith ("not implemented (stmt); got: " ^ show_stmt stmt)
-
-and mk_stmts env (stmts: stmt list): W.Ast.instr list =
-  KList.map_flatten (mk_stmt env) stmts
+      failwith ("not implemented; got: " ^ show_expr e)
 
 let mk_func_type { args; ret; _ } =
   W.Types.( FuncType (
@@ -406,7 +410,7 @@ let mk_func env { args; locals; body; name; _ } =
   let env = grow env args in
   let env = grow env locals in
 
-  let body = mk_stmts env body in
+  let body = mk_expr env body in
   let locals = List.map mk_type locals in
   let ftype = mk_var i in
   dummy_phrase W.Ast.({ locals; ftype; body })

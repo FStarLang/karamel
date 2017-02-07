@@ -74,7 +74,7 @@ and function_t = {
   args: size list;
   ret: size list;
   locals: locals;
-  body: stmt list;
+  body: expr;
   public: bool;
 }
 
@@ -82,38 +82,33 @@ and function_t = {
 and locals =
   size list
 
-and stmt =
-  | Abort
-  | Return of expr option
-  | Ignore of expr
-  | IfThenElse of expr * block * block
-  | While of expr * block
-  | Assign of var * expr
-  | Copy of expr * expr * size * expr
-    (** Destination, source, element size, number of elements *)
-  | Switch of expr * (expr * block) list
-  | BufWrite of expr * expr * expr * array_size
-  | PushFrame
-  | PopFrame
-  [@@ deriving show]
-
 and expr =
-  | CallOp of op * expr list
-  | CallFunc of ident * expr list
   | Var of var
-  | Qualified of ident
+  | GetGlobal of ident
   | Constant of K.width * string
+  | Assign of var * expr
+  | StringLiteral of string
+  | Abort
+
+  | IfThenElse of expr * expr * expr * size
+  | While of expr * expr
+  | Switch of expr * (expr * expr) list
+  | Sequence of expr list
+  | Ignore of expr * size
+
   | BufCreate of lifetime * expr * array_size
   | BufRead of expr * expr * array_size
   | BufSub of expr * expr * array_size
-  | Comma of expr * expr
-  | StringLiteral of string
+  | BufWrite of expr * expr * expr * array_size
+
+  | PushFrame
+  | PopFrame
+
+  | CallOp of op * expr list
+  | CallFunc of ident * expr list
   | Cast of expr * K.width * K.width
       (** from; to *)
-  | Any
-
-and block =
-  stmt list
+  [@@deriving show]
 
 and var =
   int (** NOT De Bruijn *)

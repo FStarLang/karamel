@@ -271,12 +271,9 @@ Supported options:|}
    * the last minute, really. *)
   let files = Simplify.to_c_names files in
 
-  (* Translate to C*... *)
-  let files = AstToCStar.mk_files files in
-
   if !arg_wasm then
     (* ... then to Wasm *)
-    let files = CStarToCFlat.mk_files files in
+    let files = AstToCFlat.mk_files files in
     let modules = CFlatToWasm.mk_files files in
     List.iter (fun (name, module_) ->
       let s = Wasm.Encode.encode module_ in
@@ -289,8 +286,10 @@ Supported options:|}
     ) modules
 
   else
-    (* ... then to C *)
+    (* Translate to C*... *)
+    let files = AstToCStar.mk_files files in
 
+    (* ... then to C *)
     let headers = CStarToC.mk_headers files in
     let files = CStarToC.mk_files files in
 
