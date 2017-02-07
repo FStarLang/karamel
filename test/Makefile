@@ -22,21 +22,14 @@ extra: Crypto.Symmetric.Chacha20.exe
 
 ML16.exe: EXTRA = ml16-native.c
 Scope.exe: EXTRA = -ccopt -O3
+Crypto.Symmetric.Chacha20.exe: EXTRA=$(CRYPTO_OPTS) main-Chacha.c
 
-# Test files that have an "external" main written by hand...
-Crypto.%.exe:
-	$(KRML) $(KOPTS) $(CRYPTO_OPTS) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -o $@ $(subst .exe,.fst,$@)
-	./$@
+.PHONY: Crypto.Symmetric.Chacha20.fst
 
-Crypto.Symmetric.Chacha20.exe: EXTRA = main-Chacha.c
-
-# Wasm tests
 %.wasm: %.fst
-	$(KRML) $(KOPTS) $(TEST_OPTS) $(EXTRA) $^ -wasm -tmpdir $(subst .wasm,.out,$@) -drop Prims -drop FStar
-	cp $*.out/$@ .
+	$(KRML) $(KOPTS) $(TEST_OPTS) $(EXTRA) -tmpdir $(subst .exe,.out,$@) $^ -wasm -drop Prims -drop FStar
 
-Crypto.%.wasm:
-	$(KRML) $(KOPTS) $(CRYPTO_OPTS) $(EXTRA) $(subst .wasm,.fst,$@) -wasm -tmpdir $(subst .wasm,.out,$@) -drop Prims -drop FStar
+Crypto.Symmetric.Chacha20.wasm: EXTRA=$(CRYPTO_OPTS)
 
 clean:
 	rm -rf *.exe *.dSYM *.out *.wasm
