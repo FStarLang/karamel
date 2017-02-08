@@ -175,8 +175,8 @@ let i32_sub =
   [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Sub)) ]
 
 let i32_not =
-  mk_const (mk_int32 Int32.min_int) @
-  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Sub)) ]
+  mk_const (mk_int32 Int32.one) @
+  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Xor)) ]
 
 let i32_zero =
   mk_const (mk_int32 Int32.zero)

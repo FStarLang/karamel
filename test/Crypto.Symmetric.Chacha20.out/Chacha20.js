@@ -1,3 +1,5 @@
+"use strict";
+
 const header_size = 256;
 
 // Memory layout
@@ -54,6 +56,13 @@ const cipher = [
   0x1a, 0xb7, 0x79, 0x37, 0x36, 0x5a, 0xf9, 0x0b, 0xbf, 0x74, 0xa3, 0x5b, 0xe6,
   0xb4, 0x0b, 0x8e, 0xed, 0xf2, 0x78, 0x5e, 0x42, 0x87, 0x4d ];
 
+function print_hex(m8, start, len) {
+  let s = "";
+  for (let i = 0; i < len; ++i)
+    s += ("0"+m8[start + i].toString(16)).slice(-2);
+  print(s);
+}
+
 function main(buf1, buf2, print) {
   var imports = init(print);
 
@@ -73,7 +82,9 @@ function main(buf1, buf2, print) {
     reserve(mem, 1024);
 
     // Allocating our parameters in the first 1k of the memory.
-    let m8 = new Uint8Array(mem);
+    let m8 = new Uint8Array(mem.buffer);
+    let counter = 1;
+    let len = plain.length;
     let p_key = header_size;
     for (let i = 0; i < 32; ++i)
       m8[p_key+i] = i;
@@ -82,14 +93,19 @@ function main(buf1, buf2, print) {
       m8[p_iv + i] = iv[i];
     let p_plain = p_iv + iv.length;
     for (let i = 0; i < plain.length; ++i)
-      m8[p_plain + i] = plain[i];
+      m8[p_plain + i] = plain.charCodeAt(i);
     let p_cipher = p_plain + plain.length;
-    let counter = 1;
 
     let counter_mode = instance.exports.Crypto_Symmetric_Chacha20_counter_mode;
-    counter_mode(p_key, p_iv, counter, plain.length, p_plain, p_cipher);
+    counter_mode(p_key, p_iv, counter, len, p_plain, p_cipher);
 
-    for (let i = 0; i < cipher.len; ++i) {
+    print("Chacha20 finished (len="+len+")");
+    print("Plaintext was:");
+    print_hex(m8, p_plain, len);
+    print("Ciphertext is:");
+    print_hex(m8, p_cipher, len);
+
+    for (let i = 0; i < len; ++i) {
       if (m8[p_cipher+i] != cipher[i]) {
         throw (new Error("Cipher & reference differ at byte "+i));
       }
