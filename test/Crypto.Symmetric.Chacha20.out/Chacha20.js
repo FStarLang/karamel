@@ -1,7 +1,3 @@
-let buf1 = readbuffer("Buffer_Utils.wasm");
-let buf2 = readbuffer("Crypto_Symmetric_Chacha20.wasm");
-print("read two files");
-
 const header_size = 4;
 
 function init() {
@@ -41,44 +37,46 @@ const cipher = [
 
 var imports = init();
 
-WebAssembly.instantiate(buf1, imports).then(({ module, instance }) => {
-  print("Buffer_Utils ok");
-  print("Exports: "+Object.keys(instance.exports));
-  imports.Buffer_Utils = {};
-  for (let o of Object.keys(instance.exports)) {
-    imports.Buffer_Utils[o] = instance.exports[o];
-  }
-  return WebAssembly.instantiate(buf2, imports);
-}).then(({ module, instance }) => {
-  print("Crypto_Symmetric_Chacha20 ok");
-  print("Exports: "+Object.keys(instance.exports));
-
-  let mem = imports.Shared.mem;
-  reserve(mem, 1024);
-
-  // Allocating our parameters in the first 1k of the memory.
-  let m8 = new Uint8Array(mem);
-  let p_key = header_size;
-  for (let i = 0; i < 32; ++i)
-    m8[p_key+i] = i;
-  let p_iv = p_key + 32;
-  for (let i = 0; i < iv.length; ++i)
-    m8[p_iv + i] = iv[i];
-  let p_plain = p_iv + iv.length;
-  for (let i = 0; i < plain.length; ++i)
-    m8[p_plain + i] = plain[i];
-  let p_cipher = p_plain + plain.length;
-  let counter = 1;
-
-  let counter_mode = instance.exports.Crypto_Symmetric_Chacha20_counter_mode;
-  counter_mode(p_key, p_iv, counter, plain.length, p_plain, p_cipher);
-
-  for (let i = 0; i < cipher.len; ++i) {
-    if (m8[p_cipher+i] != cipher[i]) {
-      throw (new Error("Cipher & reference differ at byte "+i));
+function main(buf1, buf2, print) {
+  WebAssembly.instantiate(buf1, imports).then(({ module, instance }) => {
+    print("Buffer_Utils ok");
+    print("Exports: "+Object.keys(instance.exports));
+    imports.Buffer_Utils = {};
+    for (let o of Object.keys(instance.exports)) {
+      imports.Buffer_Utils[o] = instance.exports[o];
     }
-  }
-  print("SUCCESS");
-}).catch((e) => {
-  print(e);
-});
+    return WebAssembly.instantiate(buf2, imports);
+  }).then(({ module, instance }) => {
+    print("Crypto_Symmetric_Chacha20 ok");
+    print("Exports: "+Object.keys(instance.exports));
+
+    let mem = imports.Shared.mem;
+    reserve(mem, 1024);
+
+    // Allocating our parameters in the first 1k of the memory.
+    let m8 = new Uint8Array(mem);
+    let p_key = header_size;
+    for (let i = 0; i < 32; ++i)
+      m8[p_key+i] = i;
+    let p_iv = p_key + 32;
+    for (let i = 0; i < iv.length; ++i)
+      m8[p_iv + i] = iv[i];
+    let p_plain = p_iv + iv.length;
+    for (let i = 0; i < plain.length; ++i)
+      m8[p_plain + i] = plain[i];
+    let p_cipher = p_plain + plain.length;
+    let counter = 1;
+
+    let counter_mode = instance.exports.Crypto_Symmetric_Chacha20_counter_mode;
+    counter_mode(p_key, p_iv, counter, plain.length, p_plain, p_cipher);
+
+    for (let i = 0; i < cipher.len; ++i) {
+      if (m8[p_cipher+i] != cipher[i]) {
+        throw (new Error("Cipher & reference differ at byte "+i));
+      }
+    }
+    print("SUCCESS");
+  }).catch((e) => {
+    print(e);
+  });
+}
