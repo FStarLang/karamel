@@ -241,6 +241,10 @@ let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EReturn _ ->
       invalid_arg "return should've been inserted"
 
+(* See digression for [dup32] in CFlatToWasm *)
+let scratch_locals =
+  [ I64; I64; I32; I32 ]
+
 let mk_decl env (d: decl): CF.decl option =
   match d with
   | DFunction (_, flags, ret, name, args, body) ->
@@ -249,6 +253,7 @@ let mk_decl env (d: decl): CF.decl option =
         let locals, _, env = extend env b locals in
         locals, env
       ) ([], env) args in
+      let locals = List.rev_append scratch_locals locals in
       let locals, body = mk_expr env locals body in
       let ret = [ size_of ret ] in
       let locals = List.rev locals in

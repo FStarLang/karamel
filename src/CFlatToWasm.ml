@@ -11,13 +11,15 @@ module StringMap = Map.Make(String)
 type env = {
   funcs: int StringMap.t;
   globals: int StringMap.t;
-  stack: size list
+  stack: size list;
+  n_args: int
 }
 
 let empty = {
   funcs = StringMap.empty;
   globals = StringMap.empty;
-  stack = []
+  stack = [];
+  n_args = 0
 }
 
 let grow env locals = {
@@ -179,22 +181,59 @@ let i32_not =
 let i32_zero =
   mk_const (mk_int32 Int32.zero)
 
+let i32_one =
+  mk_const (mk_int32 Int32.one)
+
 let mk_unit =
   i32_zero
 
 let mk_drop =
   [ dummy_phrase W.Ast.Drop ]
 
+(* Wasm lacks two crucial instructions: dup (to duplicate the operand at the
+ * top of the stack) and swap (to swap the two topmost operands). There are some
+ * macros, such as grow_highwater (or 16/8-bit arithmetic), that we want to
+ * expand at the last minute (since they use some very low-level Wasm concepts).
+ * Therefore, as a convention, every function frame has four "scratch" locals;
+ * the first two of size I64; the last two of size I32. The Wasm register
+ * allocator will take care of optimizing all of that. *)
+let dup32 env =
+  [ dummy_phrase (W.Ast.TeeLocal (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 2))) ]
+
+let dup64 env =
+  [ dummy_phrase (W.Ast.TeeLocal (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0))) ]
+
+let swap32 env =
+  [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 3)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 3))) ]
+
+let swap64 env =
+  [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 1)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 1))) ]
+
+(* The highwater mark denotes the top of the stack (bump-pointer allocation).
+ * Since it needs to be shared across modules, and since Wasm does not support
+ * exported, mutable globals, we use the first word of the (shared) memory for
+ * that purpose. *)
 let read_highwater =
-  [ dummy_phrase (W.Ast.GetGlobal (mk_var 0)) ]
+  i32_zero @
+  [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = None }) ]
 
-let write_highwater =
-  [ dummy_phrase (W.Ast.SetGlobal (mk_var 0)) ]
+let write_highwater env =
+  i32_zero @
+  swap32 env @
+  [ dummy_phrase W.Ast.(Store { ty = mk_type I32; align = 0; offset = 0l; sz = None }) ]
 
-let grow_highwater =
+let grow_highwater env =
   read_highwater @
   i32_add @
-  write_highwater
+  write_highwater env
 
 (** Dealing with size mismatches *)
 
@@ -313,7 +352,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
       mk_expr env n_elts @
       mk_size elt_size @
       i32_mul @
-      grow_highwater
+      grow_highwater env
 
   | BufRead (e1, e2, size) ->
       (* github.com/WebAssembly/spec/blob/master/interpreter/spec/eval.ml#L189 *)
@@ -399,7 +438,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
       mk_unit
 
   | PopFrame ->
-      write_highwater @
+      write_highwater env @
       mk_unit
 
   | _ ->
@@ -414,6 +453,7 @@ let mk_func env { args; locals; body; name; _ } =
   let i = StringMap.find name env.funcs in
   let env = grow env args in
   let env = grow env locals in
+  let env = { env with n_args = List.length args } in
 
   let body = mk_expr env body in
   let locals = List.map mk_type locals in
