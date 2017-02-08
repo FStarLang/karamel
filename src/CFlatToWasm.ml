@@ -193,7 +193,7 @@ let write_highwater =
 
 let grow_highwater =
   read_highwater @
-  i32_mul @
+  i32_add @
   write_highwater
 
 (** Dealing with size mismatches *)
@@ -508,11 +508,14 @@ let mk_module types imports (name, decls): string * W.Ast.module_ =
     ) decls
   in
 
-  let memories = [
-    dummy_phrase {
-      W.Ast.mtype = W.Types.MemoryType W.Types.({ min = 16l; max = None })
-    }
-  ] in
+  let mtype = W.Types.MemoryType W.Types.({ min = 16l; max = None }) in
+  let memories = [ ] in
+  (* We import our memory; to be allocated by the caller. *)
+  let imports = dummy_phrase W.Ast.({
+    module_name = "Shared";
+    item_name = "mem";
+    ikind = dummy_phrase (MemoryImport mtype)
+  }) :: imports in
 
   let module_ = dummy_phrase W.Ast.({
     empty_module with

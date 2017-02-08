@@ -3,7 +3,12 @@ let buf1 = readbuffer("Buffer_Utils.wasm");
 let buf2 = readbuffer("Crypto_Symmetric_Chacha20.wasm");
 print("read two files");
 
-let imports = {};
+let mem = new WebAssembly.Memory({ initial: 16 });
+let imports = {
+  Shared: {
+    mem: mem
+  }
+};
 WebAssembly.instantiate(buf1, imports).then(({ module, instance }) => {
   print("Buffer_Utils ok");
   print("Exports: "+Object.keys(instance.exports));
