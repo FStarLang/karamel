@@ -2,24 +2,77 @@
 
 const header_size = 256;
 
+// Some printing helpers
+function hex8(n) {
+  return ("0"+Number(n).toString(16)).slice(-2);
+}
+
+function print_hex(m8, start, len) {
+  let s = "";
+  for (let i = 0; i < len; ++i)
+    s += hex8(m8[start + i]);
+  print(s);
+}
+
 // Memory layout
 // -------------
 //
 // mem[0..3] = top-of-the-stack pointer (I32);
-// mem[4..127] = scratch space for a zero-terminated string (to be written by
-//   Wasm code, to be printed by the debug function)
+// mem[4..127] = scratch space for debugging.
+// Conventions for debugging and "debugging format" (lolz) are in CFlatToWasm.ml
+// in the Debug module.
 function init(print) {
   let mem = new WebAssembly.Memory({ initial: 16 });
   let m8 = new Uint8Array(mem.buffer);
 
   let debug = () => {
-    let s = "";
     let i = 4;
-    while (m8[i] != 0 && i < 128) {
-      s += String.fromCharCode(m8[i]);
+    let buf = "";
+    let string = () => {
+      while (m8[i] != 0 && i < 128) {
+        buf += String.fromCharCode(m8[i]);
+        i++;
+      }
       i++;
+    };
+    let int32 = () => {
+      buf += "0x";
+      let n = 3;
+      while (n >= 0) {
+        buf += hex8(m8[i+n]);
+        n--;
+      }
+      i += 4;
+    };
+    let int64 = () => {
+      buf += "0x";
+      let n = 7;
+      while (n >= 0) {
+        buf += hex8(m8[i+n]);
+        n--;
+      }
+      i += 8;
+    };
+    while (m8[i] != 0 && i < 128) {
+      let c = m8[i];
+      i++;
+      switch (c) {
+        case 1:
+          string();
+          break;
+        case 2:
+          int32();
+          break;
+        case 3:
+          int64();
+          break;
+        default:
+          print_hex(m8, 4, 128);
+          throw "unrecognized debug format:\n  buf="+buf+"\n  c=0x"+hex8(c)+"\n  i="+i;
+      }
+      buf += " ";
     }
-    print(s);
+    print(buf);
   };
 
   // Initialize the highwater mark.
@@ -55,13 +108,6 @@ const cipher = [
   0xb6, 0x5e, 0x52, 0xbc, 0x51, 0x4d, 0x16, 0xcc, 0xf8, 0x06, 0x81, 0x8c, 0xe9,
   0x1a, 0xb7, 0x79, 0x37, 0x36, 0x5a, 0xf9, 0x0b, 0xbf, 0x74, 0xa3, 0x5b, 0xe6,
   0xb4, 0x0b, 0x8e, 0xed, 0xf2, 0x78, 0x5e, 0x42, 0x87, 0x4d ];
-
-function print_hex(m8, start, len) {
-  let s = "";
-  for (let i = 0; i < len; ++i)
-    s += ("0"+m8[start + i].toString(16)).slice(-2);
-  print(s);
-}
 
 function main(buf1, buf2, print) {
   var imports = init(print);

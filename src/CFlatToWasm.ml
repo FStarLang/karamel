@@ -312,10 +312,14 @@ module Debug = struct
 
   (* Debugging conventions. We assume some scratch space at the beginning of the
    * memory; bytes 0..3 are the highwater mark, and bytes 4..127 are scratch space
-   * to write in a zero-terminated string to be read by the (externally-provided)
-   * debug function. This space may evolve to include more information. The debug
-   * function is always the function imported first (to easily generate debugging
-   * code). *)
+   * to write a series of either:
+   * - 1 followed by a zero-terminated string, or
+   * - 2 followed by a 32-bit integer, or
+   * - 3 followed by a 64-bit integer.
+   * - 0 (end of transmission)
+   * This is to be read by the (externally-provided) debug function. This space
+   * may evolve to include more information. The debug function is always the
+   * function imported first (to easily generate debugging code). *)
   let default_imports = [
     dummy_phrase W.Ast.({
       module_name = "Kremlin";
@@ -328,22 +332,50 @@ module Debug = struct
     W.Types.FuncType ([], [])
   ]
 
-  let store_char_at c addr =
+  let char ofs c =
     let c = Char.code c in
-    mk_const (mk_int32 (Int32.of_int addr)) @
+    mk_const (mk_int32 (Int32.of_int ofs)) @
     mk_const (mk_int32 (Int32.of_int c)) @
     [ dummy_phrase W.Ast.(Store {
         ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.Mem8 })]
 
-  let string s =
+  let string ofs s =
+    let l = String.length s in
+    List.flatten (KList.make l (fun i -> char (ofs + i) s.[i])) @
+    char (ofs + l) '\x00'
+
+  let local t ofs i =
+    mk_const (mk_int32 (Int32.of_int ofs)) @
+    [ dummy_phrase W.Ast.(GetLocal (mk_var i)) ] @
+    [ dummy_phrase W.Ast.(Store {
+        ty = mk_type t; align = 0; offset = 0l; sz = None })]
+
+  let local32 = local I32
+  let local64 = local I64
+
+  let mk l =
+    let rec aux ofs l =
+      match l with
+      | [] ->
+          char ofs '\x00'
+      | `String s :: tl ->
+          char ofs '\x01' @
+          string (ofs + 1) s @
+          aux (ofs + String.length s + 2) tl
+      | `Local32 i :: tl ->
+          char ofs '\x02' @
+          local32 (ofs + 1) i @
+          aux (ofs + 5) tl
+      | `Local64 i :: tl ->
+          char ofs '\x03' @
+          local64 (ofs + 1) i @
+          aux (ofs + 9) tl
+    in
     if Options.debug "wasm-calls" then
-      let l = String.length s in
-      List.flatten (KList.make l (fun i -> store_char_at s.[i] (i + mark_size))) @
-      store_char_at '\x00' (l + mark_size) @
+      aux mark_size l @
       [ dummy_phrase (W.Ast.Call (mk_var 0)) ]
     else
       []
-
 end
 
 (** Actual translations *)
@@ -496,7 +528,16 @@ let mk_func env { args; locals; body; name; _ } =
   let env = { env with n_args = List.length args } in
 
   let body =
-    Debug.string name @
+    let debug_items = `String name ::
+      List.mapi (fun i arg ->
+        match arg with
+        | I32 ->
+            `Local32 i
+        | I64 ->
+            `Local64 i
+      ) args
+    in
+    Debug.mk debug_items @
     mk_expr env body
   in
   let locals = List.map mk_type locals in
