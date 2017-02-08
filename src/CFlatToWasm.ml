@@ -306,6 +306,46 @@ let mk_cast w_from w_to =
       failwith "todo: signed cast conversions"
 
 
+module Debug = struct
+
+  let mark_size = 4
+
+  (* Debugging conventions. We assume some scratch space at the beginning of the
+   * memory; bytes 0..3 are the highwater mark, and bytes 4..127 are scratch space
+   * to write in a zero-terminated string to be read by the (externally-provided)
+   * debug function. This space may evolve to include more information. The debug
+   * function is always the function imported first (to easily generate debugging
+   * code). *)
+  let default_imports = [
+    dummy_phrase W.Ast.({
+      module_name = "Kremlin";
+      item_name = "debug";
+      ikind = dummy_phrase (FuncImport (mk_var 0))
+    })
+  ]
+
+  let default_types = [
+    W.Types.FuncType ([], [])
+  ]
+
+  let store_char_at c addr =
+    let c = Char.code c in
+    mk_const (mk_int32 (Int32.of_int addr)) @
+    mk_const (mk_int32 (Int32.of_int c)) @
+    [ dummy_phrase W.Ast.(Store {
+        ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.Mem8 })]
+
+  let string s =
+    if Options.debug "wasm-calls" then
+      let l = String.length s in
+      List.flatten (KList.make l (fun i -> store_char_at s.[i] (i + mark_size))) @
+      store_char_at '\x00' (l + mark_size) @
+      [ dummy_phrase (W.Ast.Call (mk_var 0)) ]
+    else
+      []
+
+end
+
 (** Actual translations *)
 let rec mk_callop2 env (w, o) e1 e2 =
   (* TODO: check special byte semantics C / WASM *)
@@ -455,7 +495,10 @@ let mk_func env { args; locals; body; name; _ } =
   let env = grow env locals in
   let env = { env with n_args = List.length args } in
 
-  let body = mk_expr env body in
+  let body =
+    Debug.string name @
+    mk_expr env body
+  in
   let locals = List.map mk_type locals in
   let ftype = mk_var i in
   dummy_phrase W.Ast.({ locals; ftype; body })
@@ -552,7 +595,7 @@ let mk_module types imports (name, decls): string * W.Ast.module_ =
   let memories = [ ] in
   (* We import our memory; to be allocated by the caller. *)
   let imports = dummy_phrase W.Ast.({
-    module_name = "Shared";
+    module_name = "Kremlin";
     item_name = "mem";
     ikind = dummy_phrase (MemoryImport mtype)
   }) :: imports in
@@ -568,6 +611,11 @@ let mk_module types imports (name, decls): string * W.Ast.module_ =
   }) in
   name, module_
 
+
+(* Since the modules are already topologically sorted, we make each module
+ * import all the exports from all the previous modules. [imports] is a list of
+ * everything that been made visible so far... ideally, we should only import
+ * things that we need. *)
 let mk_files files =
   let _, _, modules = List.fold_left (fun (types, imports, modules) file ->
     let module_name, _ = file in
@@ -598,5 +646,5 @@ let mk_files files =
           failwith "todo/import"
     ) (offset, types, imports) (snd module_).it.exports in
     types, imports, module_ :: modules
-  ) ([], [], []) files in
+  ) (Debug.default_types, Debug.default_imports, []) files in
   List.rev modules

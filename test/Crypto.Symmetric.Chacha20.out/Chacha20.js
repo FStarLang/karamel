@@ -1,12 +1,31 @@
-const header_size = 4;
+const header_size = 256;
 
-function init() {
+// Memory layout
+// -------------
+//
+// mem[0..3] = top-of-the-stack pointer (I32);
+// mem[4..127] = scratch space for a zero-terminated string (to be written by
+//   Wasm code, to be printed by the debug function)
+function init(print) {
   let mem = new WebAssembly.Memory({ initial: 16 });
+  let m8 = new Uint8Array(mem.buffer);
+
+  let debug = () => {
+    let s = "";
+    let i = 4;
+    while (m8[i] != 0 && i < 128) {
+      s += String.fromCharCode(m8[i]);
+      i++;
+    }
+    print(s);
+  };
+
   // Initialize the highwater mark.
-  new Uint32Array(mem)[0] = header_size;
+  new Uint32Array(mem.buffer)[0] = header_size;
   let imports = {
-    Shared: {
-      mem: mem
+    Kremlin: {
+      mem: mem,
+      debug: debug
     }
   };
   return imports;
@@ -16,7 +35,7 @@ function init() {
 // structures, or arguments to be passed to the functions. The Wasm code will
 // not touch these. Size is a number of bytes.
 function reserve(mem, size) {
-  new Uint32Array(mem)[0] = size+header_size;
+  new Uint32Array(mem.buffer)[0] = size+header_size;
   return 4;
 }
 
@@ -35,9 +54,9 @@ const cipher = [
   0x1a, 0xb7, 0x79, 0x37, 0x36, 0x5a, 0xf9, 0x0b, 0xbf, 0x74, 0xa3, 0x5b, 0xe6,
   0xb4, 0x0b, 0x8e, 0xed, 0xf2, 0x78, 0x5e, 0x42, 0x87, 0x4d ];
 
-var imports = init();
-
 function main(buf1, buf2, print) {
+  var imports = init(print);
+
   WebAssembly.instantiate(buf1, imports).then(({ module, instance }) => {
     print("Buffer_Utils ok");
     print("Exports: "+Object.keys(instance.exports));
@@ -50,7 +69,7 @@ function main(buf1, buf2, print) {
     print("Crypto_Symmetric_Chacha20 ok");
     print("Exports: "+Object.keys(instance.exports));
 
-    let mem = imports.Shared.mem;
+    let mem = imports.Kremlin.mem;
     reserve(mem, 1024);
 
     // Allocating our parameters in the first 1k of the memory.
