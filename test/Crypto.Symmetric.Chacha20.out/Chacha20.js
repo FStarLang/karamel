@@ -7,11 +7,11 @@ function hex8(n) {
   return ("0"+Number(n).toString(16)).slice(-2);
 }
 
-function print_hex(m8, start, len) {
+function hex(m8, start, len) {
   let s = "";
   for (let i = 0; i < len; ++i)
     s += hex8(m8[start + i]);
-  print(s);
+  return s;
 }
 
 // Memory layout
@@ -24,9 +24,10 @@ function print_hex(m8, start, len) {
 function init(print) {
   let mem = new WebAssembly.Memory({ initial: 16 });
   let m8 = new Uint8Array(mem.buffer);
+  let nest = 0;
 
   let debug = () => {
-    let i = 4;
+    let i = 0;
     let buf = "";
     let string = () => {
       while (m8[i] != 0 && i < 128) {
@@ -53,6 +54,10 @@ function init(print) {
       }
       i += 8;
     };
+    buf += "Stack pointer is: 0x";
+    int32();
+    buf += " | ";
+    buf += " ".repeat(nest);
     while (m8[i] != 0 && i < 128) {
       let c = m8[i];
       i++;
@@ -66,8 +71,14 @@ function init(print) {
         case 3:
           int64();
           break;
+        case 4:
+          nest++;
+          break;
+        case 5:
+          nest--;
+          break;
         default:
-          print_hex(m8, 4, 128);
+          print(hex(m8, 4, 128));
           throw "unrecognized debug format:\n  buf="+buf+"\n  c=0x"+hex8(c)+"\n  i="+i;
       }
       buf += " ";
@@ -147,9 +158,9 @@ function main(buf1, buf2, print) {
 
     print("Chacha20 finished (len="+len+")");
     print("Plaintext was:");
-    print_hex(m8, p_plain, len);
+    print(hex(m8, p_plain, len));
     print("Ciphertext is:");
-    print_hex(m8, p_cipher, len);
+    print(hex(m8, p_cipher, len));
 
     for (let i = 0; i < len; ++i) {
       if (m8[p_cipher+i] != cipher[i]) {

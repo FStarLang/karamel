@@ -316,6 +316,8 @@ module Debug = struct
    * - 1 followed by a zero-terminated string, or
    * - 2 followed by a 32-bit integer, or
    * - 3 followed by a 64-bit integer.
+   * - 4 increase nesting
+   * - 5 decrease nesting
    * - 0 (end of transmission)
    * This is to be read by the (externally-provided) debug function. This space
    * may evolve to include more information. The debug function is always the
@@ -370,6 +372,12 @@ module Debug = struct
           char ofs '\x03' @
           local64 (ofs + 1) i @
           aux (ofs + 9) tl
+      | `Incr :: tl ->
+          char ofs '\x04' @
+          aux (ofs + 1) tl
+      | `Decr :: tl ->
+          char ofs '\x05' @
+          aux (ofs + 1) tl
     in
     if Options.debug "wasm-calls" then
       aux mark_size l @
@@ -528,7 +536,7 @@ let mk_func env { args; locals; body; name; _ } =
   let env = { env with n_args = List.length args } in
 
   let body =
-    let debug_items = `String name ::
+    let debug_enter = `String name :: `Incr ::
       List.mapi (fun i arg ->
         match arg with
         | I32 ->
@@ -537,8 +545,10 @@ let mk_func env { args; locals; body; name; _ } =
             `Local64 i
       ) args
     in
-    Debug.mk debug_items @
-    mk_expr env body
+    let debug_exit = [ `String "return"; `Decr ] in
+    Debug.mk debug_enter @
+    mk_expr env body @
+    Debug.mk debug_exit
   in
   let locals = List.map mk_type locals in
   let ftype = mk_var i in
