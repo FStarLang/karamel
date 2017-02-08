@@ -355,7 +355,15 @@ module Debug = struct
   let local32 = local I32
   let local64 = local I64
 
-  let mk l =
+  let mk env l =
+    let mk_32 ofs i =
+      char ofs '\x02' @
+      local32 (ofs + 1) i
+    in
+    let mk_64 ofs i =
+      char ofs '\x03' @
+      local64 (ofs + 1) i
+    in
     let rec aux ofs l =
       match l with
       | [] ->
@@ -364,13 +372,21 @@ module Debug = struct
           char ofs '\x01' @
           string (ofs + 1) s @
           aux (ofs + String.length s + 2) tl
-      | `Local32 i :: tl ->
-          char ofs '\x02' @
-          local32 (ofs + 1) i @
+      | `Peek32 :: tl ->
+          let i = env.n_args + 2 in
+          [ dummy_phrase (W.Ast.TeeLocal (mk_var i)) ] @
+          mk_32 ofs i @
           aux (ofs + 5) tl
+      | `Local32 i :: tl ->
+          mk_32 ofs i @
+          aux (ofs + 5) tl
+      | `Peek64 :: tl ->
+          let i = env.n_args in
+          [ dummy_phrase (W.Ast.TeeLocal (mk_var i)) ] @
+          mk_64 ofs i @
+          aux (ofs + 9) tl
       | `Local64 i :: tl ->
-          char ofs '\x03' @
-          local64 (ofs + 1) i @
+          mk_64 ofs i @
           aux (ofs + 9) tl
       | `Incr :: tl ->
           char ofs '\x04' @
@@ -453,7 +469,8 @@ and mk_expr env (e: expr): W.Ast.instr list =
         sz = match size with
           | A16 -> Some W.Memory.(Mem16, ZX)
           | A8 -> Some W.Memory.(Mem8, ZX)
-          | _ -> None })]
+          | _ -> None })] @
+      Debug.mk env [ `String ("loaded " ^ show_array_size size); `Peek32 ]
 
   | BufSub (e1, e2, size) ->
       mk_expr env e1 @
@@ -529,7 +546,7 @@ let mk_func_type { args; ret; _ } =
     List.map mk_type args,
     List.map mk_type ret))
 
-let mk_func env { args; locals; body; name; _ } =
+let mk_func env { args; locals; body; name; ret; _ } =
   let i = StringMap.find name env.funcs in
   let env = grow env args in
   let env = grow env locals in
@@ -545,10 +562,15 @@ let mk_func env { args; locals; body; name; _ } =
             `Local64 i
       ) args
     in
-    let debug_exit = [ `String "return"; `Decr ] in
-    Debug.mk debug_enter @
+    let debug_exit = [ `String "return"; `Decr ] @
+      match ret with
+      | [ I32 ] -> [ `Peek32 ]
+      | [ I64 ] -> [ `Peek64 ]
+      | _ -> []
+    in
+    Debug.mk env debug_enter @
     mk_expr env body @
-    Debug.mk debug_exit
+    Debug.mk env debug_exit
   in
   let locals = List.map mk_type locals in
   let ftype = mk_var i in

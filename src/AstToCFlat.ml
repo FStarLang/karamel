@@ -28,7 +28,7 @@ let max s1 s2 =
   | I32, I32 -> I32
   | _ -> I64
 
-let array_size_of (t: typ): array_size =
+let size_of_array_elt (t: typ): array_size =
   match t with
   | TInt w ->
       array_size_of_width w
@@ -90,6 +90,10 @@ let assert_var = function
   | CF.Var i -> i
   | _ -> invalid_arg "assert_var"
 
+let assert_buf = function
+  | TArray (t, _) | TBuf t -> t
+  | _ -> invalid_arg "assert_buf"
+
 (** The actual translation. *)
 let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   match e.node with
@@ -122,25 +126,25 @@ let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EBufCreate (l, e_init, e_len) ->
       assert (e_init.node = EAny);
       let locals, e_len = mk_expr env locals e_len in
-      locals, CF.BufCreate (l, e_len, array_size_of e.typ)
+      locals, CF.BufCreate (l, e_len, size_of_array_elt (assert_buf e.typ))
 
   | EBufCreateL _ | EBufBlit _ | EBufFill _ ->
       invalid_arg "this should've been desugared in Simplify.wasm"
 
   | EBufRead (e1, e2) ->
-      let s = array_size_of e1.typ in
+      let s = size_of_array_elt (assert_buf e1.typ) in
       let locals, e1 = mk_expr env locals e1 in
       let locals, e2 = mk_expr env locals e2 in
       locals, CF.BufRead (e1, e2, s)
 
   | EBufSub (e1, e2) ->
-      let s = array_size_of e1.typ in
+      let s = size_of_array_elt (assert_buf e1.typ) in
       let locals, e1 = mk_expr env locals e1 in
       let locals, e2 = mk_expr env locals e2 in
       locals, CF.BufSub (e1, e2, s)
 
   | EBufWrite (e1, e2, e3) ->
-      let s = array_size_of e1.typ in
+      let s = size_of_array_elt (assert_buf e1.typ) in
       let locals, e1 = mk_expr env locals e1 in
       let locals, e2 = mk_expr env locals e2 in
       let locals, e3 = mk_expr env locals e3 in
