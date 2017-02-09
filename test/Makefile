@@ -27,7 +27,7 @@ Crypto.Symmetric.Chacha20.exe: EXTRA=$(CRYPTO_OPTS) main-Chacha.c
 .PHONY: Crypto.Symmetric.Chacha20.fst
 
 %.wasm: %.fst
-	$(KRML) $(KOPTS) $(TEST_OPTS) $(EXTRA) -tmpdir $(subst .exe,.out,$@) $^ -wasm -drop Prims -drop FStar
+	$(KRML) $(KOPTS) $(TEST_OPTS) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $^ -wasm -drop Prims -drop FStar
 
 Crypto.Symmetric.Chacha20.wasm: EXTRA=$(CRYPTO_OPTS)
 
