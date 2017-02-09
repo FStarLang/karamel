@@ -31,11 +31,11 @@ function init(print) {
     let buf = "";
     let string = () => {
       let ptr = m8[i] + (m8[i+1] << 8) + (m8[i+2] << 16) + (m8[i+3] << 24);
+      i += 4;
       while (m8[ptr] != 0) {
         buf += String.fromCharCode(m8[ptr]);
-        i++;
+        ptr++;
       }
-      i++;
     };
     let int32 = () => {
       buf += "0x";
@@ -103,12 +103,17 @@ function init(print) {
 
 // One MUST call this function after loading a module.
 function propagate(module_name, imports, instance) {
+  print("Module", module_name, "successfully loaded");
+  print("Adding exports into global import table:\n ", Object.keys(instance.exports));
   imports[module_name] = {};
   for (let o of Object.keys(instance.exports)) {
     imports[module_name][o] = instance.exports[o];
   }
-  imports.Kremlin.data_start += instance.data_size;
+  print("This module has a data segment of size: ", instance.exports.data_size);
+  imports.Kremlin.data_start += instance.exports.data_size;
+  print("Next data segment will start at: ", imports.Kremlin.data_start);
   new Uint32Array(imports.Kremlin.mem.buffer)[0] = imports.Kremlin.data_start;
+  print();
 }
 
 const iv = [ 0, 0, 0, 0, 0, 0, 0, 0x4a, 0, 0, 0, 0 ];
@@ -130,17 +135,12 @@ function main(buf1, buf2, print) {
   var imports = init(print);
 
   WebAssembly.instantiate(buf1, imports).then(({ module, instance }) => {
-    print("Buffer_Utils ok");
-    print("Exports: "+Object.keys(instance.exports));
     propagate("Buffer_Utils", imports, instance);
     return WebAssembly.instantiate(buf2, imports);
   }).then(({ module, instance }) => {
-    print("Crypto_Symmetric_Chacha20 ok");
-    print("Exports: "+Object.keys(instance.exports));
     propagate("Crypto_Symmetric_Chacha20", imports, instance);
 
     let mem = imports.Kremlin.mem;
-    reserve(mem, 1024);
 
     // Allocating our parameters in the first 1k of the memory.
     let m8 = new Uint8Array(mem.buffer);

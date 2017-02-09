@@ -745,6 +745,7 @@ let mk_module types imports (name, decls):
       String.blit s 0 buf rel_addr l;
       Bytes.set buf (rel_addr + l) '\000';
     ) env.strings;
+    KPrint.bprintf "Wrote out a data segment of size %d\n" size;
     [ dummy_phrase W.Ast.({
         index = mk_var 0;
         offset = dummy_phrase [ dummy_phrase (
@@ -755,7 +756,7 @@ let mk_module types imports (name, decls):
   (* We also to export how big is our data segment so that the next module knows
    * where to start laying out its own static data in the globally-shared
    * memory. *)
-  let data_size_index = List.length globals in
+  let data_size_index = n_imported_globals + List.length globals in
   let globals = globals @ [ dummy_phrase W.Ast.({
     gtype = W.Types.GlobalType (mk_type I32, W.Types.Immutable);
     value = dummy_phrase (mk_const (mk_int32 (Int32.of_int !(env.data_size))))
