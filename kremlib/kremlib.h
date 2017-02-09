@@ -10,7 +10,9 @@
 #include <time.h>
 
 // Required if using gcc and calling conventions
+#ifndef _WIN32
 #include "gcc_compat.h"
+#endif
 
 // For types and values from C.fsti that do not exactly have the same name as
 // their C counterparts

@@ -11,24 +11,14 @@ module StringMap = Map.Make(String)
 type env = {
   funcs: int StringMap.t;
   globals: int StringMap.t;
-  stack: size list;
   n_args: int
 }
 
 let empty = {
   funcs = StringMap.empty;
   globals = StringMap.empty;
-  stack = [];
   n_args = 0
 }
-
-let grow env locals = {
-  env with
-  stack = env.stack @ locals
-}
-
-let size_at env i =
-  List.nth env.stack i
 
 (** We don't make any effort (yet) to keep track of positions even though Wasm
  * really wants us to. *)
@@ -548,8 +538,6 @@ let mk_func_type { args; ret; _ } =
 
 let mk_func env { args; locals; body; name; ret; _ } =
   let i = StringMap.find name env.funcs in
-  let env = grow env args in
-  let env = grow env locals in
   let env = { env with n_args = List.length args } in
 
   let body =
