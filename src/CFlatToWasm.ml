@@ -469,8 +469,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
         sz = match size with
           | A16 -> Some W.Memory.(Mem16, ZX)
           | A8 -> Some W.Memory.(Mem8, ZX)
-          | _ -> None })] @
-      Debug.mk env [ `String ("loaded " ^ show_array_size size); `Peek32 ]
+          | _ -> None })]
 
   | BufSub (e1, e2, size) ->
       mk_expr env e1 @
@@ -513,13 +512,14 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | While (e, expr) ->
       [ dummy_phrase (W.Ast.Loop ([],
         mk_expr env e @
-        i32_not @
-        [ dummy_phrase (W.Ast.BrIf (mk_var 0)) ] @
-        mk_expr env expr @
-        mk_drop)) ] @
+        [ dummy_phrase (W.Ast.If ([],
+          mk_expr env expr @ mk_drop @ [ dummy_phrase (W.Ast.Br (mk_var 1)) ],
+          [ dummy_phrase W.Ast.Nop ])) ]
+      ))] @
       mk_unit
 
-  | Ignore _ ->
+  | Ignore (e, _) ->
+      mk_expr env e @
       mk_drop
 
   | Sequence es ->

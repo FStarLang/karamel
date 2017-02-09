@@ -837,16 +837,16 @@ let remove_buffer_ops = object
     let b_size = mark_mut b_size in
     let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, ref_size)) in
     let with_t = with_type t in
-    ELet (b_init, body_init, close_binder b_init (with_t (
-    ELet (b_size, body_size, close_binder b_size (with_t (
-    ELet (b_buf, body_buf, close_binder b_buf (with_t (
+    ELet (b_init, body_init, close_binder b_init (lift 1 (with_t (
+    ELet (b_size, body_size, close_binder b_size (lift 1 (with_t (
+    ELet (b_buf, body_buf, close_binder b_buf (lift 1 (with_t (
       ESequence [ with_unit (
         EWhile (
           gt_zero ref_size, with_unit (
           ESequence [ with_unit (
             EBufWrite (ref_buf, minus_one ref_size, ref_init)); with_unit (
             EAssign (ref_size, minus_one ref_size))])));
-      ref_buf])))))))))
+      ref_buf]))))))))))))
 
   method ebufblit () t src_buf src_ofs dst_buf dst_ofs len =
     let with_t = with_type t in
@@ -860,9 +860,9 @@ let remove_buffer_ops = object
       mk_named_binding "len" uint32 len.node
     in
     let b_len = mark_mut b_len in
-    ELet (b_src, body_src, close_binder b_src (with_unit (
-    ELet (b_dst, body_dst, close_binder b_dst (with_unit (
-    ELet (b_len, body_len, close_binder b_len (with_unit (
+    ELet (b_src, body_src, close_binder b_src (lift 1 (with_unit (
+    ELet (b_dst, body_dst, close_binder b_dst (lift 1 (with_unit (
+    ELet (b_len, body_len, close_binder b_len (lift 1 (with_unit (
       EWhile (
         gt_zero ref_len, with_unit (
         ESequence [ with_unit (
@@ -870,7 +870,7 @@ let remove_buffer_ops = object
             ref_dst,
             minus_one ref_len,
             with_t (EBufRead (ref_src, minus_one ref_len)))); with_unit (
-          EAssign (ref_len, minus_one ref_len))])))))))))))
+          EAssign (ref_len, minus_one ref_len))]))))))))))))))
 
 end
 
