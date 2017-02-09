@@ -405,7 +405,7 @@ module Debug = struct
           char ofs '\x00'
       | `String s :: tl ->
           char ofs '\x01' @
-          mk_const (mk_int32 (Int32.of_int ofs)) @
+          mk_const (mk_int32 (Int32.of_int (ofs + 1))) @
           mk_string env s @
           [ dummy_phrase W.Ast.(Store {
               ty = mk_type I32; align = 0; offset = 0l; sz = None })] @

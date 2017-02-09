@@ -3,16 +3,39 @@
 const header_size = 256;
 
 // Some printing helpers
-function hex8(n) {
+function p8(n) {
   return ("0"+Number(n).toString(16)).slice(-2);
+}
+
+function hexn(m8, i, m) {
+  let buf = "";
+  let n = m - 1;
+  while (n >= 0) {
+    buf += p8(m8[i+n]);
+    n--;
+  }
+  return buf;
+}
+
+function hex32(m8, start) {
+  return hexn(m8, start, 4);
+}
+
+function hex64(m8, start) {
+  return hexn(m8, start, 8);
 }
 
 function hex(m8, start, len) {
   let s = "";
   for (let i = 0; i < len; ++i)
-    s += hex8(m8[start + i]);
+    s += p8(m8[start + i]);
   return s;
 }
+
+function p32(n) {
+  return ("0000000"+Number(n).toString(16)).slice(-8);
+}
+
 
 // Memory layout
 // -------------
@@ -39,23 +62,15 @@ function init(print) {
     };
     let int32 = () => {
       buf += "0x";
-      let n = 3;
-      while (n >= 0) {
-        buf += hex8(m8[i+n]);
-        n--;
-      }
+      buf += hex32(m8, i);
       i += 4;
     };
     let int64 = () => {
       buf += "0x";
-      let n = 7;
-      while (n >= 0) {
-        buf += hex8(m8[i+n]);
-        n--;
-      }
+      buf += hex64(m8, i);
       i += 8;
     };
-    buf += "Stack pointer is: 0x";
+    // Dump the stack pointer
     int32();
     buf += " | ";
     buf += " ".repeat(nest);
@@ -79,8 +94,8 @@ function init(print) {
           nest--;
           break;
         default:
-          print(hex(m8, 4, 128));
-          throw "unrecognized debug format:\n  buf="+buf+"\n  c=0x"+hex8(c)+"\n  i="+i;
+          print(hex(m8, 0, 128));
+          throw "unrecognized debug format:\n  buf="+buf+"\n  c=0x"+p8(c)+"\n  i="+i;
       }
       buf += " ";
     }
@@ -116,6 +131,41 @@ function propagate(module_name, imports, instance) {
   print();
 }
 
+// One MAY only call this function after all modules have been loaded and
+// suitable calls to propagate have been performed.
+function reserve(mem, size) {
+  let m32 = new Uint32Array(mem.buffer);
+  let p = m32[0];
+  m32[0] += size;
+  print("Reserved memory area 0x"+p32(p)+"..0x"+p32(m32[0]));
+  return p;
+}
+
+function dump(mem, size) {
+  let m8 = new Uint8Array(mem.buffer);
+  let i = 0;
+  let buf = "";
+  while (i < size) {
+    buf += p32(i) + "    ";
+    for (let j = 0; j < 32; ++j) {
+      buf += p8(m8[i+j]);
+      if (j % 4 == 3)
+        buf += " ";
+    }
+    buf += "    ";
+    for (let j = 0; j < 32; ++j) {
+      let c = m8[i+j];
+      if (32 <= c && c < 128)
+        buf += String.fromCharCode(c);
+      else
+        buf += ".";
+    }
+    buf += "\n";
+    i += 32;
+  }
+  print(buf);
+}
+
 const iv = [ 0, 0, 0, 0, 0, 0, 0, 0x4a, 0, 0, 0, 0 ];
 const plain =
   "Ladies and Gentlemen of the class of '99: If I could offer you only one tip " +
@@ -141,12 +191,14 @@ function main(buf1, buf2, print) {
     propagate("Crypto_Symmetric_Chacha20", imports, instance);
 
     let mem = imports.Kremlin.mem;
+    let start = reserve(mem, 1024);
+    dump(mem, 2*1024);
 
     // Allocating our parameters in the first 1k of the memory.
     let m8 = new Uint8Array(mem.buffer);
     let counter = 1;
     let len = plain.length;
-    let p_key = header_size;
+    let p_key = start;
     for (let i = 0; i < 32; ++i)
       m8[p_key+i] = i;
     let p_iv = p_key + 32;
@@ -171,6 +223,9 @@ function main(buf1, buf2, print) {
         throw (new Error("Cipher & reference differ at byte "+i));
       }
     }
+
+    dump(mem, 2*1024);
+
     print("SUCCESS");
   }).catch((e) => {
     print(e);
