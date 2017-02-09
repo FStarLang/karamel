@@ -30,8 +30,9 @@ function init(print) {
     let i = 0;
     let buf = "";
     let string = () => {
-      while (m8[i] != 0 && i < 128) {
-        buf += String.fromCharCode(m8[i]);
+      let ptr = m8[i] + (m8[i+1] << 8) + (m8[i+2] << 16) + (m8[i+3] << 24);
+      while (m8[ptr] != 0) {
+        buf += String.fromCharCode(m8[ptr]);
         i++;
       }
       i++;
@@ -86,23 +87,28 @@ function init(print) {
     print(buf);
   };
 
+  let reserved_area_size = 128;
+
   // Initialize the highwater mark.
-  new Uint32Array(mem.buffer)[0] = header_size;
+  new Uint32Array(mem.buffer)[0] = reserved_area_size;
   let imports = {
     Kremlin: {
       mem: mem,
-      debug: debug
+      debug: debug,
+      data_start: reserved_area_size
     }
   };
   return imports;
 }
 
-// Reserve some portion of the memory at the beginning for some private data
-// structures, or arguments to be passed to the functions. The Wasm code will
-// not touch these. Size is a number of bytes.
-function reserve(mem, size) {
-  new Uint32Array(mem.buffer)[0] = size+header_size;
-  return 4;
+// One MUST call this function after loading a module.
+function propagate(module_name, imports, instance) {
+  imports[module_name] = {};
+  for (let o of Object.keys(instance.exports)) {
+    imports[module_name][o] = instance.exports[o];
+  }
+  imports.Kremlin.data_start += instance.data_size;
+  new Uint32Array(imports.Kremlin.mem.buffer)[0] = imports.Kremlin.data_start;
 }
 
 const iv = [ 0, 0, 0, 0, 0, 0, 0, 0x4a, 0, 0, 0, 0 ];
@@ -126,14 +132,12 @@ function main(buf1, buf2, print) {
   WebAssembly.instantiate(buf1, imports).then(({ module, instance }) => {
     print("Buffer_Utils ok");
     print("Exports: "+Object.keys(instance.exports));
-    imports.Buffer_Utils = {};
-    for (let o of Object.keys(instance.exports)) {
-      imports.Buffer_Utils[o] = instance.exports[o];
-    }
+    propagate("Buffer_Utils", imports, instance);
     return WebAssembly.instantiate(buf2, imports);
   }).then(({ module, instance }) => {
     print("Crypto_Symmetric_Chacha20 ok");
     print("Exports: "+Object.keys(instance.exports));
+    propagate("Crypto_Symmetric_Chacha20", imports, instance);
 
     let mem = imports.Kremlin.mem;
     reserve(mem, 1024);
