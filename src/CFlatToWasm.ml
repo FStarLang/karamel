@@ -17,7 +17,7 @@ type env = {
     (** Mapping each global to its index in the global index space. *)
   n_args: int;
     (** The number of arguments to the current function. Needed to compute the
-     * index of the four "scratch" variables that each function has. *)
+     * index of the four "scratch" variables that each function has (see dup32). *)
   strings: (string, int) Hashtbl.t;
     (** Mapping constant string literals to their offset relative to the start
      * of THIS module's data segment. *)
