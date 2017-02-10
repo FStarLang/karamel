@@ -6,8 +6,10 @@ module K = Constant
 
 module StringMap = Map.Make(String)
 
-(** Our environments map top-level function identifiers to their index in the
- * global table. They also keep a map of each local stack index to its size. *)
+(******************************************************************************)
+(* Environments                                                               *)
+(******************************************************************************)
+
 type env = {
   funcs: int StringMap.t;
     (** Mapping each function to its index in the function index space. *)
@@ -38,6 +40,11 @@ let find_global env name =
 
 let find_func env name =
   StringMap.find name env.funcs
+
+
+(******************************************************************************)
+(* Helpers                                                                    *)
+(******************************************************************************)
 
 (** We don't make any effort (yet) to keep track of positions even though Wasm
  * really wants us to. *)
@@ -77,6 +84,123 @@ let mk_lit w lit =
       mk_int64 (Int64.of_string lit)
   | _ ->
       failwith "mk_lit"
+
+let i32_mul =
+  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Mul)) ]
+
+let i32_add =
+  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Add)) ]
+
+let i32_and =
+  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.And)) ]
+
+let i32_sub =
+  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Sub)) ]
+
+let i32_not =
+  mk_const (mk_int32 Int32.one) @
+  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Xor)) ]
+
+let i32_zero =
+  mk_const (mk_int32 Int32.zero)
+
+let i32_one =
+  mk_const (mk_int32 Int32.one)
+
+let mk_unit =
+  i32_zero
+
+let mk_drop =
+  [ dummy_phrase W.Ast.Drop ]
+
+(* Wasm lacks two crucial instructions: dup (to duplicate the operand at the
+ * top of the stack) and swap (to swap the two topmost operands). There are some
+ * macros, such as grow_highwater (or 16/8-bit arithmetic), that we want to
+ * expand at the last minute (since they use some very low-level Wasm concepts).
+ * Therefore, as a convention, every function frame has four "scratch" locals;
+ * the first two of size I64; the last two of size I32. The Wasm register
+ * allocator will take care of optimizing all of that. *)
+let dup32 env =
+  [ dummy_phrase (W.Ast.TeeLocal (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 2))) ]
+
+let dup64 env =
+  [ dummy_phrase (W.Ast.TeeLocal (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0))) ]
+
+let swap32 env =
+  [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 3)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 3))) ]
+
+let swap64 env =
+  [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 1)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 1))) ]
+
+
+(******************************************************************************)
+(* Run-time memory management                                                 *)
+(******************************************************************************)
+
+(* We use a bump-pointer allocator called the "highwater mark". One can read it
+ * (grows the stack by one); grow it by the specified offset (shrinks the stack
+ * by one); restore a value into it (also shrinks the stack by one). *)
+
+(* The highwater mark denotes the top of the stack (bump-pointer allocation).
+ * Since it needs to be shared across modules, and since Wasm does not support
+ * exported, mutable globals, we use the first word of the (shared) memory for
+ * that purpose. *)
+let read_highwater =
+  i32_zero @
+  [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = None }) ]
+
+let write_highwater env =
+  i32_zero @
+  swap32 env @
+  [ dummy_phrase W.Ast.(Store { ty = mk_type I32; align = 0; offset = 0l; sz = None }) ]
+
+let grow_highwater env =
+  read_highwater @
+  i32_add @
+  write_highwater env
+
+
+(******************************************************************************)
+(* Static memory management (the data segment)                                *)
+(******************************************************************************)
+
+(* We want to store constant string literals in the data segment, for efficiency
+ * reasons. Since all of our modules share the same linear memory, we proceed as
+ * follows. Each module imports, in addition to Kremlin.mem, a constant known as
+ * Kremlin.data_start. This module then lays out its strings in the data
+ * segment, relative to data_start. Once all strings have been laid out, the
+ * module exports its new data_size, and the loader grows Kremlin.data_start by
+ * this module's data_size before loading the next module. *)
+let compute_string_offset env rel_addr =
+  [ dummy_phrase (W.Ast.GetGlobal (mk_var (find_global env "data_start"))) ] @
+  [ dummy_phrase (W.Ast.Const (mk_int32 (Int32.of_int rel_addr))) ] @
+  i32_add
+
+let mk_string env s =
+  let rel_addr =
+    try Hashtbl.find env.strings s
+    with Not_found ->
+      (* Data segment computation will insert the final \000 byte. *)
+      let l = String.length s + 1 in
+      let rel_addr = !(env.data_size) in
+      Hashtbl.add env.strings s rel_addr;
+      env.data_size := rel_addr + l;
+      rel_addr
+  in
+  compute_string_offset env rel_addr
+  
+
+(******************************************************************************)
+(* Arithmetic                                                                 *)
+(******************************************************************************)
 
 let todo w =
   match w with
@@ -167,109 +291,6 @@ let mk_cmpop (w, o) =
 let is_cmpop (o: K.width * K.op) =
   mk_cmpop o <> None
 
-(** Memory management. We use a bump-pointer allocator called the "highwater
- * mark". One can read it (grows the stack by one); grow it by the specified
- * offset (shrinks the stack by one); restore a value into it (also shrinks the
- * stack by one). *)
-let i32_mul =
-  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Mul)) ]
-
-let i32_add =
-  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Add)) ]
-
-let i32_and =
-  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.And)) ]
-
-let i32_sub =
-  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Sub)) ]
-
-let i32_not =
-  mk_const (mk_int32 Int32.one) @
-  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Xor)) ]
-
-let i32_zero =
-  mk_const (mk_int32 Int32.zero)
-
-let i32_one =
-  mk_const (mk_int32 Int32.one)
-
-let mk_unit =
-  i32_zero
-
-let mk_drop =
-  [ dummy_phrase W.Ast.Drop ]
-
-(* Wasm lacks two crucial instructions: dup (to duplicate the operand at the
- * top of the stack) and swap (to swap the two topmost operands). There are some
- * macros, such as grow_highwater (or 16/8-bit arithmetic), that we want to
- * expand at the last minute (since they use some very low-level Wasm concepts).
- * Therefore, as a convention, every function frame has four "scratch" locals;
- * the first two of size I64; the last two of size I32. The Wasm register
- * allocator will take care of optimizing all of that. *)
-let dup32 env =
-  [ dummy_phrase (W.Ast.TeeLocal (mk_var (env.n_args + 2)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 2))) ]
-
-let dup64 env =
-  [ dummy_phrase (W.Ast.TeeLocal (mk_var (env.n_args + 0)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0))) ]
-
-let swap32 env =
-  [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 2)));
-    dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 3)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 2)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 3))) ]
-
-let swap64 env =
-  [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 0)));
-    dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 1)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 1))) ]
-
-(* The highwater mark denotes the top of the stack (bump-pointer allocation).
- * Since it needs to be shared across modules, and since Wasm does not support
- * exported, mutable globals, we use the first word of the (shared) memory for
- * that purpose. *)
-let read_highwater =
-  i32_zero @
-  [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = None }) ]
-
-let write_highwater env =
-  i32_zero @
-  swap32 env @
-  [ dummy_phrase W.Ast.(Store { ty = mk_type I32; align = 0; offset = 0l; sz = None }) ]
-
-let grow_highwater env =
-  read_highwater @
-  i32_add @
-  write_highwater env
-
-(** The data segment. We want to store constant string literals in the data
- * segment, for efficiency reasons. Since all of our modules share the same
- * linear memory, we proceed as follows. Each module imports, in addition to
- * Kremlin.mem, a constant known as Kremlin.data_start. This module then lays out
- * its strings in the data segment, relative to data_start. Once all strings have
- * been laid out, the module exports its new data_size, and the loader grows
- * Kremlin.data_start by CurMod.data_size before loading NextMod. *)
-let compute_string_offset env rel_addr =
-  [ dummy_phrase (W.Ast.GetGlobal (mk_var (find_global env "data_start"))) ] @
-  [ dummy_phrase (W.Ast.Const (mk_int32 (Int32.of_int rel_addr))) ] @
-  i32_add
-
-let mk_string env s =
-  let rel_addr =
-    try Hashtbl.find env.strings s
-    with Not_found ->
-      (* Data segment computation will insert the final \000 byte. *)
-      let l = String.length s + 1 in
-      let rel_addr = !(env.data_size) in
-      Hashtbl.add env.strings s rel_addr;
-      env.data_size := rel_addr + l;
-      rel_addr
-  in
-  compute_string_offset env rel_addr
-  
-
 (** Dealing with size mismatches *)
 
 (** The delicate question is how to handle integer types < 32 bits. Two options
@@ -341,22 +362,35 @@ let mk_cast w_from w_to =
       failwith "todo: signed cast conversions"
 
 
+(******************************************************************************)
+(* Debugging                                                                  *)
+(******************************************************************************)
+
 module Debug = struct
 
-  let mark_size = 4
+  (** This module provides a set of helpers to insert debugging within the
+   * instruction stream. *)
 
   (* Debugging conventions. We assume some scratch space at the beginning of the
    * memory; bytes 0..3 are the highwater mark, and bytes 4..127 are scratch space
    * to write a series of either:
-   * - 1 followed by the address of a zero-terminated string, or
-   * - 2 followed by a 32-bit integer, or
-   * - 3 followed by a 64-bit integer.
-   * - 4 increase nesting
-   * - 5 decrease nesting
+   * - 1 followed by the address of a zero-terminated string (most likely sitting
+   *     in the data segment), or
+   * - 2 followed by a 32-bit integer (little-endian, as enforced by Wasm), or
+   * - 3 followed by a 64-bit integer (little-endian, as enforced by Wasm), or
+   * - 4 increase nesting of call stack, or
+   * - 5 decrease nesting of call stack, or
    * - 0 (end of transmission)
    * This is to be read by the (externally-provided) debug function. This space
    * may evolve to include more information. The debug function is always the
    * function imported first (to easily generate debugging code). *)
+  let mark_size = 4
+
+  (* Debugging requires only one import, namely the debug function. We could've
+   * done things differently, but since Wasm does not support varargs, it
+   * would've been hard to write a generic printing routine otherwise. TODO:
+   * this info could be written right after the highwater mark, that way, we
+   * wouldn't be limited to 124b of debugging info. *)
   let default_imports = [
     dummy_phrase W.Ast.({
       module_name = "Kremlin";
@@ -369,63 +403,40 @@ module Debug = struct
     W.Types.FuncType ([], [])
   ]
 
-  let char ofs c =
-    let c = Char.code c in
-    mk_const (mk_int32 (Int32.of_int ofs)) @
-    mk_const (mk_int32 (Int32.of_int c)) @
-    [ dummy_phrase W.Ast.(Store {
-        ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.Mem8 })]
-
-  let string ofs s =
-    let l = String.length s in
-    List.flatten (KList.make l (fun i -> char (ofs + i) s.[i])) @
-    char (ofs + l) '\x00'
-
-  let local t ofs i =
-    mk_const (mk_int32 (Int32.of_int ofs)) @
-    [ dummy_phrase W.Ast.(GetLocal (mk_var i)) ] @
-    [ dummy_phrase W.Ast.(Store {
-        ty = mk_type t; align = 0; offset = 0l; sz = None })]
-
-  let local32 = local I32
-  let local64 = local I64
-
   let mk env l =
-    let mk_32 ofs i =
-      char ofs '\x02' @
-      local32 (ofs + 1) i
+
+    let char ofs c =
+      let c = Char.code c in
+      mk_const (mk_int32 (Int32.of_int ofs)) @
+      mk_const (mk_int32 (Int32.of_int c)) @
+      [ dummy_phrase W.Ast.(Store {
+          ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.Mem8 })]
     in
-    let mk_64 ofs i =
-      char ofs '\x03' @
-      local64 (ofs + 1) i
-    in
-    let rec aux ofs l =
+
+    let rec byte_and_store ofs c t instr tl =
+      char ofs c @
+      mk_const (mk_int32 (Int32.of_int (ofs + 1))) @
+      instr @
+      [ dummy_phrase W.Ast.(Store {
+          ty = mk_type t; align = 0; offset = 0l; sz = None })] @
+      aux (if t = I32 then ofs + 5 else ofs + 9) tl
+
+    and aux ofs l =
       match l with
       | [] ->
+          if ofs > 127 then
+            failwith "Debug information clobbered past the scratch area";
           char ofs '\x00'
       | `String s :: tl ->
-          char ofs '\x01' @
-          mk_const (mk_int32 (Int32.of_int (ofs + 1))) @
-          mk_string env s @
-          [ dummy_phrase W.Ast.(Store {
-              ty = mk_type I32; align = 0; offset = 0l; sz = None })] @
-          aux (ofs + 5) tl
+          byte_and_store ofs '\x01' I32 (mk_string env s) tl
       | `Peek32 :: tl ->
-          let i = env.n_args + 2 in
-          [ dummy_phrase (W.Ast.TeeLocal (mk_var i)) ] @
-          mk_32 ofs i @
-          aux (ofs + 5) tl
+          byte_and_store ofs '\x02' I32 (dup32 env) tl
       | `Local32 i :: tl ->
-          mk_32 ofs i @
-          aux (ofs + 5) tl
+          byte_and_store ofs '\x02' I32 [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ] tl
       | `Peek64 :: tl ->
-          let i = env.n_args in
-          [ dummy_phrase (W.Ast.TeeLocal (mk_var i)) ] @
-          mk_64 ofs i @
-          aux (ofs + 9) tl
+          byte_and_store ofs '\x02' I64 (dup64 env) tl
       | `Local64 i :: tl ->
-          mk_64 ofs i @
-          aux (ofs + 9) tl
+          byte_and_store ofs '\x02' I64 [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ] tl
       | `Incr :: tl ->
           char ofs '\x04' @
           aux (ofs + 1) tl
@@ -440,7 +451,14 @@ module Debug = struct
       []
 end
 
+
+(******************************************************************************)
+(* Initial imports for all modules                                            *)
+(******************************************************************************)
+
 module Base = struct
+  (* Reminder: the JS loader, as it folds over the list of modules, provides
+   * each module with the start address of its own data segment. *)
   let data_start =
     dummy_phrase W.Ast.({
       module_name = "Kremlin";
@@ -460,7 +478,11 @@ module Base = struct
   let types = Debug.default_types
 end
 
-(** Actual translations *)
+
+(******************************************************************************)
+(* Actual translation from Cflat to Wasm                                      *)
+(******************************************************************************)
+
 let rec mk_callop2 env (w, o) e1 e2 =
   (* TODO: check special byte semantics C / WASM *)
   let size = size_of_width w in
@@ -634,6 +656,11 @@ let mk_global env size body =
     gtype = W.Types.GlobalType (mk_type size, W.Types.Immutable);
     value = dummy_phrase body
   })
+
+
+(******************************************************************************)
+(* Putting it all together: generating a Wasm module                          *)
+(******************************************************************************)
 
 (* From [types] (all the function types in the universe) and [imports] (some
  * globals, a memory, and exactly [List.length types] functions who come in the

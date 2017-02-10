@@ -42,8 +42,7 @@ function p32(n) {
 //
 // mem[0..3] = top-of-the-stack pointer (I32);
 // mem[4..127] = scratch space for debugging.
-// Conventions for debugging and "debugging format" (lolz) are in CFlatToWasm.ml
-// in the Debug module.
+// Conventions for debugging and "debugging format" (lolz) are in WasmDebug.ml
 function init(print) {
   let mem = new WebAssembly.Memory({ initial: 16 });
   let m8 = new Uint8Array(mem.buffer);
