@@ -47,15 +47,19 @@ let size_of_array_elt (t: typ): array_size =
  * Variable declarations are visited in infix order; this order is used for
  * numbering the corresponding Cflat local declarations. Wasm will later on take
  * care of register allocation. *)
-
-(** We keep track, for each C* variable (a string), of its index in the stack
- * frame, along with its size. Enumeration constants are assigned a distinct
- * integer. *)
 type env = {
   binders: int list;
   enums: int LidMap.t;
+  (**  Enumeration constants are assigned a distinct integer. *)
 }
 
+(** When translating, we carry around the list of locals allocated so far within
+ * the current function body, along with an environment (for the De Bruijn indices);
+ * the i-th element in [binders] is De Bruijn variable [i]. When calling, say,
+ * [mk_expr], the locals are returned (they monotonically grow) and the
+ * environment is discarded.
+ *
+ * Note that this list is kept in reverse. *)
 type locals = size list
 
 let empty = {
@@ -66,7 +70,8 @@ let empty = {
 (** An index in the locals table *)
 type var = int
 
-(** Bind a new Cflat variable. *)
+(** Bind a new Cflat variable. We always carry around all the allocated locals,
+ * so they next local slot is just [List.length locals]. *)
 let extend (env: env) (binder: binder) (locals: locals): locals * var * env =
   let v = List.length locals in
   size_of binder.typ :: locals,
@@ -79,6 +84,7 @@ let extend (env: env) (binder: binder) (locals: locals): locals * var * env =
 let find env v =
   List.nth env.binders v
 
+(** A helpful combinators. *)
 let fold (f: locals -> 'a -> locals * 'b) (locals: locals) (xs: 'a list): locals * 'b list =
   let locals, ys = List.fold_left (fun (locals, acc) x ->
     let locals, y = f locals x in
@@ -94,7 +100,8 @@ let assert_buf = function
   | TArray (t, _) | TBuf t -> t
   | _ -> invalid_arg "assert_buf"
 
-(** The actual translation. *)
+(** The actual translation. Note that the environment is dropped, but that the
+ * locals are chained through (state-passing style). *)
 let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   match e.node with
   | EBound v ->
