@@ -43,7 +43,7 @@ The detailed steps are as follows. KreMLin:
     expressions that are not C expressions into statements and/or assignments;
 - inlines all functions that are determined to be in the `StackInline` effect,
   using a conservative syntactic criterion (see `Inlining.ml`);
-- performs part of the "round of transformations" again.
+- performs part of the "round of transformations" again (‡).
 
 At this stage, the (unverified) invariant is that the any program fits the
 definition of Low\* and can be trivially translated to C\*; KreMLin then:
@@ -64,3 +64,23 @@ definition of Low\* and can be trivially translated to C\*; KreMLin then:
   * respecting the precedence of operators;
   * dealing with C ambiguities (e.g. dangling else)
   * introducing sensible indentation.
+
+WASM Backend
+------------
+
+This is an alternative code generation pipeline that branches off at (‡), i.e.
+after the "round of transformations".
+
+This codepath is conditional on the `-wasm` flag; KreMLin then:
+- desugars some more high-level constructs (e.g. creation of a buffer with an
+  initial value, buffer blitting) into a series of loops and assignments --
+  these were only kept to generate more idiomatic C code;
+- removes struct-returning functions (20170210: currently a todo) in favor of
+  unit-returning functions that take an extra pointer to a caller-allocated
+  struct;
+- translates to Cflat, a language where all local variables have been
+  pre-allocated in the current function's stack frame, and where the only two
+  sizes left are I32 and I64 (we keep exact width information to generate
+  correct code for arithmetic computations, though);
+- translates to Wasm, generating a Wasm module for each (possibly-bundled) F\*
+  module.
