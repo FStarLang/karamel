@@ -1,7 +1,7 @@
 (** Machine integers. Don't repeat the same thing everywhere. *)
 
 type t = width * string
-  [@@deriving yojson]
+  [@@deriving yojson,show]
 
 and width =
   | UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64
@@ -22,7 +22,7 @@ type op =
   | Assign | PreIncr | PreDecr | PostIncr | PostDecr
   (* Misc *)
   | Comma
-  [@@deriving yojson]
+  [@@deriving yojson,show]
 
 let unsigned_of_signed = function
   | Int8 -> UInt8

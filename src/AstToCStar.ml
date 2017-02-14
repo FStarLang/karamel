@@ -23,7 +23,7 @@ open Warnings
 open Location
 open PrintAst.Ops
 
-let map_flatten f l = List.flatten (List.map f l)
+module C = Checker
 
 type env = {
   location: loc list;
@@ -141,12 +141,12 @@ let ensure_fresh env name body cont =
  * take zero arguments. If the argument is a EUnit expression, we drop it;
  * otherwise, we use a comma operator to make sure we don't discard the
  * (potential) side effect of the argument, EVEN THOUGH F* guarantees that an
- * effectful argument is hoisted (see [translate_expr]).
+ * effectful argument is hoisted (see [mk_expr]).
  *
  * Function that RETURN a single unit argument are translated as functions that
  * return void; this means that any [EReturn e] where [e] has type unit becomes
  * a [Return None]. If [e] is not a value, we can use a sequence (see
- * [translate_expr] again). If a function that has undergone unit to void
+ * [mk_expr] again). If a function that has undergone unit to void
  * conversion appears in an expression, again, a comma expression comes to the
  * rescue.
  *
@@ -156,8 +156,8 @@ let ensure_fresh env name body cont =
 let small s = CStar.Constant (K.UInt8, s)
 let zero = small "0"
 
-let rec translate_expr env in_stmt e =
-  let translate_expr env e = translate_expr env false e in
+let rec mk_expr env in_stmt e =
+  let mk_expr env e = mk_expr env false e in
   match e.node with
   | EBound var ->
       CStar.Var (find env var)
@@ -172,14 +172,14 @@ let rec translate_expr env in_stmt e =
       let t, ts = flatten_arrow e.typ in
       let call = match ts, es with
         | [ TUnit ], [ { node = EUnit; _ } ] ->
-            CStar.Call (translate_expr env e, [])
+            CStar.Call (mk_expr env e, [])
         | [ TUnit ], [ e' ] ->
             if is_value e' then
-              CStar.Call (translate_expr env e, [])
+              CStar.Call (mk_expr env e, [])
             else
-              CStar.Comma (translate_expr env e', CStar.Call (translate_expr env e, []))
+              CStar.Comma (mk_expr env e', CStar.Call (mk_expr env e, []))
         | _ ->
-            CStar.Call (translate_expr env e, List.map (translate_expr env) es)
+            CStar.Call (mk_expr env e, List.map (mk_expr env) es)
       in
       (* This function call was originally typed as returning [TUnit], a.k.a.
        * [void*]. However, we optimize these functions to return [void], meaning
@@ -192,17 +192,17 @@ let rec translate_expr env in_stmt e =
       else
         call
   | EBufCreate (l, e1, e2) ->
-      CStar.BufCreate (l, translate_expr env e1, translate_expr env e2)
+      CStar.BufCreate (l, mk_expr env e1, mk_expr env e2)
   | EBufCreateL (l, es) ->
-      CStar.BufCreateL (l, List.map (translate_expr env) es)
+      CStar.BufCreateL (l, List.map (mk_expr env) es)
   | EBufRead (e1, e2) ->
-      CStar.BufRead (translate_expr env e1, translate_expr env e2)
+      CStar.BufRead (mk_expr env e1, mk_expr env e2)
   | EBufSub (e1, e2) ->
-      CStar.BufSub (translate_expr env e1, translate_expr env e2)
+      CStar.BufSub (mk_expr env e1, mk_expr env e2)
   | EOp (o, w) ->
       CStar.Op (o, w)
   | ECast (e, t) ->
-      CStar.Cast (translate_expr env e, translate_type env t)
+      CStar.Cast (mk_expr env e, mk_type env t)
   | EAbort ->
       CStar.Var "KRML_EABORT"
   | EUnit ->
@@ -216,32 +216,39 @@ let rec translate_expr env in_stmt e =
   | EFlat fields ->
       let name = match e.typ with TQualified lid -> Some (string_of_lident lid) | _ -> None in
       CStar.Struct (name, List.map (fun (name, expr) ->
-        name, translate_expr env expr
+        name, mk_expr env expr
       ) fields)
   | EField (expr, field) ->
-      CStar.Field (translate_expr env expr, field)
+      CStar.Field (mk_expr env expr, field)
 
   | EComment (s, e, s') ->
-      CStar.InlineComment (s, translate_expr env e, s')
+      CStar.InlineComment (s, mk_expr env e, s')
 
   | _ ->
-      fatal_error "[AstToCStar.translate_expr]: should not be here (%a)" pexpr e
+      fatal_error "[AstToCStar.mk_expr]: should not be here (%a)" pexpr e
 
-and extract_stmts env e ret_type =
+and mk_buf env t =
+  match t with
+  | TBuf t1 | TArray (t1, _) ->
+      mk_type env t1
+  | _ ->
+      invalid_arg "mk_buf"
+
+and mk_stmts env e ret_type =
   let rec collect (env, acc) return_pos e =
     match e.node with
     | ELet (binder, e1, e2) ->
-        let env, binder = translate_and_push_binder env binder (Some e1) (Some e2)
-        and e1 = translate_expr env false e1 in
+        let env, binder = mk_and_push_binder env binder (Some e1) (Some e2)
+        and e1 = mk_expr env false e1 in
         let acc = CStar.Decl (binder, e1) :: acc in
         collect (env, acc) return_pos e2
 
     | EWhile (e1, e2) ->
-        let e = CStar.While (translate_expr env false e1, translate_block env true e2) in
+        let e = CStar.While (mk_expr env false e1, mk_block env true e2) in
         env, e :: acc
 
     | EIfThenElse (e1, e2, e3) ->
-        let e = CStar.IfThenElse (translate_expr env false e1, translate_block env return_pos e2, translate_block env return_pos e3) in
+        let e = CStar.IfThenElse (mk_expr env false e1, mk_block env return_pos e2, mk_block env return_pos e3) in
         env, e :: acc
 
     | ESequence es ->
@@ -252,23 +259,37 @@ and extract_stmts env e ret_type =
         ) (env, acc) es
 
     | EAssign (e1, ({ node = (EBufCreate _ | EBufCreateL _); _ } as e2)) when is_array e1.typ ->
-        let e = CStar.Copy (translate_expr env false e1, translate_type env e1.typ, translate_expr env false e2) in
+        let e = CStar.Copy (mk_expr env false e1, mk_type env e1.typ, mk_expr env false e2) in
         env, e :: acc
 
     | EAssign (e1, e2) ->
-        let e = CStar.Assign (translate_expr env false e1, translate_expr env false e2) in
+        let e = CStar.Assign (mk_expr env false e1, mk_expr env false e2) in
         env, e :: acc
 
     | EBufBlit (e1, e2, e3, e4, e5) ->
-        let e = CStar.BufBlit (translate_expr env false e1, translate_expr env false e2, translate_expr env false e3, translate_expr env false e4, translate_expr env false e5) in
+        let e = CStar.BufBlit (
+          mk_expr env false e1,
+          mk_expr env false e2,
+          mk_expr env false e3,
+          mk_expr env false e4,
+          mk_expr env false e5
+        ) in
         env, e :: acc
 
     | EBufWrite (e1, e2, e3) ->
-        let e = CStar.BufWrite (translate_expr env false e1, translate_expr env false e2, translate_expr env false e3) in
+        let e = CStar.BufWrite (
+          mk_expr env false e1,
+          mk_expr env false e2,
+          mk_expr env false e3
+        ) in
         env, e :: acc
 
     | EBufFill (e1, e2, e3) ->
-        let e = CStar.BufFill (translate_expr env false e1, translate_expr env false e2, translate_expr env false e3) in
+        let e = CStar.BufFill (
+          mk_expr env false e1,
+          mk_expr env false e2,
+          mk_expr env false e3
+        ) in
         env, e :: acc
 
     | EMatch _ ->
@@ -284,38 +305,38 @@ and extract_stmts env e ret_type =
         env, CStar.Abort :: acc
 
     | ESwitch (e, branches) ->
-        env, CStar.Switch (translate_expr env false e,
+        env, CStar.Switch (mk_expr env false e,
           List.map (fun (lid, e) ->
-            string_of_lident lid, translate_block env return_pos e
+            string_of_lident lid, mk_block env return_pos e
           ) branches) :: acc
 
     | EReturn e ->
-        translate_as_return env e acc
+        mk_as_return env e acc
 
     | EComment (s, e, s') ->
         let env, stmts = collect (env, CStar.Comment s :: acc) return_pos e in
         env, CStar.Comment s' :: stmts
 
     | _ when return_pos ->
-        translate_as_return env e acc
+        mk_as_return env e acc
 
     | _ ->
         if is_value e then
           env, acc
         else
-          let e = CStar.Ignore (translate_expr env true e) in
+          let e = CStar.Ignore (mk_expr env true e) in
           env, e :: acc
 
-  and translate_block env return_pos e =
+  and mk_block env return_pos e =
     List.rev (snd (collect (reset_block env, []) return_pos e))
 
-  and translate_as_return env e acc =
+  and mk_as_return env e acc =
     if ret_type = CStar.Void && is_value e then
       env, CStar.Return None :: acc
     else if ret_type = CStar.Void then
-      env, CStar.Return None :: CStar.Ignore (translate_expr env true e) :: acc
+      env, CStar.Return None :: CStar.Ignore (mk_expr env true e) :: acc
     else
-      env, CStar.Return (Some (translate_expr env false e)) :: acc
+      env, CStar.Return (Some (mk_expr env false e)) :: acc
 
   in
 
@@ -354,10 +375,10 @@ and is_value x =
  *   - it uses push_frame and pop_frame in the middle of the function body... in
  *     which case we check no special invariant
  *)
-and translate_function_block env e t =
+and mk_function_block env e t =
   (** This function expects an environment where names and in_block have been
    * populated with the function's parameters. *)
-  let stmts = extract_stmts env e t in
+  let stmts = mk_stmts env e t in
 
   (** This just enforces some invariants and drops push/pop frame when they span
    * the entire function body (because it's redundant with the function frame). *)
@@ -387,13 +408,13 @@ and translate_function_block env e t =
   | stmts, _ ->
       stmts
 
-and translate_return_type env = function
+and mk_return_type env = function
   | TInt w ->
       CStar.Int w
   | TArray (t, k) ->
-      CStar.Array (translate_type env t, CStar.Constant k)
+      CStar.Array (mk_type env t, CStar.Constant k)
   | TBuf t ->
-      CStar.Pointer (translate_type env t)
+      CStar.Pointer (mk_type env t)
   | TUnit ->
       CStar.Void
   | TQualified name ->
@@ -404,7 +425,7 @@ and translate_return_type env = function
       CStar.Pointer CStar.Void
   | TArrow _ as t ->
       let ret, args = flatten_arrow t in
-      CStar.Function (None, translate_return_type env ret, List.map (translate_type env) args)
+      CStar.Function (None, mk_return_type env ret, List.map (mk_type env) args)
   | TZ ->
       CStar.Z
   | TBound _ ->
@@ -414,28 +435,28 @@ and translate_return_type env = function
   | TTuple _ ->
       fatal_error "Internal failure: TTuple not desugared here"
   | TAnonymous t ->
-      translate_type_def env t
+      mk_type_def env t
 
 
-and translate_type env = function
+and mk_type env = function
   | TUnit ->
       CStar.Pointer CStar.Void
   | t ->
-      translate_return_type env t
+      mk_return_type env t
 
 (* This one is used for function binders, which we assume are distinct from each
  * other. *)
-and translate_and_push_binders env binders =
+and mk_and_push_binders env binders =
   let env, acc = List.fold_left (fun (env, acc) binder ->
-    let env, binder = translate_and_push_binder env binder None None in
+    let env, binder = mk_and_push_binder env binder None None in
     env, binder :: acc
   ) (env, []) binders in
   env, List.rev acc
 
-and translate_and_push_binder env binder body cont =
+and mk_and_push_binder env binder body cont =
   let binder = {
     CStar.name = ensure_fresh env binder.node.name body cont;
-    typ = translate_type env binder.typ
+    typ = mk_type env binder.typ
   } in
   push env binder, binder
 
@@ -455,7 +476,7 @@ and a_unit_is_a_unit binders body =
   | _ ->
       binders, body
 
-and translate_declaration env d: CStar.decl option =
+and mk_declaration env d: CStar.decl option =
   let wrap_throw name (comp: CStar.decl Lazy.t) =
     try Lazy.force comp with
     | Error e ->
@@ -469,11 +490,11 @@ and translate_declaration env d: CStar.decl option =
   | DFunction (cc, flags, t, name, binders, body) ->
       let env = locate env (InTop name) in
       Some (wrap_throw (string_of_lident name) (lazy begin
-        let t = translate_return_type env t in
+        let t = mk_return_type env t in
         assert (env.names = []);
         let binders, body = a_unit_is_a_unit binders body in
-        let env, binders = translate_and_push_binders env binders in
-        let body = translate_function_block env body t in
+        let env, binders = mk_and_push_binders env binders in
+        let body = mk_function_block env body t in
         CStar.Function (cc, flags, t, (string_of_lident name), binders, body)
       end))
 
@@ -482,8 +503,8 @@ and translate_declaration env d: CStar.decl option =
       Some (CStar.Global (
         string_of_lident name,
         flags,
-        translate_type env t,
-        translate_expr env false body))
+        mk_type env t,
+        mk_expr env false body))
 
   | DExternal (cc, name, t) ->
       let to_void = match t with
@@ -491,7 +512,7 @@ and translate_declaration env d: CStar.decl option =
         | _ -> false
       in
       let open CStar in
-      let t = match translate_type env t with
+      let t = match mk_type env t with
         | Function (None, ret, args) ->
             let args = match args with
               | [ Pointer Void ] when to_void -> []
@@ -508,22 +529,22 @@ and translate_declaration env d: CStar.decl option =
 
   | DType (name, 0, def) ->
       let name = string_of_lident name in
-      Some (CStar.Type (name, translate_type_def env def))
+      Some (CStar.Type (name, mk_type_def env def))
 
   | DType _ ->
       None
 
-and translate_type_def env d: CStar.typ =
+and mk_type_def env d: CStar.typ =
   match d with
   | Flat fields ->
       (* Not naming the structs or enums here, because they're going to be
        * typedef'd and we'll only refer to the typedef'd name. *)
       CStar.Struct (List.map (fun (field, (typ, _)) ->
-        field, translate_type env typ
+        field, mk_type env typ
       ) fields)
 
   | Abbrev t ->
-      translate_type env t
+      mk_type env t
 
   | Variant _ ->
       failwith "Variant should've been desugared at this  stage"
@@ -533,22 +554,22 @@ and translate_type_def env d: CStar.typ =
 
   | Union fields ->
       CStar.Union (List.map (fun (f, t) ->
-        f, translate_type env t
+        f, mk_type env t
       ) fields)
 
 
-and translate_program name decls =
+and mk_program name decls =
   KList.filter_map (fun d ->
     let n = string_of_lident (PrintAst.decl_name d) in
     try
-      translate_declaration empty d
+      mk_declaration empty d
     with Error e ->
       Warnings.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
       None
   ) decls
 
-and translate_file (name, program) =
-  name, (translate_program name) program
+and mk_file (name, program) =
+  name, (mk_program name) program
 
-and translate_files files =
-  List.map translate_file files
+and mk_files files =
+  List.map mk_file files

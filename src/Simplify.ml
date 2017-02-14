@@ -72,6 +72,10 @@ end
 
 (* Get wraparound semantics for arithmetic operations using casts to uint_* ***)
 
+let mk_op op w =
+  { node = EOp (op, w);
+    typ = Checker.type_of_op op w }
+
 let wrapping_arithmetic = object (self)
 
   inherit [unit] map
@@ -80,10 +84,7 @@ let wrapping_arithmetic = object (self)
     match e.node, es with
     | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), w), [ e1; e2 ] when K.is_signed w ->
         let unsigned_w = K.unsigned_of_signed w in
-        let e = {
-          node = EOp (K.without_wrap op, unsigned_w);
-          typ = Checker.type_of_op (K.without_wrap op) unsigned_w
-        } in
+        let e = mk_op (K.without_wrap op) unsigned_w in
         let e1 = self#visit () e1 in
         let e2 = self#visit () e2 in
         let c e = { node = ECast (e, TInt unsigned_w); typ = TInt unsigned_w } in
@@ -94,10 +95,7 @@ let wrapping_arithmetic = object (self)
         ECast (unsigned_app, TInt w)
 
     | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), w), [ e1; e2 ] when K.is_unsigned w ->
-        let e = {
-          node = EOp (K.without_wrap op, w);
-          typ = Checker.type_of_op (K.without_wrap op) w
-        }  in
+        let e = mk_op (K.without_wrap op) w in
         let e1 = self#visit () e1 in
         let e2 = self#visit () e2 in
         EApp (e, [ e1; e2 ])
@@ -180,6 +178,9 @@ let rec nest_in_return_pos f e =
   | _ ->
       f e
 
+let mark_mut b =
+  { b with node = { b.node with mut = true }}
+
 let let_if_to_assign = object (self)
 
   inherit [unit] map
@@ -191,7 +192,7 @@ let let_if_to_assign = object (self)
         let e_then = self#visit () e_then in
         let e_else = self#visit () e_else in
         (* [b] holds the return value of the conditional *)
-        let b = { b with node = { b.node with mut = true }} in
+        let b = mark_mut b in
         let b, e2 = open_binder b e2 in
         let nest_assign = nest_in_return_pos (fun innermost -> {
           node = EAssign ({ node = EOpen (b.node.name, b.node.atom); typ = b.typ }, innermost);
@@ -791,6 +792,87 @@ let hoist_bufcreate = object
       exit 151
 end
 
+(* Wasm-specific transformations that we perform now **************************)
+
+let with_unit = with_type TUnit
+let uint32 = TInt K.UInt32
+
+let zerou32 = with_type uint32 (EConstant (K.UInt32, "0"))
+let oneu32 = with_type uint32 (EConstant (K.UInt32, "1"))
+
+let minus_one e =
+  with_type uint32 (
+    EApp (
+      mk_op K.Sub K.UInt32, [
+      e;
+      oneu32
+    ]))
+
+let gt_zero e =
+  with_type TBool (
+    EApp (mk_op K.Gt K.UInt32, [
+      e;
+      zerou32]))
+
+let remove_buffer_ops = object
+  inherit [unit] map
+
+  (* The relatively simple:
+   *
+   *   bufcreate init size
+   *
+   * is rewritten to:
+   *
+   *   let i = init in
+   *   let s = size in
+   *   let b = bufcreate i s in
+   *   while (s > 0)
+   *     b[s] = i;
+   *     i--;
+   *   b
+   * *)
+  method ebufcreate () t lifetime init size =
+    let b_init, body_init, ref_init = mk_named_binding "init" init.typ init.node in
+    let b_size, body_size, ref_size = mk_named_binding "size" size.typ size.node in
+    let b_size = mark_mut b_size in
+    let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, ref_size)) in
+    let with_t = with_type t in
+    ELet (b_init, body_init, close_binder b_init (lift 1 (with_t (
+    ELet (b_size, body_size, close_binder b_size (lift 1 (with_t (
+    ELet (b_buf, body_buf, close_binder b_buf (lift 1 (with_t (
+      ESequence [ with_unit (
+        EWhile (
+          gt_zero ref_size, with_unit (
+          ESequence [ with_unit (
+            EBufWrite (ref_buf, minus_one ref_size, ref_init)); with_unit (
+            EAssign (ref_size, minus_one ref_size))])));
+      ref_buf]))))))))))))
+
+  method ebufblit () t src_buf src_ofs dst_buf dst_ofs len =
+    let with_t = with_type t in
+    let b_src, body_src, ref_src =
+      mk_named_binding "src" src_buf.typ (EBufSub (src_buf, src_ofs))
+    in
+    let b_dst, body_dst, ref_dst =
+      mk_named_binding "dst" dst_buf.typ (EBufSub (dst_buf, dst_ofs))
+    in
+    let b_len, body_len, ref_len =
+      mk_named_binding "len" uint32 len.node
+    in
+    let b_len = mark_mut b_len in
+    ELet (b_src, body_src, close_binder b_src (lift 1 (with_unit (
+    ELet (b_dst, body_dst, close_binder b_dst (lift 1 (with_unit (
+    ELet (b_len, body_len, close_binder b_len (lift 1 (with_unit (
+      EWhile (
+        gt_zero ref_len, with_unit (
+        ESequence [ with_unit (
+          EBufWrite (
+            ref_dst,
+            minus_one ref_len,
+            with_t (EBufRead (ref_src, minus_one ref_len)))); with_unit (
+          EAssign (ref_len, minus_one ref_len))]))))))))))))))
+
+end
 
 (* Everything composed together ***********************************************)
 
@@ -816,4 +898,8 @@ let simplify (files: file list): file list =
 let to_c_names (files: file list): file list =
   let files = visit_files () record_toplevel_names files in
   let files = visit_files () replace_references_to_toplevel_names files in
+  files
+
+let simplify_wasm (files: file list): file list =
+  let files = visit_files () remove_buffer_ops files in
   files

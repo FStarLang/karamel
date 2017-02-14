@@ -22,10 +22,10 @@ and stmt =
   | IfThenElse of expr * block * block
   | While of expr * block
   | Assign of expr * expr
-    (** First expression has to be a [Bound] or [Open]. *)
+    (** Destination (i.e. Var), Source *)
   | Copy of expr * typ * expr
+    (** Destination, always Array (typ, size), Source *)
   | Switch of expr * (ident * block) list
-
   | BufWrite of expr * expr * expr
     (** First expression has to be a [Bound] or [Open]. *)
   | BufBlit of expr * expr * expr * expr * expr
@@ -42,11 +42,13 @@ and expr =
   | Qualified of ident
   | Constant of K.t
   | BufCreate of lifetime * expr * expr
+    (** initial value, length *)
   | BufCreateL of lifetime * expr list
   | BufRead of expr * expr
   | BufSub of expr * expr
   | Op of op
   | Cast of expr * typ
+    (** to *)
   | Bool of bool
   | Struct of ident option * (ident option * expr) list
     (** Some invariants. A struct can appear in an expression (and comes with
@@ -59,6 +61,7 @@ and expr =
   | Comma of expr * expr
   | StringLiteral of string
   | Any
+  [@@deriving show]
 
 and block =
   stmt list

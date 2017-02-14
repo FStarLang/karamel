@@ -1,5 +1,5 @@
 type t = unit ref
-  [@@deriving yojson]
+  [@@deriving yojson,show]
 
 let fresh () = ref ()
 

@@ -56,5 +56,9 @@ drop:
   { p }
 
 bundle:
-| b = separated_list(DOT, u = UIDENT { u }) EQUALS l = separated_nonempty_list(COMMA, pat) EOF
+| b = separated_list(DOT, u = UIDENT { u })
+  EQUALS
+  l = separated_nonempty_list(COMMA, pat) EOF
   { b, l }
+| l = separated_nonempty_list(COMMA, pat) EOF
+  { [], l }

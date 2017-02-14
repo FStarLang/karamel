@@ -58,7 +58,7 @@ let build_map files f =
 
 let inline_analysis map =
   let lookup lid = Hashtbl.find map lid in
-  let debug_inline = false in
+  let debug_inline = Options.debug "inline" in
 
   (** To determine whether a function should be inlined, we use a syntactic
    * criterion: any buffer allocation that happens before a [push_frame] implies
@@ -134,10 +134,10 @@ let inline_analysis map =
          * externally-realized functions execute in their own stack frame, which
          * is fine, because they actually are, well, functions written in C. *)
         Safe
-    | substitute, body ->
-        if substitute || walk body then begin
-          if not substitute then
-            Warnings.maybe_fatal_error ("", ShouldSubstitute lid);
+    | _, body ->
+        (* Whether the function asked to be substituted is not relevant for
+         * this fixpoint computation. *)
+        if walk body then begin
           MustInline
         end else
           Safe
@@ -179,6 +179,9 @@ let inline_function_frames files =
         ()
   ) in
   let valuation = inline_analysis map in
+  (* We must replace the function by its definition if the fixpoint
+   * computation makes it necessary, or if the user asked for it. *)
+  let must_inline lid = valuation lid = MustInline || fst (Hashtbl.find map lid) in
 
   (* Because we want to recursively, lazily evaluate the inlining of each
    * function, we temporarily store the bodies of each function in a mutable map
@@ -194,7 +197,7 @@ let inline_function_frames files =
     method eapp () t e es =
       let es = List.map (self#visit ()) es in
       match e.node with
-      | EQualified lid when valuation lid = MustInline && Hashtbl.mem map lid ->
+      | EQualified lid when Hashtbl.mem map lid && must_inline lid ->
           (* We use a syntactic criterion to ensure that all the arguments are
            * values, i.e. can be safely substituted inside the function
            * definition. *)

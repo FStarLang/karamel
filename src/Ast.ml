@@ -8,6 +8,7 @@ open Common
 
 type program =
   decl list
+  [@@deriving show]
 
 and file =
   string * program
@@ -68,7 +69,7 @@ and expr' =
   | EBufSub of expr * expr
     (** e1 + e2 *)
   | EBufBlit of expr * expr * expr * expr * expr
-    (** e1, index; e2, index; len *)
+    (** e1 (source), index; e2 (dest), index; len *)
   | EBufFill of expr * expr * expr
   | EPushFrame
   | EPopFrame

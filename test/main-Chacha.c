@@ -39,7 +39,7 @@ int main (int argc, char *argv[]) {
   long n = argc > 1 ? strtol(argv[1], NULL, 10) : 1;
 
   for (long i = 0; i < n; ++i)
-    Crypto_Symmetric_Chacha20_counter_mode(key, iv, counter, LEN, plaintext, ciphertext);
+    counter_mode(key, iv, counter, LEN, plaintext, ciphertext);
   if (memcmp(expected, ciphertext, LEN) != 0) {
     printf("[Chacha]: encryption FAILED\n");
     printf("\nPLAINTEXT:\n");
