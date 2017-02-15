@@ -161,6 +161,8 @@ let let_to_sequence = object (self)
 
 end
 
+(* Descend into a terminal position, then call [f] on the sub-term in terminal
+ * position. This function is only safe to call if all binders have been opened. *)
 let rec nest_in_return_pos f e =
   match e.node with
   | ELet (b, e1, e2) ->
@@ -181,6 +183,16 @@ let rec nest_in_return_pos f e =
 let mark_mut b =
   { b with node = { b.node with mut = true }}
 
+(* This pass rewrites:
+ *   let x = if ... then e else e'
+ * into:
+ *   let x = any;
+ *   if ... then
+ *     x <- e
+ *   else
+ *     x <- e'
+ *
+ * The code is prettier if we push the assignment under lets, ifs and switches. *)
 let let_if_to_assign = object (self)
 
   inherit [unit] map
@@ -556,7 +568,14 @@ end
 let rec fixup_return_pos e =
   (* We know how to insert returns and won't need assignments for things that
    * are in terminal position. To keep in sync with [AstToCStar.extract_stmts]
-   * and [AstToCStar.translate_function_block]. *)
+   * and [AstToCStar.translate_function_block]. This transforms:
+   *   let x = if ... then ... else in
+   *   x
+   * into:
+   *   if .. then ... else
+   * because it's valid for if nodes to appear in terminal position (idem for
+   * switch nodes).
+   * *)
   with_type e.typ (match e.node with
   | ELet (_, ({ node = (EIfThenElse _ | ESwitch _); _ } as e), { node = EBound 0; _ }) ->
       (fixup_return_pos e).node
@@ -675,15 +694,39 @@ let replace_references_to_toplevel_names = object(self)
     ESwitch (self#visit () e, List.map (fun (tag, e) -> t tag, self#visit () e) branches)
 end
 
-(* Fixup the scopes... ********************************************************)
+(* Extend the lifetimes of buffers ********************************************)
 
 let any = with_type TAny EAny
 
-(** This function assumes [hoist] has been run so that every single [EBufCreate]
+(** This function hoists let-buffers up to the nearest enclosing push_frame so
+ * that their lifetime is not shortened by an upcoming C braced block.
+ *
+ * Consider:
+ *   push_frame ();
+ *   let b = if true then let b1 = bufcreatel ... in subbuf b1 0 else ... in
+ *
+ * This is fine per the C* semantics but not safe to transform "as is" into:
+ *   int* b;
+ *   if true then {
+ *     int b1[] = { 1, 2, 3, 4, 5 };
+ *     b = b1;
+ *   }
+ *
+ * This function rewrites the snippet above into:
+ *   push_frame ();
+ *   let b1: array int 5 = any;
+ *   let b = if true then b1 <-copy-- bufcreatel ...; subbuf b1 0 else ...
+ *
+ * This introduces a new copy-assignment operator (encoded via an assignment
+ * whose type is Array instead of Buf) which is implemented as a memcpy later
+ * on.
+ *
+ * This function assumes [hoist] has been run so that every single [EBufCreate]
  * appears as a [let x = bufcreate...], always in statement position.
- * This function generates nodes of the form [buf <- * EBufCreate]. The [hoist]
- * transformation will be called a second time (after inlining) and knows that
- * this is legal, via the [AssignRhs] case. *)
+ * The [hoist] transformation will be called a second time (after inlining)
+ * meaning that it will encounter nodes of the form [b1 <-copy-- bufcreatel];
+ * [hoist] may be tempted to hoist these buffer create operations, but thanks to
+ * the [AssignRhs] case, knows that it shouldn't. *)
 let rec hoist_bufcreate (e: expr) =
   let mk node = { node; typ = e.typ } in
   match e.node with
