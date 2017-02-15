@@ -193,20 +193,20 @@ Supported options:|}
   (* The first check can only occur after type abbreviations have been inlined,
    * and type abbreviations we don't know about have been replaced by TAny.
    * Otherwise, the checker is too stringent and will drop files. *)
-  let l = List.length files in
   let files = DataTypes.drop_match_cast files in
-  let files = Checker.check_everything ~warn:true files in
+  let has_errors, files = Checker.check_everything ~warn:true files in
 
   (* Make sure implementors that target Kremlin can tell apart their bugs vs.
    * mine *)
   flush stderr;
-  if List.length files = l then
+  if not has_errors then
     KPrint.bprintf "%s✔%s Input file successfully checked\n" Ansi.green Ansi.reset
   else
     KPrint.bprintf "%s⚠%s Dropped some files while checking\n" Ansi.orange Ansi.reset;
+  flush stdout;
 
   let files = Bundles.make_bundles files in
-  let files = Checker.check_everything files in
+  let _, files = Checker.check_everything files in
 
   let files = Inlining.inline_type_abbrevs files in
 
@@ -216,7 +216,7 @@ Supported options:|}
     print PrintAst.print_files files;
 
   (* Perform a whole-program rewriting. *)
-  let files = Checker.check_everything files in
+  let _, files = Checker.check_everything files in
   KPrint.bprintf "%s✔%s Pattern compilation successfully checked\n" Ansi.green Ansi.reset;
 
   let files = if !arg_wasm then Simplify.simplify_wasm files else files in
@@ -233,7 +233,7 @@ Supported options:|}
   if !arg_print_inline then
     print PrintAst.print_files files;
 
-  let files = Checker.check_everything files in
+  let _, files = Checker.check_everything files in
   KPrint.bprintf "%s✔%s Simplify + inlining successfully checked\n" Ansi.green Ansi.reset;
   (* Do this at the last minute because the checker still needs these type
    * abbreviations to check that our stuff makes sense. *)

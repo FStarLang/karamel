@@ -139,29 +139,32 @@ let rec is_constant e =
   | _ ->
       false
 
-let rec check_everything ?warn files =
+let rec check_everything ?warn files: bool * file list =
   let env = populate_env files in
   let env = match warn with Some true -> { env with warn = true } | _ -> env in
-  KList.filter_map (fun p ->
+  let r = ref false in
+  !r, List.map (check_program env r) files
+
+and check_program env r (name, decls) =
+  name, KList.filter_map (fun d ->
+    let env = locate env (File name) in
     try
-      check_program env p;
-      Some p
+      check_decl env d;
+      Some d
     with
     | Error e ->
+        r := true;
         Warnings.maybe_fatal_error e;
-        KPrint.beprintf "Dropping %s (at checking time)\n\n" (fst p);
+        KPrint.beprintf "Dropping %a (at checking time)\n\n" plid (lid_of_decl d);
         None
     | e ->
+        r := true;
         let e = Printexc.to_string e in
         Warnings.maybe_fatal_error ("<toplevel>", TypeError e);
         Printexc.print_backtrace stderr;
-        KPrint.beprintf "Dropping %s (at checking time)\n\n" (fst p);
+        KPrint.beprintf "Dropping %a (at checking time)\n\n" plid (lid_of_decl d);
         None
-  ) files
-
-and check_program env (name, decls) =
-  let env = locate env (File name) in
-  List.iter (check_decl env) decls
+  ) decls
 
 and check_decl env d =
   match d with
