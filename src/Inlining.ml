@@ -240,7 +240,7 @@ let inline_function_frames files =
   (* Note that because of bundling, we no longer have the invariant that the
    * left-hand-side of an [lident] maps to the name of the file it originates
    * from. *)
-  let file_of = Bundles.mk_file_of files in
+  let file_of = Bundle.mk_file_of files in
 
   (* While we're at it, after inlining, we may drop some private qualifiers for
    * functions in other modules that end up being called. *)
