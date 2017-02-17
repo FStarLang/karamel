@@ -146,8 +146,8 @@ let rec check_everything ?warn files: bool * file list =
   !r, List.map (check_program env r) files
 
 and check_program env r (name, decls) =
+  let env = locate env (File name) in
   name, KList.filter_map (fun d ->
-    let env = locate env (File name) in
     try
       check_decl env d;
       Some d
@@ -291,6 +291,13 @@ and check' env t e =
       (** The typing rules of matches and constructors are always nominal;
        * structural types appear through simplification phases, which also
        * remove matches in favor of switches or conditionals. *)
+      begin match expand_abbrev env t with
+      | TQualified lid
+      | TApp (lid, _) ->
+          ignore (assert_variant env (lookup_type env lid))
+      | _ ->
+          ()
+      end;
       let ts' = args_of_branch env t ident in
       List.iter2 (check env) ts' exprs
 
@@ -539,6 +546,13 @@ and infer' env e =
       TTuple (List.map (infer env) es)
 
   | ECons _ ->
+      begin match expand_abbrev env e.typ with
+      | TQualified lid
+      | TApp (lid, _) ->
+          ignore (assert_variant env (lookup_type env lid))
+      | _ ->
+          ()
+      end;
       (* Preserve the provided type annotation that (hopefully) was there in the
        * first place. *)
       e.typ
@@ -741,6 +755,13 @@ and assert_tuple env t =
       ts
   | _ ->
       type_error env "%a is not a tuple type" ptyp t
+
+and assert_variant env t =
+  match t with
+  | Variant def ->
+      def
+  | _ ->
+      fatal_error "%a, this is not a variant definition: %a" ploc env.location pdef t
 
 and assert_flat env t =
   match t with

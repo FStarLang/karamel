@@ -202,7 +202,7 @@ Supported options:|}
   if not has_errors then
     KPrint.bprintf "%s✔%s Input file successfully checked\n" Ansi.green Ansi.reset
   else
-    KPrint.bprintf "%s⚠%s Dropped some files while checking\n" Ansi.orange Ansi.reset;
+    KPrint.bprintf "%s⚠%s Dropped some declarations while checking\n" Ansi.orange Ansi.reset;
   flush stdout;
 
   let files = Bundles.make_bundles files in
