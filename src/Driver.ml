@@ -197,19 +197,18 @@ let run_or_warn str exe args =
   if !Options.verbose then
     print_endline debug_str;
   match P.run exe (Array.of_list args) with
-  | { P.Output.exit_status = P.Exit.Exit 0; stdout; _ } ->
+  | { P.Output.exit_status = P.Exit.Exit 0; stdout; stderr; _ } ->
       KPrint.bprintf "%s✔%s %s%s\n" Ansi.green Ansi.reset str (verbose_msg ());
       if !Options.verbose then
         List.iter print_endline stdout;
+        List.iter print_endline stderr;
       true
   | { P.Output.stderr; stdout; _ } ->
       KPrint.bprintf "%s✘%s %s%s\n" Ansi.red Ansi.reset str (verbose_msg ());
-      if !Options.verbose then begin
-        List.iter print_endline stderr;
-        List.iter print_endline stdout
-      end;
-      maybe_fatal_error ("run_or_warn", ExternalError debug_str);
+      List.iter print_endline stderr;
+      List.iter print_endline stdout;
       Pervasives.(flush stdout; flush stderr);
+      maybe_fatal_error ("run_or_warn", ExternalError debug_str);
       false
 
 (** Called from the top-level file; runs [fstar] on the [.fst] files
