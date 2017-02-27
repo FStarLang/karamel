@@ -91,10 +91,10 @@ void FStar_Buffer_recall(void *x);
 // Some types that KreMLin has no special knowledge of; many of them appear in
 // signatures of ghost functions, meaning that it suffices to give them (any)
 // definition.
-typedef void *Prims_pos, *Prims_nat, *Prims_nonzero, *FStar_Seq_Base_seq, *Prims_int,
-    *Prims_prop, *FStar_HyperStack_mem, *FStar_Set_set, *Prims_st_pre_h,
-    *FStar_Heap_heap, *Prims_all_pre_h, *FStar_TSet_set, *Prims_string,
-    *Prims_list, *FStar_Map_t, *FStar_UInt63_t_, *FStar_Int63_t_,
+typedef void *Prims_pos, *Prims_nat, *Prims_nonzero, *FStar_Seq_Base_seq,
+    *Prims_int, *Prims_prop, *FStar_HyperStack_mem, *FStar_Set_set,
+    *Prims_st_pre_h, *FStar_Heap_heap, *Prims_all_pre_h, *FStar_TSet_set,
+    *Prims_string, *Prims_list, *FStar_Map_t, *FStar_UInt63_t_, *FStar_Int63_t_,
     *FStar_UInt63_t, *FStar_Int63_t, *FStar_UInt_uint_t, *FStar_Int_int_t,
     *FStar_HyperStack_stackref, *FStar_Bytes_bytes, *FStar_HyperHeap_rid,
     *FStar_Heap_aref;
@@ -126,6 +126,14 @@ void *Prims____Cons___tl(void *_);
 
 #define KRML_EABORT (exit(252), 0)
 
+#define KRML_CHECK_SIZE(elt, size)                                             \
+  if ((size) > INTPTR_MAX / sizeof(elt)) {                                     \
+    printf("Maximum allocatable size exceeded, aborting before overflow at "   \
+           "%s:%d\n",                                                          \
+           __FILE__, __LINE__);                                                \
+    exit(253);                                                                 \
+  }
+
 // Stubs to make ST happy. Important note: you must generate a use of the macro
 // argument, otherwise, you may have FStar_ST_recall(f) as the only use of f;
 // KreMLin will think that this is a valid use, but then the C compiler, after
@@ -138,7 +146,7 @@ bool FStar_HyperStack_is_eternal_color(Prims_int x0);
 #define FStar_ST_new_region(x) 0
 #define FStar_ST_recall(x)                                                     \
   do {                                                                         \
-    (void) x;                                                                  \
+    (void)x;                                                                   \
   } while (0)
 #define FStar_ST_recall_region(x)                                              \
   do {                                                                         \
@@ -165,8 +173,10 @@ Prims_int FStar_UInt32_v(uint32_t x);
 #define FStar_Seq_Base_create(len, init) 0
 #define FStar_Seq_Base_upd(s, i, e) 0
 #define FStar_Seq_Base_eq(l1, l2) 0
-FStar_Seq_Base_seq FStar_Seq_Base_append(FStar_Seq_Base_seq x, FStar_Seq_Base_seq y);
-FStar_Seq_Base_seq FStar_Seq_Base_slice(FStar_Seq_Base_seq x, FStar_Seq_Base_seq y, Prims_nat z);
+FStar_Seq_Base_seq FStar_Seq_Base_append(FStar_Seq_Base_seq x,
+                                         FStar_Seq_Base_seq y);
+FStar_Seq_Base_seq FStar_Seq_Base_slice(FStar_Seq_Base_seq x,
+                                        FStar_Seq_Base_seq y, Prims_nat z);
 #define FStar_Seq_Properties_snoc(x, y) 0
 #define FStar_Seq_Properties_cons(x, y) 0
 #define FStar_Seq_Base_index(x, y) 0
@@ -258,34 +268,40 @@ FStar_UInt32_t FStar_UInt32_uint_to_t(Prims_nat x);
 
 #endif
 
-#define load64(b) (*((uint64_t*) b))
-#define store64(b,i) (*((uint64_t*)b)=i)
-#define load32(b) (*((uint32_t*) b))
-#define store32(b,i) (*((uint32_t*)b)=i)
+#define load64(b) (*((uint64_t *)b))
+#define store64(b, i) (*((uint64_t *)b) = i)
+#define load32(b) (*((uint32_t *)b))
+#define store32(b, i) (*((uint32_t *)b) = i)
 #define load128(b) (*((FStar_UInt128_t *)b))
 #define store128(b, i) (*((FStar_UInt128_t *)b) = i)
 
 #define htole128(i) i
-//TODO (((uint128_t)htole64((uint64_t) i)) << 64 | (uint128_t)htole64((uint64_t) (i >> 64)))
+// TODO (((uint128_t)htole64((uint64_t) i)) << 64 |
+// (uint128_t)htole64((uint64_t) (i >> 64)))
 #define le128toh(i) i
-//TODO (((uint128_t)le64toh((uint64_t) i)) << 64 | (uint128_t)le64toh((uint64_t) (i >> 64)))
-#define htobe128(i) (((uint128_t)htobe64((uint64_t) i)) | ((uint128_t)htobe64((uint64_t)(i >> 64)) << 64))
-#define be128toh(i) (((uint128_t)be64toh((uint64_t) i)) | ((uint128_t)be64toh((uint64_t)(i >> 64)) << 64))
+// TODO (((uint128_t)le64toh((uint64_t) i)) << 64 |
+// (uint128_t)le64toh((uint64_t) (i >> 64)))
+#define htobe128(i)                                                            \
+  (((uint128_t)htobe64((uint64_t)i)) |                                         \
+   ((uint128_t)htobe64((uint64_t)(i >> 64)) << 64))
+#define be128toh(i)                                                            \
+  (((uint128_t)be64toh((uint64_t)i)) |                                         \
+   ((uint128_t)be64toh((uint64_t)(i >> 64)) << 64))
 
 #define load32_le(b) (le32toh(load32(b)))
-#define store32_le(b, i) (store32(b,htole32(i)))
+#define store32_le(b, i) (store32(b, htole32(i)))
 #define load32_be(b) (be32toh(load32(b)))
-#define store32_be(b, i) (store32(b,htobe32(i)))
+#define store32_be(b, i) (store32(b, htobe32(i)))
 
 #define load64_le(b) (le64toh(load64(b)))
-#define store64_le(b, i) (store64(b,htole64(i)))
+#define store64_le(b, i) (store64(b, htole64(i)))
 #define load64_be(b) (be64toh(load64(b)))
-#define store64_be(b, i) (store64(b,htobe64(i)))
+#define store64_be(b, i) (store64(b, htobe64(i)))
 
 #define load128_le(b) (le128toh(load128(b)))
-#define store128_le(b, i) (store128(b,htole128(i)))
+#define store128_le(b, i) (store128(b, htole128(i)))
 #define load128_be(b) (be128toh(load128(b)))
-#define store128_be(b, i) (store128(b,htobe128(i)))
+#define store128_be(b, i) (store128(b, htobe128(i)))
 
 #define FStar_Buffer_to_seq_full(x) 0
 

@@ -104,10 +104,10 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
 
 and mk_for_loop_initializer e_array e_size e_value =
   For (
-    (Int K.UInt, None, [ Ident "i", Some (InitExpr zero)]),
-    Op2 (K.Lt, Name "i", e_size),
-    Op1 (K.PreIncr, Name "i"),
-    Expr (Op2 (K.Assign, Index (e_array, Name "i"), e_value)))
+    (Int K.UInt, None, [ Ident "_i", Some (InitExpr zero)]),
+    Op2 (K.Lt, Name "_i", e_size),
+    Op1 (K.PreIncr, Name "_i"),
+    Expr (Op2 (K.Assign, Index (e_array, Name "_i"), e_value)))
 
 and mk_memset_zero_initializer e_array e_size =
   Expr (Call (Name "memset", [
@@ -116,6 +116,9 @@ and mk_memset_zero_initializer e_array e_size =
     Op2 (K.Mult,
       e_size,
       Sizeof (Index (e_array, zero)))]))
+
+and mk_check_size init size =
+  C.Call (C.Name "KRML_CHECK_SIZE", [ init; size ])
 
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
@@ -134,15 +137,18 @@ and mk_stmt (stmt: stmt): C.stmt list =
         | Pointer t -> mk_spec_and_declarator "" t
         | _ -> failwith "impossible"
       in
-      let e = match init with
+      let size = mk_expr size in
+      let e, extra_stmt = match init with
         | Constant (_, "0") ->
-            C.Call (C.Name "calloc", [ mk_expr size; C.SizeofT type_name ])
+            C.Call (C.Name "calloc", [ size; C.SizeofT type_name ]), []
         | _ ->
             C.Call (C.Name "malloc", [
-              C.Op2 (K.Mult, C.SizeofT type_name, mk_expr size)
-            ])
+              C.Op2 (K.Mult, C.SizeofT type_name, size)
+            ]), [ mk_for_loop_initializer (Name binder.name) size (mk_expr init) ]
       in
-      [ Decl (spec, None, [ decl, Some (InitExpr e)])]
+      Expr (mk_check_size (mk_expr init) size) ::
+      Decl (spec, None, [ decl, Some (InitExpr e)]) ::
+      extra_stmt
 
   | Decl (binder, BufCreate (Stack, init, size)) ->
       (* In the case where this is a buffer creation in the C* meaning, then we
@@ -163,19 +169,23 @@ and mk_stmt (stmt: stmt): C.stmt list =
         | _ ->
             None, T.Forloop
       in
+      let size = mk_expr size in
+      let init = mk_expr init in
       let spec, decl = mk_spec_and_declarator binder.name t in
       let extra_stmt: C.stmt list =
         match init_type with
         | T.Memset ->
-            [ mk_memset_zero_initializer (Name binder.name) (mk_expr size) ]
+            [ mk_memset_zero_initializer (Name binder.name) size ]
         | T.Nope ->
             [ ]
         | T.Forloop ->
             (* Note: only works if the length and initial value are pure
              * computations... which F* guarantees! *)
-            [ mk_for_loop_initializer (Name binder.name) (mk_expr size) (mk_expr init) ]
+            [ mk_for_loop_initializer (Name binder.name) size init ]
       in
-      Decl (spec, None, [ decl, maybe_init ]) :: extra_stmt
+      Expr (mk_check_size init size) ::
+      Decl (spec, None, [ decl, maybe_init ]) ::
+      extra_stmt
 
   | Decl (binder, BufCreateL (l, inits)) ->
       if l <> Stack then
@@ -207,9 +217,12 @@ and mk_stmt (stmt: stmt): C.stmt list =
       end;
       begin match init with
       | Constant (_, "0") ->
-          [ mk_memset_zero_initializer (mk_expr e1) (mk_expr size) ]
+          [ Expr (mk_check_size (mk_expr init) (mk_expr size));
+            mk_memset_zero_initializer (mk_expr e1) (mk_expr size) ]
       | _ ->
-          [ mk_for_loop_initializer (mk_expr e1) (mk_expr size) (mk_expr init) ]
+          (* JP: why is this not a call to memcpy? *)
+          [ Expr (mk_check_size (mk_expr init) (mk_expr size));
+            mk_for_loop_initializer (mk_expr e1) (mk_expr size) (mk_expr init) ]
       end
 
   | Copy (e1, typ, BufCreateL (Stack, elts)) ->
@@ -251,10 +264,10 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let v = mk_expr v in
       let size = mk_expr size in
       [ For (
-          (Int K.UInt, None, [ Ident "i", Some (InitExpr zero)]),
-          Op2 (K.Lt, Name "i", size),
-          Op1 (K.PreIncr, Name "i"),
-          Expr (Op2 (K.Assign, Index (buf, Name "i"), v)))]
+          (Int K.UInt, None, [ Ident "_i", Some (InitExpr zero)]),
+          Op2 (K.Lt, Name "_i", size),
+          Op1 (K.PreIncr, Name "_i"),
+          Expr (Op2 (K.Assign, Index (buf, Name "_i"), v)))]
 
 
   | While (e1, e2) ->
