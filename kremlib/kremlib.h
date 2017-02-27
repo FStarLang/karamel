@@ -135,10 +135,12 @@ FStar_Seq_Base_seq FStar_Seq_Base_slice(FStar_Seq_Base_seq x,
 
 // ... for Linux
 #if defined(__linux__) || defined(__CYGWIN__)
+#pragma message "KreMLin: Detected a Linux or Cygwin system"
 #include <endian.h>
 
 // ... for OSX
 #elif defined(__APPLE__)
+#pragma message "KreMLin: Detected an OSX system"
 #include <libkern/OSByteOrder.h>
 #define htole64(x) OSSwapHostToLittleInt64(x)
 #define le64toh(x) OSSwapLittleToHostInt64(x)
@@ -163,6 +165,7 @@ FStar_Seq_Base_seq FStar_Seq_Base_slice(FStar_Seq_Base_seq x,
 #if BYTE_ORDER == LITTLE_ENDIAN
 
 #if defined(_MSC_VER)
+#pragma message "KreMLin: Detected a Windows, LE, MSVC system"
 #include <stdlib.h>
 #define htobe16(x) _byteswap_ushort(x)
 #define htole16(x) (x)
@@ -180,6 +183,7 @@ FStar_Seq_Base_seq FStar_Seq_Base_slice(FStar_Seq_Base_seq x,
 #define le64toh(x) (x)
 
 #elif defined(__GNUC__) || defined(__clang__)
+#pragma message "KreMLin: Detected a Windows, LE, MINGW/Clang system"
 
 #define htobe16(x) __builtin_bswap16(x)
 #define htole16(x) (x)
@@ -198,6 +202,7 @@ FStar_Seq_Base_seq FStar_Seq_Base_slice(FStar_Seq_Base_seq x,
 #endif
 
 #elif BYTE_ORDER == BIG_ENDIAN
+#pragma message "KreMLin: Detected a Windows, BE system"
 
 /* that would be xbox 360 */
 #define htobe16(x) (x)
