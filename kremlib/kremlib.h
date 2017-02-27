@@ -331,7 +331,7 @@ static const uint64_t two51_1 = 2251799813685247;
 typedef unsigned __int128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t;
 
 static inline void print128(unsigned char *where, uint128_t n) {
-  printf("%s: [%llu,%llu]\n", where, (uint64_t)(n >> 64), (uint64_t)n);
+  printf("%s: [%" PRIu64 ",%" PRIu64 "]\n", where, (uint64_t)(n >> 64), (uint64_t)n);
 }
 
 static inline uint128_t load128_le(uint8_t *b) {
@@ -412,7 +412,7 @@ typedef struct {
 } FStar_UInt128_t, FStar_UInt128_t_, uint128_t;
 
 static inline void print128(unsigned char *where, uint128_t n) {
-  printf("%s: [%llu,%llu]\n", where, n.high, n.low);
+  printf("%s: [%" PRIu64 ",%" PRIu64 "]\n", where, n.high, n.low);
 }
 
 static inline uint128_t load128_le(uint8_t *b) {
