@@ -260,6 +260,10 @@ let detect_gnu flavor =
 
   KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !cc;
 
+  (* Note: the 14.04 versions of Ubuntu rely on the presence of _BSD_SOURCE to
+   * enable the macros in endian.h; future versions use _DEFAULT_SOURCE which is
+   * enabled by default, it seems, but there are talks of issuing a warning if
+   * _BSD_SOURCE is defined and not the newer _DEFAULT_SOURCE... *)
   cc_args := [
     "-Wall";
     "-Werror";
@@ -267,7 +271,9 @@ let detect_gnu flavor =
     "-Wno-unused-variable";
     "-g";
     "-O3";
-    "-fwrapv"
+    "-fwrapv";
+    "-D_BSD_SOURCE";
+    "-D_DEFAULT_SOURCE";
   ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
     @ List.rev !Options.ccopts;
   if !Options.m32 then

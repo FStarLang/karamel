@@ -20,6 +20,3 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   done
   free -h;
 fi
-
-cat /usr/include/endian.h
-gcc-5 -E /usr/include/endian.h > /tmp/endian.h && cat /tmp/endian.h
