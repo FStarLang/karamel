@@ -237,7 +237,7 @@ Supported options:|}
   KPrint.bprintf "%s✔%s Simplify + inlining successfully checked\n" Ansi.green Ansi.reset;
   (* Do this at the last minute because the checker still needs these type
    * abbreviations to check that our stuff makes sense. *)
-  let files = Inlining.drop_type_abbrevs files in
+  let files = Inlining.drop_type_applications files in
   let files = Inlining.drop_unused files in
 
   (* This breaks typing. *)

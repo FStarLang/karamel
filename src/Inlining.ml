@@ -318,7 +318,7 @@ let inline_type_abbrevs files =
   let inliner inline_one = object(self)
     inherit [unit] map
     method tapp () lid ts =
-      try DeBruijn.subst_tn (inline_one lid) ts
+      try DeBruijn.subst_tn (inline_one lid) (List.map (self#visit_t ()) ts)
       with Not_found -> TApp (lid, List.map (self#visit_t ()) ts)
     method tqualified () lid =
       try inline_one lid
@@ -327,15 +327,13 @@ let inline_type_abbrevs files =
 
   let inline_one = memoize_inline map (fun recurse -> (inliner recurse)#visit_t ()) in
 
-  Simplify.visit_files () (inliner inline_one) files
+  let files = Simplify.visit_files () (inliner inline_one) files in
 
-
-let drop_type_abbrevs files =
-  let files = Simplify.visit_files () (object
-    inherit [unit] map
-    method tapp _ _ _ =
-      TAny
-  end) files in
+  (* After we've inlined things, drop type abbreviations definitions now. This
+   * is important, as the monomorphization of data types relies on all types
+   * being fully applied (i.e. no more TBound), and leaving things such as:
+   *   type pair a b = Tuple (1, 0)
+   * breaks this invariant. *)
   filter_decls (function
     | DType (lid, n, Abbrev def) ->
         if n = 0 then
@@ -347,6 +345,16 @@ let drop_type_abbrevs files =
     | d ->
         Some d
   ) files
+
+
+(* Type applications are needed by the checker, even though they may refer to
+ * things we won't compile, ever (e.g. from Prims). *)
+let drop_type_applications files =
+  Simplify.visit_files () (object
+    inherit [unit] map
+    method tapp _ _ _ =
+      TAny
+  end) files
 
 
 (* Drop unused private functions **********************************************)
