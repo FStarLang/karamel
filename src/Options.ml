@@ -26,7 +26,17 @@ let debug s = List.exists ((=) s) !debug_modules
 let drop: Bundle.pat list ref =
   ref Bundle.([
     Module [ "C" ];
-    Module [ "FStar"; "Int"; "Cast" ];
+    Module [ "TestLib" ];
+    Module [ "FStar"; "BaseTypes"; ];
+    Module [ "FStar"; "Char"; ];
+    Module [ "FStar"; "Float"; ];
     Module [ "FStar"; "Heap"; ];
+    Module [ "FStar"; "IO"; ];
+    Module [ "FStar"; "Matrix2"; ];
+    Module [ "FStar"; "Option"; ];
+    Module [ "FStar"; "Squash"; ];
+    Module [ "FStar"; "String"; ];
+    Module [ "FStar"; "Universe"; ];
+    Module [ "FStar"; "Int"; "Cast" ];
     Module [ "FStar"; "Monotonic"; "RRef" ];
   ])
