@@ -169,6 +169,17 @@ let iter_decls f files =
 (* Inline function bodies *****************************************************)
 
 let inline_function_frames files =
+  let debug_inline = Options.debug "inline" in
+  let wrap_comment lid term =
+    if debug_inline then
+      EComment (
+        KPrint.bsprintf "start inlining %a" plid lid,
+        term,
+        KPrint.bsprintf "end inlining %a" plid lid)
+    else
+      term.node
+  in
+
   (* A stateful graph traversal that uses the textbook three colors to rule out
    * cycles. The first component is used ONLY by [inline_analysis], while the
    * color is used ONLY by [memoize_inline]. *)
@@ -210,11 +221,9 @@ let inline_function_frames files =
           ) ([], []) es in
           let bs = List.rev bs in
           let es = List.rev es in
-          EComment (
-            KPrint.bsprintf "start inlining %a" plid lid,
+          wrap_comment lid (
             Simplify.nest bs t (
-              DeBruijn.subst_n (recurse lid) es),
-            KPrint.bsprintf "end inlining %a" plid lid)
+              DeBruijn.subst_n (recurse lid) es))
       | _ ->
           EApp (self#visit () e, es)
     method equalified () t lid =
