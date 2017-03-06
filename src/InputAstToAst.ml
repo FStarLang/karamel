@@ -146,6 +146,8 @@ and mk_expr = function
       mk (ETuple (List.map mk_expr es))
   | I.ECons (lid, id, es) ->
       { node = ECons (id, List.map mk_expr es); typ = mk_typ lid }
+  | I.EFun _ ->
+      failwith "todo: inputast -> ast efun"
 
 and mk_branches branches =
   List.map mk_branch branches
