@@ -1,0 +1,33 @@
+module C.Loops
+
+(* This modules exposes a series of combinators; they are modeled using
+ * higher-order functions and specifications, and extracted, using a
+ * meta-theoretic argument, to actual C loops. *)
+
+open FStar.Mul
+open FStar.ST
+open FStar.Buffer
+
+module HH = FStar.HyperHeap
+module HS = FStar.HyperStack
+module UInt32 = FStar.UInt32
+
+#set-options "--initial_fuel 0 --max_fuel 0 --z3rlimit 20"
+
+val for:
+  start:UInt32.t ->
+  finish:UInt32.t{UInt32.v finish >= UInt32.v start} ->
+  inv:(HS.mem -> nat -> Type0) ->
+  f:(i:UInt32.t{UInt32.(v start <= v i /\ v i < v finish)} -> Stack unit
+                        (requires (fun h -> inv h (UInt32.v i)))
+                        (ensures (fun h_1 _ h_2 -> UInt32.(inv h_1 (v i) /\ inv h_2 (v i + 1)))) ) ->
+  Stack unit
+    (requires (fun h -> inv h (UInt32.v start)))
+    (ensures (fun _ _ h_2 -> inv h_2 (UInt32.v finish)))
+let rec for start finish inv f =
+  if start = finish then
+    ()
+  else begin
+    f start;
+    for (UInt32.(start +^ 1ul)) finish inv f
+  end
