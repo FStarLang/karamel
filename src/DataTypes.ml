@@ -467,11 +467,22 @@ let assert_branches map lid =
 let field_names_of_cons cons branches =
   fst (List.split (List.assoc cons branches))
 
+let zero8 =
+  with_type (TInt (K.UInt8)) (EConstant (K.UInt8, "0"))
+
 let tag_and_val_type lid branches =
   let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
-  let structs = List.map (fun (cons, fields) ->
+  let structs = KList.filter_map (fun (cons, fields) ->
     let fields = List.map (fun (f, t) -> Some f, t) fields in
-    union_field_of_cons cons, TAnonymous (Flat fields)
+    union_field_of_cons cons,
+    if List.length fields > 0 then
+      Some (TAnonymous (Flat fields))
+    else if !Options.cc = "msvc" then
+      (* The C standard does not tolerate empty structs, and MSVC enforces this,
+       * sadly. *)
+      Some (TInt K.UInt8)
+    else
+      None
   ) branches in
   TAnonymous (Enum tags), TAnonymous (Union structs)
 
@@ -504,15 +515,17 @@ let compile_all_matches map = object (self)
     let fields = List.map (self#visit_pattern env) fields in
     let record_pat = PRecord (List.combine field_names fields) in
     let t_tag, t_val = tag_and_val_type lid branches in
-    PRecord [
+    PRecord ([
       (** This is sound because we rely on left-to-right, lazy semantics for
        * pattern-matching. So, we read the "right" field from the union only
        * after we've ascertained that we're in the right case. *)
-      field_for_tag, with_type t_tag (PEnum (mk_tag_lid lid cons));
+      field_for_tag, with_type t_tag (PEnum (mk_tag_lid lid cons))
+    ] @ if List.length fields > 0 then [
       field_for_union, with_type t_val (PRecord [
         union_field_of_cons cons, with_type TAny record_pat
       ])
-    ]
+    ] else [
+    ])
 
   method econs env t cons exprs =
     let lid = assert_lid t in
@@ -524,10 +537,13 @@ let compile_all_matches map = object (self)
     let t_tag, t_val = tag_and_val_type lid branches in
     EFlat [
       Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons));
-      Some field_for_union, with_type t_val (EFlat [
-        Some (union_field_of_cons cons), with_type TAny record_expr
-      ])
-    ]
+      Some field_for_union, with_type t_val (
+        EFlat [
+            Some (union_field_of_cons cons), with_type TAny record_expr
+          else if !Options.cc = "msvc" then
+            Some (union_field_of_cons cons), zero8
+          else
+            ])]
 
   (* The match transformation is tricky: we open all binders. *)
   method dfunction env cc flags ret name binders expr =

@@ -340,6 +340,8 @@ and check' env t e =
               with Not_found ->
                 type_error env "Union does not have such a field"
               end
+          | [ None, { node = EConstant (_, "0"); _ } ] ->
+              ()
           | _ ->
               type_error env "Union expected, i.e. exactly one provided field";
           end
