@@ -232,6 +232,13 @@ let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       ) locals branches in
       locals, CF.Switch (e, branches)
 
+  | EFor (e1, e2, e3, e4) ->
+      let locals, e1 = mk_expr env locals e1 in
+      let locals, e2 = mk_expr env locals e2 in
+      let locals, e3 = mk_expr env locals e3 in
+      let locals, e4 = mk_expr env locals e4 in
+      locals, CF.Sequence [ e1; CF.While (e2, CF.Sequence [ e4; e3 ])]
+
   | EWhile (e1, e2) ->
       let locals, e1 = mk_expr env locals e1 in
       let locals, e2 = mk_expr env locals e2 in
@@ -250,7 +257,11 @@ let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       failwith "todo eflat"
 
   | EReturn _ ->
-      invalid_arg "return should've been inserted"
+      invalid_arg "return shouldnt've been inserted"
+
+  | EFun _ ->
+      invalid_arg "funs should've been substituted"
+
 
 (* See digression for [dup32] in CFlatToWasm *)
 let scratch_locals =

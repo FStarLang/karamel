@@ -209,6 +209,9 @@ and print_expr { node; _ } =
   | EWhile (e1, e2) ->
       string "while" ^/^ parens_with_nesting (print_expr e1) ^/^
       braces_with_nesting (print_expr e2)
+  | EFor (e1, e2, e3, e4) ->
+      string "for" ^/^ parens_with_nesting (separate_map semi print_expr [ e1; e2; e3 ]) ^/^
+      braces_with_nesting (print_expr e4)
   | EBufCreateL (l, es) ->
       print_lifetime l ^/^
       string "newbuf" ^/^ braces_with_nesting (separate_map (comma ^^ break1) print_expr es)
@@ -228,6 +231,13 @@ and print_expr { node; _ } =
           string "case" ^^ space ^^ string (string_of_lident lid) ^^ colon ^^
           nest 2 (hardline ^^ print_expr e)
         ) branches)
+  | EFun (binders, body) ->
+      string "fun" ^/^ parens_with_nesting (
+        separate_map (comma ^^ break 1) print_binder binders
+      ) ^/^ braces_with_nesting (
+        print_expr body
+      )
+
 
 
 and print_branches branches =

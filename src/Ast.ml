@@ -54,6 +54,7 @@ and expr' =
 
   | EApp of expr * expr list
   | ELet of binder * expr * expr
+  | EFun of binder list * expr
   | EIfThenElse of expr * expr * expr
   | ESequence of expr list
   | EAssign of expr * expr
@@ -83,7 +84,14 @@ and expr' =
   | EField of expr * ident
 
   | EReturn of expr
+    (** Dafny generates EReturn nodes; they are currently no synthesized by our
+     * internal transformation passes, but may be in the future. *)
   | EWhile of expr * expr
+    (** Dafny generates EWhile nodes; we also generate them when desugaring the
+     * buffer creation and blitting operations for the Wasm backend. *)
+  | EFor of expr * expr * expr * expr
+    (** Currently generated when detecting combinators from the [C.Loops]
+     * module. *)
   | ECast of expr * typ
   | EComment of string * expr * string
 
@@ -210,6 +218,8 @@ let rec is_value (e: expr) =
   | EBool _
   | EEnum _
   | EString _
+  | EFun _
+  | EAbort
   | EAny ->
       true
 
@@ -225,7 +235,6 @@ let rec is_value (e: expr) =
   | ECast (e, _) ->
       is_value e
 
-  | EAbort
   | EApp _
   | ELet _
   | EIfThenElse _
@@ -243,6 +252,7 @@ let rec is_value (e: expr) =
   | EMatch _
   | ESwitch _
   | EReturn _
+  | EFor _
   | EWhile _ ->
       false
 
@@ -345,6 +355,10 @@ class virtual ['env] map = object (self)
         self#eswitch env typ e branches
     | EComment (s, e, s') ->
         self#ecomment env typ s e s'
+    | EFor (e1, e2, e3, e4) ->
+        self#efor env typ e1 e2 e3 e4
+    | EFun (binders, e) ->
+        self#efun env typ binders e
 
   method ebound _env _typ var =
     EBound var
@@ -453,6 +467,15 @@ class virtual ['env] map = object (self)
 
   method ecomment env _ s e s' =
     EComment (s, self#visit env e, s')
+
+  method efor env _ e1 e2 e3 e4 =
+    EFor (self#visit env e1, self#visit env e2, self#visit env e3, self#visit env e4)
+
+  method efun env _ binders expr =
+    let binders = self#binders env binders in
+    let env = self#extend_many env binders in
+    EFun (binders, self#visit env expr)
+
 
   (* Some helpers *)
 
@@ -586,6 +609,7 @@ class virtual ['env] map = object (self)
 
   method tanonymous env d =
     TAnonymous (self#type_def env None d)
+
 
   (* Once types and expressions can be visited, a more generic method that
    * handles the type. *)

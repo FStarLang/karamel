@@ -440,6 +440,24 @@ and hoist_expr pos e =
         let b = { b with node = { b.node with meta = Some MetaSequence }} in
         lhs1 @ [ b, mk (EWhile (e1, e2)) ], mk EUnit
 
+  | EFor (e1, e2, e3, e4) ->
+      let lhs1, e1 = hoist_expr Unspecified e1 in
+      let lhs2, e2 = hoist_expr Unspecified e2 in
+      let lhs3, e3 = hoist_expr Unspecified e3 in
+      let e4 = hoist_stmt e4 in
+      if pos = UnderStmtLet then
+        lhs1 @ lhs2 @ lhs3, mk (EFor (e1, e2, e3, e4))
+      else
+        let b = fresh_binder "_" TUnit in
+        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        lhs1 @ lhs2 @ lhs3 @ [ b, mk (EFor (e1, e2, e3, e4)) ], mk EUnit
+
+  | EFun (binders, expr) ->
+      let binders, expr = open_binders binders expr in
+      let expr = hoist_stmt expr in
+      let expr = close_binders binders expr in
+      [], mk (EFun (binders, expr))
+
   | EAssign (e1, e2) ->
       let lhs1, e1 = hoist_expr Unspecified e1 in
       let rhspos = if is_array e1.typ then AssignRhs else Unspecified in
