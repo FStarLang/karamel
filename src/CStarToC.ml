@@ -102,7 +102,7 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
   | _ ->
       Compound stmts
 
-and mk_for_loop_initializer e_array e_size e_value =
+and mk_for_loop_initializer e_array e_size e_value: C.stmt =
   For (
     (Int K.UInt, None, [ Ident "_i", Some (InitExpr zero)]),
     Op2 (K.Lt, Name "_i", e_size),
@@ -293,6 +293,11 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Expr (Call (Name "printf", [
           Literal "KreMLin abort at %s:%d\\n"; Name "__FILE__"; Name "__LINE__" ]));
         Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])); ]
+
+  | For (binder, e1, e2, e3, b) ->
+      let spec, decl = mk_spec_and_declarator binder.name binder.typ in
+      let init = struct_as_initializer e1 in
+      [ For ((spec, None, [ decl, Some init ]), mk_expr e2, mk_expr e3, mk_compound_if (mk_stmts b)) ]
 
 
 and mk_stmts stmts: C.stmt list =

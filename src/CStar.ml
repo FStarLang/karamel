@@ -21,6 +21,7 @@ and stmt =
     (** Scope is: statements that follow. *)
   | IfThenElse of expr * block * block
   | While of expr * block
+  | For of binder * expr * expr * expr * block
   | Assign of expr * expr
     (** Destination (i.e. Var), Source *)
   | Copy of expr * typ * expr

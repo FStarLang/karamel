@@ -189,9 +189,9 @@ let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let s2 = size_of e2.typ in
       let s3 = size_of e3.typ in
       assert (s2 = s3);
-      let locals, e1 = mk_expr env locals e1 in 
-      let locals, e2 = mk_expr env locals e2 in 
-      let locals, e3 = mk_expr env locals e3 in 
+      let locals, e1 = mk_expr env locals e1 in
+      let locals, e2 = mk_expr env locals e2 in
+      let locals, e3 = mk_expr env locals e3 in
       locals, CF.IfThenElse (e1, e2, e3, s2)
 
   | EAbort ->
@@ -232,12 +232,15 @@ let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       ) locals branches in
       locals, CF.Switch (e, branches)
 
-  | EFor (e1, e2, e3, e4) ->
+  | EFor (b, e1, e2, e3, e4) ->
       let locals, e1 = mk_expr env locals e1 in
+      let locals, v, env = extend env b locals in
       let locals, e2 = mk_expr env locals e2 in
       let locals, e3 = mk_expr env locals e3 in
       let locals, e4 = mk_expr env locals e4 in
-      locals, CF.Sequence [ e1; CF.While (e2, CF.Sequence [ e4; e3 ])]
+      locals, CF.Sequence [
+        CF.Assign (v, e1);
+        CF.While (e2, CF.Sequence [ e4; e3 ])]
 
   | EWhile (e1, e2) ->
       let locals, e1 = mk_expr env locals e1 in

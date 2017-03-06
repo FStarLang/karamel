@@ -11,6 +11,8 @@ type loc =
   | Then
   | Else
   | After of string
+  | For
+  | While
 
 let print_loc = function
   | InTop l ->
@@ -23,6 +25,10 @@ let print_loc = function
       string "in the then branch"
   | Else ->
       string "in the else branch"
+  | For ->
+      string "in the for loop"
+  | While ->
+      string "in the while loop"
   | After s ->
       string "after the definition of " ^^ string s
 

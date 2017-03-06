@@ -440,17 +440,20 @@ and hoist_expr pos e =
         let b = { b with node = { b.node with meta = Some MetaSequence }} in
         lhs1 @ [ b, mk (EWhile (e1, e2)) ], mk EUnit
 
-  | EFor (e1, e2, e3, e4) ->
+  | EFor (binder, e1, e2, e3, e4) ->
       let lhs1, e1 = hoist_expr Unspecified e1 in
+      let binder, s = opening_binder binder in
+      let e2 = s e2 and e3 = s e3 and e4 = s e4 in
       let lhs2, e2 = hoist_expr Unspecified e2 in
       let lhs3, e3 = hoist_expr Unspecified e3 in
       let e4 = hoist_stmt e4 in
+      let s = closing_binder binder in
       if pos = UnderStmtLet then
-        lhs1 @ lhs2 @ lhs3, mk (EFor (e1, e2, e3, e4))
+        lhs1 @ lhs2 @ lhs3, mk (EFor (binder, e1, s e2, s e3, s e4))
       else
         let b = fresh_binder "_" TUnit in
         let b = { b with node = { b.node with meta = Some MetaSequence }} in
-        lhs1 @ lhs2 @ lhs3 @ [ b, mk (EFor (e1, e2, e3, e4)) ], mk EUnit
+        lhs1 @ lhs2 @ lhs3 @ [ b, mk (EFor (binder, e1, s e2, s e3, s e4)) ], mk EUnit
 
   | EFun (binders, expr) ->
       let binders, expr = open_binders binders expr in

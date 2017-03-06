@@ -209,8 +209,11 @@ and print_expr { node; _ } =
   | EWhile (e1, e2) ->
       string "while" ^/^ parens_with_nesting (print_expr e1) ^/^
       braces_with_nesting (print_expr e2)
-  | EFor (e1, e2, e3, e4) ->
-      string "for" ^/^ parens_with_nesting (separate_map semi print_expr [ e1; e2; e3 ]) ^/^
+  | EFor (binder, e1, e2, e3, e4) ->
+      string "for" ^/^ parens_with_nesting (
+        group (string "let" ^/^ print_binder binder ^/^ equals ^/^ print_expr e1) ^^
+        semi ^/^
+        separate_map semi print_expr [ e1; e2; e3 ]) ^/^
       braces_with_nesting (print_expr e4)
   | EBufCreateL (l, es) ->
       print_lifetime l ^/^

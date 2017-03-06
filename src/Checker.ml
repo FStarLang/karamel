@@ -213,6 +213,7 @@ and check' env t e =
   | EField _
   | EString _
   | EFun _
+  | EFor _
   | EApp _ ->
       c (infer env e)
 
@@ -369,13 +370,6 @@ and check' env t e =
       | t ->
           type_error env "cannot switch on element of type %a" ptyp t
       end
-
-  | EFor (e1, e2, e3, e4) ->
-      check env TUnit e1;
-      check env TUnit e2;
-      check env TUnit e3;
-      check env TUnit e4;
-      c TUnit
 
 and args_of_branch env t ident =
   match expand_abbrev env t with
@@ -630,8 +624,14 @@ and infer' env e =
       let t = infer env e in
       List.fold_right (fun binder t -> TArrow (binder.typ, t)) binders t
 
-  | EFor _ ->
-      check env TUnit e;
+  | EFor (binder, e1, e2, e3, e4) ->
+      let t = check_or_infer (locate env (In binder.node.name)) binder.typ e1 in
+      binder.typ <- t;
+      let env = push env binder in
+      let env = locate env For in
+      check env TBool e2;
+      check env TUnit e3;
+      check env TUnit e4;
       TUnit
 
 and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =

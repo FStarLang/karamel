@@ -89,9 +89,14 @@ and expr' =
   | EWhile of expr * expr
     (** Dafny generates EWhile nodes; we also generate them when desugaring the
      * buffer creation and blitting operations for the Wasm backend. *)
-  | EFor of expr * expr * expr * expr
+  | EFor of binder * expr * expr * expr * expr
     (** Currently generated when detecting combinators from the [C.Loops]
-     * module. *)
+     * module. We only offer a restricted form of For loops:
+     *   for (let b = e1; e2; e3) {
+     *     ...
+     *   }
+     * The scope of
+     * the binder is the second, third and fourth expressions. *)
   | ECast of expr * typ
   | EComment of string * expr * string
 
@@ -355,8 +360,8 @@ class virtual ['env] map = object (self)
         self#eswitch env typ e branches
     | EComment (s, e, s') ->
         self#ecomment env typ s e s'
-    | EFor (e1, e2, e3, e4) ->
-        self#efor env typ e1 e2 e3 e4
+    | EFor (binder, e1, e2, e3, e4) ->
+        self#efor env typ binder e1 e2 e3 e4
     | EFun (binders, e) ->
         self#efun env typ binders e
 
@@ -468,8 +473,14 @@ class virtual ['env] map = object (self)
   method ecomment env _ s e s' =
     EComment (s, self#visit env e, s')
 
-  method efor env _ e1 e2 e3 e4 =
-    EFor (self#visit env e1, self#visit env e2, self#visit env e3, self#visit env e4)
+  method efor env _ b e1 e2 e3 e4 =
+    let b = { b with typ = self#visit_t env b.typ } in
+    let e1 = self#visit env e1 in
+    let env = self#extend env b in
+    let e2 = self#visit env e2 in
+    let e3 = self#visit env e3 in
+    let e4 = self#visit env e4 in
+    EFor (b, e1, e2, e3, e4)
 
   method efun env _ binders expr =
     let binders = self#binders env binders in
