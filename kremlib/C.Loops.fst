@@ -66,7 +66,7 @@ let rec reverse_for start finish inv f =
 (* To be extracted as:
     int i = <start>;
     bool b = false;
-    for (; b || (i != <end>); ++i) {
+    for (; (!b) || (i != <end>); ++i) {
       b = <f>;
     }
     // i and b must be in scope after the loop
@@ -93,7 +93,7 @@ let rec interruptible_for start finish inv f =
 (* To be extracted as:
     int i = <start>;
     bool b = false;
-    for (; b || (i != <end>); --i) {
+    for (; (!b) || (i != <end>); --i) {
       b = <f>;
     }
     // i and b must be in scope after the loop    
