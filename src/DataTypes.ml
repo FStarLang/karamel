@@ -203,7 +203,7 @@ let try_mk_flat e t branches =
         let bindings = List.map2 (fun b (f, _) ->
           b, with_type b.typ (EField (atom, f))
         ) binders fields in
-        ELet (scrut, e, close_binder scrut (lift 1 (Simplify.nest bindings t body)))
+        ELet (scrut, e, close_binder scrut (Simplify.nest bindings t body))
       else
         EMatch (e, branches)
   | _ ->

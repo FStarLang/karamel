@@ -218,11 +218,11 @@ let let_if_to_assign = object (self)
           node = EIfThenElse (cond, e_then, e_else);
           typ = TUnit
         } in
-        ELet (b, { node = EAny; typ = TAny },
-          close_binder b (lift 1 ({
-            node = ELet (sequence_binding (), e_ifthenelse, lift 1 (self#visit () e2));
-            typ = e2.typ
-          })))
+        let seq_b = sequence_binding () in
+        ELet (b, { node = EAny; typ = TAny }, close_binder b ({
+          node = ELet (seq_b, e_ifthenelse, close_binder seq_b (self#visit () e2));
+          typ = e2.typ
+        }))
     | ESwitch (e, branches), None ->
         let b = { b with node = { b.node with mut = true }} in
         let b, e2 = open_binder b e2 in
@@ -235,11 +235,11 @@ let let_if_to_assign = object (self)
           node = ESwitch (e, branches);
           typ = TUnit
         } in
-        ELet (b, { node = EAny; typ = TAny },
-          close_binder b (lift 1 ({
-            node = ELet (sequence_binding (), e_switch, lift 1 (self#visit () e2));
-            typ = e2.typ
-        })))
+        let seq_b = sequence_binding () in
+        ELet (b, { node = EAny; typ = TAny }, close_binder b ({
+          node = ELet (seq_b, e_switch, close_binder seq_b (self#visit () e2));
+          typ = e2.typ
+        }))
     | _ ->
         (* There are no more nested lets at this stage *)
         ELet (b, self#visit () e1, self#visit () e2)
@@ -251,7 +251,7 @@ end
 let rec nest bs t e2 =
   match bs with
   | (b, e1) :: bs ->
-      { node = ELet (b, e1, close_binder b (lift 1 (nest bs t e2))); typ = t }
+      { node = ELet (b, e1, close_binder b (nest bs t e2)); typ = t }
   | [] ->
       e2
 
@@ -939,16 +939,16 @@ let remove_buffer_ops = object
     let b_size = mark_mut b_size in
     let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, ref_size)) in
     let with_t = with_type t in
-    ELet (b_init, body_init, close_binder b_init (lift 1 (with_t (
-    ELet (b_size, body_size, close_binder b_size (lift 1 (with_t (
-    ELet (b_buf, body_buf, close_binder b_buf (lift 1 (with_t (
+    ELet (b_init, body_init, close_binder b_init (with_t (
+    ELet (b_size, body_size, close_binder b_size (with_t (
+    ELet (b_buf, body_buf, close_binder b_buf (with_t (
       ESequence [ with_unit (
         EWhile (
           gt_zero ref_size, with_unit (
           ESequence [ with_unit (
             EBufWrite (ref_buf, minus_one ref_size, ref_init)); with_unit (
             EAssign (ref_size, minus_one ref_size))])));
-      ref_buf]))))))))))))
+      ref_buf])))))))))
 
   method ebufblit () t src_buf src_ofs dst_buf dst_ofs len =
     let with_t = with_type t in
@@ -962,9 +962,9 @@ let remove_buffer_ops = object
       mk_named_binding "len" uint32 len.node
     in
     let b_len = mark_mut b_len in
-    ELet (b_src, body_src, close_binder b_src (lift 1 (with_unit (
-    ELet (b_dst, body_dst, close_binder b_dst (lift 1 (with_unit (
-    ELet (b_len, body_len, close_binder b_len (lift 1 (with_unit (
+    ELet (b_src, body_src, close_binder b_src (with_unit (
+    ELet (b_dst, body_dst, close_binder b_dst (with_unit (
+    ELet (b_len, body_len, close_binder b_len (with_unit (
       EWhile (
         gt_zero ref_len, with_unit (
         ESequence [ with_unit (
@@ -972,7 +972,7 @@ let remove_buffer_ops = object
             ref_dst,
             minus_one ref_len,
             with_t (EBufRead (ref_src, minus_one ref_len)))); with_unit (
-          EAssign (ref_len, minus_one ref_len))]))))))))))))))
+          EAssign (ref_len, minus_one ref_len))])))))))))))
 
 end
 
@@ -980,7 +980,7 @@ end
 
 let remove_local_function_bindings = object(self)
 
-  inherit [_] map
+  inherit [unit] map
 
   method! elet env _ b e1 e2 =
     let e1 = self#visit env e1 in
