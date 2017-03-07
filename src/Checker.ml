@@ -628,10 +628,9 @@ and infer' env e =
       let t = check_or_infer (locate env (In binder.node.name)) binder.typ e1 in
       binder.typ <- t;
       let env = push env binder in
-      let env = locate env For in
-      check env TBool e2;
-      check env TUnit e3;
-      check env TUnit e4;
+      check (locate env ForCond) TBool e2;
+      check (locate env ForIter) TUnit e3;
+      check (locate env For) TUnit e4;
       TUnit
 
 and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =

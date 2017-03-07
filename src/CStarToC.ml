@@ -297,7 +297,10 @@ and mk_stmt (stmt: stmt): C.stmt list =
   | For (binder, e1, e2, e3, b) ->
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
       let init = struct_as_initializer e1 in
-      [ For ((spec, None, [ decl, Some init ]), mk_expr e2, mk_expr e3, mk_compound_if (mk_stmts b)) ]
+      let e2 = mk_expr e2 in
+      let e3 = match mk_stmt e3 with [ Expr e3 ] -> e3 | _ -> assert false in
+      let b = mk_compound_if (mk_stmts b) in
+      [ For ((spec, None, [ decl, Some init ]), e2, e3, b)]
 
 
 and mk_stmts stmts: C.stmt list =

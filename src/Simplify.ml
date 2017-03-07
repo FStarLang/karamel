@@ -105,7 +105,7 @@ let wrapping_arithmetic = object (self)
 end
 
 
-(* Convert back and forth between [e1; e2] and [let _ = e1 in e2]. *)
+(* Convert back and forth between [e1; e2] and [let _ = e1 in e2]. ************)
 
 let sequence_binding () = with_type TUnit {
   name = "_";
@@ -318,13 +318,39 @@ let rec hoist_stmt e =
         let lhs, e = hoist_expr Unspecified e in
         nest lhs e.typ e
 
+  | EFor (binder, e1, e2, e3, e4) ->
+      assert (e.typ = TUnit);
+      (* The semantics is that [e1] is evaluated once, so it's fine to hoist any
+       * let-bindings it generates. *)
+      let lhs1, e1 = hoist_expr Unspecified e1 in
+      let binder, s = opening_binder binder in
+      let e2 = s e2 and e3 = s e3 and e4 = s e4 in
+      (* [e2] and [e3], however, are evaluated at each loop iteration! *)
+      let lhs2, e2 = hoist_expr Unspecified e2 in
+      let lhs3, e3 = hoist_expr UnderStmtLet e3 in
+      if lhs2 <> [] || lhs3 <> [] then
+        fatal_error "The translation of this for-loop's condition or iteration \
+          expression gives rise to intermediary let-bindings!\n\
+          %a\n\
+          Let-bindings are:\n\
+          %a" ppexpr e pplbs (lhs2 @ lhs3);
+      let e4 = hoist_stmt e4 in
+      let s = closing_binder binder in
+      nest lhs1 e.typ (mk (EFor (binder, e1, s e2, s e3, s e4)))
+
   | EWhile (e1, e2) ->
       (* All of the following cases are valid statements (their return type is
        * [TUnit]. *)
       assert (e.typ = TUnit);
       let lhs, e1 = hoist_expr Unspecified e1 in
+      if lhs <> [] then
+        fatal_error "The translation of this while loop's condition expression \
+          gives rise to let-bindings!\n\
+          %a\n\
+          Let-bindings are:\n\
+          %a" ppexpr e pplbs lhs;
       let e2 = hoist_stmt e2 in
-      nest lhs e.typ (mk (EWhile (e1, e2)))
+      mk (EWhile (e1, e2))
 
   | EAssign (e1, e2) ->
       assert (e.typ = TUnit);
@@ -432,28 +458,40 @@ and hoist_expr pos e =
 
   | EWhile (e1, e2) ->
       let lhs1, e1 = hoist_expr Unspecified e1 in
+      if lhs1 <> [] then
+        fatal_error "The translation of this while loop's condition expression \
+          gives rise to let-bindings!\n\
+          %a\n\
+          Let-bindings are:\n\
+          %a" ppexpr e pplbs lhs1;
       let e2 = hoist_stmt e2 in
       if pos = UnderStmtLet then
-        lhs1, mk (EWhile (e1, e2))
+        [], mk (EWhile (e1, e2))
       else
         let b = fresh_binder "_" TUnit in
         let b = { b with node = { b.node with meta = Some MetaSequence }} in
-        lhs1 @ [ b, mk (EWhile (e1, e2)) ], mk EUnit
+        [ b, mk (EWhile (e1, e2)) ], mk EUnit
 
   | EFor (binder, e1, e2, e3, e4) ->
       let lhs1, e1 = hoist_expr Unspecified e1 in
       let binder, s = opening_binder binder in
       let e2 = s e2 and e3 = s e3 and e4 = s e4 in
       let lhs2, e2 = hoist_expr Unspecified e2 in
-      let lhs3, e3 = hoist_expr Unspecified e3 in
+      let lhs3, e3 = hoist_expr UnderStmtLet e3 in
+      if lhs2 <> [] || lhs3 <> [] then
+        fatal_error "The translation of this for-loop's condition or iteration \
+          expression gives rise to intermediary let-bindings!\n\
+          %a\n\
+          Let-bindings are:\n\
+          %a" ppexpr e pplbs (lhs2 @ lhs3);
       let e4 = hoist_stmt e4 in
       let s = closing_binder binder in
       if pos = UnderStmtLet then
-        lhs1 @ lhs2 @ lhs3, mk (EFor (binder, e1, s e2, s e3, s e4))
+        lhs1, mk (EFor (binder, e1, s e2, s e3, s e4))
       else
         let b = fresh_binder "_" TUnit in
         let b = { b with node = { b.node with meta = Some MetaSequence }} in
-        lhs1 @ lhs2 @ lhs3 @ [ b, mk (EFor (binder, e1, s e2, s e3, s e4)) ], mk EUnit
+        lhs1 @ [ b, mk (EFor (binder, e1, s e2, s e3, s e4)) ], mk EUnit
 
   | EFun (binders, expr) ->
       let binders, expr = open_binders binders expr in
@@ -938,6 +976,64 @@ let remove_buffer_ops = object
 
 end
 
+(* Dealing with local functions ***********************************************)
+
+let remove_local_function_bindings = object(self)
+
+  inherit [_] map
+
+  method! elet env _ b e1 e2 =
+    let e1 = self#visit env e1 in
+    match e1.node with
+    | ECast ({ node = EFun _; _ } as e1, _) ->
+        let e2 = DeBruijn.subst e1 0 e2 in
+        (self#visit env e2).node
+    | EFun _ ->
+        let e2 = DeBruijn.subst e1 0 e2 in
+        (self#visit env e2).node
+    | _ ->
+        let e2 = self#visit env e2 in
+        ELet (b, e1, e2)
+
+  (* TODO: subtitute functions fully applied, to values only, to provide local
+   * meta-programming facilities *)
+end
+
+(* Combinators ****************************************************************)
+
+let combinators = object(self)
+
+  inherit [_] map as super
+
+  method! eapp () t e es =
+    match e.node, es with
+    | EQualified ([ "C"; "Loops" ], "for_"), [ start; finish; _inv; { node = EFun (_, body); _ } ] ->
+        (* Relying on the invariant that, if [finish] is effectful, F* has
+         * hoisted it *)
+        assert (is_value finish);
+        let b = fresh_binder "i" uint32 in
+        let b = mark_mut b in
+        let cond = with_type TBool (
+          EApp (with_type (Checker.type_of_op K.Lt K.UInt32) (
+            EOp (K.Lt, K.UInt32)), [
+            with_type uint32 (EBound 0);
+            finish ])) in
+        let iter = with_type TUnit (
+          EAssign (with_type uint32 (
+            EBound 0), with_type uint32 (
+            EApp (with_type (Checker.type_of_op K.Add K.UInt32) (
+              EOp (K.Add, K.UInt32)), [
+              with_type uint32 (EBound 0);
+              oneu32 ])))) in
+        (* Note: no need to shift, the body was under a one-argument lambda
+         * already. *)
+        EFor (b, start, cond, iter, self#visit () body)
+
+    | _ ->
+        super#eapp () t e es
+
+end
+
 (* Everything composed together ***********************************************)
 
 let simplify1 (files: file list): file list =
@@ -947,6 +1043,8 @@ let simplify1 (files: file list): file list =
 
 let simplify2 (files: file list): file list =
   let files = visit_files () sequence_to_let files in
+  let files = visit_files () remove_local_function_bindings files in
+  let files = visit_files () combinators files in
   let files = visit_files () hoist files in
   let files = visit_files () hoist_bufcreate files in
   let files = visit_files () fixup_hoist files in

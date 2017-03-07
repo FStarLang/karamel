@@ -255,7 +255,7 @@ and mk_stmts env e ret_type =
         let env, binder = mk_and_push_binder env binder (Some e1) [ e2; e3; e4 ]
         and e1 = mk_expr env false e1 in
         let e2 = mk_expr env false e2 in
-        let e3 = mk_expr env false e3 in
+        let e3 = match mk_block env false e3 with [ e3 ] -> e3 | _ -> assert false in
         let e4 = mk_block env false e4 in
         let e = CStar.For (binder, e1, e2, e3, e4) in
         env, e :: acc
