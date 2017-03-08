@@ -6,7 +6,10 @@ open Common
 module K = Constant
 
 (** The input AST. Note: F* doesn't have flat data constructors, so we need to introduce
- * (inefficient) boxing for the sake of interop. *)
+ * (inefficient) boxing for the sake of interop. Other note: this is using the
+ * type [int], which COINCIDENTALLY happens to work on both sides (F* extracts
+ * to Z.t, but Z.t's runtime representation is the same as int for small
+ * integers). *)
 
 type program =
   decl list
