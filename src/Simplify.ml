@@ -994,6 +994,8 @@ end
 
 (* Dealing with local functions ***********************************************)
 
+(* TODO: this should ABSOLUTELY be implemented at the F* level -- it's
+ * ridiculous to have that sort of normalization steps happen here. *)
 let remove_local_function_bindings = object(self)
 
   inherit [unit] map
