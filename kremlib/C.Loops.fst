@@ -133,6 +133,7 @@ let rec seq_map #a #b f s =
     s'
 
 (* To be substituted with its definition *)
+inline_for_extraction
 val map:
   #a:Type0 -> #b:Type0 ->
   f:(a -> Tot b) ->
@@ -146,6 +147,7 @@ val map:
       /\ (let s1 = as_seq h_1 input in
          let s2 = as_seq h_2 output in
          s2 == seq_map f s1) ))
+inline_for_extraction
 let map #a #b f output input l =
   let h0 = ST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =

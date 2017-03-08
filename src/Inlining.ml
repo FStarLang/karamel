@@ -197,21 +197,7 @@ let mk_inliner files must_inline =
       let es = List.map (self#visit ()) es in
       match e.node with
       | EQualified lid when Hashtbl.mem map lid && must_inline lid ->
-          (* We use a syntactic criterion to ensure that all the arguments are
-           * values, i.e. can be safely substituted inside the function
-           * definition. *)
-          let bs, es = KList.fold_lefti (fun i (bs, es) e ->
-            if not (is_value e) then
-              let x, atom = Simplify.mk_binding (Printf.sprintf "x%d" i) e.typ in
-              (x, e) :: bs, atom :: es
-            else
-              bs, e :: es
-          ) ([], []) es in
-          let bs = List.rev bs in
-          let es = List.rev es in
-          wrap_comment lid (
-            Simplify.nest bs t (
-              DeBruijn.subst_n (recurse lid) es))
+          wrap_comment lid ( Simplify.safe_substitution es (recurse lid) t)
       | _ ->
           EApp (self#visit () e, es)
     method equalified () t lid =

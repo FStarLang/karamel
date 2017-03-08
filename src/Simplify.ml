@@ -31,6 +31,41 @@ class ignore_everything = object
     DType (name, n, t)
 end
 
+let rec nest bs t e2 =
+  match bs with
+  | (b, e1) :: bs ->
+      { node = ELet (b, e1, close_binder b (nest bs t e2)); typ = t }
+  | [] ->
+      e2
+
+let mk_binding name t =
+  let b = fresh_binder name t in
+  b,
+  { node = EOpen (b.node.name, b.node.atom); typ = t }
+
+(** Generates "let [[name]]: [[t]] = [[e]] in [[name]]" *)
+let mk_named_binding name t e =
+  let b, ref = mk_binding name t in
+  b,
+  { node = e; typ = t },
+  ref
+
+(** Substitute [es] in [e], possibly introducing intermediary let-bindings for
+ * things that are not values. [t] is the type of [e]. *)
+let safe_substitution es e t =
+  (* We use a syntactic criterion to ensure that all the arguments are
+   * values, i.e. can be safely substituted inside the function
+   * definition. *)
+  let bs, es = KList.fold_lefti (fun i (bs, es) e ->
+    if not (is_value e) then
+      let x, atom = mk_binding (Printf.sprintf "x%d" i) e.typ in
+      (x, e) :: bs, atom :: es
+    else
+      bs, e :: es
+  ) ([], []) es in
+  let bs = List.rev bs in
+  let es = List.rev es in
+  nest bs t (DeBruijn.subst_n e es)
 
 (* Count the number of occurrences of each variable ***************************)
 
@@ -247,25 +282,6 @@ let let_if_to_assign = object (self)
 end
 
 (* No left-nested let-bindings ************************************************)
-
-let rec nest bs t e2 =
-  match bs with
-  | (b, e1) :: bs ->
-      { node = ELet (b, e1, close_binder b (nest bs t e2)); typ = t }
-  | [] ->
-      e2
-
-let mk_binding name t =
-  let b = fresh_binder name t in
-  b,
-  { node = EOpen (b.node.name, b.node.atom); typ = t }
-
-(** Generates "let [[name]]: [[t]] = [[e]] in [[name]]" *)
-let mk_named_binding name t e =
-  let b, ref = mk_binding name t in
-  b,
-  { node = e; typ = t },
-  ref
 
 (* This function returns an expression that can successfully be translated as a
  * C* statement, after going through let-if-to-assign conversion.
@@ -995,11 +1011,35 @@ let remove_local_function_bindings = object(self)
         let e2 = self#visit env e2 in
         ELet (b, e1, e2)
 
-  (* TODO: subtitute functions fully applied, to values only, to provide local
-   * meta-programming facilities *)
+  method! eapp env t e es =
+    let e = self#visit env e in
+    let es = List.map (self#visit env) es in
+    match e.node with
+    | EFun (_, body) ->
+        (safe_substitution es body t).node
+    | _ ->
+        EApp (e, es)
 end
 
 (* Combinators ****************************************************************)
+
+(* @0 < <finish> *)
+let mk_lt finish =
+  with_type TBool (
+    EApp (with_type (Checker.type_of_op K.Lt K.UInt32) (
+      EOp (K.Lt, K.UInt32)), [
+      with_type uint32 (EBound 0);
+      finish ]))
+
+(* @0 <- @0 + 1ul *)
+let mk_incr =
+  with_type TUnit (
+    EAssign (with_type uint32 (
+      EBound 0), with_type uint32 (
+      EApp (with_type (Checker.type_of_op K.Add K.UInt32) (
+        EOp (K.Add, K.UInt32)), [
+        with_type uint32 (EBound 0);
+        oneu32 ]))))
 
 let combinators = object(self)
 
@@ -1013,18 +1053,8 @@ let combinators = object(self)
         assert (is_value finish);
         let b = fresh_binder "i" uint32 in
         let b = mark_mut b in
-        let cond = with_type TBool (
-          EApp (with_type (Checker.type_of_op K.Lt K.UInt32) (
-            EOp (K.Lt, K.UInt32)), [
-            with_type uint32 (EBound 0);
-            finish ])) in
-        let iter = with_type TUnit (
-          EAssign (with_type uint32 (
-            EBound 0), with_type uint32 (
-            EApp (with_type (Checker.type_of_op K.Add K.UInt32) (
-              EOp (K.Add, K.UInt32)), [
-              with_type uint32 (EBound 0);
-              oneu32 ])))) in
+        let cond = mk_lt finish in
+        let iter = mk_incr in
         (* Note: no need to shift, the body was under a one-argument lambda
          * already. *)
         EFor (b, start, cond, iter, self#visit () body)
