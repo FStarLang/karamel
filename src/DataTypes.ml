@@ -139,7 +139,7 @@ let monomorphize_data_types map = object(self)
 end
 
 let drop_parameterized_data_types =
-  Inlining.filter_decls (function
+  filter_decls (function
     | DType (_, n, (Flat _ | Variant _)) when n > 0 ->
         None
     | d ->
@@ -530,11 +530,11 @@ let compile_all_matches map = object (self)
     ]
 
   (* The match transformation is tricky: we open all binders. *)
-  method dfunction env cc flags ret name binders expr =
+  method dfunction env cc flags n ret name binders expr =
     let binders, expr = open_binders binders expr in
     let expr = self#visit env expr in
     let expr = close_binders binders expr in
-    DFunction (cc, flags, ret, name, binders, expr)
+    DFunction (cc, flags, n, ret, name, binders, expr)
 
   method elet env _ binder e1 e2 =
     let e1 = self#visit env e1 in

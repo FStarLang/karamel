@@ -500,7 +500,8 @@ and mk_declaration env d: CStar.decl option =
   in
 
   match d with
-  | DFunction (cc, flags, t, name, binders, body) ->
+  | DFunction (cc, flags, n, t, name, binders, body) ->
+      assert (n = 0);
       let env = locate env (InTop name) in
       Some (wrap_throw (string_of_lident name) (lazy begin
         let t = mk_return_type env t in
@@ -573,7 +574,7 @@ and mk_type_def env d: CStar.typ =
 
 and mk_program name decls =
   KList.filter_map (fun d ->
-    let n = string_of_lident (PrintAst.decl_name d) in
+    let n = string_of_lident (Ast.lid_of_decl d) in
     try
       mk_declaration empty d
     with Error e ->

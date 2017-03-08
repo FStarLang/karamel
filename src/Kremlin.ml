@@ -194,6 +194,7 @@ Supported options:|}
    * and type abbreviations we don't know about have been replaced by TAny.
    * Otherwise, the checker is too stringent and will drop files. *)
   let files = DataTypes.drop_match_cast files in
+  let files = Inlining.drop_polymorphic_functions files in
   let has_errors, files = Checker.check_everything ~warn:true files in
 
   (* Make sure implementors that target Kremlin can tell apart their bugs vs.
@@ -257,7 +258,7 @@ Supported options:|}
     (* Note that after bundling, we need to go inside bundles to find top-level
      * names that originate from a module we were meant to drop, and drop
      * individual declarations. *)
-    Inlining.filter_decls (fun d ->
+    Ast.filter_decls (fun d ->
       let f = String.concat "_" (fst (Ast.lid_of_decl d)) in
       if should_drop f then
         None

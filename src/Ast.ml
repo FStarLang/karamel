@@ -14,7 +14,7 @@ and file =
   string * program
 
 and decl =
-  | DFunction of calling_convention option * flag list * typ * lident * binders * expr
+  | DFunction of calling_convention option * flag list * int * typ * lident * binders * expr
   | DGlobal of flag list * lident * typ * expr
   | DExternal of calling_convention option * lident * typ
   | DType of lident * int * type_def
@@ -204,7 +204,7 @@ let flatten_arrow =
   flatten_arrow []
 
 let lid_of_decl = function
-  | DFunction (_, _, _, lid, _, _)
+  | DFunction (_, _, _, _, lid, _, _)
   | DGlobal (_, lid, _, _)
   | DExternal (_, lid, _)
   | DType (lid, _, _) ->
@@ -640,8 +640,8 @@ class virtual ['env] map = object (self)
 
   method visit_d (env: 'env) (d: decl): 'dresult =
     match d with
-    | DFunction (cc, flags, ret, name, binders, expr) ->
-        self#dfunction env cc flags ret name binders expr
+    | DFunction (cc, flags, n, ret, name, binders, expr) ->
+        self#dfunction env cc flags n ret name binders expr
     | DGlobal (flags, name, typ, expr) ->
         self#dglobal env flags name typ expr
     | DExternal (cc, name, t) ->
@@ -669,10 +669,11 @@ class virtual ['env] map = object (self)
   method binders env binders =
     List.map (fun binder -> { binder with typ = self#visit_t env binder.typ }) binders
 
-  method dfunction env cc flags ret name binders expr =
+  method dfunction env cc flags n ret name binders expr =
     let binders = self#binders env binders in
     let env = self#extend_many env binders in
-    DFunction (cc, flags, self#visit_t env ret, name, binders, self#visit env expr)
+    let env = self#extend_tmany env n in
+    DFunction (cc, flags, n, self#visit_t env ret, name, binders, self#visit env expr)
 
   method dglobal env flags name typ expr =
     DGlobal (flags, name, self#visit_t env typ, self#visit env expr)
@@ -712,3 +713,12 @@ class virtual ['env] map = object (self)
   method branches_t env branches =
     List.map (fun (ident, fields) -> ident, self#fields_t env fields) branches
 end
+
+
+(** More helpers *)
+
+let filter_decls f files =
+  List.map (fun (file, decls) -> file, KList.filter_map f decls) files
+
+let iter_decls f files =
+  List.iter (fun (_, decls) -> List.iter f decls) files
