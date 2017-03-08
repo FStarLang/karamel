@@ -28,5 +28,5 @@ let main () =
   assert (Seq.index (Buffer.as_seq h1 b) 2 = 9ul);
   let f x = UInt32.(x *%^ x) in
   let out = Buffer.create 0ul 3ul in
-  C.Loops.map f out b 3ul;
+  C.Loops.map out b 3ul f;
   C.exit_success
