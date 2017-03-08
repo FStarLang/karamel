@@ -224,6 +224,28 @@ let mk_inliner files must_inline =
   inline_one
 
 
+let inline_combinators files =
+  let must_inline = function
+    | [ "C"; "Loops" ], "map"
+    | [ "C"; "Loops" ], "map2"
+    | [ "C"; "Loops" ], "in_place_map"
+    | [ "C"; "Loops" ], "in_place_map2" ->
+        true
+    | _ ->
+        false
+  in
+  let inline_one = mk_inliner files must_inline in
+  filter_decls (function
+    | DFunction (cc, flags, n, ret, name, binders, _) ->
+        if must_inline name then
+          None
+        else
+          Some (DFunction (cc, flags, n, ret, name, binders, inline_one name))
+    | d ->
+        Some d
+  ) files
+
+
 (** A whole-program transformation that inlines functions according to... *)
 let inline_function_frames files =
 
