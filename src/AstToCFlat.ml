@@ -272,7 +272,8 @@ let scratch_locals =
 
 let mk_decl env (d: decl): CF.decl option =
   match d with
-  | DFunction (_, flags, ret, name, args, body) ->
+  | DFunction (_, flags, n, ret, name, args, body) ->
+      assert (n = 0);
       let public = not (List.exists ((=) Common.Private) flags) in
       let locals, env = List.fold_left (fun (locals, env) b ->
         let locals, _, env = extend env b locals in
