@@ -237,7 +237,13 @@ let inline_combinators files =
         if must_inline name then
           None
         else
-          Some (DFunction (cc, flags, n, ret, name, binders, inline_one name))
+          let body = inline_one name in
+          let body = (object
+            inherit [_] map
+            method tbound _ _ =
+              TAny
+          end)#visit () body in
+          Some (DFunction (cc, flags, n, ret, name, binders, body))
     | d ->
         Some d
   ) files

@@ -116,3 +116,49 @@ let rec interruptible_reverse_for start finish inv f =
     if f start
     then (start', true)
     else interruptible_reverse_for start' finish inv f
+
+
+val seq_map:
+  #a:Type -> #b:Type ->
+  f:(a -> Tot b) ->
+  s:Seq.seq a ->
+  Tot (s':Seq.seq b{Seq.length s = Seq.length s' /\ 
+    (forall (i:nat). {:pattern (Seq.index s' i)} i < Seq.length s' ==> Seq.index s' i == f (Seq.index s i))})
+    (decreases (Seq.length s))
+let rec seq_map #a #b f s =
+  if Seq.length s = 0 then
+    Seq.createEmpty
+  else
+    let s' = Seq.cons (f (Seq.head s)) (seq_map f (Seq.tail s)) in
+    s'
+
+(* To be substituted with its definition *)
+val map:
+  #a:Type0 -> #b:Type0 ->
+  f:(a -> Tot b) ->
+  output: buffer b ->
+  input: buffer a{disjoint input output} ->
+  l: UInt32.t{ UInt32.v l = Buffer.length output /\ UInt32.v l = Buffer.length input } ->
+  Stack unit
+    (requires (fun h -> live h input /\ live h output ))
+    (ensures (fun h_1 r h_2 -> modifies_1 output h_1 h_2 /\ live h_2 input /\ live h_1 input /\ live h_2 output
+      /\ live h_2 output
+      /\ (let s1 = as_seq h_1 input in
+         let s2 = as_seq h_2 output in
+         s2 == seq_map f s1) ))
+let map #a #b f output input l =
+  let h0 = ST.get() in
+  let inv (h1: HS.mem) (i: nat): Type0 =
+    live h1 output /\ live h1 input /\ modifies_1 output h0 h1 /\ i <= UInt32.v l
+    /\ (forall (j:nat). {:pattern (get h1 output j)} (j >= i /\ j < UInt32.v l) ==> get h1 output j == get h0 output j)
+    /\ (forall (j:nat). {:pattern (get h1 output j)} j < i ==> get h1 output j == f (get h0 input j))
+  in
+  let f' (i:UInt32.t{ UInt32.( 0 <= v i /\ v i < v l ) }): Stack unit
+    (requires (fun h -> inv h (UInt32.v i)))
+    (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
+  =
+    output.(i) <- f (input.(i))
+  in
+  for 0ul l inv f';
+  let h1 = ST.get() in
+  Seq.lemma_eq_intro (as_seq h1 output) (seq_map f (as_seq h0 input))
