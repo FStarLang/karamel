@@ -1055,7 +1055,7 @@ let combinators = object(self)
         assert (is_value finish);
         let b = fresh_binder "i" uint32 in
         let b = mark_mut b in
-        let cond = mk_lt finish in
+        let cond = mk_lt (lift 1 finish) in
         let iter = mk_incr in
         (* Note: no need to shift, the body was under a one-argument lambda
          * already. *)
