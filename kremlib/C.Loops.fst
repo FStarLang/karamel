@@ -327,12 +327,11 @@ let rec lemma_repeat_0 #a n f x = ()
  *)
 val repeat:
   #a:Type0 ->
-  #len:nat ->
-  #f:(s:Seq.seq a{Seq.length s = len} -> Tot (s':Seq.seq a{Seq.length s' = Seq.length s})) ->
-  b: buffer a ->
-  l: UInt32.t{ UInt32.v l = Buffer.length b /\ UInt32.v l = len } ->
+  l: UInt32.t ->
+  f:(s:Seq.seq a{Seq.length s = UInt32.v l} -> Tot (s':Seq.seq a{Seq.length s' = Seq.length s})) ->
+  b: buffer a{Buffer.length b = UInt32.v l} ->
   n:UInt32.t ->
-  f':(b:buffer a{length b = len} -> Stack unit
+  f':(b:buffer a{length b = UInt32.v l} -> Stack unit
                      (requires (fun h -> live h b))
                      (ensures (fun h0 _ h1 -> live h0 b /\ live h1 b /\ modifies_1 b h0 h1
                        /\ (let b0 = as_seq h0 b in
@@ -344,7 +343,7 @@ val repeat:
       /\ (let s = as_seq h_1 b in
          let s' = as_seq h_2 b in
          s' == repeat_spec (UInt32.v n) f s) ))
-let repeat #a #len #f b l max fc =
+let repeat #a l f b max fc =
   let h0 = ST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 b /\ modifies_1 b h0 h1 /\ i <= UInt32.v max
