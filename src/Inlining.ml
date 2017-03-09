@@ -212,7 +212,7 @@ let mk_inliner files must_inline =
 
 let inline_combinators files =
   let must_inline = function
-    | [ "C"; "Loops" ], ("map" | "map2" | "in_place_map" | "in_place_map2") ->
+    | [ "C"; "Loops" ], ("map" | "map2" | "in_place_map" | "in_place_map2" | "repeat") ->
         true
     | _ ->
         false
