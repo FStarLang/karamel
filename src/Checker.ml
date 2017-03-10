@@ -324,7 +324,7 @@ and check' env t e =
           check env t expr
         ) fieldexprs
       in
-      begin match t with
+      begin match expand_abbrev env t with
       | TQualified lid ->
           let fieldtyps = assert_flat env (lookup_type env lid) in
           check_fields fieldexprs fieldtyps
@@ -786,7 +786,7 @@ and assert_flat env t =
   | Flat def ->
       def
   | _ ->
-      fatal_error "%a, this is not a record definition" ploc env.location
+      fatal_error "%a, %a is not a record definition" ploc env.location pdef t
 
 and assert_qualified env t =
   match expand_abbrev env t with
