@@ -148,7 +148,6 @@ let rec seq_map #a #b f s =
  * for (int i = 0; i < <l>; ++i)
  *   out[i] = <f>(in[i]);
  *)
-inline_for_extraction
 val map:
   #a:Type0 -> #b:Type0 ->
   output: buffer b ->
@@ -162,7 +161,6 @@ val map:
       /\ (let s1 = as_seq h_1 input in
          let s2 = as_seq h_2 output in
          s2 == seq_map f s1) ))
-inline_for_extraction
 let map #a #b output input l f =
   let h0 = ST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
