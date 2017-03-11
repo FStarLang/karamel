@@ -160,6 +160,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
       in
       let module T = struct type init = Nope | Memset | Forloop end in
       let (maybe_init, init_type): C.init option * T.init = match init, size with
+        | _, Constant (_, "0") ->
+            (* zero-sized array *)
+            None, T.Nope
         | Constant ((_, "0") as k), Constant _ ->
             (* The only case the we can initialize statically is a known, static
              * size _and_ a zero initializer. *)
