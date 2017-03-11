@@ -860,10 +860,17 @@ and subtype env t1 t2 =
       List.length ts1 = List.length ts2 &&
       List.for_all2 (subtype env) ts1 ts2
 
-  (* TODO TApp case *)
   | TAnonymous ((Enum _ | Union _ | Flat _)), TQualified lid ->
       begin try
         subtype env t1 (TAnonymous (M.find lid env.types))
+      with Not_found ->
+        false
+      end
+
+  | TAnonymous ((Enum _ | Union _ | Flat _)), TApp (lid, targs) ->
+      begin try
+        let t2 = DeBruijn.subst_tn (TAnonymous (M.find lid env.types)) targs in
+        subtype env t1 t2
       with Not_found ->
         false
       end
