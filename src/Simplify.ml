@@ -96,11 +96,12 @@ let count_use = object (self)
     let e1 = self#visit env e1 in
     let env = self#extend env b in
     let e2 = self#visit env e2 in
-    match e1, !(b.node.mark) with
-    | e, 0 when is_pure e ->
-        (snd (open_binder b e2)).node
-    | _ ->
-        ELet (b, e1, e2)
+    if !(b.node.mark) = 0 && is_pure e1 then
+      (snd (open_binder b e2)).node
+    else if !(b.node.mark) = 0 && e1.typ = TUnit then
+      ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2)
+    else
+      ELet (b, e1, e2)
 
 end
 
@@ -176,7 +177,7 @@ let let_to_sequence = object (self)
         let e1 = self#visit env e1 in
         let b, e2 = open_binder b e2 in
         let e2 = self#visit env e2 in
-        assert (b.typ = TUnit && b.node.name = "_");
+        assert (b.typ = TUnit);
         begin match e1.node, e2.node with
         | _, EUnit ->
             (* let _ = e1 in () *)
