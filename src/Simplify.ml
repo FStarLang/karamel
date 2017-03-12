@@ -830,7 +830,7 @@ let rec hoist_bufcreate (e: expr) =
   | ELet (b, ({ node = EBufCreateL (Stack, elts); _ } as e1), e2) ->
       let b, e2 = open_binder b e2 in
       let bs, e2 = hoist_bufcreate e2 in
-      let typ = 
+      let typ =
         match b.typ with
         | TBuf t -> TArray (t, (K.UInt32, string_of_int (List.length elts)))
         | _ -> failwith "impossible"
@@ -1073,6 +1073,107 @@ let combinators = object(self)
         super#eapp () t e es
 
 end
+
+(* Make sure all structures are explicitly allocated **************************)
+
+(* This pass assumes that all the desugarings that produce structs have run;
+ * that type abbreviations have been removed. *)
+
+(* Construct a [typ -> bool] that tells whether this is a struct type or not. *)
+let mk_is_struct files =
+  let map = Hashtbl.create 41 in
+  List.iter (fun (_, decls) ->
+    List.iter (function
+      | DType (lid, _, Flat _)  ->
+          Hashtbl.add map lid true
+      | _ ->
+          ()
+    ) decls
+  ) files;
+  function
+    | TAnonymous (Flat _) ->
+        true
+    | TQualified lid ->
+        begin try 
+          Hashtbl.find map lid
+        with Not_found ->
+          false
+        end
+    | _ ->
+        false
+
+(* Construct a [lid -> bool * bool list]; the first component tells whether
+ * the return value of the function should be caller-allocated and passed as the
+ * last parameter to the function; the second component tells, for each
+ * parameter of the function, whether it has a struct type. *)
+let mk_action_table files =
+  let is_struct = mk_is_struct files in
+  let map = Hashtbl.create 41 in
+  List.iter (fun (_, decls) ->
+    List.iter (function
+      | DFunction (_, _, ret, lid, binders, _body) ->
+          Hashtbl.add map lid (is_struct ret, List.map (fun b -> is_struct b.typ) binders)
+      | _ ->
+          ()
+    ) decls
+  ) files;
+  map
+
+(* Forcing the allocation may generate further constraints, namely, a set of
+ * binders in scope whose types, themselves, have to be lifted into allocated
+ * structs. *)
+type constraints = {
+  must_allocate: binder list;
+  needs_stack_space: (binder * typ) list;
+}
+
+let merge c1 c2 = {
+  must_allocate = c1.must_allocate @ c2.must_allocate;
+  needs_stack_space = c1.needs_stack_space @ c2.needs_stack_space;
+}
+
+let must_allocate b constraints =
+  match List.partition (fun b' -> Atom.equal b'.node.atom b.node.atom) constraints.must_allocate with
+  | _ :: _, must_allocate ->
+      Some { constraints with must_allocate }
+  | [], _ ->
+      None
+
+let alloc_expr table must e: expr * constraints * binder * typ=
+  let action_of_lid = Hashtbl.find table in
+  let rec alloc must e =
+    with_type TAny match e.node with
+    | ELet (b, e1, e2) ->
+        let b, e2 = open_binder b e2 in
+        let e2, c2 = alloc action e2 in
+        begin match must_allocate b c2 with
+        | Some c2 ->
+            let e2 = close_binder b e2 in
+            let e1, c1 = alloc true e1 in
+            ELet (b, e1, e2), merge c1 c2
+        | None ->
+            let e2 = close_binder b e2 in
+            let e1, c1 = alloc false e1 in
+            ELet (b, e1, e2), merge c1 c2
+        end
+
+    | EApp ({ node = EQualified lid; _ }, es) ->
+        let ret_is_struct, args_are_structs = action_of_lid lid in
+        let es = List.map2 alloc args_are_structs es in
+
+
+let alloc = object
+  inherit ignore_everything
+  inherit [_] map
+
+  method dfunction table cc flags ret name binders expr =
+    (* TODO: no nested let-bindings in top-level value declarations either *)
+    let binders, expr = open_binders binders expr in
+    let expr = hoist_stmt expr in
+    let expr = close_binders binders expr in
+    DFunction (cc, flags, ret, name, binders, expr)
+end
+
 
 (* Everything composed together ***********************************************)
 
