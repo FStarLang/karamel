@@ -263,12 +263,15 @@ let inline_function_frames files =
   (* A map that *eventually* will contain the exactly the set of [lid]s that can
    * be safely marked as private. The invariant is not established yet. *)
   let safely_private = Hashtbl.create 41 in
+  let safely_inline = Hashtbl.create 41 in
   List.iter (fun (_, decls) ->
     List.iter (function
       | DGlobal (flags, name, _, _)
       | DFunction (_, flags, _, _, name, _, _) ->
           if List.mem Private flags then
-            Hashtbl.add safely_private name ()
+            Hashtbl.add safely_private name ();
+          if List.mem CInline flags then
+            Hashtbl.add safely_inline name ()
       | _ ->
           ()
     ) decls
@@ -295,6 +298,10 @@ let inline_function_frames files =
               Warnings.maybe_fatal_error ("", LostStatic (name, name'));
               Hashtbl.remove safely_private name'
             end;
+            if file_of name <> file_of name' && Hashtbl.mem safely_inline name' then begin
+              Warnings.maybe_fatal_error ("", LostInline (name, name'));
+              Hashtbl.remove safely_inline name'
+            end;
             EApp (e, List.map (self#visit ()) es)
         | _ ->
             EApp (self#visit () e, List.map (self#visit ()) es)
@@ -302,6 +309,10 @@ let inline_function_frames files =
         if file_of name <> file_of name' && Hashtbl.mem safely_private name' then begin
           Warnings.maybe_fatal_error ("", LostStatic (name, name'));
           Hashtbl.remove safely_private name'
+        end;
+        if file_of name <> file_of name' && Hashtbl.mem safely_inline name' then begin
+          Warnings.maybe_fatal_error ("", LostInline (name, name'));
+          Hashtbl.remove safely_inline name'
         end;
         EQualified name'
     end)#visit () body)
@@ -329,17 +340,24 @@ let inline_function_frames files =
   (* The invariant for [safely_private] is now established, and we drop those
    * functions that cannot keep their [Private] flag. *)
   let files =
-    let keep_private_if name flags =
-      if not (Hashtbl.mem safely_private name) || Simplify.target_c_name name = "main" then
-        List.filter ((<>) Private) flags
+    let keep_if table flag name flags = 
+      if not (Hashtbl.mem table name) || Simplify.target_c_name name = "main" then
+        List.filter ((<>) flag) flags
+      else
+        flags
+    in
+    let filter name flags = 
+      let flags = keep_if safely_private Private name flags in
+      if !Options.cc = "compcert" then
+        keep_if safely_inline CInline name flags
       else
         flags
     in
     filter_decls (function
       | DFunction (cc, flags, n, ret, name, binders, body) ->
-          Some (DFunction (cc, keep_private_if name flags, n, ret, name, binders, body))
+          Some (DFunction (cc, filter name flags, n, ret, name, binders, body))
       | DGlobal (flags, name, e, t) ->
-          Some (DGlobal (keep_private_if name flags, name, e, t))
+          Some (DGlobal (filter name flags, name, e, t))
       | d ->
           Some d
     ) files

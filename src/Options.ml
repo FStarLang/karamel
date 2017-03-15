@@ -5,7 +5,7 @@
  *)
 let no_prefix: string list ref = ref [ "C" ]
 let add_include: string list ref = ref [ "\"kremlib.h\"" ]
-let warn_error = ref "+1-2+3..7"
+let warn_error = ref "+1-2+3..8"
 let tmpdir = ref "."
 let includes: string list ref = ref [ "FSTAR_LIB/hyperstack" ]
 let verbose = ref false
