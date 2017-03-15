@@ -853,8 +853,15 @@ let rec hoist_bufcreate (e: expr) =
       in
       let typ =
         match b.typ with
-        | TBuf t -> TArray (t, k)
-        | _ -> failwith "impossible"
+        | TArray _ as t ->
+            t
+        | TBuf t ->
+            TArray (t, k)
+        | _ ->
+            Warnings.fatal_error
+              "Let-bound array is annotated with %a instead of TArray:\n%a"
+              ptyp b.typ
+              ppexpr e
       in
       ({ node = { b.node with mut = true }; typ }, any) :: bs,
       mk (ELet (sequence_binding (),

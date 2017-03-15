@@ -134,8 +134,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
       let type_name =
         match binder.typ with
+        | Array (t, _)
         | Pointer t -> mk_spec_and_declarator "" t
-        | _ -> failwith "impossible"
+        | _ -> Warnings.fatal_error "let-bound bufcreate has type %s instead of Pointer" (show_typ binder.typ)
       in
       let size = mk_expr size in
       let e, extra_stmt = match init with
