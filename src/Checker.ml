@@ -10,6 +10,29 @@ open Constant
 open Location
 open PrintAst.Ops
 
+let buf_any_msg = format_of_string {|
+This subexpression creates a buffer with an unknown type:
+  %a
+
+Here's a hint. If you're using untagged unions, instead of:
+
+  match e with
+  | Foo ->
+      Buffer.create e1 l1
+  | Bar ->
+      Buffer.create e2 l2
+
+where e1: t1 and e2: t2, try:
+
+  match e with
+  | Foo ->
+      let b: Buffer.buffer t1 = Buffer.create e1 l1 in
+      b
+  | Bar ->
+      let b: Buffer.buffer t2 = Buffer.create e2 l2 in
+      b
+|}
+
 (** Environments ------------------------------------------------------------ *)
 
 module M = Map.Make(struct
@@ -249,6 +272,8 @@ and check' env t e =
         Warnings.(maybe_fatal_error (loc, Vla e))
       end;
       let t = assert_buffer env t in
+      if t = TAny then
+        type_error env buf_any_msg ppexpr e;
       check env t e1;
       check env uint32 e2;
       c (best_buffer_type t e2)
