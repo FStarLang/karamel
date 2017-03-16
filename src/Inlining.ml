@@ -66,10 +66,16 @@ let inline_analysis map =
     try
       ignore ((object
         inherit [_] map as super
-        method! ebufcreate () _ _ _ =
-          raise (L.Found "bufcreate")
-        method! ebufcreatel () _ _ =
-          raise (L.Found "bufcreateL")
+        method! ebufcreate () t l e =
+          if l = Stack then
+            raise (L.Found "bufcreate")
+          else
+            super#ebufcreate () t l e
+        method! ebufcreatel () t l e =
+          if l = Stack then
+            raise (L.Found "bufcreateL")
+          else
+            super#ebufcreatel () t l e
         method! equalified () t lid =
           (* In case we ever decide to allow wacky stuff like:
            *   let f = if ... then g else h in
