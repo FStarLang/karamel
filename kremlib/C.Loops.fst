@@ -10,6 +10,8 @@ module HH = FStar.HyperHeap
 module HS = FStar.HyperStack
 module UInt32 = FStar.UInt32
 
+include Spec.Loops
+
 #set-options "--initial_fuel 0 --max_fuel 0 --z3rlimit 20"
 
 (** The functions in this module use the following convention:
@@ -129,21 +131,6 @@ let rec interruptible_reverse_for start finish inv f =
 
 (* Mapping the contents of a buffer into another ******************************)
 
-val seq_map:
-  #a:Type -> #b:Type ->
-  f:(a -> Tot b) ->
-  s:Seq.seq a ->
-  Tot (s':Seq.seq b{Seq.length s = Seq.length s' /\
-    (forall (i:nat). {:pattern (Seq.index s' i)} i < Seq.length s' ==> Seq.index s' i == f (Seq.index s i))})
-    (decreases (Seq.length s))
-let rec seq_map #a #b f s =
-  if Seq.length s = 0 then
-    Seq.createEmpty
-  else
-    let s' = Seq.cons (f (Seq.head s)) (seq_map f (Seq.tail s)) in
-    s'
-
-
 (** Extracts as:
  * for (int i = 0; i < <l>; ++i)
  *   out[i] = <f>(in[i]);
@@ -177,20 +164,6 @@ let map #a #b output input l f =
   for 0ul l inv f';
   let h1 = ST.get() in
   Seq.lemma_eq_intro (as_seq h1 output) (seq_map f (as_seq h0 input))
-
-
-val seq_map2:
-  #a:Type -> #b:Type -> #c:Type ->
-  f:(a -> b -> Tot c) ->
-  s:Seq.seq a -> s':Seq.seq b{Seq.length s = Seq.length s'} ->
-  Tot (s'':Seq.seq c{Seq.length s = Seq.length s'' /\
-    (forall (i:nat). {:pattern (Seq.index s'' i)} i < Seq.length s'' ==> Seq.index s'' i == f (Seq.index s i) (Seq.index s' i))})
-    (decreases (Seq.length s))
-let rec seq_map2 #a #b #c f s s' =
-  if Seq.length s = 0 then Seq.createEmpty
-  else
-    let s'' = Seq.cons (f (Seq.head s) (Seq.head s')) (seq_map2 f (Seq.tail s) (Seq.tail s')) in
-    s''
 
 
 (** Extracts as:
@@ -304,9 +277,6 @@ let in_place_map2 #a #b in1 in2 l f =
 
 (* Repeating the same operation a number of times over a buffer ***************)
 
-val repeat_spec: #a:Type -> n:nat -> (f: a -> Tot a) -> a -> Tot a (decreases n)
-let rec repeat_spec #a n f x = if n = 0 then x else repeat_spec (n-1) f (f x)
-
 private
 val lemma_repeat: #a:Type -> n:nat{n > 0} -> f:( a -> Tot a) -> x:a -> Lemma
   (repeat_spec n f x == f (repeat_spec (n-1) f x))
@@ -318,6 +288,8 @@ private
 val lemma_repeat_0: #a:Type -> n:nat{n = 0} -> f:( a -> Tot a) -> x:a -> Lemma
   (repeat_spec n f x == x)
 let rec lemma_repeat_0 #a n f x = ()
+
+#reset-options "--initial_fuel 0 --max_fuel 0 --z3rlimit 20"
 
 (** To be extracted as:
  * for (int i = 0; i < n; ++i)
