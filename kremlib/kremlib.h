@@ -353,14 +353,14 @@ static inline void store128_le(uint8_t *b, uint128_t n) {
 }
 
 static inline uint128_t load128_be(uint8_t *b) {
-  uint128_t h = (uint128_t)load64_le(b);
-  uint128_t l = (uint128_t)load64_le(b + 8);
+  uint128_t h = (uint128_t)load64_be(b);
+  uint128_t l = (uint128_t)load64_be(b + 8);
   return (h << 64 | l);
 }
 
 static inline void store128_be(uint8_t *b, uint128_t n) {
-  store64_le(b, (uint64_t)(n >> 64));
-  store64_le(b + 8, (uint64_t)n);
+  store64_be(b, (uint64_t)(n >> 64));
+  store64_be(b + 8, (uint64_t)n);
 }
 
 #define FStar_UInt128_add(x, y) ((x) + (y))
