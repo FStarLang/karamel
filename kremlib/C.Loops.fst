@@ -277,18 +277,6 @@ let in_place_map2 #a #b in1 in2 l f =
 
 (* Repeating the same operation a number of times over a buffer ***************)
 
-private
-val lemma_repeat: #a:Type -> n:nat{n > 0} -> f:( a -> Tot a) -> x:a -> Lemma
-  (repeat_spec n f x == f (repeat_spec (n-1) f x))
-let rec lemma_repeat #a n f x =
-  if n = 1 then ()
-  else lemma_repeat (n-1) f (f x)
-
-private
-val lemma_repeat_0: #a:Type -> n:nat{n = 0} -> f:( a -> Tot a) -> x:a -> Lemma
-  (repeat_spec n f x == x)
-let rec lemma_repeat_0 #a n f x = ()
-
 #reset-options "--initial_fuel 0 --max_fuel 0 --z3rlimit 20"
 
 (** To be extracted as:
