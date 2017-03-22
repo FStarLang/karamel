@@ -157,6 +157,8 @@ Supported options:|}
 
   (* First enable the default warn-error string. *)
   Warnings.parse_warn_error !Options.warn_error;
+  if !Options.cc = "compcert" then
+    Warnings.parse_warn_error Options.compcert_warn_error;
 
   (* Then refine that based on the user's preferences. *)
   if !arg_warn_error <> "" then
