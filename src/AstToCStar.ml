@@ -72,7 +72,7 @@ let find env i =
   C:
     int x = ...;
     int x1 = ... x ...;
-  This is caught by the (List.exists ...) test.
+  This is caught by the second (List.exists ...) test.
 
   ML: shadowing outside of your own block WITH references to the shadowed variable
     fun x ->
@@ -110,6 +110,8 @@ let find env i =
   binding we're working) and since the binder has not been pushed into the
   environment yet, we must shift by 1.
 
+  The continuation is a list for cases where the scope of the binder spans
+  multiple expressions (e.g. for loop).
 *)
 let ensure_fresh env name body cont =
   let tricky_shadowing_see_comment_above name body k =
@@ -131,7 +133,7 @@ let ensure_fresh env name body cont =
   in
   mk_fresh name (fun tentative ->
     tricky_shadowing_see_comment_above tentative body 0 ||
-    tricky_shadowing_see_comment_above tentative cont 1 ||
+    List.exists (fun cont -> tricky_shadowing_see_comment_above tentative (Some cont) 1) cont ||
     List.exists ((=) tentative) env.in_block)
 
 
@@ -238,13 +240,24 @@ and mk_stmts env e ret_type =
   let rec collect (env, acc) return_pos e =
     match e.node with
     | ELet (binder, e1, e2) ->
-        let env, binder = mk_and_push_binder env binder (Some e1) (Some e2)
+        let env, binder = mk_and_push_binder env binder (Some e1) [ e2 ]
         and e1 = mk_expr env false e1 in
         let acc = CStar.Decl (binder, e1) :: acc in
         collect (env, acc) return_pos e2
 
     | EWhile (e1, e2) ->
-        let e = CStar.While (mk_expr env false e1, mk_block env true e2) in
+        let e = CStar.While (mk_expr env false e1, mk_block env false e2) in
+        env, e :: acc
+
+    | EFor (binder, e1, e2, e3, e4) ->
+        (* Note: the arguments to mk_and_push_binder are solely for the purpose
+         * of avoiding name collisions. *)
+        let env, binder = mk_and_push_binder env binder (Some e1) [ e2; e3; e4 ]
+        and e1 = mk_expr env false e1 in
+        let e2 = mk_expr env false e2 in
+        let e3 = match mk_block env false e3 with [ e3 ] -> e3 | _ -> assert false in
+        let e4 = mk_block env false e4 in
+        let e = CStar.For (binder, e1, e2, e3, e4) in
         env, e :: acc
 
     | EIfThenElse (e1, e2, e3) ->
@@ -448,7 +461,7 @@ and mk_type env = function
  * other. *)
 and mk_and_push_binders env binders =
   let env, acc = List.fold_left (fun (env, acc) binder ->
-    let env, binder = mk_and_push_binder env binder None None in
+    let env, binder = mk_and_push_binder env binder None [] in
     env, binder :: acc
   ) (env, []) binders in
   env, List.rev acc
@@ -487,7 +500,8 @@ and mk_declaration env d: CStar.decl option =
   in
 
   match d with
-  | DFunction (cc, flags, t, name, binders, body) ->
+  | DFunction (cc, flags, n, t, name, binders, body) ->
+      assert (n = 0);
       let env = locate env (InTop name) in
       Some (wrap_throw (string_of_lident name) (lazy begin
         let t = mk_return_type env t in
@@ -560,7 +574,7 @@ and mk_type_def env d: CStar.typ =
 
 and mk_program name decls =
   KList.filter_map (fun d ->
-    let n = string_of_lident (PrintAst.decl_name d) in
+    let n = string_of_lident (Ast.lid_of_decl d) in
     try
       mk_declaration empty d
     with Error e ->

@@ -139,7 +139,7 @@ let monomorphize_data_types map = object(self)
 end
 
 let drop_parameterized_data_types =
-  Inlining.filter_decls (function
+  filter_decls (function
     | DType (_, n, (Flat _ | Variant _)) when n > 0 ->
         None
     | d ->
@@ -203,7 +203,7 @@ let try_mk_flat e t branches =
         let bindings = List.map2 (fun b (f, _) ->
           b, with_type b.typ (EField (atom, f))
         ) binders fields in
-        ELet (scrut, e, close_binder scrut (lift 1 (Simplify.nest bindings t body)))
+        ELet (scrut, e, close_binder scrut (Simplify.nest bindings t body))
       else
         EMatch (e, branches)
   | _ ->
@@ -546,11 +546,11 @@ let compile_all_matches map = object (self)
             ])]
 
   (* The match transformation is tricky: we open all binders. *)
-  method dfunction env cc flags ret name binders expr =
+  method dfunction env cc flags n ret name binders expr =
     let binders, expr = open_binders binders expr in
     let expr = self#visit env expr in
     let expr = close_binders binders expr in
-    DFunction (cc, flags, ret, name, binders, expr)
+    DFunction (cc, flags, n, ret, name, binders, expr)
 
   method elet env _ binder e1 e2 =
     let e1 = self#visit env e1 in
@@ -644,10 +644,5 @@ let everything files =
   let files = Simplify.visit_files () (compile_all_matches map) files in
   map, files
 
-let anonymous_unions old_map files =
-  (* TODO: not really clean... this is run after C name translation has occured,
-   * but the map was built with original dot-names... so run this through the
-   * translation table using the global state. *)
-  let map = Hashtbl.create 41 in
-  Hashtbl.iter (fun k v -> Hashtbl.add map (Simplify.t k) v) old_map;
+let anonymous_unions map files =
   Simplify.visit_files () (anonymous_unions map) files

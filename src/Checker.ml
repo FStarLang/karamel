@@ -10,6 +10,29 @@ open Constant
 open Location
 open PrintAst.Ops
 
+let buf_any_msg = format_of_string {|
+This subexpression creates a buffer with an unknown type:
+  %a
+
+Here's a hint. If you're using untagged unions, instead of:
+
+  match e with
+  | Foo ->
+      Buffer.create e1 l1
+  | Bar ->
+      Buffer.create e2 l2
+
+where e1: t1 and e2: t2, try:
+
+  match e with
+  | Foo ->
+      let b: Buffer.buffer t1 = Buffer.create e1 l1 in
+      b
+  | Bar ->
+      let b: Buffer.buffer t2 = Buffer.create e2 l2 in
+      b
+|}
+
 (** Environments ------------------------------------------------------------ *)
 
 module M = Map.Make(struct
@@ -87,7 +110,8 @@ let populate_env files =
           { env with types = M.add lid typ env.types }
       | DGlobal (_, lid, t, _) ->
           { env with globals = M.add lid t env.globals }
-      | DFunction (_, _, ret, lid, binders, _) ->
+      | DFunction (_, _, n, ret, lid, binders, _) ->
+          assert (n = 0);
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
       | DExternal (_, lid, typ) ->
@@ -168,7 +192,8 @@ and check_program env r (name, decls) =
 
 and check_decl env d =
   match d with
-  | DFunction (_, _, t, name, binders, body) ->
+  | DFunction (_, _, n, t, name, binders, body) ->
+      assert (n = 0);
       let env = List.fold_left push env binders in
       let env = locate env (InTop name) in
       check env t body
@@ -212,6 +237,8 @@ and check' env t e =
   | EEnum _
   | EField _
   | EString _
+  | EFun _
+  | EFor _
   | EApp _ ->
       c (infer env e)
 
@@ -245,6 +272,8 @@ and check' env t e =
         Warnings.(maybe_fatal_error (loc, Vla e))
       end;
       let t = assert_buffer env t in
+      if t = TAny then
+        type_error env buf_any_msg ppexpr e;
       check env t e1;
       check env uint32 e2;
       c (best_buffer_type t e2)
@@ -320,7 +349,7 @@ and check' env t e =
           check env t expr
         ) fieldexprs
       in
-      begin match t with
+      begin match expand_abbrev env t with
       | TQualified lid ->
           let fieldtyps = assert_flat env (lookup_type env lid) in
           check_fields fieldexprs fieldtyps
@@ -619,6 +648,20 @@ and infer' env e =
   | EComment (_, e, _) ->
       infer env e
 
+  | EFun (binders, e) ->
+      let env = List.fold_left push env binders in
+      let t = infer env e in
+      List.fold_right (fun binder t -> TArrow (binder.typ, t)) binders t
+
+  | EFor (binder, e1, e2, e3, e4) ->
+      let t = check_or_infer (locate env (In binder.node.name)) binder.typ e1 in
+      binder.typ <- t;
+      let env = push env binder in
+      check (locate env ForCond) TBool e2;
+      check (locate env ForIter) TUnit e3;
+      check (locate env For) TUnit e4;
+      TUnit
+
 and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
   fun env f l ->
   let t_base = ref None in
@@ -770,7 +813,7 @@ and assert_flat env t =
   | Flat def ->
       def
   | _ ->
-      fatal_error "%a, this is not a record definition" ploc env.location
+      fatal_error "%a, %a is not a record definition" ploc env.location pdef t
 
 and assert_qualified env t =
   match expand_abbrev env t with
@@ -844,10 +887,17 @@ and subtype env t1 t2 =
       List.length ts1 = List.length ts2 &&
       List.for_all2 (subtype env) ts1 ts2
 
-  (* TODO TApp case *)
   | TAnonymous ((Enum _ | Union _ | Flat _)), TQualified lid ->
       begin try
         subtype env t1 (TAnonymous (M.find lid env.types))
+      with Not_found ->
+        false
+      end
+
+  | TAnonymous ((Enum _ | Union _ | Flat _)), TApp (lid, targs) ->
+      begin try
+        let t2 = DeBruijn.subst_tn (TAnonymous (M.find lid env.types)) targs in
+        subtype env t1 t2
       with Not_found ->
         false
       end

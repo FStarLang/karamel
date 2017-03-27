@@ -6,7 +6,10 @@ open Common
 module K = Constant
 
 (** The input AST. Note: F* doesn't have flat data constructors, so we need to introduce
- * (inefficient) boxing for the sake of interop. *)
+ * (inefficient) boxing for the sake of interop. Other note: this is using the
+ * type [int], which COINCIDENTALLY happens to work on both sides (F* extracts
+ * to Z.t, but Z.t's runtime representation is the same as int for small
+ * integers). *)
 
 type program =
   decl list
@@ -15,7 +18,7 @@ type program =
 and decl =
   (* Code *)
   | DGlobal of (flag list * lident * typ * expr)
-  | DFunction of (calling_convention option * flag list * typ * lident * binder list * expr)
+  | DFunction of (calling_convention option * flag list * int * typ * lident * binder list * expr)
   (* Types *)
   | DTypeAlias of (lident * int * typ)
       (** Name, number of parameters (De Bruijn), definition. *)
@@ -31,6 +34,8 @@ and fields_t =
 and branches_t =
   (ident * fields_t) list
 
+(* Note: in order to maintain backwards-binary-compatibility, please only add
+ * constructors at the end of the data type. *)
 and expr =
   | EBound of var
   | EQualified of lident
@@ -74,7 +79,7 @@ and expr =
   | ECons of (typ * ident * expr list)
   | EBufFill of (expr * expr * expr)
   | EString of string
-
+  | EFun of (binder list * expr)
 
 and branches =
   branch list
@@ -130,7 +135,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 19
+let current_version: version = 20
 
 type file = string * program
   [@@deriving yojson]

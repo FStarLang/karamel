@@ -14,7 +14,7 @@ and file =
   string * program
 
 and decl =
-  | DFunction of calling_convention option * flag list * typ * lident * binders * expr
+  | DFunction of calling_convention option * flag list * int * typ * lident * binders * expr
   | DGlobal of flag list * lident * typ * expr
   | DExternal of calling_convention option * lident * typ
   | DType of lident * int * type_def
@@ -54,6 +54,7 @@ and expr' =
 
   | EApp of expr * expr list
   | ELet of binder * expr * expr
+  | EFun of binder list * expr
   | EIfThenElse of expr * expr * expr
   | ESequence of expr list
   | EAssign of expr * expr
@@ -83,7 +84,19 @@ and expr' =
   | EField of expr * ident
 
   | EReturn of expr
+    (** Dafny generates EReturn nodes; they are currently no synthesized by our
+     * internal transformation passes, but may be in the future. *)
   | EWhile of expr * expr
+    (** Dafny generates EWhile nodes; we also generate them when desugaring the
+     * buffer creation and blitting operations for the Wasm backend. *)
+  | EFor of binder * expr * expr * expr * expr
+    (** Currently generated when detecting combinators from the [C.Loops]
+     * module. We only offer a restricted form of For loops:
+     *   for (let b = e1; e2; e3) {
+     *     ...
+     *   }
+     * The scope of
+     * the binder is the second, third and fourth expressions. *)
   | ECast of expr * typ
   | EComment of string * expr * string
 
@@ -191,7 +204,7 @@ let flatten_arrow =
   flatten_arrow []
 
 let lid_of_decl = function
-  | DFunction (_, _, _, lid, _, _)
+  | DFunction (_, _, _, _, lid, _, _)
   | DGlobal (_, lid, _, _)
   | DExternal (_, lid, _)
   | DType (lid, _, _) ->
@@ -210,6 +223,8 @@ let rec is_value (e: expr) =
   | EBool _
   | EEnum _
   | EString _
+  | EFun _
+  | EAbort
   | EAny ->
       true
 
@@ -225,7 +240,6 @@ let rec is_value (e: expr) =
   | ECast (e, _) ->
       is_value e
 
-  | EAbort
   | EApp _
   | ELet _
   | EIfThenElse _
@@ -243,6 +257,7 @@ let rec is_value (e: expr) =
   | EMatch _
   | ESwitch _
   | EReturn _
+  | EFor _
   | EWhile _ ->
       false
 
@@ -345,6 +360,10 @@ class virtual ['env] map = object (self)
         self#eswitch env typ e branches
     | EComment (s, e, s') ->
         self#ecomment env typ s e s'
+    | EFor (binder, e1, e2, e3, e4) ->
+        self#efor env typ binder e1 e2 e3 e4
+    | EFun (binders, e) ->
+        self#efun env typ binders e
 
   method ebound _env _typ var =
     EBound var
@@ -453,6 +472,21 @@ class virtual ['env] map = object (self)
 
   method ecomment env _ s e s' =
     EComment (s, self#visit env e, s')
+
+  method efor env _ b e1 e2 e3 e4 =
+    let b = { b with typ = self#visit_t env b.typ } in
+    let e1 = self#visit env e1 in
+    let env = self#extend env b in
+    let e2 = self#visit env e2 in
+    let e3 = self#visit env e3 in
+    let e4 = self#visit env e4 in
+    EFor (b, e1, e2, e3, e4)
+
+  method efun env _ binders expr =
+    let binders = self#binders env binders in
+    let env = self#extend_many env binders in
+    EFun (binders, self#visit env expr)
+
 
   (* Some helpers *)
 
@@ -587,6 +621,7 @@ class virtual ['env] map = object (self)
   method tanonymous env d =
     TAnonymous (self#type_def env None d)
 
+
   (* Once types and expressions can be visited, a more generic method that
    * handles the type. *)
 
@@ -605,8 +640,8 @@ class virtual ['env] map = object (self)
 
   method visit_d (env: 'env) (d: decl): 'dresult =
     match d with
-    | DFunction (cc, flags, ret, name, binders, expr) ->
-        self#dfunction env cc flags ret name binders expr
+    | DFunction (cc, flags, n, ret, name, binders, expr) ->
+        self#dfunction env cc flags n ret name binders expr
     | DGlobal (flags, name, typ, expr) ->
         self#dglobal env flags name typ expr
     | DExternal (cc, name, t) ->
@@ -634,10 +669,11 @@ class virtual ['env] map = object (self)
   method binders env binders =
     List.map (fun binder -> { binder with typ = self#visit_t env binder.typ }) binders
 
-  method dfunction env cc flags ret name binders expr =
+  method dfunction env cc flags n ret name binders expr =
     let binders = self#binders env binders in
     let env = self#extend_many env binders in
-    DFunction (cc, flags, self#visit_t env ret, name, binders, self#visit env expr)
+    let env = self#extend_tmany env n in
+    DFunction (cc, flags, n, self#visit_t env ret, name, binders, self#visit env expr)
 
   method dglobal env flags name typ expr =
     DGlobal (flags, name, self#visit_t env typ, self#visit env expr)
@@ -677,3 +713,12 @@ class virtual ['env] map = object (self)
   method branches_t env branches =
     List.map (fun (ident, fields) -> ident, self#fields_t env fields) branches
 end
+
+
+(** More helpers *)
+
+let filter_decls f files =
+  List.map (fun (file, decls) -> file, KList.filter_map f decls) files
+
+let iter_decls f files =
+  List.iter (fun (_, decls) -> List.iter f decls) files

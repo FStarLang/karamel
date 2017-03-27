@@ -151,11 +151,10 @@ and p_expr' curr = function
   | Bool b ->
       string (string_of_bool b)
   | CompoundLiteral (t, init) ->
-      (* NOTE: http://en.cppreference.com/w/c/language/operator_precedence
-       * claims this is at level 3 but clang parses:
-       * &(foo){ ... } with an error... *)
-      let mine = 3 in
-      paren_if curr mine (
+      (* NOTE: always parenthesize compound literal no matter what, because GCC
+       * parses an application of a function to a compound literal as an n-ary
+       * application. *)
+      parens_with_nesting (
         lparen ^^ p_type_name t ^^ rparen ^^
         braces_with_nesting (separate_map (comma ^^ break1) p_init init)
       )

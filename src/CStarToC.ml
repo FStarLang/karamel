@@ -102,7 +102,7 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
   | _ ->
       Compound stmts
 
-and mk_for_loop_initializer e_array e_size e_value =
+and mk_for_loop_initializer e_array e_size e_value: C.stmt =
   For (
     (Int K.UInt, None, [ Ident "_i", Some (InitExpr zero)]),
     Op2 (K.Lt, Name "_i", e_size),
@@ -134,8 +134,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
       let type_name =
         match binder.typ with
+        | Array (t, _)
         | Pointer t -> mk_spec_and_declarator "" t
-        | _ -> failwith "impossible"
+        | _ -> Warnings.fatal_error "let-bound bufcreate has type %s instead of Pointer" (show_typ binder.typ)
       in
       let size = mk_expr size in
       let e, extra_stmt = match init with
@@ -160,6 +161,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
       in
       let module T = struct type init = Nope | Memset | Forloop end in
       let (maybe_init, init_type): C.init option * T.init = match init, size with
+        | _, Constant (_, "0") ->
+            (* zero-sized array *)
+            None, T.Nope
         | Constant ((_, "0") as k), Constant _ ->
             (* The only case the we can initialize statically is a known, static
              * size _and_ a zero initializer. *)
@@ -293,6 +297,14 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Expr (Call (Name "printf", [
           Literal "KreMLin abort at %s:%d\\n"; Name "__FILE__"; Name "__LINE__" ]));
         Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])); ]
+
+  | For (binder, e1, e2, e3, b) ->
+      let spec, decl = mk_spec_and_declarator binder.name binder.typ in
+      let init = struct_as_initializer e1 in
+      let e2 = mk_expr e2 in
+      let e3 = match mk_stmt e3 with [ Expr e3 ] -> e3 | _ -> assert false in
+      let b = mk_compound_if (mk_stmts b) in
+      [ For ((spec, None, [ decl, Some init ]), e2, e3, b)]
 
 
 and mk_stmts stmts: C.stmt list =

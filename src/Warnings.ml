@@ -17,6 +17,7 @@ and raw_error =
   | ExternalTypeApp of lident
   | Vla of ident
   | LostStatic of lident * lident
+  | LostInline of lident * lident
 
 and location =
   string
@@ -50,7 +51,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 8 CError;;
+let flags = Array.make 9 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -73,6 +74,8 @@ let errno_of_error = function
       6
   | LostStatic _ ->
       7
+  | LostInline _ ->
+      8
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -106,6 +109,12 @@ let rec perr buf (loc, raw_error) =
   | LostStatic (lid1, lid2) ->
       p "After inlining, %a calls %a -- removing the static qualifier from %a"
         plid lid1 plid lid2 plid lid2
+  | LostInline (lid1, lid2) ->
+      p "After inlining, %a calls %a. This is a call across translation units but \
+        %a has a C \"inline\" qualifier. The C standard allows removing %a \
+        from its translation unit (see C11 6.7.3 §5), and CompCert will do it. %s"
+        plid lid1 plid lid2 plid lid2 plid lid2
+        (if !Options.cc = "compcert" then "Removing the inline qualifier!" else "")
 
 
 let maybe_fatal_error error =

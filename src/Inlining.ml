@@ -17,6 +17,10 @@ open Warnings
 open PrintAst.Ops
 open Common
 
+(** A fixpoint computation ****************************************************)
+
+(** Data structures required by [Fix] *)
+
 module LidMap = Idents.LidMap
 
 module ILidMap = struct
@@ -45,17 +49,8 @@ end
 
 module F = Fix.Make(ILidMap)(Property)
 
-type color = White | Gray | Black
-
-(** Build an empty map for an inlining traversal, where [f] is responsible for
- * filling the initial values with the pair [(White, initial_body)]. *)
-let build_map files f =
-  let map = Hashtbl.create 41 in
-  List.iter (fun (_, decls) ->
-    List.iter (f map) decls
-  ) files;
-  map
-
+(** The actual fixpoint computation; if [f] does not push a frame and calls [g],
+ * and [g] must be inlined, then [f] must be inlined too. *)
 let inline_analysis map =
   let lookup lid = Hashtbl.find map lid in
   let debug_inline = Options.debug "inline" in
@@ -71,10 +66,16 @@ let inline_analysis map =
     try
       ignore ((object
         inherit [_] map as super
-        method! ebufcreate () _ _ _ =
-          raise (L.Found "bufcreate")
-        method! ebufcreatel () _ _ =
-          raise (L.Found "bufcreateL")
+        method! ebufcreate () t l e =
+          if l = Stack then
+            raise (L.Found "bufcreate")
+          else
+            super#ebufcreate () t l e
+        method! ebufcreatel () t l e =
+          if l = Stack then
+            raise (L.Found "bufcreateL")
+          else
+            super#ebufcreatel () t l e
         method! equalified () t lid =
           (* In case we ever decide to allow wacky stuff like:
            *   let f = if ... then g else h in
@@ -145,6 +146,20 @@ let inline_analysis map =
 
   F.lfp must_inline
 
+
+(* Inlining of function bodies ************************************************)
+
+(** For each declaration in [files], call [f map decl], where [map] is the map
+ * being filled. *)
+let build_map files f =
+  let map = Hashtbl.create 41 in
+  iter_decls (f map) files;
+  map
+
+(** We rely on the textbook three-color graph traversal; inlining cycles are a
+ * hard error. *)
+type color = White | Gray | Black
+
 (* A generic graph traversal + memoization combinator we use for inline
  * functions and types. *)
 let rec memoize_inline map visit lid =
@@ -160,15 +175,10 @@ let rec memoize_inline map visit lid =
       Hashtbl.add map lid (Black, body);
       body
 
-let filter_decls f files =
-  List.map (fun (file, decls) -> file, KList.filter_map f decls) files
-
-let iter_decls f files =
-  List.iter (fun (_, decls) -> List.iter f decls) files
-
-(* Inline function bodies *****************************************************)
-
-let inline_function_frames files =
+(** For a given set of files, and a criterion that maps each function [lid] to a
+ * boolean, return a function from an [lid] to its body where inlining has been
+ * performed. *)
+let mk_inliner files must_inline =
   let debug_inline = Options.debug "inline" in
   let wrap_comment lid term =
     if debug_inline then
@@ -180,25 +190,9 @@ let inline_function_frames files =
       term.node
   in
 
-  (* A stateful graph traversal that uses the textbook three colors to rule out
-   * cycles. The first component is used ONLY by [inline_analysis], while the
-   * color is used ONLY by [memoize_inline]. *)
+  (* Build a map suitable for the [memoize_inline] combinator. *)
   let map = build_map files (fun map -> function
-    | DFunction (_, flags, _, name, _, body) ->
-        Hashtbl.add map name (List.exists ((=) Substitute) flags, body)
-    | _ ->
-        ()
-  ) in
-  let valuation = inline_analysis map in
-  (* We must replace the function by its definition if the fixpoint
-   * computation makes it necessary, or if the user asked for it. *)
-  let must_inline lid = valuation lid = MustInline || fst (Hashtbl.find map lid) in
-
-  (* Because we want to recursively, lazily evaluate the inlining of each
-   * function, we temporarily store the bodies of each function in a mutable map
-   * and inline them as we hit them. *)
-  let map = build_map files (fun map -> function
-    | DFunction (_, _, _, name, _, body) ->
+    | DFunction (_, _, _, _, name, _, body) ->
         Hashtbl.add map name (White, body)
     | _ ->
         ()
@@ -209,38 +203,81 @@ let inline_function_frames files =
       let es = List.map (self#visit ()) es in
       match e.node with
       | EQualified lid when Hashtbl.mem map lid && must_inline lid ->
-          (* We use a syntactic criterion to ensure that all the arguments are
-           * values, i.e. can be safely substituted inside the function
-           * definition. *)
-          let bs, es = KList.fold_lefti (fun i (bs, es) e ->
-            if not (is_value e) then
-              let x, atom = Simplify.mk_binding (Printf.sprintf "x%d" i) e.typ in
-              (x, e) :: bs, atom :: es
-            else
-              bs, e :: es
-          ) ([], []) es in
-          let bs = List.rev bs in
-          let es = List.rev es in
-          wrap_comment lid (
-            Simplify.nest bs t (
-              DeBruijn.subst_n (recurse lid) es))
+          wrap_comment lid ( Simplify.safe_substitution es (recurse lid) t)
       | _ ->
           EApp (self#visit () e, es)
     method equalified () t lid =
       match t with
-      | TArrow _ when valuation lid = MustInline && Hashtbl.mem map lid ->
+      | TArrow _ when Hashtbl.mem map lid && must_inline lid ->
           fatal_error "[Frames]: partially applied function; not meant to happen";
       | _ ->
           EQualified lid
   end)#visit ()) in
+  inline_one
 
+
+let inline_combinators files =
+  let must_inline = function
+    | [ "C"; "Loops" ], ("map" | "map2" | "in_place_map" | "in_place_map2" | "repeat") ->
+        true
+    | _ ->
+        false
+  in
+  let inline_one = mk_inliner files must_inline in
+  filter_decls (function
+    | DFunction (cc, flags, n, ret, name, binders, _) ->
+        if must_inline name then
+          None
+        else
+          let body = inline_one name in
+          let body = (object
+            inherit [_] map
+            method tbound _ _ =
+              TAny
+          end)#visit () body in
+          Some (DFunction (cc, flags, n, ret, name, binders, body))
+    | d ->
+        Some d
+  ) files
+
+
+(** A whole-program transformation that inlines functions according to... *)
+let inline_function_frames files =
+
+  (* ... our criterion for determining whether a function must be inlined or not... *)
+  let must_inline, must_disappear =
+    (* ... we map each [lid] to a pair of:
+     * - a boolean, i.e. whether the user demanded inlining (via the
+     *   substitute attribute), and
+     * - the body, which [inline_analysis] needs to figure out if the function
+     *   allocates without pushing a frame, meaning it must be inlined. *)
+    let map = build_map files (fun map -> function
+      | DFunction (_, flags, _, _, name, _, body) ->
+          Hashtbl.add map name (List.exists ((=) Substitute) flags, body)
+      | _ ->
+          ()
+    ) in
+    let valuation = inline_analysis map in
+    let must_disappear lid = valuation lid = MustInline in
+    let must_inline lid = fst (Hashtbl.find map lid) || must_disappear lid in
+    must_inline, must_disappear
+  in
+
+  (* We create an inliner based on this criterion. *)
+  let inline_one = mk_inliner files must_inline in
+
+  (* A map that *eventually* will contain the exactly the set of [lid]s that can
+   * be safely marked as private. The invariant is not established yet. *)
   let safely_private = Hashtbl.create 41 in
+  let safely_inline = Hashtbl.create 41 in
   List.iter (fun (_, decls) ->
     List.iter (function
       | DGlobal (flags, name, _, _)
-      | DFunction (_, flags, _, name, _, _) ->
+      | DFunction (_, flags, _, _, name, _, _) ->
           if List.mem Private flags then
-            Hashtbl.add safely_private name ()
+            Hashtbl.add safely_private name ();
+          if List.mem CInline flags then
+            Hashtbl.add safely_inline name ()
       | _ ->
           ()
     ) decls
@@ -251,9 +288,10 @@ let inline_function_frames files =
    * from. *)
   let file_of = Bundle.mk_file_of files in
 
-  (* While we're at it, after inlining, we may drop some private qualifiers for
-   * functions in other modules that end up being called. *)
-  let unmark_private_in name body = 
+  (* A visitor that, when passed a function's name and body, detect
+   * cross-translation unit calls and drops the [Private] qualifier from the
+   * callee. *)
+  let unmark_private_in name body =
     ignore ((object(self)
       inherit [unit] map
       method eapp () _ e es =
@@ -266,6 +304,10 @@ let inline_function_frames files =
               Warnings.maybe_fatal_error ("", LostStatic (name, name'));
               Hashtbl.remove safely_private name'
             end;
+            if file_of name <> file_of name' && Hashtbl.mem safely_inline name' then begin
+              Warnings.maybe_fatal_error ("", LostInline (name, name'));
+              Hashtbl.remove safely_inline name'
+            end;
             EApp (e, List.map (self#visit ()) es)
         | _ ->
             EApp (self#visit () e, List.map (self#visit ()) es)
@@ -274,46 +316,60 @@ let inline_function_frames files =
           Warnings.maybe_fatal_error ("", LostStatic (name, name'));
           Hashtbl.remove safely_private name'
         end;
+        if file_of name <> file_of name' && Hashtbl.mem safely_inline name' then begin
+          Warnings.maybe_fatal_error ("", LostInline (name, name'));
+          Hashtbl.remove safely_inline name'
+        end;
         EQualified name'
     end)#visit () body)
   in
 
-  (* This is where the evaluation of the inlining is forced: every function that
-   * must be inlined is dropped (otherwise the C compiler is not going to be
-   * very happy if it sees someone returning a stack pointer!); functions that
-   * are meant to be kept are run through [inline_one]. *)
+  (* - Each function that must be inlined for soundness is dropped.
+   * - The memoizing inliner is called for each function's body.
+   * - Cross-translation unit calls are detected and [Private] qualifiers are
+   *   dropped accordingly.
+   * *)
   let files = filter_decls (function
-    | DFunction (cc, flags, ret, name, binders, _) ->
-        if valuation name = MustInline && Simplify.target_c_name name <> "main" then
+    | DFunction (cc, flags, n, ret, name, binders, _) ->
+        if must_disappear name && Simplify.target_c_name name <> "main" then
           None
         else
           let body = inline_one name in
           unmark_private_in name body;
-          Some (DFunction (cc, flags, ret, name, binders, body))
+          Some (DFunction (cc, flags, n, ret, name, binders, body))
     | d ->
         (* Note: not inlining globals because F* should forbid top-level
          * effects...? *)
         Some d
   ) files in
 
-  let keep_private_if name flags =
-    if not (Hashtbl.mem safely_private name) || Simplify.target_c_name name = "main" then
-      List.filter ((<>) Private) flags
-    else
-      flags
+  (* The invariant for [safely_private] is now established, and we drop those
+   * functions that cannot keep their [Private] flag. *)
+  let files =
+    let keep_if table flag name flags = 
+      if not (Hashtbl.mem table name) || Simplify.target_c_name name = "main" then
+        List.filter ((<>) flag) flags
+      else
+        flags
+    in
+    let filter name flags = 
+      let flags = keep_if safely_private Private name flags in
+      if !Options.cc = "compcert" then
+        keep_if safely_inline CInline name flags
+      else
+        flags
+    in
+    filter_decls (function
+      | DFunction (cc, flags, n, ret, name, binders, body) ->
+          Some (DFunction (cc, filter name flags, n, ret, name, binders, body))
+      | DGlobal (flags, name, e, t) ->
+          Some (DGlobal (filter name flags, name, e, t))
+      | d ->
+          Some d
+    ) files
   in
 
-  (* If after inlining, the function does not appear in [safely_private], then it
-   * certainly cannot keep its flag. *)
-  filter_decls (function
-    | DFunction (cc, flags, ret, name, binders, body) ->
-        Some (DFunction (cc, keep_private_if name flags, ret, name, binders, body))
-    | DGlobal (flags, name, e, t) ->
-        Some (DGlobal (keep_private_if name flags, name, e, t))
-    | d ->
-        Some d
-  ) files
-
+  files
 
 
 (* Monomorphize types *********************************************************)
@@ -372,7 +428,7 @@ let drop_unused files =
   let visited = Hashtbl.create 41 in
   let must_keep = Hashtbl.create 41 in
   let body_of_lid = build_map files (fun map -> function
-    | DFunction (_, _, _, name, _, body)
+    | DFunction (_, _, _, _, name, _, body)
     | DGlobal (_, name, _, body) ->
         Hashtbl.add map name body
     | _ ->
@@ -397,7 +453,7 @@ let drop_unused files =
     end)#visit () body)
   in
   iter_decls (function
-    | DFunction (_, flags, _, lid, _, body)
+    | DFunction (_, flags, _, _, lid, _, body)
     | DGlobal (flags, lid, _, body) ->
         if (not (List.exists ((=) Private) flags)) then begin
           Hashtbl.add must_keep lid ();
@@ -409,12 +465,20 @@ let drop_unused files =
   filter_decls (fun d ->
     match d with
     | DGlobal (flags, lid, _, _)
-    | DFunction (_, flags, _, lid, _, _) ->
+    | DFunction (_, flags, _, _, lid, _, _) ->
         if not (Hashtbl.mem must_keep lid) then begin
           assert (List.exists ((=) Private) flags);
           None
         end else
           Some d
     | d ->
+        Some d
+  ) files
+
+let drop_polymorphic_functions files =
+  filter_decls (function
+    | Ast.DFunction (_, _, n, _, _, _, _) when n > 0 ->
+        None
+    | _ as d ->
         Some d
   ) files

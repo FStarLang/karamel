@@ -157,15 +157,24 @@ end
 let close (a: Atom.t) (i: int) (e: expr) =
   (new close a)#visit i e
 
-let close_binder b e =
-  close b.node.atom 0 e
+let closing_binder b e =
+  close b.node.atom 0 (lift 1 e)
+
+let close_binder = closing_binder
+
+let close_binders bs e1 =
+  List.fold_left (fun e1 b -> close_binder b e1) e1 bs
 
 (* ---------------------------------------------------------------------------- *)
 
-let open_binder b e1 =
+let opening_binder b =
   let a = Atom.fresh () in
   let b = { b with node = { b.node with atom = a } } in
-  b, subst { node = EOpen (b.node.name, a); typ = b.typ } 0 e1
+  b, subst { node = EOpen (b.node.name, a); typ = b.typ } 0
+
+let open_binder b e1 =
+  let b, f = opening_binder b in
+  b, f e1
 
 let open_binders binders term =
   List.fold_right (fun binder (acc, term) ->
@@ -181,10 +190,3 @@ let open_branch bs pat expr =
     in
     b :: bs, pat, expr
   ) bs ([], pat, expr)
-
-let close_binders bs e1 =
-  let rec close_binderi i e1 = function
-    | b :: bs -> close_binderi (i + 1) (close b.node.atom i e1) bs
-    | [] -> e1
-  in
-  close_binderi 0 e1 (List.rev bs)
