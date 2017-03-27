@@ -424,9 +424,16 @@ let drop_type_applications files =
 
 (* Drop unused private functions **********************************************)
 
+(* Private functions are marked as static. The C compiler errors out if a
+ * function is marked as static AND is not used within this translation unit.
+ * We just perform a per-file reachability analysis starting from non-private
+ * functions. Note to my future self: errors may arise if the only use site is a
+ * macro that drops its parameter... check kremlib.h! *)
 let drop_unused files =
+  (** Serves the dual purpose of marking which nodes have been visited (for the
+   * graph traversal) and, as a consequence, of knowning for a given private
+   * function if it was reachable starting from a non-private one. *)
   let visited = Hashtbl.create 41 in
-  let must_keep = Hashtbl.create 41 in
   let body_of_lid = build_map files (fun map -> function
     | DFunction (_, _, _, _, name, _, body)
     | DGlobal (_, name, _, body) ->
@@ -439,7 +446,6 @@ let drop_unused files =
       ()
     else begin
       Hashtbl.add visited lid ();
-      Hashtbl.add must_keep lid ();
       match Hashtbl.find body_of_lid lid with
       | exception Not_found -> ()
       | body -> visit_e body
@@ -456,9 +462,9 @@ let drop_unused files =
     | DFunction (_, flags, _, _, lid, _, body)
     | DGlobal (flags, lid, _, body) ->
         if (not (List.exists ((=) Private) flags)) then begin
-          Hashtbl.add must_keep lid ();
+          Hashtbl.add visited lid ();
           visit_e body
-        end;
+        end
     | _ ->
         ()
   ) files;
@@ -466,10 +472,9 @@ let drop_unused files =
     match d with
     | DGlobal (flags, lid, _, _)
     | DFunction (_, flags, _, _, lid, _, _) ->
-        if not (Hashtbl.mem must_keep lid) then begin
-          assert (List.exists ((=) Private) flags);
+        if List.exists ((=) Private) flags && not (Hashtbl.mem visited lid) then
           None
-        end else
+        else
           Some d
     | d ->
         Some d

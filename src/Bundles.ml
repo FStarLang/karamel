@@ -135,6 +135,8 @@ let make_bundles files =
   ) (StringMap.empty, []) !Options.bundle in
   let files = List.filter (fun (n, _) -> not (StringMap.mem n used)) files @ bundles in
 
+  (* This is important, because bundling may creates cycles, that are broken
+   * after removing (now-unused) functions. *)
   let files = Inlining.drop_unused files in
 
   (* We perform a dependency analysis on this set of files to figure out how to

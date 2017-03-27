@@ -242,6 +242,8 @@ Supported options:|}
   (* Do this at the last minute because the checker still needs these type
    * abbreviations to check that our stuff makes sense. *)
   let files = Inlining.drop_type_applications files in
+  (* This must happen AFTER inline_function_frames has removed some illegal
+   * private flags. Otherwise, we may be removing too many things. *)
   let files = Inlining.drop_unused files in
 
   (* This breaks typing. *)
