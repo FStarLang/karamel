@@ -341,8 +341,8 @@ and check' env t e =
        * the context demands it) or structurally (default). TODO just type
        * structurally, and let the subtyping relation do the rest? *)
       let check_fields fieldexprs fieldtyps =
-        if List.length fieldexprs <> List.length fieldtyps then
-          type_error env "some fields are either missing or superfluous";
+        if List.length fieldexprs > List.length fieldtyps then
+          type_error env "some fields are superfluous";
         List.iter (fun (field, expr) ->
           let field = Option.must field in
           let t, _ = KList.assoc_opt field fieldtyps in

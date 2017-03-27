@@ -474,13 +474,8 @@ let tag_and_val_type lid branches =
   let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
   let structs = KList.filter_map (fun (cons, fields) ->
     let fields = List.map (fun (f, t) -> Some f, t) fields in
-    union_field_of_cons cons,
     if List.length fields > 0 then
-      Some (TAnonymous (Flat fields))
-    else if !Options.cc = "msvc" then
-      (* The C standard does not tolerate empty structs, and MSVC enforces this,
-       * sadly. *)
-      Some (TInt K.UInt8)
+      Some (union_field_of_cons cons, TAnonymous (Flat fields))
     else
       None
   ) branches in
@@ -535,15 +530,14 @@ let compile_all_matches map = object (self)
     let exprs = List.map (self#visit env) exprs in
     let record_expr = EFlat (List.combine field_names exprs) in
     let t_tag, t_val = tag_and_val_type lid branches in
-    EFlat [
-      Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons));
-      Some field_for_union, with_type t_val (
-        EFlat [
-            Some (union_field_of_cons cons), with_type TAny record_expr
-          else if !Options.cc = "msvc" then
-            Some (union_field_of_cons cons), zero8
-          else
-            ])]
+    EFlat (
+      [ Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons)) ] @
+      if List.length field_names > 0 then [
+        Some field_for_union, with_type t_val (
+          EFlat [ Some (union_field_of_cons cons), with_type TAny record_expr ])]
+      else
+        []
+    )
 
   (* The match transformation is tricky: we open all binders. *)
   method dfunction env cc flags n ret name binders expr =
