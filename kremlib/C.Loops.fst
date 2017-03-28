@@ -319,8 +319,8 @@ let repeat #a l f b max fc =
 
 
 (** To be extracted as:
- * for (int i = 0; i < n; ++i)
- *   f(b[i]);
+ * for (int i = min; i < max; ++i)
+ *   f(b[i], i);
  *)
 val repeat_i:
   #a:Type0 ->
