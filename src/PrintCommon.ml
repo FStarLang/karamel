@@ -88,3 +88,10 @@ let printf_of_pprint_pretty f =
 
 let pdoc buf d =
   PPrint.ToBuffer.compact buf d
+
+let english_join s =
+  match List.rev s with
+  | [] -> empty
+  | [ x ] -> x
+  | last :: first ->
+      group (separate (comma ^^ break1) (List.rev first) ^/^ string "and" ^/^ last)

@@ -35,6 +35,8 @@ where e1: t1 and e2: t2, try:
 
 (** Environments ------------------------------------------------------------ *)
 
+exception UnboundLid of lident
+
 module M = Map.Make(struct
   type t = lident
   let compare = compare
@@ -71,7 +73,7 @@ let find env i =
 let lookup_type env lid =
   match M.find lid env.types with
   | exception Not_found ->
-      fatal_error "[Checker.lookup_type] internal error %a not found" plid lid
+      raise (UnboundLid lid)
   | x ->
       x
 
@@ -171,7 +173,8 @@ let rec check_everything ?warn files: bool * file list =
 
 and check_program env r (name, decls) =
   let env = locate env (File name) in
-  name, KList.filter_map (fun d ->
+  let by_lid = Hashtbl.create 41 in
+  let decls = KList.filter_map (fun d ->
     try
       check_decl env d;
       Some d
@@ -181,6 +184,16 @@ and check_program env r (name, decls) =
         Warnings.maybe_fatal_error e;
         KPrint.beprintf "Dropping %a (at checking time)\n\n" plid (lid_of_decl d);
         None
+
+    | UnboundLid lid ->
+        r := true;
+        begin try
+          Hashtbl.add by_lid lid (lid_of_decl d :: Hashtbl.find by_lid lid);
+        with Not_found ->
+          Hashtbl.add by_lid lid [ lid_of_decl d ];
+        end;
+        None
+
     | e ->
         r := true;
         let e = Printexc.to_string e in
@@ -188,7 +201,22 @@ and check_program env r (name, decls) =
         Printexc.print_backtrace stderr;
         KPrint.beprintf "Dropping %a (at checking time)\n\n" plid (lid_of_decl d);
         None
-  ) decls
+  ) decls in
+
+  (* Some concise, well-behaved error reporting. *)
+  Hashtbl.iter (fun lid decl_lids ->
+    let open PPrint in
+    let open PrintCommon in
+    let mentions = if List.length decl_lids > 1 then string "mention" else string "mentions" in
+    KPrint.beprintf "Warning: %a\n" pdoc (
+      english_join (List.map print_lident decl_lids) ^/^ mentions ^/^
+      print_lident lid ^/^
+      flow break1 (words "meaning that they cannot be type-checked by KreMLin")
+    )
+  ) by_lid;
+
+  name, decls
+
 
 and check_decl env d =
   match d with
