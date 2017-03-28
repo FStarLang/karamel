@@ -303,7 +303,9 @@ let detect_compcert () =
   cc_args := [
     "-g";
     "-O3";
-    "-fstruct-passing"
+    "-fstruct-passing";
+    "-D_BSD_SOURCE";
+    "-D_DEFAULT_SOURCE";
   ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
     @ List.rev !Options.ccopts
 
