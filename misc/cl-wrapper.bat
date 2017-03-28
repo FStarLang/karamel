@@ -1,6 +1,8 @@
 @echo off
 
-IF NOT "%VS140COMNTOOLS%"=="" (
+IF NOT "%VS150COMNTOOLS%"=="" (
+  call "%VS150COMNTOOLS%/../../VC/vcvarsall.bat" amd64
+) ELSE IF NOT "%VS140COMNTOOLS%"=="" (
   call "%VS140COMNTOOLS%/../../VC/vcvarsall.bat" amd64
 ) ELSE IF NOT "%VS120COMNTOOLS%"=="" (
   call "%VS120COMNTOOLS%/../../VC/vcvarsall.bat" amd64
