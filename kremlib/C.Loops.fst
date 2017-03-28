@@ -316,3 +316,43 @@ let repeat #a l f b max fc =
   in
   lemma_repeat_0 0 f (as_seq h0 b);
   for 0ul max inv f'
+
+
+(** To be extracted as:
+ * for (int i = 0; i < n; ++i)
+ *   f(b[i]);
+ *)
+val repeat_i:
+  #a:Type0 ->
+  l: UInt32.t ->
+  min:UInt32.t ->
+  max:UInt32.t{UInt32.v min <= UInt32.v max} ->
+  f:(s:Seq.seq a{Seq.length s = UInt32.v l} -> i:nat{i < UInt32.v max} -> Tot (s':Seq.seq a{Seq.length s' = Seq.length s})) ->
+  b: buffer a{Buffer.length b = UInt32.v l} ->
+  f':(b:buffer a{length b = UInt32.v l} -> i:UInt32.t{UInt32.v i < UInt32.v max} -> Stack unit
+                     (requires (fun h -> live h b))
+                     (ensures (fun h0 _ h1 -> live h0 b /\ live h1 b /\ modifies_1 b h0 h1
+                       /\ (let b0 = as_seq h0 b in
+                          let b1 = as_seq h1 b in
+                          b1 == f b0 (UInt32.v i))))) ->
+  Stack unit
+    (requires (fun h -> live h b ))
+    (ensures (fun h_1 r h_2 -> modifies_1 b h_1 h_2 /\ live h_1 b /\ live h_2 b
+      /\ (let s = as_seq h_1 b in
+         let s' = as_seq h_2 b in
+         s' == repeat_i_spec (UInt32.v min) (UInt32.v max) f s) ))
+let repeat_i #a l min max f b fc =
+  let h0 = ST.get() in
+  let inv (h1: HS.mem) (i: nat): Type0 =
+    live h1 b /\ modifies_1 b h0 h1 /\ i <= UInt32.v max /\ UInt32.v min <= i
+    /\ as_seq h1 b == repeat_i_spec (UInt32.v min) i f (as_seq h0 b)
+  in
+  let f' (i:UInt32.t{ UInt32.( 0 <= v i /\ v i < v max ) }): Stack unit
+    (requires (fun h -> inv h (UInt32.v i)))
+    (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
+  =
+    fc b i;
+    lemma_repeat_i_spec (UInt32.v min) (UInt32.v i + 1) f (as_seq h0 b)
+  in
+  lemma_repeat_i_0 (UInt32.v min) (UInt32.v min) f (as_seq h0 b);
+  for min max inv f'
