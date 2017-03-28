@@ -8,6 +8,7 @@ let add_include: string list ref = ref [ "\"kremlib.h\"" ]
 let warn_error = ref "+1-2+3..8"
 (* Parsed after parsing warn_error above. *)
 let compcert_warn_error = "@6@8"
+let msvc_warn_error = "@8"
 let tmpdir = ref "."
 let includes: string list ref = ref [ "FSTAR_LIB/hyperstack" ]
 let verbose = ref false

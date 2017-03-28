@@ -54,6 +54,7 @@ The default is %s and the available warnings are:
   5: type definition contains an application of an undefined type abbreviation
   6: variable-length array
   7: private F* function cannot be marked as C static
+  8: C inline function reference across translation units
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
 where the Api= part is optional and a pattern is either Foo.Bar (exact match) or
@@ -92,7 +93,7 @@ Supported options:|}
   in
   let spec = [
     (* KreMLin as a driver *)
-    "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), compcert, g++, clang";
+    "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), compcert, g++, clang, msvc";
     "-m32", Arg.Set Options.m32, " turn on 32-bit cross-compiling";
     "-fsopt", Arg.String (prepend Options.fsopts), " option to pass to F* (use -fsopts to pass a comma-separated list of values)";
     "-fsopts", Arg.String (csv (prepend Options.fsopts)), "";
@@ -158,7 +159,9 @@ Supported options:|}
   (* First enable the default warn-error string. *)
   Warnings.parse_warn_error !Options.warn_error;
   if !Options.cc = "compcert" then
-    Warnings.parse_warn_error Options.compcert_warn_error;
+    Warnings.parse_warn_error Options.compcert_warn_error
+  else if !Options.cc = "msvc" then
+    Warnings.parse_warn_error Options.msvc_warn_error;
 
   (* Then refine that based on the user's preferences. *)
   if !arg_warn_error <> "" then
