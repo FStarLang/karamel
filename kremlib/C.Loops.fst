@@ -322,7 +322,7 @@ let repeat #a l f b max fc =
  * for (int i = min; i < max; ++i)
  *   f(b[i], i);
  *)
-val repeat_i:
+val repeat_range:
   #a:Type0 ->
   l: UInt32.t ->
   min:UInt32.t ->
@@ -340,19 +340,19 @@ val repeat_i:
     (ensures (fun h_1 r h_2 -> modifies_1 b h_1 h_2 /\ live h_1 b /\ live h_2 b
       /\ (let s = as_seq h_1 b in
          let s' = as_seq h_2 b in
-         s' == repeat_i_spec (UInt32.v min) (UInt32.v max) f s) ))
-let repeat_i #a l min max f b fc =
+         s' == repeat_range_spec (UInt32.v min) (UInt32.v max) f s) ))
+let repeat_range #a l min max f b fc =
   let h0 = ST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 b /\ modifies_1 b h0 h1 /\ i <= UInt32.v max /\ UInt32.v min <= i
-    /\ as_seq h1 b == repeat_i_spec (UInt32.v min) i f (as_seq h0 b)
+    /\ as_seq h1 b == repeat_range_spec (UInt32.v min) i f (as_seq h0 b)
   in
   let f' (i:UInt32.t{ UInt32.( 0 <= v i /\ v i < v max ) }): Stack unit
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
     fc b i;
-    lemma_repeat_i_spec (UInt32.v min) (UInt32.v i + 1) f (as_seq h0 b)
+    lemma_repeat_range_spec (UInt32.v min) (UInt32.v i + 1) f (as_seq h0 b)
   in
-  lemma_repeat_i_0 (UInt32.v min) (UInt32.v min) f (as_seq h0 b);
+  lemma_repeat_range_0 (UInt32.v min) (UInt32.v min) f (as_seq h0 b);
   for min max inv f'

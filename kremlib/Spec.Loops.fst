@@ -47,33 +47,33 @@ let rec lemma_repeat_0 #a n f x = ()
 
 #reset-options "--max_fuel 0"
 
-val repeat_i_spec: #a:Type -> min:nat -> max:nat{min <= max} -> f:(a -> i:nat{i < max} -> Tot a) ->
+val repeat_range_spec: #a:Type -> min:nat -> max:nat{min <= max} -> f:(a -> i:nat{i < max} -> Tot a) ->
   x:a -> Tot a (decreases (max - min))
-let rec repeat_i_spec #a min max f x =
+let rec repeat_range_spec #a min max f x =
   if min = max then x
-  else repeat_i_spec (min+1) max f (f x min)
+  else repeat_range_spec (min+1) max f (f x min)
 
 #reset-options "--initial_fuel 1 --max_fuel 1"
 
-val lemma_repeat_i_0: #a:Type -> min:nat -> max:nat{min <= max} -> f:(a -> i:nat{i < max} -> Tot a) -> x:a ->
+val lemma_repeat_range_0: #a:Type -> min:nat -> max:nat{min <= max} -> f:(a -> i:nat{i < max} -> Tot a) -> x:a ->
   Lemma (requires (min = max))
-        (ensures (repeat_i_spec min max f x == x))
-let lemma_repeat_i_0 #a min max f x = ()
+        (ensures (repeat_range_spec min max f x == x))
+let lemma_repeat_range_0 #a min max f x = ()
 
-val lemma_repeat_i_1: #a:Type -> min:nat -> max:nat{min <= max} -> f:(a -> i:nat{i < max} -> Tot a) -> x:a ->
+val lemma_repeat_range_1: #a:Type -> min:nat -> max:nat{min <= max} -> f:(a -> i:nat{i < max} -> Tot a) -> x:a ->
   Lemma (requires (min <> max))
-        (ensures (min <> max /\ repeat_i_spec (min+1) max f (f x min) == repeat_i_spec min max f x))
-let lemma_repeat_i_1 #a min max f x = ()
+        (ensures (min <> max /\ repeat_range_spec (min+1) max f (f x min) == repeat_range_spec min max f x))
+let lemma_repeat_range_1 #a min max f x = ()
 
 #reset-options "--initial_fuel 2 --max_fuel 2"
 
-val lemma_repeat_i_spec:
+val lemma_repeat_range_spec:
   #a:Type -> min:nat -> max:nat{min < max} -> f:(a -> i:nat{i < max} -> Tot a) -> x:a -> 
   Lemma (requires (True))
-        (ensures f (repeat_i_spec min (max-1) f x) (max-1) == repeat_i_spec min max f x)
+        (ensures f (repeat_range_spec min (max-1) f x) (max-1) == repeat_range_spec min max f x)
         (decreases (max - min))
-let rec lemma_repeat_i_spec #a min max f x =
+let rec lemma_repeat_range_spec #a min max f x =
   if min = max - 1 then ()
-  else lemma_repeat_i_spec (min+1) max f (f x min)
+  else lemma_repeat_range_spec (min+1) max f (f x min)
 
 #reset-options "--max_fuel 0"
