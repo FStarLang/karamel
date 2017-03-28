@@ -36,7 +36,7 @@ void print_bytes(uint8_t *b, uint32_t len);
 // Buffers (FIXME remove eqb!)
 #define FStar_Buffer_eqb(b1, b2, n)                                            \
   (memcmp((b1), (b2), (n) * sizeof((b1)[0])) == 0)
-#define FStar_Buffer_to_seq_full(x) ((void)(x),0)
+#define FStar_Buffer_to_seq_full(x) 0
 void FStar_Buffer_recall(void *x);
 
 // Some types that KreMLin has no special knowledge of; many of them appear in
@@ -91,10 +91,10 @@ void *Prims____Cons___tl(void *_);
 // macro expansion, will error out.
 bool FStar_HyperStack_is_eternal_color(Prims_int x0);
 #define FStar_ST_op_Colon_Equals(x, v) KRML_EXIT
-#define FStar_ST_op_Bang(x) ((void)(x),0)
-#define FStar_ST_salloc(x) ((void)(x),0)
-#define FStar_ST_ralloc(x, y) ((void)(x),0)
-#define FStar_ST_new_region(x) ((void)(x),0)
+#define FStar_ST_op_Bang(x) 0
+#define FStar_ST_salloc(x) 0
+#define FStar_ST_ralloc(x, y) 0
+#define FStar_ST_new_region(x) 0
 #define FStar_ST_recall(x)                                                     \
   do {                                                                         \
     (void)(x);                                                                 \
@@ -129,17 +129,17 @@ bool FStar_HyperStack_is_eternal_color(Prims_int x0);
 // a compilation error.
 #define Prims_fst(x) (x).fst
 #define Prims_snd(x) (x).snd
-#define FStar_Seq_Base_createEmpty(x) ((void)(x),0)
-#define FStar_Seq_Base_create(len, init) ((void)(x),0)
-#define FStar_Seq_Base_upd(s, i, e) ((void)(x),0)
-#define FStar_Seq_Base_eq(l1, l2) ((void)(x),0)
+#define FStar_Seq_Base_createEmpty(x) 0
+#define FStar_Seq_Base_create(len, init) 0
+#define FStar_Seq_Base_upd(s, i, e) 0
+#define FStar_Seq_Base_eq(l1, l2) 0
 FStar_Seq_Base_seq FStar_Seq_Base_append(FStar_Seq_Base_seq x,
                                          FStar_Seq_Base_seq y);
 FStar_Seq_Base_seq FStar_Seq_Base_slice(FStar_Seq_Base_seq x,
                                         FStar_Seq_Base_seq y, Prims_nat z);
-#define FStar_Seq_Properties_snoc(x, y) ((void)(x),0)
-#define FStar_Seq_Properties_cons(x, y) ((void)(x),0)
-#define FStar_Seq_Base_index(x, y) ((void)(x),0)
+#define FStar_Seq_Properties_snoc(x, y) 0
+#define FStar_Seq_Properties_cons(x, y) 0
+#define FStar_Seq_Base_index(x, y) 0
 
 // Endian-ness
 
