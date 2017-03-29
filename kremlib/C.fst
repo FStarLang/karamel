@@ -30,8 +30,12 @@ assume val clock: unit -> Stack clock_t
   (requires (fun _ -> true))
   (ensures (fun h0 _ h1 -> modifies_none h0 h1))
 
-assume val exit_success: Int32.t
-assume val exit_failure: Int32.t
+// ADL: using concrete value to use the extracted C.ml
+// without crashing at start
+let exit_success : Int32.t = Int32.int_to_t 0
+let exit_failure : Int32.t = Int32.int_to_t 1
+//assume val exit_success: Int32.t
+//assume val exit_failure: Int32.t
 
 // Note: right now, in Kremlin, the only way to obtain a string is to call
 // C.string_of_literal and pass a constant string literal. There are two ways
