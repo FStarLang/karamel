@@ -72,27 +72,28 @@ let rewrite_function_type (ret_is_struct, args_are_structs) t =
 let rewrite action_table = object (self)
   inherit [Atom.t list] map
 
-  method! dfunction _ cc flags n ret lid args body =
+  method! dfunction _ cc flags n ret lid binders body =
+    (* Step 1: open all the binders *)
+    let binders, body = DeBruijn.open_binders binders body in
+
     let ret_is_struct, args_are_structs = Hashtbl.find action_table lid in
-    (* Step 1: rewrite the types of the arguments to take pointers to structs *)
-    let args = List.map2 (fun arg is_struct ->
+
+    (* Step 2: rewrite the types of the arguments to take pointers to structs *)
+    let binders = List.map2 (fun binder is_struct ->
       if is_struct then
-        { arg with typ = TBuf arg.typ }
+        { binder with typ = TBuf binder.typ }
       else
-        arg
-    ) args args_are_structs in
+        binder
+    ) binders args_are_structs in
 
-    (* Step 2: add an extra argument in case the return type is a struct, too *)
-    let ret, args =
+    (* Step 3: add an extra argument in case the return type is a struct, too *)
+    let ret, binders, ret_atom =
       if ret_is_struct then
-        let ret_binder, _ = Simplify.mk_binding "ret" (TBuf ret) in
-        TUnit, args @ [ ret_binder ]
+        let ret_binder, ret_atom = Simplify.mk_binding "ret" (TBuf ret) in
+        TUnit, binders @ [ ret_binder ], Some ret_atom
       else
-        ret, args
+        ret, binders, None
     in
-
-    (* Step 3: open all the binders, and recursively perform the transformation. *)
-    let binders, body = DeBruijn.open_binders args body in
 
     (* ... and remember the corresponding atoms: every occurrence becomes a
      * dereference. *)
@@ -108,22 +109,15 @@ let rewrite action_table = object (self)
     (* Step 4: if the function now takes an extra argument for the output struct. *)
     let body =
       if ret_is_struct then
-        let ret_atom =
-          let b = KList.last binders in
-          with_type b.typ (EOpen ("ret", b.node.atom))
-        in
-        with_type TUnit (EBufWrite (
-          ret_atom,
-          Simplify.zerou32,
-          body))
+        with_type TUnit (EBufWrite (Option.must ret_atom, Simplify.zerou32, body))
       else
         body
     in
     let body = DeBruijn.close_binders binders body in
-    DFunction (cc, flags, n, ret, lid, args, body)
+    DFunction (cc, flags, n, ret, lid, binders, body)
 
   method! eopen to_be_starred t name atom =
-    if List.mem atom to_be_starred then
+    if List.exists (Atom.equal atom) to_be_starred then
       EBufRead (with_type (TBuf t) (EOpen (name, atom)), Simplify.zerou32)
     else
       EOpen (name, atom)
@@ -144,6 +138,7 @@ let rewrite action_table = object (self)
           else
             bs, e :: es
         ) ([], []) (List.combine args args_are_structs) in
+        let args = List.rev args in
         if ret_is_struct then
           let x, atom = Simplify.mk_binding "ret" t in
           let bs = (x, with_type TAny EAny) :: bs in
