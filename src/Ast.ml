@@ -99,6 +99,7 @@ and expr' =
      * the binder is the second, third and fourth expressions. *)
   | ECast of expr * typ
   | EComment of string * expr * string
+  | EAddrOf of expr
 
 and expr =
   expr' with_type
@@ -225,6 +226,7 @@ let rec is_value (e: expr) =
   | EString _
   | EFun _
   | EAbort
+  | EAddrOf _
   | EAny ->
       true
 
@@ -364,6 +366,8 @@ class virtual ['env] map = object (self)
         self#efor env typ binder e1 e2 e3 e4
     | EFun (binders, e) ->
         self#efun env typ binders e
+    | EAddrOf e ->
+        self#eaddrof env typ e
 
   method ebound _env _typ var =
     EBound var
@@ -487,6 +491,8 @@ class virtual ['env] map = object (self)
     let env = self#extend_many env binders in
     EFun (binders, self#visit env expr)
 
+  method eaddrof env _ e =
+    EAddrOf (self#visit env e)
 
   (* Some helpers *)
 

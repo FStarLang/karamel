@@ -236,6 +236,7 @@ Supported options:|}
    * after everything has been simplified, but inlining requires a new round of
    * hoisting. *)
   let files = Inlining.inline_function_frames files in
+  let files = Structs.rewrite files in
   let files = Simplify.simplify2 files in
   if !arg_print_inline then
     print PrintAst.print_files files;

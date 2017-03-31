@@ -428,6 +428,10 @@ and check' env t e =
           type_error env "cannot switch on element of type %a" ptyp t
       end
 
+  | EAddrOf e ->
+      let t = infer env e in
+      c (TBuf t)
+
 and args_of_branch env t ident =
   match expand_abbrev env t with
   | TQualified lid ->
@@ -689,6 +693,9 @@ and infer' env e =
       check (locate env ForIter) TUnit e3;
       check (locate env For) TUnit e4;
       TUnit
+
+  | EAddrOf e ->
+      TBuf (infer env e)
 
 and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
   fun env f l ->

@@ -226,6 +226,9 @@ let rec mk_expr env in_stmt e =
   | EComment (s, e, s') ->
       CStar.InlineComment (s, mk_expr env e, s')
 
+  | EAddrOf e ->
+      CStar.AddrOf (mk_expr env e)
+
   | _ ->
       fatal_error "[AstToCStar.mk_expr]: should not be here (%a)" pexpr e
 

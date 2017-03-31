@@ -412,6 +412,9 @@ and mk_expr (e: expr): C.expr =
   | StringLiteral s ->
       Literal (escape_string s)
 
+  | AddrOf e ->
+      Address (mk_expr e)
+
 
 and mk_compound_literal name fields =
   (* TODO really properly specify C's type_name! *)

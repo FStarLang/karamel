@@ -238,6 +238,8 @@ and print_expr { node; _ } =
       ) ^/^ braces_with_nesting (
         print_expr body
       )
+  | EAddrOf e ->
+      ampersand ^^ print_expr e
 
 
 

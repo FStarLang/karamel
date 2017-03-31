@@ -65,6 +65,7 @@ and expr =
   | Comma of expr * expr
   | StringLiteral of string
   | Any
+  | AddrOf of expr
   [@@deriving show]
 
 and block =
