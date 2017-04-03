@@ -48,7 +48,6 @@ and expr =
   | Constant of K.t
   | Bool of bool
   | Sizeof of expr
-  | SizeofT of type_name
   | CompoundLiteral of type_name * init list
   | MemberAccess of expr * ident
   | MemberAccessPointer of expr * ident

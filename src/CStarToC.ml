@@ -120,6 +120,9 @@ and mk_memset_zero_initializer e_array e_size =
 and mk_check_size init size =
   C.Call (C.Name "KRML_CHECK_SIZE", [ init; size ])
 
+and mk_sizeof t =
+  C.Call (C.Name "sizeof", [ C.Type t ])
+
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
   | Comment s ->
@@ -141,10 +144,10 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let size = mk_expr size in
       let e, extra_stmt = match init with
         | Constant (_, "0") ->
-            C.Call (C.Name "calloc", [ size; C.SizeofT type_name ]), []
+            C.Call (C.Name "calloc", [ size; mk_sizeof type_name ]), []
         | _ ->
             C.Call (C.Name "malloc", [
-              C.Op2 (K.Mult, C.SizeofT type_name, size)
+              C.Op2 (K.Mult, mk_sizeof type_name, size)
             ]), [ mk_for_loop_initializer (Name binder.name) size (mk_expr init) ]
       in
       Expr (mk_check_size (mk_expr init) size) ::

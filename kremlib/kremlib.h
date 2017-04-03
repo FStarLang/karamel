@@ -65,16 +65,15 @@ void *Prims_magic(void *_);
 void *Prims_admit(void *x);
 void *Prims____Cons___tl(void *_);
 
-// Note: it's possible to define a statement that always exits cleanly, but
-// Kremlin generates calls to KRML_EABORT and it's not possible (as far as I
-// know) to define an expression that has a "universal size" and aborts when
-// evaluated...
+// In statement position, exiting is easy.
 #define KRML_EXIT                                                              \
   do {                                                                         \
     printf("Unimplemented function at %s:%d\n", __FILE__, __LINE__);           \
     exit(254);                                                                 \
   } while (0)
 
+// In expression position, use the comma-operator and a malloc to return an
+// expression of the right size. KreMLin passes t as the parameter to the macro.
 #define KRML_EABORT(t) (exit(255), *((t*)malloc(sizeof(t))))
 
 #define KRML_CHECK_SIZE(elt, size)                                             \
