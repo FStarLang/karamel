@@ -18,6 +18,7 @@ let _ =
   let o_files = ref [] in
   let fst_files = ref [] in
   let filename = ref "" in
+  let p k = String.concat " " (Array.to_list (List.assoc k Options.default_options)) in
   let usage = Printf.sprintf
 {|KreMLin: from a ML-like subset to C
 
@@ -77,6 +78,13 @@ All include directories and paths supports two special prefixes:
     checkout of F* is (this does not always exist, e.g. in the case of an OPAM
     setup).
 
+The compiler switches turn on the following options.
+  [-cc gcc] (default) adds [%s]
+  [-cc clang] adds [%s]
+  [-cc g++] adds [%s]
+  [-cc msvc] adds [%s]
+  [-cc compcert] adds [%s]
+
 Supported options:|}
     Sys.argv.(0)
     !Options.warn_error
@@ -85,6 +93,11 @@ Supported options:|}
     ) !Options.bundle @ KList.map_flatten (fun p ->
       [ "-drop"; Bundle.string_of_pat p ]
     ) !Options.drop))
+    (p "gcc")
+    (p "clang")
+    (p "g++")
+    (p "msvc")
+    (p "compcert")
   in
   let found_file = ref false in
   let prepend r = fun s -> r := s :: !r in
@@ -118,6 +131,8 @@ Supported options:|}
     "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";
     "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
     "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are fatal / warnings / silent (default: " ^ !Options.warn_error ^")";
+    "-fnostruct-passing", Arg.Clear Options.struct_passing, "  disable passing structures by value and use pointers instead";
+    "-fnoanonymous-unions", Arg.Clear Options.anonymous_unions, "  disable C11 anonymous unions";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
@@ -132,7 +147,7 @@ Supported options:|}
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
   let spec = Arg.align spec in
-  Arg.parse spec (fun f ->
+  let anon_fun f =
     if Filename.check_suffix f ".fst" then
       fst_files := f :: !fst_files
     else if List.exists (Filename.check_suffix f) [ ".o"; ".S"; ".a" ] then
@@ -146,7 +161,8 @@ Supported options:|}
     end else
       Warnings.fatal_error "Unknown file extension for %s\n" f;
     found_file := true
-  ) usage;
+  in
+  Arg.parse spec anon_fun usage;
 
   if not !found_file ||
      List.length !fst_files = 0 && !filename = "" ||
@@ -158,10 +174,9 @@ Supported options:|}
 
   (* First enable the default warn-error string. *)
   Warnings.parse_warn_error !Options.warn_error;
-  if !Options.cc = "compcert" then
-    Warnings.parse_warn_error Options.compcert_warn_error
-  else if !Options.cc = "msvc" then
-    Warnings.parse_warn_error Options.msvc_warn_error;
+
+  (* Then, bring in the "default options" for each compiler. *)
+  Arg.parse_argv (List.assoc !Options.cc Options.default_options) spec anon_fun usage;
 
   (* Then refine that based on the user's preferences. *)
   if !arg_warn_error <> "" then
@@ -236,7 +251,7 @@ Supported options:|}
    * after everything has been simplified, but inlining requires a new round of
    * hoisting. *)
   let files = Inlining.inline_function_frames files in
-  let files = Structs.rewrite files in
+  let files = if not !Options.struct_passing then Structs.rewrite files else files in
   let files = Simplify.simplify2 files in
   if !arg_print_inline then
     print PrintAst.print_files files;
@@ -252,7 +267,7 @@ Supported options:|}
 
   (* This breaks typing. *)
   let files =
-    if !Options.cc <> "compcert" then
+    if !Options.anonymous_unions then
       DataTypes.anonymous_unions datatypes_state files
     else
       files

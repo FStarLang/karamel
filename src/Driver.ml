@@ -256,7 +256,7 @@ let detect_gnu flavor =
         Warnings.fatal_error "gcc not found in path!";
   in
   let crosscc = if !Options.m32 then format_of_string "i686-w64-mingw32-%s" else format_of_string "x86_64-w64-mingw32-%s" in
-  search [ "%s-5"; "%s-6"; crosscc; "%s" ];
+  search [ "%s-6"; "%s-5"; crosscc; "%s" ];
 
   KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !cc;
 
@@ -264,35 +264,23 @@ let detect_gnu flavor =
    * enable the macros in endian.h; future versions use _DEFAULT_SOURCE which is
    * enabled by default, it seems, but there are talks of issuing a warning if
    * _BSD_SOURCE is defined and not the newer _DEFAULT_SOURCE... *)
-  cc_args := [
-    "-Wall";
-    "-Werror";
-    "-Wno-parentheses";
-    "-Wno-unused-variable";
-    "-g";
-    "-O3";
-    "-fwrapv";
-    "-D_BSD_SOURCE";
-    "-D_DEFAULT_SOURCE";
-  ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
+  cc_args :=
+      List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
     @ List.rev !Options.ccopts;
   if !Options.m32 then
     cc_args := "-m32" :: !cc_args;
-  if Sys.os_type = "Win32" then
-    cc_args := "-D__USE_MINGW_ANSI_STDIO" :: !cc_args;
   KPrint.bprintf "%s%s options are:%s %s\n" Ansi.underline !cc Ansi.reset
     (String.concat " " !cc_args)
 
 let detect_gcc () =
-  detect_gnu "gcc";
-  cc_args := "-Wno-unused-but-set-variable" :: "-std=c11" :: !cc_args
+  detect_gnu "gcc"
 
 let detect_gpp () =
-  detect_gnu "g++";
-  cc_args := "-Wno-unused-but-set-variable" :: !cc_args
+  detect_gnu "g++"
 
 let detect_clang () =
   detect_gnu "clang"
+
 
 let detect_compcert () =
   if success "which" [| "ccomp" |] then
@@ -300,13 +288,8 @@ let detect_compcert () =
   else
     Warnings.fatal_error "ccomp not found in path!";
 
-  cc_args := [
-    "-g";
-    "-O3";
-    "-fstruct-passing";
-    "-D_BSD_SOURCE";
-    "-D_DEFAULT_SOURCE";
-  ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
+  cc_args :=
+      List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
     @ List.rev !Options.ccopts
 
 let detect_msvc () =

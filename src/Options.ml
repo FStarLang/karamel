@@ -6,9 +6,6 @@
 let no_prefix: string list ref = ref [ "C" ]
 let add_include: string list ref = ref [ "\"kremlib.h\"" ]
 let warn_error = ref "+1-2+3..8"
-(* Parsed after parsing warn_error above. *)
-let compcert_warn_error = "@6@8"
-let msvc_warn_error = "@8"
 let tmpdir = ref "."
 let includes: string list ref = ref [ "FSTAR_LIB/hyperstack" ]
 let verbose = ref false
@@ -21,6 +18,33 @@ let ldopts: string list ref = ref []
 let bundle: Bundle.t list ref = ref [ [ ], [ Bundle.Prefix [ "FStar" ] ] ]
 let debug_modules: string list ref = ref []
 let debug s = List.exists ((=) s) !debug_modules
+let struct_passing = ref true
+let anonymous_unions = ref true
+
+(* A set of extra command-line arguments one gets for free depending on the
+ * value of -cc *)
+let default_options =
+  let gcc_like_options = [|
+    "-ccopts";
+    "-Wall,-Werror,-Wno-parentheses,-Wno-unused-variable," ^
+    "-g,-O3,-fwrapv,-D_BSD_SOURCE,-D_DEFAULT_SOURCE,-Wno-unused-but-set-variable" ^
+    (if Sys.os_type = "Win32" then "-D__USE_MINGW_ANSI_STDIO" else "")
+  |] in
+  let gcc_options = Array.append gcc_like_options [| "-ccopt -std=c11" |] in
+  [
+    "gcc", gcc_options;
+    "clang", gcc_options;
+    "g++", gcc_like_options;
+    "compcert", [|
+      "-warn-error"; "@6@8";
+      "-fnostruct-passing"; "-fnoanonymous-unions";
+      "-ccopts"; "-g,-O3,-D_BSD_SOURCE,-D_DEFAULT_SOURCE";
+    |];
+    "msvc", [|
+      "-warn-error"; "@8"
+    |]
+  ]
+
 
 (** These are modules that we want to see (because they have meaningful
  * function signatures); but do not want to compile (because they have no
