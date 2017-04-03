@@ -66,6 +66,7 @@ and expr =
   | StringLiteral of string
   | Any
   | AddrOf of expr
+  | EAbort of typ
   [@@deriving show]
 
 and block =

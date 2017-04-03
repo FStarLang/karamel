@@ -138,6 +138,8 @@ and p_expr' curr = function
       paren_if curr mine (lparen ^^ t ^^ rparen ^^ e)
   | SizeofT t ->
       string "sizeof" ^^ space ^^ group (lparen ^^ p_type_name t ^^ rparen)
+  | Type t ->
+      p_type_name t
   | Sizeof e ->
       let mine, right = 2, 2 in
       let e = p_expr' right e in

@@ -415,6 +415,9 @@ and mk_expr (e: expr): C.expr =
   | AddrOf e ->
       Address (mk_expr e)
 
+  | EAbort t ->
+      Call (Name "KRML_EABORT", [ Type (mk_type t) ])
+
 
 and mk_compound_literal name fields =
   (* TODO really properly specify C's type_name! *)

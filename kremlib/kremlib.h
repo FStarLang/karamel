@@ -75,7 +75,7 @@ void *Prims____Cons___tl(void *_);
     exit(254);                                                                 \
   } while (0)
 
-#define KRML_EABORT (exit(252), 0)
+#define KRML_EABORT(t) (exit(255), *((t*)malloc(sizeof(t))))
 
 #define KRML_CHECK_SIZE(elt, size)                                             \
   if ((size) > INTPTR_MAX / sizeof(elt)) {                                     \

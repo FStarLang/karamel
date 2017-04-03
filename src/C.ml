@@ -53,7 +53,8 @@ and expr =
   | MemberAccess of expr * ident
   | MemberAccessPointer of expr * ident
   | InlineComment of string * expr * string
-    (** note: this is not in the C grammar *)
+  | Type of type_name
+    (** note: these two not in the C grammar *)
 
 (** this is a WILD approximation of the notion of "type name" in C _and_ a hack
  * because there's the invariant that the ident found at the bottom of the

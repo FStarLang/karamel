@@ -149,9 +149,9 @@ let rewrite action_table = object (self)
         else
           (Simplify.nest bs t (with_type t (EApp (e, args)))).node
     | _ ->
-        EApp (e, args)
+        EApp (e, List.map (self#visit to_be_starred) args)
     with Not_found ->
-      EApp (e, args)
+      EApp (e, List.map (self#visit to_be_starred) args)
 
 end
 

@@ -206,7 +206,7 @@ let rec mk_expr env in_stmt e =
   | ECast (e, t) ->
       CStar.Cast (mk_expr env e, mk_type env t)
   | EAbort ->
-      CStar.Var "KRML_EABORT"
+      CStar.EAbort (mk_type env e.typ)
   | EUnit ->
       CStar.Cast (zero, CStar.Pointer CStar.Void)
   | EAny ->
