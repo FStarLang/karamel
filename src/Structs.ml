@@ -1,6 +1,7 @@
 (** Make sure all structures are passed by reference  **************************)
 
 open Ast
+open PrintAst.Ops
 
 (* This pass assumes that all the desugarings that produce structs have run;
  * that type abbreviations have been removed. *)
@@ -16,6 +17,8 @@ let mk_is_struct files =
           ()
     ) decls
   ) files;
+  if not !Options.uint128 && not !Options.struct_passing then
+    Hashtbl.add map ([ "FStar"; "UInt128" ], "t") true;
   function
     | TAnonymous (Flat _) ->
         true
@@ -39,6 +42,14 @@ let mk_action_table files =
     List.iter (function
       | DFunction (_, _, _, ret, lid, binders, _body) ->
           Hashtbl.add map lid (is_struct ret, List.map (fun b -> is_struct b.typ) binders)
+      | DExternal (_, lid, typ) ->
+          begin match typ with
+          | TArrow _ ->
+              let ret, args = flatten_arrow typ in
+              Hashtbl.add map lid (is_struct ret, List.map is_struct args)
+          | _ ->
+              ()
+          end
       | _ ->
           ()
     ) decls
@@ -116,6 +127,23 @@ let rewrite action_table = object (self)
     let body = DeBruijn.close_binders binders body in
     DFunction (cc, flags, n, ret, lid, binders, body)
 
+  method dexternal _ cc lid t =
+    match t with
+    | TArrow _ ->
+        let ret, args = flatten_arrow t in
+        let ret_is_struct, args_are_structs = Hashtbl.find action_table lid in
+        let buf_if arg is_struct = if is_struct then TBuf arg else arg in
+        let ret, args =
+          if ret_is_struct then
+            TUnit, List.map2 buf_if args args_are_structs @ [ TBuf ret ]
+          else
+            ret, List.map2 buf_if args args_are_structs
+        in
+        DExternal (cc, lid, fold_arrow args ret)
+    | _ ->
+        DExternal (cc, lid, t)
+
+
   method! eopen to_be_starred t name atom =
     if List.exists (Atom.equal atom) to_be_starred then
       EBufRead (with_type (TBuf t) (EOpen (name, atom)), Simplify.zerou32)
@@ -123,11 +151,13 @@ let rewrite action_table = object (self)
       EOpen (name, atom)
 
   method! eapp to_be_starred t e args =
+    KPrint.bprintf "Visiting %a: %a\n" pexpr (with_type TAny (EApp (e, args))) ptyp e.typ;
     try match e.node with
     | EQualified lid ->
         let args = List.map (self#visit to_be_starred) args in
         let ret_is_struct, args_are_structs = Hashtbl.find action_table lid in
         let e = with_type (rewrite_function_type (ret_is_struct, args_are_structs) e.typ) (EQualified lid) in
+        KPrint.bprintf "Rewritten to %a\n" ptyp e.typ;
         let bs, args = KList.fold_lefti (fun i (bs, es) (e, is_struct) ->
           if is_struct then
             if will_be_lvalue e then
@@ -137,7 +167,7 @@ let rewrite action_table = object (self)
               (x, e) :: bs, with_type (TBuf e.typ) (EAddrOf atom) :: es
           else
             bs, e :: es
-        ) ([], []) (List.combine args args_are_structs) in
+        ) ([], []) (List.combine args (fst (KList.split_at (List.length args) args_are_structs))) in
         let args = List.rev args in
         if ret_is_struct then
           let x, atom = Simplify.mk_binding "ret" t in

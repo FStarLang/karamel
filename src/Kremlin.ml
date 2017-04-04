@@ -133,6 +133,7 @@ Supported options:|}
     "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are fatal / warnings / silent (default: " ^ !Options.warn_error ^")";
     "-fnostruct-passing", Arg.Clear Options.struct_passing, "  disable passing structures by value and use pointers instead";
     "-fnoanonymous-unions", Arg.Clear Options.anonymous_unions, "  disable C11 anonymous unions";
+    "-fnouint128", Arg.Clear Options.uint128, "  don't assume a built-in type __uint128";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
@@ -176,7 +177,9 @@ Supported options:|}
   Warnings.parse_warn_error !Options.warn_error;
 
   (* Then, bring in the "default options" for each compiler. *)
-  Arg.parse_argv (List.assoc !Options.cc Options.default_options) spec anon_fun usage;
+  Arg.parse_argv ~current:(ref 0)
+    (Array.append [| Sys.argv.(0) |] (List.assoc !Options.cc Options.default_options))
+    spec anon_fun usage;
 
   (* Then refine that based on the user's preferences. *)
   if !arg_warn_error <> "" then

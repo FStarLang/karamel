@@ -20,10 +20,15 @@ let debug_modules: string list ref = ref []
 let debug s = List.exists ((=) s) !debug_modules
 let struct_passing = ref true
 let anonymous_unions = ref true
+let uint128 = ref true
 
 (* A set of extra command-line arguments one gets for free depending on the
  * value of -cc *)
 let default_options =
+  (* Note: the 14.04 versions of Ubuntu rely on the presence of _BSD_SOURCE to
+   * enable the macros in endian.h; future versions use _DEFAULT_SOURCE which is
+   * enabled by default, it seems, but there are talks of issuing a warning if
+   * _BSD_SOURCE is defined and not the newer _DEFAULT_SOURCE... *)
   let gcc_like_options = [|
     "-ccopts";
     "-Wall,-Werror,-Wno-parentheses,-Wno-unused-variable," ^
@@ -37,12 +42,13 @@ let default_options =
     "g++", gcc_like_options;
     "compcert", [|
       "-warn-error"; "@6@8";
-      "-fnostruct-passing"; "-fnoanonymous-unions";
+      "-fnostruct-passing"; "-fnoanonymous-unions"; "-fnouint128";
       "-ccopts"; "-g,-O3,-D_BSD_SOURCE,-D_DEFAULT_SOURCE";
     |];
     "msvc", [|
-      "-warn-error"; "@8"
-    |]
+      "-warn-error"; "@8"; "-fnouint128"
+    |];
+    "", [| |]
   ]
 
 
