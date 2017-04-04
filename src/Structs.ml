@@ -155,8 +155,9 @@ let rewrite action_table = object (self)
     try match e.node with
     | EQualified lid ->
         let args = List.map (self#visit to_be_starred) args in
+        let cut l = fst (KList.split_at (List.length args) l) in
         let ret_is_struct, args_are_structs = Hashtbl.find action_table lid in
-        let e = with_type (rewrite_function_type (ret_is_struct, args_are_structs) e.typ) (EQualified lid) in
+        let e = with_type (rewrite_function_type (ret_is_struct, cut args_are_structs) e.typ) (EQualified lid) in
         KPrint.bprintf "Rewritten to %a\n" ptyp e.typ;
         let bs, args = KList.fold_lefti (fun i (bs, es) (e, is_struct) ->
           if is_struct then
@@ -167,7 +168,7 @@ let rewrite action_table = object (self)
               (x, e) :: bs, with_type (TBuf e.typ) (EAddrOf atom) :: es
           else
             bs, e :: es
-        ) ([], []) (List.combine args (fst (KList.split_at (List.length args) args_are_structs))) in
+        ) ([], []) (List.combine args (cut args_are_structs)) in
         let args = List.rev args in
         if ret_is_struct then
           let x, atom = Simplify.mk_binding "ret" t in
