@@ -181,6 +181,7 @@ let rewrite action_table = object (self)
     | _ ->
         EApp (e, List.map (self#visit to_be_starred) args)
     with Not_found ->
+      KPrint.bprintf "not found\n";
       EApp (e, List.map (self#visit to_be_starred) args)
 
 end

@@ -35,7 +35,7 @@ let default_options =
     "-g,-O3,-fwrapv,-D_BSD_SOURCE,-D_DEFAULT_SOURCE,-Wno-unused-but-set-variable" ^
     (if Sys.os_type = "Win32" then "-D__USE_MINGW_ANSI_STDIO" else "")
   |] in
-  let gcc_options = Array.append gcc_like_options [| "-ccopt -std=c11" |] in
+  let gcc_options = Array.append gcc_like_options [| "-ccopt"; "-std=c11" |] in
   [
     "gcc", gcc_options;
     "clang", gcc_options;
@@ -73,4 +73,18 @@ let drop: Bundle.pat list ref =
     Module [ "FStar"; "Universe"; ];
     Module [ "FStar"; "Int"; "Cast" ];
     Module [ "FStar"; "Monotonic"; "RRef" ];
+    Module [ "FStar"; "Int8" ];
+    Module [ "FStar"; "UInt8" ];
+    Module [ "FStar"; "Int16" ];
+    Module [ "FStar"; "UInt16" ];
+    Module [ "FStar"; "Int31" ];
+    Module [ "FStar"; "UInt31" ];
+    Module [ "FStar"; "Int32" ];
+    Module [ "FStar"; "UInt32" ];
+    Module [ "FStar"; "Int63" ];
+    Module [ "FStar"; "UInt63" ];
+    Module [ "FStar"; "Int64" ];
+    Module [ "FStar"; "UInt64" ];
+    Module [ "FStar"; "Int128" ];
+    Module [ "FStar"; "UInt128" ];
   ])
