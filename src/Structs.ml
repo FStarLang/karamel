@@ -169,6 +169,7 @@ let rewrite action_table = object (self)
       EOpen (name, atom)
 
   method! eapp to_be_starred t e args =
+    let module T = struct exception NotLowStar end in
     try match e.node with
     | EQualified lid ->
         let args = List.map (self#visit to_be_starred) args in
@@ -179,7 +180,7 @@ let rewrite action_table = object (self)
 
         (* Partial application. Not Low*... bail. *)
         if List.length args_are_structs <> List.length args then
-          raise Not_found;
+          raise T.NotLowStar;
 
         (* Ensure things remain well-typed. *)
         let e = with_type (rewrite_function_type (ret_is_struct, args_are_structs) e.typ) (EQualified lid) in
@@ -212,7 +213,7 @@ let rewrite action_table = object (self)
           (Simplify.nest bs t (with_type t (EApp (e, args)))).node
     | _ ->
         EApp (e, List.map (self#visit to_be_starred) args)
-    with Not_found ->
+    with Not_found | T.NotLowStar ->
       EApp (e, List.map (self#visit to_be_starred) args)
 
 end
