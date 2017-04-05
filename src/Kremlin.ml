@@ -209,7 +209,7 @@ Supported options:|}
     Yojson.Safe.to_channel stdout (InputAst.binary_format_to_yojson (InputAst.current_version, files));
 
   (* -dast *)
-  let files = Builtin.prims :: InputAstToAst.mk_files files in
+  let files = Builtin.prelude @ InputAstToAst.mk_files files in
   if !arg_print_ast then
     print PrintAst.print_files files;
 

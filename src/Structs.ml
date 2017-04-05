@@ -151,13 +151,22 @@ let rewrite action_table = object (self)
       EOpen (name, atom)
 
   method! eapp to_be_starred t e args =
-    KPrint.bprintf "Visiting %a: %a\n" pexpr (with_type TAny (EApp (e, args))) ptyp e.typ;
+    KPrint.bprintf "Visiting %a: %a applied to %d args\n"
+      pexpr (with_type TAny (EApp (e, args)))
+      ptyp e.typ
+      (List.length args);
     try match e.node with
     | EQualified lid ->
         let args = List.map (self#visit to_be_starred) args in
-        let cut l = fst (KList.split_at (List.length args) l) in
+        (* let cut l = fst (KList.split_at (List.length args) l) in *)
         let ret_is_struct, args_are_structs = Hashtbl.find action_table lid in
-        let e = with_type (rewrite_function_type (ret_is_struct, cut args_are_structs) e.typ) (EQualified lid) in
+        (* Partial application. Not Low*... bail. *)
+        if List.length args_are_structs <> List.length args then
+          raise Not_found;
+        KPrint.bprintf "ret_is_struct: %s\nargs_are_structs: %s\n"
+          (string_of_bool ret_is_struct)
+          (String.concat ", " (List.map string_of_bool args_are_structs));
+        let e = with_type (rewrite_function_type (ret_is_struct, args_are_structs) e.typ) (EQualified lid) in
         KPrint.bprintf "Rewritten to %a\n" ptyp e.typ;
         let bs, args = KList.fold_lefti (fun i (bs, es) (e, is_struct) ->
           if is_struct then
@@ -168,7 +177,7 @@ let rewrite action_table = object (self)
               (x, e) :: bs, with_type (TBuf e.typ) (EAddrOf atom) :: es
           else
             bs, e :: es
-        ) ([], []) (List.combine args (cut args_are_structs)) in
+        ) ([], []) (List.combine args args_are_structs) in
         let args = List.rev args in
         if ret_is_struct then
           let x, atom = Simplify.mk_binding "ret" t in
