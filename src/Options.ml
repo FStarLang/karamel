@@ -33,7 +33,7 @@ let default_options =
     "-ccopts";
     "-Wall,-Werror,-Wno-parentheses,-Wno-unused-variable," ^
     "-g,-O3,-fwrapv,-D_BSD_SOURCE,-D_DEFAULT_SOURCE,-Wno-unused-but-set-variable" ^
-    (if Sys.os_type = "Win32" then "-D__USE_MINGW_ANSI_STDIO" else "")
+    (if Sys.os_type = "Win32" then ",-D__USE_MINGW_ANSI_STDIO" else "")
   |] in
   let gcc_options = Array.append gcc_like_options [| "-ccopt"; "-std=c11" |] in
   [
