@@ -1,7 +1,15 @@
 (** Make sure all structures are passed by reference  **************************)
 
+(* A note on this rewriting. We rewrite:
+     f e
+   into
+     let arg = e in
+     f &arg
+   Then, in the body of [f], we replace every occurrence of its first formal
+   parameter [x] with [*x]. THIS IS LEGAL ONLY BECAUSE STRUCTURES SO FAR ARE
+   IMMUTABLE. *)
+
 open Ast
-open PrintAst.Ops
 
 (* This pass assumes that all the desugarings that produce structs have run;
  * that type abbreviations have been removed. *)
@@ -17,7 +25,8 @@ let mk_is_struct files =
           ()
     ) decls
   ) files;
-  if not !Options.uint128 && not !Options.struct_passing then
+  (* FStar.UInt128.t is a struct only when we have [-fnouint128]. *)
+  if not !Options.uint128 then
     Hashtbl.add map ([ "FStar"; "UInt128" ], "t") true;
   function
     | TAnonymous (Flat _) ->
@@ -56,13 +65,7 @@ let mk_action_table files =
   ) files;
   map
 
-let will_be_lvalue e =
-  match e.node with
-  | EBound _ | EOpen _ | EBufRead _ ->
-      true
-  | _ ->
-      false
-
+(* Rewrite a function type to take and possibly return struct pointers. *)
 let rewrite_function_type (ret_is_struct, args_are_structs) t =
   let ret, args = flatten_arrow t in
   let args = List.map2 (fun arg is_struct ->
@@ -79,8 +82,20 @@ let rewrite_function_type (ret_is_struct, args_are_structs) t =
   in
   fold_arrow args ret
 
+let will_be_lvalue e =
+  match e.node with
+  | EBound _ | EOpen _ | EBufRead _ ->
+      true
+  | _ ->
+      false
 
+(* Rewrite functions and expressions to take and possibly return struct
+ * pointers. *)
 let rewrite action_table = object (self)
+
+  (* We open all the parameters of a function; then, we pass down as the
+   * environment the list of atoms that correspond to by-ref parameters. These
+   * will have to be "starred". *)
   inherit [Atom.t list] map
 
   method! dfunction _ cc flags n ret lid binders body =
@@ -130,6 +145,7 @@ let rewrite action_table = object (self)
   method dexternal _ cc lid t =
     match t with
     | TArrow _ ->
+        (* Also rewrite external function declarations. *)
         let ret, args = flatten_arrow t in
         let ret_is_struct, args_are_structs = Hashtbl.find action_table lid in
         let buf_if arg is_struct = if is_struct then TBuf arg else arg in
@@ -145,29 +161,33 @@ let rewrite action_table = object (self)
 
 
   method! eopen to_be_starred t name atom =
+    (* [x] was a strut parameter that is now passed by reference; replace it
+     * with [*x] *)
     if List.exists (Atom.equal atom) to_be_starred then
       EBufRead (with_type (TBuf t) (EOpen (name, atom)), Simplify.zerou32)
     else
       EOpen (name, atom)
 
   method! eapp to_be_starred t e args =
-    KPrint.bprintf "Visiting %a: %a applied to %d args\n"
-      pexpr (with_type TAny (EApp (e, args)))
-      ptyp e.typ
-      (List.length args);
     try match e.node with
     | EQualified lid ->
         let args = List.map (self#visit to_be_starred) args in
-        (* let cut l = fst (KList.split_at (List.length args) l) in *)
+        (* Determine using our computed table which of the arguments and the
+         * return type must be passed by reference. We could alternatively use
+         * the type of [e], but it sometimes may be incomplete. *)
         let ret_is_struct, args_are_structs = Hashtbl.find action_table lid in
+
         (* Partial application. Not Low*... bail. *)
         if List.length args_are_structs <> List.length args then
           raise Not_found;
-        KPrint.bprintf "ret_is_struct: %s\nargs_are_structs: %s\n"
-          (string_of_bool ret_is_struct)
-          (String.concat ", " (List.map string_of_bool args_are_structs));
+
+        (* Ensure things remain well-typed. *)
         let e = with_type (rewrite_function_type (ret_is_struct, args_are_structs) e.typ) (EQualified lid) in
-        KPrint.bprintf "Rewritten to %a\n" ptyp e.typ;
+
+        (* At call-site, [f e] can only be transformed into [f &e] is [e] is an
+         * [lvalue]. This is, sadly, a little bit of an anticipation over the
+         * ast-to-C* translation phase. TODO remove the check, and rely on
+         * AstToCStar or a Simplify phase to fix this. *)
         let bs, args = KList.fold_lefti (fun i (bs, es) (e, is_struct) ->
           if is_struct then
             if will_be_lvalue e then
@@ -179,7 +199,9 @@ let rewrite action_table = object (self)
             bs, e :: es
         ) ([], []) (List.combine args args_are_structs) in
         let args = List.rev args in
+
         if ret_is_struct then
+          (* [let ret in f args &ret; *ret] *)
           let x, atom = Simplify.mk_binding "ret" t in
           let bs = (x, with_type TAny EAny) :: bs in
           let args = args @ [ with_type (TBuf t) (EAddrOf atom) ] in
@@ -191,7 +213,6 @@ let rewrite action_table = object (self)
     | _ ->
         EApp (e, List.map (self#visit to_be_starred) args)
     with Not_found ->
-      KPrint.bprintf "not found\n";
       EApp (e, List.map (self#visit to_be_starred) args)
 
 end
