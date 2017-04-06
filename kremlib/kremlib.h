@@ -343,7 +343,7 @@ static const uint64_t two51_1 = 2251799813685247;
 // Platform-specific 128-bit arithmetic. These are static functions in a header,
 // so that each translation unit gets its own copy and the C compiler can
 // optimize.
-#ifdef KRML_UINT128
+#ifndef KRML_NOUINT128
 typedef unsigned __int128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t;
 
 static inline void print128(unsigned char *where, uint128_t n) {
@@ -383,7 +383,7 @@ static inline void store128_be(uint8_t *b, uint128_t n) {
 #define FStar_UInt128_lognot(x) (~(x))
 #define FStar_UInt128_shift_left(x, y) ((x) << (y))
 #define FStar_UInt128_shift_right(x, y) ((x) >> (y))
-#define FStar_Int_Cast_uint64_to_uint128(x) ((__int128)(x))
+#define FStar_Int_Cast_uint64_to_uint128(x) ((uint128_t)(x))
 #define FStar_Int_Cast_uint128_to_uint64(x) ((uint64_t)(x))
 #define FStar_UInt128_mul_wide(x, y) ((__int128)(x) * (y))
 
@@ -576,7 +576,7 @@ static inline void FStar_UInt128_mul32_(uint64_t x, uint32_t y, uint128_t *r) {
   r->low = r0;
 }
 
-#ifdef KRML_STRUCT_PASSING
+#ifndef KRML_NOSTRUCT_PASSING
 
 static inline void print128(unsigned char *where, uint128_t n) {
   print128_(where, &n);

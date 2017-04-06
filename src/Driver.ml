@@ -307,8 +307,8 @@ let fill_cc_args () =
   detect_kremlin_if ();
 
   cc_args :=
-      (if !Options.uint128 then [ Dash.d "KRML_UINT128" ] else [])
-    @ (if !Options.struct_passing then [ Dash.d "KRML_STRUCT_PASSING" ] else [])
+      (if not !Options.uint128 then [ Dash.d "KRML_NOUINT128" ] else [])
+    @ (if not !Options.struct_passing then [ Dash.d "KRML_NOSTRUCT_PASSING" ] else [])
     @ List.flatten (List.rev_map Dash.i (!Options.tmpdir :: !Options.includes))
     @ List.rev !Options.ccopts
     @ !cc_args
