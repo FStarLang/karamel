@@ -269,6 +269,18 @@ let fold_arrow ts t_ret =
 let fresh_binder ?(mut=false) name typ =
   with_type typ { name; mut; mark = ref 0; meta = None; atom = Atom.fresh () }
 
+let any = with_type TAny EAny
+
+let assert_tlid t =
+  (* We only have nominal typing for variants. *)
+  match t with TQualified lid -> lid | _ -> assert false
+
+let assert_tbuf t =
+  match t with TBuf t -> t | _ -> assert false
+
+let assert_elid t =
+  (* We only have nominal typing for variants. *)
+  match t with EQualified lid -> lid | _ -> assert false
 
 (** Some visitors for our AST of expressions *)
 

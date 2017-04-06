@@ -91,58 +91,64 @@ let will_be_lvalue e =
 
 exception NotLowStar
 
-let rewrite_app action_table t e args lid dest =
-  try
-    (* Determine using our computed table which of the arguments and the
-     * return type must be passed by reference. We could alternatively use
-     * the type of [e], but it sometimes may be incomplete. *)
-    let ret_is_struct, args_are_structs = Hashtbl.find action_table lid in
+(* This function rewrites an application node [e args] into [let x = args in e &args]. It
+ * exhibits three behaviors.
+ * - If the function is not struct-returning, then no further transformations
+ *   occur, the type is preserved, and the expression above is returned.
+ * - If the function returns a struct, and [dest] is [None], then the function
+ *   returns [let dst in let x = e in f &x &dst; dst], thereby preserving the
+ *   type [t] of the expression.
+ * - If the function returns a struct, and [dest] is [Some dst], then the
+ *   function returns [let x = e in f &x &dst], which has type [unit], and it is
+ *   up to the caller to wrap this in a way that preserves the type. *)
+let rewrite_app action_table e args dest =
+  let lid = assert_elid e.node in
+  let t, _ = flatten_arrow e.typ in
 
-    (* Partial application. Not Low*... bail. *)
-    if List.length args_are_structs <> List.length args then
-      raise NotLowStar;
+  (* Determine using our computed table which of the arguments and the
+   * return type must be passed by reference. We could alternatively use
+   * the type of [e], but it sometimes may be incomplete. *)
+  let ret_is_struct, args_are_structs = Hashtbl.find action_table lid in
 
-    (* Ensure things remain well-typed. *)
-    let e = with_type (rewrite_function_type (ret_is_struct, args_are_structs) e.typ) (EQualified lid) in
+  (* Partial application. Not Low*... bail. This ensures [t] is the return
+   * type of the function call. *)
+  if List.length args_are_structs <> List.length args then
+    raise NotLowStar;
 
-    (* At call-site, [f e] can only be transformed into [f &e] is [e] is an
-     * [lvalue]. This is, sadly, a little bit of an anticipation over the
-     * ast-to-C* translation phase. TODO remove the check, and rely on
-     * AstToCStar or a Simplify phase to fix this. *)
-    let bs, args = KList.fold_lefti (fun i (bs, es) (e, is_struct) ->
-      if is_struct then
-        if will_be_lvalue e then
-          bs, with_type (TBuf e.typ) (EAddrOf e) :: es
-        else
-          let x, atom = Simplify.mk_binding (Printf.sprintf "s%d" i) e.typ in
-          (x, e) :: bs, with_type (TBuf e.typ) (EAddrOf atom) :: es
+  (* Ensure things remain well-typed. *)
+  let e = with_type (rewrite_function_type (ret_is_struct, args_are_structs) e.typ) (EQualified lid) in
+
+  (* At call-site, [f e] can only be transformed into [f &e] is [e] is an
+   * [lvalue]. This is, sadly, a little bit of an anticipation over the
+   * ast-to-C* translation phase. TODO remove the check, and rely on
+   * AstToCStar or a Simplify phase to fix this. *)
+  let bs, args = KList.fold_lefti (fun i (bs, es) (e, is_struct) ->
+    if is_struct then
+      if will_be_lvalue e then
+        bs, with_type (TBuf e.typ) (EAddrOf e) :: es
       else
-        bs, e :: es
-    ) ([], []) (List.combine args args_are_structs) in
-    let args = List.rev args in
-
-    if ret_is_struct then
-      let bs, atom =
-        match dest with
-        | Some atom ->
-            (* Destination has been provided already: we're directly under a
-             * let. Caller will close the binder. *)
-            bs, atom
-        | None ->
-            (* [let ret in f args &ret; *ret] *)
-            let x, atom = Simplify.mk_binding "ret" t in
-            let bs = (x, with_type TAny EAny) :: bs in
-            bs, atom
-      in
-      let args = args @ [ with_type (TBuf t) (EAddrOf atom) ] in
-      Simplify.nest bs t (with_type t (ESequence [
-        with_type TUnit (EApp (e, args));
-        atom]))
+        let x, atom = Simplify.mk_binding (Printf.sprintf "s%d" i) e.typ in
+        (x, e) :: bs, with_type (TBuf e.typ) (EAddrOf atom) :: es
     else
-      Simplify.nest bs t (with_type t (EApp (e, args)))
+      bs, e :: es
+  ) ([], []) (List.combine args args_are_structs) in
+  let args = List.rev args in
 
-  with Not_found | NotLowStar ->
-    with_type t (EApp (e, args))
+  (* The three behaviors described above. *)
+  if ret_is_struct then
+    match dest with
+    | Some dest ->
+        let args = args @ [ with_type (TBuf t) (EAddrOf dest) ] in
+        Simplify.nest bs t (with_type TUnit (EApp (e, args)))
+    | None ->
+        let x, dest = Simplify.mk_binding "ret" t in
+        let bs = (x, with_type TAny EAny) :: bs in
+        let args = args @ [ with_type (TBuf t) (EAddrOf dest) ] in
+        Simplify.nest bs t (with_type t (ESequence [
+          with_type TUnit (EApp (e, args));
+          dest]))
+  else
+    Simplify.nest bs t (with_type t (EApp (e, args)))
 
 (* Rewrite functions and expressions to take and possibly return struct
  * pointers. *)
@@ -223,28 +229,68 @@ let rewrite action_table = object (self)
     else
       EOpen (name, atom)
 
+  method! eassign to_be_starred _ e1 e2 =
+    let e1 = self#visit to_be_starred e1 in
+    match e2.node with
+    | EApp ({ node = EQualified lid; _ } as e, args) when
+      try fst (Hashtbl.find action_table lid) with Not_found -> false ->
+        begin try
+          let args = List.map (self#visit to_be_starred) args in
+          assert (will_be_lvalue e1);
+          (rewrite_app action_table e args (Some e1)).node
+        with Not_found | NotLowStar ->
+          EAssign (e1, self#visit to_be_starred e2)
+        end
+    | _ ->
+        EAssign (e1, self#visit to_be_starred e2)
+
+  method! ebufwrite to_be_starred _ e1 e2 e3 =
+    let e1 = self#visit to_be_starred e1 in
+    let e2 = self#visit to_be_starred e2 in
+    match e3.node with
+    | EApp ({ node = EQualified lid; _ } as e, args) when
+      try fst (Hashtbl.find action_table lid) with Not_found -> false ->
+        begin try
+          let args = List.map (self#visit to_be_starred) args in
+          let t = assert_tbuf e1.typ in
+          let dest = with_type t (EBufRead (e1, e2)) in
+          (rewrite_app action_table e args (Some dest)).node
+        with Not_found | NotLowStar ->
+          EBufWrite (e1, e2, self#visit to_be_starred e3)
+        end
+    | _ ->
+        EBufWrite (e1, e2, self#visit to_be_starred e3)
+
   method! elet to_be_starred t b e1 e2 =
     let e2 = self#visit to_be_starred e2 in
     match e1.node with
     | EApp ({ node = EQualified lid; _ } as e, args) when
       try fst (Hashtbl.find action_table lid) with Not_found -> false ->
-        let args = List.map (self#visit to_be_starred) args in
-        let b, e2 = DeBruijn.open_binder b e2 in
-        let e1 = rewrite_app action_table e1.typ e args lid (Some (DeBruijn.term_of_binder b)) in
-        ELet (b, with_type TAny EAny, DeBruijn.close_binder b (with_type t (
-          ESequence [
-            e1;
-            e2
-          ]
-        )))
+        begin try
+          let args = List.map (self#visit to_be_starred) args in
+          let b, e2 = DeBruijn.open_binder b e2 in
+          let e1 = rewrite_app action_table e args (Some (DeBruijn.term_of_binder b)) in
+          ELet (b, any, DeBruijn.close_binder b (with_type t (
+            ESequence [
+              e1;
+              e2
+            ]
+          )))
+        with Not_found | NotLowStar ->
+          ELet (b, self#visit to_be_starred e1, e2)
+        end
     | _ ->
         ELet (b, self#visit to_be_starred e1, e2)
 
-  method! eapp to_be_starred t e args =
+  method! eapp to_be_starred _ e args =
     let args = List.map (self#visit to_be_starred) args in
     match e.node with
-    | EQualified lid ->
-        (rewrite_app action_table t e args lid None).node
+    | EQualified _ ->
+        begin try
+          (rewrite_app action_table e args None).node
+        with Not_found | NotLowStar ->
+          EApp (e, args)
+        end
     | _ ->
         EApp (e, args)
 

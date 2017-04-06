@@ -452,10 +452,6 @@ let compile_match env e_scrut branches =
       mk (ELet (b_scrut, e_scrut, close_binder b_scrut (fold_ite branches)))
 
 
-let assert_lid t =
-  (* We only have nominal typing for variants. *)
-  match t with TQualified lid -> lid | _ -> assert false
-
 let assert_branches map lid =
   match Hashtbl.find map lid with
   | ToTaggedUnion branches ->
@@ -504,7 +500,7 @@ let compile_all_matches map = object (self)
   (* A pattern on a constructor becomes a pattern on a struct and one of its
    * union fields. *)
   method pcons env t cons fields =
-    let lid = assert_lid t in
+    let lid = assert_tlid t in
     let branches = assert_branches map lid in
     let field_names = field_names_of_cons cons branches in
     let fields = List.map (self#visit_pattern env) fields in
@@ -523,7 +519,7 @@ let compile_all_matches map = object (self)
     ])
 
   method econs env t cons exprs =
-    let lid = assert_lid t in
+    let lid = assert_tlid t in
     let branches = assert_branches map lid in
     let field_names = field_names_of_cons cons branches in
     let field_names = List.map (fun x -> Some x) field_names in
