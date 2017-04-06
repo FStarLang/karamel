@@ -176,6 +176,10 @@ let open_binder b e1 =
   let b, f = opening_binder b in
   b, f e1
 
+let term_of_binder b =
+  let a = b.node.atom in
+  with_type b.typ (EOpen (b.node.name, a))
+
 let open_binders binders term =
   List.fold_right (fun binder (acc, term) ->
     let binder, term = open_binder binder term in
