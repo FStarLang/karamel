@@ -134,6 +134,7 @@ Supported options:|}
     "-fnostruct-passing", Arg.Clear Options.struct_passing, "  disable passing structures by value and use pointers instead";
     "-fnoanonymous-unions", Arg.Clear Options.anonymous_unions, "  disable C11 anonymous unions";
     "-fnouint128", Arg.Clear Options.uint128, "  don't assume a built-in type __uint128";
+    "-funroll-loops", Arg.Set_int Options.unroll_loops, "  textually expand loops smaller than N";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)

@@ -271,6 +271,9 @@ let fresh_binder ?(mut=false) name typ =
 
 let any = with_type TAny EAny
 
+let uint32_of_int i =
+  with_type (TInt K.UInt32) (EConstant (K.UInt32, string_of_int i))
+
 let assert_tlid t =
   (* We only have nominal typing for variants. *)
   match t with TQualified lid -> lid | _ -> assert false

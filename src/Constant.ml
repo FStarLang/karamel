@@ -46,6 +46,6 @@ let without_wrap = function
   | DivW -> Div
   | _ -> raise (Invalid_argument "without_wrap")
 
-let of_int i =
+let uint8_of_int i =
   assert (i < 256 && i >= 0);
   UInt8, string_of_int i

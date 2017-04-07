@@ -21,6 +21,7 @@ let debug s = List.exists ((=) s) !debug_modules
 let struct_passing = ref true
 let anonymous_unions = ref true
 let uint128 = ref true
+let unroll_loops = ref (-1)
 
 (* A set of extra command-line arguments one gets for free depending on the
  * value of -cc *)

@@ -252,6 +252,40 @@ and mk_stmts env e ret_type =
         let e = CStar.While (mk_expr env false e1, mk_block env false e2) in
         env, e :: acc
 
+    | EFor (_,
+      { node = EConstant (K.UInt32, init); _ },
+      { node = EApp (
+        { node = EOp (K.Lt, K.UInt32); _ },
+        [{ node = EBound 0; _ };
+        { node = EConstant (K.UInt32, max); _ }]); _},
+      { node = EAssign (
+        { node = EBound 0; _ },
+        { node = EApp (
+          { node = EOp (K.Add, K.UInt32); _ },
+          [{ node = EBound 0; _ };
+          { node = EConstant (K.UInt32, incr); _ }]); _}); _},
+      body)
+      when (
+        let init = int_of_string init in
+        let max = int_of_string max in
+        let incr = int_of_string incr in
+        let len = (max - init) / incr in
+        len <= !Options.unroll_loops
+      )
+      ->
+        let init = int_of_string init in
+        let max = int_of_string max in
+        let incr = int_of_string incr in
+        let rec mk acc i =
+          if i < max then
+            let body = DeBruijn.subst (uint32_of_int i) 0 body in
+            mk (CStar.Block (mk_block env false body) :: acc) (i + incr)
+          else
+            acc
+        in
+        env, mk [] init @ acc
+
+
     | EFor (binder, e1, e2, e3, e4) ->
         (* Note: the arguments to mk_and_push_binder are solely for the purpose
          * of avoiding name collisions. *)

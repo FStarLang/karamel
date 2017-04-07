@@ -127,8 +127,12 @@ and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
   | Comment s ->
       [ Comment s ]
+
   | Return e ->
       [ Return (Option.map mk_expr e) ]
+
+  | Block stmts ->
+      [ Compound (mk_stmts stmts) ]
 
   | Ignore e ->
       [ Expr (mk_expr e) ]
@@ -198,7 +202,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       if l <> Stack then
         failwith "TODO: createL / eternal";
       let t = match binder.typ with
-        | Pointer t -> Array (t, Constant (K.of_int (List.length inits)))
+        | Pointer t -> Array (t, Constant (K.uint8_of_int (List.length inits)))
         | _ -> failwith "impossible"
       in
       let spec, decl = mk_spec_and_declarator binder.name t in

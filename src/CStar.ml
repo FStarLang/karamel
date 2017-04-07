@@ -37,6 +37,7 @@ and stmt =
   | PushFrame
   | PopFrame
   | Comment of string
+  | Block of block
 
 and expr =
   | InlineComment of string * expr * string
