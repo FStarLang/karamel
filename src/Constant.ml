@@ -47,5 +47,9 @@ let without_wrap = function
   | _ -> raise (Invalid_argument "without_wrap")
 
 let uint8_of_int i =
-  assert (i < 256 && i >= 0);
+  assert (i < (1 lsl 8) && i >= 0);
   UInt8, string_of_int i
+
+let uint32_of_int i =
+  assert (i < (1 lsl 32) && i >= 0);
+  UInt32, string_of_int i
