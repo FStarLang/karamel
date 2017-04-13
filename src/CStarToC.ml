@@ -117,8 +117,21 @@ and mk_memset_zero_initializer e_array e_size =
       e_size,
       Sizeof (Index (e_array, zero)))]))
 
-and mk_check_size init size =
-  C.Call (C.Name "KRML_CHECK_SIZE", [ init; size ])
+and mk_check_size init n_elements: C.stmt list =
+  (* [init] is the default value for the elements of the array, and [n_elements] is
+   * hopefully a constant *)
+  let default = [ C.Expr (C.Call (C.Name "KRML_CHECK_SIZE", [ init; n_elements ])) ] in
+  match init, n_elements with
+  | C.Cast (_, C.Constant (w, _)), C.Cast (_, C.Constant (_, n_elements)) ->
+      let size_bytes = Z.(of_int (K.bytes_of_width w) * of_string n_elements) in
+      (* Note: this is wrong if anyone ever decides to use the x32 ABI *)
+      let ptr_size = Z.(if !Options.m32 then one lsl 32 else one lsl 64) in
+      if Z.( lt size_bytes ptr_size ) then
+        []
+      else
+        default
+  | _ ->
+      default
 
 and mk_sizeof t =
   C.Call (C.Name "sizeof", [ C.Type t ])
@@ -154,8 +167,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
               C.Op2 (K.Mult, mk_sizeof type_name, size)
             ]), [ mk_for_loop_initializer (Name binder.name) size (mk_expr init) ]
       in
-      Expr (mk_check_size (mk_expr init) size) ::
-      Decl (spec, None, [ decl, Some (InitExpr e)]) ::
+      let decl: C.stmt list = [ Decl (spec, None, [ decl, Some (InitExpr e)]) ] in
+      mk_check_size (mk_expr init) size @
+      decl @
       extra_stmt
 
   | Decl (binder, BufCreate (Stack, init, size)) ->
@@ -194,15 +208,16 @@ and mk_stmt (stmt: stmt): C.stmt list =
              * computations... which F* guarantees! *)
             [ mk_for_loop_initializer (Name binder.name) size init ]
       in
-      Expr (mk_check_size init size) ::
-      Decl (spec, None, [ decl, maybe_init ]) ::
+      let decl: C.stmt list = [ Decl (spec, None, [ decl, maybe_init ]) ] in
+      mk_check_size init size @
+      decl @
       extra_stmt
 
   | Decl (binder, BufCreateL (l, inits)) ->
       if l <> Stack then
         failwith "TODO: createL / eternal";
       let t = match binder.typ with
-        | Pointer t -> Array (t, Constant (K.uint8_of_int (List.length inits)))
+        | Pointer t -> Array (t, Constant (K.uint32_of_int (List.length inits)))
         | _ -> failwith "impossible"
       in
       let spec, decl = mk_spec_and_declarator binder.name t in
@@ -228,12 +243,12 @@ and mk_stmt (stmt: stmt): C.stmt list =
       end;
       begin match init with
       | Constant (_, "0") ->
-          [ Expr (mk_check_size (mk_expr init) (mk_expr size));
-            mk_memset_zero_initializer (mk_expr e1) (mk_expr size) ]
+          mk_check_size (mk_expr init) (mk_expr size) @
+          [ mk_memset_zero_initializer (mk_expr e1) (mk_expr size) ]
       | _ ->
           (* JP: why is this not a call to memcpy? *)
-          [ Expr (mk_check_size (mk_expr init) (mk_expr size));
-            mk_for_loop_initializer (mk_expr e1) (mk_expr size) (mk_expr init) ]
+          mk_check_size (mk_expr init) (mk_expr size) @
+          [ mk_for_loop_initializer (mk_expr e1) (mk_expr size) (mk_expr init) ]
       end
 
   | Copy (e1, typ, BufCreateL (Stack, elts)) ->

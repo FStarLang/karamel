@@ -13,6 +13,7 @@ type type_spec =
   | Union of ident option * declaration list
   | Enum of ident option * ident list
     (** not encoding all the invariants here *)
+  [@@deriving show]
 
 and storage_spec =
   | Typedef
