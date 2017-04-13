@@ -18,7 +18,7 @@ let _ =
   let o_files = ref [] in
   let fst_files = ref [] in
   let filename = ref "" in
-  let p k = String.concat " " (Array.to_list (List.assoc k Options.default_options)) in
+  let p k = String.concat " " (Array.to_list (List.assoc k (Options.default_options ()))) in
   let usage = Printf.sprintf
 {|KreMLin: from a ML-like subset to C
 
@@ -135,6 +135,7 @@ Supported options:|}
     "-fnoanonymous-unions", Arg.Clear Options.anonymous_unions, "  disable C11 anonymous unions";
     "-fnouint128", Arg.Clear Options.uint128, "  don't assume a built-in type __uint128";
     "-funroll-loops", Arg.Set_int Options.unroll_loops, "  textually expand loops smaller than N";
+    "-fparentheses", Arg.Set Options.parentheses, "  add unnecessary parentheses to silence GCC and Clang's -Wparentheses";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
@@ -179,7 +180,7 @@ Supported options:|}
 
   (* Then, bring in the "default options" for each compiler. *)
   Arg.parse_argv ~current:(ref 0)
-    (Array.append [| Sys.argv.(0) |] (List.assoc !Options.cc Options.default_options))
+    (Array.append [| Sys.argv.(0) |] (List.assoc !Options.cc (Options.default_options ())))
     spec anon_fun usage;
 
   (* Then refine that based on the user's preferences. *)

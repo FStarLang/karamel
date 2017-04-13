@@ -21,20 +21,22 @@ let debug s = List.exists ((=) s) !debug_modules
 let struct_passing = ref true
 let anonymous_unions = ref true
 let uint128 = ref true
+let parentheses = ref false
 let unroll_loops = ref (-1)
 
 (* A set of extra command-line arguments one gets for free depending on the
  * value of -cc *)
-let default_options =
+let default_options () =
   (* Note: the 14.04 versions of Ubuntu rely on the presence of _BSD_SOURCE to
    * enable the macros in endian.h; future versions use _DEFAULT_SOURCE which is
    * enabled by default, it seems, but there are talks of issuing a warning if
    * _BSD_SOURCE is defined and not the newer _DEFAULT_SOURCE... *)
   let gcc_like_options = [|
     "-ccopts";
-    "-Wall,-Werror,-Wno-parentheses,-Wno-unused-variable," ^
+    "-Wall,-Werror,-Wno-unused-variable," ^
     "-g,-O3,-fwrapv,-D_BSD_SOURCE,-D_DEFAULT_SOURCE,-Wno-unused-but-set-variable" ^
-    (if Sys.os_type = "Win32" then ",-D__USE_MINGW_ANSI_STDIO" else "")
+    (if Sys.os_type = "Win32" then ",-D__USE_MINGW_ANSI_STDIO" else "") ^
+    (if !parentheses then "" else ",-Wno-parentheses")
   |] in
   let gcc_options = Array.append gcc_like_options [| "-ccopt"; "-std=c11" |] in
   [
