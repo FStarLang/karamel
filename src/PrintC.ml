@@ -232,7 +232,7 @@ let nest_if f stmt =
  *   ...
  *
  * [protect_solo_if] adds braces to the latter case. However, GCC, unless
- * -Wnoparentheses is give, will produce a warning for the former case.
+ * -Wnoparentheses is given, will produce a warning for the former case.
  * [protect_ite_if_needed] adds braces to the former case, when the user has
  * requested the extra, unnecessary parentheses needed to silence -Wparentheses.
  * *)

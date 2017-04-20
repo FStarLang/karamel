@@ -626,7 +626,6 @@ let everything files =
   let map = build_def_map files in
   let files = Simplify.visit_files () (monomorphize_data_types map) files in
   let files = drop_parameterized_data_types files in
-  let files = Simplify.visit_files [] Simplify.count_use files in
   let map = build_scheme_map files in
   if false then debug_map map;
   let files = Simplify.visit_files () remove_trivial_matches files in

@@ -203,7 +203,7 @@ let mk_inliner files must_inline =
       let es = List.map (self#visit ()) es in
       match e.node with
       | EQualified lid when Hashtbl.mem map lid && must_inline lid ->
-          wrap_comment lid ( Simplify.safe_substitution es (recurse lid) t)
+          wrap_comment lid (Simplify.safe_substitution es (recurse lid) t)
       | _ ->
           EApp (self#visit () e, es)
     method equalified () t lid =

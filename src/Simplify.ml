@@ -105,6 +105,54 @@ let count_use = object (self)
 
 end
 
+let unused_binder b = !(b.node.mark) = 0
+
+(* To be run immediately after the phase above. *)
+let build_unused_map map = object
+  inherit [unit] map
+
+  method dfunction () cc flags n ret name binders body =
+    Hashtbl.add map name (List.map unused_binder binders);
+    DFunction (cc, flags, n, ret, name, binders, body)
+end
+
+(* Ibid. *)
+let remove_unused_parameters map = object (self)
+  inherit [unit] map
+
+  method dfunction () cc flags n ret name binders body =
+    let n_binders = List.length binders in
+    let body = KList.fold_lefti (fun i body b ->
+      if unused_binder b then
+        DeBruijn.subst any (n_binders - 1 - i) body
+      else
+        body
+    ) body binders in
+    let body = self#visit () body in
+    let binders = List.filter (fun b -> not (unused_binder b)) binders in
+    DFunction (cc, flags, n, ret, name, binders, body)
+
+  method eapp () t e es =
+    let es = List.map (self#visit ()) es in
+    match e.node with
+    | EQualified lid when Hashtbl.mem map lid ->
+        let es, to_evaluate = List.fold_left2 (fun (es, to_evaluate) unused arg ->
+          if unused then
+            if is_value arg then
+              es, to_evaluate
+            else
+              let x, _atom = mk_binding "unused" arg.typ in
+              es, (x, arg) :: to_evaluate
+          else
+            arg :: es, to_evaluate
+        ) ([], []) (Hashtbl.find map lid) es in
+        let es = List.rev es and to_evaluate = List.rev to_evaluate in
+        (nest to_evaluate t (with_type t (EApp (e, es)))).node
+
+    | _ ->
+        EApp (self#visit () e, es)
+end
+
 
 (* Get wraparound semantics for arithmetic operations using casts to uint_* ***)
 
@@ -1107,4 +1155,13 @@ let to_c_names (files: file list): file list =
 
 let simplify_wasm (files: file list): file list =
   let files = visit_files () remove_buffer_ops files in
+  files
+
+(* This should be run at the last minute since inlining may create more
+ * opportunities for the removal of unused variables. *)
+let remove_unused (files: file list): file list =
+  let files = visit_files [] count_use files in
+  let map = Hashtbl.create 41 in
+  let files = visit_files () (build_unused_map map) files in
+  let files = visit_files () (remove_unused_parameters map) files in
   files
