@@ -9,6 +9,17 @@ let rec filter_map f l =
       | None ->
           filter_map f l
 
+let rec filter_mask mask l =
+  match mask, l with
+  | true :: mask, x :: l ->
+      x :: filter_mask mask l
+  | false :: mask, _ :: l ->
+      filter_mask mask l
+  | [], [] ->
+      []
+  | _ ->
+      invalid_arg "filter_mask"
+
 let map_flatten f l =
   List.flatten (List.map f l)
 

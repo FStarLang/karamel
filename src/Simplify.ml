@@ -112,6 +112,9 @@ let build_unused_map map = object
   inherit [unit] map
 
   method dfunction () cc flags n ret name binders body =
+    List.iteri (fun i b ->
+      KPrint.bprintf "%a/%d: %b\n" plid name i (unused_binder b)
+    ) binders;
     Hashtbl.add map name (List.map unused_binder binders);
     DFunction (cc, flags, n, ret, name, binders, body)
 end
@@ -136,6 +139,12 @@ let remove_unused_parameters map = object (self)
     let es = List.map (self#visit ()) es in
     match e.node with
     | EQualified lid when Hashtbl.mem map lid ->
+        let e =
+          let t, ts = flatten_arrow e.typ in
+          assert (List.length ts = List.length es);
+          let ts = KList.filter_mask (List.map not (Hashtbl.find map lid)) ts in
+          { e with typ = fold_arrow ts t }
+        in
         let es, to_evaluate = List.fold_left2 (fun (es, to_evaluate) unused arg ->
           if unused then
             if is_value arg then
@@ -146,7 +155,8 @@ let remove_unused_parameters map = object (self)
           else
             arg :: es, to_evaluate
         ) ([], []) (Hashtbl.find map lid) es in
-        let es = List.rev es and to_evaluate = List.rev to_evaluate in
+        let es = List.rev es in
+        let to_evaluate = List.rev to_evaluate in
         (nest to_evaluate t (with_type t (EApp (e, es)))).node
 
     | _ ->
