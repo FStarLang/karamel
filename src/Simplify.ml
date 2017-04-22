@@ -105,17 +105,29 @@ let count_use = object (self)
 
 end
 
-let unused_binder b = !(b.node.mark) = 0
+let implies x y =
+  not x || y
+
+let unused_binder binders i =
+  let b = List.nth binders i in
+  let unused b =
+    !(b.node.mark) = 0
+  in
+  (* The first binder may be marked as unused only if there's another unused
+   * binder later on, otherwise, it serves at the one remaining binder that
+   * makes sure this is still a function, and not a computation. *)
+  unused b &&
+  implies (i = 0) (List.exists (fun b -> not (unused b)) (List.tl binders))
 
 (* To be run immediately after the phase above. *)
 let build_unused_map map = object
   inherit [unit] map
 
   method dfunction () cc flags n ret name binders body =
-    List.iteri (fun i b ->
-      KPrint.bprintf "%a/%d: %b\n" plid name i (unused_binder b)
-    ) binders;
-    Hashtbl.add map name (List.map unused_binder binders);
+    (* for i = 0 to List.length binders - 1 do *)
+    (*   KPrint.bprintf "%a/%d(%d): %b\n" plid name i (List.length binders) (unused_binder binders i) *)
+    (* done; *)
+    Hashtbl.add map name (KList.make (List.length binders) (unused_binder binders));
     DFunction (cc, flags, n, ret, name, binders, body)
 end
 
@@ -125,14 +137,15 @@ let remove_unused_parameters map = object (self)
 
   method dfunction () cc flags n ret name binders body =
     let n_binders = List.length binders in
-    let body = KList.fold_lefti (fun i body b ->
-      if unused_binder b then
+    let body = List.fold_left (fun body i ->
+      if unused_binder binders i then
         DeBruijn.subst any (n_binders - 1 - i) body
       else
         body
-    ) body binders in
+    ) body (KList.make n_binders (fun i -> i)) in
     let body = self#visit () body in
-    let binders = List.filter (fun b -> not (unused_binder b)) binders in
+    let unused = KList.make (List.length binders) (fun i -> not (unused_binder binders i)) in
+    let binders = KList.filter_mask unused binders in
     DFunction (cc, flags, n, ret, name, binders, body)
 
   method eapp () t e es =
@@ -141,10 +154,12 @@ let remove_unused_parameters map = object (self)
     | EQualified lid when Hashtbl.mem map lid ->
         let e =
           let t, ts = flatten_arrow e.typ in
-          assert (List.length ts = List.length es);
           let ts = KList.filter_mask (List.map not (Hashtbl.find map lid)) ts in
           { e with typ = fold_arrow ts t }
         in
+        (* There are some partial applications lurking around in spec... Checker
+         * should really remove these. *)
+        let are_unused, _ = KList.split (List.length es) (Hashtbl.find map lid) in
         let es, to_evaluate = List.fold_left2 (fun (es, to_evaluate) unused arg ->
           if unused then
             if is_value arg then
@@ -154,7 +169,7 @@ let remove_unused_parameters map = object (self)
               es, (x, arg) :: to_evaluate
           else
             arg :: es, to_evaluate
-        ) ([], []) (Hashtbl.find map lid) es in
+        ) ([], []) are_unused es in
         let es = List.rev es in
         let to_evaluate = List.rev to_evaluate in
         (nest to_evaluate t (with_type t (EApp (e, es)))).node

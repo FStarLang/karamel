@@ -90,18 +90,9 @@ let split i l =
   in
   split [] i l
 
-let split_at i l =
-  let rec split_at i l1 l2 =
-    if i = 0 then
-      List.rev l1, l2
-    else
-      split_at (i - 1) (List.hd l2 :: l1) (List.tl l2)
-  in
-  split_at i [] l
-
 let split_at_last l =
-  let l = List.rev l in
-  List.rev (List.tl l), List.hd l
+  let all_but_last, last = split (List.length l - 1) l in
+  all_but_last, List.hd last
 
 let last l =
-  List.hd (List.rev l)
+  snd (split_at_last l)

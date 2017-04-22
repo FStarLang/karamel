@@ -286,7 +286,7 @@ let mk_decl env (d: decl): CF.decl option =
       let locals, body = mk_expr env locals body in
       let ret = [ size_of ret ] in
       let locals = List.rev locals in
-      let args, locals = KList.split_at (List.length args) locals in
+      let args, locals = KList.split (List.length args) locals in
       let name = Idents.string_of_lident name in
       Some CF.(Function { name; args; ret; locals; body; public })
 
