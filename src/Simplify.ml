@@ -69,8 +69,8 @@ let safe_substitution es e t =
 
 (* Count the number of occurrences of each variable ***************************)
 
-let rec is_pure { node; _ } =
-  match node with
+let rec is_pure e =
+  match e.node with
   | EAny | EUnit
   | EBound _ | EOpen _
   | EConstant _ -> true

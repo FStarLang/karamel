@@ -257,8 +257,9 @@ Supported options:|}
    * hoisting. *)
   let files = Inlining.inline_function_frames files in
   let files = if not !Options.struct_passing then Structs.rewrite files else files in
-  let files = Simplify.simplify2 files in
+  (* In this order because remove_unused generates MetaSequence's *)
   let files = Simplify.remove_unused files in
+  let files = Simplify.simplify2 files in
   if !arg_print_inline then
     print PrintAst.print_files files;
 
