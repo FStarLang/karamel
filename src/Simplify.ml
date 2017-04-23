@@ -111,7 +111,7 @@ let implies x y =
 let unused_binder binders i =
   let b = List.nth binders i in
   let unused b =
-    !(b.node.mark) = 0
+    !(b.node.mark) = 0 && (b.typ = TUnit || b.typ = TAny)
   in
   (* The first binder may be marked as unused only if there's another unused
    * binder later on, otherwise, it serves at the one remaining binder that
