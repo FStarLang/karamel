@@ -1,5 +1,36 @@
 (** KreMLin, a tool to translate from a minimal ML-like language to C. *)
 
+module Time = struct
+  let t = ref None
+
+  let start () =
+    t := Some (Unix.times ())
+
+  let tick s =
+    if !Options.timings then
+      let t' = Unix.times () in
+      let diff = t'.Unix.tms_cutime -. (Option.must !t).Unix.tms_cutime +.
+        t'.Unix.tms_utime -. (Option.must !t).Unix.tms_utime
+      in
+      let rec smart_format whole f =
+        if f < 1. && whole then
+          "<1ms"
+        else if f < 1000. then
+          KPrint.bsprintf "%.0fms" f
+        else if f < 60. *. 1000. then
+          let seconds = floor (f /. 1000.) in
+          KPrint.bsprintf "%.0fs and " seconds ^ smart_format false (f -. seconds *. 1000.)
+        else if f < 3600. *. 1000. then
+          let minutes = floor (f /. 60. *. 1000.) in
+          KPrint.bsprintf "%.0fm" minutes ^ smart_format false (f -. minutes *. 60. *. 1000.)
+        else
+          let hours = floor (f /. 3_600_000.) in
+          KPrint.bsprintf "%.0fh" hours ^ smart_format false (f -. hours *. 3_600_000.)
+      in
+      KPrint.bprintf "⏱️ %s: %s\n" s (smart_format true (diff *. 1000.));
+      t := Some t'
+end
+
 let _ =
   let arg_print_ast = ref false in
   let arg_print_json = ref false in
@@ -146,6 +177,7 @@ Supported options:|}
     "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after inlining";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-dwasm", Arg.Set arg_print_wasm, " pretty-print the output Wasm";
+    "-dtimings", Arg.Set Options.timings, " time the different passes";
     "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific comma-separated list of values; currently supported: inline,bundle,wasm-calls";
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
@@ -187,10 +219,14 @@ Supported options:|}
   if !arg_warn_error <> "" then
     Warnings.parse_warn_error !arg_warn_error;
 
+  Time.start ();
+
   (* Shall we run F* first? *)
   let filename =
     if List.length !fst_files > 0 then
-      Driver.run_fstar !arg_verify !arg_skip_extraction !fst_files
+      let f = Driver.run_fstar !arg_verify !arg_skip_extraction !fst_files in
+      Time.tick "F*";
+      f
     else
       !filename
   in
@@ -219,9 +255,13 @@ Supported options:|}
    * and type abbreviations we don't know about have been replaced by TAny.
    * Otherwise, the checker is too stringent and will drop files. *)
   let files = DataTypes.drop_match_cast files in
+  (* Combinators are buffer-polymorphic and must be inlined so that they are
+   * typed monomorphically at call-site. *)
   let files = Inlining.inline_combinators files in
   let files = Inlining.drop_polymorphic_functions files in
   let has_errors, files = Checker.check_everything ~warn:true files in
+
+  Time.tick "Load-Check";
 
   (* Make sure implementors that target Kremlin can tell apart their bugs vs.
    * mine *)
@@ -237,6 +277,8 @@ Supported options:|}
 
   let files = Inlining.inline_type_abbrevs files in
 
+  Time.tick "Bundles-Inline-Types";
+
   (* Simplify data types and remove patterns. *)
   let datatypes_state, files = DataTypes.everything files in
   if !arg_print_pattern then
@@ -246,11 +288,15 @@ Supported options:|}
   let _, files = Checker.check_everything files in
   KPrint.bprintf "%s✔%s Pattern compilation successfully checked\n" Ansi.green Ansi.reset;
 
+  Time.tick "DataTypes";
+
   let files = if !arg_wasm then Simplify.simplify_wasm files else files in
   let files = Simplify.simplify1 files in
   let files = Simplify.simplify2 files in
   if !arg_print_simplify then
     print PrintAst.print_files files;
+
+  Time.tick "Simplify 1+2";
 
   (* The criterion for determining whether we should inline really works well
    * after everything has been simplified, but inlining requires a new round of
@@ -262,6 +308,8 @@ Supported options:|}
   let files = Simplify.simplify2 files in
   if !arg_print_inline then
     print PrintAst.print_files files;
+
+  Time.tick "Inlining + Simplify2";
 
   let _, files = Checker.check_everything files in
   KPrint.bprintf "%s✔%s Simplify + inlining successfully checked\n" Ansi.green Ansi.reset;
@@ -299,6 +347,8 @@ Supported options:|}
   in
   let files = drop files in
 
+  Time.tick "Drop";
+
   (* The "drop files" pass above needs some properly-built names... do this at
    * the last minute, really. *)
   let files = Simplify.to_c_names files in
@@ -321,9 +371,13 @@ Supported options:|}
     (* Translate to C*... *)
     let files = AstToCStar.mk_files files in
 
+    Time.tick "AstToCStar";
+
     (* ... then to C *)
     let headers = CStarToC.mk_headers files in
     let files = CStarToC.mk_files files in
+
+    Time.tick "CStarToC";
 
     (* -dc *)
     if !arg_print_c then
@@ -334,6 +388,8 @@ Supported options:|}
     Printf.printf "KreMLin: writing out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
     Output.write_c files;
     Output.write_h headers;
+
+    Time.tick "PrettyPrint";
 
     if !arg_skip_compilation then
       exit 0;
