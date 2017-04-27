@@ -8,7 +8,7 @@
 
 %start <(Flags.flag * (int * int)) list> warn_error_list
 %start <Bundle.t> bundle
-%start <Bundle.pat> drop
+%start <Bundle.pat list> drop
 
 (** Parsing of command-line error/warning/silent flags. *)
 
@@ -52,7 +52,7 @@ pat:
         Prefix (u :: m) }
 
 drop:
-| p = pat EOF
+| p = separated_list(COMMA, pat) EOF
   { p }
 
 bundle:
