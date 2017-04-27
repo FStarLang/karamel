@@ -144,6 +144,8 @@ and print_expr { node; _ } =
       string "$any"
   | EAbort ->
       string "$abort"
+  | EIgnore e ->
+      print_app string "ignore" print_expr [ e ]
   | EBound v ->
       at ^^ int v
   | EOpen (name, _) ->

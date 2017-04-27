@@ -268,6 +268,9 @@ let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EAddrOf _ ->
       invalid_arg "adress-of should've been resolved"
 
+  | EIgnore _ ->
+      failwith "TODO"
+
 
 (* See digression for [dup32] in CFlatToWasm *)
 let scratch_locals =

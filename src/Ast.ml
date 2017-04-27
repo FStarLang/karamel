@@ -51,6 +51,7 @@ and expr' =
      * matter *)
   | EAbort
     (** exits the program prematurely *)
+  | EIgnore of expr
 
   | EApp of expr * expr list
   | ELet of binder * expr * expr
@@ -237,6 +238,7 @@ let rec is_value (e: expr) =
   | EFlat identexprs ->
       List.for_all (fun (_, e) -> is_value e) identexprs
 
+  | EIgnore e
   | EField (e, _)
   | EComment (_, e, _)
   | ECast (e, _) ->
@@ -383,6 +385,8 @@ class virtual ['env] map = object (self)
         self#efun env typ binders e
     | EAddrOf e ->
         self#eaddrof env typ e
+    | EIgnore e ->
+        self#eignore env typ e
 
   method ebound _env _typ var =
     EBound var
@@ -508,6 +512,9 @@ class virtual ['env] map = object (self)
 
   method eaddrof env _ e =
     EAddrOf (self#visit env e)
+
+  method eignore env _ e =
+    EIgnore (self#visit env e)
 
   (* Some helpers *)
 

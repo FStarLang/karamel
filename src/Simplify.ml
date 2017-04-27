@@ -78,6 +78,29 @@ let rec is_pure e =
   | ECast (e, _) -> is_pure e
   | _ -> false
 
+let rec push_to_leaves f e =
+  match e.node with
+  | ELet (b, e1, e2) ->
+      with_type e.typ (ELet (b, e1, push_to_leaves f e2))
+  | EIfThenElse (e1, e2, e3) ->
+      with_type e.typ (EIfThenElse (e1, push_to_leaves f e2, push_to_leaves f e3))
+  | ESwitch (e1, branches) ->
+      with_type e.typ (ESwitch (e1, List.map (fun (t, e) -> t, push_to_leaves f e) branches))
+  | EMatch (e, branches) ->
+      with_type e.typ (EMatch (e, List.map (fun (bs, pat, e) -> bs, pat, push_to_leaves f e) branches))
+  | _ ->
+      f e
+
+let rec strip_cast e =
+  match e.node with
+  | ECast (e, _) ->
+      strip_cast e
+  | _ ->
+      e
+
+let push_ignore = push_to_leaves (fun e -> with_type TUnit (EIgnore (strip_cast e)))
+
+
 let count_use = object (self)
 
   inherit [binder list] map
@@ -98,8 +121,11 @@ let count_use = object (self)
     let e2 = self#visit env e2 in
     if !(b.node.mark) = 0 && is_pure e1 then
       (snd (open_binder b e2)).node
-    else if !(b.node.mark) = 0 && e1.typ = TUnit then
-      ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2)
+    else if !(b.node.mark) = 0 then
+      if e1.typ = TUnit then
+        ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2)
+      else
+        ELet ({ b with node = { b.node with meta = Some MetaSequence }}, push_ignore e1, e2)
     else
       ELet (b, e1, e2)
 
@@ -248,9 +274,8 @@ let let_to_sequence = object (self)
     match b.node.meta with
     | Some MetaSequence ->
         let e1 = self#visit env e1 in
-        let b, e2 = open_binder b e2 in
+        let _, e2 = open_binder b e2 in
         let e2 = self#visit env e2 in
-        assert (b.typ = TUnit);
         begin match e1.node, e2.node with
         | _, EUnit ->
             (* let _ = e1 in () *)
@@ -507,6 +532,10 @@ and hoist_expr pos e =
   | EComment (s, e, s') ->
       let lhs, e = hoist_expr Unspecified e in
       lhs, mk (EComment (s, e, s'))
+
+  | EIgnore e ->
+      let lhs, e = hoist_expr Unspecified e in
+      lhs, mk (EIgnore e)
 
   | EApp (e, es) ->
       (* TODO: assert that in the case of a lazily evaluated boolean operator,

@@ -267,6 +267,7 @@ and check' env t e =
   | EString _
   | EFun _
   | EFor _
+  | EIgnore _
   | EApp _ ->
       c (infer env e)
 
@@ -491,6 +492,10 @@ and infer' env e =
   | ECast (e, t) ->
       ignore (infer env e);
       t
+
+  | EIgnore e ->
+      ignore (infer env e);
+      TUnit
 
   | EApp (e, es) ->
       let t = infer env e in
