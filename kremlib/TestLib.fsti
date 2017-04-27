@@ -34,7 +34,7 @@ val unsafe_malloc: l:UInt32.t ->
     (fun h0 b h1 -> live h1 b /\ ~(contains h0 b) /\ length b = FStar.UInt32.v l
       /\ HyperStack.is_eternal_region (frameOf b)
       /\ HyperStack.modifies (Set.singleton (frameOf b)) h0 h1
-      /\ HyperStack.modifies_ref (frameOf b) (TSet.empty) h0 h1
+      /\ HyperStack.modifies_ref (frameOf b) (Set.empty) h0 h1
       /\ (FStar.HyperStack.(Map.domain h0.h == Map.domain h1.h)))
 
 (** Prints: "got error code %d" where %d is the first argument *)
