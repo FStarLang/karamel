@@ -156,7 +156,7 @@ Supported options:|}
     (* Controlling the behavior of KreMLin *)
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";
     "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " group modules into a single C translation unit (see above)";
-    "-drop", Arg.String (fun s -> prepend Options.drop (Utils.parse Parser.drop s)), "  do not extract Code for this module (see above)";
+    "-drop", Arg.String (fun s -> List.iter (prepend Options.drop) (Utils.parse Parser.drop s)), "  do not extract Code for this module (see above)";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to every generated file";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
     "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";
