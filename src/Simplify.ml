@@ -67,39 +67,34 @@ let safe_substitution es e t =
   let es = List.rev es in
   nest bs t (DeBruijn.subst_n e es)
 
+
 (* Count the number of occurrences of each variable ***************************)
 
-let rec is_pure e =
-  match e.node with
-  | EAny | EUnit
-  | EBound _ | EOpen _
-  | EConstant _ -> true
-  | EField (e, _)
-  | ECast (e, _) -> is_pure e
-  | _ -> false
-
-let rec push_to_leaves f e =
+(* Descend into a terminal position, then call [f] on the sub-term in terminal
+ * position. This function is only safe to call if all binders have been opened. *)
+let rec nest_in_return_pos f e =
   match e.node with
   | ELet (b, e1, e2) ->
-      with_type e.typ (ELet (b, e1, push_to_leaves f e2))
+      let e2 = nest_in_return_pos f e2 in
+      { node = ELet (b, e1, e2); typ = TUnit }
   | EIfThenElse (e1, e2, e3) ->
-      with_type e.typ (EIfThenElse (e1, push_to_leaves f e2, push_to_leaves f e3))
-  | ESwitch (e1, branches) ->
-      with_type e.typ (ESwitch (e1, List.map (fun (t, e) -> t, push_to_leaves f e) branches))
+      let e2 = nest_in_return_pos f e2 in
+      let e3 = nest_in_return_pos f e3 in
+      { node = EIfThenElse (e1, e2, e3); typ = TUnit }
+  | ESwitch (e, branches) ->
+      let branches = List.map (fun (t, e) ->
+        t, nest_in_return_pos f e
+      ) branches in
+      { node = ESwitch (e, branches); typ = TUnit }
   | EMatch (e, branches) ->
-      with_type e.typ (EMatch (e, List.map (fun (bs, pat, e) -> bs, pat, push_to_leaves f e) branches))
+      let branches = List.map (fun (bs, pat, e) ->
+        bs, pat, nest_in_return_pos f e
+      ) branches in
+      { node = EMatch (e, branches); typ = TUnit }
   | _ ->
       f e
 
-let rec strip_cast e =
-  match e.node with
-  | ECast (e, _) ->
-      strip_cast e
-  | _ ->
-      e
-
-let push_ignore = push_to_leaves (fun e -> with_type TUnit (EIgnore (strip_cast e)))
-
+let push_ignore = nest_in_return_pos (fun e -> with_type TUnit (EIgnore (strip_cast e)))
 
 let count_use = object (self)
 
@@ -119,7 +114,7 @@ let count_use = object (self)
     let e1 = self#visit env e1 in
     let env = self#extend env b in
     let e2 = self#visit env e2 in
-    if !(b.node.mark) = 0 && is_pure e1 then
+    if !(b.node.mark) = 0 && is_value e1 then
       (snd (open_binder b e2)).node
     else if !(b.node.mark) = 0 then
       if e1.typ = TUnit then
@@ -264,6 +259,9 @@ let sequence_to_let = object (self)
     | [] ->
         failwith "[sequence_to_let]: impossible (empty sequence)"
 
+  method! eignore () t e =
+    (nest_in_return_pos (fun e -> with_type t (EIgnore (self#visit () e))) e).node
+
 end
 
 let let_to_sequence = object (self)
@@ -294,25 +292,6 @@ let let_to_sequence = object (self)
         ELet (b, e1, e2)
 
 end
-
-(* Descend into a terminal position, then call [f] on the sub-term in terminal
- * position. This function is only safe to call if all binders have been opened. *)
-let rec nest_in_return_pos f e =
-  match e.node with
-  | ELet (b, e1, e2) ->
-      let e2 = nest_in_return_pos f e2 in
-      { node = ELet (b, e1, e2); typ = TUnit }
-  | EIfThenElse (e1, e2, e3) ->
-      let e2 = nest_in_return_pos f e2 in
-      let e3 = nest_in_return_pos f e3 in
-      { node = EIfThenElse (e1, e2, e3); typ = TUnit }
-  | ESwitch (e, branches) ->
-      let branches = List.map (fun (t, e) ->
-        t, nest_in_return_pos f e
-      ) branches in
-      { node = ESwitch (e, branches); typ = TUnit }
-  | _ ->
-      f e
 
 let mark_mut b =
   { b with node = { b.node with mut = true }}
@@ -760,7 +739,7 @@ let rec fixup_return_pos e =
       (fixup_return_pos e).node
   | ELet (_, ({ node = (EIfThenElse _ | ESwitch _); _ } as e),
     { node = ECast ({ node = EBound 0; _ }, t); _ }) ->
-      (push_to_leaves (fun e -> with_type t (ECast (e, t))) (fixup_return_pos e)).node
+      (nest_in_return_pos (fun e -> with_type t (ECast (e, t))) (fixup_return_pos e)).node
   | EIfThenElse (e1, e2, e3) ->
       EIfThenElse (e1, fixup_return_pos e2, fixup_return_pos e3)
   | ESwitch (e1, branches) ->

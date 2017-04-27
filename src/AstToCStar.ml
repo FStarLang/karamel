@@ -371,6 +371,7 @@ and mk_stmts env e ret_type =
         if is_value e then
           env, acc
         else
+          let e = strip_cast e in
           let s =
             match e.typ with
             | TUnit ->

@@ -265,6 +265,13 @@ let rec is_value (e: expr) =
   | EWhile _ ->
       false
 
+let rec strip_cast e =
+  match e.node with
+  | ECast (e, _) ->
+      strip_cast e
+  | _ ->
+      e
+
 let fold_arrow ts t_ret =
   List.fold_right (fun t arr -> TArrow (t, arr)) ts t_ret
 
