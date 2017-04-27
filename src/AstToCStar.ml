@@ -368,14 +368,17 @@ and mk_stmts env e ret_type =
         env, CStar.Comment s' :: stmts
 
     | EIgnore e ->
-        let s =
-          match e.typ with
-          | TUnit ->
-              CStar.Ignore (mk_expr env true e)
-          | _ ->
-              CStar.Ignore (CStar.Cast (mk_expr env true e, CStar.Void))
-        in
-        env, s :: acc
+        if is_value e then
+          env, acc
+        else
+          let s =
+            match e.typ with
+            | TUnit ->
+                CStar.Ignore (mk_expr env true e)
+            | _ ->
+                CStar.Ignore (CStar.Cast (mk_expr env true e, CStar.Void))
+          in
+          env, s :: acc
 
     | _ when return_pos ->
         mk_as_return env e acc

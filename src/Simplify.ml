@@ -758,6 +758,9 @@ let rec fixup_return_pos e =
   with_type e.typ (match e.node with
   | ELet (_, ({ node = (EIfThenElse _ | ESwitch _); _ } as e), { node = EBound 0; _ }) ->
       (fixup_return_pos e).node
+  | ELet (_, ({ node = (EIfThenElse _ | ESwitch _); _ } as e),
+    { node = ECast ({ node = EBound 0; _ }, t); _ }) ->
+      (push_to_leaves (fun e -> with_type t (ECast (e, t))) (fixup_return_pos e)).node
   | EIfThenElse (e1, e2, e3) ->
       EIfThenElse (e1, fixup_return_pos e2, fixup_return_pos e3)
   | ESwitch (e1, branches) ->
@@ -1193,6 +1196,7 @@ let simplify2 (files: file list): file list =
   let files = visit_files () hoist files in
   let files = visit_files () hoist_bufcreate files in
   let files = visit_files () fixup_hoist files in
+  let files = visit_files [] count_use files in
   let files = visit_files () let_if_to_assign files in
   let files = visit_files () let_to_sequence files in
   files
