@@ -264,7 +264,7 @@ let run_fstar verify skip_extract files =
     let args =
       "--odir" :: !Options.tmpdir ::
       "--codegen" :: "Kremlin" ::
-      "--lax" :: !fstar_options @ files
+      "--lax" :: args
     in
     flush stdout;
     mk_tmpdir_if ();
