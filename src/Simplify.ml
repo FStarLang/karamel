@@ -172,7 +172,9 @@ let remove_unused_parameters map = object (self)
   method eapp () t e es =
     let es = List.map (self#visit ()) es in
     match e.node with
-    | EQualified lid when Hashtbl.mem map lid ->
+    | EQualified lid when
+      Hashtbl.mem map lid &&
+      List.length (Hashtbl.find map lid) = List.length (snd (flatten_arrow e.typ)) ->
         let e =
           let t, ts = flatten_arrow e.typ in
           let ts = KList.filter_mask (List.map not (Hashtbl.find map lid)) ts in
