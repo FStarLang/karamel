@@ -251,7 +251,7 @@ let run_fstar verify skip_extract files =
   detect_fstar_if ();
 
   KPrint.bprintf "%s⚡ Calling F*%s\n" Ansi.blue Ansi.reset;
-  let args = List.rev !Options.fsopts @ !fstar_options @ files in
+  let args = List.rev !Options.fsopts @ !fstar_options @ List.rev files in
   if verify then begin
     flush stdout;
     if not (run_or_warn "[F*,verify]" !fstar args) then
