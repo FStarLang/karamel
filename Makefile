@@ -1,3 +1,5 @@
+include $(shell ocamlfind query visitors)/Makefile.preprocess
+
 .PHONY: all tags clean test
 
 OCAMLBUILD=ocamlbuild -I src -I lib -I parser -use-menhir -use-ocamlfind -classic-display \

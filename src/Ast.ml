@@ -6,9 +6,25 @@
 module K = Constant
 open Common
 
-type program =
+type calling_convention' = calling_convention
+type atom_t' = Atom.t
+type flag' = flag
+type op' = K.op
+type width' = K.width
+type lifetime' = lifetime
+type constant' = K.t
+
+type calling_convention = calling_convention' [@ opaque]
+and atom_t = atom_t' [@ opaque]
+and flag = flag' [@ opaque]
+and op = op' [@ opaque]
+and width = width' [@ opaque]
+and lifetime = lifetime' [@ opaque]
+and constant = constant' [@ opaque]
+
+and program =
   decl list
-  [@@deriving show]
+  [@@deriving show, visitors { variety = "iter"; monomorphic = [ "env" ] }]
 
 and file =
   string * program
@@ -37,12 +53,12 @@ and branches_t =
 
 and expr' =
   | EBound of var
-  | EOpen of ident * Atom.t
+  | EOpen of ident * atom_t
     (** [ident] for debugging purposes only *)
 
-  | EOp of K.op * K.width
+  | EOp of op * width
   | EQualified of lident
-  | EConstant of K.t
+  | EConstant of constant
   | EUnit
   | EBool of bool
   | EString of string
@@ -131,7 +147,7 @@ and pattern' =
   | PUnit
   | PBool of bool
   | PBound of var
-  | POpen of ident * Atom.t
+  | POpen of ident * atom_t
   | PCons of ident * pattern list
   | PEnum of lident
   | PTuple of pattern list
@@ -149,7 +165,7 @@ and binder' = {
   mut: bool;
   mark: int ref;
   meta: meta option;
-  atom: Atom.t;
+  atom: atom_t;
     (** Only makes sense when opened! *)
 }
 
@@ -174,7 +190,7 @@ and typ =
        * not appear! *)
   | TBuf of typ
       (** a buffer in the Low* sense *)
-  | TArray of typ * K.t
+  | TArray of typ * constant
       (** appears when we start hoisting buffer definitions to their enclosing
        * push frame *)
   | TQualified of lident
