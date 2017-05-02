@@ -13,6 +13,7 @@ type type_spec =
   | Union of ident option * declaration list
   | Enum of ident option * ident list
     (** not encoding all the invariants here *)
+  [@@deriving show]
 
 and storage_spec =
   | Typedef
@@ -48,12 +49,12 @@ and expr =
   | Constant of K.t
   | Bool of bool
   | Sizeof of expr
-  | SizeofT of type_name
   | CompoundLiteral of type_name * init list
   | MemberAccess of expr * ident
   | MemberAccessPointer of expr * ident
   | InlineComment of string * expr * string
-    (** note: this is not in the C grammar *)
+  | Type of type_name
+    (** note: these two not in the C grammar *)
 
 (** this is a WILD approximation of the notion of "type name" in C _and_ a hack
  * because there's the invariant that the ident found at the bottom of the

@@ -5,8 +5,8 @@ The KreMLin manual
 
 To successfully mix hand-written C code and F* code, the recommended workflow
 is:
-- model your C functions at the F* level using a `Stubs.fst` file (not an
-  `.fsti`) and run `krml -skip-compilation Stubs.fst` to check that the
+- model your C functions at the F* level using a `Stubs.fst` or `Stubs.fsti`
+  file and run `krml -skip-compilation Stubs.fst` to check that the
   generated .h file matches what you're about to provide;
 - write other `.fst` files against `Stubs.fst`; extract with `krml -drop Stubs
   stubs.c` or `krml -drop Stubs -ccopt -lstubs`.
@@ -61,8 +61,7 @@ for more information.
 
 The KreMLin extraction pipeline of F\* now supports custom attributes. The
 `"substitute"` attribute means that KreMLin (not F\*!) will *always*,
-*everywhere*, replace any call to `f x` with its body `x * x`. Notes that
-KreMLin will not even emit a declaration for your function.
+*everywhere*, replace any call to `f x` with its body `x * x`.
 
 ```
 [@ "substitute" ]

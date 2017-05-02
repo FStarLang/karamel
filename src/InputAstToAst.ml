@@ -23,14 +23,14 @@ let rec binders_of_pat p =
       []
 
 let rec mk_decl = function
-  | I.DFunction (cc, flags, t, name, binders, body) ->
+  | I.DFunction (cc, flags, n, t, name, binders, body) ->
       let body =
         if List.exists ((=) NoExtract) flags then
           with_type TAny EAbort
         else
           mk_expr body
       in
-      DFunction (cc, flags, mk_typ t, name, mk_binders binders, body)
+      DFunction (cc, flags, n, mk_typ t, name, mk_binders binders, body)
   | I.DTypeAlias (name, n, t) ->
       DType (name, n, Abbrev (mk_typ t))
   | I.DGlobal (flags, name, t, e) ->
@@ -146,6 +146,8 @@ and mk_expr = function
       mk (ETuple (List.map mk_expr es))
   | I.ECons (lid, id, es) ->
       { node = ECons (id, List.map mk_expr es); typ = mk_typ lid }
+  | I.EFun (bs, e) ->
+      mk (EFun (mk_binders bs, mk_expr e))
 
 and mk_branches branches =
   List.map mk_branch branches

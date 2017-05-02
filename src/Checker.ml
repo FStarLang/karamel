@@ -10,7 +10,32 @@ open Constant
 open Location
 open PrintAst.Ops
 
+let buf_any_msg = format_of_string {|
+This subexpression creates a buffer with an unknown type:
+  %a
+
+Here's a hint. If you're using untagged unions, instead of:
+
+  match e with
+  | Foo ->
+      Buffer.create e1 l1
+  | Bar ->
+      Buffer.create e2 l2
+
+where e1: t1 and e2: t2, try:
+
+  match e with
+  | Foo ->
+      let b: Buffer.buffer t1 = Buffer.create e1 l1 in
+      b
+  | Bar ->
+      let b: Buffer.buffer t2 = Buffer.create e2 l2 in
+      b
+|}
+
 (** Environments ------------------------------------------------------------ *)
+
+exception UnboundLid of lident
 
 module M = Map.Make(struct
   type t = lident
@@ -48,7 +73,7 @@ let find env i =
 let lookup_type env lid =
   match M.find lid env.types with
   | exception Not_found ->
-      fatal_error "[Checker.lookup_type] internal error %a not found" plid lid
+      raise (UnboundLid lid)
   | x ->
       x
 
@@ -87,7 +112,8 @@ let populate_env files =
           { env with types = M.add lid typ env.types }
       | DGlobal (_, lid, t, _) ->
           { env with globals = M.add lid t env.globals }
-      | DFunction (_, _, ret, lid, binders, _) ->
+      | DFunction (_, _, n, ret, lid, binders, _) ->
+          assert (n = 0);
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
       | DExternal (_, lid, typ) ->
@@ -139,33 +165,63 @@ let rec is_constant e =
   | _ ->
       false
 
-let rec check_everything ?warn files =
+let rec check_everything ?warn files: bool * file list =
   let env = populate_env files in
   let env = match warn with Some true -> { env with warn = true } | _ -> env in
-  KList.filter_map (fun p ->
+  let r = ref false in
+  !r, List.map (check_program env r) files
+
+and check_program env r (name, decls) =
+  let env = locate env (File name) in
+  let by_lid = Hashtbl.create 41 in
+  let decls = KList.filter_map (fun d ->
     try
-      check_program env p;
-      Some p
+      check_decl env d;
+      Some d
     with
     | Error e ->
+        r := true;
         Warnings.maybe_fatal_error e;
-        KPrint.beprintf "Dropping %s (at checking time)\n\n" (fst p);
+        KPrint.beprintf "Dropping %a (at checking time)\n\n" plid (lid_of_decl d);
         None
+
+    | UnboundLid lid ->
+        r := true;
+        begin try
+          Hashtbl.add by_lid lid (lid_of_decl d :: Hashtbl.find by_lid lid);
+        with Not_found ->
+          Hashtbl.add by_lid lid [ lid_of_decl d ];
+        end;
+        None
+
     | e ->
+        r := true;
         let e = Printexc.to_string e in
         Warnings.maybe_fatal_error ("<toplevel>", TypeError e);
         Printexc.print_backtrace stderr;
-        KPrint.beprintf "Dropping %s (at checking time)\n\n" (fst p);
+        KPrint.beprintf "Dropping %a (at checking time)\n\n" plid (lid_of_decl d);
         None
-  ) files
+  ) decls in
 
-and check_program env (name, decls) =
-  let env = locate env (File name) in
-  List.iter (check_decl env) decls
+  (* Some concise, well-behaved error reporting. *)
+  Hashtbl.iter (fun lid decl_lids ->
+    let open PPrint in
+    let open PrintCommon in
+    let mentions = if List.length decl_lids > 1 then string "mention" else string "mentions" in
+    KPrint.beprintf "Warning: %a\n" pdoc (
+      english_join (List.map print_lident decl_lids) ^/^ mentions ^/^
+      print_lident lid ^/^
+      flow break1 (words "meaning that they cannot be type-checked by KreMLin")
+    )
+  ) by_lid;
+
+  name, decls
+
 
 and check_decl env d =
   match d with
-  | DFunction (_, _, t, name, binders, body) ->
+  | DFunction (_, _, n, t, name, binders, body) ->
+      assert (n = 0);
       let env = List.fold_left push env binders in
       let env = locate env (InTop name) in
       check env t body
@@ -209,6 +265,8 @@ and check' env t e =
   | EEnum _
   | EField _
   | EString _
+  | EFun _
+  | EFor _
   | EApp _ ->
       c (infer env e)
 
@@ -242,6 +300,8 @@ and check' env t e =
         Warnings.(maybe_fatal_error (loc, Vla e))
       end;
       let t = assert_buffer env t in
+      if t = TAny then
+        type_error env buf_any_msg ppexpr e;
       check env t e1;
       check env uint32 e2;
       c (best_buffer_type t e2)
@@ -288,6 +348,13 @@ and check' env t e =
       (** The typing rules of matches and constructors are always nominal;
        * structural types appear through simplification phases, which also
        * remove matches in favor of switches or conditionals. *)
+      begin match expand_abbrev env t with
+      | TQualified lid
+      | TApp (lid, _) ->
+          ignore (assert_variant env (lookup_type env lid))
+      | _ ->
+          ()
+      end;
       let ts' = args_of_branch env t ident in
       List.iter2 (check env) ts' exprs
 
@@ -302,15 +369,15 @@ and check' env t e =
        * the context demands it) or structurally (default). TODO just type
        * structurally, and let the subtyping relation do the rest? *)
       let check_fields fieldexprs fieldtyps =
-        if List.length fieldexprs <> List.length fieldtyps then
-          type_error env "some fields are either missing or superfluous";
+        if List.length fieldexprs > List.length fieldtyps then
+          type_error env "some fields are superfluous";
         List.iter (fun (field, expr) ->
           let field = Option.must field in
           let t, _ = KList.assoc_opt field fieldtyps in
           check env t expr
         ) fieldexprs
       in
-      begin match t with
+      begin match expand_abbrev env t with
       | TQualified lid ->
           let fieldtyps = assert_flat env (lookup_type env lid) in
           check_fields fieldexprs fieldtyps
@@ -330,6 +397,8 @@ and check' env t e =
               with Not_found ->
                 type_error env "Union does not have such a field"
               end
+          | [ None, { node = EConstant (_, "0"); _ } ] ->
+              ()
           | _ ->
               type_error env "Union expected, i.e. exactly one provided field";
           end
@@ -358,6 +427,10 @@ and check' env t e =
       | t ->
           type_error env "cannot switch on element of type %a" ptyp t
       end
+
+  | EAddrOf e ->
+      let t = infer env e in
+      c (TBuf t)
 
 and args_of_branch env t ident =
   match expand_abbrev env t with
@@ -536,6 +609,13 @@ and infer' env e =
       TTuple (List.map (infer env) es)
 
   | ECons _ ->
+      begin match expand_abbrev env e.typ with
+      | TQualified lid
+      | TApp (lid, _) ->
+          ignore (assert_variant env (lookup_type env lid))
+      | _ ->
+          ()
+      end;
       (* Preserve the provided type annotation that (hopefully) was there in the
        * first place. *)
       e.typ
@@ -599,6 +679,23 @@ and infer' env e =
 
   | EComment (_, e, _) ->
       infer env e
+
+  | EFun (binders, e) ->
+      let env = List.fold_left push env binders in
+      let t = infer env e in
+      List.fold_right (fun binder t -> TArrow (binder.typ, t)) binders t
+
+  | EFor (binder, e1, e2, e3, e4) ->
+      let t = check_or_infer (locate env (In binder.node.name)) binder.typ e1 in
+      binder.typ <- t;
+      let env = push env binder in
+      check (locate env ForCond) TBool e2;
+      check (locate env ForIter) TUnit e3;
+      check (locate env For) TUnit e4;
+      TUnit
+
+  | EAddrOf e ->
+      TBuf (infer env e)
 
 and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
   fun env f l ->
@@ -739,12 +836,19 @@ and assert_tuple env t =
   | _ ->
       type_error env "%a is not a tuple type" ptyp t
 
+and assert_variant env t =
+  match t with
+  | Variant def ->
+      def
+  | _ ->
+      fatal_error "%a, this is not a variant definition: %a" ploc env.location pdef t
+
 and assert_flat env t =
   match t with
   | Flat def ->
       def
   | _ ->
-      fatal_error "%a, this is not a record definition" ploc env.location
+      fatal_error "%a, %a is not a record definition" ploc env.location pdef t
 
 and assert_qualified env t =
   match expand_abbrev env t with
@@ -818,10 +922,17 @@ and subtype env t1 t2 =
       List.length ts1 = List.length ts2 &&
       List.for_all2 (subtype env) ts1 ts2
 
-  (* TODO TApp case *)
   | TAnonymous ((Enum _ | Union _ | Flat _)), TQualified lid ->
       begin try
         subtype env t1 (TAnonymous (M.find lid env.types))
+      with Not_found ->
+        false
+      end
+
+  | TAnonymous ((Enum _ | Union _ | Flat _)), TApp (lid, targs) ->
+      begin try
+        let t2 = DeBruijn.subst_tn (TAnonymous (M.find lid env.types)) targs in
+        subtype env t1 t2
       with Not_found ->
         false
       end

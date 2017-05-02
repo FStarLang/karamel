@@ -11,7 +11,8 @@ all: standalone extra
 standalone: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
   Private.exe ML16.exe Abbrev.exe TSet.exe Tuples.exe \
   DataTypesSimple.exe DataTypes.exe Parameterized.exe \
-  Scope.exe Attributes.exe Unsound.exe
+  Scope.exe Attributes.exe Unsound.exe Substitute.exe \
+  InlineTest.exe Ghost1.exe Loops.exe Structs.exe
 
 extra: Crypto.Symmetric.Chacha20.exe
 

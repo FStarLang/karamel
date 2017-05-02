@@ -67,8 +67,9 @@ and prec_of_op2 op =
   | BOr -> 10, 10, 10
   | BAnd -> 8, 8, 8
   | BXor | Xor -> 9, 9, 9
-  | BShiftL -> 5, 5, 4
-  | BShiftR -> 5, 5, 4
+  | BShiftL | BShiftR ->
+      (* Force parentheses for the operands of shifts. *)
+      if !Options.parentheses then 5, 0, 0 else 5, 5, 4
   | Eq | Neq -> 7, 7, 7
   | Lt | Lte | Gt | Gte -> 6, 6, 5
   | And -> 11, 11, 11
@@ -136,8 +137,8 @@ and p_expr' curr = function
       let e = group (p_expr' right e) in
       let t = p_type_name t in
       paren_if curr mine (lparen ^^ t ^^ rparen ^^ e)
-  | SizeofT t ->
-      string "sizeof" ^^ space ^^ group (lparen ^^ p_type_name t ^^ rparen)
+  | Type t ->
+      p_type_name t
   | Sizeof e ->
       let mine, right = 2, 2 in
       let e = p_expr' right e in
@@ -151,11 +152,10 @@ and p_expr' curr = function
   | Bool b ->
       string (string_of_bool b)
   | CompoundLiteral (t, init) ->
-      (* NOTE: http://en.cppreference.com/w/c/language/operator_precedence
-       * claims this is at level 3 but clang parses:
-       * &(foo){ ... } with an error... *)
-      let mine = 3 in
-      paren_if curr mine (
+      (* NOTE: always parenthesize compound literal no matter what, because GCC
+       * parses an application of a function to a compound literal as an n-ary
+       * application. *)
+      parens_with_nesting (
         lparen ^^ p_type_name t ^^ rparen ^^
         braces_with_nesting (separate_map (comma ^^ break1) p_init init)
       )
@@ -214,9 +214,36 @@ let nest_if f stmt =
   | _ ->
       nest 2 (hardline ^^ f stmt)
 
+(* A note on the classic dangling else problem. Remember that this is how things
+ * are parsed (note the indentation):
+ *
+ * if (foo)
+ *   if (bar)
+ *     ...
+ *   else
+ *     ...
+ *
+ * And remember that this needs braces:
+ *
+ * if (foo) {
+ *   if (bar)
+ *     ...
+ * } else
+ *   ...
+ *
+ * [protect_solo_if] adds braces to the latter case. However, GCC, unless
+ * -Wnoparentheses is give, will produce a warning for the former case.
+ * [protect_ite_if_needed] adds braces to the former case, when the user has
+ * requested the extra, unnecessary parentheses needed to silence -Wparentheses.
+ * *)
 let protect_solo_if s =
   match s with
   | If _ -> Compound [ s ]
+  | _ -> s
+
+let protect_ite_if_needed s =
+  match s with
+  | IfElse _ when !Options.parentheses -> Compound [ s ]
   | _ -> s
 
 let rec p_stmt (s: stmt) =
@@ -237,7 +264,7 @@ let rec p_stmt (s: stmt) =
       ) ^^ rparen) ^^ nest_if p_stmt stmt
   | If (e, stmt) ->
       group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^^
-      nest_if p_stmt stmt
+      nest_if p_stmt (protect_ite_if_needed stmt)
   | IfElse (e, s1, s2) ->
       group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^^
       nest_if p_stmt (protect_solo_if s1) ^^ hardline ^^

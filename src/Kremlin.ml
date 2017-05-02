@@ -9,6 +9,7 @@ let _ =
   let arg_print_c = ref false in
   let arg_print_wasm = ref false in
   let arg_skip_extraction = ref false in
+  let arg_skip_translation = ref false in
   let arg_skip_compilation = ref false in
   let arg_skip_linking = ref false in
   let arg_verify = ref false in
@@ -18,6 +19,7 @@ let _ =
   let o_files = ref [] in
   let fst_files = ref [] in
   let filename = ref "" in
+  let p k = String.concat " " (Array.to_list (List.assoc k (Options.default_options ()))) in
   let usage = Printf.sprintf
 {|KreMLin: from a ML-like subset to C
 
@@ -37,6 +39,7 @@ High-level description:
      [.o] files obtained at step 4. to obtain a final executable.
 
 The [-skip-extraction] option stops KreMLin after step 1.
+The [-skip-translation] option stops KreMLin after step 2.
 The [-skip-compilation] option stops KreMLin after step 3.
 The [-skip-linking] option stops KreMLin after step 4.
 
@@ -54,6 +57,7 @@ The default is %s and the available warnings are:
   5: type definition contains an application of an undefined type abbreviation
   6: variable-length array
   7: private F* function cannot be marked as C static
+  8: C inline function reference across translation units
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
 where the Api= part is optional and a pattern is either Foo.Bar (exact match) or
@@ -76,6 +80,13 @@ All include directories and paths supports two special prefixes:
     checkout of F* is (this does not always exist, e.g. in the case of an OPAM
     setup).
 
+The compiler switches turn on the following options.
+  [-cc gcc] (default) adds [%s]
+  [-cc clang] adds [%s]
+  [-cc g++] adds [%s]
+  [-cc msvc] adds [%s]
+  [-cc compcert] adds [%s]
+
 Supported options:|}
     Sys.argv.(0)
     !Options.warn_error
@@ -84,6 +95,11 @@ Supported options:|}
     ) !Options.bundle @ KList.map_flatten (fun p ->
       [ "-drop"; Bundle.string_of_pat p ]
     ) !Options.drop))
+    (p "gcc")
+    (p "clang")
+    (p "g++")
+    (p "msvc")
+    (p "compcert")
   in
   let found_file = ref false in
   let prepend r = fun s -> r := s :: !r in
@@ -92,7 +108,7 @@ Supported options:|}
   in
   let spec = [
     (* KreMLin as a driver *)
-    "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), compcert, g++, clang";
+    "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), compcert, g++, clang, msvc";
     "-m32", Arg.Set Options.m32, " turn on 32-bit cross-compiling";
     "-fsopt", Arg.String (prepend Options.fsopts), " option to pass to F* (use -fsopts to pass a comma-separated list of values)";
     "-fsopts", Arg.String (csv (prepend Options.fsopts)), "";
@@ -101,6 +117,7 @@ Supported options:|}
     "-ldopt", Arg.String (prepend Options.ldopts), " option to pass to the C linker (use -ldopts to pass a comma-separated list of values)";
     "-ldopts", Arg.String (csv (prepend Options.ldopts)), "";
     "-skip-extraction", Arg.Set arg_skip_extraction, " stop after step 1.";
+    "-skip-translation", Arg.Set arg_skip_translation, " stop after step 2.";
     "-skip-compilation", Arg.Set arg_skip_compilation, " stop after step 3.";
     "-skip-linking", Arg.Set arg_skip_linking, " stop after step 4.";
     "-verify", Arg.Set arg_verify, " ask F* to verify the program";
@@ -111,12 +128,17 @@ Supported options:|}
     (* Controlling the behavior of KreMLin *)
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";
     "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " group modules into a single C translation unit (see above)";
-    "-drop", Arg.String (fun s -> prepend Options.drop (Utils.parse Parser.drop s)), "  do not extract Code for this module (see above)";
+    "-drop", Arg.String (fun s -> List.iter (prepend Options.drop) (Utils.parse Parser.drop s)), "  do not extract Code for this module (see above)";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to every generated file";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
     "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";
     "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
     "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are fatal / warnings / silent (default: " ^ !Options.warn_error ^")";
+    "-fnostruct-passing", Arg.Clear Options.struct_passing, "  disable passing structures by value and use pointers instead";
+    "-fnoanonymous-unions", Arg.Clear Options.anonymous_unions, "  disable C11 anonymous unions";
+    "-fnouint128", Arg.Clear Options.uint128, "  don't assume a built-in type __uint128";
+    "-funroll-loops", Arg.Set_int Options.unroll_loops, "  textually expand loops smaller than N";
+    "-fparentheses", Arg.Set Options.parentheses, "  add unnecessary parentheses to silence GCC and Clang's -Wparentheses";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
@@ -131,7 +153,7 @@ Supported options:|}
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
   let spec = Arg.align spec in
-  Arg.parse spec (fun f ->
+  let anon_fun f =
     if Filename.check_suffix f ".fst" then
       fst_files := f :: !fst_files
     else if List.exists (Filename.check_suffix f) [ ".o"; ".S"; ".a" ] then
@@ -145,7 +167,8 @@ Supported options:|}
     end else
       Warnings.fatal_error "Unknown file extension for %s\n" f;
     found_file := true
-  ) usage;
+  in
+  Arg.parse spec anon_fun usage;
 
   if not !found_file ||
      List.length !fst_files = 0 && !filename = "" ||
@@ -158,6 +181,11 @@ Supported options:|}
   (* First enable the default warn-error string. *)
   Warnings.parse_warn_error !Options.warn_error;
 
+  (* Then, bring in the "default options" for each compiler. *)
+  Arg.parse_argv ~current:(ref 0)
+    (Array.append [| Sys.argv.(0) |] (List.assoc !Options.cc (Options.default_options ())))
+    spec anon_fun usage;
+
   (* Then refine that based on the user's preferences. *)
   if !arg_warn_error <> "" then
     Warnings.parse_warn_error !arg_warn_error;
@@ -165,7 +193,7 @@ Supported options:|}
   (* Shall we run F* first? *)
   let filename =
     if List.length !fst_files > 0 then
-      Driver.run_fstar !arg_verify !arg_skip_extraction !fst_files
+      Driver.run_fstar !arg_verify !arg_skip_extraction !arg_skip_translation !fst_files
     else
       !filename
   in
@@ -186,27 +214,29 @@ Supported options:|}
     Yojson.Safe.to_channel stdout (InputAst.binary_format_to_yojson (InputAst.current_version, files));
 
   (* -dast *)
-  let files = Builtin.prims :: InputAstToAst.mk_files files in
+  let files = Builtin.prelude @ InputAstToAst.mk_files files in
   if !arg_print_ast then
     print PrintAst.print_files files;
 
   (* The first check can only occur after type abbreviations have been inlined,
    * and type abbreviations we don't know about have been replaced by TAny.
    * Otherwise, the checker is too stringent and will drop files. *)
-  let l = List.length files in
   let files = DataTypes.drop_match_cast files in
-  let files = Checker.check_everything ~warn:true files in
+  let files = Inlining.inline_combinators files in
+  let files = Inlining.drop_polymorphic_functions files in
+  let has_errors, files = Checker.check_everything ~warn:true files in
 
   (* Make sure implementors that target Kremlin can tell apart their bugs vs.
    * mine *)
   flush stderr;
-  if List.length files = l then
+  if not has_errors then
     KPrint.bprintf "%s✔%s Input file successfully checked\n" Ansi.green Ansi.reset
   else
-    KPrint.bprintf "%s⚠%s Dropped some files while checking\n" Ansi.orange Ansi.reset;
+    KPrint.bprintf "%s⚠%s Dropped some declarations while checking\n" Ansi.orange Ansi.reset;
+  flush stdout;
 
   let files = Bundles.make_bundles files in
-  let files = Checker.check_everything files in
+  let _, files = Checker.check_everything files in
 
   let files = Inlining.inline_type_abbrevs files in
 
@@ -216,7 +246,7 @@ Supported options:|}
     print PrintAst.print_files files;
 
   (* Perform a whole-program rewriting. *)
-  let files = Checker.check_everything files in
+  let _, files = Checker.check_everything files in
   KPrint.bprintf "%s✔%s Pattern compilation successfully checked\n" Ansi.green Ansi.reset;
 
   let files = if !arg_wasm then Simplify.simplify_wasm files else files in
@@ -229,20 +259,23 @@ Supported options:|}
    * after everything has been simplified, but inlining requires a new round of
    * hoisting. *)
   let files = Inlining.inline_function_frames files in
+  let files = if not !Options.struct_passing then Structs.rewrite files else files in
   let files = Simplify.simplify2 files in
   if !arg_print_inline then
     print PrintAst.print_files files;
 
-  let files = Checker.check_everything files in
+  let _, files = Checker.check_everything files in
   KPrint.bprintf "%s✔%s Simplify + inlining successfully checked\n" Ansi.green Ansi.reset;
   (* Do this at the last minute because the checker still needs these type
    * abbreviations to check that our stuff makes sense. *)
-  let files = Inlining.drop_type_abbrevs files in
+  let files = Inlining.drop_type_applications files in
+  (* This must happen AFTER inline_function_frames has removed some illegal
+   * private flags. Otherwise, we may be removing too many things. *)
   let files = Inlining.drop_unused files in
 
   (* This breaks typing. *)
   let files =
-    if !Options.cc <> "compcert" then
+    if !Options.anonymous_unions then
       DataTypes.anonymous_unions datatypes_state files
     else
       files
@@ -257,7 +290,7 @@ Supported options:|}
     (* Note that after bundling, we need to go inside bundles to find top-level
      * names that originate from a module we were meant to drop, and drop
      * individual declarations. *)
-    Inlining.filter_decls (fun d ->
+    Ast.filter_decls (fun d ->
       let f = String.concat "_" (fst (Ast.lid_of_decl d)) in
       if should_drop f then
         None

@@ -91,3 +91,6 @@ let split_at i l =
 let split_at_last l =
   let l = List.rev l in
   List.rev (List.tl l), List.hd l
+
+let last l =
+  List.hd (List.rev l)

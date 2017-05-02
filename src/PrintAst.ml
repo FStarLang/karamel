@@ -10,13 +10,6 @@ open Common
 let arrow = string "->"
 let lambda = fancystring "λ" 1
 
-let decl_name (d: decl) =
-  match d with
-  | DFunction (_, _, _,lid,_,_)
-  | DType (lid,_,_)
-  | DGlobal (_, lid,_,_)
-  | DExternal (_, lid,_) -> lid
-
 let print_app f head g arguments =
   group (
     f head ^^ jump (
@@ -25,9 +18,11 @@ let print_app f head g arguments =
   )
 
 let rec print_decl = function
-  | DFunction (cc, flags, typ, name, binders, body) ->
+  | DFunction (cc, flags, n, typ, name, binders, body) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
-      cc ^^ print_flags flags ^^ group (string "function" ^/^ string (string_of_lident name) ^/^ parens_with_nesting (
+      cc ^^ print_flags flags ^^ group (string "function" ^/^ string (string_of_lident name) ^/^
+      langle ^^ int n ^^ rangle ^^
+      parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders
       ) ^^ colon ^/^ print_typ typ) ^/^ braces_with_nesting (
         print_expr body
@@ -137,6 +132,10 @@ and print_lifetime = function
   | Stack -> string "stack"
   | Eternal -> string "eternal"
 
+and print_let_binding (binder, e1) =
+  group (group (string "let" ^/^ print_binder binder ^/^ equals) ^^
+  jump (print_expr e1))
+
 and print_expr { node; _ } =
   match node with
   | EComment (s, e, s') ->
@@ -160,8 +159,7 @@ and print_expr { node; _ } =
   | EApp (e, es) ->
       print_app print_expr e print_expr es
   | ELet (binder, e1, e2) ->
-      group (group (string "let" ^/^ print_binder binder ^/^ equals) ^^
-      jump (print_expr e1) ^/^ string "in") ^/^ group (print_expr e2)
+      group (print_let_binding (binder, e1) ^/^ string "in") ^/^ group (print_expr e2)
   | EIfThenElse (e1, e2, e3) ->
       string "if" ^/^ print_expr e1 ^/^ string "then" ^^
       jump (print_expr e2) ^/^ string "else" ^^
@@ -209,6 +207,12 @@ and print_expr { node; _ } =
   | EWhile (e1, e2) ->
       string "while" ^/^ parens_with_nesting (print_expr e1) ^/^
       braces_with_nesting (print_expr e2)
+  | EFor (binder, e1, e2, e3, e4) ->
+      string "for" ^/^ parens_with_nesting (
+        print_let_binding (binder, e1) ^^
+        semi ^/^
+        separate_map (semi ^^ break1) print_expr [ e2; e3 ]) ^/^
+      braces_with_nesting (print_expr e4)
   | EBufCreateL (l, es) ->
       print_lifetime l ^/^
       string "newbuf" ^/^ braces_with_nesting (separate_map (comma ^^ break1) print_expr es)
@@ -228,6 +232,15 @@ and print_expr { node; _ } =
           string "case" ^^ space ^^ string (string_of_lident lid) ^^ colon ^^
           nest 2 (hardline ^^ print_expr e)
         ) branches)
+  | EFun (binders, body) ->
+      string "fun" ^/^ parens_with_nesting (
+        separate_map (comma ^^ break 1) print_binder binders
+      ) ^/^ braces_with_nesting (
+        print_expr body
+      )
+  | EAddrOf e ->
+      ampersand ^^ print_expr e
+
 
 
 and print_branches branches =
@@ -268,11 +281,23 @@ let print_files = print_files print_decl
 
 module Ops = struct
   let ptyp = printf_of_pprint print_typ
+  let pptyp = printf_of_pprint_pretty print_typ
   let pexpr = printf_of_pprint print_expr
+  let ppexpr = printf_of_pprint_pretty print_expr
   let plid = printf_of_pprint print_lident
-  let pdecl = printf_of_pprint_pretty print_decl
-  let pop = printf_of_pprint_pretty print_op
-  let ppat = printf_of_pprint_pretty print_pat
+  let pplid = printf_of_pprint_pretty print_lident
+  let pdecl = printf_of_pprint print_decl
+  let ppdecl = printf_of_pprint_pretty print_decl
+  let pdef = printf_of_pprint print_type_def
+  let ppdef = printf_of_pprint_pretty print_type_def
+  let pop = printf_of_pprint print_op
+  let ppop = printf_of_pprint_pretty print_op
+  let ppat = printf_of_pprint print_pat
+  let pppat = printf_of_pprint_pretty print_pat
+  let plb = printf_of_pprint print_let_binding
+  let pplb = printf_of_pprint_pretty print_let_binding
+  let plbs buf lbs = List.iter (plb buf) lbs
+  let pplbs buf lbs = List.iter (pplb buf) lbs
 end
 
 include Ops

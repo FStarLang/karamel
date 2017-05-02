@@ -30,8 +30,12 @@ assume val clock: unit -> Stack clock_t
   (requires (fun _ -> true))
   (ensures (fun h0 _ h1 -> modifies_none h0 h1))
 
-assume val exit_success: Int32.t
-assume val exit_failure: Int32.t
+// ADL: using concrete value to use the extracted C.ml
+// without crashing at start
+let exit_success : Int32.t = Int32.int_to_t 0
+let exit_failure : Int32.t = Int32.int_to_t 1
+//assume val exit_success: Int32.t
+//assume val exit_failure: Int32.t
 
 // Note: right now, in Kremlin, the only way to obtain a string is to call
 // C.string_of_literal and pass a constant string literal. There are two ways
@@ -81,6 +85,34 @@ assume val be32toh: UInt32.t -> Tot UInt32.t
 
 assume val htobe64: UInt64.t -> Tot UInt64.t
 assume val be64toh: UInt64.t -> Tot UInt64.t
+
+
+assume val store16_le:
+  b:buffer UInt8.t{length b >= 2} ->
+  z:UInt16.t ->
+  Stack unit
+    (requires (fun h -> Buffer.live h b))
+    (ensures  (fun h0 _ h1 -> modifies_1 b h0 h1 /\ Buffer.live h1 b))
+
+assume val load16_le:
+  b:buffer UInt8.t{length b >= 2} ->
+  Stack UInt16.t
+    (requires (fun h -> Buffer.live h b))
+    (ensures  (fun h0 _ h1 -> h0 == h1))
+
+
+assume val store16_be:
+  b:buffer UInt8.t{length b >= 2} ->
+  z:UInt16.t ->
+  Stack unit
+    (requires (fun h -> Buffer.live h b))
+    (ensures  (fun h0 _ h1 -> modifies_1 b h0 h1 /\ Buffer.live h1 b))
+
+assume val load16_be:
+  b:buffer UInt8.t{length b >= 2} ->
+  Stack UInt16.t
+    (requires (fun h -> Buffer.live h b))
+    (ensures  (fun h0 _ h1 -> h0 == h1))
 
 
 assume val store32_le:
@@ -146,6 +178,20 @@ assume val load128_le:
     (ensures  (fun h0 _ h1 -> h0 == h1))
 
 assume val store128_le:
+  b:buffer UInt8.t{length b = 16} ->
+  z:UInt128.t ->
+  Stack unit
+    (requires (fun h -> Buffer.live h b))
+    (ensures  (fun h0 _ h1 -> modifies_1 b h0 h1 /\ Buffer.live h1 b))
+
+
+assume val load128_be:
+  b:buffer UInt8.t{length b = 16} ->
+  Stack UInt128.t
+    (requires (fun h -> Buffer.live h b))
+    (ensures  (fun h0 _ h1 -> h0 == h1))
+
+assume val store128_be:
   b:buffer UInt8.t{length b = 16} ->
   z:UInt128.t ->
   Stack unit

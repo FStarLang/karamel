@@ -139,7 +139,7 @@ let monomorphize_data_types map = object(self)
 end
 
 let drop_parameterized_data_types =
-  Inlining.filter_decls (function
+  filter_decls (function
     | DType (_, n, (Flat _ | Variant _)) when n > 0 ->
         None
     | d ->
@@ -203,7 +203,7 @@ let try_mk_flat e t branches =
         let bindings = List.map2 (fun b (f, _) ->
           b, with_type b.typ (EField (atom, f))
         ) binders fields in
-        ELet (scrut, e, close_binder scrut (lift 1 (Simplify.nest bindings t body)))
+        ELet (scrut, e, close_binder scrut (Simplify.nest bindings t body))
       else
         EMatch (e, branches)
   | _ ->
@@ -452,10 +452,6 @@ let compile_match env e_scrut branches =
       mk (ELet (b_scrut, e_scrut, close_binder b_scrut (fold_ite branches)))
 
 
-let assert_lid t =
-  (* We only have nominal typing for variants. *)
-  match t with TQualified lid -> lid | _ -> assert false
-
 let assert_branches map lid =
   match Hashtbl.find map lid with
   | ToTaggedUnion branches ->
@@ -467,11 +463,17 @@ let assert_branches map lid =
 let field_names_of_cons cons branches =
   fst (List.split (List.assoc cons branches))
 
+let zero8 =
+  with_type (TInt (K.UInt8)) (EConstant (K.UInt8, "0"))
+
 let tag_and_val_type lid branches =
   let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
-  let structs = List.map (fun (cons, fields) ->
+  let structs = KList.filter_map (fun (cons, fields) ->
     let fields = List.map (fun (f, t) -> Some f, t) fields in
-    union_field_of_cons cons, TAnonymous (Flat fields)
+    if List.length fields > 0 then
+      Some (union_field_of_cons cons, TAnonymous (Flat fields))
+    else
+      None
   ) branches in
   TAnonymous (Enum tags), TAnonymous (Union structs)
 
@@ -498,43 +500,47 @@ let compile_all_matches map = object (self)
   (* A pattern on a constructor becomes a pattern on a struct and one of its
    * union fields. *)
   method pcons env t cons fields =
-    let lid = assert_lid t in
+    let lid = assert_tlid t in
     let branches = assert_branches map lid in
     let field_names = field_names_of_cons cons branches in
     let fields = List.map (self#visit_pattern env) fields in
     let record_pat = PRecord (List.combine field_names fields) in
     let t_tag, t_val = tag_and_val_type lid branches in
-    PRecord [
+    PRecord ([
       (** This is sound because we rely on left-to-right, lazy semantics for
        * pattern-matching. So, we read the "right" field from the union only
        * after we've ascertained that we're in the right case. *)
-      field_for_tag, with_type t_tag (PEnum (mk_tag_lid lid cons));
+      field_for_tag, with_type t_tag (PEnum (mk_tag_lid lid cons))
+    ] @ if List.length fields > 0 then [
       field_for_union, with_type t_val (PRecord [
         union_field_of_cons cons, with_type TAny record_pat
       ])
-    ]
+    ] else [
+    ])
 
   method econs env t cons exprs =
-    let lid = assert_lid t in
+    let lid = assert_tlid t in
     let branches = assert_branches map lid in
     let field_names = field_names_of_cons cons branches in
     let field_names = List.map (fun x -> Some x) field_names in
     let exprs = List.map (self#visit env) exprs in
     let record_expr = EFlat (List.combine field_names exprs) in
     let t_tag, t_val = tag_and_val_type lid branches in
-    EFlat [
-      Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons));
-      Some field_for_union, with_type t_val (EFlat [
-        Some (union_field_of_cons cons), with_type TAny record_expr
-      ])
-    ]
+    EFlat (
+      [ Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons)) ] @
+      if List.length field_names > 0 then [
+        Some field_for_union, with_type t_val (
+          EFlat [ Some (union_field_of_cons cons), with_type TAny record_expr ])]
+      else
+        []
+    )
 
   (* The match transformation is tricky: we open all binders. *)
-  method dfunction env cc flags ret name binders expr =
+  method dfunction env cc flags n ret name binders expr =
     let binders, expr = open_binders binders expr in
     let expr = self#visit env expr in
     let expr = close_binders binders expr in
-    DFunction (cc, flags, ret, name, binders, expr)
+    DFunction (cc, flags, n, ret, name, binders, expr)
 
   method elet env _ binder e1 e2 =
     let e1 = self#visit env e1 in
@@ -628,10 +634,5 @@ let everything files =
   let files = Simplify.visit_files () (compile_all_matches map) files in
   map, files
 
-let anonymous_unions old_map files =
-  (* TODO: not really clean... this is run after C name translation has occured,
-   * but the map was built with original dot-names... so run this through the
-   * translation table using the global state. *)
-  let map = Hashtbl.create 41 in
-  Hashtbl.iter (fun k v -> Hashtbl.add map (Simplify.t k) v) old_map;
+let anonymous_unions map files =
   Simplify.visit_files () (anonymous_unions map) files

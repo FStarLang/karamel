@@ -9,6 +9,18 @@ and width =
   | Int | UInt
     (** For internal use only *)
 
+let bytes_of_width (w: width) =
+  match w with
+  | UInt8 -> 1
+  | UInt16 -> 2
+  | UInt32 -> 4
+  | UInt64 -> 8
+  | Int8 -> 1
+  | Int16 -> 2
+  | Int32 -> 4
+  | Int64 -> 8
+  | _ -> invalid_arg "bytes_of_width"
+
 type op =
   (* Arithmetic operations *)
   | Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
@@ -46,6 +58,10 @@ let without_wrap = function
   | DivW -> Div
   | _ -> raise (Invalid_argument "without_wrap")
 
-let of_int i =
-  assert (i < 256 && i >= 0);
+let uint8_of_int i =
+  assert (i < (1 lsl 8) && i >= 0);
   UInt8, string_of_int i
+
+let uint32_of_int i =
+  assert (i < (1 lsl 32) && i >= 0);
+  UInt32, string_of_int i

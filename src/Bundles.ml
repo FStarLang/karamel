@@ -79,8 +79,8 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
   (* All the declarations that have matched the patterns are marked as private. *)
   let found = List.map (fun (old_name, decls) ->
     old_name, List.map (function 
-      | DFunction (cc, flags, typ, name, binders, body) ->
-          DFunction (cc, Common.Private :: flags, typ, name, binders, body)
+      | DFunction (cc, flags, n, typ, name, binders, body) ->
+          DFunction (cc, Common.Private :: flags, n, typ, name, binders, body)
       | DGlobal (flags, name, typ, body) ->
           DGlobal (Common.Private :: flags, name, typ, body)
       | decl ->
@@ -117,26 +117,6 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
 
 type color = White | Gray | Black
 
-module LidMap = Idents.LidMap
-
-(* Create a map from an lid to the file it now appears in (after bundling).
- * FIXME we should take this as an opportunity to flag bundling errors, i.e.
- * there's a cross-compilation-unit dependency on a function that is defined in
- * several bundles... *)
-let mk_file_of files =
-  let file_of = List.fold_left (fun map (name, decls) ->
-    List.fold_left (fun map decl ->
-      LidMap.add (lid_of_decl decl) name map
-    ) map decls
-  ) LidMap.empty files in
-  let file_of lid =
-    try
-      Some (LidMap.find lid file_of)
-    with Not_found ->
-      None
-  in
-  file_of
-
 type dependency = lident * string * lident * string
 
 let string_of_dependency (d1, f1, d2, f2) =
@@ -154,6 +134,10 @@ let make_bundles files =
     used, bundle :: bundles
   ) (StringMap.empty, []) !Options.bundle in
   let files = List.filter (fun (n, _) -> not (StringMap.mem n used)) files @ bundles in
+
+  (* This is important, because bundling may creates cycles, that are broken
+   * after removing (now-unused) functions. *)
+  let files = Inlining.drop_unused files in
 
   (* We perform a dependency analysis on this set of files to figure out how to
    * order them; this is the creation of the dependency graph. Instead of merely

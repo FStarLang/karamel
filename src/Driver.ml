@@ -3,6 +3,39 @@
 
 open Warnings
 
+module Dash = struct
+  let i dir =
+    if !Options.cc = "msvc" then
+      [ "/I"; dir ]
+    else
+      [ "-I"; dir ]
+
+  let c file =
+    if !Options.cc = "msvc" then
+      [ "/c"; file ]
+    else
+      [ "-c"; file ]
+
+  let d opt =
+    if !Options.cc = "msvc" then
+      "/D" ^ opt
+    else
+      "-D" ^ opt
+
+  let o_obj file =
+    if !Options.cc = "msvc" then
+      [ "/Fo:"; file ]
+    else
+      [ "-o"; file ]
+
+  let o_exe file =
+    if !Options.cc = "msvc" then
+      [ "/Fe:"; file ]
+    else
+      [ "-o"; file ]
+end
+
+
 module P = Process
 (* Note: don't open [Process], otherwise any reference to [Output] will be
  * understood as a cyclic dependency on our own [Output] module. *)
@@ -16,7 +49,7 @@ let fstar_options = ref []
 (** By [detect_kremlin] *)
 let krml_home = ref ""
 
-(** These two filled in by [detect_gcc] *)
+(** These two filled in by [detect_gcc] and others *)
 let cc = ref ""
 let cc_args = ref []
 
@@ -197,24 +230,23 @@ let run_or_warn str exe args =
   if !Options.verbose then
     print_endline debug_str;
   match P.run exe (Array.of_list args) with
-  | { P.Output.exit_status = P.Exit.Exit 0; stdout; _ } ->
+  | { P.Output.exit_status = P.Exit.Exit 0; stdout; stderr; _ } ->
       KPrint.bprintf "%s✔%s %s%s\n" Ansi.green Ansi.reset str (verbose_msg ());
       if !Options.verbose then
         List.iter print_endline stdout;
+        List.iter print_endline stderr;
       true
   | { P.Output.stderr; stdout; _ } ->
       KPrint.bprintf "%s✘%s %s%s\n" Ansi.red Ansi.reset str (verbose_msg ());
-      if !Options.verbose then begin
-        List.iter print_endline stderr;
-        List.iter print_endline stdout
-      end;
-      maybe_fatal_error ("run_or_warn", ExternalError debug_str);
+      List.iter print_endline stderr;
+      List.iter print_endline stdout;
       Pervasives.(flush stdout; flush stderr);
+      maybe_fatal_error ("run_or_warn", ExternalError debug_str);
       false
 
 (** Called from the top-level file; runs [fstar] on the [.fst] files
  * passed on the command-line, and returns the name of the generated file. *)
-let run_fstar verify skip_extract files =
+let run_fstar verify skip_extract skip_translate files =
   assert (List.length files > 0);
   detect_fstar_if ();
 
@@ -238,13 +270,11 @@ let run_fstar verify skip_extract files =
     mk_tmpdir_if ();
     if not (run_or_warn "[F*,extract]" !fstar args) then
       fatal_error "F* failed";
+    if skip_translate then
+      exit 0;
     !Options.tmpdir ^^ "out.krml"
 
-(** Fills in [cc] and [cc_args]. *)
 let detect_gnu flavor =
-  (** For the side-effect of filling in [Options.include] *)
-  detect_kremlin_if ();
-
   KPrint.bprintf "%s⚙ KreMLin will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
   let rec search = function
     | fmt :: rest ->
@@ -257,68 +287,56 @@ let detect_gnu flavor =
         Warnings.fatal_error "gcc not found in path!";
   in
   let crosscc = if !Options.m32 then format_of_string "i686-w64-mingw32-%s" else format_of_string "x86_64-w64-mingw32-%s" in
-  search [ "%s-5"; "%s-6"; crosscc; "%s" ];
+  search [ "%s-6"; "%s-5"; crosscc; "%s" ];
 
   KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !cc;
 
-  cc_args := [
-    "-Wall";
-    "-Werror";
-    "-Wno-parentheses";
-    "-Wno-unused-variable";
-    "-g";
-    "-O3";
-    "-fwrapv"
-  ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
-    @ List.rev !Options.ccopts;
   if !Options.m32 then
     cc_args := "-m32" :: !cc_args;
-  if Sys.os_type = "Win32" then
-    cc_args := "-D__USE_MINGW_ANSI_STDIO" :: !cc_args;
   KPrint.bprintf "%s%s options are:%s %s\n" Ansi.underline !cc Ansi.reset
     (String.concat " " !cc_args)
 
-let detect_gcc () =
-  detect_gnu "gcc";
-  cc_args := "-Wno-unused-but-set-variable" :: "-std=c11" :: !cc_args
-
-let detect_gpp () =
-  detect_gnu "g++";
-  cc_args := "-Wno-unused-but-set-variable" :: !cc_args
-
-let detect_clang () =
-  detect_gnu "clang"
 
 let detect_compcert () =
   if success "which" [| "ccomp" |] then
     cc := "ccomp"
   else
-    Warnings.fatal_error "ccomp not found in path!";
+    Warnings.fatal_error "ccomp not found in path!"
 
-  cc_args := [
-    "-g";
-    "-O3";
-    "-fstruct-passing"
-  ] @ List.flatten (List.rev_map (fun d -> ["-I"; d]) (!Options.tmpdir :: !Options.includes))
+
+let fill_cc_args () =
+  (** For the side-effect of filling in [Options.include] *)
+  detect_kremlin_if ();
+
+  cc_args :=
+      (if not !Options.uint128 then [ Dash.d "KRML_NOUINT128" ] else [])
+    @ (if not !Options.struct_passing then [ Dash.d "KRML_NOSTRUCT_PASSING" ] else [])
+    @ List.flatten (List.rev_map Dash.i (!Options.tmpdir :: !Options.includes))
     @ List.rev !Options.ccopts
+    @ !cc_args
 
 
 let detect_cc_if () =
+  fill_cc_args ();
   if !cc = "" then
     match !Options.cc with
     | "gcc" ->
-        detect_gcc ()
+        detect_gnu "gcc"
     | "compcert" ->
         detect_compcert ()
     | "g++" ->
-        detect_gpp ()
+        detect_gnu "g++"
     | "clang" ->
-        detect_clang ()
+        detect_gnu "clang"
+    | "msvc" ->
+        cc := !krml_home ^^ "misc" ^^ "cl-wrapper.bat";
     | _ ->
         fatal_error "Unrecognized value for -cc: %s" !Options.cc
 
 let o_of_c f =
-  !Options.tmpdir ^^ Filename.chop_suffix (Filename.basename f) ".c" ^ ".o"
+  let dot_o = if !Options.cc = "msvc" then ".obj" else ".o" in
+  !Options.tmpdir ^^ Filename.chop_suffix (Filename.basename f) ".c" ^ dot_o
+
 
 (** For "kremlib.c", and every [.c] file generated by Kremlin or passed on the
  * command-line, run [gcc -c] to obtain a [.o]. Files that don't compile are
@@ -336,7 +354,7 @@ let compile files extra_c_files =
   let gcc_c file =
     flush stdout;
     let info = Printf.sprintf "[CC,%s]" file in
-    run_or_warn info !cc (!cc_args @ [ "-c"; file; "-o"; o_of_c file ])
+    run_or_warn info !cc (!cc_args @ Dash.c file @ Dash.o_obj (o_of_c file))
   in
   let files = List.filter gcc_c files in
   let extra_c_files = List.filter gcc_c extra_c_files in
@@ -348,10 +366,10 @@ let compile files extra_c_files =
 let link c_files o_files =
   let o_files = List.map expand_fstar_home o_files in
   let objects = List.map o_of_c c_files @ o_files in
-  let extra_arg = if !Options.exe_name <> "" then [ "-o"; !Options.exe_name ] else [] in
+  let extra_arg = if !Options.exe_name <> "" then Dash.o_exe !Options.exe_name else [] in
   if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg @ List.rev !Options.ldopts) then
     KPrint.bprintf "%sAll files linked successfully%s 👍\n" Ansi.green Ansi.reset
   else begin
-    KPrint.bprintf "%sgcc failed at the final linking phase%s\n" Ansi.red Ansi.reset;
+    KPrint.bprintf "%s%s failed at the final linking phase%s\n" Ansi.red !Options.cc Ansi.reset;
     exit 250
   end

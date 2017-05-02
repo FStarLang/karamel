@@ -1,8 +1,10 @@
 "use strict";
 
+var my_print;
+
 const header_size = 256;
 
-// Some printing helpers
+// Some my_printing helpers
 function p8(n) {
   return ("0"+Number(n).toString(16)).slice(-2);
 }
@@ -43,7 +45,7 @@ function p32(n) {
 // mem[0..3] = top-of-the-stack pointer (I32);
 // mem[4..127] = scratch space for debugging.
 // Conventions for debugging and "debugging format" (lolz) are in WasmDebug.ml
-function init(print) {
+function init() {
   let mem = new WebAssembly.Memory({ initial: 16 });
   let m8 = new Uint8Array(mem.buffer);
   let nest = 0;
@@ -93,12 +95,12 @@ function init(print) {
           nest--;
           break;
         default:
-          print(hex(m8, 0, 128));
+          my_print(hex(m8, 0, 128));
           throw "unrecognized debug format:\n  buf="+buf+"\n  c=0x"+p8(c)+"\n  i="+i;
       }
       buf += " ";
     }
-    print(buf);
+    my_print(buf);
   };
 
   let reserved_area_size = 128;
@@ -117,17 +119,17 @@ function init(print) {
 
 // One MUST call this function after loading a module.
 function propagate(module_name, imports, instance) {
-  print("Module", module_name, "successfully loaded");
-  print("Adding exports into global import table:\n ", Object.keys(instance.exports));
+  my_print("Module", module_name, "successfully loaded");
+  my_print("Adding exports into global import table:\n ", Object.keys(instance.exports));
   imports[module_name] = {};
   for (let o of Object.keys(instance.exports)) {
     imports[module_name][o] = instance.exports[o];
   }
-  print("This module has a data segment of size: ", instance.exports.data_size);
+  my_print("This module has a data segment of size: ", instance.exports.data_size);
   imports.Kremlin.data_start += instance.exports.data_size;
-  print("Next data segment will start at: ", imports.Kremlin.data_start);
+  my_print("Next data segment will start at: ", imports.Kremlin.data_start);
   new Uint32Array(imports.Kremlin.mem.buffer)[0] = imports.Kremlin.data_start;
-  print();
+  my_print();
 }
 
 // One MAY only call this function after all modules have been loaded and
@@ -136,7 +138,7 @@ function reserve(mem, size) {
   let m32 = new Uint32Array(mem.buffer);
   let p = m32[0];
   m32[0] += size;
-  print("Reserved memory area 0x"+p32(p)+"..0x"+p32(m32[0]));
+  my_print("Reserved memory area 0x"+p32(p)+"..0x"+p32(m32[0]));
   return p;
 }
 
@@ -162,7 +164,7 @@ function dump(mem, size) {
     buf += "\n";
     i += 32;
   }
-  print(buf);
+  my_print(buf);
 }
 
 const iv = [ 0, 0, 0, 0, 0, 0, 0, 0x4a, 0, 0, 0, 0 ];
@@ -180,8 +182,9 @@ const cipher = [
   0x1a, 0xb7, 0x79, 0x37, 0x36, 0x5a, 0xf9, 0x0b, 0xbf, 0x74, 0xa3, 0x5b, 0xe6,
   0xb4, 0x0b, 0x8e, 0xed, 0xf2, 0x78, 0x5e, 0x42, 0x87, 0x4d ];
 
-function main(buf1, buf2, print) {
-  var imports = init(print);
+function main(buf1, buf2, my_print_func) {
+  my_print = my_print_func;
+  var imports = init();
 
   WebAssembly.instantiate(buf1, imports).then(({ module, instance }) => {
     propagate("Buffer_Utils", imports, instance);
@@ -211,11 +214,11 @@ function main(buf1, buf2, print) {
     let counter_mode = instance.exports.Crypto_Symmetric_Chacha20_counter_mode;
     counter_mode(p_key, p_iv, counter, len, p_plain, p_cipher);
 
-    print("Chacha20 finished (len="+len+")");
-    print("Plaintext was:");
-    print(hex(m8, p_plain, len));
-    print("Ciphertext is:");
-    print(hex(m8, p_cipher, len));
+    my_print("Chacha20 finished (len="+len+")");
+    my_print("Plaintext was:");
+    my_print(hex(m8, p_plain, len));
+    my_print("Ciphertext is:");
+    my_print(hex(m8, p_cipher, len));
 
     for (let i = 0; i < len; ++i) {
       if (m8[p_cipher+i] != cipher[i]) {
@@ -225,8 +228,8 @@ function main(buf1, buf2, print) {
 
     dump(mem, 2*1024);
 
-    print("SUCCESS");
+    my_print("SUCCESS");
   }).catch((e) => {
-    print(e);
+    my_print(e);
   });
 }

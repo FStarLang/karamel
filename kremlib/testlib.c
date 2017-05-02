@@ -53,7 +53,7 @@ void TestLib_perr(unsigned int err_code) {
   printf("Got error code %u.\n", err_code);
 }
 
-void TestLib_print_cycles_per_round(cycles c1, cycles c2, uint32_t rounds) {
+void TestLib_print_cycles_per_round(TestLib_cycles c1, TestLib_cycles c2, uint32_t rounds) {
   printf("[perf] cpu cycles per round (averaged over %d) is %f\n", rounds,
          (float)(c2 - c1) / rounds);
 }

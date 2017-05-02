@@ -21,6 +21,10 @@ and stmt =
     (** Scope is: statements that follow. *)
   | IfThenElse of expr * block * block
   | While of expr * block
+  | For of binder * expr * expr * stmt * block
+    (** There is a slight mistmatch; C has an iteration *expression* but C*'s
+     * expressions are pure; therefore, we must use a statement in lieu of the
+     * iteration expression. *)
   | Assign of expr * expr
     (** Destination (i.e. Var), Source *)
   | Copy of expr * typ * expr
@@ -33,6 +37,7 @@ and stmt =
   | PushFrame
   | PopFrame
   | Comment of string
+  | Block of block
 
 and expr =
   | InlineComment of string * expr * string
@@ -61,6 +66,8 @@ and expr =
   | Comma of expr * expr
   | StringLiteral of string
   | Any
+  | AddrOf of expr
+  | EAbort of typ
   [@@deriving show]
 
 and block =
