@@ -149,7 +149,9 @@ Supported options:|}
     "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after inlining";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-dwasm", Arg.Set arg_print_wasm, " pretty-print the output Wasm";
-    "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific comma-separated list of values; currently supported: inline,bundle,wasm-calls";
+    "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific \
+        comma-separated list of values; currently supported: \
+        inline,bundle,wasm-calls,dependencies";
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
   let spec = Arg.align spec in
@@ -235,7 +237,9 @@ Supported options:|}
     KPrint.bprintf "%s⚠%s Dropped some declarations while checking\n" Ansi.orange Ansi.reset;
   flush stdout;
 
-  let files = Bundles.make_bundles files in
+  (* The bundle creation also generates a dependency graph, which is then used
+   * to write more concise .h files *)
+  let files, deps = Bundles.make_bundles files in
   let _, files = Checker.check_everything files in
 
   let files = Inlining.inline_type_abbrevs files in
@@ -334,7 +338,7 @@ Supported options:|}
     flush stderr;
     Printf.printf "KreMLin: writing out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
     Output.write_c files;
-    Output.write_h headers;
+    Output.write_h deps headers;
 
     if !arg_skip_compilation then
       exit 0;

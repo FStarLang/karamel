@@ -39,18 +39,18 @@ let write_one name prefix program suffix =
   )
 
 let write_c files =
-  ignore (List.fold_left (fun names file ->
+  List.iter (fun file ->
     let name, program = file in
     let prefix = string (Printf.sprintf "#include \"%s.h\"" name) in
-    write_one (name ^ ".c") prefix program empty;
-    name :: names
-  ) [] files)
+    write_one (name ^ ".c") prefix program empty
+  ) files
 
-let write_h files =
-  ignore (List.fold_left (fun names file ->
+let write_h deps files =
+  List.iter (fun file ->
     let name, program = file in
     let prefix, suffix = header name in
-    let prefix = prefix ^^ hardline ^^ hardline ^^ includes names in
-    write_one (name ^ ".h") prefix program suffix;
-    name :: names
-  ) [] files)
+    let deps = List.assoc name deps in
+    let deps = List.filter (fun f -> List.exists (fun (f', _) -> f = f') files) deps in
+    let prefix = prefix ^^ hardline ^^ hardline ^^ includes deps in
+    write_one (name ^ ".h") prefix program suffix
+  ) files

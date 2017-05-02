@@ -189,4 +189,16 @@ let make_bundles files =
         stack := (file, contents) :: !stack
   in
   List.iter (dfs []) (List.map fst files);
-  List.rev !stack
+
+  let palatable_dependencies =
+    Hashtbl.fold (fun file (_, deps, _) acc ->
+      (file, Hashtbl.fold (fun f _ acc -> f :: acc) deps []) :: acc
+    ) graph []
+  in
+
+  if Options.debug "dependencies" then
+    List.iter (fun (f, deps) ->
+      KPrint.bprintf "%s: %s\n" f (String.concat " " deps)
+    ) palatable_dependencies;
+
+  List.rev !stack, palatable_dependencies
