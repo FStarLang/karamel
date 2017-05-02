@@ -246,7 +246,7 @@ let run_or_warn str exe args =
 
 (** Called from the top-level file; runs [fstar] on the [.fst] files
  * passed on the command-line, and returns the name of the generated file. *)
-let run_fstar verify skip_extract files =
+let run_fstar verify skip_extract skip_translate files =
   assert (List.length files > 0);
   detect_fstar_if ();
 
@@ -270,6 +270,8 @@ let run_fstar verify skip_extract files =
     mk_tmpdir_if ();
     if not (run_or_warn "[F*,extract]" !fstar args) then
       fatal_error "F* failed";
+    if skip_translate then
+      exit 0;
     !Options.tmpdir ^^ "out.krml"
 
 let detect_gnu flavor =
