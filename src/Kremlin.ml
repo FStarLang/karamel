@@ -40,6 +40,7 @@ let _ =
   let arg_print_c = ref false in
   let arg_print_wasm = ref false in
   let arg_skip_extraction = ref false in
+  let arg_skip_translation = ref false in
   let arg_skip_compilation = ref false in
   let arg_skip_linking = ref false in
   let arg_verify = ref false in
@@ -69,6 +70,7 @@ High-level description:
      [.o] files obtained at step 4. to obtain a final executable.
 
 The [-skip-extraction] option stops KreMLin after step 1.
+The [-skip-translation] option stops KreMLin after step 2.
 The [-skip-compilation] option stops KreMLin after step 3.
 The [-skip-linking] option stops KreMLin after step 4.
 
@@ -146,6 +148,7 @@ Supported options:|}
     "-ldopt", Arg.String (prepend Options.ldopts), " option to pass to the C linker (use -ldopts to pass a comma-separated list of values)";
     "-ldopts", Arg.String (csv (prepend Options.ldopts)), "";
     "-skip-extraction", Arg.Set arg_skip_extraction, " stop after step 1.";
+    "-skip-translation", Arg.Set arg_skip_translation, " stop after step 2.";
     "-skip-compilation", Arg.Set arg_skip_compilation, " stop after step 3.";
     "-skip-linking", Arg.Set arg_skip_linking, " stop after step 4.";
     "-verify", Arg.Set arg_verify, " ask F* to verify the program";
@@ -224,7 +227,7 @@ Supported options:|}
   (* Shall we run F* first? *)
   let filename =
     if List.length !fst_files > 0 then
-      let f = Driver.run_fstar !arg_verify !arg_skip_extraction !fst_files in
+      let f = Driver.run_fstar !arg_verify !arg_skip_extraction !arg_skip_translation !fst_files in
       Time.tick "F*";
       f
     else
