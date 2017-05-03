@@ -239,6 +239,20 @@ and mk_buf env t =
   | _ ->
       invalid_arg "mk_buf"
 
+and mk_ignored_stmt env e =
+  if is_value e then
+    env, []
+  else
+    let e = strip_cast e in
+    let s =
+      match e.typ with
+      | TUnit ->
+          CStar.Ignore (mk_expr env true e)
+      | _ ->
+          CStar.Ignore (CStar.Cast (mk_expr env true e, CStar.Void))
+    in
+    env, [s]
+
 and mk_stmts env e ret_type =
   let rec collect (env, acc) return_pos e =
     match e.node with
@@ -368,18 +382,8 @@ and mk_stmts env e ret_type =
         env, CStar.Comment s' :: stmts
 
     | EIgnore e ->
-        if is_value e then
-          env, acc
-        else
-          let e = strip_cast e in
-          let s =
-            match e.typ with
-            | TUnit ->
-                CStar.Ignore (mk_expr env true e)
-            | _ ->
-                CStar.Ignore (CStar.Cast (mk_expr env true e, CStar.Void))
-          in
-          env, s :: acc
+        let env, s = mk_ignored_stmt env e in
+        env, s @ acc
 
     | _ when return_pos ->
         mk_as_return env e acc
@@ -398,7 +402,8 @@ and mk_stmts env e ret_type =
     if ret_type = CStar.Void && is_value e then
       env, CStar.Return None :: acc
     else if ret_type = CStar.Void then
-      env, CStar.Return None :: CStar.Ignore (mk_expr env true (strip_cast e)) :: acc
+      let env, s = mk_ignored_stmt env e in
+      env, CStar.Return None :: s @ acc
     else
       env, CStar.Return (Some (mk_expr env false e)) :: acc
 
