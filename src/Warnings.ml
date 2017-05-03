@@ -16,8 +16,8 @@ and raw_error =
   | ExternalError of string
   | ExternalTypeApp of lident
   | Vla of ident
-  | LostStatic of lident * lident
-  | LostInline of lident * lident
+  | LostStatic of string option * lident * string option * lident
+  | LostInline of string option * lident * string option * lident
 
 and location =
   string
@@ -81,6 +81,10 @@ let errno_of_error = function
       0
 ;;
 
+let p_file = function
+  | Some file -> file
+  | None -> "<no file>"
+
 let rec perr buf (loc, raw_error) =
   (* Now, print an error-specific message. *)
   let p fmt = Printf.bprintf buf ("Warning %d: %s: " ^^ fmt ^^ "\n") (errno_of_error raw_error) loc in
@@ -106,14 +110,14 @@ let rec perr buf (loc, raw_error) =
   | Vla id ->
       p "%s is a non-constant size, stack-allocated array; this is not supported \
         by CompCert" id
-  | LostStatic (lid1, lid2) ->
-      p "After inlining, %a calls %a -- removing the static qualifier from %a"
-        plid lid1 plid lid2 plid lid2
-  | LostInline (lid1, lid2) ->
-      p "After inlining, %a calls %a. This is a call across translation units but \
+  | LostStatic (file1, lid1, file2, lid2) ->
+      p "After inlining, %a (going into %s) calls %a (going into %s) -- removing the static qualifier from %a"
+        plid lid1 (p_file file1) plid lid2 (p_file file2) plid lid2
+  | LostInline (file1, lid1, file2, lid2) ->
+      p "After inlining, %a (going into %s) calls %a (going into %s). This is a call across translation units but \
         %a has a C \"inline\" qualifier. The C standard allows removing %a \
         from its translation unit (see C11 6.7.3 §5), and CompCert will do it. %s"
-        plid lid1 plid lid2 plid lid2 plid lid2
+        plid lid1 (p_file file1) plid lid2 (p_file file2) plid lid2 plid lid2
         (if !Options.cc = "compcert" then "Removing the inline qualifier!" else "")
 
 

@@ -288,6 +288,17 @@ let inline_function_frames files =
    * from. *)
   let file_of = Bundle.mk_file_of files in
 
+  let cross_call name1 name2 =
+    let file1 = file_of name1 in
+    let file2 = file_of name2 in
+    let should_drop = function
+      | Some f -> Drop.should_drop f
+      | None -> false
+    in
+    file1 <> file2 &&
+    not (should_drop file1 || should_drop file2)
+  in
+
   (* A visitor that, when passed a function's name and body, detect
    * cross-translation unit calls and drops the [Private] qualifier from the
    * callee. *)
@@ -300,24 +311,24 @@ let inline_function_frames files =
             (* There is a cross-compilation-unit call from [name] to
              * [name‘], meaning that the latter cannot safely remain
              * inline. *)
-            if file_of name <> file_of name' && Hashtbl.mem safely_private name' then begin
-              Warnings.maybe_fatal_error ("", LostStatic (name, name'));
+            if cross_call name name' && Hashtbl.mem safely_private name' then begin
+              Warnings.maybe_fatal_error ("", LostStatic (file_of name, name, file_of name', name'));
               Hashtbl.remove safely_private name'
             end;
-            if file_of name <> file_of name' && Hashtbl.mem safely_inline name' then begin
-              Warnings.maybe_fatal_error ("", LostInline (name, name'));
+            if cross_call name name' && Hashtbl.mem safely_inline name' then begin
+              Warnings.maybe_fatal_error ("", LostInline (file_of name, name, file_of name', name'));
               Hashtbl.remove safely_inline name'
             end;
             EApp (e, List.map (self#visit ()) es)
         | _ ->
             EApp (self#visit () e, List.map (self#visit ()) es)
       method equalified () _ name' =
-        if file_of name <> file_of name' && Hashtbl.mem safely_private name' then begin
-          Warnings.maybe_fatal_error ("", LostStatic (name, name'));
+        if cross_call name name' && Hashtbl.mem safely_private name' then begin
+          Warnings.maybe_fatal_error ("", LostStatic (file_of name, name, file_of name', name'));
           Hashtbl.remove safely_private name'
         end;
-        if file_of name <> file_of name' && Hashtbl.mem safely_inline name' then begin
-          Warnings.maybe_fatal_error ("", LostInline (name, name'));
+        if cross_call name name' && Hashtbl.mem safely_inline name' then begin
+          Warnings.maybe_fatal_error ("", LostInline (file_of name, name, file_of name', name'));
           Hashtbl.remove safely_inline name'
         end;
         EQualified name'

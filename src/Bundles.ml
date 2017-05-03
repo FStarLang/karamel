@@ -8,15 +8,6 @@ module StringMap = Map.Make(String)
 
 let parse = Utils.parse Parser.bundle
 
-(** A given pattern matches an F* filename (i.e. a string using the underscore
- * as a separator *)
-let pattern_matches (p: Bundle.pat) (m: string) =
-  match p with
-  | Module m' ->
-      String.concat "_" m' = m
-  | Prefix p ->
-      KString.starts_with m (String.concat "_" p ^ "_")
-
 let bundle_name (api, patterns) =
   match api with
   | [] ->

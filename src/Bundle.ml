@@ -40,3 +40,12 @@ let mk_file_of files =
       None
   in
   file_of
+
+(** A given pattern matches an F* filename (i.e. a string using the underscore
+ * as a separator *)
+let pattern_matches (p: pat) (m: string) =
+  match p with
+  | Module m' ->
+      String.concat "_" m' = m
+  | Prefix p ->
+      KString.starts_with m (String.concat "_" p ^ "_")

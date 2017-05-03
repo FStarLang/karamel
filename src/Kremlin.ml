@@ -333,16 +333,13 @@ Supported options:|}
 
   (* Drop files (e.g. -drop FStar.Heap) *)
   let drop l =
-    let should_drop name =
-      List.exists (fun p -> Bundles.pattern_matches p name) !Options.drop
-    in
-    let l = List.filter (fun (name, _) -> not (should_drop name)) l in
+    let l = List.filter (fun (name, _) -> not (Drop.should_drop name)) l in
     (* Note that after bundling, we need to go inside bundles to find top-level
      * names that originate from a module we were meant to drop, and drop
      * individual declarations. *)
     Ast.filter_decls (fun d ->
       let f = String.concat "_" (fst (Ast.lid_of_decl d)) in
-      if should_drop f then
+      if Drop.should_drop f then
         None
       else
         Some d
