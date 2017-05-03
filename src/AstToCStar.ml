@@ -398,7 +398,7 @@ and mk_stmts env e ret_type =
     if ret_type = CStar.Void && is_value e then
       env, CStar.Return None :: acc
     else if ret_type = CStar.Void then
-      env, CStar.Return None :: CStar.Ignore (mk_expr env true e) :: acc
+      env, CStar.Return None :: CStar.Ignore (mk_expr env true (strip_cast e)) :: acc
     else
       env, CStar.Return (Some (mk_expr env false e)) :: acc
 
