@@ -1087,6 +1087,7 @@ let remove_buffer_ops = object
 
 end
 
+
 (* Dealing with local functions ***********************************************)
 
 (* TODO: this should ABSOLUTELY be implemented at the F* level -- it's

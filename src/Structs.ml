@@ -152,7 +152,7 @@ let rewrite_app action_table e args dest =
 
 (* Rewrite functions and expressions to take and possibly return struct
  * pointers. *)
-let rewrite action_table = object (self)
+let pass_by_ref action_table = object (self)
 
   (* We open all the parameters of a function; then, we pass down as the
    * environment the list of atoms that correspond to by-ref parameters. These
@@ -296,6 +296,55 @@ let rewrite action_table = object (self)
 
 end
 
-let rewrite files =
+let pass_by_ref files =
   let action_table = mk_action_table files in
-  Simplify.visit_files [] (rewrite action_table) files
+  Simplify.visit_files [] (pass_by_ref action_table) files
+
+
+(** Make sure all structures are allocated in memory and there are no
+ * intermediary values of struct type. *)
+
+(* Explicitly allocate structs in memory, and initialize them in place.
+ * - This allocation scheme is inefficient because offsets are dynamically
+ *   computed as we grow the stack. A later phase should collect all
+ *   statically-sized buffer allocations and lay them out near the top of the
+ *   (in-memory) frame, leaving it up to dynamically-sized buffers to grow the
+ *   highwater mark.
+ *
+ * - The essence of the translation is, for [[e]] a "terminal" node:
+ *
+ *     [[e: t]] when t is a struct becomes
+ *     [[let x: t* = Buffer.create any t 1 in 
+ *       alloc_at (e, x); // allocate e at address x
+ *       x]]
+ *
+ *     Terminal nodes that may have struct types are: EAny (!), NOT EApp
+ *     (because we just rewrote these above), EFlat, EField.
+ *
+ *   For non-terminal nodes, such as let:
+ *
+ *     [[let x: t = e1 in e2]] when t is a struct becomes:
+ *     [[let x: t* = e1 in e2]]
+ *
+ *     Idem for if/then/else and switch.
+ *
+ *   Finally, some AST nodes may refer to structs now need to deal with pointers:
+ *
+ *     [[e.f1..fn]] becomes [[e->f1..fn]]
+ *     [[addrof e]] becomes [[e]]
+ *     [[e1[e2] <- (e3: t)]] becomes a [[blit]]
+ *     [[ebuffill]] becomes a for-loop with [[blit]]
+ *
+ * - The [alloc_at] function tracks how many fields we've "skipped", so that a
+ *   later phase can compute these static offsets. The [alloc_at] function may
+ *   be passed [EAny], in which case it should generate no instructions.
+ *)
+let to_addr _is_struct = object(_self)
+
+  inherit [unit] map
+
+end
+
+let in_memory files =
+  let is_struct = mk_is_struct files in
+  Simplify.visit_files () (to_addr is_struct) files

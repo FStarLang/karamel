@@ -312,7 +312,8 @@ Supported options:|}
    * after everything has been simplified, but inlining requires a new round of
    * hoisting. *)
   let files = Inlining.inline_function_frames files in
-  let files = if not !Options.struct_passing then Structs.rewrite files else files in
+  let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
+  let files = if !arg_wasm then Structs.in_memory files else files in
   (* In this order because remove_unused generates MetaSequence's *)
   let files = Simplify.remove_unused files in
   let files = Simplify.simplify2 files in
