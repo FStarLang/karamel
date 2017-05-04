@@ -222,6 +222,13 @@ Supported options:|}
   if !arg_warn_error <> "" then
     Warnings.parse_warn_error !arg_warn_error;
 
+  (* The wasm backend needs all of these. *)
+  if !arg_wasm then begin
+    Options.uint128 := false;
+    Options.anonymous_unions := false;
+    Options.struct_passing := false
+  end;
+
   Time.start ();
 
   (* Shall we run F* first? *)

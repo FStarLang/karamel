@@ -3,23 +3,33 @@
 CRYPTO		= FSTAR_HOME/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 TEST_OPTS	= -add-include '"testlib.h"' -I . ../kremlib/testlib.c
-KRML		= ../krml
-
-all: standalone extra
-
-# Tests that do not need a source checkout of F* to run
-standalone: Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
-  Private.exe ML16.exe Abbrev.exe TSet.exe Tuples.exe \
+KRML_BIN	= ../_build/src/Kremlin.native
+KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
+FILES		= \
+  Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
+  Private.exe ML16.exe Abbrev.exe Tuples.exe \
   DataTypesSimple.exe DataTypes.exe Parameterized.exe \
   Scope.exe Attributes.exe Unsound.exe Substitute.exe \
   InlineTest.exe Ghost1.exe Loops.exe Structs.exe
+EXTRA_FILES	= \
+  Crypto.Symmetric.Chacha20.exe
 
-extra: Crypto.Symmetric.Chacha20.exe
+all: standalone extra
 
-# Standalone test files that have a main in F* (hence -no-prefix)
-%.exe: %.fst
-	$(KRML) $(KOPTS) $(TEST_OPTS) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $* -o $@ $<
+# The standalone tests don't need a source checkout of F* to run
+standalone: $(FILES) $(subst .exe,.krml,$(FILES))
+extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
+
+%.krml: %.fst
+	$(KRML) $(EXTRA) -tmpdir $(subst .krml,.out,$@) -skip-translation $<
+	cp $(subst .krml,.out,$@)/out.krml $@
+
+%.exe: %.krml $(KRML_BIN)
+	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $* -o $@ $<
 	./$@
+
+%.wasm: %.fst
+	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $^ -wasm -drop Prims -drop FStar
 
 ML16.exe: EXTRA = ml16-native.c
 Scope.exe: EXTRA = -ccopt -O3
@@ -27,10 +37,7 @@ Crypto.Symmetric.Chacha20.exe: EXTRA=$(CRYPTO_OPTS) main-Chacha.c
 
 .PHONY: Crypto.Symmetric.Chacha20.fst
 
-%.wasm: %.fst
-	$(KRML) $(KOPTS) $(TEST_OPTS) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $^ -wasm -drop Prims -drop FStar
-
 Crypto.Symmetric.Chacha20.wasm: EXTRA=$(CRYPTO_OPTS)
 
 clean:
-	rm -rf *.exe *.dSYM *.out *.wasm
+	rm -rf *.exe *.dSYM *.out *.wasm *.krml
