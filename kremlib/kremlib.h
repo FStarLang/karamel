@@ -103,12 +103,10 @@ bool FStar_HyperStack_is_eternal_color(Prims_int x0);
     (void)(x);                                                                 \
   } while (0)
 
-#define FStar_Monotonic_RRef_m_recall(x1,x2,x3,x4)                             \
+#define FStar_Monotonic_RRef_m_recall(x1,x2)                                   \
   do {                                                                         \
     (void)(x1);                                                                \
     (void)(x2);                                                                \
-    (void)(x3);                                                                \
-    (void)(x4);                                                                \
   } while (0)
 #define FStar_Monotonic_RRef_m_write(x1,x2,x3,x4,x5)                           \
   do {                                                                         \
