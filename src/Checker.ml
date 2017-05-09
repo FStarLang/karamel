@@ -501,8 +501,6 @@ and infer' env e =
       let t = infer env e in
       if t = TAny then
         let _ = List.map (infer env) es in
-        (* Warnings.maybe_fatal_error (KPrint.bsprintf "%a" ploc env.location, *)
-        (*   TypeError (KPrint.bsprintf "could not infer the type of: %a" pexpr e)); *)
         TAny
       else
         let t_ret, t_args = flatten_arrow t in
@@ -664,6 +662,7 @@ and infer' env e =
       begin match expand_abbrev env (infer env e) with
       | TQualified lid ->
           infer_and_check_eq env (fun (tag, e) ->
+            let env = locate env (Branch tag) in
             if not (M.find tag env.enums = lid) then
               type_error env "scrutinee has type %a but tag %a does not belong to \
                 this type" plid lid plid tag;
@@ -672,6 +671,7 @@ and infer' env e =
 
       | TAnonymous (Enum tags) as t ->
           infer_and_check_eq env (fun (tag, e) ->
+            let env = locate env (Branch tag) in
             if not (List.exists ((=) tag) tags) then
               type_error env "scrutinee has type %a but tag %a does not belong to \
                 this type" ptyp t plid tag;
