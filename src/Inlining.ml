@@ -292,7 +292,7 @@ let inline_function_frames files =
     let file1 = file_of name1 in
     let file2 = file_of name2 in
     let should_drop = function
-      | Some f -> Drop.should_drop f
+      | Some f -> Drop.file f
       | None -> false
     in
     file1 <> file2 &&
@@ -452,29 +452,31 @@ let drop_unused files =
     | _ ->
         ()
   ) in
-  let rec visit lid =
+  let rec visit before lid =
     if Hashtbl.mem visited lid then
       ()
     else begin
       Hashtbl.add visited lid ();
+      (* KPrint.bprintf "marking %a as used (via: %s) \n" plid lid *)
+      (*   (String.concat " <- " (List.map (fun lid -> KPrint.bsprintf "%a" plid lid) before)); *)
       match Hashtbl.find body_of_lid lid with
       | exception Not_found -> ()
-      | body -> visit_e body
+      | body -> visit_e (lid :: before) body
     end
-  and visit_e body =
+  and visit_e before body =
     ignore ((object
       inherit [_] map
       method equalified () _ lid =
-        visit lid;
+        visit before lid;
         EQualified lid
     end)#visit () body)
   in
   iter_decls (function
     | DFunction (_, flags, _, _, lid, _, body)
     | DGlobal (flags, lid, _, body) ->
-        if (not (List.exists ((=) Private) flags)) then begin
+        if not (List.exists ((=) Private) flags) && not (Drop.lid lid) then begin
           Hashtbl.add visited lid ();
-          visit_e body
+          visit_e [lid] body
         end
     | _ ->
         ()
@@ -483,7 +485,7 @@ let drop_unused files =
     match d with
     | DGlobal (flags, lid, _, _)
     | DFunction (_, flags, _, _, lid, _, _) ->
-        if List.exists ((=) Private) flags && not (Hashtbl.mem visited lid) then
+        if (List.exists ((=) Private) flags || Drop.lid lid) && not (Hashtbl.mem visited lid) then
           None
         else
           Some d
