@@ -15,6 +15,7 @@ type loc =
   | ForCond
   | ForIter
   | While
+  | Branch of lident
 
 let print_loc = function
   | InTop l ->
@@ -37,6 +38,8 @@ let print_loc = function
       string "in the while loop"
   | After s ->
       string "after the definition of " ^^ string s
+  | Branch l ->
+      string "in branch " ^^ print_lident l
 
 let print_location locs =
   separate_map (string ", ") print_loc locs

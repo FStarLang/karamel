@@ -72,29 +72,29 @@ let safe_substitution es e t =
 
 (* Descend into a terminal position, then call [f] on the sub-term in terminal
  * position. This function is only safe to call if all binders have been opened. *)
-let rec nest_in_return_pos f e =
+let rec nest_in_return_pos typ f e =
   match e.node with
   | ELet (b, e1, e2) ->
-      let e2 = nest_in_return_pos f e2 in
-      { node = ELet (b, e1, e2); typ = TUnit }
+      let e2 = nest_in_return_pos typ f e2 in
+      { node = ELet (b, e1, e2); typ }
   | EIfThenElse (e1, e2, e3) ->
-      let e2 = nest_in_return_pos f e2 in
-      let e3 = nest_in_return_pos f e3 in
-      { node = EIfThenElse (e1, e2, e3); typ = TUnit }
+      let e2 = nest_in_return_pos typ f e2 in
+      let e3 = nest_in_return_pos typ f e3 in
+      { node = EIfThenElse (e1, e2, e3); typ }
   | ESwitch (e, branches) ->
       let branches = List.map (fun (t, e) ->
-        t, nest_in_return_pos f e
+        t, nest_in_return_pos typ f e
       ) branches in
-      { node = ESwitch (e, branches); typ = TUnit }
+      { node = ESwitch (e, branches); typ }
   | EMatch (e, branches) ->
       let branches = List.map (fun (bs, pat, e) ->
-        bs, pat, nest_in_return_pos f e
+        bs, pat, nest_in_return_pos typ f e
       ) branches in
-      { node = EMatch (e, branches); typ = TUnit }
+      { node = EMatch (e, branches); typ }
   | _ ->
       f e
 
-let push_ignore = nest_in_return_pos (fun e -> with_type TUnit (EIgnore (strip_cast e)))
+let push_ignore = nest_in_return_pos TUnit (fun e -> with_type TUnit (EIgnore (strip_cast e)))
 
 let count_use = object (self)
 
@@ -262,7 +262,7 @@ let sequence_to_let = object (self)
         failwith "[sequence_to_let]: impossible (empty sequence)"
 
   method! eignore () t e =
-    (nest_in_return_pos (fun e -> with_type t (EIgnore (self#visit () e))) e).node
+    (nest_in_return_pos t (fun e -> with_type t (EIgnore (self#visit () e))) e).node
 
 end
 
@@ -321,7 +321,7 @@ let let_if_to_assign = object (self)
         (* [b] holds the return value of the conditional *)
         let b = mark_mut b in
         let b, e2 = open_binder b e2 in
-        let nest_assign = nest_in_return_pos (fun innermost -> {
+        let nest_assign = nest_in_return_pos TUnit (fun innermost -> {
           node = EAssign ({ node = EOpen (b.node.name, b.node.atom); typ = b.typ }, innermost);
           typ = TUnit
         }) in
@@ -341,7 +341,7 @@ let let_if_to_assign = object (self)
     | ESwitch (e, branches), None ->
         let b = { b with node = { b.node with mut = true }} in
         let b, e2 = open_binder b e2 in
-        let nest_assign = nest_in_return_pos (fun innermost -> {
+        let nest_assign = nest_in_return_pos TUnit (fun innermost -> {
           node = EAssign ({ node = EOpen (b.node.name, b.node.atom); typ = b.typ }, innermost);
           typ = TUnit
         }) in
@@ -741,7 +741,7 @@ let rec fixup_return_pos e =
       (fixup_return_pos e).node
   | ELet (_, ({ node = (EIfThenElse _ | ESwitch _); _ } as e),
     { node = ECast ({ node = EBound 0; _ }, t); _ }) ->
-      (nest_in_return_pos (fun e -> with_type t (ECast (e, t))) (fixup_return_pos e)).node
+      (nest_in_return_pos t (fun e -> with_type t (ECast (e, t))) (fixup_return_pos e)).node
   | EIfThenElse (e1, e2, e3) ->
       EIfThenElse (e1, fixup_return_pos e2, fixup_return_pos e3)
   | ESwitch (e1, branches) ->

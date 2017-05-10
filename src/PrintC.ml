@@ -65,11 +65,11 @@ and prec_of_op2 op =
   | Mult -> 3, 3, 3
   | Mod -> 3, 3, 2
   | BOr -> 10, 10, 10
-  | BAnd -> 8, 8, 8
+  | BAnd ->
+      8, 8, 8
   | BXor | Xor -> 9, 9, 9
   | BShiftL | BShiftR ->
-      (* Force parentheses for the operands of shifts. *)
-      if !Options.parentheses then 5, 0, 0 else 5, 5, 4
+      5, 5, 4
   | Eq | Neq -> 7, 7, 7
   | Lt | Lte | Gt | Gte -> 6, 6, 5
   | And -> 11, 11, 11
@@ -101,6 +101,18 @@ and paren_if curr mine doc =
   else
     doc
 
+(* [e] is an operand of [op]; is this likely to trigger GCC's -Wparentheses? If
+ * so, downgrade the current precedence to 0 to force parenthses. *)
+and defeat_Wparentheses op e prec =
+  let open Constant in
+  if not !Options.parentheses then
+    prec
+  else match op, e with
+  | (BShiftL | BShiftR | BOr | BAnd), Op2 ((Add | Sub), _, _) ->
+      0
+  | _ ->
+      prec
+
 and p_expr' curr = function
   | Op1 (op, e1) ->
       let mine = prec_of_op1 op in
@@ -108,6 +120,8 @@ and p_expr' curr = function
       paren_if curr mine (if is_prefix op then print_op op ^^ e1 else e1 ^^ print_op op)
   | Op2 (op, e1, e2) ->
       let mine, left, right = prec_of_op2 op in
+      let left = defeat_Wparentheses op e1 left in
+      let right = defeat_Wparentheses op e2 right in
       let e1 = p_expr' left e1 in
       let e2 = p_expr' right e2 in
       paren_if curr mine (e1 ^/^ print_op op ^^ jump e2)
