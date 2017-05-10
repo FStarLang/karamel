@@ -301,10 +301,10 @@ let pass_by_ref files =
   Simplify.visit_files [] (pass_by_ref action_table) files
 
 
-(** Make sure all structures are allocated in memory and there are no
- * intermediary values of struct type. *)
-
-(* Explicitly allocate structs in memory, and initialize them in place.
+(* Explicitly allocate structs in memory, and initialize them in place. This
+ * eliminate structure values, and replaces them with pointers; the lifetime of
+ * these structs is extended to the enclosing push/pop frame. Copies become
+ * explicit.
  * - This allocation scheme is inefficient because offsets are dynamically
  *   computed as we grow the stack. A later phase should collect all
  *   statically-sized buffer allocations and lay them out near the top of the
@@ -342,6 +342,8 @@ let pass_by_ref files =
 let to_addr _is_struct = object(_self)
 
   inherit [unit] map
+
+
 
 end
 
