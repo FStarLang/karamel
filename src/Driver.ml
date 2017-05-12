@@ -287,7 +287,7 @@ let detect_gnu flavor =
         Warnings.fatal_error "gcc not found in path!";
   in
   let crosscc = if !Options.m32 then format_of_string "i686-w64-mingw32-%s" else format_of_string "x86_64-w64-mingw32-%s" in
-  search [ "%s-6"; "%s-5"; crosscc; "%s" ];
+  search [ "%s-7"; "%s-6"; "%s-5"; crosscc; "%s" ];
 
   KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !cc;
 
