@@ -92,7 +92,10 @@ let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type
   | Struct (self, fields) ->
       let fields =
         (* Hack: [adapt] uses the empty list to indicate that this ought to be a
-         * struct reference, not a struct declaration. *)
+         * struct reference, not a struct declaration. Currently, there is no
+         * way to represent an empty struct type (a.k.a. struct foo_s { }) in C*
+         * (and we don't need it). This is not legal C, only a GCC extension
+         * anyhow (but legal C++!). *)
         if List.length fields = 0 then
           None
         else
