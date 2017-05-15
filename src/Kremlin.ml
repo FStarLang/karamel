@@ -50,7 +50,6 @@ let _ =
   let arg_verify = ref false in
   let arg_warn_error = ref "" in
   let arg_wasm = ref false in
-  let arg_timings = ref false in
   let c_files = ref [] in
   let o_files = ref [] in
   let fst_files = ref [] in
@@ -185,7 +184,6 @@ Supported options:|}
     "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after inlining";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-dwasm", Arg.Set arg_print_wasm, " pretty-print the output Wasm";
-    "-dtimings", Arg.Set arg_timings, " time the different passes";
     "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific comma-separated list of values; currently supported: inline,bundle,wasm-calls";
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
@@ -240,13 +238,10 @@ Supported options:|}
     flush stdout;
     flush stderr;
     if ok then
-      Printf.printf ("%s✔%s " ^^ fmt) Ansi.green Ansi.reset
+      Printf.printf ("%s✔%s [" ^^ fmt) Ansi.green Ansi.reset
     else
-      Printf.printf ("%s⚠%s " ^^ fmt) Ansi.red Ansi.reset;
-    if !arg_timings then
-      KPrint.bprintf " (%a)\n" Time.tick ()
-    else
-      Printf.printf "\n";
+      Printf.printf ("%s⚠%s [" ^^ fmt) Ansi.red Ansi.reset;
+    KPrint.bprintf "] %a\n" Time.tick ()
   in
 
 

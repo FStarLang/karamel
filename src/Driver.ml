@@ -250,11 +250,11 @@ let run_fstar verify skip_extract skip_translate files =
   assert (List.length files > 0);
   detect_fstar_if ();
 
-  KPrint.bprintf "%s⚡ Calling F*%s\n" Ansi.blue Ansi.reset;
+  KPrint.bprintf "%s⚡ Calling F* (use -verbose to see the output)%s\n" Ansi.blue Ansi.reset;
   let args = List.rev !Options.fsopts @ !fstar_options @ List.rev files in
   if verify then begin
     flush stdout;
-    if not (run_or_warn "[F*,verify]" !fstar args) then
+    if not (run_or_warn "[verify]" !fstar args) then
       fatal_error "F* failed"
   end;
 
@@ -324,8 +324,8 @@ let detect_cc_if () =
         detect_gnu "gcc";
         let h = read_one_line !cc [| "--help" |] in
         if not (KString.starts_with h "Usage: gcc") then begin
-          KPrint.beprintf "gcc is not gcc but %s" h;
-          KPrint.beprintf "Please use -cc clang if you're on OSX, or run brew install gcc";
+          KPrint.beprintf "The gcc command doesn't look like GCC!\n%s\n" h;
+          KPrint.beprintf "Please use -cc clang if you're on OSX, or run brew install gcc\n";
           exit 1
         end
     | "compcert" ->
