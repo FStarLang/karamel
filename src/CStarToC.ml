@@ -213,7 +213,8 @@ and mk_stmt (stmt: stmt): C.stmt list =
        * array type, in the C sense. *)
       let t = match binder.typ with
         | Pointer t -> Array (t, size)
-        | _ -> failwith "impossible"
+        | Array _ as t -> t
+        | t -> Warnings.fatal_error "impossible: %s" (show_typ t)
       in
       let module T = struct type init = Nope | Memset | Forloop end in
       let (maybe_init, init_type): C.init option * T.init = match init, size with
@@ -253,6 +254,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
         failwith "TODO: createL / eternal";
       let t = match binder.typ with
         | Pointer t -> Array (t, Constant (K.uint32_of_int (List.length inits)))
+        | Array _ as t -> t
         | t -> Warnings.fatal_error "impossible: %s" (show_typ t)
       in
       let spec, decl = mk_spec_and_declarator binder.name t in
