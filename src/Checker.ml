@@ -175,31 +175,42 @@ and check_program env r (name, decls) =
   let env = locate env (File name) in
   let by_lid = Hashtbl.create 41 in
   let decls = KList.filter_map (fun d ->
+    let lid = lid_of_decl d in
     try
       check_decl env d;
       Some d
     with
     | Error e ->
-        r := true;
-        Warnings.maybe_fatal_error e;
-        KPrint.beprintf "Dropping %a (at checking time)\n\n" plid (lid_of_decl d);
+        if not (Drop.lid lid) then begin
+          r := true;
+          Warnings.maybe_fatal_error e;
+          KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
+            please consider using -drop\n\n"
+            plid (lid_of_decl d)
+        end;
         None
 
-    | UnboundLid lid ->
-        r := true;
-        begin try
-          Hashtbl.add by_lid lid (lid_of_decl d :: Hashtbl.find by_lid lid);
-        with Not_found ->
-          Hashtbl.add by_lid lid [ lid_of_decl d ];
+    | UnboundLid lid' ->
+        if not (Drop.lid lid) then begin
+          r := true;
+          begin try
+            Hashtbl.add by_lid lid' (lid :: Hashtbl.find by_lid lid');
+          with Not_found ->
+            Hashtbl.add by_lid lid' [ lid ];
+          end
         end;
         None
 
     | e ->
-        r := true;
-        let e = Printexc.to_string e in
-        Warnings.maybe_fatal_error ("<toplevel>", TypeError e);
-        Printexc.print_backtrace stderr;
-        KPrint.beprintf "Dropping %a (at checking time)\n\n" plid (lid_of_decl d);
+        if not (Drop.lid lid) then begin
+          r := true;
+          let e = Printexc.to_string e in
+          Warnings.maybe_fatal_error ("<toplevel>", TypeError e);
+          Printexc.print_backtrace stderr;
+          KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
+            please consider using -drop\n\n"
+            plid (lid_of_decl d)
+        end;
         None
   ) decls in
 
@@ -211,7 +222,8 @@ and check_program env r (name, decls) =
     KPrint.beprintf "Warning: %a\n" pdoc (
       english_join (List.map print_lident decl_lids) ^/^ mentions ^/^
       print_lident lid ^/^
-      flow break1 (words "meaning that they cannot be type-checked by KreMLin")
+      flow break1 (words "meaning that they cannot be type-checked by KreMLin; \
+        if this is normal, please consider using -drop")
     )
   ) by_lid;
 

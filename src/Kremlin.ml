@@ -6,29 +6,33 @@ module Time = struct
   let start () =
     t := Some (Unix.times ())
 
-  let tick s =
-    if !Options.timings then
-      let t' = Unix.times () in
-      let diff = t'.Unix.tms_cutime -. (Option.must !t).Unix.tms_cutime +.
-        t'.Unix.tms_utime -. (Option.must !t).Unix.tms_utime
-      in
-      let rec smart_format whole f =
-        if f < 1. && whole then
-          "<1ms"
-        else if f < 1000. then
-          KPrint.bsprintf "%.0fms" f
-        else if f < 60. *. 1000. then
-          let seconds = floor (f /. 1000.) in
-          KPrint.bsprintf "%.0fs and " seconds ^ smart_format false (f -. seconds *. 1000.)
-        else if f < 3600. *. 1000. then
-          let minutes = floor (f /. 60. *. 1000.) in
-          KPrint.bsprintf "%.0fm" minutes ^ smart_format false (f -. minutes *. 60. *. 1000.)
-        else
-          let hours = floor (f /. 3_600_000.) in
-          KPrint.bsprintf "%.0fh" hours ^ smart_format false (f -. hours *. 3_600_000.)
-      in
-      KPrint.bprintf "⏱️ %s: %s\n" s (smart_format true (diff *. 1000.));
-      t := Some t'
+  let tick buf () =
+    let t' = Unix.times () in
+    let diff = t'.Unix.tms_cutime -. (Option.must !t).Unix.tms_cutime +.
+      t'.Unix.tms_utime -. (Option.must !t).Unix.tms_utime
+    in
+    t := Some t';
+
+    Printf.bprintf buf "⏱️ ";
+    let rec smart_format whole f =
+      if f < 1. && whole then
+        Printf.bprintf buf "<1ms"
+      else if f < 1000. then
+        Printf.bprintf buf "%.0fms" f
+      else if f < 60. *. 1000. then
+        let seconds = floor (f /. 1000.) in
+        Printf.bprintf buf "%.0fs and " seconds;
+        smart_format false (f -. seconds *. 1000.)
+      else if f < 3600. *. 1000. then
+        let minutes = floor (f /. 60. *. 1000.) in
+        Printf.bprintf buf "%.0fm" minutes;
+        smart_format false (f -. minutes *. 60. *. 1000.)
+      else
+        let hours = floor (f /. 3_600_000.) in
+        Printf.bprintf buf "%.0fh" hours;
+        smart_format false (f -. hours *. 3_600_000.)
+    in
+    smart_format true (diff *. 1000.)
 end
 
 let _ =
@@ -46,6 +50,7 @@ let _ =
   let arg_verify = ref false in
   let arg_warn_error = ref "" in
   let arg_wasm = ref false in
+  let arg_timings = ref false in
   let c_files = ref [] in
   let o_files = ref [] in
   let fst_files = ref [] in
@@ -180,7 +185,7 @@ Supported options:|}
     "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after inlining";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-dwasm", Arg.Set arg_print_wasm, " pretty-print the output Wasm";
-    "-dtimings", Arg.Set Options.timings, " time the different passes";
+    "-dtimings", Arg.Set arg_timings, " time the different passes";
     "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific comma-separated list of values; currently supported: inline,bundle,wasm-calls";
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
@@ -229,18 +234,33 @@ Supported options:|}
     Options.struct_passing := false
   end;
 
+  (* Timings. *)
   Time.start ();
+  let tick_print ok fmt =
+    flush stdout;
+    flush stderr;
+    if ok then
+      Printf.printf ("%s✔%s " ^^ fmt) Ansi.green Ansi.reset
+    else
+      Printf.printf ("%s⚠%s " ^^ fmt) Ansi.red Ansi.reset;
+    if !arg_timings then
+      KPrint.bprintf " (%a)\n" Time.tick ()
+    else
+      Printf.printf "\n";
+  in
+
 
   (* Shall we run F* first? *)
   let filename =
     if List.length !fst_files > 0 then
       let f = Driver.run_fstar !arg_verify !arg_skip_extraction !arg_skip_translation !fst_files in
-      Time.tick "F*";
+      tick_print true "F*";
       f
     else
       !filename
   in
 
+  (* Dumping the AST for debugging purposes *)
   let print f files =
     flush stdout;
     flush stderr;
@@ -261,77 +281,67 @@ Supported options:|}
   if !arg_print_ast then
     print PrintAst.print_files files;
 
-  (* The first check can only occur after type abbreviations have been inlined,
-   * and type abbreviations we don't know about have been replaced by TAny.
-   * Otherwise, the checker is too stringent and will drop files. *)
+  (* 1. Minimal cleanup, remove higher-order combinators (e.g. map) with mere
+   * calls to the base [for] combinator. These combinators (e.g. map) are
+   * polymorphic; by inlining them, we make sure they can be type-checked
+   * monorphically at call-site. We then remove the polymorphic definitions
+   * (e.g. map) as we don't know how to type-check them. Finally, perform a
+   * first round of type-checking. If things fail at this stage, most likely not
+   * our fault (bad input?). *)
   let files = DataTypes.drop_match_cast files in
-  (* Combinators are buffer-polymorphic and must be inlined so that they are
-   * typed monomorphically at call-site. *)
   let files = Inlining.inline_combinators files in
   let files = Inlining.drop_polymorphic_functions files in
   let has_errors, files = Checker.check_everything ~warn:true files in
+  tick_print (not has_errors) "Checking input file";
 
-  Time.tick "Load-Check";
-
-  (* Make sure implementors that target Kremlin can tell apart their bugs vs.
-   * mine *)
-  flush stderr;
-  if not has_errors then
-    KPrint.bprintf "%s✔%s Input file successfully checked\n" Ansi.green Ansi.reset
-  else
-    KPrint.bprintf "%s⚠%s Dropped some declarations while checking\n" Ansi.orange Ansi.reset;
-  flush stdout;
-
+  (* 2. Perform bundling early, as later analyses need to know which functions
+   * are in the same file and which are not. *)
   let files = Bundles.make_bundles files in
-  let _, files = Checker.check_everything files in
-
   let files = Inlining.inline_type_abbrevs files in
+  let has_errors, files = Checker.check_everything files in
+  tick_print (not has_errors) "Bundle + inline types";
 
-  Time.tick "Bundles-Inline-Types";
-
-  (* Simplify data types and remove patterns. *)
+  (* 3. Compile data types and pattern matches to enums, structs, switches and
+   * if-then-elses. *)
   let datatypes_state, files = DataTypes.everything files in
   if !arg_print_pattern then
     print PrintAst.print_files files;
+  let has_errors, files = Checker.check_everything files in
+  tick_print (not has_errors) "Pattern matches compilation";
 
-  (* Perform a whole-program rewriting. *)
-  let _, files = Checker.check_everything files in
-  KPrint.bprintf "%s✔%s Pattern compilation successfully checked\n" Ansi.green Ansi.reset;
-
-  Time.tick "DataTypes";
-
+  (* 4. First round of simplifications. *)
   let files = if !arg_wasm then Simplify.simplify_wasm files else files in
   let files = Simplify.simplify1 files in
   let files = Simplify.simplify2 files in
   if !arg_print_simplify then
     print PrintAst.print_files files;
+  let has_errors, files = Checker.check_everything files in
+  tick_print (not has_errors) "Simplify 1+2";
 
-  Time.tick "Simplify 1+2";
-
-  (* The criterion for determining whether we should inline really works well
-   * after everything has been simplified, but inlining requires a new round of
-   * hoisting. *)
+  (* 5. Whole-program transformations. Inline functions marked as [@substitute]
+   * or [StackInline] into their parent's bodies. This is a whole-program
+   * dataflow analysis done using a fixpoint computation. If needed, pass
+   * structures by reference, and also allocate all structures in memory. This
+   * creates new opportunities for the removal of unused variables, but also
+   * breaks the earlier transformation to a statement language, which we perform
+   * again. Note that [remove_unused] generates MetaSequence let-bindings,
+   * meaning that it has to occur before [simplify2]. *)
   let files = Inlining.inline_function_frames files in
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
   let files = if !arg_wasm then Structs.in_memory files else files in
-  (* In this order because remove_unused generates MetaSequence's *)
   let files = Simplify.remove_unused files in
   let files = Simplify.simplify2 files in
+  let has_errors, files = Checker.check_everything files in
   if !arg_print_inline then
     print PrintAst.print_files files;
+  tick_print (not has_errors) "Inline + Simplify 2";
 
-  Time.tick "Inlining + Simplify2";
-
-  let _, files = Checker.check_everything files in
-  KPrint.bprintf "%s✔%s Simplify + inlining successfully checked\n" Ansi.green Ansi.reset;
-  (* Do this at the last minute because the checker still needs these type
-   * abbreviations to check that our stuff makes sense. *)
+  (* 6. Some transformations that break typing: remove type application
+   * definitions (creates unbound types), drop unused functions (note: this
+   * needs to happen after [inline_function_frames], as this pass removes
+   * illegal Private flags), enable anonymous unions for syntactic elegance. *)
   let files = Inlining.drop_type_applications files in
-  (* This must happen AFTER inline_function_frames has removed some illegal
-   * private flags. Otherwise, we may be removing too many things. *)
   let files = Inlining.drop_unused files in
-
-  (* This breaks typing. *)
   let files =
     if !Options.anonymous_unions then
       DataTypes.anonymous_unions datatypes_state files
@@ -339,12 +349,11 @@ Supported options:|}
       files
   in
 
-  (* Drop files (e.g. -drop FStar.Heap) *)
+  (* 7. Drop both files and selected declarations within some files, as a [-drop
+   * Foo -bundle Bar=Foo] command-line requires us to go inside file [Bar] to
+   * drop the declarations that originate from [Foo]. *)
   let drop l =
     let l = List.filter (fun (name, _) -> not (Drop.file name)) l in
-    (* Note that after bundling, we need to go inside bundles to find top-level
-     * names that originate from a module we were meant to drop, and drop
-     * individual declarations. *)
     Ast.filter_decls (fun d ->
       if Drop.lid (Ast.lid_of_decl d) then
         None
@@ -353,17 +362,21 @@ Supported options:|}
     ) l
   in
   let files = drop files in
+  tick_print true "Drop";
 
-  Time.tick "Drop";
-
-  (* The "drop files" pass above needs some properly-built names... do this at
-   * the last minute, really. *)
+  (* 8. Final transformation on the AST: go to C names. This must really be done
+   * at the last minute, since it invalidates pretty much any map ever built. *)
   let files = Simplify.to_c_names files in
 
   if !arg_wasm then
-    (* ... then to Wasm *)
+    (* The Wasm backend diverges here. We go to [CFlat] (an expression
+     * language), then directly into the Wasm AST. *)
     let files = AstToCFlat.mk_files files in
+    tick_print true "AstToCFlat";
+
     let modules = CFlatToWasm.mk_files files in
+    tick_print true "CFlatToWasm";
+
     List.iter (fun (name, module_) ->
       let s = Wasm.Encode.encode module_ in
       let name = name ^ ".wasm" in
@@ -377,14 +390,12 @@ Supported options:|}
   else
     (* Translate to C*... *)
     let files = AstToCStar.mk_files files in
-
-    Time.tick "AstToCStar";
+    tick_print true "AstToCStar";
 
     (* ... then to C *)
     let headers = CStarToC.mk_headers files in
     let files = CStarToC.mk_files files in
-
-    Time.tick "CStarToC";
+    tick_print true "CStarToC";
 
     (* -dc *)
     if !arg_print_c then
@@ -392,11 +403,11 @@ Supported options:|}
 
     flush stdout;
     flush stderr;
-    Printf.printf "KreMLin: writing out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
     Output.write_c files;
     Output.write_h headers;
+    tick_print true "PrettyPrinting";
 
-    Time.tick "PrettyPrint";
+    Printf.printf "KreMLin: wrote out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
 
     if !arg_skip_compilation then
       exit 0;

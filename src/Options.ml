@@ -23,7 +23,6 @@ let anonymous_unions = ref true
 let uint128 = ref true
 let parentheses = ref false
 let unroll_loops = ref (-1)
-let timings = ref false
 
 (* A set of extra command-line arguments one gets for free depending on the
  * value of -cc *)
