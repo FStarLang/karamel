@@ -84,6 +84,11 @@ let success cmd args =
 let read_one_line cmd args =
   String.trim (List.hd (Process.read_stdout cmd args))
 
+let read_one_error_line cmd args =
+  match Process.run cmd args with
+  | { Process.Output.stderr; _ } ->
+      String.trim (List.hd stderr)
+
 (** The tools we depend on; namely, readlink. *)
 let detect_base_tools () =
   KPrint.bprintf "%s⚙ KreMLin auto-detecting tools.%s Here's what we found:\n" Ansi.blue Ansi.reset;
@@ -324,7 +329,7 @@ let detect_cc_if () =
     match !Options.cc with
     | "gcc" ->
         detect_gnu "gcc";
-        let h = read_one_line !cc [| |] in
+        let h = read_one_error_line !cc [| |] in
         if KString.starts_with h "clang:" then begin
           KPrint.beprintf "The gcc command doesn't look like GCC!\n%s\n" h;
           KPrint.beprintf "Please use -cc clang if you're on OSX, or run brew install gcc\n";
