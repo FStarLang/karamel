@@ -35,7 +35,7 @@ let default_options () =
   let gcc_like_options = [|
     "-ccopts";
     "-Wall,-Werror,-Wno-unused-variable," ^
-    "-g,-O3,-fwrapv,-D_BSD_SOURCE,-D_DEFAULT_SOURCE,-Wno-unused-but-set-variable" ^
+    "-g,-O3,-fwrapv,-D_BSD_SOURCE,-D_DEFAULT_SOURCE,-Wno-unused-but-set-variable,-Wno-unknown-warning-option" ^
     (if Sys.os_type = "Win32" then ",-D__USE_MINGW_ANSI_STDIO" else "") ^
     (if !parentheses then "" else ",-Wno-parentheses")
   |] in
