@@ -11,25 +11,49 @@ let is_array = function Array _ -> true | _ -> false
 
 (* Function types are pointers to function types, except in the top-level
  * declarator for a function, which gets special treatment via
- * mk_spec_and_declarator_f. *)
-let rec adapt (t: CStar.typ) =
-  match t with
-  | Bool
-  | Z
-  | Void
-  | Enum _
-  | Int _ -> t
-  | Pointer t ->
-      Pointer (adapt t)
-  | Qualified _ -> t
-  | Array (t, e) ->
-      Array (adapt t, e)
-  | Function (cc, t, ts) ->
-      Pointer (Function (cc, adapt t, List.map adapt ts))
-  | Struct fields ->
-      Struct (List.map (fun (field, t) -> field, adapt t) fields)
-  | Union fields ->
-      Union (List.map (fun (field, t) -> field, adapt t) fields)
+ * mk_spec_and_declarator_f. Also: an inductive that talks about itself must
+ * refer to [struct foo_s] rather than the typedef'd type (which is not bound by
+ * the C lexical conventions). *)
+let adapt name self (t: CStar.typ) =
+  let rec adapt t =
+    match t with
+    | Bool
+    | Z
+    | Void
+    | Enum _
+    | Int _ -> t
+    | Pointer t ->
+        Pointer (adapt t)
+    | Qualified ident ->
+        if ident = name then
+          self
+        else
+          t
+    | Array (t, e) ->
+        Array (adapt t, e)
+    | Function (cc, t, ts) ->
+        Pointer (Function (cc, adapt t, List.map adapt ts))
+    | Struct (self, fields) ->
+        Struct (self, List.map (fun (field, t) -> field, adapt t) fields)
+    | Union fields ->
+        Union (List.map (fun (field, t) -> field, adapt t) fields)
+  in
+  adapt t
+
+let adapt (name: ident) (t: CStar.typ) =
+  let t, self =
+    match t with
+    | Struct (None, fields) ->
+        (* Meh name collision *)
+        let name_s = name ^ "_s" in
+        Struct (Some name_s, fields), Struct (Some name_s, [])
+    | _ ->
+        t, Qualified name
+  in
+  adapt name self t
+
+
+
 
 let escape_string s =
   (* TODO: dive into the C lexical conventions + fix the F\* lexer *)
@@ -65,12 +89,20 @@ let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type
       Named "mpz_t", k (Ident name)
   | Bool ->
       Named "bool", k (Ident name)
-  | Struct fields ->
-      Struct (None, List.map (fun (name, typ) ->
-        let name = match name with Some name -> name | None -> "" in
-        let spec, decl = mk_spec_and_declarator name typ in
-        spec, None, [ decl, None ]
-      ) fields), k (Ident name)
+  | Struct (self, fields) ->
+      let fields =
+        (* Hack: [adapt] uses the empty list to indicate that this ought to be a
+         * struct reference, not a struct declaration. *)
+        if List.length fields = 0 then
+          None
+        else
+          Some (List.map (fun (name, typ) ->
+            let name = match name with Some name -> name | None -> "" in
+            let spec, decl = mk_spec_and_declarator name typ in
+            spec, None, [ decl, None ]
+          ) fields)
+      in
+      Struct (self, fields), k (Ident name)
   | Union fields ->
       Union (None, List.map (fun (name, typ) ->
         let spec, decl = mk_spec_and_declarator name typ in
@@ -78,11 +110,11 @@ let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type
       ) fields), k (Ident name)
 
 and mk_spec_and_declarator name t =
-  mk_spec_and_decl name (adapt t) (fun d -> d)
+  mk_spec_and_decl name (adapt name t) (fun d -> d)
 
 and mk_spec_and_declarator_f cc name ret_t params =
-  mk_spec_and_decl name (adapt ret_t) (fun d ->
-    Function (cc, d, List.map (fun (n, t) -> mk_spec_and_decl n (adapt t) (fun d -> d)) params))
+  mk_spec_and_decl name (adapt name ret_t) (fun d ->
+    Function (cc, d, List.map (fun (n, t) -> mk_spec_and_decl n (adapt name t) (fun d -> d)) params))
 
 (* Enforce the invariant that declarations are wrapped in compound statements
  * and cannot appear "alone". *)

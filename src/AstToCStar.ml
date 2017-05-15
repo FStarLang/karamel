@@ -609,7 +609,7 @@ and mk_type_def env d: CStar.typ =
   | Flat fields ->
       (* Not naming the structs or enums here, because they're going to be
        * typedef'd and we'll only refer to the typedef'd name. *)
-      CStar.Struct (List.map (fun (field, (typ, _)) ->
+      CStar.Struct (None, List.map (fun (field, (typ, _)) ->
         field, mk_type env typ
       ) fields)
 

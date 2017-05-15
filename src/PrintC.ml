@@ -22,8 +22,12 @@ let rec p_type_spec = function
       braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
   | Struct (name, decls) ->
       group (string "struct" ^/^
-      (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
-      braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
+      (match name with Some name -> string name | None -> empty)) ^^
+      (match decls with
+      | Some decls ->
+          break1 ^^ braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
+      | None ->
+          empty)
   | Enum (name, tags) ->
       group (string "enum" ^/^
       (match name with Some name -> string name ^^ break1 | None -> empty)) ^^

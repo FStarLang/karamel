@@ -9,7 +9,9 @@ type type_spec =
   | Int of Constant.width
   | Void
   | Named of ident
-  | Struct of ident option * declaration list
+  | Struct of ident option * declaration list option
+      (** Note: the option allows for zero-sized structs (GCC's C, C++) but as
+       * of 2017/05/14 we never generate these. *)
   | Union of ident option * declaration list
   | Enum of ident option * ident list
     (** not encoding all the invariants here *)

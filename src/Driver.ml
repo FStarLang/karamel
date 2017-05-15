@@ -229,7 +229,9 @@ let run_or_warn str exe args =
   let debug_str = KPrint.bsprintf "%s %s" exe (String.concat " " args) in
   if !Options.verbose then
     print_endline debug_str;
-  match P.run exe (Array.of_list args) with
+  let r = P.run exe (Array.of_list args) in
+  flush stdout; flush stderr;
+  match r with
   | { P.Output.exit_status = P.Exit.Exit 0; stdout; stderr; _ } ->
       KPrint.bprintf "%s✔%s %s%s\n" Ansi.green Ansi.reset str (verbose_msg ());
       if !Options.verbose then

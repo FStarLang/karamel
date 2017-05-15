@@ -10,7 +10,8 @@ FILES		= \
   Private.exe ML16.exe Abbrev.exe Tuples.exe \
   DataTypesSimple.exe DataTypes.exe Parameterized.exe \
   Scope.exe Attributes.exe Unsound.exe Substitute.exe \
-  InlineTest.exe Ghost1.exe Loops.exe Structs.exe
+  InlineTest.exe Ghost1.exe Loops.exe Structs.exe \
+  Recursive.exe
 EXTRA_FILES	= \
   Crypto.Symmetric.Chacha20.exe
 
