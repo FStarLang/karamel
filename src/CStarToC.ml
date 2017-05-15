@@ -253,7 +253,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
         failwith "TODO: createL / eternal";
       let t = match binder.typ with
         | Pointer t -> Array (t, Constant (K.uint32_of_int (List.length inits)))
-        | _ -> failwith "impossible"
+        | t -> Warnings.fatal_error "impossible: %s" (show_typ t)
       in
       let spec, decl = mk_spec_and_declarator binder.name t in
       [ Decl (spec, None, [ decl, Some (Initializer (List.map (fun e ->
