@@ -9,62 +9,22 @@ let zero = C.Constant (K.UInt8, "0")
 
 let is_array = function Array _ -> true | _ -> false
 
-(* Function types are pointers to function types, except in the top-level
- * declarator for a function, which gets special treatment via
- * mk_spec_and_declarator_f. Also: an inductive that talks about itself must
- * refer to [struct foo_s] rather than the typedef'd type (which is not bound by
- * the C lexical conventions). *)
-let adapt name self (t: CStar.typ) =
-  let rec adapt t =
-    match t with
-    | Bool
-    | Z
-    | Void
-    | Enum _
-    | Int _ -> t
-    | Pointer t ->
-        Pointer (adapt t)
-    | Qualified ident ->
-        if ident = name then
-          self
-        else
-          t
-    | Array (t, e) ->
-        Array (adapt t, e)
-    | Function (cc, t, ts) ->
-        Pointer (Function (cc, adapt t, List.map adapt ts))
-    | Struct (self, fields) ->
-        Struct (self, List.map (fun (field, t) -> field, adapt t) fields)
-    | Union fields ->
-        Union (List.map (fun (field, t) -> field, adapt t) fields)
-  in
-  adapt t
-
-let adapt (name: ident) (t: CStar.typ) =
-  let t, self =
-    match t with
-    | Struct (None, fields) ->
-        (* Meh name collision *)
-        let name_s = name ^ "_s" in
-        Struct (Some name_s, fields), Struct (Some name_s, [])
-    | _ ->
-        t, Qualified name
-  in
-  adapt name self t
-
-
-
-
 let escape_string s =
   (* TODO: dive into the C lexical conventions + fix the F\* lexer *)
   String.escaped s
 
+type rec_name = {
+  lid: CStar.ident;
+  typ: C.type_spec;
+  used: bool ref;
+}
+
 (* Turns the ML declaration inside-out to match the C reading of a type.
  * See en.cppreference.com/w/c/language/declarations *)
-let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
+let rec mk_spec_and_decl name rec_name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
   match t with
   | Pointer t ->
-      mk_spec_and_decl name t (fun d -> Pointer (k d))
+      mk_spec_and_decl name rec_name t (fun d -> Pointer (k d))
   | Array (t, size) ->
       (* F* guarantees that the initial size of arrays is always something
        * reasonable (i.e. <4GB). *)
@@ -72,52 +32,75 @@ let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type
         | Constant k -> C.Constant k
         | _ -> mk_expr size
       in
-      mk_spec_and_decl name t (fun d -> Array (k d, size))
+      mk_spec_and_decl name rec_name t (fun d -> Array (k d, size))
   | Function (cc, t, ts) ->
-      mk_spec_and_decl name t (fun d ->
-        Function (cc, k d, List.mapi (fun i t ->
-          mk_spec_and_decl (KPrint.bsprintf "x%d" i) t (fun d -> d)) ts))
+      (* Function types are pointers to function types, except in the top-level
+       * declarator for a function, which gets special treatment via
+       * mk_spec_and_declarator_f. *)
+      mk_spec_and_decl name rec_name t (fun d ->
+        Pointer (Function (cc, k d, List.mapi (fun i t ->
+          mk_spec_and_decl (KPrint.bsprintf "x%d" i) rec_name t (fun d -> d)) ts)))
   | Int w ->
       Int w, k (Ident name)
   | Void ->
       Void, k (Ident name)
   | Qualified l ->
-      Named l, k (Ident name)
+      begin match rec_name with
+      | Some { lid; typ; used } when lid = l ->
+          used := true;
+          typ, k (Ident name)
+      | _ ->
+          Named l, k (Ident name)
+      end
   | Enum tags ->
       Enum (None, tags), k (Ident name)
   | Z ->
       Named "mpz_t", k (Ident name)
   | Bool ->
       Named "bool", k (Ident name)
-  | Struct (self, fields) ->
-      let fields =
-        (* Hack: [adapt] uses the empty list to indicate that this ought to be a
-         * struct reference, not a struct declaration. Currently, there is no
-         * way to represent an empty struct type (a.k.a. struct foo_s { }) in C*
-         * (and we don't need it). This is not legal C, only a GCC extension
-         * anyhow (but legal C++!). *)
-        if List.length fields = 0 then
-          None
-        else
-          Some (List.map (fun (name, typ) ->
-            let name = match name with Some name -> name | None -> "" in
-            let spec, decl = mk_spec_and_declarator name typ in
-            spec, None, [ decl, None ]
-          ) fields)
-      in
-      Struct (self, fields), k (Ident name)
+  | Struct fields ->
+      Struct (None, mk_fields rec_name fields), k (Ident name)
   | Union fields ->
       Union (None, List.map (fun (name, typ) ->
-        let spec, decl = mk_spec_and_declarator name typ in
+        let spec, decl = mk_spec_and_decl name rec_name typ (fun d -> d) in
         spec, None, [ decl, None ]
       ) fields), k (Ident name)
 
-and mk_spec_and_declarator name t =
-  mk_spec_and_decl name (adapt name t) (fun d -> d)
+and mk_fields rec_name fields =
+  Some (List.map (fun (name, typ) ->
+    let name = match name with Some name -> name | None -> "" in
+    let spec, decl = mk_spec_and_decl name rec_name typ (fun d -> d) in
+    spec, None, [ decl, None ]
+  ) fields)
 
+(* Standard spec/declarator pair (e.g. int x). *)
+and mk_spec_and_declarator name t =
+  mk_spec_and_decl name None t (fun d -> d)
+
+(* A variant dedicated to typedef's, where the name really represents the type
+ * itself. Such definitions may contain recursive occurrences of the type
+ * itself; one can compile such a type definition to C when the type is a
+ * struct, by naming it. *)
+and mk_spec_and_declarator_t name t =
+  match t with
+  | Struct fields ->
+      let name_s = name ^ "_s" in
+      let used = ref false in
+      let rec_name = Some { lid = name; typ = C.Struct (Some name_s, None); used } in
+      (* Fills in [used]. *)
+      let fields = mk_fields rec_name fields in
+      if !used then
+        C.Struct (Some name_s, fields), Ident name
+      else
+        C.Struct (None, fields), Ident name
+  | _ ->
+      mk_spec_and_declarator name t
+
+(* A variant dedicated to functions that avoids the conversion of function type
+ * to pointer-to-function. *)
 and mk_spec_and_declarator_f cc name ret_t params =
-  mk_spec_and_decl name (adapt name ret_t) (fun d ->
-    Function (cc, d, List.map (fun (n, t) -> mk_spec_and_decl n (adapt name t) (fun d -> d)) params))
+  mk_spec_and_decl name None ret_t (fun d ->
+    Function (cc, d, List.map (fun (n, t) -> mk_spec_and_decl n None t (fun d -> d)) params))
 
 (* Enforce the invariant that declarations are wrapped in compound statements
  * and cannot appear "alone". *)
@@ -540,7 +523,7 @@ let mk_files files =
 let mk_stub_or_function (d: decl): C.declaration_or_function option =
   match d with
   | Type (name, t) ->
-      let spec, decl = mk_spec_and_declarator name t in
+      let spec, decl = mk_spec_and_declarator_t name t in
       Some (Decl (spec, Some Typedef, [ decl, None ]))
 
   | Function (cc, flags, return_type, name, parameters, _) ->
