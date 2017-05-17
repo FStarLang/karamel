@@ -42,7 +42,7 @@ let default_options () =
   let gcc_options = Array.append gcc_like_options [| "-ccopt"; "-std=c11" |] in
   [
     "gcc", gcc_options;
-    "clang", gccg_options;
+    "clang", gcc_options;
     "g++", gcc_like_options;
     "compcert", [|
       "-warn-error"; "@6@8";
