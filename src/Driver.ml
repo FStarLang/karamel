@@ -328,13 +328,7 @@ let detect_cc_if () =
   if !cc = "" then
     match !Options.cc with
     | "gcc" ->
-        detect_gnu "gcc";
-        let h = read_one_error_line !cc [| |] in
-        if KString.starts_with h "clang:" then begin
-          KPrint.beprintf "The gcc command doesn't look like GCC!\n%s\n" h;
-          KPrint.beprintf "Please use -cc clang if you're on OSX, or run brew install gcc\n";
-          exit 1
-        end
+        detect_gnu "gcc"
     | "compcert" ->
         detect_compcert ()
     | "g++" ->
