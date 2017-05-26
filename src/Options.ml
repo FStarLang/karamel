@@ -34,15 +34,15 @@ let default_options () =
   let gcc_like_options = [|
     "-ccopts";
     "-Wall,-Werror,-Wno-unused-variable," ^
-    "-g,-O3,-fwrapv,-D_BSD_SOURCE,-D_DEFAULT_SOURCE,-Wno-unused-but-set-variable" ^
+    "-Wno-unknown-warning-option,-Wno-unused-but-set-variable," ^
+    "-g,-O3,-fwrapv,-D_BSD_SOURCE,-D_DEFAULT_SOURCE" ^
     (if Sys.os_type = "Win32" then ",-D__USE_MINGW_ANSI_STDIO" else "") ^
     (if !parentheses then "" else ",-Wno-parentheses")
   |] in
   let gcc_options = Array.append gcc_like_options [| "-ccopt"; "-std=c11" |] in
-  let clang_options = Array.append gcc_options [| "-ccopt"; "-Wno-unknown-warning-option" |] in
   [
     "gcc", gcc_options;
-    "clang", clang_options;
+    "clang", gcc_options;
     "g++", gcc_like_options;
     "compcert", [|
       "-warn-error"; "@6@8";
