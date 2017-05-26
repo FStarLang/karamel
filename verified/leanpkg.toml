@@ -1,0 +1,6 @@
+[package]
+name = "kremlin"
+version = "0.1"
+path = "."
+
+[dependencies]
