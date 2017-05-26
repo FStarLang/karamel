@@ -37,8 +37,8 @@ inductive stmt : Type
 | decl : binder → exp → stmt
 | decl_buf : binder → nat → stmt
 | write_buf : exp → nat → exp → stmt
-| call : ident → glob → exp → stmt
-| read : ident → exp → stmt
+| call : binder → glob → exp → stmt
+| read : binder → exp → stmt
 | write : exp → exp → stmt
 | if_then_else : exp → list stmt → list stmt → stmt
 | block : list stmt → stmt

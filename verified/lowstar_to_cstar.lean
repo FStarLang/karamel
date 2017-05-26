@@ -73,12 +73,13 @@ def transl_to_stmt : ∀ {X},
   let (seen', ss) := ret in
   some (seen', (stmt.ignore ce1) :: ss)
 
-| X seen names (exp.let_app τ fn e1 e) := -- τ?
+| X seen names (exp.let_app τ fn e1 e) :=
   let id := fresh_ident seen in
+  let τ' := transl_typ τ in
   transl_to_exp names e1 >>= λ ce1,
   transl_to_stmt (set.insert id seen) (names_cons id names) e >>= λ ret,
   let (seen', ss) := ret in
-  some (seen', (stmt.call id fn ce1) :: ss)
+  some (seen', (stmt.call (binder.mk id τ') fn ce1) :: ss)
 
 | X seen names (exp.let_newbuf size e1 τ e) :=
   let id := fresh_ident seen in
@@ -92,11 +93,12 @@ def transl_to_stmt : ∀ {X},
 
 | X seen names (exp.let_readbuf τ e1 e2 e) :=
   let id := fresh_ident seen in
+  let τ' := transl_typ τ in
   transl_to_exp names e1 >>= λ ce1,
   transl_to_exp names e2 >>= λ ce2,
   transl_to_stmt (set.insert id seen) (names_cons id names) e >>= λ ret,
   let (seen', ss) := ret in
-  some (seen', (stmt.read id (exp.ptr_add ce1 ce2)) :: ss)
+  some (seen', (stmt.read (binder.mk id τ') (exp.ptr_add ce1 ce2)) :: ss)
 
 | X seen names (exp.writebuf e1 e2 e3 e) :=
   transl_to_exp names e1 >>= λ ce1,

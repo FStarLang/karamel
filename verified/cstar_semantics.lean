@@ -12,7 +12,7 @@ open cstar
 
 inductive ectx : Type
 | ignore : list stmt → ectx
-| read : ident → list stmt → ectx
+| read : binder → list stmt → ectx
 
 def memory : Type :=
   map block_id (list (option value))
@@ -34,7 +34,7 @@ def configuration : Type :=
 def apply_ectx (c : ectx) (e : cstar.exp) : list stmt :=
   match c with
   | ectx.ignore ss := (stmt.ignore e) :: ss
-  | ectx.read x ss := (stmt.read x e) :: ss
+  | ectx.read b ss := (stmt.read b e) :: ss
   end
 
 -- instance : decidable_eq cstar.field :=
@@ -145,12 +145,12 @@ inductive step (gvars : map ident decl) :
     (stack, vars, (stmt.write_buf e₁ m e₂) :: ss)
     (stack', vars, ss)
     (memset_labels b n m)
-| read : ∀ stack vars vars' x loc e v ss,
+| read : ∀ stack vars vars' b loc e v ss,
   eval_exp gvars vars e (value.loc loc) →
   stack_get stack loc = some v →
-  vars' = map_add vars x v →
+  vars' = map_add vars (binder.name b) v →
   step
-    (stack, vars, (stmt.read x e) :: ss)
+    (stack, vars, (stmt.read b e) :: ss)
     (stack, vars', ss)
     [label.read loc]
 | write : ∀ stack stack' vars e₁ e₂ loc v ss,
@@ -173,13 +173,13 @@ inductive step (gvars : map ident decl) :
     ((mem, vars', ctx) :: stack, vars, (stmt.return e) :: ss)
     (stack, map_empty, [stmt.return v])
     []
-| call : ∀ stack vars vars' x f f_ret_ty f_param f_body e v ss,
+| call : ∀ stack vars vars' b f f_ret_ty f_param f_body e v ss,
   gvars f = some (decl.function f_ret_ty f f_param f_body) →
   eval_exp gvars vars e v →
   vars' = bind_in vars f_param v →
   step
-    (stack, vars, (stmt.call x f e) :: ss)
-    ((none, vars, ectx.read x ss) :: stack, vars', f_body)
+    (stack, vars, (stmt.call b f e) :: ss)
+    ((none, vars, ectx.read b ss) :: stack, vars', f_body)
     []
 | ignore : ∀ stack vars e v ss,
   eval_exp gvars vars e v →
