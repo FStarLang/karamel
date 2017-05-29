@@ -64,16 +64,8 @@ let uint128: file =
       (["FStar"; "UInt128"], "mul_wide"),
       TArrow (TInt UInt64, TArrow (TInt UInt64, TQualified (["FStar"; "UInt128"], "t"))))]
 
-let prims: file =
-  "Prims", [
-    DType ((["Prims"], "option"), 1, Variant [
-      "None", [];
-      "Some", [ "v", (TBound 0, false) ]
-    ]);
-  ]
-
 let prelude =
-  prims :: [
+  [
     mk_builtin_int UInt8;
     mk_builtin_int UInt16;
     mk_builtin_int UInt32;
