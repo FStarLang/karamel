@@ -52,7 +52,7 @@ def get_field {α} (fd : common.field) : (list (field × α)) → option α
 
 inductive eval_exp
   (gvars : map glob decl) (vars : map ident value) :
-  cstar.exp → value → Type
+  cstar.exp → value → Prop
 | var : ∀ x v,
   vars x = some v →
   eval_exp (cstar.exp.var x) v
@@ -73,7 +73,7 @@ inductive eval_exp
 
 inductive eval_head_exp
   (gvars : map glob decl) (vars : map ident value) :
-  list cstar.stmt → list cstar.stmt → Type
+  list cstar.stmt → list cstar.stmt → Prop
 | decl : ∀ b e v ss,
   eval_exp gvars vars e v →
   eval_head_exp (stmt.decl b e :: ss) (stmt.decl b v :: ss)
@@ -120,7 +120,7 @@ def stack_set (s : stack) (l : location) (v : value) : stack :=
   sorry
 
 inductive step (gvars : map ident decl) :
-  configuration → configuration → list label → Type
+  configuration → configuration → list label → Prop
 | decl : ∀ stack vars bind e ss v,
   eval_exp gvars vars e v →
   step

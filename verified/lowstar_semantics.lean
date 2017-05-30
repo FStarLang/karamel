@@ -61,7 +61,7 @@ def block_free_in_stack (b : block_id) (s : stack) : Prop :=
   sorry
 
 inductive astep {X : Type u} (gvars : glob → option decl) :
-  configuration X → configuration X → list label → Type (u+1)
+  configuration X → configuration X → list label → Prop
 | readbuf : ∀ stack ty b n n' e v,
   stack_read_loc (b, n + n', []) stack = some v →
   astep
@@ -163,7 +163,7 @@ def apply_ectx : ∀ {X : Type u}, ectx X → lowstar.exp X → lowstar.exp X
   exp.pop (apply_ectx ctx e)
 
 inductive step {X : Type u} (gvars : glob → option decl) :
-  configuration X → configuration X → list label → Type (u+1)
+  configuration X → configuration X → list label → Prop
 | step : ∀ stack stack' e e' ctx lbls,
   astep gvars (stack, e) (stack', e') lbls →
   step (stack, apply_ectx ctx e) (stack', apply_ectx ctx e') lbls

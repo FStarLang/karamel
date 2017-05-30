@@ -17,7 +17,7 @@ universe variable u
 -- C* to λow* back-translation
 
 inductive back_exp {X : Type u} :
-  (X → ident) → cstar.exp → lowstar.exp X → Type (u+1)
+  (X → ident) → cstar.exp → lowstar.exp X → Prop
 | int : ∀ names n,
   back_exp names (exp.int n) (exp.int n)
 | loc : ∀ names l,
@@ -31,7 +31,7 @@ inductive back_exp {X : Type u} :
   back_exp names (exp.var (names x)) (exp.var x)
 
 inductive back_stmt : ∀ {X : Type u},
-  (X → ident) → list cstar.stmt → lowstar.exp X → Type (u+1)
+  (X → ident) → list cstar.stmt → lowstar.exp X → Prop
 | let_in : ∀ X (names : X → ident) b e ss τ (le1 : exp X) (le : exp (^X)),
   back_exp names e le1 →
   back_stmt (names_cons (binder.name b) names) ss le →
@@ -98,7 +98,7 @@ inductive back_stmt : ∀ {X : Type u},
 | unit : ∀ X (names : X → ident),
   back_stmt names [] exp.unit
 
-inductive back_decl : cstar.decl → lowstar.decl → Type (u+1)
+inductive back_decl : cstar.decl → lowstar.decl → Prop
 | function : ∀ ret_ty fn x b ss τ ρ e (le : exp (^pempty.{u})),
   x = binder.name b →
   transl_typ τ = binder.typ b → -- ehh
