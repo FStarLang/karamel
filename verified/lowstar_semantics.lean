@@ -73,7 +73,7 @@ inductive astep {X : Type u} (gvars : glob → option decl) :
   gvars f = some (decl.function f param_ty f_body ret_ty) →
   astep
     (stack, exp.let_app ty f v e)
-    (stack, exp.let_in ty ((f_body X) ← v) e)
+    (stack, exp.let_in ty ((lift_fbody X f_body) ← v) e)
     []
 | writebuf : ∀ stack b n n' oldv (v : value) e,
   stack_read_loc (b, n + n', []) stack = oldv →

@@ -24,6 +24,13 @@ inductive value : Type
 
 -- nested abstract syntax utilities
 
+section
+universes u
+
+inductive pempty : Type u
+
+end
+
 prefix `^`:70 := option
 
 def option_map {X Y} (f : X → Y) : ^X → ^Y
@@ -36,8 +43,8 @@ prefix `^^`:70 := option_map
 -- used to relate names of free variables in nominal representation, and free
 -- variables in nested abstract syntax
 
-def names_empty : empty → ident :=
-  empty.rec _
+def names_empty : pempty → ident :=
+  pempty.rec _
 
 def names_cons {X} (id : ident) (names : X → ident) : ^X → ident
 | none := id

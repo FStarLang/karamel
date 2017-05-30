@@ -98,15 +98,14 @@ inductive back_stmt : ∀ {X : Type u},
 | unit : ∀ X (names : X → ident),
   back_stmt names [] exp.unit
 
-inductive back_decl : cstar.decl → lowstar.decl → Type
-| function : ∀ ret_ty fn x b ss τ ρ e le,
+inductive back_decl : cstar.decl → lowstar.decl → Type (u+1)
+| function : ∀ ret_ty fn x b ss τ ρ e (le : exp (^pempty.{u})),
   x = binder.name b →
   transl_typ τ = binder.typ b → -- ehh
   transl_typ ρ = ret_ty →
   back_stmt (names_cons x names_empty) (ss ++ [stmt.ignore e]) le → -- ?
   back_decl
     (decl.function ret_ty fn b (ss ++ [stmt.return e])) -- ?
-    (
-
+    (decl.function fn ρ le τ)
 
 end lowstar_to_cstar_proof

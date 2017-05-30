@@ -128,7 +128,7 @@ def transl_decl : idents → lowstar.decl → option (idents × cstar.decl)
   let id := fresh_ident seen in
   let arg_ty' := transl_typ arg_ty in
   let ret_ty' := transl_typ ret_ty in
-  transl_to_stmt (set.insert id seen) (names_cons id names_empty) (body empty) >>= λ ret,
+  transl_to_stmt (set.insert id seen) (names_cons id names_empty) body >>= λ ret,
   let (seen', ss) := ret in
   some (seen', decl.function ret_ty' fn (binder.mk id arg_ty') ss)
 -- | seen (decl.global g τ v) :=

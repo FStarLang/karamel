@@ -52,11 +52,10 @@ def exp_of_value : ∀ {X}, value → exp X
 instance : ∀ X, has_coe value (exp X) := λX, ⟨exp_of_value⟩
 
 inductive decl : Type (u+1)
-| function : glob → typ → (Π (X : Type u), exp (^X)) → typ → decl
+| function : glob → typ → exp (^pempty.{u}) → typ → decl
 -- | global : glob → typ → value → decl
 
 def program : Type (u+1) := list decl
-
 
 
 -- renaming
@@ -117,6 +116,11 @@ def exp_head_subst {X} (t : exp (^X)) (u : exp X) : exp X :=
 
 reserve infix ` ← `:75
 infix ← := exp_head_subst
+
+-- Used to lift the body of a decl.function from a [exp ^pempty] to a [exp ^X]
+-- for some given X
+def lift_fbody (X : Type u) (e : exp (^pempty.{u})) : exp (^X) :=
+  exp_map (option_map ((pempty.rec _) : pempty → X)) e
 
 -- Auxiliary definitions dealing with the names and binders in locally nameless
 -- representation
