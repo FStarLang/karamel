@@ -119,7 +119,7 @@ def stack_get (s : stack) (l : location) : option value :=
 def stack_set (s : stack) (l : location) (v : value) : stack :=
   sorry
 
-inductive step (gvars : map ident decl) :
+inductive step (gvars : map glob decl) :
   configuration → configuration → list label → Prop
 | decl : ∀ stack vars bind e ss v,
   eval_exp gvars vars e v →
