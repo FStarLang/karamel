@@ -25,6 +25,23 @@ let with_open_out file_path f =
     close_out c
   )
 
+let read ic =
+  let buf = Buffer.create 4096 in
+  let s = String.create 2048 in
+  while begin
+    let l = input ic s 0 (String.length s) in
+    if l > 0 then begin
+      Buffer.add_string buf (String.sub s 0 l);
+      true
+    end else begin
+      false
+    end
+  end do () done;
+  Buffer.contents buf
+
+let file_get_contents f =
+  with_open_in f read
+
 (** Sniff the size of the terminal for optimal use of the width. *)
 let theight, twidth =
   let height, width = ref 0, ref 0 in

@@ -165,6 +165,9 @@ Supported options:|}
     "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " group modules into a single C translation unit (see above)";
     "-drop", Arg.String (fun s -> List.iter (prepend Options.drop) (Utils.parse Parser.drop s)), "  do not extract Code for this module (see above)";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to every generated file";
+    "-header", Arg.String (fun f ->
+      Options.header := Utils.file_get_contents f
+    ), " prepend the contents of the given file at the beginning of each .c and .h";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
     "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";
     "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
