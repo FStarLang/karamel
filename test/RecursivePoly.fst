@@ -1,4 +1,4 @@
-module Recursive
+module RecursivePoly
 
 open FStar.ST
 

@@ -37,9 +37,10 @@ module Gen = struct
     fst lid, snd lid ^ KPrint.bsprintf "__%a" PrintCommon.pdoc doc
 
   let register_def original_lid ts lid def =
+    Hashtbl.add generated_lids (original_lid, ts) lid;
+    let def = def () in
     let type_def = DType (lid, 0, def) in
     pending_defs := type_def :: !pending_defs;
-    Hashtbl.add generated_lids (original_lid, ts) lid;
     lid
 
   let nth_field i =
@@ -58,21 +59,21 @@ module Gen = struct
       let fields = List.mapi (fun i t ->
         Some (nth_field i), (t, false)
       ) ts in
-      register_def tuple_lid ts lid (Flat fields)
+      register_def tuple_lid ts lid (fun () -> Flat fields)
 
   let variant original_lid branches ts =
     try
       Hashtbl.find generated_lids (original_lid, ts)
     with Not_found ->
       let lid = gen_lid original_lid ts in
-      register_def original_lid ts lid (Variant branches)
+      register_def original_lid ts lid (fun () -> Variant (branches ()))
 
   let flat original_lid fields ts =
     try
       Hashtbl.find generated_lids (original_lid, ts)
     with Not_found ->
       let lid = gen_lid original_lid ts in
-      register_def original_lid ts lid (Flat fields)
+      register_def original_lid ts lid (fun () -> Flat (fields ()))
 
   let clear () =
     let r = List.rev !pending_defs in
@@ -88,54 +89,71 @@ let build_def_map files =
         ()
   )
 
+exception Bound
+
 let monomorphize_data_types map = object(self)
 
-  inherit [unit] map
+  inherit [bool] map
 
   (* Generated pair declarations are inserted exactly in the right spot and
    * spread out throughout the various files, as needed. Since a given file
    * includes the header of ALL the files that precede it in the topological
    * order, then it should be fine (famous last words). *)
-  method! visit_file () file =
+  method! visit_file ok file =
     let name, decls = file in
     name, KList.map_flatten (fun d ->
-      let d = self#visit_d () d in
+      let d = self#visit_d ok d in
       Gen.clear () @ [ d ]
     ) decls
 
-  method! etuple () _ es =
+  method! etuple ok _ es =
     EFlat (List.mapi (fun i e ->
-      Some (Gen.nth_field i), self#visit () e
+      Some (Gen.nth_field i), self#visit ok e
     ) es)
 
-  method! ttuple () ts =
-    let lid = Gen.tuple (List.map (self#visit_t ()) ts) in
+  method! ttuple ok ts =
+    let lid = Gen.tuple (List.map (self#visit_t ok) ts) in
     TQualified lid
 
-  method! ptuple () _ pats =
-    PRecord (List.mapi (fun i p -> Gen.nth_field i, self#visit_pattern () p) pats)
+  method! ptuple ok _ pats =
+    PRecord (List.mapi (fun i p -> Gen.nth_field i, self#visit_pattern ok p) pats)
 
-  method! tapp () lid ts =
-    let ts = List.map (self#visit_t ()) ts in
-    let subst fields = List.map (fun (field, (t, m)) ->
-      field, (DeBruijn.subst_tn t ts, m)
-    ) fields in
-    if List.length ts > 0 then
-      match Hashtbl.find map lid with
-      | exception Not_found ->
-          TApp (lid, ts)
-      | Variant branches ->
-          let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
-          let branches = self#branches_t () branches in
-          TQualified (Gen.variant lid branches ts)
-      | Flat fields ->
-          let fields = subst fields in
-          let fields = self#fields_t () fields in
-          TQualified (Gen.flat lid fields ts)
-      | _ ->
-          TApp (lid, ts)
+  method! tbound ok i =
+    if ok then
+      TBound i
     else
-      failwith "impossible"
+      raise Bound
+
+  method! tapp _ lid ts =
+    try
+      let ts = List.map (self#visit_t false) ts in
+      let subst fields = List.map (fun (field, (t, m)) ->
+        field, (DeBruijn.subst_tn t ts, m)
+      ) fields in
+      if List.length ts > 0 then
+        match Hashtbl.find map lid with
+        | exception Not_found ->
+            TApp (lid, ts)
+        | Variant branches ->
+            (* This allows [Gen] to first allocate and register the lid in the
+             * table, hence avoiding infinite loops for recursive data types. *)
+            let gen_branches () =
+              let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
+              self#branches_t false branches
+            in
+            TQualified (Gen.variant lid gen_branches ts)
+        | Flat fields ->
+            let gen_fields () =
+              let fields = subst fields in
+              self#fields_t false fields
+            in
+            TQualified (Gen.flat lid gen_fields ts)
+        | _ ->
+            TApp (lid, ts)
+      else
+        failwith "impossible"
+    with Bound ->
+      TApp (lid, ts)
 end
 
 let drop_parameterized_data_types =
@@ -624,7 +642,7 @@ let debug_map map =
 
 let everything files =
   let map = build_def_map files in
-  let files = Simplify.visit_files () (monomorphize_data_types map) files in
+  let files = Simplify.visit_files true (monomorphize_data_types map) files in
   let files = drop_parameterized_data_types files in
   let map = build_scheme_map files in
   if false then debug_map map;
