@@ -123,4 +123,86 @@ inductive back_ectx : ∀ {X : Type u} (names : X → ident),
   back_stmt (names_cons x names) ss le →
   back_ectx names (ectx.read b ss) (ectx.let_in τ ectx.here le)
 
+-- transition systems
+
+def sys_cstar
+  (p : cstar.program) (V : vars) (ss : list stmt) :
+  transition.system label
+:=
+  transition.system.mk
+    cstar_semantics.configuration
+    (cstar_semantics.step p)
+    ([], V, ss)
+    (λC, let (stk, _, ss) := C in stk = [] ∧ ∃ e, ss = [stmt.return e])
+
+def sys_lowstar
+  {X : Type u} (lp : lowstar.program) (le : exp X) :
+  transition.system label
+:=
+  transition.system.mk
+    (lowstar_semantics.configuration X)
+    (lowstar_semantics.step lp)
+    (([] : lowstar_semantics.stack), le)
+    (λC, let (stk, le) := C in stk = [] ∧ ∃ lv, le = exp_of_value lv)
+
+-- rel
+
+def close_vars
+  {X : Type u} (names : X → ident) (V : vars) (e : exp X) :
+  exp X
+:=
+  exp_bind e (λ (x : X),
+    match V (names x) with
+    | none := exp.var x
+    | some v := v
+    end)
+
+def mem : cstar_semantics.stack → lowstar_semantics.stack :=
+  sorry
+  -- TODO
+
+
+inductive unravel_frame {X : Type u} (names : X → ident) :
+  exp X → cstar_semantics.frame → exp X → Prop
+| no_mem : ∀ V E lE le,
+  back_ectx names E lE →
+  unravel_frame
+    le (none, V, E)
+    (close_vars names V (apply_ectx lE le))
+| mem : ∀ M V E lE le,
+  back_ectx names E lE →
+  unravel_frame
+    le (some M, V, E)
+    (close_vars names V (apply_ectx lE (exp.pop le)))
+
+inductive unravel {X : Type u} (names : X → ident) :
+  cstar_semantics.stack → exp X → exp X → Prop
+| nil : ∀ le,
+  unravel [] le le
+| cons : ∀ le le' le'' F FS,
+  unravel_frame names le F le' →
+  unravel FS le' le'' →
+  unravel (F :: FS) le le''
+
+--TODO: move
+inductive back_cfg {X : Type u} (names : X → ident) (p : cstar.program) :
+  cstar_semantics.configuration → lowstar_semantics.configuration X → Prop
+| mk : ∀ S V ss ss' le le',
+  eval_head_exp p V ss ss' →
+  back_stmt names ss' le →
+  unravel names S (close_vars names V le) le' →
+  back_cfg (S, V, ss) (mem S, le')
+
+def rel {X : Type u}
+  (p : cstar.program) (lp : lowstar.program)
+  (names : X → ident)
+  (lC : lowstar_semantics.configuration X)
+  (C : cstar_semantics.configuration) :
+  Prop
+:=
+  let (H, le) := lC in
+  ∃ (n : nat) (le' : exp X),
+  back_cfg names p C (H, le') ∧
+  (transition.iter (lowstar_semantics.step lp) n) (H, le) (H, le') [] --?
+
 end lowstar_to_cstar_proof
