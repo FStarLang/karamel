@@ -205,4 +205,27 @@ def rel {X : Type u}
   back_cfg names p C (H, le') ∧
   (transition.iter (lowstar_semantics.step lp) n) (H, le) (H, le') [] --?
 
+-- auxiliary lemmas
+
+lemma back_stmt_value {X : Type u} (le : exp X) (v : value) : ∀ names,
+  back_stmt names [stmt.return v] le →
+  le = v
+:=
+begin
+  intros _ H,
+  cases v; cases H,
+  { cases a_1, refl },
+  { cases a, refl },
+  { cases a_1, refl }
+end
+
+lemma close_vars_value (v : value) : ∀ {X : Type u} (names : X → ident) V,
+  close_vars names V v = v
+:=
+begin
+  introv, cases v; simp [close_vars];
+  unfold coe lift_t has_lift_t.lift coe_t has_coe_t.coe coe_b has_coe.coe; -- ??
+  simp [lowstar.exp_of_value]; simp [exp_bind]
+end
+
 end lowstar_to_cstar_proof
