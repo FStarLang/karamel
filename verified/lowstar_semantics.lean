@@ -38,6 +38,37 @@ inductive ectx : Type u → Type (u+1)
 -- | write_struct_2 : value → ectx → lowstar.exp → ectx
 | pop : ∀ {X}, ectx X → ectx X
 
+def ectx_map : ∀ {X Y : Type u} (f : X → Y), ectx X → ectx Y
+| X Y f ectx.here := ectx.here
+| X Y f (ectx.subbuf_1 c e) := ectx.subbuf_1 (ectx_map f c) (exp_map f e)
+| X Y f (ectx.subbuf_2 v c) := ectx.subbuf_2 v (ectx_map f c)
+| X Y f (ectx.if_then_else c e1 e2) := ectx.if_then_else (ectx_map f c) (exp_map f e1) (exp_map f e2)
+| X Y f (ectx.let_in τ c e) := ectx.let_in τ (ectx_map f c) (exp_map (^^f) e)
+| X Y f (ectx.ignore c e) := ectx.ignore (ectx_map f c) (exp_map f e)
+| X Y f (ectx.let_app τ fn c e) := ectx.let_app τ fn (ectx_map f c) (exp_map (^^f) e)
+| X Y f (ectx.let_newbuf n c τ e) := ectx.let_newbuf n (ectx_map f c) τ (exp_map (^^f) e)
+| X Y f (ectx.let_readbuf_1 τ c e1 e2) := ectx.let_readbuf_1 τ (ectx_map f c) (exp_map f e1) (exp_map (^^f) e2)
+| X Y f (ectx.let_readbuf_2 τ v c e) := ectx.let_readbuf_2 τ v (ectx_map f c) (exp_map (^^f) e)
+| X Y f (ectx.writebuf_1 c e1 e2 e3) := ectx.writebuf_1 (ectx_map f c) (exp_map f e1) (exp_map f e2) (exp_map f e3)
+| X Y f (ectx.writebuf_2 v c e1 e2) := ectx.writebuf_2 v (ectx_map f c) (exp_map f e1) (exp_map f e2)
+| X Y f (ectx.writebuf_3 v1 v2 c e) := ectx.writebuf_3 v1 v2 (ectx_map f c) (exp_map f e)
+| X Y f (ectx.pop c) := ectx.pop (ectx_map f c)
+
+def ectx_bind : ∀ {X Y : Type u}, ectx X → (X → exp Y) → ectx Y
+| X Y ectx.here f := ectx.here
+| X Y (ectx.subbuf_1 c e) f := ectx.subbuf_1 (ectx_bind c f) (exp_bind e f)
+| X Y (ectx.subbuf_2 v c) f := ectx.subbuf_2 v (ectx_bind c f)
+| X Y (ectx.if_then_else c e1 e2) f := ectx.if_then_else (ectx_bind c f) (exp_bind e1 f) (exp_bind e2 f)
+| X Y (ectx.let_in τ c e) f := ectx.let_in τ (ectx_bind c f) (exp_bind e (f_lift f))
+| X Y (ectx.ignore c e) f := ectx.ignore (ectx_bind c f) (exp_bind e f)
+| X Y (ectx.let_app τ fn c e) f := ectx.let_app τ fn (ectx_bind c f) (exp_bind e (f_lift f))
+| X Y (ectx.let_newbuf n c τ e) f := ectx.let_newbuf n (ectx_bind c f) τ (exp_bind e (f_lift f))
+| X Y (ectx.let_readbuf_1 τ c e1 e2) f := ectx.let_readbuf_1 τ (ectx_bind c f) (exp_bind e1 f) (exp_bind e2 (f_lift f))
+| X Y (ectx.let_readbuf_2 τ v c e) f := ectx.let_readbuf_2 τ v (ectx_bind c f) (exp_bind e (f_lift f))
+| X Y (ectx.writebuf_1 c e1 e2 e3) f := ectx.writebuf_1 (ectx_bind c f) (exp_bind e1 f) (exp_bind e2 f) (exp_bind e3 f)
+| X Y (ectx.writebuf_2 v c e1 e2) f := ectx.writebuf_2 v (ectx_bind c f) (exp_bind e1 f) (exp_bind e2 f)
+| X Y (ectx.writebuf_3 v1 v2 c e) f := ectx.writebuf_3 v1 v2 (ectx_bind c f) (exp_bind e f)
+| X Y (ectx.pop c) f := ectx.pop (ectx_bind c f)
 
 def frame : Type :=
   map block_id (list value)

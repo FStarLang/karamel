@@ -157,6 +157,16 @@ def close_vars
     | some v := v
     end)
 
+def ectx_close_vars
+  {X : Type u} (names : X → ident) (V : vars) (c : ectx X) :
+  ectx X
+:=
+  ectx_bind c (λ (x : X),
+    match V (names x) with
+    | none := exp.var x
+    | some v := v
+    end)
+
 def mem : cstar_semantics.stack → lowstar_semantics.stack :=
   sorry
   -- TODO
