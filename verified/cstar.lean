@@ -52,4 +52,13 @@ inductive decl : Type
 def program : Type :=
   list decl
 
+def find_fundecl (fn : glob) : program → option decl
+| [] := none
+| (d :: ds) :=
+  match d with
+  | (decl.function _ fn' _ _) :=
+    if fn = fn' then some d else find_fundecl ds
+  -- | _ := find_fundecl ds
+  end
+
 end cstar

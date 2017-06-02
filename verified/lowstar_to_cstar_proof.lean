@@ -2,10 +2,12 @@ import lowstar_to_cstar
 import lowstar_semantics
 import cstar_semantics
 import lowstar_to_cstar -- for transl_typ (FIXME?)
+import transition
 
 namespace lowstar_to_cstar_proof
 
 open common
+open semantics_common
 open lowstar
 open cstar
 open lowstar_semantics
@@ -20,6 +22,8 @@ inductive back_exp {X : Type u} :
   (X → ident) → cstar.exp → lowstar.exp X → Prop
 | int : ∀ names n,
   back_exp names (exp.int n) (exp.int n)
+| unit : ∀ names,
+  back_exp names exp.unit exp.unit
 | loc : ∀ names l,
   back_exp names (exp.loc l) (exp.loc l)
 | ptr_add : ∀ names e₁ e₂ le₁ le₂,
@@ -94,7 +98,7 @@ inductive back_stmt : ∀ {X : Type u},
     (exp.ignore (exp.if_then_else le le1 le2) le3)
 | exp : ∀ X (names : X → ident) e le,
   back_exp names e le →
-  back_stmt names [stmt.ignore e] le
+  back_stmt names [stmt.return e] le
 | unit : ∀ X (names : X → ident),
   back_stmt names [] exp.unit
 
@@ -107,5 +111,16 @@ inductive back_decl : cstar.decl → lowstar.decl → Prop
   back_decl
     (decl.function ret_ty fn b (ss ++ [stmt.return e])) -- ?
     (decl.function fn ρ le τ)
+
+inductive back_ectx : ∀ {X : Type u} (names : X → ident),
+  cstar_semantics.ectx → lowstar_semantics.ectx X → Prop
+| ignore : ∀ X (names : X → ident) ss le,
+  back_stmt names ss le →
+  back_ectx names (ectx.ignore ss) (ectx.ignore ectx.here le)
+| read : ∀ X (names : X → ident) ss le b x τ,
+  x = binder.name b →
+  transl_typ τ = binder.typ b → -- ehh
+  back_stmt (names_cons x names) ss le →
+  back_ectx names (ectx.read b ss) (ectx.let_in τ ectx.here le)
 
 end lowstar_to_cstar_proof

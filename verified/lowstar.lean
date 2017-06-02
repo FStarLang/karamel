@@ -57,6 +57,14 @@ inductive decl : Type (u+1)
 
 def program : Type (u+1) := list decl
 
+def find_fundecl (fn : glob) : program → option decl
+| [] := none
+| (d :: ds) :=
+  match d with
+  | (decl.function fn' _ _ _) :=
+    if fn = fn' then some d else find_fundecl ds
+  -- | _ := find_fundecl ds
+  end
 
 -- renaming
 
@@ -114,8 +122,8 @@ def exp_bind : ∀ {X Y : Type u}, exp X → (X → exp Y) → exp Y
 def exp_head_subst {X} (t : exp (^X)) (u : exp X) : exp X :=
   exp_bind t (λ x, match x with none := u | some u := exp.var u end)
 
-reserve infix ` ← `:75
-infix ← := exp_head_subst
+reserve infix ` ◄ `:75
+infix ◄ := exp_head_subst
 
 -- Used to lift the body of a decl.function from a [exp ^pempty] to a [exp ^X]
 -- for some given X

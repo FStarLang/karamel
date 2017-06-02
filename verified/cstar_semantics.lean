@@ -51,8 +51,14 @@ def get_field {α} (fd : common.field) : (list (field × α)) → option α
 -- trace
 
 inductive eval_exp
-  (gvars : map glob decl) (vars : map ident value) :
+  (decls : list decl) (vars : map ident value) :
   cstar.exp → value → Prop
+| int : ∀ n,
+  eval_exp (cstar.exp.int n) (value.int n)
+| unit :
+  eval_exp cstar.exp.unit value.unit
+| loc : ∀ l,
+  eval_exp (cstar.exp.loc l) (value.loc l)
 | var : ∀ x v,
   vars x = some v →
   eval_exp (cstar.exp.var x) v
@@ -72,32 +78,32 @@ inductive eval_exp
 -- C* head expression evaluation
 
 inductive eval_head_exp
-  (gvars : map glob decl) (vars : map ident value) :
+  (decls : list decl) (vars : map ident value) :
   list cstar.stmt → list cstar.stmt → Prop
 | decl : ∀ b e v ss,
-  eval_exp gvars vars e v →
+  eval_exp decls vars e v →
   eval_head_exp (stmt.decl b e :: ss) (stmt.decl b v :: ss)
 | decl_buf : ∀ b n ss,
   eval_head_exp (stmt.decl_buf b n :: ss) (stmt.decl_buf b n :: ss)
 | write_buf : ∀ e₁ n e₂ v₁ v₂ ss,
-  eval_exp gvars vars e₁ v₁ →
-  eval_exp gvars vars e₂ v₂ →
+  eval_exp decls vars e₁ v₁ →
+  eval_exp decls vars e₂ v₂ →
   eval_head_exp (stmt.write_buf e₁ n e₂ :: ss) (stmt.write_buf v₁ n v₂ :: ss)
 | call : ∀ x fn e v ss,
-  eval_exp gvars vars e v →
+  eval_exp decls vars e v →
   eval_head_exp (stmt.call x fn e :: ss) (stmt.call x fn v :: ss)
 | read : ∀ x e v ss, -- ?
-  eval_exp gvars vars e v →
+  eval_exp decls vars e v →
   eval_head_exp (stmt.read x e :: ss) (stmt.read x v :: ss)
 | write : ∀ e₁ e₂ v₁ v₂ ss, -- ?
-  eval_exp gvars vars e₁ v₁ →
-  eval_exp gvars vars e₂ v₂ →
+  eval_exp decls vars e₁ v₁ →
+  eval_exp decls vars e₂ v₂ →
   eval_head_exp (stmt.write e₁ e₂ :: ss) (stmt.write v₁ v₂ :: ss)
 | ignore : ∀ e v ss,
-  eval_exp gvars vars e v →
+  eval_exp decls vars e v →
   eval_head_exp (stmt.ignore e :: ss) (stmt.ignore v :: ss)
 | return : ∀ e v ss,
-  eval_exp gvars vars e v →
+  eval_exp decls vars e v →
   eval_head_exp (stmt.return e :: ss) (stmt.return v :: ss)
 
 -- C* configuration reduction
@@ -119,10 +125,10 @@ def stack_get (s : stack) (l : location) : option value :=
 def stack_set (s : stack) (l : location) (v : value) : stack :=
   sorry
 
-inductive step (gvars : map glob decl) :
+inductive step (decls : list decl) :
   configuration → configuration → list label → Prop
 | decl : ∀ stack vars bind e ss v,
-  eval_exp gvars vars e v →
+  eval_exp decls vars e v →
   step
     (stack, vars, (stmt.decl bind e) :: ss)
     (stack, bind_in vars bind v, ss)
@@ -138,15 +144,15 @@ inductive step (gvars : map glob decl) :
     (new_frame :: stack', vars', ss)
     []
 | write_buf : ∀ stack stack' vars m n b e₁ e₂ v ss,
-  eval_exp gvars vars e₁ (value.loc (b, n, [])) →
-  eval_exp gvars vars e₂ v →
+  eval_exp decls vars e₁ (value.loc (b, n, [])) →
+  eval_exp decls vars e₂ v →
   stack_memset stack (b, n, []) v m = stack' →
   step
     (stack, vars, (stmt.write_buf e₁ m e₂) :: ss)
     (stack', vars, ss)
     (memset_labels b n m)
 | read : ∀ stack vars vars' b loc e v ss,
-  eval_exp gvars vars e (value.loc loc) →
+  eval_exp decls vars e (value.loc loc) →
   stack_get stack loc = some v →
   vars' = map_add vars (binder.name b) v →
   step
@@ -154,35 +160,35 @@ inductive step (gvars : map glob decl) :
     (stack, vars', ss)
     [label.read loc]
 | write : ∀ stack stack' vars e₁ e₂ loc v ss,
-  eval_exp gvars vars e₁ (value.loc loc) →
-  eval_exp gvars vars e₂ v →
+  eval_exp decls vars e₁ (value.loc loc) →
+  eval_exp decls vars e₂ v →
   stack_set stack loc v = stack' →
   step
     (stack, vars, (stmt.write e₁ e₂) :: ss)
     (stack', vars, ss)
     [label.write loc]
 | return : ∀ stack vars vars' ctx e v ss,
-  eval_exp gvars vars e v →
+  eval_exp decls vars e v →
   step
     ((none, vars', ctx) :: stack, vars, (stmt.return e) :: ss)
     (stack, vars', apply_ectx ctx v)
     []
 | return_block : ∀ stack mem vars vars' ctx e v ss,
-  eval_exp gvars vars e v →
+  eval_exp decls vars e v →
   step
     ((mem, vars', ctx) :: stack, vars, (stmt.return e) :: ss)
     (stack, map_empty, [stmt.return v])
     []
 | call : ∀ stack vars vars' b f f_ret_ty f_param f_body e v ss,
-  gvars f = some (decl.function f_ret_ty f f_param f_body) →
-  eval_exp gvars vars e v →
+  find_fundecl f decls = some (decl.function f_ret_ty f f_param f_body) →
+  eval_exp decls vars e v →
   vars' = bind_in vars f_param v →
   step
     (stack, vars, (stmt.call b f e) :: ss)
     ((none, vars, ectx.read b ss) :: stack, vars', f_body)
     []
 | ignore : ∀ stack vars e v ss,
-  eval_exp gvars vars e v →
+  eval_exp decls vars e v →
   step
     (stack, vars, (stmt.ignore e) :: ss)
     (stack, vars, ss)
@@ -198,14 +204,14 @@ inductive step (gvars : map glob decl) :
     ((some map_empty, vars, ectx.ignore ss₂) :: stack, vars, ss₁)
     []
 | if_true : ∀ stack vars e n ss1 ss2 ss,
-  eval_exp gvars vars e (value.int n) →
+  eval_exp decls vars e (value.int n) →
   ¬ (n = 0) →
   step
     (stack, vars, (stmt.if_then_else e ss1 ss2) :: ss)
     (stack, vars, ss1 ++ ss)
     [label.branch_true]
 | if_false : ∀ stack vars e n ss1 ss2 ss,
-  eval_exp gvars vars e (value.int n) →
+  eval_exp decls vars e (value.int n) →
   n = 0 →
   step
     (stack, vars, (stmt.if_then_else e ss1 ss2) :: ss)

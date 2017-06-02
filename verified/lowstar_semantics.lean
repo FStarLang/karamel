@@ -60,20 +60,20 @@ def stack_write_loc (l : location) (v : value) : stack → stack :=
 def block_free_in_stack (b : block_id) (s : stack) : Prop :=
   sorry
 
-inductive astep {X : Type u} (gvars : glob → option decl) :
+inductive astep {X : Type u} (decls : list decl) :
   configuration X → configuration X → list label → Prop
 | readbuf : ∀ stack ty b n n' e v,
   stack_read_loc (b, n + n', []) stack = some v →
   astep
     (stack, exp.let_readbuf ty (exp.loc (b,n,[])) (exp.int n') e)
-    (stack, e ← v)
+    (stack, e ◄ v)
     [label.read (b, n+n', [])]
 --| readstruct
 | let_app : ∀ stack ty f param_ty ret_ty f_body (v : value) e,
-  gvars f = some (decl.function f param_ty f_body ret_ty) →
+  find_fundecl f decls = some (decl.function f param_ty f_body ret_ty) →
   astep
     (stack, exp.let_app ty f v e)
-    (stack, exp.let_in ty ((lift_fbody X f_body) ← v) e)
+    (stack, exp.let_in ty ((lift_fbody X f_body) ◄ v) e)
     []
 | writebuf : ∀ stack b n n' oldv (v : value) e,
   stack_read_loc (b, n + n', []) stack = oldv →
@@ -91,7 +91,7 @@ inductive astep {X : Type u} (gvars : glob → option decl) :
 | let_in : ∀ stack ty (v : value) e,
   astep
     (stack, exp.let_in ty v e)
-    (stack, e ← v)
+    (stack, e ◄ v)
     []
 | ignore : ∀ stack (v : value) e,
   astep
@@ -116,7 +116,7 @@ inductive astep {X : Type u} (gvars : glob → option decl) :
   new_frame = map_singleton b (list.repeat v n) →
   astep
     (stack, exp.let_newbuf n v ty e)
-    (new_frame :: stack, e ← (exp.loc (b, 0, [])))
+    (new_frame :: stack, e ◄ (exp.loc (b, 0, [])))
     (memset_labels b 0 n)
 --| newstruct
 | withframe : ∀ stack e,
@@ -162,10 +162,10 @@ def apply_ectx : ∀ {X : Type u}, ectx X → lowstar.exp X → lowstar.exp X
 | X (ectx.pop ctx) e :=
   exp.pop (apply_ectx ctx e)
 
-inductive step {X : Type u} (gvars : glob → option decl) :
+inductive step {X : Type u} (decls : list decl) :
   configuration X → configuration X → list label → Prop
 | step : ∀ stack stack' e e' ctx lbls,
-  astep gvars (stack, e) (stack', e') lbls →
+  astep decls (stack, e) (stack', e') lbls →
   step (stack, apply_ectx ctx e) (stack', apply_ectx ctx e') lbls
 
 end lowstar_semantics
