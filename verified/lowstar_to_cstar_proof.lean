@@ -238,4 +238,52 @@ begin
   simp [lowstar.exp_of_value]; simp [exp_bind]
 end
 
+
+lemma init : ∀ X seen seen' seen'' (names : X → ident) p lp le ss V,
+  transl_program seen lp = some (seen', p) →
+  transl_to_stmt seen' names le = some (seen'', ss) →
+  rel p lp names ([], close_vars names V le) ([], V, ss) :=
+begin
+  intros X,
+  assert Hsteps :
+    ∀ le seen seen' (names : X → ident) p lp V ss ss' le',
+    transl_to_stmt seen names le = some (seen', ss) →
+    eval_head_exp p V ss ss' →
+    back_stmt names ss' le' →
+    (transition.star (lowstar_semantics.step lp))
+      ([], close_vars names V le)
+      ([], close_vars names V le')
+      [],
+  { intro le, induction le,
+    { introv Hle Hss Hle',
+      simp [transl_to_stmt, transl_to_exp] at Hle,
+      opt_inv Hle,
+      cases Hss, -- with h' ?
+      cases a_1, cases Hle', cases a_2,
+      constructor },
+    { introv Hle Hss Hle',
+      simp [transl_to_stmt, transl_to_exp] at Hle, opt_inv Hle,
+      cases Hss, cases a, cases Hle', cases a_1, constructor },
+    { introv Hle Hss Hle',
+      simp [transl_to_stmt, transl_to_exp] at Hle, opt_inv Hle,
+      cases Hss, cases a_1, cases Hle', cases a_2, constructor },
+    { introv Hle Hss Hle',
+      simp [transl_to_stmt, transl_to_exp] at Hle, opt_inv Hle,
+      cases Hss, cases a_1,
+      rw [show close_vars names V (exp.var a) = v,
+          by { simp [close_vars, exp_bind], rw [a_2], simp [close_vars._match_1] } ],
+      rw [back_stmt_value le' v], rw [close_vars_value], constructor, --XX
+      assumption, assumption
+    },
+    { introv Hle Hss Hle',
+      simp [transl_to_stmt, transl_to_exp] at Hle,
+      opt_inv Hle with _ x1 H1 x2 H2,
+      cases Hss, cases a_2, cases Hle', cases a_5,
+      admit
+    },
+    repeat { admit }
+  },
+  admit
+end
+
 end lowstar_to_cstar_proof
