@@ -159,7 +159,7 @@ meta def with_names {α : Type}
     ) ns (if reverse then temp_ns else list.reverse temp_ns),
     return ret
 
-meta def test (r : ref (list name)) : tactic unit :=
+private meta def test (r : ref (list name)) : tactic unit :=
 do
   a ← fresh_name r `a,
   pose a none mk_true,
