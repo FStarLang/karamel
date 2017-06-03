@@ -157,6 +157,82 @@ def close_vars
     | some v := v
     end)
 
+lemma close_vars_subbuf :
+  ∀ {X : Type u} (names : X → ident) V e1 e2,
+  close_vars names V (exp.subbuf e1 e2) =
+  exp.subbuf (close_vars names V e1) (close_vars names V e2)
+:=
+  by { intros, reflexivity }
+
+lemma close_vars_if_then_else :
+  ∀ {X : Type u} (names : X → ident) V e1 e2 e3,
+  close_vars names V (exp.if_then_else e1 e2 e3) =
+  exp.if_then_else (close_vars names V e1) (close_vars names V e2) (close_vars names V e3)
+:=
+  by { intros, reflexivity }
+
+lemma close_vars_let_in :
+  ∀ {X : Type u} (names : X → ident) V τ e1 e2,
+  close_vars names V (exp.let_in τ e1 e2) =
+  exp.let_in τ
+    (close_vars names V e1)
+    (exp_bind e2 (f_lift (λ (x : X), close_vars._match_1 x (V (names x)))))
+:=
+  by { intros, reflexivity }
+
+lemma close_vars_ignore :
+  ∀ {X : Type u} (names : X → ident) V e1 e2,
+  close_vars names V (exp.ignore e1 e2) =
+  exp.ignore (close_vars names V e1) (close_vars names V e2)
+:=
+  by { intros, reflexivity }
+
+lemma close_vars_let_app :
+  ∀ {X : Type u} (names : X → ident) V τ fn e1 e2,
+  close_vars names V (exp.let_app τ fn e1 e2) =
+  exp.let_app τ fn
+    (close_vars names V e1)
+    (exp_bind e2 (f_lift (λ (x : X), close_vars._match_1 x (V (names x)))))
+:=
+  by { intros, reflexivity }
+
+lemma close_vars_let_newbuf :
+  ∀ {X : Type u} (names : X → ident) V τ n e1 e2,
+  close_vars names V (exp.let_newbuf n e1 τ e2) =
+  exp.let_newbuf n
+    (close_vars names V e1) τ
+    (exp_bind e2 (f_lift (λ (x : X), close_vars._match_1 x (V (names x)))))
+:=
+  by { intros, reflexivity }
+
+lemma close_vars_let_readbuf :
+  ∀ {X : Type u} (names : X → ident) V τ e1 e2 e3,
+  close_vars names V (exp.let_readbuf τ e1 e2 e3) =
+  exp.let_readbuf τ
+    (close_vars names V e1)
+    (close_vars names V e2)
+    (exp_bind e3 (f_lift (λ (x : X), close_vars._match_1 x (V (names x)))))
+:=
+  by { intros, reflexivity }
+
+lemma close_vars_writebuf :
+  ∀ {X : Type u} (names : X → ident) V e1 e2 e3 e4,
+  close_vars names V (exp.writebuf e1 e2 e3 e4) =
+  exp.writebuf
+    (close_vars names V e1)
+    (close_vars names V e2)
+    (close_vars names V e3)
+    (close_vars names V e4)
+:=
+  by { intros, reflexivity }
+
+lemma close_vars_pop :
+  ∀ {X : Type u} (names : X → ident) V e,
+  close_vars names V (exp.pop e) =
+  exp.pop (close_vars names V e)
+:=
+  by { intros, reflexivity }
+
 def ectx_close_vars
   {X : Type u} (names : X → ident) (V : vars) (c : ectx X) :
   ectx X
@@ -238,6 +314,35 @@ begin
   simp [lowstar.exp_of_value]; simp [exp_bind]
 end
 
+lemma close_vars_ectx : ∀ {X : Type u} V names (c : ectx X) (e : lowstar.exp X),
+  close_vars names V (apply_ectx c e) =
+  apply_ectx (ectx_close_vars names V c) (close_vars names V e)
+:=
+begin
+  intros X V names c, induction c; intros; simp [lowstar_semantics.apply_ectx],
+  { simp [ectx_close_vars, lowstar_semantics.apply_ectx, ectx_bind] },
+  { rw [close_vars_subbuf, ih_1], reflexivity },
+  { rw [close_vars_subbuf, ih_1, close_vars_value], reflexivity },
+  { rw [close_vars_if_then_else, ih_1], reflexivity },
+  { rw [close_vars_let_in, ih_1], reflexivity },
+  { rw [close_vars_ignore, ih_1], reflexivity },
+  { rw [close_vars_let_app, ih_1], reflexivity },
+  { rw [close_vars_let_newbuf, ih_1], reflexivity },
+  { rw [close_vars_let_readbuf, ih_1], reflexivity },
+  { rw [close_vars_let_readbuf, ih_1, close_vars_value], reflexivity },
+  { rw [close_vars_writebuf, ih_1], reflexivity },
+  { rw [close_vars_writebuf, ih_1, close_vars_value], reflexivity },
+  { simp [close_vars_writebuf, ih_1, close_vars_value], reflexivity },
+  { simp [close_vars_pop, ih_1], reflexivity }
+end
+
+-- lemma close_vars_astep : ∀ {X : Type u} V names lp H (a a': exp X) l,
+--   astep lp (H, a) (H, a') l →
+--   astep lp (H, close_vars names V a) (H, close_vars names V a') l
+-- :=
+--   sorry
+
+-- end
 
 lemma init : ∀ X seen seen' seen'' (names : X → ident) p lp le ss V,
   transl_program seen lp = some (seen', p) →
@@ -279,7 +384,14 @@ begin
       simp [transl_to_stmt, transl_to_exp] at Hle,
       opt_inv Hle with _ x1 H1 x2 H2,
       cases Hss, cases a_2, cases Hle', cases a_5,
-      admit
+      apply (transition.star_trans ([], close_vars names V (exp.subbuf (value.loc (b, n, [])) a_1))),
+      show [] = [] ++ [], { reflexivity },
+      { simp [show ∀ a, exp.subbuf a a_1 = apply_ectx (ectx.subbuf_1 ectx.here a_1) a, { intro, reflexivity }],
+        simp [close_vars_ectx],
+        apply step_steps,
+        admit
+      },
+      { admit }
     },
     repeat { admit }
   },

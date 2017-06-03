@@ -43,18 +43,27 @@ begin
   { constructor }
 end
 
-lemma star_trans : ∀ (R : α → α → list label → Prop) a b ls,
+lemma star_trans (b : α) : ∀ (R : α → α → list label → Prop) a ls,
   star R a b ls →
-  ∀ c ls', star R b c ls' → star R a c (ls ++ ls') :=
+  ∀ c l ls', star R b c ls' → l = ls ++ ls' → star R a c l :=
 begin
-  intros R a b ls S1,
+  intros R a ls S1,
   induction S1,
-  { intros, simp [], assumption },
-  { intros c1 ls' H_c_c1,
-    note ih := ih_1 _ _ H_c_c1,
-    rw [list.append_assoc],
-    apply star.step; assumption
-  }
+  { introv _ E, rw E, simp [], assumption },
+  { intros c1 l ls' H_c_c1 E,
+    rw [list.append_assoc] at E, rw E,
+    apply star.step, assumption, apply ih_1, assumption, reflexivity }
+end
+
+lemma star_step : ∀ (R : α → α → list label → Prop) a b c l1 l2 l,
+  R a b l1 →
+  star R b c l2 →
+  l = l1 ++ l2 →
+  star R a c l
+:=
+begin
+  introv H1 H2 E,
+  rw E, constructor; assumption
 end
 
 -- Todo: more lemmas about star

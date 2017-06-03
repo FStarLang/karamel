@@ -1,5 +1,6 @@
 import lowstar
 import semantics_common
+import transition
 
 namespace lowstar_semantics
 
@@ -198,5 +199,34 @@ inductive step {X : Type u} (decls : list decl) :
 | step : ∀ stack stack' e e' ctx lbls,
   astep decls (stack, e) (stack', e') lbls →
   step (stack, apply_ectx ctx e) (stack', apply_ectx ctx e') lbls
+
+section
+open transition
+
+lemma step_steps_aux : ∀ {X : Type u} (decls : list decl) stack stack' (e e' : exp X) ctx ls cfg cfg',
+  cfg = (stack, e) →
+  cfg' = (stack', e') →
+  star (step decls) cfg cfg' ls →
+  star (step decls) (stack, apply_ectx ctx e) (stack', apply_ectx ctx e') ls
+:=
+begin
+  introv C1 C2 S, revert stack stack' e e', induction S with cfg cfg cfg' cfg'' _ _ S SS,
+  { intros, subst C1, injection C2 with h h', subst h, subst h', constructor }, -- meh
+  { intros, subst C1, subst C2, cases cfg' with stack1 e1, cases S, /- boom -/
+    admit
+  }
+end
+
+--ehhh
+lemma step_steps : ∀ {X : Type u} (decls : list decl) stack stack' (e e' : exp X) ctx ls ,
+  star (step decls) (stack, e) (stack', e') ls →
+  star (step decls) (stack, apply_ectx ctx e) (stack', apply_ectx ctx e') ls
+:=
+begin
+  intros,
+  apply step_steps_aux; [reflexivity, reflexivity, assumption]
+end
+
+end
 
 end lowstar_semantics

@@ -189,4 +189,7 @@ meta def opt_inv (h : parse ident) (ns : parse with_ident_list) : tactic unit :=
 -- do tactic.get_local h >>= tactic.injections_subst,
 --    tactic.get_local h >>= tactic.clear
 
+meta def trans (e : parse texpr) : tactic unit :=
+  apply ``(@eq.trans _ _ %%e _)
+
 end tactic.interactive
