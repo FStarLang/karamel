@@ -382,7 +382,7 @@ begin
     },
     { introv Hle Hss Hle',
       simp [transl_to_stmt, transl_to_exp] at Hle,
-      opt_inv Hle with _ x1 H1 x2 H2,
+      opt_inv Hle with x1 H1 x2 H2,
       cases Hss, cases a_2, cases Hle', cases a_5,
       apply (transition.star_trans ([], close_vars names V (exp.subbuf (value.loc (b, n, [])) a_1))),
       show [] = [] ++ [], { reflexivity },

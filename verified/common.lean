@@ -83,23 +83,6 @@ begin
   { existsi x, split, refl, assumption }
 end
 
--- namespace names_tactic
--- meta def names_state := list name
--- meta def names_tactic := state_t names_state tactic
-
--- meta instance : monad names_tactic := state_t.monad _ _
-
--- meta instance : monad.has_monad_lift tactic names_tactic :=
---   monad.monad_transformer_lift (state_t _) tactic
-
--- meta instance (α : Type) : has_coe (tactic α) (names_tactic α) :=
---   ⟨monad.monad_lift⟩
-
--- meta def fresh_name (suggestion : name) : names_tactic name := λ ns,
---   do n ← get_unused_name suggestion none,
---      return (n, n::ns)
--- end names_tactic
-
 namespace tactic
 
 open tactic expr
@@ -124,13 +107,26 @@ do
 --   mfor' es subst
 
 
--- FIXME: naming of things is not perfect: the existentially quantified variable
--- is systematically named using one of the provided names (`x`), however it may
--- disappear completely from the context after doing the substs of the base case
+-- Generic mechanism for naming new elements added to the context by some tactic
 --
--- One solution would be maybe to name everything using temporary fresh names,
--- and keep track of these names; and at the end, check which of these names
--- still appear in the context, and rename those using the provided names. Maybe there's an existing auxiliary function which does that?
+-- This is useful for tactics that may add many new terms to the context, in a
+-- way that is hard to track by the tactic itself. For example, some new terms
+-- may be introduced, but disappear later on after rewriting some equality using
+-- `subst`.
+--
+-- We would still like to be able to name the new expressions that appear in the
+-- final context, using user-provided names.
+--
+-- The [with_names] helper provides a generic way to do that: it takes a [tac]
+-- tactic, and a list [ns] of user-provided names. It runs [tac] with a
+-- reference [r]. [tac] may then allocate new names using [fresh_name r]. Then,
+-- [with_names] will rename the fresh names that actually appear in the final
+-- context using the user provided names [ns].
+--
+-- The optional [reverse] argument indicates whether the user-provided names
+-- should be used to name the fresh names in the order they have been generated,
+-- or in reverse order. By default (reverse = false), they are named in the
+-- same order as generated.
 
 meta def get_name : list name → tactic (name × list name)
 | (n :: ns) := return (n, ns)
@@ -141,40 +137,81 @@ meta def rnm h ns := do
   rename h n,
   return ns
 
-meta def opt_inv : name → list name → tactic (list name) := λ h ns,
+meta def fresh_name (used : ref (list name)) (suggestion : name) : tactic name :=
+do
+  n ← get_unused_name suggestion none,
+  ns ← read_ref used,
+  write_ref used (n :: ns),
+  return n
+
+meta def with_names {α : Type}
+  (tac : ref (list name) → tactic α)
+  (ns : list name)
+  (reverse : bool := false) :
+  tactic α
+:=
+  using_new_ref [] $ λ r, do
+    ret ← tac r,
+    temp_ns ← read_ref r,
+    ctx ← local_context,
+    list.mfoldl (λ ns temp_n,
+      (get_local temp_n >> rnm temp_n ns) <|> return ns
+    ) ns (if reverse then temp_ns else list.reverse temp_ns),
+    return ret
+
+meta def test (r : ref (list name)) : tactic unit :=
+do
+  a ← fresh_name r `a,
+  pose a none mk_true,
+  b ← fresh_name r `b,
+  pose b none mk_false
+
+example : 0 = 0 :=
+begin
+  with_names test [`foo, `bar], refl
+end
+
+-- An inversion tactic for hypothesis of the form [a >>= (λx, b) = some res].
+--
+-- Produces new hypothesis of the form [a = some _], [b x = some _], ...
+-- (also tries to [subst] the produced equalities when possible)
+--
+-- Inspired by monadInv from CompCert (in Errors.v)
+
+meta def opt_inv_core (r : ref (list name)) : name → tactic unit := λ h,
 do
   ty ← get_local h >>= infer_type,
   match ty with
   | `(some _ = some _) :=
   do
     injection1_clean h,
-    (get_local h >>= subst >> return ns) <|>
-    (do a ← get_unused_name `a none, b ← get_unused_name `b none,
+    (get_local h >>= subst) <|>
+    (do a ← fresh_name r `a, b ← fresh_name r `b,
         get_local h >>= λ H, injection_with H [a, b],
         get_local a >>= subst,
         get_local b >>= subst,
-        get_local h >>= clear,
-        return ns) <|>
-    rnm h ns
+        get_local h >>= clear)
 
   | `(bind _ _ = some _) :=
   do
     e ← get_local h >>= λH, i_to_expr ``(option_bind_inv _ _ _ %%H),
     get_local h >>= clear,
-    he ← get_unused_name `he none, h' ← get_unused_name `h' none,
-    eq1 ← get_unused_name `eq1 none, eq2 ← get_unused_name `eq2 none,
-    (x, ns) ← get_name ns,
+    he ← fresh_name r `he, h' ← fresh_name r `h',
+    eq1 ← fresh_name r `eq1, eq2 ← fresh_name r `eq2,
+    x ← fresh_name r `x,
 
     note he none e,
     get_local he >>= λ H, cases H [x, h'],
     get_local h' >>= λ H, cases H [eq1, eq2],
 
     get_local eq2 >>= λ E, try (dsimp_at E),
-    ns ← (opt_inv eq1 ns <|> rnm eq1 ns),
-    ns ← (opt_inv eq2 ns <|> rnm eq2 ns),
-    return ns
+    try (opt_inv_core eq1),
+    try (opt_inv_core eq2)
   | _ := fail "meh"
   end
+
+meta def opt_inv (h : name) (ns : list name) : tactic unit :=
+  with_names (λ r, opt_inv_core r h) ns true
 
 end tactic
 
