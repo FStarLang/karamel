@@ -164,7 +164,8 @@ do
   a ← fresh_name r `a,
   pose a none mk_true,
   b ← fresh_name r `b,
-  pose b none mk_false
+  pose b none mk_false,
+  return ()
 
 example : 0 = 0 :=
 begin
