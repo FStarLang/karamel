@@ -361,14 +361,14 @@ let parse_exact_string
     else
       0ul
 
-(*  // Tests
+ // Tests
 inline_for_extraction
 let against () : Tot lstring = [Char.char_of_int 65; Char.char_of_int 66]
 
 let test18 = 
   normalize_term (parse_exact_string (normalize_term (against ())))
-*)
 
+(*
 let rec as_type (j: Spec.json_schema) : Tot Type =
   match j with
   | Spec.String -> string_ptr_struct
@@ -561,6 +561,48 @@ let rec object_forall_string_ptr_t_implies
     in
     OFSP_snoc l_left_ s_ j_ l_right_ (object_forall_string_ptr_t_implies l forall_string_ptr1 forall_string_ptr2 ptr data l_left_ ((s_, j_) :: l_right_) o_ ih') ()
 
+let rec object_forall_string_ptr_t_ext
+  (l: list (Spec.key * Spec.json_schema) {List.Tot.noRepeats (List.Tot.map fst l)})
+  (forall_string_ptr: (j': Spec.json_schema {j' << Spec.Object l}) -> Struct.struct_ptr (as_type j') -> Spec.as_gtype j' -> GTot Type0)
+  (ptr: Struct.struct_ptr (DependentMap.t (s: Spec.key {List.Tot.mem s (List.Tot.map fst l)}) (Spec.object_as_type (Spec.Object l) as_type l)))
+  (data1 data2: DependentMap.t (s: Spec.key {List.Tot.mem s (List.Tot.map fst l)}) (Spec.object_as_type (Spec.Object l) Spec.as_gtype l))
+  (l_left: list (Spec.key * Spec.json_schema))
+  (l_right: list (Spec.key * Spec.json_schema))
+  (o: object_forall_string_ptr_t l forall_string_ptr ptr data1 l_left l_right)
+  (ih:
+    (j': Spec.json_schema {j' << Spec.Object l}) ->
+    (s': Spec.key {
+      List.Tot.mem s' (List.Tot.map fst l) /\
+      List.Tot.assoc s' l_left == Some j' /\
+      Spec.object_as_type (Spec.Object l) Spec.as_gtype l s' == Spec.as_gtype j'
+    }) ->
+    Lemma
+    (ensures (DependentMap.sel data1 s' == DependentMap.sel data2 s'))
+  )
+: Ghost (object_forall_string_ptr_t l forall_string_ptr ptr data2 l_left l_right)
+  (requires True)
+  (ensures (fun _ -> True))
+  (decreases o)
+= match o with
+  | OFSP_nil -> OFSP_nil
+  | OFSP_snoc l_left_ s_ j_ l_right_ o_ h ->
+    ih j_ s_;
+    let ih'
+      (j': Spec.json_schema {j' << Spec.Object l})
+      (s': Spec.key {
+	List.Tot.mem s' (List.Tot.map fst l) /\
+	List.Tot.assoc s' l_left_ == Some j' /\
+	Spec.object_as_type (Spec.Object l) Spec.as_gtype l s' == Spec.as_gtype j'
+      })
+    : Lemma
+      (ensures (DependentMap.sel data1 s' == DependentMap.sel data2 s'))
+    = let _ : squash (List.Tot.assoc s' (List.Tot.append l_left_ [(s_, j_)]) == Some j') =
+        List.Tot.assoc_append_elim_r s' l_left_ [(s_, j_)]
+      in
+      ih j' s'
+    in
+    OFSP_snoc l_left_ s_ j_ l_right_ (object_forall_string_ptr_t_ext l forall_string_ptr ptr data1 data2 l_left_ ((s_, j_) :: l_right_) o_ ih') ()
+
 let rec object_forall_string_ptr_t_and
   (l: list (Spec.key * Spec.json_schema) {List.Tot.noRepeats (List.Tot.map fst l)})
   (forall_string_ptr1 forall_string_ptr2 forall_string_ptrand: (j': Spec.json_schema {j' << Spec.Object l}) -> Struct.struct_ptr (as_type j') -> Spec.as_gtype j' -> GTot Type0)
@@ -733,6 +775,39 @@ let object_forall_string_ptr_implies
     f
   )
 
+let object_forall_string_ptr_ext
+  (l: list (Spec.key * Spec.json_schema) {List.Tot.noRepeats (List.Tot.map fst l)})
+  (forall_string_ptr: (j': Spec.json_schema {j' << Spec.Object l}) -> Struct.struct_ptr (as_type j') -> Spec.as_gtype j' -> GTot Type0)
+  (ptr: Struct.struct_ptr (DependentMap.t (s: Spec.key {List.Tot.mem s (List.Tot.map fst l)}) (Spec.object_as_type (Spec.Object l) as_type l)))
+  (data1 data2: DependentMap.t (s: Spec.key {List.Tot.mem s (List.Tot.map fst l)}) (Spec.object_as_type (Spec.Object l) Spec.as_gtype l))
+  (l_left: list (Spec.key * Spec.json_schema))
+  (l_right: list (Spec.key * Spec.json_schema))
+  (ih:
+    (j': Spec.json_schema {j' << Spec.Object l}) ->
+    (s': Spec.key {
+      List.Tot.mem s' (List.Tot.map fst l) /\
+      List.Tot.assoc s' l_left == Some j' /\
+      Spec.object_as_type (Spec.Object l) Spec.as_gtype l s' == Spec.as_gtype j'
+    }) ->
+    Lemma
+    (ensures (DependentMap.sel data1 s' == DependentMap.sel data2 s'))
+  )
+: Lemma
+  (ensures (
+    object_forall_string_ptr l forall_string_ptr ptr data1 l_left l_right ==>
+    object_forall_string_ptr l forall_string_ptr ptr data2 l_left l_right
+  ))
+= Classical.impl_intro (
+    let f
+      (h: object_forall_string_ptr l forall_string_ptr ptr data1 l_left l_right)
+    : Lemma (object_forall_string_ptr l forall_string_ptr ptr data2 l_left l_right)
+    = Squash.map_squash
+        h
+        (fun o -> (object_forall_string_ptr_t_ext l forall_string_ptr ptr data1 data2 l_left l_right o ih))
+    in
+    f
+  )
+
 let object_forall_string_ptr_equiv
   (l: list (Spec.key * Spec.json_schema) {List.Tot.noRepeats (List.Tot.map fst l)})
   (forall_string_ptr1 forall_string_ptr2: (j': Spec.json_schema {j' << Spec.Object l}) -> Struct.struct_ptr (as_type j') -> Spec.as_gtype j' -> GTot Type0)
@@ -871,3 +946,370 @@ let rec forall_string_ptr_implies
       let _ = Classical.forall_intro f in
       forall_string_ptr_implies p1 j' (Struct.gfield ptr s') (DependentMap.sel data s') p2
     )
+
+let forall_string_ptr_field
+  (p: (string_ptr -> Spec.sstring -> GTot Type0))
+  (l:  list (Spec.key * Spec.json_schema) {List.Tot.noRepeats (List.Tot.map fst l)} )
+  (ptr: Struct.struct_ptr (as_type (Spec.Object l)))
+  (data: Spec.as_gtype (Spec.Object l))
+  (s': Spec.key {List.Tot.mem s' (List.Tot.map fst l) } )
+  (j': Spec.json_schema { List.Tot.assoc s' l == Some j' } )
+: Lemma
+  (requires (forall_string_ptr p (Spec.Object l) ptr data))
+  (ensures (
+    Spec.object_as_type (Spec.Object l) as_type l s' == as_type j' /\
+    Spec.object_as_type (Spec.Object l) Spec.as_gtype l s' == Spec.as_gtype j' /\
+    j' << Spec.Object l /\ (
+      forall_string_ptr p j' 
+        (Struct.gfield //FIXME: WHY WHY WHY does unification NO LONGER WORK?????
+	  #(s: Spec.key {List.Tot.mem s (List.Tot.map fst l)})
+	  #(Spec.object_as_type (Spec.Object l) as_type l)
+	  ptr
+	  s'
+	)
+	(DependentMap.sel  //FIXME: WHY WHY WHY does unification NO LONGER WORK?????
+	  #(s: Spec.key {List.Tot.mem s (List.Tot.map fst l)})
+	  #(Spec.object_as_type (Spec.Object l) Spec.as_gtype l)
+	  data
+	  s'
+   ))))
+= forall_string_ptr_object_equiv p l ptr data;
+  object_forall_string_ptr_elim l (forall_string_ptr p) ptr data l [] s' j'  
+
+let string_invariant
+  (h: HyperStack.mem)
+  (b: bstring)
+  (sp: string_ptr)
+  (ss: Spec.sstring)
+: GTot Type0
+= string_ptr_valid h sp /\
+  string_ptr_value h sp == ss /\
+  b `Buffer.includes` (DependentMap.sel (Struct.as_value h sp) StringPtr)
+
+let string_invariant_value_weak
+  (h1 h2: HyperStack.mem)
+  (b: bstring)
+  (sp: string_ptr)
+  (ss: Spec.sstring)
+: Lemma
+  (requires (Struct.live h1 sp /\ Struct.live h2 sp /\ Struct.as_value h1 sp == Struct.as_value h2 sp /\ Buffer.live h1 b /\ Buffer.live h2 b /\ Buffer.as_seq h1 b == Buffer.as_seq h2 b))
+  (ensures (string_invariant h1 b sp ss ==> string_invariant h2 b sp ss))
+= Classical.impl_intro_gen
+    #(string_invariant h1 b sp ss)
+    #(fun _ -> string_invariant h2 b sp ss)
+    (fun _ ->
+      let b' = DependentMap.sel (Struct.as_value h1 sp) StringPtr in
+      let _ : squash (Buffer.as_seq h1 b' == Buffer.as_seq h2 b') =
+	Buffer.includes_as_seq h1 h2 b b'
+      in
+      ()
+    )
+
+let string_invariant_value
+  (h1 h2: HyperStack.mem)
+  (b: bstring)
+  (sp: string_ptr)
+  (ss: Spec.sstring)
+: Lemma
+  (requires (Struct.live h1 sp /\ Struct.live h2 sp /\ Struct.as_value h1 sp == Struct.as_value h2 sp /\ Buffer.live h1 b /\ Buffer.live h2 b /\ Buffer.as_seq h1 b == Buffer.as_seq h2 b))
+  (ensures (string_invariant h1 b sp ss <==> string_invariant h2 b sp ss))
+= string_invariant_value_weak h1 h2 b sp ss;
+  string_invariant_value_weak h2 h1 b sp ss
+
+let string_invariant_includes
+  (h: HyperStack.mem)
+  (b1: bstring)
+  (sp: string_ptr)
+  (ss: Spec.sstring)
+  (b2: bstring { b2 `Buffer.includes` b1 } )
+: Lemma
+  (ensures (string_invariant h b1 sp ss ==> string_invariant h b2 sp ss))
+= 
+  Classical.impl_intro_gen
+    #(string_invariant h b1 sp ss)
+    #(fun _ -> string_invariant h b2 sp ss)
+    (fun _ ->
+      Buffer.includes_trans b2 b1 (DependentMap.sel (Struct.as_value h sp) StringPtr)
+    )
+
+let invariant
+  (h: HyperStack.mem)
+  (b: bstring)
+= forall_string_ptr (string_invariant h b)
+
+unfold
+let object_parse_precond
+  (l:  list (Spec.key * Spec.json_schema) {List.Tot.noRepeats (List.Tot.map fst l)} )
+  (l_left: list (Spec.key * Spec.json_schema))
+  (l_right: list (Spec.key * Spec.json_schema))
+  (b: bstring)
+  (len: UInt32.t)
+  (i: UInt32.t)
+  (target: Struct.struct_ptr (as_type (Spec.Object l)))
+  (gdata: (unit -> GTot (Spec.as_gtype (Spec.Object l))))
+  (h: HyperStack.mem)
+: GTot Type0
+= string_buffer_valid h b len /\
+  Struct.live h target /\
+  Buffer.disjoint b (Struct.as_buffer target) /\
+  0 < UInt32.v i /\
+  UInt32.v i <= UInt32.v len /\
+  object_forall_string_ptr l (invariant h (Buffer.sub b 0ul i)) target (gdata ()) l_left l_right /\
+  (List.Tot.strict_prefix_of l_right l \/ l_right == l)
+
+unfold
+let object_parse_postcond
+  (l:  list (Spec.key * Spec.json_schema) {List.Tot.noRepeats (List.Tot.map fst l)} )
+  (l_left: list (Spec.key * Spec.json_schema))
+  (l_right: list (Spec.key * Spec.json_schema))
+  (b: bstring)
+  (len: UInt32.t)
+  (i: UInt32.t)
+  (target: Struct.struct_ptr (as_type (Spec.Object l)))
+  (gdata: (unit -> GTot (Spec.as_gtype (Spec.Object l))))
+  (h: HyperStack.mem)
+  (i': UInt32.t)
+  (h': HyperStack.mem)
+: GTot Type0
+= object_parse_precond l l_left l_right b len i target gdata h /\
+  Struct.modifies_1 target h h' /\ (
+    let (b' : bstring { Buffer.live h b' }) = Buffer.sub b i (len -^ i) in
+    let value = Spec.gparse_object (Spec.Object l) Spec.gparse l (gdata ()) l_right (Buffer.as_seq h b') in
+    if
+      i' = 0ul
+    then
+      value == None
+    else (
+      Some? value /\ (
+        let (Some (gdata', s')) = value in
+        UInt32.v i <= UInt32.v i' /\
+        UInt32.v i' <= UInt32.v len /\
+        object_forall_string_ptr l (invariant h' (Buffer.sub b 0ul i')) target gdata' l [] /\ (
+	  let (b'': bstring { Buffer.live h b'' } ) = Buffer.sub b i' (len -^ i') in 
+          Buffer.as_seq h b'' == s'
+  ))))
+
+let object_parse_ty
+  (l: list (Spec.key * Spec.json_schema) {List.Tot.noRepeats (List.Tot.map fst l)} )
+  (l_left: list (Spec.key * Spec.json_schema))
+  (l_right: list (Spec.key * Spec.json_schema))
+: Tot Type
+= (b: bstring) ->
+  (len: UInt32.t) ->
+  (i: UInt32.t) ->
+  (target: Struct.struct_ptr (as_type (Spec.Object l))) ->
+  (gdata: (unit -> GTot (Spec.as_gtype (Spec.Object l)))) ->
+  Stack UInt32.t
+  (requires (fun h ->
+    object_parse_precond l l_left l_right b len i target gdata h
+  ))
+  (ensures (fun h i' h' ->
+    object_parse_postcond l l_left l_right b len i target gdata h i' h'
+  ))
+
+inline_for_extraction
+let object_parse_nil
+  (l: list (Spec.key * Spec.json_schema) {List.Tot.noRepeats (List.Tot.map fst l)} )
+: Tot (object_parse_ty l l [])
+= let f
+    (b: bstring)
+    (len: UInt32.t)
+    (i: UInt32.t)
+    (target: Struct.struct_ptr (as_type (Spec.Object l)))
+    (gdata: (unit -> GTot (Spec.as_gtype (Spec.Object l))))
+  : Stack UInt32.t
+    (requires (fun h ->
+      object_parse_precond l l [] b len i target gdata h
+    ))
+    (ensures (fun h i' h' ->
+      object_parse_postcond l l [] b len i target gdata h i' h'
+    ))
+  = i
+  in
+  f
+
+inline_for_extraction
+let object_parse_cons
+  (l: list (Spec.key * Spec.json_schema) {List.Tot.noRepeats (List.Tot.map fst l)} )
+  (l_left: list (Spec.key * Spec.json_schema))
+  (s: Spec.key)
+  (j: Spec.json_schema)
+  (l_right: list (Spec.key * Spec.json_schema))
+  (ih: object_parse_ty l (List.Tot.append l_left [(s, j)]) l_right)
+: Tot (object_parse_ty l l_left ((s, j) :: l_right))
+= let f
+    (b: bstring)
+    (len: UInt32.t)
+    (i: UInt32.t)
+    (target: Struct.struct_ptr (as_type (Spec.Object l)))
+    (gdata: (unit -> GTot (Spec.as_gtype (Spec.Object l))))
+  : Stack UInt32.t
+    (requires (fun h ->
+      object_parse_precond l l_left ((s, j) :: l_right) b len i target gdata h
+    ))
+    (ensures (fun h i' h' ->
+      object_parse_postcond l l_left ((s, j) :: l_right) b len i target gdata h i' h'
+    ))
+  = let h = ST.get () in
+    assume (object_parse_postcond l l_left ((s, j) :: l_right) b len i target gdata h i h);
+    i
+  in
+  f
+  
+inline_for_extraction
+let rec object_parse
+  (l: list (Spec.key * Spec.json_schema) {List.Tot.noRepeats (List.Tot.map fst l)} )
+  (l_left: list (Spec.key * Spec.json_schema))
+  (l_right: list (Spec.key * Spec.json_schema))
+: Pure (object_parse_ty l l_left l_right)
+  (requires (l == List.Tot.append l_left l_right))
+  (ensures (fun _ -> True))
+  (decreases l_right)
+= match l_right with
+  | [] ->
+    let _ : squash (l_left == l) = List.Tot.append_l_nil l_left in
+    object_parse_nil l
+  | ((s, j) :: l_right') ->
+    List.Tot.append_assoc l_left [(s, j)] l_right';
+    object_parse_cons l l_left s j l_right' (object_parse l (List.Tot.append l_left [(s, j)]) l_right')
+
+unfold
+let parse_precond
+  (j: Spec.json_schema)
+  (b: bstring)
+  (len: UInt32.t)
+  (i: UInt32.t)
+  (target: Struct.struct_ptr (as_type j))
+  (gdata: (unit -> GTot (Spec.as_gtype j)))
+  (h: HyperStack.mem)
+: GTot Type0
+= Struct.live h target /\ 
+  string_buffer_valid h b len /\
+  Buffer.disjoint b (Struct.as_buffer target) /\
+  UInt32.v i <= UInt32.v len 
+
+unfold
+let parse_postcond
+  (j: Spec.json_schema)
+  (b: bstring)
+  (len: UInt32.t)
+  (i: UInt32.t)
+  (target: Struct.struct_ptr (as_type j))
+  (gdata: (unit -> GTot (Spec.as_gtype j)))
+  (h: HyperStack.mem)
+  (i': UInt32.t)
+  (h': HyperStack.mem)
+: GTot Type0
+= parse_precond j b len i target gdata h /\
+  Struct.modifies_1 target h h' /\ (
+  let b' = Buffer.sub b i (len -^ i) in
+  let value = Spec.gparse j (gdata ()) (Buffer.as_seq h b') in (
+    if
+      i' = 0ul
+    then
+      value == None
+    else (
+      UInt32.v i <= UInt32.v i' /\
+      UInt32.v i' <= UInt32.v len /\
+      Some? value /\ (
+	let (b'': bstring { Buffer.live h b'' } ) = (Buffer.sub b i' (len -^ i')) in 
+        let (Some (gdata', s)) = value in (
+	  forall_string_ptr (string_invariant h' (Buffer.sub b 0ul i')) j target gdata' /\
+	  Buffer.as_seq h b'' == s
+  )))))
+
+let parse_postcond_ex_elim
+  (j: Spec.json_schema)
+  (b: bstring)
+  (len: UInt32.t)
+  (i: UInt32.t)
+  (target: Struct.struct_ptr (as_type j))
+  (gdata: (unit -> GTot (Spec.as_gtype j)))
+  (h: HyperStack.mem)
+  (i': UInt32.t)
+  (h': HyperStack.mem)
+: Ghost (b_: bstring { Buffer.live h b_ } & (v_: option (Spec.as_gtype j * (s: Spec.sstring { Seq.length s < Seq.length (Buffer.as_seq h b_) }))) )
+  (requires (exists b_ v_ . parse_postcond j b len i target gdata h i' h' b_ v_))
+  (ensures (fun bv_ -> let (| b_, v_ |) = bv_ in parse_postcond j b len i target gdata h i' h' b_ v_))
+= let (b': bstring { Buffer.live h b' } ) = Buffer.sub b i (len -^ i) in
+  let (v': option (Spec.as_gtype j * (s: Spec.sstring { Seq.length s < Seq.length (Buffer.as_seq h b') }))) = Spec.gparse j (gdata ()) (Buffer.as_seq h b') in
+  let (bv_: (b_: bstring { Buffer.live h b_ } & (v_: option (Spec.as_gtype j * (s: Spec.sstring { Seq.length s < Seq.length (Buffer.as_seq h b_) }))))) = (| b', v' |) in
+  let _ : squash (let (| b_, v_ |) = bv_ in parse_postcond j b len i target gdata h i' h' b_ v_) =
+    Classical.exists_elim
+      (let (| b_, v_ |) = bv_ in parse_postcond j b len i target gdata h i' h' b_ v_)
+      #_
+      #(fun b_ -> exists v_ . parse_postcond j b len i target gdata h i' h' b_ v_)
+      ()
+      (fun b_ -> Classical.exists_elim
+	(let (| b_, v_ |) = bv_ in parse_postcond j b len i target gdata h i' h' b_ v_)
+        #_
+	#(fun v_ -> parse_postcond j b len i target gdata h i' h' b_ v_)
+        ()
+	(fun v_ -> assert (b_ == b'); assert (v_ == v'); assert (let (| b'', v'' |) = bv_ in (b'' == b_ /\ v'' == v_)); assert (parse_postcond j b len i target gdata h i' h' b_ v_); assume (* FIXME: WHY WHY WHY do equalities NOT propagate ????? *) (parse_postcond j b len i target gdata h i' h' b' v'))
+      )
+  in
+  bv_
+
+
+let parse_ty
+  (j: Spec.json_schema)
+: Tot Type
+= (b: bstring) ->
+  (len: UInt32.t) ->
+  (i: UInt32.t) ->
+  (target: Struct.struct_ptr (as_type j)) ->
+  (gdata: (unit -> GTot (Spec.as_gtype j))) ->
+  Stack UInt32.t
+  (requires (fun h -> parse_precond j b len i target gdata h))
+  (ensures (fun h i' h' -> exists b_ . parse_postcond j b len i target gdata h i' h' b_))
+
+#reset-options "--z3rlimit 256 --max_fuel 16"
+
+inline_for_extraction
+let parse_case_string
+  (b: bstring)
+  (len: UInt32.t)
+  (i: UInt32.t)
+  (target: Struct.struct_ptr string_ptr_struct)
+  (gdata: (unit -> GTot (Spec.as_gtype Spec.String)))
+: Stack UInt32.t
+  (requires (fun h -> parse_precond Spec.String b len i target gdata h))
+  (ensures (fun h i' h' -> exists b_ . parse_postcond Spec.String b len i target gdata h i' h' b_))
+= let h = ST.get () in
+  let len0 = len -^ i in
+  let (b0: bstring { Buffer.live h b0 }) = Buffer.sub b i len0 in
+  let i_parse = parse_string target b0 len0 in
+  let h' = ST.get () in
+  let _ = assert (Struct.modifies_1 target h h') in
+  let _ = assert (parse_precond Spec.String b len i target gdata h) in
+  let value () : GTot _ = Spec.gparse Spec.String (gdata ()) (Buffer.as_seq h b0) in
+  if
+    i_parse = 0ul
+  then
+    let _ = assert (value () == None) in
+    let _ = Classical.exists_intro (parse_postcond Spec.String b len i target gdata h i h') b0 in
+    0ul
+  else
+    let i' = i +^ i_parse in
+    let _ = assume (parse_postcond Spec.String b len i target gdata h i' h' b0) in
+    i'
+
+assume val parse_case_object
+  (l: list (Spec.key * Spec.json_schema) {List.Tot.noRepeats (List.Tot.map fst l)} )
+  (parse': (j' : Spec.json_schema { j' << Spec.Object l } ) -> parse_ty j')
+  (b: bstring)
+  (len: UInt32.t)
+  (i: UInt32.t)
+  (target: Struct.struct_ptr (as_type (Spec.Object l)))
+  (gdata: (unit -> GTot (Spec.as_gtype (Spec.Object l))))
+: Stack UInt32.t
+  (requires (fun h -> parse_precond (Spec.Object l) b len i target gdata h))
+  (ensures (fun h i' h' -> parse_postcond (Spec.Object l) b len i target gdata h i' h'))
+
+inline_for_extraction
+let rec parse
+  (j: Spec.json_schema)
+: Tot (parse_ty j)
+= match j with
+  | Spec.String -> parse_case_string
+  | Spec.Object l -> parse_case_object l parse
