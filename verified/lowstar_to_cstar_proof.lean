@@ -344,6 +344,73 @@ end
 
 -- end
 
+
+lemma steps_with_ctx_lemma {X : Type u} (ctx : ectx X) : ∀ decls stack stack' (e1 e1' e e' : exp X) ls,
+  e = apply_ectx ctx e1 →
+  e' = apply_ectx ctx e1' →
+  transition.star (lowstar_semantics.step decls) (stack, e1) (stack', e1') ls →
+  transition.star (lowstar_semantics.step decls) (stack, e) (stack', e') ls
+:=
+begin
+  introv E1 E2 H, rw [E1, E2], apply step_steps, assumption
+end
+
+lemma steps_with_ctx_close_vars_lemma {X : Type u} (ctx : ectx X) :
+  ∀ names V decls stack stack' (e1 e1' e e' : exp X) ls,
+  e = apply_ectx ctx e1 →
+  e' = apply_ectx ctx e1' →
+  transition.star (lowstar_semantics.step decls) (stack, close_vars names V e1) (stack', close_vars names V e1') ls →
+  transition.star (lowstar_semantics.step decls) (stack, close_vars names V e) (stack', close_vars names V e') ls
+:=
+begin
+  introv E1 E2 H, rw [E1, E2], simp [close_vars_ectx], apply step_steps, assumption
+end
+
+lemma step_here_close_vars_lemma {X : Type u} : ∀ names V decls stack stack' (e e' : exp X) ls,
+  astep decls (stack, close_vars names V e) (stack', close_vars names V e') ls →
+  step decls (stack, close_vars names V e) (stack', close_vars names V e') ls
+:=
+begin
+  introv H,
+  rw [show e = apply_ectx ectx.here e, { refl }],
+  rw [show e' = apply_ectx ectx.here e', { refl }],
+  simp [close_vars_ectx], constructor, assumption
+end
+
+end lowstar_to_cstar_proof
+
+-- open a github issue
+namespace tactic.interactive
+open lean lean.parser
+open interactive interactive.types tactic
+
+open lowstar_to_cstar_proof
+
+meta def steps_with_ctx (ctx : parse texpr) : tactic unit :=
+do
+  τ ← target,
+  match τ with
+  | `(transition.star _ (_, close_vars _ _ _) _ _) := do
+    l ← i_to_expr ``(lowstar_to_cstar_proof.steps_with_ctx_close_vars_lemma %%ctx),
+    tactic.apply l; [try reflexivity, try reflexivity, tactic.skip]
+  | `(transition.star _ _ _ _) := do
+    l ← i_to_expr ``(lowstar_to_cstar_proof.steps_with_ctx_lemma %%ctx),
+    tactic.apply l; [try reflexivity, try reflexivity, tactic.skip]
+  | _ := failed
+  end
+end tactic.interactive
+
+namespace lowstar_to_cstar_proof
+
+-- XXX
+open common
+open semantics_common
+open lowstar
+open cstar
+open lowstar_semantics
+open cstar_semantics
+open lowstar_to_cstar
+
 lemma init : ∀ X seen seen' seen'' (names : X → ident) p lp le ss V,
   transl_program seen lp = some (seen', p) →
   transl_to_stmt seen' names le = some (seen'', ss) →
@@ -384,18 +451,47 @@ begin
       simp [transl_to_stmt, transl_to_exp] at Hle,
       opt_inv Hle with x1 H1 x2 H2,
       cases Hss, cases a_2, cases Hle', cases a_5,
-      apply (transition.star_trans ([], close_vars names V (exp.subbuf (value.loc (b, n, [])) a_1))),
-      show [] = [] ++ [], { reflexivity },
-      { simp [show ∀ a, exp.subbuf a a_1 = apply_ectx (ectx.subbuf_1 ectx.here a_1) a, { intro, reflexivity }],
-        simp [close_vars_ectx],
-        apply step_steps,
-        admit
+      apply transition.star_trans,
+      { steps_with_ctx (ectx.subbuf_1 ectx.here a_1), apply ih_1,
+        { apply transl_to_stmt_exp, assumption },
+        { constructor, assumption },
+        { constructor, constructor }
       },
-      { admit }
-    },
-    repeat { admit }
+      apply transition.star_trans,
+      { steps_with_ctx (ectx.subbuf_2 _ ectx.here),
+
+        -- simp [lowstar_semantics.apply_ectx],
+        repeat { admit } },
+
+    --   apply (transition.star_trans ([], close_vars names V (exp.subbuf (value.loc (b, n, [])) a_1))),
+    --   show [] = [] ++ [], { reflexivity },
+    --   { steps_with_ctx (ectx.subbuf_1 ectx.here a_1),
+
+    --     simp [show ∀ a, exp.subbuf a a_1 = apply_ectx (ectx.subbuf_1 ectx.here a_1) a, { intro, reflexivity }],
+    --     simp [close_vars_ectx],
+    --     apply step_steps, apply ih_1,
+    --     { apply transl_to_stmt_exp, assumption },
+    --     { constructor, assumption },
+    --     { constructor, constructor }
+    --   },
+    --   apply (transition.star_trans ([], close_vars names V (exp.subbuf (value.loc (b, n, [])) (value.int n')))),
+    --   show [] = [] ++ [], { refl },
+    --   { simp [show ∀ (v : value) (a: exp X_1), exp.subbuf ↑v a = apply_ectx (ectx.subbuf_2 v ectx.here) a, { intros, refl }],
+    --     simp [close_vars_ectx],
+    --     apply step_steps, apply ih_2,
+    --     { apply transl_to_stmt_exp, assumption },
+    --     { constructor, assumption },
+    --     { constructor, constructor }
+    --   },
+    --   apply (steps_with_ctx_close_vars_lemma ectx.here), refl, refl,
+    --   apply transition.star_one, apply step_here_close_vars_lemma, constructor
+    -- },
+
+     repeat { admit }
   },
-  admit
+  repeat { admit }
+},
+admit
 end
 
 end lowstar_to_cstar_proof

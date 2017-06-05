@@ -131,4 +131,18 @@ def transl_program : idents → lowstar.program → option (idents × cstar.prog
   (seen'', ds') ← transl_program seen' ds,
   some (seen'', d' :: ds')
 
+-- Administrative lemmas
+
+lemma transl_to_stmt_exp : ∀ {X} names seen (e : exp X) ce,
+  transl_to_exp names e = some ce →
+  transl_to_stmt seen names e = some (seen, [stmt.return ce])
+:=
+begin
+  introv H, induction e; simp [transl_to_exp] at H;
+  try { injection H with H' };
+  try { rw -H', simp [transl_to_stmt, transl_to_exp], unfold has_bind.bind, simp [option_bind] }, -- ??
+  opt_inv H,
+  simp [transl_to_stmt, transl_to_exp], rw [H_1, H_3], unfold has_bind.bind, simp [option_bind]
+end
+
 end lowstar_to_cstar
