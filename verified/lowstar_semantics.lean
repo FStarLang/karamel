@@ -229,37 +229,4 @@ end
 
 end
 
-lemma steps_with_ctx_lemma {X : Type u} (ctx : ectx X) : ∀ decls stack stack' (e1 e1' e e' : exp X) ls,
-  e = apply_ectx ctx e1 →
-  e' = apply_ectx ctx e1' →
-  transition.star (lowstar_semantics.step decls) (stack, e1) (stack', e1') ls →
-  transition.star (lowstar_semantics.step decls) (stack, e) (stack', e') ls
-:=
-begin
-  introv E1 E2 H, rw [E1, E2], apply step_steps, assumption
-end
-
-lemma steps_with_ctx_close_vars_lemma {X : Type u} (ctx : ectx X) :
-  ∀ names V decls stack stack' (e1 e1' e e' : exp X) ls,
-  e = apply_ectx ctx e1 →
-  e' = apply_ectx ctx e1' →
-  transition.star (lowstar_semantics.step decls) (stack, close_vars names V e1) (stack', close_vars names V e1') ls →
-  transition.star (lowstar_semantics.step decls) (stack, close_vars names V e) (stack', close_vars names V e') ls
-:=
-begin
-  introv E1 E2 H, rw [E1, E2], simp [close_vars_ectx], apply step_steps, assumption
-end
-
-namespace tactic.interactive
-open lean lean.parser
-open interactive interactive.types tactic
-
-meta def steps_with_ctx (ctx : parse texpr) : tactic unit :=
-do
-  l ← i_to_expr ``(steps_with_ctx_lemma %%ctx),
-  l' ← i_to_expr ``(steps_with_ctx_close_vars_lemma %%ctx),
-  (apply l <|> apply l'); [reflexivity, reflexivity, tactic.skip]
-
-end tactic.interactive
-
 end lowstar_semantics
