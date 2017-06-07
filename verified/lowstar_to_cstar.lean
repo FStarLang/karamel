@@ -141,8 +141,24 @@ begin
   introv H, induction e; simp [transl_to_exp] at H;
   try { injection H with H' };
   try { rw -H', simp [transl_to_stmt, transl_to_exp], unfold has_bind.bind, simp [option_bind] }, -- ??
-  opt_inv H,
-  simp [transl_to_stmt, transl_to_exp], rw [H_1, H_3], unfold has_bind.bind, simp [option_bind]
+  opt_inv H with _ H1 _ H2,
+  simp [transl_to_stmt, transl_to_exp], rw [H1, H2], unfold has_bind.bind, simp [option_bind]
+end
+
+lemma transl_typ_novoid : ∀ τ, transl_typ τ = typ.void → false :=
+begin
+  intros τ H, cases τ; simp [transl_typ] at H; injection H
+end
+
+lemma transl_typ_injective : function.injective transl_typ :=
+begin
+  intros τ₁, induction τ₁ with α ih1 α₁ α₂ ih1 ih2; intros τ₂ H; cases τ₂ with β;
+  simp [transl_typ] at H;
+  injection H with H',
+  { exfalso, apply transl_typ_novoid, rw H' },
+  { exfalso, apply transl_typ_novoid, apply H' },
+  { rw (ih1 H') },
+  { rw (ih2 H'), /- ??? -/ admit }
 end
 
 end lowstar_to_cstar

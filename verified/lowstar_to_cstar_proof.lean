@@ -293,7 +293,7 @@ def rel {X : Type u}
 
 -- auxiliary lemmas
 
-lemma back_stmt_value {X : Type u} (le : exp X) (v : value) : ∀ names,
+lemma back_stmt_value_eq {X : Type u} (le : exp X) (v : value) : ∀ names,
   back_stmt names [stmt.return v] le →
   le = v
 :=
@@ -303,6 +303,23 @@ begin
   { cases a_1, refl },
   { cases a, refl },
   { cases a_1, refl }
+end
+
+lemma back_stmt_value {X : Type u} (v : value) : ∀ (names : X → ident),
+  back_stmt names [stmt.return v] v
+:=
+begin
+  intros _,
+  cases v; { constructor, constructor }
+end
+
+lemma back_exp_value_eq {X : Type u} (le : exp X) (v : value) : ∀ names,
+  back_exp names v le →
+  le = v
+:=
+begin
+  intros _ H,
+  cases v; cases H; refl
 end
 
 lemma close_vars_value (v : value) : ∀ {X : Type u} (names : X → ident) V,
@@ -344,6 +361,41 @@ end
 
 -- end
 
+lemma transl_back_exp_eq {X : Type u}:
+  ∀ (le le' : exp X) ce names,
+  transl_to_exp names le = some ce →
+  back_exp names ce le' →
+  le = le'
+:=
+begin
+  intros le, induction le; intros le' ce names HT HB;
+  simp [transl_to_exp] at HT;
+  try { injection HT }; /- ?? -/
+  try { injection HT with h, subst h, cases HB, refl },
+  { injection HT with h, subst h, /- cases HB, -/ /- FIXME -/ admit },
+  { opt_inv HT with x2 H2 x1 H1, cases HB with _ _ _ _ _ _ _ _ ce1 ce2 Hce1 Hce2, /- FIXME -/
+    rw (ih_1 _ _ _ H1 Hce1), rw (ih_2 _ _ _ H2 Hce2) }
+end
+
+lemma transl_back_stmt_eq {X : Type u}:
+  ∀ seen seen' names (e e' : exp X) ss,
+  transl_to_stmt seen names e = some (seen', ss) →
+  back_stmt names ss e' →
+  e = e'
+:=
+begin
+  intros seen seen' names e, induction e; intros e' ss HT HB;
+  simp [transl_to_stmt] at HT;
+  try {
+    opt_inv HT with _ H1, cases HB, /- with .. FIXME -/
+    rw (transl_back_exp_eq _ _ _ _ H1), assumption
+  },
+  { opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1',
+    opt_inv H1' with ss2 seen2 H2' H2, simp [transl_to_stmt] at H2', opt_inv H2',
+    /- cases HB -/ /- FIXME -/ admit
+  },
+  repeat { admit }
+end
 
 lemma steps_with_ctx_lemma {X : Type u} (ctx : ectx X) : ∀ decls stack stack' (e1 e1' e e' : exp X) ls,
   e = apply_ectx ctx e1 →
@@ -389,13 +441,21 @@ open lowstar_to_cstar_proof
 meta def steps_with_ctx (ctx : parse texpr) : tactic unit :=
 do
   τ ← target,
+  -- apply_ectx_e ← i_to_expr ``(lowstar_semantics.apply_ectx),
+  -- stac ← return (simp_using [apply_ectx_e]),
+  stac ← return (
+    seq (try (simp ff [``(lowstar_semantics.apply_ectx)] [] [] (loc.ns [])))
+        (try refl)
+  ),
+
   match τ with
   | `(transition.star _ (_, close_vars _ _ _) _ _) := do
     l ← i_to_expr ``(lowstar_to_cstar_proof.steps_with_ctx_close_vars_lemma %%ctx),
-    tactic.apply l; [try reflexivity, try reflexivity, tactic.skip]
+    tactic.apply l; [stac, stac, skip]
+
   | `(transition.star _ _ _ _) := do
     l ← i_to_expr ``(lowstar_to_cstar_proof.steps_with_ctx_lemma %%ctx),
-    tactic.apply l; [try reflexivity, try reflexivity, tactic.skip]
+    tactic.apply l; [stac, stac, skip]
   | _ := failed
   end
 end tactic.interactive
@@ -443,8 +503,8 @@ begin
       simp [transl_to_stmt, transl_to_exp] at Hle, opt_inv Hle,
       cases Hss, cases a_1,
       rw [show close_vars names V (exp.var a) = v,
-          by { simp [close_vars, exp_bind], rw [a_2], simp [close_vars._match_1] } ],
-      rw [back_stmt_value le' v], rw [close_vars_value], constructor, --XX
+          by { simp [close_vars, exp_bind], rw [a_2], simp [close_vars] } ],
+      rw [back_stmt_value_eq le' v], rw [close_vars_value], constructor, --XX
       assumption, assumption
     },
     { introv Hle Hss Hle',
@@ -452,46 +512,51 @@ begin
       opt_inv Hle with x1 H1 x2 H2,
       cases Hss, cases a_2, cases Hle', cases a_5,
       apply transition.star_trans,
-      { steps_with_ctx (ectx.subbuf_1 ectx.here a_1), apply ih_1,
+      { steps_with_ctx (ectx.subbuf_1 ectx.here _),
+        apply ih_1,
         { apply transl_to_stmt_exp, assumption },
         { constructor, assumption },
         { constructor, constructor }
       },
       apply transition.star_trans,
-      { steps_with_ctx (ectx.subbuf_2 _ ectx.here),
+      { steps_with_ctx (ectx.subbuf_2 (value.loc (b,n,[])) ectx.here),
+        apply ih_2,
+        { apply transl_to_stmt_exp, assumption },
+        { constructor, assumption },
+        { constructor, constructor }
+      },
+      apply transition.star_one,
+      { apply step_here_close_vars_lemma, apply astep.subbuf },
+      refl, refl
+    },
 
-        -- simp [lowstar_semantics.apply_ectx],
-        repeat { admit } },
+    { introv Hle Hss Hle',
+      simp [transl_to_stmt, transl_to_exp] at Hle,
+      opt_inv Hle with ss1 seen1 H1' Ha_1 x1 H1 foo bar,
+      simp [transl_to_stmt] at H1', opt_inv H1' with ss2 seen2 H2' Ha_2,
+      simp [transl_to_stmt] at H2', opt_inv H2',
+      cases Hss /- ? -/ },
 
-    --   apply (transition.star_trans ([], close_vars names V (exp.subbuf (value.loc (b, n, [])) a_1))),
-    --   show [] = [] ++ [], { reflexivity },
-    --   { steps_with_ctx (ectx.subbuf_1 ectx.here a_1),
+    { introv Hle Hss Hle',
+      simp [transl_to_stmt, transl_to_exp] at Hle,
+      opt_inv Hle with ss1 seen1 H1' H_a_2 x1 H1,
+      simp [transl_to_stmt] at H1', opt_inv H1',
+      cases Hss, cases Hle' with _ _ _ _ _ τ le1 le2 Hle1 Hle2 Hτ, clear Hle',
+      dsimp at Hτ, note hh := (transl_typ_injective Hτ), subst hh, clear Hτ, /- FIXME: rw at * -/
+      note hh := back_exp_value_eq _ _ _ Hle1, subst hh, clear Hle1,
 
-    --     simp [show ∀ a, exp.subbuf a a_1 = apply_ectx (ectx.subbuf_1 ectx.here a_1) a, { intro, reflexivity }],
-    --     simp [close_vars_ectx],
-    --     apply step_steps, apply ih_1,
-    --     { apply transl_to_stmt_exp, assumption },
-    --     { constructor, assumption },
-    --     { constructor, constructor }
-    --   },
-    --   apply (transition.star_trans ([], close_vars names V (exp.subbuf (value.loc (b, n, [])) (value.int n')))),
-    --   show [] = [] ++ [], { refl },
-    --   { simp [show ∀ (v : value) (a: exp X_1), exp.subbuf ↑v a = apply_ectx (ectx.subbuf_2 v ectx.here) a, { intros, refl }],
-    --     simp [close_vars_ectx],
-    --     apply step_steps, apply ih_2,
-    --     { apply transl_to_stmt_exp, assumption },
-    --     { constructor, assumption },
-    --     { constructor, constructor }
-    --   },
-    --   apply (steps_with_ctx_close_vars_lemma ectx.here), refl, refl,
-    --   apply transition.star_one, apply step_here_close_vars_lemma, constructor
-    -- },
 
-     repeat { admit }
+      -- { steps_with_ctx (ectx.let_in _ ectx.here _),
+      --   apply ih_1,
+      --   { apply transl_to_stmt_exp, assumption },
+      --   { constructor, assumption },
+      --   { apply back_stmt_value } },
+      repeat { admit }
+    },
+
+    repeat { admit }
   },
   repeat { admit }
-},
-admit
 end
 
 end lowstar_to_cstar_proof

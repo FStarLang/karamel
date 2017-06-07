@@ -130,11 +130,10 @@ do
 
 meta def get_name : list name → tactic (name × list name)
 | (n :: ns) := return (n, ns)
-| ns := do n ← get_unused_name `H none, return (n, ns)
+| [] := failed
 
 meta def rnm h ns := do
-  (n, ns) ← get_name ns,
-  rename h n,
+  (do (n, ns) ← get_name ns, rename h n, return ns) <|>
   return ns
 
 meta def fresh_name (used : ref (list name)) (suggestion : name) : tactic name :=
@@ -203,6 +202,13 @@ do
 
     note he none e,
     get_local he >>= λ H, cases H [x, h'],
+    xτ ← get_local x >>= infer_type,
+    (match xτ with
+     | `(_ × _) := do
+       x1 ← fresh_name r `x1, x2 ← fresh_name r `x2,
+       get_local x >>= λ x, cases x [x1, x2]
+     | _ := skip
+     end),
     get_local h' >>= λ H, cases H [eq1, eq2],
 
     get_local eq2 >>= λ E, try (dsimp_at E),
