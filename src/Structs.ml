@@ -302,7 +302,7 @@ let pass_by_ref files =
 
 
 (* Explicitly allocate structs in memory, and initialize them in place. This
- * eliminate structure values, and replaces them with pointers; the lifetime of
+ * eliminates structure values, and replaces them with pointers; the lifetime of
  * these structs is extended to the enclosing push/pop frame. Copies become
  * explicit.
  * - This allocation scheme is inefficient because offsets are dynamically
