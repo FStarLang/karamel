@@ -7,94 +7,10 @@ open Idents
 open Warnings
 open Common
 open PrintAst.Ops
-
-(* Some helpers ***************************************************************)
-
-let visit_files (env: 'env) (visitor: _ map) (files: file list) =
-  KList.filter_map (fun f ->
-    try
-      Some (visitor#visit_file env f)
-    with Error e ->
-      maybe_fatal_error (fst f ^ "/" ^ fst e, snd e);
-      None
-  ) files
-
-
-class ignore_everything = object
-  method dfunction () cc flags n ret name binders expr =
-    DFunction (cc, flags, n, ret, name, binders, expr)
-
-  method dglobal () flags name typ expr =
-    DGlobal (flags, name, typ, expr)
-
-  method dtype () name n t =
-    DType (name, n, t)
-end
-
-let rec nest bs t e2 =
-  match bs with
-  | (b, e1) :: bs ->
-      { node = ELet (b, e1, close_binder b (nest bs t e2)); typ = t }
-  | [] ->
-      e2
-
-let mk_binding name t =
-  let b = fresh_binder name t in
-  b,
-  { node = EOpen (b.node.name, b.node.atom); typ = t }
-
-(** Generates "let [[name]]: [[t]] = [[e]] in [[name]]" *)
-let mk_named_binding name t e =
-  let b, ref = mk_binding name t in
-  b,
-  { node = e; typ = t },
-  ref
-
-(** Substitute [es] in [e], possibly introducing intermediary let-bindings for
- * things that are not values. [t] is the type of [e]. *)
-let safe_substitution es e t =
-  (* We use a syntactic criterion to ensure that all the arguments are
-   * values, i.e. can be safely substituted inside the function
-   * definition. *)
-  let bs, es = KList.fold_lefti (fun i (bs, es) e ->
-    if not (is_value e) then
-      let x, atom = mk_binding (Printf.sprintf "x%d" i) e.typ in
-      (x, e) :: bs, atom :: es
-    else
-      bs, e :: es
-  ) ([], []) es in
-  let bs = List.rev bs in
-  let es = List.rev es in
-  nest bs t (DeBruijn.subst_n e es)
+open Helpers
 
 
 (* Count the number of occurrences of each variable ***************************)
-
-(* Descend into a terminal position, then call [f] on the sub-term in terminal
- * position. This function is only safe to call if all binders have been opened. *)
-let rec nest_in_return_pos typ f e =
-  match e.node with
-  | ELet (b, e1, e2) ->
-      let e2 = nest_in_return_pos typ f e2 in
-      { node = ELet (b, e1, e2); typ }
-  | EIfThenElse (e1, e2, e3) ->
-      let e2 = nest_in_return_pos typ f e2 in
-      let e3 = nest_in_return_pos typ f e3 in
-      { node = EIfThenElse (e1, e2, e3); typ }
-  | ESwitch (e, branches) ->
-      let branches = List.map (fun (t, e) ->
-        t, nest_in_return_pos typ f e
-      ) branches in
-      { node = ESwitch (e, branches); typ }
-  | EMatch (e, branches) ->
-      let branches = List.map (fun (bs, pat, e) ->
-        bs, pat, nest_in_return_pos typ f e
-      ) branches in
-      { node = EMatch (e, branches); typ }
-  | _ ->
-      f e
-
-let push_ignore = nest_in_return_pos TUnit (fun e -> with_type TUnit (EIgnore (strip_cast e)))
 
 let count_use = object (self)
 
@@ -204,10 +120,6 @@ end
 
 (* Get wraparound semantics for arithmetic operations using casts to uint_* ***)
 
-let mk_op op w =
-  { node = EOp (op, w);
-    typ = Checker.type_of_op op w }
-
 let wrapping_arithmetic = object (self)
 
   inherit [unit] map
@@ -238,14 +150,6 @@ end
 
 
 (* Convert back and forth between [e1; e2] and [let _ = e1 in e2]. ************)
-
-let sequence_binding () = with_type TUnit {
-  name = "_";
-  mut = false;
-  mark = ref 0;
-  meta = Some MetaSequence;
-  atom = Atom.fresh ()
-}
 
 let sequence_to_let = object (self)
 
@@ -294,9 +198,6 @@ let let_to_sequence = object (self)
         ELet (b, e1, e2)
 
 end
-
-let mark_mut b =
-  { b with node = { b.node with mut = true }}
 
 (* This pass rewrites:
  *   let x = if ... then e else e'
@@ -859,8 +760,6 @@ end
 
 (* Extend the lifetimes of buffers ********************************************)
 
-let any = with_type TAny EAny
-
 (** This function hoists let-buffers up to the nearest enclosing push_frame so
  * that their lifetime is not shortened by an upcoming C braced block.
  *
@@ -1005,89 +904,6 @@ let hoist_bufcreate = object
       exit 151
 end
 
-(* Wasm-specific transformations that we perform now **************************)
-
-let with_unit = with_type TUnit
-let uint32 = TInt K.UInt32
-
-let zerou32 = with_type uint32 (EConstant (K.UInt32, "0"))
-let oneu32 = with_type uint32 (EConstant (K.UInt32, "1"))
-
-let minus_one e =
-  with_type uint32 (
-    EApp (
-      mk_op K.Sub K.UInt32, [
-      e;
-      oneu32
-    ]))
-
-let gt_zero e =
-  with_type TBool (
-    EApp (mk_op K.Gt K.UInt32, [
-      e;
-      zerou32]))
-
-let remove_buffer_ops = object
-  inherit [unit] map
-
-  (* The relatively simple:
-   *
-   *   bufcreate init size
-   *
-   * is rewritten to:
-   *
-   *   let i = init in
-   *   let s = size in
-   *   let b = bufcreate i s in
-   *   while (s > 0)
-   *     b[s] = i;
-   *     i--;
-   *   b
-   * *)
-  method ebufcreate () t lifetime init size =
-    let b_init, body_init, ref_init = mk_named_binding "init" init.typ init.node in
-    let b_size, body_size, ref_size = mk_named_binding "size" size.typ size.node in
-    let b_size = mark_mut b_size in
-    let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, ref_size)) in
-    let with_t = with_type t in
-    ELet (b_init, body_init, close_binder b_init (with_t (
-    ELet (b_size, body_size, close_binder b_size (with_t (
-    ELet (b_buf, body_buf, close_binder b_buf (with_t (
-      ESequence [ with_unit (
-        EWhile (
-          gt_zero ref_size, with_unit (
-          ESequence [ with_unit (
-            EBufWrite (ref_buf, minus_one ref_size, ref_init)); with_unit (
-            EAssign (ref_size, minus_one ref_size))])));
-      ref_buf])))))))))
-
-  method ebufblit () t src_buf src_ofs dst_buf dst_ofs len =
-    let with_t = with_type t in
-    let b_src, body_src, ref_src =
-      mk_named_binding "src" src_buf.typ (EBufSub (src_buf, src_ofs))
-    in
-    let b_dst, body_dst, ref_dst =
-      mk_named_binding "dst" dst_buf.typ (EBufSub (dst_buf, dst_ofs))
-    in
-    let b_len, body_len, ref_len =
-      mk_named_binding "len" uint32 len.node
-    in
-    let b_len = mark_mut b_len in
-    ELet (b_src, body_src, close_binder b_src (with_unit (
-    ELet (b_dst, body_dst, close_binder b_dst (with_unit (
-    ELet (b_len, body_len, close_binder b_len (with_unit (
-      EWhile (
-        gt_zero ref_len, with_unit (
-        ESequence [ with_unit (
-          EBufWrite (
-            ref_dst,
-            minus_one ref_len,
-            with_t (EBufRead (ref_src, minus_one ref_len)))); with_unit (
-          EAssign (ref_len, minus_one ref_len))])))))))))))
-
-end
-
-
 (* Dealing with local functions ***********************************************)
 
 (* TODO: this should ABSOLUTELY be implemented at the F* level -- it's
@@ -1120,24 +936,6 @@ let remove_local_function_bindings = object(self)
 end
 
 (* Combinators ****************************************************************)
-
-(* @0 < <finish> *)
-let mk_lt finish =
-  with_type TBool (
-    EApp (with_type (Checker.type_of_op K.Lt K.UInt32) (
-      EOp (K.Lt, K.UInt32)), [
-      with_type uint32 (EBound 0);
-      finish ]))
-
-(* @0 <- @0 + 1ul *)
-let mk_incr =
-  with_type TUnit (
-    EAssign (with_type uint32 (
-      EBound 0), with_type uint32 (
-      EApp (with_type (Checker.type_of_op K.Add K.UInt32) (
-        EOp (K.Add, K.UInt32)), [
-        with_type uint32 (EBound 0);
-        oneu32 ]))))
 
 let combinators = object(self)
 
@@ -1191,10 +989,6 @@ let simplify (files: file list): file list =
 let to_c_names (files: file list): file list =
   let files = visit_files () record_toplevel_names files in
   let files = visit_files () replace_references_to_toplevel_names files in
-  files
-
-let simplify_wasm (files: file list): file list =
-  let files = visit_files () remove_buffer_ops files in
   files
 
 (* This should be run at the last minute since inlining may create more

@@ -9,6 +9,7 @@ open Warnings
 open Constant
 open Location
 open PrintAst.Ops
+open Helpers
 
 let buf_any_msg = format_of_string {|
 This subexpression creates a buffer with an unknown type:
@@ -135,35 +136,6 @@ let type_error env fmt =
   ) (Buffer.create 16) fmt
 
 (** Checking ---------------------------------------------------------------- *)
-
-let type_of_op env op w =
-  match op with
-  | Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
-  | BOr | BAnd | BXor ->
-      TArrow (TInt w, TArrow (TInt w, TInt w))
-  | BShiftL | BShiftR ->
-      TArrow (TInt w, TArrow (uint32, TInt w))
-  | Eq | Neq ->
-      TArrow (TAny, TArrow (TAny, TBool))
-  | Lt | Lte | Gt | Gte ->
-      TArrow (TInt w, TArrow (TInt w, TBool))
-  | And | Or | Xor ->
-      TArrow (TBool, TArrow (TBool, TBool))
-  | Not ->
-      TArrow (TBool, TBool)
-  | BNot ->
-      TArrow (TInt w, TInt w)
-  | Assign | PreIncr | PreDecr | PostIncr | PostDecr | Comma ->
-      fatal_error "%a, operator %a is for internal use only" ploc env.location pop op
-
-let rec is_constant e =
-  match e.node with
-  | EConstant _ ->
-      true
-  | ECast (e, _) ->
-      is_constant e
-  | _ ->
-      false
 
 let rec check_everything ?warn files: bool * file list =
   let env = populate_env files in
@@ -586,7 +558,11 @@ and infer' env e =
       TUnit
 
   | EOp (op, w) ->
-      type_of_op env op w
+      begin try
+        type_of_op op w
+      with _ ->
+        fatal_error "%a, operator %a is for internal use only" ploc env.location pop op
+      end
 
   | EPushFrame | EPopFrame ->
       TUnit
@@ -1004,5 +980,3 @@ and expand_abbrev env t =
       end
   | _ ->
       t
-
-let type_of_op = type_of_op empty

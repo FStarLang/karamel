@@ -193,107 +193,6 @@ and typ =
   | TZ
       (** unused *)
 
-let with_type typ node =
-  { typ; node }
-
-(** Some AST helpers *)
-
-let flatten_arrow =
-  let rec flatten_arrow acc = function
-    | TArrow (t1, t2) -> flatten_arrow (t1 :: acc) t2
-    | t -> t, List.rev acc
-  in
-  flatten_arrow []
-
-let lid_of_decl = function
-  | DFunction (_, _, _, _, lid, _, _)
-  | DGlobal (_, lid, _, _)
-  | DExternal (_, lid, _)
-  | DType (lid, _, _) ->
-      lid
-
-let is_array = function TArray _ -> true | _ -> false
-
-let rec is_value (e: expr) =
-  match e.node with
-  | EBound _
-  | EOpen _
-  | EOp _
-  | EQualified _
-  | EConstant _
-  | EUnit
-  | EBool _
-  | EEnum _
-  | EString _
-  | EFun _
-  | EAbort
-  | EAddrOf _
-  | EAny ->
-      true
-
-  | ETuple es
-  | ECons (_, es) ->
-      List.for_all is_value es
-
-  | EFlat identexprs ->
-      List.for_all (fun (_, e) -> is_value e) identexprs
-
-  | EIgnore e
-  | EField (e, _)
-  | EComment (_, e, _)
-  | ECast (e, _) ->
-      is_value e
-
-  | EApp _
-  | ELet _
-  | EIfThenElse _
-  | ESequence _
-  | EAssign _
-  | EBufCreate _
-  | EBufCreateL _
-  | EBufRead _
-  | EBufWrite _
-  | EBufSub _
-  | EBufBlit _
-  | EBufFill _
-  | EPushFrame
-  | EPopFrame
-  | EMatch _
-  | ESwitch _
-  | EReturn _
-  | EFor _
-  | EWhile _ ->
-      false
-
-let rec strip_cast e =
-  match e.node with
-  | ECast (e, _) ->
-      strip_cast e
-  | _ ->
-      e
-
-let fold_arrow ts t_ret =
-  List.fold_right (fun t arr -> TArrow (t, arr)) ts t_ret
-
-let fresh_binder ?(mut=false) name typ =
-  with_type typ { name; mut; mark = ref 0; meta = None; atom = Atom.fresh () }
-
-let any = with_type TAny EAny
-
-let uint32_of_int i =
-  with_type (TInt K.UInt32) (EConstant (K.UInt32, string_of_int i))
-
-let assert_tlid t =
-  (* We only have nominal typing for variants. *)
-  match t with TQualified lid -> lid | _ -> assert false
-
-let assert_tbuf t =
-  match t with TBuf t -> t | _ -> assert false
-
-let assert_elid t =
-  (* We only have nominal typing for variants. *)
-  match t with EQualified lid -> lid | _ -> assert false
-
 (** Some visitors for our AST of expressions *)
 
 class virtual ['env] map = object (self)
@@ -757,3 +656,13 @@ let filter_decls f files =
 
 let iter_decls f files =
   List.iter (fun (_, decls) -> List.iter f decls) files
+
+let with_type typ node =
+  { typ; node }
+
+let lid_of_decl = function
+  | DFunction (_, _, _, _, lid, _, _)
+  | DGlobal (_, lid, _, _)
+  | DExternal (_, lid, _)
+  | DType (lid, _, _) ->
+      lid

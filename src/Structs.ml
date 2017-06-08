@@ -54,7 +54,7 @@ let mk_action_table files =
       | DExternal (_, lid, typ) ->
           begin match typ with
           | TArrow _ ->
-              let ret, args = flatten_arrow typ in
+              let ret, args = Helpers.flatten_arrow typ in
               Hashtbl.add map lid (is_struct ret, List.map is_struct args)
           | _ ->
               ()
@@ -67,7 +67,7 @@ let mk_action_table files =
 
 (* Rewrite a function type to take and possibly return struct pointers. *)
 let rewrite_function_type (ret_is_struct, args_are_structs) t =
-  let ret, args = flatten_arrow t in
+  let ret, args = Helpers.flatten_arrow t in
   let args = List.map2 (fun arg is_struct ->
     if is_struct then
       TBuf arg
@@ -80,7 +80,7 @@ let rewrite_function_type (ret_is_struct, args_are_structs) t =
     else
       ret, args
   in
-  fold_arrow args ret
+  Helpers.fold_arrow args ret
 
 let will_be_lvalue e =
   match e.node with
@@ -102,8 +102,8 @@ exception NotLowStar
  *   function returns [let x = e in f &x &dst], which has type [unit], and it is
  *   up to the caller to wrap this in a way that preserves the type. *)
 let rewrite_app action_table e args dest =
-  let lid = assert_elid e.node in
-  let t, _ = flatten_arrow e.typ in
+  let lid = Helpers.assert_elid e.node in
+  let t, _ = Helpers.flatten_arrow e.typ in
 
   (* Determine using our computed table which of the arguments and the
    * return type must be passed by reference. We could alternatively use
@@ -121,13 +121,13 @@ let rewrite_app action_table e args dest =
   (* At call-site, [f e] can only be transformed into [f &e] is [e] is an
    * [lvalue]. This is, sadly, a little bit of an anticipation over the
    * ast-to-C* translation phase. TODO remove the check, and rely on
-   * AstToCStar or a Simplify phase to fix this. *)
+   * AstToCStar or a Helpers phase to fix this. *)
   let bs, args = KList.fold_lefti (fun i (bs, es) (e, is_struct) ->
     if is_struct then
       if will_be_lvalue e then
         bs, with_type (TBuf e.typ) (EAddrOf e) :: es
       else
-        let x, atom = Simplify.mk_binding (Printf.sprintf "s%d" i) e.typ in
+        let x, atom = Helpers.mk_binding (Printf.sprintf "s%d" i) e.typ in
         (x, e) :: bs, with_type (TBuf e.typ) (EAddrOf atom) :: es
     else
       bs, e :: es
@@ -139,16 +139,16 @@ let rewrite_app action_table e args dest =
     match dest with
     | Some dest ->
         let args = args @ [ with_type (TBuf t) (EAddrOf dest) ] in
-        Simplify.nest bs t (with_type TUnit (EApp (e, args)))
+        Helpers.nest bs t (with_type TUnit (EApp (e, args)))
     | None ->
-        let x, dest = Simplify.mk_binding "ret" t in
+        let x, dest = Helpers.mk_binding "ret" t in
         let bs = (x, with_type TAny EAny) :: bs in
         let args = args @ [ with_type (TBuf t) (EAddrOf dest) ] in
-        Simplify.nest bs t (with_type t (ESequence [
+        Helpers.nest bs t (with_type t (ESequence [
           with_type TUnit (EApp (e, args));
           dest]))
   else
-    Simplify.nest bs t (with_type t (EApp (e, args)))
+    Helpers.nest bs t (with_type t (EApp (e, args)))
 
 (* Rewrite functions and expressions to take and possibly return struct
  * pointers. *)
@@ -176,7 +176,7 @@ let pass_by_ref action_table = object (self)
     (* Step 3: add an extra argument in case the return type is a struct, too *)
     let ret, binders, ret_atom =
       if ret_is_struct then
-        let ret_binder, ret_atom = Simplify.mk_binding "ret" (TBuf ret) in
+        let ret_binder, ret_atom = Helpers.mk_binding "ret" (TBuf ret) in
         TUnit, binders @ [ ret_binder ], Some ret_atom
       else
         ret, binders, None
@@ -196,7 +196,7 @@ let pass_by_ref action_table = object (self)
     (* Step 4: if the function now takes an extra argument for the output struct. *)
     let body =
       if ret_is_struct then
-        with_type TUnit (EBufWrite (Option.must ret_atom, Simplify.zerou32, body))
+        with_type TUnit (EBufWrite (Option.must ret_atom, Helpers.zerou32, body))
       else
         body
     in
@@ -207,7 +207,7 @@ let pass_by_ref action_table = object (self)
     match t with
     | TArrow _ ->
         (* Also rewrite external function declarations. *)
-        let ret, args = flatten_arrow t in
+        let ret, args = Helpers.flatten_arrow t in
         let ret_is_struct, args_are_structs = Hashtbl.find action_table lid in
         let buf_if arg is_struct = if is_struct then TBuf arg else arg in
         let ret, args =
@@ -216,7 +216,7 @@ let pass_by_ref action_table = object (self)
           else
             ret, List.map2 buf_if args args_are_structs
         in
-        DExternal (cc, lid, fold_arrow args ret)
+        DExternal (cc, lid, Helpers.fold_arrow args ret)
     | _ ->
         DExternal (cc, lid, t)
 
@@ -225,7 +225,7 @@ let pass_by_ref action_table = object (self)
     (* [x] was a strut parameter that is now passed by reference; replace it
      * with [*x] *)
     if List.exists (Atom.equal atom) to_be_starred then
-      EBufRead (with_type (TBuf t) (EOpen (name, atom)), Simplify.zerou32)
+      EBufRead (with_type (TBuf t) (EOpen (name, atom)), Helpers.zerou32)
     else
       EOpen (name, atom)
 
@@ -252,7 +252,7 @@ let pass_by_ref action_table = object (self)
       try fst (Hashtbl.find action_table lid) with Not_found -> false ->
         begin try
           let args = List.map (self#visit to_be_starred) args in
-          let t = assert_tbuf e1.typ in
+          let t = Helpers.assert_tbuf e1.typ in
           let dest = with_type t (EBufRead (e1, e2)) in
           (rewrite_app action_table e args (Some dest)).node
         with Not_found | NotLowStar ->
@@ -270,7 +270,7 @@ let pass_by_ref action_table = object (self)
           let args = List.map (self#visit to_be_starred) args in
           let b, e2 = DeBruijn.open_binder b e2 in
           let e1 = rewrite_app action_table e args (Some (DeBruijn.term_of_binder b)) in
-          ELet (b, any, DeBruijn.close_binder b (with_type t (
+          ELet (b, Helpers.any, DeBruijn.close_binder b (with_type t (
             ESequence [
               e1;
               e2
@@ -298,7 +298,7 @@ end
 
 let pass_by_ref files =
   let action_table = mk_action_table files in
-  Simplify.visit_files [] (pass_by_ref action_table) files
+  Helpers.visit_files [] (pass_by_ref action_table) files
 
 
 (* Explicitly allocate structs in memory, and initialize them in place. This
@@ -349,4 +349,4 @@ end
 
 let in_memory files =
   let is_struct = mk_is_struct files in
-  Simplify.visit_files () (to_addr is_struct) files
+  Helpers.visit_files () (to_addr is_struct) files

@@ -308,7 +308,7 @@ Supported options:|}
   tick_print (not has_errors) "Pattern matches compilation";
 
   (* 4. First round of simplifications. *)
-  let files = if !arg_wasm then Simplify.simplify_wasm files else files in
+  let files = if !arg_wasm then SimplifyWasm.simplify files else files in
   let files = Simplify.simplify1 files in
   let files = Simplify.simplify2 files in
   if !arg_print_simplify then

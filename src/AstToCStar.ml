@@ -22,6 +22,7 @@ open Idents
 open Warnings
 open Location
 open PrintAst.Ops
+open Helpers
 
 module C = Checker
 
@@ -292,7 +293,7 @@ and mk_stmts env e ret_type =
         let incr = int_of_string incr in
         let rec mk acc i =
           if i < max then
-            let body = DeBruijn.subst (uint32_of_int i) 0 body in
+            let body = DeBruijn.subst (mk_uint32 i) 0 body in
             mk (CStar.Block (mk_block env false body) :: acc) (i + incr)
           else
             acc

@@ -203,7 +203,7 @@ let mk_inliner files must_inline =
       let es = List.map (self#visit ()) es in
       match e.node with
       | EQualified lid when Hashtbl.mem map lid && must_inline lid ->
-          wrap_comment lid (Simplify.safe_substitution es (recurse lid) t)
+          wrap_comment lid (Helpers.safe_substitution es (recurse lid) t)
       | _ ->
           EApp (self#visit () e, es)
     method equalified () t lid =
@@ -403,7 +403,7 @@ let inline_type_abbrevs files =
 
   let inline_one = memoize_inline map (fun recurse -> (inliner recurse)#visit_t ()) in
 
-  let files = Simplify.visit_files () (inliner inline_one) files in
+  let files = Helpers.visit_files () (inliner inline_one) files in
 
   (* After we've inlined things, drop type abbreviations definitions now. This
    * is important, as the monomorphization of data types relies on all types
@@ -426,7 +426,7 @@ let inline_type_abbrevs files =
 (* Type applications are needed by the checker, even though they may refer to
  * things we won't compile, ever (e.g. from Prims). *)
 let drop_type_applications files =
-  Simplify.visit_files () (object
+  Helpers.visit_files () (object
     inherit [unit] map
     method tapp _ _ _ =
       TAny

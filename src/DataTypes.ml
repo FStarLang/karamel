@@ -1,4 +1,5 @@
-(** Getting rid of patterns and decompiling pattern matches. *)
+(** Monormophization of data types, including tuples, then compilation of
+ * pattern matches and of data types into structs & unions. *)
 
 open Ast
 open DeBruijn
@@ -10,7 +11,7 @@ module K = Constant
  * scrutinees, otherwise we won't be able to resolve anything. *)
 
 let drop_match_cast files =
-  Simplify.visit_files () (object
+  Helpers.visit_files () (object
     inherit [unit] map
 
     method ematch () _ e branches =
@@ -89,6 +90,16 @@ let build_def_map files =
         ()
   )
 
+(* We visit type declarations in order to find occurrences of instantiated
+ * parameterized data types that need to be monomorphized. Consider:
+ *
+ *   type linked_list a = | Nil | Cons: x:pair int int -> buffer (linked_list a)
+ *
+ * The first occurrence of pair must generate a monomorphization but not the
+ * second occurrence of linked_list which should remain as is. (It will be
+ * monomorphized when someone references [linked_list int32], for instance.)
+ * The easiest way to detect that is to throw an exception when we hit a bound
+ * variable. *)
 exception Bound
 
 let monomorphize_data_types map = object(self)
@@ -130,28 +141,26 @@ let monomorphize_data_types map = object(self)
       let subst fields = List.map (fun (field, (t, m)) ->
         field, (DeBruijn.subst_tn t ts, m)
       ) fields in
-      if List.length ts > 0 then
-        match Hashtbl.find map lid with
-        | exception Not_found ->
-            TApp (lid, ts)
-        | Variant branches ->
-            (* This allows [Gen] to first allocate and register the lid in the
-             * table, hence avoiding infinite loops for recursive data types. *)
-            let gen_branches () =
-              let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
-              self#branches_t false branches
-            in
-            TQualified (Gen.variant lid gen_branches ts)
-        | Flat fields ->
-            let gen_fields () =
-              let fields = subst fields in
-              self#fields_t false fields
-            in
-            TQualified (Gen.flat lid gen_fields ts)
-        | _ ->
-            TApp (lid, ts)
-      else
-        failwith "impossible"
+      assert (List.length ts > 0);
+      match Hashtbl.find map lid with
+      | exception Not_found ->
+          TApp (lid, ts)
+      | Variant branches ->
+          (* This allows [Gen] to first allocate and register the lid in the
+           * table, hence avoiding infinite loops for recursive data types. *)
+          let gen_branches () =
+            let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
+            self#branches_t false branches
+          in
+          TQualified (Gen.variant lid gen_branches ts)
+      | Flat fields ->
+          let gen_fields () =
+            let fields = subst fields in
+            self#fields_t false fields
+          in
+          TQualified (Gen.flat lid gen_fields ts)
+      | _ ->
+          TApp (lid, ts)
     with Bound ->
       TApp (lid, ts)
 end
@@ -217,11 +226,11 @@ let try_mk_flat e t branches =
         (* match e with { f = x; ... } becomes
          * let tmp = e in let x = e.f in *)
         let binders, body = open_binders binders body in
-        let scrut, atom = Simplify.mk_binding "scrut" e.typ in
+        let scrut, atom = Helpers.mk_binding "scrut" e.typ in
         let bindings = List.map2 (fun b (f, _) ->
           b, with_type b.typ (EField (atom, f))
         ) binders fields in
-        ELet (scrut, e, close_binder scrut (Simplify.nest bindings t body))
+        ELet (scrut, e, close_binder scrut (Helpers.nest bindings t body))
       else
         EMatch (e, branches)
   | _ ->
@@ -465,7 +474,7 @@ let compile_match env e_scrut branches =
       let branches = List.map (compile_branch env name_scrut) branches in
       fold_ite branches
   | _ ->
-      let b_scrut, name_scrut = Simplify.mk_binding "scrut" e_scrut.typ in
+      let b_scrut, name_scrut = Helpers.mk_binding "scrut" e_scrut.typ in
       let branches = List.map (compile_branch env name_scrut) branches in
       mk (ELet (b_scrut, e_scrut, close_binder b_scrut (fold_ite branches)))
 
@@ -518,7 +527,7 @@ let compile_all_matches map = object (self)
   (* A pattern on a constructor becomes a pattern on a struct and one of its
    * union fields. *)
   method pcons env t cons fields =
-    let lid = assert_tlid t in
+    let lid = Helpers.assert_tlid t in
     let branches = assert_branches map lid in
     let field_names = field_names_of_cons cons branches in
     let fields = List.map (self#visit_pattern env) fields in
@@ -537,7 +546,7 @@ let compile_all_matches map = object (self)
     ])
 
   method econs env t cons exprs =
-    let lid = assert_tlid t in
+    let lid = Helpers.assert_tlid t in
     let branches = assert_branches map lid in
     let field_names = field_names_of_cons cons branches in
     let field_names = List.map (fun x -> Some x) field_names in
@@ -579,7 +588,7 @@ let compile_all_matches map = object (self)
     ) branches
 
   (* Then compile patterns for those matches whose scrutinee is a data type.
-   * Other matches remain (e.g. on units and booleans... [Simplify] will take
+   * Other matches remain (e.g. on units and booleans... [Helpers] will take
    * care of those dummy matches. *)
   method ematch env _t_ret e_scrut branches =
     let e_scrut = self#visit env e_scrut in
@@ -642,14 +651,14 @@ let debug_map map =
 
 let everything files =
   let map = build_def_map files in
-  let files = Simplify.visit_files true (monomorphize_data_types map) files in
+  let files = Helpers.visit_files true (monomorphize_data_types map) files in
   let files = drop_parameterized_data_types files in
   let map = build_scheme_map files in
   if false then debug_map map;
-  let files = Simplify.visit_files () remove_trivial_matches files in
-  let files = Simplify.visit_files () (compile_simple_matches map) files in
-  let files = Simplify.visit_files () (compile_all_matches map) files in
+  let files = Helpers.visit_files () remove_trivial_matches files in
+  let files = Helpers.visit_files () (compile_simple_matches map) files in
+  let files = Helpers.visit_files () (compile_all_matches map) files in
   map, files
 
 let anonymous_unions map files =
-  Simplify.visit_files () (anonymous_unions map) files
+  Helpers.visit_files () (anonymous_unions map) files
