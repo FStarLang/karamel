@@ -149,7 +149,7 @@ let expand_fstar_home fstar_home fstar_lib s =
   else
     s
 
-(** Fills in fstar{,_home,_options} *)
+(* Fills in fstar{,_home,_options} *)
 let detect_fstar () =
   detect_kremlin_if ();
 

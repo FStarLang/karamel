@@ -7,12 +7,12 @@
  * - in the body of let-bindings, the test expression of conditionals, the
  *   right-hand side of assignments, in all buffer expressions, in function
  *   arguments the following are disallowed:
- *   + sequence expressions
- *   + conditionals
- *   + assignments
- *   + buffer writes
- *   + let-bindings
- *   + impure function calls
+ *   - sequence expressions
+ *   - conditionals
+ *   - assignments
+ *   - buffer writes
+ *   - let-bindings
+ *   - impure function calls
  * - the first subexpression of buffer reads, writes and subs must be a
  *   qualified or local name.
  *)

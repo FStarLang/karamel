@@ -299,24 +299,24 @@ let is_cmpop (o: K.width * K.op) =
  *   the remaining lowest n-1 bits; this means that operations that need to care
  *   about the sign (shift-right, division, remainder) can be builtin Wasm
  *   operations; then, assuming we want to replicate the C semantics:
- *   + signed to larger signed = no-op
- *   + signed to smaller signed = mask & shift sign bit
- *   + unsigned to smaller unsigned = mask
- *   + unsigned to larger unsigned = no-op
- *   + signed to smaller unsigned = mask
- *   + signed to equal or greater unsigned = shift sign bit
- *   + unsigned to smaller or equal signed = mask & shift sign bit
- *   + unsigned to larger signed = no-op
+ *   - signed to larger signed = no-op
+ *   - signed to smaller signed = mask & shift sign bit
+ *   - unsigned to smaller unsigned = mask
+ *   - unsigned to larger unsigned = no-op
+ *   - signed to smaller unsigned = mask
+ *   - signed to equal or greater unsigned = shift sign bit
+ *   - unsigned to smaller or equal signed = mask & shift sign bit
+ *   - unsigned to larger signed = no-op
  * - use the lowest n bits and re-implement "by hand" operations that require us
  *   to care about the sign
- *   + signed to larger signed = sign-extension
- *   + signed to smaller signed = mask
- *   + unsigned to smaller unsigned = mask
- *   + unsigned to larger unsigned = no-op
- *   + signed to smaller unsigned = mask
- *   + signed to greater unsigned = sign-extension
- *   + unsigned to smaller or equal signed = mask
- *   + unsigned to larger signed = no-op
+ *   - signed to larger signed = sign-extension
+ *   - signed to smaller signed = mask
+ *   - unsigned to smaller unsigned = mask
+ *   - unsigned to larger unsigned = no-op
+ *   - signed to smaller unsigned = mask
+ *   - signed to greater unsigned = sign-extension
+ *   - unsigned to smaller or equal signed = mask
+ *   - unsigned to larger signed = no-op
  *)
 let mk_mask w =
   let open K in

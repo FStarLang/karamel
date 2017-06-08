@@ -767,12 +767,13 @@ end
  *   push_frame ();
  *   let b = if true then let b1 = bufcreatel ... in subbuf b1 0 else ... in
  *
- * This is fine per the C* semantics but not safe to transform "as is" into:
+ * This is fine per the C* semantics but not safe to transform "as is" into: {[
  *   int* b;
  *   if true then {
  *     int b1[] = { 1, 2, 3, 4, 5 };
  *     b = b1;
  *   }
+ * ]}
  *
  * This function rewrites the snippet above into:
  *   push_frame ();
