@@ -31,8 +31,9 @@ inductive back_exp {X : Type u} :
   back_exp names e₂ le₂ →
   back_exp names (exp.ptr_add e₁ e₂) (exp.subbuf le₁ le₂)
 -- struct, field, field_addr
-| var : ∀ names (x : X), -- ?
-  back_exp names (exp.var (names x)) (exp.var x)
+| var : ∀ (names : X → ident) (x : X) (id : ident),
+  id = names x →
+  back_exp names (exp.var id) (exp.var x)
 
 inductive back_stmt : ∀ {X : Type u},
   (X → ident) → list cstar.stmt → lowstar.exp X → Prop
@@ -43,7 +44,7 @@ inductive back_stmt : ∀ {X : Type u},
   back_stmt names
     ((stmt.decl b e) :: ss)
     (exp.let_in τ le1 le)
-| let_newbuf : ∀ X (names : X → ident) x b n ss τ e le1 le,
+| let_newbuf : ∀ X (names : X → ident) x b n ss e le1 τ le,
   back_exp names e le1 →
   x = binder.name b →
   back_stmt (names_cons x names) ss le →
@@ -361,42 +362,6 @@ end
 
 -- end
 
-lemma transl_back_exp_eq {X : Type u}:
-  ∀ (le le' : exp X) ce names,
-  transl_to_exp names le = some ce →
-  back_exp names ce le' →
-  le = le'
-:=
-begin
-  intros le, induction le; intros le' ce names HT HB;
-  simp [transl_to_exp] at HT;
-  try { injection HT }; /- ?? -/
-  try { injection HT with h, subst h, cases HB, refl },
-  { injection HT with h, subst h, /- cases HB, -/ /- FIXME -/ admit },
-  { opt_inv HT with x2 H2 x1 H1, cases HB with _ _ _ _ _ _ _ _ ce1 ce2 Hce1 Hce2, /- FIXME -/
-    rw (ih_1 _ _ _ H1 Hce1), rw (ih_2 _ _ _ H2 Hce2) }
-end
-
-lemma transl_back_stmt_eq {X : Type u}:
-  ∀ seen seen' names (e e' : exp X) ss,
-  transl_to_stmt seen names e = some (seen', ss) →
-  back_stmt names ss e' →
-  e = e'
-:=
-begin
-  intros seen seen' names e, induction e; intros e' ss HT HB;
-  simp [transl_to_stmt] at HT;
-  try {
-    opt_inv HT with _ H1, cases HB, /- with .. FIXME -/
-    rw (transl_back_exp_eq _ _ _ _ H1), assumption
-  },
-  { opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1',
-    opt_inv H1' with ss2 seen2 H2' H2, simp [transl_to_stmt] at H2', opt_inv H2',
-    /- cases HB -/ /- FIXME -/ admit
-  },
-  repeat { admit }
-end
-
 lemma steps_with_ctx_lemma {X : Type u} (ctx : ectx X) : ∀ decls stack stack' (e1 e1' e e' : exp X) ls,
   e = apply_ectx ctx e1 →
   e' = apply_ectx ctx e1' →
@@ -429,47 +394,202 @@ begin
   simp [close_vars_ectx], constructor, assumption
 end
 
-end lowstar_to_cstar_proof
+--
+-- tactics
+--
 
 -- open a github issue
-namespace tactic.interactive
-open lean lean.parser
-open interactive interactive.types tactic
-
-open lowstar_to_cstar_proof
+section helper_tacs
+open interactive.types interactive tactic.interactive
 
 meta def steps_with_ctx (ctx : parse texpr) : tactic unit :=
 do
-  τ ← target,
+  τ ← tactic.target,
   -- apply_ectx_e ← i_to_expr ``(lowstar_semantics.apply_ectx),
   -- stac ← return (simp_using [apply_ectx_e]),
   stac ← return (
-    seq (try (simp ff [``(lowstar_semantics.apply_ectx)] [] [] (loc.ns [])))
-        (try refl)
+    tactic.seq
+      (try (simp ff [``(lowstar_semantics.apply_ectx)] [] [] (loc.ns [])))
+      (try refl)
   ),
-
   match τ with
   | `(transition.star _ (_, close_vars _ _ _) _ _) := do
-    l ← i_to_expr ``(lowstar_to_cstar_proof.steps_with_ctx_close_vars_lemma %%ctx),
+    l ← tactic.i_to_expr ``(lowstar_to_cstar_proof.steps_with_ctx_close_vars_lemma %%ctx),
     tactic.apply l; [stac, stac, skip]
 
   | `(transition.star _ _ _ _) := do
-    l ← i_to_expr ``(lowstar_to_cstar_proof.steps_with_ctx_lemma %%ctx),
+    l ← tactic.i_to_expr ``(lowstar_to_cstar_proof.steps_with_ctx_lemma %%ctx),
     tactic.apply l; [stac, stac, skip]
-  | _ := failed
+  | _ := tactic.failed
   end
-end tactic.interactive
 
-namespace lowstar_to_cstar_proof
 
--- XXX
-open common
-open semantics_common
-open lowstar
-open cstar
-open lowstar_semantics
-open cstar_semantics
-open lowstar_to_cstar
+meta def subst_all : tactic unit :=
+do
+  ctx ← tactic.local_context,
+  ctx' ← list.mfoldl (λ acc e, do
+    τ ← tactic.infer_type e,
+    match τ with
+    | `(%%a = %%b) :=
+      if expr.is_local_constant a then
+        return (a :: acc)
+      else if expr.is_local_constant b then
+        return (b :: acc)
+      else
+        return acc
+    | _ := return acc
+    end
+  ) [] ctx,
+  match ctx' with
+  | [] := skip
+  | e :: _ := do
+    tactic.subst e,
+    subst_all
+  end
+
+meta def ok_base : tactic unit :=
+do
+  τ ← tactic.target,
+  match τ with
+  | `(transl_to_stmt _ _ _ = _) := do
+    assumption <|>
+    (do apply ``(transl_to_stmt_exp), assumption) <|>
+    skip
+  | `(back_stmt _ _ _) := do
+    (do subst_all, assumption) <|>
+    (do subst_all, constructor, assumption) <|>
+    (do subst_all, constructor, constructor) <|>
+    skip
+  | `(eval_head_exp _ _ _ _) := do
+    (do constructor, assumption) <|>
+    skip
+  | `(function.injective _) :=
+    (do apply ``(names_cons_injective), try assumption) <|> -- XX
+    assumption <|>
+    skip
+  | `(_ = _) :=
+    assumption <|>
+    (do symmetry, assumption) <|>
+    skip
+  | _ := skip
+  end
+
+-- meta def changed {α : Type} (tac : tactic α) : tactic α :=
+-- do
+--   τ ← tactic.target,
+--   ret ← tac,
+--   τ' ← tactic.target,
+--   (if τ = τ' then tactic.failed else return ret)
+
+-- meta def loop : tactic unit → tactic unit := λ tac,
+--   (tactic.seq (changed tac) (loop tac)) <|> skip
+
+meta def ok : tactic unit :=
+  -- loop ok_base
+  ok_base
+
+end helper_tacs
+
+
+run_cmd add_interactive [`steps_with_ctx, `subst_all, `ok]
+
+
+--------------
+--------------
+--------------
+
+lemma back_transl_exp_eq {X : Type u}:
+  ∀ (le le' : exp X) ce names,
+  function.injective names →
+  transl_to_exp names le = some ce →
+  back_exp names ce le' →
+  le = le'
+:=
+begin
+  intros le, induction le; intros le' ce names Hinj HT HB;
+  simp [transl_to_exp] at HT;
+  try { injection HT }; /- ?? -/
+  try { injection HT with h, subst h, cases HB, refl },
+  { injection HT with h, subst h, cases HB, case back_exp.var y E { rw (Hinj E) } }, /- FIXME y -> _ ? -/
+  { opt_inv HT with x2 H2 x1 H1, cases HB, case back_exp.ptr_add ce1 ce2 Hce1 Hce2 {
+    rw (ih_1 _ _ _ Hinj H1 Hce1), rw (ih_2 _ _ _ Hinj H2 Hce2) } }
+end
+
+lemma back_transl_stmt_eq {X : Type u}:
+  ∀ (e e' : exp X) seen seen' names ss,
+  function.injective names →
+  transl_to_stmt seen names e = some (seen', ss) →
+  back_stmt names ss e' →
+  e = e'
+:=
+begin
+  intros e, induction e; intros e' seen seen' names ss Hinj HT HB;
+  simp [transl_to_stmt] at HT;
+  try { opt_inv HT with _ H1, cases HB, /- with .. FIXME -/
+    rw (back_transl_exp_eq _ _ _ _ Hinj H1), assumption
+  },
+  case exp.if_then_else Y e1 e2 e3 {
+    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1',
+    opt_inv H1' with ss2 seen2 H2' H2, simp [transl_to_stmt] at H2', opt_inv H2',
+    -- cases HB,
+    /- cases HB -/ /- FIXME -/ admit
+  },
+  case exp.let_in Y τ e1 e2 {
+    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+    cases HB, case back_stmt.let_in τ' e1' e2' {
+      -- dsimp at *, -- FIXME: do not unfold injective
+      rw (ih_1 e1'); ok; try { assumption },
+      rw (ih_2 e2'); ok; [skip, admit],
+      rw (@transl_typ_injective τ τ'); ok
+    }
+  },
+  case exp.ignore Y e1 e2 {
+    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+    cases HB, case back_stmt.ignore e1' e2' {
+      rw (ih_1 e1'); ok; try { assumption },
+      rw (ih_2 e2'); ok
+    }
+  },
+  case exp.let_app Y τ fn e1 e2 {
+    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+    cases HB, case back_stmt.let_app x τ' e1' e2' {
+      rw (ih_1 e1'); ok; try { assumption },
+      rw (ih_2 e2'); ok; [skip, admit],
+      rw (@transl_typ_injective τ τ'); ok
+    }
+  },
+  case exp.let_newbuf Y n e1 τ e2 {
+    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+    cases HB, case back_stmt.let_newbuf e1' τ' e2' {
+      rw (ih_1 e1'); ok; try { assumption },
+      rw (ih_2 e2'); ok; [skip, admit],
+      rw (@transl_typ_injective τ τ'); ok
+    }
+  },
+  case exp.let_readbuf Y τ e1 e2 e3 {
+    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+    cases HB, case back_stmt.let_readbuf x τ' e1' e2' e3' {
+      rw (ih_1 e1'); ok; try { assumption },
+      rw (ih_2 e2'); ok; try { assumption },
+      rw (ih_3 e3'); ok; [skip, admit],
+      rw (@transl_typ_injective τ τ'); ok
+    }
+  },
+  case exp.writebuf Y e1 e2 e3 e4 {
+    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+    cases HB, case back_stmt.writebuf e1' e2' e3' e4' {
+      rw (ih_1 e1'); ok; try { assumption },
+      rw (ih_2 e2'); ok; try { assumption },
+      rw (ih_3 e3'); ok; try { assumption },
+      rw (ih_4 e4'); ok; try { assumption }
+    }
+  },
+  case exp.withframe Y e {
+    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+    /- cases HB -/ admit
+  },
+  case exp.pop Y e { injection HT }
+end
 
 lemma init : ∀ X seen seen' seen'' (names : X → ident) p lp le ss V,
   transl_program seen lp = some (seen', p) →
@@ -487,19 +607,23 @@ begin
       ([], close_vars names V le')
       [],
   { intro le, induction le,
-    { introv Hle Hss Hle',
+    case lowstar.exp.int Y n {
+      introv Hle Hss Hle',
       simp [transl_to_stmt, transl_to_exp] at Hle,
       opt_inv Hle,
-      cases Hss, -- with h' ?
-      cases a_1, cases Hle', cases a_2,
+      cases Hss,
+      cases a, cases Hle', cases a_1, -- FIXME naming
       constructor },
-    { introv Hle Hss Hle',
+    case lowstar.exp.unit {
+      introv Hle Hss Hle',
       simp [transl_to_stmt, transl_to_exp] at Hle, opt_inv Hle,
       cases Hss, cases a, cases Hle', cases a_1, constructor },
-    { introv Hle Hss Hle',
+    case lowstar.exp.loc {
+      introv Hle Hss Hle',
       simp [transl_to_stmt, transl_to_exp] at Hle, opt_inv Hle,
       cases Hss, cases a_1, cases Hle', cases a_2, constructor },
-    { introv Hle Hss Hle',
+    case lowstar.exp.var {
+      introv Hle Hss Hle',
       simp [transl_to_stmt, transl_to_exp] at Hle, opt_inv Hle,
       cases Hss, cases a_1,
       rw [show close_vars names V (exp.var a) = v,
@@ -507,51 +631,57 @@ begin
       rw [back_stmt_value_eq le' v], rw [close_vars_value], constructor, --XX
       assumption, assumption
     },
-    { introv Hle Hss Hle',
+    case lowstar.exp.subbuf {
+      introv Hle Hss Hle',
       simp [transl_to_stmt, transl_to_exp] at Hle,
       opt_inv Hle with x1 H1 x2 H2,
       cases Hss, cases a_2, cases Hle', cases a_5,
       apply transition.star_trans,
       { steps_with_ctx (ectx.subbuf_1 ectx.here _),
         apply ih_1,
-        { apply transl_to_stmt_exp, assumption },
-        { constructor, assumption },
-        { constructor, constructor }
+        show eval_head_exp _ _ [stmt.return x2] _, { ok }, ok, ok
       },
       apply transition.star_trans,
       { steps_with_ctx (ectx.subbuf_2 (value.loc (b,n,[])) ectx.here),
         apply ih_2,
-        { apply transl_to_stmt_exp, assumption },
-        { constructor, assumption },
-        { constructor, constructor }
+        show eval_head_exp _ _ [stmt.return x1] _, { ok }, ok, ok
       },
       apply transition.star_one,
       { apply step_here_close_vars_lemma, apply astep.subbuf },
       refl, refl
     },
 
-    { introv Hle Hss Hle',
+    case lowstar.exp.if_then_else {
+      introv Hle Hss Hle',
       simp [transl_to_stmt, transl_to_exp] at Hle,
       opt_inv Hle with ss1 seen1 H1' Ha_1 x1 H1 foo bar,
       simp [transl_to_stmt] at H1', opt_inv H1' with ss2 seen2 H2' Ha_2,
       simp [transl_to_stmt] at H2', opt_inv H2',
       cases Hss /- ? -/ },
 
-    { introv Hle Hss Hle',
+    case lowstar.exp.let_in {
+      introv Hle Hss Hle',
       simp [transl_to_stmt, transl_to_exp] at Hle,
       opt_inv Hle with ss1 seen1 H1' H_a_2 x1 H1,
       simp [transl_to_stmt] at H1', opt_inv H1',
       cases Hss, cases Hle' with _ _ _ _ _ τ le1 le2 Hle1 Hle2 Hτ, clear Hle',
-      dsimp at Hτ, note hh := (transl_typ_injective Hτ), subst hh, clear Hτ, /- FIXME: rw at * -/
-      note hh := back_exp_value_eq _ _ _ Hle1, subst hh, clear Hle1,
+      dsimp at Hτ,
+      -- simp [transl_typ_injective Hτ] at *,
+      note hh := (transl_typ_injective Hτ), subst hh, clear Hτ, /- FIXME: rw at * -/
+      rw (back_transl_stmt_eq a_2 le2); ok; [skip, admit, admit],
+      steps_with_ctx (ectx.let_in _ ectx.here _),
+      apply ih_1; ok
+    },
 
-
-      -- { steps_with_ctx (ectx.let_in _ ectx.here _),
-      --   apply ih_1,
-      --   { apply transl_to_stmt_exp, assumption },
-      --   { constructor, assumption },
-      --   { apply back_stmt_value } },
-      repeat { admit }
+    case lowstar.exp.ignore Y e1 e2 {
+      introv Hle Hss Hle',
+      simp [transl_to_stmt, transl_to_exp] at Hle,
+      opt_inv Hle with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+      cases Hss, cases Hle', case back_stmt.ignore e1' e2' He1' He2' {
+        rw (back_transl_stmt_eq e2 e2' _ _ _ _ _ H1 He2'); ok; [skip, admit],
+        steps_with_ctx (ectx.ignore ectx.here _),
+        apply ih_1; ok
+      }
     },
 
     repeat { admit }
