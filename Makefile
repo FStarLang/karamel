@@ -1,9 +1,9 @@
-.PHONY: all tags clean test
+.PHONY: all tags clean test _build/.docdir/graph.dot
 
 OCAMLBUILD=ocamlbuild -I src -I lib -I parser -use-menhir -use-ocamlfind -classic-display \
  -menhir "menhir --infer --explain"
 FLAVOR?=native
-TARGETS=Kremlin.$(FLAVOR) Tests.$(FLAVOR) .docdir/graph.dot
+TARGETS=Kremlin.$(FLAVOR) Tests.$(FLAVOR)
 SED=$(shell which gsed >/dev/null 2>&1 && echo gsed || echo sed)
 
 all:
@@ -12,11 +12,14 @@ all:
 	$(OCAMLBUILD) $(TARGETS)
 	ln -sf Kremlin.$(FLAVOR) krml
 
-graph: all
-	$(SED) -i 's/rotate=90;//g' -- _build/.docdir/graph.dot
-	dot -Tsvg _build/.docdir/graph.dot > graph.svg
-	$(SED) -i 's/^<text\([^>]\+\)>\([^<]\+\)/<text\1><a xlink:href="\2.html" target="_parent">\2<\/a>/' graph.svg
-	$(SED) -i 's/Times Roman,serif/DejaVu Sans, Helvetica, sans/g' graph.svg
+_build/.docdir/graph.dot:
+	$(OCAMLBUILD) .docdir/graph.dot
+
+graph.svg: _build/.docdir/graph.dot
+	$(SED) -i 's/rotate=90;//g' -- $<
+	dot -Tsvg $< > $@
+	$(SED) -i 's/^<text\([^>]\+\)>\([^<]\+\)/<text\1><a xlink:href="\2.html" target="_parent">\2<\/a>/' $@
+	$(SED) -i 's/Times Roman,serif/DejaVu Sans, Helvetica, sans/g' $@
 
 clean:
 	rm -rf krml _build Tests.$(FLAVOR) Kremlin.$(FLAVOR)
