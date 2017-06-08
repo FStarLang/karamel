@@ -92,12 +92,12 @@ and expr' =
      * buffer creation and blitting operations for the Wasm backend. *)
   | EFor of binder * expr * expr * expr * expr
     (** Currently generated when detecting combinators from the [C.Loops]
-     * module. We only offer a restricted form of For loops:
+     * module. We only offer a restricted form of For loops: {[
      *   for (let b = e1; e2; e3) {
      *     ...
      *   }
-     * The scope of
-     * the binder is the second, third and fourth expressions. *)
+     * ]}
+     * The scope of the binder is the second, third and fourth expressions. *)
   | ECast of expr * typ
   | EComment of string * expr * string
   | EAddrOf of expr

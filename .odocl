@@ -31,7 +31,6 @@ Output
 Print
 PrintAst
 PrintC
-PrintCStar
 PrintCommon
 Simplify
 SimplifyWasm
