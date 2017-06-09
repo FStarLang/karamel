@@ -143,51 +143,74 @@ Supported options:|}
   in
   let spec = [
     (* KreMLin as a driver *)
-    "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), compcert, g++, clang, msvc";
+    "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), \
+      compcert, g++, clang, msvc";
     "-m32", Arg.Set Options.m32, " turn on 32-bit cross-compiling";
-    "-fsopt", Arg.String (prepend Options.fsopts), " option to pass to F* (use -fsopts to pass a comma-separated list of values)";
+    "-fsopt", Arg.String (prepend Options.fsopts), " option to pass to F* (use \
+      -fsopts to pass a comma-separated list of values)";
     "-fsopts", Arg.String (csv (prepend Options.fsopts)), "";
-    "-ccopt", Arg.String (prepend Options.ccopts), " option to pass to the C compiler and linker (use -ccopts to pass a comma-separated list of values)";
+    "-ccopt", Arg.String (prepend Options.ccopts), " option to pass to the C \
+      compiler and linker (use -ccopts to pass a comma-separated list of values)";
     "-ccopts", Arg.String (csv (prepend Options.ccopts)), "";
-    "-ldopt", Arg.String (prepend Options.ldopts), " option to pass to the C linker (use -ldopts to pass a comma-separated list of values)";
+    "-ldopt", Arg.String (prepend Options.ldopts), " option to pass to the C \
+      linker (use -ldopts to pass a comma-separated list of values)";
     "-ldopts", Arg.String (csv (prepend Options.ldopts)), "";
     "-skip-extraction", Arg.Set arg_skip_extraction, " stop after step 1.";
     "-skip-translation", Arg.Set arg_skip_translation, " stop after step 2.";
     "-skip-compilation", Arg.Set arg_skip_compilation, " stop after step 3.";
     "-skip-linking", Arg.Set arg_skip_linking, " stop after step 4.";
     "-verify", Arg.Set arg_verify, " ask F* to verify the program";
-    "-verbose", Arg.Set Options.verbose, "  show the output of intermediary tools when acting as a driver for F* or the C compiler";
+    "-verbose", Arg.Set Options.verbose, "  show the output of intermediary \
+      tools when acting as a driver for F* or the C compiler";
     "-wasm", Arg.Set arg_wasm, "  emit a .wasm file instead of C";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* Controlling the behavior of KreMLin *)
-    "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the module name to declarations from this module";
-    "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " group modules into a single C translation unit (see above)";
-    "-drop", Arg.String (fun s -> List.iter (prepend Options.drop) (Utils.parse Parser.drop s)), "  do not extract Code for this module (see above)";
-    "-add-include", Arg.String (prepend Options.add_include), " prepend #include the-argument to every generated file";
+    "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the \
+      module name to declarations from this module";
+    "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " \
+      group modules into a single C translation unit (see above)";
+    "-drop", Arg.String (fun s ->
+      List.iter (prepend Options.drop) (Utils.parse Parser.drop s)),
+      "  do not extract Code for this module (see above)";
+    "-add-include", Arg.String (prepend Options.add_include), " prepend #include \
+      the-argument to every generated file";
     "-header", Arg.String (fun f ->
       Options.header := Utils.file_get_contents f
     ), " prepend the contents of the given file at the beginning of each .c and .h";
-    "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, .c, .h and .o files";
-    "-I", Arg.String (prepend Options.includes), " add directory to search path (F* and C compiler)";
+    "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, \
+      .c, .h and .o files";
+    "-I", Arg.String (prepend Options.includes), " add directory to search path \
+      (F* and C compiler)";
     "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
-    "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are fatal / warnings / silent (default: " ^ !Options.warn_error ^")";
-    "-fnostruct-passing", Arg.Clear Options.struct_passing, "  disable passing structures by value and use pointers instead";
-    "-fnoanonymous-unions", Arg.Clear Options.anonymous_unions, "  disable C11 anonymous unions";
-    "-fnouint128", Arg.Clear Options.uint128, "  don't assume a built-in type __uint128";
-    "-funroll-loops", Arg.Set_int Options.unroll_loops, "  textually expand loops smaller than N";
-    "-fparentheses", Arg.Set Options.parentheses, "  add unnecessary parentheses to silence GCC and Clang's -Wparentheses";
+    "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are \
+      fatal / warnings / silent (default: " ^ !Options.warn_error ^")";
+    "-fnostruct-passing", Arg.Clear Options.struct_passing, "  disable passing \
+      structures by value and use pointers instead";
+    "-fnoanonymous-unions", Arg.Clear Options.anonymous_unions, "  disable C11 \
+      anonymous unions";
+    "-fnouint128", Arg.Clear Options.uint128, "  don't assume a built-in type \
+      __uint128";
+    "-funroll-loops", Arg.Set_int Options.unroll_loops, "  textually expand \
+      loops smaller than N";
+    "-fparentheses", Arg.Set Options.parentheses, "  add unnecessary parentheses \
+      to silence GCC and Clang's -Wparentheses";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
     "-djson", Arg.Set arg_print_json, " dump the input AST as JSON";
     "-dast", Arg.Set arg_print_ast, " pretty-print the internal AST";
-    "-dpattern", Arg.Set arg_print_pattern, " pretty-print after pattern removal";
-    "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the internal AST after simplification";
-    "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after inlining";
+    "-dpattern", Arg.Set arg_print_pattern, " pretty-print after pattern \
+      removal";
+    "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the internal AST \
+      after simplification";
+    "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after \
+      inlining";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-dwasm", Arg.Set arg_print_wasm, " pretty-print the output Wasm";
-    "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific comma-separated list of values; currently supported: inline,bundle,wasm-calls";
+    "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific \
+      comma-separated list of values; currently supported: \
+      inline,bundle,wasm-calls,force-c";
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
   let spec = Arg.align spec in
@@ -228,7 +251,6 @@ Supported options:|}
   if !arg_warn_error <> "" then
     Warnings.parse_warn_error !arg_warn_error;
 
-  (* The wasm backend needs all of these. *)
   if !arg_wasm then begin
     Options.uint128 := false;
     Options.anonymous_unions := false;
@@ -366,7 +388,7 @@ Supported options:|}
    * at the last minute, since it invalidates pretty much any map ever built. *)
   let files = Simplify.to_c_names files in
 
-  if !arg_wasm then
+  if !arg_wasm && not (Options.debug "force-c") then
     (* The Wasm backend diverges here. We go to [CFlat] (an expression
      * language), then directly into the Wasm AST. *)
     let files = AstToCFlat.mk_files files in

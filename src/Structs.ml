@@ -10,6 +10,8 @@
    IMMUTABLE. *)
 
 open Ast
+open Common
+open PrintAst.Ops
 
 (* This pass assumes that all the desugarings that produce structs have run;
  * that type abbreviations have been removed. *)
@@ -335,18 +337,159 @@ let pass_by_ref files =
  *     [[e1[e2] <- (e3: t)]] becomes a [[blit]]
  *     [[ebuffill]] becomes a for-loop with [[blit]]
  *
- * - The [alloc_at] function tracks how many fields we've "skipped", so that a
- *   later phase can compute these static offsets. The [alloc_at] function may
- *   be passed [EAny], in which case it should generate no instructions.
+ * - The [alloc_at] function (tbd) recursively descends into fields at depth and
+ *   knows the current offset where the expression should be written.
+ *   The [alloc_at] function may be passed [EAny], in which case it should
+ *   generate no instructions.
+ *
+ * - Some invariants of this transformation.
+ *   - Any expression of type [t] where [t] is a struct becomes of type [t*].
+ *   - 
  *)
-let to_addr _is_struct = object(_self)
 
-  inherit [unit] map
+(* Need to roll out this one by hand... because it changes the types. *)
+let to_addr is_struct =
+  let rec to_addr e =
+    let was_struct = is_struct e.typ in
+    let not_struct () = assert (not was_struct) in
+    let w = with_type e.typ in
+    let star_if node =
+      if is_struct e.typ then
+        { node; typ = TBuf e.typ }
+      else
+        { node; typ = e.typ }
+    in
+    match e.node with
+    | EBound _
+    | EOpen _ ->
+        [], star_if e.node
+    | EUnit
+    | EBool _
+    | EString _
+    | EQualified _
+    | EOp _
+    | EConstant _
+    | EAny
+    | EPushFrame
+    | EPopFrame
+    | EAbort ->
+        not_struct ();
+        [], e
 
+    | EWhile (e1, e2) ->
+        not_struct ();
+        let lb1, e1 = to_addr e1 in
+        let lb2, e2 = to_addr e2 in
+        lb1 @ lb2, w (EWhile (e1, e2))
 
+    | EFor (b, e1, e2, e3, e4) ->
+        not_struct ();
+        let lb1, e1 = to_addr e1 in
+        let lb2, e2 = to_addr e2 in
+        let lb3, e3 = to_addr e3 in
+        let lb4, e4 = to_addr e4 in
+        lb1 @ lb2 @ lb3 @ lb4, w (EFor (b, e1, e2, e3, e4))
 
-end
+    | EIgnore e ->
+        not_struct ();
+        let lb, e = to_addr e in
+        lb, w (EIgnore e)
+
+    | EApp (e, es) ->
+        not_struct ();
+        let lb, e = to_addr e in
+        let lbs, es = List.split (List.map to_addr es) in
+        lb @ List.flatten lbs, w (EApp (e, es))
+
+    | EFlat _ ->
+        let b, ref = Helpers.mk_binding "alloc" (TBuf e.typ) in
+        [ b, with_type (TBuf e.typ) (EBufCreate (Stack, e, Helpers.zerou32)) ], ref
+
+    | ELet (b, e1, e2) ->
+        let lb1, e1 = to_addr e1 in
+        let lb2, e2 = to_addr e2 in
+        lb1 @ lb2, star_if (ELet (b, e1, e2))
+
+    | EIfThenElse (e1, e2, e3) ->
+        let lb1, e1 = to_addr e1 in
+        let lb2, e2 = to_addr e2 in
+        let lb3, e3 = to_addr e3 in
+        lb1 @ lb2 @ lb3, star_if (EIfThenElse (e1, e2, e3))
+
+    | EAssign (e1, e2) ->
+        not_struct ();
+        let lb1, e1 = to_addr e1 in
+        let lb2, e2 = to_addr e2 in
+        lb1 @ lb2, w (EAssign (e1, e2))
+
+    | EBufCreate (l, e1, e2) ->
+        (* [e2] will undergo the "allocate at address" treatment later on *)
+        let lb1, e1 = to_addr e1 in
+        lb1, w (EBufCreate (l, e1, e2))
+
+    | EBufCreateL _ ->
+        not_struct ();
+        [], e
+
+    | EBufRead (e1, e2) ->
+        let lb1, e1 = to_addr e1 in
+        let lb2, e2 = to_addr e2 in
+        if was_struct then
+          lb1 @ lb2, with_type (TBuf e.typ) (EAddrOf (w (EBufRead (e1, e2))))
+        else
+          lb1 @ lb2, w (EBufRead (e1, e2))
+
+    | EBufWrite (e1, e2, e3) ->
+        not_struct ();
+        let lb1, e1 = to_addr e1 in
+        let lb2, e2 = to_addr e2 in
+        lb1 @ lb2, w (EBufWrite (e1, e2, e3))
+
+    | EField (e, f) ->
+        let lb, e = to_addr e in
+        if was_struct then
+          lb, with_type (TBuf e.typ) (EAddrOf (w (EField (e, f))))
+        else
+          lb, w (EField (e, f))
+
+    | EAddrOf e ->
+        let lb, e = to_addr e in
+        if was_struct then
+          lb, e
+        else
+          lb, w (EAddrOf e)
+
+    | EBufSub _
+    | EBufBlit _
+    | EBufFill _
+    | ESwitch _
+    | EEnum _
+    | EReturn _
+    | ECast _
+    | EComment _ ->
+        Warnings.fatal_error "todo: %a" pexpr e
+
+    | ESequence _
+    | ETuple _
+    | EMatch _
+    | ECons _
+    | EFun _ ->
+        Warnings.fatal_error "impossible: %a" pexpr e
+  in
+  object (_self)
+    inherit [unit] map
+
+    method! dfunction _ cc flags n ret lid binders body =
+      let lbs, body = to_addr body in
+      let body = Helpers.nest lbs ret body in
+      DFunction (cc, flags, n, ret, lid, binders, body)
+  end
+
 
 let in_memory files =
+  (* TODO: do let_to_sequence and sequence_to_let once! *)
   let is_struct = mk_is_struct files in
-  Helpers.visit_files () (to_addr is_struct) files
+  let files = Helpers.visit_files () Simplify.sequence_to_let files in
+  let files = Helpers.visit_files () (to_addr is_struct) files in
+  let files = Helpers.visit_files () Simplify.let_to_sequence files in
+  files
