@@ -403,9 +403,13 @@ let to_addr is_struct =
 
     | EFlat _ ->
         let b, ref = Helpers.mk_binding "alloc" (TBuf e.typ) in
-        [ b, with_type (TBuf e.typ) (EBufCreate (Stack, e, Helpers.zerou32)) ], ref
+        [ b, with_type (TBuf e.typ) (EBufCreate (Stack, e, Helpers.oneu32)) ], ref
 
     | ELet (b, e1, e2) ->
+        let b = {
+          node = b.node;
+          typ = if is_struct b.typ then TBuf b.typ else b.typ
+        } in
         let lb1, e1 = to_addr e1 in
         let lb2, e2 = to_addr e2 in
         lb1 @ lb2, star_if (ELet (b, e1, e2))
@@ -446,13 +450,17 @@ let to_addr is_struct =
         lb1 @ lb2, w (EBufWrite (e1, e2, e3))
 
     | EField (e, f) ->
+        let e_was_struct = is_struct e.typ in
+        let e_typ = e.typ in
         let lb, e = to_addr e in
+        let e = if e_was_struct then with_type e_typ (EBufRead (e, Helpers.zerou32)) else e in
         if was_struct then
           lb, with_type (TBuf e.typ) (EAddrOf (w (EField (e, f))))
         else
           lb, w (EField (e, f))
 
     | EAddrOf e ->
+        let was_struct = is_struct e.typ in
         let lb, e = to_addr e in
         if was_struct then
           lb, e

@@ -351,9 +351,9 @@ Supported options:|}
   let files = if !arg_wasm then Structs.in_memory files else files in
   let files = Simplify.remove_unused files in
   let files = Simplify.simplify2 files in
-  let has_errors, files = Checker.check_everything files in
   if !arg_print_inline then
     print PrintAst.print_files files;
+  let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Inline + Simplify 2";
 
   (* 6. Some transformations that break typing: remove type application
