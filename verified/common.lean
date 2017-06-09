@@ -13,6 +13,9 @@ namespace common
 
 def fresh_ident : idents → ident := sorry
 
+lemma fresh_ident_spec : ∀ ids, ¬(fresh_ident ids ∈ ids) :=
+  sorry
+
 def location : Type :=
   block_id × nat × list field
 
@@ -66,6 +69,30 @@ begin
   { [smt] add_lemma Hf, ematch },
   -- congruence?
   rw [Hi H]
+end
+
+def names_in {X} (names : X → ident) (ids : set ident) : Prop :=
+  ∀ (x : X), names x ∈ ids
+
+lemma fresh_ident_fresh {X} (names : X → ident) (seen : set ident) :
+  names_in names seen →
+  fresh_in names (fresh_ident seen)
+:=
+begin
+  intros H x H',
+  note hh := H x,
+  apply fresh_ident_spec, rewrite H', apply hh
+end
+
+lemma names_in_cons {X} (names : X → ident) (ids : set ident) (id : ident) :
+  names_in names ids →
+  names_in (names_cons (fresh_ident ids) names) (set.insert (fresh_ident ids) ids)
+:=
+begin
+  intros H x,
+  cases x with x; simp [names_cons],
+  { admit }, -- FIXME TODO
+  { note HH := H x, admit } -- FIXME TODO
 end
 
 end common

@@ -161,4 +161,37 @@ begin
   { rw (ih2 H'), /- ??? -/ admit }
 end
 
+lemma transl_to_stmt_seen_incl : ∀ {X} (e : exp X) seen seen' names ss,
+  transl_to_stmt seen names e = some (seen', ss) →
+  seen ⊆ seen'
+:=
+begin
+  intros X e, induction e; introv H x Hx; simp [transl_to_stmt] at H;
+  try { opt_inv H with _ H, simp [transl_to_exp] at H, opt_inv H, assumption };
+  try {
+    opt_inv H with _ _ H', simp [transl_to_stmt] at H', opt_inv H',
+    apply ih_2; try { assumption },
+    try { show _ ∈ set.insert _ _, { admit } }, -- FIXME set.insert lemma
+    done
+  },
+  case lowstar.exp.if_then_else {
+    opt_inv H with _ _ H', simp [transl_to_stmt] at H', opt_inv H' with _ _ H',
+    simp [transl_to_stmt] at H', opt_inv H',
+    apply ih_3; try { assumption }, apply ih_2; assumption
+  },
+  case lowstar.exp.writebuf {
+    opt_inv H with _ _ H', simp [transl_to_stmt] at H', opt_inv H',
+    apply ih_4; assumption
+  },
+  case lowstar.exp.let_readbuf {
+    opt_inv H with _ _ H', simp [transl_to_stmt] at H', opt_inv H',
+    apply ih_3; try { assumption }, admit -- FIXME set.insert lemma
+  },
+  { opt_inv H with _ _ H', simp [transl_to_stmt] at H', opt_inv H',
+    apply ih_1; assumption
+  },
+  { injection H }
+end
+
+
 end lowstar_to_cstar
