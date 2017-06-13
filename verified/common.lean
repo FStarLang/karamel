@@ -17,7 +17,7 @@ lemma fresh_ident_spec : ∀ ids, ¬(fresh_ident ids ∈ ids) :=
   sorry
 
 def location : Type :=
-  block_id × nat × list field
+  block_id × nat × list nat × list field
 
 inductive value : Type
 | int : nat → value

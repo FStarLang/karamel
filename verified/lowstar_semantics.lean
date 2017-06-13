@@ -94,12 +94,12 @@ def block_free_in_stack (b : block_id) (s : stack) : Prop :=
 
 inductive astep {X : Type u} (decls : list decl) :
   configuration X → configuration X → list label → Prop
-| readbuf : ∀ stack ty b n n' e v,
-  stack_read_loc (b, n + n', []) stack = some v →
+| readbuf : ∀ stack ty b n n' ns e v,
+  stack_read_loc (b, n, n'::ns, []) stack = some v →
   astep
-    (stack, exp.let_readbuf ty (exp.loc (b,n,[])) (exp.int n') e)
+    (stack, exp.let_readbuf ty (exp.loc (b,n,ns,[])) (exp.int n') e)
     (stack, e ◄ v)
-    [label.read (b, n+n', [])]
+    [label.read (b, n, n'::ns, [])]
 --| readstruct
 | let_app : ∀ stack ty f param_ty ret_ty f_body (v : value) e,
   find_fundecl f decls = some (decl.function f param_ty f_body ret_ty) →
@@ -107,17 +107,17 @@ inductive astep {X : Type u} (decls : list decl) :
     (stack, exp.let_app ty f v e)
     (stack, exp.let_in ty ((lift_fbody X f_body) ◄ v) e)
     []
-| writebuf : ∀ stack b n n' oldv (v : value) e,
-  stack_read_loc (b, n + n', []) stack = oldv →
+| writebuf : ∀ stack b n n' ns oldv (v : value) e,
+  stack_read_loc (b, n, n'::ns, []) stack = oldv →
   astep
-    (stack, exp.writebuf (exp.loc (b,n,[])) (exp.int n') v e)
-    (stack_write_loc (b,n+n',[]) v stack, e)
-    [label.write (b, n + n', [])]
+    (stack, exp.writebuf (exp.loc (b,n,ns,[])) (exp.int n') v e)
+    (stack_write_loc (b,n,n'::ns,[]) v stack, e)
+    [label.write (b, n, n'::ns, [])]
 --| writestruct
-| subbuf : ∀ stack b n n',
+| subbuf : ∀ stack b n n' ns,
   astep
-    (stack, exp.subbuf (exp.loc (b,n,[])) (exp.int n'))
-    (stack, exp.loc (b, n + n', []))
+    (stack, exp.subbuf (exp.loc (b,n,ns,[])) (exp.int n'))
+    (stack, exp.loc (b, n, n'::ns, []))
     []
 --| structfield
 | let_in : ∀ stack ty (v : value) e,
@@ -148,7 +148,7 @@ inductive astep {X : Type u} (decls : list decl) :
   new_frame = map_singleton b (list.repeat v n) →
   astep
     (stack, exp.let_newbuf n v ty e)
-    (new_frame :: stack, e ◄ (exp.loc (b, 0, [])))
+    (new_frame :: stack, e ◄ (exp.loc (b, 0, [], [])))
     (memset_labels b 0 n)
 --| newstruct
 | withframe : ∀ stack e,

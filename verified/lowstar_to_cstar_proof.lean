@@ -60,23 +60,40 @@ inductive back_stmt : ∀ {X : Type u},
   back_stmt names
     ((stmt.call b fn e) :: ss)
     (exp.let_app τ fn le1 le)
-| let_readbuf : ∀ X (names : X → ident) b x τ e1 e2 ss le1 le2 le,
-  x = binder.name b →
-  transl_typ τ = binder.typ b → -- ehh
-  back_exp names e1 le1 →
-  back_exp names e2 le2 →
+-- | let_readbuf : ∀ X (names : X → ident) b x τ e1 e2 ss le1 le2 le,
+--   x = binder.name b →
+--   transl_typ τ = binder.typ b → -- ehh
+--   back_exp names e1 le1 →
+--   back_exp names e2 le2 →
+--   back_stmt (names_cons x names) ss le →
+--   back_stmt names
+--     ((stmt.read b (exp.ptr_add e1 e2)) :: ss)
+--     (exp.let_readbuf τ le1 le2 le)
+| let_readbuf : ∀ X (names : X → ident) bind x τ buf_loc cell_loc b n n' ns ss le,
+  x = binder.name bind →
+  transl_typ τ = binder.typ bind → -- ehh
+  buf_loc = ↑(value.loc (b, n, ns, [])) →
+  cell_loc = ↑(value.loc (b, n, n'::ns, [])) →
   back_stmt (names_cons x names) ss le →
   back_stmt names
-    ((stmt.read b (exp.ptr_add e1 e2)) :: ss)
-    (exp.let_readbuf τ le1 le2 le)
-| writebuf : ∀ X (names : X → ident) e1 e2 e3 ss le1 le2 le3 le,
+    ((stmt.read bind cell_loc) :: ss)
+    (exp.let_readbuf τ buf_loc (value.int n') le)
+-- | writebuf : ∀ X (names : X → ident) e1 e2 e3 ss le1 le2 le3 le,
+--   back_exp names e1 le1 →
+--   back_exp names e2 le2 →
+--   back_exp names e3 le3 →
+--   back_stmt names ss le →
+--   back_stmt names
+--     ((stmt.write (exp.ptr_add e1 e2) e3) :: ss)
+--     (exp.writebuf le1 le2 le3 le)
+| writebuf : ∀ X (names : X → ident) buf_loc cell_loc b n n' ns e1 ss le1 le,
+  buf_loc = ↑(value.loc (b, n, ns, [])) →
+  cell_loc = ↑(value.loc (b, n, n'::ns, [])) →
   back_exp names e1 le1 →
-  back_exp names e2 le2 →
-  back_exp names e3 le3 →
   back_stmt names ss le →
   back_stmt names
-    ((stmt.write (exp.ptr_add e1 e2) e3) :: ss)
-    (exp.writebuf le1 le2 le3 le)
+    ((stmt.write cell_loc e1) :: ss)
+    (exp.writebuf buf_loc (value.int n') le1 le)
 | withframe : ∀ X (names : X → ident) ss1 le1,
   back_stmt names ss1 le1 →
   back_stmt names
@@ -584,21 +601,13 @@ begin
   },
   case exp.let_readbuf Y τ e1 e2 e3 {
     opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
-    cases HB, case back_stmt.let_readbuf x τ' e1' e2' e3' {
-      rw (ih_1 e1'); ok; try { assumption },
-      rw (ih_2 e2'); ok; try { assumption },
-      rw (ih_3 e3'); ok; ok,
-      rw (@transl_typ_injective τ τ'); ok
+    cases HB, case back_stmt.let_readbuf x b e1' τ m m' ms e' Hx Hτ He1' Hloc He' {
+      cases Hloc
     }
   },
   case exp.writebuf Y e1 e2 e3 e4 {
     opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
-    cases HB, case back_stmt.writebuf e1' e2' e3' e4' {
-      rw (ih_1 e1'); ok; try { assumption },
-      rw (ih_2 e2'); ok; try { assumption },
-      rw (ih_3 e3'); ok; try { assumption },
-      rw (ih_4 e4'); ok; try { assumption }
-    }
+    cases HB, case back_stmt.writebuf _ _ _ _ _ _ _ _ Hloc { cases Hloc }
   },
   case exp.withframe Y e {
     opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
@@ -659,7 +668,7 @@ begin
         show eval_head_exp _ _ [stmt.return x2] _, { ok }, repeat { ok }
       },
       apply transition.star_trans,
-      { steps_with_ctx (ectx.subbuf_2 (value.loc (b,n,[])) ectx.here),
+      { steps_with_ctx (ectx.subbuf_2 (value.loc (b,n,ns,[])) ectx.here),
         apply ih_2,
         show eval_head_exp _ _ [stmt.return x1] _, { ok }, repeat { ok }
       },

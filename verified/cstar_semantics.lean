@@ -62,13 +62,13 @@ inductive eval_exp
 | var : ∀ x v,
   vars x = some v →
   eval_exp (cstar.exp.var x) v
-| ptr_add : ∀ e₁ e₂ b n n',
-  eval_exp e₁ (value.loc (b, n, [])) →
+| ptr_add : ∀ e₁ e₂ b n n' ns,
+  eval_exp e₁ (value.loc (b, n, ns, [])) →
   eval_exp e₂ (value.int n') →
-  eval_exp (cstar.exp.ptr_add e₁ e₂) (value.loc (b, n + n', []))
-| field_addr : ∀ e fd fds b n,
-  eval_exp e (value.loc (b, n, fds)) →
-  eval_exp (cstar.exp.field_addr e fd) (value.loc (b, n, fd :: fds))
+  eval_exp (cstar.exp.ptr_add e₁ e₂) (value.loc (b, n, n'::ns, []))
+| field_addr : ∀ e fd fds b n ns,
+  eval_exp e (value.loc (b, n, ns, fds)) →
+  eval_exp (cstar.exp.field_addr e fd) (value.loc (b, n, ns, fd :: fds))
 -- TODO: struct
 -- | field : ∀ e fd s v,
 --   eval_exp e (value.struct s) →
@@ -138,15 +138,15 @@ inductive step (decls : list decl) :
   block_id_free_in_stack b stack = true →
   buf = @list.repeat (option value) none n →
   new_frame = (some (map_add mem b buf), vars, ctx) →
-  vars' = bind_in vars bind (value.loc (b, 0, [])) →
+  vars' = bind_in vars bind (value.loc (b, 0, [], [])) →
   step
     (stack, vars, (stmt.decl_buf bind n) :: ss)
     (new_frame :: stack', vars', ss)
     []
-| write_buf : ∀ stack stack' vars m n b e₁ e₂ v ss,
-  eval_exp decls vars e₁ (value.loc (b, n, [])) →
+| write_buf : ∀ stack stack' vars m n ns b e₁ e₂ v ss,
+  eval_exp decls vars e₁ (value.loc (b, n, ns, [])) →
   eval_exp decls vars e₂ v →
-  stack_memset stack (b, n, []) v m = stack' →
+  stack_memset stack (b, n, ns, []) v m = stack' →
   step
     (stack, vars, (stmt.write_buf e₁ m e₂) :: ss)
     (stack', vars, ss)

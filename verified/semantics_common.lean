@@ -13,7 +13,7 @@ inductive label : Type
 def memset_labels (block_id : nat) : nat -> nat -> list label
 | start_offset 0 := []
 | start_offset (nat.succ n) :=
-  (label.write (block_id, start_offset, [])) ::
+  (label.write (block_id, start_offset, [], [])) ::
   memset_labels (nat.succ start_offset) n
 
 
