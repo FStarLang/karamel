@@ -554,22 +554,21 @@ begin
     rw (back_transl_exp_eq _ _ _ _ Hinj H1), assumption
   },
   case exp.if_then_else Y e1 e2 e3 ih_1 ih_2 ih_3 e {
-    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1',
-    opt_inv H1' with ss2 seen2 H2' H2, simp [transl_to_stmt] at H2', opt_inv H2',
+    opt_inv HT [transl_to_stmt] with ss1 seen1 Hss1 ss2 seen2 Hss2,
     cases HB, case back_stmt.if_then_else e1' e2' e3' He1' He2' He3' {
       rw (ih_1 e1'); ok, rw (ih_2 e2'); ok, rw (ih_3 e3'),
       show transl_to_stmt _ _ _ = _, { assumption },
       show back_stmt _ _ _, { assumption },
       show names_in _ _, {
         intro,
-        apply (transl_to_stmt_seen_incl _ _ _ _ _ H1),
+        apply (transl_to_stmt_seen_incl _ _ _ _ _ Hss2),
         apply Hseen
       },
       assumption
     }
   },
   case exp.let_in Y τ e1 e2 {
-    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+    opt_inv HT [transl_to_stmt] with ss1 seen1 Hss1,
     cases HB, case back_stmt.let_in τ' e1' e2' {
       -- dsimp at *, -- FIXME: do not unfold injective
       rw (ih_1 e1'); ok; try { assumption },
@@ -578,14 +577,14 @@ begin
     }
   },
   case exp.ignore Y e1 e2 {
-    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+    opt_inv HT [transl_to_stmt] with ss1 seen1 Hss1,
     cases HB, case back_stmt.ignore e1' e2' {
       rw (ih_1 e1'); ok; try { assumption },
       rw (ih_2 e2'); ok
     }
   },
   case exp.let_app Y τ fn e1 e2 {
-    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+    opt_inv HT [transl_to_stmt] with ss1 seen1 Hss1,
     cases HB, case back_stmt.let_app x τ' e1' e2' {
       rw (ih_1 e1'); ok; try { assumption },
       rw (ih_2 e2'); ok; ok,
@@ -593,7 +592,7 @@ begin
     }
   },
   case exp.let_newbuf Y n e1 τ e2 {
-    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+    opt_inv HT [transl_to_stmt] with ss1 seen1 Hss1,
     cases HB, case back_stmt.let_newbuf e1' τ' e2' {
       rw (ih_1 e1'); ok; try { assumption },
       rw (ih_2 e2'); ok; ok,
@@ -601,17 +600,17 @@ begin
     }
   },
   case exp.let_readbuf Y τ e1 e2 e3 {
-    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+    opt_inv HT [transl_to_stmt] with ss1 seen1 Hss1,
     cases HB, case back_stmt.let_readbuf x b e1' τ m m' ms e' Hx Hτ He1' Hloc He' {
       cases Hloc
     }
   },
   case exp.writebuf Y e1 e2 e3 e4 {
-    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+    opt_inv HT [transl_to_stmt] with ss1 seen1 Hss1,
     cases HB, case back_stmt.writebuf _ _ _ _ _ _ _ _ Hloc { cases Hloc }
   },
   case exp.withframe Y e {
-    opt_inv HT with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+    opt_inv HT [transl_to_stmt] with ss1 seen1 Hss1,
     cases HB, rw (ih_1 _); ok
   },
   case exp.pop Y e { injection HT }
@@ -679,14 +678,11 @@ begin
     },
 
     case lowstar.exp.if_then_else {
-      opt_inv Hle with ss1 seen1 H1' Ha_1 x1 H1 foo bar,
-      simp [transl_to_stmt] at H1', opt_inv H1' with ss2 seen2 H2' Ha_2,
-      simp [transl_to_stmt] at H2', opt_inv H2',
+      opt_inv Hle [transl_to_stmt] with ss1 seen1 Hss1 ss2 seen2 Hss2 e He,
       cases Hss /- ? -/ },
 
     case lowstar.exp.let_in {
-      opt_inv Hle with ss1 seen1 H1' H_a_2 x1 H1,
-      simp [transl_to_stmt] at H1', opt_inv H1',
+      opt_inv Hle [transl_to_stmt] with ss1 seen1 Hss1,
       cases Hss, cases Hle' with _ _ _ _ _ τ le1 le2 Hle1 Hle2 Hτ, clear Hle',
       dsimp at Hτ,
       -- simp [transl_typ_injective Hτ] at *,
@@ -697,16 +693,16 @@ begin
     },
 
     case lowstar.exp.ignore Y e1 e2 {
-      opt_inv Hle with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+      opt_inv Hle [transl_to_stmt] with ss1 seen1 Hss1,
       cases Hss, cases Hle', case back_stmt.ignore e1' e2' He1' He2' {
-        rw (back_transl_stmt_eq e2 e2' _ _ _ _ _ _ H1 He2'); ok,
+        rw (back_transl_stmt_eq e2 e2' _ _ _ _ _ _ Hss1 He2'); ok,
         steps_with_ctx (ectx.ignore ectx.here _),
         apply ih_1; ok
       }
     },
 
     case lowstar.exp.let_app Y τ fn e1 e2 {
-      opt_inv Hle with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+      opt_inv Hle [transl_to_stmt] with ss1 seen1 Hss1,
       cases Hss, cases Hle', case back_stmt.let_app x τ' e1' e2' Hx Hτ He1' He2' {
         dsimp at Hx Hτ, rw (back_transl_stmt_eq e2 e2'); ok; ok,
         rw (transl_typ_injective Hτ), clear Hτ,
@@ -716,7 +712,7 @@ begin
     },
 
     case lowstar.exp.let_newbuf Y n e1 τ e2 {
-      opt_inv Hle with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
+      opt_inv Hle [transl_to_stmt] with ss1 seen1 Hss1,
       cases Hss, cases Hle', case back_stmt.let_newbuf e1' τ' e2' Hx He1' Hτ He2' {
         dsimp at Hx Hτ,
         rw (transl_typ_injective Hτ), clear Hτ,

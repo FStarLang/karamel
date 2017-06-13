@@ -205,7 +205,10 @@ end
 --
 -- Inspired by monadInv from CompCert (in Errors.v)
 
-meta def opt_inv_core (r : ref (list name)) : name → tactic unit := λ h,
+-- FIXME: hs being a list pexpr even at this stage is a bit ugly (but we want to
+-- use the extra stuff provided by tactic.interactive.simp...)
+
+meta def opt_inv_core (r : ref (list name)) (hs: list pexpr) : name → tactic unit := λ h,
 do
   ty ← get_local h >>= infer_type,
   match ty with
@@ -238,14 +241,16 @@ do
      end),
     get_local h' >>= λ H, cases H [eq1, eq2],
 
+    try (tactic.interactive.simp ff hs [] [] (interactive.loc.ns [eq1])),
+    try (tactic.interactive.simp ff hs [] [] (interactive.loc.ns [eq2])),
     get_local eq2 >>= λ E, try (dsimp_at E),
     try (opt_inv_core eq1),
     try (opt_inv_core eq2)
   | _ := fail "meh"
   end
 
-meta def opt_inv (h : name) (ns : list name) : tactic unit :=
-  with_names (λ r, opt_inv_core r h) ns true
+meta def opt_inv (h : name) (hs : list pexpr) (ns : list name) : tactic unit :=
+  with_names (λ r, opt_inv_core r hs h) ns true
 
 end tactic
 
@@ -253,8 +258,12 @@ namespace tactic.interactive
 open lean lean.parser
 open interactive interactive.types tactic
 
-meta def opt_inv (h : parse ident) (ns : parse with_ident_list) : tactic unit :=
-  tactic.opt_inv h ns >> skip
+meta def opt_inv
+  (h : parse ident)
+  (hs : parse opt_qexpr_list)
+  (ns : parse with_ident_list) : tactic unit
+:=
+  tactic.opt_inv h hs ns >> skip
 
 -- meta def injections_subst (h : parse ident) : tactic unit :=
 -- do tactic.get_local h >>= tactic.injections_subst,
