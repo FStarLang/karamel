@@ -470,7 +470,7 @@ do
     assumption <|>
     skip
   | `(names_in _ _) :=
-    (do apply ``(names_in_cons), exact ``(0:nat), assumption) <|>
+    (do apply ``(names_in_cons), assumption) <|>
     assumption <|>
     skip
   | `(_ = _) :=
@@ -555,7 +555,7 @@ begin
     cases HB, case back_stmt.let_in τ' e1' e2' {
       -- dsimp at *, -- FIXME: do not unfold injective
       rw (ih_1 e1'); ok; try { assumption },
-      rw (ih_2 e2'); ok; ok, -- FIXME spurious "ident" goal after "apply names_in_cons"
+      rw (ih_2 e2'); ok; ok,
       rw (@transl_typ_injective τ τ'); ok
     }
   },

@@ -84,7 +84,7 @@ begin
   apply fresh_ident_spec, rewrite H', apply hh
 end
 
-lemma names_in_cons {X} (names : X → ident) (ids : set ident) (id : ident) :
+lemma names_in_cons {X} (names : X → ident) (ids : set ident) :
   names_in names ids →
   names_in (names_cons (fresh_ident ids) names) (set.insert (fresh_ident ids) ids)
 :=
