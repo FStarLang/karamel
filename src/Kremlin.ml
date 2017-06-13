@@ -141,6 +141,8 @@ Supported options:|}
   let csv f s =
     List.iter f (KString.split_on_char ',' s)
   in
+  let bundle = ref 0 in
+  let bundle_only = ref 0 in
   let spec = [
     (* KreMLin as a driver *)
     "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), \
@@ -168,8 +170,15 @@ Supported options:|}
     (* Controlling the behavior of KreMLin *)
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the \
       module name to declarations from this module";
-    "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " \
+    "-bundle", Arg.String (fun s ->
+        incr bundle;
+        prepend Options.bundle (Bundles.parse s)), " \
       group modules into a single C translation unit (see above)";
+    "-bundle-only", Arg.String (fun s ->
+        incr bundle_only;
+        Options.single_bundle := true;
+        prepend Options.bundle (Bundles.parse s)), " \
+      group modules into a single C translation unit and drop all the rest";
     "-drop", Arg.String (fun s ->
       List.iter (prepend Options.drop) (Utils.parse Parser.drop s)),
       "  do not extract Code for this module (see above)";
@@ -233,7 +242,8 @@ Supported options:|}
 
   if not !found_file ||
      List.length !fst_files = 0 && !filename = "" ||
-     List.length !fst_files > 0 && !filename <> ""
+     List.length !fst_files > 0 && !filename <> "" ||
+     !bundle_only > 1 || !bundle_only > 0 && !bundle > 0
   then begin
     print_endline (Arg.usage_string spec usage);
     exit 1

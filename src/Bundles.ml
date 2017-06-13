@@ -124,7 +124,13 @@ let make_bundles files =
     let used, bundle = make_one_bundle arg files used in
     used, bundle :: bundles
   ) (StringMap.empty, []) !Options.bundle in
-  let files = List.filter (fun (n, _) -> not (StringMap.mem n used)) files @ bundles in
+  let not_in_a_bundle = List.filter (fun (n, _) -> not (StringMap.mem n used)) files in
+  let files =
+    if !Options.single_bundle then
+      bundles
+    else
+      not_in_a_bundle @ bundles
+  in
 
   (* This is important, because bundling may creates cycles, that are broken
    * after removing (now-unused) functions. *)

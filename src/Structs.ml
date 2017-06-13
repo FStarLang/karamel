@@ -449,15 +449,20 @@ let to_addr is_struct =
         let lb2, e2 = to_addr e2 in
         lb1 @ lb2, w (EBufWrite (e1, e2, e3))
 
-    | EField (e, f) ->
-        let e_was_struct = is_struct e.typ in
-        let e_typ = e.typ in
-        let lb, e = to_addr e in
-        let e = if e_was_struct then with_type e_typ (EBufRead (e, Helpers.zerou32)) else e in
+    | EField (e1, f) ->
+        let e1_was_struct = is_struct e1.typ in
+        let e1_typ = e1.typ in
+        let lb, e1 = to_addr e1 in
+        let e1 =
+          if e1_was_struct then
+            with_type e1_typ (EBufRead (e1, Helpers.zerou32))
+          else
+            e1
+        in
         if was_struct then
-          lb, with_type (TBuf e.typ) (EAddrOf (w (EField (e, f))))
+          lb, with_type (TBuf e.typ) (EAddrOf (w (EField (e1, f))))
         else
-          lb, w (EField (e, f))
+          lb, w (EField (e1, f))
 
     | EAddrOf e ->
         let was_struct = is_struct e.typ in
