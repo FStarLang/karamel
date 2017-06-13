@@ -289,11 +289,12 @@ inductive unravel {X : Type u} (names : X → ident) :
 --TODO: move
 inductive back_cfg {X : Type u} (names : X → ident) (p : cstar.program) :
   cstar_semantics.configuration → lowstar_semantics.configuration X → Prop
-| mk : ∀ S V ss ss' le le',
+| mk : ∀ S S' V ss ss' le le',
+  S' = mem S →
   eval_head_exp p V ss ss' →
   back_stmt names ss' le →
   unravel names S (close_vars names V le) le' →
-  back_cfg (S, V, ss) (mem S, le')
+  back_cfg (S, V, ss) (S', le')
 
 def rel {X : Type u}
   (p : cstar.program) (lp : lowstar.program)

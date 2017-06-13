@@ -82,10 +82,10 @@ end sequences
 def unstuck {lbl} (sys : system lbl) (s : sys.state) :=
   sys.final s ∨ ∃ s' ls, sys.step s s' ls
 
--- def safe {lbl} (sys : system lbl) :=
---   ∀ s ls,
---     (star sys.step) sys.init s ls →
---     unstuck sys s
+def safe {lbl} (sys : system lbl) :=
+  ∀ s ls,
+    (star sys.step) sys.init s ls →
+    unstuck sys s
 
 def quasi_refinement
   {lbl} (A B : system lbl) (R : A.state → B.state → Prop) :

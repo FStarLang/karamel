@@ -55,7 +55,7 @@ inductive decl : Type (u+1)
 | function : glob → typ → exp (^pempty.{u}) → typ → decl
 -- | global : glob → typ → value → decl
 
-def program : Type (u+1) := list decl
+@[reducible] def program : Type (u+1) := list decl
 
 def find_fundecl (fn : glob) : program → option decl
 | [] := none

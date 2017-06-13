@@ -49,7 +49,7 @@ inductive decl : Type
 | function : typ → glob → binder → list stmt → decl
 -- | global : glob → typ → value → decl
 
-def program : Type :=
+@[reducible] def program : Type :=
   list decl
 
 def find_fundecl (fn : glob) : program → option decl
