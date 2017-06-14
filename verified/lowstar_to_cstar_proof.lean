@@ -150,6 +150,12 @@ def sys_cstar
     (cstar_semantics.step p)
     ([], V, ss)
     (λC, let (stk, _, ss) := C in stk = [] ∧ ∃ e, ss = [stmt.return e])
+    (by begin
+       intros s s' ls F S,
+       cases s with H s, cases s with V ss, simp [sys_cstar._match_1] at F,
+       cases F with F1 F2, subst F1, cases F2 with e F2, subst F2,
+       cases S
+    end)
 
 def sys_lowstar
   {X : Type u} (lp : lowstar.program) (le : exp X) :
@@ -160,6 +166,28 @@ def sys_lowstar
     (lowstar_semantics.step lp)
     (([] : lowstar_semantics.stack), le)
     (λC, let (stk, le) := C in stk = [] ∧ ∃ lv, le = exp_of_value lv)
+    (by begin
+      intros s s' ls F S,
+      cases s with H e, simp [sys_lowstar._match_1] at F,
+      cases F with F1 F2, subst F1, cases F2 with v F2, subst F2,
+      cases S with _ H e e' _ E' ctx _ HE HE' AS,
+      cases ctx; simp [lowstar_semantics.apply_ectx] at HE; try { cases v; injection HE },
+      cases v; dsimp at HE; subst HE; cases AS
+    end)
+
+lemma cstar_determinist :
+  ∀ p, transition.determinist (cstar_semantics.step p)
+:=
+begin
+  admit
+end
+
+lemma lowstar_determinist :
+  ∀ {X} lp, transition.determinist (@lowstar_semantics.step X lp)
+:=
+begin
+  admit
+end
 
 -- rel
 
@@ -513,7 +541,6 @@ meta def ok : tactic unit :=
   ok_base
 
 end helper_tacs
-
 
 run_cmd add_interactive [`steps_with_ctx, `subst_all, `ok]
 
