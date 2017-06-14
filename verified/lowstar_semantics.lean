@@ -39,6 +39,11 @@ inductive ectx : Type u → Type (u+1)
 -- | write_struct_2 : value → ectx → lowstar.exp → ectx
 | pop : ∀ {X}, ectx X → ectx X
 
+-- evaluation contexts composition
+-- FIXME: TODO
+def ectx_comp {X : Type u} : ectx X → ectx X → ectx X :=
+  sorry
+
 def ectx_map : ∀ {X Y : Type u} (f : X → Y), ectx X → ectx Y
 | X Y f ectx.here := ectx.here
 | X Y f (ectx.subbuf_1 c e) := ectx.subbuf_1 (ectx_map f c) (exp_map f e)
@@ -194,11 +199,20 @@ def apply_ectx : ∀ {X : Type u}, ectx X → lowstar.exp X → lowstar.exp X
 | X (ectx.pop ctx) e :=
   exp.pop (apply_ectx ctx e)
 
+lemma apply_ectx_comp : ∀ {X : Type u} ctx ctx' (e : exp X),
+  apply_ectx ctx (apply_ectx ctx' e) = apply_ectx (ectx_comp ctx ctx') e
+:=
+begin
+  admit
+end
+
 inductive step {X : Type u} (decls : list decl) :
   configuration X → configuration X → list label → Prop
-| step : ∀ stack stack' e e' ctx lbls,
+| step : ∀ stack stack' e e' E E' ctx lbls,
+  E = apply_ectx ctx e →
+  E' = apply_ectx ctx e' →
   astep decls (stack, e) (stack', e') lbls →
-  step (stack, apply_ectx ctx e) (stack', apply_ectx ctx e') lbls
+  step (stack, E) (stack', E') lbls
 
 section
 open transition
@@ -210,10 +224,21 @@ lemma step_steps_aux : ∀ {X : Type u} (decls : list decl) stack stack' (e e' :
   star (step decls) (stack, apply_ectx ctx e) (stack', apply_ectx ctx e') ls
 :=
 begin
-  introv C1 C2 S, revert stack stack' e e', induction S with cfg cfg cfg' cfg'' _ _ S SS,
-  { intros, subst C1, injection C2 with h h', subst h, subst h', constructor }, -- meh
-  { intros, subst C1, subst C2, cases cfg' with stack1 e1, cases S, /- boom -/
-    admit
+  introv C1 C2 S, revert stack stack' e e' ctx, induction S,
+  case star.refl cfg1 {
+    introv C1 C2, subst C1, injection C2 with h h', subst h, subst h', constructor
+  }, -- meh
+
+  case star.step cfg1 cfg2 cfg3 ls ls' S SS IH {
+    introv C1 C2, subst C1, subst C2, cases cfg2 with stack1 e1,
+    cases S with _ _ ee ee1 y z ctx' _ He He1 AS, subst He, subst He1,
+    constructor,
+    show step _ _ _ _, {
+      rw apply_ectx_comp, constructor; try { exact AS }; refl
+    },
+    show star (step _) _ _ _, {
+      rw -apply_ectx_comp, apply IH; refl
+    }
   }
 end
 
@@ -223,8 +248,7 @@ lemma step_steps : ∀ {X : Type u} (decls : list decl) stack stack' (e e' : exp
   star (step decls) (stack, apply_ectx ctx e) (stack', apply_ectx ctx e') ls
 :=
 begin
-  intros,
-  apply step_steps_aux; [reflexivity, reflexivity, assumption]
+  intros, apply step_steps_aux; [refl, refl, assumption]
 end
 
 end
