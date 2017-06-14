@@ -749,30 +749,108 @@ begin
       }
     },
 
-    -- case lowstar.exp.let_readbuf Y τ e1 e2 e3 {
-    --   opt_inv Hle with ss1 seen1 H1' H1, simp [transl_to_stmt] at H1', opt_inv H1',
-    --   cases Hss, case eval_head_exp.read v Hv {
-    --   cases Hv,
-    --   -- assert Hve : (exists v_e : cstar.exp, ↑v = v_e), { existsi ↑v, refl }, cases Hve with v_e Hve,
-    --   -- rw Hve at Hle',  -- FIXME
-    --   cases Hle', case back_stmt.let_readbuf x τ' e1_1 e1_2 e1' e2' e3' Hx Hτ He1' He2' He3' {
-    --     rw (back_transl_stmt_eq e3 e3'); ok; ok,
-    --     dsimp at Hx Hτ, subst Hx, rw (transl_typ_injective Hτ), clear Hτ, -- FIXME: Hv printing
+    case lowstar.exp.let_readbuf Y τ e1 e2 e3 {
+      opt_inv Hle [transl_to_stmt] with ss1 seen1 Hss1,
+      cases Hss, case eval_head_exp.read v Hv {
+      cases Hv,
+      cases Hle', case back_stmt.let_readbuf x τ' e1' b' m m' ms e' Hx Hτ He1' Hloc He' {
+      dsimp at Hx Hτ, rw He1',
 
+      apply transition.star_trans,
+      show [] = [] ++ [], { refl },
+      { steps_with_ctx (ectx.let_readbuf_1 _ ectx.here _ _),
+        apply ih_1; ok, constructor, constructor },
 
+      apply transition.star_trans,
+      show [] = [] ++ [], { refl },
+      { steps_with_ctx (ectx.let_readbuf_2 _ (value.loc (b,n,ns,[])) ectx.here _),
+        apply ih_2; ok, constructor, constructor },
 
-    --     -- apply transition.star_trans,
-    --     -- { steps_with_ctx (ectx.let_readbuf_1 _ ectx.here _ _),
-    --     --   apply ih_1, assumption, apply transl_to_stmt_exp, assumption,
+      rw (back_transl_stmt_eq e3 e'); ok; ok,
+      rw (transl_typ_injective Hτ); ok,
 
+      unfold coe lift_t has_lift_t.lift coe_t has_coe_t.coe coe_b has_coe.coe at Hloc,
+      simp [cstar.exp_of_value] at Hloc,
+      -- FIXME
+      clear ih_1, clear ih_2,
+      injection Hloc with Hloc', clear Hloc, rename Hloc' Hloc,
+      injection Hloc with E Hloc', clear Hloc, subst E, rename Hloc' Hloc,
+      injection Hloc with E Hloc', clear Hloc, subst E, rename Hloc' Hloc,
+      injection Hloc with E Hloc', clear Hloc, injection E with E1 E2, subst E1, subst E2, clear Hloc', clear E,
+      apply transition.star_refl_eq,
+      unfold coe lift_t has_lift_t.lift coe_t has_coe_t.coe coe_b has_coe.coe, --FIXME unfold notation
+      simp [lowstar.exp_of_value]
+    }}},
 
-    --     -- }
-    --   }
-    -- }},
+    case lowstar.exp.writebuf Y e1 e2 e3 e4 {
+      opt_inv Hle [transl_to_stmt] with ss1 seen1 Hss1,
+      cases Hss, case eval_head_exp.write v1 v2 Hv1 Hv2 {
+      cases Hv1, case eval_exp.ptr_add b n n' ns Hv1_1 Hv1_2 {
+      clear ih_4,
+      cases Hle', case back_stmt.writebuf e1' b' m m' ms' e2' e3' He1' Hloc He2' He3' {
 
-    repeat { admit }
+      subst He1',
+
+      apply transition.star_trans,
+      show [] = [] ++ [], { refl },
+      { steps_with_ctx (ectx.writebuf_1 ectx.here _ _ _),
+        apply ih_1; ok }, clear ih_1,
+
+      apply transition.star_trans,
+      show [] = [] ++ [], { refl },
+      { steps_with_ctx (ectx.writebuf_2 (value.loc (b,n,ns,[])) ectx.here _ _),
+        apply ih_2; ok }, clear ih_2,
+
+      apply transition.star_trans,
+      show [] = [] ++ [], { refl },
+      { steps_with_ctx (ectx.writebuf_3 _ (value.int n') ectx.here _),
+        apply ih_3; ok }, clear ih_3,
+
+      rw (back_transl_stmt_eq e4 e3'); ok; ok,
+      -- FIXME
+      injection Hloc with Hloc', clear Hloc, rename Hloc' Hloc,
+      injection Hloc with E Hloc', clear Hloc, subst E, rename Hloc' Hloc,
+      injection Hloc with E Hloc', clear Hloc, subst E, rename Hloc' Hloc,
+      injection Hloc with E Hloc', clear Hloc, injection E with E1 E2, subst E1, subst E2, clear Hloc', clear E,
+      apply transition.star_refl_eq,
+      unfold coe lift_t has_lift_t.lift coe_t has_coe_t.coe coe_b has_coe.coe, --FIXME unfold notation
+      simp [lowstar.exp_of_value]
+    }}}},
+
+    case lowstar.exp.withframe Y e {
+      opt_inv Hle [transl_to_stmt],
+      cases Hss,
+    },
+
+    case lowstar.exp.pop Y e {
+      injection Hle
+    }
   },
-  repeat { admit }
+
+  -- intros, simp [rel], existsi _,
+  -- { split,
+  --   show back_cfg _ _ _ _, {
+  --     constructor,
+  --     show _ = mem _, { admit },
+  --     show unravel _ _ _ _, { constructor },
+
+  --     repeat { admit }
+  --   },
+
+  --   show transition.star _ _ _ _, {
+  --   --   apply Hsteps,
+  --   --   show transl_to_stmt _ _ le = _, { assumption },
+  --   --   show function.injective _, { assumption },
+  --   --   show names_in _ _, {
+  --   --     simp [names_in], intro,
+  --   --     -- apply transl_program_seen_incl; try { assumption },
+  --   --     admit
+  --   --   },
+  --     admit
+  --   }
+  -- }
+  admit
+
 end
 
 end lowstar_to_cstar_proof
