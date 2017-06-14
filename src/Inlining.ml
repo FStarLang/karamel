@@ -303,34 +303,30 @@ let inline_function_frames files =
    * cross-translation unit calls and drops the [Private] qualifier from the
    * callee. *)
   let unmark_private_in name body =
+    let warn_and_remove name' =
+      (* There is a cross-compilation-unit call from [name] to
+       * [name‘], meaning that the latter cannot safely remain
+       * inline. *)
+      if cross_call name name' && Hashtbl.mem safely_private name' then begin
+        Warnings.maybe_fatal_error ("", LostStatic (file_of name, name, file_of name', name'));
+        Hashtbl.remove safely_private name'
+      end;
+      if cross_call name name' && Hashtbl.mem safely_inline name' then begin
+        Warnings.maybe_fatal_error ("", LostInline (file_of name, name, file_of name', name'));
+        Hashtbl.remove safely_inline name'
+      end
+    in
     ignore ((object(self)
       inherit [unit] map
       method eapp () _ e es =
         match e.node with
         | EQualified name' ->
-            (* There is a cross-compilation-unit call from [name] to
-             * [name‘], meaning that the latter cannot safely remain
-             * inline. *)
-            if cross_call name name' && Hashtbl.mem safely_private name' then begin
-              Warnings.maybe_fatal_error ("", LostStatic (file_of name, name, file_of name', name'));
-              Hashtbl.remove safely_private name'
-            end;
-            if cross_call name name' && Hashtbl.mem safely_inline name' then begin
-              Warnings.maybe_fatal_error ("", LostInline (file_of name, name, file_of name', name'));
-              Hashtbl.remove safely_inline name'
-            end;
+            warn_and_remove name';
             EApp (e, List.map (self#visit ()) es)
         | _ ->
             EApp (self#visit () e, List.map (self#visit ()) es)
       method equalified () _ name' =
-        if cross_call name name' && Hashtbl.mem safely_private name' then begin
-          Warnings.maybe_fatal_error ("", LostStatic (file_of name, name, file_of name', name'));
-          Hashtbl.remove safely_private name'
-        end;
-        if cross_call name name' && Hashtbl.mem safely_inline name' then begin
-          Warnings.maybe_fatal_error ("", LostInline (file_of name, name, file_of name', name'));
-          Hashtbl.remove safely_inline name'
-        end;
+        warn_and_remove name';
         EQualified name'
     end)#visit () body)
   in
@@ -357,13 +353,13 @@ let inline_function_frames files =
   (* The invariant for [safely_private] is now established, and we drop those
    * functions that cannot keep their [Private] flag. *)
   let files =
-    let keep_if table flag name flags = 
+    let keep_if table flag name flags =
       if not (Hashtbl.mem table name) || Simplify.target_c_name name = "main" then
         List.filter ((<>) flag) flags
       else
         flags
     in
-    let filter name flags = 
+    let filter name flags =
       let flags = keep_if safely_private Private name flags in
       if !Options.cc = "compcert" then
         keep_if safely_inline CInline name flags
