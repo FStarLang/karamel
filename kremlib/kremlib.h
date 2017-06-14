@@ -89,16 +89,16 @@ void *Prims____Cons___tl(void *_);
 // KreMLin will think that this is a valid use, but then the C compiler, after
 // macro expansion, will error out.
 bool FStar_HyperStack_is_eternal_color(Prims_int x0);
-#define FStar_ST_op_Colon_Equals(x, v) KRML_EXIT
-#define FStar_ST_op_Bang(x) 0
-#define FStar_ST_salloc(x) 0
-#define FStar_ST_ralloc(x, y) 0
-#define FStar_ST_new_region(x) 0
-#define FStar_ST_recall(x)                                                     \
+#define FStar_HyperStack_ST_op_Colon_Equals(x, v) KRML_EXIT
+#define FStar_HyperStack_ST_op_Bang(x) 0
+#define FStar_HyperStack_ST_salloc(x) 0
+#define FStar_HyperStack_ST_ralloc(x, y) 0
+#define FStar_HyperStack_ST_new_region(x) 0
+#define FStar_HyperStack_ST_recall(x)                                          \
   do {                                                                         \
     (void)(x);                                                                 \
   } while (0)
-#define FStar_ST_recall_region(x)                                              \
+#define FStar_HyperStack_ST_recall_region(x)                                   \
   do {                                                                         \
     (void)(x);                                                                 \
   } while (0)
@@ -124,8 +124,8 @@ bool FStar_HyperStack_is_eternal_color(Prims_int x0);
 // Misc; many of these are polymorphic, hence not extracted (yet) by Kremlin,
 // which means that a macro is the "right" way to make sure they don't generate
 // a compilation error.
-#define FStar_Pervasives_fst(x) (x).fst
-#define FStar_Pervasives_snd(x) (x).snd
+#define FStar_Pervasives_Native_fst(x) (x).fst
+#define FStar_Pervasives_Native_snd(x) (x).snd
 #define FStar_Seq_Base_createEmpty(x) 0
 #define FStar_Seq_Base_create(len, init) 0
 #define FStar_Seq_Base_upd(s, i, e) 0
