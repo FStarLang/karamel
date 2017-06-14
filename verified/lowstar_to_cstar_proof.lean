@@ -435,7 +435,7 @@ begin
   introv H,
   rw [show e = apply_ectx ectx.here e, { refl }],
   rw [show e' = apply_ectx ectx.here e', { refl }],
-  simp [close_vars_ectx], constructor, assumption
+  simp [close_vars_ectx], constructor; try { refl }, assumption
 end
 
 --
