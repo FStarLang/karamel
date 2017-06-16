@@ -173,6 +173,7 @@ do
   write_ref used (n :: ns),
   return n
 
+-- TODO FIXME: doesn't seem to work if tac solves the goal
 meta def with_names {α : Type}
   (tac : ref (list name) → tactic α)
   (ns : list name)

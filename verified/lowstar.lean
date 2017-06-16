@@ -77,6 +77,33 @@ begin
   { unfold coe_sort coe_sort_bool has_coe_to_sort.coe, constructor }
 end
 
+-- FIXME: simp lemma matching modulo eq symmetry?
+@[simp] lemma exp_value_int : ∀ {X} (v : value) n,
+  (@exp.int X n = ↑v) ↔ (v = value.int n)
+:=
+begin
+  intros X v n, split; intro H,
+  { cases v; injection H; simph },
+  { cases v; injection H, simph, refl }
+end
+
+@[simp] lemma exp_value_unit : ∀ {X} (v : value),
+  (@exp.unit X = ↑v) ↔ (v = value.unit)
+:=
+begin
+  intros X v, split; intro H;
+  { cases v; injection H, refl }
+end
+
+@[simp] lemma exp_value_loc : ∀ {X} (v : value) l,
+  (@exp.loc X l = ↑v) ↔ (v = value.loc l)
+:=
+begin
+  intros X v l, split; intro H,
+  { cases v; injection H; simph },
+  { cases v; injection H; simph, refl }
+end
+
 inductive decl : Type (u+1)
 | function : glob → typ → exp (^pempty.{u}) → typ → decl
 -- | global : glob → typ → value → decl

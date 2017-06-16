@@ -157,6 +157,18 @@ def sys_cstar
        cases S
     end)
 
+lemma is_value_nostep : ∀ {X} lp stack (e : exp X) cfg' ls,
+  is_value e = tt →
+  ¬ (step lp (stack, e) cfg' ls)
+:=
+begin
+  introv V S,
+  cases S with _ H ee ee' _ E' ctx _ HE HE' AS,
+  cases ctx; simp [lowstar_semantics.apply_ectx] at HE;
+  try { cases e; simp [is_value] at V; cases V }; try { subst HE };
+  try { injection HE, done }; cases AS
+end
+
 def sys_lowstar
   {X : Type u} (lp : lowstar.program) :
   transition.system label
@@ -321,6 +333,12 @@ inductive back_cfg {X : Type u} (names : X → ident) (p : cstar.program) :
   unravel names S (close_vars names V le) le' →
   back_cfg (S, V, ss) (S', le')
 
+-- FIXME: actually, the paper definition of rel says that we should chose the
+-- [le'] such that the number of transitions from [le] to [le'] is the smallest
+-- possible.
+-- The number of steps is then used to defined the measure in the
+-- quasi-simulation theorem.
+
 def rel {X : Type u}
   (p : cstar.program) (lp : lowstar.program)
   (names : X → ident)
@@ -329,9 +347,9 @@ def rel {X : Type u}
   Prop
 :=
   let (H, le) := lC in
-  ∃ (n : nat) (le' : exp X),
+  ∃ (le' : exp X),
   back_cfg names p C (H, le') ∧
-  (transition.iter (lowstar_semantics.step lp) n) (H, le) (H, le') [] --?
+  transition.star (lowstar_semantics.step lp) (H, le) (H, le') []
 
 -- auxiliary lemmas
 
@@ -424,7 +442,18 @@ begin
   introv E1 E2 H, rw [E1, E2], simp [close_vars_ectx], apply step_steps, assumption
 end
 
-lemma step_here_close_vars_lemma {X : Type u} : ∀ names V decls stack stack' (e e' : exp X) ls,
+lemma astep_here_lemma {X : Type u} : ∀ decls stack stack' (e e' : exp X) ls,
+  astep decls (stack, e) (stack', e') ls →
+  step decls (stack, e) (stack', e') ls
+:=
+begin
+  introv H,
+  rw [show e = apply_ectx ectx.here e, by refl],
+  rw [show e' = apply_ectx ectx.here e', by refl],
+  constructor; try { refl }, assumption
+end
+
+lemma astep_here_close_vars_lemma {X : Type u} : ∀ names V decls stack stack' (e e' : exp X) ls,
   astep decls (stack, close_vars names V e) (stack', close_vars names V e') ls →
   step decls (stack, close_vars names V e) (stack', close_vars names V e') ls
 :=
@@ -464,6 +493,9 @@ do
   | _ := tactic.failed
   end
 
+meta def astep_here : tactic unit :=
+  `[apply astep_here_close_vars_lemma] <|>
+  `[apply astep_here_lemma]
 
 meta def subst_all : tactic unit :=
 do
@@ -640,6 +672,182 @@ begin
   case exp.pop Y e { injection HT }
 end
 
+@[simp] lemma value_nostep : ∀ X lp stack (v : value) cfg' ls,
+  ¬ (@lowstar_semantics.step X lp (stack, ↑v) cfg' ls)
+:=
+begin intros, apply is_value_nostep, simp [] end
+
+@[simp] lemma value_noastep : ∀ X lp stack (v : value) cfg' ls,
+  ¬ (@lowstar_semantics.astep X lp (stack, ↑v) cfg' ls)
+:=
+begin
+  introv H, cases cfg',
+  apply is_value_nostep,
+  show lowstar_semantics.step _ _ _ _, {
+    apply (step.step _ _ _ _ _ _ ectx.here); try { apply H },
+    refl, refl
+  },
+  simp [lowstar_semantics.apply_ectx]
+end
+
+@[simp] lemma value_eq_apply_ectx : ∀ X (ctx : ectx X) (v : value) (e : exp X),
+  ↑v = apply_ectx ctx e ↔
+  ctx = ectx.here ∧
+  e = ↑v
+:=
+begin
+  introv, split,
+  { introv H,
+    cases v; cases ctx; try { injection H };
+    simph [lowstar_semantics.apply_ectx] },
+  { intros H, simph [lowstar_semantics.apply_ectx] }
+end
+
+lemma subbuf_safe_inv : ∀ X lp stack (e1 e2 : exp X),
+  transition.safe (sys_lowstar lp) (stack, exp.subbuf e1 e2) →
+  transition.safe (sys_lowstar lp) (stack, e1) ∧
+  transition.safe (sys_lowstar lp) (stack, e2)
+:=
+begin
+  admit
+end
+
+-- C-c C-b
+
+lemma lowstar_safe_step {X} (lp : lowstar.program) (cfg : lowstar_semantics.configuration X) :
+  transition.safe (@sys_lowstar X lp) cfg ↔
+  lowstar_semantics.config_final cfg ∨
+  (∃ cfg' ls, lowstar_semantics.step lp cfg cfg' ls ∧ transition.safe (sys_lowstar lp) cfg')
+:=
+begin
+  apply transition.safe_step_iff, apply lowstar_determinist
+end
+
+-- FIXME cleanup
+lemma subbuf_safe_inv2 : ∀ X lp stack (v1 v2 : value),
+  transition.safe (@sys_lowstar X lp) (stack, exp.subbuf v1 v2) →
+  ∃ b n ns n',
+    v1 = value.loc (b, n, ns, []) ∧
+    v2 = value.int n' ∧
+    lowstar_semantics.step lp
+      (stack, @exp.subbuf X v1 v2)
+      (stack, exp.loc (b, n, n'::ns, []))
+      []
+:=
+begin
+  introv Hsafe, rw lowstar_safe_step at Hsafe, cases Hsafe,
+  case or.inl H { cases H with _ H', cases H' },
+  case or.inr H {
+    cases H with cfg' H, cases H with ls H, cases H with S Hsafe,
+    cases cfg' with stack' e',
+    cases S with u v w x y z ctx foo Hsubbuf He' AS, subst He',
+    cases ctx; simp [lowstar_semantics.apply_ectx] at *; try { injection Hsubbuf, done },
+    { subst Hsubbuf,
+      -- FIXME set
+      assert hh : ∃ (ev1 : exp X), ev1 = ↑v1, { existsi _, refl }, cases hh with ev1 hh1, rw -hh1 at AS,
+      assert hh : ∃ (ev2 : exp X), ev2 = ↑v2, { existsi _, refl }, cases hh with ev2 hh2, rw -hh2 at AS,
+      cases AS, simp at *, simph, subst hh1, subst hh2, -- FIXME improve
+      existsi [_, _, _, _],
+      split; [refl, {split; [refl, assumption]}]
+    },
+
+    { injection Hsubbuf,
+      /- FIXME simph -/ subst h, simp at h, cases h with h1 h2, subst h1, subst h2,
+      simp at *, trivial },
+    { injection Hsubbuf,
+      /- FIXME simph -/ simp at h, cases h with h1 h2, subst h1, subst h2,
+      simp at *, trivial }
+  }
+end
+
+-- FIXME cleanup
+lemma eval_safe_transl_exp : ∀ X lp names stack (e : exp X) ce,
+  transl_to_exp names e = some ce →
+  transition.safe (sys_lowstar lp) (stack, e) →
+  exists (v: value), transition.star (lowstar_semantics.step lp) (stack, e) (stack, v) []
+:=
+begin
+  intros X lp names stack e, revert lp names stack,
+  induction e; intros lp names stack ce Hce Hsafe; simp [transl_to_exp] at Hce;
+  try { injection Hce, done }; opt_inv Hce with ce2 Hce2 ce1 Hce1, -- bleh
+
+  case lowstar.exp.int { existsi (value.int _), constructor },
+  case lowstar.exp.unit { existsi value.unit, constructor },
+  case lowstar.exp.loc { existsi (value.loc _), constructor },
+  case lowstar.exp.subbuf Y e1 e2 IH1 IH2 {
+    note Hsafe12 := subbuf_safe_inv _ _ _ _ _ Hsafe,
+    cases Hsafe12 with Hsafe1 Hsafe2,
+    note IH1' := IH1 lp _ stack _ Hce1 Hsafe1, cases IH1' with v1 IH1',
+    note IH2' := IH2 lp _ stack _ Hce2 Hsafe2, cases IH2' with v2 IH2',
+
+    assert Sargsv :
+      transition.star (step lp) (stack, exp.subbuf e1 e2) (stack, exp.subbuf v1 v2) [],
+    { apply transition.star_trans, show [] = [] ++ [], refl,
+      steps_with_ctx (ectx.subbuf_1 ectx.here _), { apply IH1' },
+      apply transition.star_trans, show [] = [] ++ [], refl,
+      steps_with_ctx (ectx.subbuf_2 _ ectx.here), { apply IH2' },
+      constructor
+    },
+    assert Hsafe_argsv :
+      transition.safe (@sys_lowstar Y lp) (stack, exp.subbuf v1 v2), {
+      apply transition.safe_star,
+      apply lowstar_determinist, assumption, apply Sargsv
+    },
+
+    note hh := subbuf_safe_inv2 _ _ _ _ _ Hsafe_argsv,
+    cases hh with b hh, cases hh with n hh, cases hh with ns hh, cases hh with n' hh,
+    cases hh with Hv1 hh, cases hh with Hv2 S, -- FIXME nested cases
+    subst Hv1, subst Hv2,
+    existsi (value.loc _),
+    apply transition.star_trans; [apply Sargsv, skip, refl],
+    apply transition.star_one, apply S
+  },
+
+  case lowstar.exp.var {
+    cases (transition.safe_step _ _ Hsafe),
+    case or.inl H {
+      unfold sys_lowstar at H, dsimp at H, cases H with _ H',
+      simp [is_value] at H', trivial
+    },
+    case or.inr H {
+      cases H with cfg' H, cases H with ls H, cases H with S Hsafe',
+      unfold sys_lowstar at cfg' S, dsimp at *,
+      cases cfg' with stack' e',
+      cases S with u v w x y z ctx foo Hvar He' AS, subst He',
+      cases ctx; simp [lowstar_semantics.apply_ectx] at *; try { injection Hvar, done },
+      subst Hvar, cases AS
+    }
+  }
+end
+
+lemma transl_to_exp_eval :
+  ∀ X (le : exp X) seen seen' (names : X → ident) stack ce lp p V,
+  transition.safe (sys_lowstar lp) (stack, le) →
+  transl_program seen lp = some (seen', p) → -- ?
+  transl_to_exp names le = some ce →
+  exists (v : value),
+    transition.star (step lp) (stack, le) (stack, v) [] ∧
+    eval_exp p V ce v
+:=
+begin
+  admit
+end
+
+lemma transl_to_stmt_eval_head :
+  ∀ X (le : exp X) seen seen' seen'' (names : X → ident) stack ss lp p (V : map ident value),
+  (∀ id, exists v, V (names id) = some v) →
+  transition.safe (sys_lowstar lp) (stack, le) →
+  transl_program seen' lp = some (seen'', p) →
+  transl_to_stmt seen names le = some (seen', ss) →
+  exists ss', eval_head_exp p V ss ss'
+:=
+begin
+  admit
+end
+
+-- TODO: need lemma proving that the back-translation of a safe translated
+-- expr+head eval stmt is defined...
+
 lemma init : ∀ X seen seen' seen'' (names : X → ident) p lp le ss V,
   names_in names seen →
   function.injective names →
@@ -697,7 +905,7 @@ begin
         show eval_head_exp _ _ [stmt.return x1] _, { ok }, repeat { ok }
       },
       apply transition.star_one,
-      { apply step_here_close_vars_lemma, apply astep.subbuf },
+      { astep_here, apply astep.subbuf },
       refl, refl
     },
 
@@ -824,30 +1032,28 @@ begin
     }
   },
 
-  -- intros, simp [rel], existsi _,
-  -- { split,
-  --   show back_cfg _ _ _ _, {
-  --     constructor,
-  --     show _ = mem _, { admit },
-  --     show unravel _ _ _ _, { constructor },
+  intros, simp [rel], existsi _,
+  { split,
+    show back_cfg _ _ _ _, {
+      constructor,
+      show _ = mem _, { admit /- TODO -/ },
+      show unravel _ _ _ _, { constructor },
 
-  --     repeat { admit }
-  --   },
+      repeat { admit }
+    },
 
-  --   show transition.star _ _ _ _, {
-  --   --   apply Hsteps,
-  --   --   show transl_to_stmt _ _ le = _, { assumption },
-  --   --   show function.injective _, { assumption },
-  --   --   show names_in _ _, {
-  --   --     simp [names_in], intro,
-  --   --     -- apply transl_program_seen_incl; try { assumption },
-  --   --     admit
-  --   --   },
-  --     admit
-  --   }
-  -- }
-  admit
-
+    show transition.star _ _ _ _, {
+      apply Hsteps,
+      show transl_to_stmt _ _ le = _, { assumption },
+      show function.injective _, { assumption },
+      show names_in _ _, {
+        simp [names_in], intro,
+        apply transl_program_seen_incl; try { assumption },
+        simp [names_in] at *, simph
+      },
+      repeat { admit }
+    }
+  }
 end
 
 end lowstar_to_cstar_proof

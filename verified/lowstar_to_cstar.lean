@@ -193,5 +193,12 @@ begin
   { injection H }
 end
 
+lemma transl_program_seen_incl : ∀ (lp : lowstar.program) (p : cstar.program) seen seen',
+  transl_program seen lp = some (seen', p) →
+  seen ⊆ seen'
+:=
+begin
+  admit
+end
 
 end lowstar_to_cstar
