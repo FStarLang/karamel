@@ -8,7 +8,7 @@ structure system (label : Type v) :=
   mk ::
     (state : Type u)
     (step : state → state → list label → Prop)
-    (init : state)
+    -- (init : state)
     (final : state → Prop)
     (step_final : ∀ s s' ls, final s → ¬ (step s s' ls))
 
@@ -89,39 +89,37 @@ end sequences
 def unstuck {lbl} (sys : system lbl) (s : sys.state) :=
   sys.final s ∨ ∃ s' ls, sys.step s s' ls
 
-def safe {lbl} (sys : system lbl) :=
-  ∀ s ls,
-    (star sys.step) sys.init s ls →
-    unstuck sys s
+def safe {lbl} (sys : system lbl) (s : sys.state) :=
+  ∀ s' ls,
+    (star sys.step) s s' ls →
+    unstuck sys s'
 
-lemma safe_step {lbl} (sys : system lbl) :
-  safe sys → sys.final sys.init ∨ (∃ s' ls, sys.step sys.init s' ls ∧ safe {sys with init := s'})
+lemma safe_step {lbl} (sys : system lbl) (s : sys.state) :
+  safe sys s → sys.final s ∨ (∃ s' ls, sys.step s s' ls ∧ safe sys s')
 :=
 begin
   intro S, /- simp [safe] at S -/ --FIXME
   unfold safe at S,
-  note S0 := S sys.init [] (by { constructor }), unfold unstuck at S0,
-  cases S0 with _ S'; [left, right], --[ {left, assumption} , skip ],
-  { assumption },
-  { cases S' with s' S', cases S' with ls S', existsi [_, _], split, -- FIXME?
+  note S0 := S s [] (by { constructor }), unfold unstuck at S0,
+  cases S0 with _ S'; [ {left, assumption}, right ],
+  { cases S' with s' S', cases S' with ls S', existsi [_, _], split,
     assumption,
     simp [safe], dsimp, intros s'' ls' S'',
     apply S, constructor; assumption
   }
 end
 
-lemma step_safe {lbl} (sys : system lbl) :
+lemma step_safe {lbl} (sys : system lbl) (s : sys.state) :
   determinist sys.step →
-  sys.final sys.init ∨ (∃ s' ls, sys.step sys.init s' ls ∧ safe {sys with init := s'}) → safe sys
+  sys.final s ∨ (∃ s' ls, sys.step s s' ls ∧ safe sys s') → safe sys s
 :=
 begin
-  assert step_safe' : ∀ {T} (init : T) (step : T → T → list lbl → Prop) sf lsf,
-    determinist step →
-    (star step) init sf lsf →
-    ∀ (final : T → Prop) step_final,
-      (final init ∨ (∃ s' ls, step init s' ls ∧ safe (system.mk T step s' final step_final))) →
-      unstuck (system.mk T step init final step_final) sf,
-  { introv D SS, induction SS,
+  intros D,
+  assert step_safe' : ∀ s s' ls,
+    star sys.step s s' ls →
+    (sys.final s ∨ (∃ s' ls, sys.step s s' ls ∧ safe sys s')) →
+    unstuck sys s',
+  { introv SS, induction SS,
     case star.refl {
       intro H, simp [unstuck], cases H with _ H; [left, right], assumption,
       cases H with _ H, cases H with _ H, cases H, existsi [_, _], assumption
@@ -129,21 +127,20 @@ begin
 
     case star.step s0 s1 s2 ls1 ls2 S1 S2 IH {
       intro H,
-      cases H with H H, { cases (step_final _ _ _ H S1) },
+      cases H with H H, { cases (sys.step_final _ _ _ H S1) },
       cases H with s1' H, cases H with ls1' H, cases H with S1' Hs1',
       cases (D _ _ _ _ _ S1 S1') with e1 e2, subst e1, subst e2, clear S1',
-      note HS1'' := safe_step _ Hs1', dsimp at HS1'',
+      note HS1'' := safe_step _ _ Hs1', dsimp at HS1'',
       note IH' := IH HS1'', clear IH, /- FIXME specialize -/
       apply IH'
     }
   },
-
-  intros D H s ls SS, cases sys, dsimp at *, apply step_safe'; assumption
+  intros H s ls SS, cases sys, dsimp at *, apply step_safe'; assumption
 end
 
-lemma safe_step_iff {lbl} (sys : system lbl) :
+lemma safe_step_iff {lbl} (sys : system lbl) (s : sys.state) :
   determinist sys.step →
-  (safe sys ↔ sys.final sys.init ∨ (∃ s' ls, sys.step sys.init s' ls ∧ safe {sys with init := s'}))
+  (safe sys s ↔ sys.final s ∨ (∃ s' ls, sys.step s s' ls ∧ safe sys s'))
 :=
 begin
   intro,
@@ -152,21 +149,40 @@ begin
   { apply step_safe; assumption }
 end
 
-def quasi_refinement
-  {lbl} (A B : system lbl) (R : A.state → B.state → Prop) :
-  Prop
+lemma safe_star {lbl} (sys : system lbl) (s : sys.state) :
+  determinist sys.step →
+  safe sys s →
+  ∀ s' ls,
+    star sys.step s s' ls →
+    safe sys s'
 :=
-  R A.init B.init ∧
-  ∃ (m : B.state → A.state → nat), -- XX
-  ∀ (a : A.state) (b : B.state),
-  R a b →
-    (∃ a' l, A.step a a' l →
-       ∃ a'' b' n,
-       (star A.step) a' a'' [] ∧
-       (iter B.step n) b b' l ∧
-       R a'' b' ∧
-       (n = 0 → m b a > m b a')) ∧
-    (A.final a →
-       ∃ b', (big B) b b' [] ∧ R a b')
+begin
+  intros D H s' ls SS, induction SS,
+  case star.refl { assumption },
+  case star.step s1 s2 s3 ls1 ls2 S SS IH {
+    apply IH,
+    rw safe_step_iff at H; try { assumption },
+    cases H with H H, cases (sys.step_final _ _ _ H S),
+    cases H with s' H, cases H with ls' H, cases H with S' Hsafe', -- FIXME nested cases
+    cases (D _ _ _ _ _ S S') with e1 e2, subst e1, subst e2, assumption
+  }
+end
+
+-- def quasi_refinement
+--   {lbl} (A B : system lbl) (R : A.state → B.state → Prop) :
+--   Prop
+-- :=
+--   R A.init B.init ∧
+--   ∃ (m : B.state → A.state → nat), -- XX
+--   ∀ (a : A.state) (b : B.state),
+--   R a b →
+--     (∃ a' l, A.step a a' l →
+--        ∃ a'' b' n,
+--        (star A.step) a' a'' [] ∧
+--        (iter B.step n) b b' l ∧
+--        R a'' b' ∧
+--        (n = 0 → m b a > m b a')) ∧
+--     (A.final a →
+--        ∃ b', (big B) b b' [] ∧ R a b')
 
 end transition

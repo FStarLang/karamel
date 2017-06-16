@@ -44,12 +44,38 @@ inductive exp : Type u → Type (u+1)
 -- def value : Type (u+1) :=
 --   Π {X : Type u}, Σ (e : exp X), is_value e
 
+def is_value {X : Type u} : exp X → bool
+| (exp.int _ ) := tt
+| exp.unit := tt
+| (exp.loc _) := tt
+| _ := ff
+
 def exp_of_value : ∀ {X}, value → exp X
 | X (value.int n) := @exp.int X n
 | X value.unit := @exp.unit X
 | X (value.loc l) := @exp.loc X l
 
 instance : ∀ X, has_coe value (exp X) := λX, ⟨exp_of_value⟩
+
+lemma exp_is_value {X} (e : exp X) :
+  is_value e → ∃ (v : value), e = ↑v
+:=
+begin
+  intro H, cases e; simp [is_value] at H; try { cases H, done },
+  existsi (value.int _), refl,
+  existsi value.unit, refl,
+  existsi (value.loc _), refl
+end
+
+@[simp] lemma is_value_exp_of_value : ∀ {X} (v : value),
+  @is_value X (↑v) = true
+:=
+begin
+  intros X v, cases v;
+  unfold coe lift_t has_lift_t.lift coe_t has_coe_t.coe coe_b has_coe.coe;
+  simp [exp_of_value, is_value];
+  { unfold coe_sort coe_sort_bool has_coe_to_sort.coe, constructor }
+end
 
 inductive decl : Type (u+1)
 | function : glob → typ → exp (^pempty.{u}) → typ → decl

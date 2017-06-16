@@ -2,6 +2,9 @@ import init.function
 open function
 open tactic
 
+@[simp] lemma to_bool_true : to_bool true = tt := by refl
+@[simp] lemma to_bool_false : to_bool false = ff := by refl
+
 namespace common
 
 @[reducible] def field : Type := string

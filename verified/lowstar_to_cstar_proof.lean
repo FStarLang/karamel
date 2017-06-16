@@ -142,13 +142,13 @@ inductive back_ectx : ∀ {X : Type u} (names : X → ident),
 -- transition systems
 
 def sys_cstar
-  (p : cstar.program) (V : vars) (ss : list stmt) :
+  (p : cstar.program) :
   transition.system label
 :=
   transition.system.mk
     cstar_semantics.configuration
     (cstar_semantics.step p)
-    ([], V, ss)
+    -- ([], V, ss)
     (λC, let (stk, _, ss) := C in stk = [] ∧ ∃ e, ss = [stmt.return e])
     (by begin
        intros s s' ls F S,
@@ -158,21 +158,18 @@ def sys_cstar
     end)
 
 def sys_lowstar
-  {X : Type u} (lp : lowstar.program) (le : exp X) :
+  {X : Type u} (lp : lowstar.program) :
   transition.system label
 :=
   transition.system.mk
     (lowstar_semantics.configuration X)
     (lowstar_semantics.step lp)
-    (([] : lowstar_semantics.stack), le)
-    (λC, let (stk, le) := C in stk = [] ∧ ∃ lv, le = exp_of_value lv)
+    -- (([] : lowstar_semantics.stack), le)
+    lowstar_semantics.config_final
     (by begin
       intros s s' ls F S,
-      cases s with H e, simp [sys_lowstar._match_1] at F,
-      cases F with F1 F2, subst F1, cases F2 with v F2, subst F2,
-      cases S with _ H e e' _ E' ctx _ HE HE' AS,
-      cases ctx; simp [lowstar_semantics.apply_ectx] at HE; try { cases v; injection HE },
-      cases v; dsimp at HE; subst HE; cases AS
+      cases s with H e, cases F with _ Hv,
+      apply is_value_nostep; try { assumption }
     end)
 
 lemma cstar_determinist :

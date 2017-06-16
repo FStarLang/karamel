@@ -85,6 +85,11 @@ def stack : Type :=
 def configuration (X : Type u) : Type (u+1) :=
   stack × lowstar.exp X
 
+inductive config_final {X} : configuration X → Prop
+| mk : ∀ (ev : exp X),
+  is_value ev = tt →
+  config_final ([], ev)
+
 -- λow* atomic reduction rules
 -- Small-step semantics
 
