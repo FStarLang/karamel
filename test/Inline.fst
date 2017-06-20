@@ -2,7 +2,7 @@ module Inline
 
 open FStar
 open FStar.HyperStack
-open FStar.ST
+open FStar.HyperStack.ST
 open TestLib
 
 let alloc_and_init (i: Int32.t): StackInline (Buffer.buffer Int32.t)

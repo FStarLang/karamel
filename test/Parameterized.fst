@@ -2,7 +2,7 @@ module Parameterized
 
 //
 open FStar.Int32
-open FStar.ST
+open FStar.HyperStack.ST
 open TestLib
 
 let lbytes n =
@@ -19,7 +19,7 @@ let get (k: akey unit unit { Some? k }) =
   | Some k -> k
 
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
-  ST.Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
+  Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
   push_frame ();
   pop_frame ();

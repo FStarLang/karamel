@@ -1,7 +1,7 @@
 module Unsound
 
 open FStar.HyperStack
-open FStar.ST
+open FStar.HyperStack.ST
 open FStar.Int32
 open TestLib
 

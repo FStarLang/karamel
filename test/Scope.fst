@@ -2,10 +2,10 @@ module Scope
 
 //
 open FStar.Int32
-open FStar.ST
+open FStar.HyperStack.ST
 open TestLib
 
-let foo (): ST.Stack bool (fun _ -> true) (fun _ _ _ -> true) =
+let foo (): Stack bool (fun _ -> true) (fun _ _ _ -> true) =
   true
 
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->

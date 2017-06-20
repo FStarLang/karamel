@@ -1,6 +1,7 @@
 module DataTypes
 
 open FStar.Int.Cast
+open FStar.HyperStack.ST
 
 type t =
   | A: a:Int32.t -> b:Int64.t -> t
@@ -10,11 +11,11 @@ type u =
   | C: f:Int32.t -> g:Int64.t -> u
   | D: h:t -> u
 
-let something (): ST.Stack bool (fun _ -> true) (fun _ _ _ -> true) =
+let something (): Stack bool (fun _ -> true) (fun _ _ _ -> true) =
   true
 
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
-  ST.Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
+  Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
   push_frame ();
   let x = if something () then A 0l 1L else B 2y 3y 4y in

@@ -2,7 +2,7 @@ module Abbrev
 
 open FStar
 open FStar.HyperStack
-open FStar.ST
+open FStar.HyperStack.ST
 open FStar.Buffer
 open TestLib
 

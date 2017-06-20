@@ -2,11 +2,12 @@ module Loops
 
 open FStar
 open FStar.Buffer
+open FStar.HyperStack.ST
 module UInt32 = FStar.UInt32
 
 let main () =
   let b = Buffer.createL [ 1ul; 2ul; 3ul ] in
-  let h0 = ST.get () in
+  let h0 = get () in
   let inv h1 i =
     forall j. 0 <= j /\ j < i ==> (
       let old = Seq.index (Buffer.as_seq h0 b) j in
@@ -24,7 +25,7 @@ let main () =
       b.(i) <- b.(i) *%^ b.(i)
   in
   C.Loops.for 0ul 3ul inv f;
-  let h1 = ST.get () in
+  let h1 = get () in
   assert (Seq.index (Buffer.as_seq h1 b) 2 = 9ul);
   let f x = UInt32.(x *%^ x) in
   let out = Buffer.create 0ul 3ul in

@@ -1,6 +1,6 @@
 module Ghost1
 
-open FStar.HyperStack
+open FStar.HyperStack.ST
 open FStar.Buffer
 open FStar.UInt32
 
