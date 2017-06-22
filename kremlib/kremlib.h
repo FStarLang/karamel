@@ -530,8 +530,11 @@ static inline uint64_t FStar_Int_Cast_uint128_to_uint64_(uint128_t *x) {
 }
 
 static inline void FStar_UInt128_eq_mask_(uint128_t *x, uint128_t *y, uint128_t *r) {
-  r->low = FStar_UInt64_eq_mask(x->low, y->low);
-  r->high = FStar_UInt64_eq_mask(x->high, y->high);
+  uint64_t mask =
+    FStar_UInt64_eq_mask(x->low, y->low) &
+    FStar_UInt64_eq_mask(x->high, y->high);
+  r->low = mask;
+  r->high = mask;
 }
 
 static inline void FStar_UInt128_gte_mask_(uint128_t *x, uint128_t *y, uint128_t *r) {
