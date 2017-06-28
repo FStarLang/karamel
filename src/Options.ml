@@ -4,7 +4,8 @@
  * $krml_home/kremlib is added to includes
  *)
 let no_prefix: string list ref = ref [ "C" ]
-let add_include: string list ref = ref [ "\"kremlib.h\"" ]
+(* Note: kremlib.h is added at the very beginning in [Output.ml]. *)
+let add_include: string list ref = ref [ ]
 let warn_error = ref "+1-2+3..8"
 let tmpdir = ref "."
 let includes: string list ref = ref []
@@ -90,6 +91,6 @@ let drop: Bundle.pat list ref =
     Module [ "FStar"; "UInt63" ];
     Module [ "FStar"; "Int64" ];
     Module [ "FStar"; "UInt64" ];
-    Module [ "FStar"; "Int128" ];
-    Module [ "FStar"; "UInt128" ];
+    Module [ "FStar"; "Int128" ]
   ])
+  (* Kremlin.ml adds UInt128 to this list. *)

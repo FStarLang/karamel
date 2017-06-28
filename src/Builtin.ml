@@ -64,7 +64,7 @@ let uint128: file =
       (["FStar"; "UInt128"], "mul_wide"),
       TArrow (TInt UInt64, TArrow (TInt UInt64, TQualified (["FStar"; "UInt128"], "t"))))]
 
-let prelude =
+let prelude () =
   [
     mk_builtin_int UInt8;
     mk_builtin_int UInt16;
@@ -74,5 +74,9 @@ let prelude =
     mk_builtin_int Int16;
     mk_builtin_int Int32;
     mk_builtin_int Int64;
-    uint128
-  ]
+  ] @ (
+    if !Options.uint128 then
+      [ uint128 ]
+    else
+      []
+  )

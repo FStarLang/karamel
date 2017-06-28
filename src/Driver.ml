@@ -205,11 +205,17 @@ let detect_fstar () =
    * type-check them, as it assumes a primitive notion of integers... see also
    * [Options.drop] for modules that we're happy to let F* extract (for
    * typing), but don't want to generate C for. *)
-  List.iter (fun m ->
+  let record_no_extract m =
     fstar_options := "--no_extract" :: ("FStar." ^ m) :: !fstar_options
-  ) [ "Int8"; "UInt8"; "Int16"; "UInt16"; "Int31"; "UInt31"; "Int32"; "UInt32";
-      "Int63"; "UInt63"; "Int64"; "UInt64"; "Int128"; "UInt128"; "Seq.Base"; "HyperStack.ST";
+  in
+  List.iter record_no_extract
+    [ "Int8"; "UInt8"; "Int16"; "UInt16"; "Int31"; "UInt31"; "Int32"; "UInt32";
+      "Int63"; "UInt63"; "Int64"; "UInt64"; "Int128"; "Seq.Base"; "HyperStack.ST";
       "HyperStack"; "HyperHeap"; "Math.Lib" ];
+  if !Options.uint128 then
+    record_no_extract "UInt128"
+  else
+    fstar_options := (!fstar_home ^^ "ulib" ^^ "FStar.UInt128.fst") :: !fstar_options;
   KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
 
   flush stdout
