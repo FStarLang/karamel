@@ -336,8 +336,6 @@ static inline uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
   return low63 & high_bit;
 }
 
-static const uint64_t two51_1 = 2251799813685247;
-
 // Platform-specific 128-bit arithmetic. These are static functions in a header,
 // so that each translation unit gets its own copy and the C compiler can
 // optimize.
@@ -387,11 +385,6 @@ static inline void store128_be(uint8_t *b, uint128_t n) {
 #define FStar_UInt128_op_Hat_Hat(x, y) ((x) ^ (y))
 
 #else // !defined(KRML_UINT128)
-
-#define CONSTANT_TIME_CARRY(a, b)                                              \
-  ((a ^ ((a ^ b) | ((a - b) ^ b))) >> (sizeof(a) * 8 - 1))
-//  (a < b) is faster but may not be constant time
-//  better to use intrinsics/assembly
 
 #include "FStar.h"
 typedef FStar_UInt128_uint128 FStar_UInt128_t_, uint128_t;
