@@ -384,6 +384,22 @@ static inline void store128_be(uint8_t *b, uint128_t n) {
 #define FStar_UInt128_mul_wide(x, y) ((__int128)(x) * (y))
 #define FStar_UInt128_op_Hat_Hat(x, y) ((x) ^ (y))
 
+static inline uint128_t FStar_UInt128_eq_mask(uint128_t x, uint128_t y) {
+  uint64_t mask =
+      FStar_UInt64_eq_mask((uint64_t)(x >> 64), (uint64_t)(y >> 64)) &
+      FStar_UInt64_eq_mask(x, y);
+  return ((uint128_t)mask) << 64 | mask;
+}
+
+static inline uint128_t FStar_UInt128_gte_mask(uint128_t x, uint128_t y) {
+  uint64_t mask =
+      (FStar_UInt64_gte_mask(x >> 64, y >> 64) &
+       ~(FStar_UInt64_eq_mask(x >> 64, y >> 64))) |
+      (FStar_UInt64_eq_mask(x >> 64, y >> 64) & FStar_UInt64_gte_mask(x, y));
+  return ((uint128_t)mask) << 64 | mask;
+}
+
+
 #else // !defined(KRML_UINT128)
 
 #include "FStar.h"

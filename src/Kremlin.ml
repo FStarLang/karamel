@@ -257,6 +257,10 @@ Supported options:|}
     Options.struct_passing := false
   end;
 
+  (* If the compiler supports uint128, then we just drop the module and let
+   * dependency analysis use the FStar.UInt128.fsti. If the compiler does not,
+   * then we bring the implementation into scope instead. The latter is
+   * performed in src/Driver.ml because we need to know where FSTAR_HOME is. *)
   if !Options.uint128 then
     Options.drop := Bundle.Module [ "FStar"; "UInt128" ] :: !Options.drop;
 
