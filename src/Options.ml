@@ -52,7 +52,7 @@ let default_options () =
       "-ccopts"; "-g,-O3,-D_BSD_SOURCE,-D_DEFAULT_SOURCE";
     |];
     "msvc", [|
-      "-warn-error"; "@8"; "-fnouint128"
+      "-warn-error"; "@6"; "-fnouint128"
     |];
     "", [| |]
   ]
