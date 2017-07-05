@@ -52,6 +52,7 @@ let _ =
   let arg_wasm = ref false in
   let c_files = ref [] in
   let o_files = ref [] in
+  let js_files = ref [] in
   let fst_files = ref [] in
   let filename = ref "" in
   let p k = String.concat " " (Array.to_list (List.assoc k (Options.default_options ()))) in
@@ -221,6 +222,8 @@ Supported options:|}
       o_files := f :: !o_files
     else if Filename.check_suffix f ".c" then
       c_files := f :: !c_files
+    else if Filename.check_suffix f ".js" then
+      js_files := f :: !js_files
     else if Filename.check_suffix f ".json" || Filename.check_suffix f ".krml" then begin
       if !filename <> "" then
         Warnings.fatal_error "At most one [.json] or [.krml] file supported";
@@ -404,15 +407,7 @@ Supported options:|}
     let modules = CFlatToWasm.mk_files files in
     tick_print true "CFlatToWasm";
 
-    List.iter (fun (name, module_) ->
-      let s = Wasm.Encode.encode module_ in
-      let name = name ^ ".wasm" in
-      Utils.with_open_out (Filename.concat !Options.tmpdir name) (fun oc -> output_string oc s);
-      KPrint.bprintf "Wrote %s\n" name;
-      if !arg_print_wasm then
-        Wasm.Print.module_ stdout Utils.twidth module_;
-      flush stderr
-    ) modules
+    OutputJs.write_all !js_files modules !arg_print_wasm
 
   else
     (* Translate to C*... *)
