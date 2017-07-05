@@ -3,11 +3,12 @@
  * meta-theoretic argument, to actual C loops. *)
 module C.Loops
 
-open FStar.ST
+open FStar.HyperStack.ST
 open FStar.Buffer
 
 module HH = FStar.HyperHeap
 module HS = FStar.HyperStack
+module HST = FStar.HyperStack.ST
 module UInt32 = FStar.UInt32
 
 include Spec.Loops
@@ -149,7 +150,7 @@ val map:
          let s2 = as_seq h_2 output in
          s2 == seq_map f s1) ))
 let map #a #b output input l f =
-  let h0 = ST.get() in
+  let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 output /\ live h1 input /\ modifies_1 output h0 h1 /\ i <= UInt32.v l
     /\ (forall (j:nat). {:pattern (get h1 output j)} (j >= i /\ j < UInt32.v l) ==> get h1 output j == get h0 output j)
@@ -162,7 +163,7 @@ let map #a #b output input l f =
     output.(i) <- f (input.(i))
   in
   for 0ul l inv f';
-  let h1 = ST.get() in
+  let h1 = HST.get() in
   Seq.lemma_eq_intro (as_seq h1 output) (seq_map f (as_seq h0 input))
 
 
@@ -186,7 +187,7 @@ val map2:
          let s = as_seq h_2 output in
          s == seq_map2 f s1 s2) ))
 let map2 #a #b #c output in1 in2 l f =
-  let h0 = ST.get() in
+  let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 output /\ live h1 in1 /\ live h1 in2 /\ modifies_1 output h0 h1 /\ i <= UInt32.v l
     /\ (forall (j:nat). {:pattern (get h1 output j)} (j >= i /\ j < UInt32.v l) ==> get h1 output j == get h0 output j)
@@ -199,7 +200,7 @@ let map2 #a #b #c output in1 in2 l f =
     output.(i) <- f (in1.(i)) (in2.(i))
   in
   for 0ul l inv f';
-  let h1 = ST.get() in
+  let h1 = HST.get() in
   Seq.lemma_eq_intro (as_seq h1 output) (seq_map2 f (as_seq h0 in1) (as_seq h0 in2))
 
 
@@ -219,7 +220,7 @@ val in_place_map:
          let s2 = as_seq h_2 b in
          s2 == seq_map f s1) ))
 let in_place_map #a b l f =
-  let h0 = ST.get() in
+  let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 b /\ modifies_1 b h0 h1 /\ i <= UInt32.v l
     /\ (forall (j:nat). {:pattern (get h1 b j)} (j >= i /\ j < UInt32.v l) ==> get h1 b j == get h0 b j)
@@ -232,7 +233,7 @@ let in_place_map #a b l f =
     b.(i) <- f (b.(i))
   in
   for 0ul l inv f';
-  let h1 = ST.get() in
+  let h1 = HST.get() in
   Seq.lemma_eq_intro (as_seq h1 b) (seq_map f (as_seq h0 b))
 
 
@@ -255,7 +256,7 @@ val in_place_map2:
          let s = as_seq h_2 in1 in
          s == seq_map2 f s1 s2) ))
 let in_place_map2 #a #b in1 in2 l f =
-  let h0 = ST.get() in
+  let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 in1 /\ live h1 in2 /\ modifies_1 in1 h0 h1 /\ i <= UInt32.v l
     /\ (forall (j:nat). {:pattern (get h1 in1 j)} (j >= i /\ j < UInt32.v l) ==> get h1 in1 j == get h0 in1 j)
@@ -268,7 +269,7 @@ let in_place_map2 #a #b in1 in2 l f =
     in1.(i) <- f (in1.(i)) (in2.(i))
   in
   for 0ul l inv f';
-  let h1 = ST.get() in
+  let h1 = HST.get() in
   Seq.lemma_eq_intro (as_seq h1 in1) (seq_map2 f (as_seq h0 in1) (as_seq h0 in2))
 
 
@@ -302,7 +303,7 @@ val repeat:
          let s' = as_seq h_2 b in
          s' == repeat_spec (UInt32.v n) f s) ))
 let repeat #a l f b max fc =
-  let h0 = ST.get() in
+  let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 b /\ modifies_1 b h0 h1 /\ i <= UInt32.v max
     /\ as_seq h1 b == repeat_spec i f (as_seq h0 b)
@@ -342,7 +343,7 @@ val repeat_range:
          let s' = as_seq h_2 b in
          s' == repeat_range_spec (UInt32.v min) (UInt32.v max) f s) ))
 let repeat_range #a l min max f b fc =
-  let h0 = ST.get() in
+  let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 b /\ modifies_1 b h0 h1 /\ i <= UInt32.v max /\ UInt32.v min <= i
     /\ as_seq h1 b == repeat_range_spec (UInt32.v min) i f (as_seq h0 b)

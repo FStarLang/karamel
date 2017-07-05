@@ -2,7 +2,7 @@ module ML16
 
 // The HyperStack library and friends
 open FStar.HyperStack
-open FStar.ST
+open FStar.HyperStack.ST
 open FStar.Buffer
 open FStar.Int32
 

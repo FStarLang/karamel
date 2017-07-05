@@ -1,6 +1,6 @@
 module DataTypesSimple
 
-open FStar.ST
+open FStar.HyperStack.ST
 
 type t = | Cons1 | Cons2
 
@@ -10,11 +10,11 @@ let magnitude = function
   | Point2D x y ->
       FStar.Int32.(x *%^ x +%^ y *%^ y)
 
-let f (): ST.Stack t (fun _ -> true) (fun _ _ _ -> true) =
+let f (): Stack t (fun _ -> true) (fun _ _ _ -> true) =
   Cons1
 
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
-  ST.Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
+  Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
   push_frame ();
   let x = Cons1, Cons2 in

@@ -1,6 +1,6 @@
 module TestLib
 
-open FStar.ST
+open FStar.HyperStack.ST
 open FStar.Buffer
 
 (** Some test routines *)

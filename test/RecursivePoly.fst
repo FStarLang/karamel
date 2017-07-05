@@ -1,6 +1,6 @@
 module RecursivePoly
 
-open FStar.ST
+open FStar.HyperStack.ST
 
 module B = FStar.Buffer
 

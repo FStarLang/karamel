@@ -1,9 +1,9 @@
 module Tuples
 
-open FStar.ST
+open FStar.HyperStack.ST
 
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
-  ST.Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
+  Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
   push_frame ();
   let x = 1ul, 2ul in

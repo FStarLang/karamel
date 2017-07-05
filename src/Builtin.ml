@@ -56,23 +56,6 @@ let mk_builtin_int w =
   let t = TInt w in
   mk_int m t
 
-let uint128: file =
-  let name, decls = mk_int "UInt128" (TQualified (["FStar";"UInt128"],"t")) in
-  name, decls @ [
-    DExternal (
-      None,
-      (["FStar"; "UInt128"], "mul_wide"),
-      TArrow (TInt UInt64, TArrow (TInt UInt64, TQualified (["FStar"; "UInt128"], "t"))))]
-
-let prelude =
-  [
-    mk_builtin_int UInt8;
-    mk_builtin_int UInt16;
-    mk_builtin_int UInt32;
-    mk_builtin_int UInt64;
-    mk_builtin_int Int8;
-    mk_builtin_int Int16;
-    mk_builtin_int Int32;
-    mk_builtin_int Int64;
-    uint128
-  ]
+let prelude () =
+  List.map mk_builtin_int
+    [ UInt8; UInt16; UInt32; UInt64; Int8; Int16; Int32; Int64 ]

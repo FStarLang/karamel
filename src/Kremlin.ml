@@ -257,6 +257,13 @@ Supported options:|}
     Options.struct_passing := false
   end;
 
+  (* If the compiler supports uint128, then we just drop the module and let
+   * dependency analysis use the FStar.UInt128.fsti. If the compiler does not,
+   * then we bring the implementation into scope instead. The latter is
+   * performed in src/Driver.ml because we need to know where FSTAR_HOME is. *)
+  if !Options.uint128 then
+    Options.drop := Bundle.Module [ "FStar"; "UInt128" ] :: !Options.drop;
+
   (* Timings. *)
   Time.start ();
   let tick_print ok fmt =
@@ -297,7 +304,7 @@ Supported options:|}
     Yojson.Safe.to_channel stdout (InputAst.binary_format_to_yojson (InputAst.current_version, files));
 
   (* -dast *)
-  let files = Builtin.prelude @ InputAstToAst.mk_files files in
+  let files = Builtin.prelude () @ InputAstToAst.mk_files files in
   if !arg_print_ast then
     print PrintAst.print_files files;
 

@@ -16,6 +16,7 @@ let header name =
   let header = !Options.header in
   let prefix = string (Printf.sprintf
 {|%s
+#include "kremlib.h"
 #ifndef __%s_H
 #define __%s_H
 |} header name name) in

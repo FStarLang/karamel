@@ -4,10 +4,11 @@
  * $krml_home/kremlib is added to includes
  *)
 let no_prefix: string list ref = ref [ "C" ]
-let add_include: string list ref = ref [ "\"kremlib.h\"" ]
+(* Note: kremlib.h is added at the very beginning in [Output.ml]. *)
+let add_include: string list ref = ref [ ]
 let warn_error = ref "+1-2+3..8"
 let tmpdir = ref "."
-let includes: string list ref = ref [ "FSTAR_LIB/hyperstack" ]
+let includes: string list ref = ref []
 let verbose = ref false
 let exe_name = ref ""
 let cc = ref "gcc"
@@ -51,7 +52,7 @@ let default_options () =
       "-ccopts"; "-g,-O3,-D_BSD_SOURCE,-D_DEFAULT_SOURCE";
     |];
     "msvc", [|
-      "-warn-error"; "@8"; "-fnouint128"
+      "-warn-error"; "@6"; "-fnouint128"
     |];
     "", [| |]
   ]
@@ -90,6 +91,6 @@ let drop: Bundle.pat list ref =
     Module [ "FStar"; "UInt63" ];
     Module [ "FStar"; "Int64" ];
     Module [ "FStar"; "UInt64" ];
-    Module [ "FStar"; "Int128" ];
-    Module [ "FStar"; "UInt128" ];
+    Module [ "FStar"; "Int128" ]
   ])
+  (* Kremlin.ml adds UInt128 to this list. *)

@@ -2,7 +2,7 @@ module Attributes
 
 open FStar
 open FStar.HyperStack
-open FStar.ST
+open FStar.HyperStack.ST
 
 [@ "c_inline" ]
 let square (x: Int32.t): Tot Int32.t =

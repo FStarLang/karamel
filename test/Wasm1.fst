@@ -1,6 +1,6 @@
 module Wasm1
 
-open FStar.ST
+open FStar.HyperStack.ST
 open FStar.UInt32
 
 type uint32 = FStar.UInt32.t

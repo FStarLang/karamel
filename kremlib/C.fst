@@ -1,6 +1,6 @@
 module C
 
-open FStar.ST
+open FStar.HyperStack.ST
 open FStar.Buffer
 
 module HH = FStar.HyperHeap
