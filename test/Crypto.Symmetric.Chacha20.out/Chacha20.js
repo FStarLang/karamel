@@ -9,29 +9,19 @@ function p8(n) {
   return ("0"+Number(n).toString(16)).slice(-2);
 }
 
-function hexn(m8, i, m) {
-  let buf = "";
-  let n = m - 1;
-  while (n >= 0) {
-    buf += p8(m8[i+n]);
-    n--;
-  }
-  return buf;
-}
-
-function hex32(m8, start) {
-  return hexn(m8, start, 4);
-}
-
-function hex64(m8, start) {
-  return hexn(m8, start, 8);
-}
-
 function hex(m8, start, len) {
   let s = "";
   for (let i = 0; i < len; ++i)
     s += p8(m8[start + i]);
   return s;
+}
+
+function hex32(m8, start) {
+  return hex(m8, start, 4);
+}
+
+function hex64(m8, start) {
+  return hex(m8, start, 8);
 }
 
 function p32(n) {
