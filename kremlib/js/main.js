@@ -1,4 +1,5 @@
-// This module expects my_js_files and my_modules to be arrays of filenames.
+// This module expect a file named shell.js, that defines my_js_files and
+// my_modules to be arrays of filenames.
 // The former are loaded into scope, and the latter are folded with name
 // propagation just like kreMLin WASM codegen expects.
 // Once everything is loaded, we try to find a main function in any of the
@@ -14,7 +15,10 @@ if ("load" in this)
 else if ("WScript" in this)
   my_load = WScript.LoadScriptFile;
 else
-  throw "Unsupported shell!";
+  throw "Unsupported shell: try running [d8 <this-file>] or [ch -Wasm <this-file>]";
+
+if (!("WebAssembly" in this))
+  throw "WebAssembly not enabled; are you running an old shell, or missing [-Wasm]?";
 
 var my_print = print;
 

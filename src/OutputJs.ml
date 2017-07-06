@@ -15,6 +15,7 @@ let html_stub = format_of_string {|
     <script type="application/javascript" src="loader.js"></script>
   </head>
   <body>
+    <pre id="terminal"></pre>
   </body>
 </html>
 |}
