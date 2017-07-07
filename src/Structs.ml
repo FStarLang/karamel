@@ -303,7 +303,18 @@ let pass_by_ref files =
   Helpers.visit_files [] (pass_by_ref action_table) files
 
 
-(* Need to roll out this one by hand... because it changes the types. *)
+(* Ensure that values of struct types are always allocated at a given address,
+ * i.e. in a stack buffer. Specifically, we perform two rewritings, where [t] is
+ * a struct type:
+ * - [{ f = e }] becomes [let x: t* = ebufcreate { f = e } 1 in *x]
+ * - [let x: t = e1 in e2] becomes [let x: t* = &e1 in [x*/x]e2]
+ * We also perform a cosmetic rewriting:
+ * - [&x[0]] becomes [x].
+ *
+ * We do not recurse into the initial value of ebufcreate nodes, the rhs of
+ * ebufwrite, and into nested structs within outer struct literals. All of these
+ * already have a destination address, meaning the WASM codegen will be able to
+ * handle them. *)
 let to_addr is_struct =
   let rec to_addr e =
     let was_struct = is_struct e.typ in
@@ -359,7 +370,14 @@ let to_addr is_struct =
         lb @ List.flatten lbs, w (EApp (e, es))
 
     | ELet (b, e1, e2) ->
-        let lb1, e1 = to_addr e1 in
+        let lb1, e1 =
+          (* [let x: t = any] becomes [let x: t* = ebufcreate any 1] *)
+          match is_struct b.typ, e1.node with
+          | true, EAny ->
+              [], with_type (TBuf b.typ) (EBufCreate (Stack, e1, Helpers.oneu32))
+          | _ ->
+              to_addr e1
+        in
         let b, e1, e2 =
           if is_struct b.typ then
             let t' = TBuf b.typ in
