@@ -375,11 +375,12 @@ Supported options:|}
    * creates new opportunities for the removal of unused variables, but also
    * breaks the earlier transformation to a statement language, which we perform
    * again. Note that [remove_unused] generates MetaSequence let-bindings,
-   * meaning that it has to occur before [simplify2]. *)
+   * meaning that it has to occur before [simplify2]. Note that [in_memory]
+   * generates inner let-bindings, so it has to be before [simplify2]. *)
   let files = Inlining.inline_function_frames files in
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
-  let files = if !arg_wasm then Structs.in_memory files else files in
   let files = Simplify.remove_unused files in
+  let files = if !arg_wasm then Structs.in_memory files else files in
   let files = Simplify.simplify2 files in
   if !arg_print_inline then
     print PrintAst.print_files files;

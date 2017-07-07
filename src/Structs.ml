@@ -326,65 +326,65 @@ let to_addr is_struct =
       | e ->
           e
     in
-    (* KPrint.bprintf "got: %a\n" pexpr e; *)
+    let push_addrof e =
+      let t = TBuf e.typ in
+      Helpers.nest_in_return_pos t (fun e -> with_type t (EAddrOf e)) e
+    in
     match e.node with
     (* Mundane cases. None of these may have a struct type. *)
     | EAny
     | EUnit
     | EBool _
     | EString _
-    | EQualified _
     | EOp _
     | EConstant _
     | EPushFrame
     | EPopFrame
-    | EEnum _
-    | EAbort ->
+    | EEnum _ ->
         not_struct ();
-        [], e
+        e
 
+    | EQualified _ ->
+        if is_struct e.typ then
+          Helpers.mk_deref e.typ (EAddrOf e)
+        else
+          e
+
+    | EAbort
     | EOpen _ | EBound _ ->
-        [], e
+        e
 
     | EWhile (e1, e2) ->
         not_struct ();
-        let lb1, e1 = to_addr e1 in
-        let lb2, e2 = to_addr e2 in
-        lb1 @ lb2, w (EWhile (e1, e2))
+        w (EWhile (to_addr e1, to_addr e2))
 
     | EFor (b, e1, e2, e3, e4) ->
         not_struct ();
-        let lb1, e1 = to_addr e1 in
-        let lb2, e2 = to_addr e2 in
-        let lb3, e3 = to_addr e3 in
-        let lb4, e4 = to_addr e4 in
-        lb1 @ lb2 @ lb3 @ lb4, w (EFor (b, e1, e2, e3, e4))
+        w (EFor (b, to_addr e1, to_addr e2, to_addr e3, to_addr e4))
 
     | EIgnore e ->
         not_struct ();
-        let lb, e = to_addr e in
-        lb, w (EIgnore e)
+        w (EIgnore (to_addr e))
 
     | EApp (e, es) ->
         not_struct ();
-        let lb, e = to_addr e in
-        let lbs, es = List.split (List.map to_addr es) in
-        lb @ List.flatten lbs, w (EApp (e, es))
+        w (EApp (to_addr e, List.map to_addr es))
 
     | ELet (b, e1, e2) ->
-        let b, (lb1, e1), e2 =
+        let b, e1, e2 =
           if is_struct b.typ then
+            (* Our transformation kicks in. *)
             let t' = TBuf b.typ in
-            let lb1, e1 =
+            let e1 =
               if e1.node = EAny then
                 (* [let x: t = any] becomes [let x: t* = ebufcreate any 1] *)
-                [], with_type (TBuf b.typ) (EBufCreate (Stack, e1, Helpers.oneu32))
+                with_type (TBuf b.typ) (EBufCreate (Stack, e1, Helpers.oneu32))
               else
-                let lb1, e1 = to_addr e1 in
-                lb1, simpl (with_type t' (EAddrOf e1))
+                (* Recursively visit [e1]; take the resulting address. *)
+                simpl (push_addrof (to_addr e1))
             in
             { b with typ = t' },
-            (lb1, e1),
+            e1,
             DeBruijn.subst_no_open
               (Helpers.mk_deref b.typ (EBound 0))
               0
@@ -392,96 +392,80 @@ let to_addr is_struct =
           else
             b, to_addr e1, e2
         in
-        let lb2, e2 = to_addr e2 in
-        lb1 @ lb2, w (ELet (b, e1, e2))
+        let e2 = to_addr e2 in
+        w (ELet (b, e1, e2))
 
     | EFlat _ ->
         (* Not descending *)
         assert was_struct;
-        let b, ref = Helpers.mk_binding "alloc" (TBuf e.typ) in
-        [ b, with_type (TBuf e.typ) (EBufCreate (Stack, e, Helpers.oneu32)) ],
-        (Helpers.mk_deref e.typ ref.node)
+        let b, _ = Helpers.mk_binding "alloc" (TBuf e.typ) in
+        w (ELet (b,
+          with_type (TBuf e.typ) (EBufCreate (Stack, e, Helpers.oneu32)),
+          Helpers.mk_deref e.typ (EBound 0)))
 
     | EIfThenElse (e1, e2, e3) ->
-        let lb1, e1 = to_addr e1 in
-        let lb2, e2 = to_addr e2 in
-        let lb3, e3 = to_addr e3 in
-        lb1 @ lb2 @ lb3, w (EIfThenElse (e1, e2, e3))
+        w (EIfThenElse (to_addr e1, to_addr e2, to_addr e3))
 
     | EAssign (e1, e2) ->
+        (* In the case of a by-copy struct assignment (for the return value of
+         * an if-then-else, for instance), we do not recurse. This is morally an
+         * EBufFill. *)
         not_struct ();
-        let lb1, e1 = to_addr e1 in
-        let lb2, e2 = to_addr e2 in
-        lb1 @ lb2, w (EAssign (e1, e2))
+        let e1 = to_addr e1 in
+        let e2 = if is_struct e1.typ then e2 else to_addr e2 in
+        w (EAssign (e1, e2))
 
     | EBufCreate (l, e1, e2) ->
         (* Not descending into [e1], as it will undergo the "allocate at
          * address" treatment later on *)
-        let lb2, e2 = to_addr e2 in
-        lb2, w (EBufCreate (l, e1, e2))
+        let e2 = to_addr e2 in
+        w (EBufCreate (l, e1, e2))
 
     | EBufCreateL _ ->
-        [], e
+        e
 
     | EBufRead (e1, e2) ->
-        let lb1, e1 = to_addr e1 in
-        let lb2, e2 = to_addr e2 in
-        lb1 @ lb2, w (EBufRead (e1, e2))
+        w (EBufRead (to_addr e1, to_addr e2))
 
     | EBufWrite (e1, e2, e3) ->
         (* Not descending into [e3]... *)
         not_struct ();
-        let lb1, e1 = to_addr e1 in
-        let lb2, e2 = to_addr e2 in
-        lb1 @ lb2, w (EBufWrite (e1, e2, e3))
+        let e1 = to_addr e1 in
+        let e2 = to_addr e2 in
+        w (EBufWrite (e1, e2, e3))
 
     | EField (e, f) ->
-        let lb, e = to_addr e in
-        lb, w (EField (e, f))
+        w (EField (to_addr e, f))
 
     | EAddrOf e ->
-        let lb, e = to_addr e in
-        lb, simpl (w (EAddrOf e))
+        simpl (w (EAddrOf (to_addr e)))
 
     | EBufSub (e1, e2) ->
-        let lb1, e1 = to_addr e1 in
-        let lb2, e2 = to_addr e2 in
-        lb1 @ lb2, w (EBufSub (e1, e2))
+        w (EBufSub (e1, e2))
 
     | EBufBlit (e1, e2, e3, e4, e5) ->
-        let lb1, e1 = to_addr e1 in
-        let lb2, e2 = to_addr e2 in
-        let lb3, e3 = to_addr e3 in
-        let lb4, e4 = to_addr e4 in
-        let lb5, e5 = to_addr e5 in
-        lb1 @ lb2 @ lb3 @ lb4 @ lb5, w (EBufBlit (e1, e2, e3, e4, e5))
+        w (EBufBlit (to_addr e1, to_addr e2, to_addr e3, to_addr e4, to_addr e5))
 
     | EBufFill (e1, e2, e3) ->
         (* Not descending into e2 *)
-        let lb1, e1 = to_addr e1 in
-        let lb3, e3 = to_addr e3 in
-        lb1 @ lb3, w (EBufFill (e1, e2, e3))
+        let e1 = to_addr e1 in
+        let e3 = to_addr e3 in
+        w (EBufFill (e1, e2, e3))
 
     | ESwitch (e, branches) ->
-        let lb, e = to_addr e in
-        let lbs, branches = List.split (List.map (fun (lid, e) ->
-          let lb, e = to_addr e in
-          lb, (lid, e)
-        ) branches) in
-        lb @ List.flatten lbs, w (ESwitch (e, branches))
+        let e = to_addr e in
+        let branches = List.map (fun (lid, e) -> lid, to_addr e) branches in
+        w (ESwitch (e, branches))
 
     | EReturn e ->
         assert (not (is_struct e.typ));
-        let lb, e = to_addr e in
-        lb, w (EReturn e)
+        w (EReturn (to_addr e))
 
     | ECast (e, t) ->
-        let lb, e = to_addr e in
-        lb, w (ECast (e, t))
+        w (ECast (to_addr e, t))
 
     | EComment (s, e, s') ->
-        let lb, e = to_addr e in
-        lb, w (EComment (s, e, s'))
+        w (EComment (s, to_addr e, s'))
 
     | ESequence _
     | ETuple _
@@ -494,9 +478,7 @@ let to_addr is_struct =
     inherit [unit] map
 
     method! dfunction _ cc flags n ret lid binders body =
-      let lbs, body = to_addr body in
-      let body = Helpers.nest lbs ret body in
-      DFunction (cc, flags, n, ret, lid, binders, body)
+      DFunction (cc, flags, n, ret, lid, binders, to_addr body)
   end
 
 

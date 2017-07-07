@@ -737,9 +737,12 @@ and check_valid_assignment_lhs env e =
       if not mut then
         type_error env "the field %s of type %a is not marked as mutable" f ptyp t1;
       t2
+  | EBufRead _ ->
+      (* Introduced by the wasm struct allocation phase. *)
+      e.typ
   | _ ->
       type_error env "EAssign wants a lhs that's a mutable, local variable, or a \
-        path to a mutable field"
+        path to a mutable field; got %a instead" pexpr e
 
 and check_valid_path env e =
   match e.node with
