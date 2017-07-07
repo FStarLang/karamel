@@ -302,6 +302,26 @@ Supported options:|}
 
   let files = InputAst.read_file filename in
 
+  (* A quick sanity check to save myself some time. *)
+  begin try
+    let has_uint128 =
+      List.exists (function
+        | InputAst.DTypeFlat (([ "FStar"; "UInt128" ], "uint128"), _, _) ->
+            true
+        | _ ->
+            false
+      ) (List.assoc "FStar_UInt128" files)
+    in
+    (* The input file defines uint128 if and only if the backend does not
+     * support it. *)
+    if has_uint128 <> not !Options.uint128 then
+      Warnings.fatal_error "The implementation of FStar.UInt128 should be \
+        present in the input if and only if using -fnouint128. Is out.krml \
+        outdated?"
+  with Not_found ->
+    ()
+  end;
+
   (* -djson *)
   if !arg_print_json then
     Yojson.Safe.to_channel stdout (InputAst.binary_format_to_yojson (InputAst.current_version, files));

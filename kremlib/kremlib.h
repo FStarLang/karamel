@@ -77,7 +77,7 @@ void *Prims____Cons___tl(void *_);
 #define KRML_EABORT(t) (exit(255), *((t*)malloc(sizeof(t))))
 
 #define KRML_CHECK_SIZE(elt, size)                                             \
-  if (((size_t)size) > SIZE_MAX / sizeof(elt)) {                                       \
+  if (((size_t)size) > SIZE_MAX / sizeof(elt)) {                               \
     printf("Maximum allocatable size exceeded, aborting before overflow at "   \
            "%s:%d\n",                                                          \
            __FILE__, __LINE__);                                                \
