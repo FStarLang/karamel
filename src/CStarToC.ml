@@ -121,11 +121,16 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
       Compound stmts
 
 and mk_for_loop_initializer e_array e_size e_value: C.stmt =
-  For (
-    (Int K.UInt, None, [ Ident "_i", Some (InitExpr zero)]),
-    Op2 (K.Lt, Name "_i", e_size),
-    Op1 (K.PreIncr, Name "_i"),
-    Expr (Op2 (K.Assign, Index (e_array, Name "_i"), e_value)))
+  match e_size with 
+  | C.Constant (_, "1")
+  | C.Cast (_, C.Constant (_, "1")) ->
+      Expr (Op2 (K.Assign, Index (e_array, Constant (K.UInt, "0")), e_value))
+  | _ ->
+      For (
+        (Int K.UInt, None, [ Ident "_i", Some (InitExpr zero)]),
+        Op2 (K.Lt, Name "_i", e_size),
+        Op1 (K.PreIncr, Name "_i"),
+        Expr (Op2 (K.Assign, Index (e_array, Name "_i"), e_value)))
 
 and mk_memset_zero_initializer e_array e_size =
   Expr (Call (Name "memset", [
@@ -203,6 +208,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let (maybe_init, init_type): C.init option * T.init = match init, size with
         | _, Constant (_, "0") ->
             (* zero-sized array *)
+            None, T.Nope
+        | Any, _ ->
+            (* no inital value *)
             None, T.Nope
         | Constant ((_, "0") as k), Constant _ ->
             (* The only case the we can initialize statically is a known, static

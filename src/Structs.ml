@@ -370,25 +370,25 @@ let to_addr is_struct =
         lb @ List.flatten lbs, w (EApp (e, es))
 
     | ELet (b, e1, e2) ->
-        let lb1, e1 =
-          (* [let x: t = any] becomes [let x: t* = ebufcreate any 1] *)
-          match is_struct b.typ, e1.node with
-          | true, EAny ->
-              [], with_type (TBuf b.typ) (EBufCreate (Stack, e1, Helpers.oneu32))
-          | _ ->
-              to_addr e1
-        in
-        let b, e1, e2 =
+        let b, (lb1, e1), e2 =
           if is_struct b.typ then
             let t' = TBuf b.typ in
+            let lb1, e1 =
+              if e1.node = EAny then
+                (* [let x: t = any] becomes [let x: t* = ebufcreate any 1] *)
+                [], with_type (TBuf b.typ) (EBufCreate (Stack, e1, Helpers.oneu32))
+              else
+                let lb1, e1 = to_addr e1 in
+                lb1, simpl (with_type t' (EAddrOf e1))
+            in
             { b with typ = t' },
-            simpl (with_type t' (EAddrOf e1)),
+            (lb1, e1),
             DeBruijn.subst_no_open
               (Helpers.mk_deref b.typ (EBound 0))
               0
               e2
           else
-            b, e1, e2
+            b, to_addr e1, e2
         in
         let lb2, e2 = to_addr e2 in
         lb1 @ lb2, w (ELet (b, e1, e2))
