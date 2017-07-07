@@ -79,6 +79,20 @@ let lift_p (k: int) (pat: pattern): pattern =
 
 (* Substitute [e2] for [i] in [e1]. *)
 
+let subst_no_open (e2: expr) (i: int) (e1: expr) =
+  (object
+    inherit map_counting
+    method! ebound i _ j =
+      if j = i then
+        (lift i e2).node
+      else
+        EBound j
+  end)#visit i e1
+
+(* ---------------------------------------------------------------------------- *)
+
+(* Substitute [e2] for [i] in [e1]. These should be called [open]. *)
+
 class subst (e2: expr) = object
   (* The environment [i] is the variable that we are looking for. *)
   inherit map_counting

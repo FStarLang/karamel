@@ -16,6 +16,8 @@ type loc =
   | ForIter
   | While
   | Branch of lident
+  | Sequence of int
+  | SequenceLast
 
 let print_loc = function
   | InTop l ->
@@ -40,6 +42,10 @@ let print_loc = function
       string "after the definition of " ^^ string s
   | Branch l ->
       string "in branch " ^^ print_lident l
+  | SequenceLast ->
+      string "in the last element of the sequence"
+  | Sequence i ->
+      string "in the sequence statement at index " ^^ int i
 
 let print_location locs =
   separate_map (string ", ") print_loc locs

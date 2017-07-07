@@ -303,77 +303,34 @@ let pass_by_ref files =
   Helpers.visit_files [] (pass_by_ref action_table) files
 
 
-(* Explicitly allocate structs in memory, and initialize them in place. This
- * eliminates structure values, and replaces them with pointers; the lifetime of
- * these structs is extended to the enclosing push/pop frame. Copies become
- * explicit.
- * - This allocation scheme is inefficient because offsets are dynamically
- *   computed as we grow the stack. A later phase should collect all
- *   statically-sized buffer allocations and lay them out near the top of the
- *   (in-memory) frame, leaving it up to dynamically-sized buffers to grow the
- *   highwater mark.
- *
- * - The essence of the translation is, for [[e]] a "terminal" node:
- *
- *     [[e: t]] when t is a struct becomes
- *     [[let x: t* = Buffer.create any t 1 in 
- *       alloc_at (e, x); // allocate e at address x
- *       x]]
- *
- *     Terminal nodes that may have struct types are: EAny (!), NOT EApp
- *     (because we just rewrote these above), EFlat, EField.
- *
- *   For non-terminal nodes, such as let:
- *
- *     [[let x: t = e1 in e2]] when t is a struct becomes:
- *     [[let x: t* = e1 in e2]]
- *
- *     Idem for if/then/else and switch.
- *
- *   Finally, some AST nodes may refer to structs now need to deal with pointers:
- *
- *     [[e.f1..fn]] becomes [[e->f1..fn]]
- *     [[addrof e]] becomes [[e]]
- *     [[e1[e2] <- (e3: t)]] becomes a [[blit]]
- *     [[ebuffill]] becomes a for-loop with [[blit]]
- *
- * - The [alloc_at] function (tbd) recursively descends into fields at depth and
- *   knows the current offset where the expression should be written.
- *   The [alloc_at] function may be passed [EAny], in which case it should
- *   generate no instructions.
- *
- * - Some invariants of this transformation.
- *   - Any expression of type [t] where [t] is a struct becomes of type [t*].
- *   - 
- *)
-
 (* Need to roll out this one by hand... because it changes the types. *)
 let to_addr is_struct =
   let rec to_addr e =
     let was_struct = is_struct e.typ in
     let not_struct () = assert (not was_struct) in
     let w = with_type e.typ in
-    let star_if node =
-      if is_struct e.typ then
-        { node; typ = TBuf e.typ }
-      else
-        { node; typ = e.typ }
+    let simpl = function
+      | { node = EAddrOf { node = EBufRead (e, { node = EConstant (_, "0"); _ }); _ }; _ } ->
+          e
+      | e ->
+          e
     in
     match e.node with
-    | EBound _
-    | EOpen _ ->
-        [], star_if e.node
+    (* Mundane cases. None of these may have a struct type. *)
+    | EAny
     | EUnit
     | EBool _
     | EString _
     | EQualified _
     | EOp _
     | EConstant _
-    | EAny
     | EPushFrame
     | EPopFrame
     | EAbort ->
         not_struct ();
+        [], e
+
+    | EOpen _ | EBound _ ->
         [], e
 
     | EWhile (e1, e2) ->
@@ -401,24 +358,35 @@ let to_addr is_struct =
         let lbs, es = List.split (List.map to_addr es) in
         lb @ List.flatten lbs, w (EApp (e, es))
 
-    | EFlat _ ->
-        let b, ref = Helpers.mk_binding "alloc" (TBuf e.typ) in
-        [ b, with_type (TBuf e.typ) (EBufCreate (Stack, e, Helpers.oneu32)) ], ref
-
     | ELet (b, e1, e2) ->
-        let b = {
-          node = b.node;
-          typ = if is_struct b.typ then TBuf b.typ else b.typ
-        } in
         let lb1, e1 = to_addr e1 in
+        let b, e1, e2 =
+          if is_struct b.typ then
+            let t' = TBuf b.typ in
+            { b with typ = t' },
+            simpl (with_type t' (EAddrOf e1)),
+            DeBruijn.subst_no_open
+              (Helpers.mk_deref b.typ (EBound 0))
+              0
+              e2
+          else
+            b, e1, e2
+        in
         let lb2, e2 = to_addr e2 in
-        lb1 @ lb2, star_if (ELet (b, e1, e2))
+        lb1 @ lb2, w (ELet (b, e1, e2))
+
+    | EFlat _ ->
+        (* Not descending *)
+        assert was_struct;
+        let b, ref = Helpers.mk_binding "alloc" (TBuf e.typ) in
+        [ b, with_type (TBuf e.typ) (EBufCreate (Stack, e, Helpers.oneu32)) ],
+        (Helpers.mk_deref e.typ ref.node)
 
     | EIfThenElse (e1, e2, e3) ->
         let lb1, e1 = to_addr e1 in
         let lb2, e2 = to_addr e2 in
         let lb3, e3 = to_addr e3 in
-        lb1 @ lb2 @ lb3, star_if (EIfThenElse (e1, e2, e3))
+        lb1 @ lb2 @ lb3, w (EIfThenElse (e1, e2, e3))
 
     | EAssign (e1, e2) ->
         not_struct ();
@@ -427,45 +395,33 @@ let to_addr is_struct =
         lb1 @ lb2, w (EAssign (e1, e2))
 
     | EBufCreate (l, e1, e2) ->
-        (* [e2] will undergo the "allocate at address" treatment later on *)
+        (* Not descending into [e2], as it will undergo the "allocate at
+         * address" treatment later on *)
         let lb1, e1 = to_addr e1 in
         lb1, w (EBufCreate (l, e1, e2))
 
     | EBufCreateL _ ->
-        not_struct ();
         [], e
 
     | EBufRead (e1, e2) ->
         let lb1, e1 = to_addr e1 in
         let lb2, e2 = to_addr e2 in
-        if was_struct then
-          lb1 @ lb2, with_type (TBuf e.typ) (EAddrOf (w (EBufRead (e1, e2))))
-        else
-          lb1 @ lb2, w (EBufRead (e1, e2))
+        lb1 @ lb2, w (EBufRead (e1, e2))
 
     | EBufWrite (e1, e2, e3) ->
+        (* Not descending into [e3]... *)
         not_struct ();
         let lb1, e1 = to_addr e1 in
         let lb2, e2 = to_addr e2 in
         lb1 @ lb2, w (EBufWrite (e1, e2, e3))
 
     | EField (e, f) ->
-        let e_was_struct = is_struct e.typ in
-        let e_typ = e.typ in
         let lb, e = to_addr e in
-        let e = if e_was_struct then with_type e_typ (EBufRead (e, Helpers.zerou32)) else e in
-        if was_struct then
-          lb, with_type (TBuf e.typ) (EAddrOf (w (EField (e, f))))
-        else
-          lb, w (EField (e, f))
+        lb, w (EField (e, f))
 
     | EAddrOf e ->
-        let was_struct = is_struct e.typ in
         let lb, e = to_addr e in
-        if was_struct then
-          lb, e
-        else
-          lb, w (EAddrOf e)
+        lb, simpl (w (EAddrOf e))
 
     | EBufSub _
     | EBufBlit _
@@ -498,6 +454,6 @@ let in_memory files =
   (* TODO: do let_to_sequence and sequence_to_let once! *)
   let is_struct = mk_is_struct files in
   let files = Helpers.visit_files () Simplify.sequence_to_let files in
-  let files = if true then files else Helpers.visit_files () (to_addr is_struct) files in
+  let files = Helpers.visit_files () (to_addr is_struct) files in
   let files = Helpers.visit_files () Simplify.let_to_sequence files in
   files

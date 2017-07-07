@@ -99,6 +99,9 @@ let mk_gt_zero e =
       e;
       zerou32]))
 
+(* *e *)
+let mk_deref t e =
+  with_type t (EBufRead (with_type (TBuf t) e, zerou32))
 
 (* Binder nodes ***************************************************************)
 

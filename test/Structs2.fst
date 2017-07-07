@@ -1,6 +1,6 @@
 module Structs2
 
-open FStar.ST
+open FStar.HyperStack.ST
 
 type color = { r: UInt8.t; g: UInt8.t; b: UInt8.t }
 type point = { x: UInt32.t; y: UInt32.t; z: UInt32.t }

@@ -272,8 +272,8 @@ and check' env t e =
   | ESequence es ->
       begin match List.rev es with
       | last :: rest ->
-          List.iter (check env TUnit) (List.rev rest);
-          check env t last
+          List.iteri (fun i e -> check (locate env (Sequence i)) TUnit e) (List.rev rest);
+          check (locate env SequenceLast) t last
       | [] ->
           type_error env "Empty sequence"
       end
