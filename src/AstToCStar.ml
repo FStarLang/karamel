@@ -618,7 +618,7 @@ and mk_type_def env d: CStar.typ =
       mk_type env t
 
   | Variant _ ->
-      failwith "Variant should've been desugared at this  stage"
+      failwith "Variant should've been desugared at this stage"
 
   | Enum tags ->
       CStar.Enum (List.map string_of_lident tags)
@@ -634,9 +634,14 @@ and mk_program name decls =
     let n = string_of_lident (Ast.lid_of_decl d) in
     try
       mk_declaration empty d
-    with Error e ->
-      Warnings.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
-      None
+    with
+    | Error e ->
+        Warnings.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
+        None
+    | e ->
+        Warnings.fatal_error "Fatal failure in %a: %s\n"
+          plid (Ast.lid_of_decl d)
+          (Printexc.to_string e)
   ) decls
 
 and mk_file (name, program) =
