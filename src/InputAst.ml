@@ -78,6 +78,7 @@ and expr =
   | ETuple of expr list
   | ECons of (typ * ident * expr list)
   | EBufFill of (expr * expr * expr)
+    (** buffer, value, len *)
   | EString of string
   | EFun of (binder list * expr)
 

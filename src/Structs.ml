@@ -326,6 +326,7 @@ let to_addr is_struct =
       | e ->
           e
     in
+    (* KPrint.bprintf "got: %a\n" pexpr e; *)
     match e.node with
     (* Mundane cases. None of these may have a struct type. *)
     | EAny
@@ -337,6 +338,7 @@ let to_addr is_struct =
     | EConstant _
     | EPushFrame
     | EPopFrame
+    | EEnum _
     | EAbort ->
         not_struct ();
         [], e
@@ -413,10 +415,10 @@ let to_addr is_struct =
         lb1 @ lb2, w (EAssign (e1, e2))
 
     | EBufCreate (l, e1, e2) ->
-        (* Not descending into [e2], as it will undergo the "allocate at
+        (* Not descending into [e1], as it will undergo the "allocate at
          * address" treatment later on *)
-        let lb1, e1 = to_addr e1 in
-        lb1, w (EBufCreate (l, e1, e2))
+        let lb2, e2 = to_addr e2 in
+        lb2, w (EBufCreate (l, e1, e2))
 
     | EBufCreateL _ ->
         [], e
@@ -441,15 +443,45 @@ let to_addr is_struct =
         let lb, e = to_addr e in
         lb, simpl (w (EAddrOf e))
 
-    | EBufSub _
-    | EBufBlit _
-    | EBufFill _
-    | ESwitch _
-    | EEnum _
-    | EReturn _
-    | ECast _
-    | EComment _ ->
-        Warnings.fatal_error "todo: %a" pexpr e
+    | EBufSub (e1, e2) ->
+        let lb1, e1 = to_addr e1 in
+        let lb2, e2 = to_addr e2 in
+        lb1 @ lb2, w (EBufSub (e1, e2))
+
+    | EBufBlit (e1, e2, e3, e4, e5) ->
+        let lb1, e1 = to_addr e1 in
+        let lb2, e2 = to_addr e2 in
+        let lb3, e3 = to_addr e3 in
+        let lb4, e4 = to_addr e4 in
+        let lb5, e5 = to_addr e5 in
+        lb1 @ lb2 @ lb3 @ lb4 @ lb5, w (EBufBlit (e1, e2, e3, e4, e5))
+
+    | EBufFill (e1, e2, e3) ->
+        (* Not descending into e2 *)
+        let lb1, e1 = to_addr e1 in
+        let lb3, e3 = to_addr e3 in
+        lb1 @ lb3, w (EBufFill (e1, e2, e3))
+
+    | ESwitch (e, branches) ->
+        let lb, e = to_addr e in
+        let lbs, branches = List.split (List.map (fun (lid, e) ->
+          let lb, e = to_addr e in
+          lb, (lid, e)
+        ) branches) in
+        lb @ List.flatten lbs, w (ESwitch (e, branches))
+
+    | EReturn e ->
+        assert (not (is_struct e.typ));
+        let lb, e = to_addr e in
+        lb, w (EReturn e)
+
+    | ECast (e, t) ->
+        let lb, e = to_addr e in
+        lb, w (ECast (e, t))
+
+    | EComment (s, e, s') ->
+        let lb, e = to_addr e in
+        lb, w (EComment (s, e, s'))
 
     | ESequence _
     | ETuple _
