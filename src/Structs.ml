@@ -311,12 +311,12 @@ let collect_initializers (files: Ast.file list) =
   let files = Helpers.visit_files () (object
     inherit [unit] map
     method dglobal _ flags name t body =
-      let body =
+      let flags, body =
         if not (Helpers.is_value body) then begin
           record (with_type TUnit (EAssign (with_type t (EQualified name), body)));
-          with_type t EAny
+          List.filter ((<>) Private) flags, with_type t EAny
         end else
-          body
+          flags, body
       in
       DGlobal (flags, name, t, body)
   end) files in

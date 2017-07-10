@@ -33,6 +33,10 @@ extern int exit_failure;
 void print_string(const char *s);
 void print_bytes(uint8_t *b, uint32_t len);
 
+// If some globals need to be initialized before the main, then kremlin will
+// generate and try to link last a function with this type:
+void kremlinit_globals();
+
 // Buffers (FIXME remove eqb!)
 #define FStar_Buffer_eqb(b1, b2, n)                                            \
   (memcmp((b1), (b2), (n) * sizeof((b1)[0])) == 0)
@@ -402,7 +406,8 @@ static inline uint128_t FStar_UInt128_gte_mask(uint128_t x, uint128_t y) {
 
 #else // !defined(KRML_UINT128)
 
-#ifdef __AFTER_FStar_H
+// This is a bad circular dependency... should fix it properly.
+#include "FStar.h"
 
 typedef FStar_UInt128_uint128 FStar_UInt128_t_, uint128_t;
 
@@ -466,6 +471,5 @@ static inline void store128_be(uint8_t *b, uint128_t n) {
 #define store128_be store128_be_
 
 #endif // KRML_STRUCT_PASSING
-#endif // __AFTER_FStar_H
 #endif // KRML_UINT128
 #endif // __KREMLIB_H

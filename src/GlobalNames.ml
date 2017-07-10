@@ -13,8 +13,7 @@ let record original_name desired_name =
       Hashtbl.add c_of_original original_name unique_c_name;
       Hashtbl.add used_c_names unique_c_name ();
       unique_c_name
-  | x ->
-      if true then x else
+  | _ ->
       fatal_error "Duplicate global name: %s" original_name
 
 let translate name fallback =
