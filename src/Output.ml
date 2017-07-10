@@ -16,11 +16,14 @@ let header name =
   let header = !Options.header in
   let prefix = string (Printf.sprintf
 {|%s
-#include "kremlib.h"
 #ifndef __%s_H
 #define __%s_H
 |} header name name) in
-  prefix, string "#endif"
+  let suffix =
+    string (Printf.sprintf "#define __AFTER_%s_H" name) ^^ hardline ^^
+    string "#endif"
+  in
+  prefix, suffix
 
 let write_one name prefix program suffix =
   Driver.mk_tmpdir_if ();

@@ -740,6 +740,9 @@ and check_valid_assignment_lhs env e =
   | EBufRead _ ->
       (* Introduced by the wasm struct allocation phase. *)
       e.typ
+  | EQualified _ ->
+      (* Introduced when collecting global initializers. *)
+      e.typ
   | _ ->
       type_error env "EAssign wants a lhs that's a mutable, local variable, or a \
         path to a mutable field; got %a instead" pexpr e

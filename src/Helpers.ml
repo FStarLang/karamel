@@ -54,11 +54,17 @@ let type_of_op op w =
       invalid_arg "type_of_op"
 
 let any = with_type TAny EAny
+let eunit = with_type TUnit EUnit
 
 let with_unit x = with_type TUnit x
 
 let zerou32 = with_type uint32 (EConstant (K.UInt32, "0"))
 let oneu32 = with_type uint32 (EConstant (K.UInt32, "1"))
+
+let zerou8 =
+  with_type (TInt (K.UInt8)) (EConstant (K.UInt8, "0"))
+
+let pwild = with_type TAny PWild
 
 let mk_op op w =
   { node = EOp (op, w);

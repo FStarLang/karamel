@@ -453,8 +453,9 @@ let drop_unused files =
       ()
     else begin
       Hashtbl.add visited lid ();
-      (* KPrint.bprintf "marking %a as used (via: %s) \n" plid lid *)
-      (*   (String.concat " <- " (List.map (fun lid -> KPrint.bsprintf "%a" plid lid) before)); *)
+      if Options.debug "reachability" then
+        KPrint.bprintf "marking %a as used (via: %s) \n" plid lid
+          (String.concat " <- " (List.map (fun lid -> KPrint.bsprintf "%a" plid lid) before));
       match Hashtbl.find body_of_lid lid with
       | exception Not_found -> ()
       | body -> visit_e (lid :: before) body

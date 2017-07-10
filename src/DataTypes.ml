@@ -321,9 +321,6 @@ let is_special name =
   name = "scrutinee" ||
   KString.starts_with name "uu____"
 
-let pwild = with_type TAny PWild
-let eany = with_type TAny EAny
-
 let rec is_trivially_true e =
   let open Constant in
   match e.node with
@@ -386,7 +383,7 @@ let remove_trivial_matches = object (self)
   method! branch env (binders, pat, expr) =
     let _, binders, pat, expr = List.fold_left (fun (i, binders, pat, expr) b ->
       if !(b.node.mark) = 0 && is_special b.node.name then
-        i, binders, DeBruijn.subst_p pwild i pat, DeBruijn.subst eany i expr
+        i, binders, DeBruijn.subst_p Helpers.pwild i pat, DeBruijn.subst Helpers.any i expr
       else
         i + 1, b :: binders, pat, expr
     ) (0, [], pat, expr) (List.rev binders) in
@@ -489,9 +486,6 @@ let assert_branches map lid =
 
 let field_names_of_cons cons branches =
   fst (List.split (List.assoc cons branches))
-
-let zero8 =
-  with_type (TInt (K.UInt8)) (EConstant (K.UInt8, "0"))
 
 let tag_and_val_type lid branches =
   let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in

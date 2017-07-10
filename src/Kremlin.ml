@@ -211,7 +211,7 @@ Supported options:|}
     "-dwasm", Arg.Set arg_print_wasm, " pretty-print the output Wasm";
     "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific \
       comma-separated list of values; currently supported: \
-      inline,bundle,wasm-calls,force-c";
+      inline,bundle,wasm-calls,force-c,reachability";
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
   let spec = Arg.align spec in
@@ -381,6 +381,7 @@ Supported options:|}
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
   let files = Simplify.remove_unused files in
   let files = if !arg_wasm then Structs.in_memory files else files in
+  let files = Structs.collect_initializers files in
   let files = Simplify.simplify2 files in
   if !arg_print_inline then
     print PrintAst.print_files files;

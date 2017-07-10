@@ -18,6 +18,7 @@ and raw_error =
   | Vla of ident
   | LostStatic of string option * lident * string option * lident
   | LostInline of string option * lident * string option * lident
+  | MustCallKrmlInit
 
 and location =
   string
@@ -51,7 +52,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 9 CError;;
+let flags = Array.make 10 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -76,6 +77,8 @@ let errno_of_error = function
       7
   | LostInline _ ->
       8
+  | MustCallKrmlInit ->
+      9
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -119,6 +122,11 @@ let rec perr buf (loc, raw_error) =
         from its translation unit (see C11 6.7.3 §5), and CompCert will do it. %s"
         plid lid1 (p_file file1) plid lid2 (p_file file2) plid lid2 plid lid2
         (if !Options.cc = "compcert" then "Removing the inline qualifier!" else "")
+  | MustCallKrmlInit ->
+      p "Some globals did not compile to C values and must be initialized in the \
+        before starting main(). You did not provide a main function, so users of \
+        your library MUST MAKE SURE they call kremlinit_globals(); (see \
+        kremlinit.c)"
 
 
 let maybe_fatal_error error =

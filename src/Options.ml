@@ -4,9 +4,8 @@
  * $krml_home/kremlib is added to includes
  *)
 let no_prefix: string list ref = ref [ "C" ]
-(* Note: kremlib.h is added at the very beginning in [Output.ml]. *)
-let add_include: string list ref = ref [ ]
-let warn_error = ref "+1-2+3..8"
+let add_include: string list ref = ref [ "\"kremlib.h\"" ]
+let warn_error = ref "+1-2+3..9"
 let tmpdir = ref "."
 let includes: string list ref = ref []
 let verbose = ref false

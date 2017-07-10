@@ -402,7 +402,8 @@ static inline uint128_t FStar_UInt128_gte_mask(uint128_t x, uint128_t y) {
 
 #else // !defined(KRML_UINT128)
 
-#include "FStar.h"
+#ifdef __AFTER_FStar_H
+
 typedef FStar_UInt128_uint128 FStar_UInt128_t_, uint128_t;
 
 // A series of definitions written using pointers.
@@ -465,5 +466,6 @@ static inline void store128_be(uint8_t *b, uint128_t n) {
 #define store128_be store128_be_
 
 #endif // KRML_STRUCT_PASSING
+#endif // __AFTER_FStar_H
 #endif // KRML_UINT128
 #endif // __KREMLIB_H
