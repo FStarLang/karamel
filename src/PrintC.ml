@@ -165,7 +165,11 @@ and p_expr' curr = function
       let mine, right = 2, 2 in
       let e = p_expr' right e in
       paren_if curr mine (ampersand ^^ e)
-  | Deref _ | Member _ | MemberP _ ->
+  | Deref e ->
+      let mine, right = 2, 2 in
+      let e = p_expr' right e in
+      paren_if curr mine (star ^^ e)
+  | Member _ | MemberP _ ->
       failwith "[p_expr']: not implemented"
   | Bool b ->
       string (string_of_bool b)

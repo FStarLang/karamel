@@ -10,6 +10,8 @@
 // This file has a hand-written .h file so that test files written in C (e.g.
 // main-Poly1305.c) can use the functions from this file too (e.g.
 // [compare_and_print]).
+//
+void print_buf(uint8_t *buf, size_t size, char *file, int line);
 
 // Functions for F*-written tests, exposed via TestLib.fsti
 void TestLib_touch(int32_t);

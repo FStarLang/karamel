@@ -185,6 +185,10 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let e, extra_stmt = match init with
         | Constant (_, "0") ->
             C.Call (C.Name "calloc", [ size; mk_sizeof type_name ]), []
+        | Any | Cast (Any, _) ->
+            C.Call (C.Name "malloc", [
+              C.Op2 (K.Mult, mk_sizeof type_name, size)
+            ]), []
         | _ ->
             C.Call (C.Name "malloc", [
               C.Op2 (K.Mult, mk_sizeof type_name, size)
@@ -209,6 +213,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
         | _, Constant (_, "0") ->
             (* zero-sized array *)
             None, T.Nope
+        | Cast (Any, _), _
         | Any, _ ->
             (* no inital value *)
             None, T.Nope
@@ -270,6 +275,8 @@ and mk_stmt (stmt: stmt): C.stmt list =
       | _ -> failwith "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = "
       end;
       begin match init with
+      | Any | Cast (Any, _) ->
+          mk_check_size (mk_expr init) (mk_expr size)
       | Constant (_, "0") ->
           mk_check_size (mk_expr init) (mk_expr size) @
           [ mk_memset_zero_initializer (mk_expr e1) (mk_expr size) ]
@@ -291,6 +298,12 @@ and mk_stmt (stmt: stmt): C.stmt list =
 
   | Copy _ ->
       failwith "impossible"
+
+  | Assign (BufRead _, (Any | Cast (Any, _))) ->
+      []
+
+  | BufWrite (_, _, (Any | Cast (Any, _))) ->
+      []
 
   | Assign (e1, e2) ->
       [ Expr (Assign (mk_expr e1, mk_expr e2)) ]
@@ -489,6 +502,29 @@ and mk_type t =
   (* hack alert *)
   mk_spec_and_declarator "" t
 
+let c99_format w =
+  let open K in
+  "PRI" ^ if is_signed w then "i" else "u" ^ string_of_int (bytes_of_width w * 8)
+
+let mk_debug name parameters =
+  if Options.debug "c-calls" then
+    let formats, args = List.split (KList.filter_map (fun (name, typ) ->
+      match typ with
+      | Int w ->
+          Some (Printf.sprintf "%s=%%\"%s\"" name (c99_format w), C.Name name)
+      | Bool ->
+          Some (Printf.sprintf "%s=%%d" name, C.Name name)
+      | Pointer (Int w) ->
+          Some (Printf.sprintf "%s[0]=%%\"%s\"" name (c99_format w), C.Deref (C.Name name))
+      | _ ->
+          None
+    ) parameters) in
+    [ C.Expr (C.Call (C.Name "printf", [
+        C.Literal (String.concat " " (name :: formats @ [ "\\n" ]))
+      ] @ args)) ]
+  else
+    []
+
 (** .c files include their own header *)
 let mk_decl_or_function (d: decl): C.declaration_or_function option =
   match d with
@@ -502,7 +538,7 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
         let inline = List.exists ((=) CInline) flags in
         let parameters = List.map (fun { name; typ } -> name, typ) parameters in
         let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
-        let body = ensure_compound (mk_stmts body) in
+        let body = ensure_compound (mk_debug name parameters @ mk_stmts body) in
         Some (Function (inline, (spec, static, [ decl, None ]), body))
       with e ->
         beprintf "Fatal exception raised in %s\n" name;
