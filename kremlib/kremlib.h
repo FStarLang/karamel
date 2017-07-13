@@ -230,14 +230,38 @@ FStar_Seq_Base_seq FStar_Seq_Base_slice(FStar_Seq_Base_seq x,
 
 #endif
 
-// Loads and stores
+// Loads and stores. These avoid undefined behavior due to unaligned memory
+// accesses, via memcpy.
 
-#define load16(b) (*((uint16_t *)(b)))
-#define store16(b, i) (*((uint16_t *)(b)) = i)
-#define load32(b) (*((uint32_t *)(b)))
-#define store32(b, i) (*((uint32_t *)(b)) = i)
-#define load64(b) (*((uint64_t *)(b)))
-#define store64(b, i) (*((uint64_t *)(b)) = i)
+inline static uint16_t load16(uint8_t *b) {
+  uint16_t x;
+  memcpy(&x, b, 2);
+  return x;
+}
+
+inline static uint32_t load32(uint8_t *b) {
+  uint32_t x;
+  memcpy(&x, b, 4);
+  return x;
+}
+
+inline static uint64_t load64(uint8_t *b) {
+  uint64_t x;
+  memcpy(&x, b, 8);
+  return x;
+}
+
+inline static void store16(uint8_t *b, uint16_t i) {
+  memcpy(b, &i, 2);
+}
+
+inline static void store32(uint8_t *b, uint32_t i) {
+  memcpy(b, &i, 4);
+}
+
+inline static void store64(uint8_t *b, uint64_t i) {
+  memcpy(b, &i, 8);
+}
 
 #define load16_le(b) (le16toh(load16(b)))
 #define store16_le(b, i) (store16(b, htole16(i)))
