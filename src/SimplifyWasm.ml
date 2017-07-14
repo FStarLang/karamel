@@ -25,7 +25,9 @@ let remove_buffer_ops = object
     let b_init, body_init, ref_init = mk_named_binding "init" init.typ init.node in
     let b_size, body_size, ref_size = mk_named_binding "size" size.typ size.node in
     let b_size = mark_mut b_size in
-    let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, ref_size)) in
+    (* Leaving the size inline because it's needed for the buffer hoisting
+     * phase; also, the size ought to be pure, guaranteed by F*. *)
+    let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, size)) in
     let with_t = with_type t in
     ELet (b_init, body_init, close_binder b_init (with_t (
     ELet (b_size, body_size, close_binder b_size (with_t (

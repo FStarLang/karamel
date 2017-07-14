@@ -514,8 +514,8 @@ let mk_debug name parameters =
           Some (Printf.sprintf "%s=%%\"%s\"" name (c99_format w), C.Name name)
       | Bool ->
           Some (Printf.sprintf "%s=%%d" name, C.Name name)
-      | Pointer (Int w) ->
-          Some (Printf.sprintf "%s[0]=%%\"%s\"" name (c99_format w), C.Deref (C.Name name))
+      (* | Pointer (Int w) -> *)
+      (*     Some (Printf.sprintf "%s[0]=%%\"%s\"" name (c99_format w), C.Deref (C.Name name)) *)
       | _ ->
           None
     ) parameters) in

@@ -859,6 +859,11 @@ let rec hoist_bufcreate (e: expr) =
   | ELet (b, ({ node = EPushFrame; _ } as e1), e2) ->
       [], mk (ELet (b, e1, under_pushframe e2))
 
+  | ELet (b, e1, e2) ->
+      let b1, e1 = hoist_bufcreate e1 in
+      let b2, e2 = hoist_bufcreate e2 in
+      b1 @ b2, mk (ELet (b, e1, e2))
+
   | _ ->
       [], e
 
@@ -971,6 +976,8 @@ let simplify1 (files: file list): file list =
   files
 
 let simplify2 (files: file list): file list =
+  (* Debug any intermediary AST as follows: *)
+  (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
   let files = visit_files () sequence_to_let files in
   let files = visit_files () remove_local_function_bindings files in
   let files = visit_files () combinators files in
