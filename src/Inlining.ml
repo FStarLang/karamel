@@ -217,11 +217,22 @@ let mk_inliner files must_inline =
 
 
 let inline_combinators files =
+  (* Polymorphic functions that are marked as substitute are expanded; this MUST
+   * GO AWAY and be properly performed at the KreMLin level. *)
+  let map = build_map files (fun map -> function
+    | DFunction (_, flags, n, _, name, _, _) ->
+        Hashtbl.add map name (n > 0 && List.mem Substitute flags)
+    | _ ->
+        ()
+  ) in
   let must_inline = function
     | [ "C"; "Loops" ], ("map" | "map2" | "in_place_map" | "in_place_map2" | "repeat") ->
         true
-    | _ ->
-        false
+    | lid ->
+        try
+          Hashtbl.find map lid
+        with Not_found ->
+          false
   in
   let inline_one = mk_inliner files must_inline in
   filter_decls (function
