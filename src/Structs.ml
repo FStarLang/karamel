@@ -418,6 +418,26 @@ let to_addr is_struct =
         not_struct ();
         w (EApp (to_addr e, List.map to_addr es))
 
+    | EFlat _ ->
+        (* Not descending *)
+        assert was_struct;
+        let b, _ = Helpers.mk_binding "alloc" (TBuf e.typ) in
+        w (ELet (b,
+          with_type (TBuf e.typ) (EBufCreate (Stack, e, Helpers.oneu32)),
+          Helpers.mk_deref e.typ (EBound 0)))
+
+    | ELet (b, ({ node = EFlat _; _ } as e1), e2) ->
+        (* This special case is subsumed by the combination of [EFlat] and
+         * [ELet], but generates un-necessary names, and complicates debugging.
+         * *)
+        assert (is_struct b.typ);
+        let t = b.typ in
+        let t' = TBuf b.typ in
+        let b = { b with typ = t' } in
+        let e1 = with_type t' (EBufCreate (Stack, e1, Helpers.oneu32)) in
+        let e2 = DeBruijn.subst_no_open (Helpers.mk_deref t (EBound 0)) 0 e2 in
+        w (ELet (b, e1, e2))
+
     | ELet (b, e1, e2) ->
         let b, e1, e2 =
           if is_struct b.typ then
@@ -442,14 +462,6 @@ let to_addr is_struct =
         in
         let e2 = to_addr e2 in
         w (ELet (b, e1, e2))
-
-    | EFlat _ ->
-        (* Not descending *)
-        assert was_struct;
-        let b, _ = Helpers.mk_binding "alloc" (TBuf e.typ) in
-        w (ELet (b,
-          with_type (TBuf e.typ) (EBufCreate (Stack, e, Helpers.oneu32)),
-          Helpers.mk_deref e.typ (EBound 0)))
 
     | EIfThenElse (e1, e2, e3) ->
         w (EIfThenElse (to_addr e1, to_addr e2, to_addr e3))
