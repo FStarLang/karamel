@@ -231,7 +231,8 @@ let rec mk_expr env in_stmt e =
       CStar.AddrOf (mk_expr env e)
 
   | _ ->
-      fatal_error "[AstToCStar.mk_expr]: should not be here (%a)" pexpr e
+      Warnings.maybe_fatal_error ("", NotLowStar e);
+      CStar.Any
 
 and mk_buf env t =
   match t with

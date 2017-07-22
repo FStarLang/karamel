@@ -20,6 +20,7 @@ and raw_error =
   | LostInline of string option * lident * string option * lident
   | MustCallKrmlInit
   | NoPolymorphism of lident
+  | NotLowStar of expr
 
 and location =
   string
@@ -53,7 +54,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 11 CError;;
+let flags = Array.make 12 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -82,6 +83,8 @@ let errno_of_error = function
       9
   | NoPolymorphism _ ->
       10
+  | NotLowStar _ ->
+      11
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -134,6 +137,8 @@ let rec perr buf (loc, raw_error) =
       p "%a is polymorphic and must be either marked as noextract or, \
         alternatively, as [@\"substitute\"] in the hope \
         that, once expanded at call-site, it type-checks as Low*" plid lid
+  | NotLowStar e ->
+      p "this is expression is not Low*; the enclosing function cannot be translated into C*: %a" pexpr e
 
 
 let maybe_fatal_error error =
