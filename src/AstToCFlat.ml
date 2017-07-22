@@ -194,7 +194,7 @@ let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, e3 = mk_expr env locals e3 in
       locals, CF.IfThenElse (e1, e2, e3, s2)
 
-  | EAbort ->
+  | EAbort _ ->
       locals, CF.Abort
 
   | EPushFrame ->

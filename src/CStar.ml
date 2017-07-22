@@ -14,7 +14,7 @@ and decl =
   | External of ident * typ
 
 and stmt =
-  | Abort
+  | Abort of string
   | Return of expr option
   | Ignore of expr
   | Decl of binder * expr
@@ -67,7 +67,7 @@ and expr =
   | StringLiteral of string
   | Any
   | AddrOf of expr
-  | EAbort of typ
+  | EAbort of typ * string
   [@@deriving show]
 
 and block =

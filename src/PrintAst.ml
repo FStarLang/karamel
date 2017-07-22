@@ -142,8 +142,9 @@ and print_expr { node; _ } =
       surround 2 1 (string s) (print_expr e) (string s')
   | EAny ->
       string "$any"
-  | EAbort ->
-      string "$abort"
+  | EAbort s ->
+      string "$abort" ^^
+      (match s with None -> empty | Some s -> string " (" ^^ string s ^^ string ")")
   | EIgnore e ->
       print_app string "ignore" print_expr [ e ]
   | EBound v ->

@@ -356,9 +356,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
           ]
       )]
 
-  | Abort ->
+  | Abort s ->
       [ Expr (Call (Name "printf", [
-          Literal "KreMLin abort at %s:%d\\n"; Name "__FILE__"; Name "__LINE__" ]));
+          Literal "KreMLin abort at %s:%d\\n%s\\n"; Name "__FILE__"; Name "__LINE__"; Literal (escape_string s) ]));
         Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])); ]
 
   | For (binder, e1, e2, e3, b) ->
@@ -478,8 +478,8 @@ and mk_expr (e: expr): C.expr =
   | AddrOf e ->
       Address (mk_expr e)
 
-  | EAbort t ->
-      Call (Name "KRML_EABORT", [ Type (mk_type t) ])
+  | EAbort (t, s) ->
+      Call (Name "KRML_EABORT", [ Type (mk_type t); Literal s ])
 
 
 and mk_compound_literal name fields =

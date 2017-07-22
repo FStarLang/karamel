@@ -206,8 +206,8 @@ let rec mk_expr env in_stmt e =
       CStar.Op (o, w)
   | ECast (e, t) ->
       CStar.Cast (mk_expr env e, mk_type env t)
-  | EAbort ->
-      CStar.EAbort (mk_type env e.typ)
+  | EAbort s ->
+      CStar.EAbort (mk_type env e.typ, Option.or_empty s)
   | EUnit ->
       CStar.Cast (zero, CStar.Pointer CStar.Void)
   | EAny ->
@@ -366,8 +366,8 @@ and mk_stmts env e ret_type =
     | EPopFrame ->
         env, CStar.PopFrame :: acc
 
-    | EAbort ->
-        env, CStar.Abort :: acc
+    | EAbort s ->
+        env, CStar.Abort (Option.or_empty s) :: acc
 
     | ESwitch (e, branches) ->
         env, CStar.Switch (mk_expr env false e,

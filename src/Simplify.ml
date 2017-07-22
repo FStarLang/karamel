@@ -396,7 +396,7 @@ let rec hoist_stmt e =
 and hoist_expr pos e =
   let mk node = { node; typ = e.typ } in
   match e.node with
-  | EAbort
+  | EAbort _
   | EAny
   | EBound _
   | EOpen _

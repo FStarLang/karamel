@@ -398,7 +398,7 @@ let to_addr is_struct =
         else
           e
 
-    | EAbort
+    | EAbort _
     | EOpen _ | EBound _ ->
         e
 

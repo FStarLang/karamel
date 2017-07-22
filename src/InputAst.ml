@@ -81,6 +81,7 @@ and expr =
     (** buffer, value, len *)
   | EString of string
   | EFun of (binder list * expr)
+  | EAbortS of string
 
 and branches =
   branch list

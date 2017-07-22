@@ -78,7 +78,9 @@ void *Prims____Cons___tl(void *_);
 
 // In expression position, use the comma-operator and a malloc to return an
 // expression of the right size. KreMLin passes t as the parameter to the macro.
-#define KRML_EABORT(t) (exit(255), *((t*)malloc(sizeof(t))))
+#define KRML_EABORT(t, msg) (                                                  \
+  printf("KreMLin abort at %s:%d\n%s\n", __FILE__, __LINE__, msg),             \
+  exit(255), *((t*)malloc(sizeof(t))))
 
 #define KRML_CHECK_SIZE(elt, size)                                             \
   if (((size_t)size) > SIZE_MAX / sizeof(elt)) {                               \

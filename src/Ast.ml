@@ -49,7 +49,7 @@ and expr' =
   | EAny
     (** to indicate that the initial value of a mutable let-binding does not
      * matter *)
-  | EAbort
+  | EAbort of string option
     (** exits the program prematurely *)
   | EIgnore of expr
 
@@ -263,8 +263,8 @@ class virtual ['env] map = object (self)
         self#ebool env typ b
     | EAny ->
         self#eany env typ
-    | EAbort ->
-        self#eabort env typ
+    | EAbort s ->
+        self#eabort env typ s
     | EReturn e ->
         self#ereturn env typ e
     | EFlat fields ->
@@ -306,8 +306,8 @@ class virtual ['env] map = object (self)
   method econstant _env _typ constant =
     EConstant constant
 
-  method eabort _env _typ =
-    EAbort
+  method eabort _env _typ s =
+    EAbort s
 
   method eany _env _typ =
     EAny

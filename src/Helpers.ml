@@ -164,7 +164,7 @@ let rec is_value (e: expr) =
   | EEnum _
   | EString _
   | EFun _
-  | EAbort
+  | EAbort _
   | EAddrOf _
   | EAny ->
       true

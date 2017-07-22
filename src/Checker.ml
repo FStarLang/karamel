@@ -245,7 +245,7 @@ and check' env t e =
   | EAssign _
   | EOp _
   | EPushFrame | EPopFrame
-  | EAny | EAbort
+  | EAny | EAbort _
   | EReturn _
   | EBool _
   | EWhile _
@@ -570,7 +570,7 @@ and infer' env e =
   | EPushFrame | EPopFrame ->
       TUnit
 
-  | EAny | EAbort ->
+  | EAny | EAbort _ ->
       TAny
 
   | EReturn e ->

@@ -26,7 +26,7 @@ let rec mk_decl = function
   | I.DFunction (cc, flags, n, t, name, binders, body) ->
       let body =
         if List.exists ((=) NoExtract) flags then
-          with_type TAny EAbort
+          with_type TAny (EAbort (Some "noextract flag"))
         else
           mk_expr body
       in
@@ -134,7 +134,9 @@ and mk_expr = function
   | I.EAny ->
       mk EAny
   | I.EAbort ->
-      mk EAbort
+      mk (EAbort None)
+  | I.EAbortS s ->
+      mk (EAbort (Some s))
   | I.EReturn e ->
       mk (EReturn (mk_expr e))
   | I.EFlat (tname, fields) ->
