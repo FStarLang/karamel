@@ -18,6 +18,7 @@ type loc =
   | Branch of lident
   | Sequence of int
   | SequenceLast
+  | Scrutinee
 
 let print_loc = function
   | InTop l ->
@@ -46,6 +47,8 @@ let print_loc = function
       string "in the last element of the sequence"
   | Sequence i ->
       string "in the sequence statement at index " ^^ int i
+  | Scrutinee ->
+      string "in the scrutinee"
 
 let print_location locs =
   separate_map (string ", ") print_loc locs

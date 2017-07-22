@@ -19,6 +19,7 @@ and raw_error =
   | LostStatic of string option * lident * string option * lident
   | LostInline of string option * lident * string option * lident
   | MustCallKrmlInit
+  | NoPolymorphism of lident
 
 and location =
   string
@@ -52,7 +53,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 10 CError;;
+let flags = Array.make 11 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -79,6 +80,8 @@ let errno_of_error = function
       8
   | MustCallKrmlInit ->
       9
+  | NoPolymorphism _ ->
+      10
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -123,10 +126,14 @@ let rec perr buf (loc, raw_error) =
         plid lid1 (p_file file1) plid lid2 (p_file file2) plid lid2 plid lid2
         (if !Options.cc = "compcert" then "Removing the inline qualifier!" else "")
   | MustCallKrmlInit ->
-      p "Some globals did not compile to C values and must be initialized in the \
+      p "Some globals did not compile to C values and must be initialized \
         before starting main(). You did not provide a main function, so users of \
         your library MUST MAKE SURE they call kremlinit_globals(); (see \
         kremlinit.c)"
+  | NoPolymorphism lid ->
+      p "%a is polymorphic and must be either marked as noextract or, \
+        alternatively, as [@\"substitute\"] in the hope \
+        that, once expanded at call-site, it type-checks as Low*" plid lid
 
 
 let maybe_fatal_error error =

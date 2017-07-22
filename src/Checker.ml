@@ -156,6 +156,8 @@ and check_program env r (name, decls) =
         if not (Drop.lid lid) then begin
           r := true;
           Warnings.maybe_fatal_error e;
+          if Options.debug "backtraces" then
+            Printexc.print_backtrace stderr;
           KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
             please consider using -drop\n\n"
             plid (lid_of_decl d)
@@ -178,7 +180,8 @@ and check_program env r (name, decls) =
           r := true;
           let e = Printexc.to_string e in
           Warnings.maybe_fatal_error ("<toplevel>", TypeError e);
-          Printexc.print_backtrace stderr;
+          if Options.debug "backtraces" then
+            Printexc.print_backtrace stderr;
           KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
             please consider using -drop\n\n"
             plid (lid_of_decl d)
@@ -344,7 +347,7 @@ and check' env t e =
       List.iter2 (check env) ts' exprs
 
   | EMatch (e, bs) ->
-      let t_scrut = infer env e in
+      let t_scrut = infer (locate env Scrutinee) e in
       check_branches env t t_scrut bs
 
   | EFlat fieldexprs ->

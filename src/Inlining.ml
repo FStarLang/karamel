@@ -221,6 +221,8 @@ let inline_combinators files =
    * GO AWAY and be properly performed at the KreMLin level. *)
   let map = build_map files (fun map -> function
     | DFunction (_, flags, n, _, name, _, _) ->
+        if n > 0 && not (List.mem Substitute flags) && not (Drop.lid name) then
+          Warnings.(maybe_fatal_error ("<toplevel>", NoPolymorphism name));
         Hashtbl.add map name (n > 0 && List.mem Substitute flags)
     | _ ->
         ()

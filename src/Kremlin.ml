@@ -94,6 +94,8 @@ The default is %s and the available warnings are:
   6: variable-length array
   7: private F* function cannot be marked as C static
   8: C inline function reference across translation units
+  9: need to manually call static initializers for globals
+  10: dropping a polymorphic function definition
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
 where the Api= part is optional and a pattern is either Foo.Bar (exact match) or
