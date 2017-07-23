@@ -479,7 +479,7 @@ and mk_expr (e: expr): C.expr =
       Address (mk_expr e)
 
   | EAbort (t, s) ->
-      Call (Name "KRML_EABORT", [ Type (mk_type t); Literal s ])
+      Call (Name "KRML_EABORT", [ Type (mk_type t); Literal (escape_string s) ])
 
 
 and mk_compound_literal name fields =

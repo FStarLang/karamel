@@ -119,3 +119,26 @@ let h () =
 
 That case will trigger warning 7 ("private F\* function cannot be marked as C
 static").
+
+
+## Workflow for higher-order programming in F\*
+
+One may want to write high-order, generic code in F\* that, after sufficient
+partial evaluation, becomes first-order and type-checks in Low\*. Here are some
+tips and tricks:
+- **non-Low\* subexpressions**: closures, natural integers, and other non Low\*
+  constructs trigger early failures; chances are that these are used ghostly; if
+  this is the case, use `erased` (from `FStar.Ghost`) to trigger extraction as
+  `unit` arguments, which KreMLin knows how to eliminate;
+- **higher-order types**: the default extraction from F\* leaves parameterized
+  type definitions in place; in particular, this situation is problematic:
+  ```
+  let f x: Type = match x with ... -> int32 { ... refinement ... }
+  let g x: f x = ...
+  ```
+  this cannot be expressed in C; to force every `f x` to reduce, use the
+  `unfold` qualifier on `f`
+- **polymorphism**: KreMLin does **not** support whole-program monomorphization
+  yet; as a stop-gap measure, mark polymorphic functions with `[@"substitute"]`
+  (on the `val` and the `let`) so that, once inlined at call-site, they
+  type-check as Low\* -- consider turning Warning 10 on with `-warn-error +10`
