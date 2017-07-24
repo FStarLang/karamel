@@ -377,7 +377,7 @@ and mk_stmts env e ret_type =
           ) branches) :: acc
 
     | EReturn e ->
-        mk_as_return env e acc
+        mk_as_return env e acc return_pos
 
     | EComment (s, e, s') ->
         let env, stmts = collect (env, CStar.Comment s :: acc) return_pos e in
@@ -388,7 +388,7 @@ and mk_stmts env e ret_type =
         env, s @ acc
 
     | _ when return_pos ->
-        mk_as_return env e acc
+        mk_as_return env e acc return_pos
 
     | _ ->
         if is_value e then
@@ -400,12 +400,16 @@ and mk_stmts env e ret_type =
   and mk_block env return_pos e =
     List.rev (snd (collect (reset_block env, []) return_pos e))
 
-  and mk_as_return env e acc =
+  and mk_as_return env e acc return_pos =
+    let maybe_return_nothing s =
+      (* "return" when already in return position is un-needed *)
+      if return_pos then s else CStar.Return None :: s
+    in
     if ret_type = CStar.Void && is_value e then
-      env, CStar.Return None :: acc
+      env, maybe_return_nothing acc
     else if ret_type = CStar.Void then
       let env, s = mk_ignored_stmt env e in
-      env, CStar.Return None :: s @ acc
+      env, maybe_return_nothing (s @ acc)
     else
       env, CStar.Return (Some (mk_expr env false e)) :: acc
 
