@@ -138,7 +138,7 @@ let rec perr buf (loc, raw_error) =
         alternatively, as [@\"substitute\"] in the hope \
         that, once expanded at call-site, it type-checks as Low*" plid lid
   | NotLowStar e ->
-      p "this is expression is not Low*; the enclosing function cannot be translated into C*: %a" pexpr e
+      p "this expression is not Low*; the enclosing function cannot be translated into C*: %a" pexpr e
 
 
 let maybe_fatal_error error =
