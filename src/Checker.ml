@@ -158,9 +158,11 @@ and check_program env r (name, decls) =
           Warnings.maybe_fatal_error e;
           if Options.debug "backtraces" then
             Printexc.print_backtrace stderr;
+          flush stdout;
           KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
             please consider using -drop\n\n"
-            plid (lid_of_decl d)
+            plid (lid_of_decl d);
+          flush stderr
         end;
         None
 
@@ -182,9 +184,11 @@ and check_program env r (name, decls) =
           Warnings.maybe_fatal_error ("<toplevel>", TypeError e);
           if Options.debug "backtraces" then
             Printexc.print_backtrace stderr;
+          flush stdout;
           KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
             please consider using -drop\n\n"
-            plid (lid_of_decl d)
+            plid (lid_of_decl d);
+          flush stderr
         end;
         None
   ) decls in
@@ -230,6 +234,7 @@ and check_or_infer env t e =
   end
 
 and check env t e =
+  (* KPrint.bprintf "[check] %a for %a\n" ptyp t pexpr e; *)
   check' env t e;
   e.typ <- t
 

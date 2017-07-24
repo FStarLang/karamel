@@ -98,17 +98,22 @@ and print_flag = function
       string "substitute"
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
-  group (
-    (if mut then string "mutable" ^^ break 1 else empty) ^^
-    string name ^^ lparen ^^ int !mark ^^ comma ^^ space ^^ print_meta meta ^^ rparen ^^ colon ^/^
-    print_typ typ
-  )
+  (if mut then string "mutable" ^^ break 1 else empty) ^^
+  group (string name ^^ lparen ^^ int !mark ^^ comma ^^ space ^^ print_meta meta ^^
+  rparen ^^ colon) ^/^
+  nest 2 (print_typ typ)
 
 and print_meta = function
   | Some MetaSequence ->
       semi
   | None ->
       empty
+
+and print_typ_paren = function
+  | TArrow _ as t ->
+      parens_with_nesting (print_typ t)
+  | t ->
+      print_typ t
 
 and print_typ = function
   | TInt w -> print_width w ^^ string "_t"
@@ -118,7 +123,7 @@ and print_typ = function
   | TQualified name -> string (string_of_lident name)
   | TBool -> string "bool"
   | TAny -> string "any"
-  | TArrow (t1, t2) -> print_typ t1 ^^ space ^^ string "->" ^/^ nest 2 (print_typ t2)
+  | TArrow (t1, t2) -> print_typ_paren t1 ^^ space ^^ string "->" ^/^ nest 2 (print_typ t2)
   | TZ -> string "mpz_t"
   | TBound i -> int i
   | TApp (lid, args) ->
