@@ -505,11 +505,11 @@ and hoist_expr pos e =
         let b = { b with node = { b.node with meta = Some MetaSequence }} in
         lhs1 @ [ b, mk (EFor (binder, e1, s e2, s e3, s e4)) ], mk EUnit
 
-  | EFun (binders, expr) ->
+  | EFun (binders, expr, t) ->
       let binders, expr = open_binders binders expr in
       let expr = hoist_stmt expr in
       let expr = close_binders binders expr in
-      [], mk (EFun (binders, expr))
+      [], mk (EFun (binders, expr, t))
 
   | EAssign (e1, e2) ->
       let lhs1, e1 = hoist_expr Unspecified e1 in
@@ -945,7 +945,7 @@ let remove_local_function_bindings = object(self)
     let e = self#visit env e in
     let es = List.map (self#visit env) es in
     match e.node with
-    | EFun (_, body) ->
+    | EFun (_, body, _) ->
         (safe_substitution es body t).node
     | _ ->
         EApp (e, es)
@@ -959,7 +959,7 @@ let combinators = object(self)
 
   method! eapp () t e es =
     match e.node, es with
-    | EQualified ([ "C"; "Loops" ], "for_"), [ start; finish; _inv; { node = EFun (_, body); _ } ] ->
+    | EQualified ([ "C"; "Loops" ], "for_"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
         (* Relying on the invariant that, if [finish] is effectful, F* has
          * hoisted it *)
         assert (is_value finish);

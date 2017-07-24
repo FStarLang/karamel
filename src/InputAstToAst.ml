@@ -148,8 +148,8 @@ and mk_expr = function
       mk (ETuple (List.map mk_expr es))
   | I.ECons (lid, id, es) ->
       { node = ECons (id, List.map mk_expr es); typ = mk_typ lid }
-  | I.EFun (bs, e) ->
-      mk (EFun (mk_binders bs, mk_expr e))
+  | I.EFun (bs, e, t) ->
+      mk (EFun (mk_binders bs, mk_expr e, mk_typ t))
 
 and mk_branches branches =
   List.map mk_branch branches
