@@ -12,7 +12,7 @@ open Helpers
 
 (* Count the number of occurrences of each variable ***************************)
 
-let count_use = object (self)
+let count_and_remove_locals = object (self)
 
   inherit [binder list] map
 
@@ -39,6 +39,16 @@ let count_use = object (self)
         ELet ({ b with node = { b.node with meta = Some MetaSequence }}, push_ignore e1, e2)
     else
       ELet (b, e1, e2)
+
+  method! ebufsub env _ e1 e2 =
+    (* This creates more opportunities for values to be eliminated if unused.
+     * Also, AstToCStar emits BufSub (e, 0) as just e, so we need the value
+     * check to be in agreement on both sides. *)
+    match e2.node with
+    | EConstant (_, "0") ->
+        e1.node
+    | _ ->
+        EBufSub (self#visit env e1, self#visit env e2)
 
 end
 
@@ -984,7 +994,7 @@ let simplify2 (files: file list): file list =
   let files = visit_files () hoist files in
   let files = visit_files () hoist_bufcreate files in
   let files = visit_files () fixup_hoist files in
-  let files = visit_files [] count_use files in
+  let files = visit_files [] count_and_remove_locals files in
   let files = visit_files () let_if_to_assign files in
   let files = visit_files () let_to_sequence files in
   files
@@ -1002,7 +1012,7 @@ let to_c_names (files: file list): file list =
 (* This should be run at the last minute since inlining may create more
  * opportunities for the removal of unused variables. *)
 let remove_unused (files: file list): file list =
-  let files = visit_files [] count_use files in
+  let files = visit_files [] count_and_remove_locals files in
   let map = Hashtbl.create 41 in
   let files = visit_files () (build_unused_map map) files in
   let files = visit_files () (remove_unused_parameters map) files in
