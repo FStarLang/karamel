@@ -11,7 +11,7 @@ FILES		= \
   DataTypesSimple.exe DataTypes.exe Parameterized.exe \
   Scope.exe Attributes.exe Unsound.exe Substitute.exe \
   InlineTest.exe Ghost1.exe Loops.exe Structs.exe \
-  Recursive.exe RecursivePoly.exe
+  Recursive.exe RecursivePoly.exe FunPtr.exe
 EXTRA_FILES	= \
   Crypto.Symmetric.Chacha20.exe
 

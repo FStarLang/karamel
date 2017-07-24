@@ -288,6 +288,7 @@ and print_pat p =
 let print_files = print_files print_decl
 
 module Ops = struct
+  let ploc = printf_of_pprint Location.print_location
   let ptyp = printf_of_pprint print_typ
   let pptyp = printf_of_pprint_pretty print_typ
   let pexpr = printf_of_pprint print_expr
