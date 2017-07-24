@@ -46,7 +46,7 @@ let count_and_remove_locals = object (self)
      * check to be in agreement on both sides. *)
     match e2.node with
     | EConstant (_, "0") ->
-        e1.node
+        (self#visit env e1).node
     | _ ->
         EBufSub (self#visit env e1, self#visit env e2)
 
