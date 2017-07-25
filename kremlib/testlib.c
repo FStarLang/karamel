@@ -37,12 +37,29 @@ void TestLib_compare_and_print(const char *txt, uint8_t *reference,
 
 void TestLib_touch(int32_t x) {}
 
-void TestLib_check(int32_t x, int32_t y) {
-  if (x != y) {
-    printf("Test check failure: %" PRId32 " != %" PRId32 "\n", x, y);
-    exit(253);
+#define MK_CHECK(n)                                                            \
+  void TestLib_check##n(int##n##_t x, int##n##_t y) {                          \
+    if (x != y) {                                                              \
+      printf("Test check failure: %" PRId##n " != %" PRId##n "\n", x, y);      \
+      exit(253);                                                               \
+    }                                                                          \
   }
-}
+MK_CHECK(8)
+MK_CHECK(16)
+MK_CHECK(32)
+MK_CHECK(64)
+
+#define MK_UCHECK(n)                                                           \
+  void TestLib_checku##n(uint##n##_t x, uint##n##_t y) {                       \
+    if (x != y) {                                                              \
+      printf("Test check failure: %" PRIu##n " != %" PRIu##n "\n", x, y);      \
+      exit(253);                                                               \
+    }                                                                          \
+  }
+MK_UCHECK(8)
+MK_UCHECK(16)
+MK_UCHECK(32)
+MK_UCHECK(64)
 
 void *TestLib_unsafe_malloc(size_t size) {
   void *memblob = malloc(size);
@@ -61,7 +78,8 @@ void TestLib_perr(unsigned int err_code) {
   printf("Got error code %u.\n", err_code);
 }
 
-void TestLib_print_cycles_per_round(TestLib_cycles c1, TestLib_cycles c2, uint32_t rounds) {
+void TestLib_print_cycles_per_round(TestLib_cycles c1, TestLib_cycles c2,
+                                    uint32_t rounds) {
   printf("[perf] cpu cycles per round (averaged over %d) is %f\n", rounds,
          (float)(c2 - c1) / rounds);
 }

@@ -20,9 +20,9 @@ let main argc argv =
   end;
   let bof'' = Buffer.create 1l 1ul in
   let tmp = Buffer.index bbof 0ul in
-  check (Buffer.index tmp 0ul) 2l;
-  check (Buffer.index bof 0ul) 0l;
-  check (Buffer.index bof'' 0ul) 1l;
+  check32 (Buffer.index tmp 0ul) 2l;
+  check32 (Buffer.index bof 0ul) 0l;
+  check32 (Buffer.index bof'' 0ul) 1l;
   pop_frame ();
   C.exit_success
 

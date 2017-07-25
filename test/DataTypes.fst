@@ -35,6 +35,6 @@ let main argc argv =
     | _, D _ ->
         8y
   in
-  TestLib.check (int8_to_int32 z) (-10l);
+  TestLib.check32 (int8_to_int32 z) (-10l);
   pop_frame ();
   C.exit_success

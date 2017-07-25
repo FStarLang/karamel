@@ -12,6 +12,6 @@ let main argc argv =
   let open FStar.Int32 in
   let mutable x = 1l in
   x <- x +^ x;
-  check x 2l;
+  check32 x 2l;
   pop_frame ();
   C.exit_success
