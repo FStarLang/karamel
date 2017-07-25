@@ -211,7 +211,8 @@ let detect_fstar () =
   List.iter record_no_extract
     [ "Int8"; "UInt8"; "Int16"; "UInt16"; "Int31"; "UInt31"; "Int32"; "UInt32";
       "Int63"; "UInt63"; "Int64"; "UInt64"; "Int128"; "Seq.Base"; "HyperStack.ST";
-      "HyperStack"; "HyperHeap"; "Math.Lib" ];
+      "HyperStack"; "HyperHeap"; "Math.Lib"; "Map"; "Monotonic.HyperHeap";
+      "Monotonic.HyperStack" ];
   if not !Options.uint128 then
     fstar_options := (!fstar_home ^^ "ulib" ^^ "FStar.UInt128.fst") :: !fstar_options;
   KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
