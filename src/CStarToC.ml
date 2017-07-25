@@ -38,8 +38,8 @@ let rec mk_spec_and_decl name rec_name (t: typ) (k: C.declarator -> C.declarator
        * declarator for a function, which gets special treatment via
        * mk_spec_and_declarator_f. *)
       mk_spec_and_decl name rec_name t (fun d ->
-        Pointer (Function (cc, k d, List.mapi (fun i t ->
-          mk_spec_and_decl (KPrint.bsprintf "x%d" i) rec_name t (fun d -> d)) ts)))
+        Function (cc, Pointer (k d), List.mapi (fun i t ->
+          mk_spec_and_decl (KPrint.bsprintf "x%d" i) rec_name t (fun d -> d)) ts))
   | Int w ->
       Int w, k (Ident name)
   | Void ->
