@@ -72,26 +72,22 @@ let drop: Bundle.pat list ref =
     Module [ "FStar"; "Char"; ];
     Module [ "FStar"; "Float"; ];
     Module [ "FStar"; "Heap"; ];
+    Module [ "FStar"; "HyperHeap"; ];
+    Module [ "FStar"; "HyperStack"; ];
+    Module [ "FStar"; "HyperStack"; "ST" ];
     Module [ "FStar"; "IO"; ];
+    Module [ "FStar"; "Map"; ];
+    Module [ "FStar"; "Math"; "Lib" ];
     Module [ "FStar"; "Matrix2"; ];
     Module [ "FStar"; "Option"; ];
+    Module [ "FStar"; "Seq"; "Base" ];
     Module [ "FStar"; "Squash"; ];
     Module [ "FStar"; "String"; ];
     Module [ "FStar"; "Universe"; ];
     Module [ "FStar"; "Int"; "Cast" ];
     Module [ "FStar"; "Monotonic"; "RRef" ];
-    Module [ "FStar"; "Int8" ];
-    Module [ "FStar"; "UInt8" ];
-    Module [ "FStar"; "Int16" ];
-    Module [ "FStar"; "UInt16" ];
-    Module [ "FStar"; "Int31" ];
-    Module [ "FStar"; "UInt31" ];
-    Module [ "FStar"; "Int32" ];
-    Module [ "FStar"; "UInt32" ];
-    Module [ "FStar"; "Int63" ];
-    Module [ "FStar"; "UInt63" ];
-    Module [ "FStar"; "Int64" ];
-    Module [ "FStar"; "UInt64" ];
+    Module [ "FStar"; "Monotonic"; "HyperHeap" ];
+    Module [ "FStar"; "Monotonic"; "HyperStack" ];
     Module [ "FStar"; "Int128" ]
   ])
-  (* Kremlin.ml adds UInt128 to this list. *)
+  (* Kremlin.ml adds UInt128 to this list, if needed. *)
