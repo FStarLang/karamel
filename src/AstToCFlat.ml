@@ -3,11 +3,13 @@
 module CF = CFlat
 module K = Constant
 module LidMap = Idents.LidMap
+module StringMap = Map.Make(String)
 
 (** Sizes *)
 
 open CFlat.Sizes
 open Ast
+open PrintAst.Ops
 
 (** We know how much space is needed to represent each C* type. *)
 let size_of (t: typ): size =
@@ -50,8 +52,93 @@ let size_of_array_elt (t: typ): array_size =
 type env = {
   binders: int list;
   enums: int LidMap.t;
-  (**  Enumeration constants are assigned a distinct integer. *)
+    (** Enumeration constants are assigned a distinct integer. *)
+  structs: layout LidMap.t;
+    (** Pre-computed layouts for struct types. *)
 }
+
+and layout = {
+  size: int;
+    (** In bytes *)
+  fields: offset StringMap.t;
+    (** Any struct must be laid out on a word boundary (64-bit). Then, fields
+     * can be always accessed using the most efficient offset computation. *)
+}
+
+and offset =
+  array_size * int
+
+let empty = {
+  binders = [];
+  enums = LidMap.empty;
+  structs = LidMap.empty;
+}
+
+(** Layouts.
+ *
+ * Filling in the initial environment with struct layout, and an assignment of
+ * enum constants to integers. *)
+
+let struct_size env lid =
+  (LidMap.find lid env.structs).size
+
+let align array_size pos =
+  (* Align on array size boundary *)
+  let b = bytes_in array_size in
+  let pos =
+    if pos mod b = 0 then
+      pos
+    else
+      pos + (bytes_in array_size - (pos mod bytes_in array_size))
+  in
+  pos, (array_size, pos/b)
+
+let layout env fields: layout =
+  let fields, size =
+    List.fold_left (fun (layout, n_bytes) (fname, (t, _mut)) ->
+      (* We've laid out things up to [n_bytes] in the struct; these are recorded
+       * in [layout]. *)
+      let fname = Option.must fname in
+      match t with
+      | TQualified lid ->
+          if not (LidMap.mem lid env.structs) then
+            Warnings.fatal_error "Cannot layout sub-field of type %a" ptyp t;
+          let n_bytes, ofs = align A64 n_bytes in
+          StringMap.add fname ofs layout, n_bytes + struct_size env lid
+      | t ->
+          let s = size_of_array_elt t in
+          let n_bytes, ofs = align s n_bytes in
+          StringMap.add fname ofs layout, n_bytes + bytes_in s
+    ) (StringMap.empty, 0) fields
+  in
+  { fields; size }
+
+let populate env files =
+  (* Assign integers to enums *)
+  let env = List.fold_left (fun env (_, decls) ->
+    List.fold_left (fun env decl ->
+      match decl with
+      | DType (_, _, Enum idents) ->
+          KList.fold_lefti (fun i env ident ->
+            { env with enums = LidMap.add ident i env.enums }
+          ) env idents
+      | _ ->
+          env
+    ) env decls
+  ) env files in
+  (* Compute the layouts *)
+  let env = List.fold_left (fun env (_, decls) ->
+    List.fold_left (fun env decl ->
+      match decl with
+      | DType (lid, _, Flat fields) ->
+          (* Need to pass in the layout of previous structs *)
+          let l = layout env fields in
+          { env with structs = LidMap.add lid l env.structs }
+      | _ ->
+          env
+    ) env decls
+  ) env files in
+  env
 
 (** When translating, we carry around the list of locals allocated so far within
  * the current function body, along with an environment (for the De Bruijn indices);
@@ -61,11 +148,6 @@ type env = {
  *
  * Note that this list is kept in reverse. *)
 type locals = size list
-
-let empty = {
-  binders = [];
-  enums = LidMap.empty;
-}
 
 (** An index in the locals table *)
 type var = int
@@ -323,16 +405,4 @@ let mk_module env (name, decls) =
   ) decls
 
 let mk_files files =
-  let env = List.fold_left (fun env (_, decls) ->
-    List.fold_left (fun env decl ->
-      match decl with
-      | DType (_, _, Enum idents) ->
-          KList.fold_lefti (fun i env ident ->
-            { env with enums =
-              LidMap.add ident i env.enums }
-          ) env idents
-      | _ ->
-          env
-    ) env decls
-  ) empty files in
-  List.map (mk_module env) files
+  List.map (mk_module (populate empty files)) files
