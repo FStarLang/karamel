@@ -98,8 +98,8 @@ let i32_sub =
   [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Sub)) ]
 
 let i32_not =
-  mk_const (mk_int32 Int32.one) @
-  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Xor)) ]
+  mk_const (mk_int32 Int32.zero) @
+  [ dummy_phrase (W.Ast.Compare (mk_value I32 W.Ast.IntOp.Eq)) ]
 
 let i32_zero =
   mk_const (mk_int32 Int32.zero)
@@ -497,6 +497,14 @@ let rec mk_callop2 env (w, o) e1 e2 =
   else
     failwith "todo mk_callop2"
 
+and mk_callop env (w, o) e1 =
+  match (w, o) with
+  | _, K.Not ->
+      mk_expr env e1 @
+      i32_not
+  | _ ->
+      failwith "todo mk_callop"
+
 and mk_size size =
   [ dummy_phrase (W.Ast.Const (mk_int32 (Int32.of_int (bytes_in size)))) ]
 
@@ -508,6 +516,9 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | Constant (w, lit) ->
       mk_const (mk_lit w lit)
 
+  | CallOp (o, [ e1 ]) ->
+      mk_callop env o e1
+
   | CallOp (o, [ e1; e2 ]) ->
       mk_callop2 env o e1 e2
 
@@ -518,6 +529,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | BufCreate (Common.Stack, n_elts, elt_size) ->
       (* TODO -- generate the equivalent of KRML_CHECK_SIZE *)
       read_highwater @
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_align_64"))) ] @
       mk_expr env n_elts @
       mk_size elt_size @
       i32_mul @
