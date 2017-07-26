@@ -20,12 +20,15 @@ let size_of (t: typ): size =
       I32
   | TBool | TUnit ->
       I32
+  | TAnonymous (Enum _) ->
+      I32
+  | TAnonymous (Variant _ | Abbrev _)
   | TZ | TBound _ | TTuple _ | TArrow _ | TQualified _ | TApp _ ->
-      invalid_arg ("size_of: this case should've been eliminated: " ^ show_typ t)
-  | TAnonymous _ | TAny ->
-      failwith "not implemented"
+      Warnings.fatal_error "size_of: this case should've been eliminated: %a" ptyp t
+  | TAnonymous _ | TAny as t ->
+      Warnings.fatal_error "not implemented: size_of %a" ptyp t
 
-let max s1 s2 =
+let max_size s1 s2 =
   match s1, s2 with
   | I32, I32 -> I32
   | _ -> I64
@@ -38,10 +41,13 @@ let size_of_array_elt (t: typ): array_size =
       A32
   | TBool | TUnit ->
       failwith "todo: packed arrays of bools/units?!"
+  | TAnonymous (Enum _) ->
+      A32
+  | TAnonymous (Variant _ | Abbrev _)
   | TZ | TBound _ | TTuple _ | TArrow _ | TQualified _ | TApp _ ->
-      invalid_arg ("size_of: this case should've been eliminated: " ^ show_typ t)
-  | TAnonymous _ | TAny ->
-      failwith "not implemented"
+      Warnings.fatal_error "size_of: this case should've been eliminated: %a" ptyp t
+  | TAnonymous _ | TAny as t ->
+      Warnings.fatal_error "not implemented: array_size_of %a" ptyp t
 
 
 (** Environments.
@@ -93,22 +99,41 @@ let align array_size pos =
   in
   pos, (array_size, pos/b)
 
-let layout env fields: layout =
+let fields_of_struct =
+  List.map (fun (name, (t, _mut)) -> Option.must name, t)
+
+(* Compute the offsets of each field of a struct. This function does NOT return
+ * offsets for sub-fields. *)
+let rec layout env fields: layout =
   let fields, size =
-    List.fold_left (fun (layout, n_bytes) (fname, (t, _mut)) ->
-      (* We've laid out things up to [n_bytes] in the struct; these are recorded
-       * in [layout]. *)
-      let fname = Option.must fname in
+    List.fold_left (fun (fields, size) (fname, t) ->
+      (* So far, we've laid out [fields], occupying [size] bytes. *)
       match t with
       | TQualified lid ->
-          if not (LidMap.mem lid env.structs) then
-            Warnings.fatal_error "Cannot layout sub-field of type %a" ptyp t;
-          let n_bytes, ofs = align A64 n_bytes in
-          (fname, ofs) :: layout, n_bytes + struct_size env lid
+          if not (LidMap.mem lid env.structs) then begin
+            KPrint.bprintf "Cannot layout sub-field %s of type %a... skipping\n"
+              fname ptyp t;
+            fields, size
+          end else
+            let size, ofs = align A64 size in
+            (fname, ofs) :: fields, size + struct_size env lid
+      | TUnit ->
+          KPrint.bprintf "Skipping sub-field %s of type unit\n" fname;
+          fields, size
+      | TAnonymous (Union cases) ->
+          let size, ofs = align A64 size in
+          let max_size = KList.reduce max
+            (List.map (fun f -> (layout env [ f ]).size) cases)
+          in
+          (fname, ofs) :: fields, size + max_size
+      | TAnonymous (Flat struct_fields) ->
+          let size, ofs = align A64 size in
+          let size' = (layout env (fields_of_struct struct_fields)).size in
+          (fname, ofs) :: fields, size + size'
       | t ->
           let s = size_of_array_elt t in
-          let n_bytes, ofs = align s n_bytes in
-          (fname, ofs) :: layout, n_bytes + bytes_in s
+          let size, ofs = align s size in
+          (fname, ofs) :: fields, size + bytes_in s
     ) ([], 0) fields
   in
   let fields = List.rev fields in
@@ -133,7 +158,7 @@ let populate env files =
       match decl with
       | DType (lid, _, Flat fields) ->
           (* Need to pass in the layout of previous structs *)
-          let l = layout env fields in
+          let l = layout env (fields_of_struct fields) in
           { env with structs = LidMap.add lid l env.structs }
       | _ ->
           env
