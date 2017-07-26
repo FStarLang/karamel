@@ -162,7 +162,7 @@ let read_file (f: string): file list =
   in
   let version, files = contents in
   if version <> current_version then
-    failwith "This file is for a different version of KreMLin";
+    failwith (Printf.sprintf "The file %s is for version %d; current version of KreMLin is %d" f version current_version);
   files
 
 let write_file (files: file list) (f: string): unit =
