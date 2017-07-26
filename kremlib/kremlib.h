@@ -79,9 +79,9 @@ void *Prims____Cons___tl(void *_);
 
 // In expression position, use the comma-operator and a malloc to return an
 // expression of the right size. KreMLin passes t as the parameter to the macro.
-#define KRML_EABORT(t, msg) (                                                  \
-  printf("KreMLin abort at %s:%d\n%s\n", __FILE__, __LINE__, msg),             \
-  exit(255), *((t*)malloc(sizeof(t))))
+#define KRML_EABORT(t, msg)                                                    \
+  (printf("KreMLin abort at %s:%d\n%s\n", __FILE__, __LINE__, msg), exit(255), \
+   *((t *)malloc(sizeof(t))))
 
 #define KRML_CHECK_SIZE(elt, size)                                             \
   if (((size_t)size) > SIZE_MAX / sizeof(elt)) {                               \
@@ -110,12 +110,12 @@ bool FStar_HyperStack_is_eternal_color(Prims_int x0);
     (void)(x);                                                                 \
   } while (0)
 
-#define FStar_Monotonic_RRef_m_recall(x1,x2)                                   \
+#define FStar_Monotonic_RRef_m_recall(x1, x2)                                  \
   do {                                                                         \
     (void)(x1);                                                                \
     (void)(x2);                                                                \
   } while (0)
-#define FStar_Monotonic_RRef_m_write(x1,x2,x3,x4,x5)                           \
+#define FStar_Monotonic_RRef_m_write(x1, x2, x3, x4, x5)                       \
   do {                                                                         \
     (void)(x1);                                                                \
     (void)(x2);                                                                \
@@ -254,17 +254,11 @@ inline static uint64_t load64(uint8_t *b) {
   return x;
 }
 
-inline static void store16(uint8_t *b, uint16_t i) {
-  memcpy(b, &i, 2);
-}
+inline static void store16(uint8_t *b, uint16_t i) { memcpy(b, &i, 2); }
 
-inline static void store32(uint8_t *b, uint32_t i) {
-  memcpy(b, &i, 4);
-}
+inline static void store32(uint8_t *b, uint32_t i) { memcpy(b, &i, 4); }
 
-inline static void store64(uint8_t *b, uint64_t i) {
-  memcpy(b, &i, 8);
-}
+inline static void store64(uint8_t *b, uint64_t i) { memcpy(b, &i, 8); }
 
 #define load16_le(b) (le16toh(load16(b)))
 #define store16_le(b, i) (store16(b, htole16(i)))
@@ -374,7 +368,8 @@ static inline uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
 typedef unsigned __int128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t;
 
 static inline void print128(unsigned char *where, uint128_t n) {
-  printf("%s: [%" PRIu64 ",%" PRIu64 "]\n", where, (uint64_t)(n >> 64), (uint64_t)n);
+  printf("%s: [%" PRIu64 ",%" PRIu64 "]\n", where, (uint64_t)(n >> 64),
+         (uint64_t)n);
 }
 
 static inline uint128_t load128_le(uint8_t *b) {
@@ -430,7 +425,6 @@ static inline uint128_t FStar_UInt128_gte_mask(uint128_t x, uint128_t y) {
   return ((uint128_t)mask) << 64 | mask;
 }
 
-
 #else // !defined(KRML_UINT128)
 
 // This is a bad circular dependency... should fix it properly.
@@ -475,9 +469,7 @@ static inline uint128_t load128_le(uint8_t *b) {
   return r;
 }
 
-static inline void store128_le(uint8_t *b, uint128_t n) {
-  store128_le_(b, &n);
-}
+static inline void store128_le(uint8_t *b, uint128_t n) { store128_le_(b, &n); }
 
 static inline uint128_t load128_be(uint8_t *b) {
   uint128_t r;
@@ -485,9 +477,7 @@ static inline uint128_t load128_be(uint8_t *b) {
   return r;
 }
 
-static inline void store128_be(uint8_t *b, uint128_t n) {
-  store128_be_(b, &n);
-}
+static inline void store128_be(uint8_t *b, uint128_t n) { store128_be_(b, &n); }
 
 #else // !defined(KRML_STRUCT_PASSING)
 
