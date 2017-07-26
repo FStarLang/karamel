@@ -438,7 +438,7 @@ let to_addr is_struct =
         let b = { b with typ = t' } in
         let e1 = with_type t' (EBufCreate (Stack, e1, Helpers.oneu32)) in
         let e2 = DeBruijn.subst_no_open (Helpers.mk_deref t (EBound 0)) 0 e2 in
-        w (ELet (b, e1, e2))
+        w (ELet (b, e1, to_addr e2))
 
     | ELet (b, e1, e2) ->
         let b, e1, e2 =
