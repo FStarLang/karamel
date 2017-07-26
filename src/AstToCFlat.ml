@@ -152,7 +152,8 @@ let populate env files =
           env
     ) env decls
   ) env files in
-  (* Compute the layouts *)
+  (* Compute the layouts for structs that have an lid. The rest will be (for
+   * now) computed on demand. *)
   let env = List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with

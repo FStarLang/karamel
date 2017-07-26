@@ -30,19 +30,20 @@ extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $* -o $@ $<
 	./$@
 
-%.wasm: EXTRA = -wasm
+%.wasm: EXTRA += -wasm
 %.wasm: %.krml $(KRML_BIN)
-	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $<
-	cp $(wildcard ../kremlib/js/*.js) $(subst .wasm,.out,$@)
+	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $(JSFILES) $<
+	cp $(wildcard ../kremlib/js/*.js) $(JSFILES) $(subst .wasm,.out,$@)
 
 Structs2.exe: EXTRA = -wasm -d force-c
 ML16.exe: EXTRA = ml16-native.c
 Scope.exe: EXTRA = -ccopt -O3
-Crypto.Symmetric.Chacha20.exe: EXTRA=$(CRYPTO_OPTS) main-Chacha.c
+Crypto.Symmetric.Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 
 .PHONY: Crypto.Symmetric.Chacha20.fst
 
-Crypto.Symmetric.Chacha20.wasm: EXTRA=$(CRYPTO_OPTS) main-Chacha.js
+Crypto.Symmetric.Chacha20.wasm: JSFILES=main-Chacha.js
+Crypto.Symmetric.Chacha20.wasm: EXTRA+=$(CRYPTO_OPTS) -drop FStar
 
 clean:
 	rm -rf *.exe *.dSYM *.out *.wasm *.krml
