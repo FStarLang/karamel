@@ -30,8 +30,9 @@ extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $* -o $@ $<
 	./$@
 
+%.wasm: EXTRA = -wasm
 %.wasm: %.krml $(KRML_BIN)
-	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $< -wasm -drop Prims -drop FStar
+	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $<
 	cp $(wildcard ../kremlib/js/*.js) $(subst .wasm,.out,$@)
 
 Structs2.exe: EXTRA = -wasm -d force-c

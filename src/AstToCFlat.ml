@@ -266,7 +266,7 @@ let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       invalid_arg "funs should've been substituted"
 
   | EAddrOf _ ->
-      invalid_arg "adress-of should've been resolved"
+      invalid_arg "address-of should've been resolved"
 
   | EIgnore _ ->
       failwith "TODO"

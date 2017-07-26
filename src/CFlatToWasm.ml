@@ -196,7 +196,7 @@ let mk_string env s =
       rel_addr
   in
   compute_string_offset env rel_addr
-  
+
 
 (******************************************************************************)
 (* Arithmetic                                                                 *)
@@ -434,9 +434,9 @@ module Debug = struct
       | `Local32 i :: tl ->
           byte_and_store ofs '\x02' I32 [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ] tl
       | `Peek64 :: tl ->
-          byte_and_store ofs '\x02' I64 (dup64 env) tl
+          byte_and_store ofs '\x03' I64 (dup64 env) tl
       | `Local64 i :: tl ->
-          byte_and_store ofs '\x02' I64 [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ] tl
+          byte_and_store ofs '\x03' I64 [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ] tl
       | `Incr :: tl ->
           char ofs '\x04' @
           aux (ofs + 1) tl
@@ -516,9 +516,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
       [ dummy_phrase (W.Ast.Call (mk_var (find_func env name))) ]
 
   | BufCreate (Common.Stack, n_elts, elt_size) ->
-      (* TODO semantics discrepancy the size is a uint32 both in Low* and Wasm
-       * but Low* talks about the number of elements while Wasm talks about the
-       * number of bytes *)
+      (* TODO -- generate the equivalent of KRML_CHECK_SIZE *)
       read_highwater @
       mk_expr env n_elts @
       mk_size elt_size @
@@ -534,7 +532,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
       i32_add @
       [ dummy_phrase W.Ast.(Load {
         (* the type we want on the operand stack *)
-        ty = mk_type (if size = A64 then I64 else I32); 
+        ty = mk_type (if size = A64 then I64 else I32);
         (* ignored *)
         align = 0;
         (* we've already done the multiplication ourselves *)
@@ -575,7 +573,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
       i32_add @
       mk_expr env e3 @
       [ dummy_phrase W.Ast.(Store {
-        ty = mk_type (if size = A64 then I64 else I32); 
+        ty = mk_type (if size = A64 then I64 else I32);
         align = 0;
         offset = 0l;
         sz = match size with
@@ -699,7 +697,7 @@ let mk_module types imports (name, decls):
     | Function { name; _ } :: tl ->
         let env = { env with funcs = StringMap.add name f env.funcs } in
         assign env (f + 1) g tl
-    | Global (name, _, _, _) :: tl -> 
+    | Global (name, _, _, _) :: tl ->
         let env = { env with globals = StringMap.add name g env.globals } in
         assign env f (g + 1) tl
     | _ :: tl ->
