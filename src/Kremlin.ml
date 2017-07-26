@@ -383,6 +383,7 @@ Supported options:|}
   let files = Inlining.inline_function_frames files in
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
   let files = Simplify.remove_unused files in
+  let files = if !arg_wasm then Simplify.simplify2 files else files in
   let files = if !arg_wasm then Structs.in_memory files else files in
   let files = Structs.collect_initializers files in
   let files = Simplify.simplify2 files in

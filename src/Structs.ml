@@ -362,7 +362,9 @@ let collect_initializers (files: Ast.file list) =
  * We do not recurse into the initial value of ebufcreate nodes, the rhs of
  * ebufwrite, and into nested structs within outer struct literals. All of these
  * already have a destination address, meaning the WASM codegen will be able to
- * handle them. *)
+ * handle them.
+ *
+ * This phase assumes all lets have been hoisted. *)
 let to_addr is_struct =
   let rec to_addr e =
     let was_struct = is_struct e.typ in
