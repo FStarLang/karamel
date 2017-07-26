@@ -30,6 +30,16 @@ module Sizes = struct
     | A32
     | A64
 
+  let string_of_size = function
+    | I32 -> "I32"
+    | I64 -> "I64"
+
+  let string_of_array_size = function
+    | A8 -> "8"
+    | A16 -> "16"
+    | A32 -> "32"
+    | A64 -> "64"
+
   let size_of_width (w: K.width) =
     let open K in
     match w with
