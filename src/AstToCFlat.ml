@@ -60,7 +60,7 @@ type env = {
 and layout = {
   size: int;
     (** In bytes *)
-  fields: offset StringMap.t;
+  fields: (string * offset) list;
     (** Any struct must be laid out on a word boundary (64-bit). Then, fields
      * can be always accessed using the most efficient offset computation. *)
 }
@@ -104,13 +104,14 @@ let layout env fields: layout =
           if not (LidMap.mem lid env.structs) then
             Warnings.fatal_error "Cannot layout sub-field of type %a" ptyp t;
           let n_bytes, ofs = align A64 n_bytes in
-          StringMap.add fname ofs layout, n_bytes + struct_size env lid
+          (fname, ofs) :: layout, n_bytes + struct_size env lid
       | t ->
           let s = size_of_array_elt t in
           let n_bytes, ofs = align s n_bytes in
-          StringMap.add fname ofs layout, n_bytes + bytes_in s
-    ) (StringMap.empty, 0) fields
+          (fname, ofs) :: layout, n_bytes + bytes_in s
+    ) ([], 0) fields
   in
+  let fields = List.rev fields in
   { fields; size }
 
 let populate env files =
@@ -139,6 +140,20 @@ let populate env files =
     ) env decls
   ) env files in
   env
+
+let debug_env { structs; enums; _ } =
+  KPrint.bprintf "Struct layout:\n";
+  LidMap.iter (fun lid { size; fields } ->
+    KPrint.bprintf "%a (size=%d, %d fields)\n" plid lid size (List.length fields);
+    List.iter (fun (f, (array_size, ofs)) ->
+      KPrint.bprintf "  %s: %s %d = %d\n" f (string_of_array_size array_size)
+        ofs (bytes_in array_size * ofs)
+    ) fields
+  ) structs;
+  KPrint.bprintf "Enum constant assignments:\n";
+  LidMap.iter (fun lid d ->
+    KPrint.bprintf "  %a = %d\n" plid lid d
+  ) enums
 
 (** When translating, we carry around the list of locals allocated so far within
  * the current function body, along with an environment (for the De Bruijn indices);
@@ -405,4 +420,7 @@ let mk_module env (name, decls) =
   ) decls
 
 let mk_files files =
-  List.map (mk_module (populate empty files)) files
+  let env = populate empty files in
+  if Options.debug "cflat" then
+    debug_env env;
+  List.map (mk_module env) files
