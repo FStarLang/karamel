@@ -15,7 +15,16 @@ void print_buf(uint8_t *buf, size_t size, char *file, int line);
 
 // Functions for F*-written tests, exposed via TestLib.fsti
 void TestLib_touch(int32_t);
-void TestLib_check(int32_t, int32_t);
+
+void TestLib_check8(int8_t, int8_t);
+void TestLib_check16(int16_t, int16_t);
+void TestLib_check32(int32_t, int32_t);
+void TestLib_check64(int64_t, int64_t);
+
+void TestLib_checku8(uint8_t, uint8_t);
+void TestLib_checku16(uint16_t, uint16_t);
+void TestLib_checku32(uint32_t, uint32_t);
+void TestLib_checku64(uint64_t, uint64_t);
 
 // These functions are also called by HACL
 void TestLib_compare_and_print(const char *txt, uint8_t *reference,

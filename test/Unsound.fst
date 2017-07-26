@@ -22,6 +22,6 @@ let main (): Stack Int32.t (fun _ -> true) (fun _ _ _ -> true) =
   push_frame ();
   let b = Buffer.createL [ 0l ] in
   let _ = g (f b) in
-  check (Buffer.index b 0ul) 1l;
+  check32 (Buffer.index b 0ul) 1l;
   pop_frame ();
   C.exit_success

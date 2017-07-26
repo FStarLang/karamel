@@ -28,7 +28,7 @@ let main argc argv =
   let buf = alloc_and_init 0l in
   let buf' = alloc_and_init 2l in
   // If [alloc_and_init] is compiled as a separate function, then the second
-  // call will override the initial value and the check will fail.
-  check (Buffer.index buf 1ul) 1l;
+  // call will override the initial value and the check32 will fail.
+  check32 (Buffer.index buf 1ul) 1l;
   pop_frame ();
   C.exit_success
