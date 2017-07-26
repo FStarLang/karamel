@@ -362,7 +362,6 @@ Supported options:|}
   tick_print (not has_errors) "Pattern matches compilation";
 
   (* 4. First round of simplifications. *)
-  let files = if !Options.wasm then SimplifyWasm.simplify files else files in
   let files = Simplify.simplify1 files in
   let files = Simplify.simplify2 files in
   if !arg_print_simplify then
@@ -384,6 +383,7 @@ Supported options:|}
   let files = Simplify.remove_unused files in
   let files = if !Options.wasm then Simplify.simplify2 files else files in
   let files = if !Options.wasm then Structs.in_memory files else files in
+  let files = if !Options.wasm then SimplifyWasm.simplify files else files in
   let files = Structs.collect_initializers files in
   let files = Simplify.simplify2 files in
   if !arg_print_inline then

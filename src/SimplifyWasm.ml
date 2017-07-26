@@ -22,23 +22,31 @@ let remove_buffer_ops = object
    *   b
    * *)
   method ebufcreate () t lifetime init size =
-    let b_init, body_init, ref_init = mk_named_binding "init" init.typ init.node in
-    let b_size, body_size, ref_size = mk_named_binding "size" size.typ size.node in
-    let b_size = mark_mut b_size in
-    (* Leaving the size inline because it's needed for the buffer hoisting
-     * phase; also, the size ought to be pure, guaranteed by F*. *)
-    let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, size)) in
-    let with_t = with_type t in
-    ELet (b_init, body_init, close_binder b_init (with_t (
-    ELet (b_size, body_size, close_binder b_size (with_t (
-    ELet (b_buf, body_buf, close_binder b_buf (with_t (
-      ESequence [ with_unit (
-        EWhile (
-          mk_gt_zero ref_size, with_unit (
+    match init.node, size.node with
+    | EAny, _
+    | _, EConstant (_, "1") ->
+        EBufCreate (lifetime, init, size)
+    | _ ->
+        let b_init, body_init, ref_init = mk_named_binding "init" init.typ (EBufCreate (Common.Stack, init, oneu32)) in
+        let b_size, body_size, ref_size = mk_named_binding "size" size.typ size.node in
+        let b_size = mark_mut b_size in
+        (* Leaving the size inline because it's needed for the buffer hoisting
+         * phase; also, the size ought to be pure, guaranteed by F*. *)
+        let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, size)) in
+        let with_t = with_type t in
+        ELet (b_init, body_init, close_binder b_init (with_t (
+        ELet (b_size, body_size, close_binder b_size (with_t (
+        ELet (b_buf, body_buf, close_binder b_buf (with_t (
           ESequence [ with_unit (
-            EBufWrite (ref_buf, mk_minus_one ref_size, ref_init)); with_unit (
-            EAssign (ref_size, mk_minus_one ref_size))])));
-      ref_buf])))))))))
+            EWhile (
+              mk_gt_zero ref_size, with_unit (
+              ESequence [ with_unit (
+                EBufWrite (
+                  ref_buf,
+                  mk_minus_one ref_size,
+                  with_t (EBufRead (ref_init, zerou32)))); with_unit (
+                EAssign (ref_size, mk_minus_one ref_size))])));
+          ref_buf])))))))))
 
   method ebufblit () t src_buf src_ofs dst_buf dst_ofs len =
     let with_t = with_type t in

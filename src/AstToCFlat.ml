@@ -439,9 +439,10 @@ let mk_module env (name, decls) =
       mk_decl env d
     with e ->
       (* Remove when everything starts working *)
-      KPrint.beprintf "[C*ToC-] Couldn't translate %a:\n%s\n%s\n"
+      KPrint.beprintf "[C*ToC-] Couldn't translate %a:\n%s\n%s\n%s\n"
         PrintAst.plid (lid_of_decl d) (Printexc.to_string e)
-        (Printexc.get_backtrace ());
+        (Printexc.get_backtrace ())
+        (show_decl d);
       None
   ) decls
 
