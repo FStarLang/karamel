@@ -33,7 +33,7 @@ function main(imports) {
     m8[p_plain + i] = plain.charCodeAt(i);
   let p_cipher = p_plain + plain.length;
 
-  let counter_mode = imports.Crypto_Symmetric_Chacha20.Crypto_Symmetric_Chacha20_counter_mode;
+  let counter_mode = imports.Crypto_Symmetric_Chacha20.counter_mode;
   counter_mode(p_key, p_iv, counter, len, p_plain, p_cipher);
 
   my_print("Chacha20 finished (len="+len+")");

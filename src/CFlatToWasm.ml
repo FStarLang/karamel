@@ -36,10 +36,16 @@ let empty = {
 }
 
 let find_global env name =
-  StringMap.find name env.globals
+  try
+    StringMap.find name env.globals
+  with Not_found ->
+    Warnings.fatal_error "Could not resolve global %s" name
 
 let find_func env name =
-  StringMap.find name env.funcs
+  try
+    StringMap.find name env.funcs
+  with Not_found ->
+    Warnings.fatal_error "Could not resolve function %s" name
 
 
 (******************************************************************************)
@@ -394,13 +400,21 @@ module Debug = struct
   let default_imports = [
     dummy_phrase W.Ast.({
       module_name = "Kremlin";
-      item_name = "debug";
+      item_name = "__debug";
       ikind = dummy_phrase (FuncImport (mk_var 0))
+    });
+    dummy_phrase W.Ast.({
+      module_name = "Kremlin";
+      item_name = "__trap";
+      ikind = dummy_phrase (FuncImport (mk_var 1))
     })
   ]
 
   let default_types = [
-    W.Types.FuncType ([], [])
+    W.Types.FuncType ([], []);
+      (** not exposed in WasmSupport.fst, no fstar-compatible type. *)
+    W.Types.FuncType ([ W.Types.I32Type ], [ W.Types.I32Type ])
+      (** unit -> unit *)
   ]
 
   let mk env l =
@@ -446,7 +460,7 @@ module Debug = struct
     in
     if Options.debug "wasm-calls" then
       aux mark_size l @
-      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "debug"))) ]
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "__debug"))) ]
     else
       []
 end
@@ -529,7 +543,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | BufCreate (Common.Stack, n_elts, elt_size) ->
       (* TODO -- generate the equivalent of KRML_CHECK_SIZE *)
       read_highwater @
-      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_align_64"))) ] @
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "__align_64"))) ] @
       mk_expr env n_elts @
       mk_size elt_size @
       i32_mul @

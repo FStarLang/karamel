@@ -68,7 +68,7 @@ function dump(mem, size) {
 // mem[0..3] = top-of-the-stack pointer (I32);
 // mem[4..127] = scratch space for debugging.
 // Conventions for debugging and "debugging format" (lolz) are in WasmDebug.ml
-const header_size = 256;
+const header_size = 128;
 
 // this sets up the base data pointer and the debug entry point for the WASM
 // context; WASM-generated code expects to have these defined.
@@ -130,15 +130,20 @@ function init() {
     my_print(buf);
   };
 
-  let reserved_area_size = 128;
+  // unit -> unit
+  let trap = (_) => {
+    my_print("Run-time trap, e.g. zero-sized array.");
+    throw new Error();
+  };
 
   // Initialize the highwater mark.
-  new Uint32Array(mem.buffer)[0] = reserved_area_size;
+  new Uint32Array(mem.buffer)[0] = header_size;
   let imports = {
     Kremlin: {
       mem: mem,
-      debug: debug,
-      data_start: reserved_area_size
+      __debug: debug,
+      __trap: trap,
+      data_start: header_size
     }
   };
   return imports;

@@ -43,7 +43,7 @@ scope.then(scope => {
   for (let m of Object.keys(scope)) {
     if ("main" in scope[m]) {
       my_print("... main found in module " + m);
-      m.main();
+      scope[m].main();
       break;
     }
   }

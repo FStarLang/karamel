@@ -18,6 +18,8 @@ EXTRA_FILES	= \
 
 all: standalone extra
 
+all-wasm: Crypto.Symmetric.Chacha20.wasm WasmTrap.wasm
+
 # The standalone tests don't need a source checkout of F* to run
 standalone: $(FILES) $(subst .exe,.krml,$(FILES))
 extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
@@ -32,8 +34,10 @@ extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
 
 %.wasm: EXTRA += -wasm
 %.wasm: %.krml $(KRML_BIN)
-	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $(JSFILES) $<
+	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $(JSFILES) -no-prefix $* $<
 	cp $(wildcard ../kremlib/js/*.js) $(JSFILES) $(subst .wasm,.out,$@)
+	cd $*.out && $(shell which d8) main.js
+	# cd $*.out && ch -Wasm main.js
 
 Structs2.exe: EXTRA = -wasm -d force-c
 ML16.exe: EXTRA = ml16-native.c

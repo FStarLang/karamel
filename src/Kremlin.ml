@@ -257,6 +257,7 @@ Supported options:|}
     Warnings.parse_warn_error !arg_warn_error;
 
   if !Options.wasm then begin
+    Options.no_prefix := "WasmSupport" :: !Options.no_prefix;
     Options.uint128 := false;
     Options.anonymous_unions := false;
     Options.struct_passing := false
@@ -426,6 +427,8 @@ Supported options:|}
   if !Options.wasm && not (Options.debug "force-c") then
     (* Runtime support files first. *)
     let is_support, rest = List.partition (fun (name, _) -> name = "WasmSupport") files in
+    if List.length is_support = 0 then
+      Warnings.fatal_error "The module WasmSupport wasn't passed to kremlin!";
     let files = is_support @ rest in
 
     (* The Wasm backend diverges here. We go to [CFlat] (an expression
