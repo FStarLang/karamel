@@ -476,10 +476,17 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EUnit ->
       locals, CF.Constant (K.UInt32, "0")
 
+  | EField (e1, f) ->
+      (* e1 is a structure expression, and structures are allocated in memory. *)
+      let s = array_size_of e.typ in
+      let addr = mk_addr env e1 in
+      let ofs = field_offset env e1.typ f in
+      locals, CF.BufRead (addr, mk_uint32 ofs, s)
+
   | EOp _ ->
       failwith "standalone application"
 
-  | EFlat _ | EField _ ->
+  | EFlat _ ->
       failwith "todo eflat"
 
   | EReturn _ ->
