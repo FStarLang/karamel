@@ -251,11 +251,15 @@ let rec write_at (env: env) (arr: CF.expr) (base_ofs: CF.expr) (ofs: int) (e: ex
         end
     | _ ->
         let s = array_size_of e.typ in
-        let locals, e = mk_expr env [] e in
-        assert (locals = []);
+        let e = mk_expr_no_locals env e in
         [ CF.BufWrite (arr, mk_add32 base_ofs (mk_int32 ofs), e, s) ]
   in
   write_at ofs e
+
+and mk_expr_no_locals env e =
+  let locals, e = mk_expr env [] e in
+  assert (locals = []);
+  e
 
 (** The actual translation. Note that the environment is dropped, but that the
  * locals are chained through (state-passing style). *)
@@ -307,15 +311,16 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, e2 = mk_expr env locals e2 in
       locals, CF.BufSub (e1, e2, s)
 
-  | EBufWrite ({ node = EBound v1; _ }, { node = EBound v2; _ }, e3) ->
+  | EBufWrite ({ node = EBound v1; _ }, e2, e3) ->
+      (* e2 has been simplified by [WasmSimplify] to be either a variable, a
+       * constant, or simple expressions (e.g. [size - 1]). *)
       let v1 = CF.Var (find env v1) in
-      let v2 = CF.Var (find env v2) in
-      let assignments = write_at env v1 v2 0 e3 in
+      let e2 = mk_expr_no_locals env e2 in
+      let assignments = write_at env v1 e2 0 e3 in
       locals, CF.Sequence assignments
 
   | EBufWrite _ ->
-      (* SimplifyWasm *)
-      assert false
+      failwith (KPrint.bsprintf "buffer write improperly desugared: %a" pexpr e)
 
   | EBool b ->
       locals, CF.Constant (K.Bool, if b then "1" else "0")

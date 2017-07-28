@@ -76,7 +76,7 @@ let remove_buffer_ops = object
 
   method ebufwrite () _ e1 e2 e3 =
     let b_e1, body_e1, ref_e1 = mk_named_binding "dst" e1.typ e1.node in
-    let b_e2, body_e2, ref_e2 = mk_named_binding "dst" e2.typ e2.node in
+    let b_e2, body_e2, ref_e2 = mk_named_binding "ofs" e2.typ e2.node in
     ELet (b_e1, body_e1, close_binder b_e1 (with_unit (
     ELet (b_e2, body_e2, close_binder b_e2 (with_unit (
       EBufWrite (ref_e1, ref_e2, e3)))))))
