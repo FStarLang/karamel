@@ -143,6 +143,27 @@ let rec layout env fields: layout =
   let fields = List.rev fields in
   { fields; size }
 
+
+let array_size_of_any (env: env) (t: typ): int * array_size =
+  let round_up size =
+    let size = align A64 size in
+    size / 8, A64
+  in
+  match t with
+  | TQualified lid ->
+      round_up (struct_size env lid)
+  | TAnonymous (Union cases) ->
+      let size = KList.reduce max
+        (List.map (fun f -> (layout env [ f ]).size) cases)
+      in
+      round_up size
+  | TAnonymous (Flat struct_fields) ->
+      let size = (layout env (fields_of_struct struct_fields)).size in
+      round_up size
+  | _ ->
+      1, array_size_of t
+
+
 let populate env files =
   (* Assign integers to enums *)
   let env = List.fold_left (fun env (_, decls) ->
@@ -229,7 +250,10 @@ let assert_buf = function
 let mk_add32 e1 e2 =
   CF.CallOp ((K.UInt32, K.Add), [ e1; e2 ])
 
-let mk_int32 i =
+let mk_mul32 e1 e2 =
+  CF.CallOp ((K.UInt32, K.Mult), [ e1; e2 ])
+
+let mk_uint32 i =
   CF.Constant (K.UInt32, string_of_int i)
 
 (* Desugar an array assignment into a series of possibly many assigments (e.g.
@@ -252,7 +276,7 @@ let rec write_at (env: env) (arr: CF.expr) (base_ofs: CF.expr) (ofs: int) (e: ex
     | _ ->
         let s = array_size_of e.typ in
         let e = mk_expr_no_locals env e in
-        [ CF.BufWrite (arr, mk_add32 base_ofs (mk_int32 ofs), e, s) ]
+        [ CF.BufWrite (arr, mk_add32 base_ofs (mk_uint32 ofs), e, s) ]
   in
   write_at ofs e
 
@@ -294,7 +318,8 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EBufCreate (l, e_init, e_len) ->
       assert (e_init.node = EAny);
       let locals, e_len = mk_expr env locals e_len in
-      locals, CF.BufCreate (l, e_len, array_size_of (assert_buf e.typ))
+      let per_cell, size = array_size_of_any env (assert_buf e.typ) in
+      locals, CF.BufCreate (l, mk_mul32 e_len (mk_uint32 per_cell), size)
 
   | EBufCreateL _ | EBufBlit _ | EBufFill _ ->
       invalid_arg "this should've been desugared in Simplify.wasm"
