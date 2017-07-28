@@ -23,12 +23,22 @@ function hex(m8, start, len) {
   return s;
 }
 
+function hexle(m8, i, m) {
+  let buf = "";
+  let n = m - 1;
+  while (n >= 0) {
+    buf += p8(m8[i+n]);
+    n--;
+  }
+  return buf;
+}
+
 function hex32(m8, start) {
-  return hex(m8, start, 4);
+  return hexle(m8, start, 4);
 }
 
 function hex64(m8, start) {
-  return hex(m8, start, 8);
+  return hexle(m8, start, 8);
 }
 
 function p32(n) {

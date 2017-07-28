@@ -485,7 +485,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.StringLiteral s
 
   | EUnit ->
-      locals, CF.Constant (K.UInt32, "0")
+      locals, CF.Constant (K.UInt32, "0xdeadbeef")
 
   | EField (e1, f) ->
       (* e1 is a structure expression, and structures are allocated in memory. *)

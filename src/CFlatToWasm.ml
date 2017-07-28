@@ -410,6 +410,9 @@ module Debug = struct
       (** not exposed in WasmSupport.fst, no fstar-compatible type. *)
   ]
 
+  let _ =
+    assert (List.length default_imports = List.length default_types)
+
   let mk env l =
 
     let char ofs c =
@@ -712,6 +715,8 @@ let mk_module types imports (name, decls):
         f, g, env
   in
   let n_imported_funcs, n_imported_globals, env = assign empty 0 0 imports in
+
+  assert (n_imported_funcs = List.length types);
 
   (* For every global and function that's assumed (via "assume val"), we
    * generate an import request. This means they are implemented "natively". *)
