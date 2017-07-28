@@ -42,7 +42,7 @@ let empty = {
 
 (** Layouts and sizes. *)
 
-(** The size of a type that fits in at most one word. *)
+(** The size of a type that fits in one WASM value. *)
 let size_of (t: typ): size =
   match t with
   | TInt w ->
@@ -53,13 +53,10 @@ let size_of (t: typ): size =
       I32
   | TAnonymous (Enum _) ->
       I32
-  | TAnonymous (Variant _ | Abbrev _)
-  | TZ | TBound _ | TTuple _ | TArrow _ | TQualified _ | TApp _ ->
+  | _ ->
       failwith (KPrint.bsprintf "size_of: this case should've been eliminated: %a" ptyp t)
-  | TAnonymous _ | TAny as t ->
-      failwith (KPrint.bsprintf "not implemented: size_of %a" ptyp t)
 
-(* The size of a type that fits in one array cell. *)
+(* The size of a type that fits in one WASM array cell. *)
 let array_size_of (t: typ): array_size =
   match t with
   | TInt w ->
@@ -67,14 +64,11 @@ let array_size_of (t: typ): array_size =
   | TArray _ | TBuf _ ->
       A32
   | TBool | TUnit ->
-      failwith "todo: packed arrays of bools/units?!"
+      A32 (* Todo: pack these more efficiently?! *)
   | TAnonymous (Enum _) ->
       A32
-  | TAnonymous (Variant _ | Abbrev _)
-  | TZ | TBound _ | TTuple _ | TArrow _ | TQualified _ | TApp _ ->
+  | _ ->
       failwith (KPrint.bsprintf "size_of: this case should've been eliminated: %a" ptyp t)
-  | TAnonymous _ | TAny as t ->
-      failwith (KPrint.bsprintf "not implemented: array_size_of %a" ptyp t)
 
 (* The alignment takes an array size, an our invariant is that integers are
  * aligned on a multiple of their size (i.e. 64-bit aligned on 64 bits, 32-bits
@@ -129,7 +123,7 @@ and layout env fields: layout =
   let fields = List.rev fields in
   { fields; size }
 
-(* Layout a type in an array cell occupies a multiple of a base array size. *)
+(* Layout a type in an array cell occupies a multiple of a WASM array size. *)
 let cell_size (env: env) (t: typ): int * array_size =
   let round_up size =
     let size = align A64 size in
@@ -296,8 +290,11 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EBufCreate (l, e_init, e_len) ->
       assert (e_init.node = EAny);
       let locals, e_len = mk_expr env locals e_len in
-      let per_cell, size = cell_size env (assert_buf e.typ) in
-      locals, CF.BufCreate (l, mk_mul32 e_len (mk_uint32 per_cell), size)
+      let mult, base_size = cell_size env (assert_buf e.typ) in
+      if Options.debug "cflat" then
+        KPrint.bprintf "Creating an array %a; one cell = %d * %s\n"
+          ptyp e.typ mult (string_of_array_size base_size);
+      locals, CF.BufCreate (l, mk_mul32 e_len (mk_uint32 mult), base_size)
 
   | EBufCreateL _ | EBufBlit _ | EBufFill _ ->
       invalid_arg "this should've been desugared in Simplify.wasm"
