@@ -530,15 +530,20 @@ let mk_decl env (d: decl): CF.decl option =
   | DGlobal (flags, name, typ, body) ->
       let public = not (List.exists ((=) Common.Private) flags) in
       let size = size_of typ in
-      let locals, body = mk_expr env [] body in
+      let body = mk_expr_no_locals env body in
       let name = Idents.string_of_lident name in
-      if locals = [] then
-        Some (CF.Global (name, size, body, public))
-      else
-        failwith "global generates let-bindings"
+      Some (CF.Global (name, size, body, public))
 
-  | _ ->
-      failwith ("not implemented (decl); got: " ^ show_decl d)
+  | DExternal (_, lid, t) ->
+      let name = Idents.string_of_lident lid in
+      match t with
+      | TArrow _ ->
+          let ret, args = Helpers.flatten_arrow t in
+          let ret = [ size_of ret ] in
+          let args = List.map size_of args in
+          Some (CF.ExternalFunction (name, args, ret))
+      | _ ->
+          Some (CF.ExternalGlobal (name, size_of t))
 
 let mk_module env (name, decls) =
   name, KList.filter_map (fun d ->
