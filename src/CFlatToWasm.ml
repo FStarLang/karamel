@@ -400,14 +400,9 @@ module Debug = struct
   let default_imports = [
     dummy_phrase W.Ast.({
       module_name = "Kremlin";
-      item_name = "__debug";
+      item_name = "debug";
       ikind = dummy_phrase (FuncImport (mk_var 0))
     });
-    dummy_phrase W.Ast.({
-      module_name = "Kremlin";
-      item_name = "__trap";
-      ikind = dummy_phrase (FuncImport (mk_var 1))
-    })
   ]
 
   let default_types = [
@@ -543,7 +538,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | BufCreate (Common.Stack, n_elts, elt_size) ->
       (* TODO -- generate the equivalent of KRML_CHECK_SIZE *)
       read_highwater @
-      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "__align_64"))) ] @
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_align_64"))) ] @
       mk_expr env n_elts @
       mk_size elt_size @
       i32_mul @
@@ -640,10 +635,13 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | _ ->
       failwith ("not implemented; got: " ^ show_expr e)
 
-let mk_func_type { args; ret; _ } =
+let mk_func_type' args ret =
   W.Types.( FuncType (
     List.map mk_type args,
     List.map mk_type ret))
+
+let mk_func_type { args; ret; _ } =
+  mk_func_type' args ret
 
 let mk_func env { args; locals; body; name; ret; _ } =
   let i = find_func env name in
@@ -717,6 +715,51 @@ let mk_module types imports (name, decls):
   in
   let n_imported_funcs, n_imported_globals, env = assign empty 0 0 imports in
 
+  (* For every global and function that's assumed (via "assume val"), we
+   * generate an import request. This means they are implemented "natively". *)
+  let rec assign env imports f g decls =
+    match decls with
+    | ExternalFunction (fname, _, _) :: tl ->
+        let env = { env with funcs = StringMap.add fname f env.funcs } in
+        let imports =
+          dummy_phrase W.Ast.({
+            module_name = name;
+            item_name = fname;
+            ikind = dummy_phrase (FuncImport (mk_var f))
+          }) :: imports
+        in
+        assign env imports (f + 1) g tl
+    | ExternalGlobal (gname, t) :: tl ->
+        let env = { env with globals = StringMap.add gname g env.globals } in
+        let imports =
+          dummy_phrase W.Ast.({
+            module_name = name;
+            item_name = gname;
+            ikind = dummy_phrase (
+              GlobalImport W.Types.(GlobalType (mk_type t, W.Types.Immutable)))
+          }) :: imports
+        in
+        assign env imports f (g + 1) tl
+    | _ :: tl ->
+        assign env imports f g tl
+    | [] ->
+        List.rev imports, f, g, env
+  in
+  let imports', n_imported_funcs, n_imported_globals, env =
+    assign env [] n_imported_funcs n_imported_globals decls
+  in
+  let imports = imports @ imports' in
+
+  (* Generate types for the assumed function declarations. Re-establish the invariant
+   * that the function at index i in the function index space has type i in the
+   * types index space. *)
+  let types = types @ KList.filter_map (function
+    | ExternalFunction (_, args, ret) ->
+        Some (mk_func_type' args ret)
+    | _ ->
+        None
+  ) decls in
+
   (* Continue filling our environment with the rest of the function (resp.
    * global) index space, namely, this module's functions (resp. globals) *)
   let rec assign env f g = function
@@ -752,7 +795,8 @@ let mk_module types imports (name, decls):
         None
   ) decls in
 
-  (* The globals, too *)
+  (* The globals, too. Global have their types directly attached to them and do
+    * not rely on an indirection via a type table like functions. *)
   let globals =
     KList.filter_map (function
       | Global (_, size, body, _) ->

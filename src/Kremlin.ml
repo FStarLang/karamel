@@ -257,7 +257,6 @@ Supported options:|}
     Warnings.parse_warn_error !arg_warn_error;
 
   if !Options.wasm then begin
-    Options.no_prefix := "WasmSupport" :: !Options.no_prefix;
     Options.uint128 := false;
     Options.anonymous_unions := false;
     Options.struct_passing := false
@@ -421,7 +420,6 @@ Supported options:|}
   in
   let files = drop files in
   tick_print true "Drop";
-  print PrintAst.print_files files;
 
   (* 8. Final transformation on the AST: go to C names. This must really be done
    * at the last minute, since it invalidates pretty much any map ever built. *)

@@ -291,7 +291,7 @@ let rec write_at (env: env)
     | _ ->
         let s = array_size_of e.typ in
         let e = mk_expr_no_locals env e in
-        [], [ CF.BufWrite (arr, mk_add32 base_ofs (mk_uint32 ofs), e, s) ]
+        locals, [ CF.BufWrite (arr, mk_add32 base_ofs (mk_uint32 ofs), e, s) ]
   in
   write_at locals (ofs, e)
 

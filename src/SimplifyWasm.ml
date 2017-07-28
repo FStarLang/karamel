@@ -5,7 +5,7 @@ open Helpers
 open DeBruijn
 
 let check_buffer_size =
-  with_type (TArrow (TInt K.UInt32, TUnit)) (EQualified ([ "WasmSupport" ], "__check_buffer_size"))
+  with_type (TArrow (TInt K.UInt32, TUnit)) (EQualified ([ "WasmSupport" ], "check_buffer_size"))
 
 let remove_buffer_ops = object
   inherit [unit] map

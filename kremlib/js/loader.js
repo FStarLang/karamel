@@ -141,9 +141,11 @@ function init() {
   let imports = {
     Kremlin: {
       mem: mem,
-      __debug: debug,
-      __trap: trap,
+      debug: debug,
       data_start: header_size
+    },
+    WasmSupport: {
+      WasmSupport_trap: trap
     }
   };
   return imports;
@@ -153,7 +155,8 @@ function init() {
 function propagate(module_name, imports, instance) {
   my_print("Module", module_name, "successfully loaded");
   my_print("Adding exports into global import table:\n ", Object.keys(instance.exports));
-  imports[module_name] = {};
+  if (!(module_name in imports))
+    imports[module_name] = {};
   for (let o of Object.keys(instance.exports)) {
     imports[module_name][o] = instance.exports[o];
   }
