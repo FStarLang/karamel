@@ -423,10 +423,9 @@ module Debug = struct
           ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.Mem8 })]
     in
 
-    let rec byte_and_store ofs c t instr tl =
+    let rec byte_and_store ofs c t f tl =
       char ofs c @
-      mk_const (mk_int32 (Int32.of_int (ofs + 1))) @
-      instr @
+      f (mk_const (mk_int32 (Int32.of_int (ofs + 1)))) @
       [ dummy_phrase W.Ast.(Store {
           ty = mk_type t; align = 0; offset = 0l; sz = None })] @
       aux (if t = I32 then ofs + 5 else ofs + 9) tl
@@ -438,15 +437,15 @@ module Debug = struct
             failwith "Debug information clobbered past the scratch area";
           char ofs '\x00'
       | `String s :: tl ->
-          byte_and_store ofs '\x01' I32 (mk_string env s) tl
+          byte_and_store ofs '\x01' I32 (fun addr -> addr @ mk_string env s) tl
       | `Peek32 :: tl ->
-          byte_and_store ofs '\x02' I32 (dup32 env) tl
+          byte_and_store ofs '\x02' I32 (fun addr -> dup32 env @ addr @ swap32 env) tl
       | `Local32 i :: tl ->
-          byte_and_store ofs '\x02' I32 [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ] tl
+          byte_and_store ofs '\x02' I32 (fun addr -> addr @ [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]) tl
       | `Peek64 :: tl ->
-          byte_and_store ofs '\x03' I64 (dup64 env) tl
+          byte_and_store ofs '\x03' I64 (fun addr -> dup64 env @ addr @ swap64 env) tl
       | `Local64 i :: tl ->
-          byte_and_store ofs '\x03' I64 [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ] tl
+          byte_and_store ofs '\x03' I64 (fun addr -> addr @ [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]) tl
       | `Incr :: tl ->
           char ofs '\x04' @
           aux (ofs + 1) tl
