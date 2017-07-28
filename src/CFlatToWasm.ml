@@ -84,12 +84,12 @@ let mk_const c =
 
 let mk_lit w lit =
   match w with
-  | K.Int32 | K.UInt32 | K.Bool ->
-      mk_int32 (Int32.of_string lit)
   | K.Int64 | K.UInt64 ->
       mk_int64 (Int64.of_string lit)
+  | K.Int32 | K.UInt8 | K.UInt16 | K.UInt32 | K.Bool ->
+      mk_int32 (Int32.of_string lit)
   | _ ->
-      failwith "mk_lit"
+      failwith (KPrint.bsprintf "mk_lit: %s@%s" (K.show_width w) lit)
 
 let i32_mul =
   [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Mul)) ]
@@ -408,8 +408,6 @@ module Debug = struct
   let default_types = [
     W.Types.FuncType ([], []);
       (** not exposed in WasmSupport.fst, no fstar-compatible type. *)
-    W.Types.FuncType ([ W.Types.I32Type ], [ W.Types.I32Type ])
-      (** unit -> unit *)
   ]
 
   let mk env l =
@@ -455,7 +453,7 @@ module Debug = struct
     in
     if Options.debug "wasm-calls" then
       aux mark_size l @
-      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "__debug"))) ]
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "debug"))) ]
     else
       []
 end

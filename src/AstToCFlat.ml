@@ -92,7 +92,11 @@ let fields_of_struct =
 let rec byte_size (env: env) (t: typ): int =
   match t with
   | TQualified lid ->
-      (LidMap.find lid env.structs).size
+      begin try
+        (LidMap.find lid env.structs).size
+      with Not_found ->
+        failwith (KPrint.bsprintf "Can't compute the byte size of %a" plid lid)
+      end
   | TAnonymous (Union cases) ->
       KList.reduce max (List.map (fun f -> (layout env [ f ]).size) cases)
   | TAnonymous (Flat struct_fields) ->
@@ -171,8 +175,15 @@ let populate env files =
       match decl with
       | DType (lid, _, Flat fields) ->
           (* Need to pass in the layout of previous structs *)
-          let l = layout env (fields_of_struct fields) in
-          { env with structs = LidMap.add lid l env.structs }
+          begin try
+            let l = layout env (fields_of_struct fields) in
+            { env with structs = LidMap.add lid l env.structs }
+          with e ->
+            KPrint.beprintf "[AstToC♭] Can't compute the layout of %a:\n%s\n%s"
+              PrintAst.plid lid (Printexc.to_string e)
+              (if Options.debug "cflat" then Printexc.get_backtrace () ^ "\n" else "");
+            env
+          end
       | _ ->
           env
     ) env decls
@@ -551,9 +562,9 @@ let mk_module env (name, decls) =
       mk_decl env d
     with e ->
       (* Remove when everything starts working *)
-      KPrint.beprintf "[AstToC♭] Couldn't translate %a:\n%s\n%s\n"
+      KPrint.beprintf "[AstToC♭] Couldn't translate %a:\n%s\n%s"
         PrintAst.plid (lid_of_decl d) (Printexc.to_string e)
-        (Printexc.get_backtrace ());
+        (if Options.debug "cflat" then Printexc.get_backtrace () ^ "\n" else "");
       None
   ) decls
 

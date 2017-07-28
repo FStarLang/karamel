@@ -60,6 +60,54 @@ function dump(mem, size) {
   my_print(buf);
 }
 
+/******************************************************************************/
+/* Implementations of the kremlin runtime support library                     */
+/******************************************************************************/
+
+function dummyModule(funcs, globals) {
+  let module = {};
+  for (let f of funcs)
+    module[f] = () => {
+      my_print("Not implemented: " + s);
+      throw new Error();
+    };
+  for (let g of globals)
+    module[g] = 0;
+  return module;
+}
+
+
+const implWasmSupport = {
+  WasmSupport_trap: () => {
+    my_print("Run-time trap, e.g. zero-sized array.");
+    throw new Error();
+  }
+};
+
+const implFStar = dummyModule(
+  [ "FStar_UInt128_constant_time_carry_ok", "FStar_PropositionalExtensionality_axiom" ],
+  [ "FStar_Monotonic_Heap_lemma_mref_injectivity" ]);
+
+const implC = dummyModule([ "srand", "rand", "exit", "print_bytes", "htole16",
+  "le16toh", "htole32", "le32toh", "htole64", "le64toh", "htobe16", "be16toh",
+  "htobe32", "be32toh", "htobe64", "be64toh", "store16_le", "load16_le",
+  "store16_be", "load16_be", "store32_le", "load32_le", "store32_be", "load32_be",
+  "load64_le", "store64_le", "load64_be", "store64_be", "load128_le",
+  "store128_le", "load128_be", "store128_be" ]);
+
+const implTestLib = {
+  TestLib_touch" : [i32 i32] -> [i32]
+  TestLib_check8" : [i32] -> [i32]
+  TestLib_check16" : [i32 i32] -> [i32]
+  TestLib_check32" : [i32 i32] -> [i32]
+  TestLib_check64" : [i32 i32] -> [i32]
+  TestLib_checku8" : [i64 i64] -> [i32]
+  TestLib_checku16" : [i32 i32] -> [i32]
+  TestLib_checku32" : [i32 i32] -> [i32]
+  TestLib_checku64" : [i32 i32] -> [i32]
+  TestLib_unsafe_malloc" : [i64 i64] -> [i32]
+  TestLib_perr" : [i32] -> [i32]
+};
 
 /******************************************************************************/
 /* Memory layout                                                              */
@@ -130,23 +178,21 @@ function init() {
     my_print(buf);
   };
 
-  // unit -> unit
-  let trap = (_) => {
-    my_print("Run-time trap, e.g. zero-sized array.");
-    throw new Error();
-  };
-
   // Initialize the highwater mark.
   new Uint32Array(mem.buffer)[0] = header_size;
+
+  // Base stuff that appears as requirement, because they're exposed in TestLib
+  // and/or C.
   let imports = {
     Kremlin: {
       mem: mem,
       debug: debug,
       data_start: header_size
     },
-    WasmSupport: {
-      WasmSupport_trap: trap
-    }
+    WasmSupport: implWasmSupport,
+    FStar: implFStar,
+    C: implC,
+    TestLib: implTestLib
   };
   return imports;
 }
