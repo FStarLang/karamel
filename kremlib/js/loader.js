@@ -93,20 +93,36 @@ const implC = dummyModule([ "srand", "rand", "exit", "print_bytes", "htole16",
   "htobe32", "be32toh", "htobe64", "be64toh", "store16_le", "load16_le",
   "store16_be", "load16_be", "store32_le", "load32_le", "store32_be", "load32_be",
   "load64_le", "store64_le", "load64_be", "store64_be", "load128_le",
-  "store128_le", "load128_be", "store128_be" ]);
+  "store128_le", "load128_be", "store128_be" ], []);
+
+function checkEq(name) {
+  return (x1, x2) => {
+    if (x1 != x2) {
+      my_print(name + ": equality failure, "+x1+" != "+x2);
+      throw new Error();
+    }
+    return 0;
+  };
+}
 
 const implTestLib = {
-  TestLib_touch" : [i32 i32] -> [i32]
-  TestLib_check8" : [i32] -> [i32]
-  TestLib_check16" : [i32 i32] -> [i32]
-  TestLib_check32" : [i32 i32] -> [i32]
-  TestLib_check64" : [i32 i32] -> [i32]
-  TestLib_checku8" : [i64 i64] -> [i32]
-  TestLib_checku16" : [i32 i32] -> [i32]
-  TestLib_checku32" : [i32 i32] -> [i32]
-  TestLib_checku64" : [i32 i32] -> [i32]
-  TestLib_unsafe_malloc" : [i64 i64] -> [i32]
-  TestLib_perr" : [i32] -> [i32]
+  TestLib_touch: () => 0,
+  TestLib_check8: checkEq("TestLib_check8"),
+  TestLib_check16: checkEq("TestLib_check16"),
+  TestLib_check32: checkEq("TestLib_check32"),
+  TestLib_check64: checkEq("TestLib_check64"),
+  TestLib_checku8: checkEq("TestLib_checku8"),
+  TestLib_checku16: checkEq("TestLib_checku16"),
+  TestLib_checku32: checkEq("TestLib_checku32"),
+  TestLib_checku64: checkEq("TestLib_checku64"),
+  TestLib_unsafe_malloc: () => { throw new Error("todo: unsafe_malloc") },
+  TestLib_perr: (err) => {
+    my_print("Got error code "+err);
+    return 0;
+  },
+  TestLib_uint8_p_null: 0,
+  TestLib_uint32_p_null: 0,
+  TestLib_uint64_p_null: 0,
 };
 
 /******************************************************************************/
