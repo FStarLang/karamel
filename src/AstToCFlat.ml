@@ -123,6 +123,18 @@ and layout env fields: layout =
   let fields = List.rev fields in
   { fields; size }
 
+let field_offset env t f =
+  match t with
+  | TQualified lid ->
+      List.assoc f (LidMap.find lid env.structs).fields
+  | TAnonymous (Union cases) ->
+      assert (List.mem_assoc f cases);
+      0
+  | TAnonymous (Flat struct_fields) ->
+      List.assoc f (layout env (fields_of_struct struct_fields)).fields
+  | _ ->
+      failwith (KPrint.bsprintf "Not something we can field-offset: %a" ptyp t)
+
 (* Layout a type in an array cell occupies a multiple of a WASM array size. *)
 let cell_size (env: env) (t: typ): int * array_size =
   let round_up size =
@@ -135,6 +147,9 @@ let cell_size (env: env) (t: typ): int * array_size =
   | _ ->
       1, array_size_of t
 
+let cell_size_b env t =
+  let mult, base = cell_size env t in
+  mult * bytes_in base
 
 let populate env files =
   (* Assign integers to enums *)
@@ -203,7 +218,7 @@ let extend (env: env) (binder: binder) (locals: locals): locals * var * env =
 let find env v =
   List.nth env.binders v
 
-(** A helpful combinator. *)
+(** A series of helpers. *)
 let fold (f: locals -> 'a -> locals * 'b) (locals: locals) (xs: 'a list): locals * 'b list =
   let locals, ys = List.fold_left (fun (locals, acc) x ->
     let locals, y = f locals x in
@@ -225,37 +240,80 @@ let mk_add32 e1 e2 =
 let mk_mul32 e1 e2 =
   CF.CallOp ((K.UInt32, K.Mult), [ e1; e2 ])
 
+let mk_lt32 e1 e2 =
+  CF.CallOp ((K.UInt32, K.Lt), [ e1; e2 ])
+
 let mk_uint32 i =
   CF.Constant (K.UInt32, string_of_int i)
 
+let mk_minus1 e1 =
+  CF.CallOp ((K.UInt32, K.Sub), [ e1; mk_uint32 1 ])
+
+let mk_memcpy env locals dst src n =
+  let b = Helpers.fresh_binder ~mut:true "i" (TInt K.UInt32) in
+  let locals, v, _ = extend env b locals in
+  locals, [
+    CF.Assign (v, mk_uint32 0);
+    CF.While (mk_lt32 (CF.Var v) n,
+      CF.Sequence [
+        CF.BufWrite (dst, (CF.Var v), CF.BufRead (src, (CF.Var v), A8), A8);
+        CF.Assign (v, mk_minus1 (CF.Var v))
+      ])]
+
 (* Desugar an array assignment into a series of possibly many assigments (e.g.
  * struct literal), or into a memcopy *)
-let rec write_at (env: env) (arr: CF.expr) (base_ofs: CF.expr) (ofs: int) (e: expr): CF.expr list =
-  let rec write_at ofs e =
+let rec write_at (env: env)
+  (locals: locals)
+  (arr: CF.expr)
+  (base_ofs: CF.expr)
+  (ofs: int)
+  (e: expr): locals * CF.expr list
+=
+  let rec write_at locals (ofs, e) =
     match e.typ with
     | TQualified lid ->
         let layout = LidMap.find lid env.structs in
         begin match e.node with
         | EFlat fields ->
-            KList.map_flatten (fun (fname, e) ->
-              let fname = Option.must fname in
-              let fofs = List.assoc fname layout.fields in
-              write_at (ofs + fofs) e
-            ) fields
+            let locals, writes =
+              fold (fun locals (fname, e) ->
+                let fname = Option.must fname in
+                let fofs = List.assoc fname layout.fields in
+                write_at locals (ofs + fofs, e)
+              ) locals fields
+            in
+            locals, List.flatten writes
         | _ ->
-            failwith (KPrint.bsprintf "todo: layout %a\n" pexpr e)
+            let addr = mk_addr env e in
+            let size = byte_size env e.typ in
+            mk_memcpy env locals (mk_add32 base_ofs (mk_uint32 ofs)) addr (mk_uint32 size)
         end
     | _ ->
         let s = array_size_of e.typ in
         let e = mk_expr_no_locals env e in
-        [ CF.BufWrite (arr, mk_add32 base_ofs (mk_uint32 ofs), e, s) ]
+        [], [ CF.BufWrite (arr, mk_add32 base_ofs (mk_uint32 ofs), e, s) ]
   in
-  write_at ofs e
+  write_at locals (ofs, e)
 
 and mk_expr_no_locals env e =
   let locals, e = mk_expr env [] e in
   assert (locals = []);
   e
+
+(* Create an "lvalue" out of an expression. *)
+and mk_addr env e =
+  match e.node with
+  | EBufRead (e1, e2) ->
+      let s = cell_size_b env (assert_buf e1.typ) in
+      let e1 = mk_expr_no_locals env e1 in
+      let e2 = mk_expr_no_locals env e2 in
+      CF.BufSub (e1, mk_mul32 e2 (mk_uint32 s), A8)
+  | EField (e1, f) ->
+      let ofs = field_offset env e1.typ f in
+      let e1 = mk_addr env e1 in
+      CF.BufSub (e1, mk_uint32 ofs, A8)
+  | _ ->
+      failwith (KPrint.bsprintf "can't take the addr of %a" pexpr e)
 
 (** The actual translation. Note that the environment is dropped, but that the
  * locals are chained through (state-passing style). *)
@@ -316,7 +374,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
        * constant, or simple expressions (e.g. [size - 1]). *)
       let v1 = CF.Var (find env v1) in
       let e2 = mk_expr_no_locals env e2 in
-      let assignments = write_at env v1 e2 0 e3 in
+      let locals, assignments = write_at env locals v1 e2 0 e3 in
       locals, CF.Sequence assignments
 
   | EBufWrite _ ->
