@@ -261,7 +261,9 @@ Supported options:|}
     Options.uint128 := false;
     Options.anonymous_unions := false;
     Options.struct_passing := false
-  end;
+  end else
+    Options.drop := [ Bundle.Module [ "C" ]; Bundle.Module [ "TestLib" ] ] @
+      !Options.drop;
 
   (* If the compiler supports uint128, then we just drop the module and let
    * dependency analysis use the FStar.UInt128.fsti. If the compiler does not,
@@ -419,6 +421,7 @@ Supported options:|}
   in
   let files = drop files in
   tick_print true "Drop";
+  print PrintAst.print_files files;
 
   (* 8. Final transformation on the AST: go to C names. This must really be done
    * at the last minute, since it invalidates pretty much any map ever built. *)
