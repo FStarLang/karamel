@@ -15,14 +15,15 @@ FILES		= \
   FunctionalEncoding.exe FunPtr.exe
 EXTRA_FILES	= \
   Crypto.Symmetric.Chacha20.exe
+WASM_FILES	= \
+  Crypto.Symmetric.Chacha20.wasm WasmTrap.wasm
 
 all: standalone extra
-
-all-wasm: Crypto.Symmetric.Chacha20.wasm WasmTrap.wasm
 
 # The standalone tests don't need a source checkout of F* to run
 standalone: $(FILES) $(subst .exe,.krml,$(FILES))
 extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
+wasm: $(WASM_FILES) $(subst .wasm,.krml,$(EXTRA_FILES))
 
 %.krml: %.fst
 	$(KRML) $(EXTRA) -tmpdir $(subst .krml,.out,$@) -skip-translation $<
