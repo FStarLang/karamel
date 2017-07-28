@@ -5,49 +5,9 @@ module K = Constant
 module LidMap = Idents.LidMap
 module StringMap = Map.Make(String)
 
-(** Sizes *)
-
 open CFlat.Sizes
 open Ast
 open PrintAst.Ops
-
-(** We know how much space is needed to represent each C* type. *)
-let size_of (t: typ): size =
-  match t with
-  | TInt w ->
-      size_of_width w
-  | TArray _ | TBuf _ ->
-      I32
-  | TBool | TUnit ->
-      I32
-  | TAnonymous (Enum _) ->
-      I32
-  | TAnonymous (Variant _ | Abbrev _)
-  | TZ | TBound _ | TTuple _ | TArrow _ | TQualified _ | TApp _ ->
-      failwith (KPrint.bsprintf "size_of: this case should've been eliminated: %a" ptyp t)
-  | TAnonymous _ | TAny as t ->
-      failwith (KPrint.bsprintf "not implemented: size_of %a" ptyp t)
-
-let max_size s1 s2 =
-  match s1, s2 with
-  | I32, I32 -> I32
-  | _ -> I64
-
-let array_size_of (t: typ): array_size =
-  match t with
-  | TInt w ->
-      array_size_of_width w
-  | TArray _ | TBuf _ ->
-      A32
-  | TBool | TUnit ->
-      failwith "todo: packed arrays of bools/units?!"
-  | TAnonymous (Enum _) ->
-      A32
-  | TAnonymous (Variant _ | Abbrev _)
-  | TZ | TBound _ | TTuple _ | TArrow _ | TQualified _ | TApp _ ->
-      failwith (KPrint.bsprintf "size_of: this case should've been eliminated: %a" ptyp t)
-  | TAnonymous _ | TAny as t ->
-      failwith (KPrint.bsprintf "not implemented: array_size_of %a" ptyp t)
 
 
 (** Environments.
@@ -80,13 +40,41 @@ let empty = {
   structs = LidMap.empty;
 }
 
-(** Layouts.
- *
- * Filling in the initial environment with struct layout, and an assignment of
- * enum constants to integers. *)
+(** Layouts and sizes. *)
 
-let struct_size env lid =
-  (LidMap.find lid env.structs).size
+(** The size of a type that fits in at most one word. *)
+let size_of (t: typ): size =
+  match t with
+  | TInt w ->
+      size_of_width w
+  | TArray _ | TBuf _ ->
+      I32
+  | TBool | TUnit ->
+      I32
+  | TAnonymous (Enum _) ->
+      I32
+  | TAnonymous (Variant _ | Abbrev _)
+  | TZ | TBound _ | TTuple _ | TArrow _ | TQualified _ | TApp _ ->
+      failwith (KPrint.bsprintf "size_of: this case should've been eliminated: %a" ptyp t)
+  | TAnonymous _ | TAny as t ->
+      failwith (KPrint.bsprintf "not implemented: size_of %a" ptyp t)
+
+(* The size of a type that fits in one array cell. *)
+let array_size_of (t: typ): array_size =
+  match t with
+  | TInt w ->
+      array_size_of_width w
+  | TArray _ | TBuf _ ->
+      A32
+  | TBool | TUnit ->
+      failwith "todo: packed arrays of bools/units?!"
+  | TAnonymous (Enum _) ->
+      A32
+  | TAnonymous (Variant _ | Abbrev _)
+  | TZ | TBound _ | TTuple _ | TArrow _ | TQualified _ | TApp _ ->
+      failwith (KPrint.bsprintf "size_of: this case should've been eliminated: %a" ptyp t)
+  | TAnonymous _ | TAny as t ->
+      failwith (KPrint.bsprintf "not implemented: array_size_of %a" ptyp t)
 
 (* The alignment takes an array size, an our invariant is that integers are
  * aligned on a multiple of their size (i.e. 64-bit aligned on 64 bits, 32-bits
@@ -102,39 +90,37 @@ let align array_size pos =
   in
   pos
 
+(* Helper *)
 let fields_of_struct =
   List.map (fun (name, (t, _mut)) -> Option.must name, t)
 
+(* The exact size as a number of bytes of any type. *)
+let rec byte_size (env: env) (t: typ): int =
+  match t with
+  | TQualified lid ->
+      (LidMap.find lid env.structs).size
+  | TAnonymous (Union cases) ->
+      KList.reduce max (List.map (fun f -> (layout env [ f ]).size) cases)
+  | TAnonymous (Flat struct_fields) ->
+      (layout env (fields_of_struct struct_fields)).size
+  | _ ->
+      bytes_in (array_size_of t)
+
 (* Compute the offsets of each field of a struct. This function does NOT return
  * offsets for sub-fields. *)
-let rec layout env fields: layout =
+and layout env fields: layout =
   let fields, size =
     List.fold_left (fun (fields, ofs) (fname, t) ->
       (* So far, we've laid out [fields], up to [ofs] bytes. *)
       match t with
-      | TQualified lid ->
-          if not (LidMap.mem lid env.structs) then begin
-            KPrint.bprintf "Cannot layout sub-field %s of type %a... skipping\n"
-              fname ptyp t;
-            fields, ofs
-          end else
-            (* A previously-defined, previously laid-out struct. *)
-            let ofs = align A64 ofs in
-            (fname, ofs) :: fields, ofs + struct_size env lid
-      | TUnit ->
-          KPrint.bprintf "Skipping sub-field %s of type unit\n" fname;
-          fields, ofs
-      | TAnonymous (Union cases) ->
+      | TQualified _
+      | TAnonymous _ ->
+          (* Structs and unions align on a 64-byte boundary *)
+          let size = byte_size env t in
           let ofs = align A64 ofs in
-          let max_size = KList.reduce max
-            (List.map (fun f -> (layout env [ f ]).size) cases)
-          in
-          (fname, ofs) :: fields, ofs + max_size
-      | TAnonymous (Flat struct_fields) ->
-          let ofs = align A64 ofs in
-          let size = (layout env (fields_of_struct struct_fields)).size in
           (fname, ofs) :: fields, ofs + size
       | t ->
+          (* All other elements align on their width. *)
           let s = array_size_of t in
           let ofs = align s ofs in
           (fname, ofs) :: fields, ofs + bytes_in s
@@ -143,23 +129,15 @@ let rec layout env fields: layout =
   let fields = List.rev fields in
   { fields; size }
 
-
-let array_size_of_any (env: env) (t: typ): int * array_size =
+(* Layout a type in an array cell occupies a multiple of a base array size. *)
+let cell_size (env: env) (t: typ): int * array_size =
   let round_up size =
     let size = align A64 size in
     size / 8, A64
   in
   match t with
-  | TQualified lid ->
-      round_up (struct_size env lid)
-  | TAnonymous (Union cases) ->
-      let size = KList.reduce max
-        (List.map (fun f -> (layout env [ f ]).size) cases)
-      in
-      round_up size
-  | TAnonymous (Flat struct_fields) ->
-      let size = (layout env (fields_of_struct struct_fields)).size in
-      round_up size
+  | TQualified _ | TAnonymous _ ->
+      round_up (byte_size env t)
   | _ ->
       1, array_size_of t
 
@@ -318,7 +296,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EBufCreate (l, e_init, e_len) ->
       assert (e_init.node = EAny);
       let locals, e_len = mk_expr env locals e_len in
-      let per_cell, size = array_size_of_any env (assert_buf e.typ) in
+      let per_cell, size = cell_size env (assert_buf e.typ) in
       locals, CF.BufCreate (l, mk_mul32 e_len (mk_uint32 per_cell), size)
 
   | EBufCreateL _ | EBufBlit _ | EBufFill _ ->
