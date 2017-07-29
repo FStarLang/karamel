@@ -44,7 +44,7 @@ scope.then(scope => {
     if ("main" in scope[m]) {
       my_print("... main found in module " + m);
       scope[m].main();
-      break;
+      return;
     }
   }
   if (!found) {

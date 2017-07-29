@@ -301,6 +301,8 @@ let rec write_at (env: env)
         end
     | _ ->
         let s = array_size_of e.typ in
+        assert (ofs mod bytes_in s = 0);
+        let ofs = ofs / bytes_in s in
         let e = mk_expr_no_locals env e in
         locals, [ CF.BufWrite (arr, mk_add32 base_ofs (mk_uint32 ofs), e, s) ]
   in
@@ -492,6 +494,8 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let s = array_size_of e.typ in
       let addr = mk_addr env e1 in
       let ofs = field_offset env e1.typ f in
+      assert (ofs mod bytes_in s = 0);
+      let ofs = ofs / bytes_in s in
       locals, CF.BufRead (addr, mk_uint32 ofs, s)
 
   | EOp _ ->

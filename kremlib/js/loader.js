@@ -87,27 +87,29 @@ function dummyModule(funcs, globals) {
 }
 
 
-const implWasmSupport = {
+let mkWasmSupport = (mem) => ({
   WasmSupport_trap: () => {
+    dump(mem, 2*1024);
     my_print("Run-time trap, e.g. zero-sized array.");
     throw new Error();
   }
-};
+});
 
-const implFStar = dummyModule(
+let mkFStar = () => dummyModule(
   [ "FStar_UInt128_constant_time_carry_ok", "FStar_PropositionalExtensionality_axiom" ],
   [ "FStar_Monotonic_Heap_lemma_mref_injectivity" ]);
 
-const implC = dummyModule([ "srand", "rand", "exit", "print_bytes", "htole16",
+let mkC = () => dummyModule([ "srand", "rand", "exit", "print_bytes", "htole16",
   "le16toh", "htole32", "le32toh", "htole64", "le64toh", "htobe16", "be16toh",
   "htobe32", "be32toh", "htobe64", "be64toh", "store16_le", "load16_le",
   "store16_be", "load16_be", "store32_le", "load32_le", "store32_be", "load32_be",
   "load64_le", "store64_le", "load64_be", "store64_be", "load128_le",
   "store128_le", "load128_be", "store128_be" ], []);
 
-function checkEq(name) {
+function checkEq(mem, name) {
   return (x1, x2) => {
     if (x1 != x2) {
+      dump(mem, 2*1024);
       my_print(name + ": equality failure, "+x1+" != "+x2);
       throw new Error();
     }
@@ -115,16 +117,16 @@ function checkEq(name) {
   };
 }
 
-const implTestLib = {
+let mkTestLib = (mem) => ({
   TestLib_touch: () => 0,
-  TestLib_check8: checkEq("TestLib_check8"),
-  TestLib_check16: checkEq("TestLib_check16"),
-  TestLib_check32: checkEq("TestLib_check32"),
-  TestLib_check64: checkEq("TestLib_check64"),
-  TestLib_checku8: checkEq("TestLib_checku8"),
-  TestLib_checku16: checkEq("TestLib_checku16"),
-  TestLib_checku32: checkEq("TestLib_checku32"),
-  TestLib_checku64: checkEq("TestLib_checku64"),
+  TestLib_check8: checkEq(mem, "TestLib_check8"),
+  TestLib_check16: checkEq(mem, "TestLib_check16"),
+  TestLib_check32: checkEq(mem, "TestLib_check32"),
+  TestLib_check64: checkEq(mem, "TestLib_check64"),
+  TestLib_checku8: checkEq(mem, "TestLib_checku8"),
+  TestLib_checku16: checkEq(mem, "TestLib_checku16"),
+  TestLib_checku32: checkEq(mem, "TestLib_checku32"),
+  TestLib_checku64: checkEq(mem, "TestLib_checku64"),
   TestLib_unsafe_malloc: () => { throw new Error("todo: unsafe_malloc") },
   TestLib_perr: (err) => {
     my_print("Got error code "+err);
@@ -133,7 +135,7 @@ const implTestLib = {
   TestLib_uint8_p_null: 0,
   TestLib_uint32_p_null: 0,
   TestLib_uint64_p_null: 0,
-};
+});
 
 /******************************************************************************/
 /* Memory layout                                                              */
@@ -215,10 +217,10 @@ function init() {
       debug: debug,
       data_start: header_size
     },
-    WasmSupport: implWasmSupport,
-    FStar: implFStar,
-    C: implC,
-    TestLib: implTestLib
+    WasmSupport: mkWasmSupport(mem),
+    FStar: mkFStar(mem),
+    C: mkC(mem),
+    TestLib: mkTestLib(mem)
   };
   return imports;
 }
