@@ -437,15 +437,20 @@ module Debug = struct
             failwith "Debug information clobbered past the scratch area";
           char ofs '\x00'
       | `String s :: tl ->
-          byte_and_store ofs '\x01' I32 (fun addr -> addr @ mk_string env s) tl
+          byte_and_store ofs '\x01' I32 (fun addr ->
+            addr @ mk_string env s) tl
       | `Peek32 :: tl ->
-          byte_and_store ofs '\x02' I32 (fun addr -> dup32 env @ addr @ swap32 env) tl
+          byte_and_store ofs '\x02' I32 (fun addr ->
+            dup32 env @ addr @ swap32 env) tl
       | `Local32 i :: tl ->
-          byte_and_store ofs '\x02' I32 (fun addr -> addr @ [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]) tl
+          byte_and_store ofs '\x02' I32 (fun addr ->
+            addr @ [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]) tl
       | `Peek64 :: tl ->
-          byte_and_store ofs '\x03' I64 (fun addr -> dup64 env @ addr @ swap64 env) tl
+          byte_and_store ofs '\x03' I64 (fun addr ->
+            dup64 env @ addr @ swap64 env) tl
       | `Local64 i :: tl ->
-          byte_and_store ofs '\x03' I64 (fun addr -> addr @ [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]) tl
+          byte_and_store ofs '\x03' I64 (fun addr ->
+            addr @ [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]) tl
       | `Incr :: tl ->
           char ofs '\x04' @
           aux (ofs + 1) tl
@@ -511,6 +516,10 @@ and mk_callop env (w, o) e1 =
   | _, K.Not ->
       mk_expr env e1 @
       i32_not
+  | _, K.BNot ->
+      mk_const (mk_int32 Int32.minus_one) @
+      mk_expr env e1 @
+      i32_sub
   | _ ->
       failwith "todo mk_callop"
 

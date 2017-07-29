@@ -16,7 +16,7 @@ their short names, i.e. __. *)
 (* Round up to the nearest multiple of 64. *)
 let align_64 (x: U32.t): Tot U32.t =
   if not ( U32.((x &^ 0x07ul) =^ 0ul) ) then
-    U32.( x &^ 0x07ul +%^ 0x08ul )
+    U32.( (x &^ lognot 0x07ul) +%^ 0x08ul )
   else
     x
 

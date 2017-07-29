@@ -235,6 +235,7 @@ function propagate(module_name, imports, instance) {
   my_print("This module has a data segment of size: ", instance.exports.data_size);
   imports.Kremlin.data_start += instance.exports.data_size;
   my_print("Next data segment will start at: ", imports.Kremlin.data_start);
+  // Set the highwater mark right after the data segment
   new Uint32Array(imports.Kremlin.mem.buffer)[0] = imports.Kremlin.data_start;
   my_print();
 }
