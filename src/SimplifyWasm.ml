@@ -4,41 +4,51 @@ open Ast
 open Helpers
 open DeBruijn
 
+let check_buffer_size =
+  with_type (TArrow (TInt K.UInt32, TUnit)) (EQualified ([ "WasmSupport" ], "check_buffer_size"))
+
 let remove_buffer_ops = object
   inherit [unit] map
 
-  (* The relatively simple:
+  (* The relatively simple [bufcreate init size] is rewritten, because no
+   * initial value for buffers in CFlat:
    *
-   *   bufcreate init size
-   *
-   * is rewritten to:
-   *
-   *   let i = init in
    *   let s = size in
-   *   let b = bufcreate i s in
+   *   let b = bufcreate s in
+   *   b[0] = init;
+   *   s--;
    *   while (s > 0)
-   *     b[s] = i;
-   *     i--;
+   *     b[s] = b[0];
+   *     s--;
    *   b
    * *)
   method ebufcreate () t lifetime init size =
-    let b_init, body_init, ref_init = mk_named_binding "init" init.typ init.node in
-    let b_size, body_size, ref_size = mk_named_binding "size" size.typ size.node in
-    let b_size = mark_mut b_size in
-    (* Leaving the size inline because it's needed for the buffer hoisting
-     * phase; also, the size ought to be pure, guaranteed by F*. *)
-    let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, size)) in
-    let with_t = with_type t in
-    ELet (b_init, body_init, close_binder b_init (with_t (
-    ELet (b_size, body_size, close_binder b_size (with_t (
-    ELet (b_buf, body_buf, close_binder b_buf (with_t (
-      ESequence [ with_unit (
-        EWhile (
-          mk_gt_zero ref_size, with_unit (
+    match init.node with
+    | EAny ->
+        EBufCreate (lifetime, init, size)
+    | _ ->
+        let b_size, body_size, ref_size = mk_named_binding "size" size.typ size.node in
+        let b_size = mark_mut b_size in
+        (* Leaving the size inline because it's needed for the buffer hoisting
+         * phase; also, the size ought to be pure, guaranteed by F*. *)
+        let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, size)) in
+        let with_t = with_type t in
+        ELet (b_size, body_size, close_binder b_size (with_t (
           ESequence [ with_unit (
-            EBufWrite (ref_buf, mk_minus_one ref_size, ref_init)); with_unit (
-            EAssign (ref_size, mk_minus_one ref_size))])));
-      ref_buf])))))))))
+            EApp (check_buffer_size, [ ref_size ])); with_unit (
+            ELet (b_buf, body_buf, close_binder b_buf (with_t (
+              ESequence [ with_unit (
+                EBufWrite (ref_buf, zerou32, init)); with_unit (
+                EAssign (ref_size, mk_minus_one ref_size)); with_unit (
+                EWhile (
+                  mk_gt_zero ref_size, with_unit (
+                  ESequence [ with_unit (
+                    EBufWrite (
+                      ref_buf,
+                      ref_size,
+                      with_t (EBufRead (ref_buf, zerou32)))); with_unit (
+                    EAssign (ref_size, mk_minus_one ref_size))])));
+              ref_buf]))))])))
 
   method ebufblit () t src_buf src_ofs dst_buf dst_ofs len =
     let with_t = with_type t in
@@ -63,6 +73,13 @@ let remove_buffer_ops = object
             mk_minus_one ref_len,
             with_t (EBufRead (ref_src, mk_minus_one ref_len)))); with_unit (
           EAssign (ref_len, mk_minus_one ref_len))])))))))))))
+
+  method ebufwrite () _ e1 e2 e3 =
+    let b_e1, body_e1, ref_e1 = mk_named_binding "dst" e1.typ e1.node in
+    let b_e2, body_e2, ref_e2 = mk_named_binding "ofs" e2.typ e2.node in
+    ELet (b_e1, body_e1, close_binder b_e1 (with_unit (
+    ELet (b_e2, body_e2, close_binder b_e2 (with_unit (
+      EBufWrite (ref_e1, ref_e2, e3)))))))
 
 end
 

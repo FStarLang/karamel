@@ -77,7 +77,8 @@ type program =
 and decl =
   | Global of ident * size * expr * bool
   | Function of function_t
-  | External of ident * size list (* args *) * size list (* ret *)
+  | ExternalFunction of ident * size list (* args *) * size list (* ret *)
+  | ExternalGlobal of ident * size
 
 and function_t = {
   name: ident;

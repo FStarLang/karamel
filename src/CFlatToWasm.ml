@@ -36,10 +36,16 @@ let empty = {
 }
 
 let find_global env name =
-  StringMap.find name env.globals
+  try
+    StringMap.find name env.globals
+  with Not_found ->
+    Warnings.fatal_error "Could not resolve global %s" name
 
 let find_func env name =
-  StringMap.find name env.funcs
+  try
+    StringMap.find name env.funcs
+  with Not_found ->
+    Warnings.fatal_error "Could not resolve function %s" name
 
 
 (******************************************************************************)
@@ -78,12 +84,12 @@ let mk_const c =
 
 let mk_lit w lit =
   match w with
-  | K.Int32 | K.UInt32 | K.Bool ->
-      mk_int32 (Int32.of_string lit)
   | K.Int64 | K.UInt64 ->
       mk_int64 (Int64.of_string lit)
+  | K.Int32 | K.UInt8 | K.UInt16 | K.UInt32 | K.Bool ->
+      mk_int32 (Int32.of_string lit)
   | _ ->
-      failwith "mk_lit"
+      failwith (KPrint.bsprintf "mk_lit: %s@%s" (K.show_width w) lit)
 
 let i32_mul =
   [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Mul)) ]
@@ -98,8 +104,8 @@ let i32_sub =
   [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Sub)) ]
 
 let i32_not =
-  mk_const (mk_int32 Int32.one) @
-  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Xor)) ]
+  mk_const (mk_int32 Int32.zero) @
+  [ dummy_phrase (W.Ast.Compare (mk_value I32 W.Ast.IntOp.Eq)) ]
 
 let i32_zero =
   mk_const (mk_int32 Int32.zero)
@@ -196,7 +202,7 @@ let mk_string env s =
       rel_addr
   in
   compute_string_offset env rel_addr
-  
+
 
 (******************************************************************************)
 (* Arithmetic                                                                 *)
@@ -396,12 +402,16 @@ module Debug = struct
       module_name = "Kremlin";
       item_name = "debug";
       ikind = dummy_phrase (FuncImport (mk_var 0))
-    })
+    });
   ]
 
   let default_types = [
-    W.Types.FuncType ([], [])
+    W.Types.FuncType ([], []);
+      (** not exposed in WasmSupport.fst, no fstar-compatible type. *)
   ]
+
+  let _ =
+    assert (List.length default_imports = List.length default_types)
 
   let mk env l =
 
@@ -413,10 +423,9 @@ module Debug = struct
           ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.Mem8 })]
     in
 
-    let rec byte_and_store ofs c t instr tl =
+    let rec byte_and_store ofs c t f tl =
       char ofs c @
-      mk_const (mk_int32 (Int32.of_int (ofs + 1))) @
-      instr @
+      f (mk_const (mk_int32 (Int32.of_int (ofs + 1)))) @
       [ dummy_phrase W.Ast.(Store {
           ty = mk_type t; align = 0; offset = 0l; sz = None })] @
       aux (if t = I32 then ofs + 5 else ofs + 9) tl
@@ -428,15 +437,20 @@ module Debug = struct
             failwith "Debug information clobbered past the scratch area";
           char ofs '\x00'
       | `String s :: tl ->
-          byte_and_store ofs '\x01' I32 (mk_string env s) tl
+          byte_and_store ofs '\x01' I32 (fun addr ->
+            addr @ mk_string env s) tl
       | `Peek32 :: tl ->
-          byte_and_store ofs '\x02' I32 (dup32 env) tl
+          byte_and_store ofs '\x02' I32 (fun addr ->
+            dup32 env @ addr @ swap32 env) tl
       | `Local32 i :: tl ->
-          byte_and_store ofs '\x02' I32 [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ] tl
+          byte_and_store ofs '\x02' I32 (fun addr ->
+            addr @ [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]) tl
       | `Peek64 :: tl ->
-          byte_and_store ofs '\x02' I64 (dup64 env) tl
+          byte_and_store ofs '\x03' I64 (fun addr ->
+            dup64 env @ addr @ swap64 env) tl
       | `Local64 i :: tl ->
-          byte_and_store ofs '\x02' I64 [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ] tl
+          byte_and_store ofs '\x03' I64 (fun addr ->
+            addr @ [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]) tl
       | `Incr :: tl ->
           char ofs '\x04' @
           aux (ofs + 1) tl
@@ -497,6 +511,18 @@ let rec mk_callop2 env (w, o) e1 e2 =
   else
     failwith "todo mk_callop2"
 
+and mk_callop env (w, o) e1 =
+  match (w, o) with
+  | _, K.Not ->
+      mk_expr env e1 @
+      i32_not
+  | _, K.BNot ->
+      mk_const (mk_int32 Int32.minus_one) @
+      mk_expr env e1 @
+      i32_sub
+  | _ ->
+      failwith "todo mk_callop"
+
 and mk_size size =
   [ dummy_phrase (W.Ast.Const (mk_int32 (Int32.of_int (bytes_in size)))) ]
 
@@ -508,6 +534,9 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | Constant (w, lit) ->
       mk_const (mk_lit w lit)
 
+  | CallOp (o, [ e1 ]) ->
+      mk_callop env o e1
+
   | CallOp (o, [ e1; e2 ]) ->
       mk_callop2 env o e1 e2
 
@@ -516,10 +545,9 @@ and mk_expr env (e: expr): W.Ast.instr list =
       [ dummy_phrase (W.Ast.Call (mk_var (find_func env name))) ]
 
   | BufCreate (Common.Stack, n_elts, elt_size) ->
-      (* TODO semantics discrepancy the size is a uint32 both in Low* and Wasm
-       * but Low* talks about the number of elements while Wasm talks about the
-       * number of bytes *)
+      (* TODO -- generate the equivalent of KRML_CHECK_SIZE *)
       read_highwater @
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_align_64"))) ] @
       mk_expr env n_elts @
       mk_size elt_size @
       i32_mul @
@@ -534,7 +562,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
       i32_add @
       [ dummy_phrase W.Ast.(Load {
         (* the type we want on the operand stack *)
-        ty = mk_type (if size = A64 then I64 else I32); 
+        ty = mk_type (if size = A64 then I64 else I32);
         (* ignored *)
         align = 0;
         (* we've already done the multiplication ourselves *)
@@ -575,7 +603,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
       i32_add @
       mk_expr env e3 @
       [ dummy_phrase W.Ast.(Store {
-        ty = mk_type (if size = A64 then I64 else I32); 
+        ty = mk_type (if size = A64 then I64 else I32);
         align = 0;
         offset = 0l;
         sz = match size with
@@ -616,10 +644,13 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | _ ->
       failwith ("not implemented; got: " ^ show_expr e)
 
-let mk_func_type { args; ret; _ } =
+let mk_func_type' args ret =
   W.Types.( FuncType (
     List.map mk_type args,
     List.map mk_type ret))
+
+let mk_func_type { args; ret; _ } =
+  mk_func_type' args ret
 
 let mk_func env { args; locals; body; name; ret; _ } =
   let i = find_func env name in
@@ -693,13 +724,60 @@ let mk_module types imports (name, decls):
   in
   let n_imported_funcs, n_imported_globals, env = assign empty 0 0 imports in
 
+  assert (n_imported_funcs = List.length types);
+
+  (* For every global and function that's assumed (via "assume val"), we
+   * generate an import request. This means they are implemented "natively". *)
+  let rec assign env imports f g decls =
+    match decls with
+    | ExternalFunction (fname, _, _) :: tl ->
+        let env = { env with funcs = StringMap.add fname f env.funcs } in
+        let imports =
+          dummy_phrase W.Ast.({
+            module_name = name;
+            item_name = fname;
+            ikind = dummy_phrase (FuncImport (mk_var f))
+          }) :: imports
+        in
+        assign env imports (f + 1) g tl
+    | ExternalGlobal (gname, t) :: tl ->
+        let env = { env with globals = StringMap.add gname g env.globals } in
+        let imports =
+          dummy_phrase W.Ast.({
+            module_name = name;
+            item_name = gname;
+            ikind = dummy_phrase (
+              GlobalImport W.Types.(GlobalType (mk_type t, W.Types.Immutable)))
+          }) :: imports
+        in
+        assign env imports f (g + 1) tl
+    | _ :: tl ->
+        assign env imports f g tl
+    | [] ->
+        List.rev imports, f, g, env
+  in
+  let imports', n_imported_funcs, n_imported_globals, env =
+    assign env [] n_imported_funcs n_imported_globals decls
+  in
+  let imports = imports @ imports' in
+
+  (* Generate types for the assumed function declarations. Re-establish the invariant
+   * that the function at index i in the function index space has type i in the
+   * types index space. *)
+  let types = types @ KList.filter_map (function
+    | ExternalFunction (_, args, ret) ->
+        Some (mk_func_type' args ret)
+    | _ ->
+        None
+  ) decls in
+
   (* Continue filling our environment with the rest of the function (resp.
    * global) index space, namely, this module's functions (resp. globals) *)
   let rec assign env f g = function
     | Function { name; _ } :: tl ->
         let env = { env with funcs = StringMap.add name f env.funcs } in
         assign env (f + 1) g tl
-    | Global (name, _, _, _) :: tl -> 
+    | Global (name, _, _, _) :: tl ->
         let env = { env with globals = StringMap.add name g env.globals } in
         assign env f (g + 1) tl
     | _ :: tl ->
@@ -728,7 +806,8 @@ let mk_module types imports (name, decls):
         None
   ) decls in
 
-  (* The globals, too *)
+  (* The globals, too. Global have their types directly attached to them and do
+    * not rely on an indirection via a type table like functions. *)
   let globals =
     KList.filter_map (function
       | Global (_, size, body, _) ->

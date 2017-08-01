@@ -12,15 +12,18 @@ FILES		= \
   Scope.exe Attributes.exe Unsound.exe Substitute.exe \
   InlineTest.exe Ghost1.exe Loops.exe Structs.exe \
   Recursive.exe RecursivePoly.exe Structs2.exe StringLit.exe \
-  FunctionalEncoding.exe
+  FunctionalEncoding.exe FunPtr.exe
 EXTRA_FILES	= \
   Crypto.Symmetric.Chacha20.exe
+WASM_FILES	= \
+  Crypto.Symmetric.Chacha20.wasm WasmTrap.wasm
 
 all: standalone extra
 
 # The standalone tests don't need a source checkout of F* to run
 standalone: $(FILES) $(subst .exe,.krml,$(FILES))
 extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
+wasm: $(WASM_FILES) $(subst .wasm,.krml,$(EXTRA_FILES))
 
 %.krml: %.fst
 	$(KRML) $(EXTRA) -tmpdir $(subst .krml,.out,$@) -skip-translation $<
@@ -30,18 +33,22 @@ extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $* -o $@ $<
 	./$@
 
+%.wasm: EXTRA += -wasm
 %.wasm: %.krml $(KRML_BIN)
-	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $< -wasm -drop Prims -drop FStar
-	cp $(wildcard ../kremlib/js/*.js) $(subst .wasm,.out,$@)
+	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $(JSFILES) -no-prefix $* $<
+	cp $(wildcard ../kremlib/js/*.js) $(JSFILES) $(subst .wasm,.out,$@)
+	cd $*.out && $(shell which d8) main.js
+	# cd $*.out && ch -Wasm main.js
 
 Structs2.exe: EXTRA = -wasm -d force-c
 ML16.exe: EXTRA = ml16-native.c
 Scope.exe: EXTRA = -ccopt -O3
-Crypto.Symmetric.Chacha20.exe: EXTRA=$(CRYPTO_OPTS) main-Chacha.c
+Crypto.Symmetric.Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 
 .PHONY: Crypto.Symmetric.Chacha20.fst
 
-Crypto.Symmetric.Chacha20.wasm: EXTRA=$(CRYPTO_OPTS) main-Chacha.js
+Crypto.Symmetric.Chacha20.wasm: JSFILES=main-Chacha.js
+Crypto.Symmetric.Chacha20.wasm: EXTRA+=$(CRYPTO_OPTS) -drop FStar
 
 clean:
 	rm -rf *.exe *.dSYM *.out *.wasm *.krml

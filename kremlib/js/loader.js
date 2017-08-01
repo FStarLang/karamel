@@ -23,12 +23,22 @@ function hex(m8, start, len) {
   return s;
 }
 
+function hexle(m8, i, m) {
+  let buf = "";
+  let n = m - 1;
+  while (n >= 0) {
+    buf += p8(m8[i+n]);
+    n--;
+  }
+  return buf;
+}
+
 function hex32(m8, start) {
-  return hex(m8, start, 4);
+  return hexle(m8, start, 4);
 }
 
 function hex64(m8, start) {
-  return hex(m8, start, 8);
+  return hexle(m8, start, 8);
 }
 
 function p32(n) {
@@ -60,6 +70,72 @@ function dump(mem, size) {
   my_print(buf);
 }
 
+/******************************************************************************/
+/* Implementations of the kremlin runtime support library                     */
+/******************************************************************************/
+
+function dummyModule(funcs, globals) {
+  let module = {};
+  for (let f of funcs)
+    module[f] = () => {
+      my_print("Not implemented: " + s);
+      throw new Error();
+    };
+  for (let g of globals)
+    module[g] = 0;
+  return module;
+}
+
+
+let mkWasmSupport = (mem) => ({
+  WasmSupport_trap: () => {
+    dump(mem, 2*1024);
+    my_print("Run-time trap, e.g. zero-sized array.");
+    throw new Error();
+  }
+});
+
+let mkFStar = () => dummyModule(
+  [ "FStar_UInt128_constant_time_carry_ok", "FStar_PropositionalExtensionality_axiom" ],
+  [ "FStar_Monotonic_Heap_lemma_mref_injectivity" ]);
+
+let mkC = () => dummyModule([ "srand", "rand", "exit", "print_bytes", "htole16",
+  "le16toh", "htole32", "le32toh", "htole64", "le64toh", "htobe16", "be16toh",
+  "htobe32", "be32toh", "htobe64", "be64toh", "store16_le", "load16_le",
+  "store16_be", "load16_be", "store32_le", "load32_le", "store32_be", "load32_be",
+  "load64_le", "store64_le", "load64_be", "store64_be", "load128_le",
+  "store128_le", "load128_be", "store128_be" ], []);
+
+function checkEq(mem, name) {
+  return (x1, x2) => {
+    if (x1 != x2) {
+      dump(mem, 2*1024);
+      my_print(name + ": equality failure, "+x1+" != "+x2);
+      throw new Error();
+    }
+    return 0;
+  };
+}
+
+let mkTestLib = (mem) => ({
+  TestLib_touch: () => 0,
+  TestLib_check8: checkEq(mem, "TestLib_check8"),
+  TestLib_check16: checkEq(mem, "TestLib_check16"),
+  TestLib_check32: checkEq(mem, "TestLib_check32"),
+  TestLib_check64: checkEq(mem, "TestLib_check64"),
+  TestLib_checku8: checkEq(mem, "TestLib_checku8"),
+  TestLib_checku16: checkEq(mem, "TestLib_checku16"),
+  TestLib_checku32: checkEq(mem, "TestLib_checku32"),
+  TestLib_checku64: checkEq(mem, "TestLib_checku64"),
+  TestLib_unsafe_malloc: () => { throw new Error("todo: unsafe_malloc") },
+  TestLib_perr: (err) => {
+    my_print("Got error code "+err);
+    return 0;
+  },
+  TestLib_uint8_p_null: 0,
+  TestLib_uint32_p_null: 0,
+  TestLib_uint64_p_null: 0,
+});
 
 /******************************************************************************/
 /* Memory layout                                                              */
@@ -68,7 +144,7 @@ function dump(mem, size) {
 // mem[0..3] = top-of-the-stack pointer (I32);
 // mem[4..127] = scratch space for debugging.
 // Conventions for debugging and "debugging format" (lolz) are in WasmDebug.ml
-const header_size = 256;
+const header_size = 128;
 
 // this sets up the base data pointer and the debug entry point for the WASM
 // context; WASM-generated code expects to have these defined.
@@ -130,16 +206,21 @@ function init() {
     my_print(buf);
   };
 
-  let reserved_area_size = 128;
-
   // Initialize the highwater mark.
-  new Uint32Array(mem.buffer)[0] = reserved_area_size;
+  new Uint32Array(mem.buffer)[0] = header_size;
+
+  // Base stuff that appears as requirement, because they're exposed in TestLib
+  // and/or C.
   let imports = {
     Kremlin: {
       mem: mem,
       debug: debug,
-      data_start: reserved_area_size
-    }
+      data_start: header_size
+    },
+    WasmSupport: mkWasmSupport(mem),
+    FStar: mkFStar(mem),
+    C: mkC(mem),
+    TestLib: mkTestLib(mem)
   };
   return imports;
 }
@@ -148,13 +229,15 @@ function init() {
 function propagate(module_name, imports, instance) {
   my_print("Module", module_name, "successfully loaded");
   my_print("Adding exports into global import table:\n ", Object.keys(instance.exports));
-  imports[module_name] = {};
+  if (!(module_name in imports))
+    imports[module_name] = {};
   for (let o of Object.keys(instance.exports)) {
     imports[module_name][o] = instance.exports[o];
   }
   my_print("This module has a data segment of size: ", instance.exports.data_size);
   imports.Kremlin.data_start += instance.exports.data_size;
   my_print("Next data segment will start at: ", imports.Kremlin.data_start);
+  // Set the highwater mark right after the data segment
   new Uint32Array(imports.Kremlin.mem.buffer)[0] = imports.Kremlin.data_start;
   my_print();
 }

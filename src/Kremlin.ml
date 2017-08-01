@@ -49,7 +49,6 @@ let _ =
   let arg_skip_linking = ref false in
   let arg_verify = ref false in
   let arg_warn_error = ref "" in
-  let arg_wasm = ref false in
   let c_files = ref [] in
   let o_files = ref [] in
   let js_files = ref [] in
@@ -166,7 +165,7 @@ Supported options:|}
     "-verify", Arg.Set arg_verify, " ask F* to verify the program";
     "-verbose", Arg.Set Options.verbose, "  show the output of intermediary \
       tools when acting as a driver for F* or the C compiler";
-    "-wasm", Arg.Set arg_wasm, "  emit a .wasm file instead of C";
+    "-wasm", Arg.Set Options.wasm, "  emit a .wasm file instead of C";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* Controlling the behavior of KreMLin *)
@@ -257,11 +256,13 @@ Supported options:|}
   if !arg_warn_error <> "" then
     Warnings.parse_warn_error !arg_warn_error;
 
-  if !arg_wasm then begin
+  if !Options.wasm then begin
     Options.uint128 := false;
     Options.anonymous_unions := false;
     Options.struct_passing := false
-  end;
+  end else
+    Options.drop := [ Bundle.Module [ "C" ]; Bundle.Module [ "TestLib" ] ] @
+      !Options.drop;
 
   (* If the compiler supports uint128, then we just drop the module and let
    * dependency analysis use the FStar.UInt128.fsti. If the compiler does not,
@@ -363,7 +364,6 @@ Supported options:|}
   tick_print (not has_errors) "Pattern matches compilation";
 
   (* 4. First round of simplifications. *)
-  let files = if !arg_wasm then SimplifyWasm.simplify files else files in
   let files = Simplify.simplify1 files in
   let files = Simplify.simplify2 files in
   if !arg_print_simplify then
@@ -383,7 +383,9 @@ Supported options:|}
   let files = Inlining.inline_function_frames files in
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
   let files = Simplify.remove_unused files in
-  let files = if !arg_wasm then Structs.in_memory files else files in
+  let files = if !Options.wasm then Simplify.simplify2 files else files in
+  let files = if !Options.wasm then Structs.in_memory files else files in
+  let files = if !Options.wasm then SimplifyWasm.simplify files else files in
   let files = Structs.collect_initializers files in
   let files = Simplify.simplify2 files in
   if !arg_print_inline then
@@ -423,7 +425,13 @@ Supported options:|}
    * at the last minute, since it invalidates pretty much any map ever built. *)
   let files = Simplify.to_c_names files in
 
-  if !arg_wasm && not (Options.debug "force-c") then
+  if !Options.wasm && not (Options.debug "force-c") then
+    (* Runtime support files first. *)
+    let is_support, rest = List.partition (fun (name, _) -> name = "WasmSupport") files in
+    if List.length is_support = 0 then
+      Warnings.fatal_error "The module WasmSupport wasn't passed to kremlin!";
+    let files = is_support @ rest in
+
     (* The Wasm backend diverges here. We go to [CFlat] (an expression
      * language), then directly into the Wasm AST. *)
     let files = AstToCFlat.mk_files files in

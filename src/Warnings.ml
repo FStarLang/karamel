@@ -5,7 +5,6 @@ open Ast
 open PrintAst
 
 type error = location * raw_error
-  (** TODO: error = location * raw_error *)
 
 and raw_error =
   | Dropping of string * error

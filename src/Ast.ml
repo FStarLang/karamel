@@ -55,7 +55,7 @@ and expr' =
 
   | EApp of expr * expr list
   | ELet of binder * expr * expr
-  | EFun of binder list * expr
+  | EFun of binder list * expr * typ
   | EIfThenElse of expr * expr * expr
   | ESequence of expr list
   | EAssign of expr * expr
@@ -287,8 +287,8 @@ class virtual ['env] map = object (self)
         self#ecomment env typ s e s'
     | EFor (binder, e1, e2, e3, e4) ->
         self#efor env typ binder e1 e2 e3 e4
-    | EFun (binders, e) ->
-        self#efun env typ binders e
+    | EFun (binders, e, t) ->
+        self#efun env typ binders e t
     | EAddrOf e ->
         self#eaddrof env typ e
     | EIgnore e ->
@@ -411,10 +411,10 @@ class virtual ['env] map = object (self)
     let e4 = self#visit env e4 in
     EFor (b, e1, e2, e3, e4)
 
-  method efun env _ binders expr =
+  method efun env _ binders expr ret =
     let binders = self#binders env binders in
     let env = self#extend_many env binders in
-    EFun (binders, self#visit env expr)
+    EFun (binders, self#visit env expr, self#visit_t env ret)
 
   method eaddrof env _ e =
     EAddrOf (self#visit env e)

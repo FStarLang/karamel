@@ -215,6 +215,8 @@ let detect_fstar () =
       "Monotonic.HyperStack" ];
   if not !Options.uint128 then
     fstar_options := (!fstar_home ^^ "ulib" ^^ "FStar.UInt128.fst") :: !fstar_options;
+  if !Options.wasm then
+    fstar_options := (!krml_home ^^ "runtime" ^^ "WasmSupport.fst") :: !fstar_options;
   KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
 
   flush stdout

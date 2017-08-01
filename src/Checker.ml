@@ -681,10 +681,10 @@ and infer' env e =
   | EComment (_, e, _) ->
       infer env e
 
-  | EFun (binders, e) ->
+  | EFun (binders, e, t_ret) ->
       let env = List.fold_left push env binders in
-      let t = infer env e in
-      List.fold_right (fun binder t -> TArrow (binder.typ, t)) binders t
+      check env t_ret e;
+      List.fold_right (fun binder t -> TArrow (binder.typ, t)) binders t_ret
 
   | EFor (binder, e1, e2, e3, e4) ->
       let t = check_or_infer (locate env (In binder.node.name)) binder.typ e1 in

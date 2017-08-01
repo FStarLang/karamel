@@ -80,7 +80,7 @@ and expr =
   | EBufFill of (expr * expr * expr)
     (** buffer, value, len *)
   | EString of string
-  | EFun of (binder list * expr)
+  | EFun of (binder list * expr * typ)
   | EAbortS of string
 
 and branches =
@@ -137,7 +137,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 20
+let current_version: version = 21
 
 type file = string * program
   [@@deriving yojson]

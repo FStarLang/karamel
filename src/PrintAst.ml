@@ -72,13 +72,13 @@ and print_type_def = function
       jump (print_typ typ)
 
 and print_fields_t fields =
-  separate_map (semi ^^ hardline) (fun (ident, (typ, mut)) ->
+  separate_map (semi ^^ break1) (fun (ident, (typ, mut)) ->
     let mut = if mut then string "mutable " else empty in
     group (group (mut ^^ string ident ^^ colon) ^/^ print_typ typ)
   ) fields
 
 and print_fields_opt_t fields =
-  separate_map (semi ^^ hardline) (fun (ident, (typ, mut)) ->
+  separate_map (semi ^^ break1) (fun (ident, (typ, mut)) ->
     let ident = if ident = None then empty else string (Option.must ident) in
     let mut = if mut then string "mutable " else empty in
     group (group (mut ^^ ident ^^ colon) ^/^ print_typ typ)
@@ -240,10 +240,10 @@ and print_expr { node; _ } =
           string "case" ^^ space ^^ string (string_of_lident lid) ^^ colon ^^
           nest 2 (hardline ^^ print_expr e)
         ) branches)
-  | EFun (binders, body) ->
+  | EFun (binders, body, t) ->
       string "fun" ^/^ parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders
-      ) ^/^ braces_with_nesting (
+      ) ^/^ colon ^^ group (print_typ t) ^/^ braces_with_nesting (
         print_expr body
       )
   | EAddrOf e ->
@@ -288,6 +288,7 @@ and print_pat p =
 let print_files = print_files print_decl
 
 module Ops = struct
+  let ploc = printf_of_pprint Location.print_location
   let ptyp = printf_of_pprint print_typ
   let pptyp = printf_of_pprint_pretty print_typ
   let pexpr = printf_of_pprint print_expr

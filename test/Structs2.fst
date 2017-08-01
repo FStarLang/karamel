@@ -26,4 +26,4 @@ let main (): Stack Int32.t (fun _ -> true) (fun _ _ _ -> true) =
   T.checku8 x.color.g 1uy;
   T.checku32 x.point.x 3ul;
   T.checku32 x.point.y 4ul;
-  C.exit_success
+  0l

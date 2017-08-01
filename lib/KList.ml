@@ -96,3 +96,6 @@ let split_at_last l =
 
 let last l =
   snd (split_at_last l)
+
+let reduce f l =
+  List.fold_left f (List.hd l) (List.tl l)
