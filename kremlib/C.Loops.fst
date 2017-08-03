@@ -289,8 +289,8 @@ val repeat:
   l: UInt32.t ->
   f:(s:Seq.seq a{Seq.length s = UInt32.v l} -> Tot (s':Seq.seq a{Seq.length s' = Seq.length s})) ->
   b: buffer a{Buffer.length b = UInt32.v l} ->
-  n:UInt32.t ->
-  f':(b:buffer a{length b = UInt32.v l} -> Stack unit
+  max:UInt32.t ->
+  fc:(b:buffer a{length b = UInt32.v l} -> Stack unit
                      (requires (fun h -> live h b))
                      (ensures (fun h0 _ h1 -> live h0 b /\ live h1 b /\ modifies_1 b h0 h1
                        /\ (let b0 = as_seq h0 b in
@@ -301,7 +301,7 @@ val repeat:
     (ensures (fun h_1 r h_2 -> modifies_1 b h_1 h_2 /\ live h_1 b /\ live h_2 b
       /\ (let s = as_seq h_1 b in
          let s' = as_seq h_2 b in
-         s' == repeat_spec (UInt32.v n) f s) ))
+         s' == repeat_spec (UInt32.v max) f s) ))
 let repeat #a l f b max fc =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
@@ -330,7 +330,7 @@ val repeat_range:
   max:UInt32.t{UInt32.v min <= UInt32.v max} ->
   f:(s:Seq.seq a{Seq.length s = UInt32.v l} -> i:nat{i < UInt32.v max} -> Tot (s':Seq.seq a{Seq.length s' = Seq.length s})) ->
   b: buffer a{Buffer.length b = UInt32.v l} ->
-  f':(b:buffer a{length b = UInt32.v l} -> i:UInt32.t{UInt32.v i < UInt32.v max} -> Stack unit
+  fc:(b:buffer a{length b = UInt32.v l} -> i:UInt32.t{UInt32.v i < UInt32.v max} -> Stack unit
                      (requires (fun h -> live h b))
                      (ensures (fun h0 _ h1 -> live h0 b /\ live h1 b /\ modifies_1 b h0 h1
                        /\ (let b0 = as_seq h0 b in
