@@ -55,6 +55,7 @@ let type_of_op op w =
 
 let any = with_type TAny EAny
 let eunit = with_type TUnit EUnit
+let efalse = with_type TBool (EBool false)
 
 let with_unit x = with_type TUnit x
 
@@ -85,6 +86,16 @@ let mk_incr =
       EApp (mk_op K.Add K.UInt32, [
         with_type uint32 (EBound 0);
         oneu32 ]))))
+
+let mk_neq e1 e2 =
+  with_type TBool (EApp (mk_op K.Neq K.UInt32, [ e1; e2 ]))
+
+let mk_not e1 =
+  with_type TBool (EApp (mk_op K.Not K.Bool, [ e1 ]))
+
+let mk_and e1 e2 =
+  with_type TBool (EApp (mk_op K.And K.Bool, [ e1; e2 ]))
+
 
 let mk_uint32 i =
   with_type (TInt K.UInt32) (EConstant (K.UInt32, string_of_int i))

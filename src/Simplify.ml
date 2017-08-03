@@ -969,7 +969,28 @@ let combinators = object(self)
         let iter = mk_incr in
         (* Note: no need to shift, the body was under a one-argument lambda
          * already. *)
-        EFor (b, start, cond, iter, self#visit () body)
+        EFor ([ b, start ], cond, iter, self#visit () body)
+
+    | EQualified ([ "C"; "Loops" ], "interruptible_for"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
+        (* Relying on the invariant that, if [finish] is effectful, F* has
+         * hoisted it *)
+        assert (is_value finish);
+        let b = fresh_binder "b" TBool in
+        let b = mark_mut b in
+        let i = fresh_binder "i" uint32 in
+        let i = mark_mut i in
+        let finish = lift 2 finish in
+        let cond = mk_and
+          (mk_not (with_type TBool (EBound 1)))
+          (mk_neq (with_type uint32 (EBound 0)) finish) in
+        let iter = mk_incr in
+        ELet (b, efalse, with_type t (
+        ELet (i, lift 1 start, with_type t (
+        ESequence [
+          with_type TUnit (EFor ([], cond, iter, self#visit () (lift 1 body)));
+          with_type t (ETuple [
+            with_type uint32 (EBound 0);
+            with_type TBool (EBound 1)])]))))
 
     | _ ->
         super#eapp () t e es
