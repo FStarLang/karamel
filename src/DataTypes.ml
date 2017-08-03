@@ -622,14 +622,14 @@ let anonymous_unions map = object (self)
     | _ ->
         d
 
-  method eflat _env t fields =
+  method eflat env t fields =
     match fields, t with
     | [ Some f1, t1; Some f2, t2 ], TQualified lid when
       f1 = field_for_tag && f2 = field_for_union &&
       is_tagged_union map lid ->
         EFlat [ Some f1, t1; None, t2 ]
     | _ ->
-        EFlat fields
+        EFlat (self#fields env fields)
 
 end
 
