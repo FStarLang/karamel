@@ -127,7 +127,7 @@ and mk_for_loop_initializer e_array e_size e_value: C.stmt =
       Expr (Op2 (K.Assign, Index (e_array, Constant (K.UInt, "0")), e_value))
   | _ ->
       For (
-        (Int K.UInt, None, [ Ident "_i", Some (InitExpr zero)]),
+        Some (Int K.UInt, None, [ Ident "_i", Some (InitExpr zero)]),
         Op2 (K.Lt, Name "_i", e_size),
         Op1 (K.PreIncr, Name "_i"),
         Expr (Op2 (K.Assign, Index (e_array, Name "_i"), e_value)))
@@ -331,7 +331,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let v = mk_expr v in
       let size = mk_expr size in
       [ For (
-          (Int K.UInt, None, [ Ident "_i", Some (InitExpr zero)]),
+          Some (Int K.UInt, None, [ Ident "_i", Some (InitExpr zero)]),
           Op2 (K.Lt, Name "_i", size),
           Op1 (K.PreIncr, Name "_i"),
           Expr (Op2 (K.Assign, Index (buf, Name "_i"), v)))]
@@ -362,12 +362,18 @@ and mk_stmt (stmt: stmt): C.stmt list =
         Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])); ]
 
   | For (binder, e1, e2, e3, b) ->
-      let spec, decl = mk_spec_and_declarator binder.name binder.typ in
-      let init = struct_as_initializer e1 in
+      let init_clause = match binder, e1 with
+        | { name = "_"; typ = CStar.Void }, Any ->
+            None
+        | _ ->
+            let spec, decl = mk_spec_and_declarator binder.name binder.typ in
+            let init = struct_as_initializer e1 in
+            Some (spec, None, [ decl, Some init ])
+      in
       let e2 = mk_expr e2 in
       let e3 = match mk_stmt e3 with [ Expr e3 ] -> e3 | _ -> assert false in
       let b = mk_compound_if (mk_stmts b) in
-      [ For ((spec, None, [ decl, Some init ]), e2, e3, b)]
+      [ For (init_clause, e2, e3, b)]
 
 
 and mk_stmts stmts: C.stmt list =

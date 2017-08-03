@@ -136,6 +136,8 @@ let sequence_binding () = with_type TUnit {
   atom = Atom.fresh ()
 }
 
+let unused_binding = sequence_binding
+
 let mk_binding name t =
   let b = fresh_binder name t in
   b,

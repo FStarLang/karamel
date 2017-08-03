@@ -268,6 +268,11 @@ let protect_ite_if_needed s =
   | IfElse _ when !Options.parentheses -> Compound [ s ]
   | _ -> s
 
+let p_or p x =
+  match x with
+  | Some x -> p x
+  | None -> empty
+
 let rec p_stmt (s: stmt) =
   (* [p_stmt] is responsible for appending [semi] and calling [group]! *)
   match s with
@@ -280,7 +285,7 @@ let rec p_stmt (s: stmt) =
       group (string "/*" ^/^ separate break1 (words s) ^/^ string "*/")
   | For (decl, e2, e3, stmt) ->
       group (string "for" ^/^ lparen ^^ nest 2 (
-        p_declaration decl ^^ semi ^^ break1 ^^
+        p_or p_declaration decl ^^ semi ^^ break1 ^^
         p_expr e2 ^^ semi ^^ break1 ^^
         p_expr e3
       ) ^^ rparen) ^^ nest_if p_stmt stmt
