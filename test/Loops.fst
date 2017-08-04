@@ -41,6 +41,37 @@ let sum_to_n_buf (n:UInt32.t) : Stack UInt32.t
   pop_frame();
   sum
 
+let count_to_n (n:UInt32.t{UInt32.v n > 0}) : Stack UInt32.t
+  (requires (fun h0 -> True))
+  (ensures (fun h0 r h1 -> r == n)) =
+  push_frame();
+  let ptr_count = create 0ul 1ul in
+  C.Loops.do_while
+    (fun h break -> live h ptr_count /\
+                  (not break ==> UInt32.v (Seq.index (as_seq h ptr_count) 0) < UInt32.v n) /\
+                  (break ==> UInt32.v (Seq.index (as_seq h ptr_count) 0) == UInt32.v n))
+    (fun _ -> ptr_count.(0ul) <- UInt32.(ptr_count.(0ul) +^ 1ul);
+            let sum = ptr_count.(0ul) in
+            if UInt32.eq sum n then true else false);
+  let count = ptr_count.(0ul) in
+  pop_frame();
+  count
+
+// this is just an infinite loop
+let wait_for_false (n:UInt32.t{UInt32.v n > 0}) : Stack UInt32.t
+  (requires (fun h0 -> True))
+  (ensures (fun h0 r h1 -> r == n)) =
+  push_frame();
+  let ptr_count = create 0ul 1ul in
+  C.Loops.do_while
+    (fun h break -> live h ptr_count /\
+                  (break ==> False))
+    (fun _ -> false);
+  let count = ptr_count.(0ul) in
+  pop_frame();
+  assert (False);
+  count
+
 let main () =
   let b = Buffer.createL [ 1ul; 2ul; 3ul ] in
   let h0 = get () in
