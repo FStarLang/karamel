@@ -52,7 +52,7 @@ typedef void *Prims_pos, *Prims_nat, *Prims_nonzero, *FStar_Seq_Base_seq,
     *Prims_string, *Prims_list, *FStar_Map_t, *FStar_UInt63_t_, *FStar_Int63_t_,
     *FStar_UInt63_t, *FStar_Int63_t, *FStar_UInt_uint_t, *FStar_Int_int_t,
     *FStar_HyperStack_stackref, *FStar_Bytes_bytes, *FStar_HyperHeap_rid,
-    *FStar_Heap_aref, *FStar_Monotonic_Heap_heap,
+    *FStar_Heap_aref, *FStar_Monotonic_Heap_heap, *FStar_Monotonic_Heap_aref,
     *FStar_Monotonic_HyperHeap_rid, *FStar_Monotonic_HyperStack_mem;
 
 // Prims; all of the functions below abort;
