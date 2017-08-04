@@ -5,6 +5,42 @@ open FStar.Buffer
 open FStar.HyperStack.ST
 module UInt32 = FStar.UInt32
 
+// simple for loop example - note that there is no framing
+let sum_to_n (n:UInt32.t) : Stack UInt32.t
+  (requires (fun h0 -> True))
+  (ensures (fun h0 r h1 -> r == n)) =
+  push_frame();
+  let ptr_sum = create 0ul 1ul in
+  let _ = C.Loops.interruptible_for 0ul n
+    (fun h i done -> live h ptr_sum /\
+                  UInt32.v (Seq.index (as_seq h ptr_sum) 0) == i /\
+                  done == false)
+    (fun i -> ptr_sum.(0ul) <- UInt32.(ptr_sum.(0ul) +^ 1ul);
+            false) in
+  let sum = ptr_sum.(0ul) in
+  pop_frame();
+  sum
+
+let sum_to_n_buf (n:UInt32.t) : Stack UInt32.t
+  (requires (fun h0 -> True))
+  (ensures (fun h0 r h1 -> r == n /\
+    modifies_none h0 h1)) =
+  push_frame();
+  let h0 = get() in
+  let ptr_sum = create 0ul 1ul in
+  let _ = C.Loops.interruptible_for 0ul n
+    (fun h i done -> live h ptr_sum /\
+                  UInt32.v (Seq.index (as_seq h ptr_sum) 0) == i /\
+                  done == false /\
+                  modifies_0 h0 h)
+    (fun i -> ptr_sum.(0ul) <- UInt32.(ptr_sum.(0ul) +^ 1ul);
+           false) in
+  let sum = ptr_sum.(0ul) in
+  let h1 = get() in
+  lemma_reveal_modifies_0 h0 h1;
+  pop_frame();
+  sum
+
 let main () =
   let b = Buffer.createL [ 1ul; 2ul; 3ul ] in
   let h0 = get () in
