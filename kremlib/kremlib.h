@@ -408,8 +408,6 @@ static inline void store128_be(uint8_t *b, uint128_t n) {
 #define FStar_UInt128_shift_right(x, y) ((x) >> (y))
 #define FStar_UInt128_uint64_to_uint128(x) ((uint128_t)(x))
 #define FStar_UInt128_uint128_to_uint64(x) ((uint64_t)(x))
-#define FStar_Int_Cast_Full_uint64_to_uint128(x) ((uint128_t)(x))
-#define FStar_Int_Cast_Full_uint128_to_uint64(x) ((uint64_t)(x))
 #define FStar_UInt128_mul_wide(x, y) ((__int128)(x) * (y))
 #define FStar_UInt128_op_Hat_Hat(x, y) ((x) ^ (y))
 
