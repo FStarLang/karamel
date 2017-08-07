@@ -358,6 +358,7 @@ Supported options:|}
   (* 3. Compile data types and pattern matches to enums, structs, switches and
    * if-then-elses. *)
   let files = Simplify.simplify0 files in
+  let files = if !Options.wasm then SimplifyWasm.simplify files else files in
   let datatypes_state, files = DataTypes.everything files in
   if !arg_print_pattern then
     print PrintAst.print_files files;
@@ -365,12 +366,11 @@ Supported options:|}
   tick_print (not has_errors) "Pattern matches compilation";
 
   (* 4. First round of simplifications. *)
-  let files = Simplify.simplify1 files in
   let files = Simplify.simplify2 files in
   if !arg_print_simplify then
     print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in
-  tick_print (not has_errors) "Simplify 1+2";
+  tick_print (not has_errors) "Simplify 2";
 
   (* 5. Whole-program transformations. Inline functions marked as [@substitute]
    * or [StackInline] into their parent's bodies. This is a whole-program
@@ -381,12 +381,10 @@ Supported options:|}
    * again. Note that [remove_unused] generates MetaSequence let-bindings,
    * meaning that it has to occur before [simplify2]. Note that [in_memory]
    * generates inner let-bindings, so it has to be before [simplify2]. *)
-  let files = Inlining.inline_function_frames files in
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
-  let files = Simplify.remove_unused files in
-  let files = if !Options.wasm then Simplify.simplify2 files else files in
   let files = if !Options.wasm then Structs.in_memory files else files in
-  let files = if !Options.wasm then SimplifyWasm.simplify files else files in
+  let files = Inlining.inline_function_frames files in
+  let files = Simplify.remove_unused files in
   let files = Structs.collect_initializers files in
   let files = Simplify.simplify2 files in
   if !arg_print_inline then

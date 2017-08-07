@@ -1025,11 +1025,6 @@ end
 let simplify0 (files: file list): file list =
   let files = visit_files () remove_local_function_bindings files in
   let files = visit_files () combinators files in
-  files
-
-(* Misc. transformations, run early on, once. *)
-let simplify1 (files: file list): file list =
-  let files = visit_files () eta_expand files in
   let files = visit_files () wrapping_arithmetic files in
   files
 
