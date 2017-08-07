@@ -73,6 +73,7 @@ let wait_for_false (n:UInt32.t{UInt32.v n > 0}) : Stack UInt32.t
   count
 
 let main () =
+  (* An inline example of a for loop. *)
   let b = Buffer.createL [ 1ul; 2ul; 3ul ] in
   let h0 = get () in
   let inv h1 i =
@@ -95,6 +96,14 @@ let main () =
   let h1 = get () in
   assert (Seq.index (Buffer.as_seq h1 b) 2 = 9ul);
   let f x = UInt32.(x *%^ x) in
+
+  (* An inline example of a map *)
   let out = Buffer.create 0ul 3ul in
   C.Loops.map out b 3ul f;
+
+  (* Call the tests above. *)
+  TestLib.checku32 (count_to_n 10ul) 10ul;
+  TestLib.checku32 (sum_to_n 11ul) 11ul;
+  TestLib.checku32 (sum_to_n_buf 12ul) 12ul;
+
   C.exit_success

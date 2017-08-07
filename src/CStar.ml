@@ -16,6 +16,7 @@ and decl =
 and stmt =
   | Abort of string
   | Return of expr option
+  | Break
   | Ignore of expr
   | Decl of binder * expr
     (** Scope is: statements that follow. *)

@@ -84,8 +84,9 @@ and expr' =
   | EFlat of (ident option * expr) list
   | EField of expr * ident
 
+  | EBreak
   | EReturn of expr
-    (** Dafny generates EReturn nodes; they are currently no synthesized by our
+    (** Dafny generates EReturn nodes; they are currently not synthesized by our
      * internal transformation passes, but may be in the future. *)
   | EWhile of expr * expr
     (** Dafny generates EWhile nodes; we also generate them when desugaring the
@@ -265,6 +266,8 @@ class virtual ['env] map = object (self)
         self#eany env typ
     | EAbort s ->
         self#eabort env typ s
+    | EBreak ->
+        self#ebreak env typ
     | EReturn e ->
         self#ereturn env typ e
     | EFlat fields ->
@@ -372,6 +375,9 @@ class virtual ['env] map = object (self)
 
   method ereturn env _typ e =
     EReturn (self#visit env e)
+
+  method ebreak _env _typ =
+    EBreak
 
   method eflat env _typ fields =
     EFlat (self#fields env fields)

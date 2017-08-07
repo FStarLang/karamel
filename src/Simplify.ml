@@ -385,6 +385,9 @@ let rec hoist_stmt e =
       let lhs, e = hoist_expr Unspecified e in
       nest lhs e.typ (mk (EReturn e))
 
+  | EBreak ->
+      mk EBreak
+
   | EComment (s, e, s') ->
       mk (EComment (s, hoist_stmt e, s'))
 
@@ -618,8 +621,8 @@ and hoist_expr pos e =
   | ESequence _ ->
       fatal_error "[hoist_t]: sequences should've been translated as let _ ="
 
-  | EReturn _ ->
-      raise_error (Unsupported "[return] expressions should only appear in statement position")
+  | EReturn _ | EBreak ->
+      raise_error (Unsupported "[return] or [break] expressions should only appear in statement position")
 
 let hoist = object
   inherit ignore_everything
@@ -998,6 +1001,13 @@ let combinators = object(self)
             with_type uint32 (EBound 0);
             with_type TBool (EBound 1)])]))))
 
+    | EQualified ([ "C"; "Loops" ], "do_while"), [ { node = EFun (_, body, _); _ } ] ->
+        EWhile (etrue, with_unit (
+          EIfThenElse (DeBruijn.subst eunit 0 (self#visit () body),
+            with_unit EBreak,
+            eunit)))
+
+
     | _ ->
         super#eapp () t e es
 
@@ -1013,6 +1023,7 @@ end
 (* Macros that may generate tuples and sequences. Run before data types
  * compilation, once. *)
 let simplify0 (files: file list): file list =
+  let files = visit_files () remove_local_function_bindings files in
   let files = visit_files () combinators files in
   files
 
@@ -1028,7 +1039,6 @@ let simplify1 (files: file list): file list =
  * re-establish this invariant. *)
 let simplify2 (files: file list): file list =
   let files = visit_files () sequence_to_let files in
-  let files = visit_files () remove_local_function_bindings files in
   let files = visit_files () hoist files in
   let files = visit_files () hoist_bufcreate files in
   let files = visit_files () fixup_hoist files in

@@ -387,6 +387,9 @@ and mk_stmts env e ret_type =
         let env, s = mk_ignored_stmt env e in
         env, s @ acc
 
+    | EBreak ->
+        env, CStar.Break :: acc
+
     | _ when return_pos ->
         mk_as_return env e acc return_pos
 

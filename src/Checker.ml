@@ -252,6 +252,7 @@ and check' env t e =
   | EPushFrame | EPopFrame
   | EAny | EAbort _
   | EReturn _
+  | EBreak
   | EBool _
   | EWhile _
   | EEnum _
@@ -582,6 +583,9 @@ and infer' env e =
       ignore (infer env e);
       (** TODO: check that [EReturn] matches the expected return type *)
       TAny
+
+  | EBreak ->
+      TUnit
 
   | EBool _ ->
       TBool

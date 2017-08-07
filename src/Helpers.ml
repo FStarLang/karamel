@@ -56,6 +56,7 @@ let type_of_op op w =
 let any = with_type TAny EAny
 let eunit = with_type TUnit EUnit
 let efalse = with_type TBool (EBool false)
+let etrue = with_type TBool (EBool true)
 
 let with_unit x = with_type TUnit x
 
@@ -212,6 +213,7 @@ let rec is_value (e: expr) =
   | EMatch _
   | ESwitch _
   | EReturn _
+  | EBreak
   | EFor _
   | EWhile _ ->
       false

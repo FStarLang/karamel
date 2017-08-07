@@ -203,6 +203,8 @@ and print_expr { node; _ } =
       string "push_frame"
   | EBool b ->
       string (string_of_bool b)
+  | EBreak ->
+      string "break"
   | EReturn e ->
       string "return" ^/^ (nest 2 (print_expr e))
   | EFlat fields ->

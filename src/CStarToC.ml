@@ -170,6 +170,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
   | Block stmts ->
       [ Compound (mk_stmts stmts) ]
 
+  | Break ->
+      [ Break ]
+
   | Ignore e ->
       [ Expr (mk_expr e) ]
 
