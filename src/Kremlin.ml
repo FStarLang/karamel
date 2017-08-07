@@ -357,6 +357,7 @@ Supported options:|}
 
   (* 3. Compile data types and pattern matches to enums, structs, switches and
    * if-then-elses. *)
+  let files = Simplify.simplify0 files in
   let datatypes_state, files = DataTypes.everything files in
   if !arg_print_pattern then
     print PrintAst.print_files files;

@@ -992,8 +992,8 @@ let combinators = object(self)
             mk_and
               (mk_not (with_type TBool (EBound 2)))
               (mk_neq (with_type uint32 (EBound 1)) (lift 3 finish)),
-            iter,
-            self#visit () (lift 2 body)));
+            lift 1 iter,
+            with_unit (EIgnore (self#visit () (lift 2 body)))));
           with_type t (ETuple [
             with_type uint32 (EBound 0);
             with_type TBool (EBound 1)])]))))
@@ -1005,19 +1005,30 @@ end
 
 
 
-(* Everything composed together ***********************************************)
+(* The various series of rewritings called by Kremlin.ml **********************)
 
+(* Debug any intermediary AST as follows: *)
+(* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
+
+(* Macros that may generate tuples and sequences. Run before data types
+ * compilation, once. *)
+let simplify0 (files: file list): file list =
+  let files = visit_files () combinators files in
+  files
+
+(* Misc. transformations, run early on, once. *)
 let simplify1 (files: file list): file list =
   let files = visit_files () eta_expand files in
   let files = visit_files () wrapping_arithmetic files in
   files
 
+(* Many phases rely on a statement like language where let-bindings, buffer
+ * allocations and writes are hoisted; where if-then-else is always in statement
+ * position; where sequences are not nested. These series of transformations
+ * re-establish this invariant. *)
 let simplify2 (files: file list): file list =
-  (* Debug any intermediary AST as follows: *)
-  (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
   let files = visit_files () sequence_to_let files in
   let files = visit_files () remove_local_function_bindings files in
-  let files = visit_files () combinators files in
   let files = visit_files () hoist files in
   let files = visit_files () hoist_bufcreate files in
   let files = visit_files () fixup_hoist files in
@@ -1026,21 +1037,20 @@ let simplify2 (files: file list): file list =
   let files = visit_files () let_to_sequence files in
   files
 
-let simplify (files: file list): file list =
-  let files = simplify1 files in
-  let files = simplify2 files in
-  files
-
-let to_c_names (files: file list): file list =
-  let files = visit_files () record_toplevel_names files in
-  let files = visit_files () replace_references_to_toplevel_names files in
-  files
-
-(* This should be run at the last minute since inlining may create more
- * opportunities for the removal of unused variables. *)
+(* This should be run late since inlining may create more opportunities for the
+ * removal of unused variables. *)
 let remove_unused (files: file list): file list =
   let files = visit_files [] count_and_remove_locals files in
   let map = Hashtbl.create 41 in
   let files = visit_files () (build_unused_map map) files in
   let files = visit_files () (remove_unused_parameters map) files in
   files
+
+(* Allocate C names avoiding keywords and name collisions. This should be done
+ * as the last operations, otherwise, any table for memoization suddenly becomes
+ * invalid. *)
+let to_c_names (files: file list): file list =
+  let files = visit_files () record_toplevel_names files in
+  let files = visit_files () replace_references_to_toplevel_names files in
+  files
+
