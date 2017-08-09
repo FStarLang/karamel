@@ -36,10 +36,10 @@ let rec print_decl = function
   | DGlobal (flags, name, typ, expr) ->
       print_flags flags ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
-  | DType (name, n, def) ->
+  | DType (name, flags, n, def) ->
       let args = KList.make n (fun i -> string ("t" ^ string_of_int i)) in
       let args = separate space args in
-      group (string "type" ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
+      group (string "type" ^/^ print_flags flags ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
       jump (print_type_def def)
 
 and print_type_def = function
@@ -96,6 +96,8 @@ and print_flag = function
       string "c_inline"
   | Substitute ->
       string "substitute"
+  | GcType ->
+      string "gc_type"
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   (if mut then string "mutable" ^^ break 1 else empty) ^^

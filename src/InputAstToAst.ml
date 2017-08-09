@@ -32,15 +32,15 @@ let rec mk_decl = function
       in
       DFunction (cc, flags, n, mk_typ t, name, mk_binders binders, body)
   | I.DTypeAlias (name, n, t) ->
-      DType (name, n, Abbrev (mk_typ t))
+      DType (name, [], n, Abbrev (mk_typ t))
   | I.DGlobal (flags, name, t, e) ->
       DGlobal (flags, name, mk_typ t, mk_expr e)
   | I.DTypeFlat (name, n, fields) ->
-      DType (name, n, Flat (mk_tfields_opt fields))
+      DType (name, [], n, Flat (mk_tfields_opt fields))
   | I.DExternal (cc, name, t) ->
       DExternal (cc, name, mk_typ t)
   | I.DTypeVariant (name, n, branches) ->
-      DType (name, n,
+      DType (name, [], n,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
 
 and mk_binders bs =

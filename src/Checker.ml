@@ -101,7 +101,7 @@ let populate_env files =
   List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
-      | DType (lid, _, typ) ->
+      | DType (lid, _, _, typ) ->
           let env = match typ with
           | Enum tags ->
               List.fold_left (fun env tag ->

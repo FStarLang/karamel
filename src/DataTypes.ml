@@ -40,7 +40,7 @@ module Gen = struct
   let register_def original_lid ts lid def =
     Hashtbl.add generated_lids (original_lid, ts) lid;
     let def = def () in
-    let type_def = DType (lid, 0, def) in
+    let type_def = DType (lid, [], 0, def) in
     pending_defs := type_def :: !pending_defs;
     lid
 
@@ -84,7 +84,7 @@ end
 
 let build_def_map files =
   Inlining.build_map files (fun map -> function
-    | DType (lid, _, def) ->
+    | DType (lid, _, _, def) ->
         Hashtbl.add map lid def
     | _ ->
         ()
@@ -167,7 +167,7 @@ end
 
 let drop_parameterized_data_types =
   filter_decls (function
-    | DType (_, n, (Flat _ | Variant _)) when n > 0 ->
+    | DType (_, _, n, (Flat _ | Variant _)) when n > 0 ->
         None
     | d ->
         Some d
@@ -185,7 +185,7 @@ type scheme =
 
 let build_scheme_map files =
   Inlining.build_map files (fun map -> function
-    | DType (lid, 0, Variant branches) ->
+    | DType (lid, _, 0, Variant branches) ->
         if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
           Hashtbl.add map lid ToEnum
         else if List.length branches = 1 then
@@ -274,23 +274,23 @@ let compile_simple_matches map = object(self)
     | ToFlat names ->
         PRecord (List.map2 (fun n e -> n, e) names args)
 
-  method dtype () lid n def =
+  method dtype () lid flags n def =
     match def with
     | Variant branches ->
         assert (n = 0);
         begin match Hashtbl.find map lid with
         | exception Not_found ->
-            DType (lid, 0, Variant branches)
+            DType (lid, flags, 0, Variant branches)
         | ToTaggedUnion _ ->
-            DType (lid, 0, Variant branches)
+            DType (lid, flags, 0, Variant branches)
         | ToEnum ->
-            DType (lid, 0, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
+            DType (lid, flags, 0, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
         | ToFlat _ ->
             let fields = List.map (fun (f, t) -> Some f, t) (snd (List.hd branches)) in
-            DType (lid, 0, Flat fields)
+            DType (lid, flags, 0, Flat fields)
         end
     | _ ->
-        DType (lid, n, def)
+        DType (lid, flags, n, def)
 
   method ematch () t e branches =
     let e = self#visit () e in

@@ -23,8 +23,8 @@ class ignore_everything = object
   method dglobal () flags name typ expr =
     DGlobal (flags, name, typ, expr)
 
-  method dtype () name n t =
-    DType (name, n, t)
+  method dtype () name flags n t =
+    DType (name, flags, n, t)
 end
 
 

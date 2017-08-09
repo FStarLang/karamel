@@ -396,7 +396,7 @@ let inline_function_frames files =
 
 let inline_type_abbrevs files =
   let map = build_map files (fun map -> function
-    | DType (lid, _, Abbrev t) -> Hashtbl.add map lid (White, t)
+    | DType (lid, _, _, Abbrev t) -> Hashtbl.add map lid (White, t)
     | _ -> ()
   ) in
 
@@ -420,9 +420,9 @@ let inline_type_abbrevs files =
    *   type pair a b = Tuple (1, 0)
    * breaks this invariant. *)
   filter_decls (function
-    | DType (lid, n, Abbrev def) ->
+    | DType (lid, flags, n, Abbrev def) ->
         if n = 0 then
-          Some (DType (lid, n, Abbrev def))
+          Some (DType (lid, flags, n, Abbrev def))
         else
           (* A type definition with parameters is not something we'll be able to
            * generate code for (at the moment). So, drop it. *)
