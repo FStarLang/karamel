@@ -839,6 +839,11 @@ and check_pat env t_context pat =
       assert (lid = M.find tag env.enums);
       pat.typ <- t_context
 
+  | PDeref p ->
+      let t = assert_buffer env t_context in
+      check_pat env t p;
+      pat.typ <- t_context;
+
 
 and assert_tuple env t =
   match expand_abbrev env t with

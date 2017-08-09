@@ -27,6 +27,13 @@ class ignore_everything = object
     DType (name, flags, n, t)
 end
 
+(** For each declaration in [files], call [f map decl], where [map] is the map
+ * being filled. *)
+let build_map files f =
+  let map = Hashtbl.create 41 in
+  iter_decls (f map) files;
+  map
+
 
 (* Creating AST nodes *********************************************************)
 

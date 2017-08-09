@@ -149,13 +149,6 @@ let inline_analysis map =
 
 (* Inlining of function bodies ************************************************)
 
-(** For each declaration in [files], call [f map decl], where [map] is the map
- * being filled. *)
-let build_map files f =
-  let map = Hashtbl.create 41 in
-  iter_decls (f map) files;
-  map
-
 (** We rely on the textbook three-color graph traversal; inlining cycles are a
  * hard error. *)
 type color = White | Gray | Black
@@ -191,7 +184,7 @@ let mk_inliner files must_inline =
   in
 
   (* Build a map suitable for the [memoize_inline] combinator. *)
-  let map = build_map files (fun map -> function
+  let map = Helpers.build_map files (fun map -> function
     | DFunction (_, _, _, _, name, _, body) ->
         Hashtbl.add map name (White, body)
     | _ ->
@@ -219,7 +212,7 @@ let mk_inliner files must_inline =
 let inline_combinators files =
   (* Polymorphic functions that are marked as substitute are expanded; this MUST
    * GO AWAY and be properly performed at the KreMLin level. *)
-  let map = build_map files (fun map -> function
+  let map = Helpers.build_map files (fun map -> function
     | DFunction (_, flags, n, _, name, _, _) ->
         if n > 0 && not (List.mem Substitute flags) && not (Drop.lid name) then
           Warnings.(maybe_fatal_error ("<toplevel>", NoPolymorphism name));
@@ -264,7 +257,7 @@ let inline_function_frames files =
      *   substitute attribute), and
      * - the body, which [inline_analysis] needs to figure out if the function
      *   allocates without pushing a frame, meaning it must be inlined. *)
-    let map = build_map files (fun map -> function
+    let map = Helpers.build_map files (fun map -> function
       | DFunction (_, flags, _, _, name, _, body) ->
           Hashtbl.add map name (List.exists ((=) Substitute) flags, body)
       | _ ->
@@ -395,7 +388,7 @@ let inline_function_frames files =
 (* Monomorphize types *********************************************************)
 
 let inline_type_abbrevs files =
-  let map = build_map files (fun map -> function
+  let map = Helpers.build_map files (fun map -> function
     | DType (lid, _, _, Abbrev t) -> Hashtbl.add map lid (White, t)
     | _ -> ()
   ) in
@@ -454,7 +447,7 @@ let drop_unused files =
    * graph traversal) and, as a consequence, of knowning for a given private
    * function if it was reachable starting from a non-private one. *)
   let visited = Hashtbl.create 41 in
-  let body_of_lid = build_map files (fun map -> function
+  let body_of_lid = Helpers.build_map files (fun map -> function
     | DFunction (_, _, _, _, name, _, body)
     | DGlobal (_, name, _, body) ->
         Hashtbl.add map name body

@@ -138,6 +138,7 @@ and pattern' =
   | PEnum of lident
   | PTuple of pattern list
   | PRecord of (ident * pattern) list
+  | PDeref of pattern
   | PWild
 
 and pattern =
@@ -463,9 +464,14 @@ class virtual ['env] map = object (self)
         self#penum env t lid
     | PWild ->
         self#pwild env
+    | PDeref p ->
+        self#pderef env t p
 
   method punit _env =
     PUnit
+
+  method pderef env _t p =
+    PDeref (self#visit_pattern env p)
 
   method pwild _env =
     PWild

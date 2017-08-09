@@ -359,6 +359,7 @@ Supported options:|}
    * if-then-elses. *)
   let files = Simplify.simplify0 files in
   let files = if !Options.wasm then SimplifyWasm.simplify files else files in
+  let files = GcTypes.heap_allocate_gc_types files in
   let datatypes_state, files = DataTypes.everything files in
   if !arg_print_pattern then
     print PrintAst.print_files files;

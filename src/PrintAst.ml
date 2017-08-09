@@ -288,6 +288,8 @@ and print_pat p =
       parens_with_nesting (separate_map (comma ^^ break1) print_pat ps)
   | PEnum lid ->
       string (string_of_lident lid)
+  | PDeref p ->
+      star ^^ print_pat p
 
 let print_files = print_files print_decl
 

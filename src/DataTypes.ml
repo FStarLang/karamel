@@ -83,7 +83,7 @@ module Gen = struct
 end
 
 let build_def_map files =
-  Inlining.build_map files (fun map -> function
+  Helpers.build_map files (fun map -> function
     | DType (lid, _, _, def) ->
         Hashtbl.add map lid def
     | _ ->
@@ -184,7 +184,7 @@ type scheme =
   | ToTaggedUnion of branches_t
 
 let build_scheme_map files =
-  Inlining.build_map files (fun map -> function
+  Helpers.build_map files (fun map -> function
     | DType (lid, _, 0, Variant branches) ->
         if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
           Hashtbl.add map lid ToEnum
@@ -438,6 +438,9 @@ let rec compile_pattern env scrut pat expr =
       failwith "pattern must've been opened"
   | PCons (ident, _) ->
       failwith ("constructor hasn't been desugared: " ^ ident)
+  | PDeref pat ->
+      let scrut = mk (EBufRead (scrut, Helpers.zerou32)) in
+      compile_pattern env scrut pat expr
 
 
 let rec mk_conjunction = function
