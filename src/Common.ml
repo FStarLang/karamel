@@ -14,4 +14,5 @@ type flag =
   | NoExtract
   | CInline
   | Substitute
+  | GcType
   [@@deriving yojson,show]

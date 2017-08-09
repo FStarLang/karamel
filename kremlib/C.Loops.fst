@@ -103,6 +103,28 @@ let rec interruptible_for start finish inv f =
     else interruptible_for start' finish inv f
 
 (* To be extracted as:
+    while (true) {
+      bool b = <f> i;
+      if (b) {
+         break;
+      }
+    }
+*)
+val do_while:
+  inv:(HS.mem -> bool -> GTot Type0) ->
+  f:(unit -> Stack bool
+            (requires (fun h -> inv h false))
+            (ensures (fun h_1 b h_2 -> inv h_1 false /\ inv h_2 b)) ) ->
+  Stack unit
+    (requires (fun h -> inv h false))
+    (ensures (fun _ _ h_2 -> inv h_2 true))
+let rec do_while inv f =
+  let break = f () in
+  if break
+     then ()
+     else do_while inv f
+
+(* To be extracted as:
     int i = <start>;
     bool b = false;
     for (; (!b) && (i != <end>); --i) {

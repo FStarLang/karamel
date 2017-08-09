@@ -98,7 +98,7 @@ type stmt =
   | If of expr * stmt
   | IfElse of expr * stmt * stmt
   | While of expr * stmt
-  | For of declaration * expr * expr * stmt
+  | For of declaration option * expr * expr * stmt
     (** "init_clause may be an expression or a declaration" -> only doing the
      * latter *)
   | Return of expr option

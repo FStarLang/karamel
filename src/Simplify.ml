@@ -385,6 +385,9 @@ let rec hoist_stmt e =
       let lhs, e = hoist_expr Unspecified e in
       nest lhs e.typ (mk (EReturn e))
 
+  | EBreak ->
+      mk EBreak
+
   | EComment (s, e, s') ->
       mk (EComment (s, hoist_stmt e, s'))
 
@@ -618,8 +621,8 @@ and hoist_expr pos e =
   | ESequence _ ->
       fatal_error "[hoist_t]: sequences should've been translated as let _ ="
 
-  | EReturn _ ->
-      raise_error (Unsupported "[return] expressions should only appear in statement position")
+  | EReturn _ | EBreak ->
+      raise_error (Unsupported "[return] or [break] expressions should only appear in statement position")
 
 let hoist = object
   inherit ignore_everything
@@ -721,8 +724,8 @@ let record_toplevel_names = object
   method dexternal () cc name t =
     DExternal (cc, record_name name, t)
 
-  method dtype () name n t =
-    DType (record_name name, n, t)
+  method dtype () name flags n t =
+    DType (record_name name, flags, n, t)
 
   method dtypeenum () tags =
     Enum (List.map record_name tags)
@@ -752,8 +755,8 @@ let replace_references_to_toplevel_names = object(self)
   method dexternal () cc name typ =
     DExternal (cc, t name, self#visit_t () typ)
 
-  method dtype () name n d =
-    DType (t name, n, self#type_def () (Some name) d)
+  method dtype () name flags n d =
+    DType (t name, flags, n, self#type_def () (Some name) d)
 
   method dtypeenum () tags =
     Enum (List.map t tags)
@@ -971,6 +974,40 @@ let combinators = object(self)
          * already. *)
         EFor (b, start, cond, iter, self#visit () body)
 
+    | EQualified ([ "C"; "Loops" ], "interruptible_for"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
+        (* Relying on the invariant that, if [finish] is effectful, F* has
+         * hoisted it *)
+        assert (is_value finish);
+        let b = fresh_binder "b" TBool in
+        let b = mark_mut b in
+        let i = fresh_binder "i" uint32 in
+        let i = mark_mut i in
+        let iter = mk_incr in
+        (* First binder. *)
+        ELet (b, efalse, with_type t (
+        (* Second binder. *)
+        ELet (i, lift 1 start, with_type t (
+        ESequence [
+          with_type TUnit (EFor (
+            (* Third binder. *)
+            Helpers.unused_binding (),
+            any,
+            mk_and
+              (mk_not (with_type TBool (EBound 2)))
+              (mk_neq (with_type uint32 (EBound 1)) (lift 3 finish)),
+            lift 1 iter,
+            with_unit (EIgnore (self#visit () (lift 2 body)))));
+          with_type t (ETuple [
+            with_type uint32 (EBound 0);
+            with_type TBool (EBound 1)])]))))
+
+    | EQualified ([ "C"; "Loops" ], "do_while"), [ { node = EFun (_, body, _); _ } ] ->
+        EWhile (etrue, with_unit (
+          EIfThenElse (DeBruijn.subst eunit 0 (self#visit () body),
+            with_unit EBreak,
+            eunit)))
+
+
     | _ ->
         super#eapp () t e es
 
@@ -978,19 +1015,25 @@ end
 
 
 
-(* Everything composed together ***********************************************)
+(* The various series of rewritings called by Kremlin.ml **********************)
 
-let simplify1 (files: file list): file list =
-  let files = visit_files () eta_expand files in
+(* Debug any intermediary AST as follows: *)
+(* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
+
+(* Macros that may generate tuples and sequences. Run before data types
+ * compilation, once. *)
+let simplify0 (files: file list): file list =
+  let files = visit_files () remove_local_function_bindings files in
+  let files = visit_files () combinators files in
   let files = visit_files () wrapping_arithmetic files in
   files
 
+(* Many phases rely on a statement like language where let-bindings, buffer
+ * allocations and writes are hoisted; where if-then-else is always in statement
+ * position; where sequences are not nested. These series of transformations
+ * re-establish this invariant. *)
 let simplify2 (files: file list): file list =
-  (* Debug any intermediary AST as follows: *)
-  (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
   let files = visit_files () sequence_to_let files in
-  let files = visit_files () remove_local_function_bindings files in
-  let files = visit_files () combinators files in
   let files = visit_files () hoist files in
   let files = visit_files () hoist_bufcreate files in
   let files = visit_files () fixup_hoist files in
@@ -999,21 +1042,20 @@ let simplify2 (files: file list): file list =
   let files = visit_files () let_to_sequence files in
   files
 
-let simplify (files: file list): file list =
-  let files = simplify1 files in
-  let files = simplify2 files in
-  files
-
-let to_c_names (files: file list): file list =
-  let files = visit_files () record_toplevel_names files in
-  let files = visit_files () replace_references_to_toplevel_names files in
-  files
-
-(* This should be run at the last minute since inlining may create more
- * opportunities for the removal of unused variables. *)
+(* This should be run late since inlining may create more opportunities for the
+ * removal of unused variables. *)
 let remove_unused (files: file list): file list =
   let files = visit_files [] count_and_remove_locals files in
   let map = Hashtbl.create 41 in
   let files = visit_files () (build_unused_map map) files in
   let files = visit_files () (remove_unused_parameters map) files in
   files
+
+(* Allocate C names avoiding keywords and name collisions. This should be done
+ * as the last operations, otherwise, any table for memoization suddenly becomes
+ * invalid. *)
+let to_c_names (files: file list): file list =
+  let files = visit_files () record_toplevel_names files in
+  let files = visit_files () replace_references_to_toplevel_names files in
+  files
+

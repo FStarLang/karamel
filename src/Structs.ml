@@ -21,7 +21,7 @@ let mk_is_struct files =
   let map = Hashtbl.create 41 in
   List.iter (fun (_, decls) ->
     List.iter (function
-      | DType (lid, _, Flat _)  ->
+      | DType (lid, _, _, Flat _)  ->
           Hashtbl.add map lid true
       | _ ->
           ()
@@ -387,6 +387,7 @@ let to_addr is_struct =
     | EBool _
     | EString _
     | EOp _
+    | EBreak
     | EConstant _
     | EPushFrame
     | EPopFrame

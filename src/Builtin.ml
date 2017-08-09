@@ -1,7 +1,7 @@
 (** Builtin module declarations. We want to hand-roll some definitions for two
    reasons:
    - most of the module doesn't make sense in Low* (e.g. Prims), so rather than
-     spew a bunch of warnings, we just redefine the option type
+     spew a bunch of warnings, we just redefine the list type
    - the module is a model in F*, but not in Low*; this is the case of all the
      machine integer modules; they're defined in F* using an inductive, but we
      don't want a struct definition to be generated in Low*, so we swap them
@@ -56,6 +56,18 @@ let mk_builtin_int w =
   let t = TInt w in
   mk_int m t
 
+let prims: file =
+  "Prims", [
+    DType ((["Prims"], "list"), [ Common.GcType ], 1, Variant [
+      "Nil", [];
+      "Cons", [
+        "hd", (TBound 0, false);
+        "tl", (TApp ((["Prims"],"list"), [ TBound 0 ]), false)
+      ]
+    ]);
+  ]
+
 let prelude () =
+  prims ::
   List.map mk_builtin_int
     [ UInt8; UInt16; UInt32; UInt64; Int8; Int16; Int32; Int64 ]

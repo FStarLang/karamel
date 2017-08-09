@@ -101,7 +101,7 @@ let populate_env files =
   List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
-      | DType (lid, _, typ) ->
+      | DType (lid, _, _, typ) ->
           let env = match typ with
           | Enum tags ->
               List.fold_left (fun env tag ->
@@ -252,6 +252,7 @@ and check' env t e =
   | EPushFrame | EPopFrame
   | EAny | EAbort _
   | EReturn _
+  | EBreak
   | EBool _
   | EWhile _
   | EEnum _
@@ -582,6 +583,9 @@ and infer' env e =
       ignore (infer env e);
       (** TODO: check that [EReturn] matches the expected return type *)
       TAny
+
+  | EBreak ->
+      TUnit
 
   | EBool _ ->
       TBool
