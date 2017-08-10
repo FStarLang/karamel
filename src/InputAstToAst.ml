@@ -39,8 +39,8 @@ let rec mk_decl = function
       DType (name, [], n, Flat (mk_tfields_opt fields))
   | I.DExternal (cc, name, t) ->
       DExternal (cc, name, mk_typ t)
-  | I.DTypeVariant (name, n, branches) ->
-      DType (name, [], n,
+  | I.DTypeVariant (name, flags, n, branches) ->
+      DType (name, flags, n,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
 
 and mk_binders bs =

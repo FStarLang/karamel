@@ -26,7 +26,7 @@ and decl =
       (** The boolean indicates if the field is mutable *)
   (* Assumed things that the type-checker of KreMLin needs to be aware of *)
   | DExternal of (calling_convention option * lident * typ)
-  | DTypeVariant of (lident * int * branches_t)
+  | DTypeVariant of (lident * flag list * int * branches_t)
 
 and fields_t =
   (ident * (typ * bool)) list
@@ -137,7 +137,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 21
+let current_version: version = 22
 
 type file = string * program
   [@@deriving yojson]
