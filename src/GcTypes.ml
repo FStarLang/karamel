@@ -4,6 +4,7 @@
 
 open Ast
 open Helpers
+open PrintAst.Ops
 
 module C = Common
 
@@ -16,6 +17,7 @@ let mk_table files =
   )
 
 let just_gc'd table = function
+  | TBuf (TApp (lid, _))
   | TBuf (TQualified lid) when Hashtbl.mem table lid ->
       true
   | _ ->
@@ -31,6 +33,13 @@ let alloc table = object (self)
       TBuf (TQualified lid)
     else
       TQualified lid
+
+  method! tapp env lid ts =
+    let ts = List.map (self#visit_t env) ts in
+    if Hashtbl.mem table lid then
+      TBuf (TApp (lid, ts))
+    else
+      TApp (lid, ts)
 
   method! pcons env t cons args =
     (* A cons pattern needs to dereference the scrutinee first. *)
@@ -68,5 +77,7 @@ end
 
 let heap_allocate_gc_types files =
   let table = mk_table files in
+  if Options.debug "gctypes" then
+    Hashtbl.iter (fun lid () -> KPrint.bprintf "%a will be gc'd\n" plid lid) table;
   let files = visit_files () (alloc table) files in
   files
