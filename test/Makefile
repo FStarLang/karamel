@@ -12,7 +12,7 @@ FILES		= \
   Scope.exe Attributes.exe Unsound.exe Substitute.exe \
   InlineTest.exe Ghost1.exe Loops.exe Structs.exe \
   Recursive.exe RecursivePoly.exe Structs2.exe StringLit.exe \
-  FunctionalEncoding.exe FunPtr.exe HigherOrder.exe
+  FunctionalEncoding.exe FunPtr.exe HigherOrder.exe Test128.exe
 EXTRA_FILES	= \
   Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \
@@ -43,6 +43,7 @@ wasm: $(WASM_FILES) $(subst .wasm,.krml,$(EXTRA_FILES))
 Structs2.exe: EXTRA = -wasm -d force-c
 ML16.exe: EXTRA = ml16-native.c
 Scope.exe: EXTRA = -ccopt -O3
+Test128.exe: EXTRA = -fnouint128 -static-header FStar
 Crypto.Symmetric.Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 
 .PHONY: Crypto.Symmetric.Chacha20.fst

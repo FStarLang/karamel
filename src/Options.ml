@@ -21,6 +21,7 @@ let bundle: Bundle.t list ref = ref [ [ ], [ Bundle.Prefix [ "FStar" ] ] ]
 let debug_modules: string list ref = ref []
 let debug s = List.exists ((=) s) !debug_modules
 let wasm = ref false
+let static_header: string list ref = ref []
 
 (* wasm = true ==> these three are false *)
 let struct_passing = ref true

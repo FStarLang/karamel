@@ -565,13 +565,15 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
           let expr = mk_expr expr in
           Some (Decl (spec, static, [ decl, Some (InitExpr expr) ]))
 
+let is_static_header name =
+  List.exists (fun m -> Idents.fstar_name_of_mod m = name) !Options.static_header
 
 let mk_program decls =
   KList.filter_map mk_decl_or_function decls
 
 let mk_files files =
+  let files = List.filter (fun (name, _) -> not (is_static_header name)) files in
   List.map (fun (name, program) -> name, mk_program program) files
-
 
 let mk_stub_or_function (d: decl): C.declaration_or_function option =
   match d with
@@ -614,5 +616,27 @@ let mk_stub_or_function (d: decl): C.declaration_or_function option =
 let mk_header decls =
   KList.filter_map mk_stub_or_function decls
 
+let mk_static (d: C.declaration_or_function) =
+  match d with
+  | Decl (ts, None, decl_inits) ->
+      C.Decl (ts, Some Static, decl_inits)
+  | Function (_inline, (ts, (None | Some Static), decl_inits), body) ->
+      C.Function (true, (ts, Some Static, decl_inits), body)
+  | d ->
+      d
+
+let mk_static_header decls =
+  let decls = KList.filter_map (fun (d: CStar.decl) ->
+    match d with
+    | Global _ | Function _ -> mk_decl_or_function d
+    | _ -> mk_stub_or_function d
+  ) decls in
+  List.map mk_static decls
+
 let mk_headers files =
-  List.map (fun (name, program) -> name, mk_header program) files
+  List.map (fun (name, program) ->
+    if is_static_header name then
+      name, mk_static_header program
+    else
+      name, mk_header program
+  ) files

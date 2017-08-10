@@ -169,6 +169,8 @@ Supported options:|}
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* Controlling the behavior of KreMLin *)
+    "-static-header", Arg.String (prepend Options.static_header), " only \
+      generate a .h where all functions are marked a static inline";
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the \
       module name to declarations from this module";
     "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " \
@@ -384,9 +386,9 @@ Supported options:|}
    * generates inner let-bindings, so it has to be before [simplify2]. *)
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
   let files = if !Options.wasm then Structs.in_memory files else files in
+  let files = Structs.collect_initializers files in
   let files = Inlining.inline_function_frames files in
   let files = Simplify.remove_unused files in
-  let files = Structs.collect_initializers files in
   let files = Simplify.simplify2 files in
   if !arg_print_inline then
     print PrintAst.print_files files;
