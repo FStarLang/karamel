@@ -21,12 +21,18 @@ let string_of_width = function
   | Int64 -> "Int64"
   | _ -> invalid_arg "string_of_width"
 
+let mk_binop m n t =
+  DExternal (None, (m, n), TArrow (t, TArrow (t, t)))
+
+let mk_unop m n t =
+  DExternal (None, (m, n), t)
+
 let mk_int m t =
   let mk_binop n =
-    DExternal (None, ([ "FStar"; m ], n), TArrow (t, TArrow (t, t)))
+    mk_binop [ "FStar"; m ] n t
   in
-  let mk_op n t =
-    DExternal (None, ([ "FStar"; m ], n), t)
+  let mk_unop n t =
+    mk_unop [ "FStar"; m ] n t
   in
   let mk_binops n =
     [ mk_binop n; mk_binop (n ^ "_mod"); mk_binop (n ^ "_underspec") ]
@@ -41,9 +47,9 @@ let mk_int m t =
     mk_binop "logand";
     mk_binop "logxor";
     mk_binop "logor";
-    mk_op "lognot" (TArrow (t, t));
-    mk_op "shift_right" (TArrow (t, TArrow (TInt UInt32, t)));
-    mk_op "shift_left" (TArrow (t, TArrow (TInt UInt32, t)));
+    mk_unop "lognot" (TArrow (t, t));
+    mk_unop "shift_right" (TArrow (t, TArrow (TInt UInt32, t)));
+    mk_unop "shift_left" (TArrow (t, TArrow (TInt UInt32, t)));
     mk_binop "eq";
     mk_binop "gt";
     mk_binop "gte";

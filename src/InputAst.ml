@@ -121,7 +121,6 @@ and typ =
   | TAny
   | TArrow of (typ * typ)
       (** t1 -> t2 *)
-  | TZ
   | TBound of int
   | TApp of (lident * typ list)
   | TTuple of typ list
@@ -137,7 +136,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 22
+let current_version: version = 23
 
 type file = string * program
   [@@deriving yojson]

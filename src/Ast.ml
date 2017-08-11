@@ -192,8 +192,6 @@ and typ =
       (** disappears after tuple removal *)
   | TAnonymous of type_def
       (** appears after data type translation to tagged enums *)
-  | TZ
-      (** unused *)
 
 (** Some visitors for our AST of expressions *)
 
@@ -517,8 +515,6 @@ class virtual ['env] map = object (self)
         self#tany env
     | TArrow (t1, t2) ->
         self#tarrow env t1 t2
-    | TZ ->
-        self#tz env
     | TBound i ->
         self#tbound env i
     | TApp (name, args) ->
@@ -551,9 +547,6 @@ class virtual ['env] map = object (self)
 
   method tarrow env t1 t2 =
     TArrow (self#visit_t env t1, self#visit_t env t2)
-
-  method tz _env =
-    TZ
 
   method tbound _env i =
     TBound i

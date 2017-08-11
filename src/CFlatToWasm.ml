@@ -327,7 +327,7 @@ let is_cmpop (o: K.width * K.op) =
 let mk_mask w =
   let open K in
   match w with
-  | UInt32 | Int32 | UInt64 | Int64 | CheckedUInt | CheckedInt ->
+  | UInt32 | Int32 | UInt64 | Int64 | CInt ->
       []
   | UInt16 | Int16 ->
       mk_const (mk_int32 0xffffl) @
@@ -341,13 +341,13 @@ let mk_mask w =
 let mk_cast w_from w_to =
   let open K in
   match w_from, w_to with
-  | (UInt8 | UInt16 | UInt32), (Int64 | UInt64 | CheckedInt | CheckedUInt) ->
+  | (UInt8 | UInt16 | UInt32), (Int64 | UInt64 | CInt) ->
       (* Zero-padding, C semantics. That's 12 cases. *)
       [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.ExtendUI32)) ]
-  | Int32, (Int64 | UInt64 | CheckedInt | CheckedUInt) ->
+  | Int32, (Int64 | UInt64 | CInt) ->
       (* Sign-extend, then re-interpret, also C semantics. That's 12 more cases. *)
       [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.ExtendSI32)) ]
-  | (Int64 | UInt64 | CheckedInt | CheckedUInt), (Int32 | UInt32) ->
+  | (Int64 | UInt64 | CInt), (Int32 | UInt32) ->
       (* Truncate, still C semantics (famous last words?). That's 24 cases. *)
       [ dummy_phrase (W.Ast.Convert (W.Values.I64 W.Ast.IntOp.WrapI64)) ] @
       mk_mask w_to

@@ -54,8 +54,6 @@ let rec mk_spec_and_decl name rec_name (t: typ) (k: C.declarator -> C.declarator
       end
   | Enum tags ->
       Enum (None, tags), k (Ident name)
-  | Z ->
-      Named "mpz_t", k (Ident name)
   | Bool ->
       Named "bool", k (Ident name)
   | Struct fields ->

@@ -6,8 +6,7 @@ type t = width * string
 and width =
   | UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64
   | Bool
-  | CheckedInt | CheckedUInt
-    (** For internal use only *)
+  | CInt (** Checked signed integers. *)
 
 let bytes_of_width (w: width) =
   match w with
@@ -41,12 +40,11 @@ let unsigned_of_signed = function
   | Int16 -> UInt16
   | Int32 -> UInt32
   | Int64 -> UInt64
-  | CheckedInt -> CheckedUInt
-  | CheckedUInt | UInt8 | UInt16 | UInt32 | UInt64 | Bool -> raise (Invalid_argument "unsigned_of_signed")
+  | CInt | UInt8 | UInt16 | UInt32 | UInt64 | Bool -> raise (Invalid_argument "unsigned_of_signed")
 
 let is_signed = function
-  | Int8 | Int16 | Int32 | Int64 | CheckedInt -> true
-  | UInt8 | UInt16 | UInt32 | UInt64 | CheckedUInt -> false
+  | Int8 | Int16 | Int32 | Int64 | CInt -> true
+  | UInt8 | UInt16 | UInt32 | UInt64 -> false
   | Bool -> raise (Invalid_argument "is_signed")
 
 let is_unsigned w = not (is_signed w)

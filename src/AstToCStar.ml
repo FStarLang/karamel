@@ -504,8 +504,6 @@ and mk_return_type env = function
   | TArrow _ as t ->
       let ret, args = flatten_arrow t in
       CStar.Function (None, mk_return_type env ret, List.map (mk_type env) args)
-  | TZ ->
-      CStar.Z
   | TBound _ ->
       fatal_error "Internal failure: no TBound here"
   | TApp (lid, _) ->

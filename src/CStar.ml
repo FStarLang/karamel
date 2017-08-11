@@ -100,8 +100,6 @@ and typ =
   | Function of calling_convention option * typ * typ list
       (** Return type, arguments *)
   | Bool
-  | Z
-
   | Struct of (ident option * typ) list
       (** In support of anonymous unions. *)
   | Enum of ident list

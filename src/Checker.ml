@@ -928,8 +928,6 @@ and subtype env t1 t2 =
     subtype env t1 t'1 &&
     subtype env t2 t'2 ->
       true
-  | TZ, TZ ->
-      true
   | TBound i, TBound i' ->
       i = i'
   | TApp (lid, args), TApp (lid', args') ->

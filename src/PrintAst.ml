@@ -126,7 +126,6 @@ and print_typ = function
   | TBool -> string "bool"
   | TAny -> string "any"
   | TArrow (t1, t2) -> print_typ_paren t1 ^^ space ^^ string "->" ^/^ nest 2 (print_typ t2)
-  | TZ -> string "mpz_t"
   | TBound i -> int i
   | TApp (lid, args) ->
       string (string_of_lident lid) ^/^ separate_map space print_typ args

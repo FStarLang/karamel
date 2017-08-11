@@ -73,8 +73,6 @@ and mk_typ = function
       TAny
   | I.TArrow (t1, t2) ->
       TArrow (mk_typ t1, mk_typ t2)
-  | I.TZ ->
-      TZ
   | I.TBound i ->
       TBound i
   | I.TApp (lid, ts) ->
