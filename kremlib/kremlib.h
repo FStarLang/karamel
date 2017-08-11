@@ -13,6 +13,9 @@
 // that contains __cdecl on all platforms.
 #include "gcc_compat.h"
 
+// Checked integers
+#include "kremints.h"
+
 // GCC-specific attribute syntax; everyone else gets the standard C inline
 // attribute.
 #ifdef __GNU_C__
@@ -37,38 +40,20 @@ void print_bytes(uint8_t *b, uint32_t len);
 // generate and try to link last a function with this type:
 void kremlinit_globals();
 
-// Buffers (FIXME remove eqb!)
 #define FStar_Buffer_eqb(b1, b2, n)                                            \
   (memcmp((b1), (b2), (n) * sizeof((b1)[0])) == 0)
-#define FStar_Buffer_to_seq_full(x) 0
-void FStar_Buffer_recall(void *x);
 
 // Some types that KreMLin has no special knowledge of; many of them appear in
 // signatures of ghost functions, meaning that it suffices to give them (any)
 // definition.
-typedef void *Prims_pos, *Prims_nat, *Prims_nonzero, *FStar_Seq_Base_seq,
-    *Prims_int, *Prims_prop, *FStar_HyperStack_mem, *FStar_Set_set,
-    *Prims_st_pre_h, *FStar_Heap_heap, *Prims_all_pre_h, *FStar_TSet_set,
-    *Prims_string, *Prims_list, *FStar_Map_t, *FStar_UInt63_t_, *FStar_Int63_t_,
-    *FStar_UInt63_t, *FStar_Int63_t, *FStar_UInt_uint_t, *FStar_Int_int_t,
-    *FStar_HyperStack_stackref, *FStar_Bytes_bytes, *FStar_HyperHeap_rid,
-    *FStar_Heap_aref, *FStar_Monotonic_Heap_heap, *FStar_Monotonic_Heap_aref,
+typedef void *FStar_Seq_Base_seq, *Prims_prop,
+    *FStar_HyperStack_mem, *FStar_Set_set, *Prims_st_pre_h, *FStar_Heap_heap,
+    *Prims_all_pre_h, *FStar_TSet_set, *Prims_string, *Prims_list, *FStar_Map_t,
+    *FStar_UInt63_t_, *FStar_Int63_t_, *FStar_UInt63_t, *FStar_Int63_t,
+    *FStar_UInt_uint_t, *FStar_Int_int_t, *FStar_HyperStack_stackref,
+    *FStar_Bytes_bytes, *FStar_HyperHeap_rid, *FStar_Heap_aref,
+    *FStar_Monotonic_Heap_heap, *FStar_Monotonic_Heap_aref,
     *FStar_Monotonic_HyperHeap_rid, *FStar_Monotonic_HyperStack_mem;
-
-// Prims; all of the functions below abort;
-bool Prims_op_GreaterThanOrEqual(Prims_int x, Prims_int y);
-bool Prims_op_LessThanOrEqual(Prims_int x, Prims_int y);
-bool Prims_op_GreaterThan(Prims_int x, Prims_int y);
-bool Prims_op_LessThan(Prims_int x, Prims_int y);
-Prims_int Prims_pow2(Prims_int x);
-Prims_int Prims_op_Multiply(Prims_int x, Prims_int y);
-Prims_int Prims_op_Addition(Prims_int x, Prims_int y);
-Prims_int Prims_op_Subtraction(Prims_int x, Prims_int y);
-Prims_int Prims_op_Division(Prims_int x, Prims_int y);
-Prims_int Prims_op_Modulus(Prims_int x, Prims_int y);
-void *Prims_magic(void *_);
-void *Prims_admit(void *x);
-void *Prims____Cons___tl(void *_);
 
 // In statement position, exiting is easy.
 #define KRML_EXIT                                                              \
@@ -83,6 +68,8 @@ void *Prims____Cons___tl(void *_);
   (printf("KreMLin abort at %s:%d\n%s\n", __FILE__, __LINE__, msg), exit(255), \
    *((t *)malloc(sizeof(t))))
 
+// In FStar.Buffer.fst, the size of arrays is uint32_t, but it's a number of
+// *elements*. Do an ugly, run-time check (some of which KreMLin can eliminate).
 #define KRML_CHECK_SIZE(elt, size)                                             \
   if (((size_t)size) > SIZE_MAX / sizeof(elt)) {                               \
     printf("Maximum allocatable size exceeded, aborting before overflow at "   \
@@ -95,17 +82,35 @@ void *Prims____Cons___tl(void *_);
 // argument, otherwise, you may have FStar_ST_recall(f) as the only use of f;
 // KreMLin will think that this is a valid use, but then the C compiler, after
 // macro expansion, will error out.
-bool FStar_HyperStack_is_eternal_color(Prims_int x0);
+#define FStar_HyperHeap_root 0
+#define FStar_Pervasives_Native_fst(x) (x).fst
+#define FStar_Pervasives_Native_snd(x) (x).snd
+#define FStar_Seq_Base_createEmpty(x) 0
+#define FStar_Seq_Base_create(len, init) 0
+#define FStar_Seq_Base_upd(s, i, e) 0
+#define FStar_Seq_Base_eq(l1, l2) 0
+#define FStar_Seq_Base_append(x, y) 0
+#define FStar_Seq_Base_slice(x, y, z) 0
+#define FStar_Seq_Properties_snoc(x, y) 0
+#define FStar_Seq_Properties_cons(x, y) 0
+#define FStar_Seq_Base_index(x, y) 0
+#define FStar_HyperStack_is_eternal_color(x) 0
 #define FStar_Monotonic_HyperHeap_root 0
+#define FStar_Buffer_to_seq_full(x) 0
+#define FStar_Buffer_recall(x)
 #define FStar_HyperStack_ST_op_Colon_Equals(x, v) KRML_EXIT
 #define FStar_HyperStack_ST_op_Bang(x) 0
 #define FStar_HyperStack_ST_salloc(x) 0
 #define FStar_HyperStack_ST_ralloc(x, y) 0
 #define FStar_HyperStack_ST_new_region(x) 0
+#define FStar_Monotonic_RRef_m_alloc(...)                                      \
+  { 0 }
+
 #define FStar_HyperStack_ST_recall(x)                                          \
   do {                                                                         \
     (void)(x);                                                                 \
   } while (0)
+
 #define FStar_HyperStack_ST_recall_region(x)                                   \
   do {                                                                         \
     (void)(x);                                                                 \
@@ -116,6 +121,7 @@ bool FStar_HyperStack_is_eternal_color(Prims_int x0);
     (void)(x1);                                                                \
     (void)(x2);                                                                \
   } while (0)
+
 #define FStar_Monotonic_RRef_m_write(x1, x2, x3, x4, x5)                       \
   do {                                                                         \
     (void)(x1);                                                                \
@@ -124,27 +130,6 @@ bool FStar_HyperStack_is_eternal_color(Prims_int x0);
     (void)(x4);                                                                \
     (void)(x5);                                                                \
   } while (0)
-#define FStar_Monotonic_RRef_m_alloc(...)                                      \
-  { 0 }
-
-#define FStar_HyperHeap_root 0
-
-// Misc; many of these are polymorphic, hence not extracted (yet) by Kremlin,
-// which means that a macro is the "right" way to make sure they don't generate
-// a compilation error.
-#define FStar_Pervasives_Native_fst(x) (x).fst
-#define FStar_Pervasives_Native_snd(x) (x).snd
-#define FStar_Seq_Base_createEmpty(x) 0
-#define FStar_Seq_Base_create(len, init) 0
-#define FStar_Seq_Base_upd(s, i, e) 0
-#define FStar_Seq_Base_eq(l1, l2) 0
-FStar_Seq_Base_seq FStar_Seq_Base_append(FStar_Seq_Base_seq x,
-                                         FStar_Seq_Base_seq y);
-FStar_Seq_Base_seq FStar_Seq_Base_slice(FStar_Seq_Base_seq x,
-                                        FStar_Seq_Base_seq y, Prims_nat z);
-#define FStar_Seq_Properties_snoc(x, y) 0
-#define FStar_Seq_Properties_cons(x, y) 0
-#define FStar_Seq_Base_index(x, y) 0
 
 // Endian-ness
 
@@ -285,10 +270,6 @@ typedef uint16_t FStar_UInt16_t, FStar_UInt16_t_;
 typedef int16_t FStar_Int16_t, FStar_Int16_t_;
 typedef uint8_t FStar_UInt8_t, FStar_UInt8_t_;
 typedef int8_t FStar_Int8_t, FStar_Int8_t_;
-
-// Random functions that may show up.
-Prims_int FStar_UInt32_v(uint32_t x);
-FStar_UInt32_t FStar_UInt32_uint_to_t(Prims_nat x);
 
 static inline uint32_t rotate32_left(uint32_t x, uint32_t n) {
   //  assert (n<32);
