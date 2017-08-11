@@ -43,7 +43,7 @@ module Sizes = struct
   let size_of_width (w: K.width) =
     let open K in
     match w with
-    | UInt64 | Int64 | UInt | Int ->
+    | UInt64 | Int64 | CheckedUInt | CheckedInt ->
         I64
     | _ ->
         I32
@@ -51,7 +51,7 @@ module Sizes = struct
   let array_size_of_width (w: K.width) =
     let open K in
     match w with
-    | UInt64 | Int64 | UInt | Int ->
+    | UInt64 | Int64 | CheckedUInt | CheckedInt ->
         A64
     | UInt32 | Int32 ->
         A32

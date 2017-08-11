@@ -124,10 +124,11 @@ and mk_for_loop_initializer e_array e_size e_value: C.stmt =
   match e_size with 
   | C.Constant (_, "1")
   | C.Cast (_, C.Constant (_, "1")) ->
-      Expr (Op2 (K.Assign, Index (e_array, Constant (K.UInt, "0")), e_value))
+      Expr (Op2 (K.Assign, Index (e_array, Constant (K.UInt32, "0")), e_value))
   | _ ->
+      (* Our buffers sizes are UInt32 in F*... no overflow. *)
       For (
-        Some (Int K.UInt, None, [ Ident "_i", Some (InitExpr zero)]),
+        Some (Int K.UInt32, None, [ Ident "_i", Some (InitExpr zero)]),
         Op2 (K.Lt, Name "_i", e_size),
         Op1 (K.PreIncr, Name "_i"),
         Expr (Op2 (K.Assign, Index (e_array, Name "_i"), e_value)))
@@ -333,8 +334,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let buf = mk_expr buf in
       let v = mk_expr v in
       let size = mk_expr size in
+      (* This is an Int32 at the F* level. *)
       [ For (
-          Some (Int K.UInt, None, [ Ident "_i", Some (InitExpr zero)]),
+          Some (Int K.UInt32, None, [ Ident "_i", Some (InitExpr zero)]),
           Op2 (K.Lt, Name "_i", size),
           Op1 (K.PreIncr, Name "_i"),
           Expr (Op2 (K.Assign, Index (buf, Name "_i"), v)))]
