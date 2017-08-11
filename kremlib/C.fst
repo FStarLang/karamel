@@ -2,7 +2,7 @@ module C
 
 open FStar.HyperStack.ST
 open FStar.Buffer
-open FStar.Endianness
+open FStar.Kremlin.Endianness
 
 module HH = FStar.HyperHeap
 module HS = FStar.HyperStack
