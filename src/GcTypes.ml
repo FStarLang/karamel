@@ -4,7 +4,6 @@
 
 open Ast
 open Helpers
-open PrintAst.Ops
 
 module C = Common
 
@@ -77,7 +76,5 @@ end
 
 let heap_allocate_gc_types files =
   let table = mk_table files in
-  if Options.debug "gctypes" then
-    Hashtbl.iter (fun lid () -> KPrint.bprintf "%a will be gc'd\n" plid lid) table;
   let files = visit_files () (alloc table) files in
   files
