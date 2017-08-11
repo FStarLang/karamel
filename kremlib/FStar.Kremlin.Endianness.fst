@@ -1,4 +1,4 @@
-module FStar.Endianness
+module FStar.Kremlin.Endianness
 
 open FStar.Seq
 open FStar.Mul
