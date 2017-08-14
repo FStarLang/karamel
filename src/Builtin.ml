@@ -71,6 +71,12 @@ let prims: file =
         "tl", (TApp ((["Prims"],"list"), [ TBound 0 ]), false)
       ]
     ]);
+    DType ((["Prims"], "dtuple2"), [], 2, Variant [
+      "Mkdtuple2", [
+        "fst", (TBound 1, false);
+        "snd", (TBound 0, false)
+      ]
+    ])
   ]
 
 let prelude () =
