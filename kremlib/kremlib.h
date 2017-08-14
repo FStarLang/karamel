@@ -3,18 +3,30 @@
 
 #include <inttypes.h>
 #include <stdlib.h>
-
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 
+/******************************************************************************/
+/* Some macros to ease compatibility                                          */
+/******************************************************************************/
+
 // Define __cdecl and friends when using GCC, so that we can safely compile code
 // that contains __cdecl on all platforms.
-#include "gcc_compat.h"
-
-// Checked integers
-#include "kremints.h"
+#ifndef _MSC_VER
+  // Use the gcc predefined macros if on a platform/architecture that set them.
+  // Otherwise define them to be empty.
+  #ifndef __cdecl
+    #define __cdecl
+  #endif
+  #ifndef __stdcall
+    #define __stdcall
+  #endif
+  #ifndef __fastcall
+    #define __fastcall
+  #endif
+#endif
 
 // GCC-specific attribute syntax; everyone else gets the standard C inline
 // attribute.
@@ -28,6 +40,11 @@
 #define force_inline inline
 #endif
 
+
+/******************************************************************************/
+/* Implementing C.fst                                                         */
+/******************************************************************************/
+
 // Uppercase issue; we have to define lowercase version of the C macros (as we
 // have no way to refer to an uppercase *variable* in F*).
 extern int exit_success;
@@ -40,8 +57,10 @@ void print_bytes(uint8_t *b, uint32_t len);
 // generate and try to link last a function with this type:
 void kremlinit_globals();
 
-#define FStar_Buffer_eqb(b1, b2, n)                                            \
-  (memcmp((b1), (b2), (n) * sizeof((b1)[0])) == 0)
+
+/******************************************************************************/
+/* Stubs to ease compilation of non-Low* code                                 */
+/******************************************************************************/
 
 // Some types that KreMLin has no special knowledge of; many of them appear in
 // signatures of ghost functions, meaning that it suffices to give them (any)
@@ -55,28 +74,8 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop,
     *FStar_Monotonic_Heap_heap, *FStar_Monotonic_Heap_aref,
     *FStar_Monotonic_HyperHeap_rid, *FStar_Monotonic_HyperStack_mem;
 
-// In statement position, exiting is easy.
-#define KRML_EXIT                                                              \
-  do {                                                                         \
-    printf("Unimplemented function at %s:%d\n", __FILE__, __LINE__);           \
-    exit(254);                                                                 \
-  } while (0)
-
-// In expression position, use the comma-operator and a malloc to return an
-// expression of the right size. KreMLin passes t as the parameter to the macro.
-#define KRML_EABORT(t, msg)                                                    \
-  (printf("KreMLin abort at %s:%d\n%s\n", __FILE__, __LINE__, msg), exit(255), \
-   *((t *)malloc(sizeof(t))))
-
-// In FStar.Buffer.fst, the size of arrays is uint32_t, but it's a number of
-// *elements*. Do an ugly, run-time check (some of which KreMLin can eliminate).
-#define KRML_CHECK_SIZE(elt, size)                                             \
-  if (((size_t)size) > SIZE_MAX / sizeof(elt)) {                               \
-    printf("Maximum allocatable size exceeded, aborting before overflow at "   \
-           "%s:%d\n",                                                          \
-           __FILE__, __LINE__);                                                \
-    exit(253);                                                                 \
-  }
+#define FStar_Buffer_eqb(b1, b2, n)                                            \
+  (memcmp((b1), (b2), (n) * sizeof((b1)[0])) == 0)
 
 // Stubs to make ST happy. Important note: you must generate a use of the macro
 // argument, otherwise, you may have FStar_ST_recall(f) as the only use of f;
@@ -131,7 +130,10 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop,
     (void)(x5);                                                                \
   } while (0)
 
-// Endian-ness
+
+/******************************************************************************/
+/* Endian-ness macros that can only be implemented in C                       */
+/******************************************************************************/
 
 // ... for Linux
 #if defined(__linux__) || defined(__CYGWIN__)
@@ -260,6 +262,65 @@ inline static void store64(uint8_t *b, uint64_t i) { memcpy(b, &i, 8); }
 #define store64_le(b, i) (store64(b, htole64(i)))
 #define load64_be(b) (be64toh(load64(b)))
 #define store64_be(b, i) (store64(b, htobe64(i)))
+
+
+/******************************************************************************/
+/* Checked integers to ease the compilation of non-Low* code                  */
+/******************************************************************************/
+
+typedef int32_t Prims_pos, Prims_nat, Prims_nonzero, Prims_int,
+    krml_checked_int_t;
+
+inline static bool Prims_op_GreaterThanOrEqual(int32_t x, int32_t y) {
+  return x >= y;
+}
+
+inline static bool Prims_op_LessThanOrEqual(int32_t x, int32_t y) {
+  return x <= y;
+}
+
+inline static bool Prims_op_GreaterThan(int32_t x, int32_t y) { return x > y; }
+
+inline static bool Prims_op_LessThan(int32_t x, int32_t y) { return x < y; }
+
+#define RETURN_OR(x)                                                           \
+  do {                                                                         \
+    int64_t __ret = x;                                                         \
+    if (__ret < INT32_MIN || INT32_MAX < __ret)                                \
+      printf("Prims.{int,nat,pos} integer overflow at %s:%d\n", __FILE__,      \
+             __LINE__);                                                        \
+    return __ret;                                                              \
+  } while (0)
+
+inline static int32_t Prims_pow2(int32_t x) {
+  RETURN_OR((int64_t)1 << (int64_t)x);
+}
+
+inline static int32_t Prims_op_Multiply(int32_t x, int32_t y) {
+  RETURN_OR((int64_t)x * (int64_t)y);
+}
+
+inline static int32_t Prims_op_Addition(int32_t x, int32_t y) {
+  RETURN_OR((int64_t)x + (int64_t)y);
+}
+
+inline static int32_t Prims_op_Subtraction(int32_t x, int32_t y) {
+  RETURN_OR((int64_t)x - (int64_t)y);
+}
+
+inline static int32_t Prims_op_Division(int32_t x, int32_t y) {
+  RETURN_OR((int64_t)x / (int64_t)y);
+}
+
+inline static int32_t Prims_op_Modulus(int32_t x, int32_t y) {
+  RETURN_OR((int64_t)x % (int64_t)y);
+}
+
+
+
+/******************************************************************************/
+/* Implementation of machine integers (possibly of 128-bit integers)          */
+/******************************************************************************/
 
 // Integer types
 typedef uint64_t FStar_UInt64_t, FStar_UInt64_t_;
