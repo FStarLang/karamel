@@ -282,9 +282,11 @@ inline static bool Prims_op_LessThan(int32_t x, int32_t y) { return x < y; }
 #define RETURN_OR(x)                                                           \
   do {                                                                         \
     int64_t __ret = x;                                                         \
-    if (__ret < INT32_MIN || INT32_MAX < __ret)                                \
+    if (__ret < INT32_MIN || INT32_MAX < __ret) {                              \
       printf("Prims.{int,nat,pos} integer overflow at %s:%d\n", __FILE__,      \
              __LINE__);                                                        \
+      exit(252);                                                               \
+    }                                                                          \
     return __ret;                                                              \
   } while (0)
 
