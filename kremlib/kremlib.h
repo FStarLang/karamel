@@ -2,9 +2,9 @@
 #define __KREMLIB_H
 
 #include <inttypes.h>
-#include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -15,17 +15,17 @@
 // Define __cdecl and friends when using GCC, so that we can safely compile code
 // that contains __cdecl on all platforms.
 #ifndef _MSC_VER
-  // Use the gcc predefined macros if on a platform/architecture that set them.
-  // Otherwise define them to be empty.
-  #ifndef __cdecl
-    #define __cdecl
-  #endif
-  #ifndef __stdcall
-    #define __stdcall
-  #endif
-  #ifndef __fastcall
-    #define __fastcall
-  #endif
+// Use the gcc predefined macros if on a platform/architecture that set them.
+// Otherwise define them to be empty.
+#ifndef __cdecl
+#define __cdecl
+#endif
+#ifndef __stdcall
+#define __stdcall
+#endif
+#ifndef __fastcall
+#define __fastcall
+#endif
 #endif
 
 // GCC-specific attribute syntax; everyone else gets the standard C inline
@@ -39,7 +39,6 @@
 #else
 #define force_inline inline
 #endif
-
 
 /******************************************************************************/
 /* Implementing C.fst                                                         */
@@ -57,7 +56,6 @@ void print_bytes(uint8_t *b, uint32_t len);
 // generate and try to link last a function with this type:
 void kremlinit_globals();
 
-
 /******************************************************************************/
 /* Stubs to ease compilation of non-Low* code                                 */
 /******************************************************************************/
@@ -65,14 +63,14 @@ void kremlinit_globals();
 // Some types that KreMLin has no special knowledge of; many of them appear in
 // signatures of ghost functions, meaning that it suffices to give them (any)
 // definition.
-typedef void *FStar_Seq_Base_seq, *Prims_prop,
-    *FStar_HyperStack_mem, *FStar_Set_set, *Prims_st_pre_h, *FStar_Heap_heap,
-    *Prims_all_pre_h, *FStar_TSet_set, *Prims_string, *Prims_list, *FStar_Map_t,
-    *FStar_UInt63_t_, *FStar_Int63_t_, *FStar_UInt63_t, *FStar_Int63_t,
-    *FStar_UInt_uint_t, *FStar_Int_int_t, *FStar_HyperStack_stackref,
-    *FStar_Bytes_bytes, *FStar_HyperHeap_rid, *FStar_Heap_aref,
-    *FStar_Monotonic_Heap_heap, *FStar_Monotonic_Heap_aref,
-    *FStar_Monotonic_HyperHeap_rid, *FStar_Monotonic_HyperStack_mem;
+typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
+    *FStar_Set_set, *Prims_st_pre_h, *FStar_Heap_heap, *Prims_all_pre_h,
+    *FStar_TSet_set, *Prims_string, *Prims_list, *FStar_Map_t, *FStar_UInt63_t_,
+    *FStar_Int63_t_, *FStar_UInt63_t, *FStar_Int63_t, *FStar_UInt_uint_t,
+    *FStar_Int_int_t, *FStar_HyperStack_stackref, *FStar_Bytes_bytes,
+    *FStar_HyperHeap_rid, *FStar_Heap_aref, *FStar_Monotonic_Heap_heap,
+    *FStar_Monotonic_Heap_aref, *FStar_Monotonic_HyperHeap_rid,
+    *FStar_Monotonic_HyperStack_mem;
 
 #define FStar_Buffer_eqb(b1, b2, n)                                            \
   (memcmp((b1), (b2), (n) * sizeof((b1)[0])) == 0)
@@ -129,7 +127,6 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop,
     (void)(x4);                                                                \
     (void)(x5);                                                                \
   } while (0)
-
 
 /******************************************************************************/
 /* Endian-ness macros that can only be implemented in C                       */
@@ -263,7 +260,6 @@ inline static void store64(uint8_t *b, uint64_t i) { memcpy(b, &i, 8); }
 #define load64_be(b) (be64toh(load64(b)))
 #define store64_be(b, i) (store64(b, htobe64(i)))
 
-
 /******************************************************************************/
 /* Checked integers to ease the compilation of non-Low* code                  */
 /******************************************************************************/
@@ -315,8 +311,6 @@ inline static int32_t Prims_op_Division(int32_t x, int32_t y) {
 inline static int32_t Prims_op_Modulus(int32_t x, int32_t y) {
   RETURN_OR((int64_t)x % (int64_t)y);
 }
-
-
 
 /******************************************************************************/
 /* Implementation of machine integers (possibly of 128-bit integers)          */
