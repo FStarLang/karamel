@@ -968,7 +968,8 @@ let combinators = object(self)
     | EQualified ([ "C"; "Loops" ], "for_"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
         (* Relying on the invariant that, if [finish] is effectful, F* has
          * hoisted it *)
-        assert (is_value finish);
+        if not (is_value finish) then
+          Warnings.fatal_error "%a is not a value" pexpr finish;
         let b = fresh_binder "i" uint32 in
         let b = mark_mut b in
         let cond = mk_lt (lift 1 finish) in
