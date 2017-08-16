@@ -42,6 +42,7 @@ and expr =
   | EConstant of K.t
   | EUnit
   | EApp of (expr * expr list)
+  | ETApp of (expr * typ list)
   | ELet of (binder * expr * expr)
   | EIfThenElse of (expr * expr * expr)
   | ESequence of expr list
@@ -136,7 +137,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 23
+let current_version: version = 24
 
 type file = string * program
   [@@deriving yojson]

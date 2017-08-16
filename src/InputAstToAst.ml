@@ -93,6 +93,8 @@ and mk_expr = function
       mk (EString s)
   | I.EApp (e, es) ->
       mk (EApp (mk_expr e, List.map mk_expr es))
+  | I.ETApp (e, es) ->
+      mk (ETApp (mk_expr e, List.map mk_typ es))
   | I.ELet (b, e1, e2) ->
       mk (ELet (mk_binder b, mk_expr e1, mk_expr e2))
   | I.EIfThenElse (e1, e2, e3) ->

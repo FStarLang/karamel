@@ -222,6 +222,7 @@ let rec is_value (e: expr) =
   | EReturn _
   | EBreak
   | EFor _
+  | ETApp _
   | EWhile _ ->
       false
 

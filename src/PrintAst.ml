@@ -167,6 +167,8 @@ and print_expr { node; _ } =
       dquote ^^ string s ^^ dquote
   | EApp (e, es) ->
       print_app print_expr e print_expr es
+  | ETApp (e, ts) ->
+      print_app print_expr e print_typ ts
   | ELet (binder, e1, e2) ->
       group (print_let_binding (binder, e1) ^/^ string "in") ^/^ group (print_expr e2)
   | EIfThenElse (e1, e2, e3) ->

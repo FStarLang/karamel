@@ -510,6 +510,9 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EBreak ->
       failwith "todo break"
 
+  | ETApp _ ->
+      invalid_arg "no type apps"
+
   | EFun _ ->
       invalid_arg "funs should've been substituted"
 

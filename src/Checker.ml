@@ -241,6 +241,9 @@ and check env t e =
 and check' env t e =
   let c t' = check_subtype env t' t in
   match e.node with
+  | ETApp _ ->
+      assert false
+
   | EBound _
   | EOpen _
   | EQualified _
@@ -463,6 +466,9 @@ and best_buffer_type t1 e2 =
 
 and infer' env e =
   match e.node with
+  | ETApp _ ->
+      assert false
+
   | EBound i ->
       begin try
         (find env i).typ

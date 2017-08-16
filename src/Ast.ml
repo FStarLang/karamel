@@ -54,6 +54,7 @@ and expr' =
   | EIgnore of expr
 
   | EApp of expr * expr list
+  | ETApp of expr * typ list
   | ELet of binder * expr * expr
   | EFun of binder list * expr * typ
   | EIfThenElse of expr * expr * expr
@@ -229,6 +230,8 @@ class virtual ['env] map = object (self)
         self#estring env typ s
     | EApp (e, es) ->
         self#eapp env typ e es
+    | ETApp (e, ts) ->
+        self#etapp env typ e ts
     | ELet (b, e1, e2) ->
         self#elet env typ b e1 e2
     | EIfThenElse (e1, e2, e3) ->
@@ -322,6 +325,9 @@ class virtual ['env] map = object (self)
 
   method eapp env _typ e es =
     EApp (self#visit env e, List.map (self#visit env) es)
+
+  method etapp env _typ e ts =
+    ETApp (self#visit env e, List.map (self#visit_t env) ts)
 
   method elet env _typ b e1 e2 =
     let b = { b with typ = self#visit_t env b.typ } in

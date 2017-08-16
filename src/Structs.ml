@@ -381,6 +381,8 @@ let to_addr is_struct =
       Helpers.nest_in_return_pos t (fun e -> with_type t (EAddrOf e)) e
     in
     match e.node with
+    | ETApp _ ->
+        failwith "should've been eliminated"
     (* Mundane cases. None of these may have a struct type. *)
     | EAny
     | EUnit
