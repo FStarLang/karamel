@@ -22,5 +22,5 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   export PATH=/home/travis/build/FStarLang/FStar/$Z3/bin:/home/travis/build/FStarLang/FStar/bin:$PATH;
 fi
 
-git clone --branch master --single-branch https://github.com/FStarLang/FStar.git fstar
+git clone --branch c_mitls2c --single-branch https://github.com/FStarLang/FStar.git fstar
 make -C fstar/src/ocaml-output
