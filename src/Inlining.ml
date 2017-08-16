@@ -208,43 +208,97 @@ let mk_inliner files must_inline =
   end)#visit ()) in
   inline_one
 
+module Gen = struct
+  let generated_lids = Hashtbl.create 41
+  let pending_defs = ref []
 
-let inline_combinators files =
-  (* Polymorphic functions that are marked as substitute are expanded; this MUST
-   * GO AWAY and be properly performed at the KreMLin level. *)
+  let gen_lid lid ts =
+    let doc =
+      let open PPrint in
+      let open PrintAst in
+      separate_map underscore print_typ ts
+    in
+    fst lid, snd lid ^ KPrint.bsprintf "__%a" PrintCommon.pdoc doc
+
+  let register_def original_lid ts lid def =
+    Hashtbl.add generated_lids (original_lid, ts) lid;
+    pending_defs := def () :: !pending_defs;
+    lid
+
+  let clear () =
+    let r = List.rev !pending_defs in
+    pending_defs := [];
+    r
+end
+
+
+let monomorphize files =
   let map = Helpers.build_map files (fun map -> function
-    | DFunction (_, flags, n, _, name, _, _) ->
-        if n > 0 && not (List.mem Substitute flags) && not (Drop.lid name) then
-          Warnings.(maybe_fatal_error ("<toplevel>", NoPolymorphism name));
-        Hashtbl.add map name (n > 0 && List.mem Substitute flags)
+    | DFunction (cc, flags, n, t, name, b, body) ->
+        if n > 0 then
+          Hashtbl.add map name (cc, flags, n, t, name, b, body)
     | _ ->
         ()
   ) in
-  let must_inline = function
-    | [ "C"; "Loops" ], ("map" | "map2" | "in_place_map" | "in_place_map2" | "repeat") ->
-        true
-    | lid ->
-        try
-          Hashtbl.find map lid
-        with Not_found ->
-          false
-  in
-  let inline_one = mk_inliner files must_inline in
-  filter_decls (function
-    | DFunction (cc, flags, n, ret, name, binders, _) ->
-        if must_inline name then
-          None
-        else
-          let body = inline_one name in
-          let body = (object
-            inherit [_] map
-            method tbound _ _ =
-              TAny
-          end)#visit () body in
-          Some (DFunction (cc, flags, n, ret, name, binders, body))
-    | d ->
-        Some d
-  ) files
+
+  (* Same as [monomorphize_data_types] *)
+  let monomorphize = object(self)
+
+    inherit [unit] map
+
+    method! visit_file _ file =
+      let name, decls = file in
+      name, KList.map_flatten (function
+        | DFunction (cc, flags, n, ret, name, binders, body) ->
+            if Hashtbl.mem map name then
+              []
+            else begin
+              assert (n = 0);
+              let d = DFunction (cc, flags, n, ret, name, binders, self#visit () body) in
+              Gen.clear () @ [ d ]
+            end
+        | d ->
+            [ d ]
+      ) decls
+
+    method etapp env _ e ts =
+      match e.node with
+      | EQualified lid ->
+          if not (Hashtbl.mem map lid) then
+            (* External function. Bail. *)
+            (self#visit env e).node
+          else begin
+            try
+              (* Already monomorphized? *)
+              EQualified (Hashtbl.find Gen.generated_lids (lid, ts))
+            with Not_found ->
+              (* Need to generate a new instance. *)
+              let cc, flags, n, ret, name, binders, body = Hashtbl.find map lid in
+              if n <> List.length ts then begin
+                KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
+                (self#visit env e).node
+              end else
+                (* See comments in [DataTypes.ml] for the reason behind this
+                 * thunk. *)
+                let name = Gen.gen_lid name ts in
+                let def () =
+                  let ret = DeBruijn.subst_tn ts ret in
+                  let binders = List.map (fun { node; typ } ->
+                    { node; typ = DeBruijn.subst_tn ts typ }
+                  ) binders in
+                  let body = DeBruijn.subst_ten ts body in
+                  let body = self#visit env body in
+                  DFunction (cc, flags, 0, ret, name, binders, body)
+                in
+                EQualified (Gen.register_def lid ts name def)
+          end
+      | _ ->
+          KPrint.bprintf "%a is not an lid in the type application" pexpr e;
+          (self#visit env e).node
+
+  end in
+
+  Helpers.visit_files () monomorphize files
 
 
 (** A whole-program transformation that inlines functions according to... *)
@@ -396,7 +450,7 @@ let inline_type_abbrevs files =
   let inliner inline_one = object(self)
     inherit [unit] map
     method tapp () lid ts =
-      try DeBruijn.subst_tn (inline_one lid) (List.map (self#visit_t ()) ts)
+      try DeBruijn.subst_tn (List.map (self#visit_t ()) ts) (inline_one lid)
       with Not_found -> TApp (lid, List.map (self#visit_t ()) ts)
     method tqualified () lid =
       try inline_one lid

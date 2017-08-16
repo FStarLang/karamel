@@ -381,7 +381,7 @@ and check' env t e =
       | TApp (lid, ts) ->
           let fieldtyps = assert_flat env (lookup_type env lid) in
           let fieldtyps = List.map (fun (field, (typ, m)) ->
-            field, (DeBruijn.subst_tn typ ts, m)
+            field, (DeBruijn.subst_tn ts typ, m)
           ) fieldtyps in
           check_fields fieldexprs fieldtyps
       | TAnonymous (Flat fieldtyps) ->
@@ -435,7 +435,7 @@ and args_of_branch env t ident =
       fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident))))
   | TApp (lid, args) ->
       let ts' = fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident)))) in
-      List.map (fun t -> DeBruijn.subst_tn t args) ts'
+      List.map (fun t -> DeBruijn.subst_tn args t) ts'
   | _ ->
       type_error env "Type annotation is not an lid but %a" ptyp t
 
@@ -647,7 +647,7 @@ and infer' env e =
           fst (find_field env lid field)
       | TApp (lid, ts) ->
           let t = fst (find_field env lid field) in
-          DeBruijn.subst_tn t ts
+          DeBruijn.subst_tn ts t
       | TAnonymous def ->
           fst (find_field_from_def env def field)
       | _ ->
@@ -951,7 +951,7 @@ and subtype env t1 t2 =
 
   | TAnonymous ((Enum _ | Union _ | Flat _)), TApp (lid, targs) ->
       begin try
-        let t2 = DeBruijn.subst_tn (TAnonymous (M.find lid env.types)) targs in
+        let t2 = DeBruijn.subst_tn targs (TAnonymous (M.find lid env.types)) in
         subtype env t1 t2
       with Not_found ->
         false
@@ -1002,7 +1002,7 @@ and expand_abbrev env t =
   | TApp (lid, args) ->
       begin match M.find lid env.types with
       | exception Not_found -> TApp (lid, List.map (expand_abbrev env) args)
-      | Abbrev t -> expand_abbrev env (DeBruijn.subst_tn t args)
+      | Abbrev t -> expand_abbrev env (DeBruijn.subst_tn args t)
       | _ -> TApp (lid, List.map (expand_abbrev env) args)
       end
   | _ ->

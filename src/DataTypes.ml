@@ -139,7 +139,7 @@ let monomorphize_data_types map = object(self)
     try
       let ts = List.map (self#visit_t false) ts in
       let subst fields = List.map (fun (field, (t, m)) ->
-        field, (DeBruijn.subst_tn t ts, m)
+        field, (DeBruijn.subst_tn ts t, m)
       ) fields in
       assert (List.length ts > 0);
       match Hashtbl.find map lid with

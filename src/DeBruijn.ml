@@ -129,10 +129,20 @@ class subst_t (t2: typ) = object
       TBound (if j < i then j else j-1)
 end
 
+let subst_te (t2: typ) (i: int) (e1: expr) =
+  (new subst_t t2)#visit i e1
+
+let subst_ten ts e =
+  let l = List.length ts in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    subst_te arg k body
+  ) e ts
+
 let subst_t (t2: typ) (i: int) (t1: typ) =
   (new subst_t t2)#visit_t i t1
 
-let subst_tn t ts =
+let subst_tn ts t =
   let l = List.length ts in
   KList.fold_lefti (fun i body arg ->
     let k = l - i - 1 in
