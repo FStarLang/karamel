@@ -345,6 +345,7 @@ Supported options:|}
    * first round of type-checking. If things fail at this stage, most likely not
    * our fault (bad input?). *)
   let files = DataTypes.drop_match_cast files in
+  let files = Inlining.macro_expand_combinators files in
   let files = Inlining.monomorphize files in
   let has_errors, files = Checker.check_everything ~warn:true files in
   tick_print (not has_errors) "Checking input file";
