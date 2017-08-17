@@ -9,9 +9,9 @@ module U32 = FStar.UInt32
 assume val trap: unit -> Stack unit (fun _ -> True) (fun _ _ _ -> True)
 
 (* Functions that the code-generator expects to find, either at the Ast, CFlat
-or Wasm levels. In SimplifyWasm.ml, we prefix these with their module (before
-"to_c_names". After that, e.g. in CFlatToWasm.ml, we can refer to them with
-their short names, i.e. __. *)
+ * or Wasm levels. In SimplifyWasm.ml, we prefix these with their module (before
+ * "to_c_names". After that, e.g. in CFlatToWasm.ml, we can refer to them with
+ * their short names, i.e. __. *)
 
 (* Round up to the nearest multiple of 64. *)
 let align_64 (x: U32.t): Tot U32.t =
