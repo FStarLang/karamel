@@ -17,7 +17,7 @@ let alloc_and_init (i: Int32.t): StackInline (Buffer.buffer Int32.t)
     live h1 b))
 =
   let open FStar.Int32 in
-  Buffer.createL [i; FStar.Int32.add i i]
+  Buffer.createL [i; FStar.Int32.add i 1l]
 
 // JP: couldn't figure out how to define trivial_pre and trivial_post so that I
 // don't have to repeat the [fun _ _ _ ...]

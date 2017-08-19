@@ -18,7 +18,8 @@ val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
   Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
   push_frame ();
-  let x = if something () then A 0l 1L else B 2y 3y 4y in
+
+  (* let x = if something () then A 0l 1L else B 2y 3y 4y in
   let y = if something () then C 5l 6L else D x in
   let z = match x, y with
     | A l h, C l' h' ->
@@ -35,6 +36,7 @@ let main argc argv =
     | _, D _ ->
         8y
   in
-  TestLib.check32 (int8_to_int32 z) (-10l);
+  TestLib.check32 (int8_to_int32 z) (-10l); *)
+
   pop_frame ();
   C.exit_success

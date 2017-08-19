@@ -6,9 +6,12 @@ type t = | Cons1 | Cons2
 
 type point = | Point2D: x:Int32.t -> y:Int32.t -> point
 
-let magnitude = function
-  | Point2D x y ->
-      FStar.Int32.(x *%^ x +%^ y *%^ y)
+// Can't get * and + to resolve here
+// module I32 = FStar.Int32
+// todo restore this with proper preconditions
+//let magnitude = function
+//  | Point2D x y -> I32.mul x (I32.add x (I32.mul y y))
+      // FStar.Int32.(x * x + y * y)
 
 let f (): Stack t (fun _ -> true) (fun _ _ _ -> true) =
   Cons1
