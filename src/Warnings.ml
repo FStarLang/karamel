@@ -139,10 +139,34 @@ let rec perr buf (loc, raw_error) =
   | NotLowStar e ->
       p "this expression is not Low*; the enclosing function cannot be translated into C*: %a" pexpr e
 
+(** Extra support for doing project level error summary & visualization. *)
+type error_table = (location, error) Hashtbl.t
+
+let table_ref : error_table option ref = ref None
+
+let enable_summaries () =
+    table_ref := Some (Hashtbl.create 100) (* Unsure about this default. *)
+
+let add_error loc err =
+match !table_ref with
+| None -> ()
+| Some tbl -> Hashtbl.add tbl loc err
+
+let print_each_err oc _ error =
+    Printf.fprintf oc "----------------------------\n";
+    KPrint.bfprintf oc "%a\n" perr error;
+    Printf.fprintf oc "-----------------------------\n"
+
+let generate_summary () =
+match !table_ref with
+| None -> ()
+| Some tbl -> Utils.with_open_out "out.summary" (fun oc -> Hashtbl.iter (print_each_err oc) tbl; )
 
 let maybe_fatal_error error =
   flush stdout;
   flush stderr;
+  (* Add to the summary data structure, this only will store extra state if enabled. *)
+  add_error (fst error) error;
   let errno = errno_of_error (snd error) in
   match flags.(errno) with
   | CError ->
@@ -170,3 +194,4 @@ let parse_warn_error s =
       flags.(i) <- f
     done;
   ) user_flags
+
