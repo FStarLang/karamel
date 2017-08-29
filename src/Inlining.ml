@@ -292,8 +292,11 @@ let monomorphize files =
                 in
                 EQualified (Gen.register_def lid ts name def)
           end
+      (* If I understand this code correctly, we should ignore type applications to operators since they are assumed
+         to be primtive C operators at this point. *)
       | EOp (_, _) ->
-         (self#visit env e).node
+          (* KPrint.bprintf "%a operator in type application\n" pexpr e; *)
+          (self#visit env e).node
       | _ ->
           KPrint.bprintf "%a is not an lid in the type application\n" pexpr e;
           (self#visit env e).node
