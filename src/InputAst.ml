@@ -27,6 +27,7 @@ and decl =
   (* Assumed things that the type-checker of KreMLin needs to be aware of *)
   | DExternal of (calling_convention option * lident * typ)
   | DTypeVariant of (lident * flag list * int * branches_t)
+  | DTypeMutual of (decl list)
 
 and fields_t =
   (ident * (typ * bool)) list
@@ -137,7 +138,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 24
+let current_version: version = 25
 
 type file = string * program
   [@@deriving yojson]

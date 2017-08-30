@@ -608,7 +608,7 @@ and mk_declaration env d: CStar.decl option =
       let name = string_of_lident name in
       Some (CStar.Type (name, mk_type_def env def))
 
-  | DType _ ->
+  | DType _ | DTypeMutual _ ->
       None
 
 and mk_type_def env d: CStar.typ =
@@ -634,21 +634,27 @@ and mk_type_def env d: CStar.typ =
         f, mk_type env t
       ) fields)
 
-
-and mk_program name decls =
-  KList.filter_map (fun d ->
+and try_mk_decl name d =
+match d with
+| DTypeMutual ty_decls ->
+  (match KList.traverse_opt (try_mk_decl name) ty_decls with
+   | None -> None
+   | Some ds -> Some (CStar.Mutual ds))
+| _ ->
     let n = string_of_lident (Ast.lid_of_decl d) in
     try
-      mk_declaration empty d
+        mk_declaration empty d
     with
     | Error e ->
         Warnings.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
         None
     | e ->
         Warnings.fatal_error "Fatal failure in %a: %s\n"
-          plid (Ast.lid_of_decl d)
-          (Printexc.to_string e)
-  ) decls
+            plid (Ast.lid_of_decl d)
+            (Printexc.to_string e)
+
+and mk_program name decls =
+  KList.filter_map (try_mk_decl name) decls
 
 and mk_file (name, program) =
   name, (mk_program name) program

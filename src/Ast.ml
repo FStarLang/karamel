@@ -18,6 +18,7 @@ and decl =
   | DGlobal of flag list * lident * typ * expr
   | DExternal of calling_convention option * lident * typ
   | DType of lident * flag list * int * type_def
+  | DTypeMutual of decl list
 
 and type_def =
   | Abbrev of typ
@@ -593,6 +594,8 @@ class virtual ['env] map = object (self)
         self#dexternal env cc name t
     | DType (name, flags, n, d) ->
         self#dtype env name flags n d
+    | DTypeMutual (ty_decls) ->
+       DTypeMutual (List.map (fun decl -> self#visit_d env decl) ty_decls)
 
   method dtype env name flags n d =
     let env = self#extend_tmany env n in
@@ -671,9 +674,22 @@ let iter_decls f files =
 let with_type typ node =
   { typ; node }
 
+(* TODO: clean this up *)
+exception UnableToGetLid
+
 let lid_of_decl = function
   | DFunction (_, _, _, _, lid, _, _)
   | DGlobal (_, lid, _, _)
   | DExternal (_, lid, _)
   | DType (lid, _, _, _) ->
       lid
+  | DTypeMutual _ -> raise UnableToGetLid
+
+let rec lids_of_decl = function
+| DFunction (_, _, _, _, lid, _, _)
+| DGlobal (_, lid, _, _)
+| DExternal (_, lid, _)
+| DType (lid, _, _, _) ->
+    [lid]
+| DTypeMutual (ty_decls) ->
+  List.map lid_of_decl ty_decls

@@ -544,7 +544,7 @@ let mk_decl env (d: decl): CF.decl option =
       let name = Idents.string_of_lident name in
       Some CF.(Function { name; args; ret; locals; body; public })
 
-  | DType _ ->
+  | DType _ | DTypeMutual _ ->
       (* Not translating type declarations. *)
       None
 

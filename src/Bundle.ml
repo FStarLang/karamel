@@ -30,7 +30,7 @@ module LidMap = Idents.LidMap
 let mk_file_of files =
   let file_of = List.fold_left (fun map (name, decls) ->
     List.fold_left (fun map decl ->
-      LidMap.add (Ast.lid_of_decl decl) name map
+      List.fold_left (fun map lid -> LidMap.add lid name map) map (Ast.lids_of_decl decl)
     ) map decls
   ) LidMap.empty files in
   let file_of lid =

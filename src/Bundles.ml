@@ -69,7 +69,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
 
   (* All the declarations that have matched the patterns are marked as private. *)
   let found = List.map (fun (old_name, decls) ->
-    old_name, List.map (function 
+    old_name, List.map (function
       | DFunction (cc, flags, n, typ, name, binders, body) ->
           DFunction (cc, Common.Private :: flags, n, typ, name, binders, body)
       | DGlobal (flags, name, typ, body) ->
@@ -151,8 +151,13 @@ let make_bundles files =
     ignore ((object
       inherit [unit] map as super
       method visit_d env decl =
-        current_decl := Some (lid_of_decl decl);
-        super#visit_d env decl
+        match decl with
+        | DTypeMutual (ty_decls) ->
+          DTypeMutual (List.map (fun decl ->
+            current_decl := Some (lid_of_decl decl);
+            super#visit_d env decl) ty_decls)
+        | _ -> current_decl := Some (lid_of_decl decl);
+               super#visit_d env decl
       method equalified _ _ lid =
         prepend lid;
         EQualified lid

@@ -472,10 +472,12 @@ let inline_function_frames files =
 (* Monomorphize types *********************************************************)
 
 let inline_type_abbrevs files =
-  let map = Helpers.build_map files (fun map -> function
-    | DType (lid, _, _, Abbrev t) -> Hashtbl.add map lid (White, t)
-    | _ -> ()
-  ) in
+  let rec add_decl map = function
+  | DTypeMutual type_decls ->
+    List.iter (add_decl map) type_decls
+  | DType (lid, _, _, Abbrev t) -> Hashtbl.add map lid (White, t)
+  | _ -> ()
+  in let map = Helpers.build_map files add_decl in
 
   let inliner inline_one = object(self)
     inherit [unit] map

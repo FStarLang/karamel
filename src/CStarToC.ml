@@ -119,7 +119,7 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
       Compound stmts
 
 and mk_for_loop_initializer e_array e_size e_value: C.stmt =
-  match e_size with 
+  match e_size with
   | C.Constant (_, "1")
   | C.Cast (_, C.Constant (_, "1")) ->
       Expr (Op2 (K.Assign, Index (e_array, Constant (K.UInt32, "0")), e_value))
@@ -558,12 +558,13 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
       let t = match t with Function _ -> Pointer t | _ -> t in
       let spec, decl = mk_spec_and_declarator name t in
       let static = if List.exists ((=) Private) flags then Some Static else None in
-      match expr with
+      (match expr with
       | Any ->
           Some (Decl (spec, static, [ decl, None ]))
       | _ ->
           let expr = mk_expr expr in
-          Some (Decl (spec, static, [ decl, Some (InitExpr expr) ]))
+          Some (Decl (spec, static, [ decl, Some (InitExpr expr) ])))
+   | Mutual _ -> None
 
 let is_static_header name =
   List.exists (fun m -> Idents.fstar_name_of_mod m = name) !Options.static_header
@@ -612,6 +613,7 @@ let mk_stub_or_function (d: decl): C.declaration_or_function option =
         let spec, decl = mk_spec_and_declarator name t in
         Some (Decl (spec, Some Extern, [ decl, None ]))
 
+   | Mutual _ -> None
 
 let mk_header decls =
   KList.filter_map mk_stub_or_function decls

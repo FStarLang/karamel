@@ -98,29 +98,30 @@ let lookup_global env lid =
   | x ->
       x
 
+let rec populate_env_with_decl env decl =
+match decl with
+| DType (lid, _, _, typ) ->
+    let env = match typ with
+    | Enum tags ->
+        List.fold_left (fun env tag ->
+            { env with enums = M.add tag lid env.enums }
+        ) env tags
+    | _ -> env
+    in { env with types = M.add lid typ env.types }
+| DGlobal (_, lid, t, _) ->
+    { env with globals = M.add lid t env.globals }
+| DFunction (_, _, n, ret, lid, binders, _) ->
+        assert (n = 0);
+        let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
+        { env with globals = M.add lid t env.globals }
+| DExternal (_, lid, typ) ->
+    { env with globals = M.add lid typ env.globals }
+| DTypeMutual (type_decls) ->
+    List.fold_left populate_env_with_decl env type_decls
+
 let populate_env files =
   List.fold_left (fun env (_, decls) ->
-    List.fold_left (fun env decl ->
-      match decl with
-      | DType (lid, _, _, typ) ->
-          let env = match typ with
-          | Enum tags ->
-              List.fold_left (fun env tag ->
-                { env with enums = M.add tag lid env.enums }
-              ) env tags
-          | _ ->
-              env
-          in
-          { env with types = M.add lid typ env.types }
-      | DGlobal (_, lid, t, _) ->
-          { env with globals = M.add lid t env.globals }
-      | DFunction (_, _, n, ret, lid, binders, _) ->
-          assert (n = 0);
-          let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
-          { env with globals = M.add lid t env.globals }
-      | DExternal (_, lid, typ) ->
-          { env with globals = M.add lid typ env.globals }
-    ) env decls
+    List.fold_left populate_env_with_decl env decls
   ) empty files
 
 let known_type env lid =
@@ -144,55 +145,63 @@ let rec check_everything ?warn files: bool * file list =
   let r = ref false in
   !r, List.map (check_program env r) files
 
+and try_check_decl env r by_lid d =
+match d with
+| DTypeMutual (ty_decls) ->
+    (match KList.traverse_opt (try_check_decl env r by_lid) ty_decls with
+    | None -> None
+    | Some ds -> Some (DTypeMutual ds))
+| _ ->
+let lid = lid_of_decl d in
+try
+  check_decl env d;
+  Some d
+with
+| Error e ->
+    if not (Drop.lid lid) then begin
+      r := true;
+      Warnings.maybe_fatal_error e;
+      if Options.debug "backtraces" then
+        Printexc.print_backtrace stderr;
+      flush stdout;
+      KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
+        please consider using -drop\n\n"
+        plid (lid_of_decl d);
+      flush stderr
+    end;
+    None
+
+| UnboundLid lid' ->
+    if not (Drop.lid lid) then begin
+      r := true;
+      begin try
+        Hashtbl.add by_lid lid' (lid :: Hashtbl.find by_lid lid');
+      with Not_found ->
+        Hashtbl.add by_lid lid' [ lid ];
+      end
+    end;
+    None
+
+| e ->
+    if not (Drop.lid lid) then begin
+      r := true;
+      let e = Printexc.to_string e in
+      Warnings.maybe_fatal_error ("<toplevel>", TypeError e);
+      if Options.debug "backtraces" then
+        Printexc.print_backtrace stderr;
+      flush stdout;
+      KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
+        please consider using -drop\n\n"
+        plid (lid_of_decl d);
+      flush stderr
+    end;
+    None
+
 and check_program env r (name, decls) =
   let env = locate env (File name) in
   let by_lid = Hashtbl.create 41 in
-  let decls = KList.filter_map (fun d ->
-    let lid = lid_of_decl d in
-    try
-      check_decl env d;
-      Some d
-    with
-    | Error e ->
-        if not (Drop.lid lid) then begin
-          r := true;
-          Warnings.maybe_fatal_error e;
-          if Options.debug "backtraces" then
-            Printexc.print_backtrace stderr;
-          flush stdout;
-          KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
-            please consider using -drop\n\n"
-            plid (lid_of_decl d);
-          flush stderr
-        end;
-        None
-
-    | UnboundLid lid' ->
-        if not (Drop.lid lid) then begin
-          r := true;
-          begin try
-            Hashtbl.add by_lid lid' (lid :: Hashtbl.find by_lid lid');
-          with Not_found ->
-            Hashtbl.add by_lid lid' [ lid ];
-          end
-        end;
-        None
-
-    | e ->
-        if not (Drop.lid lid) then begin
-          r := true;
-          let e = Printexc.to_string e in
-          Warnings.maybe_fatal_error ("<toplevel>", TypeError e);
-          if Options.debug "backtraces" then
-            Printexc.print_backtrace stderr;
-          flush stdout;
-          KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
-            please consider using -drop\n\n"
-            plid (lid_of_decl d);
-          flush stderr
-        end;
-        None
-  ) decls in
+  let decls = KList.filter_map (try_check_decl env r by_lid) decls
+  in
 
   (* Some concise, well-behaved error reporting. *)
   Hashtbl.iter (fun lid decl_lids ->
@@ -221,7 +230,7 @@ and check_decl env d =
       let env = locate env (InTop name) in
       check env t body
   | DExternal _
-  | DType _ ->
+  | DType _ | DTypeMutual _ ->
       (* Barring any parameterized types, there's is nothing to check here
        * really. *)
       ()

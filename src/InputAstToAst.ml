@@ -42,6 +42,8 @@ let rec mk_decl = function
   | I.DTypeVariant (name, flags, n, branches) ->
       DType (name, flags, n,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
+  | I.DTypeMutual (decls) ->
+      DTypeMutual (List.map mk_decl decls)
 
 and mk_binders bs =
   List.map mk_binder bs

@@ -12,6 +12,7 @@ and decl =
   | Function of calling_convention option * flag list * typ * ident * binder list * block
   | Type of ident * typ
   | External of ident * typ
+  | Mutual of decl list
 
 and stmt =
   | Abort of string
@@ -105,6 +106,8 @@ and typ =
   | Enum of ident list
   | Union of (ident * typ) list
 
+exception InvalidArg
+
 let ident_of_decl (d: decl): string =
   match d with
   | Global (id, _, _, _)
@@ -112,3 +115,4 @@ let ident_of_decl (d: decl): string =
   | Type (id, _)
   | External (id, _) ->
       id
+  | _ -> raise InvalidArg

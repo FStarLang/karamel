@@ -42,6 +42,9 @@ let rec print_decl = function
       group (string "type" ^/^ print_flags flags ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
       jump (print_type_def def)
 
+  | DTypeMutual (ty_decls) ->
+      separate_map (string "and" ^^ break1) (fun decl -> print_decl decl) ty_decls
+
 and print_type_def = function
   | Flat fields ->
       string "flat" ^/^

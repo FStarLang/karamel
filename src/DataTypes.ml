@@ -86,8 +86,12 @@ let build_def_map files =
   Helpers.build_map files (fun map -> function
     | DType (lid, _, _, def) ->
         Hashtbl.add map lid def
-    | _ ->
-        ()
+    | DTypeMutual (ty_decls) ->
+      List.iter (function
+        | DType (lid, _, _, def) ->
+          Hashtbl.add map lid def
+        | _ -> ()) ty_decls
+    | _ -> ()
   )
 
 (* We visit type declarations in order to find occurrences of instantiated
@@ -183,18 +187,21 @@ type scheme =
   | ToFlat of ident list
   | ToTaggedUnion of branches_t
 
+let rec update_scheme_map_for_type map =
+function
+  | DType (lid, _, 0, Variant branches) ->
+      if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
+        Hashtbl.add map lid ToEnum
+      else if List.length branches = 1 then
+        Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
+      else
+        Hashtbl.add map lid (ToTaggedUnion branches)
+  | DTypeMutual ty_decls ->
+    List.iter (update_scheme_map_for_type map) ty_decls
+  | _ -> ()
+
 let build_scheme_map files =
-  Helpers.build_map files (fun map -> function
-    | DType (lid, _, 0, Variant branches) ->
-        if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
-          Hashtbl.add map lid ToEnum
-        else if List.length branches = 1 then
-          Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
-        else
-          Hashtbl.add map lid (ToTaggedUnion branches)
-    | _ ->
-        ()
-  )
+  Helpers.build_map files update_scheme_map_for_type
 
 (** Second thing: handle the trivial case of a data type definition with only
  * tags (it's just an enum) and the trivial case of a type definition with one
@@ -277,6 +284,7 @@ let compile_simple_matches map = object(self)
   method dtype () lid flags n def =
     match def with
     | Variant branches ->
+        if (n <> 0) then KPrint.beprintf "%a have type variables" plid lid;
         assert (n = 0);
         begin match Hashtbl.find map lid with
         | exception Not_found ->

@@ -99,3 +99,13 @@ let last l =
 
 let reduce f l =
   List.fold_left f (List.hd l) (List.tl l)
+
+let rec traverse_opt (f : 'a -> 'b option) (xs : 'a list) : ('b list) option =
+  match xs with
+  | [] -> Some []
+  | (o :: os) ->
+      match traverse_opt f os with
+      | None -> None
+      | Some os' -> match f o with
+          | None -> None
+          | Some o' -> Some (o' :: os')
