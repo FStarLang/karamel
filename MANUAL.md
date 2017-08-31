@@ -31,8 +31,9 @@ to `f x` with `x * x` *at extraction-time*.
 inline_for_extraction let f x = x * x
 ```
 
-At the time of writing, it seems like `inline_for_extraction` only applies to
-pure computations, possibly arising within effectful computations.
+This inlining can only operate on pure computations, but can inline them into
+effectful computations. There is a warning when `inline_for_extraction` is
+ignored on a stateful function.
 
 The advantage of `inline_for_extraction` is that things such as:
 
@@ -52,10 +53,9 @@ let g () =
   e2
 ```
 
-The `inline` keyword has more profound implications and has not much to do with
-extraction; see [the F\*
-wiki](https://github.com/FStarLang/FStar/wiki/Qualifiers-for-definitions-and-declarations#inline)
-for more information.
+The `inline_for_extraction` keyword is specifically intended to impact only
+(KreMLin) extraction, and is distinct from `unfold`, which impacts F\*'s SMT
+encoding.
 
 ### Using KreMLin
 
@@ -64,7 +64,7 @@ The KreMLin extraction pipeline of F\* now supports custom attributes. The
 *everywhere*, replace any call to `f x` with its body `x * x`.
 
 ```
-[@ "substitute" ]
+[@"substitute"]
 let f x = x * x
 ```
 
@@ -94,7 +94,7 @@ says
 > defining functions inside header files, which may be included in multiple
 > translation units of the same program.
 
-If you use `[@ "c_inline" ]` on a function that is called from another module,
+If you use `[@"c_inline"]` on a function that is called from another module,
 this is likely to fail, unless you use the `-bundle` option of KreMLin.
 
 ## Generating `static` functions
@@ -137,7 +137,14 @@ tips and tricks:
   let g x: f x = ...
   ```
   this cannot be expressed in C; to force every `f x` to reduce, use the
-  `unfold` qualifier on `f`
+  `unfold` qualifier on `f`.
+
+  If you have a type abbreviation that does not require computation but takes
+  parameters that can be erased at extraction time, or that expands to a
+  function type, you can use `inline_for_extraction` on the type-level function
+  to unfold its definition at every usage before KreMLin constructs its type
+  signature. This can help extract types that would otherwise not be
+  expressible, and has the advantage of having no impact on verification.
 - **polymorphism**: KreMLin does **not** support whole-program monomorphization
   yet; as a stop-gap measure, mark polymorphic functions with `[@"substitute"]`
   (on the `val` and the `let`) so that, once inlined at call-site, they
