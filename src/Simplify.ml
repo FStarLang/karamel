@@ -30,7 +30,7 @@ let count_and_remove_locals = object (self)
     let e1 = self#visit env e1 in
     let env = self#extend env b in
     let e2 = self#visit env e2 in
-    if !(b.node.mark) = 0 && is_value e1 then
+    if !(b.node.mark) = 0 && is_readonly_expression e1 then
       (snd (open_binder b e2)).node
     else if !(b.node.mark) = 0 then
       if e1.typ = TUnit then
@@ -111,7 +111,7 @@ let remove_unused_parameters map = object (self)
         let are_unused, _ = KList.split (List.length es) (Hashtbl.find map lid) in
         let es, to_evaluate = List.fold_left2 (fun (es, to_evaluate) unused arg ->
           if unused then
-            if is_value arg then
+            if is_readonly_expression arg then
               es, to_evaluate
             else
               let x, _atom = mk_binding "unused" arg.typ in
@@ -962,7 +962,7 @@ let combinators = object(self)
     | EQualified ([ "C"; "Loops" ], "for_"), [ start; finish; _inv; { node = EFun (_, body); _ } ] ->
         (* Relying on the invariant that, if [finish] is effectful, F* has
          * hoisted it *)
-        assert (is_value finish);
+        assert (is_readonly_expression finish);
         let b = fresh_binder "i" uint32 in
         let b = mark_mut b in
         let cond = mk_lt (lift 1 finish) in

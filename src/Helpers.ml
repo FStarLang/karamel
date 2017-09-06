@@ -203,6 +203,63 @@ let rec is_value (e: expr) =
   | EWhile _ ->
       false
 
+let rec is_readonly_expression (e: expr) =
+  match e.node with
+  | EBound _
+  | EOpen _
+  | EOp _
+  | EQualified _
+  | EConstant _
+  | EUnit
+  | EBool _
+  | EEnum _
+  | EString _
+  | EFun _
+  | EAbort _
+  | EAddrOf _
+  | EAny ->
+      true
+
+  | ETuple es
+  | ECons (_, es) ->
+      List.for_all is_readonly_expression es
+
+  | EFlat identexprs ->
+      List.for_all (fun (_, e) -> is_readonly_expression e) identexprs
+
+  | EIgnore e
+  | EField (e, _)
+  | EComment (_, e, _)
+  | ECast (e, _) ->
+      is_readonly_expression e
+
+  | EBufRead (e1,e2)
+  | EBufSub (e1,e2) ->
+      is_readonly_expression e1 &&
+      is_readonly_expression e2
+
+
+
+  | EApp _
+  | ELet _
+  | EIfThenElse _
+  | ESequence _
+  | EAssign _
+  | EBufCreate _
+  | EBufCreateL _
+  | EBufWrite _
+  | EBufBlit _
+  | EBufFill _
+  | EPushFrame
+  | EPopFrame
+  | EMatch _
+  | ESwitch _
+  | EReturn _
+  | EFor _
+  | EWhile _ ->
+      false
+
+
 let rec is_constant e =
   match e.node with
   | EConstant _ ->
