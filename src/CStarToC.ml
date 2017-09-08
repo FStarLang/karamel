@@ -108,7 +108,7 @@ and mk_compound_if (stmts: C.stmt list): C.stmt =
   match stmts with
   | [ Decl _ ] ->
       Compound stmts
-  | [ stmt ] ->
+  | [ stmt ] when not !Options.curly_braces ->
       stmt
   | _ ->
       Compound stmts
