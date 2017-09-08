@@ -152,7 +152,7 @@ let fold_arrow ts t_ret =
 
 let is_array = function TArray _ -> true | _ -> false
 
-let rec is_value (e: expr) =
+let is_X_value self (e: expr) =
   match e.node with
   | EBound _
   | EOpen _
@@ -171,16 +171,16 @@ let rec is_value (e: expr) =
 
   | ETuple es
   | ECons (_, es) ->
-      List.for_all is_value es
+      List.for_all self es
 
   | EFlat identexprs ->
-      List.for_all (fun (_, e) -> is_value e) identexprs
+      List.for_all (fun (_, e) -> self e) identexprs
 
   | EIgnore e
   | EField (e, _)
   | EComment (_, e, _)
   | ECast (e, _) ->
-      is_value e
+      self e
 
   | EApp _
   | ELet _
@@ -203,62 +203,19 @@ let rec is_value (e: expr) =
   | EWhile _ ->
       false
 
-let rec is_readonly_expression (e: expr) =
-  match e.node with
-  | EBound _
-  | EOpen _
-  | EOp _
-  | EQualified _
-  | EConstant _
-  | EUnit
-  | EBool _
-  | EEnum _
-  | EString _
-  | EFun _
-  | EAbort _
-  | EAddrOf _
-  | EAny ->
-      true
+let rec is_value e =
+  is_X_value is_value e
 
-  | ETuple es
-  | ECons (_, es) ->
-      List.for_all is_readonly_expression es
-
-  | EFlat identexprs ->
-      List.for_all (fun (_, e) -> is_readonly_expression e) identexprs
-
-  | EIgnore e
-  | EField (e, _)
-  | EComment (_, e, _)
-  | ECast (e, _) ->
-      is_readonly_expression e
-
-  | EBufRead (e1,e2)
-  | EBufSub (e1,e2) ->
-      is_readonly_expression e1 &&
-      is_readonly_expression e2
-
-
-
-  | EApp _
-  | ELet _
-  | EIfThenElse _
-  | ESequence _
-  | EAssign _
-  | EBufCreate _
-  | EBufCreateL _
-  | EBufWrite _
-  | EBufBlit _
-  | EBufFill _
-  | EPushFrame
-  | EPopFrame
-  | EMatch _
-  | ESwitch _
-  | EReturn _
-  | EFor _
-  | EWhile _ ->
-      false
-
+let rec is_pure_c_value e =
+  is_X_value (fun e ->
+    match e.node with
+    | EBufRead (e1, e2)
+    | EBufSub (e1, e2) ->
+        is_pure_c_value e1 &&
+        is_pure_c_value e2
+    | _ ->
+        is_X_value is_pure_c_value e
+  ) e
 
 let rec is_constant e =
   match e.node with
