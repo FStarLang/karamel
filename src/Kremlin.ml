@@ -49,7 +49,6 @@ let _ =
   let arg_skip_linking = ref false in
   let arg_verify = ref false in
   let arg_warn_error = ref "" in
-  let arg_print_error_summary = ref false in
   let c_files = ref [] in
   let o_files = ref [] in
   let js_files = ref [] in
@@ -217,7 +216,6 @@ Supported options:|}
     "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific \
       comma-separated list of values; currently supported: \
       inline,bundle,reachability,c-calls,wasm-calls,force-c,cflat";
-    "-derror-summary", Arg.Set arg_print_error_summary, " pretty-print the table of errors";
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
   let spec = Arg.align spec in
@@ -247,10 +245,6 @@ Supported options:|}
     print_endline (Arg.usage_string spec usage);
     exit 1
   end;
-
-  (* See if error summarization should be turned on. *)
-  if !arg_print_error_summary
-  then Warnings.enable_summaries ();
 
   (* First enable the default warn-error string. *)
   Warnings.parse_warn_error !Options.warn_error;
@@ -471,9 +465,6 @@ Supported options:|}
     tick_print true "PrettyPrinting";
 
     Printf.printf "KreMLin: wrote out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
-
-    if !arg_print_error_summary
-    then Warnings.generate_summary ();
 
     if !arg_skip_compilation then
       exit 0;
