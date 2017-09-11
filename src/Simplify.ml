@@ -30,7 +30,7 @@ let count_and_remove_locals = object (self)
     let e1 = self#visit env e1 in
     let env = self#extend env b in
     let e2 = self#visit env e2 in
-    if !(b.node.mark) = 0 && is_value e1 then
+    if !(b.node.mark) = 0 && is_pure_c_value e1 then
       (snd (open_binder b e2)).node
     else if !(b.node.mark) = 0 then
       if e1.typ = TUnit then
@@ -111,7 +111,7 @@ let remove_unused_parameters map = object (self)
         let are_unused, _ = KList.split (List.length es) (Hashtbl.find map lid) in
         let es, to_evaluate = List.fold_left2 (fun (es, to_evaluate) unused arg ->
           if unused then
-            if is_value arg then
+            if is_pure_c_value arg then
               es, to_evaluate
             else
               let x, _atom = mk_binding "unused" arg.typ in
@@ -269,6 +269,22 @@ let let_if_to_assign = object (self)
     | _ ->
         (* There are no more nested lets at this stage *)
         ELet (b, self#visit () e1, self#visit () e2)
+
+end
+
+let no_empty_then = object (self)
+
+  inherit [unit] map
+
+  method! eifthenelse env _ e1 e2 e3 =
+    let e1 = self#visit env e1 in
+    let e2 = self#visit env e2 in
+    let e3 = self#visit env e3 in
+    match e2.node with
+    | EUnit when e3.node <> EUnit ->
+        EIfThenElse (Helpers.mk_not e1, e3, e2)
+    | _ ->
+        EIfThenElse (e1, e2, e3)
 
 end
 
@@ -1043,6 +1059,7 @@ let simplify2 (files: file list): file list =
   let files = visit_files () fixup_hoist files in
   let files = visit_files [] count_and_remove_locals files in
   let files = visit_files () let_if_to_assign files in
+  let files = visit_files () no_empty_then files in
   let files = visit_files () let_to_sequence files in
   files
 

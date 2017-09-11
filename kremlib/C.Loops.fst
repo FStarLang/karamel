@@ -182,7 +182,8 @@ let map #a #b output input l f =
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
-    output.(i) <- f (input.(i))
+    let xi = input.(i) in
+    output.(i) <- f xi
   in
   for 0ul l inv f';
   let h1 = HST.get() in
@@ -219,7 +220,9 @@ let map2 #a #b #c output in1 in2 l f =
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
-    output.(i) <- f (in1.(i)) (in2.(i))
+    let xi = in1.(i) in
+    let yi = in2.(i) in
+    output.(i) <- f xi yi
   in
   for 0ul l inv f';
   let h1 = HST.get() in
@@ -252,7 +255,8 @@ let in_place_map #a b l f =
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
-    b.(i) <- f (b.(i))
+    let xi = b.(i) in
+    b.(i) <- f xi
   in
   for 0ul l inv f';
   let h1 = HST.get() in
@@ -288,7 +292,9 @@ let in_place_map2 #a #b in1 in2 l f =
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
-    in1.(i) <- f (in1.(i)) (in2.(i))
+    let xi = in1.(i) in
+    let yi = in2.(i) in
+    in1.(i) <- f xi yi
   in
   for 0ul l inv f';
   let h1 = HST.get() in

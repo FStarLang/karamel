@@ -200,6 +200,8 @@ Supported options:|}
       loops smaller than N";
     "-fparentheses", Arg.Set Options.parentheses, "  add unnecessary parentheses \
       to silence GCC and Clang's -Wparentheses";
+    "-fcurly-braces", Arg.Set Options.curly_braces, "  always add curly braces \
+      around blocks";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)

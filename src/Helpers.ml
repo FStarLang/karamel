@@ -79,6 +79,11 @@ let mk_op op w =
   { node = EOp (op, w);
     typ = type_of_op op w }
 
+(* not <e1> *)
+let mk_not e1 =
+  with_type TBool (
+    EApp (mk_op K.Not K.Bool, [ e1 ]))
+
 (* @0 < <finish> *)
 let mk_lt finish =
   with_type TBool (
@@ -173,7 +178,7 @@ let fold_arrow ts t_ret =
 
 let is_array = function TArray _ -> true | _ -> false
 
-let rec is_value (e: expr) =
+let is_X_value self (e: expr) =
   match e.node with
   | EBound _
   | EOpen _
@@ -192,16 +197,16 @@ let rec is_value (e: expr) =
 
   | ETuple es
   | ECons (_, es) ->
-      List.for_all is_value es
+      List.for_all self es
 
   | EFlat identexprs ->
-      List.for_all (fun (_, e) -> is_value e) identexprs
+      List.for_all (fun (_, e) -> self e) identexprs
 
   | EIgnore e
   | EField (e, _)
   | EComment (_, e, _)
   | ECast (e, _) ->
-      is_value e
+      self e
 
   | EApp _
   | ELet _
@@ -225,6 +230,20 @@ let rec is_value (e: expr) =
   | ETApp _
   | EWhile _ ->
       false
+
+let rec is_value e =
+  is_X_value is_value e
+
+let rec is_pure_c_value e =
+  is_X_value (fun e ->
+    match e.node with
+    | EBufRead (e1, e2)
+    | EBufSub (e1, e2) ->
+        is_pure_c_value e1 &&
+        is_pure_c_value e2
+    | _ ->
+        is_X_value is_pure_c_value e
+  ) e
 
 let rec is_constant e =
   match e.node with
