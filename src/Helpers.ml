@@ -79,11 +79,6 @@ let mk_op op w =
   { node = EOp (op, w);
     typ = type_of_op op w }
 
-(* not <e1> *)
-let mk_not e1 =
-  with_type TBool (
-    EApp (mk_op K.Not K.Bool, [ e1 ]))
-
 (* @0 < <finish> *)
 let mk_lt finish =
   with_type TBool (

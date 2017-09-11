@@ -292,6 +292,8 @@ let monomorphize files =
                 in
                 EQualified (Gen.register_def lid ts name def)
           end
+      | EOp (_, _) ->
+         (self#visit env e).node
       | _ ->
           KPrint.bprintf "%a is not an lid in the type application\n" pexpr e;
           (self#visit env e).node
