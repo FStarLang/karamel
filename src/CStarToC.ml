@@ -555,7 +555,6 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
       end
 
   | Global (name, flags, t, expr) ->
-      let t = match t with Function _ -> Pointer t | _ -> t in
       let spec, decl = mk_spec_and_declarator name t in
       let static = if List.exists ((=) Private) flags then Some Static else None in
       match expr with
@@ -608,7 +607,6 @@ let mk_stub_or_function (d: decl): C.declaration_or_function option =
       if List.exists ((=) Private) flags then
         None
       else
-        let t = match t with Function _ -> Pointer t | _ -> t in
         let spec, decl = mk_spec_and_declarator name t in
         Some (Decl (spec, Some Extern, [ decl, None ]))
 
