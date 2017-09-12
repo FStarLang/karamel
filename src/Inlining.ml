@@ -16,6 +16,8 @@ open Ast
 open Warnings
 open PrintAst.Ops
 open Common
+open Helpers
+open DeBruijn
 
 (** A fixpoint computation ****************************************************)
 
@@ -302,6 +304,66 @@ let monomorphize files =
 
   Helpers.visit_files () monomorphize files
 
+(* Combinators ****************************************************************)
+
+let combinators = object(self)
+
+  inherit [_] map as super
+
+  method! eapp () t e es =
+    match e.node, es with
+    | EQualified ([ "C"; "Loops" ], "for_"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
+        (* Relying on the invariant that, if [finish] is effectful, F* has
+         * hoisted it *)
+        if not (is_value finish) then
+          Warnings.fatal_error "%a is not a value" pexpr finish;
+        let b = fresh_binder "i" uint32 in
+        let b = mark_mut b in
+        let cond = mk_lt (lift 1 finish) in
+        let iter = mk_incr in
+        (* Note: no need to shift, the body was under a one-argument lambda
+         * already. *)
+        EFor (b, start, cond, iter, self#visit () body)
+
+    | EQualified ([ "C"; "Loops" ], "interruptible_for"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
+        (* Relying on the invariant that, if [finish] is effectful, F* has
+         * hoisted it *)
+        assert (is_value finish);
+        let b = fresh_binder "b" TBool in
+        let b = mark_mut b in
+        let i = fresh_binder "i" uint32 in
+        let i = mark_mut i in
+        let iter = mk_incr in
+        (* First binder. *)
+        ELet (b, efalse, with_type t (
+        (* Second binder. *)
+        ELet (i, lift 1 start, with_type t (
+        ESequence [
+          with_type TUnit (EFor (
+            (* Third binder. *)
+            Helpers.unused_binding (),
+            any,
+            mk_and
+              (mk_not (with_type TBool (EBound 2)))
+              (mk_neq (with_type uint32 (EBound 1)) (lift 3 finish)),
+            lift 1 iter,
+            with_unit (EIgnore (self#visit () (lift 2 body)))));
+          with_type t (ETuple [
+            with_type uint32 (EBound 0);
+            with_type TBool (EBound 1)])]))))
+
+    | EQualified ([ "C"; "Loops" ], "do_while"), [ { node = EFun (_, body, _); _ } ] ->
+        Printf.printf "here";
+        EWhile (etrue, with_unit (
+          EIfThenElse (DeBruijn.subst eunit 0 (self#visit () body),
+            with_unit EBreak,
+            eunit)))
+
+
+    | _ ->
+        super#eapp () t e es
+
+end
 
 let macro_expand_combinators files =
   let must_inline = function
@@ -311,7 +373,7 @@ let macro_expand_combinators files =
         false
   in
   let inline_one = mk_inliner files must_inline in
-  filter_decls (function
+  let files = filter_decls (function
     | DFunction (cc, flags, n, ret, name, binders, _) ->
         if must_inline name then
           None
@@ -326,7 +388,7 @@ let macro_expand_combinators files =
     | d ->
         Some d
   ) files
-
+  in visit_files () combinators files
 
 (** A whole-program transformation that inlines functions according to... *)
 let inline_function_frames files =
