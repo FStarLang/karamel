@@ -303,31 +303,6 @@ let monomorphize files =
   Helpers.visit_files () monomorphize files
 
 
-let macro_expand_combinators files =
-  let must_inline = function
-    | [ "C"; "Loops" ], ("map" | "map2" | "in_place_map" | "in_place_map2" | "repeat") ->
-        true
-    | _ ->
-        false
-  in
-  let inline_one = mk_inliner files must_inline in
-  filter_decls (function
-    | DFunction (cc, flags, n, ret, name, binders, _) ->
-        if must_inline name then
-          None
-        else
-          let body = inline_one name in
-          let body = (object
-            inherit [_] map
-            method tbound _ _ =
-              TAny
-          end)#visit () body in
-          Some (DFunction (cc, flags, n, ret, name, binders, body))
-    | d ->
-        Some d
-  ) files
-
-
 (** A whole-program transformation that inlines functions according to... *)
 let inline_function_frames files =
 

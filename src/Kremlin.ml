@@ -339,15 +339,9 @@ Supported options:|}
   if !arg_print_ast then
     print PrintAst.print_files files;
 
-  (* 1. Minimal cleanup, remove higher-order combinators (e.g. map) with mere
-   * calls to the base [for] combinator. These combinators (e.g. map) are
-   * polymorphic; by inlining them, we make sure they can be type-checked
-   * monorphically at call-site. We then remove the polymorphic definitions
-   * (e.g. map) as we don't know how to type-check them. Finally, perform a
-   * first round of type-checking. If things fail at this stage, most likely not
-   * our fault (bad input?). *)
+  (* 1. Monomorphize functions because the Checker is first-order. If things
+   * fail at this stage, most likely not our fault (bad input?). *)
   let files = DataTypes.drop_match_cast files in
-  let files = Inlining.macro_expand_combinators files in
   let files = Inlining.monomorphize files in
   let has_errors, files = Checker.check_everything ~warn:true files in
   tick_print (not has_errors) "Checking input file";

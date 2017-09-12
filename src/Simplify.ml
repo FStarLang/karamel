@@ -975,6 +975,7 @@ end
 
 (* Combinators ****************************************************************)
 
+(* This needs to happen after local function bindings have been substituted. *)
 let combinators = object(self)
 
   inherit [_] map as super
@@ -1021,12 +1022,12 @@ let combinators = object(self)
             with_type uint32 (EBound 0);
             with_type TBool (EBound 1)])]))))
 
-    | EQualified ([ "C"; "Loops" ], "do_while"), [ { node = EFun (_, body, _); _ } ] ->
+    | EQualified ([ "C"; "Loops" ], s), [ { node = EFun (_, body, _); _ } ]
+      when KString.starts_with s "do_while" ->
         EWhile (etrue, with_unit (
           EIfThenElse (DeBruijn.subst eunit 0 (self#visit () body),
             with_unit EBreak,
             eunit)))
-
 
     | _ ->
         super#eapp () t e es
