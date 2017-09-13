@@ -3,6 +3,7 @@
 open Ast
 open Warnings
 open DeBruijn
+open PrintAst.Ops
 
 (* Some more fancy visitors ***************************************************)
 
@@ -157,6 +158,34 @@ let fold_arrow ts t_ret =
 
 let is_array = function TArray _ -> true | _ -> false
 
+(* If [e2] is assigned into an expression of type [t], we can sometimes
+ * strengthen the type [t] into an array type. *)
+let strengthen_array t e2 =
+  let ensure_buf = function TBuf t -> t | _ -> failwith "not a buffer" in
+  let open Common in
+  match t, e2.node with
+  | TArray _, _ ->
+      t
+
+  | _, EBufCreateL (Stack, l) ->
+      let t = ensure_buf t in
+      TArray (t, (K.Int, string_of_int (List.length l)))
+
+  | _, EBufCreate (Stack, _, size) ->
+      let t = ensure_buf t in
+      begin match size.node with
+      | EConstant k ->
+          TArray (t, k)
+      | _ ->
+          Warnings.fatal_error "In expression:\n%a\nthe array needs to be \
+            hoisted to the nearest enclosing push_frame for soundness, but its \
+            size is non-constant, so I don't know what declaration to write"
+            pexpr e2
+      end
+
+  | _ ->
+      t
+
 let is_X_value self (e: expr) =
   match e.node with
   | EBound _
@@ -301,4 +330,3 @@ let rec nest_in_return_pos typ f e =
       f e
 
 let push_ignore = nest_in_return_pos TUnit (fun e -> with_type TUnit (EIgnore (strip_cast e)))
-

@@ -38,7 +38,8 @@ Structs2.exe: EXTRA = -wasm -d force-c
 ML16.exe: EXTRA = ml16-native.c
 Scope.exe: EXTRA = -ccopt -O3
 Crypto.Symmetric.Chacha20.exe: EXTRA=$(CRYPTO_OPTS) main-Chacha.c
-C89.exe Loops.exe: EXTRA = -ccopts -std=c89,-pedantic -fc89 -fnouint128
+C89.exe Loops.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic -fc89 -fnouint128 \
+	-fnoanonymous-unions
 
 .PHONY: Crypto.Symmetric.Chacha20.fst
 

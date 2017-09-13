@@ -5,7 +5,6 @@ open Ast
 open DeBruijn
 open Idents
 open Warnings
-open Common
 open PrintAst.Ops
 open Helpers
 
@@ -840,55 +839,30 @@ let rec hoist_bufcreate (e: expr) =
       let bs, e2 = hoist_bufcreate e2 in
       bs, mk (EWhile (e1, e2))
 
-  | ELet (b, ({ node = EBufCreateL (Stack, elts); _ } as e1), e2) ->
-      let b, e2 = open_binder b e2 in
-      let bs, e2 = hoist_bufcreate e2 in
-      let typ =
-        match b.typ with
-        | TBuf t -> TArray (t, (K.UInt32, string_of_int (List.length elts)))
-        | _ -> failwith "impossible"
-      in
-      ({ node = { b.node with mut = true }; typ }, any) :: bs,
-      mk (ELet (sequence_binding (),
-        with_type TUnit (EAssign (with_type typ (EOpen (b.node.name, b.node.atom)), e1)),
-        lift 1 e2
-      ))
-
-  | ELet (b, ({ node = EBufCreate (Stack, _, l); _ } as e1), e2) ->
-      let b, e2 = open_binder b e2 in
-      let bs, e2 = hoist_bufcreate e2 in
-      let k = match l.node with
-        | EConstant k ->
-            k
-        | _ ->
-            Warnings.fatal_error "In expression:\n%a\nthe array does not have a constant size"
-              pexpr e
-      in
-      let typ =
-        match b.typ with
-        | TArray _ as t ->
-            t
-        | TBuf t ->
-            TArray (t, k)
-        | _ ->
-            Warnings.fatal_error
-              "Let-bound array is annotated with %a instead of TArray:\n%a"
-              ptyp b.typ
-              ppexpr e
-      in
-      ({ node = { b.node with mut = true }; typ }, any) :: bs,
-      mk (ELet (sequence_binding (),
-        with_type TUnit (EAssign (with_type typ (EOpen (b.node.name, b.node.atom)), e1)),
-        lift 1 e2
-      ))
-
   | ELet (b, ({ node = EPushFrame; _ } as e1), e2) ->
       [], mk (ELet (b, e1, under_pushframe e2))
 
   | ELet (b, e1, e2) ->
-      let b1, e1 = hoist_bufcreate e1 in
-      let b2, e2 = hoist_bufcreate e2 in
-      b1 @ b2, mk (ELet (b, e1, e2))
+      (* Either:
+       *   [let x: t* = bufcreatel ...] (as-is in the original code)
+       *   [let x: t[n] = any] (because C89 hoisting kicked in) *)
+      begin match strengthen_array b.typ e1 with
+      | TArray _ as typ ->
+          let b, e2 = open_binder b e2 in
+          let bs, e2 = hoist_bufcreate e2 in
+          (mark_mut b, any) :: bs,
+          if e1.node <> EAny then
+            mk (ELet (sequence_binding (),
+              with_unit (EAssign (with_type typ (EOpen (b.node.name, b.node.atom)), e1)),
+              lift 1 e2
+            ))
+          else
+            e2
+      | _ ->
+          let b1, e1 = hoist_bufcreate e1 in
+          let b2, e2 = hoist_bufcreate e2 in
+          b1 @ b2, mk (ELet (b, e1, e2))
+      end
 
   | _ ->
       [], e
@@ -909,7 +883,11 @@ and under_pushframe (e: expr) =
  * - either whatever happens before push is benign
  * - or, something happens (e.g. allocation), and this means that the function
  *   WILL be inlined, and that its caller will take care of hoisting things up
- *   in the second round. *)
+ *   in the second round.
+ * Note: we could do this in a simpler manner with a visitor whose env is a
+ * [ref * (list (binder * expr))] but that would degrade the quality of the
+ * code. This recursive routine is smarter and preserves the sequence of
+ * let-bindings starting from the beginning of the scope. *)
 let rec skip (e: expr) =
   let mk node = { node; typ = e.typ } in
   match e.node with
@@ -1007,10 +985,11 @@ let simplify2 (files: file list): file list =
   let files = visit_files () sequence_to_let files in
   let files = visit_files () remove_local_function_bindings files in
   let files = visit_files () combinators files in
+  let files = visit_files [] count_and_remove_locals files in
   let files = visit_files () hoist files in
+  let files = if !Options.c89 then visit_files (ref []) SimplifyC89.hoist_lets files else files in
   let files = visit_files () hoist_bufcreate files in
   let files = visit_files () fixup_hoist files in
-  let files = visit_files [] count_and_remove_locals files in
   let files = visit_files () let_if_to_assign files in
   let files = visit_files () no_empty_then files in
   let files = visit_files () let_to_sequence files in

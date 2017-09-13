@@ -44,7 +44,9 @@ let default_options () =
     (if Sys.os_type = "Win32" then ",-D__USE_MINGW_ANSI_STDIO" else "") ^
     (if !parentheses then "" else ",-Wno-parentheses")
   |] in
-  let gcc_options = Array.append gcc_like_options [| "-ccopt"; "-std=c11" |] in
+  let gcc_options = Array.append gcc_like_options
+    [| "-ccopt"; if !c89 then "-std=c89" else "-std=c11" |]
+  in
   [
     "gcc", gcc_options;
     "clang", gcc_options;

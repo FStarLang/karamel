@@ -395,12 +395,7 @@ Supported options:|}
   let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Inline + Simplify 2";
 
-  (* 6. Cosmetic rewrites for C89. Do them now that the shape of the code will
-   * no longer change (pretty much any transformation is guaranteed to break
-   * them). *)
-  let files = if !Options.c89 then SimplifyC89.simplify files else files in
-
-  (* 7. Some transformations that break typing: remove type application
+  (* 6. Some transformations that break typing: remove type application
    * definitions (creates unbound types), drop unused functions (note: this
    * needs to happen after [inline_function_frames], as this pass removes
    * illegal Private flags), enable anonymous unions for syntactic elegance. *)
@@ -413,7 +408,7 @@ Supported options:|}
       files
   in
 
-  (* 8. Drop both files and selected declarations within some files, as a [-drop
+  (* 7. Drop both files and selected declarations within some files, as a [-drop
    * Foo -bundle Bar=Foo] command-line requires us to go inside file [Bar] to
    * drop the declarations that originate from [Foo]. *)
   let drop l =
@@ -428,7 +423,7 @@ Supported options:|}
   let files = drop files in
   tick_print true "Drop";
 
-  (* 9. Final transformation on the AST: go to C names. This must really be done
+  (* 8. Final transformation on the AST: go to C names. This must really be done
    * at the last minute, since it invalidates pretty much any map ever built. *)
   let files = Simplify.to_c_names files in
 
