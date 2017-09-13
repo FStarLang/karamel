@@ -202,7 +202,7 @@ Supported options:|}
     "-fcurly-braces", Arg.Set Options.curly_braces, "  always add curly braces \
       around blocks";
     "-fc89", Arg.Set Options.c89, "  use C89 scoping rules; use in conjunction \
-      with -fnoanonymous-unions and -fnocompound-literals";
+      with -fnouint128 -fnoanonymous-unions and -fnocompound-literals";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)

@@ -37,8 +37,8 @@ extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
 Structs2.exe: EXTRA = -wasm -d force-c
 ML16.exe: EXTRA = ml16-native.c
 Scope.exe: EXTRA = -ccopt -O3
-C89.exe: EXTRA = -ccopts -std=c89,-pedantic -fc89
 Crypto.Symmetric.Chacha20.exe: EXTRA=$(CRYPTO_OPTS) main-Chacha.c
+C89.exe Loops.exe: EXTRA = -ccopts -std=c89,-pedantic -fc89 -fnouint128
 
 .PHONY: Crypto.Symmetric.Chacha20.fst
 
