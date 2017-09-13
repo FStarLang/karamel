@@ -895,6 +895,7 @@ let rec skip (e: expr) =
       mk (ELet (b, e1, under_pushframe e2))
   | ELet (b, e1, e2) ->
       mk (ELet (b, e1, skip e2))
+  (* Descend into conditionals that are in return position. *)
   | EIfThenElse (e1, e2, e3) ->
       mk (EIfThenElse (e1, skip e2, skip e3))
   | ESwitch (e, branches) ->

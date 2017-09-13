@@ -50,6 +50,15 @@ let hoist_lets = object (self)
 
     | _ ->
         let b, e2 = DeBruijn.open_binder b e2 in
+        (* TODO: if strengthen array fails, leave it "as is", because it may be
+         * something like:
+         *
+         *   push_frame
+         *   let x = ...
+         *   foo ();
+         *   let y = bufcreate 0 x
+         *
+         * which is actually legit (it's still "right under" the push_frame). *)
         let b = { b with typ = strengthen_array b.typ e1 } in
         env := b :: !env;
         let e1 = self#visit env e1 in
