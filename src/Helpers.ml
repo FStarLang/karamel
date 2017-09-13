@@ -178,7 +178,8 @@ let strengthen_array t e2 =
           TArray (t, k)
       | _ ->
           Warnings.fatal_error "In expression:\n%a\nthe array needs to be \
-            hoisted to the nearest enclosing push_frame for soundness, but its \
+            hoisted (to the nearest enclosing push_frame, for soundness, or to \
+            the nearest C block scope, for C89), but its \
             size is non-constant, so I don't know what declaration to write"
             pexpr e2
       end
