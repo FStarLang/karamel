@@ -12,7 +12,7 @@ FILES		= \
   Scope.exe Attributes.exe Unsound.exe Substitute.exe \
   InlineTest.exe Ghost1.exe Loops.exe Structs.exe \
   Recursive.exe RecursivePoly.exe Structs2.exe StringLit.exe \
-  FunctionalEncoding.exe
+  FunctionalEncoding.exe C89.exe
 EXTRA_FILES	= \
   Crypto.Symmetric.Chacha20.exe
 
@@ -37,6 +37,7 @@ extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
 Structs2.exe: EXTRA = -wasm -d force-c
 ML16.exe: EXTRA = ml16-native.c
 Scope.exe: EXTRA = -ccopt -O3
+C89.exe: EXTRA = -ccopts -std=c89,-pedantic -fc89
 Crypto.Symmetric.Chacha20.exe: EXTRA=$(CRYPTO_OPTS) main-Chacha.c
 
 .PHONY: Crypto.Symmetric.Chacha20.fst
