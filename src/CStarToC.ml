@@ -120,6 +120,8 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
   | _ ->
       Compound stmts
 
+(* Ideally, most of the for-loops should've been desugared C89-style if needed
+ * beforehand. *)
 and mk_for_loop name t init test incr body =
   if !Options.c89 then
     Compound [
