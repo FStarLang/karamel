@@ -44,8 +44,10 @@ let default_options () =
     (if !parentheses then "" else ",-Wno-parentheses")
   |] in
   let gcc_options = Array.append gcc_like_options [| "-ccopt"; "-std=c11" |] in
+  let gcc_c89_options = Array.append gcc_like_options [| "-ccopt"; "-std=c89" |] in
   [
     "gcc", gcc_options;
+    "gcc-c89", gcc_c89_options;
     "clang", gcc_options;
     "g++", gcc_like_options;
     "compcert", [|

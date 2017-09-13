@@ -9,7 +9,8 @@ void print_string(const char *s) {
 }
 
 void print_bytes(uint8_t *b, uint32_t len) {
-  for (uint32_t i = 0; i < len; i++){
+  uint32_t i;
+  for (i = 0; i < len; i++){
     printf("%02x", b[i]);
   }
   printf("\n");
