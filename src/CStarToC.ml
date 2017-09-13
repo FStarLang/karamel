@@ -10,7 +10,7 @@ let zero = C.Constant (K.UInt8, "0")
 let is_array = function Array _ -> true | _ -> false
 
 let escape_string s =
-  (* TODO: dive into the C lexical conventions + fix the F\* lexer *)
+  (* TODO: dive into the C lexical conventions + fix the F* lexer *)
   String.escaped s
 
 type rec_name = {
@@ -120,17 +120,29 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
   | _ ->
       Compound stmts
 
+and mk_for_loop name t init test incr body =
+  if !Options.c89 then
+    Compound [
+      Decl (t, None, [ Ident name, None ]);
+      For (
+        `Expr (Op2 (K.Assign, Name name, init)),
+        test, incr, body)
+    ]
+  else
+    For (
+      `Decl (t, None, [ Ident name, Some (InitExpr init)]),
+      test, incr, body)
+
 and mk_for_loop_initializer e_array e_size e_value: C.stmt =
-  match e_size with 
+  match e_size with
   | C.Constant (_, "1")
   | C.Cast (_, C.Constant (_, "1")) ->
       Expr (Op2 (K.Assign, Index (e_array, Constant (K.UInt, "0")), e_value))
   | _ ->
-      For (
-        (Int K.UInt, None, [ Ident "_i", Some (InitExpr zero)]),
-        Op2 (K.Lt, Name "_i", e_size),
-        Op1 (K.PreIncr, Name "_i"),
-        Expr (Op2 (K.Assign, Index (e_array, Name "_i"), e_value)))
+      mk_for_loop "_i" (Int K.UInt) zero
+        (Op2 (K.Lt, Name "_i", e_size))
+        (Op1 (K.PreIncr, Name "_i"))
+        (Expr (Op2 (K.Assign, Index (e_array, Name "_i"), e_value)))
 
 and mk_memset_zero_initializer e_array e_size =
   Expr (Call (Name "memset", [
@@ -330,12 +342,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let buf = mk_expr buf in
       let v = mk_expr v in
       let size = mk_expr size in
-      [ For (
-          (Int K.UInt, None, [ Ident "_i", Some (InitExpr zero)]),
-          Op2 (K.Lt, Name "_i", size),
-          Op1 (K.PreIncr, Name "_i"),
-          Expr (Op2 (K.Assign, Index (buf, Name "_i"), v)))]
-
+      [ mk_for_loop_initializer buf size v ]
 
   | While (e1, e2) ->
       [ While (mk_expr e1, mk_compound_if (mk_stmts e2)) ]
@@ -363,11 +370,12 @@ and mk_stmt (stmt: stmt): C.stmt list =
 
   | For (binder, e1, e2, e3, b) ->
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
-      let init = struct_as_initializer e1 in
+      let name = match decl with Ident name -> name | _ -> failwith "not an ident" in
+      let init = match struct_as_initializer e1 with InitExpr init -> init | _ -> failwith "not an initexpr" in
       let e2 = mk_expr e2 in
       let e3 = match mk_stmt e3 with [ Expr e3 ] -> e3 | _ -> assert false in
       let b = mk_compound_if (mk_stmts b) in
-      [ For ((spec, None, [ decl, Some init ]), e2, e3, b)]
+      [ mk_for_loop name spec init e2 e3 b ]
 
 
 and mk_stmts stmts: C.stmt list =
