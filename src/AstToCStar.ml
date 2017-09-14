@@ -312,7 +312,6 @@ and mk_stmts env e ret_type =
         let e4 = mk_block env' false e4 in
         let e =
           if is_solo_assignment then
-            let _ = KPrint.bprintf "e1 is %a\n" pexpr e1 in
             let e1 = KList.one (mk_block env false e1) in
             CStar.For (`Stmt e1, e2, e3, e4)
           else
