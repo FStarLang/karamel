@@ -344,7 +344,7 @@ let rec hoist_stmt e =
       assert (e.typ = TUnit);
       (* The semantics is that [e1] is evaluated once, so it's fine to hoist any
        * let-bindings it generates. *)
-      let lhs1, e1 = hoist_expr Unspecified e1 in
+      let lhs1, e1 = hoist_expr (if binder.node.meta = Some MetaSequence then UnderStmtLet else Unspecified) e1 in
       let binder, s = opening_binder binder in
       let e2 = s e2 and e3 = s e3 and e4 = s e4 in
       (* [e2] and [e3], however, are evaluated at each loop iteration! *)
@@ -500,7 +500,7 @@ and hoist_expr pos e =
         [ b, mk (EWhile (e1, e2)) ], mk EUnit
 
   | EFor (binder, e1, e2, e3, e4) ->
-      let lhs1, e1 = hoist_expr Unspecified e1 in
+      let lhs1, e1 = hoist_expr (if binder.node.meta = Some MetaSequence then UnderStmtLet else Unspecified) e1 in
       let binder, s = opening_binder binder in
       let e2 = s e2 and e3 = s e3 and e4 = s e4 in
       let lhs2, e2 = hoist_expr Unspecified e2 in

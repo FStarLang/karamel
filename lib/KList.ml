@@ -96,3 +96,8 @@ let split_at_last l =
 
 let last l =
   snd (split_at_last l)
+
+let one l =
+  match l with
+  | [ x ] -> x
+  | _ -> invalid_arg ("one: argument is of length " ^ string_of_int (List.length l))

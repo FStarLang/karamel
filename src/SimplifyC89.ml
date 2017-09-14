@@ -33,8 +33,20 @@ let hoist_lets = object (self)
     (* No ELet's in e1 *)
     EIfThenElse (e1, self#scope_start t e2, self#scope_start t e3)
 
-  method! efor _ _ b e1 e2 e3 e4 =
-    EFor (b, e1, e2, e3, self#scope_start TUnit e4)
+  method! efor env _ b e1 e2 e3 e4 =
+    if b.node.meta = Some MetaSequence then
+      EFor (b, e1, e2, e3, self#scope_start TUnit e4)
+    else
+      let b, subst = DeBruijn.opening_binder b in
+      let e2 = subst e2 in
+      let e3 = subst e3 in
+      let e4 = subst e4 in
+      env := b :: !env;
+      EFor (sequence_binding (),
+        with_unit (EAssign (with_type b.typ (EOpen (b.node.name, b.node.atom)), e1)),
+        DeBruijn.lift 1 e2,
+        DeBruijn.lift 1 e3,
+        self#scope_start TUnit (DeBruijn.lift 1 e4))
 
   method! elet env t b e1 e2 =
     match e1.node with
