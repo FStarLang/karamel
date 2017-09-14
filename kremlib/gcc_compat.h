@@ -16,7 +16,7 @@
 
 #if !defined(PREDEF_STANDARD_C_1989)
 #error "need at least a a c89 compiler"
-#elif !defined(PREDEF_STANDART_C_1994) && !defined(PREDEF_STANDART_C_1999)
+#elif !defined(PREDEF_STANDARD_C_1999)
 #define inline __inline__
 #endif
 
