@@ -217,7 +217,10 @@ end
  *   else
  *     x <- e'
  *
- * The code is prettier if we push the assignment under lets, ifs and switches. *)
+ * The code is prettier if we push the assignment under lets, ifs and switches.
+ * We also rewrite:
+ *   x <- if ... then ...
+ * the same way. *)
 let let_if_to_assign = object (self)
 
   inherit [unit] map
@@ -240,18 +243,14 @@ let let_if_to_assign = object (self)
     | _ ->
         invalid_arg "make_assignment"
 
-  method! elet () _ b e1 e2 =
+  method! elet () t b e1 e2 =
     match e1.node, b.node.meta with
     | (EIfThenElse _ | ESwitch _), None ->
         (* [b] holds the return value of the conditional *)
-        let b, e2 = open_binder b e2 in
         let b = mark_mut b in
-        let lhs = { node = EOpen (b.node.name, b.node.atom); typ = b.typ } in
-        let e = self#make_assignment lhs e1 in
-        ELet (b, any, close_binder b ({
-          node = ELet (sequence_binding (), e, DeBruijn.lift 1 (self#visit () e2));
-          typ = e2.typ
-        }))
+        let e = self#make_assignment (with_type b.typ (EBound 0)) (DeBruijn.lift 1 e1) in
+        ELet (b, any, with_type t (
+          ELet (sequence_binding (), e, DeBruijn.lift 1 (self#visit () e2))))
 
     | _ ->
         (* This may be a statement-let; visit both. *)
