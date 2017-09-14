@@ -175,7 +175,7 @@ let sequence_to_let = object (self)
         failwith "[sequence_to_let]: impossible (empty sequence)"
 
   method! eignore () t e =
-    (nest_in_return_pos t (fun e -> with_type t (EIgnore (self#visit () e))) e).node
+    (nest_in_return_pos t (fun _ e -> with_type t (EIgnore (self#visit () e))) e).node
 
 end
 
@@ -222,52 +222,48 @@ let let_if_to_assign = object (self)
 
   inherit [unit] map
 
+  method private make_assignment lhs e1 =
+    let nest_assign = nest_in_return_pos TUnit (fun i innermost -> {
+      node = EAssign (DeBruijn.lift i lhs, innermost);
+      typ = TUnit
+    }) in
+    match e1.node with
+    | EIfThenElse (cond, e_then, e_else) ->
+        let e_then = nest_assign (self#visit () e_then) in
+        let e_else = nest_assign (self#visit () e_else) in
+        with_unit (EIfThenElse (cond, e_then, e_else))
+
+    | ESwitch (e, branches) ->
+        let branches = List.map (fun (tag, e) -> tag, nest_assign (self#visit () e)) branches in
+        with_unit (ESwitch (e, branches))
+
+    | _ ->
+        invalid_arg "make_assignment"
+
   method! elet () _ b e1 e2 =
     match e1.node, b.node.meta with
-    | EIfThenElse (cond, e_then, e_else), None ->
-        (* Recursively transform *)
-        let e_then = self#visit () e_then in
-        let e_else = self#visit () e_else in
+    | (EIfThenElse _ | ESwitch _), None ->
         (* [b] holds the return value of the conditional *)
+        let b, e2 = open_binder b e2 in
         let b = mark_mut b in
-        let b, e2 = open_binder b e2 in
-        let nest_assign = nest_in_return_pos TUnit (fun innermost -> {
-          node = EAssign ({ node = EOpen (b.node.name, b.node.atom); typ = b.typ }, innermost);
-          typ = TUnit
-        }) in
-        (* Once we find the nested-most return expression, we turn it into an
-         * assignment. *)
-        let e_then = nest_assign e_then in
-        let e_else = nest_assign e_else in
-        let e_ifthenelse = {
-          node = EIfThenElse (cond, e_then, e_else);
-          typ = TUnit
-        } in
-        let seq_b = sequence_binding () in
-        ELet (b, { node = EAny; typ = TAny }, close_binder b ({
-          node = ELet (seq_b, e_ifthenelse, close_binder seq_b (self#visit () e2));
+        let lhs = { node = EOpen (b.node.name, b.node.atom); typ = b.typ } in
+        let e = self#make_assignment lhs e1 in
+        ELet (b, any, close_binder b ({
+          node = ELet (sequence_binding (), e, DeBruijn.lift 1 (self#visit () e2));
           typ = e2.typ
         }))
-    | ESwitch (e, branches), None ->
-        let b = { b with node = { b.node with mut = true }} in
-        let b, e2 = open_binder b e2 in
-        let nest_assign = nest_in_return_pos TUnit (fun innermost -> {
-          node = EAssign ({ node = EOpen (b.node.name, b.node.atom); typ = b.typ }, innermost);
-          typ = TUnit
-        }) in
-        let branches = List.map (fun (tag, e) -> tag, nest_assign (self#visit () e)) branches in
-        let e_switch = {
-          node = ESwitch (e, branches);
-          typ = TUnit
-        } in
-        let seq_b = sequence_binding () in
-        ELet (b, { node = EAny; typ = TAny }, close_binder b ({
-          node = ELet (seq_b, e_switch, close_binder seq_b (self#visit () e2));
-          typ = e2.typ
-        }))
+
     | _ ->
-        (* There are no more nested lets at this stage *)
+        (* This may be a statement-let; visit both. *)
         ELet (b, self#visit () e1, self#visit () e2)
+
+  method! eassign () _ e1 e2 =
+    match e2.node with
+    | (EIfThenElse _ | ESwitch _) ->
+        (self#make_assignment e1 e2).node
+
+    | _ ->
+        EAssign (e1, e2)
 
 end
 
@@ -667,7 +663,7 @@ let rec fixup_return_pos e =
       (fixup_return_pos e).node
   | ELet (_, ({ node = (EIfThenElse _ | ESwitch _); _ } as e),
     { node = ECast ({ node = EBound 0; _ }, t); _ }) ->
-      (nest_in_return_pos t (fun e -> with_type t (ECast (e, t))) (fixup_return_pos e)).node
+      (nest_in_return_pos t (fun _ e -> with_type t (ECast (e, t))) (fixup_return_pos e)).node
   | EIfThenElse (e1, e2, e3) ->
       EIfThenElse (e1, fixup_return_pos e2, fixup_return_pos e3)
   | ESwitch (e1, branches) ->

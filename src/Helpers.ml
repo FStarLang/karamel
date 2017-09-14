@@ -316,26 +316,25 @@ let safe_substitution es e t =
 
 (* Descend into a terminal position, then call [f] on the sub-term in terminal
  * position. This function is only safe to call if all binders have been opened. *)
-let rec nest_in_return_pos typ f e =
+let rec nest_in_return_pos i typ f e =
   match e.node with
   | ELet (b, e1, e2) ->
-      let e2 = nest_in_return_pos typ f e2 in
+      let e2 = nest_in_return_pos (i + 1) typ f e2 in
       { node = ELet (b, e1, e2); typ }
   | EIfThenElse (e1, e2, e3) ->
-      let e2 = nest_in_return_pos typ f e2 in
-      let e3 = nest_in_return_pos typ f e3 in
+      let e2 = nest_in_return_pos i typ f e2 in
+      let e3 = nest_in_return_pos i typ f e3 in
       { node = EIfThenElse (e1, e2, e3); typ }
   | ESwitch (e, branches) ->
       let branches = List.map (fun (t, e) ->
-        t, nest_in_return_pos typ f e
+        t, nest_in_return_pos i typ f e
       ) branches in
       { node = ESwitch (e, branches); typ }
-  | EMatch (e, branches) ->
-      let branches = List.map (fun (bs, pat, e) ->
-        bs, pat, nest_in_return_pos typ f e
-      ) branches in
-      { node = EMatch (e, branches); typ }
+  | EMatch _ ->
+      failwith "Matches should've been desugared"
   | _ ->
-      f e
+      f i e
 
-let push_ignore = nest_in_return_pos TUnit (fun e -> with_type TUnit (EIgnore (strip_cast e)))
+let nest_in_return_pos = nest_in_return_pos 0
+
+let push_ignore = nest_in_return_pos TUnit (fun _ e -> with_type TUnit (EIgnore (strip_cast e)))
