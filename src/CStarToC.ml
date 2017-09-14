@@ -380,7 +380,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ mk_for_loop name spec init e2 e3 b ]
 
 
-and mk_stmts stmts: C.stmt list =
+and mk_stmts0 stmts: C.stmt list =
   match stmts with
   | PushFrame :: stmts ->
       let frame, remaining = mk_stmts' [] stmts in
@@ -391,6 +391,26 @@ and mk_stmts stmts: C.stmt list =
       mk_stmt stmt @ mk_stmts stmts
   | [] ->
       []
+
+and mk_stmts stmts: C.stmt list =
+  let stmts = mk_stmts0 stmts in
+  let rec fixup_c89 in_decls (stmts: C.stmt list) =
+    match stmts with
+    | C.Decl _ as stmt :: stmts ->
+        if in_decls then
+          stmt :: fixup_c89 true stmts
+        else
+          [ C.Compound (stmt :: fixup_c89 true stmts) ]
+    | stmt :: stmts ->
+        stmt :: fixup_c89 false stmts
+    | [] ->
+        []
+  in
+  if !Options.c89 then
+    fixup_c89 true stmts
+  else
+    stmts
+
 
 (** Consume the list of statements until the next pop frame, and return the
  * translated statements within the frame, along with the remaining statements

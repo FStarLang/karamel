@@ -160,32 +160,40 @@ let is_array = function TArray _ -> true | _ -> false
 
 (* If [e2] is assigned into an expression of type [t], we can sometimes
  * strengthen the type [t] into an array type. *)
-let strengthen_array t e2 =
+let strengthen_array' t e2 =
   let ensure_buf = function TBuf t -> t | _ -> failwith "not a buffer" in
   let open Common in
   match t, e2.node with
   | TArray _, _ ->
-      t
+      Some t
 
   | _, EBufCreateL (Stack, l) ->
       let t = ensure_buf t in
-      TArray (t, (K.Int, string_of_int (List.length l)))
+      Some (TArray (t, (K.Int, string_of_int (List.length l))))
 
   | _, EBufCreate (Stack, _, size) ->
       let t = ensure_buf t in
       begin match size.node with
       | EConstant k ->
-          TArray (t, k)
+          Some (TArray (t, k))
       | _ ->
-          Warnings.fatal_error "In expression:\n%a\nthe array needs to be \
-            hoisted (to the nearest enclosing push_frame, for soundness, or to \
-            the nearest C block scope, for C89), but its \
-            size is non-constant, so I don't know what declaration to write"
-            pexpr e2
+          None
       end
 
   | _ ->
+      Some t
+
+let strengthen_array t e2 =
+  match strengthen_array' t e2 with
+  | Some t ->
       t
+  | None ->
+      Warnings.fatal_error "In expression:\n%a\nthe array needs to be \
+        hoisted (to the nearest enclosing push_frame, for soundness, or to \
+        the nearest C block scope, for C89), but its \
+        size is non-constant, so I don't know what declaration to write"
+        pexpr e2
+
 
 let is_X_value self (e: expr) =
   match e.node with
