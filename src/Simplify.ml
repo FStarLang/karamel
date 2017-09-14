@@ -849,6 +849,7 @@ let rec hoist_bufcreate (e: expr) =
       begin match strengthen_array b.typ e1 with
       | TArray _ as typ ->
           let b, e2 = open_binder b e2 in
+          let b = { b with typ } in
           let bs, e2 = hoist_bufcreate e2 in
           (mark_mut b, any) :: bs,
           if e1.node <> EAny then
