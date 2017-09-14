@@ -13,6 +13,8 @@ let hoist_lets = object (self)
   inherit [_] map
 
   method private scope_start t e =
+    (* We skip through actual let-bindings (which will generate declarations at
+     * the beginning of a scope), then start hoisting. *)
     match e.node with
     | ELet (b, e1, e2) when b.node.meta <> Some MetaSequence ->
         (* No ELet's in e1 so nothing to hoist *)
@@ -40,23 +42,20 @@ let hoist_lets = object (self)
       let b, subst = DeBruijn.opening_binder b in
       let e2 = subst e2 in
       let e3 = subst e3 in
-      let e4 = subst e4 in
+      let e4 = self#scope_start TUnit (subst e4) in
       env := b :: !env;
       EFor (sequence_binding (),
         with_unit (EAssign (with_type b.typ (EOpen (b.node.name, b.node.atom)), e1)),
         DeBruijn.lift 1 e2,
         DeBruijn.lift 1 e3,
-        self#scope_start TUnit (DeBruijn.lift 1 e4))
+        DeBruijn.lift 1 e4)
 
   method! elet env t b e1 e2 =
     match e1.node with
     | EPushFrame ->
-        ELet (sequence_binding (),
-          with_unit EPushFrame,
-          DeBruijn.lift 1 (self#scope_start t e2))
+        ELet (b, e1, self#scope_start t e2)
 
     | _ when b.node.meta = Some MetaSequence ->
-        let e1 = self#visit env e1 in
         let e2 = self#visit env e2 in
         ELet (b, e1, e2)
 
@@ -66,14 +65,13 @@ let hoist_lets = object (self)
             let b, e2 = DeBruijn.open_binder b e2 in
             let b = { b with typ } in
             env := b :: !env;
-            let e1 = self#visit env e1 in
             let e2 = self#visit env e2 in
             ELet (sequence_binding (),
               with_unit (EAssign (with_type b.typ (EOpen (b.node.name, b.node.atom)), e1)),
               DeBruijn.lift 1 e2)
         | None ->
-            (* Might be salvageable by hoist_buf *)
-            let e1 = self#visit env e1 in
-            let e2 = self#visit env e2 in
-            ELet (b, e1, e2)
+            (* Can't hoist because someone uses a non-constant sized array on
+             * the stack (argh!!!). AstToCStar will insert a new block scope
+             * starting here to make sure it's valid C89... *)
+            ELet (b, e1, self#scope_start t e2)
 end
