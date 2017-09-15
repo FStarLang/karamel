@@ -19,6 +19,11 @@ type rec_name = {
   used: bool ref;
 }
 
+let assert_var =
+  function
+  | Var _ -> ()
+  | _ -> failwith "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = "
+
 (* Turns the ML declaration inside-out to match the C reading of a type.
  * See en.cppreference.com/w/c/language/declarations *)
 let rec mk_spec_and_decl name rec_name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
@@ -171,7 +176,43 @@ and mk_check_size init n_elements: C.stmt list =
       default
 
 and mk_sizeof t =
-  C.Call (C.Name "sizeof", [ C.Type t ])
+  C.Call (C.Name "sizeof", [ t ])
+
+and mk_malloc t s =
+  C.Call (C.Name "malloc", [ C.Op2 (K.Mult, mk_sizeof t, s) ])
+
+and mk_calloc t s =
+  C.Call (C.Name "calloc", [ s; mk_sizeof t ])
+
+and mk_eternal_bufcreate buf init size =
+  let size = mk_expr size in
+  let e, extra_stmt = match init with
+    | Constant (_, "0") ->
+        mk_calloc (mk_expr init) size, []
+    | Any | Cast (Any, _) ->
+        mk_malloc (mk_expr init) size, []
+    | _ ->
+        mk_malloc (mk_expr init) size,
+        [ mk_for_loop_initializer (mk_expr buf) size (mk_expr init) ]
+  in
+  mk_check_size (mk_expr init) size, e, extra_stmt
+
+and ensure_pointer t =
+  match t with
+  | Array (t, _)
+  | Pointer t ->
+      t
+  | _ ->
+      Warnings.fatal_error "let-bound bufcreate has type %s instead of Pointer" (show_typ t)
+
+and ensure_array t size =
+  match t with
+  | Pointer t ->
+      Array (t, size)
+  | Array _ as t ->
+      t
+  | t ->
+      Warnings.fatal_error "impossible: %s" (show_typ t)
 
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
@@ -188,40 +229,19 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Expr (mk_expr e) ]
 
   | Decl (binder, BufCreate (Eternal, init, size)) ->
+      ignore (ensure_pointer binder.typ);
+      let stmt_check, expr_alloc, stmt_extra =
+        mk_eternal_bufcreate (Var binder.name) init size
+      in
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
-      let type_name =
-        match binder.typ with
-        | Array (t, _)
-        | Pointer t -> mk_spec_and_declarator "" t
-        | _ -> Warnings.fatal_error "let-bound bufcreate has type %s instead of Pointer" (show_typ binder.typ)
-      in
-      let size = mk_expr size in
-      let e, extra_stmt = match init with
-        | Constant (_, "0") ->
-            C.Call (C.Name "calloc", [ size; mk_sizeof type_name ]), []
-        | Any | Cast (Any, _) ->
-            C.Call (C.Name "malloc", [
-              C.Op2 (K.Mult, mk_sizeof type_name, size)
-            ]), []
-        | _ ->
-            C.Call (C.Name "malloc", [
-              C.Op2 (K.Mult, mk_sizeof type_name, size)
-            ]), [ mk_for_loop_initializer (Name binder.name) size (mk_expr init) ]
-      in
-      let decl: C.stmt list = [ Decl (spec, None, [ decl, Some (InitExpr e)]) ] in
-      mk_check_size (mk_expr init) size @
-      decl @
-      extra_stmt
+      let decl: C.stmt list = [ Decl (spec, None, [ decl, Some (InitExpr expr_alloc)]) ] in
+      stmt_check @ decl @ stmt_extra
 
   | Decl (binder, BufCreate (Stack, init, size)) ->
       (* In the case where this is a buffer creation in the C* meaning, then we
        * declare a fixed-length array; this is an "upcast" from pointer type to
        * array type, in the C sense. *)
-      let t = match binder.typ with
-        | Pointer t -> Array (t, size)
-        | Array _ as t -> t
-        | t -> Warnings.fatal_error "impossible: %s" (show_typ t)
-      in
+      let t = ensure_array binder.typ size in
       let module T = struct type init = Nope | Memset | Forloop end in
       let (maybe_init, init_type): C.init option * T.init = match init, size with
         | _, Constant (_, "0") ->
@@ -259,14 +279,11 @@ and mk_stmt (stmt: stmt): C.stmt list =
       decl @
       extra_stmt
 
-  | Decl (binder, BufCreateL (l, inits)) ->
-      if l <> Stack then
-        failwith "TODO: createL / eternal";
-      let t = match binder.typ with
-        | Pointer t -> Array (t, Constant (K.uint32_of_int (List.length inits)))
-        | Array _ as t -> t
-        | t -> Warnings.fatal_error "impossible: %s" (show_typ t)
-      in
+  | Decl (_, BufCreateL (Eternal, _)) ->
+      failwith "TODO (desugar into a series of assignments)"
+
+  | Decl (binder, BufCreateL (Stack, inits)) ->
+      let t = ensure_array binder.typ (Constant (K.uint32_of_int (List.length inits))) in
       let spec, decl = mk_spec_and_declarator binder.name t in
       [ Decl (spec, None, [ decl, Some (Initializer (List.map (fun e ->
         InitExpr (mk_expr e)
@@ -284,10 +301,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
         [ If (mk_expr e, mk_compound_if (mk_stmts b1)) ]
 
   | Copy (e1, _, BufCreate (Stack, init, size)) ->
-      begin match e1 with
-      | Var _ -> ()
-      | _ -> failwith "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = "
-      end;
+      assert_var e1;
       begin match init with
       | Any | Cast (Any, _) ->
           mk_check_size (mk_expr init) (mk_expr size)
@@ -295,7 +309,8 @@ and mk_stmt (stmt: stmt): C.stmt list =
           mk_check_size (mk_expr init) (mk_expr size) @
           [ mk_memset_zero_initializer (mk_expr e1) (mk_expr size) ]
       | _ ->
-          (* JP: why is this not a call to memcpy? *)
+          (* JP: a potential optimization is to use memset when the initial
+           * value is a uint8 / int8 *)
           mk_check_size (mk_expr init) (mk_expr size) @
           [ mk_for_loop_initializer (mk_expr e1) (mk_expr size) (mk_expr init) ]
       end
@@ -316,11 +331,21 @@ and mk_stmt (stmt: stmt): C.stmt list =
   | Assign (BufRead _, (Any | Cast (Any, _))) ->
       []
 
-  | BufWrite (_, _, (Any | Cast (Any, _))) ->
-      []
+  | Assign (e1, BufCreate (Eternal, init, size)) ->
+      assert_var e1;
+      let stmt_check, expr_alloc, stmt_extra = mk_eternal_bufcreate e1 init size in
+      stmt_check @
+      [ Expr (Assign (mk_expr e1, expr_alloc)) ] @
+      stmt_extra
+
+  | Assign (_, BufCreateL (Eternal, _)) ->
+      failwith "TODO"
 
   | Assign (e1, e2) ->
       [ Expr (Assign (mk_expr e1, mk_expr e2)) ]
+
+  | BufWrite (_, _, (Any | Cast (Any, _))) ->
+      []
 
   | BufWrite (e1, e2, e3) ->
       [ Expr (Assign (mk_index e1 e2, mk_expr e3)) ]

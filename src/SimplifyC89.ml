@@ -61,7 +61,7 @@ let hoist_lets = object (self)
 
     | _ ->
         match strengthen_array' b.typ e1 with
-        | Some typ ->
+        | Some typ when e1.node <> EAny ->
             let b, e2 = DeBruijn.open_binder b e2 in
             let b = { b with typ } in
             env := b :: !env;
@@ -69,7 +69,7 @@ let hoist_lets = object (self)
             ELet (sequence_binding (),
               with_unit (EAssign (with_type b.typ (EOpen (b.node.name, b.node.atom)), e1)),
               DeBruijn.lift 1 e2)
-        | None ->
+        | _ ->
             (* Can't hoist because someone uses a non-constant sized array on
              * the stack (argh!!!). AstToCStar will insert a new block scope
              * starting here to make sure it's valid C89... *)
