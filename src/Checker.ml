@@ -625,6 +625,7 @@ and infer' env e =
       | _ ->
           ()
       end;
+      ignore (List.map (infer env) args);
       (* Preserve the provided type annotation that (hopefully) was there in the
        * first place. *)
       e.typ
