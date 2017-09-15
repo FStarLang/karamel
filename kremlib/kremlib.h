@@ -13,20 +13,9 @@
 /******************************************************************************/
 
 // Define __cdecl and friends when using GCC, so that we can safely compile code
-// that contains __cdecl on all platforms.
-#ifndef _MSC_VER
-// Use the gcc predefined macros if on a platform/architecture that set them.
-// Otherwise define them to be empty.
-#ifndef __cdecl
-#define __cdecl
-#endif
-#ifndef __stdcall
-#define __stdcall
-#endif
-#ifndef __fastcall
-#define __fastcall
-#endif
-#endif
+// that contains __cdecl on all platforms. Note that this is in a separate
+// header so that Dafny-generated code can include just this file.
+#include "gcc_compat.h"
 
 // GCC-specific attribute syntax; everyone else gets the standard C inline
 // attribute.
@@ -74,26 +63,26 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
 
 // In statement position, exiting is easy.
 #define KRML_EXIT                                                              \
-do {                                                                         \
-  printf("Unimplemented function at %s:%d\n", __FILE__, __LINE__);           \
-  exit(254);                                                                 \
-} while (0)
+  do {                                                                         \
+    printf("Unimplemented function at %s:%d\n", __FILE__, __LINE__);           \
+    exit(254);                                                                 \
+  } while (0)
 
 // In expression position, use the comma-operator and a malloc to return an
 // expression of the right size. KreMLin passes t as the parameter to the macro.
 #define KRML_EABORT(t, msg)                                                    \
-(printf("KreMLin abort at %s:%d\n%s\n", __FILE__, __LINE__, msg), exit(255), \
- *((t *)malloc(sizeof(t))))
+  (printf("KreMLin abort at %s:%d\n%s\n", __FILE__, __LINE__, msg), exit(255), \
+   *((t *)malloc(sizeof(t))))
 
 // In FStar.Buffer.fst, the size of arrays is uint32_t, but it's a number of
 // *elements*. Do an ugly, run-time check (some of which KreMLin can eliminate).
 #define KRML_CHECK_SIZE(elt, size)                                             \
-if (((size_t)size) > SIZE_MAX / sizeof(elt)) {                               \
-  printf("Maximum allocatable size exceeded, aborting before overflow at "   \
-         "%s:%d\n",                                                          \
-         __FILE__, __LINE__);                                                \
-  exit(253);                                                                 \
-}
+  if (((size_t)size) > SIZE_MAX / sizeof(elt)) {                               \
+    printf("Maximum allocatable size exceeded, aborting before overflow at "   \
+           "%s:%d\n",                                                          \
+           __FILE__, __LINE__);                                                \
+    exit(253);                                                                 \
+  }
 
 #define FStar_Buffer_eqb(b1, b2, n)                                            \
   (memcmp((b1), (b2), (n) * sizeof((b1)[0])) == 0)
