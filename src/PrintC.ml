@@ -223,10 +223,14 @@ and p_decl_and_init (decl, init) =
     | None ->
         empty)
 
+and p_decl (decl, _) =
+    p_type_declarator decl 
+
 and p_declaration (spec, stor, decl_and_inits) =
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
   stor ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
+
 
 (* This is abusing the definition of a compound statement to ensure it is printed with braces. *)
 let nest_if f stmt =
@@ -268,22 +272,39 @@ let protect_ite_if_needed s =
   | IfElse _ when !Options.parentheses -> Compound [ s ]
   | _ -> s
 
-let rec p_stmt (s: stmt) =
+
+let rec p_stmt_list (s: stmt list) (in_decls: bool) =
+  match s with
+  | Decl d :: r when in_decls ->
+      group (p_declaration d ^^ semi ^^ hardline ^^ p_stmt_list r true)
+  | Decl d :: r when !Options.cc = "gcc-c89" && not in_decls ->
+      group (lbrace ^^ break1 ^^ p_declaration d ^^ semi ^^ hardline ^^ p_stmt_list r true ^^ rbrace)
+  | f :: r -> 
+      group (p_stmt f ^^ hardline ^^ p_stmt_list r false)
+  | _ -> empty
+
+and p_stmt (s: stmt) =
   (* [p_stmt] is responsible for appending [semi] and calling [group]! *)
   match s with
   | Compound stmts ->
-      lbrace ^^ nest 2 (hardline ^^ separate_map hardline p_stmt stmts) ^^
+      lbrace ^^ nest 2 (hardline ^^ p_stmt_list stmts true) ^^
       hardline ^^ rbrace
   | Expr expr ->
       group (p_expr expr ^^ semi)
   | Comment s ->
       group (string "/*" ^/^ separate break1 (words s) ^/^ string "*/")
+  | For (decl, e2, e3, stmt) when !Options.cc = "gcc-c89" ->
+      group (lbrace ^^ hardline ^^ p_declaration decl ^^ semi ^^ hardline ^^
+	     string "for" ^/^ lparen ^^ nest 2 (semi ^^ break1 ^^
+             p_expr e2 ^^ semi ^^ break1 ^^
+             p_expr e3 
+            ) ^^ rparen) ^^ nest_if p_stmt stmt ^^ rbrace
   | For (decl, e2, e3, stmt) ->
       group (string "for" ^/^ lparen ^^ nest 2 (
-        p_declaration decl ^^ semi ^^ break1 ^^
-        p_expr e2 ^^ semi ^^ break1 ^^
-        p_expr e3
-      ) ^^ rparen) ^^ nest_if p_stmt stmt
+             p_declaration decl ^^ semi ^^ break1 ^^
+             p_expr e2 ^^ semi ^^ break1 ^^
+             p_expr e3 
+            ) ^^ rparen) ^^ nest_if p_stmt stmt 
   | If (e, stmt) ->
       group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^^
       nest_if p_stmt (protect_ite_if_needed stmt)
@@ -326,7 +347,9 @@ let p_decl_or_function (df: declaration_or_function) =
   | Decl d ->
       group (p_declaration d ^^ semi)
   | Function (inline, d, stmt) ->
-      let inline = if inline then string "inline" ^^ space else empty in
+      let inline = if inline then 
+        string "inline" ^^ space 
+      else empty in
       inline ^^ group (p_declaration d) ^/^ p_stmt stmt
 
 let print_files =

@@ -7,13 +7,14 @@
 #include <string.h>
 #include <time.h>
 
-// This file has a hand-written .h file so that test files written in C (e.g.
-// main-Poly1305.c) can use the functions from this file too (e.g.
-// [compare_and_print]).
-//
+/* This file has a hand-written .h file so that test files written in C (e.g.
+** main-Poly1305.c) can use the functions from this file too (e.g.
+** [compare_and_print]).
+*/
+
 void print_buf(uint8_t *buf, size_t size, char *file, int line);
 
-// Functions for F*-written tests, exposed via TestLib.fsti
+/* Functions for F*-written tests, exposed via TestLib.fsti */
 void TestLib_touch(int32_t);
 
 void TestLib_check8(int8_t, int8_t);
@@ -26,7 +27,7 @@ void TestLib_checku16(uint16_t, uint16_t);
 void TestLib_checku32(uint32_t, uint32_t);
 void TestLib_checku64(uint64_t, uint64_t);
 
-// These functions are also called by HACL
+/* These functions are also called by HACL */
 void TestLib_compare_and_print(const char *txt, uint8_t *reference,
                                uint8_t *output, int size);
 

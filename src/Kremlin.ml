@@ -148,7 +148,7 @@ Supported options:|}
   let spec = [
     (* KreMLin as a driver *)
     "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), \
-      compcert, g++, clang, msvc";
+      compcert, g++, clang, msvc, gcc-c89";
     "-m32", Arg.Set Options.m32, " turn on 32-bit cross-compiling";
     "-fsopt", Arg.String (prepend Options.fsopts), " option to pass to F* (use \
       -fsopts to pass a comma-separated list of values)";

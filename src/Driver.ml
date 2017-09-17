@@ -332,7 +332,8 @@ let detect_cc_if () =
   fill_cc_args ();
   if !cc = "" then
     match !Options.cc with
-    | "gcc" ->
+    | "gcc" 
+    | "gcc-c89" ->
         detect_gnu "gcc"
     | "compcert" ->
         detect_compcert ()
