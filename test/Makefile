@@ -12,12 +12,14 @@ FILES		= \
   Scope.exe Attributes.exe Unsound.exe Substitute.exe \
   InlineTest.exe Ghost1.exe Loops.exe Structs.exe \
   Recursive.exe RecursivePoly.exe Structs2.exe StringLit.exe \
-  FunctionalEncoding.exe FunPtr.exe HigherOrder.exe Test128.exe \
+  FunctionalEncoding.exe FunPtr.exe Test128.exe \
   CheckedInt.exe Polymorphic.exe
 EXTRA_FILES	= \
   Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \
   Crypto.Symmetric.Chacha20.wasm WasmTrap.wasm
+BROKEN		= \
+  HigherOrder.exe
 
 all: standalone extra
 
@@ -46,6 +48,7 @@ ML16.exe: EXTRA = ml16-native.c
 Scope.exe: EXTRA = -ccopt -O3
 Test128.exe: EXTRA = -fnouint128 -static-header FStar
 Crypto.Symmetric.Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
+HigherOrder.exe: EXTRA = -warn-error +9
 
 .PHONY: Crypto.Symmetric.Chacha20.fst
 

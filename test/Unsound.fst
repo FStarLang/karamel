@@ -9,7 +9,7 @@ let f (b: Buffer.buffer UInt32.t): Stack UInt32.t
   (requires (fun h0 -> Buffer.live h0 b /\ Buffer.length b > 0))
   (ensures (fun h0 _ h1 -> Buffer.live h1 b)) =
   let i = Buffer.index b 0ul in
-  Buffer.upd b 0ul (FStar.UInt32.add i 1ul);
+  Buffer.upd b 0ul (i +%^ 1ul);
   i
 
 let g (i: UInt32.t): StackInline (Buffer.buffer UInt32.t)

@@ -628,7 +628,7 @@ and infer' env e =
   | ETuple es ->
       TTuple (List.map (infer env) es)
 
-  | ECons _ ->
+  | ECons (_, args) ->
       begin match expand_abbrev env e.typ with
       | TQualified lid
       | TApp (lid, _) ->
@@ -636,6 +636,7 @@ and infer' env e =
       | _ ->
           ()
       end;
+      ignore (List.map (infer env) args);
       (* Preserve the provided type annotation that (hopefully) was there in the
        * first place. *)
       e.typ

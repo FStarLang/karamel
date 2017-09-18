@@ -49,7 +49,6 @@ let _ =
   let arg_skip_linking = ref false in
   let arg_verify = ref false in
   let arg_warn_error = ref "" in
-  let arg_print_error_summary = ref false in
   let c_files = ref [] in
   let o_files = ref [] in
   let js_files = ref [] in
@@ -201,6 +200,8 @@ Supported options:|}
       loops smaller than N";
     "-fparentheses", Arg.Set Options.parentheses, "  add unnecessary parentheses \
       to silence GCC and Clang's -Wparentheses";
+    "-fcurly-braces", Arg.Set Options.curly_braces, "  always add curly braces \
+      around blocks";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
@@ -217,7 +218,6 @@ Supported options:|}
     "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific \
       comma-separated list of values; currently supported: \
       inline,bundle,reachability,c-calls,wasm-calls,force-c,cflat";
-    "-derror-summary", Arg.Set arg_print_error_summary, " pretty-print the table of errors";
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
   let spec = Arg.align spec in
@@ -247,10 +247,6 @@ Supported options:|}
     print_endline (Arg.usage_string spec usage);
     exit 1
   end;
-
-  (* See if error summarization should be turned on. *)
-  if !arg_print_error_summary
-  then Warnings.enable_summaries ();
 
   (* First enable the default warn-error string. *)
   Warnings.parse_warn_error !Options.warn_error;
@@ -343,15 +339,9 @@ Supported options:|}
   if !arg_print_ast then
     print PrintAst.print_files files;
 
-  (* 1. Minimal cleanup, remove higher-order combinators (e.g. map) with mere
-   * calls to the base [for] combinator. These combinators (e.g. map) are
-   * polymorphic; by inlining them, we make sure they can be type-checked
-   * monorphically at call-site. We then remove the polymorphic definitions
-   * (e.g. map) as we don't know how to type-check them. Finally, perform a
-   * first round of type-checking. If things fail at this stage, most likely not
-   * our fault (bad input?). *)
+  (* 1. Monomorphize functions because the Checker is first-order. If things
+   * fail at this stage, most likely not our fault (bad input?). *)
   let files = DataTypes.drop_match_cast files in
-  let files = Inlining.macro_expand_combinators files in
   let files = Inlining.monomorphize files in
   let has_errors, files = Checker.check_everything ~warn:true files in
   tick_print (not has_errors) "Checking input file";
@@ -476,9 +466,6 @@ Supported options:|}
     tick_print true "PrettyPrinting";
 
     Printf.printf "KreMLin: wrote out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
-
-    if !arg_print_error_summary
-    then Warnings.generate_summary ();
 
     if !arg_skip_compilation then
       exit 0;

@@ -31,6 +31,9 @@ include Spec.Loops
 
 (* Generic-purpose for-loop combinators ***************************************)
 
+(* These combinators enjoy first-class support in KreMLin. (See [combinators] in
+ * src/Simplify.ml *)
+
 (* Currently extracting as:
     for (int i = <start>; i != <finish>; ++i)
       <f> i;
@@ -152,12 +155,13 @@ let rec interruptible_reverse_for start finish inv f =
     else interruptible_reverse_for start' finish inv f
 
 
-(* Mapping the contents of a buffer into another ******************************)
+(* Non-primitive combinators that can be expressed in terms of the above ******)
 
 (** Extracts as:
  * for (int i = 0; i < <l>; ++i)
  *   out[i] = <f>(in[i]);
  *)
+inline_for_extraction
 val map:
   #a:Type0 -> #b:Type0 ->
   output: buffer b ->
@@ -171,6 +175,7 @@ val map:
       /\ (let s1 = as_seq h_1 input in
          let s2 = as_seq h_2 output in
          s2 == seq_map f s1) ))
+inline_for_extraction
 let map #a #b output input l f =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
@@ -182,7 +187,8 @@ let map #a #b output input l f =
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
-    output.(i) <- f (input.(i))
+    let xi = input.(i) in
+    output.(i) <- f xi
   in
   for 0ul l inv f';
   let h1 = HST.get() in
@@ -193,6 +199,7 @@ let map #a #b output input l f =
  * for (int i = 0; i < <l>; ++i)
  *   out[i] = <f>(in1[i], in2[i]);
  *)
+inline_for_extraction
 val map2:
   #a:Type0 -> #b:Type0 -> #c:Type0 ->
   output: buffer c ->
@@ -208,6 +215,7 @@ val map2:
          let s2 = as_seq h_1 in2 in
          let s = as_seq h_2 output in
          s == seq_map2 f s1 s2) ))
+inline_for_extraction
 let map2 #a #b #c output in1 in2 l f =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
@@ -219,7 +227,9 @@ let map2 #a #b #c output in1 in2 l f =
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
-    output.(i) <- f (in1.(i)) (in2.(i))
+    let xi = in1.(i) in
+    let yi = in2.(i) in
+    output.(i) <- f xi yi
   in
   for 0ul l inv f';
   let h1 = HST.get() in
@@ -230,6 +240,7 @@ let map2 #a #b #c output in1 in2 l f =
  * for (int i = 0; i < <l>; ++i)
  *   b[i] = <f>(b[i]);
  *)
+inline_for_extraction
 val in_place_map:
   #a:Type0 ->
   b: buffer a ->
@@ -241,6 +252,7 @@ val in_place_map:
       /\ (let s1 = as_seq h_1 b in
          let s2 = as_seq h_2 b in
          s2 == seq_map f s1) ))
+inline_for_extraction
 let in_place_map #a b l f =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
@@ -252,7 +264,8 @@ let in_place_map #a b l f =
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
-    b.(i) <- f (b.(i))
+    let xi = b.(i) in
+    b.(i) <- f xi
   in
   for 0ul l inv f';
   let h1 = HST.get() in
@@ -263,6 +276,7 @@ let in_place_map #a b l f =
  * for (int i = 0; i < <l>; ++i)
  *   in1[i] = <f>(in1[i], in2[i]);
  *)
+inline_for_extraction
 val in_place_map2:
   #a:Type0 -> #b:Type0 ->
   in1: buffer a ->
@@ -277,6 +291,7 @@ val in_place_map2:
          let s2 = as_seq h_1 in2 in
          let s = as_seq h_2 in1 in
          s == seq_map2 f s1 s2) ))
+inline_for_extraction
 let in_place_map2 #a #b in1 in2 l f =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
@@ -288,7 +303,9 @@ let in_place_map2 #a #b in1 in2 l f =
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
-    in1.(i) <- f (in1.(i)) (in2.(i))
+    let xi = in1.(i) in
+    let yi = in2.(i) in
+    in1.(i) <- f xi yi
   in
   for 0ul l inv f';
   let h1 = HST.get() in
@@ -306,6 +323,7 @@ let in_place_map2 #a #b in1 in2 l f =
  * for (int i = 0; i < n; ++i)
  *   f(b[i]);
  *)
+inline_for_extraction
 val repeat:
   #a:Type0 ->
   l: UInt32.t ->
@@ -324,6 +342,7 @@ val repeat:
       /\ (let s = as_seq h_1 b in
          let s' = as_seq h_2 b in
          s' == repeat_spec (UInt32.v max) f s) ))
+inline_for_extraction
 let repeat #a l f b max fc =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
@@ -345,6 +364,7 @@ let repeat #a l f b max fc =
  * for (int i = min; i < max; ++i)
  *   f(b[i], i);
  *)
+inline_for_extraction
 val repeat_range:
   #a:Type0 ->
   l: UInt32.t ->
@@ -364,6 +384,7 @@ val repeat_range:
       /\ (let s = as_seq h_1 b in
          let s' = as_seq h_2 b in
          s' == repeat_range_spec (UInt32.v min) (UInt32.v max) f s) ))
+inline_for_extraction
 let repeat_range #a l min max f b fc =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
