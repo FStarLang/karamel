@@ -29,11 +29,6 @@
 #define force_inline inline
 #endif
 
-// TEMPORARY HACK, need to check with Jonathan about why this was removed
-// but is still being generated.
-// - JROESCH
-
-#define KRML_CHECK_SIZE(x, y) ;
 /******************************************************************************/
 /* Implementing C.fst                                                         */
 /******************************************************************************/
