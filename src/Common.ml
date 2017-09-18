@@ -15,4 +15,5 @@ type flag =
   | CInline
   | Substitute
   | GcType
+  | Comment of string
   [@@deriving yojson,show]

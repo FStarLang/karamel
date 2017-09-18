@@ -111,8 +111,11 @@ type stmt =
 and program =
   declaration_or_function list
 
+and comment =
+  string
+
 and declaration_or_function =
-  | Decl of declaration
-  | Function of bool * declaration * stmt
+  | Decl of comment list * declaration
+  | Function of comment list * bool * declaration * stmt
     (** [stmt] _must_ be a compound statement; boolean is inline *)
   [@@deriving show]

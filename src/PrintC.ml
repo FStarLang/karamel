@@ -325,12 +325,17 @@ let rec p_stmt (s: stmt) =
   | Break ->
      string "break" ^^ semi
 
+let p_comments cs =
+  separate_map hardline (fun c -> string ("/*\n" ^ c ^ "\n*/")) cs ^^
+  if List.length cs > 0 then hardline else empty
 
 let p_decl_or_function (df: declaration_or_function) =
   match df with
-  | Decl d ->
+  | Decl (comments, d) ->
+      p_comments comments ^^
       group (p_declaration d ^^ semi)
-  | Function (inline, d, stmt) ->
+  | Function (comments, inline, d, stmt) ->
+      p_comments comments ^^
       let inline = if inline then string "inline" ^^ space else empty in
       inline ^^ group (p_declaration d) ^/^ p_stmt stmt
 

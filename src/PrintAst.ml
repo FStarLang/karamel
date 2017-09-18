@@ -20,6 +20,7 @@ let print_app f head g arguments =
 let rec print_decl = function
   | DFunction (cc, flags, n, typ, name, binders, body) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
+      print_comment flags ^^
       cc ^^ print_flags flags ^^ group (string "function" ^/^ string (string_of_lident name) ^/^
       langle ^^ int n ^^ rangle ^^
       parens_with_nesting (
@@ -41,9 +42,15 @@ let rec print_decl = function
       let args = separate space args in
       group (string "type" ^/^ print_flags flags ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
       jump (print_type_def def)
-
-  | DTypeMutual (ty_decls) ->
+| DTypeMutual (ty_decls) ->
       separate_map (string "and" ^^ break1) (fun decl -> print_decl decl) ty_decls
+
+and print_comment flags =
+  match KList.find_opt (function Comment c -> Some c | _ -> None) flags with
+  | Some c ->
+      string "(*" ^^ string c ^^ string "*)" ^^ hardline
+  | None ->
+      empty
 
 and print_type_def = function
   | Flat fields ->
@@ -101,6 +108,8 @@ and print_flag = function
       string "substitute"
   | GcType ->
       string "gc_type"
+  | Comment _ ->
+      empty
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   (if mut then string "mutable" ^^ break 1 else empty) ^^

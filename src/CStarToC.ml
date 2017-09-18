@@ -534,6 +534,14 @@ let mk_debug name parameters =
   else
     []
 
+let mk_comments =
+  KList.filter_map (function
+    | Comment c when c <> "" ->
+        Some c
+    | _ ->
+        None
+  )
+
 (** .c files include their own header *)
 let mk_decl_or_function (d: decl): C.declaration_or_function option =
   match d with
@@ -548,7 +556,7 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
         let parameters = List.map (fun { name; typ } -> name, typ) parameters in
         let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
         let body = ensure_compound (mk_debug name parameters @ mk_stmts body) in
-        Some (Function (inline, (spec, static, [ decl, None ]), body))
+        Some (Function (mk_comments flags, inline, (spec, static, [ decl, None ]), body))
       with e ->
         beprintf "Fatal exception raised in %s\n" name;
         raise e
@@ -559,10 +567,10 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
       let static = if List.exists ((=) Private) flags then Some Static else None in
       (match expr with
       | Any ->
-          Some (Decl (spec, static, [ decl, None ]))
+          Some (Decl ([], (spec, static, [ decl, None ])))
       | _ ->
           let expr = mk_expr expr in
-          Some (Decl (spec, static, [ decl, Some (InitExpr expr) ])))
+          Some (Decl ([], (spec, static, [ decl, Some (InitExpr expr) ])))
    | Mutual _ -> None
 
 let is_static_header name =
@@ -579,7 +587,7 @@ let mk_stub_or_function (d: decl): C.declaration_or_function option =
   match d with
   | Type (name, t) ->
       let spec, decl = mk_spec_and_declarator_t name t in
-      Some (Decl (spec, Some Typedef, [ decl, None ]))
+      Some (Decl ([], (spec, Some Typedef, [ decl, None ])))
 
   | Function (cc, flags, return_type, name, parameters, _) ->
       if List.exists ((=) Private) flags then
@@ -588,7 +596,7 @@ let mk_stub_or_function (d: decl): C.declaration_or_function option =
         begin try
           let parameters = List.map (fun { name; typ } -> name, typ) parameters in
           let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
-          Some (Decl (spec, None, [ decl, None ]))
+          Some (Decl (mk_comments flags, (spec, None, [ decl, None ])))
         with e ->
           beprintf "Fatal exception raised in %s\n" name;
           raise e
@@ -598,18 +606,18 @@ let mk_stub_or_function (d: decl): C.declaration_or_function option =
       let spec, decl = mk_spec_and_declarator_f cc name t (List.mapi (fun i t ->
         KPrint.bsprintf "x%d" i, t
       ) ts) in
-      Some (Decl (spec, Some Extern, [ decl, None ]))
+      Some (Decl ([], (spec, Some Extern, [ decl, None ])))
 
   | External (name, t) ->
       let spec, decl = mk_spec_and_declarator name t in
-      Some (Decl (spec, Some Extern, [ decl, None ]))
+      Some (Decl ([], (spec, Some Extern, [ decl, None ])))
 
   | Global (name, flags, t, _) ->
       if List.exists ((=) Private) flags then
         None
       else
         let spec, decl = mk_spec_and_declarator name t in
-        Some (Decl (spec, Some Extern, [ decl, None ]))
+        Some (Decl ([], (spec, Some Extern, [ decl, None ])))
 
    | Mutual _ -> None
 
@@ -618,10 +626,10 @@ let mk_header decls =
 
 let mk_static (d: C.declaration_or_function) =
   match d with
-  | Decl (ts, None, decl_inits) ->
-      C.Decl (ts, Some Static, decl_inits)
-  | Function (_inline, (ts, (None | Some Static), decl_inits), body) ->
-      C.Function (true, (ts, Some Static, decl_inits), body)
+  | Decl (comments, (ts, None, decl_inits)) ->
+      C.Decl (comments, (ts, Some Static, decl_inits))
+  | Function (comments, _inline, (ts, (None | Some Static), decl_inits), body) ->
+      C.Function (comments, true, (ts, Some Static, decl_inits), body)
   | d ->
       d
 
