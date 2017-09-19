@@ -370,7 +370,7 @@ let remove_unit_fields = object (self)
     let pats = KList.filter_mapi (fun i p ->
       if Hashtbl.mem erasable_fields (assert_tlid t, cons, i) then begin
         begin match p.node with
-        | POpen (name, a) ->
+        | POpen (_, a) ->
             atoms <- a :: atoms
         | _ ->
             ()
@@ -382,15 +382,20 @@ let remove_unit_fields = object (self)
     PCons (cons, pats)
 
   method! econs () t cons exprs =
+    let seq = ref [] in
     let exprs = KList.filter_mapi (fun i e ->
       if Hashtbl.mem erasable_fields (assert_tlid t, cons, i) then begin
-        assert (is_value e);
+        if not (is_value e) then
+          seq := (if e.typ = TUnit then e else with_unit (EIgnore e)) :: !seq;
         None
       end else
         Some (self#visit () e)
     ) exprs in
-    ECons (cons, exprs)
-
+    let e = ECons (cons, exprs) in
+    if List.length !seq > 0 then
+      ESequence (List.rev_append !seq [ (with_type t e) ])
+    else
+      e
 
 end
 
@@ -731,10 +736,10 @@ let debug_map map =
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
 
 let everything files =
-  let files = visit_files () remove_unit_fields files in
   let map = build_def_map files in
   let files = visit_files true (monomorphize_data_types map) files in
   let files = drop_parameterized_data_types files in
+  let files = visit_files () remove_unit_fields files in
   let map = build_scheme_map files in
   if false then debug_map map;
   let files = visit_files () remove_trivial_matches files in
