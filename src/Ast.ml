@@ -80,10 +80,12 @@ and expr' =
   | ETuple of expr list
   | EMatch of expr * branches
   | ECons of ident * expr list
+
   | ESwitch of expr * (lident * expr) list
   | EEnum of lident
   | EFlat of (ident option * expr) list
   | EField of expr * ident
+    (** The four types above appear after compilation of pattern-matches. *)
 
   | EBreak
   | EReturn of expr

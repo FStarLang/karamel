@@ -176,18 +176,36 @@ class close (atom': Atom.t) = object
       EBound i
     else
       EOpen (name, atom)
+
+  method! popen i _ name atom =
+    if Atom.equal atom atom' then
+      PBound i
+    else
+      POpen (name, atom)
 end
 
 let close (a: Atom.t) (i: int) (e: expr) =
   (new close a)#visit i e
 
+let close_p (a: Atom.t) (i: int) (e: pattern) =
+  (new close a)#visit_pattern i e
+
 let closing_binder b e =
   close b.node.atom 0 (lift 1 e)
+
+let close_binder_p b e =
+  close_p b.node.atom 0 (lift_p 1 e)
 
 let close_binder = closing_binder
 
 let close_binders bs e1 =
   List.fold_left (fun e1 b -> close_binder b e1) e1 bs
+
+let close_binders_p bs e1 =
+  List.fold_left (fun e1 b -> close_binder_p b e1) e1 bs
+
+let close_branch bs p e =
+  close_binders_p bs p, close_binders bs e
 
 (* ---------------------------------------------------------------------------- *)
 

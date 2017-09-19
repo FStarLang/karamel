@@ -1,3 +1,17 @@
+let rec filter_mapi i f l =
+  match l with
+  | [] ->
+      []
+  | x :: l ->
+      match f i x with
+      | Some x ->
+          x :: filter_mapi (i + 1) f l
+      | None ->
+          filter_mapi (i + 1) f l
+
+let filter_mapi f l =
+  filter_mapi 0 f l
+
 let rec filter_map f l =
   match l with
   | [] ->
