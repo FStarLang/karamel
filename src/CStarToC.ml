@@ -570,7 +570,7 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
           Some (Decl ([], (spec, static, [ decl, None ])))
       | _ ->
           let expr = mk_expr expr in
-          Some (Decl ([], (spec, static, [ decl, Some (InitExpr expr) ])))
+          Some (Decl ([], (spec, static, [ decl, Some (InitExpr expr) ]))))
    | Mutual _ -> None
 
 let is_static_header name =
