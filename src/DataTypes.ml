@@ -272,7 +272,7 @@ let compile_simple_matches map = object(self)
         assert (List.length args = 0);
         PEnum (mk_tag_lid lid cons)
     | ToFlat names ->
-        PRecord (List.map2 (fun n e -> n, e) names args)
+        PRecord (List.map2 (fun n e -> n, self#visit_pattern () e) names args)
 
   method dtype () lid flags n def =
     match def with
