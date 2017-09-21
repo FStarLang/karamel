@@ -1,4 +1,4 @@
-(** This modules exposes a series of combinators; they are modeled using
+(* This module exposes a series of combinators; they are modeled using
  * higher-order functions and specifications, and extracted, using a
  * meta-theoretic argument, to actual C loops. *)
 module C.Loops
