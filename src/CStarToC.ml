@@ -126,7 +126,7 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
 (* Ideally, most of the for-loops should've been desugared C89-style if needed
  * beforehand. *)
 and mk_for_loop name t init test incr body =
-  if !Options.c89 then
+  if !Options.c89_scope then
     Compound [
       Decl (t, None, [ Ident name, None ]);
       For (
@@ -439,7 +439,7 @@ and mk_stmts stmts: C.stmt list =
     | [] ->
         []
   in
-  if !Options.c89 then
+  if !Options.c89_scope then
     fixup_c89 true stmts
   else
     stmts

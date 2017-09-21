@@ -99,8 +99,6 @@ type stmt =
   | IfElse of expr * stmt * stmt
   | While of expr * stmt
   | For of declaration_or_expr * expr * expr * stmt
-    (** "init_clause may be an expression or a declaration" -> only doing the
-     * latter *)
   | Return of expr option
   | Switch of expr * (expr * stmt) list * stmt
     (** the last component is the default statement *)

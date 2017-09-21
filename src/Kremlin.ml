@@ -49,6 +49,7 @@ let _ =
   let arg_skip_linking = ref false in
   let arg_verify = ref false in
   let arg_warn_error = ref "" in
+  let arg_c89 = ref false in
   let c_files = ref [] in
   let o_files = ref [] in
   let js_files = ref [] in
@@ -125,6 +126,10 @@ The compiler switches turn on the following options.
   [-cc msvc] adds [%s]
   [-cc compcert] adds [%s]
 
+The [-fc89] option triggers [-fnouint128], [-fnoanonymous-unions],
+[-fnocompound-literals] and [-fc89-scope]. It also changes the invocations above
+to use [-std=c89].
+
 Supported options:|}
     Sys.argv.(0)
     !Options.warn_error
@@ -190,6 +195,9 @@ Supported options:|}
     "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
     "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are \
       fatal / warnings / silent (default: " ^ !Options.warn_error ^")";
+
+    (* Fine-tuning code generation. *)
+    "", Arg.Unit (fun _ -> ()), " ";
     "-fnostruct-passing", Arg.Clear Options.struct_passing, "  disable passing \
       structures by value and use pointers instead";
     "-fnoanonymous-unions", Arg.Clear Options.anonymous_unions, "  disable C11 \
@@ -202,8 +210,8 @@ Supported options:|}
       to silence GCC and Clang's -Wparentheses";
     "-fcurly-braces", Arg.Set Options.curly_braces, "  always add curly braces \
       around blocks";
-    "-fc89", Arg.Set Options.c89, "  use C89 scoping rules; use in conjunction \
-      with -fnouint128 -fnoanonymous-unions and -fnocompound-literals";
+    "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
+    "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see above)";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
@@ -269,6 +277,13 @@ Supported options:|}
   end else
     Options.drop := [ Bundle.Module [ "C" ]; Bundle.Module [ "TestLib" ] ] @
       !Options.drop;
+
+  if !arg_c89 then begin
+    Options.uint128 := false;
+    Options.anonymous_unions := false;
+    Options.c89_scope := true;
+    Options.c89_std := true
+  end;
 
   (* If the compiler supports uint128, then we just drop the module and let
    * dependency analysis use the FStar.UInt128.fsti. If the compiler does not,
