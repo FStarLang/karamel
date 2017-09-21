@@ -1,4 +1,4 @@
-(** A (simplified) grammar of C. *)
+
 
 module K = Constant
 open Common
@@ -120,5 +120,6 @@ and declaration_or_function =
 and declaration_or_expr = [
   | `Decl of declaration
   | `Expr of expr
+  | `Skip
 ]
 [@@deriving show]
