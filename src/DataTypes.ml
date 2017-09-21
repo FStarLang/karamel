@@ -37,11 +37,11 @@ module Gen = struct
     in
     fst lid, snd lid ^ KPrint.bsprintf "__%a" PrintCommon.pdoc doc
 
-  let register_def original_lid ts lid def =
+  let register_def original_lid ts lid def is_mutual =
     Hashtbl.add generated_lids (original_lid, ts) lid;
     let def = def () in
-    let type_def = DType (lid, [], 0, def) in
-    pending_defs := type_def :: !pending_defs;
+    let type_def = DType (lid, [], 0, def, is_mutual) in
+    pending_defs := type_def :: !pending_defs ;
     lid
 
   let nth_field i =
@@ -60,21 +60,21 @@ module Gen = struct
       let fields = List.mapi (fun i t ->
         Some (nth_field i), (t, false)
       ) ts in
-      register_def tuple_lid ts lid (fun () -> Flat fields)
+      register_def tuple_lid ts lid (fun () -> Flat fields) false
 
-  let variant original_lid branches ts =
+  let variant original_lid branches ts is_mutual =
     try
       Hashtbl.find generated_lids (original_lid, ts)
     with Not_found ->
       let lid = gen_lid original_lid ts in
-      register_def original_lid ts lid (fun () -> Variant (branches ()))
+      register_def original_lid ts lid (fun () -> Variant (branches ())) is_mutual
 
-  let flat original_lid fields ts =
+  let flat original_lid fields ts is_mutual =
     try
       Hashtbl.find generated_lids (original_lid, ts)
     with Not_found ->
       let lid = gen_lid original_lid ts in
-      register_def original_lid ts lid (fun () -> Flat (fields ()))
+      register_def original_lid ts lid (fun () -> Flat (fields ())) is_mutual
 
   let clear () =
     let r = List.rev !pending_defs in
@@ -84,12 +84,12 @@ end
 
 let build_def_map files =
   Helpers.build_map files (fun map -> function
-    | DType (lid, _, _, def) ->
-        Hashtbl.add map lid def
+    | DType (lid, _, _, def, _) ->
+        Hashtbl.add map lid (def, false)
     | DTypeMutual (ty_decls) ->
       List.iter (function
-        | DType (lid, _, _, def) ->
-          Hashtbl.add map lid def
+        | DType (lid, _, _, def, _) ->
+          Hashtbl.add map lid (def, true)
         | _ -> ()) ty_decls
     | _ -> ()
   )
@@ -149,34 +149,51 @@ let monomorphize_data_types map = object(self)
       match Hashtbl.find map lid with
       | exception Not_found ->
           TApp (lid, ts)
-      | Variant branches ->
+      | Variant branches, is_mutual ->
           (* This allows [Gen] to first allocate and register the lid in the
            * table, hence avoiding infinite loops for recursive data types. *)
           let gen_branches () =
             let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
             self#branches_t false branches
           in
-          TQualified (Gen.variant lid gen_branches ts)
-      | Flat fields ->
+          TQualified (Gen.variant lid gen_branches ts is_mutual)
+      | Flat (fields), is_mutual ->
           let gen_fields () =
             let fields = subst fields in
             self#fields_t false fields
           in
-          TQualified (Gen.flat lid gen_fields ts)
+          TQualified (Gen.flat lid gen_fields ts is_mutual)
       | _ ->
           TApp (lid, ts)
     with Bound ->
       TApp (lid, ts)
 end
 
-let drop_parameterized_data_types =
-  filter_decls (function
-    | DType (_, _, n, (Flat _ | Variant _)) when n > 0 ->
-        None
-    | d ->
-        Some d
-  )
+let rec drop_parametrized_data_type =
+  function
+  | DType (_, _, n, (Flat _ | Variant _), _) when n > 0 ->
+      None
+  | d -> Some d
 
+(** We remove all remaining mutual types still bundled together in a DTypeMutual,
+    keeping around the monomorphic types, and dropping all polymoprhic ones, which
+    should have all occurences monomorphized for now. *)
+
+let flatten_mutual : decl -> decl list =
+function
+  | DTypeMutual type_decls ->
+  List.fold_right (fun ty_decl os ->
+    match drop_parametrized_data_type ty_decl with
+      | None -> os
+      | Some d -> d :: os) type_decls []
+  | d -> [d]
+
+let remove_mutuals decls =
+  List.map (fun (file, ds) ->
+    (file, List.concat (List.map flatten_mutual ds))) decls
+
+let drop_parameterized_data_types decls =
+  filter_decls drop_parametrized_data_type (remove_mutuals decls)
 
 (** We need to keep track of which optimizations we performed on which data
  * types... to this effect, we build a map that assigns to each lid the type of
@@ -189,7 +206,7 @@ type scheme =
 
 let rec update_scheme_map_for_type map =
 function
-  | DType (lid, _, 0, Variant branches) ->
+  | DType (lid, _, 0, Variant branches, _) ->
       if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
         Hashtbl.add map lid ToEnum
       else if List.length branches = 1 then
@@ -281,24 +298,24 @@ let compile_simple_matches map = object(self)
     | ToFlat names ->
         PRecord (List.map2 (fun n e -> n, e) names args)
 
-  method dtype () lid flags n def =
+  method dtype () lid flags n def fwd_decl =
     match def with
     | Variant branches ->
         if (n <> 0) then KPrint.beprintf "%a have type variables" plid lid;
         assert (n = 0);
         begin match Hashtbl.find map lid with
         | exception Not_found ->
-            DType (lid, flags, 0, Variant branches)
+            DType (lid, flags, 0, Variant branches, fwd_decl)
         | ToTaggedUnion _ ->
-            DType (lid, flags, 0, Variant branches)
+            DType (lid, flags, 0, Variant branches, fwd_decl)
         | ToEnum ->
-            DType (lid, flags, 0, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches))
+            DType (lid, flags, 0, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches), fwd_decl)
         | ToFlat _ ->
             let fields = List.map (fun (f, t) -> Some f, t) (snd (List.hd branches)) in
-            DType (lid, flags, 0, Flat fields)
+            DType (lid, flags, 0, Flat fields, fwd_decl)
         end
     | _ ->
-        DType (lid, flags, n, def)
+        DType (lid, flags, n, def, fwd_decl)
 
   method ematch () t e branches =
     let e = self#visit () e in

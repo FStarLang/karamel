@@ -405,7 +405,7 @@ Supported options:|}
   in
 
   (* TODO: cleanup @jroesch *)
-  let drop_lids lids = List.fold_left (fun b l -> (Drop.lid l) && b) false lids
+  let drop_lids lids = List.fold_left (fun b l -> (Drop.lid l) || b) false lids
   in
 
   (* 7. Drop both files and selected declarations within some files, as a [-drop

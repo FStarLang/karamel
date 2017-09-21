@@ -100,7 +100,7 @@ let lookup_global env lid =
 
 let rec populate_env_with_decl env decl =
 match decl with
-| DType (lid, _, _, typ) ->
+| DType (lid, _, _, typ, _) ->
     let env = match typ with
     | Enum tags ->
         List.fold_left (fun env tag ->

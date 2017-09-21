@@ -13,7 +13,8 @@ FILES		= \
   InlineTest.exe Ghost1.exe Loops.exe Structs.exe \
   Recursive.exe RecursivePoly.exe Structs2.exe StringLit.exe \
   FunctionalEncoding.exe FunPtr.exe Test128.exe \
-  CheckedInt.exe Polymorphic.exe
+  CheckedInt.exe Polymorphic.exe MutualDatatypes.exe \
+  MutualDatatypesPolyIndex.exe
 EXTRA_FILES	= \
   Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \

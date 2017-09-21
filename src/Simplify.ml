@@ -743,8 +743,8 @@ let record_toplevel_names = object
   method dexternal () cc name t =
     DExternal (cc, record_name name, t)
 
-  method dtype () name flags n t =
-    DType (record_name name, flags, n, t)
+  method dtype () name flags n t fwd_decl =
+    DType (record_name name, flags, n, t, fwd_decl)
 
   method dtypeenum () tags =
     Enum (List.map record_name tags)
@@ -774,8 +774,8 @@ let replace_references_to_toplevel_names = object(self)
   method dexternal () cc name typ =
     DExternal (cc, t name, self#visit_t () typ)
 
-  method dtype () name flags n d =
-    DType (t name, flags, n, self#type_def () (Some name) d)
+  method dtype () name flags n d fwd_decl =
+    DType (t name, flags, n, self#type_def () (Some name) d, fwd_decl)
 
   method dtypeenum () tags =
     Enum (List.map t tags)

@@ -23,6 +23,9 @@ let rec filter_mask mask l =
 let map_flatten f l =
   List.flatten (List.map f l)
 
+let flatten_filter_map f l =
+  List.flatten (filter_map f l)
+
 let fold_lefti f init l =
   let rec fold_lefti i acc = function
     | hd :: tl ->

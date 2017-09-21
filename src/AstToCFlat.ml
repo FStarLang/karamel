@@ -160,7 +160,7 @@ let populate env files =
   let env = List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
-      | DType (_, _, _, Enum idents) ->
+      | DType (_, _, _, Enum idents, _) ->
           KList.fold_lefti (fun i env ident ->
             { env with enums = LidMap.add ident i env.enums }
           ) env idents
@@ -173,7 +173,7 @@ let populate env files =
   let env = List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
-      | DType (lid, _, _, Flat fields) ->
+      | DType (lid, _, _, Flat fields, _) ->
           (* Need to pass in the layout of previous structs *)
           begin try
             let l = layout env (fields_of_struct fields) in

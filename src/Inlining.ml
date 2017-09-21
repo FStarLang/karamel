@@ -450,7 +450,7 @@ let inline_type_abbrevs files =
   let rec add_decl map = function
   | DTypeMutual type_decls ->
     List.iter (add_decl map) type_decls
-  | DType (lid, _, _, Abbrev t) -> Hashtbl.add map lid (White, t)
+  | DType (lid, _, _, Abbrev t, _) -> Hashtbl.add map lid (White, t)
   | _ -> ()
   in let map = Helpers.build_map files add_decl in
 
@@ -474,9 +474,9 @@ let inline_type_abbrevs files =
    *   type pair a b = Tuple (1, 0)
    * breaks this invariant. *)
   filter_decls (function
-    | DType (lid, flags, n, Abbrev def) ->
+    | DType (lid, flags, n, Abbrev def, fwd_decl) ->
         if n = 0 then
-          Some (DType (lid, flags, n, Abbrev def))
+          Some (DType (lid, flags, n, Abbrev def, fwd_decl))
         else
           (* A type definition with parameters is not something we'll be able to
            * generate code for (at the moment). So, drop it. *)
