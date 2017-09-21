@@ -405,12 +405,16 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let b = mk_compound_if (mk_stmts b) in
       [ mk_for_loop name spec init e2 e3 b ]
 
-  | For (`Stmt e1, e2, e3, b) ->
-      let e1 = match mk_stmt e1 with [ Expr e1 ] -> e1 | _ -> assert false in
+  | For (e1, e2, e3, b) ->
+      let e1 = match e1 with
+        | `Skip -> `Skip
+        | `Stmt e1 -> `Expr (match mk_stmt e1 with [ Expr e1 ] -> e1 | _ -> assert false)
+        | _ -> assert false
+      in
       let e2 = mk_expr e2 in
       let e3 = match mk_stmt e3 with [ Expr e3 ] -> e3 | _ -> assert false in
       let b = mk_compound_if (mk_stmts b) in
-      [ For (`Expr e1, e2, e3, b) ]
+      [ For (e1, e2, e3, b) ]
 
 
 and mk_stmts0 stmts: C.stmt list =

@@ -305,6 +305,7 @@ and mk_stmts env e ret_type =
     | EFor (binder, e1, e2, e3, e4) ->
         (* Note: the arguments to mk_and_push_binder are solely for the purpose
          * of avoiding name collisions. *)
+        KPrint.bprintf "%a\n" pexpr e;
         let is_solo_assignment = binder.node.meta = Some MetaSequence in
         let env', binder = mk_and_push_binder env binder (Some e1) [ e2; e3; e4 ] in
         let e2 = mk_expr env' false e2 in
@@ -312,8 +313,12 @@ and mk_stmts env e ret_type =
         let e4 = mk_block env' false e4 in
         let e =
           if is_solo_assignment then
-            let e1 = KList.one (mk_block env false e1) in
-            CStar.For (`Stmt e1, e2, e3, e4)
+            let e1 = match mk_block env false e1 with
+              | [ e1 ] -> `Stmt e1
+              | [] -> `Skip
+              | _ -> assert false
+            in
+            CStar.For (e1, e2, e3, e4)
           else
             let e1 = mk_expr env false e1 in
             CStar.For (`Decl (binder, e1), e2, e3, e4)

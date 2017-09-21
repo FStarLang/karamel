@@ -22,7 +22,7 @@ and stmt =
     (** Scope is: statements that follow. *)
   | IfThenElse of expr * block * block
   | While of expr * block
-  | For of [ `Decl of binder * expr | `Stmt of stmt ] * expr * stmt * block
+  | For of [ `Decl of binder * expr | `Stmt of stmt | `Skip ] * expr * stmt * block
     (** There is a slight mismatch; C has an iteration *expression* but C*'s
      * expressions are pure; therefore, we must use a statement in lieu of the
      * iteration expression. *)
