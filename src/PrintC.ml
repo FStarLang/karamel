@@ -284,8 +284,12 @@ let rec p_stmt (s: stmt) =
   | Comment s ->
       group (string "/*" ^/^ separate break1 (words s) ^/^ string "*/")
   | For (decl, e2, e3, stmt) ->
+      let init = match decl with
+        | `Decl decl -> p_declaration decl
+        | `Expr expr -> p_expr expr
+      in
       group (string "for" ^/^ lparen ^^ nest 2 (
-        p_or p_declaration decl ^^ semi ^^ break1 ^^
+        init ^^ semi ^^ break1 ^^
         p_expr e2 ^^ semi ^^ break1 ^^
         p_expr e3
       ) ^^ rparen) ^^ nest_if p_stmt stmt

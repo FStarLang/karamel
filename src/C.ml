@@ -98,7 +98,7 @@ type stmt =
   | If of expr * stmt
   | IfElse of expr * stmt * stmt
   | While of expr * stmt
-  | For of declaration option * expr * expr * stmt
+  | For of declaration_or_expr * expr * expr * stmt
     (** "init_clause may be an expression or a declaration" -> only doing the
      * latter *)
   | Return of expr option
@@ -118,4 +118,9 @@ and declaration_or_function =
   | Decl of comment list * declaration
   | Function of comment list * bool * declaration * stmt
     (** [stmt] _must_ be a compound statement; boolean is inline *)
-  [@@deriving show]
+
+and declaration_or_expr = [
+  | `Decl of declaration
+  | `Expr of expr
+]
+[@@deriving show]

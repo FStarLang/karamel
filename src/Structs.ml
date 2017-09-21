@@ -378,7 +378,7 @@ let to_addr is_struct =
     in
     let push_addrof e =
       let t = TBuf e.typ in
-      Helpers.nest_in_return_pos t (fun e -> with_type t (EAddrOf e)) e
+      Helpers.nest_in_return_pos t (fun _ e -> with_type t (EAddrOf e)) e
     in
     match e.node with
     | ETApp _ ->

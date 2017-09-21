@@ -113,3 +113,8 @@ let last l =
 
 let reduce f l =
   List.fold_left f (List.hd l) (List.tl l)
+
+let one l =
+  match l with
+  | [ x ] -> x
+  | _ -> invalid_arg ("one: argument is of length " ^ string_of_int (List.length l))
