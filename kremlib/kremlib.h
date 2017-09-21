@@ -119,7 +119,7 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
 #define FStar_HyperStack_ST_salloc(x) 0
 #define FStar_HyperStack_ST_ralloc(x, y) 0
 #define FStar_HyperStack_ST_new_region(x) 0
-#define FStar_Monotonic_RRef_m_alloc(...)                                      \
+#define FStar_Monotonic_RRef_m_alloc(x)                                        \
   { 0 }
 
 #define FStar_HyperStack_ST_recall(x)                                          \

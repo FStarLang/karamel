@@ -261,15 +261,8 @@ Supported options:|}
   (* First enable the default warn-error string. *)
   Warnings.parse_warn_error !Options.warn_error;
 
-  (* Then, bring in the "default options" for each compiler. *)
-  Arg.parse_argv ~current:(ref 0)
-    (Array.append [| Sys.argv.(0) |] (List.assoc !Options.cc (Options.default_options ())))
-    spec anon_fun usage;
-
-  (* Then refine that based on the user's preferences. *)
-  if !arg_warn_error <> "" then
-    Warnings.parse_warn_error !arg_warn_error;
-
+  (* Meta-options that enable other options. Do this now because it influences
+   * the default options for each compiler. *)
   if !Options.wasm then begin
     Options.uint128 := false;
     Options.anonymous_unions := false;
@@ -284,6 +277,15 @@ Supported options:|}
     Options.c89_scope := true;
     Options.c89_std := true
   end;
+
+  (* Then, bring in the "default options" for each compiler. *)
+  Arg.parse_argv ~current:(ref 0)
+    (Array.append [| Sys.argv.(0) |] (List.assoc !Options.cc (Options.default_options ())))
+    spec anon_fun usage;
+
+  (* Then refine that based on the user's preferences. *)
+  if !arg_warn_error <> "" then
+    Warnings.parse_warn_error !arg_warn_error;
 
   (* If the compiler supports uint128, then we just drop the module and let
    * dependency analysis use the FStar.UInt128.fsti. If the compiler does not,
