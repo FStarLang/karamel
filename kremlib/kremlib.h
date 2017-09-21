@@ -16,7 +16,10 @@
  * that contains __cdecl on all platforms. Note that this is in a separate
  * header so that Dafny-generated code can include just this file. */
 #include "gcc_compat.h"
+
+#ifdef __GNUC__
 #define inline __inline__
+#endif
 
 /* GCC-specific attribute syntax; everyone else gets the standard C inline
  * attribute. */
