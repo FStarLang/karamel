@@ -619,11 +619,19 @@ and hoist_expr pos e =
         let lhs, expr = hoist_expr Unspecified expr in
         lhs, (ident, expr)
       ) fields) in
-      List.flatten lhs, mk (EFlat fields)
+      if pos <> UnderStmtLet && not !Options.compound_literals then
+        let b = fresh_binder "lit" e.typ in
+        List.flatten lhs @ [ b, mk (EFlat fields) ], mk (EOpen ("lit", b.node.atom))
+      else
+        List.flatten lhs, mk (EFlat fields)
 
   | ECons (ident, es) ->
       let lhs, es = List.split (List.map (hoist_expr Unspecified) es) in
-      List.flatten lhs, mk (ECons (ident, es))
+      if pos <> UnderStmtLet && not !Options.compound_literals then
+        let b = fresh_binder "lit" e.typ in
+        List.flatten lhs @ [ b, mk (ECons (ident, es)) ], mk (EOpen ("lit", b.node.atom))
+      else
+        List.flatten lhs, mk (ECons (ident, es))
 
   | ETuple _ ->
       failwith "[hoist_t]: ETuple not properly desugared"

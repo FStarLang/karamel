@@ -127,8 +127,8 @@ The compiler switches turn on the following options.
   [-cc compcert] adds [%s]
 
 The [-fc89] option triggers [-fnouint128], [-fnoanonymous-unions],
-[-fnocompound-literals] and [-fc89-scope]. It also changes the invocations above
-to use [-std=c89].
+[-fnocompound-literals], [-fnodesignated-initializers] and [-fc89-scope]. It also
+changes the invocations above to use [-std=c89].
 
 Supported options:|}
     Sys.argv.(0)
@@ -204,6 +204,10 @@ Supported options:|}
       anonymous unions";
     "-fnouint128", Arg.Clear Options.uint128, "  don't assume a built-in type \
       __uint128";
+    "-fnocompound-literals", Arg.Clear Options.compound_literals, "  don't \
+      generate C11 compound literals";
+    "-fnodesignated-initializers", Arg.Clear Options.designated_initializers, "  don't \
+      generate C90 designated initializers";
     "-funroll-loops", Arg.Set_int Options.unroll_loops, "  textually expand \
       loops smaller than N";
     "-fparentheses", Arg.Set Options.parentheses, "  add unnecessary parentheses \
@@ -274,6 +278,8 @@ Supported options:|}
   if !arg_c89 then begin
     Options.uint128 := false;
     Options.anonymous_unions := false;
+    Options.compound_literals := false;
+    Options.designated_initializers := false;
     Options.c89_scope := true;
     Options.c89_std := true
   end;

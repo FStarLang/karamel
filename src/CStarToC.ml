@@ -557,8 +557,10 @@ and struct_as_initializer = function
 
 and fields_as_initializer_list fields =
   List.map (function
-    | Some field, e -> Designated (Dot field, struct_as_initializer e)
-    | None, e -> struct_as_initializer e
+    | Some field, e when !Options.designated_initializers ->
+        Designated (Dot field, struct_as_initializer e)
+    | _, e ->
+        struct_as_initializer e
   ) fields
 
 and mk_type t =
