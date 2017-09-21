@@ -586,6 +586,7 @@ let compile_all_matches map = object (self)
 
   (* The match transformation is tricky: we open all binders. *)
   method dfunction env cc flags n ret name binders expr =
+    (* KPrint.beprintf "In Function: %a\n" plid name; *)
     let binders, expr = open_binders binders expr in
     let expr = self#visit env expr in
     let expr = close_binders binders expr in
@@ -613,6 +614,9 @@ let compile_all_matches map = object (self)
    * Other matches remain (e.g. on units and booleans... [Helpers] will take
    * care of those dummy matches. *)
   method ematch env _t_ret e_scrut branches =
+    (* let match_exp = { node = Ast.EMatch(e_scrut, branches); typ = _t_ret } in
+    KPrint.beprintf "With this type: %a\n" ptyp _t_ret;
+    KPrint.beprintf "With this match: %a\n" pexpr match_exp; *)
     let e_scrut = self#visit env e_scrut in
     let branches = self#branches env branches in
     (compile_match env e_scrut branches).node

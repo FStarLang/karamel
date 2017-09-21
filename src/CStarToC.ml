@@ -63,6 +63,7 @@ let rec mk_spec_and_decl name rec_name (t: typ) (k: C.declarator -> C.declarator
         let spec, decl = mk_spec_and_decl name rec_name typ (fun d -> d) in
         spec, None, [ decl, None ]
       ) fields), k (Ident name)
+  | Forward -> Struct (None, None), k (Ident name)
 
 and mk_fields rec_name fields =
   Some (List.map (fun (name, typ) ->
@@ -571,7 +572,6 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
       | _ ->
           let expr = mk_expr expr in
           Some (Decl ([], (spec, static, [ decl, Some (InitExpr expr) ]))))
-   | Mutual _ -> None
 
 let is_static_header name =
   List.exists (fun m -> Idents.fstar_name_of_mod m = name) !Options.static_header
@@ -618,8 +618,6 @@ let mk_stub_or_function (d: decl): C.declaration_or_function option =
       else
         let spec, decl = mk_spec_and_declarator name t in
         Some (Decl ([], (spec, Some Extern, [ decl, None ])))
-
-   | Mutual _ -> None
 
 let mk_header decls =
   KList.filter_map mk_stub_or_function decls
