@@ -234,9 +234,10 @@ and check_or_infer env t e =
   end
 
 and check env t e =
-  (* KPrint.bprintf "[check] %a for %a\n" ptyp t pexpr e; *)
+  (* KPrint.bprintf "[check] t=%a for e=%a\n" ptyp t pexpr e; *)
   check' env t e;
-  e.typ <- t
+  if t <> TAny then
+    e.typ <- t
 
 and check' env t e =
   let c t' = check_subtype env t' t in
@@ -345,6 +346,7 @@ and check' env t e =
       (** The typing rules of matches and constructors are always nominal;
        * structural types appear through simplification phases, which also
        * remove matches in favor of switches or conditionals. *)
+      let t = if t = TAny then e.typ else t in
       begin match expand_abbrev env t with
       | TQualified lid
       | TApp (lid, _) ->
@@ -631,8 +633,8 @@ and infer' env e =
       e.typ
 
   | EMatch (e, bs) ->
-      let t_scrutinee = infer env e in
-      infer_branches env t_scrutinee bs
+      let t_scrut = infer env e in
+      infer_branches env t_scrut bs
 
   | EFlat fieldexprs ->
       TAnonymous (Flat (List.map (fun (f, e) ->

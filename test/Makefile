@@ -2,7 +2,7 @@
 # (e.g. KOPTS="-cc clang -ccopt -fsanitize=undefined,address -ccopt -Wno-non-literal-null-conversion -Wno-unused-value")
 CRYPTO		= FSTAR_HOME/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
-TEST_OPTS	= -add-include '"testlib.h"' -I . ../kremlib/testlib.c
+TEST_OPTS	= -add-include '"testlib.h"' -I . ../kremlib/testlib.c -warn-error @4
 KRML_BIN	= ../_build/src/Kremlin.native
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 FILES		= \
@@ -13,7 +13,8 @@ FILES		= \
   InlineTest.exe Ghost1.exe Loops.exe Structs.exe \
   Recursive.exe RecursivePoly.exe Structs2.exe StringLit.exe \
   FunctionalEncoding.exe FunPtr.exe Test128.exe \
-  CheckedInt.exe Polymorphic.exe GcTypes.exe BadMatch.exe C89.exe
+  CheckedInt.exe Polymorphic.exe GcTypes.exe BadMatch.exe C89.exe \
+  PatternAny.exe
 EXTRA_FILES	= \
   Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \

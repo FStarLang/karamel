@@ -152,7 +152,7 @@ and print_let_binding (binder, e1) =
   group (group (string "let" ^/^ print_binder binder ^/^ equals) ^^
   jump (print_expr e1))
 
-and print_expr { node; _ } =
+and print_expr { node; typ } =
   match node with
   | EComment (s, e, s') ->
       surround 2 1 (string s) (print_expr e) (string s')
@@ -204,7 +204,7 @@ and print_expr { node; _ } =
   | EBufFill (e1, e2, e3) ->
       print_app string "fillbuf" print_expr [e1; e2; e3 ]
   | EMatch (e, branches) ->
-      group (string "match" ^/^ print_expr e ^/^ string "with") ^^
+      group (string "match" ^/^ print_expr e ^^ colon ^/^ print_typ e.typ ^/^ string "with") ^^
       jump ~indent:0 (print_branches branches)
   | EOp (o, w) ->
       string "(" ^^ print_op o ^^ string "," ^^ print_width w ^^ string ")"
@@ -242,9 +242,9 @@ and print_expr { node; _ } =
   | ECons (ident, es) ->
       string ident ^/^
       if List.length es > 0 then
-        parens_with_nesting (separate_map (comma ^^ break1) print_expr es)
+        parens_with_nesting (separate_map (comma ^^ break1) print_expr es) ^^ colon ^/^ print_typ typ
       else
-        empty
+        empty ^^ colon ^/^ print_typ typ
   | ETuple es ->
       parens_with_nesting (separate_map (comma ^^ break1) print_expr es)
   | EEnum lid ->
