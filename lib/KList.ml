@@ -1,3 +1,17 @@
+let rec filter_mapi i f l =
+  match l with
+  | [] ->
+      []
+  | x :: l ->
+      match f i x with
+      | Some x ->
+          x :: filter_mapi (i + 1) f l
+      | None ->
+          filter_mapi (i + 1) f l
+
+let filter_mapi f l =
+  filter_mapi 0 f l
+
 let rec filter_map f l =
   match l with
   | [] ->
@@ -102,6 +116,11 @@ let last l =
 
 let reduce f l =
   List.fold_left f (List.hd l) (List.tl l)
+
+let one l =
+  match l with
+  | [ x ] -> x
+  | _ -> invalid_arg ("one: argument is of length " ^ string_of_int (List.length l))
 
 let rec traverse_opt (f : 'a -> 'b option) (xs : 'a list) : ('b list) option =
   match xs with

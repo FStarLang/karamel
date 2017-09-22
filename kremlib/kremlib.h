@@ -12,13 +12,17 @@
 /* Some macros to ease compatibility                                          */
 /******************************************************************************/
 
-// Define __cdecl and friends when using GCC, so that we can safely compile code
-// that contains __cdecl on all platforms. Note that this is in a separate
-// header so that Dafny-generated code can include just this file.
+/* Define __cdecl and friends when using GCC, so that we can safely compile code
+ * that contains __cdecl on all platforms. Note that this is in a separate
+ * header so that Dafny-generated code can include just this file. */
 #include "gcc_compat.h"
 
-// GCC-specific attribute syntax; everyone else gets the standard C inline
-// attribute.
+#ifdef __GNUC__
+#define inline __inline__
+#endif
+
+/* GCC-specific attribute syntax; everyone else gets the standard C inline
+ * attribute. */
 #ifdef __GNU_C__
 #ifndef __clang__
 #define force_inline inline __attribute__((always_inline))
@@ -33,25 +37,25 @@
 /* Implementing C.fst                                                         */
 /******************************************************************************/
 
-// Uppercase issue; we have to define lowercase version of the C macros (as we
-// have no way to refer to an uppercase *variable* in F*).
+/* Uppercase issue; we have to define lowercase versions of the C macros (as we
+ * have no way to refer to an uppercase *variable* in F*). */
 extern int exit_success;
 extern int exit_failure;
 
 void print_string(const char *s);
 void print_bytes(uint8_t *b, uint32_t len);
 
-// If some globals need to be initialized before the main, then kremlin will
-// generate and try to link last a function with this type:
+/* If some globals need to be initialized before the main, then kremlin will
+ * generate and try to link last a function with this type: */
 void kremlinit_globals();
 
 /******************************************************************************/
 /* Stubs to ease compilation of non-Low* code                                 */
 /******************************************************************************/
 
-// Some types that KreMLin has no special knowledge of; many of them appear in
-// signatures of ghost functions, meaning that it suffices to give them (any)
-// definition.
+/* Some types that KreMLin has no special knowledge of; many of them appear in
+ * signatures of ghost functions, meaning that it suffices to give them (any)
+ * definition. */
 typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
     *FStar_Set_set, *Prims_st_pre_h, *FStar_Heap_heap, *Prims_all_pre_h,
     *FStar_TSet_set, *Prims_string, *Prims_list, *FStar_Map_t, *FStar_UInt63_t_,
@@ -61,21 +65,21 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
     *FStar_Monotonic_Heap_aref, *FStar_Monotonic_HyperHeap_rid,
     *FStar_Monotonic_HyperStack_mem;
 
-// In statement position, exiting is easy.
+/* In statement position, exiting is easy. */
 #define KRML_EXIT                                                              \
   do {                                                                         \
     printf("Unimplemented function at %s:%d\n", __FILE__, __LINE__);           \
     exit(254);                                                                 \
   } while (0)
 
-// In expression position, use the comma-operator and a malloc to return an
-// expression of the right size. KreMLin passes t as the parameter to the macro.
+/* In expression position, use the comma-operator and a malloc to return an
+ * expression of the right size. KreMLin passes t as the parameter to the macro. */
 #define KRML_EABORT(t, msg)                                                    \
   (printf("KreMLin abort at %s:%d\n%s\n", __FILE__, __LINE__, msg), exit(255), \
    *((t *)malloc(sizeof(t))))
 
-// In FStar.Buffer.fst, the size of arrays is uint32_t, but it's a number of
-// *elements*. Do an ugly, run-time check (some of which KreMLin can eliminate).
+/* In FStar.Buffer.fst, the size of arrays is uint32_t, but it's a number of
+ * *elements*. Do an ugly, run-time check (some of which KreMLin can eliminate). */
 #define KRML_CHECK_SIZE(elt, size)                                             \
   if (((size_t)size) > SIZE_MAX / sizeof(elt)) {                               \
     printf("Maximum allocatable size exceeded, aborting before overflow at "   \
@@ -87,10 +91,10 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
 #define FStar_Buffer_eqb(b1, b2, n)                                            \
   (memcmp((b1), (b2), (n) * sizeof((b1)[0])) == 0)
 
-// Stubs to make ST happy. Important note: you must generate a use of the macro
-// argument, otherwise, you may have FStar_ST_recall(f) as the only use of f;
-// KreMLin will think that this is a valid use, but then the C compiler, after
-// macro expansion, will error out.
+/* Stubs to make ST happy. Important note: you must generate a use of the macro
+ * argument, otherwise, you may have FStar_ST_recall(f) as the only use of f;
+ * KreMLin will think that this is a valid use, but then the C compiler, after
+ * macro expansion, will error out. */
 #define FStar_HyperHeap_root 0
 #define FStar_Pervasives_Native_fst(x) (x).fst
 #define FStar_Pervasives_Native_snd(x) (x).snd
@@ -113,7 +117,7 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
 #define FStar_HyperStack_ST_salloc(x) 0
 #define FStar_HyperStack_ST_ralloc(x, y) 0
 #define FStar_HyperStack_ST_new_region(x) 0
-#define FStar_Monotonic_RRef_m_alloc(...)                                      \
+#define FStar_Monotonic_RRef_m_alloc(x)                                        \
   { 0 }
 
 #define FStar_HyperStack_ST_recall(x)                                          \
@@ -145,11 +149,11 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
 /* Endian-ness macros that can only be implemented in C                       */
 /******************************************************************************/
 
-// ... for Linux
+/* ... for Linux */
 #if defined(__linux__) || defined(__CYGWIN__)
 #include <endian.h>
 
-// ... for OSX
+/* ... for OSX */
 #elif defined(__APPLE__)
 #include <libkern/OSByteOrder.h>
 #define htole64(x) OSSwapHostToLittleInt64(x)
@@ -167,7 +171,7 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
 #define htobe32(x) OSSwapHostToBigInt32(x)
 #define be32toh(x) OSSwapBigToHostInt32(x)
 
-// ... for Windows
+/* ... for Windows */
 #elif (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) &&               \
     !defined(__WINDOWS__)
 #include <windows.h>
@@ -231,8 +235,8 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
 
 #endif
 
-// Loads and stores. These avoid undefined behavior due to unaligned memory
-// accesses, via memcpy.
+/* Loads and stores. These avoid undefined behavior due to unaligned memory
+ * accesses, via memcpy. */
 
 inline static uint16_t load16(uint8_t *b) {
   uint16_t x;
@@ -341,7 +345,7 @@ inline static int64_t FStar_UInt64_v(int64_t x) { return x; }
 /* Implementation of machine integers (possibly of 128-bit integers)          */
 /******************************************************************************/
 
-// Integer types
+/* Integer types */
 typedef uint64_t FStar_UInt64_t, FStar_UInt64_t_;
 typedef int64_t FStar_Int64_t, FStar_Int64_t_;
 typedef uint32_t FStar_UInt32_t, FStar_UInt32_t_;
@@ -352,15 +356,15 @@ typedef uint8_t FStar_UInt8_t, FStar_UInt8_t_;
 typedef int8_t FStar_Int8_t, FStar_Int8_t_;
 
 static inline uint32_t rotate32_left(uint32_t x, uint32_t n) {
-  //  assert (n<32);
+  /*  assert (n<32); */
   return (x << n) | (x >> (-n & 31));
 }
 static inline uint32_t rotate32_right(uint32_t x, uint32_t n) {
-  //  assert (n<32);
+  /*  assert (n<32); */
   return (x >> n) | (x << (-n & 31));
 }
 
-// Constant time comparisons
+/* Constant time comparisons */
 static inline uint8_t FStar_UInt8_eq_mask(uint8_t x, uint8_t y) {
   x = ~(x ^ y);
   x &= x << 4;
@@ -423,9 +427,9 @@ static inline uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
   return low63 & high_bit;
 }
 
-// Platform-specific 128-bit arithmetic. These are static functions in a header,
-// so that each translation unit gets its own copy and the C compiler can
-// optimize.
+/* Platform-specific 128-bit arithmetic. These are static functions in a header,
+ * so that each translation unit gets its own copy and the C compiler can
+ * optimize. */
 #ifndef KRML_NOUINT128
 typedef unsigned __int128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t;
 
@@ -487,14 +491,14 @@ static inline uint128_t FStar_UInt128_gte_mask(uint128_t x, uint128_t y) {
   return ((uint128_t)mask) << 64 | mask;
 }
 
-#else // !defined(KRML_UINT128)
+#else /* !defined(KRML_UINT128) */
 
-// This is a bad circular dependency... should fix it properly.
+/* This is a bad circular dependency... should fix it properly. */
 #include "FStar.h"
 
 typedef FStar_UInt128_uint128 FStar_UInt128_t_, uint128_t;
 
-// A series of definitions written using pointers.
+/* A series of definitions written using pointers. */
 static inline void print128_(unsigned char *where, uint128_t *n) {
   printf("%s: [%" PRIu64 ",%" PRIu64 "]\n", where, n->high, n->low);
 }
@@ -541,7 +545,7 @@ static inline uint128_t load128_be(uint8_t *b) {
 
 static inline void store128_be(uint8_t *b, uint128_t n) { store128_be_(b, &n); }
 
-#else // !defined(KRML_STRUCT_PASSING)
+#else /* !defined(KRML_STRUCT_PASSING) */
 
 #define print128 print128_
 #define load128_le load128_le_
@@ -549,6 +553,6 @@ static inline void store128_be(uint8_t *b, uint128_t n) { store128_be_(b, &n); }
 #define load128_be load128_be_
 #define store128_be store128_be_
 
-#endif // KRML_STRUCT_PASSING
-#endif // KRML_UINT128
-#endif // __KREMLIB_H
+#endif /* KRML_STRUCT_PASSING */
+#endif /* KRML_UINT128 */
+#endif /* __KREMLIB_H */

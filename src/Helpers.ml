@@ -3,6 +3,7 @@
 open Ast
 open Warnings
 open DeBruijn
+open PrintAst.Ops
 
 (* Some more fancy visitors ***************************************************)
 
@@ -173,6 +174,43 @@ let fold_arrow ts t_ret =
 
 let is_array = function TArray _ -> true | _ -> false
 
+(* If [e2] is assigned into an expression of type [t], we can sometimes
+ * strengthen the type [t] into an array type. *)
+let strengthen_array' t e2 =
+  let ensure_buf = function TBuf t -> t | _ -> failwith "not a buffer" in
+  let open Common in
+  match t, e2.node with
+  | TArray _, _ ->
+      Some t
+
+  | _, EBufCreateL (Stack, l) ->
+      let t = ensure_buf t in
+      Some (TArray (t, (K.Int32, string_of_int (List.length l))))
+
+  | _, EBufCreate (Stack, _, size) ->
+      let t = ensure_buf t in
+      begin match size.node with
+      | EConstant k ->
+          Some (TArray (t, k))
+      | _ ->
+          None
+      end
+
+  | _ ->
+      Some t
+
+let strengthen_array t e2 =
+  match strengthen_array' t e2 with
+  | Some t ->
+      t
+  | None ->
+      Warnings.fatal_error "In expression:\n%a\nthe array needs to be \
+        hoisted (to the nearest enclosing push_frame, for soundness, or to \
+        the nearest C block scope, for C89), but its \
+        size is non-constant, so I don't know what declaration to write"
+        pexpr e2
+
+
 let is_X_value self (e: expr) =
   match e.node with
   | EBound _
@@ -296,27 +334,25 @@ let safe_substitution es e t =
 
 (* Descend into a terminal position, then call [f] on the sub-term in terminal
  * position. This function is only safe to call if all binders have been opened. *)
-let rec nest_in_return_pos typ f e =
+let rec nest_in_return_pos i typ f e =
   match e.node with
   | ELet (b, e1, e2) ->
-      let e2 = nest_in_return_pos typ f e2 in
+      let e2 = nest_in_return_pos (i + 1) typ f e2 in
       { node = ELet (b, e1, e2); typ }
   | EIfThenElse (e1, e2, e3) ->
-      let e2 = nest_in_return_pos typ f e2 in
-      let e3 = nest_in_return_pos typ f e3 in
+      let e2 = nest_in_return_pos i typ f e2 in
+      let e3 = nest_in_return_pos i typ f e3 in
       { node = EIfThenElse (e1, e2, e3); typ }
   | ESwitch (e, branches) ->
       let branches = List.map (fun (t, e) ->
-        t, nest_in_return_pos typ f e
+        t, nest_in_return_pos i typ f e
       ) branches in
       { node = ESwitch (e, branches); typ }
-  | EMatch (e, branches) ->
-      let branches = List.map (fun (bs, pat, e) ->
-        bs, pat, nest_in_return_pos typ f e
-      ) branches in
-      { node = EMatch (e, branches); typ }
+  | EMatch _ ->
+      failwith "Matches should've been desugared"
   | _ ->
-      f e
+      f i e
 
-let push_ignore = nest_in_return_pos TUnit (fun e -> with_type TUnit (EIgnore (strip_cast e)))
+let nest_in_return_pos = nest_in_return_pos 0
 
+let push_ignore = nest_in_return_pos TUnit (fun _ e -> with_type TUnit (EIgnore (strip_cast e)))

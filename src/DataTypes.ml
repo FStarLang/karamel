@@ -4,6 +4,7 @@
 open Ast
 open DeBruijn
 open PrintAst.Ops
+open Helpers
 
 module K = Constant
 
@@ -11,7 +12,7 @@ module K = Constant
  * scrutinees, otherwise we won't be able to resolve anything. *)
 
 let drop_match_cast files =
-  Helpers.visit_files () (object
+  visit_files () (object
     inherit [unit] map
 
     method ematch () _ e branches =
@@ -83,7 +84,7 @@ module Gen = struct
 end
 
 let build_def_map files =
-  Helpers.build_map files (fun map -> function
+  build_map files (fun map -> function
     | DType (lid, _, _, def, _) ->
         Hashtbl.add map lid (def, false)
     | DTypeMutual (ty_decls) ->
@@ -218,7 +219,7 @@ function
   | _ -> ()
 
 let build_scheme_map files =
-  Helpers.build_map files update_scheme_map_for_type
+  build_map files update_scheme_map_for_type
 
 (** Second thing: handle the trivial case of a data type definition with only
  * tags (it's just an enum) and the trivial case of a type definition with one
@@ -250,11 +251,11 @@ let try_mk_flat e t branches =
         (* match e with { f = x; ... } becomes
          * let tmp = e in let x = e.f in *)
         let binders, body = open_binders binders body in
-        let scrut, atom = Helpers.mk_binding "scrut" e.typ in
+        let scrut, atom = mk_binding "scrut" e.typ in
         let bindings = List.map2 (fun b (f, _) ->
           b, with_type b.typ (EField (atom, f))
         ) binders fields in
-        ELet (scrut, e, close_binder scrut (Helpers.nest bindings t body))
+        ELet (scrut, e, close_binder scrut (nest bindings t body))
       else
         EMatch (e, branches)
   | _ ->
@@ -296,7 +297,7 @@ let compile_simple_matches map = object(self)
         assert (List.length args = 0);
         PEnum (mk_tag_lid lid cons)
     | ToFlat names ->
-        PRecord (List.map2 (fun n e -> n, e) names args)
+        PRecord (List.map2 (fun n e -> n, self#visit_pattern () e) names args)
 
   method dtype () lid flags n def fwd_decl =
     match def with
@@ -338,7 +339,92 @@ let compile_simple_matches map = object(self)
 
 end
 
-(* Third step: get rid of really dumb matches we don't want to go through
+(* Third step: whole-program transformation to remove unit fields. *)
+let remove_unit_fields = object (self)
+
+  inherit [unit] map
+
+  val erasable_fields = Hashtbl.create 41
+  val mutable atoms = []
+
+  method private is_erasable = function
+    | TUnit | TAny -> true
+    | _ -> false
+
+  method private default_value = function
+    | TUnit -> EUnit
+    | TAny -> EAny
+    | _ -> assert false
+
+  (* Modify type definitions so that fields of type unit and any are removed.
+   * Remember in a table that they are removed. *)
+  method! dtypevariant _ lid branches =
+    let branches =
+      List.map (fun (cons, fields) ->
+        cons, KList.filter_mapi (fun i (f, (t, m)) ->
+          if self#is_erasable t then begin
+            Hashtbl.add erasable_fields (lid, cons, i) ();
+            None
+          end else
+            Some (f, (t, m))
+        ) fields
+      ) branches
+    in
+    Variant branches
+
+  (* As we're about to visit a pattern, we collect binders for now-defunct
+   * fields, and replace them with default values in the corresponding branch. *)
+  method! branch _ (binders, pat, expr) =
+    let binders, pat, expr = open_branch binders pat expr in
+    let pat = self#visit_pattern () pat in
+    let expr = self#visit () expr in
+    let binders = List.filter (fun b -> not (List.mem b.node.atom atoms)) binders in
+    let pat, expr = close_branch binders pat expr in
+    binders, pat, expr
+
+  (* Catch references to pattern-bound variables whose underlying field is gone. *)
+  method! eopen () t name a =
+    if List.mem a atoms then
+      self#default_value t
+    else
+      EOpen (name, a)
+
+  (* In a constructor pattern, remove sub-patterns over erased fields and
+   * remember them. *)
+  method! pcons () t cons pats =
+    let pats = KList.filter_mapi (fun i p ->
+      if Hashtbl.mem erasable_fields (assert_tlid t, cons, i) then begin
+        begin match p.node with
+        | POpen (_, a) ->
+            atoms <- a :: atoms
+        | _ ->
+            ()
+        end;
+        None
+      end else
+        Some (self#visit_pattern () p)
+    ) pats in
+    PCons (cons, pats)
+
+  method! econs () t cons exprs =
+    let seq = ref [] in
+    let exprs = KList.filter_mapi (fun i e ->
+      if Hashtbl.mem erasable_fields (assert_tlid t, cons, i) then begin
+        if not (is_value e) then
+          seq := (if e.typ = TUnit then e else with_unit (EIgnore e)) :: !seq;
+        None
+      end else
+        Some (self#visit () e)
+    ) exprs in
+    let e = ECons (cons, exprs) in
+    if List.length !seq > 0 then
+      ESequence (List.rev_append !seq [ (with_type t e) ])
+    else
+      e
+
+end
+
+(* Fourth step: get rid of really dumb matches we don't want to go through
  * our elaborate match-compilation scheme. Also perform some other F*-specific
  * cleanups. *)
 
@@ -408,7 +494,7 @@ let remove_trivial_matches = object (self)
   method! branch env (binders, pat, expr) =
     let _, binders, pat, expr = List.fold_left (fun (i, binders, pat, expr) b ->
       if !(b.node.mark) = 0 && is_special b.node.name then
-        i, binders, DeBruijn.subst_p Helpers.pwild i pat, DeBruijn.subst Helpers.any i expr
+        i, binders, DeBruijn.subst_p pwild i pat, DeBruijn.subst any i expr
       else
         i + 1, b :: binders, pat, expr
     ) (0, [], pat, expr) (List.rev binders) in
@@ -464,7 +550,7 @@ let rec compile_pattern env scrut pat expr =
   | PCons (ident, _) ->
       failwith ("constructor hasn't been desugared: " ^ ident)
   | PDeref pat ->
-      let scrut = mk (EBufRead (scrut, Helpers.zerou32)) in
+      let scrut = mk (EBufRead (scrut, zerou32)) in
       compile_pattern env scrut pat expr
 
 
@@ -499,7 +585,7 @@ let compile_match env e_scrut branches =
       let branches = List.map (compile_branch env name_scrut) branches in
       fold_ite branches
   | _ ->
-      let b_scrut, name_scrut = Helpers.mk_binding "scrut" e_scrut.typ in
+      let b_scrut, name_scrut = mk_binding "scrut" e_scrut.typ in
       let branches = List.map (compile_branch env name_scrut) branches in
       mk (ELet (b_scrut, e_scrut, close_binder b_scrut (fold_ite branches)))
 
@@ -527,7 +613,7 @@ let tag_and_val_type lid branches =
   TAnonymous (Enum tags), TAnonymous (Union structs)
 
 
-(* Fourth step: implement the general transformation of data types into tagged
+(* Fifth step: implement the general transformation of data types into tagged
  * unions. *)
 let compile_all_matches map = object (self)
 
@@ -549,7 +635,7 @@ let compile_all_matches map = object (self)
   (* A pattern on a constructor becomes a pattern on a struct and one of its
    * union fields. *)
   method pcons env t cons fields =
-    let lid = Helpers.assert_tlid t in
+    let lid = assert_tlid t in
     let branches = assert_branches map lid in
     let field_names = field_names_of_cons cons branches in
     let fields = List.map (self#visit_pattern env) fields in
@@ -568,7 +654,7 @@ let compile_all_matches map = object (self)
     ])
 
   method econs env t cons exprs =
-    let lid = Helpers.assert_tlid t in
+    let lid = assert_tlid t in
     let branches = assert_branches map lid in
     let field_names = field_names_of_cons cons branches in
     let field_names = List.map (fun x -> Some x) field_names in
@@ -632,7 +718,7 @@ let is_tagged_union map lid =
   | _ ->
       false
 
-(* Fifth step: if the compiler supports it, use C11 anonymous structs. *)
+(* Sixth step: if the compiler supports it, use C11 anonymous structs. *)
 
 let anonymous_unions map = object (self)
   inherit [_] map
@@ -675,16 +761,20 @@ let debug_map map =
     )
   ) map
 
+(* Debug any intermediary AST as follows: *)
+(* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
+
 let everything files =
   let map = build_def_map files in
-  let files = Helpers.visit_files true (monomorphize_data_types map) files in
+  let files = visit_files true (monomorphize_data_types map) files in
   let files = drop_parameterized_data_types files in
+  let files = visit_files () remove_unit_fields files in
   let map = build_scheme_map files in
   if false then debug_map map;
-  let files = Helpers.visit_files () remove_trivial_matches files in
-  let files = Helpers.visit_files () (compile_simple_matches map) files in
-  let files = Helpers.visit_files () (compile_all_matches map) files in
+  let files = visit_files () remove_trivial_matches files in
+  let files = visit_files () (compile_simple_matches map) files in
+  let files = visit_files () (compile_all_matches map) files in
   map, files
 
 let anonymous_unions map files =
-  Helpers.visit_files () (anonymous_unions map) files
+  visit_files () (anonymous_unions map) files

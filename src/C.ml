@@ -1,4 +1,4 @@
-(** A (simplified) grammar of C. *)
+
 
 module K = Constant
 open Common
@@ -98,9 +98,7 @@ type stmt =
   | If of expr * stmt
   | IfElse of expr * stmt * stmt
   | While of expr * stmt
-  | For of declaration option * expr * expr * stmt
-    (** "init_clause may be an expression or a declaration" -> only doing the
-     * latter *)
+  | For of declaration_or_expr * expr * expr * stmt
   | Return of expr option
   | Switch of expr * (expr * stmt) list * stmt
     (** the last component is the default statement *)
@@ -118,4 +116,10 @@ and declaration_or_function =
   | Decl of comment list * declaration
   | Function of comment list * bool * declaration * stmt
     (** [stmt] _must_ be a compound statement; boolean is inline *)
-  [@@deriving show]
+
+and declaration_or_expr = [
+  | `Decl of declaration
+  | `Expr of expr
+  | `Skip
+]
+[@@deriving show]

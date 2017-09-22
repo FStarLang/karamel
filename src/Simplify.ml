@@ -5,7 +5,6 @@ open Ast
 open DeBruijn
 open Idents
 open Warnings
-open Common
 open PrintAst.Ops
 open Helpers
 
@@ -176,7 +175,7 @@ let sequence_to_let = object (self)
         failwith "[sequence_to_let]: impossible (empty sequence)"
 
   method! eignore () t e =
-    (nest_in_return_pos t (fun e -> with_type t (EIgnore (self#visit () e))) e).node
+    (nest_in_return_pos t (fun _ e -> with_type t (EIgnore (self#visit () e))) e).node
 
 end
 
@@ -218,57 +217,52 @@ end
  *   else
  *     x <- e'
  *
- * The code is prettier if we push the assignment under lets, ifs and switches. *)
+ * The code is prettier if we push the assignment under lets, ifs and switches.
+ * We also rewrite:
+ *   x <- if ... then ...
+ * the same way. *)
 let let_if_to_assign = object (self)
 
   inherit [unit] map
 
-  method! elet () _ b e1 e2 =
+  method private make_assignment lhs e1 =
+    let nest_assign = nest_in_return_pos TUnit (fun i innermost -> {
+      node = EAssign (DeBruijn.lift i lhs, innermost);
+      typ = TUnit
+    }) in
+    match e1.node with
+    | EIfThenElse (cond, e_then, e_else) ->
+        let e_then = nest_assign (self#visit () e_then) in
+        let e_else = nest_assign (self#visit () e_else) in
+        with_unit (EIfThenElse (cond, e_then, e_else))
+
+    | ESwitch (e, branches) ->
+        let branches = List.map (fun (tag, e) -> tag, nest_assign (self#visit () e)) branches in
+        with_unit (ESwitch (e, branches))
+
+    | _ ->
+        invalid_arg "make_assignment"
+
+  method! elet () t b e1 e2 =
     match e1.node, b.node.meta with
-    | EIfThenElse (cond, e_then, e_else), None ->
-        (* Recursively transform *)
-        let e_then = self#visit () e_then in
-        let e_else = self#visit () e_else in
+    | (EIfThenElse _ | ESwitch _), None ->
         (* [b] holds the return value of the conditional *)
         let b = mark_mut b in
-        let b, e2 = open_binder b e2 in
-        let nest_assign = nest_in_return_pos TUnit (fun innermost -> {
-          node = EAssign ({ node = EOpen (b.node.name, b.node.atom); typ = b.typ }, innermost);
-          typ = TUnit
-        }) in
-        (* Once we find the nested-most return expression, we turn it into an
-         * assignment. *)
-        let e_then = nest_assign e_then in
-        let e_else = nest_assign e_else in
-        let e_ifthenelse = {
-          node = EIfThenElse (cond, e_then, e_else);
-          typ = TUnit
-        } in
-        let seq_b = sequence_binding () in
-        ELet (b, { node = EAny; typ = TAny }, close_binder b ({
-          node = ELet (seq_b, e_ifthenelse, close_binder seq_b (self#visit () e2));
-          typ = e2.typ
-        }))
-    | ESwitch (e, branches), None ->
-        let b = { b with node = { b.node with mut = true }} in
-        let b, e2 = open_binder b e2 in
-        let nest_assign = nest_in_return_pos TUnit (fun innermost -> {
-          node = EAssign ({ node = EOpen (b.node.name, b.node.atom); typ = b.typ }, innermost);
-          typ = TUnit
-        }) in
-        let branches = List.map (fun (tag, e) -> tag, nest_assign (self#visit () e)) branches in
-        let e_switch = {
-          node = ESwitch (e, branches);
-          typ = TUnit
-        } in
-        let seq_b = sequence_binding () in
-        ELet (b, { node = EAny; typ = TAny }, close_binder b ({
-          node = ELet (seq_b, e_switch, close_binder seq_b (self#visit () e2));
-          typ = e2.typ
-        }))
+        let e = self#make_assignment (with_type b.typ (EBound 0)) (DeBruijn.lift 1 e1) in
+        ELet (b, any, with_type t (
+          ELet (sequence_binding (), e, DeBruijn.lift 1 (self#visit () e2))))
+
     | _ ->
-        (* There are no more nested lets at this stage *)
+        (* This may be a statement-let; visit both. *)
         ELet (b, self#visit () e1, self#visit () e2)
+
+  method! eassign () _ e1 e2 =
+    match e2.node with
+    | (EIfThenElse _ | ESwitch _) ->
+        (self#make_assignment e1 e2).node
+
+    | _ ->
+        EAssign (e1, e2)
 
 end
 
@@ -345,7 +339,7 @@ let rec hoist_stmt e =
       assert (e.typ = TUnit);
       (* The semantics is that [e1] is evaluated once, so it's fine to hoist any
        * let-bindings it generates. *)
-      let lhs1, e1 = hoist_expr Unspecified e1 in
+      let lhs1, e1 = hoist_expr (if binder.node.meta = Some MetaSequence then UnderStmtLet else Unspecified) e1 in
       let binder, s = opening_binder binder in
       let e2 = s e2 and e3 = s e3 and e4 = s e4 in
       (* [e2] and [e3], however, are evaluated at each loop iteration! *)
@@ -507,7 +501,7 @@ and hoist_expr pos e =
         [ b, mk (EWhile (e1, e2)) ], mk EUnit
 
   | EFor (binder, e1, e2, e3, e4) ->
-      let lhs1, e1 = hoist_expr Unspecified e1 in
+      let lhs1, e1 = hoist_expr (if binder.node.meta = Some MetaSequence then UnderStmtLet else Unspecified) e1 in
       let binder, s = opening_binder binder in
       let e2 = s e2 and e3 = s e3 and e4 = s e4 in
       let lhs2, e2 = hoist_expr Unspecified e2 in
@@ -674,7 +668,7 @@ let rec fixup_return_pos e =
       (fixup_return_pos e).node
   | ELet (_, ({ node = (EIfThenElse _ | ESwitch _); _ } as e),
     { node = ECast ({ node = EBound 0; _ }, t); _ }) ->
-      (nest_in_return_pos t (fun e -> with_type t (ECast (e, t))) (fixup_return_pos e)).node
+      (nest_in_return_pos t (fun _ e -> with_type t (ECast (e, t))) (fixup_return_pos e)).node
   | EIfThenElse (e1, e2, e3) ->
       EIfThenElse (e1, fixup_return_pos e2, fixup_return_pos e3)
   | ESwitch (e1, branches) ->
@@ -846,55 +840,31 @@ let rec hoist_bufcreate (e: expr) =
       let bs, e2 = hoist_bufcreate e2 in
       bs, mk (EWhile (e1, e2))
 
-  | ELet (b, ({ node = EBufCreateL (Stack, elts); _ } as e1), e2) ->
-      let b, e2 = open_binder b e2 in
-      let bs, e2 = hoist_bufcreate e2 in
-      let typ =
-        match b.typ with
-        | TBuf t -> TArray (t, (K.UInt32, string_of_int (List.length elts)))
-        | _ -> failwith "impossible"
-      in
-      ({ node = { b.node with mut = true }; typ }, any) :: bs,
-      mk (ELet (sequence_binding (),
-        with_type TUnit (EAssign (with_type typ (EOpen (b.node.name, b.node.atom)), e1)),
-        lift 1 e2
-      ))
-
-  | ELet (b, ({ node = EBufCreate (Stack, _, l); _ } as e1), e2) ->
-      let b, e2 = open_binder b e2 in
-      let bs, e2 = hoist_bufcreate e2 in
-      let k = match l.node with
-        | EConstant k ->
-            k
-        | _ ->
-            Warnings.fatal_error "In expression:\n%a\nthe array does not have a constant size"
-              pexpr e
-      in
-      let typ =
-        match b.typ with
-        | TArray _ as t ->
-            t
-        | TBuf t ->
-            TArray (t, k)
-        | _ ->
-            Warnings.fatal_error
-              "Let-bound array is annotated with %a instead of TArray:\n%a"
-              ptyp b.typ
-              ppexpr e
-      in
-      ({ node = { b.node with mut = true }; typ }, any) :: bs,
-      mk (ELet (sequence_binding (),
-        with_type TUnit (EAssign (with_type typ (EOpen (b.node.name, b.node.atom)), e1)),
-        lift 1 e2
-      ))
-
   | ELet (b, ({ node = EPushFrame; _ } as e1), e2) ->
       [], mk (ELet (b, e1, under_pushframe e2))
 
   | ELet (b, e1, e2) ->
-      let b1, e1 = hoist_bufcreate e1 in
-      let b2, e2 = hoist_bufcreate e2 in
-      b1 @ b2, mk (ELet (b, e1, e2))
+      (* Either:
+       *   [let x: t* = bufcreatel ...] (as-is in the original code)
+       *   [let x: t[n] = any] (because C89 hoisting kicked in) *)
+      begin match strengthen_array b.typ e1 with
+      | TArray _ as typ ->
+          let b, e2 = open_binder b e2 in
+          let b = { b with typ } in
+          let bs, e2 = hoist_bufcreate e2 in
+          (mark_mut b, any) :: bs,
+          if e1.node <> EAny then
+            mk (ELet (sequence_binding (),
+              with_unit (EAssign (with_type typ (EOpen (b.node.name, b.node.atom)), e1)),
+              lift 1 e2
+            ))
+          else
+            e2
+      | _ ->
+          let b1, e1 = hoist_bufcreate e1 in
+          let b2, e2 = hoist_bufcreate e2 in
+          b1 @ b2, mk (ELet (b, e1, e2))
+      end
 
   | _ ->
       [], e
@@ -915,7 +885,11 @@ and under_pushframe (e: expr) =
  * - either whatever happens before push is benign
  * - or, something happens (e.g. allocation), and this means that the function
  *   WILL be inlined, and that its caller will take care of hoisting things up
- *   in the second round. *)
+ *   in the second round.
+ * Note: we could do this in a simpler manner with a visitor whose env is a
+ * [ref * (list (binder * expr))] but that would degrade the quality of the
+ * code. This recursive routine is smarter and preserves the sequence of
+ * let-bindings starting from the beginning of the scope. *)
 let rec skip (e: expr) =
   let mk node = { node; typ = e.typ } in
   match e.node with
@@ -923,6 +897,7 @@ let rec skip (e: expr) =
       mk (ELet (b, e1, under_pushframe e2))
   | ELet (b, e1, e2) ->
       mk (ELet (b, e1, skip e2))
+  (* Descend into conditionals that are in return position. *)
   | EIfThenElse (e1, e2, e3) ->
       mk (EIfThenElse (e1, skip e2, skip e3))
   | ESwitch (e, branches) ->
@@ -1055,10 +1030,13 @@ let simplify0 (files: file list): file list =
  * re-establish this invariant. *)
 let simplify2 (files: file list): file list =
   let files = visit_files () sequence_to_let files in
+  (* Quality of hoisting is WIDELY improved if we remove un-necessary
+   * let-bindings. *)
+  let files = visit_files [] count_and_remove_locals files in
   let files = visit_files () hoist files in
+  let files = if !Options.c89_scope then visit_files (ref []) SimplifyC89.hoist_lets files else files in
   let files = visit_files () hoist_bufcreate files in
   let files = visit_files () fixup_hoist files in
-  let files = visit_files [] count_and_remove_locals files in
   let files = visit_files () let_if_to_assign files in
   let files = visit_files () no_empty_then files in
   let files = visit_files () let_to_sequence files in

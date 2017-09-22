@@ -10,7 +10,7 @@ let zero = C.Constant (K.UInt8, "0")
 let is_array = function Array _ -> true | _ -> false
 
 let escape_string s =
-  (* TODO: dive into the C lexical conventions + fix the F\* lexer *)
+  (* TODO: dive into the C lexical conventions + fix the F* lexer *)
   String.escaped s
 
 type rec_name = {
@@ -18,6 +18,11 @@ type rec_name = {
   typ: C.type_spec;
   used: bool ref;
 }
+
+let assert_var =
+  function
+  | Var _ -> ()
+  | _ -> failwith "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = "
 
 (* Turns the ML declaration inside-out to match the C reading of a type.
  * See en.cppreference.com/w/c/language/declarations *)
@@ -119,18 +124,31 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
   | _ ->
       Compound stmts
 
+(* Ideally, most of the for-loops should've been desugared C89-style if needed
+ * beforehand. *)
+and mk_for_loop name t init test incr body =
+  if !Options.c89_scope then
+    Compound [
+      Decl (t, None, [ Ident name, None ]);
+      For (
+        `Expr (Op2 (K.Assign, Name name, init)),
+        test, incr, body)
+    ]
+  else
+    For (
+      `Decl (t, None, [ Ident name, Some (InitExpr init)]),
+      test, incr, body)
+
 and mk_for_loop_initializer e_array e_size e_value: C.stmt =
   match e_size with
   | C.Constant (_, "1")
   | C.Cast (_, C.Constant (_, "1")) ->
       Expr (Op2 (K.Assign, Index (e_array, Constant (K.UInt32, "0")), e_value))
   | _ ->
-      (* Our buffers sizes are UInt32 in F*... no overflow. *)
-      For (
-        Some (Int K.UInt32, None, [ Ident "_i", Some (InitExpr zero)]),
-        Op2 (K.Lt, Name "_i", e_size),
-        Op1 (K.PreIncr, Name "_i"),
-        Expr (Op2 (K.Assign, Index (e_array, Name "_i"), e_value)))
+      mk_for_loop "_i" (Int K.UInt32) zero
+        (Op2 (K.Lt, Name "_i", e_size))
+        (Op1 (K.PreIncr, Name "_i"))
+        (Expr (Op2 (K.Assign, Index (e_array, Name "_i"), e_value)))
 
 and mk_memset_zero_initializer e_array e_size =
   Expr (Call (Name "memset", [
@@ -157,7 +175,43 @@ and mk_check_size init n_elements: C.stmt list =
       default
 
 and mk_sizeof t =
-  C.Call (C.Name "sizeof", [ C.Type t ])
+  C.Call (C.Name "sizeof", [ t ])
+
+and mk_malloc t s =
+  C.Call (C.Name "malloc", [ C.Op2 (K.Mult, mk_sizeof t, s) ])
+
+and mk_calloc t s =
+  C.Call (C.Name "calloc", [ s; mk_sizeof t ])
+
+and mk_eternal_bufcreate buf init size =
+  let size = mk_expr size in
+  let e, extra_stmt = match init with
+    | Constant (_, "0") ->
+        mk_calloc (mk_expr init) size, []
+    | Any | Cast (Any, _) ->
+        mk_malloc (mk_expr init) size, []
+    | _ ->
+        mk_malloc (mk_expr init) size,
+        [ mk_for_loop_initializer (mk_expr buf) size (mk_expr init) ]
+  in
+  mk_check_size (mk_expr init) size, e, extra_stmt
+
+and ensure_pointer t =
+  match t with
+  | Array (t, _)
+  | Pointer t ->
+      t
+  | _ ->
+      Warnings.fatal_error "let-bound bufcreate has type %s instead of Pointer" (show_typ t)
+
+and ensure_array t size =
+  match t with
+  | Pointer t ->
+      Array (t, size)
+  | Array _ as t ->
+      t
+  | t ->
+      Warnings.fatal_error "impossible: %s" (show_typ t)
 
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
@@ -177,40 +231,19 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Expr (mk_expr e) ]
 
   | Decl (binder, BufCreate (Eternal, init, size)) ->
+      ignore (ensure_pointer binder.typ);
+      let stmt_check, expr_alloc, stmt_extra =
+        mk_eternal_bufcreate (Var binder.name) init size
+      in
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
-      let type_name =
-        match binder.typ with
-        | Array (t, _)
-        | Pointer t -> mk_spec_and_declarator "" t
-        | _ -> Warnings.fatal_error "let-bound bufcreate has type %s instead of Pointer" (show_typ binder.typ)
-      in
-      let size = mk_expr size in
-      let e, extra_stmt = match init with
-        | Constant (_, "0") ->
-            C.Call (C.Name "calloc", [ size; mk_sizeof type_name ]), []
-        | Any | Cast (Any, _) ->
-            C.Call (C.Name "malloc", [
-              C.Op2 (K.Mult, mk_sizeof type_name, size)
-            ]), []
-        | _ ->
-            C.Call (C.Name "malloc", [
-              C.Op2 (K.Mult, mk_sizeof type_name, size)
-            ]), [ mk_for_loop_initializer (Name binder.name) size (mk_expr init) ]
-      in
-      let decl: C.stmt list = [ Decl (spec, None, [ decl, Some (InitExpr e)]) ] in
-      mk_check_size (mk_expr init) size @
-      decl @
-      extra_stmt
+      let decl: C.stmt list = [ Decl (spec, None, [ decl, Some (InitExpr expr_alloc)]) ] in
+      stmt_check @ decl @ stmt_extra
 
   | Decl (binder, BufCreate (Stack, init, size)) ->
       (* In the case where this is a buffer creation in the C* meaning, then we
        * declare a fixed-length array; this is an "upcast" from pointer type to
        * array type, in the C sense. *)
-      let t = match binder.typ with
-        | Pointer t -> Array (t, size)
-        | Array _ as t -> t
-        | t -> Warnings.fatal_error "impossible: %s" (show_typ t)
-      in
+      let t = ensure_array binder.typ size in
       let module T = struct type init = Nope | Memset | Forloop end in
       let (maybe_init, init_type): C.init option * T.init = match init, size with
         | _, Constant (_, "0") ->
@@ -248,14 +281,11 @@ and mk_stmt (stmt: stmt): C.stmt list =
       decl @
       extra_stmt
 
-  | Decl (binder, BufCreateL (l, inits)) ->
-      if l <> Stack then
-        failwith "TODO: createL / eternal";
-      let t = match binder.typ with
-        | Pointer t -> Array (t, Constant (K.uint32_of_int (List.length inits)))
-        | Array _ as t -> t
-        | t -> Warnings.fatal_error "impossible: %s" (show_typ t)
-      in
+  | Decl (_, BufCreateL (Eternal, _)) ->
+      failwith "TODO (desugar into a series of assignments)"
+
+  | Decl (binder, BufCreateL (Stack, inits)) ->
+      let t = ensure_array binder.typ (Constant (K.uint32_of_int (List.length inits))) in
       let spec, decl = mk_spec_and_declarator binder.name t in
       [ Decl (spec, None, [ decl, Some (Initializer (List.map (fun e ->
         InitExpr (mk_expr e)
@@ -273,10 +303,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
         [ If (mk_expr e, mk_compound_if (mk_stmts b1)) ]
 
   | Copy (e1, _, BufCreate (Stack, init, size)) ->
-      begin match e1 with
-      | Var _ -> ()
-      | _ -> failwith "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = "
-      end;
+      assert_var e1;
       begin match init with
       | Any | Cast (Any, _) ->
           mk_check_size (mk_expr init) (mk_expr size)
@@ -284,7 +311,8 @@ and mk_stmt (stmt: stmt): C.stmt list =
           mk_check_size (mk_expr init) (mk_expr size) @
           [ mk_memset_zero_initializer (mk_expr e1) (mk_expr size) ]
       | _ ->
-          (* JP: why is this not a call to memcpy? *)
+          (* JP: a potential optimization is to use memset when the initial
+           * value is a uint8 / int8 *)
           mk_check_size (mk_expr init) (mk_expr size) @
           [ mk_for_loop_initializer (mk_expr e1) (mk_expr size) (mk_expr init) ]
       end
@@ -305,11 +333,21 @@ and mk_stmt (stmt: stmt): C.stmt list =
   | Assign (BufRead _, (Any | Cast (Any, _))) ->
       []
 
-  | BufWrite (_, _, (Any | Cast (Any, _))) ->
-      []
+  | Assign (e1, BufCreate (Eternal, init, size)) ->
+      assert_var e1;
+      let stmt_check, expr_alloc, stmt_extra = mk_eternal_bufcreate e1 init size in
+      stmt_check @
+      [ Expr (Assign (mk_expr e1, expr_alloc)) ] @
+      stmt_extra
+
+  | Assign (_, BufCreateL (Eternal, _)) ->
+      failwith "TODO"
 
   | Assign (e1, e2) ->
       [ Expr (Assign (mk_expr e1, mk_expr e2)) ]
+
+  | BufWrite (_, _, (Any | Cast (Any, _))) ->
+      []
 
   | BufWrite (e1, e2, e3) ->
       [ Expr (Assign (mk_index e1 e2, mk_expr e3)) ]
@@ -333,13 +371,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let buf = mk_expr buf in
       let v = mk_expr v in
       let size = mk_expr size in
-      (* This is an Int32 at the F* level. *)
-      [ For (
-          Some (Int K.UInt32, None, [ Ident "_i", Some (InitExpr zero)]),
-          Op2 (K.Lt, Name "_i", size),
-          Op1 (K.PreIncr, Name "_i"),
-          Expr (Op2 (K.Assign, Index (buf, Name "_i"), v)))]
-
+      [ mk_for_loop_initializer buf size v ]
 
   | While (e1, e2) ->
       [ While (mk_expr e1, mk_compound_if (mk_stmts e2)) ]
@@ -365,22 +397,28 @@ and mk_stmt (stmt: stmt): C.stmt list =
           Literal "KreMLin abort at %s:%d\\n%s\\n"; Name "__FILE__"; Name "__LINE__"; Literal (escape_string s) ]));
         Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])); ]
 
-  | For (binder, e1, e2, e3, b) ->
-      let init_clause = match binder, e1 with
-        | { name = "_"; typ = CStar.Void }, Any ->
-            None
-        | _ ->
-            let spec, decl = mk_spec_and_declarator binder.name binder.typ in
-            let init = struct_as_initializer e1 in
-            Some (spec, None, [ decl, Some init ])
+  | For (`Decl (binder, e1), e2, e3, b) ->
+      let spec, decl = mk_spec_and_declarator binder.name binder.typ in
+      let name = match decl with Ident name -> name | _ -> failwith "not an ident" in
+      let init = match struct_as_initializer e1 with InitExpr init -> init | _ -> failwith "not an initexpr" in
+      let e2 = mk_expr e2 in
+      let e3 = match mk_stmt e3 with [ Expr e3 ] -> e3 | _ -> assert false in
+      let b = mk_compound_if (mk_stmts b) in
+      [ mk_for_loop name spec init e2 e3 b ]
+
+  | For (e1, e2, e3, b) ->
+      let e1 = match e1 with
+        | `Skip -> `Skip
+        | `Stmt e1 -> `Expr (match mk_stmt e1 with [ Expr e1 ] -> e1 | _ -> assert false)
+        | _ -> assert false
       in
       let e2 = mk_expr e2 in
       let e3 = match mk_stmt e3 with [ Expr e3 ] -> e3 | _ -> assert false in
       let b = mk_compound_if (mk_stmts b) in
-      [ For (init_clause, e2, e3, b)]
+      [ For (e1, e2, e3, b) ]
 
 
-and mk_stmts stmts: C.stmt list =
+and mk_stmts0 stmts: C.stmt list =
   match stmts with
   | PushFrame :: stmts ->
       let frame, remaining = mk_stmts' [] stmts in
@@ -391,6 +429,26 @@ and mk_stmts stmts: C.stmt list =
       mk_stmt stmt @ mk_stmts stmts
   | [] ->
       []
+
+and mk_stmts stmts: C.stmt list =
+  let stmts = mk_stmts0 stmts in
+  let rec fixup_c89 in_decls (stmts: C.stmt list) =
+    match stmts with
+    | C.Decl _ as stmt :: stmts ->
+        if in_decls then
+          stmt :: fixup_c89 true stmts
+        else
+          [ C.Compound (stmt :: fixup_c89 true stmts) ]
+    | stmt :: stmts ->
+        stmt :: fixup_c89 false stmts
+    | [] ->
+        []
+  in
+  if !Options.c89_scope then
+    fixup_c89 true stmts
+  else
+    stmts
+
 
 (** Consume the list of statements until the next pop frame, and return the
  * translated statements within the frame, along with the remaining statements

@@ -2,14 +2,14 @@ module GcTypes
 
 open FStar.HyperStack.ST
 
-module I32 = FStar.Int32
+module U32 = FStar.UInt32
 
-let test (): Stack (list I32.t) (fun _ -> true) (fun _ _ _ -> true) =
-  0l :: 1l :: []
+let test (): Stack (list U32.t) (fun _ -> true) (fun _ _ _ -> true) =
+  0ul :: 1ul :: []
 
-let main (): Stack I32.t (fun _ -> true) (fun _ _ _ -> true) =
+let main (): Stack FStar.Int32.t (fun _ -> true) (fun _ _ _ -> true) =
   match test () with
   | x :: y :: [] ->
-      FStar.Int32.(x +%^ y -%^ 1l)
+      FStar.Int.Cast.uint32_to_int32 FStar.UInt32.(x +%^ y -%^ 1ul)
   | _ ->
-      1l
+      FStar.Int.Cast.uint32_to_int32 1ul

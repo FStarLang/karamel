@@ -1,6 +1,10 @@
-type t = unit ref
+type t = int
   [@@deriving yojson,show]
 
-let fresh () = ref ()
+let r = ref 0
 
-let equal = (==)
+let fresh () =
+  incr r;
+  !r
+
+let equal = (=)

@@ -14,6 +14,7 @@ FILES		= \
   Recursive.exe RecursivePoly.exe Structs2.exe StringLit.exe \
   FunctionalEncoding.exe FunPtr.exe Test128.exe \
   CheckedInt.exe Polymorphic.exe MutualDatatypes.exe \
+  GcTypes.exe BadMatch.exe C89.exe
   MutualDatatypesPolyIndex.exe
 EXTRA_FILES	= \
   Crypto.Symmetric.Chacha20.exe
@@ -50,6 +51,8 @@ Scope.exe: EXTRA = -ccopt -O3
 Test128.exe: EXTRA = -fnouint128 -static-header FStar
 Crypto.Symmetric.Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 HigherOrder.exe: EXTRA = -warn-error +9
+Crypto.Symmetric.Chacha20.exe: EXTRA=$(CRYPTO_OPTS) main-Chacha.c
+C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic -fc89
 
 .PHONY: Crypto.Symmetric.Chacha20.fst
 

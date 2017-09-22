@@ -14,9 +14,8 @@ non-recursive data types) then KreMLin will turn it into C.
 This work has been formalized on paper. We state that the compilation of
 such F\* programs to C preserves semantics. We start from Low\*, a subset of
 F\*, and relate its semantics to [CompCert](http://compcert.inria.fr/)'s Clight.
-- the [ML Workshop Paper] provides a good, short overview
-- a [recent submission] provides a more in-depth formalization of our compilation
-  toolchain
+- the [ICFP 2017 Paper] provides an overview of KreMLin as well
+  as a paper formalization of our compilation toolchain
 
 We have written 20,000 lines of low-level F\* code, implementing the [TLS
 1.3](https://tlswg.github.io/tls13-spec/) record layer. As such, KreMLin is a
@@ -28,7 +27,7 @@ key component of [Project Everest](https://project-everest.github.io/).
 
 [ML Workshop Paper]: https://jonathan.protzenko.fr/papers/ml16.pdf
 [HACL*]: https://github.com/mitls/hacl-star/
-[recent submission]: https://arxiv.org/abs/1703.00053
+[ICFP 2017 Paper]: https://arxiv.org/abs/1703.00053
 
 ## Trying out KreMLin
 
