@@ -14,7 +14,7 @@ FILES		= \
   Recursive.exe RecursivePoly.exe Structs2.exe StringLit.exe \
   FunctionalEncoding.exe FunPtr.exe Test128.exe \
   CheckedInt.exe Polymorphic.exe MutualDatatypes.exe \
-  GcTypes.exe BadMatch.exe C89.exe
+  GcTypes.exe BadMatch.exe C89.exe \
   MutualDatatypesPolyIndex.exe
 EXTRA_FILES	= \
   Crypto.Symmetric.Chacha20.exe
