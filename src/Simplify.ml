@@ -1030,6 +1030,9 @@ let simplify0 (files: file list): file list =
  * re-establish this invariant. *)
 let simplify2 (files: file list): file list =
   let files = visit_files () sequence_to_let files in
+  (* Quality of hoisting is WIDELY improved if we remove un-necessary
+   * let-bindings. *)
+  let files = visit_files [] count_and_remove_locals files in
   let files = visit_files () hoist files in
   let files = if !Options.c89_scope then visit_files (ref []) SimplifyC89.hoist_lets files else files in
   let files = visit_files () hoist_bufcreate files in
