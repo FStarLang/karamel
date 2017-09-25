@@ -50,6 +50,14 @@ let remove_buffer_ops = object
                     EAssign (ref_size, mk_minus_one ref_size))])));
               ref_buf]))))])))
 
+  method ebufcreatel () t lifetime es =
+    let size = mk_uint32 (List.length es) in
+    let with_t = with_type t in
+    let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, size)) in
+    let assignments = List.mapi (fun i e -> with_unit (EBufWrite (ref_buf, mk_uint32 i, e))) es in
+    ELet (b_buf, body_buf, close_binder b_buf (with_t (
+      ESequence (assignments @ [ ref_buf ]))))
+
   method ebufblit () t src_buf src_ofs dst_buf dst_ofs len =
     let with_t = with_type t in
     let b_src, body_src, ref_src =

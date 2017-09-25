@@ -368,7 +368,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.BufCreate (l, mk_mul32 e_len (mk_uint32 mult), base_size)
 
   | EBufCreateL _ | EBufBlit _ | EBufFill _ ->
-      invalid_arg "this should've been desugared in Simplify.wasm"
+      Warnings.fatal_error "this should've been desugared in Simplify.wasm\n%a" pexpr e
 
   | EBufRead (e1, e2) ->
       let s = array_size_of (assert_buf e1.typ) in
@@ -401,11 +401,15 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, e = mk_expr env locals e in
       locals, CF.Cast (e, wf, wt)
 
-  | ECast _ ->
-      failwith "unsupported cast"
+  | ECast (e, TAny) ->
+      let locals, e = mk_expr env locals e in
+      locals, CF.Sequence [ e; CF.Constant (K.Int32, "0") ]
 
   | EAny ->
-      failwith "not supported EAny"
+      locals, CF.Constant (K.Int32, "0")
+
+  | ECast _ ->
+      Warnings.fatal_error "unsupported cast: %a" pexpr e
 
   | ELet (b, e1, e2) ->
       if e1.node = EAny then
