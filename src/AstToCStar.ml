@@ -564,7 +564,7 @@ and a_unit_is_a_unit binders body =
   | _ ->
       binders, body
 
-and mk_declaration env d: (CStar.decl list) option =
+and mk_declaration env d: CStar.decl option =
   let wrap_throw name (comp: CStar.decl Lazy.t) =
     try Lazy.force comp with
     | Error e ->
@@ -575,27 +575,27 @@ and mk_declaration env d: (CStar.decl list) option =
   in
 
   match d with
-  | DFunction (cc, flags, n, t, name, binders, body, _src_info) ->
+  | DFunction (cc, flags, n, t, name, binders, body, _) ->
       assert (n = 0);
       let env = locate env (InTop name) in
-      Some [(wrap_throw (string_of_lident name) (lazy begin
+      Some (wrap_throw (string_of_lident name) (lazy begin
         let t = mk_return_type env t in
         assert (env.names = []);
         let binders, body = a_unit_is_a_unit binders body in
         let env, binders = mk_and_push_binders env binders in
         let body = mk_function_block env body t in
         CStar.Function (cc, flags, t, (string_of_lident name), binders, body)
-      end))]
+      end))
 
   | DGlobal (flags, name, t, body) ->
       let env = locate env (InTop name) in
-      Some [(CStar.Global (
+      Some (CStar.Global (
         string_of_lident name,
         flags,
         mk_type env t,
-        mk_expr env false body))]
+        mk_expr env false body))
 
-  | DExternal (cc, name, t, _binders) ->
+  | DExternal (cc, name, t, _) ->
       let to_void = match t with
         | TArrow (TUnit, _) -> true
         | _ -> false
@@ -614,14 +614,11 @@ and mk_declaration env d: (CStar.decl list) option =
             assert (cc = None);
             t
       in
-      Some ([External (string_of_lident name, t)])
+      Some (External (string_of_lident name, t))
 
   | DType (name, _, 0, def, fwd_decl) ->
       let name = string_of_lident name in
-      let decls = if fwd_decl
-      then [CStar.Type (name, CStar.Forward); CStar.Type (name, mk_type_def env def)]
-      else [CStar.Type (name, mk_type_def env def)]
-      in Some decls
+      Some (CStar.Type (name, mk_type_def env def, fwd_decl))
 
   | DType _ | DTypeMutual _ ->
       None
@@ -649,25 +646,21 @@ and mk_type_def env d: CStar.typ =
         f, mk_type env t
       ) fields)
 
-and try_mk_decl name d =
-match d with
-| DTypeMutual _ ->
-    assert false
-| _ ->
+
+and mk_program name decls =
+  KList.filter_map (fun d ->
     let n = string_of_lident (Ast.lid_of_decl d) in
     try
-        mk_declaration empty d
+      mk_declaration empty d
     with
     | Error e ->
         Warnings.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
         None
     | e ->
         Warnings.fatal_error "Fatal failure in %a: %s\n"
-            plid (Ast.lid_of_decl d)
-            (Printexc.to_string e)
-
-and mk_program name decls =
-  KList.flatten_filter_map (try_mk_decl name) decls
+          plid (Ast.lid_of_decl d)
+          (Printexc.to_string e)
+  ) decls
 
 and mk_file (name, program) =
   name, (mk_program name) program

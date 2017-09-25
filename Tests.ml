@@ -4,7 +4,7 @@ let _ =
   let open Constant in
   let open PPrint in
   let p_t t =
-    let d: CStar.decl = Type ("t", t) in
+    let d: CStar.decl = Type ("t", t, false) in
     let d = CStarToC.mk_stub_or_function d in
     match d with
     | Some (C.Decl ([], d)) ->
@@ -14,7 +14,7 @@ let _ =
         assert false
   in
   let p_f ret args =
-    let d: CStar.decl = Function (None, [], ret, "f", List.mapi (fun i t -> 
+    let d: CStar.decl = Function (None, [], ret, "f", List.mapi (fun i t ->
       { name = Printf.sprintf "x%d" i; typ = t }
     ) args, [ Abort "test" ]) in
     let d = Option.must (CStarToC.mk_decl_or_function d) in

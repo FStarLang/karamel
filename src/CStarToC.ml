@@ -643,7 +643,7 @@ let mk_files files =
 
 let mk_stub_or_function (d: decl): C.declaration_or_function option =
   match d with
-  | Type (name, t) ->
+  | Type (name, t, _) ->
       let spec, decl = mk_spec_and_declarator_t name t in
       Some (Decl ([], (spec, Some Typedef, [ decl, None ])))
 
