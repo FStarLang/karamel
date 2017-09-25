@@ -403,7 +403,7 @@ and check' env t e =
               type_error env "Union expected, i.e. exactly one provided field";
           end
       | _ ->
-          type_error env "Not a record %a" ptyp t
+          type_error env "Not a record %a, %a" ptyp t pexpr e
       end
 
   | ESwitch (e, branches) ->
