@@ -85,4 +85,18 @@ end
 
 let simplify (files: file list): file list =
   let files = visit_files () remove_buffer_ops files in
+  (* Note: this is not added at the C level because function pointers are ok,
+   * and the C printer is capable of dealing with a global variable that is
+   * actually a function. Also not doing this at the C level because this
+   * currently breaks some use-cases, such as:
+   *   let f x = if x then g1 else g2
+   *   let g = f true
+   *   let _ =
+   *     g foo
+   * but this is only because we're not tracking the natural arity of a
+   * function, just like OCaml does for the natural arity of a function at the C
+   * ABI level.
+   * See https://github.com/FStarLang/kremlin/issues/52 for reference.
+   * *)
+  let files = visit_files () Simplify.eta_expand files in
   files
