@@ -684,6 +684,7 @@ let mk_func env { args; locals; body; name; ret; _ } =
     mk_expr env body @
     Debug.mk env debug_exit
   in
+
   let locals = List.map mk_type locals in
   let ftype = mk_var i in
   dummy_phrase W.Ast.({ locals; ftype; body })
@@ -795,6 +796,46 @@ let mk_module types imports (name, decls):
   in
   let env = assign env n_imported_funcs n_imported_globals decls in
 
+  (* START detour to generate the next module's import table. *)
+
+  (* Subtlety: we do not want to export private functions. So, we build a
+   * slightly different list of types, to which we only append public types.
+   * This means that we can't poke at the environment to find the index of a
+   * given function in this list. *)
+  let types_only_public = types @ KList.filter_map (function
+    | Function f when f.public ->
+        Some (mk_func_type f)
+    | _ ->
+        None
+  ) decls in
+
+  (* Now, this means that we can easily extend [imports] with our own functions
+   * & globals, to be passed to the next module when they want to import all the
+   * stuff in the universe, including the current module's "stuff". Note: this
+   * maintains the invariant that the i-th function in [imports_me_included]
+   * points to type index i. *)
+  let _, my_imports = List.fold_left (fun (next_func, acc) -> function
+    | Function f when f.public ->
+        next_func + 1, dummy_phrase W.Ast.({
+          module_name = name;
+          item_name = f.name;
+          ikind = dummy_phrase (FuncImport (mk_var next_func))
+        }) :: acc
+    | Global (g_name, size, _, public) when public ->
+        let t = mk_type size in
+        next_func, dummy_phrase W.Ast.({
+          module_name = name;
+          item_name = g_name;
+          ikind = dummy_phrase (
+            GlobalImport W.Types.(GlobalType (t, W.Types.Immutable)))
+        }) :: acc
+    | _ ->
+        next_func, acc
+  ) (List.length types, []) decls in
+  let imports_me_included = imports @ List.rev my_imports in
+
+  (* END detour to generate the next module's import table. *)
+
   (* Generate types for the function declarations. Re-establish the invariant
    * that the function at index i in the function index space has type i in the
    * types index space. *)
@@ -814,7 +855,7 @@ let mk_module types imports (name, decls):
   ) decls in
 
   (* The globals, too. Global have their types directly attached to them and do
-    * not rely on an indirection via a type table like functions. *)
+   * not rely on an indirection via a type table like functions. *)
   let globals =
     KList.filter_map (function
       | Global (_, size, body, _) ->
@@ -823,30 +864,6 @@ let mk_module types imports (name, decls):
           None
     ) decls
   in
-
-  (* Now, this means that we can easily extend [imports] with our own functions
-   * & globals, to be passed to the next module when they want to import all the
-   * stuff in the universe, including the current module's "stuff". Note: this
-   * maintains the invariant that the i-th function in [imports_me_included]
-   * points to type index i. *)
-  let imports_me_included = imports @ KList.filter_map (function
-    | Function f ->
-        Some (dummy_phrase W.Ast.({
-          module_name = name;
-          item_name = f.name;
-          ikind = dummy_phrase (FuncImport (mk_var (find_func env f.name)))
-        }))
-    | Global (g_name, size, _, _) ->
-        let t = mk_type size in
-        Some (dummy_phrase W.Ast.({
-          module_name = name;
-          item_name = g_name;
-          ikind = dummy_phrase (
-            GlobalImport W.Types.(GlobalType (t, W.Types.Immutable)))
-        }))
-    | _ ->
-        None
-  ) decls in
 
   (* Side-effect: the table is now filled with all the string constants that
    * need to be laid out in the data segment. Compute said data segment. *)
@@ -908,7 +925,7 @@ let mk_module types imports (name, decls):
     imports;
     data
   }) in
-  types, imports_me_included, (name, module_)
+  types_only_public, imports_me_included, (name, module_)
 
 
 (* Since the modules are already topologically sorted, we make each module
