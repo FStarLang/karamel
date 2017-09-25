@@ -277,6 +277,13 @@ let mk_memcpy env locals dst src n =
         CF.Assign (v, mk_minus1 (CF.Var v))
       ])]
 
+let cflat_unit =
+  CF.Constant (K.UInt32, "0xdeadbeef")
+
+let cflat_any =
+  CF.Constant (K.UInt32, "0xbadcaffe")
+
+
 (* Desugar an array assignment into a series of possibly many assigments (e.g.
  * struct literal), or into a memcopy *)
 let rec write_at (env: env)
@@ -409,10 +416,10 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | ECast (e, TAny) ->
       let locals, e = mk_expr env locals e in
-      locals, CF.Sequence [ e; CF.Constant (K.Int32, "0") ]
+      locals, CF.Sequence [ e; cflat_any ]
 
   | EAny ->
-      locals, CF.Constant (K.Int32, "0")
+      locals, cflat_any
 
   | ECast _ ->
       Warnings.fatal_error "unsupported cast: %a" pexpr e
@@ -497,7 +504,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.StringLiteral s
 
   | EUnit ->
-      locals, CF.Constant (K.UInt32, "0xdeadbeef")
+      locals, cflat_unit
 
   | EField (e1, f) ->
       (* e1 is a structure expression, and structures are allocated in memory. *)

@@ -645,6 +645,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
       [ dummy_phrase (W.Ast.GetGlobal (mk_var (find_global env i))) ]
 
   | StringLiteral s ->
+      (* These strings are '\0'-terminated... revisit? *)
       mk_string env s
 
   | _ ->

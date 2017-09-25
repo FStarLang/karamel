@@ -74,6 +74,13 @@ function dump(mem, size) {
 /* Implementations of the kremlin runtime support library                     */
 /******************************************************************************/
 
+function stringAtAddr(mem8, addr) {
+  let buf = "";
+  while (mem8[addr] != 0)
+    buf += String.fromCharCode(mem8[addr++]);
+  return buf;
+}
+
 function dummyModule(funcs, globals) {
   let module = {};
   for (let f of funcs)
@@ -99,12 +106,45 @@ let mkFStar = () => dummyModule(
   [ "FStar_UInt128_constant_time_carry_ok", "FStar_PropositionalExtensionality_axiom" ],
   [ "FStar_Monotonic_Heap_lemma_mref_injectivity" ]);
 
-let mkC = () => dummyModule([ "srand", "rand", "exit", "print_bytes", "htole16",
-  "le16toh", "htole32", "le32toh", "htole64", "le64toh", "htobe16", "be16toh",
-  "htobe32", "be32toh", "htobe64", "be64toh", "store16_le", "load16_le",
-  "store16_be", "load16_be", "store32_le", "load32_le", "store32_be", "load32_be",
-  "load64_le", "store64_le", "load64_be", "store64_be", "load128_le",
-  "store128_le", "load128_be", "store128_be" ], []);
+let mkC = (mem8) => ({
+  srand: () => { throw new Error("todo: srand") },
+  rand: () => { throw new Error("todo: rand") },
+  exit: () => { throw new Error("todo: exit") },
+  print_bytes: () => { throw new Error("todo: print_bytes") },
+  htole16: () => { throw new Error("todo: htole16") },
+  le16toh: () => { throw new Error("todo: le16toh") },
+  htole32: () => { throw new Error("todo: htole32") },
+  le32toh: () => { throw new Error("todo: le32toh") },
+  htole64: () => { throw new Error("todo: htole64") },
+  le64toh: () => { throw new Error("todo: le64toh") },
+  htobe16: () => { throw new Error("todo: htobe16") },
+  be16toh: () => { throw new Error("todo: be16toh") },
+  htobe32: () => { throw new Error("todo: htobe32") },
+  be32toh: () => { throw new Error("todo: be32toh") },
+  htobe64: () => { throw new Error("todo: htobe64") },
+  be64toh: () => { throw new Error("todo: be64toh") },
+  store16_le: () => { throw new Error("todo: store16_le") },
+  load16_le: () => { throw new Error("todo: load16_le") },
+  store16_be: () => { throw new Error("todo: store16_be") },
+  load16_be: () => { throw new Error("todo: load16_be") },
+  store32_le: () => { throw new Error("todo: store32_le") },
+  load32_le: () => { throw new Error("todo: load32_le") },
+  store32_be: () => { throw new Error("todo: store32_be") },
+  load32_be: () => { throw new Error("todo: load32_be") },
+  load64_le: () => { throw new Error("todo: load64_le") },
+  store64_le: () => { throw new Error("todo: store64_le") },
+  load64_be: () => { throw new Error("todo: load64_be") },
+  store64_be: () => { throw new Error("todo: store64_be") },
+  load128_le: () => { throw new Error("todo: load128_le") },
+  store128_le: () => { throw new Error("todo: store128_le") },
+  load128_be: () => { throw new Error("todo: load128_be") },
+  store128_be: () => { throw new Error("todo: store128_be") },
+
+  // A Prims_string generates a literal allocated in the data segment;
+  // string_of_literal is just a typing trick.
+  string_of_literal: (x) => x,
+  print_string: (addr) => my_print(stringAtAddr(mem8, addr)),
+});
 
 function checkEq(mem, name) {
   return (x1, x2) => {
@@ -117,16 +157,16 @@ function checkEq(mem, name) {
   };
 }
 
-let mkTestLib = (mem) => ({
+let mkTestLib = (mem8) => ({
   TestLib_touch: () => 0,
-  TestLib_check8: checkEq(mem, "TestLib_check8"),
-  TestLib_check16: checkEq(mem, "TestLib_check16"),
-  TestLib_check32: checkEq(mem, "TestLib_check32"),
-  TestLib_check64: checkEq(mem, "TestLib_check64"),
-  TestLib_checku8: checkEq(mem, "TestLib_checku8"),
-  TestLib_checku16: checkEq(mem, "TestLib_checku16"),
-  TestLib_checku32: checkEq(mem, "TestLib_checku32"),
-  TestLib_checku64: checkEq(mem, "TestLib_checku64"),
+  TestLib_check8: checkEq(mem8, "TestLib_check8"),
+  TestLib_check16: checkEq(mem8, "TestLib_check16"),
+  TestLib_check32: checkEq(mem8, "TestLib_check32"),
+  TestLib_check64: checkEq(mem8, "TestLib_check64"),
+  TestLib_checku8: checkEq(mem8, "TestLib_checku8"),
+  TestLib_checku16: checkEq(mem8, "TestLib_checku16"),
+  TestLib_checku32: checkEq(mem8, "TestLib_checku32"),
+  TestLib_checku64: checkEq(mem8, "TestLib_checku64"),
   TestLib_unsafe_malloc: () => { throw new Error("todo: unsafe_malloc") },
   TestLib_perr: (err) => {
     my_print("Got error code "+err);
@@ -135,6 +175,20 @@ let mkTestLib = (mem) => ({
   TestLib_uint8_p_null: 0,
   TestLib_uint32_p_null: 0,
   TestLib_uint64_p_null: 0,
+  TestLib_compare_and_print: (addr, b1, b2, len) => {
+    let str = stringAtAddr(mem8, addr);
+    let hex1 = hex(mem8, b1, len);
+    let hex2 = hex(mem8, b2, len);
+    my_print("[test] expected output "+str+" is "+hex1+"\n");
+    my_print("[test] computed output "+str+" is "+hex2+"\n");
+    for (let i = 0; i < len; ++i) {
+      if (b1[i] != b2[i]) {
+        my_print("[test] reference "+str+" and expected "+str+" differ at byte "+i+"\n");
+        throw new Error("test failure");
+      }
+    }
+    my_print("[test] "+str+" is a success\n");
+  },
 });
 
 /******************************************************************************/
