@@ -18,6 +18,7 @@ let bytes_of_width (w: width) =
   | Int16 -> 2
   | Int32 -> 4
   | Int64 -> 8
+  | CInt -> 4
   | _ -> invalid_arg "bytes_of_width"
 
 type op =

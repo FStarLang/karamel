@@ -28,6 +28,7 @@ let shell_stub = format_of_string {|
 // To be loaded by main.js
 var my_js_files = %s;
 var my_modules = %s;
+var my_debug = %b;
 |}
 
 let as_js_list l =
@@ -61,5 +62,5 @@ let write_all js_files modules print =
   let shell_file = Filename.concat !Options.tmpdir "shell.js" in
   let js_file_list = as_js_list js_files in
   Utils.with_open_out shell_file (fun oc ->
-    Printf.fprintf oc shell_stub js_file_list module_list
+    Printf.fprintf oc shell_stub js_file_list module_list (Options.debug "wasm-memory")
   )

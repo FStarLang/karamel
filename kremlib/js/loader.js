@@ -74,6 +74,32 @@ function dump(mem, size) {
 /* Implementations of the kremlin runtime support library                     */
 /******************************************************************************/
 
+function stringAtAddr(mem, addr) {
+  let m8 = new Uint8Array(mem.buffer);
+  let buf = "";
+  while (m8[addr] != 0) {
+    buf += String.fromCharCode(m8[addr++]);
+  }
+  return buf;
+}
+
+function readLeAtAddr(mem, addr, bytes) {
+  let m8 = new Uint8Array(mem.buffer);
+  let i = 0;
+  while (bytes-- > 0)
+    i = i << 8 + m8[addr + bytes];
+  return i;
+}
+
+function writeLeAtAddr(mem, addr, n, bytes) {
+  let m8 = new Uint8Array(mem.buffer);
+  while (bytes > 0) {
+    m8[addr + bytes - 1] = n & 255;
+    bytes--;
+    n >>= 255;
+  }
+}
+
 function dummyModule(funcs, globals) {
   let module = {};
   for (let f of funcs)
@@ -99,12 +125,49 @@ let mkFStar = () => dummyModule(
   [ "FStar_UInt128_constant_time_carry_ok", "FStar_PropositionalExtensionality_axiom" ],
   [ "FStar_Monotonic_Heap_lemma_mref_injectivity" ]);
 
-let mkC = () => dummyModule([ "srand", "rand", "exit", "print_bytes", "htole16",
-  "le16toh", "htole32", "le32toh", "htole64", "le64toh", "htobe16", "be16toh",
-  "htobe32", "be32toh", "htobe64", "be64toh", "store16_le", "load16_le",
-  "store16_be", "load16_be", "store32_le", "load32_le", "store32_be", "load32_be",
-  "load64_le", "store64_le", "load64_be", "store64_be", "load128_le",
-  "store128_le", "load128_be", "store128_be" ], []);
+let mkC = (mem) => ({
+  srand: () => { throw new Error("todo: srand") },
+  rand: () => { throw new Error("todo: rand") },
+  exit: () => { throw new Error("todo: exit") },
+  print_bytes: () => { throw new Error("todo: print_bytes") },
+  htole16: () => { throw new Error("todo: htole16") },
+  le16toh: () => { throw new Error("todo: le16toh") },
+  htole32: () => { throw new Error("todo: htole32") },
+  le32toh: () => { throw new Error("todo: le32toh") },
+  htole64: () => { throw new Error("todo: htole64") },
+  le64toh: () => { throw new Error("todo: le64toh") },
+  htobe16: () => { throw new Error("todo: htobe16") },
+  be16toh: () => { throw new Error("todo: be16toh") },
+  htobe32: () => { throw new Error("todo: htobe32") },
+  be32toh: () => { throw new Error("todo: be32toh") },
+  htobe64: () => { throw new Error("todo: htobe64") },
+  be64toh: () => { throw new Error("todo: be64toh") },
+  store16_le: () => { throw new Error("todo: store16_le") },
+  load16_le: () => { throw new Error("todo: load16_le") },
+  store16_be: () => { throw new Error("todo: store16_be") },
+  load16_be: () => { throw new Error("todo: load16_be") },
+  store32_le: (addr, n) => {
+    writeLeAtAddr(mem, addr, n, 4);
+  },
+  load32_le: (addr) => {
+    return readLeAtAddr(mem, addr, 4);
+  },
+  store32_be: () => { throw new Error("todo: store32_be") },
+  load32_be: () => { throw new Error("todo: load32_be") },
+  load64_le: () => { throw new Error("todo: load64_le") },
+  store64_le: () => { throw new Error("todo: store64_le") },
+  load64_be: () => { throw new Error("todo: load64_be") },
+  store64_be: () => { throw new Error("todo: store64_be") },
+  load128_le: () => { throw new Error("todo: load128_le") },
+  store128_le: () => { throw new Error("todo: store128_le") },
+  load128_be: () => { throw new Error("todo: load128_be") },
+  store128_be: () => { throw new Error("todo: store128_be") },
+
+  // A Prims_string generates a literal allocated in the data segment;
+  // string_of_literal is just a typing trick.
+  string_of_literal: (x) => x,
+  print_string: (addr) => my_print(stringAtAddr(mem, addr)),
+});
 
 function checkEq(mem, name) {
   return (x1, x2) => {
@@ -135,6 +198,21 @@ let mkTestLib = (mem) => ({
   TestLib_uint8_p_null: 0,
   TestLib_uint32_p_null: 0,
   TestLib_uint64_p_null: 0,
+  TestLib_compare_and_print: (addr, b1, b2, len) => {
+    let m8 = new Uint8Array(mem.buffer);
+    let str = stringAtAddr(m8, addr);
+    let hex1 = hex(m8, b1, len);
+    let hex2 = hex(m8, b2, len);
+    my_print("[test] expected output "+str+" is "+hex1+"\n");
+    my_print("[test] computed output "+str+" is "+hex2+"\n");
+    for (let i = 0; i < len; ++i) {
+      if (m8[b1+i] != m8[b2+i]) {
+        my_print("[test] reference "+str+" and expected "+str+" differ at byte "+i+"\n");
+        throw new Error("test failure");
+      }
+    }
+    my_print("[test] "+str+" is a success\n");
+  },
 });
 
 /******************************************************************************/

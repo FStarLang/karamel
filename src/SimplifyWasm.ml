@@ -50,6 +50,14 @@ let remove_buffer_ops = object
                     EAssign (ref_size, mk_minus_one ref_size))])));
               ref_buf]))))])))
 
+  method ebufcreatel () t lifetime es =
+    let size = mk_uint32 (List.length es) in
+    let with_t = with_type t in
+    let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, size)) in
+    let assignments = List.mapi (fun i e -> with_unit (EBufWrite (ref_buf, mk_uint32 i, e))) es in
+    ELet (b_buf, body_buf, close_binder b_buf (with_t (
+      ESequence (assignments @ [ ref_buf ]))))
+
   method ebufblit () t src_buf src_ofs dst_buf dst_ofs len =
     let with_t = with_type t in
     let b_src, body_src, ref_src =
@@ -85,4 +93,18 @@ end
 
 let simplify (files: file list): file list =
   let files = visit_files () remove_buffer_ops files in
+  (* Note: this is not added at the C level because function pointers are ok,
+   * and the C printer is capable of dealing with a global variable that is
+   * actually a function. Also not doing this at the C level because this
+   * currently breaks some use-cases, such as:
+   *   let f x = if x then g1 else g2
+   *   let g = f true
+   *   let _ =
+   *     g foo
+   * but this is only because we're not tracking the natural arity of a
+   * function, just like OCaml does for the natural arity of a function at the C
+   * ABI level.
+   * See https://github.com/FStarLang/kremlin/issues/52 for reference.
+   * *)
+  let files = visit_files () Simplify.eta_expand files in
   files
