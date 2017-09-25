@@ -14,9 +14,9 @@ and file =
   string * program
 
 and decl =
-  | DFunction of calling_convention option * flag list * int * typ * lident * binders * expr
+  | DFunction of calling_convention option * flag list * int * typ * lident * binders * expr * source_info
   | DGlobal of flag list * lident * typ * expr
-  | DExternal of calling_convention option * lident * typ
+  | DExternal of calling_convention option * lident * typ * binders
   | DType of lident * flag list * int * type_def * bool (* forward_declare *)
   | DTypeMutual of decl list
 
@@ -588,12 +588,12 @@ class virtual ['env] map = object (self)
 
   method visit_d (env: 'env) (d: decl): 'dresult =
     match d with
-    | DFunction (cc, flags, n, ret, name, binders, expr) ->
-        self#dfunction env cc flags n ret name binders expr
+    | DFunction (cc, flags, n, ret, name, binders, expr, src_info) ->
+        self#dfunction env cc flags n ret name binders expr src_info
     | DGlobal (flags, name, typ, expr) ->
         self#dglobal env flags name typ expr
-    | DExternal (cc, name, t) ->
-        self#dexternal env cc name t
+    | DExternal (cc, name, t, binders) ->
+        self#dexternal env cc name t binders
     | DType (name, flags, n, d, fwd_decl) ->
         self#dtype env name flags n d fwd_decl
     | DTypeMutual (ty_decls) ->
@@ -619,17 +619,17 @@ class virtual ['env] map = object (self)
   method binders env binders =
     List.map (fun binder -> { binder with typ = self#visit_t env binder.typ }) binders
 
-  method dfunction env cc flags n ret name binders expr =
+  method dfunction env cc flags n ret name binders expr src_info =
     let binders = self#binders env binders in
     let env = self#extend_many env binders in
     let env = self#extend_tmany env n in
-    DFunction (cc, flags, n, self#visit_t env ret, name, binders, self#visit env expr)
+    DFunction (cc, flags, n, self#visit_t env ret, name, binders, self#visit env expr, src_info)
 
   method dglobal env flags name typ expr =
     DGlobal (flags, name, self#visit_t env typ, self#visit env expr)
 
-  method dexternal env cc name t =
-    DExternal (cc, name, self#visit_t env t)
+  method dexternal env cc name t binders =
+    DExternal (cc, name, self#visit_t env t, binders)
 
   method extend_tmany env n =
     let rec extend e n =
@@ -680,17 +680,17 @@ let with_type typ node =
 exception UnableToGetLid
 
 let lid_of_decl = function
-  | DFunction (_, _, _, _, lid, _, _)
+  | DFunction (_, _, _, _, lid, _, _, _)
   | DGlobal (_, lid, _, _)
-  | DExternal (_, lid, _)
+  | DExternal (_, lid, _, _)
   | DType (lid, _, _, _, _) ->
       lid
   | DTypeMutual _ -> raise UnableToGetLid
 
 let rec lids_of_decl = function
-| DFunction (_, _, _, _, lid, _, _)
+| DFunction (_, _, _, _, lid, _, _, _)
 | DGlobal (_, lid, _, _)
-| DExternal (_, lid, _)
+| DExternal (_, lid, _, _)
 | DType (lid, _, _, _, _) ->
     [lid]
 | DTypeMutual (ty_decls) ->

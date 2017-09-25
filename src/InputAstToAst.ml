@@ -8,6 +8,16 @@ module I = InputAst
 let mk (type a) (node: a): a with_type =
   { node; typ = TAny }
 
+let mk_source_info si =
+    let {
+        InputAst.file_name = fn;
+        mod_name =  mn;
+        position = pos } = si
+    in { Common.file_name = fn;
+         Common.mod_name = mn;
+         Common.position = pos
+    }
+
 let rec binders_of_pat p =
   let open I in
   match p with
@@ -23,22 +33,22 @@ let rec binders_of_pat p =
       []
 
 let rec mk_decl = function
-  | I.DFunction (cc, flags, n, t, name, binders, body, _source_info) ->
+  | I.DFunction (cc, flags, n, t, name, binders, body, src_info) ->
       let body =
         if List.exists ((=) NoExtract) flags then
           with_type TAny (EAbort (Some "noextract flag"))
         else
           mk_expr body
       in
-      [DFunction (cc, flags, n, mk_typ t, name, mk_binders binders, body)]
+      [DFunction (cc, flags, n, mk_typ t, name, mk_binders binders, body, mk_source_info src_info)]
   | I.DTypeAlias (name, n, t) ->
       [DType (name, [], n, Abbrev (mk_typ t), false)]
   | I.DGlobal (flags, name, t, e) ->
       [DGlobal (flags, name, mk_typ t, mk_expr e)]
   | I.DTypeFlat (name, n, fields) ->
       [DType (name, [], n, Flat (mk_tfields_opt fields), false)]
-  | I.DExternal (cc, name, t, _binders) ->
-      [DExternal (cc, name, mk_typ t)]
+  | I.DExternal (cc, name, t, binders) ->
+      [DExternal (cc, name, mk_typ t, mk_binders binders)]
   | I.DTypeVariant (name, flags, n, branches) ->
       [DType (name, flags, n,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches), false)]

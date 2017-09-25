@@ -51,9 +51,9 @@ let mk_action_table files =
   let map = Hashtbl.create 41 in
   List.iter (fun (_, decls) ->
     List.iter (function
-      | DFunction (_, _, _, ret, lid, binders, _body) ->
+      | DFunction (_, _, _, ret, lid, binders, _body, _) ->
           Hashtbl.add map lid (is_struct ret, List.map (fun b -> is_struct b.typ) binders)
-      | DExternal (_, lid, typ) ->
+      | DExternal (_, lid, typ, _) ->
           begin match typ with
           | TArrow _ ->
               let ret, args = Helpers.flatten_arrow typ in
@@ -161,7 +161,7 @@ let pass_by_ref action_table = object (self)
    * will have to be "starred". *)
   inherit [Atom.t list] map
 
-  method! dfunction _ cc flags n ret lid binders body =
+  method! dfunction _ cc flags n ret lid binders body src_info =
     (* Step 1: open all the binders *)
     let binders, body = DeBruijn.open_binders binders body in
 
@@ -203,9 +203,9 @@ let pass_by_ref action_table = object (self)
         body
     in
     let body = DeBruijn.close_binders binders body in
-    DFunction (cc, flags, n, ret, lid, binders, body)
+    DFunction (cc, flags, n, ret, lid, binders, body, src_info)
 
-  method dexternal _ cc lid t =
+  method dexternal _ cc lid t binders =
     match t with
     | TArrow _ ->
         (* Also rewrite external function declarations. *)
@@ -218,9 +218,9 @@ let pass_by_ref action_table = object (self)
           else
             ret, List.map2 buf_if args args_are_structs
         in
-        DExternal (cc, lid, Helpers.fold_arrow args ret)
+        DExternal (cc, lid, Helpers.fold_arrow args ret, binders)
     | _ ->
-        DExternal (cc, lid, t)
+        DExternal (cc, lid, t, binders)
 
 
   method! eopen to_be_starred t name atom =
@@ -324,12 +324,12 @@ let collect_initializers (files: Ast.file list) =
     let file = "kremlinit",
       [ DFunction (None, [], 0, TUnit, (["kremlinit"], "globals"),
         [Helpers.fresh_binder "_" TUnit],
-        with_type TUnit (ESequence (List.rev !initializers)))] in
+        with_type TUnit (ESequence (List.rev !initializers)), Common.dummy_src_info)] in
     let files = files @ [ file ] in
     let found = ref false in
     let files = Helpers.visit_files () (object
       inherit [unit] map
-      method dfunction _ cc flags n ret name binders body =
+      method dfunction _ cc flags n ret name binders body src_info =
         let body =
           if Simplify.target_c_name name = "main" then begin
             found := true;
@@ -342,7 +342,7 @@ let collect_initializers (files: Ast.file list) =
           end else
             body
         in
-        DFunction (cc, flags, n, ret, name, binders, body)
+        DFunction (cc, flags, n, ret, name, binders, body, src_info)
     end) files in
     if not !found then
       Warnings.(maybe_fatal_error ("", MustCallKrmlInit));
@@ -542,8 +542,8 @@ let to_addr is_struct =
   object (_self)
     inherit [unit] map
 
-    method! dfunction _ cc flags n ret lid binders body =
-      DFunction (cc, flags, n, ret, lid, binders, to_addr body)
+    method! dfunction _ cc flags n ret lid binders body src_info =
+      DFunction (cc, flags, n, ret, lid, binders, to_addr body, src_info)
   end
 
 

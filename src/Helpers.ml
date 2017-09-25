@@ -18,8 +18,8 @@ let visit_files (env: 'env) (visitor: _ map) (files: file list) =
 
 
 class ignore_everything = object
-  method dfunction () cc flags n ret name binders expr =
-    DFunction (cc, flags, n, ret, name, binders, expr)
+  method dfunction () cc flags n ret name binders expr src_info =
+    DFunction (cc, flags, n, ret, name, binders, expr, src_info)
 
   method dglobal () flags name typ expr =
     DGlobal (flags, name, typ, expr)

@@ -529,7 +529,7 @@ let scratch_locals =
 
 let mk_decl env (d: decl): CF.decl option =
   match d with
-  | DFunction (_, flags, n, ret, name, args, body) ->
+  | DFunction (_, flags, n, ret, name, args, body, _src_info) ->
       assert (n = 0);
       let public = not (List.exists ((=) Common.Private) flags) in
       let locals, env = List.fold_left (fun (locals, env) b ->
@@ -555,7 +555,7 @@ let mk_decl env (d: decl): CF.decl option =
       let name = Idents.string_of_lident name in
       Some (CF.Global (name, size, body, public))
 
-  | DExternal (_, lid, t) ->
+  | DExternal (_, lid, t, _binders) ->
       let name = Idents.string_of_lident lid in
       match t with
       | TArrow _ ->

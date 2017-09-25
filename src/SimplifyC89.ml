@@ -27,9 +27,9 @@ let hoist_lets = object (self)
         ) !env in
         nest bs t e
 
-  method! dfunction _ cc flags n ret name binders body =
+  method! dfunction _ cc flags n ret name binders body src_info =
     let body = self#scope_start ret body in
-    DFunction (cc, flags, n, ret, name, binders, body)
+    DFunction (cc, flags, n, ret, name, binders, body, src_info)
 
   method! eifthenelse _ t e1 e2 e3 =
     (* No ELet's in e1 *)

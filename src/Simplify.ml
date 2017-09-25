@@ -69,19 +69,19 @@ let unused_binder binders i =
 let build_unused_map map = object
   inherit [unit] map
 
-  method dfunction () cc flags n ret name binders body =
+  method dfunction () cc flags n ret name binders body src_info =
     (* for i = 0 to List.length binders - 1 do *)
     (*   KPrint.bprintf "%a/%d(%d): %b\n" plid name i (List.length binders) (unused_binder binders i) *)
     (* done; *)
     Hashtbl.add map name (KList.make (List.length binders) (unused_binder binders));
-    DFunction (cc, flags, n, ret, name, binders, body)
+    DFunction (cc, flags, n, ret, name, binders, body, src_info)
 end
 
 (* Ibid. *)
 let remove_unused_parameters map = object (self)
   inherit [unit] map
 
-  method dfunction () cc flags n ret name binders body =
+  method dfunction () cc flags n ret name binders body src_info =
     let n_binders = List.length binders in
     let body = List.fold_left (fun body i ->
       if unused_binder binders i then
@@ -92,7 +92,7 @@ let remove_unused_parameters map = object (self)
     let body = self#visit () body in
     let unused = KList.make (List.length binders) (fun i -> not (unused_binder binders i)) in
     let binders = KList.filter_mask unused binders in
-    DFunction (cc, flags, n, ret, name, binders, body)
+    DFunction (cc, flags, n, ret, name, binders, body, src_info)
 
   method eapp () t e es =
     let es = List.map (self#visit ()) es in
@@ -641,12 +641,12 @@ let hoist = object
   inherit ignore_everything
   inherit [_] map
 
-  method dfunction () cc flags n ret name binders expr =
+  method dfunction () cc flags n ret name binders expr src_info =
     (* TODO: no nested let-bindings in top-level value declarations either *)
     let binders, expr = open_binders binders expr in
     let expr = hoist_stmt expr in
     let expr = close_binders binders expr in
-    DFunction (cc, flags, n, ret, name, binders, expr)
+    DFunction (cc, flags, n, ret, name, binders, expr, src_info)
 end
 
 
@@ -683,8 +683,8 @@ let fixup_hoist = object
   inherit ignore_everything
   inherit [_] map
 
-  method dfunction () cc flags n ret name binders expr =
-    DFunction (cc, flags, n, ret, name, binders, fixup_return_pos expr)
+  method dfunction () cc flags n ret name binders expr src_info =
+    DFunction (cc, flags, n, ret, name, binders, fixup_return_pos expr, src_info)
 end
 
 
@@ -705,7 +705,11 @@ let eta_expand = object
           { node = EBound (n - i - 1); typ = t }
         ) targs) in
         let body = { node = EApp (body, args); typ = tret } in
-        DFunction (None, flags, 0, tret, name, binders, body)
+        DFunction (None, flags, 0, tret, name, binders, body, {
+          Common.file_name = "DUMMY";
+          Common.mod_name = [];
+          Common.position = (0, 0);
+        })
     | _ ->
         DGlobal (flags, name, t, body)
 end
@@ -731,11 +735,11 @@ let record_toplevel_names = object
   method dglobal () flags name t body =
     DGlobal (flags, record_name name, t, body)
 
-  method dfunction () cc flags n ret name args body =
-    DFunction (cc, flags, n, ret, record_name name, args, body)
+  method dfunction () cc flags n ret name args body src_info =
+    DFunction (cc, flags, n, ret, record_name name, args, body, src_info)
 
-  method dexternal () cc name t =
-    DExternal (cc, record_name name, t)
+  method dexternal () cc name t binders =
+    DExternal (cc, record_name name, t, binders)
 
   method dtype () name flags n t fwd_decl =
     DType (record_name name, flags, n, t, fwd_decl)
@@ -762,11 +766,11 @@ let replace_references_to_toplevel_names = object(self)
   method dglobal () flags name typ body =
     DGlobal (flags, t name, self#visit_t () typ, self#visit () body)
 
-  method dfunction () cc flags n ret name args body =
-    DFunction (cc, flags, n, self#visit_t () ret, t name, self#binders () args, self#visit () body)
+  method dfunction () cc flags n ret name args body src_info =
+    DFunction (cc, flags, n, self#visit_t () ret, t name, self#binders () args, self#visit () body, src_info)
 
-  method dexternal () cc name typ =
-    DExternal (cc, t name, self#visit_t () typ)
+  method dexternal () cc name typ binders =
+    DExternal (cc, t name, self#visit_t () typ, binders)
 
   method dtype () name flags n d fwd_decl =
     DType (t name, flags, n, self#type_def () (Some name) d, fwd_decl)
@@ -909,9 +913,9 @@ let hoist_bufcreate = object
   inherit ignore_everything
   inherit [_] map
 
-  method dfunction () cc flags n ret name binders expr =
+  method dfunction () cc flags n ret name binders expr src_info =
     try
-      DFunction (cc, flags, n, ret, name, binders, skip expr)
+      DFunction (cc, flags, n, ret, name, binders, skip expr, src_info)
     with Fatal s ->
       KPrint.bprintf "Fatal error in %a:\n%s\n" plid name s;
       exit 151

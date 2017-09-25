@@ -185,7 +185,7 @@ let mk_inliner files must_inline =
 
   (* Build a map suitable for the [memoize_inline] combinator. *)
   let map = Helpers.build_map files (fun map -> function
-    | DFunction (_, _, _, _, name, _, body) ->
+    | DFunction (_, _, _, _, name, _, body, _) ->
         Hashtbl.add map name (White, body)
     | _ ->
         ()
@@ -234,9 +234,9 @@ end
 
 let monomorphize files =
   let map = Helpers.build_map files (fun map -> function
-    | DFunction (cc, flags, n, t, name, b, body) ->
+    | DFunction (cc, flags, n, t, name, b, body, src_info) ->
         if n > 0 then
-          Hashtbl.add map name (cc, flags, n, t, name, b, body)
+          Hashtbl.add map name (cc, flags, n, t, name, b, body, src_info)
     | _ ->
         ()
   ) in
@@ -249,12 +249,12 @@ let monomorphize files =
     method! visit_file _ file =
       let name, decls = file in
       name, KList.map_flatten (function
-        | DFunction (cc, flags, n, ret, name, binders, body) ->
+        | DFunction (cc, flags, n, ret, name, binders, body, src_info) ->
             if Hashtbl.mem map name then
               []
             else begin
               assert (n = 0);
-              let d = DFunction (cc, flags, n, ret, name, binders, self#visit () body) in
+              let d = DFunction (cc, flags, n, ret, name, binders, self#visit () body, src_info) in
               Gen.clear () @ [ d ]
             end
         | d ->
@@ -273,7 +273,7 @@ let monomorphize files =
               EQualified (Hashtbl.find Gen.generated_lids (lid, ts))
             with Not_found ->
               (* Need to generate a new instance. *)
-              let cc, flags, n, ret, name, binders, body = Hashtbl.find map lid in
+              let cc, flags, n, ret, name, binders, body, src_info = Hashtbl.find map lid in
               if n <> List.length ts then begin
                 KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
                 (self#visit env e).node
@@ -288,7 +288,7 @@ let monomorphize files =
                   ) binders in
                   let body = DeBruijn.subst_ten ts body in
                   let body = self#visit env body in
-                  DFunction (cc, flags, 0, ret, name, binders, body)
+                  DFunction (cc, flags, 0, ret, name, binders, body, src_info)
                 in
                 EQualified (Gen.register_def lid ts name def)
           end
@@ -317,7 +317,7 @@ let inline_function_frames files =
      * - the body, which [inline_analysis] needs to figure out if the function
      *   allocates without pushing a frame, meaning it must be inlined. *)
     let map = Helpers.build_map files (fun map -> function
-      | DFunction (_, flags, _, _, name, _, body) ->
+      | DFunction (_, flags, _, _, name, _, body, _) ->
           Hashtbl.add map name (List.exists ((=) Substitute) flags, body)
       | _ ->
           ()
@@ -338,7 +338,7 @@ let inline_function_frames files =
   List.iter (fun (_, decls) ->
     List.iter (function
       | DGlobal (flags, name, _, _)
-      | DFunction (_, flags, _, _, name, _, _) ->
+      | DFunction (_, flags, _, _, name, _, _, _) ->
           if List.mem Private flags then
             Hashtbl.add safely_private name ();
           if List.mem CInline flags then
@@ -402,13 +402,13 @@ let inline_function_frames files =
    *   dropped accordingly.
    * *)
   let files = filter_decls (function
-    | DFunction (cc, flags, n, ret, name, binders, _) ->
+    | DFunction (cc, flags, n, ret, name, binders, _, src_info) ->
         if must_disappear name && Simplify.target_c_name name <> "main" then
           None
         else
           let body = inline_one name in
           unmark_private_in name body;
-          Some (DFunction (cc, flags, n, ret, name, binders, body))
+          Some (DFunction (cc, flags, n, ret, name, binders, body, src_info))
     | d ->
         (* Note: not inlining globals because F* should forbid top-level
          * effects...? *)
@@ -432,8 +432,8 @@ let inline_function_frames files =
         flags
     in
     filter_decls (function
-      | DFunction (cc, flags, n, ret, name, binders, body) ->
-          Some (DFunction (cc, filter name flags, n, ret, name, binders, body))
+      | DFunction (cc, flags, n, ret, name, binders, body, src_info) ->
+          Some (DFunction (cc, filter name flags, n, ret, name, binders, body, src_info))
       | DGlobal (flags, name, e, t) ->
           Some (DGlobal (filter name flags, name, e, t))
       | d ->
@@ -509,7 +509,7 @@ let drop_unused files =
    * function if it was reachable starting from a non-private one. *)
   let visited = Hashtbl.create 41 in
   let body_of_lid = Helpers.build_map files (fun map -> function
-    | DFunction (_, _, _, _, name, _, body)
+    | DFunction (_, _, _, _, name, _, body, _)
     | DGlobal (_, name, _, body) ->
         Hashtbl.add map name body
     | _ ->
@@ -536,7 +536,7 @@ let drop_unused files =
     end)#visit () body)
   in
   iter_decls (function
-    | DFunction (_, flags, _, _, lid, _, body)
+    | DFunction (_, flags, _, _, lid, _, body, _)
     | DGlobal (flags, lid, _, body) ->
         if not (List.exists ((=) Private) flags) && not (Drop.lid lid) then begin
           Hashtbl.add visited lid ();
@@ -548,7 +548,7 @@ let drop_unused files =
   filter_decls (fun d ->
     match d with
     | DGlobal (flags, lid, _, _)
-    | DFunction (_, flags, _, _, lid, _, _) ->
+    | DFunction (_, flags, _, _, lid, _, _, _) ->
         if (List.exists ((=) Private) flags || Drop.lid lid) && not (Hashtbl.mem visited lid) then
           None
         else
@@ -559,7 +559,7 @@ let drop_unused files =
 
 let drop_polymorphic_functions files =
   filter_decls (function
-    | Ast.DFunction (_, _, n, _, _, _, _) when n > 0 ->
+    | Ast.DFunction (_, _, n, _, _, _, _, _) when n > 0 ->
         None
     | _ as d ->
         Some d

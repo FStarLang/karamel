@@ -671,12 +671,12 @@ let compile_all_matches map = object (self)
     )
 
   (* The match transformation is tricky: we open all binders. *)
-  method dfunction env cc flags n ret name binders expr =
+  method dfunction env cc flags n ret name binders expr src_info =
     (* KPrint.beprintf "In Function: %a\n" plid name; *)
     let binders, expr = open_binders binders expr in
     let expr = self#visit env expr in
     let expr = close_binders binders expr in
-    DFunction (cc, flags, n, ret, name, binders, expr)
+    DFunction (cc, flags, n, ret, name, binders, expr, src_info)
 
   method elet env _ binder e1 e2 =
     let e1 = self#visit env e1 in

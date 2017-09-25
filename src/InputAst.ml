@@ -15,19 +15,25 @@ type program =
   decl list
   [@@deriving yojson]
 
+and source_info = {
+    file_name : string;
+    mod_name : string list;
+    position : (int * int) (* line + col, note: col is always 0 for the time being *)
+}
 and decl =
   (* Code *)
   | DGlobal of (flag list * lident * typ * expr)
-  | DFunction of (calling_convention option * flag list * int * typ * lident * binder list * expr)
+  | DFunction of (calling_convention option * flag list * int * typ * lident * binder list * expr * source_info)
   (* Types *)
   | DTypeAlias of (lident * int * typ)
       (** Name, number of parameters (De Bruijn), definition. *)
   | DTypeFlat of (lident * int * fields_t)
       (** The boolean indicates if the field is mutable *)
   (* Assumed things that the type-checker of KreMLin needs to be aware of *)
-  | DExternal of (calling_convention option * lident * typ)
+  | DExternal of (calling_convention option * lident * typ * binder list)
   | DTypeVariant of (lident * flag list * int * branches_t)
   | DTypeMutual of (decl list)
+  | DFunctionMutual of (decl list)
 
 and fields_t =
   (ident * (typ * bool)) list
@@ -138,7 +144,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 25
+let current_version: version = 26
 
 type file = string * program
   [@@deriving yojson]

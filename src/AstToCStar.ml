@@ -575,7 +575,7 @@ and mk_declaration env d: (CStar.decl list) option =
   in
 
   match d with
-  | DFunction (cc, flags, n, t, name, binders, body) ->
+  | DFunction (cc, flags, n, t, name, binders, body, _src_info) ->
       assert (n = 0);
       let env = locate env (InTop name) in
       Some [(wrap_throw (string_of_lident name) (lazy begin
@@ -595,7 +595,7 @@ and mk_declaration env d: (CStar.decl list) option =
         mk_type env t,
         mk_expr env false body))]
 
-  | DExternal (cc, name, t) ->
+  | DExternal (cc, name, t, _binders) ->
       let to_void = match t with
         | TArrow (TUnit, _) -> true
         | _ -> false

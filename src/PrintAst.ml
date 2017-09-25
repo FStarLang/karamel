@@ -17,8 +17,10 @@ let print_app f head g arguments =
     )
   )
 
+let print_source_info _ = "source_info"
+
 let rec print_decl = function
-  | DFunction (cc, flags, n, typ, name, binders, body) ->
+  | DFunction (cc, flags, n, typ, name, binders, body, _src_info) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
       print_comment flags ^^
       cc ^^ print_flags flags ^^ group (string "function" ^/^ string (string_of_lident name) ^/^
@@ -29,7 +31,7 @@ let rec print_decl = function
         print_expr body
       )
 
-  | DExternal (cc, name, typ) ->
+  | DExternal (cc, name, typ, _binders) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
       group (cc ^^ string "external" ^/^ string (string_of_lident name) ^/^ colon) ^^
       jump (print_typ typ)

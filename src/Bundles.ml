@@ -70,8 +70,8 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
   (* All the declarations that have matched the patterns are marked as private. *)
   let found = List.map (fun (old_name, decls) ->
     old_name, List.map (function
-      | DFunction (cc, flags, n, typ, name, binders, body) ->
-          DFunction (cc, Common.Private :: flags, n, typ, name, binders, body)
+      | DFunction (cc, flags, n, typ, name, binders, body, src_info) ->
+          DFunction (cc, Common.Private :: flags, n, typ, name, binders, body, src_info)
       | DGlobal (flags, name, typ, body) ->
           DGlobal (Common.Private :: flags, name, typ, body)
       | decl ->
