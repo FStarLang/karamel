@@ -526,9 +526,9 @@ class virtual ['env] map = object (self)
     | TBound i ->
         self#tbound env i
     | TApp (name, args) ->
-        self#tapp env name (List.map (self#visit_t env) args)
+        self#tapp env name args
     | TTuple ts ->
-        self#ttuple env (List.map (self#visit_t env) ts)
+        self#ttuple env ts
     | TAnonymous t ->
         self#tanonymous env t
 
