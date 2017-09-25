@@ -889,6 +889,8 @@ and assert_buffer env t =
       t1
   | TArray (t1, _) ->
       t1
+  | TApp ((["FStar"; "HyperStack"], "ref"), [t]) ->
+      t
   | t ->
       type_error env "This is not a buffer: %a" ptyp t
 
