@@ -74,11 +74,30 @@ function dump(mem, size) {
 /* Implementations of the kremlin runtime support library                     */
 /******************************************************************************/
 
-function stringAtAddr(mem8, addr) {
+function stringAtAddr(mem, addr) {
+  let m8 = new Uint8Array(mem.buffer);
   let buf = "";
-  while (mem8[addr] != 0)
-    buf += String.fromCharCode(mem8[addr++]);
+  while (m8[addr] != 0) {
+    buf += String.fromCharCode(m8[addr++]);
+  }
   return buf;
+}
+
+function readLeAtAddr(mem, addr, bytes) {
+  let m8 = new Uint8Array(mem.buffer);
+  let i = 0;
+  while (bytes-- > 0)
+    i = i << 8 + m8[addr + bytes];
+  return i;
+}
+
+function writeLeAtAddr(mem, addr, n, bytes) {
+  let m8 = new Uint8Array(mem.buffer);
+  while (bytes > 0) {
+    m8[addr + bytes - 1] = n & 255;
+    bytes--;
+    n >>= 255;
+  }
 }
 
 function dummyModule(funcs, globals) {
@@ -106,7 +125,7 @@ let mkFStar = () => dummyModule(
   [ "FStar_UInt128_constant_time_carry_ok", "FStar_PropositionalExtensionality_axiom" ],
   [ "FStar_Monotonic_Heap_lemma_mref_injectivity" ]);
 
-let mkC = (mem8) => ({
+let mkC = (mem) => ({
   srand: () => { throw new Error("todo: srand") },
   rand: () => { throw new Error("todo: rand") },
   exit: () => { throw new Error("todo: exit") },
@@ -127,8 +146,12 @@ let mkC = (mem8) => ({
   load16_le: () => { throw new Error("todo: load16_le") },
   store16_be: () => { throw new Error("todo: store16_be") },
   load16_be: () => { throw new Error("todo: load16_be") },
-  store32_le: () => { throw new Error("todo: store32_le") },
-  load32_le: () => { throw new Error("todo: load32_le") },
+  store32_le: (addr, n) => {
+    writeLeAtAddr(mem, addr, n, 4);
+  },
+  load32_le: (addr) => {
+    return readLeAtAddr(mem, addr, 4);
+  },
   store32_be: () => { throw new Error("todo: store32_be") },
   load32_be: () => { throw new Error("todo: load32_be") },
   load64_le: () => { throw new Error("todo: load64_le") },
@@ -143,7 +166,7 @@ let mkC = (mem8) => ({
   // A Prims_string generates a literal allocated in the data segment;
   // string_of_literal is just a typing trick.
   string_of_literal: (x) => x,
-  print_string: (addr) => my_print(stringAtAddr(mem8, addr)),
+  print_string: (addr) => my_print(stringAtAddr(mem, addr)),
 });
 
 function checkEq(mem, name) {
@@ -157,16 +180,16 @@ function checkEq(mem, name) {
   };
 }
 
-let mkTestLib = (mem8) => ({
+let mkTestLib = (mem) => ({
   TestLib_touch: () => 0,
-  TestLib_check8: checkEq(mem8, "TestLib_check8"),
-  TestLib_check16: checkEq(mem8, "TestLib_check16"),
-  TestLib_check32: checkEq(mem8, "TestLib_check32"),
-  TestLib_check64: checkEq(mem8, "TestLib_check64"),
-  TestLib_checku8: checkEq(mem8, "TestLib_checku8"),
-  TestLib_checku16: checkEq(mem8, "TestLib_checku16"),
-  TestLib_checku32: checkEq(mem8, "TestLib_checku32"),
-  TestLib_checku64: checkEq(mem8, "TestLib_checku64"),
+  TestLib_check8: checkEq(mem, "TestLib_check8"),
+  TestLib_check16: checkEq(mem, "TestLib_check16"),
+  TestLib_check32: checkEq(mem, "TestLib_check32"),
+  TestLib_check64: checkEq(mem, "TestLib_check64"),
+  TestLib_checku8: checkEq(mem, "TestLib_checku8"),
+  TestLib_checku16: checkEq(mem, "TestLib_checku16"),
+  TestLib_checku32: checkEq(mem, "TestLib_checku32"),
+  TestLib_checku64: checkEq(mem, "TestLib_checku64"),
   TestLib_unsafe_malloc: () => { throw new Error("todo: unsafe_malloc") },
   TestLib_perr: (err) => {
     my_print("Got error code "+err);
@@ -176,13 +199,14 @@ let mkTestLib = (mem8) => ({
   TestLib_uint32_p_null: 0,
   TestLib_uint64_p_null: 0,
   TestLib_compare_and_print: (addr, b1, b2, len) => {
-    let str = stringAtAddr(mem8, addr);
-    let hex1 = hex(mem8, b1, len);
-    let hex2 = hex(mem8, b2, len);
+    let m8 = new Uint8Array(mem.buffer);
+    let str = stringAtAddr(m8, addr);
+    let hex1 = hex(m8, b1, len);
+    let hex2 = hex(m8, b2, len);
     my_print("[test] expected output "+str+" is "+hex1+"\n");
     my_print("[test] computed output "+str+" is "+hex2+"\n");
     for (let i = 0; i < len; ++i) {
-      if (b1[i] != b2[i]) {
+      if (m8[b1+i] != m8[b2+i]) {
         my_print("[test] reference "+str+" and expected "+str+" differ at byte "+i+"\n");
         throw new Error("test failure");
       }

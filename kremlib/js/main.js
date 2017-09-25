@@ -39,11 +39,18 @@ scope.then(scope => {
       my_print("... " + m + " exports " + Object.keys(scope[m]).join(","));
   }
 
-  var found = false;
+  let found = false;
+  let with_debug = (main) => {
+    if (my_debug)
+      dump(scope.Kremlin.mem, 2048);
+    main(scope);
+    if (my_debug)
+      dump(scope.Kremlin.mem, 2048);
+  };
   for (let m of Object.keys(scope)) {
     if ("main" in scope[m]) {
       my_print("... main found in module " + m);
-      scope[m].main();
+      with_debug(scope[m].main);
       return;
     }
   }
@@ -52,7 +59,7 @@ scope.then(scope => {
       my_print("... no main in current scope");
       throw "Aborting";
     }
-    main(scope);
+    with_debug(main);
   }
 }).catch(e =>
   my_print(e)
