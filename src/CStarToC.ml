@@ -571,14 +571,14 @@ and mk_type t =
 
 let c99_format w =
   let open K in
-  "PRI" ^ if is_signed w then "i" else "u" ^ string_of_int (bytes_of_width w * 8)
+  "PRIx" ^ string_of_int (bytes_of_width w * 8)
 
 let mk_debug name parameters =
   if Options.debug "c-calls" then
     let formats, args = List.split (KList.filter_map (fun (name, typ) ->
       match typ with
       | Int w ->
-          Some (Printf.sprintf "%s=%%\"%s\"" name (c99_format w), C.Name name)
+          Some (Printf.sprintf "%s=0x%%08\"%s\"" name (c99_format w), C.Name name)
       | Bool ->
           Some (Printf.sprintf "%s=%%d" name, C.Name name)
       (* | Pointer (Int w) -> *)
