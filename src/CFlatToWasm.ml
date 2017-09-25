@@ -641,6 +641,9 @@ and mk_expr env (e: expr): W.Ast.instr list =
       write_highwater env @
       mk_unit
 
+  | GetGlobal i ->
+      [ dummy_phrase (W.Ast.GetGlobal (mk_var (find_global env i))) ]
+
   | _ ->
       failwith ("not implemented; got: " ^ show_expr e)
 
