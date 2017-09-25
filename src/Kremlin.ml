@@ -360,6 +360,7 @@ Supported options:|}
 
   (* 1. Monomorphize functions because the Checker is first-order. If things
    * fail at this stage, most likely not our fault (bad input?). *)
+  let files = Mutual.remove_mutual_types files in
   let files = DataTypes.drop_match_cast files in
   let files = Inlining.monomorphize files in
   let has_errors, files = Checker.check_everything ~warn:true files in
