@@ -644,6 +644,9 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | GetGlobal i ->
       [ dummy_phrase (W.Ast.GetGlobal (mk_var (find_global env i))) ]
 
+  | StringLiteral s ->
+      mk_string env s
+
   | _ ->
       failwith ("not implemented; got: " ^ show_expr e)
 
