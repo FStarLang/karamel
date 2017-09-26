@@ -171,6 +171,7 @@ let write_highwater env =
 let grow_highwater env =
   read_highwater @
   i32_add @
+  [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_align_64"))) ] @
   write_highwater env
 
 
@@ -547,7 +548,6 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | BufCreate (Common.Stack, n_elts, elt_size) ->
       (* TODO -- generate the equivalent of KRML_CHECK_SIZE *)
       read_highwater @
-      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_align_64"))) ] @
       mk_expr env n_elts @
       mk_size elt_size @
       i32_mul @

@@ -42,7 +42,7 @@ function hex64(m8, start) {
 }
 
 function p32(n) {
-  return ("0000000"+Number(n).toString(16)).slice(-8);
+  return p8((n >>> 24) & 255) + p8((n >>> 16) & 255) + p8((n >>> 8) & 255) + p8(n & 255);
 }
 
 function dump(mem, size) {
@@ -93,10 +93,19 @@ function readLeAtAddr(mem, addr, bytes) {
 
 function writeLeAtAddr(mem, addr, n, bytes) {
   let m8 = new Uint8Array(mem.buffer);
+  for (let i = 0; i < bytes; ++i) {
+    m8[addr + i] = n & 255;
+    n >>>= 8;
+  }
+}
+
+function writeBeAtAddr(mem, addr, n, bytes) {
+  my_print("store32_be 0x"+p32(n));
+  let m8 = new Uint8Array(mem.buffer);
   while (bytes > 0) {
     m8[addr + bytes - 1] = n & 255;
     bytes--;
-    n >>= 255;
+    n >>>= 8;
   }
 }
 
@@ -208,6 +217,8 @@ let mkTestLib = (mem) => ({
     for (let i = 0; i < len; ++i) {
       if (m8[b1+i] != m8[b2+i]) {
         my_print("[test] reference "+str+" and expected "+str+" differ at byte "+i+"\n");
+        my_print("b1="+p32(b1)+",b2="+p32(b2));
+        dump(mem, 4*1024);
         throw new Error("test failure");
       }
     }
