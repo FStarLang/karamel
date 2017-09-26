@@ -24,6 +24,27 @@ let assert_var =
   | Var _ -> ()
   | _ -> failwith "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = "
 
+let c99_format w =
+  let open K in
+  "PRIx" ^ string_of_int (bytes_of_width w * 8)
+
+let mk_debug name parameters =
+  if Options.debug "c-calls" then
+    let formats, args = List.split (List.map (fun (name, typ) ->
+      match typ with
+      | Int w ->
+          Printf.sprintf "%s=0x%%08\"%s\"" name (c99_format w), C.Name name
+      | Bool ->
+          Printf.sprintf "%s=%%d" name, C.Name name
+      | _ ->
+          Printf.sprintf "%s=%%s" name, C.Literal "unknown"
+    ) parameters) in
+    [ C.Expr (C.Call (C.Name "printf", [
+        C.Literal (String.concat " " (name :: formats @ [ "\\n" ]))
+      ] @ args)) ]
+  else
+    []
+
 (* Turns the ML declaration inside-out to match the C reading of a type.
  * See en.cppreference.com/w/c/language/declarations *)
 let rec mk_spec_and_decl name rec_name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
@@ -218,7 +239,14 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Comment s ]
 
   | Return e ->
-      [ Return (Option.map mk_expr e) ]
+      let e = Option.map (fun e ->
+        let e = mk_expr e in
+        if Options.debug "c-calls" then
+          C.Call (Name "KRML_DEBUG_RETURN", [ e ])
+        else
+          e
+      ) e in
+      [ Return e ]
 
   | Block stmts ->
       [ Compound (mk_stmts stmts) ]
@@ -568,29 +596,6 @@ and fields_as_initializer_list fields =
 and mk_type t =
   (* hack alert *)
   mk_spec_and_declarator "" t
-
-let c99_format w =
-  let open K in
-  "PRIx" ^ string_of_int (bytes_of_width w * 8)
-
-let mk_debug name parameters =
-  if Options.debug "c-calls" then
-    let formats, args = List.split (KList.filter_map (fun (name, typ) ->
-      match typ with
-      | Int w ->
-          Some (Printf.sprintf "%s=0x%%08\"%s\"" name (c99_format w), C.Name name)
-      | Bool ->
-          Some (Printf.sprintf "%s=%%d" name, C.Name name)
-      (* | Pointer (Int w) -> *)
-      (*     Some (Printf.sprintf "%s[0]=%%\"%s\"" name (c99_format w), C.Deref (C.Name name)) *)
-      | _ ->
-          None
-    ) parameters) in
-    [ C.Expr (C.Call (C.Name "printf", [
-        C.Literal (String.concat " " (name :: formats @ [ "\\n" ]))
-      ] @ args)) ]
-  else
-    []
 
 let mk_comments =
   KList.filter_map (function

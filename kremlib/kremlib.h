@@ -88,6 +88,39 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
     exit(253);                                                                 \
   }
 
+/* A series of GCC atrocities to trace function calls (kremlin's [-d c-calls]
+ * option). Useful when trying to debug, say, Wasm, to compare traces. */
+#ifdef __GNUC__
+#define KRML_FORMAT(X) _Generic((X),                                           \
+  uint8_t : "0x%08" PRIx8,                                                     \
+  uint16_t: "0x%08" PRIx16,                                                    \
+  uint32_t: "0x%08" PRIx32,                                                    \
+  uint64_t: "0x%08" PRIx64,                                                    \
+  int8_t  : "0x%08" PRIx8,                                                     \
+  int16_t : "0x%08" PRIx16,                                                    \
+  int32_t : "0x%08" PRIx32,                                                    \
+  int64_t : "0x%08" PRIx64,                                                    \
+  default : "%s")
+
+#define KRML_FORMAT_ARG(X) _Generic((X),                                       \
+  uint8_t : X,                                                                 \
+  uint16_t: X,                                                                 \
+  uint32_t: X,                                                                 \
+  uint64_t: X,                                                                 \
+  int8_t  : X,                                                                 \
+  int16_t : X,                                                                 \
+  int32_t : X,                                                                 \
+  int64_t : X,                                                                 \
+  default : "unknown")
+
+#define KRML_DEBUG_RETURN(X)                                                   \
+  ({ __auto_type _ret = (X);                                                   \
+    printf("returning: ");                                                     \
+    printf(KRML_FORMAT(_ret), KRML_FORMAT_ARG(_ret));                          \
+    printf(" \n");                                                             \
+    _ret; })
+#endif
+
 #define FStar_Buffer_eqb(b1, b2, n)                                            \
   (memcmp((b1), (b2), (n) * sizeof((b1)[0])) == 0)
 
