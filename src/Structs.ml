@@ -27,9 +27,6 @@ let mk_is_struct files =
           ()
     ) decls
   ) files;
-  (* FStar.UInt128.t is a struct only when we have [-fnouint128]. *)
-  if not !Options.uint128 then
-    Hashtbl.add map ([ "FStar"; "UInt128" ], "t") true;
   function
     | TAnonymous (Flat _) ->
         true
@@ -370,16 +367,11 @@ let to_addr is_struct =
     let was_struct = is_struct e.typ in
     let not_struct () = assert (not was_struct) in
     let w = with_type e.typ in
-    let simpl = function
-      | { node = EAddrOf { node = EBufRead (e, { node = EConstant (_, "0"); _ }); _ }; _ } ->
-          e
-      | e ->
-          e
-    in
     let push_addrof e =
       let t = TBuf e.typ in
       Helpers.nest_in_return_pos t (fun _ e -> with_type t (EAddrOf e)) e
     in
+    KPrint.bprintf "visiting %a\n" pexpr e;
     match e.node with
     | ETApp _ ->
         failwith "should've been eliminated"
@@ -454,7 +446,7 @@ let to_addr is_struct =
                 with_type (TBuf b.typ) (EBufCreate (Stack, e1, Helpers.oneu32))
               else
                 (* Recursively visit [e1]; take the resulting address. *)
-                simpl (push_addrof (to_addr e1))
+                push_addrof (to_addr e1)
             in
             { b with typ = t' },
             e1,
@@ -503,7 +495,7 @@ let to_addr is_struct =
         w (EField (to_addr e, f))
 
     | EAddrOf e ->
-        simpl (w (EAddrOf (to_addr e)))
+        w (EAddrOf (to_addr e))
 
     | EBufSub (e1, e2) ->
         w (EBufSub (e1, e2))

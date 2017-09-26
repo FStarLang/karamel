@@ -389,11 +389,12 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, e2 = mk_expr env locals e2 in
       locals, CF.BufRead (e1, e2, s)
 
+  | EAddrOf ({ node = EBufRead (e1, e2); _ })
   | EBufSub (e1, e2) ->
-      let s = array_size_of (assert_buf e1.typ) in
+      let mult, base_size = cell_size env (assert_buf e.typ) in
       let locals, e1 = mk_expr env locals e1 in
       let locals, e2 = mk_expr env locals e2 in
-      locals, CF.BufSub (e1, e2, s)
+      locals, CF.BufSub (e1, mk_mul32 e2 (mk_uint32 mult), base_size)
 
   | EBufWrite ({ node = EBound v1; _ }, e2, e3) ->
       (* e2 has been simplified by [WasmSimplify] to be either a variable, a
@@ -534,10 +535,12 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       invalid_arg "funs should've been substituted"
 
   | EAddrOf _ ->
-      invalid_arg "address-of should've been resolved"
+      Warnings.fatal_error "address-of should've been resolved: %a" pexpr e
 
-  | EIgnore _ ->
-      failwith "TODO"
+  | EIgnore e ->
+      let s = size_of e.typ in
+      let locals, e = mk_expr env locals e in
+      locals, CF.Ignore (e, s)
 
 
 (* See digression for [dup32] in CFlatToWasm *)

@@ -405,6 +405,7 @@ Supported options:|}
    * meaning that it has to occur before [simplify2]. Note that [in_memory]
    * generates inner let-bindings, so it has to be before [simplify2]. *)
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
+  let files = Simplify.simplify2 files in
   let files = if !Options.wasm then Structs.in_memory files else files in
   let files = Structs.collect_initializers files in
   let files = Inlining.inline_function_frames files in

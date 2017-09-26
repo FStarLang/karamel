@@ -354,13 +354,13 @@ let mk_mask w =
 let mk_cast w_from w_to =
   let open K in
   match w_from, w_to with
-  | (UInt8 | UInt16 | UInt32), (Int64 | UInt64 | CInt) ->
+  | (UInt8 | UInt16 | UInt32), (Int64 | UInt64) ->
       (* Zero-padding, C semantics. That's 12 cases. *)
       [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.ExtendUI32)) ]
-  | Int32, (Int64 | UInt64 | CInt) ->
+  | Int32, (Int64 | UInt64) ->
       (* Sign-extend, then re-interpret, also C semantics. That's 12 more cases. *)
       [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.ExtendSI32)) ]
-  | (Int64 | UInt64 | CInt), (Int32 | UInt32) ->
+  | (Int64 | UInt64), (Int32 | UInt32 | Int16 | UInt16 | Int8 | UInt8) ->
       (* Truncate, still C semantics (famous last words?). That's 24 cases. *)
       [ dummy_phrase (W.Ast.Convert (W.Values.I64 W.Ast.IntOp.WrapI64)) ] @
       mk_mask w_to
@@ -378,7 +378,8 @@ let mk_cast w_from w_to =
   | Bool, _ | _, Bool ->
       invalid_arg "mk_cast"
   | _ ->
-      failwith "todo: signed cast conversions"
+      Warnings.fatal_error "todo: conversion from %s to %s"
+        (show_width w_from) (show_width w_to)
 
 
 (******************************************************************************)
