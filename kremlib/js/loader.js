@@ -87,7 +87,7 @@ function readLeAtAddr(mem, addr, bytes) {
   let m8 = new Uint8Array(mem.buffer);
   let i = 0;
   while (bytes-- > 0)
-    i = i << 8 + m8[addr + bytes];
+    i = (i << 8) + m8[addr + bytes];
   return i;
 }
 

@@ -130,6 +130,11 @@ The [-fc89] option triggers [-fnouint128], [-fnoanonymous-unions],
 [-fnocompound-literals] and [-fc89-scope]. It also changes the invocations above
 to use [-std=c89].
 
+To debug Wasm codegen, it might be useful to trigger the same compilation path
+as Wasm, but emit C code instead. This can be achieved with [-wasm -d
+force-c,c-calls,wasm-calls -drop C,TestLib -add-include '"hack.h"' -fnouint128]
+where [hack.h] contains [#define WasmSupport_check_buffer_size(X)].
+
 Supported options:|}
     Sys.argv.(0)
     !Options.warn_error
