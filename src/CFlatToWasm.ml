@@ -41,11 +41,23 @@ let find_global env name =
   with Not_found ->
     Warnings.fatal_error "Could not resolve global %s" name
 
-let find_func env name =
+(* Some functions were marked as assumed in F*, and then implemented by hand in
+ * C. But, now, we have to re-implement them in F* so that they get Wasm codegen
+ * too. This is a temporary stopgap until all these functions have been properly
+ * removed... *)
+let builtins = [
+  "FStar_UInt64_eq_mask", "WasmSupport_eq_mask64";
+  "FStar_UInt64_gte_mask", "WasmSupport_gte_mask64"
+]
+
+let rec find_func env name =
   try
     StringMap.find name env.funcs
   with Not_found ->
-    Warnings.fatal_error "Could not resolve function %s" name
+    try
+      find_func env (List.assoc name builtins)
+    with Not_found ->
+      Warnings.fatal_error "Could not resolve function %s" name
 
 
 (******************************************************************************)

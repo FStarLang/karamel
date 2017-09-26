@@ -100,7 +100,6 @@ function writeLeAtAddr(mem, addr, n, bytes) {
 }
 
 function writeBeAtAddr(mem, addr, n, bytes) {
-  my_print("store32_be 0x"+p32(n));
   let m8 = new Uint8Array(mem.buffer);
   while (bytes > 0) {
     m8[addr + bytes - 1] = n & 255;
