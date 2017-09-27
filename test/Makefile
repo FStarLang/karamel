@@ -14,7 +14,7 @@ FILES		= \
   Recursive.exe RecursivePoly.exe Structs2.exe StringLit.exe \
   FunctionalEncoding.exe FunPtr.exe Test128.exe \
   CheckedInt.exe Polymorphic.exe GcTypes.exe BadMatch.exe C89.exe \
-  PatternAny.exe Debug.exe
+  PatternAny.exe Debug.exe hello-system/HelloSystem.exe
 EXTRA_FILES	= \
   Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \
@@ -34,7 +34,7 @@ wasm: $(WASM_FILES) $(subst .wasm,.krml,$(EXTRA_FILES))
 	cp $(subst .krml,.out,$@)/out.krml $@
 
 %.exe: %.krml $(KRML_BIN)
-	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $* -o $@ $<
+	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) -o $@ $<
 	./$@
 
 %.wasm: EXTRA += -wasm
@@ -52,6 +52,9 @@ Crypto.Symmetric.Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 HigherOrder.exe: EXTRA = -warn-error +9
 C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic -fc89
 Debug.exe: EXTRA = -d c-calls
+hello-system/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
+	hello-system/system.c -I hello-system -no-prefix SystemNative \
+	-drop SystemNative -add-include '<netdb.h>'
 
 .PHONY: Crypto.Symmetric.Chacha20.fst
 

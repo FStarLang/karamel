@@ -202,8 +202,8 @@ let build_scheme_map files =
  * branch (it's just a flat record), i.e. the first two cases of [scheme] *)
 
 let mk_tag_lid type_lid cons =
-  let prefix, name = type_lid in
-  (prefix @ [ name ], cons)
+  let prefix, _ = type_lid in
+  prefix, cons
 
 let try_mk_switch e branches =
   (* TODO if the last case is a PWild then make it the default case of the
