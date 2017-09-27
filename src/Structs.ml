@@ -371,7 +371,6 @@ let to_addr is_struct =
       let t = TBuf e.typ in
       Helpers.nest_in_return_pos t (fun _ e -> with_type t (EAddrOf e)) e
     in
-    KPrint.bprintf "visiting %a\n" pexpr e;
     match e.node with
     | ETApp _ ->
         failwith "should've been eliminated"

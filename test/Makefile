@@ -18,7 +18,7 @@ FILES		= \
 EXTRA_FILES	= \
   Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \
-  Crypto.Symmetric.Chacha20.wasm WasmTrap.wasm
+  Crypto.Symmetric.Chacha20.wasm WasmTrap.wasm Wasm1.wasm Wasm2.wasm
 BROKEN		= \
   HigherOrder.exe
 

@@ -211,11 +211,11 @@ let mkTestLib = (mem) => ({
     let str = stringAtAddr(m8, addr);
     let hex1 = hex(m8, b1, len);
     let hex2 = hex(m8, b2, len);
-    my_print("[test] expected output "+str+" is "+hex1+"\n");
-    my_print("[test] computed output "+str+" is "+hex2+"\n");
+    my_print("[test] expected output "+str+" is "+hex1);
+    my_print("[test] computed output "+str+" is "+hex2);
     for (let i = 0; i < len; ++i) {
       if (m8[b1+i] != m8[b2+i]) {
-        my_print("[test] reference "+str+" and expected "+str+" differ at byte "+i+"\n");
+        my_print("[test] reference "+str+" and expected "+str+" differ at byte "+i);
         my_print("b1="+p32(b1)+",b2="+p32(b2));
         dump(mem, 4*1024);
         throw new Error("test failure");
