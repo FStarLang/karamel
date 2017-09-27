@@ -576,23 +576,46 @@ let assert_branches map lid =
 let field_names_of_cons cons branches =
   fst (List.split (List.assoc cons branches))
 
-let tag_and_val_type lid branches =
-  let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
-  let structs = KList.filter_map (fun (cons, fields) ->
-    let fields = List.map (fun (f, t) -> Some f, t) fields in
-    if List.length fields > 0 then
-      Some (union_field_of_cons cons, TAnonymous (Flat fields))
-    else
-      None
-  ) branches in
-  TAnonymous (Enum tags), TAnonymous (Union structs)
-
 
 (* Fifth step: implement the general transformation of data types into tagged
  * unions. *)
 let compile_all_matches map = object (self)
 
   inherit [unit] map
+
+  val pending = ref []
+
+  method! visit_file ok file =
+    let name, decls = file in
+    name, KList.map_flatten (fun d ->
+      let d = self#visit_d ok d in
+      let new_decls = !pending in
+      pending := [];
+      new_decls @ [ d ]
+    ) decls
+
+  val seen = Hashtbl.create 41
+
+  method private tag_and_val_type lid branches =
+    let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
+    let structs = KList.filter_map (fun (cons, fields) ->
+      let fields = List.map (fun (f, t) -> Some f, t) fields in
+      if List.length fields > 0 then
+        Some (union_field_of_cons cons, TAnonymous (Flat fields))
+      else
+        None
+    ) branches in
+    let tag_lid =
+      match Hashtbl.find seen tags with
+      | tag_lid ->
+          tag_lid
+      | exception Not_found ->
+          let tag_lid = fst lid, snd lid ^ "_tags" in
+          Hashtbl.add seen tags tag_lid;
+          pending := DType (tag_lid, [], 0, Enum tags) :: !pending;
+          tag_lid
+    in
+    TQualified tag_lid, TAnonymous (Union structs)
 
   (* A variant declaration is a struct declaration with two fields:
    * - [field_for_tag] is the field that holds the "tag" whose type is an
@@ -601,7 +624,7 @@ let compile_all_matches map = object (self)
    *   the tag; it is the union of several struct types, one for each
    *   constructor. *)
   method dtypevariant _env lid branches =
-    let t_tag, t_val = tag_and_val_type lid branches in
+    let t_tag, t_val = self#tag_and_val_type lid branches in
     Flat [
       Some field_for_tag, (t_tag, false);
       Some field_for_union, (t_val, false)
@@ -615,7 +638,7 @@ let compile_all_matches map = object (self)
     let field_names = field_names_of_cons cons branches in
     let fields = List.map (self#visit_pattern env) fields in
     let record_pat = PRecord (List.combine field_names fields) in
-    let t_tag, t_val = tag_and_val_type lid branches in
+    let t_tag, t_val = self#tag_and_val_type lid branches in
     PRecord ([
       (** This is sound because we rely on left-to-right, lazy semantics for
        * pattern-matching. So, we read the "right" field from the union only
@@ -635,7 +658,7 @@ let compile_all_matches map = object (self)
     let field_names = List.map (fun x -> Some x) field_names in
     let exprs = List.map (self#visit env) exprs in
     let record_expr = EFlat (List.combine field_names exprs) in
-    let t_tag, t_val = tag_and_val_type lid branches in
+    let t_tag, t_val = self#tag_and_val_type lid branches in
     EFlat (
       [ Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons)) ] @
       if List.length field_names > 0 then [
