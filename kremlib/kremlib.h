@@ -427,6 +427,7 @@ static inline uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
   return low63 & high_bit;
 }
 
+
 /* Platform-specific 128-bit arithmetic. These are static functions in a header,
  * so that each translation unit gets its own copy and the C compiler can
  * optimize. */
@@ -555,4 +556,27 @@ static inline void store128_be(uint8_t *b, uint128_t n) { store128_be_(b, &n); }
 
 #endif /* KRML_STRUCT_PASSING */
 #endif /* KRML_UINT128 */
+
+// This is a hack, not sure how to work around cyclic dep.
+#include "FStar.h"
+
+/* Bytes */
+typedef void* FStar_Bytes_bytes;
+
+extern FStar_Bytes_bytes FStar_Bytes_create(FStar_UInt32_t x, uint8_t y);
+extern krml_checked_int_t FStar_Bytes_len(FStar_Bytes_bytes bs);
+extern K___FStar_Bytes_bytes_FStar_Bytes_bytes FStar_Bytes_split(FStar_Bytes_bytes bs, FStar_UInt32_t i);
+extern FStar_Bytes_bytes FStar_Bytes_append(FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
+extern FStar_Bytes_bytes FStar_Bytes_xor(FStar_UInt32_t x, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
+extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n);
+extern krml_checked_int_t FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs);
+extern FStar_Bytes_bytes FStar_Bytes_twobytes(K___uint8_t_uint8_t two_bytes);
+extern int FStar_Bytes_get(FStar_Bytes_bytes bs, uint32_t i);
+extern int FStar_Bytes_repr_bytes(Prims_nat bs);
+extern FStar_Bytes_bytes FStar_Bytes_abyte(uint8_t byte);
+
+/* hack */
+void Curve25519_pubshare(int K___FStar_Bytes_bytes_FStar_Bytes_bytes);
+
+static FStar_Bytes_bytes FStar_Bytes_empty_bytes;
 #endif /* __KREMLIB_H */
