@@ -6,6 +6,7 @@ open FStar.Kremlin.Endianness
 
 module HH = FStar.HyperHeap
 module HS = FStar.HyperStack
+module U8 = FStar.UInt8
 
 // This module contains a series of bindings that already exist in C. It receives
 // a special treatment in Kremlin (no prefixes, no .c/.h generated).
@@ -23,35 +24,33 @@ assume val rand: unit -> Stack Int32.t
   (ensures (fun h0 _ h1 -> modifies_none h0 h1))
 assume val exit: Int32.t -> unit
 
+// Abstract char type, with explicit conversions to/from uint8
 assume val char: Type0
+assume HasEq_char: hasEq char
+assume val char_of_uint8: U8.t -> char
+assume val uint8_of_char: char -> U8.t
+assume val char_uint8 (c: char): Lemma (ensures (char_of_uint8 (uint8_of_char c) = c))
+  [ SMTPat (uint8_of_char c) ]
+assume val uint8_char (u: U8.t): Lemma (ensures (uint8_of_char (char_of_uint8 u) = u))
+  [ SMTPat (char_of_uint8 u) ]
+
+// Clocks
 assume val int: Type0
 assume val clock_t: Type0
-
 assume val clock: unit -> Stack clock_t
   (requires (fun _ -> true))
   (ensures (fun h0 _ h1 -> modifies_none h0 h1))
 
-// ADL: using concrete value to use the extracted C.ml
-// without crashing at start
+// C stdlib
+type exit_code = | EXIT_SUCCESS | EXIT_FAILURE
+
+// DEPRECATED
 let exit_success : Int32.t = Int32.int_to_t 0
 let exit_failure : Int32.t = Int32.int_to_t 1
-//assume val exit_success: Int32.t
-//assume val exit_failure: Int32.t
 
-// Note: right now, in Kremlin, the only way to obtain a string is to call
-// C.string_of_literal and pass a constant string literal. There are two ways
-// we could reveal that strings are 0-terminated buffers of chars:
-// - model them as Buffers, which are mutable by default -- this means that
-//   C.string_of_literal would have to perform a runtime copy (from const char *
-//   to char *), because no one is supposed to mutate the data segment, and
-//   this can cause an actual segmentation fault on some architectures
-// - add a mutability flag, and model literals as buffers who live in some eternal
-//   region of the heap and are immutable -- one could then offer
-//   buffer_of_literal that
-// See C11 standard, section 6.4.5. "The multibyte character
-// sequence is then used to initialize an array of static storage duration and length just
-// sufficient to contain the sequence."
+// DEPRECATED
 assume type string
+// DEPRECATED
 assume val string_of_literal: Prims.string -> Tot string
 
 // Note: this assumes a bytes-in, bytes-out semantics for strings in F* which is
