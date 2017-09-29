@@ -55,6 +55,7 @@ Debug.exe: EXTRA = -d c-calls
 hello-system/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
 	hello-system/system.c -I hello-system -no-prefix SystemNative \
 	-drop SystemNative -add-include '<netdb.h>'
+Server.exe: EXTRA = -add-include '"kremstr.h"'
 
 .PHONY: Crypto.Symmetric.Chacha20.fst
 
