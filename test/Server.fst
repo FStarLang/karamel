@@ -41,8 +41,8 @@ val bufstrcmp (b: buffer char) (s: C.String.t): Stack bool
       B.length b >= l /\ (
       let b = B.as_seq h1 b in
       let s = C.String.v s in
-      Seq.length b >= l /\
-      Seq.equal (Seq.slice b 0 (l - 1)) (Seq.slice s 0 (l - 1)))))))
+      Seq.length b >= l)))))// /\
+//      Seq.equal (Seq.slice b 0 (l - 1)) (Seq.slice s 0 (l - 1)))))))
 let bufstrcmp b s =
   let h0 = ST.get () in
   push_frame ();
@@ -74,13 +74,20 @@ let bufstrcmp b s =
     end
   in
   C.Loops.do_while inv body;
-  let r = C.String.get s 0ul = char_of_uint8 0uy in
+  let r = C.String.get s (i.(0ul)) = char_of_uint8 0uy in
   let h2 = ST.get () in
   assert (modifies_1 i h1 h2);
-  // assert (r ==> U32.v (B.get h i 0) = C.String.length s - 1);
-  // assert (forall (b: buffer char) (i: nat{ i < B.length b }).
-  //   {:pattern (Seq.index (B.as_seq h b) i)}
-  //   Seq.index (B.as_seq h b) i == B.get h b i);
+  assert (r ==> U32.v (B.get h2 i 0) = C.String.length s - 1);
+  assert (forall (b: buffer char) (i: nat{ i < B.length b }).
+    {:pattern (Seq.index (B.as_seq h2 b) i)}
+    Seq.index (B.as_seq h2 b) i == B.get h2 b i);
+  assert (forall (s: C.String.t) (i: U32.t{ U32.v i < C.String.length s }).
+    {:pattern (Seq.index (C.String.v s) (U32.v i))}
+    Seq.index (C.String.v s) (U32.v i) == C.String.get s i);
+  assert (r ==> (forall (j: U32.t). U32.v j < C.String.length s - 1 ==> B.get h2 b (U32.v j) = C.String.get s j));
+  //if r then
+  //  Seq.lemma_eq_intro (Seq.slice (B.as_seq h2 b) 0 (C.String.length s - 1)) (Seq.slice (C.String.v s) 0 (C.String.length s - 1));
+  //assert (let l = C.String.length s in r ==> Seq.equal (Seq.slice (B.as_seq h2 b) 0 (l - 1)) (Seq.slice (C.String.v s) 0 (l - 1)));
   pop_frame ();
   let h3 = ST.get () in
   r
