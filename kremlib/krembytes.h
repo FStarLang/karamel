@@ -7,8 +7,8 @@
 #include <inttypes.h>
 #include <string.h>
 
-#include "kremlib.h"
 #include "FStar.h"
+#include "kremlib.h"
 
 typedef uint8_t FStar_Bytes_byte;
 
@@ -20,10 +20,12 @@ typedef uint8_t FStar_Bytes_byte;
  *   char *data[];
  * }
  */
-typedef struct {
-  uint32_t length;
-  char *data;
-} FStar_Bytes_bytes;
+// TODO: how to resolve this, this must declared in kremlib.h due to
+// circular deps.
+// typedef struct {
+//   uint32_t length;
+//   char *data;
+// } FStar_Bytes_bytes;
 
 #define CHECK(x) do { \
   if (!(x)) { \
@@ -43,19 +45,19 @@ static inline krml_checked_int_t FStar_Bytes_length(FStar_Bytes_bytes b) {
   return b.length;
 }
 
-static inline FStar_Bytes_bytes FStar_Bytes_empty_bytes = { .length = 0, .data = NULL };
+static FStar_Bytes_bytes FStar_Bytes_empty_bytes = { .length = 0, .data = NULL };
 
 static inline FStar_Bytes_byte FStar_Bytes_get(FStar_Bytes_bytes b, uint32_t i) {
   return (FStar_Bytes_byte) b.data[i];
 }
 
-static inline FStar_Bytes_bytes FStar_Bytes_set_byte(FStar_Bytes_bytes b1, uint32_t i, FStar_Byte_byte v) {
+static inline FStar_Bytes_bytes FStar_Bytes_set_bytes(FStar_Bytes_bytes b1, uint32_t i, FStar_Bytes_byte v) {
   FStar_Bytes_bytes b2 = FStar_Bytes_copy(b1);
   b2.data[i] = (char) v;
   return b2;
 }
 
-static inline FStar_Bytes_byte FStar_Bytes_create(uint32_t length, FStar_Byte_byte initial) {
+static inline FStar_Bytes_bytes FStar_Bytes_create(uint32_t length, FStar_Bytes_byte initial) {
   char *data = malloc(length);
   CHECK(data);
   memset(data, initial, length);
@@ -63,7 +65,7 @@ static inline FStar_Bytes_byte FStar_Bytes_create(uint32_t length, FStar_Byte_by
   return b;
 }
 
-static inline FStar_Bytes_byte FStar_Bytes_init(uint32_t length, FStar_Byte_byte (*initial)(uint32_t i)) {
+static inline FStar_Bytes_bytes FStar_Bytes_init(uint32_t length, FStar_Bytes_byte (*initial)(uint32_t i)) {
   char *data = malloc(length);
   CHECK(data);
   for (uint32_t i = 0; i < length; ++i)
@@ -72,14 +74,14 @@ static inline FStar_Bytes_byte FStar_Bytes_init(uint32_t length, FStar_Byte_byte
   return b;
 }
 
-static inline FStar_Bytes_byte FStar_Bytes_abyte(FStar_Byte_byte v1) {
+static inline FStar_Bytes_bytes FStar_Bytes_abyte(FStar_Bytes_byte v1) {
   FStar_Bytes_bytes b = { .length = 1, .data = malloc(1) };
   CHECK(b.data);
   b.data[0] = v1;
   return b;
 }
 
-static inline FStar_Bytes_byte FStar_Bytes_twobytes(K___uint8_t_uint8_t v) {
+static inline FStar_Bytes_bytes FStar_Bytes_twobytes(K___uint8_t_uint8_t v) {
   FStar_Bytes_bytes b = { .length = 2, .data = malloc(2) };
   CHECK(b.data);
   b.data[0] = v.fst;

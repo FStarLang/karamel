@@ -54,8 +54,10 @@ void kremlinit_globals();
 /******************************************************************************/
 
 // We need to forward declare to to stupid circular deps issues.
-struct FStar_Bytes_bytes {};
-typedef struct FStar_Bytes_bytes FStar_Bytes_bytes;
+typedef struct {
+  uint32_t length;
+  char *data;
+} FStar_Bytes_bytes;
 
 /* Some types that KreMLin has no special knowledge of; many of them appear in
  * signatures of ghost functions, meaning that it suffices to give them (any)
