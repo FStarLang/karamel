@@ -53,6 +53,10 @@ void kremlinit_globals();
 /* Stubs to ease compilation of non-Low* code                                 */
 /******************************************************************************/
 
+// We need to forward declare to to stupid circular deps issues.
+struct FStar_Bytes_bytes {};
+typedef struct FStar_Bytes_bytes FStar_Bytes_bytes;
+
 /* Some types that KreMLin has no special knowledge of; many of them appear in
  * signatures of ghost functions, meaning that it suffices to give them (any)
  * definition. */
@@ -60,7 +64,7 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
     *FStar_Set_set, *Prims_st_pre_h, *FStar_Heap_heap, *Prims_all_pre_h,
     *FStar_TSet_set, *Prims_string, *Prims_list, *FStar_Map_t, *FStar_UInt63_t_,
     *FStar_Int63_t_, *FStar_UInt63_t, *FStar_Int63_t, *FStar_UInt_uint_t,
-    *FStar_Int_int_t, *FStar_HyperStack_stackref, *FStar_Bytes_bytes,
+    *FStar_Int_int_t, *FStar_HyperStack_stackref,
     *FStar_HyperHeap_rid, *FStar_Heap_aref, *FStar_Monotonic_Heap_heap,
     *FStar_Monotonic_Heap_aref, *FStar_Monotonic_HyperHeap_rid,
     *FStar_Monotonic_HyperStack_mem;
@@ -557,26 +561,5 @@ static inline void store128_be(uint8_t *b, uint128_t n) { store128_be_(b, &n); }
 #endif /* KRML_STRUCT_PASSING */
 #endif /* KRML_UINT128 */
 
-// This is a hack, not sure how to work around cyclic dep.
-#include "FStar.h"
-
-/* Bytes */
-typedef void* FStar_Bytes_bytes;
-
-extern FStar_Bytes_bytes FStar_Bytes_create(FStar_UInt32_t x, uint8_t y);
-extern krml_checked_int_t FStar_Bytes_len(FStar_Bytes_bytes bs);
-extern K___FStar_Bytes_bytes_FStar_Bytes_bytes FStar_Bytes_split(FStar_Bytes_bytes bs, FStar_UInt32_t i);
-extern FStar_Bytes_bytes FStar_Bytes_append(FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
-extern FStar_Bytes_bytes FStar_Bytes_xor(FStar_UInt32_t x, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
-extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n);
-extern krml_checked_int_t FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs);
-extern FStar_Bytes_bytes FStar_Bytes_twobytes(K___uint8_t_uint8_t two_bytes);
-extern int FStar_Bytes_get(FStar_Bytes_bytes bs, uint32_t i);
-extern int FStar_Bytes_repr_bytes(Prims_nat bs);
-extern FStar_Bytes_bytes FStar_Bytes_abyte(uint8_t byte);
-
-/* hack */
-void Curve25519_pubshare(int K___FStar_Bytes_bytes_FStar_Bytes_bytes);
-
-static FStar_Bytes_bytes FStar_Bytes_empty_bytes;
+/* End Bytes */
 #endif /* __KREMLIB_H */

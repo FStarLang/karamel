@@ -76,5 +76,3 @@ static inline FStar_Bytes_byte FStar_Bytes_twobytes(FStar_Byte_byte v1, FStar_By
   b.data[1] = v2;
   return b;
 }
-
-#endif
