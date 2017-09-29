@@ -22,7 +22,7 @@ typedef uint8_t FStar_Bytes_byte;
  */
 typedef struct {
   uint32_t length;
-  char *data;
+  const char *data;
 } FStar_Bytes_bytes;
 
 #define CHECK(x) do { \
@@ -33,9 +33,6 @@ typedef struct {
 } while (0)
 
 static inline FStar_Bytes_bytes FStar_Bytes_copy(FStar_Bytes_bytes b1) {
-  char *data = malloc(b1.length);
-  memcpy(data, b1.data, b1.length);
-  FStar_Bytes_bytes b2 = { .length = b1.length, data = data };
   return b2;
 }
 
@@ -50,8 +47,11 @@ static inline FStar_Bytes_byte FStar_Bytes_get(FStar_Bytes_bytes b, uint32_t i) 
 }
 
 static inline FStar_Bytes_bytes FStar_Bytes_set_byte(FStar_Bytes_bytes b1, uint32_t i, FStar_Byte_byte v) {
-  FStar_Bytes_bytes b2 = FStar_Bytes_copy(b1);
-  b2.data[i] = (char) v;
+  char *data = malloc(b1.length);
+  CHECK(data);
+  memcpy(data, b1.data, b1.length);
+  data[i] = (char) v;
+  FStar_Bytes_bytes b2 = { .length = b1.length, data = data };
   return b2;
 }
 
@@ -113,13 +113,22 @@ static inline FStar_Bytes_bytes FStar_Bytes_sub(FStar_Bytes_bytes b1, uint32_t s
   return FStar_Bytes_slice(b1, s, Prims_op_Addition(s, l));
 }
 
+static inline FStar_Bytes_bytes FStar_Bytes_utf8_encode(const char *str) {
+  // Note: the const char * helps ensuring that this is a string literal.
+  // Strings in F* are UTF8-compatible already so this just writes out utf8
+  // bytes in the string literal in C (TODO: check).
+  // Assuming that there's no \0 in the string literal. TODO enforce at the F*
+  // level.
+  FStar_Bytes_bytes b = { .length = strlen(str), .data = str };
+  return str;
+}
+
 // TODO
 extern K___FStar_Bytes_bytes_FStar_Bytes_bytes FStar_Bytes_split(FStar_Bytes_bytes bs, FStar_UInt32_t i);
 extern FStar_Bytes_bytes FStar_Bytes_xor(FStar_UInt32_t x, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
 extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n);
 extern krml_checked_int_t FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs);
 extern int FStar_Bytes_repr_bytes(Prims_nat bs);
-extern FStar_Bytes_bytes FStar_Bytes_utf8_encode(Prims_string str);
 extern FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str);
 
 #endif
