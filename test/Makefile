@@ -14,7 +14,7 @@ FILES		= \
   Recursive.exe RecursivePoly.exe Structs2.exe StringLit.exe \
   FunctionalEncoding.exe FunPtr.exe Test128.exe \
   CheckedInt.exe Polymorphic.exe GcTypes.exe BadMatch.exe C89.exe \
-  PatternAny.exe Debug.exe hello-system/HelloSystem.exe
+  PatternAny.exe Debug.exe hello-system/HelloSystem.exe Server.exe
 EXTRA_FILES	= \
   Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \
@@ -55,7 +55,7 @@ Debug.exe: EXTRA = -d c-calls
 hello-system/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
 	hello-system/system.c -I hello-system -no-prefix SystemNative \
 	-drop SystemNative -add-include '<netdb.h>'
-Server.exe: EXTRA = -add-include '"kremstr.h"'
+Server.exe: EXTRA = -add-include '"kremstr.h"' main-Server.c
 
 .PHONY: Crypto.Symmetric.Chacha20.fst
 
