@@ -518,6 +518,10 @@ and mk_expr (e: expr): C.expr =
   | Comma (e1, e2) ->
       Op2 (K.Comma, mk_expr e1, mk_expr e2)
 
+  | Call (Qualified "C_String_get", [ e1; e2 ])
+  | BufRead (e1, e2) ->
+      mk_index e1 e2
+
   | Call (e, es) ->
       Call (mk_expr e, List.map mk_expr es)
 
@@ -532,9 +536,6 @@ and mk_expr (e: expr): C.expr =
 
   | BufCreate _ | BufCreateL _ ->
       failwith "[mk_expr]: Buffer.create; Buffer.createl may only appear as let ... = Buffer.create"
-
-  | BufRead (e1, e2) ->
-      mk_index e1 e2
 
   | BufSub (e1, Constant (_, "0")) ->
       mk_expr e1

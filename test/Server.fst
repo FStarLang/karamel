@@ -148,6 +148,8 @@ let offset_zero_terminated h (b: buffer char) (i: U32.t):
     [ SMTPat (zero_terminated h b); SMTPat (B.offset b i) ] =
   ()
 
+inline_for_extraction
+let (!$) = C.String.of_literal
 
 (**
   @summary: a demo server
@@ -176,29 +178,32 @@ let server state request response =
   // Assert that the request starts with "GET " (note the space). That way, we
   // learn that the request is at least five characters long.
   let n =
-    if not (bufstrcmp request (C.String.of_literal "GET ")) then
-      let n = bufstrcpy response (C.String.of_literal "error") in
+    if not (bufstrcmp request !$"GET ") then
+      let n = bufstrcpy response !$"error" in
       n
 
     else
+      // Bug of mine here: I was advancing by 5 instead of 4...!
       let request = Buffer.offset request 4ul in
-      let h = ST.get () in
-      assert (zero_terminated h request);
 
-      if bufstrcmp request (C.String.of_literal "/\r\n") then
-        let n = bufstrcpy response (C.String.of_literal "<html>Hello</html>") in
+      if bufstrcmp request !$"/\r\n" then
+        let n = bufstrcpy response !$"<html>Hello</html>" in
         n
 
-      else if bufstrcmp request (C.String.of_literal "/stats\r\n") then
-        let n1 = bufstrcpy response (C.String.of_literal "<html>State = ") in
+      else if bufstrcmp request !$"/stats\r\n" then
+        let n1 = bufstrcpy response !$"<html>State = " in
         let response = B.offset response n1 in
         let n2 = print_u32 response state.(0ul) in
         let response = B.offset response n2 in
-        let n3 = bufstrcpy response (C.String.of_literal "</html>") in
+        let n3 = bufstrcpy response !$"</html>" in
+        // Interesting verificatino tidbit: print_u32 can't use more than 10
+        // bytes (because that's the maximum space 2^32-1 can take in base 10), but
+        // isn't very specific. So, there's a bunch of inequalities proven under
+        // the hood to show that we still have enough space in the response buffer.
         U32.(n1+^n2+^n3)
 
       else
-        let n = bufstrcpy response (C.String.of_literal "<html>not found</html>") in
+        let n = bufstrcpy response !$"<html>not found</html>" in
         n
   in
 

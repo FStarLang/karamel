@@ -21,7 +21,7 @@ unfold
 let length (s: t): GTot nat =
   Seq.length s.s
 
-unfold
+// Nik says we should unfold this one too but then KreMLin will see Seq functions!
 let get (s: t) (l: U32.t{ U32.v l < Seq.length s.s }): Tot char =
   Seq.index s.s (U32.v l)
 

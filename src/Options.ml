@@ -82,6 +82,7 @@ let default_options () =
 let drop: Bundle.pat list ref =
   ref Bundle.([
     Module [ "C"; "Loops" ];
+    Module [ "C"; "String" ];
     Module [ "FStar"; "BaseTypes"; ];
     Module [ "FStar"; "Char"; ];
     Module [ "FStar"; "Float"; ];
