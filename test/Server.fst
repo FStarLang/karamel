@@ -140,7 +140,7 @@ assume val bufcpy (b1 b2: buffer char): Stack U32.t
 
 (** The length that our caller has allocated for us in the destination buffer. *)
 unfold
-let response_length = 2048
+let response_length = 65535
 
 let offset_zero_terminated h (b: buffer char) (i: U32.t):
   Lemma
@@ -187,11 +187,19 @@ let server state request response =
       // Bug of mine here: I was advancing by 5 instead of 4...!
       let request = Buffer.offset request 4ul in
 
-      if bufstrcmp request !$"/\r\n" then
-        let n = bufstrcpy response !$"<html>Hello</html>" in
-        n
+      if bufstrcmp request !$"/ " then
+        let payload = !$"<html><body>Hello world</body></html>" in
+        let payloadlen = bufstrcpy response payload in   (* this is an inefficient buflen() *)
+        let n1 = bufstrcpy response !$"HTTP/1.1 200 OK\r\nConnection: closed\r\nContent-Length:" in
+        let response = B.offset response n1 in
+        let n2 = print_u32 response payloadlen in
+        let response = B.offset response n2 in
+        let n3 = bufstrcpy response !$"\r\nContent-Type: text/html; charset=utf-8\r\n\r\n" in
+        let response = B.offset response n3 in
+        let n4 = bufstrcpy response payload in
+        U32.(n1+^n2+^n3+^n4)
 
-      else if bufstrcmp request !$"/stats\r\n" then
+      else if bufstrcmp request !$"/stats " then
         let n1 = bufstrcpy response !$"<html>State = " in
         let response = B.offset response n1 in
         let n2 = print_u32 response state.(0ul) in
