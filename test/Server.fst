@@ -114,7 +114,7 @@ assume val print_u32 (dst: buffer char) (i: U32.t): Stack U32.t
     B.live h dst /\ B.length dst >= 10))
   (ensures (fun h0 ret h1 ->
     modifies_1 dst h0 h1 /\
-    U32.v ret <= B.length dst /\
+    U32.v ret <= 10 /\
     B.live h1 dst))
 
 
