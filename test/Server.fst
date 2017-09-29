@@ -46,11 +46,13 @@ val bufstrcmp (b: buffer char) (s: C.String.t): Stack bool
 let bufstrcmp b s =
   let h0 = ST.get () in
   push_frame ();
-  let i: pointer U32.t = Buffer.create 0ul 1ul in
   let h1 = ST.get () in
+  let i: pointer U32.t = Buffer.create 0ul 1ul in
+  let h2 = ST.get () in
+  assert (modifies_0 h1 h2);
   let inv h stopped =
     B.live h i /\ B.live h b /\
-    B.modifies_1 i h1 h /\ (
+    B.modifies_1 i h2 h /\ (
     let i: U32.t = B.get h i 0 in
     U32.v i < B.length b /\ U32.v i < C.String.length s /\
     (forall (j: U32.t). {:pattern (B.get h b (U32.v j)) } U32.lt j i ==>
@@ -75,8 +77,7 @@ let bufstrcmp b s =
   in
   C.Loops.do_while inv body;
   let r = C.String.get s (i.(0ul)) = char_of_uint8 0uy in
-  let h2 = ST.get () in
-  assert (modifies_1 i h1 h2);
+  let h3 = ST.get () in
   assert (forall (b: buffer char) (i: nat{ i < B.length b }).
     {:pattern (Seq.index (B.as_seq h2 b) i)}
     Seq.index (B.as_seq h2 b) i == B.get h2 b i);
@@ -84,6 +85,9 @@ let bufstrcmp b s =
     {:pattern (Seq.index (C.String.v s) i)}
     Seq.index (C.String.v s) i == C.String.get s (U32.uint_to_t i));
   pop_frame ();
+  let h4 = ST.get () in
+  lemma_modifies_0_1' i h1 h2 h3;
+  modifies_popped_0 h0 h1 h3 h4;
   r
 
 
