@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "FStar.h"
-#include "kremlib.h"
+// #include "kremlib.h"
 
 typedef uint8_t FStar_Bytes_byte;
 
@@ -35,7 +35,7 @@ typedef uint8_t FStar_Bytes_byte;
 } while (0)
 
 static inline FStar_Bytes_bytes FStar_Bytes_copy(FStar_Bytes_bytes b1) {
-  return b2;
+  return b1;
 }
 
 static inline krml_checked_int_t FStar_Bytes_length(FStar_Bytes_bytes b) {
@@ -48,7 +48,7 @@ static inline FStar_Bytes_byte FStar_Bytes_get(FStar_Bytes_bytes b, uint32_t i) 
   return (FStar_Bytes_byte) b.data[i];
 }
 
-static inline FStar_Bytes_bytes FStar_Bytes_set_byte(FStar_Bytes_bytes b1, uint32_t i, FStar_Byte_byte v) {
+static inline FStar_Bytes_bytes FStar_Bytes_set_byte(FStar_Bytes_bytes b1, uint32_t i, FStar_Bytes_byte v) {
   char *data = malloc(b1.length);
   CHECK(data);
   memcpy(data, b1.data, b1.length);
@@ -75,27 +75,30 @@ static inline FStar_Bytes_bytes FStar_Bytes_init(uint32_t length, FStar_Bytes_by
 }
 
 static inline FStar_Bytes_bytes FStar_Bytes_abyte(FStar_Bytes_byte v1) {
-  FStar_Bytes_bytes b = { .length = 1, .data = malloc(1) };
-  CHECK(b.data);
-  b.data[0] = v1;
+  char * data = (char*)malloc(1);
+  CHECK(data);
+  data[0] = v1;
+  FStar_Bytes_bytes b = { .length = 1, .data = data };
   return b;
 }
 
 static inline FStar_Bytes_bytes FStar_Bytes_twobytes(K___uint8_t_uint8_t v) {
-  FStar_Bytes_bytes b = { .length = 2, .data = malloc(2) };
-  CHECK(b.data);
-  b.data[0] = v.fst;
-  b.data[1] = v.snd;
+  char * data = malloc(2);
+  CHECK(data);
+  data[0] = v.fst;
+  data[1] = v.snd;
+  FStar_Bytes_bytes b = { .length = 2, .data = data };
   return b;
 }
 
 static inline FStar_Bytes_bytes FStar_Bytes_append(FStar_Bytes_bytes b1, FStar_Bytes_bytes b2) {
   // Overflow check
   uint32_t length = Prims_op_Addition(b1.length, b2.length);
-  FStar_Bytes_bytes b = { .length = length, .data = malloc(length) };
-  CHECK(b.data);
-  memcpy(b.data, b1.data, b1.length);
-  memcpy(b.data + b1.length, b2.data, b2.length);
+  char * data = (char*)malloc(length);
+  CHECK(data);
+  memcpy(data, b1.data, b1.length);
+  memcpy(data + b1.length, b2.data, b2.length);
+  FStar_Bytes_bytes b = { .length = length, .data = data };
   return b;
 }
 
@@ -105,24 +108,25 @@ static inline FStar_Bytes_bytes FStar_Bytes_slice(FStar_Bytes_bytes b1, uint32_t
   if (s > e)
     exit(254);
   uint32_t length = e - s;
-  FStar_Bytes_bytes b = { .length = length, .data = malloc(length) };
-  CHECK(b.data);
-  memcpy(b.data, b1.data + s, length);
+  char * data = malloc(length);
+  CHECK(data);
+  memcpy(data, b1.data + s, length);
+  FStar_Bytes_bytes b = { .length = length, .data = data };
   return b;
 }
 
 static inline FStar_Bytes_bytes FStar_Bytes_sub(FStar_Bytes_bytes b1, uint32_t s, uint32_t l) {
   return FStar_Bytes_slice(b1, s, Prims_op_Addition(s, l));
-static inline FStar_Bytes_bytes FStar_Bytes_utf8_encode(const char *str) {
 }
 
+static inline FStar_Bytes_bytes FStar_Bytes_utf8_encode(const char *str) {
   // Note: the const char * helps ensuring that this is a string literal.
   // Strings in F* are UTF8-compatible already so this just writes out utf8
   // bytes in the string literal in C (TODO: check).
   // Assuming that there's no \0 in the string literal. TODO enforce at the F*
   // level.
   FStar_Bytes_bytes b = { .length = strlen(str), .data = str };
-  return str;
+  return b;
 }
 
 // TODO
@@ -130,6 +134,7 @@ extern K___FStar_Bytes_bytes_FStar_Bytes_bytes FStar_Bytes_split(FStar_Bytes_byt
 extern FStar_Bytes_bytes FStar_Bytes_xor(FStar_UInt32_t x, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
 extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n);
 extern krml_checked_int_t FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs);
+extern FStar_UInt32_t FStar_Bytes_len(FStar_Bytes_bytes b1);
 extern int FStar_Bytes_repr_bytes(Prims_nat bs);
 extern FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str);
 
