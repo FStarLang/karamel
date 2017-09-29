@@ -98,10 +98,10 @@ assume val bufstrcpy (b: buffer char) (s: C.String.t): Stack U32.t
     B.length b >= C.String.length s - 1))
   (ensures (fun h0 ret h1 ->
     B.live h1 b /\
-    B.length b >= C.String.length s - 1 /\
+    B.length b >= C.String.length s /\
     modifies_1 b h0 h1 /\
-    U32.v ret = C.String.length s /\
-    Seq.equal (Seq.slice (B.as_seq h1 b) 0 (U32.v ret - 1)) (Seq.slice (C.String.v s) 0 (U32.v ret - 1))))
+    U32.v ret = C.String.length s - 1 /\
+    Seq.equal (Seq.slice (B.as_seq h1 b) 0 (U32.v ret)) (Seq.slice (C.String.v s) 0 (U32.v ret))))
 
 
 (**
