@@ -563,5 +563,6 @@ static inline void store128_be(uint8_t *b, uint128_t n) { store128_be_(b, &n); }
 #endif /* KRML_STRUCT_PASSING */
 #endif /* KRML_UINT128 */
 
-/* End Bytes */
+#include "krembytes.h"
+
 #endif /* __KREMLIB_H */
