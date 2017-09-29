@@ -575,6 +575,7 @@ extern int FStar_Bytes_get(FStar_Bytes_bytes bs, uint32_t i);
 extern int FStar_Bytes_repr_bytes(Prims_nat bs);
 extern FStar_Bytes_bytes FStar_Bytes_abyte(uint8_t byte);
 
+extern FStar_Bytes_bytes FStar_Bytes_utf8_encode(Prims_string str);
 /* hack */
 void Curve25519_pubshare(int K___FStar_Bytes_bytes_FStar_Bytes_bytes);
 
