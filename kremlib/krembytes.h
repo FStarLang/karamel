@@ -113,4 +113,13 @@ static inline FStar_Bytes_bytes FStar_Bytes_sub(FStar_Bytes_bytes b1, uint32_t s
   return FStar_Bytes_slice(b1, s, Prims_op_Addition(s, l));
 }
 
+// TODO
+extern K___FStar_Bytes_bytes_FStar_Bytes_bytes FStar_Bytes_split(FStar_Bytes_bytes bs, FStar_UInt32_t i);
+extern FStar_Bytes_bytes FStar_Bytes_xor(FStar_UInt32_t x, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
+extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n);
+extern krml_checked_int_t FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs);
+extern int FStar_Bytes_repr_bytes(Prims_nat bs);
+extern FStar_Bytes_bytes FStar_Bytes_utf8_encode(Prims_string str);
+extern FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str);
+
 #endif
