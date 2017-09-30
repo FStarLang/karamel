@@ -156,6 +156,16 @@ let offset_zero_terminated h (b: buffer char) (i: U32.t):
 inline_for_extraction
 let (!$) = C.String.of_literal
 
+let respond response payload payloadlen =
+    let n1 = bufstrcpy response !$"HTTP/1.1 200 OK\r\nConnection: closed\r\nContent-Length:" in
+    let response = B.offset response n1 in
+    let n2 = print_u32 response payloadlen in
+    let response = B.offset response n2 in
+    let n3 = bufstrcpy response !$"\r\nContent-Type: text/html; charset=utf-8\r\n\r\n" in
+    let response = B.offset response n3 in
+    let t = Buffer.blit payload 0ul response 0ul payloadlen in
+    U32.(n1+^n2+^n3+^payloadlen)
+   
 (**
   @summary: a demo server
   @type: true
@@ -192,32 +202,30 @@ let server state request response =
       let request = Buffer.offset request 4ul in
 
       if bufstrcmp request !$"/ " then
-        let payload = !$"<html><body>Hello world</body></html>" in
-        let payloadlen = bufstrcpy response payload in   (* this is an inefficient buflen() *)
-        let n1 = bufstrcpy response !$"HTTP/1.1 200 OK\r\nConnection: closed\r\nContent-Length:" in
+        let payload = Buffer.create (char_of_uint8 0uy) 256ul in
+        let payloadlen = bufstrcpy payload !$"<html><body>Hello world</body></html>" in
+        respond response payload payloadlen
+
+      else if bufstrcmp request !$"/stats " then
+        let payload = Buffer.create (char_of_uint8 0uy) 256ul in
+        let n1 = bufstrcpy payload !$"<html>State = " in
+        let next = B.offset payload n1 in
+        let n2 = print_u32 next state.(0ul) in
+        let next = B.offset next n2 in
+        let n3 = bufstrcpy next !$"</html>" in
+        respond response payload U32.(n1+^n2+^n3)
+
+      else
+        let payload = Buffer.create (char_of_uint8 0uy) 256ul in
+        let payloadlen = bufstrcpy payload !$"<html>Page not found</html>" in
+        let n1 = bufstrcpy response !$"HTTP/1.1 404 Not Found\r\nConnection: closed\r\nContent-Length:" in
         let response = B.offset response n1 in
         let n2 = print_u32 response payloadlen in
         let response = B.offset response n2 in
         let n3 = bufstrcpy response !$"\r\nContent-Type: text/html; charset=utf-8\r\n\r\n" in
         let response = B.offset response n3 in
-        let n4 = bufstrcpy response payload in
-        U32.(n1+^n2+^n3+^n4)
-
-      else if bufstrcmp request !$"/stats " then
-        let n1 = bufstrcpy response !$"<html>State = " in
-        let response = B.offset response n1 in
-        let n2 = print_u32 response state.(0ul) in
-        let response = B.offset response n2 in
-        let n3 = bufstrcpy response !$"</html>" in
-        // Interesting verificatino tidbit: print_u32 can't use more than 10
-        // bytes (because that's the maximum space 2^32-1 can take in base 10), but
-        // isn't very specific. So, there's a bunch of inequalities proven under
-        // the hood to show that we still have enough space in the response buffer.
-        U32.(n1+^n2+^n3)
-
-      else
-        let n = bufstrcpy response !$"<html>not found</html>" in
-        n
+        let t = Buffer.blit response 0ul payload 0ul payloadlen in
+        U32.(n1+^n2+^n3+^payloadlen)
   in
 
   pop_frame ();
