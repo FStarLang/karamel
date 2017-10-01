@@ -224,7 +224,7 @@ let server state request response =
         let response = B.offset response n2 in
         let n3 = bufstrcpy response !$"\r\nContent-Type: text/html; charset=utf-8\r\n\r\n" in
         let response = B.offset response n3 in
-        let t = Buffer.blit response 0ul payload 0ul payloadlen in
+        let t = Buffer.blit payload 0ul response 0ul payloadlen in
         U32.(n1+^n2+^n3+^payloadlen)
   in
 

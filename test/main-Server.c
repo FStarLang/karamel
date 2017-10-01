@@ -15,5 +15,9 @@ int main() {
   n = server(&state, (char *) request2, response);
   response[n] = 0;
   printf(">>> %s\n%s\n", request2, response);
+  const char *request3 = "GET /notfound HTTP/1.1\r\n";
+  n = server(&state, (char *) request3, response);
+  response[n] = 0;
+  printf(">>> %s\n%s\n", request3, response);
   return EXIT_SUCCESS;
 }
