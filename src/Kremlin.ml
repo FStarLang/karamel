@@ -176,6 +176,7 @@ Supported options:|}
     "-verbose", Arg.Set Options.verbose, "  show the output of intermediary \
       tools when acting as a driver for F* or the C compiler";
     "-wasm", Arg.Set Options.wasm, "  emit a .wasm file instead of C";
+    "-wast", Arg.Set Options.wast, "  emit a .wast file instead of C";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* Controlling the behavior of KreMLin *)
@@ -268,6 +269,8 @@ Supported options:|}
 
   (* Meta-options that enable other options. Do this now because it influences
    * the default options for each compiler. *)
+  if !Options.wast then
+    Options.wasm := true;
   if !Options.wasm then begin
     Options.uint128 := false;
     Options.anonymous_unions := false;

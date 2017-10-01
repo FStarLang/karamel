@@ -39,9 +39,18 @@ let as_js_list l =
 let write_all js_files modules print =
   (* Write out all the individual .wasm files *)
   List.iter (fun (name, module_) ->
-    let s = Wasm.Encode.encode module_ in
-    let name = name ^ ".wasm" in
-    Utils.with_open_out (Filename.concat !Options.tmpdir name) (fun oc -> output_string oc s);
+    if !Options.wast then
+      let script = [ CFlatToWasm.dummy_phrase (Wasm.Script.Module (
+        None,
+        CFlatToWasm.dummy_phrase (Wasm.Script.Textual module_)))]
+      in
+      let name = name ^ ".wast" in
+      Utils.with_open_out (Filename.concat !Options.tmpdir name) (fun oc ->
+        Wasm.Print.script oc 80 `Textual script);
+    else
+      let s = Wasm.Encode.encode module_ in
+      let name = name ^ ".wasm" in
+      Utils.with_open_out (Filename.concat !Options.tmpdir name) (fun oc -> output_string oc s);
     KPrint.bprintf "Wrote %s\n" name;
     if print then
       Wasm.Print.module_ stdout Utils.twidth module_;
