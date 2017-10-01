@@ -57,10 +57,12 @@ scope.then(scope => {
   if (!found) {
     if (!("main" in this)) {
       my_print("... no main in current scope");
-      throw "Aborting";
+      throw new Error("Aborting");
     }
     with_debug(main);
   }
-}).catch(e =>
-  my_print(e)
-);
+}).catch(e => {
+  my_print(e);
+  // TODO figure out equivalent of quit for chakra
+  quit(255);
+});

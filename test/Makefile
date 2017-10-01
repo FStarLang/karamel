@@ -21,29 +21,26 @@ WASM_FILES	= \
   Crypto.Symmetric.Chacha20.wasm WasmTrap.wasm Wasm1.wasm Wasm2.wasm
 BROKEN		= \
   HigherOrder.exe
+NEGATIVE	= false
 
 all: standalone extra
 
 # The standalone tests don't need a source checkout of F* to run
 standalone: $(FILES) $(subst .exe,.krml,$(FILES))
 extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
-wasm: $(WASM_FILES) $(subst .wasm,.krml,$(EXTRA_FILES))
+wasm: $(WASM_FILES)
 
+# A common target to produce a .krml file
 %.krml: %.fst
 	$(KRML) $(EXTRA) -tmpdir $(subst .krml,.out,$@) -skip-translation $<
 	cp $(subst .krml,.out,$@)/out.krml $@
 
+# Then, from there on, a specific target for native C compilation
 %.exe: %.krml $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) -o $@ $<
 	./$@
 
-%.wasm: EXTRA += -wasm
-%.wasm: %.krml $(KRML_BIN)
-	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $(JSFILES) -no-prefix $* $<
-	cp $(wildcard ../kremlib/js/*.js) $(JSFILES) $(subst .wasm,.out,$@)
-	cd $*.out && $(shell which d8) main.js
-	# cd $*.out && ch -Wasm main.js
-
+# Various flags to be passed to some targets...
 Structs2.exe: EXTRA = -wasm -d force-c -drop C,TestLib wasm-stubs.c
 ML16.exe: EXTRA = ml16-native.c
 Scope.exe: EXTRA = -ccopt -O3
@@ -59,8 +56,25 @@ Server.exe: EXTRA = -add-include '"kremstr.h"' main-Server.c
 
 .PHONY: Crypto.Symmetric.Chacha20.fst
 
+# And another target for WASM compilation. All WASM targets get the -wasm flag;
+# some specific targets may override NEGATIVE for negative tests.
+%.wasm: EXTRA += -wasm
+%.wasm: %.krml $(KRML_BIN)
+	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $(JSFILES) -no-prefix $* $<
+	cp $(wildcard ../kremlib/js/*.js) $(JSFILES) $(subst .wasm,.out,$@)
+	cd $*.out && \
+	  if ! $(NEGATIVE); then \
+	    $(shell which d8) main.js; \
+	  else \
+	    ! $(shell which d8) main.js; \
+	  fi && \
+	  cp $(subst .,_,$*).wasm ../$@
+	# cd $*.out && ch -Wasm main.js
+
+# Customizing some WASM targets.
 Crypto.Symmetric.Chacha20.wasm: JSFILES=main-Chacha.js
 Crypto.Symmetric.Chacha20.wasm: EXTRA+=$(CRYPTO_OPTS) -drop FStar
+WasmTrap.wasm: NEGATIVE = true
 
 clean:
 	rm -rf *.exe *.dSYM *.out *.wasm *.krml

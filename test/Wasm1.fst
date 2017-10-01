@@ -20,3 +20,8 @@ let fact' (x: uint32): Stack unit (fun _ -> true) (fun _ _ _ -> true) =
 
 let minus (x: uint32) (y: uint32 { x >^ y }) =
   x -^ y
+
+let main () =
+  let x = fact' 5ul in
+  let y = fact 5ul in
+  0l
