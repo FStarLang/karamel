@@ -660,7 +660,8 @@ and mk_expr env (e: expr): W.Ast.instr list =
 
   | Ignore (e, _) ->
       mk_expr env e @
-      mk_drop
+      mk_drop @
+      mk_unit
 
   | Sequence es ->
       let es, e = KList.split_at_last es in
