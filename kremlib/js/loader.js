@@ -171,6 +171,11 @@ let mkC = (mem) => ({
   load128_be: () => { throw new Error("todo: load128_be") },
   store128_be: () => { throw new Error("todo: store128_be") },
 
+  char_uint8: () => { throw new Error("todo: char_uint8") },
+  uint8_char: () => { throw new Error("todo: uint8_char") },
+  char_of_uint8: () => { throw new Error("todo: char_of_uint8") },
+  uint8_of_char: () => { throw new Error("todo: uint8_of_char") },
+
   // A Prims_string generates a literal allocated in the data segment;
   // string_of_literal is just a typing trick.
   string_of_literal: (x) => x,

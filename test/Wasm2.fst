@@ -14,4 +14,3 @@ let main (): Stack FStar.Int32.t (fun _ -> true) (fun _ _ _ -> true) =
   b.(0ul) <- zero;
   pop_frame ();
   C.exit_success
-

@@ -128,6 +128,13 @@ let i32_one =
 let mk_unit =
   i32_zero
 
+let i64_sub =
+  [ dummy_phrase (W.Ast.Binary (mk_value I64 W.Ast.IntOp.Sub)) ]
+
+let i64_not =
+  mk_const (mk_int64 Int64.zero) @
+  [ dummy_phrase (W.Ast.Compare (mk_value I64 W.Ast.IntOp.Eq)) ]
+
 let mk_drop =
   [ dummy_phrase W.Ast.Drop ]
 
@@ -356,13 +363,13 @@ let mk_cast w_from w_to =
   match w_from, w_to with
   | (UInt8 | UInt16 | UInt32), (Int64 | UInt64) ->
       (* Zero-padding, C semantics. That's 12 cases. *)
-      [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.ExtendUI32)) ]
+      [ dummy_phrase (W.Ast.Convert (W.Values.I64 W.Ast.IntOp.ExtendUI32)) ]
   | Int32, (Int64 | UInt64) ->
       (* Sign-extend, then re-interpret, also C semantics. That's 12 more cases. *)
-      [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.ExtendSI32)) ]
+      [ dummy_phrase (W.Ast.Convert (W.Values.I64 W.Ast.IntOp.ExtendSI32)) ]
   | (Int64 | UInt64), (Int32 | UInt32 | Int16 | UInt16 | Int8 | UInt8) ->
       (* Truncate, still C semantics (famous last words?). That's 24 cases. *)
-      [ dummy_phrase (W.Ast.Convert (W.Values.I64 W.Ast.IntOp.WrapI64)) ] @
+      [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.WrapI64)) ] @
       mk_mask w_to
   | (Int8 | UInt8), (Int8 | UInt8)
   | (Int16 | UInt16), (Int16 | UInt16)
@@ -511,12 +518,21 @@ end
 (* Actual translation from Cflat to Wasm                                      *)
 (******************************************************************************)
 
+let mk_binop_conversion (w, o) =
+  let open K in
+  match w, o with
+  | (UInt64 | Int64), (BShiftL | BShiftR) ->
+      mk_cast UInt32 UInt64
+  | _ ->
+      []
+
 let rec mk_callop2 env (w, o) e1 e2 =
   (* TODO: check special byte semantics C / WASM *)
   let size = size_of_width w in
   mk_expr env e1 @
   mk_expr env e2 @
   if is_binop (w, o) then
+    mk_binop_conversion (w, o) @
     [ dummy_phrase (W.Ast.Binary (mk_value size (Option.must (mk_binop (w, o))))) ] @
     mk_mask w
   else if is_cmpop (w, o) then
@@ -526,16 +542,24 @@ let rec mk_callop2 env (w, o) e1 e2 =
     failwith "todo mk_callop2"
 
 and mk_callop env (w, o) e1 =
+  let open K in
   match (w, o) with
-  | _, K.Not ->
+  | (UInt64 | Int64), Not ->
+      mk_expr env e1 @
+      i64_not
+  | (UInt64 | Int64), BNot ->
+      mk_const (mk_int64 Int64.minus_one) @
+      mk_expr env e1 @
+      i64_sub
+  | _, Not ->
       mk_expr env e1 @
       i32_not
-  | _, K.BNot ->
+  | _, BNot ->
       mk_const (mk_int32 Int32.minus_one) @
       mk_expr env e1 @
       i32_sub
   | _ ->
-      failwith "todo mk_callop"
+      failwith ("todo mk_callop " ^ show_width w ^ " " ^ show_op o)
 
 and mk_size size =
   [ dummy_phrase (W.Ast.Const (mk_int32 (Int32.of_int (bytes_in size)))) ]
