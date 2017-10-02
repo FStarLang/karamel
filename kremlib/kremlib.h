@@ -49,6 +49,11 @@ void print_bytes(uint8_t *b, uint32_t len);
  * generate and try to link last a function with this type: */
 void kremlinit_globals();
 
+/* For tests only: we might need this function to be forward-declared, because
+ * the dependency on WasmSupport appears very late, after SimplifyWasm, and
+ * sadly, after the topological order has been done. */
+void WasmSupport_check_buffer_size(uint32_t s);
+
 /******************************************************************************/
 /* Stubs to ease compilation of non-Low* code                                 */
 /******************************************************************************/
