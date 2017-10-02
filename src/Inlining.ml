@@ -302,28 +302,27 @@ let monomorphize files =
 
   Helpers.visit_files () monomorphize files
 
+let inline_analysis files =
+  (* ... our criterion for determining whether a function must be inlined or not...
+   * ... we map each [lid] to a pair of:
+   * - a boolean, i.e. whether the user demanded inlining (via the
+   *   substitute attribute), and
+   * - the body, which [inline_analysis] needs to figure out if the function
+   *   allocates without pushing a frame, meaning it must be inlined. *)
+  let map = Helpers.build_map files (fun map -> function
+    | DFunction (_, flags, _, _, name, _, body) ->
+        Hashtbl.add map name (List.exists ((=) Substitute) flags, body)
+    | _ ->
+        ()
+  ) in
+  Hashtbl.add map ([ "kremlinit" ], "globals") (false, Helpers.any);
+  let valuation = inline_analysis map in
+  let must_disappear lid = valuation lid = MustInline in
+  let must_inline lid = fst (Hashtbl.find map lid) || must_disappear lid in
+  must_inline, must_disappear
 
 (** A whole-program transformation that inlines functions according to... *)
-let inline_function_frames files =
-
-  (* ... our criterion for determining whether a function must be inlined or not... *)
-  let must_inline, must_disappear =
-    (* ... we map each [lid] to a pair of:
-     * - a boolean, i.e. whether the user demanded inlining (via the
-     *   substitute attribute), and
-     * - the body, which [inline_analysis] needs to figure out if the function
-     *   allocates without pushing a frame, meaning it must be inlined. *)
-    let map = Helpers.build_map files (fun map -> function
-      | DFunction (_, flags, _, _, name, _, body) ->
-          Hashtbl.add map name (List.exists ((=) Substitute) flags, body)
-      | _ ->
-          ()
-    ) in
-    let valuation = inline_analysis map in
-    let must_disappear lid = valuation lid = MustInline in
-    let must_inline lid = fst (Hashtbl.find map lid) || must_disappear lid in
-    must_inline, must_disappear
-  in
+let inline_function_frames files (must_inline, must_disappear) =
 
   (* We create an inliner based on this criterion. *)
   let inline_one = mk_inliner files must_inline in

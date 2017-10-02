@@ -468,6 +468,8 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.Sequence es
 
   | EAssign (e1, e2) ->
+      (* Assignment into a stack-allocated variable. For assignment into
+       * addresses, EBufWrite is used. *)
       begin match e1.typ, e2.node with
       | TArray (_typ, _sizexp), (EBufCreate _ | EBufCreateL _) ->
           invalid_arg "this should've been desugared by Simplify.Wasm into let + blit"
@@ -591,6 +593,8 @@ let mk_module env (name, decls) =
     try
       mk_decl env d
     with e ->
+      flush stdout;
+      flush stderr;
       (* Remove when everything starts working *)
       KPrint.beprintf "[AstToC♭] Couldn't translate %a:\n%s\n%s"
         PrintAst.plid (lid_of_decl d) (Printexc.to_string e)

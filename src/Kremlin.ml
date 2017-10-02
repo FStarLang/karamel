@@ -404,14 +404,18 @@ Supported options:|}
    * structures by reference, and also allocate all structures in memory. This
    * creates new opportunities for the removal of unused variables, but also
    * breaks the earlier transformation to a statement language, which we perform
-   * again. Note that [remove_unused] generates MetaSequence let-bindings,
+   * again. Note that [remove_unused] generates MetaSequence let-bindings,
    * meaning that it has to occur before [simplify2]. Note that [in_memory]
    * generates inner let-bindings, so it has to be before [simplify2]. *)
+  let analysis = Inlining.inline_analysis files in
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
   let files = Simplify.simplify2 files in
   let files = if !Options.wasm then Structs.in_memory files else files in
   let files = Structs.collect_initializers files in
-  let files = Inlining.inline_function_frames files in
+  (* We have to rely on an earlier analysis because [pass_by_ref] and
+   * [in_memory] introduce structs that may make the inlining analysis too
+   * conservative. *)
+  let files = Inlining.inline_function_frames files analysis in
   let files = Simplify.remove_unused files in
   let files = Simplify.simplify2 files in
   if !arg_print_inline then

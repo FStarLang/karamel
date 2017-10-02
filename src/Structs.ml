@@ -468,8 +468,15 @@ let to_addr is_struct =
          * EBufFill. *)
         not_struct ();
         let e1 = to_addr e1 in
-        let e2 = if is_struct e1.typ then e2 else to_addr e2 in
-        w (EAssign (e1, e2))
+        if is_struct e1.typ then
+          let e2 = to_addr e2 in
+          match e1.node with
+          | EBufRead (e0, e1) ->
+              w (EBufWrite (e0, e1, e2))
+          | _ ->
+              Warnings.fatal_error "not an ebufread: %a\n" pexpr e1
+        else
+          w (EAssign (e1, e2))
 
     | EBufCreate (l, e1, e2) ->
         (* Not descending into [e1], as it will undergo the "allocate at

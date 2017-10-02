@@ -188,7 +188,7 @@ and print_expr { node; typ } =
   | ESequence es ->
       separate_map (semi ^^ hardline) (fun e -> group (print_expr e)) es
   | EAssign (e1, e2) ->
-      group (print_expr e1 ^/^ string "<-") ^^ (jump (print_expr e2))
+      group (print_expr e1 ^/^ string ":=") ^^ (jump (print_expr e2))
   | EBufCreate (l, e1, e2) ->
       print_lifetime l ^^ space ^^
       print_app string "newbuf" print_expr [e1; e2]
