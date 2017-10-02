@@ -372,7 +372,8 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.GetGlobal (Idents.string_of_lident v)
 
   | EBufCreate (l, e_init, e_len) ->
-      assert (e_init.node = EAny);
+      if not (e_init.node = EAny) then
+        Warnings.fatal_error "init node is not any but %a\n" pexpr e_init;
       let locals, e_len = mk_expr env locals e_len in
       let mult, base_size = cell_size env (assert_buf e.typ) in
       if Options.debug "cflat" then

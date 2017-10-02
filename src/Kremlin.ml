@@ -384,7 +384,6 @@ Supported options:|}
    * if-then-elses. *)
   let files = GcTypes.heap_allocate_gc_types files in
   let files = Simplify.simplify0 files in
-  let files = if !Options.wasm then SimplifyWasm.simplify files else files in
   let datatypes_state, files = DataTypes.everything files in
   if !arg_print_pattern then
     print PrintAst.print_files files;
@@ -411,6 +410,9 @@ Supported options:|}
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
   let files = Simplify.simplify2 files in
   let files = if !Options.wasm then Structs.in_memory files else files in
+  (* This one near the end because [in_memory] generates new EBufCreate's that
+   * need to be desugared. *)
+  let files = if !Options.wasm then SimplifyWasm.simplify files else files in
   let files = Structs.collect_initializers files in
   (* We have to rely on an earlier analysis because [pass_by_ref] and
    * [in_memory] introduce structs that may make the inlining analysis too
