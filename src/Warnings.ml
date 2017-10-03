@@ -20,6 +20,7 @@ and raw_error =
   | MustCallKrmlInit
   | NoPolymorphism of lident
   | NotLowStar of expr
+  | NotWasmCompatible of lident * string
 
 and location =
   string
@@ -53,7 +54,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 12 CError;;
+let flags = Array.make 13 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -84,6 +85,8 @@ let errno_of_error = function
       10
   | NotLowStar _ ->
       11
+  | NotWasmCompatible _ ->
+      12
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -138,6 +141,8 @@ let rec perr buf (loc, raw_error) =
         that, once expanded at call-site, it type-checks as Low*" plid lid
   | NotLowStar e ->
       p "this expression is not Low*; the enclosing function cannot be translated into C*: %a" pexpr e
+  | NotWasmCompatible (lid, reason) ->
+      p "%a cannot be compiled to wasm (%s)" plid lid reason
 
 
 let maybe_fatal_error error =

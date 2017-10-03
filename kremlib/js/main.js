@@ -9,6 +9,7 @@
 var debug = true;
 
 var my_load;
+var failWithMessage = (msg) => eval("%AbortJS(msg)");
 
 if ("load" in this)
   my_load = load;
@@ -37,7 +38,7 @@ if ("load" in this) {
   try {
     eval("%IncrementWaitCount()");
   } catch (e) {
-    throw "Error: are you using d8 --allow-natives-syntax?";
+    throw "Error: are you using d8 without --allow-natives-syntax?";
   }
 }
 

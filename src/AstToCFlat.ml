@@ -574,9 +574,13 @@ let mk_decl env (d: decl): CF.decl option =
   | DGlobal (flags, name, typ, body) ->
       let public = not (List.exists ((=) Common.Private) flags) in
       let size = size_of typ in
-      let body = mk_expr_no_locals env body in
-      let name = Idents.string_of_lident name in
-      Some (CF.Global (name, size, body, public))
+      if size = I64 then begin
+        Warnings.(maybe_fatal_error ("", NotWasmCompatible (name, "I64 constant")));
+        None
+      end else
+        let body = mk_expr_no_locals env body in
+        let name = Idents.string_of_lident name in
+        Some (CF.Global (name, size, body, public))
 
   | DExternal (_, lid, t) ->
       let name = Idents.string_of_lident lid in
