@@ -597,8 +597,8 @@ let mk_module env (name, decls) =
       flush stdout;
       flush stderr;
       (* Remove when everything starts working *)
-      KPrint.beprintf "[AstToC♭] Couldn't translate %a:\n%s\n%s"
-        PrintAst.plid (lid_of_decl d) (Printexc.to_string e)
+      KPrint.beprintf "[AstToC♭] Couldn't translate %s%a%s:\n%s\n%s"
+        Ansi.underline PrintAst.plid (lid_of_decl d) Ansi.reset (Printexc.to_string e)
         (if Options.debug "cflat" then Printexc.get_backtrace () ^ "\n" else "");
       None
   ) decls

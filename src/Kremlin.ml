@@ -408,12 +408,18 @@ Supported options:|}
    * generates inner let-bindings, so it has to be before [simplify2]. *)
   let analysis = Inlining.inline_analysis files in
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
-  let files = Simplify.simplify2 files in
-  let files = if !Options.wasm then Structs.in_memory files else files in
-  let files = Simplify.simplify2 files in
-  (* This one near the end because [in_memory] generates new EBufCreate's that
-   * need to be desugared. *)
-  let files = if !Options.wasm then SimplifyWasm.simplify files else files in
+  let files =
+    if !Options.wasm then
+      let files = Simplify.simplify2 files in
+      let files = Structs.in_memory files in
+      let files = Simplify.simplify2 files in
+      (* This one near the end because [in_memory] generates new EBufCreate's that
+       * need to be desugared. *)
+      let files = SimplifyWasm.simplify files in
+      files
+    else
+      files
+  in
   let files = Structs.collect_initializers files in
   (* We have to rely on an earlier analysis because [pass_by_ref] and
    * [in_memory] introduce structs that may make the inlining analysis too
