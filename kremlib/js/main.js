@@ -31,6 +31,16 @@ my_print("... custom JS modules " + my_js_files);
 for (let f of my_js_files)
   my_load(f);
 
+// Voodoo found in the V8 test files to make sure the scheduler keeps executing
+// our promises.
+if ("load" in this) {
+  try {
+    eval("%IncrementWaitCount()");
+  } catch (e) {
+    throw "Error: are you using d8 --allow-natives-syntax?";
+  }
+}
+
 my_print("... assembling WASM modules " + my_modules + "\n");
 var scope = link(my_modules.map(m => ({ name: m, buf: readbuffer(m+".wasm") })));
 scope.then(scope => {
@@ -50,8 +60,8 @@ scope.then(scope => {
   for (let m of Object.keys(scope)) {
     if ("main" in scope[m]) {
       my_print("... main found in module " + m);
+      found = true;
       with_debug(scope[m].main);
-      return;
     }
   }
   if (!found) {
@@ -61,8 +71,11 @@ scope.then(scope => {
     }
     with_debug(main);
   }
+  // TODO Chakra
+  eval("%DecrementWaitCount()");
 }).catch(e => {
   my_print(e);
-  // TODO figure out equivalent of quit for chakra
+  // TODO Chakra
+  eval("%DecrementWaitCount()");
   quit(255);
 });

@@ -64,9 +64,9 @@ Server.exe: EXTRA = -add-include '"kremstr.h"' main-Server.c
 	cp $(wildcard ../kremlib/js/*.js) $(JSFILES) $(subst .wasm,.out,$@)
 	cd $*.out && \
 	  if ! $(NEGATIVE); then \
-	    $(shell which d8) main.js; \
+	    $(shell which d8) --allow-natives-syntax main.js; \
 	  else \
-	    ! $(shell which d8) main.js; \
+	    ! $(shell which d8) --allow-natives-syntax main.js; \
 	  fi && \
 	  cp $(subst .,_,$*).wasm ../$@
 	# cd $*.out && ch -Wasm main.js
