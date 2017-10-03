@@ -59,6 +59,14 @@ let rec find_func env name =
     with Not_found ->
       Warnings.fatal_error "Could not resolve function %s" name
 
+let primitives = [
+  "load32_le";
+  "load64_le"
+]
+
+let is_primitive x =
+  List.mem x primitives
+
 
 (******************************************************************************)
 (* Helpers                                                                    *)
@@ -578,6 +586,14 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallOp (o, [ e1; e2 ]) ->
       mk_callop2 env o e1 e2
 
+  | CallFunc ("load32_le", [ e ]) ->
+      mk_expr env e @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = None })]
+
+  | CallFunc ("load64_le", [ e ]) ->
+      mk_expr env e @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })]
+
   | CallFunc (name, es) ->
       KList.map_flatten (mk_expr env) es @
       [ dummy_phrase (W.Ast.Call (mk_var (find_func env name))) ]
@@ -746,6 +762,9 @@ let mk_global env size body =
 let mk_module types imports (name, decls):
   W.Types.func_type list * W.Ast.import list * (string * W.Ast.module_) =
 
+  if Options.debug "wasm" then
+    KPrint.bprintf ">>> Numbering import-exports for %s\n" name;
+
   (* Layout the import and types for the current module. The current module's
    * types start with [types]; the current module's imports starts with
    * [imports]. We fold over these to build our environment's maps, which
@@ -776,7 +795,9 @@ let mk_module types imports (name, decls):
    * generate an import request. This means they are implemented "natively". *)
   let rec assign env imports f g decls =
     match decls with
-    | ExternalFunction (fname, _, _) :: tl ->
+    | ExternalFunction (fname, _, _) :: tl when not (is_primitive fname) ->
+        if Options.debug "wasm" then
+          KPrint.bprintf "Imported function $%d is %s\n" f fname;
         let env = { env with funcs = StringMap.add fname f env.funcs } in
         let imports =
           dummy_phrase W.Ast.({
@@ -811,7 +832,7 @@ let mk_module types imports (name, decls):
    * that the function at index i in the function index space has type i in the
    * types index space. *)
   let types = types @ KList.filter_map (function
-    | ExternalFunction (_, args, ret) ->
+    | ExternalFunction (fname, args, ret) when not (is_primitive fname)->
         Some (mk_func_type' args ret)
     | _ ->
         None
@@ -821,6 +842,8 @@ let mk_module types imports (name, decls):
    * global) index space, namely, this module's functions (resp. globals) *)
   let rec assign env f g = function
     | Function { name; _ } :: tl ->
+        if Options.debug "wasm" then
+          KPrint.bprintf "In this module, function $%d is %s\n" f name;
         let env = { env with funcs = StringMap.add name f env.funcs } in
         assign env (f + 1) g tl
     | Global (name, _, _, _) :: tl ->
@@ -854,6 +877,8 @@ let mk_module types imports (name, decls):
    * points to type index i. *)
   let _, my_imports = List.fold_left (fun (next_func, acc) -> function
     | Function f when f.public ->
+        if Options.debug "wasm" then
+          KPrint.bprintf "Imported function $%d is %s\n" next_func f.name;
         next_func + 1, dummy_phrase W.Ast.({
           module_name = name;
           item_name = f.name;
@@ -913,7 +938,8 @@ let mk_module types imports (name, decls):
       String.blit s 0 buf rel_addr l;
       Bytes.set buf (rel_addr + l) '\000';
     ) env.strings;
-    KPrint.bprintf "Wrote out a data segment of size %d\n" size;
+    if Options.debug "wasm" then
+      KPrint.bprintf "Wrote out a data segment of size %d\n" size;
     [ dummy_phrase W.Ast.({
         index = mk_var 0;
         offset = dummy_phrase [ dummy_phrase (
