@@ -75,8 +75,8 @@ scope.then(scope => {
   // TODO Chakra
   eval("%DecrementWaitCount()");
 }).catch(e => {
-  my_print(e);
   // TODO Chakra
+  my_print(e.stack);
   eval("%DecrementWaitCount()");
   quit(255);
 });
