@@ -410,6 +410,7 @@ Supported options:|}
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
   let files = Simplify.simplify2 files in
   let files = if !Options.wasm then Structs.in_memory files else files in
+  let files = Simplify.simplify2 files in
   (* This one near the end because [in_memory] generates new EBufCreate's that
    * need to be desugared. *)
   let files = if !Options.wasm then SimplifyWasm.simplify files else files in
