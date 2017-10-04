@@ -589,7 +589,13 @@ let mk_decl env (d: decl): CF.decl option =
           let ret, args = Helpers.flatten_arrow t in
           let ret = [ size_of ret ] in
           let args = List.map size_of args in
-          Some (CF.ExternalFunction (name, args, ret))
+          if (List.hd ret = I64 || List.mem I64 args) && not (CFlatToWasm.is_primitive name) then begin
+            Warnings.(maybe_fatal_error ("", NotWasmCompatible (lid, "functions \
+              implemented natively in JS (because they're assumed) cannot take or \
+              return I64")));
+            None
+          end else
+            Some (CF.ExternalFunction (name, args, ret))
       | _ ->
           Some (CF.ExternalGlobal (name, size_of t))
 
