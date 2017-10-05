@@ -9,6 +9,7 @@
 var debug = true;
 
 var my_load;
+var failWithMessage = (msg) => eval("%AbortJS(msg)");
 
 if ("load" in this)
   my_load = load;
@@ -31,6 +32,16 @@ my_print("... custom JS modules " + my_js_files);
 for (let f of my_js_files)
   my_load(f);
 
+// Voodoo found in the V8 test files to make sure the scheduler keeps executing
+// our promises.
+if ("load" in this) {
+  try {
+    eval("%IncrementWaitCount()");
+  } catch (e) {
+    throw "Error: are you using d8 without --allow-natives-syntax?";
+  }
+}
+
 my_print("... assembling WASM modules " + my_modules + "\n");
 var scope = link(my_modules.map(m => ({ name: m, buf: readbuffer(m+".wasm") })));
 scope.then(scope => {
@@ -50,17 +61,22 @@ scope.then(scope => {
   for (let m of Object.keys(scope)) {
     if ("main" in scope[m]) {
       my_print("... main found in module " + m);
+      found = true;
       with_debug(scope[m].main);
-      return;
     }
   }
   if (!found) {
     if (!("main" in this)) {
       my_print("... no main in current scope");
-      throw "Aborting";
+      throw new Error("Aborting");
     }
     with_debug(main);
   }
-}).catch(e =>
-  my_print(e)
-);
+  // TODO Chakra
+  eval("%DecrementWaitCount()");
+}).catch(e => {
+  // TODO Chakra
+  my_print(e.stack);
+  eval("%DecrementWaitCount()");
+  quit(255);
+});

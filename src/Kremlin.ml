@@ -97,6 +97,7 @@ The default is %s and the available warnings are:
   9: need to manually call static initializers for globals
   10: dropping a polymorphic function definition
   11: subexpression is not Low*; cannot proceed
+  12: cannot be compiled to Wasm
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
 where the Api= part is optional and a pattern is either Foo.Bar (exact match) or
@@ -129,6 +130,11 @@ The compiler switches turn on the following options.
 The [-fc89] option triggers [-fnouint128], [-fnoanonymous-unions],
 [-fnocompound-literals] and [-fc89-scope]. It also changes the invocations above
 to use [-std=c89].
+
+To debug Wasm codegen, it might be useful to trigger the same compilation path
+as Wasm, but emit C code instead. This can be achieved with [-wasm -d
+force-c,c-calls,wasm-calls -drop C,TestLib -add-include '"hack.h"' -fnouint128]
+where [hack.h] contains [#define WasmSupport_check_buffer_size(X)].
 
 Supported options:|}
     Sys.argv.(0)
@@ -227,7 +233,7 @@ Supported options:|}
     "-dwasm", Arg.Set arg_print_wasm, " pretty-print the output Wasm";
     "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific \
       comma-separated list of values; currently supported: \
-      inline,bundle,reachability,c-calls,wasm-calls,wasm-memory,force-c,cflat";
+      inline,bundle,reachability,c-calls,wasm-calls,wasm-memory,wasm,force-c,cflat";
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
   let spec = Arg.align spec in
@@ -377,7 +383,6 @@ Supported options:|}
    * if-then-elses. *)
   let files = GcTypes.heap_allocate_gc_types files in
   let files = Simplify.simplify0 files in
-  let files = if !Options.wasm then SimplifyWasm.simplify files else files in
   let datatypes_state, files = DataTypes.everything files in
   if !arg_print_pattern then
     print PrintAst.print_files files;
@@ -397,13 +402,28 @@ Supported options:|}
    * structures by reference, and also allocate all structures in memory. This
    * creates new opportunities for the removal of unused variables, but also
    * breaks the earlier transformation to a statement language, which we perform
-   * again. Note that [remove_unused] generates MetaSequence let-bindings,
+   * again. Note that [remove_unused] generates MetaSequence let-bindings,
    * meaning that it has to occur before [simplify2]. Note that [in_memory]
    * generates inner let-bindings, so it has to be before [simplify2]. *)
+  let analysis = Inlining.inline_analysis files in
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
-  let files = if !Options.wasm then Structs.in_memory files else files in
+  let files =
+    if !Options.wasm then
+      let files = Simplify.simplify2 files in
+      let files = Structs.in_memory files in
+      let files = Simplify.simplify2 files in
+      (* This one near the end because [in_memory] generates new EBufCreate's that
+       * need to be desugared. *)
+      let files = SimplifyWasm.simplify files in
+      files
+    else
+      files
+  in
   let files = Structs.collect_initializers files in
-  let files = Inlining.inline_function_frames files in
+  (* We have to rely on an earlier analysis because [pass_by_ref] and
+   * [in_memory] introduce structs that may make the inlining analysis too
+   * conservative. *)
+  let files = Inlining.inline_function_frames files analysis in
   let files = Simplify.remove_unused files in
   let files = Simplify.simplify2 files in
   if !arg_print_inline then

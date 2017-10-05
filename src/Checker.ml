@@ -407,7 +407,7 @@ and check' env t e =
       end
 
   | ESwitch (e, branches) ->
-      begin match infer env e with
+      begin match expand_abbrev env (infer env e) with
       | TQualified lid ->
           List.iter (fun (tag, e) ->
             check env t e;

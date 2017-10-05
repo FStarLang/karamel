@@ -49,6 +49,11 @@ void print_bytes(uint8_t *b, uint32_t len);
  * generate and try to link last a function with this type: */
 void kremlinit_globals();
 
+/* For tests only: we might need this function to be forward-declared, because
+ * the dependency on WasmSupport appears very late, after SimplifyWasm, and
+ * sadly, after the topological order has been done. */
+void WasmSupport_check_buffer_size(uint32_t s);
+
 /******************************************************************************/
 /* Stubs to ease compilation of non-Low* code                                 */
 /******************************************************************************/
@@ -64,12 +69,14 @@ typedef struct {
  * definition. */
 typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
     *FStar_Set_set, *Prims_st_pre_h, *FStar_Heap_heap, *Prims_all_pre_h,
-    *FStar_TSet_set, *Prims_string, *Prims_list, *FStar_Map_t, *FStar_UInt63_t_,
+    *FStar_TSet_set, *Prims_list, *FStar_Map_t, *FStar_UInt63_t_,
     *FStar_Int63_t_, *FStar_UInt63_t, *FStar_Int63_t, *FStar_UInt_uint_t,
     *FStar_Int_int_t, *FStar_HyperStack_stackref,
     *FStar_HyperHeap_rid, *FStar_Heap_aref, *FStar_Monotonic_Heap_heap,
     *FStar_Monotonic_Heap_aref, *FStar_Monotonic_HyperHeap_rid,
-    *FStar_Monotonic_HyperStack_mem;
+    *FStar_Monotonic_HyperStack_mem, *FStar_Char_char_;
+
+typedef const char *Prims_string;
 
 /* In statement position, exiting is easy. */
 #define KRML_EXIT                                                              \
@@ -93,6 +100,39 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
            __FILE__, __LINE__);                                                \
     exit(253);                                                                 \
   }
+
+/* A series of GCC atrocities to trace function calls (kremlin's [-d c-calls]
+ * option). Useful when trying to debug, say, Wasm, to compare traces. */
+#ifdef __GNUC__
+#define KRML_FORMAT(X) _Generic((X),                                           \
+  uint8_t : "0x%08" PRIx8,                                                     \
+  uint16_t: "0x%08" PRIx16,                                                    \
+  uint32_t: "0x%08" PRIx32,                                                    \
+  uint64_t: "0x%08" PRIx64,                                                    \
+  int8_t  : "0x%08" PRIx8,                                                     \
+  int16_t : "0x%08" PRIx16,                                                    \
+  int32_t : "0x%08" PRIx32,                                                    \
+  int64_t : "0x%08" PRIx64,                                                    \
+  default : "%s")
+
+#define KRML_FORMAT_ARG(X) _Generic((X),                                       \
+  uint8_t : X,                                                                 \
+  uint16_t: X,                                                                 \
+  uint32_t: X,                                                                 \
+  uint64_t: X,                                                                 \
+  int8_t  : X,                                                                 \
+  int16_t : X,                                                                 \
+  int32_t : X,                                                                 \
+  int64_t : X,                                                                 \
+  default : "unknown")
+
+#define KRML_DEBUG_RETURN(X)                                                   \
+  ({ __auto_type _ret = (X);                                                   \
+    printf("returning: ");                                                     \
+    printf(KRML_FORMAT(_ret), KRML_FORMAT_ARG(_ret));                          \
+    printf(" \n");                                                             \
+    _ret; })
+#endif
 
 #define FStar_Buffer_eqb(b1, b2, n)                                            \
   (memcmp((b1), (b2), (n) * sizeof((b1)[0])) == 0)
@@ -122,7 +162,7 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
 #define FStar_HyperStack_ST_op_Bang(x) 0
 #define FStar_HyperStack_ST_salloc(x) 0
 #define FStar_HyperStack_ST_ralloc(x, y) 0
-#define FStar_HyperStack_ST_new_region(x) 0
+#define FStar_HyperStack_ST_new_region(x) ((void)0)
 #define FStar_Monotonic_RRef_m_alloc(x)                                        \
   { 0 }
 
@@ -136,10 +176,9 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
     (void)(x);                                                                 \
   } while (0)
 
-#define FStar_Monotonic_RRef_m_recall(x1, x2)                                  \
+#define FStar_Monotonic_RRef_m_recall(x1)                                      \
   do {                                                                         \
     (void)(x1);                                                                \
-    (void)(x2);                                                                \
   } while (0)
 
 #define FStar_Monotonic_RRef_m_write(x1, x2, x3, x4, x5)                       \
@@ -176,6 +215,24 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
 #define le32toh(x) OSSwapLittleToHostInt32(x)
 #define htobe32(x) OSSwapHostToBigInt32(x)
 #define be32toh(x) OSSwapBigToHostInt32(x)
+
+/* ... for Solaris */
+#elif defined(__sun__)
+#include <sys/byteorder.h>
+#define htole64(x) LE_64(x)
+#define le64toh(x) LE_IN64(x)
+#define htobe64(x) BE_64(x)
+#define be64toh(x) BE_IN64(x)
+
+#define htole16(x) LE_16(x)
+#define le16toh(x) LE_IN16(x)
+#define htobe16(x) BE_16(x)
+#define be16toh(x) BE_IN16(x)
+
+#define htole32(x) LE_32(x)
+#define le32toh(x) LE_IN32(x)
+#define htobe32(x) BE_32(x)
+#define be32toh(x) BE_IN32(x)
 
 /* ... for Windows */
 #elif (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) &&               \

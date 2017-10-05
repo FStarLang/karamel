@@ -39,6 +39,14 @@ let as_js_list l =
 let write_all js_files modules print =
   (* Write out all the individual .wasm files *)
   List.iter (fun (name, module_) ->
+    (* Write a .wast for debugging purposes. *)
+    let script = [ CFlatToWasm.dummy_phrase (Wasm.Script.Module (
+      None,
+      CFlatToWasm.dummy_phrase (Wasm.Script.Textual module_)))]
+    in
+    Utils.with_open_out (Filename.concat !Options.tmpdir (name ^ ".wast")) (fun oc ->
+      Wasm.Print.script oc 80 `Textual script);
+    (* Now the actual .wasm *)
     let s = Wasm.Encode.encode module_ in
     let name = name ^ ".wasm" in
     Utils.with_open_out (Filename.concat !Options.tmpdir name) (fun oc -> output_string oc s);

@@ -42,7 +42,7 @@ function hex64(m8, start) {
 }
 
 function p32(n) {
-  return ("0000000"+Number(n).toString(16)).slice(-8);
+  return p8((n >>> 24) & 255) + p8((n >>> 16) & 255) + p8((n >>> 8) & 255) + p8(n & 255);
 }
 
 function dump(mem, size) {
@@ -87,16 +87,24 @@ function readLeAtAddr(mem, addr, bytes) {
   let m8 = new Uint8Array(mem.buffer);
   let i = 0;
   while (bytes-- > 0)
-    i = i << 8 + m8[addr + bytes];
+    i = (i << 8) + m8[addr + bytes];
   return i;
 }
 
 function writeLeAtAddr(mem, addr, n, bytes) {
   let m8 = new Uint8Array(mem.buffer);
+  for (let i = 0; i < bytes; ++i) {
+    m8[addr + i] = n & 255;
+    n >>>= 8;
+  }
+}
+
+function writeBeAtAddr(mem, addr, n, bytes) {
+  let m8 = new Uint8Array(mem.buffer);
   while (bytes > 0) {
     m8[addr + bytes - 1] = n & 255;
     bytes--;
-    n >>= 255;
+    n >>>= 8;
   }
 }
 
@@ -130,38 +138,41 @@ let mkC = (mem) => ({
   rand: () => { throw new Error("todo: rand") },
   exit: () => { throw new Error("todo: exit") },
   print_bytes: () => { throw new Error("todo: print_bytes") },
-  htole16: () => { throw new Error("todo: htole16") },
-  le16toh: () => { throw new Error("todo: le16toh") },
-  htole32: () => { throw new Error("todo: htole32") },
-  le32toh: () => { throw new Error("todo: le32toh") },
-  htole64: () => { throw new Error("todo: htole64") },
-  le64toh: () => { throw new Error("todo: le64toh") },
-  htobe16: () => { throw new Error("todo: htobe16") },
-  be16toh: () => { throw new Error("todo: be16toh") },
-  htobe32: () => { throw new Error("todo: htobe32") },
-  be32toh: () => { throw new Error("todo: be32toh") },
-  htobe64: () => { throw new Error("todo: htobe64") },
-  be64toh: () => { throw new Error("todo: be64toh") },
-  store16_le: () => { throw new Error("todo: store16_le") },
-  load16_le: () => { throw new Error("todo: load16_le") },
-  store16_be: () => { throw new Error("todo: store16_be") },
-  load16_be: () => { throw new Error("todo: load16_be") },
+  htole16: (x) => { throw new Error("todo: htole16") },
+  le16toh: (x) => { throw new Error("todo: le16toh") },
+  htole32: (x) => { throw new Error("todo: htole32") },
+  le32toh: (x) => { throw new Error("todo: le32toh") },
+  htole64: (x) => { throw new Error("todo: htole64") },
+  le64toh: (x) => { throw new Error("todo: le64toh") },
+  htobe16: (x) => { throw new Error("todo: htobe16") },
+  be16toh: (x) => { throw new Error("todo: be16toh") },
+  htobe32: (x) => { throw new Error("todo: htobe32") },
+  be32toh: (x) => { throw new Error("todo: be32toh") },
+  htobe64: (x) => { throw new Error("todo: htobe64") },
+  be64toh: (x) => { throw new Error("todo: be64toh") },
+  store16_le: (addr, n) => { throw new Error("todo: store16_le") },
+  load16_le: (addr) => { throw new Error("todo: load16_le") },
+  store16_be: (addr, n) => { throw new Error("todo: store16_be") },
+  load16_be: (addr) => { throw new Error("todo: load16_be") },
   store32_le: (addr, n) => {
     writeLeAtAddr(mem, addr, n, 4);
   },
-  load32_le: (addr) => {
-    return readLeAtAddr(mem, addr, 4);
-  },
-  store32_be: () => { throw new Error("todo: store32_be") },
-  load32_be: () => { throw new Error("todo: load32_be") },
-  load64_le: () => { throw new Error("todo: load64_le") },
-  store64_le: () => { throw new Error("todo: store64_le") },
-  load64_be: () => { throw new Error("todo: load64_be") },
-  store64_be: () => { throw new Error("todo: store64_be") },
-  load128_le: () => { throw new Error("todo: load128_le") },
-  store128_le: () => { throw new Error("todo: store128_le") },
-  load128_be: () => { throw new Error("todo: load128_be") },
-  store128_be: () => { throw new Error("todo: store128_be") },
+  // load32_le: implemented natively
+  store32_be: (addr, n) => { throw new Error("todo: store32_be") },
+  load32_be: (addr) => { throw new Error("todo: load32_be") },
+  store64_le: (addr, n) => { throw new Error("todo: store64_le") },
+  load64_le: (addr) => { throw new Error("todo: load64_le") },
+  store64_be: (addr, n) => { throw new Error("todo: store64_be") },
+  load64_be: (addr) => { throw new Error("todo: load64_be") },
+  store128_le: (addr, n) => { throw new Error("todo: store128_le") },
+  load128_le: (addr) => { throw new Error("todo: load128_le") },
+  store128_be: (addr, n) => { throw new Error("todo: store128_be") },
+  load128_be: (addr) => { throw new Error("todo: load128_be") },
+
+  char_uint8: () => { throw new Error("todo: char_uint8") },
+  uint8_char: () => { throw new Error("todo: uint8_char") },
+  char_of_uint8: (x) => { throw new Error("todo: char_of_uint8") },
+  uint8_of_char: (x) => { throw new Error("todo: uint8_of_char") },
 
   // A Prims_string generates a literal allocated in the data segment;
   // string_of_literal is just a typing trick.
@@ -203,11 +214,13 @@ let mkTestLib = (mem) => ({
     let str = stringAtAddr(m8, addr);
     let hex1 = hex(m8, b1, len);
     let hex2 = hex(m8, b2, len);
-    my_print("[test] expected output "+str+" is "+hex1+"\n");
-    my_print("[test] computed output "+str+" is "+hex2+"\n");
+    my_print("[test] expected output "+str+" is "+hex1);
+    my_print("[test] computed output "+str+" is "+hex2);
     for (let i = 0; i < len; ++i) {
       if (m8[b1+i] != m8[b2+i]) {
-        my_print("[test] reference "+str+" and expected "+str+" differ at byte "+i+"\n");
+        my_print("[test] reference "+str+" and expected "+str+" differ at byte "+i);
+        my_print("b1="+p32(b1)+",b2="+p32(b2));
+        dump(mem, 4*1024);
         throw new Error("test failure");
       }
     }

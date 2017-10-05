@@ -22,8 +22,8 @@ function kremlin_start () {
       for (let m of Object.keys(scope)) {
         if ("main" in scope[m]) {
           my_print("... main found in module " + m);
-          m.main();
-          break;
+          scope[m].main();
+          return;
         }
       }
       if (!found) {

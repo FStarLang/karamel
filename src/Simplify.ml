@@ -266,7 +266,7 @@ let let_if_to_assign = object (self)
 
 end
 
-let no_empty_then = object (self)
+let misc_cosmetic = object (self)
 
   inherit [unit] map
 
@@ -279,6 +279,14 @@ let no_empty_then = object (self)
         EIfThenElse (Helpers.mk_not e1, e3, e2)
     | _ ->
         EIfThenElse (e1, e2, e3)
+
+  method eaddrof env _ e =
+    let e = self#visit env e in
+    match e.node with
+    | EBufRead (e, { node = EConstant (_, "0"); _ }) ->
+        e.node
+    | _ ->
+        EAddrOf e
 
 end
 
@@ -1042,7 +1050,7 @@ let simplify2 (files: file list): file list =
   let files = visit_files () hoist_bufcreate files in
   let files = visit_files () fixup_hoist files in
   let files = visit_files () let_if_to_assign files in
-  let files = visit_files () no_empty_then files in
+  let files = visit_files () misc_cosmetic files in
   let files = visit_files () let_to_sequence files in
   files
 

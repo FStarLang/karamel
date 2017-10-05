@@ -182,7 +182,15 @@ let drop_parameterized_data_types =
 (** We need to keep track of which optimizations we performed on which data
  * types... to this effect, we build a map that assigns to each lid the type of
  * compilation scheme we adopt. Keep in mind that not all [lid]s are in the map,
- * only those that were a data type in the first place. *)
+ * only those that were a data type in the first place.
+ *
+ * New: the second component of the map is a hashtbl so that we can memoize the
+ * enums that we have generated across phases. It may be the case that:
+ * - option<any> becomes enum { Some, None }, because unit elimination --
+ *   generates an lid for { Some, None } in the simple matches phase
+ * - option<uint8> also needs the same set of tags in the general match
+ *   compilation phase -- we don't want to declare a new type because that would
+ *   cause collisions in the global C scope of enum components. *)
 type scheme =
   | ToEnum
   | ToFlat of ident list
@@ -202,15 +210,25 @@ function
   | _ -> ()
 
 let build_scheme_map files =
-  build_map files update_scheme_map_for_type
+  build_map files (fun map -> function
+    | DType (lid, _, 0, Variant branches) ->
+        if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
+          Hashtbl.add map lid ToEnum
+        else if List.length branches = 1 then
+          Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
+        else
+          Hashtbl.add map lid (ToTaggedUnion branches)
+    | _ ->
+        ()
+  ), Hashtbl.create 41
 
 (** Second thing: handle the trivial case of a data type definition with only
  * tags (it's just an enum) and the trivial case of a type definition with one
  * branch (it's just a flat record), i.e. the first two cases of [scheme] *)
 
 let mk_tag_lid type_lid cons =
-  let prefix, name = type_lid in
-  (prefix @ [ name ], cons)
+  let prefix, _ = type_lid in
+  prefix, cons
 
 let try_mk_switch e branches =
   (* TODO if the last case is a PWild then make it the default case of the
@@ -244,9 +262,34 @@ let try_mk_flat e t branches =
   | _ ->
       EMatch (e, branches)
 
-let compile_simple_matches map = object(self)
+type cached_lid =
+  | Found of lident
+  | Fresh of decl
+
+(* We cache sets of tags assigned to a given enum so that there's no collisions
+ * in the global scope. *)
+let allocate_tag enums preferred_lid tags =
+  match Hashtbl.find enums tags with
+  | lid ->
+      Found lid
+  | exception Not_found ->
+      Hashtbl.add enums tags preferred_lid;
+      Fresh (DType (preferred_lid, [], 0, Enum tags))
+
+let compile_simple_matches (map, enums) = object(self)
 
   inherit [unit] map
+
+  val pending = ref []
+
+  method! visit_file ok file =
+    let name, decls = file in
+    name, KList.map_flatten (fun d ->
+      let d = self#visit_d ok d in
+      let new_decls = !pending in
+      pending := [];
+      new_decls @ [ d ]
+    ) decls
 
   method econs () typ cons args =
     let lid =
@@ -291,9 +334,24 @@ let compile_simple_matches map = object(self)
         | exception Not_found ->
             DType (lid, flags, 0, Variant branches, fwd_decl)
         | ToTaggedUnion _ ->
+            let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
+            (* Pre-allocate the named type for this type's tags. Has to be done
+             * here so that the enum declaration is inserted in the right spot.
+             * *)
+            let preferred_lid = fst lid, snd lid ^ "_tags" in
+            begin match allocate_tag enums preferred_lid tags with
+            | Found _ -> ()
+            | Fresh decl -> pending := decl :: !pending
+            end;
             DType (lid, flags, 0, Variant branches, fwd_decl)
         | ToEnum ->
-            DType (lid, flags, 0, Enum (List.map (fun (cons, _) -> mk_tag_lid lid cons) branches), fwd_decl)
+            let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
+            begin match allocate_tag enums lid tags with
+            | Found other_lid ->
+                DType (lid, flags, 0, Abbrev (TQualified other_lid))
+            | Fresh decl ->
+                decl
+            end
         | ToFlat _ ->
             let fields = List.map (fun (f, t) -> Some f, t) (snd (List.hd branches)) in
             DType (lid, flags, 0, Flat fields, fwd_decl)
@@ -584,23 +642,29 @@ let assert_branches map lid =
 let field_names_of_cons cons branches =
   fst (List.split (List.assoc cons branches))
 
-let tag_and_val_type lid branches =
-  let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
-  let structs = KList.filter_map (fun (cons, fields) ->
-    let fields = List.map (fun (f, t) -> Some f, t) fields in
-    if List.length fields > 0 then
-      Some (union_field_of_cons cons, TAnonymous (Flat fields))
-    else
-      None
-  ) branches in
-  TAnonymous (Enum tags), TAnonymous (Union structs)
-
 
 (* Fifth step: implement the general transformation of data types into tagged
  * unions. *)
-let compile_all_matches map = object (self)
+let compile_all_matches (map, enums) = object (self)
 
   inherit [unit] map
+
+  method private tag_and_val_type lid branches =
+    let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
+    let structs = KList.filter_map (fun (cons, fields) ->
+      let fields = List.map (fun (f, t) -> Some f, t) fields in
+      if List.length fields > 0 then
+        Some (union_field_of_cons cons, TAnonymous (Flat fields))
+      else
+        None
+    ) branches in
+    let preferred_lid = fst lid, snd lid ^ "_tags" in
+    let tag_lid =
+      match allocate_tag enums preferred_lid tags with
+      | Found lid -> lid
+      | Fresh _ -> assert false (* pre-allocate by the previous phase *)
+    in
+    TQualified tag_lid, TAnonymous (Union structs)
 
   (* A variant declaration is a struct declaration with two fields:
    * - [field_for_tag] is the field that holds the "tag" whose type is an
@@ -609,7 +673,7 @@ let compile_all_matches map = object (self)
    *   the tag; it is the union of several struct types, one for each
    *   constructor. *)
   method dtypevariant _env lid branches =
-    let t_tag, t_val = tag_and_val_type lid branches in
+    let t_tag, t_val = self#tag_and_val_type lid branches in
     Flat [
       Some field_for_tag, (t_tag, false);
       Some field_for_union, (t_val, false)
@@ -623,7 +687,7 @@ let compile_all_matches map = object (self)
     let field_names = field_names_of_cons cons branches in
     let fields = List.map (self#visit_pattern env) fields in
     let record_pat = PRecord (List.combine field_names fields) in
-    let t_tag, t_val = tag_and_val_type lid branches in
+    let t_tag, t_val = self#tag_and_val_type lid branches in
     PRecord ([
       (** This is sound because we rely on left-to-right, lazy semantics for
        * pattern-matching. So, we read the "right" field from the union only
@@ -643,7 +707,7 @@ let compile_all_matches map = object (self)
     let field_names = List.map (fun x -> Some x) field_names in
     let exprs = List.map (self#visit env) exprs in
     let record_expr = EFlat (List.combine field_names exprs) in
-    let t_tag, t_val = tag_and_val_type lid branches in
+    let t_tag, t_val = self#tag_and_val_type lid branches in
     EFlat (
       [ Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons)) ] @
       if List.length field_names > 0 then [
@@ -703,7 +767,7 @@ let is_tagged_union map lid =
 
 (* Sixth step: if the compiler supports it, use C11 anonymous structs. *)
 
-let anonymous_unions map = object (self)
+let anonymous_unions (map, _) = object (self)
   inherit [_] map
 
   method efield () _t e f =
@@ -752,9 +816,8 @@ let everything files =
   let files = visit_files true (monomorphize_data_types map) files in
   let files = drop_parameterized_data_types files in
   let files = visit_files () remove_unit_fields files in
-  let map = build_scheme_map files in
-  if false then debug_map map;
   let files = visit_files () remove_trivial_matches files in
+  let map = build_scheme_map files in
   let files = visit_files () (compile_simple_matches map) files in
   let files = visit_files () (compile_all_matches map) files in
   map, files

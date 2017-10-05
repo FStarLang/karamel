@@ -372,7 +372,8 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.GetGlobal (Idents.string_of_lident v)
 
   | EBufCreate (l, e_init, e_len) ->
-      assert (e_init.node = EAny);
+      if not (e_init.node = EAny) then
+        Warnings.fatal_error "init node is not any but %a\n" pexpr e_init;
       let locals, e_len = mk_expr env locals e_len in
       let mult, base_size = cell_size env (assert_buf e.typ) in
       if Options.debug "cflat" then
@@ -389,11 +390,12 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, e2 = mk_expr env locals e2 in
       locals, CF.BufRead (e1, e2, s)
 
+  | EAddrOf ({ node = EBufRead (e1, e2); _ })
   | EBufSub (e1, e2) ->
-      let s = array_size_of (assert_buf e1.typ) in
+      let mult, base_size = cell_size env (assert_buf e.typ) in
       let locals, e1 = mk_expr env locals e1 in
       let locals, e2 = mk_expr env locals e2 in
-      locals, CF.BufSub (e1, e2, s)
+      locals, CF.BufSub (e1, mk_mul32 e2 (mk_uint32 mult), base_size)
 
   | EBufWrite ({ node = EBound v1; _ }, e2, e3) ->
       (* e2 has been simplified by [WasmSimplify] to be either a variable, a
@@ -467,6 +469,8 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.Sequence es
 
   | EAssign (e1, e2) ->
+      (* Assignment into a stack-allocated variable. For assignment into
+       * addresses, EBufWrite is used. *)
       begin match e1.typ, e2.node with
       | TArray (_typ, _sizexp), (EBufCreate _ | EBufCreateL _) ->
           invalid_arg "this should've been desugared by Simplify.Wasm into let + blit"
@@ -534,10 +538,12 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       invalid_arg "funs should've been substituted"
 
   | EAddrOf _ ->
-      invalid_arg "address-of should've been resolved"
+      Warnings.fatal_error "address-of should've been resolved: %a" pexpr e
 
-  | EIgnore _ ->
-      failwith "TODO"
+  | EIgnore e ->
+      let s = size_of e.typ in
+      let locals, e = mk_expr env locals e in
+      locals, CF.Ignore (e, s)
 
 
 (* See digression for [dup32] in CFlatToWasm *)
@@ -568,9 +574,13 @@ let mk_decl env (d: decl): CF.decl option =
   | DGlobal (flags, name, typ, body) ->
       let public = not (List.exists ((=) Common.Private) flags) in
       let size = size_of typ in
-      let body = mk_expr_no_locals env body in
-      let name = Idents.string_of_lident name in
-      Some (CF.Global (name, size, body, public))
+      if size = I64 then begin
+        Warnings.(maybe_fatal_error ("", NotWasmCompatible (name, "I64 constant")));
+        None
+      end else
+        let body = mk_expr_no_locals env body in
+        let name = Idents.string_of_lident name in
+        Some (CF.Global (name, size, body, public))
 
   | DExternal (_, lid, t, _binders) ->
       let name = Idents.string_of_lident lid in
@@ -588,9 +598,11 @@ let mk_module env (name, decls) =
     try
       mk_decl env d
     with e ->
+      flush stdout;
+      flush stderr;
       (* Remove when everything starts working *)
-      KPrint.beprintf "[AstToC♭] Couldn't translate %a:\n%s\n%s"
-        PrintAst.plid (lid_of_decl d) (Printexc.to_string e)
+      KPrint.beprintf "[AstToC♭] Couldn't translate %s%a%s:\n%s\n%s"
+        Ansi.underline PrintAst.plid (lid_of_decl d) Ansi.reset (Printexc.to_string e)
         (if Options.debug "cflat" then Printexc.get_backtrace () ^ "\n" else "");
       None
   ) decls
