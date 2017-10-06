@@ -228,6 +228,12 @@ typedef const char *Prims_string;
 #define htobe32(x) BE_32(x)
 #define be32toh(x) BE_IN32(x)
 
+/* ... for the BSDs */
+#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__)
+#include <sys/endian.h>
+#elif defined(__OpenBSD__)
+#include <endian.h>
+
 /* ... for Windows */
 #elif (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) &&               \
     !defined(__WINDOWS__)
