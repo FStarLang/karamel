@@ -211,7 +211,7 @@ function
 
 let build_scheme_map files =
   build_map files (fun map -> function
-    | DType (lid, _, 0, Variant branches) ->
+    | DType (lid, _, 0, Variant branches, _fwd_decl) ->
         if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
           Hashtbl.add map lid ToEnum
         else if List.length branches = 1 then
@@ -274,7 +274,7 @@ let allocate_tag enums preferred_lid tags =
       Found lid
   | exception Not_found ->
       Hashtbl.add enums tags preferred_lid;
-      Fresh (DType (preferred_lid, [], 0, Enum tags))
+      Fresh (DType (preferred_lid, [], 0, Enum tags, false))
 
 let compile_simple_matches (map, enums) = object(self)
 
@@ -348,7 +348,7 @@ let compile_simple_matches (map, enums) = object(self)
             let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
             begin match allocate_tag enums lid tags with
             | Found other_lid ->
-                DType (lid, flags, 0, Abbrev (TQualified other_lid))
+                DType (lid, flags, 0, Abbrev (TQualified other_lid), fwd_decl)
             | Fresh decl ->
                 decl
             end

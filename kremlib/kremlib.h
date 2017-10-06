@@ -58,7 +58,7 @@ void WasmSupport_check_buffer_size(uint32_t s);
 /* Stubs to ease compilation of non-Low* code                                 */
 /******************************************************************************/
 
-// We need to forward declare to to stupid circular deps issues.
+/* We need to forward declare to to stupid circular deps issues. */
 typedef struct {
   uint32_t length;
   const char *data;
@@ -620,6 +620,10 @@ static inline void store128_be(uint8_t *b, uint128_t n) { store128_be_(b, &n); }
 #endif /* KRML_STRUCT_PASSING */
 #endif /* KRML_UINT128 */
 
+#ifdef KRML_BYTES
+
 #include "krembytes.h"
+
+#endif
 
 #endif /* __KREMLIB_H */

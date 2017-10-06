@@ -313,7 +313,7 @@ let inline_analysis files =
    * - the body, which [inline_analysis] needs to figure out if the function
    *   allocates without pushing a frame, meaning it must be inlined. *)
   let map = Helpers.build_map files (fun map -> function
-    | DFunction (_, flags, _, _, name, _, body) ->
+    | DFunction (_, flags, _, _, name, _, body, _fwd_decl) ->
         Hashtbl.add map name (List.exists ((=) Substitute) flags, body)
     | _ ->
         ()
