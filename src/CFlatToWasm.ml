@@ -61,7 +61,9 @@ let rec find_func env name =
 
 let primitives = [
   "load32_le";
-  "load64_le"
+  "load64_le";
+  "store32_le";
+  "store64_le"
 ]
 
 let is_primitive x =
@@ -593,6 +595,18 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallFunc ("load64_le", [ e ]) ->
       mk_expr env e @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })]
+
+  | CallFunc ("store32_le", [ e1; e2 ]) ->
+      mk_expr env e1 @
+      mk_expr env e2 @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I32; align = 0; offset = 0l; sz = None })] @
+      mk_unit
+
+  | CallFunc ("store64_le", [ e1; e2 ]) ->
+      mk_expr env e1 @
+      mk_expr env e2 @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      mk_unit
 
   | CallFunc (name, es) ->
       KList.map_flatten (mk_expr env) es @
