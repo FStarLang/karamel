@@ -80,3 +80,5 @@ scope.then(scope => {
   eval("%DecrementWaitCount()");
   quit(255);
 });
+
+my_print("... success");
