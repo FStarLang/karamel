@@ -177,7 +177,7 @@ typedef const char *Prims_string;
 #define FStar_HyperStack_ST_op_Bang(x) 0
 #define FStar_HyperStack_ST_salloc(x) 0
 #define FStar_HyperStack_ST_ralloc(x, y) 0
-#define FStar_HyperStack_ST_new_region(x) ((void)0)
+#define FStar_HyperStack_ST_new_region(x) (0)
 #define FStar_Monotonic_RRef_m_alloc(x)                                        \
   { 0 }
 
@@ -191,9 +191,10 @@ typedef const char *Prims_string;
     (void)(x);                                                                 \
   } while (0)
 
-#define FStar_Monotonic_RRef_m_recall(x1)                                      \
+#define FStar_Monotonic_RRef_m_recall(x1, x2)                                  \
   do {                                                                         \
     (void)(x1);                                                                \
+    (void)(x2);                                                                \
   } while (0)
 
 #define FStar_Monotonic_RRef_m_write(x1, x2, x3, x4, x5)                       \
