@@ -444,10 +444,6 @@ Supported options:|}
       files
   in
 
-  (* TODO: cleanup @jroesch *)
-  let drop_lids lids = List.fold_left (fun b l -> (Drop.lid l) || b) false lids
-  in
-
   (* 7. Drop both files and selected declarations within some files, as a [-drop
    * Foo -bundle Bar=Foo] command-line requires us to go inside file [Bar] to
    * drop the declarations that originate from [Foo]. *)
@@ -455,7 +451,7 @@ Supported options:|}
     let l = List.filter (fun (name, _) -> not (Drop.file name)) l in
     Ast.filter_decls (fun d ->
       (* if Drop.lid (Ast.lid_of_decl d) then *)
-      if drop_lids (Ast.lids_of_decl d) then
+      if Drop.lid (Ast.lid_of_decl d) then
         None
       else
         Some d

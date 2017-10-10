@@ -85,12 +85,12 @@ end
 
 let build_def_map files =
   build_map files (fun map -> function
-    | DType (lid, _, _, def, _) ->
-        Hashtbl.add map lid (def, false)
+    | DType (lid, _, _, def, fwd_decl) ->
+        Hashtbl.add map lid (def, fwd_decl)
     | DTypeMutual (ty_decls) ->
       List.iter (function
-        | DType (lid, _, _, def, _) ->
-          Hashtbl.add map lid (def, true)
+        | DType (lid, _, _, def, fwd_decl) ->
+          Hashtbl.add map lid (def, fwd_decl)
         | _ -> ()) ty_decls
     | _ -> ()
   )

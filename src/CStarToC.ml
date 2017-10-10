@@ -107,7 +107,7 @@ and mk_spec_and_declarator name t =
  * itself. Such definitions may contain recursive occurrences of the type
  * itself; one can compile such a type definition to C when the type is a
  * struct, by naming it. *)
-and mk_spec_and_declarator_t name t fwd =
+and mk_spec_and_declarator_t name t =
   match t with
   | Struct fields ->
       let name_s = name ^ "_s" in
@@ -115,9 +115,7 @@ and mk_spec_and_declarator_t name t fwd =
       let rec_name = Some { lid = name; typ = C.Struct (Some name_s, None); used } in
       (* Fills in [used]. *)
       let fields = mk_fields rec_name fields in
-      if fwd then
-        C.Struct (Some name, fields), Ident name
-      else if !used then
+      if !used then
         C.Struct (Some name_s, fields), Ident name
       else
         C.Struct (None, fields), Ident name
@@ -652,13 +650,14 @@ let mk_files files =
 
 let mk_stub_or_function (d: decl): C.declaration_or_function option =
   match d with
-  | Type (name, t, false) ->
-      let spec, decl = mk_spec_and_declarator_t name t false in
-      Some (Decl ([], (spec, Some Typedef, [ decl, None ])))
+  (* Forward declaration of `Struct`s *)
+  | Type (name, Struct(fs), true) ->
+    let fields = mk_fields None fs in
+    Some (Decl ([], (C.Struct (Some name, fields), None, [])))
 
-  | Type (name, t, true) ->
-      let spec, _ = mk_spec_and_declarator_t name t true in
-      Some (Decl ([], (spec, None, [])))
+  | Type (name, t, _) ->
+      let spec, decl = mk_spec_and_declarator_t name t in
+      Some (Decl ([], (spec, Some Typedef, [ decl, None ])))
 
   | Function (cc, flags, return_type, name, parameters, _) ->
       if List.exists ((=) Private) flags then
