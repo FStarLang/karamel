@@ -91,7 +91,6 @@ let rec mk_spec_and_decl name rec_name (t: typ) (k: C.declarator -> C.declarator
         let spec, decl = mk_spec_and_decl name rec_name typ (fun d -> d) in
         spec, None, [ decl, None ]
       ) fields), k (Ident name)
-  | Forward -> Struct (None, None), k (Ident name)
 
 and mk_fields rec_name fields =
   Some (List.map (fun (name, typ) ->
@@ -108,7 +107,7 @@ and mk_spec_and_declarator name t =
  * itself. Such definitions may contain recursive occurrences of the type
  * itself; one can compile such a type definition to C when the type is a
  * struct, by naming it. *)
-and mk_spec_and_declarator_t name t =
+and mk_spec_and_declarator_t name t fwd =
   match t with
   | Struct fields ->
       let name_s = name ^ "_s" in
@@ -116,7 +115,9 @@ and mk_spec_and_declarator_t name t =
       let rec_name = Some { lid = name; typ = C.Struct (Some name_s, None); used } in
       (* Fills in [used]. *)
       let fields = mk_fields rec_name fields in
-      if !used then
+      if fwd then
+        C.Struct (Some name, fields), Ident name
+      else if !used then
         C.Struct (Some name_s, fields), Ident name
       else
         C.Struct (None, fields), Ident name
@@ -651,9 +652,13 @@ let mk_files files =
 
 let mk_stub_or_function (d: decl): C.declaration_or_function option =
   match d with
-  | Type (name, t, _) ->
-      let spec, decl = mk_spec_and_declarator_t name t in
+  | Type (name, t, false) ->
+      let spec, decl = mk_spec_and_declarator_t name t false in
       Some (Decl ([], (spec, Some Typedef, [ decl, None ])))
+
+  | Type (name, t, true) ->
+      let spec, _ = mk_spec_and_declarator_t name t true in
+      Some (Decl ([], (spec, None, [])))
 
   | Function (cc, flags, return_type, name, parameters, _) ->
       if List.exists ((=) Private) flags then
@@ -685,7 +690,17 @@ let mk_stub_or_function (d: decl): C.declaration_or_function option =
         let spec, decl = mk_spec_and_declarator name t in
         Some (Decl ([], (spec, Some Extern, [ decl, None ])))
 
+let mk_fwd_decl (d: decl): (C.declaration_or_function list) option  =
+    match d with
+    | Type (name, _, true) ->
+        Some ([
+            Decl([], (C.Struct(Some name, None), None, []));
+            Decl([], (C.Struct(Some name, None), Some Typedef, [(Ident(name), None)]))
+        ])
+    | _ -> None
+
 let mk_header decls =
+  (List.flatten (KList.filter_map mk_fwd_decl decls)) @
   KList.filter_map mk_stub_or_function decls
 
 let mk_static (d: C.declaration_or_function) =

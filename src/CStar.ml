@@ -104,7 +104,6 @@ and typ =
       (** In support of anonymous unions. *)
   | Enum of ident list
   | Union of (ident * typ) list
-  | Forward (** Forward declaration, needed for cyclic types. *)
 
 let ident_of_decl (d: decl): string =
   match d with
