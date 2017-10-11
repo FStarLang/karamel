@@ -1,6 +1,6 @@
 open Ast
 open Helpers
-open PrintAst.Ops
+(* open PrintAst.Ops *)
 
 module C = Common
 module K = Constant
@@ -17,17 +17,17 @@ let is_mutual_type map = function
 | TBuf (TQualified lid) when Hashtbl.mem map lid -> true
 | _ -> false
 
-let mutual_behind_ptr mutual_map = object (self)
+let mutual_behind_ptr _mutual_map = object (_self)
   val mutable current_ty = None
 
   inherit [unit] map
 
-  method! dtype env name flags n d fwd_decl =
+  (* method! dtype env name flags n d fwd_decl =
     let env = self#extend_tmany env n in
     current_ty <- Some name;
     let def = self#type_def env (Some name) d in
     current_ty <- None;
-    DType (name, flags, n, def, fwd_decl)
+    DType (name, flags, n, def, fwd_decl) *)
 
   (* method! ematch env typ e branches =
     let old_ty = current_ty in
@@ -42,7 +42,7 @@ let mutual_behind_ptr mutual_map = object (self)
     current_ty <- old_ty;
     EMatch(scrut, bs) *)
 
-  method! tqualified _env lid =
+  (* method! tqualified _env lid =
     (* Every occurrence of a mutual recursive type `t` becomes `TBuf t` *)
     if is_mutual mutual_map current_ty lid then
       TBuf (TQualified lid)
@@ -54,7 +54,7 @@ let mutual_behind_ptr mutual_map = object (self)
     if is_mutual mutual_map current_ty lid then
       TBuf (TApp (lid, ts))
     else
-      TApp (lid, ts)
+      TApp (lid, ts) *)
 
    (* method! pcons env t cons args =
      (* A cons pattern needs to dereference the scrutinee first. *)
