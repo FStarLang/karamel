@@ -672,13 +672,12 @@ let mk_stub_or_function (d: decl): C.declaration_or_function option =
           raise e
         end
 
-  | External (name, Function (cc, t, ts)) ->
-      let spec, decl = mk_spec_and_declarator_f cc name t (List.mapi (fun i t ->
-        KPrint.bsprintf "x%d" i, t
-      ) ts) in
+  | External (name, Function (cc, t, _), parameters) ->
+      let parameters = List.map (fun { name; typ } -> name, typ) parameters in
+      let spec, decl = mk_spec_and_declarator_f cc name t parameters in
       Some (Decl ([], (spec, Some Extern, [ decl, None ])))
 
-  | External (name, t) ->
+  | External (name, t, _) ->
       let spec, decl = mk_spec_and_declarator name t in
       Some (Decl ([], (spec, Some Extern, [ decl, None ])))
 
