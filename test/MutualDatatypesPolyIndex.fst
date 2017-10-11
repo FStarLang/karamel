@@ -2,7 +2,7 @@ module MutualDatatypesPolyIndex
 
 open TestLib
 
-type tree (a : Type0) =
+[@Gc] type tree (a : Type0) =
 | Node : a -> tree_list a -> tree a
 | Empty : tree a
 and tree_list (a : Type0) =
