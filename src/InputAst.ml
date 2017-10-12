@@ -104,6 +104,7 @@ and pattern =
   | PCons of (ident * pattern list)
   | PTuple of pattern list
   | PRecord of (ident * pattern) list
+  | PConstant of K.t
 
 and var =
   int (** a De Bruijn index *)
