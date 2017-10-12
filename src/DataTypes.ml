@@ -220,7 +220,7 @@ let build_scheme_map files =
           Hashtbl.add map lid (ToTaggedUnion branches)
     | _ ->
         ()
-  ), Hashtbl.create 41
+  )
 
 (** Second thing: handle the trivial case of a data type definition with only
  * tags (it's just an enum) and the trivial case of a type definition with one
@@ -276,7 +276,7 @@ let allocate_tag enums preferred_lid tags =
       Hashtbl.add enums tags preferred_lid;
       Fresh (DType (preferred_lid, [], 0, Enum tags, false))
 
-let compile_simple_matches (map, enums) = object(self)
+let pre_allocate_tags map = object(self)
 
   inherit [unit] map
 
@@ -290,6 +290,29 @@ let compile_simple_matches (map, enums) = object(self)
       pending := [];
       new_decls @ [ d ]
     ) decls
+
+  method dtype () lid flags n def =
+    match def with
+    | Variant branches ->
+        if List.length branches > 1 then
+          (* Will *not* be a flat record. So, will need a type for its tags. *)
+          let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
+          let preferred_lid = fst lid, snd lid ^ "_tags" in
+          begin match allocate_tag map preferred_lid tags with
+          | Found _ -> assert false
+          | Fresh decl -> pending := decl :: !pending
+          end;
+          DType (lid, flags, n, Variant branches)
+        else
+          DType (lid, flags, n, def)
+    | _ ->
+        DType (lid, flags, n, def)
+
+end
+
+let compile_simple_matches (map, enums) = object(self)
+
+  inherit [unit] map
 
   method econs () typ cons args =
     let lid =
@@ -334,23 +357,14 @@ let compile_simple_matches (map, enums) = object(self)
         | exception Not_found ->
             DType (lid, flags, 0, Variant branches, fwd_decl)
         | ToTaggedUnion _ ->
-            let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
-            (* Pre-allocate the named type for this type's tags. Has to be done
-             * here so that the enum declaration is inserted in the right spot.
-             * *)
-            let preferred_lid = fst lid, snd lid ^ "_tags" in
-            begin match allocate_tag enums preferred_lid tags with
-            | Found _ -> ()
-            | Fresh decl -> pending := decl :: !pending
-            end;
             DType (lid, flags, 0, Variant branches, fwd_decl)
         | ToEnum ->
             let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
             begin match allocate_tag enums lid tags with
             | Found other_lid ->
-                DType (lid, flags, 0, Abbrev (TQualified other_lid), fwd_decl)
-            | Fresh decl ->
-                decl
+                DType (lid, flags, 0, Abbrev (TQualified other_lid, fwd_decl)
+            | Fresh _ ->
+                assert false
             end
         | ToFlat _ ->
             let fields = List.map (fun (f, t) -> Some f, t) (snd (List.hd branches)) in
@@ -662,7 +676,7 @@ let compile_all_matches (map, enums) = object (self)
     let tag_lid =
       match allocate_tag enums preferred_lid tags with
       | Found lid -> lid
-      | Fresh _ -> assert false (* pre-allocate by the previous phase *)
+      | Fresh _ -> assert false (* pre-allocated by the previous phase *)
     in
     TQualified tag_lid, TAnonymous (Union structs)
 
@@ -767,7 +781,7 @@ let is_tagged_union map lid =
 
 (* Sixth step: if the compiler supports it, use C11 anonymous structs. *)
 
-let anonymous_unions (map, _) = object (self)
+let anonymous_unions map = object (self)
   inherit [_] map
 
   method efield () _t e f =
@@ -812,15 +826,17 @@ let debug_map map =
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
 
 let everything files =
-  let map = build_def_map files in
-  let files = visit_files true (monomorphize_data_types map) files in
+  let def_map = build_def_map files in
+  let tags_map = Hashtbl.create 41 in
+  let files = visit_files () (pre_allocate_tags tags_map) files in
+  let files = visit_files true (monomorphize_data_types def_map) files in
   let files = drop_parameterized_data_types files in
   let files = visit_files () remove_unit_fields files in
   let files = visit_files () remove_trivial_matches files in
-  let map = build_scheme_map files in
-  let files = visit_files () (compile_simple_matches map) files in
-  let files = visit_files () (compile_all_matches map) files in
-  map, files
+  let scheme_map = build_scheme_map files in
+  let files = visit_files () (compile_simple_matches (scheme_map, tags_map)) files in
+  let files = visit_files () (compile_all_matches (scheme_map, tags_map)) files in
+  scheme_map, files
 
 let anonymous_unions map files =
   visit_files () (anonymous_unions map) files

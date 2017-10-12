@@ -61,7 +61,9 @@ let rec find_func env name =
 
 let primitives = [
   "load32_le";
-  "load64_le"
+  "load64_le";
+  "store32_le";
+  "store64_le"
 ]
 
 let is_primitive x =
@@ -172,6 +174,18 @@ let swap64 env =
     dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 1)));
     dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0)));
     dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 1))) ]
+
+let swap6432 env =
+  [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 2))) ]
+
+let swap3264 env =
+  [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0))) ]
 
 
 (******************************************************************************)
@@ -476,7 +490,7 @@ module Debug = struct
             addr @ [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]) tl
       | `Peek64 :: tl ->
           byte_and_store ofs '\x03' I64 (fun addr ->
-            dup64 env @ addr @ swap64 env) tl
+            dup64 env @ addr @ swap3264 env) tl
       | `Local64 i :: tl ->
           byte_and_store ofs '\x03' I64 (fun addr ->
             addr @ [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]) tl
@@ -593,6 +607,18 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallFunc ("load64_le", [ e ]) ->
       mk_expr env e @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })]
+
+  | CallFunc ("store32_le", [ e1; e2 ]) ->
+      mk_expr env e1 @
+      mk_expr env e2 @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I32; align = 0; offset = 0l; sz = None })] @
+      mk_unit
+
+  | CallFunc ("store64_le", [ e1; e2 ]) ->
+      mk_expr env e1 @
+      mk_expr env e2 @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      mk_unit
 
   | CallFunc (name, es) ->
       KList.map_flatten (mk_expr env) es @
