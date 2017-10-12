@@ -277,17 +277,19 @@ let pre_allocate_tags map = object(self)
   method dtype () lid flags n def =
     match def with
     | Variant branches ->
-        if List.length branches > 1 then
-          (* Will *not* be a flat record. So, will need a type for its tags. *)
-          let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
-          let preferred_lid = fst lid, snd lid ^ "_tags" in
-          begin match allocate_tag map preferred_lid tags with
-          | Found _ -> assert false
-          | Fresh decl -> pending := decl :: !pending
-          end;
-          DType (lid, flags, n, Variant branches)
-        else
-          DType (lid, flags, n, def)
+        (* We are slightly conservative, because we can't tell yet whether
+         * something will be an enum or a struct. Consider, for instance:
+         *   type 'a t = T of 'a
+         * at this stage, it seems like something that will be a record, but if
+         * 'a = unit, then this becomes a constant constructor, which we elect
+         * to translate to an enum (structs with zero fields are illegal). *)
+        let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
+        let preferred_lid = fst lid, snd lid ^ "_tags" in
+        begin match allocate_tag map preferred_lid tags with
+        | Found _ -> assert false
+        | Fresh decl -> pending := decl :: !pending
+        end;
+        DType (lid, flags, n, Variant branches)
     | _ ->
         DType (lid, flags, n, def)
 
