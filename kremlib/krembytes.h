@@ -8,7 +8,6 @@
 #include <string.h>
 
 #include "FStar.h"
-// #include "kremlib.h"
 
 typedef uint8_t FStar_Bytes_byte;
 

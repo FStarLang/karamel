@@ -31,6 +31,7 @@ let rec binders_of_pat p =
   | PUnit
   | PBool _ ->
       []
+  | PConstant _ -> assert false
 
 let rec mk_decl = function
   | I.DFunction (cc, flags, n, t, name, binders, body, src_info) ->
@@ -179,6 +180,7 @@ and mk_pat binders pat =
   let rec mk_pat = function
   | I.PUnit ->
       mk PUnit
+  | I.PConstant _ -> assert false
   | I.PBool b ->
       mk (PBool b)
   | I.PVar b ->
