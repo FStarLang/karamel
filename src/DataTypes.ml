@@ -291,7 +291,7 @@ let pre_allocate_tags map = object(self)
       new_decls @ [ d ]
     ) decls
 
-  method dtype () lid flags n def =
+  method dtype () lid flags n def fwd_decl =
     match def with
     | Variant branches ->
         if List.length branches > 1 then
@@ -302,11 +302,11 @@ let pre_allocate_tags map = object(self)
           | Found _ -> assert false
           | Fresh decl -> pending := decl :: !pending
           end;
-          DType (lid, flags, n, Variant branches)
+          DType (lid, flags, n, Variant branches, fwd_decl)
         else
-          DType (lid, flags, n, def)
+          DType (lid, flags, n, def, fwd_decl)
     | _ ->
-        DType (lid, flags, n, def)
+        DType (lid, flags, n, def, fwd_decl)
 
 end
 
@@ -362,7 +362,7 @@ let compile_simple_matches (map, enums) = object(self)
             let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
             begin match allocate_tag enums lid tags with
             | Found other_lid ->
-                DType (lid, flags, 0, Abbrev (TQualified other_lid, fwd_decl)
+                DType (lid, flags, 0, Abbrev (TQualified other_lid), fwd_decl)
             | Fresh _ ->
                 assert false
             end
