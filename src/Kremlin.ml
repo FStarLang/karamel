@@ -332,6 +332,15 @@ Supported options:|}
     Print.print (f files ^^ hardline);
     flush stdout
   in
+  let print_file_names fs =
+    List.iter (fun (f, _) -> print_endline f) fs;
+  in
+  let huge_lift_fstar_hack fs =
+    let fstar = List.assoc "FStar" fs in
+    match List.remove_assoc "FStar" fs with
+    | [] -> ("FStar", fstar) :: []
+    | (prims :: rest) -> prims :: ("FStar", fstar) :: rest
+  in
 
   let files = InputAst.read_file filename in
 
@@ -374,10 +383,14 @@ Supported options:|}
 
   (* 2. Perform bundling early, as later analyses need to know which functions
    * are in the same file and which are not. *)
+  print_file_names files;
   let files = Bundles.make_bundles files in
   let files = Inlining.inline_type_abbrevs files in
   let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Bundle + inline types";
+  (* print_file_names files; *)
+  let files = huge_lift_fstar_hack files in
+  print_file_names files;
 
   (* 3. Compile data types and pattern matches to enums, structs, switches and
    * if-then-elses. *)
