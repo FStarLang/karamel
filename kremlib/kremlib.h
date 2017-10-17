@@ -161,7 +161,7 @@ typedef const char *Prims_string;
 #define FStar_HyperStack_ST_op_Bang(x) 0
 #define FStar_HyperStack_ST_salloc(x) 0
 #define FStar_HyperStack_ST_ralloc(x, y) 0
-#define FStar_HyperStack_ST_new_region(x) ((void)0)
+#define FStar_HyperStack_ST_new_region(x) 0
 #define FStar_Monotonic_RRef_m_alloc(x)                                        \
   { 0 }
 
