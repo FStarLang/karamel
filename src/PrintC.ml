@@ -56,11 +56,7 @@ and p_type_declarator d =
   p_any d
 
 and p_type_name (spec, decl) =
-  match decl with
-  | Ident "" ->
-      p_type_spec spec
-  | _ ->
-      p_type_spec spec ^^ space ^^ p_type_declarator decl
+  p_type_spec spec ^^ space ^^ p_type_declarator decl
 
 (* http:/ /en.cppreference.com/w/c/language/operator_precedence *)
 and prec_of_op2 op =

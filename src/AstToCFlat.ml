@@ -266,9 +266,6 @@ let mk_uint32 i =
 let mk_minus1 e1 =
   CF.CallOp ((K.UInt32, K.Sub), [ e1; mk_uint32 1 ])
 
-let mk_plus1 e1 =
-  CF.CallOp ((K.UInt32, K.Add), [ e1; mk_uint32 1 ])
-
 let mk_memcpy env locals dst src n =
   let b = Helpers.fresh_binder ~mut:true "i" (TInt K.UInt32) in
   let locals, v, _ = extend env b locals in
@@ -277,7 +274,7 @@ let mk_memcpy env locals dst src n =
     CF.While (mk_lt32 (CF.Var v) n,
       CF.Sequence [
         CF.BufWrite (dst, (CF.Var v), CF.BufRead (src, (CF.Var v), A8), A8);
-        CF.Assign (v, mk_plus1 (CF.Var v))
+        CF.Assign (v, mk_minus1 (CF.Var v))
       ])]
 
 let cflat_unit =
@@ -288,13 +285,11 @@ let cflat_any =
 
 
 (* Desugar an array assignment into a series of possibly many assigments (e.g.
- * struct literal), or into a memcopy. [dst] is the base destination pointer,
- * [index] is an index into that buffer, and [ofs] is how many bytes we're into
- * the element *)
+ * struct literal), or into a memcopy *)
 let rec write_at (env: env)
   (locals: locals)
-  (dst: CF.expr)
-  (index: CF.expr)
+  (arr: CF.expr)
+  (base_ofs: CF.expr)
   (ofs: int)
   (e: expr): locals * CF.expr list
 =
@@ -313,16 +308,16 @@ let rec write_at (env: env)
             in
             locals, List.flatten writes
         | _ ->
-            let src = mk_addr env e in
+            let addr = mk_addr env e in
             let size = byte_size env e.typ in
-            mk_memcpy env locals (mk_add32 dst (mk_add32 index (mk_uint32 ofs))) src (mk_uint32 size)
+            mk_memcpy env locals (mk_add32 base_ofs (mk_uint32 ofs)) addr (mk_uint32 size)
         end
     | _ ->
         let s = array_size_of e.typ in
         assert (ofs mod bytes_in s = 0);
         let ofs = ofs / bytes_in s in
         let e = mk_expr_no_locals env e in
-        locals, [ CF.BufWrite (dst, mk_add32 index (mk_uint32 ofs), e, s) ]
+        locals, [ CF.BufWrite (arr, mk_add32 base_ofs (mk_uint32 ofs), e, s) ]
   in
   write_at locals (ofs, e)
 
@@ -594,21 +589,13 @@ let mk_decl env (d: decl): CF.decl option =
           let ret, args = Helpers.flatten_arrow t in
           let ret = [ size_of ret ] in
           let args = List.map size_of args in
-          if (List.hd ret = I64 || List.mem I64 args) && not (CFlatToWasm.is_primitive name) then begin
-            Warnings.(maybe_fatal_error ("", NotWasmCompatible (lid, "functions \
-              implemented natively in JS (because they're assumed) cannot take or \
-              return I64")));
-            None
-          end else
-            Some (CF.ExternalFunction (name, args, ret))
+          Some (CF.ExternalFunction (name, args, ret))
       | _ ->
           Some (CF.ExternalGlobal (name, size_of t))
 
 let mk_module env (name, decls) =
   name, KList.filter_map (fun d ->
     try
-      flush stdout; flush stderr;
-      (* KPrint.beprintf "[AstToC♭] Translating %a:\n" plid (lid_of_decl d); *)
       mk_decl env d
     with e ->
       flush stdout;
