@@ -101,7 +101,7 @@ let rec perr buf (loc, raw_error) =
   let p fmt = Printf.bprintf buf ("Warning %d: %s: " ^^ fmt ^^ "\n") (errno_of_error raw_error) loc in
   match raw_error with
   | Dropping (d, e) ->
-      p "Not generating code for file: %s" d;
+      p "Not generating code for %s because of the error below:" d;
       Printf.bprintf buf "%a" perr e
   | UnboundReference r ->
       p "Reference to %s has no corresponding implementation; please \
