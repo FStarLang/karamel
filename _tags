@@ -4,6 +4,6 @@
 true: annot, bin_annot, warn(@1-2-3@8..12@14..21@23..29-30@31..38-39@40-41@43@57), \
   package(ppx_deriving.std), package(ppx_deriving_yojson), \
   package(zarith), package(pprint), package(unix), package(menhirLib), package(ulex), \
-  package(process), package(fix), package(wasm), debug, profile, strict_sequence
+  package(process), package(fix), package(wasm), debug, strict_sequence
 "parser/Lexer.ml": syntax(camlp4o), syntax(pa_ulex)
 <test>: -traverse

@@ -1,5 +1,6 @@
 /* Garbage-collected fat pointers that keep track of their lengths. */
 #ifndef __KREMBYTES_H
+#ifndef __FStar_H
 #define __KREMBYTES_H
 
 #include <stdio.h>
@@ -8,6 +9,9 @@
 #include <string.h>
 
 #include "Prims.h"
+
+
+#include "FStar.h"
 
 typedef uint8_t FStar_Bytes_byte;
 
@@ -20,11 +24,16 @@ typedef uint8_t FStar_Bytes_byte;
  * }
  */
 /* TODO: how to resolve this, this must declared in kremlib.h due to
-circular deps.
-typedef struct {
-  uint32_t length;
-  const char *data;
-} FStar_Bytes_bytes;
+   circular deps. */
+
+
+/* typedef struct { */
+/*   uint8_t fst, snd; */
+/* } K___uint8_t_uint8_t; */
+
+/* typedef struct { */
+/*   FStar_Bytes_bytes fst, snd; */
+/* } K___FStar_Bytes_bytes_FStar_Bytes_bytes; */
 
 #define CHECK(x) do { \
   if (!(x)) { \
@@ -39,15 +48,15 @@ static inline FStar_Bytes_bytes FStar_Bytes_copy(FStar_Bytes_bytes b1) {
 
 static inline krml_checked_int_t FStar_Bytes_length(FStar_Bytes_bytes b) {
   return b.length;
-} */
+}
 
 static FStar_Bytes_bytes FStar_Bytes_empty_bytes = { .length = 0, .data = NULL };
 
-/* static inline FStar_Bytes_byte FStar_Bytes_get(FStar_Bytes_bytes b, uint32_t i) {
+static inline FStar_Bytes_byte FStar_Bytes_get(FStar_Bytes_bytes b, uint32_t i) {
   return (FStar_Bytes_byte) b.data[i];
-} */
+}
 
-/* static inline FStar_Bytes_bytes FStar_Bytes_set_byte(FStar_Bytes_bytes b1, uint32_t i, FStar_Bytes_byte v) {
+static inline FStar_Bytes_bytes FStar_Bytes_set_byte(FStar_Bytes_bytes b1, uint32_t i, FStar_Bytes_byte v) {
   char *data = malloc(b1.length);
   CHECK(data);
   memcpy(data, b1.data, b1.length);
@@ -135,6 +144,7 @@ extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_che
 extern krml_checked_int_t FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs);
 extern FStar_UInt32_t FStar_Bytes_len(FStar_Bytes_bytes b1);
 extern int FStar_Bytes_repr_bytes(Prims_nat bs);
-extern FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str); */
+extern FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str);
 
+#endif
 #endif

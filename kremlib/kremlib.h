@@ -37,6 +37,11 @@
 /* Implementing C.fst                                                         */
 /******************************************************************************/
 
+typedef struct {
+  uint32_t length;
+  const char *data;
+} FStar_Bytes_bytes;
+
 /* Uppercase issue; we have to define lowercase versions of the C macros (as we
  * have no way to refer to an uppercase *variable* in F*). */
 extern int exit_success;
@@ -57,12 +62,6 @@ void WasmSupport_check_buffer_size(uint32_t s);
 /******************************************************************************/
 /* Stubs to ease compilation of non-Low* code                                 */
 /******************************************************************************/
-
-/* We need to forward declare to to stupid circular deps issues. */
-typedef struct {
-  uint32_t length;
-  const char *data;
-} FStar_Bytes_bytes;
 
 /* Some types that KreMLin has no special knowledge of; many of them appear in
  * signatures of ghost functions, meaning that it suffices to give them (any)
