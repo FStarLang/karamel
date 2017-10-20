@@ -150,8 +150,8 @@ and p_expr' curr = function
       paren_if curr mine (e ^^ lparen ^^ es ^^ rparen)
   | Literal s ->
       dquote ^^ string s ^^ dquote
-  | Constant (_, s) ->
-      string s
+  | Constant (w, s) ->
+      string s ^^ if K.is_unsigned w then string "U" else empty
   | Name s ->
       string s
   | Cast (t, e) ->

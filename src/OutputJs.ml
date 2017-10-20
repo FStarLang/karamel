@@ -60,7 +60,7 @@ server from this directory. If you don't have one already:
 
     npm install http-server
 
-Then, navigate to http://localhost:8080/main.html
+Then, run `http-server .` and navigate to http://localhost:8080/main.html
 |}
 
 let write_all js_files modules print =

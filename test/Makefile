@@ -30,6 +30,8 @@ standalone: $(FILES) $(subst .exe,.krml,$(FILES))
 extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
 wasm: $(WASM_FILES)
 
+.PRECIOUS: %.krml
+
 # A common target to produce a .krml file
 %.krml: %.fst
 	$(KRML) $(EXTRA) -tmpdir $(subst .krml,.out,$@) -skip-translation $<
