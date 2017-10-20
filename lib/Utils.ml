@@ -1,5 +1,4 @@
-let try_finally f h =
-  let result =
+let try_finally f h = let result =
     try
       f ()
     with e ->
@@ -24,6 +23,21 @@ let with_open_out file_path f =
   ) (fun () ->
     close_out c
   )
+
+
+let cp dst src = with_open_out dst (fun oc ->
+  with_open_in src (fun ic ->
+    let buf = Bytes.create 2048 in
+    while
+      let l = input ic buf 0 2048 in
+      if l > 0 then begin
+        output oc buf 0 l;
+        true
+      end else
+        false
+    do () done
+  ))
+
 
 let read ic =
   let buf = Buffer.create 4096 in
