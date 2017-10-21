@@ -706,7 +706,11 @@ and mk_expr env (e: expr): W.Ast.instr list =
       [ dummy_phrase (W.Ast.Loop ([],
         mk_expr env e @
         [ dummy_phrase (W.Ast.If ([],
-          mk_expr env expr @ mk_drop @ [ dummy_phrase (W.Ast.Br (mk_var 1)) ],
+          read_highwater @
+          mk_expr env expr @
+          mk_drop @
+          write_highwater env @
+          [ dummy_phrase (W.Ast.Br (mk_var 1)) ],
           [ dummy_phrase W.Ast.Nop ])) ]
       ))] @
       mk_unit
