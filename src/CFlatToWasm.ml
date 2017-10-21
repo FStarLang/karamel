@@ -107,7 +107,9 @@ let mk_const c =
 let mk_lit w lit =
   match w with
   | K.Int64 | K.UInt64 ->
-      mk_int64 (Int64.of_string lit)
+      let n = Z.of_string lit in
+      let n = if Z.( n >= ~$2 ** 63 ) then Z.( n - ~$2 ** 64 ) else n in
+      mk_int64 (Z.to_int64 n)
   | K.Int32 | K.UInt8 | K.UInt16 | K.UInt32 | K.Bool ->
       mk_int32 (Int32.of_string lit)
   | _ ->
@@ -125,6 +127,9 @@ let i32_and =
 let i32_sub =
   [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Sub)) ]
 
+let i32_xor =
+  [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Xor)) ]
+
 let i32_not =
   mk_const (mk_int32 Int32.zero) @
   [ dummy_phrase (W.Ast.Compare (mk_value I32 W.Ast.IntOp.Eq)) ]
@@ -140,6 +145,9 @@ let mk_unit =
 
 let i64_sub =
   [ dummy_phrase (W.Ast.Binary (mk_value I64 W.Ast.IntOp.Sub)) ]
+
+let i64_xor =
+  [ dummy_phrase (W.Ast.Binary (mk_value I64 W.Ast.IntOp.Xor)) ]
 
 let i64_not =
   mk_const (mk_int64 Int64.zero) @
@@ -567,19 +575,20 @@ and mk_callop env (w, o) e1 =
   let open K in
   match (w, o) with
   | (UInt64 | Int64), Not ->
+      (* Unused? *)
       mk_expr env e1 @
       i64_not
   | (UInt64 | Int64), BNot ->
       mk_const (mk_int64 Int64.minus_one) @
       mk_expr env e1 @
-      i64_sub
+      i64_xor
   | _, Not ->
       mk_expr env e1 @
       i32_not
   | _, BNot ->
       mk_const (mk_int32 Int32.minus_one) @
       mk_expr env e1 @
-      i32_sub
+      i32_xor
   | _ ->
       failwith ("todo mk_callop " ^ show_width w ^ " " ^ show_op o)
 

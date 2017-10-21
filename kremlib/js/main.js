@@ -51,10 +51,11 @@ scope.then(scope => {
   }
 
   let found = false;
+  let err = 0;
   let with_debug = (main) => {
     if (my_debug)
       dump(scope.Kremlin.mem, 2048);
-    main(scope);
+    err = main(scope);
     if (my_debug)
       dump(scope.Kremlin.mem, 2048);
   };
@@ -74,6 +75,7 @@ scope.then(scope => {
   }
   // TODO Chakra
   eval("%DecrementWaitCount()");
+  quit(err);
 }).catch(e => {
   // TODO Chakra
   my_print(e.stack);

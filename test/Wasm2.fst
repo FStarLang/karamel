@@ -9,7 +9,7 @@ open FStar.Buffer
 
 let main (): Stack FStar.Int32.t (fun _ -> true) (fun _ _ _ -> true) =
   push_frame ();
-  let test = U128.mul_wide 0x30586768dbe7UL 0x3fffffffffff69UL in
+  let test = U128.mul_wide 0x30586768dbe7UL 0x3FFFFFFFFFFF69UL in
   let b = Buffer.create (U128.uint64_to_uint128 0UL) 1ul in
   b.(0ul) <- test;
   pop_frame ();

@@ -2,6 +2,7 @@
 
 open Ast
 open Common
+open PrintAst.Ops
 
 module I = InputAst
 
@@ -21,6 +22,14 @@ let rec binders_of_pat p =
   | PUnit
   | PBool _ ->
       []
+
+let width_of_equality = function
+  | TInt w -> w
+  | TBool -> K.Bool
+  | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) -> K.CInt
+  | t ->
+      KPrint.beprintf "Equality at a non-scalar type: %a\n" ptyp t;
+      K.Bool
 
 let rec mk_decl = function
   | I.DFunction (cc, flags, n, t, name, binders, body) ->
@@ -93,6 +102,8 @@ and mk_expr = function
       mk (EString s)
   | I.EApp (e, es) ->
       mk (EApp (mk_expr e, List.map mk_expr es))
+  | I.ETApp (I.EOp ((K.Eq | K.Neq as op), K.Bool), [ t ]) ->
+      mk (EOp (op, width_of_equality (mk_typ t)))
   | I.ETApp (e, es) ->
       mk (ETApp (mk_expr e, List.map mk_typ es))
   | I.ELet (b, e1, e2) ->
