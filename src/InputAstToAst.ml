@@ -28,7 +28,7 @@ let width_of_equality = function
   | TBool -> K.Bool
   | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) -> K.CInt
   | t ->
-      KPrint.beprintf "Equality at a non-scalar type: %a\n" ptyp t;
+      (* KPrint.beprintf "Equality at a non-scalar type: %a\n" ptyp t; *)
       K.Bool
 
 let rec mk_decl = function

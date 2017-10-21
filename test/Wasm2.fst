@@ -16,4 +16,7 @@ let main (): Stack FStar.Int32.t (fun _ -> true) (fun _ _ _ -> true) =
   let low = U128.uint128_to_uint64 test in
   let high = U128.(uint128_to_uint64 (test >>^ 64ul)) in
   TestLib.check (low = 17988357517195233983UL && high = 51910400566UL);
+  let test = U128.add_mod test test in
+  let test = U128.uint128_to_uint64 test in
+  TestLib.check (test = 17529970960680916350UL);
   C.exit_success
