@@ -2,7 +2,6 @@
 
 open Ast
 open Common
-open PrintAst.Ops
 
 module I = InputAst
 
@@ -27,7 +26,7 @@ let width_of_equality = function
   | TInt w -> w
   | TBool -> K.Bool
   | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) -> K.CInt
-  | t ->
+  | _ ->
       (* KPrint.beprintf "Equality at a non-scalar type: %a\n" ptyp t; *)
       K.Bool
 

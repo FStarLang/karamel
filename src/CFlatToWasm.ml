@@ -183,12 +183,14 @@ let swap64 env =
     dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0)));
     dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 1))) ]
 
+(* I64 at the top of the stack *)
 let swap6432 env =
   [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 0)));
     dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 2)));
     dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0)));
     dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 2))) ]
 
+(* I32 at the top of the stack *)
 let swap3264 env =
   [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 2)));
     dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 0)));
@@ -715,20 +717,16 @@ and mk_expr env (e: expr): W.Ast.instr list =
       mk_unit
 
   | Sequence es ->
-      let es, e = KList.split_at_last es in
-      List.flatten (List.map (fun e ->
-        mk_expr env e @
-        [ dummy_phrase W.Ast.Drop ]
-      ) es) @
-      mk_expr env e
+      if List.length es = 0 then
+        mk_unit
+      else
+        let es, e = KList.split_at_last es in
+        List.flatten (List.map (fun e ->
+          mk_expr env e @
+          [ dummy_phrase W.Ast.Drop ]
+        ) es) @
+        mk_expr env e
 
-  | PushFrame ->
-      read_highwater @
-      mk_unit
-
-  | PopFrame ->
-      write_highwater env @
-      mk_unit
 
   | GetGlobal i ->
       [ dummy_phrase (W.Ast.GetGlobal (mk_var (find_global env i))) ]
@@ -770,7 +768,13 @@ let mk_func env { args; locals; body; name; ret; _ } =
       | _ -> []
     in
     Debug.mk env debug_enter @
+    read_highwater @
     mk_expr env body @
+    (match ret with
+      | [ I32 ] -> swap32 env
+      | [ I64 ] -> swap6432 env
+      | _ -> []) @
+    write_highwater env @
     Debug.mk env debug_exit
   in
 
