@@ -137,14 +137,41 @@ static inline FStar_Bytes_bytes FStar_Bytes_utf8_encode(const char *str) {
   return b;
 }
 
+static inline K___FStar_Bytes_bytes_FStar_Bytes_bytes FStar_Bytes_split(FStar_Bytes_bytes bs, FStar_UInt32_t i) {
+   K___FStar_Bytes_bytes_FStar_Bytes_bytes p = { .fst = FStar_Bytes_sub(bs, 0, i),
+                                                 .snd = FStar_Bytes_sub(bs, i, bs.length) };
+   return p;
+}
+
+static inline FStar_UInt32_t FStar_Bytes_len(FStar_Bytes_bytes b1) {
+  return b1.length;
+}
+
 // TODO
-extern K___FStar_Bytes_bytes_FStar_Bytes_bytes FStar_Bytes_split(FStar_Bytes_bytes bs, FStar_UInt32_t i);
-extern FStar_Bytes_bytes FStar_Bytes_xor(FStar_UInt32_t x, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
-extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n);
-extern krml_checked_int_t FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs);
-extern FStar_UInt32_t FStar_Bytes_len(FStar_Bytes_bytes b1);
-extern int FStar_Bytes_repr_bytes(Prims_nat bs);
-extern FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str);
+
+static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n) {
+  FStar_Bytes_bytes b = { .length = 0ul, .data = NULL }; //placeholder!
+  return b;
+}
+
+static inline krml_checked_int_t FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs) {
+  return 0; //placeholder!
+}
+
+static inline int FStar_Bytes_repr_bytes(Prims_nat bs) {
+  return bs;
+}
+
+static inline FStar_Bytes_bytes FStar_Bytes_xor(FStar_UInt32_t x, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2) {
+  FStar_Bytes_bytes b = { .length = 0ul, .data = NULL }; //placeholder!
+  return b;
+}
+
+
+static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
+  FStar_Bytes_bytes b = { .length = 0ul, .data = NULL }; //placeholder!
+  return b;
+}
 
 #endif
 #endif
