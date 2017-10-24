@@ -98,6 +98,7 @@ The default is %s and the available warnings are:
   10: dropping a polymorphic function definition
   11: subexpression is not Low*; cannot proceed
   12: cannot be compiled to Wasm
+  13: deprecated feature
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
 where the Api= part is optional and a pattern is either Foo.Bar (exact match) or

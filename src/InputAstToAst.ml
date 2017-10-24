@@ -33,11 +33,14 @@ let width_of_equality = function
 let rec mk_decl = function
   | I.DFunction (cc, flags, n, t, name, binders, body) ->
       let body =
-        if List.exists ((=) NoExtract) flags then
+        if List.mem NoExtract flags then
           with_type TAny (EAbort (Some "noextract flag"))
         else
           mk_expr body
       in
+      if List.mem Substitute flags then
+        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" PrintAst.plid name,
+          Deprecated ("substitute", Some "use F*'s inline_for_extraction instead")));
       DFunction (cc, flags, n, mk_typ t, name, mk_binders binders, body)
   | I.DTypeAlias (name, n, t) ->
       DType (name, [], n, Abbrev (mk_typ t))
