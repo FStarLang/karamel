@@ -256,14 +256,9 @@ typedef const char *Prims_string;
 #elif defined(__OpenBSD__)
 #include <endian.h>
 
-/* ... for Windows */
-#elif (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) &&               \
-    !defined(__WINDOWS__)
-#include <windows.h>
+/* ... for Windows (MSVC)... not targeting XBOX 360! */
+#elif defined(_MSC_VER)
 
-#if BYTE_ORDER == LITTLE_ENDIAN
-
-#if defined(_MSC_VER)
 #include <stdlib.h>
 #define htobe16(x) _byteswap_ushort(x)
 #define htole16(x) (x)
@@ -280,7 +275,8 @@ typedef const char *Prims_string;
 #define be64toh(x) _byteswap_uint64(x)
 #define le64toh(x) (x)
 
-#elif defined(__GNUC__) || defined(__clang__)
+/* ... for Windows (GCC-like, e.g. mingw or clang) */
+#elif (defined(_WIN32) || defined(_WIN64)) && (defined(__GNUC__) || defined(__clang__))
 
 #define htobe16(x) __builtin_bswap16(x)
 #define htole16(x) (x)
@@ -296,33 +292,11 @@ typedef const char *Prims_string;
 #define htole64(x) (x)
 #define be64toh(x) __builtin_bswap64(x)
 #define le64toh(x) (x)
-#endif
 
-#elif BYTE_ORDER == BIG_ENDIAN
+/* ... generic big-endian fallback code */
+#elif defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 
-/* that would be xbox 360 */
-#define htobe16(x) (x)
-#define htole16(x) __builtin_bswap16(x)
-#define be16toh(x) (x)
-#define le16toh(x) __builtin_bswap16(x)
-
-#define htobe32(x) (x)
-#define htole32(x) __builtin_bswap32(x)
-#define be32toh(x) (x)
-#define le32toh(x) __builtin_bswap32(x)
-
-#define htobe64(x) (x)
-#define htole64(x) __builtin_bswap64(x)
-#define be64toh(x) (x)
-#define le64toh(x) __builtin_bswap64(x)
-
-#endif
-
-/* ... generic fallback code */
-#else
-
-#if BYTE_ORDER == BIG_ENDIAN
-/* Byte swapping code inspired by:
+/* byte swapping code inspired by:
  * https://github.com/rweather/arduinolibs/blob/master/libraries/Crypto/utility/EndianUtil.h
  * */
 
@@ -347,7 +321,8 @@ typedef const char *Prims_string;
   }))
 #define le64toh(x) (htole64((x)))
 
-#else
+/* ... generic little-endian fallback code */
+#elif defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 
 #define htole32(x) (x)
 #define le32toh(x) (x)
@@ -370,9 +345,11 @@ typedef const char *Prims_string;
   }))
 #define be64toh(x) (htobe64((x)))
 
-#endif
+/* ... fail */
+#else
+#error "Please define __BYTE_ORDER__!"
 
-#endif
+#endif /* defined(__linux__) || ... */
 
 /* Loads and stores. These avoid undefined behavior due to unaligned memory
  * accesses, via memcpy. */
