@@ -18,9 +18,8 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   export Z3=z3-4.4.1-x64-ubuntu-14.04;
   wget https://github.com/Z3Prover/z3/releases/download/z3-4.4.1/$Z3.zip;
   unzip $Z3.zip;
-  mkdir d8
-  wget https://www.dropbox.com/s/35fo94wzrbex9ij/d8?dl=0 -O d8/d8
-  chmod a+x d8/d8
+  wget https://www.dropbox.com/s/r1uj2cqifhz50ri/d8.tar.bz2?dl=0 -O d8.tar.bz2
+  tar xjvf d8.tar.bz2
 fi
 
 git clone --branch master --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
