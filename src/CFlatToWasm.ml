@@ -50,6 +50,9 @@ let builtins = [
   "FStar_UInt64_gte_mask", "WasmSupport_gte_mask64"
 ]
 
+let name_of_string = W.Utf8.decode
+let string_of_name = W.Ast.string_of_name
+
 let rec find_func env name =
   try
     StringMap.find name env.funcs
@@ -452,14 +455,14 @@ module Debug = struct
    * wouldn't be limited to 124b of debugging info. *)
   let default_imports = [
     dummy_phrase W.Ast.({
-      module_name = "Kremlin";
-      item_name = "debug";
-      ikind = dummy_phrase (FuncImport (mk_var 0))
+      module_name = name_of_string "Kremlin";
+      item_name = name_of_string "debug";
+      idesc = dummy_phrase (FuncImport (mk_var 0))
     });
   ]
 
   let default_types = [
-    W.Types.FuncType ([], []);
+    dummy_phrase (W.Types.FuncType ([], []));
       (** not exposed in WasmSupport.fst, no fstar-compatible type. *)
   ]
 
@@ -528,17 +531,17 @@ module Base = struct
    * each module with the start address of its own data segment. *)
   let data_start =
     dummy_phrase W.Ast.({
-      module_name = "Kremlin";
-      item_name = "data_start";
-      ikind = dummy_phrase (GlobalImport W.Types.(
+      module_name = name_of_string "Kremlin";
+      item_name = name_of_string "data_start";
+      idesc = dummy_phrase (GlobalImport W.Types.(
         GlobalType (mk_type I32, Immutable)))})
 
   let memory =
     let mtype = W.Types.MemoryType W.Types.({ min = 16l; max = None }) in
     dummy_phrase W.Ast.({
-      module_name = "Kremlin";
-      item_name = "mem";
-      ikind = dummy_phrase (MemoryImport mtype)})
+      module_name = name_of_string "Kremlin";
+      item_name = name_of_string "mem";
+      idesc = dummy_phrase (MemoryImport mtype)})
 
   (* This establishes the func index / type index invariant. *)
   let imports = memory :: data_start :: Debug.default_imports
@@ -743,9 +746,9 @@ and mk_expr env (e: expr): W.Ast.instr list =
       failwith ("not implemented; got: " ^ show_expr e)
 
 let mk_func_type' args ret =
-  W.Types.( FuncType (
+  dummy_phrase (W.Types.( FuncType (
     List.map mk_type args,
-    List.map mk_type ret))
+    List.map mk_type ret)))
 
 let mk_func_type { args; ret; _ } =
   mk_func_type' args ret
@@ -803,7 +806,7 @@ let mk_global env size body =
  * same order as [types]), build a current module; as a bonus, grow [types] and
  * [imports] with the exports from this module. *)
 let mk_module types imports (name, decls):
-  W.Types.func_type list * W.Ast.import list * (string * W.Ast.module_) =
+  W.Types.func_type W.Source.phrase list * W.Ast.import list * (string * W.Ast.module_) =
 
   if Options.debug "wasm" then
     KPrint.bprintf ">>> Numbering import-exports for %s\n" name;
@@ -817,12 +820,12 @@ let mk_module types imports (name, decls):
   let rec assign env f g imports =
     (* We have seen [f] functions and [g] globals. *)
     match imports with
-    | { W.Source.it = { W.Ast.item_name; ikind = { W.Source.it = W.Ast.FuncImport n; _ }; _ }; _ } :: tl ->
-        let env = { env with funcs = StringMap.add item_name f env.funcs } in
+    | { W.Source.it = { W.Ast.item_name; idesc = { W.Source.it = W.Ast.FuncImport n; _ }; _ }; _ } :: tl ->
+        let env = { env with funcs = StringMap.add (string_of_name item_name) f env.funcs } in
         assert (Int32.to_int n.W.Source.it = f);
         assign env (f + 1) g tl
-    | { W.Source.it = { W.Ast.item_name; ikind = { W.Source.it = W.Ast.GlobalImport _; _ }; _ }; _ } :: tl ->
-        let env = { env with globals = StringMap.add item_name g env.globals } in
+    | { W.Source.it = { W.Ast.item_name; idesc = { W.Source.it = W.Ast.GlobalImport _; _ }; _ }; _ } :: tl ->
+        let env = { env with globals = StringMap.add (string_of_name item_name) g env.globals } in
         assign env f (g + 1) tl
     | _ :: tl ->
         (* Intentionally skipping other imports (e.g. memory). *)
@@ -844,9 +847,9 @@ let mk_module types imports (name, decls):
         let env = { env with funcs = StringMap.add fname f env.funcs } in
         let imports =
           dummy_phrase W.Ast.({
-            module_name = name;
-            item_name = fname;
-            ikind = dummy_phrase (FuncImport (mk_var f))
+            module_name = name_of_string name;
+            item_name = name_of_string fname;
+            idesc = dummy_phrase (FuncImport (mk_var f))
           }) :: imports
         in
         assign env imports (f + 1) g tl
@@ -854,9 +857,9 @@ let mk_module types imports (name, decls):
         let env = { env with globals = StringMap.add gname g env.globals } in
         let imports =
           dummy_phrase W.Ast.({
-            module_name = name;
-            item_name = gname;
-            ikind = dummy_phrase (
+            module_name = name_of_string name;
+            item_name = name_of_string gname;
+            idesc = dummy_phrase (
               GlobalImport W.Types.(GlobalType (mk_type t, W.Types.Immutable)))
           }) :: imports
         in
@@ -923,16 +926,16 @@ let mk_module types imports (name, decls):
         if Options.debug "wasm" then
           KPrint.bprintf "Imported function $%d is %s\n" next_func f.name;
         next_func + 1, dummy_phrase W.Ast.({
-          module_name = name;
-          item_name = f.name;
-          ikind = dummy_phrase (FuncImport (mk_var next_func))
+          module_name = name_of_string name;
+          item_name = name_of_string f.name;
+          idesc = dummy_phrase (FuncImport (mk_var next_func))
         }) :: acc
     | Global (g_name, size, _, public) when public ->
         let t = mk_type size in
         next_func, dummy_phrase W.Ast.({
-          module_name = name;
-          item_name = g_name;
-          ikind = dummy_phrase (
+          module_name = name_of_string name;
+          item_name = name_of_string g_name;
+          idesc = dummy_phrase (
             GlobalImport W.Types.(GlobalType (t, W.Types.Immutable)))
         }) :: acc
     | _ ->
@@ -1003,23 +1006,20 @@ let mk_module types imports (name, decls):
   let exports = KList.filter_map (function
     | Function { public; name; _ } when public ->
         Some (dummy_phrase W.Ast.({
-          name;
-          ekind = dummy_phrase W.Ast.FuncExport;
-          item = mk_var (find_func env name)
+          name = name_of_string name;
+          edesc = dummy_phrase (W.Ast.FuncExport (mk_var (find_func env name)));
         }))
     | Global (name, _, _, public) when public ->
         Some (dummy_phrase W.Ast.({
-          name;
-          ekind = dummy_phrase W.Ast.GlobalExport;
-          item = mk_var (find_global env name)
+          name = name_of_string name;
+          edesc = dummy_phrase (W.Ast.GlobalExport (mk_var (find_global env name)));
         }))
     | _ ->
         None
   ) decls @ [
     dummy_phrase W.Ast.({
-      name = "data_size";
-      ekind = dummy_phrase W.Ast.GlobalExport;
-      item = mk_var data_size_index
+      name = name_of_string "data_size";
+      edesc = dummy_phrase (W.Ast.GlobalExport (mk_var data_size_index));
     })]
   in
 
