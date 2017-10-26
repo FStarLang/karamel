@@ -14,6 +14,8 @@ export OCAMLRUNPARAM=b
 
 echo "\"$Z3\": -traverse" >> _tags
 echo "\"fstar\": -traverse" >> _tags
+echo "\"hacl-star\": -traverse" >> _tags
+echo "\"d8\": -traverse" >> _tags
 
 echo -e "\e[31m=== Some info about the environment ===\e[0m"
 ocamlfind ocamlopt -config
