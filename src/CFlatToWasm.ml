@@ -39,7 +39,7 @@ let find_global env name =
   try
     StringMap.find name env.globals
   with Not_found ->
-    Warnings.fatal_error "Could not resolve global %s" name
+    Warnings.fatal_error "Could not resolve global %s (look out for Warning 12)" name
 
 (* Some functions were marked as assumed in F*, and then implemented by hand in
  * C. But, now, we have to re-implement them in F* so that they get Wasm codegen
