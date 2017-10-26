@@ -10,6 +10,8 @@ export PATH=/home/travis/build/FStarLang/kremlin/d8:$PATH;
 export PATH=/home/travis/build/FStarLang/kremlin/fstar/bin:$PATH;
 export FSTAR_HOME=/home/travis/build/FStarLang/kremlin/fstar
 export HACL_HOME=/home/travis/build/FStarLang/kremlin/hacl-star
+export KRML_HOME=/home/travis/build/FStarLang/kremlin
+export KREMLIN_HOME=/home/travis/build/FStarLang/kremlin
 export OCAMLRUNPARAM=b
 
 echo "\"$Z3\": -traverse" >> _tags
