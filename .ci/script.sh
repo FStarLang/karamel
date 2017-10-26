@@ -19,6 +19,6 @@ echo -e "\e[31m=== Some info about the environment ===\e[0m"
 ocamlfind ocamlopt -config
 gcc --version
 fstar.exe --version
-$(which d8) --version
+echo | $(which d8)
 
 make && make -C test all wasm
