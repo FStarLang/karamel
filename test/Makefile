@@ -3,6 +3,7 @@
 READLINK	= $(shell which greadlink >/dev/null 2>&1 && echo greadlink || echo readlink)
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 SALSA		= $(HACL_HOME)/code/salsa-family
+CURVE		= $(HACL_HOME)/code/curve25519
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 TEST_OPTS	= -add-include '"testlib.h"' -I . ../kremlib/testlib.c -warn-error @4
 KRML_BIN	= ../_build/src/Kremlin.native
@@ -22,7 +23,7 @@ EXTRA_FILES	= \
 WASM_FILES	= \
   WasmTrap.wasm Wasm1.wasm Wasm2.wasm
 WASM_EXTRA	= \
-  $(SALSA)/Hacl.Test.Chacha20.wasm
+  $(SALSA)/Hacl.Test.Chacha20.wasm # $(CURVE)/Hacl.Test.X25519.wasm
 # One can define NEGATIVE=true for wasm targets that are negative tests
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
@@ -85,12 +86,23 @@ $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: EXTRA+=$(CRYPTO_OPTS) -drop FStar
 WasmTrap.wasm: NEGATIVE = true
 
 # External WASM targets: recycle the HACL* Makefile!
-.PHONY: $(SALSA)/Hacl.Test.Chacha20.krml
-$(SALSA)/Hacl.Test.Chacha20.wasm: EXTRA+=-drop Prims,Hacl.UInt8,Hacl.UInt16,Hacl.UInt32,Hacl.UInt64,Hacl.UInt128,Hacl.Endianness,Hacl.Cast,Hacl.Spec.*,Spec.*,Seq.* \
+HACL_DROP=Prims,Hacl.UInt8,Hacl.UInt16,Hacl.UInt32,Hacl.UInt64,Hacl.UInt128,Hacl.Endianness,Hacl.Cast,Hacl.Spec.*,Spec.*,Seq.*
+$(SALSA)/Hacl.Test.Chacha20.wasm: EXTRA+=-drop $(HACL_DROP)
   -bundle 'Chacha20=Hacl.Impl.*,Chacha20,Hacl.Lib.*'
+
+.PHONY: $(SALSA)/Hacl.Test.Chacha20.krml
 $(SALSA)/Hacl.Test.Chacha20.krml:
-	KREMLIN_ARGS=-wasm $(MAKE) -C $(SALSA) chacha-c
+	KREMLIN_ARGS=-wasm $(MAKE) -C $(SALSA) extract-c
 	[ -e $(subst .krml,.out,$@) ] || ln -sf $(SALSA)/chacha-c $(subst .krml,.out,$@)
+	cp $(subst .krml,.out,$@)/out.krml $@
+
+$(CURVE)/Hacl.Test.X25519.wasm: EXTRA+=-drop $(HACL_DROP)
+  -bundle 'Curve25519=Hacl.Bignum,Hacl.Bignum.*,Hacl.EC,Hacl.EC.*'
+
+.PHONY: $(CURVE)/Hacl.Test.X25519.krml
+$(CURVE)/Hacl.Test.X25519.krml:
+	KREMLIN_ARGS=-wasm $(MAKE) -C $(CURVE) extract-c
+	[ -e $(subst .krml,.out,$@) ] || ln -sf $(CURVE)/x25519-c $(subst .krml,.out,$@)
 	cp $(subst .krml,.out,$@)/out.krml $@
 
 clean:
