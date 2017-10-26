@@ -18,8 +18,8 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   export Z3=z3-4.4.1-x64-ubuntu-14.04;
   wget https://github.com/Z3Prover/z3/releases/download/z3-4.4.1/$Z3.zip;
   unzip $Z3.zip;
-  export PATH=/home/travis/build/FStarLang/FStar/$Z3/bin:/home/travis/build/FStarLang/FStar/bin:$PATH;
 fi
 
-git clone --branch master --single-branch https://github.com/FStarLang/FStar.git fstar
+git clone --branch master --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
+git clone --branch master --single-branch --depth 1 https://github.com/mitls-fstar/hacl-star
 make -C fstar/src/ocaml-output
