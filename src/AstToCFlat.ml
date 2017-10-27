@@ -458,10 +458,10 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.Abort
 
   | EPushFrame ->
-      locals, CF.PushFrame
+      locals, CF.Sequence []
 
   | EPopFrame ->
-      locals, CF.PopFrame
+      locals, CF.Sequence []
 
   | ETuple _ | EMatch _ | ECons _ ->
       invalid_arg "should've been desugared before"

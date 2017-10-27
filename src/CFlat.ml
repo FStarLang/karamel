@@ -112,9 +112,6 @@ and expr =
   | BufSub of expr * expr * array_size
   | BufWrite of expr * expr * expr * array_size
 
-  | PushFrame
-  | PopFrame
-
   | CallOp of op * expr list
   | CallFunc of ident * expr list
   | Cast of expr * K.width * K.width

@@ -95,7 +95,7 @@ The default is %s and the available warnings are:
   7: private F* function cannot be marked as C static
   8: C inline function reference across translation units
   9: need to manually call static initializers for globals
-  10: dropping a polymorphic function definition
+  10: <currently unused>
   11: subexpression is not Low*; cannot proceed
   12: cannot be compiled to Wasm
 

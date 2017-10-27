@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <time.h>
 
@@ -14,6 +15,7 @@ void print_buf(uint8_t *buf, size_t size, char *file, int line);
 
 /* Functions for F*-written tests, exposed via TestLib.fsti */
 void TestLib_touch(int32_t);
+void TestLib_check(bool b);
 
 void TestLib_check8(int8_t, int8_t);
 void TestLib_check16(int16_t, int16_t);

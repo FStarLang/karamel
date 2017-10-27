@@ -18,7 +18,6 @@ and raw_error =
   | LostStatic of string option * lident * string option * lident
   | LostInline of string option * lident * string option * lident
   | MustCallKrmlInit
-  | NoPolymorphism of lident
   | NotLowStar of expr
   | NotWasmCompatible of lident * string
 
@@ -81,8 +80,6 @@ let errno_of_error = function
       8
   | MustCallKrmlInit ->
       9
-  | NoPolymorphism _ ->
-      10
   | NotLowStar _ ->
       11
   | NotWasmCompatible _ ->
@@ -101,7 +98,7 @@ let rec perr buf (loc, raw_error) =
   let p fmt = Printf.bprintf buf ("Warning %d: %s: " ^^ fmt ^^ "\n") (errno_of_error raw_error) loc in
   match raw_error with
   | Dropping (d, e) ->
-      p "Not generating code for file: %s" d;
+      p "Not generating code for %s because of the error below:" d;
       Printf.bprintf buf "%a" perr e
   | UnboundReference r ->
       p "Reference to %s has no corresponding implementation; please \
@@ -135,10 +132,6 @@ let rec perr buf (loc, raw_error) =
         before starting main(). You did not provide a main function, so users of \
         your library MUST MAKE SURE they call kremlinit_globals(); (see \
         kremlinit.c)"
-  | NoPolymorphism lid ->
-      p "%a is polymorphic and must be either marked as noextract or, \
-        alternatively, as [@\"substitute\"] in the hope \
-        that, once expanded at call-site, it type-checks as Low*" plid lid
   | NotLowStar e ->
       p "this expression is not Low*; the enclosing function cannot be translated into C*: %a" pexpr e
   | NotWasmCompatible (lid, reason) ->

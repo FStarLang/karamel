@@ -201,6 +201,14 @@ let mkTestLib = (mem) => ({
   TestLib_checku16: checkEq(mem, "TestLib_checku16"),
   TestLib_checku32: checkEq(mem, "TestLib_checku32"),
   TestLib_checku64: checkEq(mem, "TestLib_checku64"),
+  TestLib_check: (b) => {
+    if (!b) {
+      dump(mem, 2*1024);
+      my_print("TestLib_check: assertion failure");
+      throw new Error();
+    }
+    return 0;
+  },
   TestLib_unsafe_malloc: () => { throw new Error("todo: unsafe_malloc") },
   TestLib_perr: (err) => {
     my_print("Got error code "+err);

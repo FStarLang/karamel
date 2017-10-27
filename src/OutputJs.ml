@@ -36,7 +36,36 @@ let as_js_list l =
     "\"" ^ s ^ "\""
   ) l) ^ "]"
 
+let readme =
+{|How to run the WASM output of KreMLin?
+
+# With v8, from the console
+
+Install and build Google's v8 engine, which should give a d8 binary. Then:
+
+    d8 --allow-natives-syntax main.js
+
+Note: on my machine, it's better to call d8 through an absolute path.
+
+# With Chakra, from the console
+
+Install and build ChakraCore, which should give a ch binary. Then:
+
+    ch -Wasm main.js
+
+# With Chrome, from the browser
+
+Chrome won't run this from the file:// URL, so you'll need to start an HTTP
+server from this directory. If you don't have one already:
+
+    npm install http-server
+
+Then, run `http-server .` and navigate to http://localhost:8080/main.html
+|}
+
 let write_all js_files modules print =
+  Driver.detect_kremlin_if ();
+
   (* Write out all the individual .wasm files *)
   List.iter (fun (name, module_) ->
     (* Write a .wast for debugging purposes. *)
@@ -71,4 +100,13 @@ let write_all js_files modules print =
   let js_file_list = as_js_list js_files in
   Utils.with_open_out shell_file (fun oc ->
     Printf.fprintf oc shell_stub js_file_list module_list (Options.debug "wasm-memory")
-  )
+  );
+
+  (* Files that are needed for the tmpdir to be runnable and complete. *)
+  let ( ^^ ) = Filename.concat in
+  List.iter (fun f ->
+    Utils.cp (!Options.tmpdir ^^ f) (!Driver.krml_home ^^ "kremlib" ^^ "js" ^^ f)
+  ) [ "browser.js"; "loader.js"; "main.js" ];
+
+  (* Be nice *)
+  Utils.with_open_out (!Options.tmpdir ^^ "README") (fun oc -> output_string oc readme)

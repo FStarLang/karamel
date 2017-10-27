@@ -63,6 +63,13 @@ MK_UCHECK(16)
 MK_UCHECK(32)
 MK_UCHECK(64)
 
+void TestLib_check(bool b) {
+  if (!b) {
+    printf("Test check failure!\n");
+    exit(253);
+  }
+}
+
 void *TestLib_unsafe_malloc(size_t size) {
   void *memblob = malloc(size);
   if (memblob == NULL) {
