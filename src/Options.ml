@@ -27,6 +27,7 @@ let static_header: string list ref = ref []
 let struct_passing = ref true
 let anonymous_unions = ref true
 let uint128 = ref true
+let compound_literals: [ `Ok | `Wasm | `Never ] ref = ref `Ok
 
 let parentheses = ref false
 let curly_braces = ref false

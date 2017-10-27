@@ -21,9 +21,9 @@ FILES		= \
 EXTRA_FILES	= \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \
-  WasmTrap.wasm Wasm1.wasm Wasm2.wasm
+  WasmTrap.wasm Wasm1.wasm Wasm2.wasm Wasm3.wasm
 WASM_EXTRA	= \
-  $(SALSA)/Hacl.Test.Chacha20.wasm # $(CURVE)/Hacl.Test.X25519.wasm
+  $(SALSA)/Hacl.Test.Chacha20.wasm $(CURVE)/Hacl.Test.X25519.wasm
 # One can define NEGATIVE=true for wasm targets that are negative tests
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
@@ -87,7 +87,7 @@ WasmTrap.wasm: NEGATIVE = true
 
 # External WASM targets: recycle the HACL* Makefile!
 HACL_DROP=Prims,Hacl.UInt8,Hacl.UInt16,Hacl.UInt32,Hacl.UInt64,Hacl.UInt128,Hacl.Endianness,Hacl.Cast,Hacl.Spec.*,Spec.*,Seq.*
-$(SALSA)/Hacl.Test.Chacha20.wasm: EXTRA+=-drop $(HACL_DROP)
+$(SALSA)/Hacl.Test.Chacha20.wasm: EXTRA+=-drop $(HACL_DROP) \
   -bundle 'Chacha20=Hacl.Impl.*,Chacha20,Hacl.Lib.*'
 
 .PHONY: $(SALSA)/Hacl.Test.Chacha20.krml
@@ -96,7 +96,7 @@ $(SALSA)/Hacl.Test.Chacha20.krml:
 	[ -e $(subst .krml,.out,$@) ] || ln -sf $(SALSA)/chacha-c $(subst .krml,.out,$@)
 	cp $(subst .krml,.out,$@)/out.krml $@
 
-$(CURVE)/Hacl.Test.X25519.wasm: EXTRA+=-drop $(HACL_DROP)
+$(CURVE)/Hacl.Test.X25519.wasm: EXTRA+=-drop $(HACL_DROP) \
   -bundle 'Curve25519=Hacl.Bignum,Hacl.Bignum.*,Hacl.EC,Hacl.EC.*'
 
 .PHONY: $(CURVE)/Hacl.Test.X25519.krml

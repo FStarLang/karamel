@@ -664,7 +664,7 @@ static inline void store128_be_(uint8_t *b, uint128_t *n) {
 
 #ifndef KRML_NOSTRUCT_PASSING
 
-static inline void print128(unsigned char *where, uint128_t n) {
+static inline void print128(const char *where, uint128_t n) {
   print128_(where, &n);
 }
 
