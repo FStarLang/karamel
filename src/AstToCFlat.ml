@@ -288,41 +288,48 @@ let cflat_any =
 
 
 (* Desugar an array assignment into a series of possibly many assigments (e.g.
- * struct literal), or into a memcopy. [dst] is the base destination pointer,
- * [index] is an index into that buffer, and [ofs] is how many bytes we're into
- * the element *)
+ * struct literal), or into a memcopy. We want to write [e] at address [dst]
+ * corrected by an offset [ofs] in bytes. *)
 let rec write_at (env: env)
   (locals: locals)
   (dst: CF.expr)
-  (index: CF.expr)
   (ofs: int)
   (e: expr): locals * CF.expr list
 =
   let rec write_at locals (ofs, e) =
     match e.typ with
     | TQualified lid ->
+        (* We are assigning something that's not a base type into an array. *)
         let layout = LidMap.find lid env.structs in
         begin match e.node with
         | EFlat fields ->
+            (* It's a literal. *)
             let locals, writes =
               fold (fun locals (fname, e) ->
                 let fname = Option.must fname in
                 let fofs = List.assoc fname layout.fields in
+                (* Recursively write each field of the struct at its offset. *)
                 write_at locals (ofs + fofs, e)
               ) locals fields
             in
             locals, List.flatten writes
         | _ ->
+            (* If it's not a literal, it's got to be an address. Compute the
+             * source, in bytes. *)
             let src = mk_addr env e in
-            let size = byte_size env e.typ in
-            mk_memcpy env locals (mk_add32 dst (mk_add32 index (mk_uint32 ofs))) src (mk_uint32 size)
+            (* The size of the assignee, in bytes. *)
+            let size = mk_uint32 (byte_size env e.typ) in
+            (* Compute the destination, in bytes. *)
+            let dst = mk_add32 dst (mk_uint32 ofs) in
+            mk_memcpy env locals dst src size
         end
     | _ ->
+        (* It's a base type, i.e. something that has an array size. *)
         let s = array_size_of e.typ in
         assert (ofs mod bytes_in s = 0);
         let ofs = ofs / bytes_in s in
         let e = mk_expr_no_locals env e in
-        locals, [ CF.BufWrite (dst, mk_add32 index (mk_uint32 ofs), e, s) ]
+        locals, [ CF.BufWrite (dst, mk_uint32 ofs, e, s) ]
   in
   write_at locals (ofs, e)
 
@@ -407,7 +414,9 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
        * constant, or simple expressions (e.g. [size - 1]). *)
       let v1 = CF.Var (find env v1) in
       let e2 = mk_expr_no_locals env e2 in
-      let locals, assignments = write_at env locals v1 e2 0 e3 in
+      (* The destination is the base pointer + the index * the size of an element. *)
+      let dst = mk_add32 v1 (mk_mul32 e2 (mk_uint32 (cell_size_b env e3.typ))) in
+      let locals, assignments = write_at env locals dst 0 e3 in
       locals, CF.Sequence assignments
 
   | EBufWrite _ ->

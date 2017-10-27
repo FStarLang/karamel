@@ -768,6 +768,30 @@ let mk_func env { args; locals; body; name; ret; _ } =
             `Local64 i
       ) args
     in
+    let custom_debug =
+      if name = "FStar_UInt128_add_mod" then
+        let n_args = List.length args in
+        let fst64 = n_args in
+        let snd64 = n_args + 1 in
+        let read128 arg = 
+          (* Load high *)
+          [ dummy_phrase (W.Ast.GetLocal (mk_var arg)) ] @
+          [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None }) ] @
+          [ dummy_phrase (W.Ast.SetLocal (mk_var fst64)) ] @
+          (* Load low *)
+          [ dummy_phrase (W.Ast.GetLocal (mk_var arg)) ] @
+          [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+          i32_add @ 
+          [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None }) ] @
+          [ dummy_phrase (W.Ast.SetLocal (mk_var snd64)) ]
+        in
+        read128 0 @
+        Debug.mk env [ `String "a.high"; `Local64 fst64; `String "a.low"; `Local64 snd64 ] @ 
+        read128 1 @
+        Debug.mk env [ `String "b.high"; `Local64 fst64; `String "b.low"; `Local64 snd64 ]
+      else
+        []
+    in
     let debug_exit = [ `String "return"; `Decr ] @
       match ret with
       | [ I32 ] -> [ `Peek32 ]
@@ -775,6 +799,7 @@ let mk_func env { args; locals; body; name; ret; _ } =
       | _ -> []
     in
     Debug.mk env debug_enter @
+    custom_debug @
     read_highwater @
     mk_expr env body @
     (match ret with

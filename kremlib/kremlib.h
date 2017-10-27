@@ -572,7 +572,7 @@ static inline uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
 #ifndef KRML_NOUINT128
 typedef unsigned __int128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t;
 
-static inline void print128(unsigned char *where, uint128_t n) {
+static inline void print128(const char *where, uint128_t n) {
   KRML_HOST_PRINTF("%s: [%" PRIu64 ",%" PRIu64 "]\n", where,
                    (uint64_t)(n >> 64), (uint64_t)n);
 }
@@ -638,8 +638,8 @@ static inline uint128_t FStar_UInt128_gte_mask(uint128_t x, uint128_t y) {
 typedef FStar_UInt128_uint128 FStar_UInt128_t_, uint128_t;
 
 /* A series of definitions written using pointers. */
-static inline void print128_(unsigned char *where, uint128_t *n) {
-  KRML_HOST_PRINTF("%s: [%" PRIu64 ",%" PRIu64 "]\n", where, n->high, n->low);
+static inline void print128_(const char *where, uint128_t *n) {
+  KRML_HOST_PRINTF("%s: [0x%08" PRIx64 ",0x%08" PRIx64 "]\n", where, n->high, n->low);
 }
 
 static inline void load128_le_(uint8_t *b, uint128_t *r) {
