@@ -18,19 +18,19 @@
 #include "gcc_compat.h"
 
 #ifdef __GNUC__
-#define inline __inline__
+#  define inline __inline__
 #endif
 
 /* GCC-specific attribute syntax; everyone else gets the standard C inline
  * attribute. */
 #ifdef __GNU_C__
-#ifndef __clang__
-#define force_inline inline __attribute__((always_inline))
+#  ifndef __clang__
+#    define force_inline inline __attribute__((always_inline))
+#  else
+#    define force_inline inline
+#  endif
 #else
-#define force_inline inline
-#endif
-#else
-#define force_inline inline
+#  define force_inline inline
 #endif
 
 /******************************************************************************/
@@ -41,6 +41,9 @@
  * have no way to refer to an uppercase *variable* in F*). */
 extern int exit_success;
 extern int exit_failure;
+
+/* This one allows the user to write C.EXIT_SUCCESS. */
+typedef int exit_code;
 
 void print_string(const char *s);
 void print_bytes(uint8_t *b, uint32_t len);
@@ -75,15 +78,15 @@ typedef const char *Prims_string;
 /* For "bare" targets that do not have a C stdlib, the user might want to use
  * [-add-include '"mydefinitions.h"'] and override these. */
 #ifndef KRML_HOST_PRINTF
-#define KRML_HOST_PRINTF printf
+#  define KRML_HOST_PRINTF printf
 #endif
 
 #ifndef KRML_HOST_EXIT
-#define KRML_HOST_EXIT exit
+#  define KRML_HOST_EXIT exit
 #endif
 
 #ifndef KRML_HOST_MALLOC
-#define KRML_HOST_MALLOC malloc
+#  define KRML_HOST_MALLOC malloc
 #endif
 
 /* In statement position, exiting is easy. */
@@ -139,14 +142,14 @@ typedef const char *Prims_string;
   default : "unknown")
 /* clang-format on */
 
-#define KRML_DEBUG_RETURN(X)                                                   \
-  ({                                                                           \
-    __auto_type _ret = (X);                                                    \
-    KRML_HOST_PRINTF("returning: ");                                           \
-    KRML_HOST_PRINTF(KRML_FORMAT(_ret), KRML_FORMAT_ARG(_ret));                \
-    KRML_HOST_PRINTF(" \n");                                                   \
-    _ret;                                                                      \
-  })
+#  define KRML_DEBUG_RETURN(X)                                                 \
+    ({                                                                         \
+      __auto_type _ret = (X);                                                  \
+      KRML_HOST_PRINTF("returning: ");                                         \
+      KRML_HOST_PRINTF(KRML_FORMAT(_ret), KRML_FORMAT_ARG(_ret));              \
+      KRML_HOST_PRINTF(" \n");                                                 \
+      _ret;                                                                    \
+    })
 #endif
 
 #define FStar_Buffer_eqb(b1, b2, n)                                            \
@@ -212,167 +215,145 @@ typedef const char *Prims_string;
 
 /* ... for Linux */
 #if defined(__linux__) || defined(__CYGWIN__)
-#include <endian.h>
+#  include <endian.h>
 
 /* ... for OSX */
 #elif defined(__APPLE__)
-#include <libkern/OSByteOrder.h>
-#define htole64(x) OSSwapHostToLittleInt64(x)
-#define le64toh(x) OSSwapLittleToHostInt64(x)
-#define htobe64(x) OSSwapHostToBigInt64(x)
-#define be64toh(x) OSSwapBigToHostInt64(x)
+#  include <libkern/OSByteOrder.h>
+#  define htole64(x) OSSwapHostToLittleInt64(x)
+#  define le64toh(x) OSSwapLittleToHostInt64(x)
+#  define htobe64(x) OSSwapHostToBigInt64(x)
+#  define be64toh(x) OSSwapBigToHostInt64(x)
 
-#define htole16(x) OSSwapHostToLittleInt16(x)
-#define le16toh(x) OSSwapLittleToHostInt16(x)
-#define htobe16(x) OSSwapHostToBigInt16(x)
-#define be16toh(x) OSSwapBigToHostInt16(x)
+#  define htole16(x) OSSwapHostToLittleInt16(x)
+#  define le16toh(x) OSSwapLittleToHostInt16(x)
+#  define htobe16(x) OSSwapHostToBigInt16(x)
+#  define be16toh(x) OSSwapBigToHostInt16(x)
 
-#define htole32(x) OSSwapHostToLittleInt32(x)
-#define le32toh(x) OSSwapLittleToHostInt32(x)
-#define htobe32(x) OSSwapHostToBigInt32(x)
-#define be32toh(x) OSSwapBigToHostInt32(x)
+#  define htole32(x) OSSwapHostToLittleInt32(x)
+#  define le32toh(x) OSSwapLittleToHostInt32(x)
+#  define htobe32(x) OSSwapHostToBigInt32(x)
+#  define be32toh(x) OSSwapBigToHostInt32(x)
 
 /* ... for Solaris */
 #elif defined(__sun__)
-#include <sys/byteorder.h>
-#define htole64(x) LE_64(x)
-#define le64toh(x) LE_IN64(x)
-#define htobe64(x) BE_64(x)
-#define be64toh(x) BE_IN64(x)
+#  include <sys/byteorder.h>
+#  define htole64(x) LE_64(x)
+#  define le64toh(x) LE_IN64(x)
+#  define htobe64(x) BE_64(x)
+#  define be64toh(x) BE_IN64(x)
 
-#define htole16(x) LE_16(x)
-#define le16toh(x) LE_IN16(x)
-#define htobe16(x) BE_16(x)
-#define be16toh(x) BE_IN16(x)
+#  define htole16(x) LE_16(x)
+#  define le16toh(x) LE_IN16(x)
+#  define htobe16(x) BE_16(x)
+#  define be16toh(x) BE_IN16(x)
 
-#define htole32(x) LE_32(x)
-#define le32toh(x) LE_IN32(x)
-#define htobe32(x) BE_32(x)
-#define be32toh(x) BE_IN32(x)
+#  define htole32(x) LE_32(x)
+#  define le32toh(x) LE_IN32(x)
+#  define htobe32(x) BE_32(x)
+#  define be32toh(x) BE_IN32(x)
 
 /* ... for the BSDs */
 #elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__)
-#include <sys/endian.h>
+#  include <sys/endian.h>
 #elif defined(__OpenBSD__)
-#include <endian.h>
+#  include <endian.h>
 
-/* ... for Windows */
-#elif (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) &&               \
-    !defined(__WINDOWS__)
-#include <windows.h>
+/* ... for Windows (MSVC)... not targeting XBOX 360! */
+#elif defined(_MSC_VER)
 
-#if BYTE_ORDER == LITTLE_ENDIAN
+#  include <stdlib.h>
+#  define htobe16(x) _byteswap_ushort(x)
+#  define htole16(x) (x)
+#  define be16toh(x) _byteswap_ushort(x)
+#  define le16toh(x) (x)
 
-#if defined(_MSC_VER)
-#include <stdlib.h>
-#define htobe16(x) _byteswap_ushort(x)
-#define htole16(x) (x)
-#define be16toh(x) _byteswap_ushort(x)
-#define le16toh(x) (x)
+#  define htobe32(x) _byteswap_ulong(x)
+#  define htole32(x) (x)
+#  define be32toh(x) _byteswap_ulong(x)
+#  define le32toh(x) (x)
 
-#define htobe32(x) _byteswap_ulong(x)
-#define htole32(x) (x)
-#define be32toh(x) _byteswap_ulong(x)
-#define le32toh(x) (x)
+#  define htobe64(x) _byteswap_uint64(x)
+#  define htole64(x) (x)
+#  define be64toh(x) _byteswap_uint64(x)
+#  define le64toh(x) (x)
 
-#define htobe64(x) _byteswap_uint64(x)
-#define htole64(x) (x)
-#define be64toh(x) _byteswap_uint64(x)
-#define le64toh(x) (x)
+/* ... for Windows (GCC-like, e.g. mingw or clang) */
+#elif (defined(_WIN32) || defined(_WIN64)) &&                                  \
+    (defined(__GNUC__) || defined(__clang__))
 
-#elif defined(__GNUC__) || defined(__clang__)
+#  define htobe16(x) __builtin_bswap16(x)
+#  define htole16(x) (x)
+#  define be16toh(x) __builtin_bswap16(x)
+#  define le16toh(x) (x)
 
-#define htobe16(x) __builtin_bswap16(x)
-#define htole16(x) (x)
-#define be16toh(x) __builtin_bswap16(x)
-#define le16toh(x) (x)
+#  define htobe32(x) __builtin_bswap32(x)
+#  define htole32(x) (x)
+#  define be32toh(x) __builtin_bswap32(x)
+#  define le32toh(x) (x)
 
-#define htobe32(x) __builtin_bswap32(x)
-#define htole32(x) (x)
-#define be32toh(x) __builtin_bswap32(x)
-#define le32toh(x) (x)
+#  define htobe64(x) __builtin_bswap64(x)
+#  define htole64(x) (x)
+#  define be64toh(x) __builtin_bswap64(x)
+#  define le64toh(x) (x)
 
-#define htobe64(x) __builtin_bswap64(x)
-#define htole64(x) (x)
-#define be64toh(x) __builtin_bswap64(x)
-#define le64toh(x) (x)
-#endif
+/* ... generic big-endian fallback code */
+#elif defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 
-#elif BYTE_ORDER == BIG_ENDIAN
-
-/* that would be xbox 360 */
-#define htobe16(x) (x)
-#define htole16(x) __builtin_bswap16(x)
-#define be16toh(x) (x)
-#define le16toh(x) __builtin_bswap16(x)
-
-#define htobe32(x) (x)
-#define htole32(x) __builtin_bswap32(x)
-#define be32toh(x) (x)
-#define le32toh(x) __builtin_bswap32(x)
-
-#define htobe64(x) (x)
-#define htole64(x) __builtin_bswap64(x)
-#define be64toh(x) (x)
-#define le64toh(x) __builtin_bswap64(x)
-
-#endif
-
-/* ... generic fallback code */
-#else
-
-#if BYTE_ORDER == BIG_ENDIAN
-/* Byte swapping code inspired by:
+/* byte swapping code inspired by:
  * https://github.com/rweather/arduinolibs/blob/master/libraries/Crypto/utility/EndianUtil.h
  * */
 
-#define htobe32(x) (x)
-#define be32toh(x) (x)
-#define htole32(x)                                                             \
-  (__extension__({                                                             \
-    uint32_t _temp = (x);                                                      \
-    ((_temp >> 24) & 0x000000FF) | ((_temp >> 8) & 0x0000FF00) |               \
-        ((_temp << 8) & 0x00FF0000) | ((_temp << 24) & 0xFF000000);            \
-  }))
-#define le32toh(x) (htole32((x)))
+#  define htobe32(x) (x)
+#  define be32toh(x) (x)
+#  define htole32(x)                                                           \
+    (__extension__({                                                           \
+      uint32_t _temp = (x);                                                    \
+      ((_temp >> 24) & 0x000000FF) | ((_temp >> 8) & 0x0000FF00) |             \
+          ((_temp << 8) & 0x00FF0000) | ((_temp << 24) & 0xFF000000);          \
+    }))
+#  define le32toh(x) (htole32((x)))
 
-#define htobe64(x) (x)
-#define be64toh(x) (x)
-#define htole64(x)                                                             \
-  (__extension__({                                                             \
-    uint64_t __temp = (x);                                                     \
-    uint32_t __low = htobe32((uint32_t)__temp);                                \
-    uint32_t __high = htobe32((uint32_t)(__temp >> 32));                       \
-    (((uint64_t)__low) << 32) | __high;                                        \
-  }))
-#define le64toh(x) (htole64((x)))
+#  define htobe64(x) (x)
+#  define be64toh(x) (x)
+#  define htole64(x)                                                           \
+    (__extension__({                                                           \
+      uint64_t __temp = (x);                                                   \
+      uint32_t __low = htobe32((uint32_t)__temp);                              \
+      uint32_t __high = htobe32((uint32_t)(__temp >> 32));                     \
+      (((uint64_t)__low) << 32) | __high;                                      \
+    }))
+#  define le64toh(x) (htole64((x)))
 
+/* ... generic little-endian fallback code */
+#elif defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+
+#  define htole32(x) (x)
+#  define le32toh(x) (x)
+#  define htobe32(x)                                                           \
+    (__extension__({                                                           \
+      uint32_t _temp = (x);                                                    \
+      ((_temp >> 24) & 0x000000FF) | ((_temp >> 8) & 0x0000FF00) |             \
+          ((_temp << 8) & 0x00FF0000) | ((_temp << 24) & 0xFF000000);          \
+    }))
+#  define be32toh(x) (htobe32((x)))
+
+#  define htole64(x) (x)
+#  define le64toh(x) (x)
+#  define htobe64(x)                                                           \
+    (__extension__({                                                           \
+      uint64_t __temp = (x);                                                   \
+      uint32_t __low = htobe32((uint32_t)__temp);                              \
+      uint32_t __high = htobe32((uint32_t)(__temp >> 32));                     \
+      (((uint64_t)__low) << 32) | __high;                                      \
+    }))
+#  define be64toh(x) (htobe64((x)))
+
+/* ... couldn't determine endian-ness of the target platform */
 #else
+#  error "Please define __BYTE_ORDER__!"
 
-#define htole32(x) (x)
-#define le32toh(x) (x)
-#define htobe32(x)                                                             \
-  (__extension__({                                                             \
-    uint32_t _temp = (x);                                                      \
-    ((_temp >> 24) & 0x000000FF) | ((_temp >> 8) & 0x0000FF00) |               \
-        ((_temp << 8) & 0x00FF0000) | ((_temp << 24) & 0xFF000000);            \
-  }))
-#define be32toh(x) (htobe32((x)))
-
-#define htole64(x) (x)
-#define le64toh(x) (x)
-#define htobe64(x)                                                             \
-  (__extension__({                                                             \
-    uint64_t __temp = (x);                                                     \
-    uint32_t __low = htobe32((uint32_t)__temp);                                \
-    uint32_t __high = htobe32((uint32_t)(__temp >> 32));                       \
-    (((uint64_t)__low) << 32) | __high;                                        \
-  }))
-#define be64toh(x) (htobe64((x)))
-
-#endif
-
-#endif
+#endif /* defined(__linux__) || ... */
 
 /* Loads and stores. These avoid undefined behavior due to unaligned memory
  * accesses, via memcpy. */
@@ -443,7 +424,7 @@ inline static bool Prims_op_LessThan(int32_t x, int32_t y) { return x < y; }
                        __FILE__, __LINE__);                                    \
       KRML_HOST_EXIT(252);                                                     \
     }                                                                          \
-    return __ret;                                                              \
+    return (int32_t)__ret;                                                     \
   } while (0)
 
 inline static int32_t Prims_pow2(int32_t x) {
@@ -599,21 +580,21 @@ static inline void store128_be(uint8_t *b, uint128_t n) {
   store64_be(b + 8, (uint64_t)n);
 }
 
-#define FStar_UInt128_add(x, y) ((x) + (y))
-#define FStar_UInt128_mul(x, y) ((x) * (y))
-#define FStar_UInt128_add_mod(x, y) ((x) + (y))
-#define FStar_UInt128_sub(x, y) ((x) - (y))
-#define FStar_UInt128_sub_mod(x, y) ((x) - (y))
-#define FStar_UInt128_logand(x, y) ((x) & (y))
-#define FStar_UInt128_logor(x, y) ((x) | (y))
-#define FStar_UInt128_logxor(x, y) ((x) ^ (y))
-#define FStar_UInt128_lognot(x) (~(x))
-#define FStar_UInt128_shift_left(x, y) ((x) << (y))
-#define FStar_UInt128_shift_right(x, y) ((x) >> (y))
-#define FStar_UInt128_uint64_to_uint128(x) ((uint128_t)(x))
-#define FStar_UInt128_uint128_to_uint64(x) ((uint64_t)(x))
-#define FStar_UInt128_mul_wide(x, y) ((uint128_t)(x) * (y))
-#define FStar_UInt128_op_Hat_Hat(x, y) ((x) ^ (y))
+#  define FStar_UInt128_add(x, y) ((x) + (y))
+#  define FStar_UInt128_mul(x, y) ((x) * (y))
+#  define FStar_UInt128_add_mod(x, y) ((x) + (y))
+#  define FStar_UInt128_sub(x, y) ((x) - (y))
+#  define FStar_UInt128_sub_mod(x, y) ((x) - (y))
+#  define FStar_UInt128_logand(x, y) ((x) & (y))
+#  define FStar_UInt128_logor(x, y) ((x) | (y))
+#  define FStar_UInt128_logxor(x, y) ((x) ^ (y))
+#  define FStar_UInt128_lognot(x) (~(x))
+#  define FStar_UInt128_shift_left(x, y) ((x) << (y))
+#  define FStar_UInt128_shift_right(x, y) ((x) >> (y))
+#  define FStar_UInt128_uint64_to_uint128(x) ((uint128_t)(x))
+#  define FStar_UInt128_uint128_to_uint64(x) ((uint64_t)(x))
+#  define FStar_UInt128_mul_wide(x, y) ((uint128_t)(x) * (y))
+#  define FStar_UInt128_op_Hat_Hat(x, y) ((x) ^ (y))
 
 static inline uint128_t FStar_UInt128_eq_mask(uint128_t x, uint128_t y) {
   uint64_t mask =
@@ -630,10 +611,10 @@ static inline uint128_t FStar_UInt128_gte_mask(uint128_t x, uint128_t y) {
   return ((uint128_t)mask) << 64 | mask;
 }
 
-#else /* !defined(KRML_UINT128) */
+#  else /* !defined(KRML_NOUINT128) */
 
-/* This is a bad circular dependency... should fix it properly. */
-#include "FStar.h"
+  /* This is a bad circular dependency... should fix it properly. */
+#    include "FStar.h"
 
 typedef FStar_UInt128_uint128 FStar_UInt128_t_, uint128_t;
 
@@ -662,7 +643,7 @@ static inline void store128_be_(uint8_t *b, uint128_t *n) {
   store64_be(b + 8, n->low);
 }
 
-#ifndef KRML_NOSTRUCT_PASSING
+#    ifndef KRML_NOSTRUCT_PASSING
 
 static inline void print128(unsigned char *where, uint128_t n) {
   print128_(where, &n);
@@ -684,14 +665,14 @@ static inline uint128_t load128_be(uint8_t *b) {
 
 static inline void store128_be(uint8_t *b, uint128_t n) { store128_be_(b, &n); }
 
-#else /* !defined(KRML_STRUCT_PASSING) */
+#    else /* !defined(KRML_STRUCT_PASSING) */
 
-#define print128 print128_
-#define load128_le load128_le_
-#define store128_le store128_le_
-#define load128_be load128_be_
-#define store128_be store128_be_
+#      define print128 print128_
+#      define load128_le load128_le_
+#      define store128_le store128_le_
+#      define load128_be load128_be_
+#      define store128_be store128_be_
 
-#endif /* KRML_STRUCT_PASSING */
-#endif /* KRML_UINT128 */
-#endif /* __KREMLIB_H */
+#    endif /* KRML_STRUCT_PASSING */
+#  endif   /* KRML_UINT128 */
+#endif     /* __KREMLIB_H */

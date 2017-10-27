@@ -3,6 +3,7 @@
 
 open Warnings
 
+(* Abstracting over - (dash) for msvc. vs. gcc-like. *)
 module Dash = struct
   let i dir =
     if !Options.cc = "msvc" then
