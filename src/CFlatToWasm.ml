@@ -65,8 +65,10 @@ let rec find_func env name =
 let primitives = [
   "load32_le";
   "load64_le";
+  "load128_le";
   "store32_le";
-  "store64_le"
+  "store64_le";
+  "store128_le"
 ]
 
 let is_primitive x =
@@ -621,6 +623,32 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallFunc ("load64_le", [ e ]) ->
       mk_expr env e @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })]
+
+  | CallFunc ("store128_le", [ dst; src ])
+  | CallFunc ("load128_le", [ src; dst ]) ->
+      let fst64 = env.n_args + 2 in
+      let snd64 = fst64 + 1 in
+      (* Using the two scratch locals: 0 = src, 1 = dst *)
+      mk_expr env src @
+      [ dummy_phrase (W.Ast.SetLocal (mk_var fst64)) ] @
+      mk_expr env dst @
+      [ dummy_phrase (W.Ast.SetLocal (mk_var snd64)) ] @
+      (* Push dst and src on the stack; load src; store. This is low. *)
+      [ dummy_phrase (W.Ast.GetLocal (mk_var snd64)) ] @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var fst64)) ] @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      (* Same thing with +8b offset. This is high. *)
+      [ dummy_phrase (W.Ast.GetLocal (mk_var snd64)) ] @
+      [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+      i32_add @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var fst64)) ] @
+      [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+      i32_add @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      (* This is just a glorified memcpy. *)
+      mk_unit
 
   | CallFunc ("store32_le", [ e1; e2 ]) ->
       mk_expr env e1 @
