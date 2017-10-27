@@ -92,7 +92,7 @@ $(SALSA)/Hacl.Test.Chacha20.wasm: EXTRA+=-drop $(HACL_DROP)
 
 .PHONY: $(SALSA)/Hacl.Test.Chacha20.krml
 $(SALSA)/Hacl.Test.Chacha20.krml:
-	KREMLIN_ARGS=-wasm $(MAKE) -C $(SALSA) extract-c
+	KREMLIN_ARGS=-wasm $(MAKE) -C $(SALSA) chacha-c/out.krml
 	[ -e $(subst .krml,.out,$@) ] || ln -sf $(SALSA)/chacha-c $(subst .krml,.out,$@)
 	cp $(subst .krml,.out,$@)/out.krml $@
 
