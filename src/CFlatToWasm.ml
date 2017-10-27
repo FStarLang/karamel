@@ -47,7 +47,7 @@ let find_global env name =
  * removed... *)
 let builtins = [
   "FStar_UInt64_eq_mask", "WasmSupport_eq_mask64";
-  "FStar_UInt64_gte_mask", "WasmSupport_gte_mask64"
+  "FStar_UInt64_gte_mask", "WasmSupport_gte_mask64";
 ]
 
 let name_of_string = W.Utf8.decode
@@ -64,10 +64,14 @@ let rec find_func env name =
 
 let primitives = [
   "load32_le";
+  "load32_be";
   "load64_le";
+  "load64_be";
   "load128_le";
   "store32_le";
+  "store32_be";
   "store64_le";
+  "store64_be";
   "store128_le"
 ]
 
@@ -620,9 +624,15 @@ and mk_expr env (e: expr): W.Ast.instr list =
       mk_expr env e @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = None })]
 
+  | CallFunc ("load32_be", [ e ]) ->
+      mk_expr env (CallFunc ("WasmSupport_betole32", [ CallFunc ("load32_le", [ e ])]))
+
   | CallFunc ("load64_le", [ e ]) ->
       mk_expr env e @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })]
+
+  | CallFunc ("load64_be", [ e ]) ->
+      mk_expr env (CallFunc ("WasmSupport_betole64", [ CallFunc ("load64_le", [ e ])]))
 
   | CallFunc ("store128_le", [ dst; src ])
   | CallFunc ("load128_le", [ src; dst ]) ->
@@ -656,11 +666,17 @@ and mk_expr env (e: expr): W.Ast.instr list =
       [ dummy_phrase W.Ast.(Store { ty = mk_type I32; align = 0; offset = 0l; sz = None })] @
       mk_unit
 
+  | CallFunc ("store32_be", [ e1; e2 ]) ->
+      mk_expr env (CallFunc ("store32_le", [ e1; CallFunc ("WasmSupport_betole32", [ e2 ])]))
+
   | CallFunc ("store64_le", [ e1; e2 ]) ->
       mk_expr env e1 @
       mk_expr env e2 @
       [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
       mk_unit
+
+  | CallFunc ("store64_be", [ e1; e2 ]) ->
+      mk_expr env (CallFunc ("store64_le", [ e1; CallFunc ("WasmSupport_betole64", [ e2 ])]))
 
   | CallFunc (name, es) ->
       KList.map_flatten (mk_expr env) es @

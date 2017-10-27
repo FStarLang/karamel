@@ -4,9 +4,9 @@
 var my_print;
 
 function kremlin_start () {
-  my_print = msg =>
+  my_print = (...msg) =>
     document.getElementById("terminal").appendChild(
-      document.createTextNode(msg+"\n"));
+      document.createTextNode(msg.join(" ")+"\n"));
 
   if (!("WebAssembly" in this))
     my_print("Error: WebAssembly not enabled. Use Chrome Canary?");

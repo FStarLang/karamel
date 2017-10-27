@@ -75,11 +75,8 @@ hello-system/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
 %.wasm: %.krml $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $(JSFILES) -no-prefix $(notdir $*) $<
 	cd $*.out && \
-	  if ! $(NEGATIVE); then \
-	    $(shell which d8) --allow-natives-syntax main.js; \
-	  else \
-	    ! $(shell which d8) --allow-natives-syntax main.js; \
-	  fi && \
+	  if ! $(NEGATIVE); then $(shell which d8) main.js; \
+	  else ! $(shell which d8) main.js; fi && \
 	  cd .. && cp $*.out/$(subst .,_,$(notdir $(basename $@))).wasm $@
 	# cd $*.out && ch -Wasm main.js
 
@@ -90,8 +87,6 @@ WasmTrap.wasm: NEGATIVE = true
 
 # External WASM targets: recycle the HACL* Makefile!
 HACL_DROP=Prims,Hacl.UInt8,Hacl.UInt16,Hacl.UInt32,Hacl.UInt64,Hacl.UInt128,Hacl.Endianness,Hacl.Cast,Hacl.Spec.*,Spec.*,Seq.*
-$(SALSA)/Hacl.Test.Chacha20.wasm: EXTRA+=-drop $(HACL_DROP) \
-  -bundle 'Chacha20=Hacl.Impl.*,Chacha20,Hacl.Lib.*'
 
 .PHONY: $(SALSA)/Hacl.Test.Chacha20.krml
 $(SALSA)/Hacl.Test.Chacha20.krml:
@@ -99,8 +94,8 @@ $(SALSA)/Hacl.Test.Chacha20.krml:
 	[ -e $(subst .krml,.out,$@) ] || ln -sf $(SALSA)/chacha-c $(subst .krml,.out,$@)
 	cp $(subst .krml,.out,$@)/out.krml $@
 
-$(CURVE)/Hacl.Test.X25519.wasm: EXTRA+=-drop $(HACL_DROP) \
-  -bundle 'Curve25519=Hacl.Bignum,Hacl.Bignum.*,Hacl.EC,Hacl.EC.*'
+$(SALSA)/Hacl.Test.Chacha20.wasm: EXTRA+=-drop $(HACL_DROP) \
+  -bundle 'Chacha20=Hacl.Impl.*,Chacha20,Hacl.Lib.*'
 
 .PHONY: $(CURVE)/Hacl.Test.X25519.krml
 $(CURVE)/Hacl.Test.X25519.krml:
@@ -108,15 +103,18 @@ $(CURVE)/Hacl.Test.X25519.krml:
 	[ -e $(subst .krml,.out,$@) ] || ln -sf $(CURVE)/x25519-c $(subst .krml,.out,$@)
 	cp $(subst .krml,.out,$@)/out.krml $@
 
-$(POLY)/Hacl.Test.Poly1305_64.wasm: EXTRA+=-drop $(HACL_DROP) \
-  -bundle 'Poly1305_64=Hacl.Bignum.*,Hacl.Impl.*,Hacl.Standalone.*,Poly1305_64' \
-  -drop AEAD_Poly1305_64
+$(CURVE)/Hacl.Test.X25519.wasm: EXTRA+=-drop $(HACL_DROP) \
+  -bundle 'Curve25519=Hacl.Bignum,Hacl.Bignum.*,Hacl.EC,Hacl.EC.*'
 
 .PHONY: $(POLY)/Hacl.Test.Poly1305_64.krml
 $(POLY)/Hacl.Test.Poly1305_64.krml:
 	KREMLIN_ARGS=-wasm $(MAKE) -C $(POLY) poly-c/out.krml
 	[ -e $(subst .krml,.out,$@) ] || ln -sf $(POLY)/poly-c $(subst .krml,.out,$@)
 	cp $(subst .krml,.out,$@)/out.krml $@
+
+$(POLY)/Hacl.Test.Poly1305_64.wasm: EXTRA+=-drop $(HACL_DROP) \
+  -bundle 'Poly1305_64=Hacl.Bignum.*,Hacl.Impl.*,Hacl.Standalone.*,Poly1305_64' \
+  -drop AEAD_Poly1305_64
 
 clean:
 	rm -rf *.exe *.dSYM *.out *.wasm *.krml
