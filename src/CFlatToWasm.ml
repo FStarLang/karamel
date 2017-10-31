@@ -620,6 +620,9 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallOp (o, [ e1; e2 ]) ->
       mk_callop2 env o e1 e2
 
+  | CallFunc ("C_Nullity_null", [ _ ]) ->
+      [ dummy_phrase (W.Ast.Const (mk_int32 0l)) ]
+
   | CallFunc ("load32_le", [ e ]) ->
       mk_expr env e @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = None })]
@@ -634,25 +637,53 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallFunc ("load64_be", [ e ]) ->
       mk_expr env (CallFunc ("WasmSupport_betole64", [ CallFunc ("load64_le", [ e ])]))
 
+  | CallFunc ("store128_be", [ dst; src ])
+  | CallFunc ("load128_be", [ src; dst ]) ->
+      let local_src = env.n_args + 2 in
+      let local_dst = local_src + 1 in
+      (* Using the two 32-bit scratch locals for the two addresses. *)
+      mk_expr env src @
+      [ dummy_phrase (W.Ast.SetLocal (mk_var local_src)) ] @
+      mk_expr env dst @
+      [ dummy_phrase (W.Ast.SetLocal (mk_var local_dst)) ] @
+      (* Push dst and src on the stack; load src; store. This is low. *)
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_betole64"))) ] @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      (* Same thing with +8b offset. This is high. *)
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
+      i32_add @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
+      [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+      i32_add @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_betole64"))) ] @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      (* This is just a glorified memcpy. *)
+      mk_unit
+
   | CallFunc ("store128_le", [ dst; src ])
   | CallFunc ("load128_le", [ src; dst ]) ->
-      let fst64 = env.n_args + 2 in
-      let snd64 = fst64 + 1 in
-      (* Using the two scratch locals: 0 = src, 1 = dst *)
+      let local_src = env.n_args + 2 in
+      let local_dst = local_src + 1 in
+      (* Using the two 32-bit scratch locals for the two addresses. *)
       mk_expr env src @
-      [ dummy_phrase (W.Ast.SetLocal (mk_var fst64)) ] @
+      [ dummy_phrase (W.Ast.SetLocal (mk_var local_src)) ] @
       mk_expr env dst @
-      [ dummy_phrase (W.Ast.SetLocal (mk_var snd64)) ] @
+      [ dummy_phrase (W.Ast.SetLocal (mk_var local_dst)) ] @
       (* Push dst and src on the stack; load src; store. This is low. *)
-      [ dummy_phrase (W.Ast.GetLocal (mk_var snd64)) ] @
-      [ dummy_phrase (W.Ast.GetLocal (mk_var fst64)) ] @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
       [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
       (* Same thing with +8b offset. This is high. *)
-      [ dummy_phrase (W.Ast.GetLocal (mk_var snd64)) ] @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
       [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
       i32_add @
-      [ dummy_phrase (W.Ast.GetLocal (mk_var fst64)) ] @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
       [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
       i32_add @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @

@@ -4,6 +4,7 @@ READLINK	= $(shell which greadlink >/dev/null 2>&1 && echo greadlink || echo rea
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 SALSA		= $(HACL_HOME)/code/salsa-family
 CURVE		= $(HACL_HOME)/code/curve25519
+ED		= $(HACL_HOME)/code/ed25519
 POLY		= $(HACL_HOME)/code/poly1305
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 TEST_OPTS	= -add-include '"testlib.h"' -I . ../kremlib/testlib.c -warn-error @4
@@ -26,7 +27,7 @@ WASM_FILES	= \
   WasmTrap.wasm Wasm1.wasm Wasm2.wasm Wasm3.wasm
 WASM_EXTRA	= \
   $(SALSA)/Hacl.Test.Chacha20.wasm $(CURVE)/Hacl.Test.X25519.wasm \
-  $(POLY)/Hacl.Test.Poly1305_64.wasm
+  $(POLY)/Hacl.Test.Poly1305_64.wasm #$(ED)/Hacl.Test.Ed25519.wasm
 # One can define NEGATIVE=true for wasm targets that are negative tests
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
@@ -115,6 +116,15 @@ $(POLY)/Hacl.Test.Poly1305_64.krml:
 $(POLY)/Hacl.Test.Poly1305_64.wasm: EXTRA+=-drop $(HACL_DROP) \
   -bundle 'Poly1305_64=Hacl.Bignum.*,Hacl.Impl.*,Hacl.Standalone.*,Poly1305_64' \
   -drop AEAD_Poly1305_64
+
+.PHONY: $(ED)/Hacl.Test.Ed25519.krml
+$(ED)/Hacl.Test.Ed25519.krml:
+	KREMLIN_ARGS=-wasm $(MAKE) -C $(ED) ed25519-c/out.krml
+	[ -e $(subst .krml,.out,$@) ] || ln -sf $(ED)/ed25519-c $(subst .krml,.out,$@)
+	cp $(subst .krml,.out,$@)/out.krml $@
+
+$(ED)/Hacl.Test.Ed25519.wasm: EXTRA+=-drop $(HACL_DROP) \
+  -bundle 'Ed25519=Ed25519,Hacl.EC,Hacl.EC.*,Hacl.Impl.*,Hacl.Lib.*,Hacl.Bignum.*,Hacl.Bignum25519,Hacl.Bignum,Hacl.Spec.*,SHA2_512,Hacl.Hash.*' \
 
 clean:
 	rm -rf *.exe *.dSYM *.out *.wasm *.krml web
