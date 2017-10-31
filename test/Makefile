@@ -117,4 +117,12 @@ $(POLY)/Hacl.Test.Poly1305_64.wasm: EXTRA+=-drop $(HACL_DROP) \
   -drop AEAD_Poly1305_64
 
 clean:
-	rm -rf *.exe *.dSYM *.out *.wasm *.krml
+	rm -rf *.exe *.dSYM *.out *.wasm *.krml web
+
+web: wasm
+	mkdir -p $@
+	echo "<h1>WHACL* -- Web HACL*</h1><ul>" > $@/index.html
+	for a in $(SALSA)/chacha-c $(CURVE)/x25519-c $(POLY)/poly-c; do \
+	  cp -R $$a web; \
+	  echo "<li><a href=\"$$(basename $$a)/main.html\">$$(basename $$a)</a>" >> $@/index.html; \
+	done
