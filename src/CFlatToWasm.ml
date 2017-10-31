@@ -649,13 +649,13 @@ and mk_expr env (e: expr): W.Ast.instr list =
       (* Push dst and src on the stack; load src; store. This is low. *)
       [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
       [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+      i32_add @
       [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
       [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_betole64"))) ] @
       [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
       (* Same thing with +8b offset. This is high. *)
       [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
-      i32_add @
       [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
       [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
       i32_add @
