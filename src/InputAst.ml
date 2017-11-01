@@ -139,7 +139,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 24
+let current_version: version = 26
 
 type file = string * program
   [@@deriving yojson]
