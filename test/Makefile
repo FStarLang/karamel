@@ -132,7 +132,7 @@ clean:
 web: wasm
 	mkdir -p $@
 	echo "<h1>WHACL* -- Web HACL*</h1><ul>" > $@/index.html
-	for a in $(SALSA)/chacha-c $(CURVE)/x25519-c $(POLY)/poly-c; do \
+	for a in $(SALSA)/chacha-c $(CURVE)/x25519-c $(POLY)/poly-c $(ED)/ed25519-c; do \
 	  cp -R $$a web; \
 	  echo "<li><a href=\"$$(basename $$a)/main.html\">$$(basename $$a)</a>" >> $@/index.html; \
 	done
