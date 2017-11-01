@@ -36,7 +36,7 @@ BROKEN		= \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm HigherOrder.exe
 
 all: standalone extra
-wasm: wasm-standalone wasm-extra
+wasm: wasm-standalone # wasm-extra
 
 # The standalone tests don't need a source checkout of F* to run
 standalone: $(FILES) $(subst .exe,.krml,$(FILES))
