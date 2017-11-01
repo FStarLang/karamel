@@ -37,6 +37,7 @@ where e1: t1 and e2: t2, try:
 (** Environments ------------------------------------------------------------ *)
 
 exception UnboundLid of lident
+exception Hacking
 
 module M = Map.Make(struct
   type t = lident
@@ -101,7 +102,7 @@ let populate_env files =
   List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
-      | DType (lid, _, _, typ) ->
+      | DType (lid, _, _, typ, _) ->
           let env = match typ with
           | Enum tags ->
               List.fold_left (fun env tag ->
@@ -119,6 +120,7 @@ let populate_env files =
           { env with globals = M.add lid t env.globals }
       | DExternal (_, lid, typ) ->
           { env with globals = M.add lid typ env.globals }
+      | DTypeMutual _ -> assert false
     ) env decls
   ) empty files
 
@@ -220,7 +222,7 @@ and check_decl env d =
       let env = locate env (InTop name) in
       check env t body
   | DExternal _
-  | DType _ ->
+  | DType _ | DTypeMutual _ ->
       (* Barring any parameterized types, there's is nothing to check here
        * really. *)
       ()
@@ -243,7 +245,7 @@ and check' env t e =
   let c t' = check_subtype env t' t in
   match e.node with
   | ETApp _ ->
-      assert false
+      type_error env "This is not a function:\n%a" pexpr e
 
   | EBound _
   | EOpen _
@@ -402,7 +404,7 @@ and check' env t e =
               type_error env "Union expected, i.e. exactly one provided field";
           end
       | _ ->
-          type_error env "Not a record %a" ptyp t
+        type_error env "Not a record %a, %a" ptyp t pexpr e
       end
 
   | ESwitch (e, branches) ->
@@ -469,7 +471,8 @@ and best_buffer_type t1 e2 =
 and infer' env e =
   match e.node with
   | ETApp _ ->
-      assert false
+      type_error env "Found an unexpected type application:\n%a" pexpr e;
+      (* assert false *)
 
   | EBound i ->
       begin try

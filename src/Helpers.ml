@@ -24,8 +24,8 @@ class ignore_everything = object
   method dglobal () flags name typ expr =
     DGlobal (flags, name, typ, expr)
 
-  method dtype () name flags n t =
-    DType (name, flags, n, t)
+  method dtype () name flags n t fwd_decl =
+    DType (name, flags, n, t, fwd_decl)
 end
 
 (** For each declaration in [files], call [f map decl], where [map] is the map

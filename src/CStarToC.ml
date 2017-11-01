@@ -650,9 +650,13 @@ let mk_files files =
 
 let mk_stub_or_function (d: decl): C.declaration_or_function option =
   match d with
-  | Type (name, t) ->
-      let spec, decl = mk_spec_and_declarator_t name t in
-      Some (Decl ([], (spec, Some Typedef, [ decl, None ])))
+  | Type (name, Struct(fs), true) ->
+    let fields = mk_fields None fs in
+     Some (Decl ([], (C.Struct (Some name, fields), None, [])))
+
+  | Type (name, t, _) ->
+    let spec, decl = mk_spec_and_declarator_t name t in
+    Some (Decl ([], (spec, Some Typedef, [ decl, None ])))
 
   | Function (cc, flags, return_type, name, parameters, _) ->
       if List.exists ((=) Private) flags then
@@ -684,8 +688,17 @@ let mk_stub_or_function (d: decl): C.declaration_or_function option =
         let spec, decl = mk_spec_and_declarator name t in
         Some (Decl ([], (spec, Some Extern, [ decl, None ])))
 
+let mk_fwd_decl (d: decl): (C.declaration_or_function list) option  =
+match d with
+| Type (name, _, true) ->
+    Some ([
+        Decl([], (C.Struct(Some name, None), None, []));
+        Decl([], (C.Struct(Some name, None), Some Typedef, [(Ident(name), None)]))
+    ])
+| _ -> None
 
 let mk_header decls =
+  (List.flatten (KList.filter_map mk_fwd_decl decls)) @
   KList.filter_map mk_stub_or_function decls
 
 let mk_static (d: C.declaration_or_function) =

@@ -27,6 +27,8 @@ and decl =
   (* Assumed things that the type-checker of KreMLin needs to be aware of *)
   | DExternal of (calling_convention option * lident * typ)
   | DTypeVariant of (lident * flag list * int * branches_t)
+  | DTypeMutual of (decl list)
+  | DFunctionMutual of (decl list)
 
 and fields_t =
   (ident * (typ * bool)) list

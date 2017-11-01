@@ -37,6 +37,9 @@ let rec filter_mask mask l =
 let map_flatten f l =
   List.flatten (List.map f l)
 
+let flatten_filter_map f l =
+  List.flatten (filter_map f l)
+
 let fold_lefti f init l =
   let rec fold_lefti i acc = function
     | hd :: tl ->
@@ -118,3 +121,13 @@ let one l =
   match l with
   | [ x ] -> x
   | _ -> invalid_arg ("one: argument is of length " ^ string_of_int (List.length l))
+
+let rec traverse_opt (f : 'a -> 'b option) (xs : 'a list) : ('b list) option =
+  match xs with
+  | [] -> Some []
+  | (o :: os) ->
+      match traverse_opt f os with
+      | None -> None
+      | Some os' -> match f o with
+          | None -> None
+          | Some o' -> Some (o' :: os')

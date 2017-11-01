@@ -292,8 +292,11 @@ let monomorphize files =
                 in
                 EQualified (Gen.register_def lid ts name def)
           end
+      (* If I understand this code correctly, we should ignore type applications to operators since they are assumed
+         to be primtive C operators at this point. *)
       | EOp (_, _) ->
-         (self#visit env e).node
+          (* KPrint.bprintf "%a operator in type application\n" pexpr e; *)
+          (self#visit env e).node
       | _ ->
           KPrint.bprintf "%a is not an lid in the type application\n" pexpr e;
           (self#visit env e).node
@@ -444,7 +447,7 @@ let inline_function_frames files (must_inline, must_disappear) =
 
 let inline_type_abbrevs files =
   let map = Helpers.build_map files (fun map -> function
-    | DType (lid, _, _, Abbrev t) -> Hashtbl.add map lid (White, t)
+    | DType (lid, _, _, Abbrev t, _) -> Hashtbl.add map lid (White, t)
     | _ -> ()
   ) in
 
@@ -468,9 +471,9 @@ let inline_type_abbrevs files =
    *   type pair a b = Tuple (1, 0)
    * breaks this invariant. *)
   filter_decls (function
-    | DType (lid, flags, n, Abbrev def) ->
+    | DType (lid, flags, n, Abbrev def, fwd_decl) ->
         if n = 0 then
-          Some (DType (lid, flags, n, Abbrev def))
+          Some (DType (lid, flags, n, Abbrev def, fwd_decl))
         else
           (* A type definition with parameters is not something we'll be able to
            * generate code for (at the moment). So, drop it. *)

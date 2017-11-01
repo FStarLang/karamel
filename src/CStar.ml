@@ -10,7 +10,7 @@ type program =
 and decl =
   | Global of ident * flag list * typ * expr
   | Function of calling_convention option * flag list * typ * ident * binder list * block
-  | Type of ident * typ
+  | Type of ident * typ * bool
   | External of ident * typ
 
 and stmt =
@@ -109,6 +109,6 @@ let ident_of_decl (d: decl): string =
   match d with
   | Global (id, _, _, _)
   | Function (_, _, _, id, _, _)
-  | Type (id, _)
+  | Type (id, _, _)
   | External (id, _) ->
       id
