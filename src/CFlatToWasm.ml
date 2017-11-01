@@ -47,7 +47,7 @@ let find_global env name =
  * removed... *)
 let builtins = [
   "FStar_UInt64_eq_mask", "WasmSupport_eq_mask64";
-  "FStar_UInt64_gte_mask", "WasmSupport_gte_mask64"
+  "FStar_UInt64_gte_mask", "WasmSupport_gte_mask64";
 ]
 
 let name_of_string = W.Utf8.decode
@@ -64,9 +64,15 @@ let rec find_func env name =
 
 let primitives = [
   "load32_le";
+  "load32_be";
   "load64_le";
+  "load64_be";
+  "load128_le";
   "store32_le";
-  "store64_le"
+  "store32_be";
+  "store64_le";
+  "store64_be";
+  "store128_le"
 ]
 
 let is_primitive x =
@@ -614,13 +620,76 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallOp (o, [ e1; e2 ]) ->
       mk_callop2 env o e1 e2
 
+  | CallFunc ("C_Nullity_null", [ _ ]) ->
+      [ dummy_phrase (W.Ast.Const (mk_int32 0l)) ]
+
   | CallFunc ("load32_le", [ e ]) ->
       mk_expr env e @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = None })]
 
+  | CallFunc ("load32_be", [ e ]) ->
+      mk_expr env (CallFunc ("WasmSupport_betole32", [ CallFunc ("load32_le", [ e ])]))
+
   | CallFunc ("load64_le", [ e ]) ->
       mk_expr env e @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })]
+
+  | CallFunc ("load64_be", [ e ]) ->
+      mk_expr env (CallFunc ("WasmSupport_betole64", [ CallFunc ("load64_le", [ e ])]))
+
+  | CallFunc ("store128_be", [ dst; src ])
+  | CallFunc ("load128_be", [ src; dst ]) ->
+      let local_src = env.n_args + 2 in
+      let local_dst = local_src + 1 in
+      (* Using the two 32-bit scratch locals for the two addresses. *)
+      mk_expr env src @
+      [ dummy_phrase (W.Ast.SetLocal (mk_var local_src)) ] @
+      mk_expr env dst @
+      [ dummy_phrase (W.Ast.SetLocal (mk_var local_dst)) ] @
+      (* Push dst and src on the stack; load src; store. This is low. *)
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+      i32_add @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_betole64"))) ] @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      (* Same thing with +8b offset. This is high. *)
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
+      [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+      i32_add @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_betole64"))) ] @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      (* This is just a glorified memcpy. *)
+      mk_unit
+
+  | CallFunc ("store128_le", [ dst; src ])
+  | CallFunc ("load128_le", [ src; dst ]) ->
+      let local_src = env.n_args + 2 in
+      let local_dst = local_src + 1 in
+      (* Using the two 32-bit scratch locals for the two addresses. *)
+      mk_expr env src @
+      [ dummy_phrase (W.Ast.SetLocal (mk_var local_src)) ] @
+      mk_expr env dst @
+      [ dummy_phrase (W.Ast.SetLocal (mk_var local_dst)) ] @
+      (* Push dst and src on the stack; load src; store. This is low. *)
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      (* Same thing with +8b offset. This is high. *)
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+      i32_add @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
+      [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+      i32_add @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      (* This is just a glorified memcpy. *)
+      mk_unit
 
   | CallFunc ("store32_le", [ e1; e2 ]) ->
       mk_expr env e1 @
@@ -628,11 +697,17 @@ and mk_expr env (e: expr): W.Ast.instr list =
       [ dummy_phrase W.Ast.(Store { ty = mk_type I32; align = 0; offset = 0l; sz = None })] @
       mk_unit
 
+  | CallFunc ("store32_be", [ e1; e2 ]) ->
+      mk_expr env (CallFunc ("store32_le", [ e1; CallFunc ("WasmSupport_betole32", [ e2 ])]))
+
   | CallFunc ("store64_le", [ e1; e2 ]) ->
       mk_expr env e1 @
       mk_expr env e2 @
       [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
       mk_unit
+
+  | CallFunc ("store64_be", [ e1; e2 ]) ->
+      mk_expr env (CallFunc ("store64_le", [ e1; CallFunc ("WasmSupport_betole64", [ e2 ])]))
 
   | CallFunc (name, es) ->
       KList.map_flatten (mk_expr env) es @
@@ -768,6 +843,30 @@ let mk_func env { args; locals; body; name; ret; _ } =
             `Local64 i
       ) args
     in
+    let custom_debug =
+      if name = "FStar_UInt128_add_mod" then
+        let n_args = List.length args in
+        let fst64 = n_args in
+        let snd64 = n_args + 1 in
+        let read128 arg = 
+          (* Load low *)
+          [ dummy_phrase (W.Ast.GetLocal (mk_var arg)) ] @
+          [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None }) ] @
+          [ dummy_phrase (W.Ast.SetLocal (mk_var fst64)) ] @
+          (* Load high *)
+          [ dummy_phrase (W.Ast.GetLocal (mk_var arg)) ] @
+          [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+          i32_add @ 
+          [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None }) ] @
+          [ dummy_phrase (W.Ast.SetLocal (mk_var snd64)) ]
+        in
+        read128 0 @
+        Debug.mk env [ `String "a.low"; `Local64 fst64; `String "a.high"; `Local64 snd64 ] @ 
+        read128 1 @
+        Debug.mk env [ `String "b.low"; `Local64 fst64; `String "b.high"; `Local64 snd64 ]
+      else
+        []
+    in
     let debug_exit = [ `String "return"; `Decr ] @
       match ret with
       | [ I32 ] -> [ `Peek32 ]
@@ -775,6 +874,7 @@ let mk_func env { args; locals; body; name; ret; _ } =
       | _ -> []
     in
     Debug.mk env debug_enter @
+    custom_debug @
     read_highwater @
     mk_expr env body @
     (match ret with

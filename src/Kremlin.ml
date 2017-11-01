@@ -210,6 +210,8 @@ Supported options:|}
       anonymous unions";
     "-fnouint128", Arg.Clear Options.uint128, "  don't assume a built-in type \
       __uint128";
+    "-fnocompound-literals", Arg.Unit (fun () -> Options.compound_literals := `Never),
+      "  don't generate C11 compound literals";
     "-funroll-loops", Arg.Set_int Options.unroll_loops, "  textually expand \
       loops smaller than N";
     "-fparentheses", Arg.Set Options.parentheses, "  add unnecessary parentheses \
@@ -272,6 +274,10 @@ Supported options:|}
   if !Options.wasm then begin
     Options.uint128 := false;
     Options.anonymous_unions := false;
+    (* This forces the evaluation of compound literals to happen first, before
+     * they are assigned. This is the C semantics, and the C compiler will do it
+     * for us, so this is not generally necessary. *)
+    Options.compound_literals := `Wasm;
     Options.struct_passing := false
   end else
     Options.drop := [ Bundle.Module [ "C" ]; Bundle.Module [ "TestLib" ] ] @
@@ -280,6 +286,7 @@ Supported options:|}
   if !arg_c89 then begin
     Options.uint128 := false;
     Options.anonymous_unions := false;
+    Options.compound_literals := `Never;
     Options.c89_scope := true;
     Options.c89_std := true
   end;

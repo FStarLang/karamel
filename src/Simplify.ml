@@ -305,6 +305,7 @@ type pos =
   | UnderStmtLet
   | AssignRhs
   | Unspecified
+  | BufAssignee
 
 let rec hoist_stmt e =
   let mk node = { node; typ = e.typ } in
@@ -548,7 +549,7 @@ and hoist_expr pos e =
 
   | EBufCreate (l, e1, e2) ->
       let t = e.typ in
-      let lhs1, e1 = hoist_expr Unspecified e1 in
+      let lhs1, e1 = hoist_expr BufAssignee e1 in
       let lhs2, e2 = hoist_expr Unspecified e2 in
       if pos = UnderStmtLet || pos = AssignRhs then
         lhs1 @ lhs2, mk (EBufCreate (l, e1, e2))
@@ -558,7 +559,7 @@ and hoist_expr pos e =
 
   | EBufCreateL (l, es) ->
       let t = e.typ in
-      let lhs, es = List.split (List.map (hoist_expr Unspecified) es) in
+      let lhs, es = List.split (List.map (hoist_expr BufAssignee) es) in
       let lhs = List.flatten lhs in
       if pos = UnderStmtLet || pos = AssignRhs then
         lhs, mk (EBufCreateL (l, es))
@@ -574,7 +575,7 @@ and hoist_expr pos e =
   | EBufWrite (e1, e2, e3) ->
       let lhs1, e1 = hoist_expr Unspecified e1 in
       let lhs2, e2 = hoist_expr Unspecified e2 in
-      let lhs3, e3 = hoist_expr Unspecified e3 in
+      let lhs3, e3 = hoist_expr BufAssignee e3 in
       let lhs = lhs1 @ lhs2 @ lhs3 in
       if pos = UnderStmtLet then
         lhs, mk (EBufWrite (e1, e2, e3))
@@ -627,11 +628,20 @@ and hoist_expr pos e =
         let lhs, expr = hoist_expr Unspecified expr in
         lhs, (ident, expr)
       ) fields) in
-      List.flatten lhs, mk (EFlat fields)
+      begin match pos with
+      | UnderStmtLet ->
+          List.flatten lhs, mk (EFlat fields)
+      | BufAssignee | AssignRhs when !Options.compound_literals = `Wasm ->
+          List.flatten lhs, mk (EFlat fields)
+      | _ when !Options.compound_literals = `Ok ->
+          List.flatten lhs, mk (EFlat fields)
+      | _ ->
+          let b, body, cont = mk_named_binding "flat" e.typ (EFlat fields) in
+          List.flatten lhs @ [ b, body ], cont
+      end
 
-  | ECons (ident, es) ->
-      let lhs, es = List.split (List.map (hoist_expr Unspecified) es) in
-      List.flatten lhs, mk (ECons (ident, es))
+  | ECons _ ->
+      failwith "[hoist_t]: ECons, why?"
 
   | ETuple _ ->
       failwith "[hoist_t]: ETuple not properly desugared"
