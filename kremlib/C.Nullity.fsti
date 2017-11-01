@@ -10,9 +10,9 @@ val is_null (#a: Type) (b: B.buffer a):
   Tot (ret:bool { ret ==> B.length b = 0})
 
 val null (a: Type):
-  b:B.buffer a { is_null b }
+  b:B.buffer a { b2t (is_null b) }
 
 val null_always_live (#a: Type) (h: HS.mem) (b: B.buffer a):
-  Lemma (requires True)
+  Lemma (requires (b2t (is_null b)))
     (ensures (B.live h b))
     [SMTPat (B.live h b)]
