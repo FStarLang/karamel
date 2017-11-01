@@ -102,7 +102,7 @@ let populate_env files =
   List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
-      | DType (lid, _, _, typ) ->
+      | DType (lid, _, _, typ, _) ->
           let env = match typ with
           | Enum tags ->
               List.fold_left (fun env tag ->
@@ -120,6 +120,7 @@ let populate_env files =
           { env with globals = M.add lid t env.globals }
       | DExternal (_, lid, typ) ->
           { env with globals = M.add lid typ env.globals }
+      | DTypeMutual _ -> assert false
     ) env decls
   ) empty files
 
@@ -221,7 +222,7 @@ and check_decl env d =
       let env = locate env (InTop name) in
       check env t body
   | DExternal _
-  | DType _ ->
+  | DType _ | DTypeMutual _ ->
       (* Barring any parameterized types, there's is nothing to check here
        * really. *)
       ()
@@ -403,7 +404,7 @@ and check' env t e =
               type_error env "Union expected, i.e. exactly one provided field";
           end
       | _ ->
-          type_error env "Not a record %a" ptyp t
+        type_error env "Not a record %a, %a" ptyp t pexpr e
       end
 
   | ESwitch (e, branches) ->

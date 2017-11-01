@@ -615,11 +615,11 @@ and mk_declaration env d: CStar.decl option =
       in
       Some (External (string_of_lident name, t))
 
-  | DType (name, _, 0, def) ->
+  | DType (name, _, 0, def, fwd_decl) ->
       let name = string_of_lident name in
-      Some (CStar.Type (name, mk_type_def env def))
+      Some (CStar.Type (name, mk_type_def env def, fwd_decl))
 
-  | DType _ ->
+  | DType _ | DTypeMutual _ ->
       None
 
 and mk_type_def env d: CStar.typ =

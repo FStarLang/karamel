@@ -37,11 +37,14 @@ let rec print_decl = function
   | DGlobal (flags, name, typ, expr) ->
       print_flags flags ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
-  | DType (name, flags, n, def) ->
+  | DType (name, flags, n, def, fwd_decl) ->
       let args = KList.make n (fun i -> string ("t" ^ string_of_int i)) in
       let args = separate space args in
+      group (if fwd_decl then string "forward " else string "") ^/^
       group (string "type" ^/^ print_flags flags ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
       jump (print_type_def def)
+  | DTypeMutual (ty_decls) ->
+     separate_map (string "and" ^^ break1) (fun decl -> print_decl decl) ty_decls
 
 and print_comment flags =
   match KList.find_opt (function Comment c -> Some c | _ -> None) flags with

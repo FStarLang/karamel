@@ -17,7 +17,8 @@ and decl =
   | DFunction of calling_convention option * flag list * int * typ * lident * binders * expr
   | DGlobal of flag list * lident * typ * expr
   | DExternal of calling_convention option * lident * typ
-  | DType of lident * flag list * int * type_def
+  | DType of lident * flag list * int * type_def * bool
+  | DTypeMutual of (decl list)
 
 and type_def =
   | Abbrev of typ
@@ -593,12 +594,14 @@ class virtual ['env] map = object (self)
         self#dglobal env flags name typ expr
     | DExternal (cc, name, t) ->
         self#dexternal env cc name t
-    | DType (name, flags, n, d) ->
-        self#dtype env name flags n d
+    | DType (name, flags, n, d, fwd_decl) ->
+        self#dtype env name flags n d fwd_decl
+    | DTypeMutual (ty_decls) ->
+      DTypeMutual (List.map (fun decl -> self#visit_d env decl) ty_decls)
 
-  method dtype env name flags n d =
+  method dtype env name flags n d fwd_decl =
     let env = self#extend_tmany env n in
-    DType (name, flags, n, self#type_def env (Some name) d)
+    DType (name, flags, n, self#type_def env (Some name) d, fwd_decl)
 
   method type_def (env: 'env) (name: lident option) (d: type_def) =
     match d with
@@ -677,5 +680,6 @@ let lid_of_decl = function
   | DFunction (_, _, _, _, lid, _, _)
   | DGlobal (_, lid, _, _)
   | DExternal (_, lid, _)
-  | DType (lid, _, _, _) ->
+  | DType (lid, _, _, _, _) ->
       lid
+  | DTypeMutual _ -> assert false

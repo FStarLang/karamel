@@ -38,10 +38,10 @@ module Gen = struct
     in
     fst lid, snd lid ^ KPrint.bsprintf "__%a" PrintCommon.pdoc doc
 
-  let register_def original_lid ts lid def =
+  let register_def original_lid ts lid def fwd_decl =
     Hashtbl.add generated_lids (original_lid, ts) lid;
     let def = def () in
-    let type_def = DType (lid, [], 0, def) in
+    let type_def = DType (lid, [], 0, def, fwd_decl) in
     pending_defs := type_def :: !pending_defs;
     lid
 
@@ -61,21 +61,21 @@ module Gen = struct
       let fields = List.mapi (fun i t ->
         Some (nth_field i), (t, false)
       ) ts in
-      register_def tuple_lid ts lid (fun () -> Flat fields)
+      register_def tuple_lid ts lid (fun () -> Flat fields) false
 
-  let variant original_lid branches ts =
+  let variant original_lid branches ts fwd_decl =
     try
       Hashtbl.find generated_lids (original_lid, ts)
     with Not_found ->
       let lid = gen_lid original_lid ts in
-      register_def original_lid ts lid (fun () -> Variant (branches ()))
+      register_def original_lid ts lid (fun () -> Variant (branches ())) fwd_decl
 
-  let flat original_lid fields ts =
+  let flat original_lid fields ts fwd_decl =
     try
       Hashtbl.find generated_lids (original_lid, ts)
     with Not_found ->
       let lid = gen_lid original_lid ts in
-      register_def original_lid ts lid (fun () -> Flat (fields ()))
+      register_def original_lid ts lid (fun () -> Flat (fields ())) fwd_decl
 
   let clear () =
     let r = List.rev !pending_defs in
@@ -85,10 +85,14 @@ end
 
 let build_def_map files =
   build_map files (fun map -> function
-    | DType (lid, _, _, def) ->
-        Hashtbl.add map lid def
-    | _ ->
-        ()
+    | DType (lid, _, _, def, fwd_decl) ->
+          Hashtbl.add map lid (def, fwd_decl)
+    | DTypeMutual (ty_decls) ->
+      List.iter (function
+        | DType (lid, _, _, def, fwd_decl) ->
+          Hashtbl.add map lid (def, fwd_decl)
+       | _ -> ()) ty_decls
+    | _ -> ()
   )
 
 (* We visit type declarations in order to find occurrences of instantiated
@@ -146,20 +150,20 @@ let monomorphize_data_types map = object(self)
       match Hashtbl.find map lid with
       | exception Not_found ->
           TApp (lid, ts)
-      | Variant branches ->
+      | Variant branches, fwd_decl ->
           (* This allows [Gen] to first allocate and register the lid in the
            * table, hence avoiding infinite loops for recursive data types. *)
           let gen_branches () =
             let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
             self#branches_t false branches
           in
-          TQualified (Gen.variant lid gen_branches ts)
-      | Flat fields ->
+          TQualified (Gen.variant lid gen_branches ts fwd_decl)
+      | Flat fields, fwd_decl ->
           let gen_fields () =
             let fields = subst fields in
             self#fields_t false fields
           in
-          TQualified (Gen.flat lid gen_fields ts)
+          TQualified (Gen.flat lid gen_fields ts fwd_decl)
       | _ ->
           TApp (lid, ts)
     with Bound ->
@@ -168,8 +172,9 @@ end
 
 let drop_parameterized_data_types =
   filter_decls (function
-    | DType (_, _, n, (Flat _ | Variant _)) when n > 0 ->
+    | DType (_, _, n, (Flat _ | Variant _), _) when n > 0 ->
         None
+    | DTypeMutual _ -> assert false
     | d ->
         Some d
   )
@@ -194,7 +199,7 @@ type scheme =
 
 let build_scheme_map files =
   build_map files (fun map -> function
-    | DType (lid, _, 0, Variant branches) ->
+    | DType (lid, _, 0, Variant branches, _) ->
         if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
           Hashtbl.add map lid ToEnum
         else if List.length branches = 1 then
@@ -257,7 +262,7 @@ let allocate_tag enums preferred_lid tags =
       Found lid
   | exception Not_found ->
       Hashtbl.add enums tags preferred_lid;
-      Fresh (DType (preferred_lid, [], 0, Enum tags))
+      Fresh (DType (preferred_lid, [], 0, Enum tags, false))
 
 let compile_simple_matches (map, enums) = object(self)
 
@@ -308,13 +313,13 @@ let compile_simple_matches (map, enums) = object(self)
     | ToFlat names ->
         PRecord (List.map2 (fun n e -> n, self#visit_pattern () e) names args)
 
-  method dtype () lid flags n def =
+  method dtype () lid flags n def fwd_decl =
     match def with
     | Variant branches ->
         assert (n = 0);
         begin match Hashtbl.find map lid with
         | exception Not_found ->
-            DType (lid, flags, 0, Variant branches)
+            DType (lid, flags, 0, Variant branches, fwd_decl)
         | ToTaggedUnion _ ->
             let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
             (* Pre-allocate the named type for this type's tags. Has to be done
@@ -325,21 +330,21 @@ let compile_simple_matches (map, enums) = object(self)
             | Found _ -> ()
             | Fresh decl -> pending := decl :: !pending
             end;
-            DType (lid, flags, 0, Variant branches)
+            DType (lid, flags, 0, Variant branches, fwd_decl)
         | ToEnum ->
             let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
             begin match allocate_tag enums lid tags with
             | Found other_lid ->
-                DType (lid, flags, 0, Abbrev (TQualified other_lid))
+                DType (lid, flags, 0, Abbrev (TQualified other_lid), fwd_decl)
             | Fresh decl ->
                 decl
             end
         | ToFlat _ ->
             let fields = List.map (fun (f, t) -> Some f, t) (snd (List.hd branches)) in
-            DType (lid, flags, 0, Flat fields)
+            DType (lid, flags, 0, Flat fields, fwd_decl)
         end
     | _ ->
-        DType (lid, flags, n, def)
+        DType (lid, flags, n, def, fwd_decl)
 
   method ematch () t e branches =
     let e = self#visit () e in

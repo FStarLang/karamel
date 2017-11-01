@@ -30,18 +30,23 @@ let rec mk_decl = function
         else
           mk_expr body
       in
-      DFunction (cc, flags, n, mk_typ t, name, mk_binders binders, body)
+      [DFunction (cc, flags, n, mk_typ t, name, mk_binders binders, body)]
   | I.DTypeAlias (name, n, t) ->
-      DType (name, [], n, Abbrev (mk_typ t))
+      [DType (name, [], n, Abbrev (mk_typ t), false)]
   | I.DGlobal (flags, name, t, e) ->
-      DGlobal (flags, name, mk_typ t, mk_expr e)
+      [DGlobal (flags, name, mk_typ t, mk_expr e)]
   | I.DTypeFlat (name, n, fields) ->
-      DType (name, [], n, Flat (mk_tfields_opt fields))
+      [DType (name, [], n, Flat (mk_tfields_opt fields), false)]
   | I.DExternal (cc, name, t) ->
-      DExternal (cc, name, mk_typ t)
+      [DExternal (cc, name, mk_typ t)]
   | I.DTypeVariant (name, flags, n, branches) ->
-      DType (name, flags, n,
-        Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
+      [DType (name, flags, n,
+        Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches), false)]
+  | I.DTypeMutual (decls) ->
+    (* There is an invariant that a DTypeMutual has no nesting, and mk_decl must only return a *single* result. *)
+    [DTypeMutual (List.map (fun d -> List.nth (mk_decl d) 0) decls)]
+  | I.DFunctionMutual (decls) ->
+    KList.map_flatten mk_decl decls
 
 and mk_binders bs =
   List.map mk_binder bs
@@ -183,4 +188,4 @@ and mk_files files =
   List.map mk_program files
 
 and mk_program (name, decls) =
-  name, List.map mk_decl decls
+  name,  KList.map_flatten mk_decl decls
