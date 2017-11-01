@@ -15,6 +15,7 @@ FILES		= \
   FunctionalEncoding.exe FunPtr.exe Test128.exe \
   CheckedInt.exe Polymorphic.exe GcTypes.exe BadMatch.exe C89.exe \
   PatternAny.exe Debug.exe hello-system/HelloSystem.exe Server.exe
+	MutualDatatypes.fst MutualDatatypesPolyIndex.fst
 EXTRA_FILES	= \
   Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \
