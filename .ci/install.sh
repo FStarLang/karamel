@@ -22,6 +22,6 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   tar xjvf d8.tar.bz2
 fi
 
-git clone --branch master --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
+git clone --branch stable --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
 git clone --branch master --single-branch --depth 1 https://github.com/mitls/hacl-star
 make -C fstar/src/ocaml-output
