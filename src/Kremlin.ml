@@ -279,9 +279,18 @@ Supported options:|}
      * for us, so this is not generally necessary. *)
     Options.compound_literals := `Wasm;
     Options.struct_passing := false
-  end else
+  end;
+
+  (* An actual C compilation wants to drop these two. *)
+  if not !Options.wasm || Options.debug "force-c" then
     Options.drop := [ Bundle.Module [ "C" ]; Bundle.Module [ "TestLib" ] ] @
       !Options.drop;
+
+  (* Self-help. *)
+  if !Options.wasm && Options.debug "force-c" then begin
+    Options.add_include := "\"wasm-stubs.h\"" :: !Options.add_include;
+    Options.drop := Bundle.Module [ "WasmSupport" ] :: !Options.drop
+  end;
 
   if !arg_c89 then begin
     Options.uint128 := false;
@@ -301,7 +310,7 @@ Supported options:|}
     Warnings.parse_warn_error !arg_warn_error;
 
   (* If the compiler supports uint128, then we just drop the module and let
-   * dependency analysis use the FStar.UInt128.fsti. If the compiler does not,
+   * dependency analysis use FStar.UInt128.fsti. If the compiler does not,
    * then we bring the implementation into scope instead. The latter is
    * performed in src/Driver.ml because we need to know where FSTAR_HOME is. *)
   if !Options.uint128 then

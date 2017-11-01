@@ -27,7 +27,7 @@ WASM_FILES	= \
   WasmTrap.wasm Wasm1.wasm Wasm2.wasm Wasm3.wasm
 WASM_EXTRA	= \
   $(SALSA)/Hacl.Test.Chacha20.wasm $(CURVE)/Hacl.Test.X25519.wasm \
-  $(POLY)/Hacl.Test.Poly1305_64.wasm #$(ED)/Hacl.Test.Ed25519.wasm
+  $(POLY)/Hacl.Test.Poly1305_64.wasm $(ED)/Hacl.Test.Ed25519.wasm
 # One can define NEGATIVE=true for wasm targets that are negative tests
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
