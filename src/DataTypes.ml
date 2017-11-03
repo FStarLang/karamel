@@ -96,16 +96,11 @@ let build_def_map files =
  *
  *   type linked_list a = | Nil | Cons: x:pair int int -> buffer (linked_list a)
  *
- * The first occurrence of pair must generate a monomorphization but not the
- * second occurrence of linked_list which should remain as is. (It will be
- * monomorphized when someone references [linked_list int32], for instance.)
- * The easiest way to detect that is to throw an exception when we hit a bound
- * variable. *)
-exception Bound
-
+ * We just wait until we find an occurrence of [linked_list] and monomorphize at
+ * use-site. *)
 let monomorphize_data_types map = object(self)
 
-  inherit [bool] map
+  inherit [bool] map as super
 
   (* Generated pair declarations are inserted exactly in the right spot and
    * spread out throughout the various files, as needed. Since a given file
@@ -130,40 +125,37 @@ let monomorphize_data_types map = object(self)
   method! ptuple ok _ pats =
     PRecord (List.mapi (fun i p -> Gen.nth_field i, self#visit_pattern ok p) pats)
 
-  method! tbound ok i =
-    if ok then
-      TBound i
+  method! dtype env name flags n d =
+    if n > 0 then
+      DType (name, flags, n, d)
     else
-      raise Bound
+      super#dtype env name flags n d
 
   method! tapp _ lid ts =
-    try
-      let ts = List.map (self#visit_t false) ts in
-      let subst fields = List.map (fun (field, (t, m)) ->
-        field, (DeBruijn.subst_tn ts t, m)
-      ) fields in
-      assert (List.length ts > 0);
-      match Hashtbl.find map lid with
-      | exception Not_found ->
-          TApp (lid, ts)
-      | Variant branches ->
-          (* This allows [Gen] to first allocate and register the lid in the
-           * table, hence avoiding infinite loops for recursive data types. *)
-          let gen_branches () =
-            let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
-            self#branches_t false branches
-          in
-          TQualified (Gen.variant lid gen_branches ts)
-      | Flat fields ->
-          let gen_fields () =
-            let fields = subst fields in
-            self#fields_t false fields
-          in
-          TQualified (Gen.flat lid gen_fields ts)
-      | _ ->
-          TApp (lid, ts)
-    with Bound ->
-      TApp (lid, ts)
+    let ts = List.map (self#visit_t false) ts in
+    let subst fields = List.map (fun (field, (t, m)) ->
+      field, (DeBruijn.subst_tn ts t, m)
+    ) fields in
+    assert (List.length ts > 0);
+    match Hashtbl.find map lid with
+    | exception Not_found ->
+        TApp (lid, ts)
+    | Variant branches ->
+        (* This allows [Gen] to first allocate and register the lid in the
+         * table, hence avoiding infinite loops for recursive data types. *)
+        let gen_branches () =
+          let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
+          self#branches_t false branches
+        in
+        TQualified (Gen.variant lid gen_branches ts)
+    | Flat fields ->
+        let gen_fields () =
+          let fields = subst fields in
+          self#fields_t false fields
+        in
+        TQualified (Gen.flat lid gen_fields ts)
+    | _ ->
+        TApp (lid, ts)
 end
 
 let drop_parameterized_data_types =
