@@ -9,19 +9,26 @@
 var debug = true;
 
 var my_load;
-var failWithMessage = (msg) => eval("%AbortJS(msg)");
+var my_print;
+var my_quit;
 
-if ("load" in this)
+if ("load" in this) {
   my_load = load;
-else if ("WScript" in this)
+  my_print = print;
+  my_quit = quit;
+} else if ("WScript" in this) {
+  // Keys in WScript: Echo, Quit, LoadScriptFile, LoadScript, LoadModule,
+  // SetTimeout, ClearTimeout, Attach, Detach, DumpFunctionPosition,
+  // RequestAsyncBreak, LoadBinaryFile, LoadTextFile, Flag, Edit, Platform,
+  // Arguments
   my_load = WScript.LoadScriptFile;
-else
+  my_print = WScript.Echo;
+  my_quit = WScript.Quit;
+} else
   throw "Unsupported shell: try running [d8 <this-file>] or [ch -Wasm <this-file>]";
 
 if (!("WebAssembly" in this))
   throw "WebAssembly not enabled; are you running an old shell, or missing [-Wasm]?";
-
-var my_print = print;
 
 my_print("... loader.js");
 my_load("loader.js");
@@ -64,12 +71,11 @@ scope.then(scope => {
     with_debug(main);
   }
   my_print("... done running main");
-  // TODO: what's the equivalent of quit for Chakra?
-  quit(err);
+  my_quit(err);
 }).catch(e => {
   my_print("... error running main");
   my_print(e.stack);
-  quit(255);
+  my_quit(255);
 });
 
 Promise.resolve(scope);
