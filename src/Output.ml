@@ -42,8 +42,12 @@ let write_one name prefix program suffix =
 
 let write_c files =
   ignore (List.fold_left (fun names file ->
+    let header = !Options.header in
     let name, program = file in
-    let prefix = string (Printf.sprintf "#include \"%s.h\"" name) in
+    let prefix = string (Printf.sprintf
+{|%s
+|} header) in
+    let prefix = prefix ^^ string (Printf.sprintf "#include \"%s.h\"" name) in
     write_one (name ^ ".c") prefix program empty;
     name :: names
   ) [] files)
