@@ -23,5 +23,5 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
 fi
 
 git clone --branch master --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
-git clone --branch master --single-branch --depth 1 https://github.com/mitls/hacl-star
+git clone --branch fstar-master --single-branch --depth 1 https://github.com/mitls/hacl-star
 make -C fstar/src/ocaml-output

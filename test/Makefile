@@ -30,6 +30,12 @@ WEB_DIR		?= web
 
 all: standalone extra
 wasm: wasm-standalone wasm-extra
+external: hacl-test
+
+.PHONY: hacl-test
+hacl-test:
+	$(MAKE) -C $(HACL_HOME)/secure_api krml-test-hacl.exe
+	$(HACL_HOME)/secure_api/krml-test-hacl.exe
 
 # The standalone tests don't need a source checkout of F* to run
 standalone: $(FILES) $(subst .exe,.krml,$(FILES))
