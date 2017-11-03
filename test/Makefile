@@ -16,7 +16,7 @@ FILES		= \
   FunctionalEncoding.exe FunPtr.exe Test128.exe \
   CheckedInt.exe Polymorphic.exe GcTypes.exe BadMatch.exe C89.exe \
   PatternAny.exe Debug.exe hello-system/HelloSystem.exe Server.exe \
-  ExitCode.exe
+  ExitCode.exe # DataTypesMut.exe
 EXTRA_FILES	= \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \
@@ -31,11 +31,6 @@ WEB_DIR		?= web
 all: standalone extra
 wasm: wasm-standalone wasm-extra
 external: hacl-test
-
-.PHONY: hacl-test
-hacl-test:
-	$(MAKE) -C $(HACL_HOME)/secure_api krml-test-hacl.exe
-	$(HACL_HOME)/secure_api/krml-test-hacl.exe
 
 # The standalone tests don't need a source checkout of F* to run
 standalone: $(FILES) $(subst .exe,.krml,$(FILES))
@@ -68,6 +63,12 @@ $(CRYPTO)/Crypto.Symmetric.Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 hello-system/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
 	hello-system/system.c -I hello-system -no-prefix SystemNative \
 	-drop SystemNative -add-include '<netdb.h>'
+
+# External C tests that leverage other projects.
+.PHONY: hacl-test
+hacl-test:
+	$(MAKE) -C $(HACL_HOME)/secure_api krml-test-hacl.exe
+	$(HACL_HOME)/secure_api/krml-test-hacl.exe
 
 # A target for WASM compilation. All WASM targets get the -wasm flag;
 # some specific targets may override NEGATIVE for negative tests.
