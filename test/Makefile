@@ -2,10 +2,6 @@
 # (e.g. KOPTS="-cc clang -ccopt -fsanitize=undefined,address -ccopt -Wno-non-literal-null-conversion -Wno-unused-value")
 READLINK	= $(shell which greadlink >/dev/null 2>&1 && echo greadlink || echo readlink)
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
-SALSA		= $(HACL_HOME)/code/salsa-family
-CURVE		= $(HACL_HOME)/code/curve25519
-ED		= $(HACL_HOME)/code/ed25519
-POLY		= $(HACL_HOME)/code/poly1305
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 TEST_OPTS	= -add-include '"testlib.h"' -I . ../kremlib/testlib.c -warn-error @4
 KRML_BIN	= ../_build/src/Kremlin.native
@@ -25,15 +21,12 @@ EXTRA_FILES	= \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \
   WasmTrap.wasm Wasm1.wasm Wasm2.wasm Wasm3.wasm
-WASM_EXTRA	= \
-  $(SALSA)/Hacl.Test.Chacha20.wasm $(CURVE)/Hacl.Test.X25519.wasm \
-  $(POLY)/Hacl.Test.Poly1305_64.wasm $(ED)/Hacl.Test.Ed25519.wasm
-# One can define NEGATIVE=true for wasm targets that are negative tests
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
 # HigherOrder: need to implement "natural arity" tracking
 BROKEN		= \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm HigherOrder.exe
+WEB_DIR		?= web
 
 all: standalone extra
 wasm: wasm-standalone wasm-extra
@@ -42,7 +35,7 @@ wasm: wasm-standalone wasm-extra
 standalone: $(FILES) $(subst .exe,.krml,$(FILES))
 extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
 wasm-standalone: $(WASM_FILES)
-wasm-extra: $(WASM_EXTRA)
+wasm-extra: hacl-algs
 
 .PRECIOUS: %.krml
 
@@ -87,52 +80,74 @@ $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: EXTRA+=$(CRYPTO_OPTS) -drop FStar
 WasmTrap.wasm: NEGATIVE = true
 
 # External WASM targets: recycle the HACL* Makefile!
-HACL_DROP=Prims,Hacl.UInt8,Hacl.UInt16,Hacl.UInt32,Hacl.UInt64,Hacl.UInt128,Hacl.Endianness,Hacl.Cast,Hacl.Spec.*,Spec.*,Seq.*
+HACL_DROP=Prims,Hacl.UInt8,Hacl.UInt16,Hacl.UInt32,Hacl.UInt64,Hacl.UInt128,Hacl.Endianness,Hacl.Cast,Hacl.Spe.*,Hacl.Spec.*,Spec.*,Seq.*
+HACL_ALGS=CHACHA SALSA CURVE POLY ED HMAC
 
-.PHONY: $(SALSA)/Hacl.Test.Chacha20.krml
-$(SALSA)/Hacl.Test.Chacha20.krml:
-	KREMLIN_ARGS=-wasm $(MAKE) -C $(SALSA) chacha-c/out.krml
-	[ -e $(subst .krml,.out,$@) ] || ln -sf $(SALSA)/chacha-c $(subst .krml,.out,$@)
-	cp $(subst .krml,.out,$@)/out.krml $@
+# Arguments to the meta-rule
+CHACHA=$(HACL_HOME)/code/salsa-family
+CHACHA_DIR=chacha-c
+CHACHA_TEST=Hacl.Test.Chacha20.krml
+CHACHA_ARGS=-bundle 'Chacha20=Hacl.Impl.*,Chacha20,Hacl.Lib.*'
 
-$(SALSA)/Hacl.Test.Chacha20.wasm: EXTRA+=-drop $(HACL_DROP) \
-  -bundle 'Chacha20=Hacl.Impl.*,Chacha20,Hacl.Lib.*'
+SALSA=$(HACL_HOME)/code/salsa-family
+SALSA_DIR=salsa-c
+SALSA_TEST=Hacl.Test.Salsa20.krml
+SALSA_ARGS=-bundle 'Salsa20=Salsa20,Hacl.Impl.*,Hacl.Lib.*'
 
-.PHONY: $(CURVE)/Hacl.Test.X25519.krml
-$(CURVE)/Hacl.Test.X25519.krml:
-	KREMLIN_ARGS=-wasm $(MAKE) -C $(CURVE) extract-c
-	[ -e $(subst .krml,.out,$@) ] || ln -sf $(CURVE)/x25519-c $(subst .krml,.out,$@)
-	cp $(subst .krml,.out,$@)/out.krml $@
+CURVE=$(HACL_HOME)/code/curve25519
+CURVE_DIR=x25519-c
+CURVE_TEST=Hacl.Test.X25519.krml
+CURVE_ARGS=-bundle 'Curve25519=Hacl.Bignum,Hacl.Bignum.*,Hacl.EC,Hacl.EC.*'
 
-$(CURVE)/Hacl.Test.X25519.wasm: EXTRA+=-drop $(HACL_DROP) \
-  -bundle 'Curve25519=Hacl.Bignum,Hacl.Bignum.*,Hacl.EC,Hacl.EC.*'
-
-.PHONY: $(POLY)/Hacl.Test.Poly1305_64.krml
-$(POLY)/Hacl.Test.Poly1305_64.krml:
-	KREMLIN_ARGS=-wasm $(MAKE) -C $(POLY) poly-c/out.krml
-	[ -e $(subst .krml,.out,$@) ] || ln -sf $(POLY)/poly-c $(subst .krml,.out,$@)
-	cp $(subst .krml,.out,$@)/out.krml $@
-
-$(POLY)/Hacl.Test.Poly1305_64.wasm: EXTRA+=-drop $(HACL_DROP) \
-  -bundle 'Poly1305_64=Hacl.Bignum.*,Hacl.Impl.*,Hacl.Standalone.*,Poly1305_64' \
+POLY=$(HACL_HOME)/code/poly1305
+POLY_DIR=poly-c
+POLY_TEST=Hacl.Test.Poly1305_64.krml
+POLY_ARGS=-bundle 'Poly1305_64=Hacl.Bignum.*,Hacl.Impl.*,Hacl.Standalone.*,Poly1305_64' \
   -drop AEAD_Poly1305_64
 
-.PHONY: $(ED)/Hacl.Test.Ed25519.krml
-$(ED)/Hacl.Test.Ed25519.krml:
-	KREMLIN_ARGS=-wasm $(MAKE) -C $(ED) ed25519-c/out.krml
-	[ -e $(subst .krml,.out,$@) ] || ln -sf $(ED)/ed25519-c $(subst .krml,.out,$@)
-	cp $(subst .krml,.out,$@)/out.krml $@
+ED=$(HACL_HOME)/code/ed25519
+ED_DIR=ed25519-c
+ED_TEST=Hacl.Test.Ed25519.krml
+ED_ARGS=-bundle 'Ed25519=Ed25519,Hacl.EC,Hacl.EC.*,Hacl.Impl.*,Hacl.Lib.*,Hacl.Bignum.*,Hacl.Bignum25519,Hacl.Bignum,Hacl.Spec.*,SHA2_512,Hacl.Hash.*' \
 
-$(ED)/Hacl.Test.Ed25519.wasm: EXTRA+=-drop $(HACL_DROP) \
-  -bundle 'Ed25519=Ed25519,Hacl.EC,Hacl.EC.*,Hacl.Impl.*,Hacl.Lib.*,Hacl.Bignum.*,Hacl.Bignum25519,Hacl.Bignum,Hacl.Spec.*,SHA2_512,Hacl.Hash.*' \
+HMAC=$(HACL_HOME)/code/hmac
+HMAC_DIR=hmac-c
+HMAC_TEST=Hacl.Test.HMAC.SHA2_256.krml
+HMAC_ARGS=-bundle 'HMAC_SHA2_256=Hacl.Hash.Lib.Create,Hacl.Hash.Lib.LoadStore,Hacl.Hash.SHA2_256,Hacl.HMAC.SHA2_256,HMAC_SHA2_256'
+
+# A template that uses the global namespace as an associative array. Note:
+# equals sign is not Make 3.81-compatible (last GPLv2 version on OSX).
+define HACL_template
+.PHONY: $$($(1))/$$($(1)_TEST)
+$$($(1))/$$($(1)_TEST):
+	KREMLIN_ARGS=-wasm $$(MAKE) -C $$($(1)) $$($(1)_DIR)/out.krml
+	[ -e $$(subst .krml,.out,$$@) ] || ln -sf $$($(1))/$$($(1)_DIR) $$(subst .krml,.out,$$@)
+	cp $$(subst .krml,.out,$$@)/out.krml $$@
+
+$$($(1))/$$(subst .krml,.wasm,$$($(1)_TEST)): EXTRA+=-drop $$(HACL_DROP) $$($(1)_ARGS)
+hacl-algs: $$($(1))/$$(subst .krml,.wasm,$$($(1)_TEST))
+
+clean-$(1):
+	$(MAKE) -C $$($1) clean
+clean: clean-$(1)
+
+web-$(1): web-head $$($(1))/$$(subst .krml,.wasm,$$($(1)_TEST))
+	cp -R $$($(1))/$$($(1)_DIR) $$(WEB_DIR)/
+	echo "<li><a href=\"$$($(1)_DIR)/main.html\">$$($(1)_DIR)</a>" >> $(WEB_DIR)/index.html
+web-body: web-$(1)
+endef
+
+# Evaluate the meta-rule for each algorithm.
+$(foreach alg,$(HACL_ALGS),$(eval $(call HACL_template,$(alg))))
 
 clean:
 	rm -rf *.exe *.dSYM *.out *.wasm *.krml web
 
-web: wasm
-	mkdir -p $@
-	echo "<h1>WHACL* -- Web HACL*</h1><ul>" > $@/index.html
-	for a in $(SALSA)/chacha-c $(CURVE)/x25519-c $(POLY)/poly-c $(ED)/ed25519-c; do \
-	  cp -R $$a web; \
-	  echo "<li><a href=\"$$(basename $$a)/main.html\">$$(basename $$a)</a>" >> $@/index.html; \
-	done
+# Generation of a mini-website
+web-head:
+	mkdir -p $(WEB_DIR)
+	echo "<h1>WHACL* -- Web HACL*</h1><ul>" > $(WEB_DIR)/index.html
+
+web-body: web-head
+
+$(WEB_DIR): web-body
