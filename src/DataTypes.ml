@@ -24,147 +24,172 @@ let drop_match_cast files =
 
   end) files
 
-(* First thing: get rid of tuples, and generate (monomorphize) struct
- * definitions for them. *)
-module Gen = struct
-  let generated_lids = Hashtbl.create 41
-  let pending_defs = ref []
 
-  let gen_lid lid ts =
-    let doc =
-      let open PPrint in
-      let open PrintAst in
-      separate_map underscore print_typ ts
-    in
-    fst lid, snd lid ^ KPrint.bsprintf "__%a" PrintCommon.pdoc doc
+let build_def_map files =
+  build_map files (fun map -> function
+    | DType (lid, flags, _, def) ->
+        Hashtbl.add map lid (flags, def)
+    | _ ->
+        ()
+  )
 
-  let register_def original_lid ts lid def =
-    Hashtbl.add generated_lids (original_lid, ts) lid;
-    let def = def () in
-    let type_def = DType (lid, [], 0, def) in
-    pending_defs := type_def :: !pending_defs;
-    lid
+(* We visit type declarations in order to monomorphize parameterized type
+ * declarations and insert forward declarations as needed. Consider, for
+ * instance:
+ *
+ *   type linked_list = Nil | Cons of int * buffer linked_list
+ *  
+ * We see this phase as a classic graph traversal where the nodes are pairs of
+ * types and effective type arguments, and the edges are uses. The example above
+ * is visited, then a forward declaration is inserted to break the cycle from
+ * the node (linked_list, []) to itself. This gives:
+ *
+ *   type linked_list // a forward declaration
+ *   type linked_list = Nil | Cons of int * buffer linked_list
+ *
+ * This will be turned into the following C code:
+ *
+ *   struct s;
+ *   typedef struct s t;
+ *   typedef struct s {
+ *     int x;
+ *     t *next;
+ *   } t;
+ *
+ * We visit non-parameterized type declarations at declaration site.
+ * However, parameterized declarations, such as the following, are visited at
+ * use-site:
+ *
+ *   type linked_list a = | Nil | Cons: x:int -> buffer (linked_list a)
+ *
+ * This gives:
+ * 
+ *   type linked_list_int;
+ *   type linked_list_int = Nil | Cons of int * buffer linked_list_int
+ *)
+type node = lident * typ list
+type color = Gray | Black
+let monomorphize_data_types map = object(self)
 
-  let nth_field i =
+  inherit [unit] map as super
+
+  (* Assigning a color to each node. *)
+  val state = Hashtbl.create 41
+  (* We view tuples as the application of a special lid to its arguments. *)
+  val tuple_lid = [ "K" ], ""
+  (* We record pending declarations as we visit top-level declarations. *)
+  val mutable pending = []
+
+  (* Record a new declaration. *)
+  method private record (d: decl) =
+    pending <- d :: pending
+
+  (* Clear all the pending declarations. *)
+  method private clear () =
+    let r = List.rev pending in
+    pending <- [];
+    r
+
+  (* Compute the name of a given node in the graph. *)
+  method private lid_of (n: node) =
+    let lid, args = n in
+    if List.length args > 0 then
+      let doc = PPrint.(separate_map underscore PrintAst.print_typ args) in
+      fst lid, KPrint.bsprintf "%s__%a" (snd lid) PrintCommon.pdoc doc
+    else
+      lid
+
+  (* Prettifying the field names for n-uples. *)
+  method private field_at i =
     match i with
     | 0 -> "fst"
     | 1 -> "snd"
     | 2 -> "thd"
     | _ -> Printf.sprintf "f%d" i
 
-  let tuple (ts: typ list) =
-    let tuple_lid = [ "K" ], "" in
-    try
-      Hashtbl.find generated_lids (tuple_lid, ts)
-    with Not_found ->
-      let lid = gen_lid tuple_lid ts in
-      let fields = List.mapi (fun i t ->
-        Some (nth_field i), (t, false)
-      ) ts in
-      register_def tuple_lid ts lid (fun () -> Flat fields)
-
-  let variant original_lid branches ts =
-    try
-      Hashtbl.find generated_lids (original_lid, ts)
-    with Not_found ->
-      let lid = gen_lid original_lid ts in
-      register_def original_lid ts lid (fun () -> Variant (branches ()))
-
-  let flat original_lid fields ts =
-    try
-      Hashtbl.find generated_lids (original_lid, ts)
-    with Not_found ->
-      let lid = gen_lid original_lid ts in
-      register_def original_lid ts lid (fun () -> Flat (fields ()))
-
-  let clear () =
-    let r = List.rev !pending_defs in
-    pending_defs := [];
-    r
-end
-
-let build_def_map files =
-  build_map files (fun map -> function
-    | DType (lid, _, _, def) ->
-        Hashtbl.add map lid def
-    | _ ->
+  (* Visit a given node in the graph, modifying [pending] to append in reverse
+   * order declarations as they are needed, including that of the node we are
+   * visiting. *)
+  method private visit_node (n: node) =
+    let lid, args = n in
+    (* White, gray or black? *)
+    begin match Hashtbl.find state n with
+    | exception Not_found ->
+        if lid = tuple_lid then
+          (* For tuples, we immediately know how to generate a definition. *)
+          let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
+          self#record (DType (self#lid_of n, [], 0, Flat fields));
+          Hashtbl.add state n Black
+        else begin
+          (* This specific node has not been visited yet. *)
+          Hashtbl.add state n Gray;
+          let subst fields = List.map (fun (field, (t, m)) ->
+            field, (DeBruijn.subst_tn args t, m)
+          ) fields in
+          begin match Hashtbl.find map lid with
+          | exception Not_found ->
+              ()
+          | flags, Variant branches ->
+              let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
+              let branches = self#branches_t () branches in
+              self#record (DType (self#lid_of n, flags, 0, Variant branches))
+          | flags, Flat fields ->
+              let fields = self#fields_t () (subst fields) in
+              self#record (DType (self#lid_of n, flags, 0, Flat fields))
+          | _ ->
+              ()
+          end;
+          Hashtbl.replace state n Black
+        end
+    | Gray ->
+        begin match Hashtbl.find map lid with
+        | exception Not_found ->
+            ()
+        | flags, _ ->
+            self#record (DType (self#lid_of n, flags, 0, Forward))
+        end
+    | Black ->
         ()
-  )
+    end;
+    self#lid_of n
 
-(* We visit type declarations in order to find occurrences of instantiated
- * parameterized data types that need to be monomorphized. Consider:
- *
- *   type linked_list a = | Nil | Cons: x:pair int int -> buffer (linked_list a)
- *
- * We just wait until we find an occurrence of [linked_list] and monomorphize at
- * use-site. *)
-let monomorphize_data_types map = object(self)
-
-  inherit [bool] map as super
-
-  (* Generated pair declarations are inserted exactly in the right spot and
-   * spread out throughout the various files, as needed. Since a given file
-   * includes the header of ALL the files that precede it in the topological
-   * order, then it should be fine (famous last words). *)
-  method! visit_file ok file =
+  (* Top-level, non-parameterized declarations are root of our graph traversal.
+   * This also visits, via occurrences in code, applications of parameterized
+   * types. *)
+  method! visit_file _ file =
     let name, decls = file in
     name, KList.map_flatten (fun d ->
-      let d = self#visit_d ok d in
-      Gen.clear () @ [ d ]
+      match d with
+      | DType (_, _, _, (Flat _ | Variant _)) ->
+          ignore (self#visit_d () d);
+          self#clear ()
+      | _ ->
+          self#clear () @ [ self#visit_d () d ]
     ) decls
-
-  method! etuple ok _ es =
-    EFlat (List.mapi (fun i e ->
-      Some (Gen.nth_field i), self#visit ok e
-    ) es)
-
-  method! ttuple ok ts =
-    let lid = Gen.tuple (List.map (self#visit_t ok) ts) in
-    TQualified lid
-
-  method! ptuple ok _ pats =
-    PRecord (List.mapi (fun i p -> Gen.nth_field i, self#visit_pattern ok p) pats)
 
   method! dtype env name flags n d =
     if n > 0 then
+      (* This drops polymorphic type definitions by making them a no-op that
+       * registers nothing. *)
       DType (name, flags, n, d)
     else
       super#dtype env name flags n d
 
-  method! tapp _ lid ts =
-    let ts = List.map (self#visit_t false) ts in
-    let subst fields = List.map (fun (field, (t, m)) ->
-      field, (DeBruijn.subst_tn ts t, m)
-    ) fields in
-    assert (List.length ts > 0);
-    match Hashtbl.find map lid with
-    | exception Not_found ->
-        TApp (lid, ts)
-    | Variant branches ->
-        (* This allows [Gen] to first allocate and register the lid in the
-         * table, hence avoiding infinite loops for recursive data types. *)
-        let gen_branches () =
-          let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
-          self#branches_t false branches
-        in
-        TQualified (Gen.variant lid gen_branches ts)
-    | Flat fields ->
-        let gen_fields () =
-          let fields = subst fields in
-          self#fields_t false fields
-        in
-        TQualified (Gen.flat lid gen_fields ts)
-    | _ ->
-        TApp (lid, ts)
-end
+  method! etuple _ _ es =
+    EFlat (List.mapi (fun i e -> Some (self#field_at i), self#visit () e) es)
 
-let drop_parameterized_data_types =
-  filter_decls (function
-    | DType (_, _, n, (Flat _ | Variant _)) when n > 0 ->
-        None
-    | d ->
-        Some d
-  )
+  method! ptuple _ _ pats =
+    PRecord (List.mapi (fun i p -> self#field_at i, self#visit_pattern () p) pats)
+
+  method! ttuple _ ts =
+    TQualified (self#visit_node (tuple_lid, List.map (self#visit_t ()) ts))
+
+  method! tqualified _ lid =
+    TQualified (self#visit_node (lid, []))
+
+  method! tapp _ lid ts =
+    TQualified (self#visit_node (lid, List.map (self#visit_t ()) ts))
+end
 
 
 (** We need to keep track of which optimizations we performed on which data
@@ -783,8 +808,7 @@ let debug_map map =
 
 let everything files =
   let map = build_def_map files in
-  let files = visit_files true (monomorphize_data_types map) files in
-  let files = drop_parameterized_data_types files in
+  let files = visit_files () (monomorphize_data_types map) files in
   let files = visit_files () remove_unit_fields files in
   let files = visit_files () remove_trivial_matches files in
   let map = build_scheme_map files in

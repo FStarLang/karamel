@@ -756,7 +756,8 @@ let record_toplevel_names = object
     DExternal (cc, record_name name, t)
 
   method dtype () name flags n t =
-    DType (record_name name, flags, n, t)
+    let name = if t = Forward then name else record_name name in
+    DType (name, flags, n, t)
 
   method dtypeenum () tags =
     Enum (List.map record_name tags)

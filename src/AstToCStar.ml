@@ -615,6 +615,10 @@ and mk_declaration env d: CStar.decl option =
       in
       Some (External (string_of_lident name, t))
 
+  | DType (name, _, _, Forward) ->
+      let name = string_of_lident name in
+      Some (CStar.TypeForward name)
+
   | DType (name, _, 0, def) ->
       let name = string_of_lident name in
       Some (CStar.Type (name, mk_type_def env def))
@@ -644,6 +648,9 @@ and mk_type_def env d: CStar.typ =
       CStar.Union (List.map (fun (f, t) ->
         f, mk_type env t
       ) fields)
+
+  | Forward ->
+      failwith "impossible, handled by mk_declaration"
 
 
 and mk_program name decls =

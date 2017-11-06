@@ -4,7 +4,7 @@ module B = FStar.Buffer
 
 type t1 a = a * a
 and t2 a =
-  | T2 of t3 a * t3 Int32.t
+  | T2 of B.buffer (t3 a) * B.buffer (t3 Int32.t)
 and t3 a =
   | T3 of a * t1 Int64.t * B.buffer (t2 a) * B.buffer (t2 Int16.t)
 

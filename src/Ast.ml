@@ -25,6 +25,7 @@ and type_def =
   | Variant of branches_t
   | Enum of lident list
   | Union of (ident * typ) list
+  | Forward
 
 and fields_t_opt =
   (ident option * (typ * bool)) list
@@ -612,6 +613,8 @@ class virtual ['env] map = object (self)
         self#dtypeenum env tags
     | Union ts ->
         self#dtypeunion env ts
+    | Forward ->
+        self#dforward env
 
   method binders env binders =
     List.map (fun binder -> { binder with typ = self#visit_t env binder.typ }) binders
@@ -653,6 +656,9 @@ class virtual ['env] map = object (self)
 
   method dtypeenum _env tags =
     Enum tags
+
+  method dforward _env =
+    Forward
 
   method dtypeunion env ts =
     Union (List.map (fun (name, t) -> name, self#visit_t env t) ts)

@@ -11,6 +11,7 @@ and decl =
   | Global of ident * flag list * typ * expr
   | Function of calling_convention option * flag list * typ * ident * binder list * block
   | Type of ident * typ
+  | TypeForward of ident
   | External of ident * typ
 
 and stmt =
@@ -110,5 +111,6 @@ let ident_of_decl (d: decl): string =
   | Global (id, _, _, _)
   | Function (_, _, _, id, _, _)
   | Type (id, _)
+  | TypeForward id
   | External (id, _) ->
       id
