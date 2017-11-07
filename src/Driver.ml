@@ -212,9 +212,9 @@ let detect_fstar () =
   in
   List.iter record_no_extract
     [ "Int8"; "UInt8"; "Int16"; "UInt16"; "Int31"; "UInt31"; "Int32"; "UInt32";
-      "Int63"; "UInt63"; "Int64"; "UInt64"; "Int128"; "Seq.Base"; "HyperStack.ST";
-      "HyperStack"; "HyperHeap"; "Math.Lib"; "Map"; "Monotonic.HyperHeap"; "Buffer";
-      "Monotonic.HyperStack" ];
+      "Int63"; "UInt63"; "Int64"; "UInt64"; "Int128"; "HyperStack.ST";
+      "HyperStack"; "HyperHeap"; "Math.Lib"; "Map"; "Monotonic.HyperHeap";
+      "Buffer"; "Monotonic.HyperStack" ];
   if not !Options.uint128 then
     fstar_options := (!fstar_home ^^ "ulib" ^^ "FStar.UInt128.fst") :: !fstar_options;
   if !Options.wasm then

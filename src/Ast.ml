@@ -15,7 +15,7 @@ and file =
 
 and decl =
   | DFunction of calling_convention option * flag list * int * typ * lident * binders * expr
-  | DGlobal of flag list * lident * typ * expr
+  | DGlobal of flag list * lident * int * typ * expr
   | DExternal of calling_convention option * lident * typ
   | DType of lident * flag list * int * type_def
 
@@ -590,8 +590,8 @@ class virtual ['env] map = object (self)
     match d with
     | DFunction (cc, flags, n, ret, name, binders, expr) ->
         self#dfunction env cc flags n ret name binders expr
-    | DGlobal (flags, name, typ, expr) ->
-        self#dglobal env flags name typ expr
+    | DGlobal (flags, name, n, typ, expr) ->
+        self#dglobal env flags name n typ expr
     | DExternal (cc, name, t) ->
         self#dexternal env cc name t
     | DType (name, flags, n, d) ->
@@ -625,8 +625,8 @@ class virtual ['env] map = object (self)
     let env = self#extend_tmany env n in
     DFunction (cc, flags, n, self#visit_t env ret, name, binders, self#visit env expr)
 
-  method dglobal env flags name typ expr =
-    DGlobal (flags, name, self#visit_t env typ, self#visit env expr)
+  method dglobal env flags name n typ expr =
+    DGlobal (flags, name, n, self#visit_t env typ, self#visit env expr)
 
   method dexternal env cc name t =
     DExternal (cc, name, self#visit_t env t)
@@ -681,7 +681,7 @@ let with_type typ node =
 
 let lid_of_decl = function
   | DFunction (_, _, _, _, lid, _, _)
-  | DGlobal (_, lid, _, _)
+  | DGlobal (_, lid, _, _, _)
   | DExternal (_, lid, _)
   | DType (lid, _, _, _) ->
       lid

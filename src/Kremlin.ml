@@ -395,7 +395,7 @@ Supported options:|}
   tick_print (not has_errors) "Bundle + inline types";
 
   (* 3. Compile data types and pattern matches to enums, structs, switches and
-   * if-then-elses. *)
+   * if-then-elses. Better have monomorphized functions first! *)
   let files = GcTypes.heap_allocate_gc_types files in
   let files = Simplify.simplify0 files in
   let datatypes_state, files = DataTypes.everything files in

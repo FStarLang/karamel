@@ -712,7 +712,7 @@ let eta_expand = object
   inherit [_] map
   inherit ignore_everything
 
-  method dglobal () flags name t body =
+  method dglobal () flags name n t body =
     (* TODO: eta-expand partially applied functions *)
     match t with
     | TArrow _ ->
@@ -723,9 +723,9 @@ let eta_expand = object
           { node = EBound (n - i - 1); typ = t }
         ) targs) in
         let body = { node = EApp (body, args); typ = tret } in
-        DFunction (None, flags, 0, tret, name, binders, body)
+        DFunction (None, flags, n, tret, name, binders, body)
     | _ ->
-        DGlobal (flags, name, t, body)
+        DGlobal (flags, name, n, t, body)
 end
 
 
@@ -746,8 +746,8 @@ let record_name lident =
 let record_toplevel_names = object
   inherit [_] map
 
-  method dglobal () flags name t body =
-    DGlobal (flags, record_name name, t, body)
+  method dglobal () flags name n t body =
+    DGlobal (flags, record_name name, n, t, body)
 
   method dfunction () cc flags n ret name args body =
     DFunction (cc, flags, n, ret, record_name name, args, body)
@@ -778,8 +778,8 @@ let replace_references_to_toplevel_names = object(self)
   method equalified () _ lident =
     EQualified (t lident)
 
-  method dglobal () flags name typ body =
-    DGlobal (flags, t name, self#visit_t () typ, self#visit () body)
+  method dglobal () flags name n typ body =
+    DGlobal (flags, t name, n, self#visit_t () typ, self#visit () body)
 
   method dfunction () cc flags n ret name args body =
     DFunction (cc, flags, n, self#visit_t () ret, t name, self#binders () args, self#visit () body)

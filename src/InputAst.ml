@@ -17,7 +17,7 @@ type program =
 
 and decl =
   (* Code *)
-  | DGlobal of (flag list * lident * typ * expr)
+  | DGlobal of (flag list * lident * int * typ * expr)
   | DFunction of (calling_convention option * flag list * int * typ * lident * binder list * expr)
   (* Types *)
   | DTypeAlias of (lident * int * typ)
@@ -137,7 +137,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 24
+let current_version: version = 25
 
 type file = string * program
   [@@deriving yojson]

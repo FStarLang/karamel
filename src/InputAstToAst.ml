@@ -41,8 +41,8 @@ let rec mk_decl = function
       DFunction (cc, flags, n, mk_typ t, name, mk_binders binders, body)
   | I.DTypeAlias (name, n, t) ->
       DType (name, [], n, Abbrev (mk_typ t))
-  | I.DGlobal (flags, name, t, e) ->
-      DGlobal (flags, name, mk_typ t, mk_expr e)
+  | I.DGlobal (flags, name, n, t, e) ->
+      DGlobal (flags, name, n, mk_typ t, mk_expr e)
   | I.DTypeFlat (name, n, fields) ->
       DType (name, [], n, Flat (mk_tfields_opt fields))
   | I.DExternal (cc, name, t) ->

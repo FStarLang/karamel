@@ -586,7 +586,8 @@ and mk_declaration env d: CStar.decl option =
         CStar.Function (cc, flags, t, (string_of_lident name), binders, body)
       end))
 
-  | DGlobal (flags, name, t, body) ->
+  | DGlobal (flags, name, n, t, body) ->
+      assert (n = 0);
       let env = locate env (InTop name) in
       Some (CStar.Global (
         string_of_lident name,

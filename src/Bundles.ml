@@ -72,8 +72,8 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
     old_name, List.map (function 
       | DFunction (cc, flags, n, typ, name, binders, body) ->
           DFunction (cc, Common.Private :: flags, n, typ, name, binders, body)
-      | DGlobal (flags, name, typ, body) ->
-          DGlobal (Common.Private :: flags, name, typ, body)
+      | DGlobal (flags, name, n, typ, body) ->
+          DGlobal (Common.Private :: flags, name, n, typ, body)
       | decl ->
           decl
     ) decls

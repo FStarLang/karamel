@@ -208,6 +208,8 @@ let mk_inliner files must_inline =
   end)#visit ()) in
   inline_one
 
+
+(* Type monomorphization of functions. *)
 module Gen = struct
   let generated_lids = Hashtbl.create 41
   let pending_defs = ref []
@@ -236,7 +238,10 @@ let monomorphize files =
   let map = Helpers.build_map files (fun map -> function
     | DFunction (cc, flags, n, t, name, b, body) ->
         if n > 0 then
-          Hashtbl.add map name (cc, flags, n, t, name, b, body)
+          Hashtbl.add map name (`Function (cc, flags, n, t, name, b, body))
+    | DGlobal (flags, name, n, t, body) ->
+        if n > 0 then
+          Hashtbl.add map name (`Global (flags, name, n, t, body))
     | _ ->
         ()
   ) in
@@ -257,40 +262,66 @@ let monomorphize files =
               let d = DFunction (cc, flags, n, ret, name, binders, self#visit () body) in
               Gen.clear () @ [ d ]
             end
+        | DGlobal (flags, name, n, t, body) ->
+            if Hashtbl.mem map name then
+              []
+            else begin
+              assert (n = 0);
+              let d = DGlobal (flags, name, n, t, self#visit () body) in
+              Gen.clear () @ [ d ]
+            end
         | d ->
             [ d ]
       ) decls
 
     method etapp env _ e ts =
+      KPrint.bprintf "Hitting %a %a\n" pexpr e ptyps ts;
       match e.node with
       | EQualified lid ->
-          if not (Hashtbl.mem map lid) then
-            (* External function. Bail. *)
-            (self#visit env e).node
-          else begin
-            try
-              (* Already monomorphized? *)
-              EQualified (Hashtbl.find Gen.generated_lids (lid, ts))
-            with Not_found ->
-              (* Need to generate a new instance. *)
-              let cc, flags, n, ret, name, binders, body = Hashtbl.find map lid in
-              if n <> List.length ts then begin
-                KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
+          begin try
+            (* Already monomorphized? *)
+            EQualified (Hashtbl.find Gen.generated_lids (lid, ts))
+          with Not_found ->
+            match Hashtbl.find map lid with
+            | exception Not_found ->
+                (* External function. Bail. *)
                 (self#visit env e).node
-              end else
-                (* See comments in [DataTypes.ml] for the reason behind this
-                 * thunk. *)
-                let name = Gen.gen_lid name ts in
-                let def () =
-                  let ret = DeBruijn.subst_tn ts ret in
-                  let binders = List.map (fun { node; typ } ->
-                    { node; typ = DeBruijn.subst_tn ts typ }
-                  ) binders in
-                  let body = DeBruijn.subst_ten ts body in
-                  let body = self#visit env body in
-                  DFunction (cc, flags, 0, ret, name, binders, body)
-                in
-                EQualified (Gen.register_def lid ts name def)
+            | `Function (cc, flags, n, ret, name, binders, body) ->
+                (* Need to generate a new instance. *)
+                if n <> List.length ts then begin
+                  KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
+                  (self#visit env e).node
+                end else
+                  (* See comments in [DataTypes.ml] for the reason behind this
+                   * thunk. *)
+                  let name = Gen.gen_lid name ts in
+                  let def () =
+                    let ret = DeBruijn.subst_tn ts ret in
+                    let binders = List.map (fun { node; typ } ->
+                      { node; typ = DeBruijn.subst_tn ts typ }
+                    ) binders in
+                    let body = DeBruijn.subst_ten ts body in
+                    let body = self#visit env body in
+                    DFunction (cc, flags, 0, ret, name, binders, body)
+                  in
+                  EQualified (Gen.register_def lid ts name def)
+
+            | `Global (flags, name, n, t, body) ->
+                if n <> List.length ts then begin
+                  KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
+                  (self#visit env e).node
+                end else
+                  (* See comments in [DataTypes.ml] for the reason behind this
+                   * thunk. *)
+                  let name = Gen.gen_lid name ts in
+                  let def () =
+                    let t = DeBruijn.subst_tn ts t in
+                    let body = DeBruijn.subst_ten ts body in
+                    let body = self#visit env body in
+                    DGlobal (flags, name, 0, t, body)
+                  in
+                  EQualified (Gen.register_def lid ts name def)
+
           end
       | EOp (_, _) ->
          (self#visit env e).node
@@ -333,7 +364,7 @@ let inline_function_frames files (must_inline, must_disappear) =
   let safely_inline = Hashtbl.create 41 in
   List.iter (fun (_, decls) ->
     List.iter (function
-      | DGlobal (flags, name, _, _)
+      | DGlobal (flags, name, _, _, _)
       | DFunction (_, flags, _, _, name, _, _) ->
           if List.mem Private flags then
             Hashtbl.add safely_private name ();
@@ -430,8 +461,8 @@ let inline_function_frames files (must_inline, must_disappear) =
     filter_decls (function
       | DFunction (cc, flags, n, ret, name, binders, body) ->
           Some (DFunction (cc, filter name flags, n, ret, name, binders, body))
-      | DGlobal (flags, name, e, t) ->
-          Some (DGlobal (filter name flags, name, e, t))
+      | DGlobal (flags, name, n, e, t) ->
+          Some (DGlobal (filter name flags, name, n, e, t))
       | d ->
           Some d
     ) files
@@ -504,7 +535,7 @@ let drop_unused files =
   let visited = Hashtbl.create 41 in
   let body_of_lid = Helpers.build_map files (fun map -> function
     | DFunction (_, _, _, _, name, _, body)
-    | DGlobal (_, name, _, body) ->
+    | DGlobal (_, name, _, _, body) ->
         Hashtbl.add map name body
     | _ ->
         ()
@@ -531,7 +562,7 @@ let drop_unused files =
   in
   iter_decls (function
     | DFunction (_, flags, _, _, lid, _, body)
-    | DGlobal (flags, lid, _, body) ->
+    | DGlobal (flags, lid, _, _, body) ->
         if not (List.exists ((=) Private) flags) && not (Drop.lid lid) then begin
           Hashtbl.add visited lid ();
           visit_e [lid] body
@@ -541,20 +572,12 @@ let drop_unused files =
   ) files;
   filter_decls (fun d ->
     match d with
-    | DGlobal (flags, lid, _, _)
+    | DGlobal (flags, lid, _, _, _)
     | DFunction (_, flags, _, _, lid, _, _) ->
         if (List.exists ((=) Private) flags || Drop.lid lid) && not (Hashtbl.mem visited lid) then
           None
         else
           Some d
     | d ->
-        Some d
-  ) files
-
-let drop_polymorphic_functions files =
-  filter_decls (function
-    | Ast.DFunction (_, _, n, _, _, _, _) when n > 0 ->
-        None
-    | _ as d ->
         Some d
   ) files

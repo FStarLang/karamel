@@ -34,8 +34,8 @@ let rec print_decl = function
       group (cc ^^ string "external" ^/^ string (string_of_lident name) ^/^ colon) ^^
       jump (print_typ typ)
 
-  | DGlobal (flags, name, typ, expr) ->
-      print_flags flags ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
+  | DGlobal (flags, name, n, typ, expr) ->
+      print_flags flags ^^ langle ^^ int n ^^ rangle ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
   | DType (name, flags, n, def) ->
       let args = KList.make n (fun i -> string ("t" ^ string_of_int i)) in
@@ -308,8 +308,11 @@ and print_pat p =
 let print_files = print_files print_decl
 
 module Ops = struct
+  let print_typs = separate_map (comma ^^ space) print_typ
+
   let ploc = printf_of_pprint Location.print_location
   let ptyp = printf_of_pprint print_typ
+  let ptyps = printf_of_pprint print_typs
   let pptyp = printf_of_pprint_pretty print_typ
   let pexpr = printf_of_pprint print_expr
   let ppexpr = printf_of_pprint_pretty print_expr

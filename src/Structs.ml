@@ -307,7 +307,7 @@ let collect_initializers (files: Ast.file list) =
   let record x = initializers := x :: !initializers in
   let files = Helpers.visit_files () (object
     inherit [unit] map
-    method dglobal _ flags name t body =
+    method dglobal _ flags name n t body =
       let flags, body =
         if not (Helpers.is_value body) then begin
           record (with_type TUnit (EAssign (with_type t (EQualified name), body)));
@@ -315,7 +315,7 @@ let collect_initializers (files: Ast.file list) =
         end else
           flags, body
       in
-      DGlobal (flags, name, t, body)
+      DGlobal (flags, name, n, t, body)
   end) files in
   if !initializers != [] then
     let file = "kremlinit",

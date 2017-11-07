@@ -21,8 +21,8 @@ class ignore_everything = object
   method dfunction () cc flags n ret name binders expr =
     DFunction (cc, flags, n, ret, name, binders, expr)
 
-  method dglobal () flags name typ expr =
-    DGlobal (flags, name, typ, expr)
+  method dglobal () flags name n typ expr =
+    DGlobal (flags, name, n, typ, expr)
 
   method dtype () name flags n t =
     DType (name, flags, n, t)
