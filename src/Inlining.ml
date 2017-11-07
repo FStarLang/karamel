@@ -275,7 +275,6 @@ let monomorphize files =
       ) decls
 
     method etapp env _ e ts =
-      KPrint.bprintf "Hitting %a %a\n" pexpr e ptyps ts;
       match e.node with
       | EQualified lid ->
           begin try
