@@ -38,7 +38,7 @@ let build_def_map files =
  * instance:
  *
  *   type linked_list = Nil | Cons of int * buffer linked_list
- *  
+ *
  * We see this phase as a classic graph traversal where the nodes are pairs of
  * types and effective type arguments, and the edges are uses. The example above
  * is visited, then a forward declaration is inserted to break the cycle from
@@ -63,7 +63,7 @@ let build_def_map files =
  *   type linked_list a = | Nil | Cons: x:int -> buffer (linked_list a)
  *
  * This gives:
- * 
+ *
  *   type linked_list_int;
  *   type linked_list_int = Nil | Cons of int * buffer linked_list_int
  *)
@@ -79,6 +79,8 @@ let monomorphize_data_types map = object(self)
   val tuple_lid = [ "K" ], ""
   (* We record pending declarations as we visit top-level declarations. *)
   val mutable pending = []
+  (* The file we're currently in. Insertion of monomorphizations is delicate! *)
+  val mutable current_file = ""
 
   (* Record a new declaration. *)
   method private record (d: decl) =
@@ -115,31 +117,36 @@ let monomorphize_data_types map = object(self)
     (* White, gray or black? *)
     begin match Hashtbl.find state n with
     | exception Not_found ->
-        if lid = tuple_lid then
-          (* For tuples, we immediately know how to generate a definition. *)
-          let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
-          self#record (DType (self#lid_of n, [], 0, Flat fields));
-          Hashtbl.add state n Black
-        else begin
-          (* This specific node has not been visited yet. *)
-          Hashtbl.add state n Gray;
-          let subst fields = List.map (fun (field, (t, m)) ->
-            field, (DeBruijn.subst_tn args t, m)
-          ) fields in
-          begin match Hashtbl.find map lid with
-          | exception Not_found ->
-              ()
-          | flags, Variant branches ->
-              let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
-              let branches = self#branches_t () branches in
-              self#record (DType (self#lid_of n, flags, 0, Variant branches))
-          | flags, Flat fields ->
-              let fields = self#fields_t () (subst fields) in
-              self#record (DType (self#lid_of n, flags, 0, Flat fields))
-          | _ ->
-              ()
-          end;
-          Hashtbl.replace state n Black
+        if not (Drop.file current_file) then begin
+          (* Subtletly: we decline to insert type monomorphizations in dropped
+           * files, on the basis that they might be needed later in an actual
+           * file. *)
+          if lid = tuple_lid then
+            (* For tuples, we immediately know how to generate a definition. *)
+            let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
+            self#record (DType (self#lid_of n, [], 0, Flat fields));
+            Hashtbl.add state n Black
+          else begin
+            (* This specific node has not been visited yet. *)
+            Hashtbl.add state n Gray;
+            let subst fields = List.map (fun (field, (t, m)) ->
+              field, (DeBruijn.subst_tn args t, m)
+            ) fields in
+            begin match Hashtbl.find map lid with
+            | exception Not_found ->
+                ()
+            | flags, Variant branches ->
+                let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
+                let branches = self#branches_t () branches in
+                self#record (DType (self#lid_of n, flags, 0, Variant branches))
+            | flags, Flat fields ->
+                let fields = self#fields_t () (subst fields) in
+                self#record (DType (self#lid_of n, flags, 0, Flat fields))
+            | _ ->
+                ()
+            end;
+            Hashtbl.replace state n Black
+          end
         end
     | Gray ->
         begin match Hashtbl.find map lid with
@@ -158,11 +165,26 @@ let monomorphize_data_types map = object(self)
    * types. *)
   method! visit_file _ file =
     let name, decls = file in
+    current_file <- name;
     name, KList.map_flatten (fun d ->
       match d with
+      | DFunction (cc, flags, n, t, name, binders, _) when Drop.file current_file ->
+          (* Subtlety! We ignored monomorphizations in this module (on the basis
+           * that the file will be dropped). So even if we visit the function
+             * and, say, generate an occurrence of list_int32, there may be no
+             * definition of list_int32 in the program at all, and pattern-match
+             * compilation will bail. *)
+          [ DFunction (cc, flags, n, t, name, binders,
+            with_type TAny (EAbort (Some "This file was meant to be dropped"))) ]
+
+      | DGlobal (flags, name, n, t, _) when Drop.file current_file ->
+          (* Same. *)
+          [ DGlobal (flags, name, n, t, any) ]
+
       | DType (_, _, _, (Flat _ | Variant _)) ->
           ignore (self#visit_d () d);
           self#clear ()
+
       | _ ->
           self#clear () @ [ self#visit_d () d ]
     ) decls
