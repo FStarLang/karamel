@@ -7,15 +7,15 @@
 "use strict";
 
 var debug = true;
+var is_node = false;
 
-var my_load;
-var my_print;
-var my_quit;
-
+// Detect d8, ch (ChakraCore), node
+var my_load, my_print, my_quit, my_readbuffer;
 if ("load" in this) {
   my_load = load;
   my_print = print;
   my_quit = quit;
+  my_readbuffer = readbuffer;
 } else if ("WScript" in this) {
   // Keys in WScript: Echo, Quit, LoadScriptFile, LoadScript, LoadModule,
   // SetTimeout, ClearTimeout, Attach, Detach, DumpFunctionPosition,
@@ -24,23 +24,48 @@ if ("load" in this) {
   my_load = WScript.LoadScriptFile;
   my_print = WScript.Echo;
   my_quit = WScript.Quit;
-} else
+  my_readbuffer = readbuffer;
+} else if (typeof process !== "undefined") {
+  is_node = true;
+  my_load = require;
+  my_print = console.log;
+  my_quit = process.exit;
+  my_readbuffer = require("fs").readFileSync;
+} else {
   throw "Unsupported shell: try running [d8 <this-file>] or [ch -Wasm <this-file>]";
+}
 
-if (!("WebAssembly" in this))
+// Sanity check!
+if (typeof WebAssembly === "undefined")
   throw "WebAssembly not enabled; are you running an old shell, or missing [-Wasm]?";
 
+// Load extra modules... with the understanding that shell.js is written by
+// kreMLin
+var link, reserve;
+var my_js_files, my_modules, my_debug;
+
 my_print("... loader.js");
-my_load("loader.js");
-// Written out by KreMLin so as to fill in my_js_files and my_modules.
-my_load("shell.js");
+if (is_node) {
+  ({ link, reserve } = require("./loader.js"));
+  ({ my_js_files, my_modules, my_debug } = require("./shell.js"));
+} else {
+  my_load("loader.js");
+  my_load("shell.js");
+}
 
 my_print("... custom JS modules " + my_js_files);
-for (let f of my_js_files)
-  my_load(f);
+for (let f of my_js_files) {
+  if (is_node) {
+    var m = require(f);
+    if (m.main)
+      this.main = m.main;
+  } else {
+    my_load(f);
+  }
+}
 
 my_print("... assembling WASM modules " + my_modules + "\n");
-var scope = link(my_modules.map(m => ({ name: m, buf: readbuffer(m+".wasm") })));
+var scope = link(my_modules.map(m => ({ name: m, buf: my_readbuffer(m+".wasm") })));
 scope.then(scope => {
   if (debug) {
     for (let m of Object.keys(scope))
