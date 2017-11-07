@@ -8,6 +8,11 @@
 
 var my_print;
 
+// When loaded "as is" via d8 or ch, we inherit the caller's scope. When loaded
+// via node, we don't.
+if (typeof process !== "undefined")
+  my_print = console.log
+
 /******************************************************************************/
 /* Some printing helpers                                                      */
 /******************************************************************************/
@@ -364,3 +369,9 @@ function link(modules) {
 
   return fold(init(), modules);
 }
+
+if (typeof module !== "undefined")
+  module.exports = {
+    link: link,
+    reserve: reserve
+  };
