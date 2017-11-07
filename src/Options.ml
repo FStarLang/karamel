@@ -109,5 +109,6 @@ let drop: Bundle.pat list ref =
     Module [ "FStar"; "UInt63" ];
     Module [ "FStar"; "Int64" ];
     Module [ "FStar"; "UInt64" ];
-    Module [ "FStar"; "Int128" ]
+    Module [ "FStar"; "Int128" ];
+    Module [ "FStar"; "Kremlin"; "Endianness" ]
   ])
