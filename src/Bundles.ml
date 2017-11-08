@@ -8,6 +8,7 @@ module StringMap = Map.Make(String)
 
 let parse = Utils.parse Parser.bundle
 
+(* For generating the filename. *)
 let bundle_name (api, patterns) =
   match api with
   | [] ->
@@ -16,7 +17,7 @@ let bundle_name (api, patterns) =
         | Prefix p -> p
       ) patterns)
   | _ ->
-     String.concat "_" api
+     String.concat "_" (List.map (String.concat "_") api)
 
 let uniq =
   let r = ref 0 in
@@ -26,10 +27,10 @@ let uniq =
 
 (** This collects all the files that match a given bundle specification, while
  * preserving their original dependency ordering within the bundle. If the
- * bundle is of the form Api=Patterns, then the declarations from Api are kept
- * as-is, while declarations from the modules that match the Patterns are marked
- * as private. Assuming no cross-translation-unit calls happen, this means a C
- * static qualifier in the extracted code.
+ * bundle is of the form Apis=Patterns, then the declarations from any of Apis
+ * are kept as-is, while declarations from the modules that match the Patterns
+ * are marked as private. Assuming no cross-translation-unit calls happen, this
+ * means a C static qualifier in the extracted code.
  *
  * The used parameter is just here to keep track of which files have been
  * involved in at least one bundle, so that we can drop them afterwards. *)
@@ -43,11 +44,16 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
    * bundle. *)
   let this_round = uniq () in
 
+  let in_api_list name =
+    List.mem name (List.map (String.concat "_") api)
+  in
+
   (* Match a file against the given list of patterns. *)
   let match_file is_api patterns (used, found) file =
     List.fold_left (fun (used, found) pattern ->
       let name = fst file in
-      if pattern_matches pattern name && (is_api || name <> String.concat "_" api) then begin
+      (* [is_api] overrides the default behavior (don't collect) *)
+      if pattern_matches pattern name && (is_api || not (in_api_list name)) then begin
         if debug then
           KPrint.bprintf "%s is a match\n" name;
 
@@ -88,17 +94,19 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
     else
       let count = StringMap.cardinal used in
       if debug then
-        KPrint.bprintf "Looking for bundle API\n";
-      let used, found = List.fold_left (match_file true [ Module api ]) (used, found) files in
-      if StringMap.cardinal used <> count + 1 then
+        KPrint.bprintf "Looking for bundle APIs\n";
+      let used, found = List.fold_left (fun (used, found) api ->
+        List.fold_left (match_file true [ Module api ]) (used, found) files
+      ) (used, found) api in
+      if StringMap.cardinal used <> count + List.length api then
         Warnings.fatal_error "There an issue with your bundle.\n\
           You specified: -bundle %s=...\n\
-          Here's the issue: there is no module named %s.\n\
+          Here's the issue: one of these modules doesn't exist: %s.\n\
           Suggestion #1: if the file does exist, pass it to KreMLin.\n\
           Suggestion #2: if it doesn't, skip the %s= part and write -bundle ..."
-          (String.concat "." api)
-          (String.concat "." api)
-          (String.concat "." api);
+          (bundle_name bundle)
+          (bundle_name bundle)
+          (bundle_name bundle);
       used, found
   in
 

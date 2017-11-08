@@ -51,14 +51,18 @@ pat:
     | Prefix m ->
         Prefix (u :: m) }
 
+mident:
+| l = separated_list(DOT, u = UIDENT { u })
+{ l }
+
 drop:
 | p = separated_list(COMMA, pat) EOF
   { p }
 
 bundle:
-| b = separated_list(DOT, u = UIDENT { u })
+| apis = separated_nonempty_list(PLUS, mident) 
   EQUALS
   l = separated_nonempty_list(COMMA, pat) EOF
-  { b, l }
+  { apis, l }
 | l = separated_nonempty_list(COMMA, pat) EOF
   { [], l }
