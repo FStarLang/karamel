@@ -168,19 +168,6 @@ let monomorphize_data_types map = object(self)
     current_file <- name;
     name, KList.map_flatten (fun d ->
       match d with
-      | DFunction (cc, flags, n, t, name, binders, _) when Drop.file current_file ->
-          (* Subtlety! We ignored monomorphizations in this module (on the basis
-           * that the file will be dropped). So even if we visit the function
-             * and, say, generate an occurrence of list_int32, there may be no
-             * definition of list_int32 in the program at all, and pattern-match
-             * compilation will bail. *)
-          [ DFunction (cc, flags, n, t, name, binders,
-            with_type TAny (EAbort (Some "This file was meant to be dropped"))) ]
-
-      | DGlobal (flags, name, n, t, _) when Drop.file current_file ->
-          (* Same. *)
-          [ DGlobal (flags, name, n, t, any) ]
-
       | DType (_, _, _, (Flat _ | Variant _)) ->
           ignore (self#visit_d () d);
           self#clear ()

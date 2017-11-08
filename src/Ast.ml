@@ -685,3 +685,12 @@ let lid_of_decl = function
   | DExternal (_, lid, _)
   | DType (lid, _, _, _) ->
       lid
+
+let flags_of_decl = function
+  | DFunction (_, flags, _, _, _, _, _)
+  | DGlobal (flags, _, _, _, _)
+  | DType (_, flags, _, _) ->
+      flags
+  | DExternal _ ->
+      []
+

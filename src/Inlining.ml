@@ -252,24 +252,32 @@ let monomorphize files =
     inherit [unit] map
 
     method! visit_file _ file =
-      let name, decls = file in
-      name, KList.map_flatten (function
+      let file_name, decls = file in
+      file_name, KList.map_flatten (function
         | DFunction (cc, flags, n, ret, name, binders, body) ->
             if Hashtbl.mem map name then
               []
-            else begin
-              assert (n = 0);
+            else if Drop.file file_name then
+              (* Subtlety! We ignored monomorphizations in this module (on the basis
+               * that the file will be dropped). So even if we visit the function
+                 * and, say, generate an occurrence of list_int32, there may be no
+                 * definition of list_int32 in the program at all, and pattern-match
+                 * compilation will bail. *)
+              [ DFunction (cc, flags, n, ret, name, binders,
+                with_type TAny (EAbort (Some "This file was meant to be dropped"))) ]
+            else
               let d = DFunction (cc, flags, n, ret, name, binders, self#visit () body) in
+              assert (n = 0);
               Gen.clear () @ [ d ]
-            end
         | DGlobal (flags, name, n, t, body) ->
             if Hashtbl.mem map name then
               []
-            else begin
-              assert (n = 0);
+            else if Drop.file file_name then
+              [ DGlobal (flags, name, n, t, Helpers.any) ]
+            else
               let d = DGlobal (flags, name, n, t, self#visit () body) in
+              assert (n = 0);
               Gen.clear () @ [ d ]
-            end
         | d ->
             [ d ]
       ) decls
