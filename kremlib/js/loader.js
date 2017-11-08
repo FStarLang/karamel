@@ -129,7 +129,7 @@ function dummyModule(funcs, globals) {
 let mkWasmSupport = (mem) => ({
   WasmSupport_trap: () => {
     dump(mem, 2*1024);
-    my_print("Run-time trap, e.g. zero-sized array.");
+    my_print("Run-time trap, e.g. zero-sized array or abort.");
     throw new Error();
   }
 });

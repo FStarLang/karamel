@@ -17,6 +17,67 @@ open Warnings
 open PrintAst.Ops
 open Common
 
+(* Inlining of function bodies ************************************************)
+
+(** We rely on the textbook three-color graph traversal; inlining cycles are a
+ * hard error. *)
+type color = White | Gray | Black
+
+(* A generic graph traversal + memoization combinator we use for inline
+ * functions and types. *)
+let rec memoize_inline map visit lid =
+  let color, body = Hashtbl.find map lid in
+  match color with
+  | Gray ->
+      fatal_error "[Frames]: cyclic dependency on %a" plid lid
+  | Black ->
+      body
+  | White ->
+      Hashtbl.add map lid (Gray, body);
+      let body = visit (memoize_inline map visit) body in
+      Hashtbl.add map lid (Black, body);
+      body
+
+(** For a given set of files, and a criterion that maps each function [lid] to a
+ * boolean, return a function from an [lid] to its body where inlining has been
+ * performed. *)
+let mk_inliner files criterion =
+  let debug_inline = Options.debug "inline" in
+  let wrap_comment lid term =
+    if debug_inline then
+      EComment (
+        KPrint.bsprintf "start inlining %a" plid lid,
+        term,
+        KPrint.bsprintf "end inlining %a" plid lid)
+    else
+      term.node
+  in
+
+  (* Build a map suitable for the [memoize_inline] combinator. *)
+  let map = Helpers.build_map files (fun map -> function
+    | DFunction (_, _, _, _, name, _, body) ->
+        Hashtbl.add map name (White, body)
+    | _ ->
+        ()
+  ) in
+  let inline_one = memoize_inline map (fun recurse -> (object(self)
+    inherit [unit] map
+    method eapp () t e es =
+      let es = List.map (self#visit ()) es in
+      match e.node with
+      | EQualified lid when Hashtbl.mem map lid && criterion lid ->
+          wrap_comment lid (Helpers.safe_substitution es (recurse lid) t)
+      | _ ->
+          EApp (self#visit () e, es)
+    method equalified () t lid =
+      match t with
+      | TArrow _ when Hashtbl.mem map lid && criterion lid ->
+          fatal_error "[Frames]: partially applied function; not meant to happen";
+      | _ ->
+          EQualified lid
+  end)#visit ()) in
+  inline_one
+
 (** A fixpoint computation ****************************************************)
 
 (** Data structures required by [Fix] *)
@@ -146,200 +207,6 @@ let inline_analysis map =
 
   F.lfp must_inline
 
-
-(* Inlining of function bodies ************************************************)
-
-(** We rely on the textbook three-color graph traversal; inlining cycles are a
- * hard error. *)
-type color = White | Gray | Black
-
-(* A generic graph traversal + memoization combinator we use for inline
- * functions and types. *)
-let rec memoize_inline map visit lid =
-  let color, body = Hashtbl.find map lid in
-  match color with
-  | Gray ->
-      fatal_error "[Frames]: cyclic dependency on %a" plid lid
-  | Black ->
-      body
-  | White ->
-      Hashtbl.add map lid (Gray, body);
-      let body = visit (memoize_inline map visit) body in
-      Hashtbl.add map lid (Black, body);
-      body
-
-(** For a given set of files, and a criterion that maps each function [lid] to a
- * boolean, return a function from an [lid] to its body where inlining has been
- * performed. *)
-let mk_inliner files must_inline =
-  let debug_inline = Options.debug "inline" in
-  let wrap_comment lid term =
-    if debug_inline then
-      EComment (
-        KPrint.bsprintf "start inlining %a" plid lid,
-        term,
-        KPrint.bsprintf "end inlining %a" plid lid)
-    else
-      term.node
-  in
-
-  (* Build a map suitable for the [memoize_inline] combinator. *)
-  let map = Helpers.build_map files (fun map -> function
-    | DFunction (_, _, _, _, name, _, body) ->
-        Hashtbl.add map name (White, body)
-    | _ ->
-        ()
-  ) in
-  let inline_one = memoize_inline map (fun recurse -> (object(self)
-    inherit [unit] map
-    method eapp () t e es =
-      let es = List.map (self#visit ()) es in
-      match e.node with
-      | EQualified lid when Hashtbl.mem map lid && must_inline lid ->
-          wrap_comment lid (Helpers.safe_substitution es (recurse lid) t)
-      | _ ->
-          EApp (self#visit () e, es)
-    method equalified () t lid =
-      match t with
-      | TArrow _ when Hashtbl.mem map lid && must_inline lid ->
-          fatal_error "[Frames]: partially applied function; not meant to happen";
-      | _ ->
-          EQualified lid
-  end)#visit ()) in
-  inline_one
-
-
-(* Type monomorphization of functions. *)
-module Gen = struct
-  let generated_lids = Hashtbl.create 41
-  let pending_defs = ref []
-
-  let gen_lid lid ts =
-    let doc =
-      let open PPrint in
-      let open PrintAst in
-      separate_map underscore print_typ ts
-    in
-    fst lid, snd lid ^ KPrint.bsprintf "__%a" PrintCommon.pdoc doc
-
-  let register_def original_lid ts lid def =
-    Hashtbl.add generated_lids (original_lid, ts) lid;
-    pending_defs := def () :: !pending_defs;
-    lid
-
-  let clear () =
-    let r = List.rev !pending_defs in
-    pending_defs := [];
-    r
-end
-
-
-let monomorphize files =
-  let map = Helpers.build_map files (fun map -> function
-    | DFunction (cc, flags, n, t, name, b, body) ->
-        if n > 0 then
-          Hashtbl.add map name (`Function (cc, flags, n, t, name, b, body))
-    | DGlobal (flags, name, n, t, body) ->
-        if n > 0 then
-          Hashtbl.add map name (`Global (flags, name, n, t, body))
-    | _ ->
-        ()
-  ) in
-
-  (* Same as [monomorphize_data_types] *)
-  let monomorphize = object(self)
-
-    inherit [unit] map
-
-    method! visit_file _ file =
-      let file_name, decls = file in
-      file_name, KList.map_flatten (function
-        | DFunction (cc, flags, n, ret, name, binders, body) ->
-            if Hashtbl.mem map name then
-              []
-            else if Drop.file file_name then
-              (* Subtlety! We ignored monomorphizations in this module (on the basis
-               * that the file will be dropped). So even if we visit the function
-                 * and, say, generate an occurrence of list_int32, there may be no
-                 * definition of list_int32 in the program at all, and pattern-match
-                 * compilation will bail. *)
-              [ DFunction (cc, flags, n, ret, name, binders,
-                with_type TAny (EAbort (Some "This file was meant to be dropped"))) ]
-            else
-              let d = DFunction (cc, flags, n, ret, name, binders, self#visit () body) in
-              assert (n = 0);
-              Gen.clear () @ [ d ]
-        | DGlobal (flags, name, n, t, body) ->
-            if Hashtbl.mem map name then
-              []
-            else if Drop.file file_name then
-              [ DGlobal (flags, name, n, t, Helpers.any) ]
-            else
-              let d = DGlobal (flags, name, n, t, self#visit () body) in
-              assert (n = 0);
-              Gen.clear () @ [ d ]
-        | d ->
-            [ d ]
-      ) decls
-
-    method etapp env _ e ts =
-      match e.node with
-      | EQualified lid ->
-          begin try
-            (* Already monomorphized? *)
-            EQualified (Hashtbl.find Gen.generated_lids (lid, ts))
-          with Not_found ->
-            match Hashtbl.find map lid with
-            | exception Not_found ->
-                (* External function. Bail. *)
-                (self#visit env e).node
-            | `Function (cc, flags, n, ret, name, binders, body) ->
-                (* Need to generate a new instance. *)
-                if n <> List.length ts then begin
-                  KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
-                  (self#visit env e).node
-                end else
-                  (* See comments in [DataTypes.ml] for the reason behind this
-                   * thunk. *)
-                  let name = Gen.gen_lid name ts in
-                  let def () =
-                    let ret = DeBruijn.subst_tn ts ret in
-                    let binders = List.map (fun { node; typ } ->
-                      { node; typ = DeBruijn.subst_tn ts typ }
-                    ) binders in
-                    let body = DeBruijn.subst_ten ts body in
-                    let body = self#visit env body in
-                    DFunction (cc, flags, 0, ret, name, binders, body)
-                  in
-                  EQualified (Gen.register_def lid ts name def)
-
-            | `Global (flags, name, n, t, body) ->
-                if n <> List.length ts then begin
-                  KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
-                  (self#visit env e).node
-                end else
-                  (* See comments in [DataTypes.ml] for the reason behind this
-                   * thunk. *)
-                  let name = Gen.gen_lid name ts in
-                  let def () =
-                    let t = DeBruijn.subst_tn ts t in
-                    let body = DeBruijn.subst_ten ts body in
-                    let body = self#visit env body in
-                    DGlobal (flags, name, 0, t, body)
-                  in
-                  EQualified (Gen.register_def lid ts name def)
-
-          end
-      | EOp (_, _) ->
-         (self#visit env e).node
-      | _ ->
-          KPrint.bprintf "%a is not an lid in the type application\n" pexpr e;
-          (self#visit env e).node
-
-  end in
-
-  Helpers.visit_files () monomorphize files
-
 let inline_analysis files =
   (* ... our criterion for determining whether a function must be inlined or not...
    * ... we map each [lid] to a pair of:
@@ -360,7 +227,10 @@ let inline_analysis files =
   must_inline, must_disappear
 
 (** A whole-program transformation that inlines functions according to... *)
-let inline_function_frames files (must_inline, must_disappear) =
+let inline files =
+
+  (* TODO: disentangle the two phases. *)
+  let must_inline, must_disappear = inline_analysis files in
 
   (* We create an inliner based on this criterion. *)
   let inline_one = mk_inliner files must_inline in
@@ -478,8 +348,6 @@ let inline_function_frames files (must_inline, must_disappear) =
   files
 
 
-(* Monomorphize types *********************************************************)
-
 let inline_type_abbrevs files =
   let map = Helpers.build_map files (fun map -> function
     | DType (lid, _, _, Abbrev t) -> Hashtbl.add map lid (White, t)
@@ -516,16 +384,6 @@ let inline_type_abbrevs files =
     | d ->
         Some d
   ) files
-
-
-(* Type applications are needed by the checker, even though they may refer to
- * things we won't compile, ever (e.g. from Prims). *)
-let drop_type_applications files =
-  Helpers.visit_files () (object
-    inherit [unit] map
-    method tapp _ _ _ =
-      TAny
-  end) files
 
 
 (* Drop unused private functions **********************************************)

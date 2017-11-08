@@ -817,6 +817,10 @@ and mk_expr env (e: expr): W.Ast.instr list =
       (* These strings are '\0'-terminated... revisit? *)
       mk_string env s
 
+  | Abort ->
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_trap"))) ] @
+      mk_unit
+
   | _ ->
       failwith ("not implemented; got: " ^ show_expr e)
 

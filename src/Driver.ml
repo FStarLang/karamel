@@ -215,6 +215,7 @@ let detect_fstar () =
       "Int63"; "UInt63"; "Int64"; "UInt64"; "Int128"; "HyperStack.ST";
       "HyperStack"; "HyperHeap"; "Math.Lib"; "Map"; "Monotonic.HyperHeap";
       "Buffer"; "Monotonic.HyperStack" ];
+  fstar_options := "--no_extract" :: "C.String" :: !fstar_options;
   if not !Options.uint128 then
     fstar_options := (!fstar_home ^^ "ulib" ^^ "FStar.UInt128.fst") :: !fstar_options;
   if !Options.wasm then

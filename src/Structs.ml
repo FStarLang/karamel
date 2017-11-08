@@ -426,7 +426,8 @@ let to_addr is_struct =
         (* This special case is subsumed by the combination of [EFlat] and
          * [ELet], but generates un-necessary names, and complicates debugging.
          * *)
-        assert (is_struct b.typ);
+        if not (is_struct b.typ) then
+          Warnings.fatal_error "%a is not a struct type\n" ptyp b.typ;
         let t = b.typ in
         let t' = TBuf b.typ in
         let b = { b with typ = t' } in

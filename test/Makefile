@@ -31,6 +31,7 @@ WEB_DIR		?= web
 all: standalone extra
 wasm: wasm-standalone wasm-extra
 external: hacl-test
+everything: all wasm external
 
 # The standalone tests don't need a source checkout of F* to run
 standalone: $(FILES) $(subst .exe,.krml,$(FILES))

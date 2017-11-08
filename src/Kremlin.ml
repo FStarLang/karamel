@@ -41,6 +41,7 @@ let _ =
   let arg_print_simplify = ref false in
   let arg_print_pattern = ref false in
   let arg_print_inline = ref false in
+  let arg_print_structs = ref false in
   let arg_print_c = ref false in
   let arg_print_wasm = ref false in
   let arg_skip_extraction = ref false in
@@ -231,6 +232,8 @@ Supported options:|}
       after simplification";
     "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after \
       inlining";
+    "-dstructs", Arg.Set arg_print_structs, " pretty-print the internal AST after \
+      struct transformations";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-dwasm", Arg.Set arg_print_wasm, " pretty-print the output Wasm";
     "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific \
@@ -380,22 +383,27 @@ Supported options:|}
   if !arg_print_ast then
     print PrintAst.print_files files;
 
-  (* 1. Monomorphize functions because the Checker is first-order. If things
-   * fail at this stage, most likely not our fault (bad input?). *)
-  let files = DataTypes.drop_match_cast files in
-  let files = Inlining.monomorphize files in
-  let has_errors, files = Checker.check_everything ~warn:true files in
-  tick_print (not has_errors) "Checking input file";
-
-  (* 2. Perform bundling early, as later analyses need to know which functions
-   * are in the same file and which are not. *)
+  (* 1. We create bundles, and monomorphize functions first. This creates more
+   * applications of parameterized types, which we then monomorphize too. Next,
+   * we inline function definitions according to [@substitute] or [StackInline].
+   * This once again changes the call graph but does not add new instances. At
+   * this stage, some functions must lose their [Private] qualifiers since the
+   * previous phases may have generated calls across module boundaries. Once
+   * [private] qualifiers are stable, we can perform our reachability analysis
+   * starting from the public functions of each module or bundle. *)
   let files = Bundles.make_bundles files in
-  let files = Inlining.inline_type_abbrevs files in
-  let has_errors, files = Checker.check_everything files in
-  tick_print (not has_errors) "Bundle + inline types";
+  let files = Monomorphization.functions files in
+  let files = Monomorphization.datatypes files in
+  let files = Inlining.inline files in
+  let files = Inlining.drop_unused files in
+  if !arg_print_inline then
+    print PrintAst.print_files files;
+  let has_errors, files = Checker.check_everything ~warn:true files in
+  tick_print (not has_errors) "Monomorphization & inlining";
 
   (* 3. Compile data types and pattern matches to enums, structs, switches and
    * if-then-elses. Better have monomorphized functions first! *)
+  let files = Inlining.inline_type_abbrevs files in (* JP: why? *)
   let files = GcTypes.heap_allocate_gc_types files in
   let files = Simplify.simplify0 files in
   let datatypes_state, files = DataTypes.everything files in
@@ -420,7 +428,6 @@ Supported options:|}
    * again. Note that [remove_unused] generates MetaSequence let-bindings,
    * meaning that it has to occur before [simplify2]. Note that [in_memory]
    * generates inner let-bindings, so it has to be before [simplify2]. *)
-  let analysis = Inlining.inline_analysis files in
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
   let files =
     if !Options.wasm then
@@ -435,23 +442,14 @@ Supported options:|}
       files
   in
   let files = Structs.collect_initializers files in
-  (* We have to rely on an earlier analysis because [pass_by_ref] and
-   * [in_memory] introduce structs that may make the inlining analysis too
-   * conservative. *)
-  let files = Inlining.inline_function_frames files analysis in
   let files = Simplify.remove_unused files in
   let files = Simplify.simplify2 files in
-  if !arg_print_inline then
+  if !arg_print_structs then
     print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in
-  tick_print (not has_errors) "Inline + Simplify 2";
+  tick_print (not has_errors) "Structs + Simplify 2";
 
-  (* 6. Some transformations that break typing: remove type application
-   * definitions (creates unbound types), drop unused functions (note: this
-   * needs to happen after [inline_function_frames], as this pass removes
-   * illegal Private flags), enable anonymous unions for syntactic elegance. *)
-  let files = Inlining.drop_type_applications files in
-  let files = Inlining.drop_unused files in
+  (* 6. Anonymous unions break typing. *)
   let files =
     if !Options.anonymous_unions then
       DataTypes.anonymous_unions datatypes_state files
