@@ -41,7 +41,13 @@ packages (e.g. `ppx_deriving`).
 
 To build just run `make` from this directory.
 
-If you have the latest version of F* and `fstar.exe` is in your `PATH` then you
+**Note:** KreMLin's `master` branch runs against F\*'s `stable` branch, and
+KreMLin's `fstar-master` branch runs against F\*'s `master` branch.
+
+**Note:** on OSX, KreMLin is happier if you have `greadlink` installed (`brew
+install coreutils`).
+
+If you have the right version of F* and `fstar.exe` is in your `PATH` then you
 can run the KreMLin test suite by doing `make test`.
 
 File a bug if things don't work!
