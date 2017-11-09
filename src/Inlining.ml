@@ -161,15 +161,15 @@ let inline_analysis map =
       | ELet (_, body, cont) ->
           contains_alloc valuation body || walk cont
       | ESequence es ->
-          let rec walk = function
+          let rec walk' = function
             | { node = EPushFrame; _ } :: _ ->
                 false
             | e :: es ->
-                contains_alloc valuation e || walk es
+                walk e || walk' es
             | [] ->
                 false
           in
-          walk es
+          walk' es
       | EPushFrame ->
           fatal_error "Malformed function body %a" plid lid
       | EIfThenElse (e1, e2, e3) ->
@@ -306,9 +306,11 @@ let inline files =
    * *)
   let files = filter_decls (function
     | DFunction (cc, flags, n, ret, name, binders, _) ->
-        if must_disappear name && Simplify.target_c_name name <> "main" then
+        if must_disappear name && Simplify.target_c_name name <> "main" then begin
+          if Options.debug "reachability" then
+            KPrint.bprintf "REACHABILITY: %a must disappear, because it's StackInline\n" plid name;
           None
-        else
+        end else
           let body = inline_one name in
           unmark_private_in name body;
           Some (DFunction (cc, flags, n, ret, name, binders, body))
@@ -410,7 +412,7 @@ let drop_unused files =
     else begin
       Hashtbl.add visited lid ();
       if Options.debug "reachability" then
-        KPrint.bprintf "marking %a as used (via: %s) \n" plid lid
+        KPrint.bprintf "REACHABILITY: %a is used (via: %s) \n" plid lid
           (String.concat " <- " (List.map (fun lid -> KPrint.bsprintf "%a" plid lid) before));
       match Hashtbl.find body_of_lid lid with
       | exception Not_found -> ()
@@ -428,6 +430,8 @@ let drop_unused files =
     | DFunction (_, flags, _, _, lid, _, body)
     | DGlobal (flags, lid, _, _, body) ->
         if not (List.exists ((=) Private) flags) && not (Drop.lid lid) then begin
+          if Options.debug "reachability" then
+            KPrint.bprintf "REACHABILITY: %a is a root because it isn't private\n" plid lid;
           Hashtbl.add visited lid ();
           visit_e [lid] body
         end

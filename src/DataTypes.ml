@@ -638,9 +638,12 @@ let debug_map map =
 (* Debug any intermediary AST as follows: *)
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
 
+let simplify files =
+  let files = visit_files () remove_trivial_matches files in
+  files
+
 let everything files =
   let files = visit_files () remove_unit_fields files in
-  let files = visit_files () remove_trivial_matches files in
   let map = build_scheme_map files in
   let files = visit_files () (compile_simple_matches map) files in
   let files = visit_files () (compile_all_matches map) files in

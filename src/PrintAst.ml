@@ -297,7 +297,7 @@ and print_pat p =
   | PRecord fields ->
       braces_with_nesting (separate_map break1 (fun (name, pat) ->
         group (string name ^/^ equals ^/^ print_pat pat ^^ semi)
-      ) fields) ^^ colon ^^ print_typ p.typ
+      ) fields)
   | PTuple ps ->
       parens_with_nesting (separate_map (comma ^^ break1) print_pat ps)
   | PEnum lid ->

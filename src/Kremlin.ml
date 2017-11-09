@@ -404,6 +404,9 @@ Supported options:|}
    * reachability analysis starting from the public functions of each module or
    * bundle. *)
   let files = Simplify.simplify0 files in
+  (* Remove trivial matches now because they eliminate code that would generate
+   * spurious dependencies otherwise. JP: TODO: fix F\*'s extraction instead! *)
+  let files = DataTypes.simplify files in
   let files = Monomorphization.datatypes files in
   let files = Inlining.inline files in
   let files = Inlining.drop_unused files in
@@ -420,7 +423,6 @@ Supported options:|}
    * to expand type abbreviations. TODO: remove [inline_type_abbrevs] and let
    * them be monomorphized just like the rest. *)
   let datatypes_state, files = DataTypes.everything files in
-  print PrintAst.print_files files;
   if !arg_print_pattern then
     print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in
@@ -433,15 +435,13 @@ Supported options:|}
   let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Simplify 2";
 
-  (* 5. Whole-program transformations. Inline functions marked as [@substitute]
-   * or [StackInline] into their parent's bodies. This is a whole-program
-   * dataflow analysis done using a fixpoint computation. If needed, pass
-   * structures by reference, and also allocate all structures in memory. This
-   * creates new opportunities for the removal of unused variables, but also
-   * breaks the earlier transformation to a statement language, which we perform
-   * again. Note that [remove_unused] generates MetaSequence let-bindings,
-   * meaning that it has to occur before [simplify2]. Note that [in_memory]
-   * generates inner let-bindings, so it has to be before [simplify2]. *)
+  (* 5. Whole-program transformations. If needed, pass structures by reference,
+   * and also allocate all structures in memory. This creates new opportunities
+   * for the removal of unused variables, but also breaks the earlier
+   * transformation to a statement language, which we perform again. Note that
+   * [remove_unused] generates MetaSequence let-bindings, meaning that it has to
+   * occur before [simplify2]. Note that [in_memory] generates inner
+   * let-bindings, so it has to be before [simplify2]. *)
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
   let files =
     if !Options.wasm then
