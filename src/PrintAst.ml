@@ -114,9 +114,9 @@ and print_flag = function
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   (if mut then string "mutable" ^^ break 1 else empty) ^^
-  group (string name ^^ lparen ^^ int !mark ^^ comma ^^ space ^^ print_meta meta ^^
+  group (group (string name ^^ lparen ^^ int !mark ^^ comma ^^ space ^^ print_meta meta ^^
   rparen ^^ colon) ^/^
-  nest 2 (print_typ typ)
+  nest 2 (print_typ typ))
 
 and print_meta = function
   | Some MetaSequence ->
@@ -274,11 +274,11 @@ and print_branches branches =
 
 and print_branch (binders, pat, expr) =
   group (bar ^^ space ^^
-    lambda ^^
-    separate_map (comma ^^ break 1) print_binder binders ^^
-    dot ^^ space ^^
-    print_pat pat ^^ space ^^ arrow
-  ) ^^ jump ~indent:4 (print_expr expr)
+    lambda ^/^
+    group (separate_map (comma ^^ break 1) print_binder binders) ^^
+    dot ^^ space ^/^
+    group (print_pat pat ^^ space ^^ arrow)
+  ) ^/^ jump ~indent:4 (print_expr expr)
 
 and print_pat p =
   match p.node with
@@ -297,7 +297,7 @@ and print_pat p =
   | PRecord fields ->
       braces_with_nesting (separate_map break1 (fun (name, pat) ->
         group (string name ^/^ equals ^/^ print_pat pat ^^ semi)
-      ) fields)
+      ) fields) ^^ colon ^^ print_typ p.typ
   | PTuple ps ->
       parens_with_nesting (separate_map (comma ^^ break1) print_pat ps)
   | PEnum lid ->

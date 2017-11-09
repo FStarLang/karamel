@@ -41,6 +41,7 @@ let _ =
   let arg_print_simplify = ref false in
   let arg_print_pattern = ref false in
   let arg_print_inline = ref false in
+  let arg_print_monomorphization = ref false in
   let arg_print_structs = ref false in
   let arg_print_c = ref false in
   let arg_print_wasm = ref false in
@@ -226,12 +227,14 @@ Supported options:|}
     (* For developers *)
     "-djson", Arg.Set arg_print_json, " dump the input AST as JSON";
     "-dast", Arg.Set arg_print_ast, " pretty-print the internal AST";
-    "-dpattern", Arg.Set arg_print_pattern, " pretty-print after pattern \
-      removal";
-    "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the internal AST \
-      after simplification";
+    "-dmonomorphization", Arg.Set arg_print_monomorphization, " pretty-print the \
+      internal AST after monomorphization";
     "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after \
       inlining";
+    "-dpattern", Arg.Set arg_print_pattern, " pretty-print after pattern \
+      matches compilation";
+    "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the internal AST \
+      after going to a statement language";
     "-dstructs", Arg.Set arg_print_structs, " pretty-print the internal AST after \
       struct transformations";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
@@ -384,35 +387,46 @@ Supported options:|}
     print PrintAst.print_files files;
 
   (* 1. We create bundles, and monomorphize functions first. This creates more
-   * applications of parameterized types, which we then monomorphize too. Next,
-   * we inline function definitions according to [@substitute] or [StackInline].
-   * This once again changes the call graph but does not add new instances. At
-   * this stage, some functions must lose their [Private] qualifiers since the
-   * previous phases may have generated calls across module boundaries. Once
-   * [private] qualifiers are stable, we can perform our reachability analysis
-   * starting from the public functions of each module or bundle. *)
+   * applications of parameterized types, which we make sure are in the AST by
+   * checking it. *)
   let files = Bundles.make_bundles files in
   let files = Monomorphization.functions files in
+  let has_errors, files = Checker.check_everything ~warn:true files in
+  tick_print (not has_errors) "Monomorphization";
+
+  (* 2. We schedule phases that may create tuples. At this stage, all the
+   * occurrences of parameterized data types are in the AST: we monomorphize
+   * them too. Next, we inline function definitions according to [@substitute]
+   * or [StackInline].  This once again changes the call graph but does not add
+   * new instances. At this stage, some functions must lose their [Private]
+   * qualifiers since the previous phases may have generated calls across module
+   * boundaries. Once [private] qualifiers are stable, we can perform our
+   * reachability analysis starting from the public functions of each module or
+   * bundle. *)
+  let files = Simplify.simplify0 files in
   let files = Monomorphization.datatypes files in
   let files = Inlining.inline files in
   let files = Inlining.drop_unused files in
   if !arg_print_inline then
     print PrintAst.print_files files;
-  let has_errors, files = Checker.check_everything ~warn:true files in
-  tick_print (not has_errors) "Monomorphization & inlining";
+  let has_errors, files = Checker.check_everything files in
+  tick_print (not has_errors) "Inlining";
 
   (* 3. Compile data types and pattern matches to enums, structs, switches and
    * if-then-elses. Better have monomorphized functions first! *)
-  let files = Inlining.inline_type_abbrevs files in (* JP: why? *)
+  let files = Inlining.inline_type_abbrevs files in
   let files = GcTypes.heap_allocate_gc_types files in
-  let files = Simplify.simplify0 files in
+  (* JP: this phase has many maps that take lids as keys and does not have logic
+   * to expand type abbreviations. TODO: remove [inline_type_abbrevs] and let
+   * them be monomorphized just like the rest. *)
   let datatypes_state, files = DataTypes.everything files in
+  print PrintAst.print_files files;
   if !arg_print_pattern then
     print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Pattern matches compilation";
 
-  (* 4. First round of simplifications. *)
+  (* 4. Going to a statement language. JP: is this necessary? *)
   let files = Simplify.simplify2 files in
   if !arg_print_simplify then
     print PrintAst.print_files files;

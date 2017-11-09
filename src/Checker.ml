@@ -156,9 +156,9 @@ and check_program env r (name, decls) =
     | Error e ->
         if not (Drop.lid lid) then begin
           r := true;
-          Warnings.maybe_fatal_error e;
           if Options.debug "backtraces" then
             Printexc.print_backtrace stderr;
+          Warnings.maybe_fatal_error e;
           flush stdout;
           KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
             please consider using -drop\n\n"
@@ -182,9 +182,9 @@ and check_program env r (name, decls) =
         if not (Drop.lid lid) then begin
           r := true;
           let e = Printexc.to_string e in
-          Warnings.maybe_fatal_error ("<toplevel>", TypeError e);
           if Options.debug "backtraces" then
             Printexc.print_backtrace stderr;
+          Warnings.maybe_fatal_error ("<toplevel>", TypeError e);
           flush stdout;
           KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
             please consider using -drop\n\n"
@@ -639,9 +639,11 @@ and infer' env e =
       infer_branches env t_scrut bs
 
   | EFlat fieldexprs ->
-      TAnonymous (Flat (List.map (fun (f, e) ->
-        f, (infer env e, false)
-      ) fieldexprs))
+      prefer_nominal
+        e.typ 
+        (TAnonymous (Flat (List.map (fun (f, e) ->
+          f, (infer env e, false)
+        ) fieldexprs)))
 
   | EField (e, field) ->
       (** Structs and unions have fields; they may be typed structurally or
@@ -882,7 +884,7 @@ and assert_qualified env t =
   | TQualified lid ->
       lid
   | _ ->
-      fatal_error "%a, expected a provided type annotation" ploc env.location
+      fatal_error "%a, expected a provided type annotation, got %a" ploc env.location ptyp t
 
 and assert_buffer env t =
   match expand_abbrev env t with
