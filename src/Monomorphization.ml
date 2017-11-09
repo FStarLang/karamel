@@ -151,8 +151,10 @@ let monomorphize_data_types map = object(self)
     let name, decls = file in
     name, KList.map_flatten (fun d ->
       match d with
-      | DType (_, _, _, (Flat _ | Variant _ | Abbrev _)) ->
+      | DType (lid, _, n, (Flat _ | Variant _ | Abbrev _)) ->
           ignore (self#visit_d () d);
+          if n = 0 then
+            ignore (self#visit_node (lid, []));
           self#clear ()
 
       | _ ->

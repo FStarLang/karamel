@@ -75,15 +75,21 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
 
   (* All the declarations that have matched the patterns are marked as private. *)
   let found = List.map (fun (old_name, decls) ->
+    let add_if name flags =
+      if not (Inlining.always_live name) then
+        Common.Private :: flags
+      else
+        flags
+    in
     old_name, List.map (function 
       | DFunction (cc, flags, n, typ, name, binders, body) ->
-          DFunction (cc, Common.Private :: flags, n, typ, name, binders, body)
+          DFunction (cc, add_if name flags, n, typ, name, binders, body)
       | DGlobal (flags, name, n, typ, body) ->
-          DGlobal (Common.Private :: flags, name, n, typ, body)
+          DGlobal (add_if name flags, name, n, typ, body)
       | DType (lid, flags, n, def) ->
-          DType (lid, Common.Private :: flags, n, def)
+          DType (lid, add_if lid flags, n, def)
       | DExternal (cc, flags, lid, t) ->
-          DExternal (cc, Common.Private :: flags, lid, t)
+          DExternal (cc, add_if lid flags, lid, t)
     ) decls
   ) found in
 

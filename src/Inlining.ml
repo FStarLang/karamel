@@ -17,6 +17,22 @@ open Warnings
 open PrintAst.Ops
 open Common
 
+(* Two distinguished cases that are always live and shall not be eliminated from
+ * the program, no matter what: the main function, and UInt128 (which kremlib.h
+ * assumes is always in scope). *)
+let always_live name =
+  (* kremlib.h assumes this type exists, so keep it, even if the program
+   * doesn't use uint128. *)
+  let always_live = [
+    [ "FStar"; "UInt128" ], "uint128"
+  ] in
+  let always_live_c = [
+    "main"
+  ] in
+  List.mem name always_live ||
+  List.mem (Simplify.target_c_name name) always_live_c
+
+
 (* Inlining of function bodies ************************************************)
 
 (** We rely on the textbook three-color graph traversal; inlining cycles are a
@@ -306,7 +322,7 @@ let inline files =
    * *)
   let files = filter_decls (function
     | DFunction (cc, flags, n, ret, name, binders, _) ->
-        if must_disappear name && Simplify.target_c_name name <> "main" then begin
+        if must_disappear name && not (always_live name) then begin
           if Options.debug "reachability" then
             KPrint.bprintf "REACHABILITY: %a must disappear, because it's StackInline\n" plid name;
           None
@@ -411,7 +427,7 @@ let drop_unused files =
       self#discover before lid;
       ignore (List.map (self#visit_t before) ts);
       TApp (lid, ts)
-    method private discover before lid =
+    method discover before lid =
       if not (Hashtbl.mem seen lid) then begin
         Hashtbl.add seen lid ();
         if Options.debug "reachability" then
@@ -426,7 +442,7 @@ let drop_unused files =
   iter_decls (fun d ->
     let flags = flags_of_decl d in
     let lid = lid_of_decl d in
-    if not (List.exists ((=) Private) flags) && not (Drop.lid lid) then begin
+    if not (List.exists ((=) Private) flags) && not (Drop.lid lid) || always_live lid then begin
       if Options.debug "reachability" then
         KPrint.bprintf "REACHABILITY: %a is a root because it isn't private\n" plid lid;
       Hashtbl.add seen lid ();
