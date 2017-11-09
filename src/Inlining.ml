@@ -395,57 +395,59 @@ let inline_type_abbrevs files =
  * functions. Note to my future self: errors may arise if the only use site is a
  * macro that drops its parameter... check kremlib.h! *)
 let drop_unused files =
-  (** Serves the dual purpose of marking which nodes have been visited (for the
-   * graph traversal) and, as a consequence, of knowning for a given private
-   * function if it was reachable starting from a non-private one. *)
-  let visited = Hashtbl.create 41 in
-  let body_of_lid = Helpers.build_map files (fun map -> function
-    | DFunction (_, _, _, _, name, _, body)
-    | DGlobal (_, name, _, _, body) ->
-        Hashtbl.add map name body
-    | _ ->
-        ()
-  ) in
-  let rec visit before lid =
-    if Hashtbl.mem visited lid then
-      ()
-    else begin
-      Hashtbl.add visited lid ();
-      if Options.debug "reachability" then
-        KPrint.bprintf "REACHABILITY: %a is used (via: %s) \n" plid lid
-          (String.concat " <- " (List.map (fun lid -> KPrint.bsprintf "%a" plid lid) before));
-      match Hashtbl.find body_of_lid lid with
-      | exception Not_found -> ()
-      | body -> visit_e (lid :: before) body
-    end
-  and visit_e before body =
-    ignore ((object
-      inherit [_] map
-      method equalified () _ lid =
-        visit before lid;
-        EQualified lid
-    end)#visit () body)
-  in
+  let seen = Hashtbl.create 41 in
+
+  let body_of_lid = Helpers.build_map files (fun map d -> Hashtbl.add map (lid_of_decl d) d) in
+
+  let visitor = object (self)
+    inherit [_] map
+    method! equalified before _ lid =
+      self#discover before lid;
+      EQualified lid
+    method! tqualified before lid =
+      self#discover before lid;
+      TQualified lid
+    method! tapp before lid ts =
+      self#discover before lid;
+      ignore (List.map (self#visit_t before) ts);
+      TApp (lid, ts)
+    method private discover before lid =
+      if not (Hashtbl.mem seen lid) then begin
+        Hashtbl.add seen lid ();
+        if Options.debug "reachability" then
+          KPrint.bprintf "REACHABILITY: %a is used (via: %s) \n" plid lid
+            (String.concat " <- " (List.map (fun lid -> KPrint.bsprintf "%a" plid lid) before));
+
+        if Hashtbl.mem body_of_lid lid then
+          ignore (self#visit_d (lid :: before) (Hashtbl.find body_of_lid lid));
+      end
+   end in
+
   iter_decls (function
-    | DFunction (_, flags, _, _, lid, _, body)
-    | DGlobal (flags, lid, _, _, body) ->
+    | DFunction (_, flags, _, _, lid, _, _)
+    | DGlobal (flags, lid, _, _, _) as d ->
         if not (List.exists ((=) Private) flags) && not (Drop.lid lid) then begin
           if Options.debug "reachability" then
             KPrint.bprintf "REACHABILITY: %a is a root because it isn't private\n" plid lid;
-          Hashtbl.add visited lid ();
-          visit_e [lid] body
+          Hashtbl.add seen lid ();
+          ignore (visitor#visit_d [lid] d)
         end
     | _ ->
+        (* Note: types and externals are never roots. *)
         ()
   ) files;
   filter_decls (fun d ->
     match d with
     | DGlobal (flags, lid, _, _, _)
     | DFunction (_, flags, _, _, lid, _, _) ->
-        if (List.exists ((=) Private) flags || Drop.lid lid) && not (Hashtbl.mem visited lid) then
+        if (List.exists ((=) Private) flags || Drop.lid lid) && not (Hashtbl.mem seen lid) then
           None
         else
           Some d
-    | d ->
-        Some d
+    | DExternal (_, lid, _)
+    | DType (lid, _, _, _) as d ->
+        if Hashtbl.mem seen lid then
+          Some d
+        else
+          None
   ) files

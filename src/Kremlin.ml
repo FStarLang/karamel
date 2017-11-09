@@ -388,9 +388,12 @@ Supported options:|}
 
   (* 1. We create bundles, and monomorphize functions first. This creates more
    * applications of parameterized types, which we make sure are in the AST by
-   * checking it. *)
+   * checking it. Note that bundling calls [drop_unused] already to do a first
+   * round of unused code elimination! *)
   let files = Bundles.make_bundles files in
   let files = Monomorphization.functions files in
+  if !arg_print_monomorphization then
+    print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything ~warn:true files in
   tick_print (not has_errors) "Monomorphization";
 

@@ -201,6 +201,7 @@ let detect_fstar () =
   let fstar_includes = List.map (expand_fstar_home !fstar_home !fstar_lib) !Options.includes in
   fstar_options := [
     "--trace_error";
+    "--cache_checked_modules";
     "--expose_interfaces"
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
   (** We don't even try to extract the int modules, because Kremlin cannot
