@@ -142,11 +142,10 @@ let inline_analysis map =
            *   let f = if ... then g else h in
            *   ignore f;
            * then this will become an over-approximation. *)
-          match t with
-          | TArrow _ when valuation lid = MustInline ->
-              raise (L.Found (KPrint.bsprintf "transitive: %a" plid lid))
-          | _ ->
-              super#equalified () t lid
+          if Hashtbl.mem map lid && valuation lid = MustInline then
+            raise (L.Found (KPrint.bsprintf "transitive: %a" plid lid))
+          else
+            super#equalified () t lid
       end)#visit () expr);
       false
     with L.Found reason ->

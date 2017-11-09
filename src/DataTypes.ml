@@ -210,7 +210,6 @@ let compile_simple_matches (map, enums) = object(self)
         end
     | _ ->
         EMatch (e, branches)
-
 end
 
 (* Third step: whole-program transformation to remove unit fields. *)
@@ -285,7 +284,7 @@ let remove_unit_fields = object (self)
     let exprs = KList.filter_mapi (fun i e ->
       if Hashtbl.mem erasable_fields (assert_tlid t, cons, i) then begin
         if not (is_value e) then
-          seq := (if e.typ = TUnit then e else with_unit (EIgnore e)) :: !seq;
+          seq := (if e.typ = TUnit then e else with_unit (EIgnore (self#visit () e))) :: !seq;
         None
       end else
         Some (self#visit () e)
@@ -295,7 +294,6 @@ let remove_unit_fields = object (self)
       ESequence (List.rev_append !seq [ (with_type t e) ])
     else
       e
-
 end
 
 (* Fourth step: get rid of really dumb matches we don't want to go through
