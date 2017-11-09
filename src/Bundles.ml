@@ -80,8 +80,10 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
           DFunction (cc, Common.Private :: flags, n, typ, name, binders, body)
       | DGlobal (flags, name, n, typ, body) ->
           DGlobal (Common.Private :: flags, name, n, typ, body)
-      | decl ->
-          decl
+      | DType (lid, flags, n, def) ->
+          DType (lid, Common.Private :: flags, n, def)
+      | DExternal (cc, flags, lid, t) ->
+          DExternal (cc, Common.Private :: flags, lid, t)
     ) decls
   ) found in
 

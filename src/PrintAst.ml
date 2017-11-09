@@ -29,8 +29,9 @@ let rec print_decl = function
         print_expr body
       )
 
-  | DExternal (cc, name, typ) ->
+  | DExternal (cc, flags, name, typ) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
+      print_flags flags ^/^
       group (cc ^^ string "external" ^/^ string (string_of_lident name) ^/^ colon) ^^
       jump (print_typ typ)
 
@@ -101,8 +102,8 @@ and print_flags flags =
 and print_flag = function
   | Private ->
       string "private"
-  | NoExtract ->
-      string "noextract"
+  | WipeBody ->
+      string "wipe"
   | CInline ->
       string "c_inline"
   | Substitute ->
@@ -111,6 +112,8 @@ and print_flag = function
       string "gc_type"
   | Comment _ ->
       empty
+  | MustDisappear ->
+      string "must_disappear"
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   (if mut then string "mutable" ^^ break 1 else empty) ^^

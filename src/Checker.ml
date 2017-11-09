@@ -118,7 +118,7 @@ let populate_env files =
           assert (n = 0);
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
-      | DExternal (_, lid, typ) ->
+      | DExternal (_, _, lid, typ) ->
           { env with globals = M.add lid typ env.globals }
     ) env decls
   ) empty files

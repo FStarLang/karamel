@@ -22,10 +22,10 @@ let string_of_width = function
   | _ -> invalid_arg "string_of_width"
 
 let mk_binop m n t =
-  DExternal (None, (m, n), TArrow (t, TArrow (t, t)))
+  DExternal (None, [], (m, n), TArrow (t, TArrow (t, t)))
 
 let mk_unop m n t =
-  DExternal (None, (m, n), t)
+  DExternal (None, [], (m, n), t)
 
 let mk_int m t =
   let mk_binop n =

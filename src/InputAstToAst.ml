@@ -33,20 +33,20 @@ let width_of_equality = function
 let rec mk_decl = function
   | I.DFunction (cc, flags, n, t, name, binders, body) ->
       let body =
-        if List.exists ((=) NoExtract) flags then
+        if List.mem WipeBody flags then
           with_type TAny (EAbort (Some "noextract flag"))
         else
           mk_expr body
       in
       DFunction (cc, flags, n, mk_typ t, name, mk_binders binders, body)
-  | I.DTypeAlias (name, n, t) ->
-      DType (name, [], n, Abbrev (mk_typ t))
+  | I.DTypeAlias (name, flags, n, t) ->
+      DType (name, flags, n, Abbrev (mk_typ t))
   | I.DGlobal (flags, name, n, t, e) ->
       DGlobal (flags, name, n, mk_typ t, mk_expr e)
-  | I.DTypeFlat (name, n, fields) ->
-      DType (name, [], n, Flat (mk_tfields_opt fields))
-  | I.DExternal (cc, name, t) ->
-      DExternal (cc, name, mk_typ t)
+  | I.DTypeFlat (name, flags, n, fields) ->
+      DType (name, flags, n, Flat (mk_tfields_opt fields))
+  | I.DExternal (cc, flags, name, t) ->
+      DExternal (cc, flags, name, mk_typ t)
   | I.DTypeVariant (name, flags, n, branches) ->
       DType (name, flags, n,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))

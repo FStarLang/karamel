@@ -752,8 +752,8 @@ let record_toplevel_names = object
   method dfunction () cc flags n ret name args body =
     DFunction (cc, flags, n, ret, record_name name, args, body)
 
-  method dexternal () cc name t =
-    DExternal (cc, record_name name, t)
+  method dexternal () cc flags name t =
+    DExternal (cc, flags, record_name name, t)
 
   method dtype () name flags n t =
     let name = if t = Forward then name else record_name name in
@@ -784,8 +784,8 @@ let replace_references_to_toplevel_names = object(self)
   method dfunction () cc flags n ret name args body =
     DFunction (cc, flags, n, self#visit_t () ret, t name, self#binders () args, self#visit () body)
 
-  method dexternal () cc name typ =
-    DExternal (cc, t name, self#visit_t () typ)
+  method dexternal () cc flags name typ =
+    DExternal (cc, flags, t name, self#visit_t () typ)
 
   method dtype () name flags n d =
     DType (t name, flags, n, self#type_def () (Some name) d)

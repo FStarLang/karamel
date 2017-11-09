@@ -423,31 +423,21 @@ let drop_unused files =
       end
    end in
 
-  iter_decls (function
-    | DFunction (_, flags, _, _, lid, _, _)
-    | DGlobal (flags, lid, _, _, _) as d ->
-        if not (List.exists ((=) Private) flags) && not (Drop.lid lid) then begin
-          if Options.debug "reachability" then
-            KPrint.bprintf "REACHABILITY: %a is a root because it isn't private\n" plid lid;
-          Hashtbl.add seen lid ();
-          ignore (visitor#visit_d [lid] d)
-        end
-    | _ ->
-        (* Note: types and externals are never roots. *)
-        ()
+  iter_decls (fun d ->
+    let flags = flags_of_decl d in
+    let lid = lid_of_decl d in
+    if not (List.exists ((=) Private) flags) && not (Drop.lid lid) then begin
+      if Options.debug "reachability" then
+        KPrint.bprintf "REACHABILITY: %a is a root because it isn't private\n" plid lid;
+      Hashtbl.add seen lid ();
+      ignore (visitor#visit_d [lid] d)
+    end
   ) files;
   filter_decls (fun d ->
-    match d with
-    | DGlobal (flags, lid, _, _, _)
-    | DFunction (_, flags, _, _, lid, _, _) ->
-        if (List.exists ((=) Private) flags || Drop.lid lid) && not (Hashtbl.mem seen lid) then
-          None
-        else
-          Some d
-    | DExternal (_, lid, _)
-    | DType (lid, _, _, _) as d ->
-        if Hashtbl.mem seen lid then
-          Some d
-        else
-          None
+    let flags = flags_of_decl d in
+    let lid = lid_of_decl d in
+    if (List.exists ((=) Private) flags || Drop.lid lid) && not (Hashtbl.mem seen lid) then
+      None
+    else
+      Some d
   ) files

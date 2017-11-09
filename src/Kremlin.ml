@@ -361,7 +361,7 @@ Supported options:|}
   begin try
     let has_uint128 =
       List.exists (function
-        | InputAst.DTypeFlat (([ "FStar"; "UInt128" ], "uint128"), _, _) ->
+        | InputAst.DTypeFlat (([ "FStar"; "UInt128" ], "uint128"), _, _, _) ->
             true
         | _ ->
             false

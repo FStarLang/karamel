@@ -50,7 +50,7 @@ let mk_action_table files =
     List.iter (function
       | DFunction (_, _, _, ret, lid, binders, _body) ->
           Hashtbl.add map lid (is_struct ret, List.map (fun b -> is_struct b.typ) binders)
-      | DExternal (_, lid, typ) ->
+      | DExternal (_, _, lid, typ) ->
           begin match typ with
           | TArrow _ ->
               let ret, args = Helpers.flatten_arrow typ in
@@ -202,7 +202,7 @@ let pass_by_ref action_table = object (self)
     let body = DeBruijn.close_binders binders body in
     DFunction (cc, flags, n, ret, lid, binders, body)
 
-  method dexternal _ cc lid t =
+  method dexternal _ cc flags lid t =
     match t with
     | TArrow _ ->
         (* Also rewrite external function declarations. *)
@@ -215,9 +215,9 @@ let pass_by_ref action_table = object (self)
           else
             ret, List.map2 buf_if args args_are_structs
         in
-        DExternal (cc, lid, Helpers.fold_arrow args ret)
+        DExternal (cc, flags, lid, Helpers.fold_arrow args ret)
     | _ ->
-        DExternal (cc, lid, t)
+        DExternal (cc, flags, lid, t)
 
 
   method! eopen to_be_starred t name atom =

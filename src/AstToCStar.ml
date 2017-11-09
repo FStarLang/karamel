@@ -595,7 +595,7 @@ and mk_declaration env d: CStar.decl option =
         mk_type env t,
         mk_expr env false body))
 
-  | DExternal (cc, name, t) ->
+  | DExternal (cc, _, name, t) ->
       let to_void = match t with
         | TArrow (TUnit, _) -> true
         | _ -> false
