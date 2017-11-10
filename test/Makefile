@@ -137,7 +137,7 @@ hacl-algs: $$($(1))/$$(subst .krml,.wasm,$$($(1)_TEST))
 
 clean-$(1):
 	$(MAKE) -C $$($1) clean
-clean: clean-$(1)
+clean-hacl: clean-$(1)
 
 web-$(1): web-head $$($(1))/$$(subst .krml,.wasm,$$($(1)_TEST))
 	cp -R $$($(1))/$$($(1)_DIR) $$(WEB_DIR)/
@@ -149,7 +149,10 @@ endef
 $(foreach alg,$(HACL_ALGS),$(eval $(call HACL_template,$(alg))))
 
 clean:
-	rm -rf *.exe *.dSYM *.out *.wasm *.krml web
+	rm -rf *.exe *.dSYM *.out *.wasm *.krml $(WEB_DIR)
+
+distclean: clean clean-hacl
+	$(MAKE) -C $(HACL_HOME)/secure_api clean
 
 # Generation of a mini-website
 web-head:
