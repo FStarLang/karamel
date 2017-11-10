@@ -231,14 +231,20 @@ let inline_analysis files =
    *   allocates without pushing a frame, meaning it must be inlined. *)
   let map = Helpers.build_map files (fun map -> function
     | DFunction (_, flags, _, _, name, _, body) ->
-        Hashtbl.add map name (List.exists ((=) Substitute) flags, body)
+        Hashtbl.add map name (flags, body)
     | _ ->
         ()
   ) in
-  Hashtbl.add map ([ "kremlinit" ], "globals") (false, Helpers.any);
+  Hashtbl.add map ([ "kremlinit" ], "globals") ([], Helpers.any);
   let valuation = inline_analysis map in
-  let must_disappear lid = valuation lid = MustInline in
-  let must_inline lid = fst (Hashtbl.find map lid) || must_disappear lid in
+  let must_disappear lid =
+    valuation lid = MustInline ||
+    List.mem MustDisappear (fst (Hashtbl.find map lid))
+  in
+  let must_inline lid =
+    List.mem Substitute (fst (Hashtbl.find map lid)) ||
+    must_disappear lid
+  in
   must_inline, must_disappear
 
 (** A whole-program transformation that inlines functions according to... *)
