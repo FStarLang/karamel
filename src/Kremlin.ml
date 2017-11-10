@@ -110,9 +110,6 @@ part is present, then the module named Api must be found within the
 set of input files, and its declarations are appended to the translation unit
 without any visibility modifications.
 
-The [-drop] option take a Pattern argument and skips code generation for the
-modules that match the pattern.
-
 The default arguments are: %s
 
 All include directories and paths supports two special prefixes:
@@ -189,6 +186,7 @@ Supported options:|}
     "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " \
       group modules into a single C translation unit (see above)";
     "-drop", Arg.String (fun s ->
+      Warnings.maybe_fatal_error ("", Deprecated ("-drop
       List.iter (prepend Options.drop) (Utils.parse Parser.drop s)),
       "  do not extract Code for this module (see above)";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include \
