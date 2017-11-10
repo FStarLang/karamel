@@ -7,7 +7,7 @@ let no_prefix: string list ref = ref [ "C" ]
 (* kremlib.h now added directly in Output.ml so that it appears before the first
  * #ifdef *)
 let add_include: string list ref = ref [ ]
-let warn_error = ref "+1-2@3+4..8@9-10@11+12"
+let warn_error = ref "+1-2@3+4..8@9+10@11+12"
 let tmpdir = ref "."
 let includes: string list ref = ref []
 let verbose = ref false

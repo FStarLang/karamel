@@ -18,6 +18,7 @@ and raw_error =
   | LostStatic of string option * lident * string option * lident
   | LostInline of string option * lident * string option * lident
   | MustCallKrmlInit
+  | Deprecated of string * string
   | NotLowStar of expr
   | NotWasmCompatible of lident * string
 
@@ -80,6 +81,8 @@ let errno_of_error = function
       8
   | MustCallKrmlInit ->
       9
+  | Deprecated _ ->
+      10
   | NotLowStar _ ->
       11
   | NotWasmCompatible _ ->
@@ -138,6 +141,8 @@ let rec perr buf (loc, raw_error) =
       p "this expression is not Low*; the enclosing function cannot be translated into C*: %a" pexpr e
   | NotWasmCompatible (lid, reason) ->
       p "%a cannot be compiled to wasm (%s)" plid lid reason
+  | Deprecated (feature, reason) ->
+      p "%s is deprecated\n  %s" feature reason
 
 
 let maybe_fatal_error error =

@@ -97,7 +97,7 @@ The default is %s and the available warnings are:
   7: private F* function cannot be marked as C static
   8: C inline function reference across translation units
   9: need to manually call static initializers for globals
-  10: <currently unused>
+  10: deprecated feature
   11: subexpression is not Low*; cannot proceed
   12: cannot be compiled to Wasm
 
@@ -150,6 +150,7 @@ Supported options:|}
     (p "compcert")
   in
   let found_file = ref false in
+  let used_drop = ref false in
   let prepend r = fun s -> r := s :: !r in
   let csv f s =
     List.iter f (KString.split_on_char ',' s)
@@ -186,7 +187,7 @@ Supported options:|}
     "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " \
       group modules into a single C translation unit (see above)";
     "-drop", Arg.String (fun s ->
-      Warnings.maybe_fatal_error ("", Deprecated ("-drop
+      used_drop := true;
       List.iter (prepend Options.drop) (Utils.parse Parser.drop s)),
       "  do not extract Code for this module (see above)";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include \
@@ -312,6 +313,11 @@ Supported options:|}
   (* Then refine that based on the user's preferences. *)
   if !arg_warn_error <> "" then
     Warnings.parse_warn_error !arg_warn_error;
+
+  if !used_drop then
+    Warnings.(maybe_fatal_error ("", Deprecated ("-drop", "use a combination of \
+      -bundle and -d reachability to make sure the functions are eliminated as \
+      you wish")));
 
   (* If the compiler supports uint128, then we just drop the module and let
    * dependency analysis use FStar.UInt128.fsti. If the compiler does not,
