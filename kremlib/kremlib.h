@@ -37,6 +37,11 @@
 /* Implementing C.fst                                                         */
 /******************************************************************************/
 
+typedef struct {
+  uint32_t length;
+  const char *data;
+} FStar_Bytes_bytes;
+
 /* Uppercase issue; we have to define lowercase versions of the C macros (as we
  * have no way to refer to an uppercase *variable* in F*). */
 extern int exit_success;
@@ -71,7 +76,7 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
     *FStar_Set_set, *Prims_st_pre_h, *FStar_Heap_heap, *Prims_all_pre_h,
     *FStar_TSet_set, *Prims_list, *FStar_Map_t, *FStar_UInt63_t_,
     *FStar_Int63_t_, *FStar_UInt63_t, *FStar_Int63_t, *FStar_UInt_uint_t,
-    *FStar_Int_int_t, *FStar_HyperStack_stackref, *FStar_Bytes_bytes,
+    *FStar_Int_int_t, *FStar_HyperStack_stackref,
     *FStar_HyperHeap_rid, *FStar_Heap_aref, *FStar_Monotonic_Heap_heap,
     *FStar_Monotonic_Heap_aref, *FStar_Monotonic_HyperHeap_rid,
     *FStar_Monotonic_HyperStack_mem, *FStar_Char_char_;
