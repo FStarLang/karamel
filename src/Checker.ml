@@ -857,6 +857,10 @@ and check_pat env t_context pat =
       check_pat env t p;
       pat.typ <- t_context;
 
+  | PConstant (w, _) ->
+      check_subtype env t_context (TInt w);
+      pat.typ <- TInt w
+
 
 and assert_tuple env t =
   match expand_abbrev env t with

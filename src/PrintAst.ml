@@ -307,6 +307,8 @@ and print_pat p =
       string (string_of_lident lid)
   | PDeref p ->
       star ^^ print_pat p
+  | PConstant k ->
+      print_constant k
 
 let print_files = print_files print_decl
 

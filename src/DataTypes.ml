@@ -424,6 +424,8 @@ let rec compile_pattern env scrut pat expr =
   | PDeref pat ->
       let scrut = mk (EBufRead (scrut, zerou32)) in
       compile_pattern env scrut pat expr
+  | PConstant k ->
+      [ mk_eq (fst k) scrut (mk (EConstant k)) ], expr
 
 
 let rec mk_conjunction = function

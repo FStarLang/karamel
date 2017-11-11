@@ -97,6 +97,7 @@ and pattern =
   | PCons of (ident * pattern list)
   | PTuple of pattern list
   | PRecord of (ident * pattern) list
+  | PConstant of K.t
 
 and var =
   int (** a De Bruijn index *)
@@ -137,7 +138,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 26
+let current_version: version = 27
 
 type file = string * program
   [@@deriving yojson]

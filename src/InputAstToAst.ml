@@ -18,6 +18,7 @@ let rec binders_of_pat p =
       KList.map_flatten binders_of_pat ps
   | PRecord fields ->
       KList.map_flatten binders_of_pat (snd (List.split fields))
+  | PConstant _
   | PUnit
   | PBool _ ->
       []
@@ -186,6 +187,8 @@ and mk_pat binders pat =
       mk (PRecord (List.map (fun (field, pat) ->
         field, mk_pat pat
       ) fields))
+  | I.PConstant k ->
+      mk (PConstant k)
   in
   mk_pat pat
 

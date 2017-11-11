@@ -143,6 +143,7 @@ and pattern' =
   | PTuple of pattern list
   | PRecord of (ident * pattern) list
   | PDeref of pattern
+  | PConstant of K.t
   | PWild
 
 and pattern =
@@ -473,6 +474,8 @@ class virtual ['env] map = object (self)
         self#pwild env
     | PDeref p ->
         self#pderef env t p
+    | PConstant k ->
+        self#pconstant env t k
 
   method punit _env =
     PUnit
@@ -503,6 +506,9 @@ class virtual ['env] map = object (self)
 
   method penum _env _t lid =
     PEnum lid
+
+  method pconstant _env _t k =
+    PConstant k
 
   (* Types *)
 
