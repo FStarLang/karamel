@@ -293,8 +293,8 @@ and check' env t e =
           type_error env "Empty sequence"
       end
 
-  | EBufCreate (_, e1, e2) ->
-      if env.warn && not (is_constant e2) then begin
+  | EBufCreate (lifetime, e1, e2) ->
+      if env.warn && not (is_constant e2) && lifetime = Common.Stack then begin
         let e = KPrint.bsprintf "%a" pexpr e in
         let loc = KPrint.bsprintf "%a" ploc env.location in
         Warnings.(maybe_fatal_error (loc, Vla e))
