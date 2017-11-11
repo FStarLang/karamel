@@ -261,15 +261,13 @@ let inline files =
   let safely_private = Hashtbl.create 41 in
   let safely_inline = Hashtbl.create 41 in
   List.iter (fun (_, decls) ->
-    List.iter (function
-      | DGlobal (flags, name, _, _, _)
-      | DFunction (_, flags, _, _, name, _, _) ->
-          if List.mem Private flags then
-            Hashtbl.add safely_private name ();
-          if List.mem CInline flags then
-            Hashtbl.add safely_inline name ()
-      | _ ->
-          ()
+    List.iter (fun d ->
+      let name = lid_of_decl d in
+      let flags = flags_of_decl d in
+      if List.mem Private flags then
+        Hashtbl.add safely_private name ();
+      if List.mem CInline flags then
+        Hashtbl.add safely_inline name ()
     ) decls
   ) files;
 
@@ -318,6 +316,12 @@ let inline files =
       method equalified () _ name' =
         warn_and_remove name';
         EQualified name'
+      method tqualified () name' =
+        warn_and_remove name';
+        TQualified name'
+      method tapp () name' ts =
+        warn_and_remove name';
+        TApp (name', List.map (self#visit_t ()) ts)
     end)#visit () body)
   in
 
@@ -363,8 +367,10 @@ let inline files =
           Some (DFunction (cc, filter name flags, n, ret, name, binders, body))
       | DGlobal (flags, name, n, e, t) ->
           Some (DGlobal (filter name flags, name, n, e, t))
-      | d ->
-          Some d
+      | DExternal (cc, flags, name, t) ->
+          Some (DExternal (cc, filter name flags, name, t))
+      | DType (name, flags, n, t) ->
+          Some (DType (name, filter name flags, n, t))
     ) files
   in
 
