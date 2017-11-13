@@ -22,4 +22,6 @@ static inline uint32_t print_u32(char *dst, uint32_t i) {
   return sprintf(dst, "%"PRIu32, i);
 }
 
+Prims_string Prims_strcat(Prims_string s0, Prims_string s1);
+
 #endif
