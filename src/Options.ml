@@ -87,7 +87,6 @@ let drop: Bundle.pat list ref =
     Module [ "FStar"; "Char"; ];
     Module [ "FStar"; "Float"; ];
     Module [ "FStar"; "Heap"; ];
-    Module [ "FStar"; "IO"; ];
     Module [ "FStar"; "Matrix2"; ];
     Module [ "FStar"; "Option"; ];
     Module [ "FStar"; "Squash"; ];
