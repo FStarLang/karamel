@@ -48,9 +48,6 @@ typedef int exit_code;
 void print_string(const char *s);
 void print_bytes(uint8_t *b, uint32_t len);
 
-/* The universal null pointer defined in C.Nullity.fst */
-#define C_Nullity_null(X) 0
-
 /* If some globals need to be initialized before the main, then kremlin will
  * generate and try to link last a function with this type: */
 void kremlinit_globals(void);
