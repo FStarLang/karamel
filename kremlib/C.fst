@@ -22,7 +22,14 @@ assume val srand: UInt32.t -> Stack unit
 assume val rand: unit -> Stack Int32.t
   (requires (fun _ -> true))
   (ensures (fun h0 _ h1 -> modifies_none h0 h1))
-assume val exit: Int32.t -> unit
+assume val exit: Int32.t -> Stack unit
+  (requires (fun _ -> true))
+  (ensures (fun h0 _ h1 -> modifies_none h0 h1))
+
+// This is only to provide a placeholder when needed: this type is not very
+// useful, as it is not interconvertible with other pointer types.
+assume type intptr_t
+assume val nullptr: intptr_t
 
 // Abstract char type, with explicit conversions to/from uint8
 assume val char: Type0
@@ -65,7 +72,6 @@ assume val print_string: string -> Stack unit
 assume val print_bytes: b:buffer UInt8.t -> len:UInt32.t{UInt32.v len <= length b} -> Stack unit
   (requires (fun h -> Buffer.live h b))
   (ensures  (fun h0 _ h1 -> h0 == h1))
-
 
 // Byte-level functions
 assume val htole16: UInt16.t -> Tot UInt16.t

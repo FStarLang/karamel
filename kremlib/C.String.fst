@@ -3,6 +3,7 @@ module C.String
 module U8 = FStar.UInt8
 module U32 = FStar.UInt32
 
+open FStar.HyperStack.ST
 open C
 
 private type t' =
@@ -35,3 +36,8 @@ assume val of_literal: s:Prims.string ->
     (ensures (fun cs ->
       zero_free cs /\
       length cs == normalize_term (List.Tot.length (FStar.String.list_of_string s)) + 1))
+
+assume val print: t -> Stack unit (fun _ -> true) (fun h0 _ h1 -> h0 == h1)
+
+unfold
+let (!$) = of_literal

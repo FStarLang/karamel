@@ -39,8 +39,11 @@
 
 /* Uppercase issue; we have to define lowercase versions of the C macros (as we
  * have no way to refer to an uppercase *variable* in F*). */
+/* DEPRECATED */
 extern int exit_success;
 extern int exit_failure;
+
+extern intptr_t nullptr;
 
 /* This one allows the user to write C.EXIT_SUCCESS. */
 typedef int exit_code;

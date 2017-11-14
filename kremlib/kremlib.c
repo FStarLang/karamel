@@ -1,6 +1,9 @@
 #include "kremlib.h"
 #include <stdlib.h>
 
+intptr_t nullptr = (intptr_t) NULL;
+
+/* DEPRECATED */
 int exit_success = EXIT_SUCCESS;
 int exit_failure = EXIT_FAILURE;
 
