@@ -498,7 +498,7 @@ and mk_expr (e: expr): C.expr =
   | Comma (e1, e2) ->
       Op2 (K.Comma, mk_expr e1, mk_expr e2)
 
-  | BufRead (e1, Constant (K.UInt32, "0")) ->
+  | Call (Qualified s, [ e1 ]) when KString.starts_with s "C_Nullity_op_Bang_Star__"->
       Deref (mk_expr e1)
 
   | Call (Qualified "C_String_get", [ e1; e2 ])

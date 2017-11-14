@@ -31,7 +31,6 @@ type pointer (t: Type0) =
 type pointer_or_null (t: Type0) =
   b:B.buffer t { if is_null b then True else B.length b = 1 }
 
-unfold
 let (!*) (#a: Type) (p: pointer a):
   Stack a
   (requires (fun h -> B.live h p))
