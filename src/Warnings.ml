@@ -110,9 +110,7 @@ let rec perr buf (loc, raw_error) =
   | BadFrame f ->
       p "The push/pop frame invariant is broken because:\n  %s" f
   | TypeError e ->
-      p "Malformed input:\n%s\nIf this function was not meant to be reachable, \
-        consider using KreMLin's -d reachability to understand why it is still in \
-        your call-graph." e
+      p "Malformed input:\n%s" e
   | Unsupported e ->
       p "Unsupported: %s" e
   | ExternalError c ->

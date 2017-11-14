@@ -190,8 +190,10 @@ Supported options:|}
       used_drop := true;
       List.iter (prepend Options.drop) (Utils.parse Parser.drop s)),
       "  do not extract Code for this module (see above)";
+    "-add-early-include", Arg.String (prepend Options.add_early_include),
+      "prepend #include the-argument to every generated file, before kremlib.h";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include \
-      the-argument to every generated file";
+      the-argument to every generated file, after the #define __FOO_H";
     "-header", Arg.String (fun f ->
       Options.header := Utils.file_get_contents f
     ), " prepend the contents of the given file at the beginning of each .c and .h";

@@ -160,9 +160,11 @@ and check_program env r (name, decls) =
             Printexc.print_backtrace stderr;
           Warnings.maybe_fatal_error e;
           flush stdout;
-          KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
-            please consider using -drop\n\n"
-            plid (lid_of_decl d);
+          KPrint.beprintf "Cannot re-check %a, dropping this definition.\nIf this is normal \
+            and the function was not meant to be reachable, consider using \
+            KreMLin's [-d reachability] command-line flag to understand why %a \
+            is still in your call-graph."
+            plid (lid_of_decl d) plid (lid_of_decl d);
           flush stderr
         end;
         None
