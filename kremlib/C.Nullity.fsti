@@ -19,6 +19,11 @@ val null_always_live (#a: Type) (h: HS.mem) (b: B.buffer a):
     (ensures (B.live h b))
     [SMTPat (B.live h b)]
 
+val null_always_zero (#a: Type) (b: B.buffer a):
+  Lemma (requires (b2t (is_null b)))
+    (ensures (B.length b = 0))
+    [SMTPat (B.length b)]
+
 (* Useful shorthands for pointers, or maybe-null pointers. *)
 type pointer (t: Type0) =
   b:B.buffer t { B.length b = 1 }
