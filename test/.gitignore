@@ -2,3 +2,4 @@
 *.krml
 *.out
 *.dSYM
+*.wasm
