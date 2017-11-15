@@ -82,6 +82,7 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
     *FStar_Monotonic_HyperStack_mem, *FStar_Char_char_;
 
 typedef const char *Prims_string;
+Prims_string Prims_strcat(Prims_string s0, Prims_string s1);
 
 /* For "bare" targets that do not have a C stdlib, the user might want to use
  * [-add-include '"mydefinitions.h"'] and override these. */
