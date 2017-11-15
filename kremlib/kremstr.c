@@ -11,7 +11,7 @@
  * link-time. */
 
 Prims_nat FStar_String_strlen(Prims_string s) {
-  return strlen(s) - 1;
+  return strlen(s);
 }
 
 Prims_string FStar_String_strcat(Prims_string s0, Prims_string s1) {
