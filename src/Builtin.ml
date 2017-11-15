@@ -54,7 +54,8 @@ let mk_int m t =
     mk_binop "gt";
     mk_binop "gte";
     mk_binop "lt";
-    mk_binop "lte"
+    mk_binop "lte";
+    mk_unop "to_string" (TArrow (t, TQualified (["Prims"],"string")))
   ]
 
 let mk_builtin_int w =

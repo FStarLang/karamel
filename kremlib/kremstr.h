@@ -41,4 +41,15 @@ static inline void C_String_print(C_String_t str) {
 typedef const char *Prims_string;
 Prims_string Prims_strcat(Prims_string s0, Prims_string s1);
 
+static inline Prims_string FStar_UInt32_to_string(uint32_t i) {
+  char *buf = malloc(24);
+  snprintf(buf, 24, "%"PRIu32, i);
+  return buf;
+}
+
+static inline Prims_string FStar_UInt16_to_string(uint16_t i) {
+  char *buf = malloc(24);
+  snprintf(buf, 24, "%"PRIu16, i);
+  return buf;
+}
 #endif

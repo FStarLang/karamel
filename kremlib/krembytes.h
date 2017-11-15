@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <inttypes.h>
 #include <string.h>
 
@@ -175,6 +176,34 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
 
 static inline Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes s) {
   return NULL; //placeholder!
+}
+
+// FIXME this is a correct, but incomplete function that only works if the bytes
+// were ASCII in the first place
+static inline FStar_Pervasives_Native_option__Prims_string FStar_Bytes_iutf8_opt(FStar_Bytes_bytes b) {
+  bool ascii = true;
+  for (size_t i = 0; i < b.length; ++i) {
+    if (b.data[i] >= 128) {
+      ascii = false;
+      break;
+    }
+  }
+  if (!ascii) {
+    fprintf(stderr, "!!FIXME, non-ASCII string passed to iutf8_opt, do actual "
+      "UTF8 detection\n");
+    FStar_Pervasives_Native_option__Prims_string ret = {
+      .tag = FStar_Pervasives_Native_None
+    };
+    return ret;
+  }
+  char *str = malloc(b.length + 1);
+  memcpy(str, b.data, b.length);
+  str[b.length] = 0;
+  FStar_Pervasives_Native_option__Prims_string ret = {
+    .tag = FStar_Pervasives_Native_Some,
+    .val = { .case_Some = { .v = str } }
+  };
+  return ret;
 }
 
 #endif

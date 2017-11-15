@@ -1,4 +1,5 @@
 #include "kremlib.h"
+#include "kremstr.h"
 
 /******************************************************************************/
 /* Implementation of FStar.String and FStar.HyperIO                           */
