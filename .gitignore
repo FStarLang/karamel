@@ -3,3 +3,6 @@
 _build
 krml
 tags
+*.checked
+*.checked.lax
+*~

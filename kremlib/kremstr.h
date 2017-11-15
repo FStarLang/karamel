@@ -3,6 +3,14 @@
 
 #include "kremlib.h"
 
+/******************************************************************************/
+/* Implementation of C.String                                                 */
+/******************************************************************************/
+
+/* Note: we drop C.String, which means that generated programs do not see
+ * "extern" declarations, meaning that we can implement these functions via a
+ * header only. */
+
 typedef const char *C_String_t, *C_String_t_;
 
 static inline char char_of_uint8(uint8_t x) {
@@ -22,6 +30,8 @@ static inline uint32_t print_u32(char *dst, uint32_t i) {
   return sprintf(dst, "%"PRIu32, i);
 }
 
-Prims_string Prims_strcat(Prims_string s0, Prims_string s1);
+static inline void C_String_print(C_String_t str) {
+  printf("%s", str);
+}
 
 #endif

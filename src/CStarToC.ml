@@ -498,9 +498,18 @@ and mk_expr (e: expr): C.expr =
   | Comma (e1, e2) ->
       Op2 (K.Comma, mk_expr e1, mk_expr e2)
 
+  | Call (Qualified s, [ e1 ]) when KString.starts_with s "C_Nullity_op_Bang_Star__"->
+      Deref (mk_expr e1)
+
   | Call (Qualified "C_String_get", [ e1; e2 ])
   | BufRead (e1, e2) ->
       mk_index e1 e2
+
+  | Call (Qualified "C_Nullity_null", _) ->
+      Name "NULL"
+
+  | Call (Qualified "C_Nullity_is_null", [ e ]) ->
+      Op2 (K.Eq, mk_expr e, C.Name "NULL")
 
   | Call (e, es) ->
       Call (mk_expr e, List.map mk_expr es)

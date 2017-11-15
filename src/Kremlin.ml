@@ -190,8 +190,10 @@ Supported options:|}
       used_drop := true;
       List.iter (prepend Options.drop) (Utils.parse Parser.drop s)),
       "  do not extract Code for this module (see above)";
+    "-add-early-include", Arg.String (prepend Options.add_early_include),
+      "prepend #include the-argument to every generated file, before kremlib.h";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include \
-      the-argument to every generated file";
+      the-argument to every generated file, after the #define __FOO_H";
     "-header", Arg.String (fun f ->
       Options.header := Utils.file_get_contents f
     ), " prepend the contents of the given file at the beginning of each .c and .h";
@@ -200,7 +202,7 @@ Supported options:|}
     "-I", Arg.String (prepend Options.includes), " add directory to search path \
       (F* and C compiler)";
     "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
-    "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are \
+    "-warn-error", Arg.String (fun s -> arg_warn_error := !arg_warn_error ^ s), "  decide which errors are \
       fatal / warnings / silent (default: " ^ !Options.warn_error ^")";
 
     (* Fine-tuning code generation. *)

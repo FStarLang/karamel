@@ -53,11 +53,10 @@ let size_of (t: typ): size =
       I32
   | TAnonymous (Enum _) ->
       I32
-  | TQualified ([], ("string" | "Prims_string")) ->
-      (* The string type from the C module (which automatically gets
-       * -no-prefix), or an F* string literal. They're represented the same way,
-       * that is, a pointer to a string statically allocated in the data
-       * segment. *)
+  | TQualified ([], ("C_String_t" | "Prims_string")) ->
+      (* The string type from the C.String module, or an F* string literal.
+       * They're represented the same way, that is, a pointer to a string
+       * statically allocated in the data segment. *)
       I32
   | _ ->
       failwith (KPrint.bsprintf "size_of: this case should've been eliminated: %a" ptyp t)

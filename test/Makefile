@@ -16,7 +16,7 @@ FILES		= \
   FunctionalEncoding.exe FunPtr.exe Test128.exe \
   CheckedInt.exe Polymorphic.exe GcTypes.exe BadMatch.exe C89.exe \
   PatternAny.exe Debug.exe hello-system/HelloSystem.exe Server.exe \
-  ExitCode.exe DataTypesMut.exe
+  ExitCode.exe DataTypesMut.exe ParamAbbrev.exe Null.exe Failwith.exe
 EXTRA_FILES	= \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \
@@ -60,7 +60,8 @@ HigherOrder.exe: EXTRA = -warn-error +9
 C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic -fc89
 Debug.exe: EXTRA = -d c-calls
 Server.exe: EXTRA = -add-include '"kremstr.h"' main-Server.c
-StringLit.exe: EXTRA = ../kremlib/kremstr.c
+StringLit.exe: EXTRA = ../kremlib/kremstr.c -add-include '"kremstr.h"'
+Failwith.exe: EXTRA = -add-include '"kremstr.h"'
 $(CRYPTO)/Crypto.Symmetric.Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 hello-system/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
 	hello-system/system.c -I hello-system -no-prefix SystemNative \

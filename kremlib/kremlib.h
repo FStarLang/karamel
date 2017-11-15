@@ -44,17 +44,17 @@ typedef struct {
 
 /* Uppercase issue; we have to define lowercase versions of the C macros (as we
  * have no way to refer to an uppercase *variable* in F*). */
+/* DEPRECATED */
 extern int exit_success;
 extern int exit_failure;
+
+extern intptr_t nullptr;
 
 /* This one allows the user to write C.EXIT_SUCCESS. */
 typedef int exit_code;
 
 void print_string(const char *s);
 void print_bytes(uint8_t *b, uint32_t len);
-
-/* The universal null pointer defined in C.Nullity.fst */
-#define C_Nullity_null(X) 0
 
 /* If some globals need to be initialized before the main, then kremlin will
  * generate and try to link last a function with this type: */
