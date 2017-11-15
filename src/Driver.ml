@@ -142,11 +142,13 @@ let detect_kremlin_if () =
   if !krml_home = "" then
     detect_kremlin ()
 
-let expand_fstar_home fstar_home fstar_lib s =
+let expand_prefixes s =
   if KString.starts_with s "FSTAR_LIB" then
-    fstar_lib ^^ KString.chop s "FSTAR_LIB"
+    !fstar_lib ^^ KString.chop s "FSTAR_LIB"
   else if KString.starts_with s "FSTAR_HOME" then
-    fstar_home ^^ KString.chop s "FSTAR_HOME"
+    !fstar_home ^^ KString.chop s "FSTAR_HOME"
+  else if KString.starts_with s "KRML_HOME" then
+    !krml_home ^^ KString.chop s "KRML_HOME"
   else
     s
 
@@ -198,7 +200,7 @@ let detect_fstar () =
    * set of known failing modules. Adding a new module to the failing list is
    * DANGEROUS: it will remove a bunch of [DExternal] declarations that the
    * type-checker needs! *)
-  let fstar_includes = List.map (expand_fstar_home !fstar_home !fstar_lib) !Options.includes in
+  let fstar_includes = List.map expand_prefixes !Options.includes in
   fstar_options := [
     "--trace_error";
     "--cache_checked_modules";
@@ -229,9 +231,9 @@ let detect_fstar_if () =
   if !fstar = "" then
     detect_fstar ()
 
-let expand_fstar_home s =
+let expand_prefixes s =
   detect_fstar_if ();
-  expand_fstar_home !fstar_home !fstar_lib s
+  expand_prefixes s
 
 let verbose_msg () =
   if !Options.verbose then
@@ -361,7 +363,7 @@ let o_of_c f =
  * silently dropped, or KreMLin aborts if warning 3 is fatal. *)
 let compile files extra_c_files =
   assert (List.length files > 0);
-  let extra_c_files = List.map expand_fstar_home extra_c_files in
+  let extra_c_files = List.map expand_prefixes extra_c_files in
   detect_kremlin_if ();
   detect_cc_if ();
   flush stdout;
@@ -382,7 +384,7 @@ let compile files extra_c_files =
  * command-line are linked together; any [-o] option is passed to the final
  * invocation of [gcc]. *)
 let link c_files o_files =
-  let o_files = List.map expand_fstar_home o_files in
+  let o_files = List.map expand_prefixes o_files in
   let objects = List.map o_of_c c_files @ o_files in
   let extra_arg = if !Options.exe_name <> "" then Dash.o_exe !Options.exe_name else [] in
   if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg @ List.rev !Options.ldopts) then
