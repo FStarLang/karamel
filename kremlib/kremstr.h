@@ -34,4 +34,11 @@ static inline void C_String_print(C_String_t str) {
   printf("%s", str);
 }
 
+/******************************************************************************/
+/* Prims stubs                                                                */
+/******************************************************************************/
+
+typedef const char *Prims_string;
+Prims_string Prims_strcat(Prims_string s0, Prims_string s1);
+
 #endif

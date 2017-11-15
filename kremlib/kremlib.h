@@ -53,7 +53,6 @@ extern intptr_t nullptr;
 /* This one allows the user to write C.EXIT_SUCCESS. */
 typedef int exit_code;
 
-void print_string(const char *s);
 void print_bytes(uint8_t *b, uint32_t len);
 
 /* If some globals need to be initialized before the main, then kremlin will
@@ -81,11 +80,8 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
     *FStar_Monotonic_Heap_aref, *FStar_Monotonic_HyperHeap_rid,
     *FStar_Monotonic_HyperStack_mem, *FStar_Char_char_;
 
-typedef const char *Prims_string;
-Prims_string Prims_strcat(Prims_string s0, Prims_string s1);
-
 /* For "bare" targets that do not have a C stdlib, the user might want to use
- * [-add-include '"mydefinitions.h"'] and override these. */
+ * [-add-early-include '"mydefinitions.h"'] and override these. */
 #ifndef KRML_HOST_PRINTF
 #  define KRML_HOST_PRINTF printf
 #endif
