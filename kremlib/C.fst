@@ -48,27 +48,14 @@ assume val clock: unit -> Stack clock_t
   (requires (fun _ -> true))
   (ensures (fun h0 _ h1 -> modifies_none h0 h1))
 
-// C stdlib
+// C stdlib; the order of these constructors matters for Wasm
 type exit_code = | EXIT_SUCCESS | EXIT_FAILURE
 
 // DEPRECATED
 let exit_success : Int32.t = Int32.int_to_t 0
 let exit_failure : Int32.t = Int32.int_to_t 1
 
-// DEPRECATED
-assume type string
-// DEPRECATED
-assume val string_of_literal: Prims.string -> Tot string
-
-// Note: this assumes a bytes-in, bytes-out semantics for strings in F* which is
-// most likely not the case using the F# build of F* -- also, we're confusing
-// bytes and strings. Do we want to use better wording?
-
-// Waiting for printf
-assume val print_string: string -> Stack unit
-  (requires (fun h -> True))
-  (ensures (fun h0 _ h1 -> h0 == h1))
-
+// Debugging
 assume val print_bytes: b:buffer UInt8.t -> len:UInt32.t{UInt32.v len <= length b} -> Stack unit
   (requires (fun h -> Buffer.live h b))
   (ensures  (fun h0 _ h1 -> h0 == h1))

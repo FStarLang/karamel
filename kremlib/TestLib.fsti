@@ -22,7 +22,7 @@ val checku64: UInt64.t -> UInt64.t -> Stack unit (fun _ -> true) (fun _ _ _ -> t
 (** A test routine that takes a string as its first argument; two buffers to
  * compare; the length of the buffers; and exits the program if there is a
  * failure. *)
-val compare_and_print: C.string ->
+val compare_and_print: C.String.t ->
   b1:buffer UInt8.t -> b2:buffer UInt8.t -> l:UInt32.t ->
   Stack unit
     (requires (fun h ->
