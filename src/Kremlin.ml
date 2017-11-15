@@ -202,7 +202,7 @@ Supported options:|}
     "-I", Arg.String (prepend Options.includes), " add directory to search path \
       (F* and C compiler)";
     "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
-    "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are \
+    "-warn-error", Arg.String (fun s -> arg_warn_error := !arg_warn_error ^ s), "  decide which errors are \
       fatal / warnings / silent (default: " ^ !Options.warn_error ^")";
 
     (* Fine-tuning code generation. *)
