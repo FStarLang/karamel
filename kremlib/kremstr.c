@@ -15,14 +15,9 @@ Prims_nat FStar_String_strlen(Prims_string s) {
 }
 
 Prims_string FStar_String_strcat(Prims_string s0, Prims_string s1) {
-  size_t s = strlen(s0) + strlen(s1);
-  char *dest = malloc(s + 1);
-  // Note the difference of behavior: strncpy appends at most s characters,
-  // period.
-  strncpy(dest, s0, s);
-  // But strncat appends at most s - strlen(dest) characters, THEN
-  // zero-terminates.
-  strncat(dest, s1, s - strlen(dest));
+  char *dest = calloc(strlen(s0) + strlen(s1) + 1, 1);
+  strcat(dest, s0);
+  strcat(dest, s1);
   return (Prims_string)dest;
 }
 
