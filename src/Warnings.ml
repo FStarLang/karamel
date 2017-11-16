@@ -21,6 +21,7 @@ and raw_error =
   | Deprecated of string * string
   | NotLowStar of expr
   | NotWasmCompatible of lident * string
+  | DropDeclaration of lident * string
 
 and location =
   string
@@ -54,7 +55,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 13 CError;;
+let flags = Array.make 14 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -87,6 +88,8 @@ let errno_of_error = function
       11
   | NotWasmCompatible _ ->
       12
+  | DropDeclaration _ ->
+      13
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -141,6 +144,13 @@ let rec perr buf (loc, raw_error) =
       p "%a cannot be compiled to wasm (%s)" plid lid reason
   | Deprecated (feature, reason) ->
       p "%s is deprecated\n  %s" feature reason
+  | DropDeclaration (lid, file) ->
+      p "%a, a monomorphic instance, is first used, and therefore inserted, in \
+        file %s which is about to be dropped; you may get a C compiler error about %s \
+        if any other module uses this definition"
+        plid lid
+        file
+        Idents.(to_c_identifier (string_of_lident lid))
 
 
 let maybe_fatal_error error =

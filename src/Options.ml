@@ -8,7 +8,7 @@ let no_prefix: string list ref = ref [ "C" ]
  * #ifdef *)
 let add_include: string list ref = ref [ ]
 let add_early_include: string list ref = ref [ ]
-let warn_error = ref "+1-2@3+4..8@9+10@11+12"
+let warn_error = ref "+1-2@3+4..8@9+10@11+12..13"
 let tmpdir = ref "."
 let includes: string list ref = ref []
 let verbose = ref false
