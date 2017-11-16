@@ -151,11 +151,13 @@ static inline FStar_UInt32_t FStar_Bytes_len(FStar_Bytes_bytes b1) {
 // TODO
 
 static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n) {
+  fprintf(stderr, "!!TODO bytes_of_int\n");
   FStar_Bytes_bytes b = { .length = 0ul, .data = NULL }; //placeholder!
   return b;
 }
 
 static inline krml_checked_int_t FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs) {
+  fprintf(stderr, "!!TODO int_of_bytes\n");
   return 0; //placeholder!
 }
 
@@ -164,17 +166,20 @@ static inline int FStar_Bytes_repr_bytes(Prims_nat bs) {
 }
 
 static inline FStar_Bytes_bytes FStar_Bytes_xor(FStar_UInt32_t x, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2) {
+  fprintf(stderr, "!!TODO xor\n");
   FStar_Bytes_bytes b = { .length = 0ul, .data = NULL }; //placeholder!
   return b;
 }
 
 
 static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
+  fprintf(stderr, "!!TODO bytes_of_hex\n");
   FStar_Bytes_bytes b = { .length = 0ul, .data = NULL }; //placeholder!
   return b;
 }
 
 static inline Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes s) {
+  fprintf(stderr, "!!TODO print_bytes\n");
   return NULL; //placeholder!
 }
 
