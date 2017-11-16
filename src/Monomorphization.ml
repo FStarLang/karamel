@@ -63,9 +63,13 @@ let monomorphize_data_types map = object(self)
   val tuple_lid = [ "K" ], ""
   (* We record pending declarations as we visit top-level declarations. *)
   val mutable pending = []
+  (* Current file, for warning purposes. *)
+  val mutable current_file = ""
 
   (* Record a new declaration. *)
   method private record (d: decl) =
+    if Drop.file current_file then
+      Warnings.(maybe_fatal_error ("", DropDeclaration (lid_of_decl d, current_file)));
     pending <- d :: pending
 
   (* Clear all the pending declarations. *)
@@ -149,6 +153,7 @@ let monomorphize_data_types map = object(self)
    * types. *)
   method! visit_file _ file =
     let name, decls = file in
+    current_file <- name;
     name, KList.map_flatten (fun d ->
       match d with
       | DType (lid, _, n, (Flat _ | Variant _ | Abbrev _)) ->
@@ -193,6 +198,7 @@ let datatypes files =
 
 (* Type monomorphization of functions. ****************************************)
 
+(* JP: TODO: share the functionality with type monomorphization *)
 module Gen = struct
   let generated_lids = Hashtbl.create 41
   let pending_defs = ref []
@@ -205,9 +211,12 @@ module Gen = struct
     in
     fst lid, snd lid ^ KPrint.bsprintf "__%a" PrintCommon.pdoc doc
 
-  let register_def original_lid ts lid def =
+  let register_def current_file original_lid ts lid def =
     Hashtbl.add generated_lids (original_lid, ts) lid;
-    pending_defs := def () :: !pending_defs;
+    let d = def () in
+    if Drop.file current_file then
+      Warnings.(maybe_fatal_error ("", DropDeclaration (lid_of_decl d, current_file)));
+    pending_defs := d :: !pending_defs;
     lid
 
   let clear () =
@@ -236,8 +245,12 @@ let functions files =
 
     inherit [unit] map
 
+    (* Current file, for warning purposes. *)
+    val mutable current_file = ""
+
     method! visit_file _ file =
       let file_name, decls = file in
+      current_file <- file_name;
       file_name, KList.map_flatten (function
         | DFunction (cc, flags, n, ret, name, binders, body) ->
             if Hashtbl.mem map name then
@@ -286,7 +299,7 @@ let functions files =
                     let body = self#visit env body in
                     DFunction (cc, flags, 0, ret, name, binders, body)
                   in
-                  EQualified (Gen.register_def lid ts name def)
+                  EQualified (Gen.register_def current_file lid ts name def)
 
             | `Global (flags, name, n, t, body) ->
                 if n <> List.length ts then begin
@@ -300,7 +313,7 @@ let functions files =
                     let body = self#visit env body in
                     DGlobal (flags, name, 0, t, body)
                   in
-                  EQualified (Gen.register_def lid ts name def)
+                  EQualified (Gen.register_def current_file lid ts name def)
 
           end
       | EOp (_, _) ->

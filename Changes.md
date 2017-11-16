@@ -1,3 +1,8 @@
+### November 16th, 2017
+
+- New Warning 13: monomorphic instance inserted in a module that's about to be
+  dropped, you may get errors later on.
+
 ### November 15th, 2017
 
 Big cleanup in the treatment of strings.
