@@ -62,6 +62,7 @@ Debug.exe: EXTRA = -d c-calls
 Server.exe: EXTRA = -add-include '"kremstr.h"' main-Server.c
 StringLit.exe: EXTRA = ../kremlib/kremstr.c -add-include '"kremstr.h"'
 Failwith.exe: EXTRA = -add-include '"kremstr.h"'
+FunctionalEncoding.exe: EXTRA = -add-include '"kremstr.h"'
 $(CRYPTO)/Crypto.Symmetric.Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 hello-system/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
 	hello-system/system.c -I hello-system -no-prefix SystemNative \
