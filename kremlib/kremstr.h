@@ -22,8 +22,8 @@ static inline const char *C_String_of_literal (const char *str) {
 }
 
 static inline uint32_t bufstrcpy(char *dst, const char *src) {
-  char *end = stpcpy(dst, src);
-  return end - dst;
+  /* The F* precondition guarantees that src is zero-terminated */
+  return sprintf(dst, "%s", src);
 }
 
 static inline uint32_t print_u32(char *dst, uint32_t i) {
