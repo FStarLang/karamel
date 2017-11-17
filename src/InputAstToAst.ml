@@ -27,15 +27,7 @@ let width_of_equality = function
   | TInt w -> Some w
   | TBool -> Some K.Bool
   | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) -> Some K.CInt
-  | _ ->
-      None
-
-let pending = ref []
-
-let clear_append elt =
-  let l = !pending in
-  pending := [];
-  List.rev_append l [ elt ]
+  | _ -> None
 
 let rec mk_decl = function
   | I.DFunction (cc, flags, n, t, name, binders, body) ->
@@ -45,18 +37,18 @@ let rec mk_decl = function
         else
           mk_expr body
       in
-      clear_append (DFunction (cc, flags, n, mk_typ t, name, mk_binders binders, body))
+      DFunction (cc, flags, n, mk_typ t, name, mk_binders binders, body)
   | I.DTypeAlias (name, flags, n, t) ->
-      clear_append (DType (name, flags, n, Abbrev (mk_typ t)))
+      DType (name, flags, n, Abbrev (mk_typ t))
   | I.DGlobal (flags, name, n, t, e) ->
-      clear_append (DGlobal (flags, name, n, mk_typ t, mk_expr e))
+      DGlobal (flags, name, n, mk_typ t, mk_expr e)
   | I.DTypeFlat (name, flags, n, fields) ->
-      clear_append (DType (name, flags, n, Flat (mk_tfields_opt fields)))
+      DType (name, flags, n, Flat (mk_tfields_opt fields))
   | I.DExternal (cc, flags, name, t) ->
-      clear_append (DExternal (cc, flags, name, mk_typ t))
+      DExternal (cc, flags, name, mk_typ t)
   | I.DTypeVariant (name, flags, n, branches) ->
-      clear_append (DType (name, flags, n,
-        Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches)))
+      DType (name, flags, n,
+        Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
 
 and mk_binders bs =
   List.map mk_binder bs
@@ -108,33 +100,14 @@ and mk_expr = function
       mk (EString s)
   | I.EApp (e, es) ->
       mk (EApp (mk_expr e, List.map mk_expr es))
-  | I.ETApp (I.EOp ((K.Eq | K.Neq as op), K.Bool), [ t ]) ->
+  | I.ETApp (I.EOp ((K.Eq | K.Neq as op), _), [ t ]) ->
       begin match width_of_equality (mk_typ t) with
       | Some w ->
           mk (EOp (op, w))
       | None ->
-          begin match t with
-          | I.TApp _ ->
-              mk (EOp (op, K.Bool))
-              (* TODO: do this once we have polymorphic external declarations *)
-              (* let lid = m, n ^ "__eq" in
-              pending := DExternal (None, [], List.length args, lid) :: !pending;
-              let f = {
-                typ = TArrow (TAny, TArrow (TAny, TBool));
-                node = EQualified lid
-              } in
-              let t = mk_typ t in
-              let args = List.map mk_typ args in
-              { typ = TArrow (t, TArrow (t, TBool)); node = ETApp (f, args) } *)
-          | I.TQualified (m, n) ->
-              let lid = m, n ^ "__eq" in
-              let t = mk_typ t in
-              let t = TArrow (t, TArrow (t, TBool)) in
-              pending := DExternal (None, [], (* 0, *) lid, t) :: !pending;
-              { typ = t; node = EQualified (m, n ^ "__eq") }
-          | _ ->
-              mk (EOp (op, K.Bool))
-          end
+          (* Dummy value inserted here, to be caught later on by the
+           * monomorphization that kicks in for equalities too. *)
+          mk (ETApp (mk (EOp (op, K.Bool)), [ mk_typ t ]))
       end
   | I.ETApp (e, es) ->
       mk (ETApp (mk_expr e, List.map mk_typ es))
@@ -228,4 +201,4 @@ and mk_files files =
   List.map mk_program files
 
 and mk_program (name, decls) =
-  name, KList.map_flatten mk_decl decls
+  name, List.map mk_decl decls

@@ -399,6 +399,10 @@ Supported options:|}
    * checking it. Note that bundling calls [drop_unused] already to do a first
    * round of unused code elimination! *)
   let files = Bundles.make_bundles files in
+  (* This needs to happen before type monomorphization, so that list<t> and
+   * list<t'> don't generate two distinct declarations (e.g. list__t and
+   * list__t'). Also needs to happen before monomorphization of equalities. *)
+  let files = Inlining.inline_type_abbrevs files in
   let files = Monomorphization.functions files in
   if !arg_print_monomorphization then
     print PrintAst.print_files files;
@@ -418,9 +422,6 @@ Supported options:|}
   (* Remove trivial matches now because they eliminate code that would generate
    * spurious dependencies otherwise. JP: TODO: fix F\*'s extraction instead! *)
   let files = DataTypes.simplify files in
-  (* This needs to happen before monomorphization, so that list<t> and list<t'>
-   * don't generate two distinct declarations (e.g. list__t and list__t'). *)
-  let files = Inlining.inline_type_abbrevs files in
   let files = Monomorphization.datatypes files in
   let files = Inlining.inline files in
   let files = Inlining.drop_unused files in

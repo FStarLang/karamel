@@ -198,7 +198,9 @@ let datatypes files =
 
 (* Type monomorphization of functions. ****************************************)
 
-(* JP: TODO: share the functionality with type monomorphization *)
+(* JP: TODO: share the functionality with type monomorphization... the call to
+ * Hashtbl.find is in the visitor but the Gen functionality is clearly
+ * outside... sigh. *)
 module Gen = struct
   let generated_lids = Hashtbl.create 41
   let pending_defs = ref []
@@ -316,8 +318,30 @@ let functions files =
                   EQualified (Gen.register_def current_file lid ts name def)
 
           end
+
+      | EOp (K.Eq | K.Neq as op, _) ->
+          (* Note: this is suboptimal, but desugaring, when it hits an equality
+           * at a non-scalar type, leaves the type application in there, and
+           * relies on this monomorphization phase to specialize the equalities. *)
+          assert (List.length ts = 1);
+          let t = List.hd ts in
+          let eq_lid = match op with
+            | K.Eq -> [], "__eq"
+            | K.Neq -> [], "__neq"
+            | _ -> assert false
+          in
+          begin try
+            (* Already monomorphized? *)
+            EQualified (Hashtbl.find Gen.generated_lids (eq_lid, ts))
+          with Not_found ->
+            let instance_lid = Gen.gen_lid eq_lid [ t ] in
+            let def () = DExternal (None, [], instance_lid, TArrow (t, TArrow (t, TBool))) in
+            EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
+          end
+
       | EOp (_, _) ->
          (self#visit env e).node
+
       | _ ->
           KPrint.bprintf "%a is not an lid in the type application\n" pexpr e;
           (self#visit env e).node

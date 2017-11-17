@@ -52,8 +52,11 @@ extern intptr_t nullptr;
 
 /* For non-base types (i.e. not machine integers), KreMLin generates calls to
  * assumed equality functions. */
-static inline bool char__eq(char c1, char c2) {
+static inline bool __eq__C_char(char c1, char c2) {
   return c1 == c2;
+}
+static inline bool __neq__C_char(char c1, char c2) {
+  return c1 != c2;
 }
 
 /* This one allows the user to write C.EXIT_SUCCESS. */
