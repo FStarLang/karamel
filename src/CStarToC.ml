@@ -15,8 +15,10 @@ let escape_string s =
 
 let assert_var =
   function
-  | Var _ -> ()
-  | _ -> failwith "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = "
+  | Var _ | Qualified _ -> ()
+  | e -> Warnings.fatal_error
+      "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = \n%s is not a var"
+      (show_expr e)
 
 let c99_format w =
   let open K in
