@@ -116,7 +116,7 @@ and defeat_Wparentheses op e prec =
   if not !Options.parentheses then
     prec
   else match op, e with
-  | (BShiftL | BShiftR | BXor | BOr | BAnd), Op2 ((Add | Sub | BOr | BXor), _, _) ->
+  | (BShiftL | BShiftR | BXor | BOr | BAnd), Op2 ((Add | Sub | BOr | BXor | BAnd), _, _) ->
       0
   | _ ->
       prec
