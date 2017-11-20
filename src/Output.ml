@@ -6,6 +6,12 @@ open PPrint
 let mk_includes =
   separate_map hardline (fun x -> string "#include " ^^ string x) 
 
+let kremlib_include =
+  if !Options.minimal then
+    empty
+  else
+    mk_includes [ "\"kremlib.h\"" ]
+
 (* A Pprint document with:
  * - #include X for X in the dependencies of the file, followed by
  * - #include Y for each -add-include Y passed on the command-line
@@ -26,7 +32,8 @@ let includes files =
 let prefix_suffix name =
   let prefix =
     string !Options.header ^^ hardline ^^
-    mk_includes (List.rev_append !Options.add_early_include [ "\"kremlib.h\"" ]) ^^
+    mk_includes !Options.add_early_include ^^
+    kremlib_include ^^
     hardline ^^
     string (Printf.sprintf "#ifndef __%s_H" name) ^^ hardline ^^
     string (Printf.sprintf "#define __%s_H" name) ^^ hardline

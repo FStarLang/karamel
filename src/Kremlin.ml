@@ -36,6 +36,7 @@ module Time = struct
 end
 
 let _ =
+  let arg_minimal = ref false in
   let arg_print_ast = ref false in
   let arg_print_json = ref false in
   let arg_print_simplify = ref false in
@@ -182,8 +183,14 @@ Supported options:|}
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* Controlling the behavior of KreMLin *)
-    "-static-header", Arg.String (prepend Options.static_header), " only \
-      generate a .h where all functions are marked a static inline";
+    "-add-early-include", Arg.String (prepend Options.add_early_include),
+      "prepend #include the-argument to every generated file, before kremlib.h";
+    "-add-include", Arg.String (prepend Options.add_include), " prepend #include \
+      the-argument to every generated file, after the #define __FOO_H";
+    "-minimal", Arg.Set arg_minimal, "do not prepend #include \"kremlib.h\"; do \
+      not bundle FStar";
+    "-static-header", Arg.String (prepend Options.static_header), " generate a \
+      .h for the given module where all functions are marked a static inline";
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the \
       module name to declarations from this module";
     "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " \
@@ -192,10 +199,6 @@ Supported options:|}
       used_drop := true;
       List.iter (prepend Options.drop) (Utils.parse Parser.drop s)),
       "  do not extract Code for this module (see above)";
-    "-add-early-include", Arg.String (prepend Options.add_early_include),
-      "prepend #include the-argument to every generated file, before kremlib.h";
-    "-add-include", Arg.String (prepend Options.add_include), " prepend #include \
-      the-argument to every generated file, after the #define __FOO_H";
     "-header", Arg.String (fun f ->
       Options.header := Utils.file_get_contents f
     ), " prepend the contents of the given file at the beginning of each .c and .h";
@@ -300,6 +303,9 @@ Supported options:|}
     Options.add_include := "\"wasm-stubs.h\"" :: !Options.add_include;
     Options.drop := Bundle.Module [ "WasmSupport" ] :: !Options.drop
   end;
+
+  if not !Options.minimal then
+    Options.bundle := ([ ], [ Bundle.Prefix [ "FStar" ] ]) :: !Options.bundle;
 
   if !arg_c89 then begin
     Options.uint128 := false;

@@ -18,11 +18,12 @@ let m32 = ref false
 let fsopts: string list ref = ref []
 let ccopts: string list ref = ref []
 let ldopts: string list ref = ref []
-let bundle: Bundle.t list ref = ref [ [ ], [ Bundle.Prefix [ "FStar" ] ] ]
+let bundle: Bundle.t list ref = ref [ ]
 let debug_modules: string list ref = ref []
 let debug s = List.exists ((=) s) !debug_modules
 let wasm = ref false
 let static_header: string list ref = ref []
+let minimal = ref false
 
 (* wasm = true ==> these three are false *)
 let struct_passing = ref true
