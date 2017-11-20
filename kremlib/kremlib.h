@@ -39,7 +39,7 @@
 
 typedef struct {
   uint32_t length;
-  const uint8_t *data;
+  const char *data;
 } FStar_Bytes_bytes;
 
 /* Uppercase issue; we have to define lowercase versions of the C macros (as we
@@ -62,6 +62,7 @@ static inline bool __neq__C_char(char c1, char c2) {
 /* This one allows the user to write C.EXIT_SUCCESS. */
 typedef int exit_code;
 
+/* Now also exposed via FStar.Bytes.fst */
 void print_bytes(const uint8_t *b, uint32_t len);
 
 /* If some globals need to be initialized before the main, then kremlin will

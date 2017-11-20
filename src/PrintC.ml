@@ -110,7 +110,7 @@ and paren_if curr mine doc =
     doc
 
 (* [e] is an operand of [op]; is this likely to trigger GCC's -Wparentheses? If
- * so, downgrade the current precedence to 0 to force parenthses. *)
+ * so, downgrade the current precedence to 0 to force parentheses. *)
 and defeat_Wparentheses op e prec =
   let open Constant in
   if not !Options.parentheses then
