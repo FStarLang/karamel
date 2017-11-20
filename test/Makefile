@@ -17,7 +17,7 @@ FILES		= \
   CheckedInt.exe Polymorphic.exe GcTypes.exe BadMatch.exe C89.exe \
   PatternAny.exe Debug.exe hello-system/HelloSystem.exe Server.exe \
   ExitCode.exe DataTypesMut.exe ParamAbbrev.exe Null.exe Failwith.exe \
-  CustomEq.exe
+  CustomEq.exe TestKremBytes.exe
 EXTRA_FILES	= \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \
@@ -69,6 +69,7 @@ $(CRYPTO)/Crypto.Symmetric.Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 hello-system/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
 	hello-system/system.c -I hello-system -no-prefix SystemNative \
 	-drop SystemNative -add-include '<netdb.h>'
+TestKremBytes.exe: EXTRA = -add-include '"krembytes.h"' -add-include '"kremstr.h"' -drop FStar.Bytes
 
 # External C tests that leverage other projects.
 .PHONY: hacl-test

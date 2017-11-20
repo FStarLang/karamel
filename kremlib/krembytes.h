@@ -160,8 +160,8 @@ static inline krml_checked_int_t
 FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs) {
   krml_checked_int_t res = 0;
   for (uint32_t i = 0; i < bs.length; i++) {
-    res <<= 8;
-    res |= bs.data[i];
+    res = res << 8;
+    res |= bs.data[i] & 0xFF;
   }
   return res;
 }
@@ -221,6 +221,10 @@ static inline Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes s) {
   return str;
 }
 
+static inline Prims_string FStar_Bytes_hex_of_bytes(FStar_Bytes_bytes s) {
+  return FStar_Bytes_print_bytes(s);
+}
+
 // https://www.cl.cam.ac.uk/~mgk25/ucs/utf8_check.c
 static inline const unsigned char *utf8_check(const unsigned char *s) {
   while (*s) {
@@ -261,20 +265,23 @@ static inline const unsigned char *utf8_check(const unsigned char *s) {
 
 static inline FStar_Pervasives_Native_option__Prims_string
 FStar_Bytes_iutf8_opt(FStar_Bytes_bytes b) {
-  if (!utf8_check((unsigned char *)b.data)) {
-    FStar_Pervasives_Native_option__Prims_string ret = {
-      .tag = FStar_Pervasives_Native_None
-    };
-    return ret;
-  }
   char *str = malloc(b.length + 1);
   CHECK(str);
   memcpy(str, b.data, b.length);
   str[b.length] = 0;
-  FStar_Pervasives_Native_option__Prims_string ret = {
-    .tag = FStar_Pervasives_Native_Some, .val = { .case_Some = { .v = str } }
-  };
-  return ret;
+
+  unsigned const char *err = utf8_check((unsigned char *)str);
+  if (err != NULL) {
+    FStar_Pervasives_Native_option__Prims_string ret = {
+      .tag = FStar_Pervasives_Native_None
+    };
+    return ret;
+  } else {
+    FStar_Pervasives_Native_option__Prims_string ret = {
+      .tag = FStar_Pervasives_Native_Some, { .case_Some = { .v = str } }
+    };
+    return ret;
+  }
 }
 
 static inline bool
