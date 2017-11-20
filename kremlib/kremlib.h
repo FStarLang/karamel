@@ -81,14 +81,8 @@ void WasmSupport_check_buffer_size(uint32_t s);
 /* Some types that KreMLin has no special knowledge of; many of them appear in
  * signatures of ghost functions, meaning that it suffices to give them (any)
  * definition. */
-typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
-    *FStar_Set_set, *Prims_st_pre_h, *FStar_Heap_heap, *Prims_all_pre_h,
-    *FStar_TSet_set, *Prims_list, *FStar_Map_t, *FStar_UInt63_t_,
-    *FStar_Int63_t_, *FStar_UInt63_t, *FStar_Int63_t, *FStar_UInt_uint_t,
-    *FStar_Int_int_t, *FStar_HyperStack_stackref,
-    *FStar_HyperHeap_rid, *FStar_Heap_aref, *FStar_Monotonic_Heap_heap,
-    *FStar_Monotonic_Heap_aref, *FStar_Monotonic_HyperHeap_rid,
-    *FStar_Monotonic_HyperStack_mem, *FStar_Char_char_;
+typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
+        *FStar_Monotonic_HyperHeap_rid;
 
 /* For "bare" targets that do not have a C stdlib, the user might want to use
  * [-add-early-include '"mydefinitions.h"'] and override these. */
@@ -175,29 +169,10 @@ typedef void *FStar_Seq_Base_seq, *Prims_prop, *FStar_HyperStack_mem,
  * KreMLin will think that this is a valid use, but then the C compiler, after
  * macro expansion, will error out. */
 #define FStar_HyperHeap_root 0
-#define FStar_Pervasives_Native_fst(x) (x).fst
-#define FStar_Pervasives_Native_snd(x) (x).snd
-#define FStar_Seq_Base_createEmpty(x) 0
-#define FStar_Seq_Base_create(len, init) 0
-#define FStar_Seq_Base_upd(s, i, e) 0
-#define FStar_Seq_Base_eq(l1, l2) 0
-#define FStar_Seq_Base_length(l1) 0
-#define FStar_Seq_Base_append(x, y) 0
-#define FStar_Seq_Base_slice(x, y, z) 0
-#define FStar_Seq_Properties_snoc(x, y) 0
-#define FStar_Seq_Properties_cons(x, y) 0
-#define FStar_Seq_Base_index(x, y) 0
 #define FStar_HyperStack_is_eternal_color(x) 0
 #define FStar_Monotonic_HyperHeap_root 0
-#define FStar_Buffer_to_seq_full(x) 0
 #define FStar_Buffer_recall(x)
-#define FStar_HyperStack_ST_op_Colon_Equals(x, v) KRML_EXIT
-#define FStar_HyperStack_ST_op_Bang(x) 0
-#define FStar_HyperStack_ST_salloc(x) 0
-#define FStar_HyperStack_ST_ralloc(x, y) 0
 #define FStar_HyperStack_ST_new_region(x) 0
-#define FStar_Monotonic_RRef_m_alloc(x)                                        \
-  { 0 }
 
 #define FStar_HyperStack_ST_recall(x)                                          \
   do {                                                                         \
