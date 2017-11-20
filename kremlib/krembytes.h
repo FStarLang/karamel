@@ -197,7 +197,7 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
   CHECK(data);
   for (size_t i = 0; i < l / 2; i++) {
     uint8_t dst;
-    int ret = sscanf(str + 2 * i, "%02" PRIx8, &dst);
+    int ret = sscanf(str + 2 * i, "%02" SCNx8, &dst);
     if (ret != 1) {
       fprintf(
           stderr,
