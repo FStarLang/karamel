@@ -161,6 +161,8 @@ FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs) {
   krml_checked_int_t res = 0;
   for (uint32_t i = 0; i < bs.length; i++) {
     res = res << 8;
+    // Note: this is a char, whose signedness is unspecified, so it may get an
+    // evil sign-extension -- mask.
     res |= bs.data[i] & 0xFF;
   }
   return res;
@@ -216,7 +218,7 @@ static inline Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes s) {
   char *str = malloc(s.length * 2 + 1);
   CHECK(str);
   for (size_t i = 0; i < s.length; ++i)
-    sprintf(str + 2 * i, "%02" PRIx8, s.data[i]);
+    sprintf(str + 2 * i, "%02" PRIx8, s.data[i] & 0xFF);
   str[s.length * 2] = 0;
   return str;
 }
