@@ -36,7 +36,6 @@ module Time = struct
 end
 
 let _ =
-  let arg_minimal = ref false in
   let arg_print_ast = ref false in
   let arg_print_json = ref false in
   let arg_print_simplify = ref false in
@@ -187,7 +186,7 @@ Supported options:|}
       "prepend #include the-argument to every generated file, before kremlib.h";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include \
       the-argument to every generated file, after the #define __FOO_H";
-    "-minimal", Arg.Set arg_minimal, "do not prepend #include \"kremlib.h\"; do \
+    "-minimal", Arg.Set Options.minimal, "do not prepend #include \"kremlib.h\"; do \
       not bundle FStar";
     "-static-header", Arg.String (prepend Options.static_header), " generate a \
       .h for the given module where all functions are marked a static inline";
@@ -547,7 +546,8 @@ Supported options:|}
     Output.write_h headers;
     tick_print true "PrettyPrinting";
 
-    Printf.printf "KreMLin: wrote out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
+    Printf.printf "KreMLin: wrote out .c files for %s\n" (String.concat ", " (List.map fst files));
+    Printf.printf "KreMLin: wrote out .h files for %s\n" (String.concat ", " (List.map fst headers));
 
     if !arg_skip_compilation then
       exit 0;
