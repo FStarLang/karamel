@@ -213,22 +213,16 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
 }
 
 static inline Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes s) {
-  char *str = malloc(s.length * 2 + 1 + 24);
-  CHECK(str);
-  for (size_t i = 0; i < s.length; ++i)
-    sprintf(str + 2 * i, "%02" PRIx8, s.data[i]);
-  int i = sprintf(str+s.length*2, "%"PRIu32, s.length);
-  str[s.length * 2 + i] = 0;
-  return str;
-}
-
-static inline Prims_string FStar_Bytes_hex_of_bytes(FStar_Bytes_bytes s) {
   char *str = malloc(s.length * 2 + 1);
   CHECK(str);
   for (size_t i = 0; i < s.length; ++i)
     sprintf(str + 2 * i, "%02" PRIx8, s.data[i]);
   str[s.length * 2] = 0;
   return str;
+}
+
+static inline Prims_string FStar_Bytes_hex_of_bytes(FStar_Bytes_bytes s) {
+  return FStar_Bytes_print_bytes(s);
 }
 
 // https://www.cl.cam.ac.uk/~mgk25/ucs/utf8_check.c
@@ -292,12 +286,17 @@ FStar_Bytes_iutf8_opt(FStar_Bytes_bytes b) {
 
 static inline bool
 __eq__FStar_Bytes_bytes(FStar_Bytes_bytes x0, FStar_Bytes_bytes x1) {
-  if (x0.length != x1.length)
+  if (x0.length != x1.length) {
+    printf("x0.length=%"PRIu32", x1.length=%"PRIu32"\n", x0.length, x1.length);
     return false;
-  for (size_t i = 0; i < x0.length; ++i) {
-    if (x0.data[i] != x1.data[i])
-      return false;
   }
+  for (size_t i = 0; i < x0.length; ++i) {
+    if (x0.data[i] != x1.data[i]) {
+      printf("at index %zu, %hhx != %hhx\n", i, (unsigned) x0.data[i], (unsigned) x1.data[i]);
+      return false;
+    }
+  }
+  printf("returning true\n");
   return true;
 }
 
