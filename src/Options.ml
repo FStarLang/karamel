@@ -18,7 +18,9 @@ let m32 = ref false
 let fsopts: string list ref = ref []
 let ccopts: string list ref = ref []
 let ldopts: string list ref = ref []
-let bundle: Bundle.t list ref = ref [ ]
+let bundle: Bundle.t list ref = ref [
+  [], [ Bundle.Module [ "C"; "Loops" ]; Bundle.Module [ "Spec"; "Loops" ] ]
+]
 let debug_modules: string list ref = ref []
 let debug s = List.exists ((=) s) !debug_modules
 let wasm = ref false
@@ -84,7 +86,6 @@ let default_options () =
  * need to use the custom implementation). *)
 let drop: Bundle.pat list ref =
   ref Bundle.([
-    Module [ "C"; "Loops" ];
     Module [ "FStar"; "BaseTypes"; ];
     Module [ "FStar"; "Char"; ];
     Module [ "FStar"; "Float"; ];
