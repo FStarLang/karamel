@@ -288,17 +288,11 @@ FStar_Bytes_iutf8_opt(FStar_Bytes_bytes b) {
 
 static inline bool
 __eq__FStar_Bytes_bytes(FStar_Bytes_bytes x0, FStar_Bytes_bytes x1) {
-  if (x0.length != x1.length) {
-    printf("x0.length=%"PRIu32", x1.length=%"PRIu32"\n", x0.length, x1.length);
+  if (x0.length != x1.length)
     return false;
-  }
-  for (size_t i = 0; i < x0.length; ++i) {
-    if (x0.data[i] != x1.data[i]) {
-      printf("at index %zu, %hhx != %hhx\n", i, (unsigned) x0.data[i], (unsigned) x1.data[i]);
+  for (size_t i = 0; i < x0.length; ++i)
+    if (x0.data[i] != x1.data[i])
       return false;
-    }
-  }
-  printf("returning true\n");
   return true;
 }
 
