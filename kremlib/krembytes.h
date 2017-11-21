@@ -213,16 +213,22 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
 }
 
 static inline Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes s) {
+  char *str = malloc(s.length * 2 + 1 + 24);
+  CHECK(str);
+  for (size_t i = 0; i < s.length; ++i)
+    sprintf(str + 2 * i, "%02" PRIx8, s.data[i]);
+  int i = sprintf(str+s.length*2, "%"PRIu32, s.length);
+  str[s.length * 2 + i] = 0;
+  return str;
+}
+
+static inline Prims_string FStar_Bytes_hex_of_bytes(FStar_Bytes_bytes s) {
   char *str = malloc(s.length * 2 + 1);
   CHECK(str);
   for (size_t i = 0; i < s.length; ++i)
     sprintf(str + 2 * i, "%02" PRIx8, s.data[i]);
   str[s.length * 2] = 0;
   return str;
-}
-
-static inline Prims_string FStar_Bytes_hex_of_bytes(FStar_Bytes_bytes s) {
-  return FStar_Bytes_print_bytes(s);
 }
 
 // https://www.cl.cam.ac.uk/~mgk25/ucs/utf8_check.c
