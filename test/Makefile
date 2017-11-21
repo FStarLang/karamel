@@ -70,7 +70,7 @@ hello-system/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
 	hello-system/system.c -I hello-system -no-prefix SystemNative \
 	-drop SystemNative -add-include '<netdb.h>'
 TestKremBytes.exe: EXTRA = -add-include '"krembytes.h"' -add-include \
-	'"kremstr.h"' -drop FStar.Bytes -d reachability
+	'"kremstr.h"' -drop FStar.Bytes
 
 # External C tests that leverage other projects.
 .PHONY: hacl-test
