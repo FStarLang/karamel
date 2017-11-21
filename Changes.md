@@ -1,7 +1,27 @@
+### November 20th, 2017
+
+- New -minimal option to disable #include "kremlib.h" and -bundle FStar.*
+- krembytes.h, a library in support of value bytes, backed by a conservative GC,
+  modeled in ulib/FStar.Bytes.fsti -- see the command-line parameters in
+  test/Makefile for TestKremBytes.fst
+
 ### November 16th, 2017
 
 - New Warning 13: monomorphic instance inserted in a module that's about to be
   dropped, you may get errors later on.
+- Support for equality at non-base types; this generates "external" function
+  declarations, to be filled out by the user. Example:
+
+  let f (x y: bytes) = 
+    if x = y then
+      ...
+
+  generates:
+
+  extern bool __eq__FStar_Bytes_bytes(FStar_Bytes_bytes x, FStar_Bytes_bytes y);
+
+  in this case, the function is implemented in krembytes.h, but in the general
+  case, the user will want to declare it in a .c file to be passed to KreMLin.
 
 ### November 15th, 2017
 
