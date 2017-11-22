@@ -247,14 +247,18 @@ let inline_analysis files =
   in
   must_inline, must_disappear
 
-(** A whole-program transformation that inlines functions according to... *)
-let inline files =
 
-  (* TODO: disentangle the two phases. *)
-  let must_inline, must_disappear = inline_analysis files in
-
-  (* We create an inliner based on this criterion. *)
-  let inline_one = mk_inliner files must_inline in
+(** This phase drops private qualifiers if a function is called across
+ * translation units. The visibility rules of F* notwithstanding, these can
+ * happen because:
+ * - StackInline created such a cross-call
+ * - -bundle optimistically marked functions as private
+ * - initializing of constants whose initial value is not a C value from the
+ *   separate "kremlinit" translation unit.
+ * As such, this phase must happen after all three steps above.
+ * The Inline qualifier is also dropped if compiling for CompCert; for other
+ * compilers, this is just a warning. *)
+let cross_call_analysis files =
 
   (* A map that *eventually* will contain the exactly the set of [lid]s that can
    * be safely marked as private. The invariant is not established yet. *)
@@ -287,64 +291,47 @@ let inline files =
     not (should_drop file1 || should_drop file2)
   in
 
-  (* A visitor that, when passed a function's name and body, detect
-   * cross-translation unit calls and drops the [Private] qualifier from the
-   * callee. *)
-  let unmark_private_in name body =
-    let warn_and_remove name' =
-      (* There is a cross-compilation-unit call from [name] to
-       * [name‘], meaning that the latter cannot safely remain
-       * inline. *)
-      if cross_call name name' && Hashtbl.mem safely_private name' then begin
-        Warnings.maybe_fatal_error ("", LostStatic (file_of name, name, file_of name', name'));
-        Hashtbl.remove safely_private name'
-      end;
-      if cross_call name name' && Hashtbl.mem safely_inline name' then begin
-        Warnings.maybe_fatal_error ("", LostInline (file_of name, name, file_of name', name'));
-        Hashtbl.remove safely_inline name'
-      end
-    in
-    ignore ((object(self)
-      inherit [unit] map
-      method eapp () _ e es =
-        match e.node with
-        | EQualified name' ->
-            warn_and_remove name';
-            EApp (e, List.map (self#visit ()) es)
-        | _ ->
-            EApp (self#visit () e, List.map (self#visit ()) es)
-      method equalified () _ name' =
-        warn_and_remove name';
-        EQualified name'
-      method tqualified () name' =
-        warn_and_remove name';
-        TQualified name'
-      method tapp () name' ts =
-        warn_and_remove name';
-        TApp (name', List.map (self#visit_t ()) ts)
-    end)#visit () body)
+  let warn_and_remove name_from name_to =
+    (* There is a cross-compilation-unit call from [name_from] to
+     * [name_from‘], meaning that the latter cannot safely remain
+     * inline. *)
+    if cross_call name_from name_to && Hashtbl.mem safely_private name_to then begin
+      Warnings.maybe_fatal_error ("", LostStatic (file_of name_from, name_from, file_of name_to, name_to));
+      Hashtbl.remove safely_private name_to
+    end;
+    if cross_call name_from name_to && Hashtbl.mem safely_inline name_to then begin
+      Warnings.maybe_fatal_error ("", LostInline (file_of name_from, name_from, file_of name_to, name_to));
+      Hashtbl.remove safely_inline name_to
+    end
   in
 
-  (* - Each function that must be inlined for soundness is dropped.
-   * - The memoizing inliner is called for each function's body.
-   * - Cross-translation unit calls are detected and [Private] qualifiers are
-   *   dropped accordingly.
-   * *)
-  let files = filter_decls (function
-    | DFunction (cc, flags, n, ret, name, binders, _) ->
-        if must_disappear name && not (always_live name) then begin
-          if Options.debug "reachability" then
-            KPrint.bprintf "REACHABILITY: %a must disappear, because it's StackInline\n" plid name;
-          None
-        end else
-          let body = inline_one name in
-          unmark_private_in name body;
-          Some (DFunction (cc, flags, n, ret, name, binders, body))
-    | d ->
-        (* Note: not inlining globals because F* should forbid top-level
-         * effects...? *)
-        Some d
-  ) files in
+  (* A visitor that, when passed a function's name and body, detects
+   * cross-translation unit calls and modifies safely_private and safely_inline
+   * accordingly. *)
+  let unmark_private_in = object (self)
+    inherit [unit] map as super
+    val mutable name = [],""
+    method eapp () _ e es =
+      match e.node with
+      | EQualified name' ->
+          warn_and_remove name name';
+          EApp (e, List.map (self#visit ()) es)
+      | _ ->
+          EApp (self#visit () e, List.map (self#visit ()) es)
+    method equalified () _ name' =
+      warn_and_remove name name';
+      EQualified name'
+    method tqualified () name' =
+      warn_and_remove name name';
+      TQualified name'
+    method tapp () name' ts =
+      warn_and_remove name name';
+      TApp (name', List.map (self#visit_t ()) ts)
+    method visit_d env d =
+      name <- lid_of_decl d;
+      super#visit_d env d
+  end in
+  ignore (Helpers.visit_files () unmark_private_in files);
 
   (* The invariant for [safely_private] is now established, and we drop those
    * functions that cannot keep their [Private] flag. *)
@@ -373,6 +360,35 @@ let inline files =
           Some (DType (name, filter name flags, n, t))
     ) files
   in
+
+  files
+
+(** A whole-program transformation that inlines functions according to... *)
+let inline files =
+
+  let must_inline, must_disappear = inline_analysis files in
+
+  (* We create an inliner based on this criterion. *)
+  let inline_one = mk_inliner files must_inline in
+
+  (* - Each function that must be inlined for soundness is dropped.
+   * - The memoizing inliner is called for each function's body.
+   * - Cross-translation unit calls are detected and [Private] qualifiers are
+   *   dropped accordingly.
+   * *)
+  let files = filter_decls (function
+    | DFunction (cc, flags, n, ret, name, binders, _) ->
+        if must_disappear name && not (always_live name) then begin
+          if Options.debug "reachability" then
+            KPrint.bprintf "REACHABILITY: %a must disappear, because it's StackInline\n" plid name;
+          None
+        end else
+          Some (DFunction (cc, flags, n, ret, name, binders, inline_one name))
+    | d ->
+        (* Note: not inlining globals because F* should forbid top-level
+         * effects...? *)
+        Some d
+  ) files in
 
   files
 

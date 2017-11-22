@@ -477,6 +477,7 @@ Supported options:|}
   let files = Structs.collect_initializers files in
   let files = Simplify.remove_unused files in
   let files = Simplify.simplify2 files in
+  let files = Inlining.cross_call_analysis files in
   if !arg_print_structs then
     print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in
