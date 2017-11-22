@@ -189,6 +189,8 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
     (void)(x1);                                                                \
   } while (0)
 
+#define FStar_Monotonic_RRef_witness(x)
+
 #define FStar_Monotonic_RRef_m_write(x1, x2, x3, x4, x5)                       \
   do {                                                                         \
     (void)(x1);                                                                \
