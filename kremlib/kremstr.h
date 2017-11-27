@@ -52,4 +52,16 @@ static inline Prims_string FStar_UInt16_to_string(uint16_t i) {
   snprintf(buf, 24, "%"PRIu16, i);
   return buf;
 }
+
+static inline Prims_string Prims_string_of_int(uint32_t i) {
+  return FStar_UInt32_to_string(i);
+}
+
+static inline Prims_string Prims_string_of_bool(bool b) {
+  if (b) {
+    return "true";
+  } else {
+    return "false";
+  }
+}
 #endif
