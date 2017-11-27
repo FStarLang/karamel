@@ -320,23 +320,29 @@ let functions files =
           end
 
       | EOp (K.Eq | K.Neq as op, _) ->
-          (* Note: this is suboptimal, but desugaring, when it hits an equality
-           * at a non-scalar type, leaves the type application in there, and
-           * relies on this monomorphization phase to specialize the equalities. *)
           assert (List.length ts = 1);
           let t = List.hd ts in
-          let eq_lid = match op with
-            | K.Eq -> [], "__eq"
-            | K.Neq -> [], "__neq"
-            | _ -> assert false
-          in
-          begin try
-            (* Already monomorphized? *)
-            EQualified (Hashtbl.find Gen.generated_lids (eq_lid, ts))
-          with Not_found ->
-            let instance_lid = Gen.gen_lid eq_lid [ t ] in
-            let def () = DExternal (None, [], instance_lid, TArrow (t, TArrow (t, TBool))) in
-            EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
+          begin match t with
+          | TInt w ->
+              EOp (op, w)
+          | TBool ->
+              EOp (op, K.Bool)
+          | _ ->
+              (* Note: this is suboptimal, but desugaring, when it hits an equality
+               * at a non-scalar type, leaves the type application in there, and
+               * relies on this monomorphization phase to specialize the equalities. *)
+              let eq_lid = match op with
+                | K.Eq -> [], "__eq"
+                | K.Neq -> [], "__neq"
+                | _ -> assert false
+              in
+              try
+                (* Already monomorphized? *)
+                EQualified (Hashtbl.find Gen.generated_lids (eq_lid, ts))
+              with Not_found ->
+                let instance_lid = Gen.gen_lid eq_lid [ t ] in
+                let def () = DExternal (None, [], instance_lid, TArrow (t, TArrow (t, TBool))) in
+                EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
           end
 
       | EOp (_, _) ->
