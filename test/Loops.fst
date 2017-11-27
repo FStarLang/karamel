@@ -4,6 +4,7 @@ open FStar
 open FStar.Buffer
 open FStar.HyperStack.ST
 module UInt32 = FStar.UInt32
+module UInt64 = FStar.UInt64
 
 // simple for loop example - note that there is no framing
 let sum_to_n (n:UInt32.t) : Stack UInt32.t
@@ -95,11 +96,21 @@ let main () =
   C.Loops.for 0ul 3ul inv f;
   let h1 = get () in
   assert (Seq.index (Buffer.as_seq h1 b) 2 = 9ul);
-  let f x = UInt32.(x *%^ x) in
+  TestLib.checku32 b.(2ul) 9ul;
 
   (* An inline example of a map *)
   let out = Buffer.create 0ul 3ul in
+  let f x = UInt32.(x *%^ x) in
   C.Loops.map out b 3ul f;
+
+  (* For64 *)
+  let b = Buffer.createL [ 1UL; 2UL; 3UL ] in
+  C.Loops.for64 0UL 3UL (fun _ _ -> True) (fun i ->
+    let i = FStar.Int.Cast.uint64_to_uint32 i in
+    let open UInt64 in
+    b.(i) <- b.(i) *%^ b.(i)
+  );
+  TestLib.checku64 b.(2ul) 9UL;
 
   (* Call the tests above. *)
   TestLib.checku32 (count_to_n 10ul) 10ul;

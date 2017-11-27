@@ -974,20 +974,26 @@ let combinators = object(self)
 
   inherit [_] map as super
 
+  method private mk_for start finish body w =
+    (* Relying on the invariant that, if [finish] is effectful, F* has
+     * hoisted it *)
+    if not (is_value finish) then
+      Warnings.fatal_error "%a is not a value" pexpr finish;
+    let b = fresh_binder "i" (TInt w) in
+    let b = mark_mut b in
+    let cond = mk_lt w (lift 1 finish) in
+    let iter = mk_incr w in
+    (* Note: no need to shift, the body was under a one-argument lambda
+     * already. *)
+    EFor (b, start, cond, iter, self#visit () body)
+
   method! eapp () t e es =
     match e.node, es with
     | EQualified ([ "C"; "Loops" ], "for_"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
-        (* Relying on the invariant that, if [finish] is effectful, F* has
-         * hoisted it *)
-        if not (is_value finish) then
-          Warnings.fatal_error "%a is not a value" pexpr finish;
-        let b = fresh_binder "i" uint32 in
-        let b = mark_mut b in
-        let cond = mk_lt (lift 1 finish) in
-        let iter = mk_incr in
-        (* Note: no need to shift, the body was under a one-argument lambda
-         * already. *)
-        EFor (b, start, cond, iter, self#visit () body)
+        self#mk_for start finish body K.UInt32
+
+    | EQualified ([ "C"; "Loops" ], "for64"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
+        self#mk_for start finish body K.UInt64
 
     | EQualified ([ "C"; "Loops" ], "interruptible_for"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
         (* Relying on the invariant that, if [finish] is effectful, F* has
@@ -997,7 +1003,7 @@ let combinators = object(self)
         let b = mark_mut b in
         let i = fresh_binder "i" uint32 in
         let i = mark_mut i in
-        let iter = mk_incr in
+        let iter = mk_incr32 in
         (* First binder. *)
         ELet (b, efalse, with_type t (
         (* Second binder. *)

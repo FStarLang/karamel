@@ -68,11 +68,11 @@ let etrue = with_type TBool (EBool true)
 
 let with_unit x = with_type TUnit x
 
-let zerou32 = with_type uint32 (EConstant (K.UInt32, "0"))
-let oneu32 = with_type uint32 (EConstant (K.UInt32, "1"))
-
-let zerou8 =
-  with_type (TInt (K.UInt8)) (EConstant (K.UInt8, "0"))
+let zero w = with_type (TInt w) (EConstant (w, "0"))
+let zerou8 = zero K.UInt8
+let zerou32 = zero K.UInt32
+let one w = with_type (TInt w) (EConstant (w, "1"))
+let oneu32 = one K.UInt32
 
 let pwild = with_type TAny PWild
 
@@ -81,20 +81,26 @@ let mk_op op w =
     typ = type_of_op op w }
 
 (* @0 < <finish> *)
-let mk_lt finish =
+let mk_lt w finish =
   with_type TBool (
-    EApp (mk_op K.Lt K.UInt32, [
-      with_type uint32 (EBound 0);
+    EApp (mk_op K.Lt w, [
+      with_type (TInt w) (EBound 0);
       finish ]))
 
+let mk_lt32 =
+  mk_lt K.UInt32
+
 (* @0 <- @0 + 1ul *)
-let mk_incr =
+let mk_incr w =
+  let t = TInt w in
   with_type TUnit (
-    EAssign (with_type uint32 (
-      EBound 0), with_type uint32 (
-      EApp (mk_op K.Add K.UInt32, [
-        with_type uint32 (EBound 0);
-        oneu32 ]))))
+    EAssign (with_type t (
+      EBound 0), with_type t (
+      EApp (mk_op K.Add w, [
+        with_type t (EBound 0);
+        one w ]))))
+
+let mk_incr32 = mk_incr K.UInt32
 
 let mk_neq e1 e2 =
   with_type TBool (EApp (mk_op K.Neq K.UInt32, [ e1; e2 ]))

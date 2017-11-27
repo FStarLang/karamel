@@ -10,6 +10,7 @@ module HH = FStar.HyperHeap
 module HS = FStar.HyperStack
 module HST = FStar.HyperStack.ST
 module UInt32 = FStar.UInt32
+module UInt64 = FStar.UInt64
 
 include Spec.Loops
 
@@ -55,6 +56,25 @@ let rec for start finish inv f =
     f start;
     for (UInt32.(start +^ 1ul)) finish inv f
   end
+
+val for64:
+  start:UInt64.t ->
+  finish:UInt64.t{UInt64.v finish >= UInt64.v start} ->
+  inv:(HS.mem -> nat -> Type0) ->
+  f:(i:UInt64.t{UInt64.(v start <= v i /\ v i < v finish)} -> Stack unit
+                        (requires (fun h -> inv h (UInt64.v i)))
+                        (ensures (fun h_1 _ h_2 -> UInt64.(inv h_1 (v i) /\ inv h_2 (v i + 1)))) ) ->
+  Stack unit
+    (requires (fun h -> inv h (UInt64.v start)))
+    (ensures (fun _ _ h_2 -> inv h_2 (UInt64.v finish)))
+let rec for64 start finish inv f =
+  if start = finish then
+    ()
+  else begin
+    f start;
+    for64 (UInt64.(start +^ 1UL)) finish inv f
+  end
+
 
 (* To be extracted as:
     for (int i = <start>; i != <finish>; --i)
