@@ -284,12 +284,34 @@ let rec is_pure_c_value e =
         is_X_value is_pure_c_value e
   ) e
 
-let rec is_constant e =
+(* Used by the Checker for the size of stack-allocated buffers. Also used by the
+ * global initializers collection phase. This is a conservative approximation of
+ * the C11 standard 6.6 §6 "constant expressions". *)
+let rec is_int_constant e =
+  let open Constant in
   match e.node with
-  | EConstant _ ->
+  | EConstant _ | EEnum _ | EBool _ | EUnit | EString _ | EAny ->
       true
   | ECast (e, _) ->
-      is_constant e
+      is_int_constant e
+  | EApp ({ node = EOp ((
+        Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
+      | BOr | BAnd | BXor | BShiftL | BShiftR | BNot
+      | Eq | Neq | Lt | Lte | Gt | Gte
+      | And | Or | Xor | Not), w); _ },
+    es) when w <> CInt ->
+      List.for_all is_int_constant es
+  | _ ->
+      false
+
+(* This is a conservative approximation. See C11 6.6. *)
+let is_initializer_constant e =
+  is_int_constant e ||
+  match e with
+  | { node = EAddrOf { node = EQualified _; _ }; _ } ->
+      true
+  | { node = EQualified _; typ = TArrow _ } ->
+      true
   | _ ->
       false
 

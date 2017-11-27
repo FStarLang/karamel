@@ -296,7 +296,10 @@ and check' env t e =
       end
 
   | EBufCreate (lifetime, e1, e2) ->
-      if env.warn && not (is_constant e2) && lifetime = Common.Stack then begin
+      (* "If the size is an integer constant expression and the element type has
+       * a known constant size, the array type is not a variable length array
+       * type" (C11 standard, §6.7.6.2 "Array Declarators"). *)
+      if env.warn && not (is_int_constant e2) && lifetime = Common.Stack then begin
         let e = KPrint.bsprintf "%a" pexpr e in
         let loc = KPrint.bsprintf "%a" ploc env.location in
         Warnings.(maybe_fatal_error (loc, Vla e))
