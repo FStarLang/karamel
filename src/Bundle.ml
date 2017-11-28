@@ -50,4 +50,4 @@ let pattern_matches (p: pat) (m: string) =
   | Module m' ->
       String.concat "_" m' = m
   | Prefix p ->
-      KString.starts_with m (String.concat "_" p ^ "_")
+      p = [] || KString.starts_with m (String.concat "_" p ^ "_")

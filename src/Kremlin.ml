@@ -304,7 +304,10 @@ Supported options:|}
   end;
 
   if not !Options.minimal then
-    Options.bundle := ([ ], [ Bundle.Prefix [ "FStar" ] ]) :: !Options.bundle;
+    Options.bundle :=
+      ([], [ Bundle.Module [ "C"; "Loops" ]; Bundle.Module [ "Spec"; "Loops" ] ]) ::
+      ([], [ Bundle.Prefix [ "FStar" ] ]) ::
+      !Options.bundle;
 
   if !arg_c89 then begin
     Options.uint128 := false;

@@ -40,8 +40,8 @@ range:
 (** Parsing of -bundle options *)
 
 pat:
-| u = UIDENT DOT STAR
-  { Prefix [ u ] }
+| STAR
+  { Prefix [ ] }
 | u = UIDENT
   { Module [ u ] }
 | u = UIDENT DOT p = pat
