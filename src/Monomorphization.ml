@@ -323,6 +323,8 @@ let functions files =
           assert (List.length ts = 1);
           let t = List.hd ts in
           begin match t with
+          | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) ->
+              EOp (op, K.CInt)
           | TInt w ->
               EOp (op, w)
           | TBool ->
