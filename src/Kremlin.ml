@@ -199,7 +199,8 @@ Supported options:|}
       List.iter (prepend Options.drop) (Utils.parse Parser.drop s)),
       "  do not extract Code for this module (see above)";
     "-header", Arg.String (fun f ->
-      Options.header := Utils.file_get_contents f
+      let c = Utils.file_get_contents f in
+      Options.header := fun _ _ -> c
     ), " prepend the contents of the given file at the beginning of each .c and .h";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, \
       .c, .h and .o files";

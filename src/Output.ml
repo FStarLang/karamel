@@ -30,8 +30,11 @@ let includes files =
  * - the #endif
  *)
 let prefix_suffix name =
+  Driver.detect_fstar_if ();
+  Driver.detect_kremlin_if ();
   let prefix =
-    string !Options.header ^^ hardline ^^
+    let header = !Options.header !Driver.fstar_rev !Driver.krml_rev in
+    string header ^^ hardline ^^
     mk_includes !Options.add_early_include ^^
     kremlib_include ^^
     hardline ^^
@@ -59,9 +62,12 @@ let write_one name prefix program suffix =
   )
 
 let write_c files =
+  Driver.detect_fstar_if ();
+  Driver.detect_kremlin_if ();
   ignore (List.fold_left (fun names file ->
     let name, program = file in
-    let prefix = string (Printf.sprintf "%s\n\n#include \"%s.h\"" !Options.header name) in
+    let header = !Options.header !Driver.fstar_rev !Driver.krml_rev in
+    let prefix = string (Printf.sprintf "%s\n\n#include \"%s.h\"" header name) in
     write_one (name ^ ".c") prefix program empty;
     name :: names
   ) [] files)

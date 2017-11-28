@@ -45,10 +45,12 @@ module P = Process
 let fstar = ref ""
 let fstar_home = ref ""
 let fstar_lib = ref ""
+let fstar_rev = ref "<unknown>"
 let fstar_options = ref []
 
 (** By [detect_kremlin] *)
 let krml_home = ref ""
+let krml_rev = ref "<unknown>"
 
 (** These two filled in by [detect_gcc] and others *)
 let cc = ref ""
@@ -136,6 +138,13 @@ let detect_kremlin () =
   KPrint.bprintf "%sKreMLin home is:%s %s\n" Ansi.underline Ansi.reset home;
   krml_home := home;
 
+  if try Sys.is_directory (!krml_home ^^ ".git") with Sys_error _ -> false then begin
+    let cwd = Sys.getcwd () in
+    Sys.chdir !krml_home;
+    krml_rev := String.sub (read_one_line "git" [| "rev-parse"; "HEAD" |]) 0 8;
+    Sys.chdir cwd
+  end;
+
   Options.includes := (!krml_home ^^ "kremlib") :: !Options.includes
 
 let detect_kremlin_if () =
@@ -191,6 +200,7 @@ let detect_fstar () =
     let cwd = Sys.getcwd () in
     Sys.chdir !fstar_home;
     let branch = read_one_line "git" [| "rev-parse"; "--abbrev-ref"; "HEAD" |] in
+    fstar_rev := String.sub (read_one_line "git" [| "rev-parse"; "HEAD" |]) 0 8;
     let color = if branch = "master" then Ansi.green else Ansi.orange in
     KPrint.bprintf "fstar is on %sbranch %s%s\n" color branch Ansi.reset;
     Sys.chdir cwd

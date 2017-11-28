@@ -1,3 +1,19 @@
+### November 28th, 2017
+
+- Write out some information in the generated header (command-line, git
+  revisions)
+- Support for -bundle Foo=*, which, in combination with -minimal, can be used
+  for large-scale separate compilation. Example:
+
+  krml Foo.fst -minimal -bundle Foo=* -add-include '"kremlib.h"'
+
+  This will generate a single C file with only the public functions from Foo
+  visible.
+
+### November 27th, 2017
+
+- `C.Loops.for64` with a 64-bit loop index
+
 ### November 20th, 2017
 
 - New -minimal option to disable #include "kremlib.h" and -bundle FStar.*
