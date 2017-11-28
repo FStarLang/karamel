@@ -6,7 +6,7 @@ open PPrint
 let mk_includes =
   separate_map hardline (fun x -> string "#include " ^^ string x) 
 
-let kremlib_include =
+let kremlib_include () =
   if !Options.minimal then
     empty
   else
@@ -36,7 +36,7 @@ let prefix_suffix name =
     let header = !Options.header !Driver.fstar_rev !Driver.krml_rev in
     string header ^^ hardline ^^
     mk_includes !Options.add_early_include ^^
-    kremlib_include ^^
+    kremlib_include () ^^
     hardline ^^
     string (Printf.sprintf "#ifndef __%s_H" name) ^^ hardline ^^
     string (Printf.sprintf "#define __%s_H" name) ^^ hardline
