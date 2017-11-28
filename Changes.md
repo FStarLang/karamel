@@ -12,7 +12,7 @@
 - Support for equality at non-base types; this generates "external" function
   declarations, to be filled out by the user. Example:
 
-  let f (x y: bytes) = 
+  let f (x y: bytes) =
     if x = y then
       ...
 
