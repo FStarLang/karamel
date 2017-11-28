@@ -142,10 +142,33 @@ val do_while:
     (requires (fun h -> inv h false))
     (ensures (fun _ _ h_2 -> inv h_2 true))
 let rec do_while inv f =
-  let break = f () in
-  if break
-     then ()
-     else do_while inv f
+  if not (f ()) then
+    do_while inv f
+
+
+(* Extracted as:
+   while (test ()) {
+     body ();
+   }
+*)
+val while:
+  #test_pre: (HS.mem -> GTot Type0) ->
+  #test_post: (bool -> HS.mem -> GTot Type0) ->
+  $test: (unit -> Stack bool
+    (requires (fun h -> test_pre h))
+    (ensures (fun h0 x h1 -> test_post x h1))) ->
+  body: (unit -> Stack unit
+    (requires (fun h -> test_post true h))
+    (ensures (fun h0 _ h1 -> test_pre h1))) ->
+  Stack unit
+    (requires (fun h -> test_pre h))
+    (ensures (fun h0 _ h1 -> test_post false h1))
+let rec while #test_pre #test_post test body =
+  if test () then begin
+    body ();
+    while #test_pre #test_post test body
+  end
+
 
 (* To be extracted as:
     int i = <start>;

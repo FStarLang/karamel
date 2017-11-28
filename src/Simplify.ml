@@ -1022,6 +1022,13 @@ let combinators = object(self)
             with_type uint32 (EBound 0);
             with_type TBool (EBound 1)])]))))
 
+    | EQualified ([ "C"; "Loops" ], s), [
+        { node = EFun (_, test, _); _ };
+        { node = EFun (_, body, _); _ } ]
+      when KString.starts_with s "while" ->
+        EWhile (DeBruijn.subst Helpers.eunit 0 test,
+          DeBruijn.subst Helpers.eunit 0 body)
+
     | EQualified ([ "C"; "Loops" ], s), [ { node = EFun (_, body, _); _ } ]
       when KString.starts_with s "do_while" ->
         EWhile (etrue, with_unit (
