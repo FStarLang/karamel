@@ -41,6 +41,36 @@ static inline void C_String_print(C_String_t str) {
 typedef const char *Prims_string;
 Prims_string Prims_strcat(Prims_string s0, Prims_string s1);
 
+static inline Prims_string FStar_Int64_to_string(uint64_t i) {
+  char *buf = malloc(24);
+  snprintf(buf, 24, "%"PRId64, i);
+  return buf;
+}
+
+static inline Prims_string FStar_Int32_to_string(uint32_t i) {
+  char *buf = malloc(24);
+  snprintf(buf, 24, "%"PRId32, i);
+  return buf;
+}
+
+static inline Prims_string FStar_Int16_to_string(uint16_t i) {
+  char *buf = malloc(24);
+  snprintf(buf, 24, "%"PRId16, i);
+  return buf;
+}
+
+static inline Prims_string FStar_Int8_to_string(uint8_t i) {
+  char *buf = malloc(24);
+  snprintf(buf, 24, "%"PRId8, i);
+  return buf;
+}
+
+static inline Prims_string FStar_UInt64_to_string(uint64_t i) {
+  char *buf = malloc(24);
+  snprintf(buf, 24, "%"PRIu64, i);
+  return buf;
+}
+
 static inline Prims_string FStar_UInt32_to_string(uint32_t i) {
   char *buf = malloc(24);
   snprintf(buf, 24, "%"PRIu32, i);
@@ -53,8 +83,14 @@ static inline Prims_string FStar_UInt16_to_string(uint16_t i) {
   return buf;
 }
 
-static inline Prims_string Prims_string_of_int(uint32_t i) {
-  return FStar_UInt32_to_string(i);
+static inline Prims_string FStar_UInt8_to_string(uint8_t i) {
+  char *buf = malloc(24);
+  snprintf(buf, 24, "%"PRIu8, i);
+  return buf;
+}
+
+static inline Prims_string Prims_string_of_int(krml_checked_int_t i) {
+  return FStar_Int32_to_string(i);
 }
 
 static inline Prims_string Prims_string_of_bool(bool b) {
