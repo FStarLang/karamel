@@ -29,7 +29,7 @@ let count_and_remove_locals = object (self)
     let e1 = self#visit env e1 in
     let env = self#extend env b in
     let e2 = self#visit env e2 in
-    if !(b.node.mark) = 0 && is_pure_c_value e1 then
+    if !(b.node.mark) = 0 && is_pure_c_expression e1 then
       (snd (open_binder b e2)).node
     else if !(b.node.mark) = 0 then
       if e1.typ = TUnit then
@@ -110,7 +110,7 @@ let remove_unused_parameters map = object (self)
         let are_unused, _ = KList.split (List.length es) (Hashtbl.find map lid) in
         let es, to_evaluate = List.fold_left2 (fun (es, to_evaluate) unused arg ->
           if unused then
-            if is_pure_c_value arg then
+            if is_pure_c_expression arg then
               es, to_evaluate
             else
               let x, _atom = mk_binding "unused" arg.typ in
@@ -155,6 +155,26 @@ let wrapping_arithmetic = object (self)
 
     | _, es ->
         EApp (self#visit () e, List.map (self#visit ()) es)
+end
+
+
+(* Try to remove the infamous let uu____ from F*. Needs an accurate use count
+ * for each variable. *)
+let remove_uu = object (self)
+
+  inherit [unit] map
+
+  method! elet _ _ b e1 e2 =
+    let e1 = self#visit () e1 in
+    let e2 = self#visit () e2 in
+    KPrint.bprintf "%s, %d, %b, %a\n" b.node.name !(b.node.mark) (is_pure_c_expression e1) pexpr e1;
+    if KString.starts_with b.node.name "uu___" &&
+      !(b.node.mark) = 1 &&
+      is_pure_c_expression e1
+    then
+      (DeBruijn.subst e1 0 e2).node
+    else
+      ELet (b, e1, e2)
 end
 
 
@@ -1045,6 +1065,8 @@ end
  * compilation, once. *)
 let simplify0 (files: file list): file list =
   let files = visit_files () remove_local_function_bindings files in
+  let files = visit_files [] count_and_remove_locals files in
+  let files = visit_files () remove_uu files in
   let files = visit_files () combinators files in
   let files = visit_files () wrapping_arithmetic files in
   files

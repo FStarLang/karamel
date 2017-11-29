@@ -177,7 +177,7 @@ let rec mk_expr env in_stmt e =
         | [ TUnit ], [ { node = EUnit; _ } ] ->
             CStar.Call (mk_expr env e, [])
         | [ TUnit ], [ e' ] ->
-            if is_value e' then
+            if is_pure_c_expression e' then
               CStar.Call (mk_expr env e, [])
             else
               CStar.Comma (mk_expr env e', CStar.Call (mk_expr env e, []))
@@ -242,7 +242,7 @@ and mk_buf env t =
       invalid_arg "mk_buf"
 
 and mk_ignored_stmt env e =
-  if is_value e then
+  if is_pure_c_expression e then
     env, []
   else
     let e = strip_cast e in
@@ -405,7 +405,7 @@ and mk_stmts env e ret_type =
         mk_as_return env e acc return_pos
 
     | _ ->
-        if is_value e then
+        if is_pure_c_expression e then
           env, acc
         else
           let e = CStar.Ignore (mk_expr env true e) in
@@ -419,7 +419,7 @@ and mk_stmts env e ret_type =
       (* "return" when already in return position is un-needed *)
       if return_pos then s else CStar.Return None :: s
     in
-    if ret_type = CStar.Void && is_value e then
+    if ret_type = CStar.Void && is_pure_c_expression e then
       env, maybe_return_nothing acc
     else if ret_type = CStar.Void then
       let env, s = mk_ignored_stmt env e in
@@ -431,25 +431,6 @@ and mk_stmts env e ret_type =
 
   snd (collect (env, []) true e)
 
-(* Things that will generate warnings such as "left-hand operand of comma
- * expression has no effect". *)
-and is_value x =
-  match x.node with
-  | EBound _
-  | EOpen _
-  | EQualified _
-  | EConstant _
-  | EUnit
-  | EOp _
-  | EBool _
-  | EAny
-  | EFlat _
-  | EField _ ->
-      true
-  | ECast (e,_) ->
-      is_value e
-  | _ ->
-      false
 
 (** This enforces the push/pop frame invariant. The invariant can be described
  * as follows (the extra cases are here to provide better error messages):
