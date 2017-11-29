@@ -29,7 +29,7 @@ let count_and_remove_locals = object (self)
     let e1 = self#visit env e1 in
     let env = self#extend env b in
     let e2 = self#visit env e2 in
-    if !(b.node.mark) = 0 && is_pure_c_expression e1 then
+    if !(b.node.mark) = 0 && is_readonly_c_expression e1 then
       (snd (open_binder b e2)).node
     else if !(b.node.mark) = 0 then
       if e1.typ = TUnit then
@@ -110,7 +110,7 @@ let remove_unused_parameters map = object (self)
         let are_unused, _ = KList.split (List.length es) (Hashtbl.find map lid) in
         let es, to_evaluate = List.fold_left2 (fun (es, to_evaluate) unused arg ->
           if unused then
-            if is_pure_c_expression arg then
+            if is_readonly_c_expression arg then
               es, to_evaluate
             else
               let x, _atom = mk_binding "unused" arg.typ in
@@ -164,13 +164,110 @@ let remove_uu = object (self)
 
   inherit [unit] map
 
+  (* This function returns true if:
+   * - [e] contains exactly one use of [0] and
+   * - [e] only has readonly effect before [0] is evaluated.
+   * A return value of false may indicate of the following:
+   * - there is a write effect
+   * - there is no use of [0]
+   * - conservative approximation ("don't know").
+  *)
+  method private safe_use (e: expr) =
+    (* A helper that considers an unsequenced series of expressions, such as a
+     * function's arguments. One of the expressions must contain the use, and
+     * the other ones must be read-only since they might be ordered in any
+     * arbitrary way. *)
+    let unordered es =
+      let the_use, the_rest = List.partition self#safe_use es in
+      List.length the_use = 1 &&
+      List.for_all is_readonly_c_expression the_rest
+    in
+    match e.node with
+    (* The base case for true. *)
+    | EBound i ->
+        i = 0
+
+    (* Not a use of [0]. *)
+    | EQualified _
+    | EConstant _
+    | EUnit
+    | EBool _
+    | EString _
+    | EAny
+    | EAbort _
+    | EOpen _
+    | EOp _
+    | EEnum _
+    | EBreak
+    | EPushFrame
+    | EPopFrame
+
+    (* Don't know. *)
+    | EFun _
+
+    (* Writes. *)
+    | EBufBlit _
+    | EBufWrite _
+    | EBufFill _ ->
+        false
+
+    (* Only one subexpression in this construction. *)
+    | EReturn e
+    | ECast (e, _)
+    | EComment (_, e, _)
+    | EAddrOf e
+    | EIgnore e
+    | ETApp (e, _)
+    | EField (e, _) ->
+        self#safe_use e
+
+    (* No sequencing between arguments of an application. *)
+    | EApp (e, es) ->
+        unordered (e :: es)
+
+    (* There is a sequencing point after the assignment of [e1] into [b], so
+     * either we use [0] in [e1] and don't care about the rest, or we have a
+     * readonly effect in [e1] then a safe use in [e2]. *)
+    | ELet (_, e1, e2) ->
+        self#safe_use e1 ||
+        is_readonly_c_expression e1 && self#safe_use e2
+
+    (* This could be refined, but be conservative and return true only when the
+     * use appears in the condition of the if-then-else, which is followed by a
+     * sequencing point. *)
+    | EIfThenElse (e, _, _)
+    | ESwitch (e, _)
+    | EWhile (e, _)
+    | EFor (_, e, _, _, _)
+    | EMatch (e, _) ->
+        self#safe_use e
+
+    (* Could be refined with "any prefix of [es] is read-only, followed by a
+     * use". *)
+    | ESequence es ->
+        self#safe_use (List.hd es)
+
+    | EBufCreate (_, e1, e2)
+    | EBufRead (e1, e2)
+    | EBufSub (e1, e2)
+    | EAssign (e1, e2) ->
+        unordered [ e1; e2 ]
+
+    | EBufCreateL (_, es)
+    | ETuple es
+    | ECons (_, es) ->
+        unordered es
+
+    | EFlat es ->
+        unordered (snd (List.split es))
+
   method! elet _ _ b e1 e2 =
     let e1 = self#visit () e1 in
     let e2 = self#visit () e2 in
-    KPrint.bprintf "%s, %d, %b, %a\n" b.node.name !(b.node.mark) (is_pure_c_expression e1) pexpr e1;
     if KString.starts_with b.node.name "uu___" &&
       !(b.node.mark) = 1 &&
-      is_pure_c_expression e1
+      is_readonly_c_expression e1 &&
+      self#safe_use e2
     then
       (DeBruijn.subst e1 0 e2).node
     else

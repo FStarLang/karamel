@@ -273,21 +273,22 @@ let is_X_value self (e: expr) =
 let rec is_value e =
   is_X_value is_value e
 
-let rec is_pure_c_expression e =
+let rec is_readonly_c_expression e =
   let pure_builtin_lids = [
     [ "C"; "String" ], "get";
   ] in
   match e.node with
+  | ELet (_, e1, e2)
   | EBufRead (e1, e2)
   | EBufSub (e1, e2) ->
-      is_pure_c_expression e1 &&
-      is_pure_c_expression e2
+      is_readonly_c_expression e1 &&
+      is_readonly_c_expression e2
   | EApp ({ node = EOp _; _ }, es) ->
-      List.for_all is_pure_c_expression es
+      List.for_all is_readonly_c_expression es
   | EApp ({ node = EQualified lid; _ }, es) when List.mem lid pure_builtin_lids ->
-      List.for_all is_pure_c_expression es
+      List.for_all is_readonly_c_expression es
   | _ ->
-      is_X_value is_pure_c_expression e
+      is_X_value is_readonly_c_expression e
 
 (* Used by the Checker for the size of stack-allocated buffers. Also used by the
  * global initializers collection phase. This is a conservative approximation of
