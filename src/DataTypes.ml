@@ -449,7 +449,7 @@ let compile_match env e_scrut branches =
     | [ { node = EBool true; _ }, e ] ->
         e
     | [ cond, e ] ->
-        mk (EIfThenElse (cond, e, mk (EAbort (Some "no else in F*"))))
+        mk (EIfThenElse (cond, e, mk (EAbort (Some "unreachable (pattern matches are exhaustive in F*)"))))
     | (cond, e) :: bs ->
         mk (EIfThenElse (cond, e, fold_ite bs))
   in
