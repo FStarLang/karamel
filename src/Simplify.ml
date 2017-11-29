@@ -35,7 +35,13 @@ let count_and_remove_locals = object (self)
       if e1.typ = TUnit then
         ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2)
       else
-        ELet ({ b with node = { b.node with meta = Some MetaSequence }}, push_ignore e1, e2)
+        (* We know the variable is unused... but its body cannot be determined
+         * to be readonly, so we have to keep. What's better?
+         *   int unused = f();
+         * or:
+         *   (void)f(); ? *)
+        (* ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit}, push_ignore e1, e2) *)
+        ELet (b, e1, e2)
     else
       ELet (b, e1, e2)
 
