@@ -37,7 +37,7 @@ let mk_debug name parameters =
       | _ ->
           Printf.sprintf "%s=%%s" name, C.Literal "unknown"
     ) parameters) in
-    [ C.Expr (C.Call (C.Name "printf", [
+    [ C.Expr (C.Call (C.Name "KRML_HOST_PRINTF", [
         C.Literal (String.concat " " (name :: formats @ [ "\\n" ]))
       ] @ args)) ]
   else
@@ -182,10 +182,10 @@ and mk_sizeof t =
   C.Call (C.Name "sizeof", [ t ])
 
 and mk_malloc t s =
-  C.Call (C.Name "malloc", [ C.Op2 (K.Mult, mk_sizeof t, s) ])
+  C.Call (C.Name "KRML_HOST_MALLOC", [ C.Op2 (K.Mult, mk_sizeof t, s) ])
 
 and mk_calloc t s =
-  C.Call (C.Name "calloc", [ s; mk_sizeof t ])
+  C.Call (C.Name "KRML_HOST_CALLOC", [ s; mk_sizeof t ])
 
 and mk_eternal_bufcreate buf init size =
   let size = mk_expr size in
@@ -397,16 +397,16 @@ and mk_stmt (stmt: stmt): C.stmt list =
             Name ident, Compound (mk_stmts block @ [ Break ])
           ) branches,
           Compound [
-            Expr (Call (Name "printf", [
+            Expr (Call (Name "KRML_HOST_PRINTF", [
               Literal "KreMLin incomplete match at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
-            Expr (Call (Name "exit", [ Constant (K.UInt8, "253") ]))
+            Expr (Call (Name "KRML_HOST_EXIT", [ Constant (K.UInt8, "253") ]))
           ]
       )]
 
   | Abort s ->
-      [ Expr (Call (Name "printf", [
+      [ Expr (Call (Name "KRML_HOST_PRINTF", [
           Literal "KreMLin abort at %s:%d\\n%s\\n"; Name "__FILE__"; Name "__LINE__"; Literal (escape_string s) ]));
-        Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])); ]
+        Expr (Call (Name "KRML_HOST_EXIT", [ Constant (K.UInt8, "255") ])); ]
 
   | For (`Decl (binder, e1), e2, e3, b) ->
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
