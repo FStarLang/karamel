@@ -6,8 +6,7 @@ type t = width * string
 and width =
   | UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64
   | Bool
-  | Int | UInt
-    (** For internal use only *)
+  | CInt (** Checked signed integers. *)
 
 let bytes_of_width (w: width) =
   match w with
@@ -19,6 +18,7 @@ let bytes_of_width (w: width) =
   | Int16 -> 2
   | Int32 -> 4
   | Int64 -> 8
+  | CInt -> 4
   | _ -> invalid_arg "bytes_of_width"
 
 type op =
@@ -30,7 +30,7 @@ type op =
   | Eq | Neq | Lt | Lte | Gt | Gte
   (* Boolean operations *)
   | And | Or | Xor | Not
-  (* Effectful operations *)
+  (* Effectful operations. Only appears in C. *)
   | Assign | PreIncr | PreDecr | PostIncr | PostDecr
   (* Misc *)
   | Comma
@@ -41,12 +41,11 @@ let unsigned_of_signed = function
   | Int16 -> UInt16
   | Int32 -> UInt32
   | Int64 -> UInt64
-  | Int -> UInt
-  | UInt | UInt8 | UInt16 | UInt32 | UInt64 | Bool -> raise (Invalid_argument "unsigned_of_signed")
+  | CInt | UInt8 | UInt16 | UInt32 | UInt64 | Bool -> raise (Invalid_argument "unsigned_of_signed")
 
 let is_signed = function
-  | Int8 | Int16 | Int32 | Int64 | Int -> true
-  | UInt8 | UInt16 | UInt32 | UInt64 | UInt -> false
+  | Int8 | Int16 | Int32 | Int64 | CInt -> true
+  | UInt8 | UInt16 | UInt32 | UInt64 -> false
   | Bool -> raise (Invalid_argument "is_signed")
 
 let is_unsigned w = not (is_signed w)

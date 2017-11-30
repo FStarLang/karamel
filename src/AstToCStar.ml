@@ -7,12 +7,12 @@
  * - in the body of let-bindings, the test expression of conditionals, the
  *   right-hand side of assignments, in all buffer expressions, in function
  *   arguments the following are disallowed:
- *   + sequence expressions
- *   + conditionals
- *   + assignments
- *   + buffer writes
- *   + let-bindings
- *   + impure function calls
+ *   - sequence expressions
+ *   - conditionals
+ *   - assignments
+ *   - buffer writes
+ *   - let-bindings
+ *   - impure function calls
  * - the first subexpression of buffer reads, writes and subs must be a
  *   qualified or local name.
  *)
@@ -22,6 +22,7 @@ open Idents
 open Warnings
 open Location
 open PrintAst.Ops
+open Helpers
 
 module C = Checker
 
@@ -176,7 +177,7 @@ let rec mk_expr env in_stmt e =
         | [ TUnit ], [ { node = EUnit; _ } ] ->
             CStar.Call (mk_expr env e, [])
         | [ TUnit ], [ e' ] ->
-            if is_value e' then
+            if is_readonly_c_expression e' then
               CStar.Call (mk_expr env e, [])
             else
               CStar.Comma (mk_expr env e', CStar.Call (mk_expr env e, []))
@@ -205,8 +206,8 @@ let rec mk_expr env in_stmt e =
       CStar.Op (o, w)
   | ECast (e, t) ->
       CStar.Cast (mk_expr env e, mk_type env t)
-  | EAbort ->
-      CStar.EAbort (mk_type env e.typ)
+  | EAbort s ->
+      CStar.EAbort (mk_type env e.typ, Option.or_empty s)
   | EUnit ->
       CStar.Cast (zero, CStar.Pointer CStar.Void)
   | EAny ->
@@ -230,7 +231,8 @@ let rec mk_expr env in_stmt e =
       CStar.AddrOf (mk_expr env e)
 
   | _ ->
-      fatal_error "[AstToCStar.mk_expr]: should not be here (%a)" pexpr e
+      Warnings.maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc env.location, NotLowStar e);
+      CStar.Any
 
 and mk_buf env t =
   match t with
@@ -238,6 +240,20 @@ and mk_buf env t =
       mk_type env t1
   | _ ->
       invalid_arg "mk_buf"
+
+and mk_ignored_stmt env e =
+  if is_readonly_c_expression e then
+    env, []
+  else
+    let e = strip_cast e in
+    let s =
+      match e.typ with
+      | TUnit ->
+          CStar.Ignore (mk_expr env true e)
+      | _ ->
+          CStar.Ignore (CStar.Cast (mk_expr env true e, CStar.Void))
+    in
+    env, [s]
 
 and mk_stmts env e ret_type =
   let rec collect (env, acc) return_pos e =
@@ -278,7 +294,7 @@ and mk_stmts env e ret_type =
         let incr = int_of_string incr in
         let rec mk acc i =
           if i < max then
-            let body = DeBruijn.subst (uint32_of_int i) 0 body in
+            let body = DeBruijn.subst (mk_uint32 i) 0 body in
             mk (CStar.Block (mk_block env false body) :: acc) (i + incr)
           else
             acc
@@ -289,13 +305,24 @@ and mk_stmts env e ret_type =
     | EFor (binder, e1, e2, e3, e4) ->
         (* Note: the arguments to mk_and_push_binder are solely for the purpose
          * of avoiding name collisions. *)
-        let env, binder = mk_and_push_binder env binder (Some e1) [ e2; e3; e4 ]
-        and e1 = mk_expr env false e1 in
-        let e2 = mk_expr env false e2 in
-        let e3 = match mk_block env false e3 with [ e3 ] -> e3 | _ -> assert false in
-        let e4 = mk_block env false e4 in
-        let e = CStar.For (binder, e1, e2, e3, e4) in
-        env, e :: acc
+        let is_solo_assignment = binder.node.meta = Some MetaSequence in
+        let env', binder = mk_and_push_binder env binder (Some e1) [ e2; e3; e4 ] in
+        let e2 = mk_expr env' false e2 in
+        let e3 = KList.one (mk_block env' false e3) in
+        let e4 = mk_block env' false e4 in
+        let e =
+          if is_solo_assignment then
+            let e1 = match mk_block env false e1 with
+              | [ e1 ] -> `Stmt e1
+              | [] -> `Skip
+              | _ -> assert false
+            in
+            CStar.For (e1, e2, e3, e4)
+          else
+            let e1 = mk_expr env false e1 in
+            CStar.For (`Decl (binder, e1), e2, e3, e4)
+        in
+        env', e :: acc
 
     | EIfThenElse (e1, e2, e3) ->
         let e = CStar.IfThenElse (mk_expr env false e1, mk_block env return_pos e2, mk_block env return_pos e3) in
@@ -351,8 +378,8 @@ and mk_stmts env e ret_type =
     | EPopFrame ->
         env, CStar.PopFrame :: acc
 
-    | EAbort ->
-        env, CStar.Abort :: acc
+    | EAbort s ->
+        env, CStar.Abort (Option.or_empty s) :: acc
 
     | ESwitch (e, branches) ->
         env, CStar.Switch (mk_expr env false e,
@@ -361,17 +388,24 @@ and mk_stmts env e ret_type =
           ) branches) :: acc
 
     | EReturn e ->
-        mk_as_return env e acc
+        mk_as_return env e acc return_pos
 
     | EComment (s, e, s') ->
         let env, stmts = collect (env, CStar.Comment s :: acc) return_pos e in
         env, CStar.Comment s' :: stmts
 
+    | EIgnore e ->
+        let env, s = mk_ignored_stmt env e in
+        env, s @ acc
+
+    | EBreak ->
+        env, CStar.Break :: acc
+
     | _ when return_pos ->
-        mk_as_return env e acc
+        mk_as_return env e acc return_pos
 
     | _ ->
-        if is_value e then
+        if is_readonly_c_expression e then
           env, acc
         else
           let e = CStar.Ignore (mk_expr env true e) in
@@ -380,11 +414,16 @@ and mk_stmts env e ret_type =
   and mk_block env return_pos e =
     List.rev (snd (collect (reset_block env, []) return_pos e))
 
-  and mk_as_return env e acc =
-    if ret_type = CStar.Void && is_value e then
-      env, CStar.Return None :: acc
+  and mk_as_return env e acc return_pos =
+    let maybe_return_nothing s =
+      (* "return" when already in return position is un-needed *)
+      if return_pos then s else CStar.Return None :: s
+    in
+    if ret_type = CStar.Void && is_readonly_c_expression e then
+      env, maybe_return_nothing acc
     else if ret_type = CStar.Void then
-      env, CStar.Return None :: CStar.Ignore (mk_expr env true e) :: acc
+      let env, s = mk_ignored_stmt env e in
+      env, maybe_return_nothing (s @ acc)
     else
       env, CStar.Return (Some (mk_expr env false e)) :: acc
 
@@ -392,25 +431,6 @@ and mk_stmts env e ret_type =
 
   snd (collect (env, []) true e)
 
-(* Things that will generate warnings such as "left-hand operand of comma
- * expression has no effect". *)
-and is_value x =
-  match x.node with
-  | EBound _
-  | EOpen _
-  | EQualified _
-  | EConstant _
-  | EUnit
-  | EOp _
-  | EBool _
-  | EAny
-  | EFlat _
-  | EField _ ->
-      true
-  | ECast (e,_) ->
-      is_value e
-  | _ ->
-      false
 
 (** This enforces the push/pop frame invariant. The invariant can be described
  * as follows (the extra cases are here to provide better error messages):
@@ -476,8 +496,6 @@ and mk_return_type env = function
   | TArrow _ as t ->
       let ret, args = flatten_arrow t in
       CStar.Function (None, mk_return_type env ret, List.map (mk_type env) args)
-  | TZ ->
-      CStar.Z
   | TBound _ ->
       fatal_error "Internal failure: no TBound here"
   | TApp (lid, _) ->
@@ -549,7 +567,8 @@ and mk_declaration env d: CStar.decl option =
         CStar.Function (cc, flags, t, (string_of_lident name), binders, body)
       end))
 
-  | DGlobal (flags, name, t, body) ->
+  | DGlobal (flags, name, n, t, body) ->
+      assert (n = 0);
       let env = locate env (InTop name) in
       Some (CStar.Global (
         string_of_lident name,
@@ -557,7 +576,7 @@ and mk_declaration env d: CStar.decl option =
         mk_type env t,
         mk_expr env false body))
 
-  | DExternal (cc, name, t) ->
+  | DExternal (cc, flags, name, t) ->
       let to_void = match t with
         | TArrow (TUnit, _) -> true
         | _ -> false
@@ -576,11 +595,15 @@ and mk_declaration env d: CStar.decl option =
             assert (cc = None);
             t
       in
-      Some (External (string_of_lident name, t))
+      Some (External (string_of_lident name, t, flags))
 
-  | DType (name, 0, def) ->
+  | DType (name, flags, _, Forward) ->
       let name = string_of_lident name in
-      Some (CStar.Type (name, mk_type_def env def))
+      Some (CStar.TypeForward (name, flags))
+
+  | DType (name, flags, 0, def) ->
+      let name = string_of_lident name in
+      Some (CStar.Type (name, mk_type_def env def, flags))
 
   | DType _ ->
       None
@@ -598,7 +621,7 @@ and mk_type_def env d: CStar.typ =
       mk_type env t
 
   | Variant _ ->
-      failwith "Variant should've been desugared at this  stage"
+      failwith "Variant should've been desugared at this stage"
 
   | Enum tags ->
       CStar.Enum (List.map string_of_lident tags)
@@ -608,15 +631,23 @@ and mk_type_def env d: CStar.typ =
         f, mk_type env t
       ) fields)
 
+  | Forward ->
+      failwith "impossible, handled by mk_declaration"
+
 
 and mk_program name decls =
   KList.filter_map (fun d ->
     let n = string_of_lident (Ast.lid_of_decl d) in
     try
       mk_declaration empty d
-    with Error e ->
-      Warnings.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
-      None
+    with
+    | Error e ->
+        Warnings.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
+        None
+    | e ->
+        Warnings.fatal_error "Fatal failure in %a: %s\n"
+          plid (Ast.lid_of_decl d)
+          (Printexc.to_string e)
   ) decls
 
 and mk_file (name, program) =

@@ -3,6 +3,7 @@
 
 open Warnings
 
+(* Abstracting over - (dash) for msvc. vs. gcc-like. *)
 module Dash = struct
   let i dir =
     if !Options.cc = "msvc" then
@@ -44,10 +45,12 @@ module P = Process
 let fstar = ref ""
 let fstar_home = ref ""
 let fstar_lib = ref ""
+let fstar_rev = ref "<unknown>"
 let fstar_options = ref []
 
 (** By [detect_kremlin] *)
 let krml_home = ref ""
+let krml_rev = ref "<unknown>"
 
 (** These two filled in by [detect_gcc] and others *)
 let cc = ref ""
@@ -83,6 +86,11 @@ let success cmd args =
 
 let read_one_line cmd args =
   String.trim (List.hd (Process.read_stdout cmd args))
+
+let read_one_error_line cmd args =
+  match Process.run cmd args with
+  | { Process.Output.stderr; _ } ->
+      String.trim (List.hd stderr)
 
 (** The tools we depend on; namely, readlink. *)
 let detect_base_tools () =
@@ -130,21 +138,30 @@ let detect_kremlin () =
   KPrint.bprintf "%sKreMLin home is:%s %s\n" Ansi.underline Ansi.reset home;
   krml_home := home;
 
+  if try Sys.is_directory (!krml_home ^^ ".git") with Sys_error _ -> false then begin
+    let cwd = Sys.getcwd () in
+    Sys.chdir !krml_home;
+    krml_rev := String.sub (read_one_line "git" [| "rev-parse"; "HEAD" |]) 0 8;
+    Sys.chdir cwd
+  end;
+
   Options.includes := (!krml_home ^^ "kremlib") :: !Options.includes
 
 let detect_kremlin_if () =
   if !krml_home = "" then
     detect_kremlin ()
 
-let expand_fstar_home fstar_home fstar_lib s =
+let expand_prefixes s =
   if KString.starts_with s "FSTAR_LIB" then
-    fstar_lib ^^ KString.chop s "FSTAR_LIB"
+    !fstar_lib ^^ KString.chop s "FSTAR_LIB"
   else if KString.starts_with s "FSTAR_HOME" then
-    fstar_home ^^ KString.chop s "FSTAR_HOME"
+    !fstar_home ^^ KString.chop s "FSTAR_HOME"
+  else if KString.starts_with s "KRML_HOME" then
+    !krml_home ^^ KString.chop s "KRML_HOME"
   else
     s
 
-(** Fills in fstar{,_home,_options} *)
+(* Fills in fstar{,_home,_options} *)
 let detect_fstar () =
   detect_kremlin_if ();
 
@@ -183,6 +200,7 @@ let detect_fstar () =
     let cwd = Sys.getcwd () in
     Sys.chdir !fstar_home;
     let branch = read_one_line "git" [| "rev-parse"; "--abbrev-ref"; "HEAD" |] in
+    fstar_rev := String.sub (read_one_line "git" [| "rev-parse"; "HEAD" |]) 0 8;
     let color = if branch = "master" then Ansi.green else Ansi.orange in
     KPrint.bprintf "fstar is on %sbranch %s%s\n" color branch Ansi.reset;
     Sys.chdir cwd
@@ -192,19 +210,29 @@ let detect_fstar () =
    * set of known failing modules. Adding a new module to the failing list is
    * DANGEROUS: it will remove a bunch of [DExternal] declarations that the
    * type-checker needs! *)
-  let fstar_includes = List.map (expand_fstar_home !fstar_home !fstar_lib) !Options.includes in
+  let fstar_includes = List.map expand_prefixes !Options.includes in
   fstar_options := [
     "--trace_error";
+    "--cache_checked_modules";
+    "--expose_interfaces"
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
   (** We don't even try to extract the int modules, because Kremlin cannot
    * type-check them, as it assumes a primitive notion of integers... see also
    * [Options.drop] for modules that we're happy to let F* extract (for
    * typing), but don't want to generate C for. *)
-  List.iter (fun m ->
+  let record_no_extract m =
     fstar_options := "--no_extract" :: ("FStar." ^ m) :: !fstar_options
-  ) [ "Int8"; "UInt8"; "Int16"; "UInt16"; "Int31"; "UInt31"; "Int32"; "UInt32";
-      "Int63"; "UInt63"; "Int64"; "UInt64"; "Int128"; "UInt128"; "Seq.Base"; "ST";
-      "HyperStack"; "HyperHeap"; "Math.Lib" ];
+  in
+  List.iter record_no_extract
+    [ "Int8"; "UInt8"; "Int16"; "UInt16"; "Int31"; "UInt31"; "Int32"; "UInt32";
+      "Int63"; "UInt63"; "Int64"; "UInt64"; "Int128"; "HyperStack.ST";
+      "HyperStack"; "HyperHeap"; "Math.Lib"; "Map"; "Monotonic.HyperHeap";
+      "Buffer"; "Monotonic.HyperStack" ];
+  fstar_options := "--no_extract" :: "C.String" :: !fstar_options;
+  if not !Options.uint128 then
+    fstar_options := (!fstar_home ^^ "ulib" ^^ "FStar.UInt128.fst") :: !fstar_options;
+  if !Options.wasm then
+    fstar_options := (!krml_home ^^ "runtime" ^^ "WasmSupport.fst") :: !fstar_options;
   KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
 
   flush stdout
@@ -213,9 +241,9 @@ let detect_fstar_if () =
   if !fstar = "" then
     detect_fstar ()
 
-let expand_fstar_home s =
+let expand_prefixes s =
   detect_fstar_if ();
-  expand_fstar_home !fstar_home !fstar_lib s
+  expand_prefixes s
 
 let verbose_msg () =
   if !Options.verbose then
@@ -229,7 +257,9 @@ let run_or_warn str exe args =
   let debug_str = KPrint.bsprintf "%s %s" exe (String.concat " " args) in
   if !Options.verbose then
     print_endline debug_str;
-  match P.run exe (Array.of_list args) with
+  let r = P.run exe (Array.of_list args) in
+  flush stdout; flush stderr;
+  match r with
   | { P.Output.exit_status = P.Exit.Exit 0; stdout; stderr; _ } ->
       KPrint.bprintf "%s✔%s %s%s\n" Ansi.green Ansi.reset str (verbose_msg ());
       if !Options.verbose then
@@ -250,11 +280,11 @@ let run_fstar verify skip_extract skip_translate files =
   assert (List.length files > 0);
   detect_fstar_if ();
 
-  KPrint.bprintf "%s⚡ Calling F*%s\n" Ansi.blue Ansi.reset;
-  let args = List.rev !Options.fsopts @ !fstar_options @ files in
+  KPrint.bprintf "%s⚡ Calling F* (use -verbose to see the output)%s\n" Ansi.blue Ansi.reset;
+  let args = List.rev !Options.fsopts @ !fstar_options @ List.rev files in
   if verify then begin
     flush stdout;
-    if not (run_or_warn "[F*,verify]" !fstar args) then
+    if not (run_or_warn "[verify]" !fstar args) then
       fatal_error "F* failed"
   end;
 
@@ -264,7 +294,7 @@ let run_fstar verify skip_extract skip_translate files =
     let args =
       "--odir" :: !Options.tmpdir ::
       "--codegen" :: "Kremlin" ::
-      "--lax" :: !fstar_options @ files
+      "--lax" :: args
     in
     flush stdout;
     mk_tmpdir_if ();
@@ -287,7 +317,7 @@ let detect_gnu flavor =
         Warnings.fatal_error "gcc not found in path!";
   in
   let crosscc = if !Options.m32 then format_of_string "i686-w64-mingw32-%s" else format_of_string "x86_64-w64-mingw32-%s" in
-  search [ "%s-6"; "%s-5"; crosscc; "%s" ];
+  search [ "%s-7"; "%s-6"; "%s-5"; crosscc; "%s" ];
 
   KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !cc;
 
@@ -343,7 +373,7 @@ let o_of_c f =
  * silently dropped, or KreMLin aborts if warning 3 is fatal. *)
 let compile files extra_c_files =
   assert (List.length files > 0);
-  let extra_c_files = List.map expand_fstar_home extra_c_files in
+  let extra_c_files = List.map expand_prefixes extra_c_files in
   detect_kremlin_if ();
   detect_cc_if ();
   flush stdout;
@@ -364,7 +394,7 @@ let compile files extra_c_files =
  * command-line are linked together; any [-o] option is passed to the final
  * invocation of [gcc]. *)
 let link c_files o_files =
-  let o_files = List.map expand_fstar_home o_files in
+  let o_files = List.map expand_prefixes o_files in
   let objects = List.map o_of_c c_files @ o_files in
   let extra_arg = if !Options.exe_name <> "" then Dash.o_exe !Options.exe_name else [] in
   if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg @ List.rev !Options.ldopts) then

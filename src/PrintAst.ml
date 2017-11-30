@@ -20,6 +20,7 @@ let print_app f head g arguments =
 let rec print_decl = function
   | DFunction (cc, flags, n, typ, name, binders, body) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
+      print_comment flags ^^
       cc ^^ print_flags flags ^^ group (string "function" ^/^ string (string_of_lident name) ^/^
       langle ^^ int n ^^ rangle ^^
       parens_with_nesting (
@@ -28,19 +29,27 @@ let rec print_decl = function
         print_expr body
       )
 
-  | DExternal (cc, name, typ) ->
+  | DExternal (cc, flags, name, typ) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
+      print_flags flags ^/^
       group (cc ^^ string "external" ^/^ string (string_of_lident name) ^/^ colon) ^^
       jump (print_typ typ)
 
-  | DGlobal (flags, name, typ, expr) ->
-      print_flags flags ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
+  | DGlobal (flags, name, n, typ, expr) ->
+      print_flags flags ^^ langle ^^ int n ^^ rangle ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
-  | DType (name, n, def) ->
+  | DType (name, flags, n, def) ->
       let args = KList.make n (fun i -> string ("t" ^ string_of_int i)) in
       let args = separate space args in
-      group (string "type" ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
+      group (string "type" ^/^ print_flags flags ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
       jump (print_type_def def)
+
+and print_comment flags =
+  match KList.find_opt (function Comment c -> Some c | _ -> None) flags with
+  | Some c ->
+      string "(*" ^^ string c ^^ string "*)" ^^ hardline
+  | None ->
+      empty
 
 and print_type_def = function
   | Flat fields ->
@@ -71,14 +80,17 @@ and print_type_def = function
       string "abbrev" ^/^
       jump (print_typ typ)
 
+  | Forward ->
+      string "forward"
+
 and print_fields_t fields =
-  separate_map (semi ^^ hardline) (fun (ident, (typ, mut)) ->
+  separate_map (semi ^^ break1) (fun (ident, (typ, mut)) ->
     let mut = if mut then string "mutable " else empty in
     group (group (mut ^^ string ident ^^ colon) ^/^ print_typ typ)
   ) fields
 
 and print_fields_opt_t fields =
-  separate_map (semi ^^ hardline) (fun (ident, (typ, mut)) ->
+  separate_map (semi ^^ break1) (fun (ident, (typ, mut)) ->
     let ident = if ident = None then empty else string (Option.must ident) in
     let mut = if mut then string "mutable " else empty in
     group (group (mut ^^ ident ^^ colon) ^/^ print_typ typ)
@@ -90,25 +102,36 @@ and print_flags flags =
 and print_flag = function
   | Private ->
       string "private"
-  | NoExtract ->
-      string "noextract"
+  | WipeBody ->
+      string "wipe"
   | CInline ->
       string "c_inline"
   | Substitute ->
       string "substitute"
+  | GcType ->
+      string "gc_type"
+  | Comment _ ->
+      empty
+  | MustDisappear ->
+      string "must_disappear"
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
-  group (
-    (if mut then string "mutable" ^^ break 1 else empty) ^^
-    string name ^^ lparen ^^ int !mark ^^ comma ^^ space ^^ print_meta meta ^^ rparen ^^ colon ^/^
-    print_typ typ
-  )
+  (if mut then string "mutable" ^^ break 1 else empty) ^^
+  group (group (string name ^^ lparen ^^ int !mark ^^ comma ^^ space ^^ print_meta meta ^^
+  rparen ^^ colon) ^/^
+  nest 2 (print_typ typ))
 
 and print_meta = function
   | Some MetaSequence ->
       semi
   | None ->
       empty
+
+and print_typ_paren = function
+  | TArrow _ as t ->
+      parens_with_nesting (print_typ t)
+  | t ->
+      print_typ t
 
 and print_typ = function
   | TInt w -> print_width w ^^ string "_t"
@@ -118,8 +141,7 @@ and print_typ = function
   | TQualified name -> string (string_of_lident name)
   | TBool -> string "bool"
   | TAny -> string "any"
-  | TArrow (t1, t2) -> print_typ t1 ^^ space ^^ string "->" ^/^ nest 2 (print_typ t2)
-  | TZ -> string "mpz_t"
+  | TArrow (t1, t2) -> print_typ_paren t1 ^^ space ^^ string "->" ^/^ nest 2 (print_typ t2)
   | TBound i -> int i
   | TApp (lid, args) ->
       string (string_of_lident lid) ^/^ separate_map space print_typ args
@@ -136,14 +158,17 @@ and print_let_binding (binder, e1) =
   group (group (string "let" ^/^ print_binder binder ^/^ equals) ^^
   jump (print_expr e1))
 
-and print_expr { node; _ } =
+and print_expr { node; typ } =
   match node with
   | EComment (s, e, s') ->
       surround 2 1 (string s) (print_expr e) (string s')
   | EAny ->
       string "$any"
-  | EAbort ->
-      string "$abort"
+  | EAbort s ->
+      string "$abort" ^^
+      (match s with None -> empty | Some s -> string " (" ^^ string s ^^ string ")")
+  | EIgnore e ->
+      print_app string "ignore" print_expr [ e ]
   | EBound v ->
       at ^^ int v
   | EOpen (name, _) ->
@@ -158,6 +183,8 @@ and print_expr { node; _ } =
       dquote ^^ string s ^^ dquote
   | EApp (e, es) ->
       print_app print_expr e print_expr es
+  | ETApp (e, ts) ->
+      print_app print_expr e (fun t -> group (langle ^/^ print_typ t ^/^ rangle)) ts
   | ELet (binder, e1, e2) ->
       group (print_let_binding (binder, e1) ^/^ string "in") ^/^ group (print_expr e2)
   | EIfThenElse (e1, e2, e3) ->
@@ -167,7 +194,7 @@ and print_expr { node; _ } =
   | ESequence es ->
       separate_map (semi ^^ hardline) (fun e -> group (print_expr e)) es
   | EAssign (e1, e2) ->
-      group (print_expr e1 ^/^ string "<-") ^^ (jump (print_expr e2))
+      group (print_expr e1 ^/^ string ":=") ^^ (jump (print_expr e2))
   | EBufCreate (l, e1, e2) ->
       print_lifetime l ^^ space ^^
       print_app string "newbuf" print_expr [e1; e2]
@@ -183,7 +210,7 @@ and print_expr { node; _ } =
   | EBufFill (e1, e2, e3) ->
       print_app string "fillbuf" print_expr [e1; e2; e3 ]
   | EMatch (e, branches) ->
-      group (string "match" ^/^ print_expr e ^/^ string "with") ^^
+      group (string "match" ^/^ print_expr e ^^ colon ^/^ print_typ e.typ ^/^ string "with") ^^
       jump ~indent:0 (print_branches branches)
   | EOp (o, w) ->
       string "(" ^^ print_op o ^^ string "," ^^ print_width w ^^ string ")"
@@ -195,6 +222,8 @@ and print_expr { node; _ } =
       string "push_frame"
   | EBool b ->
       string (string_of_bool b)
+  | EBreak ->
+      string "break"
   | EReturn e ->
       string "return" ^/^ (nest 2 (print_expr e))
   | EFlat fields ->
@@ -219,9 +248,9 @@ and print_expr { node; _ } =
   | ECons (ident, es) ->
       string ident ^/^
       if List.length es > 0 then
-        parens_with_nesting (separate_map (comma ^^ break1) print_expr es)
+        parens_with_nesting (separate_map (comma ^^ break1) print_expr es) ^^ colon ^/^ print_typ typ
       else
-        empty
+        empty ^^ colon ^/^ print_typ typ
   | ETuple es ->
       parens_with_nesting (separate_map (comma ^^ break1) print_expr es)
   | EEnum lid ->
@@ -232,10 +261,10 @@ and print_expr { node; _ } =
           string "case" ^^ space ^^ string (string_of_lident lid) ^^ colon ^^
           nest 2 (hardline ^^ print_expr e)
         ) branches)
-  | EFun (binders, body) ->
+  | EFun (binders, body, t) ->
       string "fun" ^/^ parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders
-      ) ^/^ braces_with_nesting (
+      ) ^/^ colon ^^ group (print_typ t) ^/^ braces_with_nesting (
         print_expr body
       )
   | EAddrOf e ->
@@ -248,11 +277,11 @@ and print_branches branches =
 
 and print_branch (binders, pat, expr) =
   group (bar ^^ space ^^
-    lambda ^^
-    separate_map (comma ^^ break 1) print_binder binders ^^
-    dot ^^ space ^^
-    print_pat pat ^^ space ^^ arrow
-  ) ^^ jump ~indent:4 (print_expr expr)
+    lambda ^/^
+    group (separate_map (comma ^^ break 1) print_binder binders) ^^
+    dot ^^ space ^/^
+    group (print_pat pat ^^ space ^^ arrow)
+  ) ^/^ jump ~indent:4 (print_expr expr)
 
 and print_pat p =
   match p.node with
@@ -276,11 +305,19 @@ and print_pat p =
       parens_with_nesting (separate_map (comma ^^ break1) print_pat ps)
   | PEnum lid ->
       string (string_of_lident lid)
+  | PDeref p ->
+      star ^^ print_pat p
+  | PConstant k ->
+      print_constant k
 
 let print_files = print_files print_decl
 
 module Ops = struct
+  let print_typs = separate_map (comma ^^ space) print_typ
+
+  let ploc = printf_of_pprint Location.print_location
   let ptyp = printf_of_pprint print_typ
+  let ptyps = printf_of_pprint print_typs
   let pptyp = printf_of_pprint_pretty print_typ
   let pexpr = printf_of_pprint print_expr
   let ppexpr = printf_of_pprint_pretty print_expr

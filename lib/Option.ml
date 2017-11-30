@@ -10,3 +10,7 @@ let map_or f o d =
   match o with
   | Some x -> f x
   | None -> d
+
+let or_empty = function
+  | Some x -> x
+  | None -> ""

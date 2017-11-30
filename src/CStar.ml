@@ -10,19 +10,21 @@ type program =
 and decl =
   | Global of ident * flag list * typ * expr
   | Function of calling_convention option * flag list * typ * ident * binder list * block
-  | Type of ident * typ
-  | External of ident * typ
+  | Type of ident * typ * flag list
+  | TypeForward of ident * flag list
+  | External of ident * typ * flag list
 
 and stmt =
-  | Abort
+  | Abort of string
   | Return of expr option
+  | Break
   | Ignore of expr
   | Decl of binder * expr
     (** Scope is: statements that follow. *)
   | IfThenElse of expr * block * block
   | While of expr * block
-  | For of binder * expr * expr * stmt * block
-    (** There is a slight mistmatch; C has an iteration *expression* but C*'s
+  | For of [ `Decl of binder * expr | `Stmt of stmt | `Skip ] * expr * stmt * block
+    (** There is a slight mismatch; C has an iteration *expression* but C*'s
      * expressions are pure; therefore, we must use a statement in lieu of the
      * iteration expression. *)
   | Assign of expr * expr
@@ -67,7 +69,7 @@ and expr =
   | StringLiteral of string
   | Any
   | AddrOf of expr
-  | EAbort of typ
+  | EAbort of typ * string
   [@@deriving show]
 
 and block =
@@ -99,8 +101,6 @@ and typ =
   | Function of calling_convention option * typ * typ list
       (** Return type, arguments *)
   | Bool
-  | Z
-
   | Struct of (ident option * typ) list
       (** In support of anonymous unions. *)
   | Enum of ident list
@@ -110,6 +110,7 @@ let ident_of_decl (d: decl): string =
   match d with
   | Global (id, _, _, _)
   | Function (_, _, _, id, _, _)
-  | Type (id, _)
-  | External (id, _) ->
+  | Type (id, _, _)
+  | TypeForward (id, _)
+  | External (id, _, _) ->
       id

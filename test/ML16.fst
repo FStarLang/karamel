@@ -2,9 +2,11 @@ module ML16
 
 // The HyperStack library and friends
 open FStar.HyperStack
-open FStar.ST
+open FStar.HyperStack.ST
 open FStar.Buffer
 open FStar.Int32
+
+module I32 = FStar.Int32
 
 // Some external functions we expose through the foreign function binding
 // mechanism.
@@ -13,7 +15,7 @@ open ML16Externals
 let test1 (_: unit): Stack unit (fun _ -> true) (fun _ _ _ -> true) =
   push_frame ();
   let b = Buffer.create 21l 2ul in
-  print_int32 (index b 0ul +%^ index b 1ul);
+  print_int32 (FStar.Int32.add (index b 0ul) (index b 1ul));
   pop_frame ()
 
 let test2 (_: unit):
@@ -43,7 +45,12 @@ let main argc argv =
 
   // Computations take place in [main]'s frame.
   let b = test2 () in
-  print_int32 (index b 0ul +%^ index b 1ul);
+
+  let a = index b 0ul in
+  let b = index b 1ul in
+
+  assume (FStar.Int.size ((I32.v a) + (I32.v b)) 32); // What to do here, Tej says we shouldn't/can't have add_mod anymore.
+  print_int32 (I32.add a b);
 
   pop_frame ();
   C.exit_success

@@ -16,12 +16,11 @@ let braces_with_nesting contents =
 let int i = string (string_of_int i)
 
 let print_width = function
-  | UInt -> string "uintmax"
   | UInt8 -> string "uint8"
   | UInt16 -> string "uint16"
   | UInt32 -> string "uint32"
   | UInt64 -> string "uint64"
-  | Int -> string "intmax"
+  | CInt -> string "krml_checked_int"
   | Int8 -> string "int8"
   | Int16 -> string "int16"
   | Int32 -> string "int32"

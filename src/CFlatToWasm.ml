@@ -36,10 +36,47 @@ let empty = {
 }
 
 let find_global env name =
-  StringMap.find name env.globals
+  try
+    StringMap.find name env.globals
+  with Not_found ->
+    Warnings.fatal_error "Could not resolve global %s (look out for Warning 12)" name
 
-let find_func env name =
-  StringMap.find name env.funcs
+(* Some functions were marked as assumed in F*, and then implemented by hand in
+ * C. But, now, we have to re-implement them in F* so that they get Wasm codegen
+ * too. This is a temporary stopgap until all these functions have been properly
+ * removed... *)
+let builtins = [
+  "FStar_UInt64_eq_mask", "WasmSupport_eq_mask64";
+  "FStar_UInt64_gte_mask", "WasmSupport_gte_mask64";
+]
+
+let name_of_string = W.Utf8.decode
+let string_of_name = W.Ast.string_of_name
+
+let rec find_func env name =
+  try
+    StringMap.find name env.funcs
+  with Not_found ->
+    try
+      find_func env (List.assoc name builtins)
+    with Not_found ->
+      Warnings.fatal_error "Could not resolve function %s" name
+
+let primitives = [
+  "load32_le";
+  "load32_be";
+  "load64_le";
+  "load64_be";
+  "load128_le";
+  "store32_le";
+  "store32_be";
+  "store64_le";
+  "store64_be";
+  "store128_le"
+]
+
+let is_primitive x =
+  List.mem x primitives
 
 
 (******************************************************************************)
@@ -78,12 +115,14 @@ let mk_const c =
 
 let mk_lit w lit =
   match w with
-  | K.Int32 | K.UInt32 | K.Bool ->
-      mk_int32 (Int32.of_string lit)
   | K.Int64 | K.UInt64 ->
-      mk_int64 (Int64.of_string lit)
+      let n = Z.of_string lit in
+      let n = if Z.( n >= ~$2 ** 63 ) then Z.( n - ~$2 ** 64 ) else n in
+      mk_int64 (Z.to_int64 n)
+  | K.Int32 | K.UInt8 | K.UInt16 | K.UInt32 | K.Bool ->
+      mk_int32 (Int32.of_string lit)
   | _ ->
-      failwith "mk_lit"
+      failwith (KPrint.bsprintf "mk_lit: %s@%s" (K.show_width w) lit)
 
 let i32_mul =
   [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Mul)) ]
@@ -97,9 +136,12 @@ let i32_and =
 let i32_sub =
   [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Sub)) ]
 
-let i32_not =
-  mk_const (mk_int32 Int32.one) @
+let i32_xor =
   [ dummy_phrase (W.Ast.Binary (mk_value I32 W.Ast.IntOp.Xor)) ]
+
+let i32_not =
+  mk_const (mk_int32 Int32.zero) @
+  [ dummy_phrase (W.Ast.Compare (mk_value I32 W.Ast.IntOp.Eq)) ]
 
 let i32_zero =
   mk_const (mk_int32 Int32.zero)
@@ -109,6 +151,16 @@ let i32_one =
 
 let mk_unit =
   i32_zero
+
+let i64_sub =
+  [ dummy_phrase (W.Ast.Binary (mk_value I64 W.Ast.IntOp.Sub)) ]
+
+let i64_xor =
+  [ dummy_phrase (W.Ast.Binary (mk_value I64 W.Ast.IntOp.Xor)) ]
+
+let i64_not =
+  mk_const (mk_int64 Int64.zero) @
+  [ dummy_phrase (W.Ast.Compare (mk_value I64 W.Ast.IntOp.Eq)) ]
 
 let mk_drop =
   [ dummy_phrase W.Ast.Drop ]
@@ -140,6 +192,20 @@ let swap64 env =
     dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0)));
     dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 1))) ]
 
+(* I64 at the top of the stack *)
+let swap6432 env =
+  [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 2))) ]
+
+(* I32 at the top of the stack *)
+let swap3264 env =
+  [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0))) ]
+
 
 (******************************************************************************)
 (* Run-time memory management                                                 *)
@@ -165,6 +231,7 @@ let write_highwater env =
 let grow_highwater env =
   read_highwater @
   i32_add @
+  [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_align_64"))) ] @
   write_highwater env
 
 
@@ -196,7 +263,7 @@ let mk_string env s =
       rel_addr
   in
   compute_string_offset env rel_addr
-  
+
 
 (******************************************************************************)
 (* Arithmetic                                                                 *)
@@ -299,29 +366,29 @@ let is_cmpop (o: K.width * K.op) =
  *   the remaining lowest n-1 bits; this means that operations that need to care
  *   about the sign (shift-right, division, remainder) can be builtin Wasm
  *   operations; then, assuming we want to replicate the C semantics:
- *   + signed to larger signed = no-op
- *   + signed to smaller signed = mask & shift sign bit
- *   + unsigned to smaller unsigned = mask
- *   + unsigned to larger unsigned = no-op
- *   + signed to smaller unsigned = mask
- *   + signed to equal or greater unsigned = shift sign bit
- *   + unsigned to smaller or equal signed = mask & shift sign bit
- *   + unsigned to larger signed = no-op
+ *   - signed to larger signed = no-op
+ *   - signed to smaller signed = mask & shift sign bit
+ *   - unsigned to smaller unsigned = mask
+ *   - unsigned to larger unsigned = no-op
+ *   - signed to smaller unsigned = mask
+ *   - signed to equal or greater unsigned = shift sign bit
+ *   - unsigned to smaller or equal signed = mask & shift sign bit
+ *   - unsigned to larger signed = no-op
  * - use the lowest n bits and re-implement "by hand" operations that require us
  *   to care about the sign
- *   + signed to larger signed = sign-extension
- *   + signed to smaller signed = mask
- *   + unsigned to smaller unsigned = mask
- *   + unsigned to larger unsigned = no-op
- *   + signed to smaller unsigned = mask
- *   + signed to greater unsigned = sign-extension
- *   + unsigned to smaller or equal signed = mask
- *   + unsigned to larger signed = no-op
+ *   - signed to larger signed = sign-extension
+ *   - signed to smaller signed = mask
+ *   - unsigned to smaller unsigned = mask
+ *   - unsigned to larger unsigned = no-op
+ *   - signed to smaller unsigned = mask
+ *   - signed to greater unsigned = sign-extension
+ *   - unsigned to smaller or equal signed = mask
+ *   - unsigned to larger signed = no-op
  *)
 let mk_mask w =
   let open K in
   match w with
-  | UInt32 | Int32 | UInt64 | Int64 | UInt | Int ->
+  | UInt32 | Int32 | UInt64 | Int64 | CInt ->
       []
   | UInt16 | Int16 ->
       mk_const (mk_int32 0xffffl) @
@@ -335,15 +402,15 @@ let mk_mask w =
 let mk_cast w_from w_to =
   let open K in
   match w_from, w_to with
-  | (UInt8 | UInt16 | UInt32), (Int64 | UInt64 | Int | UInt) ->
+  | (UInt8 | UInt16 | UInt32), (Int64 | UInt64) ->
       (* Zero-padding, C semantics. That's 12 cases. *)
-      [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.ExtendUI32)) ]
-  | Int32, (Int64 | UInt64 | Int | UInt) ->
+      [ dummy_phrase (W.Ast.Convert (W.Values.I64 W.Ast.IntOp.ExtendUI32)) ]
+  | Int32, (Int64 | UInt64) ->
       (* Sign-extend, then re-interpret, also C semantics. That's 12 more cases. *)
-      [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.ExtendSI32)) ]
-  | (Int64 | UInt64 | Int | UInt), (Int32 | UInt32) ->
+      [ dummy_phrase (W.Ast.Convert (W.Values.I64 W.Ast.IntOp.ExtendSI32)) ]
+  | (Int64 | UInt64), (Int32 | UInt32 | Int16 | UInt16 | Int8 | UInt8) ->
       (* Truncate, still C semantics (famous last words?). That's 24 cases. *)
-      [ dummy_phrase (W.Ast.Convert (W.Values.I64 W.Ast.IntOp.WrapI64)) ] @
+      [ dummy_phrase (W.Ast.Convert (W.Values.I32 W.Ast.IntOp.WrapI64)) ] @
       mk_mask w_to
   | (Int8 | UInt8), (Int8 | UInt8)
   | (Int16 | UInt16), (Int16 | UInt16)
@@ -359,7 +426,8 @@ let mk_cast w_from w_to =
   | Bool, _ | _, Bool ->
       invalid_arg "mk_cast"
   | _ ->
-      failwith "todo: signed cast conversions"
+      Warnings.fatal_error "todo: conversion from %s to %s"
+        (show_width w_from) (show_width w_to)
 
 
 (******************************************************************************)
@@ -393,15 +461,19 @@ module Debug = struct
    * wouldn't be limited to 124b of debugging info. *)
   let default_imports = [
     dummy_phrase W.Ast.({
-      module_name = "Kremlin";
-      item_name = "debug";
-      ikind = dummy_phrase (FuncImport (mk_var 0))
-    })
+      module_name = name_of_string "Kremlin";
+      item_name = name_of_string "debug";
+      idesc = dummy_phrase (FuncImport (mk_var 0))
+    });
   ]
 
   let default_types = [
-    W.Types.FuncType ([], [])
+    dummy_phrase (W.Types.FuncType ([], []));
+      (** not exposed in WasmSupport.fst, no fstar-compatible type. *)
   ]
+
+  let _ =
+    assert (List.length default_imports = List.length default_types)
 
   let mk env l =
 
@@ -413,10 +485,9 @@ module Debug = struct
           ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.Mem8 })]
     in
 
-    let rec byte_and_store ofs c t instr tl =
+    let rec byte_and_store ofs c t f tl =
       char ofs c @
-      mk_const (mk_int32 (Int32.of_int (ofs + 1))) @
-      instr @
+      f (mk_const (mk_int32 (Int32.of_int (ofs + 1)))) @
       [ dummy_phrase W.Ast.(Store {
           ty = mk_type t; align = 0; offset = 0l; sz = None })] @
       aux (if t = I32 then ofs + 5 else ofs + 9) tl
@@ -428,15 +499,20 @@ module Debug = struct
             failwith "Debug information clobbered past the scratch area";
           char ofs '\x00'
       | `String s :: tl ->
-          byte_and_store ofs '\x01' I32 (mk_string env s) tl
+          byte_and_store ofs '\x01' I32 (fun addr ->
+            addr @ mk_string env s) tl
       | `Peek32 :: tl ->
-          byte_and_store ofs '\x02' I32 (dup32 env) tl
+          byte_and_store ofs '\x02' I32 (fun addr ->
+            dup32 env @ addr @ swap32 env) tl
       | `Local32 i :: tl ->
-          byte_and_store ofs '\x02' I32 [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ] tl
+          byte_and_store ofs '\x02' I32 (fun addr ->
+            addr @ [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]) tl
       | `Peek64 :: tl ->
-          byte_and_store ofs '\x02' I64 (dup64 env) tl
+          byte_and_store ofs '\x03' I64 (fun addr ->
+            dup64 env @ addr @ swap3264 env) tl
       | `Local64 i :: tl ->
-          byte_and_store ofs '\x02' I64 [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ] tl
+          byte_and_store ofs '\x03' I64 (fun addr ->
+            addr @ [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]) tl
       | `Incr :: tl ->
           char ofs '\x04' @
           aux (ofs + 1) tl
@@ -461,17 +537,17 @@ module Base = struct
    * each module with the start address of its own data segment. *)
   let data_start =
     dummy_phrase W.Ast.({
-      module_name = "Kremlin";
-      item_name = "data_start";
-      ikind = dummy_phrase (GlobalImport W.Types.(
+      module_name = name_of_string "Kremlin";
+      item_name = name_of_string "data_start";
+      idesc = dummy_phrase (GlobalImport W.Types.(
         GlobalType (mk_type I32, Immutable)))})
 
   let memory =
     let mtype = W.Types.MemoryType W.Types.({ min = 16l; max = None }) in
     dummy_phrase W.Ast.({
-      module_name = "Kremlin";
-      item_name = "mem";
-      ikind = dummy_phrase (MemoryImport mtype)})
+      module_name = name_of_string "Kremlin";
+      item_name = name_of_string "mem";
+      idesc = dummy_phrase (MemoryImport mtype)})
 
   (* This establishes the func index / type index invariant. *)
   let imports = memory :: data_start :: Debug.default_imports
@@ -483,12 +559,21 @@ end
 (* Actual translation from Cflat to Wasm                                      *)
 (******************************************************************************)
 
+let mk_binop_conversion (w, o) =
+  let open K in
+  match w, o with
+  | (UInt64 | Int64), (BShiftL | BShiftR) ->
+      mk_cast UInt32 UInt64
+  | _ ->
+      []
+
 let rec mk_callop2 env (w, o) e1 e2 =
   (* TODO: check special byte semantics C / WASM *)
   let size = size_of_width w in
   mk_expr env e1 @
   mk_expr env e2 @
   if is_binop (w, o) then
+    mk_binop_conversion (w, o) @
     [ dummy_phrase (W.Ast.Binary (mk_value size (Option.must (mk_binop (w, o))))) ] @
     mk_mask w
   else if is_cmpop (w, o) then
@@ -496,6 +581,27 @@ let rec mk_callop2 env (w, o) e1 e2 =
     mk_mask w
   else
     failwith "todo mk_callop2"
+
+and mk_callop env (w, o) e1 =
+  let open K in
+  match (w, o) with
+  | (UInt64 | Int64), Not ->
+      (* Unused? *)
+      mk_expr env e1 @
+      i64_not
+  | (UInt64 | Int64), BNot ->
+      mk_const (mk_int64 Int64.minus_one) @
+      mk_expr env e1 @
+      i64_xor
+  | _, Not ->
+      mk_expr env e1 @
+      i32_not
+  | _, BNot ->
+      mk_const (mk_int32 Int32.minus_one) @
+      mk_expr env e1 @
+      i32_xor
+  | _ ->
+      failwith ("todo mk_callop " ^ show_width w ^ " " ^ show_op o)
 
 and mk_size size =
   [ dummy_phrase (W.Ast.Const (mk_int32 (Int32.of_int (bytes_in size)))) ]
@@ -508,17 +614,107 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | Constant (w, lit) ->
       mk_const (mk_lit w lit)
 
+  | CallOp (o, [ e1 ]) ->
+      mk_callop env o e1
+
   | CallOp (o, [ e1; e2 ]) ->
       mk_callop2 env o e1 e2
+
+  | CallFunc ("C_Nullity_null", [ _ ]) ->
+      [ dummy_phrase (W.Ast.Const (mk_int32 0l)) ]
+
+  | CallFunc ("load32_le", [ e ]) ->
+      mk_expr env e @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = None })]
+
+  | CallFunc ("load32_be", [ e ]) ->
+      mk_expr env (CallFunc ("WasmSupport_betole32", [ CallFunc ("load32_le", [ e ])]))
+
+  | CallFunc ("load64_le", [ e ]) ->
+      mk_expr env e @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })]
+
+  | CallFunc ("load64_be", [ e ]) ->
+      mk_expr env (CallFunc ("WasmSupport_betole64", [ CallFunc ("load64_le", [ e ])]))
+
+  | CallFunc ("store128_be", [ dst; src ])
+  | CallFunc ("load128_be", [ src; dst ]) ->
+      let local_src = env.n_args + 2 in
+      let local_dst = local_src + 1 in
+      (* Using the two 32-bit scratch locals for the two addresses. *)
+      mk_expr env src @
+      [ dummy_phrase (W.Ast.SetLocal (mk_var local_src)) ] @
+      mk_expr env dst @
+      [ dummy_phrase (W.Ast.SetLocal (mk_var local_dst)) ] @
+      (* Push dst and src on the stack; load src; store. This is low. *)
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+      i32_add @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_betole64"))) ] @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      (* Same thing with +8b offset. This is high. *)
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
+      [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+      i32_add @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_betole64"))) ] @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      (* This is just a glorified memcpy. *)
+      mk_unit
+
+  | CallFunc ("store128_le", [ dst; src ])
+  | CallFunc ("load128_le", [ src; dst ]) ->
+      let local_src = env.n_args + 2 in
+      let local_dst = local_src + 1 in
+      (* Using the two 32-bit scratch locals for the two addresses. *)
+      mk_expr env src @
+      [ dummy_phrase (W.Ast.SetLocal (mk_var local_src)) ] @
+      mk_expr env dst @
+      [ dummy_phrase (W.Ast.SetLocal (mk_var local_dst)) ] @
+      (* Push dst and src on the stack; load src; store. This is low. *)
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      (* Same thing with +8b offset. This is high. *)
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+      i32_add @
+      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
+      [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+      i32_add @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      (* This is just a glorified memcpy. *)
+      mk_unit
+
+  | CallFunc ("store32_le", [ e1; e2 ]) ->
+      mk_expr env e1 @
+      mk_expr env e2 @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I32; align = 0; offset = 0l; sz = None })] @
+      mk_unit
+
+  | CallFunc ("store32_be", [ e1; e2 ]) ->
+      mk_expr env (CallFunc ("store32_le", [ e1; CallFunc ("WasmSupport_betole32", [ e2 ])]))
+
+  | CallFunc ("store64_le", [ e1; e2 ]) ->
+      mk_expr env e1 @
+      mk_expr env e2 @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
+      mk_unit
+
+  | CallFunc ("store64_be", [ e1; e2 ]) ->
+      mk_expr env (CallFunc ("store64_le", [ e1; CallFunc ("WasmSupport_betole64", [ e2 ])]))
 
   | CallFunc (name, es) ->
       KList.map_flatten (mk_expr env) es @
       [ dummy_phrase (W.Ast.Call (mk_var (find_func env name))) ]
 
   | BufCreate (Common.Stack, n_elts, elt_size) ->
-      (* TODO semantics discrepancy the size is a uint32 both in Low* and Wasm
-       * but Low* talks about the number of elements while Wasm talks about the
-       * number of bytes *)
+      (* TODO -- generate the equivalent of KRML_CHECK_SIZE *)
       read_highwater @
       mk_expr env n_elts @
       mk_size elt_size @
@@ -534,7 +730,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
       i32_add @
       [ dummy_phrase W.Ast.(Load {
         (* the type we want on the operand stack *)
-        ty = mk_type (if size = A64 then I64 else I32); 
+        ty = mk_type (if size = A64 then I64 else I32);
         (* ignored *)
         align = 0;
         (* we've already done the multiplication ourselves *)
@@ -575,7 +771,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
       i32_add @
       mk_expr env e3 @
       [ dummy_phrase W.Ast.(Store {
-        ty = mk_type (if size = A64 then I64 else I32); 
+        ty = mk_type (if size = A64 then I64 else I32);
         align = 0;
         offset = 0l;
         sz = match size with
@@ -588,38 +784,53 @@ and mk_expr env (e: expr): W.Ast.instr list =
       [ dummy_phrase (W.Ast.Loop ([],
         mk_expr env e @
         [ dummy_phrase (W.Ast.If ([],
-          mk_expr env expr @ mk_drop @ [ dummy_phrase (W.Ast.Br (mk_var 1)) ],
+          read_highwater @
+          mk_expr env expr @
+          mk_drop @
+          write_highwater env @
+          [ dummy_phrase (W.Ast.Br (mk_var 1)) ],
           [ dummy_phrase W.Ast.Nop ])) ]
       ))] @
       mk_unit
 
   | Ignore (e, _) ->
       mk_expr env e @
-      mk_drop
-
-  | Sequence es ->
-      let es, e = KList.split_at_last es in
-      List.flatten (List.map (fun e ->
-        mk_expr env e @
-        [ dummy_phrase W.Ast.Drop ]
-      ) es) @
-      mk_expr env e
-
-  | PushFrame ->
-      read_highwater @
+      mk_drop @
       mk_unit
 
-  | PopFrame ->
-      write_highwater env @
+  | Sequence es ->
+      if List.length es = 0 then
+        mk_unit
+      else
+        let es, e = KList.split_at_last es in
+        List.flatten (List.map (fun e ->
+          mk_expr env e @
+          [ dummy_phrase W.Ast.Drop ]
+        ) es) @
+        mk_expr env e
+
+
+  | GetGlobal i ->
+      [ dummy_phrase (W.Ast.GetGlobal (mk_var (find_global env i))) ]
+
+  | StringLiteral s ->
+      (* These strings are '\0'-terminated... revisit? *)
+      mk_string env s
+
+  | Abort ->
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_trap"))) ] @
       mk_unit
 
   | _ ->
       failwith ("not implemented; got: " ^ show_expr e)
 
-let mk_func_type { args; ret; _ } =
-  W.Types.( FuncType (
+let mk_func_type' args ret =
+  dummy_phrase (W.Types.( FuncType (
     List.map mk_type args,
-    List.map mk_type ret))
+    List.map mk_type ret)))
+
+let mk_func_type { args; ret; _ } =
+  mk_func_type' args ret
 
 let mk_func env { args; locals; body; name; ret; _ } =
   let i = find_func env name in
@@ -636,6 +847,30 @@ let mk_func env { args; locals; body; name; ret; _ } =
             `Local64 i
       ) args
     in
+    let custom_debug =
+      if name = "FStar_UInt128_add_mod" then
+        let n_args = List.length args in
+        let fst64 = n_args in
+        let snd64 = n_args + 1 in
+        let read128 arg = 
+          (* Load low *)
+          [ dummy_phrase (W.Ast.GetLocal (mk_var arg)) ] @
+          [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None }) ] @
+          [ dummy_phrase (W.Ast.SetLocal (mk_var fst64)) ] @
+          (* Load high *)
+          [ dummy_phrase (W.Ast.GetLocal (mk_var arg)) ] @
+          [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
+          i32_add @ 
+          [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None }) ] @
+          [ dummy_phrase (W.Ast.SetLocal (mk_var snd64)) ]
+        in
+        read128 0 @
+        Debug.mk env [ `String "a.low"; `Local64 fst64; `String "a.high"; `Local64 snd64 ] @ 
+        read128 1 @
+        Debug.mk env [ `String "b.low"; `Local64 fst64; `String "b.high"; `Local64 snd64 ]
+      else
+        []
+    in
     let debug_exit = [ `String "return"; `Decr ] @
       match ret with
       | [ I32 ] -> [ `Peek32 ]
@@ -643,9 +878,17 @@ let mk_func env { args; locals; body; name; ret; _ } =
       | _ -> []
     in
     Debug.mk env debug_enter @
+    custom_debug @
+    read_highwater @
     mk_expr env body @
+    (match ret with
+      | [ I32 ] -> swap32 env
+      | [ I64 ] -> swap6432 env
+      | _ -> []) @
+    write_highwater env @
     Debug.mk env debug_exit
   in
+
   let locals = List.map mk_type locals in
   let ftype = mk_var i in
   dummy_phrase W.Ast.({ locals; ftype; body })
@@ -667,7 +910,10 @@ let mk_global env size body =
  * same order as [types]), build a current module; as a bonus, grow [types] and
  * [imports] with the exports from this module. *)
 let mk_module types imports (name, decls):
-  W.Types.func_type list * W.Ast.import list * (string * W.Ast.module_) =
+  W.Types.func_type W.Source.phrase list * W.Ast.import list * (string * W.Ast.module_) =
+
+  if Options.debug "wasm" then
+    KPrint.bprintf ">>> Numbering import-exports for %s\n" name;
 
   (* Layout the import and types for the current module. The current module's
    * types start with [types]; the current module's imports starts with
@@ -678,12 +924,12 @@ let mk_module types imports (name, decls):
   let rec assign env f g imports =
     (* We have seen [f] functions and [g] globals. *)
     match imports with
-    | { W.Source.it = { W.Ast.item_name; ikind = { W.Source.it = W.Ast.FuncImport n; _ }; _ }; _ } :: tl ->
-        let env = { env with funcs = StringMap.add item_name f env.funcs } in
+    | { W.Source.it = { W.Ast.item_name; idesc = { W.Source.it = W.Ast.FuncImport n; _ }; _ }; _ } :: tl ->
+        let env = { env with funcs = StringMap.add (string_of_name item_name) f env.funcs } in
         assert (Int32.to_int n.W.Source.it = f);
         assign env (f + 1) g tl
-    | { W.Source.it = { W.Ast.item_name; ikind = { W.Source.it = W.Ast.GlobalImport _; _ }; _ }; _ } :: tl ->
-        let env = { env with globals = StringMap.add item_name g env.globals } in
+    | { W.Source.it = { W.Ast.item_name; idesc = { W.Source.it = W.Ast.GlobalImport _; _ }; _ }; _ } :: tl ->
+        let env = { env with globals = StringMap.add (string_of_name item_name) g env.globals } in
         assign env f (g + 1) tl
     | _ :: tl ->
         (* Intentionally skipping other imports (e.g. memory). *)
@@ -693,13 +939,64 @@ let mk_module types imports (name, decls):
   in
   let n_imported_funcs, n_imported_globals, env = assign empty 0 0 imports in
 
+  assert (n_imported_funcs = List.length types);
+
+  (* For every global and function that's assumed (via "assume val"), we
+   * generate an import request. This means they are implemented "natively". *)
+  let rec assign env imports f g decls =
+    match decls with
+    | ExternalFunction (fname, _, _) :: tl when not (is_primitive fname) ->
+        if Options.debug "wasm" then
+          KPrint.bprintf "Imported function $%d is %s\n" f fname;
+        let env = { env with funcs = StringMap.add fname f env.funcs } in
+        let imports =
+          dummy_phrase W.Ast.({
+            module_name = name_of_string name;
+            item_name = name_of_string fname;
+            idesc = dummy_phrase (FuncImport (mk_var f))
+          }) :: imports
+        in
+        assign env imports (f + 1) g tl
+    | ExternalGlobal (gname, t) :: tl ->
+        let env = { env with globals = StringMap.add gname g env.globals } in
+        let imports =
+          dummy_phrase W.Ast.({
+            module_name = name_of_string name;
+            item_name = name_of_string gname;
+            idesc = dummy_phrase (
+              GlobalImport W.Types.(GlobalType (mk_type t, W.Types.Immutable)))
+          }) :: imports
+        in
+        assign env imports f (g + 1) tl
+    | _ :: tl ->
+        assign env imports f g tl
+    | [] ->
+        List.rev imports, f, g, env
+  in
+  let imports', n_imported_funcs, n_imported_globals, env =
+    assign env [] n_imported_funcs n_imported_globals decls
+  in
+  let imports = imports @ imports' in
+
+  (* Generate types for the assumed function declarations. Re-establish the invariant
+   * that the function at index i in the function index space has type i in the
+   * types index space. *)
+  let types = types @ KList.filter_map (function
+    | ExternalFunction (fname, args, ret) when not (is_primitive fname)->
+        Some (mk_func_type' args ret)
+    | _ ->
+        None
+  ) decls in
+
   (* Continue filling our environment with the rest of the function (resp.
    * global) index space, namely, this module's functions (resp. globals) *)
   let rec assign env f g = function
     | Function { name; _ } :: tl ->
+        if Options.debug "wasm" then
+          KPrint.bprintf "In this module, function $%d is %s\n" f name;
         let env = { env with funcs = StringMap.add name f env.funcs } in
         assign env (f + 1) g tl
-    | Global (name, _, _, _) :: tl -> 
+    | Global (name, _, _, _) :: tl ->
         let env = { env with globals = StringMap.add name g env.globals } in
         assign env f (g + 1) tl
     | _ :: tl ->
@@ -709,6 +1006,48 @@ let mk_module types imports (name, decls):
         env
   in
   let env = assign env n_imported_funcs n_imported_globals decls in
+
+  (* START detour to generate the next module's import table. *)
+
+  (* Subtlety: we do not want to export private functions. So, we build a
+   * slightly different list of types, to which we only append public types.
+   * This means that we can't poke at the environment to find the index of a
+   * given function in this list. *)
+  let types_only_public = types @ KList.filter_map (function
+    | Function f when f.public ->
+        Some (mk_func_type f)
+    | _ ->
+        None
+  ) decls in
+
+  (* Now, this means that we can easily extend [imports] with our own functions
+   * & globals, to be passed to the next module when they want to import all the
+   * stuff in the universe, including the current module's "stuff". Note: this
+   * maintains the invariant that the i-th function in [imports_me_included]
+   * points to type index i. *)
+  let _, my_imports = List.fold_left (fun (next_func, acc) -> function
+    | Function f when f.public ->
+        if Options.debug "wasm" then
+          KPrint.bprintf "Imported function $%d is %s\n" next_func f.name;
+        next_func + 1, dummy_phrase W.Ast.({
+          module_name = name_of_string name;
+          item_name = name_of_string f.name;
+          idesc = dummy_phrase (FuncImport (mk_var next_func))
+        }) :: acc
+    | Global (g_name, size, _, public) when public ->
+        let t = mk_type size in
+        next_func, dummy_phrase W.Ast.({
+          module_name = name_of_string name;
+          item_name = name_of_string g_name;
+          idesc = dummy_phrase (
+            GlobalImport W.Types.(GlobalType (t, W.Types.Immutable)))
+        }) :: acc
+    | _ ->
+        next_func, acc
+  ) (List.length types, []) decls in
+  let imports_me_included = imports @ List.rev my_imports in
+
+  (* END detour to generate the next module's import table. *)
 
   (* Generate types for the function declarations. Re-establish the invariant
    * that the function at index i in the function index space has type i in the
@@ -728,7 +1067,8 @@ let mk_module types imports (name, decls):
         None
   ) decls in
 
-  (* The globals, too *)
+  (* The globals, too. Global have their types directly attached to them and do
+   * not rely on an indirection via a type table like functions. *)
   let globals =
     KList.filter_map (function
       | Global (_, size, body, _) ->
@@ -737,30 +1077,6 @@ let mk_module types imports (name, decls):
           None
     ) decls
   in
-
-  (* Now, this means that we can easily extend [imports] with our own functions
-   * & globals, to be passed to the next module when they want to import all the
-   * stuff in the universe, including the current module's "stuff". Note: this
-   * maintains the invariant that the i-th function in [imports_me_included]
-   * points to type index i. *)
-  let imports_me_included = imports @ KList.filter_map (function
-    | Function f ->
-        Some (dummy_phrase W.Ast.({
-          module_name = name;
-          item_name = f.name;
-          ikind = dummy_phrase (FuncImport (mk_var (find_func env f.name)))
-        }))
-    | Global (g_name, size, _, _) ->
-        let t = mk_type size in
-        Some (dummy_phrase W.Ast.({
-          module_name = name;
-          item_name = g_name;
-          ikind = dummy_phrase (
-            GlobalImport W.Types.(GlobalType (t, W.Types.Immutable)))
-        }))
-    | _ ->
-        None
-  ) decls in
 
   (* Side-effect: the table is now filled with all the string constants that
    * need to be laid out in the data segment. Compute said data segment. *)
@@ -772,7 +1088,8 @@ let mk_module types imports (name, decls):
       String.blit s 0 buf rel_addr l;
       Bytes.set buf (rel_addr + l) '\000';
     ) env.strings;
-    KPrint.bprintf "Wrote out a data segment of size %d\n" size;
+    if Options.debug "wasm" then
+      KPrint.bprintf "Wrote out a data segment of size %d\n" size;
     [ dummy_phrase W.Ast.({
         index = mk_var 0;
         offset = dummy_phrase [ dummy_phrase (
@@ -793,23 +1110,20 @@ let mk_module types imports (name, decls):
   let exports = KList.filter_map (function
     | Function { public; name; _ } when public ->
         Some (dummy_phrase W.Ast.({
-          name;
-          ekind = dummy_phrase W.Ast.FuncExport;
-          item = mk_var (find_func env name)
+          name = name_of_string name;
+          edesc = dummy_phrase (W.Ast.FuncExport (mk_var (find_func env name)));
         }))
     | Global (name, _, _, public) when public ->
         Some (dummy_phrase W.Ast.({
-          name;
-          ekind = dummy_phrase W.Ast.GlobalExport;
-          item = mk_var (find_global env name)
+          name = name_of_string name;
+          edesc = dummy_phrase (W.Ast.GlobalExport (mk_var (find_global env name)));
         }))
     | _ ->
         None
   ) decls @ [
     dummy_phrase W.Ast.({
-      name = "data_size";
-      ekind = dummy_phrase W.Ast.GlobalExport;
-      item = mk_var data_size_index
+      name = name_of_string "data_size";
+      edesc = dummy_phrase (W.Ast.GlobalExport (mk_var data_size_index));
     })]
   in
 
@@ -822,7 +1136,7 @@ let mk_module types imports (name, decls):
     imports;
     data
   }) in
-  types, imports_me_included, (name, module_)
+  types_only_public, imports_me_included, (name, module_)
 
 
 (* Since the modules are already topologically sorted, we make each module

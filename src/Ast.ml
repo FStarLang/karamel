@@ -31,9 +31,9 @@ and file =
 
 and decl =
   | DFunction of calling_convention option * flag list * int * typ * lident * binders * expr
-  | DGlobal of flag list * lident * typ * expr
-  | DExternal of calling_convention option * lident * typ
-  | DType of lident * int * type_def
+  | DGlobal of flag list * lident * int * typ * expr
+  | DExternal of calling_convention option * flag list * lident * typ
+  | DType of lident * flag list * int * type_def
 
 and type_def =
   | Abbrev of typ
@@ -41,6 +41,7 @@ and type_def =
   | Variant of branches_t
   | Enum of lident list
   | Union of (ident * typ) list
+  | Forward
 
 and fields_t_opt =
   (ident option * (typ * bool)) list
@@ -65,12 +66,14 @@ and expr' =
   | EAny
     (** to indicate that the initial value of a mutable let-binding does not
      * matter *)
-  | EAbort
+  | EAbort of string option
     (** exits the program prematurely *)
+  | EIgnore of expr
 
   | EApp of expr * expr list
+  | ETApp of expr * typ list
   | ELet of binder * expr * expr
-  | EFun of binder list * expr
+  | EFun of binder list * expr * typ
   | EIfThenElse of expr * expr * expr
   | ESequence of expr list
   | EAssign of expr * expr
@@ -94,25 +97,28 @@ and expr' =
   | ETuple of expr list
   | EMatch of expr * branches
   | ECons of ident * expr list
+
   | ESwitch of expr * (lident * expr) list
   | EEnum of lident
   | EFlat of (ident option * expr) list
   | EField of expr * ident
+    (** The four types above appear after compilation of pattern-matches. *)
 
+  | EBreak
   | EReturn of expr
-    (** Dafny generates EReturn nodes; they are currently no synthesized by our
+    (** Dafny generates EReturn nodes; they are currently not synthesized by our
      * internal transformation passes, but may be in the future. *)
   | EWhile of expr * expr
     (** Dafny generates EWhile nodes; we also generate them when desugaring the
      * buffer creation and blitting operations for the Wasm backend. *)
   | EFor of binder * expr * expr * expr * expr
     (** Currently generated when detecting combinators from the [C.Loops]
-     * module. We only offer a restricted form of For loops:
+     * module. We only offer a restricted form of For loops: {[
      *   for (let b = e1; e2; e3) {
      *     ...
      *   }
-     * The scope of
-     * the binder is the second, third and fourth expressions. *)
+     * ]}
+     * The scope of the binder is the second, third and fourth expressions. *)
   | ECast of expr * typ
   | EComment of string * expr * string
   | EAddrOf of expr
@@ -152,6 +158,8 @@ and pattern' =
   | PEnum of lident
   | PTuple of pattern list
   | PRecord of (ident * pattern) list
+  | PDeref of pattern
+  | PConstant of K.t
   | PWild
 
 and pattern =
@@ -205,101 +213,6 @@ and typ =
       (** disappears after tuple removal *)
   | TAnonymous of type_def
       (** appears after data type translation to tagged enums *)
-  | TZ
-      (** unused *)
-
-let with_type typ node =
-  { typ; node }
-
-(** Some AST helpers *)
-
-let flatten_arrow =
-  let rec flatten_arrow acc = function
-    | TArrow (t1, t2) -> flatten_arrow (t1 :: acc) t2
-    | t -> t, List.rev acc
-  in
-  flatten_arrow []
-
-let lid_of_decl = function
-  | DFunction (_, _, _, _, lid, _, _)
-  | DGlobal (_, lid, _, _)
-  | DExternal (_, lid, _)
-  | DType (lid, _, _) ->
-      lid
-
-let is_array = function TArray _ -> true | _ -> false
-
-let rec is_value (e: expr) =
-  match e.node with
-  | EBound _
-  | EOpen _
-  | EOp _
-  | EQualified _
-  | EConstant _
-  | EUnit
-  | EBool _
-  | EEnum _
-  | EString _
-  | EFun _
-  | EAbort
-  | EAddrOf _
-  | EAny ->
-      true
-
-  | ETuple es
-  | ECons (_, es) ->
-      List.for_all is_value es
-
-  | EFlat identexprs ->
-      List.for_all (fun (_, e) -> is_value e) identexprs
-
-  | EField (e, _)
-  | EComment (_, e, _)
-  | ECast (e, _) ->
-      is_value e
-
-  | EApp _
-  | ELet _
-  | EIfThenElse _
-  | ESequence _
-  | EAssign _
-  | EBufCreate _
-  | EBufCreateL _
-  | EBufRead _
-  | EBufWrite _
-  | EBufSub _
-  | EBufBlit _
-  | EBufFill _
-  | EPushFrame
-  | EPopFrame
-  | EMatch _
-  | ESwitch _
-  | EReturn _
-  | EFor _
-  | EWhile _ ->
-      false
-
-let fold_arrow ts t_ret =
-  List.fold_right (fun t arr -> TArrow (t, arr)) ts t_ret
-
-let fresh_binder ?(mut=false) name typ =
-  with_type typ { name; mut; mark = ref 0; meta = None; atom = Atom.fresh () }
-
-let any = with_type TAny EAny
-
-let uint32_of_int i =
-  with_type (TInt K.UInt32) (EConstant (K.UInt32, string_of_int i))
-
-let assert_tlid t =
-  (* We only have nominal typing for variants. *)
-  match t with TQualified lid -> lid | _ -> assert false
-
-let assert_tbuf t =
-  match t with TBuf t -> t | _ -> assert false
-
-let assert_elid t =
-  (* We only have nominal typing for variants. *)
-  match t with EQualified lid -> lid | _ -> assert false
 
 (** Some visitors for our AST of expressions *)
 
@@ -337,6 +250,8 @@ class virtual ['env] map = object (self)
         self#estring env typ s
     | EApp (e, es) ->
         self#eapp env typ e es
+    | ETApp (e, ts) ->
+        self#etapp env typ e ts
     | ELet (b, e1, e2) ->
         self#elet env typ b e1 e2
     | EIfThenElse (e1, e2, e3) ->
@@ -371,8 +286,10 @@ class virtual ['env] map = object (self)
         self#ebool env typ b
     | EAny ->
         self#eany env typ
-    | EAbort ->
-        self#eabort env typ
+    | EAbort s ->
+        self#eabort env typ s
+    | EBreak ->
+        self#ebreak env typ
     | EReturn e ->
         self#ereturn env typ e
     | EFlat fields ->
@@ -395,10 +312,12 @@ class virtual ['env] map = object (self)
         self#ecomment env typ s e s'
     | EFor (binder, e1, e2, e3, e4) ->
         self#efor env typ binder e1 e2 e3 e4
-    | EFun (binders, e) ->
-        self#efun env typ binders e
+    | EFun (binders, e, t) ->
+        self#efun env typ binders e t
     | EAddrOf e ->
         self#eaddrof env typ e
+    | EIgnore e ->
+        self#eignore env typ e
 
   method ebound _env _typ var =
     EBound var
@@ -412,8 +331,8 @@ class virtual ['env] map = object (self)
   method econstant _env _typ constant =
     EConstant constant
 
-  method eabort _env _typ =
-    EAbort
+  method eabort _env _typ s =
+    EAbort s
 
   method eany _env _typ =
     EAny
@@ -426,6 +345,9 @@ class virtual ['env] map = object (self)
 
   method eapp env _typ e es =
     EApp (self#visit env e, List.map (self#visit env) es)
+
+  method etapp env _typ e ts =
+    ETApp (self#visit env e, List.map (self#visit_t env) ts)
 
   method elet env _typ b e1 e2 =
     let b = { b with typ = self#visit_t env b.typ } in
@@ -479,6 +401,9 @@ class virtual ['env] map = object (self)
   method ereturn env _typ e =
     EReturn (self#visit env e)
 
+  method ebreak _env _typ =
+    EBreak
+
   method eflat env _typ fields =
     EFlat (self#fields env fields)
 
@@ -517,13 +442,16 @@ class virtual ['env] map = object (self)
     let e4 = self#visit env e4 in
     EFor (b, e1, e2, e3, e4)
 
-  method efun env _ binders expr =
+  method efun env _ binders expr ret =
     let binders = self#binders env binders in
     let env = self#extend_many env binders in
-    EFun (binders, self#visit env expr)
+    EFun (binders, self#visit env expr, self#visit_t env ret)
 
   method eaddrof env _ e =
     EAddrOf (self#visit env e)
+
+  method eignore env _ e =
+    EIgnore (self#visit env e)
 
   (* Some helpers *)
 
@@ -560,9 +488,16 @@ class virtual ['env] map = object (self)
         self#penum env t lid
     | PWild ->
         self#pwild env
+    | PDeref p ->
+        self#pderef env t p
+    | PConstant k ->
+        self#pconstant env t k
 
   method punit _env =
     PUnit
+
+  method pderef env _t p =
+    PDeref (self#visit_pattern env p)
 
   method pwild _env =
     PWild
@@ -588,6 +523,9 @@ class virtual ['env] map = object (self)
   method penum _env _t lid =
     PEnum lid
 
+  method pconstant _env _t k =
+    PConstant k
+
   (* Types *)
 
   method visit_t (env: 'env) (t: typ): typ =
@@ -608,14 +546,12 @@ class virtual ['env] map = object (self)
         self#tany env
     | TArrow (t1, t2) ->
         self#tarrow env t1 t2
-    | TZ ->
-        self#tz env
     | TBound i ->
         self#tbound env i
     | TApp (name, args) ->
-        self#tapp env name (List.map (self#visit_t env) args)
+        self#tapp env name args
     | TTuple ts ->
-        self#ttuple env (List.map (self#visit_t env) ts)
+        self#ttuple env ts
     | TAnonymous t ->
         self#tanonymous env t
 
@@ -642,9 +578,6 @@ class virtual ['env] map = object (self)
 
   method tarrow env t1 t2 =
     TArrow (self#visit_t env t1, self#visit_t env t2)
-
-  method tz _env =
-    TZ
 
   method tbound _env i =
     TBound i
@@ -679,16 +612,16 @@ class virtual ['env] map = object (self)
     match d with
     | DFunction (cc, flags, n, ret, name, binders, expr) ->
         self#dfunction env cc flags n ret name binders expr
-    | DGlobal (flags, name, typ, expr) ->
-        self#dglobal env flags name typ expr
-    | DExternal (cc, name, t) ->
-        self#dexternal env cc name t
-    | DType (name, n, d) ->
-        self#dtype env name n d
+    | DGlobal (flags, name, n, typ, expr) ->
+        self#dglobal env flags name n typ expr
+    | DExternal (cc, flags, name, t) ->
+        self#dexternal env cc flags name t
+    | DType (name, flags, n, d) ->
+        self#dtype env name flags n d
 
-  method dtype env name n d =
+  method dtype env name flags n d =
     let env = self#extend_tmany env n in
-    DType (name, n, self#type_def env (Some name) d)
+    DType (name, flags, n, self#type_def env (Some name) d)
 
   method type_def (env: 'env) (name: lident option) (d: type_def) =
     match d with
@@ -702,6 +635,8 @@ class virtual ['env] map = object (self)
         self#dtypeenum env tags
     | Union ts ->
         self#dtypeunion env ts
+    | Forward ->
+        self#dforward env
 
   method binders env binders =
     List.map (fun binder -> { binder with typ = self#visit_t env binder.typ }) binders
@@ -712,11 +647,11 @@ class virtual ['env] map = object (self)
     let env = self#extend_tmany env n in
     DFunction (cc, flags, n, self#visit_t env ret, name, binders, self#visit env expr)
 
-  method dglobal env flags name typ expr =
-    DGlobal (flags, name, self#visit_t env typ, self#visit env expr)
+  method dglobal env flags name n typ expr =
+    DGlobal (flags, name, n, self#visit_t env typ, self#visit env expr)
 
-  method dexternal env cc name t =
-    DExternal (cc, name, self#visit_t env t)
+  method dexternal env cc flags name t =
+    DExternal (cc, flags, name, self#visit_t env t)
 
   method extend_tmany env n =
     let rec extend e n =
@@ -744,6 +679,9 @@ class virtual ['env] map = object (self)
   method dtypeenum _env tags =
     Enum tags
 
+  method dforward _env =
+    Forward
+
   method dtypeunion env ts =
     Union (List.map (fun (name, t) -> name, self#visit_t env t) ts)
 
@@ -759,3 +697,21 @@ let filter_decls f files =
 
 let iter_decls f files =
   List.iter (fun (_, decls) -> List.iter f decls) files
+
+let with_type typ node =
+  { typ; node }
+
+let lid_of_decl = function
+  | DFunction (_, _, _, _, lid, _, _)
+  | DGlobal (_, lid, _, _, _)
+  | DExternal (_, _, lid, _)
+  | DType (lid, _, _, _) ->
+      lid
+
+let flags_of_decl = function
+  | DFunction (_, flags, _, _, _, _, _)
+  | DGlobal (flags, _, _, _, _)
+  | DType (_, flags, _, _)
+  | DExternal (_, flags, _, _) ->
+      flags
+

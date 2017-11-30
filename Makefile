@@ -1,6 +1,6 @@
 include $(shell ocamlfind query visitors)/Makefile.preprocess
 
-.PHONY: all tags clean test
+.PHONY: all clean test
 
 OCAMLBUILD=ocamlbuild -I src -I lib -I parser -use-menhir -use-ocamlfind -classic-display \
  -menhir "menhir --infer --explain"
@@ -16,9 +16,6 @@ all:
 clean:
 	rm -rf krml _build Tests.$(FLAVOR) Kremlin.$(FLAVOR)
 	make -C test clean
-
-tags:
-	ctags -R --exclude=_build .
 
 test: all
 	./Tests.native

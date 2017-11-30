@@ -3,43 +3,11 @@
 module CF = CFlat
 module K = Constant
 module LidMap = Idents.LidMap
-
-(** Sizes *)
+module StringMap = Map.Make(String)
 
 open CFlat.Sizes
 open Ast
-
-(** We know how much space is needed to represent each C* type. *)
-let size_of (t: typ): size =
-  match t with
-  | TInt w ->
-      size_of_width w
-  | TArray _ | TBuf _ ->
-      I32
-  | TBool | TUnit ->
-      I32
-  | TZ | TBound _ | TTuple _ | TArrow _ | TQualified _ | TApp _ ->
-      invalid_arg ("size_of: this case should've been eliminated: " ^ show_typ t)
-  | TAnonymous _ | TAny ->
-      failwith "not implemented"
-
-let max s1 s2 =
-  match s1, s2 with
-  | I32, I32 -> I32
-  | _ -> I64
-
-let size_of_array_elt (t: typ): array_size =
-  match t with
-  | TInt w ->
-      array_size_of_width w
-  | TArray _ | TBuf _ ->
-      A32
-  | TBool | TUnit ->
-      failwith "todo: packed arrays of bools/units?!"
-  | TZ | TBound _ | TTuple _ | TArrow _ | TQualified _ | TApp _ ->
-      invalid_arg ("size_of: this case should've been eliminated: " ^ show_typ t)
-  | TAnonymous _ | TAny ->
-      failwith "not implemented"
+open PrintAst.Ops
 
 
 (** Environments.
@@ -50,8 +18,195 @@ let size_of_array_elt (t: typ): array_size =
 type env = {
   binders: int list;
   enums: int LidMap.t;
-  (**  Enumeration constants are assigned a distinct integer. *)
+    (** Enumeration constants are assigned a distinct integer. *)
+  structs: layout LidMap.t;
+    (** Pre-computed layouts for struct types. *)
 }
+
+and layout = {
+  size: int;
+    (** In bytes *)
+  fields: (string * offset) list;
+    (** Any struct must be laid out on a word boundary (64-bit). Then, fields
+     * can be always accessed using the most efficient offset computation. *)
+}
+
+and offset = int
+  (** In byte *)
+
+let empty = {
+  binders = [];
+  enums = LidMap.empty;
+  structs = LidMap.empty;
+}
+
+(** Layouts and sizes. *)
+
+(** The size of a type that fits in one WASM value. *)
+let size_of (t: typ): size =
+  match t with
+  | TInt w ->
+      size_of_width w
+  | TArray _ | TBuf _ ->
+      I32
+  | TBool | TUnit ->
+      I32
+  | TAnonymous (Enum _) ->
+      I32
+  | TQualified ([], ("C_String_t" | "Prims_string")) ->
+      (* The string type from the C.String module, or an F* string literal.
+       * They're represented the same way, that is, a pointer to a string
+       * statically allocated in the data segment. *)
+      I32
+  | _ ->
+      failwith (KPrint.bsprintf "size_of: this case should've been eliminated: %a" ptyp t)
+
+(* The size of a type that fits in one WASM array cell. *)
+let array_size_of (t: typ): array_size =
+  match t with
+  | TInt w ->
+      array_size_of_width w
+  | TArray _ | TBuf _ ->
+      A32
+  | TBool | TUnit ->
+      A32 (* Todo: pack these more efficiently?! *)
+  | TAnonymous (Enum _) ->
+      A32
+  | _ ->
+      failwith (KPrint.bsprintf "size_of: this case should've been eliminated: %a" ptyp t)
+
+(* The alignment takes an array size, an our invariant is that integers are
+ * aligned on a multiple of their size (i.e. 64-bit aligned on 64 bits, 32-bits
+ * aligned on 32 bits, etc. Structs are always on a 64-bit boundary. This is
+ * arbitrary and may change in the future for performance reasons. *)
+let align array_size pos =
+  let b = bytes_in array_size in
+  let pos =
+    if pos mod b = 0 then
+      pos
+    else
+      pos + (bytes_in array_size - (pos mod bytes_in array_size))
+  in
+  pos
+
+(* Helper *)
+let fields_of_struct =
+  List.map (fun (name, (t, _mut)) -> Option.must name, t)
+
+(* The exact size as a number of bytes of any type. *)
+let rec byte_size (env: env) (t: typ): int =
+  match t with
+  | TQualified lid ->
+      begin try
+        (LidMap.find lid env.structs).size
+      with Not_found ->
+        failwith (KPrint.bsprintf "Can't compute the byte size of %a" plid lid)
+      end
+  | TAnonymous (Union cases) ->
+      KList.reduce max (List.map (fun f -> (layout env [ f ]).size) cases)
+  | TAnonymous (Flat struct_fields) ->
+      (layout env (fields_of_struct struct_fields)).size
+  | _ ->
+      bytes_in (array_size_of t)
+
+(* Compute the offsets of each field of a struct. This function does NOT return
+ * offsets for sub-fields. *)
+and layout env fields: layout =
+  let fields, size =
+    List.fold_left (fun (fields, ofs) (fname, t) ->
+      (* So far, we've laid out [fields], up to [ofs] bytes. *)
+      match t with
+      | TQualified _
+      | TAnonymous _ ->
+          (* Structs and unions align on a 64-byte boundary *)
+          let size = byte_size env t in
+          let ofs = align A64 ofs in
+          (fname, ofs) :: fields, ofs + size
+      | t ->
+          (* All other elements align on their width. *)
+          let s = array_size_of t in
+          let ofs = align s ofs in
+          (fname, ofs) :: fields, ofs + bytes_in s
+    ) ([], 0) fields
+  in
+  let fields = List.rev fields in
+  { fields; size }
+
+let field_offset env t f =
+  match t with
+  | TQualified lid ->
+      List.assoc f (LidMap.find lid env.structs).fields
+  | TAnonymous (Union cases) ->
+      assert (List.mem_assoc f cases);
+      0
+  | TAnonymous (Flat struct_fields) ->
+      List.assoc f (layout env (fields_of_struct struct_fields)).fields
+  | _ ->
+      failwith (KPrint.bsprintf "Not something we can field-offset: %a" ptyp t)
+
+(* Layout a type in an array cell occupies a multiple of a WASM array size. *)
+let cell_size (env: env) (t: typ): int * array_size =
+  let round_up size =
+    let size = align A64 size in
+    size / 8, A64
+  in
+  match t with
+  | TQualified _ | TAnonymous _ ->
+      round_up (byte_size env t)
+  | _ ->
+      1, array_size_of t
+
+let cell_size_b env t =
+  let mult, base = cell_size env t in
+  mult * bytes_in base
+
+let populate env files =
+  (* Assign integers to enums *)
+  let env = List.fold_left (fun env (_, decls) ->
+    List.fold_left (fun env decl ->
+      match decl with
+      | DType (_, _, _, Enum idents) ->
+          KList.fold_lefti (fun i env ident ->
+            { env with enums = LidMap.add ident i env.enums }
+          ) env idents
+      | _ ->
+          env
+    ) env decls
+  ) env files in
+  (* Compute the layouts for structs that have an lid. The rest will be (for
+   * now) computed on demand. *)
+  let env = List.fold_left (fun env (_, decls) ->
+    List.fold_left (fun env decl ->
+      match decl with
+      | DType (lid, _, _, Flat fields) ->
+          (* Need to pass in the layout of previous structs *)
+          begin try
+            let l = layout env (fields_of_struct fields) in
+            { env with structs = LidMap.add lid l env.structs }
+          with e ->
+            KPrint.beprintf "[AstToC♭] Can't compute the layout of %a:\n%s\n%s"
+              PrintAst.plid lid (Printexc.to_string e)
+              (if Options.debug "cflat" then Printexc.get_backtrace () ^ "\n" else "");
+            env
+          end
+      | _ ->
+          env
+    ) env decls
+  ) env files in
+  env
+
+let debug_env { structs; enums; _ } =
+  KPrint.bprintf "Struct layout:\n";
+  LidMap.iter (fun lid { size; fields } ->
+    KPrint.bprintf "%a (size=%d, %d fields)\n" plid lid size (List.length fields);
+    List.iter (fun (f, ofs) ->
+      KPrint.bprintf "  +%d: %s\n" ofs f
+    ) fields
+  ) structs;
+  KPrint.bprintf "Enum constant assignments:\n";
+  LidMap.iter (fun lid d ->
+    KPrint.bprintf "  %a = %d\n" plid lid d
+  ) enums
 
 (** When translating, we carry around the list of locals allocated so far within
  * the current function body, along with an environment (for the De Bruijn indices);
@@ -61,11 +216,6 @@ type env = {
  *
  * Note that this list is kept in reverse. *)
 type locals = size list
-
-let empty = {
-  binders = [];
-  enums = LidMap.empty;
-}
 
 (** An index in the locals table *)
 type var = int
@@ -84,7 +234,7 @@ let extend (env: env) (binder: binder) (locals: locals): locals * var * env =
 let find env v =
   List.nth env.binders v
 
-(** A helpful combinators. *)
+(** A series of helpers. *)
 let fold (f: locals -> 'a -> locals * 'b) (locals: locals) (xs: 'a list): locals * 'b list =
   let locals, ys = List.fold_left (fun (locals, acc) x ->
     let locals, y = f locals x in
@@ -100,9 +250,111 @@ let assert_buf = function
   | TArray (t, _) | TBuf t -> t
   | _ -> invalid_arg "assert_buf"
 
+let mk_add32 e1 e2 =
+  CF.CallOp ((K.UInt32, K.Add), [ e1; e2 ])
+
+let mk_mul32 e1 e2 =
+  CF.CallOp ((K.UInt32, K.Mult), [ e1; e2 ])
+
+let mk_lt32 e1 e2 =
+  CF.CallOp ((K.UInt32, K.Lt), [ e1; e2 ])
+
+let mk_uint32 i =
+  CF.Constant (K.UInt32, string_of_int i)
+
+let mk_minus1 e1 =
+  CF.CallOp ((K.UInt32, K.Sub), [ e1; mk_uint32 1 ])
+
+let mk_plus1 e1 =
+  CF.CallOp ((K.UInt32, K.Add), [ e1; mk_uint32 1 ])
+
+let mk_memcpy env locals dst src n =
+  let b = Helpers.fresh_binder ~mut:true "i" (TInt K.UInt32) in
+  let locals, v, _ = extend env b locals in
+  locals, [
+    CF.Assign (v, mk_uint32 0);
+    CF.While (mk_lt32 (CF.Var v) n,
+      CF.Sequence [
+        CF.BufWrite (dst, (CF.Var v), CF.BufRead (src, (CF.Var v), A8), A8);
+        CF.Assign (v, mk_plus1 (CF.Var v))
+      ])]
+
+let cflat_unit =
+  CF.Constant (K.UInt32, "0xdeadbeef")
+
+let cflat_any =
+  CF.Constant (K.UInt32, "0xbadcaffe")
+
+
+(* Desugar an array assignment into a series of possibly many assigments (e.g.
+ * struct literal), or into a memcopy. We want to write [e] at address [dst]
+ * corrected by an offset [ofs] in bytes. *)
+let rec write_at (env: env)
+  (locals: locals)
+  (dst: CF.expr)
+  (ofs: int)
+  (e: expr): locals * CF.expr list
+=
+  let rec write_at locals (ofs, e) =
+    match e.typ with
+    | TQualified lid ->
+        (* We are assigning something that's not a base type into an array. *)
+        let layout = LidMap.find lid env.structs in
+        begin match e.node with
+        | EFlat fields ->
+            (* It's a literal. *)
+            let locals, writes =
+              fold (fun locals (fname, e) ->
+                let fname = Option.must fname in
+                let fofs = List.assoc fname layout.fields in
+                (* Recursively write each field of the struct at its offset. *)
+                write_at locals (ofs + fofs, e)
+              ) locals fields
+            in
+            locals, List.flatten writes
+        | _ ->
+            (* If it's not a literal, it's got to be an address. Compute the
+             * source, in bytes. *)
+            let src = mk_addr env e in
+            (* The size of the assignee, in bytes. *)
+            let size = mk_uint32 (byte_size env e.typ) in
+            (* Compute the destination, in bytes. *)
+            let dst = mk_add32 dst (mk_uint32 ofs) in
+            mk_memcpy env locals dst src size
+        end
+    | _ ->
+        (* It's a base type, i.e. something that has an array size. *)
+        let s = array_size_of e.typ in
+        assert (ofs mod bytes_in s = 0);
+        let ofs = ofs / bytes_in s in
+        let e = mk_expr_no_locals env e in
+        locals, [ CF.BufWrite (dst, mk_uint32 ofs, e, s) ]
+  in
+  write_at locals (ofs, e)
+
+and mk_expr_no_locals env e =
+  let locals, e = mk_expr env [] e in
+  assert (locals = []);
+  e
+
+(* Create an "lvalue" out of an expression. *)
+and mk_addr env e =
+  match e.node with
+  | EBufRead (e1, e2) ->
+      let s = cell_size_b env (assert_buf e1.typ) in
+      let e1 = mk_expr_no_locals env e1 in
+      let e2 = mk_expr_no_locals env e2 in
+      CF.BufSub (e1, mk_mul32 e2 (mk_uint32 s), A8)
+  | EField (e1, f) ->
+      let ofs = field_offset env e1.typ f in
+      let e1 = mk_addr env e1 in
+      CF.BufSub (e1, mk_uint32 ofs, A8)
+  | _ ->
+      failwith (KPrint.bsprintf "can't take the addr of %a" pexpr e)
+
 (** The actual translation. Note that the environment is dropped, but that the
  * locals are chained through (state-passing style). *)
-let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
+and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   match e.node with
   | EBound v ->
       locals, CF.Var (find env v)
@@ -131,31 +383,43 @@ let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.GetGlobal (Idents.string_of_lident v)
 
   | EBufCreate (l, e_init, e_len) ->
-      assert (e_init.node = EAny);
+      if not (e_init.node = EAny) then
+        Warnings.fatal_error "init node is not any but %a\n" pexpr e_init;
       let locals, e_len = mk_expr env locals e_len in
-      locals, CF.BufCreate (l, e_len, size_of_array_elt (assert_buf e.typ))
+      let mult, base_size = cell_size env (assert_buf e.typ) in
+      if Options.debug "cflat" then
+        KPrint.bprintf "Creating an array %a; one cell = %d * %s\n"
+          ptyp e.typ mult (string_of_array_size base_size);
+      locals, CF.BufCreate (l, mk_mul32 e_len (mk_uint32 mult), base_size)
 
   | EBufCreateL _ | EBufBlit _ | EBufFill _ ->
-      invalid_arg "this should've been desugared in Simplify.wasm"
+      Warnings.fatal_error "this should've been desugared in Simplify.wasm\n%a" pexpr e
 
   | EBufRead (e1, e2) ->
-      let s = size_of_array_elt (assert_buf e1.typ) in
+      let s = array_size_of (assert_buf e1.typ) in
       let locals, e1 = mk_expr env locals e1 in
       let locals, e2 = mk_expr env locals e2 in
       locals, CF.BufRead (e1, e2, s)
 
+  | EAddrOf ({ node = EBufRead (e1, e2); _ })
   | EBufSub (e1, e2) ->
-      let s = size_of_array_elt (assert_buf e1.typ) in
+      let mult, base_size = cell_size env (assert_buf e.typ) in
       let locals, e1 = mk_expr env locals e1 in
       let locals, e2 = mk_expr env locals e2 in
-      locals, CF.BufSub (e1, e2, s)
+      locals, CF.BufSub (e1, mk_mul32 e2 (mk_uint32 mult), base_size)
 
-  | EBufWrite (e1, e2, e3) ->
-      let s = size_of_array_elt (assert_buf e1.typ) in
-      let locals, e1 = mk_expr env locals e1 in
-      let locals, e2 = mk_expr env locals e2 in
-      let locals, e3 = mk_expr env locals e3 in
-      locals, CF.BufWrite (e1, e2, e3, s)
+  | EBufWrite ({ node = EBound v1; _ }, e2, e3) ->
+      (* e2 has been simplified by [WasmSimplify] to be either a variable, a
+       * constant, or simple expressions (e.g. [size - 1]). *)
+      let v1 = CF.Var (find env v1) in
+      let e2 = mk_expr_no_locals env e2 in
+      (* The destination is the base pointer + the index * the size of an element. *)
+      let dst = mk_add32 v1 (mk_mul32 e2 (mk_uint32 (cell_size_b env e3.typ))) in
+      let locals, assignments = write_at env locals dst 0 e3 in
+      locals, CF.Sequence assignments
+
+  | EBufWrite _ ->
+      failwith (KPrint.bsprintf "buffer write improperly desugared: %a" pexpr e)
 
   | EBool b ->
       locals, CF.Constant (K.Bool, if b then "1" else "0")
@@ -165,11 +429,15 @@ let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, e = mk_expr env locals e in
       locals, CF.Cast (e, wf, wt)
 
-  | ECast _ ->
-      failwith "unsupported cast"
+  | ECast (e, TAny) ->
+      let locals, e = mk_expr env locals e in
+      locals, CF.Sequence [ e; cflat_any ]
 
   | EAny ->
-      failwith "not supported EAny"
+      locals, cflat_any
+
+  | ECast _ ->
+      Warnings.fatal_error "unsupported cast: %a" pexpr e
 
   | ELet (b, e1, e2) ->
       if e1.node = EAny then
@@ -194,14 +462,14 @@ let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, e3 = mk_expr env locals e3 in
       locals, CF.IfThenElse (e1, e2, e3, s2)
 
-  | EAbort ->
+  | EAbort _ ->
       locals, CF.Abort
 
   | EPushFrame ->
-      locals, CF.PushFrame
+      locals, CF.Sequence []
 
   | EPopFrame ->
-      locals, CF.PopFrame
+      locals, CF.Sequence []
 
   | ETuple _ | EMatch _ | ECons _ ->
       invalid_arg "should've been desugared before"
@@ -214,6 +482,8 @@ let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.Sequence es
 
   | EAssign (e1, e2) ->
+      (* Assignment into a stack-allocated variable. For assignment into
+       * addresses, EBufWrite is used. *)
       begin match e1.typ, e2.node with
       | TArray (_typ, _sizexp), (EBufCreate _ | EBufCreateL _) ->
           invalid_arg "this should've been desugared by Simplify.Wasm into let + blit"
@@ -251,22 +521,42 @@ let rec mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.StringLiteral s
 
   | EUnit ->
-      locals, CF.Constant (K.UInt32, "0")
+      locals, cflat_unit
+
+  | EField (e1, f) ->
+      (* e1 is a structure expression, and structures are allocated in memory. *)
+      let s = array_size_of e.typ in
+      let addr = mk_addr env e1 in
+      let ofs = field_offset env e1.typ f in
+      assert (ofs mod bytes_in s = 0);
+      let ofs = ofs / bytes_in s in
+      locals, CF.BufRead (addr, mk_uint32 ofs, s)
 
   | EOp _ ->
       failwith "standalone application"
 
-  | EFlat _ | EField _ ->
+  | EFlat _ ->
       failwith "todo eflat"
 
   | EReturn _ ->
       invalid_arg "return shouldnt've been inserted"
 
+  | EBreak ->
+      failwith "todo break"
+
+  | ETApp _ ->
+      invalid_arg "no type apps"
+
   | EFun _ ->
       invalid_arg "funs should've been substituted"
 
   | EAddrOf _ ->
-      invalid_arg "adress-of should've been resolved"
+      Warnings.fatal_error "address-of should've been resolved: %a" pexpr e
+
+  | EIgnore e ->
+      let s = size_of e.typ in
+      let locals, e = mk_expr env locals e in
+      locals, CF.Ignore (e, s)
 
 
 (* See digression for [dup32] in CFlatToWasm *)
@@ -286,7 +576,7 @@ let mk_decl env (d: decl): CF.decl option =
       let locals, body = mk_expr env locals body in
       let ret = [ size_of ret ] in
       let locals = List.rev locals in
-      let args, locals = KList.split_at (List.length args) locals in
+      let args, locals = KList.split (List.length args) locals in
       let name = Idents.string_of_lident name in
       Some CF.(Function { name; args; ret; locals; body; public })
 
@@ -294,42 +584,53 @@ let mk_decl env (d: decl): CF.decl option =
       (* Not translating type declarations. *)
       None
 
-  | DGlobal (flags, name, typ, body) ->
+  | DGlobal (flags, name, n, typ, body) ->
+      assert (n = 0);
       let public = not (List.exists ((=) Common.Private) flags) in
       let size = size_of typ in
-      let locals, body = mk_expr env [] body in
-      let name = Idents.string_of_lident name in
-      if locals = [] then
+      if size = I64 then begin
+        Warnings.(maybe_fatal_error ("", NotWasmCompatible (name, "I64 constant")));
+        None
+      end else
+        let body = mk_expr_no_locals env body in
+        let name = Idents.string_of_lident name in
         Some (CF.Global (name, size, body, public))
-      else
-        failwith "global generates let-bindings"
 
-  | _ ->
-      failwith ("not implemented (decl); got: " ^ show_decl d)
+  | DExternal (_, _, lid, t) ->
+      let name = Idents.string_of_lident lid in
+      match t with
+      | TArrow _ ->
+          let ret, args = Helpers.flatten_arrow t in
+          let ret = [ size_of ret ] in
+          let args = List.map size_of args in
+          if (List.hd ret = I64 || List.mem I64 args) && not (CFlatToWasm.is_primitive name) then begin
+            Warnings.(maybe_fatal_error ("", NotWasmCompatible (lid, "functions \
+              implemented natively in JS (because they're assumed) cannot take or \
+              return I64")));
+            None
+          end else
+            Some (CF.ExternalFunction (name, args, ret))
+      | _ ->
+          Some (CF.ExternalGlobal (name, size_of t))
 
 let mk_module env (name, decls) =
   name, KList.filter_map (fun d ->
     try
+      flush stdout; flush stderr;
+      (* KPrint.beprintf "[AstToC♭] Translating %a:\n" plid (lid_of_decl d); *)
       mk_decl env d
     with e ->
+      flush stdout;
+      flush stderr;
       (* Remove when everything starts working *)
-      KPrint.beprintf "[C*ToC-] Couldn't translate %a:\n%s\n%s\n"
-        PrintAst.plid (lid_of_decl d) (Printexc.to_string e)
-        (Printexc.get_backtrace ());
+      KPrint.beprintf "[AstToC♭] Couldn't translate %s%a%s:\n%s\n%s"
+        Ansi.underline PrintAst.plid (lid_of_decl d) Ansi.reset (Printexc.to_string e)
+        (if Options.debug "cflat" then Printexc.get_backtrace () ^ "\n" else "");
       None
   ) decls
 
 let mk_files files =
-  let env = List.fold_left (fun env (_, decls) ->
-    List.fold_left (fun env decl ->
-      match decl with
-      | DType (_, _, Enum idents) ->
-          KList.fold_lefti (fun i env ident ->
-            { env with enums =
-              LidMap.add ident i env.enums }
-          ) env idents
-      | _ ->
-          env
-    ) env decls
-  ) empty files in
+  let env = populate empty files in
+  if Options.debug "cflat" then
+    debug_env env;
   List.map (mk_module env) files

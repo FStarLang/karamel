@@ -1,0 +1,5 @@
+IndentPPDirectives: AfterHash
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+Cpp11BracedListStyle: false
+AlignAfterOpenBracket: AlwaysBreak

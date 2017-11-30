@@ -22,8 +22,12 @@ let rec p_type_spec = function
       braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
   | Struct (name, decls) ->
       group (string "struct" ^/^
-      (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
-      braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
+      (match name with Some name -> string name | None -> empty)) ^^
+      (match decls with
+      | Some decls ->
+          break1 ^^ braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
+      | None ->
+          empty)
   | Enum (name, tags) ->
       group (string "enum" ^/^
       (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
@@ -52,7 +56,11 @@ and p_type_declarator d =
   p_any d
 
 and p_type_name (spec, decl) =
-  p_type_spec spec ^^ space ^^ p_type_declarator decl
+  match decl with
+  | Ident "" ->
+      p_type_spec spec
+  | _ ->
+      p_type_spec spec ^^ space ^^ p_type_declarator decl
 
 (* http:/ /en.cppreference.com/w/c/language/operator_precedence *)
 and prec_of_op2 op =
@@ -65,11 +73,11 @@ and prec_of_op2 op =
   | Mult -> 3, 3, 3
   | Mod -> 3, 3, 2
   | BOr -> 10, 10, 10
-  | BAnd -> 8, 8, 8
+  | BAnd ->
+      8, 8, 8
   | BXor | Xor -> 9, 9, 9
   | BShiftL | BShiftR ->
-      (* Force parentheses for the operands of shifts. *)
-      if !Options.parentheses then 5, 0, 0 else 5, 5, 4
+      5, 5, 4
   | Eq | Neq -> 7, 7, 7
   | Lt | Lte | Gt | Gte -> 6, 6, 5
   | And -> 11, 11, 11
@@ -101,6 +109,18 @@ and paren_if curr mine doc =
   else
     doc
 
+(* [e] is an operand of [op]; is this likely to trigger GCC's -Wparentheses? If
+ * so, downgrade the current precedence to 0 to force parentheses. *)
+and defeat_Wparentheses op e prec =
+  let open Constant in
+  if not !Options.parentheses then
+    prec
+  else match op, e with
+  | (BShiftL | BShiftR | BXor | BOr | BAnd), Op2 ((Add | Sub | BOr | BXor | BAnd), _, _) ->
+      0
+  | _ ->
+      prec
+
 and p_expr' curr = function
   | Op1 (op, e1) ->
       let mine = prec_of_op1 op in
@@ -108,6 +128,8 @@ and p_expr' curr = function
       paren_if curr mine (if is_prefix op then print_op op ^^ e1 else e1 ^^ print_op op)
   | Op2 (op, e1, e2) ->
       let mine, left, right = prec_of_op2 op in
+      let left = defeat_Wparentheses op e1 left in
+      let right = defeat_Wparentheses op e2 right in
       let e1 = p_expr' left e1 in
       let e2 = p_expr' right e2 in
       paren_if curr mine (e1 ^/^ print_op op ^^ jump e2)
@@ -128,8 +150,8 @@ and p_expr' curr = function
       paren_if curr mine (e ^^ lparen ^^ es ^^ rparen)
   | Literal s ->
       dquote ^^ string s ^^ dquote
-  | Constant (_, s) ->
-      string s
+  | Constant (w, s) ->
+      string s ^^ if K.is_unsigned w then string "U" else empty
   | Name s ->
       string s
   | Cast (t, e) ->
@@ -147,7 +169,11 @@ and p_expr' curr = function
       let mine, right = 2, 2 in
       let e = p_expr' right e in
       paren_if curr mine (ampersand ^^ e)
-  | Deref _ | Member _ | MemberP _ ->
+  | Deref e ->
+      let mine, right = 2, 2 in
+      let e = p_expr' right e in
+      paren_if curr mine (star ^^ e)
+  | Member _ | MemberP _ ->
       failwith "[p_expr']: not implemented"
   | Bool b ->
       string (string_of_bool b)
@@ -232,7 +258,7 @@ let nest_if f stmt =
  *   ...
  *
  * [protect_solo_if] adds braces to the latter case. However, GCC, unless
- * -Wnoparentheses is give, will produce a warning for the former case.
+ * -Wnoparentheses is given, will produce a warning for the former case.
  * [protect_ite_if_needed] adds braces to the former case, when the user has
  * requested the extra, unnecessary parentheses needed to silence -Wparentheses.
  * *)
@@ -246,6 +272,11 @@ let protect_ite_if_needed s =
   | IfElse _ when !Options.parentheses -> Compound [ s ]
   | _ -> s
 
+let p_or p x =
+  match x with
+  | Some x -> p x
+  | None -> empty
+
 let rec p_stmt (s: stmt) =
   (* [p_stmt] is responsible for appending [semi] and calling [group]! *)
   match s with
@@ -257,8 +288,13 @@ let rec p_stmt (s: stmt) =
   | Comment s ->
       group (string "/*" ^/^ separate break1 (words s) ^/^ string "*/")
   | For (decl, e2, e3, stmt) ->
+      let init = match decl with
+        | `Decl decl -> p_declaration decl
+        | `Expr expr -> p_expr expr
+        | `Skip -> empty
+      in
       group (string "for" ^/^ lparen ^^ nest 2 (
-        p_declaration decl ^^ semi ^^ break1 ^^
+        init ^^ semi ^^ break1 ^^
         p_expr e2 ^^ semi ^^ break1 ^^
         p_expr e3
       ) ^^ rparen) ^^ nest_if p_stmt stmt
@@ -298,12 +334,17 @@ let rec p_stmt (s: stmt) =
   | Break ->
      string "break" ^^ semi
 
+let p_comments cs =
+  separate_map hardline (fun c -> string ("/*\n" ^ c ^ "\n*/")) cs ^^
+  if List.length cs > 0 then hardline else empty
 
 let p_decl_or_function (df: declaration_or_function) =
   match df with
-  | Decl d ->
+  | Decl (comments, d) ->
+      p_comments comments ^^
       group (p_declaration d ^^ semi)
-  | Function (inline, d, stmt) ->
+  | Function (comments, inline, d, stmt) ->
+      p_comments comments ^^
       let inline = if inline then string "inline" ^^ space else empty in
       inline ^^ group (p_declaration d) ^/^ p_stmt stmt
 

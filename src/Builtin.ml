@@ -1,7 +1,7 @@
 (** Builtin module declarations. We want to hand-roll some definitions for two
    reasons:
    - most of the module doesn't make sense in Low* (e.g. Prims), so rather than
-     spew a bunch of warnings, we just redefine the option type
+     spew a bunch of warnings, we just redefine the list type
    - the module is a model in F*, but not in Low*; this is the case of all the
      machine integer modules; they're defined in F* using an inductive, but we
      don't want a struct definition to be generated in Low*, so we swap them
@@ -21,12 +21,18 @@ let string_of_width = function
   | Int64 -> "Int64"
   | _ -> invalid_arg "string_of_width"
 
+let mk_binop m n t =
+  DExternal (None, [], (m, n), TArrow (t, TArrow (t, t)))
+
+let mk_unop m n t =
+  DExternal (None, [], (m, n), t)
+
 let mk_int m t =
   let mk_binop n =
-    DExternal (None, ([ "FStar"; m ], n), TArrow (t, TArrow (t, t)))
+    mk_binop [ "FStar"; m ] n t
   in
-  let mk_op n t =
-    DExternal (None, ([ "FStar"; m ], n), t)
+  let mk_unop n t =
+    mk_unop [ "FStar"; m ] n t
   in
   let mk_binops n =
     [ mk_binop n; mk_binop (n ^ "_mod"); mk_binop (n ^ "_underspec") ]
@@ -41,14 +47,16 @@ let mk_int m t =
     mk_binop "logand";
     mk_binop "logxor";
     mk_binop "logor";
-    mk_op "lognot" (TArrow (t, t));
-    mk_op "shift_right" (TArrow (t, TArrow (TInt UInt32, t)));
-    mk_op "shift_left" (TArrow (t, TArrow (TInt UInt32, t)));
+    mk_unop "lognot" (TArrow (t, t));
+    mk_unop "shift_right" (TArrow (t, TArrow (TInt UInt32, t)));
+    mk_unop "shift_left" (TArrow (t, TArrow (TInt UInt32, t)));
     mk_binop "eq";
     mk_binop "gt";
     mk_binop "gte";
     mk_binop "lt";
-    mk_binop "lte"
+    mk_binop "lte";
+    mk_unop "to_string" (TArrow (t, TQualified (["Prims"],"string")));
+    mk_unop "v" (TArrow (t, TInt K.CInt))
   ]
 
 let mk_builtin_int w =
@@ -56,31 +64,24 @@ let mk_builtin_int w =
   let t = TInt w in
   mk_int m t
 
-let uint128: file =
-  let name, decls = mk_int "UInt128" (TQualified (["FStar";"UInt128"],"t")) in
-  name, decls @ [
-    DExternal (
-      None,
-      (["FStar"; "UInt128"], "mul_wide"),
-      TArrow (TInt UInt64, TArrow (TInt UInt64, TQualified (["FStar"; "UInt128"], "t"))))]
-
 let prims: file =
   "Prims", [
-    DType ((["Prims"], "option"), 1, Variant [
-      "None", [];
-      "Some", [ "v", (TBound 0, false) ]
+    DType ((["Prims"], "list"), [ Common.GcType ], 1, Variant [
+      "Nil", [];
+      "Cons", [
+        "hd", (TBound 0, false);
+        "tl", (TApp ((["Prims"],"list"), [ TBound 0 ]), false)
+      ]
     ]);
+    DType ((["Prims"], "dtuple2"), [], 2, Variant [
+      "Mkdtuple2", [
+        "fst", (TBound 1, false);
+        "snd", (TBound 0, false)
+      ]
+    ])
   ]
 
-let prelude =
-  prims :: [
-    mk_builtin_int UInt8;
-    mk_builtin_int UInt16;
-    mk_builtin_int UInt32;
-    mk_builtin_int UInt64;
-    mk_builtin_int Int8;
-    mk_builtin_int Int16;
-    mk_builtin_int Int32;
-    mk_builtin_int Int64;
-    uint128
-  ]
+let prelude () =
+  prims ::
+  List.map mk_builtin_int
+    [ UInt8; UInt16; UInt32; UInt64; Int8; Int16; Int32; Int64 ]

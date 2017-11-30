@@ -5,7 +5,6 @@ open Ast
 open PrintAst
 
 type error = location * raw_error
-  (** TODO: error = location * raw_error *)
 
 and raw_error =
   | Dropping of string * error
@@ -16,8 +15,13 @@ and raw_error =
   | ExternalError of string
   | ExternalTypeApp of lident
   | Vla of ident
-  | LostStatic of lident * lident
-  | LostInline of lident * lident
+  | LostStatic of string option * lident * string option * lident
+  | LostInline of string option * lident * string option * lident
+  | MustCallKrmlInit
+  | Deprecated of string * string
+  | NotLowStar of expr
+  | NotWasmCompatible of lident * string
+  | DropDeclaration of lident * string
 
 and location =
   string
@@ -51,7 +55,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 9 CError;;
+let flags = Array.make 14 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -76,17 +80,31 @@ let errno_of_error = function
       7
   | LostInline _ ->
       8
+  | MustCallKrmlInit ->
+      9
+  | Deprecated _ ->
+      10
+  | NotLowStar _ ->
+      11
+  | NotWasmCompatible _ ->
+      12
+  | DropDeclaration _ ->
+      13
   | _ ->
       (** Things that cannot be silenced! *)
       0
 ;;
+
+let p_file = function
+  | Some file -> file
+  | None -> "<no file>"
 
 let rec perr buf (loc, raw_error) =
   (* Now, print an error-specific message. *)
   let p fmt = Printf.bprintf buf ("Warning %d: %s: " ^^ fmt ^^ "\n") (errno_of_error raw_error) loc in
   match raw_error with
   | Dropping (d, e) ->
-      p "Not generating code for file: %s" d;
+      p "Not generating code for %s because of the error below:" d;
       Printf.bprintf buf "%a" perr e
   | UnboundReference r ->
       p "Reference to %s has no corresponding implementation; please \
@@ -106,15 +124,33 @@ let rec perr buf (loc, raw_error) =
   | Vla id ->
       p "%s is a non-constant size, stack-allocated array; this is not supported \
         by CompCert" id
-  | LostStatic (lid1, lid2) ->
-      p "After inlining, %a calls %a -- removing the static qualifier from %a"
-        plid lid1 plid lid2 plid lid2
-  | LostInline (lid1, lid2) ->
-      p "After inlining, %a calls %a. This is a call across translation units but \
+  | LostStatic (file1, lid1, file2, lid2) ->
+      p "After inlining, %a (going into %s) calls %a (going into %s) -- removing the static qualifier from %a"
+        plid lid1 (p_file file1) plid lid2 (p_file file2) plid lid2
+  | LostInline (file1, lid1, file2, lid2) ->
+      p "After inlining, %a (going into %s) calls %a (going into %s). This is a call across translation units but \
         %a has a C \"inline\" qualifier. The C standard allows removing %a \
         from its translation unit (see C11 6.7.3 §5), and CompCert will do it. %s"
-        plid lid1 plid lid2 plid lid2 plid lid2
+        plid lid1 (p_file file1) plid lid2 (p_file file2) plid lid2 plid lid2
         (if !Options.cc = "compcert" then "Removing the inline qualifier!" else "")
+  | MustCallKrmlInit ->
+      p "Some globals did not compile to C values and must be initialized \
+        before starting main(). You did not provide a main function, so users of \
+        your library MUST MAKE SURE they call kremlinit_globals(); (see \
+        kremlinit.c)"
+  | NotLowStar e ->
+      p "this expression is not Low*; the enclosing function cannot be translated into C*: %a" pexpr e
+  | NotWasmCompatible (lid, reason) ->
+      p "%a cannot be compiled to wasm (%s)" plid lid reason
+  | Deprecated (feature, reason) ->
+      p "%s is deprecated\n  %s" feature reason
+  | DropDeclaration (lid, file) ->
+      p "%a, a monomorphic instance, is first used, and therefore inserted, in \
+        file %s which is about to be dropped; you may get a C compiler error about %s \
+        if any other module uses this definition"
+        plid lid
+        file
+        Idents.(to_c_identifier (string_of_lident lid))
 
 
 let maybe_fatal_error error =

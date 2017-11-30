@@ -18,36 +18,43 @@ let rec binders_of_pat p =
       KList.map_flatten binders_of_pat ps
   | PRecord fields ->
       KList.map_flatten binders_of_pat (snd (List.split fields))
+  | PConstant _
   | PUnit
   | PBool _ ->
       []
 
+let width_of_equality = function
+  | TInt w -> Some w
+  | TBool -> Some K.Bool
+  | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) -> Some K.CInt
+  | _ -> None
+
 let rec mk_decl = function
   | I.DFunction (cc, flags, n, t, name, binders, body) ->
       let body =
-        if List.exists ((=) NoExtract) flags then
-          with_type TAny EAbort
+        if List.mem WipeBody flags then
+          with_type TAny (EAbort (Some "noextract flag"))
         else
           mk_expr body
       in
       DFunction (cc, flags, n, mk_typ t, name, mk_binders binders, body)
-  | I.DTypeAlias (name, n, t) ->
-      DType (name, n, Abbrev (mk_typ t))
-  | I.DGlobal (flags, name, t, e) ->
-      DGlobal (flags, name, mk_typ t, mk_expr e)
-  | I.DTypeFlat (name, n, fields) ->
-      DType (name, n, Flat (mk_tfields_opt fields))
-  | I.DExternal (cc, name, t) ->
-      DExternal (cc, name, mk_typ t)
-  | I.DTypeVariant (name, n, branches) ->
-      DType (name, n,
+  | I.DTypeAlias (name, flags, n, t) ->
+      DType (name, flags, n, Abbrev (mk_typ t))
+  | I.DGlobal (flags, name, n, t, e) ->
+      DGlobal (flags, name, n, mk_typ t, mk_expr e)
+  | I.DTypeFlat (name, flags, n, fields) ->
+      DType (name, flags, n, Flat (mk_tfields_opt fields))
+  | I.DExternal (cc, flags, name, t) ->
+      DExternal (cc, flags, name, mk_typ t)
+  | I.DTypeVariant (name, flags, n, branches) ->
+      DType (name, flags, n,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
 
 and mk_binders bs =
   List.map mk_binder bs
 
 and mk_binder { I.name; typ; mut } =
-  fresh_binder ~mut name (mk_typ typ)
+  Helpers.fresh_binder ~mut name (mk_typ typ)
 
 and mk_tfields fields =
   List.map (fun (name, (field, mut)) -> name, (mk_typ field, mut)) fields
@@ -73,8 +80,6 @@ and mk_typ = function
       TAny
   | I.TArrow (t1, t2) ->
       TArrow (mk_typ t1, mk_typ t2)
-  | I.TZ ->
-      TZ
   | I.TBound i ->
       TBound i
   | I.TApp (lid, ts) ->
@@ -95,6 +100,17 @@ and mk_expr = function
       mk (EString s)
   | I.EApp (e, es) ->
       mk (EApp (mk_expr e, List.map mk_expr es))
+  | I.ETApp (I.EOp ((K.Eq | K.Neq as op), _), [ t ]) ->
+      begin match width_of_equality (mk_typ t) with
+      | Some w ->
+          mk (EOp (op, w))
+      | None ->
+          (* Dummy value inserted here, to be caught later on by the
+           * monomorphization that kicks in for equalities too. *)
+          mk (ETApp (mk (EOp (op, K.Bool)), [ mk_typ t ]))
+      end
+  | I.ETApp (e, es) ->
+      mk (ETApp (mk_expr e, List.map mk_typ es))
   | I.ELet (b, e1, e2) ->
       mk (ELet (mk_binder b, mk_expr e1, mk_expr e2))
   | I.EIfThenElse (e1, e2, e3) ->
@@ -134,7 +150,9 @@ and mk_expr = function
   | I.EAny ->
       mk EAny
   | I.EAbort ->
-      mk EAbort
+      mk (EAbort None)
+  | I.EAbortS s ->
+      mk (EAbort (Some s))
   | I.EReturn e ->
       mk (EReturn (mk_expr e))
   | I.EFlat (tname, fields) ->
@@ -146,8 +164,8 @@ and mk_expr = function
       mk (ETuple (List.map mk_expr es))
   | I.ECons (lid, id, es) ->
       { node = ECons (id, List.map mk_expr es); typ = mk_typ lid }
-  | I.EFun (bs, e) ->
-      mk (EFun (mk_binders bs, mk_expr e))
+  | I.EFun (bs, e, t) ->
+      mk (EFun (mk_binders bs, mk_expr e, mk_typ t))
 
 and mk_branches branches =
   List.map mk_branch branches
@@ -174,6 +192,8 @@ and mk_pat binders pat =
       mk (PRecord (List.map (fun (field, pat) ->
         field, mk_pat pat
       ) fields))
+  | I.PConstant k ->
+      mk (PConstant k)
   in
   mk_pat pat
 

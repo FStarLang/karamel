@@ -1,39 +1,51 @@
 module DataTypes
 
 open FStar.Int.Cast
+open FStar.HyperStack.ST
+open FStar.Ghost
 
 type t =
-  | A: a:Int32.t -> b:Int64.t -> t
-  | B: c:Int8.t -> d:Int8.t -> e:Int8.t -> t
+  | A: a:UInt32.t -> b:UInt64.t -> t
+  | B: c:UInt8.t -> d:UInt8.t -> e:erased UInt8.t -> t
 
 type u =
-  | C: f:Int32.t -> g:Int64.t -> u
-  | D: h:t -> u
+  | C: f:UInt32.t -> g:UInt64.t -> u
+  | D: h:t -> i:unit -> u
 
-let something (): ST.Stack bool (fun _ -> true) (fun _ _ _ -> true) =
+let something (): Stack bool (fun _ -> true) (fun _ _ _ -> true) =
   true
 
+let whatever (e: erased UInt8.t): Stack unit (fun _ -> true) (fun _ _ _ -> true) =
+  ()
+
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
-  ST.Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
+  Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
   push_frame ();
-  let x = if something () then A 0l 1L else B 2y 3y 4y in
-  let y = if something () then C 5l 6L else D x in
+
+  let x = if something () then A 0ul 1uL else B 2uy 3uy (hide 4uy) in
+  let y = if something () then C 5ul 6uL else D x () in
   let z = match x, y with
     | A l h, C l' h' ->
         (* Checks that the variables are not mixed up. *)
-        FStar.Int8.(int32_to_int8 l -%^ // 0 -
-          int32_to_int8 l' +%^ // 5 +
-          int64_to_int8 h -%^ // 1 -
-          int64_to_int8 h') // 6
-    | _, D (B c d e) ->
-        (* TODO: or-patterns *)
-        FStar.Int8.(c +%^ d +%^ e)
+        FStar.UInt8.(uint32_to_uint8 l -%^ // 0 -
+          uint32_to_uint8 l' +%^ // 5 +
+          uint64_to_uint8 h -%^ // 1 -
+          uint64_to_uint8 h') // 6
+    | _, D (B c d e) u ->
+        whatever e;
+        if something u then
+          (* TODO: or-patterns *)
+          FStar.UInt8.(c +%^ d)
+        else
+          42uy
     | B c d e, _ ->
-        FStar.Int8.(c +%^ d +%^ e)
-    | _, D _ ->
-        8y
+        whatever e;
+        FStar.UInt8.(c +%^ d)
+    | _, D _ _ ->
+        8uy
   in
-  TestLib.check (int8_to_int32 z) (-10l);
+  TestLib.checku8 z (FStar.UInt8.(0uy -%^ 10uy));
+
   pop_frame ();
   C.exit_success

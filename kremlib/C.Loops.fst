@@ -1,14 +1,16 @@
-(** This modules exposes a series of combinators; they are modeled using
+(* This module exposes a series of combinators; they are modeled using
  * higher-order functions and specifications, and extracted, using a
  * meta-theoretic argument, to actual C loops. *)
 module C.Loops
 
-open FStar.ST
+open FStar.HyperStack.ST
 open FStar.Buffer
 
 module HH = FStar.HyperHeap
 module HS = FStar.HyperStack
+module HST = FStar.HyperStack.ST
 module UInt32 = FStar.UInt32
+module UInt64 = FStar.UInt64
 
 include Spec.Loops
 
@@ -29,6 +31,9 @@ include Spec.Loops
 
 
 (* Generic-purpose for-loop combinators ***************************************)
+
+(* These combinators enjoy first-class support in KreMLin. (See [combinators] in
+ * src/Simplify.ml *)
 
 (* Currently extracting as:
     for (int i = <start>; i != <finish>; ++i)
@@ -51,6 +56,25 @@ let rec for start finish inv f =
     f start;
     for (UInt32.(start +^ 1ul)) finish inv f
   end
+
+val for64:
+  start:UInt64.t ->
+  finish:UInt64.t{UInt64.v finish >= UInt64.v start} ->
+  inv:(HS.mem -> nat -> Type0) ->
+  f:(i:UInt64.t{UInt64.(v start <= v i /\ v i < v finish)} -> Stack unit
+                        (requires (fun h -> inv h (UInt64.v i)))
+                        (ensures (fun h_1 _ h_2 -> UInt64.(inv h_1 (v i) /\ inv h_2 (v i + 1)))) ) ->
+  Stack unit
+    (requires (fun h -> inv h (UInt64.v start)))
+    (ensures (fun _ _ h_2 -> inv h_2 (UInt64.v finish)))
+let rec for64 start finish inv f =
+  if start = finish then
+    ()
+  else begin
+    f start;
+    for64 (UInt64.(start +^ 1UL)) finish inv f
+  end
+
 
 (* To be extracted as:
     for (int i = <start>; i != <finish>; --i)
@@ -102,6 +126,51 @@ let rec interruptible_for start finish inv f =
     else interruptible_for start' finish inv f
 
 (* To be extracted as:
+    while (true) {
+      bool b = <f> i;
+      if (b) {
+         break;
+      }
+    }
+*)
+val do_while:
+  inv:(HS.mem -> bool -> GTot Type0) ->
+  f:(unit -> Stack bool
+            (requires (fun h -> inv h false))
+            (ensures (fun h_1 b h_2 -> inv h_1 false /\ inv h_2 b)) ) ->
+  Stack unit
+    (requires (fun h -> inv h false))
+    (ensures (fun _ _ h_2 -> inv h_2 true))
+let rec do_while inv f =
+  if not (f ()) then
+    do_while inv f
+
+
+(* Extracted as:
+   while (test ()) {
+     body ();
+   }
+*)
+val while:
+  #test_pre: (HS.mem -> GTot Type0) ->
+  #test_post: (bool -> HS.mem -> GTot Type0) ->
+  $test: (unit -> Stack bool
+    (requires (fun h -> test_pre h))
+    (ensures (fun h0 x h1 -> test_post x h1))) ->
+  body: (unit -> Stack unit
+    (requires (fun h -> test_post true h))
+    (ensures (fun h0 _ h1 -> test_pre h1))) ->
+  Stack unit
+    (requires (fun h -> test_pre h))
+    (ensures (fun h0 _ h1 -> test_post false h1))
+let rec while #test_pre #test_post test body =
+  if test () then begin
+    body ();
+    while #test_pre #test_post test body
+  end
+
+
+(* To be extracted as:
     int i = <start>;
     bool b = false;
     for (; (!b) && (i != <end>); --i) {
@@ -129,12 +198,13 @@ let rec interruptible_reverse_for start finish inv f =
     else interruptible_reverse_for start' finish inv f
 
 
-(* Mapping the contents of a buffer into another ******************************)
+(* Non-primitive combinators that can be expressed in terms of the above ******)
 
 (** Extracts as:
  * for (int i = 0; i < <l>; ++i)
  *   out[i] = <f>(in[i]);
  *)
+inline_for_extraction
 val map:
   #a:Type0 -> #b:Type0 ->
   output: buffer b ->
@@ -148,8 +218,9 @@ val map:
       /\ (let s1 = as_seq h_1 input in
          let s2 = as_seq h_2 output in
          s2 == seq_map f s1) ))
+inline_for_extraction
 let map #a #b output input l f =
-  let h0 = ST.get() in
+  let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 output /\ live h1 input /\ modifies_1 output h0 h1 /\ i <= UInt32.v l
     /\ (forall (j:nat). {:pattern (get h1 output j)} (j >= i /\ j < UInt32.v l) ==> get h1 output j == get h0 output j)
@@ -159,10 +230,11 @@ let map #a #b output input l f =
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
-    output.(i) <- f (input.(i))
+    let xi = input.(i) in
+    output.(i) <- f xi
   in
   for 0ul l inv f';
-  let h1 = ST.get() in
+  let h1 = HST.get() in
   Seq.lemma_eq_intro (as_seq h1 output) (seq_map f (as_seq h0 input))
 
 
@@ -170,6 +242,7 @@ let map #a #b output input l f =
  * for (int i = 0; i < <l>; ++i)
  *   out[i] = <f>(in1[i], in2[i]);
  *)
+inline_for_extraction
 val map2:
   #a:Type0 -> #b:Type0 -> #c:Type0 ->
   output: buffer c ->
@@ -185,8 +258,9 @@ val map2:
          let s2 = as_seq h_1 in2 in
          let s = as_seq h_2 output in
          s == seq_map2 f s1 s2) ))
+inline_for_extraction
 let map2 #a #b #c output in1 in2 l f =
-  let h0 = ST.get() in
+  let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 output /\ live h1 in1 /\ live h1 in2 /\ modifies_1 output h0 h1 /\ i <= UInt32.v l
     /\ (forall (j:nat). {:pattern (get h1 output j)} (j >= i /\ j < UInt32.v l) ==> get h1 output j == get h0 output j)
@@ -196,10 +270,12 @@ let map2 #a #b #c output in1 in2 l f =
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
-    output.(i) <- f (in1.(i)) (in2.(i))
+    let xi = in1.(i) in
+    let yi = in2.(i) in
+    output.(i) <- f xi yi
   in
   for 0ul l inv f';
-  let h1 = ST.get() in
+  let h1 = HST.get() in
   Seq.lemma_eq_intro (as_seq h1 output) (seq_map2 f (as_seq h0 in1) (as_seq h0 in2))
 
 
@@ -207,6 +283,7 @@ let map2 #a #b #c output in1 in2 l f =
  * for (int i = 0; i < <l>; ++i)
  *   b[i] = <f>(b[i]);
  *)
+inline_for_extraction
 val in_place_map:
   #a:Type0 ->
   b: buffer a ->
@@ -218,8 +295,9 @@ val in_place_map:
       /\ (let s1 = as_seq h_1 b in
          let s2 = as_seq h_2 b in
          s2 == seq_map f s1) ))
+inline_for_extraction
 let in_place_map #a b l f =
-  let h0 = ST.get() in
+  let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 b /\ modifies_1 b h0 h1 /\ i <= UInt32.v l
     /\ (forall (j:nat). {:pattern (get h1 b j)} (j >= i /\ j < UInt32.v l) ==> get h1 b j == get h0 b j)
@@ -229,10 +307,11 @@ let in_place_map #a b l f =
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
-    b.(i) <- f (b.(i))
+    let xi = b.(i) in
+    b.(i) <- f xi
   in
   for 0ul l inv f';
-  let h1 = ST.get() in
+  let h1 = HST.get() in
   Seq.lemma_eq_intro (as_seq h1 b) (seq_map f (as_seq h0 b))
 
 
@@ -240,6 +319,7 @@ let in_place_map #a b l f =
  * for (int i = 0; i < <l>; ++i)
  *   in1[i] = <f>(in1[i], in2[i]);
  *)
+inline_for_extraction
 val in_place_map2:
   #a:Type0 -> #b:Type0 ->
   in1: buffer a ->
@@ -254,8 +334,9 @@ val in_place_map2:
          let s2 = as_seq h_1 in2 in
          let s = as_seq h_2 in1 in
          s == seq_map2 f s1 s2) ))
+inline_for_extraction
 let in_place_map2 #a #b in1 in2 l f =
-  let h0 = ST.get() in
+  let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 in1 /\ live h1 in2 /\ modifies_1 in1 h0 h1 /\ i <= UInt32.v l
     /\ (forall (j:nat). {:pattern (get h1 in1 j)} (j >= i /\ j < UInt32.v l) ==> get h1 in1 j == get h0 in1 j)
@@ -265,10 +346,12 @@ let in_place_map2 #a #b in1 in2 l f =
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
-    in1.(i) <- f (in1.(i)) (in2.(i))
+    let xi = in1.(i) in
+    let yi = in2.(i) in
+    in1.(i) <- f xi yi
   in
   for 0ul l inv f';
-  let h1 = ST.get() in
+  let h1 = HST.get() in
   Seq.lemma_eq_intro (as_seq h1 in1) (seq_map2 f (as_seq h0 in1) (as_seq h0 in2))
 
 
@@ -283,13 +366,14 @@ let in_place_map2 #a #b in1 in2 l f =
  * for (int i = 0; i < n; ++i)
  *   f(b[i]);
  *)
+inline_for_extraction
 val repeat:
   #a:Type0 ->
   l: UInt32.t ->
   f:(s:Seq.seq a{Seq.length s = UInt32.v l} -> Tot (s':Seq.seq a{Seq.length s' = Seq.length s})) ->
   b: buffer a{Buffer.length b = UInt32.v l} ->
-  n:UInt32.t ->
-  f':(b:buffer a{length b = UInt32.v l} -> Stack unit
+  max:UInt32.t ->
+  fc:(b:buffer a{length b = UInt32.v l} -> Stack unit
                      (requires (fun h -> live h b))
                      (ensures (fun h0 _ h1 -> live h0 b /\ live h1 b /\ modifies_1 b h0 h1
                        /\ (let b0 = as_seq h0 b in
@@ -300,9 +384,10 @@ val repeat:
     (ensures (fun h_1 r h_2 -> modifies_1 b h_1 h_2 /\ live h_1 b /\ live h_2 b
       /\ (let s = as_seq h_1 b in
          let s' = as_seq h_2 b in
-         s' == repeat_spec (UInt32.v n) f s) ))
+         s' == repeat_spec (UInt32.v max) f s) ))
+inline_for_extraction
 let repeat #a l f b max fc =
-  let h0 = ST.get() in
+  let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 b /\ modifies_1 b h0 h1 /\ i <= UInt32.v max
     /\ as_seq h1 b == repeat_spec i f (as_seq h0 b)
@@ -322,6 +407,7 @@ let repeat #a l f b max fc =
  * for (int i = min; i < max; ++i)
  *   f(b[i], i);
  *)
+inline_for_extraction
 val repeat_range:
   #a:Type0 ->
   l: UInt32.t ->
@@ -329,7 +415,7 @@ val repeat_range:
   max:UInt32.t{UInt32.v min <= UInt32.v max} ->
   f:(s:Seq.seq a{Seq.length s = UInt32.v l} -> i:nat{i < UInt32.v max} -> Tot (s':Seq.seq a{Seq.length s' = Seq.length s})) ->
   b: buffer a{Buffer.length b = UInt32.v l} ->
-  f':(b:buffer a{length b = UInt32.v l} -> i:UInt32.t{UInt32.v i < UInt32.v max} -> Stack unit
+  fc:(b:buffer a{length b = UInt32.v l} -> i:UInt32.t{UInt32.v i < UInt32.v max} -> Stack unit
                      (requires (fun h -> live h b))
                      (ensures (fun h0 _ h1 -> live h0 b /\ live h1 b /\ modifies_1 b h0 h1
                        /\ (let b0 = as_seq h0 b in
@@ -341,8 +427,9 @@ val repeat_range:
       /\ (let s = as_seq h_1 b in
          let s' = as_seq h_2 b in
          s' == repeat_range_spec (UInt32.v min) (UInt32.v max) f s) ))
+inline_for_extraction
 let repeat_range #a l min max f b fc =
-  let h0 = ST.get() in
+  let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 b /\ modifies_1 b h0 h1 /\ i <= UInt32.v max /\ UInt32.v min <= i
     /\ as_seq h1 b == repeat_range_spec (UInt32.v min) i f (as_seq h0 b)

@@ -1,4 +1,4 @@
-(** A (simplified) grammar of C. *)
+
 
 module K = Constant
 open Common
@@ -9,7 +9,9 @@ type type_spec =
   | Int of Constant.width
   | Void
   | Named of ident
-  | Struct of ident option * declaration list
+  | Struct of ident option * declaration list option
+      (** Note: the option allows for zero-sized structs (GCC's C, C++) but as
+       * of 2017/05/14 we never generate these. *)
   | Union of ident option * declaration list
   | Enum of ident option * ident list
     (** not encoding all the invariants here *)
@@ -96,9 +98,7 @@ type stmt =
   | If of expr * stmt
   | IfElse of expr * stmt * stmt
   | While of expr * stmt
-  | For of declaration * expr * expr * stmt
-    (** "init_clause may be an expression or a declaration" -> only doing the
-     * latter *)
+  | For of declaration_or_expr * expr * expr * stmt
   | Return of expr option
   | Switch of expr * (expr * stmt) list * stmt
     (** the last component is the default statement *)
@@ -109,7 +109,17 @@ type stmt =
 and program =
   declaration_or_function list
 
+and comment =
+  string
+
 and declaration_or_function =
-  | Decl of declaration
-  | Function of bool * declaration * stmt
+  | Decl of comment list * declaration
+  | Function of comment list * bool * declaration * stmt
     (** [stmt] _must_ be a compound statement; boolean is inline *)
+
+and declaration_or_expr = [
+  | `Decl of declaration
+  | `Expr of expr
+  | `Skip
+]
+[@@deriving show]

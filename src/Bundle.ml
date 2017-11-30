@@ -2,7 +2,9 @@
  * [Parser] and [Bundles] *)
 
 (** Crypto.Chacha20=Crypto.Symmetric.Chacha20.*,Crypto.Flag *)
-type t = string list * pat list
+type mident = string list
+
+type t = mident list * pat list
 
 and pat =
   | Module of string list
@@ -21,7 +23,7 @@ let string_of_bundle (name, pats) =
   | [] ->
       String.concat "," (List.map string_of_pat pats)
   | path ->
-      String.concat "." path ^ "=" ^
+      String.concat "+" (List.map (String.concat ".") path) ^ "=" ^
       String.concat "," (List.map string_of_pat pats)
 
 module LidMap = Idents.LidMap
@@ -40,3 +42,12 @@ let mk_file_of files =
       None
   in
   file_of
+
+(** A given pattern matches an F* filename (i.e. a string using the underscore
+ * as a separator *)
+let pattern_matches (p: pat) (m: string) =
+  match p with
+  | Module m' ->
+      String.concat "_" m' = m
+  | Prefix p ->
+      p = [] || KString.starts_with m (String.concat "_" p ^ "_")

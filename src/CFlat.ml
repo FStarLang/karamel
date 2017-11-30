@@ -30,10 +30,20 @@ module Sizes = struct
     | A32
     | A64
 
+  let string_of_size = function
+    | I32 -> "I32"
+    | I64 -> "I64"
+
+  let string_of_array_size = function
+    | A8 -> "8"
+    | A16 -> "16"
+    | A32 -> "32"
+    | A64 -> "64"
+
   let size_of_width (w: K.width) =
     let open K in
     match w with
-    | UInt64 | Int64 | UInt | Int ->
+    | UInt64 | Int64 | CInt ->
         I64
     | _ ->
         I32
@@ -41,7 +51,7 @@ module Sizes = struct
   let array_size_of_width (w: K.width) =
     let open K in
     match w with
-    | UInt64 | Int64 | UInt | Int ->
+    | UInt64 | Int64 | CInt ->
         A64
     | UInt32 | Int32 ->
         A32
@@ -67,7 +77,8 @@ type program =
 and decl =
   | Global of ident * size * expr * bool
   | Function of function_t
-  | External of ident * size list (* args *) * size list (* ret *)
+  | ExternalFunction of ident * size list (* args *) * size list (* ret *)
+  | ExternalGlobal of ident * size
 
 and function_t = {
   name: ident;
@@ -100,9 +111,6 @@ and expr =
   | BufRead of expr * expr * array_size
   | BufSub of expr * expr * array_size
   | BufWrite of expr * expr * expr * array_size
-
-  | PushFrame
-  | PopFrame
 
   | CallOp of op * expr list
   | CallFunc of ident * expr list

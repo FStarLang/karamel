@@ -79,6 +79,20 @@ let lift_p (k: int) (pat: pattern): pattern =
 
 (* Substitute [e2] for [i] in [e1]. *)
 
+let subst_no_open (e2: expr) (i: int) (e1: expr) =
+  (object
+    inherit map_counting
+    method! ebound i _ j =
+      if j = i then
+        (lift i e2).node
+      else
+        EBound j
+  end)#visit i e1
+
+(* ---------------------------------------------------------------------------- *)
+
+(* Substitute [e2] for [i] in [e1]. These should be called [open]. *)
+
 class subst (e2: expr) = object
   (* The environment [i] is the variable that we are looking for. *)
   inherit map_counting
@@ -115,10 +129,20 @@ class subst_t (t2: typ) = object
       TBound (if j < i then j else j-1)
 end
 
+let subst_te (t2: typ) (i: int) (e1: expr) =
+  (new subst_t t2)#visit i e1
+
+let subst_ten ts e =
+  let l = List.length ts in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    subst_te arg k body
+  ) e ts
+
 let subst_t (t2: typ) (i: int) (t1: typ) =
   (new subst_t t2)#visit_t i t1
 
-let subst_tn t ts =
+let subst_tn ts t =
   let l = List.length ts in
   KList.fold_lefti (fun i body arg ->
     let k = l - i - 1 in
@@ -152,18 +176,36 @@ class close (atom': Atom.t) = object
       EBound i
     else
       EOpen (name, atom)
+
+  method! popen i _ name atom =
+    if Atom.equal atom atom' then
+      PBound i
+    else
+      POpen (name, atom)
 end
 
 let close (a: Atom.t) (i: int) (e: expr) =
   (new close a)#visit i e
 
+let close_p (a: Atom.t) (i: int) (e: pattern) =
+  (new close a)#visit_pattern i e
+
 let closing_binder b e =
   close b.node.atom 0 (lift 1 e)
+
+let close_binder_p b e =
+  close_p b.node.atom 0 (lift_p 1 e)
 
 let close_binder = closing_binder
 
 let close_binders bs e1 =
   List.fold_left (fun e1 b -> close_binder b e1) e1 bs
+
+let close_binders_p bs e1 =
+  List.fold_left (fun e1 b -> close_binder_p b e1) e1 bs
+
+let close_branch bs p e =
+  close_binders_p bs p, close_binders bs e
 
 (* ---------------------------------------------------------------------------- *)
 

@@ -1,2 +1,5 @@
 *.exe
-out.krml
+*.krml
+*.out
+*.dSYM
+*.wasm
