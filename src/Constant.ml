@@ -30,7 +30,7 @@ type op =
   | Eq | Neq | Lt | Lte | Gt | Gte
   (* Boolean operations *)
   | And | Or | Xor | Not
-  (* Effectful operations *)
+  (* Effectful operations. Only appears in C. *)
   | Assign | PreIncr | PreDecr | PostIncr | PostDecr
   (* Misc *)
   | Comma

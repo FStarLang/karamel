@@ -17,7 +17,8 @@ FILES		= \
   CheckedInt.exe Polymorphic.exe GcTypes.exe BadMatch.exe C89.exe \
   PatternAny.exe Debug.exe hello-system/HelloSystem.exe Server.exe \
   ExitCode.exe DataTypesMut.exe ParamAbbrev.exe Null.exe Failwith.exe \
-  CustomEq.exe
+  CustomEq.exe Uu.exe
+CUSTOM		= count-uu
 EXTRA_FILES	= \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \
@@ -35,7 +36,7 @@ external: hacl-test
 everything: all wasm external
 
 # The standalone tests don't need a source checkout of F* to run
-standalone: $(FILES) $(subst .exe,.krml,$(FILES))
+standalone: $(FILES) $(subst .exe,.krml,$(FILES)) $(CUSTOM)
 extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
 wasm-standalone: $(WASM_FILES)
 wasm-extra: hacl-algs
@@ -71,6 +72,14 @@ hello-system/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
 	-drop SystemNative -add-include '<netdb.h>'
 TestKremBytes.exe: EXTRA = -add-include '"krembytes.h"' -add-include \
 	'"kremstr.h"' -drop FStar.Bytes ../kremlib/kremstr.c
+
+# Some custom targets
+
+SED=$(shell which gsed >/dev/null 2>&1 && echo gsed || echo sed)
+count-uu: Uu.exe
+	[ `grep uu___ Uu.out/Uu.c | \
+	  $(SED) 's/.*\(uu____\([0-9]\+\)\).*/\1/g' \
+	  | uniq | wc -l | bc` = 3 ]
 
 # External C tests that leverage other projects.
 .PHONY: hacl-test
