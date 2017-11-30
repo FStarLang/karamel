@@ -55,7 +55,7 @@ type node = lident * typ list
 type color = Gray | Black
 let monomorphize_data_types map = object(self)
 
-  inherit [unit] map as super
+  inherit [unit] deprecated_map as super
 
   (* Assigning a color to each node. *)
   val state = Hashtbl.create 41
@@ -245,7 +245,7 @@ let functions files =
 
   let monomorphize = object(self)
 
-    inherit [unit] map
+    inherit [unit] deprecated_map
 
     (* Current file, for warning purposes. *)
     val mutable current_file = ""

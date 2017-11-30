@@ -4,27 +4,21 @@
  * special-cased in [Checker], or we would have to switch to unification. *)
 
 module K = Constant
-open Common
 
-type calling_convention' = calling_convention
-type atom_t' = Atom.t
-type flag' = flag
-type op' = K.op
-type width' = K.width
-type lifetime' = lifetime
-type constant' = K.t
-
-type calling_convention = calling_convention' [@ opaque]
-and atom_t = atom_t' [@ opaque]
-and flag = flag' [@ opaque]
-and op = op' [@ opaque]
-and width = width' [@ opaque]
-and lifetime = lifetime' [@ opaque]
-and constant = constant' [@ opaque]
+type calling_convention = Common.calling_convention [@ opaque]
+and atom_t = Atom.t [@ opaque]
+and flag = Common.flag [@ opaque]
+and op = K.op [@ opaque]
+and width = K.width [@ opaque]
+and lifetime = Common.lifetime [@ opaque]
+and constant = K.t [@ opaque]
 
 and program =
   decl list
-  [@@deriving show, visitors { variety = "iter"; monomorphic = [ "env" ] }]
+  [@@deriving show,
+    visitors { variety = "iter"; monomorphic = [ "env" ] },
+    visitors { variety = "reduce"; monomorphic = [ "env" ] },
+    visitors { variety = "map"; monomorphic = [ "env" ] }]
 
 and file =
   string * program
@@ -216,7 +210,7 @@ and typ =
 
 (** Some visitors for our AST of expressions *)
 
-class virtual ['env] map = object (self)
+class virtual ['env] deprecated_map = object (self)
 
   (* Extend the environment; these methods are meant to be overridden. *)
   method extend (env: 'env) (_: binder): 'env =
@@ -714,4 +708,3 @@ let flags_of_decl = function
   | DType (_, flags, _, _)
   | DExternal (_, flags, _, _) ->
       flags
-

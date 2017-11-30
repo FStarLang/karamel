@@ -122,7 +122,7 @@ let ensure_fresh env name body cont =
     | Some body ->
         let r = ref false in
         ignore ((object
-          inherit [string list] map
+          inherit [string list] deprecated_map
           method extend env binder =
             binder.node.name :: env
           method ebound env _ i =

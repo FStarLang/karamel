@@ -156,7 +156,7 @@ let pass_by_ref action_table = object (self)
   (* We open all the parameters of a function; then, we pass down as the
    * environment the list of atoms that correspond to by-ref parameters. These
    * will have to be "starred". *)
-  inherit [Atom.t list] map
+  inherit [Atom.t list] deprecated_map
 
   method! dfunction _ cc flags n ret lid binders body =
     (* Step 1: open all the binders *)
@@ -306,7 +306,7 @@ let collect_initializers (files: Ast.file list) =
   let initializers = ref [] in
   let record x = initializers := x :: !initializers in
   let files = Helpers.visit_files () (object
-    inherit [unit] map
+    inherit [unit] deprecated_map
     method dglobal _ flags name n t body =
       let flags, body =
         if not (Helpers.is_initializer_constant body) then begin
@@ -325,7 +325,7 @@ let collect_initializers (files: Ast.file list) =
     let files = files @ [ file ] in
     let found = ref false in
     let files = Helpers.visit_files () (object
-      inherit [unit] map
+      inherit [unit] deprecated_map
       method dfunction _ cc flags n ret name binders body =
         let body =
           if Simplify.target_c_name name = "main" then begin
@@ -539,7 +539,7 @@ let to_addr is_struct =
         Warnings.fatal_error "impossible: %a" pexpr e
   in
   object (_self)
-    inherit [unit] map
+    inherit [unit] deprecated_map
 
     method! dfunction _ cc flags n ret lid binders body =
       DFunction (cc, flags, n, ret, lid, binders, to_addr body)

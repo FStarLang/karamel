@@ -8,7 +8,7 @@ open Ast
 
 class map_counting = object
   (* The environment [i] has type [int]. *)
-  inherit [int] map
+  inherit [int] deprecated_map
   (* The environment [i] keeps track of how many binders have been
      entered. It is incremented at each binder. *)
   method! extend i (_: binder) =
@@ -17,7 +17,7 @@ end
 
 class map_t_counting = object
   (* The environment [i] has type [int]. *)
-  inherit [int] map
+  inherit [int] deprecated_map
   (* The environment [i] keeps track of how many binders have been
      entered. It is incremented at each binder. *)
   method! extend_t i =

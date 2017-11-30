@@ -24,7 +24,7 @@ let just_gc'd table = function
 
 let alloc table = object (self)
 
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   method! tqualified _env lid =
     (* Every occurrence of t becomes TBuf t *)

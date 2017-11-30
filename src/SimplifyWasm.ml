@@ -8,7 +8,7 @@ let check_buffer_size =
   with_type (TArrow (TInt K.UInt32, TUnit)) (EQualified ([ "WasmSupport" ], "check_buffer_size"))
 
 let remove_buffer_ops = object
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   (* The relatively simple [bufcreate init size] is rewritten, because no
    * initial value for buffers in CFlat:

@@ -13,7 +13,7 @@ open Helpers
 
 let count_and_remove_locals = object (self)
 
-  inherit [binder list] map
+  inherit [binder list] deprecated_map
 
   method! extend env binder =
     binder.node.mark := 0;
@@ -74,7 +74,7 @@ let unused_binder binders i =
 
 (* To be run immediately after the phase above. *)
 let build_unused_map map = object
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   method dfunction () cc flags n ret name binders body =
     (* for i = 0 to List.length binders - 1 do *)
@@ -96,7 +96,7 @@ end
 
 (* Ibid. *)
 let remove_unused_parameters map = object (self)
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   method dfunction () cc flags n ret name binders body =
     let n_binders = List.length binders in
@@ -161,7 +161,7 @@ end
 
 let wrapping_arithmetic = object (self)
 
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   method! eapp () _ e es =
     match e.node, es with
@@ -192,7 +192,7 @@ end
  * for each variable. *)
 let remove_uu = object (self)
 
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   (* This function returns true if:
    * - [e] contains exactly one use of [0] and
@@ -309,7 +309,7 @@ end
 
 let sequence_to_let = object (self)
 
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   method! esequence () _ es =
     let es = List.map (self#visit ()) es in
@@ -328,7 +328,7 @@ end
 
 let let_to_sequence = object (self)
 
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   method! elet env _ b e1 e2 =
     match b.node.meta with
@@ -370,7 +370,7 @@ end
  * the same way. *)
 let let_if_to_assign = object (self)
 
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   method private make_assignment lhs e1 =
     let nest_assign = nest_in_return_pos TUnit (fun i innermost -> {
@@ -415,7 +415,7 @@ end
 
 let misc_cosmetic = object (self)
 
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   method! eifthenelse env _ e1 e2 e3 =
     let e1 = self#visit env e1 in
@@ -804,7 +804,7 @@ and hoist_expr pos e =
 
 let hoist = object
   inherit ignore_everything
-  inherit [_] map
+  inherit [_] deprecated_map
 
   method dfunction () cc flags n ret name binders expr =
     (* TODO: no nested let-bindings in top-level value declarations either *)
@@ -846,7 +846,7 @@ let rec fixup_return_pos e =
 
 let fixup_hoist = object
   inherit ignore_everything
-  inherit [_] map
+  inherit [_] deprecated_map
 
   method dfunction () cc flags n ret name binders expr =
     DFunction (cc, flags, n, ret, name, binders, fixup_return_pos expr)
@@ -856,7 +856,7 @@ end
 (* No partial applications ****************************************************)
 
 let eta_expand = object
-  inherit [_] map
+  inherit [_] deprecated_map
   inherit ignore_everything
 
   method dglobal () flags name n t body =
@@ -891,7 +891,7 @@ let record_name lident =
   [], GlobalNames.record (string_of_lident lident) (target_c_name lident)
 
 let record_toplevel_names = object
-  inherit [_] map
+  inherit [_] deprecated_map
 
   method dglobal () flags name n t body =
     DGlobal (flags, record_name name, n, t, body)
@@ -914,7 +914,7 @@ let t lident =
   [], GlobalNames.translate (string_of_lident lident) (target_c_name lident)
 
 let replace_references_to_toplevel_names = object(self)
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   method tapp () lident args =
     TApp (t lident, List.map (self#visit_t ()) args)
@@ -1073,7 +1073,7 @@ let rec skip (e: expr) =
 
 let hoist_bufcreate = object
   inherit ignore_everything
-  inherit [_] map
+  inherit [_] deprecated_map
 
   method dfunction () cc flags n ret name binders expr =
     try
@@ -1089,7 +1089,7 @@ end
  * ridiculous to have that sort of normalization steps happen here. *)
 let remove_local_function_bindings = object(self)
 
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   method! elet env _ b e1 e2 =
     let e1 = self#visit env e1 in
@@ -1119,7 +1119,7 @@ end
 (* This needs to happen after local function bindings have been substituted. *)
 let combinators = object(self)
 
-  inherit [_] map as super
+  inherit [_] deprecated_map as super
 
   method private mk_for start finish body w =
     (* Relying on the invariant that, if [finish] is effectful, F* has

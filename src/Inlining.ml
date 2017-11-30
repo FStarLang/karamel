@@ -77,7 +77,7 @@ let mk_inliner files criterion =
         ()
   ) in
   let inline_one = memoize_inline map (fun recurse -> (object(self)
-    inherit [unit] map
+    inherit [unit] deprecated_map
     method eapp () t e es =
       let es = List.map (self#visit ()) es in
       match e.node with
@@ -142,7 +142,7 @@ let inline_analysis map =
     let module L = struct exception Found of string end in
     try
       ignore ((object
-        inherit [_] map as super
+        inherit [_] deprecated_map as super
         method! ebufcreate () t l e =
           if l = Stack then
             raise (L.Found "bufcreate")
@@ -309,7 +309,7 @@ let cross_call_analysis files =
    * cross-translation unit calls and modifies safely_private and safely_inline
    * accordingly. *)
   let unmark_private_in = object (self)
-    inherit [unit] map as super
+    inherit [unit] deprecated_map as super
     val mutable name = [],""
     method eapp () _ e es =
       match e.node with
@@ -343,7 +343,7 @@ let cross_call_analysis files =
     ) in
     let seen = Hashtbl.create 41 in
     object (self)
-      inherit [unit] map as super
+      inherit [unit] deprecated_map as super
 
       method private remove_and_visit name =
         if Hashtbl.mem safely_private name then
@@ -451,7 +451,7 @@ let inline_type_abbrevs files =
   ) in
 
   let inliner inline_one = object(self)
-    inherit [unit] map
+    inherit [unit] deprecated_map
     method tapp () lid ts =
       try DeBruijn.subst_tn (List.map (self#visit_t ()) ts) (inline_one lid)
       with Not_found -> TApp (lid, List.map (self#visit_t ()) ts)
@@ -495,7 +495,7 @@ let drop_unused files =
   let body_of_lid = Helpers.build_map files (fun map d -> Hashtbl.add map (lid_of_decl d) d) in
 
   let visitor = object (self)
-    inherit [_] map
+    inherit [_] deprecated_map
     method! equalified before _ lid =
       self#discover before lid;
       EQualified lid

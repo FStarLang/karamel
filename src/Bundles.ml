@@ -165,7 +165,7 @@ let make_bundles files =
           ()
     in
     ignore ((object
-      inherit [unit] map as super
+      inherit [unit] deprecated_map as super
       method visit_d env decl =
         current_decl := Some (lid_of_decl decl);
         super#visit_d env decl

@@ -7,7 +7,7 @@ open PrintAst.Ops
 
 (* Some more fancy visitors ***************************************************)
 
-let visit_files (env: 'env) (visitor: _ map) (files: file list) =
+let visit_files (env: 'env) (visitor: _ deprecated_map) (files: file list) =
   KList.filter_map (fun f ->
     try
       Some (visitor#visit_file env f)

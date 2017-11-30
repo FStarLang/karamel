@@ -13,7 +13,7 @@ module K = Constant
 
 let drop_match_cast files =
   visit_files () (object
-    inherit [unit] map
+    inherit [unit] deprecated_map
 
     method ematch () _ e branches =
       match e.node with
@@ -113,7 +113,7 @@ let allocate_tag enums preferred_lid tags =
 
 let compile_simple_matches (map, enums) = object(self)
 
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   val pending = ref []
 
@@ -216,7 +216,7 @@ end
 (* Third step: whole-program transformation to remove unit fields. *)
 let remove_unit_fields = object (self)
 
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   val erasable_fields = Hashtbl.create 41
   val mutable atoms = []
@@ -332,7 +332,7 @@ and is_trivially_false e =
 
 let remove_trivial_matches = object (self)
 
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   method! elet () t b e1 e2 =
     match open_binder b e2 with
@@ -481,7 +481,7 @@ let field_names_of_cons cons branches =
  * unions. *)
 let compile_all_matches (map, enums) = object (self)
 
-  inherit [unit] map
+  inherit [unit] deprecated_map
 
   method private tag_and_val_type lid branches =
     let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
@@ -598,7 +598,7 @@ let is_tagged_union map lid =
 (* Sixth step: if the compiler supports it, use C11 anonymous structs. *)
 
 let anonymous_unions (map, _) = object (self)
-  inherit [_] map
+  inherit [_] deprecated_map
 
   method efield () _t e f =
     match e.typ with

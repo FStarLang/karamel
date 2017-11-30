@@ -10,7 +10,7 @@ open Helpers
  * the EPushFrame marker. *)
 let hoist_lets = object (self)
 
-  inherit [_] map
+  inherit [_] deprecated_map
 
   method private scope_start t e =
     (* We skip through actual let-bindings (which will generate declarations at
