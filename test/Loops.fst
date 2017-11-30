@@ -73,6 +73,21 @@ let wait_for_false (n:UInt32.t{UInt32.v n > 0}) : Stack UInt32.t
   assert (False);
   count
 
+let square_while () =
+  let open C.Nullity in
+  let open FStar.UInt32 in
+  let b = Buffer.createL [ 0ul; 1ul; 2ul ] in
+  let r = Buffer.createL [ 0ul ] in
+  let inv h = Buffer.live h b in
+  let test (): Stack bool (requires inv) (ensures (fun _ _ -> inv)) =
+    !*r <> 2ul
+  in
+  let body (): Stack unit (requires inv) (ensures (fun _ _ -> inv)) =
+    b.(!*r) <- b.(!*r) *%^ b.(!*r);
+    r.(0ul) <- !*r +%^ 1ul
+  in
+  C.Loops.while test body
+
 let main () =
   (* An inline example of a for loop. *)
   let b = Buffer.createL [ 1ul; 2ul; 3ul ] in
@@ -116,5 +131,7 @@ let main () =
   TestLib.checku32 (count_to_n 10ul) 10ul;
   TestLib.checku32 (sum_to_n 11ul) 11ul;
   TestLib.checku32 (sum_to_n_buf 12ul) 12ul;
+
+  square_while ();
 
   C.exit_success
