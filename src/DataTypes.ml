@@ -108,7 +108,8 @@ let allocate_tag enums preferred_lid tags =
       Found lid
   | exception Not_found ->
       Hashtbl.add enums tags preferred_lid;
-      Fresh (DType (preferred_lid, [], 0, Enum tags))
+      (* Private will be removed, if needed, by the cross-call analysis. *)
+      Fresh (DType (preferred_lid, [ Common.Private ], 0, Enum tags))
 
 let compile_simple_matches (map, enums) = object(self)
 
