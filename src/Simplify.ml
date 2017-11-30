@@ -54,16 +54,17 @@ end
 let implies x y =
   not x || y
 
-let unused_binder binders i =
-  let b = List.nth binders i in
-  let unused b =
-    !(b.node.mark) = 0 && (b.typ = TUnit || b.typ = TAny)
-  in
-  (* The first binder may be marked as unused only if there's another unused
-   * binder later on, otherwise, it serves at the one remaining binder that
+let unused_typ typs i =
+  let t = List.nth typs i in
+  let unused t = t = TUnit || t = TAny in
+  (* The first typ may be marked as unused only if there's another unused
+   * typ later on, otherwise, it serves at the one remaining typ that
    * makes sure this is still a function, and not a computation. *)
-  unused b &&
-  implies (i = 0) (List.exists (fun b -> not (unused b)) (List.tl binders))
+  unused t &&
+  implies (i = 0) (List.exists (fun t -> not (unused t)) (List.tl typs))
+
+let unused_binder binders i =
+  unused_typ (List.map (fun b -> b.typ) binders) i
 
 (* To be run immediately after the phase above. *)
 let build_unused_map map = object
@@ -75,6 +76,16 @@ let build_unused_map map = object
     (* done; *)
     Hashtbl.add map name (KList.make (List.length binders) (unused_binder binders));
     DFunction (cc, flags, n, ret, name, binders, body)
+
+  method dexternal () cc flags name t =
+    begin match t with
+    | TArrow _ ->
+        let _, args = flatten_arrow t in
+        Hashtbl.add map name (KList.make (List.length args) (unused_typ args));
+    | _ ->
+        ()
+    end;
+    DExternal (cc, flags, name, t)
 end
 
 (* Ibid. *)
@@ -85,7 +96,7 @@ let remove_unused_parameters map = object (self)
     let n_binders = List.length binders in
     let body = List.fold_left (fun body i ->
       if unused_binder binders i then
-        DeBruijn.subst any (n_binders - 1 - i) body
+        DeBruijn.subst eunit (n_binders - 1 - i) body
       else
         body
     ) body (KList.make n_binders (fun i -> i)) in
@@ -93,6 +104,19 @@ let remove_unused_parameters map = object (self)
     let unused = KList.make (List.length binders) (fun i -> not (unused_binder binders i)) in
     let binders = KList.filter_mask unused binders in
     DFunction (cc, flags, n, ret, name, binders, body)
+
+  method dexternal () cc flags name t =
+    let t =
+      match t with
+      | TArrow _ ->
+          let ret, args = flatten_arrow t in
+          let unused = KList.make (List.length args) (fun i -> not (unused_typ args i)) in
+          let args = KList.filter_mask unused args in
+          fold_arrow args ret
+      | _ ->
+          t
+    in
+    DExternal (cc, flags, name, t)
 
   method eapp () t e es =
     let es = List.map (self#visit ()) es in

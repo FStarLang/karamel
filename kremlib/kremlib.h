@@ -607,7 +607,7 @@ static inline uint128_t FStar_UInt128_gte_mask(uint128_t x, uint128_t y) {
 }
 
 static inline krml_checked_int_t FStar_UInt128_uint_to_t(uint128_t x) {
-  if (x < INT32_MIN || INT32_MAX < x) {
+  if (x < (uint128_t) INT32_MIN || (uint128_t) INT32_MAX < x) {
     KRML_HOST_PRINTF("Prims.{int,nat,pos} integer overflow at %s:%d\n", __FILE__, __LINE__);
     KRML_HOST_EXIT(252);
   }
