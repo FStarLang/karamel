@@ -274,9 +274,17 @@ let rec is_value e =
   is_X_value is_value e
 
 let rec is_readonly_c_expression e =
-  let pure_builtin_lids = [
-    [ "C"; "String" ], "get";
-  ] in
+  let is_pure_builtin lid =
+    let pure_builtin_lids = [
+      [ "C"; "String" ], "get";
+      [ "C"; "Nullity" ], "op_Bang_Star"
+    ] in
+    List.exists (fun lid' ->
+      let lid = Idents.string_of_lident lid in
+      let lid' = Idents.string_of_lident lid' in
+      KString.starts_with lid lid'
+    ) pure_builtin_lids
+  in
   match e.node with
   | ELet (_, e1, e2)
   | EBufRead (e1, e2)
@@ -285,7 +293,7 @@ let rec is_readonly_c_expression e =
       is_readonly_c_expression e2
   | EApp ({ node = EOp _; _ }, es) ->
       List.for_all is_readonly_c_expression es
-  | EApp ({ node = EQualified lid; _ }, es) when List.mem lid pure_builtin_lids ->
+  | EApp ({ node = EQualified lid; _ }, es) when is_pure_builtin lid ->
       List.for_all is_readonly_c_expression es
   | _ ->
       is_X_value is_readonly_c_expression e
