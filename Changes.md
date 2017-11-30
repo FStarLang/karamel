@@ -1,3 +1,12 @@
+### November 30th, 2017
+
+- Partial elimination of uu_ intermediary variables.
+- Support for while/do, in C.Loops, pretty-printed as a C while loop.
+  Restrictions remain on the shape of the condition, and one may get errors of
+  the form: "the condition of the while-loop gives rise to let-bindings", along
+  with uu__ bindings in the condition. Consider the while combinator
+  experimental until better elimination of uu_'s happens.
+
 ### November 29th, 2017
 
 - Long-standing feature request finally implemented: the visibility analysis
