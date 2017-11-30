@@ -159,7 +159,7 @@ and pattern' =
   | PTuple of pattern list
   | PRecord of (ident * pattern) list
   | PDeref of pattern
-  | PConstant of K.t
+  | PConstant of constant
   | PWild
 
 and pattern =

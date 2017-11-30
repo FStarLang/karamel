@@ -1,5 +1,5 @@
 type t = int
-  [@@deriving yojson, show, visitors { variety = "iter"; monomorphic = [ "env" ] }]
+  [@@deriving yojson, show]
 
 let r = ref 0
 
