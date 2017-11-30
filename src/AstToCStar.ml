@@ -595,7 +595,7 @@ and mk_declaration env d: CStar.decl option =
         mk_type env t,
         mk_expr env false body))
 
-  | DExternal (cc, _, name, t) ->
+  | DExternal (cc, flags, name, t) ->
       let to_void = match t with
         | TArrow (TUnit, _) -> true
         | _ -> false
@@ -614,15 +614,15 @@ and mk_declaration env d: CStar.decl option =
             assert (cc = None);
             t
       in
-      Some (External (string_of_lident name, t))
+      Some (External (string_of_lident name, t, flags))
 
-  | DType (name, _, _, Forward) ->
+  | DType (name, flags, _, Forward) ->
       let name = string_of_lident name in
-      Some (CStar.TypeForward name)
+      Some (CStar.TypeForward (name, flags))
 
-  | DType (name, _, 0, def) ->
+  | DType (name, flags, 0, def) ->
       let name = string_of_lident name in
-      Some (CStar.Type (name, mk_type_def env def))
+      Some (CStar.Type (name, mk_type_def env def, flags))
 
   | DType _ ->
       None

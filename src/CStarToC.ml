@@ -599,8 +599,8 @@ let mk_comments =
         None
   )
 
-(** .c files include their own header *)
-let mk_decl_or_function (d: decl): C.declaration_or_function option =
+(** Function definition or global definition. *)
+let mk_function_or_global_body (d: decl): C.declaration_or_function option =
   match d with
   | External _
   | TypeForward _
@@ -630,73 +630,114 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
           let expr = mk_expr expr in
           Some (Decl ([], (spec, static, [ decl, Some (InitExpr expr) ])))
 
-let is_static_header name =
-  List.exists (fun m -> Idents.fstar_name_of_mod m = name) !Options.static_header
-
-let mk_program decls =
-  KList.filter_map mk_decl_or_function decls
-
-let mk_files files =
-  let files = List.filter (fun (name, _) -> not (is_static_header name)) files in
-  List.map (fun (name, program) -> name, mk_program program) files
-
-let mk_stub_or_function (d: decl): C.declaration_or_function option =
+(** Function prototype, or extern global declaration (no definition). *)
+let mk_function_or_global_stub (d: decl): C.declaration_or_function option =
   match d with
-  | TypeForward name ->
+  | External _
+  | TypeForward _
+  | Type _ ->
+      None
+
+  | Function (cc, flags, return_type, name, parameters, _) ->
+      begin try
+        let parameters = List.map (fun { name; typ } -> name, typ) parameters in
+        let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
+        Some (Decl (mk_comments flags, (spec, None, [ decl, None ])))
+      with e ->
+        beprintf "Fatal exception raised in %s\n" name;
+        raise e
+      end
+
+  | Global (name, _, t, _) ->
+      let spec, decl = mk_spec_and_declarator name t in
+      Some (Decl ([], (spec, Some Extern, [ decl, None ])))
+
+(* Type declarations, external function declarations. These are the things that
+ * are either declared in the header (public), or in the c file (private), but
+ * not twice. *)
+let mk_type_or_external (d: decl): C.declaration_or_function option =
+  match d with
+  | TypeForward (name, _) ->
       Some (Decl ([], (C.Struct (Some (name ^ "_s"), None), Some Typedef, [ Ident name, None ])))  
-  | Type (name, t) ->
+  | Type (name, t, _) ->
       let spec, decl = mk_spec_and_declarator_t name t in
       Some (Decl ([], (spec, Some Typedef, [ decl, None ])))
 
-  | Function (cc, flags, return_type, name, parameters, _) ->
-      if List.exists ((=) Private) flags then
-        None
-      else
-        begin try
-          let parameters = List.map (fun { name; typ } -> name, typ) parameters in
-          let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
-          Some (Decl (mk_comments flags, (spec, None, [ decl, None ])))
-        with e ->
-          beprintf "Fatal exception raised in %s\n" name;
-          raise e
-        end
-
-  | External (name, Function (cc, t, ts)) ->
+  | External (name, Function (cc, t, ts), _) ->
       let spec, decl = mk_spec_and_declarator_f cc name t (List.mapi (fun i t ->
         KPrint.bsprintf "x%d" i, t
       ) ts) in
       Some (Decl ([], (spec, Some Extern, [ decl, None ])))
 
-  | External (name, t) ->
+  | External (name, t, _) ->
       let spec, decl = mk_spec_and_declarator name t in
       Some (Decl ([], (spec, Some Extern, [ decl, None ])))
 
-  | Global (name, flags, t, _) ->
-      if List.exists ((=) Private) flags then
-        None
-      else
-        let spec, decl = mk_spec_and_declarator name t in
-        Some (Decl ([], (spec, Some Extern, [ decl, None ])))
+  | Function _ | Global _ ->
+      None
 
 
-let mk_header decls =
-  KList.filter_map mk_stub_or_function decls
+let is_static_header name =
+  List.exists (fun m -> Idents.fstar_name_of_mod m = name) !Options.static_header
 
-let mk_static (d: C.declaration_or_function) =
+let either f1 f2 x =
+  match f1 x with
+  | None -> f2 x
+  | Some r -> Some r
+
+let flags_of_decl (d: CStar.decl) =
   match d with
-  | Decl (comments, (ts, None, decl_inits)) ->
-      C.Decl (comments, (ts, Some Static, decl_inits))
-  | Function (comments, _inline, (ts, (None | Some Static), decl_inits), body) ->
-      C.Function (comments, true, (ts, Some Static, decl_inits), body)
-  | d ->
-      d
+  | Global (_, flags, _, _)
+  | Function (_, flags, _, _, _, _)
+  | Type (_, _, flags)
+  | TypeForward (_, flags)
+  | External (_, _, flags) ->
+      flags
+
+let if_private f d =
+  if List.mem Private (flags_of_decl d) then
+    f d
+  else
+    None
+
+let if_not_private f d =
+  if not (List.mem Private (flags_of_decl d)) then
+    f d
+  else
+    None
+
+(* Building a .c file *)
+let mk_files files =
+  let mk_c_file decls =
+    (* In the C file, we put function bodies, global bodies, and type
+     * definitions and external definitions that were private to the file only.
+     * *)
+    KList.filter_map
+      (either mk_function_or_global_body (if_private mk_type_or_external))
+      decls
+  in
+  let files = List.filter (fun (name, _) -> not (is_static_header name)) files in
+  List.map (fun (name, program) -> name, mk_c_file program) files
+
+(* Building the two flavors of headers. *)
+let mk_header decls =
+  (* In the header file, we put functions and global stubs, along with type
+   * definitions that are visible from the outside. *)
+  KList.filter_map
+    (if_not_private (either mk_function_or_global_stub mk_type_or_external))
+    decls
 
 let mk_static_header decls =
-  let decls = KList.filter_map (fun (d: CStar.decl) ->
+  let mk_static (d: C.declaration_or_function) =
     match d with
-    | Global _ | Function _ -> mk_decl_or_function d
-    | _ -> mk_stub_or_function d
-  ) decls in
+    | Decl (comments, (ts, None, decl_inits)) ->
+        C.Decl (comments, (ts, Some Static, decl_inits))
+    | Function (comments, _inline, (ts, (None | Some Static), decl_inits), body) ->
+        C.Function (comments, true, (ts, Some Static, decl_inits), body)
+    | d ->
+        d
+  in
+  let decls = KList.filter_map (either mk_function_or_global_body mk_type_or_external) decls in
   List.map mk_static decls
 
 let mk_headers files =

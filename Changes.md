@@ -1,3 +1,10 @@
+### November 29th, 2017
+
+- Long-standing feature request finally implemented: the visibility analysis
+  (public/private) now also applies to external and type declarations, meaning
+  that the types that are local to a given file are now declared in the C file
+  instead of the header file.
+
 ### November 28th, 2017
 
 - Write out some information in the generated header (command-line, git

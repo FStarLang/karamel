@@ -333,6 +333,57 @@ let cross_call_analysis files =
   end in
   ignore (Helpers.visit_files () unmark_private_in files);
 
+  (* Another visitor, that only visits the types reachable from types in
+   * function definitions and removes their private qualifiers accordingly. *)
+  let unmark_private_types_in =
+    let decl_map = Helpers.build_map files (fun map d ->
+      match d with
+      | DType (lid, _, _, d) -> Hashtbl.add map lid d
+      | _ -> ()
+    ) in
+    let seen = Hashtbl.create 41 in
+    object (self)
+      inherit [unit] map as super
+
+      method private remove_and_visit name =
+        if Hashtbl.mem safely_private name then
+          Hashtbl.remove safely_private name;
+        if not (Hashtbl.mem seen name) then begin
+          Hashtbl.add seen name ();
+          try ignore (self#type_def () (Some name) (Hashtbl.find decl_map name))
+          with Not_found -> ()
+        end
+
+      method tqualified () name =
+        self#remove_and_visit name;
+        TQualified name
+
+      method tapp () name ts =
+        self#remove_and_visit name;
+        TApp (name, List.map (self#visit_t ()) ts)
+
+      method dfunction () cc flags n ret name binders expr =
+        DFunction (cc, flags, n, self#visit_t () ret, name, self#binders () binders, expr)
+
+      method dglobal () flags name n typ expr =
+        DGlobal (flags, name, n, self#visit_t () typ, expr)
+
+      method visit () _ =
+        assert false
+
+      method visit_d env d =
+        if not (List.mem Private (flags_of_decl d)) then begin
+          Hashtbl.add seen (lid_of_decl d) ();
+          super#visit_d env d
+        end else
+          d
+    end
+  in
+  let uint128_lid = [ "FStar"; "UInt128" ], "uint128" in
+  if Hashtbl.mem safely_private uint128_lid then
+    Hashtbl.remove safely_private uint128_lid;
+  ignore (Helpers.visit_files () unmark_private_types_in files);
+
   (* The invariant for [safely_private] is now established, and we drop those
    * functions that cannot keep their [Private] flag. *)
   let files =
