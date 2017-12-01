@@ -184,7 +184,7 @@ and lident =
   ident list * ident
 
 and typ =
-  | TInt of K.width
+  | TInt of width
   | TBool
   | TUnit
   | TAny
