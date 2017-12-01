@@ -890,23 +890,25 @@ let target_c_name lident =
 let record_name lident =
   [], GlobalNames.record (string_of_lident lident) (target_c_name lident)
 
-let record_toplevel_names = object
-  inherit [_] deprecated_map
+let record_toplevel_names = object (self)
+  inherit [_] Visitors.map
 
-  method dglobal () flags name n t body =
+  method! visit_DGlobal _ flags name n t body =
     DGlobal (flags, record_name name, n, t, body)
 
-  method dfunction () cc flags n ret name args body =
+  method! visit_DFunction _ cc flags n ret name args body =
     DFunction (cc, flags, n, ret, record_name name, args, body)
 
-  method dexternal () cc flags name t =
+  method! visit_DExternal _ cc flags name t =
     DExternal (cc, flags, record_name name, t)
 
-  method dtype () name flags n t =
+  method! visit_DType env name flags n t =
+    (* TODO: this is not correct since record_name might, on the second call
+     * (not forward), return something disambiguated with a suffix. *)
     let name = if t = Forward then name else record_name name in
-    DType (name, flags, n, t)
+    DType (name, flags, n, self#visit_type_def env t)
 
-  method dtypeenum () tags =
+  method! visit_Enum _ tags =
     Enum (List.map record_name tags)
 end
 
@@ -914,40 +916,40 @@ let t lident =
   [], GlobalNames.translate (string_of_lident lident) (target_c_name lident)
 
 let replace_references_to_toplevel_names = object(self)
-  inherit [unit] deprecated_map
+  inherit [_] Visitors.map
 
-  method tapp () lident args =
-    TApp (t lident, List.map (self#visit_t ()) args)
+  method! visit_TApp env lident args =
+    TApp (t lident, List.map (self#visit_typ env) args)
 
-  method tqualified () lident =
+  method! visit_TQualified _ lident =
     TQualified (t lident)
 
-  method equalified () _ lident =
+  method! visit_EQualified _ lident =
     EQualified (t lident)
 
-  method dglobal () flags name n typ body =
-    DGlobal (flags, t name, n, self#visit_t () typ, self#visit () body)
+  method! visit_DGlobal env flags name n typ body =
+    DGlobal (flags, t name, n, self#visit_typ env typ, self#visit_expr env body)
 
-  method dfunction () cc flags n ret name args body =
-    DFunction (cc, flags, n, self#visit_t () ret, t name, self#binders () args, self#visit () body)
+  method! visit_DFunction env cc flags n ret name args body =
+    DFunction (cc, flags, n, self#visit_typ env ret, t name, self#visit_binders env args, self#visit_expr env body)
 
-  method dexternal () cc flags name typ =
-    DExternal (cc, flags, t name, self#visit_t () typ)
+  method! visit_DExternal env cc flags name typ =
+    DExternal (cc, flags, t name, self#visit_typ env typ)
 
-  method dtype () name flags n d =
-    DType (t name, flags, n, self#type_def () (Some name) d)
+  method! visit_DType env name flags n d =
+    DType (t name, flags, n, self#visit_type_def env d)
 
-  method dtypeenum () tags =
+  method! visit_Enum _ tags =
     Enum (List.map t tags)
 
-  method penum () _ name =
+  method! visit_PEnum _ name =
     PEnum (t name)
 
-  method eenum () _ name =
+  method! visit_EEnum _ name =
     EEnum (t name)
 
-  method eswitch () _ e branches =
-    ESwitch (self#visit () e, List.map (fun (tag, e) -> t tag, self#visit () e) branches)
+  method! visit_ESwitch env e branches =
+    ESwitch (self#visit_expr env e, List.map (fun (tag, e) -> t tag, self#visit_expr env e) branches)
 end
 
 (* Extend the lifetimes of buffers ********************************************)
@@ -1236,7 +1238,7 @@ let remove_unused (files: file list): file list =
  * as the last operations, otherwise, any table for memoization suddenly becomes
  * invalid. *)
 let to_c_names (files: file list): file list =
-  let files = visit_files () record_toplevel_names files in
-  let files = visit_files () replace_references_to_toplevel_names files in
+  let files = visitor_files () record_toplevel_names files in
+  let files = visitor_files () replace_references_to_toplevel_names files in
   files
 
