@@ -163,7 +163,7 @@ and check_program env r (name, decls) =
           KPrint.beprintf "Cannot re-check %a, dropping this definition.\nIf this is normal \
             and the function was not meant to be reachable, consider using \
             KreMLin's [-d reachability] command-line flag to understand why %a \
-            is still in your call-graph."
+            is still in your call-graph.\n"
             plid (lid_of_decl d) plid (lid_of_decl d);
           flush stderr
         end;
