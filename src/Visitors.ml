@@ -15,7 +15,7 @@ class ['self] map = object (self: 'self)
 
 end
 
-class ['self] iter = object (self: 'self)
+class ['self] iter = object (_: 'self)
 
   inherit [_] Ast.iter
 

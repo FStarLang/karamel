@@ -33,3 +33,20 @@ let _ =
   let uint8_to_uint8 = Function (None, Int UInt8, [ Int UInt8 ]) in
   p_f uint8_to_uint8 [ uint8_to_uint8 ];
 ;;
+
+open Ast
+open PrintAst.Ops
+
+class ['self] test = object (_: 'self)
+  inherit [_] Visitors.map
+  method! visit_EBound (env, t) var =
+    let t = Option.must t in
+    KPrint.bprintf "env = %s, EBound: %a = %d\n" env ptyp t var;
+    EBound var
+  method! visit_TUnit (env, _) =
+    KPrint.bprintf "env = %s, TUnit\n" env;
+    TBool
+end
+
+let _ =
+   (new test)#visit_expr ("hello", None) ({ node = EBound 0; typ = TUnit })
