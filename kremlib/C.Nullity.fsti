@@ -8,8 +8,9 @@ open FStar.HyperStack.ST
 
 (* Dealing with possibly-null pointers. *)
 
-val is_null (#a: Type) (b: B.buffer a):
-  Tot (ret:bool { ret ==> B.length b = 0})
+val is_null (#a: Type) (b: B.buffer a): Pure bool
+  (requires True)
+  (ensures (fun (ret:bool) -> ret ==> B.length b = 0))
 
 val null (a: Type):
   b:B.buffer a { is_null b }
