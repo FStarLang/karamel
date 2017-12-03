@@ -1238,7 +1238,7 @@ let remove_unused (files: file list): file list =
  * as the last operations, otherwise, any table for memoization suddenly becomes
  * invalid. *)
 let to_c_names (files: file list): file list =
-  let files = visitor_files () record_toplevel_names files in
-  let files = visitor_files () replace_references_to_toplevel_names files in
+  let files = record_toplevel_names#visit_files ((), None) files in
+  let files = replace_references_to_toplevel_names#visit_files ((), None) files in
   files
 

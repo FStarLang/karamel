@@ -10,20 +10,18 @@ module K = Constant
 
 (* Zero-est thing: we need to be able to type-check the program without casts on
  * scrutinees, otherwise we won't be able to resolve anything. *)
-
 let drop_match_cast files =
-  visit_files () (object
-    inherit [unit] deprecated_map
+  (object (self)
+    inherit [_] Visitors.map
 
-    method ematch () _ e branches =
-      match e.node with
-      | ECast (e, _) ->
-          EMatch (e, branches)
+    method visit_EMatch env scrut branches =
+      match scrut.node with
+      | ECast (scrut, _) ->
+          EMatch (scrut, self#visit_branches env branches)
       | _ ->
-          EMatch (e, branches)
+          EMatch (scrut, self#visit_branches env branches)
 
-  end) files
-
+  end)#visit_files ((), None) files
 
 
 (** We need to keep track of which optimizations we performed on which data
@@ -598,33 +596,35 @@ let is_tagged_union map lid =
 (* Sixth step: if the compiler supports it, use C11 anonymous structs. *)
 
 let anonymous_unions (map, _) = object (self)
-  inherit [_] deprecated_map
+  inherit [_] Visitors.map as super
 
-  method efield () _t e f =
+  method! visit_EField env e f =
     match e.typ with
     | TQualified lid when f = field_for_union && is_tagged_union map lid ->
-        let e = self#visit () e in
+        let e = self#visit_expr env e in
         e.node
     | _ ->
-        EField (self#visit () e, f)
+        EField (self#visit_expr env e, f)
 
-  method type_def _env lid d =
-    match d, lid with
-    | Flat [ Some f1, t1; Some f2, t2 ], Some lid when
+  method! visit_decl env d =
+    match d with
+    | DType (lid, flags, 0, Flat [ Some f1, t1; Some f2, t2 ]) when
       f1 = field_for_tag && f2 = field_for_union &&
       is_tagged_union map lid ->
-        Flat [ Some f1, t1; None, t2 ]
+        DType (lid, flags, 0, Flat [ Some f1, t1; None, t2 ])
     | _ ->
-        d
+        super#visit_decl env d
 
-  method eflat env t fields =
+  method! visit_EFlat ((), t) fields =
+    let t = Option.must t in
+    KPrint.bprintf "type is: %a\n" ptyp t;
     match fields, t with
     | [ Some f1, t1; Some f2, t2 ], TQualified lid when
       f1 = field_for_tag && f2 = field_for_union &&
       is_tagged_union map lid ->
         EFlat [ Some f1, t1; None, t2 ]
     | _ ->
-        EFlat (self#fields env fields)
+        EFlat (self#visit_fields_e_opt ((), None) fields)
 
 end
 
@@ -653,4 +653,4 @@ let everything files =
   map, files
 
 let anonymous_unions map files =
-  visit_files () (anonymous_unions map) files
+  (anonymous_unions map)#visit_files ((), None) files

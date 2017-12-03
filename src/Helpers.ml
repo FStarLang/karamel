@@ -16,15 +16,6 @@ let visit_files (env: 'env) (visitor: _ deprecated_map) (files: file list) =
       None
   ) files
 
-let visitor_files (env: 'env) (visitor: _ Visitors.map) (files: file list) =
-  KList.filter_map (fun f ->
-    try
-      Some (visitor#visit_file (env, None) f)
-    with Error e ->
-      maybe_fatal_error (fst f ^ "/" ^ fst e, snd e);
-      None
-  ) files
-
 class ignore_everything = object
   method dfunction () cc flags n ret name binders expr =
     DFunction (cc, flags, n, ret, name, binders, expr)

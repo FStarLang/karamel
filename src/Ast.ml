@@ -23,6 +23,9 @@ and program =
 and file =
   string * program
 
+and files =
+  file list
+
 and decl =
   | DFunction of calling_convention option * flag list * int * typ * lident * binders * expr
   | DGlobal of flag list * lident * int * typ * expr
@@ -42,6 +45,9 @@ and fields_t_opt =
 
 and fields_t =
   (ident * (typ * bool)) list
+
+and fields_e_opt =
+  (ident option * expr) list
 
 and branches_t =
   (ident * fields_t) list
@@ -94,7 +100,7 @@ and expr' =
 
   | ESwitch of expr * (lident * expr) list
   | EEnum of lident
-  | EFlat of (ident option * expr) list
+  | EFlat of fields_e_opt
   | EField of expr * ident
     (** The four types above appear after compilation of pattern-matches. *)
 
