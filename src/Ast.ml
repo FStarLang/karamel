@@ -5,6 +5,9 @@
 
 module K = Constant
 
+(* Some misc. helper types. We generate visitors for them, but since they are
+ * not mutually recursive with either typ or expr, we need to have visitors for
+ * these inherit the misc visitor. *)
 type calling_convention = Common.calling_convention [@ opaque]
 and atom_t = Atom.t [@ opaque]
 and flag = Common.flag [@ opaque]
@@ -12,25 +15,39 @@ and op = K.op [@ opaque]
 and width = K.width [@ opaque]
 and lifetime = Common.lifetime [@ opaque]
 and constant = K.t [@ opaque]
-
-and program =
-  decl list
+and ident = string (** for pretty-printing *)
+and lident = ident list * ident
   [@@deriving show,
-    visitors { variety = "iter"; monomorphic = [ "env" ] },
-    visitors { variety = "reduce"; monomorphic = [ "env" ] },
-    visitors { variety = "map"; monomorphic = [ "env" ] }]
+    visitors { variety = "iter"; name = "iter_misc" },
+    visitors { variety = "reduce"; name = "reduce_misc" },
+    visitors { variety = "map"; name = "map_misc" }]
 
-and file =
-  string * program
 
-and files =
-  file list
-
-and decl =
-  | DFunction of calling_convention option * flag list * int * typ * lident * binders * expr
-  | DGlobal of flag list * lident * int * typ * expr
-  | DExternal of calling_convention option * flag list * lident * typ
-  | DType of lident * flag list * int * type_def
+(* The visitor of types. Inherits the misc. visitor, self-contained. *)
+type typ =
+  | TInt of width
+  | TBool
+  | TUnit
+  | TAny
+      (** appears because of casts introduced by erasure... eventually, should
+       * not appear! *)
+  | TBuf of typ
+      (** a buffer in the Low* sense *)
+  | TArray of typ * constant
+      (** appears when we start hoisting buffer definitions to their enclosing
+       * push frame *)
+  | TQualified of lident
+      (** a reference to a type that has been introduced via a DType *)
+  | TArrow of typ * typ
+      (** t1 -> t2 *)
+  | TApp of lident * typ list
+      (** disappears after monomorphization *)
+  | TBound of int
+      (** appears in type definitions... also disappears after monorphization *)
+  | TTuple of typ list
+      (** disappears after tuple removal *)
+  | TAnonymous of type_def
+      (** appears after data type translation to tagged enums *)
 
 and type_def =
   | Abbrev of typ
@@ -43,16 +60,56 @@ and type_def =
 and fields_t_opt =
   (ident option * (typ * bool)) list
 
-and fields_t =
-  (ident * (typ * bool)) list
-
-and fields_e_opt =
-  (ident option * expr) list
-
 and branches_t =
   (ident * fields_t) list
 
-and expr' =
+and fields_t =
+  (ident * (typ * bool)) list
+  [@@deriving show,
+    visitors { variety = "iter"; ancestors = [ "iter_misc" ]; name = "iter_typ" },
+    visitors { variety = "reduce"; ancestors = [ "reduce_misc" ]; name = "reduce_typ" },
+    visitors { variety = "map"; ancestors = [ "map_misc" ]; name = "map_typ" }]
+
+
+(* This is defined as a separate type, in order to be overridable and have no
+ * default definition generate by the visitors. *)
+type 'a with_type = {
+  node: 'a;
+  mutable typ: typ
+    (** Filled in by [Checker] *)
+}
+  [@@deriving show]
+
+(* An indirection that will force calls from the expr visitor to the typ visitor
+ * to be intercepted by the adapter below. *)
+type typ' = typ
+  [@@deriving show]
+
+
+(* The adapter from expressions (env = env' * typ) to types (env = env'). *)
+class ['self] map_adapter = object (self: 'self)
+
+  inherit [_] map_typ
+
+  (* As the visitor of expressions tries to recurse in a [typ], we drop the
+   * second component of the pair and visit the type with just the environment.
+   * *)
+  method visit_typ' (env, _) t =
+    self#visit_typ env t
+
+  (* However, as we descend into an annotated node, we map the second component
+   * of the pair (the type) then pair it with the environment. *)
+  method visit_with_type: 'node 'ret.
+    (_ -> 'node -> 'ret) -> _ -> 'node with_type -> 'ret with_type =
+    fun f (env, _) x ->
+      let typ = self#visit_typ env x.typ in
+      let node = f (env, typ) x.node in
+      { node; typ }
+end
+
+
+(* Next, the nodes that are annotated with types. *)
+type expr' =
   | EBound of var
   | EOpen of ident * atom_t
     (** [ident] for debugging purposes only *)
@@ -71,9 +128,9 @@ and expr' =
   | EIgnore of expr
 
   | EApp of expr * expr list
-  | ETApp of expr * typ list
+  | ETApp of expr * typ' list
   | ELet of binder * expr * expr
-  | EFun of binder list * expr * typ
+  | EFun of binder list * expr * typ'
   | EIfThenElse of expr * expr * expr
   | ESequence of expr list
   | EAssign of expr * expr
@@ -119,18 +176,15 @@ and expr' =
      *   }
      * ]}
      * The scope of the binder is the second, third and fourth expressions. *)
-  | ECast of expr * typ
+  | ECast of expr * typ'
   | EComment of string * expr * string
   | EAddrOf of expr
 
 and expr =
   expr' with_type
 
-and 'a with_type = {
-  node: 'a;
-  mutable typ: typ
-    (** Filled in by [Checker] *)
-}
+and fields_e_opt =
+  (ident option * expr) list
 
 and branches =
   branch list
@@ -183,36 +237,30 @@ and binder =
 and meta =
   | MetaSequence
 
-and ident =
-  string (** for pretty-printing *)
+  [@@deriving show,
+    visitors { variety = "map"; ancestors = [ "map_adapter" ]; name = "map_expr" } ]
 
-and lident =
-  ident list * ident
 
-and typ =
-  | TInt of width
-  | TBool
-  | TUnit
-  | TAny
-      (** appears because of casts introduced by erasure... eventually, should
-       * not appear! *)
-  | TBuf of typ
-      (** a buffer in the Low* sense *)
-  | TArray of typ * constant
-      (** appears when we start hoisting buffer definitions to their enclosing
-       * push frame *)
-  | TQualified of lident
-      (** a reference to a type that has been introduced via a DType *)
-  | TArrow of typ * typ
-      (** t1 -> t2 *)
-  | TApp of lident * typ list
-      (** disappears after monomorphization *)
-  | TBound of int
-      (** appears in type definitions... also disappears after monorphization *)
-  | TTuple of typ list
-      (** disappears after tuple removal *)
-  | TAnonymous of type_def
-      (** appears after data type translation to tagged enums *)
+type program =
+  decl list
+  (* [@@deriving show, *)
+  (*   visitors { variety = "iter"; monomorphic = [ "env" ] }, *)
+  (*   visitors { variety = "reduce"; monomorphic = [ "env" ] }, *)
+  (*   visitors { variety = "map"; monomorphic = [ "env" ] }] *)
+
+and file =
+  string * program
+
+and files =
+  file list
+
+and decl =
+  | DFunction of calling_convention option * flag list * int * typ' * lident * binders * expr
+  | DGlobal of flag list * lident * int * typ' * expr
+  | DExternal of calling_convention option * flag list * lident * typ'
+  | DType of lident * flag list * int * type_def
+
+
 
 (** Some visitors for our AST of expressions *)
 
