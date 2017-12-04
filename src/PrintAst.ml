@@ -258,7 +258,7 @@ and print_expr { node; typ } =
   | ESwitch (e, branches) ->
       string "switch" ^^ space ^^ print_expr e ^/^ braces_with_nesting (
         separate_map hardline (fun (lid, e) ->
-          string "case" ^^ space ^^ string (string_of_lident lid) ^^ colon ^^
+          string "case" ^^ space ^^ print_case lid ^^ colon ^^
           nest 2 (hardline ^^ print_expr e)
         ) branches)
   | EFun (binders, body, t) ->
@@ -270,6 +270,13 @@ and print_expr { node; typ } =
   | EAddrOf e ->
       ampersand ^^ print_expr e
 
+and print_case = function
+  | SConstant s ->
+      print_constant s
+  | SEnum lid ->
+      string (string_of_lident lid)
+  | SWild ->
+      underscore
 
 
 and print_branches branches =
@@ -316,6 +323,8 @@ module Ops = struct
   let print_typs = separate_map (comma ^^ space) print_typ
 
   let ploc = printf_of_pprint Location.print_location
+  let pwidth = printf_of_pprint print_width
+  let pcase = printf_of_pprint print_case
   let ptyp = printf_of_pprint print_typ
   let ptyps = printf_of_pprint print_typs
   let pptyp = printf_of_pprint_pretty print_typ

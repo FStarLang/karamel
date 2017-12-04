@@ -382,10 +382,22 @@ and mk_stmts env e ret_type =
         env, CStar.Abort (Option.or_empty s) :: acc
 
     | ESwitch (e, branches) ->
+        let default, branches =
+          List.partition (function (SWild, _) -> true | _ -> false) branches
+        in
+        let default = match default with
+          | [ SWild, e ] -> Some (mk_block env return_pos e)
+          | [] -> None
+          | _ -> failwith "impossible"
+        in
         env, CStar.Switch (mk_expr env false e,
           List.map (fun (lid, e) ->
-            string_of_lident lid, mk_block env return_pos e
-          ) branches) :: acc
+            (match lid with
+            | SConstant k -> `Int k
+            | SEnum lid -> `Ident (string_of_lident lid)
+            | _ -> failwith "impossible"),
+            mk_block env return_pos e
+          ) branches, default) :: acc
 
     | EReturn e ->
         mk_as_return env e acc return_pos

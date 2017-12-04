@@ -412,31 +412,36 @@ and check' env t e =
           type_error env "Not a record %a" ptyp t
       end
 
-  | ESwitch (e, branches) ->
-      begin match expand_abbrev env (infer env e) with
-      | TQualified lid ->
-          List.iter (fun (tag, e) ->
-            check env t e;
-            if not (M.find tag env.enums = lid) then
-              type_error env "scrutinee has type %a but tag %a does not belong to \
-                this type" plid lid plid tag
-          ) branches
-
-      | TAnonymous (Enum tags) as t' ->
-          List.iter (fun (tag, e) ->
-            check env t e;
-            if not (List.exists ((=) tag) tags) then
-              type_error env "scrutinee has type %a but tag %a does not belong to \
-                this type" ptyp t' plid tag
-          ) branches
-
-      | t ->
-          type_error env "cannot switch on element of type %a" ptyp t
-      end
+  | ESwitch (scrut, branches) ->
+      let t_scrut = expand_abbrev env (infer env scrut) in
+      List.iter (fun (c, e) ->
+        check_case env c t_scrut;
+        check env t e
+      ) branches;
 
   | EAddrOf e ->
       let t = infer env e in
       c (TBuf t)
+
+and check_case env c t =
+  match c, t with
+  | SWild, _ ->
+      ()
+  | SEnum tag, TQualified lid ->
+      if not (M.find tag env.enums = lid) then
+        type_error env "scrutinee has type %a but tag %a does not belong to \
+          this type" plid lid plid tag
+  | SEnum tag, TAnonymous (Enum tags) ->
+      if not (List.mem tag tags) then
+        type_error env "scrutinee has type %a but tag %a does not belong to \
+          this type" ptyp t plid tag
+  | SConstant (w, _), TInt w' ->
+      if w <> w' then
+        type_error env "scrutinee has type %a but switch case is an %a \
+          this type" ptyp t pwidth w
+  | _ ->
+      type_error env "case %a cannot switch on element of type %a" pcase c ptyp t
+
 
 and args_of_branch env t ident =
   match expand_abbrev env t with
@@ -677,28 +682,12 @@ and infer' env e =
       end
 
   | ESwitch (e, branches) ->
-      begin match expand_abbrev env (infer env e) with
-      | TQualified lid ->
-          infer_and_check_eq env (fun (tag, e) ->
-            let env = locate env (Branch tag) in
-            if not (M.find tag env.enums = lid) then
-              type_error env "scrutinee has type %a but tag %a does not belong to \
-                this type" plid lid plid tag;
-            infer env e
-          ) branches
-
-      | TAnonymous (Enum tags) as t ->
-          infer_and_check_eq env (fun (tag, e) ->
-            let env = locate env (Branch tag) in
-            if not (List.exists ((=) tag) tags) then
-              type_error env "scrutinee has type %a but tag %a does not belong to \
-                this type" ptyp t plid tag;
-            infer env e
-          ) branches
-
-      | t ->
-          type_error env "cannot switch on element of type %a" ptyp t
-      end
+      let t_scrut = expand_abbrev env (infer env e) in
+      infer_and_check_eq env (fun (c, e) ->
+        let env = locate env (Branch c) in
+        check_case env c t_scrut;
+        infer env e
+      ) branches
 
   | EComment (_, e, _) ->
       infer env e

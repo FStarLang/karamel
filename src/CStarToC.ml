@@ -390,17 +390,27 @@ and mk_stmt (stmt: stmt): C.stmt list =
   | PushFrame | PopFrame ->
       failwith "[mk_stmt]: nested frames to be handled by [mk_stmts]"
 
-  | Switch (e, branches) ->
+  | Switch (e, branches, default) ->
       [ Switch (
           mk_expr e,
           List.map (fun (ident, block) ->
-            Name ident, Compound (mk_stmts block @ [ Break ])
+            (match ident with
+            | `Ident ident -> Name ident
+            | `Int k -> Constant k),
+            let block = mk_stmts block in
+            match KList.last block with
+            | Return _ -> Compound block
+            | _ -> Compound (block @ [ Break ])
           ) branches,
-          Compound [
-            Expr (Call (Name "KRML_HOST_PRINTF", [
-              Literal "KreMLin incomplete match at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
-            Expr (Call (Name "KRML_HOST_EXIT", [ Constant (K.UInt8, "253") ]))
-          ]
+          match default with
+          | Some block ->
+              Compound (mk_stmts block)
+          | _ ->
+              Compound [
+                Expr (Call (Name "KRML_HOST_PRINTF", [
+                  Literal "KreMLin incomplete match at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
+                Expr (Call (Name "KRML_HOST_EXIT", [ Constant (K.UInt8, "253") ]))
+              ]
       )]
 
   | Abort s ->

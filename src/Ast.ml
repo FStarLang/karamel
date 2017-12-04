@@ -82,7 +82,7 @@ and expr' =
   | EMatch of expr * branches
   | ECons of ident * expr list
 
-  | ESwitch of expr * (lident * expr) list
+  | ESwitch of expr * (switch_case * expr) list
   | EEnum of lident
   | EFlat of (ident option * expr) list
   | EField of expr * ident
@@ -109,6 +109,11 @@ and expr' =
 
 and expr =
   expr' with_type
+
+and switch_case =
+  | SConstant of K.t
+  | SEnum of lident
+  | SWild
 
 and 'a with_type = {
   node: 'a;

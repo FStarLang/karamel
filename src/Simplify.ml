@@ -947,7 +947,10 @@ let replace_references_to_toplevel_names = object(self)
     EEnum (t name)
 
   method eswitch () _ e branches =
-    ESwitch (self#visit () e, List.map (fun (tag, e) -> t tag, self#visit () e) branches)
+    ESwitch (self#visit () e, List.map (fun (tag, e) ->
+      (match tag with
+      | SEnum tag -> SEnum (t tag)
+      | _ -> tag), self#visit () e) branches)
 end
 
 (* Extend the lifetimes of buffers ********************************************)

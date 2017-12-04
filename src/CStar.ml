@@ -31,7 +31,7 @@ and stmt =
     (** Destination (i.e. Var), Source *)
   | Copy of expr * typ * expr
     (** Destination, always Array (typ, size), Source *)
-  | Switch of expr * (ident * block) list
+  | Switch of expr * ([`Ident of ident | `Int of K.t] * block) list * block option
   | BufWrite of expr * expr * expr
     (** First expression has to be a [Bound] or [Open]. *)
   | BufBlit of expr * expr * expr * expr * expr
