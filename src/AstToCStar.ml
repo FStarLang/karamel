@@ -535,12 +535,12 @@ and a_unit_is_a_unit binders body =
   | [ { typ = TUnit; _ } ] ->
       [], DeBruijn.lift 1 ((object
         inherit DeBruijn.map_counting
-        method! ebound i _ j =
+        method! visit_EBound (i, _) j =
           if i = j then
             EUnit
           else
             EBound j
-      end) # visit 0 body)
+      end)#visit_expr_w 0 body)
   | _ ->
       binders, body
 

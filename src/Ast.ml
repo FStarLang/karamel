@@ -322,6 +322,9 @@ class ['self] map_expr_adapter = object (self: 'self)
 
   method visit_binder_w =
     self#lift_w self#visit_binder'
+
+  method visit_pattern_w =
+    self#lift_w self#visit_pattern'
 end
 
 class ['self] iter_expr_adapter = object (self: 'self)
@@ -339,6 +342,9 @@ class ['self] iter_expr_adapter = object (self: 'self)
 
   method visit_binder_w =
     self#lift_w self#visit_binder'
+
+  method visit_pattern_w =
+    self#lift_w self#visit_pattern'
 end
 
 class virtual ['self] reduce_expr_adapter = object (self: 'self)
@@ -357,6 +363,9 @@ class virtual ['self] reduce_expr_adapter = object (self: 'self)
 
   method visit_binder_w =
     self#lift_w self#visit_binder'
+
+  method visit_pattern_w =
+    self#lift_w self#visit_pattern'
 end
 
 
