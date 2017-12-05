@@ -1,3 +1,10 @@
+### December 4th, 2017
+
+- Pattern-matching on an integer constant now generates a switch.
+- Pattern-matches on integer constants and constant-constructor data types now
+  always generate a switch, even when a wildcard pattern is present (it becomes
+  the default case of the switch).
+
 ### November 30th, 2017
 
 - Partial elimination of uu_ intermediary variables.
