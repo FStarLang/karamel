@@ -53,6 +53,10 @@ type typ =
       (** disappears after tuple removal *)
   | TAnonymous of type_def
       (** appears after data type translation to tagged enums *)
+  [@@deriving show,
+    visitors { variety = "iter"; ancestors = [ "iter_misc" ]; name = "iter_typ" },
+    visitors { variety = "reduce"; ancestors = [ "reduce_misc" ]; name = "reduce_typ" },
+    visitors { variety = "map"; ancestors = [ "map_misc" ]; name = "map_typ" }]
 
 and type_def =
   | Abbrev of typ
@@ -70,10 +74,6 @@ and branches_t =
 
 and fields_t =
   (ident * (typ * bool)) list
-  [@@deriving show,
-    visitors { variety = "iter"; ancestors = [ "iter_misc" ]; name = "iter_typ" },
-    visitors { variety = "reduce"; ancestors = [ "reduce_misc" ]; name = "reduce_typ" },
-    visitors { variety = "map"; ancestors = [ "map_misc" ]; name = "map_typ" }]
 
 
 (* This type, by virtue of being separated from the recursive definition of expr
@@ -119,6 +119,20 @@ class ['self] map_typ_adapter = object (self: 'self)
       let typ = self#visit_typ env x.typ in
       let node = f (env, typ) x.node in
       { node; typ }
+end
+
+class ['self] iter_typ_adapter = object (self: 'self)
+
+  inherit [_] iter_typ
+  inherit [_] iter_misc
+
+  method visit_typ_wo (env, _) t =
+    self#visit_typ env t
+
+  method visit_with_type: 'node.  (_ -> 'node -> _) -> _ -> 'node with_type -> _ =
+    fun f (env, _) x ->
+      self#visit_typ env x.typ;
+      f (env, x.typ) x.node
 end
 
 
@@ -197,7 +211,8 @@ type expr' =
   | EAddrOf of expr
 
   [@@deriving show,
-    visitors { variety = "map"; ancestors = [ "map_typ_adapter" ]; name = "map_expr" } ]
+    visitors { variety = "map"; ancestors = [ "map_typ_adapter" ]; name = "map_expr" },
+    visitors { variety = "iter"; ancestors = [ "iter_typ_adapter" ]; name = "iter_expr" } ]
 
 and expr =
   expr' with_type
@@ -275,18 +290,34 @@ class ['self] map_expr_adapter = object (self: 'self)
   inherit [_] map_expr
   inherit [_] map_misc
 
-  method visit_w: 'a. (('env * 'typ) -> 'a -> 'a) ->
-    'env -> 'a with_type -> 'a with_type =
+  method lift_w: 'a. (_ -> 'a -> 'a) -> _ -> 'a with_type -> 'a with_type =
     fun f env x ->
       let typ = self#visit_typ env x.typ in
       let node = f (env, typ) x.node in
       { node; typ }
 
   method visit_expr_w =
-    self#visit_w self#visit_expr'
+    self#lift_w self#visit_expr'
 
   method visit_binder_w =
-    self#visit_w self#visit_binder'
+    self#lift_w self#visit_binder'
+end
+
+class ['self] iter_expr_adapter = object (self: 'self)
+
+  inherit [_] iter_expr
+  inherit [_] iter_misc
+
+  method lift_w: 'a. (_ -> 'a -> _) -> _ -> 'a with_type -> _ =
+    fun f env x ->
+      self#visit_typ env x.typ;
+      f (env, x.typ) x.node;
+
+  method visit_expr_w =
+    self#lift_w self#visit_expr'
+
+  method visit_binder_w =
+    self#lift_w self#visit_binder'
 end
 
 
@@ -299,7 +330,8 @@ end
 type program =
   decl list
   [@@deriving show,
-    visitors { variety = "map"; monomorphic = [ "env" ]; ancestors = ["map_expr_adapter"] }]
+    visitors { variety = "map"; monomorphic = [ "env" ]; ancestors = ["map_expr_adapter"] },
+    visitors { variety = "iter"; monomorphic = [ "env" ]; ancestors = ["iter_expr_adapter"] }]
 
 and file =
   string * program
@@ -358,6 +390,15 @@ class virtual ['env] deprecated_map = object (self)
 
   method extend_t (env: 'env): 'env =
     env
+
+  method extend_tmany env n =
+    let rec extend e n =
+      if n = 0 then
+        e
+      else
+        extend (self#extend_t e) (n - 1)
+    in
+    extend env n
 
   (* Toplevel visitor. *)
   method visit_file (env: 'env) (file: file) =
@@ -783,15 +824,6 @@ class virtual ['env] deprecated_map = object (self)
 
   method dexternal env cc flags name t =
     DExternal (cc, flags, name, self#visit_t env t)
-
-  method extend_tmany env n =
-    let rec extend e n =
-      if n = 0 then
-        e
-      else
-        extend (self#extend_t e) (n - 1)
-    in
-    extend env n
 
   method dtypealias env t =
     Abbrev (self#visit_t env t)
