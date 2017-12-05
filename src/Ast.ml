@@ -14,8 +14,10 @@ module K = Constant
 (* Just like int, float, and other OCaml base types, we generate polymorphic
  * methods for the "base types" of our AST. *)
 type calling_convention = Common.calling_convention [@ opaque]
+and calling_convention_option = calling_convention option
 and atom_t = Atom.t [@ opaque]
 and flag = Common.flag [@ opaque]
+and flags = flag list
 and op = K.op [@ opaque]
 and width = K.width [@ opaque]
 and lifetime = Common.lifetime [@ opaque]
@@ -135,6 +137,24 @@ class ['self] iter_typ_adapter = object (self: 'self)
       f (env, x.typ) x.node
 end
 
+class virtual ['self] reduce_typ_adapter = object (self: 'self)
+
+  inherit [_] reduce_typ
+  inherit [_] reduce_misc
+
+  (* We let the user explain exactly how types and expressions compose. *)
+  method virtual expr_plus_typ: _
+
+  method visit_typ_wo (env, _) t =
+    self#visit_typ env t
+
+  method visit_with_type: 'node.  (_ -> 'node -> _) -> _ -> 'node with_type -> _ =
+    fun f (env, _) x ->
+      let a = self#visit_typ env x.typ in
+      let b = f (env, x.typ) x.node in
+      self#expr_plus_typ a b
+end
+
 
 (* Next, the nodes that are annotated with types. Note that every occurrence of
  * [typ] is actually a [typ_wo] to make sure we strip the second component of
@@ -212,7 +232,8 @@ type expr' =
 
   [@@deriving show,
     visitors { variety = "map"; ancestors = [ "map_typ_adapter" ]; name = "map_expr" },
-    visitors { variety = "iter"; ancestors = [ "iter_typ_adapter" ]; name = "iter_expr" } ]
+    visitors { variety = "iter"; ancestors = [ "iter_typ_adapter" ]; name = "iter_expr" },
+    visitors { variety = "reduce"; ancestors = [ "reduce_typ_adapter" ]; name = "reduce_expr" } ]
 
 and expr =
   expr' with_type
@@ -320,6 +341,24 @@ class ['self] iter_expr_adapter = object (self: 'self)
     self#lift_w self#visit_binder'
 end
 
+class virtual ['self] reduce_expr_adapter = object (self: 'self)
+
+  inherit [_] reduce_expr
+  inherit [_] reduce_misc
+
+  method lift_w: 'a. (_ -> 'a -> _) -> _ -> 'a with_type -> _ =
+    fun f env x ->
+      let a = self#visit_typ env x.typ in
+      let b = f (env, x.typ) x.node in
+      self#expr_plus_typ a b
+
+  method visit_expr_w =
+    self#lift_w self#visit_expr'
+
+  method visit_binder_w =
+    self#lift_w self#visit_binder'
+end
+
 
 (* We compose everything together by leveraging the _w indirections that wrap up
  * an environment with the type of the sub-node. For nodes that are of the form
@@ -330,8 +369,9 @@ end
 type program =
   decl list
   [@@deriving show,
-    visitors { variety = "map"; monomorphic = [ "env" ]; ancestors = ["map_expr_adapter"] },
-    visitors { variety = "iter"; monomorphic = [ "env" ]; ancestors = ["iter_expr_adapter"] }]
+    visitors { name = "map_all"; variety = "map"; monomorphic = [ "env" ]; ancestors = ["map_expr_adapter"] },
+    visitors { name = "iter_all"; variety = "iter"; monomorphic = [ "env" ]; ancestors = ["iter_expr_adapter"] },
+    visitors { name = "reduce_all"; variety = "reduce"; monomorphic = [ "env" ]; ancestors = ["reduce_expr_adapter"] }]
 
 and file =
   string * program
@@ -349,6 +389,93 @@ and binders_w = binder_w list
 
 and fields_e_opt_w =
   (ident option * expr_w) list
+
+
+(* The final layer overrides a few selected methods to extend the environment
+ * with binders. *)
+class ['self] names_helper = object (self: 'self)
+  
+  (* Crossing a binder in expressions. Overridable by the user. *)
+  method extend env _ =
+    env
+
+  method private extend_wo (env, typ) b =
+    self#extend env b, typ
+
+  method private extend_many env bs =
+    List.fold_left self#extend env bs
+
+  method private extend_many_wo (env, typ) bs =
+    self#extend_many env bs, typ
+
+
+  (* Crossing a binder in types. Overridable by the user. *)
+  method extend_t env =
+    env
+
+  method private extend_tmany env n =
+    let rec extend e n =
+      if n = 0 then
+        e
+      else
+        extend (self#extend_t e) (n - 1)
+    in
+    extend env n
+end
+
+
+class ['self] map = object (self: 'self)
+  inherit [_] map_all
+  inherit [_] names_helper
+
+  method! visit_ELet env b e1 e2 =
+    let b = self#visit_binder env b in
+    let e1 = self#visit_expr env e1 in
+    let env = self#extend_wo env b in
+    let e2 = self#visit_expr env e2 in
+    ELet (b, e1, e2)
+
+  method! visit_EFor env b e1 e2 e3 e4 =
+    let b = self#visit_binder env b in
+    let e1 = self#visit_expr env e1 in
+    let env = self#extend_wo env b in
+    let e2 = self#visit_expr env e2 in
+    let e3 = self#visit_expr env e3 in
+    let e4 = self#visit_expr env e4 in
+    EFor (b, e1, e2, e3, e4)
+
+  method! visit_EFun env bs e t =
+    let bs = self#visit_binders env bs in
+    let env = self#extend_many_wo env bs in
+    let e = self#visit_expr env e in
+    let t = self#visit_typ_wo env t in
+    EFun (bs, e, t)
+
+  method! visit_branch env (bs, p, e) =
+    let bs = self#visit_binders env bs in
+    let env = self#extend_many_wo env bs in
+    let p = self#visit_pattern env p in
+    let e = self#visit_expr env e in
+    bs, p, e
+
+  method! visit_DType env lid flags n d =
+    let lid = self#visit_lident env lid in
+    let flags = self#visit_flags env flags in
+    let env = self#extend_tmany env n in
+    let d = self#visit_type_def env d in
+    DType (lid, flags, n, d)
+
+  method! visit_DFunction env cc flags n t lid bs e =
+    let cc = self#visit_calling_convention_option env cc in
+    let flags = self#visit_flags env flags in
+    let env = self#extend_tmany env n in
+    let t = self#visit_typ env t in
+    let lid = self#visit_lident env lid in
+    let bs = self#visit_binders_w env bs in
+    let env = self#extend_many env bs in
+    let e = self#visit_expr_w env e in
+    DFunction (cc, flags, n, t, lid, bs, e)
+end
 
 
 (** More helpers *)
@@ -385,13 +512,13 @@ class virtual ['env] deprecated_map = object (self)
   method extend (env: 'env) (_: binder): 'env =
     env
 
-  method extend_many env binders =
+  method private extend_many env binders =
     List.fold_left self#extend env binders
 
   method extend_t (env: 'env): 'env =
     env
 
-  method extend_tmany env n =
+  method private extend_tmany env n =
     let rec extend e n =
       if n = 0 then
         e
