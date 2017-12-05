@@ -155,15 +155,16 @@ end
 
 let wrapping_arithmetic = object (self)
 
-  inherit [unit] deprecated_map
+  inherit [_] map
 
-  method! eapp () _ e es =
+  (* TODO: this is no longer exposed by F*; check and remove this pass? *)
+  method! visit_EApp env e es =
     match e.node, es with
     | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), w), [ e1; e2 ] when K.is_signed w ->
         let unsigned_w = K.unsigned_of_signed w in
         let e = mk_op (K.without_wrap op) unsigned_w in
-        let e1 = self#visit () e1 in
-        let e2 = self#visit () e2 in
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
         let c e = { node = ECast (e, TInt unsigned_w); typ = TInt unsigned_w } in
         (** TODO: the second call to [c] is optional per the C semantics, but in
          * order to preserve typing, we have to insert it... maybe recognize
@@ -173,12 +174,12 @@ let wrapping_arithmetic = object (self)
 
     | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), w), [ e1; e2 ] when K.is_unsigned w ->
         let e = mk_op (K.without_wrap op) w in
-        let e1 = self#visit () e1 in
-        let e2 = self#visit () e2 in
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
         EApp (e, [ e1; e2 ])
 
     | _, es ->
-        EApp (self#visit () e, List.map (self#visit ()) es)
+        EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
 end
 
 
@@ -1203,7 +1204,7 @@ let simplify0 (files: file list): file list =
   let files = count_and_remove_locals#visit_files [] files in
   let files = visit_files () remove_uu files in
   let files = visit_files () combinators files in
-  let files = visit_files () wrapping_arithmetic files in
+  let files = wrapping_arithmetic#visit_files () files in
   files
 
 (* Many phases rely on a statement like language where let-bindings, buffer
