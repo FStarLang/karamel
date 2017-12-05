@@ -7,7 +7,8 @@ module K = Constant
 
 (* Some misc. helper types. We generate visitors for them, but since they are
  * not mutually recursive with either typ or expr, we need to have visitors for
- * these inherit the misc visitor. *)
+ * these inherit the misc visitor. Note: since the type visitor and the expr
+ * visitor operate at different env types, these must be method-polymorphic. *)
 type calling_convention = Common.calling_convention [@ opaque]
 and atom_t = Atom.t [@ opaque]
 and flag = Common.flag [@ opaque]
@@ -15,12 +16,12 @@ and op = K.op [@ opaque]
 and width = K.width [@ opaque]
 and lifetime = Common.lifetime [@ opaque]
 and constant = K.t [@ opaque]
-and ident = string (** for pretty-printing *)
-and lident = ident list * ident
+and ident = string [@ opaque]
+and lident = ident list * ident [@ opaque]
   [@@deriving show,
-    visitors { variety = "iter"; name = "iter_misc" },
-    visitors { variety = "reduce"; name = "reduce_misc" },
-    visitors { variety = "map"; name = "map_misc" }]
+    visitors { variety = "iter"; name = "iter_misc"; polymorphic = true },
+    visitors { variety = "reduce"; name = "reduce_misc"; polymorphic = true },
+    visitors { variety = "map"; name = "map_misc"; polymorphic = true }]
 
 
 (* The visitor of types. Inherits the misc. visitor, self-contained. *)
@@ -87,9 +88,10 @@ type typ' = typ
 
 
 (* The adapter from expressions (env = env' * typ) to types (env = env'). *)
-class ['self] map_adapter = object (self: 'self)
+class ['self] map_typ_adapter = object (self: 'self)
 
   inherit [_] map_typ
+  inherit [_] map_misc
 
   (* As the visitor of expressions tries to recurse in a [typ], we drop the
    * second component of the pair and visit the type with just the environment.
@@ -180,6 +182,9 @@ type expr' =
   | EComment of string * expr * string
   | EAddrOf of expr
 
+  [@@deriving show,
+    visitors { variety = "map"; ancestors = [ "map_typ_adapter" ]; name = "map_expr" } ]
+
 and expr =
   expr' with_type
 
@@ -237,16 +242,37 @@ and binder =
 and meta =
   | MetaSequence
 
-  [@@deriving show,
-    visitors { variety = "map"; ancestors = [ "map_adapter" ]; name = "map_expr" } ]
+
+(* Same trick. *)
+type expr'' = expr
+  [@@deriving show]
+
+type binder'' = binder
+  [@@deriving show]
+
+class ['self] map_expr_adapter = object (self: 'self)
+
+  inherit [_] map_expr
+  (* Note: need to re-override the monomorphic methods of [map_expr] with the
+   * polymorphic ones! *)
+  inherit [_] map_misc
+
+  method visit_expr'' env e =
+    let typ = self#visit_typ env e.typ in
+    let node = self#visit_expr' (env, typ) e.node in
+    { node; typ }
+
+  method visit_binder'' env x =
+    let typ = self#visit_typ env x.typ in
+    let node = self#visit_binder' (env, typ) x.node in
+    { node; typ }
+end
 
 
 type program =
   decl list
-  (* [@@deriving show, *)
-  (*   visitors { variety = "iter"; monomorphic = [ "env" ] }, *)
-  (*   visitors { variety = "reduce"; monomorphic = [ "env" ] }, *)
-  (*   visitors { variety = "map"; monomorphic = [ "env" ] }] *)
+  [@@deriving show,
+    visitors { variety = "map"; monomorphic = [ "env" ]; ancestors = ["map_expr_adapter"] }]
 
 and file =
   string * program
@@ -255,12 +281,12 @@ and files =
   file list
 
 and decl =
-  | DFunction of calling_convention option * flag list * int * typ' * lident * binders * expr
-  | DGlobal of flag list * lident * int * typ' * expr
-  | DExternal of calling_convention option * flag list * lident * typ'
+  | DFunction of calling_convention option * flag list * int * typ * lident * binder'' list * expr''
+  | DGlobal of flag list * lident * int * typ * expr''
+  | DExternal of calling_convention option * flag list * lident * typ
   | DType of lident * flag list * int * type_def
 
-
+let test = object inherit [_] map_expr_adapter inherit [_] map inherit [_] map_misc end
 
 (** Some visitors for our AST of expressions *)
 
