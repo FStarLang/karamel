@@ -12,7 +12,7 @@ module K = Constant
  * scrutinees, otherwise we won't be able to resolve anything. *)
 let drop_match_cast files =
   (object (self)
-    inherit [_] Visitors.map
+    inherit [_] map
 
     method visit_EMatch env scrut branches =
       match scrut.node with
@@ -21,7 +21,7 @@ let drop_match_cast files =
       | _ ->
           EMatch (scrut, self#visit_branches env branches)
 
-  end)#visit_files ((), None) files
+  end)#visit_files () files
 
 
 (** We need to keep track of which optimizations we performed on which data
@@ -596,7 +596,7 @@ let is_tagged_union map lid =
 (* Sixth step: if the compiler supports it, use C11 anonymous structs. *)
 
 let anonymous_unions (map, _) = object (self)
-  inherit [_] Visitors.map as super
+  inherit [_] map as super
 
   method! visit_EField env e f =
     match e.typ with
@@ -615,8 +615,7 @@ let anonymous_unions (map, _) = object (self)
     | _ ->
         super#visit_decl env d
 
-  method! visit_EFlat ((), t) fields =
-    let t = Option.must t in
+  method! visit_EFlat (_, t) fields =
     KPrint.bprintf "type is: %a\n" ptyp t;
     match fields, t with
     | [ Some f1, t1; Some f2, t2 ], TQualified lid when
@@ -624,7 +623,7 @@ let anonymous_unions (map, _) = object (self)
       is_tagged_union map lid ->
         EFlat [ Some f1, t1; None, t2 ]
     | _ ->
-        EFlat (self#visit_fields_e_opt ((), None) fields)
+        EFlat (self#visit_fields_e_opt ((), t(*dummy*)) fields)
 
 end
 
@@ -653,4 +652,4 @@ let everything files =
   map, files
 
 let anonymous_unions map files =
-  (anonymous_unions map)#visit_files ((), None) files
+  (anonymous_unions map)#visit_files () files

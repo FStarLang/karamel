@@ -1,14 +1,18 @@
-(** The internal, typed AST that we perform all transformations on.
- * TODO: factor out the many nodes into something more atomic (e.g. EPrimitive).
- * Since the buffer functions are polymorphic, they would still have to be
- * special-cased in [Checker], or we would have to switch to unification. *)
+(** The internal, typed AST that we perform all transformations on. *)
 
 module K = Constant
 
-(* Some misc. helper types. We generate visitors for them, but since they are
- * not mutually recursive with either typ or expr, we need to have visitors for
- * these inherit the misc visitor. Note: since the type visitor and the expr
- * visitor operate at different env types, these must be method-polymorphic. *)
+(* We wish to generate a visitor that satisfies the following criteria.
+ * - The entry points (e.g. visit_file) take an environment, of type env.
+ * - The nodes that are paired with a type (expr, pattern, binder) shall
+ *   dispatch onto receiver methods (e.g. visit_EBound, visit_PConst, etc.) that
+ *   receive a pair of an environment and the (mapped) type of the subexpression.
+ * Our strategy is to generate a sequence of visitors, with hand-written
+ * adapters to glue them together, whose composition is our final visitor.
+ *)
+
+(* Just like int, float, and other OCaml base types, we generate polymorphic
+ * methods for the "base types" of our AST. *)
 type calling_convention = Common.calling_convention [@ opaque]
 and atom_t = Atom.t [@ opaque]
 and flag = Common.flag [@ opaque]
@@ -24,7 +28,7 @@ and lident = ident list * ident [@ opaque]
     visitors { variety = "map"; name = "map_misc"; polymorphic = true }]
 
 
-(* The visitor of types. Inherits the misc. visitor, self-contained. *)
+(* The visitor of types composes with the misc. visitor. *)
 type typ =
   | TInt of width
   | TBool
@@ -72,8 +76,8 @@ and fields_t =
     visitors { variety = "map"; ancestors = [ "map_misc" ]; name = "map_typ" }]
 
 
-(* This is defined as a separate type, in order to be overridable and have no
- * default definition generate by the visitors. *)
+(* This type, by virtue of being separated from the recursive definition of expr
+ * and pattern, generates no implementation. We provide our own below. *)
 type 'a with_type = {
   node: 'a;
   mutable typ: typ
@@ -81,26 +85,34 @@ type 'a with_type = {
 }
   [@@deriving show]
 
-(* An indirection that will force calls from the expr visitor to the typ visitor
- * to be intercepted by the adapter below. *)
-type typ' = typ
+(* However, as we glue map_expr (that passes around an [env * typ]) to map_typ
+ * (that passes around an [env]), we need to indicate that in the process of
+ * jumping from expr to typ, we need to drop the second component of the
+ * environment. *)
+type typ_wo = typ
   [@@deriving show]
 
 
-(* The adapter from expressions (env = env' * typ) to types (env = env'). *)
+(* This adapter provides missing methods for [typ_wo] and [with_type]. Note that
+ * inheriting from [map_misc] is important: it lexically shadows the
+ * methods for the base types (that were monomorphic) with stronger polymorphic
+ * ones, hence allowing [map_typ_adapter] to compose. Without it, there would be
+ * a unification conflict between 'env (the type of, say,
+ * visit_calling_convention as generated in map_typ) and 'env * typ (the type of
+ * visit_calling_convention as generated in map_expr). *)
 class ['self] map_typ_adapter = object (self: 'self)
 
   inherit [_] map_typ
   inherit [_] map_misc
 
   (* As the visitor of expressions tries to recurse in a [typ], we drop the
-   * second component of the pair and visit the type with just the environment.
-   * *)
-  method visit_typ' (env, _) t =
+   * second component of the pair and visit the type without the second half. *)
+  method visit_typ_wo (env, _) t =
     self#visit_typ env t
 
-  (* However, as we descend into an annotated node, we map the second component
-   * of the pair (the type) then pair it with the environment. *)
+  (* As we descend into an annotated node, we ignore the second component of the
+   * pair we receive (the type of the enclosing expression) and fill the second
+   * component of the pair with the mapped type. *)
   method visit_with_type: 'node 'ret.
     (_ -> 'node -> 'ret) -> _ -> 'node with_type -> 'ret with_type =
     fun f (env, _) x ->
@@ -110,7 +122,9 @@ class ['self] map_typ_adapter = object (self: 'self)
 end
 
 
-(* Next, the nodes that are annotated with types. *)
+(* Next, the nodes that are annotated with types. Note that every occurrence of
+ * [typ] is actually a [typ_wo] to make sure we strip the second component of
+ * the environment. *)
 type expr' =
   | EBound of var
   | EOpen of ident * atom_t
@@ -130,9 +144,9 @@ type expr' =
   | EIgnore of expr
 
   | EApp of expr * expr list
-  | ETApp of expr * typ' list
+  | ETApp of expr * typ_wo list
   | ELet of binder * expr * expr
-  | EFun of binder list * expr * typ'
+  | EFun of binder list * expr * typ_wo
   | EIfThenElse of expr * expr * expr
   | ESequence of expr list
   | EAssign of expr * expr
@@ -178,7 +192,7 @@ type expr' =
      *   }
      * ]}
      * The scope of the binder is the second, third and fourth expressions. *)
-  | ECast of expr * typ'
+  | ECast of expr * typ_wo
   | EComment of string * expr * string
   | EAddrOf of expr
 
@@ -243,26 +257,30 @@ and meta =
   | MetaSequence
 
 
-(* Same trick. *)
-type expr'' = expr
+(* Now, we need to add a third layer: the entry points (files, declarations)
+ * which take an 'env, not an 'env * typ. We apply the same trick, and note the
+ * entry points from decl (un-annotated environments) to expr (annotated
+ * environments). *)
+type expr_w = expr
   [@@deriving show]
 
-type binder'' = binder
+type binder_w = binder
   [@@deriving show]
 
+(* These two methods ensure we recurse with the type. Again, we lexically
+ * override the monomorphic methods with polymorphic ones to allow composition.
+ * *)
 class ['self] map_expr_adapter = object (self: 'self)
 
   inherit [_] map_expr
-  (* Note: need to re-override the monomorphic methods of [map_expr] with the
-   * polymorphic ones! *)
   inherit [_] map_misc
 
-  method visit_expr'' env e =
+  method visit_expr_w env e =
     let typ = self#visit_typ env e.typ in
     let node = self#visit_expr' (env, typ) e.node in
     { node; typ }
 
-  method visit_binder'' env x =
+  method visit_binder_w env x =
     let typ = self#visit_typ env x.typ in
     let node = self#visit_binder' (env, typ) x.node in
     { node; typ }
@@ -281,12 +299,10 @@ and files =
   file list
 
 and decl =
-  | DFunction of calling_convention option * flag list * int * typ * lident * binder'' list * expr''
-  | DGlobal of flag list * lident * int * typ * expr''
+  | DFunction of calling_convention option * flag list * int * typ * lident * binder_w list * expr_w
+  | DGlobal of flag list * lident * int * typ * expr_w
   | DExternal of calling_convention option * flag list * lident * typ
   | DType of lident * flag list * int * type_def
-
-let test = object inherit [_] map_expr_adapter inherit [_] map inherit [_] map_misc end
 
 (** Some visitors for our AST of expressions *)
 

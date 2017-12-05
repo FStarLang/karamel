@@ -6,7 +6,7 @@ include $(shell ocamlfind query visitors)/Makefile.preprocess
 OCAMLBUILD=ocamlbuild -I src -I lib -I parser -use-menhir -use-ocamlfind -classic-display \
  -menhir "menhir --infer --explain"
 FLAVOR?=native
-TARGETS=Kremlin.$(FLAVOR) Tests.$(FLAVOR) Visitors.inferred.mli
+TARGETS=Kremlin.$(FLAVOR) Tests.$(FLAVOR) Ast.inferred.mli
 
 all:
 	@# Workaround Windows bug in OCamlbuild

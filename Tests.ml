@@ -38,15 +38,14 @@ open Ast
 open PrintAst.Ops
 
 class ['self] test = object (_: 'self)
-  inherit [_] Visitors.map
+  inherit [_] map
   method! visit_EBound (env, t) var =
-    let t = Option.must t in
     KPrint.bprintf "env = %s, EBound: %a = %d\n" env ptyp t var;
     EBound var
-  method! visit_TUnit (env, _) =
+  method! visit_TUnit env =
     KPrint.bprintf "env = %s, TUnit\n" env;
     TBool
 end
 
 let _ =
-   (new test)#visit_expr ("hello", None) ({ node = EBound 0; typ = TUnit })
+   (new test)#visit_expr_w "hello" ({ node = EBound 0; typ = TUnit })
