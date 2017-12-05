@@ -549,7 +549,7 @@ let to_addr is_struct =
 let in_memory files =
   (* TODO: do let_to_sequence and sequence_to_let once! *)
   let is_struct = mk_is_struct files in
-  let files = Helpers.visit_files () Simplify.sequence_to_let files in
+  let files = Simplify.sequence_to_let#visit_files () files in
   let files = Helpers.visit_files () (to_addr is_struct) files in
-  let files = Helpers.visit_files () Simplify.let_to_sequence files in
+  let files = Simplify.let_to_sequence#visit_files () files in
   files

@@ -91,6 +91,29 @@ let remove_buffer_ops = object
 
 end
 
+(* No partial applications ****************************************************)
+
+(* TODO: figure out if we want to ignore the other cases for performance
+ * reasons. *)
+let eta_expand = object
+  inherit [_] map
+
+  method visit_DGlobal () flags name n t body =
+    (* TODO: eta-expand partially applied functions *)
+    match t with
+    | TArrow _ ->
+        let tret, targs = flatten_arrow t in
+        let n = List.length targs in
+        let binders, args = List.split (List.mapi (fun i t ->
+          with_type t { name = Printf.sprintf "x%d" i; mut = false; mark = ref 0; meta = None; atom = Atom.fresh () },
+          { node = EBound (n - i - 1); typ = t }
+        ) targs) in
+        let body = { node = EApp (body, args); typ = tret } in
+        DFunction (None, flags, n, tret, name, binders, body)
+    | _ ->
+        DGlobal (flags, name, n, t, body)
+end
+
 let simplify (files: file list): file list =
   let files = visit_files () remove_buffer_ops files in
   (* Note: this is not added at the C level because function pointers are ok,
@@ -106,5 +129,5 @@ let simplify (files: file list): file list =
    * ABI level.
    * See https://github.com/FStarLang/kremlin/issues/52 for reference.
    * *)
-  let files = visit_files () Simplify.eta_expand files in
+  let files = eta_expand#visit_files () files in
   files

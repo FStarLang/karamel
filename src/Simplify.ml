@@ -304,10 +304,10 @@ end
 
 let sequence_to_let = object (self)
 
-  inherit [unit] deprecated_map
+  inherit [_] map
 
-  method! esequence () _ es =
-    let es = List.map (self#visit ()) es in
+  method! visit_ESequence env es =
+    let es = List.map (self#visit_expr env) es in
     match List.rev es with
     | last :: first_fews ->
         (List.fold_left (fun cont e ->
@@ -316,21 +316,21 @@ let sequence_to_let = object (self)
     | [] ->
         failwith "[sequence_to_let]: impossible (empty sequence)"
 
-  method! eignore () t e =
-    (nest_in_return_pos t (fun _ e -> with_type t (EIgnore (self#visit () e))) e).node
+  method! visit_EIgnore (env, t) e =
+    (nest_in_return_pos t (fun _ e -> with_type t (EIgnore (self#visit_expr_w env e))) e).node
 
 end
 
 let let_to_sequence = object (self)
 
-  inherit [unit] deprecated_map
+  inherit [_] map
 
-  method! elet env _ b e1 e2 =
+  method! visit_ELet env b e1 e2 =
     match b.node.meta with
     | Some MetaSequence ->
-        let e1 = self#visit env e1 in
+        let e1 = self#visit_expr env e1 in
         let _, e2 = open_binder b e2 in
-        let e2 = self#visit env e2 in
+        let e2 = self#visit_expr env e2 in
         begin match e1.node, e2.node with
         | _, EUnit ->
             (* let _ = e1 in () *)
@@ -345,7 +345,7 @@ let let_to_sequence = object (self)
             ESequence [e1; e2]
         end
     | None ->
-        let e2 = self#visit env e2 in
+        let e2 = self#visit_expr env e2 in
         ELet (b, e1, e2)
 
 end
@@ -365,7 +365,7 @@ end
  * the same way. *)
 let let_if_to_assign = object (self)
 
-  inherit [unit] deprecated_map
+  inherit [_] map
 
   method private make_assignment lhs e1 =
     let nest_assign = nest_in_return_pos TUnit (fun i innermost -> {
@@ -374,56 +374,57 @@ let let_if_to_assign = object (self)
     }) in
     match e1.node with
     | EIfThenElse (cond, e_then, e_else) ->
-        let e_then = nest_assign (self#visit () e_then) in
-        let e_else = nest_assign (self#visit () e_else) in
+        let e_then = nest_assign (self#visit_expr_w () e_then) in
+        let e_else = nest_assign (self#visit_expr_w () e_else) in
         with_unit (EIfThenElse (cond, e_then, e_else))
 
     | ESwitch (e, branches) ->
-        let branches = List.map (fun (tag, e) -> tag, nest_assign (self#visit () e)) branches in
+        let branches = List.map (fun (tag, e) ->
+          tag, nest_assign (self#visit_expr_w () e)
+        ) branches in
         with_unit (ESwitch (e, branches))
 
     | _ ->
         invalid_arg "make_assignment"
 
-  method! elet () t b e1 e2 =
+  method! visit_ELet (_, t) b e1 e2 =
     match e1.node, b.node.meta with
     | (EIfThenElse _ | ESwitch _), None ->
         (* [b] holds the return value of the conditional *)
         let b = mark_mut b in
         let e = self#make_assignment (with_type b.typ (EBound 0)) (DeBruijn.lift 1 e1) in
         ELet (b, any, with_type t (
-          ELet (sequence_binding (), e, DeBruijn.lift 1 (self#visit () e2))))
+          ELet (sequence_binding (), e, DeBruijn.lift 1 (self#visit_expr_w () e2))))
 
     | _ ->
         (* This may be a statement-let; visit both. *)
-        ELet (b, self#visit () e1, self#visit () e2)
+        ELet (b, self#visit_expr_w () e1, self#visit_expr_w () e2)
 
-  method! eassign () _ e1 e2 =
+  method! visit_EAssign _ e1 e2 =
     match e2.node with
     | (EIfThenElse _ | ESwitch _) ->
         (self#make_assignment e1 e2).node
 
     | _ ->
         EAssign (e1, e2)
-
 end
 
 let misc_cosmetic = object (self)
 
-  inherit [unit] deprecated_map
+  inherit [_] map
 
-  method! eifthenelse env _ e1 e2 e3 =
-    let e1 = self#visit env e1 in
-    let e2 = self#visit env e2 in
-    let e3 = self#visit env e3 in
+  method! visit_EIfThenElse env e1 e2 e3 =
+    let e1 = self#visit_expr env e1 in
+    let e2 = self#visit_expr env e2 in
+    let e3 = self#visit_expr env e3 in
     match e2.node with
     | EUnit when e3.node <> EUnit ->
         EIfThenElse (Helpers.mk_not e1, e3, e2)
     | _ ->
         EIfThenElse (e1, e2, e3)
 
-  method eaddrof env _ e =
-    let e = self#visit env e in
+  method visit_EAddrOf env e =
+    let e = self#visit_expr env e in
     match e.node with
     | EBufRead (e, { node = EConstant (_, "0"); _ }) ->
         e.node
@@ -797,11 +798,12 @@ and hoist_expr pos e =
   | EReturn _ | EBreak ->
       raise_error (Unsupported "[return] or [break] expressions should only appear in statement position")
 
+(* TODO: figure out if we want to ignore the other cases for performance
+ * reasons. *)
 let hoist = object
-  inherit ignore_everything
-  inherit [_] deprecated_map
+  inherit [_] map
 
-  method dfunction () cc flags n ret name binders expr =
+  method! visit_DFunction _ cc flags n ret name binders expr =
     (* TODO: no nested let-bindings in top-level value declarations either *)
     let binders, expr = open_binders binders expr in
     let expr = hoist_stmt expr in
@@ -839,36 +841,16 @@ let rec fixup_return_pos e =
       e
   )
 
+(* TODO: figure out if we want to ignore the other cases for performance
+ * reasons. *)
 let fixup_hoist = object
-  inherit ignore_everything
-  inherit [_] deprecated_map
+  inherit [_] map
 
-  method dfunction () cc flags n ret name binders expr =
+  method visit_DFunction _ cc flags n ret name binders expr =
     DFunction (cc, flags, n, ret, name, binders, fixup_return_pos expr)
 end
 
 
-(* No partial applications ****************************************************)
-
-let eta_expand = object
-  inherit [_] deprecated_map
-  inherit ignore_everything
-
-  method dglobal () flags name n t body =
-    (* TODO: eta-expand partially applied functions *)
-    match t with
-    | TArrow _ ->
-        let tret, targs = flatten_arrow t in
-        let n = List.length targs in
-        let binders, args = List.split (List.mapi (fun i t ->
-          with_type t { name = Printf.sprintf "x%d" i; mut = false; mark = ref 0; meta = None; atom = Atom.fresh () },
-          { node = EBound (n - i - 1); typ = t }
-        ) targs) in
-        let body = { node = EApp (body, args); typ = tret } in
-        DFunction (None, flags, n, tret, name, binders, body)
-    | _ ->
-        DGlobal (flags, name, n, t, body)
-end
 
 
 (* Make top-level names C-compatible using a global translation table **********)
@@ -1073,11 +1055,12 @@ let rec skip (e: expr) =
   | _ ->
       e
 
+(* TODO: figure out if we want to ignore the other cases for performance
+ * reasons. *)
 let hoist_bufcreate = object
-  inherit ignore_everything
-  inherit [_] deprecated_map
+  inherit [_] map
 
-  method dfunction () cc flags n ret name binders expr =
+  method visit_DFunction () cc flags n ret name binders expr =
     try
       DFunction (cc, flags, n, ret, name, binders, skip expr)
     with Fatal s ->
@@ -1091,24 +1074,24 @@ end
  * ridiculous to have that sort of normalization steps happen here. *)
 let remove_local_function_bindings = object(self)
 
-  inherit [unit] deprecated_map
+  inherit [_] map
 
-  method! elet env _ b e1 e2 =
-    let e1 = self#visit env e1 in
+  method! visit_ELet env b e1 e2 =
+    let e1 = self#visit_expr env e1 in
     match e1.node with
     | ECast ({ node = EFun _; _ } as e1, _) ->
         let e2 = DeBruijn.subst e1 0 e2 in
-        (self#visit env e2).node
+        (self#visit_expr env e2).node
     | EFun _ ->
         let e2 = DeBruijn.subst e1 0 e2 in
-        (self#visit env e2).node
+        (self#visit_expr env e2).node
     | _ ->
-        let e2 = self#visit env e2 in
+        let e2 = self#visit_expr env e2 in
         ELet (b, e1, e2)
 
-  method! eapp env t e es =
-    let e = self#visit env e in
-    let es = List.map (self#visit env) es in
+  method! visit_EApp (env, t) e es =
+    let e = self#visit_expr_w env e in
+    let es = List.map (self#visit_expr_w env) es in
     match e.node with
     | EFun (_, body, _) ->
         (safe_substitution es body t).node
@@ -1200,7 +1183,7 @@ end
 (* Macros that may generate tuples and sequences. Run before data types
  * compilation, once. *)
 let simplify0 (files: file list): file list =
-  let files = visit_files () remove_local_function_bindings files in
+  let files = remove_local_function_bindings#visit_files () files in
   let files = count_and_remove_locals#visit_files [] files in
   let files = visit_files () remove_uu files in
   let files = visit_files () combinators files in
@@ -1212,17 +1195,17 @@ let simplify0 (files: file list): file list =
  * position; where sequences are not nested. These series of transformations
  * re-establish this invariant. *)
 let simplify2 (files: file list): file list =
-  let files = visit_files () sequence_to_let files in
+  let files = sequence_to_let#visit_files () files in
   (* Quality of hoisting is WIDELY improved if we remove un-necessary
    * let-bindings. *)
   let files = count_and_remove_locals#visit_files [] files in
-  let files = visit_files () hoist files in
+  let files = hoist#visit_files () files in
   let files = if !Options.c89_scope then visit_files (ref []) SimplifyC89.hoist_lets files else files in
-  let files = visit_files () hoist_bufcreate files in
-  let files = visit_files () fixup_hoist files in
-  let files = visit_files () let_if_to_assign files in
-  let files = visit_files () misc_cosmetic files in
-  let files = visit_files () let_to_sequence files in
+  let files = hoist_bufcreate#visit_files () files in
+  let files = fixup_hoist#visit_files () files in
+  let files = let_if_to_assign#visit_files () files in
+  let files = misc_cosmetic#visit_files () files in
+  let files = let_to_sequence#visit_files () files in
   files
 
 (* This should be run late since inlining may create more opportunities for the
