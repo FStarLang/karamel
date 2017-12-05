@@ -13,22 +13,22 @@ open Helpers
 
 let count_and_remove_locals = object (self)
 
-  inherit [binder list] deprecated_map
+  inherit [_] map
 
   method! extend env binder =
     binder.node.mark := 0;
     binder :: env
 
-  method! ebound env _ i =
+  method! visit_EBound (env, _) i =
     let b = List.nth env i in
     incr b.node.mark;
     EBound i
 
-  method! elet env _ b e1 e2 =
+  method! visit_ELet (env, _) b e1 e2 =
     (* Remove unused variables. Important to get rid of calls to [HST.get()]. *)
-    let e1 = self#visit env e1 in
+    let e1 = self#visit_expr_w env e1 in
     let env = self#extend env b in
-    let e2 = self#visit env e2 in
+    let e2 = self#visit_expr_w env e2 in
     if !(b.node.mark) = 0 && is_readonly_c_expression e1 then
       (snd (open_binder b e2)).node
     else if !(b.node.mark) = 0 then
@@ -45,15 +45,15 @@ let count_and_remove_locals = object (self)
     else
       ELet (b, e1, e2)
 
-  method! ebufsub env _ e1 e2 =
+  method! visit_EBufSub env e1 e2 =
     (* This creates more opportunities for values to be eliminated if unused.
      * Also, AstToCStar emits BufSub (e, 0) as just e, so we need the value
      * check to be in agreement on both sides. *)
     match e2.node with
     | EConstant (_, "0") ->
-        (self#visit env e1).node
+        (self#visit_expr env e1).node
     | _ ->
-        EBufSub (self#visit env e1, self#visit env e2)
+        EBufSub (self#visit_expr env e1, self#visit_expr env e2)
 
 end
 
@@ -74,31 +74,25 @@ let unused_binder binders i =
 
 (* To be run immediately after the phase above. *)
 let build_unused_map map = object
-  inherit [unit] deprecated_map
+  inherit [_] iter
 
-  method dfunction () cc flags n ret name binders body =
-    (* for i = 0 to List.length binders - 1 do *)
-    (*   KPrint.bprintf "%a/%d(%d): %b\n" plid name i (List.length binders) (unused_binder binders i) *)
-    (* done; *)
-    Hashtbl.add map name (KList.make (List.length binders) (unused_binder binders));
-    DFunction (cc, flags, n, ret, name, binders, body)
+  method! visit_DFunction _ _ _ _ _ name binders _ =
+    Hashtbl.add map name (KList.make (List.length binders) (unused_binder binders))
 
-  method dexternal () cc flags name t =
-    begin match t with
+  method! visit_DExternal _ _ _ name t =
+    match t with
     | TArrow _ ->
         let _, args = flatten_arrow t in
-        Hashtbl.add map name (KList.make (List.length args) (unused_typ args));
+        Hashtbl.add map name (KList.make (List.length args) (unused_typ args))
     | _ ->
         ()
-    end;
-    DExternal (cc, flags, name, t)
 end
 
 (* Ibid. *)
 let remove_unused_parameters map = object (self)
-  inherit [unit] deprecated_map
+  inherit [_] map
 
-  method dfunction () cc flags n ret name binders body =
+  method! visit_DFunction env cc flags n ret name binders body =
     let n_binders = List.length binders in
     let body = List.fold_left (fun body i ->
       if unused_binder binders i then
@@ -106,12 +100,12 @@ let remove_unused_parameters map = object (self)
       else
         body
     ) body (KList.make n_binders (fun i -> i)) in
-    let body = self#visit () body in
+    let body = self#visit_expr_w env body in
     let unused = KList.make (List.length binders) (fun i -> not (unused_binder binders i)) in
     let binders = KList.filter_mask unused binders in
     DFunction (cc, flags, n, ret, name, binders, body)
 
-  method dexternal () cc flags name t =
+  method! visit_DExternal _ cc flags name t =
     let t =
       match t with
       | TArrow _ ->
@@ -124,8 +118,8 @@ let remove_unused_parameters map = object (self)
     in
     DExternal (cc, flags, name, t)
 
-  method eapp () t e es =
-    let es = List.map (self#visit ()) es in
+  method! visit_EApp (env, t) e es =
+    let es = List.map (self#visit_expr_w env) es in
     match e.node with
     | EQualified lid when
       Hashtbl.mem map lid &&
@@ -153,7 +147,7 @@ let remove_unused_parameters map = object (self)
         (nest to_evaluate t (with_type t (EApp (e, es)))).node
 
     | _ ->
-        EApp (self#visit () e, es)
+        EApp (self#visit_expr_w env e, es)
 end
 
 
@@ -1206,7 +1200,7 @@ end
  * compilation, once. *)
 let simplify0 (files: file list): file list =
   let files = visit_files () remove_local_function_bindings files in
-  let files = visit_files [] count_and_remove_locals files in
+  let files = count_and_remove_locals#visit_files [] files in
   let files = visit_files () remove_uu files in
   let files = visit_files () combinators files in
   let files = visit_files () wrapping_arithmetic files in
@@ -1220,7 +1214,7 @@ let simplify2 (files: file list): file list =
   let files = visit_files () sequence_to_let files in
   (* Quality of hoisting is WIDELY improved if we remove un-necessary
    * let-bindings. *)
-  let files = visit_files [] count_and_remove_locals files in
+  let files = count_and_remove_locals#visit_files [] files in
   let files = visit_files () hoist files in
   let files = if !Options.c89_scope then visit_files (ref []) SimplifyC89.hoist_lets files else files in
   let files = visit_files () hoist_bufcreate files in
@@ -1233,10 +1227,10 @@ let simplify2 (files: file list): file list =
 (* This should be run late since inlining may create more opportunities for the
  * removal of unused variables. *)
 let remove_unused (files: file list): file list =
-  let files = visit_files [] count_and_remove_locals files in
+  let files = count_and_remove_locals#visit_files [] files in
   let map = Hashtbl.create 41 in
-  let files = visit_files () (build_unused_map map) files in
-  let files = visit_files () (remove_unused_parameters map) files in
+  (build_unused_map map)#visit_files () files;
+  let files = (remove_unused_parameters map)#visit_files () files in
   files
 
 (* Allocate C names avoiding keywords and name collisions. This should be done

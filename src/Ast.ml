@@ -379,8 +379,8 @@ type program =
   decl list
   [@@deriving show,
     visitors { name = "map_all"; variety = "map"; monomorphic = [ "env" ]; ancestors = ["map_expr_adapter"] },
-    visitors { name = "iter_all"; variety = "iter"; monomorphic = [ "env" ]; ancestors = ["iter_expr_adapter"] },
-    visitors { name = "reduce_all"; variety = "reduce"; monomorphic = [ "env" ]; ancestors = ["reduce_expr_adapter"] }]
+    visitors { name = "iter"; variety = "iter"; monomorphic = [ "env" ]; ancestors = ["iter_expr_adapter"] },
+    visitors { name = "reduce"; variety = "reduce"; monomorphic = [ "env" ]; ancestors = ["reduce_expr_adapter"] }]
 
 and file =
   string * program
