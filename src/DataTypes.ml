@@ -615,7 +615,7 @@ let anonymous_unions (map, _) = object (self)
     | _ ->
         super#visit_decl env d
 
-  method! visit_EFlat (_, t) fields =
+  method! visit_EFlat (env, t) fields =
     KPrint.bprintf "type is: %a\n" ptyp t;
     match fields, t with
     | [ Some f1, t1; Some f2, t2 ], TQualified lid when
@@ -623,7 +623,7 @@ let anonymous_unions (map, _) = object (self)
       is_tagged_union map lid ->
         EFlat [ Some f1, t1; None, t2 ]
     | _ ->
-        EFlat (self#visit_fields_e_opt ((), t(*dummy*)) fields)
+        EFlat (self#visit_fields_e_opt_w env fields)
 
 end
 

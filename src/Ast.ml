@@ -275,18 +275,27 @@ class ['self] map_expr_adapter = object (self: 'self)
   inherit [_] map_expr
   inherit [_] map_misc
 
-  method visit_expr_w env e =
-    let typ = self#visit_typ env e.typ in
-    let node = self#visit_expr' (env, typ) e.node in
-    { node; typ }
+  method visit_w: 'a. (('env * 'typ) -> 'a -> 'a) ->
+    'env -> 'a with_type -> 'a with_type =
+    fun f env x ->
+      let typ = self#visit_typ env x.typ in
+      let node = f (env, typ) x.node in
+      { node; typ }
 
-  method visit_binder_w env x =
-    let typ = self#visit_typ env x.typ in
-    let node = self#visit_binder' (env, typ) x.node in
-    { node; typ }
+  method visit_expr_w =
+    self#visit_w self#visit_expr'
+
+  method visit_binder_w =
+    self#visit_w self#visit_binder'
 end
 
 
+(* We compose everything together by leveraging the _w indirections that wrap up
+ * an environment with the type of the sub-node. For nodes that are of the form
+ * [foo with_type], we use the higher-order combinator above. For nodes that are
+ * an occurrence of [foo with_type], we define another type abbreviation (below)
+ * that is identical but contains the [_w] variant so that callers don't have to
+ * provide a dummy argument for the type. *)
 type program =
   decl list
   [@@deriving show,
@@ -299,10 +308,42 @@ and files =
   file list
 
 and decl =
-  | DFunction of calling_convention option * flag list * int * typ * lident * binder_w list * expr_w
+  | DFunction of calling_convention option * flag list * int * typ * lident * binders_w * expr_w
   | DGlobal of flag list * lident * int * typ * expr_w
   | DExternal of calling_convention option * flag list * lident * typ
   | DType of lident * flag list * int * type_def
+
+and binders_w = binder_w list
+
+and fields_e_opt_w =
+  (ident option * expr_w) list
+
+
+(** More helpers *)
+
+let filter_decls f files =
+  List.map (fun (file, decls) -> file, KList.filter_map f decls) files
+
+let iter_decls f files =
+  List.iter (fun (_, decls) -> List.iter f decls) files
+
+let with_type typ node =
+  { typ; node }
+
+let lid_of_decl = function
+  | DFunction (_, _, _, _, lid, _, _)
+  | DGlobal (_, lid, _, _, _)
+  | DExternal (_, _, lid, _)
+  | DType (lid, _, _, _) ->
+      lid
+
+let flags_of_decl = function
+  | DFunction (_, flags, _, _, _, _, _)
+  | DGlobal (flags, _, _, _, _)
+  | DType (_, flags, _, _)
+  | DExternal (_, flags, _, _) ->
+      flags
+
 
 (** Some visitors for our AST of expressions *)
 
@@ -780,27 +821,3 @@ class virtual ['env] deprecated_map = object (self)
 end
 
 
-(** More helpers *)
-
-let filter_decls f files =
-  List.map (fun (file, decls) -> file, KList.filter_map f decls) files
-
-let iter_decls f files =
-  List.iter (fun (_, decls) -> List.iter f decls) files
-
-let with_type typ node =
-  { typ; node }
-
-let lid_of_decl = function
-  | DFunction (_, _, _, _, lid, _, _)
-  | DGlobal (_, lid, _, _, _)
-  | DExternal (_, _, lid, _)
-  | DType (lid, _, _, _) ->
-      lid
-
-let flags_of_decl = function
-  | DFunction (_, flags, _, _, _, _, _)
-  | DGlobal (flags, _, _, _, _)
-  | DType (_, flags, _, _)
-  | DExternal (_, flags, _, _) ->
-      flags
