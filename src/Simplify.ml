@@ -890,24 +890,71 @@ let target_c_name lident =
 let record_name lident =
   [], GlobalNames.record (string_of_lident lident) (target_c_name lident)
 
+
 let record_toplevel_names = object (self)
   inherit [_] map
 
-  method! visit_lident _ name =
-    record_name name
+  method! visit_DGlobal _ flags name n t body =
+    DGlobal (flags, record_name name, n, t, body)
 
-  method! visit_DType (env: unit) name flags n t =
+  method! visit_DFunction _ cc flags n ret name args body =
+    DFunction (cc, flags, n, ret, record_name name, args, body)
+
+  method! visit_DExternal _ cc flags name t =
+    DExternal (cc, flags, record_name name, t)
+
+  method! visit_DType env name flags n t =
     (* TODO: this is not correct since record_name might, on the second call
      * (not forward), return something disambiguated with a suffix. *)
     let name = if t = Forward then name else record_name name in
     DType (name, flags, n, self#visit_type_def env t)
+
+  method! visit_Enum _ tags =
+    (* TODO: why no PEnum and PSwitch here?! *)
+    Enum (List.map record_name tags)
 end
 
-let replace_references_to_toplevel_names = object
+
+let t lident =
+  [], GlobalNames.translate (string_of_lident lident) (target_c_name lident)
+
+let replace_references_to_toplevel_names = object(self)
+  (* TODO figure out why this can't be replaced like in commit
+   * 4bb21edab1a0c0b1151ca9d852ecc27c2e70d2c1? *)
   inherit [_] map
 
-  method! visit_lident _ lident =
-    [], GlobalNames.translate (string_of_lident lident) (target_c_name lident)
+  method! visit_TApp env lident args =
+    TApp (t lident, List.map (self#visit_typ env) args)
+
+  method! visit_TQualified _ lident =
+    TQualified (t lident)
+
+  method! visit_EQualified _ lident =
+    EQualified (t lident)
+
+  method! visit_DGlobal env flags name n typ body =
+    DGlobal (flags, t name, n, self#visit_typ env typ, self#visit_expr_w env body)
+
+  method! visit_DFunction env cc flags n ret name args body =
+    DFunction (cc, flags, n, self#visit_typ env ret, t name, self#visit_binders_w env args, self#visit_expr_w env body)
+
+  method! visit_DExternal env cc flags name typ =
+    DExternal (cc, flags, t name, self#visit_typ env typ)
+
+  method! visit_DType env name flags n d =
+    DType (t name, flags, n, self#visit_type_def env d)
+
+  method! visit_Enum _ tags =
+    Enum (List.map t tags)
+
+  method! visit_PEnum _ name =
+    PEnum (t name)
+
+  method! visit_EEnum _ name =
+    EEnum (t name)
+
+  method! visit_ESwitch env e branches =
+    ESwitch (self#visit_expr env e, List.map (fun (tag, e) -> t tag, self#visit_expr env e) branches)
 end
 
 (* Extend the lifetimes of buffers ********************************************)
