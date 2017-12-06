@@ -10,7 +10,7 @@ open Helpers
  * the EPushFrame marker. *)
 let hoist_lets = object (self)
 
-  inherit [_] deprecated_map
+  inherit [_] map
 
   method private scope_start t e =
     (* We skip through actual let-bindings (which will generate declarations at
@@ -21,21 +21,21 @@ let hoist_lets = object (self)
         with_type t (ELet (b, e1, self#scope_start t e2))
     | _ ->
         let env = ref [] in
-        let e = self#visit env e in
+        let e = self#visit_expr_w env e in
         let bs = List.rev_map (fun b ->
           mark_mut b, any
         ) !env in
         nest bs t e
 
-  method! dfunction _ cc flags n ret name binders body =
+  method! visit_DFunction _ cc flags n ret name binders body =
     let body = self#scope_start ret body in
     DFunction (cc, flags, n, ret, name, binders, body)
 
-  method! eifthenelse _ t e1 e2 e3 =
+  method! visit_EIfThenElse (_, t) e1 e2 e3 =
     (* No ELet's in e1 *)
     EIfThenElse (e1, self#scope_start t e2, self#scope_start t e3)
 
-  method! efor env _ b e1 e2 e3 e4 =
+  method! visit_EFor (env, _) b e1 e2 e3 e4 =
     if b.node.meta = Some MetaSequence then
       EFor (b, e1, e2, e3, self#scope_start TUnit e4)
     else
@@ -50,13 +50,13 @@ let hoist_lets = object (self)
         DeBruijn.lift 1 e3,
         DeBruijn.lift 1 e4)
 
-  method! elet env t b e1 e2 =
+  method! visit_ELet (env, t) b e1 e2 =
     match e1.node with
     | EPushFrame ->
         ELet (b, e1, self#scope_start t e2)
 
     | _ when b.node.meta = Some MetaSequence ->
-        let e2 = self#visit env e2 in
+        let e2 = self#visit_expr_w env e2 in
         ELet (b, e1, e2)
 
     | _ ->
@@ -65,7 +65,7 @@ let hoist_lets = object (self)
             let b, e2 = DeBruijn.open_binder b e2 in
             let b = { b with typ } in
             env := b :: !env;
-            let e2 = self#visit env e2 in
+            let e2 = self#visit_expr_w env e2 in
             ELet (sequence_binding (),
               with_unit (EAssign (with_type b.typ (EOpen (b.node.name, b.node.atom)), e1)),
               DeBruijn.lift 1 e2)

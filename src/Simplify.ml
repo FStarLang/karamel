@@ -1200,7 +1200,7 @@ let simplify2 (files: file list): file list =
    * let-bindings. *)
   let files = count_and_remove_locals#visit_files [] files in
   let files = hoist#visit_files () files in
-  let files = if !Options.c89_scope then visit_files (ref []) SimplifyC89.hoist_lets files else files in
+  let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
   let files = hoist_bufcreate#visit_files () files in
   let files = fixup_hoist#visit_files () files in
   let files = let_if_to_assign#visit_files () files in

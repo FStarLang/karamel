@@ -8,7 +8,7 @@ let check_buffer_size =
   with_type (TArrow (TInt K.UInt32, TUnit)) (EQualified ([ "WasmSupport" ], "check_buffer_size"))
 
 let remove_buffer_ops = object
-  inherit [unit] deprecated_map
+  inherit [_] map as self
 
   (* The relatively simple [bufcreate init size] is rewritten, because no
    * initial value for buffers in CFlat:
@@ -22,7 +22,7 @@ let remove_buffer_ops = object
    *     s--;
    *   b
    * *)
-  method ebufcreate () t lifetime init size =
+  method! visit_EBufCreate (_, t) lifetime init size =
     match init.node with
     | EAny ->
         EBufCreate (lifetime, init, size)
@@ -50,7 +50,8 @@ let remove_buffer_ops = object
                     EAssign (ref_size, mk_minus_one ref_size))])));
               ref_buf]))))])))
 
-  method ebufcreatel () t lifetime es =
+  method! visit_EBufCreateL (_, t) lifetime es =
+    let es = List.map (self#visit_expr_w ()) es in
     let size = mk_uint32 (List.length es) in
     let with_t = with_type t in
     let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, size)) in
@@ -58,7 +59,7 @@ let remove_buffer_ops = object
     ELet (b_buf, body_buf, close_binder b_buf (with_t (
       ESequence (assignments @ [ ref_buf ]))))
 
-  method ebufblit () t src_buf src_ofs dst_buf dst_ofs len =
+  method! visit_EBufBlit (_, t) src_buf src_ofs dst_buf dst_ofs len =
     let with_t = with_type t in
     let b_src, body_src, ref_src =
       mk_named_binding "src" src_buf.typ (EBufSub (src_buf, src_ofs))
@@ -82,7 +83,7 @@ let remove_buffer_ops = object
             with_t (EBufRead (ref_src, mk_minus_one ref_len)))); with_unit (
           EAssign (ref_len, mk_minus_one ref_len))])))))))))))
 
-  method ebufwrite () _ e1 e2 e3 =
+  method! visit_EBufWrite _ e1 e2 e3 =
     let b_e1, body_e1, ref_e1 = mk_named_binding "dst" e1.typ e1.node in
     let b_e2, body_e2, ref_e2 = mk_named_binding "ofs" e2.typ e2.node in
     ELet (b_e1, body_e1, close_binder b_e1 (with_unit (
@@ -98,7 +99,7 @@ end
 let eta_expand = object
   inherit [_] map
 
-  method visit_DGlobal () flags name n t body =
+  method! visit_DGlobal () flags name n t body =
     (* TODO: eta-expand partially applied functions *)
     match t with
     | TArrow _ ->
@@ -115,7 +116,7 @@ let eta_expand = object
 end
 
 let simplify (files: file list): file list =
-  let files = visit_files () remove_buffer_ops files in
+  let files = remove_buffer_ops#visit_files () files in
   (* Note: this is not added at the C level because function pointers are ok,
    * and the C printer is capable of dealing with a global variable that is
    * actually a function. Also not doing this at the C level because this
