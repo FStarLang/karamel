@@ -479,18 +479,15 @@ let drop_unused files =
   let body_of_lid = Helpers.build_map files (fun map d -> Hashtbl.add map (lid_of_decl d) d) in
 
   let visitor = object (self)
-    inherit [_] deprecated_map
-    method! equalified before _ lid =
+    inherit [_] iter as super
+    method! visit_EQualified (before, _) lid =
+      self#discover before lid
+    method! visit_TQualified before lid =
+      self#discover before lid
+    method! visit_TApp before lid ts =
       self#discover before lid;
-      EQualified lid
-    method! tqualified before lid =
-      self#discover before lid;
-      TQualified lid
-    method! tapp before lid ts =
-      self#discover before lid;
-      ignore (List.map (self#visit_t before) ts);
-      TApp (lid, ts)
-    method discover before lid =
+      List.iter (self#visit_typ before) ts
+    method private discover before lid =
       if not (Hashtbl.mem seen lid) then begin
         Hashtbl.add seen lid ();
         if Options.debug "reachability" then
@@ -498,20 +495,19 @@ let drop_unused files =
             (String.concat " <- " (List.map (fun lid -> KPrint.bsprintf "%a" plid lid) before));
 
         if Hashtbl.mem body_of_lid lid then
-          ignore (self#visit_d (lid :: before) (Hashtbl.find body_of_lid lid));
+          ignore (super#visit_decl (lid :: before) (Hashtbl.find body_of_lid lid));
+      end
+    method! visit_decl _ d =
+      let flags = flags_of_decl d in
+      let lid = lid_of_decl d in
+      if not (List.exists ((=) Private) flags) && not (Drop.lid lid) || always_live lid then begin
+        if Options.debug "reachability" then
+          KPrint.bprintf "REACHABILITY: %a is a root because it isn't private\n" plid lid;
+        Hashtbl.add seen lid ();
+        super#visit_decl [lid] d
       end
    end in
-
-  iter_decls (fun d ->
-    let flags = flags_of_decl d in
-    let lid = lid_of_decl d in
-    if not (List.exists ((=) Private) flags) && not (Drop.lid lid) || always_live lid then begin
-      if Options.debug "reachability" then
-        KPrint.bprintf "REACHABILITY: %a is a root because it isn't private\n" plid lid;
-      Hashtbl.add seen lid ();
-      ignore (visitor#visit_d [lid] d)
-    end
-  ) files;
+  visitor#visit_files [] files;
   filter_decls (fun d ->
     let flags = flags_of_decl d in
     let lid = lid_of_decl d in
