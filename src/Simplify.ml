@@ -187,7 +187,7 @@ end
  * for each variable. *)
 let remove_uu = object (self)
 
-  inherit [unit] deprecated_map
+  inherit [_] map
 
   (* This function returns true if:
    * - [e] contains exactly one use of [0] and
@@ -286,9 +286,9 @@ let remove_uu = object (self)
     | EFlat es ->
         unordered (snd (List.split es))
 
-  method! elet _ _ b e1 e2 =
-    let e1 = self#visit () e1 in
-    let e2 = self#visit () e2 in
+  method! visit_ELet _ b e1 e2 =
+    let e1 = self#visit_expr_w () e1 in
+    let e2 = self#visit_expr_w () e2 in
     if KString.starts_with b.node.name "uu___" &&
       !(b.node.mark) = 1 &&
       is_readonly_c_expression e1 &&
@@ -1185,7 +1185,7 @@ end
 let simplify0 (files: file list): file list =
   let files = remove_local_function_bindings#visit_files () files in
   let files = count_and_remove_locals#visit_files [] files in
-  let files = visit_files () remove_uu files in
+  let files = remove_uu#visit_files () files in
   let files = combinators#visit_files () files in
   let files = wrapping_arithmetic#visit_files () files in
   files

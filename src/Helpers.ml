@@ -1,37 +1,14 @@
 (** A bunch of little helpers to deal with our AST. *)
 
 open Ast
-open Warnings
 open DeBruijn
 open PrintAst.Ops
-
-(* Some more fancy visitors ***************************************************)
-
-let visit_files (env: 'env) (visitor: _ deprecated_map) (files: file list) =
-  KList.filter_map (fun f ->
-    try
-      Some (visitor#visit_file env f)
-    with Error e ->
-      maybe_fatal_error (fst f ^ "/" ^ fst e, snd e);
-      None
-  ) files
-
-class ignore_everything = object
-  method dfunction () cc flags n ret name binders expr =
-    DFunction (cc, flags, n, ret, name, binders, expr)
-
-  method dglobal () flags name n typ expr =
-    DGlobal (flags, name, n, typ, expr)
-
-  method dtype () name flags n t =
-    DType (name, flags, n, t)
-end
 
 (** For each declaration in [files], call [f map decl], where [map] is the map
  * being filled. *)
 let build_map files f =
   let map = Hashtbl.create 41 in
-  iter_decls (f map) files;
+  (object inherit [_] iter method visit_decl _ = f map end)#visit_files () files;
   map
 
 
