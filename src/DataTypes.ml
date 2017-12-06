@@ -630,7 +630,6 @@ let anonymous_unions (map, _) = object (self)
         super#visit_decl env d
 
   method! visit_EFlat (env, t) fields =
-    KPrint.bprintf "type is: %a\n" ptyp t;
     match fields, t with
     | [ Some f1, t1; Some f2, t2 ], TQualified lid when
       f1 = field_for_tag && f2 = field_for_union &&

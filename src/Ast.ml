@@ -379,7 +379,7 @@ type program =
   decl list
   [@@deriving show,
     visitors { name = "map_all"; variety = "map"; monomorphic = [ "env" ]; ancestors = ["map_expr_adapter"] },
-    visitors { name = "iter"; variety = "iter"; monomorphic = [ "env" ]; ancestors = ["iter_expr_adapter"] },
+    visitors { name = "iter_all"; variety = "iter"; monomorphic = [ "env" ]; ancestors = ["iter_expr_adapter"] },
     visitors { name = "reduce"; variety = "reduce"; monomorphic = [ "env" ]; ancestors = ["reduce_expr_adapter"] }]
 
 and file =
@@ -484,6 +484,53 @@ class ['self] map = object (self: 'self)
     let env = self#extend_many env bs in
     let e = self#visit_expr_w env e in
     DFunction (cc, flags, n, t, lid, bs, e)
+end
+
+class ['self] iter = object (self: 'self)
+  inherit [_] iter_all
+  inherit [_] names_helper
+
+  method! visit_ELet env b e1 e2 =
+    self#visit_binder env b;
+    self#visit_expr env e1;
+    let env = self#extend_wo env b in
+    self#visit_expr env e2
+
+  method! visit_EFor env b e1 e2 e3 e4 =
+    self#visit_binder env b;
+    self#visit_expr env e1;
+    let env = self#extend_wo env b in
+    self#visit_expr env e2;
+    self#visit_expr env e3;
+    self#visit_expr env e4
+
+  method! visit_EFun env bs e t =
+    self#visit_binders env bs;
+    let env = self#extend_many_wo env bs in
+    self#visit_expr env e;
+    self#visit_typ_wo env t
+
+  method! visit_branch env (bs, p, e) =
+    self#visit_binders env bs;
+    let env = self#extend_many_wo env bs in
+    self#visit_pattern env p;
+    self#visit_expr env e
+
+  method! visit_DType env lid flags n d =
+    self#visit_lident env lid;
+    self#visit_flags env flags;
+    let env = self#extend_tmany env n in
+    self#visit_type_def env d
+
+  method! visit_DFunction env cc flags n t lid bs e =
+    self#visit_calling_convention_option env cc;
+    self#visit_flags env flags;
+    let env = self#extend_tmany env n in
+    self#visit_typ env t;
+    self#visit_lident env lid;
+    self#visit_binders_w env bs;
+    let env = self#extend_many env bs in
+    self#visit_expr_w env e
 end
 
 

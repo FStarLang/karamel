@@ -121,15 +121,14 @@ let ensure_fresh env name body cont =
         false
     | Some body ->
         let r = ref false in
-        ignore ((object
-          inherit [string list] deprecated_map
-          method extend env binder =
+        (object
+          inherit [_] iter
+          method! extend env binder =
             binder.node.name :: env
-          method ebound env _ i =
+          method! visit_EBound (env, _) i =
             if i - k >= 0 then
               r := !r || name = List.nth env (i - k);
-            EBound i
-        end) # visit env.names body);
+        end)#visit_expr_w env.names body;
         !r
   in
   mk_fresh name (fun tentative ->

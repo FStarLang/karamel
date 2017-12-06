@@ -229,7 +229,7 @@ end
 
 (* This follows the same structure as for data types, with a whole-program from
  * function & global lids to their respective definitions. Every type
- * application (caugh via the visitor) generates an instance. *)
+ * application (caught via the visitor) generates an instance. *)
 let functions files =
   let map = Helpers.build_map files (fun map -> function
     | DFunction (cc, flags, n, t, name, b, body) ->
@@ -244,7 +244,7 @@ let functions files =
 
   let monomorphize = object(self)
 
-    inherit [unit] deprecated_map
+    inherit [_] map
 
     (* Current file, for warning purposes. *)
     val mutable current_file = ""
@@ -257,21 +257,21 @@ let functions files =
             if Hashtbl.mem map name then
               []
             else
-              let d = DFunction (cc, flags, n, ret, name, binders, self#visit () body) in
+              let d = DFunction (cc, flags, n, ret, name, binders, self#visit_expr_w () body) in
               assert (n = 0);
               Gen.clear () @ [ d ]
         | DGlobal (flags, name, n, t, body) ->
             if Hashtbl.mem map name then
               []
             else
-              let d = DGlobal (flags, name, n, t, self#visit () body) in
+              let d = DGlobal (flags, name, n, t, self#visit_expr_w () body) in
               assert (n = 0);
               Gen.clear () @ [ d ]
         | d ->
             [ d ]
       ) decls
 
-    method etapp env _ e ts =
+    method! visit_ETApp env e ts =
       match e.node with
       | EQualified lid ->
           begin try
@@ -281,12 +281,12 @@ let functions files =
             match Hashtbl.find map lid with
             | exception Not_found ->
                 (* External function. Bail. *)
-                (self#visit env e).node
+                (self#visit_expr env e).node
             | `Function (cc, flags, n, ret, name, binders, body) ->
                 (* Need to generate a new instance. *)
                 if n <> List.length ts then begin
                   KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
-                  (self#visit env e).node
+                  (self#visit_expr env e).node
                 end else
                   (* The thunk allows registering the name before visiting the
                    * body, for polymorphic recursive functions. *)
@@ -297,7 +297,7 @@ let functions files =
                       { node; typ = DeBruijn.subst_tn ts typ }
                     ) binders in
                     let body = DeBruijn.subst_ten ts body in
-                    let body = self#visit env body in
+                    let body = self#visit_expr env body in
                     DFunction (cc, flags, 0, ret, name, binders, body)
                   in
                   EQualified (Gen.register_def current_file lid ts name def)
@@ -305,13 +305,13 @@ let functions files =
             | `Global (flags, name, n, t, body) ->
                 if n <> List.length ts then begin
                   KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
-                  (self#visit env e).node
+                  (self#visit_expr env e).node
                 end else
                   let name = Gen.gen_lid name ts in
                   let def () =
                     let t = DeBruijn.subst_tn ts t in
                     let body = DeBruijn.subst_ten ts body in
-                    let body = self#visit env body in
+                    let body = self#visit_expr env body in
                     DGlobal (flags, name, 0, t, body)
                   in
                   EQualified (Gen.register_def current_file lid ts name def)
@@ -347,12 +347,12 @@ let functions files =
           end
 
       | EOp (_, _) ->
-         (self#visit env e).node
+         (self#visit_expr env e).node
 
       | _ ->
           KPrint.bprintf "%a is not an lid in the type application\n" pexpr e;
-          (self#visit env e).node
+          (self#visit_expr env e).node
 
   end in
 
-  Helpers.visit_files () monomorphize files
+  monomorphize#visit_files () files
