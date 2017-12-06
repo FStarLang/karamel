@@ -143,7 +143,7 @@ class virtual ['self] reduce_typ_adapter = object (self: 'self)
   inherit [_] reduce_misc
 
   (* We let the user explain exactly how types and expressions compose. *)
-  method virtual expr_plus_typ: _
+  method private virtual expr_plus_typ: _
 
   method visit_typ_wo (env, _) t =
     self#visit_typ env t

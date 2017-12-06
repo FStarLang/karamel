@@ -887,7 +887,6 @@ let record_toplevel_names = object (self)
     DType (name, flags, n, self#visit_type_def env t)
 
   method! visit_Enum _ tags =
-    (* TODO: why no PEnum and PSwitch here?! *)
     Enum (List.map record_name tags)
 end
 
@@ -897,7 +896,6 @@ let t lident =
 
 let replace_references_to_toplevel_names = object
   inherit [_] map
-
 
   method! visit_lident _ lident =
     t lident

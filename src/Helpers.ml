@@ -193,64 +193,30 @@ let strengthen_array t e2 =
         pexpr e2
 
 
-let is_X_value self (e: expr) =
-  match e.node with
-  | EBound _
-  | EOpen _
-  | EOp _
-  | EQualified _
-  | EConstant _
-  | EUnit
-  | EBool _
-  | EEnum _
-  | EString _
-  | EFun _
-  | EAbort _
-  | EAddrOf _
-  | EAny ->
-      true
+class ['self] readonly_visitor = object (self: 'self)
+  inherit [_] reduce
+  method private zero = true
+  method private plus = (&&)
+  method private expr_plus_typ = (&&)
+  method! visit_EIfThenElse _ _ _ _ = false
+  method! visit_ESequence _ _ = false
+  method! visit_EAssign _ _ _ = false
+  method! visit_EBufCreate _ _ _ _ = false
+  method! visit_EBufCreateL _ _ _ = false
+  method! visit_EBufWrite _ _ _ _ = false
+  method! visit_EBufBlit _ _ _ _ _ _ = false
+  method! visit_EBufFill _ _ _ _ = false
+  method! visit_EPushFrame _ = false
+  method! visit_EPopFrame _ = false
+  method! visit_EMatch _ _ _ = false
+  method! visit_ESwitch _ _ _ = false
+  method! visit_EReturn _ _ = false
+  method! visit_EBreak _ = false
+  method! visit_EFor _ _ _ _ _ _ = false
+  method! visit_ETApp _ _ _ = false
+  method! visit_EWhile _ _ _ = false
 
-  | ETuple es
-  | ECons (_, es) ->
-      List.for_all self es
-
-  | EFlat identexprs ->
-      List.for_all (fun (_, e) -> self e) identexprs
-
-  | EIgnore e
-  | EField (e, _)
-  | EComment (_, e, _)
-  | ECast (e, _) ->
-      self e
-
-  | EApp _
-  | ELet _
-  | EIfThenElse _
-  | ESequence _
-  | EAssign _
-  | EBufCreate _
-  | EBufCreateL _
-  | EBufRead _
-  | EBufWrite _
-  | EBufSub _
-  | EBufBlit _
-  | EBufFill _
-  | EPushFrame
-  | EPopFrame
-  | EMatch _
-  | ESwitch _
-  | EReturn _
-  | EBreak
-  | EFor _
-  | ETApp _
-  | EWhile _ ->
-      false
-
-let rec is_value e =
-  is_X_value is_value e
-
-let rec is_readonly_c_expression e =
-  let is_pure_builtin lid =
+  method private is_pure_builtin lid =
     let pure_builtin_lids = [
       [ "C"; "String" ], "get";
       [ "C"; "Nullity" ], "op_Bang_Star"
@@ -260,19 +226,28 @@ let rec is_readonly_c_expression e =
       let lid' = Idents.string_of_lident lid' in
       KString.starts_with lid lid'
     ) pure_builtin_lids
-  in
-  match e.node with
-  | ELet (_, e1, e2)
-  | EBufRead (e1, e2)
-  | EBufSub (e1, e2) ->
-      is_readonly_c_expression e1 &&
-      is_readonly_c_expression e2
-  | EApp ({ node = EOp _; _ }, es) ->
-      List.for_all is_readonly_c_expression es
-  | EApp ({ node = EQualified lid; _ }, es) when is_pure_builtin lid ->
-      List.for_all is_readonly_c_expression es
-  | _ ->
-      is_X_value is_readonly_c_expression e
+
+  method! visit_EApp _ e es =
+    match e.node with
+    | EOp _ ->
+        List.for_all (self#visit_expr_w ()) es
+    | EQualified lid when self#is_pure_builtin lid ->
+        List.for_all (self#visit_expr_w ()) es
+    | _ ->
+        false
+end
+
+let is_readonly_c_expression = (new readonly_visitor)#visit_expr_w ()
+
+let value_visitor = object
+  inherit [_] readonly_visitor
+  method! visit_EApp _ _ _ = false
+  method! visit_ELet _ _ _ _ = false
+  method! visit_EBufRead _ _ _ = false
+  method! visit_EBufSub _ _ _ = false
+end
+
+let is_value = value_visitor#visit_expr_w ()
 
 (* Used by the Checker for the size of stack-allocated buffers. Also used by the
  * global initializers collection phase. This is a conservative approximation of
