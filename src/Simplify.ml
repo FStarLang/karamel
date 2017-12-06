@@ -1104,7 +1104,7 @@ end
 (* This needs to happen after local function bindings have been substituted. *)
 let combinators = object(self)
 
-  inherit [_] deprecated_map as super
+  inherit [_] map as super
 
   method private mk_for start finish body w =
     (* Relying on the invariant that, if [finish] is effectful, F* has
@@ -1117,9 +1117,9 @@ let combinators = object(self)
     let iter = mk_incr w in
     (* Note: no need to shift, the body was under a one-argument lambda
      * already. *)
-    EFor (b, start, cond, iter, self#visit () body)
+    EFor (b, start, cond, iter, self#visit_expr_w () body)
 
-  method! eapp () t e es =
+  method! visit_EApp (_, t) e es =
     match e.node, es with
     | EQualified ([ "C"; "Loops" ], "for_"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
         self#mk_for start finish body K.UInt32
@@ -1149,7 +1149,7 @@ let combinators = object(self)
               (mk_not (with_type TBool (EBound 2)))
               (mk_neq (with_type uint32 (EBound 1)) (lift 3 finish)),
             lift 1 iter,
-            with_unit (EIgnore (self#visit () (lift 2 body)))));
+            with_unit (EIgnore (self#visit_expr_w () (lift 2 body)))));
           with_type t (ETuple [
             with_type uint32 (EBound 0);
             with_type TBool (EBound 1)])]))))
@@ -1164,12 +1164,12 @@ let combinators = object(self)
     | EQualified ([ "C"; "Loops" ], s), [ { node = EFun (_, body, _); _ } ]
       when KString.starts_with s "do_while" ->
         EWhile (etrue, with_unit (
-          EIfThenElse (DeBruijn.subst eunit 0 (self#visit () body),
+          EIfThenElse (DeBruijn.subst eunit 0 (self#visit_expr_w () body),
             with_unit EBreak,
             eunit)))
 
     | _ ->
-        super#eapp () t e es
+        super#visit_EApp ((), t) e es
 
 end
 
@@ -1186,7 +1186,7 @@ let simplify0 (files: file list): file list =
   let files = remove_local_function_bindings#visit_files () files in
   let files = count_and_remove_locals#visit_files [] files in
   let files = visit_files () remove_uu files in
-  let files = visit_files () combinators files in
+  let files = combinators#visit_files () files in
   let files = wrapping_arithmetic#visit_files () files in
   files
 

@@ -111,20 +111,20 @@ let allocate_tag enums preferred_lid tags =
 
 let compile_simple_matches (map, enums) = object(self)
 
-  inherit [unit] deprecated_map
+  inherit [_] map
 
   val pending = ref []
 
-  method! visit_file ok file =
+  method! visit_file _ file =
     let name, decls = file in
     name, KList.map_flatten (fun d ->
-      let d = self#visit_d ok d in
+      let d = self#visit_decl () d in
       let new_decls = !pending in
       pending := [];
       new_decls @ [ d ]
     ) decls
 
-  method econs () typ cons args =
+  method! visit_ECons (_, typ) cons args =
     let lid =
       match typ with
       | TQualified lid -> lid
@@ -132,16 +132,16 @@ let compile_simple_matches (map, enums) = object(self)
     in
     match Hashtbl.find map lid with
     | exception Not_found ->
-        ECons (cons, List.map (self#visit ()) args)
+        ECons (cons, List.map (self#visit_expr_w ()) args)
     | ToTaggedUnion _ ->
-        ECons (cons, List.map (self#visit ()) args)
+        ECons (cons, List.map (self#visit_expr_w ()) args)
     | ToEnum ->
         assert (List.length args = 0);
         EEnum (mk_tag_lid lid cons)
     | ToFlat names ->
-        EFlat (List.map2 (fun n e -> Some n, self#visit () e) names args)
+        EFlat (List.map2 (fun n e -> Some n, self#visit_expr_w () e) names args)
 
-  method pcons () typ cons args =
+  method! visit_PCons (_, typ) cons args =
     let lid =
       match typ with
       | TQualified lid -> lid
@@ -149,16 +149,16 @@ let compile_simple_matches (map, enums) = object(self)
     in
     match Hashtbl.find map lid with
     | exception Not_found ->
-        PCons (cons, List.map (self#visit_pattern ()) args)
+        PCons (cons, List.map (self#visit_pattern_w ()) args)
     | ToTaggedUnion _ ->
-        PCons (cons, List.map (self#visit_pattern ()) args)
+        PCons (cons, List.map (self#visit_pattern_w ()) args)
     | ToEnum ->
         assert (List.length args = 0);
         PEnum (mk_tag_lid lid cons)
     | ToFlat names ->
-        PRecord (List.map2 (fun n e -> n, self#visit_pattern () e) names args)
+        PRecord (List.map2 (fun n e -> n, self#visit_pattern_w () e) names args)
 
-  method dtype () lid flags n def =
+  method! visit_DType _ lid flags n def =
     match def with
     | Variant branches ->
         assert (n = 0);
@@ -191,9 +191,9 @@ let compile_simple_matches (map, enums) = object(self)
     | _ ->
         DType (lid, flags, n, def)
 
-  method ematch () t e branches =
-    let e = self#visit () e in
-    let branches = self#branches () branches in
+  method! visit_EMatch ((_, t) as env) e branches =
+    let e = self#visit_expr_w () e in
+    let branches = self#visit_branches env branches in
     match e.typ with
     | TQualified lid ->
         begin match Hashtbl.find map lid with
@@ -214,7 +214,7 @@ end
 (* Third step: whole-program transformation to remove unit fields. *)
 let remove_unit_fields = object (self)
 
-  inherit [unit] deprecated_map
+  inherit [_] map
 
   val erasable_fields = Hashtbl.create 41
   val mutable atoms = []
@@ -228,9 +228,16 @@ let remove_unit_fields = object (self)
     | TAny -> EAny
     | _ -> assert false
 
+  method! visit_DType _ lid flags n type_def =
+    match type_def with
+    | Variant branches ->
+        DType (lid, flags, n, self#rewrite_variant lid branches)
+    | _ ->
+        DType (lid, flags, n, type_def)
+
   (* Modify type definitions so that fields of type unit and any are removed.
    * Remember in a table that they are removed. *)
-  method! dtypevariant _ lid branches =
+  method private rewrite_variant lid branches =
     let branches =
       List.map (fun (cons, fields) ->
         cons, KList.filter_mapi (fun i (f, (t, m)) ->
@@ -246,16 +253,16 @@ let remove_unit_fields = object (self)
 
   (* As we're about to visit a pattern, we collect binders for now-defunct
    * fields, and replace them with default values in the corresponding branch. *)
-  method! branch _ (binders, pat, expr) =
+  method! visit_branch _ (binders, pat, expr) =
     let binders, pat, expr = open_branch binders pat expr in
-    let pat = self#visit_pattern () pat in
-    let expr = self#visit () expr in
+    let pat = self#visit_pattern_w () pat in
+    let expr = self#visit_expr_w () expr in
     let binders = List.filter (fun b -> not (List.mem b.node.atom atoms)) binders in
     let pat, expr = close_branch binders pat expr in
     binders, pat, expr
 
   (* Catch references to pattern-bound variables whose underlying field is gone. *)
-  method! eopen () t name a =
+  method! visit_EOpen (_, t) name a =
     if List.mem a atoms then
       self#default_value t
     else
@@ -263,7 +270,7 @@ let remove_unit_fields = object (self)
 
   (* In a constructor pattern, remove sub-patterns over erased fields and
    * remember them. *)
-  method! pcons () t cons pats =
+  method! visit_PCons (_, t) cons pats =
     let pats = KList.filter_mapi (fun i p ->
       if Hashtbl.mem erasable_fields (assert_tlid t, cons, i) then begin
         begin match p.node with
@@ -274,19 +281,19 @@ let remove_unit_fields = object (self)
         end;
         None
       end else
-        Some (self#visit_pattern () p)
+        Some (self#visit_pattern_w () p)
     ) pats in
     PCons (cons, pats)
 
-  method! econs () t cons exprs =
+  method! visit_ECons (_, t) cons exprs =
     let seq = ref [] in
     let exprs = KList.filter_mapi (fun i e ->
       if Hashtbl.mem erasable_fields (assert_tlid t, cons, i) then begin
         if not (is_value e) then
-          seq := (if e.typ = TUnit then e else with_unit (EIgnore (self#visit () e))) :: !seq;
+          seq := (if e.typ = TUnit then e else with_unit (EIgnore (self#visit_expr_w () e))) :: !seq;
         None
       end else
-        Some (self#visit () e)
+        Some (self#visit_expr_w () e)
     ) exprs in
     let e = ECons (cons, exprs) in
     if List.length !seq > 0 then
@@ -330,29 +337,29 @@ and is_trivially_false e =
 
 let remove_trivial_matches = object (self)
 
-  inherit [unit] deprecated_map
+  inherit [_] map
 
-  method! elet () t b e1 e2 =
+  method! visit_ELet (_, t) b e1 e2 =
     match open_binder b e2 with
     | b, { node = EMatch ({ node = EOpen (_, a); _ }, branches); _ } when
       is_special b.node.name && !(b.node.mark) = 1 &&
       Atom.equal a b.node.atom ->
-        self#visit_e () (EMatch (e1, branches)) t
+        self#visit_EMatch ((), t) e1 branches
     | _ ->
-        ELet (b, self#visit () e1, self#visit () e2)
+        ELet (b, self#visit_expr_w () e1, self#visit_expr_w () e2)
 
-  method! ematch () _ e branches =
+  method! visit_EMatch env e branches =
     match e.node, branches with
     | EUnit, [ [], { node = PUnit; _ }, body ] ->
         (* match () with () -> ... is routinely generated by F*'s extraction. *)
-        (self#visit () body).node
+        (self#visit_expr_w () body).node
     | _, [ [], { node = PBool true; _ }, b1; [ v ], { node = PBound 0; _ }, b2 ] when !(v.node.mark) = 0 ->
         (* An if-then-else is generated as:
          *   match e with true -> ... | uu____???? -> ...
          * where uu____???? is unused. *)
-        let b1 = self#visit () b1 in
+        let b1 = self#visit_expr_w () b1 in
         let _, b2 = open_binder v b2 in
-        let b2 = self#visit () b2 in
+        let b2 = self#visit_expr_w () b2 in
         if is_trivially_true e then
           b1.node
         else if is_trivially_false e then
@@ -360,16 +367,16 @@ let remove_trivial_matches = object (self)
         else
           EIfThenElse (e, b1, b2)
     | _ ->
-        EMatch (e, self#branches () branches)
+        EMatch (e, self#visit_branches env branches)
 
-  method! branch env (binders, pat, expr) =
+  method! visit_branch env (binders, pat, expr) =
     let _, binders, pat, expr = List.fold_left (fun (i, binders, pat, expr) b ->
       if !(b.node.mark) = 0 && is_special b.node.name then
         i, binders, DeBruijn.subst_p pwild i pat, DeBruijn.subst any i expr
       else
         i + 1, b :: binders, pat, expr
     ) (0, [], pat, expr) (List.rev binders) in
-    binders, self#visit_pattern env pat, self#visit env expr
+    binders, self#visit_pattern env pat, self#visit_expr env expr
 end
 
 
@@ -479,7 +486,7 @@ let field_names_of_cons cons branches =
  * unions. *)
 let compile_all_matches (map, enums) = object (self)
 
-  inherit [unit] deprecated_map
+  inherit [_] map
 
   method private tag_and_val_type lid branches =
     let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
@@ -498,13 +505,20 @@ let compile_all_matches (map, enums) = object (self)
     in
     TQualified tag_lid, TAnonymous (Union structs)
 
+  method! visit_DType _ lid flags n type_def =
+    match type_def with
+    | Variant branches ->
+        DType (lid, flags, n, self#rewrite_variant lid branches)
+    | _ ->
+        DType (lid, flags, n, type_def)
+
   (* A variant declaration is a struct declaration with two fields:
    * - [field_for_tag] is the field that holds the "tag" whose type is an
    *   anonymous union
    * - [field_for_union] is the field that holds the actual value determined by
    *   the tag; it is the union of several struct types, one for each
    *   constructor. *)
-  method dtypevariant _env lid branches =
+  method private rewrite_variant lid branches =
     let t_tag, t_val = self#tag_and_val_type lid branches in
     Flat [
       Some field_for_tag, (t_tag, false);
@@ -513,11 +527,11 @@ let compile_all_matches (map, enums) = object (self)
 
   (* A pattern on a constructor becomes a pattern on a struct and one of its
    * union fields. *)
-  method pcons env t cons fields =
+  method! visit_PCons (_, t) cons fields =
     let lid = assert_tlid t in
     let branches = assert_branches map lid in
     let field_names = field_names_of_cons cons branches in
-    let fields = List.map (self#visit_pattern env) fields in
+    let fields = List.map (self#visit_pattern_w ()) fields in
     let record_pat = PRecord (List.combine field_names fields) in
     let t_tag, t_val = self#tag_and_val_type lid branches in
     PRecord ([
@@ -532,12 +546,12 @@ let compile_all_matches (map, enums) = object (self)
     ] else [
     ])
 
-  method econs env t cons exprs =
+  method! visit_ECons (_, t) cons exprs =
     let lid = assert_tlid t in
     let branches = assert_branches map lid in
     let field_names = field_names_of_cons cons branches in
     let field_names = List.map (fun x -> Some x) field_names in
-    let exprs = List.map (self#visit env) exprs in
+    let exprs = List.map (self#visit_expr_w ()) exprs in
     let record_expr = EFlat (List.combine field_names exprs) in
     let t_tag, t_val = self#tag_and_val_type lid branches in
     EFlat (
@@ -550,26 +564,26 @@ let compile_all_matches (map, enums) = object (self)
     )
 
   (* The match transformation is tricky: we open all binders. *)
-  method dfunction env cc flags n ret name binders expr =
+  method! visit_DFunction env cc flags n ret name binders expr =
     let binders, expr = open_binders binders expr in
-    let expr = self#visit env expr in
+    let expr = self#visit_expr_w env expr in
     let expr = close_binders binders expr in
     DFunction (cc, flags, n, ret, name, binders, expr)
 
-  method elet env _ binder e1 e2 =
-    let e1 = self#visit env e1 in
+  method! visit_ELet _ binder e1 e2 =
+    let e1 = self#visit_expr_w () e1 in
     let binder, e2 = open_binder binder e2 in
-    let e2 = self#visit env e2 in
+    let e2 = self#visit_expr_w () e2 in
     let e2 = close_binder binder e2 in
     ELet (binder, e1, e2)
 
-  method branches env branches =
+  method! visit_branches _ branches =
     List.map (fun (binders, pat, expr) ->
       (* Not opening the branch... since we don't have binders inside of
        * patterns. *)
       let binders, expr = open_binders binders expr in
-      let pat = self#visit_pattern env pat in
-      let expr = self#visit env expr in
+      let pat = self#visit_pattern_w () pat in
+      let expr = self#visit_expr_w () expr in
       let expr = close_binders binders expr in
       binders, pat, expr
     ) branches
@@ -577,9 +591,9 @@ let compile_all_matches (map, enums) = object (self)
   (* Then compile patterns for those matches whose scrutinee is a data type.
    * Other matches remain (e.g. on units and booleans... [Helpers] will take
    * care of those dummy matches. *)
-  method ematch env _t_ret e_scrut branches =
-    let e_scrut = self#visit env e_scrut in
-    let branches = self#branches env branches in
+  method visit_EMatch env e_scrut branches =
+    let e_scrut = self#visit_expr env e_scrut in
+    let branches = self#visit_branches env branches in
     (compile_match env e_scrut branches).node
 
 end
@@ -641,14 +655,14 @@ let debug_map map =
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
 
 let simplify files =
-  let files = visit_files () remove_trivial_matches files in
+  let files = remove_trivial_matches#visit_files () files in
   files
 
 let everything files =
-  let files = visit_files () remove_unit_fields files in
+  let files = remove_unit_fields#visit_files () files in
   let map = build_scheme_map files in
-  let files = visit_files () (compile_simple_matches map) files in
-  let files = visit_files () (compile_all_matches map) files in
+  let files = (compile_simple_matches map)#visit_files () files in
+  let files = (compile_all_matches map)#visit_files () files in
   map, files
 
 let anonymous_unions map files =
