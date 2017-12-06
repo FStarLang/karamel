@@ -305,9 +305,9 @@ let pass_by_ref files =
 let collect_initializers (files: Ast.file list) =
   let initializers = ref [] in
   let record x = initializers := x :: !initializers in
-  let files = Helpers.visit_files () (object
-    inherit [unit] deprecated_map
-    method dglobal _ flags name n t body =
+  let files = (object
+    inherit [_] map
+    method! visit_DGlobal _ flags name n t body =
       let flags, body =
         if not (Helpers.is_initializer_constant body) then begin
           record (with_type TUnit (EAssign (with_type t (EQualified name), body)));
@@ -316,7 +316,7 @@ let collect_initializers (files: Ast.file list) =
           flags, body
       in
       DGlobal (flags, name, n, t, body)
-  end) files in
+  end)#visit_files () files in
   if !initializers != [] then
     let file = "kremlinit",
       [ DFunction (None, [], 0, TUnit, (["kremlinit"], "globals"),
@@ -324,9 +324,9 @@ let collect_initializers (files: Ast.file list) =
         with_type TUnit (ESequence (List.rev !initializers)))] in
     let files = files @ [ file ] in
     let found = ref false in
-    let files = Helpers.visit_files () (object
-      inherit [unit] deprecated_map
-      method dfunction _ cc flags n ret name binders body =
+    let files = (object
+      inherit [_] map
+      method! visit_DFunction _ cc flags n ret name binders body =
         let body =
           if Simplify.target_c_name name = "main" then begin
             found := true;
@@ -340,7 +340,7 @@ let collect_initializers (files: Ast.file list) =
             body
         in
         DFunction (cc, flags, n, ret, name, binders, body)
-    end) files in
+    end)#visit_files () files in
     if not !found then
       Warnings.(maybe_fatal_error ("", MustCallKrmlInit));
     files
@@ -538,10 +538,10 @@ let to_addr is_struct =
     | EFun _ ->
         Warnings.fatal_error "impossible: %a" pexpr e
   in
-  object (_self)
-    inherit [unit] deprecated_map
+  object
+    inherit [_] map
 
-    method! dfunction _ cc flags n ret lid binders body =
+    method! visit_DFunction _ cc flags n ret lid binders body =
       DFunction (cc, flags, n, ret, lid, binders, to_addr body)
   end
 
@@ -550,6 +550,6 @@ let in_memory files =
   (* TODO: do let_to_sequence and sequence_to_let once! *)
   let is_struct = mk_is_struct files in
   let files = Simplify.sequence_to_let#visit_files () files in
-  let files = Helpers.visit_files () (to_addr is_struct) files in
+  let files = (to_addr is_struct)#visit_files () files in
   let files = Simplify.let_to_sequence#visit_files () files in
   files
