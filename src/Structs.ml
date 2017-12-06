@@ -156,9 +156,9 @@ let pass_by_ref action_table = object (self)
   (* We open all the parameters of a function; then, we pass down as the
    * environment the list of atoms that correspond to by-ref parameters. These
    * will have to be "starred". *)
-  inherit [Atom.t list] deprecated_map
+  inherit [_] map
 
-  method! dfunction _ cc flags n ret lid binders body =
+  method! visit_DFunction _ cc flags n ret lid binders body =
     (* Step 1: open all the binders *)
     let binders, body = DeBruijn.open_binders binders body in
 
@@ -190,7 +190,7 @@ let pass_by_ref action_table = object (self)
         None
     ) (List.combine binders (args_are_structs @ (if ret_is_struct then [ false ] else []))) in
 
-    let body = self#visit to_be_starred body in
+    let body = self#visit_expr_w to_be_starred body in
 
     (* Step 4: if the function now takes an extra argument for the output struct. *)
     let body =
@@ -202,7 +202,7 @@ let pass_by_ref action_table = object (self)
     let body = DeBruijn.close_binders binders body in
     DFunction (cc, flags, n, ret, lid, binders, body)
 
-  method dexternal _ cc flags lid t =
+  method! visit_DExternal _ cc flags lid t =
     match t with
     | TArrow _ ->
         (* Also rewrite external function declarations. *)
@@ -220,7 +220,7 @@ let pass_by_ref action_table = object (self)
         DExternal (cc, flags, lid, t)
 
 
-  method! eopen to_be_starred t name atom =
+  method! visit_EOpen (to_be_starred, t) name atom =
     (* [x] was a strut parameter that is now passed by reference; replace it
      * with [*x] *)
     if List.exists (Atom.equal atom) to_be_starred then
@@ -228,45 +228,45 @@ let pass_by_ref action_table = object (self)
     else
       EOpen (name, atom)
 
-  method! eassign to_be_starred _ e1 e2 =
-    let e1 = self#visit to_be_starred e1 in
+  method! visit_EAssign (to_be_starred, _) e1 e2 =
+    let e1 = self#visit_expr_w to_be_starred e1 in
     match e2.node with
     | EApp ({ node = EQualified lid; _ } as e, args) when
       try fst (Hashtbl.find action_table lid) with Not_found -> false ->
         begin try
-          let args = List.map (self#visit to_be_starred) args in
+          let args = List.map (self#visit_expr_w to_be_starred) args in
           assert (will_be_lvalue e1);
           (rewrite_app action_table e args (Some e1)).node
         with Not_found | NotLowStar ->
-          EAssign (e1, self#visit to_be_starred e2)
+          EAssign (e1, self#visit_expr_w to_be_starred e2)
         end
     | _ ->
-        EAssign (e1, self#visit to_be_starred e2)
+        EAssign (e1, self#visit_expr_w to_be_starred e2)
 
-  method! ebufwrite to_be_starred _ e1 e2 e3 =
-    let e1 = self#visit to_be_starred e1 in
-    let e2 = self#visit to_be_starred e2 in
+  method! visit_EBufWrite (to_be_starred, _) e1 e2 e3 =
+    let e1 = self#visit_expr_w to_be_starred e1 in
+    let e2 = self#visit_expr_w to_be_starred e2 in
     match e3.node with
     | EApp ({ node = EQualified lid; _ } as e, args) when
       try fst (Hashtbl.find action_table lid) with Not_found -> false ->
         begin try
-          let args = List.map (self#visit to_be_starred) args in
+          let args = List.map (self#visit_expr_w to_be_starred) args in
           let t = Helpers.assert_tbuf e1.typ in
           let dest = with_type t (EBufRead (e1, e2)) in
           (rewrite_app action_table e args (Some dest)).node
         with Not_found | NotLowStar ->
-          EBufWrite (e1, e2, self#visit to_be_starred e3)
+          EBufWrite (e1, e2, self#visit_expr_w to_be_starred e3)
         end
     | _ ->
-        EBufWrite (e1, e2, self#visit to_be_starred e3)
+        EBufWrite (e1, e2, self#visit_expr_w to_be_starred e3)
 
-  method! elet to_be_starred t b e1 e2 =
-    let e2 = self#visit to_be_starred e2 in
+  method! visit_ELet (to_be_starred, t) b e1 e2 =
+    let e2 = self#visit_expr_w to_be_starred e2 in
     match e1.node with
     | EApp ({ node = EQualified lid; _ } as e, args) when
       try fst (Hashtbl.find action_table lid) with Not_found -> false ->
         begin try
-          let args = List.map (self#visit to_be_starred) args in
+          let args = List.map (self#visit_expr_w to_be_starred) args in
           let b, e2 = DeBruijn.open_binder b e2 in
           let e1 = rewrite_app action_table e args (Some (DeBruijn.term_of_binder b)) in
           ELet (b, Helpers.any, DeBruijn.close_binder b (with_type t (
@@ -276,13 +276,13 @@ let pass_by_ref action_table = object (self)
             ]
           )))
         with Not_found | NotLowStar ->
-          ELet (b, self#visit to_be_starred e1, e2)
+          ELet (b, self#visit_expr_w to_be_starred e1, e2)
         end
     | _ ->
-        ELet (b, self#visit to_be_starred e1, e2)
+        ELet (b, self#visit_expr_w to_be_starred e1, e2)
 
-  method! eapp to_be_starred _ e args =
-    let args = List.map (self#visit to_be_starred) args in
+  method! visit_EApp (to_be_starred, _) e args =
+    let args = List.map (self#visit_expr_w to_be_starred) args in
     match e.node with
     | EQualified _ ->
         begin try
@@ -297,7 +297,7 @@ end
 
 let pass_by_ref files =
   let action_table = mk_action_table files in
-  Helpers.visit_files [] (pass_by_ref action_table) files
+  (pass_by_ref action_table)#visit_files [] files
 
 
 (* Collect static initializers into a separate function, possibly generated by
