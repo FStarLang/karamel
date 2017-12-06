@@ -55,7 +55,7 @@ type node = lident * typ list
 type color = Gray | Black
 let monomorphize_data_types map = object(self)
 
-  inherit [unit] deprecated_map as super
+  inherit [_] map as super
 
   (* Assigning a color to each node. *)
   val state = Hashtbl.create 41
@@ -122,14 +122,14 @@ let monomorphize_data_types map = object(self)
               ()
           | flags, Variant branches ->
               let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
-              let branches = self#branches_t () branches in
+              let branches = self#visit_branches_t () branches in
               self#record (DType (self#lid_of n, flags, 0, Variant branches))
           | flags, Flat fields ->
-              let fields = self#fields_t () (subst fields) in
+              let fields = self#visit_fields_t_opt () (subst fields) in
               self#record (DType (self#lid_of n, flags, 0, Flat fields))
           | flags, Abbrev t ->
               let t = DeBruijn.subst_tn args t in
-              let t = self#visit_t () t in
+              let t = self#visit_typ () t in
               self#record (DType (self#lid_of n, flags, 0, Abbrev t))
           | _ ->
               ()
@@ -157,43 +157,42 @@ let monomorphize_data_types map = object(self)
     name, KList.map_flatten (fun d ->
       match d with
       | DType (lid, _, n, (Flat _ | Variant _ | Abbrev _)) ->
-          ignore (self#visit_d () d);
+          ignore (self#visit_decl () d);
           if n = 0 then
             ignore (self#visit_node (lid, []));
           self#clear ()
 
       | _ ->
-          self#clear () @ [ self#visit_d () d ]
+          self#clear () @ [ self#visit_decl () d ]
     ) decls
 
-  method! dtype env name flags n d =
+  method! visit_DType env name flags n d =
     if n > 0 then
       (* This drops polymorphic type definitions by making them a no-op that
        * registers nothing. *)
       DType (name, flags, n, d)
     else
-      super#dtype env name flags n d
+      super#visit_DType env name flags n d
 
-  method! etuple _ _ es =
-    EFlat (List.mapi (fun i e -> Some (self#field_at i), self#visit () e) es)
+  method! visit_ETuple _ es =
+    EFlat (List.mapi (fun i e -> Some (self#field_at i), self#visit_expr_w () e) es)
 
-  method! ptuple _ _ pats =
-    PRecord (List.mapi (fun i p -> self#field_at i, self#visit_pattern () p) pats)
+  method! visit_PTuple _ pats =
+    PRecord (List.mapi (fun i p -> self#field_at i, self#visit_pattern_w () p) pats)
 
-  method! ttuple _ ts =
-    TQualified (self#visit_node (tuple_lid, List.map (self#visit_t ()) ts))
+  method! visit_TTuple _ ts =
+    TQualified (self#visit_node (tuple_lid, List.map (self#visit_typ ()) ts))
 
-  method! tqualified _ lid =
+  method! visit_TQualified _ lid =
     TQualified (self#visit_node (lid, []))
 
-  method! tapp _ lid ts =
-    TQualified (self#visit_node (lid, List.map (self#visit_t ()) ts))
+  method! visit_TApp _ lid ts =
+    TQualified (self#visit_node (lid, List.map (self#visit_typ ()) ts))
 end
 
 let datatypes files =
   let map = build_def_map files in
-  let files = visit_files () (monomorphize_data_types map) files in
-  files
+  (monomorphize_data_types map)#visit_files () files
 
 
 (* Type monomorphization of functions. ****************************************)
