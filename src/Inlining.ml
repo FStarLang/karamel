@@ -77,21 +77,21 @@ let mk_inliner files criterion =
         ()
   ) in
   let inline_one = memoize_inline map (fun recurse -> (object(self)
-    inherit [unit] deprecated_map
-    method eapp () t e es =
-      let es = List.map (self#visit ()) es in
+    inherit [_] map
+    method! visit_EApp (_, t) e es =
+      let es = List.map (self#visit_expr_w ()) es in
       match e.node with
       | EQualified lid when Hashtbl.mem map lid && criterion lid ->
           wrap_comment lid (Helpers.safe_substitution es (recurse lid) t)
       | _ ->
-          EApp (self#visit () e, es)
-    method equalified () t lid =
+          EApp (self#visit_expr_w () e, es)
+    method! visit_EQualified (_, t) lid =
       match t with
       | TArrow _ when Hashtbl.mem map lid && criterion lid ->
           fatal_error "[Frames]: partially applied function; not meant to happen";
       | _ ->
           EQualified lid
-  end)#visit ()) in
+  end)#visit_expr_w ()) in
   inline_one
 
 (** A fixpoint computation ****************************************************)
@@ -141,28 +141,22 @@ let inline_analysis map =
   let contains_alloc lid valuation expr =
     let module L = struct exception Found of string end in
     try
-      ignore ((object
-        inherit [_] deprecated_map as super
-        method! ebufcreate () t l e =
+      (object
+        inherit [_] iter
+        method! visit_EBufCreate _ l _ _ =
           if l = Stack then
             raise (L.Found "bufcreate")
-          else
-            super#ebufcreate () t l e
-        method! ebufcreatel () t l e =
+        method! visit_EBufCreateL _ l _ =
           if l = Stack then
             raise (L.Found "bufcreateL")
-          else
-            super#ebufcreatel () t l e
-        method! equalified () t lid =
+        method! visit_EQualified _ lid =
           (* In case we ever decide to allow wacky stuff like:
            *   let f = if ... then g else h in
            *   ignore f;
            * then this will become an over-approximation. *)
           if Hashtbl.mem map lid && valuation lid = MustInline then
             raise (L.Found (KPrint.bsprintf "transitive: %a" plid lid))
-          else
-            super#equalified () t lid
-      end)#visit () expr);
+      end)#visit_expr_w () expr;
       false
     with L.Found reason ->
       if debug_inline then
@@ -309,29 +303,20 @@ let cross_call_analysis files =
    * cross-translation unit calls and modifies safely_private and safely_inline
    * accordingly. *)
   let unmark_private_in = object (self)
-    inherit [unit] deprecated_map as super
+    inherit [_] iter as super
     val mutable name = [],""
-    method eapp () _ e es =
-      match e.node with
-      | EQualified name' ->
-          warn_and_remove name name';
-          EApp (e, List.map (self#visit ()) es)
-      | _ ->
-          EApp (self#visit () e, List.map (self#visit ()) es)
-    method equalified () _ name' =
+    method! visit_EQualified _ name' =
+      warn_and_remove name name'
+    method! visit_TQualified () name' =
+      warn_and_remove name name'
+    method! visit_TApp () name' ts =
       warn_and_remove name name';
-      EQualified name'
-    method tqualified () name' =
-      warn_and_remove name name';
-      TQualified name'
-    method tapp () name' ts =
-      warn_and_remove name name';
-      TApp (name', List.map (self#visit_t ()) ts)
-    method visit_d env d =
+      List.iter (self#visit_typ ()) ts
+    method! visit_decl () d =
       name <- lid_of_decl d;
-      super#visit_d env d
+      super#visit_decl () d
   end in
-  ignore (Helpers.visit_files () unmark_private_in files);
+  unmark_private_in#visit_files () files;
 
   (* Another visitor, that only visits the types reachable from types in
    * function definitions and removes their private qualifiers accordingly. *)
@@ -343,46 +328,45 @@ let cross_call_analysis files =
     ) in
     let seen = Hashtbl.create 41 in
     object (self)
-      inherit [unit] deprecated_map as super
+      inherit [_] iter as super
 
       method private remove_and_visit name =
         if Hashtbl.mem safely_private name then
           Hashtbl.remove safely_private name;
         if not (Hashtbl.mem seen name) then begin
           Hashtbl.add seen name ();
-          try ignore (self#type_def () (Some name) (Hashtbl.find decl_map name))
+          try self#visit_type_def () (Hashtbl.find decl_map name)
           with Not_found -> ()
         end
 
-      method tqualified () name =
+      method! visit_TQualified () name =
+        self#remove_and_visit name
+
+      method! visit_TApp () name ts =
         self#remove_and_visit name;
-        TQualified name
+        List.iter (self#visit_typ ()) ts
 
-      method tapp () name ts =
-        self#remove_and_visit name;
-        TApp (name, List.map (self#visit_t ()) ts)
+      method! visit_DFunction () _ _ _ ret _ binders _ =
+        self#visit_typ () ret;
+        self#visit_binders_w () binders
 
-      method dfunction () cc flags n ret name binders expr =
-        DFunction (cc, flags, n, self#visit_t () ret, name, self#binders () binders, expr)
+      method! visit_DGlobal () _ _ _ typ _ =
+        self#visit_typ () typ
 
-      method dglobal () flags name n typ expr =
-        DGlobal (flags, name, n, self#visit_t () typ, expr)
-
-      method visit () _ =
+      method! visit_expr _ _ =
         assert false
 
-      method visit_d env d =
+      method! visit_decl env d =
         if not (List.mem Private (flags_of_decl d)) then begin
           Hashtbl.add seen (lid_of_decl d) ();
-          super#visit_d env d
-        end else
-          d
+          super#visit_decl env d
+        end
     end
   in
   let uint128_lid = [ "FStar"; "UInt128" ], "uint128" in
   if Hashtbl.mem safely_private uint128_lid then
     Hashtbl.remove safely_private uint128_lid;
-  ignore (Helpers.visit_files () unmark_private_types_in files);
+  unmark_private_types_in#visit_files () files;
 
   (* The invariant for [safely_private] is now established, and we drop those
    * functions that cannot keep their [Private] flag. *)
@@ -451,18 +435,18 @@ let inline_type_abbrevs files =
   ) in
 
   let inliner inline_one = object(self)
-    inherit [unit] deprecated_map
-    method tapp () lid ts =
-      try DeBruijn.subst_tn (List.map (self#visit_t ()) ts) (inline_one lid)
-      with Not_found -> TApp (lid, List.map (self#visit_t ()) ts)
-    method tqualified () lid =
+    inherit [_] map
+    method! visit_TApp () lid ts =
+      try DeBruijn.subst_tn (List.map (self#visit_typ ()) ts) (inline_one lid)
+      with Not_found -> TApp (lid, List.map (self#visit_typ ()) ts)
+    method! visit_TQualified () lid =
       try inline_one lid
       with Not_found -> TQualified lid
   end in
 
-  let inline_one = memoize_inline map (fun recurse -> (inliner recurse)#visit_t ()) in
+  let inline_one = memoize_inline map (fun recurse -> (inliner recurse)#visit_typ ()) in
 
-  let files = Helpers.visit_files () (inliner inline_one) files in
+  let files = (inliner inline_one)#visit_files () files in
 
   (* After we've inlined things, drop type abbreviations definitions now. This
    * is important, as the monomorphization of data types relies on all types
