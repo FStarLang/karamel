@@ -895,43 +895,12 @@ end
 let t lident =
   [], GlobalNames.translate (string_of_lident lident) (target_c_name lident)
 
-let replace_references_to_toplevel_names = object(self)
-  (* TODO figure out why this can't be replaced like in commit
-   * 4bb21edab1a0c0b1151ca9d852ecc27c2e70d2c1? *)
+let replace_references_to_toplevel_names = object
   inherit [_] map
 
-  method! visit_TApp env lident args =
-    TApp (t lident, List.map (self#visit_typ env) args)
 
-  method! visit_TQualified _ lident =
-    TQualified (t lident)
-
-  method! visit_EQualified _ lident =
-    EQualified (t lident)
-
-  method! visit_DGlobal env flags name n typ body =
-    DGlobal (flags, t name, n, self#visit_typ env typ, self#visit_expr_w env body)
-
-  method! visit_DFunction env cc flags n ret name args body =
-    DFunction (cc, flags, n, self#visit_typ env ret, t name, self#visit_binders_w env args, self#visit_expr_w env body)
-
-  method! visit_DExternal env cc flags name typ =
-    DExternal (cc, flags, t name, self#visit_typ env typ)
-
-  method! visit_DType env name flags n d =
-    DType (t name, flags, n, self#visit_type_def env d)
-
-  method! visit_Enum _ tags =
-    Enum (List.map t tags)
-
-  method! visit_PEnum _ name =
-    PEnum (t name)
-
-  method! visit_EEnum _ name =
-    EEnum (t name)
-
-  method! visit_ESwitch env e branches =
-    ESwitch (self#visit_expr env e, List.map (fun (tag, e) -> t tag, self#visit_expr env e) branches)
+  method! visit_lident _ lident =
+    t lident
 end
 
 (* Extend the lifetimes of buffers ********************************************)

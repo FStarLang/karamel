@@ -205,7 +205,7 @@ type expr' =
   | EMatch of expr * branches
   | ECons of ident * expr list
 
-  | ESwitch of expr * (lident * expr) list
+  | ESwitch of expr * (switch_case * expr) list
   | EEnum of lident
   | EFlat of fields_e_opt
   | EField of expr * ident
@@ -240,6 +240,11 @@ and expr =
 
 and fields_e_opt =
   (ident option * expr) list
+
+and switch_case =
+  | SConstant of constant
+  | SEnum of lident
+  | SWild
 
 and branches =
   branch list

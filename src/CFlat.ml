@@ -103,7 +103,7 @@ and expr =
 
   | IfThenElse of expr * expr * expr * size
   | While of expr * expr
-  | Switch of expr * (expr * expr) list
+  | Switch of expr * (expr * expr) list * expr option (* default case *)
   | Sequence of expr list
   | Ignore of expr * size
 

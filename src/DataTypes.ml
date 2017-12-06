@@ -68,7 +68,9 @@ let try_mk_switch e branches =
   try
     ESwitch (e, List.map (fun (_, pat, e) ->
       match pat.node with
-      | PEnum lid -> lid, e
+      | PEnum lid -> SEnum lid, e
+      | PConstant k -> SConstant k, e
+      | PWild -> SWild, e
       | _ -> raise Exit
     ) branches)
   with Exit ->
@@ -208,7 +210,8 @@ let compile_simple_matches (map, enums) = object(self)
             try_mk_flat e t branches
         end
     | _ ->
-        EMatch (e, branches)
+        (* For switches on constants *)
+        try_mk_switch e branches
 end
 
 (* Third step: whole-program transformation to remove unit fields. *)
