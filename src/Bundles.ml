@@ -164,18 +164,16 @@ let make_bundles files =
       | _ ->
           ()
     in
-    ignore ((object
-      inherit [unit] deprecated_map as super
-      method visit_d env decl =
+    (object
+      inherit [_] iter as super
+      method! visit_decl env decl =
         current_decl := Some (lid_of_decl decl);
-        super#visit_d env decl
-      method equalified _ _ lid =
-        prepend lid;
-        EQualified lid
-      method tqualified _ lid =
-        prepend lid;
-        TQualified lid
-    end)#visit_file () file);
+        super#visit_decl env decl
+      method! visit_EQualified _ lid =
+        prepend lid
+      method! visit_TQualified _ lid =
+        prepend lid
+    end)#visit_file () file;
     Hashtbl.add graph (fst file) (ref White, deps, snd file)
   ) files;
 

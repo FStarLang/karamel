@@ -24,49 +24,49 @@ let just_gc'd table = function
 
 let alloc table = object (self)
 
-  inherit [unit] deprecated_map
+  inherit [_] map
 
-  method! tqualified _env lid =
+  method! visit_TQualified _env lid =
     (* Every occurrence of t becomes TBuf t *)
     if Hashtbl.mem table lid then
       TBuf (TQualified lid)
     else
       TQualified lid
 
-  method! tapp env lid ts =
-    let ts = List.map (self#visit_t env) ts in
+  method! visit_TApp env lid ts =
+    let ts = List.map (self#visit_typ env) ts in
     if Hashtbl.mem table lid then
       TBuf (TApp (lid, ts))
     else
       TApp (lid, ts)
 
-  method! pcons env t cons args =
+  method! visit_PCons (env, t) cons args =
     (* A cons pattern needs to dereference the scrutinee first. *)
-    let args = List.map (self#visit_pattern env) args in
+    let args = List.map (self#visit_pattern_w env) args in
     if just_gc'd table t then
       PDeref (with_type (assert_tbuf t) (PCons (cons, args)))
     else
       PCons (cons, args)
 
-  method! precord env t fields =
+  method! visit_PRecord (env, t) fields =
     (* Same for record patterns *)
-    let fields = List.map (fun (f, t) -> f, self#visit_pattern env t) fields in
+    let fields = List.map (fun (f, t) -> f, self#visit_pattern_w env t) fields in
     if just_gc'd table t then
       PDeref (with_type (assert_tbuf t) (PRecord fields))
     else
       PRecord fields
 
-  method! econs env t cons args =
+  method! visit_ECons (env, t) cons args =
     (* Constructors now heap-allocate. *)
-    let args = List.map (self#visit env) args in
+    let args = List.map (self#visit_expr_w env) args in
     if just_gc'd table t then
       EBufCreate (C.Eternal, with_type (assert_tbuf t) (ECons (cons, args)), Helpers.oneu32)
     else
       ECons (cons, args)
 
-  method! efield env _ e f =
+  method! visit_EField env e f =
     (* A field destructor must dereference. *)
-    let e = self#visit env e in
+    let e = self#visit_expr env e in
     if just_gc'd table e.typ then
       EField (with_type (assert_tbuf e.typ) (EBufRead (e, Helpers.zerou32)), f)
     else
@@ -76,5 +76,5 @@ end
 
 let heap_allocate_gc_types files =
   let table = mk_table files in
-  let files = visit_files () (alloc table) files in
+  let files = (alloc table)#visit_files () files in
   files
