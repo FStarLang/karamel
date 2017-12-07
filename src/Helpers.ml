@@ -192,6 +192,16 @@ let strengthen_array t e2 =
         size is non-constant, so I don't know what declaration to write"
         pexpr e2
 
+let is_readonly_builtin_lid lid =
+  let pure_builtin_lids = [
+    [ "C"; "String" ], "get";
+    [ "C"; "Nullity" ], "op_Bang_Star"
+  ] in
+  List.exists (fun lid' ->
+    let lid = Idents.string_of_lident lid in
+    let lid' = Idents.string_of_lident lid' in
+    KString.starts_with lid lid'
+  ) pure_builtin_lids
 
 class ['self] readonly_visitor = object (self: 'self)
   inherit [_] reduce
@@ -216,22 +226,11 @@ class ['self] readonly_visitor = object (self: 'self)
   method! visit_ETApp _ _ _ = false
   method! visit_EWhile _ _ _ = false
 
-  method private is_pure_builtin lid =
-    let pure_builtin_lids = [
-      [ "C"; "String" ], "get";
-      [ "C"; "Nullity" ], "op_Bang_Star"
-    ] in
-    List.exists (fun lid' ->
-      let lid = Idents.string_of_lident lid in
-      let lid' = Idents.string_of_lident lid' in
-      KString.starts_with lid lid'
-    ) pure_builtin_lids
-
   method! visit_EApp _ e es =
     match e.node with
     | EOp _ ->
         List.for_all (self#visit_expr_w ()) es
-    | EQualified lid when self#is_pure_builtin lid ->
+    | EQualified lid when is_readonly_builtin_lid lid ->
         List.for_all (self#visit_expr_w ()) es
     | _ ->
         false

@@ -244,6 +244,7 @@ class ['self] safe_use = object (self: 'self)
   method! visit_EApp env e es =
     match e.node with
     | EOp _ -> super#visit_EApp env e es
+    | EQualified lid when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
     | _ -> self#unordered (e :: es)
 
   method! visit_ELet _ _ e1 e2 = self#sequential e1 (Some e2)
@@ -262,8 +263,13 @@ let safe_readonly_use e =
   | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
 
 class ['self] safe_pure_use = object (self: 'self)
+  inherit [_] reduce as super
   inherit [_] safe_use
   method! visit_EBufRead _ e1 e2 = self#unordered [ e1; e2 ]
+  method! visit_EApp env e es =
+    match e.node with
+    | EOp _ -> super#visit_EApp env e es
+    | _ -> self#unordered (e :: es)
 end
 
 let safe_pure_use e =
