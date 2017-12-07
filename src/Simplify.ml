@@ -261,6 +261,16 @@ let safe_readonly_use e =
   | Unsafe -> false
   | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
 
+class ['self] safe_pure_use = object (self: 'self)
+  inherit [_] safe_use
+  method! visit_EBufRead _ e1 e2 = self#unordered [ e1; e2 ]
+end
+
+let safe_pure_use e =
+  match (new safe_pure_use)#visit_expr_w () e with
+  | SafeUse -> true
+  | Unsafe -> false
+  | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
 
 (* Try to remove the infamous let uu____ from F*. Needs an accurate use count
  * for each variable. *)
@@ -272,9 +282,11 @@ let remove_uu = object (self)
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
     if KString.starts_with b.node.name "uu___" &&
-      !(b.node.mark) = 1 &&
-      is_readonly_c_expression e1 &&
-      safe_readonly_use e2
+      !(b.node.mark) = 1 && (
+        is_readonly_c_expression e1 &&
+        safe_readonly_use e2 ||
+        safe_pure_use e2
+      )
     then
       (DeBruijn.subst e1 0 e2).node
     else
