@@ -1,3 +1,64 @@
+### December 7th, 2017
+
+- Complete elimination of uu____ variables whenever possible.
+
+- The first analysis is as follows: if a `uu____` is a read-only expression, and
+  if only read-only expressions may be evaluated between its definition and
+  use-site, then it is safe to get rid of the `uu____`.... this means no more
+  `uu____`'s for things such as:
+
+```
+  let z = b.(0ul) +^ b.(1ul) in
+  let t = b.(let r = b.(1ul) in Int.Cast.int32_to_uint32 r) in
+```
+
+  which now becomes:
+
+```
+  int32_t z = b[0U] + b[1U];
+  int32_t r = b[1U];
+  int32_t t = b[(uint32_t)r];
+```
+
+- The second analysis is as follows: if `uu___` is an arbitrary expression, and
+  if only pure expressions are evaluated between the definition of the `uu____`
+  and its use, and if the `uu____` is only used once, then it is safe to get rid
+  of the `uu____`.
+
+  This means that things such as:
+
+```
+  let y = 1l +^ f () in
+```
+
+  now give the intended output:
+
+```
+  int32_t y = (int32_t)1 + f();
+```
+
+- Note that there is no way to remove `uu____`'s for things such as:
+
+```
+  let x = f () + f ()
+```
+
+  F* will generate this:
+
+```
+  let uu___1 = f () in
+  let uu___2 = f () in
+  let x = uu___1 + uu___2
+```
+
+  KreMLin will do its best, and will manage to fold in only the first uu___.
+  This gives:
+
+```
+  int32_t uu___1 = f () in
+  int32_t x = uu___1 + f();
+```
+
 ### December 4th, 2017
 
 - Pattern-matching on an integer constant now generates a switch.

@@ -79,7 +79,7 @@ SED=$(shell which gsed >/dev/null 2>&1 && echo gsed || echo sed)
 count-uu: Uu.exe
 	[ `grep uu___ Uu.out/Uu.c | \
 	  $(SED) 's/.*\(uu____\([0-9]\+\)\).*/\1/g' \
-	  | uniq | wc -l | bc` = 3 ]
+	  | uniq | wc -l | bc` = 1 ]
 
 # External C tests that leverage other projects.
 .PHONY: hacl-test
