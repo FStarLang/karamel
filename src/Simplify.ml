@@ -183,108 +183,90 @@ let wrapping_arithmetic = object (self)
 end
 
 
+(* A visitor that determines whether it is safe to substitute bound variable 0
+ * with its definition, assuming that:
+ * - said definition is read-only
+ * - there is a single use of it in the continuation.
+ * The notion of "safe" can be customized; here, we let EBufRead be a safe node,
+ * so by default, safe means read-only. *)
+type use = Safe | SafeUse | Unsafe
+class ['self] safe_use = object (self: 'self)
+  inherit [_] reduce as super
+
+  (* By default, everything is safe. We override several cases below. *)
+  method private zero = Safe
+
+  (* The default composition rule; it only applies if the expression itself is
+   * safe. (For instance, this is not a valid composition rule for an
+   * EBufWrite node.) *)
+  method private plus x y =
+    match x, y with
+    | Safe, SafeUse
+    | SafeUse, Safe ->
+        SafeUse
+    | Safe, Safe ->
+        Safe
+    | SafeUse, SafeUse ->
+        failwith "this contradicts the use-analysis"
+    | _ ->
+        Unsafe
+  method private expr_plus_typ = self#plus
+
+  (* The composition rule for [es] expressions, whose evaluation order is
+   * unspecified, but is known to happen before an unsafe expression. The only
+   * safe case is if the use is found among safe nodes. *)
+  method private unordered es =
+    let es = List.map (self#visit_expr_w ()) es in
+    let the_use, the_rest = List.partition ((=) SafeUse) es in
+    match List.length the_use, List.for_all ((=) Safe) the_rest with
+    | 1, true -> SafeUse
+    | x, _ when x > 1 -> failwith "this contradicts the use-analysis"
+    | _ -> Unsafe
+
+  (* The sequential composition rule, where [e1] is known be to be
+   * sequentialized before [e2]. Two cases: the use is found in [e1] (and we
+   * don't care what happens in [e2]), otherwise, just a regular composition. *)
+  method private sequential e1 e2 =
+    match self#visit_expr_w () e1, e2 with
+    | SafeUse, _ -> SafeUse
+    | x, Some e2 ->
+        self#plus x (self#visit_expr_w () e2)
+    | _, None ->
+        (* We don't know what comes after; can't conclude anything. *)
+        Unsafe
+
+  method! visit_EBound _ i = if i = 0 then SafeUse else Safe
+
+  method! visit_EBufWrite _ e1 e2 e3 = self#unordered [ e1; e2; e3 ]
+  method! visit_EBufFill _ e1 e2 e3 = self#unordered [ e1; e2; e3 ]
+  method! visit_EBufBlit _ e1 e2 e3 e4 e5 = self#unordered [ e1; e2; e3; e4; e5 ]
+  method! visit_EAssign _ e1 e2 = self#unordered [ e1; e2 ]
+  method! visit_EApp env e es =
+    match e.node with
+    | EOp _ -> super#visit_EApp env e es
+    | _ -> self#unordered (e :: es)
+
+  method! visit_ELet _ _ e1 e2 = self#sequential e1 (Some e2)
+  method! visit_EIfThenElse _ e _ _ = self#sequential e None
+  method! visit_ESwitch _ e _ = self#sequential e None
+  method! visit_EWhile _ e _ = self#sequential e None
+  method! visit_EFor _ _ e _ _ _ = self#sequential e None
+  method! visit_EMatch _ e _ = self#sequential e None
+  method! visit_ESequence _ es = self#sequential (List.hd es) None
+end
+
+let safe_readonly_use e =
+  match (new safe_use)#visit_expr_w () e with
+  | SafeUse -> true
+  | Unsafe -> false
+  | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
+
+
 (* Try to remove the infamous let uu____ from F*. Needs an accurate use count
  * for each variable. *)
 let remove_uu = object (self)
 
   inherit [_] map
-
-  (* This function returns true if:
-   * - [e] contains exactly one use of [0] and
-   * - [e] only has readonly effect before [0] is evaluated.
-   * A return value of false may indicate of the following:
-   * - there is a write effect
-   * - there is no use of [0]
-   * - conservative approximation ("don't know").
-  *)
-  method private safe_use (e: expr) =
-    (* A helper that considers an unsequenced series of expressions, such as a
-     * function's arguments. One of the expressions must contain the use, and
-     * the other ones must be read-only since they might be ordered in any
-     * arbitrary way. *)
-    let unordered es =
-      let the_use, the_rest = List.partition self#safe_use es in
-      List.length the_use = 1 &&
-      List.for_all is_readonly_c_expression the_rest
-    in
-    match e.node with
-    (* The base case for true. *)
-    | EBound i ->
-        i = 0
-
-    (* Not a use of [0]. *)
-    | EQualified _
-    | EConstant _
-    | EUnit
-    | EBool _
-    | EString _
-    | EAny
-    | EAbort _
-    | EOpen _
-    | EOp _
-    | EEnum _
-    | EBreak
-    | EPushFrame
-    | EPopFrame
-
-    (* Don't know. *)
-    | EFun _
-
-    (* Writes. *)
-    | EBufBlit _
-    | EBufWrite _
-    | EBufFill _ ->
-        false
-
-    (* Only one subexpression in this construction. *)
-    | EReturn e
-    | ECast (e, _)
-    | EComment (_, e, _)
-    | EAddrOf e
-    | EIgnore e
-    | ETApp (e, _)
-    | EField (e, _) ->
-        self#safe_use e
-
-    (* No sequencing between arguments of an application. *)
-    | EApp (e, es) ->
-        unordered (e :: es)
-
-    (* There is a sequencing point after the assignment of [e1] into [b], so
-     * either we use [0] in [e1] and don't care about the rest, or we have a
-     * readonly effect in [e1] then a safe use in [e2]. *)
-    | ELet (_, e1, e2) ->
-        self#safe_use e1 ||
-        is_readonly_c_expression e1 && self#safe_use e2
-
-    (* This could be refined, but be conservative and return true only when the
-     * use appears in the condition of the if-then-else, which is followed by a
-     * sequencing point. *)
-    | EIfThenElse (e, _, _)
-    | ESwitch (e, _)
-    | EWhile (e, _)
-    | EFor (_, e, _, _, _)
-    | EMatch (e, _) ->
-        self#safe_use e
-
-    (* Could be refined with "any prefix of [es] is read-only, followed by a
-     * use". *)
-    | ESequence es ->
-        self#safe_use (List.hd es)
-
-    | EBufCreate (_, e1, e2)
-    | EBufRead (e1, e2)
-    | EBufSub (e1, e2)
-    | EAssign (e1, e2) ->
-        unordered [ e1; e2 ]
-
-    | EBufCreateL (_, es)
-    | ETuple es
-    | ECons (_, es) ->
-        unordered es
-
-    | EFlat es ->
-        unordered (snd (List.split es))
 
   method! visit_ELet _ b e1 e2 =
     let e1 = self#visit_expr_w () e1 in
@@ -292,7 +274,7 @@ let remove_uu = object (self)
     if KString.starts_with b.node.name "uu___" &&
       !(b.node.mark) = 1 &&
       is_readonly_c_expression e1 &&
-      self#safe_use e2
+      safe_readonly_use e2
     then
       (DeBruijn.subst e1 0 e2).node
     else
