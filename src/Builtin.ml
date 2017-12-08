@@ -65,6 +65,10 @@ let mk_builtin_int w =
   mk_int m t
 
 let prims: file =
+  let t = TInt K.CInt in
+  let str = TQualified (["Prims"], "string") in
+  let mk_binop n = mk_binop [ "Prims" ] n t in
+  let mk_boolop n = mk_unop [ "Prims" ] n (TArrow (t, TArrow (t, TBool))) in
   "Prims", [
     DType ((["Prims"], "list"), [ Common.GcType ], 1, Variant [
       "Nil", [];
@@ -78,7 +82,16 @@ let prims: file =
         "fst", (TBound 1, false);
         "snd", (TBound 0, false)
       ]
-    ])
+    ]);
+    mk_binop "op_Multiply";
+    mk_binop "op_Subtraction";
+    mk_binop "op_Addition";
+    mk_binop "op_Minus";
+    mk_boolop "op_LessThanOrEqual";
+    mk_boolop "op_GreaterThan";
+    mk_boolop "op_GreaterThanOrEqual";
+    mk_boolop "op_LessThan";
+    mk_unop [ "Prims" ] "strcat" (TArrow (str, TArrow (str, str)))
   ]
 
 let prelude () =
