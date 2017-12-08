@@ -129,6 +129,11 @@ static inline FStar_Bytes_bytes FStar_Bytes_utf8_encode(const char *str) {
   return b;
 }
 
+// DEPRECATED
+static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_string(const char *str) {
+  return FStar_Bytes_utf8_encode(str);
+}
+
 static inline K___FStar_Bytes_bytes_FStar_Bytes_bytes
 FStar_Bytes_split(FStar_Bytes_bytes bs, FStar_UInt32_t i) {
   K___FStar_Bytes_bytes_FStar_Bytes_bytes p = {

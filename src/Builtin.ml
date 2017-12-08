@@ -66,7 +66,6 @@ let mk_builtin_int w =
 
 let prims: file =
   let t = TInt K.CInt in
-  let str = TQualified (["Prims"], "string") in
   let mk_binop n = mk_binop [ "Prims" ] n t in
   let mk_boolop n = mk_unop [ "Prims" ] n (TArrow (t, TArrow (t, TBool))) in
   "Prims", [
@@ -90,8 +89,7 @@ let prims: file =
     mk_boolop "op_LessThanOrEqual";
     mk_boolop "op_GreaterThan";
     mk_boolop "op_GreaterThanOrEqual";
-    mk_boolop "op_LessThan";
-    mk_unop [ "Prims" ] "strcat" (TArrow (str, TArrow (str, str)))
+    mk_boolop "op_LessThan"
   ]
 
 let prelude () =
