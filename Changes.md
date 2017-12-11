@@ -1,3 +1,9 @@
+### December 11th, 2017
+
+- Remove unused type parameters. This is especially useful for types
+  parameterized over an index, or refinement, since it will generate a lot less
+  monomorphizations.
+
 ### December 7th, 2017
 
 - Complete elimination of uu____ variables whenever possible.
