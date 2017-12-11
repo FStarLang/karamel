@@ -41,7 +41,11 @@ let prefix_suffix name =
     string (Printf.sprintf "#ifndef __%s_H" name) ^^ hardline ^^
     string (Printf.sprintf "#define __%s_H" name) ^^ hardline
   in
-  prefix, string "#endif"
+  let suffix =
+    string (Printf.sprintf "#define __%s_H_DEFINED" name) ^^ hardline ^^
+    string "#endif"
+  in
+  prefix, suffix
 
 let write_one name prefix program suffix =
   Driver.mk_tmpdir_if ();

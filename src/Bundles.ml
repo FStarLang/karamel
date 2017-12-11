@@ -173,6 +173,8 @@ let make_bundles files =
         prepend lid
       method! visit_TQualified _ lid =
         prepend lid
+      method! visit_TApp _ lid _ =
+        prepend lid
     end)#visit_file () file;
     Hashtbl.add graph (fst file) (ref White, deps, snd file)
   ) files;
