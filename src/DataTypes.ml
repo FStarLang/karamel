@@ -10,57 +10,105 @@ module K = Constant
 
 (* Zero-est thing: remove unused type parameters. This increases the
  * type-ability of the code! See test/UnusedParameter.fst. *)
-let record_use used_of_lid = object (self)
-  inherit [_] iter
-
-  (* We need to do this in two phases, because of mutually recursive type
-   * definitions. First, record which parameters are used for each type. *)
-  method! visit_TBound (current_typ, n) i =
-    Hashtbl.add used_of_lid (current_typ, (n - i - 1)) ();
-
-  method! visit_DType _ lid _ n def =
-    self#visit_type_def (lid, n) def
-end
-
-let remove_unused used_of_lid = object (self)
-  inherit [_] map
-
-  (* Then, if the i-th type parameter is unused, we remove it from the type
-   * definition... *)
-  method! visit_DType env lid flags n def =
-    let def = self#visit_type_def env def in
-    let rec chop kept i def =
-      if i = n then
-        kept, def
-      else
-        if Hashtbl.mem used_of_lid (lid, n - i - 1) then
-          chop (kept + 1) (i + 1) def
-        else
-          let def = (new DeBruijn.subst_t TAny)#visit_type_def i def in
-          chop kept (i + 1) def
-    in
-    let n, def = chop 0 0 def in
-    DType (lid, flags, n, def)
-
-  (* ... and also any use of it. *)
-  method! visit_TApp env lid args =
-    let args = List.map (self#visit_typ env) args in
-    let args = KList.filter_mapi (fun i arg ->
-      if Hashtbl.mem used_of_lid (lid, i) then
-        Some arg
-      else
-        None
-    ) args in
-    if List.length args > 0 then
-      TApp (lid, args)
-    else
-      TQualified lid
-end
-
 let remove_unused_type_arguments files =
-  let map = Hashtbl.create 41 in
-  (record_use map)#visit_files (([], ""), 0) files;
-  (remove_unused map)#visit_files () files
+
+  (* Does [lid] use its n-th type argument? This is a fixpoint computation
+   * because of the mutual recursion. *)
+  let uses_nth lid n =
+
+    (* Keys are a pair of an lid and its i-th parameter. *)
+    let module LidIntMap = Map.Make(struct
+      type t = lident * int
+      let compare = compare
+    end) in
+    let module ILidIntMap = struct
+      type key = lident * int
+      type 'data t = 'data LidIntMap.t ref
+      let create () = ref LidIntMap.empty
+      let clear m = m := LidIntMap.empty
+      let add k v m = m := LidIntMap.add k v !m
+      let find k m = LidIntMap.find k !m
+      let iter f m = LidIntMap.iter f !m
+    end in
+    let module Property = struct
+      type property = bool
+      let bottom = false
+      let equal = (=)
+      let is_maximal x = x
+    end in
+    let module F = Fix.Make(ILidIntMap)(Property) in
+
+    let def_map = Helpers.build_map files (fun map d ->
+      match d with
+      | DType (lid, _, n, d) -> Hashtbl.add map lid (n, d)
+      | _ -> ()
+    ) in
+
+    let find_ith valuation = object(self)
+      inherit [_] reduce
+      method zero = false
+      method plus = (||)
+      method expr_plus_typ = (||)
+
+      method! visit_TBound (j, n) i =
+        j = n - i - 1
+      method! visit_TApp env lid args =
+        let args = List.mapi (fun i arg ->
+          if valuation (lid, i) then
+            self#visit_typ env arg
+          else
+            self#zero
+        ) args in
+        List.fold_left self#plus self#zero args
+    end in
+
+    let equations (lid, i) valuation =
+      try
+        let n, def = Hashtbl.find def_map lid in
+        (find_ith valuation)#visit_type_def (i, n) def
+      with Not_found ->
+        true
+    in
+
+    F.lfp equations (lid, n)
+  in
+
+  let remove_unused = object (self)
+    inherit [_] map
+
+    (* Then, if the i-th type parameter is unused, we remove it from the type
+     * definition... *)
+    method! visit_DType env lid flags n def =
+      let def = self#visit_type_def env def in
+      let rec chop kept i def =
+        if i = n then
+          kept, def
+        else
+          if uses_nth lid (n - i - 1) then
+            chop (kept + 1) (i + 1) def
+          else
+            let def = (new DeBruijn.subst_t TAny)#visit_type_def i def in
+            chop kept (i + 1) def
+      in
+      let n, def = chop 0 0 def in
+      DType (lid, flags, n, def)
+
+    (* ... and also any use of it. *)
+    method! visit_TApp env lid args =
+      let args = List.map (self#visit_typ env) args in
+      let args = KList.filter_mapi (fun i arg ->
+        if uses_nth lid i then
+          Some arg
+        else
+          None
+      ) args in
+      if List.length args > 0 then
+        TApp (lid, args)
+      else
+        TQualified lid
+  end in
+
+  remove_unused#visit_files () files
 
 
 (** We need to keep track of which optimizations we performed on which data
