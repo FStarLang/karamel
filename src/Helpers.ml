@@ -11,7 +11,6 @@ let build_map files f =
   (object inherit [_] iter method visit_decl _ = f map end)#visit_files () files;
   map
 
-
 module MkIMap (M: Map.S) = struct
   type key = M.key
   type 'data t = 'data M.t ref
@@ -98,6 +97,8 @@ let mk_not e1 =
 let mk_and e1 e2 =
   with_type TBool (EApp (mk_op K.And K.Bool, [ e1; e2 ]))
 
+let mk_or e1 e2 =
+  with_type TBool (EApp (mk_op K.Or K.Bool, [ e1; e2 ]))
 
 let mk_uint32 i =
   with_type (TInt K.UInt32) (EConstant (K.UInt32, string_of_int i))

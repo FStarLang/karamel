@@ -242,7 +242,11 @@ let functions files =
         ()
   ) in
 
-  (* let types_map = build_def_map files in *)
+  let types_map = Helpers.build_map files (fun map d ->
+    match d with
+    | DType (lid, _, _, d) -> Hashtbl.add map lid d
+    | _ -> ()
+  ) in
 
   let monomorphize = object(self)
 
@@ -254,33 +258,131 @@ let functions files =
     (* For type [t] and either [op = Eq] or [op = Neq], generate a recursive
      * equality predicate that implements F*'s structural equality. *)
     method private generate_equality t op =
+      (* A set of helpers use for generating abstract syntax. *)
       let eq_kind, eq_lid = match op with
         | K.Eq -> `Eq, ([], "__eq")
         | K.Neq -> `Neq, ([], "__neq")
         | _ -> assert false
       in
-      try
-        (* Already monomorphized? *)
-        EQualified (Hashtbl.find Gen.generated_lids (eq_lid, [ t ]))
-      with Not_found ->
-        let instance_lid = Gen.gen_lid eq_lid [ t ] in
-        let eq_typ = TArrow (t, TArrow (t, TBool)) in
-        match eq_kind with
-        | `Neq ->
-            (* let __neq__t x y = not (__eq__t x y) *)
-            let def () =
-              let x = fresh_binder "x" t in
-              let y = fresh_binder "y" t in
-              let body = mk_not (with_type TBool (
-                EApp (with_type eq_typ (self#generate_equality t K.Eq), [
-                  with_type t (EBound 0); with_type t (EBound 1) ])))
-              in
-              DFunction (None, [], 0, TBool, instance_lid, [ x; y ], body)
+      let eq_typ = TArrow (t, TArrow (t, TBool)) in
+      let instance_lid = Gen.gen_lid eq_lid [ t ] in
+      let x = fresh_binder "x" t in
+      let y = fresh_binder "y" t in
+      KPrint.bprintf "generate_equality: %a\n" ptyp t;
+
+      match t with
+      | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) ->
+          EOp (op, K.CInt)
+
+      | TInt w ->
+          EOp (op, w)
+
+      | TBool ->
+          EOp (op, K.Bool)
+
+      | TBuf _ ->
+          (* Buffers do not have eqtype. The only instance of pointer types compared via equality is
+           * thus references, which are compared by address. Type-checking is lax and will accept
+           * this even though the K.Bool is incorrect... *)
+          EOp (op, K.Bool)
+
+      | TQualified lid when Hashtbl.mem types_map lid ->
+          begin try
+            (* Already monomorphized? *)
+            EQualified (Hashtbl.find Gen.generated_lids (eq_lid, [ t ]))
+          with Not_found ->
+            let mk_conj_or_disj es =
+              match eq_kind with
+              | `Eq -> KList.reduce mk_and es
+              | `Neq -> KList.reduce mk_or es
             in
-            EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
-        | `Eq ->
-            let def () = DExternal (None, [], instance_lid, eq_typ) in
-            EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
+            let mk_rec_equality t e1 e2 =
+              with_type TBool (
+                EApp (
+                  with_type (TArrow (t, TArrow (t, TBool))) (
+                    self#generate_equality t op), [
+                    with_type t e1;
+                    with_type t e2]))
+            in
+            match Hashtbl.find types_map lid with
+            | Abbrev _ | Enum _ | Union _ | Forward ->
+                (* No abbreviations (this runs after inline_type abbrevs).
+                 * No Enum / Union / Forward (this runs before data types). *)
+                assert false
+            | Flat fields ->
+                (* Either a conjunction of equalities, or a disjunction of inequalities. *)
+                let def () =
+                  let sub_equalities = List.map (fun (f, (t_field, _)) ->
+                    let f = Option.must f in
+                    (* __eq__ x.f y.f *)
+                    mk_rec_equality t_field
+                      (EField (with_type t (EBound 0), f))
+                      (EField (with_type t (EBound 1), f))
+                  ) fields in
+                  DFunction (None, [], 0, TBool, instance_lid, [ y; x ],
+                    mk_conj_or_disj sub_equalities)
+                in
+                EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
+            | Variant branches ->
+                let def () =
+                  let pair_of_t = TTuple [ t; t ] in
+                  let branches = List.map (fun (cons, fields) ->
+                    let n_fields = List.length fields in
+                    let binders_x = List.map (fun (f, (t, _)) ->
+                      fresh_binder (KPrint.bsprintf "x_%s" f) t
+                    ) fields in
+                    let binders_y = List.map (fun (f, (t, _)) ->
+                      fresh_binder (KPrint.bsprintf "y_%s" f) t
+                    ) fields in
+                    (* ___eq___ xi yi *)
+                    let sub_eq = List.mapi (fun i (_, (t, _)) ->
+                      mk_rec_equality t (EBound i) (EBound (n_fields + i))
+                    ) fields in
+                    let sub_eq = mk_conj_or_disj sub_eq in
+                    let pat = with_type pair_of_t (PTuple [
+                      with_type t (PCons (cons, List.mapi (fun i (_, (t_f, _)) ->
+                        with_type t_f (PBound i)) fields));
+                      with_type t (PCons (cons, List.mapi (fun i (_, (t_f, _)) ->
+                        with_type t_f (PBound (n_fields + i))) fields))]) in
+                    (* | Foo x0 ... xn, Foo y0 ... yn -> x0 = y0 && ... && xn = yn *)
+                    List.rev binders_y @ List.rev binders_x, pat, sub_eq
+                  ) branches in
+                  let body =
+                    (* match (x, y) with | ... *)
+                    with_type TBool (EMatch (
+                      with_type pair_of_t (ETuple [ with_type t (EBound 0); with_type t (EBound 1)]),
+                      branches
+                    ))
+                  in
+                  DFunction (None, [], 0, TBool, instance_lid, [ y; x ], body)
+                in
+                EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
+          end
+
+      | _ ->
+          try
+            (* Already monomorphized? *)
+            EQualified (Hashtbl.find Gen.generated_lids (eq_lid, [ t ]))
+          with Not_found ->
+            (* External type without a definition. Comparison of function types? *)
+            begin match eq_kind with
+            | `Neq ->
+                (* let __neq__t x y = not (__eq__t x y) *)
+                let def () =
+                  let body = mk_not (with_type TBool (
+                    EApp (with_type eq_typ (self#generate_equality t K.Eq), [
+                      with_type t (EBound 0); with_type t (EBound 1) ])))
+                  in
+                  DFunction (None, [], 0, TBool, instance_lid, [ y; x ], body)
+                in
+                EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
+            | `Eq ->
+                (* assume val __eq__t: t -> t -> bool *)
+                let def () = DExternal (None, [], instance_lid, eq_typ) in
+                EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
+            end
+
+
 
     method! visit_file _ file =
       let file_name, decls = file in
@@ -353,16 +455,7 @@ let functions files =
 
       | EOp (K.Eq | K.Neq as op, _) ->
           let t = KList.one ts in
-          begin match t with
-          | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) ->
-              EOp (op, K.CInt)
-          | TInt w ->
-              EOp (op, w)
-          | TBool ->
-              EOp (op, K.Bool)
-          | _ ->
-              self#generate_equality t op
-          end
+          self#generate_equality t op
 
       | EOp (_, _) ->
          (self#visit_expr env e).node
