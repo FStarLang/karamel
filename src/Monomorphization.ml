@@ -267,6 +267,7 @@ let functions files =
         let eq_typ = TArrow (t, TArrow (t, TBool)) in
         match eq_kind with
         | `Neq ->
+            (* let __neq__t x y = not (__eq__t x y) *)
             let def () =
               let x = fresh_binder "x" t in
               let y = fresh_binder "y" t in
