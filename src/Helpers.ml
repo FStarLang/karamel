@@ -12,6 +12,17 @@ let build_map files f =
   map
 
 
+module MkIMap (M: Map.S) = struct
+  type key = M.key
+  type 'data t = 'data M.t ref
+  let create () = ref M.empty
+  let clear m = m := M.empty
+  let add k v m = m := M.add k v !m
+  let find k m = M.find k !m
+  let iter f m = M.iter f !m
+end 
+
+
 (* Creating AST nodes *********************************************************)
 
 let uint32 = TInt K.UInt32

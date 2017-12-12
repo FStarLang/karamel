@@ -21,15 +21,7 @@ let remove_unused_type_arguments files =
       type t = lident * int
       let compare = compare
     end) in
-    let module ILidIntMap = struct
-      type key = lident * int
-      type 'data t = 'data LidIntMap.t ref
-      let create () = ref LidIntMap.empty
-      let clear m = m := LidIntMap.empty
-      let add k v m = m := LidIntMap.add k v !m
-      let find k m = LidIntMap.find k !m
-      let iter f m = LidIntMap.iter f !m
-    end in
+    let module ILidIntMap = MkIMap(LidIntMap) in
     let module Property = struct
       type property = bool
       let bottom = false

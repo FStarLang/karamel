@@ -98,17 +98,7 @@ let mk_inliner files criterion =
 
 (** Data structures required by [Fix] *)
 
-module LidMap = Idents.LidMap
-
-module ILidMap = struct
-  type key = lident
-  type 'data t = 'data LidMap.t ref
-  let create () = ref LidMap.empty
-  let clear m = m := LidMap.empty
-  let add k v m = m := LidMap.add k v !m
-  let find k m = LidMap.find k !m
-  let iter f m = LidMap.iter f !m
-end
+module ILidMap = Helpers.MkIMap(Idents.LidMap)
 
 type property = Safe | MustInline
 
