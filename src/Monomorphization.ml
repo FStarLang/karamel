@@ -368,7 +368,6 @@ let equalities files =
       let instance_lid = Gen.gen_lid eq_lid [ t ] in
       let x = fresh_binder "x" t in
       let y = fresh_binder "y" t in
-      KPrint.bprintf "generate_equality: %a\n" ptyp t;
 
       match t with
       | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) ->
@@ -393,8 +392,8 @@ let equalities files =
           with Not_found ->
             let mk_conj_or_disj es =
               match eq_kind with
-              | `Eq -> KList.reduce mk_and es
-              | `Neq -> KList.reduce mk_or es
+              | `Eq -> List.fold_left mk_and etrue es
+              | `Neq -> List.fold_left mk_or efalse es
             in
             let mk_rec_equality t e1 e2 =
               with_type TBool (
