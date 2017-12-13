@@ -1094,7 +1094,7 @@ let combinators = object(self)
     | EQualified ([ "C"; "Loops" ], "for64"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
         self#mk_for start finish body K.UInt64
 
-    | EQualified ([ "C"; "Loops" ], "interruptible_for"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
+    | EQualified ([ "C"; "Loops" ], "interruptible_for"), [ start; finish; _inv; { node = EFun (_, _, _); _ } as f ] ->
         (* Relying on the invariant that, if [finish] is effectful, F* has
          * hoisted it *)
         assert (is_value finish);
@@ -1116,7 +1116,16 @@ let combinators = object(self)
               (mk_not (with_type TBool (EBound 2)))
               (mk_neq (with_type uint32 (EBound 1)) (lift 3 finish)),
             lift 1 iter,
-            with_unit (EIgnore (self#visit_expr_w () (lift 2 body)))));
+            with_unit (EAssign
+              (with_type TBool (EBound 2),
+              self#visit_expr_w () (
+                let f = lift 3 f in
+                let body = match f with
+                  | { node = EFun  (_, body, _); _ } -> body
+                  | _ -> assert false
+                in
+                DeBruijn.subst (with_type uint32 (EBound 1)) 0 body
+                )))));
           with_type t (ETuple [
             with_type uint32 (EBound 0);
             with_type TBool (EBound 1)])]))))
