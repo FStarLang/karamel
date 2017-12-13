@@ -246,8 +246,10 @@ and check env t e =
 and check' env t e =
   let c t' = check_subtype env t' t in
   match e.node with
-  | ETApp _ ->
-      assert false
+  | ETApp (e, _) ->
+      (* Equalities are type checked with Any *)
+      (match e.node with EOp ((K.Eq | K.Neq), _) -> () | _ -> assert false);
+      check env t e
 
   | EBound _
   | EOpen _
@@ -480,8 +482,9 @@ and best_buffer_type t1 e2 =
 
 and infer' env e =
   match e.node with
-  | ETApp _ ->
-      assert false
+  | ETApp (e, _) ->
+      (match e.node with EOp ((K.Eq | K.Neq), _) -> () | _ -> assert false);
+      infer env e
 
   | EBound i ->
       begin try

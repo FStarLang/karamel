@@ -242,6 +242,99 @@ let functions files =
         ()
   ) in
 
+  let monomorphize = object(self)
+
+    inherit [_] map
+
+    (* Current file, for warning purposes. *)
+    val mutable current_file = ""
+
+    method! visit_file _ file =
+      let file_name, decls = file in
+      current_file <- file_name;
+      file_name, KList.map_flatten (function
+        | DFunction (cc, flags, n, ret, name, binders, body) ->
+            if Hashtbl.mem map name then
+              []
+            else
+              let d = DFunction (cc, flags, n, ret, name, binders, self#visit_expr_w () body) in
+              assert (n = 0);
+              Gen.clear () @ [ d ]
+        | DGlobal (flags, name, n, t, body) ->
+            if Hashtbl.mem map name then
+              []
+            else
+              let d = DGlobal (flags, name, n, t, self#visit_expr_w () body) in
+              assert (n = 0);
+              Gen.clear () @ [ d ]
+        | d ->
+            [ d ]
+      ) decls
+
+    method! visit_ETApp env e ts =
+      match e.node with
+      | EQualified lid ->
+          begin try
+            (* Already monomorphized? *)
+            EQualified (Hashtbl.find Gen.generated_lids (lid, ts))
+          with Not_found ->
+            match Hashtbl.find map lid with
+            | exception Not_found ->
+                (* External function. Bail. *)
+                (self#visit_expr env e).node
+            | `Function (cc, flags, n, ret, name, binders, body) ->
+                (* Need to generate a new instance. *)
+                if n <> List.length ts then begin
+                  KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
+                  (self#visit_expr env e).node
+                end else
+                  (* The thunk allows registering the name before visiting the
+                   * body, for polymorphic recursive functions. *)
+                  let name = Gen.gen_lid name ts in
+                  let def () =
+                    let ret = DeBruijn.subst_tn ts ret in
+                    let binders = List.map (fun { node; typ } ->
+                      { node; typ = DeBruijn.subst_tn ts typ }
+                    ) binders in
+                    let body = DeBruijn.subst_ten ts body in
+                    let body = self#visit_expr env body in
+                    DFunction (cc, flags, 0, ret, name, binders, body)
+                  in
+                  EQualified (Gen.register_def current_file lid ts name def)
+
+            | `Global (flags, name, n, t, body) ->
+                if n <> List.length ts then begin
+                  KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
+                  (self#visit_expr env e).node
+                end else
+                  let name = Gen.gen_lid name ts in
+                  let def () =
+                    let t = DeBruijn.subst_tn ts t in
+                    let body = DeBruijn.subst_ten ts body in
+                    let body = self#visit_expr env body in
+                    DGlobal (flags, name, 0, t, body)
+                  in
+                  EQualified (Gen.register_def current_file lid ts name def)
+
+          end
+
+      | EOp ((K.Eq | K.Neq), _) ->
+          ETApp (e, ts)
+
+      | EOp (_, _) ->
+         (self#visit_expr env e).node
+
+      | _ ->
+          KPrint.bprintf "%a is not an lid in the type application\n" pexpr e;
+          (self#visit_expr env e).node
+
+  end in
+
+  monomorphize#visit_files () files
+
+
+let equalities files =
+
   let types_map = Helpers.build_map files (fun map d ->
     match d with
     | DType (lid, _, _, d) -> Hashtbl.add map lid d
@@ -252,8 +345,15 @@ let functions files =
 
     inherit [_] map
 
-    (* Current file, for warning purposes. *)
     val mutable current_file = ""
+
+    method! visit_file env file =
+      let file_name, decls = file in
+      current_file <- file_name;
+      file_name, KList.map_flatten (fun d ->
+        let d = self#visit_decl env d in
+        Gen.clear () @ [ d ]
+      ) decls
 
     (* For type [t] and either [op = Eq] or [op = Neq], generate a recursive
      * equality predicate that implements F*'s structural equality. *)
@@ -382,87 +482,13 @@ let functions files =
                 EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
             end
 
-
-
-    method! visit_file _ file =
-      let file_name, decls = file in
-      current_file <- file_name;
-      file_name, KList.map_flatten (function
-        | DFunction (cc, flags, n, ret, name, binders, body) ->
-            if Hashtbl.mem map name then
-              []
-            else
-              let d = DFunction (cc, flags, n, ret, name, binders, self#visit_expr_w () body) in
-              assert (n = 0);
-              Gen.clear () @ [ d ]
-        | DGlobal (flags, name, n, t, body) ->
-            if Hashtbl.mem map name then
-              []
-            else
-              let d = DGlobal (flags, name, n, t, self#visit_expr_w () body) in
-              assert (n = 0);
-              Gen.clear () @ [ d ]
-        | d ->
-            [ d ]
-      ) decls
-
-    method! visit_ETApp env e ts =
+    method! visit_ETApp _ e ts =
       match e.node with
-      | EQualified lid ->
-          begin try
-            (* Already monomorphized? *)
-            EQualified (Hashtbl.find Gen.generated_lids (lid, ts))
-          with Not_found ->
-            match Hashtbl.find map lid with
-            | exception Not_found ->
-                (* External function. Bail. *)
-                (self#visit_expr env e).node
-            | `Function (cc, flags, n, ret, name, binders, body) ->
-                (* Need to generate a new instance. *)
-                if n <> List.length ts then begin
-                  KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
-                  (self#visit_expr env e).node
-                end else
-                  (* The thunk allows registering the name before visiting the
-                   * body, for polymorphic recursive functions. *)
-                  let name = Gen.gen_lid name ts in
-                  let def () =
-                    let ret = DeBruijn.subst_tn ts ret in
-                    let binders = List.map (fun { node; typ } ->
-                      { node; typ = DeBruijn.subst_tn ts typ }
-                    ) binders in
-                    let body = DeBruijn.subst_ten ts body in
-                    let body = self#visit_expr env body in
-                    DFunction (cc, flags, 0, ret, name, binders, body)
-                  in
-                  EQualified (Gen.register_def current_file lid ts name def)
-
-            | `Global (flags, name, n, t, body) ->
-                if n <> List.length ts then begin
-                  KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
-                  (self#visit_expr env e).node
-                end else
-                  let name = Gen.gen_lid name ts in
-                  let def () =
-                    let t = DeBruijn.subst_tn ts t in
-                    let body = DeBruijn.subst_ten ts body in
-                    let body = self#visit_expr env body in
-                    DGlobal (flags, name, 0, t, body)
-                  in
-                  EQualified (Gen.register_def current_file lid ts name def)
-
-          end
-
       | EOp (K.Eq | K.Neq as op, _) ->
           let t = KList.one ts in
           self#generate_equality t op
-
-      | EOp (_, _) ->
-         (self#visit_expr env e).node
-
       | _ ->
-          KPrint.bprintf "%a is not an lid in the type application\n" pexpr e;
-          (self#visit_expr env e).node
+          failwith "should've been eliminated by Monomorphize.functions"
 
   end in
 

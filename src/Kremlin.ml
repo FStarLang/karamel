@@ -433,6 +433,7 @@ Supported options:|}
    * spurious dependencies otherwise. JP: TODO: fix F\*'s extraction instead! *)
   let files = DataTypes.simplify files in
   let files = Monomorphization.datatypes files in
+  let files = Monomorphization.equalities files in
   let files = Inlining.inline files in
   let files = Inlining.drop_unused files in
   if !arg_print_inline then
