@@ -99,12 +99,12 @@ let rec reverse_for start finish inv f =
   end
 
 (* To be extracted as:
-    int i = <start>;
     bool b = false;
+    int i = <start>;
     for (; (!b) && (i != <end>); ++i) {
       b = <f> i;
     }
-    // i and b must be in scope after the loop
+    (i, b)
 *)
 val interruptible_for:
   start:UInt32.t ->
