@@ -384,7 +384,7 @@ let equalities files =
           (* Buffers do not have eqtype. The only instance of pointer types compared via equality is
            * thus references, which are compared by address. Type-checking is lax and will accept
            * this even though the K.Bool is incorrect... *)
-          EOp (op, K.Bool)
+          EOp (op, K.UInt64)
 
       | TQualified lid when Hashtbl.mem types_map lid ->
           begin try
@@ -425,37 +425,53 @@ let equalities files =
                 EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
             | Variant branches ->
                 let def () =
-                  let pair_of_t = TTuple [ t; t ] in
-                  let branches = List.map (fun (cons, fields) ->
-                    let n_fields = List.length fields in
-                    let binders_x = List.map (fun (f, (t, _)) ->
-                      fresh_binder (KPrint.bsprintf "x_%s" f) t
-                    ) fields in
-                    let binders_y = List.map (fun (f, (t, _)) ->
-                      fresh_binder (KPrint.bsprintf "y_%s" f) t
-                    ) fields in
-                    (* ___eq___ xi yi *)
-                    let sub_eq = List.mapi (fun i (_, (t, _)) ->
-                      mk_rec_equality t (EBound i) (EBound (n_fields + i))
-                    ) fields in
-                    let sub_eq = mk_conj_or_disj sub_eq in
-                    let pat = with_type pair_of_t (PTuple [
-                      with_type t (PCons (cons, List.mapi (fun i (_, (t_f, _)) ->
-                        with_type t_f (PBound i)) fields));
-                      with_type t (PCons (cons, List.mapi (fun i (_, (t_f, _)) ->
-                        with_type t_f (PBound (n_fields + i))) fields))]) in
-                    (* | Foo x0 ... xn, Foo y0 ... yn -> x0 = y0 && ... && xn = yn *)
-                    List.rev binders_y @ List.rev binders_x, pat, sub_eq
-                  ) branches in
-                  let body =
-                    (* match (x, y) with | ... *)
-                    with_type TBool (EMatch (
-                      with_type pair_of_t (ETuple [ with_type t (EBound 0); with_type t (EBound 1)]),
-                      branches
-                    ))
+                  let fail_case = match eq_kind with
+                    | `Eq -> efalse
+                    | `Neq -> etrue
                   in
-                  DFunction (None, [], 0, TBool, instance_lid, [ y; x ], body)
-                in
+                  (* let __eq__typ y x = *)
+                  DFunction (None, [], 0, TBool, instance_lid, [ y; x ],
+                    (* match *)
+                    with_type TBool (EMatch (
+                      (* x with *)
+                      with_type t (EBound 0),
+                      List.map (fun (cons, fields) ->
+                        let n = List.length fields in
+                        let binders_x = List.map (fun (f, (t, _)) ->
+                          fresh_binder (KPrint.bsprintf "x_%s" f) t
+                        ) fields in
+                        (* \. xn ... x0. *)
+                        List.rev binders_x, 
+                        (* A x0 ... xn -> *)
+                        with_type t (PCons (cons, List.mapi (fun i (_, (t_f, _)) ->
+                          with_type t_f (PBound i)) fields)),
+                        (* match *)
+                        with_type TBool (EMatch (
+                          (* y with *)
+                          with_type t (EBound (n + 1)),
+                          let binders_y = List.map (fun (f, (t, _)) ->
+                            fresh_binder (KPrint.bsprintf "y_%s" f) t
+                          ) fields in
+                          [
+                            (* \. yn ... y0 *)
+                            List.rev binders_y,
+                            (* A y0 ... yn -> *)
+                            with_type t (PCons (cons, List.mapi (fun i (_, (t_f, _)) ->
+                              with_type t_f (PBound i)) fields)),
+                            (* ___eq___ xi yi *)
+                            mk_conj_or_disj (List.mapi (fun i (_, (t, _)) ->
+                              mk_rec_equality t (EBound i) (EBound (n + i))
+                            ) fields);
+                            (* _ -> false *)
+                            [],
+                            with_type t PWild,
+                            fail_case
+                      ]))) branches @ [
+                        (* _ -> false *)
+                        [],
+                        with_type t PWild,
+                        fail_case
+                      ]))) in
                 EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
           end
 

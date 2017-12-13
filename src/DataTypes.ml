@@ -583,7 +583,7 @@ let compile_all_matches (map, enums) = object (self)
     let tag_lid =
       match allocate_tag enums preferred_lid tags with
       | Found lid -> lid
-      | Fresh _ -> assert false (* pre-allocate by the previous phase *)
+      | Fresh _ -> assert false (* pre-allocated by the previous phase *)
     in
     TQualified tag_lid, TAnonymous (Union structs)
 
