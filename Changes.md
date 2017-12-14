@@ -1,3 +1,10 @@
+### December 13th, 2017
+
+- Generation of custom equality functions that implement F\*'s notion of
+  equality. This means a structural, recursive comparison for data types,
+  address comparison for references, and a proper implementation of
+  FStar.Buffer.eqb. Equality predicates may be quite large.
+
 ### December 11th, 2017
 
 - Remove unused type parameters. This is especially useful for types
