@@ -103,7 +103,7 @@ let buffer: file =
      *       break
      *   ret
      *)
-    DFunction (None, [], 1, TBool, ([ "FStar"; "Buffer" ], "eqb"),
+    DFunction (None, [ Common.Private ], 1, TBool, ([ "FStar"; "Buffer" ], "eqb"),
       [ fresh_binder "b1" (TBuf (TBound 0));
         fresh_binder "b2" (TBuf (TBound 0));
         fresh_binder "len" uint32 ],

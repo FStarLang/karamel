@@ -418,7 +418,7 @@ let equalities files =
                       (EField (with_type t (EBound 0), f))
                       (EField (with_type t (EBound 1), f))
                   ) fields in
-                  DFunction (None, [], 0, TBool, instance_lid, [ y; x ],
+                  DFunction (None, [ Common.Private ], 0, TBool, instance_lid, [ y; x ],
                     mk_conj_or_disj sub_equalities)
                 in
                 EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
@@ -429,7 +429,7 @@ let equalities files =
                     | `Neq -> etrue
                   in
                   (* let __eq__typ y x = *)
-                  DFunction (None, [], 0, TBool, instance_lid, [ y; x ],
+                  DFunction (None, [ Common.Private ], 0, TBool, instance_lid, [ y; x ],
                     (* match *)
                     with_type TBool (EMatch (
                       (* x with *)
