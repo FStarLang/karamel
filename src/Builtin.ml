@@ -9,6 +9,7 @@
 
 open Ast
 open Constant
+open Helpers
 
 let string_of_width = function
   | UInt8 -> "UInt8"
@@ -92,7 +93,45 @@ let prims: file =
     mk_boolop "op_LessThan"
   ]
 
+let buffer: file =
+  "FStar_Buffer", [
+    (* let eqb #a b1 b2 len =
+     *   let mut ret = true in
+     *   for let mut i = 0; i < len; i <- i + 1
+     *     if ((<>) (a -> a -> bool) b1[i] b2[i])
+     *       ret <- false
+     *       break
+     *   ret
+     *)
+    DFunction (None, [], 1, TBool, ([ "FStar"; "Buffer" ], "eqb"),
+      [ fresh_binder "b1" (TBuf (TBound 0));
+        fresh_binder "b2" (TBuf (TBound 0));
+        fresh_binder "len" uint32 ],
+      with_type TBool (ELet (fresh_binder ~mut:true "ret" TBool, etrue,
+      with_type TBool (ESequence [
+      with_unit (EFor (fresh_binder ~mut:true "i" uint32, zerou32,
+        mk_lt32 (with_type uint32 (EBound 2)),
+        mk_incr32,
+        with_unit (EIfThenElse (with_type TBool (
+          EApp (with_type (TArrow (TBound 0, TArrow (TBound 0, TBool)))
+            (ETApp (with_type (TArrow (TBound 0, TArrow (TBound 0, TBool)))
+              (EOp (K.Neq, K.Bool)),
+              [ TBound 0 ])), [
+            with_type (TBound 0) (EBufRead (
+              with_type (TBuf (TBound 0)) (EBound 3),
+              with_type uint32 (EBound 0)));
+            with_type (TBound 0) (EBufRead (
+              with_type (TBuf (TBound 0)) (EBound 4),
+              with_type uint32 (EBound 0)))])),
+          with_unit (ESequence [
+            with_unit (EAssign (with_type TBool (EBound 1), efalse));
+            with_unit EBreak ]),
+          eunit))));
+      with_type TBool (EBound 0)]))))
+  ]
+
 let prelude () =
   prims ::
   List.map mk_builtin_int
-    [ UInt8; UInt16; UInt32; UInt64; Int8; Int16; Int32; Int64 ]
+    [ UInt8; UInt16; UInt32; UInt64; Int8; Int16; Int32; Int64 ] @ [
+  buffer ]

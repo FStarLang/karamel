@@ -162,9 +162,6 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
     })
 #endif
 
-#define FStar_Buffer_eqb(b1, b2, n)                                            \
-  (memcmp((b1), (b2), (n) * sizeof((b1)[0])) == 0)
-
 /* Stubs to make ST happy. Important note: you must generate a use of the macro
  * argument, otherwise, you may have FStar_ST_recall(f) as the only use of f;
  * KreMLin will think that this is a valid use, but then the C compiler, after
