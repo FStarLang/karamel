@@ -166,6 +166,8 @@ let read_file (f: string): file list =
     failwith (Printf.sprintf "The file %s is for version %d; current version of KreMLin is %d" f version current_version);
   files
 
+let read_files = KList.map_flatten read_file
+
 let write_file (files: file list) (f: string): unit =
   with_open_out f (fun oc ->
     output_value oc (current_version, files);

@@ -56,7 +56,7 @@ let _ =
   let o_files = ref [] in
   let js_files = ref [] in
   let fst_files = ref [] in
-  let filename = ref "" in
+  let filenames = ref [] in
   let p k = String.concat " " (Array.to_list (List.assoc k (Options.default_options ()))) in
   let usage = Printf.sprintf
 {|KreMLin: from a ML-like subset to C
@@ -261,9 +261,7 @@ Supported options:|}
     else if Filename.check_suffix f ".js" then
       js_files := f :: !js_files
     else if Filename.check_suffix f ".json" || Filename.check_suffix f ".krml" then begin
-      if !filename <> "" then
-        Warnings.fatal_error "At most one [.json] or [.krml] file supported";
-      filename := f
+      filenames := f :: !filenames
     end else
       Warnings.fatal_error "Unknown file extension for %s\n" f;
     found_file := true
@@ -271,8 +269,8 @@ Supported options:|}
   Arg.parse spec anon_fun usage;
 
   if not !found_file ||
-     List.length !fst_files = 0 && !filename = "" ||
-     List.length !fst_files > 0 && !filename <> ""
+     List.length !fst_files = 0 && List.length !filenames = 0 ||
+     List.length !fst_files > 0 && List.length !filenames > 0
   then begin
     print_endline (Arg.usage_string spec usage);
     exit 1
@@ -353,13 +351,14 @@ Supported options:|}
 
 
   (* Shall we run F* first? *)
-  let filename =
+  let filenames =
     if List.length !fst_files > 0 then
+      (* Monolithic extraction, generates a single out.krml *)
       let f = Driver.run_fstar !arg_verify !arg_skip_extraction !arg_skip_translation !fst_files in
       tick_print true "F*";
-      f
+      [ f ]
     else
-      !filename
+      !filenames
   in
 
   (* Dumping the AST for debugging purposes *)
@@ -367,12 +366,34 @@ Supported options:|}
     flush stdout;
     flush stderr;
     let open PPrint in
-    Printf.printf "Read [%s]. Printing with w=%d\n" filename Utils.twidth;
+    let filenames = String.concat ", " filenames in
+    Printf.printf "Read [%s]. Printing with w=%d\n" filenames Utils.twidth;
     Print.print (f files ^^ hardline);
     flush stdout
   in
 
-  let files = InputAst.read_file filename in
+  let files = InputAst.read_files filenames in
+
+  (* These are modules we don't want because there's primitive support for them
+   * in kremlin. *)
+  let should_keep (name, _) = match name with
+    | "FStar_Int8" | "FStar_UInt8" | "FStar_Int16" | "FStar_UInt16"
+    | "FStar_Int31" | "FStar_UInt31" | "FStar_Int32" | "FStar_UInt32"
+    | "FStar_Int63" | "FStar_UInt63" | "FStar_Int64" | "FStar_UInt64"
+    | "FStar_Int128" | "FStar_HyperStack.ST" | "FStar_Monotonic.HyperHeap"
+    | "FStar_Buffer" | "FStar_Monotonic.HyperStack" | "FStar_Monotonic.Heap"
+    | "C.String" ->
+        false
+    | "FStar_UInt128" ->
+        (* Keep if we don't use the uint128 type. *)
+        not !Options.uint128
+    | "WasmSupport" ->
+        (* Keep if we're compiling to Wasm. *)
+        !Options.wasm
+    | _ ->
+        true
+  in
+  let files = List.filter should_keep files in
 
   (* A quick sanity check to save myself some time. *)
   begin try
@@ -388,8 +409,7 @@ Supported options:|}
      * support it. *)
     if has_uint128 <> not !Options.uint128 then
       Warnings.fatal_error "The implementation of FStar.UInt128 should be \
-        present in the input if and only if using -fnouint128. Is out.krml \
-        outdated?"
+        present in the input when using -fnouint128."
   with Not_found ->
     ()
   end;

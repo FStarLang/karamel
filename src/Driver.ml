@@ -212,20 +212,10 @@ let detect_fstar () =
     "--cache_checked_modules";
     "--expose_interfaces"
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
-  (* no-extract modules are modules for which we have primitive support in
-   * kremlin; this list should not grow. *)
-  let record_no_extract m =
-    fstar_options := "--no_extract" :: ("FStar." ^ m) :: !fstar_options
-  in
-  List.iter record_no_extract
-    [ "Int8"; "UInt8"; "Int16"; "UInt16"; "Int31"; "UInt31"; "Int32"; "UInt32";
-      "Int63"; "UInt63"; "Int64"; "UInt64"; "Int128"; "HyperStack.ST";
-      "Monotonic.HyperHeap"; "Buffer"; "Monotonic.HyperStack"; "Monotonic.Heap" ];
-  fstar_options := "--no_extract" :: "C.String" :: !fstar_options;
-  if not !Options.uint128 then
-    fstar_options := (!fstar_home ^^ "ulib" ^^ "FStar.UInt128.fst") :: !fstar_options;
-  if !Options.wasm then
-    fstar_options := (!krml_home ^^ "runtime" ^^ "WasmSupport.fst") :: !fstar_options;
+  (* This is a superset of the needed modules... some will be dropped very early
+   * on in Kremlin.ml *)
+  fstar_options := (!fstar_home ^^ "ulib" ^^ "FStar.UInt128.fst") :: !fstar_options;
+  fstar_options := (!krml_home ^^ "runtime" ^^ "WasmSupport.fst") :: !fstar_options;
   KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
 
   flush stdout
