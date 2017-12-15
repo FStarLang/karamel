@@ -130,21 +130,7 @@ let string_of_dependency (d1, f1, d2, f2) =
   KPrint.bsprintf "%a (found in file %s) mentions %a (found in file %s)"
     PrintAst.plid d1 f1 PrintAst.plid d2 f2
 
-(* This creates bundles for every [-bundle] argument that was passed on the
- * command-line. *)
-let make_bundles files =
-  (* We create the set of files that are either freshly-generated bundles, or
-   * files that were not involved in the creation of a bundle and that,
-   * therefore, we probably should keep. *)
-  let used, bundles = List.fold_left (fun (used, bundles) arg ->
-    let used, bundle = make_one_bundle arg files used in
-    used, bundle :: bundles
-  ) (StringMap.empty, []) !Options.bundle in
-  let files = List.filter (fun (n, _) -> not (StringMap.mem n used)) files @ bundles in
-
-  (* This is important, because bundling may creates cycles, that are broken
-   * after removing (now-unused) functions. *)
-  let files = Inlining.drop_unused files in
+let topological_sort files =
 
   (* We perform a dependency analysis on this set of files to figure out how to
    * order them; this is the creation of the dependency graph. Instead of merely
@@ -197,3 +183,21 @@ let make_bundles files =
   in
   List.iter (dfs []) (List.map fst files);
   List.rev !stack
+
+(* This creates bundles for every [-bundle] argument that was passed on the
+ * command-line. *)
+let make_bundles files =
+  (* We create the set of files that are either freshly-generated bundles, or
+   * files that were not involved in the creation of a bundle and that,
+   * therefore, we probably should keep. *)
+  let used, bundles = List.fold_left (fun (used, bundles) arg ->
+    let used, bundle = make_one_bundle arg files used in
+    used, bundle :: bundles
+  ) (StringMap.empty, []) !Options.bundle in
+  let files = List.filter (fun (n, _) -> not (StringMap.mem n used)) files @ bundles in
+
+  (* This is important, because bundling may creates cycles, that are broken
+   * after removing (now-unused) functions. *)
+  let files = Inlining.drop_unused files in
+
+  topological_sort files

@@ -423,6 +423,14 @@ Supported options:|}
   if !arg_print_ast then
     print PrintAst.print_files files;
 
+  (* 0. Since the user may now pass several .krml files in an arbitrary order,
+   * we need a topological order. Example:
+   * - B.g depends on A.f and they both bundled (and private)
+   * - A needs to come before B so that in the resulting bundle, "static void
+   *   A_f" comes before "static void B_g" (since they're static, there's no
+   *   forward declaration in the header. *)
+  let files = Bundles.topological_sort files in
+
   (* 1. We create bundles, and monomorphize functions first. This creates more
    * applications of parameterized types, which we make sure are in the AST by
    * checking it. Note that bundling calls [drop_unused] already to do a first
