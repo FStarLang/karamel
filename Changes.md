@@ -1,3 +1,9 @@
+### December 14th, 2017
+
+- Support for separate extraction of various out.krml, to be passed /en masse/
+  to KreMLin. Support for this feature is in F\* 69f79f7. Exemplary Makefile is
+  at https://github.com/mitls/hacl-star/blob/28d65c2f24e5f6c8a1d032ae978e996475009c7a/secure_api/Makefile.extract#L93
+
 ### December 13th, 2017
 
 - Generation of custom equality functions that implement F\*'s notion of
