@@ -14,8 +14,8 @@ type t a =
 let p1 (): Stack point (fun _ -> true) (fun _ _ _ -> true) =
   { x = 0l; y = 1l }
 
-let f (): Stack nat (fun _ -> true) (fun _ _ _ -> true) =
-  2
+let f (): Stack Int32.t (fun _ -> true) (fun _ _ _ -> true) =
+  2l
 
 let p2 (): Stack point (fun _ -> true) (fun _ _ _ -> true) =
   { x = 0l; y = f () }
