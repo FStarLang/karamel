@@ -50,6 +50,8 @@ extern int exit_failure;
 
 extern intptr_t nullptr;
 
+typedef intptr_t FStar_Dyn_dyn;
+
 /* For non-base types (i.e. not machine integers), KreMLin generates calls to
  * assumed equality functions. */
 static inline bool __eq__C_char(char c1, char c2) {
@@ -170,7 +172,7 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
 #define FStar_HyperStack_is_eternal_color(x) 0
 #define FStar_Monotonic_HyperHeap_root 0
 #define FStar_Buffer_recall(x)
-#define FStar_HyperStack_ST_new_region(x)
+#define FStar_HyperStack_ST_new_region(x) x
 
 #define FStar_HyperStack_ST_recall(x)                                          \
   do {                                                                         \
