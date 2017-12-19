@@ -81,7 +81,7 @@ void WasmSupport_check_buffer_size(uint32_t s);
  * signatures of ghost functions, meaning that it suffices to give them (any)
  * definition. */
 typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
-        *FStar_Monotonic_HyperHeap_rid;
+        *FStar_Monotonic_HyperHeap_rid, *FStar_HyperStack_ST_rid;
 
 /* For "bare" targets that do not have a C stdlib, the user might want to use
  * [-add-early-include '"mydefinitions.h"'] and override these. */

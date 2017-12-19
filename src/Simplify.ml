@@ -260,7 +260,6 @@ class ['self] safe_use = object (self: 'self)
 end
 
 let safe_readonly_use e =
-  KPrint.bprintf "safe_use %a\n" pexpr e;
   match (new safe_use)#visit_expr_w 0 e with
   | SafeUse -> true
   | Unsafe -> false
