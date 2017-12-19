@@ -207,57 +207,61 @@ class ['self] safe_use = object (self: 'self)
     | Safe, Safe ->
         Safe
     | SafeUse, SafeUse ->
-        failwith "this contradicts the use-analysis"
+        failwith "this contradicts the use-analysis (1)"
     | _ ->
         Unsafe
   method private expr_plus_typ = self#plus
 
+  method! extend j _ =
+    j + 1
+
   (* The composition rule for [es] expressions, whose evaluation order is
    * unspecified, but is known to happen before an unsafe expression. The only
    * safe case is if the use is found among safe nodes. *)
-  method private unordered es =
-    let es = List.map (self#visit_expr_w ()) es in
+  method private unordered (j, _) es =
+    let es = List.map (self#visit_expr_w j) es in
     let the_use, the_rest = List.partition ((=) SafeUse) es in
     match List.length the_use, List.for_all ((=) Safe) the_rest with
     | 1, true -> SafeUse
-    | x, _ when x > 1 -> failwith "this contradicts the use-analysis"
+    | x, _ when x > 1 -> failwith "this contradicts the use-analysis (2)"
     | _ -> Unsafe
 
   (* The sequential composition rule, where [e1] is known be to be
    * sequentialized before [e2]. Two cases: the use is found in [e1] (and we
    * don't care what happens in [e2]), otherwise, just a regular composition. *)
-  method private sequential e1 e2 =
-    match self#visit_expr_w () e1, e2 with
+  method private sequential (j, _) e1 e2 =
+    match self#visit_expr_w j e1, e2 with
     | SafeUse, _ -> SafeUse
     | x, Some e2 ->
-        self#plus x (self#visit_expr_w () e2)
+        self#plus x (self#visit_expr_w (j + 1) e2)
     | _, None ->
         (* We don't know what comes after; can't conclude anything. *)
         Unsafe
 
-  method! visit_EBound _ i = if i = 0 then SafeUse else Safe
+  method! visit_EBound (j, _) i = if i = j then SafeUse else Safe
 
-  method! visit_EBufWrite _ e1 e2 e3 = self#unordered [ e1; e2; e3 ]
-  method! visit_EBufFill _ e1 e2 e3 = self#unordered [ e1; e2; e3 ]
-  method! visit_EBufBlit _ e1 e2 e3 e4 e5 = self#unordered [ e1; e2; e3; e4; e5 ]
-  method! visit_EAssign _ e1 e2 = self#unordered [ e1; e2 ]
+  method! visit_EBufWrite env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
+  method! visit_EBufFill env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
+  method! visit_EBufBlit env e1 e2 e3 e4 e5 = self#unordered env [ e1; e2; e3; e4; e5 ]
+  method! visit_EAssign env e1 e2 = self#unordered env [ e1; e2 ]
   method! visit_EApp env e es =
     match e.node with
     | EOp _ -> super#visit_EApp env e es
     | EQualified lid when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
-    | _ -> self#unordered (e :: es)
+    | _ -> self#unordered env (e :: es)
 
-  method! visit_ELet _ _ e1 e2 = self#sequential e1 (Some e2)
-  method! visit_EIfThenElse _ e _ _ = self#sequential e None
-  method! visit_ESwitch _ e _ = self#sequential e None
-  method! visit_EWhile _ e _ = self#sequential e None
-  method! visit_EFor _ _ e _ _ _ = self#sequential e None
-  method! visit_EMatch _ e _ = self#sequential e None
-  method! visit_ESequence _ es = self#sequential (List.hd es) None
+  method! visit_ELet env _ e1 e2 = self#sequential env e1 (Some e2)
+  method! visit_EIfThenElse env e _ _ = self#sequential env e None
+  method! visit_ESwitch env e _ = self#sequential env e None
+  method! visit_EWhile env e _ = self#sequential env e None
+  method! visit_EFor env _ e _ _ _ = self#sequential env e None
+  method! visit_EMatch env e _ = self#sequential env e None
+  method! visit_ESequence env es = self#sequential env (List.hd es) None
 end
 
 let safe_readonly_use e =
-  match (new safe_use)#visit_expr_w () e with
+  KPrint.bprintf "safe_use %a\n" pexpr e;
+  match (new safe_use)#visit_expr_w 0 e with
   | SafeUse -> true
   | Unsafe -> false
   | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
@@ -265,15 +269,15 @@ let safe_readonly_use e =
 class ['self] safe_pure_use = object (self: 'self)
   inherit [_] reduce as super
   inherit [_] safe_use
-  method! visit_EBufRead _ e1 e2 = self#unordered [ e1; e2 ]
+  method! visit_EBufRead env e1 e2 = self#unordered env [ e1; e2 ]
   method! visit_EApp env e es =
     match e.node with
     | EOp _ -> super#visit_EApp env e es
-    | _ -> self#unordered (e :: es)
+    | _ -> self#unordered env (e :: es)
 end
 
 let safe_pure_use e =
-  match (new safe_pure_use)#visit_expr_w () e with
+  match (new safe_pure_use)#visit_expr_w 0 e with
   | SafeUse -> true
   | Unsafe -> false
   | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
@@ -1161,6 +1165,7 @@ end
 let simplify0 (files: file list): file list =
   let files = remove_local_function_bindings#visit_files () files in
   let files = count_and_remove_locals#visit_files [] files in
+  PPrint.(Print.(print (PrintAst.print_files files ^^ hardline)));
   let files = remove_uu#visit_files () files in
   let files = combinators#visit_files () files in
   let files = wrapping_arithmetic#visit_files () files in

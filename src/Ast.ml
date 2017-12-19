@@ -142,9 +142,6 @@ class virtual ['self] reduce_typ_adapter = object (self: 'self)
   inherit [_] reduce_typ
   inherit [_] reduce_misc
 
-  (* We let the user explain exactly how types and expressions compose. *)
-  method private virtual expr_plus_typ: _
-
   method visit_typ_wo (env, _) t =
     self#visit_typ env t
 
@@ -152,7 +149,7 @@ class virtual ['self] reduce_typ_adapter = object (self: 'self)
     fun f (env, _) x ->
       let a = self#visit_typ env x.typ in
       let b = f (env, x.typ) x.node in
-      self#expr_plus_typ a b
+      self#plus a b
 end
 
 
@@ -361,7 +358,7 @@ class virtual ['self] reduce_expr_adapter = object (self: 'self)
     fun f env x ->
       let a = self#visit_typ env x.typ in
       let b = f (env, x.typ) x.node in
-      self#expr_plus_typ a b
+      self#plus a b
 
   method visit_expr_w =
     self#lift_w self#visit_expr'
@@ -385,7 +382,7 @@ type program =
   [@@deriving show,
     visitors { name = "map_all"; variety = "map"; monomorphic = [ "env" ]; ancestors = ["map_expr_adapter"] },
     visitors { name = "iter_all"; variety = "iter"; monomorphic = [ "env" ]; ancestors = ["iter_expr_adapter"] },
-    visitors { name = "reduce"; variety = "reduce"; monomorphic = [ "env" ]; ancestors = ["reduce_expr_adapter"] }]
+    visitors { name = "reduce_all"; variety = "reduce"; monomorphic = [ "env" ]; ancestors = ["reduce_expr_adapter"] }]
 
 and file =
   string * program
@@ -408,7 +405,7 @@ and fields_e_opt_w =
 (* The final layer overrides a few selected methods to extend the environment
  * with binders. *)
 class ['self] names_helper = object (self: 'self)
-  
+
   (* Crossing a binder in expressions. Overridable by the user. *)
   method extend env _ =
     env
@@ -536,6 +533,59 @@ class ['self] iter = object (self: 'self)
     self#visit_binders_w env bs;
     let env = self#extend_many env bs in
     self#visit_expr_w env e
+end
+
+class virtual ['self] reduce = object (self: 'self)
+  inherit [_] reduce_all
+  inherit [_] names_helper
+
+  method! visit_ELet env b e1 e2 =
+    let b' = self#visit_binder env b in
+    let e1 = self#visit_expr env e1 in
+    let env = self#extend_wo env b in
+    let e2 = self#visit_expr env e2 in
+    KList.reduce self#plus [ b'; e1; e2 ]
+
+  method! visit_EFor env b e1 e2 e3 e4 =
+    let b' = self#visit_binder env b in
+    let e1 = self#visit_expr env e1 in
+    let env = self#extend_wo env b in
+    let e2 = self#visit_expr env e2 in
+    let e3 = self#visit_expr env e3 in
+    let e4 = self#visit_expr env e4 in
+    KList.reduce self#plus [ b'; e1; e2; e3; e4 ]
+
+  method! visit_EFun env bs e t =
+    let bs' = self#visit_binders env bs in
+    let env = self#extend_many_wo env bs in
+    let e = self#visit_expr env e in
+    let t = self#visit_typ_wo env t in
+    KList.reduce self#plus [ bs'; e; t ]
+
+  method! visit_branch env (bs, p, e) =
+    let bs' = self#visit_binders env bs in
+    let env = self#extend_many_wo env bs in
+    let p = self#visit_pattern env p in
+    let e = self#visit_expr env e in
+    KList.reduce self#plus [ bs'; p; e ]
+
+  method! visit_DType env lid flags n d =
+    let lid = self#visit_lident env lid in
+    let flags = self#visit_flags env flags in
+    let env = self#extend_tmany env n in
+    let d = self#visit_type_def env d in
+    KList.reduce self#plus [ lid; flags; d ]
+
+  method! visit_DFunction env cc flags n t lid bs e =
+    let cc = self#visit_calling_convention_option env cc in
+    let flags = self#visit_flags env flags in
+    let env = self#extend_tmany env n in
+    let t = self#visit_typ env t in
+    let lid = self#visit_lident env lid in
+    let bs' = self#visit_binders_w env bs in
+    let env = self#extend_many env bs in
+    let e = self#visit_expr_w env e in
+    KList.reduce self#plus [ cc; flags; t; lid; bs'; e ]
 end
 
 

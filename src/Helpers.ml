@@ -219,7 +219,6 @@ class ['self] readonly_visitor = object (self: 'self)
   inherit [_] reduce
   method private zero = true
   method private plus = (&&)
-  method private expr_plus_typ = (&&)
   method! visit_EIfThenElse _ _ _ _ = false
   method! visit_ESequence _ _ = false
   method! visit_EAssign _ _ _ = false
@@ -250,7 +249,7 @@ end
 
 let is_readonly_c_expression = (new readonly_visitor)#visit_expr_w ()
 
-let value_visitor = object
+class ['self] value_visitor = object (_self: 'self)
   inherit [_] readonly_visitor
   method! visit_EApp _ _ _ = false
   method! visit_ELet _ _ _ _ = false
@@ -258,7 +257,7 @@ let value_visitor = object
   method! visit_EBufSub _ _ _ = false
 end
 
-let is_value = value_visitor#visit_expr_w ()
+let is_value = (new value_visitor)#visit_expr_w ()
 
 (* Used by the Checker for the size of stack-allocated buffers. Also used by the
  * global initializers collection phase. This is a conservative approximation of
