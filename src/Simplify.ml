@@ -1165,7 +1165,6 @@ end
 let simplify0 (files: file list): file list =
   let files = remove_local_function_bindings#visit_files () files in
   let files = count_and_remove_locals#visit_files [] files in
-  PPrint.(Print.(print (PrintAst.print_files files ^^ hardline)));
   let files = remove_uu#visit_files () files in
   let files = combinators#visit_files () files in
   let files = wrapping_arithmetic#visit_files () files in
