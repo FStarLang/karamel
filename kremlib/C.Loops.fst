@@ -6,7 +6,6 @@ module C.Loops
 open FStar.HyperStack.ST
 open FStar.Buffer
 
-module HH = FStar.HyperHeap
 module HS = FStar.HyperStack
 module HST = FStar.HyperStack.ST
 module UInt32 = FStar.UInt32
