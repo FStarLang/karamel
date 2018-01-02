@@ -2,7 +2,6 @@ module C.Nullity
 
 module B = FStar.Buffer
 module HS = FStar.HyperStack
-module HH = FStar.HyperHeap
 
 open FStar.HyperStack.ST
 
