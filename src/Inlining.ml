@@ -94,117 +94,7 @@ let mk_inliner files criterion =
   end)#visit_expr_w ()) in
   inline_one
 
-(** A fixpoint computation ****************************************************)
-
-(** Data structures required by [Fix] *)
-
-module ILidMap = Helpers.MkIMap(Idents.LidMap)
-
-type property = Safe | MustInline
-
-let lub x y =
-  match x, y with
-  | Safe, Safe -> Safe
-  | _ -> MustInline
-
-module Property = struct
-  type nonrec property = property
-  let bottom = Safe
-  let equal = (=)
-  let is_maximal p = p = MustInline
-end
-
-module F = Fix.Make(ILidMap)(Property)
-
-(** The actual fixpoint computation; if [f] does not push a frame and calls [g],
- * and [g] must be inlined, then [f] must be inlined too. *)
-let inline_analysis map =
-  let lookup lid = Hashtbl.find map lid in
-  let debug_inline = Options.debug "inline" in
-
-  (** To determine whether a function should be inlined, we use a syntactic
-   * criterion: any buffer allocation that happens before a [push_frame] implies
-   * the function must be inlined to be sound. Any reference to an external
-   * function also is enough of a reason to inline. *)
-  (** TODO: this criterion is not sound as it stands because we should also
-   * check what happens _after_ the EPopFrame. *)
-  let contains_alloc lid valuation expr =
-    let module L = struct exception Found of string end in
-    try
-      (object
-        inherit [_] iter
-        method! visit_EBufCreate _ l _ _ =
-          if l = Stack then
-            raise (L.Found "bufcreate")
-        method! visit_EBufCreateL _ l _ =
-          if l = Stack then
-            raise (L.Found "bufcreateL")
-        method! visit_EQualified _ lid =
-          (* In case we ever decide to allow wacky stuff like:
-           *   let f = if ... then g else h in
-           *   ignore f;
-           * then this will become an over-approximation. *)
-          if Hashtbl.mem map lid && valuation lid = MustInline then
-            raise (L.Found (KPrint.bsprintf "transitive: %a" plid lid))
-      end)#visit_expr_w () expr;
-      false
-    with L.Found reason ->
-      if debug_inline then
-        KPrint.bprintf "%a will be inlined because: %s\n" plid lid reason;
-      true
-  in
-
-  let must_inline lid valuation =
-    let contains_alloc = contains_alloc lid in
-    let rec walk e =
-      match e.node with
-      | ELet (_, body, cont) ->
-          contains_alloc valuation body || walk cont
-      | ESequence es ->
-          let rec walk' = function
-            | { node = EPushFrame; _ } :: _ ->
-                false
-            | e :: es ->
-                walk e || walk' es
-            | [] ->
-                false
-          in
-          walk' es
-      | EPushFrame ->
-          fatal_error "Malformed function body %a" plid lid
-      | EIfThenElse (e1, e2, e3) ->
-          contains_alloc valuation e1 ||
-          walk e2 ||
-          walk e3
-      | ESwitch (e, branches) ->
-          contains_alloc valuation e ||
-          List.exists (fun (_, e) ->
-            walk e
-          ) branches
-      | EMatch (e, branches) ->
-          contains_alloc valuation e ||
-          List.exists (fun (_, _, e) ->
-            walk e
-          ) branches
-      | _ ->
-          contains_alloc valuation e
-    in
-    match lookup lid with
-    | exception Not_found ->
-        (* Reference to an undefined, external function. This is sound only if
-         * externally-realized functions execute in their own stack frame, which
-         * is fine, because they actually are, well, functions written in C. *)
-        Safe
-    | _, body ->
-        (* Whether the function asked to be substituted is not relevant for
-         * this fixpoint computation. *)
-        if walk body then begin
-          MustInline
-        end else
-          Safe
-  in
-
-  F.lfp must_inline
+(** Relying on the MustDisappear flag passed by F* ****************************)
 
 let inline_analysis files =
   (* ... our criterion for determining whether a function must be inlined or not...
@@ -214,19 +104,17 @@ let inline_analysis files =
    * - the body, which [inline_analysis] needs to figure out if the function
    *   allocates without pushing a frame, meaning it must be inlined. *)
   let map = Helpers.build_map files (fun map -> function
-    | DFunction (_, flags, _, _, name, _, body) ->
-        Hashtbl.add map name (flags, body)
+    | DFunction (_, flags, _, _, name, _, _) ->
+        Hashtbl.add map name flags
     | _ ->
         ()
   ) in
-  Hashtbl.add map ([ "kremlinit" ], "globals") ([], Helpers.any);
-  let valuation = inline_analysis map in
+  Hashtbl.add map ([ "kremlinit" ], "globals") [];
   let must_disappear lid =
-    valuation lid = MustInline ||
-    List.mem MustDisappear (fst (Hashtbl.find map lid))
+    List.mem MustDisappear (Hashtbl.find map lid)
   in
   let must_inline lid =
-    List.mem Substitute (fst (Hashtbl.find map lid)) ||
+    List.mem Substitute (Hashtbl.find map lid) ||
     must_disappear lid
   in
   must_inline, must_disappear
