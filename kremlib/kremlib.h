@@ -81,7 +81,7 @@ void WasmSupport_check_buffer_size(uint32_t s);
  * signatures of ghost functions, meaning that it suffices to give them (any)
  * definition. */
 typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
-        *FStar_Monotonic_HyperHeap_rid, *FStar_HyperStack_ST_rid;
+    *FStar_Monotonic_HyperHeap_rid, *FStar_HyperStack_ST_erid, *FStar_HyperStack_ST_ex_rid;
 
 /* For "bare" targets that do not have a C stdlib, the user might want to use
  * [-add-early-include '"mydefinitions.h"'] and override these. */
@@ -168,10 +168,9 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
  * argument, otherwise, you may have FStar_ST_recall(f) as the only use of f;
  * KreMLin will think that this is a valid use, but then the C compiler, after
  * macro expansion, will error out. */
-#define FStar_HyperHeap_root 0
-#define FStar_HyperStack_is_eternal_color(x) 0
-#define FStar_Monotonic_HyperHeap_root 0
 #define FStar_Buffer_recall(x)
+#define FStar_Monotonic_HyperHeap_root 0
+#define FStar_HyperStack_is_eternal_color(x) 0
 #define FStar_HyperStack_ST_new_region(x)
 
 #define FStar_HyperStack_ST_recall(x)                                          \
@@ -184,14 +183,7 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
     (void)(x);                                                                 \
   } while (0)
 
-#define FStar_Monotonic_RRef_m_recall(x1)                                      \
-  do {                                                                         \
-    (void)(x1);                                                                \
-  } while (0)
-
-#define FStar_Monotonic_RRef_witness(x)
-
-#define FStar_Monotonic_RRef_m_write(x1, x2, x3, x4, x5)                       \
+#define FStar_HyperStack_ST_op_Colon_Equals(x1, x2, x3, x4, x5)                \
   do {                                                                         \
     (void)(x1);                                                                \
     (void)(x2);                                                                \
@@ -199,6 +191,9 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
     (void)(x4);                                                                \
     (void)(x5);                                                                \
   } while (0)
+
+#define FStar_HyperStack_ST_mr_witness(x1, x2, x3, x4, x5)                     \
+  FStar_HyperStack_ST_op_Colon_Equals(x1, x2, x3, x4, x5)
 
 /******************************************************************************/
 /* Endian-ness macros that can only be implemented in C                       */
@@ -367,11 +362,17 @@ inline static uint64_t load64(uint8_t *b) {
   return x;
 }
 
-inline static void store16(uint8_t *b, uint16_t i) { memcpy(b, &i, 2); }
+inline static void store16(uint8_t *b, uint16_t i) {
+  memcpy(b, &i, 2);
+}
 
-inline static void store32(uint8_t *b, uint32_t i) { memcpy(b, &i, 4); }
+inline static void store32(uint8_t *b, uint32_t i) {
+  memcpy(b, &i, 4);
+}
 
-inline static void store64(uint8_t *b, uint64_t i) { memcpy(b, &i, 8); }
+inline static void store64(uint8_t *b, uint64_t i) {
+  memcpy(b, &i, 8);
+}
 
 #define load16_le(b) (le16toh(load16(b)))
 #define store16_le(b, i) (store16(b, htole16(i)))
@@ -403,16 +404,21 @@ inline static bool Prims_op_LessThanOrEqual(int32_t x, int32_t y) {
   return x <= y;
 }
 
-inline static bool Prims_op_GreaterThan(int32_t x, int32_t y) { return x > y; }
+inline static bool Prims_op_GreaterThan(int32_t x, int32_t y) {
+  return x > y;
+}
 
-inline static bool Prims_op_LessThan(int32_t x, int32_t y) { return x < y; }
+inline static bool Prims_op_LessThan(int32_t x, int32_t y) {
+  return x < y;
+}
 
 #define RETURN_OR(x)                                                           \
   do {                                                                         \
     int64_t __ret = x;                                                         \
     if (__ret < INT32_MIN || INT32_MAX < __ret) {                              \
-      KRML_HOST_PRINTF("Prims.{int,nat,pos} integer overflow at %s:%d\n",      \
-                       __FILE__, __LINE__);                                    \
+      KRML_HOST_PRINTF(                                                        \
+          "Prims.{int,nat,pos} integer overflow at %s:%d\n", __FILE__,         \
+          __LINE__);                                                           \
       KRML_HOST_EXIT(252);                                                     \
     }                                                                          \
     return (int32_t)__ret;                                                     \
@@ -442,15 +448,31 @@ inline static int32_t Prims_op_Modulus(int32_t x, int32_t y) {
   RETURN_OR((int64_t)x % (int64_t)y);
 }
 
-inline static int8_t FStar_UInt8_uint_to_t(int8_t x) { return x; }
-inline static int16_t FStar_UInt16_uint_to_t(int16_t x) { return x; }
-inline static int32_t FStar_UInt32_uint_to_t(int32_t x) { return x; }
-inline static int64_t FStar_UInt64_uint_to_t(int64_t x) { return x; }
+inline static int8_t FStar_UInt8_uint_to_t(int8_t x) {
+  return x;
+}
+inline static int16_t FStar_UInt16_uint_to_t(int16_t x) {
+  return x;
+}
+inline static int32_t FStar_UInt32_uint_to_t(int32_t x) {
+  return x;
+}
+inline static int64_t FStar_UInt64_uint_to_t(int64_t x) {
+  return x;
+}
 
-inline static int8_t FStar_UInt8_v(int8_t x) { return x; }
-inline static int16_t FStar_UInt16_v(int16_t x) { return x; }
-inline static int32_t FStar_UInt32_v(int32_t x) { return x; }
-inline static int64_t FStar_UInt64_v(int64_t x) { return x; }
+inline static int8_t FStar_UInt8_v(int8_t x) {
+  return x;
+}
+inline static int16_t FStar_UInt16_v(int16_t x) {
+  return x;
+}
+inline static int32_t FStar_UInt32_v(int32_t x) {
+  return x;
+}
+inline static int64_t FStar_UInt64_v(int64_t x) {
+  return x;
+}
 
 /******************************************************************************/
 /* Implementation of machine integers (possibly of 128-bit integers)          */
@@ -527,14 +549,16 @@ static inline uint64_t FStar_UInt64_eq_mask(uint64_t x, uint64_t y) {
 }
 
 static inline uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
-  uint64_t low63 =
-      ~((uint64_t)((int64_t)((int64_t)(x & UINT64_C(0x7fffffffffffffff)) -
-                             (int64_t)(y & UINT64_C(0x7fffffffffffffff))) >>
-                   63));
-  uint64_t high_bit =
-      ~((uint64_t)((int64_t)((int64_t)(x & UINT64_C(0x8000000000000000)) -
-                             (int64_t)(y & UINT64_C(0x8000000000000000))) >>
-                   63));
+  uint64_t low63 = ~((uint64_t)(
+      (int64_t)(
+          (int64_t)(x & UINT64_C(0x7fffffffffffffff)) -
+          (int64_t)(y & UINT64_C(0x7fffffffffffffff))) >>
+      63));
+  uint64_t high_bit = ~((uint64_t)(
+      (int64_t)(
+          (int64_t)(x & UINT64_C(0x8000000000000000)) -
+          (int64_t)(y & UINT64_C(0x8000000000000000))) >>
+      63));
   return low63 & high_bit;
 }
 
@@ -545,8 +569,9 @@ static inline uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
 typedef unsigned __int128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t;
 
 static inline void print128(const char *where, uint128_t n) {
-  KRML_HOST_PRINTF("%s: [%" PRIu64 ",%" PRIu64 "]\n", where,
-                   (uint64_t)(n >> 64), (uint64_t)n);
+  KRML_HOST_PRINTF(
+      "%s: [%" PRIu64 ",%" PRIu64 "]\n", where, (uint64_t)(n >> 64),
+      (uint64_t)n);
 }
 
 static inline uint128_t load128_le(uint8_t *b) {
@@ -603,8 +628,9 @@ static inline uint128_t FStar_UInt128_gte_mask(uint128_t x, uint128_t y) {
 }
 
 static inline krml_checked_int_t FStar_UInt128_uint_to_t(uint128_t x) {
-  if (x < (uint128_t) INT32_MIN || (uint128_t) INT32_MAX < x) {
-    KRML_HOST_PRINTF("Prims.{int,nat,pos} integer overflow at %s:%d\n", __FILE__, __LINE__);
+  if (x < (uint128_t)INT32_MIN || (uint128_t)INT32_MAX < x) {
+    KRML_HOST_PRINTF(
+        "Prims.{int,nat,pos} integer overflow at %s:%d\n", __FILE__, __LINE__);
     KRML_HOST_EXIT(252);
   }
   return (int32_t)x;
@@ -612,14 +638,15 @@ static inline krml_checked_int_t FStar_UInt128_uint_to_t(uint128_t x) {
 
 #  else /* !defined(KRML_NOUINT128) */
 
-  /* This is a bad circular dependency... should fix it properly. */
+/* This is a bad circular dependency... should fix it properly. */
 #    include "FStar.h"
 
 typedef FStar_UInt128_uint128 FStar_UInt128_t_, uint128_t;
 
 /* A series of definitions written using pointers. */
 static inline void print128_(const char *where, uint128_t *n) {
-  KRML_HOST_PRINTF("%s: [0x%08" PRIx64 ",0x%08" PRIx64 "]\n", where, n->high, n->low);
+  KRML_HOST_PRINTF(
+      "%s: [0x%08" PRIx64 ",0x%08" PRIx64 "]\n", where, n->high, n->low);
 }
 
 static inline void load128_le_(uint8_t *b, uint128_t *r) {
@@ -654,7 +681,9 @@ static inline uint128_t load128_le(uint8_t *b) {
   return r;
 }
 
-static inline void store128_le(uint8_t *b, uint128_t n) { store128_le_(b, &n); }
+static inline void store128_le(uint8_t *b, uint128_t n) {
+  store128_le_(b, &n);
+}
 
 static inline uint128_t load128_be(uint8_t *b) {
   uint128_t r;
@@ -662,7 +691,9 @@ static inline uint128_t load128_be(uint8_t *b) {
   return r;
 }
 
-static inline void store128_be(uint8_t *b, uint128_t n) { store128_be_(b, &n); }
+static inline void store128_be(uint8_t *b, uint128_t n) {
+  store128_be_(b, &n);
+}
 
 #    else /* !defined(KRML_STRUCT_PASSING) */
 
