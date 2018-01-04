@@ -130,8 +130,14 @@ let buffer: file =
       with_type TBool (EBound 0)]))))
   ]
 
+let monotonic_hh: file =
+  "FStar_Monotonic_HyperHeap", [
+    DType (([ "FStar"; "Monotonic"; "HyperHeap" ], "rid"), [], 0, Abbrev TUnit)
+  ]
+
 let prelude () =
   prims ::
   List.map mk_builtin_int
     [ UInt8; UInt16; UInt32; UInt64; Int8; Int16; Int32; Int64 ] @ [
-  buffer ]
+  buffer;
+  monotonic_hh ]
