@@ -83,8 +83,8 @@ count-uu: Uu.exe
 # External C tests that leverage other projects.
 .PHONY: hacl-test
 hacl-test:
-	$(MAKE) -C $(HACL_HOME)/secure_api krml-test-hacl.exe
-	$(HACL_HOME)/secure_api/krml-test-hacl.exe
+	$(MAKE) -C $(HACL_HOME)/secure_api -f $(HACL_HOME)/secure_api/Makefile.extract
+	$(HACL_HOME)/secure_api/out/runtime_switch/krml-test.exe
 
 # A target for WASM compilation. All WASM targets get the -wasm flag;
 # some specific targets may override NEGATIVE for negative tests.

@@ -172,7 +172,7 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
 #define FStar_HyperStack_is_eternal_color(x) 0
 #define FStar_Monotonic_HyperHeap_root 0
 #define FStar_Buffer_recall(x)
-#define FStar_HyperStack_ST_new_region(x) x
+#define FStar_HyperStack_ST_new_region(x)
 
 #define FStar_HyperStack_ST_recall(x)                                          \
   do {                                                                         \
