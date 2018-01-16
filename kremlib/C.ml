@@ -1,5 +1,9 @@
 open FStar_Buffer
 
+type exit_code =
+  | EXIT_SUCCESS
+  | EXIT_FAILURE
+
 let exit_success = 0
 let exit_failure = 255
 
