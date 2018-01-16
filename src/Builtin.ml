@@ -141,3 +141,16 @@ let prelude () =
     [ UInt8; UInt16; UInt32; UInt64; Int8; Int16; Int32; Int64 ] @ [
   buffer;
   monotonic_hh ]
+
+let nullity: decl list =
+  (* Poor man's substitute to polymorphic assumes ... this needs to be here to
+   * provide proper typing when is_null is in match position. *)
+  [
+    mk_unop [ "C"; "Nullity" ] "is_null" (TArrow (TBuf TAny, TBool))
+  ]
+
+let augment files =
+  List.map (function
+    | "C_Nullity", decls -> "C_Nullity", decls @ nullity
+    | f -> f
+  ) files
