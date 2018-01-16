@@ -185,6 +185,10 @@ let mkC = (mem) => ({
   print_string: (addr) => my_print(stringAtAddr(mem, addr)),
 });
 
+let mkCNullity = (mem) => ({
+  C_Nullity_is_null: () => { throw new Error("todo: is_null") }
+});
+
 function checkEq(mem, name) {
   return (x1, x2) => {
     if (x1 != x2) {
@@ -324,6 +328,7 @@ function init() {
     WasmSupport: mkWasmSupport(mem),
     FStar: mkFStar(mem),
     C: mkC(mem),
+    C_Nullity: mkCNullity(mem),
     TestLib: mkTestLib(mem)
   };
   return imports;
