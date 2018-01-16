@@ -229,8 +229,8 @@ and p_decl_and_init (decl, init) =
 
 and p_declaration (spec, stor, decl_and_inits) =
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
-  stor ^^ group (p_type_spec spec) ^/^
-  separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
+  stor ^^ group (p_type_spec spec) ^^
+  nest 2 (break1 ^^ separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits)
 
 (* This is abusing the definition of a compound statement to ensure it is printed with braces. *)
 let nest_if f stmt =
