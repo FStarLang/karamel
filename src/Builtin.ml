@@ -69,6 +69,7 @@ let prims: file =
   let t = TInt K.CInt in
   let mk_binop n = mk_binop [ "Prims" ] n t in
   let mk_boolop n = mk_unop [ "Prims" ] n (TArrow (t, TArrow (t, TBool))) in
+  let dtuple10 = TApp ((["Prims"],"dtuple2"), [ TBound 1; TBound 0 ]) in
   "Prims", [
     DType ((["Prims"], "list"), [ Common.GcType ], 1, Variant [
       "Nil", [];
@@ -83,6 +84,38 @@ let prims: file =
         "snd", (TBound 0, false)
       ]
     ]);
+    DFunction (None,
+      [ Common.Private ], 2, TBound 1,
+      (["Prims"], "__proj__Mkdtuple2__item___1"),
+      [ fresh_binder "pair" dtuple10 ],
+      (* match pair with *)
+      with_type (TBound 1) (EMatch (with_type dtuple10 (EBound 0), [
+        (* \ fst *)
+        [ fresh_binder "fst" (TBound 1) ],
+        (* Mkdtuple2 (fst, _) *)
+        with_type dtuple10 (PCons ("Mkdtuple2", [
+          with_type (TBound 1) (PBound 0);
+          with_type TAny PWild
+        ])),
+        (* -> fst *)
+        with_type (TBound 1) (EBound 0)
+      ])));
+    DFunction (None,
+      [ Common.Private ], 2, TBound 0,
+      (["Prims"], "__proj__Mkdtuple2__item___2"),
+      [ fresh_binder "pair" dtuple10 ],
+      (* match pair with *)
+      with_type (TBound 0) (EMatch (with_type dtuple10 (EBound 0), [
+        (* \ snd *)
+        [ fresh_binder "snd" (TBound 0) ],
+        (* Mkdtuple2 (_, snd) *)
+        with_type dtuple10 (PCons ("Mkdtuple2", [
+          with_type TAny PWild;
+          with_type (TBound 0) (PBound 0)
+        ])),
+        (* -> snd *)
+        with_type (TBound 0) (EBound 0)
+      ])));
     mk_binop "op_Multiply";
     mk_binop "op_Subtraction";
     mk_binop "op_Addition";
