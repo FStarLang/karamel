@@ -489,6 +489,8 @@ and mk_function_block env e t =
   | stmts, _ ->
       stmts
 
+(* These two mutually recursive functions implement a unit-to-void type translation that is
+ * consistent with the same translation for expressions above. *)
 and mk_return_type env = function
   | TInt w ->
       CStar.Int w
@@ -506,6 +508,7 @@ and mk_return_type env = function
       CStar.Pointer CStar.Void
   | TArrow _ as t ->
       let ret, args = flatten_arrow t in
+      let args = match args with [ TUnit ] -> [] | _ -> args in
       CStar.Function (None, mk_return_type env ret, List.map (mk_type env) args)
   | TBound _ ->
       fatal_error "Internal failure: no TBound here"
