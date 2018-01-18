@@ -26,10 +26,6 @@ Prims_string Prims_strcat(Prims_string s0, Prims_string s1) {
   return FStar_String_strcat(s0, s1);
 }
 
-void FStar_HyperStack_IO_print_string(Prims_string s) {
-  printf("%s", s);
-}
-
 void FStar_IO_debug_print_string(Prims_string s) {
   printf("%s", s);
 }
