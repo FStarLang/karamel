@@ -6,7 +6,7 @@ include $(shell ocamlfind query visitors)/Makefile.preprocess
 OCAMLBUILD=ocamlbuild -I src -I lib -I parser -I kremlib -use-menhir -use-ocamlfind -classic-display \
  -menhir "menhir --infer --explain"
 FLAVOR?=native
-TARGETS=Kremlin.$(FLAVOR) Tests.$(FLAVOR) Ast.inferred.mli C.cmx TestLib.cmx
+TARGETS=Kremlin.$(FLAVOR) Tests.$(FLAVOR) Ast.inferred.mli kremlib/C.cmx kremlib/TestLib.cmx
 
 ifeq (,$(FSTAR_HOME))
   $(error FSTAR_HOME is not defined, cannot build the OCaml version of kremlib)
