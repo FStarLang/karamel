@@ -29,3 +29,7 @@ Prims_string Prims_strcat(Prims_string s0, Prims_string s1) {
 void FStar_IO_debug_print_string(Prims_string s) {
   printf("%s", s);
 }
+
+bool __eq__Prims_string(Prims_string s1, Prims_string s2) {
+  return (strcmp(s1, s2) == 0);
+}
