@@ -51,6 +51,9 @@ extern int exit_failure;
 extern intptr_t nullptr;
 
 typedef intptr_t FStar_Dyn_dyn;
+static inline intptr_t FStar_Dyn_mkdyn(void *x) {
+  return (intptr_t) x;
+}
 
 /* For non-base types (i.e. not machine integers), KreMLin generates calls to
  * assumed equality functions. */
@@ -171,7 +174,7 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
 #define FStar_Buffer_recall(x)
 #define FStar_Monotonic_HyperHeap_root 0
 #define FStar_HyperStack_is_eternal_color(x) 0
-#define FStar_HyperStack_ST_new_region(x)
+static inline void FStar_HyperStack_ST_new_region() {}
 
 #define FStar_HyperStack_ST_recall(x)                                          \
   do {                                                                         \

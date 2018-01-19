@@ -168,12 +168,20 @@ let monotonic_hh: file =
     DType (([ "FStar"; "Monotonic"; "HyperHeap" ], "rid"), [], 0, Abbrev TUnit)
   ]
 
+let hs: file =
+  "FStar_HyperStack_ST", [
+    DFunction (None, [ Common.Private; Common.Substitute ], 0, TUnit,
+    ([ "FStar"; "HyperStack"; "ST" ], "new_region"),
+    [ fresh_binder "x" TUnit ],
+    with_unit (EBound 0))]
+
 let prelude () =
   prims ::
   List.map mk_builtin_int
     [ UInt8; UInt16; UInt32; UInt64; Int8; Int16; Int32; Int64 ] @ [
   buffer;
-  monotonic_hh ]
+  monotonic_hh;
+  hs ]
 
 let nullity: decl list =
   (* Poor man's substitute to polymorphic assumes ... this needs to be here to
