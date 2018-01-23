@@ -58,7 +58,7 @@ let default_options () =
     "-ccopts";
     "-Wall,-Werror,-Wno-unused-variable," ^
     "-Wno-unknown-warning-option,-Wno-unused-but-set-variable," ^
-    "-g,-O3,-fwrapv,-fstack-check,-D_BSD_SOURCE,-D_DEFAULT_SOURCE" ^
+    "-g,-fwrapv,-fstack-check,-D_BSD_SOURCE,-D_DEFAULT_SOURCE" ^
     (if Sys.os_type = "Win32" then ",-D__USE_MINGW_ANSI_STDIO" else "") ^
     (if !parentheses then "" else ",-Wno-parentheses")
   |] in
@@ -72,7 +72,7 @@ let default_options () =
     "compcert", [|
       "-warn-error"; "@6@8";
       "-fnostruct-passing"; "-fnoanonymous-unions"; "-fnouint128";
-      "-ccopts"; "-g,-O3,-D_BSD_SOURCE,-D_DEFAULT_SOURCE";
+      "-ccopts"; "-g,-D_BSD_SOURCE,-D_DEFAULT_SOURCE";
     |];
     "msvc", [|
       "-warn-error"; "@6"; "-fnouint128"
