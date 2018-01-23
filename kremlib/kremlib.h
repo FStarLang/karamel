@@ -630,13 +630,8 @@ static inline uint128_t FStar_UInt128_gte_mask(uint128_t x, uint128_t y) {
   return ((uint128_t)mask) << 64 | mask;
 }
 
-static inline krml_checked_int_t FStar_UInt128_uint_to_t(uint128_t x) {
-  if (x < (uint128_t)INT32_MIN || (uint128_t)INT32_MAX < x) {
-    KRML_HOST_PRINTF(
-        "Prims.{int,nat,pos} integer overflow at %s:%d\n", __FILE__, __LINE__);
-    KRML_HOST_EXIT(252);
-  }
-  return (int32_t)x;
+static inline uint128_t FStar_UInt128_uint_to_t(krml_checked_int_t x) {
+  return x;
 }
 
 #  else /* !defined(KRML_NOUINT128) */
