@@ -213,7 +213,7 @@ and print_expr { node; typ } =
   | EBufFree e ->
       print_app string "freebug" print_expr [ e ]
   | EMatch (e, branches) ->
-      group (string "match" ^/^ print_expr e ^^ colon ^/^ print_typ e.typ ^/^ string "with") ^^
+      group (string "match" ^/^ print_expr e ^/^ string "with") ^^
       jump ~indent:0 (print_branches branches)
   | EOp (o, w) ->
       string "(" ^^ print_op o ^^ string "," ^^ print_width w ^^ string ")"
