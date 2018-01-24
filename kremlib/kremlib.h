@@ -104,6 +104,10 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
 #  define KRML_HOST_CALLOC calloc
 #endif
 
+#ifndef KRML_HOST_FREE
+#  define KRML_HOST_FREE free
+#endif
+
 /* In statement position, exiting is easy. */
 #define KRML_EXIT                                                              \
   do {                                                                         \

@@ -7,6 +7,7 @@ type calling_convention =
 type lifetime =
   | Eternal
   | Stack
+  | Heap
   [@@deriving yojson,show]
 
 type flag =

@@ -368,6 +368,10 @@ and mk_stmts env e ret_type =
         ) in
         env, e :: acc
 
+    | EBufFree e ->
+        let e = CStar.BufFree (mk_expr env false e) in
+        env, e :: acc
+
     | EMatch _ ->
         fatal_error "[AstToCStar.collect EMatch]: not implemented"
 

@@ -345,6 +345,10 @@ and check' env t e =
       let t = assert_buffer env t in
       List.iter (check env t) es
 
+  | EBufFree e ->
+      check env (TBuf TAny) e;
+      c TUnit
+
   | ETuple es ->
       let ts = assert_tuple env t in
       if List.length ts <> List.length es then
@@ -587,6 +591,10 @@ and infer' env e =
       check env uint32 i1;
       check env uint32 i2;
       check env uint32 len;
+      TUnit
+
+  | EBufFree e ->
+      ignore (infer_buffer env e);
       TUnit
 
   | EOp (op, w) ->

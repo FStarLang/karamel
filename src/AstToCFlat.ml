@@ -421,6 +421,9 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EBufWrite _ ->
       failwith (KPrint.bsprintf "buffer write improperly desugared: %a" pexpr e)
 
+  | EBufFree _ ->
+      failwith "TODO: implement manual memory management"
+
   | EBool b ->
       locals, CF.Constant (K.Bool, if b then "1" else "0")
 

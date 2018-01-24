@@ -155,7 +155,9 @@ end
 
 (* Next, the nodes that are annotated with types. Note that every occurrence of
  * [typ] is actually a [typ_wo] to make sure we strip the second component of
- * the environment. *)
+ * the environment.
+ *
+ * Warning: any new node needs to be taken into account in the visitors in src/Helpers.ml *)
 type expr' =
   | EBound of var
   | EOpen of ident * atom_t
@@ -195,6 +197,7 @@ type expr' =
   | EBufBlit of expr * expr * expr * expr * expr
     (** e1 (source), index; e2 (dest), index; len *)
   | EBufFill of expr * expr * expr
+  | EBufFree of expr
   | EPushFrame
   | EPopFrame
 

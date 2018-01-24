@@ -1,3 +1,9 @@
+### January 24th, 2017
+
+- Support for manually-managed memory via `Buffer.rcreate_mm` and
+  `Buffer.rfree`, hopefully soon to have better names. These translate to
+  regular calls to `malloc` and `free`.
+
 ### December 14th, 2017
 
 - Support for separate extraction of various out.krml, to be passed /en masse/

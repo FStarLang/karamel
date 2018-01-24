@@ -83,6 +83,7 @@ and expr =
   | EString of string
   | EFun of (binder list * expr * typ)
   | EAbortS of string
+  | EBufFree of expr
 
 and branches =
   branch list

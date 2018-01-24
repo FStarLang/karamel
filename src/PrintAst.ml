@@ -153,6 +153,7 @@ and print_typ = function
 and print_lifetime = function
   | Stack -> string "stack"
   | Eternal -> string "eternal"
+  | Heap -> string "heap"
 
 and print_let_binding (binder, e1) =
   group (group (string "let" ^/^ print_binder binder ^/^ equals) ^^
@@ -209,6 +210,8 @@ and print_expr { node; typ } =
       print_app string "blitbuf" print_expr [e1; e2; e3; e4; e5]
   | EBufFill (e1, e2, e3) ->
       print_app string "fillbuf" print_expr [e1; e2; e3 ]
+  | EBufFree e ->
+      print_app string "freebug" print_expr [ e ]
   | EMatch (e, branches) ->
       group (string "match" ^/^ print_expr e ^^ colon ^/^ print_typ e.typ ^/^ string "with") ^^
       jump ~indent:0 (print_branches branches)

@@ -756,6 +756,15 @@ and hoist_expr pos e =
         let b = { b with node = { b.node with meta = Some MetaSequence }} in
         lhs @ [ b, mk (EBufFill (e1, e2, e3)) ], mk EUnit
 
+  | EBufFree e ->
+      let lhs, e = hoist_expr Unspecified e in
+      if pos = UnderStmtLet then
+        lhs, mk (EBufFree e)
+      else
+        let b = fresh_binder "_" TUnit in
+        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        lhs @ [ b, mk (EBufFree e) ], mk EUnit
+
   | EBufSub (e1, e2) ->
       let lhs1, e1 = hoist_expr Unspecified e1 in
       let lhs2, e2 = hoist_expr Unspecified e2 in

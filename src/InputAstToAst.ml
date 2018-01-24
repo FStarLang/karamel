@@ -135,6 +135,8 @@ and mk_expr = function
       mk (EBufSub (mk_expr e1, mk_expr e2))
   | I.EBufBlit (e1, e2, e3, e4, e5) ->
       mk (EBufBlit (mk_expr e1, mk_expr e2, mk_expr e3, mk_expr e4, mk_expr e5))
+  | I.EBufFree e ->
+      mk (EBufFree (mk_expr e))
   | I.EMatch (e1, bs) ->
       mk (EMatch (mk_expr e1, mk_branches bs))
   | I.EOp (op, w) ->

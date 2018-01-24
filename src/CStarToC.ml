@@ -187,6 +187,9 @@ and mk_malloc t s =
 and mk_calloc t s =
   C.Call (C.Name "KRML_HOST_CALLOC", [ s; mk_sizeof t ])
 
+and mk_free e =
+  C.Call (C.Name "KRML_HOST_FREE", [ e ])
+
 and mk_eternal_bufcreate buf init size =
   let size = mk_expr size in
   let e, extra_stmt = match init with
@@ -241,7 +244,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
   | Ignore e ->
       [ Expr (mk_expr e) ]
 
-  | Decl (binder, BufCreate (Eternal, init, size)) ->
+  | Decl (binder, BufCreate ((Eternal | Heap), init, size)) ->
       ignore (ensure_pointer binder.typ);
       let stmt_check, expr_alloc, stmt_extra =
         mk_eternal_bufcreate (Var binder.name) init size
@@ -292,7 +295,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       decl @
       extra_stmt
 
-  | Decl (_, BufCreateL (Eternal, _)) ->
+  | Decl (_, BufCreateL ((Eternal | Heap), _)) ->
       failwith "TODO (desugar into a series of assignments)"
 
   | Decl (binder, BufCreateL (Stack, inits)) ->
@@ -383,6 +386,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let v = mk_expr v in
       let size = mk_expr size in
       [ mk_for_loop_initializer buf size v ]
+
+  | BufFree e ->
+      [ Expr (mk_free (mk_expr e)) ]
 
   | While (e1, e2) ->
       [ While (mk_expr e1, mk_compound_if (mk_stmts e2)) ]

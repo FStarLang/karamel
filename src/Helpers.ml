@@ -227,6 +227,7 @@ class ['self] readonly_visitor = object (self: 'self)
   method! visit_EBufWrite _ _ _ _ = false
   method! visit_EBufBlit _ _ _ _ _ _ = false
   method! visit_EBufFill _ _ _ _ = false
+  method! visit_EBufFree _ _ = false
   method! visit_EPushFrame _ = false
   method! visit_EPopFrame _ = false
   method! visit_EMatch _ _ _ = false

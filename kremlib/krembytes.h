@@ -161,8 +161,23 @@ FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n) {
   return b;
 }
 
+// TODO: #ifdef KRML_NOUINT128
+static inline uint128_t
+FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs) {
+  uint128_t res = 0;
+  for (uint32_t i = 0; i < bs.length; i++) {
+    res = res << 8;
+    res |= bs.data[i] & 0xFF;
+  }
+  return res;
+}
+
 static inline krml_checked_int_t
 FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs) {
+  if (bs.length > 4) {
+    fprintf(stderr, "int_of_bytes overflow\n");
+    exit(255);
+  }
   krml_checked_int_t res = 0;
   for (uint32_t i = 0; i < bs.length; i++) {
     res = res << 8;
@@ -172,6 +187,7 @@ FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs) {
   }
   return res;
 }
+
 
 static inline krml_checked_int_t FStar_Bytes_repr_bytes(Prims_nat bs) {
   if (bs < 0x100)
