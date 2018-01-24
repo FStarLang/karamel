@@ -10,8 +10,24 @@ let zero = C.Constant (K.UInt8, "0")
 let is_array = function Array _ -> true | _ -> false
 
 let escape_string s =
-  (* TODO: dive into the C lexical conventions + fix the F* lexer *)
-  String.escaped s
+  let b = Buffer.create 256 in
+  String.iter (fun c ->
+    match c with
+    | '\x27' -> Buffer.add_string b "\\'"
+    | '\x22' -> Buffer.add_string b "\\\""
+    | '\x3f' -> Buffer.add_string b "\\?"
+    | '\x5c' -> Buffer.add_string b "\\\\"
+    | '\x07' -> Buffer.add_string b "\\a"
+    | '\x08' -> Buffer.add_string b "\\b"
+    | '\x0c' -> Buffer.add_string b "\\f"
+    | '\x0a' -> Buffer.add_string b "\\n"
+    | '\x0d' -> Buffer.add_string b "\\r"
+    | '\x09' -> Buffer.add_string b "\\t"
+    | '\x0b' -> Buffer.add_string b "\\v"
+    | '\x20'..'\x7e' -> Buffer.add_char b c
+    | _ -> Printf.bprintf b "\\x%02x" (Char.code c)
+  ) s;
+  Buffer.contents b
 
 let assert_var =
   function
