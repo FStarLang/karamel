@@ -90,8 +90,10 @@ FStar_Bytes_append(FStar_Bytes_bytes b1, FStar_Bytes_bytes b2) {
   uint32_t length = Prims_op_Addition(b1.length, b2.length);
   char *data = malloc(length);
   CHECK(data);
-  memcpy(data, b1.data, b1.length);
-  memcpy(data + b1.length, b2.data, b2.length);
+  if (b1.length > 0)
+    memcpy(data, b1.data, b1.length);
+  if (b2.length > 0)
+    memcpy(data + b1.length, b2.data, b2.length);
   FStar_Bytes_bytes b = { .length = length, .data = data };
   return b;
 }
