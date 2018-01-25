@@ -594,26 +594,8 @@ and mk_declaration env d: CStar.decl option =
         mk_type env t,
         mk_expr env false body))
 
-  | DExternal (cc, flags, name, t) ->
-      let to_void = match t with
-        | TArrow (TUnit, _) -> true
-        | _ -> false
-      in
-      let open CStar in
-      let t = match mk_type env t with
-        | Function (None, ret, args) ->
-            let args = match args with
-              | [ Pointer Void ] when to_void -> []
-              | _ -> args
-            in
-            Function (cc, ret, args)
-        | Function (Some _, _, _) ->
-            failwith "impossible"
-        | t ->
-            assert (cc = None);
-            t
-      in
-      Some (External (string_of_lident name, t, flags))
+  | DExternal (_, flags, name, t) ->
+      Some (CStar.External (string_of_lident name, mk_type env t, flags))
 
   | DType (name, flags, _, Forward) ->
       let name = string_of_lident name in
