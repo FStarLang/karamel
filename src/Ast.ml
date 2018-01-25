@@ -394,6 +394,7 @@ and files =
   file list
 
 and decl =
+  | DFunctionForward of flag list * int * typ * lident * binders_w
   | DFunction of calling_convention option * flag list * int * typ * lident * binders_w * expr_w
   | DGlobal of flag list * lident * int * typ * expr_w
   | DExternal of calling_convention option * flag list * lident * typ
@@ -602,6 +603,7 @@ let with_type typ node =
 
 let lid_of_decl = function
   | DFunction (_, _, _, _, lid, _, _)
+  | DFunctionForward (_, _, _, lid, _)
   | DGlobal (_, lid, _, _, _)
   | DExternal (_, _, lid, _)
   | DType (lid, _, _, _) ->
@@ -609,6 +611,7 @@ let lid_of_decl = function
 
 let flags_of_decl = function
   | DFunction (_, flags, _, _, _, _, _)
+  | DFunctionForward (flags, _, _, _, _)
   | DGlobal (flags, _, _, _, _)
   | DType (_, flags, _, _)
   | DExternal (_, flags, _, _) ->

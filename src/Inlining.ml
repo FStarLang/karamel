@@ -263,6 +263,8 @@ let cross_call_analysis files =
         flags
     in
     filter_decls (function
+      | DFunctionForward (flags, n, ret, name, binders) ->
+          Some (DFunctionForward (filter name flags, n, ret, name, binders))
       | DFunction (cc, flags, n, ret, name, binders, body) ->
           Some (DFunction (cc, filter name flags, n, ret, name, binders, body))
       | DGlobal (flags, name, n, e, t) ->

@@ -17,15 +17,20 @@ let print_app f head g arguments =
     )
   )
 
-let rec print_decl = function
+let rec print_function flags n typ name binders =
+  print_flags flags ^^ group (string "function" ^/^ string (string_of_lident name) ^/^
+  langle ^^ int n ^^ rangle ^^
+  parens_with_nesting (
+    separate_map (comma ^^ break 1) print_binder binders
+  ) ^^ colon ^/^ print_typ typ)
+
+and print_decl = function
+  | DFunctionForward (flags, n, typ, name, binders) ->
+      print_function flags n typ name binders
   | DFunction (cc, flags, n, typ, name, binders, body) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
       print_comment flags ^^
-      cc ^^ print_flags flags ^^ group (string "function" ^/^ string (string_of_lident name) ^/^
-      langle ^^ int n ^^ rangle ^^
-      parens_with_nesting (
-        separate_map (comma ^^ break 1) print_binder binders
-      ) ^^ colon ^/^ print_typ typ) ^/^ braces_with_nesting (
+      cc ^^ print_function flags n typ name binders ^/^ braces_with_nesting (
         print_expr body
       )
 

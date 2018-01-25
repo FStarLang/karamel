@@ -120,6 +120,8 @@ let populate_env files =
           { env with globals = M.add lid t env.globals }
       | DExternal (_, _, lid, typ) ->
           { env with globals = M.add lid typ env.globals }
+      | DFunctionForward _ ->
+          env
     ) env decls
   ) empty files
 
@@ -223,6 +225,7 @@ and check_decl env d =
       assert (n = 0);
       let env = locate env (InTop name) in
       check env t body
+  | DFunctionForward _
   | DExternal _
   | DType _ ->
       (* Barring any parameterized types, there's is nothing to check here

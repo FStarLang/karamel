@@ -84,6 +84,8 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
     old_name, List.map (function 
       | DFunction (cc, flags, n, typ, name, binders, body) ->
           DFunction (cc, add_if name flags, n, typ, name, binders, body)
+      | DFunctionForward (flags, n, typ, name, binders) ->
+          DFunctionForward (add_if name flags, n, typ, name, binders)
       | DGlobal (flags, name, n, typ, body) ->
           DGlobal (add_if name flags, name, n, typ, body)
       | DType (lid, flags, n, def) ->

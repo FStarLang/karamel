@@ -631,6 +631,16 @@ let mk_comments =
         None
   )
 
+let mk_function_stub cc flags return_type name parameters: C.declaration_or_function option =
+  try
+    let parameters = List.map (fun { name; typ } -> name, typ) parameters in
+    let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
+    Some (Decl (mk_comments flags, (spec, None, [ decl, None ])))
+  with e ->
+    beprintf "Fatal exception raised in %s\n" name;
+    raise e
+
+
 (** Function definition or global definition. *)
 let mk_function_or_global_body (d: decl): C.declaration_or_function option =
   match d with
@@ -638,6 +648,9 @@ let mk_function_or_global_body (d: decl): C.declaration_or_function option =
   | TypeForward _
   | Type _ ->
       None
+
+  | FunctionForward (cc, flags, return_type, name, parameters) ->
+      mk_function_stub cc flags return_type name parameters
 
   | Function (cc, flags, return_type, name, parameters, body) ->
       begin try
@@ -665,20 +678,14 @@ let mk_function_or_global_body (d: decl): C.declaration_or_function option =
 (** Function prototype, or extern global declaration (no definition). *)
 let mk_function_or_global_stub (d: decl): C.declaration_or_function option =
   match d with
+  | FunctionForward _
   | External _
   | TypeForward _
   | Type _ ->
       None
 
   | Function (cc, flags, return_type, name, parameters, _) ->
-      begin try
-        let parameters = List.map (fun { name; typ } -> name, typ) parameters in
-        let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
-        Some (Decl (mk_comments flags, (spec, None, [ decl, None ])))
-      with e ->
-        beprintf "Fatal exception raised in %s\n" name;
-        raise e
-      end
+      mk_function_stub cc flags return_type name parameters
 
   | Global (name, _, t, _) ->
       let spec, decl = mk_spec_and_declarator name t in
@@ -705,7 +712,7 @@ let mk_type_or_external (d: decl): C.declaration_or_function option =
       let spec, decl = mk_spec_and_declarator name t in
       Some (Decl ([], (spec, Some Extern, [ decl, None ])))
 
-  | Function _ | Global _ ->
+  | FunctionForward _ | Function _ | Global _ ->
       None
 
 
@@ -721,6 +728,7 @@ let flags_of_decl (d: CStar.decl) =
   match d with
   | Global (_, flags, _, _)
   | Function (_, flags, _, _, _, _)
+  | FunctionForward (_, flags, _, _, _)
   | Type (_, _, flags)
   | TypeForward (_, flags)
   | External (_, _, flags) ->

@@ -586,6 +586,8 @@ let scratch_locals =
 
 let mk_decl env (d: decl): CF.decl option =
   match d with
+  | DFunctionForward _ ->
+      None
   | DFunction (_, flags, n, ret, name, args, body) ->
       assert (n = 0);
       let public = not (List.exists ((=) Common.Private) flags) in

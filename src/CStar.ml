@@ -10,6 +10,7 @@ type program =
 and decl =
   | Global of ident * flag list * typ * expr
   | Function of calling_convention option * flag list * typ * ident * binder list * block
+  | FunctionForward of calling_convention option * flag list * typ * ident * binder list
   | Type of ident * typ * flag list
   | TypeForward of ident * flag list
   | External of ident * typ * flag list
@@ -111,6 +112,7 @@ let ident_of_decl (d: decl): string =
   match d with
   | Global (id, _, _, _)
   | Function (_, _, _, id, _, _)
+  | FunctionForward (_, _, _, id, _)
   | Type (id, _, _)
   | TypeForward (id, _)
   | External (id, _, _) ->
