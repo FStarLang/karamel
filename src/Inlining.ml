@@ -262,15 +262,15 @@ let cross_call_analysis files =
       else
         flags
     in
-    filter_decls (function
+    map_decls (function
       | DFunction (cc, flags, n, ret, name, binders, body) ->
-          Some (DFunction (cc, filter name flags, n, ret, name, binders, body))
+          DFunction (cc, filter name flags, n, ret, name, binders, body)
       | DGlobal (flags, name, n, e, t) ->
-          Some (DGlobal (filter name flags, name, n, e, t))
+          DGlobal (filter name flags, name, n, e, t)
       | DExternal (cc, flags, name, t) ->
-          Some (DExternal (cc, filter name flags, name, t))
+          DExternal (cc, filter name flags, name, t)
       | DType (name, flags, n, t) ->
-          Some (DType (name, filter name flags, n, t))
+          DType (name, filter name flags, n, t)
     ) files
   in
 

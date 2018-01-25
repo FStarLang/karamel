@@ -597,6 +597,9 @@ end
 let filter_decls f files =
   List.map (fun (file, decls) -> file, KList.filter_map f decls) files
 
+let map_decls f files =
+  List.map (fun (file, decls) -> file, List.map f decls) files
+
 let with_type typ node =
   { typ; node }
 
