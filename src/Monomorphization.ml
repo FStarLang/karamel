@@ -346,13 +346,31 @@ let equalities files =
     inherit [_] map
 
     val mutable current_file = ""
+    val mutable has_cycle = false
 
     method! visit_file env file =
       let file_name, decls = file in
       current_file <- file_name;
       file_name, KList.map_flatten (fun d ->
         let d = self#visit_decl env d in
-        Gen.clear () @ [ d ]
+        let equalities = Gen.clear () in
+        let equalities = List.map (function
+          | DFunction (cc, flags, n, ret, name, binders, body) ->
+              (* This is a highly conservative criterion that is triggered by
+               * any recursive type; we could be smarter and only break the
+               * cycles by marking ONE declaration public.  *)
+              let flags =
+                if has_cycle then
+                  List.filter ((<>) Common.Private) flags
+                else
+                  flags
+              in
+              DFunction (cc, flags, n, ret, name, binders, body)
+          | d ->
+              d
+        ) equalities in
+        has_cycle <- false;
+        equalities @ [ d ]
       ) decls
 
     (* For type [t] and either [op = Eq] or [op = Neq], generate a recursive
@@ -388,7 +406,11 @@ let equalities files =
       | TQualified lid when Hashtbl.mem types_map lid ->
           begin try
             (* Already monomorphized? *)
-            EQualified (Hashtbl.find Gen.generated_lids (eq_lid, [ t ]))
+            let existing_lid = Hashtbl.find Gen.generated_lids (eq_lid, [ t ]) in
+            let is_cycle = List.exists (fun d -> lid_of_decl d = existing_lid) !Gen.pending_defs in
+            if is_cycle then
+              has_cycle <- true;
+            EQualified existing_lid
           with Not_found ->
             let mk_conj_or_disj es =
               match eq_kind with
