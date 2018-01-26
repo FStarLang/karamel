@@ -12,7 +12,7 @@ ifeq (,$(FSTAR_HOME))
   $(error FSTAR_HOME is not defined, cannot build the OCaml version of kremlib)
 endif
 
-all:
+all: pre
 	@# Workaround Windows bug in OCamlbuild
 	$(shell [ -f Kremlin.$(FLAVOR) ] && rm Kremlin.$(FLAVOR); [ -f Tests.$(FLAVOR) ] && rm Tests.$(FLAVOR))
 	OCAMLPATH=$(FSTAR_HOME)/bin $(OCAMLBUILD) $(TARGETS)
@@ -25,3 +25,14 @@ clean:
 test: all
 	./Tests.native
 	+make -C test
+
+# External prerequisites
+COMPILER := $(FSTAR_HOME)/bin/fstar.exe
+FSTARLIB := $(FSTAR_HOME)/bin/fstarlib/fstarlib.cma
+pre: $(COMPILER) $(FSTARLIB)
+
+$(COMPILER):
+	$(error Could not find fstar.exe in $(FSTAR_HOME); aborting)
+
+$(FSTARLIB):
+	$(error Could not find fstarlib.cma in $(FSTAR_HOME); aborting)
