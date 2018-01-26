@@ -9,10 +9,6 @@ FLAVOR?=native
 TARGETS=Kremlin.$(FLAVOR) Tests.$(FLAVOR)
 EXTRA_TARGETS=Ast.inferred.mli kremlib/C.cmx kremlib/TestLib.cmx
 
-ifeq (,$(FSTAR_HOME))
-  $(error FSTAR_HOME is not defined, cannot build the OCaml version of kremlib)
-endif
-
 all: minimal pre
 	OCAMLPATH=$(FSTAR_HOME)/bin $(OCAMLBUILD) $(EXTRA_TARGETS)
 
@@ -36,7 +32,7 @@ FSTARLIB := $(FSTAR_HOME)/bin/fstarlib/fstarlib.cmxa
 pre: $(COMPILER) $(FSTARLIB)
 
 $(COMPILER):
-	$(error Could not find fstar.exe in $(FSTAR_HOME); aborting)
+	$(error Could not find fstar.exe; $$FSTAR_HOME is: $(FSTAR_HOME); aborting)
 
 $(FSTARLIB):
-	$(error Could not find fstarlib.cmxa in $(FSTAR_HOME); aborting)
+	$(error Could not find fstarlib.cmxa; $$FSTAR_HOME is: $(FSTAR_HOME); aborting)
