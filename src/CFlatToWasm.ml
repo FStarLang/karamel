@@ -1,5 +1,6 @@
 open CFlat
 open CFlat.Sizes
+open Location
 
 module W = Wasm
 module K = Constant
@@ -25,6 +26,8 @@ type env = {
     (** The current size of THIS module's data segment. This field and the one
      * above are mutable, so as to lazily allocate string literals as we hit
      * them. *)
+  location: loc list;
+    (** For debugging *)
 }
 
 let empty = {
@@ -32,8 +35,12 @@ let empty = {
   globals = StringMap.empty;
   n_args = 0;
   strings = Hashtbl.create 41;
-  data_size = ref 0
+  data_size = ref 0;
+  location = []
 }
+
+let locate env loc =
+  { env with location = update_location env.location loc }
 
 let find_global env name =
   try
@@ -60,7 +67,7 @@ let rec find_func env name =
     try
       find_func env (List.assoc name builtins)
     with Not_found ->
-      Warnings.fatal_error "Could not resolve function %s" name
+      Warnings.fatal_error "%a: Could not resolve function %s" ploc env.location name
 
 let primitives = [
   "load32_le";
@@ -1062,7 +1069,7 @@ let mk_module types imports (name, decls):
   (* Compile the functions. *)
   let funcs = KList.filter_map (function
     | Function f ->
-        Some (mk_func env f)
+        Some (mk_func (locate env (In f.name)) f)
     | _ ->
         None
   ) decls in
