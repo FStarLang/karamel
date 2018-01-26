@@ -28,11 +28,11 @@ test: all
 
 # External prerequisites
 COMPILER := $(FSTAR_HOME)/bin/fstar.exe
-FSTARLIB := $(FSTAR_HOME)/bin/fstarlib/fstarlib.cma
+FSTARLIB := $(FSTAR_HOME)/bin/fstarlib/fstarlib.cmxa
 pre: $(COMPILER) $(FSTARLIB)
 
 $(COMPILER):
 	$(error Could not find fstar.exe in $(FSTAR_HOME); aborting)
 
 $(FSTARLIB):
-	$(error Could not find fstarlib.cma in $(FSTAR_HOME); aborting)
+	$(error Could not find fstarlib.cmxa in $(FSTAR_HOME); aborting)
