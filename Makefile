@@ -19,7 +19,7 @@ all: minimal pre
 minimal:
 	@# Workaround Windows bug in OCamlbuild
 	$(shell [ -f Kremlin.$(FLAVOR) ] && rm Kremlin.$(FLAVOR); [ -f Tests.$(FLAVOR) ] && rm Tests.$(FLAVOR))
-	OCAMLPATH=$(FSTAR_HOME)/bin $(OCAMLBUILD) $(TARGETS)
+	$(OCAMLBUILD) $(TARGETS)
 	ln -sf Kremlin.$(FLAVOR) krml
 
 clean:
