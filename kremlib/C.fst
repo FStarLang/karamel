@@ -25,6 +25,11 @@ assume val exit: Int32.t -> Stack unit
   (requires (fun _ -> true))
   (ensures (fun h0 _ h1 -> modifies_none h0 h1))
 
+assume type channel
+assume val stdout: channel
+assume val stderr: channel
+assume val fflush: channel -> St unit
+
 // This is only to provide a placeholder when needed: this type is not very
 // useful, as it is not interconvertible with other pointer types.
 assume type intptr_t
