@@ -455,31 +455,39 @@ inline static int32_t Prims_op_Modulus(int32_t x, int32_t y) {
   RETURN_OR((int64_t)x % (int64_t)y);
 }
 
-inline static int8_t FStar_UInt8_uint_to_t(int8_t x) {
+inline static uint8_t FStar_UInt8_uint_to_t(krml_checked_int_t x) {
   return x;
 }
-inline static int16_t FStar_UInt16_uint_to_t(int16_t x) {
+inline static uint16_t FStar_UInt16_uint_to_t(krml_checked_int_t x) {
   return x;
 }
-inline static int32_t FStar_UInt32_uint_to_t(int32_t x) {
+inline static uint32_t FStar_UInt32_uint_to_t(krml_checked_int_t x) {
   return x;
 }
-inline static int64_t FStar_UInt64_uint_to_t(int64_t x) {
+inline static uint64_t FStar_UInt64_uint_to_t(krml_checked_int_t x) {
   return x;
 }
 
-inline static int8_t FStar_UInt8_v(int8_t x) {
+inline static krml_checked_int_t FStar_UInt8_v(uint8_t x) {
   return x;
 }
-inline static int16_t FStar_UInt16_v(int16_t x) {
+inline static krml_checked_int_t FStar_UInt16_v(uint16_t x) {
   return x;
 }
-inline static int32_t FStar_UInt32_v(int32_t x) {
+inline static krml_checked_int_t FStar_UInt32_v(uint32_t x) {
+  RETURN_OR(x);
+}
+inline static krml_checked_int_t FStar_UInt64_v(uint64_t x) {
+  RETURN_OR(x);
+}
+
+inline static krml_checked_int_t FStar_Int32_v(int32_t x) {
   return x;
 }
-inline static int64_t FStar_UInt64_v(int64_t x) {
+inline static krml_checked_int_t FStar_Int64_v(int64_t x) {
   return x;
 }
+
 
 /******************************************************************************/
 /* Implementation of machine integers (possibly of 128-bit integers)          */
