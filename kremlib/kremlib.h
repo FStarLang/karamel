@@ -50,9 +50,10 @@ extern int exit_failure;
 
 extern intptr_t nullptr;
 
-typedef intptr_t FStar_Dyn_dyn;
-static inline intptr_t FStar_Dyn_mkdyn(void *x) {
-  return (intptr_t) x;
+typedef void *FStar_Dyn_dyn;
+
+static inline FStar_Dyn_dyn FStar_Dyn_mkdyn(void *x) {
+  return x;
 }
 
 /* For non-base types (i.e. not machine integers), KreMLin generates calls to
