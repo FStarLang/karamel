@@ -1,5 +1,5 @@
-#include "kremlib.h"
 #include "kremstr.h"
+#include "kremlib.h"
 
 /******************************************************************************/
 /* Implementation of FStar.String and FStar.HyperIO                           */
@@ -27,11 +27,11 @@ Prims_string Prims_strcat(Prims_string s0, Prims_string s1) {
 }
 
 void FStar_HyperStack_IO_print_string(Prims_string s) {
-  printf("%s", s);
+  KRML_HOST_PRINTF("%s", s);
 }
 
 void FStar_IO_debug_print_string(Prims_string s) {
-  printf("%s", s);
+  KRML_HOST_PRINTF("%s", s);
 }
 
 bool __eq__Prims_string(Prims_string s1, Prims_string s2) {
@@ -39,20 +39,18 @@ bool __eq__Prims_string(Prims_string s1, Prims_string s2) {
 }
 
 krml_checked_int_t FStar_String_index_of(Prims_string s1, FStar_Char_char fc) {
-  if (fc > UINT8_MAX) {
-      KRML_HOST_PRINTF(                                                        \
-          "FStar.Char.char overflow at %s:%d\n", __FILE__,         \
-          __LINE__);                                                           \
-      KRML_HOST_EXIT(252);                                                     \
+  if (fc > 127) {
+    KRML_HOST_PRINTF("FStar.Char.char overflow at %s:%d\n", __FILE__, __LINE__);
+    KRML_HOST_EXIT(252);
   }
   char c = fc;
-  char *pos = strchr (s1, c);
+  char *pos = strchr(s1, c);
   return (pos ? pos - s1 : -1);
 }
 
-Prims_string FStar_String_substring(Prims_string s0, krml_checked_int_t from, krml_checked_int_t length) {
-  char *dest = calloc(length + 1, 1); //zero terminated
+Prims_string FStar_String_substring(
+    Prims_string s0, krml_checked_int_t from, krml_checked_int_t length) {
+  char *dest = calloc(length + 1, 1); // zero terminated
   strncpy(dest, s0 + from, length);
-  return (Prims_string)dest;
+  return dest;
 }
-
