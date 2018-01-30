@@ -22,9 +22,7 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   tar xjvf d8.tar.bz2
 fi
 
-git clone --branch master https://github.com/FStarLang/FStar.git fstar
+git clone --branch master --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
 git clone --branch fstar-master --single-branch --depth 1 https://github.com/mitls/hacl-star
-# FIXME: remove once F* is fixed
-(cd fstar && git reset --hard f58c261d6)
 make -C fstar/src/ocaml-output
 make -C fstar/ulib/ml
