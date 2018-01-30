@@ -442,3 +442,55 @@ let repeat_range #a l min max f b fc =
   in
   lemma_repeat_range_0 (UInt32.v min) (UInt32.v min) f (as_seq h0 b);
   for min max inv f'
+
+let rec total_while_gen
+  (#t: Type)
+  (tmes: (t -> GTot nat))
+  (tinv: (bool -> t -> GTot Type0))
+  (tcontinue: (t -> Tot bool))
+  (body:
+    (x: t) ->
+    Pure t
+    (requires (tinv true x))
+    (ensures (fun y ->
+      tinv (tcontinue y) y /\ (
+      if tcontinue y then tmes y < tmes x else True)
+    )))
+  (x: t)
+: Pure t
+  (requires (tinv true x))
+  (ensures (fun y -> tinv false y))
+  (decreases (tmes x))
+= let y = body x in
+  let continue = tcontinue y in
+  if continue
+  then total_while_gen tmes tinv tcontinue body y
+  else y
+
+inline_for_extraction
+let total_while
+  (#t: Type)
+  (tmes: (t -> GTot nat))
+  (tinv: (bool -> t -> GTot Type0))
+  (body:
+    (x: t) ->
+    Pure (bool * t)
+    (requires (tinv true x))
+    (ensures (fun (continue, y) ->
+      tinv continue y /\ (
+      if continue then tmes y < tmes x else True)
+    )))
+  (x: t)
+: Pure t
+  (requires (tinv true x))
+  (ensures (fun y -> tinv false y))
+  (decreases (tmes x))
+= let (_, res) =
+    total_while_gen
+      (fun (_, x) -> tmes x)
+      (fun b (b_, x) -> b == b_ /\ tinv b x)
+      (fun (x, _) -> x)
+      (fun (_, x) -> body x)
+      (true, x)
+  in
+  res
