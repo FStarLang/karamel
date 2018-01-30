@@ -222,8 +222,8 @@ let map #a #b output input l f =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 output /\ live h1 input /\ modifies_1 output h0 h1 /\ i <= UInt32.v l
-    /\ (forall (j:nat). {:pattern (get h1 output j)} (j >= i /\ j < UInt32.v l) ==> get h1 output j == get h0 output j)
-    /\ (forall (j:nat). {:pattern (get h1 output j)} j < i ==> get h1 output j == f (get h0 input j))
+    /\ (forall (j:nat). (* {:pattern (get h1 output j)} *) (j >= i /\ j < UInt32.v l) ==> get h1 output j == get h0 output j)
+    /\ (forall (j:nat). (* {:pattern (get h1 output j)} *) j < i ==> get h1 output j == f (get h0 input j))
   in
   let f' (i:UInt32.t{ UInt32.( 0 <= v i /\ v i < v l ) }): Stack unit
     (requires (fun h -> inv h (UInt32.v i)))
@@ -262,8 +262,8 @@ let map2 #a #b #c output in1 in2 l f =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 output /\ live h1 in1 /\ live h1 in2 /\ modifies_1 output h0 h1 /\ i <= UInt32.v l
-    /\ (forall (j:nat). {:pattern (get h1 output j)} (j >= i /\ j < UInt32.v l) ==> get h1 output j == get h0 output j)
-    /\ (forall (j:nat). {:pattern (get h1 output j)} j < i ==> get h1 output j == f (get h0 in1 j) (get h0 in2 j))
+    /\ (forall (j:nat). (* {:pattern (get h1 output j)} *) (j >= i /\ j < UInt32.v l) ==> get h1 output j == get h0 output j)
+    /\ (forall (j:nat). (* {:pattern (get h1 output j)} *) j < i ==> get h1 output j == f (get h0 in1 j) (get h0 in2 j))
   in
   let f' (i:UInt32.t{ UInt32.( 0 <= v i /\ v i < v l ) }): Stack unit
     (requires (fun h -> inv h (UInt32.v i)))
@@ -299,8 +299,8 @@ let in_place_map #a b l f =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 b /\ modifies_1 b h0 h1 /\ i <= UInt32.v l
-    /\ (forall (j:nat). {:pattern (get h1 b j)} (j >= i /\ j < UInt32.v l) ==> get h1 b j == get h0 b j)
-    /\ (forall (j:nat). {:pattern (get h1 b j)} j < i ==> get h1 b j == f (get h0 b j))
+    /\ (forall (j:nat). (* {:pattern (get h1 b j)} *) (j >= i /\ j < UInt32.v l) ==> get h1 b j == get h0 b j)
+    /\ (forall (j:nat). (* {:pattern (get h1 b j)} *) j < i ==> get h1 b j == f (get h0 b j))
   in
   let f' (i:UInt32.t{ UInt32.( 0 <= v i /\ v i < v l ) }): Stack unit
     (requires (fun h -> inv h (UInt32.v i)))
@@ -338,8 +338,8 @@ let in_place_map2 #a #b in1 in2 l f =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 in1 /\ live h1 in2 /\ modifies_1 in1 h0 h1 /\ i <= UInt32.v l
-    /\ (forall (j:nat). {:pattern (get h1 in1 j)} (j >= i /\ j < UInt32.v l) ==> get h1 in1 j == get h0 in1 j)
-    /\ (forall (j:nat). {:pattern (get h1 in1 j)} j < i ==> get h1 in1 j == f (get h0 in1 j) (get h0 in2 j))
+    /\ (forall (j:nat). (* {:pattern (get h1 in1 j)} *) (j >= i /\ j < UInt32.v l) ==> get h1 in1 j == get h0 in1 j)
+    /\ (forall (j:nat). (* {:pattern (get h1 in1 j)} *) j < i ==> get h1 in1 j == f (get h0 in1 j) (get h0 in2 j))
   in
   let f' (i:UInt32.t{ UInt32.( 0 <= v i /\ v i < v l ) }): Stack unit
     (requires (fun h -> inv h (UInt32.v i)))
