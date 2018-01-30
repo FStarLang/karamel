@@ -241,7 +241,7 @@ static inline Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes s) {
   char *str = malloc(s.length * 2 + 1);
   CHECK(str);
   for (size_t i = 0; i < s.length; ++i)
-    sprintf(str + 2 * i, "%02" PRIx8, s.data[i] & 0xFF);
+    sprintf(str + 2 * i, "%02" PRIx8, (uint8_t) (s.data[i] & 0xFF));
   str[s.length * 2] = 0;
   return str;
 }

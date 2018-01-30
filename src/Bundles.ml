@@ -81,7 +81,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
       else
         flags
     in
-    old_name, List.map (function 
+    old_name, List.map (function
       | DFunction (cc, flags, n, typ, name, binders, body) ->
           DFunction (cc, add_if name flags, n, typ, name, binders, body)
       | DGlobal (flags, name, n, typ, body) ->
