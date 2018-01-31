@@ -476,7 +476,8 @@ Supported options:|}
   let files = GcTypes.heap_allocate_gc_types files in
   (* JP: this phase has many maps that take lids as keys and does not have logic
    * to expand type abbreviations. TODO: remove [inline_type_abbrevs] and let
-   * them be monomorphized just like the rest. *)
+   * them be monomorphized just like the rest. Note: this phase re-inserts some
+   * type abbreviations. *)
   let datatypes_state, files = DataTypes.everything files in
   if !arg_print_pattern then
     print PrintAst.print_files files;

@@ -732,6 +732,34 @@ let debug_map map =
     )
   ) map
 
+
+(* Seventh step: remove casts to struct types ... not supported by the C
+ * compiler. *)
+let remove_non_scalar_casts (map, _) = object (self)
+  inherit [_] map
+
+  method! visit_ECast (env, t) e t_dest =
+    let is_scalar lid = match Hashtbl.find map lid with
+      | exception Not_found -> false
+      | ToFlat _ | ToTaggedUnion _ -> true
+      | _ -> false
+    in
+    let e = self#visit_expr_w env e in
+    match t_dest with
+    | TQualified lid when is_scalar lid ->
+        begin match t with
+        | TQualified lid' when lid <> lid' ->
+            KPrint.bprintf "non-scalar cast from %a to %a -- please send test \
+              case to Jonathan, thanks\n" ptyp t ptyp t_dest
+        | _ ->
+            ()
+        end;
+        e.node
+    | _ ->
+        ECast (e, t_dest)
+
+end
+
 (* Debug any intermediary AST as follows: *)
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
 
@@ -744,6 +772,7 @@ let everything files =
   let map = build_scheme_map files in
   let files = (compile_simple_matches map)#visit_files () files in
   let files = (compile_all_matches map)#visit_files () files in
+  let files = (remove_non_scalar_casts map)#visit_files () files in
   map, files
 
 let anonymous_unions map files =
