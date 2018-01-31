@@ -58,7 +58,7 @@ wasm-extra: hacl-algs
 Structs2.exe: EXTRA = -wasm -d force-c -drop C,TestLib wasm-stubs.c
 ML16.exe: EXTRA = ml16-native.c
 Scope.exe: EXTRA = -ccopt -O3
-Test128.exe: EXTRA = -fnouint128 -static-header FStar
+Test128.exe: EXTRA = -fnouint128 -static-header FStar -fsopt --normalize_pure_terms_for_extraction
 HigherOrder.exe: EXTRA = -warn-error +9
 C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic -fc89
 Debug.exe: EXTRA = -d c-calls
