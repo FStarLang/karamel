@@ -236,6 +236,13 @@ and ensure_array t size =
   | t ->
       Warnings.fatal_error "impossible: %s" (show_typ t)
 
+and decay_array t =
+  match t with
+  | Array (t, _) ->
+      Pointer t
+  | t ->
+      Warnings.fatal_error "impossible: %s" (show_typ t)
+
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
   | Comment s ->
@@ -275,17 +282,20 @@ and mk_stmt (stmt: stmt): C.stmt list =
        * array type, in the C sense. *)
       let t = ensure_array binder.typ size in
       let module T = struct type init = Nope | Memset | Forloop end in
+      let is_constant = match size with Constant _ -> true | _ -> false in
+      let use_alloca = not is_constant && !Options.alloca_if_vla in
       let (maybe_init, init_type): C.init option * T.init = match init, size with
         | _, Constant (_, "0") ->
             (* zero-sized array *)
             None, T.Nope
         | Cast (Any, _), _
         | Any, _ ->
-            (* no inital value *)
+            (* no initial value *)
             None, T.Nope
-        | Constant ((_, "0") as k), Constant _ ->
+        | Constant ((_, "0") as k), Constant _ when not use_alloca ->
             (* The only case the we can initialize statically is a known, static
-             * size _and_ a zero initializer. *)
+             * size _and_ a zero initializer. If we're about to alloca, don't
+             * use a zero-initializer. *)
             Some (Initializer [ InitExpr (C.Constant k) ]), T.Nope
         | Constant (_, "0"), _ ->
             None, T.Memset
@@ -293,6 +303,17 @@ and mk_stmt (stmt: stmt): C.stmt list =
             None, T.Forloop
       in
       let size = mk_expr size in
+      let t, maybe_init =
+        (* If we're doing an alloca, override the initial value (it's now the
+         * call to alloca) and decay the array to a pointer type. *)
+        if use_alloca then
+          let bytes = C.Call (C.Name "alloca", [
+            C.Op2 (K.Mult, size, C.Sizeof (C.Type (mk_type (ensure_pointer t)))) ]) in
+          assert (maybe_init = None);
+          decay_array t, Some (InitExpr bytes)
+        else
+          t, maybe_init
+      in
       let init = mk_expr init in
       let spec, decl = mk_spec_and_declarator binder.name t in
       let extra_stmt: C.stmt list =

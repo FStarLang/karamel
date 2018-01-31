@@ -33,6 +33,7 @@ let anonymous_unions = ref true
 let uint128 = ref true
 let compound_literals: [ `Ok | `Wasm | `Never ] ref = ref `Ok
 
+let alloca_if_vla = ref false
 let parentheses = ref false
 let curly_braces = ref false
 let unroll_loops = ref (-1)
@@ -75,7 +76,7 @@ let default_options () =
       "-ccopts"; "-g,-D_BSD_SOURCE,-D_DEFAULT_SOURCE";
     |];
     "msvc", [|
-      "-warn-error"; "@6"; "-fnouint128"
+      "-warn-error"; "+6"; "-fnouint128"; "-falloca"
     |];
     "", [| |]
   ]

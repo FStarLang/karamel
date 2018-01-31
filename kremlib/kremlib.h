@@ -8,6 +8,11 @@
 #include <string.h>
 #include <time.h>
 
+/* For alloca, when using KreMLin's -falloca */
+#if (defined(_WIN32) || defined(_WIN64))
+#include <malloc.h>
+#endif
+
 /******************************************************************************/
 /* Some macros to ease compatibility                                          */
 /******************************************************************************/

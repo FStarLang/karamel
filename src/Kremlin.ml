@@ -212,6 +212,8 @@ Supported options:|}
 
     (* Fine-tuning code generation. *)
     "", Arg.Unit (fun _ -> ()), " ";
+    "-falloca", Arg.Set Options.alloca_if_vla, "  use alloca(3) for \
+      variable-length arrays on the stack";
     "-fnostruct-passing", Arg.Clear Options.struct_passing, "  disable passing \
       structures by value and use pointers instead";
     "-fnoanonymous-unions", Arg.Clear Options.anonymous_unions, "  disable C11 \

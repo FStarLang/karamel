@@ -18,7 +18,7 @@ FILES		= \
   PatternAny.exe Debug.exe hello-system/HelloSystem.exe Server.exe \
   ExitCode.exe DataTypesMut.exe ParamAbbrev.exe Null.exe Failwith.exe \
   CustomEq.exe Uu.exe WildCard.exe UnusedParameter.exe EqB.exe MutRec.exe \
-  MallocFree.exe
+  MallocFree.exe TestAlloca.exe
 CUSTOM		= count-uu
 EXTRA_FILES	= \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.exe
@@ -72,6 +72,7 @@ hello-system/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
 	-drop SystemNative -add-include '<netdb.h>'
 TestKremBytes.exe: EXTRA = -add-include '"krembytes.h"' -add-include \
 	'"kremstr.h"' -drop FStar.Bytes ../kremlib/kremstr.c
+TestAlloca.exe: EXTRA = -falloca
 
 # Some custom targets
 
