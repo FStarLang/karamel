@@ -160,7 +160,7 @@ and p_expr' curr = function
       let t = p_type_name t in
       paren_if curr mine (lparen ^^ t ^^ rparen ^^ e)
   | Type t ->
-      p_type_name t
+      parens_with_nesting (p_type_name t)
   | Sizeof e ->
       let mine, right = 2, 2 in
       let e = p_expr' right e in
