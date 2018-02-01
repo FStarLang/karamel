@@ -12,7 +12,7 @@
  * header only. */
 
 typedef const char *C_String_t, *C_String_t_;
-typedef const uint32_t FStar_Char_char, FStar_String_char;
+typedef uint32_t FStar_Char_char, FStar_String_char;
 
 static inline FStar_Char_char FStar_Char_char_of_int(krml_checked_int_t x) {
   return x;
