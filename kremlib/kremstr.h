@@ -36,7 +36,7 @@ static inline uint32_t print_u32(char *dst, uint32_t i) {
 }
 
 static inline void C_String_print(C_String_t str) {
-  printf("%s", str);
+  KRML_HOST_PRINTF("%s", str);
 }
 
 /******************************************************************************/
