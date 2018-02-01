@@ -110,8 +110,7 @@ FStar_Bytes_slice(FStar_Bytes_bytes b1, uint32_t s, uint32_t e) {
   uint32_t length = e - s;
   char *data = KRML_HOST_MALLOC(length);
   CHECK(data);
-  if (length > 0)
-    memcpy(data, b1.data + s, length);
+  memcpy(data, b1.data + s, length);
   FStar_Bytes_bytes b = { .length = length, .data = data };
   return b;
 }
