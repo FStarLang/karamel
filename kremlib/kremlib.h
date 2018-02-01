@@ -652,6 +652,10 @@ static inline uint128_t FStar_UInt128_uint_to_t(krml_checked_int_t x) {
   return x;
 }
 
+static inline uint128_t FStar_Int_Cast_Full_uint64_to_uint128(uint64_t x) {
+  return x;
+}
+
 #  else /* !defined(KRML_NOUINT128) */
 
 #    ifndef KRML_SEPARATE_UINT128
