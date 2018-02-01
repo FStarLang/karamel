@@ -587,7 +587,7 @@ static inline uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
  * so that each translation unit gets its own copy and the C compiler can
  * optimize. */
 #ifndef KRML_NOUINT128
-typedef unsigned __int128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t;
+typedef unsigned __int128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t, FStar_UInt128_uint128;
 
 static inline void print128(const char *where, uint128_t n) {
   KRML_HOST_PRINTF(
