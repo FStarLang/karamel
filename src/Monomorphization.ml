@@ -109,7 +109,7 @@ let monomorphize_data_types map = object(self)
         if lid = tuple_lid then
           (* For tuples, we immediately know how to generate a definition. *)
           let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
-          self#record (DType (self#lid_of n, [], 0, Flat fields));
+          self#record (DType (self#lid_of n, [ Common.Private ], 0, Flat fields));
           Hashtbl.add state n Black
         else begin
           (* This specific node has not been visited yet. *)
