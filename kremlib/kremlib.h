@@ -652,9 +652,9 @@ static inline uint128_t FStar_UInt128_uint_to_t(krml_checked_int_t x) {
   return x;
 }
 
-// An internal version for code that needs to create uint128's in both native
-// and non-native versions. The trailing underscore is to avoid a conflict with
-// the version that *will* be generated.
+/* An internal version for code that needs to create uint128's in both native
+ * and non-native versions. The trailing underscore is to avoid a conflict with
+ * the version that *will* be generated. */
 static inline uint128_t _FStar_Int_Cast_Full_uint64_to_uint128(uint64_t x) {
   return x;
 }
@@ -669,7 +669,11 @@ static inline uint128_t _FStar_Int_Cast_Full_uint64_to_uint128(uint64_t x) {
 typedef FStar_UInt128_uint128 FStar_UInt128_t_, uint128_t;
 
 static inline uint128_t _FStar_Int_Cast_Full_uint64_to_uint128(krml_checked_int_t x) {
-  return FStar_Int_Cast_Full_uint64_to_uint128(x);
+  /* C89 */
+  uint128_t ret;
+  ret.low = x;
+  ret.high = 0;
+  return ret;
 }
 
 /* A series of definitions written using pointers. */
