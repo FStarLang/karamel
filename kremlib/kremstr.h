@@ -1,6 +1,11 @@
 #ifndef __KREMSTR_H
 #define __KREMSTR_H
 
+#include <inttypes.h>
+
+typedef const char *Prims_string;
+typedef uint32_t FStar_Char_char, FStar_String_char;
+
 #include "kremlib.h"
 
 /******************************************************************************/
@@ -12,7 +17,6 @@
  * header only. */
 
 typedef const char *C_String_t, *C_String_t_;
-typedef uint32_t FStar_Char_char, FStar_String_char;
 
 static inline FStar_Char_char FStar_Char_char_of_int(krml_checked_int_t x) {
   return x;
@@ -43,7 +47,6 @@ static inline void C_String_print(C_String_t str) {
 /* Prims stubs                                                                */
 /******************************************************************************/
 
-typedef const char *Prims_string;
 Prims_string Prims_strcat(Prims_string s0, Prims_string s1);
 krml_checked_int_t FStar_String_index_of(Prims_string s1, FStar_Char_char fc);
 Prims_string FStar_String_substring(Prims_string s0, krml_checked_int_t from, krml_checked_int_t length);

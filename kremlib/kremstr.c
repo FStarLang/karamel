@@ -30,8 +30,9 @@ void FStar_HyperStack_IO_print_string(Prims_string s) {
   KRML_HOST_PRINTF("%s", s);
 }
 
-void FStar_IO_debug_print_string(Prims_string s) {
+bool FStar_IO_debug_print_string(Prims_string s) {
   KRML_HOST_PRINTF("%s", s);
+  return false;
 }
 
 bool __eq__Prims_string(Prims_string s1, Prims_string s2) {
