@@ -1,6 +1,6 @@
 /* Garbage-collected fat pointers that keep track of their lengths. */
 #ifndef __KREMBYTES_H
-#ifndef __FStar_H
+#ifdef __FStar_H_DEFINED
 #define __KREMBYTES_H
 
 #include <inttypes.h>
@@ -163,13 +163,12 @@ FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n) {
   return b;
 }
 
-// TODO: #ifdef KRML_NOUINT128
 static inline uint128_t
 FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs) {
-  uint128_t res = 0;
+  uint128_t res = FStar_Int_Cast_Full_uint64_to_uint128(UINT64_C(0));
   for (uint32_t i = 0; i < bs.length; i++) {
-    res = res << 8;
-    res |= bs.data[i] & 0xFF;
+    res = FStar_UInt128_shift_left(res, UINT32_C(8));
+    res = FStar_UInt128_logxor(res, FStar_Int_Cast_Full_uint64_to_uint128(bs.data[i] & 0xFF));
   }
   return res;
 }

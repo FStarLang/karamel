@@ -654,8 +654,10 @@ static inline uint128_t FStar_UInt128_uint_to_t(krml_checked_int_t x) {
 
 #  else /* !defined(KRML_NOUINT128) */
 
+#    ifndef KRML_SEPARATE_UINT128
 /* This is a bad circular dependency... should fix it properly. */
-#    include "FStar.h"
+#      include "FStar.h"
+#    endif
 
 typedef FStar_UInt128_uint128 FStar_UInt128_t_, uint128_t;
 

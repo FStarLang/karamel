@@ -35,7 +35,7 @@ let prefix_suffix name =
   let prefix =
     let header = !Options.header !Driver.fstar_rev !Driver.krml_rev in
     string header ^^ hardline ^^
-    mk_includes !Options.add_early_include ^^
+    mk_includes !Options.add_early_include ^^ hardline ^^
     kremlib_include () ^^
     hardline ^^
     string (Printf.sprintf "#ifndef __%s_H" name) ^^ hardline ^^

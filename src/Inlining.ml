@@ -208,6 +208,9 @@ let cross_call_analysis files =
     object (self)
       inherit [_] iter as super
 
+      method private still_private d =
+        List.mem Private (flags_of_decl d) && Hashtbl.mem safely_private (lid_of_decl d)
+
       method private remove_and_visit name =
         if Hashtbl.mem safely_private name then
           Hashtbl.remove safely_private name;
@@ -235,7 +238,7 @@ let cross_call_analysis files =
         assert false
 
       method! visit_decl env d =
-        if not (List.mem Private (flags_of_decl d)) then begin
+        if not (self#still_private d) then begin
           Hashtbl.add seen (lid_of_decl d) ();
           super#visit_decl env d
         end
