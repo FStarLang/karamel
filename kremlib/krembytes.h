@@ -110,7 +110,8 @@ FStar_Bytes_slice(FStar_Bytes_bytes b1, uint32_t s, uint32_t e) {
   uint32_t length = e - s;
   char *data = KRML_HOST_MALLOC(length);
   CHECK(data);
-  memcpy(data, b1.data + s, length);
+  if (length > 0)
+    memcpy(data, b1.data + s, length);
   FStar_Bytes_bytes b = { .length = length, .data = data };
   return b;
 }
@@ -301,7 +302,8 @@ static inline FStar_Pervasives_Native_option__Prims_string
 FStar_Bytes_iutf8_opt(FStar_Bytes_bytes b) {
   char *str = KRML_HOST_MALLOC(b.length + 1);
   CHECK(str);
-  memcpy(str, b.data, b.length);
+  if (b.length > 0)
+    memcpy(str, b.data, b.length);
   str[b.length] = 0;
 
   unsigned const char *err = utf8_check((unsigned char *)str);
