@@ -212,6 +212,15 @@ FStar_Bytes_xor(FStar_UInt32_t x, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2) {
   return b;
 }
 
+static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_int32(uint32_t x) {
+  char *data = KRML_HOST_MALLOC(4);
+  data[0] = x >> 24;
+  data[1] = (x >> 16) & 0xFF;
+  data[2] = (x >> 8) & 0xFF;
+  data[3] = x & 0xFF;
+  return (FStar_Bytes_bytes){ .length = 4, .data = data };
+}
+
 static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
   size_t l = strlen(str);
   if (l % 2 == 1)
