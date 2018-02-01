@@ -195,10 +195,22 @@ and mk_check_size init n_elements: C.stmt list =
       default
 
 and mk_sizeof t =
-  C.Call (C.Name "sizeof", [ t ])
+  match t with
+  | C.Cast (t, _)
+  | C.CompoundLiteral (t, _) ->
+      C.Sizeof (C.Type t)
+  | _ ->
+      C.Call (C.Name "sizeof", [ t ])
 
 and mk_malloc t s =
-  C.Call (C.Name "KRML_HOST_MALLOC", [ C.Op2 (K.Mult, mk_sizeof t, s) ])
+  let mul = match s with
+    | C.Constant (_, "1")
+    | C.Cast (_, C.Constant (_, "1")) ->
+        mk_sizeof t
+    | _ ->
+        C.Op2 (K.Mult, mk_sizeof t, s)
+  in
+  C.Call (C.Name "KRML_HOST_MALLOC", [ mul ])
 
 and mk_calloc t s =
   C.Call (C.Name "KRML_HOST_CALLOC", [ s; mk_sizeof t ])
