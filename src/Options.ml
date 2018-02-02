@@ -103,6 +103,7 @@ let drop: Bundle.pat list ref =
     Module [ "FStar"; "Squash"; ];
     Module [ "FStar"; "Universe"; ];
     Module [ "FStar"; "Int"; "Cast" ];
+    Module [ "FStar"; "Int"; "Cast"; "Full" ];
     Module [ "FStar"; "Monotonic"; "Heap" ];
     Module [ "FStar"; "Monotonic"; "RRef" ];
     Module [ "FStar"; "Int8" ];
