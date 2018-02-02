@@ -484,6 +484,8 @@ Supported options:|}
   let datatypes_state, files = DataTypes.everything files in
   if !arg_print_pattern then
     print PrintAst.print_files files;
+  if Options.debug "types-depth" then
+    Msvc.types_depth files;
   let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Pattern matches compilation";
 
