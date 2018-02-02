@@ -154,11 +154,16 @@ static inline FStar_UInt32_t FStar_Bytes_len(FStar_Bytes_bytes b1) {
 // meaning that if it overflew we'd catch it.
 static inline FStar_Bytes_bytes
 FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n) {
+  if (n < 0) {
+    fprintf(stderr, "FStar_Bytes_bytes_of_int: n must be nonnegative\n");
+    KRML_HOST_EXIT(252);
+  }
   FStar_Bytes_bytes b = FStar_Bytes_create(k, 0);
   char *data = (char *)b.data;
-  for (krml_checked_int_t i = k - 1; i >= 0; i--) {
-    uint32_t offset = 8 * ((k - 1) - i);
-    data[i] = (n >> offset) & 0xFF;
+  krml_checked_int_t m = n;
+  for (krml_checked_int_t j = 0; j < k; ++j) {
+    data[k - 1 - j] = m & 0xFF;
+    m = m >> 8;
   }
   return b;
 }
