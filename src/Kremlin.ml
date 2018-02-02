@@ -295,8 +295,11 @@ Supported options:|}
 
   (* An actual C compilation wants to drop these two. *)
   if not !Options.wasm || Options.debug "force-c" then
-    Options.drop := [ Bundle.Module [ "C" ]; Bundle.Module [ "TestLib" ] ] @
-      !Options.drop;
+    Options.drop := [
+      Bundle.Module [ "FStar"; "Int"; "Cast"; "Full" ];
+      Bundle.Module [ "C" ];
+      Bundle.Module [ "TestLib" ]
+    ] @ !Options.drop;
 
   (* Self-help. *)
   if !Options.wasm && Options.debug "force-c" then begin
