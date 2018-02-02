@@ -10,7 +10,7 @@
 
 /* For alloca, when using KreMLin's -falloca */
 #if (defined(_WIN32) || defined(_WIN64))
-#include <malloc.h>
+#  include <malloc.h>
 #endif
 
 /******************************************************************************/
@@ -90,7 +90,8 @@ void WasmSupport_check_buffer_size(uint32_t s);
  * signatures of ghost functions, meaning that it suffices to give them (any)
  * definition. */
 typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
-    *FStar_Monotonic_HyperHeap_rid, *FStar_HyperStack_ST_erid, *FStar_HyperStack_ST_ex_rid;
+    *FStar_Monotonic_HyperHeap_rid, *FStar_HyperStack_ST_erid,
+    *FStar_HyperStack_ST_ex_rid;
 
 /* For "bare" targets that do not have a C stdlib, the user might want to use
  * [-add-early-include '"mydefinitions.h"'] and override these. */
@@ -132,23 +133,24 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
  * *elements*. Do an ugly, run-time check (some of which KreMLin can eliminate).
  */
 
-#ifdef __GNUC__ 
-#define _KRML_CHECK_SIZE_PRAGMA _Pragma("GCC diagnostic ignored \"-Wtype-limits\"")
+#ifdef __GNUC__
+#  define _KRML_CHECK_SIZE_PRAGMA                                              \
+    _Pragma("GCC diagnostic ignored \"-Wtype-limits\"")
 #else
-#define _KRML_CHECK_SIZE_PRAGMA
+#  define _KRML_CHECK_SIZE_PRAGMA
 #endif
 
-#define KRML_CHECK_SIZE(elt, sz)                                             \
-  do { \
-    _KRML_CHECK_SIZE_PRAGMA \
-    if (((size_t)(sz)) > ((size_t)(SIZE_MAX / sizeof(elt)))) {        \
-      KRML_HOST_PRINTF(                                                   \
-        "Maximum allocatable size exceeded, aborting before overflow at "      \
-        "%s:%d\n",                                                             \
-        __FILE__, __LINE__);                                                   \
-      KRML_HOST_EXIT(253);                                              \
-    } \
-  } while(0)
+#define KRML_CHECK_SIZE(elt, sz)                                               \
+  do {                                                                         \
+    _KRML_CHECK_SIZE_PRAGMA                                                    \
+    if (((size_t)(sz)) > ((size_t)(SIZE_MAX / sizeof(elt)))) {                 \
+      KRML_HOST_PRINTF(                                                        \
+          "Maximum allocatable size exceeded, aborting before overflow at "    \
+          "%s:%d\n",                                                           \
+          __FILE__, __LINE__);                                                 \
+      KRML_HOST_EXIT(253);                                                     \
+    }                                                                          \
+  } while (0)
 
 /* A series of GCC atrocities to trace function calls (kremlin's [-d c-calls]
  * option). Useful when trying to debug, say, Wasm, to compare traces. */
@@ -504,7 +506,6 @@ inline static krml_checked_int_t FStar_Int64_v(int64_t x) {
   return x;
 }
 
-
 /******************************************************************************/
 /* Implementation of machine integers (possibly of 128-bit integers)          */
 /******************************************************************************/
@@ -597,7 +598,8 @@ static inline uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
  * so that each translation unit gets its own copy and the C compiler can
  * optimize. */
 #ifndef KRML_NOUINT128
-typedef unsigned __int128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t, FStar_UInt128_uint128;
+typedef unsigned __int128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t,
+    FStar_UInt128_uint128;
 
 static inline void print128(const char *where, uint128_t n) {
   KRML_HOST_PRINTF(
@@ -673,7 +675,7 @@ static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64(uint128_t x) {
 #  else /* !defined(KRML_NOUINT128) */
 
 #    ifndef KRML_SEPARATE_UINT128
-/* This is a bad circular dependency... should fix it properly. */
+    /* This is a bad circular dependency... should fix it properly. */
 #      include "FStar.h"
 #    endif
 
