@@ -131,14 +131,24 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
 /* In FStar.Buffer.fst, the size of arrays is uint32_t, but it's a number of
  * *elements*. Do an ugly, run-time check (some of which KreMLin can eliminate).
  */
-#define KRML_CHECK_SIZE(elt, size)                                             \
-  if (((size_t)size) > SIZE_MAX / sizeof(elt)) {                               \
-    KRML_HOST_PRINTF(                                                          \
+
+#ifdef __GNUC__ 
+#define _KRML_CHECK_SIZE_PRAGMA _Pragma("GCC diagnostic ignored \"-Wtype-limits\"")
+#else
+#define _KRML_CHECK_SIZE_PRAGMA
+#endif
+
+#define KRML_CHECK_SIZE(elt, sz)                                             \
+  do { \
+    _KRML_CHECK_SIZE_PRAGMA \
+    if (((size_t)(sz)) > ((size_t)(SIZE_MAX / sizeof(elt)))) {        \
+      KRML_HOST_PRINTF(                                                   \
         "Maximum allocatable size exceeded, aborting before overflow at "      \
         "%s:%d\n",                                                             \
         __FILE__, __LINE__);                                                   \
-    KRML_HOST_EXIT(253);                                                       \
-  }
+      KRML_HOST_EXIT(253);                                              \
+    } \
+  } while(0)
 
 /* A series of GCC atrocities to trace function calls (kremlin's [-d c-calls]
  * option). Useful when trying to debug, say, Wasm, to compare traces. */
@@ -181,7 +191,7 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
  * argument, otherwise, you may have FStar_ST_recall(f) as the only use of f;
  * KreMLin will think that this is a valid use, but then the C compiler, after
  * macro expansion, will error out. */
-#define FStar_Buffer_recall(x)
+#define FStar_Buffer_recall(x) ((void)0)
 #define FStar_Monotonic_HyperHeap_root 0
 #define FStar_HyperStack_is_eternal_color(x) 0
 static inline void FStar_HyperStack_ST_new_region() {}
