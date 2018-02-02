@@ -136,7 +136,7 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
 #define _KRML_CHECK_SIZE_PRAGMA _Pragma("GCC diagnostic ignored \"-Wtype-limits\"")
 #else
 #define _KRML_CHECK_SIZE_PRAGMA
-#endif // __GNUC__
+#endif
 
 #define KRML_CHECK_SIZE(elt, sz)                                             \
   do { \
