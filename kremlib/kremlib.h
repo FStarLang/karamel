@@ -99,6 +99,10 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
 #  define KRML_HOST_PRINTF printf
 #endif
 
+#ifndef KRML_HOST_EPRINTF
+#  define KRML_HOST_EPRINTF(...) fprintf(stderr, __VA_ARGS__)
+#endif
+
 #ifndef KRML_HOST_EXIT
 #  define KRML_HOST_EXIT exit
 #endif
