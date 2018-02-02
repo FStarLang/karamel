@@ -99,7 +99,11 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
 #  define KRML_HOST_PRINTF printf
 #endif
 
-#ifndef KRML_HOST_EPRINTF
+#if (                                                                          \
+      (defined __STDC_VERSION__)      &&                                       \
+      (__STDC_VERSION__ >= 199901L)   &&                                       \
+      (! (defined KRML_HOST_EPRINTF))                                          \
+    )
 #  define KRML_HOST_EPRINTF(...) fprintf(stderr, __VA_ARGS__)
 #endif
 
