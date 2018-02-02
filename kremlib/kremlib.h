@@ -148,10 +148,10 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
 #  define _KRML_CHECK_SIZE_PRAGMA
 #endif
 
-#define KRML_CHECK_SIZE(elt, sz)                                               \
+#define KRML_CHECK_SIZE(size_elt, sz)                                          \
   do {                                                                         \
     _KRML_CHECK_SIZE_PRAGMA                                                    \
-    if (((size_t)(sz)) > ((size_t)(SIZE_MAX / sizeof(elt)))) {                 \
+    if (((size_t)(sz)) > ((size_t)(SIZE_MAX / (size_elt)))) {                  \
       KRML_HOST_PRINTF(                                                        \
           "Maximum allocatable size exceeded, aborting before overflow at "    \
           "%s:%d\n",                                                           \
@@ -683,7 +683,7 @@ static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64(uint128_t x) {
 #  else /* !defined(KRML_NOUINT128) */
 
 #    ifndef KRML_SEPARATE_UINT128
-    /* This is a bad circular dependency... should fix it properly. */
+/* This is a bad circular dependency... should fix it properly. */
 #      include "FStar.h"
 #    endif
 

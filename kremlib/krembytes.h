@@ -316,7 +316,7 @@ FStar_Bytes_iutf8_opt(FStar_Bytes_bytes b) {
     return ret;
   } else {
     FStar_Pervasives_Native_option__Prims_string ret = {
-      .tag = FStar_Pervasives_Native_Some, { .case_Some = { .v = str } }
+      .tag = FStar_Pervasives_Native_Some, .v = str
     };
     return ret;
   }

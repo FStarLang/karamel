@@ -181,7 +181,7 @@ and mk_memset_zero_initializer e_array e_size =
 and mk_check_size init n_elements: C.stmt list =
   (* [init] is the default value for the elements of the array, and [n_elements] is
    * hopefully a constant *)
-  let default = [ C.Expr (C.Call (C.Name "KRML_CHECK_SIZE", [ init; n_elements ])) ] in
+  let default = [ C.Expr (C.Call (C.Name "KRML_CHECK_SIZE", [ mk_sizeof init; n_elements ])) ] in
   match init, n_elements with
   | C.Cast (_, C.Constant (w, _)), C.Cast (_, C.Constant (_, n_elements)) ->
       let size_bytes = Z.(of_int (K.bytes_of_width w) * of_string n_elements) in
@@ -202,15 +202,16 @@ and mk_sizeof t =
   | _ ->
       C.Call (C.Name "sizeof", [ t ])
 
-and mk_malloc t s =
-  let mul = match s with
+and mk_sizeof_mul t s =
+  match s with
     | C.Constant (_, "1")
     | C.Cast (_, C.Constant (_, "1")) ->
         mk_sizeof t
     | _ ->
         C.Op2 (K.Mult, mk_sizeof t, s)
-  in
-  C.Call (C.Name "KRML_HOST_MALLOC", [ mul ])
+
+and mk_malloc t s =
+  C.Call (C.Name "KRML_HOST_MALLOC", [ mk_sizeof_mul t s ])
 
 and mk_calloc t s =
   C.Call (C.Name "KRML_HOST_CALLOC", [ s; mk_sizeof t ])

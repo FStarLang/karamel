@@ -119,14 +119,29 @@ type scheme =
   | ToEnum
   | ToFlat of ident list
   | ToTaggedUnion of branches_t
+  | ToFlatTaggedUnion of branches_t
+    (** Optimized scheme for data types that only have one non-constant case:
+      * the tag immediately followed by the fields for the only one non-constant
+      * case, possibly uninitialized *)
+
+let one_non_constant_branch branches =
+  let _constant, non_constant = List.partition (fun (_, fields) ->
+    List.length fields = 0
+  ) branches in
+  KList.one non_constant
 
 let build_scheme_map files =
   build_map files (fun map -> function
     | DType (lid, _, 0, Variant branches) ->
-        if List.for_all (fun (_, fields) -> List.length fields = 0) branches then
+        let _constant, non_constant = List.partition (fun (_, fields) ->
+          List.length fields = 0
+        ) branches in
+        if List.length non_constant = 0  then
           Hashtbl.add map lid ToEnum
         else if List.length branches = 1 then
           Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
+        else if List.length non_constant = 1 then
+          Hashtbl.add map lid (ToFlatTaggedUnion branches)
         else
           Hashtbl.add map lid (ToTaggedUnion branches)
     | _ ->
@@ -190,6 +205,9 @@ let allocate_tag enums preferred_lid tags =
       (* Private will be removed, if needed, by the cross-call analysis. *)
       Fresh (DType (preferred_lid, [ Common.Private ], 0, Enum tags))
 
+let field_for_tag = "tag"
+let field_for_union = "val"
+
 let compile_simple_matches (map, enums) = object(self)
 
   inherit [_] map
@@ -221,6 +239,18 @@ let compile_simple_matches (map, enums) = object(self)
         EEnum (mk_tag_lid lid cons)
     | ToFlat names ->
         EFlat (List.map2 (fun n e -> Some n, self#visit_expr_w () e) names args)
+    | ToFlatTaggedUnion branches ->
+        let t_tag = TQualified (self#allocate_enum_lid lid branches) in
+        let fields =
+          if List.length args = 0 then
+            []
+          else
+            let fields = snd (one_non_constant_branch branches) in
+            List.map2 (fun (f, _) e -> Some f, self#visit_expr_w () e) fields args
+        in
+        EFlat ([
+          Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons))
+        ] @ fields)
 
   method! visit_PCons (_, typ) cons args =
     let lid =
@@ -238,6 +268,31 @@ let compile_simple_matches (map, enums) = object(self)
         PEnum (mk_tag_lid lid cons)
     | ToFlat names ->
         PRecord (List.map2 (fun n e -> n, self#visit_pattern_w () e) names args)
+    | ToFlatTaggedUnion branches ->
+        let t_tag = mk_tag_lid lid cons in
+        let fields =
+          if List.length args = 0 then
+            []
+          else
+            let fields = snd (one_non_constant_branch branches) in
+            List.map2 (fun (f, _) e -> f, self#visit_pattern_w () e) fields args
+        in
+        PRecord ([
+          field_for_tag, with_type (TQualified t_tag) (PEnum (mk_tag_lid lid cons))
+        ] @ fields)
+
+  method private allocate_enum_lid lid branches =
+    let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
+    (* Pre-allocate the named type for this type's tags. Has to be done
+     * here so that the enum declaration is inserted in the right spot.
+     * *)
+    let preferred_lid = fst lid, snd lid ^ "_tags" in
+    match allocate_tag enums preferred_lid tags with
+    | Found tag_lid ->
+        tag_lid
+    | Fresh decl ->
+        pending := decl :: !pending;
+        preferred_lid
 
   method! visit_DType _ lid flags n def =
     match def with
@@ -247,15 +302,7 @@ let compile_simple_matches (map, enums) = object(self)
         | exception Not_found ->
             DType (lid, flags, 0, Variant branches)
         | ToTaggedUnion _ ->
-            let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
-            (* Pre-allocate the named type for this type's tags. Has to be done
-             * here so that the enum declaration is inserted in the right spot.
-             * *)
-            let preferred_lid = fst lid, snd lid ^ "_tags" in
-            begin match allocate_tag enums preferred_lid tags with
-            | Found _ -> ()
-            | Fresh decl -> pending := decl :: !pending
-            end;
+            ignore (self#allocate_enum_lid lid branches);
             DType (lid, flags, 0, Variant branches)
         | ToEnum ->
             let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
@@ -268,7 +315,14 @@ let compile_simple_matches (map, enums) = object(self)
         | ToFlat _ ->
             let fields = List.map (fun (f, t) -> Some f, t) (snd (List.hd branches)) in
             DType (lid, flags, 0, Flat fields)
-        end
+        | ToFlatTaggedUnion branches ->
+            (* First field for the tag, then flatly, the fields of the only one
+             * non-constant constructor. *)
+            let f_tag = field_for_tag, (TQualified (self#allocate_enum_lid lid branches), false) in
+            let fields = snd (one_non_constant_branch branches) in
+            let fields = List.map (fun (f, t) -> Some f, t) (f_tag :: fields) in
+            DType (lid, flags, 0, Flat fields)
+            end
     | _ ->
         DType (lid, flags, n, def)
 
@@ -281,12 +335,10 @@ let compile_simple_matches (map, enums) = object(self)
         | exception Not_found ->
             (* This might be a record in the first place. *)
             try_mk_flat e t branches
-        | ToTaggedUnion _ ->
+        | ToTaggedUnion _ | ToFlat _ | ToFlatTaggedUnion _ ->
             try_mk_flat e t branches
         | ToEnum ->
             try_mk_switch e branches
-        | ToFlat _ ->
-            try_mk_flat e t branches
         end
     | _ ->
         (* For switches on constants *)
@@ -466,8 +518,6 @@ end
  * tagged unions, and compiling pattern matches. *)
 
 let union_field_of_cons = (^) "case_"
-let field_for_tag = "tag"
-let field_for_union = "val"
 
 let mk e =
   with_type TAny e
@@ -729,6 +779,7 @@ let debug_map map =
       | ToEnum -> "enum"
       | ToFlat _ -> "flat"
       | ToTaggedUnion _ -> "tagged union"
+      | ToFlatTaggedUnion _ -> "flat tagged union"
     )
   ) map
 
