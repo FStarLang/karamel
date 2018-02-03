@@ -17,7 +17,7 @@ typedef uint8_t FStar_Bytes_byte;
 #define CHECK(x)                                                               \
   do {                                                                         \
     if (!(x)) {                                                                \
-      fprintf(stderr, "malloc failed at %s:%d", __FILE__, __LINE__);           \
+      KRML_HOST_EPRINTF("malloc failed at %s:%d", __FILE__, __LINE__);           \
       KRML_HOST_EXIT(253);                                                     \
     }                                                                          \
   } while (0)
@@ -103,7 +103,7 @@ FStar_Bytes_slice(FStar_Bytes_bytes b1, uint32_t s, uint32_t e) {
   if (s == e)
     return FStar_Bytes_empty_bytes;
   if (s > e) {
-    fprintf(stderr, "!! s > e in FStar_Bytes_slice\n");
+    KRML_HOST_EPRINTF("!! s > e in FStar_Bytes_slice\n");
     KRML_HOST_EXIT(254);
   }
 
@@ -155,7 +155,7 @@ static inline FStar_UInt32_t FStar_Bytes_len(FStar_Bytes_bytes b1) {
 static inline FStar_Bytes_bytes
 FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n) {
   if (n < 0) {
-    fprintf(stderr, "FStar_Bytes_bytes_of_int: n must be nonnegative\n");
+    KRML_HOST_EPRINTF("FStar_Bytes_bytes_of_int: n must be nonnegative\n");
     KRML_HOST_EXIT(252);
   }
   FStar_Bytes_bytes b = FStar_Bytes_create(k, 0);
@@ -182,7 +182,7 @@ FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs) {
 static inline krml_checked_int_t
 FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs) {
   if (bs.length > 4) {
-    fprintf(stderr, "int_of_bytes overflow\n");
+    KRML_HOST_EPRINTF("int_of_bytes overflow\n");
     KRML_HOST_EXIT(255);
   }
   krml_checked_int_t res = 0;
@@ -229,8 +229,7 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_int32(uint32_t x) {
 static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
   size_t l = strlen(str);
   if (l % 2 == 1)
-    fprintf(
-        stderr,
+    KRML_HOST_EPRINTF(
         "bytes_of_hex: input string has non-even length, truncating!\n");
   char *data = KRML_HOST_MALLOC(l / 2);
   CHECK(data);
@@ -238,8 +237,7 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
     uint8_t dst;
     int ret = sscanf(str + 2 * i, "%02" SCNx8, &dst);
     if (ret != 1) {
-      fprintf(
-          stderr,
+      KRML_HOST_EPRINTF(
           "bytes_of_hex: run-time error while scanning at index "
           "%zu\nret=%d\n%s\n",
           2 * i, ret, str);
