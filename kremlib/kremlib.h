@@ -689,18 +689,6 @@ static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64(uint128_t x) {
 
 typedef FStar_UInt128_uint128 FStar_UInt128_t_, uint128_t;
 
-static inline uint128_t FStar_Int_Cast_Full_uint64_to_uint128(uint64_t x) {
-  /* C89 */
-  uint128_t ret;
-  ret.low = x;
-  ret.high = 0;
-  return ret;
-}
-
-static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64(uint128_t x) {
-  return x.low;
-}
-
 /* A series of definitions written using pointers. */
 static inline void print128_(const char *where, uint128_t *n) {
   KRML_HOST_PRINTF(
@@ -725,6 +713,16 @@ static inline void load128_be_(uint8_t *b, uint128_t *r) {
 static inline void store128_be_(uint8_t *b, uint128_t *n) {
   store64_be(b, n->high);
   store64_be(b + 8, n->low);
+}
+
+static inline void FStar_Int_Cast_Full_uint64_to_uint128_(uint64_t x, uint128_t *dst) {
+  /* C89 */
+  dst->low = x;
+  dst->high = 0;
+}
+
+static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64_(uint128_t *x) {
+  return x->low;
 }
 
 #    ifndef KRML_NOSTRUCT_PASSING
@@ -753,6 +751,16 @@ static inline void store128_be(uint8_t *b, uint128_t n) {
   store128_be_(b, &n);
 }
 
+static inline uint128_t FStar_Int_Cast_Full_uint64_to_uint128(uint64_t x) {
+  uint128_t dst;
+  FStar_Int_Cast_Full_uint64_to_uint128_(x, &dst);
+  return dst;
+}
+
+static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64(uint128_t x) {
+  return FStar_Int_Cast_Full_uint128_to_uint64_(&x);
+}
+
 #    else /* !defined(KRML_STRUCT_PASSING) */
 
 #      define print128 print128_
@@ -760,6 +768,8 @@ static inline void store128_be(uint8_t *b, uint128_t n) {
 #      define store128_le store128_le_
 #      define load128_be load128_be_
 #      define store128_be store128_be_
+#      define FStar_Int_Cast_Full_uint128_to_uint64 FStar_Int_Cast_Full_uint128_to_uint64_
+#      define FStar_Int_Cast_Full_uint64_to_uint128 FStar_Int_Cast_Full_uint64_to_uint128_
 
 #    endif /* KRML_STRUCT_PASSING */
 #  endif   /* KRML_UINT128 */
