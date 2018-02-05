@@ -12,6 +12,7 @@ FILES		= \
   DataTypesSimple.exe DataTypes.exe Parameterized.exe \
   Scope.exe Attributes.exe Unsound.exe Substitute.exe \
   InlineTest.exe Ghost1.exe Loops.exe Structs.exe \
+  TotalLoops.exe \
   Recursive.exe RecursivePoly.exe Structs2.exe StringLit.exe \
   FunctionalEncoding.exe FunPtr.exe Test128.exe \
   CheckedInt.exe Polymorphic.exe GcTypes.exe BadMatch.exe C89.exe \
