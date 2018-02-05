@@ -90,7 +90,7 @@ let mk_inliner files criterion =
     method! visit_EQualified (_, t) lid =
       match t with
       | TArrow _ when Hashtbl.mem map lid && criterion lid ->
-          fatal_error "[Frames]: partially applied function; not meant to happen";
+          fatal_error "[Frames]: %a partially applied function; not meant to happen" plid lid
       | _ ->
           EQualified lid
   end)#visit_expr_w ()) in
