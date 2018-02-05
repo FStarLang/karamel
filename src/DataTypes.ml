@@ -624,10 +624,19 @@ let compile_all_matches (map, enums) = object (self)
     let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
     let structs = KList.filter_map (fun (cons, fields) ->
       let fields = List.map (fun (f, t) -> Some f, t) fields in
-      if List.length fields > 0 then
-        Some (union_field_of_cons cons, TAnonymous (Flat fields))
-      else
-        None
+      match List.length fields with
+      | 0 ->
+          (* No arguments to this data constructor: no need to have a case in
+           * the union. *)
+          None
+      | 1 ->
+          (* One argument to the data constructor: this is the case itself. We
+           * lose the pretty name. *)
+          Some (union_field_of_cons cons, fst (snd (KList.one fields)))
+      | _ ->
+          (* Generic scheme: a struct for all the arguments of the data
+           * constructor. *)
+          Some (union_field_of_cons cons, TAnonymous (Flat fields))
     ) branches in
     let preferred_lid = fst lid, snd lid ^ "_tags" in
     let tag_lid =
@@ -666,17 +675,21 @@ let compile_all_matches (map, enums) = object (self)
     let fields = List.map (self#visit_pattern_w ()) fields in
     let record_pat = PRecord (List.combine field_names fields) in
     let t_tag, t_val = self#tag_and_val_type lid branches in
-    PRecord ([
-      (** This is sound because we rely on left-to-right, lazy semantics for
-       * pattern-matching. So, we read the "right" field from the union only
-       * after we've ascertained that we're in the right case. *)
-      field_for_tag, with_type t_tag (PEnum (mk_tag_lid lid cons))
-    ] @ if List.length fields > 0 then [
-      field_for_union, with_type t_val (PRecord [
-        union_field_of_cons cons, with_type TAny record_pat
-      ])
-    ] else [
-    ])
+    (** This is sound because we rely on left-to-right, lazy semantics for
+     * pattern-matching. So, we read the "right" field from the union only
+     * after we've ascertained that we're in the right case. *)
+    PRecord ([ field_for_tag, with_type t_tag (PEnum (mk_tag_lid lid cons)) ] @
+    match List.length fields with
+    | 0 ->
+        []
+    | 1 ->
+        [ field_for_union, with_type t_val (PRecord [
+          union_field_of_cons cons, KList.one fields
+        ])]
+    | _ ->
+        [ field_for_union, with_type t_val (PRecord [
+          union_field_of_cons cons, with_type TAny record_pat
+        ])])
 
   method! visit_ECons (_, t) cons exprs =
     let lid = assert_tlid t in
@@ -688,11 +701,15 @@ let compile_all_matches (map, enums) = object (self)
     let t_tag, t_val = self#tag_and_val_type lid branches in
     EFlat (
       [ Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons)) ] @
-      if List.length field_names > 0 then [
-        Some field_for_union, with_type t_val (
-          EFlat [ Some (union_field_of_cons cons), with_type TAny record_expr ])]
-      else
-        []
+      match List.length exprs with
+      | 0 ->
+          []
+      | 1 ->
+          [ Some field_for_union, with_type t_val (
+            EFlat [ Some (union_field_of_cons cons), KList.one exprs])]
+      | _ ->
+          [ Some field_for_union, with_type t_val (
+              EFlat [ Some (union_field_of_cons cons), with_type TAny record_expr ])]
     )
 
   (* The match transformation is tricky: we open all binders. *)
