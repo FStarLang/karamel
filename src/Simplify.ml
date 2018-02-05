@@ -975,20 +975,38 @@ let rec hoist_bufcreate (e: expr) =
   | ELet (b, e1, e2) ->
       (* Either:
        *   [let x: t* = bufcreatel ...] (as-is in the original code)
-       *   [let x: t[n] = any] (because C89 hoisting kicked in) *)
+       *   [let x: t[n] = any] (because C89 hoisting kicked in).
+       * This bit is really important because it makes sure that the assignment
+       * becomes a Copy node (see AstToCStar), which has different semantics
+       * than an assignment. This is (as far as I know) the only place that
+       * generates these copy nodes. *)
       begin match strengthen_array b.typ e1 with
-      | TArray _ as typ ->
+      | TArray (t, size) as tarray ->
           let b, e2 = open_binder b e2 in
-          let b = { b with typ } in
+          (* Any assignments into this one will be desugared as a
+           * copy-assignment, thanks to the strengthened type. *)
+          let b = { b with typ = tarray } in
           let bs, e2 = hoist_bufcreate e2 in
-          (mark_mut b, any) :: bs,
-          if e1.node <> EAny then
-            mk (ELet (sequence_binding (),
-              with_unit (EAssign (with_type typ (EOpen (b.node.name, b.node.atom)), e1)),
-              lift 1 e2
-            ))
-          else
-            e2
+          (* WASM/C discrepancy; in C, the array type makes sure we allocate
+           * stack space. In Wasm, we rely on the expression to actually
+           * generate run-time code. *)
+          let init = with_type (TBuf t) (
+            EBufCreate (Common.Stack, any, with_type uint32 (EConstant size)))
+          in
+          (mark_mut b, init) :: bs,
+          begin match e1.node with
+          | EAny ->
+              failwith "not allowing that per WASM restrictions"
+          | EBufCreate (_, { node = EAny; _ }, _) ->
+              (* We're visiting this node again. *)
+              e2
+          | _ ->
+              (* Need actual copy-assigment. *)
+              mk (ELet (sequence_binding (),
+                with_unit (EAssign (with_type tarray (EOpen (b.node.name, b.node.atom)), e1)),
+                lift 1 e2
+              ))
+          end
       | _ ->
           let b1, e1 = hoist_bufcreate e1 in
           let b2, e2 = hoist_bufcreate e2 in

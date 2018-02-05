@@ -14,3 +14,7 @@ let map_or f o d =
 let or_empty = function
   | Some x -> x
   | None -> ""
+
+let is_some = function
+  | Some _ -> true
+  | _ -> false
