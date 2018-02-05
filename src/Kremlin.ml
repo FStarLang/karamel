@@ -520,6 +520,7 @@ Supported options:|}
   let files = Simplify.remove_unused files in
   let files = Simplify.simplify2 files in
   let files = Inlining.cross_call_analysis files in
+  let files = if !Options.wasm then SimplifyWasm.compile_copy_assignments files else files in
   if !arg_print_structs then
     print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in

@@ -309,6 +309,8 @@ let collect_initializers (files: Ast.file list) =
     inherit [_] map
     method! visit_DGlobal _ flags name n t body =
       let flags, body =
+        (* Note: no need to generate a copy-assignment because top-level
+         * stack-allocated arrays are not possible in F*. *)
         if not (Helpers.is_initializer_constant body) then begin
           record (with_type TUnit (EAssign (with_type t (EQualified name), body)));
           List.filter ((<>) Private) flags, with_type t EAny

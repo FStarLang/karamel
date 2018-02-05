@@ -391,8 +391,11 @@ and mk_stmt (stmt: stmt): C.stmt list =
             List.map (fun e -> InitExpr (mk_expr e)) elts);
           Sizeof (mk_expr e1)]))]
 
-  | Copy _ ->
-      failwith "impossible"
+  | Copy (e1, _, e2) ->
+      [ Expr (Call (Name "memcpy", [
+          mk_expr e1;
+          mk_expr e2;
+          Sizeof (mk_expr e1)]))]
 
   | Assign (BufRead _, (Any | Cast (Any, _))) ->
       []

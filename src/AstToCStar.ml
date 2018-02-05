@@ -334,7 +334,7 @@ and mk_stmts env e ret_type =
           collect (env, acc) return_pos e
         ) (env, acc) es
 
-    | EAssign (e1, ({ node = (EBufCreate _ | EBufCreateL _); _ } as e2)) when is_array e1.typ ->
+    | EAssign (e1, e2) when is_array e1.typ ->
         let e = CStar.Copy (mk_expr env false e1, mk_type env e1.typ, mk_expr env false e2) in
         env, e :: acc
 

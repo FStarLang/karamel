@@ -975,7 +975,11 @@ let rec hoist_bufcreate (e: expr) =
   | ELet (b, e1, e2) ->
       (* Either:
        *   [let x: t* = bufcreatel ...] (as-is in the original code)
-       *   [let x: t[n] = any] (because C89 hoisting kicked in) *)
+       *   [let x: t[n] = any] (because C89 hoisting kicked in).
+       * This bit is really important because it makes sure that the assignment
+       * becomes a Copy node (see AstToCStar), which has different semantics
+       * than an assignment. This is (as far as I know) the only place that
+       * generates these copy nodes. *)
       begin match strengthen_array b.typ e1 with
       | TArray _ as typ ->
           let b, e2 = open_binder b e2 in

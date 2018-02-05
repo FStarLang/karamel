@@ -490,7 +490,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       (* Assignment into a stack-allocated variable. For assignment into
        * addresses, EBufWrite is used. *)
       begin match e1.typ, e2.node with
-      | TArray (_typ, _sizexp), (EBufCreate _ | EBufCreateL _) ->
+      | TArray (_typ, _sizexp), _ ->
           invalid_arg "this should've been desugared by Simplify.Wasm into let + blit"
       | _ ->
           let locals, e1 = mk_expr env locals e1 in
