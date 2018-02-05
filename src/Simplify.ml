@@ -1103,12 +1103,49 @@ let combinators = object(self)
     EFor (b, start, cond, iter, self#visit_expr_w () body)
 
   method! visit_EApp (_, t) e es =
+
+    let mk_app t f x =
+      match f with
+      | { node = EFun (_, body, _); _ } ->
+         DeBruijn.subst x 0 body
+      | _ ->
+         with_type t (EApp (f, [x]))
+    in
+
     match e.node, es with
     | EQualified ([ "C"; "Loops" ], "for_"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
         self#mk_for start finish body K.UInt32
 
     | EQualified ([ "C"; "Loops" ], "for64"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
         self#mk_for start finish body K.UInt64
+
+    | EQualified ([ "C"; "Loops" ], s), [ _measure; _inv; tcontinue; body; init ]
+        when KString.starts_with s "total_while_gen"
+       ->
+        let b = fresh_binder "b" TBool in
+        let b = mark_mut b in
+        let x = fresh_binder "x" t in
+        let x = mark_mut x in
+        (* Binder 1 *)
+        ELet (b, etrue, with_type t (
+        (* Binder 0 *)
+        ELet (x, lift 1 init, with_type t (
+        ESequence [
+          with_unit (EWhile (
+            with_type TBool (EBound 1),
+            with_unit (ESequence [
+              with_unit (EAssign (
+                with_type t (EBound 0),
+                mk_app t (lift 2 body) (with_type t (EBound 0))
+              ));
+              with_unit (EAssign (
+                with_type TBool (EBound 1),
+                mk_app t (lift 2 tcontinue) (with_type t (EBound 0))
+              ));
+           ])
+          ));
+          with_type t (EBound 0);
+        ]))))
 
     | EQualified ([ "C"; "Loops" ], "interruptible_for"), [ start; finish; _inv; { node = EFun (_, _, _); _ } as f ] ->
         (* Relying on the invariant that, if [finish] is effectful, F* has
