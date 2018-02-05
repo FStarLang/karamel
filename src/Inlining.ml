@@ -17,19 +17,21 @@ open Warnings
 open PrintAst.Ops
 open Common
 
+let always_live_lids = [
+  [ "FStar"; "UInt128" ], "uint128";
+  [ "FStar"; "Int"; "Cast"; "Full" ], "uint64_to_uint128";
+]
+
 (* Two distinguished cases that are always live and shall not be eliminated from
  * the program, no matter what: the main function, and UInt128 (which kremlib.h
  * assumes is always in scope). *)
 let always_live name =
   (* kremlib.h assumes this type exists, so keep it, even if the program
    * doesn't use uint128. *)
-  let always_live = [
-    [ "FStar"; "UInt128" ], "uint128"
-  ] in
   let always_live_c = [
     "main"
   ] in
-  List.mem name always_live ||
+  List.mem name always_live_lids ||
   List.mem (Simplify.target_c_name name) always_live_c
 
 
@@ -208,6 +210,9 @@ let cross_call_analysis files =
     object (self)
       inherit [_] iter as super
 
+      method private still_private d =
+        List.mem Private (flags_of_decl d) && Hashtbl.mem safely_private (lid_of_decl d)
+
       method private remove_and_visit name =
         if Hashtbl.mem safely_private name then
           Hashtbl.remove safely_private name;
@@ -235,15 +240,16 @@ let cross_call_analysis files =
         assert false
 
       method! visit_decl env d =
-        if not (List.mem Private (flags_of_decl d)) then begin
+        if not (self#still_private d) then begin
           Hashtbl.add seen (lid_of_decl d) ();
           super#visit_decl env d
         end
     end
   in
-  let uint128_lid = [ "FStar"; "UInt128" ], "uint128" in
-  if Hashtbl.mem safely_private uint128_lid then
-    Hashtbl.remove safely_private uint128_lid;
+  List.iter (fun lid ->
+    if Hashtbl.mem safely_private lid then
+      Hashtbl.remove safely_private lid;
+  ) always_live_lids;
   unmark_private_types_in#visit_files () files;
 
   (* The invariant for [safely_private] is now established, and we drop those

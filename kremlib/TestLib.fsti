@@ -36,7 +36,7 @@ val compare_and_print: C.String.t ->
 
 (** This function is for testing purposes only: this is an unmanaged, raw
  * pointer that cannot be freed. *)
-val unsafe_malloc: l:UInt32.t -> 
+val unsafe_malloc: l:UInt32.t ->
   Stack (buffer UInt8.t)
     (fun _ -> true)
     (fun h0 b h1 -> live h1 b /\ ~(contains h0 b) /\ length b = FStar.UInt32.v l

@@ -62,7 +62,7 @@ let implies x y =
 
 let unused_typ typs i =
   let t = List.nth typs i in
-  let unused t = t = TUnit || t = TAny in
+  let unused t = t = TUnit in
   (* The first typ may be marked as unused only if there's another unused
    * typ later on, otherwise, it serves at the one remaining typ that
    * makes sure this is still a function, and not a computation. *)

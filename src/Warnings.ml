@@ -123,7 +123,7 @@ let rec perr buf (loc, raw_error) =
         plid lid
   | Vla id ->
       p "%s is a non-constant size, stack-allocated array; this is not supported \
-        by CompCert" id
+        by CompCert and requires the use of alloca(3) for MSVC" id
   | LostStatic (file1, lid1, file2, lid2) ->
       p "After inlining, %a (going into %s) calls %a (going into %s) -- removing the static qualifier from %a"
         plid lid1 (p_file file1) plid lid2 (p_file file2) plid lid2

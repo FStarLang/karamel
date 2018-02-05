@@ -212,6 +212,8 @@ Supported options:|}
 
     (* Fine-tuning code generation. *)
     "", Arg.Unit (fun _ -> ()), " ";
+    "-falloca", Arg.Set Options.alloca_if_vla, "  use alloca(3) for \
+      variable-length arrays on the stack";
     "-fnostruct-passing", Arg.Clear Options.struct_passing, "  disable passing \
       structures by value and use pointers instead";
     "-fnoanonymous-unions", Arg.Clear Options.anonymous_unions, "  disable C11 \
@@ -293,8 +295,11 @@ Supported options:|}
 
   (* An actual C compilation wants to drop these two. *)
   if not !Options.wasm || Options.debug "force-c" then
-    Options.drop := [ Bundle.Module [ "C" ]; Bundle.Module [ "TestLib" ] ] @
-      !Options.drop;
+    Options.drop := [
+      Bundle.Module [ "FStar"; "Int"; "Cast"; "Full" ];
+      Bundle.Module [ "C" ];
+      Bundle.Module [ "TestLib" ]
+    ] @ !Options.drop;
 
   (* Self-help. *)
   if !Options.wasm && Options.debug "force-c" then begin
@@ -474,10 +479,13 @@ Supported options:|}
   let files = GcTypes.heap_allocate_gc_types files in
   (* JP: this phase has many maps that take lids as keys and does not have logic
    * to expand type abbreviations. TODO: remove [inline_type_abbrevs] and let
-   * them be monomorphized just like the rest. *)
+   * them be monomorphized just like the rest. Note: this phase re-inserts some
+   * type abbreviations. *)
   let datatypes_state, files = DataTypes.everything files in
   if !arg_print_pattern then
     print PrintAst.print_files files;
+  if Options.debug "types-depth" then
+    Msvc.types_depth files;
   let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Pattern matches compilation";
 

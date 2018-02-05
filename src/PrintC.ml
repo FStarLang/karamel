@@ -163,7 +163,11 @@ and p_expr' curr = function
       p_type_name t
   | Sizeof e ->
       let mine, right = 2, 2 in
-      let e = p_expr' right e in
+      let e =
+        match e with
+        | Type _ -> parens_with_nesting (p_expr' right e)
+        | _ -> p_expr' right e
+      in
       paren_if curr mine (string "sizeof" ^^ space ^^ e)
   | Address e ->
       let mine, right = 2, 2 in

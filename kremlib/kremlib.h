@@ -8,6 +8,11 @@
 #include <string.h>
 #include <time.h>
 
+/* For alloca, when using KreMLin's -falloca */
+#if (defined(_WIN32) || defined(_WIN64))
+#  include <malloc.h>
+#endif
+
 /******************************************************************************/
 /* Some macros to ease compatibility                                          */
 /******************************************************************************/
@@ -50,9 +55,10 @@ extern int exit_failure;
 
 extern intptr_t nullptr;
 
-typedef intptr_t FStar_Dyn_dyn;
-static inline intptr_t FStar_Dyn_mkdyn(void *x) {
-  return (intptr_t) x;
+typedef void *FStar_Dyn_dyn;
+
+static inline FStar_Dyn_dyn FStar_Dyn_mkdyn(void *x) {
+  return x;
 }
 
 /* For non-base types (i.e. not machine integers), KreMLin generates calls to
@@ -84,12 +90,21 @@ void WasmSupport_check_buffer_size(uint32_t s);
  * signatures of ghost functions, meaning that it suffices to give them (any)
  * definition. */
 typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
-    *FStar_Monotonic_HyperHeap_rid, *FStar_HyperStack_ST_erid, *FStar_HyperStack_ST_ex_rid;
+    *FStar_Monotonic_HyperHeap_rid, *FStar_HyperStack_ST_erid,
+    *FStar_HyperStack_ST_ex_rid;
 
 /* For "bare" targets that do not have a C stdlib, the user might want to use
  * [-add-early-include '"mydefinitions.h"'] and override these. */
 #ifndef KRML_HOST_PRINTF
 #  define KRML_HOST_PRINTF printf
+#endif
+
+#if (                                                                          \
+      (defined __STDC_VERSION__)      &&                                       \
+      (__STDC_VERSION__ >= 199901L)   &&                                       \
+      (! (defined KRML_HOST_EPRINTF))                                          \
+    )
+#  define KRML_HOST_EPRINTF(...) fprintf(stderr, __VA_ARGS__)
 #endif
 
 #ifndef KRML_HOST_EXIT
@@ -125,14 +140,25 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
 /* In FStar.Buffer.fst, the size of arrays is uint32_t, but it's a number of
  * *elements*. Do an ugly, run-time check (some of which KreMLin can eliminate).
  */
-#define KRML_CHECK_SIZE(elt, size)                                             \
-  if (((size_t)size) > SIZE_MAX / sizeof(elt)) {                               \
-    KRML_HOST_PRINTF(                                                          \
-        "Maximum allocatable size exceeded, aborting before overflow at "      \
-        "%s:%d\n",                                                             \
-        __FILE__, __LINE__);                                                   \
-    KRML_HOST_EXIT(253);                                                       \
-  }
+
+#ifdef __GNUC__
+#  define _KRML_CHECK_SIZE_PRAGMA                                              \
+    _Pragma("GCC diagnostic ignored \"-Wtype-limits\"")
+#else
+#  define _KRML_CHECK_SIZE_PRAGMA
+#endif
+
+#define KRML_CHECK_SIZE(size_elt, sz)                                          \
+  do {                                                                         \
+    _KRML_CHECK_SIZE_PRAGMA                                                    \
+    if (((size_t)(sz)) > ((size_t)(SIZE_MAX / (size_elt)))) {                  \
+      KRML_HOST_PRINTF(                                                        \
+          "Maximum allocatable size exceeded, aborting before overflow at "    \
+          "%s:%d\n",                                                           \
+          __FILE__, __LINE__);                                                 \
+      KRML_HOST_EXIT(253);                                                     \
+    }                                                                          \
+  } while (0)
 
 /* A series of GCC atrocities to trace function calls (kremlin's [-d c-calls]
  * option). Useful when trying to debug, say, Wasm, to compare traces. */
@@ -175,7 +201,7 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
  * argument, otherwise, you may have FStar_ST_recall(f) as the only use of f;
  * KreMLin will think that this is a valid use, but then the C compiler, after
  * macro expansion, will error out. */
-#define FStar_Buffer_recall(x)
+#define FStar_Buffer_recall(x) ((void)0)
 #define FStar_Monotonic_HyperHeap_root 0
 #define FStar_HyperStack_is_eternal_color(x) 0
 static inline void FStar_HyperStack_ST_new_region() {}
@@ -488,7 +514,6 @@ inline static krml_checked_int_t FStar_Int64_v(int64_t x) {
   return x;
 }
 
-
 /******************************************************************************/
 /* Implementation of machine integers (possibly of 128-bit integers)          */
 /******************************************************************************/
@@ -581,7 +606,8 @@ static inline uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
  * so that each translation unit gets its own copy and the C compiler can
  * optimize. */
 #ifndef KRML_NOUINT128
-typedef unsigned __int128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t;
+typedef unsigned __int128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t,
+    FStar_UInt128_uint128;
 
 static inline void print128(const char *where, uint128_t n) {
   KRML_HOST_PRINTF(
@@ -646,10 +672,20 @@ static inline uint128_t FStar_UInt128_uint_to_t(krml_checked_int_t x) {
   return x;
 }
 
+static inline uint128_t FStar_Int_Cast_Full_uint64_to_uint128(uint64_t x) {
+  return x;
+}
+
+static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64(uint128_t x) {
+  return x;
+}
+
 #  else /* !defined(KRML_NOUINT128) */
 
+#    ifndef KRML_SEPARATE_UINT128
 /* This is a bad circular dependency... should fix it properly. */
-#    include "FStar.h"
+#      include "FStar.h"
+#    endif
 
 typedef FStar_UInt128_uint128 FStar_UInt128_t_, uint128_t;
 
@@ -679,6 +715,16 @@ static inline void store128_be_(uint8_t *b, uint128_t *n) {
   store64_be(b + 8, n->low);
 }
 
+static inline void FStar_Int_Cast_Full_uint64_to_uint128_(uint64_t x, uint128_t *dst) {
+  /* C89 */
+  dst->low = x;
+  dst->high = 0;
+}
+
+static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64_(uint128_t *x) {
+  return x->low;
+}
+
 #    ifndef KRML_NOSTRUCT_PASSING
 
 static inline void print128(const char *where, uint128_t n) {
@@ -705,6 +751,16 @@ static inline void store128_be(uint8_t *b, uint128_t n) {
   store128_be_(b, &n);
 }
 
+static inline uint128_t FStar_Int_Cast_Full_uint64_to_uint128(uint64_t x) {
+  uint128_t dst;
+  FStar_Int_Cast_Full_uint64_to_uint128_(x, &dst);
+  return dst;
+}
+
+static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64(uint128_t x) {
+  return FStar_Int_Cast_Full_uint128_to_uint64_(&x);
+}
+
 #    else /* !defined(KRML_STRUCT_PASSING) */
 
 #      define print128 print128_
@@ -712,6 +768,8 @@ static inline void store128_be(uint8_t *b, uint128_t n) {
 #      define store128_le store128_le_
 #      define load128_be load128_be_
 #      define store128_be store128_be_
+#      define FStar_Int_Cast_Full_uint128_to_uint64 FStar_Int_Cast_Full_uint128_to_uint64_
+#      define FStar_Int_Cast_Full_uint64_to_uint128 FStar_Int_Cast_Full_uint64_to_uint128_
 
 #    endif /* KRML_STRUCT_PASSING */
 #  endif   /* KRML_UINT128 */

@@ -181,7 +181,7 @@ and mk_memset_zero_initializer e_array e_size =
 and mk_check_size init n_elements: C.stmt list =
   (* [init] is the default value for the elements of the array, and [n_elements] is
    * hopefully a constant *)
-  let default = [ C.Expr (C.Call (C.Name "KRML_CHECK_SIZE", [ init; n_elements ])) ] in
+  let default = [ C.Expr (C.Call (C.Name "KRML_CHECK_SIZE", [ mk_sizeof init; n_elements ])) ] in
   match init, n_elements with
   | C.Cast (_, C.Constant (w, _)), C.Cast (_, C.Constant (_, n_elements)) ->
       let size_bytes = Z.(of_int (K.bytes_of_width w) * of_string n_elements) in
@@ -195,10 +195,23 @@ and mk_check_size init n_elements: C.stmt list =
       default
 
 and mk_sizeof t =
-  C.Call (C.Name "sizeof", [ t ])
+  match t with
+  | C.Cast (t, _)
+  | C.CompoundLiteral (t, _) ->
+      C.Sizeof (C.Type t)
+  | _ ->
+      C.Call (C.Name "sizeof", [ t ])
+
+and mk_sizeof_mul t s =
+  match s with
+    | C.Constant (_, "1")
+    | C.Cast (_, C.Constant (_, "1")) ->
+        mk_sizeof t
+    | _ ->
+        C.Op2 (K.Mult, mk_sizeof t, s)
 
 and mk_malloc t s =
-  C.Call (C.Name "KRML_HOST_MALLOC", [ C.Op2 (K.Mult, mk_sizeof t, s) ])
+  C.Call (C.Name "KRML_HOST_MALLOC", [ mk_sizeof_mul t s ])
 
 and mk_calloc t s =
   C.Call (C.Name "KRML_HOST_CALLOC", [ s; mk_sizeof t ])
@@ -233,6 +246,13 @@ and ensure_array t size =
       Array (t, size)
   | Array _ as t ->
       t
+  | t ->
+      Warnings.fatal_error "impossible: %s" (show_typ t)
+
+and decay_array t =
+  match t with
+  | Array (t, _) ->
+      Pointer t
   | t ->
       Warnings.fatal_error "impossible: %s" (show_typ t)
 
@@ -275,17 +295,20 @@ and mk_stmt (stmt: stmt): C.stmt list =
        * array type, in the C sense. *)
       let t = ensure_array binder.typ size in
       let module T = struct type init = Nope | Memset | Forloop end in
+      let is_constant = match size with Constant _ -> true | _ -> false in
+      let use_alloca = not is_constant && !Options.alloca_if_vla in
       let (maybe_init, init_type): C.init option * T.init = match init, size with
         | _, Constant (_, "0") ->
             (* zero-sized array *)
             None, T.Nope
         | Cast (Any, _), _
         | Any, _ ->
-            (* no inital value *)
+            (* no initial value *)
             None, T.Nope
-        | Constant ((_, "0") as k), Constant _ ->
+        | Constant ((_, "0") as k), Constant _ when not use_alloca ->
             (* The only case the we can initialize statically is a known, static
-             * size _and_ a zero initializer. *)
+             * size _and_ a zero initializer. If we're about to alloca, don't
+             * use a zero-initializer. *)
             Some (Initializer [ InitExpr (C.Constant k) ]), T.Nope
         | Constant (_, "0"), _ ->
             None, T.Memset
@@ -293,6 +316,17 @@ and mk_stmt (stmt: stmt): C.stmt list =
             None, T.Forloop
       in
       let size = mk_expr size in
+      let t, maybe_init =
+        (* If we're doing an alloca, override the initial value (it's now the
+         * call to alloca) and decay the array to a pointer type. *)
+        if use_alloca then
+          let bytes = C.Call (C.Name "alloca", [
+            C.Op2 (K.Mult, size, C.Sizeof (C.Type (mk_type (ensure_pointer t)))) ]) in
+          assert (maybe_init = None);
+          decay_array t, Some (InitExpr bytes)
+        else
+          t, maybe_init
+      in
       let init = mk_expr init in
       let spec, decl = mk_spec_and_declarator binder.name t in
       let extra_stmt: C.stmt list =

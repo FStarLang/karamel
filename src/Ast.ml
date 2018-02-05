@@ -72,7 +72,10 @@ and fields_t_opt =
   (ident option * (typ * bool)) list
 
 and branches_t =
-  (ident * fields_t) list
+  branch_t list
+
+and branch_t =
+  (ident * fields_t)
 
 and fields_t =
   (ident * (typ * bool)) list

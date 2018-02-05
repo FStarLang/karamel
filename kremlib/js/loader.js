@@ -183,6 +183,9 @@ let mkC = (mem) => ({
   // string_of_literal is just a typing trick.
   string_of_literal: (x) => x,
   print_string: (addr) => my_print(stringAtAddr(mem, addr)),
+
+  // Truncated
+  clock: () => Date.now(),
 });
 
 let mkCNullity = (mem) => ({
@@ -242,6 +245,9 @@ let mkTestLib = (mem) => ({
       }
     }
     my_print("[test] "+str+" is a success\n");
+  },
+  TestLib_print_clock_diff: (t1, t2) => {
+    my_print("[benchmark] took: " + (t2 - t1) + "ms\n");
   },
 });
 
