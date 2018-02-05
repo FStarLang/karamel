@@ -63,22 +63,29 @@ let remove_buffer_ops = object
          * phase; also, the size ought to be pure, guaranteed by F*. *)
         let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, size)) in
         let with_t = with_type t in
-        ELet (b_size, body_size, close_binder b_size (with_t (
-          ESequence [ with_unit (
-            EApp (check_buffer_size, [ ref_size ])); with_unit (
+        match size.node with
+        | EConstant (_, "1") ->
             ELet (b_buf, body_buf, close_binder b_buf (with_t (
               ESequence [ with_unit (
-                EBufWrite (ref_buf, zerou32, init)); with_unit (
-                EAssign (ref_size, mk_minus_one ref_size)); with_unit (
-                EWhile (
-                  mk_gt_zero ref_size, with_unit (
+                EBufWrite (ref_buf, zerou32, init));
+                ref_buf ])))
+        | _ ->
+            ELet (b_size, body_size, close_binder b_size (with_t (
+              ESequence [ with_unit (
+                EApp (check_buffer_size, [ ref_size ])); with_unit (
+                ELet (b_buf, body_buf, close_binder b_buf (with_t (
                   ESequence [ with_unit (
-                    EBufWrite (
-                      ref_buf,
-                      ref_size,
-                      with_t (EBufRead (ref_buf, zerou32)))); with_unit (
-                    EAssign (ref_size, mk_minus_one ref_size))])));
-              ref_buf]))))])))
+                    EBufWrite (ref_buf, zerou32, init)); with_unit (
+                    EAssign (ref_size, mk_minus_one ref_size)); with_unit (
+                    EWhile (
+                      mk_gt_zero ref_size, with_unit (
+                      ESequence [ with_unit (
+                        EBufWrite (
+                          ref_buf,
+                          ref_size,
+                          with_t (EBufRead (ref_buf, zerou32)))); with_unit (
+                        EAssign (ref_size, mk_minus_one ref_size))])));
+                  ref_buf]))))])))
 
   method! visit_EBufCreateL (_, t) lifetime es =
     let es = List.map (self#visit_expr_w ()) es in
@@ -155,7 +162,9 @@ let compile_copy_assignments = object(self)
     | TArray (_, s) ->
         begin match (s, e2.node) with
         | s, (EBufCreate (_, init, _) | EBufCreateL (_, [ init ])) ->
-            if snd s = "1" then
+            if init.node = EAny then
+              ESequence []
+            else if snd s = "1" then
               (* A copy-assignment with size 1 can become a single assignment. *)
               EBufWrite (e1, Helpers.zerou32, init)
             else

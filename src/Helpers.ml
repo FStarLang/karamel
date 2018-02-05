@@ -169,7 +169,8 @@ let fold_arrow ts t_ret =
 let is_array = function TArray _ -> true | _ -> false
 
 (* If [e2] is assigned into an expression of type [t], we can sometimes
- * strengthen the type [t] into an array type. *)
+ * strengthen the type [t] into an array type. This is the only place that
+ * generates TArray meaning every TArray implies Stack. *)
 let strengthen_array' t e2 =
   let ensure_buf = function TBuf t -> t | _ -> failwith "not a buffer" in
   let open Common in

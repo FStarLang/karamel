@@ -294,7 +294,7 @@ and check' env t e =
           List.iteri (fun i e -> check (locate env (Sequence i)) TUnit e) (List.rev rest);
           check (locate env SequenceLast) t last
       | [] ->
-          type_error env "Empty sequence"
+          ()
       end
 
   | EBufCreate (lifetime, e1, e2) ->
