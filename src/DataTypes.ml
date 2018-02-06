@@ -623,7 +623,6 @@ let compile_all_matches (map, enums) = object (self)
   method private tag_and_val_type lid branches =
     let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
     let structs = KList.filter_map (fun (cons, fields) ->
-      let dummy_field = Some "msvc_workaround", (TAny, false) in
       let fields = List.map (fun (f, t) -> Some f, t) fields in
       match List.length fields with
       | 0 ->
@@ -637,7 +636,7 @@ let compile_all_matches (map, enums) = object (self)
       | _ ->
           (* Generic scheme: a struct for all the arguments of the data
            * constructor. *)
-          Some (union_field_of_cons cons, TAnonymous (Flat (dummy_field :: fields)))
+          Some (union_field_of_cons cons, TAnonymous (Flat fields))
     ) branches in
     let preferred_lid = fst lid, snd lid ^ "_tags" in
     let tag_lid =
@@ -645,7 +644,8 @@ let compile_all_matches (map, enums) = object (self)
       | Found lid -> lid
       | Fresh _ -> assert false (* pre-allocated by the previous phase *)
     in
-    TQualified tag_lid, TAnonymous (Union structs)
+    let dummy_field = "msvc_workaround", TAny in
+    TQualified tag_lid, TAnonymous (Union (dummy_field :: structs))
 
   method! visit_DType _ lid flags n type_def =
     match type_def with
