@@ -140,7 +140,7 @@ let build_scheme_map files =
           Hashtbl.add map lid ToEnum
         else if List.length branches = 1 then
           Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
-        else if List.length non_constant = 1 then
+        else if false && List.length non_constant = 1 then
           Hashtbl.add map lid (ToFlatTaggedUnion branches)
         else
           Hashtbl.add map lid (ToTaggedUnion branches)
@@ -623,20 +623,21 @@ let compile_all_matches (map, enums) = object (self)
   method private tag_and_val_type lid branches =
     let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
     let structs = KList.filter_map (fun (cons, fields) ->
+      let dummy_field = Some "msvc_workaround", (TAny, false) in
       let fields = List.map (fun (f, t) -> Some f, t) fields in
       match List.length fields with
       | 0 ->
           (* No arguments to this data constructor: no need to have a case in
            * the union. *)
           None
-      | 1 ->
+      | 1 when false ->
           (* One argument to the data constructor: this is the case itself. We
            * lose the pretty name. *)
           Some (union_field_of_cons cons, fst (snd (KList.one fields)))
       | _ ->
           (* Generic scheme: a struct for all the arguments of the data
            * constructor. *)
-          Some (union_field_of_cons cons, TAnonymous (Flat fields))
+          Some (union_field_of_cons cons, TAnonymous (Flat (dummy_field :: fields)))
     ) branches in
     let preferred_lid = fst lid, snd lid ^ "_tags" in
     let tag_lid =
@@ -682,7 +683,7 @@ let compile_all_matches (map, enums) = object (self)
     match List.length fields with
     | 0 ->
         []
-    | 1 ->
+    | 1 when false ->
         [ field_for_union, with_type t_val (PRecord [
           union_field_of_cons cons, KList.one fields
         ])]
@@ -704,7 +705,7 @@ let compile_all_matches (map, enums) = object (self)
       match List.length exprs with
       | 0 ->
           []
-      | 1 ->
+      | 1 when false ->
           [ Some field_for_union, with_type t_val (
             EFlat [ Some (union_field_of_cons cons), KList.one exprs])]
       | _ ->
