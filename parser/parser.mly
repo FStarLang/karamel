@@ -4,7 +4,7 @@
 
 %token<int>     INT
 %token<string>  UIDENT
-%token          PLUS MINUS STAR AT DOT EOF COMMA EQUALS
+%token          PLUS MINUS STAR AT DOT EOF COMMA EQUALS PUBLIC LPAREN RPAREN
 
 %start <(Flags.flag * (int * int)) list> warn_error_list
 %start <Bundle.t> bundle
@@ -55,12 +55,18 @@ mident:
 | l = separated_list(DOT, u = UIDENT { u })
 { l }
 
+api:
+| m = mident
+  { m }
+| PUBLIC LPAREN m = mident RPAREN
+  { m }
+
 drop:
 | p = separated_list(COMMA, pat) EOF
   { p }
 
 bundle:
-| apis = separated_nonempty_list(PLUS, mident) 
+| apis = separated_nonempty_list(PLUS, api) 
   EQUALS
   l = separated_nonempty_list(COMMA, pat) EOF
   { apis, l }
