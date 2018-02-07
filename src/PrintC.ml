@@ -303,10 +303,10 @@ let rec p_stmt (s: stmt) =
         p_expr e3
       ) ^^ rparen) ^^ nest_if p_stmt stmt
   | If (e, stmt) ->
-      group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^^
+      group (string "if" ^/^ parens_with_nesting (p_expr e)) ^^
       nest_if p_stmt (protect_ite_if_needed stmt)
   | IfElse (e, s1, s2) ->
-      group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^^
+      group (string "if" ^/^ parens_with_nesting (p_expr e)) ^^
       nest_if p_stmt (protect_solo_if s1) ^^ hardline ^^
       string "else" ^^
       (match s2 with
@@ -315,7 +315,7 @@ let rec p_stmt (s: stmt) =
       | _ ->
         nest_if p_stmt s2)
   | While (e, s) ->
-      group (string "while" ^/^ lparen ^^ p_expr e ^^ rparen) ^^
+      group (string "while" ^/^ parens_with_nesting (p_expr e)) ^^
       nest_if p_stmt s
   | Return None ->
       group (string "return" ^^ semi)
@@ -324,7 +324,7 @@ let rec p_stmt (s: stmt) =
   | Decl d ->
       group (p_declaration d ^^ semi)
   | Switch (e, branches, default) ->
-      group (string "switch" ^/^ lparen ^^ p_expr e ^^ rparen) ^/^
+      group (string "switch" ^/^ parens_with_nesting (p_expr e)) ^/^
       braces_with_nesting (
         separate_map hardline (fun (e, s) ->
           group (string "case" ^/^ p_expr e ^^ colon) ^^ nest 2 (
