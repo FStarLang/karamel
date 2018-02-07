@@ -2,29 +2,45 @@
  * [Parser] and [Bundles] *)
 
 (** Crypto.Chacha20=Crypto.Symmetric.Chacha20.*,Crypto.Flag *)
-type mident = string list
 
-type t = mident list * pat list
+type t = api list * pat list
+
+and api = mident * visibility
+
+and mident = string list
+
+and visibility = Public | AsIs
 
 and pat =
   | Module of string list
   | Prefix of string list
 
+(* Pretty-printing functions. *)
+let string_of_mident mident =
+  String.concat "." mident
 
-let string_of_pat pat =
-  match pat with
-  | Module path ->
-      String.concat "." path
-  | Prefix path ->
-      String.concat "." (path @ [ "*" ])
+let string_of_api (mident, visibility) =
+  match visibility with
+  | AsIs -> string_of_mident mident
+  | Public -> "public(" ^ string_of_mident mident ^ ")"
 
-let string_of_bundle (name, pats) =
-  match name with
+let string_of_apis apis =
+  String.concat "+" (List.map string_of_api apis)
+
+let string_of_pattern = function
+  | Module m -> String.concat "." m
+  | Prefix p -> String.concat "." (p @ [ "*" ])
+
+let string_of_patterns patterns =
+  String.concat "," (List.map string_of_pattern patterns)
+
+let string_of_bundle (apis, patterns) =
+  match apis with
   | [] ->
-      String.concat "," (List.map string_of_pat pats)
-  | path ->
-      String.concat "+" (List.map (String.concat ".") path) ^ "=" ^
-      String.concat "," (List.map string_of_pat pats)
+      string_of_patterns patterns
+  | _ ->
+      string_of_apis apis ^ "=" ^
+      string_of_patterns patterns
 
 module LidMap = Idents.LidMap
 

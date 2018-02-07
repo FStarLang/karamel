@@ -143,7 +143,7 @@ Supported options:|}
     (String.concat " " (KList.map_flatten (fun b ->
       [ "-bundle"; Bundle.string_of_bundle b ]
     ) !Options.bundle @ KList.map_flatten (fun p ->
-      [ "-drop"; Bundle.string_of_pat p ]
+      [ "-drop"; Bundle.string_of_pattern p ]
     ) !Options.drop))
     (p "gcc")
     (p "clang")

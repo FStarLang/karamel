@@ -57,16 +57,16 @@ mident:
 
 api:
 | m = mident
-  { m }
+  { m, AsIs }
 | PUBLIC LPAREN m = mident RPAREN
-  { m }
+  { m, Public }
 
 drop:
 | p = separated_list(COMMA, pat) EOF
   { p }
 
 bundle:
-| apis = separated_nonempty_list(PLUS, api) 
+| apis = separated_nonempty_list(PLUS, api)
   EQUALS
   l = separated_nonempty_list(COMMA, pat) EOF
   { apis, l }
