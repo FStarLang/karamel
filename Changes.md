@@ -1,4 +1,47 @@
-### January 24th, 2017
+### Feb 5th, 2018
+
+- Optimized compilation scheme for data types. Branches with a single argument
+  no longer generate a struct in the union.
+
+  ```
+  type t = A | B of t | C of t * t
+  ```
+
+  now becomes:
+
+  ```
+  typedef enum { A, B, C } tag_t;
+  typedef struct {
+    tag_t tag;
+    union {
+      t case_B; // no longer emitting a one-field struct
+      struct {
+        x0 t;
+        x1 t;
+      } case C
+    } val
+  } t;
+  ```
+
+- Various WASM backend improvements, with a couple bugs fixed.
+
+### Feb 2nd, 2018
+
+- Optimized compilation scheme for data types. In the case that there is only
+  one non-constant constructor, no nesting occurs. `option int` is now:
+
+  ```
+  typedef enum { Nil, Cons } tag_option;
+  typedef struct {
+    tag_option tag;
+    int v;
+  } option_int;
+  ```
+
+- Prettify most of the instances of KRML_CHECK_SIZE and KRML_HOST_MALLOC to use
+  a type name instead of a value for the arguments to sizeof.
+
+### January 24th, 2018
 
 - Support for manually-managed memory via `Buffer.rcreate_mm` and
   `Buffer.rfree`, hopefully soon to have better names. These translate to
@@ -32,18 +75,18 @@
   use-site, then it is safe to get rid of the `uu____`.... this means no more
   `uu____`'s for things such as:
 
-```
-  let z = b.(0ul) +^ b.(1ul) in
-  let t = b.(let r = b.(1ul) in Int.Cast.int32_to_uint32 r) in
-```
+  ```
+    let z = b.(0ul) +^ b.(1ul) in
+    let t = b.(let r = b.(1ul) in Int.Cast.int32_to_uint32 r) in
+  ```
 
   which now becomes:
 
-```
-  int32_t z = b[0U] + b[1U];
-  int32_t r = b[1U];
-  int32_t t = b[(uint32_t)r];
-```
+  ```
+    int32_t z = b[0U] + b[1U];
+    int32_t r = b[1U];
+    int32_t t = b[(uint32_t)r];
+  ```
 
 - The second analysis is as follows: if `uu___` is an arbitrary expression, and
   if only pure expressions are evaluated between the definition of the `uu____`
@@ -52,37 +95,37 @@
 
   This means that things such as:
 
-```
-  let y = 1l +^ f () in
-```
+  ```
+    let y = 1l +^ f () in
+  ```
 
   now give the intended output:
 
-```
-  int32_t y = (int32_t)1 + f();
-```
+  ```
+    int32_t y = (int32_t)1 + f();
+  ```
 
 - Note that there is no way to remove `uu____`'s for things such as:
 
-```
-  let x = f () + f ()
-```
+  ```
+    let x = f () + f ()
+  ```
 
   F* will generate this:
 
-```
-  let uu___1 = f () in
-  let uu___2 = f () in
-  let x = uu___1 + uu___2
-```
+  ```
+    let uu___1 = f () in
+    let uu___2 = f () in
+    let x = uu___1 + uu___2
+  ```
 
   KreMLin will do its best, and will manage to fold in only the first uu___.
   This gives:
 
-```
-  int32_t uu___1 = f () in
-  int32_t x = uu___1 + f();
-```
+  ```
+    int32_t uu___1 = f () in
+    int32_t x = uu___1 + f();
+  ```
 
 ### December 4th, 2017
 
