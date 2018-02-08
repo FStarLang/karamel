@@ -37,7 +37,7 @@ Windows). Install all of the packages below, on Windows possibly following
 instructions from https://github.com/protz/ocaml-installer/wiki for "difficult"
 packages (e.g. `ppx_deriving`).
 
-`$ opam install ppx_deriving_yojson zarith pprint menhir ulex process fix wasm`
+`$ opam install ppx_deriving_yojson zarith pprint menhir ulex process fix wasm visitors`
 
 To build just run `make` from this directory.
 
