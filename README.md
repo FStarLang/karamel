@@ -31,13 +31,14 @@ key component of [Project Everest](https://project-everest.github.io/).
 
 ## Trying out KreMLin
 
+KreMLin requires OCaml (version 4.02.3 to 4.05.0) and OPAM (version 1.2.x).
 Make sure you run `opam update` first, so that by running the `opam install`
 command below you get `process-0.2.1` (`process` version `0.2` doesn't work on
 Windows). Install all of the packages below, on Windows possibly following
 instructions from https://github.com/protz/ocaml-installer/wiki for "difficult"
 packages (e.g. `ppx_deriving`).
 
-`$ opam install ppx_deriving_yojson zarith pprint menhir ulex process fix wasm`
+`$ opam install ppx_deriving_yojson zarith pprint menhir ulex process fix wasm visitors`
 
 Then, make sure you have an up-to-date F\*, and that you ran `make` in the
 `ulib/ml` directory of F\*. The `fstar.exe` executable should be on your PATH.

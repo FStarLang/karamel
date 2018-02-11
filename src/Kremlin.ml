@@ -49,6 +49,7 @@ let _ =
   let arg_skip_translation = ref false in
   let arg_skip_compilation = ref false in
   let arg_skip_linking = ref false in
+  let arg_diagnostics = ref false in
   let arg_verify = ref false in
   let arg_warn_error = ref "" in
   let arg_c89 = ref false in
@@ -143,7 +144,7 @@ Supported options:|}
     (String.concat " " (KList.map_flatten (fun b ->
       [ "-bundle"; Bundle.string_of_bundle b ]
     ) !Options.bundle @ KList.map_flatten (fun p ->
-      [ "-drop"; Bundle.string_of_pat p ]
+      [ "-drop"; Bundle.string_of_pattern p ]
     ) !Options.drop))
     (p "gcc")
     (p "clang")
@@ -178,6 +179,7 @@ Supported options:|}
     "-verify", Arg.Set arg_verify, " ask F* to verify the program";
     "-verbose", Arg.Set Options.verbose, "  show the output of intermediary \
       tools when acting as a driver for F* or the C compiler";
+    "-diagnostics", Arg.Set arg_diagnostics, " informative report";
     "-wasm", Arg.Set Options.wasm, "  emit a .wasm file instead of C";
     "", Arg.Unit (fun _ -> ()), " ";
 
@@ -484,8 +486,6 @@ Supported options:|}
   let datatypes_state, files = DataTypes.everything files in
   if !arg_print_pattern then
     print PrintAst.print_files files;
-  if Options.debug "types-depth" then
-    Msvc.types_depth files;
   let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Pattern matches compilation";
 
@@ -552,6 +552,9 @@ Supported options:|}
   (* 8. Final transformation on the AST: go to C names. This must really be done
    * at the last minute, since it invalidates pretty much any map ever built. *)
   let files = Simplify.to_c_names files in
+
+  if !arg_diagnostics then
+    Diagnostics.all files;
 
   if !Options.wasm && not (Options.debug "force-c") then
     (* Runtime support files first. *)
