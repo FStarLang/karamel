@@ -247,6 +247,7 @@ and check' env t e =
   let c t' = check_subtype env t' t in
   match e.node with
   | ETApp (e, _) ->
+      (* JP: is this code even reachable? *)
       (* Equalities are type checked with Any *)
       (match e.node with EOp ((K.Eq | K.Neq), _) -> () | _ -> assert false);
       check env t e
@@ -486,9 +487,14 @@ and best_buffer_type t1 e2 =
 
 and infer' env e =
   match e.node with
-  | ETApp (e, _) ->
-      (match e.node with EOp ((K.Eq | K.Neq), _) -> () | _ -> assert false);
-      infer env e
+  | ETApp (e, t) ->
+      begin match e.node with
+      | EOp ((K.Eq | K.Neq), _) ->
+          let t = KList.one t in
+          TArrow (t, TArrow (t, TBool))
+      | _ ->
+          assert false
+      end
 
   | EBound i ->
       begin try

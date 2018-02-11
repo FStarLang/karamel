@@ -1,3 +1,7 @@
+### Feb 8th, 2018
+
+- New -diagnostics option to get a report on things not Low*.
+
 ### Feb 5th, 2018
 
 - Optimized compilation scheme for data types. Branches with a single argument
