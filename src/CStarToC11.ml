@@ -1,5 +1,7 @@
 (** Converting from C* to C abstract syntax. *)
 
+module C = C11
+
 open C
 open CStar
 open KPrint

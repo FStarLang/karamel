@@ -579,8 +579,8 @@ Supported options:|}
     tick_print true "AstToCStar";
 
     (* ... then to C *)
-    let headers = CStarToC.mk_headers files in
-    let files = CStarToC.mk_files files in
+    let headers = CStarToC11.mk_headers files in
+    let files = CStarToC11.mk_files files in
     tick_print true "CStarToC";
 
     (* -dc *)

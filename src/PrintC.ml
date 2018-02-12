@@ -1,6 +1,8 @@
 (** Pretty-printer that conforms with C syntax. Also defines the grammar of
  * concrete C syntax, as opposed to our idealistic, well-formed C*. *)
 
+module C = C11
+
 open PPrint
 open PrintCommon
 open C

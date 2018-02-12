@@ -5,9 +5,9 @@ let _ =
   let open PPrint in
   let p_t t =
     let d: CStar.decl = Type ("t", t, []) in
-    let d = CStarToC.mk_type_or_external d in
+    let d = CStarToC11.mk_type_or_external d in
     match d with
-    | Some (C.Decl ([], d)) ->
+    | Some (C11.Decl ([], d)) ->
         Print.print (group (PrintC.p_declaration d));
         print_newline ()
     | _ ->
@@ -17,10 +17,10 @@ let _ =
     let d: CStar.decl = Function (None, [], ret, "f", List.mapi (fun i t -> 
       { name = Printf.sprintf "x%d" i; typ = t }
     ) args, [ Abort "test" ]) in
-    let d = Option.must (CStarToC.mk_function_or_global_body d) in
+    let d = Option.must (CStarToC11.mk_function_or_global_body d) in
     Print.print (group (PrintC.p_decl_or_function d));
     print_newline ();
-    print_endline (C.show_declaration_or_function d)
+    print_endline (C11.show_declaration_or_function d)
   in
   let t: CStar.typ = Array (Pointer (Int UInt8), Constant (UInt8, "4")) in
   p_t t;
