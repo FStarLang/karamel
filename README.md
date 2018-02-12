@@ -40,6 +40,9 @@ packages (e.g. `ppx_deriving`).
 
 `$ opam install ppx_deriving_yojson zarith pprint menhir ulex process fix wasm visitors`
 
+Then, make sure you have an up-to-date F\*, and that you ran `make` in the
+`ulib/ml` directory of F\*. The `fstar.exe` executable should be on your PATH.
+
 To build just run `make` from this directory.
 
 **Note:** KreMLin's `master` branch runs against F\*'s `stable` branch, and
