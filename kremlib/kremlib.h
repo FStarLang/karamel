@@ -100,10 +100,8 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
 #endif
 
 #if (                                                                          \
-      (defined __STDC_VERSION__)      &&                                       \
-      (__STDC_VERSION__ >= 199901L)   &&                                       \
-      (! (defined KRML_HOST_EPRINTF))                                          \
-    )
+    (defined __STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) &&             \
+    (!(defined KRML_HOST_EPRINTF)))
 #  define KRML_HOST_EPRINTF(...) fprintf(stderr, __VA_ARGS__)
 #endif
 
@@ -121,6 +119,18 @@ typedef void *FStar_Monotonic_HyperStack_mem, *Prims_prop,
 
 #ifndef KRML_HOST_FREE
 #  define KRML_HOST_FREE free
+#endif
+
+#ifndef KRML_HOST_TIME
+
+#  include <time.h>
+
+/* Prims_nat not yet in scope */
+static inline int32_t krml_time() {
+  return (int32_t)time(NULL);
+}
+
+#  define KRML_HOST_TIME krml_time
 #endif
 
 /* In statement position, exiting is easy. */
@@ -683,7 +693,7 @@ static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64(uint128_t x) {
 #  else /* !defined(KRML_NOUINT128) */
 
 #    ifndef KRML_SEPARATE_UINT128
-/* This is a bad circular dependency... should fix it properly. */
+    /* This is a bad circular dependency... should fix it properly. */
 #      include "FStar.h"
 #    endif
 
@@ -715,7 +725,8 @@ static inline void store128_be_(uint8_t *b, uint128_t *n) {
   store64_be(b + 8, n->low);
 }
 
-static inline void FStar_Int_Cast_Full_uint64_to_uint128_(uint64_t x, uint128_t *dst) {
+static inline void
+FStar_Int_Cast_Full_uint64_to_uint128_(uint64_t x, uint128_t *dst) {
   /* C89 */
   dst->low = x;
   dst->high = 0;
@@ -768,8 +779,10 @@ static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64(uint128_t x) {
 #      define store128_le store128_le_
 #      define load128_be load128_be_
 #      define store128_be store128_be_
-#      define FStar_Int_Cast_Full_uint128_to_uint64 FStar_Int_Cast_Full_uint128_to_uint64_
-#      define FStar_Int_Cast_Full_uint64_to_uint128 FStar_Int_Cast_Full_uint64_to_uint128_
+#      define FStar_Int_Cast_Full_uint128_to_uint64                            \
+        FStar_Int_Cast_Full_uint128_to_uint64_
+#      define FStar_Int_Cast_Full_uint64_to_uint128                            \
+        FStar_Int_Cast_Full_uint64_to_uint128_
 
 #    endif /* KRML_STRUCT_PASSING */
 #  endif   /* KRML_UINT128 */
