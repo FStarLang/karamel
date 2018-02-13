@@ -42,6 +42,7 @@ let prefix_suffix name =
     string (Printf.sprintf "#define __%s_H" name) ^^ hardline
   in
   let suffix =
+    hardline ^^
     string (Printf.sprintf "#define __%s_H_DEFINED" name) ^^ hardline ^^
     string "#endif"
   in
