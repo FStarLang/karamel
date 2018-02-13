@@ -73,6 +73,15 @@ let write_c files =
     let name, program = file in
     let header = !Options.header !Driver.fstar_rev !Driver.krml_rev in
     let prefix = string (Printf.sprintf "%s\n\n#include \"%s.h\"" header name) in
+    let prefix =
+      if !Options.add_include_tmh then
+        prefix ^^ hardline ^^ hardline ^^
+        string "#ifdef WPP_CONTROL_GUIDS" ^^ hardline ^^
+        string (Printf.sprintf "#include <%s.tmh>" name) ^^ hardline ^^
+        string "#endif"
+      else
+        prefix
+    in
     write_one (name ^ ".c") prefix program empty;
     name :: names
   ) [] files)
@@ -82,15 +91,6 @@ let write_h files =
     let name, program = file in
     let prefix, suffix = prefix_suffix name in
     let prefix = prefix ^^ hardline ^^ includes names in
-    let prefix =
-      if !Options.add_include_tmh then
-        prefix ^^ hardline ^^
-        string "#ifdef WPP_CONTROL_GUIDS" ^^ hardline ^^
-        string (Printf.sprintf "#include <%s.tmh>" name) ^^ hardline ^^
-        string "#endif"
-      else
-        prefix
-    in
     write_one (name ^ ".h") prefix program suffix;
     name :: names
   ) [] files)
