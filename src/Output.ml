@@ -81,6 +81,15 @@ let write_h files =
     let name, program = file in
     let prefix, suffix = prefix_suffix name in
     let prefix = prefix ^^ hardline ^^ includes names in
+    let prefix =
+      if !Options.add_include_tmh then
+        prefix ^^ hardline ^^
+        string "#ifdef WPP_CONTROL_GUIDS" ^^ hardline ^^
+        string (Printf.sprintf "#include <%s.tmh>" name) ^^ hardline ^^
+        string "#endif"
+      else
+        prefix
+    in
     write_one (name ^ ".h") prefix program suffix;
     name :: names
   ) [] files)
