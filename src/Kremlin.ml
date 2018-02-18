@@ -190,7 +190,7 @@ Supported options:|}
       the-argument to every generated file, after the #define __FOO_H";
     "-add-include-tmh", Arg.Set Options.add_include_tmh, "  append #include \
       <FILE.tmh>, where FILE is the current basename";
-    "-minimal", Arg.Set Options.minimal, "do not prepend #include \"kremlib.h\"; do \
+    "-minimal", Arg.Set Options.minimal, "  do not prepend #include \"kremlib.h\"; do \
       not bundle FStar";
     "-static-header", Arg.String (prepend Options.static_header), " generate a \
       .h for the given module where all functions are marked a static inline";
