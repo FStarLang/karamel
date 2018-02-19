@@ -17,15 +17,15 @@ type program =
 
 and decl =
   (* Code *)
-  | DGlobal of (flag list * lident * typ * expr)
+  | DGlobal of (flag list * lident * int * typ * expr)
   | DFunction of (calling_convention option * flag list * int * typ * lident * binder list * expr)
   (* Types *)
-  | DTypeAlias of (lident * int * typ)
+  | DTypeAlias of (lident * flag list * int * typ)
       (** Name, number of parameters (De Bruijn), definition. *)
-  | DTypeFlat of (lident * int * fields_t)
+  | DTypeFlat of (lident * flag list * int * fields_t)
       (** The boolean indicates if the field is mutable *)
   (* Assumed things that the type-checker of KreMLin needs to be aware of *)
-  | DExternal of (calling_convention option * lident * typ)
+  | DExternal of (calling_convention option * flag list * lident * typ)
   | DTypeVariant of (lident * flag list * int * branches_t)
 
 and fields_t =
@@ -83,6 +83,7 @@ and expr =
   | EString of string
   | EFun of (binder list * expr * typ)
   | EAbortS of string
+  | EBufFree of expr
 
 and branches =
   branch list
@@ -97,6 +98,7 @@ and pattern =
   | PCons of (ident * pattern list)
   | PTuple of pattern list
   | PRecord of (ident * pattern) list
+  | PConstant of K.t
 
 and var =
   int (** a De Bruijn index *)
@@ -137,7 +139,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 24
+let current_version: version = 27
 
 type file = string * program
   [@@deriving yojson]
@@ -164,6 +166,8 @@ let read_file (f: string): file list =
   if version <> current_version then
     failwith (Printf.sprintf "The file %s is for version %d; current version of KreMLin is %d" f version current_version);
   files
+
+let read_files = KList.map_flatten read_file
 
 let write_file (files: file list) (f: string): unit =
   with_open_out f (fun oc ->

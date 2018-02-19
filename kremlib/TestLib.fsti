@@ -22,7 +22,7 @@ val checku64: UInt64.t -> UInt64.t -> Stack unit (fun _ -> true) (fun _ _ _ -> t
 (** A test routine that takes a string as its first argument; two buffers to
  * compare; the length of the buffers; and exits the program if there is a
  * failure. *)
-val compare_and_print: C.string ->
+val compare_and_print: C.String.t ->
   b1:buffer UInt8.t -> b2:buffer UInt8.t -> l:UInt32.t ->
   Stack unit
     (requires (fun h ->
@@ -36,7 +36,7 @@ val compare_and_print: C.string ->
 
 (** This function is for testing purposes only: this is an unmanaged, raw
  * pointer that cannot be freed. *)
-val unsafe_malloc: l:UInt32.t -> 
+val unsafe_malloc: l:UInt32.t ->
   Stack (buffer UInt8.t)
     (fun _ -> true)
     (fun h0 b h1 -> live h1 b /\ ~(contains h0 b) /\ length b = FStar.UInt32.v l

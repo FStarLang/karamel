@@ -1,5 +1,5 @@
 type t = int
-  [@@deriving yojson,show]
+  [@@deriving yojson, show]
 
 let r = ref 0
 

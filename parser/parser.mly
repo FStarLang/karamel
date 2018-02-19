@@ -4,7 +4,7 @@
 
 %token<int>     INT
 %token<string>  UIDENT
-%token          PLUS MINUS STAR AT DOT EOF COMMA EQUALS
+%token          PLUS MINUS STAR AT DOT EOF COMMA EQUALS PUBLIC LPAREN RPAREN
 
 %start <(Flags.flag * (int * int)) list> warn_error_list
 %start <Bundle.t> bundle
@@ -40,8 +40,8 @@ range:
 (** Parsing of -bundle options *)
 
 pat:
-| u = UIDENT DOT STAR
-  { Prefix [ u ] }
+| STAR
+  { Prefix [ ] }
 | u = UIDENT
   { Module [ u ] }
 | u = UIDENT DOT p = pat
@@ -51,14 +51,24 @@ pat:
     | Prefix m ->
         Prefix (u :: m) }
 
+mident:
+| l = separated_list(DOT, u = UIDENT { u })
+{ l }
+
+api:
+| m = mident
+  { m, AsIs }
+| PUBLIC LPAREN m = mident RPAREN
+  { m, Public }
+
 drop:
 | p = separated_list(COMMA, pat) EOF
   { p }
 
 bundle:
-| b = separated_list(DOT, u = UIDENT { u })
+| apis = separated_nonempty_list(PLUS, api)
   EQUALS
   l = separated_nonempty_list(COMMA, pat) EOF
-  { b, l }
+  { apis, l }
 | l = separated_nonempty_list(COMMA, pat) EOF
   { [], l }

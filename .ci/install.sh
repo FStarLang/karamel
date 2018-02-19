@@ -12,7 +12,7 @@ export OPAMYES=true
 opam init
 eval $(opam config env)
 opam install batteries sqlite3 fileutils stdint zarith yojson pprint \
-  ppx_deriving_yojson menhir ulex process fix wasm
+  ppx_deriving_yojson menhir ulex process fix wasm visitors
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   export Z3=z3-4.4.1-x64-ubuntu-14.04;
@@ -22,6 +22,7 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   tar xjvf d8.tar.bz2
 fi
 
-git clone --branch stable --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
-git clone --branch master --single-branch --depth 1 https://github.com/mitls/hacl-star
+git clone --branch master --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
+git clone --branch fstar-master --single-branch --depth 1 https://github.com/mitls/hacl-star
 make -C fstar/src/ocaml-output
+make -C fstar/ulib/ml

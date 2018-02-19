@@ -13,89 +13,113 @@ open Helpers
 
 let count_and_remove_locals = object (self)
 
-  inherit [binder list] map
+  inherit [_] map
 
   method! extend env binder =
     binder.node.mark := 0;
     binder :: env
 
-  method! ebound env _ i =
+  method! visit_EBound (env, _) i =
     let b = List.nth env i in
     incr b.node.mark;
     EBound i
 
-  method! elet env _ b e1 e2 =
+  method! visit_ELet (env, _) b e1 e2 =
     (* Remove unused variables. Important to get rid of calls to [HST.get()]. *)
-    let e1 = self#visit env e1 in
+    let e1 = self#visit_expr_w env e1 in
     let env = self#extend env b in
-    let e2 = self#visit env e2 in
-    if !(b.node.mark) = 0 && is_pure_c_value e1 then
+    let e2 = self#visit_expr_w env e2 in
+    if !(b.node.mark) = 0 && is_readonly_c_expression e1 then
       (snd (open_binder b e2)).node
     else if !(b.node.mark) = 0 then
       if e1.typ = TUnit then
         ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2)
       else
-        ELet ({ b with node = { b.node with meta = Some MetaSequence }}, push_ignore e1, e2)
+        (* We know the variable is unused... but its body cannot be determined
+         * to be readonly, so we have to keep. What's better?
+         *   int unused = f();
+         * or:
+         *   (void)f(); ? *)
+        (* ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit}, push_ignore e1, e2) *)
+        ELet (b, e1, e2)
     else
       ELet (b, e1, e2)
 
-  method! ebufsub env _ e1 e2 =
+  method! visit_EBufSub env e1 e2 =
     (* This creates more opportunities for values to be eliminated if unused.
      * Also, AstToCStar emits BufSub (e, 0) as just e, so we need the value
      * check to be in agreement on both sides. *)
     match e2.node with
     | EConstant (_, "0") ->
-        (self#visit env e1).node
+        (self#visit_expr env e1).node
     | _ ->
-        EBufSub (self#visit env e1, self#visit env e2)
+        EBufSub (self#visit_expr env e1, self#visit_expr env e2)
 
 end
 
 let implies x y =
   not x || y
 
-let unused_binder binders i =
-  let b = List.nth binders i in
-  let unused b =
-    !(b.node.mark) = 0 && (b.typ = TUnit || b.typ = TAny)
-  in
-  (* The first binder may be marked as unused only if there's another unused
-   * binder later on, otherwise, it serves at the one remaining binder that
+let unused_typ typs i =
+  let t = List.nth typs i in
+  let unused t = t = TUnit in
+  (* The first typ may be marked as unused only if there's another unused
+   * typ later on, otherwise, it serves at the one remaining typ that
    * makes sure this is still a function, and not a computation. *)
-  unused b &&
-  implies (i = 0) (List.exists (fun b -> not (unused b)) (List.tl binders))
+  unused t &&
+  implies (i = 0) (List.exists (fun t -> not (unused t)) (List.tl typs))
+
+let unused_binder binders i =
+  unused_typ (List.map (fun b -> b.typ) binders) i
 
 (* To be run immediately after the phase above. *)
 let build_unused_map map = object
-  inherit [unit] map
+  inherit [_] iter
 
-  method dfunction () cc flags n ret name binders body =
-    (* for i = 0 to List.length binders - 1 do *)
-    (*   KPrint.bprintf "%a/%d(%d): %b\n" plid name i (List.length binders) (unused_binder binders i) *)
-    (* done; *)
-    Hashtbl.add map name (KList.make (List.length binders) (unused_binder binders));
-    DFunction (cc, flags, n, ret, name, binders, body)
+  method! visit_DFunction _ _ _ _ _ name binders _ =
+    Hashtbl.add map name (KList.make (List.length binders) (unused_binder binders))
+
+  method! visit_DExternal _ _ _ name t =
+    match t with
+    | TArrow _ ->
+        let _, args = flatten_arrow t in
+        Hashtbl.add map name (KList.make (List.length args) (unused_typ args))
+    | _ ->
+        ()
 end
 
 (* Ibid. *)
 let remove_unused_parameters map = object (self)
-  inherit [unit] map
+  inherit [_] map
 
-  method dfunction () cc flags n ret name binders body =
+  method! visit_DFunction env cc flags n ret name binders body =
     let n_binders = List.length binders in
     let body = List.fold_left (fun body i ->
       if unused_binder binders i then
-        DeBruijn.subst any (n_binders - 1 - i) body
+        DeBruijn.subst eunit (n_binders - 1 - i) body
       else
         body
     ) body (KList.make n_binders (fun i -> i)) in
-    let body = self#visit () body in
+    let body = self#visit_expr_w env body in
     let unused = KList.make (List.length binders) (fun i -> not (unused_binder binders i)) in
     let binders = KList.filter_mask unused binders in
     DFunction (cc, flags, n, ret, name, binders, body)
 
-  method eapp () t e es =
-    let es = List.map (self#visit ()) es in
+  method! visit_DExternal _ cc flags name t =
+    let t =
+      match t with
+      | TArrow _ ->
+          let ret, args = flatten_arrow t in
+          let unused = KList.make (List.length args) (fun i -> not (unused_typ args i)) in
+          let args = KList.filter_mask unused args in
+          fold_arrow args ret
+      | _ ->
+          t
+    in
+    DExternal (cc, flags, name, t)
+
+  method! visit_EApp (env, t) e es =
+    let es = List.map (self#visit_expr_w env) es in
     match e.node with
     | EQualified lid when
       Hashtbl.mem map lid &&
@@ -110,7 +134,7 @@ let remove_unused_parameters map = object (self)
         let are_unused, _ = KList.split (List.length es) (Hashtbl.find map lid) in
         let es, to_evaluate = List.fold_left2 (fun (es, to_evaluate) unused arg ->
           if unused then
-            if is_pure_c_value arg then
+            if is_readonly_c_expression arg then
               es, to_evaluate
             else
               let x, _atom = mk_binding "unused" arg.typ in
@@ -123,7 +147,7 @@ let remove_unused_parameters map = object (self)
         (nest to_evaluate t (with_type t (EApp (e, es)))).node
 
     | _ ->
-        EApp (self#visit () e, es)
+        EApp (self#visit_expr_w env e, es)
 end
 
 
@@ -131,15 +155,16 @@ end
 
 let wrapping_arithmetic = object (self)
 
-  inherit [unit] map
+  inherit [_] map
 
-  method! eapp () _ e es =
+  (* TODO: this is no longer exposed by F*; check and remove this pass? *)
+  method! visit_EApp env e es =
     match e.node, es with
     | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), w), [ e1; e2 ] when K.is_signed w ->
         let unsigned_w = K.unsigned_of_signed w in
         let e = mk_op (K.without_wrap op) unsigned_w in
-        let e1 = self#visit () e1 in
-        let e2 = self#visit () e2 in
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
         let c e = { node = ECast (e, TInt unsigned_w); typ = TInt unsigned_w } in
         (** TODO: the second call to [c] is optional per the C semantics, but in
          * order to preserve typing, we have to insert it... maybe recognize
@@ -149,12 +174,132 @@ let wrapping_arithmetic = object (self)
 
     | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), w), [ e1; e2 ] when K.is_unsigned w ->
         let e = mk_op (K.without_wrap op) w in
-        let e1 = self#visit () e1 in
-        let e2 = self#visit () e2 in
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
         EApp (e, [ e1; e2 ])
 
     | _, es ->
-        EApp (self#visit () e, List.map (self#visit ()) es)
+        EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
+end
+
+
+(* A visitor that determines whether it is safe to substitute bound variable 0
+ * with its definition, assuming that:
+ * - said definition is read-only
+ * - there is a single use of it in the continuation.
+ * The notion of "safe" can be customized; here, we let EBufRead be a safe node,
+ * so by default, safe means read-only. *)
+type use = Safe | SafeUse | Unsafe
+class ['self] safe_use = object (self: 'self)
+  inherit [_] reduce as super
+
+  (* By default, everything is safe. We override several cases below. *)
+  method private zero = Safe
+
+  (* The default composition rule; it only applies if the expression itself is
+   * safe. (For instance, this is not a valid composition rule for an
+   * EBufWrite node.) *)
+  method private plus x y =
+    match x, y with
+    | Safe, SafeUse
+    | SafeUse, Safe ->
+        SafeUse
+    | Safe, Safe ->
+        Safe
+    | SafeUse, SafeUse ->
+        failwith "this contradicts the use-analysis (1)"
+    | _ ->
+        Unsafe
+  method private expr_plus_typ = self#plus
+
+  method! extend j _ =
+    j + 1
+
+  (* The composition rule for [es] expressions, whose evaluation order is
+   * unspecified, but is known to happen before an unsafe expression. The only
+   * safe case is if the use is found among safe nodes. *)
+  method private unordered (j, _) es =
+    let es = List.map (self#visit_expr_w j) es in
+    let the_use, the_rest = List.partition ((=) SafeUse) es in
+    match List.length the_use, List.for_all ((=) Safe) the_rest with
+    | 1, true -> SafeUse
+    | x, _ when x > 1 -> failwith "this contradicts the use-analysis (2)"
+    | _ -> Unsafe
+
+  (* The sequential composition rule, where [e1] is known be to be
+   * sequentialized before [e2]. Two cases: the use is found in [e1] (and we
+   * don't care what happens in [e2]), otherwise, just a regular composition. *)
+  method private sequential (j, _) e1 e2 =
+    match self#visit_expr_w j e1, e2 with
+    | SafeUse, _ -> SafeUse
+    | x, Some e2 ->
+        self#plus x (self#visit_expr_w (j + 1) e2)
+    | _, None ->
+        (* We don't know what comes after; can't conclude anything. *)
+        Unsafe
+
+  method! visit_EBound (j, _) i = if i = j then SafeUse else Safe
+
+  method! visit_EBufWrite env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
+  method! visit_EBufFill env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
+  method! visit_EBufBlit env e1 e2 e3 e4 e5 = self#unordered env [ e1; e2; e3; e4; e5 ]
+  method! visit_EAssign env e1 e2 = self#unordered env [ e1; e2 ]
+  method! visit_EApp env e es =
+    match e.node with
+    | EOp _ -> super#visit_EApp env e es
+    | EQualified lid when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
+    | _ -> self#unordered env (e :: es)
+
+  method! visit_ELet env _ e1 e2 = self#sequential env e1 (Some e2)
+  method! visit_EIfThenElse env e _ _ = self#sequential env e None
+  method! visit_ESwitch env e _ = self#sequential env e None
+  method! visit_EWhile env e _ = self#sequential env e None
+  method! visit_EFor env _ e _ _ _ = self#sequential env e None
+  method! visit_EMatch env e _ = self#sequential env e None
+  method! visit_ESequence env es = self#sequential env (List.hd es) None
+end
+
+let safe_readonly_use e =
+  match (new safe_use)#visit_expr_w 0 e with
+  | SafeUse -> true
+  | Unsafe -> false
+  | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
+
+class ['self] safe_pure_use = object (self: 'self)
+  inherit [_] reduce as super
+  inherit [_] safe_use
+  method! visit_EBufRead env e1 e2 = self#unordered env [ e1; e2 ]
+  method! visit_EApp env e es =
+    match e.node with
+    | EOp _ -> super#visit_EApp env e es
+    | _ -> self#unordered env (e :: es)
+end
+
+let safe_pure_use e =
+  match (new safe_pure_use)#visit_expr_w 0 e with
+  | SafeUse -> true
+  | Unsafe -> false
+  | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
+
+(* Try to remove the infamous let uu____ from F*. Needs an accurate use count
+ * for each variable. *)
+let remove_uu = object (self)
+
+  inherit [_] map
+
+  method! visit_ELet _ b e1 e2 =
+    let e1 = self#visit_expr_w () e1 in
+    let e2 = self#visit_expr_w () e2 in
+    if KString.starts_with b.node.name "uu___" &&
+      !(b.node.mark) = 1 && (
+        is_readonly_c_expression e1 &&
+        safe_readonly_use e2 ||
+        safe_pure_use e2
+      )
+    then
+      (DeBruijn.subst e1 0 e2).node
+    else
+      ELet (b, e1, e2)
 end
 
 
@@ -162,10 +307,10 @@ end
 
 let sequence_to_let = object (self)
 
-  inherit [unit] map
+  inherit [_] map
 
-  method! esequence () _ es =
-    let es = List.map (self#visit ()) es in
+  method! visit_ESequence env es =
+    let es = List.map (self#visit_expr env) es in
     match List.rev es with
     | last :: first_fews ->
         (List.fold_left (fun cont e ->
@@ -174,21 +319,21 @@ let sequence_to_let = object (self)
     | [] ->
         failwith "[sequence_to_let]: impossible (empty sequence)"
 
-  method! eignore () t e =
-    (nest_in_return_pos t (fun _ e -> with_type t (EIgnore (self#visit () e))) e).node
+  method! visit_EIgnore (env, t) e =
+    (nest_in_return_pos t (fun _ e -> with_type t (EIgnore (self#visit_expr_w env e))) e).node
 
 end
 
 let let_to_sequence = object (self)
 
-  inherit [unit] map
+  inherit [_] map
 
-  method! elet env _ b e1 e2 =
+  method! visit_ELet env b e1 e2 =
     match b.node.meta with
     | Some MetaSequence ->
-        let e1 = self#visit env e1 in
+        let e1 = self#visit_expr env e1 in
         let _, e2 = open_binder b e2 in
-        let e2 = self#visit env e2 in
+        let e2 = self#visit_expr env e2 in
         begin match e1.node, e2.node with
         | _, EUnit ->
             (* let _ = e1 in () *)
@@ -203,7 +348,7 @@ let let_to_sequence = object (self)
             ESequence [e1; e2]
         end
     | None ->
-        let e2 = self#visit env e2 in
+        let e2 = self#visit_expr env e2 in
         ELet (b, e1, e2)
 
 end
@@ -223,7 +368,7 @@ end
  * the same way. *)
 let let_if_to_assign = object (self)
 
-  inherit [unit] map
+  inherit [_] map
 
   method private make_assignment lhs e1 =
     let nest_assign = nest_in_return_pos TUnit (fun i innermost -> {
@@ -232,56 +377,57 @@ let let_if_to_assign = object (self)
     }) in
     match e1.node with
     | EIfThenElse (cond, e_then, e_else) ->
-        let e_then = nest_assign (self#visit () e_then) in
-        let e_else = nest_assign (self#visit () e_else) in
+        let e_then = nest_assign (self#visit_expr_w () e_then) in
+        let e_else = nest_assign (self#visit_expr_w () e_else) in
         with_unit (EIfThenElse (cond, e_then, e_else))
 
     | ESwitch (e, branches) ->
-        let branches = List.map (fun (tag, e) -> tag, nest_assign (self#visit () e)) branches in
+        let branches = List.map (fun (tag, e) ->
+          tag, nest_assign (self#visit_expr_w () e)
+        ) branches in
         with_unit (ESwitch (e, branches))
 
     | _ ->
         invalid_arg "make_assignment"
 
-  method! elet () t b e1 e2 =
+  method! visit_ELet (_, t) b e1 e2 =
     match e1.node, b.node.meta with
     | (EIfThenElse _ | ESwitch _), None ->
         (* [b] holds the return value of the conditional *)
         let b = mark_mut b in
         let e = self#make_assignment (with_type b.typ (EBound 0)) (DeBruijn.lift 1 e1) in
         ELet (b, any, with_type t (
-          ELet (sequence_binding (), e, DeBruijn.lift 1 (self#visit () e2))))
+          ELet (sequence_binding (), e, DeBruijn.lift 1 (self#visit_expr_w () e2))))
 
     | _ ->
         (* This may be a statement-let; visit both. *)
-        ELet (b, self#visit () e1, self#visit () e2)
+        ELet (b, self#visit_expr_w () e1, self#visit_expr_w () e2)
 
-  method! eassign () _ e1 e2 =
+  method! visit_EAssign _ e1 e2 =
     match e2.node with
     | (EIfThenElse _ | ESwitch _) ->
         (self#make_assignment e1 e2).node
 
     | _ ->
         EAssign (e1, e2)
-
 end
 
 let misc_cosmetic = object (self)
 
-  inherit [unit] map
+  inherit [_] map
 
-  method! eifthenelse env _ e1 e2 e3 =
-    let e1 = self#visit env e1 in
-    let e2 = self#visit env e2 in
-    let e3 = self#visit env e3 in
+  method! visit_EIfThenElse env e1 e2 e3 =
+    let e1 = self#visit_expr env e1 in
+    let e2 = self#visit_expr env e2 in
+    let e3 = self#visit_expr env e3 in
     match e2.node with
     | EUnit when e3.node <> EUnit ->
         EIfThenElse (Helpers.mk_not e1, e3, e2)
     | _ ->
         EIfThenElse (e1, e2, e3)
 
-  method eaddrof env _ e =
-    let e = self#visit env e in
+  method visit_EAddrOf env e =
+    let e = self#visit_expr env e in
     match e.node with
     | EBufRead (e, { node = EConstant (_, "0"); _ }) ->
         e.node
@@ -610,6 +756,15 @@ and hoist_expr pos e =
         let b = { b with node = { b.node with meta = Some MetaSequence }} in
         lhs @ [ b, mk (EBufFill (e1, e2, e3)) ], mk EUnit
 
+  | EBufFree e ->
+      let lhs, e = hoist_expr Unspecified e in
+      if pos = UnderStmtLet then
+        lhs, mk (EBufFree e)
+      else
+        let b = fresh_binder "_" TUnit in
+        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        lhs @ [ b, mk (EBufFree e) ], mk EUnit
+
   | EBufSub (e1, e2) ->
       let lhs1, e1 = hoist_expr Unspecified e1 in
       let lhs2, e2 = hoist_expr Unspecified e2 in
@@ -655,11 +810,12 @@ and hoist_expr pos e =
   | EReturn _ | EBreak ->
       raise_error (Unsupported "[return] or [break] expressions should only appear in statement position")
 
+(* TODO: figure out if we want to ignore the other cases for performance
+ * reasons. *)
 let hoist = object
-  inherit ignore_everything
   inherit [_] map
 
-  method dfunction () cc flags n ret name binders expr =
+  method! visit_DFunction _ cc flags n ret name binders expr =
     (* TODO: no nested let-bindings in top-level value declarations either *)
     let binders, expr = open_binders binders expr in
     let expr = hoist_stmt expr in
@@ -697,36 +853,16 @@ let rec fixup_return_pos e =
       e
   )
 
+(* TODO: figure out if we want to ignore the other cases for performance
+ * reasons. *)
 let fixup_hoist = object
-  inherit ignore_everything
   inherit [_] map
 
-  method dfunction () cc flags n ret name binders expr =
+  method visit_DFunction _ cc flags n ret name binders expr =
     DFunction (cc, flags, n, ret, name, binders, fixup_return_pos expr)
 end
 
 
-(* No partial applications ****************************************************)
-
-let eta_expand = object
-  inherit [_] map
-  inherit ignore_everything
-
-  method dglobal () flags name t body =
-    (* TODO: eta-expand partially applied functions *)
-    match t with
-    | TArrow _ ->
-        let tret, targs = flatten_arrow t in
-        let n = List.length targs in
-        let binders, args = List.split (List.mapi (fun i t ->
-          with_type t { name = Printf.sprintf "x%d" i; mut = false; mark = ref 0; meta = None; atom = Atom.fresh () },
-          { node = EBound (n - i - 1); typ = t }
-        ) targs) in
-        let body = { node = EApp (body, args); typ = tret } in
-        DFunction (None, flags, 0, tret, name, binders, body)
-    | _ ->
-        DGlobal (flags, name, t, body)
-end
 
 
 (* Make top-level names C-compatible using a global translation table **********)
@@ -743,63 +879,38 @@ let target_c_name lident =
 let record_name lident =
   [], GlobalNames.record (string_of_lident lident) (target_c_name lident)
 
-let record_toplevel_names = object
+
+let record_toplevel_names = object (self)
   inherit [_] map
 
-  method dglobal () flags name t body =
-    DGlobal (flags, record_name name, t, body)
+  method! visit_DGlobal _ flags name n t body =
+    DGlobal (flags, record_name name, n, t, body)
 
-  method dfunction () cc flags n ret name args body =
+  method! visit_DFunction _ cc flags n ret name args body =
     DFunction (cc, flags, n, ret, record_name name, args, body)
 
-  method dexternal () cc name t =
-    DExternal (cc, record_name name, t)
+  method! visit_DExternal _ cc flags name t =
+    DExternal (cc, flags, record_name name, t)
 
-  method dtype () name flags n t =
-    DType (record_name name, flags, n, t)
+  method! visit_DType env name flags n t =
+    (* TODO: this is not correct since record_name might, on the second call
+     * (not forward), return something disambiguated with a suffix. *)
+    let name = if t = Forward then name else record_name name in
+    DType (name, flags, n, self#visit_type_def env t)
 
-  method dtypeenum () tags =
+  method! visit_Enum _ tags =
     Enum (List.map record_name tags)
 end
+
 
 let t lident =
   [], GlobalNames.translate (string_of_lident lident) (target_c_name lident)
 
-let replace_references_to_toplevel_names = object(self)
-  inherit [unit] map
+let replace_references_to_toplevel_names = object
+  inherit [_] map
 
-  method tapp () lident args =
-    TApp (t lident, List.map (self#visit_t ()) args)
-
-  method tqualified () lident =
-    TQualified (t lident)
-
-  method equalified () _ lident =
-    EQualified (t lident)
-
-  method dglobal () flags name typ body =
-    DGlobal (flags, t name, self#visit_t () typ, self#visit () body)
-
-  method dfunction () cc flags n ret name args body =
-    DFunction (cc, flags, n, self#visit_t () ret, t name, self#binders () args, self#visit () body)
-
-  method dexternal () cc name typ =
-    DExternal (cc, t name, self#visit_t () typ)
-
-  method dtype () name flags n d =
-    DType (t name, flags, n, self#type_def () (Some name) d)
-
-  method dtypeenum () tags =
-    Enum (List.map t tags)
-
-  method penum () _ name =
-    PEnum (t name)
-
-  method eenum () _ name =
-    EEnum (t name)
-
-  method eswitch () _ e branches =
-    ESwitch (self#visit () e, List.map (fun (tag, e) -> t tag, self#visit () e) branches)
+  method! visit_lident _ lident =
+    t lident
 end
 
 (* Extend the lifetimes of buffers ********************************************)
@@ -864,20 +975,38 @@ let rec hoist_bufcreate (e: expr) =
   | ELet (b, e1, e2) ->
       (* Either:
        *   [let x: t* = bufcreatel ...] (as-is in the original code)
-       *   [let x: t[n] = any] (because C89 hoisting kicked in) *)
+       *   [let x: t[n] = any] (because C89 hoisting kicked in).
+       * This bit is really important because it makes sure that the assignment
+       * becomes a Copy node (see AstToCStar), which has different semantics
+       * than an assignment. This is (as far as I know) the only place that
+       * generates these copy nodes. *)
       begin match strengthen_array b.typ e1 with
-      | TArray _ as typ ->
+      | TArray (t, size) as tarray ->
           let b, e2 = open_binder b e2 in
-          let b = { b with typ } in
+          (* Any assignments into this one will be desugared as a
+           * copy-assignment, thanks to the strengthened type. *)
+          let b = { b with typ = tarray } in
           let bs, e2 = hoist_bufcreate e2 in
-          (mark_mut b, any) :: bs,
-          if e1.node <> EAny then
-            mk (ELet (sequence_binding (),
-              with_unit (EAssign (with_type typ (EOpen (b.node.name, b.node.atom)), e1)),
-              lift 1 e2
-            ))
-          else
-            e2
+          (* WASM/C discrepancy; in C, the array type makes sure we allocate
+           * stack space. In Wasm, we rely on the expression to actually
+           * generate run-time code. *)
+          let init = with_type (TBuf t) (
+            EBufCreate (Common.Stack, any, with_type uint32 (EConstant size)))
+          in
+          (mark_mut b, init) :: bs,
+          begin match e1.node with
+          | EAny ->
+              failwith "not allowing that per WASM restrictions"
+          | EBufCreate (_, { node = EAny; _ }, _) ->
+              (* We're visiting this node again. *)
+              e2
+          | _ ->
+              (* Need actual copy-assigment. *)
+              mk (ELet (sequence_binding (),
+                with_unit (EAssign (with_type tarray (EOpen (b.node.name, b.node.atom)), e1)),
+                lift 1 e2
+              ))
+          end
       | _ ->
           let b1, e1 = hoist_bufcreate e1 in
           let b2, e2 = hoist_bufcreate e2 in
@@ -923,11 +1052,12 @@ let rec skip (e: expr) =
   | _ ->
       e
 
+(* TODO: figure out if we want to ignore the other cases for performance
+ * reasons. *)
 let hoist_bufcreate = object
-  inherit ignore_everything
   inherit [_] map
 
-  method dfunction () cc flags n ret name binders expr =
+  method visit_DFunction () cc flags n ret name binders expr =
     try
       DFunction (cc, flags, n, ret, name, binders, skip expr)
     with Fatal s ->
@@ -941,24 +1071,24 @@ end
  * ridiculous to have that sort of normalization steps happen here. *)
 let remove_local_function_bindings = object(self)
 
-  inherit [unit] map
+  inherit [_] map
 
-  method! elet env _ b e1 e2 =
-    let e1 = self#visit env e1 in
+  method! visit_ELet env b e1 e2 =
+    let e1 = self#visit_expr env e1 in
     match e1.node with
     | ECast ({ node = EFun _; _ } as e1, _) ->
         let e2 = DeBruijn.subst e1 0 e2 in
-        (self#visit env e2).node
+        (self#visit_expr env e2).node
     | EFun _ ->
         let e2 = DeBruijn.subst e1 0 e2 in
-        (self#visit env e2).node
+        (self#visit_expr env e2).node
     | _ ->
-        let e2 = self#visit env e2 in
+        let e2 = self#visit_expr env e2 in
         ELet (b, e1, e2)
 
-  method! eapp env t e es =
-    let e = self#visit env e in
-    let es = List.map (self#visit env) es in
+  method! visit_EApp (env, t) e es =
+    let e = self#visit_expr_w env e in
+    let es = List.map (self#visit_expr_w env) es in
     match e.node with
     | EFun (_, body, _) ->
         (safe_substitution es body t).node
@@ -973,22 +1103,65 @@ let combinators = object(self)
 
   inherit [_] map as super
 
-  method! eapp () t e es =
+  method private mk_for start finish body w =
+    (* Relying on the invariant that, if [finish] is effectful, F* has
+     * hoisted it *)
+    if not (is_value finish) then
+      Warnings.fatal_error "%a is not a value" pexpr finish;
+    let b = fresh_binder "i" (TInt w) in
+    let b = mark_mut b in
+    let cond = mk_lt w (lift 1 finish) in
+    let iter = mk_incr w in
+    (* Note: no need to shift, the body was under a one-argument lambda
+     * already. *)
+    EFor (b, start, cond, iter, self#visit_expr_w () body)
+
+  method! visit_EApp (_, t) e es =
+
+    let mk_app t f x =
+      match f with
+      | { node = EFun (_, body, _); _ } ->
+         DeBruijn.subst x 0 body
+      | _ ->
+         with_type t (EApp (f, [x]))
+    in
+
     match e.node, es with
     | EQualified ([ "C"; "Loops" ], "for_"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
-        (* Relying on the invariant that, if [finish] is effectful, F* has
-         * hoisted it *)
-        if not (is_value finish) then
-          Warnings.fatal_error "%a is not a value" pexpr finish;
-        let b = fresh_binder "i" uint32 in
-        let b = mark_mut b in
-        let cond = mk_lt (lift 1 finish) in
-        let iter = mk_incr in
-        (* Note: no need to shift, the body was under a one-argument lambda
-         * already. *)
-        EFor (b, start, cond, iter, self#visit () body)
+        self#mk_for start finish body K.UInt32
 
-    | EQualified ([ "C"; "Loops" ], "interruptible_for"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
+    | EQualified ([ "C"; "Loops" ], "for64"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
+        self#mk_for start finish body K.UInt64
+
+    | EQualified ([ "C"; "Loops" ], s), [ _measure; _inv; tcontinue; body; init ]
+        when KString.starts_with s "total_while_gen"
+       ->
+        let b = fresh_binder "b" TBool in
+        let b = mark_mut b in
+        let x = fresh_binder "x" t in
+        let x = mark_mut x in
+        (* Binder 1 *)
+        ELet (b, etrue, with_type t (
+        (* Binder 0 *)
+        ELet (x, lift 1 init, with_type t (
+        ESequence [
+          with_unit (EWhile (
+            with_type TBool (EBound 1),
+            with_unit (ESequence [
+              with_unit (EAssign (
+                with_type t (EBound 0),
+                mk_app t (lift 2 body) (with_type t (EBound 0))
+              ));
+              with_unit (EAssign (
+                with_type TBool (EBound 1),
+                mk_app t (lift 2 tcontinue) (with_type t (EBound 0))
+              ));
+           ])
+          ));
+          with_type t (EBound 0);
+        ]))))
+
+    | EQualified ([ "C"; "Loops" ], "interruptible_for"), [ start; finish; _inv; { node = EFun (_, _, _); _ } as f ] ->
         (* Relying on the invariant that, if [finish] is effectful, F* has
          * hoisted it *)
         assert (is_value finish);
@@ -996,7 +1169,7 @@ let combinators = object(self)
         let b = mark_mut b in
         let i = fresh_binder "i" uint32 in
         let i = mark_mut i in
-        let iter = mk_incr in
+        let iter = mk_incr32 in
         (* First binder. *)
         ELet (b, efalse, with_type t (
         (* Second binder. *)
@@ -1010,20 +1183,36 @@ let combinators = object(self)
               (mk_not (with_type TBool (EBound 2)))
               (mk_neq (with_type uint32 (EBound 1)) (lift 3 finish)),
             lift 1 iter,
-            with_unit (EIgnore (self#visit () (lift 2 body)))));
+            with_unit (EAssign
+              (with_type TBool (EBound 2),
+              self#visit_expr_w () (
+                let f = lift 3 f in
+                let body = match f with
+                  | { node = EFun  (_, body, _); _ } -> body
+                  | _ -> assert false
+                in
+                DeBruijn.subst (with_type uint32 (EBound 1)) 0 body
+                )))));
           with_type t (ETuple [
             with_type uint32 (EBound 0);
             with_type TBool (EBound 1)])]))))
 
+    | EQualified ([ "C"; "Loops" ], s), [
+        { node = EFun (_, test, _); _ };
+        { node = EFun (_, body, _); _ } ]
+      when KString.starts_with s "while" ->
+        EWhile (DeBruijn.subst Helpers.eunit 0 test,
+          DeBruijn.subst Helpers.eunit 0 body)
+
     | EQualified ([ "C"; "Loops" ], s), [ { node = EFun (_, body, _); _ } ]
       when KString.starts_with s "do_while" ->
         EWhile (etrue, with_unit (
-          EIfThenElse (DeBruijn.subst eunit 0 (self#visit () body),
+          EIfThenElse (DeBruijn.subst eunit 0 (self#visit_expr_w () body),
             with_unit EBreak,
             eunit)))
 
     | _ ->
-        super#eapp () t e es
+        super#visit_EApp ((), t) e es
 
 end
 
@@ -1037,9 +1226,11 @@ end
 (* Macros that may generate tuples and sequences. Run before data types
  * compilation, once. *)
 let simplify0 (files: file list): file list =
-  let files = visit_files () remove_local_function_bindings files in
-  let files = visit_files () combinators files in
-  let files = visit_files () wrapping_arithmetic files in
+  let files = remove_local_function_bindings#visit_files () files in
+  let files = count_and_remove_locals#visit_files [] files in
+  let files = remove_uu#visit_files () files in
+  let files = combinators#visit_files () files in
+  let files = wrapping_arithmetic#visit_files () files in
   files
 
 (* Many phases rely on a statement like language where let-bindings, buffer
@@ -1047,33 +1238,33 @@ let simplify0 (files: file list): file list =
  * position; where sequences are not nested. These series of transformations
  * re-establish this invariant. *)
 let simplify2 (files: file list): file list =
-  let files = visit_files () sequence_to_let files in
+  let files = sequence_to_let#visit_files () files in
   (* Quality of hoisting is WIDELY improved if we remove un-necessary
    * let-bindings. *)
-  let files = visit_files [] count_and_remove_locals files in
-  let files = visit_files () hoist files in
-  let files = if !Options.c89_scope then visit_files (ref []) SimplifyC89.hoist_lets files else files in
-  let files = visit_files () hoist_bufcreate files in
-  let files = visit_files () fixup_hoist files in
-  let files = visit_files () let_if_to_assign files in
-  let files = visit_files () misc_cosmetic files in
-  let files = visit_files () let_to_sequence files in
+  let files = count_and_remove_locals#visit_files [] files in
+  let files = hoist#visit_files () files in
+  let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
+  let files = hoist_bufcreate#visit_files () files in
+  let files = fixup_hoist#visit_files () files in
+  let files = let_if_to_assign#visit_files () files in
+  let files = misc_cosmetic#visit_files () files in
+  let files = let_to_sequence#visit_files () files in
   files
 
 (* This should be run late since inlining may create more opportunities for the
  * removal of unused variables. *)
 let remove_unused (files: file list): file list =
-  let files = visit_files [] count_and_remove_locals files in
+  let files = count_and_remove_locals#visit_files [] files in
   let map = Hashtbl.create 41 in
-  let files = visit_files () (build_unused_map map) files in
-  let files = visit_files () (remove_unused_parameters map) files in
+  (build_unused_map map)#visit_files () files;
+  let files = (remove_unused_parameters map)#visit_files () files in
   files
 
 (* Allocate C names avoiding keywords and name collisions. This should be done
  * as the last operations, otherwise, any table for memoization suddenly becomes
  * invalid. *)
 let to_c_names (files: file list): file list =
-  let files = visit_files () record_toplevel_names files in
-  let files = visit_files () replace_references_to_toplevel_names files in
+  let files = record_toplevel_names#visit_files () files in
+  let files = replace_references_to_toplevel_names#visit_files () files in
   files
 

@@ -1,3 +1,2 @@
-/* Use only this module when debugging the Wasm transformations and compiling
- * with: -wasm -d force-c -drop C,WasmSupport -add-include '"wasm-stubs.h"' */
+/* This file is automatically included when compiling with -wasm -d force-c */
 #define WasmSupport_check_buffer_size(X)

@@ -1,6 +1,8 @@
 (** Pretty-printer that conforms with C syntax. Also defines the grammar of
  * concrete C syntax, as opposed to our idealistic, well-formed C*. *)
 
+module C = C11
+
 open PPrint
 open PrintCommon
 open C
@@ -110,7 +112,7 @@ and paren_if curr mine doc =
     doc
 
 (* [e] is an operand of [op]; is this likely to trigger GCC's -Wparentheses? If
- * so, downgrade the current precedence to 0 to force parenthses. *)
+ * so, downgrade the current precedence to 0 to force parentheses. *)
 and defeat_Wparentheses op e prec =
   let open Constant in
   if not !Options.parentheses then
@@ -163,7 +165,11 @@ and p_expr' curr = function
       p_type_name t
   | Sizeof e ->
       let mine, right = 2, 2 in
-      let e = p_expr' right e in
+      let e =
+        match e with
+        | Type _ -> parens_with_nesting (p_expr' right e)
+        | _ -> p_expr' right e
+      in
       paren_if curr mine (string "sizeof" ^^ space ^^ e)
   | Address e ->
       let mine, right = 2, 2 in
@@ -299,10 +305,10 @@ let rec p_stmt (s: stmt) =
         p_expr e3
       ) ^^ rparen) ^^ nest_if p_stmt stmt
   | If (e, stmt) ->
-      group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^^
+      group (string "if" ^/^ parens_with_nesting (p_expr e)) ^^
       nest_if p_stmt (protect_ite_if_needed stmt)
   | IfElse (e, s1, s2) ->
-      group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^^
+      group (string "if" ^/^ parens_with_nesting (p_expr e)) ^^
       nest_if p_stmt (protect_solo_if s1) ^^ hardline ^^
       string "else" ^^
       (match s2 with
@@ -311,7 +317,7 @@ let rec p_stmt (s: stmt) =
       | _ ->
         nest_if p_stmt s2)
   | While (e, s) ->
-      group (string "while" ^/^ lparen ^^ p_expr e ^^ rparen) ^^
+      group (string "while" ^/^ parens_with_nesting (p_expr e)) ^^
       nest_if p_stmt s
   | Return None ->
       group (string "return" ^^ semi)
@@ -320,7 +326,7 @@ let rec p_stmt (s: stmt) =
   | Decl d ->
       group (p_declaration d ^^ semi)
   | Switch (e, branches, default) ->
-      group (string "switch" ^/^ lparen ^^ p_expr e ^^ rparen) ^/^
+      group (string "switch" ^/^ parens_with_nesting (p_expr e)) ^/^
       braces_with_nesting (
         separate_map hardline (fun (e, s) ->
           group (string "case" ^/^ p_expr e ^^ colon) ^^ nest 2 (

@@ -29,13 +29,14 @@ let rec print_decl = function
         print_expr body
       )
 
-  | DExternal (cc, name, typ) ->
+  | DExternal (cc, flags, name, typ) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
+      print_flags flags ^/^
       group (cc ^^ string "external" ^/^ string (string_of_lident name) ^/^ colon) ^^
       jump (print_typ typ)
 
-  | DGlobal (flags, name, typ, expr) ->
-      print_flags flags ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
+  | DGlobal (flags, name, n, typ, expr) ->
+      print_flags flags ^^ langle ^^ int n ^^ rangle ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
   | DType (name, flags, n, def) ->
       let args = KList.make n (fun i -> string ("t" ^ string_of_int i)) in
@@ -79,6 +80,9 @@ and print_type_def = function
       string "abbrev" ^/^
       jump (print_typ typ)
 
+  | Forward ->
+      string "forward"
+
 and print_fields_t fields =
   separate_map (semi ^^ break1) (fun (ident, (typ, mut)) ->
     let mut = if mut then string "mutable " else empty in
@@ -98,8 +102,8 @@ and print_flags flags =
 and print_flag = function
   | Private ->
       string "private"
-  | NoExtract ->
-      string "noextract"
+  | WipeBody ->
+      string "wipe"
   | CInline ->
       string "c_inline"
   | Substitute ->
@@ -108,12 +112,14 @@ and print_flag = function
       string "gc_type"
   | Comment _ ->
       empty
+  | MustDisappear ->
+      string "must_disappear"
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   (if mut then string "mutable" ^^ break 1 else empty) ^^
-  group (string name ^^ lparen ^^ int !mark ^^ comma ^^ space ^^ print_meta meta ^^
+  group (group (string name ^^ lparen ^^ int !mark ^^ comma ^^ space ^^ print_meta meta ^^
   rparen ^^ colon) ^/^
-  nest 2 (print_typ typ)
+  nest 2 (print_typ typ))
 
 and print_meta = function
   | Some MetaSequence ->
@@ -147,6 +153,7 @@ and print_typ = function
 and print_lifetime = function
   | Stack -> string "stack"
   | Eternal -> string "eternal"
+  | Heap -> string "heap"
 
 and print_let_binding (binder, e1) =
   group (group (string "let" ^/^ print_binder binder ^/^ equals) ^^
@@ -203,8 +210,10 @@ and print_expr { node; typ } =
       print_app string "blitbuf" print_expr [e1; e2; e3; e4; e5]
   | EBufFill (e1, e2, e3) ->
       print_app string "fillbuf" print_expr [e1; e2; e3 ]
+  | EBufFree e ->
+      print_app string "freebug" print_expr [ e ]
   | EMatch (e, branches) ->
-      group (string "match" ^/^ print_expr e ^^ colon ^/^ print_typ e.typ ^/^ string "with") ^^
+      group (string "match" ^/^ print_expr e ^/^ string "with") ^^
       jump ~indent:0 (print_branches branches)
   | EOp (o, w) ->
       string "(" ^^ print_op o ^^ string "," ^^ print_width w ^^ string ")"
@@ -252,7 +261,7 @@ and print_expr { node; typ } =
   | ESwitch (e, branches) ->
       string "switch" ^^ space ^^ print_expr e ^/^ braces_with_nesting (
         separate_map hardline (fun (lid, e) ->
-          string "case" ^^ space ^^ string (string_of_lident lid) ^^ colon ^^
+          string "case" ^^ space ^^ print_case lid ^^ colon ^^
           nest 2 (hardline ^^ print_expr e)
         ) branches)
   | EFun (binders, body, t) ->
@@ -264,6 +273,13 @@ and print_expr { node; typ } =
   | EAddrOf e ->
       ampersand ^^ print_expr e
 
+and print_case = function
+  | SConstant s ->
+      print_constant s
+  | SEnum lid ->
+      string (string_of_lident lid)
+  | SWild ->
+      underscore
 
 
 and print_branches branches =
@@ -271,11 +287,11 @@ and print_branches branches =
 
 and print_branch (binders, pat, expr) =
   group (bar ^^ space ^^
-    lambda ^^
-    separate_map (comma ^^ break 1) print_binder binders ^^
-    dot ^^ space ^^
-    print_pat pat ^^ space ^^ arrow
-  ) ^^ jump ~indent:4 (print_expr expr)
+    lambda ^/^
+    group (separate_map (comma ^^ break 1) print_binder binders) ^^
+    dot ^^ space ^/^
+    group (print_pat pat ^^ space ^^ arrow)
+  ) ^/^ jump ~indent:4 (print_expr expr)
 
 and print_pat p =
   match p.node with
@@ -301,12 +317,19 @@ and print_pat p =
       string (string_of_lident lid)
   | PDeref p ->
       star ^^ print_pat p
+  | PConstant k ->
+      print_constant k
 
 let print_files = print_files print_decl
 
 module Ops = struct
+  let print_typs = separate_map (comma ^^ space) print_typ
+
   let ploc = printf_of_pprint Location.print_location
+  let pwidth = printf_of_pprint print_width
+  let pcase = printf_of_pprint print_case
   let ptyp = printf_of_pprint print_typ
+  let ptyps = printf_of_pprint print_typs
   let pptyp = printf_of_pprint_pretty print_typ
   let pexpr = printf_of_pprint print_expr
   let ppexpr = printf_of_pprint_pretty print_expr

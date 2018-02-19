@@ -1,5 +1,7 @@
 (** Converting from C* to C abstract syntax. *)
 
+module C = C11
+
 open C
 open CStar
 open KPrint
@@ -10,19 +12,31 @@ let zero = C.Constant (K.UInt8, "0")
 let is_array = function Array _ -> true | _ -> false
 
 let escape_string s =
-  (* TODO: dive into the C lexical conventions + fix the F* lexer *)
-  String.escaped s
-
-type rec_name = {
-  lid: CStar.ident;
-  typ: C.type_spec;
-  used: bool ref;
-}
+  let b = Buffer.create 256 in
+  String.iter (fun c ->
+    match c with
+    | '\x27' -> Buffer.add_string b "\\'"
+    | '\x22' -> Buffer.add_string b "\\\""
+    | '\x3f' -> Buffer.add_string b "\\?"
+    | '\x5c' -> Buffer.add_string b "\\\\"
+    | '\x07' -> Buffer.add_string b "\\a"
+    | '\x08' -> Buffer.add_string b "\\b"
+    | '\x0c' -> Buffer.add_string b "\\f"
+    | '\x0a' -> Buffer.add_string b "\\n"
+    | '\x0d' -> Buffer.add_string b "\\r"
+    | '\x09' -> Buffer.add_string b "\\t"
+    | '\x0b' -> Buffer.add_string b "\\v"
+    | '\x20'..'\x7e' -> Buffer.add_char b c
+    | _ -> Printf.bprintf b "\\x%02x" (Char.code c)
+  ) s;
+  Buffer.contents b
 
 let assert_var =
   function
-  | Var _ -> ()
-  | _ -> failwith "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = "
+  | Var _ | Qualified _ -> ()
+  | e -> Warnings.fatal_error
+      "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = \n%s is not a var"
+      (show_expr e)
 
 let c99_format w =
   let open K in
@@ -41,7 +55,7 @@ let mk_debug name parameters =
       | _ ->
           Printf.sprintf "%s=%%s" name, C.Literal "unknown"
     ) parameters) in
-    [ C.Expr (C.Call (C.Name "printf", [
+    [ C.Expr (C.Call (C.Name "KRML_HOST_PRINTF", [
         C.Literal (String.concat " " (name :: formats @ [ "\\n" ]))
       ] @ args)) ]
   else
@@ -49,10 +63,10 @@ let mk_debug name parameters =
 
 (* Turns the ML declaration inside-out to match the C reading of a type.
  * See en.cppreference.com/w/c/language/declarations *)
-let rec mk_spec_and_decl name rec_name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
+let rec mk_spec_and_decl name (t: typ) (k: C.declarator -> C.declarator): C.type_spec * C.declarator =
   match t with
   | Pointer t ->
-      mk_spec_and_decl name rec_name t (fun d -> Pointer (k d))
+      mk_spec_and_decl name t (fun d -> Pointer (k d))
   | Array (t, size) ->
       (* F* guarantees that the initial size of arrays is always something
        * reasonable (i.e. <4GB). *)
@@ -60,73 +74,59 @@ let rec mk_spec_and_decl name rec_name (t: typ) (k: C.declarator -> C.declarator
         | Constant k -> C.Constant k
         | _ -> mk_expr size
       in
-      mk_spec_and_decl name rec_name t (fun d -> Array (k d, size))
+      mk_spec_and_decl name t (fun d -> Array (k d, size))
   | Function (cc, t, ts) ->
       (* Function types are pointers to function types, except in the top-level
        * declarator for a function, which gets special treatment via
        * mk_spec_and_declarator_f. *)
-      mk_spec_and_decl name rec_name t (fun d ->
+      mk_spec_and_decl name t (fun d ->
         Function (cc, Pointer (k d), List.mapi (fun i t ->
-          mk_spec_and_decl (KPrint.bsprintf "x%d" i) rec_name t (fun d -> d)) ts))
+          mk_spec_and_decl (KPrint.bsprintf "x%d" i) t (fun d -> d)) ts))
   | Int w ->
       Int w, k (Ident name)
   | Void ->
       Void, k (Ident name)
   | Qualified l ->
-      begin match rec_name with
-      | Some { lid; typ; used } when lid = l ->
-          used := true;
-          typ, k (Ident name)
-      | _ ->
-          Named l, k (Ident name)
-      end
+      Named l, k (Ident name)
   | Enum tags ->
       Enum (None, tags), k (Ident name)
   | Bool ->
       Named "bool", k (Ident name)
   | Struct fields ->
-      Struct (None, mk_fields rec_name fields), k (Ident name)
+      Struct (None, mk_fields fields), k (Ident name)
   | Union fields ->
       Union (None, List.map (fun (name, typ) ->
-        let spec, decl = mk_spec_and_decl name rec_name typ (fun d -> d) in
+        let spec, decl = mk_spec_and_decl name typ (fun d -> d) in
         spec, None, [ decl, None ]
       ) fields), k (Ident name)
 
-and mk_fields rec_name fields =
+and mk_fields fields =
   Some (List.map (fun (name, typ) ->
     let name = match name with Some name -> name | None -> "" in
-    let spec, decl = mk_spec_and_decl name rec_name typ (fun d -> d) in
+    let spec, decl = mk_spec_and_decl name typ (fun d -> d) in
     spec, None, [ decl, None ]
   ) fields)
 
 (* Standard spec/declarator pair (e.g. int x). *)
 and mk_spec_and_declarator name t =
-  mk_spec_and_decl name None t (fun d -> d)
+  mk_spec_and_decl name t (fun d -> d)
 
-(* A variant dedicated to typedef's, where the name really represents the type
- * itself. Such definitions may contain recursive occurrences of the type
- * itself; one can compile such a type definition to C when the type is a
- * struct, by naming it. *)
+(* A variant dedicated to typedef's, where we need to name structs. *)
 and mk_spec_and_declarator_t name t =
   match t with
   | Struct fields ->
-      let name_s = name ^ "_s" in
-      let used = ref false in
-      let rec_name = Some { lid = name; typ = C.Struct (Some name_s, None); used } in
-      (* Fills in [used]. *)
-      let fields = mk_fields rec_name fields in
-      if !used then
-        C.Struct (Some name_s, fields), Ident name
-      else
-        C.Struct (None, fields), Ident name
+      (* In C, there's a separate namespace for struct names; our type names are
+       * unique, therefore, post-fixing them with "_s" also generates a set of
+       * unique struct names. *)
+      C.Struct (Some (name ^ "_s"), mk_fields fields), Ident name
   | _ ->
       mk_spec_and_declarator name t
 
 (* A variant dedicated to functions that avoids the conversion of function type
  * to pointer-to-function. *)
 and mk_spec_and_declarator_f cc name ret_t params =
-  mk_spec_and_decl name None ret_t (fun d ->
-    Function (cc, d, List.map (fun (n, t) -> mk_spec_and_decl n None t (fun d -> d)) params))
+  mk_spec_and_decl name ret_t (fun d ->
+    Function (cc, d, List.map (fun (n, t) -> mk_spec_and_decl n t (fun d -> d)) params))
 
 (* Enforce the invariant that declarations are wrapped in compound statements
  * and cannot appear "alone". *)
@@ -183,7 +183,7 @@ and mk_memset_zero_initializer e_array e_size =
 and mk_check_size init n_elements: C.stmt list =
   (* [init] is the default value for the elements of the array, and [n_elements] is
    * hopefully a constant *)
-  let default = [ C.Expr (C.Call (C.Name "KRML_CHECK_SIZE", [ init; n_elements ])) ] in
+  let default = [ C.Expr (C.Call (C.Name "KRML_CHECK_SIZE", [ mk_sizeof init; n_elements ])) ] in
   match init, n_elements with
   | C.Cast (_, C.Constant (w, _)), C.Cast (_, C.Constant (_, n_elements)) ->
       let size_bytes = Z.(of_int (K.bytes_of_width w) * of_string n_elements) in
@@ -197,13 +197,29 @@ and mk_check_size init n_elements: C.stmt list =
       default
 
 and mk_sizeof t =
-  C.Call (C.Name "sizeof", [ t ])
+  match t with
+  | C.Cast (t, _)
+  | C.CompoundLiteral (t, _) ->
+      C.Sizeof (C.Type t)
+  | _ ->
+      C.Call (C.Name "sizeof", [ t ])
+
+and mk_sizeof_mul t s =
+  match s with
+    | C.Constant (_, "1")
+    | C.Cast (_, C.Constant (_, "1")) ->
+        mk_sizeof t
+    | _ ->
+        C.Op2 (K.Mult, mk_sizeof t, s)
 
 and mk_malloc t s =
-  C.Call (C.Name "malloc", [ C.Op2 (K.Mult, mk_sizeof t, s) ])
+  C.Call (C.Name "KRML_HOST_MALLOC", [ mk_sizeof_mul t s ])
 
 and mk_calloc t s =
-  C.Call (C.Name "calloc", [ s; mk_sizeof t ])
+  C.Call (C.Name "KRML_HOST_CALLOC", [ s; mk_sizeof t ])
+
+and mk_free e =
+  C.Call (C.Name "KRML_HOST_FREE", [ e ])
 
 and mk_eternal_bufcreate buf init size =
   let size = mk_expr size in
@@ -235,6 +251,13 @@ and ensure_array t size =
   | t ->
       Warnings.fatal_error "impossible: %s" (show_typ t)
 
+and decay_array t =
+  match t with
+  | Array (t, _) ->
+      Pointer t
+  | t ->
+      Warnings.fatal_error "impossible: %s" (show_typ t)
+
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
   | Comment s ->
@@ -259,7 +282,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
   | Ignore e ->
       [ Expr (mk_expr e) ]
 
-  | Decl (binder, BufCreate (Eternal, init, size)) ->
+  | Decl (binder, BufCreate ((Eternal | Heap), init, size)) ->
       ignore (ensure_pointer binder.typ);
       let stmt_check, expr_alloc, stmt_extra =
         mk_eternal_bufcreate (Var binder.name) init size
@@ -274,17 +297,20 @@ and mk_stmt (stmt: stmt): C.stmt list =
        * array type, in the C sense. *)
       let t = ensure_array binder.typ size in
       let module T = struct type init = Nope | Memset | Forloop end in
+      let is_constant = match size with Constant _ -> true | _ -> false in
+      let use_alloca = not is_constant && !Options.alloca_if_vla in
       let (maybe_init, init_type): C.init option * T.init = match init, size with
         | _, Constant (_, "0") ->
             (* zero-sized array *)
             None, T.Nope
         | Cast (Any, _), _
         | Any, _ ->
-            (* no inital value *)
+            (* no initial value *)
             None, T.Nope
-        | Constant ((_, "0") as k), Constant _ ->
+        | Constant ((_, "0") as k), Constant _ when not use_alloca ->
             (* The only case the we can initialize statically is a known, static
-             * size _and_ a zero initializer. *)
+             * size _and_ a zero initializer. If we're about to alloca, don't
+             * use a zero-initializer. *)
             Some (Initializer [ InitExpr (C.Constant k) ]), T.Nope
         | Constant (_, "0"), _ ->
             None, T.Memset
@@ -292,6 +318,17 @@ and mk_stmt (stmt: stmt): C.stmt list =
             None, T.Forloop
       in
       let size = mk_expr size in
+      let t, maybe_init =
+        (* If we're doing an alloca, override the initial value (it's now the
+         * call to alloca) and decay the array to a pointer type. *)
+        if use_alloca then
+          let bytes = C.Call (C.Name "alloca", [
+            C.Op2 (K.Mult, size, C.Sizeof (C.Type (mk_type (ensure_pointer t)))) ]) in
+          assert (maybe_init = None);
+          decay_array t, Some (InitExpr bytes)
+        else
+          t, maybe_init
+      in
       let init = mk_expr init in
       let spec, decl = mk_spec_and_declarator binder.name t in
       let extra_stmt: C.stmt list =
@@ -310,7 +347,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       decl @
       extra_stmt
 
-  | Decl (_, BufCreateL (Eternal, _)) ->
+  | Decl (_, BufCreateL ((Eternal | Heap), _)) ->
       failwith "TODO (desugar into a series of assignments)"
 
   | Decl (binder, BufCreateL (Stack, inits)) ->
@@ -356,8 +393,11 @@ and mk_stmt (stmt: stmt): C.stmt list =
             List.map (fun e -> InitExpr (mk_expr e)) elts);
           Sizeof (mk_expr e1)]))]
 
-  | Copy _ ->
-      failwith "impossible"
+  | Copy (e1, _, e2) ->
+      [ Expr (Call (Name "memcpy", [
+          mk_expr e1;
+          mk_expr e2;
+          Sizeof (mk_expr e1)]))]
 
   | Assign (BufRead _, (Any | Cast (Any, _))) ->
       []
@@ -402,29 +442,42 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let size = mk_expr size in
       [ mk_for_loop_initializer buf size v ]
 
+  | BufFree e ->
+      [ Expr (mk_free (mk_expr e)) ]
+
   | While (e1, e2) ->
       [ While (mk_expr e1, mk_compound_if (mk_stmts e2)) ]
 
   | PushFrame | PopFrame ->
       failwith "[mk_stmt]: nested frames to be handled by [mk_stmts]"
 
-  | Switch (e, branches) ->
+  | Switch (e, branches, default) ->
       [ Switch (
           mk_expr e,
           List.map (fun (ident, block) ->
-            Name ident, Compound (mk_stmts block @ [ Break ])
+            (match ident with
+            | `Ident ident -> Name ident
+            | `Int k -> Constant k),
+            let block = mk_stmts block in
+            match KList.last block with
+            | Return _ -> Compound block
+            | _ -> Compound (block @ [ Break ])
           ) branches,
-          Compound [
-            Expr (Call (Name "printf", [
-              Literal "KreMLin incomplete match at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
-            Expr (Call (Name "exit", [ Constant (K.UInt8, "253") ]))
-          ]
+          match default with
+          | Some block ->
+              Compound (mk_stmts block)
+          | _ ->
+              Compound [
+                Expr (Call (Name "KRML_HOST_PRINTF", [
+                  Literal "KreMLin incomplete match at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
+                Expr (Call (Name "KRML_HOST_EXIT", [ Constant (K.UInt8, "253") ]))
+              ]
       )]
 
   | Abort s ->
-      [ Expr (Call (Name "printf", [
+      [ Expr (Call (Name "KRML_HOST_PRINTF", [
           Literal "KreMLin abort at %s:%d\\n%s\\n"; Name "__FILE__"; Name "__LINE__"; Literal (escape_string s) ]));
-        Expr (Call (Name "exit", [ Constant (K.UInt8, "255") ])); ]
+        Expr (Call (Name "KRML_HOST_EXIT", [ Constant (K.UInt8, "255") ])); ]
 
   | For (`Decl (binder, e1), e2, e3, b) ->
       let spec, decl = mk_spec_and_declarator binder.name binder.typ in
@@ -518,9 +571,18 @@ and mk_expr (e: expr): C.expr =
   | Comma (e1, e2) ->
       Op2 (K.Comma, mk_expr e1, mk_expr e2)
 
+  | Call (Qualified s, [ e1 ]) when KString.starts_with s "C_Nullity_op_Bang_Star__"->
+      Deref (mk_expr e1)
+
   | Call (Qualified "C_String_get", [ e1; e2 ])
   | BufRead (e1, e2) ->
       mk_index e1 e2
+
+  | Call (Qualified "C_Nullity_null", _) ->
+      Name "NULL"
+
+  | Call (Qualified "C_Nullity_is_null", [ e ]) ->
+      Op2 (K.Eq, mk_expr e, C.Name "NULL")
 
   | Call (e, es) ->
       Call (mk_expr e, List.map mk_expr es)
@@ -608,10 +670,11 @@ let mk_comments =
         None
   )
 
-(** .c files include their own header *)
-let mk_decl_or_function (d: decl): C.declaration_or_function option =
+(** Function definition or global definition. *)
+let mk_function_or_global_body (d: decl): C.declaration_or_function option =
   match d with
   | External _
+  | TypeForward _
   | Type _ ->
       None
 
@@ -638,71 +701,114 @@ let mk_decl_or_function (d: decl): C.declaration_or_function option =
           let expr = mk_expr expr in
           Some (Decl ([], (spec, static, [ decl, Some (InitExpr expr) ])))
 
-let is_static_header name =
-  List.exists (fun m -> Idents.fstar_name_of_mod m = name) !Options.static_header
-
-let mk_program decls =
-  KList.filter_map mk_decl_or_function decls
-
-let mk_files files =
-  let files = List.filter (fun (name, _) -> not (is_static_header name)) files in
-  List.map (fun (name, program) -> name, mk_program program) files
-
-let mk_stub_or_function (d: decl): C.declaration_or_function option =
+(** Function prototype, or extern global declaration (no definition). *)
+let mk_function_or_global_stub (d: decl): C.declaration_or_function option =
   match d with
-  | Type (name, t) ->
+  | External _
+  | TypeForward _
+  | Type _ ->
+      None
+
+  | Function (cc, flags, return_type, name, parameters, _) ->
+      begin try
+        let parameters = List.map (fun { name; typ } -> name, typ) parameters in
+        let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
+        Some (Decl (mk_comments flags, (spec, None, [ decl, None ])))
+      with e ->
+        beprintf "Fatal exception raised in %s\n" name;
+        raise e
+      end
+
+  | Global (name, _, t, _) ->
+      let spec, decl = mk_spec_and_declarator name t in
+      Some (Decl ([], (spec, Some Extern, [ decl, None ])))
+
+(* Type declarations, external function declarations. These are the things that
+ * are either declared in the header (public), or in the c file (private), but
+ * not twice. *)
+let mk_type_or_external (d: decl): C.declaration_or_function option =
+  match d with
+  | TypeForward (name, _) ->
+      Some (Decl ([], (C.Struct (Some (name ^ "_s"), None), Some Typedef, [ Ident name, None ])))  
+  | Type (name, t, _) ->
       let spec, decl = mk_spec_and_declarator_t name t in
       Some (Decl ([], (spec, Some Typedef, [ decl, None ])))
 
-  | Function (cc, flags, return_type, name, parameters, _) ->
-      if List.exists ((=) Private) flags then
-        None
-      else
-        begin try
-          let parameters = List.map (fun { name; typ } -> name, typ) parameters in
-          let spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
-          Some (Decl (mk_comments flags, (spec, None, [ decl, None ])))
-        with e ->
-          beprintf "Fatal exception raised in %s\n" name;
-          raise e
-        end
-
-  | External (name, Function (cc, t, ts)) ->
+  | External (name, Function (cc, t, ts), _) ->
       let spec, decl = mk_spec_and_declarator_f cc name t (List.mapi (fun i t ->
         KPrint.bsprintf "x%d" i, t
       ) ts) in
       Some (Decl ([], (spec, Some Extern, [ decl, None ])))
 
-  | External (name, t) ->
+  | External (name, t, _) ->
       let spec, decl = mk_spec_and_declarator name t in
       Some (Decl ([], (spec, Some Extern, [ decl, None ])))
 
-  | Global (name, flags, t, _) ->
-      if List.exists ((=) Private) flags then
-        None
-      else
-        let spec, decl = mk_spec_and_declarator name t in
-        Some (Decl ([], (spec, Some Extern, [ decl, None ])))
+  | Function _ | Global _ ->
+      None
 
 
-let mk_header decls =
-  KList.filter_map mk_stub_or_function decls
+let is_static_header name =
+  List.exists (fun m -> Idents.fstar_name_of_mod m = name) !Options.static_header
 
-let mk_static (d: C.declaration_or_function) =
+let either f1 f2 x =
+  match f1 x with
+  | None -> f2 x
+  | Some r -> Some r
+
+let flags_of_decl (d: CStar.decl) =
   match d with
-  | Decl (comments, (ts, None, decl_inits)) ->
-      C.Decl (comments, (ts, Some Static, decl_inits))
-  | Function (comments, _inline, (ts, (None | Some Static), decl_inits), body) ->
-      C.Function (comments, true, (ts, Some Static, decl_inits), body)
-  | d ->
-      d
+  | Global (_, flags, _, _)
+  | Function (_, flags, _, _, _, _)
+  | Type (_, _, flags)
+  | TypeForward (_, flags)
+  | External (_, _, flags) ->
+      flags
+
+let if_private f d =
+  if List.mem Private (flags_of_decl d) then
+    f d
+  else
+    None
+
+let if_not_private f d =
+  if not (List.mem Private (flags_of_decl d)) then
+    f d
+  else
+    None
+
+(* Building a .c file *)
+let mk_files files =
+  let mk_c_file decls =
+    (* In the C file, we put function bodies, global bodies, and type
+     * definitions and external definitions that were private to the file only.
+     * *)
+    KList.filter_map
+      (either mk_function_or_global_body (if_private mk_type_or_external))
+      decls
+  in
+  let files = List.filter (fun (name, _) -> not (is_static_header name)) files in
+  List.map (fun (name, program) -> name, mk_c_file program) files
+
+(* Building the two flavors of headers. *)
+let mk_header decls =
+  (* In the header file, we put functions and global stubs, along with type
+   * definitions that are visible from the outside. *)
+  KList.filter_map
+    (if_not_private (either mk_function_or_global_stub mk_type_or_external))
+    decls
 
 let mk_static_header decls =
-  let decls = KList.filter_map (fun (d: CStar.decl) ->
+  let mk_static (d: C.declaration_or_function) =
     match d with
-    | Global _ | Function _ -> mk_decl_or_function d
-    | _ -> mk_stub_or_function d
-  ) decls in
+    | Decl (comments, (ts, None, decl_inits)) ->
+        C.Decl (comments, (ts, Some Static, decl_inits))
+    | Function (comments, _inline, (ts, (None | Some Static), decl_inits), body) ->
+        C.Function (comments, true, (ts, Some Static, decl_inits), body)
+    | d ->
+        d
+  in
+  let decls = KList.filter_map (either mk_function_or_global_body mk_type_or_external) decls in
   List.map mk_static decls
 
 let mk_headers files =

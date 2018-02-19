@@ -25,4 +25,4 @@ gcc --version
 fstar.exe --version
 echo | $(which d8)
 
-make && make -C test all wasm
+make && make -C test all wasm external

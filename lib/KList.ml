@@ -118,3 +118,10 @@ let one l =
   match l with
   | [ x ] -> x
   | _ -> invalid_arg ("one: argument is of length " ^ string_of_int (List.length l))
+
+let max l =
+  if List.length l = 0 then
+    invalid_arg "max";
+  let max = ref (List.hd l) in
+  List.iter (fun x -> if x > !max then max := x) (List.tl l);
+  !max

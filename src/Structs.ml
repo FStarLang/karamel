@@ -50,7 +50,7 @@ let mk_action_table files =
     List.iter (function
       | DFunction (_, _, _, ret, lid, binders, _body) ->
           Hashtbl.add map lid (is_struct ret, List.map (fun b -> is_struct b.typ) binders)
-      | DExternal (_, lid, typ) ->
+      | DExternal (_, _, lid, typ) ->
           begin match typ with
           | TArrow _ ->
               let ret, args = Helpers.flatten_arrow typ in
@@ -156,9 +156,9 @@ let pass_by_ref action_table = object (self)
   (* We open all the parameters of a function; then, we pass down as the
    * environment the list of atoms that correspond to by-ref parameters. These
    * will have to be "starred". *)
-  inherit [Atom.t list] map
+  inherit [_] map
 
-  method! dfunction _ cc flags n ret lid binders body =
+  method! visit_DFunction _ cc flags n ret lid binders body =
     (* Step 1: open all the binders *)
     let binders, body = DeBruijn.open_binders binders body in
 
@@ -190,7 +190,7 @@ let pass_by_ref action_table = object (self)
         None
     ) (List.combine binders (args_are_structs @ (if ret_is_struct then [ false ] else []))) in
 
-    let body = self#visit to_be_starred body in
+    let body = self#visit_expr_w to_be_starred body in
 
     (* Step 4: if the function now takes an extra argument for the output struct. *)
     let body =
@@ -202,7 +202,7 @@ let pass_by_ref action_table = object (self)
     let body = DeBruijn.close_binders binders body in
     DFunction (cc, flags, n, ret, lid, binders, body)
 
-  method dexternal _ cc lid t =
+  method! visit_DExternal _ cc flags lid t =
     match t with
     | TArrow _ ->
         (* Also rewrite external function declarations. *)
@@ -215,12 +215,12 @@ let pass_by_ref action_table = object (self)
           else
             ret, List.map2 buf_if args args_are_structs
         in
-        DExternal (cc, lid, Helpers.fold_arrow args ret)
+        DExternal (cc, flags, lid, Helpers.fold_arrow args ret)
     | _ ->
-        DExternal (cc, lid, t)
+        DExternal (cc, flags, lid, t)
 
 
-  method! eopen to_be_starred t name atom =
+  method! visit_EOpen (to_be_starred, t) name atom =
     (* [x] was a strut parameter that is now passed by reference; replace it
      * with [*x] *)
     if List.exists (Atom.equal atom) to_be_starred then
@@ -228,45 +228,45 @@ let pass_by_ref action_table = object (self)
     else
       EOpen (name, atom)
 
-  method! eassign to_be_starred _ e1 e2 =
-    let e1 = self#visit to_be_starred e1 in
+  method! visit_EAssign (to_be_starred, _) e1 e2 =
+    let e1 = self#visit_expr_w to_be_starred e1 in
     match e2.node with
     | EApp ({ node = EQualified lid; _ } as e, args) when
       try fst (Hashtbl.find action_table lid) with Not_found -> false ->
         begin try
-          let args = List.map (self#visit to_be_starred) args in
+          let args = List.map (self#visit_expr_w to_be_starred) args in
           assert (will_be_lvalue e1);
           (rewrite_app action_table e args (Some e1)).node
         with Not_found | NotLowStar ->
-          EAssign (e1, self#visit to_be_starred e2)
+          EAssign (e1, self#visit_expr_w to_be_starred e2)
         end
     | _ ->
-        EAssign (e1, self#visit to_be_starred e2)
+        EAssign (e1, self#visit_expr_w to_be_starred e2)
 
-  method! ebufwrite to_be_starred _ e1 e2 e3 =
-    let e1 = self#visit to_be_starred e1 in
-    let e2 = self#visit to_be_starred e2 in
+  method! visit_EBufWrite (to_be_starred, _) e1 e2 e3 =
+    let e1 = self#visit_expr_w to_be_starred e1 in
+    let e2 = self#visit_expr_w to_be_starred e2 in
     match e3.node with
     | EApp ({ node = EQualified lid; _ } as e, args) when
       try fst (Hashtbl.find action_table lid) with Not_found -> false ->
         begin try
-          let args = List.map (self#visit to_be_starred) args in
+          let args = List.map (self#visit_expr_w to_be_starred) args in
           let t = Helpers.assert_tbuf e1.typ in
           let dest = with_type t (EBufRead (e1, e2)) in
           (rewrite_app action_table e args (Some dest)).node
         with Not_found | NotLowStar ->
-          EBufWrite (e1, e2, self#visit to_be_starred e3)
+          EBufWrite (e1, e2, self#visit_expr_w to_be_starred e3)
         end
     | _ ->
-        EBufWrite (e1, e2, self#visit to_be_starred e3)
+        EBufWrite (e1, e2, self#visit_expr_w to_be_starred e3)
 
-  method! elet to_be_starred t b e1 e2 =
-    let e2 = self#visit to_be_starred e2 in
+  method! visit_ELet (to_be_starred, t) b e1 e2 =
+    let e2 = self#visit_expr_w to_be_starred e2 in
     match e1.node with
     | EApp ({ node = EQualified lid; _ } as e, args) when
       try fst (Hashtbl.find action_table lid) with Not_found -> false ->
         begin try
-          let args = List.map (self#visit to_be_starred) args in
+          let args = List.map (self#visit_expr_w to_be_starred) args in
           let b, e2 = DeBruijn.open_binder b e2 in
           let e1 = rewrite_app action_table e args (Some (DeBruijn.term_of_binder b)) in
           ELet (b, Helpers.any, DeBruijn.close_binder b (with_type t (
@@ -276,13 +276,13 @@ let pass_by_ref action_table = object (self)
             ]
           )))
         with Not_found | NotLowStar ->
-          ELet (b, self#visit to_be_starred e1, e2)
+          ELet (b, self#visit_expr_w to_be_starred e1, e2)
         end
     | _ ->
-        ELet (b, self#visit to_be_starred e1, e2)
+        ELet (b, self#visit_expr_w to_be_starred e1, e2)
 
-  method! eapp to_be_starred _ e args =
-    let args = List.map (self#visit to_be_starred) args in
+  method! visit_EApp (to_be_starred, _) e args =
+    let args = List.map (self#visit_expr_w to_be_starred) args in
     match e.node with
     | EQualified _ ->
         begin try
@@ -297,7 +297,7 @@ end
 
 let pass_by_ref files =
   let action_table = mk_action_table files in
-  Helpers.visit_files [] (pass_by_ref action_table) files
+  (pass_by_ref action_table)#visit_files [] files
 
 
 (* Collect static initializers into a separate function, possibly generated by
@@ -305,18 +305,20 @@ let pass_by_ref files =
 let collect_initializers (files: Ast.file list) =
   let initializers = ref [] in
   let record x = initializers := x :: !initializers in
-  let files = Helpers.visit_files () (object
-    inherit [unit] map
-    method dglobal _ flags name t body =
+  let files = (object
+    inherit [_] map
+    method! visit_DGlobal _ flags name n t body =
       let flags, body =
-        if not (Helpers.is_value body) then begin
+        (* Note: no need to generate a copy-assignment because top-level
+         * stack-allocated arrays are not possible in F*. *)
+        if not (Helpers.is_initializer_constant body) then begin
           record (with_type TUnit (EAssign (with_type t (EQualified name), body)));
           List.filter ((<>) Private) flags, with_type t EAny
         end else
           flags, body
       in
-      DGlobal (flags, name, t, body)
-  end) files in
+      DGlobal (flags, name, n, t, body)
+  end)#visit_files () files in
   if !initializers != [] then
     let file = "kremlinit",
       [ DFunction (None, [], 0, TUnit, (["kremlinit"], "globals"),
@@ -324,9 +326,9 @@ let collect_initializers (files: Ast.file list) =
         with_type TUnit (ESequence (List.rev !initializers)))] in
     let files = files @ [ file ] in
     let found = ref false in
-    let files = Helpers.visit_files () (object
-      inherit [unit] map
-      method dfunction _ cc flags n ret name binders body =
+    let files = (object
+      inherit [_] map
+      method! visit_DFunction _ cc flags n ret name binders body =
         let body =
           if Simplify.target_c_name name = "main" then begin
             found := true;
@@ -340,7 +342,7 @@ let collect_initializers (files: Ast.file list) =
             body
         in
         DFunction (cc, flags, n, ret, name, binders, body)
-    end) files in
+    end)#visit_files () files in
     if not !found then
       Warnings.(maybe_fatal_error ("", MustCallKrmlInit));
     files
@@ -426,7 +428,8 @@ let to_addr is_struct =
         (* This special case is subsumed by the combination of [EFlat] and
          * [ELet], but generates un-necessary names, and complicates debugging.
          * *)
-        assert (is_struct b.typ);
+        if not (is_struct b.typ) then
+          Warnings.fatal_error "%a is not a struct type\n" ptyp b.typ;
         let t = b.typ in
         let t' = TBuf b.typ in
         let b = { b with typ = t' } in
@@ -515,6 +518,10 @@ let to_addr is_struct =
         let e3 = to_addr e3 in
         w (EBufFill (e1, e2, e3))
 
+    | EBufFree e ->
+        (* Not descending, this is already an address *)
+        w (EBufFree e)
+
     | ESwitch (e, branches) ->
         let e = to_addr e in
         let branches = List.map (fun (lid, e) -> lid, to_addr e) branches in
@@ -537,10 +544,10 @@ let to_addr is_struct =
     | EFun _ ->
         Warnings.fatal_error "impossible: %a" pexpr e
   in
-  object (_self)
-    inherit [unit] map
+  object
+    inherit [_] map
 
-    method! dfunction _ cc flags n ret lid binders body =
+    method! visit_DFunction _ cc flags n ret lid binders body =
       DFunction (cc, flags, n, ret, lid, binders, to_addr body)
   end
 
@@ -548,7 +555,7 @@ let to_addr is_struct =
 let in_memory files =
   (* TODO: do let_to_sequence and sequence_to_let once! *)
   let is_struct = mk_is_struct files in
-  let files = Helpers.visit_files () Simplify.sequence_to_let files in
-  let files = Helpers.visit_files () (to_addr is_struct) files in
-  let files = Helpers.visit_files () Simplify.let_to_sequence files in
+  let files = Simplify.sequence_to_let#visit_files () files in
+  let files = (to_addr is_struct)#visit_files () files in
+  let files = Simplify.let_to_sequence#visit_files () files in
   files

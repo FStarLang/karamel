@@ -29,6 +29,13 @@ let shell_stub = format_of_string {|
 var my_js_files = %s;
 var my_modules = %s;
 var my_debug = %b;
+
+if (typeof module !== "undefined")
+  module.exports = {
+    my_js_files: my_js_files,
+    my_modules: my_modules,
+    my_debug: my_debug
+  }
 |}
 
 let as_js_list l =

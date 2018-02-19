@@ -6,10 +6,10 @@ module C.Loops
 open FStar.HyperStack.ST
 open FStar.Buffer
 
-module HH = FStar.HyperHeap
 module HS = FStar.HyperStack
 module HST = FStar.HyperStack.ST
 module UInt32 = FStar.UInt32
+module UInt64 = FStar.UInt64
 
 include Spec.Loops
 
@@ -56,6 +56,25 @@ let rec for start finish inv f =
     for (UInt32.(start +^ 1ul)) finish inv f
   end
 
+val for64:
+  start:UInt64.t ->
+  finish:UInt64.t{UInt64.v finish >= UInt64.v start} ->
+  inv:(HS.mem -> nat -> Type0) ->
+  f:(i:UInt64.t{UInt64.(v start <= v i /\ v i < v finish)} -> Stack unit
+                        (requires (fun h -> inv h (UInt64.v i)))
+                        (ensures (fun h_1 _ h_2 -> UInt64.(inv h_1 (v i) /\ inv h_2 (v i + 1)))) ) ->
+  Stack unit
+    (requires (fun h -> inv h (UInt64.v start)))
+    (ensures (fun _ _ h_2 -> inv h_2 (UInt64.v finish)))
+let rec for64 start finish inv f =
+  if start = finish then
+    ()
+  else begin
+    f start;
+    for64 (UInt64.(start +^ 1UL)) finish inv f
+  end
+
+
 (* To be extracted as:
     for (int i = <start>; i != <finish>; --i)
       <f> i;
@@ -79,12 +98,12 @@ let rec reverse_for start finish inv f =
   end
 
 (* To be extracted as:
-    int i = <start>;
     bool b = false;
+    int i = <start>;
     for (; (!b) && (i != <end>); ++i) {
       b = <f> i;
     }
-    // i and b must be in scope after the loop
+    (i, b)
 *)
 val interruptible_for:
   start:UInt32.t ->
@@ -122,10 +141,33 @@ val do_while:
     (requires (fun h -> inv h false))
     (ensures (fun _ _ h_2 -> inv h_2 true))
 let rec do_while inv f =
-  let break = f () in
-  if break
-     then ()
-     else do_while inv f
+  if not (f ()) then
+    do_while inv f
+
+
+(* Extracted as:
+   while (test ()) {
+     body ();
+   }
+*)
+val while:
+  #test_pre: (HS.mem -> GTot Type0) ->
+  #test_post: (bool -> HS.mem -> GTot Type0) ->
+  $test: (unit -> Stack bool
+    (requires (fun h -> test_pre h))
+    (ensures (fun h0 x h1 -> test_post x h1))) ->
+  body: (unit -> Stack unit
+    (requires (fun h -> test_post true h))
+    (ensures (fun h0 _ h1 -> test_pre h1))) ->
+  Stack unit
+    (requires (fun h -> test_pre h))
+    (ensures (fun h0 _ h1 -> test_post false h1))
+let rec while #test_pre #test_post test body =
+  if test () then begin
+    body ();
+    while #test_pre #test_post test body
+  end
+
 
 (* To be extracted as:
     int i = <start>;
@@ -400,3 +442,55 @@ let repeat_range #a l min max f b fc =
   in
   lemma_repeat_range_0 (UInt32.v min) (UInt32.v min) f (as_seq h0 b);
   for min max inv f'
+
+let rec total_while_gen
+  (#t: Type)
+  (tmes: (t -> GTot nat))
+  (tinv: (bool -> t -> GTot Type0))
+  (tcontinue: (t -> Tot bool))
+  (body:
+    (x: t) ->
+    Pure t
+    (requires (tinv true x))
+    (ensures (fun y ->
+      tinv (tcontinue y) y /\ (
+      if tcontinue y then tmes y < tmes x else True)
+    )))
+  (x: t)
+: Pure t
+  (requires (tinv true x))
+  (ensures (fun y -> tinv false y))
+  (decreases (tmes x))
+= let y = body x in
+  let continue = tcontinue y in
+  if continue
+  then total_while_gen tmes tinv tcontinue body y
+  else y
+
+inline_for_extraction
+let total_while
+  (#t: Type)
+  (tmes: (t -> GTot nat))
+  (tinv: (bool -> t -> GTot Type0))
+  (body:
+    (x: t) ->
+    Pure (bool * t)
+    (requires (tinv true x))
+    (ensures (fun (continue, y) ->
+      tinv continue y /\ (
+      if continue then tmes y < tmes x else True)
+    )))
+  (x: t)
+: Pure t
+  (requires (tinv true x))
+  (ensures (fun y -> tinv false y))
+  (decreases (tmes x))
+= let (_, res) =
+    total_while_gen
+      (fun (_, x) -> tmes x)
+      (fun b (b_, x) -> b == b_ /\ tinv b x)
+      (fun (x, _) -> x)
+      (fun (_, x) -> body x)
+      (true, x)
+  in
+  res

@@ -53,11 +53,12 @@ let size_of (t: typ): size =
       I32
   | TAnonymous (Enum _) ->
       I32
-  | TQualified ([], ("string" | "Prims_string")) ->
-      (* The string type from the C module (which automatically gets
-       * -no-prefix), or an F* string literal. They're represented the same way,
-       * that is, a pointer to a string statically allocated in the data
-       * segment. *)
+  | TQualified ([], ("C_String_t" | "Prims_string")) ->
+      (* The string type from the C.String module, or an F* string literal.
+       * They're represented the same way, that is, a pointer to a string
+       * statically allocated in the data segment. *)
+      I32
+  | TQualified ([], "clock_t") ->
       I32
   | _ ->
       failwith (KPrint.bsprintf "size_of: this case should've been eliminated: %a" ptyp t)
@@ -422,6 +423,9 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EBufWrite _ ->
       failwith (KPrint.bsprintf "buffer write improperly desugared: %a" pexpr e)
 
+  | EBufFree _ ->
+      failwith "TODO: implement manual memory management"
+
   | EBool b ->
       locals, CF.Constant (K.Bool, if b then "1" else "0")
 
@@ -486,7 +490,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       (* Assignment into a stack-allocated variable. For assignment into
        * addresses, EBufWrite is used. *)
       begin match e1.typ, e2.node with
-      | TArray (_typ, _sizexp), (EBufCreate _ | EBufCreateL _) ->
+      | TArray (_typ, _sizexp), _ ->
           invalid_arg "this should've been desugared by Simplify.Wasm into let + blit"
       | _ ->
           let locals, e1 = mk_expr env locals e1 in
@@ -496,12 +500,30 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | ESwitch (e, branches) ->
       let locals, e = mk_expr env locals e in
+      let default, branches = List.partition (function (SWild, _) -> true | _ -> false) branches in
+      let locals, default = match default with
+        | [ SWild, e ] ->
+            let locals, e = mk_expr env locals e in
+            locals, Some e
+        | [] ->
+            locals, None
+        | _ ->
+            failwith "impossible"
+      in
       let locals, branches = fold (fun locals (i, e) ->
-        let i = CF.Constant (K.UInt32, string_of_int (LidMap.find i env.enums)) in
-        let locals, e = mk_expr env locals e in
-        locals, (i, e)
+        match i with
+        | SEnum i ->
+            let i = CF.Constant (K.UInt32, string_of_int (LidMap.find i env.enums)) in
+            let locals, e = mk_expr env locals e in
+            locals, (i, e)
+        | SConstant (w, s) ->
+            let i = CF.Constant (w, s) in
+            let locals, e = mk_expr env locals e in
+            locals, (i, e)
+        | SWild ->
+            failwith "impossible"
       ) locals branches in
-      locals, CF.Switch (e, branches)
+      locals, CF.Switch (e, branches, default)
 
   | EFor (b, e1, e2, e3, e4) ->
       let locals, e1 = mk_expr env locals e1 in
@@ -585,7 +607,8 @@ let mk_decl env (d: decl): CF.decl option =
       (* Not translating type declarations. *)
       None
 
-  | DGlobal (flags, name, typ, body) ->
+  | DGlobal (flags, name, n, typ, body) ->
+      assert (n = 0);
       let public = not (List.exists ((=) Common.Private) flags) in
       let size = size_of typ in
       if size = I64 then begin
@@ -596,7 +619,7 @@ let mk_decl env (d: decl): CF.decl option =
         let name = Idents.string_of_lident name in
         Some (CF.Global (name, size, body, public))
 
-  | DExternal (_, lid, t) ->
+  | DExternal (_, _, lid, t) ->
       let name = Idents.string_of_lident lid in
       match t with
       | TArrow _ ->
@@ -625,7 +648,7 @@ let mk_module env (name, decls) =
       (* Remove when everything starts working *)
       KPrint.beprintf "[AstToC♭] Couldn't translate %s%a%s:\n%s\n%s"
         Ansi.underline PrintAst.plid (lid_of_decl d) Ansi.reset (Printexc.to_string e)
-        (if Options.debug "cflat" then Printexc.get_backtrace () ^ "\n" else "");
+        (if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "");
       None
   ) decls
 

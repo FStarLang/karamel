@@ -111,13 +111,14 @@ let populate_env files =
               env
           in
           { env with types = M.add lid typ env.types }
-      | DGlobal (_, lid, t, _) ->
+      | DGlobal (_, lid, n, t, _) ->
+          assert (n = 0);
           { env with globals = M.add lid t env.globals }
       | DFunction (_, _, n, ret, lid, binders, _) ->
           assert (n = 0);
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
-      | DExternal (_, lid, typ) ->
+      | DExternal (_, _, lid, typ) ->
           { env with globals = M.add lid typ env.globals }
     ) env decls
   ) empty files
@@ -155,13 +156,15 @@ and check_program env r (name, decls) =
     | Error e ->
         if not (Drop.lid lid) then begin
           r := true;
-          Warnings.maybe_fatal_error e;
           if Options.debug "backtraces" then
             Printexc.print_backtrace stderr;
+          Warnings.maybe_fatal_error e;
           flush stdout;
-          KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
-            please consider using -drop\n\n"
-            plid (lid_of_decl d);
+          KPrint.beprintf "Cannot re-check %a, dropping this definition.\nIf this is normal \
+            and the function was not meant to be reachable, consider using \
+            KreMLin's [-d reachability] command-line flag to understand why %a \
+            is still in your call-graph.\n"
+            plid (lid_of_decl d) plid (lid_of_decl d);
           flush stderr
         end;
         None
@@ -181,9 +184,9 @@ and check_program env r (name, decls) =
         if not (Drop.lid lid) then begin
           r := true;
           let e = Printexc.to_string e in
-          Warnings.maybe_fatal_error ("<toplevel>", TypeError e);
           if Options.debug "backtraces" then
             Printexc.print_backtrace stderr;
+          Warnings.maybe_fatal_error ("<toplevel>", TypeError e);
           flush stdout;
           KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
             please consider using -drop\n\n"
@@ -216,7 +219,8 @@ and check_decl env d =
       let env = List.fold_left push env binders in
       let env = locate env (InTop name) in
       check env t body
-  | DGlobal (_, name, t, body) ->
+  | DGlobal (_, name, n, t, body) ->
+      assert (n = 0);
       let env = locate env (InTop name) in
       check env t body
   | DExternal _
@@ -242,8 +246,11 @@ and check env t e =
 and check' env t e =
   let c t' = check_subtype env t' t in
   match e.node with
-  | ETApp _ ->
-      assert false
+  | ETApp (e, _) ->
+      (* JP: is this code even reachable? *)
+      (* Equalities are type checked with Any *)
+      (match e.node with EOp ((K.Eq | K.Neq), _) -> () | _ -> assert false);
+      check env t e
 
   | EBound _
   | EOpen _
@@ -288,11 +295,14 @@ and check' env t e =
           List.iteri (fun i e -> check (locate env (Sequence i)) TUnit e) (List.rev rest);
           check (locate env SequenceLast) t last
       | [] ->
-          type_error env "Empty sequence"
+          ()
       end
 
-  | EBufCreate (_, e1, e2) ->
-      if env.warn && not (is_constant e2) then begin
+  | EBufCreate (lifetime, e1, e2) ->
+      (* "If the size is an integer constant expression and the element type has
+       * a known constant size, the array type is not a variable length array
+       * type" (C11 standard, §6.7.6.2 "Array Declarators"). *)
+      if env.warn && not (is_int_constant e2) && lifetime = Common.Stack then begin
         let e = KPrint.bsprintf "%a" pexpr e in
         let loc = KPrint.bsprintf "%a" ploc env.location in
         Warnings.(maybe_fatal_error (loc, Vla e))
@@ -335,6 +345,10 @@ and check' env t e =
   | EBufCreateL (_, es) ->
       let t = assert_buffer env t in
       List.iter (check env t) es
+
+  | EBufFree e ->
+      check env (TBuf TAny) e;
+      c TUnit
 
   | ETuple es ->
       let ts = assert_tuple env t in
@@ -405,31 +419,36 @@ and check' env t e =
           type_error env "Not a record %a" ptyp t
       end
 
-  | ESwitch (e, branches) ->
-      begin match expand_abbrev env (infer env e) with
-      | TQualified lid ->
-          List.iter (fun (tag, e) ->
-            check env t e;
-            if not (M.find tag env.enums = lid) then
-              type_error env "scrutinee has type %a but tag %a does not belong to \
-                this type" plid lid plid tag
-          ) branches
-
-      | TAnonymous (Enum tags) as t' ->
-          List.iter (fun (tag, e) ->
-            check env t e;
-            if not (List.exists ((=) tag) tags) then
-              type_error env "scrutinee has type %a but tag %a does not belong to \
-                this type" ptyp t' plid tag
-          ) branches
-
-      | t ->
-          type_error env "cannot switch on element of type %a" ptyp t
-      end
+  | ESwitch (scrut, branches) ->
+      let t_scrut = expand_abbrev env (infer env scrut) in
+      List.iter (fun (c, e) ->
+        check_case env c t_scrut;
+        check env t e
+      ) branches;
 
   | EAddrOf e ->
       let t = infer env e in
       c (TBuf t)
+
+and check_case env c t =
+  match c, t with
+  | SWild, _ ->
+      ()
+  | SEnum tag, TQualified lid ->
+      if not (M.find tag env.enums = lid) then
+        type_error env "scrutinee has type %a but tag %a does not belong to \
+          this type" plid lid plid tag
+  | SEnum tag, TAnonymous (Enum tags) ->
+      if not (List.mem tag tags) then
+        type_error env "scrutinee has type %a but tag %a does not belong to \
+          this type" ptyp t plid tag
+  | SConstant (w, _), TInt w' ->
+      if w <> w' then
+        type_error env "scrutinee has type %a but switch case is an %a \
+          this type" ptyp t pwidth w
+  | _ ->
+      type_error env "case %a cannot switch on element of type %a" pcase c ptyp t
+
 
 and args_of_branch env t ident =
   match expand_abbrev env t with
@@ -468,8 +487,14 @@ and best_buffer_type t1 e2 =
 
 and infer' env e =
   match e.node with
-  | ETApp _ ->
-      assert false
+  | ETApp (e, t) ->
+      begin match e.node with
+      | EOp ((K.Eq | K.Neq), _) ->
+          let t = KList.one t in
+          TArrow (t, TArrow (t, TBool))
+      | _ ->
+          assert false
+      end
 
   | EBound i ->
       begin try
@@ -574,6 +599,10 @@ and infer' env e =
       check env uint32 len;
       TUnit
 
+  | EBufFree e ->
+      ignore (infer_buffer env e);
+      TUnit
+
   | EOp (op, w) ->
       begin try
         type_of_op op w
@@ -637,9 +666,11 @@ and infer' env e =
       infer_branches env t_scrut bs
 
   | EFlat fieldexprs ->
-      TAnonymous (Flat (List.map (fun (f, e) ->
-        f, (infer env e, false)
-      ) fieldexprs))
+      prefer_nominal
+        e.typ 
+        (TAnonymous (Flat (List.map (fun (f, e) ->
+          f, (infer env e, false)
+        ) fieldexprs)))
 
   | EField (e, field) ->
       (** Structs and unions have fields; they may be typed structurally or
@@ -668,28 +699,12 @@ and infer' env e =
       end
 
   | ESwitch (e, branches) ->
-      begin match expand_abbrev env (infer env e) with
-      | TQualified lid ->
-          infer_and_check_eq env (fun (tag, e) ->
-            let env = locate env (Branch tag) in
-            if not (M.find tag env.enums = lid) then
-              type_error env "scrutinee has type %a but tag %a does not belong to \
-                this type" plid lid plid tag;
-            infer env e
-          ) branches
-
-      | TAnonymous (Enum tags) as t ->
-          infer_and_check_eq env (fun (tag, e) ->
-            let env = locate env (Branch tag) in
-            if not (List.exists ((=) tag) tags) then
-              type_error env "scrutinee has type %a but tag %a does not belong to \
-                this type" ptyp t plid tag;
-            infer env e
-          ) branches
-
-      | t ->
-          type_error env "cannot switch on element of type %a" ptyp t
-      end
+      let t_scrut = expand_abbrev env (infer env e) in
+      infer_and_check_eq env (fun (c, e) ->
+        let env = locate env (Branch c) in
+        check_case env c t_scrut;
+        infer env e
+      ) branches
 
   | EComment (_, e, _) ->
       infer env e
@@ -853,6 +868,10 @@ and check_pat env t_context pat =
       check_pat env t p;
       pat.typ <- t_context;
 
+  | PConstant (w, _) ->
+      check_subtype env t_context (TInt w);
+      pat.typ <- TInt w
+
 
 and assert_tuple env t =
   match expand_abbrev env t with
@@ -880,7 +899,7 @@ and assert_qualified env t =
   | TQualified lid ->
       lid
   | _ ->
-      fatal_error "%a, expected a provided type annotation" ploc env.location
+      fatal_error "%a, expected a provided type annotation, got %a" ploc env.location ptyp t
 
 and assert_buffer env t =
   match expand_abbrev env t with

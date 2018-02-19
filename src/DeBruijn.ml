@@ -8,7 +8,7 @@ open Ast
 
 class map_counting = object
   (* The environment [i] has type [int]. *)
-  inherit [int] map
+  inherit [_] map
   (* The environment [i] keeps track of how many binders have been
      entered. It is incremented at each binder. *)
   method! extend i (_: binder) =
@@ -17,7 +17,7 @@ end
 
 class map_t_counting = object
   (* The environment [i] has type [int]. *)
-  inherit [int] map
+  inherit [_] map
   (* The environment [i] keeps track of how many binders have been
      entered. It is incremented at each binder. *)
   method! extend_t i =
@@ -32,7 +32,7 @@ class lift (k: int) = object
   inherit map_counting
   (* A local variable (one that is less than [i]) is unaffected;
      a free variable is lifted up by [k]. *)
-  method! ebound i _ j =
+  method! visit_EBound (i, _) j =
     if j < i then
       EBound j
     else
@@ -43,11 +43,11 @@ let lift (k: int) (expr: expr): expr =
   if k = 0 then
     expr
   else
-    (new lift k)#visit 0 expr
+    (new lift k)#visit_expr_w 0 expr
 
 class lift_t (k: int) = object
   inherit map_t_counting
-  method! tbound i j =
+  method! visit_TBound i j =
     if j < i then
       TBound j
     else
@@ -58,11 +58,11 @@ let lift_t (k: int) (typ: typ): typ =
   if k = 0 then
     typ
   else
-    (new lift_t k)#visit_t 0 typ
+    (new lift_t k)#visit_typ 0 typ
 
 class lift_p (k: int) = object
   inherit map_counting
-  method! pbound i _ j =
+  method! visit_PBound (i, _) j =
     if j < i then
       PBound j
     else
@@ -73,7 +73,7 @@ let lift_p (k: int) (pat: pattern): pattern =
   if k = 0 then
     pat
   else
-    (new lift_p k)#visit_pattern 0 pat
+    (new lift_p k)#visit_pattern_w 0 pat
 
 (* ---------------------------------------------------------------------------- *)
 
@@ -82,12 +82,12 @@ let lift_p (k: int) (pat: pattern): pattern =
 let subst_no_open (e2: expr) (i: int) (e1: expr) =
   (object
     inherit map_counting
-    method! ebound i _ j =
+    method! visit_EBound (i, _) j =
       if j = i then
         (lift i e2).node
       else
         EBound j
-  end)#visit i e1
+  end)#visit_expr_w i e1
 
 (* ---------------------------------------------------------------------------- *)
 
@@ -98,7 +98,7 @@ class subst (e2: expr) = object
   inherit map_counting
   (* The target variable [i] is replaced with [t2]. Any other
      variable is unaffected. *)
-  method! ebound i _ j =
+  method! visit_EBound (i, _) j =
     if j = i then
       (lift i e2).node
     else
@@ -106,7 +106,7 @@ class subst (e2: expr) = object
 end
 
 let subst (e2: expr) (i: int) (e1: expr) =
-  (new subst e2)#visit i e1
+  (new subst e2)#visit_expr_w i e1
 
 let subst_n e es =
   let l = List.length es in
@@ -122,7 +122,7 @@ class subst_t (t2: typ) = object
   inherit map_t_counting
   (* The target variable [i] is replaced with [t2]. Any other
      variable is unaffected. *)
-  method! tbound i j =
+  method! visit_TBound i j =
     if j = i then
       lift_t i t2
     else
@@ -130,7 +130,7 @@ class subst_t (t2: typ) = object
 end
 
 let subst_te (t2: typ) (i: int) (e1: expr) =
-  (new subst_t t2)#visit i e1
+  (new subst_t t2)#visit_expr_w i e1
 
 let subst_ten ts e =
   let l = List.length ts in
@@ -140,7 +140,7 @@ let subst_ten ts e =
   ) e ts
 
 let subst_t (t2: typ) (i: int) (t1: typ) =
-  (new subst_t t2)#visit_t i t1
+  (new subst_t t2)#visit_typ i t1
 
 let subst_tn ts t =
   let l = List.length ts in
@@ -154,7 +154,7 @@ class subst_p (p2: pattern) = object
   inherit map_counting
   (* The target variable [i] is replaced with [t2]. Any other
      variable is unaffected. *)
-  method! pbound i _ j =
+  method! visit_PBound (i, _) j =
     if j = i then
       (lift_p i p2).node
     else
@@ -162,7 +162,7 @@ class subst_p (p2: pattern) = object
 end
 
 let subst_p (p2: pattern) (i: int) (p1: pattern) =
-  (new subst_p p2)#visit_pattern i p1
+  (new subst_p p2)#visit_pattern_w i p1
 
 (* ---------------------------------------------------------------------------- *)
 
@@ -171,13 +171,13 @@ let subst_p (p2: pattern) (i: int) (p1: pattern) =
 class close (atom': Atom.t) = object
   inherit map_counting
 
-  method! eopen i _ name atom =
+  method! visit_EOpen (i, _) name atom =
     if Atom.equal atom atom' then
       EBound i
     else
       EOpen (name, atom)
 
-  method! popen i _ name atom =
+  method! visit_POpen (i, _) name atom =
     if Atom.equal atom atom' then
       PBound i
     else
@@ -185,10 +185,10 @@ class close (atom': Atom.t) = object
 end
 
 let close (a: Atom.t) (i: int) (e: expr) =
-  (new close a)#visit i e
+  (new close a)#visit_expr_w i e
 
 let close_p (a: Atom.t) (i: int) (e: pattern) =
-  (new close a)#visit_pattern i e
+  (new close a)#visit_pattern_w i e
 
 let closing_binder b e =
   close b.node.atom 0 (lift 1 e)

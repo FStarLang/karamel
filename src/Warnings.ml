@@ -18,8 +18,10 @@ and raw_error =
   | LostStatic of string option * lident * string option * lident
   | LostInline of string option * lident * string option * lident
   | MustCallKrmlInit
+  | Deprecated of string * string
   | NotLowStar of expr
   | NotWasmCompatible of lident * string
+  | DropDeclaration of lident * string
 
 and location =
   string
@@ -53,7 +55,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 13 CError;;
+let flags = Array.make 14 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -80,10 +82,14 @@ let errno_of_error = function
       8
   | MustCallKrmlInit ->
       9
+  | Deprecated _ ->
+      10
   | NotLowStar _ ->
       11
   | NotWasmCompatible _ ->
       12
+  | DropDeclaration _ ->
+      13
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -117,7 +123,7 @@ let rec perr buf (loc, raw_error) =
         plid lid
   | Vla id ->
       p "%s is a non-constant size, stack-allocated array; this is not supported \
-        by CompCert" id
+        by CompCert and requires the use of alloca(3) for MSVC" id
   | LostStatic (file1, lid1, file2, lid2) ->
       p "After inlining, %a (going into %s) calls %a (going into %s) -- removing the static qualifier from %a"
         plid lid1 (p_file file1) plid lid2 (p_file file2) plid lid2
@@ -136,6 +142,15 @@ let rec perr buf (loc, raw_error) =
       p "this expression is not Low*; the enclosing function cannot be translated into C*: %a" pexpr e
   | NotWasmCompatible (lid, reason) ->
       p "%a cannot be compiled to wasm (%s)" plid lid reason
+  | Deprecated (feature, reason) ->
+      p "%s is deprecated\n  %s" feature reason
+  | DropDeclaration (lid, file) ->
+      p "%a, a monomorphic instance, is first used, and therefore inserted, in \
+        file %s which is about to be dropped; you may get a C compiler error about %s \
+        if any other module uses this definition"
+        plid lid
+        file
+        Idents.(to_c_identifier (string_of_lident lid))
 
 
 let maybe_fatal_error error =
