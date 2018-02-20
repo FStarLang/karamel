@@ -75,10 +75,9 @@ let write_c files =
     let prefix = string (Printf.sprintf "%s\n\n#include \"%s.h\"" header name) in
     let prefix =
       if !Options.add_include_tmh then
-        prefix ^^ hardline ^^ hardline ^^
         string "#ifdef WPP_CONTROL_GUIDS" ^^ hardline ^^
         string (Printf.sprintf "#include <%s.tmh>" name) ^^ hardline ^^
-        string "#endif"
+        string "#endif" ^^ hardline ^^ prefix
       else
         prefix
     in
