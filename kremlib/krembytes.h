@@ -252,8 +252,14 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
 static inline Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes s) {
   char *str = KRML_HOST_MALLOC(s.length * 2 + 1);
   CHECK(str);
+#if defined(_MSC_VER)
+  for (size_t i = 0; i < s.length; ++i) {
+    sprintf_s(str + 2 * i, 3, "%02" PRIx8, (uint8_t) (s.data[i] & 0xFF));
+  }
+#else
   for (size_t i = 0; i < s.length; ++i)
     sprintf(str + 2 * i, "%02" PRIx8, (uint8_t) (s.data[i] & 0xFF));
+#endif
   str[s.length * 2] = 0;
   return str;
 }
