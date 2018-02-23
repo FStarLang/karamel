@@ -32,6 +32,7 @@ let rec token = lexer
     end
 | "." -> locate lexbuf DOT
 | "@" -> locate lexbuf AT
+| "!" -> locate lexbuf STAR
 | "-" -> locate lexbuf MINUS
 | "+" -> locate lexbuf PLUS
 | "," -> locate lexbuf COMMA
