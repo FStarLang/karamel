@@ -103,13 +103,14 @@ The default is %s and the available warnings are:
   12: cannot be compiled to Wasm
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
-where the Api= part is optional and a pattern is either Foo.Bar (exact match) or
-Foo.Baz.* (prefix). The semantics are as follows: all the modules that match a
-pattern are grouped into a single C translation unit, and their declarations are
-marked as static, inasmuch as cross-translation unit calls permit. If the Api=
-part is present, then the module named Api must be found within the
-set of input files, and its declarations are appended to the translation unit
-without any visibility modifications.
+The Api= part is optional and Api is made up of a non-empty list of modules
+separated by + (for instance: Interface1+Interface2). A pattern is either Foo.Bar
+(exact match) or Foo.Baz.* (prefix). The semantics are as follows: all the
+modules that match a pattern are grouped into a single C translation unit, and
+their declarations are marked as static, inasmuch as cross-translation unit
+calls permit. If the Api= part is present, then the module named Api must be
+found within the set of input files, and its declarations are appended to the
+translation unit without any visibility modifications.
 
 The default arguments are: %s
 
