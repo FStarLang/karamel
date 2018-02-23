@@ -929,8 +929,10 @@ end
   *)
 
 let tail_calls =
-  let exception NotTailCall in
-  let exception NothingToTailCall in
+  let module T = struct
+    exception NotTailCall
+    exception NothingToTailCall
+  end in
 
   (* Transform an expression into a unit assignment to either the mutable
    * parameters, or the destination. *)
@@ -940,7 +942,7 @@ let tail_calls =
       inherit [_] iter
       method! visit_EQualified _ lid' =
         if lid = lid' then
-          raise NotTailCall
+          raise T.NotTailCall
     end)#visit_expr_w () in
 
     let found = ref false in
@@ -979,7 +981,7 @@ let tail_calls =
 
     let e = make_tail_calls e in
     if not !found then
-      raise NothingToTailCall;
+      raise T.NothingToTailCall;
     e
   in
 
@@ -1004,10 +1006,10 @@ let tail_calls =
         in
         DFunction (cc, flags, n, ret, name, binders, body)
       with
-      | NotTailCall ->
+      | T.NotTailCall ->
           Warnings.(maybe_fatal_error ("", NotTailCall name));
           DFunction (cc, flags, n, ret, name, binders, body)
-      | NothingToTailCall ->
+      | T.NothingToTailCall ->
           DFunction (cc, flags, n, ret, name, binders, body)
   end in
 

@@ -9,7 +9,7 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
 fi
 
 export OPAMYES=true
-opam init --switch 4.05.0
+opam init
 eval $(opam config env)
 opam install batteries sqlite3 fileutils stdint zarith yojson pprint \
   ppx_deriving_yojson menhir ulex process fix wasm visitors
