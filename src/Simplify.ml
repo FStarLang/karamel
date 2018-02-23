@@ -919,13 +919,13 @@ end
 (** Essentially:
   *
   *                               let f x0 y0 =
-  * let f x y =                     let mut ret = any and x = x0 and y = y0 in
+  * let f x y =                     let x = x0 and y = y0 in
   *   if ... then        ----->     while true
   *     f e1 e2                       if ... then
   *   else                              x <- e1; y <- e2
   *     e3                            else
-  *                                     ret <- e3; break
-  *                                 ret
+  *                                     return e3
+  *                                 failwith "unreachable"
   *)
 
 let tail_calls =
@@ -934,7 +934,7 @@ let tail_calls =
 
   (* Transform an expression into a unit assignment to either the mutable
    * parameters, or the destination. *)
-  let make_tail_calls lid x_ret x_args e =
+  let make_tail_calls lid a_args e =
 
     let fail_if_self_call = (object
       inherit [_] iter
@@ -964,14 +964,16 @@ let tail_calls =
 
         | EApp ({ node = EQualified lid'; _ }, args) when lid' = lid ->
             found := true;
-            ESequence (List.map2 (fun x arg -> with_unit (EAssign (x, arg))) x_args args)
+            ESequence (List.map2 (fun x arg -> with_unit (EAssign (x, arg))) a_args args)
+
+        | ESequence es ->
+            let es, last = KList.split_at_last es in
+            List.iter fail_if_self_call es;
+            ESequence (es @ [ make_tail_calls last ])
 
         | _ ->
             fail_if_self_call e;
-            ESequence [
-              with_unit (EAssign (x_ret, e));
-              with_unit EBreak
-            ]
+            EReturn e
       )
     in
 
@@ -986,7 +988,6 @@ let tail_calls =
 
     method! visit_DFunction () cc flags n ret name binders body =
       try
-        let x_ret, a_ret = Helpers.mk_binding ~mut:true "ret" ret in
         let x_args = List.map (fun b -> Helpers.fresh_binder ~mut:true b.node.name b.typ) binders in
         let x_args, body = DeBruijn.open_binders x_args body in
         let a_args = List.map DeBruijn.term_of_binder x_args in
@@ -994,18 +995,17 @@ let tail_calls =
           { b with node = { b.node with name = b.node.name ^ "0" } }) binders
         in
         let l = List.length x_args in
-        let state = (x_ret, any) :: List.mapi (fun i b ->
-          b, with_type b.typ (EBound (l - 1 - i))) x_args
-        in
+        let state = List.mapi (fun i b -> b, with_type b.typ (EBound (l - 1 - i))) x_args in
         let body =
           nest state ret (with_type ret (ESequence [
-            with_unit (EWhile (etrue, make_tail_calls name a_ret a_args body));
-            a_ret
+            with_unit (EWhile (etrue, make_tail_calls name a_args body));
+            with_type ret (EAbort (Some "unreachable, returns inserted above"))
           ]))
         in
         DFunction (cc, flags, n, ret, name, binders, body)
       with
       | NotTailCall ->
+          Warnings.(maybe_fatal_error ("", NotTailCall name));
           DFunction (cc, flags, n, ret, name, binders, body)
       | NothingToTailCall ->
           DFunction (cc, flags, n, ret, name, binders, body)

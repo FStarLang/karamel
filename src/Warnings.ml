@@ -22,6 +22,7 @@ and raw_error =
   | NotLowStar of expr
   | NotWasmCompatible of lident * string
   | DropDeclaration of lident * string
+  | NotTailCall of lident
 
 and location =
   string
@@ -55,7 +56,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 14 CError;;
+let flags = Array.make 15 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -90,6 +91,8 @@ let errno_of_error = function
       12
   | DropDeclaration _ ->
       13
+  | NotTailCall _ ->
+      14
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -151,6 +154,8 @@ let rec perr buf (loc, raw_error) =
         plid lid
         file
         Idents.(to_c_identifier (string_of_lident lid))
+  | NotTailCall lid ->
+      p "%a is recursive but cannot be optimized to a tail-call" plid lid
 
 
 let maybe_fatal_error error =
