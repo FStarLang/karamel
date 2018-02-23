@@ -526,7 +526,6 @@ Supported options:|}
   let files = Structs.collect_initializers files in
   let files = Simplify.remove_unused files in
   let files = if !Options.tail_calls then Simplify.tail_calls files else files in
-    print PrintAst.print_files files;
   let files = Simplify.simplify2 files in
   let files = Inlining.cross_call_analysis files in
   let files = if !Options.wasm then SimplifyWasm.compile_copy_assignments files else files in
