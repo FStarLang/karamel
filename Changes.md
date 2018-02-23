@@ -1,3 +1,8 @@
+### Feb 23rd, 2018
+
+- New -ftail-calls option, which compiles tail-calls to while-loops, for
+  compilers such as MSVC that hardly ever perform tail-call optimization.
+
 ### Feb 8th, 2018
 
 - New -diagnostics option to get a report on things not Low*.

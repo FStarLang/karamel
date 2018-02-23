@@ -913,6 +913,107 @@ let replace_references_to_toplevel_names = object
     t lident
 end
 
+
+(* Compile tail-calls into loops *********************************************)
+
+(** Essentially:
+  *
+  *                               let f x0 y0 =
+  * let f x y =                     let mut ret = any and x = x0 and y = y0 in
+  *   if ... then        ----->     while true
+  *     f e1 e2                       if ... then
+  *   else                              x <- e1; y <- e2
+  *     e3                            else
+  *                                     ret <- e3; break
+  *                                 ret
+  *)
+
+let tail_calls =
+  let exception NotTailCall in
+  let exception NothingToTailCall in
+
+  (* Transform an expression into a unit assignment to either the mutable
+   * parameters, or the destination. *)
+  let make_tail_calls lid x_ret x_args e =
+
+    let fail_if_self_call = (object
+      inherit [_] iter
+      method! visit_EQualified _ lid' =
+        if lid = lid' then
+          raise NotTailCall
+    end)#visit_expr_w () in
+
+    let found = ref false in
+
+    let rec make_tail_calls e =
+      with_unit (match e.node with
+        | EMatch _ ->
+            failwith "must run after pattern match compilation"
+
+        | ELet (b, e1, e2) ->
+            fail_if_self_call e1;
+            ELet (b, e1, make_tail_calls e2)
+
+        | ESwitch (e, branches) ->
+            fail_if_self_call e;
+            ESwitch (e, List.map (fun (case, e) -> case, make_tail_calls e) branches)
+
+        | EIfThenElse (e1, e2, e3) ->
+            fail_if_self_call e1;
+            EIfThenElse (e1, make_tail_calls e2, make_tail_calls e3)
+
+        | EApp ({ node = EQualified lid'; _ }, args) when lid' = lid ->
+            found := true;
+            ESequence (List.map2 (fun x arg -> with_unit (EAssign (x, arg))) x_args args)
+
+        | _ ->
+            fail_if_self_call e;
+            ESequence [
+              with_unit (EAssign (x_ret, e));
+              with_unit EBreak
+            ]
+      )
+    in
+
+    let e = make_tail_calls e in
+    if not !found then
+      raise NothingToTailCall;
+    e
+  in
+
+  let tail_calls = object (_)
+    inherit [_] map
+
+    method! visit_DFunction () cc flags n ret name binders body =
+      try
+        let x_ret, a_ret = Helpers.mk_binding ~mut:true "ret" ret in
+        let x_args = List.map (fun b -> Helpers.fresh_binder ~mut:true b.node.name b.typ) binders in
+        let x_args, body = DeBruijn.open_binders x_args body in
+        let a_args = List.map DeBruijn.term_of_binder x_args in
+        let binders = List.map (fun b ->
+          { b with node = { b.node with name = b.node.name ^ "0" } }) binders
+        in
+        let l = List.length x_args in
+        let state = (x_ret, any) :: List.mapi (fun i b ->
+          b, with_type b.typ (EBound (l - 1 - i))) x_args
+        in
+        let body =
+          nest state ret (with_type ret (ESequence [
+            with_unit (EWhile (etrue, make_tail_calls name a_ret a_args body));
+            a_ret
+          ]))
+        in
+        DFunction (cc, flags, n, ret, name, binders, body)
+      with
+      | NotTailCall ->
+          DFunction (cc, flags, n, ret, name, binders, body)
+      | NothingToTailCall ->
+          DFunction (cc, flags, n, ret, name, binders, body)
+  end in
+
+  tail_calls#visit_files ()
+
+
 (* Extend the lifetimes of buffers ********************************************)
 
 (** This function hoists let-buffers up to the nearest enclosing push_frame so

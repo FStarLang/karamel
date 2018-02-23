@@ -226,6 +226,8 @@ Supported options:|}
       __uint128";
     "-fnocompound-literals", Arg.Unit (fun () -> Options.compound_literals := `Never),
       "  don't generate C11 compound literals";
+    "-ftail-calls", Arg.Set Options.tail_calls, "  statically compile tail-calls \
+      into loops";
     "-funroll-loops", Arg.Set_int Options.unroll_loops, "  textually expand \
       loops smaller than N";
     "-fparentheses", Arg.Set Options.parentheses, "  add unnecessary parentheses \
@@ -520,6 +522,7 @@ Supported options:|}
   in
   let files = Structs.collect_initializers files in
   let files = Simplify.remove_unused files in
+  let files = if !Options.tail_calls then Simplify.tail_calls files else files in
   let files = Simplify.simplify2 files in
   let files = Inlining.cross_call_analysis files in
   let files = if !Options.wasm then SimplifyWasm.compile_copy_assignments files else files in

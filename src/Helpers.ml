@@ -141,9 +141,9 @@ let sequence_binding () = with_type TUnit {
 
 let unused_binding = sequence_binding
 
-let mk_binding name t =
+let mk_binding ?(mut=false) name t =
   let b = fresh_binder name t in
-  b,
+  { b with node = { b.node with mut } },
   { node = EOpen (b.node.name, b.node.atom); typ = t }
 
 (** Generates "let [[name]]: [[t]] = [[e]] in [[name]]" *)
