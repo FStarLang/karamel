@@ -13,7 +13,7 @@ opam init
 eval $(opam config env)
 
 git clone https://github.com/project-everest/everest
-./everest/everest opam z3
+./everest/everest --yes opam z3
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   wget https://www.dropbox.com/s/r1uj2cqifhz50ri/d8.tar.bz2?dl=0 -O d8.tar.bz2
