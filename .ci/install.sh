@@ -11,13 +11,11 @@ fi
 export OPAMYES=true
 opam init
 eval $(opam config env)
-opam install batteries sqlite3 fileutils stdint zarith yojson pprint \
-  ppx_deriving_yojson menhir ulex process fix wasm visitors
+
+git clone https://github.com/project-everest/everest
+./everest/everest opam z3
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-  export Z3=z3-4.4.1-x64-ubuntu-14.04;
-  wget https://github.com/Z3Prover/z3/releases/download/z3-4.4.1/$Z3.zip;
-  unzip $Z3.zip;
   wget https://www.dropbox.com/s/r1uj2cqifhz50ri/d8.tar.bz2?dl=0 -O d8.tar.bz2
   tar xjvf d8.tar.bz2
 fi
