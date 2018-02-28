@@ -55,8 +55,12 @@ assume val clock: unit -> Stack clock_t
 // C stdlib; the order of these constructors matters for Wasm
 type exit_code = | EXIT_SUCCESS | EXIT_FAILURE
 
-// DEPRECATED
+[@(deprecated "lowercase variants of exit_{success,failure} are deprecated, use \
+  EXIT_SUCCESS and EXIT_FAILURE instead")]
 let exit_success : Int32.t = Int32.int_to_t 0
+
+[@(deprecated "lowercase variants of exit_{success,failure} are deprecated, use \
+    EXIT_SUCCESS and EXIT_FAILURE instead")]
 let exit_failure : Int32.t = Int32.int_to_t 1
 
 // Debugging
