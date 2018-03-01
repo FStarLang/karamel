@@ -23,6 +23,8 @@ let rec filter_map f l =
       | None ->
           filter_map f l
 
+let filter_some l = filter_map (fun x -> x) l
+
 let rec filter_mask mask l =
   match mask, l with
   | true :: mask, x :: l ->

@@ -966,7 +966,13 @@ let tail_calls =
 
         | EApp ({ node = EQualified lid'; _ }, args) when lid' = lid ->
             found := true;
-            ESequence (List.map2 (fun x arg -> with_unit (EAssign (x, arg))) a_args args)
+            ESequence (KList.filter_some (List.map2 (fun x arg ->
+              (* Don't generate x = x as this is oftentimes a fatal warning. *)
+              if x = arg then
+                None
+              else
+                Some (with_unit (EAssign (x, arg)))
+            ) a_args args))
 
         | ESequence es ->
             let es, last = KList.split_at_last es in
