@@ -41,11 +41,11 @@ let cp dst src = with_open_out dst (fun oc ->
 
 let read ic =
   let buf = Buffer.create 4096 in
-  let s = String.create 2048 in
+  let s = Bytes.create 2048 in
   while begin
-    let l = input ic s 0 (String.length s) in
+    let l = input ic s 0 (Bytes.length s) in
     if l > 0 then begin
-      Buffer.add_string buf (String.sub s 0 l);
+      Buffer.add_bytes buf (Bytes.sub s 0 l);
       true
     end else begin
       false
@@ -80,4 +80,3 @@ let parse the_parser arg =
     the_parser (fun _ -> Lexer.token lexbuf)
   with Ulexing.Error | Parser.Error ->
     failwith ("Syntax error: " ^ arg)
-
