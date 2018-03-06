@@ -73,16 +73,18 @@ let wait_for_false (n:UInt32.t{UInt32.v n > 0}) : Stack UInt32.t
   assert (False);
   count
 
+let inv (b: Buffer.buffer UInt32.t) (h: FStar.HyperStack.mem): Type0 =
+  Buffer.live h b
+
 let square_while () =
   let open C.Nullity in
   let open FStar.UInt32 in
   let b = Buffer.createL [ 0ul; 1ul; 2ul ] in
   let r = Buffer.createL [ 0ul ] in
-  let inv h = Buffer.live h b in
-  let test (): Stack bool (requires inv) (ensures (fun _ _ -> inv)) =
+  let test (): Stack bool (requires (inv b)) (ensures (fun _ _ -> (inv b))) =
     !*r <> 2ul
   in
-  let body (): Stack unit (requires inv) (ensures (fun _ _ -> inv)) =
+  let body (): Stack unit (requires (inv b)) (ensures (fun _ _ -> (inv b))) =
     b.(!*r) <- b.(!*r) *%^ b.(!*r);
     r.(0ul) <- !*r +%^ 1ul
   in
