@@ -568,7 +568,8 @@ Supported options:|}
     (* Runtime support files first. *)
     let is_support, rest = List.partition (fun (name, _) -> name = "WasmSupport") files in
     if List.length is_support = 0 then
-      Warnings.fatal_error "The module WasmSupport wasn't passed to kremlin!";
+      Warnings.fatal_error "The module WasmSupport wasn't passed to kremlin or \
+        was hidden in a bundle!";
     let files = is_support @ rest in
 
     (* The Wasm backend diverges here. We go to [CFlat] (an expression
