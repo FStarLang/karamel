@@ -115,7 +115,8 @@ let populate_env files =
           assert (n = 0);
           { env with globals = M.add lid t env.globals }
       | DFunction (_, _, n, ret, lid, binders, _) ->
-          assert (n = 0);
+          if n <> 0 then
+            Warnings.fatal_error "%a is polymorphic\n" plid lid;
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
       | DExternal (_, _, lid, typ) ->

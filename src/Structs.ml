@@ -300,7 +300,6 @@ end
 let pass_by_ref files =
   let is_struct = mk_is_struct files in
   let action_table = mk_action_table is_struct files in
-  debug_action_table action_table;
   (pass_by_ref is_struct action_table)#visit_files [] files
 
 
