@@ -168,7 +168,7 @@ FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n) {
   return b;
 }
 
-// TODO: how about -fnostruct-passing
+#ifdef KRML_NOSTRUCT_PASSING
 static inline uint128_t
 FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs) {
   uint128_t res = FStar_Int_Cast_Full_uint64_to_uint128(UINT64_C(0));
@@ -178,6 +178,12 @@ FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs) {
   }
   return res;
 }
+#else
+void FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs, uint128_t *dst) {
+  KRML_HOST_EPRINTF("FStar_Bytes_uint128_of_bytes: not implemented\n");
+  KRML_HOST_EXIT(251);
+}
+#endif
 
 static inline krml_checked_int_t
 FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs) {
