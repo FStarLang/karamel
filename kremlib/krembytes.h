@@ -169,6 +169,11 @@ FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n) {
 }
 
 #ifdef KRML_NOSTRUCT_PASSING
+void FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs, uint128_t *dst) {
+  KRML_HOST_EPRINTF("FStar_Bytes_uint128_of_bytes: not implemented\n");
+  KRML_HOST_EXIT(251);
+}
+#else
 static inline uint128_t
 FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs) {
   uint128_t res = FStar_Int_Cast_Full_uint64_to_uint128(UINT64_C(0));
@@ -177,11 +182,6 @@ FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs) {
     res = FStar_UInt128_logxor(res, FStar_Int_Cast_Full_uint64_to_uint128(bs.data[i] & 0xFF));
   }
   return res;
-}
-#else
-void FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs, uint128_t *dst) {
-  KRML_HOST_EPRINTF("FStar_Bytes_uint128_of_bytes: not implemented\n");
-  KRML_HOST_EXIT(251);
 }
 #endif
 
