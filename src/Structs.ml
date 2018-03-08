@@ -145,9 +145,8 @@ let pass_by_ref is_struct = object (self)
     (* Step 1: open all the binders *)
     let binders, body = DeBruijn.open_binders binders body in
 
-    let ret_is_struct, args_are_structs =
-      analyze_function_type is_struct (Helpers.fold_arrow (List.map (fun x -> x.typ) binders) ret)
-    in
+    let ret_is_struct = is_struct ret in
+    let args_are_structs = List.map (fun x -> is_struct x.typ) binders in
 
     (* Step 2: rewrite the types of the arguments to take pointers to structs *)
     let binders = List.map2 (fun binder is_struct ->

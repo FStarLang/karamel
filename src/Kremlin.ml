@@ -396,7 +396,7 @@ Supported options:|}
     | "FStar_Int63" | "FStar_UInt63" | "FStar_Int64" | "FStar_UInt64"
     | "FStar_Int128" | "FStar_HyperStack_ST" | "FStar_Monotonic_HyperHeap"
     | "FStar_Buffer" | "FStar_Monotonic_HyperStack" | "FStar_Monotonic_Heap"
-    | "C_String" ->
+    | "C_String" | "FStar_Dyn" ->
         false
     | "FStar_UInt128" ->
         (* Keep if we don't use the uint128 type. *)
