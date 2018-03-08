@@ -232,7 +232,8 @@ let nullity: decl list =
   (* Poor man's substitute to polymorphic assumes ... this needs to be here to
    * provide proper typing when is_null is in match position. *)
   [
-    mk_val [ "C"; "Nullity" ] "is_null" (TArrow (TBuf TAny, TBool))
+    mk_val [ "C"; "Nullity" ] "is_null" (TArrow (TBuf TAny, TBool));
+    mk_val [ "C"; "Nullity" ] "null" (TArrow (TAny, TBuf TAny))
   ]
 
 let augment files =
