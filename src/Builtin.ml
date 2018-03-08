@@ -180,23 +180,23 @@ let monotonic_hh: file =
 
 let hs: file =
   "FStar_HyperStack_ST", [
-    DFunction (None, [ Common.Private; Common.Substitute ], 0, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "new_region"),
       [ fresh_binder "x" TUnit ],
       with_unit (EBound 0));
-    DFunction (None, [ Common.Private; Common.Substitute ], 0, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "new_colored_region"),
       [ fresh_binder "x" TUnit; fresh_binder "x" (TInt K.CInt) ],
       with_unit (EBound 1));
-    DFunction (None, [ Common.Private; Common.Substitute ], 0, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "recall"),
       [ fresh_binder "x" TAny ],
       eunit);
-    DFunction (None, [ Common.Private; Common.Substitute ], 0, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "recall_region"),
       [ fresh_binder "x" TUnit ],
       with_unit (EBound 0));
-    DFunction (None, [ Common.Private; Common.Substitute ], 0, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "mr_witness"),
       [
         fresh_binder "x" TUnit;

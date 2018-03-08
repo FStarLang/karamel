@@ -100,10 +100,6 @@ static inline Prims_string FStar_UInt8_to_string(uint8_t i) {
   return buf;
 }
 
-static inline Prims_string Prims_string_of_int(krml_checked_int_t i) {
-  return FStar_Int32_to_string(i);
-}
-
 static inline Prims_string Prims_string_of_bool(bool b) {
   if (b) {
     return "true";

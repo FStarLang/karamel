@@ -73,6 +73,7 @@ let mk_inliner files criterion =
 
   (* Build a map suitable for the [memoize_inline] combinator. *)
   let map = Helpers.build_map files (fun map -> function
+    | DGlobal (_, name, _, _, body)
     | DFunction (_, _, _, _, name, _, body) ->
         Hashtbl.add map name (White, body)
     | _ ->
@@ -106,6 +107,7 @@ let inline_analysis files =
    * - the body, which [inline_analysis] needs to figure out if the function
    *   allocates without pushing a frame, meaning it must be inlined. *)
   let map = Helpers.build_map files (fun map -> function
+    | DGlobal (flags, name, _, _, _)
     | DFunction (_, flags, _, _, name, _, _) ->
         Hashtbl.add map name flags
     | _ ->
@@ -299,13 +301,14 @@ let inline files =
     | DFunction (cc, flags, n, ret, name, binders, _) ->
         if must_disappear name && not (always_live name) then begin
           if Options.debug "reachability" then
-            KPrint.bprintf "REACHABILITY: %a must disappear, because it's StackInline\n" plid name;
+            KPrint.bprintf "REACHABILITY: %a must disappear\n" plid name;
           None
         end else
           Some (DFunction (cc, flags, n, ret, name, binders, inline_one name))
+    | DGlobal (flags, name, n, t, _) ->
+        (* Note: should we allow globals to marked as "must disappear"? *)
+        Some (DGlobal (flags, name, n, t, inline_one name))
     | d ->
-        (* Note: not inlining globals because F* should forbid top-level
-         * effects...? *)
         Some d
   ) files in
 

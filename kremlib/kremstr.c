@@ -11,6 +11,10 @@
  * FStar.h, we don't need to put these in the header, they will be resolved at
  * link-time. */
 
+Prims_string Prims_string_of_int(krml_checked_int_t i) {
+  return FStar_Int32_to_string(i);
+}
+
 Prims_nat FStar_String_strlen(Prims_string s) {
   return strlen(s);
 }

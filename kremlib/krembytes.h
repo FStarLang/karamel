@@ -75,14 +75,22 @@ static inline FStar_Bytes_bytes FStar_Bytes_abyte(FStar_Bytes_byte v1) {
   return b;
 }
 
-static inline FStar_Bytes_bytes FStar_Bytes_twobytes(K___uint8_t_uint8_t v) {
+static inline FStar_Bytes_bytes FStar_Bytes_twobytes_(K___uint8_t_uint8_t *v) {
   char *data = KRML_HOST_MALLOC(2);
   CHECK(data);
-  data[0] = v.fst;
-  data[1] = v.snd;
+  data[0] = v->fst;
+  data[1] = v->snd;
   FStar_Bytes_bytes b = { .length = 2, .data = data };
   return b;
 }
+
+#ifdef KRML_NOSTRUCT_PASSING
+#define FStar_Bytes_twobytes FStar_Bytes_twobytes_
+#else
+static inline FStar_Bytes_bytes FStar_Bytes_twobytes(K___uint8_t_uint8_t v) {
+  return FStar_Bytes_twobytes_(&v);
+}
+#endif
 
 static inline FStar_Bytes_bytes
 FStar_Bytes_append(FStar_Bytes_bytes b1, FStar_Bytes_bytes b2) {
@@ -136,14 +144,22 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_string(const char *str) {
   return FStar_Bytes_utf8_encode(str);
 }
 
+static inline void
+FStar_Bytes_split_(FStar_Bytes_bytes bs, FStar_UInt32_t i, K___FStar_Bytes_bytes_FStar_Bytes_bytes *dst) {
+  dst->fst = FStar_Bytes_slice(bs, 0, i);
+  dst->snd = FStar_Bytes_slice(bs, i, bs.length);
+}
+
+#ifdef KRML_NOSTRUCT_PASSING
+#define FStar_Bytes_split FStar_Bytes_split_
+#else
 static inline K___FStar_Bytes_bytes_FStar_Bytes_bytes
 FStar_Bytes_split(FStar_Bytes_bytes bs, FStar_UInt32_t i) {
-  K___FStar_Bytes_bytes_FStar_Bytes_bytes p = {
-    .fst = FStar_Bytes_slice(bs, 0, i),
-    .snd = FStar_Bytes_slice(bs, i, bs.length)
-  };
+  K___FStar_Bytes_bytes_FStar_Bytes_bytes p;
+  FStar_Bytes_split_(bs, i, &p);
   return p;
 }
+#endif
 
 static inline FStar_UInt32_t FStar_Bytes_len(FStar_Bytes_bytes b1) {
   return b1.length;
