@@ -58,6 +58,8 @@ let mk_int m t =
     mk_binop "gte";
     mk_binop "lt";
     mk_binop "lte";
+    mk_binop "gte_mask";
+    mk_binop "eq_mask";
     mk_val "to_string" (TArrow (t, t_string));
     mk_val "v" (TArrow (t, TInt K.CInt));
     mk_val "uint_to_t" (TArrow (TInt K.CInt, t))
