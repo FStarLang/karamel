@@ -172,7 +172,12 @@ let buffer: file =
             with_unit (EAssign (with_type TBool (EBound 1), efalse));
             with_unit EBreak ]),
           eunit))));
-      with_type TBool (EBound 0)]))))
+      with_type TBool (EBound 0)]))));
+    
+    DFunction (None, [ Common.MustDisappear ], 1, TUnit,
+      ([ "FStar"; "Buffer" ], "recall"),
+      [ fresh_binder "x" (TBuf (TBound 0)) ],
+      eunit);
   ]
 
 let monotonic_hh: file =
@@ -219,6 +224,12 @@ let dyn: file =
       with_type void_star (ECast (with_type (TBound 0) (EBound 0), void_star)))
   ]
 
+let c_string: file =
+  let t = TQualified ([ "C"; "String" ], "t") in
+  "C_String", [
+    mk_val [ "C"; "String" ] "print" (TArrow (t, TUnit))
+  ]
+
 let prelude () =
   prims ::
   List.map mk_builtin_int
@@ -226,7 +237,8 @@ let prelude () =
   buffer;
   monotonic_hh;
   hs;
-  dyn ]
+  dyn;
+  c_string ]
 
 let nullity: decl list =
   (* Poor man's substitute to polymorphic assumes ... this needs to be here to

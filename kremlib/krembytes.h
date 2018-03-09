@@ -185,6 +185,7 @@ FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n) {
 }
 
 #ifdef KRML_NOSTRUCT_PASSING
+static inline
 void FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs, uint128_t *dst) {
   KRML_HOST_EPRINTF("FStar_Bytes_uint128_of_bytes: not implemented\n");
   KRML_HOST_EXIT(251);
@@ -328,8 +329,8 @@ static inline const unsigned char *utf8_check(const unsigned char *s) {
   return NULL;
 }
 
-static inline FStar_Pervasives_Native_option__Prims_string
-FStar_Bytes_iutf8_opt(FStar_Bytes_bytes b) {
+static inline void
+FStar_Bytes_iutf8_opt_(FStar_Bytes_bytes b, FStar_Pervasives_Native_option__Prims_string *ret) {
   char *str = KRML_HOST_MALLOC(b.length + 1);
   CHECK(str);
   if (b.length > 0)
@@ -338,17 +339,23 @@ FStar_Bytes_iutf8_opt(FStar_Bytes_bytes b) {
 
   unsigned const char *err = utf8_check((unsigned char *)str);
   if (err != NULL) {
-    FStar_Pervasives_Native_option__Prims_string ret = {
-      .tag = FStar_Pervasives_Native_None
-    };
-    return ret;
+    ret->tag = FStar_Pervasives_Native_None;
   } else {
-    FStar_Pervasives_Native_option__Prims_string ret = {
-      .tag = FStar_Pervasives_Native_Some, .v = str
-    };
-    return ret;
+    ret->tag = FStar_Pervasives_Native_Some;
+    ret->v = str;
   }
 }
+
+#ifdef KRML_NOSTRUCT_PASSING
+#define FStar_Bytes_iutf8_opt FStar_Bytes_iutf8_opt_
+#else
+static inline FStar_Pervasives_Native_option__Prims_string
+FStar_Bytes_iutf8_opt(FStar_Bytes_bytes b) {
+  FStar_Pervasives_Native_option__Prims_string ret;
+  FStar_Bytes_iutf8_opt_(b, &ret);
+  return ret;
+}
+#endif
 
 static inline bool
 __eq__FStar_Bytes_bytes(FStar_Bytes_bytes x0, FStar_Bytes_bytes x1) {

@@ -199,11 +199,11 @@ Supported options:|}
       .h for the given module where all functions are marked a static inline";
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the \
       module name to declarations from this module";
-    "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " \
+    "-bundle", Arg.String (fun s -> prepend Options.bundle (Parsers.bundle s)), " \
       group modules into a single C translation unit (see above)";
     "-drop", Arg.String (fun s ->
       used_drop := true;
-      List.iter (prepend Options.drop) (Utils.parse Parser.drop s)),
+      List.iter (prepend Options.drop) (Parsers.drop s)),
       "  do not extract Code for this module (see above)";
     "-header", Arg.String (fun f ->
       let c = Utils.file_get_contents f in
@@ -219,6 +219,8 @@ Supported options:|}
 
     (* Fine-tuning code generation. *)
     "", Arg.Unit (fun _ -> ()), " ";
+    "-by-ref", Arg.String (fun s -> prepend Options.by_ref (Parsers.lid s)), "  pass the given struct \
+        type by reference, always";
     "-falloca", Arg.Set Options.alloca_if_vla, "  use alloca(3) for \
       variable-length arrays on the stack";
     "-fnostruct-passing", Arg.Clear Options.struct_passing, "  disable passing \

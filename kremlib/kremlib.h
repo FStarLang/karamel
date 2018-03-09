@@ -213,7 +213,6 @@ static inline int32_t krml_time() {
  * may have FStar_ST_recall(f) as the only use of f; KreMLin will think that
  * this is a valid use, but then the C compiler, after macro expansion, will
  * error out. */
-#define FStar_Buffer_recall(x) ((void)0)
 #define FStar_Monotonic_HyperHeap_root 0
 #define FStar_HyperStack_is_eternal_color(x) 0
 static inline void FStar_HyperStack_ST_new_region() {}

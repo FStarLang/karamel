@@ -27,8 +27,7 @@ let rec token = lexer
     begin try
       locate lexbuf (List.assoc l keywords)
     with Not_found ->
-      Printf.fprintf stderr "invalid keyword: %s" l;
-      exit 1
+      locate lexbuf (LIDENT l)
     end
 | "." -> locate lexbuf DOT
 | "@" -> locate lexbuf AT

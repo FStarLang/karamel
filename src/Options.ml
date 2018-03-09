@@ -27,6 +27,7 @@ let debug s = List.exists ((=) s) !debug_modules
 let wasm = ref false
 let static_header: string list ref = ref []
 let minimal = ref false
+let by_ref: (string list * string) list ref = ref []
 
 (* wasm = true ==> these three are false *)
 let struct_passing = ref true

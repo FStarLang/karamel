@@ -34,7 +34,10 @@ let mk_is_struct files =
         begin try
           Hashtbl.find map lid
         with Not_found ->
-          false
+          List.exists (fun lid' ->
+            lid = lid' ||
+            fst lid = fst lid' && KString.starts_with (snd lid) (snd lid' ^ "__")
+          ) !Options.by_ref
         end
     | _ ->
         false
