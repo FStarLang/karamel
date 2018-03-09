@@ -84,7 +84,7 @@ let possibly_warn =
     match Hashtbl.find h lid with
     | exception Not_found ->
         Hashtbl.add h lid ();
-        raise_error_l (KPrint.bsprintf "%a" ploc env.location,
+        maybe_fatal_error (KPrint.bsprintf "%a" ploc env.location,
           UnboundReference (KPrint.bsprintf "%a" plid lid))
     | () ->
         ()
