@@ -459,9 +459,12 @@ and mk_stmt (stmt: stmt): C.stmt list =
             | `Ident ident -> Name ident
             | `Int k -> Constant k),
             let block = mk_stmts block in
-            match KList.last block with
-            | Return _ -> Compound block
-            | _ -> Compound (block @ [ Break ])
+            if List.length block > 0 then
+              match KList.last block with
+              | Return _ -> Compound block
+              | _ -> Compound (block @ [ Break ])
+            else
+              Compound [ Break ]
           ) branches,
           match default with
           | Some block ->
@@ -500,20 +503,17 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ For (e1, e2, e3, b) ]
 
 
-and mk_stmts0 stmts: C.stmt list =
-  match stmts with
-  | PushFrame :: stmts ->
-      let frame, remaining = mk_stmts' [] stmts in
-      (* Not doing [Compound frame :: mk_stmts remaining] because of scoping
-       * issues. *)
-      frame @ mk_stmts remaining
-  | stmt :: stmts ->
-      mk_stmt stmt @ mk_stmts stmts
-  | [] ->
-      []
-
 and mk_stmts stmts: C.stmt list =
-  let stmts = mk_stmts0 stmts in
+  let stmts = KList.map_flatten (function
+    | PushFrame | PopFrame ->
+        (* We totally give up on inserting braces for push/pop frame, since
+         * they're a semantic criterion in F*, which we cannot recover
+         * syntactically here. See PushPop.fst in test/ for an example of a
+         * tricky situation. *)
+        []
+    | stmt ->
+        mk_stmt stmt
+  ) stmts in
   let rec fixup_c89 in_decls (stmts: C.stmt list) =
     match stmts with
     | C.Decl _ as stmt :: stmts ->
@@ -531,22 +531,6 @@ and mk_stmts stmts: C.stmt list =
   else
     stmts
 
-
-(** Consume the list of statements until the next pop frame, and return the
- * translated statements within the frame, along with the remaining statements
- * after the frame. *)
-and mk_stmts' acc stmts: C.stmt list * stmt list =
-  match stmts with
-  | PushFrame :: stmts ->
-      let frame, remaining = mk_stmts' [] stmts in
-      (* Same comment as above (scoping issue). *)
-      mk_stmts' (frame :: acc) remaining
-  | PopFrame :: stmts ->
-      List.flatten (List.rev acc), stmts
-  | stmt :: stmts ->
-      mk_stmts' (mk_stmt stmt :: acc) stmts
-  | [] ->
-      failwith "[mk_stmts']: unmatched push_frame"
 
 
 and mk_index (e1: expr) (e2: expr): C.expr =
