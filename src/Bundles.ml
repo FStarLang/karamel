@@ -6,8 +6,6 @@ open Ast
 
 module StringMap = Map.Make(String)
 
-let parse = Utils.parse Parser.bundle
-
 (* For generating the filename. NOT for pretty-printing. *)
 let bundle_filename (api, patterns) =
   match api with

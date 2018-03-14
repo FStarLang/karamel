@@ -116,6 +116,7 @@ let eta_expand = object
   inherit [_] map
 
   method! visit_DGlobal () flags name n t body =
+    assert (n = 0);
     (* TODO: eta-expand partially applied functions *)
     match t with
     | TArrow _ ->
@@ -126,7 +127,7 @@ let eta_expand = object
           { node = EBound (n - i - 1); typ = t }
         ) targs) in
         let body = { node = EApp (body, args); typ = tret } in
-        DFunction (None, flags, n, tret, name, binders, body)
+        DFunction (None, flags, 0, tret, name, binders, body)
     | _ ->
         DGlobal (flags, name, n, t, body)
 end

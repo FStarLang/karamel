@@ -9,7 +9,7 @@ let no_prefix: string list ref = ref [ "C" ]
 let add_include: string list ref = ref [ ]
 let add_include_tmh = ref false
 let add_early_include: string list ref = ref [ ]
-let warn_error = ref "+1-2@3+4..8@9+10@11+12..14"
+let warn_error = ref "+1..2@3+4..8@9+10@11+12..14"
 let tmpdir = ref "."
 let includes: string list ref = ref []
 let verbose = ref false
@@ -27,6 +27,7 @@ let debug s = List.exists ((=) s) !debug_modules
 let wasm = ref false
 let static_header: string list ref = ref []
 let minimal = ref false
+let by_ref: (string list * string) list ref = ref []
 
 (* wasm = true ==> these three are false *)
 let struct_passing = ref true
@@ -121,5 +122,6 @@ let drop: Bundle.pat list ref =
     Module [ "FStar"; "UInt64" ];
     Module [ "FStar"; "Int128" ];
     Module [ "FStar"; "Kremlin"; "Endianness" ];
-    Module [ "FStar"; "HyperStack"; "ST" ]
+    Module [ "FStar"; "HyperStack"; "ST" ];
+    Module [ "C"; "String" ];
   ])

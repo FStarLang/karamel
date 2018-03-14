@@ -58,7 +58,7 @@ extern intptr_t nullptr;
 
 typedef void *FStar_Dyn_dyn;
 
-static inline FStar_Dyn_dyn FStar_Dyn_mkdyn(void *x) {
+static inline FStar_Dyn_dyn FStar_Dyn_mkdyn_(void *x) {
   return x;
 }
 
@@ -208,24 +208,14 @@ static inline int32_t krml_time() {
     })
 #endif
 
-/* Stubs to make ST happy. Important note: you must generate a use of the macro
- * argument, otherwise, you may have FStar_ST_recall(f) as the only use of f;
- * KreMLin will think that this is a valid use, but then the C compiler, after
- * macro expansion, will error out. */
-#define FStar_Buffer_recall(x) ((void)0)
+/* Stubs to make ST happy. Ideally, all of these would be in src/Builtin.ml.
+ * Important note: you must generate a use of the macro argument, otherwise, you
+ * may have FStar_ST_recall(f) as the only use of f; KreMLin will think that
+ * this is a valid use, but then the C compiler, after macro expansion, will
+ * error out. */
 #define FStar_Monotonic_HyperHeap_root 0
 #define FStar_HyperStack_is_eternal_color(x) 0
 static inline void FStar_HyperStack_ST_new_region() {}
-
-#define FStar_HyperStack_ST_recall(x)                                          \
-  do {                                                                         \
-    (void)(x);                                                                 \
-  } while (0)
-
-#define FStar_HyperStack_ST_recall_region(x)                                   \
-  do {                                                                         \
-    (void)(x);                                                                 \
-  } while (0)
 
 #define FStar_HyperStack_ST_op_Colon_Equals(x1, x2, x3, x4, x5)                \
   do {                                                                         \
@@ -235,9 +225,6 @@ static inline void FStar_HyperStack_ST_new_region() {}
     (void)(x4);                                                                \
     (void)(x5);                                                                \
   } while (0)
-
-#define FStar_HyperStack_ST_mr_witness(x1, x2, x3, x4, x5)                     \
-  FStar_HyperStack_ST_op_Colon_Equals(x1, x2, x3, x4, x5)
 
 /******************************************************************************/
 /* Endian-ness macros that can only be implemented in C                       */

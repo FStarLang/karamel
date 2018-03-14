@@ -5,7 +5,6 @@
  * fragile! *)
 
 open Ast
-open Warnings
 open Constant
 open Location
 open PrintAst.Ops
@@ -35,8 +34,6 @@ where e1: t1 and e2: t2, try:
 |}
 
 (** Environments ------------------------------------------------------------ *)
-
-exception UnboundLid of lident
 
 module M = Map.Make(struct
   type t = lident
@@ -71,28 +68,31 @@ let push env binder =
 let find env i =
   List.nth env.locals i
 
+(** Errors ------------------------------------------------------------------ *)
+
+(* An error for which the only way to recover is to drop the definition. *)
+exception CheckerError of Warnings.error
+
+let checker_error env fmt =
+  Printf.kbprintf (fun buf ->
+    raise (CheckerError (KPrint.bsprintf "%a" ploc env.location, Warnings.TypeError (Buffer.contents buf)))
+  ) (Buffer.create 16) fmt
+
+
+(** Environments, continued ------------------------------------------------- *)
+
 let lookup_type env lid =
   match M.find lid env.types with
   | exception Not_found ->
-      raise (UnboundLid lid)
+      checker_error env "Reference to undefined type: %a" plid lid
   | x ->
       x
-
-let possibly_warn =
-  let h = Hashtbl.create 41 in
-  fun env lid ->
-    match Hashtbl.find h lid with
-    | exception Not_found ->
-        Hashtbl.add h lid ();
-        maybe_fatal_error (KPrint.bsprintf "%a" ploc env.location,
-          UnboundReference (KPrint.bsprintf "%a" plid lid))
-    | () ->
-        ()
 
 let lookup_global env lid =
   match M.find lid env.globals with
   | exception Not_found ->
-      possibly_warn env lid;
+      Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" ploc env.location,
+        UnboundReference (KPrint.bsprintf "%a" plid lid)));
       TAny
   | x ->
       x
@@ -115,7 +115,8 @@ let populate_env files =
           assert (n = 0);
           { env with globals = M.add lid t env.globals }
       | DFunction (_, _, n, ret, lid, binders, _) ->
-          assert (n = 0);
+          if n <> 0 then
+            Warnings.fatal_error "%a is polymorphic\n" plid lid;
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
       | DExternal (_, _, lid, typ) ->
@@ -129,13 +130,6 @@ let known_type env lid =
 let locate env loc =
   { env with location = update_location env.location loc }
 
-(** Errors ------------------------------------------------------------------ *)
-
-let type_error env fmt =
-  Printf.kbprintf (fun buf ->
-    raise_error_l (KPrint.bsprintf "%a" ploc env.location, TypeError (Buffer.contents buf))
-  ) (Buffer.create 16) fmt
-
 (** Checking ---------------------------------------------------------------- *)
 
 let rec check_everything ?warn files: bool * file list =
@@ -148,51 +142,20 @@ and check_program env r (name, decls) =
   let env = locate env (File name) in
   let by_lid = Hashtbl.create 41 in
   let decls = KList.filter_map (fun d ->
-    let lid = lid_of_decl d in
     try
       check_decl env d;
       Some d
     with
-    | Error e ->
-        if not (Drop.lid lid) then begin
-          r := true;
-          if Options.debug "backtraces" then
-            Printexc.print_backtrace stderr;
-          Warnings.maybe_fatal_error e;
-          flush stdout;
-          KPrint.beprintf "Cannot re-check %a, dropping this definition.\nIf this is normal \
-            and the function was not meant to be reachable, consider using \
-            KreMLin's [-d reachability] command-line flag to understand why %a \
-            is still in your call-graph.\n"
-            plid (lid_of_decl d) plid (lid_of_decl d);
-          flush stderr
-        end;
-        None
-
-    | UnboundLid lid' ->
-        if not (Drop.lid lid) then begin
-          r := true;
-          begin try
-            Hashtbl.add by_lid lid' (lid :: Hashtbl.find by_lid lid');
-          with Not_found ->
-            Hashtbl.add by_lid lid' [ lid ];
-          end
-        end;
-        None
-
-    | e ->
-        if not (Drop.lid lid) then begin
-          r := true;
-          let e = Printexc.to_string e in
-          if Options.debug "backtraces" then
-            Printexc.print_backtrace stderr;
-          Warnings.maybe_fatal_error ("<toplevel>", TypeError e);
-          flush stdout;
-          KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
-            please consider using -drop\n\n"
-            plid (lid_of_decl d);
-          flush stderr
-        end;
+    | CheckerError e ->
+        r := true;
+        flush stdout;
+        if Options.debug "backtraces" then
+          Printexc.print_backtrace stderr;
+        KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
+          please consider using -drop\n\n"
+          plid (lid_of_decl d);
+        Warnings.maybe_fatal_error e;
+        flush stderr;
         None
   ) decls in
 
@@ -309,7 +272,7 @@ and check' env t e =
       end;
       let t = assert_buffer env t in
       if t = TAny then
-        type_error env buf_any_msg ppexpr e;
+        checker_error env buf_any_msg ppexpr e;
       check env t e1;
       check env uint32 e2;
       c (best_buffer_type t e2)
@@ -353,7 +316,7 @@ and check' env t e =
   | ETuple es ->
       let ts = assert_tuple env t in
       if List.length ts <> List.length es then
-        type_error env "Tuple length mismatch";
+        checker_error env "Tuple length mismatch";
       List.iter2 (check env) ts es
 
   | ECons (ident, exprs) ->
@@ -383,7 +346,7 @@ and check' env t e =
        * structurally, and let the subtyping relation do the rest? *)
       let check_fields fieldexprs fieldtyps =
         if List.length fieldexprs > List.length fieldtyps then
-          type_error env "some fields are superfluous";
+          checker_error env "some fields are superfluous";
         List.iter (fun (field, expr) ->
           let field = Option.must field in
           let t, _ = KList.assoc_opt field fieldtyps in
@@ -408,15 +371,15 @@ and check' env t e =
               begin try
                 check env (List.assoc f fieldtyps) e
               with Not_found ->
-                type_error env "Union does not have such a field"
+                checker_error env "Union does not have such a field"
               end
           | [ None, { node = EConstant (_, "0"); _ } ] ->
               ()
           | _ ->
-              type_error env "Union expected, i.e. exactly one provided field";
+              checker_error env "Union expected, i.e. exactly one provided field";
           end
       | _ ->
-          type_error env "Not a record %a" ptyp t
+          checker_error env "Not a record %a" ptyp t
       end
 
   | ESwitch (scrut, branches) ->
@@ -436,18 +399,18 @@ and check_case env c t =
       ()
   | SEnum tag, TQualified lid ->
       if not (M.find tag env.enums = lid) then
-        type_error env "scrutinee has type %a but tag %a does not belong to \
+        checker_error env "scrutinee has type %a but tag %a does not belong to \
           this type" plid lid plid tag
   | SEnum tag, TAnonymous (Enum tags) ->
       if not (List.mem tag tags) then
-        type_error env "scrutinee has type %a but tag %a does not belong to \
+        checker_error env "scrutinee has type %a but tag %a does not belong to \
           this type" ptyp t plid tag
   | SConstant (w, _), TInt w' ->
       if w <> w' then
-        type_error env "scrutinee has type %a but switch case is an %a \
+        checker_error env "scrutinee has type %a but switch case is an %a \
           this type" ptyp t pwidth w
   | _ ->
-      type_error env "case %a cannot switch on element of type %a" pcase c ptyp t
+      checker_error env "case %a cannot switch on element of type %a" pcase c ptyp t
 
 
 and args_of_branch env t ident =
@@ -458,7 +421,7 @@ and args_of_branch env t ident =
       let ts' = fst (List.split (snd (List.split (assert_cons_of env (lookup_type env lid) ident)))) in
       List.map (fun t -> DeBruijn.subst_tn args t) ts'
   | _ ->
-      type_error env "Type annotation is not an lid but %a" ptyp t
+      checker_error env "Type annotation is not an lid but %a" ptyp t
 
 and infer env e =
   (* KPrint.bprintf "[infer] %a\n" pexpr e; *)
@@ -500,11 +463,11 @@ and infer' env e =
       begin try
         (find env i).typ
       with Not_found ->
-        type_error env "bound variable %d is malformed" i
+        checker_error env "bound variable %d is malformed" i
       end
 
   | EOpen (name, _) ->
-      type_error env "there is an open variable %s" name
+      checker_error env "there is an open variable %s" name
 
   | EQualified lid ->
       lookup_global env lid
@@ -531,9 +494,9 @@ and infer' env e =
       else
         let t_ret, t_args = flatten_arrow t in
         if List.length t_args = 0 then
-          type_error env "This is not a function:\n%a" pexpr e;
+          checker_error env "This is not a function:\n%a" pexpr e;
         if List.length es > List.length t_args then
-          type_error env "Too many arguments for application:\n%a" pexpr e;
+          checker_error env "Too many arguments for application:\n%a" pexpr e;
         let t_args, t_remaining_args = KList.split (List.length es) t_args in
         List.iter2 (check env) t_args es;
         fold_arrow t_remaining_args t_ret
@@ -557,7 +520,7 @@ and infer' env e =
           List.iter (check env TUnit) (List.rev rest);
           infer env last
       | [] ->
-          type_error env "Empty sequence"
+          checker_error env "Empty sequence"
       end
 
   | EAssign (e1, e2) ->
@@ -607,7 +570,7 @@ and infer' env e =
       begin try
         type_of_op op w
       with _ ->
-        fatal_error "%a, operator %a is for internal use only" ploc env.location pop op
+        checker_error env "%a, operator %a is for internal use only" ploc env.location pop op
       end
 
   | EPushFrame | EPopFrame ->
@@ -638,7 +601,7 @@ and infer' env e =
   | EBufCreateL (_, es) ->
       begin match es with
       | [] ->
-          fatal_error "%a, there is an empty buf create sequence" ploc env.location
+          checker_error env "%a, there is an empty buf create sequence" ploc env.location
       | first :: others ->
           let t = infer env first in
           List.iter (check env t) others;
@@ -685,7 +648,7 @@ and infer' env e =
       | TAnonymous def ->
           fst (find_field_from_def env def field)
       | _ ->
-          type_error env "this type doesn't have fields"
+          checker_error env "this type doesn't have fields"
       end
 
   | EEnum tag ->
@@ -749,7 +712,7 @@ and find_field_from_def env def field =
     | _ ->
         raise Not_found
   end with Not_found ->
-    type_error env "record or union type %a doesn't have a field named %s" ptyp (TAnonymous def) field
+    checker_error env "record or union type %a doesn't have a field named %s" ptyp (TAnonymous def) field
 
 
 (* Per Perry's definition, a path is a block id along with an offset, and a
@@ -765,13 +728,13 @@ and check_valid_assignment_lhs env e =
   | EBound i ->
       let binder = find env i in
       if not binder.node.mut then
-        type_error env "%a (a.k.a. %s) is not a mutable binding" pexpr e binder.node.name;
+        checker_error env "%a (a.k.a. %s) is not a mutable binding" pexpr e binder.node.name;
       binder.typ
   | EField (e, f) ->
       let t1 = check_valid_path env e in
       let t2, mut = find_field env (assert_qualified env t1) f in
       if not mut then
-        type_error env "the field %s of type %a is not marked as mutable" f ptyp t1;
+        checker_error env "the field %s of type %a is not marked as mutable" f ptyp t1;
       t2
   | EBufRead _ ->
       (* Introduced by the wasm struct allocation phase. *)
@@ -780,7 +743,7 @@ and check_valid_assignment_lhs env e =
       (* Introduced when collecting global initializers. *)
       e.typ
   | _ ->
-      type_error env "EAssign wants a lhs that's a mutable, local variable, or a \
+      checker_error env "EAssign wants a lhs that's a mutable, local variable, or a \
         path to a mutable field; got %a instead" pexpr e
 
 and check_valid_path env e =
@@ -794,7 +757,7 @@ and check_valid_path env e =
       infer env e
 
   | _ ->
-      type_error env "EAssign wants a lhs that's a mutable, local variable, or a \
+      checker_error env "EAssign wants a lhs that's a mutable, local variable, or a \
         path to a mutable field"
 
 and check_branches env t_context t_scrutinee branches =
@@ -852,7 +815,7 @@ and check_pat env t_context pat =
           try
             KList.assoc_opt field fieldtyps
           with Not_found ->
-            fatal_error "%a, type %a has no field named %s" ploc env.location plid lid field
+            checker_error env "%a, type %a has no field named %s" ploc env.location plid lid field
         in
         check_pat env t pat
       ) fieldpats;
@@ -878,28 +841,28 @@ and assert_tuple env t =
   | TTuple ts ->
       ts
   | _ ->
-      type_error env "%a is not a tuple type" ptyp t
+      checker_error env "%a is not a tuple type" ptyp t
 
 and assert_variant env t =
   match t with
   | Variant def ->
       def
   | _ ->
-      fatal_error "%a, this is not a variant definition: %a" ploc env.location pdef t
+      checker_error env "%a, this is not a variant definition: %a" ploc env.location pdef t
 
 and assert_flat env t =
   match t with
   | Flat def ->
       def
   | _ ->
-      fatal_error "%a, %a is not a record definition" ploc env.location pdef t
+      checker_error env "%a, %a is not a record definition" ploc env.location pdef t
 
 and assert_qualified env t =
   match expand_abbrev env t with
   | TQualified lid ->
       lid
   | _ ->
-      fatal_error "%a, expected a provided type annotation, got %a" ploc env.location ptyp t
+      checker_error env "%a, expected a provided type annotation, got %a" ploc env.location ptyp t
 
 and assert_buffer env t =
   match expand_abbrev env t with
@@ -908,7 +871,7 @@ and assert_buffer env t =
   | TArray (t1, _) ->
       t1
   | t ->
-      type_error env "This is not a buffer: %a" ptyp t
+      checker_error env "This is not a buffer: %a" ptyp t
 
 and infer_buffer env e1 =
   assert_buffer env (infer env e1)
@@ -923,10 +886,10 @@ and assert_cons_of env t id: fields_t =
       begin try
         List.assoc id branches
       with Not_found ->
-        type_error env "%s is not a constructor of the annotated type %a" id ptyp (TAnonymous t)
+        checker_error env "%s is not a constructor of the annotated type %a" id ptyp (TAnonymous t)
       end
   | _ ->
-      type_error env "the annotated type %a is not a variant type" ptyp (TAnonymous t)
+      checker_error env "the annotated type %a is not a variant type" ptyp (TAnonymous t)
 
 and subtype env t1 t2 =
   match expand_abbrev env t1, expand_abbrev env t2 with
@@ -1005,12 +968,12 @@ and eqtype env t1 t2 =
 
 and check_eqtype env t1 t2 =
   if not (eqtype env t1 t2) then
-    type_error env "eqtype mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
+    checker_error env "eqtype mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
       ptyp t1 ptyp (expand_abbrev env t1) ptyp t2 ptyp (expand_abbrev env t2)
 
 and check_subtype env t1 t2 =
   if not (subtype env t1 t2) then
-    type_error env "subtype mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
+    checker_error env "subtype mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
       ptyp t1 ptyp (expand_abbrev env t1) ptyp t2 ptyp (expand_abbrev env t2)
 
 and expand_abbrev env t =

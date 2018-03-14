@@ -75,14 +75,22 @@ static inline FStar_Bytes_bytes FStar_Bytes_abyte(FStar_Bytes_byte v1) {
   return b;
 }
 
-static inline FStar_Bytes_bytes FStar_Bytes_twobytes(K___uint8_t_uint8_t v) {
+static inline FStar_Bytes_bytes FStar_Bytes_twobytes_(K___uint8_t_uint8_t *v) {
   char *data = KRML_HOST_MALLOC(2);
   CHECK(data);
-  data[0] = v.fst;
-  data[1] = v.snd;
+  data[0] = v->fst;
+  data[1] = v->snd;
   FStar_Bytes_bytes b = { .length = 2, .data = data };
   return b;
 }
+
+#ifdef KRML_NOSTRUCT_PASSING
+#define FStar_Bytes_twobytes FStar_Bytes_twobytes_
+#else
+static inline FStar_Bytes_bytes FStar_Bytes_twobytes(K___uint8_t_uint8_t v) {
+  return FStar_Bytes_twobytes_(&v);
+}
+#endif
 
 static inline FStar_Bytes_bytes
 FStar_Bytes_append(FStar_Bytes_bytes b1, FStar_Bytes_bytes b2) {
@@ -136,14 +144,22 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_string(const char *str) {
   return FStar_Bytes_utf8_encode(str);
 }
 
+static inline void
+FStar_Bytes_split_(FStar_Bytes_bytes bs, FStar_UInt32_t i, K___FStar_Bytes_bytes_FStar_Bytes_bytes *dst) {
+  dst->fst = FStar_Bytes_slice(bs, 0, i);
+  dst->snd = FStar_Bytes_slice(bs, i, bs.length);
+}
+
+#ifdef KRML_NOSTRUCT_PASSING
+#define FStar_Bytes_split FStar_Bytes_split_
+#else
 static inline K___FStar_Bytes_bytes_FStar_Bytes_bytes
 FStar_Bytes_split(FStar_Bytes_bytes bs, FStar_UInt32_t i) {
-  K___FStar_Bytes_bytes_FStar_Bytes_bytes p = {
-    .fst = FStar_Bytes_slice(bs, 0, i),
-    .snd = FStar_Bytes_slice(bs, i, bs.length)
-  };
+  K___FStar_Bytes_bytes_FStar_Bytes_bytes p;
+  FStar_Bytes_split_(bs, i, &p);
   return p;
 }
+#endif
 
 static inline FStar_UInt32_t FStar_Bytes_len(FStar_Bytes_bytes b1) {
   return b1.length;
@@ -168,7 +184,13 @@ FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n) {
   return b;
 }
 
-// TODO: how about -fnostruct-passing
+#ifdef KRML_NOSTRUCT_PASSING
+static inline
+void FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs, uint128_t *dst) {
+  KRML_HOST_EPRINTF("FStar_Bytes_uint128_of_bytes: not implemented\n");
+  KRML_HOST_EXIT(251);
+}
+#else
 static inline uint128_t
 FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs) {
   uint128_t res = FStar_Int_Cast_Full_uint64_to_uint128(UINT64_C(0));
@@ -178,6 +200,7 @@ FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs) {
   }
   return res;
 }
+#endif
 
 static inline krml_checked_int_t
 FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs) {
@@ -306,8 +329,8 @@ static inline const unsigned char *utf8_check(const unsigned char *s) {
   return NULL;
 }
 
-static inline FStar_Pervasives_Native_option__Prims_string
-FStar_Bytes_iutf8_opt(FStar_Bytes_bytes b) {
+static inline void
+FStar_Bytes_iutf8_opt_(FStar_Bytes_bytes b, FStar_Pervasives_Native_option__Prims_string *ret) {
   char *str = KRML_HOST_MALLOC(b.length + 1);
   CHECK(str);
   if (b.length > 0)
@@ -316,17 +339,23 @@ FStar_Bytes_iutf8_opt(FStar_Bytes_bytes b) {
 
   unsigned const char *err = utf8_check((unsigned char *)str);
   if (err != NULL) {
-    FStar_Pervasives_Native_option__Prims_string ret = {
-      .tag = FStar_Pervasives_Native_None
-    };
-    return ret;
+    ret->tag = FStar_Pervasives_Native_None;
   } else {
-    FStar_Pervasives_Native_option__Prims_string ret = {
-      .tag = FStar_Pervasives_Native_Some, .v = str
-    };
-    return ret;
+    ret->tag = FStar_Pervasives_Native_Some;
+    ret->v = str;
   }
 }
+
+#ifdef KRML_NOSTRUCT_PASSING
+#define FStar_Bytes_iutf8_opt FStar_Bytes_iutf8_opt_
+#else
+static inline FStar_Pervasives_Native_option__Prims_string
+FStar_Bytes_iutf8_opt(FStar_Bytes_bytes b) {
+  FStar_Pervasives_Native_option__Prims_string ret;
+  FStar_Bytes_iutf8_opt_(b, &ret);
+  return ret;
+}
+#endif
 
 static inline bool
 __eq__FStar_Bytes_bytes(FStar_Bytes_bytes x0, FStar_Bytes_bytes x1) {
