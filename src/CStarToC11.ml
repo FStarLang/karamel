@@ -590,6 +590,7 @@ and mk_expr (e: expr): C.expr =
       Op2 (K.Add, mk_expr e1, mk_expr e2)
 
   | Cast (e, t') ->
+      (* JP: what is this? TODO review. *)
       begin match e with
       | Cast (_, t) as e when t = t' || t = Int Constant.UInt8 && t' = Pointer Void ->
           mk_expr e

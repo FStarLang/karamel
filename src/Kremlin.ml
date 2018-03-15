@@ -188,7 +188,7 @@ Supported options:|}
 
     (* Controlling the behavior of KreMLin *)
     "-add-early-include", Arg.String (prepend Options.add_early_include),
-      "prepend #include the-argument to every generated file, before kremlib.h";
+      "  prepend #include the-argument to every generated file, before kremlib.h";
     "-add-include", Arg.String (prepend Options.add_include), " prepend #include \
       the-argument to every generated file, after the #define __FOO_H";
     "-add-include-tmh", Arg.Set Options.add_include_tmh, "  append #include \

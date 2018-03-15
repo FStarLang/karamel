@@ -16,7 +16,7 @@ type flag =
   | WipeBody
       (** The body must be wiped out -- surfaced in F* via the noextract
        * keyword. *)
-  | CInline
+  | Inline
       (** User demanded a C inline keyword *)
   | Substitute
       (** User used [@ Substitute ] -- function inlined at call-site, but not
@@ -30,4 +30,10 @@ type flag =
       (** This function *must* disappear, i.e. it shall be inlined at call-site
        * and its definition shall be removed entirely. Used for Ghost and
        * StackInline functions. *)
+  | Const of string
+      (** Identify a parameter by name, to be marked as const. *)
+  | Prologue of string
+      (** Verbatim C code, inserted before. *)
+  | Epilogue of string
+      (** Verbatim C code, inserted after. *)
   [@@deriving yojson,show]

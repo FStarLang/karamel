@@ -353,6 +353,8 @@ let p_decl_or_function (df: declaration_or_function) =
       p_comments comments ^^
       let inline = if inline then string "inline" ^^ space else empty in
       inline ^^ group (p_declaration d) ^/^ p_stmt stmt
+  | Verbatim s ->
+      string s
 
 let print_files =
   PrintCommon.print_files p_decl_or_function
