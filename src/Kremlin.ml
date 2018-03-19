@@ -65,10 +65,10 @@ let _ =
 Usage: %s [OPTIONS] FILES
 
 High-level description:
-  1. If some FILES end with .fst, and [-verify] is set, KreMLin will call
-     [fstar] on them to perform verification.
-  2. If some FILES end with .fst, KreMLin will call [fstar] on them to perform
-     extraction and produce [out.krml].
+  1. If some FILES end with .fst or .fsti, and [-verify] is set, KreMLin will
+     call [fstar] on them to perform verification.
+  2. If some FILES end with .fst or .fsti, KreMLin will call [fstar] on them to
+     perform extraction and produce [out.krml].
   3. If exactly one FILE ends with [.krml] or [.json], or if a [.krml] file was
      produced at step 2., KreMLin will generate a series of [.c] and [.h] files
      in the directory specified by [-tmpdir], or in the current directory.
@@ -265,7 +265,7 @@ Supported options:|}
   ] in
   let spec = Arg.align spec in
   let anon_fun f =
-    if Filename.check_suffix f ".fst" then
+    if Filename.check_suffix f ".fst" || Filename.check_suffix f ".fsti" then
       fst_files := f :: !fst_files
     else if List.exists (Filename.check_suffix f) [ ".o"; ".S"; ".a" ] then
       o_files := f :: !o_files
