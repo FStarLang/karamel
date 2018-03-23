@@ -5,6 +5,8 @@ OCAMLBUILD=ocamlbuild -I src -I lib -I parser -use-menhir -use-ocamlfind -classi
 FLAVOR?=native
 TARGETS=Kremlin.$(FLAVOR) Tests.$(FLAVOR)
 
+minimal: all
+
 all:
 	@# Workaround Windows bug in OCamlbuild
 	$(shell [ -f Kremlin.$(FLAVOR) ] && rm Kremlin.$(FLAVOR); [ -f Tests.$(FLAVOR) ] && rm Tests.$(FLAVOR))
