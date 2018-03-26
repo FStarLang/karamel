@@ -35,34 +35,41 @@ let rec p_type_spec = function
       (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
       braces_with_nesting (separate_map (comma ^^ break1) string tags)
 
+and p_qualifier = function
+  | Const -> string "const"
+  | Volatile -> string "volatile"
+  | Restrict -> string "restrict"
+
+and p_qualifiers_break qs =
+  separate_map break1 p_qualifier qs ^^ break1
 
 and p_type_declarator d =
   let rec p_noptr = function
     | Ident n ->
         string n
-    | Array (d, s) ->
-        p_noptr d ^^ lbracket ^^ p_expr s ^^ rbracket
+    | Array (qs, d, s) ->
+        p_noptr d ^^ lbracket ^^ p_qualifiers_break qs ^^ p_expr s ^^ rbracket
     | Function (cc, d, params) ->
         let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
-        group (cc ^^ p_noptr d ^^ parens_with_nesting (separate_map (comma ^^ break 1) (fun (spec, decl) ->
-          group (p_type_spec spec ^/^ p_any decl)
+        group (cc ^^ p_noptr d ^^ parens_with_nesting (separate_map (comma ^^ break 1) (fun (qs, spec, decl) ->
+          group (p_qualifiers_break qs ^^ p_type_spec spec ^/^ p_any decl)
         ) params))
     | d ->
         lparen ^^ p_any d ^^ rparen
   and p_any = function
-    | Pointer d ->
-        star ^^ p_any d
+    | Pointer (qs, d) ->
+        star ^^ p_qualifiers_break qs ^^ p_any d
     | d ->
         p_noptr d
   in
   p_any d
 
-and p_type_name (spec, decl) =
+and p_type_name (qs, spec, decl) =
   match decl with
   | Ident "" ->
-      p_type_spec spec
+      p_qualifiers_break qs ^^ p_type_spec spec
   | _ ->
-      p_type_spec spec ^^ space ^^ p_type_declarator decl
+      p_qualifiers_break qs ^^ p_type_spec spec ^^ space ^^ p_type_declarator decl
 
 (* http:/ /en.cppreference.com/w/c/language/operator_precedence *)
 and prec_of_op2 op =
@@ -233,9 +240,9 @@ and p_decl_and_init (decl, init) =
     | None ->
         empty)
 
-and p_declaration (spec, stor, decl_and_inits) =
+and p_declaration (qs, spec, stor, decl_and_inits) =
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
-  stor ^^ group (p_type_spec spec) ^/^
+  stor ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
 (* This is abusing the definition of a compound statement to ensure it is printed with braces. *)
