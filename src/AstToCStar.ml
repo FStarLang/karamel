@@ -562,6 +562,21 @@ and a_unit_is_a_unit binders body =
   | _ ->
       binders, body
 
+and mark_const has_const t =
+  if has_const then
+    match t with
+    | CStar.Pointer t ->
+        CStar.Pointer (mark_const true t)
+    | _ ->
+        CStar.Const t
+  else
+    t
+
+and mark_binders_const flags binders =
+  List.map (fun { CStar.name; typ } ->
+    { CStar.name; typ = mark_const (List.mem (Common.Const name) flags) typ }
+  ) binders
+
 and mk_declaration env d: CStar.decl option =
   let wrap_throw name (comp: CStar.decl Lazy.t) =
     try Lazy.force comp with
@@ -581,6 +596,7 @@ and mk_declaration env d: CStar.decl option =
         assert (env.names = []);
         let binders, body = a_unit_is_a_unit binders body in
         let env, binders = mk_and_push_binders env binders in
+        let binders = mark_binders_const flags binders in
         let body = mk_function_block env body t in
         CStar.Function (cc, flags, t, (string_of_lident name), binders, body)
       end))

@@ -41,7 +41,10 @@ and p_qualifier = function
   | Restrict -> string "restrict"
 
 and p_qualifiers_break qs =
-  separate_map break1 p_qualifier qs ^^ break1
+  if List.length qs > 0 then
+    separate_map break1 p_qualifier qs ^^ break1
+  else
+    empty
 
 and p_type_declarator d =
   let rec p_noptr = function
