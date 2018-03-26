@@ -19,7 +19,8 @@ FILES		= \
   PatternAny.exe Debug.exe hello-system/HelloSystem.exe Server.exe \
   ExitCode.exe DataTypesMut.exe ParamAbbrev.exe Null.exe Failwith.exe \
   CustomEq.exe Uu.exe WildCard.exe UnusedParameter.exe EqB.exe MutRec.exe \
-  MallocFree.exe TestAlloca.exe OptimizedOption.exe PushPop.exe EtaStruct.exe
+  MallocFree.exe TestAlloca.exe OptimizedOption.exe PushPop.exe EtaStruct.exe \
+  Verbatim.exe
 CUSTOM		= count-uu
 EXTRA_FILES	= \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.exe

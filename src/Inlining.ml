@@ -1,16 +1,4 @@
-(** Make sure the notion of Low* frames is soundly implemented in C*. In
- * particular, if a function doesn't push/pop a frame _and_ allocates, then it
- * originates from the [StackInline] or [Inline] effects and must be inlined so
- * as to perform allocations in its parent frame. *)
-
-(** We perform a fixpoint computation on the following simple lattice:
-
-    mustinline
-      |
-    safe
-
- * This is a whole-program analysis.
-*)
+(** Whole-program inlining based on the [MustDisappear] flag passed by F*. *)
 
 open Ast
 open Warnings
@@ -146,7 +134,7 @@ let cross_call_analysis files =
       let flags = flags_of_decl d in
       if List.mem Private flags then
         Hashtbl.add safely_private name ();
-      if List.mem CInline flags then
+      if List.mem Inline flags then
         Hashtbl.add safely_inline name ()
     ) decls
   ) files;
@@ -266,7 +254,7 @@ let cross_call_analysis files =
     let filter name flags =
       let flags = keep_if safely_private Private name flags in
       if !Options.cc = "compcert" then
-        keep_if safely_inline CInline name flags
+        keep_if safely_inline Inline name flags
       else
         flags
     in

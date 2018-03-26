@@ -104,8 +104,8 @@ and print_flag = function
       string "private"
   | WipeBody ->
       string "wipe"
-  | CInline ->
-      string "c_inline"
+  | Inline ->
+      string "inline"
   | Substitute ->
       string "substitute"
   | GcType ->
@@ -114,6 +114,10 @@ and print_flag = function
       empty
   | MustDisappear ->
       string "must_disappear"
+  | Prologue _ | Epilogue _ ->
+      empty
+  | Const p ->
+      group (string "const" ^/^ string p)
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   (if mut then string "mutable" ^^ break 1 else empty) ^^
