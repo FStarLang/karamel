@@ -1,5 +1,3 @@
-# A minimalistic Makefile for calling Kremlin... KOPTS is for user-defined flags
-# (e.g. KOPTS="-cc clang -ccopt -fsanitize=undefined,address -ccopt -Wno-non-literal-null-conversion -Wno-unused-value")
 READLINK	= $(shell which greadlink >/dev/null 2>&1 && echo greadlink || echo readlink)
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
@@ -20,10 +18,8 @@ FILES		= \
   ExitCode.exe DataTypesMut.exe ParamAbbrev.exe Null.exe Failwith.exe \
   CustomEq.exe Uu.exe WildCard.exe UnusedParameter.exe EqB.exe MutRec.exe \
   MallocFree.exe TestAlloca.exe OptimizedOption.exe PushPop.exe EtaStruct.exe \
-  Verbatim.exe Const.exe
+  Verbatim.exe Const.exe $(CRYPTO)/Crypto.Symmetric.Chacha20.exe Uu.exe
 CUSTOM		= count-uu
-EXTRA_FILES	= \
-  $(CRYPTO)/Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \
   WasmTrap.wasm Wasm1.wasm Wasm2.wasm Wasm3.wasm
 NEGATIVE	= false
@@ -32,27 +28,46 @@ NEGATIVE	= false
 BROKEN		= \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm HigherOrder.exe
 WEB_DIR		?= web
+CACHE_DIR	= .cache
+OUTPUT_DIR	= .output
+FSTAR		= fstar --cache_checked_modules --use_two_phase_tc true --use_hints \
+  --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
+  --include hello-system --include ../kremlib \
+  --include $(CRYPTO)
 
-all: standalone extra
-wasm: wasm-standalone wasm-extra
-external: hacl-test
+# This just needs F* + KreMLin
+all: $(FILES) $(CUSTOM)
+
+# Needs d8 in scope (todo: node)
+wasm: $(WASM_FILES)
+
+# Needs a checkout of HACL*
+external: hacl-test hacl-algs
+
+# All of the above
 everything: all wasm external
-
-# The standalone tests don't need a source checkout of F* to run
-standalone: $(FILES) $(subst .exe,.krml,$(FILES)) $(CUSTOM)
-extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
-wasm-standalone: $(WASM_FILES)
-wasm-extra: hacl-algs
 
 .PRECIOUS: %.krml
 
-# A common target to produce a .krml file
-%.krml: %.fst
-	$(KRML) $(EXTRA) -tmpdir $(subst .krml,.out,$@) -skip-translation $<
-	cp $(subst .krml,.out,$@)/out.krml $@
+# Use F*'s dependency mechanism and fill out the missing rules.
+
+.depend: $(subst .exe,.fst,$(FILES)) Makefile
+	$(FSTAR) --dep full $(filter-out Makefile,$^) --extract Kremlin > .depend
+
+$(CACHE_DIR)/%.checked: | .depend
+	$(FSTAR) $<
+
+$(OUTPUT_DIR)/%.krml: | .depend
+	echo $@: $< && \
+	$(FSTAR) --codegen Kremlin \
+	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
+	  $(notdir $(subst .checked,,$<))
+
+-include .depend
 
 # Then, from there on, a specific target for native C compilation
-%.exe: %.krml $(KRML_BIN)
+.SECONDEXPANSION:
+%.exe: $(OUTPUT_DIR)/$$(subst .,_,$$(notdir $$*)).krml $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) -o $@ $<
 	$$($(READLINK) -f $@)
 
