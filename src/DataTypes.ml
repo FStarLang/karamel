@@ -170,6 +170,16 @@ let try_mk_switch e branches =
   with Exit ->
     EMatch (e, branches)
 
+(* An ad-hoc criterion for determining when we don't want to let-bind the
+ * scrutinee of a match. *)
+let rec is_simple_expression e =
+  match e.node with
+  | EQualified _
+  | EBound _
+  | EOpen _ -> true
+  | EField (e, _) -> is_simple_expression e
+  | _ -> false
+
 let is_trivial_record_pattern fields =
   List.for_all (function (_, { node = PBound _; _ }) -> true | _ -> false) fields
 
@@ -180,11 +190,17 @@ let try_mk_flat e t branches =
         (* match e with { f = x; ... } becomes
          * let tmp = e in let x = e.f in *)
         let binders, body = open_binders binders body in
-        let scrut, atom = mk_binding "scrut" e.typ in
-        let bindings = List.map2 (fun b (f, _) ->
-          b, with_type b.typ (EField (atom, f))
-        ) binders fields in
-        ELet (scrut, e, close_binder scrut (nest bindings t body))
+        if is_simple_expression e then
+          let bindings = List.map2 (fun b (f, _) ->
+            b, with_type b.typ (EField (e, f))
+          ) binders fields in
+          (nest bindings t body).node
+        else
+          let scrut, atom = mk_binding "scrut" e.typ in
+          let bindings = List.map2 (fun b (f, _) ->
+            b, with_type b.typ (EField (atom, f))
+          ) binders fields in
+          ELet (scrut, e, close_binder scrut (nest bindings t body))
       else
         EMatch (e, branches)
   | _ ->
@@ -591,15 +607,14 @@ let compile_match env e_scrut branches =
     | (cond, e) :: bs ->
         mk (EIfThenElse (cond, e, fold_ite bs))
   in
-  match e_scrut.node with
-  | EOpen _ ->
-      let name_scrut = e_scrut in
-      let branches = List.map (compile_branch env name_scrut) branches in
-      fold_ite branches
-  | _ ->
-      let b_scrut, name_scrut = mk_binding "scrut" e_scrut.typ in
-      let branches = List.map (compile_branch env name_scrut) branches in
-      mk (ELet (b_scrut, e_scrut, close_binder b_scrut (fold_ite branches)))
+  if is_simple_expression e_scrut then
+    let name_scrut = e_scrut in
+    let branches = List.map (compile_branch env name_scrut) branches in
+    fold_ite branches
+  else
+    let b_scrut, name_scrut = mk_binding "scrut" e_scrut.typ in
+    let branches = List.map (compile_branch env name_scrut) branches in
+    mk (ELet (b_scrut, e_scrut, close_binder b_scrut (fold_ite branches)))
 
 
 let assert_branches map lid =
