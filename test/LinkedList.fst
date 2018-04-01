@@ -7,9 +7,11 @@ module L = FStar.List.Tot
 
 open FStar.HyperStack.ST
 
+#set-options "--__no_positivity"
+
 /// We revisit the classic example of lists, but in a low-level setting, using
 /// linked lists. This first version uses `ref`, the type of references that are
-/// always live. However, we don't cheat and recall liveness "for free".
+/// always live. However, we don't cheat, and don't recall liveness "for free".
 noeq
 type t (a: Type0) =
   ref (cell a)
