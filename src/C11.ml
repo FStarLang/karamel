@@ -20,6 +20,11 @@ and storage_spec =
   | Extern
   | Static
 
+and qualifier =
+  | Const
+  | Volatile
+  | Restrict
+
 and declarator_and_init =
   declarator * init option
 
@@ -28,8 +33,8 @@ and declarator_and_inits =
 
 and declarator =
   | Ident of ident
-  | Pointer of declarator
-  | Array of declarator * expr
+  | Pointer of qualifier list * declarator
+  | Array of qualifier list * declarator * expr
   | Function of calling_convention option * declarator * params
 
 and expr =
@@ -60,7 +65,7 @@ and expr =
  * because there's the invariant that the ident found at the bottom of the
  * [declarator] is irrelevant... *)
 and type_name =
-  type_spec * declarator
+  qualifier list * type_spec * declarator
 
 and params =
   (* No support for old syntax, e.g. K&R, or [void f(void)]. *)
@@ -68,10 +73,10 @@ and params =
 
 and param =
   (** Also approximate. *)
-  type_spec * declarator
+  qualifier list * type_spec * declarator
 
 and declaration =
-  type_spec * storage_spec option * declarator_and_inits
+  qualifier list * type_spec * storage_spec option * declarator_and_inits
 
 and ident =
   string
