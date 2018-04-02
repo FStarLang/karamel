@@ -2,6 +2,7 @@ module DataTypesMut
 
 module B = FStar.Buffer
 
+noeq
 type t1 a = a * a
 and t2 a =
   | T2 of B.buffer (t3 a) * B.buffer (t3 Int32.t)

@@ -22,7 +22,7 @@ let zero_terminated (h: HS.mem) (b: B.buffer char) =
   B.length b <= FStar.UInt.max_int 32 /\
   uint8_of_char (Seq.index s (B.length b - 1)) = 0uy
 
-#set-options "--z3rlimit 200"
+#set-options "--z3rlimit 300"
 
 (**
   @summary: compares `b` and `s` for equality (without `s`'s trailing zero)
@@ -43,6 +43,7 @@ val bufstrcmp (b: buffer char) (s: C.String.t): Stack bool
       let s = C.String.v s in
       Seq.length b >= l /\
       Seq.equal (Seq.slice b 0 (l - 1)) (Seq.slice s 0 (l - 1)))))))
+
 let bufstrcmp b s =
   let h0 = ST.get () in
   push_frame ();
@@ -71,7 +72,17 @@ let bufstrcmp b s =
     if cb <> cs || cs = char_of_uint8 0uy then
       true
     else begin
+      let h = ST.get () in
+      assert (
+        let i: U32.t = B.get h i 0 in
+        forall (j: U32.t). {:pattern (B.get h b (U32.v j)) } U32.lt j i ==>
+          B.get h b (U32.v j) = C.String.get s j);
       i.(0ul) <- U32.( i.(0ul) +^ 1ul );
+      let h' = ST.get () in
+      assert (
+        let i: U32.t = B.get h i 0 in
+        B.get h' b (U32.v i) = C.String.get s i
+      );
       false
     end
   in
@@ -79,11 +90,27 @@ let bufstrcmp b s =
   let r = C.String.get s (i.(0ul)) = char_of_uint8 0uy in
   let h3 = ST.get () in
   assert (forall (b: buffer char) (i: nat{ i < B.length b }).
-    {:pattern (Seq.index (B.as_seq h2 b) i)}
-    Seq.index (B.as_seq h2 b) i == B.get h2 b i);
+    {:pattern (Seq.index (B.as_seq h3 b) i)}
+    Seq.index (B.as_seq h3 b) i == B.get h3 b i);
   assert (forall (s: C.String.t) (i: nat { i < C.String.length s }).
     {:pattern (Seq.index (C.String.v s) i)}
     Seq.index (C.String.v s) i == C.String.get s (U32.uint_to_t i));
+  assert (
+    let i = U32.v (B.get h3 i 0) in
+    (forall (j: nat).
+      {:pattern (Seq.index (B.as_seq h3 b) j)}
+      j < i ==> Seq.index (B.as_seq h3 b) j == Seq.index (C.String.v s) j)
+  );
+  assert (
+    let i = U32.v (B.get h3 i 0) in
+    (forall (j: nat).
+      {:pattern (Seq.index (Seq.slice (B.as_seq h3 b) 0 i) j)}
+      j < i ==> Seq.index (Seq.slice (B.as_seq h3 b) 0 i) j == Seq.index (Seq.slice (C.String.v s) 0 i) j)
+  );
+  assert (
+    let i = U32.v (B.get h3 i 0) in
+    Seq.equal (Seq.slice (B.as_seq h3 b) 0 i) (Seq.slice (C.String.v s) 0 i)
+  );
   pop_frame ();
   let h4 = ST.get () in
   lemma_modifies_0_1' i h1 h2 h3;
@@ -156,16 +183,91 @@ let offset_zero_terminated h (b: buffer char) (i: U32.t):
 inline_for_extraction
 let (!$) = C.String.of_literal
 
+val respond: (response: buffer char) -> (payload: buffer char) -> (payloadlen: U32.t) ->
+  Stack U32.t
+    (requires (fun h0 ->
+      B.length payload >= U32.v payloadlen /\
+      B.live h0 response /\
+      B.live h0 payload /\
+      B.disjoint response payload /\
+      B.length response > 128 + U32.v payloadlen
+    ))
+    (ensures (fun h0 n h1 ->
+      B.live h1 response /\
+      B.live h1 payload /\
+      B.disjoint response payload /\
+      B.modifies_1 response h0 h1 /\
+      U32.v n <= 128 + U32.v payloadlen
+    ))
+
 let respond response payload payloadlen =
-    let n1 = bufstrcpy response !$"HTTP/1.1 200 OK\r\nConnection: closed\r\nContent-Length:" in
-    let response = B.offset response n1 in
-    let n2 = print_u32 response payloadlen in
-    let response = B.offset response n2 in
-    let n3 = bufstrcpy response !$"\r\nContent-Type: text/html; charset=utf-8\r\n\r\n" in
-    let response = B.offset response n3 in
-    let t = Buffer.blit payload 0ul response 0ul payloadlen in
-    U32.(n1+^n2+^n3+^payloadlen)
-   
+  let n1 = bufstrcpy response !$"HTTP/1.1 200 OK\r\nConnection: closed\r\nContent-Length:" in
+  let response = B.offset response n1 in
+  let n2 = print_u32 response payloadlen in
+  let response = B.offset response n2 in
+  let n3 = bufstrcpy response !$"\r\nContent-Type: text/html; charset=utf-8\r\n\r\n" in
+  let response = B.offset response n3 in
+  let t = Buffer.blit payload 0ul response 0ul payloadlen in
+  U32.(n1 +^ n2 +^ n3 +^ payloadlen)
+
+#set-options "--max_ifuel 0"
+
+let respond_index (response: buffer char): Stack U32.t
+  (requires (fun h0 ->
+    B.live h0 response /\
+    B.length response >= 256))
+  (ensures (fun h0 n h1 ->
+    B.live h1 response /\
+    B.modifies_1 response h0 h1 /\
+    U32.v n <= 256)) =
+  push_frame ();
+  let payload = Buffer.create (char_of_uint8 0uy) 256ul in
+  let payloadlen = bufstrcpy payload !$"<html><body>Hello world</body></html>" in
+  let n = respond response payload payloadlen in
+  pop_frame ();
+  n
+
+let respond_stats (response: buffer char) (state: U32.t): Stack U32.t
+  (requires (fun h0 ->
+    B.live h0 response /\
+    B.length response >= 256))
+  (ensures (fun h0 n h1 ->
+    B.live h1 response /\
+    B.modifies_1 response h0 h1 /\
+    U32.v n <= 256)) =
+  push_frame ();
+  let payload = Buffer.create (char_of_uint8 0uy) 256ul in
+  let n1 = bufstrcpy payload !$"<html>State = " in
+  let next = B.offset payload n1 in
+  let n2 = print_u32 next state in
+  let next = B.offset next n2 in
+  let n3 = bufstrcpy next !$"</html>" in
+  let n = respond response payload U32.(n1+^n2+^n3) in
+  pop_frame ();
+  n
+
+let respond_404 (response: buffer char): Stack U32.t
+  (requires (fun h0 ->
+    B.live h0 response /\
+    B.length response >= 512))
+  (ensures (fun h0 n h1 ->
+    B.live h1 response /\
+    B.modifies_1 response h0 h1 /\
+    U32.v n <= 512)) =
+  push_frame ();
+  let payload = Buffer.create (char_of_uint8 0uy) 256ul in
+  let payloadlen = bufstrcpy payload !$"<html>Page not found</html>" in
+  let n1 = bufstrcpy response !$"HTTP/1.1 404 Not Found\r\nConnection: closed\r\nContent-Length:" in
+  let response = B.offset response n1 in
+  let n2 = print_u32 response payloadlen in
+  let response = B.offset response n2 in
+  let n3 = bufstrcpy response !$"\r\nContent-Type: text/html; charset=utf-8\r\n\r\n" in
+  let response = B.offset response n3 in
+  let t = Buffer.blit payload 0ul response 0ul payloadlen in
+  let n = U32.(n1+^n2+^n3+^payloadlen) in
+  pop_frame ();
+  n
+
 (**
   @summary: a demo server
   @type: true
@@ -202,30 +304,13 @@ let server state request response =
       let request = Buffer.offset request 4ul in
 
       if bufstrcmp request !$"/ " then
-        let payload = Buffer.create (char_of_uint8 0uy) 256ul in
-        let payloadlen = bufstrcpy payload !$"<html><body>Hello world</body></html>" in
-        respond response payload payloadlen
+        respond_index response
 
       else if bufstrcmp request !$"/stats " then
-        let payload = Buffer.create (char_of_uint8 0uy) 256ul in
-        let n1 = bufstrcpy payload !$"<html>State = " in
-        let next = B.offset payload n1 in
-        let n2 = print_u32 next state.(0ul) in
-        let next = B.offset next n2 in
-        let n3 = bufstrcpy next !$"</html>" in
-        respond response payload U32.(n1+^n2+^n3)
+        respond_stats response state.(0ul)
 
       else
-        let payload = Buffer.create (char_of_uint8 0uy) 256ul in
-        let payloadlen = bufstrcpy payload !$"<html>Page not found</html>" in
-        let n1 = bufstrcpy response !$"HTTP/1.1 404 Not Found\r\nConnection: closed\r\nContent-Length:" in
-        let response = B.offset response n1 in
-        let n2 = print_u32 response payloadlen in
-        let response = B.offset response n2 in
-        let n3 = bufstrcpy response !$"\r\nContent-Type: text/html; charset=utf-8\r\n\r\n" in
-        let response = B.offset response n3 in
-        let t = Buffer.blit payload 0ul response 0ul payloadlen in
-        U32.(n1+^n2+^n3+^payloadlen)
+        respond_404 response
   in
 
   pop_frame ();
