@@ -1,0 +1,67 @@
+[
+  "â‡¾Sƒ)jp7¾ÒÏS8\u0017Z",
+  [
+    [
+      "InlineTest.optresult",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "af482d0a0cb30b0be9ac0e629fa71622"
+    ],
+    [
+      "InlineTest.__proj__Error__item___0",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_InlineTest.Error",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_InlineTest_Tm_refine_dc1c4313057dcc858ffa9fd88c3f020d"
+      ],
+      0,
+      "ceb09321ddb7238539c474fd5a3269e9"
+    ],
+    [
+      "InlineTest.__proj__Correct__item___0",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_InlineTest.Correct",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_InlineTest_Tm_refine_dc046c5c58c78691ac946f81662277ac"
+      ],
+      0,
+      "31bebb0b4997e9faf27a8082de63db68"
+    ],
+    [
+      "InlineTest.f",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_FStar.UInt8.t__uu___haseq" ],
+      0,
+      "99795a418230909ad81cc21a14105c43"
+    ],
+    [
+      "InlineTest.main",
+      1,
+      2,
+      1,
+      [
+        "@query", "InlineTest_pretyping_117c08a1eaef5bedc68209b1944ac202",
+        "constructor_distinct_InlineTest.Correct",
+        "data_typing_intro_InlineTest.E1@tok",
+        "disc_equation_InlineTest.Correct", "equation_InlineTest.f",
+        "primitive_Prims.op_Equality",
+        "projection_inverse_InlineTest.Correct__0",
+        "projection_inverse_InlineTest.Correct__a",
+        "projection_inverse_InlineTest.Correct__b"
+      ],
+      0,
+      "a718e36f6f850039a574f606407ded64"
+    ]
+  ]
+]

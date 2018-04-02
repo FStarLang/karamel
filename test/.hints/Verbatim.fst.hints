@@ -1,0 +1,21 @@
+[
+  "’¿¶\u0003M˛àÅà$3,:Ì√◊",
+  [
+    [
+      "Verbatim.main1",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom", "equation_Verbatim.x",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
+        "function_token_typing_Verbatim.x",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "010c48162612c4b54f5456ca59b6151b"
+    ]
+  ]
+]

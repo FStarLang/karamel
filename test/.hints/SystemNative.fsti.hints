@@ -1,0 +1,144 @@
+[
+  "÷“ÖA¹Ã©=àÆPt¼þúv",
+  [
+    [
+      "SystemNative.mstring_t",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "assumption_FStar.UInt8.t__uu___haseq",
+        "primitive_Prims.op_Subtraction", "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_FStar.Buffer_Tm_refine_ac61996218e7c5b51c85527152e93166"
+      ],
+      0,
+      "421aebb960d3f8a62e628515ae730b9c"
+    ],
+    [
+      "SystemNative.pointer",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_Prims.HasEq_int" ],
+      0,
+      "2e22ab9cadf15062353894a6d2c3c8f4"
+    ],
+    [
+      "SystemNative.pointer_or_null",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_Prims.HasEq_int" ],
+      0,
+      "1105a34060fcbd198fd1388e687b3780"
+    ],
+    [
+      "SystemNative.sockaddr_t",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "disc_equation_SystemNative.PF_INET",
+        "disc_equation_SystemNative.PF_INET6",
+        "fuel_guarded_inversion_SystemNative.ai_family_t"
+      ],
+      0,
+      "faabb2a39b2990bbe0be79cb34c1efe8"
+    ],
+    [
+      "SystemNative.__proj__AddrInfo__item__ai_addr",
+      1,
+      2,
+      1,
+      [
+        "@query", "proj_equation_SystemNative.AddrInfo_ai_family",
+        "projection_inverse_SystemNative.AddrInfo_ai_family"
+      ],
+      0,
+      "8c956d1c9953bc702a8cd417c1bcdf42"
+    ],
+    [
+      "SystemNative.addrinfo_length_decreases",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_Prims.HasEq_int" ],
+      0,
+      "1e03c1b62fe74cfcc72a3ad7c3c25e34"
+    ],
+    [
+      "SystemNative.addrinfo_length_decreases",
+      2,
+      2,
+      1,
+      [ "@query", "assumption_Prims.HasEq_int" ],
+      0,
+      "94cd9a5f6dfe2da3da535158e17c6e17"
+    ],
+    [
+      "SystemNative.addrinfo_length_decreases",
+      3,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_SystemNative.pointer_or_null",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_SystemNative_Tm_refine_dbe33893899564965a42f115925172f5"
+      ],
+      0,
+      "cf69e60e4e382f5f2fa37536899b2d1d"
+    ],
+    [
+      "SystemNative.addrinfo_live",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "assumption_Prims.HasEq_int",
+        "b2t_def", "binder_x_6740e44db579bf7abf4224cbcb166d5a_1",
+        "binder_x_ed25b04ac1a3660bf4cdc8ae577888d8_0",
+        "equality_tok_Prims.LexTop@tok", "equation_FStar.Buffer.buffer",
+        "equation_FStar.Buffer.length", "equation_FStar.Buffer.live",
+        "equation_FStar.Monotonic.HyperStack.contains", "equation_Prims.nat",
+        "equation_SystemNative.pointer_or_null",
+        "fuel_guarded_inversion_FStar.Buffer._buffer",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
+        "lemma_SystemNative.addrinfo_length_decreases",
+        "primitive_Prims.op_Addition", "primitive_Prims.op_AmpAmp",
+        "projection_inverse_BoxBool_proj_0",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_Prims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d",
+        "refinement_interpretation_SystemNative_Tm_refine_dbe33893899564965a42f115925172f5",
+        "typing_SystemNative.addrinfo_length", "well-founded-ordering-on-nat"
+      ],
+      0,
+      "6105bb79b36d95c5378bb24c75aaaefd"
+    ],
+    [
+      "SystemNative.getaddrinfo",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_FStar.Int32.t__uu___haseq" ],
+      0,
+      "a617cdf48363f3566ea7034a8590538b"
+    ],
+    [
+      "SystemNative.getaddrinfo",
+      2,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_SystemNative.pointer",
+        "equation_SystemNative.pointer_or_null",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_SystemNative_Tm_refine_0d4da60cb6187749d65a25df63d2ab15"
+      ],
+      0,
+      "9ebe4c03f1bccd14db441a5e1a9fb5f5"
+    ]
+  ]
+]

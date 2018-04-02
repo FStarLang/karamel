@@ -1,0 +1,58 @@
+[
+  "6ÅäyéÎK\u001aMÍÎZS}‰\u0019",
+  [
+    [
+      "Recursive.linked_list",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_Prims.HasEq_int" ],
+      0,
+      "f1d056b349b56cfec09f5cedc5ddf16a"
+    ],
+    [
+      "Recursive.uu___is_Cons",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_Prims.HasEq_int" ],
+      0,
+      "255ffe5a679d28310a7c39ffc223bd25"
+    ],
+    [
+      "Recursive.__proj__Cons__item__elt",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "assumption_Prims.HasEq_int",
+        "disc_equation_Recursive.Cons", "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_Recursive_Tm_refine_fe78738bbffac158d58c53f89b03a1b7"
+      ],
+      0,
+      "89e08015bc80a3889bee7cadb27c55d9"
+    ],
+    [
+      "Recursive.__proj__Cons__item__next",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_Prims.HasEq_int" ],
+      0,
+      "60b033fd9dcbd982047243aca74fe761"
+    ],
+    [
+      "Recursive.__proj__Cons__item__next",
+      2,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "assumption_Prims.HasEq_int",
+        "disc_equation_Recursive.Cons", "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_Recursive_Tm_refine_fe78738bbffac158d58c53f89b03a1b7"
+      ],
+      0,
+      "12bdbaf33d09ebe78411b3fd1bc67a53"
+    ]
+  ]
+]

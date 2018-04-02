@@ -29,7 +29,8 @@ BROKEN		= \
 WEB_DIR		?= web
 CACHE_DIR	= .cache
 OUTPUT_DIR	= .output
-FSTAR		= fstar --cache_checked_modules --use_two_phase_tc true \
+HINTS_DIR	= .hints
+FSTAR		= fstar.exe --cache_checked_modules --use_two_phase_tc true \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
   --include hello-system --include ../kremlib \
   --include $(CRYPTO) --use_hints --record_hints --hint_info
@@ -37,8 +38,8 @@ FSTAR		= fstar --cache_checked_modules --use_two_phase_tc true \
 # This just needs F* + KreMLin
 all: $(FILES) $(CUSTOM)
 
-# Needs d8 in scope (todo: node)
-wasm: $(WASM_FILES)
+# TODO: use node instead of d8 + restore these targets
+wasm: # $(WASM_FILES)
 
 # Needs a checkout of HACL*
 external: hacl-test hacl-algs
@@ -55,8 +56,11 @@ everything: all wasm external
 
 -include .depend
 
-$(CACHE_DIR)/%.checked: | .depend
-	$(FSTAR) $<
+$(HINTS_DIR):
+	mkdir -p $@
+
+$(CACHE_DIR)/%.checked: | .depend $(HINTS_DIR)
+	$(FSTAR) --hint_file $(HINTS_DIR)/$*.hints $<
 	touch $@
 
 $(OUTPUT_DIR)/%.krml: | .depend
@@ -112,7 +116,7 @@ hacl-test:
 # A target for WASM compilation. All WASM targets get the -wasm flag;
 # some specific targets may override NEGATIVE for negative tests.
 %.wasm: EXTRA += -wasm
-%.wasm: %.krml $(KRML_BIN)
+%.wasm: %.krml | $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $(JSFILES) -no-prefix $(notdir $*) $<
 	cd $*.out && \
 	  if ! $(NEGATIVE); then $(shell which d8) main.js; \
