@@ -36,7 +36,7 @@ let main (): Stack Int32.t (fun _ -> true) (fun _ _ _ -> true) =
     3l
   else if id [ 1; 2] = id [ 2; 3 ] then
     4l
-  else if p1 () <> p2 () && t1 () <> t2 () && id [ 1; 2 ] <> id [ 2; 3 ] then
+  else if let b1 = p1 () <> p2 () in let b2 = t1 () <> t2 () in let b3 = id [ 1; 2 ] <> id [ 2; 3 ] in b1 && b2 && b3 then
     0l
   else
     2l

@@ -6,6 +6,8 @@ open FStar.HyperStack.ST
 module UInt32 = FStar.UInt32
 module UInt64 = FStar.UInt64
 
+module HS = FStar.HyperStack
+
 // simple for loop example - note that there is no framing
 let sum_to_n (n:UInt32.t) : Stack UInt32.t
   (requires (fun h0 -> True))
@@ -73,33 +75,96 @@ let wait_for_false (n:UInt32.t{UInt32.v n > 0}) : Stack UInt32.t
   assert (False);
   count
 
-let inv (b: Buffer.buffer UInt32.t) (h: FStar.HyperStack.mem): Type0 =
-  Buffer.live h b
+// JP: defining these two as top-level functions to work around "bound variable
+// not found"
+unfold
+let test_pre (b r: buffer UInt32.t) (h: FStar.HyperStack.mem): Type0 =
+  Buffer.live h b /\ Buffer.live h r /\
+  Buffer.length r = 1 /\ Buffer.length b = 3 /\
+  UInt32.v (Buffer.get h r 0) < Buffer.length b /\
+  UInt32.v (Buffer.get h r 0) >= 0
 
+unfold
+let test_post (b r: buffer UInt32.t) (test: bool) (h: FStar.HyperStack.mem): Type0 =
+  test_pre b r h /\ (test = true ==>
+    UInt32.v (Buffer.get h r 0) < Buffer.length b - 1)
+
+#set-options "--max_ifuel 0 --z3rlimit 30"
+val square_while: unit -> Stack unit (fun _ -> true) (fun h0 _ h1 -> true)
 let square_while () =
   let open C.Nullity in
   let open FStar.UInt32 in
+  push_frame ();
   let b = Buffer.createL [ 0ul; 1ul; 2ul ] in
-  let r = Buffer.createL [ 0ul ] in
-  let test (): Stack bool (requires (inv b)) (ensures (fun _ _ -> (inv b))) =
+  // JP: createL doesn't work here!
+  let r = Buffer.create 0ul 1ul in
+  // JP: eta-expansions seem necessary for the pre/post
+  let test (): Stack bool (requires (fun h -> test_pre b r h)) (ensures (fun _ ret h1 -> test_post b r ret h1)) =
     !*r <> 2ul
   in
-  let body (): Stack unit (requires (inv b)) (ensures (fun _ _ -> (inv b))) =
+  let body (): Stack unit (requires (fun h -> test_post b r true h)) (ensures (fun _ _ h1 -> test_pre b r h1)) =
+    let h = get () in
+    assert (Buffer.live h r /\ Buffer.length r = 1);
     b.(!*r) <- b.(!*r) *%^ b.(!*r);
     r.(0ul) <- !*r +%^ 1ul
   in
-  C.Loops.while test body
+  let h = get () in
+  assert (
+    UInt32.v (Buffer.get h r 0) < Buffer.length b /\
+    UInt32.v (Buffer.get h r 0) >= 0
+  );
+  C.Loops.while #(test_pre b r) #(test_post b r) test body;
+  pop_frame ()
 
+let test_map (): St unit =
+  push_frame ();
+  let b = Buffer.create 1ul 3ul in
+  b.(1ul) <- 2ul;
+  b.(2ul) <- 3ul;
+
+  (* An inline example of a map *)
+  let out = Buffer.create 0ul 3ul in
+  let h1 = get () in
+  assert (Buffer.live h1 b);
+  let f x: Tot UInt32.t = UInt32.(x *%^ x) in
+  C.Loops.map out b 3ul f;
+  TestLib.checku32 out.(2ul) 9ul;
+
+  (* For64 *)
+  let b = Buffer.createL [ 1UL; 2UL; 3UL ] in
+  C.Loops.for64 0UL 3UL (fun h _ -> Buffer.live h b) (fun i ->
+    let i = FStar.Int.Cast.uint64_to_uint32 i in
+    let open UInt64 in
+    b.(i) <- b.(i) *%^ b.(i)
+  );
+  TestLib.checku64 b.(2ul) 9UL;
+
+  pop_frame ()
+
+#set-options "--z3rlimit 30 --max_ifuel 0"
+val main: unit -> St Int32.t
 let main () =
-  (* An inline example of a for loop. *)
-  let b = Buffer.createL [ 1ul; 2ul; 3ul ] in
+  push_frame ();
+
+  (* Inline test for a for-loop. Todo: move to a separate test. *)
+  let b = Buffer.create 1ul 3ul in
+  b.(1ul) <- 2ul;
+  b.(2ul) <- 3ul;
   let h0 = get () in
-  let inv h1 i =
-    forall j. 0 <= j /\ j < i ==> (
+  assert (Seq.index (Buffer.as_seq h0 b) 2 = 3ul);
+  let inv (h1: HS.mem) (i: nat): Type0 =
+    Buffer.live h1 b /\ i <= 3 /\ (
+    forall j. 0 <= j /\ j < 3 ==> (
       let old = Seq.index (Buffer.as_seq h0 b) j in
       let new_ = Seq.index (Buffer.as_seq h1 b) j in
-      UInt32.(new_ =^ old *%^ old))
+      if j < i then
+        new_ = UInt32.(old *%^ old)
+      else
+        new_ = old
+   ))
   in
+  // JP: the refinement has to syntactically be here, it can't be in the
+  // requires clause
   let f (i:UInt32.t{UInt32.(0 <= v i /\ v i < 3)}):
     Stack unit
       (requires (fun h ->
@@ -107,33 +172,24 @@ let main () =
       (ensures (fun h_1 _ h_2 ->
         UInt32.(inv h_1 (v i) /\ inv h_2 (v i + 1))))
     =
+      let h1 = get () in
       let open UInt32 in
       b.(i) <- b.(i) *%^ b.(i)
   in
   C.Loops.for 0ul 3ul inv f;
   let h1 = get () in
   assert (Seq.index (Buffer.as_seq h1 b) 2 = 9ul);
+  assert (Buffer.live h1 b);
   TestLib.checku32 b.(2ul) 9ul;
 
-  (* An inline example of a map *)
-  let out = Buffer.create 0ul 3ul in
-  let f x = UInt32.(x *%^ x) in
-  C.Loops.map out b 3ul f;
-
-  (* For64 *)
-  let b = Buffer.createL [ 1UL; 2UL; 3UL ] in
-  C.Loops.for64 0UL 3UL (fun _ _ -> True) (fun i ->
-    let i = FStar.Int.Cast.uint64_to_uint32 i in
-    let open UInt64 in
-    b.(i) <- b.(i) *%^ b.(i)
-  );
-  TestLib.checku64 b.(2ul) 9UL;
-
   (* Call the tests above. *)
+  test_map ();
   TestLib.checku32 (count_to_n 10ul) 10ul;
   TestLib.checku32 (sum_to_n 11ul) 11ul;
   TestLib.checku32 (sum_to_n_buf 12ul) 12ul;
 
   square_while ();
 
-  C.exit_success
+  pop_frame ();
+
+  0l

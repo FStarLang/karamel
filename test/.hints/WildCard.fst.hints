@@ -1,0 +1,28 @@
+[
+  "9\u0017k°d© €\u00046…m“ÌÌD",
+  [
+    [
+      "WildCard.int_of_t",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "data_elim_FStar.Monotonic.HyperStack.HS",
+        "equation_FStar.HyperStack.ST.equal_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "equation_FStar.Monotonic.HyperHeap.hmap",
+        "equation_FStar.Set.eqtype", "equation_Prims.eqtype",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
+        "function_token_typing_FStar.Monotonic.Heap.heap",
+        "function_token_typing_FStar.Monotonic.HyperHeap.rid",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
+        "lemma_FStar.Set.lemma_equal_refl",
+        "proj_equation_FStar.Monotonic.HyperStack.HS_h",
+        "typing_FStar.Map.domain"
+      ],
+      0,
+      "fa40aade1eacc23bf1d306d6858cae11"
+    ]
+  ]
+]

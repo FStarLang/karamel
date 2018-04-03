@@ -1,0 +1,56 @@
+[
+  "%Ê\nú*»EX.\u001fA *“uæ",
+  [
+    [
+      "C.Nullity.is_null",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_Prims.HasEq_int" ],
+      0,
+      "127d5169ad653db0e9a418933deb3d88"
+    ],
+    [
+      "C.Nullity.null_always_zero",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_Prims.HasEq_int" ],
+      0,
+      "ca79d2a2e735b2912e48c67f6fd43bde"
+    ],
+    [
+      "C.Nullity.pointer",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_Prims.HasEq_int" ],
+      0,
+      "0b3f3b3137081bdb3fdfd9ea0ec92357"
+    ],
+    [
+      "C.Nullity.pointer_or_null",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_Prims.HasEq_int" ],
+      0,
+      "409d4b299bb98a4735365e41f213d67e"
+    ],
+    [
+      "C.Nullity.op_Bang_Star",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_C.Nullity.pointer",
+        "equation_FStar.Buffer.buffer", "equation_FStar.Buffer.get",
+        "fuel_guarded_inversion_FStar.Buffer._buffer",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_C.Nullity_Tm_refine_0d4da60cb6187749d65a25df63d2ab15"
+      ],
+      0,
+      "d69dbca93ce27265698c1839c032a05b"
+    ]
+  ]
+]

@@ -90,6 +90,7 @@ let sockaddr_t (af: ai_family_t) =
           struct	addrinfo *ai_next;	/* next structure in linked list */
   };
 *)
+#set-options "--__no_positivity"
 noeq type addrinfo_t =
   | AddrInfo:
     ai_flags: ai_flag_t ->
@@ -117,6 +118,7 @@ let rec addrinfo_live h (p: pointer_or_null addrinfo_t): GTot Type0 (decreases (
   if l = 0 then
     b2t (is_null p)
   else
+    not (is_null p) /\
     Buffer.live h p /\
     addrinfo_live h (Buffer.get h p 0).ai_next
 

@@ -1,0 +1,27 @@
+[
+  "“¿;˙\u0001o…;\u0017kÑ*Æ*êº",
+  [
+    [
+      "FStar.Pointer.Derived2.copy_buffer_contents_precond",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "1550244420f14ed8671b0d3ccdb6eda8"
+    ],
+    [
+      "FStar.Pointer.Derived2.copy_buffer_contents_postcond",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.Pointer.Derived2.copy_buffer_contents_precond",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem"
+      ],
+      0,
+      "a0dd18bc2c3f9232caf25e11558cd682"
+    ]
+  ]
+]

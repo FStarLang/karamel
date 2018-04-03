@@ -2,7 +2,7 @@ module TestAlloca
 
 open FStar.HyperStack.ST
 
-let size (): St UInt32.t =
+let size (): St (x: UInt32.t{ UInt32.v x == 42}) =
   42ul
 
 let main (): St Int32.t =
