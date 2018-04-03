@@ -1,4 +1,4 @@
-module LinkedList
+module LinkedList1
 
 module B = FStar.Buffer
 module HS = FStar.HyperStack
@@ -7,7 +7,7 @@ module L = FStar.List.Tot
 
 open FStar.HyperStack.ST
 
-#set-options "--__no_positivity"
+#set-options "--__no_positivity --use_two_phase_tc false"
 
 /// We revisit the classic example of lists, but in a low-level setting, using
 /// linked lists. This first version uses `ref`, the type of references that are
@@ -183,3 +183,6 @@ let test_pop #n (l: t UInt32.t): ST UInt32.t
   match pop #UInt32.t #n l with
   | None -> 0ul
   | Some x -> x
+  
+let main () =
+  0l

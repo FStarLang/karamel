@@ -17,7 +17,8 @@ FILES		= \
   ExitCode.test DataTypesMut.test ParamAbbrev.test Null.test Failwith.test \
   CustomEq.test Uu.test WildCard.test UnusedParameter.test EqB.test MutRec.test \
   MallocFree.test TestAlloca.test OptimizedOption.test PushPop.test EtaStruct.test \
-  Verbatim.test Const.test $(CRYPTO)/Crypto.Symmetric.Chacha20.test Uu.test
+  Verbatim.test Const.test $(CRYPTO)/Crypto.Symmetric.Chacha20.test Uu.test \
+  LinkedList1.test
 CUSTOM		= count-uu
 WASM_FILES	= \
   WasmTrap.wasm Wasm1.wasm Wasm2.wasm Wasm3.wasm

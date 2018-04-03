@@ -8,7 +8,7 @@
       1,
       [ "@query", "assumption_Prims.HasEq_int" ],
       0,
-      "c1d6cadb592848f1b185d427f6688d85"
+      "1f55b65b0c005509db9b45b0a68bebbf"
     ],
     [
       "Server.zero_terminated",
@@ -22,7 +22,7 @@
         "refinement_interpretation_FStar.Buffer_Tm_refine_ac61996218e7c5b51c85527152e93166"
       ],
       0,
-      "f2d2aa0e8a966c03898fd468ee00de38"
+      "9e5a807cd4a049ca7d57fdaa1e1ebffb"
     ],
     [
       "Server.bufstrcmp",
@@ -31,7 +31,7 @@
       1,
       [ "@query", "assumption_Prims.HasEq_bool" ],
       0,
-      "73a8747f29878f79d791cda55d6e9699"
+      "cbf484d6750fb9a675c22b64f015ddc2"
     ],
     [
       "Server.bufstrcmp",
@@ -50,7 +50,7 @@
         "typing_C.String.__proj__CString__item__s"
       ],
       0,
-      "9fbe2dc01e10e2ea7d126c353a3fb6b1"
+      "0a692b793b13d256277d63f199980d6a"
     ],
     [
       "Server.bufstrcmp",
@@ -116,7 +116,6 @@
         "lemma_FStar.Buffer.no_upd_lemma_0",
         "lemma_FStar.Buffer.no_upd_lemma_1",
         "lemma_FStar.Buffer.no_upd_popped",
-        "lemma_FStar.Seq.Base.lemma_eq_elim",
         "lemma_FStar.Seq.Base.lemma_eq_intro",
         "lemma_FStar.Seq.Base.lemma_index_create",
         "lemma_FStar.Seq.Base.lemma_index_slice",
@@ -166,13 +165,12 @@
         "typing_FStar.Monotonic.HyperStack.__proj__MkRef__item__frame",
         "typing_FStar.Monotonic.HyperStack.contains",
         "typing_FStar.Monotonic.HyperStack.poppable",
-        "typing_FStar.Seq.Base.index", "typing_FStar.Seq.Base.length",
-        "typing_FStar.Seq.Base.slice", "typing_FStar.UInt32.lt",
-        "typing_FStar.UInt32.uint_to_t", "typing_FStar.UInt32.v",
-        "unit_typing"
+        "typing_FStar.Seq.Base.index", "typing_FStar.Seq.Base.slice",
+        "typing_FStar.UInt32.lt", "typing_FStar.UInt32.uint_to_t",
+        "typing_FStar.UInt32.v", "unit_typing"
       ],
       0,
-      "faab859af5dea23bc1827fc2b3147802"
+      "8dbfec0da7ed69475aaaffa070f4ffc8"
     ],
     [
       "Server.bufstrcpy",
@@ -181,7 +179,7 @@
       1,
       [ "@query", "assumption_Prims.HasEq_int" ],
       0,
-      "27da5d5847f2cbaf5581bbfda9dec68e"
+      "d47578df4c64af0f323eb3a2969c315c"
     ],
     [
       "Server.bufstrcpy",
@@ -203,7 +201,7 @@
         "typing_C.String.__proj__CString__item__s"
       ],
       0,
-      "fff435a62b219bff71f0236211b1fa4d"
+      "3a4af7b4410c015457e1358bff8bffb5"
     ],
     [
       "Server.bufcpy",
@@ -231,7 +229,7 @@
         "typing_FStar.Buffer.as_seq", "typing_FStar.UInt32.v"
       ],
       0,
-      "998072bc70a3d8c30752f5cd9d2c769f"
+      "ecb9998636762cecd761cd1474798166"
     ],
     [
       "Server.offset_zero_terminated",
@@ -290,7 +288,7 @@
         "typing_Prims.pow2"
       ],
       0,
-      "f2e7508b413aee5b0cc0ada96205501f"
+      "8e6431bc9752fb4c91ecdf93aa061127"
     ],
     [
       "Server.respond",
@@ -361,7 +359,7 @@
         "typing_FStar.UInt32.v"
       ],
       0,
-      "cfb765f7e819dd6e11d31066a4bbcdaf"
+      "bd6b6f60a74a3532c5ab575969ab113b"
     ],
     [
       "Server.respond_index",
@@ -438,7 +436,7 @@
         "typing_FStar.Set.complement", "typing_FStar.Set.singleton"
       ],
       0,
-      "9f52ea9ce071022c52b7731344e5b9f3"
+      "0979f27987a8a2b5f7609a6577e5f478"
     ],
     [
       "Server.respond_stats",
@@ -537,7 +535,7 @@
         "typing_FStar.UInt32.v"
       ],
       0,
-      "4d1c77d3d539c9a0a212f5ab5f7da9d6"
+      "997c9ad678bd1b47767227f7760abdf0"
     ],
     [
       "Server.respond_404",
@@ -647,7 +645,7 @@
         "typing_FStar.UInt32.v"
       ],
       0,
-      "f67285df4072e26fbc4807088df59338"
+      "0decd2a45b4574830e192d05f947f9f1"
     ],
     [
       "Server.server",
@@ -656,7 +654,7 @@
       0,
       [ "@query", "assumption_Prims.HasEq_int" ],
       0,
-      "0c03467e145ef5da1f225cb0981da6b3"
+      "03ee0d8f8fe362e0fbf6dce30ae8ab80"
     ],
     [
       "Server.server",
@@ -764,7 +762,7 @@
         "typing_FStar.UInt32.v", "unit_typing"
       ],
       0,
-      "248c0e4c1a911dcdbc24e0958e680b9b"
+      "5cc08491a5ee637a77c8bc17ea4908f7"
     ]
   ]
 ]
