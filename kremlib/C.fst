@@ -22,8 +22,8 @@ assume val rand: unit -> Stack Int32.t
   (requires (fun _ -> true))
   (ensures (fun h0 _ h1 -> h0 == h1))
 assume val exit: Int32.t -> Stack unit
-  (requires (fun _ -> true))
-  (ensures (fun h0 _ h1 -> h0 == h1))
+  (requires (fun _ -> True))
+  (ensures (fun h0 _ h1 -> False))
 
 assume type channel
 assume val stdout: channel
