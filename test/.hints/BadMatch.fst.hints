@@ -8,7 +8,7 @@
       1,
       [ "@query", "assumption_FStar.UInt32.t__uu___haseq" ],
       0,
-      "1c095730b8a7ae1d20a7d267ddee8e09"
+      "34d95d65563fc3f8749ac81b016e8a1c"
     ],
     [
       "BadMatch.baz",
@@ -17,7 +17,7 @@
       1,
       [ "@query", "assumption_BadMatch.bar__uu___haseq" ],
       0,
-      "d9d554c843f9f853eb1299973c4ffdc5"
+      "42b54c69f5087ce2a5d552eb2dae8db5"
     ]
   ]
 ]

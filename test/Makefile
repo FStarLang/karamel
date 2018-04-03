@@ -75,7 +75,7 @@ $(OUTPUT_DIR)/%.exe: $(OUTPUT_DIR)/FStar_UInt128.krml | $(KRML_BIN)
 
 .SECONDEXPANSION:
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe
-	@$^ && echo "\033[01;32m✔\033[00m $*" || echo "\033[01;31m✘\033[00m $*"
+	@$^ && echo "\033[01;32m✔\033[00m [TEST,$*]" || echo "\033[01;31m✘\033[00m [TEST,$*]"
 
 # Various flags to be passed to some targets...
 $(OUTPUT_DIR)/Structs2.exe: EXTRA = -wasm -d force-c -drop C,TestLib wasm-stubs.c
@@ -122,8 +122,8 @@ $(OUTPUT_DIR)/%.wasm: $(OUTPUT_DIR)/FStar_UInt128.krml $(OUTPUT_DIR)/WasmSupport
 
 %.wasm-test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).wasm
 	cd $(OUTPUT_DIR)/$*.out && \
-	  if ! $(NEGATIVE); then $(shell which d8) main.js; \
-	  else ! $(shell which d8) main.js; fi
+	  if ! $(NEGATIVE); then $(shell which d8) main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || echo "\033[01;31m✘\033[00m [WASM-TEST,$*]"; \
+	  else ! $(shell which d8) main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || echo "\033[01;31m✘\033[00m [WASM-TEST,$*]"; fi
 
 # Customizing some WASM targets.
 $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: JSFILES=main-Chacha.js
