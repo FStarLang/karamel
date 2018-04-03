@@ -39,6 +39,7 @@ FSTAR		= fstar.exe --cache_checked_modules --use_two_phase_tc true \
 # This just needs F* + KreMLin
 all: $(FILES) $(CUSTOM)
 
+# Needs d8
 wasm: $(WASM_FILES)
 
 # Needs a checkout of HACL*
@@ -175,7 +176,12 @@ $$($(1))/$$($(1)_TEST):
 	[ -e $$(subst .krml,.out,$$@) ] || ln -sf $$($(1))/$$($(1)_DIR) $$(subst .krml,.out,$$@)
 	cp $$(subst .krml,.out,$$@)/out.krml $$@
 
-$$($(1))/$$(subst .krml,.wasm,$$($(1)_TEST)): EXTRA+=-drop $$(HACL_DROP) $$($(1)_ARGS)
+# Monolithic rule for extracting with a single .krml file; to be removed once
+# HACL* produces separate krml files.
+$$($(1))/$$(subst .krml,.wasm,$$($(1)_TEST)): $$($(1))/$$($(1)_TEST)
+	$(KRML) -wasm -drop $$(HACL_DROP) $$($(1)_ARGS) -tmpdir $$(subst .wasm,.out,$$@) \
+	  -no-prefix $$(subst .krml,,$$($(1)_TEST)) $$<
+
 hacl-algs: $$($(1))/$$(subst .krml,.wasm,$$($(1)_TEST))
 
 clean-$(1):
