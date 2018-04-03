@@ -72,6 +72,7 @@ Then, run `http-server .` and navigate to http://localhost:8080/main.html
 
 let write_all js_files modules print =
   Driver.detect_kremlin_if ();
+  Driver.mkdirp !Options.tmpdir;
 
   (* Write out all the individual .wasm files *)
   List.iter (fun (name, module_) ->

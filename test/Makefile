@@ -21,7 +21,7 @@ FILES		= \
   LinkedList1.test
 CUSTOM		= count-uu
 WASM_FILES	= \
-  WasmTrap.wasm Wasm1.wasm Wasm2.wasm Wasm3.wasm
+  WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
 # HigherOrder: need to implement "natural arity" tracking
@@ -33,14 +33,13 @@ OUTPUT_DIR	= .output
 HINTS_DIR	= .hints
 FSTAR		= fstar.exe --cache_checked_modules --use_two_phase_tc true \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
-  --include hello-system --include ../kremlib \
+  --include hello-system --include ../kremlib --include ../runtime \
   --include $(CRYPTO) --use_hints --record_hints --hint_info
 
 # This just needs F* + KreMLin
 all: $(FILES) $(CUSTOM)
 
-# TODO: use node instead of d8 + restore these targets
-wasm: # $(WASM_FILES)
+wasm: $(WASM_FILES)
 
 # Needs a checkout of HACL*
 external: hacl-test hacl-algs
@@ -52,8 +51,8 @@ everything: all wasm external
 
 # Use F*'s dependency mechanism and fill out the missing rules.
 
-.depend: $(subst .test,.fst,$(FILES)) Makefile
-	$(FSTAR) --dep full $(filter-out Makefile,$^) --extract Kremlin > .depend
+.depend: $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) | Makefile
+	$(FSTAR) --dep full $^ ../runtime/WasmSupport.fst --extract Kremlin > .depend
 
 -include .depend
 
@@ -76,7 +75,7 @@ $(OUTPUT_DIR)/%.exe: $(OUTPUT_DIR)/FStar_UInt128.krml | $(KRML_BIN)
 
 .SECONDEXPANSION:
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe
-	$^
+	@$^ && echo "\033[01;32m✔\033[00m $*" || echo "\033[01;31m✘\033[00m $*"
 
 # Various flags to be passed to some targets...
 $(OUTPUT_DIR)/Structs2.exe: EXTRA = -wasm -d force-c -drop C,TestLib wasm-stubs.c
@@ -116,19 +115,20 @@ hacl-test:
 
 # A target for WASM compilation. All WASM targets get the -wasm flag;
 # some specific targets may override NEGATIVE for negative tests.
-%.wasm: EXTRA += -wasm
-%.wasm: %.krml | $(KRML_BIN)
-	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $(JSFILES) -no-prefix $(notdir $*) $<
-	cd $*.out && \
+$(OUTPUT_DIR)/%.wasm: EXTRA += -wasm
+$(OUTPUT_DIR)/%.wasm: $(OUTPUT_DIR)/FStar_UInt128.krml $(OUTPUT_DIR)/WasmSupport.krml | $(KRML_BIN)
+	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $(JSFILES) \
+	  -no-prefix $(notdir $*) $(filter-out $(OUTPUT_DIR)/prims.krml,$^)
+
+%.wasm-test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).wasm
+	cd $(OUTPUT_DIR)/$*.out && \
 	  if ! $(NEGATIVE); then $(shell which d8) main.js; \
-	  else ! $(shell which d8) main.js; fi && \
-	  cd .. && cp $*.out/$(subst .,_,$(notdir $(basename $@))).wasm $@
-	# cd $*.out && ch -Wasm main.js
+	  else ! $(shell which d8) main.js; fi
 
 # Customizing some WASM targets.
 $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: JSFILES=main-Chacha.js
 $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: EXTRA+=$(CRYPTO_OPTS) -drop FStar
-WasmTrap.wasm: NEGATIVE = true
+WasmTrap.wasm-test: NEGATIVE = true
 
 # External WASM targets: recycle the HACL* Makefile!
 HACL_DROP=Prims,Hacl.UInt8,Hacl.UInt16,Hacl.UInt32,Hacl.UInt64,Hacl.UInt128,Hacl.Endianness,Hacl.Cast,Hacl.Spe.*,Hacl.Spec.*,Spec.*,Seq.*
