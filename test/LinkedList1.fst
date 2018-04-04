@@ -8,7 +8,7 @@ module U32 = FStar.UInt32
 
 open FStar.HyperStack.ST
 
-#set-options "--__no_positivity --use_two_phase_tc false"
+#set-options "--__no_positivity --use_two_phase_tc true"
 
 /// We revisit the classic example of lists, but in a low-level setting, using
 /// linked lists. This first version uses `ref`, the type of references that are
@@ -106,7 +106,6 @@ let rec disjoint_from_list (#a #b: Type) (r: ref a) (l: list (ref b)) : GTot boo
 /// As we start proving some degree of functional correctness, we will have to
 /// reason about non-interference, and state that some operations do not modify
 /// the footprint of a given list.
-/// TODO: there's a non-replayable hint here
 #set-options "--max_ifuel 1 --max_fuel 2"
 val footprint: (#a: Type) -> (h: HS.mem) -> (l: t a) -> (n: nat) -> Ghost (list (ref (cell a)))
   (requires (well_formed h l n))
