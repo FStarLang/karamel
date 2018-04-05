@@ -28,10 +28,12 @@ and cell (a: Type0) =
 /// enrich lists with a predicate that captures their length. This predicate
 /// will be needed for any traversal of the list, in order to show termination.
 /// Some points of interest:
+///
 /// - the absence of cycles does not suffice to guarantee termination, as the
 ///   number of references in the heap is potentially infinite;
 /// - the heap model allows us to select without showing liveness, which allows
 ///   to de-couple the length predicate from the liveness predicate. (YES, it allows us to, but it deserves nothing. )
+///
 let rec well_formed #a (h: HS.mem) (c: t a) (l: nat):
   GTot Type0 (decreases l)
 = HS.contains h c /\ (
