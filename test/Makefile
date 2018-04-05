@@ -111,6 +111,7 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 # External C tests that leverage other projects.
 .PHONY: hacl-test
 hacl-test:
+	$(MAKE) -C $(HACL_HOME)/code/curve25519 extract-c
 	$(MAKE) -C $(HACL_HOME)/secure_api -f $(HACL_HOME)/secure_api/Makefile.extract
 	$(HACL_HOME)/secure_api/out/runtime_switch/krml-test.exe
 
