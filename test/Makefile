@@ -112,7 +112,7 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 .PHONY: hacl-test
 hacl-test:
 	$(MAKE) -C $(HACL_HOME)/code/curve25519 extract-c
-	$(MAKE) -C $(HACL_HOME)/secure_api -f $(HACL_HOME)/secure_api/Makefile.extract krml-test.test
+	$(MAKE) -C $(HACL_HOME)/secure_api -f $(HACL_HOME)/secure_api/Makefile.extract krml-test
 
 # A target for WASM compilation. All WASM targets get the -wasm flag;
 # some specific targets may override NEGATIVE for negative tests.

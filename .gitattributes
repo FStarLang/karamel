@@ -3,3 +3,4 @@
 *.c eol=lf
 *.h eol=lf
 Makefile eol=lf
+*.hints -diff
