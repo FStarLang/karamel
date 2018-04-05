@@ -95,11 +95,11 @@ let inline_analysis files =
     | _ ->
         ()
   ) in
-  let exception Cycle in
+  let module T = struct exception Cycle end in
   let rec compute_size lid =
     match Hashtbl.find map lid with
     | Gray, _, _, _ ->
-        raise Cycle
+        raise T.Cycle
     | Black, _, size, _ ->
         size
     | White, flags, size, body ->
@@ -126,7 +126,7 @@ let inline_analysis files =
       (* 0 encodes a cycle meaning we shouldn't inline the function *)
       let small = 0 < size && size < 1000 in
       small
-    with Cycle ->
+    with T.Cycle ->
       let _, flags, _, body = Hashtbl.find map lid in
       Hashtbl.replace map lid (Black, flags, 0, body);
       false
