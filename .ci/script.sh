@@ -11,7 +11,6 @@ export FSTAR_HOME=/home/travis/build/FStarLang/kremlin/fstar
 export HACL_HOME=/home/travis/build/FStarLang/kremlin/hacl-star
 export KRML_HOME=/home/travis/build/FStarLang/kremlin
 export KREMLIN_HOME=/home/travis/build/FStarLang/kremlin
-export MLCRYPTO_HOME=/home/travis/build/FStarLang/MLCrypto
 export OCAMLRUNPARAM=b
 
 echo "\"everest\": -traverse" >> _tags
