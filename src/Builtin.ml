@@ -230,6 +230,11 @@ let c_string: file =
     mk_val [ "C"; "String" ] "print" (TArrow (t, TUnit))
   ]
 
+let c: file =
+  "C", [
+    mk_val [ "C" ] "exit" (TArrow (TInt K.Int32, TUnit))
+  ]
+
 let prelude () =
   prims ::
   List.map mk_builtin_int
@@ -238,7 +243,8 @@ let prelude () =
   monotonic_hh;
   hs;
   dyn;
-  c_string ]
+  c_string;
+  c ]
 
 let nullity: decl list =
   (* Poor man's substitute to polymorphic assumes ... this needs to be here to
