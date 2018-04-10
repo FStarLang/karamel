@@ -140,7 +140,8 @@ let rec perr buf (loc, raw_error) =
       p "Some globals did not compile to C values and must be initialized \
         before starting main(). You did not provide a main function, so users of \
         your library MUST MAKE SURE they call kremlinit_globals(); (see \
-        kremlinit.c)"
+        kremlinit.c). Once you have fixed this, use -warn-error +9 to make this \
+        warning non-fatal."
   | NotLowStar e ->
       p "this expression is not Low*; the enclosing function cannot be translated into C*: %a" pexpr e
   | NotWasmCompatible (lid, reason) ->
@@ -165,7 +166,8 @@ let maybe_fatal_error error =
   match flags.(errno) with
   | CError ->
       KPrint.beprintf "%a" perr error;
-      failwith "Fatal error"
+      KPrint.beprintf "Warning %d is fatal, exiting.\n" errno;
+      exit 255
   | CWarning ->
       KPrint.beprintf "%a" perr error
   | CSilent ->
