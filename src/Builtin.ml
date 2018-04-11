@@ -200,6 +200,19 @@ let hs: file =
       [ fresh_binder "x" TAny ],
       eunit);
     DFunction (None, [ Common.MustDisappear ], 0, TUnit,
+      ([ "FStar"; "HyperStack"; "ST" ], "testify"),
+      [ fresh_binder "x" TAny ],
+      eunit);
+    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
+      ([ "FStar"; "HyperStack"; "ST" ], "testify_forall"),
+      [ fresh_binder "x" TAny ],
+      eunit);
+    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
+      ([ "FStar"; "HyperStack"; "ST" ], "testify_forall_region_contains_pred"),
+      [ fresh_binder "x" TAny; 
+        fresh_binder "y" TAny ],
+      eunit);
+    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "recall_region"),
       [ fresh_binder "x" TUnit ],
       with_unit (EBound 0));
