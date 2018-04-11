@@ -525,6 +525,42 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       ) locals branches in
       locals, CF.Switch (e, branches, default)
 
+  (* This case corresponds to loop unrolling *)
+  | EFor (_,
+          { node = EConstant (K.UInt32, init); _ },
+          { node = EApp (
+                { node = EOp (K.Lt, K.UInt32); _ },
+                [{ node = EBound 0; _ };
+                 { node = EConstant (K.UInt32, max); _ }]); _},
+          { node = EAssign (
+                { node = EBound 0; _ },
+                { node = EApp (
+                      { node = EOp (K.Add, K.UInt32); _ },
+                      [{ node = EBound 0; _ };
+                       { node = EConstant (K.UInt32, incr); _ }]); _}); _},
+          body)
+    when (
+      let init = int_of_string init in
+      let max = int_of_string max in
+      let incr = int_of_string incr in
+      let len = (max - init) / incr in
+      len <= !Options.unroll_loops
+    )
+    ->
+    let init = int_of_string init in
+    let max = int_of_string max in
+    let incr = int_of_string incr in
+    let rec mk_unrolled_body locals acc i =
+      if i < max then
+        let body = DeBruijn.subst (Helpers.mk_uint32 i) 0 body in
+        let locals, body_flat = mk_expr env locals body in
+        mk_unrolled_body locals (body_flat::acc) (i+incr)
+      else
+        locals, acc
+    in
+    let locals, unrolled_body = mk_unrolled_body locals [] init in
+    locals, CF.Sequence(List.rev unrolled_body)
+
   | EFor (b, e1, e2, e3, e4) ->
       let locals, e1 = mk_expr env locals e1 in
       let locals, v, env = extend env b locals in
