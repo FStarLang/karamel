@@ -6,6 +6,7 @@ module HS = FStar.HyperStack
 module G = FStar.Ghost
 module L = FStar.List.Tot
 module U32 = FStar.UInt32
+module MO = FStar.Modifies
 
 open FStar.HyperStack.ST
 
@@ -93,49 +94,36 @@ let live_cons #a (h: HS.mem) (l: t a) : Lemma
   (ensures (live h l))
 = assert (forall n . well_formed h (B.get h l 0).next n ==> well_formed h l (n + 1))
 
-/// Disjointness of a buffer wrt. a list of buffers of the same type
-
-let rec disjoint_from_list (#a #b: Type) (r: B.buffer a) (l: list (B.buffer b)) : GTot Type0 =
-  match l with
-  | [] -> true
-  | r' :: q -> B.disjoint r r' /\ disjoint_from_list r q
-
 /// As we start proving some degree of functional correctness, we will have to
 /// reason about non-interference, and state that some operations do not modify
 /// the footprint of a given list.
 #set-options "--max_ifuel 1 --max_fuel 2"
-val footprint: (#a: Type) -> (h: HS.mem) -> (l: t a) -> (n: nat) -> Ghost (list (B.buffer (cell a)))
+val footprint: (#a: Type) -> (h: HS.mem) -> (l: t a) -> (n: nat) -> Ghost MO.loc
   (requires (well_formed h l n))
-  (ensures (fun refs ->
-    let n_refs = L.length refs in
-    n_refs == n /\
-    (forall (i: nat) . {:pattern (L.index refs i) } i < n ==> B.length (L.index refs i) == 1) /\
-    (forall (i: nat). {:pattern (L.index refs i)}
-      i < n ==> well_formed h (L.index refs i) (n - i))))
+  (ensures (fun refs -> True))
   (decreases n)
 
 let rec footprint #a h l n =
   if CN.is_null l
-  then []
+  then MO.loc_none
   else
     let {next = next} = B.get h l 0 in
     let refs = footprint h next (n - 1) in
-    l :: refs
+    MO.loc_union (MO.loc_buffer l) refs
 #reset-options
 
 let rec modifies_disjoint_footprint
   (#a: Type)
-  (#b: Type)
   (h: HS.mem)
   (l: t a)
   (n: nat)
-  (r: B.buffer b)
+  (r: MO.loc)
   (h' : HS.mem)
 : Lemma
   (requires (
     well_formed h l n /\
-    disjoint_from_list r (footprint h l n) /\
-    B.modifies_1 r h h'
+    MO.loc_disjoint r (footprint h l n) /\
+    MO.modifies r h h'
   ))
   (ensures (
     well_formed h' l n /\
@@ -144,9 +132,10 @@ let rec modifies_disjoint_footprint
   (decreases n)
 = if CN.is_null l
   then ()
-  else
+  else begin
     let {next = l'} = B.get h l 0 in
     modifies_disjoint_footprint h l' (n - 1) r h'
+  end
 
 let rec well_formed_distinct_lengths_disjoint
   #a
@@ -167,12 +156,13 @@ let rec well_formed_distinct_lengths_disjoint
   (decreases (n1 + n2))
 = let {next = next1} = B.get h c1 0 in
   let {next = next2} = B.get h c2 0 in
-  let f : squash (next1 =!= next2) =
+  let f () : Lemma (next1 =!= next2) =
     if CN.is_null next1 || CN.is_null next2
     then ()
     else
       well_formed_distinct_lengths_disjoint next1 next2 (n1 - 1) (n2 - 1) h
   in
+  f ();
   CN.pointer_distinct_sel_disjoint c1 c2 h
 
 let rec well_formed_gt_lengths_disjoint_from_list
@@ -184,7 +174,7 @@ let rec well_formed_gt_lengths_disjoint_from_list
   (n2: nat)
 : Lemma
   (requires (well_formed h c1 n1 /\ well_formed h c2 n2 /\ n1 > n2))
-  (ensures (disjoint_from_list c1 (footprint h c2 n2)))
+  (ensures (MO.loc_disjoint (MO.loc_buffer c1) (footprint h c2 n2)))
   (decreases n2)
 = if n2 = 0
   then ()
@@ -194,13 +184,15 @@ let rec well_formed_gt_lengths_disjoint_from_list
   end
 
 let well_formed_head_tail_disjoint
-  #a
+  (#a: Type)
   (h: HS.mem)
   (c: CN.pointer (cell a))
   (n: nat)
 : Lemma
   (requires (well_formed h c n))
-  (ensures (let (_ :: q) = footprint h c n in disjoint_from_list c q))
+  (ensures (
+    MO.loc_disjoint (MO.loc_buffer c) (footprint h (B.get h c 0).next (n - 1))
+  ))
 = well_formed_gt_lengths_disjoint_from_list h c (B.get h c 0).next n (n - 1)
 
 let rec unused_in_well_formed_disjoint_from_list
@@ -211,7 +203,7 @@ let rec unused_in_well_formed_disjoint_from_list
   (n: nat)
 : Lemma
   (requires (r `B.unused_in` h /\ well_formed h l n))
-  (ensures (disjoint_from_list r (footprint h l n)))
+  (ensures (MO.loc_disjoint (MO.loc_buffer r) (footprint h l n)))
   (decreases n)
 = if n = 0
   then ()
@@ -240,15 +232,15 @@ val pop: (#a: Type) -> (#n: G.erased nat) -> (pl: CN.pointer (t a)) ->
     let l = B.get h pl 0 in
     B.live h pl /\
     well_formed h l n /\
-    disjoint_from_list pl (footprint h l n) /\
+    MO.loc_disjoint (MO.loc_buffer pl) (footprint h l n) /\
     n > 0
   ))
   (ensures (fun h0 v h1 ->
     let l = B.get h1 pl 0 in
     let n' = G.reveal n - 1 in
-    B.modifies_1 pl h0 h1 /\
+    MO.modifies (MO.loc_buffer pl) h0 h1 /\
     well_formed h1 l n' /\
-    disjoint_from_list pl (footprint h1 l n')
+    MO.loc_disjoint (MO.loc_buffer pl) (footprint h1 l n')
   ))
 
 let pop #a #n pl =
@@ -259,10 +251,9 @@ let pop #a #n pl =
   B.upd pl 0ul lcell.next;
   let h1 = get () in
   well_formed_head_tail_disjoint h0 l (G.reveal n);
-  modifies_disjoint_footprint h0 l (G.reveal n) pl h1;
+  modifies_disjoint_footprint h0 l (G.reveal n) (MO.loc_buffer pl) h1;
   lcell.data
 
-(*
 val push: (#a: Type) -> (#n: G.erased nat) -> (pl: CN.pointer (t a)) -> (x: a) ->
   ST unit
     (requires (fun h -> 
@@ -270,14 +261,15 @@ val push: (#a: Type) -> (#n: G.erased nat) -> (pl: CN.pointer (t a)) -> (x: a) -
       let l = B.get h pl 0 in
       B.live h pl /\
       well_formed h l n /\
-      disjoint_from_list pl (footprint h l n)
+      MO.loc_disjoint (MO.loc_buffer pl) (footprint h l n)
     ))
-    (ensures (fun h0 _ h1 -> (* TODO: modifies clauses *)
+    (ensures (fun h0 _ h1 ->
       let n' = G.reveal n + 1 in
       let l = B.get h1 pl 0 in
+      MO.modifies (MO.loc_buffer pl) h0 h1 /\
       B.live h1 pl /\
       well_formed h1 l n' /\
-      disjoint_from_list pl (footprint h1 l n')
+      MO.loc_disjoint (MO.loc_buffer pl) (footprint h1 l n')
     ))
 
 let push #a #n pl x =
@@ -292,13 +284,14 @@ let push #a #n pl x =
   let pc: CN.pointer (cell a) = B.rcreate_mm HS.root c 1ul in
   unused_in_well_formed_disjoint_from_list h0 pc l (G.reveal n);
   let h1 = get () in
-  modifies_disjoint_footprint h0 l (G.reveal n) pc h1;
+  // TODO: pattern. Problem: rcreate_post_common is marked unfold, so no pattern can be defined
+  MO.modifies_buffer_rcreate_post_common HS.root c 1ul pc h0 h1;
+  modifies_disjoint_footprint h0 l (G.reveal n) (MO.loc_buffer pc) h1;
   B.upd pl 0ul pc;
   let h2 = get () in
-  well_formed_head_tail_disjoint h0 l (G.reveal n);
-  modifies_disjoint_footprint h1 l (G.reveal n) pl h2
+  modifies_disjoint_footprint h1 l (G.reveal n) (MO.loc_buffer pl) h2
 
-
+(*
 /// Connecting our predicate `well_formed` to the regular length function.
 /// Note that this function takes a list whose length is unknown statically,
 /// because of the existential quantification.
@@ -316,6 +309,7 @@ val length (#a: Type) (gn: G.erased nat) (l: t a): Stack UInt32.t
 /// that they are zero-terminated and allows looping over them if one wants to,
 /// say, copy an immutable constant string into a mutable buffer.
 let rec length #a gn l =
+  
   match !l with
   | Nil ->
       let h = get () in
