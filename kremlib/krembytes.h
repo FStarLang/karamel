@@ -254,20 +254,21 @@ static inline uint8_t byte_of_hex(char c)
     if (c >= '0' && c <= '9') {
         return c-'0';
     } else if (c >= 'a' && c <= 'f') {
-        return c-'a';
+        return c-'a'+10;
     } else if (c >= 'A' && c <= 'F') {
-        return c-'A';
+        return c-'A'+10;
     } else {
         return 0xff;
     }
 }
 
-static inline char hex_of_nibble(uint8_t n)
+static inline uint8_t hex_of_nibble(uint8_t n)
 {
+    n &= 0xf; // clear out any high bits
     if (n >= 0 && n <= 9) {
         return (uint8_t)n + '0';
     } else {
-        return (uint8_t)n + 'a';
+        return (uint8_t)n + 'a' - 10;
     }
 }
 
@@ -282,14 +283,21 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
     uint8_t dst;
     uint8_t dst_hi = byte_of_hex(str[2 * i]);
     uint8_t dst_lo = byte_of_hex(str[2 * i + 1]);
-    if (dst_hi == 0xff || dst_lo == 0xff) {
+    if (dst_hi == 0xff) {
+      // sscanf() fails if the first digit cannot be parsed
       KRML_HOST_EPRINTF(
           "bytes_of_hex: run-time error while scanning at index "
           "%zu\n%s\n",
           2 * i, str);
       return FStar_Bytes_empty_bytes;
+    } else if (dst_lo == 0xff) {
+      // scanf succeeds if the first digit can be parsed, but not the second
+      dst = dst_hi;
+    } else {
+      // both digits parsed
+      dst = (dst_hi << 4) | dst_lo;
     }
-    dst = (dst_hi << 4) | dst_lo;
+
     data[i] = dst;
   }
   FStar_Bytes_bytes b = { .length = l / 2, .data = data };
