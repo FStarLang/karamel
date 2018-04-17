@@ -238,6 +238,7 @@ val pop: (#a: Type) -> (#n: G.erased nat) -> (pl: CN.pointer (t a)) ->
   (ensures (fun h0 v h1 ->
     let l = B.get h1 pl 0 in
     let n' = G.reveal n - 1 in
+    B.live h1 pl /\
     MO.modifies (MO.loc_buffer pl) h0 h1 /\
     well_formed h1 l n' /\
     MO.loc_disjoint (MO.loc_buffer pl) (footprint h1 l n')
@@ -291,7 +292,6 @@ let push #a #n pl x =
   let h2 = get () in
   modifies_disjoint_footprint h1 l (G.reveal n) (MO.loc_buffer pl) h2
 
-(*
 /// Connecting our predicate `well_formed` to the regular length function.
 /// Note that this function takes a list whose length is unknown statically,
 /// because of the existential quantification.
@@ -309,28 +309,27 @@ val length (#a: Type) (gn: G.erased nat) (l: t a): Stack UInt32.t
 /// that they are zero-terminated and allows looping over them if one wants to,
 /// say, copy an immutable constant string into a mutable buffer.
 let rec length #a gn l =
-  
-  match !l with
-  | Nil ->
-      let h = get () in
-      assert (well_formed h l 0);
-      0ul
-  | Cons next _ ->
-      let open U32 in
-      let h = get () in
-      let n = length (G.hide (G.reveal gn - 1)) next in
-      if n = 0xfffffffful then begin
-        C.String.(print !$"Integer overflow while computing length");
-        C.exit 255l;
-        0ul
-      end else
-        n +^ 1ul
+  if CN.is_null l
+  then 0ul
+  else
+    let open CN in
+    let open U32 in
+    let c = !* l in
+    let next = c.next in
+    let n = length (G.hide (G.reveal gn - 1)) next in
+    if n = 0xfffffffful then begin
+      C.String.(print !$"Integer overflow while computing length");
+      C.exit 255l;
+      0ul // dummy return value, this point is unreachable
+    end else
+      n +^ 1ul
   
 val main: unit -> ST (Int32.t) (fun _ -> true) (fun _ _ _ -> true)
+
+#set-options "--z3rlimit 8"
+
 let main () =
-  let l: ref (cell Int32.t) = ralloc HS.root Nil in
+  let l: CN.pointer_or_null (t Int32.t) = Buffer.rcreate_mm HS.root (CN.null _) 1ul in
   push #Int32.t #(G.hide 0) l 1l;
   push #Int32.t #(G.hide 1) l 0l;
-  match pop #Int32.t #(G.hide 2) l with
-  | None -> 1l
-  | Some x -> x
+  pop #Int32.t #(G.hide 2) l
