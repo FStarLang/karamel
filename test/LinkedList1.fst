@@ -24,16 +24,13 @@ and cell (a: Type0) =
       data: a ->
       cell a
 
-/// Since linked lists go through a reference for indirection purposes, we
-/// enrich lists with a predicate that captures their length. This predicate
-/// will be needed for any traversal of the list, in order to show termination.
-/// Some points of interest:
-///
-/// - the absence of cycles does not suffice to guarantee termination, as the
-///   number of references in the heap is potentially infinite;
-/// - the heap model allows us to select without showing liveness, which allows
-///   to de-couple the length predicate from the liveness predicate. (YES, it allows us to, but it deserves nothing. )
-///
+/// Since linked lists go through a reference for indirection
+/// purposes, we enrich lists with a predicate that captures their
+/// length.  This predicate also encodes the fact that all cells of
+/// the list are live at the same time.  This predicate will be needed
+/// for any traversal of the list, in order to show termination.  The
+/// absence of cycles does not suffice to guarantee termination, as
+/// the number of references in the heap is potentially infinite;
 let rec well_formed #a (h: HS.mem) (c: t a) (l: nat):
   GTot Type0 (decreases l)
 = HS.contains h c /\ (
@@ -272,7 +269,6 @@ let push #a #n l x =
 /// Connecting our predicate `well_formed` to the regular length function.
 /// Note that this function takes a list whose length is unknown statically,
 /// because of the existential quantification.
-/// TODO: figure out why the `assert` is needed.
 val length (#a: Type) (gn: G.erased nat) (l: t a): Stack UInt32.t
   (requires (fun h -> well_formed h l (G.reveal gn)))
   (ensures (fun h0 n h1 ->
@@ -288,8 +284,6 @@ val length (#a: Type) (gn: G.erased nat) (l: t a): Stack UInt32.t
 let rec length #a gn l =
   match !l with
   | Nil ->
-      let h = get () in
-      assert (well_formed h l 0);
       0ul
   | Cons next _ ->
       let open U32 in
@@ -298,7 +292,7 @@ let rec length #a gn l =
       if n = 0xfffffffful then begin
         C.String.(print !$"Integer overflow while computing length");
         C.exit 255l;
-        0ul
+        0ul // dummy return value, this point is unreachable
       end else
         n +^ 1ul
   

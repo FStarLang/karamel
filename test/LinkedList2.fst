@@ -12,9 +12,9 @@ open FStar.HyperStack.ST
 
 #set-options "--__no_positivity --use_two_phase_tc true"
 
-/// We revisit the classic example of lists, but in a low-level setting, using
-/// linked lists. This first version uses `ref`, the type of references that are
-/// always live. However, we don't cheat, and don't recall liveness "for free".
+/// We revisit the classic example of lists, but in a low-level
+/// setting, using linked lists. This second version uses
+/// `pointer_or_null`, the type of buffers of length 1 or 0.
 noeq
 type t (a: Type0) =
   CN.pointer_or_null (cell a)
@@ -24,14 +24,12 @@ and cell (a: Type0) = {
   data: a;
 }
 
-/// Since linked lists go through a reference for indirection purposes, we
-/// enrich lists with a predicate that captures their length. This predicate
-/// will be needed for any traversal of the list, in order to show termination.
-/// Some points of interest:
-/// - the absence of cycles does not suffice to guarantee termination, as the
-///   number of references in the heap is potentially infinite;
-/// - the heap model allows us to select without showing liveness, which allows
-///   to de-couple the length predicate from the liveness predicate. (YES, it allows us to, but it deserves nothing. )
+/// We enrich lists with a predicate that captures their length.  This
+/// predicate will be needed for any traversal of the list, in order
+/// to show termination.  This predicate also encodes the fact that
+/// all cells of the list are live at the same time.  The absence of
+/// cycles does not suffice to guarantee termination, as the number of
+/// buffers in the heap is potentially infinite;
 let rec well_formed #a (h: HS.mem) (c: t a) (l: nat):
   GTot Type0 (decreases l)
 = B.live h c /\ (
@@ -55,7 +53,7 @@ let rec well_formed #a (h: HS.mem) (c: t a) (l: nat):
 /// code via a combination of F* + KreMLin erasure.
 
 /// When traversing a list `l` such that `well_formed h l n`, it is often
-/// the case that we recursively visit the Cons cell, passing `n - 1` for the
+/// the case that we recursively visit the next cell, passing `n - 1` for the
 /// recursive call. This lemma ensures that Z3 can show that `n - 1` has type
 /// `nat`.
 let cons_nonzero_length #a (h: HS.mem) (c: t a) (l: nat):
@@ -209,13 +207,9 @@ let rec unused_in_well_formed_disjoint_from_list
   then ()
   else unused_in_well_formed_disjoint_from_list h r (B.get h l 0).next (n - 1)
 
-/// Finally, the pop operation. Our representation of linked lists is slightly
-/// unusual, owing to the fact that we do not have null references, and
-/// therefore represent the empty list as a reference to `Nil`. This means that
-/// popping an element off the front of the list can be done by merely writing
-/// the next cell in that reference. This is in contrast to the classic
-/// representation using null pointers, which requires the client to pass a
-/// pointer to a pointer, which is then filled with the address of the next
+/// Finally, the pop operation. Here we use the classic representation
+/// using null pointers, which requires the client to pass a pointer
+/// to a pointer, which is then filled with the address of the next
 /// cell, or null if this was the last element in the list.
 
 /// The code is straightforward and crucially relies on the call to the lemma
@@ -295,7 +289,6 @@ let push #a #n pl x =
 /// Connecting our predicate `well_formed` to the regular length function.
 /// Note that this function takes a list whose length is unknown statically,
 /// because of the existential quantification.
-/// TODO: figure out why the `assert` is needed.
 val length (#a: Type) (gn: G.erased nat) (l: t a): Stack UInt32.t
   (requires (fun h -> well_formed h l (G.reveal gn)))
   (ensures (fun h0 n h1 ->
