@@ -91,8 +91,9 @@ let lookup_type env lid =
 let lookup_global env lid =
   match M.find lid env.globals with
   | exception Not_found ->
-      Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" ploc env.location,
-        UnboundReference (KPrint.bsprintf "%a" plid lid)));
+      if env.warn then
+        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" ploc env.location,
+          UnboundReference (KPrint.bsprintf "%a" plid lid)));
       TAny
   | x ->
       x

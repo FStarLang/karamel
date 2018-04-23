@@ -259,7 +259,23 @@ let prelude () =
   hs;
   dyn;
   c_string;
-  c ]
+  c ] @ (
+    let t = TQualified (["FStar"; "UInt128"], "uint128") in
+    let augment prelude (filename, decls) = filename, prelude @ decls in
+    let default =
+      [
+        DExternal (None, [], (["FStar"; "UInt128"], "uint64_to_uint128"),
+          (TArrow (TInt UInt64, t)));
+        DExternal (None, [], (["FStar"; "UInt128"], "uint128_to_uint64"),
+          (TArrow (t, TInt UInt64)));
+        DType (([ "FStar"; "UInt128"], "t"), [], 0, Abbrev t);
+      ]
+    in
+    if !Options.uint128 then
+      [ augment default (mk_int "UInt128" t) ]
+    else
+      [ "FStar_UInt128", default ]
+  )
 
 let nullity: decl list =
   (* Poor man's substitute to polymorphic assumes ... this needs to be here to
