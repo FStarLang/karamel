@@ -249,6 +249,29 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_int32(uint32_t x) {
   return (FStar_Bytes_bytes){ .length = 4, .data = data };
 }
 
+static inline uint8_t byte_of_hex(char c)
+{
+    if (c >= '0' && c <= '9') {
+        return c-'0';
+    } else if (c >= 'a' && c <= 'f') {
+        return c-'a'+10;
+    } else if (c >= 'A' && c <= 'F') {
+        return c-'A'+10;
+    } else {
+        return 0xff;
+    }
+}
+
+static inline uint8_t hex_of_nibble(uint8_t n)
+{
+    n &= 0xf; // clear out any high bits
+    if (n >= 0 && n <= 9) {
+        return (uint8_t)n + '0';
+    } else {
+        return (uint8_t)n + 'a' - 10;
+    }
+}
+
 static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
   size_t l = strlen(str);
   if (l % 2 == 1)
@@ -258,14 +281,23 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
   CHECK(data);
   for (size_t i = 0; i < l / 2; i++) {
     uint8_t dst;
-    int ret = sscanf(str + 2 * i, "%02" SCNx8, &dst);
-    if (ret != 1) {
+    uint8_t dst_hi = byte_of_hex(str[2 * i]);
+    uint8_t dst_lo = byte_of_hex(str[2 * i + 1]);
+    if (dst_hi == 0xff) {
+      // sscanf() fails if the first digit cannot be parsed
       KRML_HOST_EPRINTF(
           "bytes_of_hex: run-time error while scanning at index "
-          "%zu\nret=%d\n%s\n",
-          2 * i, ret, str);
+          "%zu\n%s\n",
+          2 * i, str);
       return FStar_Bytes_empty_bytes;
+    } else if (dst_lo == 0xff) {
+      // scanf succeeds if the first digit can be parsed, but not the second
+      dst = dst_hi;
+    } else {
+      // both digits parsed
+      dst = (dst_hi << 4) | dst_lo;
     }
+
     data[i] = dst;
   }
   FStar_Bytes_bytes b = { .length = l / 2, .data = data };
@@ -275,14 +307,10 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
 static inline Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes s) {
   char *str = KRML_HOST_MALLOC(s.length * 2 + 1);
   CHECK(str);
-#if defined(_MSC_VER)
   for (size_t i = 0; i < s.length; ++i) {
-    sprintf_s(str + 2 * i, 3, "%02" PRIx8, (uint8_t) (s.data[i] & 0xFF));
+    str[2 * i] = hex_of_nibble(s.data[i] >> 4);
+    str[2 * i + 1] = hex_of_nibble(s.data[i] & 0x0f);
   }
-#else
-  for (size_t i = 0; i < s.length; ++i)
-    sprintf(str + 2 * i, "%02" PRIx8, (uint8_t) (s.data[i] & 0xFF));
-#endif
   str[s.length * 2] = 0;
   return str;
 }
