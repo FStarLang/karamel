@@ -1,8 +1,8 @@
 [
-  "ºR˙\u000f\u0004è›Õ£ä¶;\u0015ßEÿ",
+  "h\u0015⁄T Á=\u0007P‡≠’æ}àS",
   [
     [
-      "FunPtr.f",
+      "NoExtract.f",
       1,
       2,
       1,
@@ -14,23 +14,22 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "5cfb6e3eda1c7321866d7ba75a045552"
+      "ae7e431133e3babb5b30085fb5c9e867"
     ],
     [
-      "FunPtr.main",
+      "NoExtract.b",
       1,
       2,
       1,
       [
-        "@MaxIFuel_assumption", "@query", "equation_C.exit_success",
+        "@MaxIFuel_assumption", "@query",
         "equation_FStar.HyperStack.ST.equal_stack_domains",
         "equation_FStar.Monotonic.Heap.equal_dom",
         "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
-        "function_token_typing_C.exit_success",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "a4d2f80275b9ca48aae5d0d95b705f60"
+      "48ae9560b3097e187b8842a0f0077104"
     ]
   ]
 ]

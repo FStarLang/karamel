@@ -1,5 +1,5 @@
 [
-  "5¨|Ú/Qs¨.j\u0004s¶1\u0010",
+  "v\u0010\u0017Fúß\"¯∏çπÂ\rDV ",
   [
     [
       "Prims.Ghost",
@@ -8,7 +8,7 @@
       1,
       [ "@query" ],
       0,
-      "5d278e6740247720f514c8c6ff5eff99"
+      "aa99fa66b9ce2c09cc4d30b020753e34"
     ],
     [
       "Prims.list",
@@ -17,7 +17,7 @@
       1,
       [ "@query" ],
       0,
-      "ee0ca7225e3c59597693c3997adb19fc"
+      "234305419e6c535f62461862a50492a5"
     ],
     [
       "Prims.__proj__Cons__item__hd",
@@ -30,7 +30,7 @@
         "refinement_interpretation_Prims_Tm_refine_7aac12c24449a22c34d98a0ea8ed4a32"
       ],
       0,
-      "9b38752d4176c722ffda968e24de7b11"
+      "8e9818f33482c15d51f94cbce9be5013"
     ],
     [
       "Prims.__proj__Cons__item__tl",
@@ -43,7 +43,7 @@
         "refinement_interpretation_Prims_Tm_refine_7aac12c24449a22c34d98a0ea8ed4a32"
       ],
       0,
-      "90991fdaa0125b41246063dda5d6f872"
+      "62c3b602dc7adf948c597879e95b3589"
     ],
     [
       "Prims.Lemma",
@@ -55,7 +55,7 @@
         "refinement_interpretation_Prims_Tm_refine_8d65e998a07dd53ec478e27017d9dba5"
       ],
       0,
-      "9cdee72a56ae5c0c1665c2426f8bbb85"
+      "4cdde99a14ce7126e11c4701d0aa9398"
     ],
     [
       "Prims._assert",
@@ -64,7 +64,7 @@
       1,
       [ "@query" ],
       0,
-      "19dcc8f83adeb884fe5834bbfc6d0bea"
+      "bf21e3b3d8374b36d3dd8207d72b1784"
     ],
     [
       "Prims.assert_spinoff",
@@ -73,7 +73,7 @@
       1,
       [ "@query" ],
       0,
-      "1ef87a5af602e83547aa223e35417d8d"
+      "3b06c4e695fbc860156e84c6a9d67bde"
     ],
     [
       "Prims.cut",
@@ -82,7 +82,7 @@
       1,
       [ "@query" ],
       0,
-      "1ca99a1b94cac7685c3164b8613dc1df"
+      "6d555201ac07a65be84d0ef33d9eb9a6"
     ],
     [
       "Prims.nonzero",
@@ -91,7 +91,7 @@
       1,
       [ "@query", "assumption_Prims.HasEq_int" ],
       0,
-      "ea8f2554ba745de058ed801f21f091c9"
+      "e900e5d9a6c4a0635ae1ab0fbeeb4064"
     ],
     [
       "Prims.pow2",
@@ -109,97 +109,7 @@
         "well-founded-ordering-on-nat"
       ],
       0,
-      "76bb2b59aaba73e1d1f997b7980f0e56"
-    ],
-    [
-      "Prims.__proj__UnfoldOnly__item___0",
-      1,
-      2,
-      1,
-      [
-        "@MaxIFuel_assumption", "@query", "disc_equation_Prims.UnfoldOnly",
-        "projection_inverse_BoxBool_proj_0",
-        "refinement_interpretation_Prims_Tm_refine_4d5fdd81326d62e4902f453115e4f88e"
-      ],
-      0,
-      "fca7a321ac12460284490379a3b8ccf0"
-    ],
-    [
-      "Prims.__proj__UnfoldFully__item___0",
-      1,
-      2,
-      1,
-      [
-        "@MaxIFuel_assumption", "@query", "disc_equation_Prims.UnfoldFully",
-        "projection_inverse_BoxBool_proj_0",
-        "refinement_interpretation_Prims_Tm_refine_953a5166cdd0016c2c62d89410a77c22"
-      ],
-      0,
-      "d6fb70272e18f980698239ac6352cb80"
-    ],
-    [
-      "Prims.__proj__UnfoldAttr__item__t",
-      1,
-      2,
-      1,
-      [
-        "@MaxIFuel_assumption", "@query", "disc_equation_Prims.UnfoldAttr",
-        "projection_inverse_BoxBool_proj_0",
-        "refinement_interpretation_Prims_Tm_refine_2d13f1642f6ea430528edc9d2fc127eb"
-      ],
-      0,
-      "faff868bdf9ef61d5104531292ae2d9c"
-    ],
-    [
-      "Prims.__proj__UnfoldAttr__item__a",
-      1,
-      2,
-      1,
-      [
-        "@MaxIFuel_assumption", "@query", "disc_equation_Prims.UnfoldAttr",
-        "proj_equation_Prims.UnfoldAttr_t",
-        "projection_inverse_BoxBool_proj_0",
-        "projection_inverse_Prims.UnfoldAttr_t",
-        "refinement_interpretation_Prims_Tm_refine_2d13f1642f6ea430528edc9d2fc127eb"
-      ],
-      0,
-      "dad50c95109c4c7290bd7c4dd87283a6"
-    ],
-    [
-      "Prims.assert_norm",
-      1,
-      2,
-      1,
-      [ "@query", "equation_Prims.normalize" ],
-      0,
-      "723eea7f724386d7c298cd8f0762072c"
-    ],
-    [
-      "Prims.normalize_term_spec",
-      1,
-      2,
-      1,
-      [ "@query", "equation_Prims.normalize_term" ],
-      0,
-      "7014910abe8d28b0f1454890c2e02875"
-    ],
-    [
-      "Prims.normalize_spec",
-      1,
-      2,
-      1,
-      [ "@query", "equation_Prims.normalize" ],
-      0,
-      "b5f4ba536f44ce8daf0777b39a695ff9"
-    ],
-    [
-      "Prims.norm_spec",
-      1,
-      2,
-      1,
-      [ "@query", "equation_Prims.norm" ],
-      0,
-      "fae6519d5c51e519198535684afb5c26"
+      "d8b52f0ada73c2f9d1ca13bf5fc39262"
     ]
   ]
 ]
