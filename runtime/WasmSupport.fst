@@ -41,6 +41,7 @@ let eq_mask64 (x y: U64.t) =
   let x = shift_left x 1ul in
   FStar.Int64.( shift_right (FStar.Int.Cast.uint64_to_int64 x) 63ul )
 
+#set-options "--lax"
 let gte_mask64 (x y: U64.t) =
   let low63 = U64.lognot (C.int64_to_uint64 (I64.shift_right
     (I64.sub

@@ -200,6 +200,19 @@ let hs: file =
       [ fresh_binder "x" TAny ],
       eunit);
     DFunction (None, [ Common.MustDisappear ], 0, TUnit,
+      ([ "FStar"; "HyperStack"; "ST" ], "testify"),
+      [ fresh_binder "x" TAny ],
+      eunit);
+    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
+      ([ "FStar"; "HyperStack"; "ST" ], "testify_forall"),
+      [ fresh_binder "x" TAny ],
+      eunit);
+    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
+      ([ "FStar"; "HyperStack"; "ST" ], "testify_forall_region_contains_pred"),
+      [ fresh_binder "x" TAny; 
+        fresh_binder "y" TAny ],
+      eunit);
+    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "recall_region"),
       [ fresh_binder "x" TUnit ],
       with_unit (EBound 0));
@@ -230,6 +243,11 @@ let c_string: file =
     mk_val [ "C"; "String" ] "print" (TArrow (t, TUnit))
   ]
 
+let c: file =
+  "C", [
+    mk_val [ "C" ] "exit" (TArrow (TInt K.Int32, TUnit))
+  ]
+
 let prelude () =
   prims ::
   List.map mk_builtin_int
@@ -238,7 +256,8 @@ let prelude () =
   monotonic_hh;
   hs;
   dyn;
-  c_string ]
+  c_string;
+  c ]
 
 let nullity: decl list =
   (* Poor man's substitute to polymorphic assumes ... this needs to be here to

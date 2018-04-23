@@ -1,0 +1,23 @@
+[
+  "‘á~õf\u0015…rƒàëˆ\u0005ú+’",
+  [
+    [
+      "BadMatch.bar",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_FStar.UInt32.t__uu___haseq" ],
+      0,
+      "34d95d65563fc3f8749ac81b016e8a1c"
+    ],
+    [
+      "BadMatch.baz",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_BadMatch.bar__uu___haseq" ],
+      0,
+      "42b54c69f5087ce2a5d552eb2dae8db5"
+    ]
+  ]
+]

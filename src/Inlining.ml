@@ -39,9 +39,9 @@ let rec memoize_inline map visit lid =
   | Black ->
       body
   | White ->
-      Hashtbl.add map lid (Gray, body);
+      Hashtbl.replace map lid (Gray, body);
       let body = visit (memoize_inline map visit) body in
-      Hashtbl.add map lid (Black, body);
+      Hashtbl.replace map lid (Black, body);
       body
 
 (** For a given set of files, and a criterion that maps each function [lid] to a
@@ -88,25 +88,58 @@ let mk_inliner files criterion =
 (** Relying on the MustDisappear flag passed by F* ****************************)
 
 let inline_analysis files =
-  (* ... our criterion for determining whether a function must be inlined or not...
-   * ... we map each [lid] to a pair of:
-   * - a boolean, i.e. whether the user demanded inlining (via the
-   *   substitute attribute), and
-   * - the body, which [inline_analysis] needs to figure out if the function
-   *   allocates without pushing a frame, meaning it must be inlined. *)
   let map = Helpers.build_map files (fun map -> function
-    | DGlobal (flags, name, _, _, _)
-    | DFunction (_, flags, _, _, name, _, _) ->
-        Hashtbl.add map name flags
+    | DGlobal (flags, name, _, _, body)
+    | DFunction (_, flags, _, _, name, _, body) ->
+        Hashtbl.add map name (White, flags, 0, body)
     | _ ->
         ()
   ) in
-  Hashtbl.add map ([ "kremlinit" ], "globals") [];
+  let module T = struct exception Cycle end in
+  let rec compute_size lid =
+    match Hashtbl.find map lid with
+    | Gray, _, _, _ ->
+        raise T.Cycle
+    | Black, _, size, _ ->
+        size
+    | White, flags, size, body ->
+        assert (size = 0);
+        Hashtbl.replace map lid (Gray, flags, size, body);
+        let visit = object
+          inherit [_] reduce
+          method! visit_typ _ _ = 0
+          method zero = 0
+          method plus x y = x + y + 1
+          method! visit_EQualified _ lid =
+            if Hashtbl.mem map lid then
+              compute_size lid
+            else
+              0
+        end in
+        let size = visit#visit_expr_w () body in
+        Hashtbl.replace map lid (Black, flags, size, body);
+        size
+  in
+  let small_enough lid =
+    try
+      let size = compute_size lid in
+      (* 0 encodes a cycle meaning we shouldn't inline the function *)
+      let small = 0 < size && size < 1000 in
+      small
+    with T.Cycle ->
+      let _, flags, _, body = Hashtbl.find map lid in
+      Hashtbl.replace map lid (Black, flags, 0, body);
+      false
+  in
+  Hashtbl.add map ([ "kremlinit" ], "globals") (Black, [], 0, Helpers.any);
   let must_disappear lid =
-    List.mem MustDisappear (Hashtbl.find map lid)
+    let _, flags, _, _ = Hashtbl.find map lid in
+    List.mem MustDisappear flags
   in
   let must_inline lid =
-    List.mem Substitute (Hashtbl.find map lid) ||
+    let _, flags, _, _ = Hashtbl.find map lid in
+    (!Options.wasm && small_enough lid) ||
+    List.mem Substitute flags ||
     must_disappear lid
   in
   must_inline, must_disappear

@@ -5,11 +5,14 @@ open FStar.Int32
 open FStar.HyperStack.ST
 open TestLib
 
-let foo (): Stack bool (fun _ -> true) (fun _ _ _ -> true) =
+module B = FStar.Buffer
+
+let foo (): Stack bool (fun _ -> true) (fun h0 _ h1 -> h0 == h1) =
   true
 
+#set-options "--max_ifuel 0"
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
-  Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
+  St C.exit_code
 let main argc argv =
   push_frame ();
   let bof = Buffer.create 0l 1ul in
@@ -24,5 +27,4 @@ let main argc argv =
   check32 (Buffer.index bof 0ul) 0l;
   check32 (Buffer.index bof'' 0ul) 1l;
   pop_frame ();
-  C.exit_success
-
+  C.EXIT_SUCCESS

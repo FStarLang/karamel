@@ -1,0 +1,82 @@
+[
+  "\u000eöÚ^[‰E\u001a\u001f\u0003­ß\u0011\u001dðW",
+  [
+    [
+      "RecursivePoly.pointer",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_Prims.HasEq_int" ],
+      0,
+      "4d47617eaaa033f016d47ad3d37a60bc"
+    ],
+    [
+      "RecursivePoly.__proj__Cons__item__elt",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_RecursivePoly.Cons",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_RecursivePoly_Tm_refine_ec0be7ef8d42c8c1f9f883ea579d9abf"
+      ],
+      0,
+      "2c21cf0bad90382b8ace3c49485697e2"
+    ],
+    [
+      "RecursivePoly.__proj__Cons__item__next",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_RecursivePoly.Cons",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_RecursivePoly_Tm_refine_ec0be7ef8d42c8c1f9f883ea579d9abf"
+      ],
+      0,
+      "85bc1b7c9a382b3be60e143f11b360cb"
+    ],
+    [
+      "RecursivePoly.f",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.HyperStack.ST.equal_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "equation_FStar.Monotonic.HyperHeap.hmap",
+        "equation_FStar.Set.eqtype", "equation_Prims.eqtype",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
+        "function_token_typing_FStar.Monotonic.Heap.heap",
+        "function_token_typing_FStar.Monotonic.HyperHeap.rid",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
+        "lemma_FStar.Set.lemma_equal_refl", "typing_FStar.Map.domain",
+        "typing_FStar.Monotonic.HyperStack.__proj__HS__item__h"
+      ],
+      0,
+      "ccf4a227ae15d3cfb666748cb82c60a2"
+    ],
+    [
+      "RecursivePoly.g",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.HyperStack.ST.equal_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "equation_FStar.Monotonic.HyperHeap.hmap",
+        "equation_FStar.Set.eqtype", "equation_Prims.eqtype",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
+        "function_token_typing_FStar.Monotonic.Heap.heap",
+        "function_token_typing_FStar.Monotonic.HyperHeap.rid",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
+        "lemma_FStar.Set.lemma_equal_refl", "typing_FStar.Map.domain",
+        "typing_FStar.Monotonic.HyperStack.__proj__HS__item__h"
+      ],
+      0,
+      "f8a692776e942a78cb72a75373a5c107"
+    ]
+  ]
+]

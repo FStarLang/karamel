@@ -1,0 +1,322 @@
+[
+  "ψ4Σ(·~μέχ¨\n[Ρ",
+  [
+    [
+      "FStar.TSet.empty",
+      1,
+      0,
+      0,
+      [ "@query", "equation_Prims.l_False", "false_interp" ],
+      0,
+      "750864357741b8cea80d93d5a517dcd4"
+    ],
+    [
+      "FStar.TSet.singleton",
+      1,
+      0,
+      0,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "Prims_pretyping_f8666440faa91836cc5a13998af863fc",
+        "equation_Prims.eq2", "equation_Prims.squash",
+        "refinement_interpretation_Prims_Tm_refine_8d65e998a07dd53ec478e27017d9dba5",
+        "unit_inversion", "unit_typing"
+      ],
+      0,
+      "09137febe476b1b65376af0284380147"
+    ],
+    [
+      "FStar.TSet.union",
+      1,
+      0,
+      0,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "Prims_pretyping_f8666440faa91836cc5a13998af863fc",
+        "equation_Prims.l_or", "equation_Prims.squash",
+        "refinement_interpretation_Prims_Tm_refine_8d65e998a07dd53ec478e27017d9dba5",
+        "unit_inversion", "unit_typing"
+      ],
+      0,
+      "b86789bf83ae2068a9a7e0672a72945c"
+    ],
+    [
+      "FStar.TSet.intersect",
+      1,
+      0,
+      0,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "Prims_pretyping_f8666440faa91836cc5a13998af863fc",
+        "equation_Prims.l_and", "equation_Prims.squash",
+        "refinement_interpretation_Prims_Tm_refine_8d65e998a07dd53ec478e27017d9dba5",
+        "unit_inversion", "unit_typing"
+      ],
+      0,
+      "33d0f7d4b01cdc8c06d480d539148e4d"
+    ],
+    [
+      "FStar.TSet.complement",
+      1,
+      0,
+      0,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "Prims_pretyping_f8666440faa91836cc5a13998af863fc",
+        "equation_Prims.l_False", "equation_Prims.l_imp",
+        "equation_Prims.l_not", "equation_Prims.squash",
+        "refinement_interpretation_Prims_Tm_refine_8d65e998a07dd53ec478e27017d9dba5",
+        "unit_inversion", "unit_typing"
+      ],
+      0,
+      "1c4d862bc2e617726348087736ef4950"
+    ],
+    [
+      "FStar.TSet.mem_empty",
+      1,
+      0,
+      0,
+      [
+        "@query", "equation_FStar.TSet.empty", "equation_FStar.TSet.mem",
+        "equation_Prims.l_False", "equation_Prims.prop", "false_interp",
+        "interpretation_FStar.TSet_Tm_abs_886c983ca0884b59e18b11af014002a9",
+        "unit_typing"
+      ],
+      0,
+      "a9972c22cff33545ae513f80195b78a3"
+    ],
+    [
+      "FStar.TSet.mem_singleton",
+      1,
+      0,
+      0,
+      [
+        "@query", "eq2-interp", "equation_FStar.TSet.mem",
+        "equation_FStar.TSet.singleton", "equation_Prims.prop",
+        "interpretation_FStar.TSet_Tm_abs_4a8b5af53f87cdf31b1c6b39359b0bc7",
+        "unit_typing"
+      ],
+      0,
+      "3fd3f991ba7ca1a97ed729cc3e001155"
+    ],
+    [
+      "FStar.TSet.mem_union",
+      1,
+      0,
+      0,
+      [
+        "@query", "equation_FStar.TSet.mem", "equation_FStar.TSet.union",
+        "equation_Prims.prop",
+        "interpretation_FStar.TSet_Tm_abs_bf7df9b68193612f2e28c85161cf966c",
+        "unit_typing"
+      ],
+      0,
+      "09624121a24fe44e77e92565d2c0a5df"
+    ],
+    [
+      "FStar.TSet.mem_intersect",
+      1,
+      0,
+      0,
+      [
+        "@query", "equation_FStar.TSet.intersect", "equation_FStar.TSet.mem",
+        "equation_Prims.prop",
+        "interpretation_FStar.TSet_Tm_abs_30a1967e70d56a00508c2fb5f0ef6c01",
+        "unit_typing"
+      ],
+      0,
+      "6f96d789f167fdfee8c758ffe5ad5e76"
+    ],
+    [
+      "FStar.TSet.mem_complement",
+      1,
+      0,
+      0,
+      [
+        "@query", "equation_FStar.TSet.complement",
+        "equation_FStar.TSet.mem", "equation_Prims.prop",
+        "interpretation_FStar.TSet_Tm_abs_106e2b8bb3ee461ce99851ab8e9b259c",
+        "unit_typing"
+      ],
+      0,
+      "b5d3ae8fbe5a0f6f0bbc0b71a59006bb"
+    ],
+    [
+      "FStar.TSet.subset_mem",
+      1,
+      0,
+      0,
+      [ "@query", "equation_FStar.TSet.subset", "unit_typing" ],
+      0,
+      "cfdd76c70583a6d62c251fee6c82d7ab"
+    ],
+    [
+      "FStar.TSet.mem_subset",
+      1,
+      0,
+      0,
+      [ "@query", "equation_FStar.TSet.subset", "unit_typing" ],
+      0,
+      "34b0725b9305d748b6839af0ce42b42e"
+    ],
+    [
+      "FStar.TSet.lemma_equal_intro",
+      1,
+      0,
+      0,
+      [
+        "@query", "equation_FStar.TSet.equal", "equation_FStar.TSet.mem",
+        "unit_typing"
+      ],
+      0,
+      "d05c05024230249cc20392be11a9b112"
+    ],
+    [
+      "FStar.TSet.lemma_equal_elim",
+      1,
+      0,
+      0,
+      [
+        "@query", "equation_FStar.PredicateExtensionality.peq",
+        "equation_FStar.TSet.equal"
+      ],
+      0,
+      "56160f96482efa35b12ab51bb1ba3851"
+    ],
+    [
+      "FStar.TSet.lemma_equal_refl",
+      1,
+      0,
+      0,
+      [ "@query", "equation_FStar.TSet.equal", "unit_typing" ],
+      0,
+      "69c8a0436986db00efc128bd4a0c0c0d"
+    ],
+    [
+      "FStar.TSet.tset_of_set",
+      1,
+      0,
+      0,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.squash",
+        "refinement_interpretation_Prims_Tm_refine_8d65e998a07dd53ec478e27017d9dba5",
+        "unit_inversion"
+      ],
+      0,
+      "06b4047e40687a6ddf25fa1a126993ed"
+    ],
+    [
+      "FStar.TSet.lemma_mem_tset_of_set_l",
+      1,
+      0,
+      0,
+      [
+        "@MaxIFuel_assumption", "@query", "b2t_def",
+        "equation_FStar.TSet.mem", "equation_FStar.TSet.tset_of_set",
+        "equation_Prims.prop",
+        "interpretation_FStar.TSet_Tm_abs_72d81c36c33d89af8ffb225fe76fa39e",
+        "refinement_interpretation_FStar.TSet_Tm_refine_a77d79782e60b55519df953e8dedd579"
+      ],
+      0,
+      "0800dea363fbc977ace542c06010f319"
+    ],
+    [
+      "FStar.TSet.lemma_mem_tset_of_set_r",
+      1,
+      0,
+      0,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "Prims_pretyping_f8666440faa91836cc5a13998af863fc", "bool_inversion",
+        "equation_FStar.TSet.mem", "equation_FStar.TSet.tset_of_set",
+        "equation_Prims.prop", "equation_Prims.squash",
+        "interpretation_FStar.TSet_Tm_abs_72d81c36c33d89af8ffb225fe76fa39e",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_Prims_Tm_refine_8d65e998a07dd53ec478e27017d9dba5",
+        "unit_inversion", "unit_typing"
+      ],
+      0,
+      "74e6350270e78a8700146f685192151b"
+    ],
+    [
+      "FStar.TSet.lemma_mem_tset_of_set",
+      1,
+      0,
+      0,
+      [ "@query" ],
+      0,
+      "16f040d0619f27e22d4144898e16e628"
+    ],
+    [
+      "FStar.TSet.filter",
+      1,
+      0,
+      0,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "Prims_pretyping_f8666440faa91836cc5a13998af863fc",
+        "equation_Prims.l_and", "equation_Prims.squash",
+        "refinement_interpretation_Prims_Tm_refine_8d65e998a07dd53ec478e27017d9dba5",
+        "unit_inversion", "unit_typing"
+      ],
+      0,
+      "df81a84ef9918adbbdee94d76fe9a728"
+    ],
+    [
+      "FStar.TSet.lemma_mem_filter",
+      1,
+      0,
+      0,
+      [
+        "@query", "equation_FStar.TSet.filter", "equation_FStar.TSet.mem",
+        "equation_Prims.prop",
+        "interpretation_FStar.TSet_Tm_abs_30a1967e70d56a00508c2fb5f0ef6c01",
+        "l_and-interp", "unit_typing"
+      ],
+      0,
+      "1d6be2949f1d7932ccb7eac7e7baa41f"
+    ],
+    [
+      "FStar.TSet.exists_y_in_s",
+      1,
+      0,
+      0,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "Prims_pretyping_f8666440faa91836cc5a13998af863fc",
+        "equation_Prims.l_Exists", "equation_Prims.squash",
+        "refinement_interpretation_Prims_Tm_refine_8d65e998a07dd53ec478e27017d9dba5",
+        "unit_inversion", "unit_typing"
+      ],
+      0,
+      "6cb4d287e9bed87292aa2eeeab6f25c0"
+    ],
+    [
+      "FStar.TSet.lemma_mem_map",
+      1,
+      0,
+      0,
+      [
+        "@query", "equation_FStar.TSet.exists_y_in_s",
+        "equation_FStar.TSet.map", "equation_FStar.TSet.mem",
+        "token_correspondence_FStar.TSet.exists_y_in_s", "unit_typing"
+      ],
+      0,
+      "1ec5ff364ea3299055e550886ee4c13f"
+    ],
+    [
+      "FStar.TSet.as_set'",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "binder_x_0a56e3de562c08d8ab59f4ac6f626a98_2",
+        "disc_equation_Prims.Cons", "disc_equation_Prims.Nil",
+        "fuel_guarded_inversion_Prims.list", "subterm_ordering_Prims.Cons"
+      ],
+      0,
+      "14fd163af6aad2d98d3876b0bf9c018a"
+    ]
+  ]
+]

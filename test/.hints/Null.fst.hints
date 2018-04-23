@@ -1,0 +1,56 @@
+[
+  "g°ç6\\üÌV9‚Æ\u0007`/£‚",
+  [
+    [
+      "Null.f",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_C.Nullity.pointer_or_null", "equation_FStar.Buffer.buffer",
+        "equation_FStar.Buffer.get",
+        "equation_FStar.HyperStack.ST.equal_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "equation_FStar.Monotonic.HyperHeap.hmap",
+        "equation_FStar.Set.eqtype", "equation_Prims.eqtype",
+        "fuel_guarded_inversion_FStar.Buffer._buffer",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
+        "function_token_typing_FStar.Monotonic.Heap.heap",
+        "function_token_typing_FStar.Monotonic.HyperHeap.rid",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
+        "lemma_FStar.Set.lemma_equal_refl",
+        "proj_equation_FStar.Monotonic.HyperStack.HS_h",
+        "refinement_interpretation_C.Nullity_Tm_refine_765c89d487d6f4993e1329fa871ed2ee",
+        "refinement_interpretation_Null_Tm_refine_4b27de1c839f19290d3d8b414f450492",
+        "typing_FStar.Map.domain",
+        "typing_FStar.Monotonic.HyperStack.__proj__HS__item__h"
+      ],
+      0,
+      "7483b8b1a1bd2be6ba6d4a23ece53c12"
+    ],
+    [
+      "Null.main",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "Prims_pretyping_f537159ed795b314b4e58c260361ae86", "bool_inversion",
+        "bool_typing", "equation_C.Nullity.pointer_or_null",
+        "equation_FStar.Buffer.buffer",
+        "fuel_guarded_inversion_FStar.Buffer._buffer",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
+        "function_token_typing_FStar.Int32.t",
+        "lemma_C.Nullity.null_always_live",
+        "refinement_interpretation_C.Nullity_Tm_refine_67deb93b327df5de0f77b23c74963aab",
+        "refinement_interpretation_C.Nullity_Tm_refine_6924b0e09cbd7d3dc9eba44c380e4fb4",
+        "refinement_interpretation_C.Nullity_Tm_refine_765c89d487d6f4993e1329fa871ed2ee",
+        "refinement_interpretation_Null_Tm_refine_3c598670dec90282db460ddee0602a9c",
+        "typing_C.Nullity.is_null", "typing_C.Nullity.null"
+      ],
+      0,
+      "af7240200ebfb292e4de73b63ba3da21"
+    ]
+  ]
+]

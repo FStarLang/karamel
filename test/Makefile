@@ -1,112 +1,135 @@
-# A minimalistic Makefile for calling Kremlin... KOPTS is for user-defined flags
-# (e.g. KOPTS="-cc clang -ccopt -fsanitize=undefined,address -ccopt -Wno-non-literal-null-conversion -Wno-unused-value")
-READLINK	= $(shell which greadlink >/dev/null 2>&1 && echo greadlink || echo readlink)
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 TEST_OPTS	= -add-include '"testlib.h"' -I . ../kremlib/testlib.c -warn-error @4
 KRML_BIN	= ../_build/src/Kremlin.native
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 FILES		= \
-  TestKremBytes.exe Hoisting.exe Flat.exe Renaming.exe Vla.exe Inline.exe \
-  Private.exe ML16.exe Abbrev.exe Tuples.exe \
-  DataTypesSimple.exe DataTypes.exe Parameterized.exe \
-  Scope.exe Attributes.exe Unsound.exe Substitute.exe \
-  InlineTest.exe Ghost1.exe Loops.exe Structs.exe \
-  TotalLoops.exe \
-  Recursive.exe RecursivePoly.exe Structs2.exe StringLit.exe \
-  FunctionalEncoding.exe FunPtr.exe Test128.exe \
-  CheckedInt.exe Polymorphic.exe GcTypes.exe BadMatch.exe C89.exe \
-  PatternAny.exe Debug.exe hello-system/HelloSystem.exe Server.exe \
-  ExitCode.exe DataTypesMut.exe ParamAbbrev.exe Null.exe Failwith.exe \
-  CustomEq.exe Uu.exe WildCard.exe UnusedParameter.exe EqB.exe MutRec.exe \
-  MallocFree.exe TestAlloca.exe OptimizedOption.exe PushPop.exe EtaStruct.exe \
-  Verbatim.exe Const.exe
+  TestKremBytes.test Hoisting.test Flat.test Renaming.test Vla.test Inline.test \
+  Private.test ML16.test Abbrev.test Tuples.test \
+  DataTypesSimple.test DataTypes.test Parameterized.test \
+  Scope.test Attributes.test Unsound.test Substitute.test \
+  InlineTest.test Ghost1.test Loops.test Structs.test \
+  TotalLoops.test \
+  Recursive.test RecursivePoly.test Structs2.test StringLit.test \
+  FunctionalEncoding.test FunPtr.test Test128.test \
+  CheckedInt.test Polymorphic.test GcTypes.test BadMatch.test C89.test \
+  PatternAny.test Debug.test hello-system/HelloSystem.test Server.test \
+  ExitCode.test DataTypesMut.test ParamAbbrev.test Null.test Failwith.test \
+  CustomEq.test Uu.test WildCard.test UnusedParameter.test EqB.test MutRec.test \
+  MallocFree.test TestAlloca.test OptimizedOption.test PushPop.test EtaStruct.test \
+  Verbatim.test Const.test $(CRYPTO)/Crypto.Symmetric.Chacha20.test Uu.test \
+  LinkedList1.test NoExtract.test InlineNoExtract.test
 CUSTOM		= count-uu
-EXTRA_FILES	= \
-  $(CRYPTO)/Crypto.Symmetric.Chacha20.exe
 WASM_FILES	= \
-  WasmTrap.wasm Wasm1.wasm Wasm2.wasm Wasm3.wasm
+  WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
 # HigherOrder: need to implement "natural arity" tracking
 BROKEN		= \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm HigherOrder.exe
 WEB_DIR		?= web
+CACHE_DIR	= .cache
+OUTPUT_DIR	= .output
+HINTS_DIR	= .hints
+FSTAR		= fstar.exe --cache_checked_modules --use_two_phase_tc true \
+  --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
+  --include hello-system --include ../kremlib --include ../runtime \
+  --include $(CRYPTO) --use_hints --record_hints --hint_info
 
-all: standalone extra
-wasm: wasm-standalone wasm-extra
-external: hacl-test
+# This just needs F* + KreMLin
+all: $(FILES) $(CUSTOM)
+
+# Needs d8
+wasm: $(WASM_FILES)
+
+# Needs a checkout of HACL*
+external: hacl-test hacl-algs
+
+# All of the above
 everything: all wasm external
-
-# The standalone tests don't need a source checkout of F* to run
-standalone: $(FILES) $(subst .exe,.krml,$(FILES)) $(CUSTOM)
-extra: $(EXTRA_FILES) $(subst .exe,.krml,$(EXTRA_FILES))
-wasm-standalone: $(WASM_FILES)
-wasm-extra: hacl-algs
 
 .PRECIOUS: %.krml
 
-# A common target to produce a .krml file
-%.krml: %.fst
-	$(KRML) $(EXTRA) -tmpdir $(subst .krml,.out,$@) -skip-translation $<
-	cp $(subst .krml,.out,$@)/out.krml $@
+# Use F*'s dependency mechanism and fill out the missing rules.
 
-# Then, from there on, a specific target for native C compilation
-%.exe: %.krml $(KRML_BIN)
-	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) -o $@ $<
-	$$($(READLINK) -f $@)
+.depend: $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) | Makefile
+	$(FSTAR) --dep full $^ ../runtime/WasmSupport.fst --extract Kremlin > .depend
+
+-include .depend
+
+$(HINTS_DIR):
+	mkdir -p $@
+
+$(CACHE_DIR)/%.checked: | .depend $(HINTS_DIR)
+	$(FSTAR) --hint_file $(HINTS_DIR)/$*.hints $<
+	touch $@
+
+$(OUTPUT_DIR)/%.krml: | .depend
+	$(FSTAR) --codegen Kremlin \
+	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
+	  $(notdir $(subst .checked,,$<))
+	touch $@
+
+$(OUTPUT_DIR)/%.exe: $(OUTPUT_DIR)/FStar_UInt128.krml | $(KRML_BIN)
+	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
+	  -o $@ $(filter-out $(OUTPUT_DIR)/prims.krml,$^)
+
+.SECONDEXPANSION:
+%.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe
+	@$^ && echo "\033[01;32m✔\033[00m [TEST,$*]" || echo "\033[01;31m✘\033[00m [TEST,$*]"
 
 # Various flags to be passed to some targets...
-Structs2.exe: EXTRA = -wasm -d force-c -drop C,TestLib wasm-stubs.c
-ML16.exe: EXTRA = ml16-native.c
-Scope.exe: EXTRA = -ccopt -O3
-Test128.exe: EXTRA = -fnouint128 -static-header FStar -fsopt --normalize_pure_terms_for_extraction
-HigherOrder.exe: EXTRA = -warn-error +9
-C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic -fc89
-Debug.exe: EXTRA = -d c-calls
-Server.exe: EXTRA = -add-include '"kremstr.h"' main-Server.c
-StringLit.exe: EXTRA = ../kremlib/kremstr.c -add-include '"kremstr.h"'
-Failwith.exe: EXTRA = -add-include '"kremstr.h"'
-TailCalls.exe: EXTRA = -add-include '"kremstr.h"' -ftail-calls
-FunctionalEncoding.exe: EXTRA = -add-include '"kremstr.h"'
-$(CRYPTO)/Crypto.Symmetric.Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
-hello-system/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
+$(OUTPUT_DIR)/Structs2.exe: EXTRA = -wasm -d force-c -drop C,TestLib wasm-stubs.c
+$(OUTPUT_DIR)/ML16.exe: EXTRA = ml16-native.c
+$(OUTPUT_DIR)/Scope.exe: EXTRA = -ccopt -O3
+$(OUTPUT_DIR)/Test128.exe: EXTRA = -fnouint128 -static-header FStar -fsopt --normalize_pure_terms_for_extraction
+$(OUTPUT_DIR)/HigherOrder.exe: EXTRA = -warn-error +9
+$(OUTPUT_DIR)/C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic -fc89
+$(OUTPUT_DIR)/Debug.exe: EXTRA = -d c-calls
+$(OUTPUT_DIR)/Server.exe: EXTRA = -add-include '"kremstr.h"' main-Server.c
+$(OUTPUT_DIR)/StringLit.exe: EXTRA = ../kremlib/kremstr.c -add-include '"kremstr.h"'
+$(OUTPUT_DIR)/Failwith.exe: EXTRA = -add-include '"kremstr.h"'
+$(OUTPUT_DIR)/TailCalls.exe: EXTRA = -add-include '"kremstr.h"' -ftail-calls
+$(OUTPUT_DIR)/FunctionalEncoding.exe: EXTRA = -add-include '"kremstr.h"'
+$(OUTPUT_DIR)/Crypto_Symmetric_Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
+$(OUTPUT_DIR)/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
 	hello-system/system.c -I hello-system -no-prefix SystemNative \
 	-drop SystemNative -add-include '<netdb.h>'
-TestKremBytes.exe: EXTRA = -add-include '"krembytes.h"' -add-include \
+$(OUTPUT_DIR)/TestKremBytes.exe: EXTRA = -add-include '"krembytes.h"' -add-include \
 	'"kremstr.h"' -drop FStar.Bytes ../kremlib/kremstr.c
-TestAlloca.exe: EXTRA = -falloca
-EtaStruct.exe: EXTRA = -fnostruct-passing
+$(OUTPUT_DIR)/TestAlloca.exe: EXTRA = -falloca
+$(OUTPUT_DIR)/EtaStruct.exe: EXTRA = -fnostruct-passing
 
 # Some custom targets
 
 SED=$(shell which gsed >/dev/null 2>&1 && echo gsed || echo sed)
-count-uu: Uu.exe
-	[ `grep uu___ Uu.out/Uu.c | \
+count-uu: $(OUTPUT_DIR)/Uu.exe
+	[ `grep uu___ $(OUTPUT_DIR)/Uu.out/Uu.c | \
 	  $(SED) 's/.*\(uu____\([0-9]\+\)\).*/\1/g' \
 	  | uniq | wc -l | bc` = 1 ]
 
 # External C tests that leverage other projects.
 .PHONY: hacl-test
 hacl-test:
-	$(MAKE) -C $(HACL_HOME)/secure_api krml-test-hacl.exe
-	$(HACL_HOME)/secure_api/krml-test-hacl.exe
+	$(MAKE) -C $(HACL_HOME)/code/curve25519 extract-c
+	$(MAKE) -C $(HACL_HOME)/secure_api -f $(HACL_HOME)/secure_api/Makefile.extract krml-test
 
 # A target for WASM compilation. All WASM targets get the -wasm flag;
 # some specific targets may override NEGATIVE for negative tests.
-%.wasm: EXTRA += -wasm
-%.wasm: %.krml $(KRML_BIN)
-	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $(JSFILES) -no-prefix $(notdir $*) $<
-	cd $*.out && \
-	  if ! $(NEGATIVE); then $(shell which d8) main.js; \
-	  else ! $(shell which d8) main.js; fi && \
-	  cd .. && cp $*.out/$(subst .,_,$(notdir $(basename $@))).wasm $@
-	# cd $*.out && ch -Wasm main.js
+$(OUTPUT_DIR)/%.wasm: EXTRA += -wasm
+$(OUTPUT_DIR)/%.wasm: $(OUTPUT_DIR)/FStar_UInt128.krml $(OUTPUT_DIR)/WasmSupport.krml | $(KRML_BIN)
+	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $(JSFILES) \
+	  -no-prefix $(notdir $*) $(filter-out $(OUTPUT_DIR)/prims.krml,$^)
+
+%.wasm-test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).wasm
+	cd $(OUTPUT_DIR)/$*.out && \
+	  if ! $(NEGATIVE); then $(shell which d8) main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || echo "\033[01;31m✘\033[00m [WASM-TEST,$*]"; \
+	  else ! $(shell which d8) main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || echo "\033[01;31m✘\033[00m [WASM-TEST,$*]"; fi
 
 # Customizing some WASM targets.
 $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: JSFILES=main-Chacha.js
 $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: EXTRA+=$(CRYPTO_OPTS) -drop FStar
-WasmTrap.wasm: NEGATIVE = true
+WasmTrap.wasm-test: NEGATIVE = true
 
 # External WASM targets: recycle the HACL* Makefile!
 HACL_DROP=Prims,Hacl.UInt8,Hacl.UInt16,Hacl.UInt32,Hacl.UInt64,Hacl.UInt128,Hacl.Endianness,Hacl.Cast,Hacl.Spe.*,Hacl.Spec.*,Spec.*,Seq.*
@@ -153,7 +176,12 @@ $$($(1))/$$($(1)_TEST):
 	[ -e $$(subst .krml,.out,$$@) ] || ln -sf $$($(1))/$$($(1)_DIR) $$(subst .krml,.out,$$@)
 	cp $$(subst .krml,.out,$$@)/out.krml $$@
 
-$$($(1))/$$(subst .krml,.wasm,$$($(1)_TEST)): EXTRA+=-drop $$(HACL_DROP) $$($(1)_ARGS)
+# Monolithic rule for extracting with a single .krml file; to be removed once
+# HACL* produces separate krml files.
+$$($(1))/$$(subst .krml,.wasm,$$($(1)_TEST)): $$($(1))/$$($(1)_TEST)
+	$(KRML) -wasm -drop $$(HACL_DROP) $$($(1)_ARGS) -tmpdir $$(subst .wasm,.out,$$@) \
+	  -no-prefix $$(subst .krml,,$$($(1)_TEST)) $$<
+
 hacl-algs: $$($(1))/$$(subst .krml,.wasm,$$($(1)_TEST))
 
 clean-$(1):

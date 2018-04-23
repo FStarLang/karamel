@@ -1,0 +1,38 @@
+[
+  "!\u000f„\u0007ÀÕ T¾ƒÐ±ÁA’)",
+  [
+    [
+      "EtaStruct.t",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_FStar.Int32.t__uu___haseq" ],
+      0,
+      "29a35950cd0270daeef8492e7d6c30e8"
+    ],
+    [
+      "EtaStruct.f",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "e80c394abd80dbe9449c853ebdfeba6e"
+    ],
+    [
+      "EtaStruct.main",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "0f9e6aa9db60037d05fbbe65d2d27d06"
+    ]
+  ]
+]

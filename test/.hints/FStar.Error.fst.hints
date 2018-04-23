@@ -1,0 +1,92 @@
+[
+  "i\u0000πULèVõHqI+ˇtÙc",
+  [
+    [
+      "FStar.Error.optResult",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "349059abe1ec5b45066b594459263cff"
+    ],
+    [
+      "FStar.Error.__proj__Error__item___0",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_FStar.Error.Error",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_FStar.Error_Tm_refine_813a5bb4d39ab83f71d70e865ca6a2c8"
+      ],
+      0,
+      "2c201549a26f3b3fb06a0ad85777f782"
+    ],
+    [
+      "FStar.Error.__proj__Correct__item___0",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "disc_equation_FStar.Error.Correct",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_FStar.Error_Tm_refine_9570651724fccc40ed9243df14ac4feb"
+      ],
+      0,
+      "e32cfb5abb2c467e5fc4fc3c38cbab27"
+    ],
+    [
+      "FStar.Error.invertOptResult",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "disc_equation_FStar.Error.Correct",
+        "disc_equation_FStar.Error.Error",
+        "fuel_guarded_inversion_FStar.Error.optResult",
+        "projection_inverse_BoxBool_proj_0"
+      ],
+      0,
+      "31279d282a0a6e7795222e75b37665ef"
+    ],
+    [
+      "FStar.Error.optResult",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "bb70fa5ef46c6671b1f78a19508836eb"
+    ],
+    [
+      "FStar.Error.__proj__Error__item___0",
+      2,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_FStar.Error.Error",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_FStar.Error_Tm_refine_813a5bb4d39ab83f71d70e865ca6a2c8"
+      ],
+      0,
+      "38c41522b2501f3b8c1866be4d352f2a"
+    ],
+    [
+      "FStar.Error.__proj__Correct__item___0",
+      2,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "disc_equation_FStar.Error.Correct",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_FStar.Error_Tm_refine_9570651724fccc40ed9243df14ac4feb"
+      ],
+      0,
+      "e97b2ba2d757389a8f76dae2ccf7a9d2"
+    ]
+  ]
+]
