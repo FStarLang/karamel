@@ -91,8 +91,9 @@ let lookup_type env lid =
 let lookup_global env lid =
   match M.find lid env.globals with
   | exception Not_found ->
-      Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" ploc env.location,
-        UnboundReference (KPrint.bsprintf "%a" plid lid)));
+      if env.warn then
+        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" ploc env.location,
+          UnboundReference (KPrint.bsprintf "%a" plid lid)));
       TAny
   | x ->
       x
@@ -151,9 +152,11 @@ and check_program env r (name, decls) =
         flush stdout;
         if Options.debug "backtraces" then
           Printexc.print_backtrace stderr;
-        KPrint.beprintf "Dropping %a (at checking time); if this is normal, \
-          please consider using -drop\n\n"
-          plid (lid_of_decl d);
+        KPrint.beprintf "Cannot re-check %a as valid Low* and will not extract it.  \
+          If %a is not meant to be extracted, consider marking it as Ghost, \
+          noextract, or using a bundle. If it is meant to be extracted, use \
+          -dast for further debugging.\n\n"
+          plid (lid_of_decl d) plid (lid_of_decl d);
         Warnings.maybe_fatal_error e;
         flush stderr;
         None
@@ -167,8 +170,7 @@ and check_program env r (name, decls) =
     KPrint.beprintf "Warning: %a\n" pdoc (
       english_join (List.map print_lident decl_lids) ^/^ mentions ^/^
       print_lident lid ^/^
-      flow break1 (words "meaning that they cannot be type-checked by KreMLin; \
-        if this is normal, please consider using -drop")
+      flow break1 (words "meaning that they cannot be type-checked by KreMLin")
     )
   ) by_lid;
 
