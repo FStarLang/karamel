@@ -209,7 +209,7 @@ let hs: file =
       eunit);
     DFunction (None, [ Common.MustDisappear ], 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "testify_forall_region_contains_pred"),
-      [ fresh_binder "x" TAny; 
+      [ fresh_binder "x" TAny;
         fresh_binder "y" TAny ],
       eunit);
     DFunction (None, [ Common.MustDisappear ], 0, TUnit,
@@ -226,6 +226,8 @@ let hs: file =
         fresh_binder "x" TUnit;
       ],
       eunit);
+    DType (([ "FStar"; "HyperStack"; "ST" ], "erid"), [], 0, Abbrev TUnit);
+    DType (([ "FStar"; "HyperStack"; "ST" ], "rid"), [], 0, Abbrev TUnit);
   ]
 
 let dyn: file =
