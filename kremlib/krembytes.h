@@ -17,7 +17,7 @@ typedef uint8_t FStar_Bytes_byte;
 #define CHECK(x)                                                               \
   do {                                                                         \
     if (!(x)) {                                                                \
-      KRML_HOST_EPRINTF("malloc failed at %s:%d", __FILE__, __LINE__);           \
+      KRML_HOST_EPRINTF("malloc failed at %s:%d", __FILE__, __LINE__);         \
       KRML_HOST_EXIT(253);                                                     \
     }                                                                          \
   } while (0)

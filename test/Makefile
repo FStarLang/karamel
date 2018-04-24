@@ -72,7 +72,7 @@ $(OUTPUT_DIR)/%.krml: | .depend
 
 $(OUTPUT_DIR)/%.exe: $(OUTPUT_DIR)/FStar_UInt128.krml | $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
-	  -o $@ $(filter-out $(OUTPUT_DIR)/prims.krml,$^)
+	  -o $@ $^
 
 .SECONDEXPANSION:
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe
@@ -119,7 +119,7 @@ hacl-test:
 $(OUTPUT_DIR)/%.wasm: EXTRA += -wasm
 $(OUTPUT_DIR)/%.wasm: $(OUTPUT_DIR)/FStar_UInt128.krml $(OUTPUT_DIR)/WasmSupport.krml | $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $(JSFILES) \
-	  -no-prefix $(notdir $*) $(filter-out $(OUTPUT_DIR)/prims.krml,$^)
+	  -no-prefix $(notdir $*) $^
 
 %.wasm-test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).wasm
 	cd $(OUTPUT_DIR)/$*.out && \
