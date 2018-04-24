@@ -240,6 +240,12 @@ FStar_Bytes_xor(FStar_UInt32_t x, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2) {
   return b;
 }
 
+static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_int8(uint8_t x) {
+  char *data = KRML_HOST_MALLOC(1);
+  data[0] = x;
+  return (FStar_Bytes_bytes){ .length = 1, .data = data };
+}
+
 static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_int32(uint32_t x) {
   char *data = KRML_HOST_MALLOC(4);
   data[0] = x >> 24;
