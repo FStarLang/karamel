@@ -244,9 +244,9 @@ let main (): Stack C.exit_code (requires (fun _ -> True)) (ensures (fun h _ h' -
 /// expects the user to have:
 ///
 /// - an up-to-date version of F* ``master`` `built from source
-///   <https://github.com/FStarLang/FStar/blob/master/INSTALL.md>`_
+///   <https://github.com/FStarLang/FStar/blob/master/INSTALL.md>`__
 /// - an up-to-date version of KreMLin ``fstar-master``, `built from source
-///   <https://github.com/FStarLang/kremlin/tree/fstar-master/#trying-out-kremlin>`_
+///   <https://github.com/FStarLang/kremlin/tree/fstar-master/#trying-out-kremlin>`__
 /// - a C compiler in the path, preferably a recent version of GCC.
 ///
 /// .. note::
