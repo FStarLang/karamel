@@ -198,9 +198,10 @@ endef
 $(foreach alg,$(HACL_ALGS),$(eval $(call HACL_template,$(alg))))
 
 clean:
-	rm -rf *.exe *.dSYM *.out *.wasm *.krml $(WEB_DIR)
+	rm -rf $(WEB_DIR) .output
 
 distclean: clean clean-hacl
+	rm -rf .cache
 	$(MAKE) -C $(HACL_HOME)/secure_api clean
 
 # Generation of a mini-website
