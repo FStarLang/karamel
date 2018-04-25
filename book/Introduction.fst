@@ -121,15 +121,18 @@ let main (): Stack C.exit_code (requires (fun _ -> True)) (ensures (fun h _ h' -
 ///
 ///
 /// - ``Buffer`` is our model of stack- and heap- allocated C arrays
+///   (described in :ref:`buffer-library`)
 /// - ``Seq`` is the sequence abstraction from the F* standard library, which
 ///   ``Buffer`` uses to reflect the contents of a given buffer in a given heap
 ///   at the proof level
 /// - ``Modifies`` provides a universal modifies clause over buffers, references
-///   and regions
+///   and regions (described in :ref:`modifies-library`)
 /// - ``UInt32`` is a model of the C11 ``uint32_t`` type, reflected at the proof
-///   level using natural numbers
-/// - ``HyperStack`` is our model of the C memory layout
-/// - ``C`` and ``C.Loops`` expose some C concepts to F*
+///   level using natural numbers (described in :ref:`machine-integers`)
+/// - ``HyperStack`` is our model of the C memory layout (described in
+///   :ref:`memory-model`)
+/// - ``C`` and ``C.Loops`` expose some C concepts to F* (described in
+///   :ref:`c-library`)
 ///
 /// The example then defines a lemma over sequences, which is written like one
 /// normally would in F*. Lemmas are erased and do not appear in the generated

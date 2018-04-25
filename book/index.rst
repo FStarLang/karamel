@@ -11,6 +11,7 @@ The KreMLin user manual and documentation
    :caption: Contents:
 
    Introduction
+   LowStar
 
 
 Indices and tables
