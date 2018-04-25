@@ -99,8 +99,7 @@ let memcpy #a src dst len =
   in
   C.Loops.for 0ul len inv body
 
-#reset-options "--z3rlimit 16"
-let main (): St C.exit_code
+let main (): Stack C.exit_code (requires (fun _ -> True)) (ensures (fun h _ h' -> M.modifies M.loc_none h h'))
 =
   push_frame ();
   let src = B.createL [ 1UL; 2UL ] in
