@@ -18,8 +18,9 @@ module Introduction
 ///
 /// Writing in Low*, the programmer enjoys the full power of F* for proofs and
 /// specifications. At compile-time, proofs are erased, leaving only the
-/// low-level code to be compiled to C. In short, *the code is low-level, but
-/// the verification is not*.
+/// low-level code to be compiled to C. In short:
+///
+/// .. centered:: **the code is low-level, but the verification is not**.
 ///
 /// This manual offers a tour of Low* and its companion libraries; presents the
 /// tool KreMLin and the various ways it can be used to generate C programs or
@@ -108,9 +109,9 @@ let main (): St C.exit_code
   pop_frame ();
   C.EXIT_SUCCESS
 
-/// The example uses several concepts that will be explained in later sections
-/// of this tutorial, but is representative of the code one typically writes in
-/// Low*.
+/// Let us gloss over this example, which is representative of the programming
+/// style that one typically adopts when programming in Low*, leaving a detailed
+/// discussion of the Low* concept to the rest of this tutorial.
 ///
 /// The code starts by opening several modules that are part of the "Low*
 /// standard library".
@@ -155,7 +156,7 @@ let main (): St C.exit_code
 ///
 /// .. code-block:: bash
 ///
-///    krml -no-prefix Introduction introduction.fst
+///    $ krml -no-prefix Introduction introduction.fst
 ///
 /// This generates several C files in the current directory. The resulting
 /// ``Introduction.c`` is as follows.
@@ -169,7 +170,7 @@ let main (): St C.exit_code
 ///     */
 ///
 ///    #include "Introduction.h"
-/// 
+///
 ///    void memcpy__uint64_t(uint64_t *src, uint64_t *dst, uint32_t len)
 ///    {
 ///      for (uint32_t i = (uint32_t)0U; i < len; i = i + (uint32_t)1U)
@@ -218,3 +219,71 @@ let main (): St C.exit_code
 ///
 /// Tooling and setup
 /// -----------------
+///
+/// KreMLin is intimately tied with F*:
+///
+/// - the ``master`` branch of KreMLin works with the ``stable`` branch of F*
+/// - the ``fstar-master`` branch of KreMLin works with the ``master`` branch of F*.
+///
+/// Due to the fast-paced nature of F* development, this tutorial is kept
+/// up-to-date with the *latter* set of revisions, meaning that this tutorial
+/// expects the user to have:
+///
+/// - an up-to-date version of F* ``master`` `built from source
+///   <https://github.com/FStarLang/FStar/blob/master/INSTALL.md>`_
+/// - an up-to-date version of KreMLin ``fstar-master``, `built from source
+///   <https://github.com/FStarLang/kremlin/tree/fstar-master/#trying-out-kremlin>`_
+/// - a C compiler in the path, preferably a recent version of GCC.
+///
+/// .. note::
+///
+///    On Windows, we expect the user to use the same setup as F*, i.e. a Cygwin
+///    environment with a `Windows OCaml
+///    <https://github.com/fdopen/opam-repository-mingw/>`_, along with the MinGW
+///    64-bit compilers installed *as cygwin packages*, i.e. the
+///    ``x86_64-w64-mingw32-gcc`` executable, along with the corresponding linker,
+///    archiver, etc.
+///
+/// Usage of the KreMLin tool
+/// -------------------------
+///
+/// The KreMLin compiler comes as a command-line too ``krml``. As a reminder, ``krml
+/// -help`` provides the list of options and warnings along with proper
+/// documentation.
+///
+/// The process of extracting from F* to C involves:
+///
+/// 1. calling ``fstar.exe`` to generate a set of ``.krml`` files
+/// 2. calling ``krml`` on these files to generate a set of C files
+/// 3. calling the C compiler to generate an executable.
+///
+/// KreMLin can automate the first and last steps, and act as a driver for both F*
+/// and the C compiler, allowing for a quick edit-compile-cycle. For this present
+/// file, one may use:
+///
+/// .. code-block:: bash
+///
+///    $ krml introduction.fst -no-prefix Introduction -o test.exe && ./test.exe
+///
+/// The present tutorial will use this mode exclusively, as it
+/// it by far easier to use and allows trying out KreMLin without writing a
+/// substantial amount of ``Makefile``\ s. Furthermore, one can pass ``.c``, ``.h``,
+/// ``.o``, and ``.S`` files to KreMLin, to be included at the right step of the
+/// build, along with C linker and compiler options via KreMLin's ``-ccopt`` and
+/// ``-ldopt`` options.
+///
+/// .. fixme:: JP
+///
+///    Add a forward pointer to section 8.
+///
+/// However, using KreMLin as a driver is inefficient for two reasons:
+///
+/// - step 1 uses "legacy" extraction in F*, which processes many files sequentially
+///   and extracts them in a single invocation without performing verification
+/// - step 3 is not parallel
+///
+/// Section ?? provides a complete sample Makefile that performs parallel
+/// verification and extraction, along with parallel compilation of the resulting C
+/// code, using F*'s automated dependency analysis and ``gcc -MM`` for correct,
+/// incremental builds.
+/// 

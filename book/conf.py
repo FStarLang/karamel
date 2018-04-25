@@ -158,3 +158,5 @@ texinfo_documents = [
 
 
 # -- Extension configuration -------------------------------------------------
+
+fslit_include_fixme = True

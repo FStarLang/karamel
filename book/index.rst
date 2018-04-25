@@ -10,7 +10,7 @@ The KreMLin user manual and documentation
    :maxdepth: 2
    :caption: Contents:
 
-   introduction
+   Introduction
 
 
 Indices and tables
