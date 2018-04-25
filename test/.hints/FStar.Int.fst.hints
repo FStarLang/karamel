@@ -97,7 +97,7 @@
         "refinement_interpretation_Prims_Tm_refine_7075614a0e8c0bdbec6de0d0ef7f1280"
       ],
       0,
-      "0733092ec2810c72360bd0fdc87dbca7"
+      "e3b472b989cc092574b7c79f7e86b8cb"
     ],
     [
       "FStar.Int.div_eucl",
@@ -110,7 +110,7 @@
         "refinement_interpretation_Prims_Tm_refine_7075614a0e8c0bdbec6de0d0ef7f1280"
       ],
       0,
-      "33874190308ff53816f379298d8601e1"
+      "6d853018912b612795bb9688def04fd5"
     ],
     [
       "FStar.Int.op_At_Percent",

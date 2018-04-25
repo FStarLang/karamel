@@ -79,10 +79,18 @@ let bufstrcmp b s =
           B.get h b (U32.v j) = C.String.get s j);
       i.(0ul) <- U32.( i.(0ul) +^ 1ul );
       let h' = ST.get () in
+      assert (forall (j: U32.t). {:pattern (B.get h' b (U32.v j))}
+        let i: U32.t = B.get h' i 0 in
+        U32.lt j i /\ B.get h b (U32.v j) = C.String.get s j ==>
+        U32.lt j i /\ B.get h' b (U32.v j) = C.String.get s j);
       assert (
-        let i: U32.t = B.get h i 0 in
-        B.get h' b (U32.v i) = C.String.get s i
-      );
+        let iplus1: U32.t = B.get h' i 0 in
+        (forall (j: U32.t). {:pattern (B.get h b (U32.v j)) } U32.lt j iplus1 ==>
+          B.get h b (U32.v j) = C.String.get s j));
+      assert (
+        let iplus1: U32.t = B.get h' i 0 in
+        (forall (j: U32.t). {:pattern (B.get h' b (U32.v j)) } U32.lt j iplus1 ==>
+          B.get h' b (U32.v j) = C.String.get s j));
       false
     end
   in
