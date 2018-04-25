@@ -1,10 +1,13 @@
 module Introduction
 
+/// .. fixme-authors::
+///     JP Jonathan Protzenko
+///
 /// Introduction
 /// ============
 ///
-/// This manual documents Low*, a subset of F* that enjoys compilation to C,
-/// using its companion compiler KreMLin. As such, Kre\ **ML**\ in offers an
+/// This manual documents Low*, a subset of F* that enjoys compilation to C
+/// through its companion compiler KreMLin. As such, Kre\ **ML**\ in offers an
 /// alternative to OCa\ **ML** for extracting and running F* programs (hence the
 /// name).
 ///
@@ -14,8 +17,9 @@ module Introduction
 /// system-level functions from the C standard library.
 ///
 /// Writing in Low*, the programmer enjoys the full power of F* for proofs and
-/// specifications; these are erased as part of the compilation process, meaning
-/// that *the code is low-level, but the verification is not*.
+/// specifications. At compile-time, proofs are erased, leaving only the
+/// low-level code to be compiled to C. In short, *the code is low-level, but
+/// the verification is not*.
 ///
 /// This manual offers a tour of Low* and its companion libraries; presents the
 /// tool KreMLin and the various ways it can be used to generate C programs or
@@ -32,14 +36,17 @@ module Introduction
 /// -------------------
 ///
 /// We take a seminal example, the ``memcpy`` function, which takes a set of
-/// elements and copies them from ``src`` to ``dst``. We fully specify it, and
+/// elements and copies them from ``src`` into ``dst``. We fully specify it, and
 /// compile it to C via KreMLin.
+
+#set-options "--use_two_phase_tc true"
 
 open FStar.HyperStack.ST
 
-module B = FStar.Buffer
-module U32 = FStar.UInt32
 module S = FStar.Seq
+module B = FStar.Buffer
+module M = FStar.Modifies
+module U32 = FStar.UInt32
 module ST = FStar.HyperStack.ST
 
 let slice_plus_one #a (s1 s2: S.seq a) (i: nat): Lemma
@@ -60,21 +67,25 @@ let slice_plus_one #a (s1 s2: S.seq a) (i: nat): Lemma
 
 #set-options "--max_fuel 0 --max_ifuel 0"
 val memcpy: #a:eqtype -> src:B.buffer a -> dst:B.buffer a -> len:U32.t -> Stack unit
-  (requires (fun h0 ->
+  (requires fun h0 ->
+    let l_src = M.loc_buffer src in
+    let l_dst = M.loc_buffer dst in
     B.live h0 src /\ B.live h0 dst /\
     B.length src = U32.v len /\
     B.length dst = U32.v len /\
-    B.disjoint src dst))
-  (ensures (fun h0 () h1 ->
+    M.loc_disjoint l_src l_dst)
+  (ensures fun h0 () h1 ->
+    let l_src = M.loc_buffer src in
+    let l_dst = M.loc_buffer dst in
     B.live h1 src /\
     B.live h1 dst /\
-    B.modifies_1 dst h0 h1 /\
-    S.equal (B.as_seq h1 dst) (B.as_seq h0 src)))
+    M.(modifies l_dst h0 h1) /\
+    S.equal (B.as_seq h1 dst) (B.as_seq h0 src))
 let memcpy #a src dst len =
   let h0 = ST.get () in
   let inv h (i: nat) =
     B.live h src /\ B.live h dst /\
-    B.modifies_1 dst h0 h /\
+    M.(modifies (loc_buffer dst) h0 h) /\
     i <= U32.v len /\
     S.equal (Seq.slice (B.as_seq h src) 0 i) (Seq.slice (B.as_seq h dst) 0 i)
   in
@@ -87,7 +98,9 @@ let memcpy #a src dst len =
   in
   C.Loops.for 0ul len inv body
 
-let main (): St C.exit_code =
+#reset-options "--z3rlimit 16"
+let main (): St C.exit_code
+=
   push_frame ();
   let src = B.createL [ 1UL; 2UL ] in
   let dst = B.create 0UL 2ul in
@@ -95,10 +108,68 @@ let main (): St C.exit_code =
   pop_frame ();
   C.EXIT_SUCCESS
 
-/// The resulting C code is as follows:
+/// The example uses several concepts that will be explained in later sections
+/// of this tutorial, but is representative of the code one typically writes in
+/// Low*.
+///
+/// The code starts by opening several modules that are part of the "Low*
+/// standard library".
+///
+/// .. fixme:: JP
+///
+///    Add internal links once the other sections are fleshed out.
+///
+///
+/// - ``Buffer`` is our model of stack- and heap- allocated C arrays
+/// - ``Seq`` is the sequence abstraction from the F* standard library, which
+///   ``Buffer`` uses to reflect the contents of a given buffer in a given heap
+///   at the proof level
+/// - ``Modifies`` provides a universal modifies clause over buffers, references
+///   and regions
+/// - ``UInt32`` is a model of the C11 ``uint32_t`` type, reflected at the proof
+///   level using natural numbers
+/// - ``HyperStack`` is our model of the C memory layout
+/// - ``C`` and ``C.Loops`` expose some C concepts to F*
+///
+/// The example needs a lemma over sequences, which is written like one normally
+/// would in F*. Lemmas are erased and do not appear in the generated code.
+///
+/// Next, then ``memcpy`` function is annotated with pre- and post-conditions,
+/// using notions of liveness and disjointness. The post-condition states that
+/// after calling ``memcpy src dst len``, the destination and the source have
+/// the same contents up to index ``len``. This function uses a C-style for loop
+/// with a loop invariant and a loop body. Alternatively, one could've written a
+/// recursive function, relying on the C compiler to hopefully perform tail-call
+/// optimization.
+///
+/// Finally, the ``main`` function uses ``push_frame`` and ``pop_frame``, two
+/// combinators from the memory model that indicate that this code conceptually
+/// executes in a new stack frame. In this new stack frame, two test arrays are
+/// allocated on the stack. These are arrays of 64-bit unsigned integers, as
+/// denoted by the ``UL`` suffix. The ``memcpy`` function is called over these
+/// two arrays.
+///
+/// Leaving an in-depth explanation of these concepts to later sections, it
+/// suffices to say, for now, that one can invoke the KreMLin compiler to turn
+/// this code into C:
+///
+/// .. code-block:: bash
+///
+///    krml -no-prefix Introduction introduction.fst
+///
+/// This generates several C files in the current directory. The resulting
+/// ``Introduction.c`` is as follows.
 ///
 /// .. code-block:: c
 ///
+///    /* This file was generated by KreMLin <https://github.com/FStarLang/kremlin>
+///     * KreMLin invocation: krml -no-prefix Introduction introduction.fst
+///     * F* version: 451c4a69
+///     * KreMLin version: 3d1941d0
+///     */
+///
+///    #include "Introduction.h"
+/// 
 ///    void memcpy__uint64_t(uint64_t *src, uint64_t *dst, uint32_t len)
 ///    {
 ///      for (uint32_t i = (uint32_t)0U; i < len; i = i + (uint32_t)1U)
@@ -113,7 +184,7 @@ let main (): St C.exit_code =
 ///      return EXIT_SUCCESS;
 ///    }
 ///
-/// This example illustrates many of the central ideas in Low*.
+/// This informal presentation highlights several key design points of Low*.
 ///
 /// - **A shallow embedding of C**. The programmer writes F* syntax, bearing in
 ///   mind that it ought to compile to C, i.e. be in the Low* subset. We offer
@@ -144,4 +215,6 @@ let main (): St C.exit_code =
 ///   experience. In Low*, one enjoys data types, pattern-matching, tuples,
 ///   which are respectively compiled as C tagged unions, cascading
 ///   ``if``\ s, or structures passed by value.
-
+///
+/// Tooling and setup
+/// -----------------
