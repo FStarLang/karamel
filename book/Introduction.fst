@@ -131,8 +131,9 @@ let main (): Stack C.exit_code (requires (fun _ -> True)) (ensures (fun h _ h' -
 /// - ``HyperStack`` is our model of the C memory layout
 /// - ``C`` and ``C.Loops`` expose some C concepts to F*
 ///
-/// The example needs a lemma over sequences, which is written like one normally
-/// would in F*. Lemmas are erased and do not appear in the generated code.
+/// The example then defines a lemma over sequences, which is written like one
+/// normally would in F*. Lemmas are erased and do not appear in the generated
+/// code, so it is safe to mix lemmas with Low* code.
 ///
 /// Next, then ``memcpy`` function is annotated with pre- and post-conditions,
 /// using notions of liveness and disjointness. The post-condition states that
@@ -147,7 +148,9 @@ let main (): Stack C.exit_code (requires (fun _ -> True)) (ensures (fun h _ h' -
 /// executes in a new stack frame. In this new stack frame, two test arrays are
 /// allocated on the stack. These are arrays of 64-bit unsigned integers, as
 /// denoted by the ``UL`` suffix. The ``memcpy`` function is called over these
-/// two arrays.
+/// two arrays. From a verification perspective, since its stack frame is freed
+/// after calling ``main``, we can successfully state that it modifies no
+/// buffer.
 ///
 /// Leaving an in-depth explanation of these concepts to later sections, it
 /// suffices to say, for now, that one can invoke the KreMLin compiler to turn
@@ -156,6 +159,15 @@ let main (): Stack C.exit_code (requires (fun _ -> True)) (ensures (fun h _ h' -
 /// .. code-block:: bash
 ///
 ///    $ krml -no-prefix Introduction introduction.fst
+///
+/// .. warning::
+///
+///    This tutorial is written using `fslit
+///    <https://github.com/FStarLang/fstar-mode.el/tree/master/etc/fslit>`_,
+///    meaning that this document is actually an F* source file converted to HTML.
+///    The present file is ``Introduction.fst`` and can be found in the ``book``
+///    directory of KreMLin. So, you can actually run the command above if you want
+///    to try things out for yourself!
 ///
 /// This generates several C files in the current directory. The resulting
 /// ``Introduction.c`` is as follows.
@@ -277,8 +289,8 @@ let main (): Stack C.exit_code (requires (fun _ -> True)) (ensures (fun h _ h' -
 ///
 /// However, using KreMLin as a driver is inefficient for two reasons:
 ///
-/// - step 1 uses "legacy" extraction in F*, which processes many files sequentially
-///   and extracts them in a single invocation without performing verification
+/// - step 1 uses "legacy" extraction in F*: files are processed sequentially,
+///   without caching, and verification is by default not performed (use ``-verify``)
 /// - step 3 is not parallel
 ///
 /// Section ?? provides a complete sample Makefile that performs parallel
