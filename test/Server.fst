@@ -44,24 +44,6 @@ val bufstrcmp (b: buffer char) (s: C.String.t): Stack bool
       Seq.length b >= l /\
       Seq.equal (Seq.slice b 0 (l - 1)) (Seq.slice s 0 (l - 1)))))))
 
-module S = FStar.Seq
-
-let slice_plus_one #a (s1 s2: S.seq a) (i: nat): Lemma
-  (requires (
-    i < S.length s1 /\
-    i < S.length s2 /\
-    S.equal (S.slice s1 0 i) (S.slice s2 0 i) /\
-    S.index s1 i == S.index s2 i))
-  (ensures (
-    S.equal (S.slice s1 0 (i + 1)) (S.slice s2 0 (i + 1))))
-  [ SMTPat (S.slice s1 0 (i + 1)); SMTPat (S.slice s2 0 (i + 1)) ]
-=
-  let x = S.index s1 i in
-  let s1' = S.append (S.slice s1 0 i) (S.cons x S.createEmpty) in
-  let s2' = S.append (S.slice s2 0 i) (S.cons x S.createEmpty) in
-  assert (S.equal s1' (S.slice s1 0 (i + 1)));
-  assert (S.equal s2' (S.slice s2 0 (i + 1)))
-
 let bufstrcmp b s =
   let h0 = ST.get () in
   push_frame ();
@@ -97,10 +79,18 @@ let bufstrcmp b s =
           B.get h b (U32.v j) = C.String.get s j);
       i.(0ul) <- U32.( i.(0ul) +^ 1ul );
       let h' = ST.get () in
+      assert (forall (j: U32.t). {:pattern (B.get h' b (U32.v j))}
+        let i: U32.t = B.get h' i 0 in
+        U32.lt j i /\ B.get h b (U32.v j) = C.String.get s j ==>
+        U32.lt j i /\ B.get h' b (U32.v j) = C.String.get s j);
       assert (
-        let i: U32.t = B.get h i 0 in
-        B.get h' b (U32.v i) = C.String.get s i
-      );
+        let iplus1: U32.t = B.get h' i 0 in
+        (forall (j: U32.t). {:pattern (B.get h b (U32.v j)) } U32.lt j iplus1 ==>
+          B.get h b (U32.v j) = C.String.get s j));
+      assert (
+        let iplus1: U32.t = B.get h' i 0 in
+        (forall (j: U32.t). {:pattern (B.get h' b (U32.v j)) } U32.lt j iplus1 ==>
+          B.get h' b (U32.v j) = C.String.get s j));
       false
     end
   in
