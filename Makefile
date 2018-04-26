@@ -7,7 +7,7 @@ OCAMLBUILD=ocamlbuild -I src -I lib -I parser -I kremlib -use-menhir -use-ocamlf
  -menhir "menhir --infer --explain"
 FLAVOR?=native
 TARGETS=Kremlin.$(FLAVOR) Tests.$(FLAVOR)
-EXTRA_TARGETS=Ast.inferred.mli kremlib/C.cmx kremlib/TestLib.cmx
+EXTRA_TARGETS=Ast.inferred.mli kremlib/C.cmx kremlib/TestLib.cmx kremlib/C.cmo kremlib/TestLib.cmo
 
 all: minimal pre
 	OCAMLPATH=$(FSTAR_HOME)/bin $(OCAMLBUILD) $(EXTRA_TARGETS)
