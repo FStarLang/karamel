@@ -36,9 +36,8 @@ module Introduction
 /// The essence of Low*
 /// -------------------
 ///
-/// We take a seminal example, the ``memcpy`` function, which takes a set of
-/// elements and copies them from ``src`` into ``dst``. We fully specify it, and
-/// compile it to C via KreMLin.
+/// The snippet below implements a classic ``memcpy`` function, copying ``len``
+/// elements of type ``a`` from ``src`` into ``dst``.
 
 #set-options "--use_two_phase_tc true"
 
@@ -99,7 +98,9 @@ let memcpy #a src dst len =
   in
   C.Loops.for 0ul len inv body
 
-let main (): Stack C.exit_code (requires (fun _ -> True)) (ensures (fun h _ h' -> M.modifies M.loc_none h h'))
+let main (): Stack C.exit_code
+  (requires fun _ -> True)
+  (ensures fun h _ h' -> M.modifies M.loc_none h h')
 =
   push_frame ();
   let src = B.createL [ 1UL; 2UL ] in
@@ -108,17 +109,12 @@ let main (): Stack C.exit_code (requires (fun _ -> True)) (ensures (fun h _ h' -
   pop_frame ();
   C.EXIT_SUCCESS
 
-/// Let us gloss over this example, which is representative of the programming
-/// style that one typically adopts when programming in Low*, leaving a detailed
-/// discussion of the Low* concept to the rest of this tutorial.
+/// This example showcases several features of Low*. We first present the code from
+/// a high-level point of view, then show how it compiles to C. We leave a detailed
+/// discussion of Low* to the subsequent chapters of this tutorial.
 ///
 /// The code starts by opening several modules that are part of the "Low*
 /// standard library".
-///
-/// .. fixme:: JP
-///
-///    Add internal links once the other sections are fleshed out.
-///
 ///
 /// - ``Buffer`` is our model of stack- and heap- allocated C arrays
 ///   (described in :ref:`buffer-library`)
@@ -134,26 +130,29 @@ let main (): Stack C.exit_code (requires (fun _ -> True)) (ensures (fun h _ h' -
 /// - ``C`` and ``C.Loops`` expose some C concepts to F* (described in
 ///   :ref:`c-library`)
 ///
-/// The example then defines a lemma over sequences, which is written like one
-/// normally would in F*. Lemmas are erased and do not appear in the generated
+/// The first definition is a lemma over sequences: if two sequences are equal over
+/// the slice ``[0; i)`` and their ``i``\ -th element is equal, then they are equal
+/// over the slice ``[0; i + 1)``. This lemma is required to prove the functional
+/// correctness of ``memcpy``. Lemmas are erased and do not appear in the generated
 /// code, so it is safe to mix lemmas with Low* code.
 ///
-/// Next, then ``memcpy`` function is annotated with pre- and post-conditions,
-/// using notions of liveness and disjointness. The post-condition states that
-/// after calling ``memcpy src dst len``, the destination and the source have
-/// the same contents up to index ``len``. This function uses a C-style for loop
-/// with a loop invariant and a loop body. Alternatively, one could've written a
-/// recursive function, relying on the C compiler to hopefully perform tail-call
-/// optimization.
+/// Next, then ``memcpy`` function is defined and annotated with pre- and
+/// post-conditions, using liveness and disjointness predicates. The post-condition
+/// states that after calling ``memcpy src dst len``, the destination and the source
+/// have the same contents up to index ``len``.
+///
+/// The implementation of ``memcpy`` uses a C-style ``for`` loop with a loop
+/// invariant and a loop body. Alternatively, one could write a recursive function,
+/// relying on the C compiler to hopefully perform tail-call optimization.
 ///
 /// Finally, the ``main`` function uses ``push_frame`` and ``pop_frame``, two
 /// combinators from the memory model that indicate that this code conceptually
 /// executes in a new stack frame. In this new stack frame, two test arrays are
-/// allocated on the stack. These are arrays of 64-bit unsigned integers, as
-/// denoted by the ``UL`` suffix. The ``memcpy`` function is called over these
-/// two arrays. From a verification perspective, since its stack frame is freed
-/// after calling ``main``, we can successfully state that it modifies no
-/// buffer.
+/// allocated on the stack. These are arrays of 64-bit unsigned integers, as denoted
+/// by the ``UL`` Low* suffix for machine integers. The ``memcpy`` function is
+/// called over these two arrays. From a verification perspective, since the stack
+/// frame is freed after calling ``main``, we can successfully state that ``main``
+/// modifies no buffer.
 ///
 /// Leaving an in-depth explanation of these concepts to later sections, it
 /// suffices to say, for now, that one can invoke the KreMLin compiler to turn
@@ -206,10 +205,10 @@ let main (): Stack C.exit_code (requires (fun _ -> True)) (ensures (fun h _ h' -
 ///   dedicated primitives, such as the ``C.Loops.for`` function, enabling
 ///   fine-grained control over the generated C.
 ///
-/// - **A model of C**. The example above relies on a modeling in F* of several
-///   C features, such as bounded machine integers, stack-allocated arrays, and
-///   the separation between the stack and the heap. Dedicated combinators such
-///   as ``push_frame`` and ``pop_frame`` allow reflecting the structure of the call
+/// - **A model of C**. The example above relies on modeling several C features in
+///   F*, such as bounded machine integers, stack-allocated arrays, and the
+///   separation between the stack and the heap. Dedicated combinators such as
+///   ``push_frame`` and ``pop_frame`` allow reflecting the structure of the call
 ///   stack using F*'s built-in effect system.
 ///
 /// - **High-level verification of low-level code**. The example contains a vast
@@ -233,6 +232,9 @@ let main (): Stack C.exit_code (requires (fun _ -> True)) (ensures (fun h _ h' -
 ///
 /// Tooling and setup
 /// -----------------
+///
+/// We now show how to get started with the tools and obtain a working F*/KreMLin
+/// pair.
 ///
 /// KreMLin is intimately tied with F*:
 ///
