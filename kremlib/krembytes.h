@@ -246,6 +246,13 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_int8(uint8_t x) {
   return (FStar_Bytes_bytes){ .length = 1, .data = data };
 }
 
+static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_int16(uint16_t x) {
+  char *data = KRML_HOST_MALLOC(2);
+  data[0] = (x >> 8) & 0xFF;
+  data[1] = x & 0xFF;
+  return (FStar_Bytes_bytes){ .length = 2, .data = data };
+}
+
 static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_int32(uint32_t x) {
   char *data = KRML_HOST_MALLOC(4);
   data[0] = x >> 24;
