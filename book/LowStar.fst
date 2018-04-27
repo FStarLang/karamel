@@ -541,6 +541,10 @@ let root: HS.rid = HS.root
 /// .. warning ::
 ///
 ///     The ``root`` is not a stack region and does *not* satisfy ``is_stack_region``.
+
+let _ =
+  assert (ST.is_eternal_region root /\ ~ (Monotonic.HyperStack.is_stack_region root))
+
 ///
 /// The most popular effect is the ``Stack`` effect, which takes:
 ///
@@ -571,12 +575,19 @@ let equal_domains (m0 m1: HS.mem) =
 ///   function that does not grow any existing stack frame on the call stack.
 ///
 /// A function that satisfies these conditions is a function that can be safely
-/// compiled as a C function. In other words, using the native C call stack as
-/// an implementation of our model is correct.
+/// compiled as a C function. In other words, using the native C call stack is a
+/// valid implementation of our model.
 
 let f (x: UInt32.t): Stack UInt32.t (fun _ -> True) (fun _ _ _ -> True) =
   FStar.UInt32.( x *%^ x )
-
+///
+/// .. note::
+///
+///    The following examples use the ``[@ fail ]`` F* attribute. Remember that
+///    this tutorial is a valid F* file, which we put under continuous
+///    integration and version control. This attribute merely indicates to F*
+///    that the failure is intentional.
+///
 /// Based on the knowledge above, consider the following failing function.
 [@ fail ]
 let g (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
@@ -596,13 +607,6 @@ let g (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
 /// conceptually happen in a new stack frame. The Low* memory model provides two
 /// combinators for this purpose: ``push_frame`` and ``pop_frame``. The ``f``
 /// function did not need them, because it performed no stateful operation.
-///
-/// .. note::
-///
-///    The following examples use the ``[@ fail ]`` F* attribute. Remember that
-///    this tutorial is a valid F* file, which we put under continuous
-///    integration and version control. This attribute merely indicates to F*
-///    that the failure is intentional.
 ///
 /// We can attempt to fix ``g`` by adding a call to ``push_frame``.
 [@ fail ]
@@ -647,6 +651,15 @@ let g4 (): ST unit (fun _ -> True) (fun _ _ _ -> True) =
 
 effect St (a:Type) = ST a (fun _ -> True) (fun _ _ _ -> True)
 
+/// One can reflect the memory as an ``HS.mem`` at any program point, by using
+/// ``ST.get ()``.
+
+let test_st_get (): St unit =
+  push_frame ();
+  let m = ST.get () in
+  assert (Monotonic.HyperStack.is_stack_region m.HS.tip);
+  pop_frame ()
+
 /// These are the basic building blocks of our memory model. Verifying on top of
 /// this memory model involves reflecting the state of the memory at the proof
 /// level, using the ``HS.mem`` type, and capturing the effect of allocations,
@@ -654,6 +667,9 @@ effect St (a:Type) = ST a (fun _ -> True) (fun _ _ _ -> True)
 /// be done using a combination of modifies clauses and libraries that reflect
 /// low-level constructs, such as buffers and machine integers, at the proof
 /// level. All of these are covered in the rest of this chapter.
+
+/// Advanced: the ``StackInline`` effect
+/// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ///
 /// The core libraries
@@ -673,15 +689,178 @@ effect St (a:Type) = ST a (fun _ -> True) (fun _ _ _ -> True)
 /// Machine integers are modeled as natural numbers that fit within a certain number
 /// of bits. This model is dropped by KreMLin, in favor of C's fixed-width types.
 ///
+/// Fixed-width integers are found in ``FStar.UInt{16,32,64,128}.fst`` and
+/// ``FStar.Int{16,32,64,128}``. The ``FStar.Int.Cast.Full.fst`` module offers
+/// conversion functions between these integer types.
+///
+/// .. warning ::
+///
+///    By default, KreMLin will rely on the non-standard ``unsigned __int128`` C
+///    type to implement ``FStar.UInt128.t``. This type is widely supported
+///    across GCC and Clang versions, but not by the Microsoft compilers. If you
+///    need 128-bit unsigned integers *and* portability, consider using
+///    KreMLin's ``-fnouint128`` flag to rely instead on an extracted version of
+///    ``FStar.UInt128.fst`` that is proven correct, but slower.
+///
+/// Machine integers offer the classic set of arithmetic operations. Like in C,
+/// unsigned integers have wraparound overflow semantics, exposed via the
+/// ``add_mod`` function. Signed integers offer no such function. Other
+/// undefined behaviors of C are ruled out at the F* level, such as shifting an
+/// integer by the bit width.
+///
+/// .. note ::
+///
+///    In addition to classic arithmetic operations, some modules offer
+///    constant-time operations such as ``eq_mask`` and ``gte_mask``, which
+///    allow defining a "secret integer" module on top of these integers, that
+///    offers no comparison operator returning a boolean, to avoid timing leaks.
+///    This is subject to change soon, with dedicated secret integer modules in
+///    the F* standard library.
+///
+/// Machine integers modules also define operators, suffixed with ``^``. For
+/// instance, the ``+`` operation for ``UInt32`` is ``+^``. Wraparound variants
+/// have an extra ``%`` character, such as ``+%^``, when available.
+///
+/// .. fixme :: JP
+///
+///    The unary minus is broken for machine integers.
+///    This does not parse: ``let x = UInt32.(-^ 0ul)``
+///
+/// Operators follow the standard precedence rules of F*, which are outlined on
+/// its `wiki
+/// <https://github.com/FStarLang/FStar/wiki/Parsing-and-operator-precedence>`_.
+/// Operators are resolved in the current scope; we recommend the use of module
+/// abbreviations and the let-open notation ``M.( ... )``.
+
+module U32 = FStar.UInt32
+
+let z = U32.(16ul -^ 8ul )
+
+/// .. note ::
+/// 
+///     By default, operations require that the caller prove that the result fits in
+///     the given integer width. For instance, ``U32.add`` has ``(requires (size (v
+///     a + v b) n))`` as a precondition. The modules also offer variants such as
+///     ``U32.add_underspec``, which can always be called, and has an implication in
+///     the post-condition ``(ensures (fun c -> size (v a + v b) n ==> v a + v b = v c))``.
+///     The latter form is seldom used.
+///
+/// Machine integers can be reflected as natural numbers of type ``nat`` using
+/// the ``v`` function. It is generally more convenient to perform proofs on
+/// natural numbers.
+
+let test_v (): unit =
+  let x = 0ul in
+  assert (U32.v x = 0)
+
 /// .. _buffer-library:
 ///
 /// The buffer library
 /// ^^^^^^^^^^^^^^^^^^
 ///
-/// The workhouse of Low*, the buffer library is modeled as a reference to a
-/// sequence. Sequences are not meant to be extracted to C: KreMLin drops this
-/// sequence-based model, in favor of C's stack- or heap-allocated arrays.
+/// .. warning ::
 ///
+///    The buffer library currently suffers from severe limitations.
+///
+///    - It does not protect against some undefined C behaviors, such as
+///      allocating a zero-length array on the stack, or performing arithmetic on a
+///      ``free``'d pointer.
+///    - The NULL pointer lives in a separate, assumed library.
+///    - Lengths are hard-coded to be 32-bit integers, instead of a proper
+///      ``size_t`` like in C.
+///
+///    A new model is in the works which should address the issues above.
+///
+/// ``FStar.Buffer`` is the workhorse of Low*, and allows modeling C arrays on
+/// the stack and in the heap. ``Buffer`` is a model, which defines buffers as follows:
+
+let lseq (a: Type) (l: nat) : Type =
+  (s: Seq.seq a { Seq.length s == l } )
+
+noeq
+type buffer (a:Type) =
+  | MkBuffer: max_length:UInt32.t
+    -> content:reference (s: lseq a (U32.v max_length))
+    -> idx:UInt32.t
+    -> length:UInt32.t{U32.(v idx + v length <= v max_length)}
+    -> buffer a
+
+/// In other words, buffers are modeled as a reference to a sequence, along with
+/// a starting index ``idx``, and a ``length``, which captures how much of an
+/// allocation slice one is currently pointing to.
+///
+/// This is a model: at compilation-time, KreMLin implements buffers using C arrays.
+///
+/// **The length** is available in ghost (proof) code only: just like in C, one
+/// cannot compute the length of a buffer at run-time. Therefore, a typical
+/// pattern is to use refinements to tie together a buffer and its length, as we
+/// saw with the initial ``memcpy`` example.
+
+let do_something (x: Buffer.buffer UInt64.t) (l: U32.t { U32.v l = Buffer.length x }): St unit =
+  ()
+
+/// **Allocating a buffer on the stack** is done using the ``create`` function,
+/// which takes an initial value and a length. ``create`` requires that the top
+/// of the stack be a valid stack frame.
+
+let test_alloc_stack (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
+  push_frame ();
+  let b = Buffer.create 0UL 8ul in
+  pop_frame ();
+  ()
+
+/// **Allocating a buffer on the heap** is done using the ``rcreate_mm`` function,
+/// which takes a region, an initial value and a length. The region is purely
+/// for proof and separation purposes, and has no effect on the generated code. A
+/// buffer created with ``rcreate_mm`` can be freed with ``rfree``.
+
+let test_alloc (): St unit =
+  let b = Buffer.rcreate_mm HS.root 0UL 8ul in
+  Buffer.rfree b
+
+/// **Pointer arithmetic** is performed by the means of the ``sub`` function. Under
+/// the hood, the ``sub`` function returns a buffer that points to the same
+/// underlying reference, but has different ``idx`` and ``length`` fields.
+
+let test_sub (): St unit =
+  let b = Buffer.rcreate_mm HS.root 0UL 8ul in
+  let b_l = Buffer.sub b 0ul 4ul in // idx = 0; length = 4
+  let b_r = Buffer.sub b 4ul 4ul in // idx = 4; length = 4
+  Buffer.rfree b
+
+/// Just like in C, one can only free the base pointer, i.e. this is an error:
+
+[@ fail ]
+let test_sub_error (): St unit =
+  let b = Buffer.rcreate_mm HS.root 0UL 8ul in
+  let b_l = Buffer.sub b 0ul 4ul in // idx = 0; length = 4
+  Buffer.rfree b_l
+
+/// **Reading and modifying** a buffer is performed by means of the ``index``
+/// and ``upd`` functions. These are exposed as the ``.()`` and ``.()<-``
+/// operators respectively.
+
+let test_index (): St unit =
+  let open FStar.Buffer in
+  let b = Buffer.rcreate_mm HS.root 0UL 8ul in
+  b.(0ul) <- UInt64.add_mod b.(0ul) b.(0ul);
+  Buffer.rfree b
+
+/// .. fixme :: JP
+///
+///    We really should define an ``FStar.Buffer.Ops`` so that we don't need to open
+///    the whole ``FStar.Buffer`` to enjoy the benefits of the operators.
+
+/// Buffers are reflected at the proof level using sequences, via the ``as_seq``
+/// function, which returns the contents of a given buffer in a given heap, i.e.
+/// a sequence slice ranging over the interval ``[idx; idx + length)``.
+
+let test_as_seq (): St unit =
+  let b = Buffer.rcreate_mm HS.root 0UL 1ul in
+  let h = ST.get () in
+  assert (Seq.equal (Buffer.as_seq h b) (Seq.cons 0UL Seq.createEmpty));
+  Buffer.rfree b
+
 /// .. _modifies-library:
 ///
 /// The modifies clauses library
