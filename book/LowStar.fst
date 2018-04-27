@@ -125,7 +125,7 @@ let uint128_alloc (h l: UInt64.t): St (B.buffer uint128) =
   Buffer.rcreate_mm HyperStack.root ({ low = l; high = h }) 1ul
 
 /// .. code:: c
-/// 
+///
 ///    uint128 *uint128_alloc(uint64_t h, uint64_t l)
 ///    {
 ///      KRML_CHECK_SIZE(sizeof (uint128), (uint32_t)1U);
@@ -162,7 +162,7 @@ let min_int32 = FStar.Int32.(0l -^ 0x7fffffffl -^ 1l)
 ///
 ///    // Meta-evaluated by F*
 ///    int32_t min_int32 = (int32_t)-2147483648;
-
+///
 /// **These snippets are extensions to Low* (described in ??).**
 
 // Extensions:
@@ -178,7 +178,7 @@ let uint128_equal (x y: uint128) =
 ///    {
 ///      return true && x.low == y.low && x.high == y.high;
 ///    }
-///    
+///
 ///    bool uint128_equal(uint128 x, uint128 y)
 ///    {
 ///      return __eq__LowStar_uint128(x, y);
@@ -195,7 +195,7 @@ type key =
 /// .. code:: c
 ///
 ///    typedef enum { Algorithm1, Algorithm2 } key_tags;
-///    
+///
 ///    typedef struct key_s
 ///    {
 ///      key_tags tag;
@@ -223,14 +223,14 @@ let abs2 (x: Int32.t): option Int32.t =
 ///
 ///    typedef enum { FStar_Pervasives_Native_None, FStar_Pervasives_Native_Some }
 ///    FStar_Pervasives_Native_option__int32_t_tags;
-///    
+///
 ///    typedef struct FStar_Pervasives_Native_option__int32_t_s
 ///    {
 ///      FStar_Pervasives_Native_option__int32_t_tags tag;
 ///      int32_t v;
 ///    }
 ///    FStar_Pervasives_Native_option__int32_t;
-///    
+///
 ///    FStar_Pervasives_Native_option__int32_t abs2(int32_t x)
 ///    {
 ///      if (x == min_int32)
@@ -249,7 +249,6 @@ let abs2 (x: Int32.t): option Int32.t =
 ///    }
 ///
 /// .. fst::
-
 
 // Extension: compilation of pattern matches
 let fail_if #a #b (package: a * (a -> option b)): St b =
@@ -306,7 +305,6 @@ let abs3 (x: Int32.t): St Int32.t =
 ///
 /// .. fst::
 
-
 // Extension: use meta-programming in F* to reduce local closures
 let pow4 (x: UInt32.t): UInt32.t =
   let open FStar.UInt32 in
@@ -345,7 +343,7 @@ let zero = uint128_zero ()
 ///    {
 ///      zero = uint128_zero();
 ///    }
-
+///
 /// **These snippets are not Low*.**
 
 // Cannot be compiled:
@@ -391,7 +389,7 @@ let mk_list (): St list_int32 =
 
 /// Trying to compile the snippet above will generate an error when calling the
 /// C compiler to generate a ``.o`` file.
-/// 
+///
 /// .. code:: bash
 ///
 ///    $ krml -skip-linking -verbose LowStar.fst
@@ -403,7 +401,6 @@ let mk_list (): St list_int32 =
 ///       LowStar_list_int32 tl;
 ///
 /// .. fst::
-
 
 // Cannot be compiled: polymorphic assume val; solution: make the function
 // monomorphic, or provide a C macro
@@ -477,8 +474,187 @@ let default_t (a: alg): t a =
 /// The memory model
 /// ----------------
 ///
-/// The C memory is traditionally presented as a combination of a *stack* and a
-/// *heap*. Each function call
+/// Beyond the language subset, one defining component of Low* is how it models
+/// the C memory.
+///
+/// The F* HyperHeap model
+/// ^^^^^^^^^^^^^^^^^^^^^^
+///
+/// F* is by default equipped with HyperHeap, a hierarchical memory model that
+/// divides the heap into a tree of regions. This coarse-grained separation
+/// allows the programmer to state modifies clauses at the level of regions, rather
+/// than on individual references.
+///
+/// The HyperHeap memory model is described in the `2016 POPL paper
+/// <https://www.fstar-lang.org/papers/mumon/>`_, as well as the `F* tutorial
+/// <https://www.fstar-lang.org/tutorial>`_. We assume that the reader has a passing
+/// degree of familiarity with HyperHeap.
+///
+/// The Low* HyperStack model
+/// ^^^^^^^^^^^^^^^^^^^^^^^^^
+///
+/// Low* refines the HyperHeap memory model, adding a distinguished set of regions
+/// that model the C call stack. Programs may use stack allocation, heap allocation
+/// or both. The HyperStack memory model offers a set of effects that capture the
+/// allocation behavior of functions.
+///
+/// The HyperStack memory model comprises the files
+/// ``FStar.Monotonic.HyperStack.fst``, ``FStar.HyperStack.fst`` and
+/// ``FStar.HyperStack.ST.fst`` in the ``ulib`` directory of F*.
+///
+/// .. note::
+///
+///    Many verification errors point to definitions in these three files. Being
+///    familiar with these modules, their combinators and key concepts helps
+///    understand why a given program fails to verify.
+
+/// .. warning::
+///
+///    We recommend always defining the ``ST`` abbreviation at the beginning of
+///    your module, in order to shadow the ``FStar.ST`` module, which is not
+///    Low*.
+
+module ST = FStar.HyperStack.ST
+module HS = FStar.HyperStack
+///
+/// The top-level region is the root, and is always a valid region. ``HS.rid``
+/// is the type of regions.
+
+let root: HS.rid = HS.root
+
+/// Stack frames are modeled as distinguished regions that satisfy the
+/// ``is_stack_region`` predicate. Allocating in a stack frame, unsurprisingly,
+/// results in a stack-allocated variable or array in C. Stack frames may be
+/// de-allocated as program execution progresses up the call stack, meaning that
+/// the underlying HyperHeap region may disappear.
+///
+/// Regions that are not stack frames may *not* be de-allocated, and therefore
+/// satisfy the ``is_eternal_region`` predicate. This includes the ``root``.
+/// Allocating in one of these regions amounts to performing a heap allocation
+/// in C.
+///
+/// Pushing a new stack frame amount to allocating a new stack region. In the
+/// HyperHeap model, creating a new region requires a *parent*. Thus, when a
+/// new stack frame is allocated, its parent is either the top-most stack frame,
+/// or the ``root`` if no stack frame has been allocated so far.
+///
+/// .. warning ::
+///
+///     The ``root`` is not a stack region and does *not* satisfy ``is_stack_region``.
+///
+/// The most popular effect is the ``Stack`` effect, which takes:
+///
+/// - a precondition over the initial heap, of type ``HS.mem -> Type``, and a
+/// - post-condition over the initial heap, the result, the final heap, of type
+///   ``HS.mem -> a -> HS.mem -> Type``
+
+effect Stack (a:Type) (pre: ST.st_pre) (post: (m0: HS.mem -> Tot (ST.st_post' a (pre m0)))) =
+  STATE a
+    (fun (p: ST.st_post a) (h: HS.mem) ->
+      pre h /\ (forall a h1. (pre h /\ post h a h1 /\ ST.equal_domains h h1) ==> p a h1))
+
+/// The relevant bit in this otherwise mundane definition is the
+/// ``ST.equal_domains`` predicate.
+
+let equal_domains (m0 m1: HS.mem) =
+  m0.HS.tip == m1.HS.tip /\
+  Set.equal (Map.domain m0.HS.h) (Map.domain m1.HS.h) /\
+  ST.same_refs_in_all_regions m0 m1
+
+/// The ``equal_domains`` predicate states that a function in the ``Stack`` effect:
+///
+/// - preserves the ``tip`` of the memory, i.e. calling this
+///   function leaves the C call stack intact;
+/// - does not allocate any new region on the heap, i.e. this is a
+///   C function that does not heap-allocate;
+/// - does not allocate in any existing region, i.e. this is a C
+///   function that does not grow any existing stack frame on the call stack.
+///
+/// A function that satisfies these conditions is a function that can be safely
+/// compiled as a C function. In other words, using the native C call stack as
+/// an implementation of our model is correct.
+
+let f (x: UInt32.t): Stack UInt32.t (fun _ -> True) (fun _ _ _ -> True) =
+  FStar.UInt32.( x *%^ x )
+
+/// Based on the knowledge above, consider the following failing function.
+[@ fail ]
+let g (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
+  let b = Buffer.create 0ul 8ul in
+  ()
+
+/// F* reports an assertion failure for the ``is_stack_region`` predicate.
+/// Indeed, the ``create`` function requires that the ``tip`` be a valid stack
+/// region, which is false when no stack frame has been pushed on the call stack.
+///
+/// One important insight at this stage is that F* does not "automatically"
+/// enrich the verification context with the assumption that upon entering
+/// ``g``, we have pushed a new stack frame. This would be the wrong thing to do
+/// for a total function; furthermore, there is simply no such support in the language.
+///
+/// Rather, the user is expected to manually indicate which operations need to
+/// conceptually happen in a new stack frame. The Low* memory model provides two
+/// combinators for this purpose: ``push_frame`` and ``pop_frame``. The ``f``
+/// function did not need them, because it performed no stateful operation.
+///
+/// .. note::
+///
+///    The following examples use the ``[@ fail ]`` F* attribute. Remember that
+///    this tutorial is a valid F* file, which we put under continuous
+///    integration and version control. This attribute merely indicates to F*
+///    that the failure is intentional.
+///
+/// We can attempt to fix ``g`` by adding a call to ``push_frame``.
+[@ fail ]
+let g2 (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
+  push_frame ();
+  let b = Buffer.create 0ul 8ul in
+  ()
+
+/// F* now reports an error for the ``equal_domains`` predicate above. Indeed,
+/// the only way to leave the C call stack intact, and therefore satisfy the
+/// requirements of the ``Stack`` effect, is to ensure we pop the stack
+/// frame we just pushed.
+let g3 (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
+  push_frame ();
+  let b = Buffer.create 0ul 8ul in
+  pop_frame ();
+  ()
+
+/// ``g3`` now successfully compiles to C:
+///
+/// .. code:: c
+///
+///    void g3()
+///    {
+///      uint32_t b[8U] = { 0U };
+///    }
+
+/// The ``Stack`` effect prevents heap allocation, hence ensuring that from the
+/// caller's perspective, any heap ("eternal") regions remain unchanged.
+///
+/// For code that performs heap allocations, the libraries offer the ``ST``
+/// effect. It is similar to the ``Stack`` effect, and takes the same form of
+/// pre- and post-conditions, but allows heap allocation.
+
+let g4 (): ST unit (fun _ -> True) (fun _ _ _ -> True) =
+  push_frame ();
+  let b = Buffer.rcreate_mm HS.root 0ul 8ul in
+  pop_frame ();
+  ()
+
+/// The ``St`` effect might occasionally be convenient.
+
+effect St (a:Type) = ST a (fun _ -> True) (fun _ _ _ -> True)
+
+/// These are the basic building blocks of our memory model. Verifying on top of
+/// this memory model involves reflecting the state of the memory at the proof
+/// level, using the ``HS.mem`` type, and capturing the effect of allocations,
+/// updates and de-allocations using suitable pre- and post-conditions. This can
+/// be done using a combination of modifies clauses and libraries that reflect
+/// low-level constructs, such as buffers and machine integers, at the proof
+/// level. All of these are covered in the rest of this chapter.
+
 ///
 /// The core libraries
 /// ------------------
