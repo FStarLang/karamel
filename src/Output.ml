@@ -48,16 +48,16 @@ let prefix_suffix name =
   in
   prefix, suffix
 
-let write_one name prefix program suffix =
+let in_tmp_dir name =
   Driver.mk_tmpdir_if ();
-  let f =
-    let open Driver in
-    if !Options.tmpdir <> "" then
-      !Options.tmpdir ^^ name
-    else
-      name
-  in
-  with_open_out f (fun oc ->
+  let open Driver in
+  if !Options.tmpdir <> "" then
+    !Options.tmpdir ^^ name
+  else
+    name
+
+let write_one name prefix program suffix =
+  with_open_out (in_tmp_dir name) (fun oc ->
     let doc =
       prefix ^^ hardline ^^ hardline ^^
       separate_map (hardline ^^ hardline) PrintC.p_decl_or_function program ^^
@@ -69,7 +69,7 @@ let write_one name prefix program suffix =
 let write_c files =
   Driver.detect_fstar_if ();
   Driver.detect_kremlin_if ();
-  ignore (List.fold_left (fun names file ->
+  List.fold_left (fun names file ->
     let name, program = file in
     let header = !Options.header !Driver.fstar_rev !Driver.krml_rev in
     let prefix = string (Printf.sprintf "%s\n\n#include \"%s.h\"" header name) in
@@ -83,13 +83,22 @@ let write_c files =
     in
     write_one (name ^ ".c") prefix program empty;
     name :: names
-  ) [] files)
+  ) [] files
 
 let write_h files =
-  ignore (List.fold_left (fun names file ->
+  List.fold_left (fun names file ->
     let name, program = file in
     let prefix, suffix = prefix_suffix name in
     let prefix = prefix ^^ hardline ^^ includes names in
     write_one (name ^ ".h") prefix program suffix;
     name :: names
-  ) [] files)
+  ) [] files
+
+let write_makefile c_files h_files =
+  let concat_map ext files =
+    String.concat " " (List.map (fun f -> f ^ ext) files)
+  in
+  Utils.with_open_out (in_tmp_dir "Makefile.include") (fun oc ->
+    KPrint.bfprintf oc "ALL_C_FILES=%s\n" (concat_map ".c" c_files);
+    KPrint.bfprintf oc "ALL_H_FILES=%s\n" (concat_map ".h" h_files)
+  )

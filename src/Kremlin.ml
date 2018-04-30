@@ -602,8 +602,9 @@ Supported options:|}
 
     flush stdout;
     flush stderr;
-    Output.write_c files;
-    Output.write_h headers;
+    let c_output = Output.write_c files in
+    let h_output = Output.write_h headers in
+    Output.write_makefile c_output h_output;
     tick_print true "PrettyPrinting";
 
     Printf.printf "KreMLin: wrote out .c files for %s\n" (String.concat ", " (List.map fst files));
