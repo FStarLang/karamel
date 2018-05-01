@@ -4,13 +4,10 @@ module B = FStar.Buffer
 
 open FStar.HyperStack.ST
 
-/// The Low* subset of F*
-/// =====================
-///
 /// .. _language-subset:
 ///
-/// The language subset
-/// -------------------
+/// The Low* subset of F*
+/// =====================
 ///
 /// Low*, as formalized and presented on `paper <https://arxiv.org/abs/1703.00053>`_,
 /// is the first-order lambda calculus. Base types are booleans and
@@ -22,7 +19,8 @@ open FStar.HyperStack.ST
 /// constructs, to give the reader a good grasp of what syntactic subset of the
 /// F* language constitutes valid Low*.
 ///
-/// **These snippets are all valid Low* constructs.**
+/// Some valid Low* constructs
+/// --------------------------
 ///
 /// Low*'s base types are machine integers.
 
@@ -165,7 +163,8 @@ let min_int32 = FStar.Int32.(0l -^ 0x7fffffffl -^ 1l)
 ///    // Meta-evaluated by F*
 ///    int32_t min_int32 = (int32_t)-2147483648;
 ///
-/// **These snippets are extensions to Low* (described in ??).**
+/// Some extensions to Low*
+/// -----------------------
 ///
 /// KreMLin supports a number of programming patterns beyond the original paper
 /// formalization, which aim to maximize programmer productivity. We now review
@@ -367,16 +366,18 @@ let zero = uint128_zero ()
 ///      zero = uint128_zero();
 ///    }
 ///
-/// **These snippets are not Low*.**
+/// Some non-Low* code
+/// ------------------
 ///
 /// We now review some classic programming patterns that are not supported in
 /// Low*.
 ///
 /// The example below cannot be compiled for the following reasons:
-/// 
+///
 /// - local recursive let-bindings are not Low*;
 /// - local closure captures variable in scope (KreMLin does not do closure conversion)
 /// - the list type is not Low*.
+
 let filter_map #a #b (f: a -> option b) (l: list a): list b =
   let rec aux (acc: list b) (l: list a): Tot (list b) (decreases l) =
     match l with
@@ -406,6 +407,7 @@ let filter_map #a #b (f: a -> option b) (l: list a): list b =
 /// below. Data types are compiled as flat structures in C, meaning that the
 /// list type would have infinite size in C. This is compiled by KreMLin but
 /// rejected by the C compiler. See ?? for an example of a linked list.
+
 type list_int32 =
 | Nil: list_int32
 | Cons: hd:Int32.t -> tl:list_int32 -> list_int32
@@ -451,6 +453,7 @@ assume val pair_up: #a:Type -> #b:Type -> a -> b -> a * b
 /// some very narrow cases, or rewrite your code to make ``t`` an inductive. KreMLin
 /// currently does not have support for untagged unions, i.e. automatically
 /// making ``t`` a C union.
+
 type alg = | Alg1 | Alg2
 let t (a: alg) =
   match a with
@@ -497,6 +500,15 @@ let default_t (a: alg): t a =
 ///    ./LowStar.c:291:9: error: cannot convert to a pointer type
 ///             return (void *)zero;
 ///
+/// The Low* libraries
+/// ==================
+///
+/// Low* is made up of a few primitive libraries that enjoy first-class support in
+/// KreMLin. These core libraries are typically made up of a model (an ``.fst``
+/// file) and an interface (an ``.fsti`` file). Verification is performed against
+/// the model, but at extraction-time, the model is replaced with primitive C
+/// constructs.
+///
 /// .. _memory-model:
 ///
 /// The memory model
@@ -518,8 +530,8 @@ let default_t (a: alg): t a =
 /// <https://www.fstar-lang.org/tutorial>`_. We assume that the reader has a passing
 /// degree of familiarity with HyperHeap.
 ///
-/// The Low* HyperStack model
-/// ^^^^^^^^^^^^^^^^^^^^^^^^^
+/// The HyperStack model
+/// ^^^^^^^^^^^^^^^^^^^^
 ///
 /// Low* refines the HyperHeap memory model, adding a distinguished set of regions
 /// that model the C call stack. Programs may use stack allocation, heap allocation
@@ -704,20 +716,12 @@ let test_st_get (): St unit =
 /// Advanced: the ``StackInline`` effect
 /// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ///
-///
-/// The core libraries
-/// ------------------
-///
-/// Low* is made up of a few primitive libraries that enjoy first-class support in
-/// KreMLin. These core libraries are typically made up of a model (an ``.fst``
-/// file) and an interface (an ``.fsti`` file). Verification is performed against
-/// the model, but at extraction-time, the model is replaced with primitive C
-/// constructs.
+/// TODO
 ///
 /// .. _machine-integers:
 ///
-/// The machine integer libraries
-/// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/// Machine integers
+/// ----------------
 ///
 /// Machine integers are modeled as natural numbers that fit within a certain number
 /// of bits. This model is dropped by KreMLin, in favor of C's fixed-width types.
@@ -789,7 +793,7 @@ let test_v (): unit =
 /// .. _buffer-library:
 ///
 /// The buffer library
-/// ^^^^^^^^^^^^^^^^^^
+/// ------------------
 ///
 /// .. warning ::
 ///
@@ -906,14 +910,17 @@ let test_get (): St unit =
 /// .. _modifies-library:
 ///
 /// The modifies clauses library
-/// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/// ----------------------------
 ///
 /// .. _c-library:
 ///
-/// Loops and other C concepts
-/// ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/// The Low* system libraries
+/// =========================
 ///
 /// KreMLin offers primitive support for a variety of C concepts.
+///
+/// C standard library
+/// ------------------
 ///
 /// The ``C.fst`` module, found in the ``kremlib`` directory, exposes a hodgepodge
 /// of C functions.
@@ -921,7 +928,7 @@ let test_get (): St unit =
 /// From the C header ``<stdlib.h>``:
 ///
 /// - ``rand`` and ``srand``; note that this makes the assumption that ``sizeof
-///   int == 4``, which is true of most modern platforms 
+///   int == 4``, which is true of most modern platforms
 /// - ``exit``, which is not polymorphic, per the reasons exposed
 ///   earlier in :ref:`language-subset`, see ``C.Failure`` below instead
 /// - the ``stdout``, ``stderr`` and ``fflush`` functions
@@ -945,19 +952,51 @@ let test_get (): St unit =
 ///   that is not equal to its ``signed`` or ``unsigned`` variants, meaning that
 ///   we can neither expose ``type char = UInt8.t`` or ``type char = Int8.t``.
 ///
+/// Test helpers
+/// ------------
+///
 /// The ``TestLib.fsti`` module requires you to call KreMLin with ``-add-include
-/// '"testlib.h"' and ``testlib.c`` as extra arguments. It provides a couple
+/// '"testlib.h"'`` and ``testlib.c`` as extra arguments. It provides a couple
 /// helper functions, including ``print_clock_diff`` to deal with ``clock_t`` above.
 ///
+/// C string literals
+/// -----------------
+///
 /// The ``C.String.fst`` module exposes a bare-bones model of C string literals,
-/// i.e. ``const char *s = "my string literal";``. This relies on a syntactic
-/// check that the argument to ``of_literal`` is syntactically a constant
-/// string. Such strings are zero-terminated, and their length can be computed
-/// (TODO). Such strings cannot be concatenated, as they are not
-/// garbage-collected. They can be ``print``\ 'd, and can be blitted into a
-/// buffer in order to, for instance, concatenate them. See ``test/Server.fst``
-/// for an incomplete, work-in-progress model of dealing with mutable string
-/// buffers.
+/// i.e. ``const char \*s = "my string literal";``. This relies on a syntactic check
+/// that the argument to ``of_literal`` is a constant string literal in the original
+/// F* source. Such strings are zero-terminated, and their length can be computed
+/// (TODO). They can be printed on the standard output via ``C.String.print``.
+///
+/// From the F* typing perspective, these strings are values that have an eternal
+/// lifetime and are immutable. This corresponds exactly to the semantics of a C
+/// string literal placed in the RODATA section of an ELF executable.
+///
+/// Operations such as mutation or concatenation cannot be implemented on
+/// ``C.String.t``. The former is not possible given the value semantics of
+/// ``C.String.t``, and the latter would require allocations that would never be
+/// freed. Instead, one should allocate a C character array and blit string literals
+/// into it to achieve concatenation, hence properly tracking mutation and the
+/// underlying allocation. See ``test/Server.fst`` for an incomplete,
+/// work-in-progress model of dealing with mutable string buffers.
+///
+/// .. note::
+///
+///    Writing a string literal directly in the F* source code will confusingly also
+///    extract it to a C string literal. This is not Low*, because such a string
+///    has type ``Prims.string``, whose operations, such ``(^)`` (concatenation)
+///    cannot be implemented in Low*.
+///
+///    KreMLin offers support for ``Prims.string`` via the ``-add-include
+///    '"kremstr.h"'`` and ``kremstr.c`` options. These implement ``Prims.string``
+///    as zero-terminated ``char \*``\ 's. Operations such as ``(^)`` perform
+///    allocations on the heap and never free them, since ``Prims.string``\ s are
+///    values that do not have a lifetime in the first place. This is a sound
+///    implementation, but should only be used to facilitate porting existing
+///    F* programs to Low*. Any program that uses ``Prims.string`` will leak memory.
+///
+/// C ``NULL`` pointers
+/// -------------------
 ///
 /// The ``C.Nullity.fst`` exposes a model of the C NULL pointer -- this is what
 /// you should use if you need zero-length buffers. The NULL pointer is always
@@ -967,3 +1006,12 @@ let test_get (): St unit =
 /// opposed to an access at array index 0. Pointers can always be tested for
 /// nullity via the ``is_null p`` function, which is guaranteed to be
 /// pretty-printed as ``p != NULL``.
+///
+/// A polymorphic exit
+/// ------------------
+///
+/// The ``C.Failure.fst`` exposes a single ``failwith`` function that properly
+/// has a polymorphic return type. This uses a recursion hack in combination
+/// with KreMLin's monomorphization, and will require you to disable compiler
+/// warnings for infinite recursion.
+/// 

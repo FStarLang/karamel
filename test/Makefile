@@ -100,6 +100,7 @@ $(OUTPUT_DIR)/TestKremBytes.exe: EXTRA = -add-include '"krembytes.h"' -add-inclu
 	'"kremstr.h"' -drop FStar.Bytes ../kremlib/kremstr.c
 $(OUTPUT_DIR)/TestAlloca.exe: EXTRA = -falloca
 $(OUTPUT_DIR)/EtaStruct.exe: EXTRA = -fnostruct-passing
+$(OUTPUT_DIR)/Introduction.exe: EXTRA = -add-include '"kremstr.h"' -drop LowStar
 
 # Some custom targets
 
