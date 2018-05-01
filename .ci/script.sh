@@ -30,6 +30,7 @@ echo | $(which d8)
 make -C fstar/ulib
 make && make -C test all wasm external
 
+git clone https://github.com/fstarlang/fstar-mode.el
 make -C book html
 git clone https://dzomo:$DZOMO_TOKEN@github.com:fstarlang/fstarlang.github.io
 cd fstarlang.github.io
