@@ -8,7 +8,7 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-5 200;
 fi
 
-easy_install docutils sphinx sphinx-rtd-theme
+sudo easy_install docutils sphinx sphinx-rtd-theme
 
 export OPAMYES=true
 opam init
