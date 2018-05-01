@@ -25,9 +25,6 @@ gcc --version
 fstar.exe --version
 echo | $(which d8)
 
-# Warm up, so that the checked files for these are only generated once, and can
-# be reused by krml-test.
-make -C fstar/ulib
 make && make -C test all wasm external
 
 git clone https://github.com/fstarlang/fstar-mode.el
