@@ -2,10 +2,11 @@
 
 set -e
 
+git config --global user.name "Dzomo, the Everest Yak"
+git config --global user.email "everbld@microsoft.com"
+
 git clone https://github.com/fstarlang/fstar-mode.el
 git clone https://dzomo:$DZOMO_TOKEN@github.com/fstarlang/fstarlang.github.io
-
-(cd fstarlang.github.io && git commit -am "test" --allow-empty && git push)
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   sudo apt-get install --yes libssl-dev opam libgmp-dev libsqlite3-dev g++-5 gcc-5 libc6-dev;
@@ -31,4 +32,3 @@ git clone --branch master --single-branch --depth 1 https://github.com/FStarLang
 git clone --branch fstar-master --single-branch --depth 1 https://github.com/mitls/hacl-star
 make -C fstar/src/ocaml-output
 make -C fstar/ulib/ml
-

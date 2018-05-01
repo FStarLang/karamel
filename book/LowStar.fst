@@ -915,8 +915,55 @@ let test_get (): St unit =
 ///
 /// KreMLin offers primitive support for a variety of C concepts.
 ///
-/// The **C** module, found in the ``kremlib`` directory, exposes a hodgepodge of C utility functions.
+/// The ``C.fst`` module, found in the ``kremlib`` directory, exposes a hodgepodge
+/// of C functions.
 ///
-/// - the ``rand``, ``srand`` and ``exit`` functions expose the underlying C
-///   functions; note that ``exit`` is not polymorphic, per the reasons exposed
-///   earlier in :ref:`language-subset`, see ``C.Failure`` below
+/// From the C header ``<stdlib.h>``:
+///
+/// - ``rand`` and ``srand``; note that this makes the assumption that ``sizeof
+///   int == 4``, which is true of most modern platforms 
+/// - ``exit``, which is not polymorphic, per the reasons exposed
+///   earlier in :ref:`language-subset`, see ``C.Failure`` below instead
+/// - the ``stdout``, ``stderr`` and ``fflush`` functions
+/// - the ``intptr_t`` C11 type, along with a default value ``nullptr`` --
+///   useful to expose external APIs that take ``void *``
+/// - the ``EXIT_SUCCESS`` and ``EXIT_FAILURE`` macros; these are defined as an
+///   inductive; since ``C.fst`` is not extracted, the code is left with
+///   references that resolve to the underlying C macros
+///
+/// From the C header ``<time.h>``:
+///
+/// - ``clock_t`` and ``clock`` -- the post-condition is not very good and needs
+///   to be fixed
+///
+/// Other:
+///
+/// - a variety of endian-ness conversion macros that are implemented using
+///   host-specific instructions to maximize efficiency
+/// - a ``C.char`` type, which is interconvertible with ``uint8`` through a
+///   variety of coercions; the C standard states that ``char`` is the only type
+///   that is not equal to its ``signed`` or ``unsigned`` variants, meaning that
+///   we can neither expose ``type char = UInt8.t`` or ``type char = Int8.t``.
+///
+/// The ``TestLib.fsti`` module requires you to call KreMLin with ``-add-include
+/// '"testlib.h"' and ``testlib.c`` as extra arguments. It provides a couple
+/// helper functions, including ``print_clock_diff`` to deal with ``clock_t`` above.
+///
+/// The ``C.String.fst`` module exposes a bare-bones model of C string literals,
+/// i.e. ``const char *s = "my string literal";``. This relies on a syntactic
+/// check that the argument to ``of_literal`` is syntactically a constant
+/// string. Such strings are zero-terminated, and their length can be computed
+/// (TODO). Such strings cannot be concatenated, as they are not
+/// garbage-collected. They can be ``print``\ 'd, and can be blitted into a
+/// buffer in order to, for instance, concatenate them. See ``test/Server.fst``
+/// for an incomplete, work-in-progress model of dealing with mutable string
+/// buffers.
+///
+/// The ``C.Nullity.fst`` exposes a model of the C NULL pointer -- this is what
+/// you should use if you need zero-length buffers. The NULL pointer is always
+/// live, and always has length 0. The ``pointer`` and ``pointer_or_null``
+/// functions define convenient aliases, while the ``(!$)`` operator guarantees
+/// that the dereference will be pretty-printed with a ``*`` C dereference, as
+/// opposed to an access at array index 0. Pointers can always be tested for
+/// nullity via the ``is_null p`` function, which is guaranteed to be
+/// pretty-printed as ``p != NULL``.
