@@ -33,6 +33,8 @@ git clone https://dzomo:$DZOMO_TOKEN@github.com/fstarlang/fstarlang.github.io
 cd fstarlang.github.io
 cp -R ../book/_build/* lowstar/
 git add lowstar/
+ls lowstar
+git status
 if ! git diff --exit-code > /dev/null; then
   git commit -am "[CI] Refresh Low* tutorial"
   git push
