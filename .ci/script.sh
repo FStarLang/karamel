@@ -18,6 +18,8 @@ echo "\"fstar\": -traverse" >> _tags
 echo "\"hacl-star\": -traverse" >> _tags
 echo "\"d8\": -traverse" >> _tags
 echo "\"MLCrypto\": -traverse" >> _tags
+echo "\"fstar-mode.el\": -traverse" >> _tags
+echo "\"fstarlang.github.io\": -traverse" >> _tags
 
 echo -e "\e[31m=== Some info about the environment ===\e[0m"
 ocamlfind ocamlopt -config
@@ -27,9 +29,7 @@ echo | $(which d8)
 
 make && make -C test all wasm external
 
-git clone https://github.com/fstarlang/fstar-mode.el
 make -C book html
-git clone https://dzomo:$DZOMO_TOKEN@github.com/fstarlang/fstarlang.github.io
 cd fstarlang.github.io
 cp -R ../book/_build/* lowstar/
 git add lowstar/

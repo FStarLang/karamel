@@ -1,4 +1,10 @@
+(* {{{ This fslit's file prelude. TODO: find a way to hide this. *)
 module Introduction
+
+// Generate a dependency on LowStar.fst which does not have a main but which
+// we still want to verify
+let _ = LowStar.test_get
+(* }}} *)
 
 /// .. fixme-authors::
 ///     JP Jonathan Protzenko
@@ -302,4 +308,3 @@ let main (): Stack C.exit_code
 /// verification and extraction, along with parallel compilation of the resulting C
 /// code, using F*'s automated dependency analysis and ``gcc -MM`` for correct,
 /// incremental builds.
-/// 

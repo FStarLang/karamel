@@ -17,12 +17,12 @@
         "function_token_typing_FStar.Monotonic.HyperHeap.rid",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
         "lemma_FStar.Set.lemma_equal_refl",
-        "refinement_interpretation_StringLit_Tm_refine_56443643bc6803483ae560c5b85fa20b",
+        "refinement_interpretation_StringLit_Tm_refine_22876ce408bf3e6fdec4e0c977fd2c3b",
         "typing_FStar.Map.domain",
         "typing_FStar.Monotonic.HyperStack.__proj__HS__item__h"
       ],
       0,
-      "5034d466e734cfa2c076e482fb05ca98"
+      "66a07700c5c5430d04cc7b6e27a272a5"
     ],
     [
       "StringLit.cat",
@@ -45,7 +45,7 @@
         "typing_FStar.Monotonic.HyperStack.__proj__HS__item__h"
       ],
       0,
-      "6d6ce1adba581fc7aa857c84ed4cf93b"
+      "3cfab2f0904fba68b4c125c69ec3e168"
     ]
   ]
 ]

@@ -7,6 +7,8 @@ open FStar.HyperStack.ST
 /// The Low* subset of F*
 /// =====================
 ///
+/// .. _language-subset:
+///
 /// The language subset
 /// -------------------
 ///
@@ -911,4 +913,10 @@ let test_get (): St unit =
 /// Loops and other C concepts
 /// ^^^^^^^^^^^^^^^^^^^^^^^^^^
 ///
-/// KreMLin offers primitive support for a variety of 
+/// KreMLin offers primitive support for a variety of C concepts.
+///
+/// The **C** module, found in the ``kremlib`` directory, exposes a hodgepodge of C utility functions.
+///
+/// - the ``rand``, ``srand`` and ``exit`` functions expose the underlying C
+///   functions; note that ``exit`` is not polymorphic, per the reasons exposed
+///   earlier in :ref:`language-subset`, see ``C.Failure`` below
