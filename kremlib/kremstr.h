@@ -1,7 +1,7 @@
 #ifndef __KREMSTR_H
 #define __KREMSTR_H
 
-#include <inttypes.h>
+#include "kremtypes.h"
 
 typedef const char *Prims_string;
 typedef uint32_t FStar_Char_char, FStar_String_char;

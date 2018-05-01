@@ -3,8 +3,8 @@
 #ifdef __FStar_H_DEFINED
 #define __KREMBYTES_H
 
-#include <inttypes.h>
-#include <stdbool.h>
+#include "kremtypes.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

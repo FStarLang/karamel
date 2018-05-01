@@ -1,9 +1,9 @@
 #ifndef __KREMLIB_H
 #define __KREMLIB_H
 
-#include <inttypes.h>
+#include "kremtypes.h"
+
 #include <limits.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,6 +25,8 @@
 
 #ifdef __GNUC__
 #  define inline __inline__
+#elif __STDC_VERSION__ < 199901L && defined(_MSC_VER)
+#  define inline __inline
 #endif
 
 /* GCC-specific attribute syntax; everyone else gets the standard C inline

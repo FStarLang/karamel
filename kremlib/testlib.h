@@ -1,10 +1,10 @@
 #ifndef __TESTLIB_H
 #define __TESTLIB_H
 
-#include <inttypes.h>
+#include "kremtypes.h"
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
 #include <time.h>
 
