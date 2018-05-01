@@ -28,3 +28,13 @@ echo | $(which d8)
 make && make -C test all wasm external
 
 make -C book html
+git clone https://dzomo:$DZOMO_TOKEN@github.com:fstarlang/fstarlang.github.io
+cd fstarlang.github.io
+cp -R ../book/_build/* lowstar/
+git add lowstar/
+if [ ! git diff --exit-code > /dev/null ]; then
+  git commit -am "[CI] Refresh Low* tutorial"
+  git push
+else
+  echo No git diff for the tutorial, not generating a commit
+fi
