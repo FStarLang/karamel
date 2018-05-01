@@ -21,8 +21,9 @@ open FStar.HyperStack.ST
 /// F* language constitutes valid Low*.
 ///
 /// **These snippets are all valid Low* constructs.**
+///
+/// Low*'s base types are machine integers.
 
-// Supported: base types are machine integers, arithmetic is permitted
 let square (x: UInt32.t): UInt32.t =
   let open FStar.UInt32 in
   x *%^ x
@@ -34,9 +35,10 @@ let square (x: UInt32.t): UInt32.t =
 ///      return x * x;
 ///    }
 ///
-/// .. fst::
+/// Classic control-flow is, naturally, supported. One may use recursive
+/// functions if they wish to do so, modern versions of GCC are generally quite
+/// good at performing tail-call optimizations.
 
-// Supported: classic control-flow
 let abs (x: Int32.t): Pure Int32.t
   (requires Int32.v x <> Int.min_int 32)
   (ensures fun r -> Int32.v r >= 0)
@@ -57,9 +59,8 @@ let abs (x: Int32.t): Pure Int32.t
 ///        return (int32_t)0 - x;
 ///    }
 ///
-/// .. fst::
+/// Low* models stack allocation, which is covered in :ref:`buffer-library` below.
 
-// Supported: stack allocation
 let on_the_stack (): Stack UInt64.t (fun _ -> True) (fun _ _ _ -> True) =
   let open B in
   push_frame ();
@@ -79,9 +80,8 @@ let on_the_stack (): Stack UInt64.t (fun _ -> True) (fun _ _ _ -> True) =
 ///      return r;
 ///    }
 ///
-/// .. fst::
+/// Similarly, Low* supports heap allocation.
 
-// Supported: heap allocation
 let on_the_heap (): St UInt64.t =
   let open B in
   let b = B.rcreate_mm HyperStack.root 0UL 64ul in
@@ -101,9 +101,9 @@ let on_the_heap (): St UInt64.t =
 ///      return r;
 ///    }
 ///
-/// .. fst::
+/// Flat records are part of the original paper formalization, and are
+/// translated as regular C ``struct``\ s.
 
-// Supported: defining a non-parameterized record made of Low* types
 type uint128 = {
   low: UInt64.t;
   high: UInt64.t
@@ -118,9 +118,8 @@ type uint128 = {
 ///    }
 ///    uint128;
 ///
-/// .. fst::
+/// In the original paper, structs may be allocated within buffers.
 
-// Supported: records in buffers
 let uint128_alloc (h l: UInt64.t): St (B.buffer uint128) =
   Buffer.rcreate_mm HyperStack.root ({ low = l; high = h }) 1ul
 
@@ -134,9 +133,9 @@ let uint128_alloc (h l: UInt64.t): St (B.buffer uint128) =
 ///      return buf;
 ///    }
 ///
-/// .. fst::
+/// Still in the original paper, one may access a buffer index, then select a
+/// number of fields.
 
-// Supported: path access for records in buffers
 let uint128_high (x: B.buffer uint128): Stack UInt64.t
   (requires fun h -> B.live h x /\ B.length x = 1)
   (ensures fun h0 _ h1 -> B.live h1 x)
@@ -151,11 +150,12 @@ let uint128_high (x: B.buffer uint128): Stack UInt64.t
 ///      return x->high;
 ///    }
 ///
-/// .. fst::
+/// One may define global constants too, as long as they evaluate to C
+/// constants. As a rough approximation, arithmetic expressions and addresses of
+/// other globals are C constants, but as always, the `C11 standard
+/// <http://open-std.org/jtc1/SC22/wg14/www/docs/n1548.pdf>`_ is the ultimate
+/// source of truth.
 
-// Supported: definition of global constants that evaluate to C constants, i.e.
-// arithmetic over numerical constants, see the C11 standard for what exactly is
-// allowed to be a constant.
 let min_int32 = FStar.Int32.(0l -^ 0x7fffffffl -^ 1l)
 
 /// .. code:: c
@@ -164,11 +164,17 @@ let min_int32 = FStar.Int32.(0l -^ 0x7fffffffl -^ 1l)
 ///    int32_t min_int32 = (int32_t)-2147483648;
 ///
 /// **These snippets are extensions to Low* (described in ??).**
+///
+/// KreMLin supports a number of programming patterns beyond the original paper
+/// formalization, which aim to maximize programmer productivity. We now review
+/// the main ones.
+///
+/// One can rely on KreMLin to compile F*'s structural equality (the ``(=)``
+/// operator) to C functions specialized to each type. Furthermore, the function
+/// below demonstrates the use of a struct type as a value, which is
+/// straightforwardly compiled to a C structure passed by value. Be aware that doing
+/// so has performance implications (see ??).
 
-// Extensions:
-// - F*'s structural equality is compiled to a recursive C function
-// - x and y are structures that are passed by value in C; this has performance
-//   implications (see ??)
 let uint128_equal (x y: uint128) =
   x = y
 
@@ -184,9 +190,10 @@ let uint128_equal (x y: uint128) =
 ///      return __eq__LowStar_uint128(x, y);
 ///    }
 ///
-/// .. fst::
+/// One may also use F* inductives, knowing that KreMLin will compile them as
+/// tagged unions, with a variety of optimized compilation schemes to make the
+/// generated code as palatable as possible.
 
-// Extension: compiling F* inductives as tagged unions in C
 noeq
 type key =
   | Algorithm1: Buffer.buffer UInt32.t -> key
@@ -207,9 +214,11 @@ type key =
 ///    }
 ///    key;
 ///
-/// .. fst::
+/// Generally, KreMLin performs a whole-program monomorphization of
+/// parameterized data types. The example below demonstrates this, along with a
+/// "pretty" compilation scheme for the option type that does not involves an
+/// anonymous union.
 
-// Extension: monomorphization of the option type
 let abs2 (x: Int32.t): option Int32.t =
   let open FStar.Int32 in
   if x = min_int32 then
@@ -248,9 +257,12 @@ let abs2 (x: Int32.t): option Int32.t =
 ///          );
 ///    }
 ///
-/// .. fst::
+/// Inductives are compiled by KreMLin, and so are pattern matches. Note that
+/// for a series of cascading if-then-elses, KreMLin has to insert a fallback
+/// else statement, both because the original F* code may be unverified and the
+/// pattern-matching may be incomplete, but also because the C compiler may
+/// trigger an error.
 
-// Extension: compilation of pattern matches
 let fail_if #a #b (package: a * (a -> option b)): St b =
   let open C.Failure in
   let open C.String in
@@ -286,10 +298,13 @@ let fail_if #a #b (package: a * (a -> option b)): St b =
 ///      }
 ///    }
 ///
-/// .. fst::
+/// Higher order is, to a certain extent, possible. The sample above
+/// demonstrates a block-scope function pointer. The ``fail_if`` function has
+/// been specialized on ``K__int32_t_int32_t``, which is itself a specialization
+/// of the polymorphic pair type of F*. Below is a sample caller of
+/// ``fail_if__int32_t_int32_t``, which relies on passing a pair of a function
+/// pointer and its argument.
 
-// Extension: passing function pointers, monomorphization of tuple types as
-// structs passed by value
 let abs3 (x: Int32.t): St Int32.t =
   fail_if (x, abs2)
 
@@ -303,9 +318,11 @@ let abs3 (x: Int32.t): St Int32.t =
 ///          ));
 ///    }
 ///
-/// .. fst::
+/// Local closures are not supported, as they do not have a natural compilation
+/// scheme to C. We will, however, show in (??) how to rely on F*'s
+/// meta-programming capabilities to normalize these closures away before
+/// passing them to KreMLin.
 
-// Extension: use meta-programming in F* to reduce local closures
 let pow4 (x: UInt32.t): UInt32.t =
   let open FStar.UInt32 in
   [@ inline_let ]
@@ -320,9 +337,13 @@ let pow4 (x: UInt32.t): UInt32.t =
 ///      return x0 * x0;
 ///    }
 ///
-/// .. fst::
+/// In the case that the user defines a global variable that does not compile to
+/// a C11 constant, KreMLin generates a "static initializer" in the special
+/// ``kremlinit_globals`` function. If the program has a ``main``, KreMLin
+/// automatically prepends a call to ``kremlinit_globals`` in the ``main``. If
+/// the program does not have a ``main`` and is intended to be used as a
+/// library, KreMLin emits a warning, which is fatal by default.
 
-// Extension: definition of a global that does not compile to a C constant
 let uint128_zero (): Tot uint128 =
   { high = 0UL; low = 0UL }
 
@@ -345,11 +366,15 @@ let zero = uint128_zero ()
 ///    }
 ///
 /// **These snippets are not Low*.**
-
-// Cannot be compiled:
-// - local recursive let-bindings are not Low*;
-// - local closure captures variable in scope (KreMLin does not do closure conversion)
-// - the list type is not Low*
+///
+/// We now review some classic programming patterns that are not supported in
+/// Low*.
+///
+/// The example below cannot be compiled for the following reasons:
+/// 
+/// - local recursive let-bindings are not Low*;
+/// - local closure captures variable in scope (KreMLin does not do closure conversion)
+/// - the list type is not Low*.
 let filter_map #a #b (f: a -> option b) (l: list a): list b =
   let rec aux (acc: list b) (l: list a): Tot (list b) (decreases l) =
     match l with
@@ -375,11 +400,10 @@ let filter_map #a #b (f: a -> option b) (l: list a): list b =
 ///    <dummy>(0,0-0,0): (Warning 250) Error while extracting LowStar.filter_map
 ///    to KreMLin (Failure("Internal error: name not found aux\n"))
 ///
-/// .. fst::
-
-// Cannot be compiled: data types are compiled as flat structures in C, meaning
-// that the list type would have infinite size in C. This is compiled by KreMLin
-// but rejected by the C compiler. See ?? for an example of a linked list.
+/// To explain why the list type cannot be compiled to C, consider the snippet
+/// below. Data types are compiled as flat structures in C, meaning that the
+/// list type would have infinite size in C. This is compiled by KreMLin but
+/// rejected by the C compiler. See ?? for an example of a linked list.
 type list_int32 =
 | Nil: list_int32
 | Cons: hd:Int32.t -> tl:list_int32 -> list_int32
@@ -400,7 +424,10 @@ let mk_list (): St list_int32 =
 ///    ./LowStar.h:95:22: error: field ‘tl’ has incomplete type
 ///       LowStar_list_int32 tl;
 ///
-/// .. fst::
+/// Polymorphic assumes are also not compiled. KreMLin could generate one C
+/// ``extern`` declaration per monomorphic use, but this would require the user
+/// to provide a substantial amount of manually-written code, so instead we
+/// refuse to compile the definition below.
 
 // Cannot be compiled: polymorphic assume val; solution: make the function
 // monomorphic, or provide a C macro
@@ -417,12 +444,11 @@ assume val pair_up: #a:Type -> #b:Type -> a -> b -> a * b
 ///    ✔ [F*,extract]
 ///    Not extracting LowStar.pair_up to KreMLin (polymorphic assumes are not supported)
 ///
-/// .. fst::
-
-// Cannot be compiled: indexed types. See section ?? for an unofficial KreMLin
-// extension that works in some very narrow cases, or rewrite your code to make
-// t an inductive. KreMLin currently does not have support for untagged unions,
-// i.e. automatically making `t` a C union.
+/// One point worth mentioning is that indexed types are by default not
+/// supported. See section ?? for an unofficial KreMLin extension that works in
+/// some very narrow cases, or rewrite your code to make ``t`` an inductive. KreMLin
+/// currently does not have support for untagged unions, i.e. automatically
+/// making ``t`` a C union.
 type alg = | Alg1 | Alg2
 let t (a: alg) =
   match a with
@@ -507,7 +533,7 @@ let default_t (a: alg): t a =
 ///    Many verification errors point to definitions in these three files. Being
 ///    familiar with these modules, their combinators and key concepts helps
 ///    understand why a given program fails to verify.
-
+///
 /// .. warning::
 ///
 ///    We recommend always defining the ``ST`` abbreviation at the beginning of
@@ -516,7 +542,8 @@ let default_t (a: alg): t a =
 
 module ST = FStar.HyperStack.ST
 module HS = FStar.HyperStack
-///
+
+
 /// The top-level region is the root, and is always a valid region. ``HS.rid``
 /// is the type of regions.
 
@@ -545,7 +572,7 @@ let root: HS.rid = HS.root
 let _ =
   assert (ST.is_eternal_region root /\ ~ (Monotonic.HyperStack.is_stack_region root))
 
-///
+
 /// The most popular effect is the ``Stack`` effect, which takes:
 ///
 /// - a precondition over the initial heap, of type ``HS.mem -> Type``, and a
@@ -580,7 +607,8 @@ let equal_domains (m0 m1: HS.mem) =
 
 let f (x: UInt32.t): Stack UInt32.t (fun _ -> True) (fun _ _ _ -> True) =
   FStar.UInt32.( x *%^ x )
-///
+
+
 /// .. note::
 ///
 ///    The following examples use the ``[@ fail ]`` F* attribute. Remember that
@@ -589,6 +617,7 @@ let f (x: UInt32.t): Stack UInt32.t (fun _ -> True) (fun _ _ _ -> True) =
 ///    that the failure is intentional.
 ///
 /// Based on the knowledge above, consider the following failing function.
+
 [@ fail ]
 let g (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
   let b = Buffer.create 0ul 8ul in
@@ -609,6 +638,7 @@ let g (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
 /// function did not need them, because it performed no stateful operation.
 ///
 /// We can attempt to fix ``g`` by adding a call to ``push_frame``.
+
 [@ fail ]
 let g2 (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
   push_frame ();
@@ -619,6 +649,7 @@ let g2 (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
 /// the only way to leave the C call stack intact, and therefore satisfy the
 /// requirements of the ``Stack`` effect, is to ensure we pop the stack
 /// frame we just pushed.
+
 let g3 (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
   push_frame ();
   let b = Buffer.create 0ul 8ul in
@@ -633,7 +664,7 @@ let g3 (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
 ///    {
 ///      uint32_t b[8U] = { 0U };
 ///    }
-
+///
 /// The ``Stack`` effect prevents heap allocation, hence ensuring that from the
 /// caller's perspective, any heap ("eternal") regions remain unchanged.
 ///
@@ -667,10 +698,10 @@ let test_st_get (): St unit =
 /// be done using a combination of modifies clauses and libraries that reflect
 /// low-level constructs, such as buffers and machine integers, at the proof
 /// level. All of these are covered in the rest of this chapter.
-
+///
 /// Advanced: the ``StackInline`` effect
 /// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
+///
 ///
 /// The core libraries
 /// ------------------
@@ -737,7 +768,7 @@ module U32 = FStar.UInt32
 let z = U32.(16ul -^ 8ul )
 
 /// .. note ::
-/// 
+///
 ///     By default, operations require that the caller prove that the result fits in
 ///     the given integer width. For instance, ``U32.add`` has ``(requires (size (v
 ///     a + v b) n))`` as a precondition. The modules also offer variants such as
@@ -772,7 +803,7 @@ let test_v (): unit =
 ///    A new model is in the works which should address the issues above.
 ///
 /// ``FStar.Buffer`` is the workhorse of Low*, and allows modeling C arrays on
-/// the stack and in the heap. ``Buffer`` is a model, which defines buffers as follows:
+/// the stack and in the heap. ``FStar.Buffer`` models C arrays as follows:
 
 let lseq (a: Type) (l: nat) : Type =
   (s: Seq.seq a { Seq.length s == l } )
@@ -850,7 +881,7 @@ let test_index (): St unit =
 ///
 ///    We really should define an ``FStar.Buffer.Ops`` so that we don't need to open
 ///    the whole ``FStar.Buffer`` to enjoy the benefits of the operators.
-
+///
 /// Buffers are reflected at the proof level using sequences, via the ``as_seq``
 /// function, which returns the contents of a given buffer in a given heap, i.e.
 /// a sequence slice ranging over the interval ``[idx; idx + length)``.
@@ -859,6 +890,15 @@ let test_as_seq (): St unit =
   let b = Buffer.rcreate_mm HS.root 0UL 1ul in
   let h = ST.get () in
   assert (Seq.equal (Buffer.as_seq h b) (Seq.cons 0UL Seq.createEmpty));
+  Buffer.rfree b
+
+/// ``Buffer.get`` is an often-convenient shorthand to index the value of a
+/// given buffer in a given heap.
+
+let test_get (): St unit =
+  let b = Buffer.rcreate_mm HS.root 0UL 1ul in
+  let h = ST.get () in
+  assert (Buffer.get h b 0 = 0UL);
   Buffer.rfree b
 
 /// .. _modifies-library:
