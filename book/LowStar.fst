@@ -989,11 +989,11 @@ let test_get (): St unit =
 ///
 ///    KreMLin offers support for ``Prims.string`` via the ``-add-include
 ///    '"kremstr.h"'`` and ``kremstr.c`` options. These implement ``Prims.string``
-///    as zero-terminated ``char \*``\ 's. Operations such as ``(^)`` perform
-///    allocations on the heap and never free them, since ``Prims.string``\ s are
-///    values that do not have a lifetime in the first place. This is a sound
-///    implementation, but should only be used to facilitate porting existing
-///    F* programs to Low*. Any program that uses ``Prims.string`` will leak memory.
+///    as zero-terminated ``char *``\ 's (not ``const``). Operations such as ``(^)``
+///    perform allocations on the heap and never free them, since ``Prims.string``\
+///    s are values that do not have a lifetime in the first place. This is a sound
+///    implementation, but should only be used to facilitate porting existing F*
+///    programs to Low*. Any program that uses ``Prims.string`` will leak memory.
 ///
 /// C ``NULL`` pointers
 /// -------------------
