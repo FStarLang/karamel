@@ -290,7 +290,7 @@ let remove_uu = object (self)
   method! visit_ELet _ b e1 e2 =
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
-    if KString.starts_with b.node.name "uu___" &&
+    if Helpers.is_uu b.node.name &&
       !(b.node.mark) = 1 && (
         is_readonly_c_expression e1 &&
         safe_readonly_use e2 ||
@@ -414,25 +414,45 @@ end
 
 let misc_cosmetic = object (self)
 
-  inherit [_] map
+  inherit [_] map as super
 
+  val mutable count = 0
+
+  (* Turn empty then branches into empty else branches to get prettier syntax
+   * later on. *)
   method! visit_EIfThenElse env e1 e2 e3 =
     let e1 = self#visit_expr env e1 in
     let e2 = self#visit_expr env e2 in
     let e3 = self#visit_expr env e3 in
     match e2.node with
     | EUnit when e3.node <> EUnit ->
+        (* TODO: if e1 is an equality, make it a != *)
         EIfThenElse (Helpers.mk_not e1, e3, e2)
     | _ ->
         EIfThenElse (e1, e2, e3)
 
-  method visit_EAddrOf env e =
+  (* &x[0] --> x *)
+  method! visit_EAddrOf env e =
     let e = self#visit_expr env e in
     match e.node with
     | EBufRead (e, { node = EConstant (_, "0"); _ }) ->
         e.node
     | _ ->
         EAddrOf e
+
+  (* renumber uu's to have a stable numbering scheme that minimizes the diff
+   * from one code generation to another *)
+  method! visit_decl env decl =
+    count <- 0;
+    super#visit_decl env decl
+
+  method! visit_binder _ binder =
+    if Helpers.is_uu binder.node.name then
+      let c = count in
+      count <- count + 1;
+      { binder with node = { binder.node with name = "uu____" ^ string_of_int c }}
+    else
+      binder
 
 end
 

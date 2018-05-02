@@ -458,7 +458,7 @@ end
 
 let is_special name =
   name = "scrutinee" ||
-  KString.starts_with name "uu____"
+  Helpers.is_uu name
 
 let rec is_trivially_true e =
   let open Constant in

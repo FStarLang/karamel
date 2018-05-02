@@ -19,7 +19,7 @@ module MkIMap (M: Map.S) = struct
   let add k v m = m := M.add k v !m
   let find k m = M.find k !m
   let iter f m = M.iter f !m
-end 
+end
 
 
 (* Creating AST nodes *********************************************************)
@@ -167,6 +167,8 @@ let fold_arrow ts t_ret =
   List.fold_right (fun t arr -> TArrow (t, arr)) ts t_ret
 
 let is_array = function TArray _ -> true | _ -> false
+
+let is_uu name = KString.starts_with name "uu____"
 
 (* If [e2] is assigned into an expression of type [t], we can sometimes
  * strengthen the type [t] into an array type. This is the only place that
