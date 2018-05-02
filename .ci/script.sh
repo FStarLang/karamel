@@ -27,7 +27,7 @@ gcc --version
 fstar.exe --version
 echo | $(which d8)
 
-make && make -C test all wasm external
+make && make -C test all wasm # external
 
 make -C book html
 cd fstarlang.github.io
