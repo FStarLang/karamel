@@ -284,8 +284,15 @@ let nullity: decl list =
     mk_val [ "C"; "Nullity" ] "null" (TArrow (TAny, TBuf TAny))
   ]
 
+let lowstar_buffer_nullity: decl list =
+  [
+    mk_val [ "LowStar"; "Buffer" ] "is_null" (TArrow (TBuf TAny, TBool));
+    mk_val [ "LowStar"; "Buffer" ] "null" (TArrow (TAny, TBuf TAny))
+  ]  
+  
 let augment files =
   List.map (function
     | "C_Nullity", decls -> "C_Nullity", decls @ nullity
+    | "LowStar_Buffer", decls -> "LowStar_Buffer", decls @ lowstar_buffer_nullity
     | f -> f
   ) files

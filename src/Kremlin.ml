@@ -399,6 +399,7 @@ Supported options:|}
     | "FStar_Int31" | "FStar_UInt31" | "FStar_Int32" | "FStar_UInt32"
     | "FStar_Int63" | "FStar_UInt63" | "FStar_Int64" | "FStar_UInt64"
     | "FStar_Int128" | "FStar_HyperStack_ST" | "FStar_Monotonic_HyperHeap"
+    | "LowStar_Buffer" | "LowStar_Modifies"
     | "FStar_Buffer" | "FStar_Monotonic_HyperStack" | "FStar_Monotonic_Heap"
     | "C_String" | "FStar_Dyn" ->
         false

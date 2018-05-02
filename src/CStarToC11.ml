@@ -567,9 +567,11 @@ and mk_expr (e: expr): C.expr =
   | BufRead (e1, e2) ->
       mk_index e1 e2
 
+  | Call (Qualified "LowStar_Buffer_null", _)
   | Call (Qualified "C_Nullity_null", _) ->
       Name "NULL"
 
+  | Call (Qualified "LowStar_Buffer_is_null", [ e ] )
   | Call (Qualified "C_Nullity_is_null", [ e ]) ->
       Op2 (K.Eq, mk_expr e, C.Name "NULL")
 
