@@ -14,10 +14,10 @@ private let test (b: Buffer.buffer Int32.t): Stack unit
   ()
 
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
-  Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
+  Stack C.exit_code (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
   push_frame ();
   let b = Buffer.create 1l 1ul in
   test b;
   pop_frame ();
-  C.exit_success
+  C.EXIT_SUCCESS

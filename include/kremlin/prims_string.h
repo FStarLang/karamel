@@ -1,50 +1,12 @@
-#ifndef __KREMSTR_H
-#define __KREMSTR_H
+#ifndef __PRIMS_STRING_H
+#define __PRIMS_STRING_H
 
 #include <inttypes.h>
 
 typedef const char *Prims_string;
-typedef uint32_t FStar_Char_char, FStar_String_char;
-
-#include "kremlib.h"
 
 /******************************************************************************/
-/* Implementation of C.String                                                 */
-/******************************************************************************/
-
-/* Note: we drop C.String, which means that generated programs do not see
- * "extern" declarations, meaning that we can implement these functions via a
- * header only. */
-
-typedef const char *C_String_t, *C_String_t_;
-
-static inline FStar_Char_char FStar_Char_char_of_int(krml_checked_int_t x) {
-  return x;
-}
-
-static inline char char_of_uint8(uint8_t x) {
-  return (char) x;
-}
-
-static inline const char *C_String_of_literal (const char *str) {
-  return str;
-}
-
-static inline uint32_t bufstrcpy(char *dst, const char *src) {
-  /* The F* precondition guarantees that src is zero-terminated */
-  return sprintf(dst, "%s", src);
-}
-
-static inline uint32_t print_u32(char *dst, uint32_t i) {
-  return sprintf(dst, "%"PRIu32, i);
-}
-
-static inline void C_String_print(C_String_t str) {
-  KRML_HOST_PRINTF("%s", str);
-}
-
-/******************************************************************************/
-/* Prims stubs                                                                */
+/* NOT LOW*: implement Prims.string as leaky heap-allocated strings           */
 /******************************************************************************/
 
 Prims_string Prims_strcat(Prims_string s0, Prims_string s1);
@@ -107,4 +69,5 @@ static inline Prims_string Prims_string_of_bool(bool b) {
     return "false";
   }
 }
+
 #endif

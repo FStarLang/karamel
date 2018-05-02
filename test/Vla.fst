@@ -19,10 +19,10 @@ let test (_: unit): Stack unit (fun _ -> true) (fun _ _ _ -> true) =
   pop_frame ()
 
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
-  Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
+  Stack C.exit_code (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
   push_frame ();
   test ();
   pop_frame ();
-  C.exit_success
+  C.EXIT_SUCCESS
 

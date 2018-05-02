@@ -20,4 +20,4 @@ let main () =
   IO.print_string (cat "" "");
   IO.print_string (cat "" "\n");
   IO.print_string (cat "\n" "");
-  C.exit_success
+  C.EXIT_SUCCESS

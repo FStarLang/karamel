@@ -16,4 +16,4 @@ let test (u:unit) : Stack unit (requires (fun h -> True)) (ensures (fun h0 _ h1 
   ()
 
 let main () =
-  C.exit_success
+  C.EXIT_SUCCESS
