@@ -23,4 +23,4 @@ typedef int exit_code;
 /* Now also exposed via FStar.Bytes.fst */
 void print_bytes(const uint8_t *b, uint32_t len);
 
-#endif __KREMLIN_C_H
+#endif

@@ -1,6 +1,9 @@
 #ifndef __C_STRING_H
 #define __C_STRING_H
 
+#include <stdio.h>
+
+#include "kremlin/internal/target.h"
 #include "kremlin/fstar_char.h"
 
 /******************************************************************************/
@@ -12,10 +15,6 @@
  * header only. */
 
 typedef const char *C_String_t, *C_String_t_;
-
-static inline FStar_Char_char FStar_Char_char_of_int(krml_checked_int_t x) {
-  return x;
-}
 
 static inline char char_of_uint8(uint8_t x) {
   return (char) x;

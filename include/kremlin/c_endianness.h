@@ -197,4 +197,4 @@ inline static void store64(uint8_t *b, uint64_t i) {
 #define load64_be(b) (be64toh(load64(b)))
 #define store64_be(b, i) (store64(b, htobe64(i)))
 
-#endif __KREMLIN_ENDIAN_H
+#endif

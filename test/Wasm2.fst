@@ -7,7 +7,10 @@ module U128 = FStar.UInt128
 
 open FStar.Buffer
 
-let main (): Stack C.exit_code (fun _ -> true) (fun _ _ _ -> true) =
+(* Note: using exit_code makes is_EXIT_FAILURE reachable, and we don't know how
+ * to compile this discriminator since the Wasm backend has not support for
+ * switches yet. *)
+let main (): Stack Int32.t (fun _ -> true) (fun _ _ _ -> true) =
   push_frame ();
   let test = U128.mul_wide 0x30586768dbe7UL 0x3FFFFFFFFFFF69UL in
   let b = Buffer.create (U128.uint64_to_uint128 0UL) 1ul in
@@ -19,4 +22,4 @@ let main (): Stack C.exit_code (fun _ -> true) (fun _ _ _ -> true) =
   let test = U128.add_mod test test in
   let test = U128.uint128_to_uint64 test in
   TestLib.check (test = 17529970960680916350UL);
-  C.EXIT_SUCCESS
+  0l

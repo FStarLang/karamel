@@ -1,6 +1,10 @@
 #ifndef __KREMLIN_INT128_H
 #define __KREMLIN_INT128_H
 
+#include "kremlin/internal/target.h"
+#include "kremlin/c_endianness.h"
+#include "kremlin/fstar_ints.h"
+
 /******************************************************************************/
 /* Machine integers (128-bit arithmetic)                                      */
 /******************************************************************************/
@@ -76,10 +80,6 @@ static inline uint128_t FStar_UInt128_gte_mask(uint128_t x, uint128_t y) {
        ~(FStar_UInt64_eq_mask(x >> 64, y >> 64))) |
       (FStar_UInt64_eq_mask(x >> 64, y >> 64) & FStar_UInt64_gte_mask(x, y));
   return ((uint128_t)mask) << 64 | mask;
-}
-
-static inline uint128_t FStar_UInt128_uint_to_t(krml_checked_int_t x) {
-  return x;
 }
 
 static inline uint128_t FStar_Int_Cast_Full_uint64_to_uint128(uint64_t x) {

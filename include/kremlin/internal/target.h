@@ -2,6 +2,10 @@
 #define __KREMLIN_TARGET_H
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <stdbool.h>
+
+#include "kremlin/internal/callconv.h"
 
 /******************************************************************************/
 /* Macros that KreMLin will generate.                                         */
@@ -40,7 +44,7 @@
 #  include <time.h>
 
 /* Prims_nat not yet in scope */
-static inline int32_t krml_time() {
+inline static int32_t krml_time() {
   return (int32_t)time(NULL);
 }
 

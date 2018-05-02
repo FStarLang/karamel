@@ -178,7 +178,7 @@ assume val bufcpy (b1 b2: buffer char): Stack U32.t
 
 
 (** The length that our caller has allocated for us in the destination buffer. *)
-unfold
+unfold noextract
 let response_length = 65535
 
 let offset_zero_terminated h (b: buffer char) (i: U32.t):
@@ -188,7 +188,7 @@ let offset_zero_terminated h (b: buffer char) (i: U32.t):
     [ SMTPat (zero_terminated h b); SMTPat (B.offset b i) ] =
   ()
 
-inline_for_extraction
+inline_for_extraction noextract
 let (!$) = C.String.of_literal
 
 val respond: (response: buffer char) -> (payload: buffer char) -> (payloadlen: U32.t) ->

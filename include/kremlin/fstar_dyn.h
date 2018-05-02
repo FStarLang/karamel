@@ -1,5 +1,5 @@
-#ifndef __KREMLIN_DYN_H
-#define __KREMLIN_DYN_H
+#ifndef __FSTAR_DYN_H
+#define __FSTAR_DYN_H
 
 /******************************************************************************/
 /* Implementing FStar.Dyn.fst                                                 */
@@ -11,4 +11,4 @@ static inline FStar_Dyn_dyn FStar_Dyn_mkdyn_(void *x) {
   return x;
 }
 
-#endif __KREMLIN_DYN_H
+#endif

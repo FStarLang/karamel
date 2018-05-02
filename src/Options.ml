@@ -3,7 +3,7 @@
  * $krml_home/kremlib/kremlib.c is added to c_files
  * $krml_home/kremlib is added to includes
  *)
-let no_prefix: string list ref = ref [ "C" ]
+let no_prefix: string list ref = ref [ "C"; "C.Endianness" ]
 (* kremlib.h now added directly in Output.ml so that it appears before the first
  * #ifdef *)
 let add_include: string list ref = ref [ ]

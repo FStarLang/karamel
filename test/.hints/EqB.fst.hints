@@ -1,5 +1,5 @@
 [
-  " ¸¨f\u000ff(\u0016³ëÝB­AFJ",
+  "\u001c…×&ª\u0004r=Œ?ZNtä\bÏ",
   [
     [
       "EqB.main",
@@ -9,10 +9,9 @@
       [
         "@MaxIFuel_assumption", "@query",
         "FStar.Monotonic.HyperStack_pretyping_ed25b04ac1a3660bf4cdc8ae577888d8",
-        "Prims_pretyping_ae567c2fb75be05905677af440075565",
-        "assumption_Prims.HasEq_int", "assumption_Prims.list__uu___haseq",
-        "bool_inversion", "equation_FStar.Buffer.buffer",
-        "equation_FStar.Buffer.length",
+        "assumption_FStar.UInt32.t__uu___haseq",
+        "assumption_Prims.list__uu___haseq", "bool_inversion",
+        "equation_FStar.Buffer.buffer", "equation_FStar.Buffer.length",
         "equation_FStar.HyperStack.ST.equal_domains",
         "equation_FStar.HyperStack.ST.equal_stack_domains",
         "equation_FStar.HyperStack.ST.inline_stack_inv",
@@ -24,16 +23,14 @@
         "equation_FStar.Monotonic.HyperStack.pop",
         "equation_FStar.Monotonic.HyperStack.poppable",
         "equation_FStar.Monotonic.HyperStack.popped",
-        "equation_FStar.Set.eqtype", "equation_FStar.UInt32.n",
-        "equation_Prims.eqtype",
+        "equation_FStar.Set.eqtype", "equation_Prims.eqtype",
         "fuel_guarded_inversion_FStar.Buffer._buffer",
         "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
         "function_token_typing_FStar.Monotonic.Heap.emp",
         "function_token_typing_FStar.Monotonic.Heap.heap",
         "function_token_typing_FStar.Monotonic.HyperHeap.rid",
         "function_token_typing_FStar.Monotonic.HyperHeap.root",
-        "function_token_typing_FStar.UInt32.n",
-        "function_token_typing_Prims.int", "kinding_Prims.list@tok",
+        "function_token_typing_FStar.UInt32.t", "kinding_Prims.list@tok",
         "lemma_FStar.Buffer.lemma_equal_domains_2",
         "lemma_FStar.Buffer.lemma_fresh_poppable",
         "lemma_FStar.Buffer.lemma_modifies_0_trans",
@@ -60,7 +57,7 @@
         "typing_FStar.Set.singleton", "typing_FStar.Set.union"
       ],
       0,
-      "2d9c348884179688b5ade1cceda249f8"
+      "7808a153216b8c6d0d7feea64a84d985"
     ]
   ]
 ]

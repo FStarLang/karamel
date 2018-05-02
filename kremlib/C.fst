@@ -1,8 +1,6 @@
 module C
 
 open FStar.HyperStack.ST
-open FStar.Buffer
-open FStar.Kremlin.Endianness
 
 module HS = FStar.HyperStack
 module U8 = FStar.UInt8
@@ -56,7 +54,7 @@ assume val clock: unit -> Stack clock_t
 type exit_code = | EXIT_SUCCESS | EXIT_FAILURE
 
 // Debugging
-assume val print_bytes: b:buffer UInt8.t -> len:UInt32.t{UInt32.v len <= length b} -> Stack unit
+assume val print_bytes: b:Buffer.buffer UInt8.t -> len:UInt32.t{UInt32.v len <= Buffer.length b} -> Stack unit
   (requires (fun h -> Buffer.live h b))
   (ensures  (fun h0 _ h1 -> h0 == h1))
 

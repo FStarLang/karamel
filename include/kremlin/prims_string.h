@@ -3,6 +3,8 @@
 
 #include <inttypes.h>
 
+#include "kremlin/prims_int.h"
+
 typedef const char *Prims_string;
 
 /******************************************************************************/

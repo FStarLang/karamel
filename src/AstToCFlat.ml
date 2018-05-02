@@ -58,7 +58,7 @@ let size_of (t: typ): size =
        * They're represented the same way, that is, a pointer to a string
        * statically allocated in the data segment. *)
       I32
-  | TQualified ([], "clock_t") ->
+  | TQualified ([], ("clock_t" | "exit_code")) ->
       I32
   | _ ->
       failwith (KPrint.bsprintf "size_of: this case should've been eliminated: %a" ptyp t)

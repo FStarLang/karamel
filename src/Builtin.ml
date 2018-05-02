@@ -183,8 +183,8 @@ let buffer: file =
 
 let monotonic_hs: file =
   "FStar_Monotonic_HyperStack", [
-    DType (([ "FStar"; "Monotonic"; "HyperHeap" ], "mem"), [], 0, Abbrev TUnit);
-    DGlobal ([], ([ "FStar"; "Monotonic"; "HyperHeap" ], "mem"), 0, TUnit, EUnit);
+    DType (([ "FStar"; "Monotonic"; "HyperStack" ], "mem"), [], 0, Abbrev TUnit);
+    DGlobal ([], ([ "FStar"; "Monotonic"; "HyperStack" ], "root"), 0, TUnit, eunit);
   ]
 
 let monotonic_hh: file =
