@@ -499,6 +499,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       end
 
   | ESwitch (e, branches) ->
+      let s = size_of (snd (List.hd branches)).typ in
       let locals, e = mk_expr env locals e in
       let default, branches = List.partition (function (SWild, _) -> true | _ -> false) branches in
       let locals, default = match default with
@@ -513,17 +514,16 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, branches = fold (fun locals (i, e) ->
         match i with
         | SEnum i ->
-            let i = CF.Constant (K.UInt32, string_of_int (LidMap.find i env.enums)) in
+            let i = K.UInt32, string_of_int (LidMap.find i env.enums) in
             let locals, e = mk_expr env locals e in
             locals, (i, e)
-        | SConstant (w, s) ->
-            let i = CF.Constant (w, s) in
+        | SConstant i ->
             let locals, e = mk_expr env locals e in
             locals, (i, e)
         | SWild ->
             failwith "impossible"
       ) locals branches in
-      locals, CF.Switch (e, branches, default)
+      locals, CF.Switch (e, branches, default, s)
 
   | EFor (b, e1, e2, e3, e4) ->
       let locals, e1 = mk_expr env locals e1 in
