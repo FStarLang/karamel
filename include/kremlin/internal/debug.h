@@ -1,6 +1,10 @@
 #ifndef __KREMLIN_DEBUG_H
 #define __KREMLIN_DEBUG_H
 
+#include <inttypes.h>
+
+#include "kremlin/internal/target.h"
+
 /******************************************************************************/
 /* Debugging helpers - intended only for KreMLin developers                   */
 /******************************************************************************/
