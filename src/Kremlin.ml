@@ -313,7 +313,6 @@ Supported options:|}
     ] @ !Options.drop
   else begin
     (* True Wasm compilation: this module is useless (only assume val's). *)
-    Options.drop := Bundle.Module [ "C"; "Endianness" ] :: !Options.drop;
     (* Only keep what's stricly needed from the C module. *)
     Options.bundle := ([], [ Bundle.Module [ "C" ]]) :: !Options.bundle
   end;

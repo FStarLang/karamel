@@ -124,4 +124,5 @@ let drop: Bundle.pat list ref =
     Module [ "FStar"; "Kremlin"; "Endianness" ];
     Module [ "FStar"; "HyperStack"; "ST" ];
     Module [ "C"; "String" ];
+    Module [ "C"; "Endianness" ];
   ])
