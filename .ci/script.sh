@@ -33,7 +33,7 @@ make -C book html
 cd fstarlang.github.io
 git pull
 cp -R ../book/_build/* lowstar/
-rm -rf lowstar/html/_static
+rm -rf lowstar/html/static
 mv lowstar/html/_static lowstar/html/static
 find lowstar/html -type f | xargs sed -i 's/_static/static/g'
 git add -A lowstar/
