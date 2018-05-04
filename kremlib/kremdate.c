@@ -1,4 +1,5 @@
 #include "kremlib.h"
+#include "kremlin/prims_int.h"
 
 /******************************************************************************/
 /* Implementation of FStar.Date                                               */
