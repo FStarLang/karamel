@@ -853,8 +853,14 @@ and mk_expr env (e: expr): W.Ast.instr list =
       *)
       let n = List.length branches in
       let table = Array.make (Z.to_int vmax + 2) (mk_var 0) in
+      let s = mk_type s in
+      let dummy =
+        match s with
+        | W.Types.I32Type -> mk_const (mk_int32 0l)
+        | W.Types.I64Type -> mk_const (mk_int64 0L)
+        | _ -> assert false
+      in
       let rec mk i branches =
-        let s = mk_type s in
         match branches with
         | ((_, c), body) :: branches ->
             let c = int_of_string c in
@@ -875,8 +881,10 @@ and mk_expr env (e: expr): W.Ast.instr list =
              * *)
             [ dummy_phrase (W.Ast.Block ([ s ],
               [ dummy_phrase (W.Ast.Block ([ s ],
+                dummy @
                 mk_expr env e @
                 [ dummy_phrase (W.Ast.BrTable (Array.to_list table, mk_var 0))]))] @
+              mk_drop @
               default @
               [ dummy_phrase (W.Ast.Br (mk_var n))]))]
       in
