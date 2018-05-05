@@ -4,7 +4,6 @@
 #include <inttypes.h>
 
 #include "kremlin/fstar_char.h"
-#include "kremlin/fstar_uint128.h"
 
 /******************************************************************************/
 /* NOT LOW*: implementing Prims.int as runtime checked integers               */
@@ -81,14 +80,6 @@ inline static uint32_t FStar_UInt32_uint_to_t(krml_checked_int_t x) {
 inline static uint64_t FStar_UInt64_uint_to_t(krml_checked_int_t x) {
   return x;
 }
-
-#ifndef KRML_NOUINT128
-inline static uint128_t FStar_UInt128_uint_to_t(krml_checked_int_t x) {
-  return x;
-}
-#else /* !defined(KRML_NOUINT128) */
-  /* TODO */
-#endif
 
 inline static krml_checked_int_t FStar_UInt8_v(uint8_t x) {
   return x;
