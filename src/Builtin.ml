@@ -135,7 +135,8 @@ let prims: file =
     mk_boolop "op_LessThan";
     mk_unop "pow2";
     mk_val "strcat" (TArrow (t_string, TArrow (t_string, t_string)));
-    mk_val "string_of_int" (TArrow (TInt K.CInt, t_string))
+    mk_val "string_of_int" (TArrow (TInt K.CInt, t_string));
+    DType ((["Prims"], "prop"), [], 0, Abbrev TUnit)
   ]
 
 let buffer: file =
@@ -173,11 +174,17 @@ let buffer: file =
             with_unit EBreak ]),
           eunit))));
       with_type TBool (EBound 0)]))));
-    
+
     DFunction (None, [ Common.MustDisappear ], 1, TUnit,
       ([ "FStar"; "Buffer" ], "recall"),
       [ fresh_binder "x" (TBuf (TBound 0)) ],
       eunit);
+  ]
+
+let monotonic_hs: file =
+  "FStar_Monotonic_HyperStack", [
+    DType (([ "FStar"; "Monotonic"; "HyperStack" ], "mem"), [], 0, Abbrev TUnit);
+    DGlobal ([], ([ "FStar"; "Monotonic"; "HyperStack" ], "root"), 0, TUnit, eunit);
   ]
 
 let monotonic_hh: file =
@@ -227,6 +234,7 @@ let hs: file =
       ],
       eunit);
     DType (([ "FStar"; "HyperStack"; "ST" ], "erid"), [], 0, Abbrev TUnit);
+    DType (([ "FStar"; "HyperStack"; "ST" ], "ex_rid"), [], 0, Abbrev TUnit);
   ]
 
 let dyn: file =
@@ -255,6 +263,7 @@ let prelude () =
     [ UInt8; UInt16; UInt32; UInt64; Int8; Int16; Int32; Int64 ] @ [
   buffer;
   monotonic_hh;
+  monotonic_hs;
   hs;
   dyn;
   c_string;

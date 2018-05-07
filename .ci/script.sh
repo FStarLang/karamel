@@ -33,9 +33,10 @@ make -C book html
 cd fstarlang.github.io
 git pull
 cp -R ../book/_build/* lowstar/
+rm -rf lowstar/html/static
 mv lowstar/html/_static lowstar/html/static
 find lowstar/html -type f | xargs sed -i 's/_static/static/g'
-git add lowstar/
+git add -A lowstar/
 if ! git diff --exit-code HEAD > /dev/null; then
   git commit -am "[CI] Refresh Low* tutorial"
   git push

@@ -5,7 +5,7 @@ open FStar.HyperStack
 open SystemNative
 open FStar.Buffer
 
-let main (): Stack FStar.Int32.t (fun _ -> true) (fun _ _ _ -> true) =
+let main (): Stack C.exit_code (fun _ -> true) (fun _ _ _ -> true) =
   push_frame ();
   let hints: addrinfo_t = AddrInfo
     AI_PASSIVE
@@ -23,4 +23,4 @@ let main (): Stack FStar.Int32.t (fun _ -> true) (fun _ _ _ -> true) =
   if status = 0l then
     freeaddrinfo servinfo.(0ul);
   pop_frame ();
-  C.exit_success
+  C.EXIT_SUCCESS

@@ -14,7 +14,7 @@ let f (): Stack t (fun _ -> true) (fun _ _ _ -> true) =
   Cons1
 
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
-  Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
+  Stack C.exit_code (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
   push_frame ();
   let x = Cons1, Cons2 in
@@ -24,4 +24,4 @@ let main argc argv =
     | Cons2 -> 1ul
   in
   pop_frame ();
-  C.exit_success
+  C.EXIT_SUCCESS

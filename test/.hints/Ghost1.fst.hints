@@ -1,5 +1,5 @@
 [
-  "A¿Eá·õ~D\u0005spæšA9<",
+  "\u001c«Ù¶6â®aûÎÿ_ñ\u001e\"q",
   [
     [
       "Ghost1.test_log",
@@ -20,7 +20,7 @@
         "typing_FStar.Monotonic.HyperStack.__proj__HS__item__h"
       ],
       0,
-      "abf777bcc402a3b4a49c007d0fa6efbb"
+      "d16120b01a29e35b8d989c1eca7590d3"
     ],
     [
       "Ghost1.test",
@@ -29,7 +29,7 @@
       1,
       [ "@query", "lemma_FStar.HyperStack.ST.lemma_equal_domains_trans" ],
       0,
-      "4a65ba4efff550f00072e665fc2bf552"
+      "45da5334fc62985cedeb3714256b894f"
     ]
   ]
 ]

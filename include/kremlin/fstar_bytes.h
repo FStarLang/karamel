@@ -1,16 +1,17 @@
-/* Garbage-collected fat pointers that keep track of their lengths. */
 #ifndef __KREMBYTES_H
 #ifdef __FStar_H_DEFINED
 #define __KREMBYTES_H
+
+/******************************************************************************/
+/* NOT LOW*: implementing FStar.Bytes.bytes as leaky fat pointers with a      */
+/* length                                                                     */
+/******************************************************************************/
 
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "FStar.h"
-#include "Prims.h"
 
 typedef uint8_t FStar_Bytes_byte;
 

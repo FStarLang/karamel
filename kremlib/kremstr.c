@@ -1,4 +1,5 @@
-#include "kremstr.h"
+#include "kremlin/c_string.h"
+#include "kremlin/prims_string.h"
 #include "kremlib.h"
 
 /******************************************************************************/

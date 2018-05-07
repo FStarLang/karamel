@@ -304,17 +304,22 @@ Supported options:|}
     Options.struct_passing := false
   end;
 
-  (* An actual C compilation wants to drop these two. *)
   if not !Options.wasm || Options.debug "force-c" then
+    (* An actual C compilation wants to drop these two. *)
     Options.drop := [
       Bundle.Module [ "FStar"; "Int"; "Cast"; "Full" ];
       Bundle.Module [ "C" ];
       Bundle.Module [ "TestLib" ]
-    ] @ !Options.drop;
+    ] @ !Options.drop
+  else begin
+    (* True Wasm compilation: this module is useless (only assume val's). *)
+    (* Only keep what's stricly needed from the C module. *)
+    Options.bundle := ([], [ Bundle.Module [ "C" ]]) :: !Options.bundle
+  end;
 
   (* Self-help. *)
   if !Options.wasm && Options.debug "force-c" then begin
-    Options.add_include := "\"wasm-stubs.h\"" :: !Options.add_include;
+    Options.add_include := "\"kremlin/internal/wasmsupport.h\"" :: !Options.add_include;
     Options.drop := Bundle.Module [ "WasmSupport" ] :: !Options.drop
   end;
 

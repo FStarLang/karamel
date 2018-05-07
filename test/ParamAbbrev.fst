@@ -2,7 +2,7 @@ module ParamAbbrev
 
 open FStar.HyperStack.ST
 
-type t = int
+type t = Int64.t
 type t' = t
 type lt = list t
 type lt' = list t'

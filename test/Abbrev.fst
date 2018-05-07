@@ -16,9 +16,9 @@ type lbytes' l =
 type bytes4 = lbytes 4 8
 
 val main: Int32.t -> Buffer.buffer (Buffer.buffer C.char) ->
-  Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
+  Stack C.exit_code (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
   push_frame ();
   let b: lbytes' 1 = Buffer.create 0l 2ul in
   pop_frame ();
-  C.exit_success
+  C.EXIT_SUCCESS

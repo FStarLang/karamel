@@ -9,7 +9,7 @@ let test (x:string): Stack string (fun _ -> true) (fun _ _ _ -> true) =
 
 let cat (x y:string): Stack string (fun _ -> true) (fun _ _ _ -> true) =
   FStar.String.strcat x y
-  
+
 let main () =
   // C strings, modeled as zero-terminated, not relying on GC
   C.String.(print !$"hello, world\n");
@@ -20,4 +20,4 @@ let main () =
   IO.print_string (cat "" "");
   IO.print_string (cat "" "\n");
   IO.print_string (cat "\n" "");
-  C.exit_success
+  C.EXIT_SUCCESS

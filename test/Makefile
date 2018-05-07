@@ -1,6 +1,6 @@
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
-TEST_OPTS	= -add-include '"testlib.h"' -I . ../kremlib/testlib.c -warn-error @4
+TEST_OPTS	= -add-include '"kremlin/testlib.h"' -I . ../kremlib/testlib.c -warn-error @4
 KRML_BIN	= ../_build/src/Kremlin.native
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 FILES		= \
@@ -22,7 +22,7 @@ FILES		= \
   ../book/Introduction.test
 CUSTOM		= count-uu
 WASM_FILES	= \
-  WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test
+  WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test Wasm4.wasm-test
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
 # HigherOrder: need to implement "natural arity" tracking
@@ -77,7 +77,7 @@ $(OUTPUT_DIR)/%.exe: $(OUTPUT_DIR)/FStar_UInt128.krml | $(KRML_BIN)
 
 .SECONDEXPANSION:
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe
-	@$^ && echo "\033[01;32m✔\033[00m [TEST,$*]" || echo "\033[01;31m✘\033[00m [TEST,$*]"
+	@$^ && echo "\033[01;32m✔\033[00m [TEST,$*]" || (echo "\033[01;31m✘\033[00m [TEST,$*]" && false)
 
 # Various flags to be passed to some targets...
 $(OUTPUT_DIR)/Structs2.exe: EXTRA = -wasm -d force-c -drop C,TestLib wasm-stubs.c
@@ -87,20 +87,23 @@ $(OUTPUT_DIR)/Test128.exe: EXTRA = -fnouint128 -static-header FStar -fsopt --nor
 $(OUTPUT_DIR)/HigherOrder.exe: EXTRA = -warn-error +9
 $(OUTPUT_DIR)/C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic -fc89
 $(OUTPUT_DIR)/Debug.exe: EXTRA = -d c-calls
-$(OUTPUT_DIR)/Server.exe: EXTRA = -add-include '"kremstr.h"' main-Server.c
-$(OUTPUT_DIR)/StringLit.exe: EXTRA = ../kremlib/kremstr.c -add-include '"kremstr.h"'
-$(OUTPUT_DIR)/Failwith.exe: EXTRA = -add-include '"kremstr.h"'
-$(OUTPUT_DIR)/TailCalls.exe: EXTRA = -add-include '"kremstr.h"' -ftail-calls
-$(OUTPUT_DIR)/FunctionalEncoding.exe: EXTRA = -add-include '"kremstr.h"'
+$(OUTPUT_DIR)/Server.exe: EXTRA = -add-include '"kremlin/c_string.h"' main-Server.c
+$(OUTPUT_DIR)/StringLit.exe: EXTRA = ../kremlib/kremstr.c -add-include '"kremlin/c_string.h"' -add-include '"kremlin/prims_string.h"'
+$(OUTPUT_DIR)/Failwith.exe: EXTRA = -add-include '"kremlin/c_string.h"'
+$(OUTPUT_DIR)/TailCalls.exe: EXTRA = -add-include '"kremlin/c_string.h"' -ftail-calls
+$(OUTPUT_DIR)/FunctionalEncoding.exe: EXTRA = -add-include '"kremlin/prims_string.h"'
 $(OUTPUT_DIR)/Crypto_Symmetric_Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 $(OUTPUT_DIR)/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
 	hello-system/system.c -I hello-system -no-prefix SystemNative \
 	-drop SystemNative -add-include '<netdb.h>'
-$(OUTPUT_DIR)/TestKremBytes.exe: EXTRA = -add-include '"krembytes.h"' -add-include \
-	'"kremstr.h"' -drop FStar.Bytes ../kremlib/kremstr.c
+$(OUTPUT_DIR)/TestKremBytes.exe: EXTRA = -add-include '"kremlin/fstar_bytes.h"' -add-include \
+	'"kremlin/c_string.h"' -drop FStar.Bytes ../kremlib/kremstr.c -add-include '"kremlin/prims_string.h"'
 $(OUTPUT_DIR)/TestAlloca.exe: EXTRA = -falloca
 $(OUTPUT_DIR)/EtaStruct.exe: EXTRA = -fnostruct-passing
-$(OUTPUT_DIR)/Introduction.exe: EXTRA = -add-include '"kremstr.h"' -drop LowStar
+$(OUTPUT_DIR)/Introduction.exe: EXTRA = -add-include '"kremlin/c_string.h"' -drop LowStar
+$(OUTPUT_DIR)/TotalLoops.exe: EXTRA = -add-include '"kremlin/prims_int.h"'
+$(OUTPUT_DIR)/CheckedInt.exe: EXTRA = -add-include '"kremlin/prims_int.h"'
+$(OUTPUT_DIR)/CustomEq.exe: EXTRA = -add-include '"kremlin/prims_int.h"'
 
 # Some custom targets
 
@@ -125,8 +128,8 @@ $(OUTPUT_DIR)/%.wasm: $(OUTPUT_DIR)/FStar_UInt128.krml $(OUTPUT_DIR)/WasmSupport
 
 %.wasm-test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).wasm
 	cd $(OUTPUT_DIR)/$*.out && \
-	  if ! $(NEGATIVE); then $(shell which d8) main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || echo "\033[01;31m✘\033[00m [WASM-TEST,$*]"; \
-	  else ! $(shell which d8) main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || echo "\033[01;31m✘\033[00m [WASM-TEST,$*]"; fi
+	  if ! $(NEGATIVE); then $(shell which d8) main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); \
+	  else ! $(shell which d8) main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); fi
 
 # Customizing some WASM targets.
 $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: JSFILES=main-Chacha.js

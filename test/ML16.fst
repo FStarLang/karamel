@@ -29,7 +29,7 @@ let test2 (_: unit):
   b
 
 val main: Int32.t -> buffer (buffer C.char) ->
-  Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
+  Stack C.exit_code (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
   push_frame ();
 
@@ -53,4 +53,4 @@ let main argc argv =
   print_int32 (I32.add a b);
 
   pop_frame ();
-  C.exit_success
+  C.EXIT_SUCCESS

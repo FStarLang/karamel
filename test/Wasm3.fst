@@ -7,7 +7,7 @@ module U128 = FStar.UInt128
 
 open FStar.Buffer
 
-let main (): Stack FStar.Int32.t (fun _ -> true) (fun _ _ _ -> true) =
+let main (): Stack C.exit_code (fun _ -> true) (fun _ _ _ -> true) =
   push_frame ();
   let test = U128.uint64_to_uint128 51910400566UL in
   let test = U128.shift_left test 64ul in
@@ -18,4 +18,4 @@ let main (): Stack FStar.Int32.t (fun _ -> true) (fun _ _ _ -> true) =
   let test = U128.uint128_to_uint64 test in
   TestLib.check (test = 17529970960680916350UL);
   pop_frame ();
-  C.exit_success
+  C.EXIT_SUCCESS

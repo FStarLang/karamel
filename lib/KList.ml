@@ -127,3 +127,10 @@ let max l =
   let max = ref (List.hd l) in
   List.iter (fun x -> if x > !max then max := x) (List.tl l);
   !max
+
+let min l =
+  if List.length l = 0 then
+    invalid_arg "min";
+  let min = ref (List.hd l) in
+  List.iter (fun x -> if x < !min then min := x) (List.tl l);
+  !min

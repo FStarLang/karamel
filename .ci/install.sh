@@ -29,6 +29,6 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
 fi
 
 git clone --branch taramana_bufferv2 --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
-git clone --branch fstar-master --single-branch --depth 1 https://github.com/mitls/hacl-star
+git clone --branch cleanup-kremlib-2 --single-branch --depth 1 https://github.com/mitls/hacl-star
 make -C fstar/src/ocaml-output
 make -C fstar/ulib/ml

@@ -38,5 +38,5 @@ let main () =
   let x = Buffer.index b 0ul in
   let y = tfib x in
   if y = 8
-  then C.exit_success
-  else C.exit_failure
+  then C.EXIT_SUCCESS
+  else C.EXIT_FAILURE
