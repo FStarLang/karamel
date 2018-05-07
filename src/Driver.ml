@@ -145,7 +145,9 @@ let detect_kremlin () =
     Sys.chdir cwd
   end;
 
-  Options.includes := (!krml_home ^^ "include") :: !Options.includes
+  (* The first one for F*, the second one for the C compiler. *)
+  Options.includes := (!krml_home ^^ "kremlib") :: (!krml_home ^^ "include") ::
+    !Options.includes
 
 let detect_kremlin_if () =
   if !krml_home = "" then
