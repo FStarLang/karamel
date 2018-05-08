@@ -9,7 +9,7 @@ open FStar.HyperStack.ST
 /// The Low* subset of F*
 /// =====================
 ///
-/// Low*, as formalized and presented on `paper <https://arxiv.org/abs/1703.00053>`_,
+/// Low*, as formalized and presented in this `paper <https://arxiv.org/abs/1703.00053>`_,
 /// is the first-order lambda calculus. Base types are booleans and
 /// fixed-width integers. Low* has a primitive notion of *buffers* and pointer
 /// arithmetic within buffer bounds. In the formalization, structures are only
