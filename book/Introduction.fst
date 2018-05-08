@@ -269,7 +269,7 @@ let main (): Stack C.exit_code
 /// Usage of the KreMLin tool
 /// -------------------------
 ///
-/// The KreMLin compiler comes as a command-line too ``krml``. As a reminder, ``krml
+/// The KreMLin compiler comes as a command-line tool ``krml``. As a reminder, ``krml
 /// -help`` provides the list of options and warnings along with proper
 /// documentation.
 ///
@@ -288,7 +288,7 @@ let main (): Stack C.exit_code
 ///    $ krml introduction.fst -no-prefix Introduction -o test.exe && ./test.exe
 ///
 /// The present tutorial will use this mode exclusively, as it
-/// it by far easier to use and allows trying out KreMLin without writing a
+/// is by far easier to use and allows trying out KreMLin without writing a
 /// substantial amount of ``Makefile``\ s. Furthermore, one can pass ``.c``, ``.h``,
 /// ``.o``, and ``.S`` files to KreMLin, to be included at the right step of the
 /// build, along with C linker and compiler options via KreMLin's ``-ccopt`` and
