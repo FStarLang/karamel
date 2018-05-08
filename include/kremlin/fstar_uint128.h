@@ -92,7 +92,9 @@ static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64(uint128_t x) {
 
 #  else /* !defined(KRML_NOUINT128) */
 
-#    ifndef KRML_SEPARATE_UINT128
+#    ifdef KRML_SEPARATE_UINT128
+#      include <FStar_UInt128.h>
+#    else
     /* This is a bad circular dependency... should fix it properly. */
 #      include "FStar.h"
 #    endif
