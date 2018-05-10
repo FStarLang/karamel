@@ -1,5 +1,5 @@
 [
-  "\u001dÅÞ\u001b~û#à›+ää*¶vü",
+  "¬\u000b¶\u0003y\u0002&Ýxµ‡ž¬^Lý",
   [
     [
       "Introduction.slice_plus_one",
@@ -44,7 +44,7 @@
         "unit_typing"
       ],
       0,
-      "e92ffe7247662df04edf77066a2b9816"
+      "431059a694a025b157bd49138f8d4111"
     ],
     [
       "Introduction.memcpy",
@@ -52,27 +52,19 @@
       0,
       0,
       [
-        "@query", "assumption_Prims.HasEq_int",
+        "@MaxIFuel_assumption", "@query",
+        "Prims_pretyping_ae567c2fb75be05905677af440075565",
+        "assumption_Prims.HasEq_int", "equation_FStar.UInt32.n",
+        "function_token_typing_FStar.UInt32.n",
+        "haseqIntroduction_Tm_refine_1ec852aff28ab568526a8c54c3e853ec",
         "haseqIntroduction_Tm_refine_7f014d1f670e5d2ecdc0d7946b4a693d"
       ],
       0,
-      "2f8d43a821a4d1e41e6ed610ae78ccc2"
+      "f789a78de950b365745192f917437c49"
     ],
     [
       "Introduction.memcpy",
       2,
-      0,
-      0,
-      [
-        "@query", "assumption_Prims.HasEq_int",
-        "haseqIntroduction_Tm_refine_7f014d1f670e5d2ecdc0d7946b4a693d"
-      ],
-      0,
-      "a4571b68ab8d005cdae7b1c567929da8"
-    ],
-    [
-      "Introduction.memcpy",
-      3,
       0,
       0,
       [
@@ -84,11 +76,13 @@
         "equation_FStar.Monotonic.HyperStack.contains",
         "equation_FStar.UInt.fits", "equation_FStar.UInt.min_int",
         "equation_FStar.UInt.size", "equation_FStar.UInt.uint_t",
-        "equation_FStar.UInt32.n", "equation_Prims.eqtype",
-        "equation_Prims.nat", "fuel_guarded_inversion_FStar.Buffer._buffer",
+        "equation_FStar.UInt32.n", "equation_LowStar.z",
+        "equation_Prims.eqtype", "equation_Prims.nat",
+        "fuel_guarded_inversion_FStar.Buffer._buffer",
         "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
-        "function_token_typing_FStar.UInt32.n", "int_inversion",
-        "int_typing", "lemma_FStar.Modifies.loc_union_idem",
+        "function_token_typing_FStar.UInt32.n",
+        "function_token_typing_LowStar.z", "int_inversion", "int_typing",
+        "lemma_FStar.Modifies.loc_union_idem",
         "lemma_FStar.Modifies.modifies_1_modifies",
         "lemma_FStar.Modifies.modifies_buffer_elim",
         "lemma_FStar.Modifies.modifies_refl",
@@ -121,7 +115,7 @@
         "typing_FStar.UInt32.v"
       ],
       0,
-      "ec83e305c3c623a7f9153b3b8346ad8c"
+      "07662c8e01349f764500530fa2a737d5"
     ],
     [
       "Introduction.main",
@@ -192,7 +186,7 @@
         "typing_FStar.Set.singleton", "typing_tok_C.EXIT_SUCCESS@tok"
       ],
       0,
-      "d9f67ea595ad4ffa91496fcb332c5482"
+      "0207a58780ed2d104b65b2088e0c9fb0"
     ]
   ]
 ]

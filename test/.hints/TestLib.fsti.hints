@@ -2,28 +2,29 @@
   "aP\u00027g6¡™œœ™\b¼,iÓ",
   [
     [
-      "TestLib.unsafe_malloc",
+      "TestLib.compare_and_print",
       1,
       2,
       1,
-      [
-        "@query", "assumption_Prims.HasEq_int",
-        "haseqTestLib_Tm_refine_7f014d1f670e5d2ecdc0d7946b4a693d"
-      ],
+      [ "@query" ],
       0,
-      "f99915ea616f004e658d15224d78c699"
+      "27006a23fd35cbf7578cffd2a050d995"
     ],
     [
       "TestLib.unsafe_malloc",
-      2,
+      1,
       2,
       1,
       [
-        "@query", "assumption_Prims.HasEq_int", "equation_Prims.nat",
-        "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
+        "@MaxIFuel_assumption", "@query",
+        "Prims_pretyping_ae567c2fb75be05905677af440075565",
+        "assumption_Prims.HasEq_int", "equation_FStar.UInt32.n",
+        "equation_Prims.nat", "function_token_typing_FStar.UInt32.n",
+        "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d",
+        "haseqTestLib_Tm_refine_1ec852aff28ab568526a8c54c3e853ec"
       ],
       0,
-      "397f6bb00d882328f5af10e36d0d912d"
+      "341e24b3f11fed45d924c635525ca6cd"
     ]
   ]
 ]
