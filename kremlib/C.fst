@@ -22,6 +22,10 @@ assume val rand: unit -> Stack Int32.t
 assume val exit: Int32.t -> Stack unit
   (requires (fun _ -> True))
   (ensures (fun h0 _ h1 -> False))
+// Re-routed to KRML_HOST_EXIT for environments which don't have a libc
+assume val portable_exit: Int32.t -> Stack unit
+  (requires (fun _ -> True))
+  (ensures (fun h0 _ h1 -> False))
 
 assume type channel
 assume val stdout: channel

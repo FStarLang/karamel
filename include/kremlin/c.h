@@ -1,6 +1,7 @@
 #ifndef __KREMLIN_C_H
 #define __KREMLIN_C_H
 
+#include "kremlin/internal/target.h"
 #include <inttypes.h>
 
 /******************************************************************************/
@@ -19,6 +20,10 @@ static inline bool __eq__C_char(char c1, char c2) {
  * C.EXIT_SUCCESS is printed as EXIT_SUCCESS which resolves to the proper C
  * macro. */
 typedef int exit_code;
+
+static inline void portable_exit(int code) {
+  KRML_HOST_EXIT(code);
+}
 
 /* Now also exposed via FStar.Bytes.fst */
 void print_bytes(const uint8_t *b, uint32_t len);
