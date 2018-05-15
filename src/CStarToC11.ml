@@ -545,6 +545,8 @@ and mk_index (e1: expr) (e2: expr): C.expr =
   | _ ->
       Index (mk_expr e1, mk_expr e2)
 
+and mk_deref (e: expr) : C.expr =
+  Deref (mk_expr e)
 
 and mk_expr (e: expr): C.expr =
   match e with
@@ -561,7 +563,13 @@ and mk_expr (e: expr): C.expr =
       Op2 (K.Comma, mk_expr e1, mk_expr e2)
 
   | Call (Qualified s, [ e1 ]) when KString.starts_with s "C_Nullity_op_Bang_Star__"->
-      Deref (mk_expr e1)
+      mk_deref e1
+
+  | Call (Qualified s, [ e1 ]) when KString.starts_with s "LowStar_BufferOps_op_Bang_Star__"->
+      mk_deref e1
+
+  | Call (Qualified s, [ e1; e2 ] ) when KString.starts_with s "LowStar_BufferOps_op_Star_Equals__" ->
+      Op2 (K.Assign, mk_deref e1, mk_expr e2)
 
   | Call (Qualified "C_String_get", [ e1; e2 ])
   | BufRead (e1, e2) ->
