@@ -1,4 +1,5 @@
 module LinkedList3
+open LowStar.BufferOps
 
 module B = LowStar.Buffer
 module HS = FStar.HyperStack
@@ -11,27 +12,12 @@ open FStar.HyperStack.ST
 
 #set-options "--__no_positivity --use_two_phase_tc true"
 
-type pointer_or_null (t: Type) = (b: B.buffer t { if B.g_is_null b then True else B.length b == 1 } )
-
-type pointer (t: Type) = (b: B.buffer t { B.length b == 1 } )
-
-let (!*) (#a: Type) (p: pointer a):
-  Stack a
-  (requires (fun h -> B.live h p))
-  (ensures (fun h0 x h1 -> B.live h1 p /\ x == Seq.index (B.as_seq h0 p) 0 /\ h1 == h0)) =
-  B.index p 0ul
-
-let bget (#a: Type) (h: HS.mem) (p: B.buffer a) (i: nat) : Ghost a
-  (requires (i < B.length p))
-  (ensures (fun _ -> True))
-= Seq.index (B.as_seq h p) i
-
 /// We revisit the classic example of lists, but in a low-level
 /// setting, using linked lists. This second version uses
-/// `pointer_or_null`, the type of buffers of length 1 or 0.
+/// `B.pointer_or_null`, the type of buffers of length 1 or 0.
 noeq
 type t (a: Type0) =
-  pointer_or_null (cell a)
+  B.pointer_or_null (cell a)
 
 and cell (a: Type0) = {
   next: t a;
@@ -51,7 +37,7 @@ let rec well_formed #a (h: HS.mem) (c: t a) (l: nat):
   then l = 0
   else
     B.length c == 1 /\ (
-    let { next=next } = bget h c 0 in
+    let { next=next } = B.get h c 0 in
     if l = 0
     then
       false
@@ -86,7 +72,7 @@ let rec length_functional #a (h: HS.mem) (c: t a) (l1 l2: nat):
   if B.g_is_null c
   then ()
   else
-    let { next=next } = bget h c 0 in
+    let { next=next } = B.get h c 0 in
     // Without `cons_nonzero_length`, we would need assert (l1 <> 0)
     length_functional h next (l1 - 1) (l2 - 1)
 
@@ -102,9 +88,9 @@ let live_nil #a (h: HS.mem) (l: t a) : Lemma
 = assert (well_formed h l 0)
 
 let live_cons #a (h: HS.mem) (l: t a) : Lemma
-  (requires (B.live h l /\ B.length l == 1 /\ live h (bget h l 0).next))
+  (requires (B.live h l /\ B.length l == 1 /\ live h (B.get h l 0).next))
   (ensures (live h l))
-= assert (forall n . well_formed h (bget h l 0).next n ==> well_formed h l (n + 1))
+= assert (forall n . well_formed h (B.get h l 0).next n ==> well_formed h l (n + 1))
 
 /// As we start proving some degree of functional correctness, we will have to
 /// reason about non-interference, and state that some operations do not modify
@@ -119,7 +105,7 @@ let rec footprint #a h l n =
   if B.g_is_null l
   then MO.loc_none
   else
-    let {next = next} = bget h l 0 in
+    let {next = next} = B.get h l 0 in
     let refs = footprint h next (n - 1) in
     MO.loc_union (MO.loc_buffer l) refs
 #reset-options
@@ -145,14 +131,14 @@ let rec modifies_disjoint_footprint
 = if B.g_is_null l
   then ()
   else begin
-    let {next = l'} = bget h l 0 in
+    let {next = l'} = B.get h l 0 in
     modifies_disjoint_footprint h l' (n - 1) r h'
   end
 
 let rec well_formed_distinct_lengths_disjoint
   #a
-  (c1: pointer (cell a))
-  (c2: pointer (cell a))
+  (c1: B.pointer (cell a))
+  (c2: B.pointer (cell a))
   (n1: nat)
   (n2: nat)
   (h: HS.mem)
@@ -166,8 +152,8 @@ let rec well_formed_distinct_lengths_disjoint
     B.disjoint c1 c2
   ))
   (decreases (n1 + n2))
-= let {next = next1} = bget h c1 0 in
-  let {next = next2} = bget h c2 0 in
+= let {next = next1} = B.get h c1 0 in
+  let {next = next2} = B.get h c2 0 in
   let f () : Lemma (next1 =!= next2) =
     if B.g_is_null next1 || B.g_is_null next2
     then ()
@@ -180,8 +166,8 @@ let rec well_formed_distinct_lengths_disjoint
 let rec well_formed_gt_lengths_disjoint_from_list
   #a
   (h: HS.mem)
-  (c1: pointer_or_null (cell a))
-  (c2: pointer_or_null (cell a))
+  (c1: B.pointer_or_null (cell a))
+  (c2: B.pointer_or_null (cell a))
   (n1: nat)
   (n2: nat)
 : Lemma
@@ -192,26 +178,26 @@ let rec well_formed_gt_lengths_disjoint_from_list
   then ()
   else begin
     well_formed_distinct_lengths_disjoint c1 c2 n1 n2 h;
-    well_formed_gt_lengths_disjoint_from_list h c1 (bget h c2 0).next n1 (n2 - 1)
+    well_formed_gt_lengths_disjoint_from_list h c1 (B.get h c2 0).next n1 (n2 - 1)
   end
 
 let well_formed_head_tail_disjoint
   (#a: Type)
   (h: HS.mem)
-  (c: pointer (cell a))
+  (c: B.pointer (cell a))
   (n: nat)
 : Lemma
   (requires (well_formed h c n))
   (ensures (
-    MO.loc_disjoint (MO.loc_buffer c) (footprint h (bget h c 0).next (n - 1))
+    MO.loc_disjoint (MO.loc_buffer c) (footprint h (B.get h c 0).next (n - 1))
   ))
-= well_formed_gt_lengths_disjoint_from_list h c (bget h c 0).next n (n - 1)
+= well_formed_gt_lengths_disjoint_from_list h c (B.get h c 0).next n (n - 1)
 
 let rec unused_in_well_formed_disjoint_from_list
   #a #b
   (h: HS.mem)
   (r: B.buffer a)
-  (l: pointer_or_null (cell b))
+  (l: B.pointer_or_null (cell b))
   (n: nat)
 : Lemma
   (requires (r `B.unused_in` h /\ well_formed h l n))
@@ -219,7 +205,7 @@ let rec unused_in_well_formed_disjoint_from_list
   (decreases n)
 = if n = 0
   then ()
-  else unused_in_well_formed_disjoint_from_list h r (bget h l 0).next (n - 1)
+  else unused_in_well_formed_disjoint_from_list h r (B.get h l 0).next (n - 1)
 
 /// Finally, the pop operation. Here we use the classic representation
 /// using null pointers, which requires the client to pass a pointer
@@ -233,18 +219,18 @@ let rec unused_in_well_formed_disjoint_from_list
 
 /// This version uses an erased integer n; we have to work a little bit to
 /// hide/reveal the computationally-irrelevant length.
-val pop: (#a: Type) -> (#n: G.erased nat) -> (pl: pointer (t a)) ->
+val pop: (#a: Type) -> (#n: G.erased nat) -> (pl: B.pointer (t a)) ->
   Stack a
   (requires (fun h ->
     let n = G.reveal n in
-    let l = bget h pl 0 in
+    let l = B.get h pl 0 in
     B.live h pl /\
     well_formed h l n /\
     MO.loc_disjoint (MO.loc_buffer pl) (footprint h l n) /\
     n > 0
   ))
   (ensures (fun h0 v h1 ->
-    let l = bget h1 pl 0 in
+    let l = B.get h1 pl 0 in
     let n' = G.reveal n - 1 in
     B.live h1 pl /\
     MO.modifies (MO.loc_buffer pl) h0 h1 /\
@@ -256,24 +242,24 @@ let pop #a #n pl =
   let l = !* pl in
   let lcell = !* l in
   let h0 = get () in
-  B.upd pl 0ul lcell.next;
+  pl *= lcell.next;
   let h1 = get () in
   well_formed_head_tail_disjoint h0 l (G.reveal n);
   modifies_disjoint_footprint h0 l (G.reveal n) (MO.loc_buffer pl) h1;
   lcell.data
 
-val push: (#a: Type) -> (#n: G.erased nat) -> (pl: pointer (t a)) -> (x: a) ->
+val push: (#a: Type) -> (#n: G.erased nat) -> (pl: B.pointer (t a)) -> (x: a) ->
   ST unit
     (requires (fun h -> 
       let n = G.reveal n in
-      let l = bget h pl 0 in
+      let l = B.get h pl 0 in
       B.live h pl /\
       well_formed h l n /\
       MO.loc_disjoint (MO.loc_buffer pl) (footprint h l n)
     ))
     (ensures (fun h0 _ h1 ->
       let n' = G.reveal n + 1 in
-      let l = bget h1 pl 0 in
+      let l = B.get h1 pl 0 in
       MO.modifies (MO.loc_buffer pl) h0 h1 /\
       B.live h1 pl /\
       well_formed h1 l n' /\
@@ -288,11 +274,11 @@ let push #a #n pl x =
     next = l;
   }
   in
-  let pc: pointer (cell a) = B.rcreate_mm HS.root c 1ul in
+  let pc: B.pointer (cell a) = B.malloc HS.root c 1ul in
   unused_in_well_formed_disjoint_from_list h0 pc l (G.reveal n);
   let h1 = get () in
   modifies_disjoint_footprint h0 l (G.reveal n) (MO.loc_buffer pc) h1;
-  B.upd pl 0ul pc;
+  pl *= pc;
   let h2 = get () in
   modifies_disjoint_footprint h1 l (G.reveal n) (MO.loc_buffer pl) h2
 
@@ -329,7 +315,7 @@ let rec length #a gn l =
 val main: unit -> ST (Int32.t) (fun _ -> true) (fun _ _ _ -> true)
 
 let main () =
-  let l: pointer_or_null (t Int32.t) = B.rcreate_mm HS.root B.null 1ul in
+  let l: B.pointer_or_null (t Int32.t) = B.malloc HS.root B.null 1ul in
   push #Int32.t #(G.hide 0) l 1l;
   push #Int32.t #(G.hide 1) l 0l;
   pop #Int32.t #(G.hide 2) l
