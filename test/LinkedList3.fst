@@ -250,7 +250,7 @@ let pop #a #n pl =
 
 val push: (#a: Type) -> (#n: G.erased nat) -> (pl: B.pointer (t a)) -> (x: a) ->
   ST unit
-    (requires (fun h -> 
+    (requires (fun h ->
       let n = G.reveal n in
       let l = B.get h pl 0 in
       B.live h pl /\
@@ -311,7 +311,7 @@ let rec length #a gn l =
       0ul // dummy return value, this point is unreachable
     end else
       n +^ 1ul
-  
+
 val main: unit -> ST (Int32.t) (fun _ -> true) (fun _ _ _ -> true)
 
 let main () =

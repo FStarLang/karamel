@@ -262,7 +262,7 @@ let lowstar_buffer: file =
   "LowStar_Buffer", [
     mk_val [ "LowStar"; "Buffer" ] "is_null" (TArrow (TBuf TAny, TBool));
     mk_val [ "LowStar"; "Buffer" ] "null" (TArrow (TAny, TBuf TAny))
-  ]  
+  ]
 
 let prelude () =
   prims ::
@@ -300,7 +300,7 @@ let nullity: decl list =
     mk_val [ "C"; "Nullity" ] "is_null" (TArrow (TBuf TAny, TBool));
     mk_val [ "C"; "Nullity" ] "null" (TArrow (TAny, TBuf TAny))
   ]
-  
+
 let augment files =
   List.map (function
     | "C_Nullity", decls -> "C_Nullity", decls @ nullity
