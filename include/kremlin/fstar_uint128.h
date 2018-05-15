@@ -19,123 +19,62 @@
  *   must be compiled with -DKRML_NOSTRUCT_PASSING
  */
 
-#ifndef KRML_NOUINT128
-typedef unsigned __int128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t,
-    FStar_UInt128_uint128;
-
-static inline void print128(const char *where, uint128_t n) {
-  KRML_HOST_PRINTF(
-      "%s: [%" PRIu64 ",%" PRIu64 "]\n", where, (uint64_t)(n >> 64),
-      (uint64_t)n);
-}
-
-static inline uint128_t load128_le(uint8_t *b) {
-  uint128_t l = (uint128_t)load64_le(b);
-  uint128_t h = (uint128_t)load64_le(b + 8);
-  return (h << 64 | l);
-}
-
-static inline void store128_le(uint8_t *b, uint128_t n) {
-  store64_le(b, (uint64_t)n);
-  store64_le(b + 8, (uint64_t)(n >> 64));
-}
-
-static inline uint128_t load128_be(uint8_t *b) {
-  uint128_t h = (uint128_t)load64_be(b);
-  uint128_t l = (uint128_t)load64_be(b + 8);
-  return (h << 64 | l);
-}
-
-static inline void store128_be(uint8_t *b, uint128_t n) {
-  store64_be(b, (uint64_t)(n >> 64));
-  store64_be(b + 8, (uint64_t)n);
-}
-
-#  define FStar_UInt128_add(x, y) ((x) + (y))
-#  define FStar_UInt128_mul(x, y) ((x) * (y))
-#  define FStar_UInt128_add_mod(x, y) ((x) + (y))
-#  define FStar_UInt128_sub(x, y) ((x) - (y))
-#  define FStar_UInt128_sub_mod(x, y) ((x) - (y))
-#  define FStar_UInt128_logand(x, y) ((x) & (y))
-#  define FStar_UInt128_logor(x, y) ((x) | (y))
-#  define FStar_UInt128_logxor(x, y) ((x) ^ (y))
-#  define FStar_UInt128_lognot(x) (~(x))
-#  define FStar_UInt128_shift_left(x, y) ((x) << (y))
-#  define FStar_UInt128_shift_right(x, y) ((x) >> (y))
-#  define FStar_UInt128_uint64_to_uint128(x) ((uint128_t)(x))
-#  define FStar_UInt128_uint128_to_uint64(x) ((uint64_t)(x))
-#  define FStar_UInt128_mul_wide(x, y) ((uint128_t)(x) * (y))
-#  define FStar_UInt128_op_Hat_Hat(x, y) ((x) ^ (y))
-
-static inline uint128_t FStar_UInt128_eq_mask(uint128_t x, uint128_t y) {
-  uint64_t mask =
-      FStar_UInt64_eq_mask((uint64_t)(x >> 64), (uint64_t)(y >> 64)) &
-      FStar_UInt64_eq_mask(x, y);
-  return ((uint128_t)mask) << 64 | mask;
-}
-
-static inline uint128_t FStar_UInt128_gte_mask(uint128_t x, uint128_t y) {
-  uint64_t mask =
-      (FStar_UInt64_gte_mask(x >> 64, y >> 64) &
-       ~(FStar_UInt64_eq_mask(x >> 64, y >> 64))) |
-      (FStar_UInt64_eq_mask(x >> 64, y >> 64) & FStar_UInt64_gte_mask(x, y));
-  return ((uint128_t)mask) << 64 | mask;
-}
-
-static inline uint128_t FStar_Int_Cast_Full_uint64_to_uint128(uint64_t x) {
-  return x;
-}
-
-static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64(uint128_t x) {
-  return x;
-}
-
-#  else /* !defined(KRML_NOUINT128) */
-
-#    ifdef KRML_SEPARATE_UINT128
+// Access 64-bit fields within the int128.
+// The headers below may override these default macros
+#define HIGH64_OF(x) ((x)->high)
+#define LOW64_OF(x)  ((x)->low)
+ 
+#if !defined(KRML_NOUINT128)
+#  if defined(_MSC_VER)
+#    include "kremlin/fstar_uint128_msvc.h"
+#  else
+#    include "kremlin/fstar_uint128_builtin.h"
+#  endif
+#else /* !defined(KRML_NOUINT128) */
+#  if defined(KRML_SEPARATE_UINT128)
 #      include <FStar_UInt128.h>
-#    else
+#  else
     /* This is a bad circular dependency... should fix it properly. */
 #      include "FStar.h"
-#    endif
+#  endif
 
 typedef FStar_UInt128_uint128 FStar_UInt128_t_, uint128_t;
 
 /* A series of definitions written using pointers. */
 static inline void print128_(const char *where, uint128_t *n) {
   KRML_HOST_PRINTF(
-      "%s: [0x%08" PRIx64 ",0x%08" PRIx64 "]\n", where, n->high, n->low);
+      "%s: [0x%08" PRIx64 ",0x%08" PRIx64 "]\n", where, HIGH64_OF(n), LOW64_OF(n);
 }
 
 static inline void load128_le_(uint8_t *b, uint128_t *r) {
-  r->low = load64_le(b);
-  r->high = load64_le(b + 8);
+  LOW64_OF(r) = load64_le(b);
+  HIGH64_OF(r) = load64_le(b + 8);
 }
 
 static inline void store128_le_(uint8_t *b, uint128_t *n) {
-  store64_le(b, n->low);
-  store64_le(b + 8, n->high);
+  store64_le(b, LOW64_OF(n));
+  store64_le(b + 8, HIGH64_OF(n));
 }
 
 static inline void load128_be_(uint8_t *b, uint128_t *r) {
-  r->high = load64_be(b);
-  r->low = load64_be(b + 8);
+  HIGH64_OF(r) = load64_be(b);
+  LOW64_OF(r) = load64_be(b + 8);
 }
 
 static inline void store128_be_(uint8_t *b, uint128_t *n) {
-  store64_be(b, n->high);
-  store64_be(b + 8, n->low);
+  store64_be(b, HIGH64_OF(n));
+  store64_be(b + 8, LOW64_OF(n));
 }
 
 static inline void
 FStar_Int_Cast_Full_uint64_to_uint128_(uint64_t x, uint128_t *dst) {
   /* C89 */
-  dst->low = x;
-  dst->high = 0;
+  LOW64_OF(dst) = x;
+  HIGH64_OF(dst) = 0;
 }
 
 static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64_(uint128_t *x) {
-  return x->low;
+  return LOW64_OF(x->low);
 }
 
 #    ifndef KRML_NOSTRUCT_PASSING
