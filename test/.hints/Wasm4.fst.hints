@@ -1,21 +1,20 @@
 [
-  "åòHêü”BP\u0014d•ÚÇ\u000f$≥",
+  "ªÕDgÚº∫÷wøÌ≤ï~˜´",
   [
     [
-      "OptimizedOption.f",
+      "Wasm4.test",
       1,
       2,
       1,
       [
-        "@MaxIFuel_assumption", "@query",
+        "@MaxIFuel_assumption", "@query", "assumption_Wasm4.t__uu___haseq",
         "equation_FStar.HyperStack.ST.equal_stack_domains",
         "equation_FStar.Monotonic.Heap.equal_dom",
-        "equation_OptimizedOption.t",
         "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "1c6ad347289d7a8917a8894c4c5bb06d"
+      "842f8c309fb580dc6be37c7cfdda8f9a"
     ]
   ]
 ]
