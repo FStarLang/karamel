@@ -18,7 +18,8 @@ FILES		= \
   CustomEq.test Uu.test WildCard.test UnusedParameter.test EqB.test MutRec.test \
   MallocFree.test TestAlloca.test OptimizedOption.test PushPop.test EtaStruct.test \
   Verbatim.test Const.test $(CRYPTO)/Crypto.Symmetric.Chacha20.test Uu.test \
-  LinkedList1.test LinkedList2.test LinkedList3.test NoExtract.test InlineNoExtract.test \
+  LinkedList1.test LinkedList2.test LinkedList3.test LinkedList4.test \
+  NoExtract.test InlineNoExtract.test \
   ../book/Introduction.test
 CUSTOM		= count-uu
 WASM_FILES	= \
