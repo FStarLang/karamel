@@ -258,11 +258,18 @@ let c: file =
     mk_val [ "C" ] "exit" (TArrow (TInt K.Int32, TUnit))
   ]
 
+let lowstar_buffer: file =
+  "LowStar_Buffer", [
+    mk_val [ "LowStar"; "Buffer" ] "is_null" (TArrow (TBuf TAny, TBool));
+    mk_val [ "LowStar"; "Buffer" ] "null" (TArrow (TAny, TBuf TAny))
+  ]  
+
 let prelude () =
   prims ::
   List.map mk_builtin_int
     [ UInt8; UInt16; UInt32; UInt64; Int8; Int16; Int32; Int64 ] @ [
   buffer;
+  lowstar_buffer;
   monotonic_hh;
   monotonic_hs;
   hs;
@@ -293,16 +300,9 @@ let nullity: decl list =
     mk_val [ "C"; "Nullity" ] "is_null" (TArrow (TBuf TAny, TBool));
     mk_val [ "C"; "Nullity" ] "null" (TArrow (TAny, TBuf TAny))
   ]
-
-let lowstar_buffer_nullity: decl list =
-  [
-    mk_val [ "LowStar"; "Buffer" ] "is_null" (TArrow (TBuf TAny, TBool));
-    mk_val [ "LowStar"; "Buffer" ] "null" (TArrow (TAny, TBuf TAny))
-  ]  
   
 let augment files =
   List.map (function
     | "C_Nullity", decls -> "C_Nullity", decls @ nullity
-    | "LowStar_Buffer", decls -> "LowStar_Buffer", decls @ lowstar_buffer_nullity
     | f -> f
   ) files
