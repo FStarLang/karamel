@@ -9,11 +9,13 @@
       [
         "@MaxIFuel_assumption", "@query",
         "assumption_FStar.UInt8.t__uu___haseq",
-        "primitive_Prims.op_Subtraction", "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_FStar.Buffer_Tm_refine_ac61996218e7c5b51c85527152e93166"
+        "function_token_typing_C.char", "primitive_Prims.op_Subtraction",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_FStar.Buffer_Tm_refine_ac61996218e7c5b51c85527152e93166",
+        "typing_FStar.Buffer.as_seq"
       ],
       0,
-      "4129e03d06b32005505d0cac93b76aff"
+      "da777416863865be8757411936f56520"
     ],
     [
       "SystemNative.pointer",
@@ -22,7 +24,7 @@
       1,
       [ "@query", "assumption_Prims.HasEq_int" ],
       0,
-      "a49cf4edcf34ef68544eece7944e3eee"
+      "ec52dbf0b4ef36c1312c720e4a6f5566"
     ],
     [
       "SystemNative.pointer_or_null",
@@ -31,7 +33,7 @@
       1,
       [ "@query", "assumption_Prims.HasEq_int" ],
       0,
-      "b6cd4bda852813f43f60288111ad1130"
+      "f20bbb3711208a4e54966c3a233e705d"
     ],
     [
       "SystemNative.sockaddr_t",
@@ -45,7 +47,7 @@
         "fuel_guarded_inversion_SystemNative.ai_family_t"
       ],
       0,
-      "78a18c2ae392e29fca0562adc4faae3a"
+      "0fa94cab075f9527d343d169f5163f3d"
     ],
     [
       "SystemNative.__proj__AddrInfo__item__ai_addr",
@@ -57,39 +59,21 @@
         "projection_inverse_SystemNative.AddrInfo_ai_family"
       ],
       0,
-      "e3efb9d21751835db71ba1112be727a8"
+      "76b81ba5f4b2566c8ea035ee5830d3bf"
     ],
     [
       "SystemNative.addrinfo_length_decreases",
       1,
-      2,
-      1,
-      [ "@query", "assumption_Prims.HasEq_int" ],
-      0,
-      "d359039003d877a9823ccc2e924b3433"
-    ],
-    [
-      "SystemNative.addrinfo_length_decreases",
-      2,
-      2,
-      1,
-      [ "@query", "assumption_Prims.HasEq_int" ],
-      0,
-      "d6102379fde42cb1caea0551df959d76"
-    ],
-    [
-      "SystemNative.addrinfo_length_decreases",
-      3,
       2,
       1,
       [
-        "@MaxIFuel_assumption", "@query",
+        "@MaxIFuel_assumption", "@query", "assumption_Prims.HasEq_int",
         "equation_SystemNative.pointer_or_null",
         "projection_inverse_BoxInt_proj_0",
         "refinement_interpretation_SystemNative_Tm_refine_dbe33893899564965a42f115925172f5"
       ],
       0,
-      "fd06603e0761caa5bc237e1c92f3c81c"
+      "c273b79fd714740a69e6bf5c7b2a1c4d"
     ],
     [
       "SystemNative.addrinfo_live",
@@ -115,30 +99,23 @@
         "typing_SystemNative.addrinfo_length", "well-founded-ordering-on-nat"
       ],
       0,
-      "675212f492164a8150b32b3f0045b59d"
+      "4000a851b7779bb526f1900db1f735d5"
     ],
     [
       "SystemNative.getaddrinfo",
       1,
-      2,
-      1,
-      [ "@query", "assumption_FStar.Int32.t__uu___haseq" ],
-      0,
-      "db41ea6fffaef2131255232d74888cf0"
-    ],
-    [
-      "SystemNative.getaddrinfo",
-      2,
       2,
       1,
       [
-        "@MaxIFuel_assumption", "@query", "equation_SystemNative.pointer",
+        "@MaxIFuel_assumption", "@query",
+        "assumption_FStar.Int32.t__uu___haseq",
+        "equation_SystemNative.pointer",
         "equation_SystemNative.pointer_or_null",
         "projection_inverse_BoxInt_proj_0",
         "refinement_interpretation_SystemNative_Tm_refine_0d4da60cb6187749d65a25df63d2ab15"
       ],
       0,
-      "8b66bffbb9c10d1d608be3222744d758"
+      "132c180359e3ace817345e1e1e60e005"
     ]
   ]
 ]

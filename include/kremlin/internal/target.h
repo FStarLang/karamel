@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <inttypes.h>
+#include <limits.h>
 
 #include "kremlin/internal/callconv.h"
 

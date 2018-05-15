@@ -2,6 +2,114 @@
   "¯¥z#\u0017ðîÌü áa)ª›d",
   [
     [
+      "C.Endianness.store16_le",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "d1598aa16c6eccb9195a9837c74a29f8"
+    ],
+    [
+      "C.Endianness.load16_le",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "34c887dafb63a50295d756c71a60ca12"
+    ],
+    [
+      "C.Endianness.store16_be",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "5eaf36ca17422addc529e6c39e7d06e1"
+    ],
+    [
+      "C.Endianness.load16_be",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "4d05bc7ccf98a3733c2dbfe119875f05"
+    ],
+    [
+      "C.Endianness.store32_le",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "c095429cb1c6374d328f998ef4377beb"
+    ],
+    [
+      "C.Endianness.load32_le",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "2226fc04252143f0a946ac9671ee5cc2"
+    ],
+    [
+      "C.Endianness.store32_be",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "6a0f1261eb09048eea64fca9c473d4cf"
+    ],
+    [
+      "C.Endianness.load32_be",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "593a32abe766940ec76eff877e9617fd"
+    ],
+    [
+      "C.Endianness.load64_le",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "f0020bcbeccd19f2c32eacf79f27a3b8"
+    ],
+    [
+      "C.Endianness.store64_le",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "a5036801673a6547f5341fe5acb3c88e"
+    ],
+    [
+      "C.Endianness.load64_be",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "9ffd04087d3a57f67c0a4b2b2cca91da"
+    ],
+    [
+      "C.Endianness.store64_be",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "ea0d24376c53dab59862b7165494204a"
+    ],
+    [
       "C.Endianness.load128_le",
       1,
       2,
@@ -11,7 +119,7 @@
         "projection_inverse_BoxInt_proj_0"
       ],
       0,
-      "045d475ac30bce450e826d64e2ed6875"
+      "3ce6e75fe491f1c1b0da8701233cb3ee"
     ],
     [
       "C.Endianness.store128_le",
@@ -23,7 +131,7 @@
         "projection_inverse_BoxInt_proj_0"
       ],
       0,
-      "9347f6a722b106fe047dc8997b5f8045"
+      "4fc3c9f96add5b310426a01eefa3d827"
     ],
     [
       "C.Endianness.load128_be",
@@ -35,28 +143,19 @@
         "projection_inverse_BoxInt_proj_0"
       ],
       0,
-      "ef1e3847a892f5e0060200c56cb1e5b4"
+      "16ef810c4b833001b273b1044078da71"
     ],
     [
       "C.Endianness.store128_be",
       1,
-      2,
-      1,
-      [ "@query", "assumption_Prims.HasEq_int" ],
-      0,
-      "5d67768d85a574453294c2333e0e4424"
-    ],
-    [
-      "C.Endianness.store128_be",
-      2,
       2,
       1,
       [
-        "@query", "equation_FStar.UInt128.n",
+        "@query", "assumption_Prims.HasEq_int", "equation_FStar.UInt128.n",
         "projection_inverse_BoxInt_proj_0"
       ],
       0,
-      "8df34ff61cad4a49b788f561f43bb303"
+      "3c97351e9793a4682b6b683570b9c3fb"
     ]
   ]
 ]

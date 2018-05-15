@@ -136,7 +136,8 @@ let prims: file =
     mk_unop "pow2";
     mk_val "strcat" (TArrow (t_string, TArrow (t_string, t_string)));
     mk_val "string_of_int" (TArrow (TInt K.CInt, t_string));
-    DType ((["Prims"], "prop"), [], 0, Abbrev TUnit)
+    DType ((["Prims"], "prop"), [], 0, Abbrev TUnit);
+    DType ((["Prims"], "nat"), [ Common.Private ], 0, Abbrev (TQualified (["Prims"], "int")))
   ]
 
 let buffer: file =
