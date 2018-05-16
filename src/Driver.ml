@@ -229,7 +229,7 @@ let detect_fstar () =
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
   (* This is a superset of the needed modules... some will be dropped very early
    * on in Kremlin.ml *)
-  fstar_options := (!fstar_home ^^ "ulib" ^^ "FStar.UInt128.fst") :: !fstar_options;
+  fstar_options := (!fstar_lib ^^ "FStar.UInt128.fst") :: !fstar_options;
   fstar_options := (!runtime_dir ^^ "WasmSupport.fst") :: !fstar_options;
   KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
 
