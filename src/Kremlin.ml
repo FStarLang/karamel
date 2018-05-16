@@ -327,6 +327,7 @@ Supported options:|}
     Options.bundle :=
       ([], [ Bundle.Module [ "C"; "Loops" ]; Bundle.Module [ "Spec"; "Loops" ] ]) ::
       ([], [ Bundle.Prefix [ "FStar" ] ]) ::
+      ([], [ Bundle.Prefix [ "LowStar" ] ]) ::
       !Options.bundle;
 
   if !arg_c89 then begin
