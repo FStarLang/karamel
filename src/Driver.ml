@@ -49,7 +49,10 @@ let fstar_rev = ref "<unknown>"
 let fstar_options = ref []
 
 (** By [detect_kremlin] *)
-let krml_home = ref ""
+let kremlib_dir = ref ""
+let runtime_dir = ref ""
+let include_dir = ref ""
+let misc_dir = ref ""
 let krml_rev = ref "<unknown>"
 
 (** These two filled in by [detect_gcc] and others *)
@@ -114,43 +117,55 @@ let detect_base_tools_if () =
     detect_base_tools ()
 
 
-(** Fills in krml_home, and prepends the path to [kremlib] to [Options.includes] *)
+(** Fills in *_dir, and fills in [Options.includes]. *)
 let detect_kremlin () =
   detect_base_tools_if ();
 
-  KPrint.bprintf "%sKreMLin called via:%s %s\n" Ansi.underline Ansi.reset Sys.argv.(0);
+  if AutoConfig.kremlib_dir <> "" then begin
+    kremlib_dir := AutoConfig.kremlib_dir;
+    runtime_dir := AutoConfig.runtime_dir;
+    include_dir := AutoConfig.include_dir;
+    misc_dir := AutoConfig.misc_dir
+  end else begin
 
-  let real_krml =
-    let me = Sys.argv.(0) in
-    if Sys.os_type = "Win32" && not (Filename.is_relative me) then
-      me
-    else
-      try read_one_line !readlink [| "-f"; read_one_line "which" [| me |] |]
-      with _ -> fatal_error "Could not compute full krml path"
-  in
-  (* ../_build/src/Kremlin.native *)
-  KPrint.bprintf "%sthe Kremlin executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
+    KPrint.bprintf "%sKreMLin called via:%s %s\n" Ansi.underline Ansi.reset Sys.argv.(0);
 
-  let home =
-    try read_one_line !readlink [| "-f"; d real_krml ^^ ".." ^^ ".." |]
-    with _ -> fatal_error "Could not compute krml_home"
-  in
-  KPrint.bprintf "%sKreMLin home is:%s %s\n" Ansi.underline Ansi.reset home;
-  krml_home := home;
+    let real_krml =
+      let me = Sys.argv.(0) in
+      if Sys.os_type = "Win32" && not (Filename.is_relative me) then
+        me
+      else
+        try read_one_line !readlink [| "-f"; read_one_line "which" [| me |] |]
+        with _ -> fatal_error "Could not compute full krml path"
+    in
+    (* ../_build/src/Kremlin.native *)
+    KPrint.bprintf "%sthe Kremlin executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
 
-  if try Sys.is_directory (!krml_home ^^ ".git") with Sys_error _ -> false then begin
-    let cwd = Sys.getcwd () in
-    Sys.chdir !krml_home;
-    krml_rev := String.sub (read_one_line "git" [| "rev-parse"; "HEAD" |]) 0 8;
-    Sys.chdir cwd
+    let krml_home =
+      try read_one_line !readlink [| "-f"; d real_krml ^^ ".." ^^ ".." |]
+      with _ -> fatal_error "Could not compute krml_home"
+    in
+    KPrint.bprintf "%sKreMLin home is:%s %s\n" Ansi.underline Ansi.reset krml_home;
+
+    if try Sys.is_directory (krml_home ^^ ".git") with Sys_error _ -> false then begin
+      let cwd = Sys.getcwd () in
+      Sys.chdir krml_home;
+      krml_rev := String.sub (read_one_line "git" [| "rev-parse"; "HEAD" |]) 0 8;
+      Sys.chdir cwd
+    end;
+
+    kremlib_dir := krml_home ^^ "kremlib";
+    runtime_dir := krml_home ^^ "runtime";
+    include_dir := krml_home ^^ "include";
+    misc_dir := krml_home ^^ "misc"
+
   end;
 
   (* The first one for F*, the second one for the C compiler. *)
-  Options.includes := (!krml_home ^^ "kremlib") :: (!krml_home ^^ "include") ::
-    !Options.includes
+  Options.includes := !kremlib_dir :: !include_dir :: !Options.includes
 
 let detect_kremlin_if () =
-  if !krml_home = "" then
+  if !kremlib_dir = "" then
     detect_kremlin ()
 
 let expand_prefixes s =
@@ -158,8 +173,6 @@ let expand_prefixes s =
     !fstar_lib ^^ KString.chop s "FSTAR_LIB"
   else if KString.starts_with s "FSTAR_HOME" then
     !fstar_home ^^ KString.chop s "FSTAR_HOME"
-  else if KString.starts_with s "KRML_HOME" then
-    !krml_home ^^ KString.chop s "KRML_HOME"
   else
     s
 
@@ -217,7 +230,7 @@ let detect_fstar () =
   (* This is a superset of the needed modules... some will be dropped very early
    * on in Kremlin.ml *)
   fstar_options := (!fstar_home ^^ "ulib" ^^ "FStar.UInt128.fst") :: !fstar_options;
-  fstar_options := (!krml_home ^^ "runtime" ^^ "WasmSupport.fst") :: !fstar_options;
+  fstar_options := (!runtime_dir ^^ "WasmSupport.fst") :: !fstar_options;
   KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
 
   flush stdout
@@ -344,7 +357,7 @@ let detect_cc_if () =
     | "clang" ->
         detect_gnu "clang"
     | "msvc" ->
-        cc := !krml_home ^^ "misc" ^^ "cl-wrapper.bat";
+        cc := !misc_dir ^^ "cl-wrapper.bat";
     | _ ->
         fatal_error "Unrecognized value for -cc: %s" !Options.cc
 
@@ -362,7 +375,7 @@ let compile files extra_c_files =
   detect_kremlin_if ();
   detect_cc_if ();
   flush stdout;
-  let extra_c_files = (!krml_home ^^ "kremlib" ^^ "kremlib.c") :: extra_c_files in
+  let extra_c_files = (!kremlib_dir ^^ "kremlib.c") :: extra_c_files in
 
   let files = List.map (fun f -> !Options.tmpdir ^^ f ^ ".c") files in
   KPrint.bprintf "%s⚡ Generating object files%s\n" Ansi.blue Ansi.reset;
