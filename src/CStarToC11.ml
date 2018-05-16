@@ -548,6 +548,20 @@ and mk_index (e1: expr) (e2: expr): C.expr =
 and mk_deref (e: expr) : C.expr =
   Deref (mk_expr e)
 
+(* Some functions get a special treatment and are pretty-printed in a specific
+ * way at the very last minute. KreMLin is never supposed to generate unused
+ * declarations, so these primitives must not be output in the resulting C
+ * files. *)
+and is_primitive s =
+  KString.starts_with s "C_Nullity_op_Bang_Star__" ||
+  KString.starts_with s "LowStar_BufferOps_op_Bang_Star__" ||
+  KString.starts_with s "LowStar_BufferOps_op_Star_Equals__" ||
+  s = "LowStar_Buffer_is_null" ||
+  s = "C_Nullity_is_null" ||
+  s = "LowStar_Buffer_null" ||
+  s = "C_Nullity_null" ||
+  s = "C_String_get"
+
 and mk_expr (e: expr): C.expr =
   match e with
   | InlineComment (s, e, s') ->
@@ -562,10 +576,10 @@ and mk_expr (e: expr): C.expr =
   | Comma (e1, e2) ->
       Op2 (K.Comma, mk_expr e1, mk_expr e2)
 
-  | Call (Qualified s, [ e1 ]) when KString.starts_with s "C_Nullity_op_Bang_Star__"->
+  | Call (Qualified s, [ e1 ]) when KString.starts_with s "C_Nullity_op_Bang_Star__" ->
       mk_deref e1
 
-  | Call (Qualified s, [ e1 ]) when KString.starts_with s "LowStar_BufferOps_op_Bang_Star__"->
+  | Call (Qualified s, [ e1 ]) when KString.starts_with s "LowStar_BufferOps_op_Bang_Star__" ->
       mk_deref e1
 
   | Call (Qualified s, [ e1; e2 ] ) when KString.starts_with s "LowStar_BufferOps_op_Star_Equals__" ->
@@ -688,17 +702,20 @@ let mk_function_or_global_body (d: decl): C.declaration_or_function list =
       []
 
   | Function (cc, flags, return_type, name, parameters, body) ->
-      begin try
-        let static = if List.exists ((=) Private) flags then Some Static else None in
-        let inline = List.exists ((=) Inline) flags in
-        let parameters = List.map (fun { name; typ } -> name, typ) parameters in
-        let qs, spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
-        let body = ensure_compound (mk_debug name parameters @ mk_stmts body) in
-        wrap_verbatim flags (Function (mk_comments flags, inline, (qs, spec, static, [ decl, None ]), body))
-      with e ->
-        beprintf "Fatal exception raised in %s\n" name;
-        raise e
-      end
+      if is_primitive name then
+        []
+      else
+        begin try
+          let static = if List.exists ((=) Private) flags then Some Static else None in
+          let inline = List.exists ((=) Inline) flags in
+          let parameters = List.map (fun { name; typ } -> name, typ) parameters in
+          let qs, spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
+          let body = ensure_compound (mk_debug name parameters @ mk_stmts body) in
+          wrap_verbatim flags (Function (mk_comments flags, inline, (qs, spec, static, [ decl, None ]), body))
+        with e ->
+          beprintf "Fatal exception raised in %s\n" name;
+          raise e
+        end
 
   | Global (name, flags, t, expr) ->
       let qs, spec, decl = mk_spec_and_declarator name t in
@@ -719,14 +736,17 @@ let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
       []
 
   | Function (cc, flags, return_type, name, parameters, _) ->
-      begin try
-        let parameters = List.map (fun { name; typ } -> name, typ) parameters in
-        let qs, spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
-        wrap_verbatim flags (Decl (mk_comments flags, (qs, spec, None, [ decl, None ])))
-      with e ->
-        beprintf "Fatal exception raised in %s\n" name;
-        raise e
-      end
+      if is_primitive name then
+        []
+      else
+        begin try
+          let parameters = List.map (fun { name; typ } -> name, typ) parameters in
+          let qs, spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
+          wrap_verbatim flags (Decl (mk_comments flags, (qs, spec, None, [ decl, None ])))
+        with e ->
+          beprintf "Fatal exception raised in %s\n" name;
+          raise e
+        end
 
   | Global (name, flags, t, _) ->
       let qs, spec, decl = mk_spec_and_declarator name t in
@@ -745,10 +765,13 @@ let mk_type_or_external (d: decl): C.declaration_or_function list =
       wrap_verbatim flags (Decl ([], (qs, spec, Some Typedef, [ decl, None ])))
 
   | External (name, Function (cc, t, ts), flags) ->
-      let qs, spec, decl = mk_spec_and_declarator_f cc name t (List.mapi (fun i t ->
-        KPrint.bsprintf "x%d" i, t
-      ) ts) in
-      wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
+      if is_primitive name then
+        []
+      else
+        let qs, spec, decl = mk_spec_and_declarator_f cc name t (List.mapi (fun i t ->
+          KPrint.bsprintf "x%d" i, t
+        ) ts) in
+        wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
 
   | External (name, t, flags) ->
       let qs, spec, decl = mk_spec_and_declarator name t in
