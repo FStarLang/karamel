@@ -1,5 +1,6 @@
 ### May 17th, 2018
 
+- Release 0.9.6.0
 - Support for running as an OPAM package
 
 ### May 2nd, 2018
