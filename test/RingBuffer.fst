@@ -73,8 +73,11 @@ let as_list #a (h: HS.mem) (x: t a): Ghost (list a)
 =
   as_list_aux h x.b (B.get h x.first 0) (B.get h x.length 0) x.total_length
 
+let remaining_space #a (h: HS.mem) (x: t a { well_formed h x }) =
+  U32.( x.total_length -^ (B.get h x.length 0) )
+
 let space_left #a (h: HS.mem) (x: t a { well_formed h x }) =
-  U32.( x.total_length -^ (B.get h x.length 0) >^ 0ul )
+  U32.( remaining_space h x >^ 0ul )
 
 let used_slot #a (h: HS.mem) (x: t a { well_formed h x }) (i: U32.t) =
   let first = U32.v (B.get h x.first 0) in
@@ -84,12 +87,12 @@ let used_slot #a (h: HS.mem) (x: t a { well_formed h x }) (i: U32.t) =
   first <= i /\ i < first + length \/
   first <= i + total_length /\ i + total_length < first + length
 
-
 let push (#a: eqtype) (x: t a) (e: a): Stack unit
   (requires fun h ->
     well_formed h x /\ space_left h x)
   (ensures fun h0 _ h1 ->
     well_formed h1 x /\
+    U32.(remaining_space h1 x =^ remaining_space h0 x -^ 1ul) /\
     M.(modifies (loc_union
       (loc_buffer x.length)
         (loc_union (loc_buffer x.first) (loc_buffer x.b))) h0 h1) /\
@@ -107,7 +110,7 @@ let pop (#a: eqtype) (x: t a): Stack a
   (ensures fun h0 r h1 ->
     well_formed h1 x /\
     M.(modifies (loc_union (loc_buffer x.length) (loc_buffer x.first)) h0 h1) /\
-    space_left h1 x /\ (
+    U32.(remaining_space h1 x = remaining_space h0 x +^ 1ul) /\ (
     let hd :: tl = as_list h0 x in
     r = hd))// /\ as_list h1 x = tl))
 =
@@ -115,3 +118,19 @@ let pop (#a: eqtype) (x: t a): Stack a
   x.first *= next !*x.first x.total_length;
   x.length *= U32.(!*x.length -^ 1ul);
   e
+
+let create (#a: eqtype) (init: a) (len: U32.t): StackInline (t a)
+  (requires (fun _ -> U32.v len > 0))
+  (ensures (fun h0 x h1 ->
+     well_formed h1 x /\ remaining_space h1 x = len))
+=
+  let b = B.alloca init len in
+  { b = b; first = B.alloca 0ul 1ul; length = B.alloca 0ul 1ul; total_length = len }
+
+let main (): St Int32.t =
+  push_frame ();
+  let rb = create 1l 32ul in
+  push rb 0l;
+  let r = pop rb in
+  pop_frame ();
+  r

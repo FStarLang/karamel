@@ -19,7 +19,7 @@ FILES		= \
   MallocFree.test TestAlloca.test OptimizedOption.test PushPop.test EtaStruct.test \
   Verbatim.test Const.test $(CRYPTO)/Crypto.Symmetric.Chacha20.test Uu.test \
   LinkedList1.test LinkedList2.test LinkedList3.test LinkedList4.test \
-  NoExtract.test InlineNoExtract.test \
+  NoExtract.test InlineNoExtract.test RingBuffer.test \
   ../book/Introduction.test
 CUSTOM		= count-uu
 WASM_FILES	= \
