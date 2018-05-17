@@ -1,3 +1,6 @@
+/// Example: RingBuffer
+/// ===================
+
 module RingBuffer
 
 /// This module demonstrates how to implement a ringbuffer in Low*. It uses the

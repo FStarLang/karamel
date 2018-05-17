@@ -12,6 +12,7 @@ The KreMLin user manual and documentation
 
    Introduction
    LowStar
+   RingBuffer
 
 
 Indices and tables
