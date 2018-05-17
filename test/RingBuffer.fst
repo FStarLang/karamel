@@ -17,6 +17,10 @@ type t a = {
   total_length: U32.t
 }
 
+// Some helpers...
+unfold
+let deref #a h (x: B.pointer a) = B.get h x 0
+
 let well_formed_f #a (h: HS.mem) (b: B.buffer a) (first length total_length: U32.t) =
   let open U32 in
   B.length b = v total_length /\
@@ -29,7 +33,7 @@ let well_formed #a (h: HS.mem) (x: t a) =
   M.(loc_disjoint (loc_buffer x.b) (loc_buffer x.first)) /\
   M.(loc_disjoint (loc_buffer x.b) (loc_buffer x.length)) /\
   M.(loc_disjoint (loc_buffer x.first) (loc_buffer x.length)) /\
-  well_formed_f h x.b (B.get h x.first 0) (B.get h x.length 0) x.total_length
+  well_formed_f h x.b (deref h x.first) (deref h x.length) x.total_length
 
 // Avoiding the modulo operator at all costs; also: can't use !*x.first +
 // x.total_length -^ 1ul %^ x.total_length because this might overflow!
@@ -71,17 +75,17 @@ let as_list #a (h: HS.mem) (x: t a): Ghost (list a)
   (requires well_formed h x)
   (ensures fun _ -> True)
 =
-  as_list_aux h x.b (B.get h x.first 0) (B.get h x.length 0) x.total_length
+  as_list_aux h x.b (deref h x.first) (deref h x.length) x.total_length
 
 let remaining_space #a (h: HS.mem) (x: t a { well_formed h x }) =
-  U32.( x.total_length -^ (B.get h x.length 0) )
+  U32.( x.total_length -^ (deref h x.length) )
 
 let space_left #a (h: HS.mem) (x: t a { well_formed h x }) =
   U32.( remaining_space h x >^ 0ul )
 
 let used_slot #a (h: HS.mem) (x: t a { well_formed h x }) (i: U32.t) =
-  let first = U32.v (B.get h x.first 0) in
-  let length = U32.v (B.get h x.length 0) in
+  let first = U32.v (deref h x.first) in
+  let length = U32.v (deref h x.length) in
   let total_length = U32.v x.total_length in
   let i = U32.v i in
   first <= i /\ i < first + length \/
@@ -103,10 +107,9 @@ let push (#a: eqtype) (x: t a) (e: a): Stack unit
   x.first *= dest_slot;
   x.length *= U32.(!*x.length +^ 1ul)
 
-
 let pop (#a: eqtype) (x: t a): Stack a
   (requires fun h ->
-    well_formed h x /\ U32.(B.get h x.length 0 >^ 0ul))
+    well_formed h x /\ U32.(deref h x.length >^ 0ul))
   (ensures fun h0 r h1 ->
     well_formed h1 x /\
     M.(modifies (loc_union (loc_buffer x.length) (loc_buffer x.first)) h0 h1) /\
