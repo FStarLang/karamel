@@ -7,9 +7,13 @@ KreMLin is a tool that extracts an F\* program to readable C code. If the F\*
 program verifies against a low-level memory model that talks about the stack and
 the heap; if it is first-order; if it obeys certain restrictions (e.g.
 non-recursive data types) then KreMLin will turn it into C.
+
+The best way to learn about KreMLin is its work-in-progress
+[tutorial](https://fstarlang.github.io/lowstar/html/). Pull requests and
+feedback are welcome!
+
 - [DESIGN.md](DESIGN.md) has a technical overview of the different
-  transformation passes performed by KreMLin
-- [MANUAL.md](MANUAL.md) contains some tips&tricks when working with KreMLin.
+  transformation passes performed by KreMLin, and is slightly out of date.
 
 This work has been formalized on paper. We state that the compilation of
 such F\* programs to C preserves semantics. We start from Low\*, a subset of
@@ -31,12 +35,7 @@ key component of [Project Everest](https://project-everest.github.io/).
 
 ## Trying out KreMLin
 
-KreMLin requires OCaml (version 4.02.3 to 4.05.0) and OPAM (version 1.2.x).
-Make sure you run `opam update` first, so that by running the `opam install`
-command below you get `process-0.2.1` (`process` version `0.2` doesn't work on
-Windows). Install all of the packages below, on Windows possibly following
-instructions from https://github.com/protz/ocaml-installer/wiki for "difficult"
-packages (e.g. `ppx_deriving`).
+KreMLin requires OCaml (> 4.04.0) and OPAM.
 
 `$ opam install ppx_deriving_yojson zarith pprint menhir ulex process fix wasm visitors`
 
@@ -44,9 +43,6 @@ Then, make sure you have an up-to-date F\*, and that you ran `make` in the
 `ulib/ml` directory of F\*. The `fstar.exe` executable should be on your PATH.
 
 To build just run `make` from this directory.
-
-**Note:** KreMLin's `master` branch runs against F\*'s `stable` branch, and
-KreMLin's `fstar-master` branch runs against F\*'s `master` branch.
 
 **Note:** on OSX, KreMLin is happier if you have `greadlink` installed (`brew
 install coreutils`).
@@ -58,10 +54,8 @@ File a bug if things don't work!
 
 ## Documentation
 
-The simple example from the [ML Workshop Paper] is available in
-`test/ML16.fst` and you can compile it with `make ML16.exe`.
+The `--help` flag contains a substantial amount of information.
 
-Also check out the `--help` flag:
 ```
 $ ./krml --help
 ```
