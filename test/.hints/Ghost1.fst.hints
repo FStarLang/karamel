@@ -1,0 +1,35 @@
+[
+  "\u001c«Ù¶6â®aûÎÿ_ñ\u001e\"q",
+  [
+    [
+      "Ghost1.test_log",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.HyperStack.ST.equal_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "equation_FStar.Monotonic.HyperHeap.hmap",
+        "equation_FStar.Set.eqtype", "equation_Prims.eqtype",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
+        "function_token_typing_FStar.Monotonic.Heap.heap",
+        "function_token_typing_FStar.Monotonic.HyperHeap.rid",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
+        "lemma_FStar.Set.lemma_equal_refl", "typing_FStar.Map.domain",
+        "typing_FStar.Monotonic.HyperStack.__proj__HS__item__h"
+      ],
+      0,
+      "1d0a3447178aa85012c9986d4355d7d3"
+    ],
+    [
+      "Ghost1.test",
+      1,
+      2,
+      1,
+      [ "@query", "lemma_FStar.HyperStack.ST.lemma_equal_domains_trans" ],
+      0,
+      "ad686d82a373fc0408724a5d2367d9b4"
+    ]
+  ]
+]

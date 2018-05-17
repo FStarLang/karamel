@@ -15,4 +15,4 @@ let get_int c2 =
 let main () =
   let b = C2 (C1 10ul) in
   checku32 10ul (get_int b);
-  C.exit_success
+  C.EXIT_SUCCESS

@@ -32,7 +32,7 @@ let check_buffer_size (s: U32.t): Stack unit (fun _-> True) (fun _ _ _ -> True) 
  * kremlib.h. They OUGHT TO BE implement in F*! *)
 let eq_mask64 (x y: U64.t) =
   let open FStar.UInt64 in
-  let x = lognot (logand x y) in
+  let x = lognot (logxor x y) in
   let x = shift_left x 32ul in
   let x = shift_left x 16ul in
   let x = shift_left x 8ul in
@@ -41,6 +41,7 @@ let eq_mask64 (x y: U64.t) =
   let x = shift_left x 1ul in
   FStar.Int64.( shift_right (FStar.Int.Cast.uint64_to_int64 x) 63ul )
 
+#set-options "--lax"
 let gte_mask64 (x y: U64.t) =
   let low63 = U64.lognot (C.int64_to_uint64 (I64.shift_right
     (I64.sub

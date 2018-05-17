@@ -121,15 +121,14 @@ let ensure_fresh env name body cont =
         false
     | Some body ->
         let r = ref false in
-        ignore ((object
-          inherit [string list] map
-          method extend env binder =
+        (object
+          inherit [_] iter
+          method! extend env binder =
             binder.node.name :: env
-          method ebound env _ i =
+          method! visit_EBound (env, _) i =
             if i - k >= 0 then
               r := !r || name = List.nth env (i - k);
-            EBound i
-        end) # visit env.names body);
+        end)#visit_expr_w env.names body;
         !r
   in
   mk_fresh name (fun tentative ->
@@ -177,7 +176,7 @@ let rec mk_expr env in_stmt e =
         | [ TUnit ], [ { node = EUnit; _ } ] ->
             CStar.Call (mk_expr env e, [])
         | [ TUnit ], [ e' ] ->
-            if is_value e' then
+            if is_readonly_c_expression e' then
               CStar.Call (mk_expr env e, [])
             else
               CStar.Comma (mk_expr env e', CStar.Call (mk_expr env e, []))
@@ -242,7 +241,7 @@ and mk_buf env t =
       invalid_arg "mk_buf"
 
 and mk_ignored_stmt env e =
-  if is_value e then
+  if is_readonly_c_expression e then
     env, []
   else
     let e = strip_cast e in
@@ -335,7 +334,7 @@ and mk_stmts env e ret_type =
           collect (env, acc) return_pos e
         ) (env, acc) es
 
-    | EAssign (e1, ({ node = (EBufCreate _ | EBufCreateL _); _ } as e2)) when is_array e1.typ ->
+    | EAssign (e1, e2) when is_array e1.typ ->
         let e = CStar.Copy (mk_expr env false e1, mk_type env e1.typ, mk_expr env false e2) in
         env, e :: acc
 
@@ -369,6 +368,10 @@ and mk_stmts env e ret_type =
         ) in
         env, e :: acc
 
+    | EBufFree e ->
+        let e = CStar.BufFree (mk_expr env false e) in
+        env, e :: acc
+
     | EMatch _ ->
         fatal_error "[AstToCStar.collect EMatch]: not implemented"
 
@@ -382,10 +385,22 @@ and mk_stmts env e ret_type =
         env, CStar.Abort (Option.or_empty s) :: acc
 
     | ESwitch (e, branches) ->
+        let default, branches =
+          List.partition (function (SWild, _) -> true | _ -> false) branches
+        in
+        let default = match default with
+          | [ SWild, e ] -> Some (mk_block env return_pos e)
+          | [] -> None
+          | _ -> failwith "impossible"
+        in
         env, CStar.Switch (mk_expr env false e,
           List.map (fun (lid, e) ->
-            string_of_lident lid, mk_block env return_pos e
-          ) branches) :: acc
+            (match lid with
+            | SConstant k -> `Int k
+            | SEnum lid -> `Ident (string_of_lident lid)
+            | _ -> failwith "impossible"),
+            mk_block env return_pos e
+          ) branches, default) :: acc
 
     | EReturn e ->
         mk_as_return env e acc return_pos
@@ -405,7 +420,7 @@ and mk_stmts env e ret_type =
         mk_as_return env e acc return_pos
 
     | _ ->
-        if is_value e then
+        if is_readonly_c_expression e then
           env, acc
         else
           let e = CStar.Ignore (mk_expr env true e) in
@@ -419,7 +434,7 @@ and mk_stmts env e ret_type =
       (* "return" when already in return position is un-needed *)
       if return_pos then s else CStar.Return None :: s
     in
-    if ret_type = CStar.Void && is_value e then
+    if ret_type = CStar.Void && is_readonly_c_expression e then
       env, maybe_return_nothing acc
     else if ret_type = CStar.Void then
       let env, s = mk_ignored_stmt env e in
@@ -431,25 +446,6 @@ and mk_stmts env e ret_type =
 
   snd (collect (env, []) true e)
 
-(* Things that will generate warnings such as "left-hand operand of comma
- * expression has no effect". *)
-and is_value x =
-  match x.node with
-  | EBound _
-  | EOpen _
-  | EQualified _
-  | EConstant _
-  | EUnit
-  | EOp _
-  | EBool _
-  | EAny
-  | EFlat _
-  | EField _ ->
-      true
-  | ECast (e,_) ->
-      is_value e
-  | _ ->
-      false
 
 (** This enforces the push/pop frame invariant. The invariant can be described
  * as follows (the extra cases are here to provide better error messages):
@@ -497,6 +493,8 @@ and mk_function_block env e t =
   | stmts, _ ->
       stmts
 
+(* These two mutually recursive functions implement a unit-to-void type translation that is
+ * consistent with the same translation for expressions above. *)
 and mk_return_type env = function
   | TInt w ->
       CStar.Int w
@@ -514,6 +512,7 @@ and mk_return_type env = function
       CStar.Pointer CStar.Void
   | TArrow _ as t ->
       let ret, args = flatten_arrow t in
+      let args = match args with [ TUnit ] -> [] | _ -> args in
       CStar.Function (None, mk_return_type env ret, List.map (mk_type env) args)
   | TBound _ ->
       fatal_error "Internal failure: no TBound here"
@@ -554,14 +553,29 @@ and a_unit_is_a_unit binders body =
   | [ { typ = TUnit; _ } ] ->
       [], DeBruijn.lift 1 ((object
         inherit DeBruijn.map_counting
-        method! ebound i _ j =
+        method! visit_EBound (i, _) j =
           if i = j then
             EUnit
           else
             EBound j
-      end) # visit 0 body)
+      end)#visit_expr_w 0 body)
   | _ ->
       binders, body
+
+and mark_const has_const t =
+  if has_const then
+    match t with
+    | CStar.Pointer t ->
+        CStar.Pointer (mark_const true t)
+    | _ ->
+        CStar.Const t
+  else
+    t
+
+and mark_binders_const flags binders =
+  List.map (fun { CStar.name; typ } ->
+    { CStar.name; typ = mark_const (List.mem (Common.Const name) flags) typ }
+  ) binders
 
 and mk_declaration env d: CStar.decl option =
   let wrap_throw name (comp: CStar.decl Lazy.t) =
@@ -582,11 +596,13 @@ and mk_declaration env d: CStar.decl option =
         assert (env.names = []);
         let binders, body = a_unit_is_a_unit binders body in
         let env, binders = mk_and_push_binders env binders in
+        let binders = mark_binders_const flags binders in
         let body = mk_function_block env body t in
         CStar.Function (cc, flags, t, (string_of_lident name), binders, body)
       end))
 
-  | DGlobal (flags, name, t, body) ->
+  | DGlobal (flags, name, n, t, body) ->
+      assert (n = 0);
       let env = locate env (InTop name) in
       Some (CStar.Global (
         string_of_lident name,
@@ -594,30 +610,16 @@ and mk_declaration env d: CStar.decl option =
         mk_type env t,
         mk_expr env false body))
 
-  | DExternal (cc, name, t) ->
-      let to_void = match t with
-        | TArrow (TUnit, _) -> true
-        | _ -> false
-      in
-      let open CStar in
-      let t = match mk_type env t with
-        | Function (None, ret, args) ->
-            let args = match args with
-              | [ Pointer Void ] when to_void -> []
-              | _ -> args
-            in
-            Function (cc, ret, args)
-        | Function (Some _, _, _) ->
-            failwith "impossible"
-        | t ->
-            assert (cc = None);
-            t
-      in
-      Some (External (string_of_lident name, t))
+  | DExternal (_, flags, name, t) ->
+      Some (CStar.External (string_of_lident name, mk_type env t, flags))
 
-  | DType (name, _, 0, def) ->
+  | DType (name, flags, _, Forward) ->
       let name = string_of_lident name in
-      Some (CStar.Type (name, mk_type_def env def))
+      Some (CStar.TypeForward (name, flags))
+
+  | DType (name, flags, 0, def) ->
+      let name = string_of_lident name in
+      Some (CStar.Type (name, mk_type_def env def, flags))
 
   | DType _ ->
       None
@@ -644,6 +646,9 @@ and mk_type_def env d: CStar.typ =
       CStar.Union (List.map (fun (f, t) ->
         f, mk_type env t
       ) fields)
+
+  | Forward ->
+      failwith "impossible, handled by mk_declaration"
 
 
 and mk_program name decls =

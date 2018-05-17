@@ -10,8 +10,9 @@ type program =
 and decl =
   | Global of ident * flag list * typ * expr
   | Function of calling_convention option * flag list * typ * ident * binder list * block
-  | Type of ident * typ
-  | External of ident * typ
+  | Type of ident * typ * flag list
+  | TypeForward of ident * flag list
+  | External of ident * typ * flag list
 
 and stmt =
   | Abort of string
@@ -30,11 +31,12 @@ and stmt =
     (** Destination (i.e. Var), Source *)
   | Copy of expr * typ * expr
     (** Destination, always Array (typ, size), Source *)
-  | Switch of expr * (ident * block) list
+  | Switch of expr * ([`Ident of ident | `Int of K.t] * block) list * block option
   | BufWrite of expr * expr * expr
     (** First expression has to be a [Bound] or [Open]. *)
   | BufBlit of expr * expr * expr * expr * expr
   | BufFill of expr * expr * expr
+  | BufFree of expr
   | PushFrame
   | PopFrame
   | Comment of string
@@ -104,11 +106,15 @@ and typ =
       (** In support of anonymous unions. *)
   | Enum of ident list
   | Union of (ident * typ) list
+  | Const of typ
+      (* note: when we have restrict, or MinLength, extend this to be a
+       * Qualifier node or something more general *)
 
 let ident_of_decl (d: decl): string =
   match d with
   | Global (id, _, _, _)
   | Function (_, _, _, id, _, _)
-  | Type (id, _)
-  | External (id, _) ->
+  | Type (id, _, _)
+  | TypeForward (id, _)
+  | External (id, _, _) ->
       id

@@ -1,5 +1,6 @@
 open CFlat
 open CFlat.Sizes
+open Location
 
 module W = Wasm
 module K = Constant
@@ -25,6 +26,8 @@ type env = {
     (** The current size of THIS module's data segment. This field and the one
      * above are mutable, so as to lazily allocate string literals as we hit
      * them. *)
+  location: loc list;
+    (** For debugging *)
 }
 
 let empty = {
@@ -32,8 +35,12 @@ let empty = {
   globals = StringMap.empty;
   n_args = 0;
   strings = Hashtbl.create 41;
-  data_size = ref 0
+  data_size = ref 0;
+  location = []
 }
+
+let locate env loc =
+  { env with location = update_location env.location loc }
 
 let find_global env name =
   try
@@ -60,7 +67,7 @@ let rec find_func env name =
     try
       find_func env (List.assoc name builtins)
     with Not_found ->
-      Warnings.fatal_error "Could not resolve function %s" name
+      Warnings.fatal_error "%a: Could not resolve function %s" ploc env.location name
 
 let primitives = [
   "load32_le";
@@ -620,6 +627,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallOp (o, [ e1; e2 ]) ->
       mk_callop2 env o e1 e2
 
+  | CallFunc ("LowStar_Buffer_null", [ _ ] )
   | CallFunc ("C_Nullity_null", [ _ ]) ->
       [ dummy_phrase (W.Ast.Const (mk_int32 0l)) ]
 
@@ -816,6 +824,72 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | StringLiteral s ->
       (* These strings are '\0'-terminated... revisit? *)
       mk_string env s
+
+  | Abort ->
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_trap"))) ] @
+      mk_unit
+
+  | Switch (e, branches, default, s) ->
+      let vmax = KList.max (List.map (fun (c, _) -> Z.of_string (snd c)) branches) in
+      let vmin = KList.min (List.map (fun (c, _) -> Z.of_string (snd c)) branches) in
+      if Z.( gt vmax ~$10 || lt vmin ~$0 ) then
+        failwith "TODO: in AstToCFlat, don't pick Switch for matches on integers!";
+
+      (*
+      block
+        block
+          block
+            block
+              br_table $value (table 0 1 2)
+            end
+            call do_thing1
+            br 2
+          end
+          call do_thing2
+          br 1
+        end
+        call do_thing3
+        br 0
+      end
+      *)
+      let n = List.length branches in
+      let table = Array.make (Z.to_int vmax + 2) (mk_var 0) in
+      let s = mk_type s in
+      let dummy =
+        match s with
+        | W.Types.I32Type -> mk_const (mk_int32 0l)
+        | W.Types.I64Type -> mk_const (mk_int64 0L)
+        | _ -> assert false
+      in
+      let rec mk i branches =
+        match branches with
+        | ((_, c), body) :: branches ->
+            let c = int_of_string c in
+            table.(c) <- mk_var (n - i);
+            [ dummy_phrase (W.Ast.Block ([ s ],
+                mk (i + 1) branches @
+                mk_expr env body @
+                [ dummy_phrase (W.Ast.Br (mk_var i))]))]
+        | [] ->
+            let default = match default with
+              | Some default -> mk_expr env default
+              | None -> [ dummy_phrase W.Ast.Unreachable ]
+            in
+            assert (i = n);
+            (* 0 is a special case which corresponds to both the default jump
+             * case, for non-contiguous jump tables, and the out-of-bounds case,
+             * which happens if the switch does not cover the last constructors.
+             * *)
+            [ dummy_phrase (W.Ast.Block ([ s ],
+              [ dummy_phrase (W.Ast.Block ([ s ],
+                dummy @
+                mk_expr env e @
+                [ dummy_phrase (W.Ast.BrTable (Array.to_list table, mk_var 0))]))] @
+              mk_drop @
+              default @
+              [ dummy_phrase (W.Ast.Br (mk_var n))]))]
+      in
+      mk 0 branches
 
   | _ ->
       failwith ("not implemented; got: " ^ show_expr e)
@@ -1058,7 +1132,13 @@ let mk_module types imports (name, decls):
   (* Compile the functions. *)
   let funcs = KList.filter_map (function
     | Function f ->
-        Some (mk_func env f)
+        begin try Some (mk_func (locate env (In f.name)) f) with
+        | e ->
+            KPrint.bprintf "Failed to compile %s from CFlat to Wasm\n%s\n"
+              f.name (Printexc.to_string e);
+            Printexc.print_backtrace stderr;
+            failwith "wasm function numbering is going to be off, can't proceed"
+        end
     | _ ->
         None
   ) decls in

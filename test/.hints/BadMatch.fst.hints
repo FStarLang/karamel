@@ -1,0 +1,23 @@
+[
+  "%t¬{wö ) ³\u0015÷3m3",
+  [
+    [
+      "BadMatch.bar",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_FStar.UInt32.t__uu___haseq" ],
+      0,
+      "eff0b0cf149b743039fb6eb92fccbd3f"
+    ],
+    [
+      "BadMatch.baz",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_BadMatch.bar__uu___haseq" ],
+      0,
+      "55eba2550fd0aeea0d551bae6b076ad3"
+    ]
+  ]
+]

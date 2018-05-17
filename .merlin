@@ -2,3 +2,4 @@ S src
 S lib
 B _build/*
 PKG ppx_deriving.std ppx_deriving_yojson zarith pprint unix wasm process ulex
+PKG visitors.ppx visitors.runtime

@@ -18,21 +18,21 @@ function kremlin_start () {
     ).then(bufs =>
       link(bufs.map((b, i) => ({ buf: b, name: my_modules[i] }))))
     .then(scope => {
-      var found = false;
       for (let m of Object.keys(scope)) {
         if ("main" in scope[m]) {
           my_print("... main found in module " + m);
-          scope[m].main();
-          return;
+          return scope[m].main();
         }
       }
-      if (!found) {
-        if (!("main" in window)) {
-          my_print("... no main in current window");
-          throw "Aborting";
-        }
-        main();
+      if (!("main" in window)) {
+        my_print("... no main in current window");
+        throw "Aborting";
       }
+      return main();
+    }).then(err => {
+      my_print("... main exited with " + err);
+      if (err != 0)
+        throw "Main returned non-zero status";
     }).catch(e =>
       my_print(e)
     );

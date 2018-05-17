@@ -18,5 +18,5 @@ let f (b:FStar.UInt8.t) : Tot (result (FStar.UInt8.t)) =
 
 let main () =
   match f 0uy with
-  | Correct x -> C.exit_success
-  | Error y -> C.exit_failure
+  | Correct x -> C.EXIT_SUCCESS
+  | Error y -> C.EXIT_FAILURE

@@ -1,0 +1,18 @@
+[
+  "&W÷QÄ/ê!\u0017âÏSå4\r3",
+  [
+    [
+      "FStar.Reflection.Types.name",
+      1,
+      2,
+      1,
+      [
+        "@query", "assumption_Prims.HasEq_string",
+        "assumption_Prims.list__uu___haseq",
+        "function_token_typing_Prims.string"
+      ],
+      0,
+      "793d36f41c68b20a1d7498ebfe8c7aad"
+    ]
+  ]
+]

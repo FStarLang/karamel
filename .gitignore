@@ -3,3 +3,8 @@
 _build
 krml
 tags
+*.checked
+*.checked.lax
+*~
+book/_build
+fstar-mode.el

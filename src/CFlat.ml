@@ -93,17 +93,20 @@ and function_t = {
 and locals =
   size list
 
+and constant =
+  K.width * string
+
 and expr =
   | Var of var
   | GetGlobal of ident
-  | Constant of K.width * string
+  | Constant of constant
   | Assign of var * expr
   | StringLiteral of string
   | Abort
 
   | IfThenElse of expr * expr * expr * size
   | While of expr * expr
-  | Switch of expr * (expr * expr) list
+  | Switch of expr * (constant * expr) list * expr option (* default case *) * size
   | Sequence of expr list
   | Ignore of expr * size
 

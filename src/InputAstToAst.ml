@@ -18,35 +18,34 @@ let rec binders_of_pat p =
       KList.map_flatten binders_of_pat ps
   | PRecord fields ->
       KList.map_flatten binders_of_pat (snd (List.split fields))
+  | PConstant _
   | PUnit
   | PBool _ ->
       []
 
 let width_of_equality = function
-  | TInt w -> w
-  | TBool -> K.Bool
-  | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) -> K.CInt
-  | _ ->
-      (* KPrint.beprintf "Equality at a non-scalar type: %a\n" ptyp t; *)
-      K.Bool
+  | TInt w -> Some w
+  | TBool -> Some K.Bool
+  | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) -> Some K.CInt
+  | _ -> None
 
 let rec mk_decl = function
   | I.DFunction (cc, flags, n, t, name, binders, body) ->
       let body =
-        if List.exists ((=) NoExtract) flags then
+        if List.mem WipeBody flags then
           with_type TAny (EAbort (Some "noextract flag"))
         else
           mk_expr body
       in
       DFunction (cc, flags, n, mk_typ t, name, mk_binders binders, body)
-  | I.DTypeAlias (name, n, t) ->
-      DType (name, [], n, Abbrev (mk_typ t))
-  | I.DGlobal (flags, name, t, e) ->
-      DGlobal (flags, name, mk_typ t, mk_expr e)
-  | I.DTypeFlat (name, n, fields) ->
-      DType (name, [], n, Flat (mk_tfields_opt fields))
-  | I.DExternal (cc, name, t) ->
-      DExternal (cc, name, mk_typ t)
+  | I.DTypeAlias (name, flags, n, t) ->
+      DType (name, flags, n, Abbrev (mk_typ t))
+  | I.DGlobal (flags, name, n, t, e) ->
+      DGlobal (flags, name, n, mk_typ t, mk_expr e)
+  | I.DTypeFlat (name, flags, n, fields) ->
+      DType (name, flags, n, Flat (mk_tfields_opt fields))
+  | I.DExternal (cc, flags, name, t) ->
+      DExternal (cc, flags, name, mk_typ t)
   | I.DTypeVariant (name, flags, n, branches) ->
       DType (name, flags, n,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
@@ -101,8 +100,15 @@ and mk_expr = function
       mk (EString s)
   | I.EApp (e, es) ->
       mk (EApp (mk_expr e, List.map mk_expr es))
-  | I.ETApp (I.EOp ((K.Eq | K.Neq as op), K.Bool), [ t ]) ->
-      mk (EOp (op, width_of_equality (mk_typ t)))
+  | I.ETApp (I.EOp ((K.Eq | K.Neq as op), _), [ t ]) ->
+      begin match width_of_equality (mk_typ t) with
+      | Some w ->
+          mk (EOp (op, w))
+      | None ->
+          (* Dummy value inserted here, to be caught later on by the
+           * monomorphization that kicks in for equalities too. *)
+          mk (ETApp (mk (EOp (op, K.Bool)), [ mk_typ t ]))
+      end
   | I.ETApp (e, es) ->
       mk (ETApp (mk_expr e, List.map mk_typ es))
   | I.ELet (b, e1, e2) ->
@@ -129,6 +135,8 @@ and mk_expr = function
       mk (EBufSub (mk_expr e1, mk_expr e2))
   | I.EBufBlit (e1, e2, e3, e4, e5) ->
       mk (EBufBlit (mk_expr e1, mk_expr e2, mk_expr e3, mk_expr e4, mk_expr e5))
+  | I.EBufFree e ->
+      mk (EBufFree (mk_expr e))
   | I.EMatch (e1, bs) ->
       mk (EMatch (mk_expr e1, mk_branches bs))
   | I.EOp (op, w) ->
@@ -186,6 +194,8 @@ and mk_pat binders pat =
       mk (PRecord (List.map (fun (field, pat) ->
         field, mk_pat pat
       ) fields))
+  | I.PConstant k ->
+      mk (PConstant k)
   in
   mk_pat pat
 

@@ -1,0 +1,29 @@
+[
+  "Ú¶nåH¥¢ë\u0013±\u001c\u001d½ÛŒ^",
+  [
+    [
+      "FStar.Ghost.elift1_p",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "refinement_interpretation_FStar.Ghost_Tm_refine_4861ff30b18822886452f698558931e8"
+      ],
+      0,
+      "416a2829161d229d01130ebf4cf7c006"
+    ],
+    [
+      "FStar.Ghost.elift2_p",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "refinement_interpretation_FStar.Ghost_Tm_refine_50e552dc638ed7dac9f2492d99576667"
+      ],
+      0,
+      "92298e493b1a9d833b06d684f3eb2af3"
+    ]
+  ]
+]

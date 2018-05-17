@@ -46,10 +46,10 @@ let test' (): St Int32.t =
   4l
 
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
-  Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
+  St C.exit_code
 let main argc argv =
   push_frame ();
   check32 (test ()) 44l;
   check32 (test' ()) 4l;
   pop_frame ();
-  C.exit_success
+  C.EXIT_SUCCESS

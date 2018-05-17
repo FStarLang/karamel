@@ -23,6 +23,8 @@ let rec filter_map f l =
       | None ->
           filter_map f l
 
+let filter_some l = filter_map (fun x -> x) l
+
 let rec filter_mask mask l =
   match mask, l with
   | true :: mask, x :: l ->
@@ -118,3 +120,17 @@ let one l =
   match l with
   | [ x ] -> x
   | _ -> invalid_arg ("one: argument is of length " ^ string_of_int (List.length l))
+
+let max l =
+  if List.length l = 0 then
+    invalid_arg "max";
+  let max = ref (List.hd l) in
+  List.iter (fun x -> if x > !max then max := x) (List.tl l);
+  !max
+
+let min l =
+  if List.length l = 0 then
+    invalid_arg "min";
+  let min = ref (List.hd l) in
+  List.iter (fun x -> if x < !min then min := x) (List.tl l);
+  !min

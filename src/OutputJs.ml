@@ -29,6 +29,13 @@ let shell_stub = format_of_string {|
 var my_js_files = %s;
 var my_modules = %s;
 var my_debug = %b;
+
+if (typeof module !== "undefined")
+  module.exports = {
+    my_js_files: my_js_files,
+    my_modules: my_modules,
+    my_debug: my_debug
+  }
 |}
 
 let as_js_list l =
@@ -65,6 +72,7 @@ Then, run `http-server .` and navigate to http://localhost:8080/main.html
 
 let write_all js_files modules print =
   Driver.detect_kremlin_if ();
+  Driver.mkdirp !Options.tmpdir;
 
   (* Write out all the individual .wasm files *)
   List.iter (fun (name, module_) ->
@@ -105,7 +113,7 @@ let write_all js_files modules print =
   (* Files that are needed for the tmpdir to be runnable and complete. *)
   let ( ^^ ) = Filename.concat in
   List.iter (fun f ->
-    Utils.cp (!Options.tmpdir ^^ f) (!Driver.krml_home ^^ "kremlib" ^^ "js" ^^ f)
+    Utils.cp (!Options.tmpdir ^^ f) (!Driver.kremlib_dir ^^ "js" ^^ f)
   ) [ "browser.js"; "loader.js"; "main.js" ];
 
   (* Be nice *)

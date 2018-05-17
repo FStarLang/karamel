@@ -1,4 +1,3 @@
-*.exe
-*.krml
-*.out
-*.dSYM
+.cache
+.depend
+.output

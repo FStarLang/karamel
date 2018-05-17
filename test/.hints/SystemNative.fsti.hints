@@ -1,0 +1,121 @@
+[
+  "÷“ÖA¹Ã©=àÆPt¼þúv",
+  [
+    [
+      "SystemNative.mstring_t",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "assumption_FStar.UInt8.t__uu___haseq",
+        "function_token_typing_C.char", "primitive_Prims.op_Subtraction",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_FStar.Buffer_Tm_refine_ac61996218e7c5b51c85527152e93166",
+        "typing_FStar.Buffer.as_seq"
+      ],
+      0,
+      "2b7fc7142a524fe2ac94707bb873671c"
+    ],
+    [
+      "SystemNative.pointer",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_Prims.HasEq_int" ],
+      0,
+      "194c8c63a5bcfc12c8ca10193d6ba56c"
+    ],
+    [
+      "SystemNative.pointer_or_null",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_Prims.HasEq_int" ],
+      0,
+      "d2989e54ca33d46fb709cf112221ed0d"
+    ],
+    [
+      "SystemNative.sockaddr_t",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "disc_equation_SystemNative.PF_INET",
+        "disc_equation_SystemNative.PF_INET6",
+        "fuel_guarded_inversion_SystemNative.ai_family_t"
+      ],
+      0,
+      "0636f5000aaa977fcb62d4b2dbebd3ad"
+    ],
+    [
+      "SystemNative.__proj__AddrInfo__item__ai_addr",
+      1,
+      2,
+      1,
+      [
+        "@query", "proj_equation_SystemNative.AddrInfo_ai_family",
+        "projection_inverse_SystemNative.AddrInfo_ai_family"
+      ],
+      0,
+      "69784db4eb4fbd113951c3ace66e1b54"
+    ],
+    [
+      "SystemNative.addrinfo_length_decreases",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "assumption_Prims.HasEq_int",
+        "equation_SystemNative.pointer_or_null",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_SystemNative_Tm_refine_dbe33893899564965a42f115925172f5"
+      ],
+      0,
+      "50c36748dd2b021be1e0c13297ad8db4"
+    ],
+    [
+      "SystemNative.addrinfo_live",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "assumption_Prims.HasEq_int",
+        "b2t_def", "binder_x_6740e44db579bf7abf4224cbcb166d5a_1",
+        "binder_x_ed25b04ac1a3660bf4cdc8ae577888d8_0",
+        "equality_tok_Prims.LexTop@tok", "equation_FStar.Buffer.buffer",
+        "equation_FStar.Buffer.length", "equation_FStar.Buffer.live",
+        "equation_FStar.Monotonic.HyperStack.contains", "equation_Prims.nat",
+        "equation_SystemNative.pointer_or_null",
+        "fuel_guarded_inversion_FStar.Buffer._buffer",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
+        "lemma_SystemNative.addrinfo_length_decreases",
+        "primitive_Prims.op_Addition", "primitive_Prims.op_AmpAmp",
+        "projection_inverse_BoxBool_proj_0",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_Prims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d",
+        "refinement_interpretation_SystemNative_Tm_refine_dbe33893899564965a42f115925172f5",
+        "typing_SystemNative.addrinfo_length", "well-founded-ordering-on-nat"
+      ],
+      0,
+      "4ac167bbfcd9112a609752561260ad7e"
+    ],
+    [
+      "SystemNative.getaddrinfo",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "assumption_FStar.Int32.t__uu___haseq",
+        "equation_SystemNative.pointer",
+        "equation_SystemNative.pointer_or_null",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_SystemNative_Tm_refine_0d4da60cb6187749d65a25df63d2ab15"
+      ],
+      0,
+      "2e57d831b9eca31c91c0c3f74a2ee880"
+    ]
+  ]
+]

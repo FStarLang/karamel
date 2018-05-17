@@ -23,7 +23,7 @@ let alloc_and_init (i: Int32.t): StackInline (Buffer.buffer Int32.t)
 // don't have to repeat the [fun _ _ _ ...]
 
 val main: Int32.t -> Buffer.buffer (Buffer.buffer C.char) ->
-  Stack Int32.t (fun _ -> true) (fun _ _ _ -> true)
+  Stack C.exit_code (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
   // JP: found no way to make this work with [with_frame]!
   push_frame ();
@@ -33,4 +33,4 @@ let main argc argv =
   // call will override the initial value and the check32 will fail.
   check32 (Buffer.index buf 1ul) 1l;
   pop_frame ();
-  C.exit_success
+  C.EXIT_SUCCESS

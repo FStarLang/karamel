@@ -15,10 +15,18 @@ type loc =
   | ForCond
   | ForIter
   | While
-  | Branch of lident
+  | Branch of switch_case
   | Sequence of int
   | SequenceLast
   | Scrutinee
+
+let print_case = function
+  | SConstant s ->
+      print_constant s
+  | SEnum lid ->
+      string (Idents.string_of_lident lid)
+  | SWild ->
+      underscore
 
 let print_loc = function
   | InTop l ->
@@ -42,7 +50,7 @@ let print_loc = function
   | After s ->
       string "after the definition of " ^^ string s
   | Branch l ->
-      string "in branch " ^^ print_lident l
+      string "in branch " ^^ print_case l
   | SequenceLast ->
       string "in the last element of the sequence"
   | Sequence i ->

@@ -45,10 +45,15 @@ module P = Process
 let fstar = ref ""
 let fstar_home = ref ""
 let fstar_lib = ref ""
+let fstar_rev = ref "<unknown>"
 let fstar_options = ref []
 
 (** By [detect_kremlin] *)
-let krml_home = ref ""
+let kremlib_dir = ref ""
+let runtime_dir = ref ""
+let include_dir = ref ""
+let misc_dir = ref ""
+let krml_rev = ref "<unknown>"
 
 (** These two filled in by [detect_gcc] and others *)
 let cc = ref ""
@@ -112,41 +117,62 @@ let detect_base_tools_if () =
     detect_base_tools ()
 
 
-(** Fills in krml_home, and prepends the path to [kremlib] to [Options.includes] *)
+(** Fills in *_dir, and fills in [Options.includes]. *)
 let detect_kremlin () =
   detect_base_tools_if ();
 
-  KPrint.bprintf "%sKreMLin called via:%s %s\n" Ansi.underline Ansi.reset Sys.argv.(0);
+  if AutoConfig.kremlib_dir <> "" then begin
+    kremlib_dir := AutoConfig.kremlib_dir;
+    runtime_dir := AutoConfig.runtime_dir;
+    include_dir := AutoConfig.include_dir;
+    misc_dir := AutoConfig.misc_dir
+  end else begin
 
-  let real_krml =
-    let me = Sys.argv.(0) in
-    if Sys.os_type = "Win32" && not (Filename.is_relative me) then
-      me
-    else
-      try read_one_line !readlink [| "-f"; read_one_line "which" [| me |] |]
-      with _ -> fatal_error "Could not compute full krml path"
-  in
-  (* ../_build/src/Kremlin.native *)
-  KPrint.bprintf "%sthe Kremlin executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
+    KPrint.bprintf "%sKreMLin called via:%s %s\n" Ansi.underline Ansi.reset Sys.argv.(0);
 
-  let home =
-    try read_one_line !readlink [| "-f"; d real_krml ^^ ".." ^^ ".." |]
-    with _ -> fatal_error "Could not compute krml_home"
-  in
-  KPrint.bprintf "%sKreMLin home is:%s %s\n" Ansi.underline Ansi.reset home;
-  krml_home := home;
+    let real_krml =
+      let me = Sys.argv.(0) in
+      if Sys.os_type = "Win32" && not (Filename.is_relative me) then
+        me
+      else
+        try read_one_line !readlink [| "-f"; read_one_line "which" [| me |] |]
+        with _ -> fatal_error "Could not compute full krml path"
+    in
+    (* ../_build/src/Kremlin.native *)
+    KPrint.bprintf "%sthe Kremlin executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
 
-  Options.includes := (!krml_home ^^ "kremlib") :: !Options.includes
+    let krml_home =
+      try read_one_line !readlink [| "-f"; d real_krml ^^ ".." ^^ ".." |]
+      with _ -> fatal_error "Could not compute krml_home"
+    in
+    KPrint.bprintf "%sKreMLin home is:%s %s\n" Ansi.underline Ansi.reset krml_home;
+
+    if try Sys.is_directory (krml_home ^^ ".git") with Sys_error _ -> false then begin
+      let cwd = Sys.getcwd () in
+      Sys.chdir krml_home;
+      krml_rev := String.sub (read_one_line "git" [| "rev-parse"; "HEAD" |]) 0 8;
+      Sys.chdir cwd
+    end;
+
+    kremlib_dir := krml_home ^^ "kremlib";
+    runtime_dir := krml_home ^^ "runtime";
+    include_dir := krml_home ^^ "include";
+    misc_dir := krml_home ^^ "misc"
+
+  end;
+
+  (* The first one for F*, the second one for the C compiler. *)
+  Options.includes := !kremlib_dir :: !include_dir :: !Options.includes
 
 let detect_kremlin_if () =
-  if !krml_home = "" then
+  if !kremlib_dir = "" then
     detect_kremlin ()
 
-let expand_fstar_home fstar_home fstar_lib s =
+let expand_prefixes s =
   if KString.starts_with s "FSTAR_LIB" then
-    fstar_lib ^^ KString.chop s "FSTAR_LIB"
+    !fstar_lib ^^ KString.chop s "FSTAR_LIB"
   else if KString.starts_with s "FSTAR_HOME" then
-    fstar_home ^^ KString.chop s "FSTAR_HOME"
+    !fstar_home ^^ KString.chop s "FSTAR_HOME"
   else
     s
 
@@ -189,35 +215,22 @@ let detect_fstar () =
     let cwd = Sys.getcwd () in
     Sys.chdir !fstar_home;
     let branch = read_one_line "git" [| "rev-parse"; "--abbrev-ref"; "HEAD" |] in
+    fstar_rev := String.sub (read_one_line "git" [| "rev-parse"; "HEAD" |]) 0 8;
     let color = if branch = "master" then Ansi.green else Ansi.orange in
     KPrint.bprintf "fstar is on %sbranch %s%s\n" color branch Ansi.reset;
     Sys.chdir cwd
   end;
 
-  (* Add default include directories, those specified by the user, and skip a
-   * set of known failing modules. Adding a new module to the failing list is
-   * DANGEROUS: it will remove a bunch of [DExternal] declarations that the
-   * type-checker needs! *)
-  let fstar_includes = List.map (expand_fstar_home !fstar_home !fstar_lib) !Options.includes in
+  let fstar_includes = List.map expand_prefixes !Options.includes in
   fstar_options := [
     "--trace_error";
+    "--cache_checked_modules";
+    "--expose_interfaces"
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
-  (** We don't even try to extract the int modules, because Kremlin cannot
-   * type-check them, as it assumes a primitive notion of integers... see also
-   * [Options.drop] for modules that we're happy to let F* extract (for
-   * typing), but don't want to generate C for. *)
-  let record_no_extract m =
-    fstar_options := "--no_extract" :: ("FStar." ^ m) :: !fstar_options
-  in
-  List.iter record_no_extract
-    [ "Int8"; "UInt8"; "Int16"; "UInt16"; "Int31"; "UInt31"; "Int32"; "UInt32";
-      "Int63"; "UInt63"; "Int64"; "UInt64"; "Int128"; "Seq.Base"; "HyperStack.ST";
-      "HyperStack"; "HyperHeap"; "Math.Lib"; "Map"; "Monotonic.HyperHeap"; "Buffer";
-      "Monotonic.HyperStack" ];
-  if not !Options.uint128 then
-    fstar_options := (!fstar_home ^^ "ulib" ^^ "FStar.UInt128.fst") :: !fstar_options;
-  if !Options.wasm then
-    fstar_options := (!krml_home ^^ "runtime" ^^ "WasmSupport.fst") :: !fstar_options;
+  (* This is a superset of the needed modules... some will be dropped very early
+   * on in Kremlin.ml *)
+  fstar_options := (!fstar_lib ^^ "FStar.UInt128.fst") :: !fstar_options;
+  fstar_options := (!runtime_dir ^^ "WasmSupport.fst") :: !fstar_options;
   KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
 
   flush stdout
@@ -226,9 +239,9 @@ let detect_fstar_if () =
   if !fstar = "" then
     detect_fstar ()
 
-let expand_fstar_home s =
+let expand_prefixes s =
   detect_fstar_if ();
-  expand_fstar_home !fstar_home !fstar_lib s
+  expand_prefixes s
 
 let verbose_msg () =
   if !Options.verbose then
@@ -302,7 +315,7 @@ let detect_gnu flavor =
         Warnings.fatal_error "gcc not found in path!";
   in
   let crosscc = if !Options.m32 then format_of_string "i686-w64-mingw32-%s" else format_of_string "x86_64-w64-mingw32-%s" in
-  search [ "%s-7"; "%s-6"; "%s-5"; crosscc; "%s" ];
+  search [ "%s-7.0"; "%s-6.0"; "%s-5.0"; "%s-7"; "%s-6"; "%s-5"; crosscc; "%s" ];
 
   KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !cc;
 
@@ -344,7 +357,7 @@ let detect_cc_if () =
     | "clang" ->
         detect_gnu "clang"
     | "msvc" ->
-        cc := !krml_home ^^ "misc" ^^ "cl-wrapper.bat";
+        cc := !misc_dir ^^ "cl-wrapper.bat";
     | _ ->
         fatal_error "Unrecognized value for -cc: %s" !Options.cc
 
@@ -358,11 +371,11 @@ let o_of_c f =
  * silently dropped, or KreMLin aborts if warning 3 is fatal. *)
 let compile files extra_c_files =
   assert (List.length files > 0);
-  let extra_c_files = List.map expand_fstar_home extra_c_files in
+  let extra_c_files = List.map expand_prefixes extra_c_files in
   detect_kremlin_if ();
   detect_cc_if ();
   flush stdout;
-  let extra_c_files = (!krml_home ^^ "kremlib" ^^ "kremlib.c") :: extra_c_files in
+  let extra_c_files = (!kremlib_dir ^^ "kremlib.c") :: extra_c_files in
 
   let files = List.map (fun f -> !Options.tmpdir ^^ f ^ ".c") files in
   KPrint.bprintf "%s⚡ Generating object files%s\n" Ansi.blue Ansi.reset;
@@ -379,7 +392,7 @@ let compile files extra_c_files =
  * command-line are linked together; any [-o] option is passed to the final
  * invocation of [gcc]. *)
 let link c_files o_files =
-  let o_files = List.map expand_fstar_home o_files in
+  let o_files = List.map expand_prefixes o_files in
   let objects = List.map o_of_c c_files @ o_files in
   let extra_arg = if !Options.exe_name <> "" then Dash.o_exe !Options.exe_name else [] in
   if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg @ List.rev !Options.ldopts) then

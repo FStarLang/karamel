@@ -41,12 +41,15 @@ let _ =
   let arg_print_simplify = ref false in
   let arg_print_pattern = ref false in
   let arg_print_inline = ref false in
+  let arg_print_monomorphization = ref false in
+  let arg_print_structs = ref false in
   let arg_print_c = ref false in
   let arg_print_wasm = ref false in
   let arg_skip_extraction = ref false in
   let arg_skip_translation = ref false in
   let arg_skip_compilation = ref false in
   let arg_skip_linking = ref false in
+  let arg_diagnostics = ref false in
   let arg_verify = ref false in
   let arg_warn_error = ref "" in
   let arg_c89 = ref false in
@@ -54,7 +57,7 @@ let _ =
   let o_files = ref [] in
   let js_files = ref [] in
   let fst_files = ref [] in
-  let filename = ref "" in
+  let filenames = ref [] in
   let p k = String.concat " " (Array.to_list (List.assoc k (Options.default_options ()))) in
   let usage = Printf.sprintf
 {|KreMLin: from a ML-like subset to C
@@ -62,10 +65,10 @@ let _ =
 Usage: %s [OPTIONS] FILES
 
 High-level description:
-  1. If some FILES end with .fst, and [-verify] is set, KreMLin will call
-     [fstar] on them to perform verification.
-  2. If some FILES end with .fst, KreMLin will call [fstar] on them to perform
-     extraction and produce [out.krml].
+  1. If some FILES end with .fst or .fsti, and [-verify] is set, KreMLin will
+     call [fstar] on them to perform verification.
+  2. If some FILES end with .fst or .fsti, KreMLin will call [fstar] on them to
+     perform extraction and produce [out.krml].
   3. If exactly one FILE ends with [.krml] or [.json], or if a [.krml] file was
      produced at step 2., KreMLin will generate a series of [.c] and [.h] files
      in the directory specified by [-tmpdir], or in the current directory.
@@ -95,30 +98,30 @@ The default is %s and the available warnings are:
   7: private F* function cannot be marked as C static
   8: C inline function reference across translation units
   9: need to manually call static initializers for globals
-  10: <currently unused>
+  10: deprecated feature
   11: subexpression is not Low*; cannot proceed
   12: cannot be compiled to Wasm
+  13: monomorphic instance about to be dropped
+  14: cannot perform tail-call optimization
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
-where the Api= part is optional and a pattern is either Foo.Bar (exact match) or
-Foo.Baz.* (prefix). The semantics are as follows: all the modules that match a
-pattern are grouped into a single C translation unit, and their declarations are
-marked as static, inasmuch as cross-translation unit calls permit. If the Api=
-part is present, then the module named Api must be found within the
-set of input files, and its declarations are appended to the translation unit
-without any visibility modifications.
-
-The [-drop] option take a Pattern argument and skips code generation for the
-modules that match the pattern.
+The Api= part is optional and Api is made up of a non-empty list of modules
+separated by + (for instance: Interface1+Interface2). A pattern is either Foo.Bar
+(exact match) or Foo.Baz.* (prefix). The semantics are as follows: all the
+modules that match a pattern are grouped into a single C translation unit, and
+their declarations are marked as static, inasmuch as cross-translation unit
+calls permit. If the Api= part is present, then the module named Api must be
+found within the set of input files, and its declarations are appended to the
+translation unit without any visibility modifications.
 
 The default arguments are: %s
 
-All include directories and paths supports two special prefixes:
+All include directories and paths supports special prefixes:
   - if a path starts with FSTAR_LIB, this will expand to wherever F*'s ulib
     directory is
   - if a path starts with FSTAR_HOME, this will expand to wherever the source
     checkout of F* is (this does not always exist, e.g. in the case of an OPAM
-    setup).
+    setup)
 
 The compiler switches turn on the following options.
   [-cc gcc] (default) adds [%s]
@@ -142,7 +145,7 @@ Supported options:|}
     (String.concat " " (KList.map_flatten (fun b ->
       [ "-bundle"; Bundle.string_of_bundle b ]
     ) !Options.bundle @ KList.map_flatten (fun p ->
-      [ "-drop"; Bundle.string_of_pat p ]
+      [ "-drop"; Bundle.string_of_pattern p ]
     ) !Options.drop))
     (p "gcc")
     (p "clang")
@@ -151,6 +154,7 @@ Supported options:|}
     (p "compcert")
   in
   let found_file = ref false in
+  let used_drop = ref false in
   let prepend r = fun s -> r := s :: !r in
   let csv f s =
     List.iter f (KString.split_on_char ',' s)
@@ -176,34 +180,47 @@ Supported options:|}
     "-verify", Arg.Set arg_verify, " ask F* to verify the program";
     "-verbose", Arg.Set Options.verbose, "  show the output of intermediary \
       tools when acting as a driver for F* or the C compiler";
+    "-diagnostics", Arg.Set arg_diagnostics, " informative report";
     "-wasm", Arg.Set Options.wasm, "  emit a .wasm file instead of C";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* Controlling the behavior of KreMLin *)
-    "-static-header", Arg.String (prepend Options.static_header), " only \
-      generate a .h where all functions are marked a static inline";
+    "-add-early-include", Arg.String (prepend Options.add_early_include),
+      "  prepend #include the-argument to every generated file, before kremlib.h";
+    "-add-include", Arg.String (prepend Options.add_include), " prepend #include \
+      the-argument to every generated file, after the #define __FOO_H";
+    "-add-include-tmh", Arg.Set Options.add_include_tmh, "  append #include \
+      <FILE.tmh>, where FILE is the current basename";
+    "-minimal", Arg.Set Options.minimal, "  do not prepend #include \"kremlib.h\"; do \
+      not bundle FStar";
+    "-static-header", Arg.String (prepend Options.static_header), " generate a \
+      .h for the given module where all functions are marked a static inline";
     "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the \
       module name to declarations from this module";
-    "-bundle", Arg.String (fun s -> prepend Options.bundle (Bundles.parse s)), " \
+    "-bundle", Arg.String (fun s -> prepend Options.bundle (Parsers.bundle s)), " \
       group modules into a single C translation unit (see above)";
     "-drop", Arg.String (fun s ->
-      List.iter (prepend Options.drop) (Utils.parse Parser.drop s)),
+      used_drop := true;
+      List.iter (prepend Options.drop) (Parsers.drop s)),
       "  do not extract Code for this module (see above)";
-    "-add-include", Arg.String (prepend Options.add_include), " prepend #include \
-      the-argument to every generated file";
     "-header", Arg.String (fun f ->
-      Options.header := Utils.file_get_contents f
+      let c = Utils.file_get_contents f in
+      Options.header := fun _ _ -> c
     ), " prepend the contents of the given file at the beginning of each .c and .h";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, \
       .c, .h and .o files";
     "-I", Arg.String (prepend Options.includes), " add directory to search path \
       (F* and C compiler)";
     "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
-    "-warn-error", Arg.Set_string arg_warn_error, "  decide which errors are \
+    "-warn-error", Arg.String (fun s -> arg_warn_error := !arg_warn_error ^ s), "  decide which errors are \
       fatal / warnings / silent (default: " ^ !Options.warn_error ^")";
 
     (* Fine-tuning code generation. *)
     "", Arg.Unit (fun _ -> ()), " ";
+    "-by-ref", Arg.String (fun s -> prepend Options.by_ref (Parsers.lid s)), "  pass the given struct \
+        type by reference, always";
+    "-falloca", Arg.Set Options.alloca_if_vla, "  use alloca(3) for \
+      variable-length arrays on the stack";
     "-fnostruct-passing", Arg.Clear Options.struct_passing, "  disable passing \
       structures by value and use pointers instead";
     "-fnoanonymous-unions", Arg.Clear Options.anonymous_unions, "  disable C11 \
@@ -212,6 +229,8 @@ Supported options:|}
       __uint128";
     "-fnocompound-literals", Arg.Unit (fun () -> Options.compound_literals := `Never),
       "  don't generate C11 compound literals";
+    "-ftail-calls", Arg.Set Options.tail_calls, "  statically compile tail-calls \
+      into loops";
     "-funroll-loops", Arg.Set_int Options.unroll_loops, "  textually expand \
       loops smaller than N";
     "-fparentheses", Arg.Set Options.parentheses, "  add unnecessary parentheses \
@@ -225,12 +244,16 @@ Supported options:|}
     (* For developers *)
     "-djson", Arg.Set arg_print_json, " dump the input AST as JSON";
     "-dast", Arg.Set arg_print_ast, " pretty-print the internal AST";
-    "-dpattern", Arg.Set arg_print_pattern, " pretty-print after pattern \
-      removal";
-    "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the internal AST \
-      after simplification";
+    "-dmonomorphization", Arg.Set arg_print_monomorphization, " pretty-print the \
+      internal AST after monomorphization";
     "-dinline", Arg.Set arg_print_inline, " pretty-print the internal AST after \
       inlining";
+    "-dpattern", Arg.Set arg_print_pattern, " pretty-print after pattern \
+      matches compilation";
+    "-dsimplify", Arg.Set arg_print_simplify, " pretty-print the internal AST \
+      after going to a statement language";
+    "-dstructs", Arg.Set arg_print_structs, " pretty-print the internal AST after \
+      struct transformations";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-dwasm", Arg.Set arg_print_wasm, " pretty-print the output Wasm";
     "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific \
@@ -240,7 +263,7 @@ Supported options:|}
   ] in
   let spec = Arg.align spec in
   let anon_fun f =
-    if Filename.check_suffix f ".fst" then
+    if Filename.check_suffix f ".fst" || Filename.check_suffix f ".fsti" then
       fst_files := f :: !fst_files
     else if List.exists (Filename.check_suffix f) [ ".o"; ".S"; ".a" ] then
       o_files := f :: !o_files
@@ -249,9 +272,7 @@ Supported options:|}
     else if Filename.check_suffix f ".js" then
       js_files := f :: !js_files
     else if Filename.check_suffix f ".json" || Filename.check_suffix f ".krml" then begin
-      if !filename <> "" then
-        Warnings.fatal_error "At most one [.json] or [.krml] file supported";
-      filename := f
+      filenames := f :: !filenames
     end else
       Warnings.fatal_error "Unknown file extension for %s\n" f;
     found_file := true
@@ -259,8 +280,8 @@ Supported options:|}
   Arg.parse spec anon_fun usage;
 
   if not !found_file ||
-     List.length !fst_files = 0 && !filename = "" ||
-     List.length !fst_files > 0 && !filename <> ""
+     List.length !fst_files = 0 && List.length !filenames = 0 ||
+     List.length !fst_files > 0 && List.length !filenames > 0
   then begin
     print_endline (Arg.usage_string spec usage);
     exit 1
@@ -279,9 +300,33 @@ Supported options:|}
      * for us, so this is not generally necessary. *)
     Options.compound_literals := `Wasm;
     Options.struct_passing := false
-  end else
-    Options.drop := [ Bundle.Module [ "C" ]; Bundle.Module [ "TestLib" ] ] @
-      !Options.drop;
+  end;
+
+  if not !Options.wasm || Options.debug "force-c" then
+    (* An actual C compilation wants to drop these two. *)
+    Options.drop := [
+      Bundle.Module [ "FStar"; "Int"; "Cast"; "Full" ];
+      Bundle.Module [ "C" ];
+      Bundle.Module [ "TestLib" ]
+    ] @ !Options.drop
+  else begin
+    (* True Wasm compilation: this module is useless (only assume val's). *)
+    (* Only keep what's stricly needed from the C module. *)
+    Options.bundle := ([], [ Bundle.Module [ "C" ]]) :: !Options.bundle
+  end;
+
+  (* Self-help. *)
+  if !Options.wasm && Options.debug "force-c" then begin
+    Options.add_include := "\"kremlin/internal/wasmsupport.h\"" :: !Options.add_include;
+    Options.drop := Bundle.Module [ "WasmSupport" ] :: !Options.drop
+  end;
+
+  if not !Options.minimal then
+    Options.bundle :=
+      ([], [ Bundle.Module [ "C"; "Loops" ]; Bundle.Module [ "Spec"; "Loops" ] ]) ::
+      ([], [ Bundle.Prefix [ "FStar" ] ]) ::
+      ([], [ Bundle.Prefix [ "LowStar" ] ]) ::
+      !Options.bundle;
 
   if !arg_c89 then begin
     Options.uint128 := false;
@@ -300,8 +345,13 @@ Supported options:|}
   if !arg_warn_error <> "" then
     Warnings.parse_warn_error !arg_warn_error;
 
+  if !used_drop then
+    Warnings.(maybe_fatal_error ("", Deprecated ("-drop", "use a combination of \
+      -bundle and -d reachability to make sure the functions are eliminated as \
+      you wish")));
+
   (* If the compiler supports uint128, then we just drop the module and let
-   * dependency analysis use the FStar.UInt128.fsti. If the compiler does not,
+   * dependency analysis use FStar.UInt128.fsti. If the compiler does not,
    * then we bring the implementation into scope instead. The latter is
    * performed in src/Driver.ml because we need to know where FSTAR_HOME is. *)
   if !Options.uint128 then
@@ -321,13 +371,14 @@ Supported options:|}
 
 
   (* Shall we run F* first? *)
-  let filename =
+  let filenames =
     if List.length !fst_files > 0 then
+      (* Monolithic extraction, generates a single out.krml *)
       let f = Driver.run_fstar !arg_verify !arg_skip_extraction !arg_skip_translation !fst_files in
       tick_print true "F*";
-      f
+      [ f ]
     else
-      !filename
+      !filenames
   in
 
   (* Dumping the AST for debugging purposes *)
@@ -335,18 +386,43 @@ Supported options:|}
     flush stdout;
     flush stderr;
     let open PPrint in
-    Printf.printf "Read [%s]. Printing with w=%d\n" filename Utils.twidth;
+    let filenames = String.concat ", " filenames in
+    Printf.printf "Read [%s]. Printing with w=%d\n" filenames Utils.twidth;
     Print.print (f files ^^ hardline);
     flush stdout
   in
 
-  let files = InputAst.read_file filename in
+  (* Empty file generated by F*, we provide the missing bits in src/Builtin.ml *)
+  let filenames = List.filter (fun f -> Filename.basename f <> "prims.krml") filenames in
+  let files = InputAst.read_files filenames in
+
+  (* These are modules we don't want because there's primitive support for them
+   * in kremlin. *)
+  let should_keep (name, _) = match name with
+    | "FStar_Int8" | "FStar_UInt8" | "FStar_Int16" | "FStar_UInt16"
+    | "FStar_Int31" | "FStar_UInt31" | "FStar_Int32" | "FStar_UInt32"
+    | "FStar_Int63" | "FStar_UInt63" | "FStar_Int64" | "FStar_UInt64"
+    | "FStar_Int128" | "FStar_HyperStack_ST" | "FStar_Monotonic_HyperHeap"
+    | "LowStar_Buffer" | "LowStar_Modifies"
+    | "FStar_Buffer" | "FStar_Monotonic_HyperStack" | "FStar_Monotonic_Heap"
+    | "C_String" | "FStar_Dyn" ->
+        false
+    | "FStar_UInt128" ->
+        (* Keep if we don't use the uint128 type. *)
+        not !Options.uint128
+    | "WasmSupport" ->
+        (* Keep if we're compiling to Wasm. *)
+        !Options.wasm
+    | _ ->
+        true
+  in
+  let files = List.filter should_keep files in
 
   (* A quick sanity check to save myself some time. *)
   begin try
     let has_uint128 =
       List.exists (function
-        | InputAst.DTypeFlat (([ "FStar"; "UInt128" ], "uint128"), _, _) ->
+        | InputAst.DTypeFlat (([ "FStar"; "UInt128" ], "uint128"), _, _, _) ->
             true
         | _ ->
             false
@@ -356,8 +432,7 @@ Supported options:|}
      * support it. *)
     if has_uint128 <> not !Options.uint128 then
       Warnings.fatal_error "The implementation of FStar.UInt128 should be \
-        present in the input if and only if using -fnouint128. Is out.krml \
-        outdated?"
+        present in the input when using -fnouint128."
   with Not_found ->
     ()
   end;
@@ -367,51 +442,83 @@ Supported options:|}
     Yojson.Safe.to_channel stdout (InputAst.binary_format_to_yojson (InputAst.current_version, files));
 
   (* -dast *)
-  let files = Builtin.prelude () @ InputAstToAst.mk_files files in
+  let files = Builtin.prelude () @ Builtin.augment (InputAstToAst.mk_files files) in
   if !arg_print_ast then
     print PrintAst.print_files files;
 
-  (* 1. Monomorphize functions because the Checker is first-order. If things
-   * fail at this stage, most likely not our fault (bad input?). *)
-  let files = DataTypes.drop_match_cast files in
-  let files = Inlining.monomorphize files in
-  let has_errors, files = Checker.check_everything ~warn:true files in
-  tick_print (not has_errors) "Checking input file";
+  (* 0. Since the user may now pass several .krml files in an arbitrary order,
+   * we need a topological order. Example:
+   * - B.g depends on A.f and they both bundled (and private)
+   * - A needs to come before B so that in the resulting bundle, "static void
+   *   A_f" comes before "static void B_g" (since they're static, there's no
+   *   forward declaration in the header. *)
+  let files = Bundles.topological_sort files in
 
-  (* 2. Perform bundling early, as later analyses need to know which functions
-   * are in the same file and which are not. *)
+  (* 1. We create bundles, and monomorphize functions first. This creates more
+   * applications of parameterized types, which we make sure are in the AST by
+   * checking it. Note that bundling calls [drop_unused] already to do a first
+   * round of unused code elimination! *)
   let files = Bundles.make_bundles files in
+  (* This needs to happen before type monomorphization, so that list<t> and
+   * list<t'> don't generate two distinct declarations (e.g. list__t and
+   * list__t'). Also needs to happen before monomorphization of equalities. *)
   let files = Inlining.inline_type_abbrevs files in
+  let files = DataTypes.remove_unused_type_arguments files in
+  let files = Monomorphization.functions files in
+  if !arg_print_monomorphization then
+    print PrintAst.print_files files;
+  let has_errors, files = Checker.check_everything ~warn:true files in
+  tick_print (not has_errors) "Monomorphization";
+
+  (* 2. We schedule phases that may create tuples. At this stage, all the
+   * occurrences of parameterized data types are in the AST: we monomorphize
+   * them too. Next, we inline function definitions according to [@substitute]
+   * or [StackInline].  This once again changes the call graph but does not add
+   * new instances. At this stage, some functions must lose their [Private]
+   * qualifiers since the previous phases may have generated calls across module
+   * boundaries. Once [private] qualifiers are stable, we can perform our
+   * reachability analysis starting from the public functions of each module or
+   * bundle. *)
+  let files = Simplify.simplify0 files in
+  (* Remove trivial matches now because they eliminate code that would generate
+   * spurious dependencies otherwise. JP: TODO: fix F\*'s extraction instead! *)
+  let files = DataTypes.simplify files in
+  let files = Monomorphization.datatypes files in
+  let files = Monomorphization.equalities files in
+  let files = Inlining.inline files in
+  let files = Inlining.drop_unused files in
+  if !arg_print_inline then
+    print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in
-  tick_print (not has_errors) "Bundle + inline types";
+  tick_print (not has_errors) "Inlining";
 
   (* 3. Compile data types and pattern matches to enums, structs, switches and
-   * if-then-elses. *)
+   * if-then-elses. Better have monomorphized functions first! *)
   let files = GcTypes.heap_allocate_gc_types files in
-  let files = Simplify.simplify0 files in
+  (* JP: this phase has many maps that take lids as keys and does not have logic
+   * to expand type abbreviations. TODO: remove [inline_type_abbrevs] and let
+   * them be monomorphized just like the rest. Note: this phase re-inserts some
+   * type abbreviations. *)
   let datatypes_state, files = DataTypes.everything files in
   if !arg_print_pattern then
     print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Pattern matches compilation";
 
-  (* 4. First round of simplifications. *)
+  (* 4. Going to a statement language. JP: is this necessary? *)
   let files = Simplify.simplify2 files in
   if !arg_print_simplify then
     print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Simplify 2";
 
-  (* 5. Whole-program transformations. Inline functions marked as [@substitute]
-   * or [StackInline] into their parent's bodies. This is a whole-program
-   * dataflow analysis done using a fixpoint computation. If needed, pass
-   * structures by reference, and also allocate all structures in memory. This
-   * creates new opportunities for the removal of unused variables, but also
-   * breaks the earlier transformation to a statement language, which we perform
-   * again. Note that [remove_unused] generates MetaSequence let-bindings,
-   * meaning that it has to occur before [simplify2]. Note that [in_memory]
-   * generates inner let-bindings, so it has to be before [simplify2]. *)
-  let analysis = Inlining.inline_analysis files in
+  (* 5. Whole-program transformations. If needed, pass structures by reference,
+   * and also allocate all structures in memory. This creates new opportunities
+   * for the removal of unused variables, but also breaks the earlier
+   * transformation to a statement language, which we perform again. Note that
+   * [remove_unused] generates MetaSequence let-bindings, meaning that it has to
+   * occur before [simplify2]. Note that [in_memory] generates inner
+   * let-bindings, so it has to be before [simplify2]. *)
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
   let files =
     if !Options.wasm then
@@ -426,23 +533,17 @@ Supported options:|}
       files
   in
   let files = Structs.collect_initializers files in
-  (* We have to rely on an earlier analysis because [pass_by_ref] and
-   * [in_memory] introduce structs that may make the inlining analysis too
-   * conservative. *)
-  let files = Inlining.inline_function_frames files analysis in
   let files = Simplify.remove_unused files in
+  let files = if !Options.tail_calls then Simplify.tail_calls files else files in
   let files = Simplify.simplify2 files in
-  if !arg_print_inline then
+  let files = Inlining.cross_call_analysis files in
+  let files = if !Options.wasm then SimplifyWasm.compile_copy_assignments files else files in
+  if !arg_print_structs then
     print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in
-  tick_print (not has_errors) "Inline + Simplify 2";
+  tick_print (not has_errors) "Structs + Simplify 2";
 
-  (* 6. Some transformations that break typing: remove type application
-   * definitions (creates unbound types), drop unused functions (note: this
-   * needs to happen after [inline_function_frames], as this pass removes
-   * illegal Private flags), enable anonymous unions for syntactic elegance. *)
-  let files = Inlining.drop_type_applications files in
-  let files = Inlining.drop_unused files in
+  (* 6. Anonymous unions break typing. *)
   let files =
     if !Options.anonymous_unions then
       DataTypes.anonymous_unions datatypes_state files
@@ -469,11 +570,15 @@ Supported options:|}
    * at the last minute, since it invalidates pretty much any map ever built. *)
   let files = Simplify.to_c_names files in
 
+  if !arg_diagnostics then
+    Diagnostics.all files;
+
   if !Options.wasm && not (Options.debug "force-c") then
     (* Runtime support files first. *)
     let is_support, rest = List.partition (fun (name, _) -> name = "WasmSupport") files in
     if List.length is_support = 0 then
-      Warnings.fatal_error "The module WasmSupport wasn't passed to kremlin!";
+      Warnings.fatal_error "The module WasmSupport wasn't passed to kremlin or \
+        was hidden in a bundle!";
     let files = is_support @ rest in
 
     (* The Wasm backend diverges here. We go to [CFlat] (an expression
@@ -492,8 +597,8 @@ Supported options:|}
     tick_print true "AstToCStar";
 
     (* ... then to C *)
-    let headers = CStarToC.mk_headers files in
-    let files = CStarToC.mk_files files in
+    let headers = CStarToC11.mk_headers files in
+    let files = CStarToC11.mk_files files in
     tick_print true "CStarToC";
 
     (* -dc *)
@@ -502,11 +607,13 @@ Supported options:|}
 
     flush stdout;
     flush stderr;
-    Output.write_c files;
-    Output.write_h headers;
+    let c_output = Output.write_c files in
+    let h_output = Output.write_h headers in
+    Output.write_makefile c_output h_output;
     tick_print true "PrettyPrinting";
 
-    Printf.printf "KreMLin: wrote out .c and .h files for %s\n" (String.concat ", " (List.map fst files));
+    Printf.printf "KreMLin: wrote out .c files for %s\n" (String.concat ", " (List.map fst files));
+    Printf.printf "KreMLin: wrote out .h files for %s\n" (String.concat ", " (List.map fst headers));
 
     if !arg_skip_compilation then
       exit 0;

@@ -1,5 +1,9 @@
 module SystemNative
 
+(* Note: since this example was written, many of these concepts have been
+ * promoted to first-class status in kremlib. See C.Nullity, C.String, and
+ * others. *)
+
 (* This module is not extracted by KreMLin; rather, whichever functions are
  * exposed here are implemented in C. Since this module does not get a prefix,
  * it may be the case that an enum case (e.g. AI_PASSIVE) is extracted as
@@ -40,7 +44,7 @@ type mstring_t =
 (* C.string is "const char *" and the only way to create it is to use
  * C.string_of_literal, where extraction checks that a literal is indeed passed
  * to it. So, expose the right value. *)
-val null_string: C.string
+val null_string: C.String.t
 
 (* Useful shorthand. *)
 type pointer (t: Type0) =
@@ -86,6 +90,7 @@ let sockaddr_t (af: ai_family_t) =
           struct	addrinfo *ai_next;	/* next structure in linked list */
   };
 *)
+#set-options "--__no_positivity"
 noeq type addrinfo_t =
   | AddrInfo:
     ai_flags: ai_flag_t ->
@@ -113,6 +118,7 @@ let rec addrinfo_live h (p: pointer_or_null addrinfo_t): GTot Type0 (decreases (
   if l = 0 then
     b2t (is_null p)
   else
+    not (is_null p) /\
     Buffer.live h p /\
     addrinfo_live h (Buffer.get h p 0).ai_next
 
@@ -120,8 +126,8 @@ open FStar.HyperStack.ST
 
 (* Note: do we need to enforce res[0] != hints? Would the syscall work? *)
 val getaddrinfo:
-  node:C.string ->
-  service:C.string ->
+  node:C.String.t ->
+  service:C.String.t ->
   hints: pointer addrinfo_t ->
   res: pointer (pointer_or_null addrinfo_t) ->
   Stack Int32.t

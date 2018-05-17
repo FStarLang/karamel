@@ -1,39 +1,25 @@
 (** A bunch of little helpers to deal with our AST. *)
 
 open Ast
-open Warnings
 open DeBruijn
 open PrintAst.Ops
-
-(* Some more fancy visitors ***************************************************)
-
-let visit_files (env: 'env) (visitor: _ map) (files: file list) =
-  KList.filter_map (fun f ->
-    try
-      Some (visitor#visit_file env f)
-    with Error e ->
-      maybe_fatal_error (fst f ^ "/" ^ fst e, snd e);
-      None
-  ) files
-
-
-class ignore_everything = object
-  method dfunction () cc flags n ret name binders expr =
-    DFunction (cc, flags, n, ret, name, binders, expr)
-
-  method dglobal () flags name typ expr =
-    DGlobal (flags, name, typ, expr)
-
-  method dtype () name flags n t =
-    DType (name, flags, n, t)
-end
 
 (** For each declaration in [files], call [f map decl], where [map] is the map
  * being filled. *)
 let build_map files f =
   let map = Hashtbl.create 41 in
-  iter_decls (f map) files;
+  (object inherit [_] iter method visit_decl _ = f map end)#visit_files () files;
   map
+
+module MkIMap (M: Map.S) = struct
+  type key = M.key
+  type 'data t = 'data M.t ref
+  let create () = ref M.empty
+  let clear m = m := M.empty
+  let add k v m = m := M.add k v !m
+  let find k m = M.find k !m
+  let iter f m = M.iter f !m
+end
 
 
 (* Creating AST nodes *********************************************************)
@@ -68,11 +54,11 @@ let etrue = with_type TBool (EBool true)
 
 let with_unit x = with_type TUnit x
 
-let zerou32 = with_type uint32 (EConstant (K.UInt32, "0"))
-let oneu32 = with_type uint32 (EConstant (K.UInt32, "1"))
-
-let zerou8 =
-  with_type (TInt (K.UInt8)) (EConstant (K.UInt8, "0"))
+let zero w = with_type (TInt w) (EConstant (w, "0"))
+let zerou8 = zero K.UInt8
+let zerou32 = zero K.UInt32
+let one w = with_type (TInt w) (EConstant (w, "1"))
+let oneu32 = one K.UInt32
 
 let pwild = with_type TAny PWild
 
@@ -81,20 +67,26 @@ let mk_op op w =
     typ = type_of_op op w }
 
 (* @0 < <finish> *)
-let mk_lt finish =
+let mk_lt w finish =
   with_type TBool (
-    EApp (mk_op K.Lt K.UInt32, [
-      with_type uint32 (EBound 0);
+    EApp (mk_op K.Lt w, [
+      with_type (TInt w) (EBound 0);
       finish ]))
 
+let mk_lt32 =
+  mk_lt K.UInt32
+
 (* @0 <- @0 + 1ul *)
-let mk_incr =
+let mk_incr w =
+  let t = TInt w in
   with_type TUnit (
-    EAssign (with_type uint32 (
-      EBound 0), with_type uint32 (
-      EApp (mk_op K.Add K.UInt32, [
-        with_type uint32 (EBound 0);
-        oneu32 ]))))
+    EAssign (with_type t (
+      EBound 0), with_type t (
+      EApp (mk_op K.Add w, [
+        with_type t (EBound 0);
+        one w ]))))
+
+let mk_incr32 = mk_incr K.UInt32
 
 let mk_neq e1 e2 =
   with_type TBool (EApp (mk_op K.Neq K.UInt32, [ e1; e2 ]))
@@ -105,6 +97,8 @@ let mk_not e1 =
 let mk_and e1 e2 =
   with_type TBool (EApp (mk_op K.And K.Bool, [ e1; e2 ]))
 
+let mk_or e1 e2 =
+  with_type TBool (EApp (mk_op K.Or K.Bool, [ e1; e2 ]))
 
 let mk_uint32 i =
   with_type (TInt K.UInt32) (EConstant (K.UInt32, string_of_int i))
@@ -147,9 +141,9 @@ let sequence_binding () = with_type TUnit {
 
 let unused_binding = sequence_binding
 
-let mk_binding name t =
+let mk_binding ?(mut=false) name t =
   let b = fresh_binder name t in
-  b,
+  { b with node = { b.node with mut } },
   { node = EOpen (b.node.name, b.node.atom); typ = t }
 
 (** Generates "let [[name]]: [[t]] = [[e]] in [[name]]" *)
@@ -174,8 +168,11 @@ let fold_arrow ts t_ret =
 
 let is_array = function TArray _ -> true | _ -> false
 
+let is_uu name = KString.starts_with name "uu____"
+
 (* If [e2] is assigned into an expression of type [t], we can sometimes
- * strengthen the type [t] into an array type. *)
+ * strengthen the type [t] into an array type. This is the only place that
+ * generates TArray meaning every TArray implies Stack. *)
 let strengthen_array' t e2 =
   let ensure_buf = function TBuf t -> t | _ -> failwith "not a buffer" in
   let open Common in
@@ -210,80 +207,90 @@ let strengthen_array t e2 =
         size is non-constant, so I don't know what declaration to write"
         pexpr e2
 
+let is_readonly_builtin_lid lid =
+  let pure_builtin_lids = [
+    [ "C"; "String" ], "get";
+    [ "C"; "Nullity" ], "op_Bang_Star"
+  ] in
+  List.exists (fun lid' ->
+    let lid = Idents.string_of_lident lid in
+    let lid' = Idents.string_of_lident lid' in
+    KString.starts_with lid lid'
+  ) pure_builtin_lids
 
-let is_X_value self (e: expr) =
+class ['self] readonly_visitor = object (self: 'self)
+  inherit [_] reduce
+  method private zero = true
+  method private plus = (&&)
+  method! visit_EIfThenElse _ _ _ _ = false
+  method! visit_ESequence _ _ = false
+  method! visit_EAssign _ _ _ = false
+  method! visit_EBufCreate _ _ _ _ = false
+  method! visit_EBufCreateL _ _ _ = false
+  method! visit_EBufWrite _ _ _ _ = false
+  method! visit_EBufBlit _ _ _ _ _ _ = false
+  method! visit_EBufFill _ _ _ _ = false
+  method! visit_EBufFree _ _ = false
+  method! visit_EPushFrame _ = false
+  method! visit_EPopFrame _ = false
+  method! visit_EMatch _ _ _ = false
+  method! visit_ESwitch _ _ _ = false
+  method! visit_EReturn _ _ = false
+  method! visit_EBreak _ = false
+  method! visit_EFor _ _ _ _ _ _ = false
+  method! visit_ETApp _ _ _ = false
+  method! visit_EWhile _ _ _ = false
+
+  method! visit_EApp _ e es =
+    match e.node with
+    | EOp _ ->
+        List.for_all (self#visit_expr_w ()) es
+    | EQualified lid when is_readonly_builtin_lid lid ->
+        List.for_all (self#visit_expr_w ()) es
+    | _ ->
+        false
+end
+
+let is_readonly_c_expression = (new readonly_visitor)#visit_expr_w ()
+
+class ['self] value_visitor = object (_self: 'self)
+  inherit [_] readonly_visitor
+  method! visit_EApp _ _ _ = false
+  method! visit_ELet _ _ _ _ = false
+  method! visit_EBufRead _ _ _ = false
+  method! visit_EBufSub _ _ _ = false
+end
+
+let is_value = (new value_visitor)#visit_expr_w ()
+
+(* Used by the Checker for the size of stack-allocated buffers. Also used by the
+ * global initializers collection phase. This is a conservative approximation of
+ * the C11 standard 6.6 §6 "constant expressions". *)
+let rec is_int_constant e =
+  let open Constant in
   match e.node with
-  | EBound _
-  | EOpen _
-  | EOp _
-  | EQualified _
-  | EConstant _
-  | EUnit
-  | EBool _
-  | EEnum _
-  | EString _
-  | EFun _
-  | EAbort _
-  | EAddrOf _
-  | EAny ->
+  | EConstant _ | EEnum _ | EBool _ | EUnit | EString _ | EAny ->
       true
-
-  | ETuple es
-  | ECons (_, es) ->
-      List.for_all self es
-
-  | EFlat identexprs ->
-      List.for_all (fun (_, e) -> self e) identexprs
-
-  | EIgnore e
-  | EField (e, _)
-  | EComment (_, e, _)
   | ECast (e, _) ->
-      self e
-
-  | EApp _
-  | ELet _
-  | EIfThenElse _
-  | ESequence _
-  | EAssign _
-  | EBufCreate _
-  | EBufCreateL _
-  | EBufRead _
-  | EBufWrite _
-  | EBufSub _
-  | EBufBlit _
-  | EBufFill _
-  | EPushFrame
-  | EPopFrame
-  | EMatch _
-  | ESwitch _
-  | EReturn _
-  | EBreak
-  | EFor _
-  | ETApp _
-  | EWhile _ ->
+      is_int_constant e
+  | EApp ({ node = EOp ((
+        Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
+      | BOr | BAnd | BXor | BShiftL | BShiftR | BNot
+      | Eq | Neq | Lt | Lte | Gt | Gte
+      | And | Or | Xor | Not), w); _ },
+    es) when w <> CInt ->
+      List.for_all is_int_constant es
+  | _ ->
       false
 
-let rec is_value e =
-  is_X_value is_value e
-
-let rec is_pure_c_value e =
-  is_X_value (fun e ->
-    match e.node with
-    | EBufRead (e1, e2)
-    | EBufSub (e1, e2) ->
-        is_pure_c_value e1 &&
-        is_pure_c_value e2
-    | _ ->
-        is_X_value is_pure_c_value e
-  ) e
-
-let rec is_constant e =
-  match e.node with
-  | EConstant _ ->
+(* This is a conservative approximation. See C11 6.6. *)
+let is_initializer_constant e =
+  is_int_constant e ||
+  match e with
+  | { node = EAddrOf { node = EQualified _; _ }; _ } ->
       true
-  | ECast (e, _) ->
-      is_constant e
+  | { node = EQualified _; typ = TArrow _ } ->
+      true
   | _ ->
       false
 

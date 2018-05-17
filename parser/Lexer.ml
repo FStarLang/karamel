@@ -11,6 +11,10 @@ let regexp uident = up_alpha any*
 
 let locate _ tok = tok, Lexing.dummy_pos, Lexing.dummy_pos
 
+let keywords = [
+  "public", PUBLIC
+]
+
 let rec token = lexer
 | int ->
     let l = utf8_lexeme lexbuf in
@@ -18,6 +22,13 @@ let rec token = lexer
 | uident ->
     let l = utf8_lexeme lexbuf in
     locate lexbuf (UIDENT l)
+| lident ->
+    let l = utf8_lexeme lexbuf in
+    begin try
+      locate lexbuf (List.assoc l keywords)
+    with Not_found ->
+      locate lexbuf (LIDENT l)
+    end
 | "." -> locate lexbuf DOT
 | "@" -> locate lexbuf AT
 | "-" -> locate lexbuf MINUS
@@ -26,4 +37,6 @@ let rec token = lexer
 | "=" -> locate lexbuf EQUALS
 | "*" -> locate lexbuf STAR
 | "\\*" -> locate lexbuf STAR
+| "(" -> locate lexbuf LPAREN
+| ")" -> locate lexbuf RPAREN
 | eof -> locate lexbuf EOF

@@ -1,6 +1,8 @@
 (** Pretty-printer that conforms with C syntax. Also defines the grammar of
  * concrete C syntax, as opposed to our idealistic, well-formed C*. *)
 
+module C = C11
+
 open PPrint
 open PrintCommon
 open C
@@ -33,34 +35,44 @@ let rec p_type_spec = function
       (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
       braces_with_nesting (separate_map (comma ^^ break1) string tags)
 
+and p_qualifier = function
+  | Const -> string "const"
+  | Volatile -> string "volatile"
+  | Restrict -> string "restrict"
+
+and p_qualifiers_break qs =
+  if List.length qs > 0 then
+    separate_map break1 p_qualifier qs ^^ break1
+  else
+    empty
 
 and p_type_declarator d =
   let rec p_noptr = function
     | Ident n ->
         string n
-    | Array (d, s) ->
-        p_noptr d ^^ lbracket ^^ p_expr s ^^ rbracket
+    | Array (qs, d, s) ->
+        p_noptr d ^^ lbracket ^^ p_qualifiers_break qs ^^ p_expr s ^^ rbracket
     | Function (cc, d, params) ->
         let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
-        group (cc ^^ p_noptr d ^^ parens_with_nesting (separate_map (comma ^^ break 1) (fun (spec, decl) ->
-          group (p_type_spec spec ^/^ p_any decl)
+        group (cc ^^ p_noptr d ^^ parens_with_nesting (separate_map (comma ^^ break 1) (fun (qs, spec, decl) ->
+          group (p_qualifiers_break qs ^^ p_type_spec spec ^/^ p_any decl)
         ) params))
     | d ->
         lparen ^^ p_any d ^^ rparen
   and p_any = function
-    | Pointer d ->
-        star ^^ p_any d
+    | Pointer (qs, d) ->
+        star ^^ p_qualifiers_break qs ^^ p_any d
     | d ->
         p_noptr d
   in
   p_any d
 
-and p_type_name (spec, decl) =
+and p_type_name (qs, spec, decl) =
   match decl with
   | Ident "" ->
-      p_type_spec spec
+      p_qualifiers_break qs ^^ p_type_spec spec
   | _ ->
-      p_type_spec spec ^^ space ^^ p_type_declarator decl
+      p_qualifiers_break qs ^^ p_type_spec spec ^^ space ^^ p_type_declarator decl
 
 (* http:/ /en.cppreference.com/w/c/language/operator_precedence *)
 and prec_of_op2 op =
@@ -110,7 +122,7 @@ and paren_if curr mine doc =
     doc
 
 (* [e] is an operand of [op]; is this likely to trigger GCC's -Wparentheses? If
- * so, downgrade the current precedence to 0 to force parenthses. *)
+ * so, downgrade the current precedence to 0 to force parentheses. *)
 and defeat_Wparentheses op e prec =
   let open Constant in
   if not !Options.parentheses then
@@ -163,7 +175,11 @@ and p_expr' curr = function
       p_type_name t
   | Sizeof e ->
       let mine, right = 2, 2 in
-      let e = p_expr' right e in
+      let e =
+        match e with
+        | Type _ -> parens_with_nesting (p_expr' right e)
+        | _ -> p_expr' right e
+      in
       paren_if curr mine (string "sizeof" ^^ space ^^ e)
   | Address e ->
       let mine, right = 2, 2 in
@@ -227,9 +243,9 @@ and p_decl_and_init (decl, init) =
     | None ->
         empty)
 
-and p_declaration (spec, stor, decl_and_inits) =
+and p_declaration (qs, spec, stor, decl_and_inits) =
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
-  stor ^^ group (p_type_spec spec) ^/^
+  stor ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
 (* This is abusing the definition of a compound statement to ensure it is printed with braces. *)
@@ -299,10 +315,10 @@ let rec p_stmt (s: stmt) =
         p_expr e3
       ) ^^ rparen) ^^ nest_if p_stmt stmt
   | If (e, stmt) ->
-      group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^^
+      group (string "if" ^/^ parens_with_nesting (p_expr e)) ^^
       nest_if p_stmt (protect_ite_if_needed stmt)
   | IfElse (e, s1, s2) ->
-      group (string "if" ^/^ lparen ^^ p_expr e ^^ rparen) ^^
+      group (string "if" ^/^ parens_with_nesting (p_expr e)) ^^
       nest_if p_stmt (protect_solo_if s1) ^^ hardline ^^
       string "else" ^^
       (match s2 with
@@ -311,7 +327,7 @@ let rec p_stmt (s: stmt) =
       | _ ->
         nest_if p_stmt s2)
   | While (e, s) ->
-      group (string "while" ^/^ lparen ^^ p_expr e ^^ rparen) ^^
+      group (string "while" ^/^ parens_with_nesting (p_expr e)) ^^
       nest_if p_stmt s
   | Return None ->
       group (string "return" ^^ semi)
@@ -320,7 +336,7 @@ let rec p_stmt (s: stmt) =
   | Decl d ->
       group (p_declaration d ^^ semi)
   | Switch (e, branches, default) ->
-      group (string "switch" ^/^ lparen ^^ p_expr e ^^ rparen) ^/^
+      group (string "switch" ^/^ parens_with_nesting (p_expr e)) ^/^
       braces_with_nesting (
         separate_map hardline (fun (e, s) ->
           group (string "case" ^/^ p_expr e ^^ colon) ^^ nest 2 (
@@ -347,6 +363,8 @@ let p_decl_or_function (df: declaration_or_function) =
       p_comments comments ^^
       let inline = if inline then string "inline" ^^ space else empty in
       inline ^^ group (p_declaration d) ^/^ p_stmt stmt
+  | Verbatim s ->
+      string s
 
 let print_files =
   PrintCommon.print_files p_decl_or_function

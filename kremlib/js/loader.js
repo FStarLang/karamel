@@ -8,6 +8,11 @@
 
 var my_print;
 
+// When loaded "as is" via d8 or ch, we inherit the caller's scope. When loaded
+// via node, we don't.
+if (typeof process !== "undefined")
+  my_print = console.log
+
 /******************************************************************************/
 /* Some printing helpers                                                      */
 /******************************************************************************/
@@ -124,7 +129,7 @@ function dummyModule(funcs, globals) {
 let mkWasmSupport = (mem) => ({
   WasmSupport_trap: () => {
     dump(mem, 2*1024);
-    my_print("Run-time trap, e.g. zero-sized array.");
+    my_print("Run-time trap, e.g. zero-sized array or abort.");
     throw new Error();
   }
 });
@@ -178,6 +183,13 @@ let mkC = (mem) => ({
   // string_of_literal is just a typing trick.
   string_of_literal: (x) => x,
   print_string: (addr) => my_print(stringAtAddr(mem, addr)),
+
+  // Truncated
+  clock: () => Date.now(),
+});
+
+let mkCNullity = (mem) => ({
+  C_Nullity_is_null: () => { throw new Error("todo: is_null") }
 });
 
 function checkEq(mem, name) {
@@ -233,6 +245,9 @@ let mkTestLib = (mem) => ({
       }
     }
     my_print("[test] "+str+" is a success\n");
+  },
+  TestLib_print_clock_diff: (t1, t2) => {
+    my_print("[benchmark] took: " + (t2 - t1) + "ms\n");
   },
 });
 
@@ -319,6 +334,7 @@ function init() {
     WasmSupport: mkWasmSupport(mem),
     FStar: mkFStar(mem),
     C: mkC(mem),
+    C_Nullity: mkCNullity(mem),
     TestLib: mkTestLib(mem)
   };
   return imports;
@@ -364,3 +380,9 @@ function link(modules) {
 
   return fold(init(), modules);
 }
+
+if (typeof module !== "undefined")
+  module.exports = {
+    link: link,
+    reserve: reserve
+  };

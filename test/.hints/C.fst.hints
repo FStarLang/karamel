@@ -1,0 +1,23 @@
+[
+  "pW\bmÇÕB×¨çŒ)©T¢¼",
+  [
+    [
+      "C.char_uint8",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_C.HasEq_char" ],
+      0,
+      "05d3710de9c5b187774a8cd5be0ccb4d"
+    ],
+    [
+      "C.uint8_char",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_FStar.UInt8.t__uu___haseq" ],
+      0,
+      "f604f19daad884eba14eebae154f1b58"
+    ]
+  ]
+]

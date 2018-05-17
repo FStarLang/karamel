@@ -1,0 +1,35 @@
+[
+  "h\u0015ÚT ç=\u0007Pà­Õ¾}ˆS",
+  [
+    [
+      "NoExtract.f",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "def2ccbbe34e998ea70bca62d9792af1"
+    ],
+    [
+      "NoExtract.b",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "e10bd339ed02735e6affafb313a423c3"
+    ]
+  ]
+]

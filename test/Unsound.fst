@@ -18,10 +18,10 @@ let g (i: UInt32.t): StackInline (Buffer.buffer UInt32.t)
   let _ = i +%^ i in
   Buffer.createL [ 0ul ]
 
-let main (): Stack Int32.t (fun _ -> true) (fun _ _ _ -> true) =
+let main (): Stack C.exit_code (fun _ -> true) (fun _ _ _ -> true) =
   push_frame ();
   let b = Buffer.createL [ 0ul ] in
   let _ = g (f b) in
   checku32 (Buffer.index b 0ul) 1ul;
   pop_frame ();
-  C.exit_success
+  C.EXIT_SUCCESS
