@@ -1,8 +1,9 @@
 module LowStar
 
-module B = FStar.Buffer
+module B = LowStar.Buffer
 
 open FStar.HyperStack.ST
+open LowStar.BufferOps
 
 /// .. _language-subset:
 ///
@@ -62,9 +63,8 @@ let abs (x: Int32.t): Pure Int32.t
 /// Low* models stack allocation, which is covered in :ref:`buffer-library` below.
 
 let on_the_stack (): Stack UInt64.t (fun _ -> True) (fun _ _ _ -> True) =
-  let open B in
   push_frame ();
-  let b = B.create 0UL 64ul in
+  let b = B.alloca 0UL 64ul in
   b.(0ul) <- 32UL;
   let r = b.(0ul) in
   pop_frame ();
@@ -83,11 +83,10 @@ let on_the_stack (): Stack UInt64.t (fun _ -> True) (fun _ _ _ -> True) =
 /// Similarly, Low* supports heap allocation.
 
 let on_the_heap (): St UInt64.t =
-  let open B in
-  let b = B.rcreate_mm HyperStack.root 0UL 64ul in
+  let b = B.malloc HyperStack.root 0UL 64ul in
   b.(0ul) <- 32UL;
   let r = b.(0ul) in
-  B.rfree b;
+  B.free b;
   r
 
 /// .. code:: c
@@ -121,7 +120,7 @@ type uint128 = {
 /// In the original paper, structs may be allocated within buffers.
 
 let uint128_alloc (h l: UInt64.t): St (B.buffer uint128) =
-  Buffer.rcreate_mm HyperStack.root ({ low = l; high = h }) 1ul
+  B.malloc HyperStack.root ({ low = l; high = h }) 1ul
 
 /// .. code:: c
 ///
@@ -140,7 +139,6 @@ let uint128_high (x: B.buffer uint128): Stack UInt64.t
   (requires fun h -> B.live h x /\ B.length x = 1)
   (ensures fun h0 _ h1 -> B.live h1 x)
 =
-  let open B in
   (x.(0ul)).high
 
 /// .. code:: c
@@ -197,8 +195,8 @@ let uint128_equal (x y: uint128) =
 
 noeq
 type key =
-  | Algorithm1: Buffer.buffer UInt32.t -> key
-  | Algorithm2: Buffer.buffer UInt64.t -> key
+  | Algorithm1: B.buffer UInt32.t -> key
+  | Algorithm2: B.buffer UInt64.t -> key
 
 /// .. code:: c
 ///
@@ -634,11 +632,11 @@ let f (x: UInt32.t): Stack UInt32.t (fun _ -> True) (fun _ _ _ -> True) =
 
 [@ fail ]
 let g (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
-  let b = Buffer.create 0ul 8ul in
+  let b = B.alloca 0ul 8ul in
   ()
 
 /// F* reports an assertion failure for the ``is_stack_region`` predicate.
-/// Indeed, the ``create`` function requires that the ``tip`` be a valid stack
+/// Indeed, the ``alloca`` function requires that the ``tip`` be a valid stack
 /// region, which is false when no stack frame has been pushed on the call stack.
 ///
 /// One important insight at this stage is that F* does not "automatically"
@@ -656,7 +654,7 @@ let g (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
 [@ fail ]
 let g2 (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
   push_frame ();
-  let b = Buffer.create 0ul 8ul in
+  let b = B.alloca 0ul 8ul in
   ()
 
 /// F* now reports an error for the ``equal_domains`` predicate above. Indeed,
@@ -666,7 +664,7 @@ let g2 (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
 
 let g3 (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
   push_frame ();
-  let b = Buffer.create 0ul 8ul in
+  let b = B.alloca 0ul 8ul in
   pop_frame ();
   ()
 
@@ -688,7 +686,7 @@ let g3 (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
 
 let g4 (): ST unit (fun _ -> True) (fun _ _ _ -> True) =
   push_frame ();
-  let b = Buffer.rcreate_mm HS.root 0ul 8ul in
+  let b = B.malloc HS.root 0ul 8ul in
   pop_frame ();
   ()
 
@@ -795,22 +793,8 @@ let test_v (): unit =
 /// The buffer library
 /// ------------------
 ///
-/// .. warning ::
-///
-///    The buffer library currently suffers from severe limitations.
-///
-///    - It does not protect against some undefined C behaviors, such as
-///      allocating a zero-length array on the stack, or performing arithmetic on a
-///      ``free``'d pointer.
-///    - The NULL pointer lives in a separate, assumed library.
-///    - Lengths are hard-coded to be 32-bit integers, instead of a proper
-///      ``size_t`` like in C.
-///
-///    A new model is in the works which should address the issues
-///    above. It is experimentally available in `LowStar.Buffer`.
-///
-/// ``FStar.Buffer`` is the workhorse of Low*, and allows modeling C arrays on
-/// the stack and in the heap. ``FStar.Buffer`` models C arrays as follows:
+/// ``LowStar.Buffer`` is the workhorse of Low*, and allows modeling C arrays on
+/// the stack and in the heap. ``LowStar.Buffer`` models C arrays as follows:
 
 let lseq (a: Type) (l: nat) : Type =
   (s: Seq.seq a { Seq.length s == l } )
@@ -834,119 +818,85 @@ type buffer (a:Type) =
 /// pattern is to use refinements to tie together a buffer and its length, as we
 /// saw with the initial ``memcpy`` example.
 
-let do_something (x: Buffer.buffer UInt64.t) (l: U32.t { U32.v l = Buffer.length x }): St unit =
+let do_something (x: B.buffer UInt64.t) (l: U32.t { U32.v l = B.length x }): St unit =
   ()
 
-/// **Allocating a buffer on the stack** is done using the ``create`` function,
-/// which takes an initial value and a length. ``create`` requires that the top
+/// **Allocating a buffer on the stack** is done using the ``alloca`` function,
+/// which takes an initial value and a length. ``alloca`` requires that the top
 /// of the stack be a valid stack frame.
 
 let test_alloc_stack (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
   push_frame ();
-  let b = Buffer.create 0UL 8ul in
+  let b = B.alloca 0UL 8ul in
   pop_frame ();
   ()
 
-/// **Allocating a buffer on the heap** is done using the ``rcreate_mm`` function,
+/// **Allocating a buffer on the heap** is done using the ``malloc`` function,
 /// which takes a region, an initial value and a length. The region is purely
 /// for proof and separation purposes, and has no effect on the generated code. A
-/// buffer created with ``rcreate_mm`` can be freed with ``rfree``.
+/// buffer created with ``malloc`` can be freed with ``free``.
 
 let test_alloc (): St unit =
-  let b = Buffer.rcreate_mm HS.root 0UL 8ul in
-  Buffer.rfree b
+  let b = B.malloc HS.root 0UL 8ul in
+  B.free b
 
 /// **Pointer arithmetic** is performed by the means of the ``sub`` function. Under
 /// the hood, the ``sub`` function returns a buffer that points to the same
 /// underlying reference, but has different ``idx`` and ``length`` fields.
 
 let test_sub (): St unit =
-  let b = Buffer.rcreate_mm HS.root 0UL 8ul in
-  let b_l = Buffer.sub b 0ul 4ul in // idx = 0; length = 4
-  let b_r = Buffer.sub b 4ul 4ul in // idx = 4; length = 4
-  Buffer.rfree b
+  let b = B.malloc HS.root 0UL 8ul in
+  let b_l = B.sub b 0ul 4ul in // idx = 0; length = 4
+  let b_r = B.sub b 4ul 4ul in // idx = 4; length = 4
+  B.free b
 
 /// Just like in C, one can only free the base pointer, i.e. this is an error:
 
 [@ fail ]
 let test_sub_error (): St unit =
-  let b = Buffer.rcreate_mm HS.root 0UL 8ul in
-  let b_l = Buffer.sub b 0ul 4ul in // idx = 0; length = 4
-  Buffer.rfree b_l
+  let b = B.malloc HS.root 0UL 8ul in
+  let b_l = B.sub b 0ul 4ul in // idx = 0; length = 4
+  B.free b_l
 
 /// **Reading and modifying** a buffer is performed by means of the ``index``
 /// and ``upd`` functions. These are exposed as the ``.()`` and ``.()<-``
 /// operators respectively.
 
 let test_index (): St unit =
-  let open FStar.Buffer in
-  let b = Buffer.rcreate_mm HS.root 0UL 8ul in
+  let b = B.malloc HS.root 0UL 8ul in
   b.(0ul) <- UInt64.add_mod b.(0ul) b.(0ul);
-  Buffer.rfree b
-
-/// .. fixme :: JP
-///
-///    We really should define an ``FStar.Buffer.Ops`` so that we don't need to open
-///    the whole ``FStar.Buffer`` to enjoy the benefits of the operators.
+  B.free b
 ///
 /// Buffers are reflected at the proof level using sequences, via the ``as_seq``
 /// function, which returns the contents of a given buffer in a given heap, i.e.
 /// a sequence slice ranging over the interval ``[idx; idx + length)``.
 
 let test_as_seq (): St unit =
-  let b = Buffer.rcreate_mm HS.root 0UL 1ul in
+  let b = B.malloc HS.root 0UL 1ul in
   let h = ST.get () in
-  assert (Seq.equal (Buffer.as_seq h b) (Seq.cons 0UL Seq.createEmpty));
-  Buffer.rfree b
+  assert (Seq.equal (B.as_seq h b) (Seq.cons 0UL Seq.createEmpty));
+  B.free b
 
-/// ``Buffer.get`` is an often-convenient shorthand to index the value of a
+/// ``B.get`` is an often-convenient shorthand to index the value of a
 /// given buffer in a given heap.
 
 let test_get (): St unit =
-  let b = Buffer.rcreate_mm HS.root 0UL 1ul in
+  let b = B.malloc HS.root 0UL 1ul in
   let h = ST.get () in
-  assert (Buffer.get h b 0 = 0UL);
-  Buffer.rfree b
+  assert (B.get h b 0 = 0UL);
+  B.free b
 
 /// .. _modifies-library:
 ///
 /// The modifies clauses library
 /// ----------------------------
-/// 
-/// .. warning ::
-///
-///    The status of the modifies clauses is experimental:
-///
-///    - Current buffers in the F* standard library (``FStar.Buffer``)
-///      have their own modifies clauses tailored to the use of
-///      buffers. Automation is handled for code modifying up to 3
-///      buffers (``modifies_0``, ``modifies_1``, ``modifies_2``,
-///      ``modifies_3``.) Some clauses are provided for Low* programs
-///      handling both buffers and F* references at the same time
-///      (``modifies_bufs_and_refs``,) but have not been tested
-///      yet. Regions are not supported.
-///
-///    - An experimental, more polished library of modifies clauses
-///      for ``FStar.Buffer`` is now available in the standard F*
-///      library: ``FStar.Modifies``. It handles any number of buffers,
-///      references and regions.
-///
-///    - The latter style of modifies clauses is being adopted for the
-///      experimental refactoring of buffers, ``LowStar.Buffers``, in
-///      ``LowStar.Modifies``. The interface of ``LowStar.Modifies``
-///      is almost identical to that of ``FStar.Modifies``.
-///
-///    In this tutorial, we will briefly talk about modifies clauses
-///    provided by ``FStar.Modifies``. Transition to
-///    ``LowStar.Modifies`` should be smooth; the latter also enjoys a
-///    more extensive documentation.
 ///
 /// A modifies clause is a part of the postcondition of a Low*
 /// effectful function which describes which memory locations are
 /// modified by that function. For instance, consider the following
 /// function:
 
-module M = FStar.Modifies
+module M = LowStar.Modifies
 
 let example_modifies_callee (b1 b2: B.buffer UInt32.t) : Stack unit
   (requires (fun h -> B.live h b1 /\ B.live h b2 /\ B.length b1 == 1 /\ B.length b2 == 1 /\ B.disjoint b1 b2))
@@ -955,8 +905,7 @@ let example_modifies_callee (b1 b2: B.buffer UInt32.t) : Stack unit
     B.live h' b1 /\ B.live h' b2 /\
     B.get h' b1 0 == 18ul /\ B.get h' b2 0 == 42ul
   ))
-= let open B in
-  b2.(0ul) <- 42ul;
+= b2.(0ul) <- 42ul;
   b1.(0ul) <- 18ul
 
 /// The pre- and post-conditions of the ``example_modifies_callee``
@@ -977,7 +926,7 @@ let example_modifies_caller (b0: B.buffer UInt32.t) : Stack unit
 = let b1 = B.sub b0 1ul 1ul in
   let b2 = B.sub b0 2ul 1ul in
   example_modifies_callee b1 b2;
-  assert (forall h . B.get h b0 0 == B.get h (B.sub b0 0ul 1ul) 0)
+  assert (forall h . B.get h b0 0 == B.get h (B.gsub b0 0ul 1ul) 0)
 
 /// This function takes a buffer ``b0`` of length 3, and from it,
 /// extracts two disjoint buffers, ``b1`` and ``b2``, as the
