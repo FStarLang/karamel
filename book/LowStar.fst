@@ -806,7 +806,8 @@ let test_v (): unit =
 ///    - Lengths are hard-coded to be 32-bit integers, instead of a proper
 ///      ``size_t`` like in C.
 ///
-///    A new model is in the works which should address the issues above.
+///    A new model is in the works which should address the issues
+///    above. It is experimentally available in `LowStar.Buffer`.
 ///
 /// ``FStar.Buffer`` is the workhorse of Low*, and allows modeling C arrays on
 /// the stack and in the heap. ``FStar.Buffer`` models C arrays as follows:
@@ -911,7 +912,85 @@ let test_get (): St unit =
 ///
 /// The modifies clauses library
 /// ----------------------------
+/// 
+/// .. warning ::
 ///
+///    The status of the modifies clauses is experimental:
+///
+///    - Current buffers in the F* standard library (``FStar.Buffer``)
+///      have their own modifies clauses tailored to the use of
+///      buffers. Automation is handled for code modifying up to 3
+///      buffers (``modifies_0``, ``modifies_1``, ``modifies_2``,
+///      ``modifies_3``.) Some clauses are provided for Low* programs
+///      handling both buffers and F* references at the same time
+///      (``modifies_bufs_and_refs``,) but have not been tested
+///      yet. Regions are not supported.
+///
+///    - An experimental, more polished library of modifies clauses
+///      for ``FStar.Buffer`` is now available in the standard F*
+///      library: ``FStar.Modifies``. It handles any number of buffers,
+///      references and regions.
+///
+///    - The latter style of modifies clauses is being adopted for the
+///      experimental refactoring of buffers, ``LowStar.Buffers``, in
+///      ``LowStar.Modifies``. The interface of ``LowStar.Modifies``
+///      is almost identical to that of ``FStar.Modifies``.
+///
+///    In this tutorial, we will briefly talk about modifies clauses
+///    provided by ``FStar.Modifies``. Transition to
+///    ``LowStar.Modifies`` should be smooth; the latter also enjoys a
+///    more extensive documentation.
+///
+/// A modifies clause is a part of the postcondition of a Low*
+/// effectful function which describes which memory locations are
+/// modified by that function. For instance, consider the following
+/// function:
+
+module M = FStar.Modifies
+
+let example_modifies_callee (b1 b2: B.buffer UInt32.t) : Stack unit
+  (requires (fun h -> B.live h b1 /\ B.live h b2 /\ B.length b1 == 1 /\ B.length b2 == 1 /\ B.disjoint b1 b2))
+  (ensures (fun h _ h' ->
+    M.modifies (M.loc_union (M.loc_buffer b1) (M.loc_buffer b2)) h h' /\
+    B.live h' b1 /\ B.live h' b2 /\
+    B.get h' b1 0 == 18ul /\ B.get h' b2 0 == 42ul
+  ))
+= let open B in
+  b2.(0ul) <- 42ul;
+  b1.(0ul) <- 18ul
+
+/// The pre- and post-conditions of the ``example_modifies_callee``
+/// function state that, if ``b1`` and ``b2`` are two disjoint live
+/// buffers of length 1, then ``example_modifies`` changes their
+/// contents to 18ul and 42ul, respectively. In itself, the modifies
+/// clause tells nothing, but it starts becoming useful when the
+/// ``example_modifies_callee`` function is called by another
+/// function:
+
+let example_modifies_caller (b0: B.buffer UInt32.t) : Stack unit
+  (requires (fun h -> B.live h b0 /\ B.length b0 == 3))
+  (ensures (fun h _ h' ->
+    M.modifies (M.loc_buffer b0) h h' /\
+    B.live h' b0 /\
+    B.get h' b0 0 == B.get h b0 0
+  ))
+= let b1 = B.sub b0 1ul 1ul in
+  let b2 = B.sub b0 2ul 1ul in
+  example_modifies_callee b1 b2;
+  assert (forall h . B.get h b0 0 == B.get h (B.sub b0 0ul 1ul) 0)
+
+/// This function takes a buffer ``b0`` of length 3, and from it,
+/// extracts two disjoint buffers, ``b1`` and ``b2``, as the
+/// sub-buffers of ``b0`` of length 1 at offsets 1 and 2,
+/// respectively. Since they are both live and disjoint, they can then
+/// be passed to ``example_modifies_callee``. Then, the post-condition
+/// of ``example_modifies_caller`` about the contents of the cell of
+/// ``b0`` at offset 0 is due to the fact that that cell of ``b0`` is
+/// disjoint from both ``b1`` and ``b2`` (because it is the cell of
+/// the sub-buffer of ``b0`` at offset 0, as suggested by the
+/// ``assert``), and so, by virtue of the ``modifies`` clause of
+/// ``example_modifies_callee``, its value is preserved.
+/// 
 /// .. _c-library:
 ///
 /// The Low* system libraries
