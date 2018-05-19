@@ -860,7 +860,10 @@ let test_sub_error (): St unit =
 
 /// **Reading and modifying** a buffer is performed by means of the ``index``
 /// and ``upd`` functions. These are exposed as the ``.()`` and ``.()<-``
-/// operators respectively.
+/// operators respectively, defined in ``LowStar.BufferOps`` (the latter
+/// module only contains those operators, and is meant to be used with
+/// ``open`` to bring operators into scope without further polluting the
+/// context with any definition from ``LowStar.Buffer``.)
 
 let test_index (): St unit =
   let b = B.malloc HS.root 0UL 8ul in
@@ -1026,10 +1029,12 @@ let example_modifies_caller (b0: B.buffer UInt32.t) : Stack unit
 /// C ``NULL`` pointers
 /// -------------------
 ///
-/// The ``C.Nullity.fst`` exposes a model of the C NULL pointer -- this is what
+/// ``LowStar.Buffer`` also exposes a model of the C NULL pointer,
+/// ``null`` -- this is what
 /// you should use if you need zero-length buffers. The NULL pointer is always
 /// live, and always has length 0. The ``pointer`` and ``pointer_or_null``
-/// functions define convenient aliases, while the ``(!$)`` operator guarantees
+/// functions define convenient aliases, while the ``(!*)`` operator
+/// (defined in ``LowStar.BufferOps``) guarantees
 /// that the dereference will be pretty-printed with a ``*`` C dereference, as
 /// opposed to an access at array index 0. Pointers can always be tested for
 /// nullity via the ``is_null p`` function, which is guaranteed to be
