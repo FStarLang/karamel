@@ -797,7 +797,11 @@ and struct_as_initializer = function
 
 and fields_as_initializer_list fields =
   List.map (function
-    | Some field, e -> Designated (Dot field, struct_as_initializer e)
+    | Some field, e ->   
+       if !Options.c89_std then
+         struct_as_initializer e
+       else
+         Designated (Dot field, struct_as_initializer e)
     | None, e -> struct_as_initializer e
   ) fields
 
