@@ -1,5 +1,5 @@
 [
-  "oÈ\"J#ëTΩnÔi'ˆ…ù∏",
+  "\u001b¥™i„ü3ÅúäÑV\u000e…Îd",
   [
     [
       "DataTypes.t",
@@ -148,6 +148,28 @@
       "a261241be7659df03e03e63f337c3eb3"
     ],
     [
+      "DataTypes.test",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equality_tok_DataTypes.E@tok",
+        "equation_FStar.HyperStack.ST.equal_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "equation_FStar.Monotonic.HyperHeap.hmap",
+        "equation_FStar.Set.eqtype", "equation_Prims.eqtype",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
+        "function_token_typing_FStar.Monotonic.Heap.heap",
+        "function_token_typing_FStar.Monotonic.HyperHeap.rid",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
+        "lemma_FStar.Set.lemma_equal_refl", "typing_FStar.Map.domain",
+        "typing_FStar.Monotonic.HyperStack.__proj__HS__item__h",
+        "typing_tok_DataTypes.E@tok"
+      ],
+      0,
+      "0f2d29cb08fd27b4635e7939e6b5353b"
+    ],
+    [
       "DataTypes.something",
       1,
       2,
@@ -166,7 +188,7 @@
         "typing_FStar.Monotonic.HyperStack.__proj__HS__item__h"
       ],
       0,
-      "89aeddcfbf07ecbf1e04eed8dc79a2b8"
+      "5114edba9bcdfcc3ce24cf5121796e6f"
     ],
     [
       "DataTypes.whatever",
@@ -187,7 +209,7 @@
         "typing_FStar.Monotonic.HyperStack.__proj__HS__item__h"
       ],
       0,
-      "1f9870eef9ca90c1b0f685f71f38aded"
+      "dc2439ce4d6817d06c6cc1a3489b0d7d"
     ],
     [
       "DataTypes.main",
@@ -203,14 +225,13 @@
         "constructor_distinct_DataTypes.C",
         "constructor_distinct_DataTypes.D", "disc_equation_DataTypes.A",
         "disc_equation_DataTypes.B", "disc_equation_DataTypes.C",
-        "disc_equation_DataTypes.D", "equation_C.exit_success",
+        "disc_equation_DataTypes.D",
         "equation_FStar.HyperStack.ST.equal_domains",
         "equation_FStar.Monotonic.HyperHeap.hmap",
         "equation_FStar.Monotonic.HyperStack.is_wf_with_ctr_and_tip",
         "equation_FStar.Monotonic.HyperStack.poppable",
         "equation_FStar.Set.eqtype",
         "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
-        "function_token_typing_C.exit_success",
         "function_token_typing_FStar.Monotonic.Heap.emp",
         "function_token_typing_FStar.Monotonic.Heap.heap",
         "function_token_typing_FStar.Monotonic.HyperHeap.rid",
@@ -243,7 +264,7 @@
         "typing_FStar.Monotonic.HyperStack.poppable"
       ],
       0,
-      "70b8662ba341c7c90138a331f8bfa5d7"
+      "e09463120b22f0b7c54bbe1bc32b7a28"
     ]
   ]
 ]

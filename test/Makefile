@@ -105,6 +105,7 @@ $(OUTPUT_DIR)/Introduction.exe: EXTRA = -add-include '"kremlin/c_string.h"' -dro
 $(OUTPUT_DIR)/TotalLoops.exe: EXTRA = -add-include '"kremlin/prims_int.h"'
 $(OUTPUT_DIR)/CheckedInt.exe: EXTRA = -add-include '"kremlin/prims_int.h"'
 $(OUTPUT_DIR)/CustomEq.exe: EXTRA = -add-include '"kremlin/prims_int.h"'
+$(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fshort-enums
 
 # Some custom targets
 

@@ -237,6 +237,8 @@ Supported options:|}
       to silence GCC and Clang's -Wparentheses";
     "-fcurly-braces", Arg.Set Options.curly_braces, "  always add curly braces \
       around blocks";
+    "-fshort-enums", Arg.Set Options.short_enums, "  use C macros and uint8_t \
+      for enums instead of C11 enum";
     "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
     "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see above)";
     "", Arg.Unit (fun _ -> ()), " ";

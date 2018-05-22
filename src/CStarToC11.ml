@@ -693,6 +693,12 @@ let wrap_verbatim flags d =
     | _ -> None
   ) flags
 
+let enum_as_macros cases =
+  let lines: string list = List.mapi (fun i c ->
+    KPrint.bsprintf "#define %s %d" c i
+  ) cases in
+  String.concat "\n" lines
+
 (** Function definition or global definition. *)
 let mk_function_or_global_body (d: decl): C.declaration_or_function list =
   match d with
@@ -761,8 +767,17 @@ let mk_type_or_external (d: decl): C.declaration_or_function list =
       wrap_verbatim flags (Decl ([], ([], C.Struct (Some (name ^ "_s"), None), Some Typedef, [ Ident name, None ])))  
 
   | Type (name, t, flags) ->
-      let qs, spec, decl = mk_spec_and_declarator_t name t in
-      wrap_verbatim flags (Decl ([], (qs, spec, Some Typedef, [ decl, None ])))
+      begin match t with
+      | Enum cases when !Options.short_enums ->
+          if List.length cases > 256 then
+            KPrint.bprintf "Error: enum %s has > 256 cases but -fshort-enums is used" name;
+          wrap_verbatim flags (Verbatim (enum_as_macros cases)) @
+          let qs, spec, decl = mk_spec_and_declarator_t name (Int K.UInt8) in
+          [ Decl ([], (qs, spec, Some Typedef, [ decl, None ]))]
+      | _ ->
+          let qs, spec, decl = mk_spec_and_declarator_t name t in
+          wrap_verbatim flags (Decl ([], (qs, spec, Some Typedef, [ decl, None ])))
+      end
 
   | External (name, Function (cc, t, ts), flags) ->
       if is_primitive name then
