@@ -19,11 +19,11 @@ typedef int8_t FStar_Int8_t, FStar_Int8_t_;
 
 static inline uint32_t rotate32_left(uint32_t x, uint32_t n) {
   /*  assert (n<32); */
-  return (x << n) | (x >> (-n & 31));
+  return (x << n) | (x >> (-(int32_t)n & 31));
 }
 static inline uint32_t rotate32_right(uint32_t x, uint32_t n) {
   /*  assert (n<32); */
-  return (x >> n) | (x << (-n & 31));
+  return (x >> n) | (x << (-(int32_t)n & 31));
 }
 
 /* Constant time comparisons */
