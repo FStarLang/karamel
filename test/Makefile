@@ -170,7 +170,7 @@ ED_TEST=Hacl.Test.Ed25519.krml
 ED_ARGS=-bundle 'Hacl_Ed25519=Ed25519,Hacl.EC,Hacl.EC.*,Hacl.Impl.*,Hacl.Lib.*,Hacl.Bignum.*,Hacl.Bignum25519,Hacl.Bignum,Hacl.Spec.*,Hacl.SHA2_512,Hacl.Hash.*' \
 
 HMAC=$(HACL_HOME)/code/hmac
-HMAC_DIR=hmac-c
+HMAC_DIR=hmac-sha256-c
 HMAC_TEST=Hacl.Test.HMAC.SHA2_256.krml
 HMAC_ARGS=-bundle 'Hacl_HMAC_SHA2_256=Hacl.Hash.Lib.Create,Hacl.Hash.Lib.LoadStore,Hacl.Hash.SHA2_256,Hacl.HMAC.SHA2_256,HMAC_SHA2_256,Hacl.Impl.*'
 
