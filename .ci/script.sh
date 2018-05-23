@@ -41,7 +41,7 @@ if [[ $TRAVIS_BRANCH == "master" && $DZOMO_TOKEN != "" ]]; then
   find lowstar/html -type f | xargs sed -i 's/_static/static/g'
   git add -A lowstar/html/ lowstar/index.html
   if ! git diff --exit-code HEAD > /dev/null; then
-    git commit -am "[CI] Refresh Low* tutorial"
+    git commit -m "[CI] Refresh Low* tutorial"
     git push
   else
     echo No git diff for the tutorial, not generating a commit
