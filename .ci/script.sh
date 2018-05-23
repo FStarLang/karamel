@@ -30,17 +30,20 @@ echo | $(which d8)
 make -C $FSTAR_HOME/ulib -j 4
 make -j 4 && make -C test all wasm external -j 4
 
-make -C book html
-cd fstarlang.github.io
-git pull
-cp -R ../book/_build/* lowstar/
-rm -rf lowstar/html/static
-mv lowstar/html/_static lowstar/html/static
-find lowstar/html -type f | xargs sed -i 's/_static/static/g'
-git add -A lowstar/
-if ! git diff --exit-code HEAD > /dev/null; then
-  git commit -am "[CI] Refresh Low* tutorial"
-  git push
-else
-  echo No git diff for the tutorial, not generating a commit
+# Tutorial refresh, only on master and not for pull requests
+if [[ $TRAVIS_BRANCH == "master" && $DZOMO_TOKEN != "" ]]; then
+  make -C book html
+  cd fstarlang.github.io
+  git pull
+  cp -R ../book/_build/* lowstar/
+  rm -rf lowstar/html/static
+  mv lowstar/html/_static lowstar/html/static
+  find lowstar/html -type f | xargs sed -i 's/_static/static/g'
+  git add -A lowstar/html/ lowstar/index.html
+  if ! git diff --exit-code HEAD > /dev/null; then
+    git commit -am "[CI] Refresh Low* tutorial"
+    git push
+  else
+    echo No git diff for the tutorial, not generating a commit
+  fi
 fi
