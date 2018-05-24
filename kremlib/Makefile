@@ -41,7 +41,7 @@ $(KREMLIB_CHECKED_FILES): %.checked:
 	touch $@
 
 $(OTHER_CHECKED_FILES): %.checked:
-	echo $@ is not up to date. Please rebuild the F* standard library.
-	false
+	test -f $@
+	$(MY_FSTAR) $(FSTAR_OPTIONS) $(OTHERFLAGS) --warn_error '@241@247' $<
 
 .PHONY: all verify-all clean
