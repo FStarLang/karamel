@@ -6,8 +6,6 @@ module RingBuffer
 /// This module demonstrates how to implement a ringbuffer in Low*. It uses the
 /// new LowStar.Buffer abstraction, and demonstrates how to separate functional
 /// predicates from their low-level stateful counterparts.
-///
-/// TODO: add ``push_back`` and ``pop_back``
 
 /// We define the canonical abbreviations, taking care to shadow ST to make sure
 /// we don't end up referring to FStar.ST by accident.
