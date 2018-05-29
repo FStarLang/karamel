@@ -17,6 +17,7 @@ module HS = FStar.HyperStack
 module M = LowStar.Modifies
 module ST = FStar.HyperStack.ST
 module S = FStar.Seq
+module L = FStar.List.Tot
 
 /// This brings into scope the ``!*`` and ``*=`` operators, which are
 /// specifically designed to operate on buffers of size 1, i.e. on pointers.
@@ -28,6 +29,9 @@ open FStar.HyperStack.ST
 /// of the underlying ``b``). We chose this style, as opposed to a pair of
 /// ``first`` and ``last`` indices, because it avoids modular arithmetic which
 /// would be difficult to reason about.
+///
+/// There are different ways to go about this; the FiniteList example, instead
+/// of a buffer and two pointers, uses a single reference to a record instead.
 noeq
 type t a = {
   b: B.buffer a;
@@ -65,8 +69,10 @@ let well_formed #a (h: HS.mem) (x: t a) =
 
 /// We next define operators for moving around the ringbuffer with wraparound
 /// semantics. Defining this using a modulo operator is not a good idea, because:
+///
 /// - writing ``i +^ 1ul %^ total_length`` may overflow
 /// - Z3 is notoriously bad at reasoning with modular arithmetic.
+///
 /// So, instead, we just do a simple branch.
 let next (i total_length: U32.t): Pure U32.t
   (requires U32.(total_length >^ 0ul /\ i <^ total_length))
@@ -119,7 +125,7 @@ let rec as_list_f #a
   (b: S.seq a)
   (first length total_length: U32.t): Ghost (list a)
     (requires well_formed_f b first length total_length)
-    (ensures fun _ -> True)
+    (ensures fun l -> L.length l = U32.v length)
     (decreases (U32.v length))
 =
   if U32.( length =^ 0ul ) then
@@ -157,13 +163,13 @@ let rec seq_update_unused_preserves_list (#a: eqtype)
 /// as opposed to as sequence.
 let as_list #a (h: HS.mem) (x: t a): Ghost (list a)
   (requires well_formed h x)
-  (ensures fun _ -> True)
+  (ensures fun l -> L.length l = U32.(v (deref h x.length)))
 =
   as_list_f (B.as_seq h x.b) (deref h x.first) (deref h x.length) x.total_length
 
 /// ``pop`` is easy to prove, and requires no particular call to a lemma,
 /// because we don't modify the underlying buffer. Since the buffer contents
-/// don't change, the total predicate ``as_list_f`` is preserved, and F* is able
+/// doesn't change, the total predicate ``as_list_f`` is preserved, and F* is able
 /// to prove automatically the functional specification.
 let pop (#a: eqtype) (x: t a): Stack a
   (requires fun h ->
@@ -201,6 +207,111 @@ let push (#a: eqtype) (x: t a) (e: a): Stack unit
     (deref h0 x.first) (deref h0 x.length) x.total_length;
   x.first *= dest_slot;
   x.length *= U32.(!*x.length +^ 1ul)
+
+/// We are reaching the point of diminishing returns for this example. The
+/// function below is only moderately interesting; the gist of it is that the
+/// natural equalities one would write (in comments) are slightly massaged to
+/// avoid integer overflow.
+let one_past_last (i length total_length: U32.t): Pure U32.t
+  (requires U32.(total_length >^ 0ul /\ i <^ total_length /\ length <=^ total_length))
+  (ensures fun r -> U32.( r <^ total_length ))
+=
+  let open U32 in
+  if length = total_length then
+    i
+  // i + length >= total_length
+  else if i >=^ total_length -^ length then
+    // i + length - total_length, carefully crafted to avoid overflow
+    length -^ (total_length -^ i)
+  else
+    i +^ length
+
+/// A highly specialized lemma geared towards our post-condition. This could
+/// probably be proven with more automation if we had a more robust library of
+/// list-based lemmas, but well.
+let rec as_list_append_one (#a: eqtype)
+  (b: S.seq a)
+  (e: a)
+  (first length total_length: U32.t): Lemma
+  (requires
+    well_formed_f b first length total_length /\
+    U32.(length <^ total_length) /\
+    S.index b (U32.v (one_past_last first length total_length)) = e)
+  (ensures
+    as_list_f b first U32.(length +^ 1ul) total_length =
+    L.append (as_list_f b first length total_length) [ e ])
+  (decreases (U32.v length))
+=
+  if U32.(length =^ 0ul) then
+    ()
+  else
+    as_list_append_one b e (next first total_length) U32.(length -^ 1ul) total_length
+
+/// Pushing one element at the back is morally equivalent to appending a
+/// singleton list at the end. This function crucially relies on the custom
+/// lemma above.
+let push_back (#a: eqtype) (x: t a) (e: a): Stack unit
+  (requires (fun h ->
+    well_formed h x /\ space_left h x))
+  (ensures (fun h0 r h1 ->
+    M.(modifies (loc_union (loc_buffer x.length) (loc_buffer x.b)) h0 h1) /\
+    well_formed h1 x /\
+    U32.(remaining_space h1 x =^ remaining_space h0 x -^ 1ul) /\
+    as_list h1 x = L.append (as_list h0 x) [ e ]
+    ))
+=
+  let h0 = ST.get () in
+  let dest_slot = one_past_last !*x.first !*x.length x.total_length in
+  assert (~ (used_slot h0 x dest_slot));
+  x.b.(dest_slot) <- e;
+  seq_update_unused_preserves_list (B.as_seq h0 x.b) dest_slot e
+    (deref h0 x.first) (deref h0 x.length) x.total_length;
+  let h1 = ST.get () in
+  as_list_append_one (B.as_seq h1 x.b) e
+    (deref h1 x.first) (deref h1 x.length) x.total_length;
+  x.length *= U32.(!*x.length +^ 1ul)
+
+/// Similarly, we prove by induction a custom lemma that captures what it means
+/// to split a list at the last element.
+let rec as_list_minus_one (#a: eqtype)
+  (b: S.seq a)
+  (e: a)
+  (first length total_length: U32.t): Lemma
+  (requires
+    well_formed_f b first length total_length /\
+    U32.(length >^ 0ul) /\
+    S.index b (U32.v (prev (one_past_last first length total_length) total_length)) = e)
+  (ensures (
+    let l = as_list_f b first length total_length in
+    let l1, l2 = L.splitAt (L.length l - 1) l in
+    l1 = as_list_f b first U32.(length -^ 1ul) total_length /\
+    l2 = [ e ]))
+  (decreases (U32.v length))
+=
+  if U32.(length =^ 1ul) then
+    ()
+  else
+    as_list_minus_one b e (next first total_length) U32.(length -^ 1ul) total_length
+
+/// Then, we use the lemma above to specify what it means to pop an element from
+/// the back: it is equivalent to splitting the list at the last element.
+let pop_back (#a: eqtype) (x: t a): Stack a
+  (requires fun h ->
+    well_formed h x /\ U32.(deref h x.length >^ 0ul))
+  (ensures fun h0 e h1 ->
+    well_formed h1 x /\
+    M.(modifies (loc_union (loc_buffer x.length) (loc_buffer x.length)) h0 h1) /\
+    U32.(remaining_space h1 x = remaining_space h0 x +^ 1ul) /\ (
+    let l1, l2 = L.splitAt (L.length (as_list h0 x) - 1) (as_list h0 x) in
+    l1 = as_list h1 x /\ l2 = [ e ]))
+=
+  let i = one_past_last !*x.first !*x.length x.total_length in
+  let e = x.b.(prev i x.total_length) in
+  let h0 = ST.get () in
+  x.length *= U32.(!*x.length -^ 1ul);
+  as_list_minus_one (B.as_seq h0 x.b) e
+    (deref h0 x.first) (deref h0 x.length) x.total_length;
+  e
 
 /// ``create`` leverages the ``StackInline`` effect, and allocates three buffers
 /// -- we encapsulate stack allocation in a separate function, which facilitates
