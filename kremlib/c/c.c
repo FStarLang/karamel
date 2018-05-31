@@ -1,11 +1,13 @@
-#include "kremlib.h"
 #include <stdlib.h>
+#include <stdbool.h>
+
+#include "C.h"
 
 intptr_t nullptr = (intptr_t) NULL;
 
-/* DEPRECATED */
-int exit_success = EXIT_SUCCESS;
-int exit_failure = EXIT_FAILURE;
+bool __eq__C_char(char c1, char c2) {
+  return c1 == c2;
+}
 
 void print_bytes(const uint8_t *b, uint32_t len) {
   uint32_t i;

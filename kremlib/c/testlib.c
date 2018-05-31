@@ -1,13 +1,4 @@
-#include "kremlin/testlib.h"
-
-void print_buf(uint8_t *buf, size_t size, char *file, int line) {
-  char *str = malloc(2 * size + 1);
-  int i;
-  for (i = 0; i < size; ++i)
-    sprintf(str + 2 * i, "%02x", buf[i]);
-  str[2 * size] = '\0';
-  printf("%s:%d: %s\n", file, line, str);
-}
+#include "TestLib.h"
 
 void TestLib_compare_and_print(const char *txt, uint8_t *reference,
                                uint8_t *output, int size) {

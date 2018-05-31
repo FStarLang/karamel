@@ -76,27 +76,6 @@ FStar_UInt128_uint128 FStar_UInt128_mul_wide(uint64_t x, uint64_t y);
 
 #define FStar_UInt128_op_Hat_Hat FStar_UInt128_logxor
 
-static inline uint128_t FStar_Int_Cast_Full_uint64_to_uint128(uint64_t x) {
-#if defined(_M_X64)
-  return _mm_set_epi64x(0, x);
-#else
-  return
-    (
-      (FStar_UInt128_uint128){
-        .low = x,
-        .high = 0
-      }
-    );
-#endif
-}
-
-static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64(uint128_t x) {
-#if defined(_M_X64)
-  return x.m128i_u64[0];
-#else
-  return x.low;
-#endif
-}
 
 #define __FStar_UInt128_MSVC_H_DEFINED
 #endif

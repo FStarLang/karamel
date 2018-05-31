@@ -96,34 +96,4 @@ let default_options () =
  *
  * Note that "FStar.UInt128" is dropped if the target compiler supports (i.e. no
  * need to use the custom implementation). *)
-let drop: Bundle.pat list ref =
-  ref Bundle.([
-    Module [ "FStar"; "BaseTypes"; ];
-    Module [ "FStar"; "Char"; ];
-    Module [ "FStar"; "Float"; ];
-    Module [ "FStar"; "Heap"; ];
-    Module [ "FStar"; "Matrix2"; ];
-    Module [ "FStar"; "Option"; ];
-    Module [ "FStar"; "Squash"; ];
-    Module [ "FStar"; "Universe"; ];
-    Module [ "FStar"; "Int"; "Cast" ];
-    Module [ "FStar"; "Monotonic"; "Heap" ];
-    Module [ "FStar"; "Monotonic"; "RRef" ];
-    Module [ "FStar"; "Int8" ];
-    Module [ "FStar"; "UInt8" ];
-    Module [ "FStar"; "Int16" ];
-    Module [ "FStar"; "UInt16" ];
-    Module [ "FStar"; "Int31" ];
-    Module [ "FStar"; "UInt31" ];
-    Module [ "FStar"; "Int32" ];
-    Module [ "FStar"; "UInt32" ];
-    Module [ "FStar"; "Int63" ];
-    Module [ "FStar"; "UInt63" ];
-    Module [ "FStar"; "Int64" ];
-    Module [ "FStar"; "UInt64" ];
-    Module [ "FStar"; "Int128" ];
-    Module [ "FStar"; "Kremlin"; "Endianness" ];
-    Module [ "FStar"; "HyperStack"; "ST" ];
-    Module [ "C"; "String" ];
-    Module [ "C"; "Endianness" ];
-  ])
+let drop: Bundle.pat list ref = ref []

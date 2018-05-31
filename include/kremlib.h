@@ -20,16 +20,8 @@
 #include "kremlin/internal/callconv.h"
 #include "kremlin/internal/builtin.h"
 #include "kremlin/internal/debug.h"
+#include "kremlin/internal/types.h"
 
-typedef struct {
-  uint32_t length;
-  const char *data;
-} FStar_Bytes_bytes;
-
-#include "kremlin/c.h"
 #include "kremlin/c_endianness.h"
-#include "kremlin/fstar_dyn.h"
-#include "kremlin/fstar_ints.h"
-#include "kremlin/fstar_uint128.h"
 
 #endif     /* __KREMLIB_H */

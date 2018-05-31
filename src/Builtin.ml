@@ -25,10 +25,10 @@ let string_of_width = function
 let t_string = TQualified (["Prims"], "string")
 
 let mk_binop m n t =
-  DExternal (None, [ Common.Private ], (m, n), TArrow (t, TArrow (t, t)))
+  DExternal (None, [ ], (m, n), TArrow (t, TArrow (t, t)))
 
 let mk_val m n t =
-  DExternal (None, [ Common.Private ], (m, n), t)
+  DExternal (None, [ ], (m, n), t)
 
 let mk_int m t =
   let mk_binop n =
@@ -150,7 +150,7 @@ let buffer: file =
      *       break
      *   ret
      *)
-    DFunction (None, [ Common.Private ], 1, TBool, ([ "FStar"; "Buffer" ], "eqb"),
+    DFunction (None, [ ], 1, TBool, ([ "FStar"; "Buffer" ], "eqb"),
       [ fresh_binder "b1" (TBuf (TBound 0));
         fresh_binder "b2" (TBuf (TBound 0));
         fresh_binder "len" uint32 ],
