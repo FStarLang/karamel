@@ -43,7 +43,7 @@ typedef FStar_UInt128_uint128 FStar_UInt128_t_, uint128_t;
 /* A series of definitions written using pointers. */
 static inline void print128_(const char *where, uint128_t *n) {
   KRML_HOST_PRINTF(
-      "%s: [0x%08" PRIx64 ",0x%08" PRIx64 "]\n", where, HIGH64_OF(n), LOW64_OF(n);
+      "%s: [0x%08" PRIx64 ",0x%08" PRIx64 "]\n", where, HIGH64_OF(n), LOW64_OF(n));
 }
 
 static inline void load128_le_(uint8_t *b, uint128_t *r) {
