@@ -12,6 +12,11 @@ type u =
   | C: f:UInt32.t -> g:UInt64.t -> u
   | D: h:t -> i:unit -> u
 
+type v = | E | F
+
+let test (): Stack v (fun _ -> true) (fun _ _ _ -> true) =
+  E
+
 let something (): Stack bool (fun _ -> true) (fun _ _ _ -> true) =
   true
 
@@ -47,5 +52,7 @@ let main argc argv =
   in
   TestLib.checku8 z (FStar.UInt8.(0uy -%^ 10uy));
 
+  let x = match test () with E -> C.EXIT_SUCCESS | _ -> C.EXIT_FAILURE in
+
   pop_frame ();
-  C.EXIT_SUCCESS
+  x

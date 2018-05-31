@@ -12,11 +12,24 @@ EXTRA_TARGETS=Ast.inferred.mli kremlib/C.cmx kremlib/TestLib.cmx kremlib/C.cmo k
 all: minimal pre
 	OCAMLPATH=$(FSTAR_HOME)/bin $(OCAMLBUILD) $(EXTRA_TARGETS)
 
-minimal:
+minimal: src/AutoConfig.ml
 	@# Workaround Windows bug in OCamlbuild
 	$(shell [ -f Kremlin.$(FLAVOR) ] && rm Kremlin.$(FLAVOR); [ -f Tests.$(FLAVOR) ] && rm Tests.$(FLAVOR))
 	$(OCAMLBUILD) $(TARGETS)
 	ln -sf Kremlin.$(FLAVOR) krml
+
+src/AutoConfig.ml:
+	@if [ x"$(PREFIX)" != x ]; then \
+	  echo "let kremlib_dir = \"$(PREFIX)/lib/kremlin\";;" > $@; \
+	  echo "let runtime_dir = \"$(PREFIX)/lib/kremlin/runtime\";;" >> $@; \
+	  echo "let include_dir = \"$(PREFIX)/include/\";;" >> $@; \
+	  echo "let misc_dir = \"$(PREFIX)/share/kremlin/misc/\";;" >> $@; \
+	else \
+	  echo "let kremlib_dir = \"\";;" > $@; \
+	  echo "let runtime_dir = \"\";;" >> $@; \
+	  echo "let include_dir = \"\";;" >> $@; \
+	  echo "let misc_dir = \"\";;" >> $@; \
+	fi
 
 clean:
 	rm -rf krml _build Tests.$(FLAVOR) Kremlin.$(FLAVOR)
@@ -26,13 +39,24 @@ test: all
 	./Tests.native
 	+make -C test
 
-# External prerequisites
-COMPILER := $(FSTAR_HOME)/bin/fstar.exe
-FSTARLIB := $(FSTAR_HOME)/bin/fstarlib/fstarlib.cmxa
-pre: $(COMPILER) $(FSTARLIB)
+# Auto-detection
+pre:
+	@which fstar.exe >/dev/null 2>&1 || [ -x $(FSTAR_HOME)/bin/fstar.exe ] || \
+	  { echo "Didn't find fstar.exe in the path or in FSTAR_HOME (which is: $(FSTAR_HOME))"; exit 1; }
+	@ocamlfind query fstarlib >/dev/null 2>&1 || [ -f $(FSTAR_HOME)/bin/fstarlib/fstarlib.cmxa ] || \
+	  { echo "Didn't find fstarlib via ocamlfind or in FSTAR_HOME (which is: $(FSTAR_HOME))"; exit 1; }
 
-$(COMPILER):
-	$(error Could not find fstar.exe; $$FSTAR_HOME is: $(FSTAR_HOME); aborting)
-
-$(FSTARLIB):
-	$(error Could not find fstarlib.cmxa; $$FSTAR_HOME is: $(FSTAR_HOME); aborting)
+install: all
+	@if [ x"$(PREFIX)" = x ]; then echo "please define PREFIX"; exit 1; fi
+	mkdir -p $(PREFIX)/bin
+	cp _build/src/Kremlin.native $(PREFIX)/bin/krml
+	mkdir -p $(PREFIX)/include
+	cp -r include/* $(PREFIX)/include
+	mkdir -p $(PREFIX)/lib/kremlin
+	cp -r kremlib/* $(PREFIX)/lib/kremlin
+	mkdir -p $(PREFIX)/lib/kremlin/runtime
+	cp -r runtime/* $(PREFIX)/lib/kremlin/runtime
+	mkdir -p $(PREFIX)/share/kremlin/examples
+	cp -r test/*.fst $(PREFIX)/share/kremlin/examples
+	mkdir -p $(PREFIX)/share/kremlin/misc
+	cp -r misc/* $(PREFIX)/share/kremlin/misc

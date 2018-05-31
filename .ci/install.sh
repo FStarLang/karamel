@@ -17,6 +17,7 @@ fi
 sudo easy_install docutils sphinx sphinx-rtd-theme
 
 export OPAMYES=true
+export OPAMJOBS=4
 opam init --comp=4.05.0
 eval $(opam config env)
 
@@ -29,6 +30,6 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
 fi
 
 git clone --branch master --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
-git clone --branch cleanup-kremlib-2 --single-branch --depth 1 https://github.com/mitls/hacl-star
+git clone --branch fstar-master --single-branch --depth 1 https://github.com/mitls/hacl-star
 make -C fstar/src/ocaml-output
-make -C fstar/ulib/ml
+make -C fstar/ulib/ml -j 4

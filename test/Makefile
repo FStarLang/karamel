@@ -18,7 +18,8 @@ FILES		= \
   CustomEq.test Uu.test WildCard.test UnusedParameter.test EqB.test MutRec.test \
   MallocFree.test TestAlloca.test OptimizedOption.test PushPop.test EtaStruct.test \
   Verbatim.test Const.test $(CRYPTO)/Crypto.Symmetric.Chacha20.test Uu.test \
-  LinkedList1.test LinkedList2.test NoExtract.test InlineNoExtract.test \
+  LinkedList1.test LinkedList2.test LinkedList3.test LinkedList4.test \
+  NoExtract.test InlineNoExtract.test ../book/RingBuffer.test \
   ../book/Introduction.test
 CUSTOM		= count-uu
 WASM_FILES	= \
@@ -104,6 +105,7 @@ $(OUTPUT_DIR)/Introduction.exe: EXTRA = -add-include '"kremlin/c_string.h"' -dro
 $(OUTPUT_DIR)/TotalLoops.exe: EXTRA = -add-include '"kremlin/prims_int.h"'
 $(OUTPUT_DIR)/CheckedInt.exe: EXTRA = -add-include '"kremlin/prims_int.h"'
 $(OUTPUT_DIR)/CustomEq.exe: EXTRA = -add-include '"kremlin/prims_int.h"'
+$(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fshort-enums
 
 # Some custom targets
 
@@ -117,6 +119,7 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 .PHONY: hacl-test
 hacl-test:
 	$(MAKE) -C $(HACL_HOME)/code/curve25519 extract-c
+	$(MAKE) -C $(HACL_HOME)/code/api extract-c
 	$(MAKE) -C $(HACL_HOME)/secure_api -f $(HACL_HOME)/secure_api/Makefile.extract krml-test
 
 # A target for WASM compilation. All WASM targets get the -wasm flag;
@@ -144,33 +147,33 @@ HACL_ALGS=CHACHA SALSA CURVE POLY ED HMAC
 CHACHA=$(HACL_HOME)/code/salsa-family
 CHACHA_DIR=chacha-c
 CHACHA_TEST=Hacl.Test.Chacha20.krml
-CHACHA_ARGS=-bundle 'Chacha20=Hacl.Impl.*,Chacha20,Hacl.Lib.*'
+CHACHA_ARGS=-bundle 'Hacl_Chacha20=Hacl.Impl.*,Chacha20,Hacl.Lib.*'
 
 SALSA=$(HACL_HOME)/code/salsa-family
 SALSA_DIR=salsa-c
 SALSA_TEST=Hacl.Test.Salsa20.krml
-SALSA_ARGS=-bundle 'Salsa20=Salsa20,Hacl.Impl.*,Hacl.Lib.*'
+SALSA_ARGS=-bundle 'Hacl_Salsa20=Salsa20,Hacl.Impl.*,Hacl.Lib.*'
 
 CURVE=$(HACL_HOME)/code/curve25519
 CURVE_DIR=x25519-c
 CURVE_TEST=Hacl.Test.X25519.krml
-CURVE_ARGS=-bundle 'Curve25519=Hacl.Bignum,Hacl.Bignum.*,Hacl.EC,Hacl.EC.*'
+CURVE_ARGS=-bundle 'Hacl_Curve25519=Hacl.Bignum,Hacl.Bignum.*,Hacl.EC,Hacl.EC.*'
 
 POLY=$(HACL_HOME)/code/poly1305
 POLY_DIR=poly-c
 POLY_TEST=Hacl.Test.Poly1305_64.krml
-POLY_ARGS=-bundle 'Poly1305_64=Hacl.Bignum.*,Hacl.Impl.*,Hacl.Standalone.*,Poly1305_64' \
+POLY_ARGS=-bundle 'Hacl_Poly1305_64=Hacl.Bignum.*,Hacl.Impl.*,Hacl.Standalone.*,Poly1305_64' \
   -drop AEAD_Poly1305_64
 
 ED=$(HACL_HOME)/code/ed25519
 ED_DIR=ed25519-c
 ED_TEST=Hacl.Test.Ed25519.krml
-ED_ARGS=-bundle 'Ed25519=Ed25519,Hacl.EC,Hacl.EC.*,Hacl.Impl.*,Hacl.Lib.*,Hacl.Bignum.*,Hacl.Bignum25519,Hacl.Bignum,Hacl.Spec.*,SHA2_512,Hacl.Hash.*' \
+ED_ARGS=-bundle 'Hacl_Ed25519=Ed25519,Hacl.EC,Hacl.EC.*,Hacl.Impl.*,Hacl.Lib.*,Hacl.Bignum.*,Hacl.Bignum25519,Hacl.Bignum,Hacl.Spec.*,Hacl.SHA2_512,Hacl.Hash.*' \
 
 HMAC=$(HACL_HOME)/code/hmac
-HMAC_DIR=hmac-c
+HMAC_DIR=hmac-sha256-c
 HMAC_TEST=Hacl.Test.HMAC.SHA2_256.krml
-HMAC_ARGS=-bundle 'HMAC_SHA2_256=Hacl.Hash.Lib.Create,Hacl.Hash.Lib.LoadStore,Hacl.Hash.SHA2_256,Hacl.HMAC.SHA2_256,HMAC_SHA2_256'
+HMAC_ARGS=-bundle 'Hacl_HMAC_SHA2_256=Hacl.Hash.Lib.Create,Hacl.Hash.Lib.LoadStore,Hacl.Hash.SHA2_256,Hacl.HMAC.SHA2_256,HMAC_SHA2_256,Hacl.Impl.*'
 
 # A template that uses the global namespace as an associative array. Note:
 # equals sign is not Make 3.81-compatible (last GPLv2 version on OSX).

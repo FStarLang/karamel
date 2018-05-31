@@ -8,7 +8,7 @@
       1,
       [ "@query", "assumption_FStar.UInt32.t__uu___haseq" ],
       0,
-      "009e4678cb4edc95a3e621fb9e32ea48"
+      "0313d6d39d49814f2068d4d110ee8a4d"
     ],
     [
       "DataTypesSimple.f",
@@ -31,7 +31,7 @@
         "typing_tok_DataTypesSimple.Cons1@tok"
       ],
       0,
-      "7b3ee39a4ed71731bba38af3b4a298cb"
+      "0b589512ae8a8f66ea1e683476bf93a7"
     ],
     [
       "DataTypesSimple.main",
@@ -68,7 +68,7 @@
         "typing_FStar.Monotonic.HyperStack.poppable"
       ],
       0,
-      "6573fd9c15c926c2d740ddf690cce9c4"
+      "a9cc2f992b6f0c94843d6033c9283fcf"
     ]
   ]
 ]

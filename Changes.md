@@ -1,3 +1,51 @@
+### May 17th, 2018
+
+- Release 0.9.6.0
+- Support for running as an OPAM package
+
+### May 2nd, 2018
+
+Massive cleanup and refactoring of the .h kremlib files (part 1)
+
+- Directory structure change: include/kremlin/internal contains the
+  headers that define macros and functions that KreMLin expects to be
+  in scope when generating C code (example: __cdecl, KRML_CHECK_SIZE,
+  etc.), and include/kremlin contains individual .h files for each F*
+  source file
+- Naming convention change: include/kremlib.h is a meta-header that
+  includes most of what was there before. Individual implementations are
+  in include/kremlin and are named after the F* module that they
+  implement (c_string.h, fstar_dyn.h, etc.) or, for non-Low* features
+  like Prims.int and Prims.string, after the feature that they implement
+  (prims_int.h, prims_string.h are the only two)
+- Entirely removed sketchy macros (#define FStar_HyperStack_mem) in
+  favor of built-in definitions that are gracefully reduced to unit types
+  if needed via src/Builtin.ml
+- Removed, after a long deprecation period, C.exit_success and
+  C.exit_failure; use C.EXIT_SUCCESS and C.EXIT_FAILURE instead
+
+### April 30th, 2018
+
+- Output a Makefile.include that lists the generated .c and .h files.
+
+### April 9th, 2018
+
+- Ensure the `noextract` keyword also works for types. This facilitates
+  fine-grained control of what goes into the generated C and, by extension, what
+  is in your dependency graph or not.
+
+### April 5th, 2018
+
+- WASM backend: inlining criterion based on function size
+
+### March 27th, 2018
+
+- Tame the number of auto-generated `scrut` variables
+
+### March 7th, 2018
+
+- Large series of fixes for the -fnostruct-passing feature.
+
 ### Feb 23rd, 2018
 
 - New -ftail-calls option, which compiles tail-calls to while-loops, for
