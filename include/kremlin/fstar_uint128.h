@@ -19,8 +19,8 @@
  *   must be compiled with -DKRML_NOSTRUCT_PASSING
  */
 
-// Access 64-bit fields within the int128.
-// The headers below may override these default macros
+/* Access 64-bit fields within the int128. */
+/* The headers below may override these default macros */
 #define HIGH64_OF(x) ((x)->high)
 #define LOW64_OF(x)  ((x)->low)
  
@@ -74,7 +74,7 @@ FStar_Int_Cast_Full_uint64_to_uint128_(uint64_t x, uint128_t *dst) {
 }
 
 static inline uint64_t FStar_Int_Cast_Full_uint128_to_uint64_(uint128_t *x) {
-  return LOW64_OF(x->low);
+  return LOW64_OF(x);
 }
 
 #    ifndef KRML_NOSTRUCT_PASSING
