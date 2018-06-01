@@ -1,6 +1,6 @@
 #include "C_String.h"
 
-C_String_t *C_String_of_literal (const char *str) {
+C_String_t C_String_of_literal (const char *str) {
   return str;
 }
 
