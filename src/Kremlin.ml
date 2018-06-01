@@ -303,10 +303,12 @@ Supported options:|}
     Options.struct_passing := false
   end;
 
-  if !Options.wasm then
+  if !Options.wasm then begin
     (* True Wasm compilation: this module is useless (only assume val's). *)
     (* Only keep what's stricly needed from the C module. *)
     Options.bundle := ([], [ Bundle.Module [ "C" ]]) :: !Options.bundle;
+    Options.extract_uint128 := true
+  end;
 
   (* Self-help. *)
   if !Options.wasm && Options.debug "force-c" then begin

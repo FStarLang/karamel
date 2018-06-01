@@ -16,3 +16,7 @@ void print_bytes(uint8_t *b, uint32_t len) {
   }
   printf("\n");
 }
+
+void portable_exit(int code) {
+  KRML_HOST_EXIT(code);
+}
