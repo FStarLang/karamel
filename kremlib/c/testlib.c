@@ -1,7 +1,29 @@
 #include "TestLib.h"
 
+#ifndef _MSC_VER
+TestLib_cycles TestLib_cpucycles(void) {
+  unsigned hi, lo;
+  __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
+  return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
+}
+
+TestLib_cycles TestLib_cpucycles_begin(void)
+{
+  unsigned hi, lo;
+  __asm__ __volatile__ ("CPUID\n\t"  "RDTSC\n\t"  "mov %%edx, %0\n\t"  "mov %%eax, %1\n\t": "=r" (hi), "=r" (lo):: "%rax", "%rbx", "%rcx", "%rdx");
+  return ( (uint64_t)lo)|( ((uint64_t)hi)<<32 );
+}
+
+TestLib_cycles TestLib_cpucycles_end(void)
+{
+  unsigned hi, lo;
+  __asm__ __volatile__ ("RDTSCP\n\t"  "mov %%edx, %0\n\t"  "mov %%eax, %1\n\t"  "CPUID\n\t": "=r" (hi), "=r" (lo)::     "%rax", "%rbx", "%rcx", "%rdx");
+  return ( (uint64_t)lo)|( ((uint64_t)hi)<<32 );
+}
+#endif
+
 void TestLib_compare_and_print(const char *txt, uint8_t *reference,
-                               uint8_t *output, int size) {
+                               uint8_t *output, uint32_t size) {
   char *str = malloc(2 * size + 1);
   char *str_ref = malloc(2 * size + 1);
   int i;
@@ -61,7 +83,7 @@ void TestLib_check(bool b) {
   }
 }
 
-void *TestLib_unsafe_malloc(size_t size) {
+uint8_t *TestLib_unsafe_malloc(uint32_t size) {
   void *memblob = malloc(size);
   if (memblob == NULL) {
     printf(" WARNING : malloc failed in tests !\n");

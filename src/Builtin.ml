@@ -1,26 +1,8 @@
-(** Builtin module declarations. We want to hand-roll some definitions for two
-   reasons:
-   - most of the module doesn't make sense in Low* (e.g. Prims), so rather than
-     spew a bunch of warnings, we just redefine the list type
-   - the module is a model in F*, but not in Low*; this is the case of all the
-     machine integer modules; they're defined in F* using an inductive, but we
-     don't want a struct definition to be generated in Low*, so we swap them
-     with a bunch of assumed definitions over the built-in fixed-width types. *)
+(** Removing all traces of F* models and replacing them with built-in
+ * definitions or abstract ones before re-checking the program as Low*. *)
 
 open Ast
-open Constant
 open Helpers
-
-let string_of_width = function
-  | UInt8 -> "UInt8"
-  | UInt16 -> "UInt16"
-  | UInt32 -> "UInt32"
-  | UInt64 -> "UInt64"
-  | Int8 -> "Int8"
-  | Int16 -> "Int16"
-  | Int32 -> "Int32"
-  | Int64 -> "Int64"
-  | _ -> invalid_arg "string_of_width"
 
 let t_string = TQualified (["Prims"], "string")
 
@@ -29,46 +11,6 @@ let mk_binop m n t =
 
 let mk_val m n t =
   DExternal (None, [ ], (m, n), t)
-
-let mk_int m t =
-  let mk_binop n =
-    mk_binop [ "FStar"; m ] n t
-  in
-  let mk_val n t =
-    mk_val [ "FStar"; m ] n t
-  in
-  let mk_binops n =
-    [ mk_binop n; mk_binop (n ^ "_mod"); mk_binop (n ^ "_underspec") ]
-  in
-  "FStar_" ^ m,
-  mk_binops "add" @
-  mk_binops "sub" @
-  mk_binops "mul" @ [
-    mk_binop "div";
-    mk_binop "div_underspec";
-    mk_binop "rem";
-    mk_binop "logand";
-    mk_binop "logxor";
-    mk_binop "logor";
-    mk_val "lognot" (TArrow (t, t));
-    mk_val "shift_right" (TArrow (t, TArrow (TInt UInt32, t)));
-    mk_val "shift_left" (TArrow (t, TArrow (TInt UInt32, t)));
-    mk_binop "eq";
-    mk_binop "gt";
-    mk_binop "gte";
-    mk_binop "lt";
-    mk_binop "lte";
-    mk_binop "gte_mask";
-    mk_binop "eq_mask";
-    mk_val "to_string" (TArrow (t, t_string));
-    mk_val "v" (TArrow (t, TInt K.CInt));
-    mk_val "uint_to_t" (TArrow (TInt K.CInt, t))
-  ]
-
-let mk_builtin_int w =
-  let m = string_of_width w in
-  let t = TInt w in
-  mk_int m t
 
 let prims: file =
   let t = TInt K.CInt in
@@ -247,62 +189,89 @@ let dyn: file =
       with_type void_star (ECast (with_type (TBound 0) (EBound 0), void_star)))
   ]
 
-let c_string: file =
-  let t = TQualified ([ "C"; "String" ], "t") in
-  "C_String", [
-    mk_val [ "C"; "String" ] "print" (TArrow (t, TUnit))
-  ]
-
-let c: file =
-  "C", [
-    mk_val [ "C" ] "exit" (TArrow (TInt K.Int32, TUnit))
-  ]
-
 let lowstar_buffer: file =
   "LowStar_Buffer", [
     mk_val [ "LowStar"; "Buffer" ] "is_null" (TArrow (TBuf TAny, TBool));
     mk_val [ "LowStar"; "Buffer" ] "null" (TArrow (TAny, TBuf TAny))
   ]
 
-let prelude () =
-  prims ::
-  List.map mk_builtin_int
-    [ UInt8; UInt16; UInt32; UInt64; Int8; Int16; Int32; Int64 ] @ [
+let c_nullity: file =
+  (* Poor man's substitute to polymorphic assumes ... this needs to be here to
+   * provide proper typing when is_null is in match position. *)
+  "C_Nullity", [
+    mk_val [ "C"; "Nullity" ] "is_null" (TArrow (TBuf TAny, TBool));
+    mk_val [ "C"; "Nullity" ] "null" (TArrow (TAny, TBuf TAny))
+  ]
+
+(* These modules are entirely written by hand in abstract syntax. *)
+let hand_written = [
   buffer;
   lowstar_buffer;
   monotonic_hh;
   monotonic_hs;
   hs;
   dyn;
-  c_string;
-  c ] @ (
-    let t = TQualified (["FStar"; "UInt128"], "uint128") in
-    let augment prelude (filename, decls) = filename, prelude @ decls in
-    let default =
-      [
-        DExternal (None, [], (["FStar"; "UInt128"], "uint64_to_uint128"),
-          (TArrow (TInt UInt64, t)));
-        DExternal (None, [], (["FStar"; "UInt128"], "uint128_to_uint64"),
-          (TArrow (t, TInt UInt64)));
-        DType (([ "FStar"; "UInt128"], "t"), [], 0, Abbrev t);
-      ]
-    in
-    if !Options.uint128 then
-      [ augment default (mk_int "UInt128" t) ]
-    else
-      [ "FStar_UInt128", default ]
-  )
+]
 
-let nullity: decl list =
-  (* Poor man's substitute to polymorphic assumes ... this needs to be here to
-   * provide proper typing when is_null is in match position. *)
-  [
-    mk_val [ "C"; "Nullity" ] "is_null" (TArrow (TBuf TAny, TBool));
-    mk_val [ "C"; "Nullity" ] "null" (TArrow (TAny, TBuf TAny))
-  ]
+(* These modules get a couple bonus definitions. *)
+let addendum = [
+  c_nullity;
+]
 
-let augment files =
-  List.map (function
-    | "C_Nullity", decls -> "C_Nullity", decls @ nullity
-    | f -> f
+(* Transforms an F*-provided machine integer module into an abstract version
+ * where:
+ * - the model of a machine integer as an inductive is gone
+ * - operators (marked as unfold) are gone
+ * - lets are replaced by vals *)
+let make_abstract (name, decls) =
+  name, KList.filter_map (function
+    | DFunction (cc, flags, n, t, name, bs, _) ->
+        let t = fold_arrow (List.map (fun b -> b.typ) bs) t in
+        if n = 0 then
+          Some (DExternal (cc, flags, name, t))
+        else
+          None
+    | DType (_, _, _, Abbrev _) as t ->
+        Some t
+    | DType _ ->
+        None
+    | DGlobal (_, name, _, _, _) when KString.starts_with (snd name) "op_" ->
+        None
+    | d ->
+        Some d
+  ) decls
+
+let is_model name =
+  let is_machine_integer name =
+    (KString.starts_with name "FStar_UInt" ||
+      KString.starts_with name "FStar_Int") &&
+    name <> "FStar_UInt" && name <> "FStar_Int"
+  in
+  if name = "FStar_UInt128" then
+    not (!Options.extract_uint128)
+  else
+    is_machine_integer name ||
+    List.mem name [
+      "C_String"
+    ]
+
+(* We have four different treatments. *)
+let prepare files =
+  (* prims is a special-case, as it is not extracted by F* (FIXME) *)
+  prims :: List.map (fun f ->
+    let name = fst f in
+    (* machine integers, some modules from the C namespace just become abstract in Low*. *)
+    let f = if is_model name then make_abstract f else f in
+    try
+      (* some modules (e.g. ST) are entirely written by hand since we only care
+       * about a couple definitions anyhow. *)
+      name, List.assoc name hand_written
+    with Not_found ->
+      try
+        (* some modules need extra definitions appended (mostly for polymorphic
+         * assume val's, like C.exit) *)
+        let extra = List.assoc name addendum in
+        name, snd f @ extra
+      with Not_found ->
+        f
   ) files

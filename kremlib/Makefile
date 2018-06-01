@@ -33,30 +33,31 @@ FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules \
 # Note: not compatible with the OPAM layout until fstar can be queried for the
 # location of ulib.
 ROOTS = $(wildcard *.fst) $(wildcard *.fsti) \
-  $(addprefix $(FSTAR_HOME)/ulib/,FStar.UInt128.fst FStar.Date.fsti)
+  $(addprefix $(FSTAR_HOME)/ulib/,FStar.UInt128.fst FStar.Date.fsti \
+    FStar.HyperStack.IO.fst FStar.IO.fst FStar.Int.Cast.Full.fst \
+    FStar.Bytes.fsti)
 
 .PHONY: clean
 clean:
 	rm -rf *.checked *.source .depend
 
 .PHONY: .depend
-.depend: $(ROOTS) Makefile | $(OUTPUT_DIR)
+.depend: Makefile | $(OUTPUT_DIR)
 	$(FSTAR) $(OTHERFLAGS) --dep full $(ROOTS) > $@
 
 include .depend
 
-ALL_CHECKED_FILES=$(addsuffix .checked, $(ALL_FST_FILES))
-
-KREMLIB_CHECKED_FILES=$(addsuffix .checked, $(KREMLIB_FILES))
-
-OTHER_CHECKED_FILES=$(filter-out $(KREMLIB_CHECKED_FILES), $(ALL_CHECKED_FILES))
+ALL_CHECKED_FILES	= $(addsuffix .checked, $(ALL_FST_FILES))
+KREMLIB_FILES		= $(wildcard *.fst) $(wildcard *.fsti)
+KREMLIB_CHECKED_FILES	= $(addsuffix .checked, $(KREMLIB_FILES))
+OTHER_CHECKED_FILES	= $(filter-out $(KREMLIB_CHECKED_FILES), $(ALL_CHECKED_FILES))
 
 $(KREMLIB_CHECKED_FILES): %.checked: | .depend
-	$(MY_FSTAR) $(FSTAR_OPTIONS) $(OTHERFLAGS) $<
+	$(FSTAR) $(FSTAR_OPTIONS) $(OTHERFLAGS) $< && \
 	touch $@
 
 $(OTHER_CHECKED_FILES): %.checked:
-	@if ! [ -f $@ ]; then echo $@ is missing, please run make -C '$$'\(FSTAR_HOME\)/ulib before; false; fi
+	@echo $@ is out of date, please run make -C '$$'\(FSTAR_HOME\)/ulib before; false
 
 verify-all: $(ALL_CHECKED_FILES)
 
@@ -66,8 +67,8 @@ $(OUTPUT_DIR)/%.krml:  | .depend
 	  $(notdir $(subst .checked,,$<)) && \
 	touch $@
 
-extract-all: $(ALL_KRML_FILES) | .depend
-	krml -minimal -tmpdir $(OUTPUT_DIR) -warn-error +9 -skip-compilation -fnouint128 \
+extract-all: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
+	krml -minimal -tmpdir $(OUTPUT_DIR) -warn-error +9+11 -skip-compilation -extract-uint128 \
 	  $(addprefix -add-include ,'<inttypes.h>' '"kremlib.h"' '"kremlin/internal/compat.h"') \
 	  $^
 	find $(OUTPUT_DIR) -name '*.c' -and -not -name 'FStar_UInt128.c' -exec rm {} \;
@@ -77,12 +78,22 @@ extract-all: $(ALL_KRML_FILES) | .depend
 # Compilation, only works after the stage above has run and C files exist      #
 ################################################################################
 
-ALL_C_FILES = $(wildcard c/*.c)
-ALL_OBJ_FILES = $(patsubst %.c,%.o,$(ALL_C_FILES))
+-include $(OUTPUT_DIR)/Makefile.include
 
-CFLAGS += -I extracted -I ../include
+SOURCES = $(filter-out c/fstar_uint128_msvc.c,$(wildcard c/*.c))
+OBJS = $(patsubst %.c,%.o,$(SOURCES))
 
-compile-all: kremlib.a
+%.d: %.c
+	@set -e; rm -f $@; \
+	  $(CC) -MM $(CFLAGS) $< > $@.$$$$; \
+	  sed 's,\($(notdir $*)\)\.o[ :]*,$(dir $@)\1.o $@ : ,g' < $@.$$$$ > $@; \
+	  rm -f $@.$$$$
 
-kremlib.a: $(ALL_OBJ_FILES)
+-include $(addsuffix .d,$(SOURCES) $(ALL_C_FILES))
+
+CFLAGS += -I extracted -I ../include -Wall
+
+compile-all: libkremlib.a
+
+libkremlib.a: $(OBJS) | extract-all
 	ar cr $@ $^

@@ -560,7 +560,9 @@ and is_primitive s =
   s = "C_Nullity_is_null" ||
   s = "LowStar_Buffer_null" ||
   s = "C_Nullity_null" ||
-  s = "C_String_get"
+  s = "C_String_get" ||
+  s = "exit_code" ||
+  s = "FStar_UInt128_uint128"
 
 and mk_expr (e: expr): C.expr =
   match e with
@@ -767,16 +769,19 @@ let mk_type_or_external (d: decl): C.declaration_or_function list =
       wrap_verbatim flags (Decl ([], ([], C.Struct (Some (name ^ "_s"), None), Some Typedef, [ Ident name, None ])))  
 
   | Type (name, t, flags) ->
-      begin match t with
-      | Enum cases when !Options.short_enums ->
-          if List.length cases > 256 then
-            KPrint.bprintf "Error: enum %s has > 256 cases but -fshort-enums is used" name;
-          wrap_verbatim flags (Verbatim (enum_as_macros cases)) @
-          let qs, spec, decl = mk_spec_and_declarator_t name (Int K.UInt8) in
-          [ Decl ([], (qs, spec, Some Typedef, [ decl, None ]))]
-      | _ ->
-          let qs, spec, decl = mk_spec_and_declarator_t name t in
-          wrap_verbatim flags (Decl ([], (qs, spec, Some Typedef, [ decl, None ])))
+      if is_primitive name then
+        []
+      else begin
+        match t with
+        | Enum cases when !Options.short_enums ->
+            if List.length cases > 256 then
+              KPrint.bprintf "Error: enum %s has > 256 cases but -fshort-enums is used" name;
+            wrap_verbatim flags (Verbatim (enum_as_macros cases)) @
+            let qs, spec, decl = mk_spec_and_declarator_t name (Int K.UInt8) in
+            [ Decl ([], (qs, spec, Some Typedef, [ decl, None ]))]
+        | _ ->
+            let qs, spec, decl = mk_spec_and_declarator_t name t in
+            wrap_verbatim flags (Decl ([], (qs, spec, Some Typedef, [ decl, None ])))
       end
 
   | External (name, Function (cc, t, ts), flags) ->

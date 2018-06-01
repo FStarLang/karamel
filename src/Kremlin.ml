@@ -130,13 +130,14 @@ The compiler switches turn on the following options.
   [-cc msvc] adds [%s]
   [-cc compcert] adds [%s]
 
-The [-fc89] option triggers [-fnouint128], [-fnoanonymous-unions],
-[-fnocompound-literals] and [-fc89-scope]. It also changes the invocations above
-to use [-std=c89].
+The [-fc89] option triggers [-fnoanonymous-unions], [-fnocompound-literals] and
+[-fc89-scope]. It also changes the invocations above to use [-std=c89]. Note
+that if you're using the uint128 type, you will have to manually compile this
+code with -DKRML_VERIFIED_UINT128.
 
 To debug Wasm codegen, it might be useful to trigger the same compilation path
 as Wasm, but emit C code instead. This can be achieved with [-wasm -d
-force-c,c-calls,wasm-calls -drop C,TestLib -add-include '"hack.h"' -fnouint128]
+force-c,c-calls,wasm-calls -drop C,TestLib -add-include '"hack.h"']
 where [hack.h] contains [#define WasmSupport_check_buffer_size(X)].
 
 Supported options:|}
@@ -203,6 +204,7 @@ Supported options:|}
       used_drop := true;
       List.iter (prepend Options.drop) (Parsers.drop s)),
       "  do not extract Code for this module (see above)";
+    "-extract-uint128", Arg.Set Options.extract_uint128, ""; (* no doc, intentional *)
     "-header", Arg.String (fun f ->
       let c = Utils.file_get_contents f in
       Options.header := fun _ _ -> c
@@ -225,8 +227,6 @@ Supported options:|}
       structures by value and use pointers instead";
     "-fnoanonymous-unions", Arg.Clear Options.anonymous_unions, "  disable C11 \
       anonymous unions";
-    "-fnouint128", Arg.Clear Options.uint128, "  don't assume a built-in type \
-      __uint128";
     "-fnocompound-literals", Arg.Unit (fun () -> Options.compound_literals := `Never),
       "  don't generate C11 compound literals";
     "-ftail-calls", Arg.Set Options.tail_calls, "  statically compile tail-calls \
@@ -295,7 +295,6 @@ Supported options:|}
   (* Meta-options that enable other options. Do this now because it influences
    * the default options for each compiler. *)
   if !Options.wasm then begin
-    Options.uint128 := false;
     Options.anonymous_unions := false;
     (* This forces the evaluation of compound literals to happen first, before
      * they are assigned. This is the C semantics, and the C compiler will do it
@@ -304,18 +303,10 @@ Supported options:|}
     Options.struct_passing := false
   end;
 
-  if not !Options.wasm || Options.debug "force-c" then
-    (* An actual C compilation wants to drop these two. *)
-    Options.drop := [
-      Bundle.Module [ "FStar"; "Int"; "Cast"; "Full" ];
-      Bundle.Module [ "C" ];
-      Bundle.Module [ "TestLib" ]
-    ] @ !Options.drop
-  else begin
+  if !Options.wasm then
     (* True Wasm compilation: this module is useless (only assume val's). *)
     (* Only keep what's stricly needed from the C module. *)
-    Options.bundle := ([], [ Bundle.Module [ "C" ]]) :: !Options.bundle
-  end;
+    Options.bundle := ([], [ Bundle.Module [ "C" ]]) :: !Options.bundle;
 
   (* Self-help. *)
   if !Options.wasm && Options.debug "force-c" then begin
@@ -331,7 +322,6 @@ Supported options:|}
       !Options.bundle;
 
   if !arg_c89 then begin
-    Options.uint128 := false;
     Options.anonymous_unions := false;
     Options.compound_literals := `Never;
     Options.c89_scope := true;
@@ -351,13 +341,6 @@ Supported options:|}
     Warnings.(maybe_fatal_error ("", Deprecated ("-drop", "use a combination of \
       -bundle and -d reachability to make sure the functions are eliminated as \
       you wish")));
-
-  (* If the compiler supports uint128, then we just drop the module and let
-   * dependency analysis use FStar.UInt128.fsti. If the compiler does not,
-   * then we bring the implementation into scope instead. The latter is
-   * performed in src/Driver.ml because we need to know where FSTAR_HOME is. *)
-  if !Options.uint128 then
-    Options.drop := Bundle.Module [ "FStar"; "UInt128" ] :: !Options.drop;
 
   (* Timings. *)
   Time.start ();
@@ -398,54 +381,12 @@ Supported options:|}
   let filenames = List.filter (fun f -> Filename.basename f <> "prims.krml") filenames in
   let files = InputAst.read_files filenames in
 
-  (* These are modules we don't want because there's primitive support for them
-   * in kremlin. *)
-  let should_keep (name, _) = match name with
-    | "FStar_Int8" | "FStar_UInt8" | "FStar_Int16" | "FStar_UInt16"
-    | "FStar_Int31" | "FStar_UInt31" | "FStar_Int32" | "FStar_UInt32"
-    | "FStar_Int63" | "FStar_UInt63" | "FStar_Int64" | "FStar_UInt64"
-    | "FStar_Int128"
-    | "FStar_HyperStack_ST" | "FStar_Monotonic_HyperHeap"
-    | "LowStar_Buffer" | "LowStar_Modifies"
-    | "FStar_Buffer" | "FStar_Monotonic_HyperStack" | "FStar_Monotonic_Heap"
-    | "C_String" | "FStar_Dyn" ->
-        false
-    | "FStar_UInt128" ->
-        (* Keep if we don't use the uint128 type. *)
-        not !Options.uint128
-    | "WasmSupport" ->
-        (* Keep if we're compiling to Wasm. *)
-        !Options.wasm
-    | _ ->
-        true
-  in
-  let files = List.filter should_keep files in
-
-  (* A quick sanity check to save myself some time. *)
-  begin try
-    let has_uint128 =
-      List.exists (function
-        | InputAst.DTypeFlat (([ "FStar"; "UInt128" ], "uint128"), _, _, _) ->
-            true
-        | _ ->
-            false
-      ) (List.assoc "FStar_UInt128" files)
-    in
-    (* The input file defines uint128 if and only if the backend does not
-     * support it. *)
-    if has_uint128 <> not !Options.uint128 then
-      Warnings.fatal_error "The implementation of FStar.UInt128 should be \
-        present in the input when using -fnouint128."
-  with Not_found ->
-    ()
-  end;
-
   (* -djson *)
   if !arg_print_json then
     Yojson.Safe.to_channel stdout (InputAst.binary_format_to_yojson (InputAst.current_version, files));
 
   (* -dast *)
-  let files = Builtin.prelude () @ Builtin.augment (InputAstToAst.mk_files files) in
+  let files = Builtin.prepare (InputAstToAst.mk_files files) in
   if !arg_print_ast then
     print PrintAst.print_files files;
 

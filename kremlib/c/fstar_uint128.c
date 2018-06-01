@@ -1,29 +1,19 @@
-#ifndef __KREMLIN_INT128_H
-#define __KREMLIN_INT128_H
-
-#include "kremlin/internal/target.h"
-#include "kremlin/c_endianness.h"
-#include "kremlin/fstar_ints.h"
-
 /******************************************************************************/
 /* Machine integers (128-bit arithmetic)                                      */
 /******************************************************************************/
 
 /* This header makes KreMLin-generated C code work with:
  * - the default setting where we assume the target compiler define __int128
- * - the setting where we use FStar.UInt128's implementation instead, a.k.a.
- *   "-fnouint128"; in that case, generated C files must be compiled with
- *   -DKRML_NOUINT128, which KreMLin does automatically
+ * - the setting where we use FStar.UInt128's implementation instead; in that
+ *   case, generated C files must be compiled with -DKRML_VERIFIED_UINT128
  * - a refinement of the case above, wherein all structures are passed by
  *   reference, a.k.a. "-fnostruct-passing", meaning that the KreMLin-generated
  *   must be compiled with -DKRML_NOSTRUCT_PASSING
  */
 
 #include "FStar_UInt128.h"
-#include "FStar_Int_Cast_Full.h"
-#include "C_Endianness.h"
 
-#if !defined(KRML_NOUINT128) && !defined(_MSC_VER)
+#if !defined(KRML_VERIFIED_UINT128) && !defined(_MSC_VER)
 
 uint128_t load128_le(uint8_t *b) {
   uint128_t l = (uint128_t)load64_le(b);

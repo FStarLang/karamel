@@ -30,7 +30,7 @@ assume val portable_exit: Int32.t -> Stack unit
 assume type channel
 assume val stdout: channel
 assume val stderr: channel
-assume val fflush: channel -> St unit
+assume val fflush: channel -> St Int32.t
 
 // This is only to provide a placeholder when needed: this type is not very
 // useful, as it is not interconvertible with other pointer types.
@@ -54,7 +54,8 @@ assume val clock: unit -> Stack clock_t
   (requires (fun _ -> true))
   (ensures (fun h0 _ h1 -> modifies_none h0 h1))
 
-// C stdlib; the order of these constructors matters for Wasm
+// C stdlib; the order of these constructors matters for Wasm. When emitting C
+// code, this type gets a special case and is not emitted to C.
 type exit_code = | EXIT_SUCCESS | EXIT_FAILURE
 
 // Debugging
