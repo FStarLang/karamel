@@ -92,9 +92,10 @@ OBJS = $(patsubst %.c,%.o,$(SOURCES))
 
 -include $(patsubst %.c,%.d,$(SOURCES))
 
-CFLAGS += -I extracted -I ../include -Wall
+CFLAGS += -I extracted -I ../include -Wall -Wextra -Werror
 
-compile-all: libkremlib.a
+compile-all: out/libkremlib.a
 
-libkremlib.a: $(OBJS) | extract-all
+out/libkremlib.a: $(OBJS) | extract-all
+	mkdir -p $(dir $@)
 	ar cr $@ $^

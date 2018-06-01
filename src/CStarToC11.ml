@@ -561,6 +561,7 @@ and is_primitive s =
   s = "LowStar_Buffer_null" ||
   s = "C_Nullity_null" ||
   s = "C_String_get" ||
+  s = "C_String_of_literal" ||
   s = "exit_code" ||
   s = "FStar_UInt128_uint128"
 
@@ -586,6 +587,9 @@ and mk_expr (e: expr): C.expr =
 
   | Call (Qualified s, [ e1; e2 ] ) when KString.starts_with s "LowStar_BufferOps_op_Star_Equals__" ->
       Op2 (K.Assign, mk_deref e1, mk_expr e2)
+
+  | Call (Qualified "C_String_of_literal", [ StringLiteral _ as s ]) ->
+      mk_expr s
 
   | Call (Qualified "C_String_get", [ e1; e2 ])
   | BufRead (e1, e2) ->

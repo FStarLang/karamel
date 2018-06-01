@@ -317,6 +317,7 @@ Supported options:|}
   if not !Options.minimal then
     Options.bundle :=
       ([], [ Bundle.Module [ "C"; "Loops" ]; Bundle.Module [ "Spec"; "Loops" ] ]) ::
+      ([], [ Bundle.Module [ "Prims" ] ]) ::
       ([], [ Bundle.Prefix [ "FStar" ] ]) ::
       ([], [ Bundle.Prefix [ "LowStar" ] ]) ::
       !Options.bundle;
@@ -325,7 +326,8 @@ Supported options:|}
     Options.anonymous_unions := false;
     Options.compound_literals := `Never;
     Options.c89_scope := true;
-    Options.c89_std := true
+    Options.c89_std := true;
+    Options.ccopts := Driver.Dash.d "KRML_VERIFIED_UINT128" :: !Options.ccopts
   end;
 
   (* Then, bring in the "default options" for each compiler. *)

@@ -76,6 +76,7 @@ let prims: file =
     mk_boolop "op_GreaterThanOrEqual";
     mk_boolop "op_LessThan";
     mk_unop "pow2";
+    mk_unop "abs";
     mk_val "strcat" (TArrow (t_string, TArrow (t_string, t_string)));
     mk_val "string_of_int" (TArrow (TInt K.CInt, t_string));
     DType ((["Prims"], "prop"), [], 0, Abbrev TUnit);
@@ -252,7 +253,8 @@ let is_model name =
   else
     is_machine_integer name ||
     List.mem name [
-      "C_String"
+      "C_String";
+      "FStar_String"
     ]
 
 (* We have four different treatments. *)

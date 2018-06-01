@@ -26,7 +26,7 @@ void TestLib_compare_and_print(const char *txt, uint8_t *reference,
                                uint8_t *output, uint32_t size) {
   char *str = malloc(2 * size + 1);
   char *str_ref = malloc(2 * size + 1);
-  int i;
+  uint32_t i;
   for (i = 0; i < size; ++i) {
     sprintf(str + 2 * i, "%02x", output[i]);
     sprintf(str_ref + 2 * i, "%02x", reference[i]);
@@ -50,7 +50,9 @@ void TestLib_compare_and_print(const char *txt, uint8_t *reference,
   free(str_ref);
 }
 
-void TestLib_touch(int32_t x) {}
+void TestLib_touch(int32_t x) {
+  (void)x;
+}
 
 #define MK_CHECK(n)                                                            \
   void TestLib_check##n(int##n##_t x, int##n##_t y) {                          \

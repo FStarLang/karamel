@@ -37,21 +37,61 @@ void store128_be(uint8_t *b, uint128_t n) {
   store64_be(b + 8, (uint64_t)n);
 }
 
-#  define FStar_UInt128_add(x, y) ((x) + (y))
-#  define FStar_UInt128_mul(x, y) ((x) * (y))
-#  define FStar_UInt128_add_mod(x, y) ((x) + (y))
-#  define FStar_UInt128_sub(x, y) ((x) - (y))
-#  define FStar_UInt128_sub_mod(x, y) ((x) - (y))
-#  define FStar_UInt128_logand(x, y) ((x) & (y))
-#  define FStar_UInt128_logor(x, y) ((x) | (y))
-#  define FStar_UInt128_logxor(x, y) ((x) ^ (y))
-#  define FStar_UInt128_lognot(x) (~(x))
-#  define FStar_UInt128_shift_left(x, y) ((x) << (y))
-#  define FStar_UInt128_shift_right(x, y) ((x) >> (y))
-#  define FStar_UInt128_uint64_to_uint128(x) ((uint128_t)(x))
-#  define FStar_UInt128_uint128_to_uint64(x) ((uint64_t)(x))
-#  define FStar_UInt128_mul_wide(x, y) ((uint128_t)(x) * (y))
-#  define FStar_UInt128_op_Hat_Hat(x, y) ((x) ^ (y))
+uint128_t FStar_UInt128_add(uint128_t x, uint128_t y) {
+  return x + y;
+}
+
+uint128_t FStar_UInt128_mul(uint128_t x, uint128_t y) {
+  return x * y;
+}
+
+uint128_t FStar_UInt128_add_mod(uint128_t x, uint128_t y) {
+  return x + y;
+}
+
+uint128_t FStar_UInt128_sub(uint128_t x, uint128_t y) {
+  return x - y;
+}
+
+uint128_t FStar_UInt128_sub_mod(uint128_t x, uint128_t y) {
+  return x - y;
+}
+
+uint128_t FStar_UInt128_logand(uint128_t x, uint128_t y) {
+  return x & y;
+}
+
+uint128_t FStar_UInt128_logor(uint128_t x, uint128_t y) {
+  return x | y;
+}
+
+uint128_t FStar_UInt128_logxor(uint128_t x, uint128_t y) {
+  return x ^ y;
+}
+
+uint128_t FStar_UInt128_lognot(uint128_t x) {
+  return ~x;
+}
+
+uint128_t FStar_UInt128_shift_left(uint128_t x, uint32_t y) {
+  return x << y;
+}
+
+uint128_t FStar_UInt128_shift_right(uint128_t x, uint32_t y) {
+  return x >> y;
+}
+
+uint128_t FStar_UInt128_uint64_to_uint128(uint64_t x) {
+  return (uint128_t)x;
+}
+
+uint64_t FStar_UInt128_uint128_to_uint64(uint128_t x) {
+  return (uint64_t)x;
+}
+
+uint128_t FStar_UInt128_mul_wide(uint64_t x, uint64_t y) {
+  return ((uint64_t) x) * ((uint64_t) y);
+}
 
 uint128_t FStar_UInt128_eq_mask(uint128_t x, uint128_t y) {
   uint64_t mask =

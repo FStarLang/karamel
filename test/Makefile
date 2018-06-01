@@ -1,6 +1,6 @@
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
-TEST_OPTS	= -add-include '"kremlin/testlib.h"' -I . ../kremlib/testlib.c -warn-error @4
+TEST_OPTS	= -warn-error @4
 KRML_BIN	= ../_build/src/Kremlin.native
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 FILES		= \
@@ -81,30 +81,29 @@ $(OUTPUT_DIR)/%.exe: $(OUTPUT_DIR)/FStar_UInt128.krml | $(KRML_BIN)
 	@$^ && echo "\033[01;32m✔\033[00m [TEST,$*]" || (echo "\033[01;31m✘\033[00m [TEST,$*]" && false)
 
 # Various flags to be passed to some targets...
-$(OUTPUT_DIR)/Structs2.exe: EXTRA = -wasm -d force-c -drop C,TestLib wasm-stubs.c
+$(OUTPUT_DIR)/Structs2.exe: EXTRA = -wasm -d force-c wasm-stubs.c
 $(OUTPUT_DIR)/ML16.exe: EXTRA = ml16-native.c
 $(OUTPUT_DIR)/Scope.exe: EXTRA = -ccopt -O3
-$(OUTPUT_DIR)/Test128.exe: EXTRA = -fnouint128 -static-header FStar -fsopt --normalize_pure_terms_for_extraction
+# libkremlib.a being passed last, the symbols are already resolved for uint128
+# against the extracted implementation... slightly hackish
+$(OUTPUT_DIR)/Test128.exe: EXTRA = -extract-uint128 -static-header FStar -ccopt -DKRML_VERIFIED_UINT128
 $(OUTPUT_DIR)/HigherOrder.exe: EXTRA = -warn-error +9
 $(OUTPUT_DIR)/C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic -fc89
 $(OUTPUT_DIR)/Debug.exe: EXTRA = -d c-calls
-$(OUTPUT_DIR)/Server.exe: EXTRA = -add-include '"kremlin/c_string.h"' main-Server.c
-$(OUTPUT_DIR)/StringLit.exe: EXTRA = ../kremlib/kremstr.c -add-include '"kremlin/c_string.h"' -add-include '"kremlin/prims_string.h"'
-$(OUTPUT_DIR)/Failwith.exe: EXTRA = -add-include '"kremlin/c_string.h"'
+$(OUTPUT_DIR)/Server.exe: EXTRA = main-Server.c
+$(OUTPUT_DIR)/StringLit.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/TailCalls.exe: EXTRA = -add-include '"kremlin/c_string.h"' -ftail-calls
-$(OUTPUT_DIR)/FunctionalEncoding.exe: EXTRA = -add-include '"kremlin/prims_string.h"'
+$(OUTPUT_DIR)/FunctionalEncoding.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/Crypto_Symmetric_Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 $(OUTPUT_DIR)/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
 	hello-system/system.c -I hello-system -no-prefix SystemNative \
 	-drop SystemNative -add-include '<netdb.h>'
-$(OUTPUT_DIR)/TestKremBytes.exe: EXTRA = -add-include '"kremlin/fstar_bytes.h"' -add-include \
-	'"kremlin/c_string.h"' -drop FStar.Bytes ../kremlib/kremstr.c -add-include '"kremlin/prims_string.h"'
+$(OUTPUT_DIR)/TestKremBytes.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/TestAlloca.exe: EXTRA = -falloca
 $(OUTPUT_DIR)/EtaStruct.exe: EXTRA = -fnostruct-passing
-$(OUTPUT_DIR)/Introduction.exe: EXTRA = -add-include '"kremlin/c_string.h"' -drop LowStar
-$(OUTPUT_DIR)/TotalLoops.exe: EXTRA = -add-include '"kremlin/prims_int.h"'
-$(OUTPUT_DIR)/CheckedInt.exe: EXTRA = -add-include '"kremlin/prims_int.h"'
-$(OUTPUT_DIR)/CustomEq.exe: EXTRA = -add-include '"kremlin/prims_int.h"'
+$(OUTPUT_DIR)/TotalLoops.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
+$(OUTPUT_DIR)/CheckedInt.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
+$(OUTPUT_DIR)/CustomEq.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fshort-enums
 
 # Some custom targets
