@@ -56,7 +56,7 @@ $(KREMLIB_CHECKED_FILES): %.checked: | .depend
 	touch $@
 
 $(OTHER_CHECKED_FILES): %.checked:
-	test -f $@
+	@if ! [ -f $@ ]; then echo $@ is missing, please run make -C '$$'\(FSTAR_HOME\)/ulib before; false; fi
 
 verify-all: $(ALL_CHECKED_FILES)
 
@@ -66,7 +66,7 @@ $(OUTPUT_DIR)/%.krml:  | .depend
 	  $(notdir $(subst .checked,,$<)) && \
 	touch $@
 
-extract-all: $(ALL_KRML_FILES)
+extract-all: $(ALL_KRML_FILES) | .depend
 	krml -minimal -tmpdir $(OUTPUT_DIR) -warn-error +9 -skip-compilation -fnouint128 \
 	  $(addprefix -add-include ,'<inttypes.h>' '"kremlib.h"' '"kremlin/internal/compat.h"') \
 	  $^
