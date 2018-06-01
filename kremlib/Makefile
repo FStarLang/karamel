@@ -89,7 +89,8 @@ OBJS = $(patsubst %.c,%.o,$(SOURCES))
 	  sed 's,\($(notdir $*)\)\.o[ :]*,$(dir $@)\1.o $@ : ,g' < $@.$$$$ > $@; \
 	  rm -f $@.$$$$
 
--include $(addsuffix .d,$(SOURCES) $(ALL_C_FILES))
+
+-include $(patsubst %.c,%.d,$(SOURCES))
 
 CFLAGS += -I extracted -I ../include -Wall
 
