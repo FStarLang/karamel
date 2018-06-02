@@ -91,4 +91,4 @@ let default_options () =
 (** Drop is now deprecated and should be used as a last resort. The only reason
  * now to use drop is if whatever definitions are in this module are NOT
  * implemented with external linkage (static inline, macros). *)
-let drop: Bundle.pat list ref = ref [ Bundle.(Module [ "C"; "Endianness" ])]
+let drop: Bundle.pat list ref = ref []

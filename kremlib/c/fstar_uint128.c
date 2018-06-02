@@ -12,6 +12,7 @@
  */
 
 #include "FStar_UInt128.h"
+#include "C_Endianness.h"
 
 #if !defined(KRML_VERIFIED_UINT128) && !defined(_MSC_VER)
 

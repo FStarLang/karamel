@@ -257,7 +257,15 @@ let is_model name =
       "FStar_String"
     ]
 
-(* We have four different treatments. *)
+let expunge_macros (name, decls) =
+  name, List.filter (fun d ->
+    let l = snd (lid_of_decl d) in
+    l = "load128_le" || l = "load128_be" ||
+    l = "store128_le" || l = "store128_be"
+  ) decls
+
+
+(* We have several different treatments. *)
 let prepare files =
   (* prims is a special-case, as it is not extracted by F* (FIXME) *)
   prims :: List.map (fun f ->
@@ -275,5 +283,12 @@ let prepare files =
         let extra = List.assoc name addendum in
         name, snd f @ extra
       with Not_found ->
-        f
+        if name = "C_Endianness" then
+          if !Options.wasm then
+            (* All implemented natively *)
+            name, []
+          else
+            expunge_macros f
+        else
+          f
   ) files
