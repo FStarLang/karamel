@@ -126,7 +126,7 @@ hacl-test:
 $(OUTPUT_DIR)/%.wasm: EXTRA += -wasm
 $(OUTPUT_DIR)/%.wasm: $(OUTPUT_DIR)/FStar_UInt128.krml $(OUTPUT_DIR)/WasmSupport.krml | $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $(JSFILES) \
-	  -no-prefix $(notdir $*) $^
+	  -no-prefix $(notdir $*) $^ -drop C.String -drop C.Endianness
 
 %.wasm-test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).wasm
 	cd $(OUTPUT_DIR)/$*.out && \

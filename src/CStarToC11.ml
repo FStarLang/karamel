@@ -553,17 +553,44 @@ and mk_deref (e: expr) : C.expr =
  * declarations, so these primitives must not be output in the resulting C
  * files. *)
 and is_primitive s =
+  let known = [
+    "LowStar_Buffer_is_null";
+    "C_Nullity_is_null";
+    "LowStar_Buffer_null";
+    "C_Nullity_null";
+    "C_String_get";
+    "C_String_of_literal";
+    "exit_code";
+    "FStar_UInt128_uint128";
+    "htole16";
+    "le16toh";
+    "htole32";
+    "le32toh";
+    "htole64";
+    "le64toh";
+    "htobe16";
+    "be16toh";
+    "htobe32";
+    "be32toh";
+    "htobe64";
+    "be64toh";
+    "store16_le";
+    "load16_le";
+    "store16_be";
+    "load16_be";
+    "store32_le";
+    "load32_le";
+    "store32_be";
+    "load32_be";
+    "load64_le";
+    "store64_le";
+    "load64_be";
+    "store64_be";
+  ] in
+  List.mem s known ||
   KString.starts_with s "C_Nullity_op_Bang_Star__" ||
   KString.starts_with s "LowStar_BufferOps_op_Bang_Star__" ||
-  KString.starts_with s "LowStar_BufferOps_op_Star_Equals__" ||
-  s = "LowStar_Buffer_is_null" ||
-  s = "C_Nullity_is_null" ||
-  s = "LowStar_Buffer_null" ||
-  s = "C_Nullity_null" ||
-  s = "C_String_get" ||
-  s = "C_String_of_literal" ||
-  s = "exit_code" ||
-  s = "FStar_UInt128_uint128"
+  KString.starts_with s "LowStar_BufferOps_op_Star_Equals__"
 
 and mk_expr (e: expr): C.expr =
   match e with
