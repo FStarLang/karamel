@@ -41,7 +41,6 @@ ROOTS = $(wildcard *.fst) $(wildcard *.fsti) \
 clean:
 	rm -rf *.checked *.source .depend
 
-.PHONY: .depend
 .depend: Makefile | $(OUTPUT_DIR)
 	$(FSTAR) $(OTHERFLAGS) --dep full $(ROOTS) > $@
 
@@ -67,7 +66,7 @@ $(OUTPUT_DIR)/%.krml:  | .depend
 	  $(notdir $(subst .checked,,$<)) && \
 	touch $@
 
-extract-all: $(ALL_KRML_FILES) | ../_build/src/Kremlin.native
+extract-all: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
 	krml -minimal -tmpdir $(OUTPUT_DIR) -warn-error +9+11 -skip-compilation -extract-uint128 \
 	  $(addprefix -add-include ,'<inttypes.h>' '"kremlib.h"' '"kremlin/internal/compat.h"') \
 	  $^
