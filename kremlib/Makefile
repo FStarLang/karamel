@@ -5,7 +5,7 @@
 # the F* standard library is already built (and fails otherwise)
 
 all: verify-all extract-all
-	$(MAKE) compile-all
+	COMPILE=1 $(MAKE) compile-all
 
 ################################################################################
 # Verification & extraction                                                    #
@@ -35,7 +35,7 @@ FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules \
 ROOTS = $(wildcard *.fst) $(wildcard *.fsti) \
   $(addprefix $(FSTAR_HOME)/ulib/,FStar.UInt128.fst FStar.Date.fsti \
     FStar.HyperStack.IO.fst FStar.IO.fst FStar.Int.Cast.Full.fst \
-    FStar.Bytes.fsti)
+    FStar.Bytes.fsti FStar.Dyn.fsti)
 
 .PHONY: clean
 clean:
@@ -78,6 +78,8 @@ extract-all: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
 # Compilation, only works after the stage above has run and C files exist      #
 ################################################################################
 
+ifdef COMPILE
+
 -include $(OUTPUT_DIR)/Makefile.include
 
 SOURCES = $(filter-out c/fstar_uint128_msvc.c,$(wildcard c/*.c))
@@ -99,3 +101,5 @@ compile-all: out/libkremlib.a
 out/libkremlib.a: $(OBJS) | extract-all
 	mkdir -p $(dir $@)
 	ar cr $@ $^
+
+endif

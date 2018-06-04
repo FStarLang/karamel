@@ -270,7 +270,7 @@ uint8_t byte_of_hex(char c)
 uint8_t hex_of_nibble(uint8_t n)
 {
     n &= 0xf; // clear out any high bits
-    if (n >= 0 && n <= 9) {
+    if (n <= 9) {
         return (uint8_t)n + '0';
     } else {
         return (uint8_t)n + 'a' - 10;
