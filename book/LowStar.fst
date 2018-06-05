@@ -860,16 +860,16 @@ let test_sub_error (): St unit =
 
 /// **Reading and modifying** a buffer is performed by means of the ``index``
 /// and ``upd`` functions. These are exposed as the ``.()`` and ``.()<-``
-/// operators respectively, defined in ``LowStar.BufferOps`` (the latter
+/// operators respectively, defined in ``LowStar.BufferOps``. This latter module
 /// module only contains those operators, and is meant to be used with
 /// ``open`` to bring operators into scope without further polluting the
-/// context with any definition from ``LowStar.Buffer``.)
+/// context with any definition from ``LowStar.Buffer``.
 
 let test_index (): St unit =
   let b = B.malloc HS.root 0UL 8ul in
   b.(0ul) <- UInt64.add_mod b.(0ul) b.(0ul);
   B.free b
-///
+
 /// Buffers are reflected at the proof level using sequences, via the ``as_seq``
 /// function, which returns the contents of a given buffer in a given heap, i.e.
 /// a sequence slice ranging over the interval ``[idx; idx + length)``.
@@ -889,15 +889,65 @@ let test_get (): St unit =
   assert (B.get h b 0 = 0UL);
   B.free b
 
+/// **C NULL pointers**
+///
+/// ``LowStar.Buffer`` also exposes a model of the C NULL pointer, ``null`` --
+/// this is what you should use if you need zero-length buffers. The NULL
+/// pointer is always live, and always has length 0. The ``pointer`` and
+/// ``pointer_or_null`` functions define convenient aliases, while the ``(!*)``
+/// operator (defined in ``LowStar.BufferOps``) guarantees that the dereference
+/// will be pretty-printed with a ``*`` C dereference, as opposed to an access
+/// at array index 0. Pointers can always be tested for nullity via the
+/// ``is_null p`` function, which is guaranteed to be pretty-printed as ``p !=
+/// NULL``.
+///
 /// .. _modifies-library:
 ///
 /// The modifies clauses library
 /// ----------------------------
 ///
-/// A modifies clause is a part of the postcondition of a Low*
-/// effectful function which describes which memory locations are
-/// modified by that function. For instance, consider the following
-/// function:
+/// The current heap model of F* is based on a select-update theory: the heap is
+/// reflected as a map, allocation adds a key in the map, assignment updates the
+/// map, and reading selects from the map.
+///
+/// Proving properties of programs therefore requires the programmer to reason about
+/// the heap model. However, stating precise post-conditions that refer to a
+/// particular heap after a particular update does not scale up to large programs:
+/// we want to reason *abstractly* about modifications, and use a library of
+/// *composable* predicates that allow one to *generically* reason about a given
+/// modification to the heap.
+///
+/// This is where the ``LowStar.Modifies`` library comes in handy. The modifies
+/// clauses library allows one to reason about allocation, de-allocation,
+/// modifications using a single unified ``modifies`` clause. An abstract notion of
+/// a memory location allows composing predicates, and deriving properties such as:
+/// "if I modify a location ``l1`` disjoint from ``l2``, then the contents of the
+/// memory at address ``l2`` remain unchanged".
+///
+/// **Abstract memory locations**
+///
+/// The ``LowStar.Modifies`` library abstracts over memory locations. Memory
+/// locations have type ``loc``. Locations form a monoid, where ``loc_none`` is
+/// the empty location and ``loc_union`` combines two location to form the union of
+/// the two.
+///
+/// Several injections exist to create locations; for now, we will mostly use
+/// ``loc_buffer``, which injects a ``LowStar.Buffer.t`` into an abstract location.
+///
+/// **Inclusion and disjointness**
+///
+/// The ``LowStar.Modifies`` module provides an inclusion relation, via
+/// ``loc_includes``. This allows the programmer to state, for instance, that the
+/// location of a stack-allocated buffer is included in its stack frame.
+///
+/// Perhaps more useful is the ``loc_disjoint`` predicates, which allows the
+/// programmer to state that two memory locations do not overlap.
+///
+/// **The modifies clause**
+///
+/// The modifies clause is of the form ``modifies l h0 h1`` where ``l`` is an
+/// abstract memory location, ``h0`` is the initial heap and ``h1`` is the
+/// resulting heap. Here is an example:
 
 module M = LowStar.Modifies
 
@@ -942,7 +992,7 @@ let example_modifies_caller (b0: B.buffer UInt32.t) : Stack unit
 /// the sub-buffer of ``b0`` at offset 0, as suggested by the
 /// ``assert``), and so, by virtue of the ``modifies`` clause of
 /// ``example_modifies_callee``, its value is preserved.
-/// 
+///
 /// .. _c-library:
 ///
 /// The Low* system libraries
@@ -986,15 +1036,14 @@ let example_modifies_caller (b0: B.buffer UInt32.t) : Stack unit
 /// Test helpers
 /// ------------
 ///
-/// The ``TestLib.fsti`` module requires you to call KreMLin with ``-add-include
-/// '"testlib.h"'`` and ``testlib.c`` as extra arguments. It provides a couple
-/// helper functions, including ``print_clock_diff`` to deal with ``clock_t`` above.
+/// The ``TestLib.fsti`` module provides a couple helper functions, including
+/// ``print_clock_diff`` to deal with ``clock_t`` above.
 ///
 /// C string literals
 /// -----------------
 ///
 /// The ``C.String.fst`` module exposes a bare-bones model of C string literals,
-/// i.e. ``const char \*s = "my string literal";``. This relies on a syntactic check
+/// i.e. ``const char *s = "my string literal";``. This relies on a syntactic check
 /// that the argument to ``of_literal`` is a constant string literal in the original
 /// F* source. Such strings are zero-terminated, and their length can be computed
 /// (TODO). They can be printed on the standard output via ``C.String.print``.
@@ -1019,26 +1068,13 @@ let example_modifies_caller (b0: B.buffer UInt32.t) : Stack unit
 ///    cannot be implemented in Low*.
 ///
 ///    KreMLin offers support for ``Prims.string`` via the ``-add-include
-///    '"kremstr.h"'`` and ``kremstr.c`` options. These implement ``Prims.string``
+///    '"kremlin/internal/compat.h"'`` option. This header implements ``Prims.string``
 ///    as zero-terminated ``char *``\ 's (not ``const``). Operations such as ``(^)``
 ///    perform allocations on the heap and never free them, since ``Prims.string``\
 ///    s are values that do not have a lifetime in the first place. This is a sound
 ///    implementation, but should only be used to facilitate porting existing F*
 ///    programs to Low*. Any program that uses ``Prims.string`` will leak memory.
 ///
-/// C ``NULL`` pointers
-/// -------------------
-///
-/// ``LowStar.Buffer`` also exposes a model of the C NULL pointer,
-/// ``null`` -- this is what
-/// you should use if you need zero-length buffers. The NULL pointer is always
-/// live, and always has length 0. The ``pointer`` and ``pointer_or_null``
-/// functions define convenient aliases, while the ``(!*)`` operator
-/// (defined in ``LowStar.BufferOps``) guarantees
-/// that the dereference will be pretty-printed with a ``*`` C dereference, as
-/// opposed to an access at array index 0. Pointers can always be tested for
-/// nullity via the ``is_null p`` function, which is guaranteed to be
-/// pretty-printed as ``p != NULL``.
 ///
 /// A polymorphic exit
 /// ------------------
@@ -1047,4 +1083,4 @@ let example_modifies_caller (b0: B.buffer UInt32.t) : Stack unit
 /// has a polymorphic return type. This uses a recursion hack in combination
 /// with KreMLin's monomorphization, and will require you to disable compiler
 /// warnings for infinite recursion.
-/// 
+///

@@ -50,8 +50,8 @@ let _ = LowStar.test_get
 open FStar.HyperStack.ST
 
 module S = FStar.Seq
-module B = FStar.Buffer
-module M = FStar.Modifies
+module B = LowStar.Buffer
+module M = LowStar.Modifies
 module U32 = FStar.UInt32
 module ST = FStar.HyperStack.ST
 
@@ -70,6 +70,8 @@ let slice_plus_one #a (s1 s2: S.seq a) (i: nat): Lemma
   let s2' = S.append (S.slice s2 0 i) (S.cons x S.createEmpty) in
   assert (S.equal s1' (S.slice s1 0 (i + 1)));
   assert (S.equal s2' (S.slice s2 0 (i + 1)))
+
+open LowStar.BufferOps
 
 #set-options "--max_fuel 0 --max_ifuel 0"
 val memcpy: #a:eqtype -> src:B.buffer a -> dst:B.buffer a -> len:U32.t -> Stack unit
@@ -109,8 +111,8 @@ let main (): Stack C.exit_code
   (ensures fun h _ h' -> M.modifies M.loc_none h h')
 =
   push_frame ();
-  let src = B.createL [ 1UL; 2UL ] in
-  let dst = B.create 0UL 2ul in
+  let src = B.alloca_of_list [ 1UL; 2UL ] in
+  let dst = B.alloca 0UL 2ul in
   memcpy src dst 2ul;
   pop_frame ();
   C.EXIT_SUCCESS
