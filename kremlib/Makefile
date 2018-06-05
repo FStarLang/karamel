@@ -93,7 +93,7 @@ OBJS = $(patsubst %.c,%.o,$(SOURCES))
 
 -include $(patsubst %.c,%.d,$(SOURCES))
 
-CFLAGS += -I extracted -I ../include -Wall -Wextra -Werror
+CFLAGS += -I extracted -I ../include -Wall -Wextra -Werror -fPIC
 
 compile-all: out/libkremlib.a
 
