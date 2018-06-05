@@ -9,7 +9,7 @@ FLAVOR?=native
 TARGETS=Kremlin.$(FLAVOR) Tests.$(FLAVOR)
 EXTRA_TARGETS=Ast.inferred.mli kremlib/C.cmx kremlib/TestLib.cmx kremlib/C.cmo kremlib/TestLib.cmo
 
-all: minimal pre
+all: minimal pre kremlib
 	OCAMLPATH=$(FSTAR_HOME)/bin $(OCAMLBUILD) $(EXTRA_TARGETS)
 
 minimal: src/AutoConfig.ml
@@ -17,6 +17,9 @@ minimal: src/AutoConfig.ml
 	$(shell [ -f Kremlin.$(FLAVOR) ] && rm Kremlin.$(FLAVOR); [ -f Tests.$(FLAVOR) ] && rm Tests.$(FLAVOR))
 	$(OCAMLBUILD) $(TARGETS)
 	ln -sf Kremlin.$(FLAVOR) krml
+
+kremlib: minimal
+	$(MAKE) -C kremlib
 
 src/AutoConfig.ml:
 	@if [ x"$(PREFIX)" != x ]; then \
