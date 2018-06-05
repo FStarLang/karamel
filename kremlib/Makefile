@@ -93,7 +93,12 @@ OBJS = $(patsubst %.c,%.o,$(SOURCES))
 
 -include $(patsubst %.c,%.d,$(SOURCES))
 
-CFLAGS += -I extracted -I ../include -Wall -Wextra -Werror -fPIC
+CFLAGS += -I extracted -I ../include -Wall -Wextra -Werror
+ifeq ($(OS),Windows_NT)
+CFLAGS += -D__USE_MINGW_ANSI_STDIO
+else
+CFLAGS += -fPIC
+endif
 
 compile-all: out/libkremlib.a
 

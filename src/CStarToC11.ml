@@ -561,6 +561,11 @@ and is_primitive s =
     "C_String_get";
     "C_String_of_literal";
     "exit_code";
+    (* These two are not integers are are macro-expanded by MingW into the
+     * address of a function pointer, which would make "extern channel stdout"
+     * fail. *)
+    "stdout";
+    "stderr";
     "FStar_UInt128_uint128";
     "htole16";
     "le16toh";
@@ -757,14 +762,17 @@ let mk_function_or_global_body (d: decl): C.declaration_or_function list =
         end
 
   | Global (name, flags, t, expr) ->
-      let qs, spec, decl = mk_spec_and_declarator name t in
-      let static = if List.exists ((=) Private) flags then Some Static else None in
-      match expr with
-      | Any ->
-          wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, None ])))
-      | _ ->
-          let expr = mk_expr expr in
-          wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, Some (InitExpr expr) ])))
+      if is_primitive name then
+        []
+      else
+        let qs, spec, decl = mk_spec_and_declarator name t in
+        let static = if List.exists ((=) Private) flags then Some Static else None in
+        match expr with
+        | Any ->
+            wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, None ])))
+        | _ ->
+            let expr = mk_expr expr in
+            wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, Some (InitExpr expr) ])))
 
 (** Function prototype, or extern global declaration (no definition). *)
 let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
@@ -788,8 +796,11 @@ let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
         end
 
   | Global (name, flags, t, _) ->
-      let qs, spec, decl = mk_spec_and_declarator name t in
-      wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
+      if is_primitive name then
+        []
+      else
+        let qs, spec, decl = mk_spec_and_declarator name t in
+        wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
 
 (* Type declarations, external function declarations. These are the things that
  * are either declared in the header (public), or in the c file (private), but
@@ -825,8 +836,11 @@ let mk_type_or_external (d: decl): C.declaration_or_function list =
         wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
 
   | External (name, t, flags) ->
-      let qs, spec, decl = mk_spec_and_declarator name t in
-      wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
+      if is_primitive name then
+        []
+      else
+        let qs, spec, decl = mk_spec_and_declarator name t in
+        wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
 
   | Function _ | Global _ ->
       []
