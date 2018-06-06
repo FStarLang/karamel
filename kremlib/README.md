@@ -1,11 +1,11 @@
 ## Implementation of run-time support libraries for KreMLin
 
-This directory contains F* source files that model various C concepts and
+This directory contains F\* source files that model various C concepts and
 libraries, along with corresponding C and OCaml implementations. These are
 collectively known as the "kremlib".
 
 The C version of kremlib implements not only the modules present in this
-directory, but also provides implementations for a subset of the modules in F*'s
+directory, but also provides implementations for a subset of the modules in F\*'s
 own standard library that make sense in a C context.
 
 ### Building kremlib
@@ -17,10 +17,10 @@ automatically when acting as a compilation driver.
 
 ### What is in kremlib
 
-The `kremlib/extracted` directory contains *numerous* header files for the F*
+The `kremlib/extracted` directory contains *numerous* header files for the F\*
 standard library modules. These header files are crucial, as they embody the
-expected function signatures that kremlib must provide when implementing some F*
-standard library module. They are automatically re-generated from the source F*
+expected function signatures that kremlib must provide when implementing some F\*
+standard library module. They are automatically re-generated from the source F\*
 files.
 
 The `kremlib/c` directory contains corresponding implementations, which are
@@ -47,8 +47,8 @@ lib /OUT:libkremlib.obj c/*.obj
 There is no provided Makefile of Visual Studio project for this scenario.
 
 Finally, if one wishes to use the verified implementation of `FStar.UInt128`,
-extracted from F*'s `ulib/FStar.UInt128.fst`, it suffices to use
-`extracted/FStar_UInt128.c` and to define the macro `KRML_EXTRACTED_UINT128`.
+extracted from F\*'s `ulib/FStar.UInt128.fst`, it suffices to use
+`extracted/FStar_UInt128.c` and to define the macro `KRML_VERIFIED_UINT128`.
 
 Sketch:
 
