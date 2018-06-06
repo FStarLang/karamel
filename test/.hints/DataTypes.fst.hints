@@ -1,21 +1,6 @@
 [
-  "\u001b¥™i„ü3ÅúäÑV\u000e…Îd",
+  "˙\u001f\u001d'Z\u0005E\u0019@{Ëá¯|Ml",
   [
-    [
-      "DataTypes.t",
-      1,
-      2,
-      1,
-      [
-        "@query", "assumption_FStar.UInt32.t__uu___haseq",
-        "assumption_FStar.UInt64.t__uu___haseq",
-        "assumption_FStar.UInt8.t__uu___haseq",
-        "function_token_typing_FStar.UInt8.t",
-        "lemma_FStar.Ghost.lemma_haseq_erased"
-      ],
-      0,
-      "a1394a64a09b4a495c879e94959d2588"
-    ],
     [
       "DataTypes.__proj__A__item__a",
       1,
@@ -27,7 +12,7 @@
         "refinement_interpretation_DataTypes_Tm_refine_599cdc3d9160d7b695e8959f132bb409"
       ],
       0,
-      "ec03a4089af6144affd5355eaa65d33e"
+      "b54eed2c60d5a46d075e3d1a01b2b010"
     ],
     [
       "DataTypes.__proj__A__item__b",
@@ -40,7 +25,7 @@
         "refinement_interpretation_DataTypes_Tm_refine_599cdc3d9160d7b695e8959f132bb409"
       ],
       0,
-      "0b8eb42697fa573f71965f222bf7d1e1"
+      "76d288625aa5ce9fc7be4306e094c0b5"
     ],
     [
       "DataTypes.__proj__B__item__c",
@@ -53,7 +38,7 @@
         "refinement_interpretation_DataTypes_Tm_refine_e0fbb0ccb14c7057144f6a5a325e8ddd"
       ],
       0,
-      "10884f680d3da06c09701dfba4cd990e"
+      "69b2bc66ff49e13c98209d2afa18d21d"
     ],
     [
       "DataTypes.__proj__B__item__d",
@@ -66,7 +51,7 @@
         "refinement_interpretation_DataTypes_Tm_refine_e0fbb0ccb14c7057144f6a5a325e8ddd"
       ],
       0,
-      "03f0ad2393544a2bb8e98a312c70bd64"
+      "e3bc83c29beb61f26fe32c5be42b7428"
     ],
     [
       "DataTypes.__proj__B__item__e",
@@ -79,21 +64,7 @@
         "refinement_interpretation_DataTypes_Tm_refine_e0fbb0ccb14c7057144f6a5a325e8ddd"
       ],
       0,
-      "f1f00d0e88a29fc8e2fe5547b1ea7c27"
-    ],
-    [
-      "DataTypes.u",
-      1,
-      2,
-      1,
-      [
-        "@query", "assumption_DataTypes.t__uu___haseq",
-        "assumption_FStar.UInt32.t__uu___haseq",
-        "assumption_FStar.UInt64.t__uu___haseq",
-        "assumption_Prims.HasEq_unit"
-      ],
-      0,
-      "4ef74bca3cc505ef924ccb999447bccf"
+      "160522b740801599acb8f3c28469e2b6"
     ],
     [
       "DataTypes.__proj__C__item__f",
@@ -106,7 +77,7 @@
         "refinement_interpretation_DataTypes_Tm_refine_b63a9a8aecee956770bb1476545b326e"
       ],
       0,
-      "2a661ac928a7b1b21a8796a74a2d4fed"
+      "6f6f4ecfb0025966a284ca9cbca70d02"
     ],
     [
       "DataTypes.__proj__C__item__g",
@@ -119,7 +90,7 @@
         "refinement_interpretation_DataTypes_Tm_refine_b63a9a8aecee956770bb1476545b326e"
       ],
       0,
-      "9704de97ef8903b97bf8de0980be0ee0"
+      "3cd06fd74fde7deb80ebc9969c2f19e1"
     ],
     [
       "DataTypes.__proj__D__item__h",
@@ -132,7 +103,7 @@
         "refinement_interpretation_DataTypes_Tm_refine_4c835444c923ef29c3c5e4f8248f0c1c"
       ],
       0,
-      "cde1fd129321bbd27b0591210f2fcc11"
+      "c18a8f6532a0909f12c8630986ace45b"
     ],
     [
       "DataTypes.__proj__D__item__i",
@@ -145,7 +116,7 @@
         "refinement_interpretation_DataTypes_Tm_refine_4c835444c923ef29c3c5e4f8248f0c1c"
       ],
       0,
-      "a261241be7659df03e03e63f337c3eb3"
+      "0c667e40ce195384859afe276539a8d1"
     ],
     [
       "DataTypes.test",
@@ -167,7 +138,7 @@
         "typing_tok_DataTypes.E@tok"
       ],
       0,
-      "0f2d29cb08fd27b4635e7939e6b5353b"
+      "e613cff4ebde32d15f40ec79f0290c34"
     ],
     [
       "DataTypes.something",
@@ -188,7 +159,7 @@
         "typing_FStar.Monotonic.HyperStack.__proj__HS__item__h"
       ],
       0,
-      "5114edba9bcdfcc3ce24cf5121796e6f"
+      "a84f06b665fff21cd9130dda19842b42"
     ],
     [
       "DataTypes.whatever",
@@ -209,7 +180,7 @@
         "typing_FStar.Monotonic.HyperStack.__proj__HS__item__h"
       ],
       0,
-      "dc2439ce4d6817d06c6cc1a3489b0d7d"
+      "77665e82d3646d7794b9daa0a824ea03"
     ],
     [
       "DataTypes.main",
@@ -264,7 +235,7 @@
         "typing_FStar.Monotonic.HyperStack.poppable"
       ],
       0,
-      "e09463120b22f0b7c54bbe1bc32b7a28"
+      "eea30ef46be3540aa3e52cc58501f1e3"
     ]
   ]
 ]
