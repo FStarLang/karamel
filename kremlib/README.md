@@ -4,7 +4,7 @@ This directory contains F* source files that model various C concepts and
 libraries, along with corresponding C and OCaml implementations. These are
 collectively known as the "kremlib".
 
-The C version of kremlib implements not only the modules present in the present
+The C version of kremlib implements not only the modules present in this
 directory, but also provides implementations for a subset of the modules in F*'s
 own standard library that make sense in a C context.
 
