@@ -1,3 +1,7 @@
 *.checked
 *.source
 .depend
+*.o
+extract-all
+extracted
+out
