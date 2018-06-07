@@ -418,18 +418,6 @@ let misc_cosmetic = object (self)
 
   val mutable count = 0
 
-  method! visit_ELet env b e1 e2 =
-    let b = self#visit_binder env b in
-    let e1 = self#visit_expr env e1 in
-    match e1.node with
-    | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) ->
-        let t = assert_tbuf_or_tarray b.typ in
-        let b = with_type t { b.node with mut = true } in
-        let ref = with_type (TBuf t) (EAddrOf (with_type t (EBound 0))) in
-        ELet (b, e1, self#visit_expr env (DeBruijn.subst_no_open ref 0 e2))
-    | _ ->
-        ELet (b, e1, self#visit_expr env e2)
-
   (* Turn empty then branches into empty else branches to get prettier syntax
    * later on. *)
   method! visit_EIfThenElse env e1 e2 e3 =
@@ -451,25 +439,6 @@ let misc_cosmetic = object (self)
         e.node
     | _ ->
         EAddrOf e
-
-  method! visit_EBufRead env e1 e2 =
-    let e1 = self#visit_expr env e1 in
-    let e2 = self#visit_expr env e2 in
-    match e1.node, e2.node with
-    | EAddrOf e, EConstant (_, "0") ->
-        e.node
-    | _ ->
-        EBufRead (e1, e2)
-
-  method! visit_EBufWrite env e1 e2 e3 =
-    let e1 = self#visit_expr env e1 in
-    let e2 = self#visit_expr env e2 in
-    let e3 = self#visit_expr env e3 in
-    match e1.node, e2.node with
-    | EAddrOf e, EConstant (_, "0") ->
-        EAssign (e, e3)
-    | _ ->
-        EBufWrite (e1, e2, e3)
 
   (* renumber uu's to have a stable numbering scheme that minimizes the diff
    * from one code generation to another *)
