@@ -196,10 +196,9 @@ let cross_call_analysis files =
     (* There is a cross-compilation-unit call from [name_from] to
      * [name_from‘], meaning that the latter cannot safely remain
      * inline. *)
-    if cross_call name_from name_to && Hashtbl.mem safely_private name_to &&
-      Hashtbl.mem marked_private name_to
-    then begin
-      Warnings.maybe_fatal_error ("", LostStatic (file_of name_from, name_from, file_of name_to, name_to));
+    if cross_call name_from name_to && Hashtbl.mem safely_private name_to then begin
+      if Hashtbl.mem marked_private name_to then
+        Warnings.maybe_fatal_error ("", LostStatic (file_of name_from, name_from, file_of name_to, name_to));
       Hashtbl.remove safely_private name_to
     end;
     if cross_call name_from name_to && Hashtbl.mem safely_inline name_to then begin
