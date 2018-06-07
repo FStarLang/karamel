@@ -8,6 +8,10 @@
   indicates that someone (e.g. a test file) is not using `MyLib` through its
   intended entry points.
 
+- Warning 14, for declarations that use non-Low\* concepts but can still be
+  compiled using compatibility layers or run-time support (e.g. list, int,
+  string, etc.)
+
 ### June 6th, 2018
 
 - Allow specifiying the calling convention directly from within F\*. Now, one
