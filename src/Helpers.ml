@@ -307,6 +307,11 @@ let assert_elid t =
   (* We only have nominal typing for variants. *)
   match t with EQualified lid -> lid | _ -> assert false
 
+let assert_tbuf_or_tarray t =
+  match t with
+  | TBuf t | TArray (t, _) -> t
+  | _ -> Warnings.fatal_error "%a is neither a tbuf or tarray\n" ptyp t
+
 
 (* Somewhat more advanced helpers *********************************************)
 
