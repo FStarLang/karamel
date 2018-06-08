@@ -69,8 +69,8 @@ let hoist_lets = object (self)
             ELet (sequence_binding (),
               with_unit (
                 match typ with
-                | TArray _ ->
-                    mk_copy_assignment (with_type b.typ (EOpen (b.node.name, b.node.atom))) e1
+                | TArray (t, s) ->
+                    mk_copy_assignment (t, s) (EOpen (b.node.name, b.node.atom)) e1
                 | _ ->
                     EAssign (with_type b.typ (EOpen (b.node.name, b.node.atom)), e1)
               ),

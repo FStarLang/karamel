@@ -1168,7 +1168,7 @@ let rec hoist_bufcreate (e: expr) =
           | _ ->
               (* Need actual copy-assigment. *)
               mk (ELet (sequence_binding (),
-                with_type TUnit (mk_copy_assignment (with_type tarray (EOpen (b.node.name, b.node.atom))) e1),
+                with_type TUnit (mk_copy_assignment (t, size) (EOpen (b.node.name, b.node.atom)) e1),
                 lift 1 e2
               ))
           end

@@ -405,39 +405,35 @@ let mk_bufblit src_buf src_ofs dst_buf dst_ofs len =
             EAssign (ref_len, mk_minus_one ref_len))])))))))))))
 
 (* e1 := e2 *)
-let mk_copy_assignment e1 e2 =
+let mk_copy_assignment (t, size) e1 e2 =
   let assert_ro n e =
     if not (is_readonly_c_expression e) then
       Warnings.fatal_error "copy-assign, %s is not a readonly expression: %a" n pexpr e
   in
-  match e1.typ with
-  | TArray (_, s) ->
-      begin match e2.node with
-      | EBufCreate (_, init, len) ->
-          if init.node = EAny then
-            ESequence []
-          else if snd s = "1" then
-            (* A copy-assignment with size 1 can become a single assignment. *)
-            EBufWrite (e1, zerou32, init)
-          else begin
-            assert_ro "e1" e1;
-            let b_init = fresh_binder "init" init.typ in
-            ELet (b_init, init,
-              with_unit (EFor (fresh_binder ~mut:true "i" uint32,
-                zerou32,
-                mk_lt32 (DeBruijn.lift 2 len),
-                mk_incr32,
-                let i = with_type uint32 (EBound 0) in
-                let init = with_type init.typ (EBound 1) in
-                with_unit (EBufWrite (DeBruijn.lift 2 e1, i, init)))))
-          end
-      | EBufCreateL (_, inits) ->
-          assert_ro "e1" e1;
-          ESequence (List.mapi (fun i init -> with_unit (EBufWrite (e1, mk_uint32 i, init))) inits)
-      | _ ->
-          let l = with_type uint32 (EConstant s) in
-          mk_bufblit e2 zerou32 e1 zerou32 l
+  let e1 = with_type (TBuf t) e1 in
+  begin match e2.node with
+  | EBufCreate (_, init, len) ->
+      if init.node = EAny then
+        ESequence []
+      else if snd size = "1" then
+        (* A copy-assignment with size 1 can become a single assignment. *)
+        EBufWrite (e1, zerou32, init)
+      else begin
+        assert_ro "e1" e1;
+        let b_init = fresh_binder "init" init.typ in
+        ELet (b_init, init,
+          with_unit (EFor (fresh_binder ~mut:true "i" uint32,
+            zerou32,
+            mk_lt32 (DeBruijn.lift 2 len),
+            mk_incr32,
+            let i = with_type uint32 (EBound 0) in
+            let init = with_type init.typ (EBound 1) in
+            with_unit (EBufWrite (DeBruijn.lift 2 e1, i, init)))))
       end
+  | EBufCreateL (_, inits) ->
+      assert_ro "e1" e1;
+      ESequence (List.mapi (fun i init -> with_unit (EBufWrite (e1, mk_uint32 i, init))) inits)
   | _ ->
-      invalid_arg "mk_copy_assignment"
-
+      let l = with_type uint32 (EConstant size) in
+      mk_bufblit e2 zerou32 e1 zerou32 l
+  end
