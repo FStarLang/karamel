@@ -3,38 +3,9 @@
 open Ast
 open Helpers
 open DeBruijn
-open PrintAst.Ops
 
 let check_buffer_size =
   with_type (TArrow (TInt K.UInt32, TUnit)) (EQualified ([ "WasmSupport" ], "check_buffer_size"))
-
-let mk_bufblit src_buf src_ofs dst_buf dst_ofs len =
-  let t = assert_tbuf src_buf.typ in
-  match len.node with
-  | EConstant (_, "1") ->
-      EBufWrite (dst_buf, dst_ofs, with_type t (EBufRead (src_buf, src_ofs)))
-  | _ ->
-      let b_src, body_src, ref_src =
-        mk_named_binding "src" (TBuf t) (EBufSub (src_buf, src_ofs))
-      in
-      let b_dst, body_dst, ref_dst =
-        mk_named_binding "dst" (TBuf t) (EBufSub (dst_buf, dst_ofs))
-      in
-      let b_len, body_len, ref_len =
-        mk_named_binding "len" uint32 len.node
-      in
-      let b_len = mark_mut b_len in
-      ELet (b_src, body_src, close_binder b_src (with_unit (
-      ELet (b_dst, body_dst, close_binder b_dst (with_unit (
-      ELet (b_len, body_len, close_binder b_len (with_unit (
-        EWhile (
-          mk_gt_zero ref_len, with_unit (
-          ESequence [ with_unit (
-            EBufWrite (
-              ref_dst,
-              mk_minus_one ref_len,
-              with_type t (EBufRead (ref_src, mk_minus_one ref_len)))); with_unit (
-            EAssign (ref_len, mk_minus_one ref_len))])))))))))))
 
 
 let remove_buffer_ops = object
@@ -92,6 +63,7 @@ let remove_buffer_ops = object
     let size = mk_uint32 (List.length es) in
     let with_t = with_type t in
     let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, size)) in
+    (* JP: DeBruijn.lift 1 e here? *)
     let assignments = List.mapi (fun i e -> with_unit (EBufWrite (ref_buf, mk_uint32 i, e))) es in
     ELet (b_buf, body_buf, close_binder b_buf (with_t (
       ESequence (assignments @ [ ref_buf ]))))
@@ -100,11 +72,15 @@ let remove_buffer_ops = object
     mk_bufblit src_buf src_ofs dst_buf dst_ofs len
 
   method! visit_EBufWrite _ e1 e2 e3 =
-    let b_e1, body_e1, ref_e1 = mk_named_binding "dst" e1.typ e1.node in
-    let b_e2, body_e2, ref_e2 = mk_named_binding "ofs" e2.typ e2.node in
-    ELet (b_e1, body_e1, close_binder b_e1 (with_unit (
-    ELet (b_e2, body_e2, close_binder b_e2 (with_unit (
-      EBufWrite (ref_e1, ref_e2, e3)))))))
+    match e1.node, e2.node with
+    | (EOpen _ | EBound _), EConstant _ ->
+        EBufWrite (e1, e2, e3)
+    | _ ->
+        let b_e1, body_e1, ref_e1 = mk_named_binding "dst" e1.typ e1.node in
+        let b_e2, body_e2, ref_e2 = mk_named_binding "ofs" e2.typ e2.node in
+        ELet (b_e1, body_e1, close_binder b_e1 (with_unit (
+        ELet (b_e2, body_e2, close_binder b_e2 (with_unit (
+          EBufWrite (ref_e1, ref_e2, e3)))))))
 
 end
 
@@ -149,37 +125,3 @@ let simplify (files: file list): file list =
    * *)
   let files = eta_expand#visit_files () files in
   files
-
-
-(* Compile copy-assignments ... we can get away with memcpy in C but not in Wasm. *)
-
-let compile_copy_assignments = object(self)
-  inherit [_] map
-
-  method! visit_EAssign env e1 e2 =
-    let e1 = self#visit_expr env e1 in
-    let e2 = self#visit_expr env e2 in
-    match e1.typ with
-    | TArray (_, s) ->
-        begin match (s, e2.node) with
-        | s, (EBufCreate (_, init, _) | EBufCreateL (_, [ init ])) ->
-            if init.node = EAny then
-              ESequence []
-            else if snd s = "1" then
-              (* A copy-assignment with size 1 can become a single assignment. *)
-              EBufWrite (e1, Helpers.zerou32, init)
-            else
-              Warnings.fatal_error "todo: copy-assign %a := %a\n" pexpr e1 pexpr e2
-        | s, _ ->
-            if not (Helpers.is_readonly_c_expression e1 &&
-              Helpers.is_readonly_c_expression e2)
-            then
-              Warnings.fatal_error "todo: copy-assign %a := %a\n" pexpr e1 pexpr e2;
-            let l = with_type Helpers.uint32 (EConstant s) in
-            mk_bufblit e2 Helpers.zerou32 e1 Helpers.zerou32 l
-        end
-    | _ ->
-        EAssign (e1, e2)
-end
-
-let compile_copy_assignments = compile_copy_assignments#visit_files ()

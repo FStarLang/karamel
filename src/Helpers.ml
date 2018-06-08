@@ -370,3 +370,74 @@ let rec nest_in_return_pos i typ f e =
 let nest_in_return_pos = nest_in_return_pos 0
 
 let push_ignore = nest_in_return_pos TUnit (fun _ e -> with_type TUnit (EIgnore (strip_cast e)))
+
+(* Big AST nodes *************************************************************)
+
+let mk_bufblit src_buf src_ofs dst_buf dst_ofs len =
+  (* This function is now used for copy-assignments in C and Wasm. There are
+   * some possibilities for optimization, e.g. using memset when the initial
+   * value is a byte or any 0 (in C). *)
+  let t = assert_tbuf_or_tarray src_buf.typ in
+  match len.node with
+  | EConstant (_, "1") ->
+      EBufWrite (dst_buf, dst_ofs, with_type t (EBufRead (src_buf, src_ofs)))
+  | _ ->
+      let b_src, body_src, ref_src =
+        mk_named_binding "src" (TBuf t) (EBufSub (src_buf, src_ofs))
+      in
+      let b_dst, body_dst, ref_dst =
+        mk_named_binding "dst" (TBuf t) (EBufSub (dst_buf, dst_ofs))
+      in
+      let b_len, body_len, ref_len =
+        mk_named_binding "len" uint32 len.node
+      in
+      let b_len = mark_mut b_len in
+      ELet (b_src, body_src, close_binder b_src (with_unit (
+      ELet (b_dst, body_dst, close_binder b_dst (with_unit (
+      ELet (b_len, body_len, close_binder b_len (with_unit (
+        EWhile (
+          mk_gt_zero ref_len, with_unit (
+          ESequence [ with_unit (
+            EBufWrite (
+              ref_dst,
+              mk_minus_one ref_len,
+              with_type t (EBufRead (ref_src, mk_minus_one ref_len)))); with_unit (
+            EAssign (ref_len, mk_minus_one ref_len))])))))))))))
+
+(* e1 := e2 *)
+let mk_copy_assignment e1 e2 =
+  let assert_ro n e =
+    if not (is_readonly_c_expression e) then
+      Warnings.fatal_error "copy-assign, %s is not a readonly expression: %a" n pexpr e
+  in
+  match e1.typ with
+  | TArray (_, s) ->
+      begin match e2.node with
+      | EBufCreate (_, init, len) ->
+          if init.node = EAny then
+            ESequence []
+          else if snd s = "1" then
+            (* A copy-assignment with size 1 can become a single assignment. *)
+            EBufWrite (e1, zerou32, init)
+          else begin
+            assert_ro "e1" e1;
+            let b_init = fresh_binder "init" init.typ in
+            ELet (b_init, init,
+              with_unit (EFor (fresh_binder ~mut:true "i" uint32,
+                zerou32,
+                mk_lt32 (DeBruijn.lift 2 len),
+                mk_incr32,
+                let i = with_type uint32 (EBound 0) in
+                let init = with_type init.typ (EBound 1) in
+                with_unit (EBufWrite (DeBruijn.lift 2 e1, i, init)))))
+          end
+      | EBufCreateL (_, inits) ->
+          assert_ro "e1" e1;
+          ESequence (List.mapi (fun i init -> with_unit (EBufWrite (e1, mk_uint32 i, init))) inits)
+      | _ ->
+          let l = with_type uint32 (EConstant s) in
+          mk_bufblit e2 zerou32 e1 zerou32 l
+      end
+  | _ ->
+      invalid_arg "mk_copy_assignment"
+

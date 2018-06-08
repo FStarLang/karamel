@@ -67,7 +67,13 @@ let hoist_lets = object (self)
             env := b :: !env;
             let e2 = self#visit_expr_w env e2 in
             ELet (sequence_binding (),
-              with_unit (EAssign (with_type b.typ (EOpen (b.node.name, b.node.atom)), e1)),
+              with_unit (
+                match typ with
+                | TArray _ ->
+                    mk_copy_assignment (with_type b.typ (EOpen (b.node.name, b.node.atom))) e1
+                | _ ->
+                    EAssign (with_type b.typ (EOpen (b.node.name, b.node.atom)), e1)
+              ),
               DeBruijn.lift 1 e2)
         | _ ->
             (* Can't hoist because someone uses a non-constant sized array on

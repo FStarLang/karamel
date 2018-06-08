@@ -334,9 +334,8 @@ and mk_stmts env e ret_type =
           collect (env, acc) return_pos e
         ) (env, acc) es
 
-    | EAssign (e1, e2) when is_array e1.typ ->
-        let e = CStar.Copy (mk_expr env false e1, mk_type env e1.typ, mk_expr env false e2) in
-        env, e :: acc
+    | EAssign (e1, _) when is_array e1.typ ->
+        assert false
 
     | EAssign (e1, e2) ->
         let e = CStar.Assign (mk_expr env false e1, mk_expr env false e2) in

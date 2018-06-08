@@ -95,9 +95,9 @@ let remove_unused_parameters map = object (self)
   method! visit_DFunction env cc flags n ret name binders body =
     let n_binders = List.length binders in
     let body = List.fold_left (fun body i ->
-      if unused_binder binders i then
+      if unused_binder binders i then begin
         DeBruijn.subst eunit (n_binders - 1 - i) body
-      else
+      end else
         body
     ) body (KList.make n_binders (fun i -> i)) in
     let body = self#visit_expr_w env body in
@@ -418,11 +418,14 @@ let misc_cosmetic = object (self)
 
   val mutable count = 0
 
+  (* int x[1]; x[0] = e; x
+   * -->
+   * int x; x = e; &x *)
   method! visit_ELet env b e1 e2 =
     let b = self#visit_binder env b in
     let e1 = self#visit_expr env e1 in
     match e1.node with
-    | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) ->
+    | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) when not !Options.wasm ->
         let t = assert_tbuf_or_tarray b.typ in
         let b = with_type t { b.node with mut = true } in
         let ref = with_type (TBuf t) (EAddrOf (with_type t (EBound 0))) in
@@ -1140,10 +1143,8 @@ let rec hoist_bufcreate (e: expr) =
       (* Either:
        *   [let x: t* = bufcreatel ...] (as-is in the original code)
        *   [let x: t[n] = any] (because C89 hoisting kicked in).
-       * This bit is really important because it makes sure that the assignment
-       * becomes a Copy node (see AstToCStar), which has different semantics
-       * than an assignment. This is (as far as I know) the only place that
-       * generates these copy nodes. *)
+       * Instead of using an encoding of copy-assignments, we actually generate
+       * proper instructions now. *)
       begin match strengthen_array b.typ e1 with
       | TArray (t, size) as tarray ->
           let b, e2 = open_binder b e2 in
@@ -1167,7 +1168,7 @@ let rec hoist_bufcreate (e: expr) =
           | _ ->
               (* Need actual copy-assigment. *)
               mk (ELet (sequence_binding (),
-                with_unit (EAssign (with_type tarray (EOpen (b.node.name, b.node.atom)), e1)),
+                with_type TUnit (mk_copy_assignment (with_type tarray (EOpen (b.node.name, b.node.atom))) e1),
                 lift 1 e2
               ))
           end
