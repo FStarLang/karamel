@@ -3,6 +3,8 @@ module TestLib
 open FStar.HyperStack.ST
 open FStar.Buffer
 
+module HS = FStar.HyperStack
+
 (** Some test routines *)
 
 (** Prevent F* from removing the use of a variable. *)
@@ -43,7 +45,7 @@ val unsafe_malloc: l:UInt32.t ->
       /\ is_eternal_region (frameOf b)
       /\ HyperStack.modifies (Set.singleton (frameOf b)) h0 h1
       /\ HyperStack.modifies_ref (frameOf b) (Set.empty) h0 h1
-      /\ (FStar.HyperStack.(Map.domain h0.h == Map.domain h1.h)))
+      /\ (FStar.HyperStack.(Map.domain (HS.get_hmap h0) == Map.domain (HS.get_hmap h1))))
 
 (** Prints: "got error code %d" where %d is the first argument *)
 val perr: FStar.UInt32.t -> Stack unit

@@ -1,5 +1,5 @@
 [
-  "Z˙∑Ò'„v\u0006}ªoEP(Q\u001a",
+  "ÀıZƒPíöa ŸX∆xÅ|9",
   [
     [
       "FStar.Modifies.loc_addresses",
@@ -11,7 +11,7 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "66a2dc4538ba9e67bb4df96c0e0c0055"
+      "23ae23251e6e8b4132996d1c022e372f"
     ],
     [
       "FStar.Modifies.loc_mreference",
@@ -23,7 +23,19 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "8a19a936f20e09423a765730a212e947"
+      "789b01021a6dae4dc714dfe817445d22"
+    ],
+    [
+      "FStar.Modifies.loc_freed_mreference",
+      1,
+      2,
+      1,
+      [
+        "@query", "assumption_Prims.HasEq_int", "equation_Prims.nat",
+        "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
+      ],
+      0,
+      "183826031875ada8ab3c1d5866942927"
     ],
     [
       "FStar.Modifies.loc_includes_gsub_buffer_l",
@@ -32,7 +44,7 @@
       1,
       [ "@query" ],
       0,
-      "9a83b172d43e2491017cce7033aabdc1"
+      "3dc55808203411551b743cb8331b6035"
     ],
     [
       "FStar.Modifies.loc_includes_addresses_buffer",
@@ -44,7 +56,7 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "661409d6082e4e249394124e91d43b92"
+      "35f38eee957d9140965e9d2e4fc4b25b"
     ],
     [
       "FStar.Modifies.loc_includes_region_addresses",
@@ -56,7 +68,31 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "b380075aff18b3c0443124b5b124b9df"
+      "944938dc2e84ebd99a3a0a8568d00c79"
+    ],
+    [
+      "FStar.Modifies.loc_includes_addresses_addresses",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "Prims_pretyping_ae567c2fb75be05905677af440075565",
+        "assumption_Prims.HasEq_int", "equation_FStar.UInt32.n",
+        "equation_Prims.nat", "function_token_typing_FStar.UInt32.n",
+        "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
+      ],
+      0,
+      "010370b7630132b6a480789e29a6f921"
+    ],
+    [
+      "FStar.Modifies.loc_disjoint_sym'",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "043a6a7965fd4b123330892ecbca5ec7"
     ],
     [
       "FStar.Modifies.loc_disjoint_gsub_buffer",
@@ -65,7 +101,7 @@
       1,
       [ "@query" ],
       0,
-      "9c028ac0e5261d7e9eb0fddefa7390ea"
+      "3009b3cd46ed2f470227bdf14692e38b"
     ],
     [
       "FStar.Modifies.loc_disjoint_addresses",
@@ -77,7 +113,7 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "5b29747d9bb706e0c27cd1d2cb5c117a"
+      "179dc6a8328848e6ce1fd3a1ee9b4e4a"
     ],
     [
       "FStar.Modifies.loc_disjoint_buffer_addresses",
@@ -89,7 +125,7 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "91758522ceaa765fed40c824c27d7f83"
+      "f8aa299b02f7b433bc19652033067418"
     ],
     [
       "FStar.Modifies.modifies_buffer_elim",
@@ -98,16 +134,122 @@
       1,
       [ "@query" ],
       0,
-      "9630af26d214639e647adbe3740672fe"
+      "fc3abf4aa5e1024acbcc17870dab36c3"
     ],
     [
-      "FStar.Modifies.modifies_fresh_frame_popped",
+      "FStar.Modifies.address_liveness_insensitive_addresses",
       1,
       2,
       1,
-      [ "@query" ],
+      [
+        "@query", "assumption_Prims.HasEq_int", "equation_Prims.nat",
+        "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
+      ],
       0,
-      "8c94e1c6e627d6701ab88079ed50b7f2"
+      "ecefc74f7321c38d3aad4a23df226698"
+    ],
+    [
+      "FStar.Modifies.region_liveness_insensitive_addresses",
+      1,
+      2,
+      1,
+      [
+        "@query", "assumption_Prims.HasEq_int", "equation_Prims.nat",
+        "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
+      ],
+      0,
+      "d7a2cc6c2826cda882cdd00221947b73"
+    ],
+    [
+      "FStar.Modifies.modifies_liveness_insensitive_mreference_weak",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.Modifies.loc_mreference",
+        "equation_FStar.Monotonic.HyperStack.mreference",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mreference_",
+        "function_token_typing_FStar.Modifies.loc_none",
+        "lemma_FStar.Modifies.loc_disjoint_none_r",
+        "lemma_FStar.Modifies.loc_disjoint_sym_",
+        "lemma_FStar.Modifies.loc_union_loc_none_l",
+        "typing_FStar.Modifies.loc_mreference"
+      ],
+      0,
+      "18fa73fea30b3064e88db82adbf57a7b"
+    ],
+    [
+      "FStar.Modifies.modifies_liveness_insensitive_buffer_weak",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_FStar.Buffer.buffer",
+        "fuel_guarded_inversion_FStar.Buffer._buffer",
+        "function_token_typing_FStar.Modifies.loc_none",
+        "lemma_FStar.Modifies.loc_disjoint_none_r",
+        "lemma_FStar.Modifies.loc_disjoint_sym_",
+        "lemma_FStar.Modifies.loc_union_loc_none_l",
+        "typing_FStar.Modifies.loc_buffer"
+      ],
+      0,
+      "3d246cfe9a58a3bd3ba4bfb917a6ec28"
+    ],
+    [
+      "FStar.Modifies.modifies_liveness_insensitive_region_weak",
+      1,
+      2,
+      1,
+      [
+        "@query", "bool_typing", "equation_FStar.Modifies.loc_region_only",
+        "function_token_typing_FStar.Modifies.loc_none",
+        "lemma_FStar.Modifies.loc_disjoint_none_r",
+        "lemma_FStar.Modifies.loc_disjoint_sym_",
+        "lemma_FStar.Modifies.loc_union_loc_none_l",
+        "typing_FStar.Modifies.loc_region_only"
+      ],
+      0,
+      "16f12037132c2e4d95741f07b0d00734"
+    ],
+    [
+      "FStar.Modifies.modifies_liveness_insensitive_region_mreference_weak",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.Modifies.loc_mreference",
+        "equation_FStar.Monotonic.HyperStack.mreference",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mreference_",
+        "function_token_typing_FStar.Modifies.loc_none",
+        "lemma_FStar.Modifies.loc_disjoint_none_r",
+        "lemma_FStar.Modifies.loc_disjoint_sym_",
+        "lemma_FStar.Modifies.loc_union_loc_none_l",
+        "lemma_FStar.Modifies.modifies_liveness_insensitive_region_weak",
+        "typing_FStar.Modifies.loc_mreference",
+        "typing_FStar.Monotonic.HyperStack.frameOf"
+      ],
+      0,
+      "c184a66ef482fdc681ba24bdc3a788ed"
+    ],
+    [
+      "FStar.Modifies.modifies_liveness_insensitive_region_buffer_weak",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_FStar.Buffer.buffer",
+        "fuel_guarded_inversion_FStar.Buffer._buffer",
+        "function_token_typing_FStar.Modifies.loc_none",
+        "lemma_FStar.Modifies.loc_disjoint_none_r",
+        "lemma_FStar.Modifies.loc_disjoint_sym_",
+        "lemma_FStar.Modifies.loc_union_loc_none_l",
+        "lemma_FStar.Modifies.modifies_liveness_insensitive_region_weak",
+        "typing_FStar.Buffer.frameOf", "typing_FStar.Modifies.loc_buffer"
+      ],
+      0,
+      "df42ca7b8a3ec5ff16e8d0217aeca616"
     ],
     [
       "FStar.Modifies.modifies_loc_addresses_intro",
@@ -119,7 +261,7 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "399887bc46ddb98d1d244524b5cdb1bb"
+      "2af4075b934dc55b06d9aa948d8972f6"
     ],
     [
       "FStar.Modifies.free_does_not_contain_addr",
@@ -132,7 +274,7 @@
         "refinement_interpretation_Prims_Tm_refine_8d65e998a07dd53ec478e27017d9dba5"
       ],
       0,
-      "45ce175fd33e7eeb2b03610d65e0f09e"
+      "2b4440cbf3c4fcc073759152e554fe74"
     ],
     [
       "FStar.Modifies.modifies_only_live_addresses",
@@ -144,7 +286,19 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "20f9606bdddb63cda01998ad41a1ebf4"
+      "1ff8feef85651220d892af23ff35a731"
+    ],
+    [
+      "FStar.Modifies.cloc_of_loc_addresses",
+      1,
+      2,
+      1,
+      [
+        "@query", "assumption_Prims.HasEq_int", "equation_Prims.nat",
+        "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
+      ],
+      0,
+      "9f91fffad8cf07e90754bcab87d412d5"
     ]
   ]
 ]

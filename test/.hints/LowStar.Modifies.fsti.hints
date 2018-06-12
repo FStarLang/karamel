@@ -1,5 +1,5 @@
 [
-  "gZ”Gº\u0002r?\u0007K€Ï²ÓÜ",
+  "‹j%æ&\r$Ãäƒá‰>E\u001cu",
   [
     [
       "LowStar.Modifies.loc_addresses",
@@ -11,7 +11,7 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "3541c2bd2852b84b08fed7bc113844be"
+      "bb841a12898344e8123368fb178d417c"
     ],
     [
       "LowStar.Modifies.loc_mreference",
@@ -23,7 +23,19 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "2db54e5b075940c74fe2f72bef7a00f2"
+      "04baf1a8d8e8e14e6831f68997f41732"
+    ],
+    [
+      "LowStar.Modifies.loc_freed_mreference",
+      1,
+      2,
+      1,
+      [
+        "@query", "assumption_Prims.HasEq_int", "equation_Prims.nat",
+        "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
+      ],
+      0,
+      "89fa721354c5e315d70127adfb69e380"
     ],
     [
       "LowStar.Modifies.loc_includes_gsub_buffer_l",
@@ -32,7 +44,7 @@
       1,
       [ "@query" ],
       0,
-      "3de70e5c811d241625efb365571bd3d7"
+      "77573290066026cd43b259b4746163c7"
     ],
     [
       "LowStar.Modifies.loc_includes_addresses_buffer",
@@ -44,7 +56,7 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "2ef01054a06a3f18dd7c16d714bbec42"
+      "c24b3d674a16bfc34bde2c439556b9ca"
     ],
     [
       "LowStar.Modifies.loc_includes_region_addresses",
@@ -56,7 +68,31 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "e0e815f82df68e0bb9e1c2ebef5269ce"
+      "3443d094ac42f381556f461c492890f3"
+    ],
+    [
+      "LowStar.Modifies.loc_includes_addresses_addresses",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "Prims_pretyping_ae567c2fb75be05905677af440075565",
+        "assumption_Prims.HasEq_int", "equation_FStar.UInt32.n",
+        "equation_Prims.nat", "function_token_typing_FStar.UInt32.n",
+        "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
+      ],
+      0,
+      "fc69373ed355a25c9ad3d682658c0e18"
+    ],
+    [
+      "LowStar.Modifies.loc_disjoint_sym'",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "f017498056a03c16ea56c0b44242fc37"
     ],
     [
       "LowStar.Modifies.loc_disjoint_gsub_buffer",
@@ -65,7 +101,7 @@
       1,
       [ "@query" ],
       0,
-      "3d6c12414e89a09831ca72e86f09b8da"
+      "fb8b3925e28877ed7eeec00e5b586895"
     ],
     [
       "LowStar.Modifies.loc_disjoint_addresses",
@@ -77,7 +113,7 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "bbb5ec45587b3150c48196b8e81ac5da"
+      "5b5515253b5032bdc384b3f416c2c641"
     ],
     [
       "LowStar.Modifies.loc_disjoint_buffer_addresses",
@@ -89,16 +125,118 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "3b2befe9a7c4e7bea5644ff5073ad60f"
+      "fd7554573e4ff7b9bacea39187118835"
     ],
     [
-      "LowStar.Modifies.modifies_fresh_frame_popped",
+      "LowStar.Modifies.address_liveness_insensitive_addresses",
       1,
       2,
       1,
-      [ "@query" ],
+      [
+        "@query", "assumption_Prims.HasEq_int", "equation_Prims.nat",
+        "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
+      ],
       0,
-      "910ebce1cb7f52413ffc2ecf02fe362d"
+      "af7a6cc391d1d4db2bcc92aa29e366a1"
+    ],
+    [
+      "LowStar.Modifies.region_liveness_insensitive_addresses",
+      1,
+      2,
+      1,
+      [
+        "@query", "assumption_Prims.HasEq_int", "equation_Prims.nat",
+        "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
+      ],
+      0,
+      "8e70b5ffb5e7cafab35707cd0ba9d3e8"
+    ],
+    [
+      "LowStar.Modifies.modifies_liveness_insensitive_mreference_weak",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.Monotonic.HyperStack.mreference",
+        "equation_LowStar.Modifies.loc_mreference",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mreference_",
+        "function_token_typing_LowStar.Modifies.loc_none",
+        "lemma_LowStar.Modifies.loc_disjoint_none_r",
+        "lemma_LowStar.Modifies.loc_disjoint_sym_",
+        "lemma_LowStar.Modifies.loc_union_loc_none_l",
+        "typing_LowStar.Modifies.loc_mreference"
+      ],
+      0,
+      "53855451017835b7b1eaae0cefd9ab62"
+    ],
+    [
+      "LowStar.Modifies.modifies_liveness_insensitive_buffer_weak",
+      1,
+      2,
+      1,
+      [
+        "@query", "function_token_typing_LowStar.Modifies.loc_none",
+        "lemma_LowStar.Modifies.loc_disjoint_none_r",
+        "lemma_LowStar.Modifies.loc_disjoint_sym_",
+        "lemma_LowStar.Modifies.loc_union_loc_none_l",
+        "typing_LowStar.Modifies.loc_buffer"
+      ],
+      0,
+      "2b6f2ff21444976a4f9ce84f569ff3d2"
+    ],
+    [
+      "LowStar.Modifies.modifies_liveness_insensitive_region_weak",
+      1,
+      2,
+      1,
+      [
+        "@query", "bool_typing", "equation_LowStar.Modifies.loc_region_only",
+        "function_token_typing_LowStar.Modifies.loc_none",
+        "lemma_LowStar.Modifies.loc_disjoint_none_r",
+        "lemma_LowStar.Modifies.loc_disjoint_sym_",
+        "lemma_LowStar.Modifies.loc_union_loc_none_l",
+        "typing_LowStar.Modifies.loc_region_only"
+      ],
+      0,
+      "ab43554a7a30e27a09c6f7f2c7fdcc64"
+    ],
+    [
+      "LowStar.Modifies.modifies_liveness_insensitive_region_mreference_weak",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.Monotonic.HyperStack.mreference",
+        "equation_LowStar.Modifies.loc_mreference",
+        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mreference_",
+        "function_token_typing_LowStar.Modifies.loc_none",
+        "lemma_LowStar.Modifies.loc_disjoint_none_r",
+        "lemma_LowStar.Modifies.loc_disjoint_sym_",
+        "lemma_LowStar.Modifies.loc_union_loc_none_l",
+        "lemma_LowStar.Modifies.modifies_liveness_insensitive_region_weak",
+        "typing_FStar.Monotonic.HyperStack.frameOf",
+        "typing_LowStar.Modifies.loc_mreference"
+      ],
+      0,
+      "650e0458a9551ea280fc79985b91c4c8"
+    ],
+    [
+      "LowStar.Modifies.modifies_liveness_insensitive_region_buffer_weak",
+      1,
+      2,
+      1,
+      [
+        "@query", "function_token_typing_LowStar.Modifies.loc_none",
+        "lemma_LowStar.Modifies.loc_disjoint_none_r",
+        "lemma_LowStar.Modifies.loc_disjoint_sym_",
+        "lemma_LowStar.Modifies.loc_union_loc_none_l",
+        "lemma_LowStar.Modifies.modifies_liveness_insensitive_region_weak",
+        "typing_LowStar.Buffer.frameOf", "typing_LowStar.Modifies.loc_buffer"
+      ],
+      0,
+      "2af52d510b6f37538dabdd284b6d17ac"
     ],
     [
       "LowStar.Modifies.modifies_loc_addresses_intro",
@@ -110,7 +248,19 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "6387f905d7bbf6c65cdf2b0be661e071"
+      "0168fa43fe429d976965b5871fd698e9"
+    ],
+    [
+      "LowStar.Modifies.modifies_addr_of_modifies",
+      1,
+      2,
+      1,
+      [
+        "@query", "assumption_Prims.HasEq_int", "equation_Prims.nat",
+        "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
+      ],
+      0,
+      "c2a77153bc20a476afcb7a48e76e3c62"
     ],
     [
       "LowStar.Modifies.free_does_not_contain_addr",
@@ -123,7 +273,7 @@
         "refinement_interpretation_Prims_Tm_refine_8d65e998a07dd53ec478e27017d9dba5"
       ],
       0,
-      "9c7ff2c73f589452fd17c8679a82d610"
+      "1c848806da16e819de818fc991bdc3b5"
     ],
     [
       "LowStar.Modifies.modifies_only_live_addresses",
@@ -135,7 +285,19 @@
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "bd34d2860c5c2e9c6a09c56160aac0b0"
+      "d9f7cfd2e69d9e3c80c839ff13eab5df"
+    ],
+    [
+      "LowStar.Modifies.cloc_of_loc_addresses",
+      1,
+      2,
+      1,
+      [
+        "@query", "assumption_Prims.HasEq_int", "equation_Prims.nat",
+        "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
+      ],
+      0,
+      "20966bcf6ec49631b2cbd6ea767a2a32"
     ]
   ]
 ]
