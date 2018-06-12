@@ -19,6 +19,7 @@ FILES		= \
   MallocFree.test TestAlloca.test OptimizedOption.test PushPop.test EtaStruct.test \
   Verbatim.test Const.test $(CRYPTO)/Crypto.Symmetric.Chacha20.test Uu.test \
   LinkedList1.test LinkedList2.test LinkedList3.test LinkedList4.test \
+  OldAndNew.test \
   NoExtract.test InlineNoExtract.test ../book/RingBuffer.test \
   ../book/Introduction.test TopLevelArray.test
 CUSTOM		= count-uu
