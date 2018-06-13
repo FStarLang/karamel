@@ -142,8 +142,13 @@ let detect_kremlin () =
     KPrint.bprintf "%sthe Kremlin executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
 
     let krml_home =
-      try read_one_line !readlink [| "-f"; d real_krml ^^ ".." ^^ ".." |]
-      with _ -> fatal_error "Could not compute krml_home"
+      begin try
+        Sys.getenv "KRML_HOME"
+      with Not_found -> try
+        read_one_line !readlink [| "-f"; d real_krml ^^ ".." ^^ ".." |]
+      with _ ->
+        fatal_error "Could not compute krml_home"
+      end
     in
     KPrint.bprintf "%sKreMLin home is:%s %s\n" Ansi.underline Ansi.reset krml_home;
 
