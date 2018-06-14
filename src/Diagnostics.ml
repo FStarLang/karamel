@@ -167,7 +167,7 @@ let all files verbose =
       Warnings.(maybe_fatal_error ("", NeedsCompat (name,
         "it uses mathematical integers and runtime checks may fail; rewrite your \
         code to use machine integers, or if you must, use -add-include \
-        '\"prims_int.h\"'; if this declaration is for specification purposes \
+        '\"kremlin/internal/compat.h\"'; if this declaration is for specification purposes \
         only, consider marking it noextract or using -bundle \
         <name-of-the-module> to only keep reachable definitions.")));
     if uses_gctype then
