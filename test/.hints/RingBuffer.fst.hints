@@ -12,7 +12,7 @@
         "refinement_interpretation_LowStar.Buffer_Tm_refine_cf50f66b070215a0562aa769ba26bcd0"
       ],
       0,
-      "245d8f9b0b287d9023149c42da6fd4ac"
+      "048ea8a0bcbf627061512df08334562c"
     ],
     [
       "RingBuffer.well_formed_f",
@@ -24,7 +24,7 @@
         "haseqRingBuffer_Tm_refine_7f014d1f670e5d2ecdc0d7946b4a693d"
       ],
       0,
-      "deb745d3a7a10858e5f59f03e754d39b"
+      "a66f4704219a2ce78c9ed4a1aaae38d7"
     ],
     [
       "RingBuffer.next",
@@ -54,7 +54,7 @@
         "typing_FStar.UInt32.v"
       ],
       0,
-      "2bf1829d8291d734d67758208b3af4dd"
+      "2f8d79b75b189ce08b2ccaee8a5ad2af"
     ],
     [
       "RingBuffer.prev",
@@ -80,7 +80,7 @@
         "typing_FStar.UInt32.lt", "typing_FStar.UInt32.v"
       ],
       0,
-      "609c2f86598bf55b06936d29288b02d0"
+      "086cff21cc9daa57dcaec0429233c334"
     ],
     [
       "RingBuffer.remaining_space",
@@ -111,7 +111,7 @@
         "typing_RingBuffer.__proj__Mkt__item__total_length"
       ],
       0,
-      "80a2561aa743e1d5b59cdeae5b15ec1c"
+      "3b6ea5b3c062c033422e263a31372195"
     ],
     [
       "RingBuffer.as_list_f",
@@ -159,7 +159,7 @@
         "well-founded-ordering-on-nat"
       ],
       0,
-      "bde6f37fcd480253b77ec0cab4c98ef1"
+      "ba4e00d2ffb4fccfd465bebc687107a4"
     ],
     [
       "RingBuffer.seq_update_unused_preserves_list",
@@ -220,7 +220,7 @@
         "unit_typing", "well-founded-ordering-on-nat"
       ],
       0,
-      "c80727e8193499f805949e54d7b18ddb"
+      "406dc2da2082494d53402f2c20465dcd"
     ],
     [
       "RingBuffer.as_list",
@@ -237,7 +237,7 @@
         "haseqRingBuffer_Tm_refine_7f014d1f670e5d2ecdc0d7946b4a693d"
       ],
       0,
-      "f0b18c970a0ad4a233d182b3e80e0cd2"
+      "cad902b0606a9431c74b3ebd31c22364"
     ],
     [
       "RingBuffer.pop",
@@ -282,6 +282,7 @@
         "lemma_LowStar.Buffer.length_null_1",
         "lemma_LowStar.Buffer.length_null_2",
         "lemma_LowStar.Modifies.loc_disjoint_sym_",
+        "lemma_LowStar.Modifies.loc_disjoint_union_r",
         "lemma_LowStar.Modifies.loc_union_comm",
         "lemma_LowStar.Modifies.modifies_1_modifies",
         "lemma_LowStar.Modifies.modifies_buffer_elim",
@@ -309,12 +310,14 @@
         "refinement_interpretation_RingBuffer_Tm_refine_3b5ef781d581154a7813f234ac1f4bae",
         "refinement_interpretation_RingBuffer_Tm_refine_45a6ce376230376e5e41181b8c172f36",
         "refinement_interpretation_RingBuffer_Tm_refine_77945b1f36b0e1e33874836928214f30",
-        "typing_FStar.Seq.Base.create", "typing_FStar.UInt.fits",
-        "typing_FStar.UInt32.add", "typing_FStar.UInt32.lt",
-        "typing_FStar.UInt32.lte", "typing_FStar.UInt32.sub",
-        "typing_FStar.UInt32.v", "typing_LowStar.Buffer.as_seq",
-        "typing_LowStar.Buffer.get", "typing_LowStar.Buffer.len",
-        "typing_LowStar.Buffer.length", "typing_LowStar.Modifies.loc_buffer",
+        "typing_FStar.Seq.Base.create", "typing_FStar.Seq.Base.length",
+        "typing_FStar.UInt.fits", "typing_FStar.UInt32.add",
+        "typing_FStar.UInt32.lt", "typing_FStar.UInt32.lte",
+        "typing_FStar.UInt32.sub", "typing_FStar.UInt32.v",
+        "typing_LowStar.Buffer.as_seq", "typing_LowStar.Buffer.get",
+        "typing_LowStar.Buffer.len", "typing_LowStar.Buffer.length",
+        "typing_LowStar.Modifies.loc_buffer",
+        "typing_LowStar.Modifies.loc_union",
         "typing_RingBuffer.__proj__Mkt__item__b",
         "typing_RingBuffer.__proj__Mkt__item__first",
         "typing_RingBuffer.__proj__Mkt__item__length",
@@ -322,7 +325,7 @@
         "typing_RingBuffer.as_list", "typing_RingBuffer.remaining_space"
       ],
       0,
-      "803159e9a2f86c811f07aa0ed5140582"
+      "c367fd80ce57ec5c05cbe07859b2569d"
     ],
     [
       "RingBuffer.push",
@@ -413,7 +416,7 @@
         "typing_RingBuffer.next", "typing_RingBuffer.remaining_space"
       ],
       0,
-      "283b9096ddd65cc016af9d4e8692fcdd"
+      "ce659b9a0c3587b812de02e46d648075"
     ],
     [
       "RingBuffer.one_past_last",
@@ -442,7 +445,7 @@
         "typing_FStar.UInt32.v"
       ],
       0,
-      "eebb665df6704853a9d49b3abfa37e07"
+      "eb0bb4984b0c06db843d26e0e9943967"
     ],
     [
       "RingBuffer.as_list_append_one",
@@ -511,7 +514,7 @@
         "well-founded-ordering-on-nat"
       ],
       0,
-      "b4ff5ccbae1f99b5a049c2d148898fab"
+      "6d904915cf65285c5c26c0a4f54cc868"
     ],
     [
       "RingBuffer.push_back",
@@ -586,7 +589,6 @@
         "refinement_interpretation_RingBuffer_Tm_refine_0ee6aa807d126edd525f4cb8f1a962b9",
         "refinement_interpretation_RingBuffer_Tm_refine_0f98107387ae2367d717c57675826b64",
         "refinement_interpretation_RingBuffer_Tm_refine_5186b9c6734cf035f04eb07917d9314f",
-        "refinement_interpretation_RingBuffer_Tm_refine_cc3f0e59eb539465b50e72f2c9ffeadc",
         "refinement_interpretation_RingBuffer_Tm_refine_d0d4a8ad97ca4f284d62f007e4983608",
         "token_correspondence_FStar.List.Tot.Base.length.fuel_instrumented",
         "token_correspondence_RingBuffer.as_list_f.fuel_instrumented",
@@ -604,7 +606,7 @@
         "typing_RingBuffer.as_list_f", "typing_RingBuffer.remaining_space"
       ],
       0,
-      "a8f322a25d1f00ea70764539d1ae340d"
+      "374811dec03c949cedd774ac454fc624"
     ],
     [
       "RingBuffer.as_list_minus_one",
@@ -678,7 +680,7 @@
         "unit_typing", "well-founded-ordering-on-nat"
       ],
       0,
-      "f38b89f44df10cb5c9cdda49f5e063d1"
+      "5333721b32e2a5de5cc2c2b75e7bfd80"
     ],
     [
       "RingBuffer.pop_back",
@@ -762,7 +764,7 @@
         "typing_RingBuffer.as_list_f", "typing_RingBuffer.remaining_space"
       ],
       0,
-      "ad0f592eef8cbdc69014d3687d565dad"
+      "b223be8803adecdc2213faa64372502f"
     ],
     [
       "RingBuffer.create",
@@ -846,7 +848,7 @@
         "typing_RingBuffer.remaining_space"
       ],
       0,
-      "17bc98f627daa6f3573401dbde53d6b8"
+      "a525ad9b0f83c1212662fe6b64cb3cd9"
     ],
     [
       "RingBuffer.main",
@@ -965,7 +967,7 @@
         "typing_RingBuffer.as_list", "typing_RingBuffer.space_left"
       ],
       0,
-      "de45751cb1be2b4a109ada2ee174c28e"
+      "f7f4859a01aad7369f136115cd88b6e5"
     ]
   ]
 ]
