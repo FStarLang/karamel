@@ -37,9 +37,12 @@ ROOTS = $(wildcard *.fst) $(wildcard *.fsti) \
     FStar.HyperStack.IO.fst FStar.IO.fst FStar.Int.Cast.Full.fst \
     FStar.Bytes.fsti FStar.Dyn.fsti)
 
-.PHONY: clean
-clean:
+.PHONY: clean clean-c
+clean: clean-c
 	rm -rf *.checked *.source .depend
+
+clean-c:
+	rm -rf extracted/*.c extracted/*.h out extract-all */*.o
 
 .depend: Makefile | $(OUTPUT_DIR)
 	$(FSTAR) $(OTHERFLAGS) --dep full $(ROOTS) > $@

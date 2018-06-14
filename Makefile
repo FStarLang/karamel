@@ -37,6 +37,7 @@ src/AutoConfig.ml:
 clean:
 	rm -rf krml _build Tests.$(FLAVOR) Kremlin.$(FLAVOR)
 	make -C test clean
+	make -C kremlib clean
 
 test: all
 	./Tests.native
