@@ -191,7 +191,8 @@ and print_expr { node; typ } =
   | ETApp (e, ts) ->
       print_app print_expr e (fun t -> group (langle ^/^ print_typ t ^/^ rangle)) ts
   | ELet (binder, e1, e2) ->
-      group (print_let_binding (binder, e1) ^/^ string "in") ^/^ group (print_expr e2)
+      group (print_let_binding (binder, e1) ^/^ string "in") ^/^
+      group (print_expr e2)
   | EIfThenElse (e1, e2, e3) ->
       string "if" ^/^ print_expr e1 ^/^ string "then" ^^
       jump (print_expr e2) ^/^ string "else" ^^
@@ -206,7 +207,7 @@ and print_expr { node; typ } =
   | EBufRead (e1, e2) ->
       print_expr e1 ^^ lbracket ^^ print_expr e2 ^^ rbracket
   | EBufWrite (e1, e2, e3) ->
-      print_expr e1 ^^ lbracket ^^ print_expr e2 ^^ rbracket ^/^
+      print_expr e1 ^^ (*colon ^^ print_typ e1.typ ^^*) lbracket ^^ print_expr e2 ^^ rbracket ^/^
       string "<-" ^/^ print_expr e3
   | EBufSub (e1, e2) ->
       print_app string "subbuf" print_expr [e1; e2]

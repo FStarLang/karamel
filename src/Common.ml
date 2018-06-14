@@ -14,13 +14,13 @@ type flag =
   | Private
       (** An F* private qualifier. *)
   | WipeBody
-      (** The body must be wiped out -- surfaced in F* via the noextract
-       * keyword. *)
+      (** Should now be unused. Left there for compatibility with previous ASTs. *)
   | Inline
       (** User demanded a C inline keyword *)
   | Substitute
       (** User used [@ Substitute ] -- function inlined at call-site, but not
-       * necessarily removed. *)
+       * necessarily removed. Deprecated in favor of using inline_for_extraction
+       * at the F* level. *)
   | GcType
       (** Automatic insertion of pointers because this type will be collected
        * by a conservative garbage collector. *)
