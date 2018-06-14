@@ -610,8 +610,12 @@ and mk_declaration env d: CStar.decl option =
         mk_type env t,
         mk_expr env false body))
 
-  | DExternal (_, flags, name, t) ->
-      Some (CStar.External (string_of_lident name, mk_type env t, flags))
+  | DExternal (cc, flags, name, t) ->
+      let add_cc = function
+        | CStar.Function (_, t, ts) -> CStar.Function (cc, t, ts)
+        | t -> t
+      in
+      Some (CStar.External (string_of_lident name, add_cc (mk_type env t), flags))
 
   | DType (name, flags, _, Forward) ->
       let name = string_of_lident name in

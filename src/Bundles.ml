@@ -75,9 +75,12 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
 
   let mark_private =
     let add_if name flags =
-      if not (Inlining.always_live name) then
+      let is_private = List.mem Common.Private flags in
+      if not is_private && not (Inlining.always_live name) then begin
+        if List.length api > 0 then
+          Hashtbl.add Inlining.marked_private name ();
         Common.Private :: flags
-      else
+      end else
         flags
     in
     function

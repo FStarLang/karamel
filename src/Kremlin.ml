@@ -103,6 +103,7 @@ The default is %s and the available warnings are:
   12: cannot be compiled to Wasm
   13: monomorphic instance about to be dropped
   14: cannot perform tail-call optimization
+  15: function is not Low*; need compatibility headers
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
 The Api= part is optional and Api is made up of a non-empty list of modules
@@ -181,7 +182,8 @@ Supported options:|}
     "-verify", Arg.Set arg_verify, " ask F* to verify the program";
     "-verbose", Arg.Set Options.verbose, "  show the output of intermediary \
       tools when acting as a driver for F* or the C compiler";
-    "-diagnostics", Arg.Set arg_diagnostics, " informative report";
+    "-diagnostics", Arg.Set arg_diagnostics, "list recursive functions and \
+      overly nested data types (useful for MSVC)";
     "-wasm", Arg.Set Options.wasm, "  emit a .wasm file instead of C";
     "", Arg.Unit (fun _ -> ()), " ";
 
@@ -219,8 +221,8 @@ Supported options:|}
 
     (* Fine-tuning code generation. *)
     "", Arg.Unit (fun _ -> ()), " ";
-    "-by-ref", Arg.String (fun s -> prepend Options.by_ref (Parsers.lid s)), "  pass the given struct \
-        type by reference, always";
+    "-by-ref", Arg.String (fun s -> prepend Options.by_ref (Parsers.lid s)), " \
+      pass the given struct type by reference, always";
     "-falloca", Arg.Set Options.alloca_if_vla, "  use alloca(3) for \
       variable-length arrays on the stack";
     "-fnostruct-passing", Arg.Clear Options.struct_passing, "  disable passing \
@@ -514,12 +516,11 @@ Supported options:|}
   let files = drop files in
   tick_print true "Drop";
 
+  Diagnostics.all files !arg_diagnostics;
+
   (* 8. Final transformation on the AST: go to C names. This must really be done
    * at the last minute, since it invalidates pretty much any map ever built. *)
   let files = Simplify.to_c_names files in
-
-  if !arg_diagnostics then
-    Diagnostics.all files;
 
   if !Options.wasm && not (Options.debug "force-c") then
     (* Runtime support files first. *)

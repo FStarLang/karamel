@@ -144,6 +144,10 @@ let inline_analysis files =
   in
   must_inline, must_disappear
 
+(* The functions that the user intentionally marked as private through a named
+ * bundle with an API. Contrast that with the "as-needed" usage when no API
+ * module is provided. Filled out by Bundles. *)
+let marked_private: (_, unit) Hashtbl.t = Hashtbl.create 41
 
 (** This phase drops private qualifiers if a function is called across
  * translation units. The visibility rules of F* notwithstanding, these can
@@ -193,7 +197,8 @@ let cross_call_analysis files =
      * [name_from‘], meaning that the latter cannot safely remain
      * inline. *)
     if cross_call name_from name_to && Hashtbl.mem safely_private name_to then begin
-      Warnings.maybe_fatal_error ("", LostStatic (file_of name_from, name_from, file_of name_to, name_to));
+      if Hashtbl.mem marked_private name_to then
+        Warnings.maybe_fatal_error ("", LostStatic (file_of name_from, name_from, file_of name_to, name_to));
       Hashtbl.remove safely_private name_to
     end;
     if cross_call name_from name_to && Hashtbl.mem safely_inline name_to then begin

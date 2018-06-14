@@ -20,6 +20,7 @@ and raw_error =
   | MustCallKrmlInit
   | Deprecated of string * string
   | NotLowStar of expr
+  | NeedsCompat of lident * string
   | NotWasmCompatible of lident * string
   | DropDeclaration of lident * string
   | NotTailCall of lident
@@ -56,7 +57,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 15 CError;;
+let flags = Array.make 16 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -92,6 +93,8 @@ let errno_of_error = function
   | DropDeclaration _ ->
       13
   | NotTailCall _ ->
+      14
+  | NeedsCompat _ ->
       14
   | _ ->
       (** Things that cannot be silenced! *)
@@ -157,6 +160,8 @@ let rec perr buf (loc, raw_error) =
         Idents.(to_c_identifier (string_of_lident lid))
   | NotTailCall lid ->
       p "%a is recursive but cannot be optimized to a tail-call" plid lid
+  | NeedsCompat (lid, reason) ->
+      p "%a is not Low*; %s" plid lid reason
 
 
 let maybe_fatal_error error =

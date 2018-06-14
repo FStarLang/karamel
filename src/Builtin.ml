@@ -193,7 +193,11 @@ let dyn: file =
 let lowstar_buffer: file =
   "LowStar_Buffer", [
     mk_val [ "LowStar"; "Buffer" ] "is_null" (TArrow (TBuf TAny, TBool));
-    mk_val [ "LowStar"; "Buffer" ] "null" (TArrow (TAny, TBuf TAny))
+    mk_val [ "LowStar"; "Buffer" ] "null" (TArrow (TAny, TBuf TAny));
+    DFunction (None, [ Common.MustDisappear ], 1, TUnit,
+      ([ "LowStar"; "Buffer" ], "recall"),
+      [ fresh_binder "x" (TBuf (TBound 0)) ],
+      eunit);
   ]
 
 let c_nullity: file =

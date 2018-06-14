@@ -4,10 +4,12 @@ open FStar.Int.Cast
 open FStar.HyperStack.ST
 open FStar.Ghost
 
+noeq
 type t =
   | A: a:UInt32.t -> b:UInt64.t -> t
   | B: c:UInt8.t -> d:UInt8.t -> e:erased UInt8.t -> t
 
+noeq
 type u =
   | C: f:UInt32.t -> g:UInt64.t -> u
   | D: h:t -> i:unit -> u

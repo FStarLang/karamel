@@ -600,8 +600,8 @@ effect Stack (a:Type) (pre: ST.st_pre) (post: (m0: HS.mem -> Tot (ST.st_post' a 
 /// ``ST.equal_domains`` predicate.
 
 let equal_domains (m0 m1: HS.mem) =
-  m0.HS.tip == m1.HS.tip /\
-  Set.equal (Map.domain m0.HS.h) (Map.domain m1.HS.h) /\
+  (HS.get_tip m0) == (HS.get_tip m1) /\
+  Set.equal (Map.domain (HS.get_hmap m0)) (Map.domain (HS.get_hmap m1)) /\
   ST.same_refs_in_all_regions m0 m1
 
 /// The ``equal_domains`` predicate states that a function in the ``Stack`` effect:
@@ -700,7 +700,7 @@ effect St (a:Type) = ST a (fun _ -> True) (fun _ _ _ -> True)
 let test_st_get (): St unit =
   push_frame ();
   let m = ST.get () in
-  assert (Monotonic.HyperStack.is_stack_region m.HS.tip);
+  assert (Monotonic.HyperStack.is_stack_region (HS.get_tip m));
   pop_frame ()
 
 /// These are the basic building blocks of our memory model. Verifying on top of

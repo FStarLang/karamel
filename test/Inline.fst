@@ -5,10 +5,11 @@ open FStar.HyperStack
 open FStar.HyperStack.ST
 open TestLib
 
+module HS = FStar.HyperStack
 module I32 = FStar.Int32
 
 let alloc_and_init (i: Int32.t): StackInline (Buffer.buffer Int32.t)
-  (requires (fun h0 -> FStar.Int.size (I32.v i) 16 /\ is_stack_region h0.tip))
+  (requires (fun h0 -> FStar.Int.size (I32.v i) 16 /\ is_stack_region (HS.get_tip h0)))
     // JP: why do I have to manually write the hypothesis above?
   (ensures (fun h0 b h1 ->
     let open FStar.Buffer in

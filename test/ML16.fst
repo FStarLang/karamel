@@ -6,6 +6,8 @@ open FStar.HyperStack.ST
 open FStar.Buffer
 open FStar.Int32
 
+module HS = FStar.HyperStack
+
 module I32 = FStar.Int32
 
 // Some external functions we expose through the foreign function binding
@@ -20,7 +22,7 @@ let test1 (_: unit): Stack unit (fun _ -> true) (fun _ _ _ -> true) =
 
 let test2 (_: unit):
   StackInline (Buffer.buffer Int32.t)
-  (requires (fun h0 -> is_stack_region h0.tip))
+  (requires (fun h0 -> is_stack_region (HS.get_tip h0)))
   (ensures (fun h0 b h1 -> live h1 b /\ Buffer.length b = 2))
 =
   let b = Buffer.create 0l 2ul in

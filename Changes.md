@@ -1,3 +1,64 @@
+### June 7th, 2018
+
+- Warning 7 is now emitted only when the bundle does have an Api specified.
+  Concretely: `-bundle FStar.*` no longer warns when a function loses its static
+  qualifier, as it is understood that these modules should be extracted on an
+  "as-needed" basis. However, if a function from `M` loses its static qualifier
+  when using `-bundle MyLib=M,N`, then you do get a warning, because it
+  indicates that someone (e.g. a test file) is not using `MyLib` through its
+  intended entry points.
+
+- Warning 14, for declarations that use non-Low\* concepts but can still be
+  compiled using compatibility layers or run-time support (e.g. list, int,
+  string, etc.)
+
+### June 6th, 2018
+
+- Allow specifiying the calling convention directly from within F\*. Now, one
+  can write:
+
+  ```
+  [@ (CCConv "stdcall") ]
+  assume val my_asm_routine: B.buffer UInt8.t -> ...
+  ```
+
+  which will generate:
+
+  ```
+  extern __stdcall void my_asm_routine(uint8_t *x);
+  ```
+
+  The `_stdcall` macro is defined in `include/kremlin/internal/callconv.h`. This
+  also works for function declarations, not just prototypes.
+
+- Allow writing top-level constant arrays. Examples from the testsuite:
+
+  ```
+  let x = B.gcmalloc_of_list HS.root [ 1l; 0l ]
+
+  let main (): St Int32.t =
+    B.recall x;
+    x.(1ul)
+  ```
+
+  generates:
+
+  ```
+  int32_t x[2U] = { (int32_t)1, (int32_t)0 };
+
+  int32_t main()
+  {
+    return x[1U];
+  }
+  ```
+
+### May 22nd, 2018
+
+- New `-fshort-enums` option that compiles enum constants as macros of type
+  uint8_t. This has several advantages:
+  - more compact structures
+  - no symbol conflicts when doing separate compilation.
+
 ### May 17th, 2018
 
 - Release 0.9.6.0

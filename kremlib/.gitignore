@@ -2,4 +2,7 @@
 *.source
 .depend
 *.a
+*.o
+extract-all
 extracted
+out

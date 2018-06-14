@@ -737,6 +737,13 @@ let enum_as_macros cases =
   ) cases in
   String.concat "\n" lines
 
+let strengthen_array t expr =
+  match expr with
+  | BufCreateL (_, es) ->
+      ensure_array t (Constant (K.uint32_of_int (List.length es)))
+  | _ ->
+      t
+
 (** Function definition or global definition. *)
 let mk_function_or_global_body (d: decl): C.declaration_or_function list =
   match d with
@@ -765,11 +772,16 @@ let mk_function_or_global_body (d: decl): C.declaration_or_function list =
       if is_primitive name then
         []
       else
+        let t = strengthen_array t expr in
         let qs, spec, decl = mk_spec_and_declarator name t in
         let static = if List.exists ((=) Private) flags then Some Static else None in
         match expr with
         | Any ->
             wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, None ])))
+        | BufCreateL (_, es) ->
+            let es = List.map mk_expr es in
+            wrap_verbatim flags (Decl ([], (qs, spec, static, [
+              decl, Some (Initializer (List.map (fun x -> InitExpr x) es)) ])))
         | _ ->
             let expr = mk_expr expr in
             wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, Some (InitExpr expr) ])))
@@ -795,10 +807,11 @@ let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
           raise e
         end
 
-  | Global (name, flags, t, _) ->
+  | Global (name, flags, t, expr) ->
       if is_primitive name then
         []
       else
+        let t = strengthen_array t expr in
         let qs, spec, decl = mk_spec_and_declarator name t in
         wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
 
