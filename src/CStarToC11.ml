@@ -373,37 +373,6 @@ and mk_stmt (stmt: stmt): C.stmt list =
       else
         [ If (mk_expr e, mk_compound_if (mk_stmts b1)) ]
 
-  | Copy (e1, _, BufCreate (Stack, init, size)) ->
-      assert_var e1;
-      begin match init with
-      | Any | Cast (Any, _) ->
-          mk_check_size (mk_expr init) (mk_expr size)
-      | Constant (_, "0") ->
-          mk_check_size (mk_expr init) (mk_expr size) @
-          [ mk_memset_zero_initializer (mk_expr e1) (mk_expr size) ]
-      | _ ->
-          (* JP: a potential optimization is to use memset when the initial
-           * value is a uint8 / int8 *)
-          mk_check_size (mk_expr init) (mk_expr size) @
-          [ mk_for_loop_initializer (mk_expr e1) (mk_expr size) (mk_expr init) ]
-      end
-
-  | Copy (e1, typ, BufCreateL (Stack, elts)) ->
-      (* int x[5]; *)
-      (* memcpy(x, &((int[5]){ 1, 2, 3, 4, 5 }), sizeof x); *)
-      [ Expr (Call (Name "memcpy", [
-          mk_expr e1;
-          CompoundLiteral (
-            mk_type typ,
-            List.map (fun e -> InitExpr (mk_expr e)) elts);
-          Sizeof (mk_expr e1)]))]
-
-  | Copy (e1, _, e2) ->
-      [ Expr (Call (Name "memcpy", [
-          mk_expr e1;
-          mk_expr e2;
-          Sizeof (mk_expr e1)]))]
-
   | Assign (BufRead _, (Any | Cast (Any, _))) ->
       []
 

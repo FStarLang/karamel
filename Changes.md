@@ -1,3 +1,8 @@
+### June 14th, 2018
+
+- Buffers of size one are now automatically emitted as stack-allocated
+  variables.
+
 ### June 7th, 2018
 
 - Warning 7 is now emitted only when the bundle does have an Api specified.

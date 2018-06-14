@@ -29,8 +29,6 @@ and stmt =
      * iteration expression. *)
   | Assign of expr * expr
     (** Destination (i.e. Var), Source *)
-  | Copy of expr * typ * expr
-    (** Destination, always Array (typ, size), Source *)
   | Switch of expr * ([`Ident of ident | `Int of K.t] * block) list * block option
   | BufWrite of expr * expr * expr
     (** First expression has to be a [Bound] or [Open]. *)
