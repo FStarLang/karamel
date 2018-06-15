@@ -8,5 +8,5 @@ true: annot, bin_annot, warn(@1-2-3@8..12@14..21@23..29-30@31..38-39@40-41@43@57
   package(visitors.ppx), package(visitors.runtime)
 "parser/Lexer.ml": syntax(camlp4o), syntax(pa_ulex)
 <test>: -traverse
-<kremlib/{extracted,c,out}>: -traverse
+<kremlib/{extracted,c,out,uint128}>: -traverse
 <kremlib/**/*.ml>: package(fstarlib)

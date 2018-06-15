@@ -134,7 +134,8 @@ let ensure_fresh env name body cont =
   mk_fresh name (fun tentative ->
     tricky_shadowing_see_comment_above tentative body 0 ||
     List.exists (fun cont -> tricky_shadowing_see_comment_above tentative (Some cont) 1) cont ||
-    List.exists ((=) tentative) env.in_block)
+    List.mem tentative env.in_block ||
+    !Options.no_shadow && List.mem tentative env.names)
 
 
 (** AstToCStar performs a unit-to-void conversion.

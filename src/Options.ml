@@ -40,6 +40,7 @@ let parentheses = ref false
 let curly_braces = ref false
 let unroll_loops = ref (-1)
 let tail_calls = ref false
+let no_shadow = ref false
 
 let extract_uint128 = ref false
 

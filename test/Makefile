@@ -20,7 +20,7 @@ FILES		= \
   Verbatim.test Const.test $(CRYPTO)/Crypto.Symmetric.Chacha20.test Uu.test \
   LinkedList1.test LinkedList2.test LinkedList3.test LinkedList4.test \
   NoExtract.test InlineNoExtract.test ../book/RingBuffer.test \
-  ../book/Introduction.test TopLevelArray.test
+  ../book/Introduction.test TopLevelArray.test NoShadow.test
 CUSTOM		= count-uu
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test Wasm4.wasm-test
@@ -105,6 +105,7 @@ $(OUTPUT_DIR)/TotalLoops.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/CheckedInt.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/CustomEq.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fshort-enums
+$(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
 
 # Some custom targets
 

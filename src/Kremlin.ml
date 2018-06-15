@@ -237,6 +237,8 @@ Supported options:|}
       loops smaller than N";
     "-fparentheses", Arg.Set Options.parentheses, "  add unnecessary parentheses \
       to silence GCC and Clang's -Wparentheses";
+    "-fno-shadow", Arg.Set Options.no_shadow, "  add unnecessary renamings to \
+      defeat GCC and Clang's -Wshadow, as well as the various MSVC warnings";
     "-fcurly-braces", Arg.Set Options.curly_braces, "  always add curly braces \
       around blocks";
     "-fshort-enums", Arg.Set Options.short_enums, "  use C macros and uint8_t \
