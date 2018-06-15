@@ -20,6 +20,7 @@ else
 endif
 
 OUTPUT_DIR = extracted
+UINT128_DIR = uint128
 
 $(OUTPUT_DIR):
 	mkdir -p $@
@@ -41,8 +42,10 @@ ROOTS = $(wildcard *.fst) $(wildcard *.fsti) \
 clean: clean-c
 	rm -rf *.checked *.source .depend
 
+SHELL=/bin/bash
+
 clean-c:
-	rm -rf extracted/*.c extracted/*.h out extract-all */*.o
+	rm -rf {$(OUTPUT_DIR),$(UINT128_DIR)}/{Makefile.include,*.{c,h}} out extract-all */*.o
 
 .depend: Makefile | $(OUTPUT_DIR)
 	$(FSTAR) $(OTHERFLAGS) --dep full $(ROOTS) > $@
@@ -69,12 +72,18 @@ $(OUTPUT_DIR)/%.krml:  | .depend
 	  $(notdir $(subst .checked,,$<)) && \
 	touch $@
 
-extract-all: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
+extract-all: $(OUTPUT_DIR)/Makefile.include $(UINT128_DIR)/Makefile.include
+
+$(OUTPUT_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
 	krml -minimal -tmpdir $(OUTPUT_DIR) -warn-error +9+11 -skip-compilation -extract-uint128 \
 	  $(addprefix -add-include ,'<inttypes.h>' '"kremlib.h"' '"kremlin/internal/compat.h"') \
 	  $^
 	find $(OUTPUT_DIR) -name '*.c' -and -not -name 'FStar_UInt128.c' -exec rm {} \;
-	touch $@
+
+$(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
+	krml -minimal -tmpdir $(UINT128_DIR) -skip-compilation -extract-uint128 \
+	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"kremlin/internal/types.h"') \
+	  -bundle FStar.UInt128=* -fparentheses $^
 
 ################################################################################
 # Compilation, only works after the stage above has run and C files exist      #
@@ -103,7 +112,9 @@ else
 CFLAGS += -fPIC
 endif
 
-compile-all: out/libkremlib.a
+uint128/FStar_UInt128.o: CFLAGS += -DKRML_VERIFIED_UINT128
+
+compile-all: out/libkremlib.a uint128/FStar_UInt128.o
 
 out/libkremlib.a: $(OBJS) | extract-all
 	mkdir -p $(dir $@)

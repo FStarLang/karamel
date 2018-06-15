@@ -130,6 +130,8 @@ and defeat_Wparentheses op e prec =
   else match op, e with
   | (BShiftL | BShiftR | BXor | BOr | BAnd), Op2 ((Add | Sub | BOr | BXor | BAnd), _, _) ->
       0
+  | Or, Op2 (And, _, _) ->
+      0
   | _ ->
       prec
 
