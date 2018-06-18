@@ -34,7 +34,7 @@ let struct_passing = ref true
 let anonymous_unions = ref true
 let compound_literals: [ `Ok | `Wasm | `Never ] ref = ref `Ok
 
-let short_enums = ref false
+let short_enums = ref true
 let alloca_if_vla = ref false
 let parentheses = ref false
 let curly_braces = ref false

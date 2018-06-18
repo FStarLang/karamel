@@ -523,19 +523,26 @@ and mk_deref (e: expr) : C.expr =
  * files. *)
 and is_primitive s =
   let known = [
+    (* Useless definitions: they are bypassed by custom codegen. *)
     "LowStar_Buffer_is_null";
     "C_Nullity_is_null";
     "LowStar_Buffer_null";
     "C_Nullity_null";
     "C_String_get";
     "C_String_of_literal";
+    (* Trick: we typedef this as an int and reply on implicit C enum -> int
+     * conversion rules. *)
     "exit_code";
-    (* These two are not integers are are macro-expanded by MingW into the
+    (* These two are not integers and are macro-expanded by MingW into the
      * address of a function pointer, which would make "extern channel stdout"
      * fail. *)
     "stdout";
     "stderr";
+    (* DLL linkage errors on MSVC. *)
+    "rand"; "srand"; "exit"; "fflush"; "clock";
+    (* Hand-written type definition parameterized over KRML_VERIFIED_UINT128 *)
     "FStar_UInt128_uint128";
+    (* Macros, no external linkage *)
     "htole16";
     "le16toh";
     "htole32";
