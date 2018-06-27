@@ -104,7 +104,7 @@ $(OUTPUT_DIR)/EtaStruct.exe: EXTRA = -fnostruct-passing
 $(OUTPUT_DIR)/TotalLoops.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/CheckedInt.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/CustomEq.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
-$(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fshort-enums
+$(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fnoshort-enums
 $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
 
 # Some custom targets
@@ -120,7 +120,7 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 hacl-test:
 	$(MAKE) -C $(HACL_HOME)/code/curve25519 extract-c
 	$(MAKE) -C $(HACL_HOME)/code/api extract-c
-	$(MAKE) -C $(HACL_HOME)/secure_api -f $(HACL_HOME)/secure_api/Makefile.extract krml-test
+	IMPL_CHOICE=runtime_switch $(MAKE) -C $(HACL_HOME)/secure_api -f $(HACL_HOME)/secure_api/Makefile.extract krml-test
 
 # A target for WASM compilation. All WASM targets get the -wasm flag;
 # some specific targets may override NEGATIVE for negative tests.

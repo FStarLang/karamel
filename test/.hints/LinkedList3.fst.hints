@@ -19,7 +19,7 @@
         "well-founded-ordering-on-nat"
       ],
       0,
-      "b46e6cefd06fbbe304a269c4288eefcd"
+      "8439f27a131ba15bfb9138ed6f003dc0"
     ],
     [
       "LinkedList3.cons_nonzero_length",
@@ -36,7 +36,7 @@
         "primitive_Prims.op_Equality", "projection_inverse_BoxBool_proj_0"
       ],
       0,
-      "d9d77d54e2f2193703498bc91dd010b5"
+      "3ec68d465e4faaaa70137d96fae311df"
     ],
     [
       "LinkedList3.length_functional",
@@ -72,7 +72,7 @@
         "well-founded-ordering-on-nat"
       ],
       0,
-      "088c3ab8f3da76facee0e34a472db548"
+      "ae70c58b9d303ed3bc51a70e89001243"
     ],
     [
       "LinkedList3.live_nil",
@@ -100,7 +100,7 @@
         "typing_LowStar.Buffer.len", "typing_LowStar.Buffer.length"
       ],
       0,
-      "10f6265c0fe77003344d281ef99866d8"
+      "6a27a7ae2e1f4ca9226b1c7eda070513"
     ],
     [
       "LinkedList3.live_cons",
@@ -138,7 +138,7 @@
         "typing_LinkedList3.bget", "typing_LowStar.Buffer.frameOf"
       ],
       0,
-      "2f17e1020a3ccefc9efa80a0bc983da9"
+      "b0987d41b7850dec8e4cb163cdfbe9ad"
     ],
     [
       "LinkedList3.footprint",
@@ -170,7 +170,7 @@
         "well-founded-ordering-on-nat"
       ],
       0,
-      "98643f9e28a35500fe99ccb0b138a4e2"
+      "f4906196bc6c524ada7fc1640f081ab7"
     ],
     [
       "LinkedList3.modifies_disjoint_footprint",
@@ -204,12 +204,10 @@
         "int_typing", "kinding_LinkedList3.cell@tok", "l_and-interp",
         "lemma_LinkedList3.cons_nonzero_length",
         "lemma_LowStar.Buffer.live_is_null",
-        "lemma_LowStar.Modifies.loc_disjoint_includes",
         "lemma_LowStar.Modifies.loc_disjoint_sym_",
-        "lemma_LowStar.Modifies.loc_includes_refl",
-        "lemma_LowStar.Modifies.loc_includes_union_l",
-        "lemma_LowStar.Modifies.loc_union_comm",
-        "lemma_LowStar.Modifies.modifies_buffer_elim",
+        "lemma_LowStar.ModifiesPat.loc_disjoint_union_r_",
+        "lemma_LowStar.ModifiesPat.modifies_inert_buffer_elim",
+        "lemma_LowStar.ModifiesPat.modifies_inert_intro",
         "primitive_Prims.op_Equality", "primitive_Prims.op_Subtraction",
         "projection_inverse_BoxBool_proj_0",
         "projection_inverse_BoxInt_proj_0",
@@ -222,7 +220,7 @@
         "well-founded-ordering-on-nat"
       ],
       0,
-      "81e1ae19c9190d31b79ac6bb313a99ca"
+      "10da5cd9a54cf2f064425b64fdfc4c95"
     ],
     [
       "LinkedList3.well_formed_distinct_lengths_disjoint",
@@ -269,7 +267,7 @@
         "typing_LowStar.Buffer.len", "well-founded-ordering-on-nat"
       ],
       0,
-      "dc6bd35f3effb9ffd459c2888f5fb081"
+      "9d559274774d12aea27e29b85c5d5739"
     ],
     [
       "LinkedList3.well_formed_gt_lengths_disjoint_from_list",
@@ -303,7 +301,7 @@
         "int_typing", "kinding_LinkedList3.cell@tok", "l_and-interp",
         "lemma_LowStar.Modifies.loc_disjoint_buffer",
         "lemma_LowStar.Modifies.loc_disjoint_none_r",
-        "lemma_LowStar.Modifies.loc_disjoint_union_r",
+        "lemma_LowStar.ModifiesPat.loc_disjoint_union_r_",
         "primitive_Prims.op_Equality", "primitive_Prims.op_Subtraction",
         "proj_equation_LinkedList3.Mkcell_next",
         "projection_inverse_BoxBool_proj_0",
@@ -316,7 +314,7 @@
         "well-founded-ordering-on-nat"
       ],
       0,
-      "b04743704168954e038bbadb3efa4966"
+      "25ecdbebde8a4895a7d47a19fa56fa20"
     ],
     [
       "LinkedList3.well_formed_head_tail_disjoint",
@@ -355,7 +353,7 @@
         "typing_FStar.UInt32.v", "typing_LowStar.Buffer.len", "unit_typing"
       ],
       0,
-      "deb891467069f65d28bc5fa04532cb92"
+      "b0ad235ef074a03ed2bfb5bdd46fb0e0"
     ],
     [
       "LinkedList3.unused_in_well_formed_disjoint_from_list",
@@ -386,11 +384,11 @@
         "fuel_guarded_inversion_LinkedList3.cell",
         "function_token_typing_FStar.UInt32.n", "int_inversion",
         "int_typing", "kinding_LinkedList3.cell@tok", "l_and-interp",
-        "lemma_LowStar.Buffer.live_unused_in_disjoint",
-        "lemma_LowStar.Modifies.loc_disjoint_buffer",
+        "lemma_LowStar.Modifies.live_loc_not_unused_in",
         "lemma_LowStar.Modifies.loc_disjoint_none_r",
-        "lemma_LowStar.Modifies.loc_disjoint_sym_",
-        "lemma_LowStar.Modifies.loc_disjoint_union_r",
+        "lemma_LowStar.Modifies.unused_in_loc_unused_in",
+        "lemma_LowStar.ModifiesPat.loc_disjoint_union_r_",
+        "lemma_LowStar.ModifiesPat.unused_in_not_unused_in_disjoint_0",
         "primitive_Prims.op_Equality", "primitive_Prims.op_Subtraction",
         "proj_equation_LinkedList3.Mkcell_next",
         "projection_inverse_BoxBool_proj_0",
@@ -403,7 +401,7 @@
         "well-founded-ordering-on-nat"
       ],
       0,
-      "6ccc8993da2cdea8a6981ae0cbe7e5f9"
+      "cd4bb47ccb5bfa4e89e3cc5b857e9d3a"
     ],
     [
       "LinkedList3.pop",
@@ -419,7 +417,7 @@
         "refinement_interpretation_LowStar.Buffer_Tm_refine_cf50f66b070215a0562aa769ba26bcd0"
       ],
       0,
-      "a64f737fc0bfc3a98dbaefe169aaec5f"
+      "9b15edaef02e77f83f493f35b5b2dd8a"
     ],
     [
       "LinkedList3.pop",
@@ -433,29 +431,25 @@
         "@fuel_irrelevance_LinkedList3.footprint.fuel_instrumented",
         "@fuel_irrelevance_LinkedList3.well_formed.fuel_instrumented",
         "@query", "Prims_pretyping_ae567c2fb75be05905677af440075565",
-        "b2t_def", "data_elim_LinkedList3.Mkcell",
-        "equation_FStar.Monotonic.HyperStack.mem", "equation_FStar.UInt32.n",
-        "equation_LinkedList3.t", "equation_LowStar.Buffer.get",
-        "equation_LowStar.Buffer.pointer",
+        "b2t_def", "equation_FStar.Monotonic.HyperStack.mem",
+        "equation_FStar.UInt32.n", "equation_LinkedList3.t",
+        "equation_LowStar.Buffer.get", "equation_LowStar.Buffer.pointer",
         "equation_LowStar.Buffer.pointer_or_null", "equation_Prims.eq2",
         "equation_Prims.nat",
         "equation_with_fuel_LinkedList3.footprint.fuel_instrumented",
         "equation_with_fuel_LinkedList3.well_formed.fuel_instrumented",
         "fuel_guarded_inversion_LinkedList3.cell",
-        "function_token_typing_FStar.UInt32.n",
-        "function_token_typing_Prims.nat", "int_typing",
+        "function_token_typing_FStar.UInt32.n", "int_typing",
         "kinding_LinkedList3.cell@tok", "l_and-interp",
         "lemma_FStar.Seq.Base.lemma_eq_elim",
         "lemma_FStar.Seq.Base.lemma_index_create",
         "lemma_LowStar.Buffer.length_null_1",
         "lemma_LowStar.Buffer.length_null_2",
-        "lemma_LowStar.Modifies.loc_disjoint_includes",
         "lemma_LowStar.Modifies.loc_disjoint_sym_",
-        "lemma_LowStar.Modifies.loc_includes_refl",
-        "lemma_LowStar.Modifies.loc_includes_union_l",
-        "lemma_LowStar.Modifies.loc_union_comm",
         "lemma_LowStar.Modifies.modifies_1_modifies",
-        "lemma_LowStar.Modifies.modifies_buffer_elim",
+        "lemma_LowStar.ModifiesPat.loc_disjoint_union_r_",
+        "lemma_LowStar.ModifiesPat.modifies_inert_buffer_elim",
+        "lemma_LowStar.ModifiesPat.modifies_inert_intro",
         "primitive_Prims.op_Equality", "primitive_Prims.op_Subtraction",
         "proj_equation_LinkedList3.Mkcell_next",
         "projection_inverse_BoxBool_proj_0",
@@ -465,16 +459,14 @@
         "refinement_interpretation_LowStar.Buffer_Tm_refine_27de686e064d397fb1ddbc66014ae688",
         "refinement_interpretation_LowStar.Buffer_Tm_refine_cf50f66b070215a0562aa769ba26bcd0",
         "refinement_interpretation_Prims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d",
-        "refinement_interpretation_Prims_Tm_refine_c16bc1b61f58b349bf6fc1c94dcaf83b",
         "token_correspondence_LinkedList3.footprint.fuel_instrumented",
-        "typing_FStar.Ghost.reveal", "typing_FStar.Seq.Base.create",
+        "typing_FStar.Seq.Base.create",
         "typing_LinkedList3.__proj__Mkcell__item__next",
         "typing_LinkedList3.t", "typing_LowStar.Buffer.as_seq",
-        "typing_LowStar.Buffer.get", "typing_LowStar.Buffer.length",
-        "typing_LowStar.Modifies.loc_buffer"
+        "typing_LowStar.Buffer.length", "typing_LowStar.Modifies.loc_buffer"
       ],
       0,
-      "4fd0920d2a9e1ca882215336bf4e6b05"
+      "6f542bdf6c87c84bd739feb0990e4b3d"
     ],
     [
       "LinkedList3.push",
@@ -494,7 +486,7 @@
         "typing_FStar.Ghost.reveal"
       ],
       0,
-      "de0bdd2aef0718e8ffead70ac89ce3e6"
+      "4bdde8c16c263dc29d929850982dabf3"
     ],
     [
       "LinkedList3.push",
@@ -521,10 +513,8 @@
         "equation_FStar.Monotonic.HyperStack.is_wf_with_ctr_and_tip",
         "equation_FStar.Monotonic.HyperStack.mem",
         "equation_FStar.Set.eqtype", "equation_FStar.UInt32.n",
-        "equation_LinkedList3.t",
-        "equation_LowStar.Buffer.alloc_post_common",
-        "equation_LowStar.Buffer.alloc_post_static",
-        "equation_LowStar.Buffer.get", "equation_LowStar.Buffer.pointer",
+        "equation_LinkedList3.t", "equation_LowStar.Buffer.get",
+        "equation_LowStar.Buffer.pointer",
         "equation_LowStar.Buffer.pointer_or_null", "equation_Prims.eqtype",
         "equation_Prims.nat",
         "equation_with_fuel_LinkedList3.footprint.fuel_instrumented",
@@ -545,21 +535,23 @@
         "lemma_FStar.Seq.Base.lemma_eq_elim",
         "lemma_FStar.Seq.Base.lemma_index_create",
         "lemma_FStar.Set.lemma_equal_elim",
-        "lemma_LowStar.Buffer.disjoint_sym",
         "lemma_LowStar.Buffer.length_null_1",
         "lemma_LowStar.Buffer.length_null_2",
-        "lemma_LowStar.Buffer.live_unused_in_disjoint",
         "lemma_LowStar.Modifies.address_liveness_insensitive_buffer",
-        "lemma_LowStar.Modifies.loc_disjoint_buffer",
-        "lemma_LowStar.Modifies.loc_disjoint_union_r",
+        "lemma_LowStar.Modifies.live_loc_not_unused_in",
+        "lemma_LowStar.Modifies.loc_disjoint_sym_",
         "lemma_LowStar.Modifies.loc_includes_none",
         "lemma_LowStar.Modifies.loc_union_loc_none_l",
         "lemma_LowStar.Modifies.modifies_0_modifies",
         "lemma_LowStar.Modifies.modifies_1_modifies",
-        "lemma_LowStar.Modifies.modifies_buffer_elim",
-        "lemma_LowStar.Modifies.modifies_liveness_insensitive_buffer_weak",
-        "lemma_LowStar.Modifies.modifies_loc_includes",
-        "lemma_LowStar.Modifies.modifies_trans",
+        "lemma_LowStar.Modifies.unused_in_loc_unused_in",
+        "lemma_LowStar.ModifiesPat.loc_disjoint_union_r_",
+        "lemma_LowStar.ModifiesPat.modifies_inert_buffer_elim",
+        "lemma_LowStar.ModifiesPat.modifies_inert_intro",
+        "lemma_LowStar.ModifiesPat.modifies_inert_liveness_insensitive_buffer_weak",
+        "lemma_LowStar.ModifiesPat.modifies_loc_includes_",
+        "lemma_LowStar.ModifiesPat.modifies_trans_",
+        "lemma_LowStar.ModifiesPat.unused_in_not_unused_in_disjoint_0",
         "primitive_Prims.op_Addition", "primitive_Prims.op_Equality",
         "primitive_Prims.op_LessThanOrEqual",
         "primitive_Prims.op_Subtraction",
@@ -570,7 +562,6 @@
         "refinement_interpretation_FStar.Pervasives.Native_Tm_refine_2fbd657fe85bcb2423f9c7e5f9b3bcb5",
         "refinement_interpretation_FStar.Seq.Base_Tm_refine_5514fbe9e08dfda40f950a7b9f1b2b98",
         "refinement_interpretation_LinkedList3_Tm_refine_24d9f80ee2d63bac4f1d41528ea5e12a",
-        "refinement_interpretation_LinkedList3_Tm_refine_601254ebe274211073b2024a11d02039",
         "refinement_interpretation_LowStar.Buffer_Tm_refine_27de686e064d397fb1ddbc66014ae688",
         "refinement_interpretation_LowStar.Buffer_Tm_refine_cf50f66b070215a0562aa769ba26bcd0",
         "refinement_interpretation_Prims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d",
@@ -584,7 +575,7 @@
         "typing_LowStar.Modifies.loc_buffer"
       ],
       0,
-      "d88fa4670daca07d4d78be3c401b5106"
+      "32ba3c18092b39980a1d0a793172719a"
     ],
     [
       "LinkedList3.length",
@@ -596,7 +587,7 @@
         "haseqLinkedList3_Tm_refine_7f014d1f670e5d2ecdc0d7946b4a693d"
       ],
       0,
-      "b3503a8ea213f77c579daca8e3b1931d"
+      "8071575f6d673c6eb3f19a98537fcc89"
     ],
     [
       "LinkedList3.length",
@@ -651,7 +642,7 @@
         "typing_LowStar.Buffer.len"
       ],
       0,
-      "c1003649ad659a3492ed985b2da479b3"
+      "cc7d58ba0055c35cf749a72e39e5a257"
     ],
     [
       "LinkedList3.main",
@@ -725,7 +716,7 @@
         "typing_LowStar.Buffer.null", "typing_LowStar.Modifies.loc_buffer"
       ],
       0,
-      "7fbfc505911c3418db395dd43e5b8183"
+      "fadfbca423a9fb023bc1dd81d925fd98"
     ]
   ]
 ]

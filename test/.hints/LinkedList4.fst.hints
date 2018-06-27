@@ -15,7 +15,7 @@
         "projection_inverse_BoxInt_proj_0", "subterm_ordering_Prims.Cons"
       ],
       0,
-      "bedcb42cbf2484fa20b4e469e2493a82"
+      "19e81804f902c1e0ae3cffe1668cca87"
     ],
     [
       "LinkedList4.length_functional",
@@ -53,7 +53,7 @@
         "subterm_ordering_Prims.Cons", "typing_FStar.Ghost.reveal"
       ],
       0,
-      "cd7dd6db75bb31bf2dde81961d962ec9"
+      "d773280a0f4f2ee192ec4e44fd367efd"
     ],
     [
       "LinkedList4.footprint",
@@ -83,7 +83,7 @@
         "subterm_ordering_Prims.Cons"
       ],
       0,
-      "60cb7f8f0522723b0bba9f93483a57cb"
+      "5d7c3140bde8a9906a3d635a48ab2e2a"
     ],
     [
       "LinkedList4.modifies_disjoint_footprint",
@@ -120,12 +120,10 @@
         "l_and-interp", "lemma_FStar.Ghost.reveal_hide",
         "lemma_LowStar.Buffer.length_null_2",
         "lemma_LowStar.Buffer.live_is_null",
-        "lemma_LowStar.Modifies.loc_disjoint_includes",
         "lemma_LowStar.Modifies.loc_disjoint_sym_",
-        "lemma_LowStar.Modifies.loc_includes_refl",
-        "lemma_LowStar.Modifies.loc_includes_union_l",
-        "lemma_LowStar.Modifies.loc_union_comm",
-        "lemma_LowStar.Modifies.modifies_buffer_elim",
+        "lemma_LowStar.ModifiesPat.loc_disjoint_union_r_",
+        "lemma_LowStar.ModifiesPat.modifies_inert_buffer_elim",
+        "lemma_LowStar.ModifiesPat.modifies_inert_intro",
         "primitive_Prims.op_AmpAmp", "projection_inverse_BoxBool_proj_0",
         "projection_inverse_BoxInt_proj_0",
         "projection_inverse_LinkedList4.Mkcell_next",
@@ -139,7 +137,7 @@
         "unit_typing"
       ],
       0,
-      "c2fb8338fc8b5efd8ef394f6bf6efe1c"
+      "6b4c3992f89c51cc3d974ed423d022d0"
     ],
     [
       "LinkedList4.well_formed_distinct_lengths_disjoint",
@@ -188,7 +186,7 @@
         "typing_LowStar.Buffer.g_is_null", "well-founded-ordering-on-nat"
       ],
       0,
-      "ca69a1e78b01c377625f7444be32a453"
+      "4c9d22058377eddc5f4b589ab308c629"
     ],
     [
       "LinkedList4.well_formed_gt_lengths_disjoint_from_list",
@@ -241,7 +239,7 @@
         "lemma_LowStar.Buffer.length_null_2",
         "lemma_LowStar.Modifies.loc_disjoint_buffer",
         "lemma_LowStar.Modifies.loc_disjoint_none_r",
-        "lemma_LowStar.Modifies.loc_disjoint_union_r",
+        "lemma_LowStar.ModifiesPat.loc_disjoint_union_r_",
         "primitive_Prims.op_Addition",
         "proj_equation_LinkedList4.Mkcell_next",
         "projection_inverse_BoxBool_proj_0",
@@ -259,7 +257,7 @@
         "typing_LowStar.Modifies.loc_buffer", "unit_typing"
       ],
       0,
-      "5bc1ab3d39d6e4262d2ff74be685b37e"
+      "1ae2c45bff899aa4cbe341be337b6195"
     ],
     [
       "LinkedList4.well_formed_head_tail_disjoint",
@@ -292,7 +290,7 @@
         "unit_typing"
       ],
       0,
-      "e278887643c42415a7645c4d8a51e801"
+      "adeee0f98f5d39f3cd182a33b1cc5a7d"
     ],
     [
       "LinkedList4.unused_in_well_formed_disjoint_from_list",
@@ -334,11 +332,11 @@
         "l_and-interp", "lemma_FStar.Ghost.reveal_hide",
         "lemma_FStar.Map.lemma_ContainsDom",
         "lemma_LowStar.Buffer.length_null_2",
-        "lemma_LowStar.Buffer.live_unused_in_disjoint",
-        "lemma_LowStar.Modifies.loc_disjoint_buffer",
+        "lemma_LowStar.Modifies.live_loc_not_unused_in",
         "lemma_LowStar.Modifies.loc_disjoint_none_r",
-        "lemma_LowStar.Modifies.loc_disjoint_sym_",
-        "lemma_LowStar.Modifies.loc_disjoint_union_r",
+        "lemma_LowStar.Modifies.unused_in_loc_unused_in",
+        "lemma_LowStar.ModifiesPat.loc_disjoint_union_r_",
+        "lemma_LowStar.ModifiesPat.unused_in_not_unused_in_disjoint_0",
         "proj_equation_LinkedList4.Mkcell_next",
         "projection_inverse_BoxInt_proj_0", "projection_inverse_Prims.Nil_a",
         "refinement_interpretation_FStar.Monotonic.HyperStack_Tm_refine_9a74d818566e70513bc032cc3b65a144",
@@ -353,7 +351,7 @@
         "typing_LowStar.Modifies.loc_buffer", "unit_typing"
       ],
       0,
-      "b159688e3166cee976f61528f7eeeb92"
+      "09522773fec0f63d6093999a6c89edf6"
     ],
     [
       "LinkedList4.pop",
@@ -369,7 +367,7 @@
         "refinement_interpretation_LowStar.Buffer_Tm_refine_cf50f66b070215a0562aa769ba26bcd0"
       ],
       0,
-      "769be2053658447568190443c420efa3"
+      "72377ead8749d5c6ebba73f47e097e62"
     ],
     [
       "LinkedList4.pop",
@@ -400,13 +398,11 @@
         "l_and-interp", "lemma_FStar.Seq.Base.lemma_eq_elim",
         "lemma_FStar.Seq.Base.lemma_index_create",
         "lemma_LowStar.Buffer.length_null_2",
-        "lemma_LowStar.Modifies.loc_disjoint_includes",
         "lemma_LowStar.Modifies.loc_disjoint_sym_",
-        "lemma_LowStar.Modifies.loc_includes_refl",
-        "lemma_LowStar.Modifies.loc_includes_union_l",
-        "lemma_LowStar.Modifies.loc_union_comm",
         "lemma_LowStar.Modifies.modifies_1_modifies",
-        "lemma_LowStar.Modifies.modifies_buffer_elim",
+        "lemma_LowStar.ModifiesPat.loc_disjoint_union_r_",
+        "lemma_LowStar.ModifiesPat.modifies_inert_buffer_elim",
+        "lemma_LowStar.ModifiesPat.modifies_inert_intro",
         "proj_equation_LinkedList4.Mkcell_next",
         "projection_inverse_BoxBool_proj_0",
         "projection_inverse_BoxInt_proj_0",
@@ -423,7 +419,7 @@
         "typing_LowStar.Buffer.length", "typing_LowStar.Modifies.loc_buffer"
       ],
       0,
-      "3e8beb2a0c752ea740d92bc207d3aeb1"
+      "e9775dc9a9ea9574e89785bd8cdbdde0"
     ],
     [
       "LinkedList4.push",
@@ -437,7 +433,7 @@
         "refinement_interpretation_LowStar.Buffer_Tm_refine_cf50f66b070215a0562aa769ba26bcd0"
       ],
       0,
-      "17d031a311f0cfccfcd93f0cc7a20263"
+      "1fd1073ee1dac4342fc4ff78ed45978e"
     ],
     [
       "LinkedList4.push",
@@ -468,10 +464,8 @@
         "equation_FStar.Monotonic.HyperStack.is_wf_with_ctr_and_tip",
         "equation_FStar.Monotonic.HyperStack.mem",
         "equation_FStar.Set.eqtype", "equation_FStar.UInt32.n",
-        "equation_LinkedList4.t",
-        "equation_LowStar.Buffer.alloc_post_common",
-        "equation_LowStar.Buffer.alloc_post_static",
-        "equation_LowStar.Buffer.get", "equation_LowStar.Buffer.pointer",
+        "equation_LinkedList4.t", "equation_LowStar.Buffer.get",
+        "equation_LowStar.Buffer.pointer",
         "equation_LowStar.Buffer.pointer_or_null", "equation_Prims.eq2",
         "equation_Prims.eqtype", "equation_Prims.nat",
         "equation_with_fuel_LinkedList4.footprint.fuel_instrumented",
@@ -495,22 +489,23 @@
         "lemma_FStar.Seq.Base.lemma_eq_elim",
         "lemma_FStar.Seq.Base.lemma_index_create",
         "lemma_FStar.Set.lemma_equal_elim",
-        "lemma_LowStar.Buffer.disjoint_sym",
         "lemma_LowStar.Buffer.length_null_1",
         "lemma_LowStar.Buffer.length_null_2",
-        "lemma_LowStar.Buffer.live_unused_in_disjoint",
         "lemma_LowStar.Modifies.address_liveness_insensitive_buffer",
-        "lemma_LowStar.Modifies.loc_disjoint_buffer",
-        "lemma_LowStar.Modifies.loc_disjoint_union_r",
+        "lemma_LowStar.Modifies.live_loc_not_unused_in",
+        "lemma_LowStar.Modifies.loc_disjoint_sym_",
         "lemma_LowStar.Modifies.loc_includes_none",
-        "lemma_LowStar.Modifies.loc_union_comm",
         "lemma_LowStar.Modifies.loc_union_loc_none_l",
         "lemma_LowStar.Modifies.modifies_0_modifies",
         "lemma_LowStar.Modifies.modifies_1_modifies",
-        "lemma_LowStar.Modifies.modifies_buffer_elim",
-        "lemma_LowStar.Modifies.modifies_liveness_insensitive_buffer_weak",
-        "lemma_LowStar.Modifies.modifies_loc_includes",
-        "lemma_LowStar.Modifies.modifies_trans",
+        "lemma_LowStar.Modifies.unused_in_loc_unused_in",
+        "lemma_LowStar.ModifiesPat.loc_disjoint_union_r_",
+        "lemma_LowStar.ModifiesPat.modifies_inert_buffer_elim",
+        "lemma_LowStar.ModifiesPat.modifies_inert_intro",
+        "lemma_LowStar.ModifiesPat.modifies_inert_liveness_insensitive_buffer_weak",
+        "lemma_LowStar.ModifiesPat.modifies_loc_includes_",
+        "lemma_LowStar.ModifiesPat.modifies_trans_",
+        "lemma_LowStar.ModifiesPat.unused_in_not_unused_in_disjoint_0",
         "primitive_Prims.op_LessThanOrEqual",
         "projection_inverse_BoxBool_proj_0",
         "projection_inverse_BoxInt_proj_0",
@@ -523,7 +518,6 @@
         "refinement_interpretation_FStar.Pervasives.Native_Tm_refine_2fbd657fe85bcb2423f9c7e5f9b3bcb5",
         "refinement_interpretation_FStar.Seq.Base_Tm_refine_5514fbe9e08dfda40f950a7b9f1b2b98",
         "refinement_interpretation_LinkedList4_Tm_refine_15c49a0d31c9f47088ca7ccd4e799cae",
-        "refinement_interpretation_LinkedList4_Tm_refine_601254ebe274211073b2024a11d02039",
         "refinement_interpretation_LowStar.Buffer_Tm_refine_27de686e064d397fb1ddbc66014ae688",
         "refinement_interpretation_LowStar.Buffer_Tm_refine_cf50f66b070215a0562aa769ba26bcd0",
         "refinement_interpretation_Prims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d",
@@ -537,7 +531,7 @@
         "typing_LowStar.Buffer.length", "typing_LowStar.Modifies.loc_buffer"
       ],
       0,
-      "2eeeaa2a8108752176678350af6cfb15"
+      "d941393a3a8c5728d5d0382993404478"
     ],
     [
       "LinkedList4.length",
@@ -549,7 +543,7 @@
         "haseqLinkedList4_Tm_refine_7f014d1f670e5d2ecdc0d7946b4a693d"
       ],
       0,
-      "8ee8a2965e0bb6739252d71ea92f51e3"
+      "197a74e49b60cd8e0a466c6680b90b7a"
     ],
     [
       "LinkedList4.length",
@@ -611,7 +605,7 @@
         "typing_LowStar.Buffer.len"
       ],
       0,
-      "b048f8ef6c5e9568d105d61c55ba8c37"
+      "4849b487d2ac87ec23e0ab1c6f27c4ed"
     ],
     [
       "LinkedList4.main",
@@ -698,7 +692,7 @@
         "typing_LowStar.Buffer.null", "typing_LowStar.Modifies.loc_buffer"
       ],
       0,
-      "4d081a2c613b0eac73628e0057739c08"
+      "09a6db2b394cc598775e2d6781ba3f31"
     ]
   ]
 ]

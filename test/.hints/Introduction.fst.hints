@@ -10,7 +10,6 @@
         "@MaxIFuel_assumption", "@query",
         "Prims_pretyping_ae567c2fb75be05905677af440075565",
         "Prims_pretyping_f8666440faa91836cc5a13998af863fc", "b2t_def",
-        "bool_inversion", "bool_typing",
         "equation_FStar.Seq.Properties.cons", "equation_FStar.UInt32.n",
         "equation_Prims.nat", "equation_Prims.squash",
         "function_token_typing_FStar.UInt32.n", "int_inversion",
@@ -39,12 +38,12 @@
         "refinement_interpretation_Introduction_Tm_refine_cdd15a61a8a8f4424284702869adc760",
         "refinement_interpretation_Prims_Tm_refine_8d65e998a07dd53ec478e27017d9dba5",
         "refinement_interpretation_Prims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d",
-        "typing_FStar.Seq.Base.create", "typing_FStar.Seq.Base.createEmpty",
+        "typing_FStar.Seq.Base.create", "typing_FStar.Seq.Base.empty",
         "typing_FStar.Seq.Base.length", "typing_FStar.Seq.Properties.cons",
         "unit_typing"
       ],
       0,
-      "defd9650dd1a67d2c15f23a28e4267cd"
+      "1bbb0b573e351db8acab544b56443f59"
     ],
     [
       "Introduction.memcpy",
@@ -60,7 +59,7 @@
         "haseqIntroduction_Tm_refine_7f014d1f670e5d2ecdc0d7946b4a693d"
       ],
       0,
-      "c6a0375353015f56bb4e302fd6027706"
+      "28b714b1acb602fd4939fa230692b51a"
     ],
     [
       "Introduction.memcpy",
@@ -92,9 +91,10 @@
         "lemma_LowStar.Buffer.live_region_frameOf",
         "lemma_LowStar.Modifies.loc_union_idem",
         "lemma_LowStar.Modifies.modifies_1_modifies",
-        "lemma_LowStar.Modifies.modifies_buffer_elim",
-        "lemma_LowStar.Modifies.modifies_refl",
-        "lemma_LowStar.Modifies.modifies_trans",
+        "lemma_LowStar.ModifiesPat.modifies_inert_buffer_elim",
+        "lemma_LowStar.ModifiesPat.modifies_inert_intro",
+        "lemma_LowStar.ModifiesPat.modifies_refl_",
+        "lemma_LowStar.ModifiesPat.modifies_trans_",
         "primitive_Prims.op_Addition", "primitive_Prims.op_AmpAmp",
         "primitive_Prims.op_LessThanOrEqual",
         "primitive_Prims.op_Subtraction",
@@ -117,7 +117,7 @@
         "typing_LowStar.Buffer.length", "typing_LowStar.Modifies.loc_buffer"
       ],
       0,
-      "9db58544d44f0df840de2b49601b7914"
+      "6e8cfe2a8ef230e3a491cb63bdb0a47c"
     ],
     [
       "Introduction.main",
@@ -125,9 +125,7 @@
       0,
       0,
       [
-        "@MaxIFuel_assumption",
-        "@fuel_correspondence_FStar.List.Tot.Base.length.fuel_instrumented",
-        "@query",
+        "@MaxIFuel_assumption", "@query",
         "FStar.Monotonic.HyperStack_pretyping_cd115f719b336f9a8366e4b68a41d001",
         "Prims_pretyping_ae567c2fb75be05905677af440075565",
         "assumption_FStar.Monotonic.HyperHeap.Mod_set_def",
@@ -146,11 +144,7 @@
         "equation_FStar.Monotonic.HyperStack.popped",
         "equation_FStar.Monotonic.HyperStack.remove_elt",
         "equation_FStar.Set.eqtype", "equation_FStar.UInt32.n",
-        "equation_LowStar.Buffer.alloc_post_common",
-        "equation_LowStar.Buffer.alloc_post_static",
-        "equation_LowStar.Buffer.length",
-        "equation_LowStar.Modifies.loc_all_regions_from",
-        "equation_Prims.eqtype",
+        "equation_LowStar.Buffer.length", "equation_Prims.eqtype",
         "function_token_typing_FStar.Monotonic.Heap.emp",
         "function_token_typing_FStar.Monotonic.Heap.heap",
         "function_token_typing_FStar.Monotonic.HyperHeap.rid",
@@ -167,26 +161,29 @@
         "lemma_FStar.Map.lemma_InDomRestrict",
         "lemma_FStar.Map.lemma_InDomUpd2",
         "lemma_FStar.Map.lemma_SelRestrict", "lemma_FStar.Map.lemma_SelUpd2",
+        "lemma_FStar.Monotonic.HyperHeap.lemma_includes_refl",
         "lemma_FStar.Monotonic.HyperStack.lemma_mk_mem__projectors",
-        "lemma_FStar.Monotonic.HyperStack.lemma_tip_top_smt",
         "lemma_FStar.Set.lemma_equal_elim",
         "lemma_FStar.Set.lemma_equal_intro",
         "lemma_FStar.Set.mem_complement", "lemma_FStar.Set.mem_intersect",
         "lemma_FStar.Set.mem_singleton",
         "lemma_LowStar.Buffer.length_null_2",
-        "lemma_LowStar.Buffer.live_unused_in_disjoint",
-        "lemma_LowStar.Modifies.loc_disjoint_buffer",
+        "lemma_LowStar.Modifies.live_loc_not_unused_in",
+        "lemma_LowStar.Modifies.loc_disjoint_sym_",
         "lemma_LowStar.Modifies.loc_includes_none",
         "lemma_LowStar.Modifies.loc_includes_region_buffer",
         "lemma_LowStar.Modifies.loc_union_loc_none_l",
         "lemma_LowStar.Modifies.loc_union_loc_none_r",
         "lemma_LowStar.Modifies.modifies_0_modifies",
-        "lemma_LowStar.Modifies.modifies_fresh_frame_popped",
-        "lemma_LowStar.Modifies.modifies_liveness_insensitive_buffer_weak",
-        "lemma_LowStar.Modifies.modifies_loc_includes",
-        "lemma_LowStar.Modifies.modifies_trans", "primitive_Prims.op_AmpAmp",
-        "primitive_Prims.op_Equality", "primitive_Prims.op_Negation",
-        "primitive_Prims.op_disEquality",
+        "lemma_LowStar.Modifies.unused_in_loc_unused_in",
+        "lemma_LowStar.ModifiesPat.modifies_fresh_frame_popped_",
+        "lemma_LowStar.ModifiesPat.modifies_inert_intro",
+        "lemma_LowStar.ModifiesPat.modifies_inert_liveness_insensitive_buffer_weak",
+        "lemma_LowStar.ModifiesPat.modifies_loc_includes_",
+        "lemma_LowStar.ModifiesPat.modifies_trans_",
+        "lemma_LowStar.ModifiesPat.unused_in_not_unused_in_disjoint_0",
+        "primitive_Prims.op_AmpAmp", "primitive_Prims.op_Equality",
+        "primitive_Prims.op_Negation", "primitive_Prims.op_disEquality",
         "projection_inverse_BoxBool_proj_0",
         "projection_inverse_BoxInt_proj_0",
         "projection_inverse_FStar.Pervasives.Native.Mktuple3__1",
@@ -210,12 +207,12 @@
         "typing_FStar.Monotonic.HyperStack.remove_elt",
         "typing_FStar.Set.complement", "typing_FStar.Set.mem",
         "typing_FStar.Set.singleton", "typing_LowStar.Buffer.g_is_null",
-        "typing_LowStar.Modifies.loc_all_regions_from",
         "typing_LowStar.Modifies.loc_buffer",
+        "typing_LowStar.Modifies.loc_regions",
         "typing_LowStar.Modifies.loc_union", "typing_tok_C.EXIT_SUCCESS@tok"
       ],
       0,
-      "39d168f805ceda75cb99625874800ae4"
+      "533aba8ee3186bf4b865b04adef8aa4c"
     ]
   ]
 ]
