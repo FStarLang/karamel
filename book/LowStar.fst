@@ -623,14 +623,14 @@ let f (x: UInt32.t): Stack UInt32.t (fun _ -> True) (fun _ _ _ -> True) =
 
 /// .. note::
 ///
-///    The following examples use the ``[@ fail ]`` F* attribute. Remember that
+///    The following examples use the ``[@ expect_failure ]`` F* attribute. Remember that
 ///    this tutorial is a valid F* file, which we put under continuous
 ///    integration and version control. This attribute merely indicates to F*
 ///    that the failure is intentional.
 ///
 /// Based on the knowledge above, consider the following failing function.
 
-[@ fail ]
+[@ expect_failure ]
 let g (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
   let b = B.alloca 0ul 8ul in
   ()
@@ -651,7 +651,7 @@ let g (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
 ///
 /// We can attempt to fix ``g`` by adding a call to ``push_frame``.
 
-[@ fail ]
+[@ expect_failure ]
 let g2 (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
   push_frame ();
   let b = B.alloca 0ul 8ul in
@@ -852,7 +852,7 @@ let test_sub (): St unit =
 
 /// Just like in C, one can only free the base pointer, i.e. this is an error:
 
-[@ fail ]
+[@ expect_failure ]
 let test_sub_error (): St unit =
   let b = B.malloc HS.root 0UL 8ul in
   let b_l = B.sub b 0ul 4ul in // idx = 0; length = 4
