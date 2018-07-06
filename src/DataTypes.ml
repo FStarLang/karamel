@@ -130,23 +130,52 @@ let one_non_constant_branch branches =
   ) branches in
   KList.one non_constant
 
+let scheme_map = Hashtbl.create 41
+
 let build_scheme_map files =
-  build_map files (fun map -> function
+  (object
+    inherit [_] iter
+    method visit_decl _ = function
     | DType (lid, _, 0, Variant branches) ->
         let _constant, non_constant = List.partition (fun (_, fields) ->
           List.length fields = 0
         ) branches in
         if List.length non_constant = 0  then
-          Hashtbl.add map lid ToEnum
+          Hashtbl.add scheme_map lid ToEnum
         else if List.length branches = 1 then
-          Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
+          Hashtbl.add scheme_map lid (ToFlat (List.map fst (snd (List.hd branches))))
         else if List.length non_constant = 1 then
-          Hashtbl.add map lid (ToFlatTaggedUnion branches)
+          Hashtbl.add scheme_map lid (ToFlatTaggedUnion branches)
         else
-          Hashtbl.add map lid (ToTaggedUnion branches)
+          Hashtbl.add scheme_map lid (ToTaggedUnion branches)
     | _ ->
         ()
-  ), Hashtbl.create 41
+  end)#visit_files () files
+
+let uses_union_scheme l =
+  match Hashtbl.find scheme_map l with
+  | exception Not_found -> false
+  | ToTaggedUnion _ -> true
+  | _ -> false
+
+(* This is a conservative approximation. See C11 6.6. *)
+let rec is_initializer_constant e =
+  is_int_constant e ||
+  match e with
+  | { node = EAddrOf { node = EQualified _; _ }; _ } ->
+      true
+  | { node = EQualified _; typ = TArrow _ } ->
+      true
+  | { node = EEnum _; _ } ->
+      true
+  | { node = EString _; _ } ->
+      true
+  | { node = EFlat es; typ = TQualified lid } when not (uses_union_scheme lid) ->
+      List.for_all (fun (_, e) -> is_initializer_constant e) es
+  | { node = EBufCreateL (_, es); _ } ->
+      List.for_all is_initializer_constant es
+  | _ ->
+      false
 
 (** Second thing: handle the trivial case of a data type definition with only
  * tags (it's just an enum) and the trivial case of a type definition with one
@@ -853,7 +882,8 @@ let simplify files =
 
 let everything files =
   let files = remove_unit_fields#visit_files () files in
-  let map = build_scheme_map files in
+  build_scheme_map files;
+  let map = scheme_map, Hashtbl.create 41 in
   let files = (compile_simple_matches map)#visit_files () files in
   let files = (compile_all_matches map)#visit_files () files in
   let files = (remove_non_scalar_casts map)#visit_files () files in

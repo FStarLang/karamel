@@ -283,19 +283,6 @@ let rec is_int_constant e =
   | _ ->
       false
 
-(* This is a conservative approximation. See C11 6.6. *)
-let rec is_initializer_constant e =
-  is_int_constant e ||
-  match e with
-  | { node = EAddrOf { node = EQualified _; _ }; _ } ->
-      true
-  | { node = EQualified _; typ = TArrow _ } ->
-      true
-  | { node = EBufCreateL (_, es); _ } ->
-      List.for_all is_initializer_constant es
-  | _ ->
-      false
-
 let assert_tlid t =
   (* We only have nominal typing for variants. *)
   match t with TQualified lid -> lid | _ -> assert false
