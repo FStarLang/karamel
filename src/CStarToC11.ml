@@ -529,6 +529,7 @@ and is_primitive s =
     "LowStar_Buffer_null";
     "C_Nullity_null";
     "C_String_get";
+    "C_String_t";
     "C_String_of_literal";
     (* Trick: we typedef this as an int and reply on implicit C enum -> int
      * conversion rules. *)
