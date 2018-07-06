@@ -67,7 +67,7 @@ $(OTHER_CHECKED_FILES): %.checked:
 verify-all: $(ALL_CHECKED_FILES)
 
 $(OUTPUT_DIR)/%.krml:  | .depend
-	$(FSTAR) --codegen Kremlin \
+	$(FSTAR) $(OTHERFLAGS) --codegen Kremlin \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<)) && \
 	touch $@
