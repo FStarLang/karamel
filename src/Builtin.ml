@@ -223,6 +223,16 @@ let addendum = [
   c_nullity;
 ]
 
+let make_abstract_function = function
+  | DFunction (cc, flags, n, t, name, bs, _) ->
+      let t = fold_arrow (List.map (fun b -> b.typ) bs) t in
+      if n = 0 then
+        Some (DExternal (cc, flags, name, t))
+      else
+        None
+  | d ->
+      Some d
+
 (* Transforms an F*-provided machine integer module into an abstract version
  * where:
  * - the model of a machine integer as an inductive is gone
@@ -230,12 +240,6 @@ let addendum = [
  * - lets are replaced by vals *)
 let make_abstract (name, decls) =
   name, KList.filter_map (function
-    | DFunction (cc, flags, n, t, name, bs, _) ->
-        let t = fold_arrow (List.map (fun b -> b.typ) bs) t in
-        if n = 0 then
-          Some (DExternal (cc, flags, name, t))
-        else
-          None
     | DType (_, _, _, Abbrev _) as t ->
         Some t
     | DType _ ->
@@ -243,8 +247,13 @@ let make_abstract (name, decls) =
     | DGlobal (_, name, _, _, _) when KString.starts_with (snd name) "op_" ->
         None
     | d ->
-        Some d
+        make_abstract_function d
   ) decls
+
+(* Transforms an F* module that contains a model into a set of "assume val" that
+ * will generate proper "extern" declarations in C. *)
+let make_library (name, decls) =
+  name, KList.filter_map make_abstract_function decls
 
 let is_model name =
   let is_machine_integer name =
@@ -280,4 +289,12 @@ let prepare files =
         name, snd f @ extra
       with Not_found ->
         f
+  ) files
+
+let make_libraries files =
+  List.map (fun f ->
+    if List.exists (fun p -> Bundle.pattern_matches p (fst f)) !Options.library then
+      make_library f
+    else
+      f
   ) files

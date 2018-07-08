@@ -205,7 +205,10 @@ Supported options:|}
     "-drop", Arg.String (fun s ->
       used_drop := true;
       List.iter (prepend Options.drop) (Parsers.drop s)),
-      "  do not extract Code for this module (see above)";
+      "  do not extract code for this module (see above)";
+    "-library", Arg.String (fun s ->
+      List.iter (prepend Options.library) (Parsers.drop s)),
+      "  this is a model and all functions should be made abstract";
     "-extract-uint128", Arg.Set Options.extract_uint128, ""; (* no doc, intentional *)
     "-header", Arg.String (fun f ->
       let c = Utils.file_get_contents f in
@@ -404,6 +407,7 @@ Supported options:|}
    * - A needs to come before B so that in the resulting bundle, "static void
    *   A_f" comes before "static void B_g" (since they're static, there's no
    *   forward declaration in the header. *)
+  let files = Builtin.make_libraries files in
   let files = Bundles.topological_sort files in
 
   (* 1. We create bundles, and monomorphize functions first. This creates more
