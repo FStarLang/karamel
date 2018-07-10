@@ -80,11 +80,11 @@ let default_options () =
     "g++", gcc_like_options;
     "compcert", [|
       "-warn-error"; "@6@8";
-      "-fnostruct-passing"; "-fnoanonymous-unions"; "-fnouint128";
+      "-fnostruct-passing"; "-fnoanonymous-unions";
       "-ccopts"; "-g,-D_BSD_SOURCE,-D_DEFAULT_SOURCE";
     |];
     "msvc", [|
-      "-warn-error"; "+6"; "-fnouint128"; "-falloca"
+      "-warn-error"; "+6"; "-falloca"
     |];
     "", [| |]
   ]
