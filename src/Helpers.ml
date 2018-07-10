@@ -168,6 +168,16 @@ let fold_arrow ts t_ret =
 
 let is_array = function TArray _ -> true | _ -> false
 
+let is_null = function
+  | { node = EApp (
+      { node = EQualified (
+          ([ "LowStar"; "Buffer" ] | [ "C"; "Nullity" ]),
+          "null"); _ }, _); _ }
+  ->
+      true
+  | _ ->
+      false
+
 let is_uu name = KString.starts_with name "uu____"
 
 (* If [e2] is assigned into an expression of type [t], we can sometimes
@@ -285,16 +295,34 @@ let rec is_int_constant e =
 
 (* This is a conservative approximation. See C11 6.6. *)
 let rec is_initializer_constant e =
+  let is_address = function
+    | TArrow _ | TBuf _ | TArray _
+    (* See comment in test/TopLevelArray.fst *)
+    (*| TQualified (["C";"String"], "t") *)->
+        true
+    | _ ->
+        KPrint.bprintf "%a is not an initializer constant\n" pexpr e;
+        false
+  in
   is_int_constant e ||
   match e with
   | { node = EAddrOf { node = EQualified _; _ }; _ } ->
       true
-  | { node = EQualified _; typ = TArrow _ } ->
+  | { node = EQualified _; typ = t } ->
+      is_address t
+  | { node = EEnum _; _ } ->
       true
+  | { node = EString _; _ } ->
+      true
+  | { node = EFlat es; _ } ->
+      List.for_all (fun (_, e) -> is_initializer_constant e) es
   | { node = EBufCreateL (_, es); _ } ->
       List.for_all is_initializer_constant es
   | _ ->
-      false
+      let r = is_null e in
+      if not r then
+        KPrint.bprintf "%a is not an initializer constant\n" pexpr e;
+      r
 
 let assert_tlid t =
   (* We only have nominal typing for variants. *)
