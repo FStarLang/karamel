@@ -28,7 +28,7 @@ let equal_tail (s1 s2: Seq.seq UInt8.t):
 
 open FStar.Integers
 
-let rec memcpy (dst src: B.buffer UInt8.t) (count: UInt32.t):
+let rec memcpy (dst src: B.buffer UInt8.t) (count: UInt32.t) (must_disappear: Ghost.erased Int32.t):
   Stack unit
     (requires fun h0 ->
       B.live h0 dst /\ B.live h0 src /\ B.disjoint dst src /\
@@ -39,6 +39,6 @@ let rec memcpy (dst src: B.buffer UInt8.t) (count: UInt32.t):
   if count > 0ul then begin
     let dst' = B.offset dst 1ul in
     let src' = B.offset src 1ul in
-    memcpy dst' src' (count - 1ul);
+    memcpy dst' src' (count - 1ul) must_disappear;
     dst.(0ul) <- src.(0ul)
   end

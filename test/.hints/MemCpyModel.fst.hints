@@ -1,5 +1,5 @@
 [
-  "ßÉ\u0000ÿ∫\nv\u0015ÆÇ·›û€h@",
+  "·†e$ÈÔr˙è ¥\u0001à\u0017\be",
   [
     [
       "MemCpyModel.equal_tail",
@@ -40,7 +40,7 @@
         "typing_FStar.Seq.Base.length", "typing_FStar.Seq.Base.slice"
       ],
       0,
-      "078ad04884dff06942d5c9445ddbf6f8"
+      "4db7838c839ae648ea7d9eab8091ceaf"
     ],
     [
       "MemCpyModel.memcpy",
@@ -98,6 +98,7 @@
         "lemma_LowStar.Modifies.loc_includes_union_r",
         "lemma_LowStar.Modifies.loc_union_comm",
         "lemma_LowStar.Modifies.modifies_1_modifies",
+        "lemma_LowStar.ModifiesPat.loc_disjoint_includes_r",
         "lemma_LowStar.ModifiesPat.modifies_inert_buffer_elim",
         "lemma_LowStar.ModifiesPat.modifies_inert_intro",
         "lemma_LowStar.ModifiesPat.modifies_loc_includes_",
@@ -131,7 +132,7 @@
         "typing_LowStar.Modifies.loc_union"
       ],
       0,
-      "52c820c1dc416c49a4c32e564101885a"
+      "e67aa372aee9e556368956c4c4000880"
     ]
   ]
 ]
