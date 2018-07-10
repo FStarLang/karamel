@@ -7,9 +7,14 @@ module HS = FStar.HyperStack
 open ST
 open LowStar.BufferOps
 
-let x = B.gcmalloc_of_list HS.root [ 1l; 0l ]
+type point2d = {
+  x: Int32.t;
+  y: Int32.t
+}
+
+let x = B.gcmalloc_of_list HS.root [ { x = 1l; y = 0l } ]
 
 let main (): St Int32.t =
   B.recall x;
-  x.(1ul)
+  (x.(0ul)).y
 
