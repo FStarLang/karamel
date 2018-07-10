@@ -399,3 +399,12 @@ __eq__FStar_Bytes_bytes(FStar_Bytes_bytes x0, FStar_Bytes_bytes x1) {
       return false;
   return true;
 }
+
+FStar_Bytes_bytes FStar_Bytes_of_buffer(uint32_t length, uint8_t *src) {
+  char *data = KRML_HOST_MALLOC(length);
+  CHECK(data);
+  if (length > 0)
+    memcpy(data, src, length);
+  FStar_Bytes_bytes b = { .length = length, .data = data };
+  return b;
+}

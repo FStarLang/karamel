@@ -105,7 +105,7 @@ OBJS = $(patsubst %.c,%.o,$(SOURCES))
 
 -include $(patsubst %.c,%.d,$(SOURCES))
 
-CFLAGS += -I extracted -I ../include -Wall -Wextra -Werror
+CFLAGS += -I extracted -I ../include -Wall -Wextra -Werror -g
 ifeq ($(OS),Windows_NT)
 CFLAGS += -D__USE_MINGW_ANSI_STDIO
 else
