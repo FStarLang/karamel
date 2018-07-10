@@ -3,6 +3,7 @@
 .depend
 *.a
 *.o
+*.d
 extract-all
 extracted
 out
