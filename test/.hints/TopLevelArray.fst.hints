@@ -1,5 +1,5 @@
 [
-  "R3U\r¼û)‚\u0013+\nÍùª²±",
+  "%<6„÷\\Q{›·hhT\rþM",
   [
     [
       "TopLevelArray.t",
@@ -97,6 +97,15 @@
       "fb6a34b25b37c5440c9a814db6cf80cd"
     ],
     [
+      "TopLevelArray.g",
+      1,
+      2,
+      1,
+      [ "@query", "equation_LowStar.Buffer.length" ],
+      0,
+      "d1e06eeb61f3fe8058adcde2113424a3"
+    ],
+    [
       "TopLevelArray.main",
       1,
       2,
@@ -130,7 +139,7 @@
         "typing_TopLevelArray.__proj__Mkt__item__y", "typing_TopLevelArray.y"
       ],
       0,
-      "5ebb8af78ce7f8d8cc5cfee81507cc48"
+      "8095ae66ca77808f28ae80596760b470"
     ]
   ]
 ]

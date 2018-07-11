@@ -26,6 +26,8 @@ let y = B.gcmalloc_of_list HS.root [ zero ]
 
 let x = B.gcmalloc_of_list HS.root [ { x = 1l; y = y; z = s } ]
 
+let g = { x = 1l; y = y; z = s }
+
 let main (): St Int32.t =
   B.recall x;
   B.recall (x.(0ul)).y;

@@ -756,12 +756,12 @@ let mk_function_or_global_body (d: decl): C.declaration_or_function list =
         | Any ->
             wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, None ])))
         | BufCreateL (_, es) ->
-            let es = List.map mk_expr es in
+            let es = List.map struct_as_initializer es in
             wrap_verbatim flags (Decl ([], (qs, spec, static, [
-              decl, Some (Initializer (List.map (fun x -> InitExpr x) es)) ])))
+              decl, Some (Initializer es) ])))
         | _ ->
-            let expr = mk_expr expr in
-            wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, Some (InitExpr expr) ])))
+            let expr = struct_as_initializer expr in
+            wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, Some expr ])))
 
 (** Function prototype, or extern global declaration (no definition). *)
 let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
