@@ -1,3 +1,16 @@
+### July 8th, 2018
+
+- New flag: -library <pattern>, to indicate that all functions in a given module should be
+  turned into "assume val"s. This is useful if: your module is a model and the
+  definitions should not leak, or if you are doing separate compilation and the
+  pattern captures all the modules in a given library, which have been compiled
+  separately and will be provided at link-time.
+
+### June 14th, 2018
+
+- Buffers of size one are now automatically emitted as stack-allocated
+  variables.
+
 ### June 7th, 2018
 
 - Warning 7 is now emitted only when the bundle does have an Api specified.

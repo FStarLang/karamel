@@ -1,19 +1,32 @@
-#include "kremlin/testlib.h"
+#include "TestLib.h"
 
-void print_buf(uint8_t *buf, size_t size, char *file, int line) {
-  char *str = malloc(2 * size + 1);
-  int i;
-  for (i = 0; i < size; ++i)
-    sprintf(str + 2 * i, "%02x", buf[i]);
-  str[2 * size] = '\0';
-  printf("%s:%d: %s\n", file, line, str);
+#ifndef _MSC_VER
+TestLib_cycles TestLib_cpucycles(void) {
+  unsigned hi, lo;
+  __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
+  return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
 }
 
+TestLib_cycles TestLib_cpucycles_begin(void)
+{
+  unsigned hi, lo;
+  __asm__ __volatile__ ("CPUID\n\t"  "RDTSC\n\t"  "mov %%edx, %0\n\t"  "mov %%eax, %1\n\t": "=r" (hi), "=r" (lo):: "%rax", "%rbx", "%rcx", "%rdx");
+  return ( (uint64_t)lo)|( ((uint64_t)hi)<<32 );
+}
+
+TestLib_cycles TestLib_cpucycles_end(void)
+{
+  unsigned hi, lo;
+  __asm__ __volatile__ ("RDTSCP\n\t"  "mov %%edx, %0\n\t"  "mov %%eax, %1\n\t"  "CPUID\n\t": "=r" (hi), "=r" (lo)::     "%rax", "%rbx", "%rcx", "%rdx");
+  return ( (uint64_t)lo)|( ((uint64_t)hi)<<32 );
+}
+#endif
+
 void TestLib_compare_and_print(const char *txt, uint8_t *reference,
-                               uint8_t *output, int size) {
+                               uint8_t *output, uint32_t size) {
   char *str = malloc(2 * size + 1);
   char *str_ref = malloc(2 * size + 1);
-  int i;
+  uint32_t i;
   for (i = 0; i < size; ++i) {
     sprintf(str + 2 * i, "%02x", output[i]);
     sprintf(str_ref + 2 * i, "%02x", reference[i]);
@@ -37,7 +50,9 @@ void TestLib_compare_and_print(const char *txt, uint8_t *reference,
   free(str_ref);
 }
 
-void TestLib_touch(int32_t x) {}
+void TestLib_touch(int32_t x) {
+  (void)x;
+}
 
 #define MK_CHECK(n)                                                            \
   void TestLib_check##n(int##n##_t x, int##n##_t y) {                          \
@@ -70,7 +85,7 @@ void TestLib_check(bool b) {
   }
 }
 
-void *TestLib_unsafe_malloc(size_t size) {
+uint8_t *TestLib_unsafe_malloc(uint32_t size) {
   void *memblob = malloc(size);
   if (memblob == NULL) {
     printf(" WARNING : malloc failed in tests !\n");

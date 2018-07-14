@@ -1,17 +1,9 @@
-#ifndef __KREMBYTES_H
-#ifdef __FStar_H_DEFINED
-#define __KREMBYTES_H
-
 /******************************************************************************/
 /* NOT LOW*: implementing FStar.Bytes.bytes as leaky fat pointers with a      */
 /* length                                                                     */
 /******************************************************************************/
 
-#include <inttypes.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "FStar_Bytes.h"
 
 typedef uint8_t FStar_Bytes_byte;
 
@@ -23,23 +15,22 @@ typedef uint8_t FStar_Bytes_byte;
     }                                                                          \
   } while (0)
 
-static inline FStar_Bytes_bytes FStar_Bytes_copy(FStar_Bytes_bytes b1) {
+FStar_Bytes_bytes FStar_Bytes_copy(FStar_Bytes_bytes b1) {
   return b1;
 }
 
-static inline krml_checked_int_t FStar_Bytes_length(FStar_Bytes_bytes b) {
+krml_checked_int_t FStar_Bytes_length(FStar_Bytes_bytes b) {
   return b.length;
 }
 
-static FStar_Bytes_bytes FStar_Bytes_empty_bytes = { .length = 0,
-                                                     .data = NULL };
+FStar_Bytes_bytes FStar_Bytes_empty_bytes = { .length = 0, .data = NULL };
 
-static inline FStar_Bytes_byte
+FStar_Bytes_byte
 FStar_Bytes_get(FStar_Bytes_bytes b, uint32_t i) {
   return (FStar_Bytes_byte)b.data[i];
 }
 
-static inline FStar_Bytes_bytes
+FStar_Bytes_bytes
 FStar_Bytes_set_byte(FStar_Bytes_bytes b1, uint32_t i, FStar_Bytes_byte v) {
   char *data = KRML_HOST_MALLOC(b1.length);
   CHECK(data);
@@ -49,7 +40,7 @@ FStar_Bytes_set_byte(FStar_Bytes_bytes b1, uint32_t i, FStar_Bytes_byte v) {
   return b2;
 }
 
-static inline FStar_Bytes_bytes
+FStar_Bytes_bytes
 FStar_Bytes_create(uint32_t length, FStar_Bytes_byte initial) {
   char *data = KRML_HOST_MALLOC(length);
   CHECK(data);
@@ -58,7 +49,7 @@ FStar_Bytes_create(uint32_t length, FStar_Bytes_byte initial) {
   return b;
 }
 
-static inline FStar_Bytes_bytes
+FStar_Bytes_bytes
 FStar_Bytes_init(uint32_t length, FStar_Bytes_byte (*initial)(uint32_t i)) {
   char *data = KRML_HOST_MALLOC(length);
   CHECK(data);
@@ -68,7 +59,7 @@ FStar_Bytes_init(uint32_t length, FStar_Bytes_byte (*initial)(uint32_t i)) {
   return b;
 }
 
-static inline FStar_Bytes_bytes FStar_Bytes_abyte(FStar_Bytes_byte v1) {
+FStar_Bytes_bytes FStar_Bytes_abyte(FStar_Bytes_byte v1) {
   char *data = KRML_HOST_MALLOC(1);
   CHECK(data);
   data[0] = v1;
@@ -76,7 +67,7 @@ static inline FStar_Bytes_bytes FStar_Bytes_abyte(FStar_Bytes_byte v1) {
   return b;
 }
 
-static inline FStar_Bytes_bytes FStar_Bytes_twobytes_(K___uint8_t_uint8_t *v) {
+FStar_Bytes_bytes FStar_Bytes_twobytes_(K___uint8_t_uint8_t *v) {
   char *data = KRML_HOST_MALLOC(2);
   CHECK(data);
   data[0] = v->fst;
@@ -88,12 +79,12 @@ static inline FStar_Bytes_bytes FStar_Bytes_twobytes_(K___uint8_t_uint8_t *v) {
 #ifdef KRML_NOSTRUCT_PASSING
 #define FStar_Bytes_twobytes FStar_Bytes_twobytes_
 #else
-static inline FStar_Bytes_bytes FStar_Bytes_twobytes(K___uint8_t_uint8_t v) {
+FStar_Bytes_bytes FStar_Bytes_twobytes(K___uint8_t_uint8_t v) {
   return FStar_Bytes_twobytes_(&v);
 }
 #endif
 
-static inline FStar_Bytes_bytes
+FStar_Bytes_bytes
 FStar_Bytes_append(FStar_Bytes_bytes b1, FStar_Bytes_bytes b2) {
   // Overflow check
   uint32_t length = Prims_op_Addition(b1.length, b2.length);
@@ -107,7 +98,7 @@ FStar_Bytes_append(FStar_Bytes_bytes b1, FStar_Bytes_bytes b2) {
   return b;
 }
 
-static inline FStar_Bytes_bytes
+FStar_Bytes_bytes
 FStar_Bytes_slice(FStar_Bytes_bytes b1, uint32_t s, uint32_t e) {
   if (s == e)
     return FStar_Bytes_empty_bytes;
@@ -124,12 +115,12 @@ FStar_Bytes_slice(FStar_Bytes_bytes b1, uint32_t s, uint32_t e) {
   return b;
 }
 
-static inline FStar_Bytes_bytes
+FStar_Bytes_bytes
 FStar_Bytes_sub(FStar_Bytes_bytes b1, uint32_t s, uint32_t l) {
   return FStar_Bytes_slice(b1, s, Prims_op_Addition(s, l));
 }
 
-static inline FStar_Bytes_bytes FStar_Bytes_utf8_encode(const char *str) {
+FStar_Bytes_bytes FStar_Bytes_utf8_encode(const char *str) {
   // Note: the original signature wants a Prims.string, which is GC-backed,
   // heap-allocated and immutable. So, it's fine to skip the copy (famous last
   // words?).
@@ -141,35 +132,35 @@ static inline FStar_Bytes_bytes FStar_Bytes_utf8_encode(const char *str) {
 }
 
 // DEPRECATED
-static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_string(const char *str) {
+FStar_Bytes_bytes FStar_Bytes_bytes_of_string(const char *str) {
   return FStar_Bytes_utf8_encode(str);
 }
 
-static inline void
-FStar_Bytes_split_(FStar_Bytes_bytes bs, FStar_UInt32_t i, K___FStar_Bytes_bytes_FStar_Bytes_bytes *dst) {
+void
+FStar_Bytes_split__(FStar_Bytes_bytes bs, FStar_UInt32_t i, K___FStar_Bytes_bytes_FStar_Bytes_bytes *dst) {
   dst->fst = FStar_Bytes_slice(bs, 0, i);
   dst->snd = FStar_Bytes_slice(bs, i, bs.length);
 }
 
 #ifdef KRML_NOSTRUCT_PASSING
-#define FStar_Bytes_split FStar_Bytes_split_
+#define FStar_Bytes_split FStar_Bytes_split__
 #else
-static inline K___FStar_Bytes_bytes_FStar_Bytes_bytes
+K___FStar_Bytes_bytes_FStar_Bytes_bytes
 FStar_Bytes_split(FStar_Bytes_bytes bs, FStar_UInt32_t i) {
   K___FStar_Bytes_bytes_FStar_Bytes_bytes p;
-  FStar_Bytes_split_(bs, i, &p);
+  FStar_Bytes_split__(bs, i, &p);
   return p;
 }
 #endif
 
-static inline FStar_UInt32_t FStar_Bytes_len(FStar_Bytes_bytes b1) {
+FStar_UInt32_t FStar_Bytes_len(FStar_Bytes_bytes b1) {
   return b1.length;
 }
 
 // Right-shifts for negative values at a signed type are undefined behavior in
 // C. However, the precondition of the function guarantees that `n` is a `nat`,
 // meaning that if it overflew we'd catch it.
-static inline FStar_Bytes_bytes
+FStar_Bytes_bytes
 FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n) {
   if (n < 0) {
     KRML_HOST_EPRINTF("FStar_Bytes_bytes_of_int: n must be nonnegative\n");
@@ -192,7 +183,7 @@ void FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs, uint128_t *dst) {
   KRML_HOST_EXIT(251);
 }
 #else
-static inline uint128_t
+uint128_t
 FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs) {
   uint128_t res = FStar_Int_Cast_Full_uint64_to_uint128(UINT64_C(0));
   for (uint32_t i = 0; i < bs.length; i++) {
@@ -203,7 +194,7 @@ FStar_Bytes_uint128_of_bytes(FStar_Bytes_bytes bs) {
 }
 #endif
 
-static inline krml_checked_int_t
+krml_checked_int_t
 FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs) {
   if (bs.length > 4) {
     KRML_HOST_EPRINTF("int_of_bytes overflow\n");
@@ -220,7 +211,7 @@ FStar_Bytes_int_of_bytes(FStar_Bytes_bytes bs) {
 }
 
 
-static inline krml_checked_int_t FStar_Bytes_repr_bytes(Prims_nat bs) {
+krml_checked_int_t FStar_Bytes_repr_bytes(Prims_nat bs) {
   if (bs < 0x100)
     return 1;
   else if (bs < 0x10000)
@@ -231,7 +222,7 @@ static inline krml_checked_int_t FStar_Bytes_repr_bytes(Prims_nat bs) {
     return 4;
 }
 
-static inline FStar_Bytes_bytes
+FStar_Bytes_bytes
 FStar_Bytes_xor(FStar_UInt32_t x, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2) {
   char *data = KRML_HOST_MALLOC(x);
   CHECK(data);
@@ -241,20 +232,20 @@ FStar_Bytes_xor(FStar_UInt32_t x, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2) {
   return b;
 }
 
-static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_int8(uint8_t x) {
+FStar_Bytes_bytes FStar_Bytes_bytes_of_int8(uint8_t x) {
   char *data = KRML_HOST_MALLOC(1);
   data[0] = x;
   return (FStar_Bytes_bytes){ .length = 1, .data = data };
 }
 
-static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_int16(uint16_t x) {
+FStar_Bytes_bytes FStar_Bytes_bytes_of_int16(uint16_t x) {
   char *data = KRML_HOST_MALLOC(2);
   data[0] = (x >> 8) & 0xFF;
   data[1] = x & 0xFF;
   return (FStar_Bytes_bytes){ .length = 2, .data = data };
 }
 
-static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_int32(uint32_t x) {
+FStar_Bytes_bytes FStar_Bytes_bytes_of_int32(uint32_t x) {
   char *data = KRML_HOST_MALLOC(4);
   data[0] = x >> 24;
   data[1] = (x >> 16) & 0xFF;
@@ -263,7 +254,7 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_int32(uint32_t x) {
   return (FStar_Bytes_bytes){ .length = 4, .data = data };
 }
 
-static inline uint8_t byte_of_hex(char c)
+uint8_t byte_of_hex(char c)
 {
     if (c >= '0' && c <= '9') {
         return c-'0';
@@ -276,17 +267,17 @@ static inline uint8_t byte_of_hex(char c)
     }
 }
 
-static inline uint8_t hex_of_nibble(uint8_t n)
+uint8_t hex_of_nibble(uint8_t n)
 {
     n &= 0xf; // clear out any high bits
-    if (n >= 0 && n <= 9) {
+    if (n <= 9) {
         return (uint8_t)n + '0';
     } else {
         return (uint8_t)n + 'a' - 10;
     }
 }
 
-static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
+FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
   size_t l = strlen(str);
   if (l % 2 == 1)
     KRML_HOST_EPRINTF(
@@ -318,7 +309,7 @@ static inline FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string str) {
   return b;
 }
 
-static inline Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes s) {
+Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes s) {
   char *str = KRML_HOST_MALLOC(s.length * 2 + 1);
   CHECK(str);
   for (size_t i = 0; i < s.length; ++i) {
@@ -329,12 +320,12 @@ static inline Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes s) {
   return str;
 }
 
-static inline Prims_string FStar_Bytes_hex_of_bytes(FStar_Bytes_bytes s) {
+Prims_string FStar_Bytes_hex_of_bytes(FStar_Bytes_bytes s) {
   return FStar_Bytes_print_bytes(s);
 }
 
 // https://www.cl.cam.ac.uk/~mgk25/ucs/utf8_check.c
-static inline const unsigned char *utf8_check(const unsigned char *s) {
+const unsigned char *utf8_check(const unsigned char *s) {
   while (*s) {
     if (*s < 0x80)
       /* 0xxxxxxx */
@@ -371,7 +362,7 @@ static inline const unsigned char *utf8_check(const unsigned char *s) {
   return NULL;
 }
 
-static inline void
+void
 FStar_Bytes_iutf8_opt_(FStar_Bytes_bytes b, FStar_Pervasives_Native_option__Prims_string *ret) {
   char *str = KRML_HOST_MALLOC(b.length + 1);
   CHECK(str);
@@ -391,7 +382,7 @@ FStar_Bytes_iutf8_opt_(FStar_Bytes_bytes b, FStar_Pervasives_Native_option__Prim
 #ifdef KRML_NOSTRUCT_PASSING
 #define FStar_Bytes_iutf8_opt FStar_Bytes_iutf8_opt_
 #else
-static inline FStar_Pervasives_Native_option__Prims_string
+FStar_Pervasives_Native_option__Prims_string
 FStar_Bytes_iutf8_opt(FStar_Bytes_bytes b) {
   FStar_Pervasives_Native_option__Prims_string ret;
   FStar_Bytes_iutf8_opt_(b, &ret);
@@ -399,7 +390,7 @@ FStar_Bytes_iutf8_opt(FStar_Bytes_bytes b) {
 }
 #endif
 
-static inline bool
+bool
 __eq__FStar_Bytes_bytes(FStar_Bytes_bytes x0, FStar_Bytes_bytes x1) {
   if (x0.length != x1.length)
     return false;
@@ -409,5 +400,11 @@ __eq__FStar_Bytes_bytes(FStar_Bytes_bytes x0, FStar_Bytes_bytes x1) {
   return true;
 }
 
-#endif
-#endif
+FStar_Bytes_bytes FStar_Bytes_of_buffer(uint32_t length, uint8_t *src) {
+  char *data = KRML_HOST_MALLOC(length);
+  CHECK(data);
+  if (length > 0)
+    memcpy(data, src, length);
+  FStar_Bytes_bytes b = { .length = length, .data = data };
+  return b;
+}

@@ -4,7 +4,12 @@
 # of rebuilding them. This Makefile assumes that everything else from
 # the F* standard library is already built (and fails otherwise)
 
-all: verify-all
+all: verify-all extract-all
+	COMPILE=1 $(MAKE) compile-all
+
+################################################################################
+# Verification & extraction                                                    #
+################################################################################
 
 ifdef FSTAR_HOME
   # Assume there is a F* source tree
@@ -14,34 +19,105 @@ else
   FSTAR_EXE=fstar.exe
 endif
 
-FSTAR_OPTIONS += --use_hints --use_two_phase_tc true # --use_extracted_interfaces
+OUTPUT_DIR = extracted
+UINT128_DIR = uint128
 
-MY_FSTAR=$(FSTAR_EXE) --cache_checked_modules $(addprefix --include , $(INCLUDE_PATHS))
+$(OUTPUT_DIR):
+	mkdir -p $@
 
-KREMLIB_FILES=$(wildcard *.fst) $(wildcard *.fsti)
+FSTAR_OPTIONS += --use_hints --use_two_phase_tc true --odir $(OUTPUT_DIR) \
+  # --use_extracted_interfaces
 
-clean:
+FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules \
+  $(addprefix --include , $(INCLUDE_PATHS))
+
+# Note: not compatible with the OPAM layout until fstar can be queried for the
+# location of ulib.
+ROOTS = $(wildcard *.fst) $(wildcard *.fsti) \
+  $(addprefix $(FSTAR_HOME)/ulib/,FStar.UInt128.fst FStar.Date.fsti \
+    FStar.HyperStack.IO.fst FStar.IO.fst FStar.Int.Cast.Full.fst \
+    FStar.Bytes.fsti FStar.Dyn.fsti)
+
+.PHONY: clean clean-c
+clean: clean-c
 	rm -rf *.checked *.source .depend
 
-.depend: $(KREMLIB_FILES) Makefile
-	$(MY_FSTAR) $(FSTAR_OPTIONS) $(OTHERFLAGS) --dep full $(KREMLIB_FILES) > $@
+SHELL=/bin/bash
+
+clean-c:
+	rm -rf {$(OUTPUT_DIR),$(UINT128_DIR)}/{Makefile.include,*.{c,h}} out extract-all */*.o
+
+.depend: Makefile | $(OUTPUT_DIR)
+	$(FSTAR) $(OTHERFLAGS) --dep full $(ROOTS) > $@
 
 include .depend
 
-ALL_CHECKED_FILES=$(addsuffix .checked, $(ALL_FST_FILES))
+ALL_CHECKED_FILES	= $(addsuffix .checked, $(ALL_FST_FILES))
+KREMLIB_FILES		= $(wildcard *.fst) $(wildcard *.fsti)
+KREMLIB_CHECKED_FILES	= $(addsuffix .checked, $(KREMLIB_FILES))
+OTHER_CHECKED_FILES	= $(filter-out $(KREMLIB_CHECKED_FILES), $(ALL_CHECKED_FILES))
 
-KREMLIB_CHECKED_FILES=$(addsuffix .checked, $(KREMLIB_FILES))
-
-OTHER_CHECKED_FILES=$(filter-out $(KREMLIB_CHECKED_FILES), $(ALL_CHECKED_FILES))
-
-verify-all: $(ALL_CHECKED_FILES)
-
-$(KREMLIB_CHECKED_FILES): %.checked:
-	$(MY_FSTAR) $(FSTAR_OPTIONS) $(OTHERFLAGS) $<
+$(KREMLIB_CHECKED_FILES): %.checked: | .depend
+	$(FSTAR) $(FSTAR_OPTIONS) $(OTHERFLAGS) $< && \
 	touch $@
 
 $(OTHER_CHECKED_FILES): %.checked:
-	test -f $@
-	$(MY_FSTAR) $(FSTAR_OPTIONS) $(OTHERFLAGS) --warn_error '@241@247' $<
+	@echo $@ is out of date, please run make -C '$$'\(FSTAR_HOME\)/ulib before; false
 
-.PHONY: all verify-all clean
+verify-all: $(ALL_CHECKED_FILES)
+
+$(OUTPUT_DIR)/%.krml:  | .depend
+	$(FSTAR) $(OTHERFLAGS) --codegen Kremlin \
+	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
+	  $(notdir $(subst .checked,,$<)) && \
+	touch $@
+
+extract-all: $(OUTPUT_DIR)/Makefile.include $(UINT128_DIR)/Makefile.include
+
+$(OUTPUT_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
+	../krml -minimal -tmpdir $(OUTPUT_DIR) -warn-error +9+11 -skip-compilation -extract-uint128 \
+	  $(addprefix -add-include ,'<inttypes.h>' '"kremlib.h"' '"kremlin/internal/compat.h"') \
+	  $^
+	find $(OUTPUT_DIR) -name '*.c' -and -not -name 'FStar_UInt128.c' -exec rm {} \;
+
+$(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
+	../krml -minimal -tmpdir $(UINT128_DIR) -skip-compilation -extract-uint128 \
+	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"kremlin/internal/types.h"') \
+	  -bundle FStar.UInt128=* -fparentheses $^
+
+################################################################################
+# Compilation, only works after the stage above has run and C files exist      #
+################################################################################
+
+ifdef COMPILE
+
+-include $(OUTPUT_DIR)/Makefile.include
+
+SOURCES = $(filter-out c/fstar_uint128_msvc.c,$(wildcard c/*.c))
+OBJS = $(patsubst %.c,%.o,$(SOURCES))
+
+%.d: %.c
+	@set -e; rm -f $@; \
+	  $(CC) -MM $(CFLAGS) $< > $@.$$$$; \
+	  sed 's,\($(notdir $*)\)\.o[ :]*,$(dir $@)\1.o $@ : ,g' < $@.$$$$ > $@; \
+	  rm -f $@.$$$$
+
+
+-include $(patsubst %.c,%.d,$(SOURCES))
+
+CFLAGS += -I extracted -I ../include -Wall -Wextra -Werror -g
+ifeq ($(OS),Windows_NT)
+CFLAGS += -D__USE_MINGW_ANSI_STDIO
+else
+CFLAGS += -fPIC
+endif
+
+uint128/FStar_UInt128.o: CFLAGS += -DKRML_VERIFIED_UINT128
+
+compile-all: out/libkremlib.a uint128/FStar_UInt128.o
+
+out/libkremlib.a: $(OBJS) | extract-all
+	mkdir -p $(dir $@)
+	ar cr $@ $^
+
+endif

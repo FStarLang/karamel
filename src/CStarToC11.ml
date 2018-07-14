@@ -373,37 +373,6 @@ and mk_stmt (stmt: stmt): C.stmt list =
       else
         [ If (mk_expr e, mk_compound_if (mk_stmts b1)) ]
 
-  | Copy (e1, _, BufCreate (Stack, init, size)) ->
-      assert_var e1;
-      begin match init with
-      | Any | Cast (Any, _) ->
-          mk_check_size (mk_expr init) (mk_expr size)
-      | Constant (_, "0") ->
-          mk_check_size (mk_expr init) (mk_expr size) @
-          [ mk_memset_zero_initializer (mk_expr e1) (mk_expr size) ]
-      | _ ->
-          (* JP: a potential optimization is to use memset when the initial
-           * value is a uint8 / int8 *)
-          mk_check_size (mk_expr init) (mk_expr size) @
-          [ mk_for_loop_initializer (mk_expr e1) (mk_expr size) (mk_expr init) ]
-      end
-
-  | Copy (e1, typ, BufCreateL (Stack, elts)) ->
-      (* int x[5]; *)
-      (* memcpy(x, &((int[5]){ 1, 2, 3, 4, 5 }), sizeof x); *)
-      [ Expr (Call (Name "memcpy", [
-          mk_expr e1;
-          CompoundLiteral (
-            mk_type typ,
-            List.map (fun e -> InitExpr (mk_expr e)) elts);
-          Sizeof (mk_expr e1)]))]
-
-  | Copy (e1, _, e2) ->
-      [ Expr (Call (Name "memcpy", [
-          mk_expr e1;
-          mk_expr e2;
-          Sizeof (mk_expr e1)]))]
-
   | Assign (BufRead _, (Any | Cast (Any, _))) ->
       []
 
@@ -553,14 +522,57 @@ and mk_deref (e: expr) : C.expr =
  * declarations, so these primitives must not be output in the resulting C
  * files. *)
 and is_primitive s =
+  let known = [
+    (* Useless definitions: they are bypassed by custom codegen. *)
+    "LowStar_Buffer_is_null";
+    "C_Nullity_is_null";
+    "LowStar_Buffer_null";
+    "C_Nullity_null";
+    "C_String_get";
+    "C_String_t";
+    "C_String_of_literal";
+    (* Trick: we typedef this as an int and reply on implicit C enum -> int
+     * conversion rules. *)
+    "exit_code";
+    (* These two are not integers and are macro-expanded by MingW into the
+     * address of a function pointer, which would make "extern channel stdout"
+     * fail. *)
+    "stdout";
+    "stderr";
+    (* DLL linkage errors on MSVC. *)
+    "rand"; "srand"; "exit"; "fflush"; "clock";
+    (* Hand-written type definition parameterized over KRML_VERIFIED_UINT128 *)
+    "FStar_UInt128_uint128";
+    (* Macros, no external linkage *)
+    "htole16";
+    "le16toh";
+    "htole32";
+    "le32toh";
+    "htole64";
+    "le64toh";
+    "htobe16";
+    "be16toh";
+    "htobe32";
+    "be32toh";
+    "htobe64";
+    "be64toh";
+    "store16_le";
+    "load16_le";
+    "store16_be";
+    "load16_be";
+    "store32_le";
+    "load32_le";
+    "store32_be";
+    "load32_be";
+    "load64_le";
+    "store64_le";
+    "load64_be";
+    "store64_be";
+  ] in
+  List.mem s known ||
   KString.starts_with s "C_Nullity_op_Bang_Star__" ||
   KString.starts_with s "LowStar_BufferOps_op_Bang_Star__" ||
-  KString.starts_with s "LowStar_BufferOps_op_Star_Equals__" ||
-  s = "LowStar_Buffer_is_null" ||
-  s = "C_Nullity_is_null" ||
-  s = "LowStar_Buffer_null" ||
-  s = "C_Nullity_null" ||
-  s = "C_String_get"
+  KString.starts_with s "LowStar_BufferOps_op_Star_Equals__"
 
 and mk_expr (e: expr): C.expr =
   match e with
@@ -584,6 +596,9 @@ and mk_expr (e: expr): C.expr =
 
   | Call (Qualified s, [ e1; e2 ] ) when KString.starts_with s "LowStar_BufferOps_op_Star_Equals__" ->
       Op2 (K.Assign, mk_deref e1, mk_expr e2)
+
+  | Call (Qualified "C_String_of_literal", [ StringLiteral _ as s ]) ->
+      mk_expr s
 
   | Call (Qualified "C_String_get", [ e1; e2 ])
   | BufRead (e1, e2) ->
@@ -731,19 +746,22 @@ let mk_function_or_global_body (d: decl): C.declaration_or_function list =
         end
 
   | Global (name, flags, t, expr) ->
-      let t = strengthen_array t expr in
-      let qs, spec, decl = mk_spec_and_declarator name t in
-      let static = if List.exists ((=) Private) flags then Some Static else None in
-      match expr with
-      | Any ->
-          wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, None ])))
-      | BufCreateL (_, es) ->
-          let es = List.map mk_expr es in
-          wrap_verbatim flags (Decl ([], (qs, spec, static, [
-            decl, Some (Initializer (List.map (fun x -> InitExpr x) es)) ])))
-      | _ ->
-          let expr = mk_expr expr in
-          wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, Some (InitExpr expr) ])))
+      if is_primitive name then
+        []
+      else
+        let t = strengthen_array t expr in
+        let qs, spec, decl = mk_spec_and_declarator name t in
+        let static = if List.exists ((=) Private) flags then Some Static else None in
+        match expr with
+        | Any ->
+            wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, None ])))
+        | BufCreateL (_, es) ->
+            let es = List.map struct_as_initializer es in
+            wrap_verbatim flags (Decl ([], (qs, spec, static, [
+              decl, Some (Initializer es) ])))
+        | _ ->
+            let expr = struct_as_initializer expr in
+            wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, Some expr ])))
 
 (** Function prototype, or extern global declaration (no definition). *)
 let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
@@ -767,9 +785,12 @@ let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
         end
 
   | Global (name, flags, t, expr) ->
-      let t = strengthen_array t expr in
-      let qs, spec, decl = mk_spec_and_declarator name t in
-      wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
+      if is_primitive name then
+        []
+      else
+        let t = strengthen_array t expr in
+        let qs, spec, decl = mk_spec_and_declarator name t in
+        wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
 
 (* Type declarations, external function declarations. These are the things that
  * are either declared in the header (public), or in the c file (private), but
@@ -780,16 +801,19 @@ let mk_type_or_external (d: decl): C.declaration_or_function list =
       wrap_verbatim flags (Decl ([], ([], C.Struct (Some (name ^ "_s"), None), Some Typedef, [ Ident name, None ])))  
 
   | Type (name, t, flags) ->
-      begin match t with
-      | Enum cases when !Options.short_enums ->
-          if List.length cases > 256 then
-            KPrint.bprintf "Error: enum %s has > 256 cases but -fshort-enums is used" name;
-          wrap_verbatim flags (Verbatim (enum_as_macros cases)) @
-          let qs, spec, decl = mk_spec_and_declarator_t name (Int K.UInt8) in
-          [ Decl ([], (qs, spec, Some Typedef, [ decl, None ]))]
-      | _ ->
-          let qs, spec, decl = mk_spec_and_declarator_t name t in
-          wrap_verbatim flags (Decl ([], (qs, spec, Some Typedef, [ decl, None ])))
+      if is_primitive name then
+        []
+      else begin
+        match t with
+        | Enum cases when !Options.short_enums ->
+            if List.length cases > 256 then
+              KPrint.bprintf "Error: enum %s has > 256 cases but -fshort-enums is used" name;
+            wrap_verbatim flags (Verbatim (enum_as_macros cases)) @
+            let qs, spec, decl = mk_spec_and_declarator_t name (Int K.UInt8) in
+            [ Decl ([], (qs, spec, Some Typedef, [ decl, None ]))]
+        | _ ->
+            let qs, spec, decl = mk_spec_and_declarator_t name t in
+            wrap_verbatim flags (Decl ([], (qs, spec, Some Typedef, [ decl, None ])))
       end
 
   | External (name, Function (cc, t, ts), flags) ->
@@ -802,8 +826,11 @@ let mk_type_or_external (d: decl): C.declaration_or_function list =
         wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
 
   | External (name, t, flags) ->
-      let qs, spec, decl = mk_spec_and_declarator name t in
-      wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
+      if is_primitive name then
+        []
+      else
+        let qs, spec, decl = mk_spec_and_declarator name t in
+        wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
 
   | Function _ | Global _ ->
       []

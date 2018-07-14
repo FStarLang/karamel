@@ -134,7 +134,8 @@ let ensure_fresh env name body cont =
   mk_fresh name (fun tentative ->
     tricky_shadowing_see_comment_above tentative body 0 ||
     List.exists (fun cont -> tricky_shadowing_see_comment_above tentative (Some cont) 1) cont ||
-    List.exists ((=) tentative) env.in_block)
+    List.mem tentative env.in_block ||
+    !Options.no_shadow && List.mem tentative env.names)
 
 
 (** AstToCStar performs a unit-to-void conversion.
@@ -334,9 +335,8 @@ and mk_stmts env e ret_type =
           collect (env, acc) return_pos e
         ) (env, acc) es
 
-    | EAssign (e1, e2) when is_array e1.typ ->
-        let e = CStar.Copy (mk_expr env false e1, mk_type env e1.typ, mk_expr env false e2) in
-        env, e :: acc
+    | EAssign (e1, _) when is_array e1.typ ->
+        assert false
 
     | EAssign (e1, e2) ->
         let e = CStar.Assign (mk_expr env false e1, mk_expr env false e2) in

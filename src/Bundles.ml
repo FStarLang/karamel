@@ -157,7 +157,6 @@ let string_of_dependency (d1, f1, d2, f2) =
     PrintAst.plid d1 f1 PrintAst.plid d2 f2
 
 let topological_sort files =
-
   (* We perform a dependency analysis on this set of files to figure out how to
    * order them; this is the creation of the dependency graph. Instead of merely
    * keeping a list of dependencies, we keep a hash-table that maps a dependency
@@ -210,6 +209,9 @@ let topological_sort files =
   List.iter (dfs []) (List.map fst files);
   List.rev !stack
 
+(* Debug any intermediary AST as follows: *)
+(* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
+
 (* This creates bundles for every [-bundle] argument that was passed on the
  * command-line. *)
 let make_bundles files =
@@ -221,6 +223,10 @@ let make_bundles files =
     used, bundle :: bundles
   ) (StringMap.empty, []) !Options.bundle in
   let files = List.filter (fun (n, _) -> not (StringMap.mem n used)) files @ bundles in
+
+  let names, _ = List.split files in
+  if List.length (List.sort_uniq compare names) <> List.length names then
+    KPrint.bprintf "Internal error, duplicate names after bundling\n";
 
   (* This is important, because bundling may creates cycles, that are broken
    * after removing (now-unused) functions. *)

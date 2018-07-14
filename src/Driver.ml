@@ -142,8 +142,13 @@ let detect_kremlin () =
     KPrint.bprintf "%sthe Kremlin executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
 
     let krml_home =
-      try read_one_line !readlink [| "-f"; d real_krml ^^ ".." ^^ ".." |]
-      with _ -> fatal_error "Could not compute krml_home"
+      begin try
+        Sys.getenv "KRML_HOME"
+      with Not_found -> try
+        read_one_line !readlink [| "-f"; d real_krml ^^ ".." ^^ ".." |]
+      with _ ->
+        fatal_error "Could not compute krml_home"
+      end
     in
     KPrint.bprintf "%sKreMLin home is:%s %s\n" Ansi.underline Ansi.reset krml_home;
 
@@ -337,8 +342,7 @@ let fill_cc_args () =
   detect_kremlin_if ();
 
   cc_args :=
-      (if not !Options.uint128 then [ Dash.d "KRML_NOUINT128" ] else [])
-    @ (if not !Options.struct_passing then [ Dash.d "KRML_NOSTRUCT_PASSING" ] else [])
+    (if not !Options.struct_passing then [ Dash.d "KRML_NOSTRUCT_PASSING" ] else [])
     @ List.flatten (List.rev_map Dash.i (!Options.tmpdir :: !Options.includes))
     @ List.rev !Options.ccopts
     @ !cc_args
@@ -375,7 +379,6 @@ let compile files extra_c_files =
   detect_kremlin_if ();
   detect_cc_if ();
   flush stdout;
-  let extra_c_files = (!kremlib_dir ^^ "kremlib.c") :: extra_c_files in
 
   let files = List.map (fun f -> !Options.tmpdir ^^ f ^ ".c") files in
   KPrint.bprintf "%s⚡ Generating object files%s\n" Ansi.blue Ansi.reset;
@@ -393,7 +396,9 @@ let compile files extra_c_files =
  * invocation of [gcc]. *)
 let link c_files o_files =
   let o_files = List.map expand_prefixes o_files in
-  let objects = List.map o_of_c c_files @ o_files in
+  let objects = List.map o_of_c c_files @ o_files @
+    [ !kremlib_dir ^^ "out" ^^ "libkremlib.a" ]
+  in
   let extra_arg = if !Options.exe_name <> "" then Dash.o_exe !Options.exe_name else [] in
   if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg @ List.rev !Options.ldopts) then
     KPrint.bprintf "%sAll files linked successfully%s 👍\n" Ansi.green Ansi.reset

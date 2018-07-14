@@ -14,7 +14,20 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "0deaa28d8f1e235d0c898d8da95d1e8b"
+      "962bd87d68d013a84b78dfa82dd2b8de"
+    ],
+    [
+      "Wasm4.test",
+      2,
+      2,
+      1,
+      [
+        "@query", "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "1cd73c9a7a40676eeedf5200f1ed6212"
     ]
   ]
 ]
