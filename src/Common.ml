@@ -36,4 +36,6 @@ type flag =
       (** Verbatim C code, inserted before. *)
   | Epilogue of string
       (** Verbatim C code, inserted after. *)
+  | Abstract
+      (** C abstract struct with only a forward declaration in the header. *)
   [@@deriving yojson,show]
