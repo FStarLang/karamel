@@ -16,7 +16,7 @@ else
 endif
 
 all: minimal pre kremlib
-	OCAMLPATH="$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/bin" $(OCAMLBUILD) $(EXTRA_TARGETS)
+	OCAMLPATH=$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/bin $(OCAMLBUILD) $(EXTRA_TARGETS)
 
 minimal: src/AutoConfig.ml
 	@# Workaround Windows bug in OCamlbuild
