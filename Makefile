@@ -9,8 +9,14 @@ FLAVOR?=native
 TARGETS=Kremlin.$(FLAVOR) Tests.$(FLAVOR)
 EXTRA_TARGETS=Ast.inferred.mli kremlib/C.cmx kremlib/TestLib.cmx kremlib/C.cmo kremlib/TestLib.cmo
 
+ifeq ($(OS),Windows_NT)
+  OCAMLPATH_SEP=;
+else
+  OCAMLPATH_SEP=:
+endif
+
 all: minimal pre kremlib
-	OCAMLPATH=$(FSTAR_HOME)/bin $(OCAMLBUILD) $(EXTRA_TARGETS)
+	OCAMLPATH=$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/bin $(OCAMLBUILD) $(EXTRA_TARGETS)
 
 minimal: src/AutoConfig.ml
 	@# Workaround Windows bug in OCamlbuild
