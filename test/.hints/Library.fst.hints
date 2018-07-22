@@ -36,8 +36,8 @@
         "function_token_typing_FStar.Monotonic.HyperHeap.rid",
         "function_token_typing_FStar.Monotonic.HyperHeap.root",
         "function_token_typing_FStar.UInt32.n",
-        "function_token_typing_LowStar.Modifies.address_liveness_insensitive_locs",
-        "function_token_typing_LowStar.Modifies.loc_none",
+        "function_token_typing_LowStar.Buffer.address_liveness_insensitive_locs",
+        "function_token_typing_LowStar.Buffer.loc_none",
         "haseqFStar.Int.Cast_Tm_refine_53c04f13f94a287afb9ec61c937a636f",
         "int_inversion",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_elim",
@@ -51,10 +51,9 @@
         "lemma_FStar.Set.lemma_equal_elim", "lemma_FStar.Set.mem_complement",
         "lemma_FStar.Set.mem_intersect", "lemma_FStar.Set.mem_singleton",
         "lemma_FStar.UInt32.uv_inv",
-        "lemma_LowStar.Modifies.loc_includes_none",
-        "lemma_LowStar.Modifies.modifies_0_modifies",
-        "lemma_LowStar.ModifiesPat.modifies_inert_intro",
-        "lemma_LowStar.ModifiesPat.modifies_inert_liveness_insensitive_buffer_weak",
+        "lemma_LowStar.Buffer.loc_includes_none",
+        "lemma_LowStar.Buffer.modifies_inert_intro",
+        "lemma_LowStar.Buffer.modifies_inert_liveness_insensitive_buffer_weak",
         "primitive_Prims.op_AmpAmp", "primitive_Prims.op_BarBar",
         "primitive_Prims.op_Equality", "primitive_Prims.op_Negation",
         "primitive_Prims.op_disEquality",
@@ -83,7 +82,7 @@
         "typing_LowStar.Buffer.len"
       ],
       0,
-      "3eeb6e4c729e4c33b536a5adff358dba"
+      "b2042de8bae648ec84d9d196f6bd36fc"
     ]
   ]
 ]

@@ -5,7 +5,7 @@ let _ =
   let open PPrint in
   let p_t t =
     let d: CStar.decl = Type ("t", t, []) in
-    let d = CStarToC11.mk_type_or_external d in
+    let d = CStarToC11.(mk_type_or_external C d) in
     match d with
     | [ C11.Decl ([], d) ] ->
         Print.print (group (PrintC.p_declaration d));

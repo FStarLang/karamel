@@ -118,6 +118,8 @@ and print_flag = function
       empty
   | Const p ->
       group (string "const" ^/^ string p)
+  | AbstractStruct ->
+      string "abstract_struct"
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   (if mut then string "mutable" ^^ break 1 else empty) ^^

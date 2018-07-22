@@ -792,14 +792,20 @@ let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
         let qs, spec, decl = mk_spec_and_declarator name t in
         wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
 
+type where = H | C
+
 (* Type declarations, external function declarations. These are the things that
  * are either declared in the header (public), or in the c file (private), but
  * not twice. *)
-let mk_type_or_external (d: decl): C.declaration_or_function list =
+let mk_type_or_external (w: where) (d: decl): C.declaration_or_function list =
+  let mk_forward_decl name flags =
+    wrap_verbatim flags (Decl ([], ([], C.Struct (Some (name ^ "_s"), None), Some Typedef, [ Ident name, None ])))
+  in
   match d with
   | TypeForward (name, flags) ->
-      wrap_verbatim flags (Decl ([], ([], C.Struct (Some (name ^ "_s"), None), Some Typedef, [ Ident name, None ])))  
-
+      mk_forward_decl name flags
+  | Type (name, Struct _, flags) when w = H && List.mem AbstractStruct flags ->
+      mk_forward_decl name flags
   | Type (name, t, flags) ->
       if is_primitive name then
         []
@@ -853,8 +859,9 @@ let flags_of_decl (d: CStar.decl) =
   | External (_, _, flags) ->
       flags
 
-let if_private f d =
-  if List.mem Private (flags_of_decl d) then
+let if_private_or_abstract f d =
+  let flags = flags_of_decl d in
+  if List.mem Private flags || List.mem AbstractStruct flags then
     f d
   else
     []
@@ -872,7 +879,7 @@ let mk_files files =
      * definitions and external definitions that were private to the file only.
      * *)
     KList.map_flatten
-      (either mk_function_or_global_body (if_private mk_type_or_external))
+      (either mk_function_or_global_body (if_private_or_abstract (mk_type_or_external C)))
       decls
   in
   let files = List.filter (fun (name, _) -> not (is_static_header name)) files in
@@ -883,7 +890,7 @@ let mk_header decls =
   (* In the header file, we put functions and global stubs, along with type
    * definitions that are visible from the outside. *)
   KList.map_flatten
-    (if_not_private (either mk_function_or_global_stub mk_type_or_external))
+    (if_not_private (either mk_function_or_global_stub (mk_type_or_external H)))
     decls
 
 let mk_static_header decls =
@@ -896,7 +903,9 @@ let mk_static_header decls =
     | d ->
         d
   in
-  let decls = KList.map_flatten (either mk_function_or_global_body mk_type_or_external) decls in
+  (* What should be the behavior for a type declaration marked as CAbstract but
+   * whose module has -static-header? This ignores CAbstract. *)
+  let decls = KList.map_flatten (either mk_function_or_global_body (mk_type_or_external C)) decls in
   List.map mk_static decls
 
 let mk_headers files =

@@ -22,7 +22,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "0671380a8f303f26a35ae258dc74dcc6"
+      "64480e2dbc44ac952ac944953b1ac1cb"
     ],
     [
       "Ghost1.test",
@@ -31,7 +31,7 @@
       1,
       [ "@query", "lemma_FStar.HyperStack.ST.lemma_equal_domains_trans" ],
       0,
-      "ab143c21e16bc37f7a2ec3e094ea2e59"
+      "7c02cab71c6adb9435167101d8b980ab"
     ]
   ]
 ]
