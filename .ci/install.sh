@@ -29,7 +29,7 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   tar xjvf d8.tar.bz2
 fi
 
-git clone --branch master --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
+git clone --branch taramana_bufferv3 --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
 git clone --branch fstar-master --single-branch --depth 1 https://github.com/mitls/hacl-star
 make -C fstar/src/ocaml-output
 make -C fstar/ulib/ml -j 4
