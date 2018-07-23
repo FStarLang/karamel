@@ -27,6 +27,14 @@ and decl =
   (* Assumed things that the type-checker of KreMLin needs to be aware of *)
   | DExternal of (calling_convention option * flag list * lident * typ)
   | DTypeVariant of (lident * flag list * int * branches_t)
+  | DTypeAbstractStruct of lident
+      (** Note: this is only used for "assume val" declarations in standalone
+       * .fsti files that are marked with [@CAbstractStruct]. Full type
+       * definitions marked with the attribute give rise to a DTypeVariant or
+       * DTypeFlat with the Common.AbstractStruct flag. The Forward declarations
+       * are ignored by the checker, meaning that this declarations will get the
+       * same abstract typing, except we remember to emit a forward declaration
+       * for it. *)
 
 and fields_t =
   (ident * (typ * bool)) list
