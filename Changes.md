@@ -1,7 +1,14 @@
+### July 22nd, 2018
+
+- Support for a new attribute, `CAbstractStruct`. Such a structure generates a
+  forward declaration in the header file, and the concrete struct declaration is
+  hidden within the .c file. This forces C clients to always use this struct
+  through a pointer, effectively implementing a notion of "C abstract type".
+
 ### July 8th, 2018
 
-- New flag: -library <pattern>, to indicate that all functions in a given module should be
-  turned into "assume val"s. This is useful if: your module is a model and the
+- New flag: `-library <pattern>`, to indicate that all functions in a given module should be
+  turned into `assume val`s. This is useful if: your module is a model and the
   definitions should not leak, or if you are doing separate compilation and the
   pattern captures all the modules in a given library, which have been compiled
   separately and will be provided at link-time.
