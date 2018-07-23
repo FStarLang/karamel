@@ -223,11 +223,16 @@ let addendum = [
   c_nullity;
 ]
 
-let make_abstract_function = function
+let make_abstract_function_or_global = function
   | DFunction (cc, flags, n, t, name, bs, _) ->
       let t = fold_arrow (List.map (fun b -> b.typ) bs) t in
       if n = 0 then
         Some (DExternal (cc, flags, name, t))
+      else
+        None
+  | DGlobal (flags, name, n, t, _) ->
+      if n = 0 then
+        Some (DExternal (None, flags, name, t))
       else
         None
   | d ->
@@ -247,13 +252,13 @@ let make_abstract (name, decls) =
     | DGlobal (_, name, _, _, _) when KString.starts_with (snd name) "op_" ->
         None
     | d ->
-        make_abstract_function d
+        make_abstract_function_or_global d
   ) decls
 
 (* Transforms an F* module that contains a model into a set of "assume val" that
  * will generate proper "extern" declarations in C. *)
 let make_library (name, decls) =
-  name, KList.filter_map make_abstract_function decls
+  name, KList.filter_map make_abstract_function_or_global decls
 
 let is_model name =
   let is_machine_integer name =
