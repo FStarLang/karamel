@@ -91,7 +91,7 @@ $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kreml
 
 ifdef COMPILE
 
--include $(OUTPUT_DIR)/Makefile.include
+include $(OUTPUT_DIR)/Makefile.include
 
 SOURCES = $(filter-out c/fstar_uint128_msvc.c,$(wildcard c/*.c))
 OBJS = $(patsubst %.c,%.o,$(SOURCES))
@@ -103,9 +103,9 @@ OBJS = $(patsubst %.c,%.o,$(SOURCES))
 	  rm -f $@.$$$$
 
 
--include $(patsubst %.c,%.d,$(SOURCES))
+include $(patsubst %.c,%.d,$(SOURCES))
 
-CFLAGS += -I extracted -I ../include -Wall -Wextra -Werror -g -std=c11
+CFLAGS += -I extracted -I ../include -Wall -Wextra -Werror -g -std=c11 -D_DEFAULT_SOURCE -D_BSD_SOURCE
 ifeq ($(OS),Windows_NT)
 CFLAGS += -D__USE_MINGW_ANSI_STDIO
 else
