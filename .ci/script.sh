@@ -27,7 +27,7 @@ gcc --version
 fstar.exe --version
 echo | $(which d8)
 
-make -C $FSTAR_HOME/ulib -j 4
+OTHERFLAGS="--admit_smt_queries true" make -C $FSTAR_HOME/ulib -j 4
 make -j 4 && \
   make -j 4 -C kremlib && \
   make -C test all wasm external -j 4
