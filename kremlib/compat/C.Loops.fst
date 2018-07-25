@@ -4,8 +4,7 @@
 module C.Loops
 
 open FStar.HyperStack.ST
-open LowStar.Buffer
-open LowStar.BufferOps
+open FStar.Buffer
 
 module HS = FStar.HyperStack
 module HST = FStar.HyperStack.ST
@@ -13,8 +12,6 @@ module UInt32 = FStar.UInt32
 module UInt64 = FStar.UInt64
 
 include Spec.Loops
-
-module Buffer = LowStar.Buffer
 
 #set-options "--initial_fuel 0 --max_fuel 0 --z3rlimit 20"
 
@@ -215,7 +212,7 @@ val map:
   f:(a -> Tot b) ->
   Stack unit
     (requires (fun h -> live h input /\ live h output ))
-    (ensures (fun h_1 r h_2 -> modifies (loc_buffer output) h_1 h_2 /\ live h_2 input /\ live h_1 input /\ live h_2 output
+    (ensures (fun h_1 r h_2 -> modifies_1 output h_1 h_2 /\ live h_2 input /\ live h_1 input /\ live h_2 output
       /\ live h_2 output
       /\ (let s1 = as_seq h_1 input in
          let s2 = as_seq h_2 output in
@@ -224,7 +221,7 @@ inline_for_extraction
 let map #a #b output input l f =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
-    live h1 output /\ live h1 input /\ modifies (loc_buffer output) h0 h1 /\ i <= UInt32.v l
+    live h1 output /\ live h1 input /\ modifies_1 output h0 h1 /\ i <= UInt32.v l
     /\ (forall (j:nat). (j >= i /\ j < UInt32.v l) ==> get h1 output j == get h0 output j)
     /\ (forall (j:nat). j < i ==> get h1 output j == f (get h0 input j))
   in
@@ -254,7 +251,7 @@ val map2:
   f:(a -> b -> Tot c) ->
   Stack unit
     (requires (fun h -> live h in1 /\ live h in2 /\ live h output ))
-    (ensures (fun h_1 r h_2 -> modifies (loc_buffer output) h_1 h_2 /\ live h_2 in1 /\ live h_2 in2
+    (ensures (fun h_1 r h_2 -> modifies_1 output h_1 h_2 /\ live h_2 in1 /\ live h_2 in2
       /\ live h_1 in1 /\ live h_1 in2 /\ live h_2 output
       /\ (let s1 = as_seq h_1 in1 in
          let s2 = as_seq h_1 in2 in
@@ -264,7 +261,7 @@ inline_for_extraction
 let map2 #a #b #c output in1 in2 l f =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
-    live h1 output /\ live h1 in1 /\ live h1 in2 /\ modifies (loc_buffer output) h0 h1 /\ i <= UInt32.v l
+    live h1 output /\ live h1 in1 /\ live h1 in2 /\ modifies_1 output h0 h1 /\ i <= UInt32.v l
     /\ (forall (j:nat). (j >= i /\ j < UInt32.v l) ==> get h1 output j == get h0 output j)
     /\ (forall (j:nat). j < i ==> get h1 output j == f (get h0 in1 j) (get h0 in2 j))
   in
@@ -293,7 +290,7 @@ val in_place_map:
   f:(a -> Tot a) ->
   Stack unit
     (requires (fun h -> live h b))
-    (ensures (fun h_1 r h_2 -> modifies (loc_buffer b) h_1 h_2 /\ live h_2 b /\ live h_1 b
+    (ensures (fun h_1 r h_2 -> modifies_1 b h_1 h_2 /\ live h_2 b /\ live h_1 b
       /\ (let s1 = as_seq h_1 b in
          let s2 = as_seq h_2 b in
          s2 == seq_map f s1) ))
@@ -301,7 +298,7 @@ inline_for_extraction
 let in_place_map #a b l f =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
-    live h1 b /\ modifies (loc_buffer b) h0 h1 /\ i <= UInt32.v l
+    live h1 b /\ modifies_1 b h0 h1 /\ i <= UInt32.v l
     /\ (forall (j:nat). (j >= i /\ j < UInt32.v l) ==> get h1 b j == get h0 b j)
     /\ (forall (j:nat). j < i ==> get h1 b j == f (get h0 b j))
   in
@@ -330,7 +327,7 @@ val in_place_map2:
   f:(a -> b -> Tot a) ->
   Stack unit
     (requires (fun h -> live h in1 /\ live h in2))
-    (ensures (fun h_1 r h_2 -> modifies (loc_buffer in1) h_1 h_2 /\ live h_2 in1 /\ live h_2 in2
+    (ensures (fun h_1 r h_2 -> modifies_1 in1 h_1 h_2 /\ live h_2 in1 /\ live h_2 in2
       /\ live h_1 in1 /\ live h_1 in2
       /\ (let s1 = as_seq h_1 in1 in
          let s2 = as_seq h_1 in2 in
@@ -340,7 +337,7 @@ inline_for_extraction
 let in_place_map2 #a #b in1 in2 l f =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
-    live h1 in1 /\ live h1 in2 /\ modifies (loc_buffer in1) h0 h1 /\ i <= UInt32.v l
+    live h1 in1 /\ live h1 in2 /\ modifies_1 in1 h0 h1 /\ i <= UInt32.v l
     /\ (forall (j:nat). (j >= i /\ j < UInt32.v l) ==> get h1 in1 j == get h0 in1 j)
     /\ (forall (j:nat). j < i ==> get h1 in1 j == f (get h0 in1 j) (get h0 in2 j))
   in
@@ -377,13 +374,13 @@ val repeat:
   max:UInt32.t ->
   fc:(b:buffer a{length b = UInt32.v l} -> Stack unit
                      (requires (fun h -> live h b))
-                     (ensures (fun h0 _ h1 -> live h0 b /\ live h1 b /\ modifies (loc_buffer b) h0 h1
+                     (ensures (fun h0 _ h1 -> live h0 b /\ live h1 b /\ modifies_1 b h0 h1
                        /\ (let b0 = as_seq h0 b in
                           let b1 = as_seq h1 b in
                           b1 == f b0)))) ->
   Stack unit
     (requires (fun h -> live h b ))
-    (ensures (fun h_1 r h_2 -> modifies (loc_buffer b) h_1 h_2 /\ live h_1 b /\ live h_2 b
+    (ensures (fun h_1 r h_2 -> modifies_1 b h_1 h_2 /\ live h_1 b /\ live h_2 b
       /\ (let s = as_seq h_1 b in
          let s' = as_seq h_2 b in
          s' == repeat_spec (UInt32.v max) f s) ))
@@ -391,7 +388,7 @@ inline_for_extraction
 let repeat #a l f b max fc =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
-    live h1 b /\ modifies (loc_buffer b) h0 h1 /\ i <= UInt32.v max
+    live h1 b /\ modifies_1 b h0 h1 /\ i <= UInt32.v max
     /\ as_seq h1 b == repeat_spec i f (as_seq h0 b)
   in
   let f' (i:UInt32.t{ UInt32.( 0 <= v i /\ v i < v max ) }): Stack unit
@@ -419,13 +416,13 @@ val repeat_range:
   b: buffer a{Buffer.length b = UInt32.v l} ->
   fc:(b:buffer a{length b = UInt32.v l} -> i:UInt32.t{UInt32.v i < UInt32.v max} -> Stack unit
                      (requires (fun h -> live h b))
-                     (ensures (fun h0 _ h1 -> live h0 b /\ live h1 b /\ modifies (loc_buffer b) h0 h1
+                     (ensures (fun h0 _ h1 -> live h0 b /\ live h1 b /\ modifies_1 b h0 h1
                        /\ (let b0 = as_seq h0 b in
                           let b1 = as_seq h1 b in
                           b1 == f b0 (UInt32.v i))))) ->
   Stack unit
     (requires (fun h -> live h b ))
-    (ensures (fun h_1 r h_2 -> modifies (loc_buffer b) h_1 h_2 /\ live h_1 b /\ live h_2 b
+    (ensures (fun h_1 r h_2 -> modifies_1 b h_1 h_2 /\ live h_1 b /\ live h_2 b
       /\ (let s = as_seq h_1 b in
          let s' = as_seq h_2 b in
          s' == repeat_range_spec (UInt32.v min) (UInt32.v max) f s) ))
@@ -433,7 +430,7 @@ inline_for_extraction
 let repeat_range #a l min max f b fc =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
-    live h1 b /\ modifies (loc_buffer b) h0 h1 /\ i <= UInt32.v max /\ UInt32.v min <= i
+    live h1 b /\ modifies_1 b h0 h1 /\ i <= UInt32.v max /\ UInt32.v min <= i
     /\ as_seq h1 b == repeat_range_spec (UInt32.v min) i f (as_seq h0 b)
   in
   let f' (i:UInt32.t{ UInt32.( 0 <= v i /\ v i < v max ) }): Stack unit

@@ -222,3 +222,6 @@ web-head:
 web-body: web-head
 
 $(WEB_DIR): web-body
+
+%.fst-in:
+	@echo --include ../kremlib

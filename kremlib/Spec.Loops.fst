@@ -11,7 +11,7 @@ val seq_map:
     (decreases (Seq.length s))
 let rec seq_map #a #b f s =
   if Seq.length s = 0 then
-    Seq.createEmpty
+    Seq.empty
   else
     let s' = Seq.cons (f (Seq.head s)) (seq_map f (Seq.tail s)) in
     s'
@@ -25,7 +25,7 @@ val seq_map2:
     (forall (i:nat). {:pattern (Seq.index s'' i)} i < Seq.length s'' ==> Seq.index s'' i == f (Seq.index s i) (Seq.index s' i))})
     (decreases (Seq.length s))
 let rec seq_map2 #a #b #c f s s' =
-  if Seq.length s = 0 then Seq.createEmpty
+  if Seq.length s = 0 then Seq.empty
   else
     let s'' = Seq.cons (f (Seq.head s) (Seq.head s')) (seq_map2 f (Seq.tail s) (Seq.tail s')) in
     s''

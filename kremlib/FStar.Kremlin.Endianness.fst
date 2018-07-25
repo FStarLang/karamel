@@ -82,7 +82,7 @@ val n_to_le : len:U32.t -> n:nat{n < pow2 (8 * U32.v len)} ->
   (decreases (U32.v len))
 let rec n_to_le len n =
   if len = 0ul then
-    createEmpty
+    empty
   else
     let len = U32.(len -^ 1ul) in
     let byte = U8.uint_to_t (n % 256) in
@@ -102,7 +102,7 @@ val n_to_be:
   (decreases (U32.v len))
 let rec n_to_be len n =
   if len = 0ul then
-    createEmpty
+    empty
   else
     let len = U32.(len -^ 1ul) in
     let byte = U8.uint_to_t (n % 256) in
