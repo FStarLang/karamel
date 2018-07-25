@@ -28,9 +28,7 @@ fstar.exe --version
 echo | $(which d8)
 
 OTHERFLAGS="--admit_smt_queries true" make -C $FSTAR_HOME/ulib -j 4
-make -j 4 && \
-  make -j 4 -C kremlib && \
-  make -C test all wasm external -j 4
+make -j 4 && make -C test everything -j 4
 
 # Tutorial refresh, only on master and not for pull requests
 if [[ $TRAVIS_BRANCH == "master" && $DZOMO_TOKEN != "" ]]; then
