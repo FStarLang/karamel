@@ -1,3 +1,4 @@
+RECENT_GCC	= $(shell [[ $(gcc -dumpversion) -ge 5 ]] && echo yes)
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 TEST_OPTS	= -warn-error @4
@@ -13,7 +14,7 @@ FILES		= \
   Recursive.test RecursivePoly.test Structs2.test StringLit.test \
   FunctionalEncoding.test FunPtr.test Test128.test \
   CheckedInt.test Polymorphic.test GcTypes.test BadMatch.test C89.test \
-  PatternAny.test Debug.test hello-system/HelloSystem.test Server.test \
+  PatternAny.test hello-system/HelloSystem.test Server.test \
   ExitCode.test DataTypesMut.test ParamAbbrev.test Null.test Failwith.test \
   CustomEq.test Uu.test WildCard.test UnusedParameter.test EqB.test MutRec.test \
   MallocFree.test TestAlloca.test OptimizedOption.test PushPop.test EtaStruct.test \
@@ -22,6 +23,9 @@ FILES		= \
   NoExtract.test InlineNoExtract.test ../book/RingBuffer.test \
   ../book/Introduction.test TopLevelArray.test NoShadow.test Library.test \
   AbstractStruct.test
+ifeq ($(RECENT_GCC),"yes")
+  FILES 	+= Debug.test
+endif
 CUSTOM		= count-uu
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test Wasm4.wasm-test
