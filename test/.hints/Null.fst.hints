@@ -1,5 +1,5 @@
 [
-  "g°ç6\\üÌV9‚Æ\u0007`/£‚",
+  "áö‘ÛGC¹\u000eP'JºxÃ|™",
   [
     [
       "Null.f",
@@ -26,7 +26,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "748dd7c83822a9a5316be0549f00f2e3"
+      "0a4b22ccd576d6becba4a97609903721"
     ],
     [
       "Null.main",
@@ -34,32 +34,16 @@
       2,
       1,
       [
-        "@MaxIFuel_assumption", "@query",
-        "Prims_pretyping_f537159ed795b314b4e58c260361ae86", "bool_inversion",
-        "equation_C.Nullity.pointer_or_null", "equation_FStar.Buffer.buffer",
-        "equation_FStar.Monotonic.HyperHeap.hmap",
-        "equation_FStar.Monotonic.HyperStack.is_tip",
-        "equation_FStar.Monotonic.HyperStack.is_wf_with_ctr_and_tip",
+        "@MaxIFuel_assumption", "@query", "bool_inversion",
         "equation_FStar.Monotonic.HyperStack.mem",
-        "equation_FStar.Set.eqtype",
-        "fuel_guarded_inversion_FStar.Buffer._buffer",
         "function_token_typing_FStar.Int32.t",
-        "function_token_typing_FStar.Monotonic.Heap.heap",
-        "function_token_typing_FStar.Monotonic.HyperHeap.rid",
-        "lemma_C.Nullity.null_always_live",
-        "lemma_FStar.Map.lemma_ContainsDom",
-        "refinement_interpretation_C.Nullity_Tm_refine_67deb93b327df5de0f77b23c74963aab",
-        "refinement_interpretation_C.Nullity_Tm_refine_6924b0e09cbd7d3dc9eba44c380e4fb4",
-        "refinement_interpretation_C.Nullity_Tm_refine_765c89d487d6f4993e1329fa871ed2ee",
-        "refinement_interpretation_FStar.Monotonic.HyperStack_Tm_refine_9a74d818566e70513bc032cc3b65a144",
-        "refinement_interpretation_Null_Tm_refine_06dd65446a3d2071197772e25faab405",
-        "typing_C.Nullity.is_null", "typing_C.Nullity.null",
-        "typing_FStar.Map.contains",
-        "typing_FStar.Monotonic.HyperStack.get_hmap",
-        "typing_FStar.Monotonic.HyperStack.get_tip"
+        "lemma_LowStar.Buffer.live_is_null",
+        "refinement_interpretation_LowStar.Buffer_Tm_refine_e0faffbce24e3a5f20f2bc4c65cb30d6",
+        "refinement_interpretation_Null_Tm_refine_4f8a43b47a942e0ca05746adc0bd84ec",
+        "typing_LowStar.Buffer.g_is_null", "typing_LowStar.Buffer.null"
       ],
       0,
-      "aae52e654da114b5dfea878996917941"
+      "c84041ef5b76d709db2f8c5ec76b6196"
     ]
   ]
 ]

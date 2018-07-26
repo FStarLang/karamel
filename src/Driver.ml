@@ -167,7 +167,7 @@ let detect_kremlin () =
   end;
 
   (* The first one for F*, the second one for the C compiler. *)
-  Options.includes := !kremlib_dir :: !include_dir :: !Options.includes
+  Options.includes := !include_dir :: !Options.includes @ [!kremlib_dir]
 
 let detect_kremlin_if () =
   if !kremlib_dir = "" then

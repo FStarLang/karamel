@@ -1,10 +1,9 @@
 module TestLib
 
 open FStar.HyperStack.ST
-open LowStar.Buffer
+open FStar.Buffer
 
 module HS = FStar.HyperStack
-module Buffer = LowStar.Buffer
 
 (** Some test routines *)
 
@@ -42,9 +41,11 @@ val compare_and_print: C.String.t ->
 val unsafe_malloc: l:UInt32.t ->
   Stack (buffer UInt8.t)
     (fun _ -> true)
-    (fun h0 b h1 -> live h1 b /\ b `unused_in` h0 /\ length b = FStar.UInt32.v l
+    (fun h0 b h1 -> live h1 b /\ ~(contains h0 b) /\ length b = FStar.UInt32.v l
       /\ is_eternal_region (frameOf b)
-      /\ modifies loc_none h0 h1)
+      /\ HyperStack.modifies (Set.singleton (frameOf b)) h0 h1
+      /\ HyperStack.modifies_ref (frameOf b) (Set.empty) h0 h1
+      /\ (FStar.HyperStack.(Map.domain (HS.get_hmap h0) == Map.domain (HS.get_hmap h1))))
 
 (** Prints: "got error code %d" where %d is the first argument *)
 val perr: FStar.UInt32.t -> Stack unit
@@ -56,13 +57,13 @@ val print_clock_diff: C.clock_t -> C.clock_t -> Stack unit
   (requires (fun h -> true))
   (ensures (fun h0 _ h1 -> h0 == h1))
 
-[@(deprecated "p_null from TestLib; use LowStar.Buffer.null instead")]
+[@(deprecated "p_null from TestLib; use C.Nullity instead")]
 val uint8_p_null: buffer UInt8.t
 
-[@(deprecated "p_null from TestLib; use LowStar.Buffer.null instead")]
+[@(deprecated "p_null from TestLib; use C.Nullity instead")]
 val uint32_p_null: buffer UInt32.t
 
-[@(deprecated "p_null from TestLib; use LowStar.Buffer.null instead")]
+[@(deprecated "p_null from TestLib; use C.Nullity instead")]
 val uint64_p_null: buffer UInt64.t
 
 (** A set of helpers for measuring cycles *)
