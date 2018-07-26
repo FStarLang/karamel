@@ -40,7 +40,8 @@ OUTPUT_DIR	= .output
 HINTS_DIR	= .hints
 FSTAR		= fstar.exe --cache_checked_modules --use_two_phase_tc true \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
-  --include hello-system --include ../kremlib --include ../runtime \
+  --include hello-system --include ../kremlib/compat \
+  --include ../kremlib --include ../runtime \
   --include $(CRYPTO) --include ../book --use_hints --record_hints --hint_info
 
 # This just needs F* + KreMLin
