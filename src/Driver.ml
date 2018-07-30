@@ -166,8 +166,8 @@ let detect_kremlin () =
 
   end;
 
-  (* The first one for F*, the second one for the C compiler. *)
-  Options.includes := !include_dir :: !Options.includes @ [!kremlib_dir]
+  (* The first one for the C compiler, the second one for F*. *)
+  Options.includes := !include_dir :: !Options.includes @ [ !kremlib_dir ]
 
 let detect_kremlin_if () =
   if !kremlib_dir = "" then
@@ -231,7 +231,7 @@ let detect_fstar () =
     "--trace_error";
     "--cache_checked_modules";
     "--expose_interfaces"
-  ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
+  ] @ List.flatten (List.map (fun d -> ["--include"; d]) fstar_includes);
   (* This is a superset of the needed modules... some will be dropped very early
    * on in Kremlin.ml *)
   fstar_options := (!fstar_lib ^^ "FStar.UInt128.fst") :: !fstar_options;
