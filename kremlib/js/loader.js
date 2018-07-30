@@ -376,7 +376,7 @@ function reserve(mem, size) {
   return p;
 }
 
-function link(modules) {
+function link(imports, modules) {
   let fold = async (imports, modules) => {
     if (!modules.length)
       return imports;
@@ -387,7 +387,12 @@ function link(modules) {
     return fold(imports, ms);
   };
 
-  return fold(init(), modules);
+  let i = init ();
+  my_print(imports);
+  for (let k in imports)
+    i[k] = imports[k];
+
+  return fold(i, modules);
 }
 
 if (typeof module !== "undefined")
