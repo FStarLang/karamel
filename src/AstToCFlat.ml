@@ -53,7 +53,7 @@ let size_of (t: typ): size =
       I32
   | TAnonymous (Enum _) ->
       I32
-  | TQualified ([], ("C_String_t" | "C_String_t_" | "Prims_string")) ->
+  | TQualified ([], ("C_String_t" | "C_String_t_" | "Prims_string" | "Prims_int")) ->
       (* The string type from the C.String module, or an F* string literal.
        * They're represented the same way, that is, a pointer to a string
        * statically allocated in the data segment. *)

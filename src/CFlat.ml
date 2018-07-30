@@ -43,7 +43,7 @@ module Sizes = struct
   let size_of_width (w: K.width) =
     let open K in
     match w with
-    | UInt64 | Int64 | CInt ->
+    | UInt64 | Int64 ->
         I64
     | _ ->
         I32
