@@ -138,11 +138,31 @@ let mkFStar = () => dummyModule(
   [ "FStar_UInt128_constant_time_carry_ok", "FStar_PropositionalExtensionality_axiom" ],
   [ "FStar_Monotonic_Heap_lemma_mref_injectivity" ]);
 
+let mkPrims = (mem) => ({
+  Prims_op_Addition: (x, y) => { return x + y; }
+});
+
 let mkC = (mem) => ({
   srand: () => { throw new Error("todo: srand") },
   rand: () => { throw new Error("todo: rand") },
   exit: () => { throw new Error("todo: exit") },
   print_bytes: () => { throw new Error("todo: print_bytes") },
+
+  char_uint8: () => { throw new Error("todo: char_uint8") },
+  uint8_char: () => { throw new Error("todo: uint8_char") },
+  char_of_uint8: (x) => { throw new Error("todo: char_of_uint8") },
+  uint8_of_char: (x) => { throw new Error("todo: uint8_of_char") },
+
+  // A Prims_string generates a literal allocated in the data segment;
+  // string_of_literal is just a typing trick.
+  string_of_literal: (x) => x,
+  print_string: (addr) => my_print(stringAtAddr(mem, addr)),
+
+  // Truncated
+  clock: () => Date.now(),
+});
+
+let mkCEndianness = (mem) => ({
   htole16: (x) => { throw new Error("todo: htole16") },
   le16toh: (x) => { throw new Error("todo: le16toh") },
   htole32: (x) => { throw new Error("todo: htole32") },
@@ -172,20 +192,7 @@ let mkC = (mem) => ({
   store128_le: (addr, n) => { throw new Error("todo: store128_le") },
   load128_le: (addr) => { throw new Error("todo: load128_le") },
   store128_be: (addr, n) => { throw new Error("todo: store128_be") },
-  load128_be: (addr) => { throw new Error("todo: load128_be") },
-
-  char_uint8: () => { throw new Error("todo: char_uint8") },
-  uint8_char: () => { throw new Error("todo: uint8_char") },
-  char_of_uint8: (x) => { throw new Error("todo: char_of_uint8") },
-  uint8_of_char: (x) => { throw new Error("todo: uint8_of_char") },
-
-  // A Prims_string generates a literal allocated in the data segment;
-  // string_of_literal is just a typing trick.
-  string_of_literal: (x) => x,
-  print_string: (addr) => my_print(stringAtAddr(mem, addr)),
-
-  // Truncated
-  clock: () => Date.now(),
+  load128_be: (addr) => { throw new Error("todo: load128_be") }
 });
 
 let mkCNullity = (mem) => ({
@@ -333,7 +340,9 @@ function init() {
     },
     WasmSupport: mkWasmSupport(mem),
     FStar: mkFStar(mem),
+    Prims: mkPrims(mem),
     C: mkC(mem),
+    C_Endianness: mkCEndianness(mem),
     C_Nullity: mkCNullity(mem),
     TestLib: mkTestLib(mem)
   };
