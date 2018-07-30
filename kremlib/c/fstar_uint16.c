@@ -15,7 +15,7 @@ uint16_t FStar_UInt16_gte_mask(uint16_t x, uint16_t y) {
 
 Prims_string FStar_UInt16_to_string(uint16_t i) {
   char *buf = KRML_HOST_MALLOC(24);
-  snprintf(buf, 24, "%"PRIu16, i);
+  KRML_HOST_SNPRINTF(buf, 24, "%"PRIu16, i);
   return buf;
 }
 
