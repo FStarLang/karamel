@@ -12,11 +12,11 @@ function kremlin_start () {
     my_print("Error: WebAssembly not enabled. Use Chrome Canary?");
 
   my_print("... assembling WASM modules " + my_modules);
-  Promise.all(my_modules.map(m => fetch(m + ".wasm")))
+  return Promise.all(my_modules.map(m => fetch(m + ".wasm")))
     .then(responses =>
       Promise.all(responses.map(r => r.arrayBuffer()))
     ).then(bufs =>
-      link(bufs.map((b, i) => ({ buf: b, name: my_modules[i] }))))
+      link(my_imports || {}, bufs.map((b, i) => ({ buf: b, name: my_modules[i] }))))
     .then(scope => {
       for (let m of Object.keys(scope)) {
         if ("main" in scope[m]) {
@@ -37,5 +37,3 @@ function kremlin_start () {
       my_print(e)
     );
 }
-
-window.addEventListener("load", kremlin_start);

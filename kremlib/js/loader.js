@@ -388,9 +388,9 @@ function link(imports, modules) {
   };
 
   let i = init ();
-  my_print(imports);
+  my_print("Custom imports:", imports);
   for (let k in imports)
-    i[k] = imports[k];
+    i[k] = imports[k](i.Kremlin.mem);
 
   return fold(i, modules);
 }

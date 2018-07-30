@@ -13,6 +13,9 @@ let html_stub = format_of_string {|
     </script>
     <script type="application/javascript" src="browser.js"></script>
     <script type="application/javascript" src="loader.js"></script>
+    <script type="application/javascript">
+      window.addEventListener("load", kremlin_start);
+    </script>
   </head>
   <body>
     <pre id="terminal"></pre>
