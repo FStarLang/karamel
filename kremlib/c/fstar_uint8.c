@@ -14,7 +14,7 @@ uint8_t FStar_UInt8_gte_mask(uint8_t x, uint8_t y) {
 
 Prims_string FStar_UInt8_to_string(uint8_t i) {
   char *buf = KRML_HOST_MALLOC(24);
-  snprintf(buf, 24, "%"PRIu8, i);
+  KRML_HOST_SNPRINTF(buf, 24, "%"PRIu8, i);
   return buf;
 }
 

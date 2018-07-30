@@ -2,7 +2,7 @@
 
 Prims_string FStar_Int32_to_string(int32_t i) {
   char *buf = KRML_HOST_MALLOC(24);
-  snprintf(buf, 24, "%"PRId32, i);
+  KRML_HOST_SNPRINTF(buf, 24, "%"PRId32, i);
   return buf;
 }
 

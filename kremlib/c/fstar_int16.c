@@ -2,6 +2,6 @@
 
 Prims_string FStar_Int16_to_string(int16_t i) {
   char *buf = KRML_HOST_MALLOC(24);
-  snprintf(buf, 24, "%"PRId16, i);
+  KRML_HOST_SNPRINTF(buf, 24, "%"PRId16, i);
   return buf;
 }

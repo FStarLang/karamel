@@ -16,7 +16,7 @@ uint32_t FStar_UInt32_gte_mask(uint32_t x, uint32_t y) {
 
 Prims_string FStar_UInt32_to_string(uint32_t i) {
   char *buf = KRML_HOST_MALLOC(24);
-  snprintf(buf, 24, "%"PRIu32, i);
+  KRML_HOST_SNPRINTF(buf, 24, "%"PRIu32, i);
   return buf;
 }
 
