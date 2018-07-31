@@ -1167,20 +1167,16 @@ let mk_module types imports (name, decls):
    * them out in a function appended at the end of the list which breaks our
    * invariant. *)
   let inits = List.flatten (List.rev inits) in
-  let funcs, types, init_export =
+  let funcs, types, start =
     if List.length inits = 0 then
       funcs,
       types,
-      []
+      None
     else
       funcs @ [ dummy_phrase W.Ast.({ locals = []; ftype = mk_var next_func; body = inits })],
       types @ [ mk_func_type' [] [] ],
-      [ dummy_phrase W.Ast.({
-        name = name_of_string "init_globals";
-        edesc = dummy_phrase (W.Ast.FuncExport (mk_var next_func));
-      })]
+      Some (mk_var next_func)
   in
-  let _next_func = next_func + 1 in
 
   (* Side-effect: the table is now filled with all the string constants that
    * need to be laid out in the data segment. Compute said data segment. *)
@@ -1224,7 +1220,7 @@ let mk_module types imports (name, decls):
         }))
     | _ ->
         None
-  ) decls @ init_export @ [
+  ) decls @ [
     dummy_phrase W.Ast.({
       name = name_of_string "data_size";
       edesc = dummy_phrase (W.Ast.GlobalExport (mk_var data_size_index));
@@ -1238,7 +1234,8 @@ let mk_module types imports (name, decls):
     globals;
     exports;
     imports;
-    data
+    data;
+    start
   }) in
   types_only_public, imports_me_included, (name, module_)
 
