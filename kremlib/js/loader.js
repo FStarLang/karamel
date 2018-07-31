@@ -350,6 +350,10 @@ function propagate(module_name, imports, instance) {
     imports[module_name][o] = instance.exports[o];
   }
   my_print("This module has a data segment of size: ", instance.exports.data_size);
+  if (instance.exports.init_globals) {
+    my_print("This module needs global initialization");
+    instance.exports.init_globals();
+  }
   imports.Kremlin.data_start += instance.exports.data_size;
   my_print("Next data segment will start at: ", imports.Kremlin.data_start);
   // Set the highwater mark right after the data segment

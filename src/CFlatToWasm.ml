@@ -922,7 +922,7 @@ let mk_func env { args; locals; body; name; ret; _ } =
         let n_args = List.length args in
         let fst64 = n_args in
         let snd64 = n_args + 1 in
-        let read128 arg = 
+        let read128 arg =
           (* Load low *)
           [ dummy_phrase (W.Ast.GetLocal (mk_var arg)) ] @
           [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None }) ] @
@@ -930,12 +930,12 @@ let mk_func env { args; locals; body; name; ret; _ } =
           (* Load high *)
           [ dummy_phrase (W.Ast.GetLocal (mk_var arg)) ] @
           [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
-          i32_add @ 
+          i32_add @
           [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None }) ] @
           [ dummy_phrase (W.Ast.SetLocal (mk_var snd64)) ]
         in
         read128 0 @
-        Debug.mk env [ `String "a.low"; `Local64 fst64; `String "a.high"; `Local64 snd64 ] @ 
+        Debug.mk env [ `String "a.low"; `Local64 fst64; `String "a.high"; `Local64 snd64 ] @
         read128 1 @
         Debug.mk env [ `String "b.low"; `Local64 fst64; `String "b.high"; `Local64 snd64 ]
       else
@@ -963,10 +963,18 @@ let mk_func env { args; locals; body; name; ret; _ } =
   let ftype = mk_var i in
   dummy_phrase W.Ast.({ locals; ftype; body })
 
-let mk_global env size body =
+let mk_global env name size body =
   let body = mk_expr env body in
-  dummy_phrase W.Ast.({
-    gtype = W.Types.GlobalType (mk_type size, W.Types.Immutable);
+  let init, body, mut =
+    if List.length body > 1 then
+      body @ [ dummy_phrase (W.Ast.SetGlobal (mk_var (find_global env name))) ],
+      [ dummy_phrase (W.Ast.Const (match size with I32 -> mk_int32 0l | I64 -> mk_int64 0L))],
+      W.Types.Mutable
+    else
+      [], body, W.Types.Immutable
+  in
+  init, dummy_phrase W.Ast.({
+    gtype = W.Types.GlobalType (mk_type size, mut);
     value = dummy_phrase body
   })
 
@@ -1095,7 +1103,7 @@ let mk_module types imports (name, decls):
    * stuff in the universe, including the current module's "stuff". Note: this
    * maintains the invariant that the i-th function in [imports_me_included]
    * points to type index i. *)
-  let _, my_imports = List.fold_left (fun (next_func, acc) -> function
+  let next_func, my_imports = List.fold_left (fun (next_func, acc) -> function
     | Function f when f.public ->
         if Options.debug "wasm" then
           KPrint.bprintf "Imported function $%d is %s\n" next_func f.name;
@@ -1145,14 +1153,34 @@ let mk_module types imports (name, decls):
 
   (* The globals, too. Global have their types directly attached to them and do
    * not rely on an indirection via a type table like functions. *)
-  let globals =
-    KList.filter_map (function
-      | Global (_, size, body, _) ->
-          Some (mk_global env size body)
-      | _ ->
-          None
-    ) decls
+  let inits, globals = List.fold_left (fun (inits, globals) d ->
+    match d with
+    | Global (name, size, body, _) ->
+        let init, global = mk_global env name size body in
+        init :: inits, global :: globals
+    | _ ->
+        inits, globals
+  ) ([], []) decls in
+  let globals = List.rev globals in
+
+  (* If some globals need to be initialized at module initialization-time, write
+   * them out in a function appended at the end of the list which breaks our
+   * invariant. *)
+  let inits = List.flatten (List.rev inits) in
+  let funcs, types, init_export =
+    if List.length inits = 0 then
+      funcs,
+      types,
+      []
+    else
+      funcs @ [ dummy_phrase W.Ast.({ locals = []; ftype = mk_var next_func; body = inits })],
+      types @ [ mk_func_type' [] [] ],
+      [ dummy_phrase W.Ast.({
+        name = name_of_string "init_globals";
+        edesc = dummy_phrase (W.Ast.FuncExport (mk_var next_func));
+      })]
   in
+  let _next_func = next_func + 1 in
 
   (* Side-effect: the table is now filled with all the string constants that
    * need to be laid out in the data segment. Compute said data segment. *)
@@ -1196,7 +1224,7 @@ let mk_module types imports (name, decls):
         }))
     | _ ->
         None
-  ) decls @ [
+  ) decls @ init_export @ [
     dummy_phrase W.Ast.({
       name = name_of_string "data_size";
       edesc = dummy_phrase (W.Ast.GlobalExport (mk_var data_size_index));
