@@ -28,7 +28,8 @@ ifeq ($(RECENT_GCC),"yes")
 endif
 CUSTOM		= count-uu
 WASM_FILES	= \
-  WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test Wasm4.wasm-test
+  WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
+  Wasm4.wasm-test Wasm5.wasm-test
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
 # HigherOrder: need to implement "natural arity" tracking

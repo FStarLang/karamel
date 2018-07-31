@@ -8,8 +8,8 @@ let check_buffer_size =
   with_type (TArrow (TInt K.UInt32, TUnit)) (EQualified ([ "WasmSupport" ], "check_buffer_size"))
 
 
-let remove_buffer_ops = object
-  inherit [_] map as self
+let remove_buffer_ops = object(self)
+  inherit [_] map as super
 
   (* The relatively simple [bufcreate init size] is rewritten, because no
    * initial value for buffers in CFlat:
@@ -81,6 +81,13 @@ let remove_buffer_ops = object
         ELet (b_e1, body_e1, close_binder b_e1 (with_unit (
         ELet (b_e2, body_e2, close_binder b_e2 (with_unit (
           EBufWrite (ref_e1, ref_e2, e3)))))))
+
+  method! visit_DGlobal env flags lid n t e =
+    match e.node with
+    | EBufCreate _ | EBufCreateL _ ->
+        DGlobal (flags, lid, n, t, e)
+    | _ ->
+        super#visit_DGlobal env flags lid n t e
 
 end
 
