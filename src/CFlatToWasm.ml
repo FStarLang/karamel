@@ -75,11 +75,13 @@ let primitives = [
   "load64_le";
   "load64_be";
   "load128_le";
+  "load128_be";
   "store32_le";
   "store32_be";
   "store64_le";
   "store64_be";
-  "store128_le"
+  "store128_le";
+  "store128_be"
 ]
 
 let is_primitive x =
