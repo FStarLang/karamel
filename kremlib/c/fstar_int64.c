@@ -2,7 +2,7 @@
 
 Prims_string FStar_Int64_to_string(int64_t i) {
   char *buf = KRML_HOST_MALLOC(24);
-  snprintf(buf, 24, "%"PRId64, i);
+  KRML_HOST_SNPRINTF(buf, 24, "%"PRId64, i);
   return buf;
 }
 

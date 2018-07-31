@@ -27,7 +27,7 @@ uint64_t FStar_UInt64_gte_mask(uint64_t x, uint64_t y) {
 
 Prims_string FStar_UInt64_to_string(uint64_t i) {
   char *buf = KRML_HOST_MALLOC(24);
-  snprintf(buf, 24, "%"PRIu64, i);
+  KRML_HOST_SNPRINTF(buf, 24, "%"PRIu64, i);
   return buf;
 }
 
