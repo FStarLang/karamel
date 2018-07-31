@@ -1,4 +1,4 @@
-RECENT_GCC	= $(shell [[ $(gcc -dumpversion) -ge 5 ]] && echo yes)
+RECENT_GCC	= $(shell [ "$$(/usr/bin/gcc -dumpversion)" -ge 5 ] && echo yes)
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 TEST_OPTS	= -warn-error @4
@@ -139,8 +139,8 @@ $(OUTPUT_DIR)/%.wasm: $(OUTPUT_DIR)/FStar_UInt128.krml $(OUTPUT_DIR)/WasmSupport
 
 %.wasm-test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).wasm
 	cd $(OUTPUT_DIR)/$*.out && \
-	  if ! $(NEGATIVE); then $(shell which d8) main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); \
-	  else ! $(shell which d8) main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); fi
+	  if ! $(NEGATIVE); then $(shell which d8) main.js && echo -e "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); \
+	  else ! $(shell which d8) main.js && echo -e "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); fi
 
 # Customizing some WASM targets.
 $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: JSFILES=main-Chacha.js

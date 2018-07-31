@@ -1103,7 +1103,7 @@ let mk_module types imports (name, decls):
    * stuff in the universe, including the current module's "stuff". Note: this
    * maintains the invariant that the i-th function in [imports_me_included]
    * points to type index i. *)
-  let next_func, my_imports = List.fold_left (fun (next_func, acc) -> function
+  let _, my_imports = List.fold_left (fun (next_func, acc) -> function
     | Function f when f.public ->
         if Options.debug "wasm" then
           KPrint.bprintf "Imported function $%d is %s\n" next_func f.name;
@@ -1173,9 +1173,10 @@ let mk_module types imports (name, decls):
       types,
       None
     else
-      funcs @ [ dummy_phrase W.Ast.({ locals = []; ftype = mk_var next_func; body = inits })],
+      let last_func_index = n_imported_funcs + List.length funcs in
+      funcs @ [ dummy_phrase W.Ast.({ locals = []; ftype = mk_var last_func_index; body = inits })],
       types @ [ mk_func_type' [] [] ],
-      Some (mk_var next_func)
+      Some (mk_var last_func_index)
   in
 
   (* Side-effect: the table is now filled with all the string constants that
