@@ -25,7 +25,7 @@ echo -e "\e[31m=== Some info about the environment ===\e[0m"
 ocamlfind ocamlopt -config
 gcc --version
 fstar.exe --version
-echo | $(which d8)
+node --version
 
 OTHERFLAGS="--admit_smt_queries true" make -C $FSTAR_HOME/ulib -j 4 || exit 255
 make -j 4 && make -C test everything -j 4 || exit 255
