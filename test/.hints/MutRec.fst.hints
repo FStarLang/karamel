@@ -14,7 +14,7 @@
         "refinement_interpretation_MutRec_Tm_refine_70bcd2d516db6edb5890dc10eb12fb0c"
       ],
       0,
-      "8d2c81af029333832124c5c80b175c25"
+      "8f2c1880540c418a55f15b68bf51d130"
     ],
     [
       "MutRec.f",
@@ -79,16 +79,7 @@
         "typing_FStar.Set.singleton"
       ],
       0,
-      "53a8adb018b9e899e6773d4f5b0b3d10"
-    ],
-    [
-      "MutRec.main",
-      1,
-      2,
-      1,
-      [ "@query" ],
-      0,
-      "66ed7a30f5faa79653c676be4f07fd19"
+      "f649103040017ffe09d0748e36efd9dc"
     ]
   ]
 ]
