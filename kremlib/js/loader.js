@@ -125,7 +125,6 @@ function dummyModule(funcs, globals) {
   return module;
 }
 
-
 let mkWasmSupport = (mem) => ({
   WasmSupport_trap: () => {
     dump(mem, 2*1024);
@@ -145,7 +144,8 @@ let mkPrims = (mem) => ({
 let mkC = (mem) => ({
   srand: () => { throw new Error("todo: srand") },
   rand: () => { throw new Error("todo: rand") },
-  exit: () => { throw new Error("todo: exit") },
+  exit: (errno) => { throw new Error("Program exited via C.exit [errno="+errno+"]") },
+  portable_exit: (errno) => { throw new Error("Program exited via C.portable_exit [errno="+errno+"]") },
   print_bytes: () => { throw new Error("todo: print_bytes") },
 
   char_uint8: () => { throw new Error("todo: char_uint8") },
@@ -197,6 +197,10 @@ let mkCEndianness = (mem) => ({
 
 let mkCNullity = (mem) => ({
   C_Nullity_is_null: () => { throw new Error("todo: is_null") }
+});
+
+let mkCString = (mem) => ({
+  C_String_print: (ptr) => my_print(stringAtAddr(mem, ptr)),
 });
 
 function checkEq(mem, name) {
@@ -344,6 +348,7 @@ function init() {
     C: mkC(mem),
     C_Endianness: mkCEndianness(mem),
     C_Nullity: mkCNullity(mem),
+    C_String: mkCString(mem),
     TestLib: mkTestLib(mem)
   };
   return imports;
