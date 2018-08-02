@@ -47,7 +47,7 @@ FSTAR		= fstar.exe --cache_checked_modules --use_two_phase_tc true \
 # This just needs F* + KreMLin
 all: $(FILES) $(CUSTOM)
 
-# Needs d8
+# Needs node
 wasm: $(WASM_FILES)
 
 # Needs a checkout of HACL*
@@ -138,8 +138,8 @@ $(OUTPUT_DIR)/%.wasm: $(OUTPUT_DIR)/FStar_UInt128.krml $(OUTPUT_DIR)/WasmSupport
 
 %.wasm-test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).wasm
 	cd $(OUTPUT_DIR)/$*.out && \
-	  if ! $(NEGATIVE); then $(shell which d8) main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); \
-	  else ! $(shell which d8) main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); fi
+	  if ! $(NEGATIVE); then node main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); \
+	  else ! node main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); fi
 
 # Customizing some WASM targets.
 $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: JSFILES=main-Chacha.js

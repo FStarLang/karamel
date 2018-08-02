@@ -7,6 +7,7 @@ export PATH=/home/travis/build/FStarLang/kremlin/everest/z3/bin:$PATH
 export PATH=/home/travis/build/FStarLang/kremlin:$PATH
 export PATH=/home/travis/build/FStarLang/kremlin/d8:$PATH
 export PATH=/home/travis/build/FStarLang/kremlin/fstar/bin:$PATH
+export PATH=/home/travis/build/node-*/bin:$PATH
 export FSTAR_HOME=/home/travis/build/FStarLang/kremlin/fstar
 export HACL_HOME=/home/travis/build/FStarLang/kremlin/hacl-star
 export KRML_HOME=/home/travis/build/FStarLang/kremlin
