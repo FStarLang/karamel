@@ -411,7 +411,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
         | _ ->
             assert false
       ) es;
-      locals, CF.StringLiteral buf
+      locals, CF.StringLiteral (Bytes.to_string buf)
 
   | EBufCreateL _
   | EBufBlit _ | EBufFill _ ->
