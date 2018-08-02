@@ -22,6 +22,7 @@ git clone https://github.com/project-everest/everest
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   wget https://nodejs.org/dist/v8.11.3/node-v8.11.3-linux-x64.tar.xz
   tar xvf node-v8*.tar.xz
+  mv node-v8* node
 fi
 
 git clone --branch master --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
