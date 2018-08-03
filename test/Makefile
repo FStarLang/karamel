@@ -81,6 +81,10 @@ $(OUTPUT_DIR)/%.exe: $(OUTPUT_DIR)/FStar_UInt128.krml | $(KRML_BIN)
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe
 	@$^ && echo "\033[01;32m✔\033[00m [TEST,$*]" || (echo "\033[01;31m✘\033[00m [TEST,$*]" && false)
 
+ifeq ($(OS),Windows_NT)
+  HELLOSYSTEM_LDOPTS = -ldopts -lws2_32
+endif
+
 # Various flags to be passed to some targets...
 $(OUTPUT_DIR)/Structs2.exe: EXTRA = -wasm -d force-c wasm-stubs.c
 $(OUTPUT_DIR)/ML16.exe: EXTRA = ml16-native.c
@@ -98,7 +102,7 @@ $(OUTPUT_DIR)/FunctionalEncoding.exe: EXTRA = -add-include '"kremlin/internal/co
 $(OUTPUT_DIR)/Crypto_Symmetric_Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 $(OUTPUT_DIR)/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
 	hello-system/system.c -I hello-system -no-prefix SystemNative \
-	-drop SystemNative -add-include '<netdb.h>'
+	-drop SystemNative $(HELLOSYSTEM_LDOPTS)
 $(OUTPUT_DIR)/TestKremBytes.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/TestAlloca.exe: EXTRA = -falloca
 $(OUTPUT_DIR)/EtaStruct.exe: EXTRA = -fnostruct-passing
