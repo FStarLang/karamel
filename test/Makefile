@@ -1,3 +1,4 @@
+RECENT_GCC	= $(shell [[ $(gcc -dumpversion) -ge 5 ]] && echo yes)
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 TEST_OPTS	= -warn-error @4
@@ -13,7 +14,7 @@ FILES		= \
   Recursive.test RecursivePoly.test Structs2.test StringLit.test \
   FunctionalEncoding.test FunPtr.test Test128.test \
   CheckedInt.test Polymorphic.test GcTypes.test BadMatch.test C89.test \
-  PatternAny.test Debug.test hello-system/HelloSystem.test Server.test \
+  PatternAny.test hello-system/HelloSystem.test Server.test \
   ExitCode.test DataTypesMut.test ParamAbbrev.test Null.test Failwith.test \
   CustomEq.test Uu.test WildCard.test UnusedParameter.test EqB.test MutRec.test \
   MallocFree.test TestAlloca.test OptimizedOption.test PushPop.test EtaStruct.test \
@@ -22,6 +23,9 @@ FILES		= \
   NoExtract.test InlineNoExtract.test ../book/RingBuffer.test \
   ../book/Introduction.test TopLevelArray.test NoShadow.test Library.test \
   AbstractStruct.test
+ifeq ($(RECENT_GCC),"yes")
+  FILES 	+= Debug.test
+endif
 CUSTOM		= count-uu
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test Wasm4.wasm-test
@@ -36,13 +40,14 @@ OUTPUT_DIR	= .output
 HINTS_DIR	= .hints
 FSTAR		= fstar.exe --cache_checked_modules --use_two_phase_tc true \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
-  --include hello-system --include ../kremlib --include ../runtime \
+  --include hello-system --include ../kremlib/compat \
+  --include ../kremlib --include ../runtime \
   --include $(CRYPTO) --include ../book --use_hints --record_hints --hint_info
 
 # This just needs F* + KreMLin
 all: $(FILES) $(CUSTOM)
 
-# Needs d8
+# Needs node
 wasm: $(WASM_FILES)
 
 # Needs a checkout of HACL*
@@ -137,8 +142,8 @@ $(OUTPUT_DIR)/%.wasm: $(OUTPUT_DIR)/FStar_UInt128.krml $(OUTPUT_DIR)/WasmSupport
 
 %.wasm-test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).wasm
 	cd $(OUTPUT_DIR)/$*.out && \
-	  if ! $(NEGATIVE); then $(shell which d8) main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); \
-	  else ! $(shell which d8) main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); fi
+	  if ! $(NEGATIVE); then node main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); \
+	  else ! node main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); fi
 
 # Customizing some WASM targets.
 $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: JSFILES=main-Chacha.js
@@ -226,3 +231,6 @@ web-head:
 web-body: web-head
 
 $(WEB_DIR): web-body
+
+%.fst-in:
+	@echo --include ../kremlib

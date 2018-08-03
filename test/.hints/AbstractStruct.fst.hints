@@ -1,0 +1,27 @@
+[
+  "\f£R+»¨ﬂÜQ\u007f≤Ä5s–\u001a",
+  [
+    [
+      "AbstractStruct.t",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_FStar.Int32.t__uu___haseq" ],
+      0,
+      "677d27c08dc2384ecbf6aba811a1d1a4"
+    ],
+    [
+      "AbstractStruct.main",
+      1,
+      2,
+      1,
+      [
+        "@query", "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "c0327176a03a93b78c388f14607e7da9"
+    ]
+  ]
+]

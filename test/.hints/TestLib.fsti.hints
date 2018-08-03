@@ -1,5 +1,5 @@
 [
-  "ŽR£LXžXBðH´Iœ7‰\u001d",
+  "jžž:*8ê¤ÁW\u007f\u0015—òRú",
   [
     [
       "TestLib.compare_and_print",
@@ -8,7 +8,7 @@
       1,
       [ "@query" ],
       0,
-      "20ab8f88e225ef05acb97720961bedbb"
+      "62b0eb2ec340191c89a2bc437ce4560b"
     ],
     [
       "TestLib.unsafe_malloc",
@@ -16,15 +16,11 @@
       2,
       1,
       [
-        "@MaxIFuel_assumption", "@query",
-        "Prims_pretyping_ae567c2fb75be05905677af440075565",
-        "assumption_Prims.HasEq_int", "equation_FStar.UInt32.n",
-        "equation_Prims.nat", "function_token_typing_FStar.UInt32.n",
-        "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d",
-        "haseqTestLib_Tm_refine_1ec852aff28ab568526a8c54c3e853ec"
+        "@query", "assumption_Prims.HasEq_int",
+        "haseqTestLib_Tm_refine_7f014d1f670e5d2ecdc0d7946b4a693d"
       ],
       0,
-      "37b37d7f34867e723e60ce5567bf51cf"
+      "2979403d16a5812280f71a64dfa57bac"
     ]
   ]
 ]

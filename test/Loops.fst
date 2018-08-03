@@ -1,19 +1,21 @@
 module Loops
 
 open FStar
-open FStar.Buffer
+open LowStar.Buffer
+open LowStar.BufferOps
 open FStar.HyperStack.ST
 module UInt32 = FStar.UInt32
 module UInt64 = FStar.UInt64
 
 module HS = FStar.HyperStack
+module Buffer = LowStar.Buffer
 
 // simple for loop example - note that there is no framing
 let sum_to_n (n:UInt32.t) : Stack UInt32.t
   (requires (fun h0 -> True))
   (ensures (fun h0 r h1 -> r == n)) =
   push_frame();
-  let ptr_sum = create 0ul 1ul in
+  let ptr_sum = alloca 0ul 1ul in
   let _ = C.Loops.interruptible_for 0ul n
     (fun h i done -> live h ptr_sum /\
                   UInt32.v (Seq.index (as_seq h ptr_sum) 0) == i /\
@@ -26,21 +28,19 @@ let sum_to_n (n:UInt32.t) : Stack UInt32.t
 
 let sum_to_n_buf (n:UInt32.t) : Stack UInt32.t
   (requires (fun h0 -> True))
-  (ensures (fun h0 r h1 -> r == n /\
-    modifies_none h0 h1)) =
+  (ensures (fun h0 r h1 -> r == n /\ modifies loc_none h0 h1)) =
   push_frame();
   let h0 = get() in
-  let ptr_sum = create 0ul 1ul in
+  let ptr_sum = alloca 0ul 1ul in
   let _ = C.Loops.interruptible_for 0ul n
     (fun h i done -> live h ptr_sum /\
                   UInt32.v (Seq.index (as_seq h ptr_sum) 0) == i /\
                   done == false /\
-                  modifies_0 h0 h)
+                  modifies (loc_buffer ptr_sum) h0 h)
     (fun i -> ptr_sum.(0ul) <- UInt32.(ptr_sum.(0ul) +^ 1ul);
            false) in
   let sum = ptr_sum.(0ul) in
-  let h1 = get() in
-  lemma_reveal_modifies_0 h0 h1;
+  let h1 = get() in  
   pop_frame();
   sum
 
@@ -48,7 +48,7 @@ let count_to_n (n:UInt32.t{UInt32.v n > 0}) : Stack UInt32.t
   (requires (fun h0 -> True))
   (ensures (fun h0 r h1 -> r == n)) =
   push_frame();
-  let ptr_count = create 0ul 1ul in
+  let ptr_count = alloca 0ul 1ul in
   C.Loops.do_while
     (fun h break -> live h ptr_count /\
                   (not break ==> UInt32.v (Seq.index (as_seq h ptr_count) 0) < UInt32.v n) /\
@@ -65,7 +65,7 @@ let wait_for_false (n:UInt32.t{UInt32.v n > 0}) : Stack UInt32.t
   (requires (fun h0 -> True))
   (ensures (fun h0 r h1 -> r == n)) =
   push_frame();
-  let ptr_count = create 0ul 1ul in
+  let ptr_count = alloca 0ul 1ul in
   C.Loops.do_while
     (fun h break -> live h ptr_count /\
                   (break ==> False))
@@ -79,8 +79,8 @@ let wait_for_false (n:UInt32.t{UInt32.v n > 0}) : Stack UInt32.t
 // not found"
 unfold
 let test_pre (b r: buffer UInt32.t) (h: FStar.HyperStack.mem): Type0 =
-  Buffer.live h b /\ Buffer.live h r /\
-  Buffer.length r = 1 /\ Buffer.length b = 3 /\
+  live h b /\ live h r /\
+  length r = 1 /\ length b = 3 /\
   UInt32.v (Buffer.get h r 0) < Buffer.length b /\
   UInt32.v (Buffer.get h r 0) >= 0
 
@@ -92,15 +92,15 @@ let test_post (b r: buffer UInt32.t) (test: bool) (h: FStar.HyperStack.mem): Typ
 #set-options "--max_ifuel 0 --z3rlimit 30"
 val square_while: unit -> Stack unit (fun _ -> true) (fun h0 _ h1 -> true)
 let square_while () =
-  let open C.Nullity in
+  //let open C.Nullity in
   let open FStar.UInt32 in
   push_frame ();
-  let b = Buffer.createL [ 0ul; 1ul; 2ul ] in
+  let b = Buffer.alloca_of_list [ 0ul; 1ul; 2ul ] in
   // JP: createL doesn't work here!
-  let r = Buffer.create 0ul 1ul in
+  let r = Buffer.alloca 0ul 1ul in
   // JP: eta-expansions seem necessary for the pre/post
   let test (): Stack bool (requires (fun h -> test_pre b r h)) (ensures (fun _ ret h1 -> test_post b r ret h1)) =
-    !*r <> 2ul
+    (!*r) <> 2ul
   in
   let body (): Stack unit (requires (fun h -> test_post b r true h)) (ensures (fun _ _ h1 -> test_pre b r h1)) =
     let h = get () in
@@ -118,12 +118,12 @@ let square_while () =
 
 let test_map (): St unit =
   push_frame ();
-  let b = Buffer.create 1ul 3ul in
+  let b = Buffer.alloca 1ul 3ul in
   b.(1ul) <- 2ul;
   b.(2ul) <- 3ul;
 
   (* An inline example of a map *)
-  let out = Buffer.create 0ul 3ul in
+  let out = Buffer.alloca 0ul 3ul in
   let h1 = get () in
   assert (Buffer.live h1 b);
   let f x: Tot UInt32.t = UInt32.(x *%^ x) in
@@ -131,7 +131,7 @@ let test_map (): St unit =
   TestLib.checku32 out.(2ul) 9ul;
 
   (* For64 *)
-  let b = Buffer.createL [ 1UL; 2UL; 3UL ] in
+  let b = Buffer.alloca_of_list [ 1UL; 2UL; 3UL ] in
   C.Loops.for64 0UL 3UL (fun h _ -> Buffer.live h b) (fun i ->
     let i = FStar.Int.Cast.uint64_to_uint32 i in
     let open UInt64 in
@@ -147,7 +147,7 @@ let main () =
   push_frame ();
 
   (* Inline test for a for-loop. Todo: move to a separate test. *)
-  let b = Buffer.create 1ul 3ul in
+  let b = Buffer.alloca 1ul 3ul in
   b.(1ul) <- 2ul;
   b.(2ul) <- 3ul;
   let h0 = get () in

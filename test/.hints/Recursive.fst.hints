@@ -8,16 +8,7 @@
       1,
       [ "@query", "assumption_Prims.HasEq_int" ],
       0,
-      "2c52f00f31acd832a2fd03295828bf1b"
-    ],
-    [
-      "Recursive.uu___is_Cons",
-      1,
-      2,
-      1,
-      [ "@query", "assumption_Prims.HasEq_int" ],
-      0,
-      "9f04940606e1cd3413c28a5029d85c52"
+      "c16d054265a4fdaa08fa70395f0ace1a"
     ],
     [
       "Recursive.__proj__Cons__item__elt",
@@ -30,7 +21,7 @@
         "refinement_interpretation_Recursive_Tm_refine_fe78738bbffac158d58c53f89b03a1b7"
       ],
       0,
-      "05eeb3977d0fee6e511d07855612fc71"
+      "bb29e6a08cbbea20941cfd27a0edc9c9"
     ],
     [
       "Recursive.__proj__Cons__item__next",
@@ -39,7 +30,7 @@
       1,
       [ "@query", "assumption_Prims.HasEq_int" ],
       0,
-      "c7f1bc20e1677759d45bf056d85cfa1b"
+      "cfffa05a87d7a15790a532754674c97c"
     ],
     [
       "Recursive.__proj__Cons__item__next",
@@ -52,7 +43,7 @@
         "refinement_interpretation_Recursive_Tm_refine_fe78738bbffac158d58c53f89b03a1b7"
       ],
       0,
-      "db81245ae741994fdc9ddd7f08b2c3aa"
+      "29cde0e33cd0a7b326e4864b0774cf4c"
     ]
   ]
 ]

@@ -5,14 +5,15 @@ open FStar.HyperStack
 
 module U128 = FStar.UInt128
 
-open FStar.Buffer
+open LowStar.Buffer
+open LowStar.BufferOps
 
 let main (): Stack C.exit_code (fun _ -> true) (fun _ _ _ -> true) =
   push_frame ();
   let test = U128.uint64_to_uint128 51910400566UL in
   let test = U128.shift_left test 64ul in
   let test = U128.add_mod test (U128.uint64_to_uint128 17988357517195233983UL) in
-  let test = Buffer.create test 1ul in
+  let test = alloca test 1ul in
   C.Loops.in_place_map test 1ul (fun x -> U128.add_mod x x);
   let test = test.(0ul) in
   let test = U128.uint128_to_uint64 test in

@@ -243,9 +243,10 @@ let respond_stats (response: B.buffer C.char) (state: U32.t): Stack U32.t
   let next = B.offset next n2 in
   let n3 = bufstrcpy next !$"</html>" in
   let n = respond response payload U32.(n1+^n2+^n3) in
-  admit ();
   pop_frame ();
   n
+
+#reset-options "--z3cliopt smt.arith.nl=false --z3rlimit 32 --max_ifuel 0 --max_fuel 0"
 
 let respond_404 (response: B.buffer C.char): Stack U32.t
   (requires (fun h0 ->
@@ -256,7 +257,6 @@ let respond_404 (response: B.buffer C.char): Stack U32.t
     M.(modifies (loc_buffer response) h0 h1) /\
     U32.v n <= 512)) =
   push_frame ();
-  admit ();
   let payload = B.alloca (C.char_of_uint8 0uy) 256ul in
   let payloadlen = bufstrcpy payload !$"<html>Page not found</html>" in
   let n1 = bufstrcpy response !$"HTTP/1.1 404 Not Found\r\nConnection: closed\r\nContent-Length:" in
@@ -269,6 +269,8 @@ let respond_404 (response: B.buffer C.char): Stack U32.t
   let n = U32.(n1+^n2+^n3+^payloadlen) in
   pop_frame ();
   n
+
+#reset-options "--max_ifuel 0 --max_fuel 0"
 
 (**
   @summary: a demo server
