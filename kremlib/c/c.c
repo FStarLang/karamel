@@ -12,9 +12,9 @@ bool __eq__C_char(char c1, char c2) {
 void print_bytes(uint8_t *b, uint32_t len) {
   uint32_t i;
   for (i = 0; i < len; i++){
-    printf("%02x", b[i]);
+    KRML_HOST_PRINTF("%02x", b[i]);
   }
-  printf("\n");
+  KRML_HOST_PRINTF("\n");
 }
 
 void portable_exit(int code) {
