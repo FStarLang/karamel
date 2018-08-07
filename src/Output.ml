@@ -57,7 +57,7 @@ let in_tmp_dir name =
     name
 
 let write_one name prefix program suffix =
-  with_open_out (in_tmp_dir name) (fun oc ->
+  with_open_out_bin (in_tmp_dir name) (fun oc ->
     let doc =
       prefix ^^ hardline ^^ hardline ^^
       separate_map (hardline ^^ hardline) PrintC.p_decl_or_function program ^^
@@ -98,7 +98,7 @@ let write_makefile c_files h_files =
   let concat_map ext files =
     String.concat " " (List.map (fun f -> f ^ ext) files)
   in
-  Utils.with_open_out (in_tmp_dir "Makefile.include") (fun oc ->
+  Utils.with_open_out_bin (in_tmp_dir "Makefile.include") (fun oc ->
     KPrint.bfprintf oc "ALL_C_FILES=%s\n" (concat_map ".c" c_files);
     KPrint.bfprintf oc "ALL_H_FILES=%s\n" (concat_map ".h" h_files)
   )

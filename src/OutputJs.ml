@@ -81,12 +81,12 @@ let write_all js_files modules print =
       None,
       CFlatToWasm.dummy_phrase (Wasm.Script.Textual module_)))]
     in
-    Utils.with_open_out (Filename.concat !Options.tmpdir (name ^ ".wast")) (fun oc ->
+    Utils.with_open_out_bin (Filename.concat !Options.tmpdir (name ^ ".wast")) (fun oc ->
       Wasm.Print.script oc 80 `Textual script);
     (* Now the actual .wasm *)
     let s = Wasm.Encode.encode module_ in
     let name = name ^ ".wasm" in
-    Utils.with_open_out (Filename.concat !Options.tmpdir name) (fun oc -> output_string oc s);
+    Utils.with_open_out_bin (Filename.concat !Options.tmpdir name) (fun oc -> output_string oc s);
     KPrint.bprintf "Wrote %s\n" name;
     if print then
       Wasm.Print.module_ stdout Utils.twidth module_;
@@ -96,7 +96,7 @@ let write_all js_files modules print =
   (* Write out HTML file *)
   let html_file = Filename.concat !Options.tmpdir "main.html" in
   let module_list = as_js_list (List.map fst modules) in
-  Utils.with_open_out html_file (fun oc ->
+  Utils.with_open_out_bin html_file (fun oc ->
     let pre_load = String.concat "" (List.map (fun f ->
       Printf.sprintf script_stub f
     ) js_files) in
@@ -106,7 +106,7 @@ let write_all js_files modules print =
   (* A stub for shell usage *)
   let shell_file = Filename.concat !Options.tmpdir "shell.js" in
   let js_file_list = as_js_list js_files in
-  Utils.with_open_out shell_file (fun oc ->
+  Utils.with_open_out_bin shell_file (fun oc ->
     Printf.fprintf oc shell_stub js_file_list module_list (Options.debug "wasm-memory")
   );
 
@@ -117,4 +117,4 @@ let write_all js_files modules print =
   ) [ "browser.js"; "loader.js"; "main.js" ];
 
   (* Be nice *)
-  Utils.with_open_out (!Options.tmpdir ^^ "README") (fun oc -> output_string oc readme)
+  Utils.with_open_out_bin (!Options.tmpdir ^^ "README") (fun oc -> output_string oc readme)
