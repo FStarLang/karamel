@@ -3,18 +3,21 @@
 /******************************************************************************/
 
 /* This header makes KreMLin-generated C code work with:
- * - the default setting where we assume the target compiler define __int128
+ * - the default setting where we assume the target compiler defines __int128
  * - the setting where we use FStar.UInt128's implementation instead; in that
  *   case, generated C files must be compiled with -DKRML_VERIFIED_UINT128
  * - a refinement of the case above, wherein all structures are passed by
  *   reference, a.k.a. "-fnostruct-passing", meaning that the KreMLin-generated
  *   must be compiled with -DKRML_NOSTRUCT_PASSING
+ * Note: no MSVC support in this file.
  */
 
 #include "FStar_UInt128.h"
 #include "C_Endianness.h"
 
 #if !defined(KRML_VERIFIED_UINT128) && !defined(_MSC_VER)
+
+/* GCC + using native unsigned __int128 support */
 
 uint128_t load128_le(uint8_t *b) {
   uint128_t l = (uint128_t)load64_le(b);
@@ -117,14 +120,9 @@ uint64_t FStar_Int_Cast_Full_uint128_to_uint64(uint128_t x) {
   return x;
 }
 
-#else
+#elif !defined(_MSC_VER) && defined(KRML_VERIFIED_UINT128)
 
-#if defined(_MSC_VER)
-
-#define low m128i_u64[0]
-#define high m128i_u64[1]
-
-#endif
+/* Verified uint128 implementation. */
 
 /* Access 64-bit fields within the int128. */
 #define HIGH64_OF(x) ((x)->high)
@@ -154,8 +152,6 @@ void store128_be_(uint8_t *b, uint128_t *n) {
   store64_be(b + 8, LOW64_OF(n));
 }
 
-#if !defined(_MSC_VER)
-
 void
 FStar_Int_Cast_Full_uint64_to_uint128_(uint64_t x, uint128_t *dst) {
   /* C89 */
@@ -166,8 +162,6 @@ FStar_Int_Cast_Full_uint64_to_uint128_(uint64_t x, uint128_t *dst) {
 uint64_t FStar_Int_Cast_Full_uint128_to_uint64_(uint128_t *x) {
   return LOW64_OF(x);
 }
-
-#endif
 
 #    ifndef KRML_NOSTRUCT_PASSING
 
@@ -191,8 +185,6 @@ void store128_be(uint8_t *b, uint128_t n) {
   store128_be_(b, &n);
 }
 
-#if !defined(_MSC_VER)
-
 uint128_t FStar_Int_Cast_Full_uint64_to_uint128(uint64_t x) {
   uint128_t dst;
   FStar_Int_Cast_Full_uint64_to_uint128_(x, &dst);
@@ -203,8 +195,6 @@ uint64_t FStar_Int_Cast_Full_uint128_to_uint64(uint128_t x) {
   return FStar_Int_Cast_Full_uint128_to_uint64_(&x);
 }
 
-#endif
-
 #    else /* !defined(KRML_STRUCT_PASSING) */
 
 #      define print128 print128_
@@ -212,12 +202,10 @@ uint64_t FStar_Int_Cast_Full_uint128_to_uint64(uint128_t x) {
 #      define store128_le store128_le_
 #      define load128_be load128_be_
 #      define store128_be store128_be_
-#if !defined(_MSC_VER)
 #      define FStar_Int_Cast_Full_uint128_to_uint64                            \
         FStar_Int_Cast_Full_uint128_to_uint64_
 #      define FStar_Int_Cast_Full_uint64_to_uint128                            \
         FStar_Int_Cast_Full_uint64_to_uint128_
-#endif
 
 #    endif /* KRML_STRUCT_PASSING */
 
