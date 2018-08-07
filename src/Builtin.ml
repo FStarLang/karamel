@@ -198,6 +198,10 @@ let lowstar_buffer: file =
       ([ "LowStar"; "Buffer" ], "recall"),
       [ fresh_binder "x" (TBuf (TBound 0)) ],
       eunit);
+    DFunction (None, [ Common.MustDisappear ], 1, TUnit,
+      ([ "LowStar"; "Buffer" ], "frameOf"),
+      [ fresh_binder "x" (TBuf (TBound 0)) ],
+      eunit);
   ]
 
 let c_nullity: file =

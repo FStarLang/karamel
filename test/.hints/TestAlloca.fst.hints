@@ -1,5 +1,5 @@
 [
-  "\u001fýüP\u0017Ðx\t%×oÊ\f•9[",
+  "˜\u0005hXéÏI'\b¼Ö›Õàd¹",
   [
     [
       "TestAlloca.size",
@@ -14,7 +14,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "ac1ba971da76c94622a973501ef4a19e"
+      "2fc43587cc02ce670e0a9a812f4a06cd"
     ],
     [
       "TestAlloca.main",
@@ -81,7 +81,7 @@
         "typing_FStar.Set.complement", "typing_FStar.Set.singleton"
       ],
       0,
-      "ca4a3a2279e0c2c93e304002a7bd4bff"
+      "27cf38c747fb8322555dff559ac80c63"
     ]
   ]
 ]
