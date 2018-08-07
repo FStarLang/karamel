@@ -34,7 +34,7 @@ The provided Makefile compiles `libkremlib.a` with GCC and relies on
 `__unsigned int128` to implement `FStar_UInt128_uint128`, via
 `c/fstar_uint128.c`.
 
-When using MSVC, `c/fstar_uint128.c` must be ignored and
+When using MSVC, `c/fstar_uint128.c` should be ignored and
 `c/fstar_uint128_msvc.c` must be used instead. The following series of commands
 create a static library using MSVC (sketch):
 
@@ -47,8 +47,12 @@ lib /OUT:libkremlib.obj c/*.obj
 There is no provided Makefile of Visual Studio project for this scenario.
 
 Finally, if one wishes to use the verified implementation of `FStar.UInt128`,
-extracted from F\*'s `ulib/FStar.UInt128.fst`, it suffices to use
-`extracted/FStar_UInt128.c` and to define the macro `KRML_VERIFIED_UINT128`.
+extracted from F\*'s `ulib/FStar.UInt128.fst`, one must:
+- define the macro `KRML_VERIFIED_UINT128`
+and either:
+- ignore both `c/fstar_uint128.c` and `c/fstar_uint128_msvc.c` and use
+  `extracted/FStar_UInt128.c`, or
+- keep using `c/fstar_uint128_msvc.c` (only possible with MSVC).
 
 Sketch:
 
