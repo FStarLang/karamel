@@ -769,6 +769,13 @@ and mk_expr (e: expr): C.expr =
       let typ = Option.must typ in
       mk_compound_literal typ fields
 
+  | Union (_, (field, init_expr)) ->
+     if Option.is_some field && !Options.c89_std then
+       KPrint.bprintf "Warning: Kremlin requires a designator for a union initializer but C89 does not support them. No workaround as of yet, keeping designator.\n";
+     let fs = struct_as_initializer init_expr in
+     AnonymousUnionInitializer
+       (match field with | Some f -> Designated (Dot f, fs) | _ -> fs)
+
   | Field (BufRead (e, Constant (_, "0")), field) ->
       MemberAccessPointer (mk_expr e, field)
 
@@ -783,7 +790,6 @@ and mk_expr (e: expr): C.expr =
 
   | EAbort (t, s) ->
       Call (Name "KRML_EABORT", [ Type (mk_type t); Literal (escape_string s) ])
-
 
 and mk_compound_literal name fields =
   (* TODO really properly specify C's type_name! *)

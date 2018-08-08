@@ -206,6 +206,8 @@ and p_expr' curr = function
         lparen ^^ p_type_name t ^^ rparen ^^
         braces_with_nesting (separate_map (comma ^^ break1) p_init init)
       )
+  | AnonymousUnionInitializer init ->
+     braces_with_nesting (p_init init)
   | MemberAccess (expr, member) ->
       p_expr' 1 expr ^^ dot ^^ string member
   | MemberAccessPointer (expr, member) ->

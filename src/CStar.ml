@@ -66,6 +66,7 @@ and expr =
      * if the field of the corresponding type definition is anonymous. The
      * expressions are annotated with an (optional) field name. Either all are
      * annotated, or none. *)
+  | Union of ident option * (ident option * expr)
   | Field of expr * ident
   | Comma of expr * expr
   | StringLiteral of string

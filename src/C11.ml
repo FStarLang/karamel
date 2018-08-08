@@ -58,6 +58,7 @@ and expr =
   | Bool of bool
   | Sizeof of expr
   | CompoundLiteral of type_name * init list
+  | AnonymousUnionInitializer of init
   | MemberAccess of expr * ident
   | MemberAccessPointer of expr * ident
   | InlineComment of string * expr * string

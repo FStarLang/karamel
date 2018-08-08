@@ -220,10 +220,24 @@ let rec mk_expr env in_stmt e =
   | EString s ->
       CStar.StringLiteral s
   | EFlat fields ->
-      let name = match e.typ with TQualified lid -> Some (string_of_lident lid) | _ -> None in
-      CStar.Struct (name, List.map (fun (name, expr) ->
-        name, mk_expr env expr
-      ) fields)
+     begin
+       let tname = match e.typ with TQualified lid -> Some (string_of_lident lid) | _ -> None in
+       match e.typ with
+       | TAnonymous (Union t) ->
+          (* cwinter: doesn't make sense to have more than one initializer, but perhaps C99/C11 allow it? *)
+          assert (List.length fields == 1);
+          let tfn, _ = List.hd t in
+          let fn, fi = List.hd fields in
+          (match fn with
+           | Some sfn when (compare sfn tfn) != 0 ->
+              CStar.Union (tname, (fn, mk_expr env fi))
+           | _ ->
+              (* Initializes the first field; no designation needed. *)
+              CStar.Union (tname, (None, mk_expr env fi)))
+       | _ ->
+          CStar.Struct (tname, List.map (fun (name, expr) -> name, mk_expr env expr) fields)
+     end
+
   | EField (expr, field) ->
       CStar.Field (mk_expr env expr, field)
 
