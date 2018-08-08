@@ -11,7 +11,7 @@
 #  error This file only works with the MSVC compiler
 #endif
 
-#if HAS_OPTIMIZED && !defined(KRML_VERIFIED_UINT128)
+#if defined(_M_X64) && !defined(KRML_VERIFIED_UINT128)
 #define HAS_OPTIMIZED 1
 #else
 #define HAS_OPTIMIZED 0
