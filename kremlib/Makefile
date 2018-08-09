@@ -75,13 +75,13 @@ $(OUTPUT_DIR)/%.krml:  | .depend
 extract-all: $(OUTPUT_DIR)/Makefile.include $(UINT128_DIR)/Makefile.include
 
 $(OUTPUT_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
-	../krml -minimal -tmpdir $(OUTPUT_DIR) -warn-error +9+11 -skip-compilation -extract-uint128 \
+	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(OUTPUT_DIR) -warn-error +9+11 -skip-compilation -extract-uint128 \
 	  $(addprefix -add-include ,'<inttypes.h>' '"kremlib.h"' '"kremlin/internal/compat.h"') \
 	  $^
 	find $(OUTPUT_DIR) -name '*.c' -and -not -name 'FStar_UInt128.c' -exec rm {} \;
 
 $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
-	../krml -minimal -tmpdir $(UINT128_DIR) -skip-compilation -extract-uint128 \
+	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(UINT128_DIR) -skip-compilation -extract-uint128 \
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"kremlin/internal/types.h"') \
 	  -bundle FStar.UInt128=* -fparentheses $^
 
