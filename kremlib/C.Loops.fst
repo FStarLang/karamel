@@ -366,27 +366,32 @@ let in_place_map2 #a #b in1 in2 l f =
 
 (** To be extracted as:
  * for (int i = 0; i < n; ++i)
- *   f(b[i]);
+ *   f(b);
  *)
 inline_for_extraction
 val repeat:
   #a:Type0 ->
   l: UInt32.t ->
-  f:(s:Seq.seq a{Seq.length s = UInt32.v l} -> Tot (s':Seq.seq a{Seq.length s' = Seq.length s})) ->
+  f:(s:Seq.seq a{Seq.length s = UInt32.v l} ->
+    Tot (s':Seq.seq a{Seq.length s' = Seq.length s})) ->
   b: buffer a{Buffer.length b = UInt32.v l} ->
   max:UInt32.t ->
-  fc:(b:buffer a{length b = UInt32.v l} -> Stack unit
-                     (requires (fun h -> live h b))
-                     (ensures (fun h0 _ h1 -> live h0 b /\ live h1 b /\ modifies (loc_buffer b) h0 h1
-                       /\ (let b0 = as_seq h0 b in
-                          let b1 = as_seq h1 b in
-                          b1 == f b0)))) ->
+  fc:(b:buffer a{length b = UInt32.v l} ->
+    Stack unit
+      (requires (fun h -> live h b))
+      (ensures (fun h0 _ h1 ->
+        live h0 b /\ live h1 b /\ modifies (loc_buffer b) h0 h1 /\ (
+        let b0 = as_seq h0 b in
+        let b1 = as_seq h1 b in
+        b1 == f b0)))) ->
   Stack unit
     (requires (fun h -> live h b ))
-    (ensures (fun h_1 r h_2 -> modifies (loc_buffer b) h_1 h_2 /\ live h_1 b /\ live h_2 b
-      /\ (let s = as_seq h_1 b in
-         let s' = as_seq h_2 b in
-         s' == repeat_spec (UInt32.v max) f s) ))
+    (ensures (fun h_1 r h_2 ->
+      modifies (loc_buffer b) h_1 h_2 /\ live h_1 b /\ live h_2 b /\ (
+      let s = as_seq h_1 b in
+      let s' = as_seq h_2 b in
+      s' == repeat_spec (UInt32.v max) f s) ))
+
 inline_for_extraction
 let repeat #a l f b max fc =
   let h0 = HST.get() in
@@ -407,7 +412,7 @@ let repeat #a l f b max fc =
 
 (** To be extracted as:
  * for (int i = min; i < max; ++i)
- *   f(b[i], i);
+ *   f(b, i);
  *)
 inline_for_extraction
 val repeat_range:
@@ -415,35 +420,44 @@ val repeat_range:
   l: UInt32.t ->
   min:UInt32.t ->
   max:UInt32.t{UInt32.v min <= UInt32.v max} ->
-  f:(s:Seq.seq a{Seq.length s = UInt32.v l} -> i:nat{i < UInt32.v max} -> Tot (s':Seq.seq a{Seq.length s' = Seq.length s})) ->
+  f:(Ghost.erased (s: Seq.seq a{Seq.length s = UInt32.v l}) ->
+    i:nat{i < UInt32.v max} ->
+    Tot (Ghost.erased (s: Seq.seq a{Seq.length s = UInt32.v l}))) ->
   b: buffer a{Buffer.length b = UInt32.v l} ->
-  fc:(b:buffer a{length b = UInt32.v l} -> i:UInt32.t{UInt32.v i < UInt32.v max} -> Stack unit
-                     (requires (fun h -> live h b))
-                     (ensures (fun h0 _ h1 -> live h0 b /\ live h1 b /\ modifies (loc_buffer b) h0 h1
-                       /\ (let b0 = as_seq h0 b in
-                          let b1 = as_seq h1 b in
-                          b1 == f b0 (UInt32.v i))))) ->
+  inv: (HS.mem -> GTot Type0) ->
+  fc:(i:UInt32.t{UInt32.v i < UInt32.v max} ->
+    Stack unit
+      (requires (fun h -> inv h /\ live h b))
+      (ensures (fun h0 _ h1 ->
+        live h0 b /\ live h1 b /\ modifies (loc_buffer b) h0 h1 /\ inv h1 /\ (
+        let b0 = as_seq h0 b in
+        let b1 = as_seq h1 b in
+        b1 == Ghost.reveal (f (Ghost.hide b0) (UInt32.v i)))))) ->
   Stack unit
-    (requires (fun h -> live h b ))
-    (ensures (fun h_1 r h_2 -> modifies (loc_buffer b) h_1 h_2 /\ live h_1 b /\ live h_2 b
-      /\ (let s = as_seq h_1 b in
-         let s' = as_seq h_2 b in
-         s' == repeat_range_spec (UInt32.v min) (UInt32.v max) f s) ))
+    (requires (fun h -> inv h /\ live h b ))
+    (ensures (fun h_1 r h_2 ->
+      inv h_2 /\
+      modifies (loc_buffer b) h_1 h_2 /\ live h_1 b /\ live h_2 b /\ (
+      let s = as_seq h_1 b in
+      let s' = as_seq h_2 b in
+      s' == Ghost.reveal (repeat_range_spec (UInt32.v min) (UInt32.v max) f (Ghost.hide s)) )))
+
 inline_for_extraction
-let repeat_range #a l min max f b fc =
+let repeat_range #a l min max f b inv0 fc =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
+    inv0 h1 /\
     live h1 b /\ modifies (loc_buffer b) h0 h1 /\ i <= UInt32.v max /\ UInt32.v min <= i
-    /\ as_seq h1 b == repeat_range_spec (UInt32.v min) i f (as_seq h0 b)
+    /\ as_seq h1 b == Ghost.reveal (repeat_range_spec (UInt32.v min) i f (Ghost.hide (as_seq h0 b)))
   in
   let f' (i:UInt32.t{ UInt32.( 0 <= v i /\ v i < v max ) }): Stack unit
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
-    fc b i;
-    lemma_repeat_range_spec (UInt32.v min) (UInt32.v i + 1) f (as_seq h0 b)
+    fc i;
+    lemma_repeat_range_spec (UInt32.v min) (UInt32.v i + 1) f (Ghost.hide (as_seq h0 b))
   in
-  lemma_repeat_range_0 (UInt32.v min) (UInt32.v min) f (as_seq h0 b);
+  lemma_repeat_range_0 (UInt32.v min) (UInt32.v min) f (Ghost.hide (as_seq h0 b));
   for min max inv f'
 
 let rec total_while_gen

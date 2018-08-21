@@ -1,5 +1,5 @@
 [
-  "í•óR\u0011a™ç‡.—?}øË÷",
+  "wﬁÎb\u001båÂ-\u0012\tÂaı;·_",
   [
     [
       "Prims.Ghost",
@@ -110,89 +110,6 @@
       ],
       0,
       "de375bff222bd33b823f04001200b0a7"
-    ],
-    [
-      "Prims.Ghost",
-      2,
-      2,
-      1,
-      [ "@query" ],
-      0,
-      "fe19f9a7360f80b25a2257acb6d0e899"
-    ],
-    [
-      "Prims.list",
-      1,
-      2,
-      1,
-      [ "@query" ],
-      0,
-      "dac69c5ba1f66e39d0b001c35ea1fd53"
-    ],
-    [
-      "Prims.__proj__Cons__item__hd",
-      2,
-      2,
-      1,
-      [
-        "@MaxIFuel_assumption", "@query", "disc_equation_Prims.Cons",
-        "projection_inverse_BoxBool_proj_0",
-        "refinement_interpretation_Prims_Tm_refine_7aac12c24449a22c34d98a0ea8ed4a32"
-      ],
-      0,
-      "b866501cf332bdd082bad507d56aa28b"
-    ],
-    [
-      "Prims.__proj__Cons__item__tl",
-      2,
-      2,
-      1,
-      [
-        "@MaxIFuel_assumption", "@query", "disc_equation_Prims.Cons",
-        "projection_inverse_BoxBool_proj_0",
-        "refinement_interpretation_Prims_Tm_refine_7aac12c24449a22c34d98a0ea8ed4a32"
-      ],
-      0,
-      "931967755ef9de1a6fc4e9d59803cedc"
-    ],
-    [
-      "Prims.Lemma",
-      2,
-      2,
-      1,
-      [
-        "@MaxIFuel_assumption", "@query",
-        "refinement_interpretation_Prims_Tm_refine_8d65e998a07dd53ec478e27017d9dba5"
-      ],
-      0,
-      "6f27e55736acdc09fc61ecd15e854e4d"
-    ],
-    [
-      "Prims.nonzero",
-      2,
-      2,
-      1,
-      [ "@query", "assumption_Prims.HasEq_int" ],
-      0,
-      "4167779a375fd93146ef35d2e860364b"
-    ],
-    [
-      "Prims.pow2",
-      2,
-      2,
-      1,
-      [
-        "@MaxIFuel_assumption", "@query",
-        "Prims_pretyping_ae567c2fb75be05905677af440075565",
-        "equation_Prims.nat", "equation_Prims.pos", "int_inversion",
-        "int_typing", "primitive_Prims.op_Multiply",
-        "primitive_Prims.op_Subtraction", "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_Prims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d",
-        "refinement_interpretation_Prims_Tm_refine_f048236b5f8051f83b495ea5eaa6127b",
-        "well-founded-ordering-on-nat"
-      ],
-      0,
-      "4f054f521581ee80f7efa20bfdf1a927"
     ]
   ]
 ]
