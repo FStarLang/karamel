@@ -633,6 +633,13 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallFunc ("C_Nullity_null", [ _ ]) ->
       [ dummy_phrase (W.Ast.Const (mk_int32 0l)) ]
 
+  | CallFunc ("load16_le", [ e ]) ->
+      mk_expr env e @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.(Mem16, ZX) })]
+
+  | CallFunc ("load16_be", [ e ]) ->
+      mk_expr env (CallFunc ("WasmSupport_betole16", [ CallFunc ("load16_le", [ e ])]))
+
   | CallFunc ("load32_le", [ e ]) ->
       mk_expr env e @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = None })]
@@ -700,6 +707,15 @@ and mk_expr env (e: expr): W.Ast.instr list =
       [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
       (* This is just a glorified memcpy. *)
       mk_unit
+
+  | CallFunc ("store16_le", [ e1; e2 ]) ->
+      mk_expr env e1 @
+      mk_expr env e2 @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.Mem16 })] @
+      mk_unit
+
+  | CallFunc ("store16_be", [ e1; e2 ]) ->
+      mk_expr env (CallFunc ("store16_le", [ e1; CallFunc ("WasmSupport_betole16", [ e2 ])]))
 
   | CallFunc ("store32_le", [ e1; e2 ]) ->
       mk_expr env e1 @
