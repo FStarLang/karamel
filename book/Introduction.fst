@@ -66,8 +66,8 @@ let slice_plus_one #a (s1 s2: S.seq a) (i: nat): Lemma
   [ SMTPat (S.slice s1 0 (i + 1)); SMTPat (S.slice s2 0 (i + 1)) ]
 =
   let x = S.index s1 i in
-  let s1' = S.append (S.slice s1 0 i) (S.cons x S.createEmpty) in
-  let s2' = S.append (S.slice s2 0 i) (S.cons x S.createEmpty) in
+  let s1' = S.append (S.slice s1 0 i) (S.cons x S.empty) in
+  let s2' = S.append (S.slice s2 0 i) (S.cons x S.empty) in
   assert (S.equal s1' (S.slice s1 0 (i + 1)));
   assert (S.equal s2' (S.slice s2 0 (i + 1)))
 

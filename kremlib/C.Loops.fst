@@ -390,23 +390,23 @@ val repeat:
       modifies (loc_buffer b) h_1 h_2 /\ live h_1 b /\ live h_2 b /\ (
       let s = as_seq h_1 b in
       let s' = as_seq h_2 b in
-      s' == repeat_spec (UInt32.v max) f s) ))
+      s' == Spec.Loops.repeat (UInt32.v max) f s) ))
 
 inline_for_extraction
 let repeat #a l f b max fc =
   let h0 = HST.get() in
   let inv (h1: HS.mem) (i: nat): Type0 =
     live h1 b /\ modifies (loc_buffer b) h0 h1 /\ i <= UInt32.v max
-    /\ as_seq h1 b == repeat_spec i f (as_seq h0 b)
+    /\ as_seq h1 b == Spec.Loops.repeat i f (as_seq h0 b)
   in
   let f' (i:UInt32.t{ UInt32.( 0 <= v i /\ v i < v max ) }): Stack unit
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
     fc b;
-    lemma_repeat (UInt32.v i + 1) f (as_seq h0 b)
+    Spec.Loops.repeat_induction (UInt32.v i + 1) f (as_seq h0 b)
   in
-  lemma_repeat_0 0 f (as_seq h0 b);
+  Spec.Loops.repeat_base 0 f (as_seq h0 b);
   for 0ul max inv f'
 
 
@@ -419,7 +419,7 @@ let repeat #a l f b max fc =
  * fraction of the state which we must show remains unchanged through a call to the
  * combinator. This requires a fair amount of higher-order reasoning that seems to
  * work out better if the client specializes the code with a for loop, uses
- * variables in scope,and relies on modifies clauses reasoning.
+ * variables in scope, and relies on modifies clauses reasoning.
  *)
 inline_for_extraction
 val repeat_range:
@@ -447,7 +447,7 @@ val repeat_range:
       modifies (loc_buffer b) h_1 h_2 /\ live h_1 b /\ live h_2 b /\ (
       let s = as_seq h_1 b in
       let s' = as_seq h_2 b in
-      s' == Ghost.reveal (repeat_range_spec (UInt32.v min) (UInt32.v max) f (Ghost.hide s)) )))
+      s' == Ghost.reveal (Spec.Loops.repeat_range (UInt32.v min) (UInt32.v max) f (Ghost.hide s)) )))
 
 inline_for_extraction
 let repeat_range #a l min max f b inv0 fc =
@@ -455,16 +455,16 @@ let repeat_range #a l min max f b inv0 fc =
   let inv (h1: HS.mem) (i: nat): Type0 =
     inv0 h1 /\
     live h1 b /\ modifies (loc_buffer b) h0 h1 /\ i <= UInt32.v max /\ UInt32.v min <= i
-    /\ as_seq h1 b == Ghost.reveal (repeat_range_spec (UInt32.v min) i f (Ghost.hide (as_seq h0 b)))
+    /\ as_seq h1 b == Ghost.reveal (Spec.Loops.repeat_range (UInt32.v min) i f (Ghost.hide (as_seq h0 b)))
   in
   let f' (i:UInt32.t{ UInt32.( 0 <= v i /\ v i < v max ) }): Stack unit
     (requires (fun h -> inv h (UInt32.v i)))
     (ensures (fun h_1 _ h_2 -> UInt32.(inv h_2 (v i + 1))))
   =
     fc i;
-    lemma_repeat_range_spec (UInt32.v min) (UInt32.v i + 1) f (Ghost.hide (as_seq h0 b))
+    Spec.Loops.repeat_range_induction (UInt32.v min) (UInt32.v i + 1) f (Ghost.hide (as_seq h0 b))
   in
-  lemma_repeat_range_0 (UInt32.v min) (UInt32.v min) f (Ghost.hide (as_seq h0 b));
+  Spec.Loops.repeat_range_base (UInt32.v min) f (Ghost.hide (as_seq h0 b));
   for min max inv f'
 
 let rec total_while_gen
