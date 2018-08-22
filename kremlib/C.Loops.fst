@@ -413,6 +413,13 @@ let repeat #a l f b max fc =
 (** To be extracted as:
  * for (int i = min; i < max; ++i)
  *   f(b, i);
+ *
+ * Some notes about this combinator. So far, we haven't found it to be very
+ * useful. Mostly, in order to be useful, `f` needs to rely on some read-only
+ * fraction of the state which we must show remains unchanged through a call to the
+ * combinator. This requires a fair amount of higher-order reasoning that seems to
+ * work out better if the client specializes the code with a for loop, uses
+ * variables in scope,and relies on modifies clauses reasoning.
  *)
 inline_for_extraction
 val repeat_range:

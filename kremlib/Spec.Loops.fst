@@ -60,6 +60,7 @@ val lemma_repeat_range_0: #a:Type -> min:nat -> max:nat{min <= max} -> f:(a -> i
         (ensures (repeat_range_spec min max f x == x))
 let lemma_repeat_range_0 #a min max f x = ()
 
+// JP: this lemma seems unused
 val lemma_repeat_range_1: #a:Type -> min:nat -> max:nat{min <= max} -> f:(a -> i:nat{i < max} -> Tot a) -> x:a ->
   Lemma (requires (min <> max))
         (ensures (min <> max /\ repeat_range_spec (min+1) max f (f x min) == repeat_range_spec min max f x))
