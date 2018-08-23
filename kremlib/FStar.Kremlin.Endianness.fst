@@ -127,6 +127,30 @@ let n_to_be_inj (len:U32.t) (n1 n2: (n:nat{n < pow2 (8 * U32.v len)})) :
         (ensures (n1 == n2)) =
   ()
 
+let rec be_to_n_inj
+  (b1 b2: Seq.seq U8.t)
+: Lemma
+  (requires (Seq.length b1 == Seq.length b2 /\ be_to_n b1 == be_to_n b2))
+  (ensures (Seq.equal b1 b2))
+  (decreases (Seq.length b1))
+= if Seq.length b1 = 0
+  then ()
+  else begin
+    be_to_n_inj (Seq.slice b1 0 (Seq.length b1 - 1)) (Seq.slice b2 0 (Seq.length b2 - 1));
+    Seq.lemma_split b1 (Seq.length b1 - 1);
+    Seq.lemma_split b2 (Seq.length b2 - 1)
+  end
+
+let n_to_be_be_to_n (len: U32.t) (s: Seq.seq U8.t) : Lemma
+  (requires (Seq.length s == U32.v len))
+  (ensures (
+    be_to_n s < pow2 (8 `Prims.op_Multiply` U32.v len) /\
+    n_to_be len (be_to_n s) == s
+  ))
+  [SMTPat (n_to_be len (be_to_n s))]
+= lemma_be_to_n_is_bounded s;
+  be_to_n_inj s (n_to_be len (be_to_n s))
+
 (** A series of specializations to deal with machine integers *)
 
 let uint32_of_le (b: bytes { S.length b = 4 }) =
