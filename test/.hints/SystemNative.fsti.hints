@@ -15,7 +15,7 @@
         "typing_FStar.Buffer.as_seq"
       ],
       0,
-      "086a4478aefeb7109fd80df001e49fca"
+      "9188f11c202f6103cade18bf76c7125c"
     ],
     [
       "SystemNative.pointer",
@@ -24,7 +24,7 @@
       1,
       [ "@query", "assumption_Prims.HasEq_int" ],
       0,
-      "3e612285daf517b4b42e23f9ac9c332a"
+      "bcb0646564d38b70001a2ce0e75bc544"
     ],
     [
       "SystemNative.pointer_or_null",
@@ -33,7 +33,7 @@
       1,
       [ "@query", "assumption_Prims.HasEq_int" ],
       0,
-      "d4457ac9cb597342ec2e89d4463ffda6"
+      "79b6d1ac02dce87ffb5ff133d1704801"
     ],
     [
       "SystemNative.sockaddr_t",
@@ -47,7 +47,7 @@
         "fuel_guarded_inversion_SystemNative.ai_family_t"
       ],
       0,
-      "87962f29dc1f8f53bab7bd6d55eaf16d"
+      "89632f52ac078d0c738eb44ec3ebd2c7"
     ],
     [
       "SystemNative.__proj__AddrInfo__item__ai_addr",
@@ -55,11 +55,15 @@
       2,
       1,
       [
-        "@query", "proj_equation_SystemNative.AddrInfo_ai_family",
+        "@MaxIFuel_assumption", "@query",
+        "constructor_distinct_SystemNative.PF_INET",
+        "equation_SystemNative.sockaddr_t",
+        "fuel_guarded_inversion_SystemNative.ai_family_t",
+        "proj_equation_SystemNative.AddrInfo_ai_family",
         "projection_inverse_SystemNative.AddrInfo_ai_family"
       ],
       0,
-      "0e762332c11e743fd7216021f0d5128c"
+      "e6c53bb9251b54900f24d05112c352c3"
     ],
     [
       "SystemNative.addrinfo_length_decreases",
@@ -73,7 +77,7 @@
         "refinement_interpretation_SystemNative_Tm_refine_dbe33893899564965a42f115925172f5"
       ],
       0,
-      "333193244ff470a58c9bbb9b682b37b2"
+      "b34a81d2517b37b153ae7a59d8892f04"
     ],
     [
       "SystemNative.addrinfo_live",
@@ -98,7 +102,7 @@
         "typing_SystemNative.addrinfo_length", "well-founded-ordering-on-nat"
       ],
       0,
-      "3a01297592645fe280dd2d3e0205789f"
+      "f99670c77056f18193ae587aaa23e4aa"
     ],
     [
       "SystemNative.getaddrinfo",
@@ -114,7 +118,7 @@
         "refinement_interpretation_SystemNative_Tm_refine_0d4da60cb6187749d65a25df63d2ab15"
       ],
       0,
-      "157e99126bdfb43d2e0c7dbafbc345b6"
+      "b309f2a0635061bc153ecb98f21975c9"
     ]
   ]
 ]

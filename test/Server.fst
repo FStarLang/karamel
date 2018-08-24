@@ -227,6 +227,7 @@ let respond_index (response: B.buffer C.char): Stack U32.t
   pop_frame ();
   n
 
+#push-options "--z3rlimit 10"
 let respond_stats (response: B.buffer C.char) (state: U32.t): Stack U32.t
   (requires (fun h0 ->
     B.live h0 response /\
@@ -245,6 +246,7 @@ let respond_stats (response: B.buffer C.char) (state: U32.t): Stack U32.t
   let n = respond response payload U32.(n1+^n2+^n3) in
   pop_frame ();
   n
+#pop-options
 
 #reset-options "--z3cliopt smt.arith.nl=false --z3rlimit 32 --max_ifuel 0 --max_fuel 0"
 
