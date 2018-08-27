@@ -252,7 +252,8 @@ let make_abstract_function_or_global = function
  * where:
  * - the model of a machine integer as an inductive is gone
  * - operators (marked as unfold) are gone
- * - lets are replaced by vals *)
+ * - lets are replaced by vals
+ * - but we keep the gte_mask and eq_mask functions *)
 let make_abstract (name, decls) =
   name, KList.filter_map (function
     | DType (_, _, _, Abbrev _) as t ->
@@ -262,7 +263,11 @@ let make_abstract (name, decls) =
     | DGlobal (_, name, _, _, _) when KString.starts_with (snd name) "op_" ->
         None
     | d ->
-        make_abstract_function_or_global d
+        match lid_of_decl d with
+        | [ "FStar"; _ ], ("eq_mask" | "gte_mask") when !Options.extract_uints ->
+            Some d
+        | _ ->
+            make_abstract_function_or_global d
   ) decls
 
 (* Transforms an F* module that contains a model into a set of "assume val" that
@@ -277,7 +282,7 @@ let is_model name =
     name <> "FStar_UInt" && name <> "FStar_Int"
   in
   if name = "FStar_UInt128" then
-    not (!Options.extract_uint128)
+    not (!Options.extract_uints)
   else
     is_machine_integer name ||
     List.mem name [

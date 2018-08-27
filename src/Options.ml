@@ -43,7 +43,7 @@ let unroll_loops = ref (-1)
 let tail_calls = ref false
 let no_shadow = ref false
 
-let extract_uint128 = ref false
+let extract_uints = ref false
 
 let header: (string -> string -> string) ref = ref (fun x y ->
   KPrint.bsprintf

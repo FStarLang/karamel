@@ -209,7 +209,7 @@ Supported options:|}
     "-library", Arg.String (fun s ->
       List.iter (prepend Options.library) (Parsers.drop s)),
       "  this is a model and all functions should be made abstract";
-    "-extract-uint128", Arg.Set Options.extract_uint128, ""; (* no doc, intentional *)
+    "-extract-uints", Arg.Set Options.extract_uints, ""; (* no doc, intentional *)
     "-header", Arg.String (fun f ->
       let c = Utils.file_get_contents f in
       Options.header := fun _ _ -> c
@@ -314,7 +314,7 @@ Supported options:|}
     (* True Wasm compilation: this module is useless (only assume val's). *)
     (* Only keep what's stricly needed from the C module. *)
     Options.bundle := ([], [ Bundle.Module [ "C" ]]) :: !Options.bundle;
-    Options.extract_uint128 := true
+    Options.extract_uints := true
   end;
 
   (* Self-help. *)

@@ -28,35 +28,6 @@ let check_buffer_size (s: U32.t): Stack unit (fun _-> True) (fun _ _ _ -> True) 
   if U32.( s =^ 0ul ) then
     trap ()
 
-(* TODO: all of these functions are copy-pastes from whatever is written in
- * kremlib.h. They OUGHT TO BE implement in F*! *)
-let eq_mask64 (x y: U64.t) =
-  let open FStar.UInt64 in
-  let x = lognot (logxor x y) in
-  let x = shift_left x 32ul in
-  let x = shift_left x 16ul in
-  let x = shift_left x 8ul in
-  let x = shift_left x 4ul in
-  let x = shift_left x 2ul in
-  let x = shift_left x 1ul in
-  FStar.Int64.( shift_right (FStar.Int.Cast.uint64_to_int64 x) 63ul )
-
-#set-options "--lax"
-let gte_mask64 (x y: U64.t) =
-  let low63 = U64.lognot (C.int64_to_uint64 (I64.shift_right
-    (I64.sub
-      (C.uint64_to_int64 (U64.logand x 0x7fffffffffffffffUL))
-      (C.uint64_to_int64 (U64.logand y 0x7fffffffffffffffUL)))
-    63ul))
-  in
-  let high_bit = U64.lognot (C.int64_to_uint64 (I64.shift_right
-    (I64.sub
-      (C.uint64_to_int64 (U64.logand x 0x8000000000000000UL))
-      (C.uint64_to_int64 (U64.logand y 0x8000000000000000UL)))
-    63ul))
-  in
-  U64.logand low63 high_bit
-
 let betole32 (x: U32.t) =
   let open U32 in
   logor (logor (logor (logand (shift_right x 24ul) 0x000000FFul)
