@@ -1,3 +1,8 @@
+### August 27th, 2018
+
+- Remove hand-written, buggy implementation of the `eq_mask` and `gte_mask`
+  functions, in favor of verified ones (bug reported by Jason Donenfeld).
+
 ### July 22nd, 2018
 
 - Support for a new attribute, `CAbstractStruct`. Such a structure generates a
