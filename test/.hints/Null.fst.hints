@@ -26,7 +26,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "f2328b298dcfd776b362e9e1c483c949"
+      "4507cd5bfde189b0b710736fb17bb80f"
     ],
     [
       "Null.main",
@@ -36,14 +36,19 @@
       [
         "@MaxIFuel_assumption", "@query", "bool_inversion",
         "equation_FStar.Monotonic.HyperStack.mem",
+        "equation_LowStar.Buffer.buffer", "equation_LowStar.Buffer.null",
+        "equation_LowStar.Buffer.trivial_preorder",
         "function_token_typing_FStar.Int32.t",
-        "lemma_LowStar.Buffer.live_is_null",
-        "refinement_interpretation_LowStar.Buffer_Tm_refine_e0faffbce24e3a5f20f2bc4c65cb30d6",
-        "refinement_interpretation_Null_Tm_refine_4f8a43b47a942e0ca05746adc0bd84ec",
-        "typing_LowStar.Buffer.g_is_null", "typing_LowStar.Buffer.null"
+        "lemma_LowStar.Monotonic.Buffer.live_is_null",
+        "refinement_interpretation_LowStar.Monotonic.Buffer_Tm_refine_3daf37ab3cd19c1e74e63f8f5e0fb16a",
+        "refinement_interpretation_Null_Tm_refine_76e9cf48c262a92af878c3d576f43b89",
+        "typing_LowStar.Buffer.null",
+        "typing_LowStar.Buffer.trivial_preorder",
+        "typing_LowStar.Monotonic.Buffer.g_is_null",
+        "typing_LowStar.Monotonic.Buffer.mnull"
       ],
       0,
-      "967490db98c019bb2b90af0a7ffc73a0"
+      "41a2a78b6f8c008c6b8ddea593518b58"
     ]
   ]
 ]

@@ -629,6 +629,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallOp (o, [ e1; e2 ]) ->
       mk_callop2 env o e1 e2
 
+  | CallFunc ("LowStar_Monotonic_Buffer_mnull", [ _ ] )
   | CallFunc ("LowStar_Buffer_null", [ _ ] )
   | CallFunc ("C_Nullity_null", [ _ ]) ->
       [ dummy_phrase (W.Ast.Const (mk_int32 0l)) ]

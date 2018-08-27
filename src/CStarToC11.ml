@@ -524,8 +524,9 @@ and mk_deref (e: expr) : C.expr =
 and is_primitive s =
   let known = [
     (* Useless definitions: they are bypassed by custom codegen. *)
-    "LowStar_Buffer_is_null";
+    "LowStar_Monotonic_Buffer_is_null";
     "C_Nullity_is_null";
+    "LowStar_Monotonic_Buffer_mnull";
     "LowStar_Buffer_null";
     "C_Nullity_null";
     "C_String_get";
@@ -604,11 +605,12 @@ and mk_expr (e: expr): C.expr =
   | BufRead (e1, e2) ->
       mk_index e1 e2
 
+  | Call (Qualified "LowStar_Monotonic_Buffer_mnull", _)
   | Call (Qualified "LowStar_Buffer_null", _)
   | Call (Qualified "C_Nullity_null", _) ->
       Name "NULL"
 
-  | Call (Qualified "LowStar_Buffer_is_null", [ e ] )
+  | Call (Qualified "LowStar_Monotonic_Buffer_is_null", [ e ] )
   | Call (Qualified "C_Nullity_is_null", [ e ]) ->
       Op2 (K.Eq, mk_expr e, C.Name "NULL")
 
