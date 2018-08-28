@@ -18,8 +18,6 @@ eval $(opam config env)
 
 git clone https://github.com/project-everest/everest
 ./everest/everest --yes opam z3
-# Temporary see alainfrisch/sedlex/issues/64
-opam install ppx_tools_versioned.5.2
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   wget https://nodejs.org/dist/v8.11.3/node-v8.11.3-linux-x64.tar.xz
