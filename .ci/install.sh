@@ -17,6 +17,8 @@ opam init --comp=4.05.0
 eval $(opam config env)
 
 git clone https://github.com/project-everest/everest
+# Temporary see alainfrisch/sedlex/issues/64
+opam install ppx_tools_versioned.5.2
 ./everest/everest --yes opam z3
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
