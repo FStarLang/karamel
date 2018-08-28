@@ -592,10 +592,10 @@ and mk_expr (e: expr): C.expr =
   | Call (Qualified s, [ e1 ]) when KString.starts_with s "C_Nullity_op_Bang_Star__" ->
       mk_deref e1
 
-  | Call (Qualified s, [ e1 ]) when KString.starts_with s "LowStar_BufferOps_op_Bang_Star__" ->
+  | Call (Qualified s, e1 :: _) when KString.starts_with s "LowStar_BufferOps_op_Bang_Star__" ->
       mk_deref e1
 
-  | Call (Qualified s, [ e1; e2 ] ) when KString.starts_with s "LowStar_BufferOps_op_Star_Equals__" ->
+  | Call (Qualified s, e1 :: e2 :: _ ) when KString.starts_with s "LowStar_BufferOps_op_Star_Equals__" ->
       Op2 (K.Assign, mk_deref e1, mk_expr e2)
 
   | Call (Qualified "C_String_of_literal", [ StringLiteral _ as s ]) ->
