@@ -175,6 +175,10 @@ let mkCEndianness = (mem) => ({
   be32toh: (x) => { throw new Error("todo: be32toh") },
   htobe64: (x) => { throw new Error("todo: htobe64") },
   be64toh: (x) => { throw new Error("todo: be64toh") },
+  index_32_be: (x) => { throw new Error("todo: index_32_be") },
+  index_32_le: (x) => { throw new Error("todo: index_32_le") },
+  index_64_be: (x) => { throw new Error("todo: index_64_be") },
+  index_64_le: (x) => { throw new Error("todo: index_64_le") },
   // all of these: implemented natively in CFlatToWasm
   store16_le: (addr, n) => { throw new Error("todo: store16_le") },
   load16_le: (addr) => { throw new Error("todo: load16_le") },
