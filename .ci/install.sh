@@ -8,8 +8,8 @@ git config --global user.email "everbld@microsoft.com"
 git clone https://github.com/fstarlang/fstar-mode.el
 git clone https://dzomo:$DZOMO_TOKEN@github.com/fstarlang/fstarlang.github.io
 
-sudo apt-get install opam
-sudo easy_install docutils sphinx sphinx-rtd-theme
+sudo apt-get install opam python3
+sudo easy_install docutils sphinx==1.7.2 sphinx-rtd-theme
 
 export OPAMYES=true
 export OPAMJOBS=4

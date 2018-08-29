@@ -1,5 +1,5 @@
 [
-  "Ò†\fß?-Ö_\u0000ý\u0005×e£[Ñ",
+  "Ì\u0016\\\"†8S™\u0011ô‚\u0013\u000f·÷‚",
   [
     [
       "WasmSupport.check_buffer_size",
@@ -22,7 +22,22 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "2adfc79367f3c2318fb8067f27ce35d8"
+      "2f59b02444da6315149790ea0eda19d1"
+    ],
+    [
+      "WasmSupport.betole64",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "Prims_pretyping_ae567c2fb75be05905677af440075565",
+        "assumption_Prims.HasEq_int", "equation_FStar.UInt32.n",
+        "function_token_typing_FStar.UInt32.n",
+        "haseqFStar.Int.Cast_Tm_refine_b3efc639530fd2a5a3fc84fb3d494026"
+      ],
+      0,
+      "4bdb49fdd4601c767e8850a3a13fa480"
     ]
   ]
 ]

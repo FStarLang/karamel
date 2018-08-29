@@ -178,6 +178,6 @@ let read_file (f: string): file list =
 let read_files = KList.map_flatten read_file
 
 let write_file (files: file list) (f: string): unit =
-  with_open_out f (fun oc ->
+  with_open_out_bin f (fun oc ->
     output_value oc (current_version, files);
   )

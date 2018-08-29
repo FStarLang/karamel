@@ -524,8 +524,9 @@ and mk_deref (e: expr) : C.expr =
 and is_primitive s =
   let known = [
     (* Useless definitions: they are bypassed by custom codegen. *)
-    "LowStar_Buffer_is_null";
+    "LowStar_Monotonic_Buffer_is_null";
     "C_Nullity_is_null";
+    "LowStar_Monotonic_Buffer_mnull";
     "LowStar_Buffer_null";
     "C_Nullity_null";
     "C_String_get";
@@ -591,10 +592,10 @@ and mk_expr (e: expr): C.expr =
   | Call (Qualified s, [ e1 ]) when KString.starts_with s "C_Nullity_op_Bang_Star__" ->
       mk_deref e1
 
-  | Call (Qualified s, [ e1 ]) when KString.starts_with s "LowStar_BufferOps_op_Bang_Star__" ->
+  | Call (Qualified s, e1 :: _) when KString.starts_with s "LowStar_BufferOps_op_Bang_Star__" ->
       mk_deref e1
 
-  | Call (Qualified s, [ e1; e2 ] ) when KString.starts_with s "LowStar_BufferOps_op_Star_Equals__" ->
+  | Call (Qualified s, e1 :: e2 :: _ ) when KString.starts_with s "LowStar_BufferOps_op_Star_Equals__" ->
       Op2 (K.Assign, mk_deref e1, mk_expr e2)
 
   | Call (Qualified "C_String_of_literal", [ StringLiteral _ as s ]) ->
@@ -604,11 +605,12 @@ and mk_expr (e: expr): C.expr =
   | BufRead (e1, e2) ->
       mk_index e1 e2
 
+  | Call (Qualified "LowStar_Monotonic_Buffer_mnull", _)
   | Call (Qualified "LowStar_Buffer_null", _)
   | Call (Qualified "C_Nullity_null", _) ->
       Name "NULL"
 
-  | Call (Qualified "LowStar_Buffer_is_null", [ e ] )
+  | Call (Qualified "LowStar_Monotonic_Buffer_is_null", [ e ] )
   | Call (Qualified "C_Nullity_is_null", [ e ]) ->
       Op2 (K.Eq, mk_expr e, C.Name "NULL")
 

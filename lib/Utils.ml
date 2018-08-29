@@ -16,8 +16,8 @@ let with_open_in file_path f =
     close_in c
   )
 
-let with_open_out file_path f =
-  let c = open_out file_path in
+let with_open_out_bin file_path f =
+  let c = open_out_bin file_path in
   try_finally (fun () ->
     f c
   ) (fun () ->
@@ -25,7 +25,7 @@ let with_open_out file_path f =
   )
 
 
-let cp dst src = with_open_out dst (fun oc ->
+let cp dst src = with_open_out_bin dst (fun oc ->
   with_open_in src (fun ic ->
     let buf = Bytes.create 2048 in
     while

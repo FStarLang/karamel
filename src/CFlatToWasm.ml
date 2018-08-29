@@ -129,7 +129,9 @@ let mk_lit w lit =
       let n = if Z.( n >= ~$2 ** 63 ) then Z.( n - ~$2 ** 64 ) else n in
       mk_int64 (Z.to_int64 n)
   | K.Int32 | K.UInt8 | K.UInt16 | K.UInt32 | K.Bool | K.CInt ->
-      mk_int32 (Int32.of_string lit)
+      let n = Z.of_string lit in
+      let n = if Z.( n >= ~$2 ** 31 ) then Z.( n - ~$2 ** 32 ) else n in
+      mk_int32 (Z.to_int32 n)
   | _ ->
       failwith (KPrint.bsprintf "mk_lit: %s@%s" (K.show_width w) lit)
 
@@ -629,6 +631,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallOp (o, [ e1; e2 ]) ->
       mk_callop2 env o e1 e2
 
+  | CallFunc ("LowStar_Monotonic_Buffer_mnull", [ _ ] )
   | CallFunc ("LowStar_Buffer_null", [ _ ] )
   | CallFunc ("C_Nullity_null", [ _ ]) ->
       [ dummy_phrase (W.Ast.Const (mk_int32 0l)) ]

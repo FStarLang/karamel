@@ -1269,10 +1269,6 @@ let combinators = object(self)
   inherit [_] map as super
 
   method private mk_for start finish body w =
-    (* Relying on the invariant that, if [finish] is effectful, F* has
-     * hoisted it *)
-    if not (is_value finish) then
-      Warnings.fatal_error "%a is not a value" pexpr finish;
     let b = fresh_binder "i" (TInt w) in
     let b = mark_mut b in
     let cond = mk_lt w (lift 1 finish) in
