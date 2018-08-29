@@ -1,3 +1,9 @@
+### August 28th, 2018
+
+- Support for top-level arrays in the data segment in WASM
+- Support for (unchecked) Prims.int in WASM
+- Better modularity of the loader in WASM to facilitate integration
+
 ### August 27th, 2018
 
 - Remove hand-written, buggy implementation of the `eq_mask` and `gte_mask`
