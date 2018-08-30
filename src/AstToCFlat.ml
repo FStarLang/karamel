@@ -53,7 +53,7 @@ let size_of (t: typ): size =
       I32
   | TAnonymous (Enum _) ->
       I32
-  | TQualified ([], ("C_String_t" | "C_String_t_" | "Prims_string")) ->
+  | TQualified ([], ("C_String_t" | "C_String_t_" | "Prims_string" | "Prims_int")) ->
       (* The string type from the C.String module, or an F* string literal.
        * They're represented the same way, that is, a pointer to a string
        * statically allocated in the data segment. *)
@@ -394,7 +394,27 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
           ptyp e.typ mult (string_of_array_size base_size);
       locals, CF.BufCreate (l, mk_mul32 e_len (mk_uint32 mult), base_size)
 
-  | EBufCreateL _ | EBufBlit _ | EBufFill _ ->
+  | EBufCreateL (Common.Eternal, es) ->
+      let t = (List.hd es).typ in
+      let len = match t with
+        | TInt K.UInt8 ->
+            List.length es
+        | _ ->
+            Warnings.fatal_error "todo: non-uint8 top-level arrays"
+      in
+      let buf = Bytes.create len in
+      List.iteri (fun i e ->
+        match e.node with
+        | EConstant (K.UInt8, s) ->
+            let c = char_of_int (int_of_string s) in
+            Bytes.set buf i c
+        | _ ->
+            assert false
+      ) es;
+      locals, CF.StringLiteral (Bytes.to_string buf)
+
+  | EBufCreateL _
+  | EBufBlit _ | EBufFill _ ->
       Warnings.fatal_error "this should've been desugared in Simplify.wasm\n%a" pexpr e
 
   | EBufRead (e1, e2) ->

@@ -225,7 +225,7 @@ and print_expr { node; typ } =
   | EOp (o, w) ->
       string "(" ^^ print_op o ^^ string "," ^^ print_width w ^^ string ")"
   | ECast (e, t) ->
-      parens_with_nesting (print_expr e ^^ colon ^/^ print_typ t)
+      parens_with_nesting (print_expr e ^^ langle ^^ colon ^/^ print_typ t)
   | EPopFrame ->
       string "pop_frame"
   | EPushFrame ->

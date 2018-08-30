@@ -42,7 +42,7 @@ if (typeof WebAssembly === "undefined")
 // Load extra modules... with the understanding that shell.js is written by
 // kreMLin
 var link, reserve;
-var my_js_files, my_modules, my_debug;
+var my_js_files, my_modules, my_debug, my_imports = {};
 
 my_print("... loader.js");
 if (is_node) {
@@ -59,13 +59,15 @@ for (let f of my_js_files) {
     var m = require(f);
     if (m.main)
       this.main = m.main;
+    if (m.my_imports)
+      my_imports = m.my_imports;
   } else {
     my_load(f);
   }
 }
 
 my_print("... assembling WASM modules " + my_modules + "\n");
-var scope = link(my_modules.map(m => ({ name: m, buf: my_readbuffer(m+".wasm") })));
+var scope = link(my_imports, my_modules.map(m => ({ name: m, buf: my_readbuffer(m+".wasm") })));
 scope.then(scope => {
   if (debug) {
     for (let m of Object.keys(scope))

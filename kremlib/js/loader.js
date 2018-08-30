@@ -125,7 +125,6 @@ function dummyModule(funcs, globals) {
   return module;
 }
 
-
 let mkWasmSupport = (mem) => ({
   WasmSupport_trap: () => {
     dump(mem, 2*1024);
@@ -138,41 +137,16 @@ let mkFStar = () => dummyModule(
   [ "FStar_UInt128_constant_time_carry_ok", "FStar_PropositionalExtensionality_axiom" ],
   [ "FStar_Monotonic_Heap_lemma_mref_injectivity" ]);
 
+let mkPrims = (mem) => ({
+  Prims_op_Addition: (x, y) => { return x + y; }
+});
+
 let mkC = (mem) => ({
   srand: () => { throw new Error("todo: srand") },
   rand: () => { throw new Error("todo: rand") },
-  exit: () => { throw new Error("todo: exit") },
+  exit: (errno) => { throw new Error("Program exited via C.exit [errno="+errno+"]") },
+  portable_exit: (errno) => { throw new Error("Program exited via C.portable_exit [errno="+errno+"]") },
   print_bytes: () => { throw new Error("todo: print_bytes") },
-  htole16: (x) => { throw new Error("todo: htole16") },
-  le16toh: (x) => { throw new Error("todo: le16toh") },
-  htole32: (x) => { throw new Error("todo: htole32") },
-  le32toh: (x) => { throw new Error("todo: le32toh") },
-  htole64: (x) => { throw new Error("todo: htole64") },
-  le64toh: (x) => { throw new Error("todo: le64toh") },
-  htobe16: (x) => { throw new Error("todo: htobe16") },
-  be16toh: (x) => { throw new Error("todo: be16toh") },
-  htobe32: (x) => { throw new Error("todo: htobe32") },
-  be32toh: (x) => { throw new Error("todo: be32toh") },
-  htobe64: (x) => { throw new Error("todo: htobe64") },
-  be64toh: (x) => { throw new Error("todo: be64toh") },
-  store16_le: (addr, n) => { throw new Error("todo: store16_le") },
-  load16_le: (addr) => { throw new Error("todo: load16_le") },
-  store16_be: (addr, n) => { throw new Error("todo: store16_be") },
-  load16_be: (addr) => { throw new Error("todo: load16_be") },
-  store32_le: (addr, n) => {
-    writeLeAtAddr(mem, addr, n, 4);
-  },
-  // load32_le: implemented natively
-  store32_be: (addr, n) => { throw new Error("todo: store32_be") },
-  load32_be: (addr) => { throw new Error("todo: load32_be") },
-  store64_le: (addr, n) => { throw new Error("todo: store64_le") },
-  load64_le: (addr) => { throw new Error("todo: load64_le") },
-  store64_be: (addr, n) => { throw new Error("todo: store64_be") },
-  load64_be: (addr) => { throw new Error("todo: load64_be") },
-  store128_le: (addr, n) => { throw new Error("todo: store128_le") },
-  load128_le: (addr) => { throw new Error("todo: load128_le") },
-  store128_be: (addr, n) => { throw new Error("todo: store128_be") },
-  load128_be: (addr) => { throw new Error("todo: load128_be") },
 
   char_uint8: () => { throw new Error("todo: char_uint8") },
   uint8_char: () => { throw new Error("todo: uint8_char") },
@@ -188,8 +162,47 @@ let mkC = (mem) => ({
   clock: () => Date.now(),
 });
 
+let mkCEndianness = (mem) => ({
+  htole16: (x) => { throw new Error("todo: htole16") },
+  le16toh: (x) => { throw new Error("todo: le16toh") },
+  htole32: (x) => { throw new Error("todo: htole32") },
+  le32toh: (x) => { throw new Error("todo: le32toh") },
+  htole64: (x) => { throw new Error("todo: htole64") },
+  le64toh: (x) => { throw new Error("todo: le64toh") },
+  htobe16: (x) => { throw new Error("todo: htobe16") },
+  be16toh: (x) => { throw new Error("todo: be16toh") },
+  htobe32: (x) => { throw new Error("todo: htobe32") },
+  be32toh: (x) => { throw new Error("todo: be32toh") },
+  htobe64: (x) => { throw new Error("todo: htobe64") },
+  be64toh: (x) => { throw new Error("todo: be64toh") },
+  index_32_be: (x) => { throw new Error("todo: index_32_be") },
+  index_32_le: (x) => { throw new Error("todo: index_32_le") },
+  index_64_be: (x) => { throw new Error("todo: index_64_be") },
+  index_64_le: (x) => { throw new Error("todo: index_64_le") },
+  // all of these: implemented natively in CFlatToWasm
+  store16_le: (addr, n) => { throw new Error("todo: store16_le") },
+  load16_le: (addr) => { throw new Error("todo: load16_le") },
+  store16_be: (addr, n) => { throw new Error("todo: store16_be") },
+  load16_be: (addr) => { throw new Error("todo: load16_be") },
+  store32_le: (addr, n) => { throw new error("todo: store32_le") },
+  store32_be: (addr, n) => { throw new error("todo: store32_be") },
+  load32_be: (addr) => { throw new Error("todo: load32_be") },
+  store64_le: (addr, n) => { throw new Error("todo: store64_le") },
+  load64_le: (addr) => { throw new Error("todo: load64_le") },
+  store64_be: (addr, n) => { throw new Error("todo: store64_be") },
+  load64_be: (addr) => { throw new Error("todo: load64_be") },
+  store128_le: (addr, n) => { throw new Error("todo: store128_le") },
+  load128_le: (addr) => { throw new Error("todo: load128_le") },
+  store128_be: (addr, n) => { throw new Error("todo: store128_be") },
+  load128_be: (addr) => { throw new Error("todo: load128_be") }
+});
+
 let mkCNullity = (mem) => ({
   C_Nullity_is_null: () => { throw new Error("todo: is_null") }
+});
+
+let mkCString = (mem) => ({
+  C_String_print: (ptr) => my_print(stringAtAddr(mem, ptr)),
 });
 
 function checkEq(mem, name) {
@@ -333,8 +346,11 @@ function init() {
     },
     WasmSupport: mkWasmSupport(mem),
     FStar: mkFStar(mem),
+    Prims: mkPrims(mem),
     C: mkC(mem),
+    C_Endianness: mkCEndianness(mem),
     C_Nullity: mkCNullity(mem),
+    C_String: mkCString(mem),
     TestLib: mkTestLib(mem)
   };
   return imports;
@@ -367,7 +383,7 @@ function reserve(mem, size) {
   return p;
 }
 
-function link(modules) {
+function link(imports, modules) {
   let fold = async (imports, modules) => {
     if (!modules.length)
       return imports;
@@ -378,7 +394,12 @@ function link(modules) {
     return fold(imports, ms);
   };
 
-  return fold(init(), modules);
+  let i = init ();
+  my_print("Custom imports:", imports);
+  for (let k in imports)
+    i[k] = imports[k](i.Kremlin.mem);
+
+  return fold(i, modules);
 }
 
 if (typeof module !== "undefined")

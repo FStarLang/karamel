@@ -75,11 +75,13 @@ let primitives = [
   "load64_le";
   "load64_be";
   "load128_le";
+  "load128_be";
   "store32_le";
   "store32_be";
   "store64_le";
   "store64_be";
-  "store128_le"
+  "store128_le";
+  "store128_be"
 ]
 
 let is_primitive x =
@@ -126,7 +128,7 @@ let mk_lit w lit =
       let n = Z.of_string lit in
       let n = if Z.( n >= ~$2 ** 63 ) then Z.( n - ~$2 ** 64 ) else n in
       mk_int64 (Z.to_int64 n)
-  | K.Int32 | K.UInt8 | K.UInt16 | K.UInt32 | K.Bool ->
+  | K.Int32 | K.UInt8 | K.UInt16 | K.UInt32 | K.Bool | K.CInt ->
       let n = Z.of_string lit in
       let n = if Z.( n >= ~$2 ** 31 ) then Z.( n - ~$2 ** 32 ) else n in
       mk_int32 (Z.to_int32 n)
@@ -634,6 +636,13 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallFunc ("C_Nullity_null", [ _ ]) ->
       [ dummy_phrase (W.Ast.Const (mk_int32 0l)) ]
 
+  | CallFunc ("load16_le", [ e ]) ->
+      mk_expr env e @
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.(Mem16, ZX) })]
+
+  | CallFunc ("load16_be", [ e ]) ->
+      mk_expr env (CallFunc ("WasmSupport_betole16", [ CallFunc ("load16_le", [ e ])]))
+
   | CallFunc ("load32_le", [ e ]) ->
       mk_expr env e @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = None })]
@@ -701,6 +710,15 @@ and mk_expr env (e: expr): W.Ast.instr list =
       [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
       (* This is just a glorified memcpy. *)
       mk_unit
+
+  | CallFunc ("store16_le", [ e1; e2 ]) ->
+      mk_expr env e1 @
+      mk_expr env e2 @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.Mem16 })] @
+      mk_unit
+
+  | CallFunc ("store16_be", [ e1; e2 ]) ->
+      mk_expr env (CallFunc ("store16_le", [ e1; CallFunc ("WasmSupport_betole16", [ e2 ])]))
 
   | CallFunc ("store32_le", [ e1; e2 ]) ->
       mk_expr env e1 @
@@ -925,7 +943,7 @@ let mk_func env { args; locals; body; name; ret; _ } =
         let n_args = List.length args in
         let fst64 = n_args in
         let snd64 = n_args + 1 in
-        let read128 arg = 
+        let read128 arg =
           (* Load low *)
           [ dummy_phrase (W.Ast.GetLocal (mk_var arg)) ] @
           [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None }) ] @
@@ -933,12 +951,12 @@ let mk_func env { args; locals; body; name; ret; _ } =
           (* Load high *)
           [ dummy_phrase (W.Ast.GetLocal (mk_var arg)) ] @
           [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
-          i32_add @ 
+          i32_add @
           [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None }) ] @
           [ dummy_phrase (W.Ast.SetLocal (mk_var snd64)) ]
         in
         read128 0 @
-        Debug.mk env [ `String "a.low"; `Local64 fst64; `String "a.high"; `Local64 snd64 ] @ 
+        Debug.mk env [ `String "a.low"; `Local64 fst64; `String "a.high"; `Local64 snd64 ] @
         read128 1 @
         Debug.mk env [ `String "b.low"; `Local64 fst64; `String "b.high"; `Local64 snd64 ]
       else
@@ -966,10 +984,18 @@ let mk_func env { args; locals; body; name; ret; _ } =
   let ftype = mk_var i in
   dummy_phrase W.Ast.({ locals; ftype; body })
 
-let mk_global env size body =
+let mk_global env name size body =
   let body = mk_expr env body in
-  dummy_phrase W.Ast.({
-    gtype = W.Types.GlobalType (mk_type size, W.Types.Immutable);
+  let init, body, mut =
+    if List.length body > 1 then
+      body @ [ dummy_phrase (W.Ast.SetGlobal (mk_var (find_global env name))) ],
+      [ dummy_phrase (W.Ast.Const (match size with I32 -> mk_int32 0l | I64 -> mk_int64 0L))],
+      W.Types.Mutable
+    else
+      [], body, W.Types.Immutable
+  in
+  init, dummy_phrase W.Ast.({
+    gtype = W.Types.GlobalType (mk_type size, mut);
     value = dummy_phrase body
   })
 
@@ -1148,13 +1174,30 @@ let mk_module types imports (name, decls):
 
   (* The globals, too. Global have their types directly attached to them and do
    * not rely on an indirection via a type table like functions. *)
-  let globals =
-    KList.filter_map (function
-      | Global (_, size, body, _) ->
-          Some (mk_global env size body)
-      | _ ->
-          None
-    ) decls
+  let inits, globals = List.fold_left (fun (inits, globals) d ->
+    match d with
+    | Global (name, size, body, _) ->
+        let init, global = mk_global env name size body in
+        init :: inits, global :: globals
+    | _ ->
+        inits, globals
+  ) ([], []) decls in
+  let globals = List.rev globals in
+
+  (* If some globals need to be initialized at module initialization-time, write
+   * them out in a function appended at the end of the list which breaks our
+   * invariant. *)
+  let inits = List.flatten (List.rev inits) in
+  let funcs, types, start =
+    if List.length inits = 0 then
+      funcs,
+      types,
+      None
+    else
+      let last_func_index = n_imported_funcs + List.length funcs in
+      funcs @ [ dummy_phrase W.Ast.({ locals = []; ftype = mk_var last_func_index; body = inits })],
+      types @ [ mk_func_type' [] [] ],
+      Some (mk_var last_func_index)
   in
 
   (* Side-effect: the table is now filled with all the string constants that
@@ -1213,7 +1256,8 @@ let mk_module types imports (name, decls):
     globals;
     exports;
     imports;
-    data
+    data;
+    start
   }) in
   types_only_public, imports_me_included, (name, module_)
 
