@@ -5,6 +5,7 @@ open FStar.HyperStack.All
 
 module U8 = FStar.UInt8
 module U32 = FStar.UInt32
+module U64 = FStar.UInt64
 module Math = FStar.Math.Lemmas
 module S = FStar.Seq
 
@@ -339,3 +340,121 @@ let rec offset_uint64_le (b: bytes) (n: nat) (i: nat):
       ()
     else
       offset_uint64_le tl (n - 1) (i - 1)
+
+
+(** Reasoning about endian-ness and words. *)
+
+#set-options "--max_fuel 1 --z3rlimit 20"
+
+(* TODO: move to FStar.Seq.Properties, with the pattern *)
+let tail_cons (#a: Type) (hd: a) (tl: S.seq a): Lemma
+  (ensures (S.equal (S.tail (S.cons hd tl)) tl))
+//  [ SMTPat (S.tail (S.cons hd tl)) ]
+=
+  ()
+
+let rec be_of_seq_uint32_append (s1 s2: S.seq U32.t): Lemma
+  (ensures (
+    S.equal (be_of_seq_uint32 (S.append s1 s2))
+      (S.append (be_of_seq_uint32 s1) (be_of_seq_uint32 s2))))
+  (decreases (
+    S.length s1))
+  [ SMTPat (S.append (be_of_seq_uint32 s1) (be_of_seq_uint32 s2)) ]
+=
+  Classical.forall_intro_2 (tail_cons #U32.t); // TODO: this is a local pattern, remove once tail_cons lands in FStar.Seq.Properties
+  if S.length s1 = 0 then begin
+    assert (S.equal (be_of_seq_uint32 s1) S.empty);
+    assert (S.equal (S.append s1 s2) s2);
+    ()
+  end else begin
+    assert (S.equal (S.append s1 s2) (S.cons (S.head s1) (S.append (S.tail s1) s2)));
+    assert (S.equal (be_of_seq_uint32 (S.append s1 s2))
+      (S.append (be_of_uint32 (S.head s1)) (be_of_seq_uint32 (S.append (S.tail s1) s2))));
+    be_of_seq_uint32_append (S.tail s1) s2
+  end
+
+let be_of_seq_uint32_base (s1: S.seq U32.t) (s2: S.seq U8.t): Lemma
+  (requires (
+    S.length s1 = 1 /\
+    S.length s2 = 4 /\
+    be_to_n s2 = U32.v (S.index s1 0)))
+  (ensures (S.equal s2 (be_of_seq_uint32 s1)))
+  [ SMTPat (be_to_n s2 = U32.v (S.index s1 0)) ]
+=
+  ()
+
+let rec be_of_seq_uint64_append (s1 s2: S.seq U64.t): Lemma
+  (ensures (
+    S.equal (be_of_seq_uint64 (S.append s1 s2))
+      (S.append (be_of_seq_uint64 s1) (be_of_seq_uint64 s2))))
+  (decreases (
+    S.length s1))
+  [ SMTPat (S.append (be_of_seq_uint64 s1) (be_of_seq_uint64 s2)) ]
+=
+  Classical.forall_intro_2 (tail_cons #U64.t); // TODO: this is a local pattern, remove once tail_cons lands in FStar.Seq.Properties
+  if S.length s1 = 0 then begin
+    assert (S.equal (be_of_seq_uint64 s1) S.empty);
+    assert (S.equal (S.append s1 s2) s2);
+    ()
+  end else begin
+    assert (S.equal (S.append s1 s2) (S.cons (S.head s1) (S.append (S.tail s1) s2)));
+    assert (S.equal (be_of_seq_uint64 (S.append s1 s2))
+      (S.append (be_of_uint64 (S.head s1)) (be_of_seq_uint64 (S.append (S.tail s1) s2))));
+    be_of_seq_uint64_append (S.tail s1) s2
+  end
+
+let be_of_seq_uint64_base (s1: S.seq U64.t) (s2: S.seq U8.t): Lemma
+  (requires (
+    S.length s1 = 1 /\
+    S.length s2 = 8 /\
+    be_to_n s2 = U64.v (S.index s1 0)))
+  (ensures (S.equal s2 (be_of_seq_uint64 s1)))
+  [ SMTPat (be_to_n s2 = U64.v (S.index s1 0)) ]
+=
+  ()
+
+let rec seq_uint32_of_be_be_of_seq_uint32 (n: nat) (s: S.seq U32.t) : Lemma
+  (requires (n == S.length s))
+  (ensures (seq_uint32_of_be n (be_of_seq_uint32 s) `S.equal` s))
+  (decreases n)
+  [SMTPat (seq_uint32_of_be n (be_of_seq_uint32 s))]
+= if n = 0
+  then ()
+  else begin
+    assert (s `S.equal` S.cons (S.head s) (S.tail s));
+    seq_uint32_of_be_be_of_seq_uint32 (n - 1) (S.tail s);
+    let s' = be_of_seq_uint32 s in
+    S.lemma_split s' 4;
+    S.lemma_append_inj (S.slice s' 0 4) (S.slice s' 4 (S.length s')) (be_of_uint32 (S.head s)) (be_of_seq_uint32 (S.tail s))
+  end
+
+let rec be_of_seq_uint32_seq_uint32_of_be (n: nat) (s: S.seq U8.t) : Lemma
+  (requires (4 * n == S.length s))
+  (ensures (be_of_seq_uint32 (seq_uint32_of_be n s) `S.equal` s))
+  (decreases n)
+  [SMTPat (be_of_seq_uint32 (seq_uint32_of_be n s))]
+= if n = 0
+  then ()
+  else begin
+    S.lemma_split s 4;
+    be_of_seq_uint32_seq_uint32_of_be (n - 1) (S.slice s 4 (S.length s));
+    let s' = seq_uint32_of_be n s in
+    let hd, tl = S.split s 4 in
+    assert (S.head s' == uint32_of_be hd);
+    tail_cons (uint32_of_be hd) (seq_uint32_of_be (n - 1) tl);
+    assert (S.tail s' == seq_uint32_of_be (n - 1) tl);
+    let s'' = be_of_seq_uint32 s' in
+    S.lemma_split s'' 4;
+    S.lemma_append_inj (S.slice s'' 0 4) (S.slice s'' 4 (S.length s'')) (be_of_uint32 (S.head s')) (be_of_seq_uint32 (S.tail s'));
+    n_to_be_be_to_n 4ul hd
+  end
+
+let slice_seq_uint32_of_be (n: nat) (s: S.seq U8.t) (lo: nat) (hi: nat) : Lemma
+  (requires (4 * n == S.length s /\ lo <= hi /\ hi <= n))
+  (ensures (S.slice (seq_uint32_of_be n s) lo hi) `S.equal` seq_uint32_of_be (hi - lo) (S.slice s (4 * lo) (4 * hi)))
+= ()
+
+let be_of_seq_uint32_slice (s: S.seq U32.t) (lo: nat) (hi: nat) : Lemma
+  (requires (lo <= hi /\ hi <= S.length s))
+  (ensures (be_of_seq_uint32 (S.slice s lo hi) `S.equal` S.slice (be_of_seq_uint32 s) (4 * lo) (4 * hi)))
+= slice_seq_uint32_of_be (S.length s) (be_of_seq_uint32 s) lo hi
