@@ -153,6 +153,7 @@ assume val store128_be:
                            be_to_n (B.as_seq h1 b) == UInt128.v z))
 
 
+inline_for_extraction
 let index_32_be (b: B.buffer UInt8.t) (i: UInt32.t):
   Stack UInt32.t
     (requires (fun h ->
@@ -164,6 +165,7 @@ let index_32_be (b: B.buffer UInt8.t) (i: UInt32.t):
 =
   load32_be (B.sub b FStar.UInt32.(4ul *^ i) 4ul)
 
+inline_for_extraction
 let index_32_le (b: B.buffer UInt8.t) (i: UInt32.t):
   Stack UInt32.t
     (requires (fun h ->
@@ -175,6 +177,7 @@ let index_32_le (b: B.buffer UInt8.t) (i: UInt32.t):
 =
   load32_le (B.sub b FStar.UInt32.(4ul *^ i) 4ul)
 
+inline_for_extraction
 let index_64_be (b: B.buffer UInt8.t) (i: UInt32.t):
   Stack UInt64.t
     (requires (fun h ->
@@ -186,6 +189,7 @@ let index_64_be (b: B.buffer UInt8.t) (i: UInt32.t):
 =
   load64_be (B.sub b FStar.UInt32.(8ul *^ i) 8ul)
 
+inline_for_extraction
 let index_64_le (b: B.buffer UInt8.t) (i: UInt32.t):
   Stack UInt64.t
     (requires (fun h ->
@@ -206,6 +210,7 @@ let interval_4_disjoint (i j: nat) : Lemma
 
 #reset-options "--z3rlimit 16"
 
+inline_for_extraction
 let upd_32_be (b: B.buffer UInt8.t) (i: UInt32.t) (v: UInt32.t):
   Stack unit
     (requires (fun h ->
