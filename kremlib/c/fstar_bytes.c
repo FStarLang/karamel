@@ -408,3 +408,7 @@ FStar_Bytes_bytes FStar_Bytes_of_buffer(uint32_t length, uint8_t *src) {
   FStar_Bytes_bytes b = { .length = length, .data = data };
   return b;
 }
+
+void FStar_Bytes_store_bytes(FStar_Bytes_bytes src, uint8_t *dst) {
+  memcpy(dst, src.data, src.length);
+}
