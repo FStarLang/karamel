@@ -1,4 +1,4 @@
-RECENT_GCC	= $(shell [ "$$(/usr/bin/gcc -dumpversion)" -ge 5 ] && echo yes)
+RECENT_GCC	= $(shell [ "$$(gcc -dumpversion | cut -c -1)" -ge 5 ] && echo yes)
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 TEST_OPTS	= -warn-error @4

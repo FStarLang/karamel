@@ -543,6 +543,9 @@ Supported options:|}
     let modules = CFlatToWasm.mk_files files in
     tick_print true "CFlatToWasm";
 
+    let modules = OptimizeWasm.optimize_files modules in
+    tick_print true "OptimizeWasm";
+
     OutputJs.write_all !js_files modules !arg_print_wasm
 
   else

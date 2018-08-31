@@ -99,7 +99,7 @@
         "typing_FStar.UInt32.v", "unit_inversion", "unit_typing"
       ],
       0,
-      "b44d856e7076cbc6c88b8809713cf76c"
+      "c4f1d406ef253d2a610c1d29dd34f5a5"
     ],
     [
       "Crypto.Symmetric.Chacha20.counter_mode",
@@ -199,7 +199,7 @@
         "unit_inversion", "unit_typing"
       ],
       0,
-      "112c9ac8615bd78725d770dffb435a21"
+      "af63240867e897823aff00313e58c4dd"
     ]
   ]
 ]

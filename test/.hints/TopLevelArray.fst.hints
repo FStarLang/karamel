@@ -8,7 +8,7 @@
       1,
       [ "@query", "assumption_Prims.HasEq_int" ],
       0,
-      "de697152bb167c81b26ac7953816ea77"
+      "f1cd7de9d564159775c36a593ccd5376"
     ],
     [
       "TopLevelArray.__proj__Mkt__item__y",
@@ -17,7 +17,7 @@
       1,
       [ "@query", "assumption_Prims.HasEq_int" ],
       0,
-      "fcf5ee40c4d0306f177e240eb09783a0"
+      "8fd39630dfda5c13f21e515cd04bdbc2"
     ],
     [
       "TopLevelArray.__proj__Mkt__item__y",
@@ -26,7 +26,7 @@
       1,
       [ "@query", "assumption_Prims.HasEq_int" ],
       0,
-      "b32bf0b95116e895706f5016c45990cc"
+      "735ff641017ff485bcda1961732fde55"
     ],
     [
       "TopLevelArray.y",
@@ -48,7 +48,7 @@
         "typing_C.String.__proj__S__item__s"
       ],
       0,
-      "01bbeccff2edadec7acb8ef090f3b7e3"
+      "06dd673ac5b2da040f5412338ada408d"
     ],
     [
       "TopLevelArray.x",
@@ -83,7 +83,7 @@
         "typing_C.String.__proj__S__item__s"
       ],
       0,
-      "2ad07dcfee6c4cf84d29ee1160357c3e"
+      "d1ec7a387cdba907ee31303737d2ed95"
     ],
     [
       "TopLevelArray.g",
@@ -97,7 +97,7 @@
         "refinement_interpretation_TopLevelArray_Tm_refine_cb33895ece621ae8bc092dc7297a0116"
       ],
       0,
-      "40829bc3b9eda6c7a21a51560320b31d"
+      "e5e69537d56e07b1c899d3a728529358"
     ],
     [
       "TopLevelArray.main",
@@ -112,7 +112,7 @@
         "constructor_distinct_Prims.Cons", "constructor_distinct_Prims.Nil",
         "data_elim_TopLevelArray.Mkt",
         "equation_FStar.HyperStack.ST.equal_stack_domains",
-        "equation_FStar.Monotonic.Heap.equal_dom",
+        "equation_FStar.Monotonic.Heap.equal_dom", "equation_Prims.nat",
         "equation_TopLevelArray.g", "equation_TopLevelArray.s",
         "equation_TopLevelArray.zero",
         "equation_with_fuel_FStar.List.Tot.Base.length.fuel_instrumented",
@@ -126,12 +126,12 @@
         "projection_inverse_Prims.Cons_hd",
         "projection_inverse_Prims.Cons_tl", "projection_inverse_Prims.Nil_a",
         "refinement_interpretation_TopLevelArray_Tm_refine_5da42ff7c3b79de80d6f70a2ad8be499",
-        "refinement_interpretation_TopLevelArray_Tm_refine_a63ab052312f30a868d277b5b45ecb6d",
-        "refinement_interpretation_TopLevelArray_Tm_refine_b755a955fd4f85876ca54ac036374562",
+        "refinement_interpretation_TopLevelArray_Tm_refine_5dadf70721f53b47c6a30a6f9f7047a1",
+        "refinement_interpretation_TopLevelArray_Tm_refine_ab5d9976db9e8e25bf59888e50972740",
         "typing_TopLevelArray.__proj__Mkt__item__y"
       ],
       0,
-      "350384c53e29f4f68580532a247ee15d"
+      "eaad634b5e5b001df05b6771e18f790b"
     ]
   ]
 ]
