@@ -73,6 +73,11 @@ let mk_inliner files criterion =
       let es = List.map (self#visit_expr_w ()) es in
       match e.node with
       | EQualified lid when Hashtbl.mem map lid && criterion lid ->
+          (* Note: because we don't have the "natural" arity of `lid`, i.e. we
+           * don't know how many parameters the function _definition_ takes,
+           * meaning we may pass more arguments to safe_substitution than the
+           * function definition takes. Safe_substitution just drops them and
+           * this results in typing errors later on. *)
           wrap_comment lid (Helpers.safe_substitution es (recurse lid) t)
       | _ ->
           EApp (self#visit_expr_w () e, es)

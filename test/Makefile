@@ -32,9 +32,9 @@ WASM_FILES	= \
   Wasm4.wasm-test Wasm5.wasm-test
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
-# HigherOrder: need to implement "natural arity" tracking
+# HigherOrder, HigherOrder2: need to implement "natural arity" tracking
 BROKEN		= \
-  $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm HigherOrder.exe
+  $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm HigherOrder.exe HigherOrder2.exe
 WEB_DIR		?= web
 CACHE_DIR	= .cache
 OUTPUT_DIR	= .output
