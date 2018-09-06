@@ -171,8 +171,9 @@ let is_array = function TArray _ -> true | _ -> false
 let is_null = function
   | { node = EApp (
       { node = EQualified (
-          ([ "LowStar"; "Buffer" ] | [ "C"; "Nullity" ]),
-          "null"); _ }, _); _ }
+          ([ "LowStar"; "Buffer" ] | [ "C"; "Nullity" ]), "null" |
+          ([ "LowStar"; "Monotonic"; "Buffer" ], "mnull"));
+        _ }, _); _ }
   ->
       true
   | _ ->
