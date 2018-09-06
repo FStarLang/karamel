@@ -285,4 +285,6 @@ let main () =
   let l: B.pointer_or_null (t Int32.t) = B.malloc HS.root B.null 1ul in
   push #Int32.t #(G.hide []) l 1l;
   push #Int32.t #(G.hide [1l]) l 0l;
-  pop #Int32.t #(G.hide [0l; 1l]) l
+  let r = pop #Int32.t #(G.hide [0l; 1l]) l in
+  TestLib.checku32 (length (G.hide [1l]) !*l) 1ul;
+  r
