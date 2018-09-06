@@ -352,8 +352,10 @@ and mk_stmt (stmt: stmt): C.stmt list =
       decl @
       extra_stmt
 
-  | Decl (_, BufCreateL ((Eternal | Heap), _)) ->
-      failwith "TODO (desugar into a series of assignments)"
+  | Decl (_, BufCreateL ((Eternal | Heap), _)) as s ->
+      failwith ("TODO: the array below is either in the eternal or heap region, \
+        uses createL, but we don't have (yet) codegen for this:\n" ^
+        CStar.show_stmt s)
 
   | Decl (binder, BufCreateL (Stack, inits)) ->
       let t = ensure_array binder.typ (Constant (K.uint32_of_int (List.length inits))) in
