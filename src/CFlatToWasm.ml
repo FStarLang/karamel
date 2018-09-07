@@ -48,15 +48,6 @@ let find_global env name =
   with Not_found ->
     Warnings.fatal_error "Could not resolve global %s (look out for Warning 12)" name
 
-(* Some functions were marked as assumed in F*, and then implemented by hand in
- * C. But, now, we have to re-implement them in F* so that they get Wasm codegen
- * too. This is a temporary stopgap until all these functions have been properly
- * removed... *)
-let builtins = [
-  "FStar_UInt64_eq_mask", "WasmSupport_eq_mask64";
-  "FStar_UInt64_gte_mask", "WasmSupport_gte_mask64";
-]
-
 let name_of_string = W.Utf8.decode
 let string_of_name = W.Ast.string_of_name
 
@@ -64,10 +55,7 @@ let rec find_func env name =
   try
     StringMap.find name env.funcs
   with Not_found ->
-    try
-      find_func env (List.assoc name builtins)
-    with Not_found ->
-      Warnings.fatal_error "%a: Could not resolve function %s" ploc env.location name
+    Warnings.fatal_error "%a: Could not resolve function %s" ploc env.location name
 
 let primitives = [
   "load32_le";

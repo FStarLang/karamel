@@ -287,7 +287,6 @@ let cflat_unit =
 let cflat_any =
   CF.Constant (K.UInt32, "0xbadcaffe")
 
-
 (* Desugar an array assignment into a series of possibly many assigments (e.g.
  * struct literal), or into a memcopy. We want to write [e] at address [dst]
  * corrected by an offset [ofs] in bytes. *)
@@ -353,6 +352,22 @@ and mk_addr env e =
       CF.BufSub (e1, mk_uint32 ofs, A8)
   | _ ->
       failwith (KPrint.bsprintf "can't take the addr of %a" pexpr e)
+
+(** Assuming a base pointer, and an offset (simplified by [WasmSimplify] to be
+ * either a variable, a constant, or a simple expression, e.g. [size - 1]), and
+ * an element size sz, return a pair of a pointer and a possibly-zero offset (in
+ * bytes) that corresponds to the given offset in the index. *)
+and mk_offset env (base: CF.expr) (ofs: expr) (sz: int) =
+  match ofs.node with
+  | EConstant (_, c) ->
+      (* TODO: overflow on 32-bit OCaml for string_of_int and subsequent
+       * computations *)
+      base, int_of_string c * sz
+  | _ ->
+      let ofs = mk_expr_no_locals env ofs in
+      (* The destination is the base pointer + the index * the size of an element. *)
+      let dst = mk_add32 base (mk_mul32 ofs (mk_uint32 sz)) in
+      dst, 0
 
 (** The actual translation. Note that the environment is dropped, but that the
  * locals are chained through (state-passing style). *)
@@ -431,13 +446,9 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.BufSub (e1, mk_mul32 e2 (mk_uint32 mult), base_size)
 
   | EBufWrite ({ node = EBound v1; _ }, e2, e3) ->
-      (* e2 has been simplified by [WasmSimplify] to be either a variable, a
-       * constant, or simple expressions (e.g. [size - 1]). *)
       let v1 = CF.Var (find env v1) in
-      let e2 = mk_expr_no_locals env e2 in
-      (* The destination is the base pointer + the index * the size of an element. *)
-      let dst = mk_add32 v1 (mk_mul32 e2 (mk_uint32 (cell_size_b env e3.typ))) in
-      let locals, assignments = write_at env locals dst 0 e3 in
+      let dst, offset = mk_offset env v1 e2 (cell_size_b env e3.typ) in
+      let locals, assignments = write_at env locals dst offset e3 in
       locals, CF.Sequence assignments
 
   | EBufWrite _ ->
