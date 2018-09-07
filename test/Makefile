@@ -136,15 +136,14 @@ hacl-test:
 
 # A target for WASM compilation. All WASM targets get the -wasm flag;
 # some specific targets may override NEGATIVE for negative tests.
-$(OUTPUT_DIR)/%.wasm: EXTRA += -wasm
-$(OUTPUT_DIR)/%.wasm: $(OUTPUT_DIR)/FStar_UInt128.krml $(OUTPUT_DIR)/WasmSupport.krml | $(KRML_BIN)
-	$(KRML) $(EXTRA) -tmpdir $(subst .wasm,.out,$@) $(JSFILES) \
-	  -no-prefix $(notdir $*) $^ -drop C.String -drop C.Endianness
+$(OUTPUT_DIR)/%.wasm-out: $(OUTPUT_DIR)/%.krml $(OUTPUT_DIR)/FStar_UInt128.krml $(OUTPUT_DIR)/WasmSupport.krml | $(KRML_BIN)
+	$(KRML) -wasm $(EXTRA) -tmpdir $@ $(JSFILES) -no-prefix $* $^
 
-%.wasm-test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).wasm
-	cd $(OUTPUT_DIR)/$*.out && \
-	  if ! $(NEGATIVE); then node main.js && echo -e "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo -e "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); \
-	  else ! node main.js && echo -e "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo -e "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); fi
+%.wasm-test: $(OUTPUT_DIR)/%.wasm-out
+	cd $^ && \
+	  if ! $(NEGATIVE); then node main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); \
+	  else ! node main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); fi && \
+	  cd ../.. && rm -rf $<
 
 # Customizing some WASM targets.
 $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: JSFILES=main-Chacha.js
@@ -198,11 +197,11 @@ $$($(1))/$$($(1)_TEST):
 
 # Monolithic rule for extracting with a single .krml file; to be removed once
 # HACL* produces separate krml files.
-$$($(1))/$$(subst .krml,.wasm,$$($(1)_TEST)): $$($(1))/$$($(1)_TEST)
-	$(KRML) -wasm -drop $$(HACL_DROP) $$($(1)_ARGS) -tmpdir $$(subst .wasm,.out,$$@) \
+$$(OUTPUT_DIR)/$$(subst .krml,.wasm-out,$$($(1)_TEST)): $$($(1))/$$($(1)_TEST)
+	$(KRML) -wasm -drop $$(HACL_DROP) $$($(1)_ARGS) -tmpdir $$@ \
 	  -no-prefix $$(subst .krml,,$$($(1)_TEST)) $$<
 
-hacl-algs: $$($(1))/$$(subst .krml,.wasm,$$($(1)_TEST))
+hacl-algs: $$(subst .krml,.wasm-test,$$($(1)_TEST))
 
 clean-$(1):
 	$(MAKE) -C $$($1) clean

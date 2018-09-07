@@ -203,6 +203,9 @@ let mkCNullity = (mem) => ({
 
 let mkCString = (mem) => ({
   C_String_print: (ptr) => my_print(stringAtAddr(mem, ptr)),
+  C_String_of_literal: (ptr) => { throw new Error("primitive: C_String_of_literal") },
+  C_String_strlen: (ptr) => { throw new Error("todo: C_String_strlen") },
+  C_String_memcpy: (ptr) => { throw new Error("todo: C_String_memcpy") },
 });
 
 function checkEq(mem, name) {
