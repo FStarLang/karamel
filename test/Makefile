@@ -134,12 +134,13 @@ hacl-test:
 	$(MAKE) -C $(HACL_HOME)/code/api extract-c
 	IMPL_CHOICE=runtime_switch $(MAKE) -C $(HACL_HOME)/secure_api -f $(HACL_HOME)/secure_api/Makefile.extract krml-test
 
-# A target for WASM compilation. All WASM targets get the -wasm flag;
-# some specific targets may override NEGATIVE for negative tests.
-$(OUTPUT_DIR)/%.wasm-out: $(OUTPUT_DIR)/%.krml $(OUTPUT_DIR)/FStar_UInt128.krml $(OUTPUT_DIR)/WasmSupport.krml | $(KRML_BIN)
+# A pseudo-target for WASM compilation that does not match any specific file.
+# All WASM targets get the -wasm flag; some specific targets may override
+# NEGATIVE for negative tests.
+$(OUTPUT_DIR)/%.wasm: $(OUTPUT_DIR)/FStar_UInt128.krml $(OUTPUT_DIR)/WasmSupport.krml | $(KRML_BIN)
 	$(KRML) -wasm $(EXTRA) -tmpdir $@ $(JSFILES) -no-prefix $* $^
 
-%.wasm-test: $(OUTPUT_DIR)/%.wasm-out
+%.wasm-test: $(OUTPUT_DIR)/%.wasm
 	cd $^ && \
 	  if ! $(NEGATIVE); then node main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); \
 	  else ! node main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); fi && \
@@ -196,8 +197,8 @@ $$($(1))/$$($(1)_TEST):
 	cp $$(subst .krml,.out,$$@)/out.krml $$@
 
 # Monolithic rule for extracting with a single .krml file; to be removed once
-# HACL* produces separate krml files.
-$$(OUTPUT_DIR)/$$(subst .krml,.wasm-out,$$($(1)_TEST)): $$($(1))/$$($(1)_TEST)
+# HACL* produces separate krml files. This overrides the %.wasm rule above.
+$$(OUTPUT_DIR)/$$(subst .krml,.wasm,$$($(1)_TEST)): $$($(1))/$$($(1)_TEST)
 	$(KRML) -wasm -drop $$(HACL_DROP) $$($(1)_ARGS) -tmpdir $$@ \
 	  -no-prefix $$(subst .krml,,$$($(1)_TEST)) $$<
 

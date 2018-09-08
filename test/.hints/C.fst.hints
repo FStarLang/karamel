@@ -8,7 +8,7 @@
       1,
       [ "@query", "assumption_C.HasEq_char" ],
       0,
-      "e1d2d2645e3386b64ade93124bafe63b"
+      "9898d838296d63c1c7aaec255dea7b79"
     ],
     [
       "C.uint8_char",
@@ -17,7 +17,7 @@
       1,
       [ "@query", "assumption_FStar.UInt8.t__uu___haseq" ],
       0,
-      "ba5e3fa25fe5f222ebf93eab06cb8121"
+      "d7a343e6965d1a1baa9c7fed7064eedc"
     ]
   ]
 ]
