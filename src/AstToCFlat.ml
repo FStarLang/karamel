@@ -146,7 +146,7 @@ let field_offset env t f =
   | _ ->
       failwith (KPrint.bsprintf "Not something we can field-offset: %a" ptyp t)
 
-(* Layout a type in an array cell occupies a multiple of a WASM array size. *)
+(* Laying out a type in an array cell occupies a multiple of a WASM array size. *)
 let cell_size (env: env) (t: typ): int * array_size =
   let round_up size =
     let size = align A64 size in
@@ -276,8 +276,10 @@ let mk_memcpy env locals dst src n =
   locals, [
     CF.Assign (v, mk_uint32 0);
     CF.While (mk_lt32 (CF.Var v) n,
+      let dst_ofs = CF.CallOp (K.(UInt32, Add), [ dst; CF.Var v ]) in
+      let src_ofs = CF.CallOp (K.(UInt32, Add), [ src; CF.Var v ]) in
       CF.Sequence [
-        CF.BufWrite (dst, (CF.Var v), CF.BufRead (src, (CF.Var v), A8), A8);
+        CF.BufWrite (dst_ofs, 0, CF.BufRead (src_ofs, 0, A8), A8);
         CF.Assign (v, mk_plus1 (CF.Var v))
       ])]
 
@@ -327,9 +329,8 @@ let rec write_at (env: env)
         (* It's a base type, i.e. something that has an array size. *)
         let s = array_size_of e.typ in
         assert (ofs mod bytes_in s = 0);
-        let ofs = ofs / bytes_in s in
         let e = mk_expr_no_locals env e in
-        locals, [ CF.BufWrite (dst, mk_uint32 ofs, e, s) ]
+        locals, [ CF.BufWrite (dst, ofs, e, s) ]
   in
   write_at locals (ofs, e)
 
@@ -435,8 +436,8 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EBufRead (e1, e2) ->
       let s = array_size_of (assert_buf e1.typ) in
       let locals, e1 = mk_expr env locals e1 in
-      let locals, e2 = mk_expr env locals e2 in
-      locals, CF.BufRead (e1, e2, s)
+      let e1, offset = mk_offset env e1 e2 (bytes_in s) in
+      locals, CF.BufRead (e1, offset, s)
 
   | EAddrOf ({ node = EBufRead (e1, e2); _ })
   | EBufSub (e1, e2) ->
@@ -583,8 +584,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let addr = mk_addr env e1 in
       let ofs = field_offset env e1.typ f in
       assert (ofs mod bytes_in s = 0);
-      let ofs = ofs / bytes_in s in
-      locals, CF.BufRead (addr, mk_uint32 ofs, s)
+      locals, CF.BufRead (addr, ofs, s)
 
   | EOp _ ->
       failwith "standalone application"

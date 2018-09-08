@@ -8,6 +8,35 @@ let check_buffer_size =
   with_type (TArrow (TInt K.UInt32, TUnit)) (EQualified ([ "WasmSupport" ], "check_buffer_size"))
 
 
+let hoist_reads_and_writes = object(self)
+  inherit [_] map
+
+  method! visit_EBufWrite env e1 e2 e3 =
+    (* TODO: separate the two pattern-matches because EConstant for e2 is still
+     * good regardless of what e1 is *)
+    match e1.node, e2.node with
+    | (EOpen _ | EBound _), EConstant _ ->
+        EBufWrite (e1, e2, e3)
+    | _ ->
+        let b_e1, body_e1, ref_e1 = mk_named_binding "dst" e1.typ e1.node in
+        let b_e2, body_e2, ref_e2 = mk_named_binding "ofs" e2.typ e2.node in
+        ELet (b_e1, body_e1, close_binder b_e1 (with_unit (
+        ELet (b_e2, body_e2, close_binder b_e2 (with_unit (
+          EBufWrite (ref_e1, ref_e2, self#visit_expr env e3)))))))
+
+  method! visit_EBufRead (_, t) e1 e2 =
+    match e1.node, e2.node with
+    | (EOpen _ | EBound _), EConstant _ ->
+        EBufRead (e1, e2)
+    | _ ->
+        let b_e1, body_e1, ref_e1 = mk_named_binding "src" e1.typ e1.node in
+        let b_e2, body_e2, ref_e2 = mk_named_binding "ofs" e2.typ e2.node in
+        ELet (b_e1, body_e1, close_binder b_e1 (with_type t (
+        ELet (b_e2, body_e2, close_binder b_e2 (with_type t (
+          EBufRead (ref_e1, ref_e2)))))))
+
+end
+
 let remove_buffer_ops = object(self)
   inherit [_] map as super
 
@@ -71,17 +100,6 @@ let remove_buffer_ops = object(self)
   method! visit_EBufBlit _ src_buf src_ofs dst_buf dst_ofs len =
     mk_bufblit src_buf src_ofs dst_buf dst_ofs len
 
-  method! visit_EBufWrite _ e1 e2 e3 =
-    match e1.node, e2.node with
-    | (EOpen _ | EBound _), EConstant _ ->
-        EBufWrite (e1, e2, e3)
-    | _ ->
-        let b_e1, body_e1, ref_e1 = mk_named_binding "dst" e1.typ e1.node in
-        let b_e2, body_e2, ref_e2 = mk_named_binding "ofs" e2.typ e2.node in
-        ELet (b_e1, body_e1, close_binder b_e1 (with_unit (
-        ELet (b_e2, body_e2, close_binder b_e2 (with_unit (
-          EBufWrite (ref_e1, ref_e2, e3)))))))
-
   method! visit_DGlobal env flags lid n t e =
     match e.node with
     | EBufCreate _ | EBufCreateL _ ->
@@ -115,7 +133,11 @@ let eta_expand = object
         DGlobal (flags, name, n, t, body)
 end
 
-let simplify (files: file list): file list =
+let simplify1 (files: file list): file list =
+  let files = hoist_reads_and_writes#visit_files () files in
+  files
+
+let simplify2 (files: file list): file list =
   let files = remove_buffer_ops#visit_files () files in
   (* Note: this is not added at the C level because function pointers are ok,
    * and the C printer is capable of dealing with a global variable that is

@@ -111,9 +111,11 @@ and expr =
   | Ignore of expr * size
 
   | BufCreate of lifetime * expr * array_size
-  | BufRead of expr * expr * array_size
   | BufSub of expr * expr * array_size
-  | BufWrite of expr * expr * expr * array_size
+  | BufRead of expr * int * array_size
+      (** Constant offset expressed in number of BYTES. *)
+  | BufWrite of expr * int * expr * array_size
+      (** Ibid. *)
 
   | CallOp of op * expr list
   | CallFunc of ident * expr list

@@ -738,20 +738,16 @@ and mk_expr env (e: expr): W.Ast.instr list =
       i32_mul @
       grow_highwater env
 
-  | BufRead (e1, e2, size) ->
+  | BufRead (e1, ofs, size) ->
       (* github.com/WebAssembly/spec/blob/master/interpreter/spec/eval.ml#L189 *)
       mk_expr env e1 @
-      mk_expr env e2 @
-      mk_size size @
-      i32_mul @
-      i32_add @
       [ dummy_phrase W.Ast.(Load {
         (* the type we want on the operand stack *)
         ty = mk_type (if size = A64 then I64 else I32);
         (* ignored *)
         align = 0;
-        (* we've already done the multiplication ourselves *)
-        offset = 0l;
+        (* in number of bytes *)
+        offset = Int32.of_int ofs;
         (* we store 32-bit integers in 32-bit slots, and smaller than that in
          * 32-bit slots as well, so no conversion M32 for us *)
         sz = match size with
@@ -780,17 +776,13 @@ and mk_expr env (e: expr): W.Ast.instr list =
       [ dummy_phrase (W.Ast.SetLocal (mk_var i)) ] @
       mk_unit
 
-  | BufWrite (e1, e2, e3, size) ->
+  | BufWrite (e1, ofs, e3, size) ->
       mk_expr env e1 @
-      mk_expr env e2 @
-      mk_size size @
-      i32_mul @
-      i32_add @
       mk_expr env e3 @
       [ dummy_phrase W.Ast.(Store {
         ty = mk_type (if size = A64 then I64 else I32);
         align = 0;
-        offset = 0l;
+        offset = Int32.of_int ofs;
         sz = match size with
           | A16 -> Some W.Memory.Mem16
           | A8 -> Some W.Memory.Mem8
