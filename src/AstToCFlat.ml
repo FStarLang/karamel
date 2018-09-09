@@ -358,17 +358,17 @@ and mk_addr env e =
  * either a variable, a constant, or a simple expression, e.g. [size - 1]), and
  * an element size sz, return a pair of a pointer and a possibly-zero offset (in
  * bytes) that corresponds to the given offset in the index. *)
-and mk_offset env (base: CF.expr) (ofs: expr) (sz: int) =
+and mk_offset env locals (base: CF.expr) (ofs: expr) (sz: int) =
   match ofs.node with
   | EConstant (_, c) ->
       (* TODO: overflow on 32-bit OCaml for string_of_int and subsequent
        * computations *)
-      base, int_of_string c * sz
+      locals, base, int_of_string c * sz
   | _ ->
-      let ofs = mk_expr_no_locals env ofs in
+      let locals, ofs = mk_expr env locals ofs in
       (* The destination is the base pointer + the index * the size of an element. *)
       let dst = mk_add32 base (mk_mul32 ofs (mk_uint32 sz)) in
-      dst, 0
+      locals, dst, 0
 
 (** The actual translation. Note that the environment is dropped, but that the
  * locals are chained through (state-passing style). *)
@@ -436,7 +436,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EBufRead (e1, e2) ->
       let s = array_size_of (assert_buf e1.typ) in
       let locals, e1 = mk_expr env locals e1 in
-      let e1, offset = mk_offset env e1 e2 (bytes_in s) in
+      let locals, e1, offset = mk_offset env locals e1 e2 (bytes_in s) in
       locals, CF.BufRead (e1, offset, s)
 
   | EAddrOf ({ node = EBufRead (e1, e2); _ })
@@ -448,7 +448,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | EBufWrite ({ node = EBound v1; _ }, e2, e3) ->
       let v1 = CF.Var (find env v1) in
-      let dst, offset = mk_offset env v1 e2 (cell_size_b env e3.typ) in
+      let locals, dst, offset = mk_offset env locals v1 e2 (cell_size_b env e3.typ) in
       let locals, assignments = write_at env locals dst offset e3 in
       locals, CF.Sequence assignments
 

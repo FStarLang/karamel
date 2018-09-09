@@ -15,25 +15,21 @@ let hoist_reads_and_writes = object(self)
     (* TODO: separate the two pattern-matches because EConstant for e2 is still
      * good regardless of what e1 is *)
     match e1.node, e2.node with
-    | (EOpen _ | EBound _), EConstant _ ->
+    | (EOpen _ | EBound _), _ ->
         EBufWrite (e1, e2, e3)
     | _ ->
         let b_e1, body_e1, ref_e1 = mk_named_binding "dst" e1.typ e1.node in
-        let b_e2, body_e2, ref_e2 = mk_named_binding "ofs" e2.typ e2.node in
         ELet (b_e1, body_e1, close_binder b_e1 (with_unit (
-        ELet (b_e2, body_e2, close_binder b_e2 (with_unit (
-          EBufWrite (ref_e1, ref_e2, self#visit_expr env e3)))))))
+          EBufWrite (ref_e1, self#visit_expr env e2, self#visit_expr env e3))))
 
-  method! visit_EBufRead (_, t) e1 e2 =
+  method! visit_EBufRead (env, t) e1 e2 =
     match e1.node, e2.node with
-    | (EOpen _ | EBound _), EConstant _ ->
+    | (EOpen _ | EBound _), _ ->
         EBufRead (e1, e2)
     | _ ->
         let b_e1, body_e1, ref_e1 = mk_named_binding "src" e1.typ e1.node in
-        let b_e2, body_e2, ref_e2 = mk_named_binding "ofs" e2.typ e2.node in
         ELet (b_e1, body_e1, close_binder b_e1 (with_type t (
-        ELet (b_e2, body_e2, close_binder b_e2 (with_type t (
-          EBufRead (ref_e1, ref_e2)))))))
+          EBufRead (ref_e1, self#visit_expr (env, t) e2))))
 
 end
 
