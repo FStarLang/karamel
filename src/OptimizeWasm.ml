@@ -26,6 +26,9 @@ let rec optimize_expr' acc es =
   | { Source.it = Ast.Block (t, e); _ } :: es ->
       let e = optimize_expr' [] e in
       optimize_expr' (dummy_phrase (Ast.Block (t, e)) :: acc) es
+  | { Source.it = Ast.Loop (t, e); _ } :: es ->
+      let e = optimize_expr' [] e in
+      optimize_expr' (dummy_phrase (Ast.Loop (t, e)) :: acc) es
   | e :: es ->
       optimize_expr' (e :: acc) es
   | [] ->
