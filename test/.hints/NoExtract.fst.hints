@@ -14,7 +14,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "7989bd6521d6c582110009a9c0c258e2"
+      "bad702dd0d4fac3042e31baabce258be"
     ],
     [
       "NoExtract.b",
@@ -29,7 +29,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "83d8e61b7b1450b0a58c6d85d52ca882"
+      "52cb370281f7051290fb85567ecb6f5e"
     ]
   ]
 ]

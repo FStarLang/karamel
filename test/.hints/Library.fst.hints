@@ -28,9 +28,7 @@
         "equation_FStar.Monotonic.HyperStack.poppable",
         "equation_FStar.Monotonic.HyperStack.popped",
         "equation_FStar.Monotonic.HyperStack.remove_elt",
-        "equation_FStar.Set.eqtype", "equation_FStar.UInt32.n",
-        "equation_LowStar.Buffer.buffer",
-        "equation_LowStar.Buffer.trivial_preorder",
+        "equation_FStar.UInt32.n",
         "equation_LowStar.Monotonic.Buffer.length", "equation_Prims.eqtype",
         "function_token_typing_FStar.Integers.uint_8",
         "function_token_typing_FStar.Monotonic.Heap.emp",
@@ -74,6 +72,7 @@
         "refinement_interpretation_Library_Tm_refine_70bcd2d516db6edb5890dc10eb12fb0c",
         "refinement_interpretation_Library_Tm_refine_8ca184fae7d5c5a6d5b65fc19847dc6f",
         "refinement_interpretation_Library_Tm_refine_eaaf1fb3627697929673d8661ada1c2c",
+        "refinement_interpretation_Library_Tm_refine_fee4d47786f2acf99bc14199ca24e2b8",
         "typing_FStar.Map.contains", "typing_FStar.Map.domain",
         "typing_FStar.Map.restrict",
         "typing_FStar.Monotonic.HyperStack.get_hmap",
@@ -85,7 +84,7 @@
         "typing_LowStar.Monotonic.Buffer.len"
       ],
       0,
-      "75f2332ea6df0948bfa1b1d2492d6410"
+      "de483841a18d9567799f7d4c36789eb8"
     ]
   ]
 ]

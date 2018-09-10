@@ -8,7 +8,7 @@
       1,
       [ "@query", "assumption_FStar.Int32.t__uu___haseq" ],
       0,
-      "3bc7f2655d3b0f2f33394ac52f6075dc"
+      "6a9bc5f8846b438fb2b33e369fc50a1e"
     ],
     [
       "EtaStruct.f",
@@ -23,7 +23,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "4c0048b2fbc08b1fab8738c46ccf1e82"
+      "db3c3426b846c9bae57e220a02f03990"
     ],
     [
       "EtaStruct.main",
@@ -32,7 +32,7 @@
       1,
       [ "@query" ],
       0,
-      "9170c415062397164406afb2c5b3b4b7"
+      "bd7ebf62e8dbdf623758894949398a0c"
     ]
   ]
 ]

@@ -168,33 +168,37 @@ let subst_p (p2: pattern) (i: int) (p1: pattern) =
 
 (* Close [binder] into bound variable i *)
 
-class close (atom': Atom.t) = object
+class close (atom': Atom.t) (e: expr) = object
   inherit map_counting
 
   method! visit_EOpen (i, _) name atom =
     if Atom.equal atom atom' then
-      EBound i
+      (lift i e).node
     else
       EOpen (name, atom)
+end
+
+class close_p (atom': Atom.t) (p: pattern) = object
+  inherit map_counting
 
   method! visit_POpen (i, _) name atom =
     if Atom.equal atom atom' then
-      PBound i
+      (lift_p i p).node
     else
       POpen (name, atom)
 end
 
-let close (a: Atom.t) (i: int) (e: expr) =
-  (new close a)#visit_expr_w i e
+let close (a: Atom.t) (e': expr) (e: expr) =
+  (new close a e')#visit_expr_w 0 e
 
-let close_p (a: Atom.t) (i: int) (e: pattern) =
-  (new close a)#visit_pattern_w i e
+let close_p (a: Atom.t) (e': pattern) (e: pattern) =
+  (new close_p a e')#visit_pattern_w 0 e
 
 let closing_binder b e =
-  close b.node.atom 0 (lift 1 e)
+  close b.node.atom (with_type b.typ (EBound 0)) (lift 1 e)
 
 let close_binder_p b e =
-  close_p b.node.atom 0 (lift_p 1 e)
+  close_p b.node.atom (with_type b.typ (PBound 0)) (lift_p 1 e)
 
 let close_binder = closing_binder
 
