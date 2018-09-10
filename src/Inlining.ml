@@ -24,7 +24,7 @@ let reparenthesize_applications = object (self)
     let e = self#visit_expr env e in
     (match e.node with EApp _ -> assert false | _ -> ());
     match e.node with
-    | EQualified lid ->
+    | EQualified lid | ETApp ({ node = EQualified lid; _ }, _) ->
         begin try
           let n = Hashtbl.find natural_arity lid in
           let first, last = KList.split n es in

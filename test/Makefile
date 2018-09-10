@@ -22,7 +22,7 @@ FILES		= \
   LinkedList1.test LinkedList2.test LinkedList3.test LinkedList4.test \
   NoExtract.test InlineNoExtract.test ../book/RingBuffer.test \
   ../book/Introduction.test TopLevelArray.test NoShadow.test Library.test \
-  AbstractStruct.test HigherOrder.test
+  AbstractStruct.test HigherOrder.test HigherOrder2.test
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
@@ -34,7 +34,7 @@ NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
 # HigherOrder, HigherOrder2: need to implement "natural arity" tracking
 BROKEN		= \
-  $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm HigherOrder2.test HigherOrder3.test
+  $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm HigherOrder3.test
 WEB_DIR		?= web
 CACHE_DIR	= .cache
 OUTPUT_DIR	= .output
