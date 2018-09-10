@@ -33,10 +33,15 @@ let reparenthesize_applications = object (self)
             EApp (app1, last)
           else
             app1.node
-        with Not_found ->
-          if Options.debug "arity" then
-            KPrint.bprintf "Cannot enforce arity at call-site for %a (unknown)\n" plid lid;
-          EApp (e, es)
+        with
+          | Not_found ->
+              if Options.debug "arity" then
+                KPrint.bprintf "Cannot enforce arity at call-site for %a (unknown)\n" plid lid;
+              EApp (e, es)
+          | Invalid_argument s ->
+              if Options.debug "arity" then
+                KPrint.bprintf "Cannot enforce arity at call-site for %a (%s, partial application?)\n" plid lid s;
+              EApp (e, es)
         end
     | _ ->
         if Options.debug "arity" then
