@@ -51,7 +51,7 @@ end
 
 let reparenthesize_applications files =
   compute_natural_arity#visit_files () files;
-  let files = reparenthesize_applications#visit_files () files in
+  let files = if true then files else reparenthesize_applications#visit_files () files in
   files
 
 (* Inlining of function bodies ************************************************)
