@@ -849,7 +849,12 @@ end
  * nested, plain let-bindings. Note that we do a local, manual commutation of
  * let/match, since simplify2 has not run yet.
  *
- * Examples of such matches include: let x, y = e1, e2, etc.
+ * Generic rewriting rule of the form:
+ *   (i)   match (e1, e2) with (x, y) -> e  ~~~>
+ *         let x = e1 in let y = e2 in e
+ * Specific rewriting rule:
+ *   (ii)  match let x = e0 in (e1, e2) with (x, y) -> e  ~~~>
+ *         let x = e0 in match (e1, e2) with (x, y) -> e
  *)
 let remove_full_matches = object (self)
 
