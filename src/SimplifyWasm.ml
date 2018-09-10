@@ -12,8 +12,6 @@ let hoist_reads_and_writes = object(self)
   inherit [_] map
 
   method! visit_EBufWrite env e1 e2 e3 =
-    (* TODO: separate the two pattern-matches because EConstant for e2 is still
-     * good regardless of what e1 is *)
     match e1.node, e2.node with
     | (EOpen _ | EBound _), _ ->
         EBufWrite (e1, e2, e3)

@@ -844,11 +844,56 @@ let remove_non_scalar_casts (map, _) = object (self)
 
 end
 
+(* An early step: remove "full" matches, i.e. those that don't necessitate
+ * the evaluation of a temporary scrutinee and can be compiled into a series of
+ * nested, plain let-bindings.
+ *
+ * Examples include: let x, y = e1, e2, etc.
+ *)
+let remove_full_matches = object (self)
+
+  inherit [_] map as super
+
+  method! visit_EMatch (_, t as env) scrut branches =
+    let rec explode pat scrut =
+      match pat.node, scrut.node with
+      | POpen (_, a), _ ->
+          [ a, scrut ]
+      | PTuple ps, ETuple es ->
+          List.flatten (List.map2 explode ps es)
+      | PRecord fieldpats, EFlat fieldexprs ->
+          List.flatten (List.map2 (fun (f, p) (f', e) ->
+            assert (Some f = f');
+            explode p e
+          ) fieldpats fieldexprs)
+      | PCons (cons, ps), ECons (cons', es) ->
+          assert (cons = cons');
+          List.flatten (List.map2 explode ps es)
+      | _ ->
+          (* Todo: records *)
+          raise Not_found
+    in
+    match branches with
+    | [ binders, pat, e ] ->
+        begin try
+          let e = self#visit_expr env e in
+          let binders, pat, e = open_branch binders pat e in
+          let pairs = explode pat scrut in
+          let binders = List.map (fun b -> b, List.assoc b.node.atom pairs) binders in
+          (Helpers.nest binders t e).node
+        with Not_found ->
+          super#visit_EMatch env scrut branches
+        end
+    | _ ->
+        super#visit_EMatch env scrut branches
+end
+
 (* Debug any intermediary AST as follows: *)
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
 
 let simplify files =
   let files = remove_trivial_matches#visit_files () files in
+  let files = remove_full_matches#visit_files () files in
   files
 
 let everything files =

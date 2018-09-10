@@ -437,7 +437,7 @@ Supported options:|}
    * bundle. *)
   let files = Simplify.simplify0 files in
   (* Remove trivial matches now because they eliminate code that would generate
-   * spurious dependencies otherwise. JP: TODO: fix F\*'s extraction instead! *)
+   * spurious dependencies otherwise. *)
   let files = DataTypes.simplify files in
   let files = Monomorphization.datatypes files in
   let files = Monomorphization.equalities files in

@@ -25,6 +25,10 @@ let something (): Stack bool (fun _ -> true) (fun _ _ _ -> true) =
 let whatever (e: erased UInt8.t): Stack unit (fun _ -> true) (fun _ _ _ -> true) =
   ()
 
+let destruct (x, y) =
+  let x, y = x, y in
+  FStar.UInt32.(x +%^ y)
+
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
   Stack C.exit_code (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
