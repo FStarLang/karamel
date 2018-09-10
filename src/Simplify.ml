@@ -73,6 +73,8 @@ let unused_binder binders i =
   unused_typ (List.map (fun b -> b.typ) binders) i
 
 (* To be run immediately after the phase above. *)
+
+(* JP: we should get rid of this *)
 let build_unused_map map = object
   inherit [_] iter
 
@@ -93,6 +95,9 @@ let remove_unused_parameters map = object (self)
   inherit [_] map
 
   method! visit_DFunction env cc flags n ret name binders body =
+    let binders = self#visit_binders_w env binders in
+    let ret = self#visit_typ env ret in
+
     let n_binders = List.length binders in
     let body = List.fold_left (fun body i ->
       if unused_binder binders i then begin
@@ -105,18 +110,11 @@ let remove_unused_parameters map = object (self)
     let binders = KList.filter_mask unused binders in
     DFunction (cc, flags, n, ret, name, binders, body)
 
-  method! visit_DExternal _ cc flags name t =
-    let t =
-      match t with
-      | TArrow _ ->
-          let ret, args = flatten_arrow t in
-          let unused = KList.make (List.length args) (fun i -> not (unused_typ args i)) in
-          let args = KList.filter_mask unused args in
-          fold_arrow args ret
-      | _ ->
-          t
-    in
-    DExternal (cc, flags, name, t)
+  method! visit_TArrow _ t1 t2 =
+    let ret, args = flatten_arrow (TArrow (t1, t2)) in
+    let unused = KList.make (List.length args) (fun i -> not (unused_typ args i)) in
+    let args = KList.filter_mask unused args in
+    fold_arrow args ret
 
   method! visit_EApp (env, t) e es =
     let es = List.map (self#visit_expr_w env) es in
@@ -127,6 +125,7 @@ let remove_unused_parameters map = object (self)
         let e =
           let t, ts = flatten_arrow e.typ in
           let ts = KList.filter_mask (List.map not (Hashtbl.find map lid)) ts in
+          let ts = List.map (self#visit_typ env) ts in
           { e with typ = fold_arrow ts t }
         in
         (* There are some partial applications lurking around in spec... Checker
