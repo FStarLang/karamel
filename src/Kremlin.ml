@@ -420,6 +420,8 @@ Supported options:|}
    * list__t'). Also needs to happen before monomorphization of equalities. *)
   let files = Inlining.inline_type_abbrevs files in
   let files = DataTypes.remove_unused_type_arguments files in
+  let files = Inlining.reparenthesize_applications files in
+  let files = Inlining.inline files in
   let files = Monomorphization.functions files in
   if !arg_print_monomorphization then
     print PrintAst.print_files files;

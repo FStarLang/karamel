@@ -20,9 +20,15 @@ let buggy_const_f (b:bool) =
   higher_id const_f b
 
 // it turns out this function also extracts, and has an incorrect call already
-inline_for_extraction [@"substitute"]
+inline_for_extraction noextract
 let inline_higher_id (f: bool_function) : bool_function =
   fun x -> higher_id f x
 
 let still_buggy : bool_function =
   inline_higher_id const_f
+
+let main () =
+  if still_buggy true then
+    0l
+  else
+    1l

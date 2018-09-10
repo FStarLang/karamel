@@ -5,23 +5,49 @@ open Warnings
 open PrintAst.Ops
 open Common
 
-let always_live_lids = [
-  [ "FStar"; "UInt128" ], "uint128";
-  [ "FStar"; "Int"; "Cast"; "Full" ], "uint64_to_uint128";
-]
+(* Natural arity analysis must be performed before inlining (see comment in
+ * [inline_one]. *)
+let natural_arity = Hashtbl.create 43
 
-(* Two distinguished cases that are always live and shall not be eliminated from
- * the program, no matter what: the main function, and UInt128 (which kremlib.h
- * assumes is always in scope). *)
-let always_live name =
-  (* kremlib.h assumes this type exists, so keep it, even if the program
-   * doesn't use uint128. *)
-  let always_live_c = [
-    "main"
-  ] in
-  List.mem name always_live_lids ||
-  List.mem (Simplify.target_c_name name) always_live_c
+let compute_natural_arity = object
+  inherit [_] iter
 
+  method! visit_DFunction () _ _ _ _ name args _ =
+    Hashtbl.add natural_arity name (List.length args)
+end
+
+let reparenthesize_applications = object (self)
+  inherit [_] map
+
+  method! visit_EApp (_, t as env) e es =
+    let es = List.map (self#visit_expr env) es in
+    let e = self#visit_expr env e in
+    (match e.node with EApp _ -> assert false | _ -> ());
+    match e.node with
+    | EQualified lid ->
+        begin try
+          let n = Hashtbl.find natural_arity lid in
+          let first, last = KList.split n es in
+          let app1 = with_type t (EApp (e, first)) in
+          if List.length last > 0 then
+            EApp (app1, last)
+          else
+            app1.node
+        with Not_found ->
+          if Options.debug "arity" then
+            KPrint.bprintf "Cannot enforce arity at call-site for %a (unknown)\n" plid lid;
+          EApp (e, es)
+        end
+    | _ ->
+        if Options.debug "arity" then
+          KPrint.bprintf "Cannot enforce arity at call-site for %a (not an lid)\n" pexpr e;
+        EApp (e, es)
+end
+
+let reparenthesize_applications files =
+  compute_natural_arity#visit_files () files;
+  let files = reparenthesize_applications#visit_files () files in
+  files
 
 (* Inlining of function bodies ************************************************)
 
@@ -279,10 +305,6 @@ let cross_call_analysis files =
         end
     end
   in
-  List.iter (fun lid ->
-    if Hashtbl.mem safely_private lid then
-      Hashtbl.remove safely_private lid;
-  ) always_live_lids;
   unmark_private_types_in#visit_files () files;
 
   (* The invariant for [safely_private] is now established, and we drop those
@@ -316,6 +338,10 @@ let cross_call_analysis files =
   files
 
 (** A whole-program transformation that inlines functions according to... *)
+
+let always_live name =
+  Simplify.target_c_name name = "main"
+
 let inline files =
 
   let must_inline, must_disappear = inline_analysis files in
