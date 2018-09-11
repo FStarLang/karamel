@@ -657,11 +657,11 @@ and hoist_expr loc pos e =
   | EApp ({ node = EOp ((K.And | K.Or), K.Bool); _ } as e0, [ e1; e2 ]) ->
       let lhs1, e1 = hoist_expr loc Unspecified e1 in
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
-      if lhs2 <> [] then
+      if lhs2 <> [] && not !Options.wasm then
         Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
           GeneratesLetBindings (
             KPrint.bsprintf "%a, a short-circuiting boolean operator" pexpr e0, e, lhs2)));
-      lhs1, mk (EApp (e0, [ e1; e2 ]))
+      lhs1, mk (EApp (e0, [ e1; nest lhs2 e2.typ e2 ]))
 
   | EApp (e, es) ->
       let lhs, e = hoist_expr loc Unspecified e in
@@ -702,11 +702,8 @@ and hoist_expr loc pos e =
   | EWhile (e1, e2) ->
       let lhs1, e1 = hoist_expr loc Unspecified e1 in
       if lhs1 <> [] then
-        fatal_error "The translation of this while loop's condition expression \
-          gives rise to let-bindings!\n\
-          %a\n\
-          Let-bindings are:\n\
-          %a" ppexpr e pplbs lhs1;
+        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
+          GeneratesLetBindings ("this while loop's test expression", e, lhs1)));
       let e2 = hoist_stmt loc e2 in
       if pos = UnderStmtLet then
         [], mk (EWhile (e1, e2))
@@ -722,11 +719,8 @@ and hoist_expr loc pos e =
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
       let lhs3, e3 = hoist_expr loc UnderStmtLet e3 in
       if lhs2 <> [] || lhs3 <> [] then
-        fatal_error "The translation of this for-loop's condition or iteration \
-          expression gives rise to intermediary let-bindings!\n\
-          %a\n\
-          Let-bindings are:\n\
-          %a" ppexpr e pplbs (lhs2 @ lhs3);
+        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
+          GeneratesLetBindings ("this for-loop's condition or iteration", e, (lhs2 @ lhs3))));
       let e4 = hoist_stmt loc e4 in
       let s = closing_binder binder in
       if pos = UnderStmtLet then
