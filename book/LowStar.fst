@@ -730,12 +730,12 @@ let test_st_get (): St unit =
 ///
 /// .. warning ::
 ///
-///    By default, KreMLin will rely on the non-standard ``unsigned __int128`` C
+///    By default, KreMLin relies on the non-standard ``unsigned __int128`` C
 ///    type to implement ``FStar.UInt128.t``. This type is widely supported
 ///    across GCC and Clang versions, but not by the Microsoft compilers. If you
-///    need 128-bit unsigned integers *and* portability, consider using
-///    KreMLin's ``-fnouint128`` flag to rely instead on an extracted version of
-///    ``FStar.UInt128.fst`` that is proven correct, but slower.
+///    need 128-bit unsigned integers, consider reading
+///    ``kremlib/README.md``, which offers both an MSVC-specific alternative,
+///    and a portable, albeit slower, implementation.
 ///
 /// Machine integers offer the classic set of arithmetic operations. Like in C,
 /// unsigned integers have wraparound overflow semantics, exposed via the

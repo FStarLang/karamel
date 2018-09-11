@@ -246,8 +246,9 @@ let main (): Stack C.exit_code
 ///
 /// KreMLin is intimately tied with F*:
 ///
-/// - the ``master`` branch of KreMLin works with the ``stable`` branch of F*
-/// - the ``fstar-master`` branch of KreMLin works with the ``master`` branch of F*.
+/// - stable branches of F* are matched by corresponding branches of KreMLin
+///   (e.g. ``v0.9.6+``)
+/// - the ``master`` branch of KreMLin works with the ``master`` branch of F*
 ///
 /// Due to the fast-paced nature of F* development, this tutorial is kept
 /// up-to-date with the *latter* set of revisions, meaning that this tutorial
@@ -255,7 +256,7 @@ let main (): Stack C.exit_code
 ///
 /// - an up-to-date version of F* ``master`` `built from source
 ///   <https://github.com/FStarLang/FStar/blob/master/INSTALL.md>`__
-/// - an up-to-date version of KreMLin ``fstar-master``, `built from source
+/// - an up-to-date version of KreMLin ``master``, `built from source
 ///   <https://github.com/FStarLang/kremlin/tree/fstar-master/#trying-out-kremlin>`__
 /// - a C compiler in the path, preferably a recent version of GCC.
 ///
@@ -303,7 +304,8 @@ let main (): Stack C.exit_code
 /// However, using KreMLin as a driver is inefficient for two reasons:
 ///
 /// - step 1 uses "legacy" extraction in F*: files are processed sequentially,
-///   without caching, and verification is by default not performed (use ``-verify``)
+///   without caching, and verification is by default not performed (the
+///   ``-verify`` will generate F* errors))
 /// - step 3 is not parallel
 ///
 /// Section ?? provides a complete sample Makefile that performs parallel
