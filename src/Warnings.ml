@@ -24,6 +24,7 @@ and raw_error =
   | NotWasmCompatible of lident * string
   | DropDeclaration of lident * string
   | NotTailCall of lident
+  | GeneratesLetBindings of string * expr * (binder * expr) list
 
 and location =
   string
@@ -162,6 +163,13 @@ let rec perr buf (loc, raw_error) =
       p "%a is recursive but cannot be optimized to a tail-call" plid lid
   | NeedsCompat (lid, reason) ->
       p "%a is not Low*; %s" plid lid reason
+  | GeneratesLetBindings (what, e, bs) ->
+      p "The translation of %s gives rise to let-bindings, which, once hoisted, \
+        would change the evaluation semantics. Please rewrite your code.\n\
+        Offending expression:\n\
+        %a\n\
+        Offending let-bindings:\n\
+        %a" what ppexpr e pplbs bs
 
 
 let maybe_fatal_error error =

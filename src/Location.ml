@@ -19,6 +19,7 @@ type loc =
   | Sequence of int
   | SequenceLast
   | Scrutinee
+  | Call of string
 
 let print_case = function
   | SConstant s ->
@@ -57,6 +58,8 @@ let print_loc = function
       string "in the sequence statement at index " ^^ int i
   | Scrutinee ->
       string "in the scrutinee"
+  | Call s ->
+      string "in the arguments to " ^^ string s
 
 let print_location locs =
   separate_map (string ", ") print_loc locs

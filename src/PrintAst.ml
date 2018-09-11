@@ -352,8 +352,8 @@ module Ops = struct
   let pppat = printf_of_pprint_pretty print_pat
   let plb = printf_of_pprint print_let_binding
   let pplb = printf_of_pprint_pretty print_let_binding
-  let plbs buf lbs = List.iter (plb buf) lbs
-  let pplbs buf lbs = List.iter (pplb buf) lbs
+  let plbs buf lbs = List.iter (fun lb -> plb buf lb; Buffer.add_string buf " ") lbs
+  let pplbs buf lbs = List.iter (fun lb -> pplb buf lb; Buffer.add_string buf "\n") lbs
 end
 
 include Ops
