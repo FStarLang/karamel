@@ -61,6 +61,12 @@ let mk_debug name parameters =
   else
     []
 
+let mk_pretty_type = function
+  | "FStar_UInt128_uint128" when !Options.builtin_uint128 ->
+      "uint128_t"
+  | x ->
+      x
+
 (* Turns the ML declaration inside-out to match the C reading of a type.
  *   See: en.cppreference.com/w/c/language/declarations.
  * The continuation is key in the Function case. *)
@@ -92,7 +98,7 @@ let rec mk_spec_and_decl name qs (t: typ) (k: C.declarator -> C.declarator):
   | Void ->
       qs, Void, k (Ident name)
   | Qualified l ->
-      qs, Named l, k (Ident name)
+      qs, Named (mk_pretty_type l), k (Ident name)
   | Enum tags ->
       qs, Enum (None, tags), k (Ident name)
   | Bool ->
@@ -615,6 +621,54 @@ and mk_expr (e: expr): C.expr =
   | Call (Qualified "LowStar_Monotonic_Buffer_is_null", [ e ] )
   | Call (Qualified "C_Nullity_is_null", [ e ]) ->
       Op2 (K.Eq, mk_expr e, C.Name "NULL")
+
+  | Call (Qualified "FStar_UInt128_add", [ e1; e2 ]) when !Options.builtin_uint128 ->
+      Op2 (K.Add, mk_expr e1, mk_expr e2)
+
+  | Call (Qualified "FStar_UInt128_mul", [ e1; e2 ]) when !Options.builtin_uint128 ->
+      Op2 (K.Mult, mk_expr e1, mk_expr e2)
+
+  | Call (Qualified "FStar_UInt128_add_mod", [ e1; e2 ]) when !Options.builtin_uint128 ->
+      Op2 (K.Add, mk_expr e1, mk_expr e2)
+
+  | Call (Qualified "FStar_UInt128_sub", [ e1; e2 ]) when !Options.builtin_uint128 ->
+      Op2 (K.Sub, mk_expr e1, mk_expr e2)
+
+  | Call (Qualified "FStar_UInt128_sub_mod", [ e1; e2 ]) when !Options.builtin_uint128 ->
+      Op2 (K.Sub, mk_expr e1, mk_expr e2)
+
+  | Call (Qualified "FStar_UInt128_logand", [ e1; e2 ]) when !Options.builtin_uint128 ->
+      Op2 (K.BAnd, mk_expr e1, mk_expr e2)
+
+  | Call (Qualified "FStar_UInt128_logor", [ e1; e2 ]) when !Options.builtin_uint128 ->
+      Op2 (K.BOr, mk_expr e1, mk_expr e2)
+
+  | Call (Qualified "FStar_UInt128_logxor", [ e1; e2 ]) when !Options.builtin_uint128 ->
+      Op2 (K.BXor, mk_expr e1, mk_expr e2)
+
+  | Call (Qualified "FStar_UInt128_lognot", [ e1 ]) when !Options.builtin_uint128 ->
+      Op1 (K.BNot, mk_expr e1)
+
+  | Call (Qualified "FStar_UInt128_shift_left", [ e1; e2 ]) when !Options.builtin_uint128 ->
+      Op2 (K.BShiftL, mk_expr e1, mk_expr e2)
+
+  | Call (Qualified "FStar_UInt128_shift_right", [ e1; e2 ]) when !Options.builtin_uint128 ->
+      Op2 (K.BShiftR, mk_expr e1, mk_expr e2)
+
+  | Call (Qualified "FStar_UInt128_uint64_to_uint128", [ e1 ]) when !Options.builtin_uint128 ->
+      Cast (mk_type (Qualified "uint128_t"), mk_expr e1)
+
+  | Call (Qualified "FStar_UInt128_uint128_to_uint64", [ e1 ]) when !Options.builtin_uint128 ->
+      Cast (mk_type (Qualified "uint64_t"), mk_expr e1)
+
+  | Call (Qualified "FStar_UInt128_mul_wide", [ e1; e2 ]) when !Options.builtin_uint128 ->
+      Op2 (K.Mult, Cast (mk_type (Qualified "uint128_t"), mk_expr e1), mk_expr e2)
+
+  | Call (Qualified "FStar_Int_Cast_Full_uint64_to_uint128", [ e1 ]) when !Options.builtin_uint128 ->
+      Cast (mk_type (Qualified "uint128_t"), mk_expr e1)
+
+  | Call (Qualified "FStar_Int_Cast_Full_uint128_to_uint64", [ e1 ]) when !Options.builtin_uint128 ->
+      Cast (mk_type (Qualified "uint64_t"), mk_expr e1)
 
   | Call (e, es) ->
       Call (mk_expr e, List.map mk_expr es)

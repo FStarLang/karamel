@@ -182,7 +182,7 @@ Supported options:|}
     "-verify", Arg.Set arg_verify, " ask F* to verify the program";
     "-verbose", Arg.Set Options.verbose, "  show the output of intermediary \
       tools when acting as a driver for F* or the C compiler";
-    "-diagnostics", Arg.Set arg_diagnostics, "list recursive functions and \
+    "-diagnostics", Arg.Set arg_diagnostics, "  list recursive functions and \
       overly nested data types (useful for MSVC)";
     "-wasm", Arg.Set Options.wasm, "  emit a .wasm file instead of C";
     "", Arg.Unit (fun _ -> ()), " ";
@@ -226,6 +226,9 @@ Supported options:|}
     "", Arg.Unit (fun _ -> ()), " ";
     "-by-ref", Arg.String (fun s -> prepend Options.by_ref (Parsers.lid s)), " \
       pass the given struct type by reference, always";
+    "-fbuiltin-uint128", Arg.Set Options.builtin_uint128, "  target compiler \
+      supports arithmetic operators for uint128 -- this is NON PORTABLE, \
+      works only with GCC/Clang";
     "-falloca", Arg.Set Options.alloca_if_vla, "  use alloca(3) for \
       variable-length arrays on the stack";
     "-fnostruct-passing", Arg.Clear Options.struct_passing, "  disable passing \

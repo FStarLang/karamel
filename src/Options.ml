@@ -44,6 +44,7 @@ let tail_calls = ref false
 let no_shadow = ref false
 
 let extract_uints = ref false
+let builtin_uint128 = ref false
 
 let header: (string -> string -> string) ref = ref (fun x y ->
   KPrint.bsprintf
