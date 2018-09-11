@@ -16,13 +16,21 @@ let compute_natural_arity = object
     Hashtbl.add natural_arity name (List.length args)
 end
 
+let rec flatten_app e =
+  match e.node with
+  | EApp (e, es) ->
+      let e, es' = flatten_app e in
+      e, es' @ es
+  | _ ->
+      e, []
+
 let reparenthesize_applications = object (self)
   inherit [_] map
 
   method! visit_EApp (_, t as env) e es =
+    let e, es = flatten_app (with_type t (EApp (e, es))) in
     let es = List.map (self#visit_expr env) es in
     let e = self#visit_expr env e in
-    (match e.node with EApp _ -> assert false | _ -> ());
     match e.node with
     | EQualified lid | ETApp ({ node = EQualified lid; _ }, _) ->
         begin try

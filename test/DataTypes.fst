@@ -25,8 +25,15 @@ let something (): Stack bool (fun _ -> true) (fun _ _ _ -> true) =
 let whatever (e: erased UInt8.t): Stack unit (fun _ -> true) (fun _ _ _ -> true) =
   ()
 
+inline_for_extraction
+let helper x y =
+  let open FStar.UInt32 in
+  let a = x +%^ y in
+  let b = x -%^ y in
+  a, b
+
 let destruct (x, y) =
-  let x, y = x, y in
+  let x, y = helper x y in
   FStar.UInt32.(x +%^ y)
 
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->

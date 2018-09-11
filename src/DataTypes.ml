@@ -846,46 +846,58 @@ end
 
 (* An early step: remove "full" matches, i.e. those that don't necessitate
  * the evaluation of a temporary scrutinee and can be compiled into a series of
- * nested, plain let-bindings.
+ * nested, plain let-bindings. Note that we do a local, manual commutation of
+ * let/match, since simplify2 has not run yet.
  *
- * Examples include: let x, y = e1, e2, etc.
+ * Generic rewriting rule of the form:
+ *   (i)   match (e1, e2) with (x, y) -> e  ~~~>
+ *         let x = e1 in let y = e2 in e
+ * Specific rewriting rule:
+ *   (ii)  match let x = e0 in (e1, e2) with (x, y) -> e  ~~~>
+ *         let x = e0 in match (e1, e2) with (x, y) -> e
  *)
 let remove_full_matches = object (self)
 
   inherit [_] map as super
 
   method! visit_EMatch (_, t as env) scrut branches =
-    let rec explode pat scrut =
-      match pat.node, scrut.node with
-      | POpen (_, a), _ ->
-          [ a, scrut ]
-      | PTuple ps, ETuple es ->
-          List.flatten (List.map2 explode ps es)
-      | PRecord fieldpats, EFlat fieldexprs ->
-          List.flatten (List.map2 (fun (f, p) (f', e) ->
-            assert (Some f = f');
-            explode p e
-          ) fieldpats fieldexprs)
-      | PCons (cons, ps), ECons (cons', es) ->
-          assert (cons = cons');
-          List.flatten (List.map2 explode ps es)
-      | _ ->
-          (* Todo: records *)
-          raise Not_found
-    in
-    match branches with
-    | [ binders, pat, e ] ->
-        begin try
-          let e = self#visit_expr env e in
-          let binders, pat, e = open_branch binders pat e in
-          let pairs = explode pat scrut in
-          let binders = List.map (fun b -> b, List.assoc b.node.atom pairs) binders in
-          (Helpers.nest binders t e).node
-        with Not_found ->
-          super#visit_EMatch env scrut branches
-        end
+    match scrut.node with
+    | ELet (b, e1, e2) ->
+        let b, e2 = open_binder b e2 in
+        (self#visit_expr env (with_type t (ELet (b, e1,
+          close_binder b (with_type t (EMatch (e2, branches))))))).node
     | _ ->
-        super#visit_EMatch env scrut branches
+        let rec explode pat scrut =
+          match pat.node, scrut.node with
+          | POpen (_, a), _ ->
+              [ a, scrut ]
+          | PTuple ps, ETuple es ->
+              List.flatten (List.map2 explode ps es)
+          | PRecord fieldpats, EFlat fieldexprs ->
+              List.flatten (List.map2 (fun (f, p) (f', e) ->
+                assert (Some f = f');
+                explode p e
+              ) fieldpats fieldexprs)
+          | PCons (cons, ps), ECons (cons', es) ->
+              assert (cons = cons');
+              List.flatten (List.map2 explode ps es)
+          | _ ->
+              (* Todo: records *)
+              raise Not_found
+        in
+        match branches with
+        | [ binders, pat, e ] ->
+            begin try
+              let e = self#visit_expr env e in
+              let binders, pat, e = open_branch binders pat e in
+              let pairs = explode pat scrut in
+              let binders = List.map (fun b -> b, List.assoc b.node.atom pairs) binders in
+              (Helpers.nest binders t e).node
+            with Not_found ->
+              super#visit_EMatch env scrut branches
+            end
+        | _ ->
+            super#visit_EMatch env scrut branches
 end
 
 (* Debug any intermediary AST as follows: *)

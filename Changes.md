@@ -1,8 +1,11 @@
 ### September 10, 2018
 
 - Don't allocate a struct variable for "full" matches, e.g. let x, (y, z) = e1, (e2, e3)
+- Early hoisting of lets outside of scrutinees to increase opportunities for the
+  optimization above
 - Reparenthesize applications to make sure a higher-order call in Low\* compiles
   properly to C
+- Make the treatment of unused arguments uniform, also across function types
 
 ### August 28th, 2018
 
