@@ -657,6 +657,9 @@ and hoist_expr loc pos e =
   | EApp ({ node = EOp ((K.And | K.Or), K.Bool); _ } as e0, [ e1; e2 ]) ->
       let lhs1, e1 = hoist_expr loc Unspecified e1 in
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
+      (* In Wasm, we automatically inline functions based on their size, so we
+       * can't ask the user to rewrite, but it's ok, because it's an expression
+       * language, so we can have let-bindings anywhere. *)
       if lhs2 <> [] && not !Options.wasm then
         Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
           GeneratesLetBindings (
