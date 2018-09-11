@@ -465,14 +465,7 @@ Supported options:|}
   let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Pattern matches compilation";
 
-  (* 4. Going to a statement language. JP: is this necessary? *)
-  let files = Simplify.simplify2 files in
-  if !arg_print_simplify then
-    print PrintAst.print_files files;
-  let has_errors, files = Checker.check_everything files in
-  tick_print (not has_errors) "Simplify 2";
-
-  (* 5. Whole-program transformations. If needed, pass structures by reference,
+  (* 4. Whole-program transformations. If needed, pass structures by reference,
    * and also allocate all structures in memory. This creates new opportunities
    * for the removal of unused variables, but also breaks the earlier
    * transformation to a statement language, which we perform again. Note that
@@ -503,7 +496,7 @@ Supported options:|}
   let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Structs + Simplify 2";
 
-  (* 6. Anonymous unions break typing. *)
+  (* 5. Anonymous unions break typing. *)
   let files =
     if !Options.anonymous_unions then
       DataTypes.anonymous_unions datatypes_state files
@@ -511,7 +504,7 @@ Supported options:|}
       files
   in
 
-  (* 7. Drop both files and selected declarations within some files, as a [-drop
+  (* 6. Drop both files and selected declarations within some files, as a [-drop
    * Foo -bundle Bar=Foo] command-line requires us to go inside file [Bar] to
    * drop the declarations that originate from [Foo]. *)
   let drop l =
@@ -528,7 +521,7 @@ Supported options:|}
 
   Diagnostics.all files !arg_diagnostics;
 
-  (* 8. Final transformation on the AST: go to C names. This must really be done
+  (* 7. Final transformation on the AST: go to C names. This must really be done
    * at the last minute, since it invalidates pretty much any map ever built. *)
   let files = Simplify.to_c_names files in
 
