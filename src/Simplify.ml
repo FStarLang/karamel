@@ -418,24 +418,100 @@ let let_if_to_assign = object (self)
         EAssign (e1, e2)
 end
 
+(* Transform functional updates of the form x.(i) <- { x.(i) with f = e } into
+ * in-place field updates. *)
+let functional_updates = object (self)
+
+  inherit [_] map
+
+  val mutable make_mut = []
+
+  method! visit_ELet env b e1 e2 =
+    let b = self#visit_binder env b in
+    let e1 = self#visit_expr env e1 in
+
+    let make_assignment fields k =
+      let the_field, _ = List.partition (function
+          | Some f, { node = EField ({ node = EBound 0; _ }, f'); _ } when f = f' ->
+              false
+          | _ ->
+              true
+        ) fields in
+      if List.length the_field = 1 then
+        let the_field, the_expr = List.hd the_field in
+        let the_field = Option.must the_field in
+        let the_expr = self#visit_expr env (snd (open_binder b the_expr)) in
+        make_mut <- (assert_tlid e1.typ, the_field) :: make_mut;
+        k (EAssign (with_type the_expr.typ (EField (e1, the_field)), the_expr))
+      else
+        ELet (b, e1, self#visit_expr env e2)
+    in
+
+    match e1.node, e2.node with
+    | EBufRead ({ node = EBound i; _ }, j),
+      EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ })
+      when j = j' && iplusone = i + 1 ->
+        (* let uu = (Bound i)[j];
+         * (Bound (i + 1))[j] <- { fi = ei } with ei = e if i = k, (Bound 0).fi otherwise
+         * -->
+         * (Bound i)[j].fk <- (unlift 1 e)
+         *)
+        make_assignment fields (fun x -> x)
+
+    | EBufRead ({ node = EBound i; _ }, j),
+      ELet (b,
+        { node = EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ }); _ },
+        e3)
+      when j = j' && iplusone = i + 1 ->
+        (* let uu = (Bound i)[j];
+         * let _ = (Bound (i + 1))[j] <- { fi = ei } with ei = e if i = k, * (Bound 0).fi otherwise in
+         * e3
+         * -->
+         * let _ = (Bound i)[j].fk <- (unlift 1 e) in
+         * e3
+         *)
+        make_assignment fields (fun x ->
+          let e3 = self#visit_expr env (snd (open_binder b e3)) in
+          ELet (b, with_unit x, e3))
+
+    | _ ->
+        ELet (b, e1, self#visit_expr env e2)
+
+  (* The same object is called a second time with the mark_mut flag set to true
+   * to mark those fields that now ought to be mutable *)
+  method! visit_DType mark_mut name flags n def =
+    match def with
+    | Flat fields when mark_mut ->
+        let fields = List.map (fun (f, (t, m)) ->
+          if List.exists (fun (name', f') -> Some f' = f && name' = name) make_mut then
+            f, (t, true)
+          else
+            f, (t, m)
+        ) fields in
+        DType (name, flags, n, Flat fields)
+    | _ ->
+        DType (name, flags, n, def)
+end
+
 let misc_cosmetic = object (self)
 
   inherit [_] map as super
 
   val mutable count = 0
 
-  (* int x[1]; x[0] = e; x
-   * -->
-   * int x; x = e; &x *)
   method! visit_ELet env b e1 e2 =
     let b = self#visit_binder env b in
     let e1 = self#visit_expr env e1 in
     match e1.node with
     | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) when not !Options.wasm ->
+        (* int x[1]; x[0] = e; x
+         * -->
+         * int x; x = e; &x *)
         let t = assert_tbuf_or_tarray b.typ in
         let b = with_type t { b.node with mut = true } in
         let ref = with_type (TBuf t) (EAddrOf (with_type t (EBound 0))) in
         ELet (b, e1, self#visit_expr env (DeBruijn.subst_no_open ref 0 e2))
+
     | _ ->
         ELet (b, e1, self#visit_expr env e2)
 
@@ -1416,6 +1492,8 @@ let simplify2 (files: file list): file list =
   let files = fixup_hoist#visit_files () files in
   let files = let_if_to_assign#visit_files () files in
   let files = misc_cosmetic#visit_files () files in
+  let files = functional_updates#visit_files false files in
+  let files = functional_updates#visit_files true files in
   let files = let_to_sequence#visit_files () files in
   files
 

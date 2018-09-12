@@ -196,7 +196,7 @@ $$($(1))/$$($(1)_TEST):
 
 # Monolithic rule for extracting with a single .krml file; to be removed once
 # HACL* produces separate krml files. This overrides the %.wasm rule above.
-$$(OUTPUT_DIR)/$$(subst .krml,.wasm,$$($(1)_TEST)): $$($(1))/$$($(1)_TEST)
+$$(OUTPUT_DIR)/$$(subst .krml,.wasm,$$($(1)_TEST)): $$($(1))/$$($(1)_TEST) | $(KRML_BIN)
 	$(KRML) -wasm -drop $$(HACL_DROP) $$($(1)_ARGS) -tmpdir $$@ \
 	  -no-prefix $$(subst .krml,,$$($(1)_TEST)) $$<
 

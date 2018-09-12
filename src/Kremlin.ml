@@ -478,10 +478,10 @@ Supported options:|}
       let files = SimplifyWasm.simplify1 files in
       let files = Simplify.simplify2 files in
       let files = Structs.in_memory files in
-      let files = Simplify.simplify2 files in
       (* This one near the end because [in_memory] generates new EBufCreate's that
        * need to be desugared. *)
       let files = SimplifyWasm.simplify2 files in
+      tick_print true "Wasm specific";
       files
     else
       files
