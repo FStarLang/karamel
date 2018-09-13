@@ -92,6 +92,7 @@ and expr =
   | EFun of (binder list * expr * typ)
   | EAbortS of string
   | EBufFree of expr
+  | EBufCreateNoInit of (lifetime * expr)
 
 and branches =
   branch list

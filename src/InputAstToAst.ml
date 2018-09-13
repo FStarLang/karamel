@@ -125,6 +125,8 @@ and mk_expr = function
       mk (EAssign (mk_expr e1, mk_expr e2))
   | I.EBufCreate (l, e1, e2) ->
       mk (EBufCreate (l, mk_expr e1, mk_expr e2))
+  | I.EBufCreateNoInit (l, e2) ->
+      mk (EBufCreate (l, Helpers.any, mk_expr e2))
   | I.EBufCreateL (l, es) ->
       mk (EBufCreateL (l, List.map mk_expr es))
   | I.EBufRead (e1, e2) ->
