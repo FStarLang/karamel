@@ -1,0 +1,40 @@
+[
+  "Iì`X[W'\n{è∂M\u0010ù¢∏",
+  [
+    [
+      "HigherOrder3.createClosure",
+      1,
+      2,
+      1,
+      [
+        "@query", "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "1c11be5feb4b9fb7e81da0516e64a59f"
+    ],
+    [
+      "HigherOrder3.exampleFunc",
+      1,
+      2,
+      1,
+      [
+        "@query", "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "23125908ff5983b8ed87b87785f6ef54"
+    ],
+    [
+      "HigherOrder3.main",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "54541500871e135d4b9b15f75415ded9"
+    ]
+  ]
+]

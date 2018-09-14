@@ -20,6 +20,8 @@
 // Define .low and .high in terms of the __m128i fields, to reduce
 // the amount of churn in this file.
 #if HAS_OPTIMIZED
+#include <intrin.h>
+#include <immintrin.h>
 #define low m128i_u64[0]
 #define high m128i_u64[1]
 #endif
@@ -67,8 +69,8 @@ FStar_UInt128_add(FStar_UInt128_uint128 a, FStar_UInt128_uint128 b) {
   uint64_t l, h;
 
   unsigned char carry =
-      _addcarryx_u64(0, a.low, b.low, &l);   // low/CF = a.low+b.low+0
-  _addcarryx_u64(carry, a.high, b.high, &h); // high   = a.high+b.high+CF
+      _addcarry_u64(0, a.low, b.low, &l);   // low/CF = a.low+b.low+0
+  _addcarry_u64(carry, a.high, b.high, &h); // high   = a.high+b.high+CF
   return _mm_set_epi64x(h, l);
 #else
   return ((FStar_UInt128_uint128){

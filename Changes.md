@@ -3,9 +3,18 @@
 - Always use the type name in sizeof expressions.
 - Support for uninitialized buffers (see test/UBuffer.fst)
 
+### September 11, 2018
+
+- Peephole optimization: `let x = e1 in x` becomes `e1`, useful for compact
+  projectors.
+- New fatal error, the compilation of a lazy boolean operator gives rise to
+  let-bindings, which would change the program semantics. Complete with location
+  and offending expression + bindings.
+
 ### September 10, 2018
 
-- Don't allocate a struct variable for "full" matches, e.g. let x, (y, z) = e1, (e2, e3)
+- Don't allocate a struct variable for "full" matches, e.g. `let x, (y, z) = e1,
+  (e2, e3)` is now translated as `let x = e1 in let y = e2 in let z = e3`
 - Early hoisting of lets outside of scrutinees to increase opportunities for the
   optimization above
 - Reparenthesize applications to make sure a higher-order call in Low\* compiles

@@ -24,26 +24,33 @@ let count_and_remove_locals = object (self)
     incr b.node.mark;
     EBound i
 
+  method private remove_trivial_let e =
+    match e with
+    | ELet (_, e1, { node = EBound 0; _ }) when Helpers.is_readonly_c_expression e1 ->
+        e1.node
+    | _ ->
+        e
+
   method! visit_ELet (env, _) b e1 e2 =
     (* Remove unused variables. Important to get rid of calls to [HST.get()]. *)
     let e1 = self#visit_expr_w env e1 in
     let env = self#extend env b in
     let e2 = self#visit_expr_w env e2 in
     if !(b.node.mark) = 0 && is_readonly_c_expression e1 then
-      (snd (open_binder b e2)).node
+      self#remove_trivial_let (snd (open_binder b e2)).node
     else if !(b.node.mark) = 0 then
       if e1.typ = TUnit then
-        ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2)
+        self#remove_trivial_let (ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2))
       else
         (* We know the variable is unused... but its body cannot be determined
-         * to be readonly, so we have to keep. What's better?
+         * to be readonly, so we have to keep it. What's better?
          *   int unused = f();
          * or:
          *   (void)f(); ? *)
         (* ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit}, push_ignore e1, e2) *)
-        ELet (b, e1, e2)
+        self#remove_trivial_let (ELet (b, e1, e2))
     else
-      ELet (b, e1, e2)
+      self#remove_trivial_let (ELet (b, e1, e2))
 
   method! visit_EBufSub env e1 e2 =
     (* This creates more opportunities for values to be eliminated if unused.
@@ -411,24 +418,100 @@ let let_if_to_assign = object (self)
         EAssign (e1, e2)
 end
 
+(* Transform functional updates of the form x.(i) <- { x.(i) with f = e } into
+ * in-place field updates. *)
+let functional_updates = object (self)
+
+  inherit [_] map
+
+  val mutable make_mut = []
+
+  method! visit_ELet env b e1 e2 =
+    let b = self#visit_binder env b in
+    let e1 = self#visit_expr env e1 in
+
+    let make_assignment fields k =
+      let the_field, _ = List.partition (function
+          | Some f, { node = EField ({ node = EBound 0; _ }, f'); _ } when f = f' ->
+              false
+          | _ ->
+              true
+        ) fields in
+      if List.length the_field = 1 then
+        let the_field, the_expr = List.hd the_field in
+        let the_field = Option.must the_field in
+        let the_expr = self#visit_expr env (snd (open_binder b the_expr)) in
+        make_mut <- (assert_tlid e1.typ, the_field) :: make_mut;
+        k (EAssign (with_type the_expr.typ (EField (e1, the_field)), the_expr))
+      else
+        ELet (b, e1, self#visit_expr env e2)
+    in
+
+    match e1.node, e2.node with
+    | EBufRead ({ node = EBound i; _ }, j),
+      EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ })
+      when j = j' && iplusone = i + 1 ->
+        (* let uu = (Bound i)[j];
+         * (Bound (i + 1))[j] <- { fi = ei } with ei = e if i = k, (Bound 0).fi otherwise
+         * -->
+         * (Bound i)[j].fk <- (unlift 1 e)
+         *)
+        make_assignment fields (fun x -> x)
+
+    | EBufRead ({ node = EBound i; _ }, j),
+      ELet (b,
+        { node = EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ }); _ },
+        e3)
+      when j = j' && iplusone = i + 1 ->
+        (* let uu = (Bound i)[j];
+         * let _ = (Bound (i + 1))[j] <- { fi = ei } with ei = e if i = k, * (Bound 0).fi otherwise in
+         * e3
+         * -->
+         * let _ = (Bound i)[j].fk <- (unlift 1 e) in
+         * e3
+         *)
+        make_assignment fields (fun x ->
+          let e3 = self#visit_expr env (snd (open_binder b e3)) in
+          ELet (b, with_unit x, e3))
+
+    | _ ->
+        ELet (b, e1, self#visit_expr env e2)
+
+  (* The same object is called a second time with the mark_mut flag set to true
+   * to mark those fields that now ought to be mutable *)
+  method! visit_DType mark_mut name flags n def =
+    match def with
+    | Flat fields when mark_mut ->
+        let fields = List.map (fun (f, (t, m)) ->
+          if List.exists (fun (name', f') -> Some f' = f && name' = name) make_mut then
+            f, (t, true)
+          else
+            f, (t, m)
+        ) fields in
+        DType (name, flags, n, Flat fields)
+    | _ ->
+        DType (name, flags, n, def)
+end
+
 let misc_cosmetic = object (self)
 
   inherit [_] map as super
 
   val mutable count = 0
 
-  (* int x[1]; x[0] = e; x
-   * -->
-   * int x; x = e; &x *)
   method! visit_ELet env b e1 e2 =
     let b = self#visit_binder env b in
     let e1 = self#visit_expr env e1 in
     match e1.node with
     | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) when not !Options.wasm ->
+        (* int x[1]; x[0] = e; x
+         * -->
+         * int x; x = e; &x *)
         let t = assert_tbuf_or_tarray b.typ in
         let b = with_type t { b.node with mut = true } in
         let ref = with_type (TBuf t) (EAddrOf (with_type t (EBound 0))) in
         ELet (b, e1, self#visit_expr env (DeBruijn.subst_no_open ref 0 e2))
+
     | _ ->
         ELet (b, e1, self#visit_expr env e2)
 
@@ -506,60 +589,57 @@ type pos =
   | Unspecified
   | BufAssignee
 
-let rec hoist_stmt e =
+let rec hoist_stmt loc e =
   let mk node = { node; typ = e.typ } in
   match e.node with
   | EApp (e, es) ->
       (* A call is allowed in terminal position regardless of whether it has
        * type unit (generates a statement) or not (generates a [EReturn expr]). *)
-      let lhs, e = hoist_expr Unspecified e in
-      let lhss, es = List.split (List.map (hoist_expr Unspecified) es) in
+      let lhs, e = hoist_expr loc Unspecified e in
+      let lhss, es = List.split (List.map (hoist_expr loc Unspecified) es) in
       let lhs = lhs @ List.flatten lhss in
       nest lhs e.typ (mk (EApp (e, es)))
 
   | ELet (binder, e1, e2) ->
       (* When building a statement, let-bindings may nest right but not left. *)
-      let lhs, e1 = hoist_expr UnderStmtLet e1 in
+      let lhs, e1 = hoist_expr loc UnderStmtLet e1 in
       let binder, e2 = open_binder binder e2 in
-      let e2 = hoist_stmt e2 in
+      let e2 = hoist_stmt loc e2 in
       nest lhs e.typ (mk (ELet (binder, e1, close_binder binder e2)))
 
   | EIfThenElse (e1, e2, e3) ->
       if e.typ = TUnit then
-        let lhs, e1 = hoist_expr Unspecified e1 in
-        let e2 = hoist_stmt e2 in
-        let e3 = hoist_stmt e3 in
+        let lhs, e1 = hoist_expr loc Unspecified e1 in
+        let e2 = hoist_stmt loc e2 in
+        let e3 = hoist_stmt loc e3 in
         nest lhs e.typ (mk (EIfThenElse (e1, e2, e3)))
       else
-        let lhs, e = hoist_expr Unspecified e in
+        let lhs, e = hoist_expr loc Unspecified e in
         nest lhs e.typ e
 
   | ESwitch (e1, branches) ->
       if e.typ = TUnit then
-        let lhs, e1 = hoist_expr Unspecified e1 in
-        let branches = List.map (fun (tag, e2) -> tag, hoist_stmt e2) branches in
+        let lhs, e1 = hoist_expr loc Unspecified e1 in
+        let branches = List.map (fun (tag, e2) -> tag, hoist_stmt loc e2) branches in
         nest lhs e.typ (mk (ESwitch (e1, branches)))
       else
-        let lhs, e = hoist_expr Unspecified e in
+        let lhs, e = hoist_expr loc Unspecified e in
         nest lhs e.typ e
 
   | EFor (binder, e1, e2, e3, e4) ->
       assert (e.typ = TUnit);
       (* The semantics is that [e1] is evaluated once, so it's fine to hoist any
        * let-bindings it generates. *)
-      let lhs1, e1 = hoist_expr (if binder.node.meta = Some MetaSequence then UnderStmtLet else Unspecified) e1 in
+      let lhs1, e1 = hoist_expr loc (if binder.node.meta = Some MetaSequence then UnderStmtLet else Unspecified) e1 in
       let binder, s = opening_binder binder in
       let e2 = s e2 and e3 = s e3 and e4 = s e4 in
       (* [e2] and [e3], however, are evaluated at each loop iteration! *)
-      let lhs2, e2 = hoist_expr Unspecified e2 in
-      let lhs3, e3 = hoist_expr UnderStmtLet e3 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
+      let lhs3, e3 = hoist_expr loc UnderStmtLet e3 in
       if lhs2 <> [] || lhs3 <> [] then
-        fatal_error "The translation of this for-loop's condition or iteration \
-          expression gives rise to intermediary let-bindings!\n\
-          %a\n\
-          Let-bindings are:\n\
-          %a" ppexpr e pplbs (lhs2 @ lhs3);
-      let e4 = hoist_stmt e4 in
+        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
+          GeneratesLetBindings ("this for-loop's condition or iteration", e, (lhs2 @ lhs3))));
+      let e4 = hoist_stmt loc e4 in
       let s = closing_binder binder in
       nest lhs1 e.typ (mk (EFor (binder, e1, s e2, s e3, s e4)))
 
@@ -567,47 +647,44 @@ let rec hoist_stmt e =
       (* All of the following cases are valid statements (their return type is
        * [TUnit]. *)
       assert (e.typ = TUnit);
-      let lhs, e1 = hoist_expr Unspecified e1 in
+      let lhs, e1 = hoist_expr loc Unspecified e1 in
       if lhs <> [] then
-        fatal_error "The translation of this while loop's condition expression \
-          gives rise to let-bindings!\n\
-          %a\n\
-          Let-bindings are:\n\
-          %a" ppexpr e pplbs lhs;
-      let e2 = hoist_stmt e2 in
+        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
+          GeneratesLetBindings ("this while-loop's test expression", e, lhs)));
+      let e2 = hoist_stmt loc e2 in
       mk (EWhile (e1, e2))
 
   | EAssign (e1, e2) ->
       assert (e.typ = TUnit);
-      let lhs1, e1 = hoist_expr Unspecified e1 in
-      let lhs2, e2 = hoist_expr AssignRhs e2 in
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let lhs2, e2 = hoist_expr loc AssignRhs e2 in
       nest (lhs1 @ lhs2) e.typ (mk (EAssign (e1, e2)))
 
   | EBufWrite (e1, e2, e3) ->
       assert (e.typ = TUnit);
-      let lhs1, e1 = hoist_expr Unspecified e1 in
-      let lhs2, e2 = hoist_expr Unspecified e2 in
-      let lhs3, e3 = hoist_expr Unspecified e3 in
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
+      let lhs3, e3 = hoist_expr loc Unspecified e3 in
       nest (lhs1 @ lhs2 @ lhs3) e.typ (mk (EBufWrite (e1, e2, e3)))
 
   | EBufBlit (e1, e2, e3, e4, e5) ->
       assert (e.typ = TUnit);
-      let lhs1, e1 = hoist_expr Unspecified e1 in
-      let lhs2, e2 = hoist_expr Unspecified e2 in
-      let lhs3, e3 = hoist_expr Unspecified e3 in
-      let lhs4, e4 = hoist_expr Unspecified e4 in
-      let lhs5, e5 = hoist_expr Unspecified e5 in
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
+      let lhs3, e3 = hoist_expr loc Unspecified e3 in
+      let lhs4, e4 = hoist_expr loc Unspecified e4 in
+      let lhs5, e5 = hoist_expr loc Unspecified e5 in
       nest (lhs1 @ lhs2 @ lhs3 @ lhs4 @ lhs5) e.typ (mk (EBufBlit (e1, e2, e3, e4, e5)))
 
   | EReturn e ->
-      let lhs, e = hoist_expr Unspecified e in
+      let lhs, e = hoist_expr loc Unspecified e in
       nest lhs e.typ (mk (EReturn e))
 
   | EBreak ->
       mk EBreak
 
   | EComment (s, e, s') ->
-      mk (EComment (s, hoist_stmt e, s'))
+      mk (EComment (s, hoist_stmt loc e, s'))
 
   | EMatch _ ->
       failwith "[hoist_t]: EMatch not properly desugared"
@@ -619,12 +696,12 @@ let rec hoist_stmt e =
       failwith "[hoist_t]: sequences should've been translated as let _ ="
 
   | _ ->
-      let lhs, e = hoist_expr Unspecified e in
+      let lhs, e = hoist_expr loc Unspecified e in
       nest lhs e.typ e
 
 (* This function returns an expression that can be successfully translated as a
  * C* expression. *)
-and hoist_expr pos e =
+and hoist_expr loc pos e =
   let mk node = { node; typ = e.typ } in
   match e.node with
   | ETApp _ ->
@@ -646,36 +723,45 @@ and hoist_expr pos e =
       [], e
 
   | EComment (s, e, s') ->
-      let lhs, e = hoist_expr Unspecified e in
+      let lhs, e = hoist_expr loc Unspecified e in
       lhs, mk (EComment (s, e, s'))
 
   | EIgnore e ->
-      let lhs, e = hoist_expr Unspecified e in
+      let lhs, e = hoist_expr loc Unspecified e in
       lhs, mk (EIgnore e)
 
+  | EApp ({ node = EOp ((K.And | K.Or), K.Bool); _ } as e0, [ e1; e2 ]) ->
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
+      (* In Wasm, we automatically inline functions based on their size, so we
+       * can't ask the user to rewrite, but it's ok, because it's an expression
+       * language, so we can have let-bindings anywhere. *)
+      if lhs2 <> [] && not !Options.wasm then
+        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
+          GeneratesLetBindings (
+            KPrint.bsprintf "%a, a short-circuiting boolean operator" pexpr e0, e, lhs2)));
+      lhs1, mk (EApp (e0, [ e1; nest lhs2 e2.typ e2 ]))
+
   | EApp (e, es) ->
-      (* TODO: assert that in the case of a lazily evaluated boolean operator,
-       * there are no intermediary let-bindings there... or does F* guarantee
-       * that no effectful computations can occur there? *)
-      let lhs, e = hoist_expr Unspecified e in
-      let lhss, es = List.split (List.map (hoist_expr Unspecified) es) in
+      let lhs, e = hoist_expr loc Unspecified e in
+      let lhss, es = List.split (List.map (hoist_expr loc Unspecified) es) in
       (* TODO: reverse the order and use [rev_append] here *)
       let lhs = lhs @ List.flatten lhss in
       lhs, mk (EApp (e, es))
 
   | ELet (binder, e1, e2) ->
-      let lhs1, e1 = hoist_expr UnderStmtLet e1 in
+      let lhs1, e1 = hoist_expr loc UnderStmtLet e1 in
       let binder, e2 = open_binder binder e2 in
       (* The caller (e.g. [hoist_t]) takes care, via [nest], of closing this
        * binder. *)
-      let lhs2, e2 = hoist_expr pos e2 in
+      let lhs2, e2 = hoist_expr loc pos e2 in
       lhs1 @ [ binder, e1 ] @ lhs2, e2
 
   | EIfThenElse (e1, e2, e3) ->
       let t = e.typ in
-      let lhs1, e1 = hoist_expr Unspecified e1 in
-      let e2 = hoist_stmt e2 in
-      let e3 = hoist_stmt e3 in
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let e2 = hoist_stmt loc e2 in
+      let e3 = hoist_stmt loc e3 in
       if pos = UnderStmtLet then
         lhs1, mk (EIfThenElse (e1, e2, e3))
       else
@@ -684,8 +770,8 @@ and hoist_expr pos e =
 
   | ESwitch (e1, branches) ->
       let t = e.typ in
-      let lhs, e1 = hoist_expr Unspecified e1 in
-      let branches = List.map (fun (tag, e) -> tag, hoist_stmt e) branches in
+      let lhs, e1 = hoist_expr loc Unspecified e1 in
+      let branches = List.map (fun (tag, e) -> tag, hoist_stmt loc e) branches in
       if pos = UnderStmtLet then
         lhs, mk (ESwitch (e1, branches))
       else
@@ -693,14 +779,11 @@ and hoist_expr pos e =
         lhs @ [ b, body ], cont
 
   | EWhile (e1, e2) ->
-      let lhs1, e1 = hoist_expr Unspecified e1 in
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
       if lhs1 <> [] then
-        fatal_error "The translation of this while loop's condition expression \
-          gives rise to let-bindings!\n\
-          %a\n\
-          Let-bindings are:\n\
-          %a" ppexpr e pplbs lhs1;
-      let e2 = hoist_stmt e2 in
+        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
+          GeneratesLetBindings ("this while loop's test expression", e, lhs1)));
+      let e2 = hoist_stmt loc e2 in
       if pos = UnderStmtLet then
         [], mk (EWhile (e1, e2))
       else
@@ -709,18 +792,15 @@ and hoist_expr pos e =
         [ b, mk (EWhile (e1, e2)) ], mk EUnit
 
   | EFor (binder, e1, e2, e3, e4) ->
-      let lhs1, e1 = hoist_expr (if binder.node.meta = Some MetaSequence then UnderStmtLet else Unspecified) e1 in
+      let lhs1, e1 = hoist_expr loc (if binder.node.meta = Some MetaSequence then UnderStmtLet else Unspecified) e1 in
       let binder, s = opening_binder binder in
       let e2 = s e2 and e3 = s e3 and e4 = s e4 in
-      let lhs2, e2 = hoist_expr Unspecified e2 in
-      let lhs3, e3 = hoist_expr UnderStmtLet e3 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
+      let lhs3, e3 = hoist_expr loc UnderStmtLet e3 in
       if lhs2 <> [] || lhs3 <> [] then
-        fatal_error "The translation of this for-loop's condition or iteration \
-          expression gives rise to intermediary let-bindings!\n\
-          %a\n\
-          Let-bindings are:\n\
-          %a" ppexpr e pplbs (lhs2 @ lhs3);
-      let e4 = hoist_stmt e4 in
+        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
+          GeneratesLetBindings ("this for-loop's condition or iteration", e, (lhs2 @ lhs3))));
+      let e4 = hoist_stmt loc e4 in
       let s = closing_binder binder in
       if pos = UnderStmtLet then
         lhs1, mk (EFor (binder, e1, s e2, s e3, s e4))
@@ -731,14 +811,14 @@ and hoist_expr pos e =
 
   | EFun (binders, expr, t) ->
       let binders, expr = open_binders binders expr in
-      let expr = hoist_stmt expr in
+      let expr = hoist_stmt loc expr in
       let expr = close_binders binders expr in
       [], mk (EFun (binders, expr, t))
 
   | EAssign (e1, e2) ->
-      let lhs1, e1 = hoist_expr Unspecified e1 in
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
       let rhspos = if is_array e1.typ then AssignRhs else Unspecified in
-      let lhs2, e2 = hoist_expr rhspos e2 in
+      let lhs2, e2 = hoist_expr loc rhspos e2 in
       if pos = UnderStmtLet then
         lhs1 @ lhs2, mk (EAssign (e1, e2))
       else
@@ -748,8 +828,8 @@ and hoist_expr pos e =
 
   | EBufCreate (l, e1, e2) ->
       let t = e.typ in
-      let lhs1, e1 = hoist_expr BufAssignee e1 in
-      let lhs2, e2 = hoist_expr Unspecified e2 in
+      let lhs1, e1 = hoist_expr loc BufAssignee e1 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
       if pos = UnderStmtLet || pos = AssignRhs then
         lhs1 @ lhs2, mk (EBufCreate (l, e1, e2))
       else
@@ -758,7 +838,7 @@ and hoist_expr pos e =
 
   | EBufCreateL (l, es) ->
       let t = e.typ in
-      let lhs, es = List.split (List.map (hoist_expr BufAssignee) es) in
+      let lhs, es = List.split (List.map (hoist_expr loc BufAssignee) es) in
       let lhs = List.flatten lhs in
       if pos = UnderStmtLet || pos = AssignRhs then
         lhs, mk (EBufCreateL (l, es))
@@ -767,14 +847,14 @@ and hoist_expr pos e =
         lhs @ [ b, body ], cont
 
   | EBufRead (e1, e2) ->
-      let lhs1, e1 = hoist_expr Unspecified e1 in
-      let lhs2, e2 = hoist_expr Unspecified e2 in
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
       lhs1 @ lhs2, mk (EBufRead (e1, e2))
 
   | EBufWrite (e1, e2, e3) ->
-      let lhs1, e1 = hoist_expr Unspecified e1 in
-      let lhs2, e2 = hoist_expr Unspecified e2 in
-      let lhs3, e3 = hoist_expr BufAssignee e3 in
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
+      let lhs3, e3 = hoist_expr loc BufAssignee e3 in
       let lhs = lhs1 @ lhs2 @ lhs3 in
       if pos = UnderStmtLet then
         lhs, mk (EBufWrite (e1, e2, e3))
@@ -784,11 +864,11 @@ and hoist_expr pos e =
         lhs @ [ b, mk (EBufWrite (e1, e2, e3)) ], mk EUnit
 
   | EBufBlit (e1, e2, e3, e4, e5) ->
-      let lhs1, e1 = hoist_expr Unspecified e1 in
-      let lhs2, e2 = hoist_expr Unspecified e2 in
-      let lhs3, e3 = hoist_expr Unspecified e3 in
-      let lhs4, e4 = hoist_expr Unspecified e4 in
-      let lhs5, e5 = hoist_expr Unspecified e5 in
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
+      let lhs3, e3 = hoist_expr loc Unspecified e3 in
+      let lhs4, e4 = hoist_expr loc Unspecified e4 in
+      let lhs5, e5 = hoist_expr loc Unspecified e5 in
       let lhs = lhs1 @ lhs2 @ lhs3 @ lhs4 @ lhs5 in
       if pos = UnderStmtLet then
         lhs, mk (EBufBlit (e1, e2, e3, e4, e5))
@@ -798,9 +878,9 @@ and hoist_expr pos e =
         lhs @ [ b, mk (EBufBlit (e1, e2, e3, e4, e5)) ], mk EUnit
 
   | EBufFill (e1, e2, e3) ->
-      let lhs1, e1 = hoist_expr Unspecified e1 in
-      let lhs2, e2 = hoist_expr Unspecified e2 in
-      let lhs3, e3 = hoist_expr Unspecified e3 in
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
+      let lhs3, e3 = hoist_expr loc Unspecified e3 in
       let lhs = lhs1 @ lhs2 @ lhs3 in
       if pos = UnderStmtLet then
         lhs, mk (EBufFill (e1, e2, e3))
@@ -810,7 +890,7 @@ and hoist_expr pos e =
         lhs @ [ b, mk (EBufFill (e1, e2, e3)) ], mk EUnit
 
   | EBufFree e ->
-      let lhs, e = hoist_expr Unspecified e in
+      let lhs, e = hoist_expr loc Unspecified e in
       if pos = UnderStmtLet then
         lhs, mk (EBufFree e)
       else
@@ -819,21 +899,21 @@ and hoist_expr pos e =
         lhs @ [ b, mk (EBufFree e) ], mk EUnit
 
   | EBufSub (e1, e2) ->
-      let lhs1, e1 = hoist_expr Unspecified e1 in
-      let lhs2, e2 = hoist_expr Unspecified e2 in
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
       lhs1 @ lhs2, mk (EBufSub (e1, e2))
 
   | ECast (e, t) ->
-      let lhs, e = hoist_expr Unspecified e in
+      let lhs, e = hoist_expr loc Unspecified e in
       lhs, mk (ECast (e, t))
 
   | EField (e, f) ->
-      let lhs, e = hoist_expr Unspecified e in
+      let lhs, e = hoist_expr loc Unspecified e in
       lhs, mk (EField (e, f))
 
   | EFlat fields ->
       let lhs, fields = List.split (List.map (fun (ident, expr) ->
-        let lhs, expr = hoist_expr Unspecified expr in
+        let lhs, expr = hoist_expr loc Unspecified expr in
         lhs, (ident, expr)
       ) fields) in
       begin match pos with
@@ -866,12 +946,16 @@ and hoist_expr pos e =
 (* TODO: figure out if we want to ignore the other cases for performance
  * reasons. *)
 let hoist = object
-  inherit [_] map
+  inherit [_] map as super
 
-  method! visit_DFunction _ cc flags n ret name binders expr =
+  method! visit_file loc file =
+    super#visit_file Location.(File (fst file) :: loc) file
+
+  method! visit_DFunction loc cc flags n ret name binders expr =
+    let loc = Location.(InTop name :: loc) in
     (* TODO: no nested let-bindings in top-level value declarations either *)
     let binders, expr = open_binders binders expr in
-    let expr = hoist_stmt expr in
+    let expr = hoist_stmt loc expr in
     let expr = close_binders binders expr in
     DFunction (cc, flags, n, ret, name, binders, expr)
 end
@@ -1402,12 +1486,14 @@ let simplify2 (files: file list): file list =
   (* Quality of hoisting is WIDELY improved if we remove un-necessary
    * let-bindings. *)
   let files = count_and_remove_locals#visit_files [] files in
-  let files = hoist#visit_files () files in
+  let files = hoist#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
   let files = hoist_bufcreate#visit_files () files in
   let files = fixup_hoist#visit_files () files in
   let files = let_if_to_assign#visit_files () files in
   let files = misc_cosmetic#visit_files () files in
+  let files = functional_updates#visit_files false files in
+  let files = functional_updates#visit_files true files in
   let files = let_to_sequence#visit_files () files in
   files
 

@@ -387,7 +387,7 @@ and check' env t e =
   | ESwitch (scrut, branches) ->
       let t_scrut = expand_abbrev env (infer env scrut) in
       List.iter (fun (c, e) ->
-        check_case env c t_scrut;
+        check_case (locate env (Branch c)) c t_scrut;
         check env t e
       ) branches;
 
@@ -489,6 +489,7 @@ and infer' env e =
       TUnit
 
   | EApp (e, es) ->
+      let env = locate env (Call (KPrint.bsprintf "%a" pexpr e)) in
       let t = infer env e in
       if t = TAny then
         let _ = List.map (infer env) es in

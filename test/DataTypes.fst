@@ -36,6 +36,25 @@ let destruct (x, y) =
   let x, y = helper x y in
   FStar.UInt32.(x +%^ y)
 
+type point = { x: UInt32.t; y: UInt32.t; z: UInt32.t }
+
+module B = LowStar.Buffer
+
+let f (p: B.buffer point): Stack unit
+  (requires (fun h -> B.live h p /\ B.length p = 1))
+  (ensures (fun _ _ _ -> True))
+=
+  let open LowStar.BufferOps in
+  p.(0ul) <- ({ p.(0ul) with x = 0ul })
+
+let f' (p: B.buffer point) (r: UInt32.t): Stack UInt32.t
+  (requires (fun h -> B.live h p /\ B.length p = 16))
+  (ensures (fun _ _ _ -> True))
+=
+  let open LowStar.BufferOps in
+  p.(15ul) <- ({ p.(15ul) with x = 8ul });
+  r
+
 val main: Int32.t -> FStar.Buffer.buffer (FStar.Buffer.buffer C.char) ->
   Stack C.exit_code (fun _ -> true) (fun _ _ _ -> true)
 let main argc argv =
