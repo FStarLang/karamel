@@ -1,0 +1,23 @@
+[
+  "\\Ÿ[öÌ'º\u0011b\u001eU‘ñ\u0000ñ",
+  [
+    [
+      "C.char_uint8",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_C.HasEq_char" ],
+      0,
+      "052bcfc5de295b37f16227ea6dc01ea3"
+    ],
+    [
+      "C.uint8_char",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_FStar.UInt8.t__uu___haseq" ],
+      0,
+      "2c5677f5c76d57aa2c2a772238bab791"
+    ]
+  ]
+]

@@ -1,0 +1,30 @@
+[
+  "ŽR£LXžXBðH´Iœ7‰\u001d",
+  [
+    [
+      "TestLib.compare_and_print",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "b3d7942e21e350a98cd2a4177d92a65e"
+    ],
+    [
+      "TestLib.unsafe_malloc",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "Prims_pretyping_ae567c2fb75be05905677af440075565",
+        "assumption_Prims.HasEq_int", "equation_FStar.UInt32.n",
+        "equation_Prims.nat", "function_token_typing_FStar.UInt32.n",
+        "haseqLowStar.Buffer_Tm_refine_1ec852aff28ab568526a8c54c3e853ec",
+        "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
+      ],
+      0,
+      "3aef49ce2f9641af147e5f6c308bf028"
+    ]
+  ]
+]
