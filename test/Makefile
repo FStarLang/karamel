@@ -22,7 +22,8 @@ FILES		= \
   LinkedList1.test LinkedList2.test LinkedList3.test LinkedList4.test \
   NoExtract.test InlineNoExtract.test ../book/RingBuffer.test \
   ../book/Introduction.test TopLevelArray.test NoShadow.test Library.test \
-  AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test
+  AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
+  UBuffer.test
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif

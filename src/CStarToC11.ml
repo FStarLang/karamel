@@ -191,12 +191,12 @@ and mk_memset_zero_initializer e_array e_size =
       e_size,
       Sizeof (Index (e_array, zero)))]))
 
-and mk_check_size init n_elements: C.stmt list =
+and mk_check_size t n_elements: C.stmt list =
   (* [init] is the default value for the elements of the array, and [n_elements] is
    * hopefully a constant *)
-  let default = [ C.Expr (C.Call (C.Name "KRML_CHECK_SIZE", [ mk_sizeof init; n_elements ])) ] in
-  match init, n_elements with
-  | C.Cast (_, C.Constant (w, _)), C.Cast (_, C.Constant (_, n_elements)) ->
+  let default = [ C.Expr (C.Call (C.Name "KRML_CHECK_SIZE", [ mk_sizeof t; n_elements ])) ] in
+  match t, n_elements with
+  | Int w, C.Cast (_, C.Constant (_, n_elements)) ->
       let size_bytes = Z.(of_int (K.bytes_of_width w) * of_string n_elements) in
       (* Note: this is wrong if anyone ever decides to use the x32 ABI *)
       let ptr_size = Z.(if !Options.m32 then one lsl 32 else one lsl 64) in
@@ -208,12 +208,7 @@ and mk_check_size init n_elements: C.stmt list =
       default
 
 and mk_sizeof t =
-  match t with
-  | C.Cast (t, _)
-  | C.CompoundLiteral (t, _) ->
-      C.Sizeof (C.Type t)
-  | _ ->
-      C.Call (C.Name "sizeof", [ t ])
+  C.Sizeof (C.Type (mk_type t))
 
 and mk_sizeof_mul t s =
   match s with
@@ -232,20 +227,20 @@ and mk_calloc t s =
 and mk_free e =
   C.Call (C.Name "KRML_HOST_FREE", [ e ])
 
-and mk_eternal_bufcreate buf init size =
+and mk_eternal_bufcreate buf (t: CStar.typ) init size =
   let size = mk_expr size in
   let e, extra_stmt = match init with
     | Constant (_, "0") ->
-        mk_calloc (mk_expr init) size, []
+        mk_calloc t size, []
     | Any | Cast (Any, _) ->
-        mk_malloc (mk_expr init) size, []
+        mk_malloc t size, []
     | _ ->
-        mk_malloc (mk_expr init) size,
+        mk_malloc t size,
         [ mk_for_loop_initializer (mk_expr buf) size (mk_expr init) ]
   in
-  mk_check_size (mk_expr init) size, e, extra_stmt
+  mk_check_size t size, e, extra_stmt
 
-and ensure_pointer t =
+and assert_pointer t =
   match t with
   | Array (t, _)
   | Pointer t ->
@@ -294,9 +289,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Expr (mk_expr e) ]
 
   | Decl (binder, BufCreate ((Eternal | Heap), init, size)) ->
-      ignore (ensure_pointer binder.typ);
+      let t = assert_pointer binder.typ in
       let stmt_check, expr_alloc, stmt_extra =
-        mk_eternal_bufcreate (Var binder.name) init size
+        mk_eternal_bufcreate (Var binder.name) t init size
       in
       let qs, spec, decl = mk_spec_and_declarator binder.name binder.typ in
       let decl: C.stmt list = [ Decl (qs, spec, None, [ decl, Some (InitExpr expr_alloc)]) ] in
@@ -334,7 +329,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
          * call to alloca) and decay the array to a pointer type. *)
         if use_alloca then
           let bytes = C.Call (C.Name "alloca", [
-            C.Op2 (K.Mult, size, C.Sizeof (C.Type (mk_type (ensure_pointer t)))) ]) in
+            C.Op2 (K.Mult, size, C.Sizeof (C.Type (mk_type (assert_pointer t)))) ]) in
           assert (maybe_init = None);
           decay_array t, Some (InitExpr bytes)
         else
@@ -354,7 +349,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
             [ mk_for_loop_initializer (Name binder.name) size init ]
       in
       let decl: C.stmt list = [ Decl (qs, spec, None, [ decl, maybe_init ]) ] in
-      mk_check_size init size @
+      mk_check_size (assert_pointer binder.typ) size @
       decl @
       extra_stmt
 
@@ -384,12 +379,13 @@ and mk_stmt (stmt: stmt): C.stmt list =
   | Assign (BufRead _, (Any | Cast (Any, _))) ->
       []
 
-  | Assign (e1, BufCreate (Eternal, init, size)) ->
-      assert_var e1;
+  | Assign (_e1, BufCreate (Eternal, _init, _size)) ->
+      assert false
+      (* assert_var e1;
       let stmt_check, expr_alloc, stmt_extra = mk_eternal_bufcreate e1 init size in
       stmt_check @
       [ Expr (Assign (mk_expr e1, expr_alloc)) ] @
-      stmt_extra
+      stmt_extra *)
 
   | Assign (_, BufCreateL (Eternal, _)) ->
       failwith "TODO"
