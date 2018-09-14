@@ -27,7 +27,7 @@ and stmt =
     (** There is a slight mismatch; C has an iteration *expression* but C*'s
      * expressions are pure; therefore, we must use a statement in lieu of the
      * iteration expression. *)
-  | Assign of expr * expr
+  | Assign of expr * typ * expr
     (** Destination (i.e. Var), Source *)
   | Switch of expr * ([`Ident of ident | `Int of K.t] * block) list * block option
   | BufWrite of expr * expr * expr

@@ -376,21 +376,20 @@ and mk_stmt (stmt: stmt): C.stmt list =
       else
         [ If (mk_expr e, mk_compound_if (mk_stmts b1)) ]
 
-  | Assign (BufRead _, (Any | Cast (Any, _))) ->
+  | Assign (BufRead _, _, (Any | Cast (Any, _))) ->
       []
 
-  | Assign (_e1, BufCreate (Eternal, _init, _size)) ->
-      assert false
-      (* assert_var e1;
-      let stmt_check, expr_alloc, stmt_extra = mk_eternal_bufcreate e1 init size in
+  | Assign (e1, t, BufCreate (Eternal, init, size)) ->
+      assert_var e1;
+      let stmt_check, expr_alloc, stmt_extra = mk_eternal_bufcreate e1 (assert_pointer t) init size in
       stmt_check @
       [ Expr (Assign (mk_expr e1, expr_alloc)) ] @
-      stmt_extra *)
+      stmt_extra
 
-  | Assign (_, BufCreateL (Eternal, _)) ->
+  | Assign (_, _, BufCreateL (Eternal, _)) ->
       failwith "TODO"
 
-  | Assign (e1, e2) ->
+  | Assign (e1, _, e2) ->
       [ Expr (Assign (mk_expr e1, mk_expr e2)) ]
 
   | BufWrite (_, _, (Any | Cast (Any, _))) ->

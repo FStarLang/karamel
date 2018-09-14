@@ -1,3 +1,8 @@
+### September 14, 2018
+
+- Always use the type name in sizeof expressions.
+- Support for uninitialized buffers (see test/UBuffer.fst)
+
 ### September 10, 2018
 
 - Don't allocate a struct variable for "full" matches, e.g. let x, (y, z) = e1, (e2, e3)

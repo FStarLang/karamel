@@ -339,7 +339,7 @@ and mk_stmts env e ret_type =
         assert false
 
     | EAssign (e1, e2) ->
-        let e = CStar.Assign (mk_expr env false e1, mk_expr env false e2) in
+        let e = CStar.Assign (mk_expr env false e1, mk_type env e1.typ, mk_expr env false e2) in
         env, e :: acc
 
     | EBufBlit (e1, e2, e3, e4, e5) ->
