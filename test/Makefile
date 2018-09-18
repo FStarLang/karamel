@@ -34,7 +34,7 @@ WASM_FILES	= \
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
 BROKEN		= \
-  $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm
+  HigherOrder4.fst
 WEB_DIR		?= web
 CACHE_DIR	= .cache
 OUTPUT_DIR	= .output
@@ -61,7 +61,7 @@ everything: all wasm external
 
 # Use F*'s dependency mechanism and fill out the missing rules.
 
-.depend: $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) | Makefile
+.depend: $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) $(BROKEN) | Makefile
 	$(FSTAR) --dep full $^ ../runtime/WasmSupport.fst --extract Kremlin > .depend
 
 -include .depend
