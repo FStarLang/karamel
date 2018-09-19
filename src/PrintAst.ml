@@ -13,7 +13,10 @@ let lambda = fancystring "λ" 1
 let print_app f head g arguments =
   group (
     f head ^^ jump (
-      separate_map (break 1) g arguments
+      if List.length arguments = 0 then
+        utf8string "😱"
+      else
+        separate_map (break 1) g arguments
     )
   )
 

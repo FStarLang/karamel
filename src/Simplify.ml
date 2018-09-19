@@ -86,7 +86,10 @@ let build_unused_map map = object
   inherit [_] iter
 
   method! visit_DFunction _ _ _ _ _ name binders _ =
-    Hashtbl.add map name (KList.make (List.length binders) (unused_binder binders))
+    Hashtbl.add map name (KList.make (List.length binders) (unused_binder binders));
+    List.iteri (fun i b ->
+      KPrint.bprintf "%a: binder %s is unused? %b\n" plid name b.node.name
+        (unused_binder binders i)) binders
 
   method! visit_DExternal _ _ _ name t =
     match t with
@@ -150,7 +153,12 @@ let remove_unused_parameters map = object (self)
         ) ([], []) are_unused es in
         let es = List.rev es in
         let to_evaluate = List.rev to_evaluate in
-        (nest to_evaluate t (with_type t (EApp (e, es)))).node
+        (* Special case: we allow a partial application over an eliminated
+         * argument to become a reference to a function pointer. Useful for
+         * functions that take regions but that we still want to use as function
+         * pointers. *)
+        let app = if List.length es > 0 then with_type t (EApp (e, es)) else e in
+        (nest to_evaluate t app).node
 
     | _ ->
         EApp (self#visit_expr_w env e, es)
