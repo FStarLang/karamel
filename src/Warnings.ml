@@ -25,6 +25,7 @@ and raw_error =
   | DropDeclaration of lident * string
   | NotTailCall of lident
   | GeneratesLetBindings of string * expr * (binder * expr) list
+  | Arity of lident * string
 
 and location =
   string
@@ -58,7 +59,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 16 CError;;
+let flags = Array.make 17 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -96,7 +97,9 @@ let errno_of_error = function
   | NotTailCall _ ->
       14
   | NeedsCompat _ ->
-      14
+      15
+  | Arity _ ->
+      16
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -170,6 +173,8 @@ let rec perr buf (loc, raw_error) =
         %a\n\
         Offending let-bindings:\n\
         %a" what ppexpr e pplbs bs
+  | Arity (lid, reason) ->
+      p "Cannot enforce arity at call-site for %a (%s)" plid lid reason
 
 
 let maybe_fatal_error error =

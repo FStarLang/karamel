@@ -15,6 +15,8 @@ noeq type t_container (r:HS.rid) (t_Val:Type) =
   vals     : (b:B.buffer t_Val  { (B.frameOf b) `HS.extends` r }) ->
   t_container r t_Val
 
+
+inline_for_extraction
 type t_EventHandler (a:Type) = (v:a) -> HST.Stack (unit)
   (requires (fun h -> True))
   (ensures (fun h0 x h1 -> True))
@@ -29,8 +31,8 @@ val dummyHandler : (#r:HS.rid) -> t_EventHandler (t_EventHandlerData r)
 let dummyHandler #r _ = ()
 
 let createContainer
-  (rContainer:HS.rid{HST.is_eternal_region rContainer})
   (t_Val:Type)
+  (rContainer:HS.rid{HST.is_eternal_region rContainer})
   (initVal:t_Val)
   : HST.ST (t_container rContainer t_Val)
     (requires (fun h -> True))
@@ -42,5 +44,5 @@ let createContainer
 
 let main(): HST.St I32.t =
   let rContainer = HST.new_region HS.root in
-  let dict = (createContainer rContainer (t_EventHandler (t_EventHandlerData rContainer)) dummyHandler) in
+  let dict = (createContainer (t_EventHandler (t_EventHandlerData rContainer)) rContainer dummyHandler) in
   0l
