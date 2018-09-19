@@ -43,7 +43,8 @@ let reparenthesize_applications = object (self)
             app1.node
         with
           | Not_found ->
-              Warnings.maybe_fatal_error ("", Arity (lid, "unknown"));
+              if Options.debug "arity" then
+                KPrint.bprintf "Cannot enforce arity at call-site for %a because it is not in scope (assume val?)\n" plid lid;
               EApp (e, es)
           | Invalid_argument s ->
               Warnings.maybe_fatal_error ("", Arity (lid,
