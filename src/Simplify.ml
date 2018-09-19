@@ -86,10 +86,7 @@ let build_unused_map map = object
   inherit [_] iter
 
   method! visit_DFunction _ _ _ _ _ name binders _ =
-    Hashtbl.add map name (KList.make (List.length binders) (unused_binder binders));
-    List.iteri (fun i b ->
-      KPrint.bprintf "%a: binder %s is unused? %b\n" plid name b.node.name
-        (unused_binder binders i)) binders
+    Hashtbl.add map name (KList.make (List.length binders) (unused_binder binders))
 
   method! visit_DExternal _ _ _ name t =
     match t with

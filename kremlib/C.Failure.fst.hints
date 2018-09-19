@@ -1,17 +1,8 @@
 [
-  "\u0002‹¶ñ¸„SqC\nùØ®´$V",
+  "]T-∞lí6Ñù\u0011∑≠;yµ˙",
   [
     [
-      "HigherOrder2.invoke",
-      1,
-      2,
-      1,
-      [ "@query" ],
-      0,
-      "94ec73362cb561c604b294750b25f648"
-    ],
-    [
-      "HigherOrder2.exampleFunc",
+      "C.Failure.whatever",
       1,
       2,
       1,
@@ -23,30 +14,23 @@
         "equation_FStar.Monotonic.HyperStack.mem", "equation_Prims.eqtype",
         "function_token_typing_FStar.Monotonic.Heap.heap",
         "function_token_typing_FStar.Monotonic.HyperHeap.rid",
-        "function_token_typing_LowStar.Monotonic.Buffer.loc_none",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
         "lemma_FStar.Set.lemma_equal_refl",
-        "lemma_LowStar.Monotonic.Buffer.modifies_refl",
         "refinement_interpretation_FStar.Monotonic.HyperStack_Tm_refine_9a74d818566e70513bc032cc3b65a144",
         "typing_FStar.Map.domain",
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "d67b8be35fcf19e3010c2dc90e42dd76"
+      "997e905aad6295857ef17f3856d865a3"
     ],
     [
-      "HigherOrder2.main",
+      "C.Failure.failwith",
       1,
       2,
       1,
-      [
-        "@query", "equation_FStar.HyperStack.ST.equal_domains",
-        "equation_FStar.HyperStack.ST.equal_stack_domains",
-        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_elim",
-        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
-      ],
+      [ "@query" ],
       0,
-      "bcc181ad854686fb6138d9e326d07b72"
+      "c9f806ae916993435f9c5aecf4c06af7"
     ]
   ]
 ]

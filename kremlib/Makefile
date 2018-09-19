@@ -25,7 +25,7 @@ UINT128_DIR = uint128
 $(OUTPUT_DIR):
 	mkdir -p $@
 
-FSTAR_OPTIONS += --use_hints --use_two_phase_tc true --odir $(OUTPUT_DIR) \
+FSTAR_OPTIONS += --record_hints --use_hints --use_two_phase_tc true --odir $(OUTPUT_DIR) \
   # --use_extracted_interfaces
 
 FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules \
