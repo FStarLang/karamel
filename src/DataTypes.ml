@@ -861,6 +861,8 @@ let remove_full_matches = object (self)
   inherit [_] map as super
 
   method! visit_EMatch (_, t as env) scrut branches =
+    let scrut0 = scrut in
+    let scrut = self#visit_expr env scrut in
     match scrut.node with
     | ELet (b, e1, e2) ->
         let b, e2 = open_binder b e2 in
@@ -894,7 +896,7 @@ let remove_full_matches = object (self)
               let binders = List.map (fun b -> b, List.assoc b.node.atom pairs) binders in
               (Helpers.nest binders t e).node
             with Not_found ->
-              super#visit_EMatch env scrut branches
+              super#visit_EMatch env scrut0 branches
             end
         | _ ->
             super#visit_EMatch env scrut branches
