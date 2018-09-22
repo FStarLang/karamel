@@ -21,6 +21,16 @@ let test_ub () :HST.St unit =
   assert (Seq.index (UB.as_seq h0 b) 1 == Seq.index (Seq.slice (UB.as_seq h0 b) 0 2) 1);
   assert (j == 2ul)
 
+let test_ub_stack () :HST.St UInt32.t =
+  let b1 :UB.ubuffer UInt32.t = UB.umalloc HS.root 2ul in
+  HST.push_frame ();
+  let b2 :UB.ubuffer UInt32.t = UB.ualloca 2ul in
+  UB.uupd b2 1ul 1ul;
+  let t = UB.uindex b2 1ul in
+  HST.pop_frame ();
+  B.free b1;
+  t
+
 let main (): HST.St Int32.t  =
   test_ub ();
   0l

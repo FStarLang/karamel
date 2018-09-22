@@ -346,7 +346,7 @@
         "typing_LowStar.Monotonic.Buffer.loc_union"
       ],
       0,
-      "2b0bd98c2970ebd88dffb20c6405d592"
+      "b35ebf731495a6053ecbada73b0f1512"
     ],
     [
       "Server.respond_index",
@@ -459,7 +459,7 @@
         "typing_LowStar.Monotonic.Buffer.loc_union"
       ],
       0,
-      "7a7e96f50f64900af1aa5fb331386c3f"
+      "df18d45e39757c2ede7374026f7f2707"
     ],
     [
       "Server.respond_stats",
@@ -612,7 +612,7 @@
         "typing_LowStar.Monotonic.Buffer.loc_union"
       ],
       0,
-      "a4e2d1b14585217d71327ed07ea6944d"
+      "e998fb3b82e71dd17a872777319e2821"
     ],
     [
       "Server.respond_404",
@@ -763,7 +763,7 @@
         "typing_LowStar.Monotonic.Buffer.loc_union"
       ],
       0,
-      "be1c682eb379d38499a78b831524c4f8"
+      "2e6bd7779fb084dfd50a63491c2057e8"
     ],
     [
       "Server.server",
@@ -925,7 +925,7 @@
         "typing_LowStar.Monotonic.Buffer.loc_union", "typing_Prims.pow2"
       ],
       0,
-      "907e67ae90d1838de42501da3bdc64cb"
+      "4c34e0a59ac4c9aea329242db3b34218"
     ]
   ]
 ]
