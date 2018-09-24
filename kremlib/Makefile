@@ -20,7 +20,8 @@ else
 endif
 
 OUTPUT_DIR = extracted
-UINT128_DIR = uint128
+UINT128_DIR = dist/uint128
+MINI_DIR = dist/minimal
 
 $(OUTPUT_DIR):
 	mkdir -p $@
@@ -72,18 +73,33 @@ $(OUTPUT_DIR)/%.krml:  | .depend
 	  $(notdir $(subst .checked,,$<)) && \
 	touch $@
 
-extract-all: $(OUTPUT_DIR)/Makefile.include $(UINT128_DIR)/Makefile.include
+extract-all: $(OUTPUT_DIR)/Makefile.include $(UINT128_DIR)/Makefile.include \
+  $(MINI_DIR)/Makefile.include
 
+KREMLIN_ARGS += -fparentheses -fcurly-braces -fno-shadow
+
+# Default build
 $(OUTPUT_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
 	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(OUTPUT_DIR) -warn-error +9+11 -skip-compilation -extract-uints \
 	  $(addprefix -add-include ,'<inttypes.h>' '"kremlib.h"' '"kremlin/internal/compat.h"') \
 	  $^
 	find $(OUTPUT_DIR) -name '*.c' -and -not -name 'FStar_UInt*.c' -exec rm {} \;
 
+# UInt128-only build
 $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
-	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(UINT128_DIR) -skip-compilation -extract-uints \
+	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(dir $@) -skip-compilation -extract-uints \
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"kremlin/internal/types.h"') \
-	  -bundle FStar.UInt128=* -fparentheses $^
+	  -bundle FStar.UInt128=* $^
+
+# Minimalistic build
+$(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(UINT128_DIR)/Makefile.include .depend ../_build/src/Kremlin.native
+	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(dir $@) -skip-compilation -extract-uints \
+	  $(addprefix -add-include , \
+	    '<inttypes.h>' '<stdbool.h>' '"kremlin/internal/compat.h"' \
+	    '"kremlin/internal/types.h"') \
+	  -bundle FStar.UInt64+FStar.UInt32+FStar.UInt16+FStar.UInt8=* $^
+	cp c/fstar_uint128.c $(dir $@)
+	cp $(UINT128_DIR)/FStar_UInt128.h $(dir $@)
 
 ################################################################################
 # Compilation, only works after the stage above has run and C files exist      #
@@ -113,9 +129,12 @@ else
 CFLAGS += -fPIC
 endif
 
-uint128/FStar_UInt128.o: CFLAGS += -DKRML_VERIFIED_UINT128
+$(UINT128_DIR)/FStar_UInt128.o: CFLAGS += -DKRML_VERIFIED_UINT128
+$(MINI_DIR)/%.o: CFLAGS += -I$(MINI_DIR)
 
-compile-all: out/libkremlib.a uint128/FStar_UInt128.o
+compile-all: out/libkremlib.a $(UINT128_DIR)/FStar_UInt128.o \
+  $(MINI_DIR)/FStar_UInt64_FStar_UInt32_FStar_UInt16_FStar_UInt8.o \
+  $(MINI_DIR)/fstar_uint128.o
 
 out/libkremlib.a: $(OBJS) | extract-all
 	mkdir -p $(dir $@)
