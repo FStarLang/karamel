@@ -22,6 +22,10 @@ endif
 OUTPUT_DIR = extracted
 UINT128_DIR = dist/uint128
 MINI_DIR = dist/minimal
+DIST_DIR = dist
+
+$(DIST_DIR):
+	mkdir -p $@
 
 $(OUTPUT_DIR):
 	mkdir -p $@
@@ -48,7 +52,7 @@ SHELL=/bin/bash
 clean-c:
 	rm -rf {$(OUTPUT_DIR),$(UINT128_DIR)}/{Makefile.include,*.{c,h}} out extract-all */*.o
 
-.depend: Makefile | $(OUTPUT_DIR)
+.depend: Makefile | $(OUTPUT_DIR) $(DIST_DIR)
 	$(FSTAR) $(OTHERFLAGS) --dep full $(ROOTS) > $@
 
 include .depend
@@ -86,13 +90,13 @@ $(OUTPUT_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremli
 	find $(OUTPUT_DIR) -name '*.c' -and -not -name 'FStar_UInt*.c' -exec rm {} \;
 
 # UInt128-only build
-$(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
+$(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(DIST_DIR) .depend ../_build/src/Kremlin.native
 	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(dir $@) -skip-compilation -extract-uints \
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"kremlin/internal/types.h"') \
 	  -bundle FStar.UInt128=* $^
 
 # Minimalistic build
-$(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(UINT128_DIR)/Makefile.include .depend ../_build/src/Kremlin.native
+$(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(DIST_DIR) $(UINT128_DIR)/Makefile.include .depend ../_build/src/Kremlin.native
 	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(dir $@) -skip-compilation -extract-uints \
 	  $(addprefix -add-include , \
 	    '<inttypes.h>' '<stdbool.h>' '"kremlin/internal/compat.h"' \
