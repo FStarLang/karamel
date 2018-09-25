@@ -423,6 +423,7 @@ Supported options:|}
    * list__t'). Also needs to happen before monomorphization of equalities. *)
   let files = Inlining.inline_type_abbrevs files in
   let files = DataTypes.remove_unused_type_arguments files in
+  let files = Simplify.remove_unused_parameters files in
   let files = Inlining.reparenthesize_applications files in
   let files = Monomorphization.functions files in
   if !arg_print_monomorphization then
@@ -487,7 +488,7 @@ Supported options:|}
       files
   in
   let files = Structs.collect_initializers files in
-  let files = Simplify.remove_unused files in
+  let files = Simplify.remove_unused_locals files in
   let files = if !Options.tail_calls then Simplify.tail_calls files else files in
   let files = Simplify.simplify2 files in
   let files = Inlining.cross_call_analysis files in

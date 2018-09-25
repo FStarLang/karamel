@@ -13,6 +13,7 @@ let compute_natural_arity = object
   inherit [_] iter
 
   method! visit_DFunction () _ _ _ _ name args _ =
+    KPrint.bprintf "%a has arity %d\n" plid name (List.length args);
     Hashtbl.add natural_arity name (List.length args)
 end
 
@@ -47,6 +48,9 @@ let reparenthesize_applications = object (self)
                 KPrint.bprintf "Cannot enforce arity at call-site for %a because it is not in scope (assume val?)\n" plid lid;
               EApp (e, es)
           | Invalid_argument s ->
+              KPrint.beprintf "n=%d, len=%d\n"
+                (Hashtbl.find natural_arity lid)
+                (List.length es);
               Warnings.maybe_fatal_error ("", Arity (lid,
                 KPrint.bsprintf "Invalid_argument %s -- is this a partial application?" s));
               EApp (e, es)

@@ -125,16 +125,19 @@ let remove_unused_parameters map = object (self)
 
   method! visit_EApp (env, t) e es =
     let es = List.map (self#visit_expr_w env) es in
+    KPrint.bprintf "visiting %a\n" pexpr e;
+    begin match e.node with
+    | EQualified lid | ETApp ({ node = EQualified lid; _ }, _) ->
+        KPrint.bprintf ", mem=%b, len=%d, len=%d, typ=%a\n"
+          (Hashtbl.mem map lid)
+          (List.length (Hashtbl.find map lid)) (List.length (snd (flatten_arrow e.typ)))
+          ptyp e.typ;
+    | _ -> ()
+    end;
     match e.node with
-    | EQualified lid when
-      Hashtbl.mem map lid &&
-      List.length (Hashtbl.find map lid) = List.length (snd (flatten_arrow e.typ)) ->
-        let e =
-          let t, ts = flatten_arrow e.typ in
-          let ts = KList.filter_mask (List.map not (Hashtbl.find map lid)) ts in
-          let ts = List.map (self#visit_typ env) ts in
-          { e with typ = fold_arrow ts t }
-        in
+    | EQualified lid | ETApp ({ node = EQualified lid; _ }, _) when
+      Hashtbl.mem map lid ->
+        KPrint.bprintf "visiting application of %a\n" plid lid;
         (* There are some partial applications lurking around in spec... Checker
          * should really remove these. *)
         let are_unused, _ = KList.split (List.length es) (Hashtbl.find map lid) in
@@ -1504,8 +1507,11 @@ let simplify2 (files: file list): file list =
 
 (* This should be run late since inlining may create more opportunities for the
  * removal of unused variables. *)
-let remove_unused (files: file list): file list =
+let remove_unused_locals (files: file list): file list =
   let files = count_and_remove_locals#visit_files [] files in
+  files
+
+let remove_unused_parameters (files: file list): file list =
   let map = Hashtbl.create 41 in
   (build_unused_map map)#visit_files () files;
   let files = (remove_unused_parameters map)#visit_files () files in
