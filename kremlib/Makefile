@@ -87,12 +87,18 @@ $(OUTPUT_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremli
 
 # UInt128-only build
 $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
+	# Workaround windows issue: kremlin doesn't recursively create
+	# directories.
+	mkdir -p $(dir $@)
 	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(dir $@) -skip-compilation -extract-uints \
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"kremlin/internal/types.h"') \
 	  -bundle FStar.UInt128=* $^
 
 # Minimalistic build
 $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(UINT128_DIR)/Makefile.include .depend ../_build/src/Kremlin.native
+	# Workaround windows issue: kremlin doesn't recursively create
+	# directories.
+	mkdir -p $(dir $@)
 	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(dir $@) -skip-compilation -extract-uints \
 	  $(addprefix -add-include , \
 	    '<inttypes.h>' '<stdbool.h>' '"kremlin/internal/compat.h"' \
