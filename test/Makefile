@@ -23,7 +23,7 @@ FILES		= \
   NoExtract.test InlineNoExtract.test ../book/RingBuffer.test \
   ../book/Introduction.test TopLevelArray.test NoShadow.test Library.test \
   AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
-  UBuffer.test HigherOrder4.fst
+  UBuffer.test HigherOrder4.fst HigherOrder5.fst
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
@@ -34,6 +34,7 @@ WASM_FILES	= \
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
 BROKEN		= \
+  HigherOrder6.fst
 
 WEB_DIR		?= web
 CACHE_DIR	= .cache
