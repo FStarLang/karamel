@@ -125,19 +125,9 @@ let remove_unused_parameters map = object (self)
 
   method! visit_EApp (env, t) e es =
     let es = List.map (self#visit_expr_w env) es in
-    KPrint.bprintf "visiting %a\n" pexpr e;
-    begin match e.node with
-    | EQualified lid | ETApp ({ node = EQualified lid; _ }, _) ->
-        KPrint.bprintf ", mem=%b, len=%d, len=%d, typ=%a\n"
-          (Hashtbl.mem map lid)
-          (List.length (Hashtbl.find map lid)) (List.length (snd (flatten_arrow e.typ)))
-          ptyp e.typ;
-    | _ -> ()
-    end;
     match e.node with
     | EQualified lid | ETApp ({ node = EQualified lid; _ }, _) when
       Hashtbl.mem map lid ->
-        KPrint.bprintf "visiting application of %a\n" plid lid;
         (* There are some partial applications lurking around in spec... Checker
          * should really remove these. *)
         let are_unused, _ = KList.split (List.length es) (Hashtbl.find map lid) in
