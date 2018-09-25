@@ -128,27 +128,33 @@ let remove_unused_parameters map = object (self)
     match e.node with
     | EQualified lid | ETApp ({ node = EQualified lid; _ }, _) when
       Hashtbl.mem map lid ->
-        (* There are some partial applications lurking around in spec... Checker
-         * should really remove these. *)
-        let are_unused, _ = KList.split (List.length es) (Hashtbl.find map lid) in
-        let es, to_evaluate = List.fold_left2 (fun (es, to_evaluate) unused arg ->
-          if unused then
-            if is_readonly_c_expression arg then
-              es, to_evaluate
+        let are_unused = Hashtbl.find map lid in
+        (* This is a sign of an application that needs to be re-parenthesized.
+         * Merge with reparenthesize_applications? *)
+        if List.length es <= List.length are_unused then
+          let are_unused, _ = KList.split (List.length es) (Hashtbl.find map lid) in
+          let es, to_evaluate = List.fold_left2 (fun (es, to_evaluate) unused arg ->
+            if unused then
+              if is_readonly_c_expression arg then
+                es, to_evaluate
+              else
+                let x, _atom = mk_binding "unused" arg.typ in
+                es, (x, arg) :: to_evaluate
             else
-              let x, _atom = mk_binding "unused" arg.typ in
-              es, (x, arg) :: to_evaluate
-          else
-            arg :: es, to_evaluate
-        ) ([], []) are_unused es in
-        let es = List.rev es in
-        let to_evaluate = List.rev to_evaluate in
-        (* Special case: we allow a partial application over an eliminated
-         * argument to become a reference to a function pointer. Useful for
-         * functions that take regions but that we still want to use as function
-         * pointers. *)
-        let app = if List.length es > 0 then with_type t (EApp (e, es)) else e in
-        (nest to_evaluate t app).node
+              arg :: es, to_evaluate
+          ) ([], []) are_unused es in
+          let es = List.rev es in
+          let to_evaluate = List.rev to_evaluate in
+          (* Special case: we allow a partial application over an eliminated
+           * argument to become a reference to a function pointer. Useful for
+           * functions that take regions but that we still want to use as function
+           * pointers. *)
+          let app = if List.length es > 0 then with_type t (EApp (e, es)) else e in
+          (nest to_evaluate t app).node
+        else begin
+          KPrint.bprintf "%a\n" pexpr (with_type TAny (EApp (e, es)));
+          EApp (self#visit_expr_w env e, es)
+        end
 
     | _ ->
         EApp (self#visit_expr_w env e, es)
