@@ -68,15 +68,23 @@ let (^^) x y = x ^ "/" ^ y
 
 let d = Filename.dirname
 
-let rec mkdirp d =
-  if Sys.file_exists d then begin
-    if not (Sys.is_directory d) then
-      failwith ("mkdirp: trying to recursively create a directory, but the file \
-        exists already and is not a directory: " ^ d)
-  end else begin
-    mkdirp (Filename.dirname d);
-    Unix.mkdir d 0o755
-  end
+let mkdirp d =
+  let rec mkdirp d =
+    if Sys.file_exists d then begin
+      if not (Sys.is_directory d) then
+        failwith ("mkdirp: trying to recursively create a directory, but the file \
+          exists already and is not a directory: " ^ d)
+    end else begin
+      mkdirp (Filename.dirname d);
+      Unix.mkdir d 0o755
+    end
+  in
+  (* On Windows, the Filename function defines only \\ to be the path separator,
+   * but in a Cygwin spirit, we want to accept either. This is an approximation. *)
+  if Sys.os_type = "Win32" then
+    mkdirp (String.map (function '/' -> '\\' | x -> x) d)
+  else
+    mkdirp d
 
 let mk_tmpdir_if () =
   if !Options.tmpdir <> "" then
