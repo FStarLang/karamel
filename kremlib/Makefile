@@ -89,8 +89,8 @@ $(OUTPUT_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremli
 $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
 	# Workaround windows issue: kremlin doesn't recursively create
 	# directories.
-	mkdir -p $(dir $@)
-	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(dir $@) -skip-compilation -extract-uints \
+	mkdir -p $(UINT128_DIR)
+	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(UINT128_DIR) -skip-compilation -extract-uints \
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"kremlin/internal/types.h"') \
 	  -bundle FStar.UInt128=* $^
 
@@ -98,8 +98,8 @@ $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kreml
 $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(UINT128_DIR)/Makefile.include .depend ../_build/src/Kremlin.native
 	# Workaround windows issue: kremlin doesn't recursively create
 	# directories.
-	mkdir -p $(dir $@)
-	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(dir $@) -skip-compilation -extract-uints \
+	mkdir -p $(MINI_DIR)
+	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(MINI_DIR) -skip-compilation -extract-uints \
 	  $(addprefix -add-include , \
 	    '<inttypes.h>' '<stdbool.h>' '"kremlin/internal/compat.h"' \
 	    '"kremlin/internal/types.h"') \
