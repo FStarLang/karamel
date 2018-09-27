@@ -81,24 +81,7 @@ let unused_binder binders i =
 
 (* To be run immediately after the phase above. *)
 
-(* JP: we should get rid of this *)
-let build_unused_map map = object
-  inherit [_] iter
-
-  method! visit_DFunction _ _ _ _ _ name binders _ =
-    Hashtbl.add map name (KList.make (List.length binders) (unused_binder binders))
-
-  method! visit_DExternal _ _ _ name t =
-    match t with
-    | TArrow _ ->
-        let _, args = flatten_arrow t in
-        Hashtbl.add map name (KList.make (List.length args) (unused_typ args))
-    | _ ->
-        ()
-end
-
-(* Ibid. *)
-let remove_unused_parameters map = object (self)
+let remove_unused_parameters = object (self)
   inherit [_] map
 
   method! visit_DFunction env cc flags n ret name binders body =
@@ -119,46 +102,45 @@ let remove_unused_parameters map = object (self)
 
   method! visit_TArrow _ t1 t2 =
     let ret, args = flatten_arrow (TArrow (t1, t2)) in
-    let unused = KList.make (List.length args) (fun i -> not (unused_typ args i)) in
-    let args = KList.filter_mask unused args in
+    let used = KList.make (List.length args) (fun i -> not (unused_typ args i)) in
+    let args = KList.filter_mask used args in
     fold_arrow args ret
 
-  method! visit_EApp (env, t) e es =
+  method! visit_EApp (env, _t) e es =
+    (* This transformation is entirely type-based due to local let-bindings with
+     * functions types, also going through unused argument elimination. *)
     let es = List.map (self#visit_expr_w env) es in
-    match e.node with
-    | EQualified lid when
-      Hashtbl.mem map lid &&
-      List.length (Hashtbl.find map lid) = List.length (snd (flatten_arrow e.typ)) ->
-        let e =
-          let t, ts = flatten_arrow e.typ in
-          let ts = KList.filter_mask (List.map not (Hashtbl.find map lid)) ts in
-          let ts = List.map (self#visit_typ env) ts in
-          { e with typ = fold_arrow ts t }
-        in
-        (* There are some partial applications lurking around in spec... Checker
-         * should really remove these. *)
-        let are_unused, _ = KList.split (List.length es) (Hashtbl.find map lid) in
-        let es, to_evaluate = List.fold_left2 (fun (es, to_evaluate) unused arg ->
-          if unused then
-            if is_readonly_c_expression arg then
-              es, to_evaluate
-            else
-              let x, _atom = mk_binding "unused" arg.typ in
-              es, (x, arg) :: to_evaluate
+    let t, ts = flatten_arrow e.typ in
+    if List.length es >= List.length ts then
+      let es, es_extra = KList.split (List.length ts) es in
+      let used = KList.make (List.length ts) (fun i -> not (unused_typ ts i)) in
+      let ts = KList.filter_mask used ts in
+      let ts = List.map (self#visit_typ env) ts in
+      let e = { e with typ = fold_arrow ts t } in
+      (* There are some partial applications lurking around in spec... Checker
+       * should really remove these. *)
+      let es, to_evaluate = List.fold_left2 (fun (es, to_evaluate) used arg ->
+        if not used then
+          if is_readonly_c_expression arg then
+            es, to_evaluate
           else
-            arg :: es, to_evaluate
-        ) ([], []) are_unused es in
-        let es = List.rev es in
-        let to_evaluate = List.rev to_evaluate in
-        (* Special case: we allow a partial application over an eliminated
-         * argument to become a reference to a function pointer. Useful for
-         * functions that take regions but that we still want to use as function
-         * pointers. *)
-        let app = if List.length es > 0 then with_type t (EApp (e, es)) else e in
-        (nest to_evaluate t app).node
-
-    | _ ->
-        EApp (self#visit_expr_w env e, es)
+            let x, _atom = mk_binding "unused" arg.typ in
+            es, (x, arg) :: to_evaluate
+        else
+          arg :: es, to_evaluate
+      ) ([], []) used es in
+      let es = List.rev es in
+      let to_evaluate = List.rev to_evaluate in
+      (* Special case: we allow a partial application over an eliminated
+       * argument to become a reference to a function pointer. Useful for
+       * functions that take regions but that we still want to use as function
+       * pointers. *)
+      let es = es @ es_extra in
+      let app = if List.length es > 0 then with_type t (EApp (e, es)) else e in
+      (nest to_evaluate t app).node
+    else
+      (* Partial application, or unknown type. *)
+      EApp (self#visit_expr_w env e, es)
 end
 
 
@@ -1505,10 +1487,7 @@ let simplify2 (files: file list): file list =
 (* This should be run late since inlining may create more opportunities for the
  * removal of unused variables. *)
 let remove_unused (files: file list): file list =
-  let files = count_and_remove_locals#visit_files [] files in
-  let map = Hashtbl.create 41 in
-  (build_unused_map map)#visit_files () files;
-  let files = (remove_unused_parameters map)#visit_files () files in
+  let files = remove_unused_parameters#visit_files () files in
   files
 
 (* Allocate C names avoiding keywords and name collisions. This should be done
