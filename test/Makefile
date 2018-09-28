@@ -23,7 +23,7 @@ FILES		= \
   NoExtract.test InlineNoExtract.test ../book/RingBuffer.test \
   ../book/Introduction.test TopLevelArray.test NoShadow.test Library.test \
   AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
-  UBuffer.test HigherOrder4.fst HigherOrder5.fst
+  UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
@@ -104,7 +104,7 @@ $(OUTPUT_DIR)/C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic -fc8
 $(OUTPUT_DIR)/Debug.exe: EXTRA = -d c-calls
 $(OUTPUT_DIR)/Server.exe: EXTRA = main-Server.c helpers-Server.c
 $(OUTPUT_DIR)/StringLit.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
-$(OUTPUT_DIR)/TailCalls.exe: EXTRA = -add-include '"kremlin/c_string.h"' -ftail-calls
+$(OUTPUT_DIR)/TailCalls.exe: EXTRA = -add-include '"kremlin/internal/compat.h"' -ftail-calls
 $(OUTPUT_DIR)/FunctionalEncoding.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/Crypto_Symmetric_Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 $(OUTPUT_DIR)/HelloSystem.exe: EXTRA = -add-include '"system.h"' \

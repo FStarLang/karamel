@@ -11,6 +11,12 @@ let zero = C.Constant (K.UInt8, "0")
 
 let is_array = function Array _ -> true | _ -> false
 
+let fresh =
+  let r = ref (-1) in
+  fun () ->
+    incr r;
+    "_" ^ string_of_int !r
+
 let escape_string s =
   let b = Buffer.create 256 in
   String.iter (fun c ->
@@ -33,10 +39,40 @@ let escape_string s =
 
 let assert_var =
   function
-  | Var _ | Qualified _ -> ()
+  | Var v | Qualified v -> v
   | e -> Warnings.fatal_error
       "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = \n%s is not a var"
       (show_expr e)
+
+module S = Set.Make(String)
+
+let rec vars_of = function
+  | CStar.Var v
+  | CStar.Qualified v ->
+      S.singleton v
+  | CStar.Constant _
+  | CStar.Bool _
+  | CStar.StringLiteral _
+  | CStar.Any
+  | CStar.EAbort _
+  | CStar.Op _ ->
+      S.empty
+  | CStar.Cast (e, _)
+  | CStar.Field (e, _)
+  | CStar.AddrOf e
+  | CStar.InlineComment (_, e, _) ->
+      vars_of e
+  | CStar.BufRead (e1, e2)
+  | CStar.BufSub (e1, e2)
+  | CStar.Comma (e1, e2)
+  | CStar.BufCreate (_, e1, e2) ->
+      S.union (vars_of e1) (vars_of e2)
+  | CStar.Call (e, es) ->
+      List.fold_left S.union (vars_of e) (List.map vars_of es)
+  | CStar.BufCreateL (_, es) ->
+      KList.reduce S.union (List.map vars_of es)
+  | CStar.Struct (_, fieldexprs) ->
+      KList.reduce S.union (List.map (fun (_, e) -> vars_of e) fieldexprs)
 
 let c99_format w =
   let open K in
@@ -380,11 +416,33 @@ and mk_stmt (stmt: stmt): C.stmt list =
       []
 
   | Assign (e1, t, BufCreate (Eternal, init, size)) ->
-      assert_var e1;
-      let stmt_check, expr_alloc, stmt_extra = mk_eternal_bufcreate e1 (assert_pointer t) init size in
-      stmt_check @
-      [ Expr (Assign (mk_expr e1, expr_alloc)) ] @
-      stmt_extra
+      let v = assert_var e1 in
+      (* Evil bug:
+       *   x <- bufcreate 1 e[x]
+       * might become:
+       *   x <- bufcreate 1 any
+       *   x[0] <- e[x]    <--- does NOT evaluate to the previous value of x
+       * Note: from Simplify.ml we know that BufCreate appears only under a
+       * [Decl] node or an [Assign] node. Name collisions are not possible with
+       * the Decl case since [AstToCStar] would've avoided the name conflict,
+       * and F* does not have recursive value definitions.
+       *)
+      let vs = vars_of init in
+      if S.mem v vs then
+        let t_elt = assert_pointer t in
+        let name_init = "_init" ^ fresh () in
+        let size = mk_expr size in
+        let stmt_init = mk_stmt (Decl ({ name = name_init; typ = t_elt }, init)) in
+        let stmt_assign = [ Expr (Assign (mk_expr e1, mk_malloc t_elt size)) ] in
+        let stmt_fill = mk_for_loop_initializer (mk_expr e1) size (mk_expr (Var name_init)) in
+        stmt_init @
+        stmt_assign @
+        [ stmt_fill ]
+      else
+        let stmt_check, expr_alloc, stmt_extra = mk_eternal_bufcreate e1 (assert_pointer t) init size in
+        stmt_check @
+        [ Expr (Assign (mk_expr e1, expr_alloc)) ] @
+        stmt_extra
 
   | Assign (_, _, BufCreateL (Eternal, _)) ->
       failwith "TODO"
