@@ -106,19 +106,27 @@ let remove_unused_parameters = object (self)
     let args = KList.filter_mask used args in
     fold_arrow args ret
 
-  method! visit_EApp (env, _t) e es =
+  method! visit_EApp (env, _) e es =
     (* This transformation is entirely type-based due to local let-bindings with
      * functions types, also going through unused argument elimination. *)
     let es = List.map (self#visit_expr_w env) es in
     let t, ts = flatten_arrow e.typ in
-    if List.length es >= List.length ts then
-      let es, es_extra = KList.split (List.length ts) es in
+    (* Three cases:
+     * - more arguments than the type indicates; it's fairly bad, but happens,
+     *   e.g. because the function is not in scope (no extract, polymorphic
+     *   assume, etc.) -- ignore
+     * - as many arguments as the type indicates; perform the transformation
+     * - less arguments than the type indicates: perform the transformation on
+     *   the arguments we have, transform the type nonetheless *)
+    if List.length es <= List.length ts then
+      (* Transform the type of the head *)
       let used = KList.make (List.length ts) (fun i -> not (unused_typ ts i)) in
       let ts = KList.filter_mask used ts in
       let ts = List.map (self#visit_typ env) ts in
       let e = { e with typ = fold_arrow ts t } in
-      (* There are some partial applications lurking around in spec... Checker
-       * should really remove these. *)
+      (* Then transform the arguments, on a possible prefix of used when there's
+       * a partial application. *)
+      let used, _ = KList.split (List.length es) used in
       let es, to_evaluate = List.fold_left2 (fun (es, to_evaluate) used arg ->
         if not used then
           if is_readonly_c_expression arg then
@@ -135,11 +143,9 @@ let remove_unused_parameters = object (self)
        * argument to become a reference to a function pointer. Useful for
        * functions that take regions but that we still want to use as function
        * pointers. *)
-      let es = es @ es_extra in
       let app = if List.length es > 0 then with_type t (EApp (e, es)) else e in
       (nest to_evaluate t app).node
     else
-      (* Partial application, or unknown type. *)
       EApp (self#visit_expr_w env e, es)
 end
 
