@@ -352,6 +352,7 @@ function init() {
     Prims: mkPrims(mem),
     C: mkC(mem),
     C_Endianness: mkCEndianness(mem),
+    C_Compat_Endianness: mkCEndianness(mem),
     C_Nullity: mkCNullity(mem),
     C_String: mkCString(mem),
     TestLib: mkTestLib(mem)

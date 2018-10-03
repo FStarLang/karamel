@@ -1365,13 +1365,13 @@ let combinators = object(self)
     in
 
     match e.node, es with
-    | EQualified ([ "C"; "Loops" ], "for_"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
+    | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), "for_"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
         self#mk_for start finish body K.UInt32
 
-    | EQualified ([ "C"; "Loops" ], "for64"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
+    | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), "for64"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
         self#mk_for start finish body K.UInt64
 
-    | EQualified ([ "C"; "Loops" ], s), [ _measure; _inv; tcontinue; body; init ]
+    | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), s), [ _measure; _inv; tcontinue; body; init ]
         when KString.starts_with s "total_while_gen"
        ->
         let b = fresh_binder "b" TBool in
@@ -1399,7 +1399,7 @@ let combinators = object(self)
           with_type t (EBound 0);
         ]))))
 
-    | EQualified ([ "C"; "Loops" ], "interruptible_for"), [ start; finish; _inv; { node = EFun (_, _, _); _ } as f ] ->
+    | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), "interruptible_for"), [ start; finish; _inv; { node = EFun (_, _, _); _ } as f ] ->
         (* Relying on the invariant that, if [finish] is effectful, F* has
          * hoisted it *)
         assert (is_value finish);
@@ -1435,14 +1435,14 @@ let combinators = object(self)
             with_type uint32 (EBound 0);
             with_type TBool (EBound 1)])]))))
 
-    | EQualified ([ "C"; "Loops" ], s), [
+    | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), s), [
         { node = EFun (_, test, _); _ };
         { node = EFun (_, body, _); _ } ]
       when KString.starts_with s "while" ->
         EWhile (DeBruijn.subst Helpers.eunit 0 test,
           DeBruijn.subst Helpers.eunit 0 body)
 
-    | EQualified ([ "C"; "Loops" ], s), [ { node = EFun (_, body, _); _ } ]
+    | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), s), [ { node = EFun (_, body, _); _ } ]
       when KString.starts_with s "do_while" ->
         EWhile (etrue, with_unit (
           EIfThenElse (DeBruijn.subst eunit 0 (self#visit_expr_w () body),
