@@ -104,7 +104,7 @@
         "typing_LowStar.UninitializedBuffer.initialization_preorder"
       ],
       0,
-      "ede8ca8b84bab698bc25897c3e4427ad"
+      "97ffdbda8c5c9cab23c94cb3f768cd51"
     ],
     [
       "UBuffer.test_ub_stack",
@@ -113,7 +113,6 @@
       1,
       [
         "@MaxIFuel_assumption", "@query",
-        "FStar.Monotonic.HyperStack_pretyping_cd115f719b336f9a8366e4b68a41d001",
         "FStar.UInt32_pretyping_041e3a67a2d2b51fd702f1f88cfc3b44",
         "Prims_pretyping_ae567c2fb75be05905677af440075565",
         "assumption_Prims.HasEq_int", "bool_inversion", "bool_typing",
@@ -176,8 +175,7 @@
         "lemma_LowStar.Monotonic.Buffer.popped_modifies_inert",
         "primitive_Prims.op_AmpAmp", "primitive_Prims.op_BarBar",
         "primitive_Prims.op_Equality", "primitive_Prims.op_LessThanOrEqual",
-        "primitive_Prims.op_Negation", "primitive_Prims.op_disEquality",
-        "projection_inverse_BoxBool_proj_0",
+        "primitive_Prims.op_Negation", "projection_inverse_BoxBool_proj_0",
         "projection_inverse_BoxInt_proj_0",
         "projection_inverse_FStar.Pervasives.Native.Mktuple3__1",
         "projection_inverse_FStar.Pervasives.Native.Mktuple3__2",
@@ -189,12 +187,12 @@
         "refinement_interpretation_FStar.Monotonic.HyperStack_Tm_refine_9a74d818566e70513bc032cc3b65a144",
         "refinement_interpretation_FStar.Pervasives.Native_Tm_refine_2fbd657fe85bcb2423f9c7e5f9b3bcb5",
         "refinement_interpretation_Prims_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "refinement_interpretation_UBuffer_Tm_refine_2011e81e05d092e08833cbfdaea77df9",
         "refinement_interpretation_UBuffer_Tm_refine_22e3584e2df5899ac6cbf4c1eb87c089",
         "refinement_interpretation_UBuffer_Tm_refine_48134de68a3fc0bbd7440496177c7060",
         "refinement_interpretation_UBuffer_Tm_refine_601254ebe274211073b2024a11d02039",
         "refinement_interpretation_UBuffer_Tm_refine_90c98677101ac8c42418f2150d2d81a9",
         "refinement_interpretation_UBuffer_Tm_refine_ad378fd63230ce41430f176fb42275dc",
-        "refinement_interpretation_UBuffer_Tm_refine_eaaf1fb3627697929673d8661ada1c2c",
         "typing_FStar.Map.contains", "typing_FStar.Map.domain",
         "typing_FStar.Map.restrict",
         "typing_FStar.Monotonic.HyperStack.get_hmap",
@@ -211,7 +209,7 @@
         "typing_LowStar.UninitializedBuffer.initialization_preorder"
       ],
       0,
-      "854fae366a6ea001a9dadace24d60631"
+      "76b9d96ae3a01e56a219b6a88b87dc1a"
     ],
     [
       "UBuffer.main",
@@ -220,7 +218,7 @@
       1,
       [ "@query" ],
       0,
-      "04d54f8749bc3727424ef099d551c5aa"
+      "b11cd309804571070419384db8975281"
     ]
   ]
 ]

@@ -21,8 +21,7 @@
         "equation_FStar.Monotonic.HyperStack.poppable",
         "equation_FStar.Monotonic.HyperStack.popped",
         "equation_FStar.Monotonic.HyperStack.remove_elt",
-        "equation_FStar.Set.eqtype", "equation_FStar.UInt32.n",
-        "equation_Prims.eqtype",
+        "equation_FStar.UInt32.n",
         "function_token_typing_FStar.Monotonic.Heap.emp",
         "function_token_typing_FStar.Monotonic.Heap.heap",
         "function_token_typing_FStar.Monotonic.HyperHeap.rid",
@@ -37,8 +36,7 @@
         "lemma_FStar.Set.lemma_equal_elim", "lemma_FStar.Set.mem_complement",
         "lemma_FStar.Set.mem_intersect", "lemma_FStar.Set.mem_singleton",
         "primitive_Prims.op_AmpAmp", "primitive_Prims.op_Equality",
-        "primitive_Prims.op_Negation", "primitive_Prims.op_disEquality",
-        "projection_inverse_BoxBool_proj_0",
+        "primitive_Prims.op_Negation", "projection_inverse_BoxBool_proj_0",
         "projection_inverse_FStar.Pervasives.Native.Mktuple3__1",
         "projection_inverse_FStar.Pervasives.Native.Mktuple3__2",
         "projection_inverse_FStar.Pervasives.Native.Mktuple3__3",
@@ -47,8 +45,8 @@
         "projection_inverse_FStar.Pervasives.Native.Mktuple4__3",
         "projection_inverse_FStar.Pervasives.Native.Mktuple4__4",
         "refinement_interpretation_FStar.Monotonic.HyperStack_Tm_refine_9a74d818566e70513bc032cc3b65a144",
+        "refinement_interpretation_PushPop_Tm_refine_2011e81e05d092e08833cbfdaea77df9",
         "refinement_interpretation_PushPop_Tm_refine_55be818f8bfa7783140f53c8c7dfdd82",
-        "refinement_interpretation_PushPop_Tm_refine_eaaf1fb3627697929673d8661ada1c2c",
         "typing_FStar.Map.contains", "typing_FStar.Map.domain",
         "typing_FStar.Map.restrict",
         "typing_FStar.Monotonic.HyperStack.get_hmap",
@@ -60,7 +58,7 @@
         "typing_FStar.Set.union", "unit_typing"
       ],
       0,
-      "7a18e69e655c38da344c2fd709189c45"
+      "79613d76f6daacc8ca1403fe2f882b39"
     ],
     [
       "PushPop.main",
@@ -80,7 +78,7 @@
         "unit_typing"
       ],
       0,
-      "6310cb1152b539dc6e3bf53f776753a9"
+      "04c0cd6f3b2e6ce513bbbe88eddf37c3"
     ]
   ]
 ]

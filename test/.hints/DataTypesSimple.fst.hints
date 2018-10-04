@@ -8,7 +8,7 @@
       1,
       [ "@query", "assumption_FStar.UInt32.t__uu___haseq" ],
       0,
-      "d7c1affae5a5667549e42f69ec2fbf1d"
+      "7bba34dbd59420c2036cd2afc9d47c43"
     ],
     [
       "DataTypesSimple.f",
@@ -33,7 +33,7 @@
         "typing_tok_DataTypesSimple.Cons1@tok"
       ],
       0,
-      "8e31658904b0cad48c4dc94eff0b8d60"
+      "7fad13567ea438c8b429ff22b89349d9"
     ],
     [
       "DataTypesSimple.main",
@@ -41,38 +41,21 @@
       2,
       1,
       [
-        "@MaxIFuel_assumption", "@query", "bool_inversion",
+        "@MaxIFuel_assumption", "@query",
         "disc_equation_DataTypesSimple.Cons1",
         "disc_equation_DataTypesSimple.Cons2",
         "equality_tok_C.EXIT_SUCCESS@tok",
         "equation_FStar.HyperStack.ST.equal_domains",
-        "equation_FStar.Monotonic.HyperHeap.hmap",
-        "equation_FStar.Monotonic.HyperStack.fresh_frame",
-        "equation_FStar.Monotonic.HyperStack.is_wf_with_ctr_and_tip",
         "equation_FStar.Monotonic.HyperStack.mem",
         "equation_FStar.Monotonic.HyperStack.poppable",
-        "equation_FStar.Set.eqtype", "equation_Prims.eqtype",
         "fuel_guarded_inversion_DataTypesSimple.t",
-        "function_token_typing_FStar.Monotonic.Heap.emp",
-        "function_token_typing_FStar.Monotonic.Heap.heap",
-        "function_token_typing_FStar.Monotonic.HyperHeap.rid",
-        "function_token_typing_FStar.Monotonic.HyperHeap.root",
         "lemma_FStar.Buffer.lemma_equal_domains",
         "lemma_FStar.Buffer.lemma_fresh_poppable",
-        "lemma_FStar.Map.lemma_ContainsDom",
-        "lemma_FStar.Map.lemma_InDomUpd2",
-        "lemma_FStar.Set.lemma_equal_elim", "primitive_Prims.op_disEquality",
-        "projection_inverse_BoxBool_proj_0",
-        "refinement_interpretation_DataTypesSimple_Tm_refine_eaaf1fb3627697929673d8661ada1c2c",
-        "refinement_interpretation_FStar.Monotonic.HyperStack_Tm_refine_9a74d818566e70513bc032cc3b65a144",
-        "typing_FStar.Map.contains", "typing_FStar.Map.domain",
-        "typing_FStar.Monotonic.HyperStack.get_hmap",
-        "typing_FStar.Monotonic.HyperStack.get_tip",
-        "typing_FStar.Monotonic.HyperStack.poppable",
+        "refinement_interpretation_DataTypesSimple_Tm_refine_2011e81e05d092e08833cbfdaea77df9",
         "typing_tok_C.EXIT_SUCCESS@tok"
       ],
       0,
-      "7358ca6eceaddc6146b7458308f399c8"
+      "49214baf8d6a93e98847109f0fc6b199"
     ]
   ]
 ]

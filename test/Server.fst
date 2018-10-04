@@ -183,6 +183,8 @@ let response_length = 65535
 inline_for_extraction noextract
 let (!$) = C.String.of_literal
 
+#set-options "--max_ifuel 0 --max_fuel 0"
+
 val respond: (response: B.buffer C.char) -> (payload: B.buffer C.char) -> (payloadlen: U32.t) ->
   Stack U32.t
     (requires (fun h0 ->
@@ -209,8 +211,6 @@ let respond response payload payloadlen =
   let response = B.offset response n3 in
   let t = blit payload 0ul response 0ul payloadlen in
   U32.(n1 +^ n2 +^ n3 +^ payloadlen)
-
-#set-options "--max_ifuel 0 --max_fuel 0"
 
 let respond_index (response: B.buffer C.char): Stack U32.t
   (requires (fun h0 ->
@@ -248,7 +248,7 @@ let respond_stats (response: B.buffer C.char) (state: U32.t): Stack U32.t
   n
 #pop-options
 
-#reset-options "--z3cliopt smt.arith.nl=false --z3rlimit 32 --max_ifuel 0 --max_fuel 0"
+#reset-options "--z3cliopt smt.arith.nl=false --z3rlimit 50 --max_ifuel 0 --max_fuel 0"
 
 let respond_404 (response: B.buffer C.char): Stack U32.t
   (requires (fun h0 ->
