@@ -11,7 +11,7 @@ module HST = FStar.HyperStack.ST
 module UInt32 = FStar.UInt32
 module UInt64 = FStar.UInt64
 
-include Spec.Compat.Loops
+include Spec.Loops
 
 #set-options "--initial_fuel 0 --max_fuel 0 --z3rlimit 20"
 
@@ -440,7 +440,7 @@ let repeat_range #a l min max f b fc =
     fc b i;
     lemma_repeat_range_spec (UInt32.v min) (UInt32.v i + 1) f (as_seq h0 b)
   in
-  lemma_repeat_range_0 (UInt32.v min) (UInt32.v min) f (as_seq h0 b);
+  lemma_repeat_range_0 (UInt32.v min) f (as_seq h0 b);
   for min max inv f'
 
 let rec total_while_gen

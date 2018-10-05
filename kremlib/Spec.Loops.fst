@@ -74,15 +74,21 @@ let rec repeat_range_induction #a min max f x =
 #reset-options "--max_fuel 0"
 
 [@(deprecated "Spec.Loops.repeat")]
+unfold
 let repeat_spec = repeat
 [@(deprecated "Spec.Loops.repeat_base")]
+unfold
 let lemma_repeat_0 = repeat_base
 [@(deprecated "Spec.Loops.repeat_induction")]
+unfold
 let lemma_repeat = repeat_induction
 
 [@(deprecated "Spec.Loops.repeat_range")]
+unfold
 let repeat_range_spec = repeat_range
 [@(deprecated "Spec.Loops.repeat_range_base")]
+unfold
 let lemma_repeat_range_0 = repeat_range_base
 [@(deprecated "Spec.Loops.repeat_range_induction")]
+unfold
 let lemma_repeat_range_spec = repeat_range_induction
