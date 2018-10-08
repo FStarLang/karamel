@@ -1,3 +1,6 @@
+(* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
+(* Licensed under the Apache 2.0 License. *)
+
 (** Collapsing several F* modules into a single "bundle" to allow more static
  * uses. *)
 

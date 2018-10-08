@@ -1,3 +1,6 @@
+(* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
+(* Licensed under the Apache 2.0 License. *)
+
 (** Make sure all structures are passed by reference  **************************)
 
 (* A note on this rewriting. We rewrite:

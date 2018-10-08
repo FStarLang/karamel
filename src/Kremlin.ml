@@ -1,3 +1,6 @@
+(* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
+(* Licensed under the Apache 2.0 License. *)
+
 (** KreMLin, a tool to translate from a minimal ML-like language to C. *)
 
 module Time = struct

@@ -1,3 +1,6 @@
+(* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
+(* Licensed under the Apache 2.0 License. *)
+
 (** Pretty-printer that conforms with C syntax. Also defines the grammar of
  * concrete C syntax, as opposed to our idealistic, well-formed C*. *)
 
