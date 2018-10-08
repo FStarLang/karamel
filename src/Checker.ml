@@ -814,6 +814,7 @@ and check_pat env t_context pat =
       pat.typ <- t_context
 
   | PRecord fieldpats ->
+      (* See test/RecordTypingLimitation.fst for the bug triggered here. *)
       let lid = assert_qualified env t_context in
       let fieldtyps = assert_flat env (lookup_type env lid) in
       List.iter (fun ((field, pat): ident * pattern) ->
