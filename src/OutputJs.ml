@@ -1,3 +1,6 @@
+(* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
+(* Licensed under the Apache 2.0 License. *)
+
 (* Output a set of Wasm files, along with toplevel entry files (HTML for a
  * browser, .js for a shell). *)
 

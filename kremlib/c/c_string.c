@@ -1,3 +1,6 @@
+/* Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
+   Licensed under the Apache 2.0 License. */
+
 #include "C_String.h"
 
 C_String_t C_String_of_literal(const char *str) {

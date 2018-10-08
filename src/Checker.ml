@@ -1,3 +1,6 @@
+(* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
+(* Licensed under the Apache 2.0 License. *)
+
 (** Checking the well-formedness of a program in [Ast] *)
 
 (** TODO this module needs to be rewritten properly with constraints and
