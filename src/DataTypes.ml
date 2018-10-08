@@ -180,22 +180,30 @@ let rec is_simple_expression e =
   | EField (e, _) -> is_simple_expression e
   | _ -> false
 
-let is_trivial_record_pattern fields =
+let all_bound_variables fields =
   List.for_all (function (_, { node = PBound _; _ }) -> true | _ -> false) fields
 
 let try_mk_flat e t branches =
   match branches with
+  | [ _, { node = PRecord fields; _ }, { node = EBound i; _ } ] when
+    i < List.length fields &&
+    all_bound_variables fields &&
+    is_simple_expression e
+  ->
+      let f = List.nth fields (List.length fields - i - 1) in
+      EField (e, fst f)
   | [ binders, { node = PRecord fields; _ }, body ] ->
-      if is_trivial_record_pattern fields then
-        (* match e with { f = x; ... } becomes
-         * let tmp = e in let x = e.f in *)
+      if all_bound_variables fields then
+        (* match e with { f = x; ... } becomes: *)
         let binders, body = open_binders binders body in
         if is_simple_expression e then
+          (* let x0 = e.f0 in let x1 = e.f1 in ... let xn = e.fn in body *)
           let bindings = List.map2 (fun b (f, _) ->
             b, with_type b.typ (EField (e, f))
           ) binders fields in
           (nest bindings t body).node
         else
+          (* let scrut = e in let x = e.f in *)
           let scrut, atom = mk_binding "scrut" e.typ in
           let bindings = List.map2 (fun b (f, _) ->
             b, with_type b.typ (EField (atom, f))
