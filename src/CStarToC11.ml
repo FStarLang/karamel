@@ -76,6 +76,8 @@ let rec vars_of = function
       KList.reduce S.union (List.map vars_of es)
   | CStar.Struct (_, fieldexprs) ->
       KList.reduce S.union (List.map (fun (_, e) -> vars_of e) fieldexprs)
+  | CStar.Union (_, (_, e)) ->
+      vars_of e
 
 let c99_format w =
   let open K in
