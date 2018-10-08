@@ -35,19 +35,25 @@ key component of [Project Everest](https://project-everest.github.io/).
 
 ## Trying out KreMLin
 
-KreMLin requires OCaml (> 4.04.0) and OPAM.
+KreMLin requires OCaml (> 4.04.0), OPAM, and a recent version of GNU make.
+
+**Regarding GNU make:** On OSX, this may require you to install a recent GNU
+make via homebrew, and invoke `gmake` instead of `make`.
+
+**Regarding OCaml:** Install OPAM via your package manager, then:
 
 `$ opam install ppx_deriving_yojson zarith pprint menhir ulex process fix wasm visitors`
 
-Then, make sure you have an up-to-date F\*, and that you ran `make` in the
-`ulib/ml` directory of F\*. The `fstar.exe` executable should be on your PATH.
+Next, make sure you have an up-to-date F\*, and that you ran `make` in the
+`ulib/ml` directory of F\*. The `fstar.exe` executable should be on your PATH
+and `FSTAR_HOME` should point to the directory where F\* is installed.
 
 To build just run `make` from this directory.
 
 **Note:** on OSX, KreMLin is happier if you have `greadlink` installed (`brew
 install coreutils`).
 
-If you have the right version of F* and `fstar.exe` is in your `PATH` then you
+If you have the right version of F\* and `fstar.exe` is in your `PATH` then you
 can run the KreMLin test suite by doing `make test`.
 
 File a bug if things don't work!
