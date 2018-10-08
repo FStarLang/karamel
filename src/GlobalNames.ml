@@ -1,3 +1,6 @@
+(* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
+(* Licensed under the Apache 2.0 License. *)
+
 (** All global names must be valid C identifiers and globally-unique... *)
 
 open Warnings

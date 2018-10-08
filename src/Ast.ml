@@ -1,3 +1,6 @@
+(* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
+(* Licensed under the Apache 2.0 License. *)
+
 (** The internal, typed AST that we perform all transformations on. *)
 
 module K = Constant

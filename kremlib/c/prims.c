@@ -1,3 +1,6 @@
+/* Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
+   Licensed under the Apache 2.0 License. */
+
 /* Note: including some forward-references because Prims.strcat is meant to go
  * away in favor of FStar.String.strcat (will it ever happen?). */
 

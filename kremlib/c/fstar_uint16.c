@@ -1,3 +1,6 @@
+/* Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
+   Licensed under the Apache 2.0 License. */
+
 #include "FStar_UInt16.h"
 
 Prims_string FStar_UInt16_to_string(uint16_t i) {

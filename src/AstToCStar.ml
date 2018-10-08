@@ -1,3 +1,6 @@
+(* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
+(* Licensed under the Apache 2.0 License. *)
+
 (** Translation from Low* to C* *)
 
 (** In order to qualify as a Low* AST (and hence be eligible for translation),

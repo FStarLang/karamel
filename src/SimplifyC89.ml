@@ -1,3 +1,6 @@
+(* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
+(* Licensed under the Apache 2.0 License. *)
+
 (* A set of transformations for the sole purpose of bringing us closer to C89
  * compatibility. *)
 

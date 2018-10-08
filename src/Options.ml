@@ -1,3 +1,6 @@
+(* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
+(* Licensed under the Apache 2.0 License. *)
+
 (** Some of these will be filled by [Driver]. In particular, the following are
  * automatically added:
  * $krml_home/kremlib/kremlib.c is added to c_files
