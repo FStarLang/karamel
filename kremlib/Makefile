@@ -76,7 +76,7 @@ $(OUTPUT_DIR)/%.krml:  | .depend
 extract-all: $(OUTPUT_DIR)/Makefile.include $(UINT128_DIR)/Makefile.include \
   $(MINI_DIR)/Makefile.include
 
-KREMLIN_ARGS += -fparentheses -fcurly-braces -fno-shadow
+KREMLIN_ARGS += -fparentheses -fcurly-braces -fno-shadow -header copyright-header.txt
 
 # Default build
 $(OUTPUT_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
