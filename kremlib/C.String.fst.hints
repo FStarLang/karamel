@@ -11,7 +11,7 @@
         "primitive_Prims.op_Subtraction", "projection_inverse_BoxInt_proj_0"
       ],
       0,
-      "d640eefe6303b6f77c8b04ed578b53cd"
+      "04465120bf94c5abb97d5638aa8ec4a8"
     ],
     [
       "C.String.well_formed",
@@ -27,7 +27,7 @@
         "typing_FStar.Seq.Base.length"
       ],
       0,
-      "87a9c4bb367e19df076b7783f06135af"
+      "66035bd384bb2ce052c621027dc9f444"
     ],
     [
       "C.String.t",
@@ -41,7 +41,7 @@
         "haseqC.String_Tm_refine_72f6d6556b75c266fe5293885ad412ce"
       ],
       0,
-      "89ac7ef58e875bc3bb9d0a6d4194ebf6"
+      "c5e6c3d136ec57ab83b7365438aca205"
     ],
     [
       "C.String.length",
@@ -55,7 +55,7 @@
         "typing_C.String.__proj__S__item__s"
       ],
       0,
-      "0695c49cb2efcba5f3c4647b210cde77"
+      "cc793d1027a8742102046aca23a37c40"
     ],
     [
       "C.String.get",
@@ -77,7 +77,7 @@
         "typing_FStar.UInt32.v"
       ],
       0,
-      "a534253b3fd8db5b368eff91a0b9c3a8"
+      "664493261d356b2bfa578add78b883fd"
     ],
     [
       "C.String.nonzero_is_lt",
@@ -104,16 +104,7 @@
         "typing_FStar.UInt32.v"
       ],
       0,
-      "89e82c7c79813e732938073153dee3b1"
-    ],
-    [
-      "C.String.strlen",
-      1,
-      2,
-      1,
-      [ "@query", "assumption_Prims.HasEq_int" ],
-      0,
-      "54fef0d521905117623c7b226637e75d"
+      "43c1008bbeaf9db4a8ca67b66fa6a0e4"
     ],
     [
       "C.String.memcpy",
@@ -131,7 +122,7 @@
         "haseqFStar.Kremlin.Endianness_Tm_refine_7f014d1f670e5d2ecdc0d7946b4a693d"
       ],
       0,
-      "6c21e4e27fcd8199d1174a611740e5b7"
+      "c5ff607c302ecd295e7a0d68f286d7b6"
     ]
   ]
 ]
