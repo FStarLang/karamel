@@ -142,6 +142,20 @@ let rec be_to_n_inj
     Seq.lemma_split b2 (Seq.length b2 - 1)
   end
 
+let rec le_to_n_inj
+  (b1 b2: Seq.seq U8.t)
+: Lemma
+  (requires (Seq.length b1 == Seq.length b2 /\ le_to_n b1 == le_to_n b2))
+  (ensures (Seq.equal b1 b2))
+  (decreases (Seq.length b1))
+= if Seq.length b1 = 0
+  then ()
+  else begin
+    le_to_n_inj (Seq.slice b1 1 (Seq.length b1)) (Seq.slice b2 1 (Seq.length b2));
+    Seq.lemma_split b1 1;
+    Seq.lemma_split b2 1
+  end
+
 let n_to_be_be_to_n (len: U32.t) (s: Seq.seq U8.t) : Lemma
   (requires (Seq.length s == U32.v len))
   (ensures (
@@ -151,6 +165,16 @@ let n_to_be_be_to_n (len: U32.t) (s: Seq.seq U8.t) : Lemma
   [SMTPat (n_to_be len (be_to_n s))]
 = lemma_be_to_n_is_bounded s;
   be_to_n_inj s (n_to_be len (be_to_n s))
+
+let n_to_le_le_to_n (len: U32.t) (s: Seq.seq U8.t) : Lemma
+  (requires (Seq.length s == U32.v len))
+  (ensures (
+    le_to_n s < pow2 (8 `Prims.op_Multiply` U32.v len) /\
+    n_to_le len (le_to_n s) == s
+  ))
+  [SMTPat (n_to_le len (le_to_n s))]
+= lemma_le_to_n_is_bounded s;
+  le_to_n_inj s (n_to_le len (le_to_n s))
 
 (** A series of specializations to deal with machine integers *)
 
@@ -380,6 +404,36 @@ let be_of_seq_uint32_base (s1: S.seq U32.t) (s2: S.seq U8.t): Lemma
     be_to_n s2 = U32.v (S.index s1 0)))
   (ensures (S.equal s2 (be_of_seq_uint32 s1)))
   [ SMTPat (be_to_n s2 = U32.v (S.index s1 0)) ]
+=
+  ()
+
+let rec le_of_seq_uint32_append (s1 s2: S.seq U32.t): Lemma
+  (ensures (
+    S.equal (le_of_seq_uint32 (S.append s1 s2))
+      (S.append (le_of_seq_uint32 s1) (le_of_seq_uint32 s2))))
+  (decreases (
+    S.length s1))
+  [ SMTPat (S.append (le_of_seq_uint32 s1) (le_of_seq_uint32 s2)) ]
+=
+  Classical.forall_intro_2 (tail_cons #U32.t); // TODO: this is a local pattern, remove once tail_cons lands in FStar.Seq.Properties
+  if S.length s1 = 0 then begin
+    assert (S.equal (le_of_seq_uint32 s1) S.empty);
+    assert (S.equal (S.append s1 s2) s2);
+    ()
+  end else begin
+    assert (S.equal (S.append s1 s2) (S.cons (S.head s1) (S.append (S.tail s1) s2)));
+    assert (S.equal (le_of_seq_uint32 (S.append s1 s2))
+      (S.append (le_of_uint32 (S.head s1)) (le_of_seq_uint32 (S.append (S.tail s1) s2))));
+    le_of_seq_uint32_append (S.tail s1) s2
+  end
+
+let le_of_seq_uint32_base (s1: S.seq U32.t) (s2: S.seq U8.t): Lemma
+  (requires (
+    S.length s1 = 1 /\
+    S.length s2 = 4 /\
+    le_to_n s2 = U32.v (S.index s1 0)))
+  (ensures (S.equal s2 (le_of_seq_uint32 s1)))
+  [ SMTPat (le_to_n s2 = U32.v (S.index s1 0)) ]
 =
   ()
 
