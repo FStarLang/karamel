@@ -6,6 +6,7 @@ KRML_BIN	= ../_build/src/Kremlin.native
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 FILES		= \
   TestKremBytes.test Hoisting.test Flat.test Renaming.test Vla.test Inline.test \
+  Fill.test \
   Private.test ML16.test Abbrev.test Tuples.test \
   DataTypesSimple.test DataTypes.test Parameterized.test \
   Scope.test Attributes.test Unsound.test Substitute.test \
