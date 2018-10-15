@@ -2,15 +2,6 @@
   "\u000eöÚ^[‰E\u001a\u001f\u0003­ß\u0011\u001dðW",
   [
     [
-      "RecursivePoly.pointer",
-      1,
-      2,
-      1,
-      [ "@query", "assumption_Prims.HasEq_int" ],
-      0,
-      "08787db8fc214b165fdc0045a15d7344"
-    ],
-    [
       "RecursivePoly.__proj__Cons__item__elt",
       1,
       2,
@@ -21,7 +12,7 @@
         "refinement_interpretation_RecursivePoly_Tm_refine_ec0be7ef8d42c8c1f9f883ea579d9abf"
       ],
       0,
-      "2928bcbb9be11ca81c28ab18e877e01f"
+      "94abfd83b545f4ff40490e736aef8f0c"
     ],
     [
       "RecursivePoly.__proj__Cons__item__next",
@@ -34,7 +25,7 @@
         "refinement_interpretation_RecursivePoly_Tm_refine_ec0be7ef8d42c8c1f9f883ea579d9abf"
       ],
       0,
-      "063df5d294c3ae2cd56d1bbbd1798362"
+      "d9bd0236eaf2410daba2a6a7736bd0af"
     ],
     [
       "RecursivePoly.f",
@@ -57,7 +48,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "27e3947d6abecc75a92eff5a86402aa6"
+      "5c5329796fc4ee7221c468a7827525a1"
     ],
     [
       "RecursivePoly.g",
@@ -80,7 +71,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "28363d264edf159deaecf5be75a308df"
+      "2e59c3f459dcaf70d030e3f4658a08a7"
     ]
   ]
 ]

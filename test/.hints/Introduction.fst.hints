@@ -43,7 +43,7 @@
         "unit_typing"
       ],
       0,
-      "6bfd789d0e85e7ea370c2779da40342d"
+      "a29fafb4962d3bda78a72fa727bdb10e"
     ],
     [
       "Introduction.memcpy",
@@ -59,7 +59,7 @@
         "haseqLowStar.Buffer_Tm_refine_1ec852aff28ab568526a8c54c3e853ec"
       ],
       0,
-      "0970d9bebe2dd8ddfbde2d75c5180c3b"
+      "4ca0feda982f05a61f331fb8494b76bb"
     ],
     [
       "Introduction.memcpy",
@@ -119,7 +119,7 @@
         "typing_LowStar.Monotonic.Buffer.loc_buffer"
       ],
       0,
-      "0ecd7cdd3d66fe0b9255e6adfdd9e3fd"
+      "770f2c105d3241bc356938d41a2d735b"
     ],
     [
       "Introduction.main",
@@ -130,8 +130,7 @@
         "@MaxIFuel_assumption", "@query",
         "Prims_pretyping_ae567c2fb75be05905677af440075565",
         "assumption_FStar.Monotonic.HyperHeap.Mod_set_def",
-        "assumption_FStar.UInt64.t__uu___haseq",
-        "assumption_Prims.HasEq_int", "bool_inversion",
+        "assumption_FStar.UInt64.t__uu___haseq", "bool_inversion",
         "equality_tok_C.EXIT_SUCCESS@tok",
         "equation_FStar.HyperStack.ST.equal_domains",
         "equation_FStar.HyperStack.ST.inline_stack_inv",
@@ -155,7 +154,7 @@
         "function_token_typing_FStar.UInt64.t",
         "function_token_typing_LowStar.Monotonic.Buffer.address_liveness_insensitive_locs",
         "function_token_typing_LowStar.Monotonic.Buffer.loc_none",
-        "function_token_typing_Prims.nat",
+        "function_token_typing_Prims.int", "function_token_typing_Prims.nat",
         "haseqPrims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d",
         "int_inversion",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_elim",
@@ -229,7 +228,7 @@
         "typing_tok_C.EXIT_SUCCESS@tok"
       ],
       0,
-      "1c3ea6fe0148058f7f77e51f9b1230b7"
+      "b139e43c5b6339253dec089489ffed41"
     ]
   ]
 ]

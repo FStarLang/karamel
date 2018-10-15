@@ -2,33 +2,6 @@
   "%<6„÷\\Q{›·hhT\rþM",
   [
     [
-      "TopLevelArray.t",
-      1,
-      2,
-      1,
-      [ "@query", "assumption_Prims.HasEq_int" ],
-      0,
-      "29bc5a9f19e90908c0d21a3a04460f48"
-    ],
-    [
-      "TopLevelArray.__proj__Mkt__item__y",
-      1,
-      2,
-      1,
-      [ "@query", "assumption_Prims.HasEq_int" ],
-      0,
-      "7910e461a82b0d29de27e57a979cb98b"
-    ],
-    [
-      "TopLevelArray.__proj__Mkt__item__y",
-      2,
-      2,
-      1,
-      [ "@query", "assumption_Prims.HasEq_int" ],
-      0,
-      "0df246c4ecebddc8de78ee6b0cf9bad8"
-    ],
-    [
       "TopLevelArray.y",
       1,
       2,
@@ -48,7 +21,7 @@
         "typing_C.String.__proj__S__item__s"
       ],
       0,
-      "be8232cf92d1291e67f0f6207acee2aa"
+      "0877a0e1be8769d87287782adcb6e4a0"
     ],
     [
       "TopLevelArray.x",
@@ -83,7 +56,7 @@
         "typing_C.String.__proj__S__item__s"
       ],
       0,
-      "6b9f56296159dc37999ad4a8fee3bfc2"
+      "e40377d9dee2391cb748189694d6316e"
     ],
     [
       "TopLevelArray.g",
@@ -97,7 +70,7 @@
         "refinement_interpretation_TopLevelArray_Tm_refine_cb33895ece621ae8bc092dc7297a0116"
       ],
       0,
-      "a8ceb66b4832d6dcdc6a6a5f63d40be9"
+      "01b0312c53c992a3633964553958fe90"
     ],
     [
       "TopLevelArray.main",
@@ -131,7 +104,7 @@
         "typing_TopLevelArray.__proj__Mkt__item__y"
       ],
       0,
-      "52dc6e9883e6abf280f2002ff5b5df30"
+      "26211bd454144d36ba926e4c8f11fada"
     ]
   ]
 ]

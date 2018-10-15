@@ -14,7 +14,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "7111078ccd9240c7df9e3cdda8c41b7e"
+      "f4113f1253389a211665175786cf0455"
     ],
     [
       "Wasm4.test",
@@ -27,7 +27,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "3d64cbd663735052a59735651ad8ca42"
+      "0b851909bbcfb0c369e59fb92a1c40d3"
     ]
   ]
 ]

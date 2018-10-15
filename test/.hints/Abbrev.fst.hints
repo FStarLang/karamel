@@ -2,15 +2,6 @@
   "F¿*ù^\u001c\rhôŠ·U#¥<",
   [
     [
-      "Abbrev.lbytes",
-      1,
-      2,
-      1,
-      [ "@query", "assumption_Prims.HasEq_int" ],
-      0,
-      "9cd41fcae07975022e1075261161f698"
-    ],
-    [
       "Abbrev.main",
       1,
       2,
@@ -43,7 +34,7 @@
         "typing_tok_C.EXIT_SUCCESS@tok"
       ],
       0,
-      "52939c7c1d6195919229a5ad70f710e0"
+      "2335833936f56ea2b7834d94a3a07a1d"
     ]
   ]
 ]

@@ -15,25 +15,7 @@
         "typing_FStar.Buffer.as_seq"
       ],
       0,
-      "a5fafbc168d62392664bbe0beef36317"
-    ],
-    [
-      "SystemNative.pointer",
-      1,
-      2,
-      1,
-      [ "@query", "assumption_Prims.HasEq_int" ],
-      0,
-      "370d722ef0909070df5afa74385f9500"
-    ],
-    [
-      "SystemNative.pointer_or_null",
-      1,
-      2,
-      1,
-      [ "@query", "assumption_Prims.HasEq_int" ],
-      0,
-      "f62445721eaea53a243cf98c9845c2da"
+      "800d651fb88de1025eb0e1fc598ea398"
     ],
     [
       "SystemNative.sockaddr_t",
@@ -47,7 +29,7 @@
         "fuel_guarded_inversion_SystemNative.ai_family_t"
       ],
       0,
-      "47d2aedaaed327cd3616493b9f8445ca"
+      "29df15b17e12ffa5f4711796706175bb"
     ],
     [
       "SystemNative.__proj__AddrInfo__item__ai_addr",
@@ -63,7 +45,7 @@
         "projection_inverse_SystemNative.AddrInfo_ai_family"
       ],
       0,
-      "5d43231484702792d93a0f6ac6d30388"
+      "cd8d38151cdee6e9c8fe029f11f0e337"
     ],
     [
       "SystemNative.addrinfo_length_decreases",
@@ -77,7 +59,7 @@
         "refinement_interpretation_SystemNative_Tm_refine_dbe33893899564965a42f115925172f5"
       ],
       0,
-      "367e7ff7b29b70ac7559c1221777e39a"
+      "a662260e960b4636e01fe732889c696a"
     ],
     [
       "SystemNative.addrinfo_live",
@@ -102,7 +84,7 @@
         "typing_SystemNative.addrinfo_length", "well-founded-ordering-on-nat"
       ],
       0,
-      "f129116a8c4502b7564dbc3421516574"
+      "f6043b773eaf893c85447d4afe47ea69"
     ],
     [
       "SystemNative.getaddrinfo",
@@ -118,7 +100,7 @@
         "refinement_interpretation_SystemNative_Tm_refine_0d4da60cb6187749d65a25df63d2ab15"
       ],
       0,
-      "27cb2b4c3faaf3bfc596bf1e7a3c2aeb"
+      "4827ca65d959dd542e72d8df22f7ebda"
     ]
   ]
 ]
