@@ -556,6 +556,8 @@ Supported options:|}
     let files = AstToCStar.mk_files files in
     tick_print true "AstToCStar";
 
+    let files = List.filter (fun (_, decls) -> List.length decls > 0) files in
+
     (* ... then to C *)
     let headers = CStarToC11.mk_headers files in
     let files = CStarToC11.mk_files files in
