@@ -421,12 +421,24 @@ let equalities files =
               | `Neq -> List.fold_left mk_or efalse es
             in
             let mk_rec_equality t e1 e2 =
-              with_type TBool (
-                EApp (
-                  with_type (TArrow (t, TArrow (t, TBool))) (
-                    self#generate_equality t op), [
-                    with_type t e1;
-                    with_type t e2]))
+              match t with
+              | TUnit ->
+                  (* This phase occurs after monomorphization, but before the
+                   * elimination of unit arguments to data constructors. (Could
+                   * we move it to occur after that? Unclear.) As such, we are
+                   * sometimes tasked we generating recursive equality
+                   * predicates for units. [generate_equality] can only return a
+                   * function, so we intercept the recursive call here, and
+                   * insert "true" for units, rather than going through the
+                   * fallback that generates an "extern" call. *)
+                  with_type TBool (EBool true)
+              | _ ->
+                  with_type TBool (
+                    EApp (
+                      with_type (TArrow (t, TArrow (t, TBool))) (
+                        self#generate_equality t op), [
+                        with_type t e1;
+                        with_type t e2]))
             in
             match Hashtbl.find types_map lid with
             | Abbrev _ | Enum _ | Union _ | Forward ->
