@@ -18,7 +18,7 @@ let bundle_filename (api, patterns) =
         | Prefix p -> p
       ) patterns)
   | _ ->
-     String.concat "_" (List.map (fun api -> String.concat "_" (fst api)) api)
+     String.concat "_" (List.map (String.concat "_") api)
 
 let uniq =
   let r = ref 0 in
@@ -33,9 +33,6 @@ let uniq =
  * are marked as private. Assuming no cross-translation-unit calls happen, this
  * means a C static qualifier in the extracted code.
  *
- * If an Api is of the form public(Api), then all the declarations from this
- * module become public.
- *
  * The used parameter is just here to keep track of which files have been
  * involved in at least one bundle, so that we can drop them afterwards. *)
 let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t) =
@@ -49,31 +46,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
   let this_round = uniq () in
 
   let in_api_list name =
-    List.mem name (List.map (String.concat "_") (List.map fst api))
-  in
-
-  (* Match a file against the given list of patterns. *)
-  let match_file ?(visibility_modifier=(fun x -> x)) is_api patterns (used, found) (file: file) =
-    List.fold_left (fun (used, found) pattern ->
-      let name = fst file in
-      (* [is_api] overrides the default behavior (don't collect) *)
-      if pattern_matches pattern name && (is_api || not (in_api_list name)) then begin
-        if debug then
-          KPrint.bprintf "%s is a match\n" name;
-
-        (* Be nice and give an error. *)
-        let prev_round = try StringMap.find name used with Not_found -> 0 in
-        if prev_round = this_round then
-          Warnings.fatal_error "The file %s is matched twice by bundle %s\n"
-            name (string_of_bundle bundle);
-
-        let file = fst file, List.map visibility_modifier (snd file) in
-
-        StringMap.add name this_round used, file :: found
-      end else begin
-        used, found
-      end
-    ) (used, found) patterns
+    List.mem name (List.map (String.concat "_") api)
   in
 
   let mark_private =
@@ -97,25 +70,32 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
         DExternal (cc, add_if lid flags, lid, t)
   in
 
-  let mark_public =
-    let f = List.filter ((<>) Common.Private) in
-    function
-    | DFunction (cc, flags, n, typ, name, binders, body) ->
-        DFunction (cc, f flags, n, typ, name, binders, body)
-    | DGlobal (flags, name, n, typ, body) ->
-        DGlobal (f flags, name, n, typ, body)
-    | DType (lid, flags, n, def) ->
-        DType (lid, f flags, n, def)
-    | DExternal (cc, flags, lid, t) ->
-        DExternal (cc, f flags, lid, t)
+  (* Match a file against the given list of patterns. *)
+  let match_file is_api patterns (used, found) (file: file) =
+    List.fold_left (fun (used, found) pattern ->
+      let name = fst file in
+      (* [is_api] overrides the default behavior (don't collect) *)
+      if pattern_matches pattern name && (is_api || not (in_api_list name)) then begin
+        if debug then
+          KPrint.bprintf "%s is a match\n" name;
+
+        (* Be nice and give an error. *)
+        let prev_round = try StringMap.find name used with Not_found -> 0 in
+        if prev_round = this_round then
+          Warnings.fatal_error "The file %s is matched twice by bundle %s\n"
+            name (string_of_bundle bundle);
+
+        let file = fst file, if is_api then snd file else List.map mark_private (snd file) in
+
+        StringMap.add name this_round used, file :: found
+      end else begin
+        used, found
+      end
+    ) (used, found) patterns
   in
 
   (* Find all the files that match the given patterns. *)
-  let used, found = List.fold_left
-    (match_file ~visibility_modifier:mark_private false patterns)
-    (used, [])
-    files
-  in
+  let used, found = List.fold_left (match_file false patterns) (used, []) files in
 
   (* The Api module gets a special treatment; if it exists, it is not collected
    * in the call to [fold_left] above; rather, it is taken now from the list of
@@ -128,11 +108,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
       if debug then
         KPrint.bprintf "Looking for bundle APIs\n";
       let used, found = List.fold_left (fun (used, found) api ->
-        let visibility_modifier = match snd api with
-          | AsIs -> None
-          | Public -> Some mark_public
-        in
-        List.fold_left (match_file ?visibility_modifier true [ Module (fst api) ]) (used, found) files
+        List.fold_left (match_file true [ Module api ]) (used, found) files
       ) (used, found) api in
       if StringMap.cardinal used <> count + List.length api then
         Warnings.fatal_error "There an issue with your bundle.\n\

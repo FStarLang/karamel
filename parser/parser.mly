@@ -4,7 +4,7 @@
 
 %token<int>     INT
 %token<string>  UIDENT LIDENT
-%token          PLUS MINUS STAR AT DOT EOF COMMA EQUALS PUBLIC LPAREN RPAREN
+%token          PLUS MINUS STAR AT DOT EOF COMMA EQUALS (* PUBLIC LPAREN RPAREN *)
 
 %start <(Flags.flag * (int * int)) list> warn_error_list
 %start <Bundle.t> bundle
@@ -68,9 +68,7 @@ mident:
 
 api:
 | m = mident
-  { m, AsIs }
-| PUBLIC LPAREN m = mident RPAREN
-  { m, Public }
+  { m }
 
 drop:
 | p = separated_list(COMMA, pat) EOF

@@ -12,7 +12,7 @@ let regexp uident = up_alpha any*
 let locate _ tok = tok, Lexing.dummy_pos, Lexing.dummy_pos
 
 let keywords = [
-  "public", PUBLIC
+  (* "public", PUBLIC *)
 ]
 
 let rec token = lexer
@@ -37,6 +37,6 @@ let rec token = lexer
 | "=" -> locate lexbuf EQUALS
 | "*" -> locate lexbuf STAR
 | "\\*" -> locate lexbuf STAR
-| "(" -> locate lexbuf LPAREN
-| ")" -> locate lexbuf RPAREN
+(* | "(" -> locate lexbuf LPAREN *)
+(* | ")" -> locate lexbuf RPAREN *)
 | eof -> locate lexbuf EOF

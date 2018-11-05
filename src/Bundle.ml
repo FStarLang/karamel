@@ -8,9 +8,7 @@
 
 type t = api list * pat list
 
-and api = mident * visibility
-
-and mident = string list
+and api = string list
 
 and visibility = Public | AsIs
 
@@ -22,10 +20,7 @@ and pat =
 let string_of_mident mident =
   String.concat "." mident
 
-let string_of_api (mident, visibility) =
-  match visibility with
-  | AsIs -> string_of_mident mident
-  | Public -> "public(" ^ string_of_mident mident ^ ")"
+let string_of_api = string_of_mident
 
 let string_of_apis apis =
   String.concat "+" (List.map string_of_api apis)
