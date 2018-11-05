@@ -926,10 +926,18 @@ let mk_type_or_external (w: where) (d: decl): C.declaration_or_function list =
       else begin
         match t with
         | Enum cases when !Options.short_enums ->
-            if List.length cases > 256 then
-              KPrint.bprintf "Error: enum %s has > 256 cases but -fshort-enums is used" name;
+            (* Note: EEnum translates as just a name -- so we don't have to
+             * change use-sites, they directly resolve as the macro. *)
+            let t =
+              if List.length cases <= 0xff then
+                K.UInt8
+              else if List.length cases <= 0xffff then
+                K.UInt16
+              else
+                failwith (KPrint.bsprintf "Too many cases for enum %s" name)
+            in
             wrap_verbatim flags (Verbatim (enum_as_macros cases)) @
-            let qs, spec, decl = mk_spec_and_declarator_t name (Int K.UInt8) in
+            let qs, spec, decl = mk_spec_and_declarator_t name (Int t) in
             [ Decl ([], (qs, spec, Some Typedef, [ decl, None ]))]
         | _ ->
             let qs, spec, decl = mk_spec_and_declarator_t name t in
