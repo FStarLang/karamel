@@ -1,3 +1,9 @@
+### November 5th, 2018
+
+- Use `uint16_t` when short enums is on, in case the number of cases (pun
+  intended) exceeds 255.
+- Syntax for renaming bundles; example: `Foo1+...+Foon=Bar1+...+Barn[rename=Foo]`
+
 ### September 14, 2018
 
 - Always use the type name in sizeof expressions.

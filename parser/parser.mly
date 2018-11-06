@@ -4,7 +4,7 @@
 
 %token<int>     INT
 %token<string>  UIDENT LIDENT
-%token          PLUS MINUS STAR AT DOT EOF COMMA EQUALS (* PUBLIC LPAREN RPAREN *)
+%token          PLUS MINUS STAR AT DOT EOF COMMA EQUALS RENAME LBRACK RBRACK
 
 %start <(Flags.flag * (int * int)) list> warn_error_list
 %start <Bundle.t> bundle
@@ -66,21 +66,46 @@ mident:
 | l = separated_list(DOT, uident)
   { l }
 
+%inline
+ident:
+| s = LIDENT
+  { s }
+| s = UIDENT
+  { s }
+
 api:
 | m = mident
   { m }
+
+attr:
+| RENAME EQUALS s = ident
+  { Rename s }
 
 drop:
 | p = separated_list(COMMA, pat) EOF
   { p }
 
+%inline
+apis:
+| apis = separated_nonempty_list(PLUS, api) EQUALS
+  { apis }
+|
+  { [] }
+
+patterns:
+| l = separated_nonempty_list(COMMA, pat)
+  { l }
+
+%inline
+attrs:
+| LBRACK attrs = separated_list(COMMA, attr) RBRACK
+  { attrs }
+|
+  { [] }
+
 bundle:
-| apis = separated_nonempty_list(PLUS, api)
-  EQUALS
-  l = separated_nonempty_list(COMMA, pat) EOF
-  { apis, l }
-| l = separated_nonempty_list(COMMA, pat) EOF
-  { [], l }
+| apis = apis patterns = patterns attrs = attrs EOF
+  { apis, patterns, attrs }
 
 lid:
 | l = lident

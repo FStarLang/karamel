@@ -10,15 +10,19 @@ open Ast
 module StringMap = Map.Make(String)
 
 (* For generating the filename. NOT for pretty-printing. *)
-let bundle_filename (api, patterns) =
-  match api with
-  | [] ->
-      String.concat "_" (KList.map_flatten (function
-        | Module m -> m
-        | Prefix p -> p
-      ) patterns)
+let bundle_filename (api, patterns, attrs) =
+  match KList.find_opt (function Rename s -> Some s) attrs with
+  | Some s ->
+      s
   | _ ->
-     String.concat "_" (List.map (String.concat "_") api)
+      match api with
+      | [] ->
+          String.concat "_" (KList.map_flatten (function
+            | Module m -> m
+            | Prefix p -> p
+          ) patterns)
+      | _ ->
+         String.concat "_" (List.map (String.concat "_") api)
 
 let uniq =
   let r = ref 0 in
@@ -40,7 +44,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
   if debug then
     KPrint.bprintf "Starting creation of bundle %s\n" (string_of_bundle bundle);
 
-  let api, patterns = bundle in
+  let api, patterns, _ = bundle in
   (* The used map also allows us to detect when a file is used twice in a
    * bundle. *)
   let this_round = uniq () in
@@ -117,9 +121,9 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
           Suggestion #1: if the file does exist, pass it to KreMLin.\n\
           Suggestion #2: if it doesn't, skip the %s= part and write -bundle %s"
           (string_of_bundle bundle)
-          (string_of_apis (fst bundle))
-          (string_of_apis (fst bundle))
-          (string_of_patterns (snd bundle));
+          (string_of_apis api)
+          (string_of_apis api)
+          (string_of_patterns patterns);
       used, found
   in
 

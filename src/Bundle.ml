@@ -6,11 +6,11 @@
 
 (** Crypto.Chacha20=Crypto.Symmetric.Chacha20.*,Crypto.Flag *)
 
-type t = api list * pat list
+type t = api list * pat list * attr list
 
 and api = string list
 
-and visibility = Public | AsIs
+and attr = Rename of string
 
 and pat =
   | Module of string list
@@ -32,13 +32,16 @@ let string_of_pattern = function
 let string_of_patterns patterns =
   String.concat "," (List.map string_of_pattern patterns)
 
-let string_of_bundle (apis, patterns) =
-  match apis with
-  | [] ->
-      string_of_patterns patterns
-  | _ ->
-      string_of_apis apis ^ "=" ^
-      string_of_patterns patterns
+let string_of_attr = function
+  | Rename s -> "rename=" ^ s
+
+let string_of_attrs attrs =
+  String.concat "," (List.map string_of_attr attrs)
+
+let string_of_bundle (apis, patterns, attrs) =
+  let string_of_apis = function [] -> "" | apis -> string_of_apis apis ^ "=" in
+  let string_of_attrs = function [] -> "" | attrs -> "[" ^ string_of_attrs attrs ^ "]" in
+  string_of_apis apis ^ string_of_patterns patterns ^ string_of_attrs attrs
 
 module LidMap = Idents.LidMap
 
