@@ -84,10 +84,11 @@ let mkdirp d =
   in
   (* On Windows, the Filename function defines only \\ to be the path separator,
    * but in a Cygwin spirit, we want to accept either. This is an approximation. *)
-  if Sys.os_type = "Win32" then
-    mkdirp (String.map (function '/' -> '\\' | x -> x) d)
-  else
-    mkdirp d
+  let d = if Sys.os_type = "Win32" then String.map (function '/' -> '\\' | x -> x) d else d in
+  (* Note: on windows, Sys.file_exists "a\\b" == true (if b is a directory)
+   * but Sys.file_exists "a\\b\\" == false -- this differs from other OSes *)
+  let d = if d.[String.length d - 1] = '\\' then String.sub d 0 (String.length d - 1) else d in
+  mkdirp d
 
 let mk_tmpdir_if () =
   if !Options.tmpdir <> "" then

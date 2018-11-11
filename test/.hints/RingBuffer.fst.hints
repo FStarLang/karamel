@@ -867,7 +867,7 @@
         "unit_typing", "well-founded-ordering-on-nat"
       ],
       0,
-      "9832812f317d3a7777062dcb0a1b22d0"
+      "6d7e0d903cb5e1ad4b0eada3ac4a0dca"
     ],
     [
       "RingBuffer.as_list_minus_one",
@@ -1053,7 +1053,7 @@
         "typing_RingBuffer.remaining_space"
       ],
       0,
-      "42e36d7b6f8292c88305fd4ec03951e6"
+      "7af55c294a7dd51ec96fb4b8d120416d"
     ],
     [
       "RingBuffer.create",
