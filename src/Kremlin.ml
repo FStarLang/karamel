@@ -561,6 +561,7 @@ Supported options:|}
     (* ... then to C *)
     let headers = CStarToC11.mk_headers files in
     let files = CStarToC11.mk_files files in
+    let files = List.filter (fun (_, decls) -> List.length decls > 0) files in
     tick_print true "CStarToC";
 
     (* -dc *)

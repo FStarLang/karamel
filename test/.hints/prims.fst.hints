@@ -1,5 +1,5 @@
 [
-  "K”»#o%³¸F\u0016¥î\u001cø2k",
+  "\u000f‰‡ß·8JK”ÖÙ\u000fzn$3",
   [
     [
       "Prims.Ghost",
@@ -8,7 +8,7 @@
       1,
       [ "@query" ],
       0,
-      "352320746a2792e15e6dab3876fee91c"
+      "e10657d0d96a7e18b8218e2a8b2e7a19"
     ],
     [
       "Prims.__proj__Mkdtuple2__item___2",
@@ -20,7 +20,7 @@
         "projection_inverse_Prims.Mkdtuple2__1"
       ],
       0,
-      "fc6b82fc135603248cd7316db4580dfc"
+      "2c0bf0bda3d2e099585e90ad680fbaa4"
     ],
     [
       "Prims.list",
@@ -29,7 +29,7 @@
       1,
       [ "@query" ],
       0,
-      "5ca8eab9ff2954be27e5c7facee4ff47"
+      "7b60394c8f4588835a1a12054a9856ee"
     ],
     [
       "Prims.__proj__Cons__item__hd",
@@ -42,7 +42,7 @@
         "refinement_interpretation_Prims_Tm_refine_7aac12c24449a22c34d98a0ea8ed4a32"
       ],
       0,
-      "1f60974698a1563d42b60d6d5eec63a2"
+      "05da5d5aa2125fa9d526d04e7ea63d8f"
     ],
     [
       "Prims.__proj__Cons__item__tl",
@@ -55,7 +55,7 @@
         "refinement_interpretation_Prims_Tm_refine_7aac12c24449a22c34d98a0ea8ed4a32"
       ],
       0,
-      "cbfc0f3fc95984feaf39bf0d24991a1e"
+      "8aa7ea344738800149822a0bdf01ba9d"
     ],
     [
       "Prims.Lemma",
@@ -67,7 +67,7 @@
         "refinement_interpretation_Prims_Tm_refine_8d65e998a07dd53ec478e27017d9dba5"
       ],
       0,
-      "e3e793175c4c12a03e6352b5992ecf9c"
+      "1d7239af70cb13a0e46c02a3aa760fb8"
     ],
     [
       "Prims._assert",
@@ -76,7 +76,7 @@
       1,
       [ "@query" ],
       0,
-      "53d32192ae88cd2954510161d688ee4d"
+      "4f8baf65e2a98aac1cf823472d7b100a"
     ],
     [
       "Prims.assert_spinoff",
@@ -85,7 +85,7 @@
       1,
       [ "@query" ],
       0,
-      "4866f3a7e5be0e3856f4c22a120e91f6"
+      "4aabbc0e3d0c299f7d92dbe0a07ddd47"
     ],
     [
       "Prims.cut",
@@ -94,16 +94,7 @@
       1,
       [ "@query" ],
       0,
-      "415343037cf003637355cb7429310bb4"
-    ],
-    [
-      "Prims.nonzero",
-      1,
-      2,
-      1,
-      [ "@query", "assumption_Prims.HasEq_int" ],
-      0,
-      "bf2283d1b19a1b70964306bd77c5ff9a"
+      "8885473f191c3813f9cac6bad6b83eca"
     ],
     [
       "Prims.pow2",
@@ -121,7 +112,7 @@
         "well-founded-ordering-on-nat"
       ],
       0,
-      "1da054d5fb1938ce257693044c958577"
+      "3b9f21de6d9f6f211eb0633d60e4bc31"
     ]
   ]
 ]
