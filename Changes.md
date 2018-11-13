@@ -1,3 +1,8 @@
+### November 12th, 2018
+
+- When the C file contains no declaration, don't even create it, leave a
+  standalone header.
+
 ### November 5th, 2018
 
 - Use `uint16_t` when short enums is on, in case the number of cases (pun
