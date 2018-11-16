@@ -52,16 +52,10 @@ clean-c:
 include .depend
 
 ALL_CHECKED_FILES	= $(addsuffix .checked, $(ALL_FST_FILES))
-KREMLIB_FILES		= $(wildcard *.fst) $(wildcard *.fsti)
-KREMLIB_CHECKED_FILES	= $(addsuffix .checked, $(KREMLIB_FILES))
-OTHER_CHECKED_FILES	= $(filter-out $(KREMLIB_CHECKED_FILES), $(ALL_CHECKED_FILES))
 
-$(KREMLIB_CHECKED_FILES): %.checked: | .depend
-	$(FSTAR) $(FSTAR_OPTIONS) $(OTHERFLAGS) $< && \
+%.checked:
+	$(FSTAR) $(OTHERFLAGS) $< && \
 	touch $@
-
-$(OTHER_CHECKED_FILES): %.checked:
-	@echo $@ is out of date, please run make -C '$$'\(FSTAR_HOME\)/ulib before; false
 
 verify-all: $(ALL_CHECKED_FILES)
 
