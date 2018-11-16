@@ -27,11 +27,10 @@ $(OUTPUT_DIR):
 	mkdir -p $@
 
 FSTAR_OPTIONS += --record_hints --use_hints --use_two_phase_tc true --odir $(OUTPUT_DIR) \
-  # --use_extracted_interfaces
-
-FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules \
-  $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
+  --use_extracted_interfaces true --cache_checked_modules --cmi \
   --already_cached 'FStar -FStar.Kremlin.Endianness LowStar'
+
+FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) $(addprefix --include , $(INCLUDE_PATHS))
 
 # Note: not compatible with the OPAM layout until fstar can be queried for the
 # location of ulib.

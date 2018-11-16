@@ -267,6 +267,7 @@ val push: (#a: Type) -> (#n: G.erased nat) -> (pl: CN.pointer (t a)) -> (x: a) -
       MO.loc_disjoint (MO.loc_buffer pl) (footprint h1 l n')
     ))
 
+#set-options "--z3rlimit 20"
 let push #a #n pl x =
   let h0 = get () in
   let open CN in
@@ -316,7 +317,7 @@ let rec length #a gn l =
       0ul // dummy return value, this point is unreachable
     end else
       n +^ 1ul
-  
+
 val main: unit -> ST (Int32.t) (fun _ -> true) (fun _ _ _ -> true)
 
 #set-options "--z3rlimit 8"
