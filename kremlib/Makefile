@@ -46,7 +46,7 @@ clean: clean-c
 SHELL=/bin/bash
 
 clean-c:
-	rm -rf {$(OUTPUT_DIR),$(UINT128_DIR)}/{Makefile.include,*.{c,h}} out extract-all */*.o
+	rm -rf {$(OUTPUT_DIR)}/{Makefile.include,*.{c,h}} dist out extract-all */*.o
 
 .depend: Makefile | $(OUTPUT_DIR)
 	$(FSTAR) $(OTHERFLAGS) --dep full $(ROOTS) > $@
@@ -87,25 +87,31 @@ $(OUTPUT_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremli
 
 # UInt128-only build
 $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
-	# Workaround windows issue: kremlin doesn't recursively create
-	# directories.
-	mkdir -p $(UINT128_DIR)
 	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(UINT128_DIR) -skip-compilation -extract-uints \
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"kremlin/internal/types.h"') \
-	  -bundle FStar.UInt128=* $^
+	  -bundle FStar.UInt128=* \
+	  -ccopt -DKRML_VERIFIED_UINT128 \
+	  -o libkremlib.a \
+	  $^
 
 # Minimalistic build
 $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(UINT128_DIR)/Makefile.include .depend ../_build/src/Kremlin.native
-	# Workaround windows issue: kremlin doesn't recursively create
-	# directories.
-	mkdir -p $(MINI_DIR)
+	mkdir -p $(dir $@)
 	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(MINI_DIR) -skip-compilation -extract-uints \
 	  $(addprefix -add-include , \
-	    '<inttypes.h>' '<stdbool.h>' '"kremlin/internal/compat.h"' \
+	    '<inttypes.h>' '<stdbool.h>' \
+	    '"kremlin/internal/compat.h"' \
+	    '"kremlin/c_endianness.h"' \
 	    '"kremlin/internal/types.h"') \
-	  -bundle FStar.UInt64+FStar.UInt32+FStar.UInt16+FStar.UInt8=* $^
-	cp c/fstar_uint128.c $(dir $@)
-	cp $(UINT128_DIR)/FStar_UInt128.h $(dir $@)
+	  -bundle FStar.UInt64+FStar.UInt32+FStar.UInt16+FStar.UInt8=[rename=FStar_UInt_8_16_32_64] \
+	  -bundle C.Endianness= \
+	  -library FStar.UInt128 \
+	  -bundle FStar.UInt128= \
+	  -bundle '*' \
+	  fstar_uint128.c \
+	  -o libkremlib.a \
+	  $^
+	cp c/fstar_uint128.c $(dir $@)/fstar_uint128.c
 
 ################################################################################
 # Compilation, only works after the stage above has run and C files exist      #
@@ -125,7 +131,6 @@ OBJS = $(patsubst %.c,%.o,$(SOURCES))
 	  sed 's,\($(notdir $*)\)\.o[ :]*,$(dir $@)\1.o $@ : ,g' < $@.$$$$ > $@; \
 	  rm -f $@.$$$$
 
-
 include $(patsubst %.c,%.d,$(SOURCES))
 
 CFLAGS += -I extracted -I ../include -Wall -Wextra -Werror -g -std=c11 -D_DEFAULT_SOURCE -D_BSD_SOURCE
@@ -135,12 +140,11 @@ else
 CFLAGS += -fPIC
 endif
 
-$(UINT128_DIR)/FStar_UInt128.o: CFLAGS += -DKRML_VERIFIED_UINT128
-$(MINI_DIR)/%.o: CFLAGS += -I$(MINI_DIR)
+compile-all: out/libkremlib.a compile-dist-uint128 compile-dist-minimal
 
-compile-all: out/libkremlib.a $(UINT128_DIR)/FStar_UInt128.o \
-  $(MINI_DIR)/FStar_UInt64_FStar_UInt32_FStar_UInt16_FStar_UInt8.o \
-  $(MINI_DIR)/fstar_uint128.o
+.PHONY: compile-dist-%
+compile-dist-%:
+	$(MAKE) -C dist/$* -f Makefile.basic
 
 out/libkremlib.a: $(OBJS) | extract-all
 	mkdir -p $(dir $@)

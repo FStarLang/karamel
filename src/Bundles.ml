@@ -25,7 +25,7 @@ let bundle_filename (api, patterns, attrs) =
          String.concat "_" (List.map (String.concat "_") api)
 
 let uniq =
-  let r = ref 0 in
+  let r = ref (-1) in
   fun () ->
     incr r;
     !r
@@ -39,7 +39,7 @@ let uniq =
  *
  * The used parameter is just here to keep track of which files have been
  * involved in at least one bundle, so that we can drop them afterwards. *)
-let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t) =
+let make_one_bundle (bundle: Bundle.t) (files: file list) (used: (int * Bundle.t) StringMap.t) =
   let debug = Options.debug "bundle" in
   if debug then
     KPrint.bprintf "Starting creation of bundle %s\n" (string_of_bundle bundle);
@@ -83,15 +83,18 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: int StringMap.t
         if debug then
           KPrint.bprintf "%s is a match\n" name;
 
-        (* Be nice and give an error. *)
-        let prev_round = try StringMap.find name used with Not_found -> 0 in
-        if prev_round = this_round then
-          Warnings.fatal_error "The file %s is matched twice by bundle %s\n"
-            name (string_of_bundle bundle);
-
-        let file = fst file, if is_api then snd file else List.map mark_private (snd file) in
-
-        StringMap.add name this_round used, file :: found
+        (* If the file was already matched previously, don't match it a second time. *)
+        let prev_round = try StringMap.find name used with Not_found -> max_int, ([], [], []) in
+        if fst prev_round <= this_round then begin
+          if is_api then
+            (* Change into a non-fatal warning? Say nothing? *)
+            Warnings.fatal_error "The API file %s, in bundle %s, was matched \
+              previously by bundle %s\n"
+              name (string_of_bundle bundle) (string_of_bundle (snd prev_round));
+          used, found
+        end else
+          let file = fst file, if is_api then snd file else List.map mark_private (snd file) in
+          StringMap.add name (this_round, bundle) used, file :: found
       end else begin
         used, found
       end
@@ -189,7 +192,7 @@ let topological_sort files =
         r := Black;
         stack := (file, contents) :: !stack
   in
-  List.iter (dfs []) (List.map fst files);
+  List.iter (dfs []) (List.rev_map fst files);
   List.rev !stack
 
 (* Debug any intermediary AST as follows: *)
@@ -204,7 +207,7 @@ let make_bundles files =
   let used, bundles = List.fold_left (fun (used, bundles) arg ->
     let used, bundle = make_one_bundle arg files used in
     used, bundle :: bundles
-  ) (StringMap.empty, []) !Options.bundle in
+  ) (StringMap.empty, []) (List.rev !Options.bundle) in
   let files = List.filter (fun (n, _) -> not (StringMap.mem n used)) files @ bundles in
 
   let names, _ = List.split files in

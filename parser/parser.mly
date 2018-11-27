@@ -93,7 +93,7 @@ apis:
   { [] }
 
 patterns:
-| l = separated_nonempty_list(COMMA, pat)
+| l = separated_list(COMMA, pat)
   { l }
 
 %inline
