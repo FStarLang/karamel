@@ -21,6 +21,15 @@ all: $(USER_TARGET)
 
 $(USER_TARGET): $(OBJS)
 
+%.a:
+	ar cr $@ $^
+
+%.exe:
+	$(CC) $(CFLAGS) -o $@ $^
+
+%.so:
+	$(CC) $(CFLAGS) -shared -o $@ $^
+
 %.d: %.c
 	@set -e; rm -f $@; \
 	  $(CC) -MM $(CFLAGS) $< > $@.$$$$; \
@@ -28,3 +37,6 @@ $(USER_TARGET): $(OBJS)
 	  rm -f $@.$$$$
 
 include $(patsubst %.c,%.d,$(SOURCES))
+
+clean:
+	rm -rf *.o *.d $(USER_TARGET)

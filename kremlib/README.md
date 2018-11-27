@@ -37,7 +37,7 @@ the generated code can be easily customized by passing more KreMLin options
 ### The default build
 
 The default build:
-- assumes a 64-bit target and the either GCC or clang
+- assumes a 64-bit target and either GCC or clang
 - includes every implementation found in `kremlib/c`
 - includes `FStar.UInt128` with external linkage.
 
