@@ -1,3 +1,15 @@
+### November 27th, 2018
+
+- Allow `-bundle Foo=[rename=Bar]`
+- Previously, matching a file twice was a hard error. Now, bundles are
+  interpreted left-to-right and the second match is ignored when on the
+  right-hand side of "=". This allows: `-bundle Foo,Bar[rename=MyLib] -bundle *[rename=TheRest]`
+- Make the topological sort preserve the order of bundles in the
+  resulting `#includes`
+- KreMLin now generates a basic Makefile that can be used to compile
+  your project. kremlib/dist/uint128 and kremlib/dist/minimal are
+  examples.
+
 ### November 12th, 2018
 
 - When the C file contains no declaration, don't even create it, leave a
