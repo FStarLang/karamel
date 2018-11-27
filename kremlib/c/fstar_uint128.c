@@ -15,7 +15,12 @@
  * Note: no MSVC support in this file.
  */
 
+/* This file is used for both the minimal and generic kremlib distributions. As
+ * such, it assumes that the machine integers have been bundled the exact same
+ * way in both cases. */
+
 #include "FStar_UInt128.h"
+#include "FStar_UInt_8_16_32_64.h"
 #include "C_Endianness.h"
 
 #if !defined(KRML_VERIFIED_UINT128) && !defined(_MSC_VER)

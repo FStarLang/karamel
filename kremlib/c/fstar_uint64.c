@@ -1,7 +1,7 @@
 /* Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
    Licensed under the Apache 2.0 License. */
 
-#include "FStar_UInt64.h"
+#include "FStar_UInt_8_16_32_64.h"
 
 Prims_string FStar_UInt64_to_string(uint64_t i) {
   char *buf = KRML_HOST_MALLOC(24);

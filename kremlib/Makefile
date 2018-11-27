@@ -4,8 +4,7 @@
 # of rebuilding them. This Makefile assumes that everything else from
 # the F* standard library is already built (and fails otherwise)
 
-all: verify-all extract-all
-	COMPILE=1 $(MAKE) compile-all
+all: verify-all compile-all
 
 ################################################################################
 # Verification & extraction                                                    #
@@ -19,14 +18,13 @@ else
   FSTAR_EXE=fstar.exe
 endif
 
-OUTPUT_DIR = extracted
+EXTRACT_DIR = .extract
+
+GENERIC_DIR = dist/generic
 UINT128_DIR = dist/uint128
 MINI_DIR = dist/minimal
 
-$(OUTPUT_DIR):
-	mkdir -p $@
-
-FSTAR_OPTIONS += --record_hints --use_hints --use_two_phase_tc true --odir $(OUTPUT_DIR) \
+FSTAR_OPTIONS += --record_hints --use_hints --use_two_phase_tc true --odir $(EXTRACT_DIR) \
   # --use_extracted_interfaces
 
 FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules \
@@ -46,9 +44,9 @@ clean: clean-c
 SHELL=/bin/bash
 
 clean-c:
-	rm -rf {$(OUTPUT_DIR)}/{Makefile.include,*.{c,h}} dist out extract-all */*.o
+	rm -rf dist out extract-all */*.o
 
-.depend: Makefile | $(OUTPUT_DIR)
+.depend: Makefile
 	$(FSTAR) $(OTHERFLAGS) --dep full $(ROOTS) > $@
 
 include .depend
@@ -67,23 +65,26 @@ $(OTHER_CHECKED_FILES): %.checked:
 
 verify-all: $(ALL_CHECKED_FILES)
 
-$(OUTPUT_DIR)/%.krml:  | .depend
+$(EXTRACT_DIR)/%.krml: | .depend
 	$(FSTAR) $(OTHERFLAGS) --codegen Kremlin \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<)) && \
 	touch $@
 
-extract-all: $(OUTPUT_DIR)/Makefile.include $(UINT128_DIR)/Makefile.include \
-  $(MINI_DIR)/Makefile.include
-
 KREMLIN_ARGS += -fparentheses -fcurly-braces -fno-shadow
 
 # Default build
-$(OUTPUT_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
-	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(OUTPUT_DIR) -warn-error +9+11 -skip-compilation -extract-uints \
+$(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(wildcard c/*.c) .depend ../_build/src/Kremlin.native
+	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(GENERIC_DIR) \
+	  -warn-error +9+11 -skip-compilation -extract-uints \
 	  $(addprefix -add-include ,'<inttypes.h>' '"kremlib.h"' '"kremlin/internal/compat.h"') \
+	  -bundle FStar.UInt64+FStar.UInt32+FStar.UInt16+FStar.UInt8=[rename=FStar_UInt_8_16_32_64] \
+	  -bundle C.Endianness= \
+	  -library C,C.Endianness,C.Failure,C.Loops,FStar.BitVector,FStar.Bytes,FStar.Char,FStar.Int,FStar.Kremlin.Endianness,FStar.Math.Lib,FStar.ModifiesGen,FStar.Monotonic.Heap,FStar.Monotonic.HyperStack,FStar.Mul,FStar.Pervasives,FStar.Pervasives.Native,FStar.ST,FStar.UInt,FStar.UInt128,FStar.UInt63 \
+	  $(filter-out fstar_uint128_msvc.c,$(notdir $(wildcard c/*.c))) \
+	  -o libkremlib.a \
 	  $^
-	find $(OUTPUT_DIR) -name '*.c' -and -not -name 'FStar_UInt*.c' -exec rm {} \;
+	cp c/*.c $(GENERIC_DIR)/
 
 # UInt128-only build
 $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
@@ -95,7 +96,7 @@ $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kreml
 	  $^
 
 # Minimalistic build
-$(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(UINT128_DIR)/Makefile.include .depend ../_build/src/Kremlin.native
+$(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | c/fstar_uint128.c .depend ../_build/src/Kremlin.native
 	mkdir -p $(dir $@)
 	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(MINI_DIR) -skip-compilation -extract-uints \
 	  $(addprefix -add-include , \
@@ -107,47 +108,18 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(UINT128_DIR)/Makefile.includ
 	  -bundle C.Endianness= \
 	  -library FStar.UInt128 \
 	  -bundle FStar.UInt128= \
-	  -bundle '*' \
+	  -bundle '\*' \
 	  fstar_uint128.c \
 	  -o libkremlib.a \
 	  $^
-	cp c/fstar_uint128.c $(dir $@)/fstar_uint128.c
+	cp c/fstar_uint128.c $(dir $@)
 
 ################################################################################
 # Compilation, only works after the stage above has run and C files exist      #
 ################################################################################
 
-ifdef COMPILE
-
-include $(OUTPUT_DIR)/Makefile.include
-
-SOURCES = $(filter-out c/fstar_uint128_msvc.c,$(wildcard c/*.c)) \
-  $(addprefix extracted/,FStar_UInt8.c FStar_UInt16.c FStar_UInt32.c FStar_UInt64.c)
-OBJS = $(patsubst %.c,%.o,$(SOURCES))
-
-%.d: %.c
-	@set -e; rm -f $@; \
-	  $(CC) -MM $(CFLAGS) $< > $@.$$$$; \
-	  sed 's,\($(notdir $*)\)\.o[ :]*,$(dir $@)\1.o $@ : ,g' < $@.$$$$ > $@; \
-	  rm -f $@.$$$$
-
-include $(patsubst %.c,%.d,$(SOURCES))
-
-CFLAGS += -I extracted -I ../include -Wall -Wextra -Werror -g -std=c11 -D_DEFAULT_SOURCE -D_BSD_SOURCE
-ifeq ($(OS),Windows_NT)
-CFLAGS += -D__USE_MINGW_ANSI_STDIO
-else
-CFLAGS += -fPIC
-endif
-
-compile-all: out/libkremlib.a compile-dist-uint128 compile-dist-minimal
+compile-all: compile-dist-generic compile-dist-uint128 compile-dist-minimal
 
 .PHONY: compile-dist-%
-compile-dist-%:
+compile-dist-%: dist/%/Makefile.include
 	$(MAKE) -C dist/$* -f Makefile.basic
-
-out/libkremlib.a: $(OBJS) | extract-all
-	mkdir -p $(dir $@)
-	ar cr $@ $^
-
-endif

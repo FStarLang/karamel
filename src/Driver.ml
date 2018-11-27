@@ -410,7 +410,7 @@ let compile files extra_c_files =
 let link c_files o_files =
   let o_files = List.map expand_prefixes o_files in
   let objects = List.map o_of_c c_files @ o_files @
-    [ !kremlib_dir ^^ "out" ^^ "libkremlib.a" ]
+    [ !kremlib_dir ^^ "dist" ^^ "generic" ^^ "libkremlib.a" ]
   in
   let extra_arg = if !Options.exe_name <> "" then Dash.o_exe !Options.exe_name else [] in
   if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg @ List.rev !Options.ldopts) then
