@@ -302,6 +302,8 @@ Supported options:|}
     exit 1
   end;
 
+  let user_ccopts = !Options.ccopts in
+
   (* First enable the default warn-error string. *)
   Warnings.parse_warn_error !Options.warn_error;
 
@@ -572,7 +574,7 @@ Supported options:|}
     flush stderr;
     let c_output = Output.write_c files in
     let h_output = Output.write_h headers in
-    Output.write_makefile !c_files c_output h_output;
+    Output.write_makefile user_ccopts !c_files c_output h_output;
     tick_print true "PrettyPrinting";
 
     Printf.printf "KreMLin: wrote out .c files for %s\n" (String.concat ", " (List.map fst files));

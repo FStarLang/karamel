@@ -97,13 +97,13 @@ let write_h files =
     name :: names
   ) [] files
 
-let write_makefile custom_c_files c_files h_files =
+let write_makefile user_ccopts custom_c_files c_files h_files =
   let concat_map ext files =
     String.concat " " (List.map (fun f -> f ^ ext) files)
   in
   Utils.with_open_out_bin (in_tmp_dir "Makefile.include") (fun oc ->
     KPrint.bfprintf oc "USER_TARGET=%s\n" !Options.exe_name;
-    KPrint.bfprintf oc "USER_CFLAGS=%s\n" (concat_map "" !Options.ccopts);
+    KPrint.bfprintf oc "USER_CFLAGS=%s\n" (concat_map "" (List.rev user_ccopts));
     KPrint.bfprintf oc "USER_C_FILES=%s\n" (concat_map "" custom_c_files);
     KPrint.bfprintf oc "ALL_C_FILES=%s\n" (concat_map ".c" c_files);
     KPrint.bfprintf oc "ALL_H_FILES=%s\n" (concat_map ".h" h_files)
