@@ -1391,7 +1391,7 @@ let combinators = object(self)
             with_unit (ESequence [
               with_unit (EAssign (
                 with_type t (EBound 0),
-                mk_app t (lift 2 body) (with_type t (EBound 0))
+                mk_app t (lift 2 (self#visit_expr_w () body)) (with_type t (EBound 0))
               ));
               with_unit (EAssign (
                 with_type TBool (EBound 1),
@@ -1443,7 +1443,7 @@ let combinators = object(self)
         { node = EFun (_, body, _); _ } ]
       when KString.starts_with s "while" ->
         EWhile (DeBruijn.subst Helpers.eunit 0 test,
-          DeBruijn.subst Helpers.eunit 0 body)
+          DeBruijn.subst Helpers.eunit 0 (self#visit_expr_w () body))
 
     | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), s), [ { node = EFun (_, body, _); _ } ]
       when KString.starts_with s "do_while" ->
