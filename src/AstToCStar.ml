@@ -333,6 +333,16 @@ and mk_stmts env e ret_type =
         in
         env', e :: acc
 
+    | EIfThenElse (
+      { node = EApp ({ node = EOp (Ast.K.And, Ast.K.Bool); _ },
+        [ { node = EQualified (_, name); _ } as e1; e1' ]); _ },
+      e2, e3)
+      when StringSet.mem name env.ifdefs ->
+        collect (env, acc) return_pos (with_type e.typ (EIfThenElse (e1,
+          with_type e.typ (EIfThenElse (e1', e2, e3)),
+          e3)))
+
+
     | EIfThenElse ({ node = EQualified (_, name); _ }, e2, e3)
       when StringSet.mem name env.ifdefs ->
         env,
