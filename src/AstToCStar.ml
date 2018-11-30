@@ -28,11 +28,13 @@ open PrintAst.Ops
 open Helpers
 
 module C = Checker
+module StringSet = Set.Make(String)
 
 type env = {
   location: loc list;
   names: ident list;
   in_block: ident list;
+  ifdefs: StringSet.t;
 }
 
 let locate env loc =
@@ -42,6 +44,7 @@ let empty: env = {
   names = [];
   in_block = [];
   location = [];
+  ifdefs = StringSet.empty;
 }
 
 let reset_block env = {
@@ -51,7 +54,8 @@ let reset_block env = {
 let push env binder = CStar.{
   names = binder.name :: env.names;
   in_block = binder.name :: env.in_block;
-  location = env.location
+  location = env.location;
+  ifdefs = env.ifdefs
 }
 
 let pnames buf env =
@@ -326,6 +330,17 @@ and mk_stmts env e ret_type =
             CStar.For (`Decl (binder, e1), e2, e3, e4)
         in
         env', e :: acc
+
+    | EIfThenElse ({ node = EQualified (_, name); _ }, e2, e3)
+      when StringSet.mem name env.ifdefs ->
+        env,
+        List.rev_append (
+          CStar.Verbatim ("\n#ifdef " ^ String.uppercase_ascii name) ::
+          mk_block env return_pos e2 @
+          [ CStar.Verbatim ("\n#else ") ] @
+          mk_block env return_pos e3 @
+          [ CStar.Verbatim ("\n#endif ") ]
+        ) acc
 
     | EIfThenElse (e1, e2, e3) ->
         let e = CStar.IfThenElse (mk_expr env false e1, mk_block env return_pos e2, mk_block env return_pos e3) in
@@ -658,11 +673,11 @@ and mk_type_def env d: CStar.typ =
       failwith "impossible, handled by mk_declaration"
 
 
-and mk_program name decls =
+and mk_program name env decls =
   KList.filter_map (fun d ->
     let n = string_of_lident (Ast.lid_of_decl d) in
     try
-      mk_declaration empty d
+      mk_declaration env d
     with
     | Error e ->
         Warnings.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
@@ -673,8 +688,19 @@ and mk_program name decls =
           (Printexc.to_string e)
   ) decls
 
-and mk_file (name, program) =
-  name, (mk_program name) program
+and mk_file env (name, program) =
+  name, mk_program name env program
 
 and mk_files files =
-  List.map mk_file files
+  let ifdefs = (object
+    inherit [_] reduce
+    method private zero = StringSet.empty
+    method private plus = StringSet.union
+    method visit_DExternal _ _ flags name _ =
+      if List.mem Common.IfDef flags then
+        StringSet.singleton (snd name)
+      else
+        StringSet.empty
+  end)#visit_files () files in
+  let env = { empty with ifdefs } in
+  List.map (mk_file env) files

@@ -308,6 +308,8 @@ let rec p_stmt (s: stmt) =
       group (p_expr expr ^^ semi)
   | Comment s ->
       group (string "/*" ^/^ separate break1 (words s) ^/^ string "*/")
+  | Verbatim s ->
+      string s
   | For (decl, e2, e3, stmt) ->
       let init = match decl with
         | `Decl decl -> p_declaration decl
@@ -368,7 +370,7 @@ let p_decl_or_function (df: declaration_or_function) =
       p_comments comments ^^
       let inline = if inline then string "inline" ^^ space else empty in
       inline ^^ group (p_declaration d) ^/^ p_stmt stmt
-  | Verbatim s ->
+  | Text s ->
       string s
 
 let print_files =

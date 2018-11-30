@@ -40,8 +40,9 @@ and stmt =
   | BufFree of expr
   | PushFrame
   | PopFrame
-  | Comment of string
   | Block of block
+  | Comment of string
+  | Verbatim of string
 
 and expr =
   | InlineComment of string * expr * string

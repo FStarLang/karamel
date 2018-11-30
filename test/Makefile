@@ -24,7 +24,8 @@ FILES		= \
   NoExtract.test InlineNoExtract.test ../book/RingBuffer.test \
   ../book/Introduction.test TopLevelArray.test NoShadow.test Library.test \
   AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
-  UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test
+  UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test \
+  IfDef.fst
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
@@ -120,6 +121,7 @@ $(OUTPUT_DIR)/CustomEq.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fnoshort-enums
 $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
 $(OUTPUT_DIR)/Library.exe: EXTRA = -library MemCpyModel memcpymodel_impl.c
+$(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
 
 # Some custom targets
 

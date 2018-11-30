@@ -305,6 +305,9 @@ and decay_array t =
 
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
+  | Verbatim s ->
+      [ Verbatim s ]
+
   | Comment s ->
       [ Comment s ]
 
@@ -815,10 +818,10 @@ let mk_comments =
 
 let wrap_verbatim flags d =
   KList.filter_map (function
-    | Prologue s -> Some (Verbatim s)
+    | Prologue s -> Some (Text s)
     | _ -> None
   ) flags @ [ d ] @ KList.filter_map (function
-    | Epilogue s -> Some (Verbatim s)
+    | Epilogue s -> Some (Text s)
     | _ -> None
   ) flags
 
@@ -936,7 +939,7 @@ let mk_type_or_external (w: where) (d: decl): C.declaration_or_function list =
               else
                 failwith (KPrint.bsprintf "Too many cases for enum %s" name)
             in
-            wrap_verbatim flags (Verbatim (enum_as_macros cases)) @
+            wrap_verbatim flags (Text (enum_as_macros cases)) @
             let qs, spec, decl = mk_spec_and_declarator_t name (Int t) in
             [ Decl ([], (qs, spec, Some Typedef, [ decl, None ]))]
         | _ ->

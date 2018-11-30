@@ -41,4 +41,6 @@ type flag =
       (** Verbatim C code, inserted after. *)
   | AbstractStruct
       (** Struct type only revealed as a forward declaration in the interface *)
+  | IfDef
+      (** Branches over this variable are compiled as #ifdefs *)
   [@@deriving yojson,show]

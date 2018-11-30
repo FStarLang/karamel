@@ -126,6 +126,8 @@ and print_flag = function
       group (string "const" ^/^ string p)
   | AbstractStruct ->
       string "abstract_struct"
+  | IfDef ->
+      string "#ifdef"
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   (if mut then string "mutable" ^^ break 1 else empty) ^^

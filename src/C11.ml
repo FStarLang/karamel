@@ -96,7 +96,7 @@ and designator =
 (** Note: according to http:/ /en.cppreference.com/w/c/language/statements,
  * declarations can only be part of a compound statement... we do not enforce
  * this invariant via the type [stmt], but rather check it at runtime (see
- * [mk_compound_if]), as the risk of messing things up, naturally. *)
+ * [mk_compound_if]), at the risk of messing things up, naturally. *)
 type stmt =
   | Compound of stmt list
   | Decl of declaration
@@ -110,6 +110,7 @@ type stmt =
     (** the last component is the default statement *)
   | Break
   | Comment of string
+  | Verbatim of string
     (** note: this is not in the C grammar *)
 
 and program =
@@ -122,7 +123,7 @@ and declaration_or_function =
   | Decl of comment list * declaration
   | Function of comment list * bool * declaration * stmt
     (** [stmt] _must_ be a compound statement; boolean is inline *)
-  | Verbatim of string
+  | Text of string
     (** passed in from F*, to be printed as-is *)
 
 and declaration_or_expr = [
