@@ -1,3 +1,8 @@
+### November 30th, 2018
+
+- `[@ CIfDef ] assume val x` will transform `if x then e1 else e2` using an
+  `#ifdef`
+
 ### November 27th, 2018
 
 - Allow `-bundle Foo=[rename=Bar]`
