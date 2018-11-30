@@ -7,20 +7,20 @@
 
 include Makefile.include
 
-CFLAGS += -I. -I $(KREMLIN_HOME)/include
-CFLAGS += -Wall -Wextra -Werror -std=c11 -Wno-unused-variable \
+CFLAGS 	+= -I. -I $(KREMLIN_HOME)/include
+CFLAGS 	+= -Wall -Wextra -Werror -std=c11 -Wno-unused-variable \
   -Wno-unknown-warning-option -Wno-unused-but-set-variable \
   -Wno-unused-parameter -Wno-infinite-recursion \
   -g -fwrapv -D_BSD_SOURCE -D_DEFAULT_SOURCE
 ifeq ($(OS),Windows_NT)
-CFLAGS += -D__USE_MINGW_ANSI_STDIO
+CFLAGS 	+= -D__USE_MINGW_ANSI_STDIO
 else
-CFLAGS += -fPIC
+CFLAGS 	+= -fPIC
 endif
-CFLAGS += $(USER_CFLAGS)
+CFLAGS 	+= $(USER_CFLAGS)
 
-SOURCES = $(ALL_C_FILES) $(USER_C_FILES)
-OBJS = $(patsubst %.c,%.o,$(SOURCES))
+SOURCES += $(ALL_C_FILES) $(USER_C_FILES)
+OBJS 	+= $(patsubst %.c,%.o,$(SOURCES))
 
 all: $(USER_TARGET)
 
