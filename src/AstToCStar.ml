@@ -174,6 +174,8 @@ let rec mk_expr env in_stmt e =
   | EEnum lident ->
       CStar.Qualified (string_of_lident lident)
   | EQualified lident ->
+      if StringSet.mem (string_of_lident lident) env.ifdefs then
+        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc env.location, IfDef lident));
       CStar.Qualified (string_of_lident lident)
   | EConstant c ->
       CStar.Constant c
@@ -629,11 +631,14 @@ and mk_declaration env d: CStar.decl option =
         mk_expr env false body))
 
   | DExternal (cc, flags, name, t) ->
-      let add_cc = function
-        | CStar.Function (_, t, ts) -> CStar.Function (cc, t, ts)
-        | t -> t
-      in
-      Some (CStar.External (string_of_lident name, add_cc (mk_type env t), flags))
+      if StringSet.mem (snd name) env.ifdefs then
+        None
+      else
+        let add_cc = function
+          | CStar.Function (_, t, ts) -> CStar.Function (cc, t, ts)
+          | t -> t
+        in
+        Some (CStar.External (string_of_lident name, add_cc (mk_type env t), flags))
 
   | DType (name, flags, _, Forward) ->
       let name = string_of_lident name in

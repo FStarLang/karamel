@@ -107,6 +107,9 @@ The default is %s and the available warnings are:
   13: monomorphic instance about to be dropped
   14: cannot perform tail-call optimization
   15: function is not Low*; need compatibility headers
+  16: arity mismatch -- typically code that is high-order in F* but not in C
+  17: assume val marked as ifdef cannot be translated to an ifdef (e.g. it
+      appears in the wrong position)
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
 The Api= part is optional and Api is made up of a non-empty list of modules
