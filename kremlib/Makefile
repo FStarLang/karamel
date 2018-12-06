@@ -108,7 +108,7 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | c/fstar_uint128.c .depend ../_
 	  -bundle C.Endianness= \
 	  -library FStar.UInt128 \
 	  -bundle FStar.UInt128= \
-	  -bundle '\*' \
+	  -bundle '*,WindowsWorkaroundSigh' \
 	  fstar_uint128.c \
 	  -o libkremlib.a \
 	  $^
