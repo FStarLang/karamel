@@ -28,7 +28,8 @@ FSTAR_OPTIONS += --record_hints --use_hints --use_two_phase_tc true --odir $(EXT
   # --use_extracted_interfaces
 
 FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules \
-  $(addprefix --include , $(INCLUDE_PATHS))
+  $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
+  --already_cached 'FStar -FStar.Kremlin.Endianness LowStar'
 
 # Note: not compatible with the OPAM layout until fstar can be queried for the
 # location of ulib.
@@ -52,16 +53,10 @@ clean-c:
 include .depend
 
 ALL_CHECKED_FILES	= $(addsuffix .checked, $(ALL_FST_FILES))
-KREMLIB_FILES		= $(wildcard *.fst) $(wildcard *.fsti)
-KREMLIB_CHECKED_FILES	= $(addsuffix .checked, $(KREMLIB_FILES))
-OTHER_CHECKED_FILES	= $(filter-out $(KREMLIB_CHECKED_FILES), $(ALL_CHECKED_FILES))
 
-$(KREMLIB_CHECKED_FILES): %.checked: | .depend
-	$(FSTAR) $(FSTAR_OPTIONS) $(OTHERFLAGS) $< && \
+%.checked:
+	$(FSTAR) $(OTHERFLAGS) $< && \
 	touch $@
-
-$(OTHER_CHECKED_FILES): %.checked:
-	@echo $@ is out of date, please run make -C '$$'\(FSTAR_HOME\)/ulib before; false
 
 verify-all: $(ALL_CHECKED_FILES)
 
