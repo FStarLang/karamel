@@ -72,14 +72,13 @@ $(HINTS_DIR):
 	mkdir -p $@
 
 $(CACHE_DIR)/%.checked: | .depend $(HINTS_DIR)
-	$(FSTAR) --hint_file $(HINTS_DIR)/$*.hints $<
+	$(FSTAR) --hint_file $(HINTS_DIR)/$*.hints $< && \
 	touch $@
 
 $(OUTPUT_DIR)/%.krml: | .depend
 	$(FSTAR) --codegen Kremlin \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<))
-	touch $@
 
 $(OUTPUT_DIR)/%.exe: $(OUTPUT_DIR)/FStar_UInt128.krml | $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
