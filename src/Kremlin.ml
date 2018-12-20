@@ -292,7 +292,13 @@ Supported options:|}
       Warnings.fatal_error "Unknown file extension for %s\n" f;
     found_file := true
   in
-  Arg.parse spec anon_fun usage;
+  begin try
+    Arg.parse spec anon_fun usage
+  with Ulexing.Error | Parser.Error ->
+    KPrint.bprintf "Complete invocation was: %s\n"
+      (String.concat "␣" (Array.to_list Sys.argv));
+    exit 1
+  end;
 
   if not !found_file ||
      List.length !fst_files = 0 && List.length !filenames = 0 ||
