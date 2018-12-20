@@ -596,6 +596,9 @@ and is_primitive s =
     "C_String_get";
     "C_String_t";
     "C_String_of_literal";
+    "C_Compat_String_get";
+    "C_Compat_String_t";
+    "C_Compat_String_of_literal";
     (* Trick: we typedef this as an int and reply on implicit C enum -> int
      * conversion rules. *)
     "exit_code";
@@ -665,7 +668,11 @@ and mk_expr (e: expr): C.expr =
   | Call (Qualified "C_String_of_literal", [ StringLiteral _ as s ]) ->
       mk_expr s
 
+  | Call (Qualified "C_Compat_String_of_literal", [ StringLiteral _ as s ]) ->
+      mk_expr s
+
   | Call (Qualified "C_String_get", [ e1; e2 ])
+  | Call (Qualified "C_Compat_String_get", [ e1; e2 ])
   | BufRead (e1, e2) ->
       mk_index e1 e2
 
