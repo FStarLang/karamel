@@ -766,6 +766,8 @@ and mk_expr (e: expr): C.expr =
       Bool b
 
   | Struct (typ, fields) ->
+      if typ = None then
+        failwith ("Expected a type annotation for: \n" ^ show_expr e);
       let typ = Option.must typ in
       mk_compound_literal typ fields
 

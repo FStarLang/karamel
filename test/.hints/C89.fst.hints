@@ -1,5 +1,5 @@
 [
-  "\u0017TH¬ãs6†vO-?•∑\u0001∑",
+  "êt`ˇ\u0016#≈TÙYy\u0017…ÎñQ",
   [
     [
       "C89.f",
@@ -22,7 +22,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "98426db8e9fa4e16e7459068ea487d08"
+      "06cc44ed406190ec70fb4a1cb3929d6d"
     ],
     [
       "C89.g",
@@ -45,7 +45,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "c9483e3906304773ddd5eeaa50f9fc19"
+      "4f6d913434001a21e81bfaaf8488f000"
     ],
     [
       "C89.h",
@@ -68,7 +68,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "acfde3da15069dbf81ed73a4c06ca24c"
+      "2127d93e9d00f02922a23246f4e9c4e7"
     ],
     [
       "C89.i",
@@ -91,7 +91,67 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "c49deddef605292aa2d690d493f45607"
+      "bbcb8b175d19301511856ad86d601d1e"
+    ],
+    [
+      "C89.touch",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.HyperStack.ST.equal_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "equation_FStar.Monotonic.HyperHeap.hmap",
+        "equation_FStar.Monotonic.HyperStack.mem",
+        "function_token_typing_FStar.Monotonic.Heap.heap",
+        "function_token_typing_FStar.Monotonic.HyperHeap.rid",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
+        "lemma_FStar.Set.lemma_equal_refl",
+        "refinement_interpretation_FStar.Monotonic.HyperStack_Tm_refine_9a74d818566e70513bc032cc3b65a144",
+        "typing_FStar.Map.domain",
+        "typing_FStar.Monotonic.HyperStack.get_hmap"
+      ],
+      0,
+      "c110b77d69b2415fe83013fbaccd03b5"
+    ],
+    [
+      "C89.t",
+      1,
+      2,
+      1,
+      [
+        "@query", "assumption_FStar.Int32.t__uu___haseq",
+        "assumption_FStar.Int64.t__uu___haseq"
+      ],
+      0,
+      "402f3968f9e1623ff90f7f7bf4ed98f8"
+    ],
+    [
+      "C89.__proj__A__item___0",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_C89.A",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_C89_Tm_refine_dfc04c5c79d942a90086cac1eb7b1ae6"
+      ],
+      0,
+      "b9793e4cc8eb8140d23ea68365da7e37"
+    ],
+    [
+      "C89.__proj__B__item___0",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_C89.B",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_C89_Tm_refine_1a06de69b44dc8c0429a5d7e27c9f480"
+      ],
+      0,
+      "5b0b43f8541d2e13b445f97d2a384613"
     ],
     [
       "C89.main",
@@ -155,7 +215,7 @@
         "typing_FStar.Set.singleton"
       ],
       0,
-      "d4564515c9d3a7eefc0a2fc12a602e01"
+      "6cac54508ec54ec9e26ae9a3e1c4655a"
     ]
   ]
 ]
