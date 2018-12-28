@@ -518,7 +518,6 @@ Supported options:|}
     else
       files
   in
-    print PrintAst.print_files files;
   let files = Structs.collect_initializers files in
   (* Note: generates let-bindings, so needs to be before simplify2 *)
   let files = Simplify.remove_unused files in
