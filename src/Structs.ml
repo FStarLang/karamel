@@ -343,7 +343,7 @@ let collect_initializers (files: Ast.file list) =
  *
  * This phase assumes all lets have been hoisted. *)
 let to_addr is_struct =
-  let rec to_addr e =
+  let rec to_addr under_compound e =
     let was_struct = is_struct e.typ in
     let not_struct () = assert (not was_struct) in
     let w = with_type e.typ in
@@ -380,27 +380,30 @@ let to_addr is_struct =
 
     | EWhile (e1, e2) ->
         not_struct ();
-        w (EWhile (to_addr e1, to_addr e2))
+        w (EWhile (to_addr false e1, to_addr false e2))
 
     | EFor (b, e1, e2, e3, e4) ->
         not_struct ();
-        w (EFor (b, to_addr e1, to_addr e2, to_addr e3, to_addr e4))
+        w (EFor (b, to_addr false e1, to_addr false e2, to_addr false e3, to_addr false e4))
 
     | EIgnore e ->
         not_struct ();
-        w (EIgnore (to_addr e))
+        w (EIgnore (to_addr false e))
 
     | EApp (e, es) ->
         not_struct ();
-        w (EApp (to_addr e, List.map to_addr es))
+        w (EApp (to_addr false e, List.map (to_addr false) es))
 
-    | EFlat _ ->
-        (* Not descending *)
+    | EFlat fields ->
         assert was_struct;
-        let b, _ = Helpers.mk_binding "alloc" (TBuf e.typ) in
-        w (ELet (b,
-          with_type (TBuf e.typ) (EBufCreate (Stack, e, Helpers.oneu32)),
-          Helpers.mk_deref e.typ (EBound 0)))
+        let fields = List.map (fun (f, e) -> f, to_addr true e) fields in
+        if under_compound then
+          w (EFlat fields)
+        else
+          let b, _ = Helpers.mk_binding "alloc" (TBuf e.typ) in
+          w (ELet (b,
+            with_type (TBuf e.typ) (EBufCreate (Stack, e, Helpers.oneu32)),
+            Helpers.mk_deref e.typ (EBound 0)))
 
     | ELet (b, ({ node = EFlat _; _ } as e1), e2) ->
         (* This special case is subsumed by the combination of [EFlat] and
@@ -411,9 +414,10 @@ let to_addr is_struct =
         let t = b.typ in
         let t' = TBuf b.typ in
         let b = { b with typ = t' } in
+        let e1 = to_addr true e1 in
         let e1 = with_type t' (EBufCreate (Stack, e1, Helpers.oneu32)) in
         let e2 = DeBruijn.subst_no_open (Helpers.mk_deref t (EBound 0)) 0 e2 in
-        w (ELet (b, e1, to_addr e2))
+        w (ELet (b, e1, to_addr false e2))
 
     | ELet (b, e1, e2) ->
         let b, e1, e2 =
@@ -426,7 +430,7 @@ let to_addr is_struct =
                 with_type (TBuf b.typ) (EBufCreate (Stack, e1, Helpers.oneu32))
               else
                 (* Recursively visit [e1]; take the resulting address. *)
-                push_addrof (to_addr e1)
+                push_addrof (to_addr false e1)
             in
             { b with typ = t' },
             e1,
@@ -435,22 +439,22 @@ let to_addr is_struct =
               0
               e2
           else
-            b, to_addr e1, e2
+            b, to_addr false e1, e2
         in
-        let e2 = to_addr e2 in
+        let e2 = to_addr false e2 in
         w (ELet (b, e1, e2))
 
     | EIfThenElse (e1, e2, e3) ->
-        w (EIfThenElse (to_addr e1, to_addr e2, to_addr e3))
+        w (EIfThenElse (to_addr false e1, to_addr false e2, to_addr false e3))
 
     | EAssign (e1, e2) ->
         (* In the case of a by-copy struct assignment (for the return value of
          * an if-then-else, for instance), we do not recurse. This is morally an
          * EBufFill. *)
         not_struct ();
-        let e1 = to_addr e1 in
+        let e1 = to_addr false e1 in
         if is_struct e1.typ then
-          let e2 = to_addr e2 in
+          let e2 = to_addr false e2 in
           match e1.node with
           | EBufRead (e0, e1) ->
               w (EBufWrite (e0, e1, e2))
@@ -462,38 +466,38 @@ let to_addr is_struct =
     | EBufCreate (l, e1, e2) ->
         (* Not descending into [e1], as it will undergo the "allocate at
          * address" treatment later on *)
-        let e2 = to_addr e2 in
+        let e2 = to_addr false e2 in
         w (EBufCreate (l, e1, e2))
 
     | EBufCreateL _ ->
         e
 
     | EBufRead (e1, e2) ->
-        w (EBufRead (to_addr e1, to_addr e2))
+        w (EBufRead (to_addr false e1, to_addr false e2))
 
     | EBufWrite (e1, e2, e3) ->
         not_struct ();
-        let e1 = to_addr e1 in
-        let e2 = to_addr e2 in
-        let e3 = to_addr e3 in
+        let e1 = to_addr false e1 in
+        let e2 = to_addr false e2 in
+        let e3 = to_addr false e3 in
         w (EBufWrite (e1, e2, e3))
 
     | EField (e, f) ->
-        w (EField (to_addr e, f))
+        w (EField (to_addr false e, f))
 
     | EAddrOf e ->
-        w (EAddrOf (to_addr e))
+        w (EAddrOf (to_addr false e))
 
     | EBufSub (e1, e2) ->
         w (EBufSub (e1, e2))
 
     | EBufBlit (e1, e2, e3, e4, e5) ->
-        w (EBufBlit (to_addr e1, to_addr e2, to_addr e3, to_addr e4, to_addr e5))
+        w (EBufBlit (to_addr false e1, to_addr false e2, to_addr false e3, to_addr false e4, to_addr false e5))
 
     | EBufFill (e1, e2, e3) ->
         (* Not descending into e2 *)
-        let e1 = to_addr e1 in
-        let e3 = to_addr e3 in
+        let e1 = to_addr false e1 in
+        let e3 = to_addr false e3 in
         w (EBufFill (e1, e2, e3))
 
     | EBufFree e ->
@@ -501,19 +505,19 @@ let to_addr is_struct =
         w (EBufFree e)
 
     | ESwitch (e, branches) ->
-        let e = to_addr e in
-        let branches = List.map (fun (lid, e) -> lid, to_addr e) branches in
+        let e = to_addr false e in
+        let branches = List.map (fun (lid, e) -> lid, to_addr false e) branches in
         w (ESwitch (e, branches))
 
     | EReturn e ->
         assert (not (is_struct e.typ));
-        w (EReturn (to_addr e))
+        w (EReturn (to_addr false e))
 
     | ECast (e, t) ->
-        w (ECast (to_addr e, t))
+        w (ECast (to_addr false e, t))
 
     | EComment (s, e, s') ->
-        w (EComment (s, to_addr e, s'))
+        w (EComment (s, to_addr false e, s'))
 
     | ESequence _
     | ETuple _
@@ -526,7 +530,7 @@ let to_addr is_struct =
     inherit [_] map
 
     method! visit_DFunction _ cc flags n ret lid binders body =
-      DFunction (cc, flags, n, ret, lid, binders, to_addr body)
+      DFunction (cc, flags, n, ret, lid, binders, to_addr false body)
   end
 
 
