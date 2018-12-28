@@ -825,7 +825,7 @@ and hoist_expr loc pos e =
       let t = e.typ in
       let lhs1, e1 = hoist_expr loc Unspecified e1 in
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
-      if pos = UnderStmtLet || pos = Unspecified then
+      if pos = UnderStmtLet then
         lhs1 @ lhs2, mk (EBufCreate (l, e1, e2))
       else
         let b, body, cont = mk_named_binding "buf" t (EBufCreate (l, e1, e2)) in
@@ -835,7 +835,7 @@ and hoist_expr loc pos e =
       let t = e.typ in
       let lhs, es = List.split (List.map (hoist_expr loc Unspecified) es) in
       let lhs = List.flatten lhs in
-      if pos = UnderStmtLet || pos = Unspecified then
+      if pos = UnderStmtLet then
         lhs, mk (EBufCreateL (l, es))
       else
         let b, body, cont = mk_named_binding "buf" t (EBufCreateL (l, es)) in
