@@ -481,6 +481,7 @@ Supported options:|}
   let files =
     if !Options.wasm then
       let files = SimplifyWasm.simplify1 files in
+      (* JP: would be lovely to remove this one *)
       let files = Simplify.simplify2 files in
       let files = Structs.in_memory files in
       (* This one near the end because [in_memory] generates new EBufCreate's that

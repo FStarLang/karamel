@@ -401,7 +401,7 @@ let to_addr is_struct =
         else
           let b, _ = Helpers.mk_binding "alloc" (TBuf e.typ) in
           w (ELet (b,
-            with_type (TBuf e.typ) (EBufCreate (Stack, e, Helpers.oneu32)),
+            with_type (TBuf e.typ) (EBufCreate (Stack, with_type e.typ (EFlat fields), Helpers.oneu32)),
             Helpers.mk_deref e.typ (EBound 0)))
 
     | ELet (b, ({ node = EFlat _; _ } as e1), e2) ->
