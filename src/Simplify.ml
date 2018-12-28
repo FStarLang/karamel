@@ -581,9 +581,7 @@ end
  *   let-if-to-assign conversion. *)
 type pos =
   | UnderStmtLet
-  | AssignRhs
   | Unspecified
-  | BufAssignee
 
 let rec hoist_stmt loc e =
   let mk node = { node; typ = e.typ } in
@@ -653,7 +651,7 @@ let rec hoist_stmt loc e =
   | EAssign (e1, e2) ->
       assert (e.typ = TUnit);
       let lhs1, e1 = hoist_expr loc Unspecified e1 in
-      let lhs2, e2 = hoist_expr loc AssignRhs e2 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
       nest (lhs1 @ lhs2) e.typ (mk (EAssign (e1, e2)))
 
   | EBufWrite (e1, e2, e3) ->
@@ -814,7 +812,7 @@ and hoist_expr loc pos e =
   | EAssign (e1, e2) ->
       let lhs1, e1 = hoist_expr loc Unspecified e1 in
       (* JP: figure this out, this might be outdated *)
-      let rhspos = if is_array e1.typ then AssignRhs else Unspecified in
+      let rhspos = if is_array e1.typ then Unspecified else Unspecified in
       let lhs2, e2 = hoist_expr loc rhspos e2 in
       if pos = UnderStmtLet then
         lhs1 @ lhs2, mk (EAssign (e1, e2))
@@ -825,9 +823,9 @@ and hoist_expr loc pos e =
 
   | EBufCreate (l, e1, e2) ->
       let t = e.typ in
-      let lhs1, e1 = hoist_expr loc BufAssignee e1 in
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
-      if pos = UnderStmtLet || pos = AssignRhs then
+      if pos = UnderStmtLet || pos = Unspecified then
         lhs1 @ lhs2, mk (EBufCreate (l, e1, e2))
       else
         let b, body, cont = mk_named_binding "buf" t (EBufCreate (l, e1, e2)) in
@@ -835,9 +833,9 @@ and hoist_expr loc pos e =
 
   | EBufCreateL (l, es) ->
       let t = e.typ in
-      let lhs, es = List.split (List.map (hoist_expr loc BufAssignee) es) in
+      let lhs, es = List.split (List.map (hoist_expr loc Unspecified) es) in
       let lhs = List.flatten lhs in
-      if pos = UnderStmtLet || pos = AssignRhs then
+      if pos = UnderStmtLet || pos = Unspecified then
         lhs, mk (EBufCreateL (l, es))
       else
         let b, body, cont = mk_named_binding "buf" t (EBufCreateL (l, es)) in
@@ -851,7 +849,7 @@ and hoist_expr loc pos e =
   | EBufWrite (e1, e2, e3) ->
       let lhs1, e1 = hoist_expr loc Unspecified e1 in
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
-      let lhs3, e3 = hoist_expr loc BufAssignee e3 in
+      let lhs3, e3 = hoist_expr loc Unspecified e3 in
       let lhs = lhs1 @ lhs2 @ lhs3 in
       if pos = UnderStmtLet then
         lhs, mk (EBufWrite (e1, e2, e3))
@@ -913,17 +911,7 @@ and hoist_expr loc pos e =
         let lhs, expr = hoist_expr loc Unspecified expr in
         lhs, (ident, expr)
       ) fields) in
-      begin match pos with
-      | UnderStmtLet ->
-          List.flatten lhs, mk (EFlat fields)
-      | BufAssignee | AssignRhs when !Options.compound_literals = `Wasm ->
-          List.flatten lhs, mk (EFlat fields)
-      | _ when !Options.compound_literals = `Ok ->
-          List.flatten lhs, mk (EFlat fields)
-      | _ ->
-          let b, body, cont = mk_named_binding "flat" e.typ (EFlat fields) in
-          List.flatten lhs @ [ b, body ], cont
-      end
+      List.flatten lhs, mk (EFlat fields)
 
   | ECons _ ->
       failwith "[hoist_t]: ECons, why?"
@@ -1180,18 +1168,13 @@ let tail_calls =
  * This function rewrites the snippet above into:
  *   push_frame ();
  *   let b1: array int 5 = any;
- *   let b = if true then b1 <-copy-- bufcreatel ...; subbuf b1 0 else ...
+ *   let b = if true then copy-assign (b1, bufcreatel ...); subbuf b1 0 else ...
  *
- * This introduces a new copy-assignment operator (encoded via an assignment
- * whose type is Array instead of Buf) which is implemented as a memcpy later
- * on.
+ * This relies on a helper to create copy-assignments.
  *
  * This function assumes [hoist] has been run so that every single [EBufCreate]
  * appears as a [let x = bufcreate...], always in statement position.
- * The [hoist] transformation will be called a second time (after inlining)
- * meaning that it will encounter nodes of the form [b1 <-copy-- bufcreatel];
- * [hoist] may be tempted to hoist these buffer create operations, but thanks to
- * the [AssignRhs] case, knows that it shouldn't. *)
+ *)
 let rec hoist_bufcreate (e: expr) =
   let mk node = { node; typ = e.typ } in
   match e.node with

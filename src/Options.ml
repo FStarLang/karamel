@@ -33,11 +33,11 @@ let static_header: string list ref = ref []
 let minimal = ref false
 let by_ref: (string list * string) list ref = ref []
 
-(* wasm = true ==> these three are false *)
+(* wasm = true ==> these two are false *)
 let struct_passing = ref true
 let anonymous_unions = ref true
-let compound_literals: [ `Ok | `Wasm | `Never ] ref = ref `Ok
 
+let compound_literals = ref true
 let short_enums = ref true
 let alloca_if_vla = ref false
 let parentheses = ref false

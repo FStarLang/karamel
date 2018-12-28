@@ -336,10 +336,9 @@ let collect_initializers (files: Ast.file list) =
  * We also perform a cosmetic rewriting:
  * - [&x[0]] becomes [x].
  *
- * We do not recurse into the initial value of ebufcreate nodes, the rhs of
- * ebufwrite, and into nested structs within outer struct literals. All of these
- * already have a destination address, meaning the WASM codegen will be able to
- * handle them.
+ * We do not recurse into the initial value of ebufcreate nodes (since this is
+ * in the right form already) and into nested structs within outer struct
+ * literals.
  *
  * This phase assumes all lets have been hoisted. *)
 let to_addr is_struct =
@@ -464,8 +463,6 @@ let to_addr is_struct =
           w (EAssign (e1, e2))
 
     | EBufCreate (l, e1, e2) ->
-        (* Not descending into [e1], as it will undergo the "allocate at
-         * address" treatment later on *)
         let e2 = to_addr false e2 in
         w (EBufCreate (l, e1, e2))
 

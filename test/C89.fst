@@ -32,6 +32,7 @@ let main (): Stack Int32.t (fun _ -> true) (fun _ _ _ -> true) =
   h (g ()) (g ());
   let y = g () in
   let b = Buffer.create (i ()) 32ul in
+  let b' = Buffer.createL [ 0ul; 32ul ] in
   h x y;
   (* let _ = j () in *)
   touch (A 0l);

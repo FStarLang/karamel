@@ -238,7 +238,7 @@ Supported options:|}
       structures by value and use pointers instead";
     "-fnoanonymous-unions", Arg.Clear Options.anonymous_unions, "  disable C11 \
       anonymous unions";
-    "-fnocompound-literals", Arg.Unit (fun () -> Options.compound_literals := `Never),
+    "-fnocompound-literals", Arg.Clear Options.compound_literals,
       "  don't generate C11 compound literals";
     "-ftail-calls", Arg.Set Options.tail_calls, "  statically compile tail-calls \
       into loops";
@@ -317,24 +317,18 @@ Supported options:|}
    * the default options for each compiler. *)
   if !Options.wasm then begin
     Options.anonymous_unions := false;
-    (* This forces the evaluation of compound literals to happen first, before
-     * they are assigned. This is the C semantics, and the C compiler will do it
-     * for us, so this is not generally necessary. *)
-    Options.compound_literals := `Wasm;
-    Options.struct_passing := false
-  end;
+    Options.struct_passing := false;
 
-  if !Options.wasm then begin
     (* True Wasm compilation: this module is useless (only assume val's). *)
     (* Only keep what's stricly needed from the C module. *)
     Options.bundle := ([], [ Bundle.Module [ "C" ]], []) :: !Options.bundle;
-    Options.extract_uints := true
-  end;
+    Options.extract_uints := true;
 
-  (* Self-help. *)
-  if !Options.wasm && Options.debug "force-c" then begin
-    Options.add_include := "\"kremlin/internal/wasmsupport.h\"" :: !Options.add_include;
-    Options.drop := Bundle.Module [ "WasmSupport" ] :: !Options.drop
+    (* Self-help. *)
+    if Options.debug "force-c" then begin
+      Options.add_include := "\"kremlin/internal/wasmsupport.h\"" :: !Options.add_include;
+      Options.drop := Bundle.Module [ "WasmSupport" ] :: !Options.drop
+    end
   end;
 
   if not !Options.minimal then
@@ -347,7 +341,7 @@ Supported options:|}
 
   if !arg_c89 then begin
     Options.anonymous_unions := false;
-    Options.compound_literals := `Never;
+    Options.compound_literals := false;
     Options.c89_scope := true;
     Options.c89_std := true;
     Options.ccopts := Driver.Dash.d "KRML_VERIFIED_UINT128" :: !Options.ccopts
@@ -490,7 +484,7 @@ Supported options:|}
       let files = Simplify.simplify2 files in
       let files = Structs.in_memory files in
       (* This one near the end because [in_memory] generates new EBufCreate's that
-       * need to be desugared. *)
+       * need to be desugared into EBufCreate Any + EBufWrite. *)
       let files = SimplifyWasm.simplify2 files in
       tick_print true "Wasm specific";
       files
