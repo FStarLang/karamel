@@ -472,10 +472,10 @@ let to_addr is_struct =
         w (EBufRead (to_addr e1, to_addr e2))
 
     | EBufWrite (e1, e2, e3) ->
-        (* Not descending into [e3]... *)
         not_struct ();
         let e1 = to_addr e1 in
         let e2 = to_addr e2 in
+        let e3 = to_addr e3 in
         w (EBufWrite (e1, e2, e3))
 
     | EField (e, f) ->
