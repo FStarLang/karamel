@@ -470,13 +470,37 @@ Supported options:|}
   let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Pattern matches compilation";
 
-  (* 4. Whole-program transformations. If needed, pass structures by reference,
-   * and also allocate all structures in memory. This creates new opportunities
-   * for the removal of unused variables, but also breaks the earlier
-   * transformation to a statement language, which we perform again. Note that
-   * [remove_unused] generates MetaSequence let-bindings, meaning that it has to
-   * occur before [simplify2]. Note that [in_memory] generates inner
-   * let-bindings, so it has to be before [simplify2]. *)
+  (* 4. Whole-program transformations related to structs.
+   *
+   * - In C11, structures are values; they can be passed by value in function
+   *   calls; compound literals allow creating them at any position within
+   *   expressions
+   * - In C89, compound literals are not available, meaning we need to go
+   *   through an (uninitialized) allocation followed by an in-place
+   *   initialization (structures that contain no union fields could use an
+   *   initializer list but it's not super readable so we don't do that)
+   * - In Wasm, structures are not values, meaning that all structures need to
+   *   have an address and be passed by address; compound literals are not
+   *   available, meaning that we need to allocate + write initial value. This
+   *   enforces correct evaluation semantics.
+   *
+   * In the code below...
+   * - For C11, we do nothing in particular.
+   * - For C89, we "explode" compound literals as allocations + assignments.
+   * - For Wasm, we rewrite function calls to not pass structures as values.
+   *     Note: we offer this as a standalone option, which complicates the logic.
+   *     If the rewriting were to be performed only for Wasm, then the "pass by
+   *     ref" transformation could occur after the "in memory" transformation and
+   *     would be MUCH simplier.
+   *   Then, we rewrite the code to allocate every struct expression as a stack
+   *   allocation in scope, followed by writing the initial value. This is done
+   *   in two steps: first, "in memory" generates EBufCreate nodes and
+   *   guarantees that EFlat (structures) only appears as arguments to
+   *   EBufCreate. Then, "simplify wasm 2" rewrites this in EBufCreate EAny
+   *   followed by EBufWrite, per the precondition of AstToCFlat.
+   *
+   * There is an extraneous call to "simplify 2" before "in memory"; it would be
+   * good to remove it. *)
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
   let files =
     if !Options.wasm then
@@ -485,14 +509,18 @@ Supported options:|}
       let files = Simplify.simplify2 files in
       let files = Structs.in_memory files in
       (* This one near the end because [in_memory] generates new EBufCreate's that
-       * need to be desugared into EBufCreate Any + EBufWrite. *)
+       * need to be desugared into EBufCreate Any + EBufWrite. See e2ceb92e. *)
       let files = SimplifyWasm.simplify2 files in
       tick_print true "Wasm specific";
       files
+    else if not !Options.compound_literals then
+      Structs.remove_literals files
     else
       files
   in
+    print PrintAst.print_files files;
   let files = Structs.collect_initializers files in
+  (* Note: generates let-bindings, so needs to be before simplify2 *)
   let files = Simplify.remove_unused files in
   let files = if !Options.tail_calls then Simplify.tail_calls files else files in
   let files = Simplify.simplify2 files in

@@ -336,9 +336,8 @@ let collect_initializers (files: Ast.file list) =
  * We also perform a cosmetic rewriting:
  * - [&x[0]] becomes [x].
  *
- * We do not recurse into the initial value of ebufcreate nodes (since this is
- * in the right form already) and into nested structs within outer struct
- * literals.
+ * For EBufCreate nodes, we accept literals as an argument, but may hoist things
+ * within these literals (see "under_compound").
  *
  * This phase assumes all lets have been hoisted. *)
 let to_addr is_struct =
@@ -529,6 +528,37 @@ let to_addr is_struct =
     method! visit_DFunction _ cc flags n ret lid binders body =
       DFunction (cc, flags, n, ret, lid, binders, to_addr false body)
   end
+
+
+(* For C89 *)
+let remove_literals = object
+  inherit [_] map
+
+  method visit_EFlat (_, t) fields =
+    let b, x = Helpers.mk_binding "lit" t in
+    let rec mk_path (e: expr) (t: typ) (fields: ident list) =
+      List.fold_left (fun acc f -> with_type t (EField (acc, f))) e fields
+    in
+    let rec explode (acc: expr list) (path: ident list) (e: expr) =
+      match e.node with
+      | EFlat fields ->
+          List.fold_left (fun acc (f, e) ->
+            let f = Option.must f in
+            explode acc (f :: path) e
+          ) acc fields
+      | _ ->
+          with_type TUnit (EAssign (mk_path x e.typ (List.rev path), e)) :: acc
+    in
+    ELet (b, Helpers.any, DeBruijn.close_binder b (with_type t (ESequence (
+      List.rev (x :: explode [] [] (with_type t (EFlat fields)))))))
+
+  method visit_fields_t_opt _ fields =
+    (* All fields become mutable with this transformation *)
+    List.map (fun (f, (t, _)) -> f, (t, true)) fields
+end
+
+let remove_literals files =
+  remove_literals#visit_files () files
 
 
 let in_memory files =
