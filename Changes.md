@@ -1,3 +1,29 @@
+### December 28th, 2018
+
+- Overhaul of the various struct transformations. This fixes bugs in the Wasm
+  backend, simplifies internal code, and finally gives a working C89 mode that
+  properly removes struct literals in favor of gradual initialization, i.e.
+
+  ```
+  foobar_t x = { .tag = foo, .val = { .case_Bar = baz }}
+  ```
+
+  is now compiled as:
+
+  ```
+  foobar_t x;
+  x.tag = foo;
+  x.val.case_bar = baz;
+  ```
+
+  when using `-fno-compound-literals`.
+
+### November 29th, 2018
+
+- The build process of kremlib now produces several flavors in kremlib/dist, all
+  of which are standalone; their compilation is under CI. See kremlib/README for
+  more details.
+
 ### November 27th, 2018
 
 - Allow `-bundle Foo=[rename=Bar]`

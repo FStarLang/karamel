@@ -1,5 +1,5 @@
 [
-  "v€£–YÈßNPÚîŽr)¹Ì",
+  "iä\u0005Þ\u000e\u001dÝY\u0015)F‘\u001cU6\f",
   [
     [
       "C89.f",
@@ -154,6 +154,80 @@
       "f1c48dba89cc60c8fe391dae63ecd907"
     ],
     [
+      "C89.point",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_FStar.Int32.t__uu___haseq" ],
+      0,
+      "460acdeaca86061d0dae7eb8ef7db3a1"
+    ],
+    [
+      "C89.__proj__Point2d__item___0",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_C89.Point2d",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_C89_Tm_refine_17ea200a8473bdb82b8d303711705436"
+      ],
+      0,
+      "d267c07c6563faad9d0c55a5ad9cf672"
+    ],
+    [
+      "C89.__proj__Point2d__item___1",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_C89.Point2d",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_C89_Tm_refine_17ea200a8473bdb82b8d303711705436"
+      ],
+      0,
+      "b18c7f757f1147fcc78a500ab45303ab"
+    ],
+    [
+      "C89.__proj__Point3d__item___0",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_C89.Point3d",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_C89_Tm_refine_8a3bd36ce8fbd7cbd87cdc6980d27ae6"
+      ],
+      0,
+      "85806add7f525da9c6e3c11e156f2b26"
+    ],
+    [
+      "C89.__proj__Point3d__item___1",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_C89.Point3d",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_C89_Tm_refine_8a3bd36ce8fbd7cbd87cdc6980d27ae6"
+      ],
+      0,
+      "c0b56492cb99731f5bd4dca88c2f588e"
+    ],
+    [
+      "C89.__proj__Point3d__item___2",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_C89.Point3d",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_C89_Tm_refine_8a3bd36ce8fbd7cbd87cdc6980d27ae6"
+      ],
+      0,
+      "be9ebc8eaef3f73ea99f835766d1a29b"
+    ],
+    [
       "C89.main",
       1,
       2,
@@ -215,7 +289,7 @@
         "typing_FStar.Set.singleton"
       ],
       0,
-      "4f1f76058a4cefbc3ef99b8af977465d"
+      "d5c25cba47114a347c9dd0af0499a4d1"
     ]
   ]
 ]

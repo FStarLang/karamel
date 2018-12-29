@@ -531,30 +531,42 @@ let to_addr is_struct =
 
 
 (* For C89 *)
-let remove_literals = object
-  inherit [_] map
+let remove_literals = object (self)
+  inherit [_] map as super
 
-  method visit_EFlat (_, t) fields =
+  method private mk_path (e: expr) (t: typ) (fields: ident list) =
+    List.fold_left (fun acc f -> with_type t (EField (acc, f))) e fields
+
+  method private explode (acc: expr list) (path: ident list) (e: expr) (dst: expr) =
+    match e.node with
+    | EFlat fields ->
+        List.fold_left (fun acc (f, e) ->
+          let f = Option.must f in
+          self#explode acc (f :: path) e dst
+        ) acc fields
+    | _ ->
+        let e = self#visit_expr_w () e in
+        with_type TUnit (EAssign (self#mk_path dst e.typ (List.rev path), e)) :: acc
+
+  method! visit_ELet ((_, t) as env) b e1 e2 =
+    match e1.node with
+    | EFlat fields ->
+        let fields = List.map (fun (f, e) -> f, DeBruijn.lift 1 e) fields in
+        let x = with_type b.typ (EBound 0) in
+        ELet (b, Helpers.any, with_type t (ESequence (
+          List.rev (self#visit_expr_w () e2 ::
+            self#explode [] [] (with_type e1.typ (EFlat fields)) x))))
+    | _ ->
+        super#visit_ELet env b e1 e2
+
+  method! visit_EFlat (_, t) fields =
     let b, x = Helpers.mk_binding "lit" t in
-    let rec mk_path (e: expr) (t: typ) (fields: ident list) =
-      List.fold_left (fun acc f -> with_type t (EField (acc, f))) e fields
-    in
-    let rec explode (acc: expr list) (path: ident list) (e: expr) =
-      match e.node with
-      | EFlat fields ->
-          List.fold_left (fun acc (f, e) ->
-            let f = Option.must f in
-            explode acc (f :: path) e
-          ) acc fields
-      | _ ->
-          with_type TUnit (EAssign (mk_path x e.typ (List.rev path), e)) :: acc
-    in
     ELet (b, Helpers.any, DeBruijn.close_binder b (with_type t (ESequence (
-      List.rev (x :: explode [] [] (with_type t (EFlat fields)))))))
+      List.rev (x :: self#explode [] [] (with_type t (EFlat fields)) x)))))
 
   method visit_fields_t_opt _ fields =
     (* All fields become mutable with this transformation *)
-    List.map (fun (f, (t, _)) -> f, (t, true)) fields
+    List.map (fun (f, (t, _)) -> f, (self#visit_typ () t, true)) fields
 end
 
 let remove_literals files =
