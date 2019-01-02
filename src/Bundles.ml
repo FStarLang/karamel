@@ -142,6 +142,31 @@ let string_of_dependency (d1, f1, d2, f2) =
   KPrint.bsprintf "%a (found in file %s) mentions %a (found in file %s)"
     PrintAst.plid d1 f1 PrintAst.plid d2 f2
 
+let direct_dependencies file_of file =
+  let deps = Hashtbl.create 41 in
+  let current_decl = ref None in
+  let prepend lid =
+    match file_of lid with
+    | Some f when f <> fst file ->
+        let dep = (Option.must !current_decl, fst file, lid, f) in
+        Hashtbl.replace deps f dep
+    | _ ->
+        ()
+  in
+  (object
+    inherit [_] iter as super
+    method! visit_decl env decl =
+      current_decl := Some (lid_of_decl decl);
+      super#visit_decl env decl
+    method! visit_EQualified _ lid =
+      prepend lid
+    method! visit_TQualified _ lid =
+      prepend lid
+    method! visit_TApp _ lid _ =
+      prepend lid
+  end)#visit_file () file;
+  deps
+
 let topological_sort files =
   (* We perform a dependency analysis on this set of files to figure out how to
    * order them; this is the creation of the dependency graph. Instead of merely
@@ -151,28 +176,7 @@ let topological_sort files =
   let graph = Hashtbl.create 41 in
   let file_of = mk_file_of files in
   List.iter (fun file ->
-    let deps = Hashtbl.create 41 in
-    let current_decl = ref None in
-    let prepend lid =
-      match file_of lid with
-      | Some f when f <> fst file ->
-          let dep = (Option.must !current_decl, fst file, lid, f) in
-          Hashtbl.replace deps f dep
-      | _ ->
-          ()
-    in
-    (object
-      inherit [_] iter as super
-      method! visit_decl env decl =
-        current_decl := Some (lid_of_decl decl);
-        super#visit_decl env decl
-      method! visit_EQualified _ lid =
-        prepend lid
-      method! visit_TQualified _ lid =
-        prepend lid
-      method! visit_TApp _ lid _ =
-        prepend lid
-    end)#visit_file () file;
+    let deps = direct_dependencies file_of file in
     Hashtbl.add graph (fst file) (ref White, deps, snd file)
   ) files;
 
