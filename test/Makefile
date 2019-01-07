@@ -35,7 +35,7 @@ WASM_FILES	= \
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
 BROKEN		= \
-  HigherOrder6.fst RecordTypingLimitation.fst
+  HigherOrder6.fst RecordTypingLimitation.fst ForwardDecl.fst
 
 WEB_DIR		?= web
 CACHE_DIR	= .cache
