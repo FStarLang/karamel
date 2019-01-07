@@ -305,7 +305,6 @@ let rec is_initializer_constant e =
     (*| TQualified (["C";"String"], "t") *)->
         true
     | _ ->
-        KPrint.bprintf "%a is not an initializer constant\n" pexpr e;
         false
   in
   is_int_constant e ||
@@ -323,10 +322,7 @@ let rec is_initializer_constant e =
   | { node = EBufCreateL (_, es); _ } ->
       List.for_all is_initializer_constant es
   | _ ->
-      let r = is_null e in
-      if not r then
-        KPrint.bprintf "%a is not an initializer constant\n" pexpr e;
-      r
+      is_null e
 
 let assert_tlid t =
   (* We only have nominal typing for variants. *)

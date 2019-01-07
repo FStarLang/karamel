@@ -107,6 +107,8 @@ The default is %s and the available warnings are:
   13: monomorphic instance about to be dropped
   14: cannot perform tail-call optimization
   15: function is not Low*; need compatibility headers
+  16: arity mismatch; higher-order cannot be translated to C
+  17: declaration generates a static initializer
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
 The Api= part is optional and Api is made up of a non-empty list of modules
@@ -185,6 +187,8 @@ Supported options:|}
     "-verify", Arg.Set arg_verify, " ask F* to verify the program";
     "-verbose", Arg.Set Options.verbose, "  show the output of intermediary \
       tools when acting as a driver for F* or the C compiler";
+    "-silent", Arg.Set Options.silent, "  hide timing, tool detection and \
+      external commands messages";
     "-diagnostics", Arg.Set arg_diagnostics, "  list recursive functions and \
       overly nested data types (useful for MSVC)";
     "-wasm", Arg.Set Options.wasm, "  emit a .wasm file instead of C";
@@ -364,13 +368,15 @@ Supported options:|}
   (* Timings. *)
   Time.start ();
   let tick_print ok fmt =
-    flush stdout;
-    flush stderr;
-    if ok then
-      Printf.printf ("%s✔%s [" ^^ fmt) Ansi.green Ansi.reset
-    else
-      Printf.printf ("%s⚠%s [" ^^ fmt) Ansi.red Ansi.reset;
-    KPrint.bprintf "] %a\n" Time.tick ()
+    if not !Options.silent then begin
+      flush stdout;
+      flush stderr;
+      if ok then
+        Printf.printf ("%s✔%s [" ^^ fmt) Ansi.green Ansi.reset
+      else
+        Printf.printf ("%s⚠%s [" ^^ fmt) Ansi.red Ansi.reset;
+      KPrint.bprintf "] %a\n" Time.tick ()
+    end
   in
 
 
@@ -605,8 +611,10 @@ Supported options:|}
 
     let fst3 (f, _, _) = f in
 
-    Printf.printf "KreMLin: wrote out .c files for %s\n" (String.concat ", " (List.map fst3 files));
-    Printf.printf "KreMLin: wrote out .h files for %s\n" (String.concat ", " (List.map fst3 headers));
+    if not !Options.silent then begin
+      Printf.printf "KreMLin: wrote out .c files for %s\n" (String.concat ", " (List.map fst3 files));
+      Printf.printf "KreMLin: wrote out .h files for %s\n" (String.concat ", " (List.map fst3 headers))
+    end;
 
     if !arg_skip_compilation then
       exit 0;

@@ -216,9 +216,14 @@ let make_bundles files =
 
   let names, _ = List.split files in
   let uniq_names = List.sort_uniq compare names in
-  if List.length uniq_names <> List.length names then
-    KPrint.bprintf "Internal error, duplicate names after bundling\n%s\n%s\n"
-      (String.concat " " (List.sort compare names)) (String.concat " " uniq_names);
+  if List.length uniq_names <> List.length names then begin
+    let seen = Hashtbl.create 42 in
+    List.iter (fun name ->
+      if Hashtbl.mem seen name then
+        Warnings.(maybe_fatal_error ("", BundleCollision name));
+      Hashtbl.add seen name ()
+    ) names
+  end;
 
   (* This is important, because bundling may creates cycles, that are broken
    * after removing (now-unused) functions. *)
