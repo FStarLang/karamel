@@ -773,6 +773,8 @@ and mk_expr (e: expr): C.expr =
       Bool b
 
   | Struct (typ, fields) ->
+      if typ = None then
+        failwith ("Expected a type annotation for: \n" ^ show_expr e);
       let typ = Option.must typ in
       mk_compound_literal typ fields
 
@@ -1011,8 +1013,8 @@ let mk_files files =
       (either mk_function_or_global_body (if_private_or_abstract (mk_type_or_external C)))
       decls
   in
-  let files = List.filter (fun (name, _) -> not (is_static_header name)) files in
-  List.map (fun (name, program) -> name, mk_c_file program) files
+  let files = List.filter (fun (name, _, _) -> not (is_static_header name)) files in
+  List.map (fun (name, deps, program) -> name, deps, mk_c_file program) files
 
 (* Building the two flavors of headers. *)
 let mk_header decls =
@@ -1038,9 +1040,9 @@ let mk_static_header decls =
   List.map mk_static decls
 
 let mk_headers files =
-  List.map (fun (name, program) ->
+  List.map (fun (name, deps, program) ->
     if is_static_header name then
-      name, mk_static_header program
+      name, deps, mk_static_header program
     else
-      name, mk_header program
+      name, deps, mk_header program
   ) files

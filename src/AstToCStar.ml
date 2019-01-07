@@ -673,8 +673,12 @@ and mk_program name decls =
           (Printexc.to_string e)
   ) decls
 
-and mk_file (name, program) =
-  name, (mk_program name) program
-
 and mk_files files =
-  List.map mk_file files
+  let file_of = Bundle.mk_file_of files in
+  List.map (fun file ->
+    let deps: string list = Hashtbl.fold (fun k _ acc -> k :: acc)
+      (Bundles.direct_dependencies file_of file) []
+    in
+    let name, program = file in
+    name, deps, mk_program name program
+  ) files

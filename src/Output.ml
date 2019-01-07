@@ -7,7 +7,7 @@ open Utils
 open PPrint
 
 let mk_includes =
-  separate_map hardline (fun x -> string "#include " ^^ string x) 
+  separate_map hardline (fun x -> string "#include " ^^ string x)
 
 let kremlib_include () =
   if !Options.minimal then
@@ -72,8 +72,8 @@ let write_one name prefix program suffix =
 let write_c files =
   Driver.detect_fstar_if ();
   Driver.detect_kremlin_if ();
-  List.fold_left (fun names file ->
-    let name, program = file in
+  List.map (fun file ->
+    let name, _, program = file in
     let header = !Options.header !Driver.fstar_rev !Driver.krml_rev in
     let prefix = string (Printf.sprintf "%s\n\n#include \"%s.h\"" header name) in
     let prefix =
@@ -85,17 +85,17 @@ let write_c files =
         prefix
     in
     write_one (name ^ ".c") prefix program empty;
-    name :: names
-  ) [] files
+    name
+  ) files
 
 let write_h files =
-  List.fold_left (fun names file ->
-    let name, program = file in
+  List.map (fun file ->
+    let name, deps, program = file in
     let prefix, suffix = prefix_suffix name in
-    let prefix = prefix ^^ hardline ^^ includes names in
+    let prefix = prefix ^^ hardline ^^ includes deps in
     write_one (name ^ ".h") prefix program suffix;
-    name :: names
-  ) [] files
+    name
+  ) files
 
 let write_makefile user_ccopts custom_c_files c_files h_files =
   let concat_map ext files =

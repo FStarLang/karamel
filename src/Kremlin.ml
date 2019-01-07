@@ -107,6 +107,8 @@ The default is %s and the available warnings are:
   13: monomorphic instance about to be dropped
   14: cannot perform tail-call optimization
   15: function is not Low*; need compatibility headers
+  16: arity mismatch; higher-order cannot be translated to C
+  17: declaration generates a static initializer
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
 The Api= part is optional and Api is made up of a non-empty list of modules
@@ -185,6 +187,8 @@ Supported options:|}
     "-verify", Arg.Set arg_verify, " ask F* to verify the program";
     "-verbose", Arg.Set Options.verbose, "  show the output of intermediary \
       tools when acting as a driver for F* or the C compiler";
+    "-silent", Arg.Set Options.silent, "  hide timing, tool detection and \
+      external commands messages";
     "-diagnostics", Arg.Set arg_diagnostics, "  list recursive functions and \
       overly nested data types (useful for MSVC)";
     "-wasm", Arg.Set Options.wasm, "  emit a .wasm file instead of C";
@@ -238,7 +242,7 @@ Supported options:|}
       structures by value and use pointers instead";
     "-fnoanonymous-unions", Arg.Clear Options.anonymous_unions, "  disable C11 \
       anonymous unions";
-    "-fnocompound-literals", Arg.Unit (fun () -> Options.compound_literals := `Never),
+    "-fnocompound-literals", Arg.Clear Options.compound_literals,
       "  don't generate C11 compound literals";
     "-ftail-calls", Arg.Set Options.tail_calls, "  statically compile tail-calls \
       into loops";
@@ -317,24 +321,18 @@ Supported options:|}
    * the default options for each compiler. *)
   if !Options.wasm then begin
     Options.anonymous_unions := false;
-    (* This forces the evaluation of compound literals to happen first, before
-     * they are assigned. This is the C semantics, and the C compiler will do it
-     * for us, so this is not generally necessary. *)
-    Options.compound_literals := `Wasm;
-    Options.struct_passing := false
-  end;
+    Options.struct_passing := false;
 
-  if !Options.wasm then begin
     (* True Wasm compilation: this module is useless (only assume val's). *)
     (* Only keep what's stricly needed from the C module. *)
     Options.bundle := ([], [ Bundle.Module [ "C" ]], []) :: !Options.bundle;
-    Options.extract_uints := true
-  end;
+    Options.extract_uints := true;
 
-  (* Self-help. *)
-  if !Options.wasm && Options.debug "force-c" then begin
-    Options.add_include := "\"kremlin/internal/wasmsupport.h\"" :: !Options.add_include;
-    Options.drop := Bundle.Module [ "WasmSupport" ] :: !Options.drop
+    (* Self-help. *)
+    if Options.debug "force-c" then begin
+      Options.add_include := "\"kremlin/internal/wasmsupport.h\"" :: !Options.add_include;
+      Options.drop := Bundle.Module [ "WasmSupport" ] :: !Options.drop
+    end
   end;
 
   if not !Options.minimal then
@@ -347,7 +345,7 @@ Supported options:|}
 
   if !arg_c89 then begin
     Options.anonymous_unions := false;
-    Options.compound_literals := `Never;
+    Options.compound_literals := false;
     Options.c89_scope := true;
     Options.c89_std := true;
     Options.ccopts := Driver.Dash.d "KRML_VERIFIED_UINT128" :: !Options.ccopts
@@ -370,13 +368,15 @@ Supported options:|}
   (* Timings. *)
   Time.start ();
   let tick_print ok fmt =
-    flush stdout;
-    flush stderr;
-    if ok then
-      Printf.printf ("%s✔%s [" ^^ fmt) Ansi.green Ansi.reset
-    else
-      Printf.printf ("%s⚠%s [" ^^ fmt) Ansi.red Ansi.reset;
-    KPrint.bprintf "] %a\n" Time.tick ()
+    if not !Options.silent then begin
+      flush stdout;
+      flush stderr;
+      if ok then
+        Printf.printf ("%s✔%s [" ^^ fmt) Ansi.green Ansi.reset
+      else
+        Printf.printf ("%s⚠%s [" ^^ fmt) Ansi.red Ansi.reset;
+      KPrint.bprintf "] %a\n" Time.tick ()
+    end
   in
 
 
@@ -476,31 +476,57 @@ Supported options:|}
   let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Pattern matches compilation";
 
-  (* 4. Whole-program transformations. If needed, pass structures by reference,
-   * and also allocate all structures in memory. This creates new opportunities
-   * for the removal of unused variables, but also breaks the earlier
-   * transformation to a statement language, which we perform again. Note that
-   * [remove_unused] generates MetaSequence let-bindings, meaning that it has to
-   * occur before [simplify2]. Note that [in_memory] generates inner
-   * let-bindings, so it has to be before [simplify2]. *)
+  (* 4. Whole-program transformations related to structs.
+   *
+   * - In C11, structures are values; they can be passed by value in function
+   *   calls; compound literals allow creating them at any position within
+   *   expressions
+   * - In C89, compound literals are not available, meaning we need to go
+   *   through an (uninitialized) allocation followed by an in-place
+   *   initialization (structures that contain no union fields could use an
+   *   initializer list but it's not super readable so we don't do that)
+   * - In Wasm, structures are not values, meaning that all structures need to
+   *   have an address and be passed by address; compound literals are not
+   *   available, meaning that we need to allocate + write initial value. This
+   *   enforces correct evaluation semantics.
+   *
+   * In the code below...
+   * - For C11, we do nothing in particular.
+   * - For C89, we "explode" compound literals as allocations + assignments.
+   * - For Wasm, we rewrite function calls to not pass structures as values.
+   *     Note: we offer this as a standalone option, which complicates the logic.
+   *     If the rewriting were to be performed only for Wasm, then the "pass by
+   *     ref" transformation could occur after the "in memory" transformation and
+   *     would be MUCH simplier.
+   *   Then, we rewrite the code to allocate every struct expression as a stack
+   *   allocation in scope, followed by writing the initial value. This is done
+   *   in two steps: first, "in memory" generates EBufCreate nodes and
+   *   guarantees that EFlat (structures) only appears as arguments to
+   *   EBufCreate. Then, "simplify wasm 2" rewrites this in EBufCreate EAny
+   *   followed by EBufWrite, per the precondition of AstToCFlat.
+   *
+   * There is an extraneous call to "simplify 2" before "in memory"; it would be
+   * good to remove it. *)
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
   let files =
     if !Options.wasm then
       let files = SimplifyWasm.simplify1 files in
+      (* JP: would be lovely to remove this one *)
       let files = Simplify.simplify2 files in
       let files = Structs.in_memory files in
       (* This one near the end because [in_memory] generates new EBufCreate's that
-       * need to be desugared. *)
+       * need to be desugared into EBufCreate Any + EBufWrite. See e2ceb92e. *)
       let files = SimplifyWasm.simplify2 files in
       tick_print true "Wasm specific";
       files
+    else if not !Options.compound_literals then
+      Structs.remove_literals files
     else
       files
   in
   let files = Structs.collect_initializers files in
-    (* print PrintAst.print_files files; *)
+  (* Note: generates let-bindings, so needs to be before simplify2 *)
   let files = Simplify.remove_unused files in
-    (* print PrintAst.print_files files; *)
   let files = if !Options.tail_calls then Simplify.tail_calls files else files in
   let files = Simplify.simplify2 files in
   let files = Inlining.cross_call_analysis files in
@@ -564,12 +590,12 @@ Supported options:|}
     let files = AstToCStar.mk_files files in
     tick_print true "AstToCStar";
 
-    let files = List.filter (fun (_, decls) -> List.length decls > 0) files in
+    let files = List.filter (fun (_, _, decls) -> List.length decls > 0) files in
 
     (* ... then to C *)
     let headers = CStarToC11.mk_headers files in
     let files = CStarToC11.mk_files files in
-    let files = List.filter (fun (_, decls) -> List.length decls > 0) files in
+    let files = List.filter (fun (_, _, decls) -> List.length decls > 0) files in
     tick_print true "CStarToC";
 
     (* -dc *)
@@ -583,12 +609,16 @@ Supported options:|}
     Output.write_makefile user_ccopts !c_files c_output h_output;
     tick_print true "PrettyPrinting";
 
-    Printf.printf "KreMLin: wrote out .c files for %s\n" (String.concat ", " (List.map fst files));
-    Printf.printf "KreMLin: wrote out .h files for %s\n" (String.concat ", " (List.map fst headers));
+    let fst3 (f, _, _) = f in
+
+    if not !Options.silent then begin
+      Printf.printf "KreMLin: wrote out .c files for %s\n" (String.concat ", " (List.map fst3 files));
+      Printf.printf "KreMLin: wrote out .h files for %s\n" (String.concat ", " (List.map fst3 headers))
+    end;
 
     if !arg_skip_compilation then
       exit 0;
-    let remaining_c_files = Driver.compile (List.map fst files) !c_files in
+    let remaining_c_files = Driver.compile (List.map fst3 files) !c_files in
 
     if !arg_skip_linking then
       exit 0;

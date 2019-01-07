@@ -1,3 +1,42 @@
+### January 1st, 2018
+
+- Headers now only depend on their direct dependencies. Previously, KreMLin
+  would order C files in a valid topological order, then each header would
+  include *all the previous headers*. This meant that users could only exclude
+  (say, from their build) suffixes of the (unspecified, unstable) topological
+  ordering. Now, users are free to exclude any set of modules from their build,
+  as long as it creates no unbound symbols.
+
+  This is of particular importance for HACL\* and EverCrypt, as it means that
+  consumers can choose to ignore some parts of HACL\*/EverCrypt, should they not
+  need it.
+
+### December 28th, 2018
+
+- Overhaul of the various struct transformations. This fixes bugs in the Wasm
+  backend, simplifies internal code, and finally gives a working C89 mode that
+  properly removes struct literals in favor of gradual initialization, i.e.
+
+  ```
+  foobar_t x = { .tag = foo, .val = { .case_Bar = baz }}
+  ```
+
+  is now compiled as:
+
+  ```
+  foobar_t x;
+  x.tag = foo;
+  x.val.case_bar = baz;
+  ```
+
+  when using `-fno-compound-literals`.
+
+### November 29th, 2018
+
+- The build process of kremlib now produces several flavors in kremlib/dist, all
+  of which are standalone; their compilation is under CI. See kremlib/README for
+  more details.
+
 ### November 27th, 2018
 
 - Allow `-bundle Foo=[rename=Bar]`

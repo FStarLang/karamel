@@ -405,7 +405,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | EBufCreate (l, e_init, e_len) ->
       if not (e_init.node = EAny) then
-        Warnings.fatal_error "init node is not any but %a\n" pexpr e_init;
+        Warnings.fatal_error "init node is not any but %a (see SimplifyWasm)\n" pexpr e_init;
       let locals, e_len = mk_expr env locals e_len in
       let mult, base_size = cell_size env (assert_buf e.typ) in
       if Options.debug "cflat" then

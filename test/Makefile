@@ -31,7 +31,7 @@ endif
 CUSTOM		= count-uu
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
-  Wasm4.wasm-test Wasm5.wasm-test
+  Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
 BROKEN		= \
@@ -54,7 +54,7 @@ all: $(FILES) $(CUSTOM)
 wasm: $(WASM_FILES)
 
 # Needs a checkout of HACL*
-external: hacl-test hacl-algs
+external: hacl-test hacl-wasm
 
 # All of the above
 everything: all wasm external
@@ -202,7 +202,7 @@ $$(OUTPUT_DIR)/$$(subst .krml,.wasm,$$($(1)_TEST)): $$($(1))/$$($(1)_TEST) | $(K
 	$(KRML) -wasm -drop $$(HACL_DROP) $$($(1)_ARGS) -tmpdir $$@ \
 	  -no-prefix $$(subst .krml,,$$($(1)_TEST)) $$<
 
-hacl-algs: $$(subst .krml,.wasm-test,$$($(1)_TEST))
+hacl-wasm: $$(subst .krml,.wasm-test,$$($(1)_TEST))
 
 clean-$(1):
 	$(MAKE) -C $$($1) clean

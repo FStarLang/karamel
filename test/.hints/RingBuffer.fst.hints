@@ -450,7 +450,7 @@
         "typing_RingBuffer.as_list", "typing_RingBuffer.remaining_space"
       ],
       0,
-      "ba7d85afc125e329597ef5b1be7d7033"
+      "9ac1ccfd0782bddb3faee6a8dd64ec20"
     ],
     [
       "RingBuffer.push",
@@ -567,7 +567,7 @@
         "typing_RingBuffer.next", "typing_RingBuffer.remaining_space"
       ],
       0,
-      "ede9df1148edf4a8f03b098795014253"
+      "94cf9c72dcdcca154e317386fbd1dde7"
     ],
     [
       "RingBuffer.one_past_last",
@@ -807,7 +807,7 @@
         "typing_RingBuffer.remaining_space"
       ],
       0,
-      "bcf37ea3160ceb4e78bb24f6877ef5b8"
+      "a050af5105a22779a548b09ffd0052bc"
     ],
     [
       "RingBuffer.as_list_minus_one",
@@ -1042,7 +1042,7 @@
         "typing_RingBuffer.remaining_space"
       ],
       0,
-      "4b38da5a906db079974ecffdce61ad41"
+      "d581004f885b75a5703f26817a436382"
     ],
     [
       "RingBuffer.create",

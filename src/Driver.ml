@@ -110,7 +110,8 @@ let read_one_error_line cmd args =
 
 (** The tools we depend on; namely, readlink. *)
 let detect_base_tools () =
-  KPrint.bprintf "%s⚙ KreMLin auto-detecting tools.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+  if not !Options.silent then
+    KPrint.bprintf "%s⚙ KreMLin auto-detecting tools.%s Here's what we found:\n" Ansi.blue Ansi.reset;
 
   if success "which" [| "greadlink" |] then
     readlink := "greadlink"
@@ -123,7 +124,8 @@ let detect_base_tools () =
   with Process.Exit.Error _ ->
     ()
   end;
-  KPrint.bprintf "%sreadlink is:%s %s\n" Ansi.underline Ansi.reset !readlink
+  if not !Options.silent then
+    KPrint.bprintf "%sreadlink is:%s %s\n" Ansi.underline Ansi.reset !readlink
 
 let detect_base_tools_if () =
   if !readlink = "" then
@@ -141,7 +143,8 @@ let detect_kremlin () =
     misc_dir := AutoConfig.misc_dir
   end else begin
 
-    KPrint.bprintf "%sKreMLin called via:%s %s\n" Ansi.underline Ansi.reset Sys.argv.(0);
+    if not !Options.silent then
+      KPrint.bprintf "%sKreMLin called via:%s %s\n" Ansi.underline Ansi.reset Sys.argv.(0);
 
     let real_krml =
       let me = Sys.argv.(0) in
@@ -152,7 +155,8 @@ let detect_kremlin () =
         with _ -> fatal_error "Could not compute full krml path"
     in
     (* ../_build/src/Kremlin.native *)
-    KPrint.bprintf "%sthe Kremlin executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
+    if not !Options.silent then
+      KPrint.bprintf "%sthe Kremlin executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
 
     let krml_home =
       begin try
@@ -163,7 +167,8 @@ let detect_kremlin () =
         fatal_error "Could not compute krml_home"
       end
     in
-    KPrint.bprintf "%sKreMLin home is:%s %s\n" Ansi.underline Ansi.reset krml_home;
+    if not !Options.silent then
+      KPrint.bprintf "%sKreMLin home is:%s %s\n" Ansi.underline Ansi.reset krml_home;
 
     if try Sys.is_directory (krml_home ^^ ".git") with Sys_error _ -> false then begin
       let cwd = Sys.getcwd () in
@@ -198,23 +203,27 @@ let expand_prefixes s =
 let detect_fstar () =
   detect_kremlin_if ();
 
-  KPrint.bprintf "%s⚙ KreMLin will drive F*.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+  if not !Options.silent then
+    KPrint.bprintf "%s⚙ KreMLin will drive F*.%s Here's what we found:\n" Ansi.blue Ansi.reset;
 
   begin try
     let r = Sys.getenv "FSTAR_HOME" in
-    KPrint.bprintf "read FSTAR_HOME via the environment\n";
+    if not !Options.silent then
+      KPrint.bprintf "read FSTAR_HOME via the environment\n";
     fstar_home := r;
     fstar := r ^^ "bin" ^^ "fstar.exe"
   with Not_found -> try
     fstar := read_one_line "which" [| "fstar.exe" |];
     fstar_home := d (d !fstar);
-    KPrint.bprintf "FSTAR_HOME is %s (via fstar.exe in PATH)\n" !fstar_home
+    if not !Options.silent then
+      KPrint.bprintf "FSTAR_HOME is %s (via fstar.exe in PATH)\n" !fstar_home
   with _ ->
     fatal_error "Did not find fstar.exe in PATH and FSTAR_HOME is not set"
   end;
 
   if KString.exists !fstar_home "opam"; then begin
-    KPrint.bprintf "Detected an OPAM setup of F*\n";
+    if not !Options.silent then
+      KPrint.bprintf "Detected an OPAM setup of F*\n";
     fstar_lib := !fstar_home ^^ "lib" ^^ "fstar"
   end else begin
     fstar_lib := !fstar_home ^^ "ulib"
@@ -222,11 +231,14 @@ let detect_fstar () =
 
   if success "which" [| "cygpath" |] then begin
     fstar := read_one_line "cygpath" [| "-m"; !fstar |];
-    KPrint.bprintf "%sfstar converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar;
+    if not !Options.silent then
+      KPrint.bprintf "%sfstar converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar;
     fstar_home := read_one_line "cygpath" [| "-m"; !fstar_home |];
-    KPrint.bprintf "%sfstar home converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_home;
+    if not !Options.silent then
+      KPrint.bprintf "%sfstar home converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_home;
     fstar_lib := read_one_line "cygpath" [| "-m"; !fstar_lib |];
-    KPrint.bprintf "%sfstar lib converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_lib
+    if not !Options.silent then
+      KPrint.bprintf "%sfstar lib converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_lib
   end;
 
   if try Sys.is_directory (!fstar_home ^^ ".git") with Sys_error _ -> false then begin
@@ -235,7 +247,8 @@ let detect_fstar () =
     let branch = read_one_line "git" [| "rev-parse"; "--abbrev-ref"; "HEAD" |] in
     fstar_rev := String.sub (read_one_line "git" [| "rev-parse"; "HEAD" |]) 0 8;
     let color = if branch = "master" then Ansi.green else Ansi.orange in
-    KPrint.bprintf "fstar is on %sbranch %s%s\n" color branch Ansi.reset;
+    if not !Options.silent then
+      KPrint.bprintf "fstar is on %sbranch %s%s\n" color branch Ansi.reset;
     Sys.chdir cwd
   end;
 
@@ -249,7 +262,8 @@ let detect_fstar () =
    * on in Kremlin.ml *)
   fstar_options := (!fstar_lib ^^ "FStar.UInt128.fst") :: !fstar_options;
   fstar_options := (!runtime_dir ^^ "WasmSupport.fst") :: !fstar_options;
-  KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
+  if not !Options.silent then
+    KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
 
   flush stdout
 
@@ -277,7 +291,8 @@ let run_or_warn str exe args =
   flush stdout; flush stderr;
   match r with
   | { P.Output.exit_status = P.Exit.Exit 0; stdout; stderr; _ } ->
-      KPrint.bprintf "%s✔%s %s%s\n" Ansi.green Ansi.reset str (verbose_msg ());
+      if not !Options.silent then
+        KPrint.bprintf "%s✔%s %s%s\n" Ansi.green Ansi.reset str (verbose_msg ());
       if !Options.verbose then
         List.iter print_endline stdout;
         List.iter print_endline stderr;
@@ -296,7 +311,8 @@ let run_fstar verify skip_extract skip_translate files =
   assert (List.length files > 0);
   detect_fstar_if ();
 
-  KPrint.bprintf "%s⚡ Calling F* (use -verbose to see the output)%s\n" Ansi.blue Ansi.reset;
+  if not !Options.silent then
+    KPrint.bprintf "%s⚡ Calling F* (use -verbose to see the output)%s\n" Ansi.blue Ansi.reset;
   let args = List.rev !Options.fsopts @ !fstar_options @ List.rev files in
   if verify then begin
     flush stdout;
@@ -321,7 +337,8 @@ let run_fstar verify skip_extract skip_translate files =
     !Options.tmpdir ^^ "out.krml"
 
 let detect_gnu flavor =
-  KPrint.bprintf "%s⚙ KreMLin will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+  if not !Options.silent then
+    KPrint.bprintf "%s⚙ KreMLin will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
   let rec search = function
     | fmt :: rest ->
         let cmd = KPrint.bsprintf fmt flavor in
@@ -335,12 +352,14 @@ let detect_gnu flavor =
   let crosscc = if !Options.m32 then format_of_string "i686-w64-mingw32-%s" else format_of_string "x86_64-w64-mingw32-%s" in
   search [ "%s-7.0"; "%s-6.0"; "%s-5.0"; "%s-7"; "%s-6"; "%s-5"; crosscc; "%s" ];
 
-  KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !cc;
+  if not !Options.silent then
+    KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !cc;
 
   if !Options.m32 then
     cc_args := "-m32" :: !cc_args;
-  KPrint.bprintf "%s%s options are:%s %s\n" Ansi.underline !cc Ansi.reset
-    (String.concat " " !cc_args)
+  if not !Options.silent then
+    KPrint.bprintf "%s%s options are:%s %s\n" Ansi.underline !cc Ansi.reset
+      (String.concat " " !cc_args)
 
 
 let detect_compcert () =
@@ -394,7 +413,8 @@ let compile files extra_c_files =
   flush stdout;
 
   let files = List.map (fun f -> !Options.tmpdir ^^ f ^ ".c") files in
-  KPrint.bprintf "%s⚡ Generating object files%s\n" Ansi.blue Ansi.reset;
+  if not !Options.silent then
+    KPrint.bprintf "%s⚡ Generating object files%s\n" Ansi.blue Ansi.reset;
   let gcc_c file =
     flush stdout;
     let info = Printf.sprintf "[CC,%s]" file in
@@ -413,9 +433,10 @@ let link c_files o_files =
     [ !kremlib_dir ^^ "dist" ^^ "generic" ^^ "libkremlib.a" ]
   in
   let extra_arg = if !Options.exe_name <> "" then Dash.o_exe !Options.exe_name else [] in
-  if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg @ List.rev !Options.ldopts) then
-    KPrint.bprintf "%sAll files linked successfully%s 👍\n" Ansi.green Ansi.reset
-  else begin
+  if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg @ List.rev !Options.ldopts) then begin
+    if not !Options.silent then
+      KPrint.bprintf "%sAll files linked successfully%s 👍\n" Ansi.green Ansi.reset
+  end else begin
     KPrint.bprintf "%s%s failed at the final linking phase%s\n" Ansi.red !Options.cc Ansi.reset;
     exit 250
   end

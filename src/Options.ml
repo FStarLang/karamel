@@ -12,10 +12,11 @@ let no_prefix: string list ref = ref [ "C"; "C.Compat"; "C.Endianness"; "C.Compa
 let add_include: string list ref = ref [ ]
 let add_include_tmh = ref false
 let add_early_include: string list ref = ref [ ]
-let warn_error = ref "+1..2@3+4..8@9+10@11+12..16"
+let warn_error = ref "+1..2@3+4..8@9+10@11+12..18"
 let tmpdir = ref "."
 let includes: string list ref = ref []
 let verbose = ref false
+let silent = ref false
 let exe_name = ref ""
 let cc = ref "gcc"
 let m32 = ref false
@@ -33,11 +34,11 @@ let static_header: string list ref = ref []
 let minimal = ref false
 let by_ref: (string list * string) list ref = ref []
 
-(* wasm = true ==> these three are false *)
+(* wasm = true ==> these two are false *)
 let struct_passing = ref true
 let anonymous_unions = ref true
-let compound_literals: [ `Ok | `Wasm | `Never ] ref = ref `Ok
 
+let compound_literals = ref true
 let short_enums = ref true
 let alloca_if_vla = ref false
 let parentheses = ref false
