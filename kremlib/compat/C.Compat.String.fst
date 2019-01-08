@@ -30,8 +30,6 @@ let v (s: t): GTot (s:Seq.seq C.Compat.char{well_formed s}) =
 let length (s: t): GTot (n:nat{n > 0}) =
   Seq.length s.s
 
-[@ (CPrologue "\
- #define C_Compat_String_t C_String_t\n")]
 noextract abstract
 let get (s: t) (l: U32.t{ U32.v l < Seq.length (v s) }): Pure C.Compat.char
   (requires True)
