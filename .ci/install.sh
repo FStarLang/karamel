@@ -26,7 +26,7 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   mv node-v8* node
 fi
 
-git clone --branch master --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
-git clone --branch fstar-master --single-branch --depth 1 https://github.com/mitls/hacl-star
+git clone --branch aseem_deps --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
+git clone --branch aseem_deps --single-branch --depth 1 https://github.com/mitls/hacl-star
 make -C fstar/src/ocaml-output
 make -C fstar/ulib/ml -j 4
