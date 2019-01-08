@@ -325,7 +325,7 @@ Supported options:|}
 
     (* True Wasm compilation: this module is useless (only assume val's). *)
     (* Only keep what's stricly needed from the C module. *)
-    Options.bundle := ([], [ Bundle.Module [ "C" ]], []) :: !Options.bundle;
+    Options.bundle := ([], [ Bundle.Module [ "C"; "Compat" ]], []) :: ([], [ Bundle.Module [ "C" ]], []) :: !Options.bundle;
     Options.extract_uints := true;
 
     (* Self-help. *)
@@ -337,7 +337,9 @@ Supported options:|}
 
   if not !Options.minimal then
     Options.bundle :=
-      ([], [ Bundle.Module [ "C"; "Loops" ]; Bundle.Module [ "Spec"; "Loops" ] ], []) ::
+      ([], [ Bundle.Module [ "C"; "Loops" ];
+        Bundle.Module [ "C"; "Compat"; "Loops" ];
+        Bundle.Module [ "Spec"; "Loops" ] ], []) ::
       ([], [ Bundle.Module [ "Prims" ] ], []) ::
       ([], [ Bundle.Prefix [ "FStar" ] ], []) ::
       ([], [ Bundle.Prefix [ "LowStar" ] ], []) ::
