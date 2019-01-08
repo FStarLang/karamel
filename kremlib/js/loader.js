@@ -203,9 +203,9 @@ let mkCNullity = (mem) => ({
 
 let mkCString = (mem, prefix) => ({
   [prefix + '_print']: (ptr) => my_print(stringAtAddr(mem, ptr)),
-  [prefix + '_of_literal']: (ptr) => { throw new Error("primitive: C_String_of_literal") },
-  [prefix + '_strlen']: (ptr) => { throw new Error("todo: C_String_strlen") },
-  [prefix + '_memcpy']: (ptr) => { throw new Error("todo: C_String_memcpy") },
+  [prefix + '_of_literal']: (ptr) => { throw new Error("primitive: "+prefix+"_of_literal") },
+  [prefix + '_strlen']: (ptr) => { throw new Error("todo: "+prefix+"_strlen") },
+  [prefix + '_memcpy']: (ptr) => { throw new Error("todo: "+prefix+"_memcpy") },
 });
 
 function checkEq(mem, name) {
@@ -221,18 +221,18 @@ function checkEq(mem, name) {
 
 let mkTestLib = (mem, prefix) => ({
   [prefix + '_touch']: () => 0,
-  [prefix + '_check8']: checkEq(mem, "TestLib_check8"),
-  [prefix + '_check16']: checkEq(mem, "TestLib_check16"),
-  [prefix + '_check32']: checkEq(mem, "TestLib_check32"),
-  [prefix + '_check64']: checkEq(mem, "TestLib_check64"),
-  [prefix + '_checku8']: checkEq(mem, "TestLib_checku8"),
-  [prefix + '_checku16']: checkEq(mem, "TestLib_checku16"),
-  [prefix + '_checku32']: checkEq(mem, "TestLib_checku32"),
-  [prefix + '_checku64']: checkEq(mem, "TestLib_checku64"),
+  [prefix + '_check8']: checkEq(mem, prefix+"_check8"),
+  [prefix + '_check16']: checkEq(mem, prefix+"_check16"),
+  [prefix + '_check32']: checkEq(mem, prefix+"_check32"),
+  [prefix + '_check64']: checkEq(mem, prefix+"_check64"),
+  [prefix + '_checku8']: checkEq(mem, prefix+"_checku8"),
+  [prefix + '_checku16']: checkEq(mem, prefix+"_checku16"),
+  [prefix + '_checku32']: checkEq(mem, prefix+"_checku32"),
+  [prefix + '_checku64']: checkEq(mem, prefix+"_checku64"),
   [prefix + '_check']: (b) => {
     if (!b) {
       dump(mem, 2*1024);
-      my_print("TestLib_check: assertion failure");
+      my_print(prefix+"_check: assertion failure");
       throw new Error();
     }
     return 0;
