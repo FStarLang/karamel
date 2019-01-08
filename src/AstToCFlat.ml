@@ -1,4 +1,4 @@
-(* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
+C_(* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
 (* Licensed under the Apache 2.0 License. *)
 
 (** Going from CStar to CFlat *)
@@ -56,7 +56,7 @@ let size_of (t: typ): size =
       I32
   | TAnonymous (Enum _) ->
       I32
-  | TQualified ([], ("C_String_t" | "C_String_t_" | "Prims_string" | "Prims_int")) ->
+  | TQualified ([], ("C_String_t" | "C_String_t_" | "C_Compat_String_t" | "C_Compat_String_t_" | "Prims_string" | "Prims_int")) ->
       (* The string type from the C.String module, or an F* string literal.
        * They're represented the same way, that is, a pointer to a string
        * statically allocated in the data segment. *)

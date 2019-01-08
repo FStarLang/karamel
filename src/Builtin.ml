@@ -290,6 +290,7 @@ let is_model name =
     is_machine_integer name ||
     List.mem name [
       "C_String";
+      "C_Compat_String";
       "FStar_String"
     ]
 
