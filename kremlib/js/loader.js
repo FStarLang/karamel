@@ -201,11 +201,11 @@ let mkCNullity = (mem) => ({
   C_Nullity_is_null: () => { throw new Error("todo: is_null") }
 });
 
-let mkCString = (mem) => ({
-  C_String_print: (ptr) => my_print(stringAtAddr(mem, ptr)),
-  C_String_of_literal: (ptr) => { throw new Error("primitive: C_String_of_literal") },
-  C_String_strlen: (ptr) => { throw new Error("todo: C_String_strlen") },
-  C_String_memcpy: (ptr) => { throw new Error("todo: C_String_memcpy") },
+let mkCString = (mem, prefix) => ({
+  [prefix + '_print']: (ptr) => my_print(stringAtAddr(mem, ptr)),
+  [prefix + '_of_literal']: (ptr) => { throw new Error("primitive: C_String_of_literal") },
+  [prefix + '_strlen']: (ptr) => { throw new Error("todo: C_String_strlen") },
+  [prefix + '_memcpy']: (ptr) => { throw new Error("todo: C_String_memcpy") },
 });
 
 function checkEq(mem, name) {
@@ -219,17 +219,17 @@ function checkEq(mem, name) {
   };
 }
 
-let mkTestLib = (mem) => ({
-  TestLib_touch: () => 0,
-  TestLib_check8: checkEq(mem, "TestLib_check8"),
-  TestLib_check16: checkEq(mem, "TestLib_check16"),
-  TestLib_check32: checkEq(mem, "TestLib_check32"),
-  TestLib_check64: checkEq(mem, "TestLib_check64"),
-  TestLib_checku8: checkEq(mem, "TestLib_checku8"),
-  TestLib_checku16: checkEq(mem, "TestLib_checku16"),
-  TestLib_checku32: checkEq(mem, "TestLib_checku32"),
-  TestLib_checku64: checkEq(mem, "TestLib_checku64"),
-  TestLib_check: (b) => {
+let mkTestLib = (mem, prefix) => ({
+  [prefix + '_touch']: () => 0,
+  [prefix + '_check8']: checkEq(mem, "TestLib_check8"),
+  [prefix + '_check16']: checkEq(mem, "TestLib_check16"),
+  [prefix + '_check32']: checkEq(mem, "TestLib_check32"),
+  [prefix + '_check64']: checkEq(mem, "TestLib_check64"),
+  [prefix + '_checku8']: checkEq(mem, "TestLib_checku8"),
+  [prefix + '_checku16']: checkEq(mem, "TestLib_checku16"),
+  [prefix + '_checku32']: checkEq(mem, "TestLib_checku32"),
+  [prefix + '_checku64']: checkEq(mem, "TestLib_checku64"),
+  [prefix + '_check']: (b) => {
     if (!b) {
       dump(mem, 2*1024);
       my_print("TestLib_check: assertion failure");
@@ -237,15 +237,15 @@ let mkTestLib = (mem) => ({
     }
     return 0;
   },
-  TestLib_unsafe_malloc: () => { throw new Error("todo: unsafe_malloc") },
-  TestLib_perr: (err) => {
+  [prefix + '_unsafe_malloc']: () => { throw new Error("todo: unsafe_malloc") },
+  [prefix + '_perr']: (err) => {
     my_print("Got error code "+err);
     return 0;
   },
-  TestLib_uint8_p_null: 0,
-  TestLib_uint32_p_null: 0,
-  TestLib_uint64_p_null: 0,
-  TestLib_compare_and_print: (addr, b1, b2, len) => {
+  [prefix + '_uint8_p_null']: 0,
+  [prefix + '_uint32_p_null']: 0,
+  [prefix + '_uint64_p_null']: 0,
+  [prefix + '_compare_and_print']: (addr, b1, b2, len) => {
     let m8 = new Uint8Array(mem.buffer);
     let str = stringAtAddr(m8, addr);
     let hex1 = hex(m8, b1, len);
@@ -262,7 +262,7 @@ let mkTestLib = (mem) => ({
     }
     my_print("[test] "+str+" is a success\n");
   },
-  TestLib_print_clock_diff: (t1, t2) => {
+  [prefix + '_print_clock_diff']: (t1, t2) => {
     my_print("[benchmark] took: " + (t2 - t1) + "ms\n");
   },
 });
@@ -355,10 +355,10 @@ function init() {
     C_Endianness: mkCEndianness(mem),
     C_Compat_Endianness: mkCEndianness(mem),
     C_Nullity: mkCNullity(mem),
-    C_String: mkCString(mem),
-    C_Compat_String: mkCString(mem),
-    TestLib: mkTestLib(mem),
-    TestLib_Compat: mkTestLib(mem)
+    C_String: mkCString(mem, 'C_String'),
+    C_Compat_String: mkCString(mem, 'C_Compat_String'),
+    TestLib: mkTestLib(mem, 'TestLib'),
+    TestLib_Compat: mkTestLib(mem, 'TestLib_Compat')
   };
   return imports;
 }
