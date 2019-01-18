@@ -217,10 +217,8 @@ Supported options:|}
       List.iter (prepend Options.library) (Parsers.drop s)),
       "  this is a model and all functions should be made abstract";
     "-extract-uints", Arg.Set Options.extract_uints, ""; (* no doc, intentional *)
-    "-header", Arg.String (fun f ->
-      let c = Utils.file_get_contents f in
-      Options.header := fun _ _ -> c
-    ), " prepend the contents of the given file at the beginning of each .c and .h";
+    "-header", Arg.Set_string Options.header, " prepend the contents of the given \
+      file at the beginning of each .c and .h";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, \
       .c, .h and .o files";
     "-I", Arg.String (prepend Options.includes), " add directory to search path \

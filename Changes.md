@@ -1,3 +1,8 @@
+### January 18th, 2018
+
+- Allow %s in header files (passed to KReMLin via -header), to indicate where to
+  insert the KReMLin invocation.
+
 ### January 1st, 2018
 
 - Headers now only depend on their direct dependencies. Previously, KreMLin

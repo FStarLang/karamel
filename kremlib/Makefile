@@ -66,7 +66,7 @@ $(EXTRACT_DIR)/%.krml: | .depend
 	  $(notdir $(subst .checked,,$<)) && \
 	touch $@
 
-KREMLIN_ARGS += -fparentheses -fcurly-braces -fno-shadow
+KREMLIN_ARGS += -fparentheses -fcurly-braces -fno-shadow -header copyright-header.txt
 
 # Default build
 $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(wildcard c/*.c) .depend ../_build/src/Kremlin.native
