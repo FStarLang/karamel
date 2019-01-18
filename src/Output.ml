@@ -40,16 +40,13 @@ let header (): string =
   let default = invocation () in
   if !Options.header = "" then
     "/* " ^ default ^ " */"
-  else try
+  else
     let fmt = Utils.file_get_contents !Options.header in
-    begin try
+    try
       let fmt = Scanf.format_from_string fmt "%s" in
       KPrint.bsprintf fmt default
     with Scanf.Scan_failure _ ->
       fmt
-    end
-  with Not_found ->
-    "/* " ^ default ^ " */"
 
 (* A pair of a header, containing:
  * - the boilerplate specified on the command-line by -header
