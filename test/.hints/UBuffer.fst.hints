@@ -61,9 +61,8 @@
         "lemma_LowStar.Monotonic.Buffer.loc_includes_addresses_buffer_",
         "lemma_LowStar.Monotonic.Buffer.loc_includes_none",
         "lemma_LowStar.Monotonic.Buffer.loc_includes_trans_backwards",
-        "lemma_LowStar.Monotonic.Buffer.modifies_inert_buffer_elim",
-        "lemma_LowStar.Monotonic.Buffer.modifies_inert_intro",
-        "lemma_LowStar.Monotonic.Buffer.modifies_inert_liveness_insensitive_buffer_weak",
+        "lemma_LowStar.Monotonic.Buffer.modifies_buffer_elim",
+        "lemma_LowStar.Monotonic.Buffer.modifies_liveness_insensitive_buffer_weak",
         "lemma_LowStar.Monotonic.Buffer.unused_in_loc_unused_in",
         "lemma_LowStar.Monotonic.Buffer.unused_in_not_unused_in_disjoint_2",
         "primitive_Prims.op_Addition", "primitive_Prims.op_AmpAmp",
@@ -104,7 +103,7 @@
         "typing_LowStar.UninitializedBuffer.initialization_preorder"
       ],
       0,
-      "32ac3ff0d77440b3152b16b4c2ee9449"
+      "725e6d895e644de54c44808933c2ef44"
     ],
     [
       "UBuffer.test_ub_stack",
@@ -159,19 +158,16 @@
         "lemma_FStar.Set.mem_union",
         "lemma_LowStar.Monotonic.Buffer.address_liveness_insensitive_buffer",
         "lemma_LowStar.Monotonic.Buffer.fresh_frame_loc_not_unused_in_disjoint",
-        "lemma_LowStar.Monotonic.Buffer.fresh_frame_modifies_inert",
+        "lemma_LowStar.Monotonic.Buffer.fresh_frame_modifies",
         "lemma_LowStar.Monotonic.Buffer.live_loc_not_unused_in",
         "lemma_LowStar.Monotonic.Buffer.loc_disjoint_includes_r",
         "lemma_LowStar.Monotonic.Buffer.loc_disjoint_sym_",
         "lemma_LowStar.Monotonic.Buffer.loc_includes_addresses_addresses_2",
         "lemma_LowStar.Monotonic.Buffer.loc_includes_addresses_buffer_",
         "lemma_LowStar.Monotonic.Buffer.loc_includes_none",
-        "lemma_LowStar.Monotonic.Buffer.loc_union_loc_none_l",
-        "lemma_LowStar.Monotonic.Buffer.modifies_inert_buffer_elim",
-        "lemma_LowStar.Monotonic.Buffer.modifies_inert_intro",
-        "lemma_LowStar.Monotonic.Buffer.modifies_inert_liveness_insensitive_buffer_weak",
-        "lemma_LowStar.Monotonic.Buffer.modifies_trans",
-        "lemma_LowStar.Monotonic.Buffer.popped_modifies_inert",
+        "lemma_LowStar.Monotonic.Buffer.modifies_buffer_elim",
+        "lemma_LowStar.Monotonic.Buffer.modifies_liveness_insensitive_buffer_weak",
+        "lemma_LowStar.Monotonic.Buffer.popped_modifies",
         "primitive_Prims.op_AmpAmp", "primitive_Prims.op_BarBar",
         "primitive_Prims.op_Equality", "primitive_Prims.op_LessThanOrEqual",
         "primitive_Prims.op_Negation", "projection_inverse_BoxBool_proj_0",
@@ -204,11 +200,10 @@
         "typing_LowStar.Monotonic.Buffer.loc_buffer",
         "typing_LowStar.Monotonic.Buffer.loc_not_unused_in",
         "typing_LowStar.Monotonic.Buffer.loc_regions",
-        "typing_LowStar.Monotonic.Buffer.loc_union",
         "typing_LowStar.UninitializedBuffer.initialization_preorder"
       ],
       0,
-      "424d01c88ccc11e370a1645b8bc5f344"
+      "48fedce8fa37c67497ac18f23e5bd616"
     ],
     [
       "UBuffer.main",
@@ -217,7 +212,7 @@
       1,
       [ "@query" ],
       0,
-      "ec6fb4c8eef2e4742f8c7c82b0cd448b"
+      "b720580a0ae19b28f9ae870e555df1fe"
     ]
   ]
 ]

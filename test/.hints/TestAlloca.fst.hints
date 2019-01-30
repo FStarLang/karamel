@@ -14,7 +14,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "e58ba9bd1d49b1c66a9015aae802dade"
+      "ff6df7be6ccced23b43aca8ba98b8d64"
     ],
     [
       "TestAlloca.main",
@@ -77,7 +77,7 @@
         "typing_FStar.Set.complement", "typing_FStar.Set.singleton"
       ],
       0,
-      "69735d543ee3e0c55f4110592f578b2f"
+      "065af35d63920e5b346f0e01a0fdf2bd"
     ]
   ]
 ]
