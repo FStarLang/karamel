@@ -1,0 +1,25 @@
+{
+    "ProjectName" : "Kremlin",
+
+    "BaseContainerIsEverestImage" : true,
+    "BaseContainerImageName" : "fstar",
+    "BaseContainerImageTagOrCommitId": "latest",
+    "BranchName" : "master",
+    "GithubCommitUrl" : "https://github.com/FStarLang/fstar/commit",
+    "OnDemandBuildDefinition" : "FStar\\FStar-{agentOS}",
+
+    "DockerFile": ".docker/build/{agentOS}/Dockerfile",
+    "DependencyFiles" : [
+        ".docker/build/build_helper.sh",
+        ".docker/build/build.sh"
+    ],
+
+    "DockerCacheEnabled" : true,
+    "CIBuildTarget" : "all",
+    "NightlyBuildTarget" : "nightly",
+    "HasLogsToExtract" : true,
+
+    "NotificationEnabled" : true,
+    "NotificationChannel" : "#kremlin-build",
+    "PublicBranches" : [ "master" ]
+}
