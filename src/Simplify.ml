@@ -7,7 +7,7 @@
 open Ast
 open DeBruijn
 open Idents
-open Warnings
+open Warn
 open PrintAst.Ops
 open Helpers
 
@@ -631,7 +631,7 @@ let rec hoist_stmt loc e =
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
       let lhs3, e3 = hoist_expr loc UnderStmtLet e3 in
       if lhs2 <> [] || lhs3 <> [] then
-        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
+        Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,
           GeneratesLetBindings ("this for-loop's condition or iteration", e, (lhs2 @ lhs3))));
       let e4 = hoist_stmt loc e4 in
       let s = closing_binder binder in
@@ -643,7 +643,7 @@ let rec hoist_stmt loc e =
       assert (e.typ = TUnit);
       let lhs, e1 = hoist_expr loc Unspecified e1 in
       if lhs <> [] then
-        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
+        Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,
           GeneratesLetBindings ("this while-loop's test expression", e, lhs)));
       let e2 = hoist_stmt loc e2 in
       mk (EWhile (e1, e2))
@@ -731,7 +731,7 @@ and hoist_expr loc pos e =
        * can't ask the user to rewrite, but it's ok, because it's an expression
        * language, so we can have let-bindings anywhere. *)
       if lhs2 <> [] && not !Options.wasm then
-        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
+        Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,
           GeneratesLetBindings (
             KPrint.bsprintf "%a, a short-circuiting boolean operator" pexpr e0, e, lhs2)));
       lhs1, mk (EApp (e0, [ e1; nest lhs2 e2.typ e2 ]))
@@ -775,7 +775,7 @@ and hoist_expr loc pos e =
   | EWhile (e1, e2) ->
       let lhs1, e1 = hoist_expr loc Unspecified e1 in
       if lhs1 <> [] then
-        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
+        Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,
           GeneratesLetBindings ("this while loop's test expression", e, lhs1)));
       let e2 = hoist_stmt loc e2 in
       if pos = UnderStmtLet then
@@ -792,7 +792,7 @@ and hoist_expr loc pos e =
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
       let lhs3, e3 = hoist_expr loc UnderStmtLet e3 in
       if lhs2 <> [] || lhs3 <> [] then
-        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
+        Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,
           GeneratesLetBindings ("this for-loop's condition or iteration", e, (lhs2 @ lhs3))));
       let e4 = hoist_stmt loc e4 in
       let s = closing_binder binder in
@@ -932,10 +932,10 @@ let hoist = object
   inherit [_] map as super
 
   method! visit_file loc file =
-    super#visit_file Location.(File (fst file) :: loc) file
+    super#visit_file Loc.(File (fst file) :: loc) file
 
   method! visit_DFunction loc cc flags n ret name binders expr =
-    let loc = Location.(InTop name :: loc) in
+    let loc = Loc.(InTop name :: loc) in
     (* TODO: no nested let-bindings in top-level value declarations either *)
     let binders, expr = open_binders binders expr in
     let expr = hoist_stmt loc expr in
@@ -1137,7 +1137,7 @@ let tail_calls =
         DFunction (cc, flags, n, ret, name, binders, body)
       with
       | T.NotTailCall ->
-          Warnings.(maybe_fatal_error ("", NotTailCall name));
+          Warn.(maybe_fatal_error ("", NotTailCall name));
           DFunction (cc, flags, n, ret, name, binders, body)
       | T.NothingToTailCall ->
           DFunction (cc, flags, n, ret, name, binders, body)

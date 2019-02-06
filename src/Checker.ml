@@ -9,7 +9,7 @@
 
 open Ast
 open Constant
-open Location
+open Loc
 open PrintAst.Ops
 open Helpers
 
@@ -74,11 +74,11 @@ let find env i =
 (** Errors ------------------------------------------------------------------ *)
 
 (* An error for which the only way to recover is to drop the definition. *)
-exception CheckerError of Warnings.error
+exception CheckerError of Warn.error
 
 let checker_error env fmt =
   Printf.kbprintf (fun buf ->
-    raise (CheckerError (KPrint.bsprintf "%a" ploc env.location, Warnings.TypeError (Buffer.contents buf)))
+    raise (CheckerError (KPrint.bsprintf "%a" ploc env.location, Warn.TypeError (Buffer.contents buf)))
   ) (Buffer.create 16) fmt
 
 
@@ -95,7 +95,7 @@ let lookup_global env lid =
   match M.find lid env.globals with
   | exception Not_found ->
       if env.warn then
-        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" ploc env.location,
+        Warn.(maybe_fatal_error (KPrint.bsprintf "%a" ploc env.location,
           UnboundReference (KPrint.bsprintf "%a" plid lid)));
       TAny
   | x ->
@@ -120,7 +120,7 @@ let populate_env files =
           { env with globals = M.add lid t env.globals }
       | DFunction (_, _, n, ret, lid, binders, _) ->
           if n <> 0 then
-            Warnings.fatal_error "%a is polymorphic\n" plid lid;
+            Warn.fatal_error "%a is polymorphic\n" plid lid;
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
       | DExternal (_, _, lid, typ) ->
@@ -160,7 +160,7 @@ and check_program env r (name, decls) =
           noextract, or using a bundle. If it is meant to be extracted, use \
           -dast for further debugging.\n\n"
           plid (lid_of_decl d) plid (lid_of_decl d);
-        Warnings.maybe_fatal_error e;
+        Warn.maybe_fatal_error e;
         flush stderr;
         None
   ) decls in
@@ -273,7 +273,7 @@ and check' env t e =
       if env.warn && not (is_int_constant e2) && lifetime = Common.Stack then begin
         let e = KPrint.bsprintf "%a" pexpr e in
         let loc = KPrint.bsprintf "%a" ploc env.location in
-        Warnings.(maybe_fatal_error (loc, Vla e))
+        Warn.(maybe_fatal_error (loc, Vla e))
       end;
       let t = assert_buffer env t in
       if t = TAny then

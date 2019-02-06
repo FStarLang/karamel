@@ -209,11 +209,11 @@ let maybe_fatal_error error =
 
 let parse_warn_error s =
   let lexbuf = Ulexing.from_utf8_string s in
-  let the_parser = MenhirLib.Convert.Simplified.traditional2revised Parser.warn_error_list in
+  let the_parser = MenhirLib.Convert.Simplified.traditional2revised Kparser.warn_error_list in
   let user_flags =
     try
-      the_parser (fun _ -> Lexer.token lexbuf)
-    with Ulexing.Error | Parser.Error ->
+      the_parser (fun _ -> KLexer.token lexbuf)
+    with Ulexing.Error | Kparser.Error ->
       fatal_error "Malformed warn-error list"
   in
   List.iter (fun (f, (l, h)) ->

@@ -22,8 +22,8 @@
 
 open Ast
 open Idents
-open Warnings
-open Location
+open Warn
+open Loc
 open PrintAst.Ops
 open Helpers
 
@@ -234,7 +234,7 @@ let rec mk_expr env in_stmt e =
       CStar.AddrOf (mk_expr env e)
 
   | _ ->
-      Warnings.maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc env.location, NotLowStar e);
+      Warn.maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, NotLowStar e);
       CStar.Any
 
 and mk_buf env t =
@@ -584,7 +584,7 @@ and mk_declaration env d: CStar.decl option =
   let wrap_throw name (comp: CStar.decl Lazy.t) =
     try Lazy.force comp with
     | Error e ->
-        raise_error_l (Warnings.locate name e)
+        raise_error_l (Warn.locate name e)
     | e ->
         KPrint.beprintf "Error in: %s\n" name;
         raise e
@@ -665,10 +665,10 @@ and mk_program name decls =
       mk_declaration empty d
     with
     | Error e ->
-        Warnings.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
+        Warn.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
         None
     | e ->
-        Warnings.fatal_error "Fatal failure in %a: %s\n"
+        Warn.fatal_error "Fatal failure in %a: %s\n"
           plid (Ast.lid_of_decl d)
           (Printexc.to_string e)
   ) decls

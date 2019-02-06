@@ -405,7 +405,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | EBufCreate (l, e_init, e_len) ->
       if not (e_init.node = EAny) then
-        Warnings.fatal_error "init node is not any but %a (see SimplifyWasm)\n" pexpr e_init;
+        Warn.fatal_error "init node is not any but %a (see SimplifyWasm)\n" pexpr e_init;
       let locals, e_len = mk_expr env locals e_len in
       let mult, base_size = cell_size env (assert_buf e.typ) in
       if Options.debug "cflat" then
@@ -419,7 +419,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
         | TInt K.UInt8 ->
             List.length es
         | _ ->
-            Warnings.fatal_error "todo: non-uint8 top-level arrays"
+            Warn.fatal_error "todo: non-uint8 top-level arrays"
       in
       let buf = Bytes.create len in
       List.iteri (fun i e ->
@@ -434,7 +434,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | EBufCreateL _
   | EBufBlit _ | EBufFill _ ->
-      Warnings.fatal_error "this should've been desugared in Simplify.wasm\n%a" pexpr e
+      Warn.fatal_error "this should've been desugared in Simplify.wasm\n%a" pexpr e
 
   | EBufRead (e1, e2) ->
       let s = array_size_of (assert_buf e1.typ) in
@@ -477,7 +477,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, cflat_any
 
   | ECast _ ->
-      Warnings.fatal_error "unsupported cast: %a" pexpr e
+      Warn.fatal_error "unsupported cast: %a" pexpr e
 
   | ELet (b, e1, e2) ->
       if e1.node = EAny then
@@ -608,7 +608,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       invalid_arg "funs should've been substituted"
 
   | EAddrOf _ ->
-      Warnings.fatal_error "address-of should've been resolved: %a" pexpr e
+      Warn.fatal_error "address-of should've been resolved: %a" pexpr e
 
   | EIgnore e ->
       let s = size_of e.typ in
@@ -646,7 +646,7 @@ let mk_decl env (d: decl): CF.decl option =
       let public = not (List.exists ((=) Common.Private) flags) in
       let size = size_of typ in
       if size = I64 then begin
-        Warnings.(maybe_fatal_error ("", NotWasmCompatible (name, "I64 constant")));
+        Warn.(maybe_fatal_error ("", NotWasmCompatible (name, "I64 constant")));
         None
       end else
         let body = mk_expr_no_locals env body in
@@ -661,7 +661,7 @@ let mk_decl env (d: decl): CF.decl option =
           let ret = [ size_of ret ] in
           let args = List.map size_of args in
           if (List.hd ret = I64 || List.mem I64 args) && not (CFlatToWasm.is_primitive name) then begin
-            Warnings.(maybe_fatal_error ("", NotWasmCompatible (lid, "functions \
+            Warn.(maybe_fatal_error ("", NotWasmCompatible (lid, "functions \
               implemented natively in JS (because they're assumed) cannot take or \
               return I64")));
             None

@@ -88,7 +88,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: (int * Bundle.t
         if fst prev_round <= this_round then begin
           if is_api then
             (* Change into a non-fatal warning? Say nothing? *)
-            Warnings.fatal_error "The API file %s, in bundle %s, was matched \
+            Warn.fatal_error "The API file %s, in bundle %s, was matched \
               previously by bundle %s\n"
               name (string_of_bundle bundle) (string_of_bundle (snd prev_round));
           used, found
@@ -118,7 +118,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: (int * Bundle.t
         List.fold_left (match_file true [ Module api ]) (used, found) files
       ) (used, found) api in
       if StringMap.cardinal used <> count + List.length api then
-        Warnings.fatal_error "There an issue with your bundle.\n\
+        Warn.fatal_error "There an issue with your bundle.\n\
           You specified: -bundle %s\n\
           Here's the issue: one of these modules doesn't exist: %s.\n\
           Suggestion #1: if the file does exist, pass it to KreMLin.\n\
@@ -188,7 +188,7 @@ let topological_sort files =
     | Black ->
         ()
     | Gray ->
-        Warnings.fatal_error "Bundling creates a dependency cycle:\n%s"
+        Warn.fatal_error "Bundling creates a dependency cycle:\n%s"
           (String.concat "\n" (List.map string_of_dependency debug))
     | White ->
         r := Gray;
@@ -220,7 +220,7 @@ let make_bundles files =
     let seen = Hashtbl.create 42 in
     List.iter (fun name ->
       if Hashtbl.mem seen name then
-        Warnings.(maybe_fatal_error ("", BundleCollision name));
+        Warn.(maybe_fatal_error ("", BundleCollision name));
       Hashtbl.add seen name ()
     ) names
   end;

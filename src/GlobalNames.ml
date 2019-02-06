@@ -3,7 +3,7 @@
 
 (** All global names must be valid C identifiers and globally-unique... *)
 
-open Warnings
+open Warn
 open Idents
 
 let c_of_original = Hashtbl.create 41

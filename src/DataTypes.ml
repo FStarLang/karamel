@@ -254,7 +254,7 @@ let compile_simple_matches (map, enums) = object(self)
     let lid =
       match typ with
       | TQualified lid -> lid
-      | _ -> Warnings.fatal_error "not an lid: %s: %a" cons ptyp typ
+      | _ -> Warn.fatal_error "not an lid: %s: %a" cons ptyp typ
     in
     match Hashtbl.find map lid with
     | exception Not_found ->
@@ -283,7 +283,7 @@ let compile_simple_matches (map, enums) = object(self)
     let lid =
       match typ with
       | TQualified lid -> lid
-      | _ -> Warnings.fatal_error "not an lid: %s: %a" cons ptyp typ
+      | _ -> Warn.fatal_error "not an lid: %s: %a" cons ptyp typ
     in
     match Hashtbl.find map lid with
     | exception Not_found ->

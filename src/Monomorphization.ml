@@ -72,7 +72,7 @@ let monomorphize_data_types map = object(self)
   (* Record a new declaration. *)
   method private record (d: decl) =
     if Drop.file current_file then
-      Warnings.(maybe_fatal_error ("", DropDeclaration (lid_of_decl d, current_file)));
+      Warn.(maybe_fatal_error ("", DropDeclaration (lid_of_decl d, current_file)));
     pending <- d :: pending
 
   (* Clear all the pending declarations. *)
@@ -219,7 +219,7 @@ module Gen = struct
     Hashtbl.add generated_lids (original_lid, ts) lid;
     let d = def () in
     if Drop.file current_file then
-      Warnings.(maybe_fatal_error ("", DropDeclaration (lid_of_decl d, current_file)));
+      Warn.(maybe_fatal_error ("", DropDeclaration (lid_of_decl d, current_file)));
     pending_defs := d :: !pending_defs;
     lid
 

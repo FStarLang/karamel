@@ -1,5 +1,5 @@
 open Ulexing
-open Parser
+open Kparser
 
 let regexp digit = ['0'-'9']
 let regexp int = digit+

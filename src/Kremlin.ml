@@ -291,12 +291,12 @@ Supported options:|}
     else if Filename.check_suffix f ".json" || Filename.check_suffix f ".krml" then begin
       filenames := f :: !filenames
     end else
-      Warnings.fatal_error "Unknown file extension for %s\n" f;
+      Warn.fatal_error "Unknown file extension for %s\n" f;
     found_file := true
   in
   begin try
     Arg.parse spec anon_fun usage
-  with Ulexing.Error | Parser.Error ->
+  with Ulexing.Error | Kparser.Error ->
     KPrint.bprintf "Complete invocation was: %s\n"
       (String.concat "␣" (Array.to_list Sys.argv));
     exit 1
@@ -313,7 +313,7 @@ Supported options:|}
   let user_ccopts = !Options.ccopts in
 
   (* First enable the default warn-error string. *)
-  Warnings.parse_warn_error !Options.warn_error;
+  Warn.parse_warn_error !Options.warn_error;
 
   (* Meta-options that enable other options. Do this now because it influences
    * the default options for each compiler. *)
@@ -358,10 +358,10 @@ Supported options:|}
 
   (* Then refine that based on the user's preferences. *)
   if !arg_warn_error <> "" then
-    Warnings.parse_warn_error !arg_warn_error;
+    Warn.parse_warn_error !arg_warn_error;
 
   if !used_drop then
-    Warnings.(maybe_fatal_error ("", Deprecated ("-drop", "use a combination of \
+    Warn.(maybe_fatal_error ("", Deprecated ("-drop", "use a combination of \
       -bundle and -d reachability to make sure the functions are eliminated as \
       you wish")));
 
@@ -568,7 +568,7 @@ Supported options:|}
     (* Runtime support files first. *)
     let is_support, rest = List.partition (fun (name, _) -> name = "WasmSupport") files in
     if List.length is_support = 0 then
-      Warnings.fatal_error "The module WasmSupport wasn't passed to kremlin or \
+      Warn.fatal_error "The module WasmSupport wasn't passed to kremlin or \
         was hidden in a bundle!";
     let files = is_support @ rest in
 

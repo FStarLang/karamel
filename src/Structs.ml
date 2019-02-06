@@ -61,7 +61,7 @@ let analyze_function_type is_struct = function
       let args_are_structs = List.map is_struct args in
       ret_is_struct, args_are_structs
   | t ->
-      Warnings.fatal_error "analyze_function_type: %a is not a function type" ptyp t
+      Warn.fatal_error "analyze_function_type: %a is not a function type" ptyp t
 
 
 (* Rewrite functions and expressions to take and possibly return struct
@@ -290,7 +290,7 @@ let collect_initializers (files: Ast.file list) =
         (* Note: no need to generate a copy-assignment because top-level
          * stack-allocated arrays are not possible in F*. *)
         if not (Helpers.is_initializer_constant body) then begin
-          Warnings.(maybe_fatal_error ("", NotInitializerConstant (name, body)));
+          Warn.(maybe_fatal_error ("", NotInitializerConstant (name, body)));
           record (with_type TUnit (EAssign (with_type t (EQualified name), body)));
           List.filter ((<>) Private) flags, with_type t EAny
         end else
@@ -323,7 +323,7 @@ let collect_initializers (files: Ast.file list) =
         DFunction (cc, flags, n, ret, name, binders, body)
     end)#visit_files () files in
     if not !found then
-      Warnings.(maybe_fatal_error ("", MustCallKrmlInit));
+      Warn.(maybe_fatal_error ("", MustCallKrmlInit));
     files
   else
     files
@@ -409,7 +409,7 @@ let to_addr is_struct =
          * [ELet], but generates un-necessary names, and complicates debugging.
          * *)
         if not (is_struct b.typ) then
-          Warnings.fatal_error "%a is not a struct type\n" ptyp b.typ;
+          Warn.fatal_error "%a is not a struct type\n" ptyp b.typ;
         let t = b.typ in
         let t' = TBuf b.typ in
         let b = { b with typ = t' } in
@@ -458,7 +458,7 @@ let to_addr is_struct =
           | EBufRead (e0, e1) ->
               w (EBufWrite (e0, e1, e2))
           | _ ->
-              Warnings.fatal_error "not an ebufread: %a\n" pexpr e1
+              Warn.fatal_error "not an ebufread: %a\n" pexpr e1
         else
           w (EAssign (e1, e2))
 
@@ -521,7 +521,7 @@ let to_addr is_struct =
     | EMatch _
     | ECons _
     | EFun _ ->
-        Warnings.fatal_error "impossible: %a" pexpr e
+        Warn.fatal_error "impossible: %a" pexpr e
   in
   object
     inherit [_] map

@@ -4,7 +4,7 @@
 (** A very boring module that detects the environment and figures out how to
  * call the tools. *)
 
-open Warnings
+open Warn
 
 (* Abstracting over - (dash) for msvc. vs. gcc-like. *)
 module Dash = struct
@@ -347,7 +347,7 @@ let detect_gnu flavor =
         else
           search rest
     | [] ->
-        Warnings.fatal_error "gcc not found in path!";
+        Warn.fatal_error "gcc not found in path!";
   in
   let crosscc = if !Options.m32 then format_of_string "i686-w64-mingw32-%s" else format_of_string "x86_64-w64-mingw32-%s" in
   search [ "%s-7.0"; "%s-6.0"; "%s-5.0"; "%s-7"; "%s-6"; "%s-5"; crosscc; "%s" ];
@@ -366,7 +366,7 @@ let detect_compcert () =
   if success "which" [| "ccomp" |] then
     cc := "ccomp"
   else
-    Warnings.fatal_error "ccomp not found in path!"
+    Warn.fatal_error "ccomp not found in path!"
 
 
 let fill_cc_args () =
