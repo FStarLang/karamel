@@ -8,6 +8,8 @@ true: annot, bin_annot, warn(@1-2-3@8..12@14..21@23..29-30@31..38-39-40-41@43@57
   package(process), package(fix), package(wasm), debug, strict_sequence, \
   package(visitors.ppx), package(visitors.runtime)
 "parser/KLexer.ml": syntax(camlp4o), syntax(pa_ulex)
+"src/GenCtypes.ml" or "src/Kremlin.native": package(compiler-libs), \
+  package(compiler-libs.common), package(ocaml-migrate-parsetree)
 <test>: -traverse
 <kremlib/{extracted,c,out,dist}>: -traverse
 <kremlib/**/*.ml>: package(fstarlib)
