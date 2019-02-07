@@ -132,6 +132,7 @@ export OTHERFLAGS="--print_z3_statistics --use_hints --query_stats"
 export MAKEFLAGS="$MAKEFLAGS -Otarget"
 
 export_home FSTAR "$(pwd)/FStar"
+export_home KREMLIN "$(pwd)"
 
 cd kremlin
 rootPath=$(pwd)
