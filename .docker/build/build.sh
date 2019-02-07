@@ -112,13 +112,33 @@ function misc () {
   export OCAMLRUNPARAM=b
 }
 
+function refresh_tutorial() {
+  if [[ $branchname == "master" ]]; then
+    make -C book html
+    cd fstarlang.github.io
+    git pull
+    cp -R ../book/_build/* lowstar/
+    rm -rf lowstar/html/static
+    mv lowstar/html/_static lowstar/html/static
+    find lowstar/html -type f | xargs sed -i 's/_static/static/g'
+    git add -A lowstar/html/ lowstar/index.html
+    if ! git diff --exit-code HEAD > /dev/null; then
+      git commit -m "[CI] Refresh Low* tutorial"
+      git push
+    else
+      echo No git diff for the tutorial, not generating a commit
+    fi
+  fi
+}
+
 function exec_build() {
 
     # this is a special file that is parsed by Azure Devops
     result_file="../result.txt"
 
     if fetch_hacl && misc && make -j $threads && \
-      make -C test everything -j $threads
+      make -C test everything -j $threads && \
+      refresh_tutorial
     then
         echo "Build succeeded"
         echo Success >$result_file
