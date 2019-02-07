@@ -94,12 +94,28 @@ function refresh_hints() {
     git push $remote $CI_BRANCH
 }
 
+function misc () {
+  git config --global user.name "Dzomo, the Everest Yak"
+  git config --global user.email "everbld@microsoft.com"
+
+  git clone https://github.com/fstarlang/fstar-mode.el
+  git clone https://dzomo:$DZOMO_TOKEN@github.com/fstarlang/fstarlang.github.io
+
+  echo "\"everest\": -traverse" >> _tags
+  echo "\"fstar\": -traverse" >> _tags
+  echo "\"hacl-star\": -traverse" >> _tags
+  echo "\"node\": -traverse" >> _tags
+  echo "\"MLCrypto\": -traverse" >> _tags
+  echo "\"fstar-mode.el\": -traverse" >> _tags
+  echo "\"fstarlang.github.io\": -traverse" >> _tags
+}
+
 function exec_build() {
 
     # this is a special file that is parsed by Azure Devops
     result_file="../result.txt"
 
-    if fetch_hacl && make -j $threads && \
+    if fetch_hacl && misc && make -j $threads && \
       make -C test everything -j $threads
     then
         echo "Build succeeded"
