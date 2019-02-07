@@ -108,6 +108,8 @@ function misc () {
   echo "\"MLCrypto\": -traverse" >> _tags
   echo "\"fstar-mode.el\": -traverse" >> _tags
   echo "\"fstarlang.github.io\": -traverse" >> _tags
+
+  export OCAMLRUNPARAM=b
 }
 
 function exec_build() {
@@ -133,6 +135,9 @@ export MAKEFLAGS="$MAKEFLAGS -Otarget"
 
 export_home FSTAR "$(pwd)/FStar"
 export_home KREMLIN "$(pwd)/kremlin"
+export_home KRML "$(pwd)/kremlin"
+
+export PATH=$FSTAR_HOME/bin:$PATH
 
 cd kremlin
 rootPath=$(pwd)
