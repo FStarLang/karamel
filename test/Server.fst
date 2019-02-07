@@ -202,6 +202,7 @@ val respond: (response: B.buffer C.char) -> (payload: B.buffer C.char) -> (paylo
       U32.v n <= 128 + U32.v payloadlen
     ))
 
+#push-options "--z3rlimit 20"
 let respond response payload payloadlen =
   let n1 = bufstrcpy response !$"HTTP/1.1 200 OK\r\nConnection: closed\r\nContent-Length:" in
   let response = B.offset response n1 in
@@ -211,6 +212,7 @@ let respond response payload payloadlen =
   let response = B.offset response n3 in
   let t = blit payload 0ul response 0ul payloadlen in
   U32.(n1 +^ n2 +^ n3 +^ payloadlen)
+#pop-options
 
 let respond_index (response: B.buffer C.char): Stack U32.t
   (requires (fun h0 ->
