@@ -37,7 +37,7 @@ function fetch_hacl() {
     local ref=$(jq -c -r '.RepoVersions["hacl_version"]' "$rootPath/.docker/build/config.json" )
     if [[ $ref == "" || $ref == "null" ]]; then
         echo "Unable to find RepoVersions.hacl_version on $rootPath/.docker/build/config.json"
-        return -1
+        return 1
     fi
 
     echo Switching to HACL $ref
@@ -99,9 +99,7 @@ function exec_build() {
     # this is a special file that is parsed by Azure Devops
     result_file="../result.txt"
 
-    fetch_hacl
-
-    if make -j $threads && \
+    if fetch_hacl && make -j $threads && \
       make -C test everything -j $threads
     then
         echo "Build succeeded"

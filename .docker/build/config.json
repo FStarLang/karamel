@@ -21,5 +21,10 @@
 
     "NotificationEnabled" : true,
     "NotificationChannel" : "#kremlin-build",
-    "PublicBranches" : [ "master" ]
+    "PublicBranches" : [ "master" ],
+
+
+    "RepoVersions" : {
+        "hacl_version" : "origin/fstar-master"
+    }
 }
