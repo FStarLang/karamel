@@ -22,27 +22,15 @@ WORKDIR ".."
 # Now, using bash we copy the file, set the correct security and remove the previous folder
 RUN Invoke-BashCmd '"cd .ssh && cp ../everestsshkey/id_rsa . && chmod 600 id_rsa && rm -rf ../everestsshkey"'
 
+# Do some cleanup
+RUN Invoke-BashCmd rm -f build.sh build_helper.sh buildlogfile.txt log_no_replay.html log_worst.html orange_status.txt result.txt status.txt commitinfofilename.json
+
 # Copy source files
 WORKDIR "kremlin"
 COPY / .
 WORKDIR ".."
 
-# Do some cleanup
-RUN Invoke-BashCmd rm -f build.sh
-RUN Invoke-BashCmd rm -f build_helper.sh
-RUN Invoke-BashCmd rm -f buildlogfile.txt
-RUN Invoke-BashCmd rm -f log_no_replay.html
-RUN Invoke-BashCmd rm -f log_worst.html
-RUN Invoke-BashCmd rm -f orange_status.txt
-RUN Invoke-BashCmd rm -f result.txt
-RUN Invoke-BashCmd rm -f status.txt
-RUN Invoke-BashCmd rm -f commitinfofilename.json
-
-RUN Invoke-BashCmd rm kremlin/Dockerfile
-RUN Invoke-BashCmd rm kremlin/build.sh
-RUN Invoke-BashCmd rm kremlin/build_helper.sh
-RUN Invoke-BashCmd rm kremlin/id_rsa
-RUN Invoke-BashCmd rm kremlin/commitinfofilename.json
+RUN Invoke-BashCmd rm kremlin/Dockerfile kremlin/build.sh kremlin/build_helper.sh kremlin/id_rsa kremlin/commitinfofilename.json
 
 COPY build.sh build.sh
 COPY build_helper.sh build_helper.sh
