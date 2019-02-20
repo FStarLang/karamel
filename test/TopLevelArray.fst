@@ -28,8 +28,16 @@ let x = B.gcmalloc_of_list HS.root [ { x = 1l; y = y; z = s } ]
 
 let g = { x = 1l; y = y; z = s }
 
+(*
+ * AR: 02/17: adding these temporarily
+ *            related to the thunking of top-level constants
+ *            not sure if it is expected, need to dig into z3 query more to find out
+ *)
+let _ = intro_ambient x
+let _ = intro_ambient y
+let _ = intro_ambient g
+
 let main (): St Int32.t =
   B.recall x;
   B.recall (x.(0ul)).y;
   (x.(0ul)).y.(0ul)
-
