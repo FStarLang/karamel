@@ -13,16 +13,15 @@
         "equation_FStar.Monotonic.HyperHeap.hmap",
         "equation_FStar.Monotonic.HyperStack.mem",
         "function_token_typing_FStar.Monotonic.Heap.heap",
-        "function_token_typing_FStar.Monotonic.HyperHeap.rid",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
         "lemma_FStar.Set.lemma_equal_refl",
-        "refinement_interpretation_FStar.Monotonic.HyperStack_Tm_refine_9a74d818566e70513bc032cc3b65a144",
-        "refinement_interpretation_StringLit_Tm_refine_9fe67433dab0e6ab6b2734b15bda84c1",
-        "typing_FStar.Map.domain",
+        "refinement_interpretation_Tm_refine_24a2170b21af4a55e94215c4b209202a",
+        "refinement_interpretation_Tm_refine_9a74d818566e70513bc032cc3b65a144",
+        "typing_FStar.Map.domain", "typing_FStar.Monotonic.HyperHeap.rid",
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "cc9e91843c20dcc231d7e4591807acc7"
+      "cd1ef5f2186587f41cdeeb8233f2f089"
     ],
     [
       "StringLit.cat",
@@ -36,16 +35,15 @@
         "equation_FStar.Monotonic.HyperHeap.hmap",
         "equation_FStar.Monotonic.HyperStack.mem",
         "function_token_typing_FStar.Monotonic.Heap.heap",
-        "function_token_typing_FStar.Monotonic.HyperHeap.rid",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
         "lemma_FStar.Set.lemma_equal_refl",
-        "refinement_interpretation_FStar.Monotonic.HyperStack_Tm_refine_9a74d818566e70513bc032cc3b65a144",
-        "refinement_interpretation_FStar.String_Tm_refine_2763780281480488fa3e203a496d5ee8",
-        "typing_FStar.Map.domain",
+        "refinement_interpretation_Tm_refine_2763780281480488fa3e203a496d5ee8",
+        "refinement_interpretation_Tm_refine_9a74d818566e70513bc032cc3b65a144",
+        "typing_FStar.Map.domain", "typing_FStar.Monotonic.HyperHeap.rid",
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "523b39de3743df2307959ec7a411542e"
+      "e92fd5cbeaf12e546c6085ef26a63e3e"
     ]
   ]
 ]
