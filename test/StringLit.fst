@@ -5,10 +5,10 @@ module IO = FStar.HyperStack.IO
 open FStar.HyperStack.ST
 
 let test (x:string): Stack string (fun _ -> true) (fun _ _ _ -> true) =
-  FStar.String.strcat "hello " x
+  strcat "hello " x
 
 let cat (x y:string): Stack string (fun _ -> true) (fun _ _ _ -> true) =
-  FStar.String.strcat x y
+  strcat x y
 
 let test_c_string () =
   // C strings, modeled as zero-terminated, not relying on GC
