@@ -28,7 +28,7 @@ FILES		= \
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
-CUSTOM		= count-uu
+CUSTOM		= count-uu ctypes
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test
@@ -129,6 +129,10 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 	  $(SED) 's/.*\(uu____\([0-9]\+\)\).*/\1/g' \
 	  | uniq | wc -l` = 1 ]
 
+.PHONY: ctypes
+ctypes:
+	$(MAKE) -C ctypes Client.exe
+
 # External C tests that leverage other projects.
 .PHONY: hacl-test
 hacl-test:
@@ -220,6 +224,7 @@ $(foreach alg,$(HACL_ALGS),$(eval $(call HACL_template,$(alg))))
 
 clean:
 	rm -rf $(WEB_DIR) .output
+	$(MAKE) -C ctypes clean
 
 distclean: clean clean-hacl
 	rm -rf .cache
