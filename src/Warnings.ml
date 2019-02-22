@@ -29,6 +29,8 @@ and raw_error =
   | NotTailCall of lident
   | GeneratesLetBindings of string * expr * (binder * expr) list
   | Arity of lident * string
+  | NotInitializerConstant of lident * expr
+  | BundleCollision of string
   | IfDef of lident
 
 and location =
@@ -63,7 +65,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 18 CError;;
+let flags = Array.make 20 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -104,8 +106,12 @@ let errno_of_error = function
       15
   | Arity _ ->
       16
-  | IfDef _ ->
+  | NotInitializerConstant _ ->
       17
+  | BundleCollision _ ->
+      18
+  | IfDef _ ->
+      19
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -181,6 +187,12 @@ let rec perr buf (loc, raw_error) =
         %a" what ppexpr e pplbs bs
   | Arity (lid, reason) ->
       p "Cannot enforce arity at call-site for %a (%s)" plid lid reason
+  | NotInitializerConstant (lid, e) ->
+      p "The top-level declaration %a, once compiled to a C global variable, \
+        generates a static initializer (i.e. run-time code in krmlinit) because \
+        its definition is not a C constant; it is:\n  %a" plid lid pexpr e
+  | BundleCollision name ->
+      p "After bundling, two C files are named %s" name
   | IfDef lid ->
       p "The variable %a cannot be translated as an if-def" plid lid
 

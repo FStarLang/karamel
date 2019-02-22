@@ -7,6 +7,8 @@
 /******************************************************************************/
 
 #include "FStar_Bytes.h"
+#include "Prims.h"
+#include "FStar_Int_Cast_Full.h"
 
 typedef uint8_t FStar_Bytes_byte;
 

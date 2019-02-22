@@ -703,10 +703,8 @@ and mk_program name env decls =
           (Printexc.to_string e)
   ) decls
 
-and mk_file env (name, program) =
-  name, mk_program name env program
-
 and mk_files files =
+  (* Construct the ifdef environment *)
   let ifdefs = (object
     inherit [_] reduce
     method private zero = StringSet.empty
@@ -718,4 +716,13 @@ and mk_files files =
         StringSet.empty
   end)#visit_files () files in
   let env = { empty with ifdefs } in
-  List.map (mk_file env) files
+  (* Construct the mapping needed to get direct dependencies *)
+  let file_of = Bundle.mk_file_of files in
+  List.map (fun file ->
+    (* Why are we not getting duplicates here? *)
+    let deps: string list = Hashtbl.fold (fun k _ acc -> k :: acc)
+      (Bundles.direct_dependencies file_of file) []
+    in
+    let name, program = file in
+    name, deps, mk_program name env program
+  ) files

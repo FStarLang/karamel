@@ -32,7 +32,7 @@ typedef FILE *FStar_IO_fd_read, *FStar_IO_fd_write;
 
 typedef void *FStar_Dyn_dyn;
 
-typedef const char *C_String_t, *C_String_t_;
+typedef const char *C_String_t, *C_String_t_, *C_Compat_String_t, *C_Compat_String_t_;
 
 typedef int exit_code;
 typedef FILE *channel;

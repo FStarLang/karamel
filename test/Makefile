@@ -32,11 +32,11 @@ endif
 CUSTOM		= count-uu
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
-  Wasm4.wasm-test Wasm5.wasm-test
+  Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
 BROKEN		= \
-  HigherOrder6.fst RecordTypingLimitation.fst
+  HigherOrder6.fst RecordTypingLimitation.fst ForwardDecl.fst
 
 WEB_DIR		?= web
 CACHE_DIR	= .cache
@@ -46,7 +46,8 @@ FSTAR		= fstar.exe --cache_checked_modules --use_two_phase_tc true \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
   --include hello-system --include ../kremlib/compat \
   --include ../kremlib --include ../runtime \
-  --include $(CRYPTO) --include ../book --use_hints --record_hints --hint_info
+  --include $(CRYPTO) --include ../book --use_hints --record_hints --hint_info \
+  --already_cached 'FStar C TestLib Spec.Loops -C.Compat -C.Nullity'
 
 # This just needs F* + KreMLin
 all: $(FILES) $(CUSTOM)
@@ -55,7 +56,7 @@ all: $(FILES) $(CUSTOM)
 wasm: $(WASM_FILES)
 
 # Needs a checkout of HACL*
-external: hacl-test hacl-algs
+external: hacl-test hacl-wasm
 
 # All of the above
 everything: all wasm external
@@ -73,14 +74,13 @@ $(HINTS_DIR):
 	mkdir -p $@
 
 $(CACHE_DIR)/%.checked: | .depend $(HINTS_DIR)
-	$(FSTAR) --hint_file $(HINTS_DIR)/$*.hints $<
+	$(FSTAR) --hint_file $(HINTS_DIR)/$*.hints $< && \
 	touch $@
 
 $(OUTPUT_DIR)/%.krml: | .depend
 	$(FSTAR) --codegen Kremlin \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<))
-	touch $@
 
 $(OUTPUT_DIR)/%.exe: $(OUTPUT_DIR)/FStar_UInt128.krml | $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
@@ -134,8 +134,8 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 # External C tests that leverage other projects.
 .PHONY: hacl-test
 hacl-test:
-	$(MAKE) -C $(HACL_HOME)/code/curve25519 extract-c
-	$(MAKE) -C $(HACL_HOME)/code/api extract-c
+	$(MAKE) -C $(HACL_HOME)/code/old/curve25519 extract-c
+	$(MAKE) -C $(HACL_HOME)/code/old/api extract-c
 	IMPL_CHOICE=runtime_switch $(MAKE) -C $(HACL_HOME)/secure_api -f $(HACL_HOME)/secure_api/Makefile.extract krml-test
 
 # A pseudo-target for WASM compilation that does not match any specific file.
@@ -156,36 +156,36 @@ WasmTrap.wasm-test: NEGATIVE = true
 
 # External WASM targets: recycle the HACL* Makefile!
 HACL_DROP=Prims,Hacl.UInt8,Hacl.UInt16,Hacl.UInt32,Hacl.UInt64,Hacl.UInt128,Hacl.Compat.Endianness,Hacl.Endianness,Hacl.Cast,Hacl.Spe.*,Hacl.Spec.*,Spec.*,Seq.*
-HACL_ALGS=CHACHA SALSA CURVE POLY ED HMAC
+HACL_ALGS=CHACHA SALSA CURVE POLY ED # HMAC
 
 # Arguments to the meta-rule
-CHACHA=$(HACL_HOME)/code/salsa-family
+CHACHA=$(HACL_HOME)/code/old/salsa-family
 CHACHA_DIR=chacha-c
 CHACHA_TEST=Hacl.Test.Chacha20.krml
 CHACHA_ARGS=-bundle 'Hacl_Chacha20=Hacl.Impl.*,Chacha20,Hacl.Lib.*'
 
-SALSA=$(HACL_HOME)/code/salsa-family
+SALSA=$(HACL_HOME)/code/old/salsa-family
 SALSA_DIR=salsa-c
 SALSA_TEST=Hacl.Test.Salsa20.krml
 SALSA_ARGS=-bundle 'Hacl_Salsa20=Salsa20,Hacl.Impl.*,Hacl.Lib.*'
 
-CURVE=$(HACL_HOME)/code/curve25519
+CURVE=$(HACL_HOME)/code/old/curve25519
 CURVE_DIR=x25519-c
 CURVE_TEST=Hacl.Test.X25519.krml
 CURVE_ARGS=-bundle 'Hacl_Curve25519=Hacl.Bignum,Hacl.Bignum.*,Hacl.EC,Hacl.EC.*'
 
-POLY=$(HACL_HOME)/code/poly1305
+POLY=$(HACL_HOME)/code/old/poly1305
 POLY_DIR=poly-c
 POLY_TEST=Hacl.Test.Poly1305_64.krml
 POLY_ARGS=-bundle 'Hacl_Poly1305_64=Hacl.Bignum.*,Hacl.Impl.*,Hacl.Standalone.*,Poly1305_64' \
   -drop AEAD_Poly1305_64
 
-ED=$(HACL_HOME)/code/ed25519
+ED=$(HACL_HOME)/code/old/ed25519
 ED_DIR=ed25519-c
 ED_TEST=Hacl.Test.Ed25519.krml
 ED_ARGS=-bundle 'Hacl_Ed25519=Ed25519,Hacl.EC,Hacl.EC.*,Hacl.Impl.*,Hacl.Lib.*,Hacl.Bignum.*,Hacl.Bignum25519,Hacl.Bignum,Hacl.Spec.*,Hacl.SHA2_512,Hacl.Hash.*' \
 
-HMAC=$(HACL_HOME)/code/hmac
+HMAC=$(HACL_HOME)/code/old/hmac
 HMAC_DIR=hmac-sha256-c
 HMAC_TEST=Hacl.Test.HMAC.SHA2_256.krml
 HMAC_ARGS=-bundle 'Hacl_HMAC_SHA2_256=Hacl.Hash.Lib.Create,Hacl.Hash.Lib.LoadStore,Hacl.Hash.SHA2_256,Hacl.HMAC.SHA2_256,HMAC_SHA2_256,Hacl.Impl.*'
@@ -205,7 +205,7 @@ $$(OUTPUT_DIR)/$$(subst .krml,.wasm,$$($(1)_TEST)): $$($(1))/$$($(1)_TEST) | $(K
 	$(KRML) -wasm -drop $$(HACL_DROP) $$($(1)_ARGS) -tmpdir $$@ \
 	  -no-prefix $$(subst .krml,,$$($(1)_TEST)) $$<
 
-hacl-algs: $$(subst .krml,.wasm-test,$$($(1)_TEST))
+hacl-wasm: $$(subst .krml,.wasm-test,$$($(1)_TEST))
 
 clean-$(1):
 	$(MAKE) -C $$($1) clean

@@ -7,6 +7,10 @@
 
 include Makefile.include
 
+ifeq (,$(KREMLIN_HOME))
+  $(error please define KREMLIN_HOME to point to the root of your KReMLin git checkout)
+endif
+
 CFLAGS 	+= -I. -I $(KREMLIN_HOME)/include
 CFLAGS 	+= -Wall -Wextra -Werror -std=c11 -Wno-unused-variable \
   -Wno-unknown-warning-option -Wno-unused-but-set-variable \

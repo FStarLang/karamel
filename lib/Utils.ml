@@ -78,5 +78,6 @@ let parse the_parser arg =
   let lexbuf = Ulexing.from_utf8_string arg in
   try
     the_parser (fun _ -> Lexer.token lexbuf)
-  with Ulexing.Error | Parser.Error ->
-    failwith ("Syntax error: " ^ arg)
+  with Ulexing.Error | Parser.Error as e ->
+    KPrint.bprintf "Syntax error in: %s\n" arg;
+    raise e

@@ -11,11 +11,11 @@
         "assumption_FStar.UInt8.t__uu___haseq",
         "function_token_typing_C.char", "primitive_Prims.op_Subtraction",
         "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_FStar.Buffer_Tm_refine_ac61996218e7c5b51c85527152e93166",
+        "refinement_interpretation_Tm_refine_ac61996218e7c5b51c85527152e93166",
         "typing_FStar.Buffer.as_seq"
       ],
       0,
-      "aed54200bc3ddea6271763ef3e8f4ebf"
+      "6720131be0fdb3ae73cb66762fb43e87"
     ],
     [
       "SystemNative.sockaddr_t",
@@ -29,7 +29,7 @@
         "fuel_guarded_inversion_SystemNative.ai_family_t"
       ],
       0,
-      "9464f133559f1b9d25d25b619a6ebdb9"
+      "dbf829f5ee4587bd13dcab83ebb6cd09"
     ],
     [
       "SystemNative.__proj__AddrInfo__item__ai_addr",
@@ -45,7 +45,7 @@
         "projection_inverse_SystemNative.AddrInfo_ai_family"
       ],
       0,
-      "d155726d41266d97e03fef14675424d6"
+      "e8556f60615028ef3f44ace84635207e"
     ],
     [
       "SystemNative.addrinfo_length_decreases",
@@ -53,13 +53,13 @@
       2,
       1,
       [
-        "@MaxIFuel_assumption", "@query", "assumption_Prims.HasEq_int",
+        "@MaxIFuel_assumption", "@query",
         "equation_SystemNative.pointer_or_null",
         "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_SystemNative_Tm_refine_dbe33893899564965a42f115925172f5"
+        "refinement_interpretation_Tm_refine_dbe33893899564965a42f115925172f5"
       ],
       0,
-      "6a82c41a31207a00b8c5ad7496413c30"
+      "a02fc75bc1d89488b77c09cf42b8947b"
     ],
     [
       "SystemNative.addrinfo_live",
@@ -67,24 +67,26 @@
       2,
       1,
       [
-        "@MaxIFuel_assumption", "@query", "assumption_Prims.HasEq_int",
-        "b2t_def", "binder_x_0c8c560ea1f64597ac6752d770b1c7b5_0",
+        "@MaxIFuel_assumption", "@query",
+        "Prims_pretyping_ae567c2fb75be05905677af440075565", "b2t_def",
+        "binder_x_0c8c560ea1f64597ac6752d770b1c7b5_0",
         "binder_x_6740e44db579bf7abf4224cbcb166d5a_1",
         "equality_tok_Prims.LexTop@tok", "equation_FStar.Buffer.buffer",
         "equation_FStar.Buffer.live",
         "equation_FStar.Monotonic.HyperStack.contains", "equation_Prims.nat",
         "equation_SystemNative.pointer_or_null",
         "fuel_guarded_inversion_FStar.Buffer._buffer",
+        "function_token_typing_Prims.__cache_version_number__",
         "lemma_SystemNative.addrinfo_length_decreases",
         "primitive_Prims.op_Addition", "primitive_Prims.op_AmpAmp",
         "projection_inverse_BoxBool_proj_0",
         "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_Prims_Tm_refine_ba523126f67e00e7cd55f0b92f16681d",
-        "refinement_interpretation_SystemNative_Tm_refine_dbe33893899564965a42f115925172f5",
+        "refinement_interpretation_Tm_refine_ba523126f67e00e7cd55f0b92f16681d",
+        "refinement_interpretation_Tm_refine_dbe33893899564965a42f115925172f5",
         "typing_SystemNative.addrinfo_length", "well-founded-ordering-on-nat"
       ],
       0,
-      "a1d107e174366bb2317f7e07f49f8feb"
+      "15393508ba29df81217dc6a9001c112b"
     ],
     [
       "SystemNative.getaddrinfo",
@@ -97,10 +99,10 @@
         "equation_SystemNative.pointer",
         "equation_SystemNative.pointer_or_null",
         "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_SystemNative_Tm_refine_0d4da60cb6187749d65a25df63d2ab15"
+        "refinement_interpretation_Tm_refine_0d4da60cb6187749d65a25df63d2ab15"
       ],
       0,
-      "aab667925234329a970f0ad648162339"
+      "6a3973a13cfbda29347393164fb078ff"
     ]
   ]
 ]

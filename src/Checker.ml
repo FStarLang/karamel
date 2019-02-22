@@ -645,15 +645,10 @@ and infer' env e =
       (** Structs and unions have fields; they may be typed structurally or
        * nominally, and we shall dereference a field in both cases. *)
       let t = infer env e in
-      begin match expand_abbrev env t with
-      | TQualified lid ->
-          fst (find_field env lid field)
-      | TApp (lid, ts) ->
-          let t = fst (find_field env lid field) in
-          DeBruijn.subst_tn ts t
-      | TAnonymous def ->
-          fst (find_field_from_def env def field)
-      | _ ->
+      begin match find_field env t field with
+      | Some (t, _) ->
+          t
+      | None ->
           checker_error env "this type doesn't have fields"
       end
 
@@ -706,13 +701,22 @@ and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
   ) l;
   Option.must !t_base
 
-and find_field env lid field =
-  find_field_from_def env (lookup_type env lid) field
+and find_field env t field =
+  match expand_abbrev env t with
+  | TQualified lid ->
+      Some (find_field_from_def env (lookup_type env lid) field)
+  | TApp (lid, ts) ->
+      let t, mut = find_field_from_def env (lookup_type env lid) field in
+      Some (DeBruijn.subst_tn ts t, mut)
+  | TAnonymous def ->
+      Some (find_field_from_def env def field)
+  | _ ->
+      None
 
 and find_field_from_def env def field =
   try begin match def with
     | Union fields ->
-        List.assoc field fields, false (* not mutable *)
+        List.assoc field fields, true (* owing to nocompound-literals which may mutate it *)
     | Flat fields ->
         KList.assoc_opt field fields
     | _ ->
@@ -738,10 +742,14 @@ and check_valid_assignment_lhs env e =
       binder.typ
   | EField (e, f) ->
       let t1 = check_valid_path env e in
-      let t2, mut = find_field env (assert_qualified env t1) f in
-      if not mut then
-        checker_error env "the field %s of type %a is not marked as mutable" f ptyp t1;
-      t2
+      begin match find_field env t1 f with
+      | Some (t2, mut) ->
+          if not mut then
+            checker_error env "the field %s of type %a is not marked as mutable" f ptyp t1;
+          t2
+      | None ->
+          checker_error env "field not found %s" f
+      end
   | EBufRead _ ->
       (* Introduced by the wasm struct allocation phase. *)
       e.typ
@@ -756,7 +764,7 @@ and check_valid_path env e =
   match e.node with
   | EField (e, f) ->
       let t1 = check_valid_path env e in
-      fst (find_field env (assert_qualified env t1) f)
+      fst (Option.must (find_field env t1 f))
 
   | EBufRead _
   | EBound _ ->

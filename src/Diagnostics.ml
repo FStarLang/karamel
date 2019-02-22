@@ -116,7 +116,8 @@ let check_features files =
 
     method! visit_EApp env e es =
       match e.node with
-      | EQualified (["C"; "String"], l) when KString.starts_with l "of_literal" ->
+      | EQualified (["C"; "String"], l)
+      | EQualified (["C"; "Compat"; "String"], l) when KString.starts_with l "of_literal" ->
           ()
       | _ ->
           super#visit_EApp env e es

@@ -8,7 +8,7 @@
       1,
       [ "@query", "assumption_FStar.UInt32.t__uu___haseq" ],
       0,
-      "903e3ff3454861679957c89a5d0b0a04"
+      "6aa21a85330b71ea438fa2e1c4208b67"
     ],
     [
       "DataTypesEq.__proj__A__item___0",
@@ -18,10 +18,10 @@
       [
         "@MaxIFuel_assumption", "@query", "disc_equation_DataTypesEq.A",
         "projection_inverse_BoxBool_proj_0",
-        "refinement_interpretation_DataTypesEq_Tm_refine_7fe4ec39530be71d09622e6ea631b362"
+        "refinement_interpretation_Tm_refine_7fe4ec39530be71d09622e6ea631b362"
       ],
       0,
-      "6ffea98457b3631d1fe3bd8669929a02"
+      "7db5c322dd4383731f137a057bd3f726"
     ],
     [
       "DataTypesEq.__proj__B__item___0",
@@ -31,10 +31,10 @@
       [
         "@MaxIFuel_assumption", "@query", "disc_equation_DataTypesEq.B",
         "projection_inverse_BoxBool_proj_0",
-        "refinement_interpretation_DataTypesEq_Tm_refine_4d5e6c06bbfb6471b81e2745aebd0ea5"
+        "refinement_interpretation_Tm_refine_4d5e6c06bbfb6471b81e2745aebd0ea5"
       ],
       0,
-      "1a3bc823d7d591641459a9aa29ab4276"
+      "63985dc0e3b9759e97f0a8330d1d4ad2"
     ],
     [
       "DataTypesEq.f",
@@ -48,15 +48,14 @@
         "equation_FStar.Monotonic.HyperHeap.hmap",
         "equation_FStar.Monotonic.HyperStack.mem",
         "function_token_typing_FStar.Monotonic.Heap.heap",
-        "function_token_typing_FStar.Monotonic.HyperHeap.rid",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
         "lemma_FStar.Set.lemma_equal_refl",
-        "refinement_interpretation_FStar.Monotonic.HyperStack_Tm_refine_9a74d818566e70513bc032cc3b65a144",
-        "typing_FStar.Map.domain",
+        "refinement_interpretation_Tm_refine_9a74d818566e70513bc032cc3b65a144",
+        "typing_FStar.Map.domain", "typing_FStar.Monotonic.HyperHeap.rid",
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "c4c3ca8f8f43e2f6400daaafe71e4fa9"
+      "dd110e8d79595234caaf20e9de1bcab5"
     ],
     [
       "DataTypesEq.main",
@@ -65,7 +64,7 @@
       1,
       [ "@query", "assumption_DataTypesEq.t__uu___haseq" ],
       0,
-      "fa5388b09659c287dd310ab1d40e83d6"
+      "6ecd787a82602ae3cd1e472c4ccbde5a"
     ]
   ]
 ]

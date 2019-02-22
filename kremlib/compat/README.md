@@ -1,6 +1,6 @@
 ## Compatibility libraries
 
-These are intended tofacilitate porting old code written using `FStar.Buffer`.
+These are intended to facilitate porting old code written using `FStar.Buffer`.
 In particular, we wish to enable a "hybrid" build where old code and new code
 can happily co-exist. In order to achieve this:
 - `kremlib/` should have precedence over `kremlib/compat` (watch out for the

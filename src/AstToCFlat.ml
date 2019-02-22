@@ -56,7 +56,7 @@ let size_of (t: typ): size =
       I32
   | TAnonymous (Enum _) ->
       I32
-  | TQualified ([], ("C_String_t" | "C_String_t_" | "Prims_string" | "Prims_int")) ->
+  | TQualified ([], ("C_String_t" | "C_String_t_" | "C_Compat_String_t" | "C_Compat_String_t_" | "Prims_string" | "Prims_int")) ->
       (* The string type from the C.String module, or an F* string literal.
        * They're represented the same way, that is, a pointer to a string
        * statically allocated in the data segment. *)
@@ -405,7 +405,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | EBufCreate (l, e_init, e_len) ->
       if not (e_init.node = EAny) then
-        Warnings.fatal_error "init node is not any but %a\n" pexpr e_init;
+        Warnings.fatal_error "init node is not any but %a (see SimplifyWasm)\n" pexpr e_init;
       let locals, e_len = mk_expr env locals e_len in
       let mult, base_size = cell_size env (assert_buf e.typ) in
       if Options.debug "cflat" then

@@ -373,5 +373,6 @@ let p_decl_or_function (df: declaration_or_function) =
   | Text s ->
       string s
 
-let print_files =
-  PrintCommon.print_files p_decl_or_function
+let print_files files =
+  let files = List.map (fun (f, _, d) -> f, d) files in
+  PrintCommon.print_files p_decl_or_function files

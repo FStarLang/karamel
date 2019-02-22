@@ -28,7 +28,8 @@ FSTAR_OPTIONS += --record_hints --use_hints --use_two_phase_tc true --odir $(EXT
   # --use_extracted_interfaces
 
 FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules \
-  $(addprefix --include , $(INCLUDE_PATHS))
+  $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
+  --already_cached 'FStar -FStar.Kremlin.Endianness LowStar'
 
 # Note: not compatible with the OPAM layout until fstar can be queried for the
 # location of ulib.
@@ -52,16 +53,10 @@ clean-c:
 include .depend
 
 ALL_CHECKED_FILES	= $(addsuffix .checked, $(ALL_FST_FILES))
-KREMLIB_FILES		= $(wildcard *.fst) $(wildcard *.fsti)
-KREMLIB_CHECKED_FILES	= $(addsuffix .checked, $(KREMLIB_FILES))
-OTHER_CHECKED_FILES	= $(filter-out $(KREMLIB_CHECKED_FILES), $(ALL_CHECKED_FILES))
 
-$(KREMLIB_CHECKED_FILES): %.checked: | .depend
-	$(FSTAR) $(FSTAR_OPTIONS) $(OTHERFLAGS) $< && \
+%.checked:
+	$(FSTAR) $(OTHERFLAGS) $< && \
 	touch $@
-
-$(OTHER_CHECKED_FILES): %.checked:
-	@echo $@ is out of date, please run make -C '$$'\(FSTAR_HOME\)/ulib before; false
 
 verify-all: $(ALL_CHECKED_FILES)
 
@@ -71,7 +66,7 @@ $(EXTRACT_DIR)/%.krml: | .depend
 	  $(notdir $(subst .checked,,$<)) && \
 	touch $@
 
-KREMLIN_ARGS += -fparentheses -fcurly-braces -fno-shadow
+KREMLIN_ARGS += -fparentheses -fcurly-braces -fno-shadow -header copyright-header.txt
 
 # Default build
 $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(wildcard c/*.c) .depend ../_build/src/Kremlin.native
@@ -80,6 +75,7 @@ $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(wildcard c/*.c) .depend .
 	  $(addprefix -add-include ,'<inttypes.h>' '"kremlib.h"' '"kremlin/internal/compat.h"') \
 	  -bundle FStar.UInt64+FStar.UInt32+FStar.UInt16+FStar.UInt8=[rename=FStar_UInt_8_16_32_64] \
 	  -bundle C.Endianness= \
+	  -bundle FStar.Reflection,FStar.Reflection.*,FStar.Tactics,FStar.Tactics.*,FStar.Range \
 	  -library C,C.Endianness,C.Failure,C.Loops,FStar.BitVector,FStar.Bytes,FStar.Char,FStar.Int,FStar.Kremlin.Endianness,FStar.Math.Lib,FStar.ModifiesGen,FStar.Monotonic.Heap,FStar.Monotonic.HyperStack,FStar.Mul,FStar.Pervasives,FStar.Pervasives.Native,FStar.ST,FStar.UInt,FStar.UInt128,FStar.UInt63 \
 	  $(filter-out fstar_uint128_msvc.c,$(notdir $(wildcard c/*.c))) \
 	  -o libkremlib.a \
@@ -108,7 +104,7 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | c/fstar_uint128.c .depend ../_
 	  -bundle C.Endianness= \
 	  -library FStar.UInt128 \
 	  -bundle FStar.UInt128= \
-	  -bundle '\*' \
+	  -bundle '*,WindowsWorkaroundSigh' \
 	  fstar_uint128.c \
 	  -o libkremlib.a \
 	  $^

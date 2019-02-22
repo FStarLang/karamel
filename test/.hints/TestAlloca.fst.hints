@@ -14,7 +14,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "c0d87cc31625dff9c1783498d965adae"
+      "4b60d6ebb1326040f62671ac93757a7f"
     ],
     [
       "TestAlloca.main",
@@ -36,13 +36,9 @@
         "equation_FStar.Monotonic.HyperStack.poppable",
         "equation_FStar.Monotonic.HyperStack.popped",
         "equation_FStar.Monotonic.HyperStack.remove_elt",
-        "equation_FStar.UInt32.n",
-        "function_token_typing_FStar.Monotonic.Heap.emp",
         "function_token_typing_FStar.Monotonic.Heap.heap",
-        "function_token_typing_FStar.Monotonic.HyperHeap.rid",
-        "function_token_typing_FStar.Monotonic.HyperHeap.root",
-        "function_token_typing_FStar.UInt32.n", "int_inversion",
-        "lemma_FStar.Buffer.lemma_fresh_poppable",
+        "function_token_typing_Prims.__cache_version_number__",
+        "int_inversion", "lemma_FStar.Buffer.lemma_fresh_poppable",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_non_tip_regions_elim",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_elim",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro",
@@ -65,11 +61,14 @@
         "projection_inverse_FStar.Pervasives.Native.Mktuple4__2",
         "projection_inverse_FStar.Pervasives.Native.Mktuple4__3",
         "projection_inverse_FStar.Pervasives.Native.Mktuple4__4",
-        "refinement_interpretation_FStar.Monotonic.HyperStack_Tm_refine_9a74d818566e70513bc032cc3b65a144",
-        "refinement_interpretation_TestAlloca_Tm_refine_2011e81e05d092e08833cbfdaea77df9",
-        "refinement_interpretation_TestAlloca_Tm_refine_acfe429f5afc32a10b529f84d7f16c62",
+        "refinement_interpretation_Tm_refine_2011e81e05d092e08833cbfdaea77df9",
+        "refinement_interpretation_Tm_refine_9a74d818566e70513bc032cc3b65a144",
+        "refinement_interpretation_Tm_refine_acfe429f5afc32a10b529f84d7f16c62",
         "typing_FStar.Map.contains", "typing_FStar.Map.domain",
         "typing_FStar.Map.restrict", "typing_FStar.Map.sel",
+        "typing_FStar.Monotonic.Heap.emp",
+        "typing_FStar.Monotonic.HyperHeap.rid",
+        "typing_FStar.Monotonic.HyperHeap.root",
         "typing_FStar.Monotonic.HyperStack.get_hmap",
         "typing_FStar.Monotonic.HyperStack.get_rid_ctr",
         "typing_FStar.Monotonic.HyperStack.get_tip",
@@ -77,7 +76,7 @@
         "typing_FStar.Set.complement", "typing_FStar.Set.singleton"
       ],
       0,
-      "2e69545fd5d2fdb5e1cab637566c33fd"
+      "ce0e20fb4c039a7a7844f930a97fb071"
     ]
   ]
 ]

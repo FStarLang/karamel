@@ -248,7 +248,7 @@ and print_expr { node; typ } =
       braces_with_nesting (separate_map break1 (fun (name, expr) ->
         let name = match name with Some name -> string name | None -> empty in
         group (name ^/^ equals ^/^ print_expr expr ^^ semi)
-      ) fields)
+      ) fields) ^^ colon ^/^ group (print_typ typ)
   | EField (expr, field) ->
       parens_with_nesting (print_expr expr) ^^ dot ^^ string field
   | EWhile (e1, e2) ->

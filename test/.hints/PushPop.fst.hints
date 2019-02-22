@@ -21,13 +21,9 @@
         "equation_FStar.Monotonic.HyperStack.poppable",
         "equation_FStar.Monotonic.HyperStack.popped",
         "equation_FStar.Monotonic.HyperStack.remove_elt",
-        "equation_FStar.UInt32.n",
-        "function_token_typing_FStar.Monotonic.Heap.emp",
         "function_token_typing_FStar.Monotonic.Heap.heap",
-        "function_token_typing_FStar.Monotonic.HyperHeap.rid",
-        "function_token_typing_FStar.Monotonic.HyperHeap.root",
-        "function_token_typing_FStar.UInt32.n",
-        "function_token_typing_Prims.unit", "int_inversion",
+        "function_token_typing_Prims.__cache_version_number__",
+        "int_inversion",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro",
         "lemma_FStar.Map.lemma_ContainsDom",
         "lemma_FStar.Map.lemma_SelRestrict", "lemma_FStar.Map.lemma_SelUpd2",
@@ -44,21 +40,22 @@
         "projection_inverse_FStar.Pervasives.Native.Mktuple4__2",
         "projection_inverse_FStar.Pervasives.Native.Mktuple4__3",
         "projection_inverse_FStar.Pervasives.Native.Mktuple4__4",
-        "refinement_interpretation_FStar.Monotonic.HyperStack_Tm_refine_9a74d818566e70513bc032cc3b65a144",
-        "refinement_interpretation_PushPop_Tm_refine_2011e81e05d092e08833cbfdaea77df9",
-        "refinement_interpretation_PushPop_Tm_refine_55be818f8bfa7783140f53c8c7dfdd82",
+        "refinement_interpretation_Tm_refine_2011e81e05d092e08833cbfdaea77df9",
+        "refinement_interpretation_Tm_refine_55be818f8bfa7783140f53c8c7dfdd82",
+        "refinement_interpretation_Tm_refine_9a74d818566e70513bc032cc3b65a144",
         "typing_FStar.Map.contains", "typing_FStar.Map.domain",
-        "typing_FStar.Map.restrict",
+        "typing_FStar.Map.restrict", "typing_FStar.Monotonic.Heap.emp",
+        "typing_FStar.Monotonic.HyperHeap.rid",
+        "typing_FStar.Monotonic.HyperHeap.root",
         "typing_FStar.Monotonic.HyperStack.get_hmap",
         "typing_FStar.Monotonic.HyperStack.get_rid_ctr",
         "typing_FStar.Monotonic.HyperStack.get_tip",
         "typing_FStar.Monotonic.HyperStack.remove_elt",
-        "typing_FStar.Pervasives.Native.uu___is_Some",
         "typing_FStar.Set.complement", "typing_FStar.Set.singleton",
         "typing_FStar.Set.union", "unit_typing"
       ],
       0,
-      "0baf92869325cf7d8a5e2e2a4820d3d5"
+      "c8f5ec5e55d7845523e45ac0f0011a8e"
     ],
     [
       "PushPop.main",
@@ -74,11 +71,11 @@
         "projection_inverse_BoxBool_proj_0",
         "projection_inverse_FStar.Pervasives.Native.Some_a",
         "projection_inverse_FStar.Pervasives.Native.Some_v",
-        "refinement_interpretation_PushPop_Tm_refine_fc8f03bf7d207bc8fa23bce12d8e1f9f",
+        "refinement_interpretation_Tm_refine_fc8f03bf7d207bc8fa23bce12d8e1f9f",
         "unit_typing"
       ],
       0,
-      "e6287879c618937b08dace86fed52bd7"
+      "b332f8477b7788c9be050f67013cb56a"
     ]
   ]
 ]

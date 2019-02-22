@@ -1,7 +1,7 @@
 KreMLin
 -------
 
-[![Build Status](https://travis-ci.org/FStarLang/kremlin.svg?branch=master)](https://travis-ci.org/FStarLang/kremlin)
+[![Build Status](https://travis-ci.com/FStarLang/kremlin.svg?branch=master)](https://travis-ci.com/FStarLang/kremlin)
 
 KreMLin is a tool that extracts an F\* program to readable C code. If the F\*
 program verifies against a low-level memory model that talks about the stack and

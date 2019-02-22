@@ -482,6 +482,7 @@ val repeat_range:
       interp h_2 == Spec.Loops.repeat_range (UInt32.v min) (UInt32.v max) (Ghost.reveal f) (interp h_1)
     ))
 
+inline_for_extraction
 let repeat_range #a min max f inv interp fc =
   let h0 = HST.get() in
   let inv' (h1: HS.mem) (i: nat): Type0 =
