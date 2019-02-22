@@ -11,7 +11,7 @@
         "primitive_Prims.op_Subtraction", "projection_inverse_BoxInt_proj_0"
       ],
       0,
-      "fbebd9ac33bb8004e584684cd33a162c"
+      "60c1636794910e2bb43a50c3d4709150"
     ],
     [
       "C.String.well_formed",
@@ -27,7 +27,7 @@
         "typing_FStar.Seq.Base.length"
       ],
       0,
-      "cfe99c9e66b75630bd40ff1d1a65783c"
+      "dc7b939d51cdf05371adcac404f1915b"
     ],
     [
       "C.String.t",
@@ -41,7 +41,7 @@
         "haseqC.String_Tm_refine_72f6d6556b75c266fe5293885ad412ce"
       ],
       0,
-      "fa089f7f195ce53750fdf512218d8cb1"
+      "af02d5d629873b45a7e41cc62c270d9b"
     ],
     [
       "C.String.length",
@@ -51,11 +51,11 @@
       [
         "@MaxIFuel_assumption", "@query", "equation_C.String.well_formed",
         "proj_equation_C.String.S_s", "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_C.String_Tm_refine_72f6d6556b75c266fe5293885ad412ce",
+        "refinement_interpretation_Tm_refine_72f6d6556b75c266fe5293885ad412ce",
         "typing_C.String.__proj__S__item__s"
       ],
       0,
-      "35b86f0be46196c7684354552dfadcbe"
+      "be4b7b23f29ee6e7f95b627b6a09f26a"
     ],
     [
       "C.String.get",
@@ -68,16 +68,17 @@
         "assumption_C.HasEq_char", "b2t_def", "equation_C.String.v",
         "equation_FStar.UInt.fits", "equation_FStar.UInt.min_int",
         "equation_FStar.UInt.size", "equation_FStar.UInt.uint_t",
-        "equation_FStar.UInt32.n", "fuel_guarded_inversion_C.String.t",
-        "function_token_typing_FStar.UInt32.n", "int_inversion",
-        "primitive_Prims.op_AmpAmp", "primitive_Prims.op_LessThanOrEqual",
+        "fuel_guarded_inversion_C.String.t",
+        "function_token_typing_Prims.__cache_version_number__",
+        "int_inversion", "primitive_Prims.op_AmpAmp",
+        "primitive_Prims.op_LessThanOrEqual",
         "projection_inverse_BoxBool_proj_0",
-        "refinement_interpretation_C.String_Tm_refine_d8b33d1524cce1c6d16dfa09cea477b8",
-        "refinement_interpretation_FStar.UInt_Tm_refine_a347709bfeba48709474ad26f4f6be87",
+        "refinement_interpretation_Tm_refine_a347709bfeba48709474ad26f4f6be87",
+        "refinement_interpretation_Tm_refine_d8b33d1524cce1c6d16dfa09cea477b8",
         "typing_FStar.UInt32.v"
       ],
       0,
-      "d5133aca7e664722968f7e35d1bb4d45"
+      "9edd6495bff7c5be4abe4faa6ddaf4f4"
     ],
     [
       "C.String.nonzero_is_lt",
@@ -86,25 +87,20 @@
       1,
       [
         "@MaxIFuel_assumption", "@query",
-        "FStar.UInt32_pretyping_041e3a67a2d2b51fd702f1f88cfc3b44",
         "Prims_pretyping_ae567c2fb75be05905677af440075565",
         "assumption_C.HasEq_char", "data_elim_C.String.S",
         "equation_C.String.get", "equation_C.String.length",
         "equation_C.String.v", "equation_C.String.well_formed",
-        "equation_FStar.UInt.uint_t", "equation_FStar.UInt32.n",
-        "equation_FStar.UInt32.n_minus_one",
-        "fuel_guarded_inversion_C.String.t",
-        "function_token_typing_FStar.UInt32.n",
-        "function_token_typing_FStar.UInt32.n_minus_one", "int_inversion",
-        "int_typing", "primitive_Prims.op_Subtraction",
+        "equation_FStar.UInt.uint_t", "fuel_guarded_inversion_C.String.t",
+        "function_token_typing_Prims.__cache_version_number__",
+        "int_inversion", "int_typing", "primitive_Prims.op_Subtraction",
         "proj_equation_C.String.S_s", "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_C.String_Tm_refine_72f6d6556b75c266fe5293885ad412ce",
-        "refinement_interpretation_C.String_Tm_refine_d8b33d1524cce1c6d16dfa09cea477b8",
-        "refinement_interpretation_FStar.UInt_Tm_refine_a347709bfeba48709474ad26f4f6be87",
+        "refinement_interpretation_Tm_refine_72f6d6556b75c266fe5293885ad412ce",
+        "refinement_interpretation_Tm_refine_a347709bfeba48709474ad26f4f6be87",
         "typing_FStar.UInt32.v"
       ],
       0,
-      "532dc777439031039d826981c505b9f5"
+      "b29333dbc4169457adb664e56854c523"
     ],
     [
       "C.String.memcpy",
@@ -122,7 +118,7 @@
         "haseqFStar.Kremlin.Endianness_Tm_refine_7f014d1f670e5d2ecdc0d7946b4a693d"
       ],
       0,
-      "d6f5acc6a74e7a183f31ed31c52cd99d"
+      "b3e5f9ed225740dfc0e00bc6e094cba2"
     ]
   ]
 ]
