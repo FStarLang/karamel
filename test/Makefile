@@ -12,7 +12,7 @@ FILES		= \
   Scope.test Attributes.test Unsound.test Substitute.test \
   InlineTest.test Ghost1.test Loops.test Structs.test \
   TotalLoops.test \
-  Recursive.test RecursivePoly.test Structs2.test StringLit.test \
+  Recursive.test RecursivePoly.test Structs2.test \
   FunctionalEncoding.test FunPtr.test Test128.test \
   CheckedInt.test Polymorphic.test GcTypes.test BadMatch.test C89.test \
   PatternAny.test hello-system/HelloSystem.test Server.test \
@@ -25,7 +25,7 @@ FILES		= \
   ../book/Introduction.test TopLevelArray.test NoShadow.test Library.test \
   AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
   UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test \
-  ProperErasure.test
+  ProperErasure.test # StringLit.test
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
