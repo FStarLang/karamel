@@ -146,8 +146,12 @@ hacl-test:
 # A pseudo-target for WASM compilation that does not match any specific file.
 # All WASM targets get the -wasm flag; some specific targets may override
 # NEGATIVE for negative tests.
-$(OUTPUT_DIR)/%.wasm: $(OUTPUT_DIR)/FStar_UInt128.krml $(OUTPUT_DIR)/WasmSupport.krml | $(KRML_BIN)
-	$(KRML) -wasm $(EXTRA) -tmpdir $@ $(JSFILES) -no-prefix $* $^
+$(OUTPUT_DIR)/%.wasm: $(ALL_KRML_FILES) $(KRML_BIN)
+	$(KRML) -minimal -bundle WasmSupport= -bundle 'FStar.*' -bundle Prims \
+	  -bundle C -bundle C.Endianness -bundle C.Nullity -bundle C.String \
+	  -bundle TestLib \
+	  -bundle $(subst _,.,$*)=WindowsHack,\* \
+	  -wasm $(EXTRA) -tmpdir $@ $(JSFILES) -no-prefix $* $(filter %.krml,$^)
 
 %.wasm-test: $(OUTPUT_DIR)/%.wasm
 	cd $^ && \
