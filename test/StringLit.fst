@@ -10,11 +10,11 @@ let test (x:string): Stack string (fun _ -> true) (fun _ _ _ -> true) =
 let cat (x y:string): Stack string (fun _ -> true) (fun _ _ _ -> true) =
   strcat x y
 
-let test_c_string () =
+let test_c_string (): Stack unit (fun _ -> true) (fun _ _ _ -> true) =
   // C strings, modeled as zero-terminated, not relying on GC
   C.String.(print !$"hello, world\n")
 
-let main () =
+let main (): Stack Int32.t (fun _ -> true) (fun _ _ _ -> true) =
   // F* strings, unaware of zero-termination, supports concatenation using a
   // conservative GC; HyperIO provides functions in the Stack effect
   IO.print_string (test "jonathan!\n");
@@ -22,4 +22,7 @@ let main () =
   IO.print_string (cat "" "");
   IO.print_string (cat "" "\n");
   IO.print_string (cat "\n" "");
-  C.EXIT_SUCCESS
+  let test_literal, len = LowStar.Literal.buf_len_of_literal "hello\x00" in
+  assert (len = 6ul);
+  let zero: UInt8.t = LowStar.ImmutableBuffer.index test_literal 5ul in
+  FStar.Int.Cast.Full.uint8_to_int32 zero

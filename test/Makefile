@@ -64,10 +64,16 @@ everything: all wasm external
 
 # Use F*'s dependency mechanism and fill out the missing rules.
 
-.depend: $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) $(BROKEN) | Makefile
-	$(FSTAR) --dep full $^ ../runtime/WasmSupport.fst --extract Kremlin > .depend
+ifndef MAKE_RESTARTS
+.depend: .FORCE
+	$(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
+	  $(BROKEN) ../runtime/WasmSupport.fst --extract Kremlin > $@
 
--include .depend
+.PHONY: .FORCE
+.FORCE:
+endif
+
+include .depend
 
 $(HINTS_DIR):
 	mkdir -p $@
@@ -81,9 +87,9 @@ $(OUTPUT_DIR)/%.krml: | .depend
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<))
 
-$(OUTPUT_DIR)/%.exe: $(OUTPUT_DIR)/FStar_UInt128.krml | $(KRML_BIN)
+$(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
-	  -o $@ $^
+	  -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack,\*
 
 .SECONDEXPANSION:
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe
@@ -119,7 +125,7 @@ $(OUTPUT_DIR)/CheckedInt.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/CustomEq.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fnoshort-enums
 $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
-$(OUTPUT_DIR)/Library.exe: EXTRA = -library MemCpyModel memcpymodel_impl.c
+$(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel memcpymodel_impl.c
 
 # Some custom targets
 
