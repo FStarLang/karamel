@@ -274,10 +274,11 @@ and pattern' =
   | PBool of bool
   | PBound of var
   | POpen of ident * atom_t
-  | PCons of ident * pattern list
+  | PCons of ident * pattern list (* why are fields not named? *)
   | PEnum of lident
   | PTuple of pattern list
   | PRecord of (ident * pattern) list
+      (* here fields are named but this is redundant because F* guarantees they're all present *)
   | PDeref of pattern
   | PConstant of constant
   | PWild

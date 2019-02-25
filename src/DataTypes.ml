@@ -393,6 +393,8 @@ let remove_unit_fields = object (self)
     match type_def with
     | Variant branches ->
         DType (lid, flags, n, self#rewrite_variant lid branches)
+    | Flat fields ->
+        DType (lid, flags, n, Flat (self#rewrite_fields lid None fields))
     | _ ->
         DType (lid, flags, n, type_def)
 
@@ -401,16 +403,21 @@ let remove_unit_fields = object (self)
   method private rewrite_variant lid branches =
     let branches =
       List.map (fun (cons, fields) ->
-        cons, KList.filter_mapi (fun i (f, (t, m)) ->
-          if self#is_erasable t then begin
-            Hashtbl.add erasable_fields (lid, cons, i) ();
-            None
-          end else
-            Some (f, (t, m))
-        ) fields
+        cons, self#rewrite_fields lid (Some cons) fields
       ) branches
     in
     Variant branches
+
+  method private rewrite_fields:
+    'a. lident -> string option -> ('a * (typ * bool)) list -> ('a * (typ * bool)) list
+  = fun lid cons fields ->
+    KList.filter_mapi (fun i (f, (t, m)) ->
+      if self#is_erasable t then begin
+        Hashtbl.add erasable_fields (lid, cons, i) ();
+        None
+      end else
+        Some (f, (t, m))
+    ) fields
 
   (* As we're about to visit a pattern, we collect binders for now-defunct
    * fields, and replace them with default values in the corresponding branch. *)
@@ -433,7 +440,7 @@ let remove_unit_fields = object (self)
    * remember them. *)
   method! visit_PCons (_, t) cons pats =
     let pats = KList.filter_mapi (fun i p ->
-      if Hashtbl.mem erasable_fields (assert_tlid t, cons, i) then begin
+      if Hashtbl.mem erasable_fields (assert_tlid t, Some cons, i) then begin
         begin match p.node with
         | POpen (_, a) ->
             atoms <- a :: atoms
@@ -446,10 +453,41 @@ let remove_unit_fields = object (self)
     ) pats in
     PCons (cons, pats)
 
+  method! visit_PRecord (_, t) pats =
+    let pats = KList.filter_mapi (fun i (f, p) ->
+      if Hashtbl.mem erasable_fields (assert_tlid t, None, i) then begin
+        begin match p.node with
+        | POpen (_, a) ->
+            atoms <- a :: atoms
+        | _ ->
+            ()
+        end;
+        None
+      end else
+        Some (f, self#visit_pattern_w () p)
+    ) pats in
+    PRecord pats
+
+  method! visit_EFlat (_, t) exprs =
+    let seq = ref [] in
+    let exprs = KList.filter_mapi (fun i (f, e) ->
+      if Hashtbl.mem erasable_fields (assert_tlid t, None, i) then begin
+        if not (is_value e) then
+          seq := (if e.typ = TUnit then e else with_unit (EIgnore (self#visit_expr_w () e))) :: !seq;
+        None
+      end else
+        Some (f, self#visit_expr_w () e)
+    ) exprs in
+    let e = EFlat exprs in
+    if List.length !seq > 0 then
+      ESequence (List.rev_append !seq [ (with_type t e) ])
+    else
+      e
+
   method! visit_ECons (_, t) cons exprs =
     let seq = ref [] in
     let exprs = KList.filter_mapi (fun i e ->
-      if Hashtbl.mem erasable_fields (assert_tlid t, cons, i) then begin
+      if Hashtbl.mem erasable_fields (assert_tlid t, Some cons, i) then begin
         if not (is_value e) then
           seq := (if e.typ = TUnit then e else with_unit (EIgnore (self#visit_expr_w () e))) :: !seq;
         None
