@@ -88,6 +88,7 @@ $(OUTPUT_DIR)/%.krml: | .depend
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<))
 
+.PRECIOUS: $(OUTPUT_DIR)/%.exe
 $(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
 	  -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack,\*
@@ -146,6 +147,7 @@ hacl-test:
 # A pseudo-target for WASM compilation that does not match any specific file.
 # All WASM targets get the -wasm flag; some specific targets may override
 # NEGATIVE for negative tests.
+.PRECIOUS: $(OUTPUT_DIR)/%.wasm
 $(OUTPUT_DIR)/%.wasm: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(KRML) -minimal -bundle WasmSupport= -bundle 'FStar.*' -bundle Prims \
 	  -bundle C -bundle C.Endianness -bundle C.Nullity -bundle C.String \

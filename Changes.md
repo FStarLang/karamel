@@ -2,6 +2,7 @@
 
 - Data types with a single branch with a single constructor are now completely
   eliminated. This is now a fifth compilation scheme for data types.
+- Same thing for records with a single field.
 
 ### February 25th, 2019
 

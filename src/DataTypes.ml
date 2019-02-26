@@ -157,7 +157,7 @@ let build_scheme_map files =
         | _ ->
             ()
         end
-    | DType (lid, _, 0, Flat [ _, (t, _) ]) when false ->
+    | DType (lid, _, 0, Flat [ _, (t, _) ]) ->
         Hashtbl.add map lid (Eliminate t)
     | _ ->
         ()
@@ -284,6 +284,45 @@ let compile_simple_matches (map, enums) = object(self)
       new_decls @ [ d ]
     ) decls
 
+  (* Warm-up: compilation of single-field __records__. *)
+
+  method! visit_EFlat (_, typ) exprs =
+    let exprs = List.map (fun (i, e) -> i, self#visit_expr_w () e) exprs in
+    match Hashtbl.find map (assert_tlid typ) with
+    | exception Not_found ->
+        EFlat exprs
+    | Eliminate _ ->
+        (snd (KList.one exprs)).node
+    | _ ->
+        assert false
+
+  method! visit_PRecord (_, typ) pats =
+    let pats = List.map (fun (i, p) -> i, self#visit_pattern_w () p) pats in
+    match Hashtbl.find map (assert_tlid typ) with
+    | exception Not_found ->
+        PRecord pats
+    | Eliminate _ ->
+        (snd (KList.one pats)).node
+    | _ ->
+        assert false
+
+  method! visit_EField _ e f =
+    let e' = self#visit_expr_w () e in
+    match e.typ with
+    | TQualified lid ->
+        begin match Hashtbl.find map lid with
+        | exception Not_found ->
+            EField (e', f)
+        | Eliminate _ ->
+            e.node
+        | _ ->
+            assert false
+        end
+    | _ ->
+        EField (e', f)
+
+  (* Four different compilation schemes for inductives, in one pass. *)
+
   method! visit_ECons (_, typ) cons args =
     let lid =
       match typ with
@@ -359,7 +398,8 @@ let compile_simple_matches (map, enums) = object(self)
         pending := decl :: !pending;
         preferred_lid
 
-  method! visit_DType _ lid flags n def =
+  method! visit_DType env lid flags n def =
+    let def = self#visit_type_def env def in
     match def with
     | Variant branches ->
         assert (n = 0);
@@ -392,6 +432,16 @@ let compile_simple_matches (map, enums) = object(self)
             let fields = List.map (fun (f, t) -> Some f, t) (f_tag :: fields) in
             DType (lid, flags, 0, Flat fields)
             end
+    | Flat fields ->
+        assert (n = 0);
+        begin match Hashtbl.find map lid with
+        | exception Not_found ->
+            DType (lid, flags, 0, Flat fields)
+        | Eliminate t ->
+            DType (lid, flags, 0, Abbrev t)
+        | _ ->
+            assert false
+        end
     | _ ->
         DType (lid, flags, n, def)
 
