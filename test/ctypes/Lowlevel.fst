@@ -76,18 +76,3 @@ let replicate n =
 //   upd b 0ul 5ul;
 //   ()
 
-
-// val new_buf: last: U32.t -> Stack (FStar.Seq.lseq U32.t 5 )
-//   (requires fun h -> True)
-//   (requires fun h0 _ h1 -> True)
-// let new_buf last =
-//   FStar.Seq.createL [1ul; 2ul; 3ul; 4ul; last]
-
-
-// val list_of_circles: cir: circle -> n: U32.t -> Stack circle
-//   (requires fun h ->
-//     U32.v cir.c.x + U32.v d.x < 32 /\
-//     U32.v cir.c.y + U32.v d.y < 32)
-//   (requires fun h0 _ h1 -> True)
-// let rec list_of_circles cir n =
-  
