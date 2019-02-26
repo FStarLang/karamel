@@ -15,6 +15,10 @@ let move_circle (c: t_Lowlevel_circle structure)
   (p: t_Lowlevel_point structure) =
   move_circle_ c p
 
+let my_not b = my_not_ b
+
+let replicate n = replicate_ n
+
 let point_to_tuple (p: t_Lowlevel_point structure) =
   (Unsigned.UInt32.to_int (getf p point_x), Unsigned.UInt32.to_int (getf p point_y))
 
@@ -60,3 +64,19 @@ let _ =
   let centre_ret = getf circle_ret circle_c in
   assert (point_to_tuple centre_ret = (6, 7));
   assert (Unsigned.UInt32.to_int (getf circle_ret circle_r) = 5)
+
+let _ =
+  let b_ptr = allocate t_Lowlevel_my_bool t_Lowlevel_MyTrue in
+  let _ = my_not b_ptr in
+  let v = !@ b_ptr in
+  assert (v = t_Lowlevel_MyFalse)
+
+let _ =
+  let arg = Unsigned.UInt32.of_int 6 in
+  let d = replicate arg in
+  let f = getf d tr__0 in
+  assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_fst = arg);
+  assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_snd = arg);
+  assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_thd = arg);
+  assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_f3 = arg);
+  assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_f4 = arg)

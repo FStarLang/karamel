@@ -60,8 +60,8 @@ KRML_FLAGS= -bundle Prims \
       -ctypes '$*' \
 	  -fparentheses -o out.a
 
+.PHONY: Client.exe
 Client.exe: Lowlevel.bind
-	cp Client.ml bindings
 	cc -I /home/victor/github/project-everest/everest/kremlin/include -c -o Lowlevel.o bindings/Lowlevel.c
 	ocamlfind ocamlopt -I bindings -linkpkg -package ctypes,ctypes.foreign -cclib -Wl,-E -cclib Lowlevel.o bindings/Lowlevel_bindings.ml Client.ml -o Client.exe
 	./Client.exe

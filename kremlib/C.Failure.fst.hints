@@ -11,17 +11,16 @@
         "equation_FStar.HyperStack.ST.equal_domains",
         "equation_FStar.Monotonic.Heap.equal_dom",
         "equation_FStar.Monotonic.HyperHeap.hmap",
-        "equation_FStar.Monotonic.HyperStack.mem", "equation_Prims.eqtype",
+        "equation_FStar.Monotonic.HyperStack.mem",
         "function_token_typing_FStar.Monotonic.Heap.heap",
-        "function_token_typing_FStar.Monotonic.HyperHeap.rid",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
         "lemma_FStar.Set.lemma_equal_refl",
         "refinement_interpretation_FStar.Monotonic.HyperStack_Tm_refine_9a74d818566e70513bc032cc3b65a144",
-        "typing_FStar.Map.domain",
+        "typing_FStar.Map.domain", "typing_FStar.Monotonic.HyperHeap.rid",
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "43e4d678604048562c873471c0e48936"
+      "77b8df685759e28355300a06fab19648"
     ],
     [
       "C.Failure.failwith",
@@ -30,7 +29,7 @@
       1,
       [ "@query" ],
       0,
-      "19db484d2b5cce30650396be1a4710e1"
+      "1217a2608d646f0ac15495ffd1cf1e2a"
     ]
   ]
 ]

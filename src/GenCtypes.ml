@@ -50,12 +50,23 @@ let mk_decl ?t p e =
 let mk_app e args =
   Exp.apply e (List.map (fun a -> (Nolabel, a)) args)
 
-let mk_simple_app_decl (name: ident) (typ: ident option) (args: expression list): structure_item =
+let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
+  (args: expression list): structure_item =
   let p = Pat.mk (Ppat_var (mk_sym name)) in
   let t = Option.map (fun x -> Typ.mk (Ptyp_constr (mk_ident x, []))) typ in
-  let e = mk_app (exp_ident name) args in
+  let e = mk_app (exp_ident head) args in
   mk_decl ?t:t p e
 
+
+let mk_typ_name n = "t_" ^ n
+let mk_struct_name n = n ^ "_s" (* c.f. CStarToC11.mk_spec_and_declarator_t *)
+let mk_unqual_name module_name  n =
+  if KString. starts_with n (module_name ^ "_") then
+    KString.chop n (module_name ^ "_")
+  else if KString. starts_with n "K___" then
+    "t_" ^ n (* VD: might want to prcess this differently or alias to more user-friendly names *)
+  else
+    n
 
 let rec mk_typ = function
   | Int w -> exp_ident (PrintCommon.width_to_string w ^ "_t")
@@ -86,9 +97,9 @@ let rec mk_typ = function
  *   let point_y = field t_M_point "y" uint32_t
  *   let _ = seal t_M_point *)
 let mk_struct_decl module_name name fields: structure_item list =
-  let typ_name = "t_" ^ name in
-  let struct_name = name ^ "_s" in (* c.f. CStarToC11.mk_spec_and_declarator_t *)
-  let unqual_name = KString.chop name (module_name ^ "_") in
+  let typ_name = mk_typ_name name in
+  let struct_name = mk_struct_name name in
+  let unqual_name = mk_unqual_name module_name name in
   let ctypes_structure =
     let id = mk_ident (String.concat " " [typ_name; "structure"; "typ"]) in
     let t = Typ.mk (Ptyp_constr (id, [])) in
@@ -110,6 +121,19 @@ let mk_struct_decl module_name name fields: structure_item list =
   let seal_decl = mk_decl (Pat.any ()) (mk_app (exp_ident "seal") [exp_ident typ_name]) in
   [type_decl; ctypes_structure] @ (List.map mk_field fields) @ [seal_decl]
 
+let mk_typedef name typ =
+  mk_simple_app_decl (mk_typ_name name) None "typedef" [mk_typ typ; mk_const name]
+
+let mk_enum_tags tags =
+  let rec mk_tags n tags =
+    match tags with
+    | [] -> []
+    | t :: ts ->
+      (mk_simple_app_decl (mk_typ_name t) None "Unsigned.UInt8.of_int"
+         [Exp.constant (Const.int n)]) :: (mk_tags (n+1) ts)
+  in
+  mk_tags 0 tags
+
 let build_foreign_exp name return_type parameters : expression =
   let types = List.map (fun n -> mk_typ n.typ) parameters in
   let returning = mk_app (exp_ident "returning") [mk_typ return_type] in
@@ -126,13 +150,15 @@ let mk_ctypes_decl module_name (d: decl): structure =
   match d with
   | Function (_, _, return_type, name, parameters, _) ->
       (* Don't generated bindings for projectors *)
-      if not (KString.starts_with name (module_name ^ "___proj__")) then
+      if not (KString.starts_with name (module_name ^ "___proj__")) &&
+         not (KString.starts_with name (module_name ^ "_uu___"))then
         [build_binding module_name name return_type parameters]
       else
         []
   | Type (name, typ, _) -> begin (* VD: do I need to consider flags here? *)
       match typ with
       | Struct fields  -> mk_struct_decl module_name name fields
+      | Enum tags -> (mk_typedef name (Int Constant.UInt8)) :: (mk_enum_tags tags)
       | _ -> []
       end
   | _ -> []
