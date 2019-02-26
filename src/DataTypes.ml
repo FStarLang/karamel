@@ -119,6 +119,9 @@ let remove_unused_type_arguments files =
  *   compilation phase -- we don't want to declare a new type because that would
  *   cause collisions in the global C scope of enum components. *)
 type scheme =
+  | Eliminate of typ
+    (** Remove the data type wholesale because it has a single branch and a
+     * single argument *)
   | ToEnum
   | ToFlat of ident list
   | ToTaggedUnion of branches_t
@@ -134,22 +137,49 @@ let one_non_constant_branch branches =
   KList.one non_constant
 
 let build_scheme_map files =
-  build_map files (fun map -> function
+  let map = build_map files (fun map -> function
     | DType (lid, _, 0, Variant branches) ->
         let _constant, non_constant = List.partition (fun (_, fields) ->
           List.length fields = 0
         ) branches in
-        if List.length non_constant = 0  then
+        if List.length non_constant = 0 then
           Hashtbl.add map lid ToEnum
         else if List.length branches = 1 then
           Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
         else if List.length non_constant = 1 then
           Hashtbl.add map lid (ToFlatTaggedUnion branches)
         else
-          Hashtbl.add map lid (ToTaggedUnion branches)
+          Hashtbl.add map lid (ToTaggedUnion branches);
+        (* Shadow the previous binding if we *think* we can "eliminate". *)
+        begin match branches with
+        | [ _, [ _, (t, _ )] ] ->
+            Hashtbl.add map lid (Eliminate t)
+        | _ ->
+            ()
+        end
+    | DType (lid, _, 0, Flat [ _, (t, _) ]) when false ->
+        Hashtbl.add map lid (Eliminate t)
     | _ ->
         ()
-  ), Hashtbl.create 41
+  ) in
+  (* Types that are forward-declared are not eligible for the "eliminate"
+   * compilation scheme -- they are mutually recursive with another type and the
+   * forward struct declaration is what allows us to compile these types. *)
+  (object
+    inherit [_] iter
+    method visit_DType _ lid _ _ d =
+      (* But if it turns out we can't eliminate, restore what otherwise would've
+       * been the compilation scheme. (See OCaml doc for the behavior of add.) *)
+      if d = Forward then
+        match Hashtbl.find map lid with
+        | exception Not_found ->
+            ()
+        | Eliminate _ ->
+            Hashtbl.remove map lid
+        | _ ->
+            ()
+  end)#visit_files () files;
+  map, Hashtbl.create 41
 
 (** Second thing: handle the trivial case of a data type definition with only
  * tags (it's just an enum) and the trivial case of a type definition with one
@@ -235,6 +265,10 @@ let allocate_tag enums preferred_lid tags =
 let field_for_tag = "tag"
 let field_for_union = "val"
 
+(* This does two things:
+ * - deal with the simple compilation schemes (not tagged union)
+ * - pre-allocate types for tags for the next phase (tagged union compilation)
+ *)
 let compile_simple_matches (map, enums) = object(self)
 
   inherit [_] map
@@ -259,6 +293,8 @@ let compile_simple_matches (map, enums) = object(self)
     match Hashtbl.find map lid with
     | exception Not_found ->
         ECons (cons, List.map (self#visit_expr_w ()) args)
+    | Eliminate _ ->
+        (KList.one (List.map (self#visit_expr_w ()) args)).node
     | ToTaggedUnion _ ->
         ECons (cons, List.map (self#visit_expr_w ()) args)
     | ToEnum ->
@@ -288,6 +324,8 @@ let compile_simple_matches (map, enums) = object(self)
     match Hashtbl.find map lid with
     | exception Not_found ->
         PCons (cons, List.map (self#visit_pattern_w ()) args)
+    | Eliminate _ ->
+        (KList.one (List.map (self#visit_pattern_w ()) args)).node
     | ToTaggedUnion _ ->
         PCons (cons, List.map (self#visit_pattern_w ()) args)
     | ToEnum ->
@@ -328,6 +366,9 @@ let compile_simple_matches (map, enums) = object(self)
         begin match Hashtbl.find map lid with
         | exception Not_found ->
             DType (lid, flags, 0, Variant branches)
+        | Eliminate t ->
+            ignore (self#allocate_enum_lid lid branches);
+            DType (lid, flags, 0, Abbrev t)
         | ToTaggedUnion _ ->
             ignore (self#allocate_enum_lid lid branches);
             DType (lid, flags, 0, Variant branches)
@@ -343,6 +384,7 @@ let compile_simple_matches (map, enums) = object(self)
             let fields = List.map (fun (f, t) -> Some f, t) (snd (List.hd branches)) in
             DType (lid, flags, 0, Flat fields)
         | ToFlatTaggedUnion branches ->
+            ignore (self#allocate_enum_lid lid branches);
             (* First field for the tag, then flatly, the fields of the only one
              * non-constant constructor. *)
             let f_tag = field_for_tag, (TQualified (self#allocate_enum_lid lid branches), false) in
@@ -353,6 +395,32 @@ let compile_simple_matches (map, enums) = object(self)
     | _ ->
         DType (lid, flags, n, def)
 
+  (* Need the type to be mapped *after* the expression, so that we can examine
+   * the old type. Maybe this should be the default? *)
+  method! visit_expr_w env x =
+    let node = self#visit_expr' (env, x.typ) x.node in
+    let typ = self#visit_typ env x.typ in
+    { node; typ }
+
+  method! visit_pattern_w env x =
+    let node = self#visit_pattern' (env, x.typ) x.node in
+    let typ = self#visit_typ env x.typ in
+    { node; typ }
+
+  method! visit_with_type f (env, _) x =
+      let node = f (env, x.typ) x.node in
+      let typ = self#visit_typ env x.typ in
+      { node; typ }
+
+  method! visit_TQualified _ lid =
+    match Hashtbl.find map lid with
+    | exception Not_found ->
+        TQualified lid
+    | Eliminate t ->
+        t
+    | _ ->
+        TQualified lid
+
   method! visit_EMatch ((_, t) as env) e branches =
     let e = self#visit_expr_w () e in
     let branches = self#visit_branches env branches in
@@ -362,7 +430,7 @@ let compile_simple_matches (map, enums) = object(self)
         | exception Not_found ->
             (* This might be a record in the first place. *)
             try_mk_flat e t branches
-        | ToTaggedUnion _ | ToFlat _ | ToFlatTaggedUnion _ ->
+        | ToTaggedUnion _ | ToFlat _ | ToFlatTaggedUnion _ | Eliminate _ ->
             try_mk_flat e t branches
         | ToEnum ->
             try_mk_switch e branches
@@ -707,7 +775,9 @@ let compile_all_matches (map, enums) = object (self)
     let tag_lid =
       match allocate_tag enums preferred_lid tags with
       | Found lid -> lid
-      | Fresh _ -> assert false (* pre-allocated by the previous phase *)
+      | Fresh _ ->
+          (* pre-allocated by the previous phase *)
+          Warnings.fatal_error "could not find tag lid for %a" plid preferred_lid
     in
     TQualified tag_lid, TAnonymous (Union structs)
 
@@ -858,6 +928,7 @@ let debug_map map =
   Hashtbl.iter (fun lid scheme ->
     KPrint.bprintf "%a goes to %s\n" plid lid (
       match scheme with
+      | Eliminate _ -> "eliminate"
       | ToEnum -> "enum"
       | ToFlat _ -> "flat"
       | ToTaggedUnion _ -> "tagged union"

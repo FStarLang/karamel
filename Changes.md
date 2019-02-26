@@ -1,9 +1,18 @@
-### January 18th, 2018
+### February 26th, 2019
+
+- Data types with a single branch with a single constructor are now completely
+  eliminated. This is now a fifth compilation scheme for data types.
+
+### February 25th, 2019
+
+- Eliminate unit argument within records, too
+
+### January 18th, 2019
 
 - Allow %s in header files (passed to KReMLin via -header), to indicate where to
   insert the KReMLin invocation.
 
-### January 1st, 2018
+### January 1st, 2019
 
 - Headers now only depend on their direct dependencies. Previously, KreMLin
   would order C files in a valid topological order, then each header would
