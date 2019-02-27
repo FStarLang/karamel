@@ -725,18 +725,7 @@ and mk_program name env decls =
           (Printexc.to_string e)
   ) decls
 
-and mk_files files =
-  (* Construct the ifdef environment *)
-  let ifdefs = (object
-    inherit [_] reduce
-    method private zero = StringSet.empty
-    method private plus = StringSet.union
-    method visit_DExternal _ _ flags name _ =
-      if List.mem Common.IfDef flags then
-        StringSet.singleton (snd name)
-      else
-        StringSet.empty
-  end)#visit_files () files in
+and mk_files files ifdefs =
   let env = { empty with ifdefs } in
   (* Construct the mapping needed to get direct dependencies *)
   let file_of = Bundle.mk_file_of files in
@@ -748,3 +737,15 @@ and mk_files files =
     let name, program = file in
     name, deps, mk_program name env program
   ) files
+
+let mk_ifdefs_map files =
+  (object
+    inherit [_] reduce
+    method private zero = StringSet.empty
+    method private plus = StringSet.union
+    method visit_DExternal _ _ flags name _ =
+      if List.mem Common.IfDef flags then
+        StringSet.singleton (Simplify.target_c_name name)
+      else
+        StringSet.empty
+  end)#visit_files () files

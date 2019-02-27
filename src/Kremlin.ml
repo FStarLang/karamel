@@ -547,6 +547,9 @@ Supported options:|}
       files
   in
 
+  (* This allows drop'ing the module that contains just ifdefs. *)
+  let ifdefs = AstToCStar.mk_ifdefs_map files in
+
   (* 6. Drop both files and selected declarations within some files, as a [-drop
    * Foo -bundle Bar=Foo] command-line requires us to go inside file [Bar] to
    * drop the declarations that originate from [Foo]. *)
@@ -591,7 +594,7 @@ Supported options:|}
 
   else
     (* Translate to C*... *)
-    let files = AstToCStar.mk_files files in
+    let files = AstToCStar.mk_files files ifdefs in
     tick_print true "AstToCStar";
 
     let files = List.filter (fun (_, _, decls) -> List.length decls > 0) files in
