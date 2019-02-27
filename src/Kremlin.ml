@@ -208,8 +208,9 @@ Supported options:|}
       not bundle FStar";
     "-static-header", Arg.String (prepend Options.static_header), " generate a \
       .h for the given module where all functions are marked a static inline";
-    "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the \
-      module name to declarations from this module";
+    "-no-prefix", Arg.String (fun s -> List.iter (prepend Options.no_prefix) (Parsers.drop s)),
+      " don't prepend the module name to declarations from module matching this \
+      pattern";
     "-bundle", Arg.String (fun s -> prepend Options.bundle (Parsers.bundle s)), " \
       group modules into a single C translation unit (see above)";
     "-drop", Arg.String (fun s ->
