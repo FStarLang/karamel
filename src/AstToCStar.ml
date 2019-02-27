@@ -166,6 +166,8 @@ let ensure_fresh env name body cont =
 let small s = CStar.Constant (K.UInt8, s)
 let zero = small "0"
 
+exception NotIfDef
+
 let rec mk_expr env in_stmt e =
   let mk_expr env e = mk_expr env false e in
   match e.node with
@@ -333,30 +335,13 @@ and mk_stmts env e ret_type =
         in
         env', e :: acc
 
-    | EIfThenElse (
-      { node = EApp ({ node = EOp (Ast.K.And, Ast.K.Bool); _ },
-        [ { node = EQualified (_, name); _ } as e1; e1' ]); _ },
-      e2, e3)
-      when StringSet.mem name env.ifdefs ->
-        collect (env, acc) return_pos (with_type e.typ (EIfThenElse (e1,
-          with_type e.typ (EIfThenElse (e1', e2, e3)),
-          e3)))
-
-
-    | EIfThenElse ({ node = EQualified (_, name); _ }, e2, e3)
-      when StringSet.mem name env.ifdefs ->
-        env,
-        List.rev_append (
-          CStar.Verbatim ("\n#ifdef " ^ String.uppercase_ascii name) ::
-          mk_block env return_pos e2 @
-          [ CStar.Verbatim ("\n#else ") ] @
-          mk_block env return_pos e3 @
-          [ CStar.Verbatim ("\n#endif ") ]
-        ) acc
-
     | EIfThenElse (e1, e2, e3) ->
-        let e = CStar.IfThenElse (mk_expr env false e1, mk_block env return_pos e2, mk_block env return_pos e3) in
-        env, e :: acc
+        begin try
+          env, mk_ifdef env return_pos acc e1 e2 e3
+        with NotIfDef ->
+          let e = CStar.IfThenElse (mk_expr env false e1, mk_block env return_pos e2, mk_block env return_pos e3) in
+          env, e :: acc
+        end
 
     | ESequence es ->
         let n = List.length es in
@@ -471,6 +456,43 @@ and mk_stmts env e ret_type =
       env, maybe_return_nothing (s @ acc)
     else
       env, CStar.Return (Some (mk_expr env false e)) :: acc
+
+  and mk_ifdef env return_pos acc e1 e2 e3 =
+    let cond = mk_pp env e1 in
+    let stmts = mk_elif env return_pos e3 in
+    List.rev_append (
+      CStar.Verbatim ("#if " ^ cond) ::
+      mk_block env return_pos e2 @
+      stmts @
+      [ CStar.Verbatim ("#endif") ]
+    ) acc
+
+  and mk_elif env return_pos e3 =
+    match e3.node with
+    | EIfThenElse (e1', e2', e3') ->
+        begin try
+          let cond = mk_pp env e1' in
+          CStar.Verbatim ("#elif " ^ cond) ::
+          mk_block env return_pos e2' @
+          mk_elif env return_pos e3'
+        with NotIfDef ->
+          CStar.Verbatim ("#else") ::
+          mk_block env return_pos e3
+        end
+    | _ ->
+        CStar.Verbatim ("#else") ::
+        mk_block env return_pos e3
+
+  and mk_pp env e =
+    match e.node with
+    | EQualified (_, name) when StringSet.mem name env.ifdefs ->
+        String.uppercase name
+    | EApp ({ node = EOp (K.And, K.Bool); _ }, [ e1; e2 ]) ->
+        KPrint.bsprintf "(%s && %s)" (mk_pp env e1) (mk_pp env e2)
+    | EApp ({ node = EOp (K.Or, K.Bool); _ }, [ e1; e2 ]) ->
+        KPrint.bsprintf "(%s || %s)" (mk_pp env e1) (mk_pp env e2)
+    | _ ->
+        raise NotIfDef
 
   in
 

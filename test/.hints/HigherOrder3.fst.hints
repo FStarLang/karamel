@@ -12,7 +12,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "ff2f9bbb4d8ec8e44025b71aabeb1d85"
+      "b934fdfab4c4ca8c0c139f71b4145058"
     ],
     [
       "HigherOrder3.exampleFunc",
@@ -25,7 +25,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "35237c595e16134865f09a9fc4cf65ce"
+      "81c41e55dcf2657f792ebf0f3ec1b759"
     ],
     [
       "HigherOrder3.main",
@@ -34,7 +34,7 @@
       1,
       [ "@query" ],
       0,
-      "5ba050a2c790b784e053f2b52f986a06"
+      "7f421f8c6a03c7c4f6dc85b45124896d"
     ]
   ]
 ]

@@ -25,7 +25,7 @@ FILES		= \
   ../book/Introduction.test TopLevelArray.test NoShadow.test Library.test \
   AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
   UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test \
-  ProperErasure.test EmptyStruct.test IfDef.fst # StringLit.test
+  ProperErasure.test EmptyStruct.test IfDef.test # StringLit.test
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
@@ -127,12 +127,8 @@ $(OUTPUT_DIR)/CheckedInt.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/CustomEq.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fnoshort-enums
 $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
-<<<<<<< HEAD
-$(OUTPUT_DIR)/Library.exe: EXTRA = -library MemCpyModel memcpymodel_impl.c
-$(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
-=======
 $(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel memcpymodel_impl.c
->>>>>>> origin/master
+$(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
 
 # Some custom targets
 
