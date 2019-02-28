@@ -180,10 +180,14 @@ and mk_spec_and_declarator_f cc name ret_t params =
 
 (* Enforce the invariant that declarations are wrapped in compound statements
  * and cannot appear "alone". *)
-and mk_compound_if (stmts: C.stmt list): C.stmt =
+and mk_compound_if (stmts: C.stmt list) (under_else: bool): C.stmt =
   match stmts with
   | [ Decl _ ] ->
       Compound stmts
+  | [ If _ | IfElse _ as stmt ] when under_else ->
+      (* Never wrap an if under else with braces, because it would defeat `else
+        * if` on the same line. *)
+      stmt
   | [ stmt ] when not !Options.curly_braces ->
       stmt
   | _ ->
@@ -414,9 +418,9 @@ and mk_stmt (stmt: stmt): C.stmt list =
 
   | IfThenElse (e, b1, b2) ->
       if List.length b2 > 0 then
-        [ IfElse (mk_expr e, mk_compound_if (mk_stmts b1), mk_compound_if (mk_stmts b2)) ]
+        [ IfElse (mk_expr e, mk_compound_if (mk_stmts b1) false, mk_compound_if (mk_stmts b2) true) ]
       else
-        [ If (mk_expr e, mk_compound_if (mk_stmts b1)) ]
+        [ If (mk_expr e, mk_compound_if (mk_stmts b1) false) ]
 
   | Assign (BufRead _, _, (Any | Cast (Any, _))) ->
       []
@@ -487,7 +491,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Expr (mk_free (mk_expr e)) ]
 
   | While (e1, e2) ->
-      [ While (mk_expr e1, mk_compound_if (mk_stmts e2)) ]
+      [ While (mk_expr e1, mk_compound_if (mk_stmts e2) false) ]
 
   | PushFrame | PopFrame ->
       failwith "[mk_stmt]: nested frames to be handled by [mk_stmts]"
@@ -529,7 +533,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let init = match struct_as_initializer e1 with InitExpr init -> init | _ -> failwith "not an initexpr" in
       let e2 = mk_expr e2 in
       let e3 = match mk_stmt e3 with [ Expr e3 ] -> e3 | _ -> assert false in
-      let b = mk_compound_if (mk_stmts b) in
+      let b = mk_compound_if (mk_stmts b) false in
       [ mk_for_loop name qs spec init e2 e3 b ]
 
   | For (e1, e2, e3, b) ->
@@ -540,7 +544,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       in
       let e2 = mk_expr e2 in
       let e3 = match mk_stmt e3 with [ Expr e3 ] -> e3 | _ -> assert false in
-      let b = mk_compound_if (mk_stmts b) in
+      let b = mk_compound_if (mk_stmts b) false in
       [ For (e1, e2, e3, b) ]
 
 

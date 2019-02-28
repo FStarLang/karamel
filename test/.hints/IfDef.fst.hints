@@ -1,5 +1,5 @@
 [
-  "—è\u0019\u001dßèf\u0017Z\u007fo◊ü◊X˙",
+  "ô4llÌÂPb‘π~£—•iÂ",
   [
     [
       "IfDef.foo",
@@ -20,7 +20,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "758908bffe08b3146c65d33903dada24"
+      "6981c16ab07fcdad99bc9d2467933b1c"
     ],
     [
       "IfDef.test",
@@ -43,6 +43,27 @@
       ],
       0,
       "d66cc90c31e26ba45047066060ab6b07"
+    ],
+    [
+      "IfDef.bar",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.HyperStack.ST.equal_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "equation_FStar.Monotonic.HyperHeap.hmap",
+        "equation_FStar.Monotonic.HyperStack.mem",
+        "function_token_typing_FStar.Monotonic.Heap.heap",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
+        "lemma_FStar.Set.lemma_equal_refl",
+        "refinement_interpretation_Tm_refine_9a74d818566e70513bc032cc3b65a144",
+        "typing_FStar.Map.domain", "typing_FStar.Monotonic.HyperHeap.rid",
+        "typing_FStar.Monotonic.HyperStack.get_hmap"
+      ],
+      0,
+      "82e5df34338268bd77a9be6116580bbc"
     ]
   ]
 ]

@@ -18,6 +18,20 @@ let test b: FStar.HyperStack.ST.Stack unit (fun _ -> true) (fun _ _ _ -> true) =
     else
       ()
 
+let bar (): FStar.HyperStack.ST.Stack bool (fun _ -> true) (fun _ _ _ -> true) =
+  true
+
+let test2 () =
+  if bar () then
+    0ul
+  else if bar () then
+    1ul
+  else if bar () then
+    2ul
+  else
+    3ul
+
+
 let main (): Int32.t =
   if x && y then
     1l
