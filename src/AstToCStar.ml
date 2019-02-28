@@ -476,9 +476,15 @@ and mk_stmts env e ret_type =
           mk_block env return_pos e2' @
           mk_elif env return_pos e3'
         with NotIfDef ->
-          CStar.Verbatim ("#else") ::
-          mk_block env return_pos e3
+          mk_else env return_pos e3
         end
+    | _ ->
+        mk_else env return_pos e3
+
+  and mk_else env return_pos e3 =
+    match e3.node with
+    | EUnit ->
+        []
     | _ ->
         CStar.Verbatim ("#else") ::
         mk_block env return_pos e3
