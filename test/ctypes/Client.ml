@@ -4,7 +4,7 @@ open Foreign
 
 open Lowlevel_bindings
 
-let square x =
+let square (x: Unsigned.UInt32.t): Unsigned.UInt32.t =
   square_ x
 
 let point_sum (p1: t_Lowlevel_point structure)
@@ -15,9 +15,12 @@ let move_circle (c: t_Lowlevel_circle structure)
   (p: t_Lowlevel_point structure) =
   move_circle_ c p
 
-let my_not b = my_not_ b
+let my_not (b: t_Lowlevel_my_bool ptr): unit = my_not_ b
 
-let replicate n = replicate_ n
+let replicate (n: Unsigned.UInt32.t): t_Lowlevel_tr structure= replicate_ n
+
+let maybe_double (n: t_Lowlevel_int_opt structure ptr): unit = maybe_double_ n
+
 
 let point_to_tuple (p: t_Lowlevel_point structure) =
   (Unsigned.UInt32.to_int (getf p point_x), Unsigned.UInt32.to_int (getf p point_y))
@@ -80,3 +83,12 @@ let _ =
   assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_thd = arg);
   assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_f3 = arg);
   assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_f4 = arg)
+
+let _ =
+  let n = make t_Lowlevel_int_opt in
+  setf n int_opt_tag t_Lowlevel_IntSome;
+  setf n int_opt__0 (Unsigned.UInt32.of_int 12);
+  let n_ptr = allocate t_Lowlevel_int_opt n in
+  maybe_double n_ptr;
+  let v = !@ n_ptr in
+  assert (getf v int_opt_tag = t_Lowlevel_IntSome && getf v int_opt__0 = Unsigned.UInt32.of_int 24)

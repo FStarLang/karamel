@@ -34,6 +34,8 @@ let mk_ident name = Lident name |> mk_sym_ident
 
 let exp_ident n = Exp.ident (mk_ident n)
 
+let uint8_t = Typ.mk (Ptyp_constr (mk_ident "Unsigned.UInt8.t", []))
+
 
 (* generic AST helpers *)
 let mk_const c =
@@ -58,8 +60,11 @@ let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
   mk_decl ?t:t p e
 
 
-let mk_typ_name n = "t_" ^ n
+(* manipulating identifiers *)
+let mk_typ_name n = "t_" ^ n  (* OCaml types need to be lower-cased *)
+
 let mk_struct_name n = n ^ "_s" (* c.f. CStarToC11.mk_spec_and_declarator_t *)
+
 let mk_unqual_name module_name  n =
   if KString. starts_with n (module_name ^ "_") then
     KString.chop n (module_name ^ "_")
@@ -68,23 +73,20 @@ let mk_unqual_name module_name  n =
   else
     n
 
+
+(* building Ctypes declarations *)
 let rec mk_typ = function
   | Int w -> exp_ident (PrintCommon.width_to_string w ^ "_t")
   | Pointer t -> Exp.apply (exp_ident "ptr") [(Nolabel, mk_typ t)]
   | Void -> exp_ident "void"
-  | Qualified l -> exp_ident ("t_" ^ l) (* OCaml types need to be lower-cased *)
+  | Qualified l -> exp_ident (mk_typ_name l)
   | Bool -> exp_ident "bool"
-  (* TODO *)
+  | Union _ -> Warn.fatal_error "Ctypes binding generation not implemented for unions"
   | Array _
   | Function _
   | Struct _
   | Enum _
-  | Union _
-  | Const _ ->
-    Warn.maybe_fatal_error
-      ("", Warn.Unsupported "Ctypes binding generation not implemented for this type");
-    exp_ident "n/a"
-
+  | Const _ -> Warn.fatal_error "Unreachable"
 
 (* For binding structs, e.g. (in M.h)
  *   typedef struct M_point_s {
@@ -122,7 +124,8 @@ let mk_struct_decl module_name name fields: structure_item list =
   [type_decl; ctypes_structure] @ (List.map mk_field fields) @ [seal_decl]
 
 let mk_typedef name typ =
-  mk_simple_app_decl (mk_typ_name name) None "typedef" [mk_typ typ; mk_const name]
+  [ Str.type_ Recursive [Type.mk ?manifest:(Some uint8_t) (mk_sym (mk_typ_name name))]
+  ; mk_simple_app_decl (mk_typ_name name) None "typedef" [mk_typ typ; mk_const name] ]
 
 let mk_enum_tags tags =
   let rec mk_tags n tags =
@@ -149,7 +152,7 @@ let build_binding module_name name return_type parameters : structure_item =
 let mk_ctypes_decl module_name (d: decl): structure =
   match d with
   | Function (_, _, return_type, name, parameters, _) ->
-      (* Don't generated bindings for projectors *)
+      (* Don't generated bindings for projectors and internal names *)
       if not (KString.starts_with name (module_name ^ "___proj__")) &&
          not (KString.starts_with name (module_name ^ "_uu___"))then
         [build_binding module_name name return_type parameters]
@@ -158,10 +161,13 @@ let mk_ctypes_decl module_name (d: decl): structure =
   | Type (name, typ, _) -> begin (* VD: do I need to consider flags here? *)
       match typ with
       | Struct fields  -> mk_struct_decl module_name name fields
-      | Enum tags -> (mk_typedef name (Int Constant.UInt8)) :: (mk_enum_tags tags)
+      | Enum tags ->
+        (mk_typedef name (Int Constant.UInt8)) @ (mk_enum_tags tags)
       | _ -> []
       end
-  | _ -> []
+  | External _
+  | Global _
+  | TypeForward _ -> []
 
 let mk_ocaml_bind module_name decls =
   KList.map_flatten
