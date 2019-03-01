@@ -10,8 +10,8 @@ let no_prefix: Bundle.pat list ref = ref Bundle.[
   Module [ "C" ];
   Module [ "C"; "Compat" ];
   Module [ "C"; "Endianness" ];
-  Module [ "C"; "Compat"; "Endianness" ]
-  Module [ "LowStar"; "Endianness" ];
+  Module [ "C"; "Compat"; "Endianness" ];
+  Module [ "LowStar"; "Endianness" ]
 ]
 (* kremlib.h now added directly in Output.ml so that it appears before the first
  * #ifdef *)
