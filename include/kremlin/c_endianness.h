@@ -4,6 +4,10 @@
 #ifndef __KREMLIN_ENDIAN_H
 #define __KREMLIN_ENDIAN_H
 
-#warn "c_endianness.h is deprecated, include lowstar_endianness.h instead"
+#ifdef __GNUC__
+#warning "c_endianness.h is deprecated, include lowstar_endianness.h instead"
+#endif
+
 #include "lowstar_endianness.h"
+
 #endif

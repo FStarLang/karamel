@@ -98,7 +98,7 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | c/fstar_uint128.c .depend ../_
 	  $(addprefix -add-include , \
 	    '<inttypes.h>' '<stdbool.h>' \
 	    '"kremlin/internal/compat.h"' \
-	    '"kremlin/c_endianness.h"' \
+	    '"kremlin/lowstar_endianness.h"' \
 	    '"kremlin/internal/types.h"') \
 	  -bundle FStar.UInt64+FStar.UInt32+FStar.UInt16+FStar.UInt8=[rename=FStar_UInt_8_16_32_64] \
 	  -bundle C.Endianness= \
