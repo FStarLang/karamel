@@ -194,7 +194,7 @@ let mkLowStarEndianness = (mem) => ({
   store128_le: (addr, n) => { throw new Error("todo: store128_le") },
   load128_le: (addr) => { throw new Error("todo: load128_le") },
   store128_be: (addr, n) => { throw new Error("todo: store128_be") },
-  load128_be: (addr) => { throw new Error("todo: load128_be") }
+  load128_be: (addr) => { throw new Error("todo: load128_be") },
   // this definition works for both C.Endianness and LowStar.Endianness
   store16_le_i: (addr, n) => { throw new Error("todo_i: store16_le") },
   load16_le_i: (addr) => { throw new Error("todo_i: load16_le") },
