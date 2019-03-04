@@ -10,6 +10,75 @@ open CStar
 open KPrint
 open Common
 
+(* Builtin names *)
+let builtin_names =
+  let known = [
+    (* Useless definitions: they are bypassed by custom codegen. *)
+    "LowStar_Monotonic_Buffer_is_null";
+    "C_Nullity_is_null";
+    "LowStar_Monotonic_Buffer_mnull";
+    "LowStar_Buffer_null";
+    "C_Nullity_null";
+    "C_String_get";
+    "C_String_t";
+    "C_String_of_literal";
+    "C_Compat_String_get";
+    "C_Compat_String_t";
+    "C_Compat_String_of_literal";
+    (* Trick: we typedef this as an int and reply on implicit C enum -> int
+     * conversion rules. *)
+    "exit_code";
+    (* These two are not integers and are macro-expanded by MingW into the
+     * address of a function pointer, which would make "extern channel stdout"
+     * fail. *)
+    "stdout";
+    "stderr";
+    (* DLL linkage errors on MSVC. *)
+    "rand"; "srand"; "exit"; "fflush"; "clock";
+    (* Hand-written type definition parameterized over KRML_VERIFIED_UINT128 *)
+    "FStar_UInt128_uint128";
+    (* Macros, no external linkage *)
+    "htole16";
+    "le16toh";
+    "htole32";
+    "le32toh";
+    "htole64";
+    "le64toh";
+    "htobe16";
+    "be16toh";
+    "htobe32";
+    "be32toh";
+    "htobe64";
+    "be64toh";
+    "store16_le";
+    "load16_le";
+    "store16_be";
+    "load16_be";
+    "store32_le";
+    "load32_le";
+    "store32_be";
+    "load32_be";
+    "load64_le";
+    "store64_le";
+    "load64_be";
+    "store64_be";
+    "store16_le_i";
+    "load16_le_i";
+    "store16_be_i";
+    "load16_be_i";
+    "store32_le_i";
+    "load32_le_i";
+    "store32_be_i";
+    "load32_be_i";
+    "load64_le_i";
+    "store64_le_i";
+    "load64_be_i";
+    "store64_be_i";
+  ] in
+  let h = Hashtbl.create 41 in
+  List.iter (fun s -> Hashtbl.add h s ()) known;
+  h
+
 let zero = C.Constant (K.UInt8, "0")
 
 let is_array = function Array _ -> true | _ -> false
@@ -593,58 +662,7 @@ and mk_deref (e: expr) : C.expr =
  * declarations, so these primitives must not be output in the resulting C
  * files. *)
 and is_primitive s =
-  let known = [
-    (* Useless definitions: they are bypassed by custom codegen. *)
-    "LowStar_Monotonic_Buffer_is_null";
-    "C_Nullity_is_null";
-    "LowStar_Monotonic_Buffer_mnull";
-    "LowStar_Buffer_null";
-    "C_Nullity_null";
-    "C_String_get";
-    "C_String_t";
-    "C_String_of_literal";
-    "C_Compat_String_get";
-    "C_Compat_String_t";
-    "C_Compat_String_of_literal";
-    (* Trick: we typedef this as an int and reply on implicit C enum -> int
-     * conversion rules. *)
-    "exit_code";
-    (* These two are not integers and are macro-expanded by MingW into the
-     * address of a function pointer, which would make "extern channel stdout"
-     * fail. *)
-    "stdout";
-    "stderr";
-    (* DLL linkage errors on MSVC. *)
-    "rand"; "srand"; "exit"; "fflush"; "clock";
-    (* Hand-written type definition parameterized over KRML_VERIFIED_UINT128 *)
-    "FStar_UInt128_uint128";
-    (* Macros, no external linkage *)
-    "htole16";
-    "le16toh";
-    "htole32";
-    "le32toh";
-    "htole64";
-    "le64toh";
-    "htobe16";
-    "be16toh";
-    "htobe32";
-    "be32toh";
-    "htobe64";
-    "be64toh";
-    "store16_le";
-    "load16_le";
-    "store16_be";
-    "load16_be";
-    "store32_le";
-    "load32_le";
-    "store32_be";
-    "load32_be";
-    "load64_le";
-    "store64_le";
-    "load64_be";
-    "store64_be";
-  ] in
-  List.mem s known ||
+  Hashtbl.mem builtin_names s ||
   KString.starts_with s "C_Nullity_op_Bang_Star__" ||
   KString.starts_with s "LowStar_BufferOps_op_Bang_Star__" ||
   KString.starts_with s "LowStar_BufferOps_op_Star_Equals__"

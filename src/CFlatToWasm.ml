@@ -72,7 +72,19 @@ let primitives = [
   "store64_le";
   "store64_be";
   "store128_le";
-  "store128_be"
+  "store128_be";
+  "load32_le_i";
+  "load32_be_i";
+  "load64_le_i";
+  "load64_be_i";
+  "load128_le_i";
+  "load128_be_i";
+  "store32_le_i";
+  "store32_be_i";
+  "store64_le_i";
+  "store64_be_i";
+  "store128_le_i";
+  "store128_be_i";
 ]
 
 let is_primitive x =
@@ -627,29 +639,29 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallFunc ("C_Nullity_null", [ _ ]) ->
       [ dummy_phrase (W.Ast.Const (mk_int32 0l)) ]
 
-  | CallFunc ("load16_le", [ e ]) ->
+  | CallFunc (("load16_le_i" | "load16_le"), [ e ]) ->
       mk_expr env e @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.(Mem16, ZX) })]
 
-  | CallFunc ("load16_be", [ e ]) ->
+  | CallFunc (("load16_be_i" | "load16_be"), [ e ]) ->
       mk_expr env (CallFunc ("WasmSupport_betole16", [ CallFunc ("load16_le", [ e ])]))
 
-  | CallFunc ("load32_le", [ e ]) ->
+  | CallFunc (("load32_le_i" | "load32_le"), [ e ]) ->
       mk_expr env e @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = None })]
 
-  | CallFunc ("load32_be", [ e ]) ->
+  | CallFunc (("load32_be_i" | "load32_be"), [ e ]) ->
       mk_expr env (CallFunc ("WasmSupport_betole32", [ CallFunc ("load32_le", [ e ])]))
 
-  | CallFunc ("load64_le", [ e ]) ->
+  | CallFunc (("load64_le_i" | "load64_le"), [ e ]) ->
       mk_expr env e @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })]
 
-  | CallFunc ("load64_be", [ e ]) ->
+  | CallFunc (("load64_be_i" | "load64_be"), [ e ]) ->
       mk_expr env (CallFunc ("WasmSupport_betole64", [ CallFunc ("load64_le", [ e ])]))
 
-  | CallFunc ("store128_be", [ dst; src ])
-  | CallFunc ("load128_be", [ src; dst ]) ->
+  | CallFunc (("store128_be_i" | "store128_be"), [ dst; src ])
+  | CallFunc (("load128_be_i" | "load128_be"), [ src; dst ]) ->
       let local_src = env.n_args + 2 in
       let local_dst = local_src + 1 in
       (* Using the two 32-bit scratch locals for the two addresses. *)
@@ -676,8 +688,8 @@ and mk_expr env (e: expr): W.Ast.instr list =
       (* This is just a glorified memcpy. *)
       mk_unit
 
-  | CallFunc ("store128_le", [ dst; src ])
-  | CallFunc ("load128_le", [ src; dst ]) ->
+  | CallFunc (("store128_le_i" | "store128_le"), [ dst; src ])
+  | CallFunc (("load128_le_i" | "load128_le"), [ src; dst ]) ->
       let local_src = env.n_args + 2 in
       let local_dst = local_src + 1 in
       (* Using the two 32-bit scratch locals for the two addresses. *)
@@ -702,31 +714,31 @@ and mk_expr env (e: expr): W.Ast.instr list =
       (* This is just a glorified memcpy. *)
       mk_unit
 
-  | CallFunc ("store16_le", [ e1; e2 ]) ->
+  | CallFunc (("store16_le_i" | "store16_le"), [ e1; e2 ]) ->
       mk_expr env e1 @
       mk_expr env e2 @
       [ dummy_phrase W.Ast.(Store { ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.Mem16 })] @
       mk_unit
 
-  | CallFunc ("store16_be", [ e1; e2 ]) ->
+  | CallFunc (("store16_be_i" | "store16_be"), [ e1; e2 ]) ->
       mk_expr env (CallFunc ("store16_le", [ e1; CallFunc ("WasmSupport_betole16", [ e2 ])]))
 
-  | CallFunc ("store32_le", [ e1; e2 ]) ->
+  | CallFunc (("store32_le_i" | "store32_le"), [ e1; e2 ]) ->
       mk_expr env e1 @
       mk_expr env e2 @
       [ dummy_phrase W.Ast.(Store { ty = mk_type I32; align = 0; offset = 0l; sz = None })] @
       mk_unit
 
-  | CallFunc ("store32_be", [ e1; e2 ]) ->
+  | CallFunc (("store32_be_i" | "store32_be"), [ e1; e2 ]) ->
       mk_expr env (CallFunc ("store32_le", [ e1; CallFunc ("WasmSupport_betole32", [ e2 ])]))
 
-  | CallFunc ("store64_le", [ e1; e2 ]) ->
+  | CallFunc (("store64_le_i" | "store64_le"), [ e1; e2 ]) ->
       mk_expr env e1 @
       mk_expr env e2 @
       [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
       mk_unit
 
-  | CallFunc ("store64_be", [ e1; e2 ]) ->
+  | CallFunc (("store64_be_i" | "store64_be"), [ e1; e2 ]) ->
       mk_expr env (CallFunc ("store64_le", [ e1; CallFunc ("WasmSupport_betole64", [ e2 ])]))
 
   | CallFunc (name, es) ->

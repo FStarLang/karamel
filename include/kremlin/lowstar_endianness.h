@@ -186,6 +186,8 @@ inline static void store64(uint8_t *b, uint64_t i) {
   memcpy(b, &i, 8);
 }
 
+/* Legacy accessors so that this header can serve as an implementation of
+ * C.Endianness */
 #define load16_le(b) (le16toh(load16(b)))
 #define store16_le(b, i) (store16(b, htole16(i)))
 #define load16_be(b) (be16toh(load16(b)))
@@ -200,5 +202,21 @@ inline static void store64(uint8_t *b, uint64_t i) {
 #define store64_le(b, i) (store64(b, htole64(i)))
 #define load64_be(b) (be64toh(load64(b)))
 #define store64_be(b, i) (store64(b, htobe64(i)))
+
+/* New accessors for LowStar.Endianness */
+#define load16_le_i(b, i) (load16_le(b + i))
+#define store16_le_i(b, i, j) (store16_le(b + i, j))
+#define load16_be_i(b) (load16_be(b + i))
+#define store16_be_i(b, i, j) (store16_be(b + i, j))
+
+#define load32_le_i(b) (load32_le(b + i))
+#define store32_le_i(b, i, j) (store32_le(b + i, j))
+#define load32_be_i(b) (load32_be(b + i))
+#define store32_be_i(b, i, j) (store32_be(b + i, j))
+
+#define load64_le_i(b) (load64_le(b + i))
+#define store64_le_i(b, i, j) (store64_le(b + i, j))
+#define load64_be_i(b) (load64_be(b + i))
+#define store64_be_i(b, i, j) (store64_be(b + i, j))
 
 #endif
