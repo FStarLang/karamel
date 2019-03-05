@@ -36,6 +36,11 @@ let exp_ident n = Exp.ident (mk_ident n)
 
 let uint8_t = Typ.mk (Ptyp_constr (mk_ident "Unsigned.UInt8.t", []))
 
+let mk_struct_manifest t =
+  let row_field = Rtag(t, no_attrs, false, []) in
+  let row = Typ.variant [row_field] Closed None in
+  Typ.mk (Ptyp_constr (mk_ident "structure", [row]))
+
 
 (* generic AST helpers *)
 let mk_const c =
@@ -61,10 +66,6 @@ let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
 
 
 (* manipulating identifiers *)
-let mk_typ_name n = "t_" ^ n  (* OCaml types need to be lower-cased *)
-
-let mk_struct_name n = n ^ "_s" (* c.f. CStarToC11.mk_spec_and_declarator_t *)
-
 let mk_unqual_name module_name  n =
   if KString. starts_with n (module_name ^ "_") then
     KString.chop n (module_name ^ "_")
@@ -73,13 +74,15 @@ let mk_unqual_name module_name  n =
   else
     n
 
+let mk_struct_name n = n ^ "_s" (* c.f. CStarToC11.mk_spec_and_declarator_t *)
+
 
 (* building Ctypes declarations *)
-let rec mk_typ = function
+let rec mk_typ module_name = function
   | Int w -> exp_ident (PrintCommon.width_to_string w ^ "_t")
-  | Pointer t -> Exp.apply (exp_ident "ptr") [(Nolabel, mk_typ t)]
+  | Pointer t -> Exp.apply (exp_ident "ptr") [(Nolabel, mk_typ module_name t)]
   | Void -> exp_ident "void"
-  | Qualified l -> exp_ident (mk_typ_name l)
+  | Qualified l -> exp_ident (mk_unqual_name module_name l)
   | Bool -> exp_ident "bool"
   | Union _ -> Warn.fatal_error "Ctypes binding generation not implemented for unions"
   | Array _
@@ -99,54 +102,55 @@ let rec mk_typ = function
  *   let point_y = field t_M_point "y" uint32_t
  *   let _ = seal t_M_point *)
 let mk_struct_decl module_name name fields: structure_item list =
-  let typ_name = mk_typ_name name in
   let struct_name = mk_struct_name name in
   let unqual_name = mk_unqual_name module_name name in
+  let tm = mk_struct_manifest unqual_name in
   let ctypes_structure =
-    let id = mk_ident (String.concat " " [typ_name; "structure"; "typ"]) in
-    let t = Typ.mk (Ptyp_constr (id, [])) in
+    let t = Typ.mk (Ptyp_constr (mk_ident "typ", [tm])) in
     let e = mk_app (exp_ident "structure") [mk_const struct_name] in
-    let p = Pat.mk (Ppat_var (mk_sym typ_name)) in
+    let p = Pat.mk (Ppat_var (mk_sym unqual_name)) in
     mk_decl ?t:(Some t) p e
   in
   let mk_field (f_name, f_typ) =
     match f_name with
     | Some name ->
       let p = Pat.mk (Ppat_var (mk_sym (unqual_name ^ "_" ^ name))) in
-      let e = mk_app (exp_ident "field") [exp_ident typ_name; mk_const name; mk_typ f_typ] in
+      let e = mk_app (exp_ident "field") [exp_ident unqual_name; mk_const name; mk_typ module_name f_typ] in
       [Vb.mk p e] |> Str.value Nonrecursive
     | None -> Warn.maybe_fatal_error
         ("", Warn.Unsupported "Anonymous struct fields not implemented");
       Str.eval (exp_ident "n/a")
   in
-  let type_decl = Str.type_ Recursive [Type.mk (mk_sym typ_name)] in
-  let seal_decl = mk_decl (Pat.any ()) (mk_app (exp_ident "seal") [exp_ident typ_name]) in
+  let type_decl = Str.type_ Recursive [Type.mk ?manifest:(Some tm) (mk_sym unqual_name)] in
+  let seal_decl = mk_decl (Pat.any ()) (mk_app (exp_ident "seal") [exp_ident unqual_name]) in
   [type_decl; ctypes_structure] @ (List.map mk_field fields) @ [seal_decl]
 
-let mk_typedef name typ =
-  [ Str.type_ Recursive [Type.mk ?manifest:(Some uint8_t) (mk_sym (mk_typ_name name))]
-  ; mk_simple_app_decl (mk_typ_name name) None "typedef" [mk_typ typ; mk_const name] ]
+let mk_typedef module_name name typ =
+  let typ_name = mk_unqual_name module_name name in
+  [ Str.type_ Recursive [Type.mk ?manifest:(Some uint8_t) (mk_sym typ_name)]
+  ; mk_simple_app_decl typ_name None "typedef" [mk_typ module_name typ; mk_const name] ]
 
-let mk_enum_tags tags =
+let mk_enum_tags module_name name tags =
   let rec mk_tags n tags =
     match tags with
     | [] -> []
     | t :: ts ->
-      (mk_simple_app_decl (mk_typ_name t) None "Unsigned.UInt8.of_int"
+      let tag_name = String.concat "_" (List.map (mk_unqual_name module_name) [name; t]) in
+      (mk_simple_app_decl tag_name None "Unsigned.UInt8.of_int"
          [Exp.constant (Const.int n)]) :: (mk_tags (n+1) ts)
   in
   mk_tags 0 tags
 
-let build_foreign_exp name return_type parameters : expression =
-  let types = List.map (fun n -> mk_typ n.typ) parameters in
-  let returning = mk_app (exp_ident "returning") [mk_typ return_type] in
+let build_foreign_exp module_name name return_type parameters : expression =
+  let types = List.map (fun n -> mk_typ module_name n.typ) parameters in
+  let returning = mk_app (exp_ident "returning") [mk_typ module_name return_type] in
   let e = List.fold_right (fun t1 t2 -> mk_app (exp_ident "@->") [t1; t2]) types returning in
   mk_app (exp_ident "foreign") [mk_const name; e]
 
 let build_binding module_name name return_type parameters : structure_item =
   let func_name = KString.chop name (module_name ^ "_") in
-  let e = build_foreign_exp name return_type parameters in
-  let p = Pat.mk (Ppat_var (mk_sym (func_name ^ "_"))) in
+  let e = build_foreign_exp module_name name return_type parameters in
+  let p = Pat.mk (Ppat_var (mk_sym func_name)) in
   mk_decl p e
 
 let mk_ctypes_decl module_name (d: decl): structure =
@@ -162,7 +166,7 @@ let mk_ctypes_decl module_name (d: decl): structure =
       match typ with
       | Struct fields  -> mk_struct_decl module_name name fields
       | Enum tags ->
-        (mk_typedef name (Int Constant.UInt8)) @ (mk_enum_tags tags)
+        (mk_typedef module_name name (Int Constant.UInt8)) @ (mk_enum_tags module_name name tags)
       | _ -> []
       end
   | External _
@@ -170,18 +174,24 @@ let mk_ctypes_decl module_name (d: decl): structure =
   | TypeForward _ -> []
 
 let mk_ocaml_bind module_name decls =
-  KList.map_flatten
+  let decls = KList.map_flatten
     (if_not_private (mk_ctypes_decl module_name)) decls
+  in
+  if not (KList.is_empty decls) then
+    let open_f = Str.open_ (Opn.mk ?override:(Some Fresh) (mk_ident "F")) in
+    let module_exp = Mod.mk (Pmod_structure (open_f::decls)) in
+    let functor_type = Mty.mk (Pmty_ident (mk_ident "Cstubs.FOREIGN")) in
+    let functor_exp = Mod.functor_ (mk_sym "F") (Some functor_type) module_exp in
+    Some (Str.module_ (Mb.mk (mk_sym "Bindings") functor_exp))
+  else
+    None
+
 
 let build_module (module_name: ident) program: structure option =
   let modul = mk_ocaml_bind module_name program in
   let open_decls = List.map (fun m ->
-    Str.open_ (Opn.mk ?override:(Some Fresh) (mk_ident m)))
-    ["Ctypes"; "PosixTypes"; "Foreign"] in
-  if not (KList.is_empty modul) then
-    Some (open_decls @ modul)
-  else
-    None
+    Str.open_ (Opn.mk ?override:(Some Fresh) (mk_ident m))) ["Ctypes"] in
+  Option.map (fun m -> open_decls @ [m]) modul
 
 let mk_ocaml_bindings files: (string * string list * structure_item list) list =
   KList.map_flatten (fun (name, deps, program) ->

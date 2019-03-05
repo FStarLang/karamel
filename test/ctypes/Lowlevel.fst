@@ -8,6 +8,7 @@ open FStar.HyperStack.ST
 
 module B = LowStar.Buffer
 module M = LowStar.Modifies
+module U16 = FStar.UInt16
 module U32 = FStar.UInt32
 
 
@@ -64,7 +65,7 @@ val maybe_double: opt: B.pointer int_opt -> Stack unit
      (match FStar.Seq.Base.index (B.as_seq h opt) 0 with
      | IntSome n -> size (2 * U32.v n) U32.n
      | IntNone -> True))
-  (requires fun h0 _ h1 -> True)
+  (ensures fun h0 _ h1 -> True)
 let maybe_double opt =
   let open U32 in
   let open LowStar.Monotonic.Buffer in
@@ -74,19 +75,25 @@ let maybe_double opt =
   in
   upd opt 0ul v
 
-val gen_adder: U32.t -> St (U32.t -> U32.t)
-let gen_adder a =
-  let open U32 in
-  (fun x -> a +%^ x)
-
 
 // Not supported:
 
 // // Inductives: general compilation scheme
-// noeq type eith = | L of U32.t | R of U32.t
-// val flip_t: x: eith -> St eith
-// let flip_t x =
-//   match x with
-//   | L n -> R n
-//   | R n -> L n
+// noeq type eith = | L of U32.t | R of U16.t
+// val make_L: x: U32.t -> St eith
+// let make_L x = L x
 
+// val make_R: x: U16.t -> St eith
+// let make_R x = R x
+
+// val flip_t: p: B.pointer eith -> Stack unit
+//   (requires fun h -> B.live h p)
+//   (ensures fun h0 _ h1 -> True)
+// let flip_t p =
+//   let open U32 in
+//   let open LowStar.Monotonic.Buffer in
+//   let v = match B.index p 0ul with
+//     | L n -> R (FStar.Int.Cast.uint32_to_uint16 n)
+//     | R n -> L (FStar.Int.Cast.uint16_to_uint32 n)
+//   in
+//   upd p 0ul v
