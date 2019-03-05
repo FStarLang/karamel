@@ -15,25 +15,30 @@ name changes *)
 type bytes = S.seq U8.t
 
 /// lt_to_n interprets a byte sequence as a little-endian natural number
+[@(deprecated "FStar.Endianness.le_to_n")]
 val le_to_n : b:bytes -> Tot nat (decreases (S.length b))
 let rec le_to_n b =
   if S.length b = 0 then 0
   else U8.v (S.head b) + pow2 8 * le_to_n (S.tail b)
 
 /// be_to_n interprets a byte sequence as a big-endian natural number
+[@(deprecated "FStar.Endianness.be_to_n")]
 val be_to_n : b:bytes -> Tot nat (decreases (S.length b))
 let rec be_to_n b =
   if S.length b = 0 then 0
   else U8.v (S.last b) + pow2 8 * be_to_n (S.slice b 0 (S.length b - 1))
 
+[@(deprecated "FStar.Endianness.lemma_euclidean_division")]
 private val lemma_euclidean_division: r:nat -> b:nat -> q:pos -> Lemma
   (requires (r < q))
   (ensures  (r + q * b < q * (b+1)))
 let lemma_euclidean_division r b q = ()
 
+[@(deprecated "FStar.Endianness.lemma_factorise")]
 private val lemma_factorise: a:nat -> b:nat -> Lemma (a + a * b == a * (b + 1))
 let lemma_factorise a b = ()
 
+[@(deprecated "FStar.Endianness.lemma_le_to_n_is_bounded")]
 val lemma_le_to_n_is_bounded: b:bytes -> Lemma
   (requires True)
   (ensures  (le_to_n b < pow2 (8 * Seq.length b)))
@@ -55,6 +60,7 @@ let rec lemma_le_to_n_is_bounded b =
     lemma_factorise 8 (Seq.length b - 1)
     end
 
+[@(deprecated "FStar.Endianness.lemma_be_to_n_is_bounded")]
 val lemma_be_to_n_is_bounded: b:bytes -> Lemma
   (requires True)
   (ensures  (be_to_n b < pow2 (8 * Seq.length b)))
@@ -78,6 +84,7 @@ let rec lemma_be_to_n_is_bounded b =
 
 /// n_to_le encodes a number as a little-endian byte sequence of a fixed,
 /// sufficiently large length
+[@(deprecated "FStar.Endianness.n_to_le")]
 val n_to_le : len:U32.t -> n:nat{n < pow2 (8 * U32.v len)} ->
   Tot (b:bytes{S.length b == U32.v len /\ n == le_to_n b})
   (decreases (U32.v len))
@@ -97,6 +104,7 @@ let rec n_to_le len n =
 
 /// n_to_be encodes a numbers as a big-endian byte sequence of a fixed,
 /// sufficiently large length
+[@(deprecated "FStar.Endianness.n_to_be")]
 val n_to_be:
   len:U32.t -> n:nat{n < pow2 (8 * U32.v len)} ->
   Tot (b:bytes{S.length b == U32.v len /\ n == be_to_n b})
@@ -116,6 +124,7 @@ let rec n_to_be len n =
     S.lemma_eq_intro b' (S.slice b 0 (U32.v len));
     b
 
+[@(deprecated "FStar.Endianness.n_to_le_inj")]
 let n_to_le_inj (len:U32.t) (n1 n2: (n:nat{n < pow2 (8 * U32.v len)})) :
   Lemma (requires (n_to_le len n1 == n_to_le len n2))
         (ensures (n1 == n2)) =
@@ -123,11 +132,13 @@ let n_to_le_inj (len:U32.t) (n1 n2: (n:nat{n < pow2 (8 * U32.v len)})) :
   // proof in the spec for n_to_le
   ()
 
+[@(deprecated "FStar.Endianness.n_to_be_inj")]
 let n_to_be_inj (len:U32.t) (n1 n2: (n:nat{n < pow2 (8 * U32.v len)})) :
   Lemma (requires (n_to_be len n1 == n_to_be len n2))
         (ensures (n1 == n2)) =
   ()
 
+[@(deprecated "FStar.Endianness.be_to_n_inj")]
 let rec be_to_n_inj
   (b1 b2: Seq.seq U8.t)
 : Lemma
@@ -142,6 +153,7 @@ let rec be_to_n_inj
     Seq.lemma_split b2 (Seq.length b2 - 1)
   end
 
+[@(deprecated "FStar.Endianness.le_to_n_inj")]
 let rec le_to_n_inj
   (b1 b2: Seq.seq U8.t)
 : Lemma
@@ -156,6 +168,7 @@ let rec le_to_n_inj
     Seq.lemma_split b2 1
   end
 
+[@(deprecated "FStar.Endianness.n_to_be_be_to_n")]
 let n_to_be_be_to_n (len: U32.t) (s: Seq.seq U8.t) : Lemma
   (requires (Seq.length s == U32.v len))
   (ensures (
@@ -166,6 +179,7 @@ let n_to_be_be_to_n (len: U32.t) (s: Seq.seq U8.t) : Lemma
 = lemma_be_to_n_is_bounded s;
   be_to_n_inj s (n_to_be len (be_to_n s))
 
+[@(deprecated "FStar.Endianness.n_to_le_le_to_n")]
 let n_to_le_le_to_n (len: U32.t) (s: Seq.seq U8.t) : Lemma
   (requires (Seq.length s == U32.v len))
   (ensures (
@@ -178,38 +192,47 @@ let n_to_le_le_to_n (len: U32.t) (s: Seq.seq U8.t) : Lemma
 
 (** A series of specializations to deal with machine integers *)
 
+[@(deprecated "FStar.Endianness.uint32_of_le")]
 let uint32_of_le (b: bytes { S.length b = 4 }) =
   let n = le_to_n b in
   lemma_le_to_n_is_bounded b;
   UInt32.uint_to_t n
 
+[@(deprecated "FStar.Endianness.le_of_uint32")]
 let le_of_uint32 (x: UInt32.t): b:bytes{ S.length b = 4 } =
   n_to_le 4ul (UInt32.v x)
 
+[@(deprecated "FStar.Endianness.uint32_of_be")]
 let uint32_of_be (b: bytes { S.length b = 4 }) =
   let n = be_to_n b in
   lemma_be_to_n_is_bounded b;
   UInt32.uint_to_t n
 
+[@(deprecated "FStar.Endianness.be_of_uint32")]
 let be_of_uint32 (x: UInt32.t): b:bytes{ S.length b = 4 } =
   n_to_be 4ul (UInt32.v x)
 
+[@(deprecated "FStar.Endianness.uint64_of_le")]
 let uint64_of_le (b: bytes { S.length b = 8 }) =
   let n = le_to_n b in
   lemma_le_to_n_is_bounded b;
   UInt64.uint_to_t n
 
+[@(deprecated "FStar.Endianness.le_of_uint64")]
 let le_of_uint64 (x: UInt64.t): b:bytes{ S.length b = 8 } =
   n_to_le 8ul (UInt64.v x)
 
+[@(deprecated "FStar.Endianness.uint64_of_be")]
 let uint64_of_be (b: bytes { S.length b = 8 }) =
   let n = be_to_n b in
   lemma_be_to_n_is_bounded b;
   UInt64.uint_to_t n
 
+[@(deprecated "FStar.Endianness.be_of_uint64")]
 let be_of_uint64 (x: UInt64.t): b:bytes{ S.length b = 8 } =
   n_to_be 8ul (UInt64.v x)
 
+[@(deprecated "FStar.Endianness.seq_uint32_of_le")]
 let rec seq_uint32_of_le (l: nat) (b: bytes{ S.length b = 4 * l }):
   s:S.seq UInt32.t { S.length s = l }
 =
@@ -219,6 +242,7 @@ let rec seq_uint32_of_le (l: nat) (b: bytes{ S.length b = 4 * l }):
     let hd, tl = Seq.split b 4 in
     S.cons (uint32_of_le hd) (seq_uint32_of_le (l - 1) tl)
 
+[@(deprecated "FStar.Endianness.le_of_seq_uint32")]
 let rec le_of_seq_uint32 (s: S.seq UInt32.t):
   Tot (b:bytes { S.length b = 4 * S.length s })
     (decreases (S.length s))
@@ -228,6 +252,7 @@ let rec le_of_seq_uint32 (s: S.seq UInt32.t):
   else
     S.append (le_of_uint32 (S.head s)) (le_of_seq_uint32 (S.tail s))
 
+[@(deprecated "FStar.Endianness.seq_uint32_of_be")]
 let rec seq_uint32_of_be (l: nat) (b: bytes{ S.length b = 4 * l }):
   s:S.seq UInt32.t { S.length s = l }
 =
@@ -237,6 +262,7 @@ let rec seq_uint32_of_be (l: nat) (b: bytes{ S.length b = 4 * l }):
     let hd, tl = Seq.split b 4 in
     S.cons (uint32_of_be hd) (seq_uint32_of_be (l - 1) tl)
 
+[@(deprecated "FStar.Endianness.be_of_seq_uint32")]
 let rec be_of_seq_uint32 (s: S.seq UInt32.t):
   Tot (b:bytes { S.length b = 4 * S.length s })
     (decreases (S.length s))
@@ -246,6 +272,7 @@ let rec be_of_seq_uint32 (s: S.seq UInt32.t):
   else
     S.append (be_of_uint32 (S.head s)) (be_of_seq_uint32 (S.tail s))
 
+[@(deprecated "FStar.Endianness.seq_uint64_of_le")]
 let rec seq_uint64_of_le (l: nat) (b: bytes{ S.length b = 8 * l }):
   s:S.seq UInt64.t { S.length s = l }
 =
@@ -255,6 +282,7 @@ let rec seq_uint64_of_le (l: nat) (b: bytes{ S.length b = 8 * l }):
     let hd, tl = Seq.split b 8 in
     S.cons (uint64_of_le hd) (seq_uint64_of_le (l - 1) tl)
 
+[@(deprecated "FStar.Endianness.le_of_seq_uint64")]
 let rec le_of_seq_uint64 (s: S.seq UInt64.t):
   Tot (b:bytes { S.length b = 8 * S.length s })
     (decreases (S.length s))
@@ -264,6 +292,7 @@ let rec le_of_seq_uint64 (s: S.seq UInt64.t):
   else
     S.append (le_of_uint64 (S.head s)) (le_of_seq_uint64 (S.tail s))
 
+[@(deprecated "FStar.Endianness.seq_uint64_of_be")]
 let rec seq_uint64_of_be (l: nat) (b: bytes{ S.length b = 8 * l }):
   s:S.seq UInt64.t { S.length s = l }
 =
@@ -273,6 +302,7 @@ let rec seq_uint64_of_be (l: nat) (b: bytes{ S.length b = 8 * l }):
     let hd, tl = Seq.split b 8 in
     S.cons (uint64_of_be hd) (seq_uint64_of_be (l - 1) tl)
 
+[@(deprecated "FStar.Endianness.be_of_seq_uint64")]
 let rec be_of_seq_uint64 (s: S.seq UInt64.t):
   Tot (b:bytes { S.length b = 8 * S.length s })
     (decreases (S.length s))
@@ -285,6 +315,7 @@ let rec be_of_seq_uint64 (s: S.seq UInt64.t):
 
 #set-options "--max_fuel 1 --max_ifuel 0 --z3rlimit 50"
 
+[@(deprecated "FStar.Endianness.offset_uint32_be")]
 let rec offset_uint32_be (b: bytes) (n: nat) (i: nat):
   Lemma
     (requires (
@@ -305,6 +336,7 @@ let rec offset_uint32_be (b: bytes) (n: nat) (i: nat):
     else
       offset_uint32_be tl (n - 1) (i - 1)
 
+[@(deprecated "FStar.Endianness.offset_uint32_le")]
 let rec offset_uint32_le (b: bytes) (n: nat) (i: nat):
   Lemma
     (requires (
@@ -325,6 +357,7 @@ let rec offset_uint32_le (b: bytes) (n: nat) (i: nat):
     else
       offset_uint32_le tl (n - 1) (i - 1)
 
+[@(deprecated "FStar.Endianness.offset_uint64_be")]
 let rec offset_uint64_be (b: bytes) (n: nat) (i: nat):
   Lemma
     (requires (
@@ -345,6 +378,7 @@ let rec offset_uint64_be (b: bytes) (n: nat) (i: nat):
     else
       offset_uint64_be tl (n - 1) (i - 1)
 
+[@(deprecated "FStar.Endianness.offset_uint64_le")]
 let rec offset_uint64_le (b: bytes) (n: nat) (i: nat):
   Lemma
     (requires (
@@ -371,12 +405,14 @@ let rec offset_uint64_le (b: bytes) (n: nat) (i: nat):
 #set-options "--max_fuel 1 --z3rlimit 20"
 
 (* TODO: move to FStar.Seq.Properties, with the pattern *)
+[@(deprecated "FStar.Endianness.tail_cons")]
 let tail_cons (#a: Type) (hd: a) (tl: S.seq a): Lemma
   (ensures (S.equal (S.tail (S.cons hd tl)) tl))
 //  [ SMTPat (S.tail (S.cons hd tl)) ]
 =
   ()
 
+[@(deprecated "FStar.Endianness.be_of_seq_uint32_append")]
 let rec be_of_seq_uint32_append (s1 s2: S.seq U32.t): Lemma
   (ensures (
     S.equal (be_of_seq_uint32 (S.append s1 s2))
@@ -397,6 +433,7 @@ let rec be_of_seq_uint32_append (s1 s2: S.seq U32.t): Lemma
     be_of_seq_uint32_append (S.tail s1) s2
   end
 
+[@(deprecated "FStar.Endianness.be_of_seq_uint32_base")]
 let be_of_seq_uint32_base (s1: S.seq U32.t) (s2: S.seq U8.t): Lemma
   (requires (
     S.length s1 = 1 /\
@@ -407,6 +444,7 @@ let be_of_seq_uint32_base (s1: S.seq U32.t) (s2: S.seq U8.t): Lemma
 =
   ()
 
+[@(deprecated "FStar.Endianness.le_of_seq_uint32_append")]
 let rec le_of_seq_uint32_append (s1 s2: S.seq U32.t): Lemma
   (ensures (
     S.equal (le_of_seq_uint32 (S.append s1 s2))
@@ -427,6 +465,7 @@ let rec le_of_seq_uint32_append (s1 s2: S.seq U32.t): Lemma
     le_of_seq_uint32_append (S.tail s1) s2
   end
 
+[@(deprecated "FStar.Endianness.le_of_seq_uint32_base")]
 let le_of_seq_uint32_base (s1: S.seq U32.t) (s2: S.seq U8.t): Lemma
   (requires (
     S.length s1 = 1 /\
@@ -437,6 +476,7 @@ let le_of_seq_uint32_base (s1: S.seq U32.t) (s2: S.seq U8.t): Lemma
 =
   ()
 
+[@(deprecated "FStar.Endianness.be_of_seq_uint64_append")]
 let rec be_of_seq_uint64_append (s1 s2: S.seq U64.t): Lemma
   (ensures (
     S.equal (be_of_seq_uint64 (S.append s1 s2))
@@ -457,6 +497,7 @@ let rec be_of_seq_uint64_append (s1 s2: S.seq U64.t): Lemma
     be_of_seq_uint64_append (S.tail s1) s2
   end
 
+[@(deprecated "FStar.Endianness.be_of_seq_uint64_base")]
 let be_of_seq_uint64_base (s1: S.seq U64.t) (s2: S.seq U8.t): Lemma
   (requires (
     S.length s1 = 1 /\
@@ -467,6 +508,7 @@ let be_of_seq_uint64_base (s1: S.seq U64.t) (s2: S.seq U8.t): Lemma
 =
   ()
 
+[@(deprecated "FStar.Endianness.seq_uint32_of_be_be_of_seq_uint32")]
 let rec seq_uint32_of_be_be_of_seq_uint32 (n: nat) (s: S.seq U32.t) : Lemma
   (requires (n == S.length s))
   (ensures (seq_uint32_of_be n (be_of_seq_uint32 s) `S.equal` s))
@@ -482,6 +524,7 @@ let rec seq_uint32_of_be_be_of_seq_uint32 (n: nat) (s: S.seq U32.t) : Lemma
     S.lemma_append_inj (S.slice s' 0 4) (S.slice s' 4 (S.length s')) (be_of_uint32 (S.head s)) (be_of_seq_uint32 (S.tail s))
   end
 
+[@(deprecated "FStar.Endianness.be_of_seq_uint32_seq_uint32_of_be")]
 let rec be_of_seq_uint32_seq_uint32_of_be (n: nat) (s: S.seq U8.t) : Lemma
   (requires (4 * n == S.length s))
   (ensures (be_of_seq_uint32 (seq_uint32_of_be n s) `S.equal` s))
@@ -503,11 +546,13 @@ let rec be_of_seq_uint32_seq_uint32_of_be (n: nat) (s: S.seq U8.t) : Lemma
     n_to_be_be_to_n 4ul hd
   end
 
+[@(deprecated "FStar.Endianness.slice_seq_uint32_of_be")]
 let slice_seq_uint32_of_be (n: nat) (s: S.seq U8.t) (lo: nat) (hi: nat) : Lemma
   (requires (4 * n == S.length s /\ lo <= hi /\ hi <= n))
   (ensures (S.slice (seq_uint32_of_be n s) lo hi) `S.equal` seq_uint32_of_be (hi - lo) (S.slice s (4 * lo) (4 * hi)))
 = ()
 
+[@(deprecated "FStar.Endianness.be_of_seq_uint32_slice")]
 let be_of_seq_uint32_slice (s: S.seq U32.t) (lo: nat) (hi: nat) : Lemma
   (requires (lo <= hi /\ hi <= S.length s))
   (ensures (be_of_seq_uint32 (S.slice s lo hi) `S.equal` S.slice (be_of_seq_uint32 s) (4 * lo) (4 * hi)))
