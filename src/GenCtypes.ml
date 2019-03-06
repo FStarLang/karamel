@@ -17,6 +17,7 @@ open Asttypes
 open Location
 open Longident
 
+
 (* helper functions for generating names and paths *)
 let no_position : Lexing.position =
   {pos_fname = ""; pos_lnum = 0; pos_bol = 0; pos_cnum = 0}
@@ -35,11 +36,6 @@ let mk_ident name = Lident name |> mk_sym_ident
 let exp_ident n = Exp.ident (mk_ident n)
 
 let uint8_t = Typ.mk (Ptyp_constr (mk_ident "Unsigned.UInt8.t", []))
-
-let mk_struct_manifest t =
-  let row_field = Rtag(t, no_attrs, false, []) in
-  let row = Typ.variant [row_field] Closed None in
-  Typ.mk (Ptyp_constr (mk_ident "structure", [row]))
 
 
 (* generic AST helpers *)
@@ -78,52 +74,78 @@ let mk_struct_name n = n ^ "_s" (* c.f. CStarToC11.mk_spec_and_declarator_t *)
 
 
 (* building Ctypes declarations *)
+type structured =
+  | Struct
+  | Union
+
+let structured_kw = function
+  | Struct -> "structure"
+  | Union -> "union"
+
+let mk_struct_manifest (k: structured) t =
+  let tag = match k with
+   | Struct -> t
+   | Union -> "anonymous" (* unions only ever appear as anonymous fields in structs *)
+  in
+  let row_field = Rtag(tag, no_attrs, false, []) in
+  let row = Typ.variant [row_field] Closed None in
+  Typ.mk (Ptyp_constr (mk_ident (structured_kw k), [row]))
+
 let rec mk_typ module_name = function
   | Int w -> exp_ident (PrintCommon.width_to_string w ^ "_t")
   | Pointer t -> Exp.apply (exp_ident "ptr") [(Nolabel, mk_typ module_name t)]
   | Void -> exp_ident "void"
   | Qualified l -> exp_ident (mk_unqual_name module_name l)
   | Bool -> exp_ident "bool"
-  | Union _ -> Warn.fatal_error "Ctypes binding generation not implemented for unions"
+  | Union _
   | Array _
   | Function _
   | Struct _
   | Enum _
   | Const _ -> Warn.fatal_error "Unreachable"
 
-(* For binding structs, e.g. (in M.h)
- *   typedef struct M_point_s {
+(* For binding structs, e.g. (in header file Types.h)
+ *   typedef struct Types_point_s {
  *     uint32_t x;
  *     uint32_t y; }
  * we generate the following declarations:
- *   type t_M_point
- *   let t_M_point : t_M_point structure typ = structure "M_point_s"
- *   let point_x = field t_M_point "x" uint32_t
- *   let point_y = field t_M_point "y" uint32_t
- *   let _ = seal t_M_point *)
-let mk_struct_decl module_name name fields: structure_item list =
-  let struct_name = mk_struct_name name in
+ *   type point = [`point] structure
+ *   let point: [`point] structure = structure "Types_point_s"
+ *   let point_x = field point "x" uint32_t
+ *   let point_y = field point "y" uint32_t
+ *   let _ = seal point *)
+let rec mk_struct_decl (k: structured) module_name name fields: structure_item list =
   let unqual_name = mk_unqual_name module_name name in
-  let tm = mk_struct_manifest unqual_name in
+  let tm = mk_struct_manifest k unqual_name in
   let ctypes_structure =
+    let struct_name = match k with
+      | Struct -> mk_struct_name name
+      | Union -> ""
+    in
     let t = Typ.mk (Ptyp_constr (mk_ident "typ", [tm])) in
-    let e = mk_app (exp_ident "structure") [mk_const struct_name] in
+    let e = mk_app (exp_ident (structured_kw k)) [mk_const struct_name] in
     let p = Pat.mk (Ppat_var (mk_sym unqual_name)) in
     mk_decl ?t:(Some t) p e
   in
-  let mk_field (f_name, f_typ) =
+  let rec mk_field anon (f_name, f_typ) =
     match f_name with
     | Some name ->
       let p = Pat.mk (Ppat_var (mk_sym (unqual_name ^ "_" ^ name))) in
-      let e = mk_app (exp_ident "field") [exp_ident unqual_name; mk_const name; mk_typ module_name f_typ] in
-      [Vb.mk p e] |> Str.value Nonrecursive
-    | None -> Warn.maybe_fatal_error
-        ("", Warn.Unsupported "Anonymous struct fields not implemented");
-      Str.eval (exp_ident "n/a")
+      let c_name = if anon then "" else name in
+      let e = mk_app (exp_ident "field") [exp_ident unqual_name; mk_const c_name; mk_typ module_name f_typ] in
+      [[Vb.mk p e] |> Str.value Nonrecursive]
+    | None -> (* an anonymous union in a struct *)
+      begin match f_typ with
+      | Union fields ->
+          let name = unqual_name ^ "__u" in
+          let fields = List.map (fun (x, y) -> (Some x, y)) fields in
+          (mk_struct_decl Union module_name name fields) @ (mk_field true (Some "u", Qualified name))
+      | _ -> Warn.fatal_error "Unreachable"
+      end
   in
   let type_decl = Str.type_ Recursive [Type.mk ?manifest:(Some tm) (mk_sym unqual_name)] in
   let seal_decl = mk_decl (Pat.any ()) (mk_app (exp_ident "seal") [exp_ident unqual_name]) in
-  [type_decl; ctypes_structure] @ (List.map mk_field fields) @ [seal_decl]
+  [type_decl; ctypes_structure] @ (KList.map_flatten (mk_field false) fields) @ [seal_decl]
 
 let mk_typedef module_name name typ =
   let typ_name = mk_unqual_name module_name name in
@@ -164,7 +186,7 @@ let mk_ctypes_decl module_name (d: decl): structure =
         []
   | Type (name, typ, _) -> begin (* VD: do I need to consider flags here? *)
       match typ with
-      | Struct fields  -> mk_struct_decl module_name name fields
+      | Struct fields  -> mk_struct_decl Struct module_name name fields
       | Enum tags ->
         (mk_typedef module_name name (Int Constant.UInt8)) @ (mk_enum_tags module_name name tags)
       | _ -> []
