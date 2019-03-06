@@ -1052,7 +1052,7 @@ let mk_header decls =
 let mk_static_header decls =
   let mk_static (d: C.declaration_or_function) =
     match d with
-    | Decl (comments, (qs, ts, None, decl_inits)) ->
+    | Decl (comments, (qs, ts, _, decl_inits)) ->
         C.Decl (comments, (qs, ts, Some Static, decl_inits))
     | Function (comments, _inline, (qs, ts, (None | Some Static), decl_inits), body) ->
         C.Function (comments, true, (qs, ts, Some Static, decl_inits), body)
