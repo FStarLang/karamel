@@ -114,6 +114,9 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | c/fstar_uint128.c .depend ../_
 # Compilation, only works after the stage above has run and C files exist      #
 ################################################################################
 
+CFLAGS += -O3 -march=native -mtune=native
+export CFLAGS
+
 compile-all: compile-dist-generic compile-dist-uint128 compile-dist-minimal
 
 .PHONY: compile-dist-%
