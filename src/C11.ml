@@ -103,6 +103,9 @@ type stmt =
   | Expr of expr
   | If of expr * stmt
   | IfElse of expr * stmt * stmt
+  | IfDef of expr * stmt list * (expr * stmt list) list * stmt list
+      (* n-ary for pretty-printing purposes; adding it in this AST for more
+       * control over pretty-printing, etc. *)
   | While of expr * stmt
   | For of declaration_or_expr * expr * expr * stmt
   | Return of expr option
@@ -110,7 +113,6 @@ type stmt =
     (** the last component is the default statement *)
   | Break
   | Comment of string
-  | Verbatim of string
     (** note: this is not in the C grammar *)
 
 and program =

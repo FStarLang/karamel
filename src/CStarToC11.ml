@@ -378,9 +378,6 @@ and decay_array t =
 
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with
-  | Verbatim s ->
-      [ Verbatim s ]
-
   | Comment s ->
       [ Comment s ]
 
@@ -485,11 +482,22 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let init: init option = match e with Any -> None | _ -> Some (struct_as_initializer e) in
       [ Decl (qs, spec, None, [ decl, init ]) ]
 
-  | IfThenElse (e, b1, b2) ->
+  | IfThenElse (false, e, b1, b2) ->
       if List.length b2 > 0 then
         [ IfElse (mk_expr e, mk_compound_if (mk_stmts b1) false, mk_compound_if (mk_stmts b2) true) ]
       else
         [ If (mk_expr e, mk_compound_if (mk_stmts b1) false) ]
+
+  | IfThenElse (true, e, b1, b2) ->
+      let rec find_elif acc = function
+        | [ IfThenElse (true, e, b1, b2) ] ->
+            let acc = (mk_expr e, mk_stmts b1) :: acc in
+            find_elif acc b2
+        | b ->
+            List.rev acc, mk_stmts b
+      in
+      let elif_blocks, else_block = find_elif [] b2 in
+      [ IfDef (mk_expr e, mk_stmts b1, elif_blocks, else_block) ]
 
   | Assign (BufRead _, _, (Any | Cast (Any, _))) ->
       []

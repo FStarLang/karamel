@@ -308,8 +308,6 @@ let rec p_stmt (s: stmt) =
       group (p_expr expr ^^ semi)
   | Comment s ->
       group (string "/*" ^/^ separate break1 (words s) ^/^ string "*/")
-  | Verbatim s ->
-      string s
   | For (decl, e2, e3, stmt) ->
       let init = match decl with
         | `Decl decl -> p_declaration decl
@@ -333,6 +331,22 @@ let rec p_stmt (s: stmt) =
           space ^^ p_stmt s2
       | _ ->
         nest_if p_stmt s2)
+  | IfDef (cond, then_block, elif_blocks, else_block) ->
+      let mk_line prefix doc =
+        string (KPrint.bsprintf "%s %a" prefix pdoc doc)
+      in
+      group (mk_line "#if" (p_expr cond) ^^ hardline ^^
+        p_stmts then_block ^^ hardline ^^
+        separate_map hardline (fun (cond, stmts) ->
+          mk_line "#elif" (p_expr cond) ^^ hardline ^^
+          p_stmts stmts) elif_blocks ^^
+        (if List.length elif_blocks > 0 then hardline else empty) ^^
+        (if List.length else_block > 0 then
+          string "#else" ^^ hardline ^^
+          p_stmts else_block ^^ hardline
+        else
+          empty) ^^
+        string "#endif")
   | While (e, s) ->
       group (string "while" ^/^ parens_with_nesting (p_expr e)) ^^
       nest_if p_stmt s
@@ -356,6 +370,8 @@ let rec p_stmt (s: stmt) =
       )
   | Break ->
      string "break" ^^ semi
+
+and p_stmts stmts = separate_map hardline p_stmt stmts
 
 let p_comments cs =
   separate_map hardline (fun c -> string ("/*\n" ^ c ^ "\n*/")) cs ^^
