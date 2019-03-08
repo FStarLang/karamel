@@ -248,12 +248,18 @@ class ['self] safe_use = object (self: 'self)
   method! visit_EAssign env e1 e2 = self#unordered env [ e1; e2 ]
   method! visit_EApp env e es =
     match e.node with
-    | EOp _ -> super#visit_EApp env e es
     | EQualified lid when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
     | _ -> self#unordered env (e :: es)
 
   method! visit_ELet env _ e1 e2 = self#sequential env e1 (Some e2)
-  method! visit_EIfThenElse env e _ _ = self#sequential env e None
+  method! visit_EIfThenElse env e1 e2 e3 =
+    match self#sequential env e1 (Some e2), self#sequential env e1 (Some e3) with
+    | Unsafe, _
+    | _, Unsafe ->
+        Unsafe
+    | _ ->
+        SafeUse
+
   method! visit_ESwitch env e _ = self#sequential env e None
   method! visit_EWhile env e _ = self#sequential env e None
   method! visit_EFor env _ e _ _ _ = self#sequential env e None
@@ -292,6 +298,10 @@ let remove_uu = object (self)
   method! visit_ELet _ b e1 e2 =
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
+    if Helpers.is_uu b.node.name then
+      KPrint.bprintf "name: %s, e1: %a, mark: %d, readonly: %b, safe_readonly: %b, safe_pure: %b\n"
+        b.node.name pexpr e1 !(b.node.mark) (is_readonly_c_expression e1)
+        (safe_readonly_use e2) (safe_pure_use e2);
     if Helpers.is_uu b.node.name &&
       !(b.node.mark) = 1 && (
         is_readonly_c_expression e1 &&

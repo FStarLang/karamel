@@ -24,12 +24,25 @@ let test b: FStar.HyperStack.ST.Stack unit (fun _ -> true) (fun _ _ _ -> true) =
 let bar (): FStar.HyperStack.ST.Stack bool (fun _ -> true) (fun _ _ _ -> true) =
   true
 
+module IB = LowStar.ImmutableBuffer
+
+let b: (b:IB.ibuffer bool { IB.length b = 1 /\ IB.recallable b }) =
+  IB.igcmalloc_of_list HyperStack.root [ true ]
+
+inline_for_extraction
+let cond (): FStar.HyperStack.ST.Stack bool (fun _ -> true) (fun _ _ _ -> true) =
+  let uu__ = IB.recall b in
+  IB.index b 0ul
+
 let test2 () =
-  if bar () then
+  let uu__b3 = cond () in
+  let uu__b2 = cond () in
+  let uu__b1 = cond () in
+  if x && uu__b1 then
     0ul
-  else if bar () then
+  else if y && uu__b2 then
     1ul
-  else if bar () then
+  else if x && y && uu__b3 then
     2ul
   else
     3ul

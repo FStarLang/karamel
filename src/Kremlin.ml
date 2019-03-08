@@ -454,13 +454,13 @@ Supported options:|}
    * boundaries. Once [private] qualifiers are stable, we can perform our
    * reachability analysis starting from the public functions of each module or
    * bundle. *)
+  let files = Inlining.inline files in
   let files = Simplify.simplify0 files in
   (* Remove trivial matches now because they eliminate code that would generate
    * spurious dependencies otherwise. *)
   let files = DataTypes.simplify files in
   let files = Monomorphization.datatypes files in
   let files = Monomorphization.equalities files in
-  let files = Inlining.inline files in
   let files = Inlining.drop_unused files in
   if !arg_print_inline then
     print PrintAst.print_files files;
