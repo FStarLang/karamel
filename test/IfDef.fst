@@ -11,6 +11,9 @@ assume val y: bool
 let foo (): FStar.HyperStack.ST.Stack unit (fun _ -> true) (fun _ _ _ -> true) =
   ()
 
+let foo' (): FStar.HyperStack.ST.Stack unit (fun _ -> true) (fun _ _ _ -> true) =
+  ()
+
 let test b: FStar.HyperStack.ST.Stack unit (fun _ -> true) (fun _ _ _ -> true) =
   if x then
     if b then
@@ -31,6 +34,13 @@ let test2 () =
   else
     3ul
 
+(* A representative test of what we do in EverCrypt. *)
+let test3 (): Stack unit (fun _ -> true) (fun _ _ _ -> true) =
+  let uu__has_feature = bar () in
+  if x && uu__has_feature then
+    foo ()
+  else
+    foo' ()
 
 let main (): Int32.t =
   if x && y then

@@ -182,7 +182,7 @@ let is_null = function
   | _ ->
       false
 
-let is_uu name = KString.starts_with name "uu____"
+let is_uu name = KString.starts_with name "uu__"
 
 (* If [e2] is assigned into an expression of type [t], we can sometimes
  * strengthen the type [t] into an array type. This is the only place that

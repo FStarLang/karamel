@@ -458,12 +458,41 @@ and mk_stmts env e ret_type =
       env, CStar.Return (Some (mk_expr env false e)) :: acc
 
   and mk_ifdef env return_pos acc e1 e2 e3 =
-    let cond = mk_ifcond env e1 in
-    CStar.IfThenElse (true,
-      cond,
-      mk_block env return_pos e2,
-      mk_elif env return_pos e3
-    ) :: acc
+    try
+      (* First compilation scheme: a cascading chain of if-then-else. *)
+      let cond = mk_ifcond env e1 in
+      CStar.IfThenElse (true,
+        cond,
+        mk_block env return_pos e2,
+        mk_elif env return_pos e3
+      ) :: acc
+    with NotIfDef ->
+      (* Second compilation scheme: fall-through (terminal position).
+       *
+       * if B1 && b2 then
+       *   e2
+       * else
+       *   e3
+       *
+       * becomes:
+       *
+       * if B1 then
+       *   if b2 then
+       *     return e2
+       * return e3
+       *
+       * TODO: make this a little smarter, e.g. if the conjunction is
+       * ill-parenthesized, or if there's B1 && B'1
+       *)
+      match e1.node with
+      | EApp ({ node = EOp (K.And, K.Bool); _ }, [ e1; e1' ]) when return_pos ->
+          let cond = mk_ifcond env e1 in
+          let e2 = Helpers.nest_in_return_pos TUnit (fun _ e -> with_type TUnit (EReturn e)) e2 in
+          let inner_if = mk_block env false (with_unit (EIfThenElse (e1', e2, eunit))) in
+          let acc = CStar.IfThenElse (true, cond, inner_if, []) :: acc in
+          snd (collect (env, acc) true e3)
+      | _ ->
+          raise NotIfDef
 
   and mk_elif env return_pos e3 =
     match e3.node with
