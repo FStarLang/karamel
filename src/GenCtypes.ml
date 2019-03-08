@@ -104,6 +104,13 @@ let rec mk_typ module_name = function
   | Enum _
   | Const _ -> Warn.fatal_error "Unreachable"
 
+let mk_const_decl module_name name typ: structure_item =
+  mk_simple_app_decl
+    (mk_unqual_name module_name name)
+    None
+    "foreign_value"
+    [mk_const name; mk_typ module_name typ]
+
 (* For binding structs, e.g. (in header file Types.h)
  *   typedef struct Types_point_s {
  *     uint32_t x;
@@ -191,8 +198,8 @@ let mk_ctypes_decl module_name (d: decl): structure =
         (mk_typedef module_name name (Int Constant.UInt8)) @ (mk_enum_tags module_name name tags)
       | _ -> []
       end
+  | Global (name, _, typ, _) -> [mk_const_decl module_name name typ]
   | External _
-  | Global _
   | TypeForward _ -> []
 
 let mk_ocaml_bind module_name decls =
@@ -207,7 +214,6 @@ let mk_ocaml_bind module_name decls =
     Some (Str.module_ (Mb.mk (mk_sym "Bindings") functor_exp))
   else
     None
-
 
 let build_module (module_name: ident) program: structure option =
   let modul = mk_ocaml_bind module_name program in

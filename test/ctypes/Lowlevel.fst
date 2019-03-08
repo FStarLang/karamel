@@ -15,6 +15,9 @@ module U32 = FStar.UInt32
 type point = { x: U32.t; y: U32.t }
 type circle = { c: point; r: U32.t }
 
+let c = 6ul
+let p = { x = 8ul; y = 13ul }
+
 let square (x: U32.t): U32.t =
   let open U32 in
   x *%^ x
