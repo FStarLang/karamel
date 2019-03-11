@@ -18,6 +18,9 @@ open Location
 open Longident
 
 
+let migration = Versions.migrate Versions.ocaml_405 Versions.ocaml_current
+
+
 (* helper functions for generating names and paths *)
 let no_position : Lexing.position =
   {pos_fname = ""; pos_lnum = 0; pos_bol = 0; pos_cnum = 0}
@@ -231,12 +234,43 @@ let mk_ocaml_bindings files: (string * string list * structure_item list) list =
       []
   ) files
 
-let write_ml (files: (string * string list * structure_item list) list) =
-  let migration = Versions.migrate Versions.ocaml_405 Versions.ocaml_current in
+let mk_gen_decls module_name =
+  let mk_out_channel n =
+    mk_app
+      (exp_ident "Format.set_formatter_out_channel")
+      [(mk_app (exp_ident "open_out_bin") [mk_const (Output.in_tmp_dir n)])]
+  in
+  let mk_cstubs_write typ n =
+    Exp.apply
+      (exp_ident ("Cstubs.write_" ^ typ))
+      [ (Nolabel, exp_ident "Format.std_formatter")
+      ; (Labelled "prefix", mk_const "")
+      ; (Nolabel, mk_app (exp_ident "module") [exp_ident (n ^ "_bindings.Bindings")]) ]
+  in
+  let mk_printf s = mk_app (exp_ident "Format.printf") [mk_const s] in
+  let decls =
+    [ mk_out_channel (module_name ^ "_stubs.ml")
+    ; mk_cstubs_write "ml" module_name
+    ; mk_out_channel (module_name ^ "_c_stubs.c")
+    ; mk_printf (Printf.sprintf "#include \"%s.h\"\n" module_name)
+    ; mk_cstubs_write "c" module_name ]
+  in
+  mk_decl (Pat.any ()) (KList.reduce Exp.sequence decls)
+
+
+let write_ml (path: string) (m: structure_item list) =
+  Format.set_formatter_out_channel (open_out_bin path);
+  structure Format.std_formatter (migration.copy_structure m);
+  Format.pp_print_flush Format.std_formatter ()
+
+let write_gen_module files =
+  let m = List.map mk_gen_decls files in
+  let path = Output.in_tmp_dir "Gen_stubs.ml" in
+  write_ml path m
+
+let write_bindings (files: (string * string list * structure_item list) list) =
   List.map (fun (name, _, m) ->
     let path = Output.in_tmp_dir name ^ "_bindings.ml" in
-    Format.set_formatter_out_channel (open_out_bin path);
-    structure Format.std_formatter (migration.copy_structure m);
-    Format.pp_print_flush Format.std_formatter ();
+    write_ml path m;
     name
   ) files

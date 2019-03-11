@@ -610,7 +610,8 @@ Supported options:|}
     flush stderr;
     let c_output = Output.write_c files in
     let h_output = Output.write_h headers in
-    let ml_files = GenCtypes.write_ml ml_files in
+    let ml_files = GenCtypes.write_bindings ml_files in
+    GenCtypes.write_gen_module ml_files;
     Output.write_makefile user_ccopts !c_files c_output h_output;
     tick_print true "PrettyPrinting";
 

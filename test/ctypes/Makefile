@@ -55,7 +55,6 @@ KRML_FLAGS= -bundle Prims \
 .PHONY: %.bind
 %.bind: $(ALL_KRML_FILES)
 	mkdir -p bindings
-	cp Gen_stubs.ml bindings
 	$(KRML) $(KRML_FLAGS) \
 	  -tmpdir bindings -skip-compilation $(filter %.krml,$^) \
 	  -ccopt -Wno-unused \
@@ -65,7 +64,7 @@ KRML_FLAGS= -bundle Prims \
 .PHONY: Client.exe
 Client.exe: Lowlevel.bind
 	cc -I /home/victor/github/project-everest/everest/kremlin/include -c -o Lowlevel.o bindings/Lowlevel.c
-	ocamlfind ocamlopt -I bindings -linkpkg -package ctypes,ctypes.foreign,ctypes.stubs -cclib -Wl,-E -cclib Lowlevel.o bindings/Lowlevel_bindings.ml Gen_stubs.ml -o bindings/Gen_stubs.exe
+	ocamlfind ocamlopt -I bindings -linkpkg -package ctypes,ctypes.foreign,ctypes.stubs -cclib -Wl,-E -cclib Lowlevel.o bindings/Lowlevel_bindings.ml bindings/Gen_stubs.ml -o bindings/Gen_stubs.exe
 	./bindings/Gen_stubs.exe
 	cc -I /home/victor/github/project-everest/everest/kremlin/include -I bindings -I $(CTYPES) -c -o Lowlevel_c_stubs.o bindings/Lowlevel_c_stubs.c
 	ocamlfind ocamlopt -I bindings -linkpkg -package ctypes,ctypes.foreign -cclib -Wl,-E -cclib Lowlevel.o Lowlevel_c_stubs.o bindings/Lowlevel_bindings.ml bindings/Lowlevel_stubs.ml Client.ml -o Client.exe #
