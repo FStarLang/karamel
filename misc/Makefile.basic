@@ -30,8 +30,10 @@ all: $(USER_TARGET)
 
 $(USER_TARGET): $(OBJS)
 
+AR ?= ar
+
 %.a:
-	ar cr $@ $^
+	$(AR) cr $@ $^
 
 %.exe:
 	$(CC) $(CFLAGS) -o $@ $^

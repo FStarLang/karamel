@@ -10,6 +10,75 @@ open CStar
 open KPrint
 open Common
 
+(* Builtin names *)
+let builtin_names =
+  let known = [
+    (* Useless definitions: they are bypassed by custom codegen. *)
+    "LowStar_Monotonic_Buffer_is_null";
+    "C_Nullity_is_null";
+    "LowStar_Monotonic_Buffer_mnull";
+    "LowStar_Buffer_null";
+    "C_Nullity_null";
+    "C_String_get";
+    "C_String_t";
+    "C_String_of_literal";
+    "C_Compat_String_get";
+    "C_Compat_String_t";
+    "C_Compat_String_of_literal";
+    (* Trick: we typedef this as an int and reply on implicit C enum -> int
+     * conversion rules. *)
+    "exit_code";
+    (* These two are not integers and are macro-expanded by MingW into the
+     * address of a function pointer, which would make "extern channel stdout"
+     * fail. *)
+    "stdout";
+    "stderr";
+    (* DLL linkage errors on MSVC. *)
+    "rand"; "srand"; "exit"; "fflush"; "clock";
+    (* Hand-written type definition parameterized over KRML_VERIFIED_UINT128 *)
+    "FStar_UInt128_uint128";
+    (* Macros, no external linkage *)
+    "htole16";
+    "le16toh";
+    "htole32";
+    "le32toh";
+    "htole64";
+    "le64toh";
+    "htobe16";
+    "be16toh";
+    "htobe32";
+    "be32toh";
+    "htobe64";
+    "be64toh";
+    "store16_le";
+    "load16_le";
+    "store16_be";
+    "load16_be";
+    "store32_le";
+    "load32_le";
+    "store32_be";
+    "load32_be";
+    "load64_le";
+    "store64_le";
+    "load64_be";
+    "store64_be";
+    "store16_le_i";
+    "load16_le_i";
+    "store16_be_i";
+    "load16_be_i";
+    "store32_le_i";
+    "load32_le_i";
+    "store32_be_i";
+    "load32_be_i";
+    "load64_le_i";
+    "store64_le_i";
+    "load64_be_i";
+    "store64_be_i";
+  ] in
+  let h = Hashtbl.create 41 in
+  List.iter (fun s -> Hashtbl.add h s ()) known;
+  h
+
 let zero = C.Constant (K.UInt8, "0")
 
 let is_array = function Array _ -> true | _ -> false
@@ -180,10 +249,14 @@ and mk_spec_and_declarator_f cc name ret_t params =
 
 (* Enforce the invariant that declarations are wrapped in compound statements
  * and cannot appear "alone". *)
-and mk_compound_if (stmts: C.stmt list): C.stmt =
+and mk_compound_if (stmts: C.stmt list) (under_else: bool): C.stmt =
   match stmts with
   | [ Decl _ ] ->
       Compound stmts
+  | [ If _ | IfElse _ as stmt ] when under_else ->
+      (* Never wrap an if under else with braces, because it would defeat `else
+        * if` on the same line. *)
+      stmt
   | [ stmt ] when not !Options.curly_braces ->
       stmt
   | _ ->
@@ -409,11 +482,22 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let init: init option = match e with Any -> None | _ -> Some (struct_as_initializer e) in
       [ Decl (qs, spec, None, [ decl, init ]) ]
 
-  | IfThenElse (e, b1, b2) ->
+  | IfThenElse (false, e, b1, b2) ->
       if List.length b2 > 0 then
-        [ IfElse (mk_expr e, mk_compound_if (mk_stmts b1), mk_compound_if (mk_stmts b2)) ]
+        [ IfElse (mk_expr e, mk_compound_if (mk_stmts b1) false, mk_compound_if (mk_stmts b2) true) ]
       else
-        [ If (mk_expr e, mk_compound_if (mk_stmts b1)) ]
+        [ If (mk_expr e, mk_compound_if (mk_stmts b1) false) ]
+
+  | IfThenElse (true, e, b1, b2) ->
+      let rec find_elif acc = function
+        | [ IfThenElse (true, e, b1, b2) ] ->
+            let acc = (mk_expr e, mk_stmts b1) :: acc in
+            find_elif acc b2
+        | b ->
+            List.rev acc, mk_stmts b
+      in
+      let elif_blocks, else_block = find_elif [] b2 in
+      [ IfDef (mk_expr e, mk_stmts b1, elif_blocks, else_block) ]
 
   | Assign (BufRead _, _, (Any | Cast (Any, _))) ->
       []
@@ -484,7 +568,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       [ Expr (mk_free (mk_expr e)) ]
 
   | While (e1, e2) ->
-      [ While (mk_expr e1, mk_compound_if (mk_stmts e2)) ]
+      [ While (mk_expr e1, mk_compound_if (mk_stmts e2) false) ]
 
   | PushFrame | PopFrame ->
       failwith "[mk_stmt]: nested frames to be handled by [mk_stmts]"
@@ -526,7 +610,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let init = match struct_as_initializer e1 with InitExpr init -> init | _ -> failwith "not an initexpr" in
       let e2 = mk_expr e2 in
       let e3 = match mk_stmt e3 with [ Expr e3 ] -> e3 | _ -> assert false in
-      let b = mk_compound_if (mk_stmts b) in
+      let b = mk_compound_if (mk_stmts b) false in
       [ mk_for_loop name qs spec init e2 e3 b ]
 
   | For (e1, e2, e3, b) ->
@@ -537,7 +621,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       in
       let e2 = mk_expr e2 in
       let e3 = match mk_stmt e3 with [ Expr e3 ] -> e3 | _ -> assert false in
-      let b = mk_compound_if (mk_stmts b) in
+      let b = mk_compound_if (mk_stmts b) false in
       [ For (e1, e2, e3, b) ]
 
 
@@ -586,58 +670,7 @@ and mk_deref (e: expr) : C.expr =
  * declarations, so these primitives must not be output in the resulting C
  * files. *)
 and is_primitive s =
-  let known = [
-    (* Useless definitions: they are bypassed by custom codegen. *)
-    "LowStar_Monotonic_Buffer_is_null";
-    "C_Nullity_is_null";
-    "LowStar_Monotonic_Buffer_mnull";
-    "LowStar_Buffer_null";
-    "C_Nullity_null";
-    "C_String_get";
-    "C_String_t";
-    "C_String_of_literal";
-    "C_Compat_String_get";
-    "C_Compat_String_t";
-    "C_Compat_String_of_literal";
-    (* Trick: we typedef this as an int and reply on implicit C enum -> int
-     * conversion rules. *)
-    "exit_code";
-    (* These two are not integers and are macro-expanded by MingW into the
-     * address of a function pointer, which would make "extern channel stdout"
-     * fail. *)
-    "stdout";
-    "stderr";
-    (* DLL linkage errors on MSVC. *)
-    "rand"; "srand"; "exit"; "fflush"; "clock";
-    (* Hand-written type definition parameterized over KRML_VERIFIED_UINT128 *)
-    "FStar_UInt128_uint128";
-    (* Macros, no external linkage *)
-    "htole16";
-    "le16toh";
-    "htole32";
-    "le32toh";
-    "htole64";
-    "le64toh";
-    "htobe16";
-    "be16toh";
-    "htobe32";
-    "be32toh";
-    "htobe64";
-    "be64toh";
-    "store16_le";
-    "load16_le";
-    "store16_be";
-    "load16_be";
-    "store32_le";
-    "load32_le";
-    "store32_be";
-    "load32_be";
-    "load64_le";
-    "store64_le";
-    "load64_be";
-    "store64_be";
-  ] in
-  List.mem s known ||
+  Hashtbl.mem builtin_names s ||
   KString.starts_with s "C_Nullity_op_Bang_Star__" ||
   KString.starts_with s "LowStar_BufferOps_op_Bang_Star__" ||
   KString.starts_with s "LowStar_BufferOps_op_Star_Equals__"
@@ -824,10 +857,10 @@ let mk_comments =
 
 let wrap_verbatim flags d =
   KList.filter_map (function
-    | Prologue s -> Some (Verbatim s)
+    | Prologue s -> Some (Text s)
     | _ -> None
   ) flags @ [ d ] @ KList.filter_map (function
-    | Epilogue s -> Some (Verbatim s)
+    | Epilogue s -> Some (Text s)
     | _ -> None
   ) flags
 
@@ -945,7 +978,7 @@ let mk_type_or_external (w: where) (d: decl): C.declaration_or_function list =
               else
                 failwith (KPrint.bsprintf "Too many cases for enum %s" name)
             in
-            wrap_verbatim flags (Verbatim (enum_as_macros cases)) @
+            wrap_verbatim flags (Text (enum_as_macros cases)) @
             let qs, spec, decl = mk_spec_and_declarator_t name (Int t) in
             [ Decl ([], (qs, spec, Some Typedef, [ decl, None ]))]
         | _ ->
@@ -1027,7 +1060,7 @@ let mk_header decls =
 let mk_static_header decls =
   let mk_static (d: C.declaration_or_function) =
     match d with
-    | Decl (comments, (qs, ts, None, decl_inits)) ->
+    | Decl (comments, (qs, ts, _, decl_inits)) ->
         C.Decl (comments, (qs, ts, Some Static, decl_inits))
     | Function (comments, _inline, (qs, ts, (None | Some Static), decl_inits), body) ->
         C.Function (comments, true, (qs, ts, Some Static, decl_inits), body)

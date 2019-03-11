@@ -6,13 +6,19 @@
  * $krml_home/kremlib/kremlib.c is added to c_files
  * $krml_home/kremlib is added to includes
  *)
-let no_prefix: string list ref = ref [ "C"; "C.Compat"; "C.Endianness"; "C.Compat.Endianness" ]
+let no_prefix: Bundle.pat list ref = ref Bundle.[
+  Module [ "C" ];
+  Module [ "C"; "Compat" ];
+  Module [ "C"; "Endianness" ];
+  Module [ "C"; "Compat"; "Endianness" ];
+  Module [ "LowStar"; "Endianness" ]
+]
 (* kremlib.h now added directly in Output.ml so that it appears before the first
  * #ifdef *)
 let add_include: string list ref = ref [ ]
 let add_include_tmh = ref false
 let add_early_include: string list ref = ref [ ]
-let warn_error = ref "+1..2@3+4..8@9+10@11+12..18"
+let warn_error = ref "+1..2@3+4..8@9+10@11+12..18@19"
 let tmpdir = ref "."
 let includes: string list ref = ref []
 let verbose = ref false

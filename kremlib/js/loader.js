@@ -162,7 +162,7 @@ let mkC = (mem) => ({
   clock: () => Date.now(),
 });
 
-let mkCEndianness = (mem) => ({
+let mkLowStarEndianness = (mem) => ({
   htole16: (x) => { throw new Error("todo: htole16") },
   le16toh: (x) => { throw new Error("todo: le16toh") },
   htole32: (x) => { throw new Error("todo: htole32") },
@@ -194,7 +194,23 @@ let mkCEndianness = (mem) => ({
   store128_le: (addr, n) => { throw new Error("todo: store128_le") },
   load128_le: (addr) => { throw new Error("todo: load128_le") },
   store128_be: (addr, n) => { throw new Error("todo: store128_be") },
-  load128_be: (addr) => { throw new Error("todo: load128_be") }
+  load128_be: (addr) => { throw new Error("todo: load128_be") },
+  // this definition works for both C.Endianness and LowStar.Endianness
+  store16_le_i: (addr, n) => { throw new Error("todo_i: store16_le") },
+  load16_le_i: (addr) => { throw new Error("todo_i: load16_le") },
+  store16_be_i: (addr, n) => { throw new Error("todo_i: store16_be") },
+  load16_be_i: (addr) => { throw new Error("todo_i: load16_be") },
+  store32_le_i: (addr, n) => { throw new error("todo_i: store32_le") },
+  store32_be_i: (addr, n) => { throw new error("todo_i: store32_be") },
+  load32_be_i: (addr) => { throw new Error("todo_i: load32_be") },
+  store64_le_i: (addr, n) => { throw new Error("todo_i: store64_le") },
+  load64_le_i: (addr) => { throw new Error("todo_i: load64_le") },
+  store64_be_i: (addr, n) => { throw new Error("todo_i: store64_be") },
+  load64_be_i: (addr) => { throw new Error("todo_i: load64_be") },
+  store128_le_i: (addr, n) => { throw new Error("todo_i: store128_le") },
+  load128_le_i: (addr) => { throw new Error("todo_i: load128_le") },
+  store128_be_i: (addr, n) => { throw new Error("todo_i: store128_be") },
+  load128_be_i: (addr) => { throw new Error("todo_i: load128_be") }
 });
 
 let mkCNullity = (mem) => ({
@@ -350,10 +366,11 @@ function init() {
     WasmSupport: mkWasmSupport(mem),
     FStar: mkFStar(mem),
     Prims: mkPrims(mem),
+    LowStar_Endianness: mkLowStarEndianness(mem),
     C: mkC(mem),
     C_Compat: mkC(mem),
-    C_Endianness: mkCEndianness(mem),
-    C_Compat_Endianness: mkCEndianness(mem),
+    C_Endianness: mkLowStarEndianness(mem),
+    C_Compat_Endianness: mkLowStarEndianness(mem),
     C_Nullity: mkCNullity(mem),
     C_String: mkCString(mem, 'C_String'),
     C_Compat_String: mkCString(mem, 'C_Compat_String'),

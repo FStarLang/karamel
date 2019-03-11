@@ -12,7 +12,7 @@ FILES		= \
   Scope.test Attributes.test Unsound.test Substitute.test \
   InlineTest.test Ghost1.test Loops.test Structs.test \
   TotalLoops.test \
-  Recursive.test RecursivePoly.test Structs2.test StringLit.test \
+  Recursive.test RecursivePoly.test Structs2.test \
   FunctionalEncoding.test FunPtr.test Test128.test \
   CheckedInt.test Polymorphic.test GcTypes.test BadMatch.test C89.test \
   PatternAny.test hello-system/HelloSystem.test Server.test \
@@ -24,7 +24,8 @@ FILES		= \
   NoExtract.test InlineNoExtract.test ../book/RingBuffer.test \
   ../book/Introduction.test TopLevelArray.test NoShadow.test Library.test \
   AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
-  UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test
+  UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test \
+  ProperErasure.test EmptyStruct.test IfDef.test StringLit.test
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
@@ -64,10 +65,16 @@ everything: all wasm external
 
 # Use F*'s dependency mechanism and fill out the missing rules.
 
-.depend: $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) $(BROKEN) | Makefile
-	$(FSTAR) --dep full $^ ../runtime/WasmSupport.fst --extract Kremlin > .depend
+ifndef MAKE_RESTARTS
+.depend: .FORCE
+	$(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
+	  $(BROKEN) ../runtime/WasmSupport.fst --extract Kremlin > $@
 
--include .depend
+.PHONY: .FORCE
+.FORCE:
+endif
+
+include .depend
 
 $(HINTS_DIR):
 	mkdir -p $@
@@ -81,9 +88,10 @@ $(OUTPUT_DIR)/%.krml: | .depend
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<))
 
-$(OUTPUT_DIR)/%.exe: $(OUTPUT_DIR)/FStar_UInt128.krml | $(KRML_BIN)
+.PRECIOUS: $(OUTPUT_DIR)/%.exe
+$(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
-	  -o $@ $^
+	  -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack,\*
 
 .SECONDEXPANSION:
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe
@@ -119,7 +127,8 @@ $(OUTPUT_DIR)/CheckedInt.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/CustomEq.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fnoshort-enums
 $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
-$(OUTPUT_DIR)/Library.exe: EXTRA = -library MemCpyModel memcpymodel_impl.c
+$(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel memcpymodel_impl.c
+$(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
 
 # Some custom targets
 
@@ -139,8 +148,13 @@ hacl-test:
 # A pseudo-target for WASM compilation that does not match any specific file.
 # All WASM targets get the -wasm flag; some specific targets may override
 # NEGATIVE for negative tests.
-$(OUTPUT_DIR)/%.wasm: $(OUTPUT_DIR)/FStar_UInt128.krml $(OUTPUT_DIR)/WasmSupport.krml | $(KRML_BIN)
-	$(KRML) -wasm $(EXTRA) -tmpdir $@ $(JSFILES) -no-prefix $* $^
+.PRECIOUS: $(OUTPUT_DIR)/%.wasm
+$(OUTPUT_DIR)/%.wasm: $(ALL_KRML_FILES) $(KRML_BIN)
+	$(KRML) -minimal -bundle WasmSupport= -bundle 'FStar.*' -bundle Prims \
+	  -bundle C -bundle C.Endianness -bundle C.Nullity -bundle C.String \
+	  -bundle TestLib \
+	  -bundle $(subst _,.,$*)=WindowsHack,\* \
+	  -wasm $(EXTRA) -tmpdir $@ $(JSFILES) -no-prefix $* $(filter %.krml,$^)
 
 %.wasm-test: $(OUTPUT_DIR)/%.wasm
 	cd $^ && \
