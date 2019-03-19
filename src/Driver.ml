@@ -79,7 +79,10 @@ let mkdirp d =
           exists already and is not a directory: " ^ d)
     end else begin
       mkdirp (Filename.dirname d);
-      Unix.mkdir d 0o755
+      try Unix.mkdir d 0o755
+      with
+      | Unix.(Unix_error (EEXIST, _, _)) when Sys.is_directory d -> () (* raced with another process *)
+      | _ as e -> raise e
     end
   in
   (* On Windows, the Filename function defines only \\ to be the path separator,
