@@ -392,6 +392,14 @@ let rec nest_in_return_pos i typ f e =
       { node = ESwitch (e, branches); typ }
   | EMatch _ ->
       failwith "Matches should've been desugared"
+  | ESequence es ->
+      let l = List.length es in
+      { node = ESequence (List.mapi (fun j e ->
+          if j = l - 1 then
+            nest_in_return_pos i typ f e
+          else
+            e
+        ) es); typ }
   | _ ->
       f i e
 
