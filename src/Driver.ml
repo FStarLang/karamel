@@ -81,7 +81,7 @@ let mkdirp d =
       mkdirp (Filename.dirname d);
       try Unix.mkdir d 0o755
       with
-      | Unix.(Unix_error (EEXIST, _, _)) when Sys.is_directory d -> () (* raced with another process *)
+      | Unix.Unix_error (Unix.EEXIST, _, _) when Sys.is_directory d -> () (* raced with another process *)
       | _ as e -> raise e
     end
   in
