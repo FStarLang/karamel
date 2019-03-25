@@ -1,3 +1,13 @@
+### March 25th, 2019
+
+- A response file mechanism for situations where the combined length of
+  command-line arguments exceeds the maximum allowable length (especially on
+  Windows). Any argument of the form `@foo.rsp` triggers the reading of
+  `foo.rsp` as a response file. A response file is taken to contain one argument
+  on each line. Lines may be terminated by LF or CRLF. Line breaks cannot be
+  escaped. A response file can be passed in lieu of a .fst file, i.e. you can do
+  `krml @foo.rsp` but you cannot do `krml -ccopt @foo.rsp`.
+
 ### February 28th, 2019
 
 - `[@ CIfDef ] assume val x` will transform `if x then e1 else e2` using an

@@ -283,20 +283,38 @@ Supported options:|}
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
   let spec = Arg.align spec in
-  let anon_fun f =
-    if Filename.check_suffix f ".fst" || Filename.check_suffix f ".fsti" then
-      fst_files := f :: !fst_files
-    else if List.exists (Filename.check_suffix f) [ ".o"; ".S"; ".a" ] then
-      o_files := f :: !o_files
-    else if Filename.check_suffix f ".c" then
-      c_files := f :: !c_files
-    else if Filename.check_suffix f ".js" then
-      js_files := f :: !js_files
-    else if Filename.check_suffix f ".json" || Filename.check_suffix f ".krml" then begin
-      filenames := f :: !filenames
-    end else
-      Warnings.fatal_error "Unknown file extension for %s\n" f;
-    found_file := true
+  let rec anon_fun f =
+    if String.length f > 0 && f.[0] = '@' && Filename.check_suffix f ".rsp" then
+      let response_file = String.sub f 1 (String.length f - 1) in
+      let lines = ref [ Sys.argv.(0) ] in
+      Utils.with_open_in response_file (fun c ->
+        try
+          while true do
+            let l = input_line c in
+            if l.[String.length l - 1] = '\r' then
+              lines := String.sub l 0 (String.length l - 1) :: !lines
+            else
+              lines := l :: !lines
+          done
+        with End_of_file ->
+          ()
+      );
+      Arg.parse_argv ~current:(ref 0) (Array.of_list (List.rev !lines)) spec anon_fun usage
+    else begin
+      if Filename.check_suffix f ".fst" || Filename.check_suffix f ".fsti" then
+        fst_files := f :: !fst_files
+      else if List.exists (Filename.check_suffix f) [ ".o"; ".S"; ".a" ] then
+        o_files := f :: !o_files
+      else if Filename.check_suffix f ".c" then
+        c_files := f :: !c_files
+      else if Filename.check_suffix f ".js" then
+        js_files := f :: !js_files
+      else if Filename.check_suffix f ".json" || Filename.check_suffix f ".krml" then begin
+        filenames := f :: !filenames
+      end else
+        Warnings.fatal_error "Unknown file extension for %s\n" f;
+      found_file := true
+    end
   in
   begin try
     Arg.parse spec anon_fun usage
