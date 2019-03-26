@@ -827,7 +827,7 @@ let compile_all_matches (map, enums) = object (self)
       | Found lid -> lid
       | Fresh _ ->
           (* pre-allocated by the previous phase *)
-          Warnings.fatal_error "could not find tag lid for %a" plid preferred_lid
+          Warn.fatal_error "could not find tag lid for %a" plid preferred_lid
     in
     TQualified tag_lid, TAnonymous (Union structs)
 

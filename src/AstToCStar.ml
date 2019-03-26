@@ -177,7 +177,7 @@ let rec mk_expr env in_stmt e =
       CStar.Qualified (string_of_lident lident)
   | EQualified lident ->
       if StringSet.mem (string_of_lident lident) env.ifdefs then
-        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc env.location, IfDef lident));
+        Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, IfDef lident));
       CStar.Qualified (string_of_lident lident)
   | EConstant c ->
       CStar.Constant c
