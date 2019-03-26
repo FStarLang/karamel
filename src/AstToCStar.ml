@@ -28,11 +28,13 @@ open PrintAst.Ops
 open Helpers
 
 module C = Checker
+module StringSet = Set.Make(String)
 
 type env = {
   location: loc list;
   names: ident list;
   in_block: ident list;
+  ifdefs: StringSet.t;
 }
 
 let locate env loc =
@@ -42,6 +44,7 @@ let empty: env = {
   names = [];
   in_block = [];
   location = [];
+  ifdefs = StringSet.empty;
 }
 
 let reset_block env = {
@@ -51,7 +54,8 @@ let reset_block env = {
 let push env binder = CStar.{
   names = binder.name :: env.names;
   in_block = binder.name :: env.in_block;
-  location = env.location
+  location = env.location;
+  ifdefs = env.ifdefs
 }
 
 let pnames buf env =
@@ -162,6 +166,8 @@ let ensure_fresh env name body cont =
 let small s = CStar.Constant (K.UInt8, s)
 let zero = small "0"
 
+exception NotIfDef
+
 let rec mk_expr env in_stmt e =
   let mk_expr env e = mk_expr env false e in
   match e.node with
@@ -170,6 +176,8 @@ let rec mk_expr env in_stmt e =
   | EEnum lident ->
       CStar.Qualified (string_of_lident lident)
   | EQualified lident ->
+      if StringSet.mem (string_of_lident lident) env.ifdefs then
+        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc env.location, IfDef lident));
       CStar.Qualified (string_of_lident lident)
   | EConstant c ->
       CStar.Constant c
@@ -328,8 +336,12 @@ and mk_stmts env e ret_type =
         env', e :: acc
 
     | EIfThenElse (e1, e2, e3) ->
-        let e = CStar.IfThenElse (mk_expr env false e1, mk_block env return_pos e2, mk_block env return_pos e3) in
-        env, e :: acc
+        begin try
+          env, mk_ifdef env return_pos acc e1 e2 e3
+        with NotIfDef ->
+          let e = CStar.IfThenElse (false, mk_expr env false e1, mk_block env return_pos e2, mk_block env return_pos e3) in
+          env, e :: acc
+        end
 
     | ESequence es ->
         let n = List.length es in
@@ -444,6 +456,65 @@ and mk_stmts env e ret_type =
       env, maybe_return_nothing (s @ acc)
     else
       env, CStar.Return (Some (mk_expr env false e)) :: acc
+
+  and mk_ifdef env return_pos acc e1 e2 e3 =
+    try
+      (* First compilation scheme: a cascading chain of if-then-else. *)
+      let cond = mk_ifcond env e1 in
+      CStar.IfThenElse (true,
+        cond,
+        mk_block env return_pos e2,
+        mk_elif env return_pos e3
+      ) :: acc
+    with NotIfDef ->
+      (* Second compilation scheme: fall-through (terminal position).
+       *
+       * if B1 && b2 then
+       *   e2
+       * else
+       *   e3
+       *
+       * becomes:
+       *
+       * if B1 then
+       *   if b2 then
+       *     return e2
+       * return e3
+       *
+       * TODO: make this a little smarter, e.g. if the conjunction is
+       * ill-parenthesized, or if there's B1 && B'1
+       *)
+      match e1.node with
+      | EApp ({ node = EOp (K.And, K.Bool); _ }, [ e1; e1' ]) when return_pos ->
+          let cond = mk_ifcond env e1 in
+          let e2 = Helpers.nest_in_return_pos TUnit (fun _ e -> with_type TUnit (EReturn e)) e2 in
+          let inner_if = mk_block env false (with_unit (EIfThenElse (e1', e2, eunit))) in
+          let acc = CStar.IfThenElse (true, cond, inner_if, []) :: acc in
+          snd (collect (env, acc) true e3)
+      | _ ->
+          raise NotIfDef
+
+  and mk_elif env return_pos e3 =
+    match e3.node with
+    | EIfThenElse (e1', e2', e3') ->
+        begin try
+          let cond = mk_ifcond env e1' in
+          [ CStar.IfThenElse (
+              true, cond, mk_block env return_pos e2', mk_elif env return_pos e3')]
+        with NotIfDef ->
+          mk_block env return_pos e3
+        end
+    | _ ->
+        mk_block env return_pos e3
+
+  and mk_ifcond env e =
+    match e.node with
+    | EQualified (_, name) when StringSet.mem name env.ifdefs ->
+        CStar.Qualified (String.uppercase name)
+    | EApp ({ node = EOp ((K.And | K.Or) as o, K.Bool); _ }, [ e1; e2 ]) ->
+        CStar.Call (CStar.Op (o, K.Bool), [ mk_ifcond env e1; mk_ifcond env e2 ])
+    | _ ->
+        raise NotIfDef
 
   in
 
@@ -614,11 +685,14 @@ and mk_declaration env d: CStar.decl option =
         mk_expr env false body))
 
   | DExternal (cc, flags, name, t) ->
-      let add_cc = function
-        | CStar.Function (_, t, ts) -> CStar.Function (cc, t, ts)
-        | t -> t
-      in
-      Some (CStar.External (string_of_lident name, add_cc (mk_type env t), flags))
+      if StringSet.mem (snd name) env.ifdefs then
+        None
+      else
+        let add_cc = function
+          | CStar.Function (_, t, ts) -> CStar.Function (cc, t, ts)
+          | t -> t
+        in
+        Some (CStar.External (string_of_lident name, add_cc (mk_type env t), flags))
 
   | DType (name, flags, _, Forward) ->
       let name = string_of_lident name in
@@ -658,11 +732,11 @@ and mk_type_def env d: CStar.typ =
       failwith "impossible, handled by mk_declaration"
 
 
-and mk_program name decls =
+and mk_program name env decls =
   KList.filter_map (fun d ->
     let n = string_of_lident (Ast.lid_of_decl d) in
     try
-      mk_declaration empty d
+      mk_declaration env d
     with
     | Error e ->
         Warn.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
@@ -673,12 +747,27 @@ and mk_program name decls =
           (Printexc.to_string e)
   ) decls
 
-and mk_files files =
+and mk_files files ifdefs =
+  let env = { empty with ifdefs } in
+  (* Construct the mapping needed to get direct dependencies *)
   let file_of = Bundle.mk_file_of files in
   List.map (fun file ->
+    (* Why are we not getting duplicates here? *)
     let deps: string list = Hashtbl.fold (fun k _ acc -> k :: acc)
       (Bundles.direct_dependencies file_of file) []
     in
     let name, program = file in
-    name, deps, mk_program name program
+    name, deps, mk_program name env program
   ) files
+
+let mk_ifdefs_map files =
+  (object
+    inherit [_] reduce
+    method private zero = StringSet.empty
+    method private plus = StringSet.union
+    method visit_DExternal _ _ flags name _ =
+      if List.mem Common.IfDef flags then
+        StringSet.singleton (Simplify.target_c_name name)
+      else
+        StringSet.empty
+  end)#visit_files () files

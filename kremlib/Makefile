@@ -98,7 +98,7 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | c/fstar_uint128.c .depend ../_
 	  $(addprefix -add-include , \
 	    '<inttypes.h>' '<stdbool.h>' \
 	    '"kremlin/internal/compat.h"' \
-	    '"kremlin/c_endianness.h"' \
+	    '"kremlin/lowstar_endianness.h"' \
 	    '"kremlin/internal/types.h"') \
 	  -bundle FStar.UInt64+FStar.UInt32+FStar.UInt16+FStar.UInt8=[rename=FStar_UInt_8_16_32_64] \
 	  -bundle C.Endianness= \
@@ -113,6 +113,9 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | c/fstar_uint128.c .depend ../_
 ################################################################################
 # Compilation, only works after the stage above has run and C files exist      #
 ################################################################################
+
+CFLAGS += -O3 -march=native -mtune=native
+export CFLAGS
 
 compile-all: compile-dist-generic compile-dist-uint128 compile-dist-minimal
 

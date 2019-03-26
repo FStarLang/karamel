@@ -182,7 +182,7 @@ let is_null = function
   | _ ->
       false
 
-let is_uu name = KString.starts_with name "uu____"
+let is_uu name = KString.starts_with name "uu__"
 
 (* If [e2] is assigned into an expression of type [t], we can sometimes
  * strengthen the type [t] into an array type. This is the only place that
@@ -392,6 +392,14 @@ let rec nest_in_return_pos i typ f e =
       { node = ESwitch (e, branches); typ }
   | EMatch _ ->
       failwith "Matches should've been desugared"
+  | ESequence es ->
+      let l = List.length es in
+      { node = ESequence (List.mapi (fun j e ->
+          if j = l - 1 then
+            nest_in_return_pos i typ f e
+          else
+            e
+        ) es); typ }
   | _ ->
       f i e
 

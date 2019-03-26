@@ -96,13 +96,16 @@ and designator =
 (** Note: according to http:/ /en.cppreference.com/w/c/language/statements,
  * declarations can only be part of a compound statement... we do not enforce
  * this invariant via the type [stmt], but rather check it at runtime (see
- * [mk_compound_if]), as the risk of messing things up, naturally. *)
+ * [mk_compound_if]), at the risk of messing things up, naturally. *)
 type stmt =
   | Compound of stmt list
   | Decl of declaration
   | Expr of expr
   | If of expr * stmt
   | IfElse of expr * stmt * stmt
+  | IfDef of expr * stmt list * (expr * stmt list) list * stmt list
+      (* n-ary for pretty-printing purposes; adding it in this AST for more
+       * control over pretty-printing, etc. *)
   | While of expr * stmt
   | For of declaration_or_expr * expr * expr * stmt
   | Return of expr option
@@ -122,7 +125,7 @@ and declaration_or_function =
   | Decl of comment list * declaration
   | Function of comment list * bool * declaration * stmt
     (** [stmt] _must_ be a compound statement; boolean is inline *)
-  | Verbatim of string
+  | Text of string
     (** passed in from F*, to be printed as-is *)
 
 and declaration_or_expr = [

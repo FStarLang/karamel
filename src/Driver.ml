@@ -79,7 +79,10 @@ let mkdirp d =
           exists already and is not a directory: " ^ d)
     end else begin
       mkdirp (Filename.dirname d);
-      Unix.mkdir d 0o755
+      try Unix.mkdir d 0o755
+      with
+      | Unix.Unix_error (Unix.EEXIST, _, _) when Sys.is_directory d -> () (* raced with another process *)
+      | _ as e -> raise e
     end
   in
   (* On Windows, the Filename function defines only \\ to be the path separator,
@@ -350,7 +353,7 @@ let detect_gnu flavor =
         Warn.fatal_error "gcc not found in path!";
   in
   let crosscc = if !Options.m32 then format_of_string "i686-w64-mingw32-%s" else format_of_string "x86_64-w64-mingw32-%s" in
-  search [ "%s-7.0"; "%s-6.0"; "%s-5.0"; "%s-7"; "%s-6"; "%s-5"; crosscc; "%s" ];
+  search [ "%s-8"; "%s-7"; "%s-6"; "%s-5"; crosscc; "%s" ];
 
   if not !Options.silent then
     KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !cc;

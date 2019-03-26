@@ -107,8 +107,11 @@ The default is %s and the available warnings are:
   13: monomorphic instance about to be dropped
   14: cannot perform tail-call optimization
   15: function is not Low*; need compatibility headers
-  16: arity mismatch; higher-order cannot be translated to C
+  16: arity mismatch -- typically code that is high-order in F* but not in C
   17: declaration generates a static initializer
+  18: bundle collision
+  19: assume val marked as ifdef cannot be translated to an ifdef (e.g. it
+      appears in the wrong position)
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
 The Api= part is optional and Api is made up of a non-empty list of modules
@@ -205,8 +208,9 @@ Supported options:|}
       not bundle FStar";
     "-static-header", Arg.String (prepend Options.static_header), " generate a \
       .h for the given module where all functions are marked a static inline";
-    "-no-prefix", Arg.String (prepend Options.no_prefix), " don't prepend the \
-      module name to declarations from this module";
+    "-no-prefix", Arg.String (fun s -> List.iter (prepend Options.no_prefix) (Parsers.drop s)),
+      " don't prepend the module name to declarations from module matching this \
+      pattern";
     "-bundle", Arg.String (fun s -> prepend Options.bundle (Parsers.bundle s)), " \
       group modules into a single C translation unit (see above)";
     "-drop", Arg.String (fun s ->
@@ -282,20 +286,38 @@ Supported options:|}
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
   let spec = Arg.align spec in
-  let anon_fun f =
-    if Filename.check_suffix f ".fst" || Filename.check_suffix f ".fsti" then
-      fst_files := f :: !fst_files
-    else if List.exists (Filename.check_suffix f) [ ".o"; ".S"; ".a" ] then
-      o_files := f :: !o_files
-    else if Filename.check_suffix f ".c" then
-      c_files := f :: !c_files
-    else if Filename.check_suffix f ".js" then
-      js_files := f :: !js_files
-    else if Filename.check_suffix f ".json" || Filename.check_suffix f ".krml" then begin
-      filenames := f :: !filenames
-    end else
-      Warn.fatal_error "Unknown file extension for %s\n" f;
-    found_file := true
+  let rec anon_fun f =
+    if String.length f > 0 && f.[0] = '@' && Filename.check_suffix f ".rsp" then
+      let response_file = String.sub f 1 (String.length f - 1) in
+      let lines = ref [ Sys.argv.(0) ] in
+      Utils.with_open_in response_file (fun c ->
+        try
+          while true do
+            let l = input_line c in
+            if l.[String.length l - 1] = '\r' then
+              lines := String.sub l 0 (String.length l - 1) :: !lines
+            else
+              lines := l :: !lines
+          done
+        with End_of_file ->
+          ()
+      );
+      Arg.parse_argv ~current:(ref 0) (Array.of_list (List.rev !lines)) spec anon_fun usage
+    else begin
+      if Filename.check_suffix f ".fst" || Filename.check_suffix f ".fsti" then
+        fst_files := f :: !fst_files
+      else if List.exists (Filename.check_suffix f) [ ".o"; ".S"; ".a" ] then
+        o_files := f :: !o_files
+      else if Filename.check_suffix f ".c" then
+        c_files := f :: !c_files
+      else if Filename.check_suffix f ".js" then
+        js_files := f :: !js_files
+      else if Filename.check_suffix f ".json" || Filename.check_suffix f ".krml" then begin
+        filenames := f :: !filenames
+      end else
+        Warn.fatal_error "Unknown file extension for %s\n" f;
+      found_file := true
+    end
   in
   begin try
     Arg.parse spec anon_fun usage
@@ -546,6 +568,9 @@ Supported options:|}
       files
   in
 
+  (* This allows drop'ing the module that contains just ifdefs. *)
+  let ifdefs = AstToCStar.mk_ifdefs_map files in
+
   (* 6. Drop both files and selected declarations within some files, as a [-drop
    * Foo -bundle Bar=Foo] command-line requires us to go inside file [Bar] to
    * drop the declarations that originate from [Foo]. *)
@@ -590,7 +615,7 @@ Supported options:|}
 
   else
     (* Translate to C*... *)
-    let files = AstToCStar.mk_files files in
+    let files = AstToCStar.mk_files files ifdefs in
     tick_print true "AstToCStar";
 
     let files = List.filter (fun (_, _, decls) -> List.length decls > 0) files in

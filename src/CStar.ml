@@ -24,7 +24,8 @@ and stmt =
   | Ignore of expr
   | Decl of binder * expr
     (** Scope is: statements that follow. *)
-  | IfThenElse of expr * block * block
+  | IfThenElse of bool * expr * block * block
+    (** bool is: ifdef *)
   | While of expr * block
   | For of [ `Decl of binder * expr | `Stmt of stmt | `Skip ] * expr * stmt * block
     (** There is a slight mismatch; C has an iteration *expression* but C*'s
@@ -40,8 +41,8 @@ and stmt =
   | BufFree of expr
   | PushFrame
   | PopFrame
-  | Comment of string
   | Block of block
+  | Comment of string
 
 and expr =
   | InlineComment of string * expr * string

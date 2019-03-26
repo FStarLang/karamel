@@ -988,7 +988,7 @@ end
 (* Make top-level names C-compatible using a global translation table **********)
 
 let skip_prefix prefix =
-  List.exists ((=) (String.concat "." prefix)) !Options.no_prefix
+  List.exists (fun p -> Bundle.pattern_matches p (String.concat "_" prefix)) !Options.no_prefix
 
 let target_c_name lident =
   if skip_prefix (fst lident) then

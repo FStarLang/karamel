@@ -15,12 +15,12 @@
         "lemma_FStar.Buffer.lemma_fresh_poppable",
         "lemma_FStar.Buffer.live_fresh",
         "lemma_FStar.Buffer.modifies_poppable_1",
-        "refinement_interpretation_Substitute_Tm_refine_2011e81e05d092e08833cbfdaea77df9",
-        "refinement_interpretation_Substitute_Tm_refine_dc4119174f6bc7aff4bc23eee994711e",
-        "refinement_interpretation_Substitute_Tm_refine_ea9be47fb27850c2c7dc640dfed19287"
+        "refinement_interpretation_Tm_refine_2011e81e05d092e08833cbfdaea77df9",
+        "refinement_interpretation_Tm_refine_dc4119174f6bc7aff4bc23eee994711e",
+        "refinement_interpretation_Tm_refine_ea9be47fb27850c2c7dc640dfed19287"
       ],
       0,
-      "f6d5502767718cc8d9886a113e9d59d1"
+      "53ea53b3e230df7fb7baf9b5f8412275"
     ],
     [
       "Substitute.main",
@@ -30,7 +30,7 @@
       [
         "@MaxIFuel_assumption", "@query",
         "FStar.Int32_pretyping_15d14b3f3a8ec128c2a2096a93f74911",
-        "equality_tok_C.EXIT_SUCCESS@tok",
+        "equality_tok_C.EXIT_SUCCESS@tok", "equation_FStar.Buffer.buffer",
         "equation_FStar.HyperStack.ST.equal_domains",
         "equation_FStar.HyperStack.ST.inline_stack_inv",
         "equation_FStar.Monotonic.HyperStack.fresh_frame",
@@ -38,16 +38,17 @@
         "equation_FStar.Monotonic.HyperStack.is_wf_with_ctr_and_tip",
         "equation_FStar.Monotonic.HyperStack.mem",
         "equation_FStar.Monotonic.HyperStack.poppable",
+        "fuel_guarded_inversion_FStar.Buffer._buffer",
         "lemma_FStar.Buffer.lemma_equal_domains_2",
         "lemma_FStar.Buffer.lemma_fresh_poppable",
         "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_FStar.Monotonic.HyperStack_Tm_refine_9a74d818566e70513bc032cc3b65a144",
-        "refinement_interpretation_Substitute_Tm_refine_2011e81e05d092e08833cbfdaea77df9",
-        "refinement_interpretation_Substitute_Tm_refine_ea9be47fb27850c2c7dc640dfed19287",
+        "refinement_interpretation_Tm_refine_2011e81e05d092e08833cbfdaea77df9",
+        "refinement_interpretation_Tm_refine_9a74d818566e70513bc032cc3b65a144",
+        "refinement_interpretation_Tm_refine_ea9be47fb27850c2c7dc640dfed19287",
         "typing_tok_C.EXIT_SUCCESS@tok"
       ],
       0,
-      "03c693548f2166ff5cb8445b77d45af8"
+      "9a2f720497a246bc129fa1e365c04318"
     ]
   ]
 ]

@@ -1,9 +1,34 @@
-### January 18th, 2018
+### March 25th, 2019
+
+- A response file mechanism for situations where the combined length of
+  command-line arguments exceeds the maximum allowable length (especially on
+  Windows). Any argument of the form `@foo.rsp` triggers the reading of
+  `foo.rsp` as a response file. A response file is taken to contain one argument
+  on each line. Lines may be terminated by LF or CRLF. Line breaks cannot be
+  escaped. A response file can be passed in lieu of a .fst file, i.e. you can do
+  `krml @foo.rsp` but you cannot do `krml -ccopt @foo.rsp`.
+
+### February 28th, 2019
+
+- `[@ CIfDef ] assume val x` will transform `if x then e1 else e2` using an
+  `#ifdef`
+
+### February 26th, 2019
+
+- Data types with a single branch with a single constructor are now completely
+  eliminated. This is now a fifth compilation scheme for data types.
+- Same thing for records with a single field.
+
+### February 25th, 2019
+
+- Eliminate unit argument within records, too
+
+### January 18th, 2019
 
 - Allow %s in header files (passed to KReMLin via -header), to indicate where to
   insert the KReMLin invocation.
 
-### January 1st, 2018
+### January 1st, 2019
 
 - Headers now only depend on their direct dependencies. Previously, KreMLin
   would order C files in a valid topological order, then each header would

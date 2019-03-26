@@ -27,6 +27,8 @@ void hexdump(const uint8_t *buf, size_t len) {
   }
 }
 
+#define Crypto_Symmetric_Chacha20_counter_mode counter_mode
+
 int main (int argc, char *argv[]) {
   uint8_t key[32] = { 0 };
   for (uint8_t i = 0; i < 32; ++i)
