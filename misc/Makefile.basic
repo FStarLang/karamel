@@ -29,6 +29,7 @@ OBJS 	+= $(patsubst %.c,%.o,$(SOURCES))
 all: $(USER_TARGET)
 
 $(USER_TARGET): $(OBJS)
+	$(CC) $(OBJS) $(USER_CFLAGS) -o $@
 
 AR ?= ar
 
