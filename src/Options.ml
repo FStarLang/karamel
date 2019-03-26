@@ -71,7 +71,7 @@ let default_options () =
     "-ccopts";
     "-Wall,-Werror,-Wno-unused-variable," ^
     "-Wno-unknown-warning-option,-Wno-unused-but-set-variable," ^
-    "-g,-fwrapv,-fstack-check,-D_BSD_SOURCE,-D_DEFAULT_SOURCE" ^
+    "-g,-fwrapv,-D_BSD_SOURCE,-D_DEFAULT_SOURCE" ^
     (if Sys.os_type = "Win32" then ",-D__USE_MINGW_ANSI_STDIO" else "") ^
     (if !parentheses then "" else ",-Wno-parentheses")
   |] in
