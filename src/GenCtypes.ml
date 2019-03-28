@@ -38,8 +38,6 @@ let mk_ident name = Lident name |> mk_sym_ident
 
 let exp_ident n = Exp.ident (mk_ident n)
 
-let uint8_t = Typ.mk (Ptyp_constr (mk_ident "Unsigned.UInt8.t", []))
-
 
 (* generic AST helpers *)
 let mk_const c =
@@ -61,11 +59,11 @@ let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
   let p = Pat.mk (Ppat_var (mk_sym name)) in
   let t = Option.map (fun x -> Typ.mk (Ptyp_constr (mk_ident x, []))) typ in
   let e = mk_app (exp_ident head) args in
-  mk_decl ?t:t p e
+  mk_decl ?t p e
 
 
 (* manipulating identifiers *)
-let mk_unqual_name module_name  n =
+let mk_unqual_name module_name n =
   if KString. starts_with n (module_name ^ "_") then
     KString.chop n (module_name ^ "_")
   else if KString. starts_with n "K___" then
@@ -87,8 +85,8 @@ let structured_kw = function
 
 let mk_struct_manifest (k: structured) t =
   let tag = match k with
-   | Struct -> t
-   | Union -> "anonymous" (* unions only ever appear as anonymous fields in structs *)
+    | Struct -> t
+    | Union -> "anonymous" (* unions only ever appear as anonymous fields in structs *)
   in
   let row_field = Rtag(tag, no_attrs, false, []) in
   let row = Typ.variant [row_field] Closed None in
@@ -135,7 +133,7 @@ let rec mk_struct_decl (k: structured) module_name name fields: structure_item l
     let t = Typ.mk (Ptyp_constr (mk_ident "typ", [tm])) in
     let e = mk_app (exp_ident (structured_kw k)) [mk_const struct_name] in
     let p = Pat.mk (Ppat_var (mk_sym unqual_name)) in
-    mk_decl ?t:(Some t) p e
+    mk_decl ~t p e
   in
   let rec mk_field anon (f_name, f_typ) =
     match f_name with
@@ -158,8 +156,13 @@ let rec mk_struct_decl (k: structured) module_name name fields: structure_item l
   [type_decl; ctypes_structure] @ (KList.map_flatten (mk_field false) fields) @ [seal_decl]
 
 let mk_typedef module_name name typ =
+  let type_const = match typ with
+    | Int Constant.UInt8 -> Typ.mk (Ptyp_constr (mk_ident "Unsigned.UInt8.t", []))
+    | Qualified t -> Typ.mk (Ptyp_constr (mk_ident (mk_unqual_name module_name t), []))
+    | _ -> Warn.fatal_error "Unreachable"
+  in
   let typ_name = mk_unqual_name module_name name in
-  [ Str.type_ Recursive [Type.mk ?manifest:(Some uint8_t) (mk_sym typ_name)]
+  [ Str.type_ Recursive [Type.mk ?manifest:(Some type_const) (mk_sym typ_name)]
   ; mk_simple_app_decl typ_name None "typedef" [mk_typ module_name typ; mk_const name] ]
 
 let mk_enum_tags module_name name tags =
@@ -188,17 +191,18 @@ let build_binding module_name name return_type parameters : structure_item =
 let mk_ctypes_decl module_name (d: decl): structure =
   match d with
   | Function (_, _, return_type, name, parameters, _) ->
-      (* Don't generated bindings for projectors and internal names *)
+      (* Don't generate bindings for projectors and internal names *)
       if not (KString.starts_with name (module_name ^ "___proj__")) &&
          not (KString.starts_with name (module_name ^ "_uu___"))then
         [build_binding module_name name return_type parameters]
       else
         []
-  | Type (name, typ, _) -> begin (* VD: do I need to consider flags here? *)
+  | Type (name, typ, _) -> begin
       match typ with
       | Struct fields  -> mk_struct_decl Struct module_name name fields
       | Enum tags ->
         (mk_typedef module_name name (Int Constant.UInt8)) @ (mk_enum_tags module_name name tags)
+      | Qualified t -> mk_typedef module_name name (Qualified t)
       | _ -> []
       end
   | Global (name, _, typ, _) -> [mk_const_decl module_name name typ]

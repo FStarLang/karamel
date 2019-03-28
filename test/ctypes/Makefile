@@ -15,6 +15,8 @@ KRML = $(KREMLIN_HOME)/krml
 DIRS = .
 ROOTS = $(wildcard $(addsuffix /*.fsti,$(DIRS)) $(addsuffix /*.fst,$(DIRS)))
 
+all: Client.exe
+
 # Use F* to build dependency graph for ROOTS
 ifndef MAKE_RESTARTS
 .depend: .FORCE
@@ -27,8 +29,6 @@ endif
 include .depend
 
 ALL_CHECKED_FILES = $(addsuffix .checked,$(ROOTS))
-
-all: Client.exe
 
 %.checked:
 	$(FSTAR) $< && \
@@ -63,7 +63,7 @@ KRML_FLAGS= -bundle Prims \
 
 .PHONY: Client.exe
 Client.exe: Lowlevel.bind
-	cc -I ../../include -c -o Lowlevel.o bindings/Lowlevel.c
+	$(CC) -I ../../include -c -o Lowlevel.o bindings/Lowlevel.c
 	ocamlfind ocamlopt -I bindings -linkpkg -package ctypes,ctypes.foreign,ctypes.stubs -cclib Lowlevel.o bindings/Lowlevel_bindings.ml bindings/Gen_stubs.ml -o bindings/Gen_stubs.exe
 	./bindings/Gen_stubs.exe
 	ocamlopt -I ../../include -I bindings -I $(CTYPES) -c -o Lowlevel_c_stubs.o bindings/Lowlevel_c_stubs.c

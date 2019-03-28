@@ -63,8 +63,7 @@ let _ =
   assert (v = my_bool_MyFalse);
 
   let arg = Unsigned.UInt32.of_int 6 in
-  let d = replicate arg in
-  let f = getf d tr__0 in
+  let f = replicate arg in
   assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_fst = arg);
   assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_snd = arg);
   assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_thd = arg);
