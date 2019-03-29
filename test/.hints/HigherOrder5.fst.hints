@@ -12,7 +12,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "b6fdf3409283a4dcc9df8f1f63c0ffe8"
+      "da36219b0503dc329800f08826ce1253"
     ],
     [
       "HigherOrder5.t_D",
@@ -26,7 +26,7 @@
         "typing_FStar.Monotonic.HyperHeap.rid"
       ],
       0,
-      "20a695587c0aa2176e72c7ba325e4c48"
+      "f7d64843cf5354da750a708972c025a4"
     ],
     [
       "HigherOrder5.foo",
@@ -39,7 +39,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "7224c33b1dfaf97d07e09021a11a705f"
+      "4e3ed8d6faeaf3fd207c9fb92c9dc0fd"
     ],
     [
       "HigherOrder5.main",
@@ -75,7 +75,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "e016fc9d426038ff84395868e1e448bd"
+      "210340e70a86de47cf924d0efc9e1db6"
     ]
   ]
 ]

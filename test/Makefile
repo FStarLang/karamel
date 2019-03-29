@@ -142,7 +142,7 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 .PHONY: hacl-test
 hacl-test:
 	$(MAKE) -C $(HACL_HOME)/code/old/curve25519 extract-c
-	$(MAKE) -C $(HACL_HOME)/code/old/api extract-c
+	$(MAKE) -C $(HACL_HOME)/code/old/ed25519 extract-c
 
 # A pseudo-target for WASM compilation that does not match any specific file.
 # All WASM targets get the -wasm flag; some specific targets may override
