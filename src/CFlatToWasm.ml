@@ -845,7 +845,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
       (* Must use unreachable to have a polymorphic return type (aborts might
        * stem from something in an expression return position). Alternatively,
        * consider keeping the type (or size) that is expected. *)
-      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_trap"))) ] @
+      (* [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_trap"))) ] @ *)
       [ dummy_phrase W.Ast.Unreachable ]
 
   | Switch (e, branches, default, s) ->
