@@ -47,7 +47,7 @@ FSTAR		= fstar.exe --cache_checked_modules --use_two_phase_tc true \
   --include hello-system --include ../kremlib/compat \
   --include ../kremlib --include ../runtime \
   --include $(CRYPTO) --include ../book --use_hints --record_hints \
-  --already_cached 'prims FStar LowStar C TestLib Spec.Loops -C.Compat -C.Nullity'
+  --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity'
 
 # This just needs F* + KreMLin
 all: $(FILES) $(CUSTOM)
