@@ -32,7 +32,7 @@ endif
 CUSTOM		= count-uu
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
-  Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test
+  Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test Wasm8.wasm-test
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
 BROKEN		= \
@@ -47,7 +47,7 @@ FSTAR		= fstar.exe --cache_checked_modules --use_two_phase_tc true \
   --include hello-system --include ../kremlib/compat \
   --include ../kremlib --include ../runtime \
   --include $(CRYPTO) --include ../book --use_hints --record_hints \
-  --already_cached 'FStar C TestLib Spec.Loops -C.Compat -C.Nullity'
+  --already_cached 'prims FStar LowStar C TestLib Spec.Loops -C.Compat -C.Nullity'
 
 # This just needs F* + KreMLin
 all: $(FILES) $(CUSTOM)
@@ -167,7 +167,7 @@ WasmTrap.wasm-test: NEGATIVE = true
 
 # External WASM targets: recycle the HACL* Makefile!
 HACL_DROP=Prims,Hacl.UInt8,Hacl.UInt16,Hacl.UInt32,Hacl.UInt64,Hacl.UInt128,Hacl.Compat.Endianness,Hacl.Endianness,Hacl.Cast,Hacl.Spe.*,Hacl.Spec.*,Spec.*,Seq.*
-HACL_ALGS=CHACHA SALSA CURVE POLY ED # HMAC
+HACL_ALGS=CURVE ED
 
 # Arguments to the meta-rule
 CURVE=$(HACL_HOME)/code/old/curve25519
