@@ -28,7 +28,8 @@ fstar.exe --version
 node --version
 
 OTHERFLAGS="--admit_smt_queries true" make -C $FSTAR_HOME/ulib -j 4 || exit 255
-make -j 4 && make -C test everything -j 4 || exit 255
+#make -j 4 && make -C test everything -j 4 || exit 255
+make -j 4 && make -C hacl-wasm -j 4 || exit 255
 
 # Tutorial refresh, only on master and not for pull requests
 if [[ $TRAVIS_BRANCH == "master" && $DZOMO_TOKEN != "" ]]; then
