@@ -842,8 +842,11 @@ and mk_expr env (e: expr): W.Ast.instr list =
       mk_string env s
 
   | Abort ->
-      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_trap"))) ] @
-      mk_unit
+      (* Must use unreachable to have a polymorphic return type (aborts might
+       * stem from something in an expression return position). Alternatively,
+       * consider keeping the type (or size) that is expected. *)
+      (* [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_trap"))) ] @ *)
+      [ dummy_phrase W.Ast.Unreachable ]
 
   | Switch (e, branches, default, s) ->
       let vmax = KList.max (List.map (fun (c, _) -> Z.of_string (snd c)) branches) in
@@ -979,6 +982,9 @@ let mk_func env { args; locals; body; name; ret; _ } =
   let ftype = mk_var i in
   dummy_phrase W.Ast.({ locals; ftype; body })
 
+(* Some globals, such as string constants, generate non-constant expressions for
+ * their bodies; we provide a dummy and remember to run the initializer at
+ * module load-time. *)
 let mk_global env name size body =
   let body = mk_expr env body in
   let init, body, mut =

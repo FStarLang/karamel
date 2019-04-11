@@ -171,6 +171,8 @@ let fold_arrow ts t_ret =
 
 let is_array = function TArray _ -> true | _ -> false
 
+let is_union = function TAnonymous (Union _) -> true | _ -> false
+
 let is_null = function
   | { node = EApp (
       { node = EQualified (

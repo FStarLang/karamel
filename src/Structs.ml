@@ -394,7 +394,10 @@ let to_addr is_struct =
         w (EApp (to_addr false e, List.map (to_addr false) es))
 
     | EFlat fields ->
-        assert was_struct;
+        if not (was_struct || under_compound && Helpers.is_union e.typ) then
+          Warnings.fatal_error
+            "This was neither a struct or a union field of a struct: %a\n"
+            pexpr e;
         let fields = List.map (fun (f, e) -> f, to_addr true e) fields in
         if under_compound then
           w (EFlat fields)
@@ -573,6 +576,8 @@ end
 let remove_literals files =
   remove_literals#visit_files () files
 
+(* Debug any intermediary AST as follows: *)
+(* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
 
 let in_memory files =
   (* TODO: do let_to_sequence and sequence_to_let once! *)

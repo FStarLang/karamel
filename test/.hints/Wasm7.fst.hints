@@ -1,0 +1,92 @@
+[
+  "$£¶¾Q{›âë¦\u0005ÔÖÍ×ù",
+  [
+    [
+      "Wasm7.t2",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_FStar.UInt32.t__uu___haseq" ],
+      0,
+      "d21dd5043f69bf1332fdd6dc455549cb"
+    ],
+    [
+      "Wasm7.__proj__A__item___0",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_Wasm7.A",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_Tm_refine_ec10ccf333cf39e2d779a27ff25f9f69"
+      ],
+      0,
+      "5e3b10e739ad2e2822dabe253ce9f752"
+    ],
+    [
+      "Wasm7.__proj__A__item___1",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_Wasm7.A",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_Tm_refine_ec10ccf333cf39e2d779a27ff25f9f69"
+      ],
+      0,
+      "cf7f9a128e5159d93d64b6eec823a02d"
+    ],
+    [
+      "Wasm7.__proj__B__item___0",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_Wasm7.B",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_Tm_refine_1ce3b1dcced40bb1a9aec7baaac607ca"
+      ],
+      0,
+      "e1f4e7f5c79212a9806a3dc7bfec44a8"
+    ],
+    [
+      "Wasm7.__proj__B__item___1",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_Wasm7.B",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_Tm_refine_1ce3b1dcced40bb1a9aec7baaac607ca"
+      ],
+      0,
+      "b3d9735a4dbbaca04322f274f81516b7"
+    ],
+    [
+      "Wasm7.__proj__B__item___2",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "disc_equation_Wasm7.B",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_Tm_refine_1ce3b1dcced40bb1a9aec7baaac607ca"
+      ],
+      0,
+      "03d58c5c1630ee254f42e1805aa746fa"
+    ],
+    [
+      "Wasm7.v2",
+      1,
+      2,
+      1,
+      [
+        "@query", "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "8c846d54738b9f0fb2689b63751176bf"
+    ]
+  ]
+]

@@ -8,6 +8,12 @@ module LidMap = Map.Make(struct
   let compare = compare
 end)
 
+module LidSet = Set.Make(struct
+  type t = string list * string
+  let compare = compare
+end)
+
+
 let string_of_lident (idents, ident) =
   if List.length idents > 0 then
     String.concat "_" idents ^ "_" ^ ident
