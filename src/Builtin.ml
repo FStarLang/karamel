@@ -282,7 +282,7 @@ let is_model name =
   let is_machine_integer name =
     (KString.starts_with name "FStar_UInt" ||
       KString.starts_with name "FStar_Int") &&
-    name <> "FStar_UInt" && name <> "FStar_Int" && name <> "FStar_Int_Cast_Full"
+    name <> "FStar_UInt" && name <> "FStar_Int"
   in
   if name = "FStar_UInt128" then
     not (!Options.extract_uints)
