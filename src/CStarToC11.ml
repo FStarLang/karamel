@@ -760,12 +760,6 @@ and mk_expr (e: expr): C.expr =
   | Call (Qualified "FStar_UInt128_mul_wide", [ e1; e2 ]) when !Options.builtin_uint128 ->
       Op2 (K.Mult, Cast (mk_type (Qualified "uint128_t"), mk_expr e1), mk_expr e2)
 
-  | Call (Qualified "FStar_Int_Cast_Full_uint64_to_uint128", [ e1 ]) when !Options.builtin_uint128 ->
-      Cast (mk_type (Qualified "uint128_t"), mk_expr e1)
-
-  | Call (Qualified "FStar_Int_Cast_Full_uint128_to_uint64", [ e1 ]) when !Options.builtin_uint128 ->
-      Cast (mk_type (Qualified "uint64_t"), mk_expr e1)
-
   | Call (e, es) ->
       Call (mk_expr e, List.map mk_expr es)
 
