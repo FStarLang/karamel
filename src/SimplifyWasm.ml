@@ -85,6 +85,30 @@ let remove_buffer_ops = object(self)
                         EAssign (ref_size, mk_minus_one ref_size))])));
                   ref_buf]))))])))
 
+  method! visit_EBufFill _ buf init size =
+    (* let s = size in
+     * let b = buf in
+     * let i = init in
+     * while (s > 0)
+     *   b[s-1] = i;
+     *   s--;
+     *)
+    let init = self#visit_expr_w () init in
+    let size = self#visit_expr_w () size in
+    let b_size, body_size, ref_size = mk_named_binding "size" size.typ size.node in
+    let b_size = mark_mut b_size in
+    let b_buf, body_buf, ref_buf = mk_named_binding "buf" buf.typ buf.node in
+    let b_init, body_init, ref_init = mk_named_binding "init" init.typ init.node in
+    ELet (b_size, body_size, close_binder b_size (with_unit (
+    ELet (b_buf, body_buf, close_binder b_buf (with_unit (
+    ELet (b_init, body_init, close_binder b_init (with_unit (
+      EWhile (
+        mk_gt_zero ref_size, with_unit (
+        ESequence [ with_unit (
+          EBufWrite (ref_buf, mk_minus_one ref_size, ref_init)); with_unit (
+          EAssign (ref_size, mk_minus_one ref_size))])))))))))))
+
+
   method! visit_EBufCreateL (_, t) lifetime es =
     let es = List.map (self#visit_expr_w ()) es in
     let size = mk_uint32 (List.length es) in
