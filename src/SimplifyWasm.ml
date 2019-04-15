@@ -60,18 +60,19 @@ let remove_buffer_ops = object(self)
         (* Leaving the size inline because it's needed for the buffer hoisting
          * phase; also, the size ought to be pure, guaranteed by F*. *)
         let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, size)) in
-        let with_t = with_type t in
+        let with_tbuf = with_type t in
+        let with_t = with_type (assert_tbuf t) in
         match size.node with
         | EConstant (_, "1") ->
-            ELet (b_buf, body_buf, close_binder b_buf (with_t (
+            ELet (b_buf, body_buf, close_binder b_buf (with_tbuf (
               ESequence [ with_unit (
                 EBufWrite (ref_buf, zerou32, init));
                 ref_buf ])))
         | _ ->
-            ELet (b_size, body_size, close_binder b_size (with_t (
+            ELet (b_size, body_size, close_binder b_size (with_tbuf (
               ESequence [ with_unit (
                 EApp (check_buffer_size, [ ref_size ])); with_unit (
-                ELet (b_buf, body_buf, close_binder b_buf (with_t (
+                ELet (b_buf, body_buf, close_binder b_buf (with_tbuf (
                   ESequence [ with_unit (
                     EBufWrite (ref_buf, zerou32, init)); with_unit (
                     EAssign (ref_size, mk_minus_one ref_size)); with_unit (
