@@ -13,6 +13,9 @@ open Location
 open PrintAst.Ops
 open Helpers
 
+(* For internal use; allows enabling debug after certain phases. *)
+let debug = ref false
+
 let buf_any_msg = format_of_string {|
 This subexpression creates a buffer with an unknown type:
   %a
@@ -205,11 +208,23 @@ and check_or_infer env t e =
     t
   end
 
+and smallest t1 t2 =
+  (* This barely makes any sense. Need to clean up this typechecking algorithm. *)
+  match t1, t2 with
+  | TAny, _ ->
+      t2
+  | _, TAny ->
+      t1
+  | TBuf t1, TBuf t2 ->
+      TBuf (smallest t1 t2)
+  | _ ->
+      t1
+
 and check env t e =
-  (* KPrint.bprintf "[check] t=%a for e=%a\n" ptyp t pexpr e; *)
+  (* if !debug then KPrint.bprintf "[check] t=%a for e=%a\n" ptyp t pexpr e; *)
+  (* if !debug then KPrint.bprintf "[check] annot=%a for e=%a\n" ptyp e.typ pexpr e; *)
   check' env t e;
-  if t <> TAny then
-    e.typ <- t
+  e.typ <- smallest e.typ t
 
 and check' env t e =
   let c t' = check_subtype env t' t in
@@ -429,11 +444,12 @@ and args_of_branch env t ident =
       checker_error env "Type annotation is not an lid but %a" ptyp t
 
 and infer env e =
-  (* KPrint.bprintf "[infer] %a\n" pexpr e; *)
+  (* if !debug then KPrint.bprintf "[infer] %a\n" pexpr e; *)
   let t = infer' env e in
-  (* KPrint.bprintf "[infer, got] %a\n" ptyp t; *)
+  (* if !debug then KPrint.bprintf "[infer, got] %a\n" ptyp t; *)
   check_subtype env t e.typ;
   e.typ <- prefer_nominal t e.typ;
+  (* if !debug then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ; *)
   t
 
 and prefer_nominal t1 t2 =

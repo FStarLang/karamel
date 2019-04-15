@@ -215,7 +215,7 @@ and print_expr { node; typ } =
       print_lifetime l ^^ space ^^
       print_app string "newbuf" print_expr [e1; e2]
   | EBufRead (e1, e2) ->
-      print_expr e1 ^^ lbracket ^^ print_expr e2 ^^ rbracket
+      print_expr e1 ^^ colon ^^ print_typ e1.typ ^^ lbracket ^^ print_expr e2 ^^ rbracket
   | EBufWrite (e1, e2, e3) ->
       print_expr e1 ^^ (*colon ^^ print_typ e1.typ ^^*) lbracket ^^ print_expr e2 ^^ rbracket ^/^
       string "<-" ^/^ print_expr e3

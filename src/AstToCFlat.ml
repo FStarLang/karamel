@@ -12,7 +12,6 @@ open CFlat.Sizes
 open Ast
 open PrintAst.Ops
 
-
 (** Environments.
  *
  * Variable declarations are visited in infix order; this order is used for
@@ -345,17 +344,13 @@ let rec write_at (env: env)
   (ofs: int)
   (e: expr): locals * CF.expr list
 =
-  (* KPrint.bprintf ">>> write_at: ofs=%d, e=%a\n" ofs pexpr e; *)
   let rec write_at locals (ofs, e) =
-    (* KPrint.bprintf "  >>> write_at, inner: ofs=%d, e=%a\n" ofs pexpr e; *)
     match layout_of env e with
     | Some layout ->
-        (* KPrint.bprintf "  >>> write_at: found a layout (size: %d)\n" layout.size; *)
         (* We are assigning something that's not a base type into an array. *)
         begin match e.node with
         | EFlat fields ->
             (* It's a literal. *)
-            (* KPrint.bprintf "    >>> write_at: literal\n"; *)
             let locals, writes =
               fold (fun locals (fname, e) ->
                 let fname = Option.must fname in
@@ -366,7 +361,6 @@ let rec write_at (env: env)
             in
             locals, List.flatten writes
         | _ ->
-            (* KPrint.bprintf "    >>> write_at: memcpy\n"; *)
             (* If it's not a literal, it's got to be an address. Compute the
              * source, in bytes. *)
             let src = mk_addr env e in
@@ -377,7 +371,6 @@ let rec write_at (env: env)
             mk_memcpy env locals dst src size
         end
     | _ ->
-        (* KPrint.bprintf "  >>> write_at: atomic\n"; *)
         (* Base case of an atomic type that can be written in one instruction
          * (machine integer, enum constant...) *)
         let s = array_size_of env e.typ in
