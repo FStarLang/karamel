@@ -520,7 +520,7 @@ and infer' env e =
         if List.length es > List.length t_args then
           checker_error env "Too many arguments for application:\n%a" pexpr e;
         let t_args, t_remaining_args = KList.split (List.length es) t_args in
-        List.iter2 (check env) t_args es;
+        ignore (List.map2 (check_or_infer env) t_args es);
         fold_arrow t_remaining_args t_ret
 
   | ELet (binder, body, cont) ->
@@ -678,13 +678,14 @@ and infer' env e =
         TAnonymous (Enum [ tag ])
       end
 
-  | ESwitch (e, branches) ->
-      let t_scrut = expand_abbrev env (infer env e) in
-      infer_and_check_eq env (fun (c, e) ->
+  | ESwitch (e1, branches) ->
+      let t_scrut = expand_abbrev env (infer env e1) in
+      let t = infer_and_check_eq env (fun (c, e) ->
         let env = locate env (Branch c) in
         check_case env c t_scrut;
         infer env e
-      ) branches
+      ) branches in
+      t
 
   | EComment (_, e, _) ->
       infer env e
