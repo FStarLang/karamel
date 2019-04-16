@@ -54,8 +54,8 @@ let empty = {
 let builtin_layouts = [
   "C_String_t", I32, A32;
   "C_String_t_", I32, A32;
-  "C__Compat_String_t", I32, A32;
-  "C__Compat_String_t_", I32, A32;
+  "C_Compat_String_t", I32, A32;
+  "C_Compat_String_t_", I32, A32;
   "Prims_string", I32, A32;
   "Prims_int", I32, A32; (* should remove *)
   "clock_t", I32, A32;
@@ -76,6 +76,8 @@ let size_of (env: env) (t: typ): size =
       I32
   | TQualified lid ->
       begin match LidMap.find lid env.layouts with
+      | exception Not_found ->
+          failwith (KPrint.bsprintf "size_of: %a not found" plid lid)
       | LEnum -> I32
       | LBuiltin (s, _) -> s
       | LFlat _ ->
@@ -97,6 +99,8 @@ let array_size_of (env: env) (t: typ): array_size =
       A32
   | TQualified lid ->
       begin match LidMap.find lid env.layouts with
+      | exception Not_found ->
+          failwith (KPrint.bsprintf "size_of: %a not found" plid lid)
       | LEnum -> A32
       | LBuiltin (_, s) -> s
       | LFlat _ ->
@@ -500,7 +504,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
         | TInt _ ->
             bytes_in (array_size_of env t)
         | _ ->
-            Warnings.fatal_error "todo: non-int top-level arrays"
+            failwith (KPrint.bsprintf "Top-level array of %a" ptyp t)
       in
       let len = List.length es * word_len in
       let buf = Bytes.create len in
