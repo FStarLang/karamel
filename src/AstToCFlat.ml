@@ -30,6 +30,7 @@ type env = {
 and layout =
   | LEnum
   | LFlat of flat_layout
+  | LBuiltin of size * array_size
 
 and flat_layout = {
   size: int;
@@ -50,6 +51,18 @@ let empty = {
 
 (** Layouts and sizes. *)
 
+let builtin_layouts = [
+  "C_String_t", I32, A32;
+  "C_String_t_", I32, A32;
+  "C__Compat_String_t", I32, A32;
+  "C__Compat_String_t_", I32, A32;
+  "Prims_string", I32, A32;
+  "Prims_int", I32, A32; (* should remove *)
+  "clock_t", I32, A32;
+  "exit_code", I32, A32;
+]
+
+
 (** The size of a type that fits in one WASM value. *)
 let size_of (env: env) (t: typ): size =
   match t with
@@ -61,15 +74,13 @@ let size_of (env: env) (t: typ): size =
       I32
   | TAnonymous (Enum _) ->
       I32
-  | TQualified ([], ("C_String_t" | "C_String_t_" | "C_Compat_String_t" | "C_Compat_String_t_" | "Prims_string" | "Prims_int")) ->
-      (* The string type from the C.String module, or an F* string literal.
-       * They're represented the same way, that is, a pointer to a string
-       * statically allocated in the data segment. *)
-      I32
-  | TQualified ([], ("clock_t" | "exit_code")) ->
-      I32
-  | TQualified lid when LidMap.find lid env.layouts = LEnum ->
-      I32
+  | TQualified lid ->
+      begin match LidMap.find lid env.layouts with
+      | LEnum -> I32
+      | LBuiltin (s, _) -> s
+      | LFlat _ ->
+          failwith (KPrint.bsprintf "size_of: this case should've been eliminated: %a" ptyp t)
+      end
   | _ ->
       failwith (KPrint.bsprintf "size_of: this case should've been eliminated: %a" ptyp t)
 
@@ -84,8 +95,13 @@ let array_size_of (env: env) (t: typ): array_size =
       A32 (* Todo: pack these more efficiently?! *)
   | TAnonymous (Enum _) ->
       A32
-  | TQualified lid when LidMap.find lid env.layouts = LEnum ->
-      A32
+  | TQualified lid ->
+      begin match LidMap.find lid env.layouts with
+      | LEnum -> A32
+      | LBuiltin (_, s) -> s
+      | LFlat _ ->
+          failwith (KPrint.bsprintf "array_size_of: this case should've been eliminated: %a" ptyp t)
+      end
   | _ ->
       failwith (KPrint.bsprintf "array_size_of: this case should've been eliminated: %a" ptyp t)
 
@@ -112,21 +128,30 @@ let is_enum env t =
   match t with
   | TQualified lid ->
       begin match LidMap.find lid env.layouts with
-      | LEnum -> true
-      | _ -> false
+      | exception Not_found ->
+          Warnings.fatal_error "%a is not in the lid map!" plid lid
+      | LEnum ->
+          true
+      | _ ->
+          false
       end
   | TAnonymous (Enum _) -> true
   | _ -> false
 
 let assert_lflat = function
-  | LEnum -> assert false
   | LFlat layout -> layout
+  | _ -> assert false
 
 (* The exact size as a number of bytes of any type. *)
 let rec byte_size (env: env) (t: typ): int =
   match t with
-  | TQualified lid when not (is_enum env t) ->
-      (assert_lflat (LidMap.find lid env.layouts)).size
+  | TQualified lid ->
+      begin match LidMap.find lid env.layouts with
+      | LFlat layout -> layout.size
+      | _ ->
+          (* Must be atomic (builtin or enum). Defer to array_size_of. *)
+          bytes_in (array_size_of env t)
+      end
   | TAnonymous (Union cases) ->
       KList.reduce max (List.map (fun f -> (flat_layout env [ f ]).size) cases)
   | TAnonymous (Flat struct_fields) ->
@@ -198,6 +223,10 @@ let populate env files =
           env
     ) env decls
   ) env files in
+  (* Fill in built-in layouts *)
+  let env = List.fold_left (fun env (l, s, a_s) ->
+    { env with layouts = LidMap.add ([], l) (LBuiltin (s, a_s)) env.layouts }
+  ) env builtin_layouts in
   (* Compute the layouts for struct types that have an lid. *)
   let env = List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
@@ -232,6 +261,8 @@ let debug_env { layouts; enums; _ } =
         ) fields
     | LEnum ->
         KPrint.bprintf "%a (size=4, enum)\n" plid lid
+    | LBuiltin _ ->
+        KPrint.bprintf "%a (builtin)\n" plid lid
   ) layouts;
   KPrint.bprintf "Enum constant assignments:\n";
   LidMap.iter (fun lid d ->
@@ -324,7 +355,7 @@ let layout_of env e =
   match e.node, e.typ with
   | _, TQualified lid ->
       begin match LidMap.find lid env.layouts with
-      | LEnum -> None
+      | LEnum | LBuiltin _ -> None
       | LFlat layout -> Some layout
       end
   | _, TAnonymous (Flat fields) ->

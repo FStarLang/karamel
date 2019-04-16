@@ -597,6 +597,7 @@ Supported options:|}
     (* The Wasm backend diverges here. We go to [CFlat] (an expression
      * language), then directly into the Wasm AST. *)
     let files = AstToCFlat.mk_files files in
+    let files = List.filter (fun (_, decls) -> List.length decls > 0) files in
     tick_print true "AstToCFlat";
 
     let modules = CFlatToWasm.mk_files files in
