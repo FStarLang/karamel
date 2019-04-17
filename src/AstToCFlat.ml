@@ -761,12 +761,20 @@ let mk_decl env (d: decl): CF.decl option =
       | _ ->
           Some (CF.ExternalGlobal (name, size_of env t))
 
+(* Definitions to be skipped because they have a built-in compilation scheme. *)
+let skip (lid: lident) =
+  let skip = [ "LowStar_Monotonic_Buffer_mnull"] in
+  List.mem (snd lid) skip
+
 let mk_module env (name, decls) =
   name, KList.filter_map (fun d ->
     try
-      flush stdout; flush stderr;
-      (* KPrint.beprintf "[AstToC♭] Translating %a:\n" plid (lid_of_decl d); *)
-      mk_decl env d
+      if skip (lid_of_decl d) then
+        None
+      else begin
+        flush stdout; flush stderr;
+        mk_decl env d
+      end
     with e ->
       flush stdout;
       flush stderr;
