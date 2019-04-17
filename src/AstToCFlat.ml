@@ -170,6 +170,10 @@ let assert_lflat = function
   | LFlat layout -> layout
   | _ -> assert false
 
+let is_lflat = function
+  | LFlat _ -> true
+  | _ -> false
+
 (* The exact size as a number of bytes of any type. *)
 let rec byte_size (env: env) (t: typ): int =
   match t with
@@ -403,8 +407,10 @@ let layout_of env e =
       None
 
 (* Statically lay out a top-level constant into a bytes. This function is very
- * similar to the `write_at` underneath, except it is entirely syntax-driven. *)
-let write_static (env: env) (e: expr): string =
+ * similar to the `write_at` underneath, except it is entirely syntax-driven. It
+ * returns a string to be laid out, along with a list of expressions for
+ * initializing sub-fields that refer to other global constant. *)
+let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
   let write_le dst ofs t const =
     let w = byte_size env t in
     for j = 0 to w - 1 do
@@ -417,18 +423,30 @@ let write_static (env: env) (e: expr): string =
   let rec write_scalar dst ofs e =
     match e.node with
     | EConstant (Constant.(UInt8 | UInt16 | UInt32 | UInt64 ), s) ->
-        write_le dst ofs e.typ (Z.of_string s)
+        write_le dst ofs e.typ (Z.of_string s);
+        []
     | EEnum lid ->
-        write_le dst ofs e.typ (Z.of_int (LidMap.find lid env.enums))
+        write_le dst ofs e.typ (Z.of_int (LidMap.find lid env.enums));
+        []
     | EFlat fields ->
         let layout = Option.must (layout_of env e) in
-        List.iter (fun (fname, e) ->
+        KList.map_flatten (fun (fname, e) ->
           let fname = Option.must fname in
           let fofs = List.assoc fname layout.fields in
           write_scalar dst (ofs + fofs) e
         ) fields
+    | EString s ->
+        write_le dst ofs Helpers.uint32 (Z.of_int (Hashtbl.hash s));
+        [ CF.BufWrite (CF.GetGlobal (snd lid), ofs, CF.StringLiteral s, A32) ]
+    | EQualified lid' ->
+        write_le dst ofs Helpers.uint32 (Z.of_int (Hashtbl.hash (snd lid')));
+        [ CF.BufWrite (CF.GetGlobal (snd lid), ofs, CF.GetGlobal (snd lid'), A32) ]
+    | EApp ({ node = EQualified ([], "LowStar_Monotonic_Buffer_mnull"); _ }, _) ->
+        write_le dst ofs Helpers.uint32 Z.zero;
+        []
     | _ ->
-        failwith (KPrint.bsprintf "Top-level constant contains unsupported type: %a" ptyp e.typ)
+        failwith (KPrint.bsprintf "Top-level constant contains unsupported value:\n\
+          %a: %a" pexpr e ptyp e.typ)
   in
   (* Per the Low* restrictions, arrays may only appear at the top-level. *)
   match e.node with
@@ -437,19 +455,19 @@ let write_static (env: env) (e: expr): string =
       let cell_len = cell_size_b env t in
       let total_len = List.length es * cell_len in
       let buf = Bytes.create total_len in
-      List.iteri (fun i e -> write_scalar buf (i * cell_len) e) es;
-      Bytes.to_string buf
+      let es = List.mapi (fun i e -> write_scalar buf (i * cell_len) e) es in
+      Bytes.to_string buf, List.flatten es
   | EBufCreate _ ->
       failwith "TODO: global constant array via bufcreate"
   | _ ->
       let t = e.typ in
       let buf = Bytes.create (byte_size env t) in
-      write_scalar buf 0 e;
-      Bytes.to_string buf
+      let es = write_scalar buf 0 e in
+      Bytes.to_string buf, es
 
 let write_global env lid e =
-  let s = write_static env e in
-  { env with globals = LidMap.add lid s env.globals }, CF.StringLiteral s
+  let s, es = write_static env lid e in
+  { env with globals = LidMap.add lid s env.globals }, CF.StringLiteral s, es
 
 (* Desugar an assignment into a series of possibly many assigments (e.g. struct
   * literal), or into a memcopy. We want to write [e] at address [dst] corrected
@@ -519,6 +537,12 @@ and mk_addr env e =
       let ofs = field_offset env e1.typ f in
       let e1 = mk_addr env e1 in
       CF.BufSub (e1, mk_uint32 ofs, A8)
+  | EQualified lid ->
+      begin match e.typ with
+      | TBuf _ -> ()
+      | TQualified lid -> assert (is_lflat (LidMap.find lid env.layouts))
+      | _ -> () end;
+      CF.GetGlobal (snd lid)
   | _ ->
       failwith (KPrint.bsprintf "can't take the addr of %a" pexpr e)
 
@@ -539,7 +563,7 @@ and mk_offset env locals (base: CF.expr) (ofs: expr) (sz: int) =
       locals, dst, 0
 
 (** Translating a global declaration. *)
-and mk_global (env: env) (lid: lident) (e: expr): env * CF.expr =
+and mk_global (env: env) (lid: lident) (e: expr): env * CF.expr * CF.expr list =
   match e.node with
   | EBufCreate (Common.Eternal, _, _)
   | EBufCreateL (Common.Eternal, _)
@@ -551,7 +575,7 @@ and mk_global (env: env) (lid: lident) (e: expr): env * CF.expr =
       failwith "non-eternal CreateL in global position should've been ruled out by F* typing"
 
   | _ ->
-      env, mk_expr_no_locals env e
+      env, mk_expr_no_locals env e, []
 
 
 (** The actual translation. Note that the environment is dropped, but that the
@@ -823,14 +847,18 @@ let mk_decl env (d: decl): env * CF.decl option =
   | DGlobal (flags, name, n, typ, body) ->
       assert (n = 0);
       let public = not (List.exists ((=) Common.Private) flags) in
-      let size = size_of env typ in
+      let size =
+        match body.node with
+        | EFlat _ -> I32
+        | _ -> size_of env typ
+      in
       if size = I64 then begin
         Warnings.(maybe_fatal_error ("", NotWasmCompatible (name, "I64 constant")));
         env, None
       end else
-        let env, body = mk_global env name body in
+        let env, body, post_init = mk_global env name body in
         let name = Idents.string_of_lident name in
-        env, Some (CF.Global (name, size, body, public))
+        env, Some (CF.Global (name, size, body, post_init, public))
 
   | DExternal (_, _, lid, t) ->
       let name = Idents.string_of_lident lid in
