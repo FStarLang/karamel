@@ -25,6 +25,28 @@ type env = {
   layouts: layout LidMap.t;
     (** Pre-computed layouts for struct and enum types. Enums can be written
      * atomically, but structs cannot. *)
+  globals: string LidMap.t;
+    (** There are two kinds of global declarations.
+     * - Arrays have `buf t` type in Low*; they are referred to exclusively by
+     *   their lid; they are compiled to strings in the data segment; their
+     *   definition becomes a Global in WASM and references to them just read
+     *   the Global.
+     * - Values have non-array types (e.g. a value struct type, integer). When
+     *   referred to by their lid, there is a value read.
+     *   - For atomic values (e.g. integers), this is trivially compilable as a
+     *     Global slot in WASM that is initialized to a constant then read at
+     *     reference-time.
+     *   - For struct values, we lay them out according to the KreMLin layout in
+     *     a string. Because of the struct-by-address transformation, these will
+     *     only be referred to via the AddressOf operator, meaning that any
+     *     &Foo_bar should resolve to the address of the global in the data
+     *     segment.
+     *     So, for these structs, we lay them out in a string when we hit their
+     *     definition, and remember this string in `globals`. Then, any
+     *     occurrence of &Foo_bar is replaced in this module with a
+     *     StringLiteral. The strings are shared in memory at compile-time, and
+     *     hashconsing in CFlatToWasm guarantees that they are shared in the
+     *     resulting code, too. *)
 }
 
 and layout =
@@ -47,6 +69,7 @@ let empty = {
   binders = [];
   enums = LidMap.empty;
   layouts = LidMap.empty;
+  globals = LidMap.empty;
 }
 
 (** Layouts and sizes. *)
@@ -86,7 +109,8 @@ let size_of (env: env) (t: typ): size =
   | _ ->
       failwith (KPrint.bsprintf "size_of: this case should've been eliminated: %a" ptyp t)
 
-(* The size of a type that fits in one WASM array cell. *)
+(* The size of a type that fits in one WASM array cell. See [byte_size] for the
+ * general version. *)
 let array_size_of (env: env) (t: typ): array_size =
   match t with
   | TInt w ->
@@ -204,11 +228,18 @@ let cell_size (env: env) (t: typ): int * array_size =
     size / 8, A64
   in
   match t with
-  | TQualified _ | TAnonymous _ ->
+  | TQualified lid ->
+      begin match LidMap.find lid env.layouts with
+      | LFlat _ -> round_up (byte_size env t)
+      | _ -> 1, array_size_of env t
+      end
+  | TAnonymous _ ->
       round_up (byte_size env t)
   | _ ->
       1, array_size_of env t
 
+(* The size of any type, laid out in an array, in bytes. Morally, this is
+ * [byte_size] with padding for alignment within an array. *)
 let cell_size_b env t =
   let mult, base = cell_size env t in
   mult * bytes_in base
@@ -371,9 +402,47 @@ let layout_of env e =
   | _ ->
       None
 
-(* Desugar an array assignment into a series of possibly many assigments (e.g.
- * struct literal), or into a memcopy. We want to write [e] at address [dst]
- * corrected by an offset [ofs] in bytes. *)
+(* Statically lay out a top-level constant into a bytes. This function is very
+ * similar to the `write_at` underneath, except it is entirely syntax-driven. *)
+let write_static (env: env) (e: expr): string =
+  let rec write_scalar dst ofs e =
+    match e.node with
+    | EConstant (_, s) ->
+        let w = byte_size env e.typ in
+        let const = Z.of_string s in
+        for j = 0 to w - 1 do
+          let shift = j * 8 in
+          let j_byte_le = Z.((const asr shift) land (of_int 0xff)) in
+          let c = char_of_int (Z.to_int j_byte_le) in
+          Bytes.set dst (ofs + j) c
+        done
+    | _ ->
+        failwith (KPrint.bsprintf "Top-level constant contains unsupported type: %a" ptyp e.typ)
+  in
+  (* Per the Low* restrictions, arrays may only appear at the top-level. *)
+  match e.node with
+  | EBufCreateL (_, es) ->
+      let t = (List.hd es).typ in
+      let cell_len = cell_size_b env t in
+      let total_len = List.length es * cell_len in
+      let buf = Bytes.create total_len in
+      List.iteri (fun i e -> write_scalar buf (i * cell_len) e) es;
+      Bytes.to_string buf
+  | EBufCreate _ ->
+      failwith "TODO: global constant array via bufcreate"
+  | _ ->
+      let t = e.typ in
+      let buf = Bytes.create (byte_size env t) in
+      write_scalar buf 0 e;
+      Bytes.to_string buf
+
+let write_global env lid e =
+  let s = write_static env e in
+  { env with globals = LidMap.add lid s env.globals }, CF.StringLiteral s
+
+(* Desugar an assignment into a series of possibly many assigments (e.g. struct
+  * literal), or into a memcopy. We want to write [e] at address [dst] corrected
+  * by an offset [ofs] in bytes. *)
 let rec write_at (env: env)
   (locals: locals)
   (dst: CF.expr)
@@ -458,6 +527,22 @@ and mk_offset env locals (base: CF.expr) (ofs: expr) (sz: int) =
       let dst = mk_add32 base (mk_mul32 ofs (mk_uint32 sz)) in
       locals, dst, 0
 
+(** Translating a global declaration. *)
+and mk_global (env: env) (lid: lident) (e: expr): env * CF.expr =
+  match e.node with
+  | EBufCreate (Common.Eternal, _, _)
+  | EBufCreateL (Common.Eternal, _)
+  | EFlat _ ->
+      write_global env lid e
+
+  | EBufCreate _
+  | EBufCreateL _ ->
+      failwith "non-eternal CreateL in global position should've been ruled out by F* typing"
+
+  | _ ->
+      env, mk_expr_no_locals env e
+
+
 (** The actual translation. Note that the environment is dropped, but that the
  * locals are chained through (state-passing style). *)
 and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
@@ -490,6 +575,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | EBufCreate (l, e_init, e_len) ->
       if not (e_init.node = EAny) then
+        (* Should only happen for top-level declarations (see mk_global above). *)
         Warnings.fatal_error "init node is not any but %a (see SimplifyWasm)\n" pexpr e_init;
       let locals, e_len = mk_expr env locals e_len in
       let mult, base_size = cell_size env (assert_buf e.typ) in
@@ -498,34 +584,11 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
           ptyp e.typ mult (string_of_array_size base_size);
       locals, CF.BufCreate (l, mk_mul32 e_len (mk_uint32 mult), base_size)
 
-  | EBufCreateL (Common.Eternal, es) ->
-      let t = (List.hd es).typ in
-      let word_len = match t with
-        | TInt _ ->
-            bytes_in (array_size_of env t)
-        | _ ->
-            failwith (KPrint.bsprintf "Top-level array of %a" ptyp t)
-      in
-      let len = List.length es * word_len in
-      let buf = Bytes.create len in
-      List.iteri (fun i e ->
-        match e.node with
-        | EConstant (_, s) ->
-            let const = Z.of_string s in
-            for j = 0 to word_len - 1 do
-              let shift = j * 8 in
-              let j_byte_le = Z.((const asr shift) land (of_int 0xff)) in
-              let c = char_of_int (Z.to_int j_byte_le) in
-              Bytes.set buf (i * word_len + j) c
-            done
-        | _ ->
-            assert false
-      ) es;
-      locals, CF.StringLiteral (Bytes.to_string buf)
+  | EBufCreateL _ ->
+      failwith "EBufCreateL in non-global position should've been desugared in SimplifyWasm"
 
-  | EBufCreateL _
   | EBufBlit _ | EBufFill _ ->
-      Warnings.fatal_error "this should've been desugared in Simplify.wasm\n%a" pexpr e
+      failwith "EBufBlit / EBufFill should've been desugared in SimplifyWasm"
 
   | EBufRead (e1, e2) ->
       let s = array_size_of env (assert_buf e1.typ) in
@@ -711,7 +774,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 let scratch_locals =
   [ I64; I64; I32; I32 ]
 
-let mk_decl env (d: decl): CF.decl option =
+let mk_decl env (d: decl): env * CF.decl option =
   match d with
   | DFunction (_, flags, n, ret, name, args, body) ->
       assert (n = 0);
@@ -726,11 +789,11 @@ let mk_decl env (d: decl): CF.decl option =
       let locals = List.rev locals in
       let args, locals = KList.split (List.length args) locals in
       let name = Idents.string_of_lident name in
-      Some CF.(Function { name; args; ret; locals; body; public })
+      env, Some CF.(Function { name; args; ret; locals; body; public })
 
   | DType _ ->
       (* Not translating type declarations. *)
-      None
+      env, None
 
   | DGlobal (flags, name, n, typ, body) ->
       assert (n = 0);
@@ -738,11 +801,11 @@ let mk_decl env (d: decl): CF.decl option =
       let size = size_of env typ in
       if size = I64 then begin
         Warnings.(maybe_fatal_error ("", NotWasmCompatible (name, "I64 constant")));
-        None
+        env, None
       end else
-        let body = mk_expr_no_locals env body in
+        let env, body = mk_global env name body in
         let name = Idents.string_of_lident name in
-        Some (CF.Global (name, size, body, public))
+        env, Some (CF.Global (name, size, body, public))
 
   | DExternal (_, _, lid, t) ->
       let name = Idents.string_of_lident lid in
@@ -755,25 +818,28 @@ let mk_decl env (d: decl): CF.decl option =
             Warnings.(maybe_fatal_error ("", NotWasmCompatible (lid, "functions \
               implemented natively in JS (because they're assumed) cannot take or \
               return I64")));
-            None
+            env, None
           end else
-            Some (CF.ExternalFunction (name, args, ret))
+            env, Some (CF.ExternalFunction (name, args, ret))
       | _ ->
-          Some (CF.ExternalGlobal (name, size_of env t))
+          env, Some (CF.ExternalGlobal (name, size_of env t))
 
 (* Definitions to be skipped because they have a built-in compilation scheme. *)
 let skip (lid: lident) =
   let skip = [ "LowStar_Monotonic_Buffer_mnull"] in
   List.mem (snd lid) skip
 
-let mk_module env (name, decls) =
-  name, KList.filter_map (fun d ->
+let mk_module env decls =
+  let env, decls = List.fold_left (fun (env, decls) d ->
     try
       if skip (lid_of_decl d) then
-        None
+        env, decls
       else begin
         flush stdout; flush stderr;
-        mk_decl env d
+        let env, d = mk_decl env d in
+        match d with
+        | None -> env, decls
+        | Some d -> env, d :: decls
       end
     with e ->
       flush stdout;
@@ -782,11 +848,16 @@ let mk_module env (name, decls) =
       KPrint.beprintf "[AstToC♭] Couldn't translate %s%a%s:\n%s\n%s"
         Ansi.underline PrintAst.plid (lid_of_decl d) Ansi.reset (Printexc.to_string e)
         (if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "");
-      None
-  ) decls
+      env, decls
+  ) (env, []) decls in
+  env, List.rev decls
 
 let mk_files files =
   let env = populate empty files in
   if Options.debug "cflat" then
     debug_env env;
-  List.map (mk_module env) files
+  let _, modules = List.fold_left (fun (env, ms) (name, decls) ->
+    let env, decls = mk_module env decls in
+    env, (name, decls) :: ms
+  ) (env, []) files in
+  List.rev modules

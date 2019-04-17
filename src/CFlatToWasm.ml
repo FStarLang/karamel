@@ -1202,7 +1202,9 @@ let mk_module types imports (name, decls):
   in
 
   (* Side-effect: the table is now filled with all the string constants that
-   * need to be laid out in the data segment. Compute said data segment. *)
+   * need to be laid out in the data segment. Compute said data segment.
+   * Reminder: the data segment is just a convenient way to initialize memory at
+   * module load-time. *)
   let data =
     let size = !(env.data_size) in
     let buf = Bytes.create size in

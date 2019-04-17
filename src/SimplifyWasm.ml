@@ -34,6 +34,14 @@ let hoist_reads_and_writes = object(self)
 
 end
 
+(* We distinguish between top-level globals and the rest of buffer operations.
+ * - Top-level globals are left untouched, and will be laid out in the data
+ *   segment. If they are not entirely made up of constant values, AstToCFlat
+ *   will bail.
+ * - Any other buffer creation is desugared into an uninitialized allocation,
+ *   followed by a single write (EBufCreate) or a series of writes
+ *   (EBufCreateL).
+ * We also desugar things like EBufFill and EBufBlit. *)
 let remove_buffer_ops = object(self)
   inherit [_] map as super
 
