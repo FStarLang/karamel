@@ -220,8 +220,21 @@ let mkCNullity = (mem) => ({
 let mkCString = (mem, prefix) => ({
   [prefix + '_print']: (ptr) => my_print(stringAtAddr(mem, ptr)),
   [prefix + '_of_literal']: (ptr) => { throw new Error("primitive: "+prefix+"_of_literal") },
-  [prefix + '_strlen']: (ptr) => { throw new Error("todo: "+prefix+"_strlen") },
-  [prefix + '_memcpy']: (ptr) => { throw new Error("todo: "+prefix+"_memcpy") },
+  [prefix + '_strlen']: (ptr) => {
+    let m8 = new Uint8Array(mem.buffer);
+    let ofs = 0;
+    while (m8[ptr+ofs] != 0)
+      ofs++;
+    return ofs;
+  },
+  [prefix + '_memcpy']: (dst, src, n) => {
+    let m8 = new Uint8Array(mem.buffer);
+    let i = 0;
+    while (i < n) {
+      m8[dst+i] = m8[src+i];
+      i++;
+    }
+  },
 });
 
 function checkEq(mem, name) {
@@ -433,5 +446,6 @@ function link(imports, modules) {
 if (typeof module !== "undefined")
   module.exports = {
     link: link,
-    reserve: reserve
+    reserve: reserve,
+    dump: dump
   };

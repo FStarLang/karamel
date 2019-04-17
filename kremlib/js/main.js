@@ -41,12 +41,12 @@ if (typeof WebAssembly === "undefined")
 
 // Load extra modules... with the understanding that shell.js is written by
 // kreMLin
-var link, reserve;
+var link, reserve, dump;
 var my_js_files, my_modules, my_debug, my_imports = {};
 
 my_print("... loader.js");
 if (is_node) {
-  ({ link, reserve } = require("./loader.js"));
+  ({ link, reserve, dump } = require("./loader.js"));
   ({ my_js_files, my_modules, my_debug } = require("./shell.js"));
 } else {
   my_load("loader.js");

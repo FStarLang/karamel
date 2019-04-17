@@ -705,8 +705,9 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, e3 = mk_expr env locals e3 in
       locals, CF.IfThenElse (e1, e2, e3, s2)
 
-  | EAbort _ ->
-      locals, CF.Abort
+  | EAbort s ->
+      let s = match s with Some s -> s | None -> "<no message>" in
+      locals, CF.Abort (CF.StringLiteral s)
 
   | EPushFrame ->
       locals, CF.Sequence []

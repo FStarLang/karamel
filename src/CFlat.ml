@@ -105,7 +105,7 @@ and expr =
   | Constant of constant
   | Assign of var * expr
   | StringLiteral of string
-  | Abort
+  | Abort of expr
 
   | IfThenElse of expr * expr * expr * size
   | While of expr * expr

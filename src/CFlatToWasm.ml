@@ -841,11 +841,12 @@ and mk_expr env (e: expr): W.Ast.instr list =
       (* These strings are '\0'-terminated... revisit? *)
       mk_string env s
 
-  | Abort ->
+  | Abort s ->
       (* Must use unreachable to have a polymorphic return type (aborts might
        * stem from something in an expression return position). Alternatively,
        * consider keeping the type (or size) that is expected. *)
-      (* [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_trap"))) ] @ *)
+      mk_expr env s @
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_trap"))) ] @
       [ dummy_phrase W.Ast.Unreachable ]
 
   | Switch (e, branches, default, s) ->
@@ -1218,13 +1219,15 @@ let mk_module types imports (name, decls):
   let data =
     let size = !(env.data_size) in
     let buf = Bytes.create size in
+    if Options.debug "wasm" then
+      KPrint.bprintf "Writing out a data segment of size %d\n" size;
     Hashtbl.iter (fun s rel_addr ->
+      if Options.debug "wasm" then
+        KPrint.bprintf "  0x%4x: %s\n" rel_addr (String.escaped s);
       let l = String.length s in
       String.blit s 0 buf rel_addr l;
       Bytes.set buf (rel_addr + l) '\000';
     ) env.strings;
-    if Options.debug "wasm" then
-      KPrint.bprintf "Wrote out a data segment of size %d\n" size;
     [ dummy_phrase W.Ast.({
         index = mk_var 0;
         offset = dummy_phrase [ dummy_phrase (
