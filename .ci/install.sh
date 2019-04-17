@@ -20,10 +20,10 @@ git clone https://github.com/project-everest/everest
 ./everest/everest --yes opam z3
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-  wget https://nodejs.org/dist/v11.9.0/node-v11.9.0-linux-x64.tar.gz
-  tar xvf node-v8*.tar.xz
-  rm -rf node-v8*.tar.xz
-  mv node-v8* node
+  wget https://nodejs.org/dist/v11.9.0/node-v11.9.0-linux-x64.tar.xz
+  tar xvf node-v*.tar.xz
+  rm -rf node-v*.tar.xz
+  mv node-v* node
 fi
 
 git clone --branch master --single-branch --depth 1 https://github.com/FStarLang/FStar.git fstar
