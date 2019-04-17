@@ -286,7 +286,7 @@ and print_expr { node; typ } =
         print_expr body
       )
   | EAddrOf e ->
-      ampersand ^^ print_expr e
+      ampersand ^^ parens_with_nesting (print_expr e)
 
 and print_case = function
   | SConstant s ->

@@ -405,17 +405,28 @@ let layout_of env e =
 (* Statically lay out a top-level constant into a bytes. This function is very
  * similar to the `write_at` underneath, except it is entirely syntax-driven. *)
 let write_static (env: env) (e: expr): string =
+  let write_le dst ofs t const =
+    let w = byte_size env t in
+    for j = 0 to w - 1 do
+      let shift = j * 8 in
+      let j_byte_le = Z.((const asr shift) land (of_int 0xff)) in
+      let c = char_of_int (Z.to_int j_byte_le) in
+      Bytes.set dst (ofs + j) c
+    done
+  in
   let rec write_scalar dst ofs e =
     match e.node with
-    | EConstant (_, s) ->
-        let w = byte_size env e.typ in
-        let const = Z.of_string s in
-        for j = 0 to w - 1 do
-          let shift = j * 8 in
-          let j_byte_le = Z.((const asr shift) land (of_int 0xff)) in
-          let c = char_of_int (Z.to_int j_byte_le) in
-          Bytes.set dst (ofs + j) c
-        done
+    | EConstant (Constant.(UInt8 | UInt16 | UInt32 | UInt64 ), s) ->
+        write_le dst ofs e.typ (Z.of_string s)
+    | EEnum lid ->
+        write_le dst ofs e.typ (Z.of_int (LidMap.find lid env.enums))
+    | EFlat fields ->
+        let layout = Option.must (layout_of env e) in
+        List.iter (fun (fname, e) ->
+          let fname = Option.must fname in
+          let fofs = List.assoc fname layout.fields in
+          write_scalar dst (ofs + fofs) e
+        ) fields
     | _ ->
         failwith (KPrint.bsprintf "Top-level constant contains unsupported type: %a" ptyp e.typ)
   in
@@ -595,6 +606,20 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, e1 = mk_expr env locals e1 in
       let locals, e1, offset = mk_offset env locals e1 e2 (bytes_in s) in
       locals, CF.BufRead (e1, offset, s)
+
+  | EAddrOf ({ node = EQualified lid; _ }) ->
+      begin match LidMap.find lid env.globals with
+      | exception Not_found ->
+          failwith (KPrint.bsprintf "address-of %a points to unresolved global" plid lid)
+      | s ->
+          locals, CFlat.StringLiteral s
+      end
+
+  | EAddrOf ({ node = EField (e1, f); _ }) ->
+      (* This is the "address-of" operation from the paper. *)
+      let ofs = List.assoc f (Option.must (layout_of env e1)).fields in
+      let locals, e1 = mk_expr env locals (with_type (TBuf e1.typ) (EAddrOf e1)) in
+      locals, mk_add32 e1 (mk_uint32 ofs)
 
   | EAddrOf ({ node = EBufRead (e1, e2); _ })
   | EBufSub (e1, e2) ->
