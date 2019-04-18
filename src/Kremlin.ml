@@ -543,11 +543,11 @@ Supported options:|}
     else
       files
   in
-  let files = if not !Options.wasm then Structs.collect_initializers files else files in
   (* Note: generates let-bindings, so needs to be before simplify2 *)
   let files = Simplify.remove_unused files in
   let files = if !Options.tail_calls then Simplify.tail_calls files else files in
   let files = Simplify.simplify2 files in
+  let files = if not !Options.wasm then Structs.collect_initializers files else files in
   let files = Inlining.cross_call_analysis files in
   if !arg_print_structs then
     print PrintAst.print_files files;
