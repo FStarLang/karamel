@@ -6,15 +6,20 @@ module HS = FStar.HyperStack
 open FStar.HyperStack.ST
 open C.String
 
+private
 type point = { x: UInt32.t; y: UInt32.t }
 
+private
 type twopoints = point * point
 
+private
 let b: (b: B.buffer twopoints { B.length b = 1 /\ B.recallable b }) =
   B.gcmalloc_of_list HS.root [ ({ x = 0ul; y = 1ul }, { x = 2ul; y = 3ul }) ]
 
+private
 let s = !$"A constant top-level string"
 
+private
 let string_and_int = s, 42ul
 
 open FStar.Integers
