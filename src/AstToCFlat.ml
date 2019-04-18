@@ -422,7 +422,7 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
   in
   let rec write_scalar dst ofs e =
     match e.node with
-    | EConstant (Constant.(UInt8 | UInt16 | UInt32 | UInt64 ), s) ->
+    | EConstant ((Constant.UInt8 | Constant.UInt16 | Constant.UInt32 | Constant.UInt64), s) ->
         write_le dst ofs e.typ (Z.of_string s);
         []
     | EEnum lid ->
