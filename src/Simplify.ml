@@ -1455,6 +1455,14 @@ let simplify0 (files: file list): file list =
   let files = wrapping_arithmetic#visit_files () files in
   files
 
+(* This removes superfluous units. Useful for top-level constants that may have
+ * calls of the form recall foobar in them. *)
+let simplify1 (files: file list): file list =
+  let files = sequence_to_let#visit_files () files in
+  let files = count_and_remove_locals#visit_files [] files in
+  let files = let_to_sequence#visit_files () files in
+  files
+
 (* Many phases rely on a statement like language where let-bindings, buffer
  * allocations and writes are hoisted; where if-then-else is always in statement
  * position; where sequences are not nested. These series of transformations

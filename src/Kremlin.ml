@@ -543,6 +543,7 @@ Supported options:|}
     else
       files
   in
+  let files = if not !Options.wasm then Simplify.simplify1 files else files in
   let files = if not !Options.wasm then Structs.collect_initializers files else files in
   (* Note: generates let-bindings, so needs to be before simplify2 *)
   let files = Simplify.remove_unused files in
