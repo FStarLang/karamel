@@ -57,7 +57,7 @@ all: $(FILES) $(CUSTOM)
 wasm: $(WASM_FILES)
 
 # All of the above
-everything: all wasm external
+everything: all wasm
 
 .PRECIOUS: %.krml
 
