@@ -592,15 +592,17 @@ and mk_stmt (stmt: stmt): C.stmt list =
           | Some block ->
               Compound (mk_stmts block)
           | _ ->
+              let p = if !Options.c89_std then "KRML_HOST_PRINTF" else "KRML_HOST_EPRINTF" in
               Compound [
-                Expr (Call (Name "KRML_HOST_EPRINTF", [
+                Expr (Call (Name p, [
                   Literal "KreMLin incomplete match at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
                 Expr (Call (Name "KRML_HOST_EXIT", [ Constant (K.UInt8, "253") ]))
               ]
       )]
 
   | Abort s ->
-      [ Expr (Call (Name "KRML_HOST_EPRINTF", [
+      let p = if !Options.c89_std then "KRML_HOST_PRINTF" else "KRML_HOST_EPRINTF" in
+      [ Expr (Call (Name p, [
           Literal "KreMLin abort at %s:%d\\n%s\\n"; Name "__FILE__"; Name "__LINE__"; Literal (escape_string s) ]));
         Expr (Call (Name "KRML_HOST_EXIT", [ Constant (K.UInt8, "255") ])); ]
 

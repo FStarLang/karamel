@@ -259,7 +259,8 @@ Supported options:|}
     "-fnoshort-enums", Arg.Clear Options.short_enums, "  use C11 enums instead \
       of C macros and uint8_t for enums";
     "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
-    "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see above)";
+    "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see \
+      above) + also disable variadic-length KRML_HOST_EPRINTF";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
