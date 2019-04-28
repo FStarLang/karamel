@@ -56,9 +56,6 @@ all: $(FILES) $(CUSTOM)
 # Needs node
 wasm: $(WASM_FILES)
 
-# Needs a checkout of HACL*
-external: hacl-test hacl-wasm
-
 # All of the above
 everything: all wasm external
 
@@ -139,12 +136,6 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 	  $(SED) 's/.*\(uu____\([0-9]\+\)\).*/\1/g' \
 	  | uniq | wc -l` = 1 ]
 
-# External C tests that leverage other projects.
-.PHONY: hacl-test
-hacl-test:
-	$(MAKE) -C $(HACL_HOME)/code/old/curve25519 extract-c
-	$(MAKE) -C $(HACL_HOME)/code/old/ed25519 extract-c
-
 # A pseudo-target for WASM compilation that does not match any specific file.
 # All WASM targets get the -wasm flag; some specific targets may override
 # NEGATIVE for negative tests.
@@ -166,62 +157,8 @@ $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: JSFILES=main-Chacha.js
 $(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: EXTRA+=$(CRYPTO_OPTS) -drop FStar
 WasmTrap.wasm-test: NEGATIVE = true
 
-# External WASM targets: recycle the HACL* Makefile!
-HACL_DROP=Prims,Hacl.UInt8,Hacl.UInt16,Hacl.UInt32,Hacl.UInt64,Hacl.UInt128,Hacl.Compat.Endianness,Hacl.Endianness,Hacl.Cast,Hacl.Spe.*,Hacl.Spec.*,Spec.*,Seq.*
-HACL_ALGS=CURVE ED
-
-# Arguments to the meta-rule
-CURVE=$(HACL_HOME)/code/old/curve25519
-CURVE_DIR=x25519-c
-CURVE_TEST=Hacl.Test.X25519.krml
-CURVE_ARGS=-bundle 'Hacl_Curve25519=Hacl.Bignum,Hacl.Bignum.*,Hacl.EC,Hacl.EC.*'
-
-ED=$(HACL_HOME)/code/old/ed25519
-ED_DIR=ed25519-c
-ED_TEST=Hacl.Test.Ed25519.krml
-ED_ARGS=-bundle 'Hacl_Ed25519=Ed25519,Hacl.EC,Hacl.EC.*,Hacl.Impl.*,Hacl.Lib.*,Hacl.Bignum.*,Hacl.Bignum25519,Hacl.Bignum,Hacl.Spec.*,Hacl.SHA2_512,Hacl.Hash.*' \
-
-# A template that uses the global namespace as an associative array. Note:
-# equals sign is not Make 3.81-compatible (last GPLv2 version on OSX).
-define HACL_template
-.PHONY: $$($(1))/$$($(1)_TEST)
-$$($(1))/$$($(1)_TEST):
-	KREMLIN_ARGS=-wasm $$(MAKE) -C $$($(1)) $$($(1)_DIR)/out.krml
-	[ -e $$(subst .krml,.out,$$@) ] || ln -sf $$($(1))/$$($(1)_DIR) $$(subst .krml,.out,$$@)
-	cp $$(subst .krml,.out,$$@)/out.krml $$@
-
-# Monolithic rule for extracting with a single .krml file; to be removed once
-# HACL* produces separate krml files. This overrides the %.wasm rule above.
-$$(OUTPUT_DIR)/$$(subst .krml,.wasm,$$($(1)_TEST)): $$($(1))/$$($(1)_TEST) | $(KRML_BIN)
-	$(KRML) -wasm -drop $$(HACL_DROP) $$($(1)_ARGS) -tmpdir $$@ \
-	  -no-prefix $$(subst .krml,,$$($(1)_TEST)) $$<
-
-hacl-wasm: $$(subst .krml,.wasm-test,$$($(1)_TEST))
-
-clean-$(1):
-	$(MAKE) -C $$($1) clean
-clean-hacl: clean-$(1)
-
-web-$(1): web-head $$($(1))/$$(subst .krml,.wasm,$$($(1)_TEST))
-	cp -R $$($(1))/$$($(1)_DIR) $$(WEB_DIR)/
-	echo "<li><a href=\"$$($(1)_DIR)/main.html\">$$($(1)_DIR)</a>" >> $(WEB_DIR)/index.html
-web-body: web-$(1)
-endef
-
-# Evaluate the meta-rule for each algorithm.
-$(foreach alg,$(HACL_ALGS),$(eval $(call HACL_template,$(alg))))
-
 clean:
 	rm -rf $(WEB_DIR) .output
 
-distclean: clean clean-hacl
+distclean: clean
 	rm -rf .cache
-
-# Generation of a mini-website
-web-head:
-	mkdir -p $(WEB_DIR)
-	echo "<h1>WHACL* -- Web HACL*</h1><ul>" > $(WEB_DIR)/index.html
-
-web-body: web-head
-
-$(WEB_DIR): web-body

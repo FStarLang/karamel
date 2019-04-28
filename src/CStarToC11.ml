@@ -593,14 +593,14 @@ and mk_stmt (stmt: stmt): C.stmt list =
               Compound (mk_stmts block)
           | _ ->
               Compound [
-                Expr (Call (Name "KRML_HOST_PRINTF", [
+                Expr (Call (Name "KRML_HOST_EPRINTF", [
                   Literal "KreMLin incomplete match at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
                 Expr (Call (Name "KRML_HOST_EXIT", [ Constant (K.UInt8, "253") ]))
               ]
       )]
 
   | Abort s ->
-      [ Expr (Call (Name "KRML_HOST_PRINTF", [
+      [ Expr (Call (Name "KRML_HOST_EPRINTF", [
           Literal "KreMLin abort at %s:%d\\n%s\\n"; Name "__FILE__"; Name "__LINE__"; Literal (escape_string s) ]));
         Expr (Call (Name "KRML_HOST_EXIT", [ Constant (K.UInt8, "255") ])); ]
 
