@@ -451,7 +451,7 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
   (* Per the Low* restrictions, arrays may only appear at the top-level. *)
   match e.node with
   | EBufCreateL (_, es) ->
-      let t = (List.hd es).typ in
+      let t = assert_buf e.typ in
       let cell_len = cell_size_b env t in
       let total_len = List.length es * cell_len in
       let buf = Bytes.create total_len in
