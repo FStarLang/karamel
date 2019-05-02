@@ -14,7 +14,8 @@ sudo easy_install docutils sphinx==1.7.2 sphinx-rtd-theme
 export OPAMYES=true
 export OPAMJOBS=4
 opam init --bare
-opam switch 4.05.0
+opam switch create 4.05.0 ocaml.4.05.0
+opam switch set 4.05.0
 eval $(opam config env)
 
 git clone https://github.com/project-everest/everest
