@@ -13,7 +13,8 @@ sudo easy_install docutils sphinx==1.7.2 sphinx-rtd-theme
 
 export OPAMYES=true
 export OPAMJOBS=4
-opam init --comp=4.05.0
+opam init --bare
+opam switch create 4.05.0
 eval $(opam config env)
 
 git clone https://github.com/project-everest/everest

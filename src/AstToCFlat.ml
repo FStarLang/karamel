@@ -118,7 +118,7 @@ let array_size_of (env: env) (t: typ): array_size =
   | TArray _ | TBuf _ ->
       A32
   | TBool | TUnit ->
-      A32 (* Todo: pack these more efficiently?! *)
+      A8
   | TAnonymous (Enum _) ->
       A32
   | TQualified lid ->
@@ -422,6 +422,9 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
   in
   let rec write_scalar dst ofs e =
     match e.node with
+    | EBool b ->
+        write_le dst ofs e.typ (if b then Z.one else Z.zero);
+        []
     | EConstant ((Constant.UInt8 | Constant.UInt16 | Constant.UInt32 | Constant.UInt64), s) ->
         write_le dst ofs e.typ (Z.of_string s);
         []
@@ -451,7 +454,7 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
   (* Per the Low* restrictions, arrays may only appear at the top-level. *)
   match e.node with
   | EBufCreateL (_, es) ->
-      let t = (List.hd es).typ in
+      let t = assert_buf e.typ in
       let cell_len = cell_size_b env t in
       let total_len = List.length es * cell_len in
       let buf = Bytes.create total_len in
