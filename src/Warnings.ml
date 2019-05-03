@@ -65,7 +65,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 20 CError;;
+let flags = Array.make 21 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -112,6 +112,8 @@ let errno_of_error = function
       18
   | IfDef _ ->
       19
+  | GeneratesLetBindings _ ->
+      20
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -180,7 +182,7 @@ let rec perr buf (loc, raw_error) =
       p "%a is not Low*; %s" plid lid reason
   | GeneratesLetBindings (what, e, bs) ->
       p "The translation of %s gives rise to let-bindings, which, once hoisted, \
-        would change the evaluation semantics. Please rewrite your code.\n\
+        would change the evaluation semantics. Rewriting into an if-then-else.\n\
         Offending expression:\n\
         %a\n\
         Offending let-bindings:\n\

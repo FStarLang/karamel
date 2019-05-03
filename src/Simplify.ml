@@ -583,16 +583,44 @@ type pos =
   | UnderStmtLet
   | Unspecified
 
-let rec hoist_stmt loc e =
-  let mk node = { node; typ = e.typ } in
+(* Enforce short-circuiting semantics for boolean operators; in C, this means
+ * erroring out, and in Wasm, this means nesting let-bindings for the rhs
+ * underneath. *)
+let rec flag_short_circuit loc t e0 es =
+  let lhs0, e0 = hoist_expr loc Unspecified e0 in
+  let lhss, es = List.split (List.map (hoist_expr loc Unspecified) es) in
+  match e0.node, es, lhss with
+  | EOp ((K.And | K.Or) as op, K.Bool), [ e1; e2 ], [ lhs1; lhs2 ] ->
+      (* In Wasm, we automatically inline functions based on their size, so we
+       * can't ask the user to rewrite, but it's ok, because it's an expression
+       * language, so we can have let-bindings anywhere. *)
+      if List.length lhs2 > 0 && not !Options.wasm then begin
+        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
+          GeneratesLetBindings (
+            KPrint.bsprintf "%a, a short-circuiting boolean operator" pexpr e0,
+            with_type t (EApp (e0, es)),
+            lhs2)));
+        match op with
+        | K.And ->
+            lhs1, with_type t (EIfThenElse (e1, nest lhs2 e2.typ e2, efalse))
+        | K.Or ->
+            lhs1, with_type t (EIfThenElse (e1, etrue, nest lhs2 e2.typ e2))
+        | _ ->
+            assert false
+      end else
+        lhs1, with_type t (EApp (e0, [ e1; nest lhs2 e2.typ e2 ]))
+  | _ ->
+      let lhs = lhs0 @ List.flatten lhss in
+      lhs, with_type t (EApp (e0, es))
+
+and hoist_stmt loc e =
+  let mk = with_type e.typ in
   match e.node with
-  | EApp (e, es) ->
+  | EApp (e0, es) ->
       (* A call is allowed in terminal position regardless of whether it has
        * type unit (generates a statement) or not (generates a [EReturn expr]). *)
-      let lhs, e = hoist_expr loc Unspecified e in
-      let lhss, es = List.split (List.map (hoist_expr loc Unspecified) es) in
-      let lhs = lhs @ List.flatten lhss in
-      nest lhs e.typ (mk (EApp (e, es)))
+      let lhs, e = flag_short_circuit loc e.typ e0 es in
+      nest lhs e.typ e
 
   | ELet (binder, e1, e2) ->
       (* When building a statement, let-bindings may nest right but not left. *)
@@ -724,24 +752,8 @@ and hoist_expr loc pos e =
       let lhs, e = hoist_expr loc Unspecified e in
       lhs, mk (EIgnore e)
 
-  | EApp ({ node = EOp ((K.And | K.Or), K.Bool); _ } as e0, [ e1; e2 ]) ->
-      let lhs1, e1 = hoist_expr loc Unspecified e1 in
-      let lhs2, e2 = hoist_expr loc Unspecified e2 in
-      (* In Wasm, we automatically inline functions based on their size, so we
-       * can't ask the user to rewrite, but it's ok, because it's an expression
-       * language, so we can have let-bindings anywhere. *)
-      if lhs2 <> [] && not !Options.wasm then
-        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
-          GeneratesLetBindings (
-            KPrint.bsprintf "%a, a short-circuiting boolean operator" pexpr e0, e, lhs2)));
-      lhs1, mk (EApp (e0, [ e1; nest lhs2 e2.typ e2 ]))
-
-  | EApp (e, es) ->
-      let lhs, e = hoist_expr loc Unspecified e in
-      let lhss, es = List.split (List.map (hoist_expr loc Unspecified) es) in
-      (* TODO: reverse the order and use [rev_append] here *)
-      let lhs = lhs @ List.flatten lhss in
-      lhs, mk (EApp (e, es))
+  | EApp (e0, es) ->
+      flag_short_circuit loc e.typ e0 es
 
   | ELet (binder, e1, e2) ->
       let lhs1, e1 = hoist_expr loc UnderStmtLet e1 in
