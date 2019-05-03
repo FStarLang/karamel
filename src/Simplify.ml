@@ -581,6 +581,7 @@ end
  *   let-if-to-assign conversion. *)
 type pos =
   | UnderStmtLet
+  | UnderConditional
   | Unspecified
 
 (* Enforce short-circuiting semantics for boolean operators; in C, this means
@@ -766,9 +767,16 @@ and hoist_expr loc pos e =
   | EIfThenElse (e1, e2, e3) ->
       let t = e.typ in
       let lhs1, e1 = hoist_expr loc Unspecified e1 in
-      let e2 = hoist_stmt loc e2 in
-      let e3 = hoist_stmt loc e3 in
-      if pos = UnderStmtLet then
+      (* Doing the job of hoist_stmt here, so as to retain an accurate pos
+       * instead of recursing back into hoist_expr with pos = Unspecified *)
+      let lhs2, e2 = hoist_expr loc UnderConditional e2 in
+      let e2 = nest lhs2 e2.typ e2 in
+      let lhs3, e3 = hoist_expr loc UnderConditional e3 in
+      let e3 = nest lhs3 e3.typ e3 in
+      (* We now allow IfThenElse nodes directly under IfThenElse, on the basis
+       * that the outer IfThenElse is properly positioned under a let-binding.
+       * let_if_to_assign will know how to deal with this. *)
+      if pos = UnderStmtLet || pos = UnderConditional then
         lhs1, mk (EIfThenElse (e1, e2, e3))
       else
         let b, body, cont = mk_named_binding "ite" t (EIfThenElse (e1, e2, e3)) in
@@ -777,8 +785,12 @@ and hoist_expr loc pos e =
   | ESwitch (e1, branches) ->
       let t = e.typ in
       let lhs, e1 = hoist_expr loc Unspecified e1 in
-      let branches = List.map (fun (tag, e) -> tag, hoist_stmt loc e) branches in
-      if pos = UnderStmtLet then
+      let branches = List.map (fun (tag, e) ->
+        tag,
+        let lhs, e = hoist_expr loc UnderConditional e in
+        nest lhs e.typ e
+      ) branches in
+      if pos = UnderStmtLet || pos = UnderConditional then
         lhs, mk (ESwitch (e1, branches))
       else
         let b, body, cont = mk_named_binding "sw" t (ESwitch (e1, branches)) in

@@ -25,7 +25,7 @@ FILES		= \
   ../book/Introduction.test TopLevelArray.test NoShadow.test Library.test \
   AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
   UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test \
-  ProperErasure.test EmptyStruct.test IfDef.test StringLit.test
+  ProperErasure.test EmptyStruct.test IfDef.test StringLit.test IfThenElse.test
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
