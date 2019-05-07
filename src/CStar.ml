@@ -11,7 +11,9 @@ type program =
   decl list
 
 and decl =
-  | Global of ident * flag list * typ * expr
+  | Global of ident * bool * flag list * typ * expr
+    (** The boolean indicates whether this variable is intended to be compiled
+     * as a macro. *)
   | Function of calling_convention option * flag list * typ * ident * binder list * block
   | Type of ident * typ * flag list
   | TypeForward of ident * flag list
@@ -25,7 +27,8 @@ and stmt =
   | Decl of binder * expr
     (** Scope is: statements that follow. *)
   | IfThenElse of bool * expr * block * block
-    (** bool is: ifdef *)
+    (** The boolean indicates whether this is intended to be compiled as an
+     * ifdef. *)
   | While of expr * block
   | For of [ `Decl of binder * expr | `Stmt of stmt | `Skip ] * expr * stmt * block
     (** There is a slight mismatch; C has an iteration *expression* but C*'s
@@ -114,7 +117,7 @@ and typ =
 
 let ident_of_decl (d: decl): string =
   match d with
-  | Global (id, _, _, _)
+  | Global (id, _, _, _, _)
   | Function (_, _, _, id, _, _)
   | Type (id, _, _)
   | TypeForward (id, _)

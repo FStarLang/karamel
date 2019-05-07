@@ -897,8 +897,8 @@ let mk_function_or_global_body (d: decl): C.declaration_or_function list =
           raise e
         end
 
-  | Global (name, flags, t, expr) ->
-      if is_primitive name then
+  | Global (name, macro, flags, t, expr) ->
+      if is_primitive name || macro then
         []
       else
         let t = strengthen_array t expr in
@@ -936,8 +936,8 @@ let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
           raise e
         end
 
-  | Global (name, flags, t, expr) ->
-      if is_primitive name then
+  | Global (name, macro, flags, t, expr) ->
+      if is_primitive name || macro then
         []
       else
         let t = strengthen_array t expr in
@@ -998,6 +998,10 @@ let mk_type_or_external (w: where) (d: decl): C.declaration_or_function list =
         let qs, spec, decl = mk_spec_and_declarator name t in
         wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
 
+  | Global (name, macro, _, _, body) when macro ->
+      (* Macros behave like types, they ought to be declared once. *)
+      [ Macro (name, mk_expr body) ]
+
   | Function _ | Global _ ->
       []
 
@@ -1012,7 +1016,7 @@ let either f1 f2 x =
 
 let flags_of_decl (d: CStar.decl) =
   match d with
-  | Global (_, flags, _, _)
+  | Global (_, _, flags, _, _)
   | Function (_, flags, _, _, _, _)
   | Type (_, _, flags)
   | TypeForward (_, flags)

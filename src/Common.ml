@@ -34,7 +34,8 @@ type flag =
        * and its definition shall be removed entirely. Used for Ghost and
        * StackInline functions. *)
   | Const of string
-      (** Identify a parameter by name, to be marked as const. *)
+      (** Identify a parameter by name, to be marked as const. Deprecated in
+       * favor of LowStar.ConstBuffer. *)
   | Prologue of string
       (** Verbatim C code, inserted before. *)
   | Epilogue of string
@@ -43,4 +44,6 @@ type flag =
       (** Struct type only revealed as a forward declaration in the interface *)
   | IfDef
       (** Branches over this variable are compiled as #ifdefs *)
+  | Macro
+      (** Definition compiled as a macro *)
   [@@deriving yojson,show]

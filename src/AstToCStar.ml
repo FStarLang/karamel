@@ -35,6 +35,7 @@ type env = {
   names: ident list;
   in_block: ident list;
   ifdefs: StringSet.t;
+  macros: StringSet.t;
 }
 
 let locate env loc =
@@ -45,6 +46,7 @@ let empty: env = {
   in_block = [];
   location = [];
   ifdefs = StringSet.empty;
+  macros = StringSet.empty;
 }
 
 let reset_block env = {
@@ -55,7 +57,8 @@ let push env binder = CStar.{
   names = binder.name :: env.names;
   in_block = binder.name :: env.in_block;
   location = env.location;
-  ifdefs = env.ifdefs
+  ifdefs = env.ifdefs;
+  macros = env.macros
 }
 
 let pnames buf env =
@@ -176,9 +179,13 @@ let rec mk_expr env in_stmt e =
   | EEnum lident ->
       CStar.Qualified (string_of_lident lident)
   | EQualified lident ->
-      if StringSet.mem (string_of_lident lident) env.ifdefs then
+      let name = string_of_lident lident in
+      if StringSet.mem name env.ifdefs then
         Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc env.location, IfDef lident));
-      CStar.Qualified (string_of_lident lident)
+      if StringSet.mem name env.macros then
+        CStar.Qualified (String.uppercase name)
+      else
+        CStar.Qualified name
   | EConstant c ->
       CStar.Constant c
   | EApp (e, es) ->
@@ -678,8 +685,10 @@ and mk_declaration env d: CStar.decl option =
   | DGlobal (flags, name, n, t, body) ->
       assert (n = 0);
       let env = locate env (InTop name) in
+      let macro = StringSet.mem (string_of_lident name) env.macros in
       Some (CStar.Global (
         string_of_lident name,
+        macro,
         flags,
         mk_type env t,
         mk_expr env false body))
@@ -747,8 +756,8 @@ and mk_program name env decls =
           (Printexc.to_string e)
   ) decls
 
-and mk_files files ifdefs =
-  let env = { empty with ifdefs } in
+and mk_files files ifdefs macros =
+  let env = { empty with ifdefs; macros } in
   (* Construct the mapping needed to get direct dependencies *)
   let file_of = Bundle.mk_file_of files in
   List.map (fun file ->
@@ -760,14 +769,14 @@ and mk_files files ifdefs =
     name, deps, mk_program name env program
   ) files
 
-let mk_ifdefs_map files =
+let mk_flags_set flag files =
   (object
     inherit [_] reduce
     method private zero = StringSet.empty
     method private plus = StringSet.union
-    method visit_DExternal _ _ flags name _ =
-      if List.mem Common.IfDef flags then
-        StringSet.singleton (Simplify.target_c_name name)
+    method visit_decl _ d =
+      if List.mem flag (flags_of_decl d) then
+        StringSet.singleton (Simplify.target_c_name (lid_of_decl d))
       else
         StringSet.empty
   end)#visit_files () files

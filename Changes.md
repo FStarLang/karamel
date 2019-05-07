@@ -1,3 +1,9 @@
+### May 7th, 2019
+
+- `[@ CMacro ] let x = e` will compile as `#define X (e)` -- the result is
+  unspecified if `e` is not a pure C expression; macros follow regular
+  visibility rules.
+
 ### March 25th, 2019
 
 - A response file mechanism for situations where the combined length of
