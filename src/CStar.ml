@@ -17,7 +17,8 @@ and decl =
   | Function of calling_convention option * flag list * typ * ident * binder list * block
   | Type of ident * typ * flag list
   | TypeForward of ident * flag list
-  | External of ident * typ * flag list
+  | External of ident * typ * flag list * string list
+    (** String list for pretty-printing the names of the arguments. *)
 
 and stmt =
   | Abort of string
@@ -121,5 +122,5 @@ let ident_of_decl (d: decl): string =
   | Function (_, _, _, id, _, _)
   | Type (id, _, _)
   | TypeForward (id, _)
-  | External (id, _, _) ->
+  | External (id, _, _, _) ->
       id

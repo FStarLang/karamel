@@ -982,16 +982,23 @@ let mk_type_or_external (w: where) (d: decl): C.declaration_or_function list =
             wrap_verbatim flags (Decl ([], (qs, spec, Some Typedef, [ decl, None ])))
       end
 
-  | External (name, Function (cc, t, ts), flags) ->
+  | External (name, Function (cc, t, ts), flags, pp) ->
       if is_primitive name then
         []
       else
-        let qs, spec, decl = mk_spec_and_declarator_f cc name t (List.mapi (fun i t ->
-          KPrint.bsprintf "x%d" i, t
-        ) ts) in
+        let missing_names = List.length ts - List.length pp in
+        let arg_names =
+          if missing_names >= 0 then
+            pp @ KList.make missing_names (fun i -> KPrint.bsprintf "x%d" i)
+          else
+            (* For functions that take a single unit argument, the name of the
+             * unit is gone. *)
+            fst (KList.split (List.length ts) pp)
+        in
+        let qs, spec, decl = mk_spec_and_declarator_f cc name t (List.combine arg_names ts) in
         wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
 
-  | External (name, t, flags) ->
+  | External (name, t, flags, _) ->
       if is_primitive name then
         []
       else
@@ -1020,7 +1027,7 @@ let flags_of_decl (d: CStar.decl) =
   | Function (_, flags, _, _, _, _)
   | Type (_, _, flags)
   | TypeForward (_, flags)
-  | External (_, _, flags) ->
+  | External (_, _, flags, _) ->
       flags
 
 let if_private_or_abstract f d =

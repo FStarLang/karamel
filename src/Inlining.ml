@@ -344,8 +344,8 @@ let cross_call_analysis files =
           DFunction (cc, filter name flags, n, ret, name, binders, body)
       | DGlobal (flags, name, n, e, t) ->
           DGlobal (filter name flags, name, n, e, t)
-      | DExternal (cc, flags, name, t) ->
-          DExternal (cc, filter name flags, name, t)
+      | DExternal (cc, flags, name, t, pp) ->
+          DExternal (cc, filter name flags, name, t, pp)
       | DType (name, flags, n, t) ->
           DType (name, filter name flags, n, t)
     ) files

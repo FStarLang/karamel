@@ -1033,8 +1033,8 @@ let record_toplevel_names = object (self)
   method! visit_DFunction _ cc flags n ret name args body =
     DFunction (cc, flags, n, ret, record_name name, args, body)
 
-  method! visit_DExternal _ cc flags name t =
-    DExternal (cc, flags, record_name name, t)
+  method! visit_DExternal _ cc flags name t pp =
+    DExternal (cc, flags, record_name name, t, pp)
 
   method! visit_DType env name flags n t =
     (* TODO: this is not correct since record_name might, on the second call

@@ -35,7 +35,7 @@ let rec print_decl = function
         print_expr body
       )
 
-  | DExternal (cc, flags, name, typ) ->
+  | DExternal (cc, flags, name, typ, _) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
       print_flags flags ^/^
       group (cc ^^ string "external" ^/^ string (string_of_lident name) ^/^ colon) ^^

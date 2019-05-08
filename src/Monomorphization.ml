@@ -530,7 +530,7 @@ let equalities files =
                 EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
             | `Eq ->
                 (* assume val __eq__t: t -> t -> bool *)
-                let def () = DExternal (None, [], instance_lid, eq_typ) in
+                let def () = DExternal (None, [], instance_lid, eq_typ, [ "x"; "y" ]) in
                 EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
             end
 

@@ -864,7 +864,7 @@ let mk_decl env (d: decl): env * CF.decl option =
         let name = Idents.string_of_lident name in
         env, Some (CF.Global (name, size, body, post_init, public))
 
-  | DExternal (_, _, lid, t) ->
+  | DExternal (_, _, lid, t, _) ->
       let name = Idents.string_of_lident lid in
       match t with
       | TArrow _ ->
