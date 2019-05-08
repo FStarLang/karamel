@@ -1048,8 +1048,11 @@ let remove_full_matches = object (self)
                 explode p e
               ) fieldpats fieldexprs)
           | PCons (cons, ps), ECons (cons', es) ->
-              assert (cons = cons');
-              List.flatten (List.map2 explode ps es)
+              if cons = cons' then
+                List.flatten (List.map2 explode ps es)
+              else
+                (* This indicates unreachable code; see test/Mini.fst *)
+                raise Not_found
           | _ ->
               (* Todo: records *)
               raise Not_found
