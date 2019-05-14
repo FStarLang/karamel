@@ -769,14 +769,30 @@ and mk_files files ifdefs macros =
     name, deps, mk_program name env program
   ) files
 
-let mk_flags_set flag files =
+let mk_macros_set files =
   (object
     inherit [_] reduce
     method private zero = StringSet.empty
     method private plus = StringSet.union
-    method visit_decl _ d =
-      if List.mem flag (flags_of_decl d) then
-        StringSet.singleton (Simplify.target_c_name (lid_of_decl d))
+    method visit_DGlobal _ flags name _ _ body =
+      if List.mem Common.Macro flags then
+        if body.node = EAny then begin
+          Warnings.(maybe_fatal_error ("", CannotMacro name));
+          StringSet.empty
+        end else
+          StringSet.singleton (Simplify.target_c_name name)
+      else
+        StringSet.empty
+  end)#visit_files () files
+
+let mk_ifdefs_set files =
+  (object
+    inherit [_] reduce
+    method private zero = StringSet.empty
+    method private plus = StringSet.union
+    method visit_DExternal _ _ flags name _ _ =
+      if List.mem Common.IfDef flags then
+        StringSet.singleton (Simplify.target_c_name name)
       else
         StringSet.empty
   end)#visit_files () files

@@ -567,8 +567,8 @@ Supported options:|}
   in
 
   (* This allows drop'ing the module that contains just ifdefs. *)
-  let ifdefs = AstToCStar.mk_flags_set Common.IfDef files in
-  let macros = AstToCStar.mk_flags_set Common.Macro files in
+  let ifdefs = AstToCStar.mk_ifdefs_set files in
+  let macros = AstToCStar.mk_macros_set files in
 
   (* 6. Drop both files and selected declarations within some files, as a [-drop
    * Foo -bundle Bar=Foo] command-line requires us to go inside file [Bar] to
