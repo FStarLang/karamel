@@ -103,6 +103,8 @@ function misc () {
       git clone https://dzomo:$DZOMO_TOKEN@github.com/fstarlang/fstarlang.github.io
   fi
 
+  echo Creating _tags
+  touch _tags
   echo Populating _tags
 
   echo "\"everest\": -traverse" >> _tags
