@@ -24,7 +24,7 @@ WORKDIR ".."
 RUN Invoke-BashCmd '"cd .ssh && cp ../everestsshkey/id_rsa . && chmod 600 id_rsa && rm -rf ../everestsshkey"'
 
 # Do some cleanup
-RUN Invoke-BashCmd rm -f build.sh build_helper.sh buildlogfile.txt log_no_replay.html log_worst.html orange_status.txt result.txt status.txt commitinfofilename.json
+RUN Invoke-BashCmd rm -f build.sh build_helper.sh buildlog.txt buildlogfile.txt log_no_replay.html log_worst.html orange_status.txt result.txt status.txt commitinfofilename.json
 
 # Copy source files
 WORKDIR "kremlin"
