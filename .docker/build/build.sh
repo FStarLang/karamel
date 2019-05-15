@@ -103,19 +103,19 @@ function misc () {
       git clone https://dzomo:$DZOMO_TOKEN@github.com/fstarlang/fstarlang.github.io
   fi
 
-  echo Creating _tags
-  touch _tags
-  echo Populating _tags
+  # echo Creating _tags
+  # touch _tags
+  # echo Populating _tags
 
-  echo "\"everest\": -traverse" >> _tags
-  echo "\"fstar\": -traverse" >> _tags
-  echo "\"hacl-star\": -traverse" >> _tags
-  echo "\"node\": -traverse" >> _tags
-  echo "\"MLCrypto\": -traverse" >> _tags
-  echo "\"fstar-mode.el\": -traverse" >> _tags
-  if [[ $branchname == "master" ]] ; then
-      echo "\"fstarlang.github.io\": -traverse" >> _tags
-  fi
+  # echo "\"everest\": -traverse" >> _tags
+  # echo "\"fstar\": -traverse" >> _tags
+  # echo "\"hacl-star\": -traverse" >> _tags
+  # echo "\"node\": -traverse" >> _tags
+  # echo "\"MLCrypto\": -traverse" >> _tags
+  # echo "\"fstar-mode.el\": -traverse" >> _tags
+  # if [[ $branchname == "master" ]] ; then
+  #     echo "\"fstarlang.github.io\": -traverse" >> _tags
+  # fi
 
   export OCAMLRUNPARAM=b
 
