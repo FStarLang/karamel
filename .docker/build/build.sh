@@ -171,6 +171,7 @@ export_home KREMLIN "$(pwd)/kremlin"
 export_home KRML "$(pwd)/kremlin"
 
 export PATH=$FSTAR_HOME/bin:$PATH
+echo $PATH
 
 cd kremlin
 rootPath=$(pwd)
