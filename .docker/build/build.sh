@@ -99,7 +99,9 @@ function misc () {
   git config --global user.email "everbld@microsoft.com"
 
   git clone https://github.com/fstarlang/fstar-mode.el
-  git clone https://dzomo:$DZOMO_TOKEN@github.com/fstarlang/fstarlang.github.io
+  if [[ $branchname == "master" ]] ; then
+      git clone https://dzomo:$DZOMO_TOKEN@github.com/fstarlang/fstarlang.github.io
+  fi
 
   echo "\"everest\": -traverse" >> _tags
   echo "\"fstar\": -traverse" >> _tags
@@ -107,7 +109,9 @@ function misc () {
   echo "\"node\": -traverse" >> _tags
   echo "\"MLCrypto\": -traverse" >> _tags
   echo "\"fstar-mode.el\": -traverse" >> _tags
-  echo "\"fstarlang.github.io\": -traverse" >> _tags
+  if [[ $branchname == "master" ]] ; then
+      echo "\"fstarlang.github.io\": -traverse" >> _tags
+  fi
 
   export OCAMLRUNPARAM=b
 }
