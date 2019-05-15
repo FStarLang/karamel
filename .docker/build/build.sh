@@ -103,6 +103,8 @@ function misc () {
       git clone https://dzomo:$DZOMO_TOKEN@github.com/fstarlang/fstarlang.github.io
   fi
 
+  echo Populating _tags
+
   echo "\"everest\": -traverse" >> _tags
   echo "\"fstar\": -traverse" >> _tags
   echo "\"hacl-star\": -traverse" >> _tags
@@ -114,6 +116,8 @@ function misc () {
   fi
 
   export OCAMLRUNPARAM=b
+
+  echo Done with misc
 }
 
 function refresh_tutorial() {
