@@ -98,7 +98,13 @@ function misc () {
   git config --global user.name "Dzomo, the Everest Yak"
   git config --global user.email "everbld@microsoft.com"
 
-#  git clone https://github.com/fstarlang/fstar-mode.el
+  git clone https://github.com/fstarlang/fstar-mode.el
+
+  echo After cloning fstar-mode.el
+  
+  if [[ $branchname == "master" ]] ; then
+      git clone https://dzomo:$DZOMO_TOKEN@github.com/fstarlang/fstarlang.github.io
+  fi
 
   # echo Creating _tags
   # touch _tags
