@@ -17,10 +17,10 @@ echo $(date -u "+%Y-%m-%d %H:%M:%S") >> $out_file
 
 #tail -f $out_file &
 #tail_pd=$!
-./build.sh "$@"
-#|& tee $out_file
+{ ./build.sh "$@" 2&>1 ; } | tee $out_file
 # { { { { { { stdbuf -e0 -o0 ./build.sh "$@" ; } 3>&1 1>&2 2>&3 ; } | sed -u 's!^![STDERR]!' ; } 3>&1 1>&2 2>&3 ; } | sed -u 's!^![STDOUT]!' ; } 2>&1 ; } >> $out_file
 #kill $tail_pd
+cat $out_file
 
 echo $(date -u "+%Y-%m-%d %H:%M:%S") >> $out_file
 
@@ -33,5 +33,3 @@ FStar/.scripts/query-stats.py -f $out_file -F html -o log_no_replay.html -n all 
 
 # Worst offenders (longest times)
 FStar/.scripts/query-stats.py -f $out_file -F html -o log_worst.html -c -g -n 10
-
-cat $out_file
