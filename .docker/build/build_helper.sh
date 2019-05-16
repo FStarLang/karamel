@@ -20,7 +20,6 @@ echo $(date -u "+%Y-%m-%d %H:%M:%S") >> $out_file
 { ./build.sh "$@" 2&>1 ; } | tee $out_file
 # { { { { { { stdbuf -e0 -o0 ./build.sh "$@" ; } 3>&1 1>&2 2>&3 ; } | sed -u 's!^![STDERR]!' ; } 3>&1 1>&2 2>&3 ; } | sed -u 's!^![STDOUT]!' ; } 2>&1 ; } >> $out_file
 #kill $tail_pd
-cat $out_file
 
 echo $(date -u "+%Y-%m-%d %H:%M:%S") >> $out_file
 
