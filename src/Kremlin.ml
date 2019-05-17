@@ -112,6 +112,8 @@ The default is %s and the available warnings are:
   18: bundle collision
   19: assume val marked as ifdef cannot be translated to an ifdef (e.g. it
       appears in the wrong position)
+  20: right-hand side of short-circuiting boolean operator gives rise to
+      let-bindings, rewriting to an if-then-else
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
 The Api= part is optional and Api is made up of a non-empty list of modules
@@ -262,7 +264,8 @@ Supported options:|}
     "-fnoshort-enums", Arg.Clear Options.short_enums, "  use C11 enums instead \
       of C macros and uint8_t for enums";
     "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
-    "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see above)";
+    "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see \
+      above) + also disable variadic-length KRML_HOST_EPRINTF";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
@@ -491,10 +494,7 @@ Supported options:|}
   (* 3. Compile data types and pattern matches to enums, structs, switches and
    * if-then-elses. Better have monomorphized functions first! *)
   let files = GcTypes.heap_allocate_gc_types files in
-  (* JP: this phase has many maps that take lids as keys and does not have logic
-   * to expand type abbreviations. TODO: remove [inline_type_abbrevs] and let
-   * them be monomorphized just like the rest. Note: this phase re-inserts some
-   * type abbreviations. *)
+  (* Note: this phase re-inserts some type abbreviations. *)
   let datatypes_state, files = DataTypes.everything files in
   if !arg_print_pattern then
     print PrintAst.print_files files;
@@ -549,7 +549,8 @@ Supported options:|}
     else
       files
   in
-  let files = Structs.collect_initializers files in
+  let files = if not !Options.wasm then Simplify.simplify1 files else files in
+  let files = if not !Options.wasm then Structs.collect_initializers files else files in
   (* Note: generates let-bindings, so needs to be before simplify2 *)
   let files = Simplify.remove_unused files in
   let files = if !Options.tail_calls then Simplify.tail_calls files else files in
@@ -569,7 +570,8 @@ Supported options:|}
   in
 
   (* This allows drop'ing the module that contains just ifdefs. *)
-  let ifdefs = AstToCStar.mk_ifdefs_map files in
+  let ifdefs = AstToCStar.mk_ifdefs_set files in
+  let macros = AstToCStar.mk_macros_set files in
 
   (* 6. Drop both files and selected declarations within some files, as a [-drop
    * Foo -bundle Bar=Foo] command-line requires us to go inside file [Bar] to
@@ -603,6 +605,7 @@ Supported options:|}
     (* The Wasm backend diverges here. We go to [CFlat] (an expression
      * language), then directly into the Wasm AST. *)
     let files = AstToCFlat.mk_files files in
+    let files = List.filter (fun (_, decls) -> List.length decls > 0) files in
     tick_print true "AstToCFlat";
 
     let modules = CFlatToWasm.mk_files files in
@@ -615,7 +618,7 @@ Supported options:|}
 
   else
     (* Translate to C*... *)
-    let files = AstToCStar.mk_files files ifdefs in
+    let files = AstToCStar.mk_files files ifdefs macros in
     tick_print true "AstToCStar";
 
     let files = List.filter (fun (_, _, decls) -> List.length decls > 0) files in

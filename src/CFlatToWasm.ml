@@ -841,9 +841,13 @@ and mk_expr env (e: expr): W.Ast.instr list =
       (* These strings are '\0'-terminated... revisit? *)
       mk_string env s
 
-  | Abort ->
+  | Abort s ->
+      (* Must use unreachable to have a polymorphic return type (aborts might
+       * stem from something in an expression return position). Alternatively,
+       * consider keeping the type (or size) that is expected. *)
+      mk_expr env s @
       [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_trap"))) ] @
-      mk_unit
+      [ dummy_phrase W.Ast.Unreachable ]
 
   | Switch (e, branches, default, s) ->
       let vmax = KList.max (List.map (fun (c, _) -> Z.of_string (snd c)) branches) in
@@ -933,38 +937,13 @@ let mk_func env { args; locals; body; name; ret; _ } =
             `Local64 i
       ) args
     in
-    let custom_debug =
-      if name = "FStar_UInt128_add_mod" then
-        let n_args = List.length args in
-        let fst64 = n_args in
-        let snd64 = n_args + 1 in
-        let read128 arg =
-          (* Load low *)
-          [ dummy_phrase (W.Ast.GetLocal (mk_var arg)) ] @
-          [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None }) ] @
-          [ dummy_phrase (W.Ast.SetLocal (mk_var fst64)) ] @
-          (* Load high *)
-          [ dummy_phrase (W.Ast.GetLocal (mk_var arg)) ] @
-          [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
-          i32_add @
-          [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None }) ] @
-          [ dummy_phrase (W.Ast.SetLocal (mk_var snd64)) ]
-        in
-        read128 0 @
-        Debug.mk env [ `String "a.low"; `Local64 fst64; `String "a.high"; `Local64 snd64 ] @
-        read128 1 @
-        Debug.mk env [ `String "b.low"; `Local64 fst64; `String "b.high"; `Local64 snd64 ]
-      else
-        []
-    in
     let debug_exit = [ `String "return"; `Decr ] @
       match ret with
       | [ I32 ] -> [ `Peek32 ]
       | [ I64 ] -> [ `Peek64 ]
       | _ -> []
     in
-    Debug.mk env debug_enter @
-    custom_debug @
+    (if name <> "WasmSupport_align_64" then Debug.mk env debug_enter else []) @
     read_highwater @
     mk_expr env body @
     (match ret with
@@ -972,22 +951,35 @@ let mk_func env { args; locals; body; name; ret; _ } =
       | [ I64 ] -> swap6432 env
       | _ -> []) @
     write_highwater env @
-    Debug.mk env debug_exit
+    if name <> "WasmSupport_align_64" then Debug.mk env debug_exit else []
   in
 
   let locals = List.map mk_type locals in
   let ftype = mk_var i in
   dummy_phrase W.Ast.({ locals; ftype; body })
 
-let mk_global env name size body =
+(* Some globals, such as string constants, generate non-constant expressions for
+ * their bodies; we provide a dummy and remember to run the initializer at
+ * module load-time.
+ *
+ * For complex globals that contain deep references to other globals, post_init
+ * is non-empty and contains a sequence of instructions to initialize such
+ * fields. *)
+let mk_global env name size body post_init =
   let body = mk_expr env body in
+  let post_init =
+    if post_init = [] then
+      []
+    else
+      mk_expr env (CFlat.Sequence post_init) @ mk_drop
+  in
   let init, body, mut =
     if List.length body > 1 then
-      body @ [ dummy_phrase (W.Ast.SetGlobal (mk_var (find_global env name))) ],
+      body @ [ dummy_phrase (W.Ast.SetGlobal (mk_var (find_global env name))) ] @ post_init,
       [ dummy_phrase (W.Ast.Const (match size with I32 -> mk_int32 0l | I64 -> mk_int64 0L))],
       W.Types.Mutable
     else
-      [], body, W.Types.Immutable
+      post_init, body, W.Types.Immutable
   in
   init, dummy_phrase W.Ast.({
     gtype = W.Types.GlobalType (mk_type size, mut);
@@ -1090,7 +1082,7 @@ let mk_module types imports (name, decls):
           KPrint.bprintf "In this module, function $%d is %s\n" f name;
         let env = { env with funcs = StringMap.add name f env.funcs } in
         assign env (f + 1) g tl
-    | Global (name, _, _, _) :: tl ->
+    | Global (name, _, _, _, _) :: tl ->
         let env = { env with globals = StringMap.add name g env.globals } in
         assign env f (g + 1) tl
     | _ :: tl ->
@@ -1128,7 +1120,7 @@ let mk_module types imports (name, decls):
           item_name = name_of_string f.name;
           idesc = dummy_phrase (FuncImport (mk_var next_func))
         }) :: acc
-    | Global (g_name, size, _, public) when public ->
+    | Global (g_name, size, _, _, public) when public ->
         let t = mk_type size in
         next_func, dummy_phrase W.Ast.({
           module_name = name_of_string name;
@@ -1171,8 +1163,8 @@ let mk_module types imports (name, decls):
    * not rely on an indirection via a type table like functions. *)
   let inits, globals = List.fold_left (fun (inits, globals) d ->
     match d with
-    | Global (name, size, body, _) ->
-        let init, global = mk_global env name size body in
+    | Global (name, size, body, post, _) ->
+        let init, global = mk_global env name size body post in
         init :: inits, global :: globals
     | _ ->
         inits, globals
@@ -1196,17 +1188,21 @@ let mk_module types imports (name, decls):
   in
 
   (* Side-effect: the table is now filled with all the string constants that
-   * need to be laid out in the data segment. Compute said data segment. *)
+   * need to be laid out in the data segment. Compute said data segment.
+   * Reminder: the data segment is just a convenient way to initialize memory at
+   * module load-time. *)
   let data =
     let size = !(env.data_size) in
     let buf = Bytes.create size in
+    if Options.debug "wasm" then
+      KPrint.bprintf "Writing out a data segment of size %d\n" size;
     Hashtbl.iter (fun s rel_addr ->
+      if Options.debug "wasm" then
+        KPrint.bprintf "  0x%4x: %s\n" rel_addr (String.escaped s);
       let l = String.length s in
       String.blit s 0 buf rel_addr l;
       Bytes.set buf (rel_addr + l) '\000';
     ) env.strings;
-    if Options.debug "wasm" then
-      KPrint.bprintf "Wrote out a data segment of size %d\n" size;
     [ dummy_phrase W.Ast.({
         index = mk_var 0;
         offset = dummy_phrase [ dummy_phrase (
@@ -1230,7 +1226,7 @@ let mk_module types imports (name, decls):
           name = name_of_string name;
           edesc = dummy_phrase (W.Ast.FuncExport (mk_var (find_func env name)));
         }))
-    | Global (name, _, _, public) when public ->
+    | Global (name, _, _, _, public) when public ->
         Some (dummy_phrase W.Ast.({
           name = name_of_string name;
           edesc = dummy_phrase (W.Ast.GlobalExport (mk_var (find_global env name)));

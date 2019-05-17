@@ -78,7 +78,7 @@ type program =
   decl list
 
 and decl =
-  | Global of ident * size * expr * bool
+  | Global of ident * size * expr * expr list * bool
   | Function of function_t
   | ExternalFunction of ident * size list (* args *) * size list (* ret *)
   | ExternalGlobal of ident * size
@@ -105,7 +105,7 @@ and expr =
   | Constant of constant
   | Assign of var * expr
   | StringLiteral of string
-  | Abort
+  | Abort of expr
 
   | IfThenElse of expr * expr * expr * size
   | While of expr * expr

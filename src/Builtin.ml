@@ -10,10 +10,10 @@ open Helpers
 let t_string = TQualified (["Prims"], "string")
 
 let mk_binop m n t =
-  DExternal (None, [ ], (m, n), TArrow (t, TArrow (t, t)))
+  DExternal (None, [ ], (m, n), TArrow (t, TArrow (t, t)), [ "x"; "y" ])
 
 let mk_val m n t =
-  DExternal (None, [ ], (m, n), t)
+  DExternal (None, [ ], (m, n), t, [])
 
 let prims: file =
   let t = TInt K.CInt in
@@ -240,12 +240,12 @@ let make_abstract_function_or_global = function
   | DFunction (cc, flags, n, t, name, bs, _) ->
       let t = fold_arrow (List.map (fun b -> b.typ) bs) t in
       if n = 0 then
-        Some (DExternal (cc, flags, name, t))
+        Some (DExternal (cc, flags, name, t, List.map (fun x -> x.node.name) bs))
       else
         None
   | DGlobal (flags, name, n, t, _) ->
       if n = 0 then
-        Some (DExternal (None, flags, name, t))
+        Some (DExternal (None, flags, name, t, []))
       else
         None
   | d ->
@@ -282,7 +282,7 @@ let is_model name =
   let is_machine_integer name =
     (KString.starts_with name "FStar_UInt" ||
       KString.starts_with name "FStar_Int") &&
-    name <> "FStar_UInt" && name <> "FStar_Int"
+    name <> "FStar_UInt" && name <> "FStar_Int" && name <> "FStar_Int_Cast_Full"
   in
   if name = "FStar_UInt128" then
     not (!Options.extract_uints)

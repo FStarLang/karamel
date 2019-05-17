@@ -62,6 +62,13 @@ let hoist_lets = object (self)
         let e2 = self#visit_expr_w env e2 in
         ELet (b, e1, e2)
 
+    | EBufCreate _ ->
+        (* Can't hoist here because it'll generate nodes of the form:
+         *   x := ebufcreate
+         * whereas CStarToC11 expects ebufcreate's to always be underneath a
+         * let. AstToCStar will insert a new block scope here, too bad. *)
+        ELet (b, e1, self#scope_start t e2)
+
     | _ ->
         match strengthen_array' b.typ e1 with
         | Some typ when e1.node <> EAny ->

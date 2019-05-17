@@ -38,6 +38,8 @@ and decl =
        * are ignored by the checker, meaning that this declarations will get the
        * same abstract typing, except we remember to emit a forward declaration
        * for it. *)
+  | DExternal2 of (calling_convention option * flag list * lident * typ * string list)
+      (** New variant that keeps names of arguments *)
 
 and fields_t =
   (ident * (typ * bool)) list

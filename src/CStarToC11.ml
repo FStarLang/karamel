@@ -592,15 +592,17 @@ and mk_stmt (stmt: stmt): C.stmt list =
           | Some block ->
               Compound (mk_stmts block)
           | _ ->
+              let p = if !Options.c89_std then "KRML_HOST_PRINTF" else "KRML_HOST_EPRINTF" in
               Compound [
-                Expr (Call (Name "KRML_HOST_PRINTF", [
+                Expr (Call (Name p, [
                   Literal "KreMLin incomplete match at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
                 Expr (Call (Name "KRML_HOST_EXIT", [ Constant (K.UInt8, "253") ]))
               ]
       )]
 
   | Abort s ->
-      [ Expr (Call (Name "KRML_HOST_PRINTF", [
+      let p = if !Options.c89_std then "KRML_HOST_PRINTF" else "KRML_HOST_EPRINTF" in
+      [ Expr (Call (Name p, [
           Literal "KreMLin abort at %s:%d\\n%s\\n"; Name "__FILE__"; Name "__LINE__"; Literal (escape_string s) ]));
         Expr (Call (Name "KRML_HOST_EXIT", [ Constant (K.UInt8, "255") ])); ]
 
@@ -760,12 +762,6 @@ and mk_expr (e: expr): C.expr =
   | Call (Qualified "FStar_UInt128_mul_wide", [ e1; e2 ]) when !Options.builtin_uint128 ->
       Op2 (K.Mult, Cast (mk_type (Qualified "uint128_t"), mk_expr e1), mk_expr e2)
 
-  | Call (Qualified "FStar_Int_Cast_Full_uint64_to_uint128", [ e1 ]) when !Options.builtin_uint128 ->
-      Cast (mk_type (Qualified "uint128_t"), mk_expr e1)
-
-  | Call (Qualified "FStar_Int_Cast_Full_uint128_to_uint64", [ e1 ]) when !Options.builtin_uint128 ->
-      Cast (mk_type (Qualified "uint64_t"), mk_expr e1)
-
   | Call (e, es) ->
       Call (mk_expr e, List.map mk_expr es)
 
@@ -901,8 +897,8 @@ let mk_function_or_global_body (d: decl): C.declaration_or_function list =
           raise e
         end
 
-  | Global (name, flags, t, expr) ->
-      if is_primitive name then
+  | Global (name, macro, flags, t, expr) ->
+      if is_primitive name || macro then
         []
       else
         let t = strengthen_array t expr in
@@ -940,8 +936,8 @@ let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
           raise e
         end
 
-  | Global (name, flags, t, expr) ->
-      if is_primitive name then
+  | Global (name, macro, flags, t, expr) ->
+      if is_primitive name || macro then
         []
       else
         let t = strengthen_array t expr in
@@ -986,21 +982,32 @@ let mk_type_or_external (w: where) (d: decl): C.declaration_or_function list =
             wrap_verbatim flags (Decl ([], (qs, spec, Some Typedef, [ decl, None ])))
       end
 
-  | External (name, Function (cc, t, ts), flags) ->
+  | External (name, Function (cc, t, ts), flags, pp) ->
       if is_primitive name then
         []
       else
-        let qs, spec, decl = mk_spec_and_declarator_f cc name t (List.mapi (fun i t ->
-          KPrint.bsprintf "x%d" i, t
-        ) ts) in
+        let missing_names = List.length ts - List.length pp in
+        let arg_names =
+          if missing_names >= 0 then
+            pp @ KList.make missing_names (fun i -> KPrint.bsprintf "x%d" i)
+          else
+            (* For functions that take a single unit argument, the name of the
+             * unit is gone. *)
+            fst (KList.split (List.length ts) pp)
+        in
+        let qs, spec, decl = mk_spec_and_declarator_f cc name t (List.combine arg_names ts) in
         wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
 
-  | External (name, t, flags) ->
+  | External (name, t, flags, _) ->
       if is_primitive name then
         []
       else
         let qs, spec, decl = mk_spec_and_declarator name t in
         wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
+
+  | Global (name, macro, _, _, body) when macro ->
+      (* Macros behave like types, they ought to be declared once. *)
+      [ Macro (name, mk_expr body) ]
 
   | Function _ | Global _ ->
       []
@@ -1016,11 +1023,11 @@ let either f1 f2 x =
 
 let flags_of_decl (d: CStar.decl) =
   match d with
-  | Global (_, flags, _, _)
+  | Global (_, _, flags, _, _)
   | Function (_, flags, _, _, _, _)
   | Type (_, _, flags)
   | TypeForward (_, flags)
-  | External (_, _, flags) ->
+  | External (_, _, flags, _) ->
       flags
 
 let if_private_or_abstract f d =

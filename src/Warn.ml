@@ -32,6 +32,7 @@ and raw_error =
   | NotInitializerConstant of lident * expr
   | BundleCollision of string
   | IfDef of lident
+  | CannotMacro of lident
 
 and location =
   string
@@ -65,7 +66,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 20 CError;;
+let flags = Array.make 22 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -112,6 +113,10 @@ let errno_of_error = function
       18
   | IfDef _ ->
       19
+  | GeneratesLetBindings _ ->
+      20
+  | CannotMacro _ ->
+      21
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -180,7 +185,7 @@ let rec perr buf (loc, raw_error) =
       p "%a is not Low*; %s" plid lid reason
   | GeneratesLetBindings (what, e, bs) ->
       p "The translation of %s gives rise to let-bindings, which, once hoisted, \
-        would change the evaluation semantics. Please rewrite your code.\n\
+        would change the evaluation semantics. Rewriting into an if-then-else.\n\
         Offending expression:\n\
         %a\n\
         Offending let-bindings:\n\
@@ -195,6 +200,8 @@ let rec perr buf (loc, raw_error) =
       p "After bundling, two C files are named %s" name
   | IfDef lid ->
       p "The variable %a cannot be translated as an if-def" plid lid
+  | CannotMacro lid ->
+      p "The variable %a cannot be translated as a macro, most likely because it generated a static initializer" plid lid
 
 
 let maybe_fatal_error error =

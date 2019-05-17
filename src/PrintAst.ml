@@ -35,7 +35,7 @@ let rec print_decl = function
         print_expr body
       )
 
-  | DExternal (cc, flags, name, typ) ->
+  | DExternal (cc, flags, name, typ, _) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
       print_flags flags ^/^
       group (cc ^^ string "external" ^/^ string (string_of_lident name) ^/^ colon) ^^
@@ -128,6 +128,8 @@ and print_flag = function
       string "abstract_struct"
   | IfDef ->
       string "#ifdef"
+  | Macro ->
+      string "macro"
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   (if mut then string "mutable" ^^ break 1 else empty) ^^
@@ -215,7 +217,7 @@ and print_expr { node; typ } =
       print_lifetime l ^^ space ^^
       print_app string "newbuf" print_expr [e1; e2]
   | EBufRead (e1, e2) ->
-      print_expr e1 ^^ lbracket ^^ print_expr e2 ^^ rbracket
+      print_expr e1 ^^ colon ^^ print_typ e1.typ ^^ lbracket ^^ print_expr e2 ^^ rbracket
   | EBufWrite (e1, e2, e3) ->
       print_expr e1 ^^ (*colon ^^ print_typ e1.typ ^^*) lbracket ^^ print_expr e2 ^^ rbracket ^/^
       string "<-" ^/^ print_expr e3
@@ -286,7 +288,7 @@ and print_expr { node; typ } =
         print_expr body
       )
   | EAddrOf e ->
-      ampersand ^^ print_expr e
+      ampersand ^^ parens_with_nesting (print_expr e)
 
 and print_case = function
   | SConstant s ->

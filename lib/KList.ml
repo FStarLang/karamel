@@ -49,6 +49,8 @@ let fold_lefti f init l =
   fold_lefti 0 init l
 
 let make n f =
+  if n < 0 then
+    invalid_arg "KList.make";
   let rec make acc n f =
     if n = 0 then
       acc

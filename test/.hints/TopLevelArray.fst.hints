@@ -17,7 +17,7 @@
         "typing_FStar.Monotonic.HyperHeap.root"
       ],
       0,
-      "66598393e1d1f971b79465bf87807531"
+      "d449fb7af4c60d4862390fe102751d28"
     ],
     [
       "TopLevelArray.x",
@@ -35,7 +35,7 @@
         "typing_FStar.Monotonic.HyperHeap.root"
       ],
       0,
-      "aee7da4130c257653ecdde0d98ddd5c5"
+      "e99f20ba47ff72f764622d48157d03a7"
     ],
     [
       "TopLevelArray.g",
@@ -49,7 +49,7 @@
         "refinement_interpretation_TopLevelArray_Tm_refine_cb33895ece621ae8bc092dc7297a0116"
       ],
       0,
-      "d00c25315db3d2e3cc691a4ecdb0a1ea"
+      "54099bd50b57f8c305a28d5420b7416c"
     ],
     [
       "TopLevelArray.main",
@@ -57,38 +57,21 @@
       2,
       1,
       [
-        "@MaxFuel_assumption", "@MaxIFuel_assumption",
-        "@fuel_correspondence_FStar.List.Tot.Base.length.fuel_instrumented",
-        "@query", "FStar.Int32_pretyping_15d14b3f3a8ec128c2a2096a93f74911",
-        "Prims_pretyping_ae567c2fb75be05905677af440075565",
-        "TopLevelArray_pretyping_43fa2d0dfbe552f6cd4661016a50c7e9",
-        "constructor_distinct_Prims.Cons", "constructor_distinct_Prims.Nil",
-        "data_elim_Prims.Cons", "data_elim_TopLevelArray.Mkt",
-        "data_typing_intro_Prims.Cons@tok",
-        "data_typing_intro_Prims.Nil@tok",
+        "@MaxIFuel_assumption", "@query",
+        "FStar.Int32_pretyping_15d14b3f3a8ec128c2a2096a93f74911",
+        "data_elim_TopLevelArray.Mkt",
         "equation_FStar.HyperStack.ST.equal_stack_domains",
-        "equation_FStar.Monotonic.Heap.equal_dom", "equation_Prims.nat",
-        "equation_TopLevelArray.g", "equation_TopLevelArray.zero",
-        "equation_with_fuel_FStar.List.Tot.Base.length.fuel_instrumented",
-        "function_token_typing_FStar.Int32.t",
-        "function_token_typing_Prims.__cache_version_number__",
-        "int_inversion", "kinding_TopLevelArray.t@tok",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "equation_TopLevelArray.g",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro",
-        "primitive_Prims.op_Addition", "projection_inverse_BoxInt_proj_0",
-        "projection_inverse_Prims.Cons_a",
-        "projection_inverse_Prims.Cons_hd",
-        "projection_inverse_Prims.Cons_tl", "projection_inverse_Prims.Nil_a",
+        "projection_inverse_BoxInt_proj_0",
         "refinement_interpretation_Tm_refine_5da42ff7c3b79de80d6f70a2ad8be499",
-        "refinement_interpretation_Tm_refine_6122cad426443fa2fac2af097555aa53",
-        "refinement_interpretation_Tm_refine_74e25fa30a75af69d11d6acb3a946e17",
-        "refinement_interpretation_Tm_refine_ba523126f67e00e7cd55f0b92f16681d",
-        "typing_FStar.List.Tot.Base.length",
+        "refinement_interpretation_Tm_refine_ed8c7b1fd21f238b685cca4457f40353",
         "typing_TopLevelArray.__proj__Mkt__item__y",
-        "typing_TopLevelArray.g", "typing_TopLevelArray.x",
-        "typing_TopLevelArray.y", "typing_TopLevelArray.zero"
+        "typing_TopLevelArray.g", "typing_TopLevelArray.x"
       ],
       0,
-      "59d1a0e5f39dcf0541767a7c496583c0"
+      "41150a0138e6d8365aa75e222d1f4206"
     ]
   ]
 ]

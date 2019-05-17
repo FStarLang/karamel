@@ -16,7 +16,7 @@
         "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f"
       ],
       0,
-      "cec1fe803e32daf364d9151301df36c5"
+      "ea5da4a754eb365421195d2511649038"
     ],
     [
       "Spec.Loops.seq_map",
@@ -33,7 +33,11 @@
         "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f"
       ],
       0,
+<<<<<<< HEAD
       "4f890b286f9e973183cd4f9b6b0af97f"
+=======
+      "9f5d25b943ec024b50e571c571b1a0e2"
+>>>>>>> master
     ],
     [
       "Spec.Loops.seq_map",
@@ -79,7 +83,11 @@
         "well-founded-ordering-on-nat"
       ],
       0,
+<<<<<<< HEAD
       "998e35ef3ee9612ed047b3c67bf900a9"
+=======
+      "7f9e76003e972c8b504ce8e6e1a22178"
+>>>>>>> master
     ],
     [
       "Spec.Loops.seq_map2",
@@ -97,7 +105,7 @@
         "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f"
       ],
       0,
-      "c251f0a2b9170ffbc31b7b042980bd22"
+      "dabeef95c2acd1f363cb9a6e9d769477"
     ],
     [
       "Spec.Loops.seq_map2",
@@ -115,7 +123,11 @@
         "refinement_interpretation_Tm_refine_839bcd39119b3653dff41db8434307aa"
       ],
       0,
+<<<<<<< HEAD
       "b9777edfbe34e0b512f2b28ea5eb7609"
+=======
+      "21be7e2b7b3b8141c66e79ca167d353f"
+>>>>>>> master
     ],
     [
       "Spec.Loops.seq_map2",
@@ -164,7 +176,11 @@
         "well-founded-ordering-on-nat"
       ],
       0,
+<<<<<<< HEAD
       "69dc375f92e9d6f0f4cf9096ad58f4f7"
+=======
+      "e45efbd501bc8ac541e98002d433ab93"
+>>>>>>> master
     ],
     [
       "Spec.Loops.repeat",
@@ -183,7 +199,11 @@
         "well-founded-ordering-on-nat"
       ],
       0,
+<<<<<<< HEAD
       "089cc1117dc7094fb9ef18d8fe3f3c53"
+=======
+      "385a740cec4208d3e8eb55b49cbef0cc"
+>>>>>>> master
     ],
     [
       "Spec.Loops.repeat_induction",
@@ -196,7 +216,7 @@
         "refinement_interpretation_Tm_refine_f048236b5f8051f83b495ea5eaa6127b"
       ],
       0,
-      "551b6085b857a51ea0ee11d3d83d14ad"
+      "f233e1fe5397163dc4198a0a47fab3ca"
     ],
     [
       "Spec.Loops.repeat_induction",
@@ -209,7 +229,11 @@
         "refinement_interpretation_Tm_refine_f048236b5f8051f83b495ea5eaa6127b"
       ],
       0,
+<<<<<<< HEAD
       "3d243f410c9eeac9251b25f56eb5bc1a"
+=======
+      "5e168185ecdf8121580189be874ee9d5"
+>>>>>>> master
     ],
     [
       "Spec.Loops.repeat_induction",
@@ -238,7 +262,11 @@
         "typing_Spec.Loops.repeat", "well-founded-ordering-on-nat"
       ],
       0,
+<<<<<<< HEAD
       "531cd82a0b39fd1fd6e5b69f58dfec52"
+=======
+      "d23cda1c61580198bd0343a30ecc613c"
+>>>>>>> master
     ],
     [
       "Spec.Loops.repeat_base",
@@ -261,7 +289,7 @@
         "refinement_interpretation_Tm_refine_13822e8d415cca32657fdd044ba9fbfb"
       ],
       0,
-      "212ba51cbaf3432a298752ea889afd79"
+      "60d066ac2d073168c991735a9ad10d51"
     ],
     [
       "Spec.Loops.repeat_range",
@@ -287,7 +315,11 @@
         "well-founded-ordering-on-nat"
       ],
       0,
+<<<<<<< HEAD
       "33b8803b4b6301aedc8c5e0b4120ce03"
+=======
+      "c5733e67c25dfa492fda5ee32ea0f6fc"
+>>>>>>> master
     ],
     [
       "Spec.Loops.repeat_range_base",
@@ -296,7 +328,7 @@
       1,
       [ "@query" ],
       0,
-      "b82e597344214aecb4b718a922b2688a"
+      "f62b5bc3b58101236faebb7e68782043"
     ],
     [
       "Spec.Loops.repeat_range_base",
@@ -313,7 +345,7 @@
         "refinement_interpretation_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "f25d9308e1c3fe8cbc59baca0f513ba2"
+      "ab4d2cbaa2abcae27ab10b865193e75f"
     ],
     [
       "Spec.Loops.repeat_range_induction",
@@ -331,7 +363,7 @@
         "refinement_interpretation_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
-      "c0f60aea73c033106536d942216a1d26"
+      "a121fbf0cd98f217a50e29c517ddd3ac"
     ],
     [
       "Spec.Loops.repeat_range_induction",
@@ -349,7 +381,11 @@
         "refinement_interpretation_Tm_refine_ba523126f67e00e7cd55f0b92f16681d"
       ],
       0,
+<<<<<<< HEAD
       "14e37fc6a525c287e438f9eddfeefc56"
+=======
+      "67f6eccaf053ffa272410d13fa223931"
+>>>>>>> master
     ],
     [
       "Spec.Loops.repeat_range_induction",
@@ -383,7 +419,11 @@
         "typing_Spec.Loops.repeat_range", "well-founded-ordering-on-nat"
       ],
       0,
+<<<<<<< HEAD
       "3fde3b97b4ded808e42659dcca6a2990"
+=======
+      "3ecb802960ad84b39b1e3d59a72259cc"
+>>>>>>> master
     ]
   ]
 ]

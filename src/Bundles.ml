@@ -70,8 +70,8 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: (int * Bundle.t
         DGlobal (add_if name flags, name, n, typ, body)
     | DType (lid, flags, n, def) ->
         DType (lid, add_if lid flags, n, def)
-    | DExternal (cc, flags, lid, t) ->
-        DExternal (cc, add_if lid flags, lid, t)
+    | DExternal (cc, flags, lid, t, pp) ->
+        DExternal (cc, add_if lid flags, lid, t, pp)
   in
 
   (* Match a file against the given list of patterns. *)

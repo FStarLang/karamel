@@ -379,6 +379,11 @@ let p_comments cs =
 
 let p_decl_or_function (df: declaration_or_function) =
   match df with
+  | Macro (name, def) ->
+      let name = String.uppercase name in
+      (* This will generate incorrect syntax if for some reason this ever needs
+       * to break... *)
+      group (sharp ^^ string "define" ^/^ string name ^/^ parens (p_expr def))
   | Decl (comments, d) ->
       p_comments comments ^^
       group (p_declaration d ^^ semi)

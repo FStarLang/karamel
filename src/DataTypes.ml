@@ -989,18 +989,15 @@ let debug_map map =
 
 (* Seventh step: remove casts to struct types ... not supported by the C
  * compiler. *)
-let remove_non_scalar_casts (map, _) = object (self)
+let remove_non_scalar_casts = object (self)
   inherit [_] map
 
   method! visit_ECast (env, t) e t_dest =
-    let is_scalar lid = match Hashtbl.find map lid with
-      | exception Not_found -> false
-      | ToFlat _ | ToTaggedUnion _ -> true
-      | _ -> false
-    in
     let e = self#visit_expr_w env e in
     match t_dest with
-    | TQualified lid when is_scalar lid ->
+    | TQualified lid ->
+        (* Type abbreviations have been inlined at this stage. If an lid
+         * remains, it's a scalar type. *)
         begin match t with
         | TQualified lid' when lid <> lid' ->
             KPrint.bprintf "non-scalar cast from %a to %a -- please send test \
@@ -1051,8 +1048,11 @@ let remove_full_matches = object (self)
                 explode p e
               ) fieldpats fieldexprs)
           | PCons (cons, ps), ECons (cons', es) ->
-              assert (cons = cons');
-              List.flatten (List.map2 explode ps es)
+              if cons = cons' then
+                List.flatten (List.map2 explode ps es)
+              else
+                (* This indicates unreachable code; see test/Mini.fst *)
+                raise Not_found
           | _ ->
               (* Todo: records *)
               raise Not_found
@@ -1074,6 +1074,7 @@ end
 
 (* Debug any intermediary AST as follows: *)
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
+(* debug_map (fst map); *)
 
 let simplify files =
   let files = remove_trivial_matches#visit_files () files in
@@ -1085,7 +1086,7 @@ let everything files =
   let map = build_scheme_map files in
   let files = (compile_simple_matches map)#visit_files () files in
   let files = (compile_all_matches map)#visit_files () files in
-  let files = (remove_non_scalar_casts map)#visit_files () files in
+  let files = remove_non_scalar_casts#visit_files () files in
   map, files
 
 let anonymous_unions map files =

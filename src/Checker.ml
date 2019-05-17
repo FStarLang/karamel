@@ -13,6 +13,9 @@ open Loc
 open PrintAst.Ops
 open Helpers
 
+(* For internal use; allows enabling debug after certain phases. *)
+let debug = ref false
+
 let buf_any_msg = format_of_string {|
 This subexpression creates a buffer with an unknown type:
   %a
@@ -123,7 +126,7 @@ let populate_env files =
             Warn.fatal_error "%a is polymorphic\n" plid lid;
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
-      | DExternal (_, _, lid, typ) ->
+      | DExternal (_, _, lid, typ, _) ->
           { env with globals = M.add lid typ env.globals }
     ) env decls
   ) empty files
@@ -205,11 +208,23 @@ and check_or_infer env t e =
     t
   end
 
+and smallest t1 t2 =
+  (* This barely makes any sense. Need to clean up this typechecking algorithm. *)
+  match t1, t2 with
+  | TAny, _ ->
+      t2
+  | _, TAny ->
+      t1
+  | TBuf t1, TBuf t2 ->
+      TBuf (smallest t1 t2)
+  | _ ->
+      t1
+
 and check env t e =
-  (* KPrint.bprintf "[check] t=%a for e=%a\n" ptyp t pexpr e; *)
+  (* if !debug then KPrint.bprintf "[check] t=%a for e=%a\n" ptyp t pexpr e; *)
+  (* if !debug then KPrint.bprintf "[check] annot=%a for e=%a\n" ptyp e.typ pexpr e; *)
   check' env t e;
-  if t <> TAny then
-    e.typ <- t
+  e.typ <- smallest e.typ t
 
 and check' env t e =
   let c t' = check_subtype env t' t in
@@ -429,11 +444,12 @@ and args_of_branch env t ident =
       checker_error env "Type annotation is not an lid but %a" ptyp t
 
 and infer env e =
-  (* KPrint.bprintf "[infer] %a\n" pexpr e; *)
+  (* if !debug then KPrint.bprintf "[infer] %a\n" pexpr e; *)
   let t = infer' env e in
-  (* KPrint.bprintf "[infer, got] %a\n" ptyp t; *)
+  (* if !debug then KPrint.bprintf "[infer, got] %a\n" ptyp t; *)
   check_subtype env t e.typ;
   e.typ <- prefer_nominal t e.typ;
+  (* if !debug then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ; *)
   t
 
 and prefer_nominal t1 t2 =
@@ -504,7 +520,7 @@ and infer' env e =
         if List.length es > List.length t_args then
           checker_error env "Too many arguments for application:\n%a" pexpr e;
         let t_args, t_remaining_args = KList.split (List.length es) t_args in
-        List.iter2 (check env) t_args es;
+        ignore (List.map2 (check_or_infer env) t_args es);
         fold_arrow t_remaining_args t_ret
 
   | ELet (binder, body, cont) ->
@@ -662,13 +678,14 @@ and infer' env e =
         TAnonymous (Enum [ tag ])
       end
 
-  | ESwitch (e, branches) ->
-      let t_scrut = expand_abbrev env (infer env e) in
-      infer_and_check_eq env (fun (c, e) ->
+  | ESwitch (e1, branches) ->
+      let t_scrut = expand_abbrev env (infer env e1) in
+      let t = infer_and_check_eq env (fun (c, e) ->
         let env = locate env (Branch c) in
         check_case env c t_scrut;
         infer env e
-      ) branches
+      ) branches in
+      t
 
   | EComment (_, e, _) ->
       infer env e

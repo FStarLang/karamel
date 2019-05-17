@@ -344,8 +344,8 @@ let cross_call_analysis files =
           DFunction (cc, filter name flags, n, ret, name, binders, body)
       | DGlobal (flags, name, n, e, t) ->
           DGlobal (filter name flags, name, n, e, t)
-      | DExternal (cc, flags, name, t) ->
-          DExternal (cc, filter name flags, name, t)
+      | DExternal (cc, flags, name, t, pp) ->
+          DExternal (cc, filter name flags, name, t, pp)
       | DType (name, flags, n, t) ->
           DType (name, filter name flags, n, t)
     ) files
@@ -356,7 +356,11 @@ let cross_call_analysis files =
 (** A whole-program transformation that inlines functions according to... *)
 
 let always_live name =
-  Simplify.target_c_name name = "main"
+  Simplify.target_c_name name = "main" ||
+  let n = Simplify.target_c_name name in
+  String.length n >= 11 &&
+  String.sub n 0 11 = "WasmSupport" &&
+  !Options.wasm
 
 let inline files =
 
