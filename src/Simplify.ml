@@ -596,7 +596,7 @@ let rec flag_short_circuit loc t e0 es =
        * can't ask the user to rewrite, but it's ok, because it's an expression
        * language, so we can have let-bindings anywhere. *)
       if List.length lhs2 > 0 && not !Options.wasm then begin
-        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc loc,
+        Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,
           GeneratesLetBindings (
             KPrint.bsprintf "%a, a short-circuiting boolean operator" pexpr e0,
             with_type t (EApp (e0, es)),

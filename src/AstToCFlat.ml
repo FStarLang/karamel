@@ -157,7 +157,7 @@ let is_enum env t =
   | TQualified lid ->
       begin match LidMap.find lid env.layouts with
       | exception Not_found ->
-          Warnings.fatal_error "%a is not in the lid map!" plid lid
+          Warn.fatal_error "%a is not in the lid map!" plid lid
       | LEnum ->
           true
       | _ ->
@@ -402,7 +402,7 @@ let layout_of env e =
   | EFlat [ Some f, _ ], TAnonymous (Union cases) ->
       Some (flat_layout env [ f, List.assoc f cases ])
   | EFlat _, _ ->
-      Warnings.fatal_error "Cannot compute layout for: %a\n" pexpr e
+      Warn.fatal_error "Cannot compute layout for: %a\n" pexpr e
   | _ ->
       None
 

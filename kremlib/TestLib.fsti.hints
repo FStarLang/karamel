@@ -8,19 +8,16 @@
       1,
       [ "@query" ],
       0,
-      "c90ece1bd26d5db3c109daebf9052ac4"
+      "27929ffc407a428ed36e262267f70be5"
     ],
     [
       "TestLib.unsafe_malloc",
       1,
       2,
       1,
-      [
-        "@query", "assumption_Prims.HasEq_int",
-        "haseqFStar.Kremlin.Endianness_Tm_refine_7f014d1f670e5d2ecdc0d7946b4a693d"
-      ],
+      [ "@query" ],
       0,
-      "5691fb49ad4ed1c7728118c7cc92dd82"
+      "d2fd326abb6010801660bc592fabd3d4"
     ]
   ]
 ]

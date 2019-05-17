@@ -181,7 +181,7 @@ let rec mk_expr env in_stmt e =
   | EQualified lident ->
       let name = string_of_lident lident in
       if StringSet.mem name env.ifdefs then
-        Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc env.location, IfDef lident));
+        Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, IfDef lident));
       if StringSet.mem name env.macros then
         CStar.Qualified (String.uppercase name)
       else
@@ -777,7 +777,7 @@ let mk_macros_set files =
     method visit_DGlobal _ flags name _ _ body =
       if List.mem Common.Macro flags then
         if body.node = EAny then begin
-          Warnings.(maybe_fatal_error ("", CannotMacro name));
+          Warn.(maybe_fatal_error ("", CannotMacro name));
           StringSet.empty
         end else
           StringSet.singleton (Simplify.target_c_name name)

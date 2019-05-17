@@ -395,7 +395,7 @@ let to_addr is_struct =
 
     | EFlat fields ->
         if not (was_struct || under_compound && Helpers.is_union e.typ) then
-          Warnings.fatal_error
+          Warn.fatal_error
             "This was neither a struct or a union field of a struct: %a\n"
             pexpr e;
         let fields = List.map (fun (f, e) -> f, to_addr true e) fields in

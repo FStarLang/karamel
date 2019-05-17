@@ -205,7 +205,7 @@ let mk_ctypes_decl module_name (d: decl): structure =
       | Qualified t -> mk_typedef module_name name (Qualified t)
       | _ -> []
       end
-  | Global (name, _, typ, _) -> [mk_const_decl module_name name typ]
+  | Global (name, _, _, typ, _) -> [mk_const_decl module_name name typ]
   | External _
   | TypeForward _ -> []
 
