@@ -1,6 +1,7 @@
 KreMLin
 -------
 
+|---------|-------|
 | Linux   | [![Linux](https://msr-project-everest.visualstudio.com/Everest/_apis/build/status/Kremlin/Kremlin-Linux?branchName=taramana_ws2019)](https://msr-project-everest.visualstudio.com/Everest/_build/latest?definitionId=38&branchName=taramana_ws2019) |
 | Windows | [![Windows](https://msr-project-everest.visualstudio.com/Everest/_apis/build/status/Kremlin/Kremlin-Windows?branchName=taramana_ws2019)](https://msr-project-everest.visualstudio.com/Everest/_build/latest?definitionId=40&branchName=taramana_ws2019) |
 
