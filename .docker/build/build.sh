@@ -26,28 +26,6 @@ function export_home() {
     fi
 }
 
-# By default, HACL* master works against F* stable. Can also be overridden.
-function fetch_hacl() {
-    if [ ! -d hacl-star ]; then
-        git clone https://github.com/mitls/hacl-star hacl-star
-    fi
-
-    cd hacl-star
-    git fetch origin
-    local ref=$(jq -c -r '.RepoVersions["hacl_version"]' "$rootPath/.docker/build/config.json" )
-    if [[ $ref == "" || $ref == "null" ]]; then
-        echo "Unable to find RepoVersions.hacl_version on $rootPath/.docker/build/config.json"
-        return 1
-    fi
-
-    echo Switching to HACL $ref
-    git reset --hard $ref
-    git clean -fdx
-    cd ..
-    export_home HACL "$(pwd)/hacl-star"
-    export_home EVERCRYPT "$(pwd)/hacl-star/providers"
-}
-
 # Note: this performs an _approximate_ refresh of the hints, in the sense that
 # since the hint refreshing job takes about 80 minutes, it's very likely someone
 # merged to $CI_BRANCH in the meanwhile, which would invalidate some hints. So, we
@@ -112,7 +90,6 @@ function misc () {
 
   echo "\"everest\": -traverse" >> _tags
   echo "\"fstar\": -traverse" >> _tags
-  echo "\"hacl-star\": -traverse" >> _tags
   echo "\"node\": -traverse" >> _tags
   echo "\"MLCrypto\": -traverse" >> _tags
   echo "\"fstar-mode.el\": -traverse" >> _tags
@@ -149,7 +126,7 @@ function exec_build() {
     # this is a special file that is parsed by Azure Devops
     result_file="../result.txt"
 
-    if fetch_hacl && misc && make -j $threads && \
+    if misc && make -j $threads && \
       make -C test everything -j $threads && \
       refresh_tutorial
     then

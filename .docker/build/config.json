@@ -30,6 +30,5 @@
     "TrackPerformance" : false,
 
     "RepoVersions" : {
-        "hacl_version" : "origin/fstar-master"
     }
 }
