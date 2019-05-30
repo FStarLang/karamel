@@ -18,11 +18,16 @@
     "CIBuildTarget" : "all",
     "NightlyBuildTarget" : "nightly",
     "HasLogsToExtract" : true,
-
+    
     "NotificationEnabled" : true,
     "NotificationChannel" : "#kremlin-build",
     "PublicBranches" : [ "master" ],
 
+    "CompressBuildFolder": true,
+    "FolderToCompress" : "kremlin",
+    "FoldersToExclude" : [ ],
+
+    "TrackPerformance" : false,
 
     "RepoVersions" : {
         "hacl_version" : "origin/fstar-master"
