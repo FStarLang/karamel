@@ -3,20 +3,22 @@
 
 #include "internal/types.h"
 
-// Arithmetic Shift Right operator
-//
-// In all C standards, a >> b is implementation-defined when a has a signed
-// type and a negative value. See e.g. 6.5.7 in
-// http://www.open-std.org/jtc1/sc22/wg14/www/docs/n2310.pdf
-//
-// GCC, MSVC, and Clang implement a >> b as an arithmetic shift.
-//
-// GCC: https://gcc.gnu.org/onlinedocs/gcc-9.1.0/gcc/Integers-implementation.html#Integers-implementation
-// MSVC: https://docs.microsoft.com/en-us/cpp/cpp/left-shift-and-right-shift-operators-input-and-output?view=vs-2019#right-shifts
-// Clang: tested that Clang 7, 8 and 9 compile this to an arithmetic shift
-//
-// We implement arithmetic shift right simply as >> in these compilers
-// and bail out in others.
+/*
+ * Arithmetic Shift Right operator
+ *
+ * In all C standards, a >> b is implementation-defined when a has a signed
+ * type and a negative value. See e.g. 6.5.7 in
+ * http://www.open-std.org/jtc1/sc22/wg14/www/docs/n2310.pdf
+ *
+ * GCC, MSVC, and Clang implement a >> b as an arithmetic shift.
+ *
+ * GCC: https://gcc.gnu.org/onlinedocs/gcc-9.1.0/gcc/Integers-implementation.html#Integers-implementation
+ * MSVC: https://docs.microsoft.com/en-us/cpp/cpp/left-shift-and-right-shift-operators-input-and-output?view=vs-2019#right-shifts
+ * Clang: tested that Clang 7, 8 and 9 compile this to an arithmetic shift
+ *
+ * We implement arithmetic shift right simply as >> in these compilers
+ * and bail out in others.
+ */
 
 #if !(defined(_MSC_VER) || defined(__GNUC__) || (defined(__clang__) && (__clang_major__ >= 7)))
 
