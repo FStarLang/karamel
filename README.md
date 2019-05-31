@@ -3,7 +3,7 @@ KreMLin
 
 | Linux | Windows |
 |---------|-------|
-| [![Linux](https://msr-project-everest.visualstudio.com/Everest/_apis/build/status/Kremlin/Kremlin-Linux?branchName=taramana_ws2019)](https://msr-project-everest.visualstudio.com/Everest/_build/latest?definitionId=38&branchName=taramana_ws2019) | [![Windows](https://msr-project-everest.visualstudio.com/Everest/_apis/build/status/Kremlin/Kremlin-Windows?branchName=taramana_ws2019)](https://msr-project-everest.visualstudio.com/Everest/_build/latest?definitionId=40&branchName=taramana_ws2019) |
+| [![Linux](https://msr-project-everest.visualstudio.com/Everest/_apis/build/status/Kremlin/Kremlin-Linux?branchName=master)](https://msr-project-everest.visualstudio.com/Everest/_build/latest?definitionId=38&branchName=master) | [![Windows](https://msr-project-everest.visualstudio.com/Everest/_apis/build/status/Kremlin/Kremlin-Windows?branchName=master)](https://msr-project-everest.visualstudio.com/Everest/_build/latest?definitionId=40&branchName=master) |
 
 KreMLin is a tool that extracts an F\* program to readable C code. If the F\*
 program verifies against a low-level memory model that talks about the stack and
