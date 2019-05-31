@@ -534,13 +534,13 @@ Supported options:|}
    *
    * There is an extraneous call to "simplify 2" before "in memory"; it would be
    * good to remove it. *)
+  let files = if !Options.explode <> [] then Structs.explode files else files in
   let files =
     if not !Options.struct_passing || !Options.by_ref <> [] then
       Structs.pass_by_ref files
     else
       files
   in
-  let files = if !Options.explode <> [] then Structs.explode files else files in
   let files =
     if !Options.wasm then
       let files = SimplifyWasm.simplify1 files in
