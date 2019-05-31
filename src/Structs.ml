@@ -64,6 +64,121 @@ let analyze_function_type is_struct = function
   | t ->
       Warnings.fatal_error "analyze_function_type: %a is not a function type" ptyp t
 
+(* For struct types present in !Options.explode, pass their individual
+ * fields as separate parameters in function calls, rather than a structure by
+ * value. *)
+let explode fields =
+  object (self)
+    inherit [_] map
+
+    method private rewrite_function_type t =
+      let ret, args = Helpers.flatten_arrow t in
+      let rec explode arg =
+        match arg with
+        | TQualified lid ->
+            begin match Hashtbl.find fields lid with
+            | exception Not_found -> [ arg ]
+            | fields -> KList.map_flatten explode (List.map snd fields)
+            end
+        | _ -> [ arg ]
+      in
+      Helpers.fold_arrow (KList.map_flatten explode args) ret
+
+    method! visit_EApp env e es =
+      let e = self#visit_expr env e in
+      let es = List.map (self#visit_expr env) es in
+      let project e f t =
+        match e with
+        | { node = EFlat fields; _ } ->
+            Option.must (KList.find_opt (function
+              | Some field, e when field = f -> Some e
+              | _ -> None
+            ) fields)
+        | e when Helpers.is_value e ->
+            with_type t (EField (e, f))
+        | _ ->
+            Warnings.fatal_error "Don't know how to project %a" pexpr e
+      in
+      let rec explode arg =
+        match arg.typ with
+        | TQualified lid ->
+            begin match Hashtbl.find fields lid with
+            | exception Not_found -> [ arg ]
+            | fields -> KList.map_flatten (fun (f, t) -> explode (project arg f t)) fields
+            end
+        | _ -> [ arg ]
+      in
+      EApp (e, KList.map_flatten explode es)
+
+  method! visit_TArrow env t1 t2 =
+    let t1 = self#visit_typ env t1 in
+    let t2 = self#visit_typ env t2 in
+    let t = TArrow (t1, t2) in
+    self#rewrite_function_type t
+
+  method! visit_DFunction _ cc flags n ret lid binders body =
+    let binders = self#visit_binders_w [] binders in
+    let ret = self#visit_typ [] ret in
+
+    let binders, body = DeBruijn.open_binders binders body in
+
+    let rec explode binder =
+      match binder.typ with
+      | TQualified lid ->
+          begin match Hashtbl.find fields lid with
+          | exception Not_found -> None
+          | fields ->
+              let binders, exprs = List.split (List.map (fun (f, t) ->
+                let binder, ref = Helpers.mk_binding f t in
+                let binders, e = match explode binder with
+                  | Some (bs, e) -> bs, (Some f, e)
+                  | _ -> [ binder ], (Some f, ref)
+                in
+                binders, e
+              ) fields) in
+              Some (List.flatten binders, with_type binder.typ (EFlat exprs))
+          end
+      | _ ->
+          None
+    in
+
+    let binders, substs = List.split (List.map (fun binder ->
+        match explode binder with
+        | None -> [ binder ], None
+        | Some (binders, e) ->
+            binders, Some (binder.node.atom, e)
+      ) binders) in
+    let binders = List.flatten binders in
+    let substs = KList.filter_some substs in
+
+    let body = self#visit_expr_w substs body in
+
+    let body = DeBruijn.close_binders binders body in
+    DFunction (cc, flags, n, ret, lid, binders, body)
+
+  method! visit_EOpen (substs, _) name atom =
+    try (List.assoc atom substs).node
+    with Not_found ->
+      EOpen (name, atom)
+  end
+
+let explode files =
+  let map = Hashtbl.create 41 in
+  (object (_)
+    inherit [_] iter
+
+    method! visit_DType _ name _ _ t =
+      match t with
+      | Flat fields ->
+          if List.mem name !Options.explode then
+            Hashtbl.add map name (List.mapi (fun i -> function
+              | Some field, (t, _) -> field, t
+              | None, (t, _) -> KPrint.bsprintf "%s_field_%d" (snd name) i, t
+            ) fields)
+      | _ -> ()
+  end)#visit_files () files;
+  (explode map)#visit_files [] files
+
 
 (* Rewrite functions and expressions to take and possibly return struct
  * pointers. This transformation is entirely type-based. *)
@@ -202,7 +317,9 @@ let pass_by_ref is_struct = object (self)
     let body = DeBruijn.close_binders binders body in
     DFunction (cc, flags, n, ret, lid, binders, body)
 
-  method! visit_TArrow _ t1 t2 =
+  method! visit_TArrow env t1 t2 =
+    let t1 = self#visit_typ env t1 in
+    let t2 = self#visit_typ env t2 in
     let t = TArrow (t1, t2) in
     self#rewrite_function_type (analyze_function_type is_struct t) t
 

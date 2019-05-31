@@ -235,6 +235,8 @@ Supported options:|}
 
     (* Fine-tuning code generation. *)
     "", Arg.Unit (fun _ -> ()), " ";
+    "-explode", Arg.String (fun s -> prepend Options.explode (Parsers.lid s)), " \
+      pass this struct's components individually during function calls";
     "-by-ref", Arg.String (fun s -> prepend Options.by_ref (Parsers.lid s)), " \
       this type should always be passed by ref; used to either i) apply \
       -fstruct-passing selectively or ii) indicate that an \
@@ -538,6 +540,7 @@ Supported options:|}
     else
       files
   in
+  let files = if !Options.explode <> [] then Structs.explode files else files in
   let files =
     if !Options.wasm then
       let files = SimplifyWasm.simplify1 files in
