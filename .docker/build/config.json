@@ -21,7 +21,7 @@
     
     "NotificationEnabled" : true,
     "NotificationChannel" : "#kremlin-build",
-    "PublicBranches" : [ "master", "taramana_ws2019" ],
+    "PublicBranches" : [ "master" ],
 
     "CompressBuildFolder": true,
     "FolderToCompress" : "kremlin",
