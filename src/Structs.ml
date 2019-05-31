@@ -20,16 +20,18 @@ open PrintAst.Ops
  * that type abbreviations have been removed. *)
 
 (* Construct a [typ -> bool] that tells whether this is a struct type or not. *)
-let mk_is_struct files =
+let mk_is_struct ?(skip_regular_structs=false) files =
   let map = Hashtbl.create 41 in
-  List.iter (fun (_, decls) ->
-    List.iter (function
-      | DType (lid, _, _, Flat _)  ->
-          Hashtbl.add map lid true
-      | _ ->
-          ()
-    ) decls
-  ) files;
+  if not skip_regular_structs then
+    List.iter (fun (_, decls) ->
+      List.iter (function
+        | DType (lid, _, _, Flat _)  ->
+            Hashtbl.add map lid true
+        | _ ->
+            ()
+      ) decls
+    ) files;
+  List.iter (fun lid -> Hashtbl.add map lid true) !Options.by_ref;
   function
     | TAnonymous (Flat _) ->
         true
@@ -38,7 +40,6 @@ let mk_is_struct files =
           Hashtbl.find map lid
         with Not_found ->
           List.exists (fun lid' ->
-            lid = lid' ||
             fst lid = fst lid' && KString.starts_with (snd lid) (snd lid' ^ "__")
           ) !Options.by_ref
         end
@@ -274,7 +275,7 @@ let pass_by_ref is_struct = object (self)
 end
 
 let pass_by_ref files =
-  let is_struct = mk_is_struct files in
+  let is_struct = mk_is_struct ~skip_regular_structs:!Options.struct_passing files in
   (pass_by_ref is_struct)#visit_files [] files
 
 

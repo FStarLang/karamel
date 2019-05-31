@@ -34,7 +34,7 @@ CUSTOM		= count-uu
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
-  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test
+  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test Wasm11.wasm-test
 NEGATIVE	= false
 # Chacha20: need to pass StackInline information properly
 BROKEN		= \

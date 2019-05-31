@@ -236,7 +236,10 @@ Supported options:|}
     (* Fine-tuning code generation. *)
     "", Arg.Unit (fun _ -> ()), " ";
     "-by-ref", Arg.String (fun s -> prepend Options.by_ref (Parsers.lid s)), " \
-      pass the given struct type by reference, always";
+      this type should always be passed by ref; used to either i) apply \
+      -fstruct-passing selectively or ii) indicate that an \
+      unknown type (e.g. assumed) is a struct and as such should undergo the \
+      struct-passing transformation";
     "-fbuiltin-uint128", Arg.Set Options.builtin_uint128, "  target compiler \
       supports arithmetic operators for uint128 -- this is NON PORTABLE, \
       works only with GCC/Clang";
@@ -529,7 +532,12 @@ Supported options:|}
    *
    * There is an extraneous call to "simplify 2" before "in memory"; it would be
    * good to remove it. *)
-  let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
+  let files =
+    if not !Options.struct_passing || !Options.by_ref <> [] then
+      Structs.pass_by_ref files
+    else
+      files
+  in
   let files =
     if !Options.wasm then
       let files = SimplifyWasm.simplify1 files in
