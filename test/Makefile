@@ -44,7 +44,16 @@ WEB_DIR		?= web
 CACHE_DIR	= .cache
 OUTPUT_DIR	= .output
 HINTS_DIR	= .hints
-FSTAR		= fstar.exe --cache_checked_modules --use_two_phase_tc true \
+
+ifdef FSTAR_HOME
+  # Assume there is a F* source tree
+  FSTAR_EXE=$(FSTAR_HOME)/bin/fstar.exe
+else
+  # Assume F* in the PATH
+  FSTAR_EXE=fstar.exe
+endif
+
+FSTAR		= $(FSTAR_EXE) --cache_checked_modules --use_two_phase_tc true \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
   --include hello-system --include ../kremlib/compat \
   --include ../kremlib --include ../runtime \
