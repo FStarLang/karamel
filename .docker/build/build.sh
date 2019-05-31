@@ -103,7 +103,7 @@ function misc () {
 }
 
 function refresh_tutorial() {
-  if [[ $branchname == "master" ]]; then
+  if false && [[ $branchname == "master" ]]; then
     make -C book html
     cd fstarlang.github.io
     git pull
