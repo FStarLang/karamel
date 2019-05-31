@@ -80,7 +80,7 @@ function misc () {
 
   echo After cloning fstar-mode.el
   
-  if [[ $branchname == "master" ]] ; then
+  if [[ "$OS" != "Windows_NT" ]] && [[ $branchname == "master" ]] ; then
       git clone https://dzomo:$DZOMO_TOKEN@github.com/fstarlang/fstarlang.github.io
   fi
 
@@ -103,7 +103,7 @@ function misc () {
 }
 
 function refresh_tutorial() {
-  if false && [[ $branchname == "master" ]]; then
+  if false && [[ "$OS" != "Windows_NT" ]] && [[ $branchname == "master" ]]; then
     make -C book html
     cd fstarlang.github.io
     git pull
