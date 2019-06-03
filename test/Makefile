@@ -139,6 +139,8 @@ $(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel mem
 $(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
 $(OUTPUT_DIR)/Explode.exe: EXTRA = -explode Explode.vector -explode Explode.point
 
+$(OUTPUT_DIR)/Wasm3.wasm: EXTRA = -explode FStar.UInt128.uint128
+
 # Some custom targets
 
 SED=$(shell which gsed >/dev/null 2>&1 && echo gsed || echo sed)
