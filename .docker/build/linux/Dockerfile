@@ -17,7 +17,7 @@ ARG BRANCHNAME
 # TODO: move to the Everest-CI image
 # Install Python 3.x pip and sphinx (cf. book/README.md)
 RUN sudo apt-get --yes install python3-pip
-RUN sudo pip3 install sphinx_rtd_theme
+RUN sudo pip3 install sphinx=1.7.2 sphinx_rtd_theme
 
 # ADD SSH KEY
 RUN mkdir -p ${MYHOME}/.ssh
