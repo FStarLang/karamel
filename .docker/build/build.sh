@@ -72,6 +72,13 @@ function refresh_hints() {
     git push $remote $CI_BRANCH
 }
 
+function refresh_tutorial_is_enabled () {
+    [[ "$OS" != "Windows_NT" ]] && {
+        [[ $branchname == "master" ]]  ||
+        [[ $branchname == "taramana_ws2019" ]]
+    }
+}
+
 function misc () {
   git config --global user.name "Dzomo, the Everest Yak"
   git config --global user.email "everbld@microsoft.com"
@@ -80,8 +87,8 @@ function misc () {
 
   echo After cloning fstar-mode.el
   
-  if [[ "$OS" != "Windows_NT" ]] && [[ $branchname == "master" ]] ; then
-      git clone https://dzomo:$DZOMO_TOKEN@github.com/fstarlang/fstarlang.github.io
+  if refresh_tutorial_is_enabled ; then
+      git clone git@github.com:fstarlang/fstarlang.github.io fstarlang-github-io
   fi
 
   echo Creating _tags
@@ -93,8 +100,8 @@ function misc () {
   echo "\"node\": -traverse" >> _tags
   echo "\"MLCrypto\": -traverse" >> _tags
   echo "\"fstar-mode.el\": -traverse" >> _tags
-  if [[ $branchname == "master" ]] ; then
-      echo "\"fstarlang.github.io\": -traverse" >> _tags
+  if refresh_tutorial_is_enabled ; then
+      echo "\"fstarlang-github-io\": -traverse" >> _tags
   fi
 
   export OCAMLRUNPARAM=b
@@ -103,9 +110,9 @@ function misc () {
 }
 
 function refresh_tutorial() {
-  if false && [[ "$OS" != "Windows_NT" ]] && [[ $branchname == "master" ]]; then
+  if refresh_tutorial_is_enabled ; then
     make -C book html
-    cd fstarlang.github.io
+    cd fstarlang-github-io
     git pull
     cp -R ../book/_build/* lowstar/
     rm -rf lowstar/html/static
