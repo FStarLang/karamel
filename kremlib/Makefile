@@ -27,13 +27,15 @@ MINI_DIR = dist/minimal
 FSTAR_OPTIONS += --record_hints --use_hints --use_two_phase_tc true --odir $(EXTRACT_DIR) \
   # --use_extracted_interfaces
 
+INCLUDE_PATHS = ../runtime
+
 FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules \
   $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
   --already_cached 'FStar -FStar.Kremlin.Endianness LowStar'
 
 # Note: not compatible with the OPAM layout until fstar can be queried for the
 # location of ulib.
-ROOTS = $(wildcard *.fst) $(wildcard *.fsti) \
+ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
   $(addprefix $(FSTAR_HOME)/ulib/,FStar.UInt128.fst FStar.Date.fsti \
     FStar.HyperStack.IO.fst FStar.IO.fst FStar.Int.Cast.Full.fst \
     FStar.Bytes.fsti FStar.Dyn.fsti)
