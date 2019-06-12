@@ -134,7 +134,7 @@ let write_makefile user_ccopts custom_c_files c_files h_files =
   Utils.cp Driver.(!Options.tmpdir ^^ "Makefile.basic") Driver.(!misc_dir ^^ "Makefile.basic")
 
 let write_def c_files =
-  let dst = Filename.chop_extension !Options.exe_name ^ ".def" in
+  let dst = in_tmp_dir (Filename.chop_extension !Options.exe_name ^ ".def") in
   with_open_out_bin dst (fun oc ->
     KPrint.bfprintf oc "LIBRARY %s\n\nEXPORTS\n"
       (Filename.basename (Filename.chop_extension !Options.exe_name));
