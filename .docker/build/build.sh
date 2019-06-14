@@ -73,10 +73,8 @@ function refresh_hints() {
 }
 
 function refresh_tutorial_is_enabled () {
-    [[ "$OS" != "Windows_NT" ]] && {
-        [[ $branchname == "master" ]]  ||
-        [[ $branchname == "taramana_ws2019" ]]
-    }
+    [[ "$OS" != "Windows_NT" ]] &&
+    [[ $branchname == "master" ]]
 }
 
 function misc () {
