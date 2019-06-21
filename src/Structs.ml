@@ -278,7 +278,7 @@ let pass_by_ref files =
   (pass_by_ref is_struct)#visit_files [] files
 
 let hidden_visibility = {|
-#if defined(__GNUC__) && (defined(_WIN32) || defined(_WIN64))
+#if defined(__GNUC__) && !(defined(_WIN32) || defined(_WIN64))
 __attribute__ ((visibility ("hidden")))
 #endif
 |}
