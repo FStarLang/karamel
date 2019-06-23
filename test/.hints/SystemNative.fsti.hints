@@ -15,7 +15,7 @@
         "typing_FStar.Buffer.as_seq"
       ],
       0,
-      "cf18d0a1b3bcbe4d833b49bcf2fe7d3c"
+      "fc8f0b7e4f0d58c3a88da53a0dd0b59b"
     ],
     [
       "SystemNative.sockaddr_t",
@@ -29,7 +29,7 @@
         "fuel_guarded_inversion_SystemNative.ai_family_t"
       ],
       0,
-      "e9c1ffbb71e720f9866c39819e0cc6b5"
+      "52a90e63c0673b58854374eda1231ca2"
     ],
     [
       "SystemNative.__proj__AddrInfo__item__ai_addr",
@@ -45,7 +45,7 @@
         "projection_inverse_SystemNative.AddrInfo_ai_family"
       ],
       0,
-      "eafa1b4edcabf91309fa10b590daf168"
+      "18eade88564586cfb6c9d5ba15d24f00"
     ],
     [
       "SystemNative.addrinfo_length_decreases",
@@ -59,7 +59,7 @@
         "refinement_interpretation_Tm_refine_dbe33893899564965a42f115925172f5"
       ],
       0,
-      "cd15b9676fe56b8102b117aca28143e6"
+      "70a0fef9da64c5c15cf915636d755f70"
     ],
     [
       "SystemNative.addrinfo_live",
@@ -67,26 +67,24 @@
       2,
       1,
       [
-        "@MaxIFuel_assumption", "@query",
-        "Prims_pretyping_ae567c2fb75be05905677af440075565", "b2t_def",
-        "binder_x_0c8c560ea1f64597ac6752d770b1c7b5_0",
+        "@MaxIFuel_assumption", "@query", "b2t_def",
         "binder_x_6740e44db579bf7abf4224cbcb166d5a_1",
+        "binder_x_ed25b04ac1a3660bf4cdc8ae577888d8_0",
         "equality_tok_Prims.LexTop@tok", "equation_FStar.Buffer.buffer",
         "equation_FStar.Buffer.live",
         "equation_FStar.Monotonic.HyperStack.contains", "equation_Prims.nat",
         "equation_SystemNative.pointer_or_null",
         "fuel_guarded_inversion_FStar.Buffer._buffer",
-        "function_token_typing_Prims.__cache_version_number__",
         "lemma_SystemNative.addrinfo_length_decreases",
         "primitive_Prims.op_Addition", "primitive_Prims.op_AmpAmp",
         "projection_inverse_BoxBool_proj_0",
         "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_Tm_refine_ba523126f67e00e7cd55f0b92f16681d",
+        "refinement_interpretation_Tm_refine_542f9d4f129664613f2483a6c88bc7c2",
         "refinement_interpretation_Tm_refine_dbe33893899564965a42f115925172f5",
         "typing_SystemNative.addrinfo_length", "well-founded-ordering-on-nat"
       ],
       0,
-      "7ab070b0407217f071bdbfb6cbbdabd9"
+      "6a579beb7977d9e68aa3868548a11e73"
     ],
     [
       "SystemNative.getaddrinfo",
@@ -102,7 +100,7 @@
         "refinement_interpretation_Tm_refine_0d4da60cb6187749d65a25df63d2ab15"
       ],
       0,
-      "e436ef6c99030296d446664f9aa6a58e"
+      "237080a3b4643112fe064c766945a2b8"
     ]
   ]
 ]

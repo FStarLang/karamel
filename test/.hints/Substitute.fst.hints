@@ -8,19 +8,18 @@
       1,
       [
         "@MaxIFuel_assumption", "@query", "equation_FStar.Buffer.buffer",
-        "equation_FStar.Monotonic.HyperStack.mem",
         "fuel_guarded_inversion_FStar.Buffer._buffer",
         "function_token_typing_FStar.Int32.t",
         "lemma_FStar.Buffer.lemma_equal_domains",
         "lemma_FStar.Buffer.lemma_fresh_poppable",
         "lemma_FStar.Buffer.live_fresh",
         "lemma_FStar.Buffer.modifies_poppable_1",
-        "refinement_interpretation_Tm_refine_2011e81e05d092e08833cbfdaea77df9",
-        "refinement_interpretation_Tm_refine_dc4119174f6bc7aff4bc23eee994711e",
-        "refinement_interpretation_Tm_refine_ea9be47fb27850c2c7dc640dfed19287"
+        "refinement_interpretation_Tm_refine_156c49afb7e1e070fbb2e47dc0e3d4b2",
+        "refinement_interpretation_Tm_refine_46629447e40e494fbd6f7a8bca37ef65",
+        "refinement_interpretation_Tm_refine_bc9ccb2a50e050a2c7dfd9d2fefaba35"
       ],
       0,
-      "26c2019d64b882296716f7b008df3fb9"
+      "7edd7117f7a43a82bf5a79f95aa65bd0"
     ],
     [
       "Substitute.main",
@@ -42,13 +41,13 @@
         "lemma_FStar.Buffer.lemma_equal_domains_2",
         "lemma_FStar.Buffer.lemma_fresh_poppable",
         "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_Tm_refine_2011e81e05d092e08833cbfdaea77df9",
-        "refinement_interpretation_Tm_refine_9a74d818566e70513bc032cc3b65a144",
-        "refinement_interpretation_Tm_refine_ea9be47fb27850c2c7dc640dfed19287",
+        "refinement_interpretation_Tm_refine_05e15190c946858f68c69156f585f95a",
+        "refinement_interpretation_Tm_refine_156c49afb7e1e070fbb2e47dc0e3d4b2",
+        "refinement_interpretation_Tm_refine_46629447e40e494fbd6f7a8bca37ef65",
         "typing_tok_C.EXIT_SUCCESS@tok"
       ],
       0,
-      "d91c45a81e4a87bce3f519fe47f4f830"
+      "093836e42d6b05f79575a5cfe378c2e0"
     ]
   ]
 ]

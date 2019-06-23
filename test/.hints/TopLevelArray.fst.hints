@@ -13,11 +13,11 @@
         "lemma_FStar.Monotonic.HyperHeap.lemma_root_has_color_zero",
         "primitive_Prims.op_LessThanOrEqual",
         "projection_inverse_BoxBool_proj_0",
-        "refinement_interpretation_Tm_refine_2fbd657fe85bcb2423f9c7e5f9b3bcb5",
+        "refinement_interpretation_Tm_refine_7f37da2c7bc73049d03abda609f5f8b3",
         "typing_FStar.Monotonic.HyperHeap.root"
       ],
       0,
-      "d449fb7af4c60d4862390fe102751d28"
+      "f1026e578632c8ab06d23ec444c8a7b0"
     ],
     [
       "TopLevelArray.x",
@@ -31,11 +31,11 @@
         "lemma_FStar.Monotonic.HyperHeap.lemma_root_has_color_zero",
         "primitive_Prims.op_LessThanOrEqual",
         "projection_inverse_BoxBool_proj_0",
-        "refinement_interpretation_Tm_refine_2fbd657fe85bcb2423f9c7e5f9b3bcb5",
+        "refinement_interpretation_Tm_refine_7f37da2c7bc73049d03abda609f5f8b3",
         "typing_FStar.Monotonic.HyperHeap.root"
       ],
       0,
-      "e99f20ba47ff72f764622d48157d03a7"
+      "44a83440f74593f5567d83c8d4958796"
     ],
     [
       "TopLevelArray.g",
@@ -49,7 +49,7 @@
         "refinement_interpretation_TopLevelArray_Tm_refine_cb33895ece621ae8bc092dc7297a0116"
       ],
       0,
-      "54099bd50b57f8c305a28d5420b7416c"
+      "8f8fc6b052cc31a20069205fa294bf34"
     ],
     [
       "TopLevelArray.main",
@@ -58,20 +58,16 @@
       1,
       [
         "@MaxIFuel_assumption", "@query",
-        "FStar.Int32_pretyping_15d14b3f3a8ec128c2a2096a93f74911",
-        "data_elim_TopLevelArray.Mkt",
         "equation_FStar.HyperStack.ST.equal_stack_domains",
         "equation_FStar.Monotonic.Heap.equal_dom",
-        "equation_TopLevelArray.g",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro",
         "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_Tm_refine_5da42ff7c3b79de80d6f70a2ad8be499",
-        "refinement_interpretation_Tm_refine_ed8c7b1fd21f238b685cca4457f40353",
-        "typing_TopLevelArray.__proj__Mkt__item__y",
-        "typing_TopLevelArray.g", "typing_TopLevelArray.x"
+        "refinement_interpretation_Tm_refine_10b700189f8a2297a0ad75cda44ce2fe",
+        "refinement_interpretation_Tm_refine_cdc16c4110b147587ea5cf3760ceac60",
+        "typing_TopLevelArray.__proj__Mkt__item__y", "typing_TopLevelArray.x"
       ],
       0,
-      "41150a0138e6d8365aa75e222d1f4206"
+      "9c4a66706ca09ff953fe839d3541d336"
     ]
   ]
 ]
