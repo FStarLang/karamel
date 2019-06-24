@@ -88,11 +88,11 @@ $(HINTS_DIR):
 	mkdir -p $@
 
 $(CACHE_DIR)/%.checked: | .depend $(HINTS_DIR)
-	$(FSTAR) --hint_file $(HINTS_DIR)/$*.hints $< && \
+	$(FSTAR) $(OTHERFLAGS) --hint_file $(HINTS_DIR)/$*.hints $< && \
 	touch $@
 
 $(OUTPUT_DIR)/%.krml: | .depend
-	$(FSTAR) --codegen Kremlin \
+	$(FSTAR) $(OTHERFLAGS) --codegen Kremlin \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<))
 
