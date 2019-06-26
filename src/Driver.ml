@@ -99,17 +99,21 @@ let mk_tmpdir_if () =
 
 (** Check whether a command exited successfully *)
 let success cmd args =
-  match Process.run cmd args with
-  | { Process.Output.exit_status = Process.Exit.Exit 0; _ } -> true
-  | _ -> false
+  try
+    begin match Process.run cmd args with
+    | { Process.Output.exit_status = Process.Exit.Exit 0; _ } -> true
+    | _ -> false
+    end
+  with _ -> false
 
 let read_one_line cmd args =
-  String.trim (List.hd (Process.read_stdout cmd args))
+    String.trim (List.hd (Process.read_stdout cmd args))
 
 let read_one_error_line cmd args =
-  match Process.run cmd args with
-  | { Process.Output.stderr; _ } ->
+    begin match Process.run cmd args with
+     | { Process.Output.stderr; _ } ->
       String.trim (List.hd stderr)
+    end
 
 (** The tools we depend on; namely, readlink. *)
 let detect_base_tools () =
@@ -124,7 +128,7 @@ let detect_base_tools () =
     if read_one_line "uname" [||] = "Darwin" && !readlink = "readlink" then
       KPrint.bprintf "Warning: OSX detected and no greadlink found. Suggestion: \
         [brew install coreutils]\n";
-  with Process.Exit.Error _ ->
+  with _ ->
     ()
   end;
   if not !Options.silent then
@@ -149,22 +153,21 @@ let detect_kremlin () =
     if not !Options.silent then
       KPrint.bprintf "%sKreMLin called via:%s %s\n" Ansi.underline Ansi.reset Sys.argv.(0);
 
-    let real_krml =
-      let me = Sys.argv.(0) in
-      if Sys.os_type = "Win32" && not (Filename.is_relative me) then
-        me
-      else
-        try read_one_line !readlink [| "-f"; read_one_line "which" [| me |] |]
-        with _ -> fatal_error "Could not compute full krml path"
-    in
-    (* ../_build/src/Kremlin.native *)
-    if not !Options.silent then
-      KPrint.bprintf "%sthe Kremlin executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
-
     let krml_home =
       begin try
         Sys.getenv "KRML_HOME"
       with Not_found -> try
+        let real_krml =
+          let me = Sys.argv.(0) in
+          if Sys.os_type = "Win32" && not (Filename.is_relative me) then
+            me
+          else
+            try read_one_line !readlink [| "-f"; read_one_line "which" [| me |] |]
+            with _ -> fatal_error "Could not compute full krml path"
+        in
+        (* ../_build/src/Kremlin.native *)
+        if not !Options.silent then
+          KPrint.bprintf "%sthe Kremlin executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
         read_one_line !readlink [| "-f"; d real_krml ^^ ".." ^^ ".." |]
       with _ ->
         fatal_error "Could not compute krml_home"
