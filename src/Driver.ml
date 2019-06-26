@@ -100,20 +100,20 @@ let mk_tmpdir_if () =
 (** Check whether a command exited successfully *)
 let success cmd args =
   try
-    begin match Process.run cmd args with
+    match Process.run cmd args with
     | { Process.Output.exit_status = Process.Exit.Exit 0; _ } -> true
     | _ -> false
-    end
-  with _ -> false
+  with Unix.Unix_error (Unix.ENOENT, _, _) ->
+    (* command not found *)
+    false
 
 let read_one_line cmd args =
-    String.trim (List.hd (Process.read_stdout cmd args))
+  String.trim (List.hd (Process.read_stdout cmd args))
 
 let read_one_error_line cmd args =
-    begin match Process.run cmd args with
-     | { Process.Output.stderr; _ } ->
+  match Process.run cmd args with
+  | { Process.Output.stderr; _ } ->
       String.trim (List.hd stderr)
-    end
 
 (** The tools we depend on; namely, readlink. *)
 let detect_base_tools () =
@@ -128,8 +128,10 @@ let detect_base_tools () =
     if read_one_line "uname" [||] = "Darwin" && !readlink = "readlink" then
       KPrint.bprintf "Warning: OSX detected and no greadlink found. Suggestion: \
         [brew install coreutils]\n";
-  with _ ->
-    ()
+  with
+  | Process.Exit.Error _           (* command returned non-zero code *)
+  | Unix.Unix_error (Unix.ENOENT, _, _) (* command not found *)
+    -> ()
   end;
   if not !Options.silent then
     KPrint.bprintf "%sreadlink is:%s %s\n" Ansi.underline Ansi.reset !readlink
