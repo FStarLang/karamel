@@ -4,7 +4,7 @@
     "BaseContainerIsEverestImage" : true,
     "BaseContainerImageName" : "fstar",
     "BaseContainerImageTagOrCommitId": "latest",
-    "BranchName" : "master",
+    "BranchName" : "_taramana_thinner_container",
     "GithubCommitUrl" : "https://github.com/FStarLang/fstar/commit",
     "OnDemandBuildDefinition" : "FStar\\FStar-{agentOS}",
 
