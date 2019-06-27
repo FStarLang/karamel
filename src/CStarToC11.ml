@@ -859,7 +859,6 @@ let mk_comments =
 let wrap_verbatim flags d =
   KList.filter_map (function
     | Prologue s -> Some (Text s)
-    | Deprecated s -> Some (Text (KPrint.bsprintf "KRML_DEPRECATED(\"%s\")" s))
     | _ -> None
   ) flags @ [ d ] @ KList.filter_map (function
     | Epilogue s -> Some (Text s)

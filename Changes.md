@@ -1,9 +1,3 @@
-### June 27th, 2019
-
-- `[@ deprecated ]` and `[@ (deprecated "message")]` attributes are now
-  forwarded to the C compilers, relying on GNU atttribute syntax and MSVC declspec
-  syntax.
-
 ### May 7th, 2019
 
 - `[@ CMacro ] let x = e` will compile as `#define X (e)` -- the result is

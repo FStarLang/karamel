@@ -46,6 +46,4 @@ type flag =
       (** Branches over this variable are compiled as #ifdefs *)
   | Macro
       (** Definition compiled as a macro *)
-  | Deprecated of string
-      (** Currently behind a macro, GCC only *)
   [@@deriving yojson,show]
