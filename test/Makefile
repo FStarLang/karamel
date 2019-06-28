@@ -26,7 +26,7 @@ FILES		= \
   AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
   UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test \
   ProperErasure.test EmptyStruct.test IfDef.test StringLit.test IfThenElse.test \
-  Macro.test Mini.test
+  Macro.test Mini.test LowLevel.test
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
@@ -52,7 +52,11 @@ FSTAR		= fstar.exe --cache_checked_modules --use_two_phase_tc true \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity'
 
 # This just needs F* + KreMLin
-all: $(FILES) $(CUSTOM)
+all: $(FILES) $(CUSTOM) ctypes-test
+
+.PHONY: ctypes-test
+ctypes-test: LowLevel.test
+	cd ctypes && ocamlbuild # uses the reference ctypes/myocamlbuild.ml
 
 # Needs node
 wasm: $(WASM_FILES)
