@@ -3,4 +3,4 @@
 *.c eol=lf
 *.h eol=lf
 Makefile eol=lf
-*.hints -diff
+*.hints eol=lf -diff linguist-generated
