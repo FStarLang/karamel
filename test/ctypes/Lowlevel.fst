@@ -55,6 +55,8 @@ let my_not b =
   upd b 0ul v;
   ()
 
+let my_not_pointer = my_not
+
 // Inductives: record compilation scheme
 type tr = | Rec of U32.t & U32.t & U32.t & U32.t & U32.t
 val replicate: n: U32.t -> St tr

@@ -16,6 +16,8 @@ let move_circle (c: Lowlevel.circle)
 
 let my_not (b: Lowlevel.my_bool ptr): unit = Lowlevel.my_not b
 
+let my_not_pointer = Lowlevel.my_not_pointer
+
 let replicate (n: Unsigned.UInt32.t): Lowlevel.tr = Lowlevel.replicate n
 
 let maybe_double (n: Lowlevel.int_opt ptr): unit = Lowlevel.maybe_double n
@@ -61,6 +63,11 @@ let _ =
   let _ = my_not b_ptr in
   let v = !@ b_ptr in
   assert (v = my_bool_MyFalse);
+
+  let b2_ptr = allocate my_bool my_bool_MyFalse in
+  let _ = my_not_pointer b2_ptr in
+  let v = !@ b2_ptr in
+  assert (v = my_bool_MyTrue);
 
   let arg = Unsigned.UInt32.of_int 6 in
   let f = replicate arg in

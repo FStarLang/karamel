@@ -98,19 +98,15 @@ let rec mk_typ module_name = function
   | Void -> exp_ident "void"
   | Qualified l -> exp_ident (mk_unqual_name module_name l)
   | Bool -> exp_ident "bool"
+  | Function (_, return_type, parameters) -> build_foreign_fun module_name return_type (List.map (fun x -> {name=""; typ=x}) parameters)
   | Union _
   | Array _
-  | Function _
   | Struct _
   | Enum _
   | Const _ -> Warn.fatal_error "Unreachable"
 
-let mk_const_decl module_name name typ: structure_item =
-  mk_simple_app_decl
-    (mk_unqual_name module_name name)
-    None
-    "foreign_value"
-    [mk_const name; mk_typ module_name typ]
+and mk_extern_decl module_name name keyword typ: structure_item =
+  mk_simple_app_decl (mk_unqual_name module_name name) None keyword [mk_const name; mk_typ module_name typ]
 
 (* For binding structs, e.g. (in header file Types.h)
  *   typedef struct Types_point_s {
@@ -122,7 +118,7 @@ let mk_const_decl module_name name typ: structure_item =
  *   let point_x = field point "x" uint32_t
  *   let point_y = field point "y" uint32_t
  *   let _ = seal point *)
-let rec mk_struct_decl (k: structured) module_name name fields: structure_item list =
+and mk_struct_decl (k: structured) module_name name fields: structure_item list =
   let unqual_name = mk_unqual_name module_name name in
   let tm = mk_struct_manifest k unqual_name in
   let ctypes_structure =
@@ -155,7 +151,7 @@ let rec mk_struct_decl (k: structured) module_name name fields: structure_item l
   let seal_decl = mk_decl (Pat.any ()) (mk_app (exp_ident "seal") [exp_ident unqual_name]) in
   [type_decl; ctypes_structure] @ (KList.map_flatten (mk_field false) fields) @ [seal_decl]
 
-let mk_typedef module_name name typ =
+and mk_typedef module_name name typ =
   let type_const = match typ with
     | Int Constant.UInt8 -> Typ.mk (Ptyp_constr (mk_ident "Unsigned.UInt8.t", []))
     | Qualified t -> Typ.mk (Ptyp_constr (mk_ident (mk_unqual_name module_name t), []))
@@ -164,6 +160,20 @@ let mk_typedef module_name name typ =
   let typ_name = mk_unqual_name module_name name in
   [ Str.type_ Recursive [Type.mk ?manifest:(Some type_const) (mk_sym typ_name)]
   ; mk_simple_app_decl typ_name None "typedef" [mk_typ module_name typ; mk_const name] ]
+
+and build_foreign_fun module_name return_type parameters : expression =
+  let types = List.map (fun n -> mk_typ module_name n.typ) parameters in
+  let returning = mk_app (exp_ident "returning") [mk_typ module_name return_type] in
+  List.fold_right (fun t1 t2 -> mk_app (exp_ident "@->") [t1; t2]) types returning
+
+and build_foreign_exp module_name name return_type parameters : expression =
+  mk_app (exp_ident "foreign") [mk_const name; build_foreign_fun module_name return_type parameters]
+
+let build_binding module_name name return_type parameters : structure_item =
+  let func_name = KString.chop name (module_name ^ "_") in
+  let e = build_foreign_exp module_name name return_type parameters in
+  let p = Pat.mk (Ppat_var (mk_sym func_name)) in
+  mk_decl p e
 
 let mk_enum_tags module_name name tags =
   let rec mk_tags n tags =
@@ -175,18 +185,6 @@ let mk_enum_tags module_name name tags =
          [Exp.constant (Const.int n)]) :: (mk_tags (n+1) ts)
   in
   mk_tags 0 tags
-
-let build_foreign_exp module_name name return_type parameters : expression =
-  let types = List.map (fun n -> mk_typ module_name n.typ) parameters in
-  let returning = mk_app (exp_ident "returning") [mk_typ module_name return_type] in
-  let e = List.fold_right (fun t1 t2 -> mk_app (exp_ident "@->") [t1; t2]) types returning in
-  mk_app (exp_ident "foreign") [mk_const name; e]
-
-let build_binding module_name name return_type parameters : structure_item =
-  let func_name = KString.chop name (module_name ^ "_") in
-  let e = build_foreign_exp module_name name return_type parameters in
-  let p = Pat.mk (Ppat_var (mk_sym func_name)) in
-  mk_decl p e
 
 let mk_ctypes_decl module_name (d: decl): structure =
   match d with
@@ -205,7 +203,11 @@ let mk_ctypes_decl module_name (d: decl): structure =
       | Qualified t -> mk_typedef module_name name (Qualified t)
       | _ -> []
       end
-  | Global (name, _, _, typ, _) -> [mk_const_decl module_name name typ]
+  | Global (name, _, _, typ, _) -> begin
+      match typ with
+      | Function _ -> [mk_extern_decl module_name name "foreign" typ]
+      | _ -> [mk_extern_decl module_name name "foreign_value" typ]
+      end
   | External _
   | TypeForward _ -> []
 
