@@ -86,7 +86,9 @@ let structured_kw = function
 let mk_struct_manifest (k: structured) t =
   let tag = match k with
     | Struct -> t
-    | Union -> "anonymous" (* unions only ever appear as anonymous fields in structs *)
+    (* unions only ever appear as anonymous fields in structs, unless the -fnoanonymous-unions is passed,
+       in which case they are assigned a name *)
+    | Union -> if !Options.anonymous_unions then "anonymous" else t
   in
   let row_field = Rtag(tag, no_attrs, false, []) in
   let row = Typ.variant [row_field] Closed None in
@@ -123,28 +125,35 @@ and mk_struct_decl (k: structured) module_name name fields: structure_item list 
   let tm = mk_struct_manifest k unqual_name in
   let ctypes_structure =
     let struct_name = match k with
+      | Union when !Options.anonymous_unions -> ""
+      | Union
       | Struct -> mk_struct_name name
-      | Union -> ""
     in
     let t = Typ.mk (Ptyp_constr (mk_ident "typ", [tm])) in
     let e = mk_app (exp_ident (structured_kw k)) [mk_const struct_name] in
     let p = Pat.mk (Ppat_var (mk_sym unqual_name)) in
     mk_decl ~t p e
   in
-  let rec mk_field anon (f_name, f_typ) =
-    match f_name with
-    | Some name ->
-      let p = Pat.mk (Ppat_var (mk_sym (unqual_name ^ "_" ^ name))) in
-      let c_name = if anon then "" else name in
-      let e = mk_app (exp_ident "field") [exp_ident unqual_name; mk_const c_name; mk_typ module_name f_typ] in
-      [[Vb.mk p e] |> Str.value Nonrecursive]
-    | None -> (* an anonymous union in a struct *)
-      begin match f_typ with
-      | Union fields ->
-          let name = unqual_name ^ "__u" in
-          let fields = List.map (fun (x, y) -> (Some x, y)) fields in
-          (mk_struct_decl Union module_name name fields) @ (mk_field true (Some "u", Qualified name))
-      | _ -> Warn.fatal_error "Unreachable"
+  let rec mk_field anon ((f_name, f_typ): string option * CStar.typ) =
+    (* A field can be a named or an anonymous union, which needs to be handled separately and generates
+       additional declaratons, or another type, which only generates the field declaration *)
+    match f_typ with
+    | Union fields ->
+      let anon, name =
+        match f_name with
+        | Some name -> false, unqual_name ^ "_" ^ name
+        | _ -> true, unqual_name ^ "_val"
+      in
+      let fields = List.map (fun (x, y) -> (Some x, y)) fields in
+      (mk_struct_decl Union module_name name fields) @ (mk_field anon (Some "u", Qualified name))
+    | _ ->
+      begin match f_name with
+      | Some name ->
+        let p = Pat.mk (Ppat_var (mk_sym (unqual_name ^ "_" ^ name))) in
+        let c_name = if anon then "" else name in
+        let e = mk_app (exp_ident "field") [exp_ident unqual_name; mk_const c_name; mk_typ module_name f_typ] in
+        [[Vb.mk p e] |> Str.value Nonrecursive]
+      | None -> Warn.fatal_error "Unreachable" (* only unions can be anonymous *)
       end
   in
   let type_decl = Str.type_ Recursive [Type.mk ?manifest:(Some tm) (mk_sym unqual_name)] in

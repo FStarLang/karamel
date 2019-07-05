@@ -48,7 +48,7 @@ KRML_FLAGS= -bundle Prims \
   -minimal \
   -add-include '"kremlin/internal/types.h"' \
   -add-include '"kremlin/internal/target.h"' \
-  -add-include '"kremlin/c_endianness.h"' \
+  -add-include '"kremlin/lowstar_endianness.h"' \
   -add-include '<string.h>' \
   -fno-shadow -fcurly-braces
 
@@ -58,6 +58,7 @@ KRML_FLAGS= -bundle Prims \
 	$(KRML) $(KRML_FLAGS) \
 	  -tmpdir bindings -skip-compilation $(filter %.krml,$^) \
 	  -ccopt -Wno-unused \
+      -fnoanonymous-unions \
 	  -warn-error @4 \
       -ctypes '$*'
 

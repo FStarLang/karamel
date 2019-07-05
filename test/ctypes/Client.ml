@@ -87,13 +87,13 @@ let _ =
 
   let arg1 = (Unsigned.UInt32.of_int 5) in
   let e1 = make_L arg1 in
-  assert (getf e1 eith_tag = eith_tags_L && getf (getf e1 eith_u) eith__u_case_L = arg1);
+  assert (getf e1 eith_tag = eith_tags_L && getf (getf e1 eith_u) eith_val_case_L = arg1);
 
   let arg2 = (Unsigned.UInt16.of_int 7) in
   let e2 = make_R arg2 in
-  assert (getf e2 eith_tag = eith_tags_R && getf (getf e2 eith_u) eith__u_case_R = arg2);
+  assert (getf e2 eith_tag = eith_tags_R && getf (getf e2 eith_u) eith_val_case_R = arg2);
 
   let n_ptr = allocate Lowlevel.eith e2 in
   flip_t n_ptr;
   let v = !@ n_ptr in
-  assert (getf v eith_tag = eith_tags_L && getf (getf v eith_u) eith__u_case_L = Unsigned.UInt32.of_int 7)
+  assert (getf v eith_tag = eith_tags_L && getf (getf v eith_u) eith_val_case_L = Unsigned.UInt32.of_int 7)
