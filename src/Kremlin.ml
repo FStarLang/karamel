@@ -324,7 +324,7 @@ Supported options:|}
   in
   begin try
     Arg.parse spec anon_fun usage
-  with Ulexing.Error | Kparser.Error ->
+  with Ulexing.Error | KParser.Error ->
     KPrint.bprintf "Complete invocation was: %s\n"
       (String.concat "␣" (Array.to_list Sys.argv));
     exit 1
