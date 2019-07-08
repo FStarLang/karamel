@@ -203,4 +203,28 @@ inline static void store64(uint8_t *b, uint64_t i) {
 #define load64_be(b) (be64toh(load64(b)))
 #define store64_be(b, i) (store64(b, htobe64(i)))
 
+/* Co-existence of LowStar.Endianness and FStar.Endianness generates name
+ * conflicts, because of course both insist on having no prefixes. Until a
+ * prefix is added, or until we truly retire FStar.Endianness, solve this issue
+ * in an elegant way. */
+#define load16_le0 load16_le
+#define store16_le0 store16_le
+#define load16_be0 load16_be
+#define store16_be0 store16_be
+
+#define load32_le0 load32_le
+#define store32_le0 store32_le
+#define load32_be0 load32_be
+#define store32_be0 store32_be
+
+#define load64_le0 load64_le
+#define store64_le0 store64_le
+#define load64_be0 load64_be
+#define store64_be0 store64_be
+
+#define load128_le0 load128_le
+#define store128_le0 store128_le
+#define load128_be0 load128_be
+#define store128_be0 store128_be
+
 #endif
