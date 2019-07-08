@@ -157,7 +157,7 @@ let detect_kremlin () =
 
     let krml_home =
       begin try
-        Sys.getenv "KRML_HOME"
+        Sys.getenv "KREMLIN_HOME"
       with Not_found -> try
         let real_krml =
           let me = Sys.argv.(0) in
