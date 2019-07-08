@@ -14,7 +14,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "25e9fee10abccd823fe42588bb6626d7"
+      "071d9ca09fda4ece652b6647ea1de305"
     ],
     [
       "FunPtr.main",
@@ -30,7 +30,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "7cf2e2ba83c426e0ed40b87f830dcf19"
+      "fdd388ff34b3df08e362e9e923e5bc7b"
     ]
   ]
 ]
