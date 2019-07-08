@@ -26,7 +26,7 @@ FILES		= \
   AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
   UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test \
   ProperErasure.test EmptyStruct.test IfDef.test StringLit.test IfThenElse.test \
-  Macro.test Mini.test
+  Macro.test Mini.test Endianness.test
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
