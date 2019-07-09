@@ -3,10 +3,10 @@
 # Reinstate @3 once we move to 4.03.0
 true: annot, bin_annot, warn(@1-2-3@8..12@14..21@23..29-30@31..38-39@40-41@43@57), \
   package(ppx_deriving.std), package(ppx_deriving_yojson), \
-  package(zarith), package(pprint), package(unix), package(menhirLib), package(ulex), \
+  package(zarith), package(pprint), package(unix), package(menhirLib), package(sedlex), \
   package(process), package(fix), package(wasm), debug, strict_sequence, \
   package(visitors.ppx), package(visitors.runtime)
-"parser/Lexer.ml": syntax(camlp4o), syntax(pa_ulex)
+"parser/Lexer.ml": syntax(camlp4o)
 <test>: -traverse
 <kremlib/{extracted,c,out,dist}>: -traverse
 <kremlib/**/*.ml>: package(fstarlib)

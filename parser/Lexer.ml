@@ -1,13 +1,13 @@
-open Ulexing
+open Sedlexing
 open Parser
 
-let regexp digit = ['0'-'9']
-let regexp int = digit+
-let regexp low_alpha = ['a'-'z']
-let regexp up_alpha =  ['A'-'Z']
-let regexp any = up_alpha | low_alpha | '_' | digit
-let regexp lident = low_alpha any*
-let regexp uident = up_alpha any*
+let digit = [%sedlex.regexp? '0'..'9']
+let integer = [%sedlex.regexp? Plus digit]
+let low_alpha = [%sedlex.regexp? 'a'..'z']
+let up_alpha =  [%sedlex.regexp? 'A'..'Z']
+let any = [%sedlex.regexp? up_alpha | low_alpha | '_' | digit]
+let lident = [%sedlex.regexp? low_alpha, Star (any)]
+let uident = [%sedlex.regexp? up_alpha, Star (any)]
 
 let locate _ tok = tok, Lexing.dummy_pos, Lexing.dummy_pos
 
@@ -15,8 +15,9 @@ let keywords = [
   "rename", RENAME
 ]
 
-let rec token = lexer
-| int ->
+let rec token tok =
+match%sedlex tok with
+| integer ->
     let l = utf8_lexeme lexbuf in
     locate lexbuf (INT (int_of_string l))
 | uident ->
