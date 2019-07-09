@@ -225,7 +225,7 @@ let parse_warn_error s =
   let user_flags =
     try
       the_parser (fun _ -> Lexer.token lexbuf)
-    with Sedlexing.Error | Parser.Error ->
+    with Sedlexing.MalFormed | Sedlexing.InvalidCodepoint _ | Parser.Error ->
       fatal_error "Malformed warn-error list"
   in
   List.iter (fun (f, (l, h)) ->

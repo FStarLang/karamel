@@ -78,6 +78,6 @@ let parse the_parser arg =
   let lexbuf = Sedlexing.Utf8.from_string arg in
   try
     the_parser (fun _ -> Lexer.token lexbuf)
-  with Sedlexing.Error | Parser.Error as e ->
+  with Sedlexing.MalFormed | Sedlexing.InvalidCodepoint _ | Parser.Error as e ->
     KPrint.bprintf "Syntax error in: %s\n" arg;
     raise e

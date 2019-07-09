@@ -15,16 +15,16 @@ let keywords = [
   "rename", RENAME
 ]
 
-let rec token tok =
-match%sedlex tok with
+let rec token lexbuf =
+match%sedlex lexbuf with
 | integer ->
-    let l = utf8_lexeme lexbuf in
+    let l = Utf8.lexeme lexbuf in
     locate lexbuf (INT (int_of_string l))
 | uident ->
-    let l = utf8_lexeme lexbuf in
+    let l = Utf8.lexeme lexbuf in
     locate lexbuf (UIDENT l)
 | lident ->
-    let l = utf8_lexeme lexbuf in
+    let l = Utf8.lexeme lexbuf in
     begin try
       locate lexbuf (List.assoc l keywords)
     with Not_found ->
@@ -41,3 +41,4 @@ match%sedlex tok with
 | "[" -> locate lexbuf LBRACK
 | "]" -> locate lexbuf RBRACK
 | eof -> locate lexbuf EOF
+| _ -> assert false
