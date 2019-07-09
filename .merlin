@@ -1,5 +1,5 @@
 S src
 S lib
 B _build/*
-PKG ppx_deriving.std ppx_deriving_yojson zarith pprint unix wasm process ulex
+PKG ppx_deriving.std ppx_deriving_yojson zarith pprint unix wasm process sedlex
 PKG visitors.ppx visitors.runtime
