@@ -1,13 +1,13 @@
-open Ulexing
+open Sedlexing
 open Parser
 
-let regexp digit = ['0'-'9']
-let regexp int = digit+
-let regexp low_alpha = ['a'-'z']
-let regexp up_alpha =  ['A'-'Z']
-let regexp any = up_alpha | low_alpha | '_' | digit
-let regexp lident = low_alpha any*
-let regexp uident = up_alpha any*
+let digit = [%sedlex.regexp? '0'..'9']
+let integer = [%sedlex.regexp? Plus digit]
+let low_alpha = [%sedlex.regexp? 'a'..'z']
+let up_alpha =  [%sedlex.regexp? 'A'..'Z']
+let any = [%sedlex.regexp? up_alpha | low_alpha | '_' | digit]
+let lident = [%sedlex.regexp? low_alpha, Star (any)]
+let uident = [%sedlex.regexp? up_alpha, Star (any)]
 
 let locate _ tok = tok, Lexing.dummy_pos, Lexing.dummy_pos
 
@@ -15,15 +15,16 @@ let keywords = [
   "rename", RENAME
 ]
 
-let rec token = lexer
-| int ->
-    let l = utf8_lexeme lexbuf in
+let rec token lexbuf =
+match%sedlex lexbuf with
+| integer ->
+    let l = Utf8.lexeme lexbuf in
     locate lexbuf (INT (int_of_string l))
 | uident ->
-    let l = utf8_lexeme lexbuf in
+    let l = Utf8.lexeme lexbuf in
     locate lexbuf (UIDENT l)
 | lident ->
-    let l = utf8_lexeme lexbuf in
+    let l = Utf8.lexeme lexbuf in
     begin try
       locate lexbuf (List.assoc l keywords)
     with Not_found ->
@@ -40,3 +41,4 @@ let rec token = lexer
 | "[" -> locate lexbuf LBRACK
 | "]" -> locate lexbuf RBRACK
 | eof -> locate lexbuf EOF
+| _ -> assert false
