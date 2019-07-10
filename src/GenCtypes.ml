@@ -179,7 +179,12 @@ and build_foreign_exp module_name name return_type parameters : expression =
   mk_app (exp_ident "foreign") [mk_const name; build_foreign_fun module_name return_type parameters]
 
 let build_binding module_name name return_type parameters : structure_item =
-  let func_name = KString.chop name (module_name ^ "_") in
+  let func_name =
+    if KString. starts_with name (module_name ^ "_") then
+      KString.chop name (module_name ^ "_")
+    else
+      name
+  in
   let e = build_foreign_exp module_name name return_type parameters in
   let p = Pat.mk (Ppat_var (mk_sym func_name)) in
   mk_decl p e
@@ -253,7 +258,7 @@ let mk_gen_decls module_name =
   let mk_out_channel n =
     mk_app
       (exp_ident "Format.set_formatter_out_channel")
-      [(mk_app (exp_ident "open_out_bin") [mk_const (Output.in_tmp_dir n)])]
+      [(mk_app (exp_ident "open_out_bin") [mk_const n])]
   in
   let mk_cstubs_write typ n =
     Exp.apply
@@ -279,9 +284,11 @@ let write_ml (path: string) (m: structure_item list) =
   Format.pp_print_flush Format.std_formatter ()
 
 let write_gen_module files =
-  let m = List.map mk_gen_decls files in
-  let path = Output.in_tmp_dir "Gen_stubs.ml" in
-  write_ml path m
+  List.iter (fun name ->
+    let m = mk_gen_decls name in
+    let path = Output.in_tmp_dir name ^ "_gen_stubs.ml" in
+    write_ml path [m]
+  ) files
 
 let write_bindings (files: (string * string list * structure_item list) list) =
   List.map (fun (name, _, m) ->
