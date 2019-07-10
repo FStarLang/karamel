@@ -6,3 +6,4 @@ PKG visitors.ppx visitors.runtime
 PKG compiler-libs
 PKG compiler-libs.common
 PKG ocaml-migrate-parsetree
+PKG ocamlbuild

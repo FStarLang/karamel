@@ -26,7 +26,7 @@ FILES		= \
   AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
   UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test \
   ProperErasure.test EmptyStruct.test IfDef.test StringLit.test IfThenElse.test \
-  Macro.test Mini.test LowLevel.test
+  Macro.test Mini.test Lowlevel.test
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
@@ -44,9 +44,9 @@ WEB_DIR		?= web
 CACHE_DIR	= .cache
 OUTPUT_DIR	= .output
 HINTS_DIR	= .hints
-FSTAR		= fstar.exe --cache_checked_modules --use_two_phase_tc true \
-  --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
-  --include hello-system --include ../kremlib/compat \
+FSTAR		= $(FSTAR_HOME)/bin/fstar.exe --cache_checked_modules \
+  --use_two_phase_tc true --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
+  --include hello-system --include ctypes --include ../kremlib/compat \
   --include ../kremlib --include ../runtime \
   --include $(CRYPTO) --include ../book --use_hints --record_hints \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity'
@@ -55,8 +55,17 @@ FSTAR		= fstar.exe --cache_checked_modules --use_two_phase_tc true \
 all: $(FILES) $(CUSTOM) ctypes-test
 
 .PHONY: ctypes-test
-ctypes-test: LowLevel.test
-	cd ctypes && ocamlbuild # uses the reference ctypes/myocamlbuild.ml
+ctypes-test: $(OUTPUT_DIR)/Lowlevel.exe
+	cp -t $(OUTPUT_DIR)/Lowlevel.out ctypes/myocamlbuild.ml ctypes/Client.ml
+
+	# WIP: due to errors with ocamlbuild, I currently have to do this
+	export CTYPES=$(shell ocamlfind query ctypes) && cd $(OUTPUT_DIR)/Lowlevel.out && ocamlbuild Lowlevel_c_stubs.o
+	cp $(OUTPUT_DIR)/Lowlevel.out/Client.ml $(OUTPUT_DIR)/Lowlevel.out/_build
+	cd $(OUTPUT_DIR)/Lowlevel.out/_build && ocamlfind ocamlopt -linkpkg -package ctypes,ctypes.foreign -cclib -Wl,-E -cclib Lowlevel.o Lowlevel_c_stubs.o Lowlevel_bindings.ml Lowlevel_stubs.ml Client.ml -o Client.native
+	# but ideally I'd do this instead
+	# export CTYPES=$(shell ocamlfind query ctypes) && cd $(OUTPUT_DIR)/Lowlevel.out && ocamlbuild Client.native
+
+	cd $(OUTPUT_DIR)/Lowlevel.out/_build && ./Client.native
 
 # Needs node
 wasm: $(WASM_FILES)
@@ -132,6 +141,13 @@ $(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fnoshort-enums
 $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
 $(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel memcpymodel_impl.c
 $(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
+$(OUTPUT_DIR)/Lowlevel.exe: EXTRA = -ctypes 'Lowlevel' -skip-compilation \
+  -add-include '"kremlin/internal/types.h"' \
+  -add-include '"kremlin/internal/target.h"' \
+  -add-include '"kremlin/lowstar_endianness.h"' \
+  -add-include '<string.h>' \
+  -bundle Prims -bundle LowStar.* \
+  -bundle C,C.String,C.Loops,Spec.Loops,C.Endianness,FStar.*[rename=Lib]
 
 # Some custom targets
 
