@@ -27,13 +27,15 @@ MINI_DIR = dist/minimal
 FSTAR_OPTIONS += --record_hints --use_hints --use_two_phase_tc true --odir $(EXTRACT_DIR) \
   # --use_extracted_interfaces
 
+INCLUDE_PATHS = ../runtime
+
 FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules \
   $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
   --already_cached 'FStar -FStar.Kremlin.Endianness LowStar'
 
 # Note: not compatible with the OPAM layout until fstar can be queried for the
 # location of ulib.
-ROOTS = $(wildcard *.fst) $(wildcard *.fsti) \
+ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
   $(addprefix $(FSTAR_HOME)/ulib/,FStar.UInt128.fst FStar.Date.fsti \
     FStar.HyperStack.IO.fst FStar.IO.fst FStar.Int.Cast.Full.fst \
     FStar.Bytes.fsti FStar.Dyn.fsti)
@@ -72,7 +74,7 @@ KREMLIN_ARGS += -fparentheses -fcurly-braces -fno-shadow -header copyright-heade
 $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(wildcard c/*.c) .depend ../_build/src/Kremlin.native
 	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(GENERIC_DIR) \
 	  -warn-error +9+11 -skip-compilation -extract-uints \
-	  $(addprefix -add-include ,'<inttypes.h>' '"kremlib.h"' '"kremlin/internal/compat.h"') \
+	  $(addprefix -add-include ,'<inttypes.h>' '"kremlib.h"' '"kremlin/internal/compat.h"' '"kremlin/internal/target.h"') \
 	  -bundle FStar.UInt64+FStar.UInt32+FStar.UInt16+FStar.UInt8=[rename=FStar_UInt_8_16_32_64] \
 	  -bundle C.Endianness= \
 	  -bundle FStar.Reflection,FStar.Reflection.*,FStar.Tactics,FStar.Tactics.*,FStar.Range \
@@ -85,7 +87,7 @@ $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(wildcard c/*.c) .depend .
 # UInt128-only build
 $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
 	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(UINT128_DIR) -skip-compilation -extract-uints \
-	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"kremlin/internal/types.h"') \
+	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"kremlin/internal/types.h"' '"kremlin/internal/target.h"') \
 	  -bundle FStar.UInt128=* \
 	  -ccopt -DKRML_VERIFIED_UINT128 \
 	  -o libkremlib.a \
@@ -99,7 +101,8 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | c/fstar_uint128.c .depend ../_
 	    '<inttypes.h>' '<stdbool.h>' \
 	    '"kremlin/internal/compat.h"' \
 	    '"kremlin/lowstar_endianness.h"' \
-	    '"kremlin/internal/types.h"') \
+	    '"kremlin/internal/types.h"' \
+	    '"kremlin/internal/target.h"') \
 	  -bundle FStar.UInt64+FStar.UInt32+FStar.UInt16+FStar.UInt8=[rename=FStar_UInt_8_16_32_64] \
 	  -bundle C.Endianness= \
 	  -library FStar.UInt128 \

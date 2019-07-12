@@ -1,7 +1,9 @@
 KreMLin
 -------
 
-[![Build Status](https://travis-ci.com/FStarLang/kremlin.svg?branch=master)](https://travis-ci.com/FStarLang/kremlin)
+| Linux | Windows |
+|---------|-------|
+| [![Linux](https://msr-project-everest.visualstudio.com/Everest/_apis/build/status/Kremlin/Kremlin-Linux?branchName=master)](https://msr-project-everest.visualstudio.com/Everest/_build/latest?definitionId=38&branchName=master) | [![Windows](https://msr-project-everest.visualstudio.com/Everest/_apis/build/status/Kremlin/Kremlin-Windows?branchName=master)](https://msr-project-everest.visualstudio.com/Everest/_build/latest?definitionId=40&branchName=master) |
 
 KreMLin is a tool that extracts an F\* program to readable C code. If the F\*
 program verifies against a low-level memory model that talks about the stack and
@@ -42,7 +44,7 @@ make via homebrew, and invoke `gmake` instead of `make`.
 
 **Regarding OCaml:** Install OPAM via your package manager, then:
 
-`$ opam install ppx_deriving_yojson zarith pprint menhir ulex process fix wasm visitors`
+`$ opam install ppx_deriving_yojson zarith pprint menhir sedlex process fix wasm visitors`
 
 Next, make sure you have an up-to-date F\*, and that you ran `make` in the
 `ulib/ml` directory of F\*. The `fstar.exe` executable should be on your PATH

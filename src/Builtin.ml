@@ -192,7 +192,7 @@ let dyn: file =
       [ fresh_binder "x" (TBound 0) ],
       with_type void_star (ECast (with_type (TBound 0) (EBound 0), void_star)))
   ]
-  
+
 let lowstar_monotonic_buffer: file =
   "LowStar_Monotonic_Buffer", [
     mk_val [ "LowStar"; "Monotonic"; "Buffer" ] "is_null" (TArrow (TBuf TAny, TBool));
@@ -212,6 +212,59 @@ let lowstar_buffer: file =
     mk_val [ "LowStar"; "Buffer" ] "null" (TArrow (TAny, TBuf TAny));
   ]
 
+let lowstar_endianness: file =
+  let open Constant in
+  let buf8 = TBuf (TInt UInt8) in
+  let int32 = TInt UInt32 in
+  (* In the model, store depends on store_i; however, at run-time, we define store
+   * and store_i is just an alias for store along with a buffer offset. *)
+  let mk t e =
+    let bw = match t with
+      | TInt w -> bytes_of_width w * 8
+      | TQualified (["FStar"; "UInt128"], "uint128") -> 128
+      | _ -> assert false
+    in
+    let store_t = TArrow (buf8, TArrow (t, TUnit)) in
+    let store_lid = [ "LowStar"; "Endianness" ], KPrint.bsprintf "store%d_%s" bw e in
+    let store_i_lid = [ "LowStar"; "Endianness" ], KPrint.bsprintf "store%d_%s_i" bw e in
+    [
+      (* assume val store16_le: buffer uint8 -> uint16 -> unit *)
+      mk_val (fst store_lid) (snd store_lid) store_t;
+      (* let store16_le_i #_ #_ b i x = store16_le (b + i) x *)
+      DFunction (None, [ Common.MustDisappear ], 2, TUnit,
+      store_i_lid,
+      [ fresh_binder "b" buf8; fresh_binder "i" int32; fresh_binder "x" t ],
+      with_unit (EApp (with_type store_t (EQualified store_lid),
+        [ with_type buf8 (EBufSub (with_type buf8 (EBound 2), with_type int32 (EBound 1)));
+          with_type t (EBound 0) ])));
+    ]
+
+    @
+
+    let load_t = TArrow (buf8, t) in
+    let load_lid = [ "LowStar"; "Endianness" ], KPrint.bsprintf "load%d_%s" bw e in
+    let load_i_lid = [ "LowStar"; "Endianness" ], KPrint.bsprintf "load%d_%s_i" bw e in
+    [
+      (* assume val load16_le: buffer uint8 -> uint16 *)
+      mk_val (fst load_lid) (snd load_lid) load_t;
+      (* let load16_le_i #_ #_ b i = load16_le (b + i) *)
+      DFunction (None, [ Common.MustDisappear ], 2, t,
+      load_i_lid,
+      [ fresh_binder "b" buf8; fresh_binder "i" int32 ],
+      with_unit (EApp (with_type load_t (EQualified load_lid),
+        [ with_type buf8 (EBufSub (with_type buf8 (EBound 1), with_type int32 (EBound 0)))])));
+    ]
+  in
+  "LowStar_Endianness",
+  mk (TInt UInt16) "le" @
+  mk (TInt UInt16) "be" @
+  mk (TInt UInt32) "le" @
+  mk (TInt UInt32) "be" @
+  mk (TInt UInt64) "le" @
+  mk (TInt UInt64) "be" @
+  mk (TQualified (["FStar"; "UInt128"], "uint128")) "le" @
+  mk (TQualified (["FStar"; "UInt128"], "uint128")) "be"
+
 let c_nullity: file =
   (* Poor man's substitute to polymorphic assumes ... this needs to be here to
    * provide proper typing when is_null is in match position. *)
@@ -225,6 +278,7 @@ let hand_written = [
   buffer;
   lowstar_monotonic_buffer;
   lowstar_buffer;
+  lowstar_endianness;
   monotonic_hh;
   monotonic_hs;
   hs;

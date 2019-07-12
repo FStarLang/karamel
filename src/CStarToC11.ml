@@ -37,6 +37,11 @@ let builtin_names =
     "rand"; "srand"; "exit"; "fflush"; "clock";
     (* Hand-written type definition parameterized over KRML_VERIFIED_UINT128 *)
     "FStar_UInt128_uint128";
+    (* Hand-written implementations in include/kremlin/fstar_int.h *)
+    "FStar_Int8_shift_arithmetic_right";
+    "FStar_Int16_shift_arithmetic_right";
+    "FStar_Int32_shift_arithmetic_right";
+    "FStar_Int64_shift_arithmetic_right";
     (* Macros, no external linkage *)
     "htole16";
     "le16toh";
@@ -854,6 +859,9 @@ let mk_comments =
 let wrap_verbatim flags d =
   KList.filter_map (function
     | Prologue s -> Some (Text s)
+    | _ -> None
+  ) flags @ KList.filter_map (function
+    | Deprecated s -> Some (Text (KPrint.bsprintf "KRML_DEPRECATED(\"%s\")" s))
     | _ -> None
   ) flags @ [ d ] @ KList.filter_map (function
     | Epilogue s -> Some (Text s)

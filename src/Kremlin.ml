@@ -324,7 +324,7 @@ Supported options:|}
   in
   begin try
     Arg.parse spec anon_fun usage
-  with Ulexing.Error | KParser.Error ->
+  with Sedlexing.MalFormed | Sedlexing.InvalidCodepoint _ | KParser.Error ->
     KPrint.bprintf "Complete invocation was: %s\n"
       (String.concat "␣" (Array.to_list Sys.argv));
     exit 1
@@ -617,6 +617,10 @@ Supported options:|}
     OutputJs.write_all !js_files modules !arg_print_wasm
 
   else
+    let _ = () in
+    if KString.starts_with !Options.exe_name "lib" then
+      Output.write_def files;
+
     (* Translate to C*... *)
     let files = AstToCStar.mk_files files ifdefs macros in
     tick_print true "AstToCStar";

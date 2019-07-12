@@ -26,7 +26,7 @@ FILES		= \
   AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
   UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test \
   ProperErasure.test EmptyStruct.test IfDef.test StringLit.test IfThenElse.test \
-  Macro.test Mini.test Lowlevel.test
+  Macro.test Mini.test Endianness.test Lowlevel.test
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
@@ -44,9 +44,18 @@ WEB_DIR		?= web
 CACHE_DIR	= .cache
 OUTPUT_DIR	= .output
 HINTS_DIR	= .hints
-FSTAR		= $(FSTAR_HOME)/bin/fstar.exe --cache_checked_modules \
-  --use_two_phase_tc true --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
-  --include hello-system --include ctypes --include ../kremlib/compat \
+
+ifdef FSTAR_HOME
+  # Assume there is a F* source tree
+  FSTAR_EXE=$(FSTAR_HOME)/bin/fstar.exe
+else
+  # Assume F* in the PATH
+  FSTAR_EXE=fstar.exe
+endif
+
+FSTAR		= $(FSTAR_EXE) --cache_checked_modules --use_two_phase_tc true \
+  --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
+  --include hello-system --include ../kremlib/compat \
   --include ../kremlib --include ../runtime \
   --include $(CRYPTO) --include ../book --use_hints --record_hints \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity'
@@ -92,11 +101,11 @@ $(HINTS_DIR):
 	mkdir -p $@
 
 $(CACHE_DIR)/%.checked: | .depend $(HINTS_DIR)
-	$(FSTAR) --hint_file $(HINTS_DIR)/$*.hints $< && \
+	$(FSTAR) $(OTHERFLAGS) --hint_file $(HINTS_DIR)/$*.hints $< && \
 	touch $@
 
 $(OUTPUT_DIR)/%.krml: | .depend
-	$(FSTAR) --codegen Kremlin \
+	$(FSTAR) $(OTHERFLAGS) --codegen Kremlin \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<))
 
