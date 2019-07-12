@@ -30,7 +30,7 @@ FILES		= \
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
-CUSTOM		= count-uu ctypes
+CUSTOM		= count-uu
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
@@ -166,10 +166,6 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 	  $(SED) 's/.*\(uu____\([0-9]\+\)\).*/\1/g' \
 	  | uniq | wc -l` = 1 ]
 
-.PHONY: ctypes
-ctypes:
-	$(MAKE) -C ctypes Client.exe
-
 # A pseudo-target for WASM compilation that does not match any specific file.
 # All WASM targets get the -wasm flag; some specific targets may override
 # NEGATIVE for negative tests.
@@ -193,7 +189,6 @@ WasmTrap.wasm-test: NEGATIVE = true
 
 clean:
 	rm -rf $(WEB_DIR) .output
-	$(MAKE) -C ctypes clean
 
 distclean: clean
 	rm -rf .cache
