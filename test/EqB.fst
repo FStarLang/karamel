@@ -4,6 +4,7 @@ open FStar.HyperStack.ST
 
 open FStar.Buffer
 
+#reset-options "--z3rlimit 50"
 let main (): St Int32.t =
   push_frame ();
   let b1 = createL [ 1ul; 2ul; 3ul ] in
