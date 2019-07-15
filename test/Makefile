@@ -153,6 +153,7 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 LOWLEVEL_DIR=$(OUTPUT_DIR)/Lowlevel.out
 
 $(LOWLEVEL_DIR)/%: ctypes/%
+	mkdir -p $(dir $@)
 	cp $< $@
 
 ctypes-test: $(LOWLEVEL_DIR)/Client.native $(LOWLEVEL_DIR)/Client.byte
