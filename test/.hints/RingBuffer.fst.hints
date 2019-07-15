@@ -576,7 +576,7 @@
         "typing_RingBuffer.one_past_last"
       ],
       0,
-      "63171cd4849a9fe69329782bf4f1964c"
+      "5bdd4773064c0a1058bbfcafea3ed2c6"
     ],
     [
       "RingBuffer.as_list_append_one",

@@ -157,7 +157,7 @@ $(LOWLEVEL_DIR)/%: ctypes/%
 	cp $< $@
 
 ctypes-test: $(LOWLEVEL_DIR)/Client.native
-	cd $(LOWLEVEL_DIR)/_build && export PATH=. && export LD_LIBRARY_PATH=. && \
+	cd $(LOWLEVEL_DIR)/_build && export LD_LIBRARY_PATH=. && \
 	  ./Client.native && ./Client.byte
 
 CTYPES_HAND_WRITTEN_FILES=myocamlbuild.ml Client.ml _tags
