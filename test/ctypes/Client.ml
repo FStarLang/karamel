@@ -96,4 +96,5 @@ let _ =
   let n_ptr = allocate Lowlevel.eith e2 in
   flip_t n_ptr;
   let v = !@ n_ptr in
-  assert (getf v eith_tag = eith_tags_L && getf (getf v eith_u) eith_val_case_L = Unsigned.UInt32.of_int 7)
+  assert (getf v eith_tag = eith_tags_L && getf (getf v eith_u) eith_val_case_L = Unsigned.UInt32.of_int 7);
+  print_endline "CTypes client.ml done"

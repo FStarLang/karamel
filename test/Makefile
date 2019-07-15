@@ -36,9 +36,10 @@ WASM_FILES	= \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
   Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test
 NEGATIVE	= false
-# Chacha20: need to pass StackInline information properly
+# Lowlevel is not really broken, but its test shouldn't be run since it's a
+# special file and doesn't have a main.
 BROKEN		= \
-  HigherOrder6.fst RecordTypingLimitation.fst ForwardDecl.fst
+  HigherOrder6.fst RecordTypingLimitation.fst ForwardDecl.fst Lowlevel.fst
 
 WEB_DIR		?= web
 CACHE_DIR	= .cache
@@ -62,19 +63,6 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules --use_two_phase_tc true \
 
 # This just needs F* + KreMLin
 all: $(FILES) $(CUSTOM) ctypes-test
-
-.PHONY: ctypes-test
-ctypes-test: $(OUTPUT_DIR)/Lowlevel.exe
-	cp -t $(OUTPUT_DIR)/Lowlevel.out ctypes/myocamlbuild.ml ctypes/Client.ml
-
-	# WIP: due to errors with ocamlbuild, I currently have to do this
-	export CTYPES=$(shell ocamlfind query ctypes) && cd $(OUTPUT_DIR)/Lowlevel.out && ocamlbuild Lowlevel_c_stubs.o
-	cp $(OUTPUT_DIR)/Lowlevel.out/Client.ml $(OUTPUT_DIR)/Lowlevel.out/_build
-	cd $(OUTPUT_DIR)/Lowlevel.out/_build && ocamlfind ocamlopt -linkpkg -package ctypes,ctypes.foreign -cclib -Wl,-E -cclib Lowlevel.o Lowlevel_c_stubs.o Lowlevel_bindings.ml Lowlevel_stubs.ml Client.ml -o Client.native
-	# but ideally I'd do this instead
-	# export CTYPES=$(shell ocamlfind query ctypes) && cd $(OUTPUT_DIR)/Lowlevel.out && ocamlbuild Client.native
-
-	cd $(OUTPUT_DIR)/Lowlevel.out/_build && ./Client.native
 
 # Needs node
 wasm: $(WASM_FILES)
@@ -150,13 +138,7 @@ $(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fnoshort-enums
 $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
 $(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel memcpymodel_impl.c
 $(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
-$(OUTPUT_DIR)/Lowlevel.exe: EXTRA = -ctypes 'Lowlevel' -skip-compilation \
-  -add-include '"kremlin/internal/types.h"' \
-  -add-include '"kremlin/internal/target.h"' \
-  -add-include '"kremlin/lowstar_endianness.h"' \
-  -add-include '<string.h>' \
-  -bundle Prims -bundle LowStar.* \
-  -bundle C,C.String,C.Loops,Spec.Loops,C.Endianness,FStar.*[rename=Lib]
+$(OUTPUT_DIR)/Lowlevel.exe: EXTRA = -ctypes 'Lowlevel' -skip-compilation
 
 # Some custom targets
 
@@ -165,6 +147,24 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 	[ `grep uu___ $(OUTPUT_DIR)/Uu.out/Uu.c | \
 	  $(SED) 's/.*\(uu____\([0-9]\+\)\).*/\1/g' \
 	  | uniq | wc -l` = 1 ]
+
+# Custom ctypes target
+
+LOWLEVEL_DIR=$(OUTPUT_DIR)/Lowlevel.out
+
+$(LOWLEVEL_DIR)/%: ctypes/%
+	cp $< $@
+
+ctypes-test: $(LOWLEVEL_DIR)/Client.native $(LOWLEVEL_DIR)/Client.byte
+	cd $(LOWLEVEL_DIR)/_build && export PATH=. && export LD_LIBRARY_PATH=. && \
+	  ./Client.native && ./Client.byte
+
+CTYPES_HAND_WRITTEN_FILES=myocamlbuild.ml Client.ml _tags
+
+.PHONY: $(LOWLEVEL_DIR)/Client.native
+$(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Lowlevel.exe $(addprefix $(LOWLEVEL_DIR)/,$(CTYPES_HAND_WRITTEN_FILES))
+	cd $(dir $@) && \
+	  CTYPES_LIB_DIR=$(shell ocamlfind query ctypes) ocamlbuild -use-ocamlfind $(notdir $@) Client.byte
 
 # A pseudo-target for WASM compilation that does not match any specific file.
 # All WASM targets get the -wasm flag; some specific targets may override

@@ -1,5 +1,5 @@
 [
-  "ƒøx\u001dNXK±±\u001eßÂÝN—e",
+  "ù\u0013\u000f9_ø´¯?\u0006Ý7B 1œ",
   [
     [
       "RingBuffer.deref",
@@ -399,7 +399,7 @@
         "typing_RingBuffer.as_list", "typing_RingBuffer.remaining_space"
       ],
       0,
-      "f022fe9c041bb6515ab6c6c5b69e52be"
+      "b8288b9d2aca8194ac5001a710a6c8ea"
     ],
     [
       "RingBuffer.push",
@@ -516,7 +516,7 @@
         "typing_RingBuffer.remaining_space"
       ],
       0,
-      "895df1f30d8f4615ad89b1a5a253aa36"
+      "39e6da60d92514b08e7a3756ad652cac"
     ],
     [
       "RingBuffer.one_past_last",
@@ -546,7 +546,7 @@
         "typing_FStar.UInt32.v"
       ],
       0,
-      "fce4d240679618db304a14240bba33b7"
+      "c512cb0f4ccf93aef5bb1326b42dc8d8"
     ],
     [
       "RingBuffer.as_list_append_one",
@@ -567,16 +567,16 @@
         "primitive_Prims.op_LessThan", "primitive_Prims.op_LessThanOrEqual",
         "projection_inverse_BoxBool_proj_0",
         "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_Tm_refine_14acd79b9327bd2846d81d2953346102",
         "refinement_interpretation_Tm_refine_2de20c066034c13bf76e9c0b94f4806c",
         "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "refinement_interpretation_Tm_refine_7905d266cf483a72d1312fa9af06248c",
         "refinement_interpretation_Tm_refine_f13070840248fced9d9d60d77bdae3ec",
         "refinement_interpretation_Tm_refine_f3e0fa3bfb0637298da81db8ddd234a4",
         "typing_FStar.UInt32.lt", "typing_FStar.UInt32.v",
         "typing_RingBuffer.one_past_last"
       ],
       0,
-      "6506e62d1a91bfd05b8b6c97597c6df4"
+      "63171cd4849a9fe69329782bf4f1964c"
     ],
     [
       "RingBuffer.as_list_append_one",
@@ -643,7 +643,7 @@
         "well-founded-ordering-on-nat"
       ],
       0,
-      "04ca70928d6419a224d6f41eecb86010"
+      "7e5b2529c01b74cbaed4c764cd9a24d1"
     ],
     [
       "RingBuffer.push_back",
@@ -742,7 +742,7 @@
         "typing_RingBuffer.as_list_f", "typing_RingBuffer.remaining_space"
       ],
       0,
-      "60b1f6bbf8207bfa5589270caadf1c07"
+      "b73b2fc17f18513976a293b93b60803c"
     ],
     [
       "RingBuffer.as_list_minus_one",
@@ -778,7 +778,7 @@
         "typing_RingBuffer.prev"
       ],
       0,
-      "804ce77ba6df4702d7de779478893860"
+      "12a92c1f52a5555b48b19667f7f1acd6"
     ],
     [
       "RingBuffer.as_list_minus_one",
@@ -849,7 +849,7 @@
         "typing_RingBuffer.prev", "well-founded-ordering-on-nat"
       ],
       0,
-      "fca54c198cab4e4a523dc99c29bde46b"
+      "944be61e892df800893872793a9cbf47"
     ],
     [
       "RingBuffer.pop_back",
@@ -940,7 +940,7 @@
         "typing_RingBuffer.as_list_f", "typing_RingBuffer.remaining_space"
       ],
       0,
-      "5258bc88d4b83c6f81b7c036e78d50ef"
+      "e5acfff00b4463d7927ac50c631a2aad"
     ],
     [
       "RingBuffer.create",
@@ -1032,7 +1032,7 @@
         "typing_RingBuffer.remaining_space"
       ],
       0,
-      "64ba587f023ed28a1dd6abce7332eb91"
+      "0b8399732e8816727f4f105e1ce53ccb"
     ],
     [
       "RingBuffer.main",
@@ -1147,7 +1147,7 @@
         "typing_RingBuffer.space_left"
       ],
       0,
-      "7bd51d5eec2e6ee82d35e26a6acee712"
+      "74f93fde92f6e4ccdf2e98b2941102b0"
     ]
   ]
 ]

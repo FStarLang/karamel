@@ -1,45 +1,45 @@
-open Ocamlbuild_plugin
+open Ocamlbuild_plugin;;
 
-let kremlin_include = (Sys.getenv "KREMLIN_HOME") ^ "/include"
-let ctypes_internals = Sys.getenv "CTYPES"
+let ctypes_libdir =
+  try Sys.getenv "CTYPES_LIB_DIR"
+  with Not_found -> failwith "please define CTYPES_LIB_DIR=$(ocamlfind query ctypes)"
+in
+let kremlin_home =
+  try Sys.getenv "KREMLIN_HOME"
+  with Not_found -> failwith "please define KREMLIN_HOME"
+in
 
-let () =
-  dispatch begin function
-  | Before_options ->
-    Options.use_ocamlfind := true;
-    Options.ocaml_pkgs := ["ctypes"; "ctypes.foreign"; "ctypes.stubs"];
+dispatch begin function
+| After_rules ->
 
-    rule "compile %_c_stubs.c" ~prods:["%_c_stubs.o"] ~deps:["%_c_stubs.c"; "%.o"]
-      (fun env build ->
-         Cmd (S[A"cc";
-                A("-I"); A kremlin_include;
-                A("-I"); A ctypes_internals;
-                A("-I"); A "..";
-                A"-c";
-                A"-o";
-                A(env "%_c_stubs.o");
-                A(env "%_c_stubs.c");
-               ]));
+  (* Producing the C and ML stub files from the kremlin-generated generator
+   * program. *)
+  rule "cstubs: x_gen_stubs.ml -> x_c_stubs.c, x_stubs.ml"
+    ~prods:["%_c_stubs.c"; "%_stubs.ml"]
+    ~deps: ["%_gen.byte"]
+    (fun env build ->
+      Cmd (A(env "./%_gen.byte")));
 
-    rule "compile %.c" ~prods:["%.o"] ~deps:["%.c"]
-      (fun env build ->
-         Cmd (S[A"cc";
-                A("-I"); A kremlin_include;
-                A("-I"); A "..";
-                A"-c";
-                A"-o";
-                A(env "%.o");
-                A(env "%.c");
-               ]));
+  (* This is fairly coarse but ensures that the .h gets copied into the _build
+   * directory. *)
+  dep ["c"; "compile" ] ["Lowlevel.h"];
+  flag ["c"; "compile"] & S[A"-I"; A (kremlin_home / "include")];
 
-    rule "gen stubs" ~prods:["%_stubs.ml"; "%_c_stubs.c"] ~deps:["%_gen_stubs.native"]
-      (fun env build ->
-         let gen_stubs = env "%_gen_stubs.native" in
-         Cmd (S[A("./" ^ gen_stubs)]));
+  (* Linking cstubs *)
+  flag ["c"; "compile"; "use_ctypes"] & S[A"-I"; A ctypes_libdir];
+  flag ["c"; "compile"; "debug"] & A"-g";
 
-  | Before_rules ->
-    dep ["file:Client.native"] ["Lowlevel.o"; "Lowlevel_c_stubs.o"; "Lowlevel_bindings.ml"; "Lowlevel_stubs.ml"]
+  (* Linking generated stubs *)
+  dep ["ocaml"; "link"; "byte"; "use_stubs"]
+    ["dllLowlevel_c_stubs"-.-(!Options.ext_dll);
+     "dllLowlevel"-.-(!Options.ext_dll)];
+  flag ["ocaml"; "link"; "byte"; "use_stubs"] &
+    S[A"-dllib"; A"-lLowlevel_c_stubs";
+      A"-dllib"; A"-lLowlevel"];
 
-  | _ -> ()
-  end
+  dep ["ocaml"; "link"; "native"; "use_stubs"]
+    ["libLowlevel_c_stubs"-.-(!Options.ext_lib);
+     "libLowlevel"-.-(!Options.ext_lib)];
 
+| _ -> ()
+end
