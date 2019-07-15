@@ -156,7 +156,7 @@ $(LOWLEVEL_DIR)/%: ctypes/%
 	mkdir -p $(dir $@)
 	cp $< $@
 
-ctypes-test: $(LOWLEVEL_DIR)/Client.native $(LOWLEVEL_DIR)/Client.byte
+ctypes-test: $(LOWLEVEL_DIR)/Client.native
 	cd $(LOWLEVEL_DIR)/_build && export PATH=. && export LD_LIBRARY_PATH=. && \
 	  ./Client.native && ./Client.byte
 
