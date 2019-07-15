@@ -286,7 +286,7 @@ let write_ml (path: string) (m: structure_item list) =
 let write_gen_module files =
   List.iter (fun name ->
     let m = mk_gen_decls name in
-    let path = Output.in_tmp_dir name ^ "_gen_stubs.ml" in
+    let path = Output.in_tmp_dir name ^ "_gen.ml" in
     write_ml path [m]
   ) files
 

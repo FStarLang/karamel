@@ -29,7 +29,7 @@ dispatch begin function
   flag ["c"; "compile"; "use_ctypes"] & S[A"-I"; A ctypes_libdir];
   flag ["c"; "compile"; "debug"] & A"-g";
 
-  (* Linking generated stubs *)
+  (* Bytecode stubs link against the dynamic library. *)
   dep ["ocaml"; "link"; "byte"; "use_stubs"]
     ["dllLowlevel_c_stubs"-.-(!Options.ext_dll);
      "dllLowlevel"-.-(!Options.ext_dll)];
@@ -37,6 +37,7 @@ dispatch begin function
     S[A"-dllib"; A"-lLowlevel_c_stubs";
       A"-dllib"; A"-lLowlevel"];
 
+  (* Native stubs link statically against client. *)
   dep ["ocaml"; "link"; "native"; "use_stubs"]
     ["libLowlevel_c_stubs"-.-(!Options.ext_lib);
      "libLowlevel"-.-(!Options.ext_lib)];
