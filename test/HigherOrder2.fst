@@ -8,7 +8,7 @@ module U32 = FStar.UInt32
 
 
 (* A function type we will use *)
-type t_Func (t_Param:Type)  = 
+unfold type t_Func (t_Param:Type)  = 
   e:t_Param -> HST.Stack (unit)
     (requires (fun h -> True))
     (ensures (fun h0 ret h1 -> M.modifies (M.loc_none) h0 h1))
