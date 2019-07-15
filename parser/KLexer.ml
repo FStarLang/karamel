@@ -1,5 +1,5 @@
 open Sedlexing
-open Parser
+open KParser
 
 let digit = [%sedlex.regexp? '0'..'9']
 let integer = [%sedlex.regexp? Plus digit]

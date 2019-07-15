@@ -117,7 +117,7 @@ let escape_string s =
 let assert_var =
   function
   | Var v | Qualified v -> v
-  | e -> Warnings.fatal_error
+  | e -> Warn.fatal_error
       "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = \n%s is not a var"
       (show_expr e)
 
@@ -363,7 +363,7 @@ and assert_pointer t =
   | Pointer t ->
       t
   | _ ->
-      Warnings.fatal_error "let-bound bufcreate has type %s instead of Pointer" (show_typ t)
+      Warn.fatal_error "let-bound bufcreate has type %s instead of Pointer" (show_typ t)
 
 and ensure_array t size =
   match t with
@@ -372,14 +372,14 @@ and ensure_array t size =
   | Array _ as t ->
       t
   | t ->
-      Warnings.fatal_error "impossible: %s" (show_typ t)
+      Warn.fatal_error "impossible: %s" (show_typ t)
 
 and decay_array t =
   match t with
   | Array (t, _) ->
       Pointer t
   | t ->
-      Warnings.fatal_error "impossible: %s" (show_typ t)
+      Warn.fatal_error "impossible: %s" (show_typ t)
 
 and mk_stmt (stmt: stmt): C.stmt list =
   match stmt with

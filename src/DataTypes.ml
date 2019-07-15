@@ -327,7 +327,7 @@ let compile_simple_matches (map, enums) = object(self)
     let lid =
       match typ with
       | TQualified lid -> lid
-      | _ -> Warnings.fatal_error "not an lid: %s: %a" cons ptyp typ
+      | _ -> Warn.fatal_error "not an lid: %s: %a" cons ptyp typ
     in
     match Hashtbl.find map lid with
     | exception Not_found ->
@@ -358,7 +358,7 @@ let compile_simple_matches (map, enums) = object(self)
     let lid =
       match typ with
       | TQualified lid -> lid
-      | _ -> Warnings.fatal_error "not an lid: %s: %a" cons ptyp typ
+      | _ -> Warn.fatal_error "not an lid: %s: %a" cons ptyp typ
     in
     match Hashtbl.find map lid with
     | exception Not_found ->
@@ -827,7 +827,7 @@ let compile_all_matches (map, enums) = object (self)
       | Found lid -> lid
       | Fresh _ ->
           (* pre-allocated by the previous phase *)
-          Warnings.fatal_error "could not find tag lid for %a" plid preferred_lid
+          Warn.fatal_error "could not find tag lid for %a" plid preferred_lid
     in
     TQualified tag_lid, TAnonymous (Union structs)
 

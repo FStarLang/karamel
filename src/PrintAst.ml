@@ -344,7 +344,7 @@ let print_files = print_files print_decl
 module Ops = struct
   let print_typs = separate_map (comma ^^ space) print_typ
 
-  let ploc = printf_of_pprint Location.print_location
+  let ploc = printf_of_pprint Loc.print_location
   let pwidth = printf_of_pprint print_width
   let pcase = printf_of_pprint print_case
   let ptyp = printf_of_pprint print_typ

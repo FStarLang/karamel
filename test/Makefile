@@ -61,7 +61,20 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules --use_two_phase_tc true \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity'
 
 # This just needs F* + KreMLin
-all: $(FILES) $(CUSTOM)
+all: $(FILES) $(CUSTOM) ctypes-test
+
+.PHONY: ctypes-test
+ctypes-test: $(OUTPUT_DIR)/Lowlevel.exe
+	cp -t $(OUTPUT_DIR)/Lowlevel.out ctypes/myocamlbuild.ml ctypes/Client.ml
+
+	# WIP: due to errors with ocamlbuild, I currently have to do this
+	export CTYPES=$(shell ocamlfind query ctypes) && cd $(OUTPUT_DIR)/Lowlevel.out && ocamlbuild Lowlevel_c_stubs.o
+	cp $(OUTPUT_DIR)/Lowlevel.out/Client.ml $(OUTPUT_DIR)/Lowlevel.out/_build
+	cd $(OUTPUT_DIR)/Lowlevel.out/_build && ocamlfind ocamlopt -linkpkg -package ctypes,ctypes.foreign -cclib -Wl,-E -cclib Lowlevel.o Lowlevel_c_stubs.o Lowlevel_bindings.ml Lowlevel_stubs.ml Client.ml -o Client.native
+	# but ideally I'd do this instead
+	# export CTYPES=$(shell ocamlfind query ctypes) && cd $(OUTPUT_DIR)/Lowlevel.out && ocamlbuild Client.native
+
+	cd $(OUTPUT_DIR)/Lowlevel.out/_build && ./Client.native
 
 # Needs node
 wasm: $(WASM_FILES)
@@ -137,6 +150,13 @@ $(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fnoshort-enums
 $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
 $(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel memcpymodel_impl.c
 $(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
+$(OUTPUT_DIR)/Lowlevel.exe: EXTRA = -ctypes 'Lowlevel' -skip-compilation \
+  -add-include '"kremlin/internal/types.h"' \
+  -add-include '"kremlin/internal/target.h"' \
+  -add-include '"kremlin/lowstar_endianness.h"' \
+  -add-include '<string.h>' \
+  -bundle Prims -bundle LowStar.* \
+  -bundle C,C.String,C.Loops,Spec.Loops,C.Endianness,FStar.*[rename=Lib]
 
 # Some custom targets
 

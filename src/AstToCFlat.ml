@@ -157,7 +157,7 @@ let is_enum env t =
   | TQualified lid ->
       begin match LidMap.find lid env.layouts with
       | exception Not_found ->
-          Warnings.fatal_error "%a is not in the lid map!" plid lid
+          Warn.fatal_error "%a is not in the lid map!" plid lid
       | LEnum ->
           true
       | _ ->
@@ -402,7 +402,7 @@ let layout_of env e =
   | EFlat [ Some f, _ ], TAnonymous (Union cases) ->
       Some (flat_layout env [ f, List.assoc f cases ])
   | EFlat _, _ ->
-      Warnings.fatal_error "Cannot compute layout for: %a\n" pexpr e
+      Warn.fatal_error "Cannot compute layout for: %a\n" pexpr e
   | _ ->
       None
 
@@ -614,7 +614,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EBufCreate (l, e_init, e_len) ->
       if not (e_init.node = EAny) then
         (* Should only happen for top-level declarations (see mk_global above). *)
-        Warnings.fatal_error "init node is not any but %a (see SimplifyWasm)\n" pexpr e_init;
+        Warn.fatal_error "init node is not any but %a (see SimplifyWasm)\n" pexpr e_init;
       let locals, e_len = mk_expr env locals e_len in
       let mult, base_size = cell_size env (assert_buf e.typ) in
       if Options.debug "cflat" then
@@ -683,7 +683,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, cflat_any
 
   | ECast _ ->
-      Warnings.fatal_error "unsupported cast: %a" pexpr e
+      Warn.fatal_error "unsupported cast: %a" pexpr e
 
   | ELet (b, e1, e2) ->
       if e1.node = EAny then
@@ -815,7 +815,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       invalid_arg "funs should've been substituted"
 
   | EAddrOf _ ->
-      Warnings.fatal_error "address-of should've been resolved: %a" pexpr e
+      Warn.fatal_error "address-of should've been resolved: %a" pexpr e
 
   | EIgnore e ->
       let s = size_of env e.typ in
@@ -857,7 +857,7 @@ let mk_decl env (d: decl): env * CF.decl option =
         | _ -> size_of env typ
       in
       if size = I64 then begin
-        Warnings.(maybe_fatal_error ("", NotWasmCompatible (name, "I64 constant")));
+        Warn.(maybe_fatal_error ("", NotWasmCompatible (name, "I64 constant")));
         env, None
       end else
         let env, body, post_init = mk_global env name body in
@@ -872,7 +872,7 @@ let mk_decl env (d: decl): env * CF.decl option =
           let ret = [ size_of env ret ] in
           let args = List.map (size_of env) args in
           if (List.hd ret = I64 || List.mem I64 args) && not (CFlatToWasm.is_primitive name) then begin
-            Warnings.(maybe_fatal_error ("", NotWasmCompatible (lid, "functions \
+            Warn.(maybe_fatal_error ("", NotWasmCompatible (lid, "functions \
               implemented natively in JS (because they're assumed) cannot take or \
               return I64")));
             env, None

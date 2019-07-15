@@ -4,7 +4,7 @@
 (** Whole-program inlining based on the [MustDisappear] flag passed by F*. *)
 
 open Ast
-open Warnings
+open Warn
 open PrintAst.Ops
 open Common
 
@@ -50,7 +50,7 @@ let reparenthesize_applications = object (self)
                 KPrint.bprintf "Cannot enforce arity at call-site for %a because it is not in scope (assume val?)\n" plid lid;
               EApp (e, es)
           | Invalid_argument s ->
-              Warnings.maybe_fatal_error ("", Arity (lid,
+              Warn.maybe_fatal_error ("", Arity (lid,
                 KPrint.bsprintf "Invalid_argument %s -- is this a partial application?" s));
               EApp (e, es)
         end
@@ -245,11 +245,11 @@ let cross_call_analysis files =
      * inline. *)
     if cross_call name_from name_to && Hashtbl.mem safely_private name_to then begin
       if Hashtbl.mem marked_private name_to then
-        Warnings.maybe_fatal_error ("", LostStatic (file_of name_from, name_from, file_of name_to, name_to));
+        Warn.maybe_fatal_error ("", LostStatic (file_of name_from, name_from, file_of name_to, name_to));
       Hashtbl.remove safely_private name_to
     end;
     if cross_call name_from name_to && Hashtbl.mem safely_inline name_to then begin
-      Warnings.maybe_fatal_error ("", LostInline (file_of name_from, name_from, file_of name_to, name_to));
+      Warn.maybe_fatal_error ("", LostInline (file_of name_from, name_from, file_of name_to, name_to));
       Hashtbl.remove safely_inline name_to
     end
   in

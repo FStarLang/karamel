@@ -165,6 +165,7 @@ let as_list #a (h: HS.mem) (x: t a): Ghost (list a)
 =
   as_list_f (B.as_seq h x.b) (deref h x.first) (deref h x.length) x.total_length
 
+#reset-options "--z3rlimit 50"
 /// ``pop`` is easy to prove, and requires no particular call to a lemma,
 /// because we don't modify the underlying buffer. Since the buffer contents
 /// doesn't change, the total predicate ``as_list_f`` is preserved, and F* is able

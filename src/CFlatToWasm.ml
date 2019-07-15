@@ -3,7 +3,7 @@
 
 open CFlat
 open CFlat.Sizes
-open Location
+open Loc
 
 module W = Wasm
 module K = Constant
@@ -49,7 +49,7 @@ let find_global env name =
   try
     StringMap.find name env.globals
   with Not_found ->
-    Warnings.fatal_error "Could not resolve global %s (look out for Warning 12)" name
+    Warn.fatal_error "Could not resolve global %s (look out for Warning 12)" name
 
 let name_of_string = W.Utf8.decode
 let string_of_name = W.Ast.string_of_name
@@ -58,7 +58,7 @@ let rec find_func env name =
   try
     StringMap.find name env.funcs
   with Not_found ->
-    Warnings.fatal_error "%a: Could not resolve function %s" ploc env.location name
+    Warn.fatal_error "%a: Could not resolve function %s" ploc env.location name
 
 let primitives = [
   "load32_le";
@@ -440,7 +440,7 @@ let mk_cast w_from w_to =
   | Bool, _ | _, Bool ->
       invalid_arg "mk_cast"
   | _ ->
-      Warnings.fatal_error "todo: conversion from %s to %s"
+      Warn.fatal_error "todo: conversion from %s to %s"
         (show_width w_from) (show_width w_to)
 
 
