@@ -22,8 +22,8 @@
 
 open Ast
 open Idents
-open Warnings
-open Location
+open Warn
+open Loc
 open PrintAst.Ops
 open Helpers
 
@@ -181,7 +181,7 @@ let rec mk_expr env in_stmt e =
   | EQualified lident ->
       let name = string_of_lident lident in
       if StringSet.mem name env.ifdefs then
-        Warnings.(maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc env.location, IfDef lident));
+        Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, IfDef lident));
       if StringSet.mem name env.macros then
         CStar.Qualified (String.uppercase name)
       else
@@ -249,7 +249,7 @@ let rec mk_expr env in_stmt e =
       CStar.AddrOf (mk_expr env e)
 
   | _ ->
-      Warnings.maybe_fatal_error (KPrint.bsprintf "%a" Location.ploc env.location, NotLowStar e);
+      Warn.maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, NotLowStar e);
       CStar.Any
 
 and mk_buf env t =
@@ -662,7 +662,7 @@ and mk_declaration env d: CStar.decl option =
   let wrap_throw name (comp: CStar.decl Lazy.t) =
     try Lazy.force comp with
     | Error e ->
-        raise_error_l (Warnings.locate name e)
+        raise_error_l (Warn.locate name e)
     | e ->
         KPrint.beprintf "Error in: %s\n" name;
         raise e
@@ -748,10 +748,10 @@ and mk_program name env decls =
       mk_declaration env d
     with
     | Error e ->
-        Warnings.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
+        Warn.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
         None
     | e ->
-        Warnings.fatal_error "Fatal failure in %a: %s\n"
+        Warn.fatal_error "Fatal failure in %a: %s\n"
           plid (Ast.lid_of_decl d)
           (Printexc.to_string e)
   ) decls
@@ -777,7 +777,7 @@ let mk_macros_set files =
     method visit_DGlobal _ flags name _ _ body =
       if List.mem Common.Macro flags then
         if body.node = EAny then begin
-          Warnings.(maybe_fatal_error ("", CannotMacro name));
+          Warn.(maybe_fatal_error ("", CannotMacro name));
           StringSet.empty
         end else
           StringSet.singleton (Simplify.target_c_name name)

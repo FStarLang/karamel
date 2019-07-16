@@ -77,7 +77,7 @@ let parse the_parser arg =
   let the_parser = MenhirLib.Convert.Simplified.traditional2revised the_parser in
   let lexbuf = Sedlexing.Utf8.from_string arg in
   try
-    the_parser (fun _ -> Lexer.token lexbuf)
-  with Sedlexing.MalFormed | Sedlexing.InvalidCodepoint _ | Parser.Error as e ->
+    the_parser (fun _ -> KLexer.token lexbuf)
+  with Sedlexing.MalFormed | Sedlexing.InvalidCodepoint _ | KParser.Error as e ->
     KPrint.bprintf "Syntax error in: %s\n" arg;
     raise e

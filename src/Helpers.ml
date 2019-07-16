@@ -217,7 +217,7 @@ let strengthen_array t e2 =
   | Some t ->
       t
   | None ->
-      Warnings.fatal_error "In expression:\n%a\nthe array needs to be \
+      Warn.fatal_error "In expression:\n%a\nthe array needs to be \
         hoisted (to the nearest enclosing push_frame, for soundness, or to \
         the nearest C block scope, for C89), but its \
         size is non-constant, so I don't know what declaration to write"
@@ -340,7 +340,7 @@ let assert_elid t =
 let assert_tbuf_or_tarray t =
   match t with
   | TBuf t | TArray (t, _) -> t
-  | _ -> Warnings.fatal_error "%a is neither a tbuf or tarray\n" ptyp t
+  | _ -> Warn.fatal_error "%a is neither a tbuf or tarray\n" ptyp t
 
 
 (* Somewhat more advanced helpers *********************************************)
@@ -446,7 +446,7 @@ let mk_bufblit src_buf src_ofs dst_buf dst_ofs len =
 let mk_copy_assignment (t, size) e1 e2 =
   let assert_ro n e =
     if not (is_readonly_c_expression e) then
-      Warnings.fatal_error "copy-assign, %s is not a readonly expression: %a" n pexpr e
+      Warn.fatal_error "copy-assign, %s is not a readonly expression: %a" n pexpr e
   in
   let e1 = with_type (TBuf t) e1 in
   begin match e2.node with

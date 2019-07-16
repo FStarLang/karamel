@@ -26,7 +26,7 @@ FILES		= \
   AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
   UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test \
   ProperErasure.test EmptyStruct.test IfDef.test StringLit.test IfThenElse.test \
-  Macro.test Mini.test Endianness.test
+  Macro.test Mini.test Endianness.test Printf.test
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
@@ -36,9 +36,10 @@ WASM_FILES	= \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
   Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test
 NEGATIVE	= false
-# Chacha20: need to pass StackInline information properly
+# Lowlevel is not really broken, but its test shouldn't be run since it's a
+# special file and doesn't have a main.
 BROKEN		= \
-  HigherOrder6.fst RecordTypingLimitation.fst ForwardDecl.fst
+  HigherOrder6.fst RecordTypingLimitation.fst ForwardDecl.fst Lowlevel.fst
 
 WEB_DIR		?= web
 CACHE_DIR	= .cache
@@ -62,7 +63,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules --use_two_phase_tc true \
   --trivial_pre_for_unannotated_effectful_fns false
 
 # This just needs F* + KreMLin
-all: $(FILES) $(CUSTOM)
+all: $(FILES) $(CUSTOM) ctypes-test
 
 # Needs node
 wasm: $(WASM_FILES)
@@ -138,6 +139,7 @@ $(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fnoshort-enums
 $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
 $(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel memcpymodel_impl.c
 $(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
+$(OUTPUT_DIR)/Lowlevel.exe: EXTRA = -ctypes 'Lowlevel' -skip-compilation
 
 # Some custom targets
 
@@ -146,6 +148,25 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 	[ `grep uu___ $(OUTPUT_DIR)/Uu.out/Uu.c | \
 	  $(SED) 's/.*\(uu____\([0-9]\+\)\).*/\1/g' \
 	  | uniq | wc -l` = 1 ]
+
+# Custom ctypes target
+
+LOWLEVEL_DIR=$(OUTPUT_DIR)/Lowlevel.out
+
+$(LOWLEVEL_DIR)/%: ctypes/%
+	mkdir -p $(dir $@)
+	cp $< $@
+
+ctypes-test: $(LOWLEVEL_DIR)/Client.native
+	cd $(LOWLEVEL_DIR)/_build && export LD_LIBRARY_PATH=. && \
+	  ./Client.native && ./Client.byte
+
+CTYPES_HAND_WRITTEN_FILES=myocamlbuild.ml Client.ml _tags
+
+.PHONY: $(LOWLEVEL_DIR)/Client.native
+$(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Lowlevel.exe $(addprefix $(LOWLEVEL_DIR)/,$(CTYPES_HAND_WRITTEN_FILES))
+	cd $(dir $@) && \
+	  CTYPES_LIB_DIR=$(shell ocamlfind query ctypes) ocamlbuild -use-ocamlfind $(notdir $@) Client.byte
 
 # A pseudo-target for WASM compilation that does not match any specific file.
 # All WASM targets get the -wasm flag; some specific targets may override

@@ -221,11 +221,11 @@ let maybe_fatal_error error =
 
 let parse_warn_error s =
   let lexbuf = Sedlexing.Utf8.from_string s in
-  let the_parser = MenhirLib.Convert.Simplified.traditional2revised Parser.warn_error_list in
+  let the_parser = MenhirLib.Convert.Simplified.traditional2revised KParser.warn_error_list in
   let user_flags =
     try
-      the_parser (fun _ -> Lexer.token lexbuf)
-    with Sedlexing.MalFormed | Sedlexing.InvalidCodepoint _ | Parser.Error ->
+      the_parser (fun _ -> KLexer.token lexbuf)
+    with Sedlexing.MalFormed | Sedlexing.InvalidCodepoint _ | KParser.Error ->
       fatal_error "Malformed warn-error list"
   in
   List.iter (fun (f, (l, h)) ->

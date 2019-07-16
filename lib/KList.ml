@@ -136,3 +136,7 @@ let min l =
   let min = ref (List.hd l) in
   List.iter (fun x -> if x < !min then min := x) (List.tl l);
   !min
+
+let is_empty = function
+  | [] -> true
+  | _ -> false

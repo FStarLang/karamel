@@ -168,20 +168,20 @@ let all files verbose =
 
   List.iter (fun { name; uses_nat; uses_gctype; uses_string; _ } ->
     if uses_nat then
-      Warnings.(maybe_fatal_error ("", NeedsCompat (name,
+      Warn.(maybe_fatal_error ("", NeedsCompat (name,
         "it uses mathematical integers and runtime checks may fail; rewrite your \
         code to use machine integers, or if you must, use -add-include \
         '\"kremlin/internal/compat.h\"'; if this declaration is for specification purposes \
         only, consider marking it noextract or using -bundle \
         <name-of-the-module> to only keep reachable definitions.")));
     if uses_gctype then
-      Warnings.(maybe_fatal_error ("", NeedsCompat (name,
+      Warn.(maybe_fatal_error ("", NeedsCompat (name,
         "it uses a garbage-collected type (e.g. list) and will leak memory; you \
         need to link with a garbage-collector; if this declaration is for \
         specification purposes only, consider marking it noextract or using \
         -bundle <name-of-the-module> to only keep reachable definitions.")));
     if uses_string then
-      Warnings.(maybe_fatal_error ("", NeedsCompat (name,
+      Warn.(maybe_fatal_error ("", NeedsCompat (name,
         "it uses F*'s Prims.string type and will leak memory; you \
         need to link with a garbage-collector; if this declaration is for \
         specification purposes only, consider marking it noextract or using \

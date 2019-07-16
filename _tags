@@ -1,12 +1,15 @@
 # Reinstate @39 once https://github.com/whitequark/ppx_deriving_yojson/issues/21
 # is fixed
 # Reinstate @3 once we move to 4.03.0
-true: annot, bin_annot, warn(@1-2-3@8..12@14..21@23..29-30@31..38-39@40-41@43@57), \
+# VD: Fix @40 (only really needed for GenCtypes.ml)
+true: annot, bin_annot, warn(@1-2-3@8..12@14..21@23..29-30@31..38-39-40-41@43@57), \
   package(ppx_deriving.std), package(ppx_deriving_yojson), \
   package(zarith), package(pprint), package(unix), package(menhirLib), package(sedlex), \
   package(process), package(fix), package(wasm), debug, strict_sequence, \
   package(visitors.ppx), package(visitors.runtime)
-"parser/Lexer.ml": package(sedlex.ppx)
+"parser/KLexer.ml": package(sedlex.ppx)
+"src/GenCtypes.ml" or "src/Kremlin.native": package(compiler-libs), \
+  package(compiler-libs.common), package(ocaml-migrate-parsetree)
 <test>: -traverse
 <kremlib/{extracted,c,out,dist}>: -traverse
 <kremlib/**/*.ml>: package(fstarlib)

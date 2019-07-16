@@ -1,0 +1,3 @@
+true: package(ctypes), package(ctypes.stubs), package(ctypes.foreign)
+"Lowlevel_c_stubs.c": use_ctypes
+<Client.{byte,native}>: use_stubs

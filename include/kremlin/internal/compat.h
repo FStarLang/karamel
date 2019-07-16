@@ -9,8 +9,6 @@
 /* A series of macros that define C implementations of types that are not Low*,
  * to facilitate porting programs to Low*. */
 
-typedef const char *Prims_string;
-
 typedef struct {
   uint32_t length;
   const char *data;

@@ -58,4 +58,9 @@ typedef struct FStar_UInt128_uint128_s {
 
 typedef FStar_UInt128_uint128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t;
 
+/* Now Prims.string is no longer illegal with the new model in LowStar.Printf;
+ * it's operations that produce Prims_string which are illegal. Bring the
+ * definition into scope by default. */
+typedef const char *Prims_string;
+
 #endif
