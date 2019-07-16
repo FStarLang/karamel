@@ -4,7 +4,7 @@ module HS = FStar.HyperStack
 module HST = FStar.HyperStack.ST
 module I32 = FStar.Int32
 
-unfold type t_Func (t_Param:Type) =
+inline_for_extraction type t_Func (t_Param:Type) =
   r:HS.rid -> e:t_Param -> HST.St (unit)
 
 noeq type t_Closure (t_Param:Type) =
