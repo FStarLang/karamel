@@ -97,4 +97,10 @@ let _ =
   flip_t n_ptr;
   let v = !@ n_ptr in
   assert (getf v eith_tag = eith_tags_L && getf (getf v eith_u) eith_val_case_L = Unsigned.UInt32.of_int 7);
-  print_endline "CTypes client.ml done"
+
+  let string_of_backend_type = function
+    | Sys.Native -> "Native"
+    | Sys.Bytecode -> "Bytecode"
+    | Sys.Other s -> s
+  in
+  Printf.printf "======= End CTypes test (%s)\t======\n" (string_of_backend_type Sys.backend_type)
