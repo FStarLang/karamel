@@ -121,6 +121,37 @@ let assert_var =
       "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = \n%s is not a var"
       (show_expr e)
 
+let is_pure_op = function
+  | K.Assign | PreIncr | PreDecr | PostIncr | PostDecr -> false
+  | _ -> true
+
+let rec check_value stmt = function
+  | C.Name _ | C.Constant _ -> ()
+  | C.Op2 (op, e1, e2) when is_pure_op op ->
+      check_value stmt e1;
+      check_value stmt e2
+  | C.Cast (_, e) ->
+      check_value stmt e
+  | e ->
+      Warn.fatal_error "In this C* statement:\n  %s\nthis C11 subexpression:\n  %s\n \
+        has a non-(trivially non-zero) \
+        length, which requires checking at run-time whether the length is \
+        zero. (If the length is zero, we just skip the (memcpy|memset). If the length \
+        is non-zero, then pointer arguments must be non-NULL and we avoid \
+        undefined behavior (see https://www.imperialviolet.org/2016/06/26/nonnull.html \
+        for good reading material)). The length is not trivially a value, so \
+        checking that it's non-zero might change the evaluation semantics. \
+        Please let-binding the length."
+        (show_stmt stmt)
+        C11.(show_expr e)
+
+let rec is_nonzero = function
+  | C.Op2 (K.Mult, e1, e2) -> is_nonzero e1 && is_nonzero e2
+  | C.Op2 (K.Add, e1, e2) -> is_nonzero e1 || is_nonzero e2
+  | C.Cast (_, e) -> is_nonzero e
+  | C.Constant (_, s) when s <> "0" -> true
+  | _ -> false
+
 module S = Set.Make(String)
 
 let rec vars_of = function
@@ -300,13 +331,22 @@ and mk_for_loop_initializer e_array e_size e_value: C.stmt =
         (Op1 (K.PreIncr, Name "_i"))
         (Expr (Op2 (K.Assign, Index (e_array, Name "_i"), e_value)))
 
-and mk_memset_zero_initializer e_array e_size =
-  Expr (Call (Name "memset", [
-    e_array;
-    Constant (K.UInt8, "0");
-    Op2 (K.Mult,
-      e_size,
-      Sizeof (Index (e_array, zero)))]))
+and mk_memset_zero_initializer stmt e_array e_size =
+  (* stmt for debug only *)
+  let memset =
+    Expr (Call (Name "memset", [
+      e_array;
+      Constant (K.UInt8, "0");
+      Op2 (K.Mult,
+        e_size,
+        Sizeof (Index (e_array, zero)))]))
+  in
+  if is_nonzero e_size then
+    memset
+  else begin
+    check_value stmt e_size;
+    If (Op2 (K.Neq, e_size, zero), memset)
+  end
 
 and mk_check_size t n_elements: C.stmt list =
   (* [init] is the default value for the elements of the array, and [n_elements] is
@@ -457,7 +497,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let extra_stmt: C.stmt list =
         match init_type with
         | T.Memset ->
-            [ mk_memset_zero_initializer (Name binder.name) size ]
+            [ mk_memset_zero_initializer stmt (Name binder.name) size ]
         | T.Nope ->
             [ ]
         | T.Forloop ->
@@ -557,10 +597,19 @@ and mk_stmt (stmt: stmt): C.stmt list =
         | Constant (_, "0") -> mk_expr e1
         | _ -> Op2 (K.Add, mk_expr e1, mk_expr e2)
       in
-      [ Expr (Call (Name "memcpy", [
+      let e5 = mk_expr e5 in
+      let memcpy =
+        Expr (Call (Name "memcpy", [
         dest;
         source;
-        Op2 (K.Mult, mk_expr e5, Sizeof (Index (mk_expr e1, zero)))])) ]
+        Op2 (K.Mult, e5, Sizeof (Index (mk_expr e1, zero)))])) 
+      in
+      if is_nonzero e5 then
+        [ memcpy ]
+      else begin
+        check_value stmt e5;
+        [ If (Op2 (K.Neq, e5, zero), memcpy) ]
+      end
 
   | BufFill (buf, v, size) ->
       (* Again, assuming that these are non-effectful. *)

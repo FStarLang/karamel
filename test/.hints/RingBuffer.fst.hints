@@ -516,7 +516,7 @@
         "typing_RingBuffer.remaining_space"
       ],
       0,
-      "39e6da60d92514b08e7a3756ad652cac"
+      "c7f9b682c6b17c46b09335c8aaf82d77"
     ],
     [
       "RingBuffer.one_past_last",
@@ -742,7 +742,7 @@
         "typing_RingBuffer.as_list_f", "typing_RingBuffer.remaining_space"
       ],
       0,
-      "b73b2fc17f18513976a293b93b60803c"
+      "e6a7ced218157670940816f4bdca7f51"
     ],
     [
       "RingBuffer.as_list_minus_one",

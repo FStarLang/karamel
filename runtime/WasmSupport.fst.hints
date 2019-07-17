@@ -1,8 +1,8 @@
 [
-  "]T-∞lí6Ñù\u0011∑≠;yµ˙",
+  "Ã\u0016\\\"Ü8Sô\u0011ÙÇ\u0013\u000f∑˜Ç",
   [
     [
-      "C.Failure.whatever",
+      "WasmSupport.check_buffer_size",
       1,
       2,
       1,
@@ -20,16 +20,16 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "0bb0f704df42bce91e3f1281a504e8f9"
+      "542c7096e332af29af77062682210009"
     ],
     [
-      "C.Failure.failwith",
+      "WasmSupport.betole64",
       1,
       2,
       1,
       [ "@query" ],
       0,
-      "e5daf313de1f8e378ba63a785ec064c3"
+      "24139fa40b2e27a9354a7e1f2b3c20b4"
     ]
   ]
 ]
