@@ -289,24 +289,41 @@ and mk_for_loop name qs t init test incr body =
       `Decl (qs, t, None, [ Ident name, Some (InitExpr init)]),
       test, incr, body)
 
-and mk_for_loop_initializer e_array e_size e_value: C.stmt =
+and mk_initializer e_array e_size e_value: C.stmt =
   match e_size with
   | C.Constant (_, "1")
   | C.Cast (_, C.Constant (_, "1")) ->
       Expr (Op2 (K.Assign, Index (e_array, Constant (K.UInt32, "0")), e_value))
-  | _ ->
-      mk_for_loop "_i" [] (Int K.UInt32) zero
-        (Op2 (K.Lt, Name "_i", e_size))
-        (Op1 (K.PreIncr, Name "_i"))
-        (Expr (Op2 (K.Assign, Index (e_array, Name "_i"), e_value)))
 
-and mk_memset_zero_initializer e_array e_size =
-  Expr (Call (Name "memset", [
-    e_array;
-    Constant (K.UInt8, "0");
-    Op2 (K.Mult,
-      e_size,
-      Sizeof (Index (e_array, zero)))]))
+  | _ ->
+      match e_value with
+      | C.Constant (_, s)
+      | C.Cast (_, C.Constant (_, s)) when int_of_string s = 0 ->
+          mk_memset e_array e_size (C.Constant (K.UInt8, "0"))
+
+      | C.Constant (K.UInt8, _)
+      | C.Cast (_, C.Constant (K.UInt8, _)) ->
+          mk_memset e_array e_size e_value
+
+      | _ ->
+          mk_for_loop "_i" [] (Int K.UInt32) zero
+            (Op2 (K.Lt, Name "_i", e_size))
+            (Op1 (K.PreIncr, Name "_i"))
+            (Expr (Op2 (K.Assign, Index (e_array, Name "_i"), e_value)))
+
+and mk_memset e_array e_size e_init =
+  let e_size =
+    (* Commenting out this optimization below, because:
+     *   error: ‘memset’ used with length equal to number of elements without
+     *   multiplication by element size [-Werror=memset-elt-size]
+     * is it not known that sizeof uint8_t = 1 ? *)
+    (* match e_init with
+    | C.Constant (K.UInt8, _) ->
+        e_size
+    | _ -> *)
+        Op2 (K.Mult, e_size, Sizeof (Index (e_array, zero)))
+  in
+  Expr (Call (Name "memset", [ e_array; e_init; e_size]))
 
 and mk_check_size t n_elements: C.stmt list =
   (* [init] is the default value for the elements of the array, and [n_elements] is
@@ -353,7 +370,7 @@ and mk_eternal_bufcreate buf (t: CStar.typ) init size =
         mk_malloc t size, []
     | _ ->
         mk_malloc t size,
-        [ mk_for_loop_initializer (mk_expr buf) size (mk_expr init) ]
+        [ mk_initializer (mk_expr buf) size (mk_expr init) ]
   in
   mk_check_size t size, e, extra_stmt
 
@@ -419,26 +436,24 @@ and mk_stmt (stmt: stmt): C.stmt list =
        * declare a fixed-length array; this is an "upcast" from pointer type to
        * array type, in the C sense. *)
       let t = ensure_array binder.typ size in
-      let module T = struct type init = Nope | Memset | Forloop end in
       let is_constant = match size with Constant _ -> true | _ -> false in
       let use_alloca = not is_constant && !Options.alloca_if_vla in
-      let (maybe_init, init_type): C.init option * T.init = match init, size with
-        | _, Constant (_, "0") ->
-            (* zero-sized array *)
-            None, T.Nope
+      let (maybe_init, needs_init): C.init option * _ = match init, size with
+        | _, Constant (_, "0") (* zero-sized array... legal for malloc *)
         | Cast (Any, _), _
         | Any, _ ->
-            (* no initial value *)
-            None, T.Nope
+            (* No initial value needed in the declarator; no further
+             * initialization needed either. *)
+            None, false
+
         | Constant ((_, "0") as k), Constant _ when not use_alloca ->
             (* The only case the we can initialize statically is a known, static
              * size _and_ a zero initializer. If we're about to alloca, don't
              * use a zero-initializer. *)
-            Some (Initializer [ InitExpr (C.Constant k) ]), T.Nope
-        | Constant (_, "0"), _ ->
-            None, T.Memset
+            Some (Initializer [ InitExpr (C.Constant k) ]), false
+
         | _ ->
-            None, T.Forloop
+            None, true
       in
       let size = mk_expr size in
       let t, maybe_init =
@@ -455,15 +470,10 @@ and mk_stmt (stmt: stmt): C.stmt list =
       let init = mk_expr init in
       let qs, spec, decl = mk_spec_and_declarator binder.name t in
       let extra_stmt: C.stmt list =
-        match init_type with
-        | T.Memset ->
-            [ mk_memset_zero_initializer (Name binder.name) size ]
-        | T.Nope ->
-            [ ]
-        | T.Forloop ->
-            (* Note: only works if the length and initial value are pure
-             * computations... which F* guarantees! *)
-            [ mk_for_loop_initializer (Name binder.name) size init ]
+        if needs_init then
+          [ mk_initializer (Name binder.name) size init ]
+        else
+          []
       in
       let decl: C.stmt list = [ Decl (qs, spec, None, [ decl, maybe_init ]) ] in
       mk_check_size (assert_pointer binder.typ) size @
@@ -526,7 +536,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
         let size = mk_expr size in
         let stmt_init = mk_stmt (Decl ({ name = name_init; typ = t_elt }, init)) in
         let stmt_assign = [ Expr (Assign (mk_expr e1, mk_malloc t_elt size)) ] in
-        let stmt_fill = mk_for_loop_initializer (mk_expr e1) size (mk_expr (Var name_init)) in
+        let stmt_fill = mk_initializer (mk_expr e1) size (mk_expr (Var name_init)) in
         stmt_init @
         stmt_assign @
         [ stmt_fill ]
@@ -564,10 +574,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
 
   | BufFill (buf, v, size) ->
       (* Again, assuming that these are non-effectful. *)
-      let buf = mk_expr buf in
-      let v = mk_expr v in
-      let size = mk_expr size in
-      [ mk_for_loop_initializer buf size v ]
+      [ mk_initializer (mk_expr buf) (mk_expr size) (mk_expr v) ]
 
   | BufFree e ->
       [ Expr (mk_free (mk_expr e)) ]
