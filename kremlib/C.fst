@@ -32,11 +32,6 @@ assume val stdout: channel
 assume val stderr: channel
 assume val fflush: channel -> St Int32.t
 
-// This is only to provide a placeholder when needed: this type is not very
-// useful, as it is not interconvertible with other pointer types.
-assume type intptr_t
-assume val nullptr: intptr_t
-
 // Abstract char type, with explicit conversions to/from uint8
 assume val char: Type0
 assume HasEq_char: hasEq char
