@@ -35,11 +35,15 @@ dispatch begin function
   flag ["c"; "compile"; "use_ctypes"] & S[A"-I"; A ctypes_libdir];
   flag ["c"; "compile"; "debug"] & A"-g";
 
+  (* C stubs are now to be found in the lib directory. *)
+  flag ["link"] & S[A"-I"; A "lib"];
+  flag ["byte"; "link"] & S[A"-dllpath"; A "lib"];
+
   (* The -lLowlevel flag recursively builds the KreMLin-generated C file (the
    * actual library) then links it with the client program. This appears to be
    * dynamic linking. *)
   dep ["ocaml"; "link"; "byte"; "use_stubs"]
-    ["dllLowlevel_c_stubs"-.-(!Options.ext_dll);
+    ["lib/dllLowlevel_c_stubs"-.-(!Options.ext_dll);
      "dllLowlevel"-.-(!Options.ext_dll)];
   flag ["ocaml"; "link"; "byte"; "use_stubs"] &
     S[A"-dllib"; A"-lLowlevel_c_stubs";
@@ -47,7 +51,7 @@ dispatch begin function
 
   (* For the native program, we are happy with static linking. *)
   dep ["ocaml"; "link"; "native"; "use_stubs"]
-    ["libLowlevel_c_stubs"-.-(!Options.ext_lib);
+    ["lib/libLowlevel_c_stubs"-.-(!Options.ext_lib);
      "libLowlevel"-.-(!Options.ext_lib)];
 
 | _ -> ()
