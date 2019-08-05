@@ -66,12 +66,15 @@ let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
   mk_decl ?t p e
 
 
-(* manipulating identifiers *)
-let mk_unqual_name module_name n =
-  if KString. starts_with n (module_name ^ "_") then
-    KString.chop n (module_name ^ "_")
-  else if KString. starts_with n "K___" then
+(* Note: keeping the naming scheme as decided by KreMLin, in accordance with the
+ * -no-prefix options. If this is the beginning of a top-level name, lower is
+ * true and we force the first letter to be lowercase to abide by OCaml syntax
+ * restrictions. *)
+let mk_unqual_name ?(lower=true) n =
+  if KString.starts_with n "K___" then
     "t_" ^ n (* VD: might want to prcess this differently or alias to more user-friendly names *)
+  else if lower && Char.lowercase n.[0] <> n.[0] then
+    String.make 1 (Char.lowercase n.[0]) ^ String.sub n 1 (String.length n - 1)
   else
     n
 
@@ -102,7 +105,7 @@ let rec mk_typ module_name = function
   | Int w -> exp_ident (PrintCommon.width_to_string w ^ "_t")
   | Pointer t -> Exp.apply (exp_ident "ptr") [(Nolabel, mk_typ module_name t)]
   | Void -> exp_ident "void"
-  | Qualified l -> exp_ident (mk_unqual_name module_name l)
+  | Qualified l -> exp_ident (mk_unqual_name l)
   | Bool -> exp_ident "bool"
   | Function (_, return_type, parameters) -> build_foreign_fun module_name return_type (List.map (fun x -> {name=""; typ=x}) parameters)
   | Union _
@@ -112,7 +115,7 @@ let rec mk_typ module_name = function
   | Const _ -> Warn.fatal_error "Unreachable"
 
 and mk_extern_decl module_name name keyword typ: structure_item =
-  mk_simple_app_decl (mk_unqual_name module_name name) None keyword [mk_const name; mk_typ module_name typ]
+  mk_simple_app_decl (mk_unqual_name name) None keyword [mk_const name; mk_typ module_name typ]
 
 (* For binding structs, e.g. (in header file Types.h)
  *   typedef struct Types_point_s {
@@ -125,7 +128,7 @@ and mk_extern_decl module_name name keyword typ: structure_item =
  *   let point_y = field point "y" uint32_t
  *   let _ = seal point *)
 and mk_struct_decl (k: structured) module_name name fields: structure_item list =
-  let unqual_name = mk_unqual_name module_name name in
+  let unqual_name = mk_unqual_name name in
   let tm = mk_struct_manifest k unqual_name in
   let ctypes_structure =
     let struct_name = match k with
@@ -167,10 +170,10 @@ and mk_struct_decl (k: structured) module_name name fields: structure_item list 
 and mk_typedef module_name name typ =
   let type_const = match typ with
     | Int Constant.UInt8 -> Typ.mk (Ptyp_constr (mk_ident "Unsigned.UInt8.t", []))
-    | Qualified t -> Typ.mk (Ptyp_constr (mk_ident (mk_unqual_name module_name t), []))
+    | Qualified t -> Typ.mk (Ptyp_constr (mk_ident (mk_unqual_name t), []))
     | _ -> Warn.fatal_error "Unreachable"
   in
-  let typ_name = mk_unqual_name module_name name in
+  let typ_name = mk_unqual_name name in
   [ Str.type_ Recursive [Type.mk ?manifest:(Some type_const) (mk_sym typ_name)]
   ; mk_simple_app_decl typ_name None "typedef" [mk_typ module_name typ; mk_const name] ]
 
@@ -183,22 +186,17 @@ and build_foreign_exp module_name name return_type parameters : expression =
   mk_app (exp_ident "foreign") [mk_const name; build_foreign_fun module_name return_type parameters]
 
 let build_binding module_name name return_type parameters : structure_item =
-  let func_name =
-    if KString. starts_with name (module_name ^ "_") then
-      KString.chop name (module_name ^ "_")
-    else
-      name
-  in
+  let func_name = mk_unqual_name name in
   let e = build_foreign_exp module_name name return_type parameters in
   let p = Pat.mk (Ppat_var (mk_sym func_name)) in
   mk_decl p e
 
-let mk_enum_tags module_name name tags =
+let mk_enum_tags name tags =
   let rec mk_tags n tags =
     match tags with
     | [] -> []
     | t :: ts ->
-      let tag_name = String.concat "_" (List.map (mk_unqual_name module_name) [name; t]) in
+      let tag_name = String.concat "_" (List.map (mk_unqual_name ~lower:false) [name; t]) in
       (mk_simple_app_decl tag_name None "Unsigned.UInt8.of_int"
          [Exp.constant (Const.int n)]) :: (mk_tags (n+1) ts)
   in
@@ -217,7 +215,7 @@ let mk_ctypes_decl module_name (d: decl): structure =
       match typ with
       | Struct fields  -> mk_struct_decl Struct module_name name fields
       | Enum tags ->
-        (mk_typedef module_name name (Int Constant.UInt8)) @ (mk_enum_tags module_name name tags)
+        (mk_typedef module_name name (Int Constant.UInt8)) @ (mk_enum_tags name tags)
       | Qualified t -> mk_typedef module_name name (Qualified t)
       | _ -> []
       end
