@@ -1,8 +1,8 @@
 [
-  "9\u0017k°d© €\u00046…m“ÌÌD",
+  "Ã\u0016\\\"Ü8Sô\u0011ÙÇ\u0013\u000f∑˜Ç",
   [
     [
-      "WildCard.int_of_t",
+      "WasmSupport.check_buffer_size",
       1,
       2,
       1,
@@ -20,7 +20,16 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "a3a32eb71cea04b0df6f6020c19f061e"
+      "526fc186e1d806067f2c7d734a506099"
+    ],
+    [
+      "WasmSupport.betole64",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "24139fa40b2e27a9354a7e1f2b3c20b4"
     ]
   ]
 ]
