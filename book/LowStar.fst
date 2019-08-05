@@ -1013,8 +1013,6 @@ let example_modifies_caller (b0: B.buffer UInt32.t) : Stack unit
 /// - ``exit``, which is not polymorphic, per the reasons exposed
 ///   earlier in :ref:`language-subset`, see ``C.Failure`` below instead
 /// - the ``stdout``, ``stderr`` and ``fflush`` functions
-/// - the ``intptr_t`` C11 type, along with a default value ``nullptr`` --
-///   useful to expose external APIs that take ``void *``
 /// - the ``EXIT_SUCCESS`` and ``EXIT_FAILURE`` macros; these are defined as an
 ///   inductive; since ``C.fst`` is not extracted, the code is left with
 ///   references that resolve to the underlying C macros

@@ -17,10 +17,10 @@ dispatch begin function
    * source ..._gen.ml has been produced automatically by KreMLin but this is
    * irrelevant for the present build description. *)
   rule "cstubs: x_gen_stubs.ml -> x_c_stubs.c, x_stubs.ml"
-    ~prods:["%_c_stubs.c"; "%_stubs.ml"]
-    ~deps: ["%_gen.byte"]
+    ~prods:["lib/%_c_stubs.c"; "lib/%_stubs.ml"]
+    ~deps: ["lib_gen/%_gen.byte"]
     (fun env build ->
-      Cmd (A(env "./%_gen.byte")));
+      Cmd (A(env "./lib_gen/%_gen.byte")));
 
 
   (* C files will be compiled by OCamlbuild, then linked into the final

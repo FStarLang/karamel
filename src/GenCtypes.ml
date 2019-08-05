@@ -6,9 +6,13 @@
 open CStar
 open CStarToC11
 
+module D = Driver
+
 open Migrate_parsetree
 open Migrate_parsetree.Ast_405
 open Migrate_parsetree.Ast_405.Parsetree
+
+module Driver = D
 
 open Lexing
 open Pprintast
@@ -269,9 +273,9 @@ let mk_gen_decls module_name =
   in
   let mk_printf s = mk_app (exp_ident "Format.printf") [mk_const s] in
   let decls =
-    [ mk_out_channel (module_name ^ "_stubs.ml")
+    [ mk_out_channel ("lib/" ^ module_name ^ "_stubs.ml")
     ; mk_cstubs_write "ml" module_name
-    ; mk_out_channel (module_name ^ "_c_stubs.c")
+    ; mk_out_channel ("lib/" ^ module_name ^ "_c_stubs.c")
     ; mk_printf (Printf.sprintf "#include \"%s.h\"\n" module_name)
     ; mk_cstubs_write "c" module_name ]
   in
@@ -284,15 +288,17 @@ let write_ml (path: string) (m: structure_item list) =
   Format.pp_print_flush Format.std_formatter ()
 
 let write_gen_module files =
+  Driver.mkdirp (!Options.tmpdir ^ "/lib_gen");
   List.iter (fun name ->
     let m = mk_gen_decls name in
-    let path = Output.in_tmp_dir name ^ "_gen.ml" in
+    let path = !Options.tmpdir ^ "/lib_gen/" ^ name ^ "_gen.ml" in
     write_ml path [m]
   ) files
 
 let write_bindings (files: (string * string list * structure_item list) list) =
+  Driver.mkdirp (!Options.tmpdir ^ "/lib");
   List.map (fun (name, _, m) ->
-    let path = Output.in_tmp_dir name ^ "_bindings.ml" in
+    let path = !Options.tmpdir ^ "/lib/" ^ name ^ "_bindings.ml" in
     write_ml path m;
     name
   ) files
