@@ -286,7 +286,8 @@ let write_ml (path: string) (m: structure_item list) =
   Format.pp_print_flush Format.std_formatter ()
 
 let write_gen_module files =
-  Driver.mkdirp (!Options.tmpdir ^ "/lib_gen");
+  if List.length files > 0 then
+    Driver.mkdirp (!Options.tmpdir ^ "/lib_gen");
   List.iter (fun name ->
     let m = mk_gen_decls name in
     let path = !Options.tmpdir ^ "/lib_gen/" ^ name ^ "_gen.ml" in
@@ -294,7 +295,8 @@ let write_gen_module files =
   ) files
 
 let write_bindings (files: (string * string list * structure_item list) list) =
-  Driver.mkdirp (!Options.tmpdir ^ "/lib");
+  if List.length files > 0 then
+    Driver.mkdirp (!Options.tmpdir ^ "/lib");
   List.map (fun (name, _, m) ->
     let path = !Options.tmpdir ^ "/lib/" ^ name ^ "_bindings.ml" in
     write_ml path m;
