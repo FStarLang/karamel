@@ -72,7 +72,7 @@ let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
  * restrictions. *)
 let mk_unqual_name ?(lower=true) n =
   if KString.starts_with n "K___" then
-    "t_" ^ n (* VD: might want to prcess this differently or alias to more user-friendly names *)
+    "t_" ^ n (* VD: might want to process this differently or alias to more user-friendly names *)
   else if lower && Char.lowercase n.[0] <> n.[0] then
     String.make 1 (Char.lowercase n.[0]) ^ String.sub n 1 (String.length n - 1)
   else
@@ -196,7 +196,7 @@ let mk_enum_tags name tags =
     match tags with
     | [] -> []
     | t :: ts ->
-      let tag_name = String.concat "_" (List.map (mk_unqual_name ~lower:false) [name; t]) in
+      let tag_name = String.concat "_" [mk_unqual_name ~lower:true name; t] in
       (mk_simple_app_decl tag_name None "Unsigned.UInt8.of_int"
          [Exp.constant (Const.int n)]) :: (mk_tags (n+1) ts)
   in
