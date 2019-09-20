@@ -19,16 +19,14 @@ type program =
   [@@deriving yojson]
 
 and decl =
-  (* Code *)
   | DGlobal of (flag list * lident * int * typ * expr)
   | DFunction of (calling_convention option * flag list * int * typ * lident * binder list * expr)
-  (* Types *)
   | DTypeAlias of (lident * flag list * int * typ)
       (** Name, number of parameters (De Bruijn), definition. *)
   | DTypeFlat of (lident * flag list * int * fields_t)
       (** The boolean indicates if the field is mutable *)
-  (* Assumed things that the type-checker of KreMLin needs to be aware of *)
   | DExternal of (calling_convention option * flag list * lident * typ)
+      (* Assumed things that the type-checker of KreMLin needs to be aware of *)
   | DTypeVariant of (lident * flag list * int * branches_t)
   | DTypeAbstractStruct of lident
       (** Note: this is only used for "assume val" declarations in standalone
@@ -40,6 +38,7 @@ and decl =
        * for it. *)
   | DExternal2 of (calling_convention option * flag list * lident * typ * string list)
       (** New variant that keeps names of arguments *)
+  | DUntaggedUnion of (lident * flag list * int * (ident * typ) list
 
 and fields_t =
   (ident * (typ * bool)) list
