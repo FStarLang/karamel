@@ -1023,14 +1023,17 @@ let target_c_name lident =
 let record_name lident =
   [], GlobalNames.record (string_of_lident lident) (target_c_name lident)
 
+let decls = Hashtbl.create 20
 
 let record_toplevel_names = object (self)
   inherit [_] map
 
   method! visit_DGlobal _ flags name n t body =
+    Hashtbl.add decls (target_c_name name) (module_name name);
     DGlobal (flags, record_name name, n, t, body)
 
   method! visit_DFunction _ cc flags n ret name args body =
+    Hashtbl.add decls (target_c_name name) (module_name name);
     DFunction (cc, flags, n, ret, record_name name, args, body)
 
   method! visit_DExternal _ cc flags name t pp =
@@ -1039,6 +1042,7 @@ let record_toplevel_names = object (self)
   method! visit_DType env name flags n t =
     (* TODO: this is not correct since record_name might, on the second call
      * (not forward), return something disambiguated with a suffix. *)
+    Hashtbl.add decls (target_c_name name) (module_name name);
     let name = if t = Forward then name else record_name name in
     DType (name, flags, n, self#visit_type_def env t)
 
@@ -1516,8 +1520,8 @@ let remove_unused (files: file list): file list =
 (* Allocate C names avoiding keywords and name collisions. This should be done
  * as the last operations, otherwise, any table for memoization suddenly becomes
  * invalid. *)
-let to_c_names (files: file list): file list =
+let to_c_names (files: file list): file list * (ident, string) Hashtbl.t =
   let files = record_toplevel_names#visit_files () files in
   let files = replace_references_to_toplevel_names#visit_files () files in
-  files
+  files, decls
 

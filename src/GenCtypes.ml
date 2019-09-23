@@ -227,34 +227,119 @@ let mk_ctypes_decl module_name (d: decl): structure =
   | External _
   | TypeForward _ -> []
 
-let mk_ocaml_bind module_name decls =
+let mk_include name =
+  let module_name = Mod.apply (Mod.ident (mk_ident (name ^ "_bindings.Bindings"))) (Mod.ident (mk_ident (name ^ "_stubs"))) in
+  Str.include_ (Incl.mk module_name)
+
+let mk_ocaml_bind module_name deps decls =
   let decls = KList.map_flatten
     (if_not_private (mk_ctypes_decl module_name)) decls
   in
   if not (KList.is_empty decls) then
     let open_f = Str.open_ (Opn.mk ?override:(Some Fresh) (mk_ident "F")) in
-    let module_exp = Mod.mk (Pmod_structure (open_f::decls)) in
+    let includes = List.map mk_include deps in
+    let module_exp = Mod.mk (Pmod_structure (open_f::(includes@decls))) in
     let functor_type = Mty.mk (Pmty_ident (mk_ident "Cstubs.FOREIGN")) in
     let functor_exp = Mod.functor_ (mk_sym "F") (Some functor_type) module_exp in
     Some (Str.module_ (Mb.mk (mk_sym "Bindings") functor_exp))
   else
     None
 
-let build_module (module_name: ident) program: structure option =
-  let modul = mk_ocaml_bind module_name program in
+let build_module (module_name: ident) deps program: structure option =
+  let modul = mk_ocaml_bind module_name deps program in
   let open_decls = List.map (fun m ->
     Str.open_ (Opn.mk ?override:(Some Fresh) (mk_ident m))) ["Ctypes"] in
   Option.map (fun m -> open_decls @ [m]) modul
 
-let mk_ocaml_bindings files: (string * string list * structure_item list) list =
-  KList.map_flatten (fun (name, deps, program) ->
-    if List.exists (fun p -> Bundle.pattern_matches p name) !Options.ctypes then
-      match build_module name program with
-      | Some m -> [(name, deps, m)]
-      | None -> []
-    else
-      []
-  ) files
+let module_name fn =
+  if Filename.check_suffix fn "krml" then
+    let fn = Filename.basename fn in
+    String.sub fn 0 (String.length fn - 5)
+  else
+    Warn.fatal_error "Expected krml file"
+
+
+module Deps = Set.Make(String)
+
+(* Given a list of bundles, their dependencies and the declaratons they contain (`files`) and
+ * a table of declarations and the F* module they originate from (`modules`), we need to decide
+ * the subset of declarations for which a binding will be generated. These are:
+ *   - Every delcaration from a module which is passed to the `-ctypes` option.
+ *   - Every type declaration from bundles which include a module passed to the `-ctypes` option.
+ *   - Every type declaration from bundles which are dependencies of bundles that contain declarations
+ *     for which we generate a binding.
+ * This is done in 2 passes:
+ *   1) `compute_bundles` goes over each bundle and includes it in the list of bundles for which
+ *      bindings will be generated if it contains any declarations originally from modules passed to `-ctypes`
+ *   2) `compute_bindings` goes over each bundle and filters declarations according to the criteria above.
+ *     Since the list of bundles is topologically sorted, it is processed here in reverse order to build
+ *     a list of dependencies. *)
+let mk_ocaml_bindings
+  (files : (ident * string list * decl list) list)
+  (modules : (ident, string) Hashtbl.t) :
+  (string * string list * structure_item list) list =
+
+  let rec compute_bundles files modules =
+    match files with
+    | [] -> []
+    | (f_name, _, f_decls)::fs -> begin
+       let is_extracted_bundle = List.fold_left (fun b d ->
+            match (d: decl) with
+            | Function (_,_,_,name,_,_)
+            | Global (name,_,_,_,_)
+            | Type (name,_,_) ->
+                b || List.exists (fun p -> Bundle.pattern_matches p (Hashtbl.find modules name)) !Options.ctypes
+            | External _
+            | TypeForward _ -> false
+          ) false f_decls
+       in
+       if is_extracted_bundle then
+          f_name::(compute_bundles fs modules)
+        else
+          compute_bundles fs modules
+     end
+  in
+
+  let compute_bindings files modules =
+    let bundles = compute_bundles files modules in
+    let rec compute_bundle files decls deps =
+      match files with
+      | [] -> []
+      | (f_name, f_deps, f_decls)::fs ->
+          let f_decls = List.filter (fun d ->
+            match (d: decl) with
+            | Function (_,_,_,name,_,_)
+            | Global (name,_,_,_,_) ->
+                List.exists (fun p -> Bundle.pattern_matches p (Hashtbl.find modules name)) !Options.ctypes
+            | Type (name,_,_) ->
+                let decl_module = Hashtbl.find modules name in
+                List.exists (fun p -> Bundle.pattern_matches p decl_module) !Options.ctypes ||
+                Deps.mem decl_module deps ||
+                List.mem f_name bundles
+            | External _
+            | TypeForward _ -> false
+          ) f_decls
+          in
+          let deps =
+            if not (KList.is_empty f_decls) then
+              List.fold_right Deps.add f_deps deps
+            else
+              deps
+          in
+          (f_name, f_deps, f_decls)::(compute_bundle fs decls deps)
+    in
+    let files = compute_bundle (List.rev files) modules (Deps.empty) in
+    List.rev files
+  in
+  if KList.is_empty !Options.ctypes then
+    []
+  else
+    let files = compute_bindings files modules in
+    KList.map_flatten (fun (name, deps, program) ->
+        match build_module name deps program with
+        | Some m -> [(name, deps, m)]
+        | None -> []
+      ) files
 
 let mk_gen_decls module_name =
   let mk_out_channel n =

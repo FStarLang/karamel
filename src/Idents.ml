@@ -41,3 +41,6 @@ let mk_fresh name test =
 
 let fstar_name_of_mod =
   String.map (function '.' -> '_' | x -> x)
+
+let module_name lident =
+  String.concat "_" (fst lident)
