@@ -41,3 +41,16 @@ let test (x: nat): int =
     proj_ Msg1 my_msg
   else
     fst (proj_ Msg2 my_msg)
+
+// This one eschews nominal typing and will be flagged as an error by the
+// tactic.
+inline_for_extraction noextract
+let mk_fail = mk (union [
+  Msg1, ("fst_msg", int);
+  Msg2, ("snd_msg", int & int)
+])
+
+[@ expect_failure ]
+noextract
+let bad =
+  mk_fail Msg1 0
