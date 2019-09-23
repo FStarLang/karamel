@@ -42,6 +42,10 @@ let mk_ident name = Lident name |> mk_sym_ident
 
 let exp_ident n = Exp.ident (mk_ident n)
 
+let check_supported_type n =
+  if String.equal n "FStar_UInt128_uint128" then
+    Warn.fatal_error "Ctypes bindings generation is not supported for code that uses uint128"
+
 
 (* generic AST helpers *)
 let mk_const c =
@@ -70,10 +74,10 @@ let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
  * -no-prefix options. If this is the beginning of a top-level name, lower is
  * true and we force the first letter to be lowercase to abide by OCaml syntax
  * restrictions. *)
-let mk_unqual_name ?(lower=true) n =
+let mk_unqual_name n =
   if KString.starts_with n "K___" then
     "t_" ^ n (* VD: might want to process this differently or alias to more user-friendly names *)
-  else if lower && Char.lowercase n.[0] <> n.[0] then
+  else if Char.lowercase n.[0] <> n.[0] then
     String.make 1 (Char.lowercase n.[0]) ^ String.sub n 1 (String.length n - 1)
   else
     n
@@ -105,7 +109,7 @@ let rec mk_typ module_name = function
   | Int w -> exp_ident (PrintCommon.width_to_string w ^ "_t")
   | Pointer t -> Exp.apply (exp_ident "ptr") [(Nolabel, mk_typ module_name t)]
   | Void -> exp_ident "void"
-  | Qualified l -> exp_ident (mk_unqual_name l)
+  | Qualified l -> check_supported_type l; exp_ident (mk_unqual_name l)
   | Bool -> exp_ident "bool"
   | Function (_, return_type, parameters) -> build_foreign_fun module_name return_type (List.map (fun x -> {name=""; typ=x}) parameters)
   | Union _
@@ -196,7 +200,7 @@ let mk_enum_tags name tags =
     match tags with
     | [] -> []
     | t :: ts ->
-      let tag_name = String.concat "_" [mk_unqual_name ~lower:true name; t] in
+      let tag_name = String.concat "_" [mk_unqual_name name; t] in
       (mk_simple_app_decl tag_name None "Unsigned.UInt8.of_int"
          [Exp.constant (Const.int n)]) :: (mk_tags (n+1) ts)
   in
