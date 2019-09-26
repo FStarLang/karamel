@@ -885,6 +885,8 @@ let strengthen_array t expr =
   match expr with
   | BufCreateL (_, es) ->
       ensure_array t (Constant (K.uint32_of_int (List.length es)))
+  | BufCreate (_, _, size) ->
+      ensure_array t size
   | _ ->
       t
 
@@ -926,6 +928,11 @@ let mk_function_or_global_body (d: decl): C.declaration_or_function list =
             let es = List.map struct_as_initializer es in
             wrap_verbatim flags (Decl ([], (qs, spec, static, [
               decl, Some (Initializer es) ])))
+        (* Global static arrays of arithmetic type are initialized implicitly to 0 *)
+        | BufCreate (_, Constant (_, "0"), _)
+        | BufCreate (_, CStar.Any, _) ->
+            wrap_verbatim flags (Decl ([], (qs, spec, static, [
+              decl, None ])))
         | _ ->
             let expr = struct_as_initializer expr in
             wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, Some expr ])))
