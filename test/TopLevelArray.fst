@@ -12,13 +12,13 @@ type t = {
   w: (w:B.buffer Int32.t{B.length w = 2 /\ B.recallable w});
   x: Int32.t;
   y: (y:B.buffer Int32.t{B.length y = 1 /\ B.recallable y});
-  z: Int32.t; //C.String.t;
+  z: C.String.t;
 }
 
 // Note: KreMLin will *not* extract this as const char s[] = "whatevs", meaning
 // it can't be used within an initializer, so we use inline_for_extraction.
 inline_for_extraction
-let s = 0l //C.String.of_literal "whatevs"
+let s = C.String.of_literal "whatevs"
 
 inline_for_extraction
 let zero = 0l
