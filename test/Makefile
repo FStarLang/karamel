@@ -168,6 +168,10 @@ $(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Lowlevel.exe $(addprefix $(LOWLEVEL
 	cd $(dir $@) && \
 	  CTYPES_LIB_DIR=$(shell ocamlfind query ctypes) ocamlbuild -use-ocamlfind $(notdir $@) Client.byte
 
+.PHONY: ctypes2
+ctypes2:
+	make -C ctypes2
+
 # A pseudo-target for WASM compilation that does not match any specific file.
 # All WASM targets get the -wasm flag; some specific targets may override
 # NEGATIVE for negative tests.
@@ -191,6 +195,7 @@ WasmTrap.wasm-test: NEGATIVE = true
 
 clean:
 	rm -rf $(WEB_DIR) .output
+	make -C ctypes2 clean
 
 distclean: clean
 	rm -rf .cache
