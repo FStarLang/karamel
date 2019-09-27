@@ -930,6 +930,7 @@ let mk_function_or_global_body (d: decl): C.declaration_or_function list =
               decl, Some (Initializer es) ])))
         (* Global static arrays of arithmetic type are initialized implicitly to 0 *)
         | BufCreate (_, Constant (_, "0"), _)
+        | BufCreate (_, CStar.Bool false, _)
         | BufCreate (_, CStar.Any, _) ->
             wrap_verbatim flags (Decl ([], (qs, spec, static, [
               decl, None ])))
