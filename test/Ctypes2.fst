@@ -1,4 +1,4 @@
-module A2
+module Ctypes2
 
 open FStar.Mul
 open FStar.UInt
@@ -8,7 +8,7 @@ module M = LowStar.Modifies
 module U16 = FStar.UInt16
 module U32 = FStar.UInt32
 
-open B
+open Ctypes1
 
 val point_sum2: p1: point -> p2: point -> Stack point
   (requires fun h ->
@@ -19,3 +19,4 @@ let point_sum2 p1 p2 =
   let open FStar.UInt32 in
   { x = p1.x +^ p2.x;
     y = p1.y +^ p2.y}
+

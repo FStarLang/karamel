@@ -39,7 +39,8 @@ NEGATIVE	= false
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
 # special file and doesn't have a main.
 BROKEN		= \
-  HigherOrder6.fst RecordTypingLimitation.fst ForwardDecl.fst Lowlevel.fst
+  HigherOrder6.fst RecordTypingLimitation.fst ForwardDecl.fst \
+  Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst
 
 WEB_DIR		?= web
 CACHE_DIR	= .cache
@@ -98,6 +99,11 @@ $(OUTPUT_DIR)/%.krml: | .depend
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<))
 
+$(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_BIN)
+	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) \
+	  -o $@ $(filter %.krml,$^) \
+        -skip-compilation $(filter %.krml,$^) \
+
 .PRECIOUS: $(OUTPUT_DIR)/%.exe
 $(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
@@ -139,7 +145,12 @@ $(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fnoshort-enums
 $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
 $(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel memcpymodel_impl.c
 $(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
-$(OUTPUT_DIR)/Lowlevel.exe: EXTRA = -ctypes 'Lowlevel' -skip-compilation
+$(OUTPUT_DIR)/Ctypes2.exe: EXTRA = -ctypes 'Ctypes2,Ctypes4' \
+	-bundle 'Ctypes3+Ctypes4=[rename=Lowlevel]' \
+    -bundle 'Ctypes2=' \
+    -bundle 'Ctypes1=' \
+    -bundle '*,WindowsHack[rename=Leftovers]' \
+	-no-prefix 'Ctypes4' -skip-compilation
 
 # Some custom targets
 
@@ -151,7 +162,7 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 
 # Custom ctypes target
 
-LOWLEVEL_DIR=$(OUTPUT_DIR)/Lowlevel.out
+LOWLEVEL_DIR=$(OUTPUT_DIR)/Ctypes2.out
 
 $(LOWLEVEL_DIR)/%: ctypes/%
 	mkdir -p $(dir $@)
@@ -164,13 +175,10 @@ ctypes-test: $(LOWLEVEL_DIR)/Client.native
 CTYPES_HAND_WRITTEN_FILES=myocamlbuild.ml Client.ml _tags
 
 .PHONY: $(LOWLEVEL_DIR)/Client.native
-$(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Lowlevel.exe $(addprefix $(LOWLEVEL_DIR)/,$(CTYPES_HAND_WRITTEN_FILES))
+$(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Ctypes2.exe $(addprefix $(LOWLEVEL_DIR)/,$(CTYPES_HAND_WRITTEN_FILES))
 	cd $(dir $@) && \
 	  CTYPES_LIB_DIR=$(shell ocamlfind query ctypes) ocamlbuild -use-ocamlfind $(notdir $@) Client.byte
 
-.PHONY: ctypes2
-ctypes2:
-	make -C ctypes2
 
 # A pseudo-target for WASM compilation that does not match any specific file.
 # All WASM targets get the -wasm flag; some specific targets may override
@@ -195,7 +203,6 @@ WasmTrap.wasm-test: NEGATIVE = true
 
 clean:
 	rm -rf $(WEB_DIR) .output
-	make -C ctypes2 clean
 
 distclean: clean
 	rm -rf .cache

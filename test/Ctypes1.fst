@@ -1,4 +1,4 @@
-module B
+module Ctypes1
 
 open FStar.Mul
 open FStar.UInt

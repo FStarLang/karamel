@@ -319,7 +319,7 @@ let mk_ocaml_bindings
             | Type (name,_,_) ->
                 let decl_module = Hashtbl.find modules name in
                 List.exists (fun p -> Bundle.pattern_matches p decl_module) !Options.ctypes ||
-                Deps.mem decl_module deps ||
+                Deps.mem f_name deps ||
                 List.mem f_name bundles
             | External _
             | TypeForward _ -> false

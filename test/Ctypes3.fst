@@ -1,9 +1,9 @@
-module D
+module Ctypes3
 
 open FStar.Mul
 open FStar.UInt
 module U32 = FStar.UInt32
-open B
+open Ctypes1
 
 let square_d (x: U32.t): U32.t =
   let open U32 in

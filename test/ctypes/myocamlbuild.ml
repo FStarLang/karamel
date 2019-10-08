@@ -10,6 +10,28 @@ let kremlin_home =
 in
 let cwd = Sys.getcwd () in
 
+(* Names of modules for which Ctypes bindings are required for building the executable *)
+let deps = ["Lowlevel"; "Ctypes1"; "Ctypes2"]
+in
+let flags = List.flatten
+    (List.map (fun n ->
+         [A"-dllib"; A("-l" ^ n ^ "_c_stubs");
+          A"-dllib"; A("-l" ^ n)])
+        deps)
+in
+let dl_flags mode =
+  let ext = match mode with
+    | "lib" -> !Options.ext_lib
+    | "dll" -> !Options.ext_dll
+    | _ -> failwith "Invalid flag for linking Ctypes bindings"
+  in
+  List.flatten
+    (List.map (fun n ->
+         [("lib/" ^ mode ^ n ^ "_c_stubs")-.-ext;
+          (mode ^ n)-.-ext])
+        deps)
+in
+
 dispatch begin function
 | After_rules ->
 
@@ -43,16 +65,14 @@ dispatch begin function
    * actual library) then links it with the client program. This appears to be
    * dynamic linking. *)
   dep ["ocaml"; "link"; "byte"; "use_stubs"]
-    ["lib/dllLowlevel_c_stubs"-.-(!Options.ext_dll);
-     "dllLowlevel"-.-(!Options.ext_dll)];
+    (dl_flags "dll");
+
   flag ["ocaml"; "link"; "byte"; "use_stubs"] &
-    S[A"-dllib"; A"-lLowlevel_c_stubs";
-      A"-dllib"; A"-lLowlevel"];
+    S flags;
 
   (* For the native program, we are happy with static linking. *)
   dep ["ocaml"; "link"; "native"; "use_stubs"]
-    ["lib/libLowlevel_c_stubs"-.-(!Options.ext_lib);
-     "libLowlevel"-.-(!Options.ext_lib)];
+    (dl_flags "lib");
 
 | _ -> ()
 end
