@@ -21,11 +21,6 @@ typedef int16_t FStar_Int16_t, FStar_Int16_t_;
 typedef uint8_t FStar_UInt8_t, FStar_UInt8_t_;
 typedef int8_t FStar_Int8_t, FStar_Int8_t_;
 
-/* Only useful when building Kremlib, because it's in the dependency graph of
- * FStar.Int.Cast. */
-typedef uint64_t FStar_UInt63_t, FStar_UInt63_t_;
-typedef int64_t FStar_Int63_t, FStar_Int63_t_;
-
 typedef double FStar_Float_float;
 typedef uint32_t FStar_Char_char;
 typedef FILE *FStar_IO_fd_read, *FStar_IO_fd_write;
