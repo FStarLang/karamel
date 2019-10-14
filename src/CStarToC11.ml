@@ -180,6 +180,14 @@ let mk_pretty_type = function
   | x ->
       x
 
+let bytes_in = function
+  | Int w -> Some (K.bytes_of_width w)
+  | Qualified "FStar_UInt128_uint128" -> Some (128 / 8)
+  | Qualified "Lib_IntVector_Intrinsics_vec128" -> Some (128 / 8)
+  | Qualified "Lib_IntVector_Intrinsics_vec256" -> Some (256 / 8)
+  | Qualified "Lib_IntVector_Intrinsics_vec32" -> Some (32 / 8)
+  | _ -> None
+
 (* Turns the ML declaration inside-out to match the C reading of a type.
  *   See: en.cppreference.com/w/c/language/declarations.
  * The continuation is key in the Function case. *)
@@ -329,11 +337,12 @@ and mk_check_size t n_elements: C.stmt list =
   (* [init] is the default value for the elements of the array, and [n_elements] is
    * hopefully a constant *)
   let default = [ C.Expr (C.Call (C.Name "KRML_CHECK_SIZE", [ mk_sizeof t; n_elements ])) ] in
-  match t, n_elements with
-  | Int w, C.Cast (_, C.Constant (_, n_elements)) ->
-      let size_bytes = Z.(of_int (K.bytes_of_width w) * of_string n_elements) in
-      (* Note: this is wrong if anyone ever decides to use the x32 ABI *)
-      let ptr_size = Z.(if !Options.m32 then one lsl 32 else one lsl 64) in
+  match bytes_in t, n_elements with
+  | Some w, C.Cast (_, C.Constant (_, n_elements)) ->
+      let size_bytes = Z.(of_int w * of_string n_elements) in
+      (* Note: this is a wild assumption and ought to be checked via a static
+       * assert. *)
+      let ptr_size = Z.(one lsl 32) in
       if Z.( lt size_bytes ptr_size ) then
         []
       else

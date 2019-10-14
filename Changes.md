@@ -228,13 +228,13 @@ Massive cleanup and refactoring of the .h kremlib files (part 1)
 
 - Directory structure change: include/kremlin/internal contains the
   headers that define macros and functions that KreMLin expects to be
-  in scope when generating C code (example: __cdecl, KRML_CHECK_SIZE,
-  etc.), and include/kremlin contains individual .h files for each F*
+  in scope when generating C code (example: `__cdecl`, `KRML_CHECK_SIZE`,
+  etc.), and include/kremlin contains individual .h files for each F\*
   source file
 - Naming convention change: include/kremlib.h is a meta-header that
   includes most of what was there before. Individual implementations are
-  in include/kremlin and are named after the F* module that they
-  implement (c_string.h, fstar_dyn.h, etc.) or, for non-Low* features
+  in include/kremlin and are named after the F\* module that they
+  implement (c_string.h, fstar_dyn.h, etc.) or, for non-Low\* features
   like Prims.int and Prims.string, after the feature that they implement
   (prims_int.h, prims_string.h are the only two)
 - Entirely removed sketchy macros (#define FStar_HyperStack_mem) in
