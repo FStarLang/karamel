@@ -1,3 +1,8 @@
+### October 17th, 2019
+
+- New syntax for `-add-include` and `-add-early-include`: `Foo.h:bar` will
+  prepend `#include bar` only in the file whose C name is `Foo.h`
+
 ### June 27th, 2019
 
 - `[@ deprecated ]` and `[@ (deprecated "message")]` attributes are now
