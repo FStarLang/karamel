@@ -263,7 +263,6 @@ let module_name fn =
     Warn.fatal_error "Expected krml file"
 
 
-module Modules = Set.Make(String)
 module Deps = Set.Make(String)
 
 (* Given a list of bundles, their dependencies and the declaratons they contain (`files`) and
@@ -339,10 +338,10 @@ let mk_ocaml_bindings
   if KList.is_empty !Options.ctypes then
     []
   else
-    let module_names = Modules.of_seq (Hashtbl.to_seq_values modules) in
+    let module_names = Utils.hashtbl_values_to_list modules in
     (* Check that all modules passed to -ctypes are valid F* modules *)
     List.iter (fun p ->
-      if not (Modules.exists (fun m -> Bundle.pattern_matches p m) module_names) then
+      if not (List.exists (fun m -> Bundle.pattern_matches p m) module_names) then
         Warn.fatal_error "Module %s passed to -ctypes is not one of the F* modules passed to Kremlin" (Bundle.string_of_pattern p)) !Options.ctypes;
     let files = compute_bindings files modules in
     KList.map_flatten (fun (name, deps, program) ->

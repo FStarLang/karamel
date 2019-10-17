@@ -81,3 +81,8 @@ let parse the_parser arg =
   with Sedlexing.MalFormed | Sedlexing.InvalidCodepoint _ | KParser.Error as e ->
     KPrint.bprintf "Syntax error in: %s\n" arg;
     raise e
+
+
+let hashtbl_values_to_list t =
+  Hashtbl.fold (fun _ v l -> if List.mem v l then l else v::l) t []
+
