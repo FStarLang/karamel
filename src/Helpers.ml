@@ -323,6 +323,13 @@ let rec is_initializer_constant e =
       List.for_all (fun (_, e) -> is_initializer_constant e) es
   | { node = EBufCreateL (_, es); _ } ->
       List.for_all is_initializer_constant es
+  | { node = EBufCreate (_, { node = EConstant (_, "0"); _ },
+                            { node = EConstant _; _ }); _ }
+  | { node = EBufCreate (_, { node = EBool false; _ },
+                            { node = EConstant _; _ }); _ }
+  | { node = EBufCreate (_, { node = EAny; _ },
+                            { node = EConstant _; _ }); _ } ->
+      true
   | _ ->
       is_null e
 

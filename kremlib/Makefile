@@ -31,14 +31,14 @@ INCLUDE_PATHS = ../runtime
 
 FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules \
   $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
-  --already_cached 'FStar -FStar.Kremlin.Endianness LowStar'
+  --already_cached 'Prims FStar -FStar.Kremlin.Endianness LowStar'
 
 # Note: not compatible with the OPAM layout until fstar can be queried for the
 # location of ulib.
 ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
-  $(addprefix $(FSTAR_HOME)/ulib/,FStar.UInt128.fst FStar.Date.fsti \
+  FStar.UInt128.fst FStar.Date.fsti \
     FStar.HyperStack.IO.fst FStar.IO.fst FStar.Int.Cast.Full.fst \
-    FStar.Bytes.fsti FStar.Dyn.fsti LowStar.Printf.fst)
+    FStar.Bytes.fsti FStar.Dyn.fsti LowStar.Printf.fst
 
 .PHONY: clean clean-c
 clean: clean-c
@@ -54,7 +54,6 @@ clean-c:
 
 include .depend
 
-ALL_CHECKED_FILES	= $(addsuffix .checked, $(ALL_FST_FILES))
 
 %.checked:
 	$(FSTAR) $(OTHERFLAGS) $< && \

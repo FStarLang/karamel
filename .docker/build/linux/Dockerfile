@@ -9,6 +9,8 @@ ARG DOCKERHUBPROJECT
 ARG COMMITID
 FROM ${DOCKERHUBPROJECT}fstar-linux:${COMMITID}
 
+RUN pip3 install --upgrade pip && pip install --user sphinx==2.2.0
+
 ARG BUILDLOGFILE
 ARG MAXTHREADS
 ARG BUILDTARGET
