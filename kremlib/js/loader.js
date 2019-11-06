@@ -6,12 +6,23 @@
 
 "use strict";
 
-var my_print;
+var my_print, my_random;
 
 // When loaded "as is" via d8 or ch, we inherit the caller's scope. When loaded
-// via node, we don't.
-if (typeof process !== "undefined")
-  my_print = console.log
+// via node, we don't, so we redefine my_print.
+if (typeof process !== "undefined") {
+  my_print = console.log;
+  let crypto = require("crypto");
+  my_random = (mem, addr, len) => {
+    var m8 = new Uint8Array(mem.buffer);
+    crypto.randomFillSync(m8, addr, len);
+    return true;
+  };
+} else {
+  my_random = (mem, addr, len) => {
+    throw new Error("TODO: random bytes for non-Node platforms");
+  };
+}
 
 /******************************************************************************/
 /* Some printing helpers                                                      */
@@ -160,6 +171,10 @@ let mkC = (mem) => ({
 
   // Truncated
   clock: () => Date.now(),
+});
+
+let mkLibRandomBufferSystem = (mem) => ({
+  Lib_RandomBuffer_System_randombytes: (addr, len) => { return my_random(mem, addr, len); }
 });
 
 let mkLowStarEndianness = (mem) => ({
@@ -388,7 +403,8 @@ function init() {
     C_String: mkCString(mem, 'C_String'),
     C_Compat_String: mkCString(mem, 'C_Compat_String'),
     TestLib: mkTestLib(mem, 'TestLib'),
-    TestLib_Compat: mkTestLib(mem, 'TestLib_Compat')
+    TestLib_Compat: mkTestLib(mem, 'TestLib_Compat'),
+    Lib_RandomBuffer_System: mkLibRandomBufferSystem(mem)
   };
   return imports;
 }
