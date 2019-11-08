@@ -76,7 +76,7 @@ let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
  * restrictions. *)
 let mk_unqual_name n =
   if KString.starts_with n "K___" then
-    "t_" ^ n (* VD: might want to process this differently or alias to more user-friendly names *)
+    "t_" ^ n (* VD: might want to proccess this differently or alias to more user-friendly names *)
   else if Char.lowercase n.[0] <> n.[0] then
     String.make 1 (Char.lowercase n.[0]) ^ String.sub n 1 (String.length n - 1)
   else
@@ -251,16 +251,11 @@ let mk_ocaml_bind module_name deps decls =
 
 let build_module (module_name: ident) deps program: structure option =
   let modul = mk_ocaml_bind module_name deps program in
+  Printf.printf "Building module %s: %s\n" module_name (if Option.is_some modul then "yes" else "no");
   let open_decls = List.map (fun m ->
     Str.open_ (Opn.mk ?override:(Some Fresh) (mk_ident m))) ["Ctypes"] in
   Option.map (fun m -> open_decls @ [m]) modul
 
-let module_name fn =
-  if Filename.check_suffix fn "krml" then
-    let fn = Filename.basename fn in
-    String.sub fn 0 (String.length fn - 5)
-  else
-    Warn.fatal_error "Expected krml file"
 
 
 module Deps = Set.Make(String)
@@ -291,8 +286,12 @@ let mk_ocaml_bindings
             match (d: decl) with
             | Function (_,_,_,name,_,_)
             | Global (name,_,_,_,_)
-            | Type (name,_,_) ->
-                b || List.exists (fun p -> Bundle.pattern_matches p (Hashtbl.find modules name)) !Options.ctypes
+            | Type (name,_,_) -> begin
+                match Hashtbl.find_opt modules name with
+                | Some m -> b || List.exists (fun p -> Bundle.pattern_matches p m) !Options.ctypes
+                | None -> Printf.printf "Not found %s from %s\n" name f_name; false
+                (* b || List.exists (fun p -> Bundle.pattern_matches p (Hashtbl.find modules name)) !Options.ctypes *)
+                  end
             | External _
             | TypeForward _ -> false
           ) false f_decls
@@ -314,12 +313,20 @@ let mk_ocaml_bindings
             match (d: decl) with
             | Function (_,_,_,name,_,_)
             | Global (name,_,_,_,_) ->
-                List.exists (fun p -> Bundle.pattern_matches p (Hashtbl.find modules name)) !Options.ctypes
+                begin match Hashtbl.find_opt modules name with
+                  | Some decl_module ->
+                    List.exists (fun p -> Bundle.pattern_matches p decl_module) !Options.ctypes
+                  | None -> false end
             | Type (name,_,_) ->
-                let decl_module = Hashtbl.find modules name in
-                List.exists (fun p -> Bundle.pattern_matches p decl_module) !Options.ctypes ||
-                Deps.mem f_name deps ||
-                List.mem f_name bundles
+                (* let keys = Utils.hashtbl_keys_to_list modules in *)
+                (* Printf.printf "Name: %s; Keys: %s\n" name (String.concat ", " keys); *)
+                (* let decl_module = Hashtbl.find modules name in *)
+                begin match Hashtbl.find_opt modules name with
+                  | Some decl_module ->
+                    List.exists (fun p -> Bundle.pattern_matches p decl_module) !Options.ctypes ||
+                    Deps.mem f_name deps ||
+                    List.mem f_name bundles
+                  | None -> false end
             | External _
             | TypeForward _ -> false
           ) f_decls
@@ -337,18 +344,27 @@ let mk_ocaml_bindings
   in
   if KList.is_empty !Options.ctypes then
     []
-  else
+  else begin
     let module_names = Utils.hashtbl_values_to_list modules in
     (* Check that all modules passed to -ctypes are valid F* modules *)
     List.iter (fun p ->
       if not (List.exists (fun m -> Bundle.pattern_matches p m) module_names) then
         Warn.fatal_error "Module %s passed to -ctypes is not one of the F* modules passed to Kremlin" (Bundle.string_of_pattern p)) !Options.ctypes;
     let files = compute_bindings files modules in
-    KList.map_flatten (fun (name, deps, program) ->
-        match build_module name deps program with
-        | Some m -> [(name, deps, m)]
-        | None -> []
-      ) files
+    List.iter (fun (n, d, l) -> Printf.printf "%s: %d (%s)\n" n (List.length l) (String.concat ", " d)) files ;
+
+    let rec build_modules files modules_acc names_acc =
+      match files with
+      | [] -> modules_acc
+      | (name, deps, program) :: fs -> begin
+          let deps = List.filter (fun d -> List.mem d names_acc) deps in
+          match build_module name deps program with
+          | Some m -> build_modules fs ((name, deps, m) :: modules_acc) (name :: names_acc)
+          | None -> build_modules fs modules_acc names_acc
+        end
+    in
+    build_modules files [] []
+  end
 
 let mk_gen_decls module_name =
   let mk_out_channel n =
