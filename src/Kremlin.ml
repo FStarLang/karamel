@@ -168,6 +168,12 @@ Supported options:|}
   let found_file = ref false in
   let used_drop = ref false in
   let prepend r = fun s -> r := s :: !r in
+  let parse_include s =
+    match String.split_on_char ':' s with
+    | [ h; i ] -> Some h, i
+    | [ i ] -> None, i
+    | _ -> failwith ("Invalid -add-[early-|]include argument: " ^ s)
+  in
   let csv f s =
     List.iter f (KString.split_on_char ',' s)
   in
@@ -200,9 +206,11 @@ Supported options:|}
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* Controlling the behavior of KreMLin *)
-    "-add-early-include", Arg.String (prepend Options.add_early_include),
+    "-add-early-include", Arg.String (fun s ->
+      prepend Options.add_early_include (parse_include s)),
       "  prepend #include the-argument to every generated file, before kremlib.h";
-    "-add-include", Arg.String (prepend Options.add_include), " prepend #include \
+    "-add-include", Arg.String (fun s ->
+      prepend Options.add_early_include (parse_include s)), " prepend #include \
       the-argument to every generated file, after the #define __FOO_H";
     "-add-include-tmh", Arg.Set Options.add_include_tmh, "  append #include \
       <FILE.tmh>, where FILE is the current basename";
@@ -356,7 +364,7 @@ Supported options:|}
 
     (* Self-help. *)
     if Options.debug "force-c" then begin
-      Options.add_include := "\"kremlin/internal/wasmsupport.h\"" :: !Options.add_include;
+      Options.add_include := (None, "\"kremlin/internal/wasmsupport.h\"") :: !Options.add_include;
       Options.drop := Bundle.Module [ "WasmSupport" ] :: !Options.drop
     end
   end;

@@ -546,6 +546,8 @@ and mk_addr env e =
       | TQualified lid -> assert (is_lflat (LidMap.find lid env.layouts))
       | _ -> () end;
       CF.GetGlobal (snd lid)
+  | EAbort _ ->
+      mk_expr_no_locals env e
   | _ ->
       failwith (KPrint.bsprintf "can't take the addr of %a" pexpr e)
 

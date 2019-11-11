@@ -9,6 +9,13 @@ open PPrint
 let mk_includes =
   separate_map hardline (fun x -> string "#include " ^^ string x)
 
+let filter_includes file includes =
+  KList.filter_some (List.rev_map (function
+    | Some file', h when file = file' -> Some h
+    | None, h -> Some h
+    | _ -> None
+  ) includes)
+
 let kremlib_include () =
   if !Options.minimal then
     empty
@@ -19,8 +26,8 @@ let kremlib_include () =
  * - #include X for X in the dependencies of the file, followed by
  * - #include Y for each -add-include Y passed on the command-line
  *)
-let includes files =
-  let extra_includes = mk_includes (List.rev !Options.add_include) in
+let includes_for file files =
+  let extra_includes = mk_includes (filter_includes file !Options.add_include) in
   let includes = mk_includes (List.rev_map (Printf.sprintf "\"%s.h\"") files) in
   includes ^^ hardline ^^ extra_includes
 
@@ -61,7 +68,7 @@ let prefix_suffix name =
   Driver.detect_kremlin_if ();
   let prefix =
     string (header ()) ^^ hardline ^^
-    mk_includes !Options.add_early_include ^^ hardline ^^
+    mk_includes (filter_includes name !Options.add_early_include) ^^ hardline ^^
     kremlib_include () ^^
     hardline ^^
     string (Printf.sprintf "#ifndef __%s_H" name) ^^ hardline ^^
@@ -115,7 +122,7 @@ let write_h files =
   List.map (fun file ->
     let name, deps, program = file in
     let prefix, suffix = prefix_suffix name in
-    let prefix = prefix ^^ hardline ^^ includes deps in
+    let prefix = prefix ^^ hardline ^^ includes_for name deps in
     write_one (name ^ ".h") prefix program suffix;
     name
   ) files
