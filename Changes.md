@@ -1,3 +1,8 @@
+### November 12th, 2019
+
+- Support for anonymous unions, via LowStar.Union.fst -- this is essentially a
+  type-indexed variant.
+
 ### October 17th, 2019
 
 - New syntax for `-add-include` and `-add-early-include`: `Foo.h:bar` will
