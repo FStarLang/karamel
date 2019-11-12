@@ -381,31 +381,48 @@ and check' env t e =
           check env t expr
         ) fieldexprs
       in
+      let check_union fieldexprs fieldtyps =
+        match fieldexprs with
+        | [ Some f, e ] ->
+            begin try
+              check env (List.assoc f fieldtyps) e
+            with Not_found ->
+              checker_error env "Union does not have such a field"
+            end
+        | [ None, { node = EConstant (_, "0"); _ } ] ->
+            ()
+        | _ ->
+            checker_error env "Union expected, i.e. exactly one provided field";
+      in
+      let module M = struct type t = Record | Union end in
+      let kind lid: M.t option = match lookup_type env lid with
+        | Flat _ -> Some Record
+        | Union _ -> Some Union
+        | _ -> None
+      in
       begin match expand_abbrev env t with
-      | TQualified lid ->
+      | TQualified lid when kind lid = Some Record ->
           let fieldtyps = assert_flat env (lookup_type env lid) in
           check_fields fieldexprs fieldtyps
-      | TApp (lid, ts) ->
+      | TQualified lid when kind lid = Some Union ->
+          let fieldtyps = assert_union env (lookup_type env lid) in
+          check_union fieldexprs fieldtyps
+      | TApp (lid, ts) when kind lid = Some Record ->
           let fieldtyps = assert_flat env (lookup_type env lid) in
           let fieldtyps = List.map (fun (field, (typ, m)) ->
             field, (DeBruijn.subst_tn ts typ, m)
           ) fieldtyps in
           check_fields fieldexprs fieldtyps
+      | TApp (lid, ts) when kind lid = Some Union ->
+          let fieldtyps = assert_union env (lookup_type env lid) in
+          let fieldtyps = List.map (fun (field, typ) ->
+            field, DeBruijn.subst_tn ts typ
+          ) fieldtyps in
+          check_union fieldexprs fieldtyps
       | TAnonymous (Flat fieldtyps) ->
           check_fields fieldexprs fieldtyps
       | TAnonymous (Union fieldtyps) ->
-          begin match fieldexprs with
-          | [ Some f, e ] ->
-              begin try
-                check env (List.assoc f fieldtyps) e
-              with Not_found ->
-                checker_error env "Union does not have such a field"
-              end
-          | [ None, { node = EConstant (_, "0"); _ } ] ->
-              ()
-          | _ ->
-              checker_error env "Union expected, i.e. exactly one provided field";
-          end
+          check_union fieldexprs fieldtyps
       | _ ->
           checker_error env "Not a record %a" ptyp t
       end
@@ -903,6 +920,13 @@ and assert_flat env t =
       def
   | _ ->
       checker_error env "%a, %a is not a record definition" ploc env.location pdef t
+
+and assert_union env t =
+  match t with
+  | Union def ->
+      def
+  | _ ->
+      checker_error env "%a, %a is not a union definition" ploc env.location pdef t
 
 and assert_qualified env t =
   match expand_abbrev env t with
