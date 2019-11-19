@@ -63,6 +63,14 @@ let analyze_function_type is_struct = function
   | t ->
       Warn.fatal_error "analyze_function_type: %a is not a function type" ptyp t
 
+(* A comment about the insertion of const pointers. Declaring variables with a
+ * const qualifier exposes us to some risk of undefined behavior if someone
+ * casts the const qualifier away. See comments in LowStar.ConstBuffer.
+ *
+ * However, since these are variables that *WE* insert, we know that the dangerous
+ * cast (to_buffer and to_ibuffer) is not available; therefore, it is ok to
+ * declare them with a const qualifier. *)
+
 
 (* Rewrite functions and expressions to take and possibly return struct
  * pointers. This transformation is entirely type-based. *)
@@ -80,13 +88,13 @@ let pass_by_ref is_struct = object (self)
     let args = List.map (self#visit_typ []) args in
     let args = List.map2 (fun arg is_struct ->
       if is_struct then
-        TBuf arg
+        TBuf (arg, true)
       else
         arg
     ) args args_are_structs in
     let ret, args =
       if ret_is_struct then
-        TUnit, args @ [ TBuf ret ]
+        TUnit, args @ [ TBuf (ret, false) ]
       else
         ret, args
     in
@@ -126,10 +134,10 @@ let pass_by_ref is_struct = object (self)
     let bs, args = KList.fold_lefti (fun i (bs, es) (e, is_struct) ->
       if is_struct then
         if will_be_lvalue e then
-          bs, with_type (TBuf e.typ) (EAddrOf e) :: es
+          bs, with_type (TBuf (e.typ, true)) (EAddrOf e) :: es
         else
           let x, atom = Helpers.mk_binding (Printf.sprintf "s%d" i) e.typ in
-          (x, e) :: bs, with_type (TBuf e.typ) (EAddrOf atom) :: es
+          (x, e) :: bs, with_type (TBuf (e.typ, true)) (EAddrOf atom) :: es
       else
         bs, e :: es
     ) ([], []) (List.combine args args_are_structs) in
@@ -139,12 +147,12 @@ let pass_by_ref is_struct = object (self)
     if ret_is_struct then
       match dest with
       | Some dest ->
-          let args = args @ [ with_type (TBuf t) (EAddrOf dest) ] in
+          let args = args @ [ with_type (TBuf (t, false)) (EAddrOf dest) ] in
           Helpers.nest bs t (with_type TUnit (EApp (e, args)))
       | None ->
           let x, dest = Helpers.mk_binding "ret" t in
           let bs = (x, with_type TAny EAny) :: bs in
-          let args = args @ [ with_type (TBuf t) (EAddrOf dest) ] in
+          let args = args @ [ with_type (TBuf (t, false)) (EAddrOf dest) ] in
           Helpers.nest bs t (with_type t (ESequence [
             with_type TUnit (EApp (e, args));
             dest]))
@@ -166,7 +174,7 @@ let pass_by_ref is_struct = object (self)
     (* Step 2: rewrite the types of the arguments to take pointers to structs *)
     let binders = List.map2 (fun binder is_struct ->
       if is_struct then
-        { binder with typ = TBuf binder.typ }
+        { binder with typ = TBuf (binder.typ, true) }
       else
         binder
     ) binders args_are_structs in
@@ -174,7 +182,7 @@ let pass_by_ref is_struct = object (self)
     (* Step 3: add an extra argument in case the return type is a struct, too *)
     let ret, binders, ret_atom =
       if ret_is_struct then
-        let ret_binder, ret_atom = Helpers.mk_binding "ret" (TBuf ret) in
+        let ret_binder, ret_atom = Helpers.mk_binding "ret" (TBuf (ret, false)) in
         TUnit, binders @ [ ret_binder ], Some ret_atom
       else
         ret, binders, None
@@ -209,7 +217,7 @@ let pass_by_ref is_struct = object (self)
     (* [x] was a struct parameter that is now passed by reference; replace it
      * with [*x] *)
     if List.exists (Atom.equal atom) to_be_starred then
-      EBufRead (with_type (TBuf t) (EOpen (name, atom)), Helpers.zerou32)
+      EBufRead (with_type (TBuf (t, true)) (EOpen (name, atom)), Helpers.zerou32)
     else
       EOpen (name, atom)
 
@@ -352,7 +360,7 @@ let to_addr is_struct =
     let not_struct () = assert (not was_struct) in
     let w = with_type e.typ in
     let push_addrof e =
-      let t = TBuf e.typ in
+      let t = TBuf (e.typ, true) in
       Helpers.nest_in_return_pos t (fun _ e -> with_type t (EAddrOf e)) e
     in
     match e.node with
@@ -407,9 +415,9 @@ let to_addr is_struct =
         if under_compound then
           w (EFlat fields)
         else
-          let b, _ = Helpers.mk_binding "alloc" (TBuf e.typ) in
+          let b, _ = Helpers.mk_binding "alloc" (TBuf (e.typ, true)) in
           w (ELet (b,
-            with_type (TBuf e.typ) (EBufCreate (Stack, with_type e.typ (EFlat fields), Helpers.oneu32)),
+            with_type (TBuf (e.typ, true)) (EBufCreate (Stack, with_type e.typ (EFlat fields), Helpers.oneu32)),
             Helpers.mk_deref e.typ (EBound 0)))
 
     | ELet (b, ({ node = EFlat _; _ } as e1), e2) ->
@@ -419,7 +427,7 @@ let to_addr is_struct =
         if not (is_struct b.typ) then
           Warn.fatal_error "%a is not a struct type\n" ptyp b.typ;
         let t = b.typ in
-        let t' = TBuf b.typ in
+        let t' = TBuf (b.typ, true) in
         let b = { b with typ = t' } in
         let e1 = to_addr true e1 in
         let e1 = with_type t' (EBufCreate (Stack, e1, Helpers.oneu32)) in
@@ -430,11 +438,11 @@ let to_addr is_struct =
         let b, e1, e2 =
           if is_struct b.typ then
             (* Our transformation kicks in. *)
-            let t' = TBuf b.typ in
+            let t' = TBuf (b.typ, true) in
             let e1 =
               if e1.node = EAny then
                 (* [let x: t = any] becomes [let x: t* = ebufcreate any 1] *)
-                with_type (TBuf b.typ) (EBufCreate (Stack, e1, Helpers.oneu32))
+                with_type t' (EBufCreate (Stack, e1, Helpers.oneu32))
               else
                 (* Recursively visit [e1]; take the resulting address. *)
                 push_addrof (to_addr false e1)

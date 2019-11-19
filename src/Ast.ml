@@ -41,8 +41,9 @@ type typ =
   | TAny
       (** appears because of casts introduced by erasure... eventually, should
        * not appear! *)
-  | TBuf of typ
-      (** a buffer in the Low* sense *)
+  | TBuf of typ * bool
+      (** a buffer in the Low* sense -- boolean indicates whether it's const or
+       * not *)
   | TArray of typ * constant
       (** appears when we start hoisting buffer definitions to their enclosing
        * push frame *)

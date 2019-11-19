@@ -124,7 +124,7 @@ let mk_gt_zero e =
 
 (* *e *)
 let mk_deref t e =
-  with_type t (EBufRead (with_type (TBuf t) e, zerou32))
+  with_type t (EBufRead (with_type (TBuf (t, false)) e, zerou32))
 
 (* Binder nodes ***************************************************************)
 
@@ -190,7 +190,7 @@ let is_uu name = KString.starts_with name "uu__"
  * strengthen the type [t] into an array type. This is the only place that
  * generates TArray meaning every TArray implies Stack. *)
 let strengthen_array' t e2 =
-  let ensure_buf = function TBuf t -> t | _ -> failwith "not a buffer" in
+  let ensure_buf = function TBuf (t, _) -> t | _ -> failwith "not a buffer" in
   let open Common in
   match t, e2.node with
   | TArray _, _ ->
@@ -338,7 +338,7 @@ let assert_tlid t =
   match t with TQualified lid -> lid | _ -> assert false
 
 let assert_tbuf t =
-  match t with TBuf t -> t | _ -> assert false
+  match t with TBuf (t, _) -> t | _ -> assert false
 
 let assert_elid t =
   (* We only have nominal typing for variants. *)
@@ -346,7 +346,7 @@ let assert_elid t =
 
 let assert_tbuf_or_tarray t =
   match t with
-  | TBuf t | TArray (t, _) -> t
+  | TBuf (t, _) | TArray (t, _) -> t
   | _ -> Warn.fatal_error "%a is neither a tbuf or tarray\n" ptyp t
 
 
@@ -428,10 +428,10 @@ let mk_bufblit src_buf src_ofs dst_buf dst_ofs len =
       EBufWrite (dst_buf, dst_ofs, with_type t (EBufRead (src_buf, src_ofs)))
   | _ ->
       let b_src, body_src, ref_src =
-        mk_named_binding "src" (TBuf t) (EBufSub (src_buf, src_ofs))
+        mk_named_binding "src" (TBuf (t, true)) (EBufSub (src_buf, src_ofs))
       in
       let b_dst, body_dst, ref_dst =
-        mk_named_binding "dst" (TBuf t) (EBufSub (dst_buf, dst_ofs))
+        mk_named_binding "dst" (TBuf (t, false)) (EBufSub (dst_buf, dst_ofs))
       in
       let b_len, body_len, ref_len =
         mk_named_binding "len" uint32 len.node
@@ -455,7 +455,7 @@ let mk_copy_assignment (t, size) e1 e2 =
     if not (is_readonly_c_expression e) then
       Warn.fatal_error "copy-assign, %s is not a readonly expression: %a" n pexpr e
   in
-  let e1 = with_type (TBuf t) e1 in
+  let e1 = with_type (TBuf (t, false)) e1 in
   begin match e2.node with
   | EBufCreate (_, init, len) ->
       if init.node = EAny then

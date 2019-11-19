@@ -23,4 +23,7 @@ let main (): St Int32.t =
   let x = B.malloc HS.root 0ul 1ul in
   cast_and_mutate (C.of_buffer x);
   LowStar.Printf.(printf "new value is: %xul\n" 1ul x done);
-  1l
+  if B.index x 0ul = 1ul then
+    0l
+  else
+    1l
