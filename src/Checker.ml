@@ -417,7 +417,7 @@ and check' env t e =
 
   | EAddrOf e ->
       let t = infer env e in
-      c (TBuf (t, true))
+      c (TBuf (t, false))
 
 and check_case env c t =
   match c, t with
@@ -714,7 +714,7 @@ and infer' env e =
       TUnit
 
   | EAddrOf e ->
-      TBuf (infer env e, true)
+      TBuf (infer env e, false)
 
 and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
   fun env f l ->
