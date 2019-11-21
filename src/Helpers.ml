@@ -123,8 +123,8 @@ let mk_gt_zero e =
       zerou32]))
 
 (* *e *)
-let mk_deref t e =
-  with_type t (EBufRead (with_type (TBuf (t, false)) e, zerou32))
+let mk_deref t ?(const=false) e =
+  with_type t (EBufRead (with_type (TBuf (t, const)) e, zerou32))
 
 (* Binder nodes ***************************************************************)
 

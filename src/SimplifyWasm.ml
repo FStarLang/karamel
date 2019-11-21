@@ -34,6 +34,10 @@ let hoist_reads_and_writes = object(self)
 
 end
 
+let strip_const = function
+  | TBuf (t, _) -> TBuf (t, false)
+  | _ -> assert false
+
 (* We distinguish between top-level globals and the rest of buffer operations.
  * - Top-level globals are left untouched, and will be laid out in the data
  *   segment. If they are not entirely made up of constant values, AstToCFlat
@@ -67,7 +71,9 @@ let remove_buffer_ops = object(self)
         let b_size = mark_mut b_size in
         (* Leaving the size inline because it's needed for the buffer hoisting
          * phase; also, the size ought to be pure, guaranteed by F*. *)
-        let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, size)) in
+        let b_buf, body_buf, ref_buf =
+          mk_named_binding "buf0_" (strip_const t) (EBufCreate (lifetime, any, size))
+        in
         let with_tbuf = with_type t in
         let with_t = with_type (assert_tbuf t) in
         match size.node with
@@ -106,7 +112,7 @@ let remove_buffer_ops = object(self)
     let size = self#visit_expr_w () size in
     let b_size, body_size, ref_size = mk_named_binding "size" size.typ size.node in
     let b_size = mark_mut b_size in
-    let b_buf, body_buf, ref_buf = mk_named_binding "buf" buf.typ buf.node in
+    let b_buf, body_buf, ref_buf = mk_named_binding "buf1_" buf.typ buf.node in
     let b_init, body_init, ref_init = mk_named_binding "init" init.typ init.node in
     ELet (b_size, body_size, close_binder b_size (with_unit (
     ELet (b_buf, body_buf, close_binder b_buf (with_unit (
@@ -122,7 +128,7 @@ let remove_buffer_ops = object(self)
     let es = List.map (self#visit_expr_w ()) es in
     let size = mk_uint32 (List.length es) in
     let with_t = with_type t in
-    let b_buf, body_buf, ref_buf = mk_named_binding "buf" t (EBufCreate (lifetime, any, size)) in
+    let b_buf, body_buf, ref_buf = mk_named_binding "buf2_" t (EBufCreate (lifetime, any, size)) in
     (* JP: DeBruijn.lift 1 e here? *)
     let assignments = List.mapi (fun i e -> with_unit (EBufWrite (ref_buf, mk_uint32 i, e))) es in
     ELet (b_buf, body_buf, close_binder b_buf (with_t (
