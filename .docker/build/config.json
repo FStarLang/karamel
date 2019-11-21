@@ -4,7 +4,7 @@
     "BaseContainerIsEverestImage" : true,
     "BaseContainerImageName" : "fstar",
     "BaseContainerImageTagOrCommitId": "latest",
-    "BranchName" : "master",
+    "BranchName" : "protz_const",
     "GithubCommitUrl" : "https://github.com/FStarLang/fstar/commit",
     "OnDemandBuildDefinition" : "FStar\\FStar-{agentOS}",
 
@@ -18,7 +18,7 @@
     "CIBuildTarget" : "all",
     "NightlyBuildTarget" : "nightly",
     "HasLogsToExtract" : true,
-    
+
     "NotificationEnabled" : true,
     "NotificationChannel" : "#kremlin-build",
     "PublicBranches" : [ "master" ],

@@ -418,7 +418,7 @@ let to_addr is_struct =
           let b, _ = Helpers.mk_binding "alloc" (TBuf (e.typ, true)) in
           w (ELet (b,
             with_type (TBuf (e.typ, true)) (EBufCreate (Stack, with_type e.typ (EFlat fields), Helpers.oneu32)),
-            Helpers.mk_deref e.typ (EBound 0)))
+            Helpers.mk_deref e.typ ~const:true (EBound 0)))
 
     | ELet (b, ({ node = EFlat _; _ } as e1), e2) ->
         (* This special case is subsumed by the combination of [EFlat] and
@@ -427,18 +427,20 @@ let to_addr is_struct =
         if not (is_struct b.typ) then
           Warn.fatal_error "%a is not a struct type\n" ptyp b.typ;
         let t = b.typ in
-        let t' = TBuf (b.typ, true) in
+        let const = not b.node.mut in
+        let t' = TBuf (b.typ, const) in
         let b = { b with typ = t' } in
         let e1 = to_addr true e1 in
         let e1 = with_type t' (EBufCreate (Stack, e1, Helpers.oneu32)) in
-        let e2 = DeBruijn.subst_no_open (Helpers.mk_deref t ~const:true (EBound 0)) 0 e2 in
+        let e2 = DeBruijn.subst_no_open (Helpers.mk_deref t ~const (EBound 0)) 0 e2 in
         w (ELet (b, e1, to_addr false e2))
 
     | ELet (b, e1, e2) ->
         let b, e1, e2 =
           if is_struct b.typ then
             (* Our transformation kicks in. *)
-            let t' = TBuf (b.typ, true) in
+            let const = not b.node.mut in
+            let t' = TBuf (b.typ, const) in
             let e1 =
               if e1.node = EAny then
                 (* [let x: t = any] becomes [let x: t* = ebufcreate any 1] *)
@@ -450,7 +452,7 @@ let to_addr is_struct =
             { b with typ = t' },
             e1,
             DeBruijn.subst_no_open
-              (Helpers.mk_deref b.typ ~const:true (EBound 0))
+              (Helpers.mk_deref b.typ ~const (EBound 0))
               0
               e2
           else
