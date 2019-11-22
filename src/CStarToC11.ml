@@ -1082,7 +1082,6 @@ let if_header_inline_static f1 f2 d =
   let is_inline_static =
     List.exists (fun p -> Bundle.pattern_matches p id) !Options.static_header
   in
-  KPrint.bprintf "%s is inline_static %b\n" id is_inline_static;
   if is_inline_static then
     f1 d
   else
