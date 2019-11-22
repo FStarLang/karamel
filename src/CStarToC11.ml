@@ -1077,10 +1077,12 @@ let if_not_private f d =
 
 let none _ = []
 
-let if_header_inline_static f1 f2 d =
+let if_header_inline_static (map: (Ast.ident, Ast.lident) Hashtbl.t) f1 f2 d =
   let id = CStar.ident_of_decl d in
   let is_inline_static =
-    List.exists (fun p -> Bundle.pattern_matches p id) !Options.static_header
+    List.exists (fun p ->
+      Bundle.pattern_matches p (String.concat "_" (fst (Hashtbl.find map id))))
+    !Options.static_header
   in
   if is_inline_static then
     f1 d
@@ -1088,20 +1090,20 @@ let if_header_inline_static f1 f2 d =
     f2 d
 
 (* Building a .c file *)
-let mk_file decls =
+let mk_file map decls =
   (* In the C file, we put function bodies, global bodies, and type
    * definitions and external definitions that were private to the file only.
    * *)
   KList.map_flatten
-    (if_header_inline_static
+    (if_header_inline_static map
       none
       (either
         mk_function_or_global_body
         (if_private_or_abstract_struct (mk_type_or_external C))))
     decls
 
-let mk_files files =
-  List.map (fun (name, deps, program) -> name, deps, mk_file program) files
+let mk_files (map: (Ast.ident, Ast.lident) Hashtbl.t) files =
+  List.map (fun (name, deps, program) -> name, deps, mk_file map program) files
 
 let mk_static f d =
   List.map (function
@@ -1114,19 +1116,19 @@ let mk_static f d =
   ) (f d)
 
 (* Building the two flavors of headers. *)
-let mk_header decls =
+let mk_header (map: (Ast.ident, Ast.lident) Hashtbl.t) decls =
   (* In the header file, we put functions and global stubs, along with type
    * definitions that are visible from the outside. *)
   (* What should be the behavior for a type declaration marked as CAbstract but
    * whose module has -static-header? This ignores CAbstract. *)
   (* Note that static_header has precedence over private qualifiers *)
   KList.map_flatten
-    (if_header_inline_static
+    (if_header_inline_static map
       (mk_static (either mk_function_or_global_body (mk_type_or_external C)))
       (if_not_private (either mk_function_or_global_stub (mk_type_or_external H))))
     decls
 
-let mk_headers files =
+let mk_headers (map: (Ast.ident, Ast.lident) Hashtbl.t) files =
   List.map (fun (name, deps, program) ->
-    name, deps, mk_header program
+    name, deps, mk_header map program
   ) files
