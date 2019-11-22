@@ -208,6 +208,12 @@ let marked_private: (_, unit) Hashtbl.t = Hashtbl.create 41
  * compilers, this is just a warning. *)
 let cross_call_analysis files =
 
+  let is_static_inline lid =
+    List.exists (fun p ->
+      Bundle.pattern_matches p (String.concat "_" (fst lid))
+    ) !Options.static_header
+  in
+
   (* A map that *eventually* will contain the exactly the set of [lid]s that can
    * be safely marked as private. The invariant is not established yet. *)
   let safely_private = Hashtbl.create 41 in
@@ -216,7 +222,8 @@ let cross_call_analysis files =
     List.iter (fun d ->
       let name = lid_of_decl d in
       let flags = flags_of_decl d in
-      if List.mem Private flags then
+      if List.mem Private flags && not (is_static_inline name) then
+        (* -static-header takes precedence over private, see CStarToC11.ml *)
         Hashtbl.add safely_private name ();
       if List.mem Inline flags then
         Hashtbl.add safely_inline name ()
@@ -274,7 +281,9 @@ let cross_call_analysis files =
   unmark_private_in#visit_files () files;
 
   (* Another visitor, that only visits the types reachable from types in
-   * function definitions and removes their private qualifiers accordingly. *)
+   * function definitions and removes their private qualifiers accordingly. For
+   * static inline functions (whose bodies end up in the header file), we need
+   * to visit the bodies as well. *)
   let unmark_private_types_in =
     let decl_map = Helpers.build_map files (fun map d ->
       match d with
@@ -304,15 +313,16 @@ let cross_call_analysis files =
         self#remove_and_visit name;
         List.iter (self#visit_typ ()) ts
 
-      method! visit_DFunction () _ _ _ ret _ binders _ =
+      method! visit_DFunction () _ _ _ ret name binders body =
         self#visit_typ () ret;
-        self#visit_binders_w () binders
+        self#visit_binders_w () binders;
+        if is_static_inline name then
+          self#visit_expr_w () body
 
-      method! visit_DGlobal () _ _ _ typ _ =
-        self#visit_typ () typ
-
-      method! visit_expr _ _ =
-        assert false
+      method! visit_DGlobal () _ name _ typ body =
+        self#visit_typ () typ;
+        if is_static_inline name then
+          self#visit_expr_w () body
 
       method! visit_decl env d =
         if not (self#still_private d) then begin

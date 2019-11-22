@@ -216,7 +216,8 @@ Supported options:|}
       <FILE.tmh>, where FILE is the current basename";
     "-minimal", Arg.Set Options.minimal, "  do not prepend #include \"kremlib.h\"; do \
       not bundle FStar";
-    "-static-header", Arg.String (prepend Options.static_header), " generate a \
+    "-static-header", Arg.String (fun s ->
+      List.iter (prepend Options.static_header) (Parsers.drop s)), " generate a \
       .h for the given module where all functions are marked a static inline";
     "-no-prefix", Arg.String (fun s -> List.iter (prepend Options.no_prefix) (Parsers.drop s)),
       " don't prepend the module name to declarations from module matching this \

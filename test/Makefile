@@ -117,7 +117,7 @@ $(OUTPUT_DIR)/ML16.exe: EXTRA = ml16-native.c
 $(OUTPUT_DIR)/Scope.exe: EXTRA = -ccopt -O3
 # libkremlib.a being passed last, the symbols are already resolved for uint128
 # against the extracted implementation... slightly hackish
-$(OUTPUT_DIR)/Test128.exe: EXTRA = -extract-uints -static-header FStar -ccopt -DKRML_VERIFIED_UINT128
+$(OUTPUT_DIR)/Test128.exe: EXTRA = -extract-uints -static-header 'FStar.*' -ccopt -DKRML_VERIFIED_UINT128
 $(OUTPUT_DIR)/HigherOrder.exe: EXTRA = -warn-error +9
 $(OUTPUT_DIR)/C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic -fc89
 $(OUTPUT_DIR)/Debug.exe: EXTRA = -d c-calls
