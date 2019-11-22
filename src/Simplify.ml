@@ -1039,7 +1039,9 @@ let record_toplevel_names = object (self)
     DFunction (cc, flags, n, ret, target_name, args, body)
 
   method! visit_DExternal _ cc flags name t pp =
-    DExternal (cc, flags, record_name name, t, pp)
+    let target_name = record_name name in
+    Hashtbl.add decls (snd target_name) name;
+    DExternal (cc, flags, target_name, t, pp)
 
   method! visit_DType env name flags n t =
     (* TODO: this is not correct since record_name might, on the second call
