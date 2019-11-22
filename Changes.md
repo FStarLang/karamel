@@ -1,3 +1,8 @@
+### November 22nd, 2019
+
+- Syntax change for the -static-header option; it now takes a list of patterns
+  (like -drop, -library, etc.)
+
 ### October 17th, 2019
 
 - New syntax for `-add-include` and `-add-early-include`: `Foo.h:bar` will
