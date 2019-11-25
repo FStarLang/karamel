@@ -216,7 +216,8 @@ Supported options:|}
       <FILE.tmh>, where FILE is the current basename";
     "-minimal", Arg.Set Options.minimal, "  do not prepend #include \"kremlib.h\"; do \
       not bundle FStar";
-    "-static-header", Arg.String (prepend Options.static_header), " generate a \
+    "-static-header", Arg.String (fun s ->
+      List.iter (prepend Options.static_header) (Parsers.drop s)), " generate a \
       .h for the given module where all functions are marked a static inline";
     "-no-prefix", Arg.String (fun s -> List.iter (prepend Options.no_prefix) (Parsers.drop s)),
       " don't prepend the module name to declarations from module matching this \
@@ -600,7 +601,7 @@ Supported options:|}
 
   (* 7. Final transformation on the AST: go to C names. This must really be done
    * at the last minute, since it invalidates pretty much any map ever built. *)
-  let files, modules = Simplify.to_c_names files in
+  let files, c_name_map = Simplify.to_c_names files in
 
   if !Options.wasm && not (Options.debug "force-c") then
     (* Runtime support files first. *)
@@ -636,9 +637,9 @@ Supported options:|}
     let files = List.filter (fun (_, _, decls) -> List.length decls > 0) files in
 
     (* ... then to C *)
-    let headers = CStarToC11.mk_headers files in
-    let ml_files  = GenCtypes.mk_ocaml_bindings files modules in
-    let files = CStarToC11.mk_files files in
+    let headers = CStarToC11.mk_headers c_name_map files in
+    let ml_files  = GenCtypes.mk_ocaml_bindings files c_name_map in
+    let files = CStarToC11.mk_files c_name_map files in
     let files = List.filter (fun (_, _, decls) -> List.length decls > 0) files in
     tick_print true "CStarToC";
 

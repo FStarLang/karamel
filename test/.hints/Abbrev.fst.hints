@@ -9,6 +9,7 @@
       [
         "@MaxIFuel_assumption", "@query", "equality_tok_C.EXIT_SUCCESS@tok",
         "equation_FStar.HyperStack.ST.equal_domains",
+        "equation_FStar.HyperStack.ST.inline_stack_inv",
         "equation_FStar.Monotonic.Heap.equal_dom",
         "equation_FStar.Monotonic.HyperHeap.hmap",
         "equation_FStar.Monotonic.HyperStack.fresh_frame",
@@ -19,12 +20,12 @@
         "function_token_typing_FStar.Monotonic.Heap.heap",
         "lemma_FStar.Buffer.lemma_equal_domains_2",
         "lemma_FStar.Buffer.lemma_fresh_poppable",
-        "lemma_FStar.Buffer.modifies_poppable_0",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
         "lemma_FStar.Map.lemma_UpdDomain",
         "lemma_FStar.Set.lemma_equal_elim",
         "refinement_interpretation_Tm_refine_05e15190c946858f68c69156f585f95a",
         "refinement_interpretation_Tm_refine_156c49afb7e1e070fbb2e47dc0e3d4b2",
+        "refinement_interpretation_Tm_refine_f63e058f9631c11993f3ef0430296051",
         "typing_FStar.Map.domain", "typing_FStar.Monotonic.Heap.emp",
         "typing_FStar.Monotonic.HyperHeap.rid",
         "typing_FStar.Monotonic.HyperStack.get_hmap",
@@ -33,7 +34,7 @@
         "typing_tok_C.EXIT_SUCCESS@tok"
       ],
       0,
-      "ac5ec83c82ccf39f910511b6b4549be5"
+      "96a95ade379332c99ebe1eaef3c3bbf8"
     ]
   ]
 ]

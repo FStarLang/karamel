@@ -1023,27 +1023,37 @@ let target_c_name lident =
 let record_name lident =
   [], GlobalNames.record (string_of_lident lident) (target_c_name lident)
 
-let decls = Hashtbl.create 20
+let decls: (ident, lident) Hashtbl.t = Hashtbl.create 43
 
 let record_toplevel_names = object (self)
   inherit [_] map
 
   method! visit_DGlobal _ flags name n t body =
-    Hashtbl.add decls (target_c_name name) (module_name name);
-    DGlobal (flags, record_name name, n, t, body)
+    let target_name = record_name name in
+    Hashtbl.add decls (snd target_name) name;
+    DGlobal (flags, target_name, n, t, body)
 
   method! visit_DFunction _ cc flags n ret name args body =
-    Hashtbl.add decls (target_c_name name) (module_name name);
-    DFunction (cc, flags, n, ret, record_name name, args, body)
+    let target_name = record_name name in
+    Hashtbl.add decls (snd target_name) name;
+    DFunction (cc, flags, n, ret, target_name, args, body)
 
   method! visit_DExternal _ cc flags name t pp =
-    DExternal (cc, flags, record_name name, t, pp)
+    let target_name = record_name name in
+    Hashtbl.add decls (snd target_name) name;
+    DExternal (cc, flags, target_name, t, pp)
 
   method! visit_DType env name flags n t =
     (* TODO: this is not correct since record_name might, on the second call
      * (not forward), return something disambiguated with a suffix. *)
-    Hashtbl.add decls (target_c_name name) (module_name name);
-    let name = if t = Forward then name else record_name name in
+    let name =
+      if t = Forward then
+        name
+      else
+        let target_name = record_name name in
+        Hashtbl.add decls (snd target_name) name;
+        target_name
+    in
     DType (name, flags, n, self#visit_type_def env t)
 
   method! visit_Enum _ tags =
@@ -1520,7 +1530,7 @@ let remove_unused (files: file list): file list =
 (* Allocate C names avoiding keywords and name collisions. This should be done
  * as the last operations, otherwise, any table for memoization suddenly becomes
  * invalid. *)
-let to_c_names (files: file list): file list * (ident, string) Hashtbl.t =
+let to_c_names (files: file list): file list * (ident, lident) Hashtbl.t =
   let files = record_toplevel_names#visit_files () files in
   let files = replace_references_to_toplevel_names#visit_files () files in
   files, decls

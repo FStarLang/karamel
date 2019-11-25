@@ -290,7 +290,7 @@ let should_bind_decl = Hashtbl.create 20
 
 let mk_ocaml_bindings
   (files : (ident * string list * decl list) list)
-  (modules : (ident, string) Hashtbl.t) :
+  (modules : (Ast.ident, Ast.lident) Hashtbl.t) :
   (string * string list * structure_item list) list =
 
   let rec compute_bundles files modules =
@@ -303,7 +303,7 @@ let mk_ocaml_bindings
             | Global (name,_,_,_,_)
             | Type (name,_,_) -> begin
                 match Hashtbl.find_opt modules name with
-                | Some m -> b || List.exists (fun p -> Bundle.pattern_matches p m) !Options.ctypes
+                | Some (_, m) -> b || List.exists (fun p -> Bundle.pattern_matches p m) !Options.ctypes
                 | None -> false
               end
             | External _
@@ -328,7 +328,7 @@ let mk_ocaml_bindings
             | Function (_,_,_,name,_,_)
             | Global (name,_,_,_,_) ->
                 begin match Hashtbl.find_opt modules name with
-                  | Some decl_module ->
+                  | Some (_, decl_module) ->
                       Hashtbl.add should_bind_decl name
                         (List.exists (fun p -> Bundle.pattern_matches p decl_module) !Options.ctypes)
                   | None ->
@@ -338,7 +338,7 @@ let mk_ocaml_bindings
                 (* let keys = Utils.hashtbl_keys_to_list modules in *)
                 (* Printf.printf "Name: %s; Keys: %s\n" name (String.concat ", " keys); *)
                 begin match Hashtbl.find_opt modules name with
-                  | Some decl_module ->
+                  | Some (_, decl_module) ->
                       Hashtbl.add should_bind_decl name
                         (List.exists (fun p -> Bundle.pattern_matches p decl_module) !Options.ctypes ||
                          List.mem f_name bundles)
@@ -386,7 +386,7 @@ let mk_ocaml_bindings
   if KList.is_empty !Options.ctypes then
     []
   else begin
-    let module_names = Utils.hashtbl_values_to_list modules in
+    let module_names = List.map Idents.module_name (Utils.hashtbl_values_to_list modules) in
     (* Check that all modules passed to -ctypes are valid F* modules *)
     List.iter (fun p ->
       if not (List.exists (fun m -> Bundle.pattern_matches p m) module_names) then

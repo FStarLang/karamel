@@ -9,10 +9,11 @@
       [
         "@MaxIFuel_assumption", "@query", "equation_FStar.Buffer.length",
         "proj_equation_FStar.Buffer.MkBuffer_length",
-        "refinement_interpretation_Tm_refine_7f37dde341db2b0a59aa8546850e3230"
+        "refinement_interpretation_Tm_refine_ee8b234aa6cf07c6ef04345829148435",
+        "refinement_interpretation_Tm_refine_f63e058f9631c11993f3ef0430296051"
       ],
       0,
-      "e42bef345b697612dd26bddb9f18fc7f"
+      "557502e0ce68998a04c069366a7dbd26"
     ],
     [
       "MutRec.f",
@@ -21,6 +22,7 @@
       1,
       [
         "@MaxIFuel_assumption", "@query", "bool_inversion",
+        "equation_FStar.Buffer.buffer",
         "equation_FStar.HyperStack.ST.equal_domains",
         "equation_FStar.HyperStack.ST.inline_stack_inv",
         "equation_FStar.Monotonic.HyperHeap.hmap",
@@ -32,6 +34,7 @@
         "equation_FStar.Monotonic.HyperStack.poppable",
         "equation_FStar.Monotonic.HyperStack.popped",
         "equation_FStar.Monotonic.HyperStack.remove_elt",
+        "fuel_guarded_inversion_FStar.Buffer._buffer",
         "function_token_typing_FStar.Monotonic.Heap.heap", "int_inversion",
         "lemma_FStar.Buffer.lemma_fresh_poppable",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
@@ -50,6 +53,8 @@
         "projection_inverse_BoxInt_proj_0",
         "refinement_interpretation_Tm_refine_05e15190c946858f68c69156f585f95a",
         "refinement_interpretation_Tm_refine_156c49afb7e1e070fbb2e47dc0e3d4b2",
+        "refinement_interpretation_Tm_refine_a1fdac3a5ec00144a69528d4bd6936e8",
+        "refinement_interpretation_Tm_refine_f63e058f9631c11993f3ef0430296051",
         "typing_FStar.Map.contains", "typing_FStar.Map.domain",
         "typing_FStar.Map.restrict", "typing_FStar.Monotonic.Heap.emp",
         "typing_FStar.Monotonic.HyperHeap.rid",
@@ -62,7 +67,7 @@
         "typing_FStar.Set.singleton"
       ],
       0,
-      "7293a580edf041c0de59d730ad08c09e"
+      "af158ec801fabc5f4996ab06b8ed541d"
     ]
   ]
 ]
