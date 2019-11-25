@@ -47,7 +47,7 @@ typedef uint64_t FStar_Date_dateTime, FStar_Date_timeSpan;
 #if !defined(KRML_VERIFIED_UINT128) && defined(_MSC_VER) && defined(_M_X64)
 #  include <emmintrin.h>
 typedef __m128i FStar_UInt128_uint128;
-#elif !defined(KRML_VERIFIED_UINT128) && !defined(_MSC_VER)
+#elif !defined(KRML_VERIFIED_UINT128) && !defined(_MSC_VER) && defined(_M_X64)
 typedef unsigned __int128 FStar_UInt128_uint128;
 #else
 typedef struct FStar_UInt128_uint128_s {
