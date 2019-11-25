@@ -347,7 +347,7 @@ let assert_var = function
   | _ -> invalid_arg "assert_var"
 
 let assert_buf = function
-  | TArray (t, _) | TBuf t -> t
+  | TArray (t, _) | TBuf (t, _) -> t
   | _ -> invalid_arg "assert_buf"
 
 let mk_add32 e1 e2 =
@@ -647,7 +647,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EAddrOf ({ node = EField (e1, f); _ }) ->
       (* This is the "address-of" operation from the paper. *)
       let ofs = List.assoc f (Option.must (layout_of env e1)).fields in
-      let locals, e1 = mk_expr env locals (with_type (TBuf e1.typ) (EAddrOf e1)) in
+      let locals, e1 = mk_expr env locals (with_type (TBuf (e1.typ, true)) (EAddrOf e1)) in
       locals, mk_add32 e1 (mk_uint32 ofs)
 
   | EAddrOf ({ node = EBufRead (e1, e2); _ })

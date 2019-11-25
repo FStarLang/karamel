@@ -153,7 +153,7 @@ and print_typ_paren = function
 
 and print_typ = function
   | TInt w -> print_width w ^^ string "_t"
-  | TBuf t -> print_typ t ^^ star
+  | TBuf (t, bool) -> (if bool then string "const" else empty) ^/^ print_typ t ^^ star
   | TArray (t, k) -> print_typ t ^^ lbracket ^^ print_constant k ^^ rbracket
   | TUnit -> string "()"
   | TQualified name -> string (string_of_lident name)
