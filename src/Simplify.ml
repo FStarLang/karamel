@@ -505,7 +505,7 @@ let misc_cosmetic = object (self)
          * int x; x = e; &x *)
         let t = assert_tbuf_or_tarray b.typ in
         let b = with_type t { b.node with mut = true } in
-        let ref = with_type (TBuf t) (EAddrOf (with_type t (EBound 0))) in
+        let ref = with_type (TBuf (t, false)) (EAddrOf (with_type t (EBound 0))) in
         ELet (b, e1, self#visit_expr env (DeBruijn.subst_no_open ref 0 e2))
 
     | _ ->
@@ -1254,7 +1254,7 @@ let rec hoist_bufcreate (e: expr) =
           (* WASM/C discrepancy; in C, the array type makes sure we allocate
            * stack space. In Wasm, we rely on the expression to actually
            * generate run-time code. *)
-          let init = with_type (TBuf t) (
+          let init = with_type (TBuf (t, false)) (
             EBufCreate (Common.Stack, any, with_type uint32 (EConstant size)))
           in
           (mark_mut b, init) :: bs,

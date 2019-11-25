@@ -84,6 +84,9 @@ let checker_error env fmt =
     raise (CheckerError (KPrint.bsprintf "%a" ploc env.location, Warn.TypeError (Buffer.contents buf)))
   ) (Buffer.create 16) fmt
 
+let check_mut env s c =
+  if c then
+    checker_error env "%s requires a non-const pointer" s
 
 (** Environments, continued ------------------------------------------------- *)
 
@@ -215,8 +218,8 @@ and smallest t1 t2 =
       t2
   | _, TAny ->
       t1
-  | TBuf t1, TBuf t2 ->
-      TBuf (smallest t1 t2)
+  | TBuf (t1, b1), TBuf (t2, b2) ->
+      TBuf (smallest t1 t2, b1 && b2)
   | _ ->
       t1
 
@@ -290,7 +293,7 @@ and check' env t e =
         let loc = KPrint.bsprintf "%a" ploc env.location in
         Warn.(maybe_fatal_error (loc, Vla e))
       end;
-      let t = assert_buffer env t in
+      let t, _ = assert_buffer env t in
       if t = TAny then
         checker_error env buf_any_msg ppexpr e;
       check env t e1;
@@ -299,12 +302,13 @@ and check' env t e =
 
   | EBufRead (e1, e2) ->
       check env uint32 e2;
-      check env (TBuf t) e1
+      check env (TBuf (t, true)) e1
 
   | EBufWrite (e1, e2, e3) ->
       check env uint32 e2;
-      let t1 = infer_buffer env e1 in
+      let t1, c1 = infer_buffer env e1 in
       check env t1 e3;
+      check_mut env "write" c1;
       c TUnit
 
   | EBufSub (e1, e2) ->
@@ -312,25 +316,27 @@ and check' env t e =
       check_buffer env t e1
 
   | EBufFill (e1, e2, e3) ->
-      let t1 = infer_buffer env e1 in
+      let t1, c1 = infer_buffer env e1 in
       check env t1 e2;
+      check_mut env "fill" c1;
       check env uint32 e3;
       c TUnit
 
   | EBufBlit (b1, i1, b2, i2, len) ->
-      let t1 = infer_buffer env b1 in
-      check env (TBuf t1) b2;
+      let t1, c1 = infer_buffer env b1 in
+      check_mut env "blit" c1;
+      check env (TBuf (t1, false)) b2;
       check env uint32 i1;
       check env uint32 i2;
       check env uint32 len;
       c TUnit
 
   | EBufCreateL (_, es) ->
-      let t = assert_buffer env t in
+      let t, _ = assert_buffer env t in
       List.iter (check env t) es
 
   | EBufFree e ->
-      check env (TBuf TAny) e;
+      check env (TBuf (TAny, false)) e;
       c TUnit
 
   | ETuple es ->
@@ -411,7 +417,7 @@ and check' env t e =
 
   | EAddrOf e ->
       let t = infer env e in
-      c (TBuf t)
+      c (TBuf (t, false))
 
 and check_case env c t =
   match c, t with
@@ -466,7 +472,7 @@ and best_buffer_type t1 e2 =
   | EConstant k ->
       TArray (t1, k)
   | _ ->
-      TBuf t1
+      TBuf (t1, false)
 
 
 and infer' env e =
@@ -557,28 +563,31 @@ and infer' env e =
 
   | EBufRead (e1, e2) ->
       check env uint32 e2;
-      infer_buffer env e1
+      fst (infer_buffer env e1)
 
   | EBufWrite (e1, e2, e3) ->
       check env uint32 e2;
-      let t1 = infer_buffer env e1 in
+      let t1, c = infer_buffer env e1 in
+      check_mut env "write" c;
       check env t1 e3;
       TUnit
 
   | EBufSub (e1, e2) ->
       check env uint32 e2;
-      let t1 = infer_buffer env e1 in
-      TBuf t1
+      let t1, c = infer_buffer env e1 in
+      TBuf (t1, c)
 
   | EBufFill (e1, e2, e3) ->
-      let t1 = infer_buffer env e1 in
+      let t1, c = infer_buffer env e1 in
+      check_mut env "fill" c;
       check env t1 e2;
       check env uint32 e3;
       TUnit
 
   | EBufBlit (b1, i1, b2, i2, len) ->
-      let t1 = infer_buffer env b1 in
-      check env (TBuf t1) b2;
+      let t1, c = infer_buffer env b1 in
+      check_mut env "blit" c;
+      check env (TBuf (t1, c)) b2;
       check env uint32 i1;
       check env uint32 i2;
       check env uint32 len;
@@ -705,7 +714,7 @@ and infer' env e =
       TUnit
 
   | EAddrOf e ->
-      TBuf (infer env e)
+      TBuf (infer env e, false)
 
 and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
   fun env f l ->
@@ -859,7 +868,7 @@ and check_pat env t_context pat =
       pat.typ <- t_context
 
   | PDeref p ->
-      let t = assert_buffer env t_context in
+      let t, _ = assert_buffer env t_context in
       check_pat env t p;
       pat.typ <- t_context;
 
@@ -898,10 +907,10 @@ and assert_qualified env t =
 
 and assert_buffer env t =
   match expand_abbrev env t with
-  | TBuf t1 ->
-      t1
+  | TBuf (t1, b) ->
+      t1, b
   | TArray (t1, _) ->
-      t1
+      t1, false
   | t ->
       checker_error env "This is not a buffer: %a" ptyp t
 
@@ -909,8 +918,8 @@ and infer_buffer env e1 =
   assert_buffer env (infer env e1)
 
 and check_buffer env t e1 =
-  let t = assert_buffer env t in
-  check env (TBuf t) e1
+  let t, c = assert_buffer env t in
+  check env (TBuf (t, c)) e1
 
 and assert_cons_of env t id: fields_t =
   match t with
@@ -929,8 +938,9 @@ and subtype env t1 t2 =
       true
   | TArray (t1, (_, l1)), TArray (t2, (_, l2)) when subtype env t1 t2 && l1 = l2 ->
       true
-  | TArray (t1, _), TBuf t2
-  | TBuf t1, TBuf t2 when subtype env t1 t2 ->
+  | TArray (t1, _), TBuf (t2, _) when subtype env t1 t2 ->
+      true
+  | TBuf (t1, b1), TBuf (t2, b2) when subtype env t1 t2 && (b1 <= b2) ->
       true
   | TUnit, TUnit ->
       true
