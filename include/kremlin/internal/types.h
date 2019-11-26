@@ -63,7 +63,9 @@ typedef struct FStar_UInt128_uint128_s {
 } FStar_UInt128_uint128;
 #endif
 
-typedef FStar_UInt128_uint128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t;
+/* The former is defined once, here (otherwise, conflicts for test-c89. The
+ * latter is for internal use. */
+typedef FStar_UInt128_uint128 FStar_UInt128_t, uint128_t;
 
 #include "kremlin/lowstar_endianness.h"
 

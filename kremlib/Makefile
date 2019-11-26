@@ -38,7 +38,7 @@ FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules \
 ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
   FStar.UInt128.fst FStar.Date.fsti \
     FStar.HyperStack.IO.fst FStar.IO.fst FStar.Int.Cast.Full.fst \
-    FStar.Bytes.fsti FStar.Dyn.fsti LowStar.Printf.fst
+    FStar.Bytes.fsti FStar.Dyn.fsti LowStar.Printf.fst LowStar.Endianness.fst
 
 .PHONY: clean clean-c
 clean: clean-c
@@ -92,8 +92,8 @@ $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c
 	  -warn-error +9+11 \
 	  $(MACHINE_INTS) \
 	  $(addprefix -add-include ,'<inttypes.h>' '"kremlib.h"' '"kremlin/internal/compat.h"' '"kremlin/internal/target.h"') \
-	  -bundle C.Endianness= \
-	  -bundle FStar.Reflection,FStar.Reflection.*,FStar.Tactics,FStar.Tactics.*,FStar.Range \
+	  -bundle LowStar.Endianness= \
+	  -bundle FStar.Endianness,FStar.Reflection,FStar.Reflection.*,FStar.Tactics,FStar.Tactics.*,FStar.Range \
 	  -library C,C.Endianness,C.Failure,C.Loops,FStar.BitVector,FStar.Bytes,FStar.Char,FStar.Int,FStar.Kremlin.Endianness,FStar.Math.Lib,FStar.ModifiesGen,FStar.Monotonic.Heap,FStar.Monotonic.HyperStack,FStar.Mul,FStar.Pervasives,FStar.Pervasives.Native,FStar.ST,FStar.UInt,FStar.UInt63,LowStar.Printf \
 	  $(filter-out fstar_uint128_msvc.c,$(notdir $(wildcard c/*.c))) \
 	  -o libkremlib.a \
@@ -111,7 +111,7 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar
 	    '"kremlin/lowstar_endianness.h"' \
 	    '"kremlin/internal/types.h"' \
 	    '"kremlin/internal/target.h"') \
-	  -bundle C.Endianness= \
+	  -bundle LowStar.Endianness= \
 	  -bundle FStar.UInt128= \
 	  -bundle '*,WindowsWorkaroundSigh' \
 	  fstar_uint128.c \
@@ -127,6 +127,7 @@ $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) 
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"kremlin/internal/types.h"' '"kremlin/internal/target.h"') \
 	  -bundle FStar.UInt64[rename=FStar_UInt_8_16_32_64] \
 	  -bundle FStar.UInt128=[rename=FStar_UInt128_Verified] \
+	  -fc89 \
 	  -bundle '\*' \
 	  -static-header FStar.UInt128,FStar.UInt64 \
 	  -ccopt -DKRML_VERIFIED_UINT128 \

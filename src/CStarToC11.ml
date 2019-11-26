@@ -37,6 +37,9 @@ let builtin_names =
     "rand"; "srand"; "exit"; "fflush"; "clock";
     (* Hand-written type definition parameterized over KRML_VERIFIED_UINT128 *)
     "FStar_UInt128_uint128";
+    (* Might appear twice otherwise, which is not C89-compatible. Defined by
+     * hand *)
+    "FStar_UInt128_t";
     (* Hand-written implementations in include/kremlin/fstar_int.h *)
     "FStar_Int8_shift_arithmetic_right";
     "FStar_Int16_shift_arithmetic_right";
@@ -79,6 +82,99 @@ let builtin_names =
     "store64_le_i";
     "load64_be_i";
     "store64_be_i";
+    (* Realized with native C arithmetic. *)
+    "FStar_UInt8_add";
+    "FStar_UInt8_add_underspec";
+    "FStar_UInt8_add_mod";
+    "FStar_UInt8_sub";
+    "FStar_UInt8_sub_underspec";
+    "FStar_UInt8_sub_mod";
+    "FStar_UInt8_mul";
+    "FStar_UInt8_mul_underspec";
+    "FStar_UInt8_mul_mod";
+    "FStar_UInt8_mul_div";
+    "FStar_UInt8_div";
+    "FStar_UInt8_rem";
+    "FStar_UInt8_logand";
+    "FStar_UInt8_logxor";
+    "FStar_UInt8_logor";
+    "FStar_UInt8_lognot";
+    "FStar_UInt8_shift_right";
+    "FStar_UInt8_shift_left";
+    "FStar_UInt8_eq";
+    "FStar_UInt8_gt";
+    "FStar_UInt8_gte";
+    "FStar_UInt8_lt";
+    "FStar_UInt8_lte";
+    "FStar_UInt16_add";
+    "FStar_UInt16_add_underspec";
+    "FStar_UInt16_add_mod";
+    "FStar_UInt16_sub";
+    "FStar_UInt16_sub_underspec";
+    "FStar_UInt16_sub_mod";
+    "FStar_UInt16_mul";
+    "FStar_UInt16_mul_underspec";
+    "FStar_UInt16_mul_mod";
+    "FStar_UInt16_mul_div";
+    "FStar_UInt16_div";
+    "FStar_UInt16_rem";
+    "FStar_UInt16_logand";
+    "FStar_UInt16_logxor";
+    "FStar_UInt16_logor";
+    "FStar_UInt16_lognot";
+    "FStar_UInt16_shift_right";
+    "FStar_UInt16_shift_left";
+    "FStar_UInt16_eq";
+    "FStar_UInt16_gt";
+    "FStar_UInt16_gte";
+    "FStar_UInt16_lt";
+    "FStar_UInt16_lte";
+    "FStar_UInt32_add";
+    "FStar_UInt32_add_underspec";
+    "FStar_UInt32_add_mod";
+    "FStar_UInt32_sub";
+    "FStar_UInt32_sub_underspec";
+    "FStar_UInt32_sub_mod";
+    "FStar_UInt32_mul";
+    "FStar_UInt32_mul_underspec";
+    "FStar_UInt32_mul_mod";
+    "FStar_UInt32_mul_div";
+    "FStar_UInt32_div";
+    "FStar_UInt32_rem";
+    "FStar_UInt32_logand";
+    "FStar_UInt32_logxor";
+    "FStar_UInt32_logor";
+    "FStar_UInt32_lognot";
+    "FStar_UInt32_shift_right";
+    "FStar_UInt32_shift_left";
+    "FStar_UInt32_eq";
+    "FStar_UInt32_gt";
+    "FStar_UInt32_gte";
+    "FStar_UInt32_lt";
+    "FStar_UInt32_lte";
+    "FStar_UInt64_add";
+    "FStar_UInt64_add_underspec";
+    "FStar_UInt64_add_mod";
+    "FStar_UInt64_sub";
+    "FStar_UInt64_sub_underspec";
+    "FStar_UInt64_sub_mod";
+    "FStar_UInt64_mul";
+    "FStar_UInt64_mul_underspec";
+    "FStar_UInt64_mul_mod";
+    "FStar_UInt64_mul_div";
+    "FStar_UInt64_div";
+    "FStar_UInt64_rem";
+    "FStar_UInt64_logand";
+    "FStar_UInt64_logxor";
+    "FStar_UInt64_logor";
+    "FStar_UInt64_lognot";
+    "FStar_UInt64_shift_right";
+    "FStar_UInt64_shift_left";
+    "FStar_UInt64_eq";
+    "FStar_UInt64_gt";
+    "FStar_UInt64_gte";
+    "FStar_UInt64_lt";
+    "FStar_UInt64_lte";
   ] in
   let h = Hashtbl.create 41 in
   List.iter (fun s -> Hashtbl.add h s ()) known;
@@ -1082,7 +1178,17 @@ let if_header_inline_static (map: (Ast.ident, Ast.lident) Hashtbl.t) f1 f2 d =
   let is_inline_static =
     List.exists (fun p ->
       Bundle.pattern_matches p (String.concat "_" (fst (Hashtbl.find map id))))
-    !Options.static_header
+    !Options.static_header ||
+    List.mem id [
+      "FStar_UInt8_eq_mask";
+      "FStar_UInt8_gte_mask";
+      "FStar_UInt16_eq_mask";
+      "FStar_UInt16_gte_mask";
+      "FStar_UInt32_eq_mask";
+      "FStar_UInt32_gte_mask";
+      "FStar_UInt64_eq_mask";
+      "FStar_UInt64_gte_mask";
+    ]
   in
   if is_inline_static then
     f1 d

@@ -99,7 +99,7 @@ $(OUTPUT_DIR)/%.krml: | .depend
 	  $(notdir $(subst .checked,,$<))
 
 .PRECIOUS: $(OUTPUT_DIR)/%.exe
-$(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_BIN)
+$(OUTPUT_DIR)/%.exe: $(filter-out %/prims.krml,$(ALL_KRML_FILES)) $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
 	  -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack,\*
 
@@ -169,7 +169,7 @@ $(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Lowlevel.exe $(addprefix $(LOWLEVEL
 # All WASM targets get the -wasm flag; some specific targets may override
 # NEGATIVE for negative tests.
 .PRECIOUS: $(OUTPUT_DIR)/%.wasm
-$(OUTPUT_DIR)/%.wasm: $(ALL_KRML_FILES) $(KRML_BIN)
+$(OUTPUT_DIR)/%.wasm: $(filter-out %/prims.krml,$(ALL_KRML_FILES)) $(KRML_BIN)
 	$(KRML) -minimal -bundle WasmSupport= -bundle 'FStar.*' -bundle Prims \
 	  -bundle C -bundle C.Endianness -bundle C.Nullity -bundle C.String \
 	  -bundle TestLib \

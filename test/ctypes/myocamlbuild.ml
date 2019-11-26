@@ -28,6 +28,7 @@ dispatch begin function
    * which also attempts to build these C files... perhaps a hand-written
    * Makefile that does everything at once would be helpful. *)
   flag ["c"; "compile"] & S[A"-I"; A (kremlin_home / "include")];
+  flag ["c"; "compile"] & S[A"-I"; A (kremlin_home / "kremlib" / "dist" / "minimal")];
   flag ["c"; "compile"] & S[A"-I"; A cwd];
 
   (* The generator program ..._gen.byte creates a C file that needs to see

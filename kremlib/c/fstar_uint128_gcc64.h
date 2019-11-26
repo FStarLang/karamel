@@ -22,7 +22,7 @@
 
 #include "FStar_UInt128.h"
 #include "FStar_UInt_8_16_32_64.h"
-#include "C_Endianness.h"
+#include "LowStar_Endianness.h"
 
 #if !defined(KRML_VERIFIED_UINT128) && !defined(_MSC_VER)
 
@@ -168,8 +168,6 @@ inline static uint128_t FStar_UInt128_mul32(uint64_t x, uint32_t y) {
 /* Access 64-bit fields within the int128. */
 #define HIGH64_OF(x) ((x)->high)
 #define LOW64_OF(x)  ((x)->low)
-
-typedef FStar_UInt128_uint128 FStar_UInt128_t_, uint128_t;
 
 /* A series of definitions written using pointers. */
 

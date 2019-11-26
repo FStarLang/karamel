@@ -3,17 +3,17 @@
 
 #include "FStar_UInt_8_16_32_64.h"
 
-inline static Prims_string FStar_UInt64_to_string(uint64_t i) {
+Prims_string FStar_UInt64_to_string(uint64_t i) {
   char *buf = KRML_HOST_MALLOC(24);
   KRML_HOST_SNPRINTF(buf, 24, "%"PRIu64, i);
   return buf;
 }
 
-inline static uint64_t FStar_UInt64_uint_to_t(krml_checked_int_t x) {
+uint64_t FStar_UInt64_uint_to_t(krml_checked_int_t x) {
   /* TODO bounds check */
   return x;
 }
 
-inline static krml_checked_int_t FStar_UInt64_v(uint64_t x) {
+krml_checked_int_t FStar_UInt64_v(uint64_t x) {
   RETURN_OR(x);
 }
