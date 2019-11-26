@@ -141,6 +141,7 @@ and typ =
   | TBound of int
   | TApp of (lident * typ list)
   | TTuple of typ list
+  | TConstBuf of typ
 
 let flatten_arrow =
   let rec flatten_arrow acc = function
@@ -153,7 +154,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 27
+let current_version: version = 28
 
 type file = string * program
   [@@deriving yojson]
@@ -177,8 +178,10 @@ let read_file (f: string): file list =
       with_open_in f input_value
   in
   let version, files = contents in
-  if version <> current_version then
-    failwith (Printf.sprintf "The file %s is for version %d; current version of KreMLin is %d" f version current_version);
+  if version > current_version then
+    failwith (Printf.sprintf "F*-extracted %s has version %d; \
+      this build of KreMLin can only read up to version %d; upgrade KreMLin"
+      f version current_version);
   files
 
 let read_files = KList.map_flatten read_file

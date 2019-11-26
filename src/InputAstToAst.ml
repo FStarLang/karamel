@@ -76,7 +76,9 @@ and mk_typ = function
   | I.TInt x ->
       TInt x
   | I.TBuf t ->
-      TBuf (mk_typ t)
+      TBuf (mk_typ t, false)
+  | I.TConstBuf t ->
+      TBuf (mk_typ t, true)
   | I.TUnit ->
       TUnit
   | I.TQualified lid ->

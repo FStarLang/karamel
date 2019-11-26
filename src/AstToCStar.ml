@@ -252,13 +252,6 @@ let rec mk_expr env in_stmt e =
       Warn.maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, NotLowStar e);
       CStar.Any
 
-and mk_buf env t =
-  match t with
-  | TBuf t1 | TArray (t1, _) ->
-      mk_type env t1
-  | _ ->
-      invalid_arg "mk_buf"
-
 and mk_ignored_stmt env e =
   if is_readonly_c_expression e then
     env, []
@@ -581,7 +574,9 @@ and mk_return_type env = function
       CStar.Int w
   | TArray (t, k) ->
       CStar.Array (mk_type env t, CStar.Constant k)
-  | TBuf t ->
+  | TBuf (t, true) ->
+      CStar.(Pointer (Const (mk_type env t)))
+  | TBuf (t, false) ->
       CStar.Pointer (mk_type env t)
   | TUnit ->
       CStar.Void

@@ -18,7 +18,7 @@
     "CIBuildTarget" : "all",
     "NightlyBuildTarget" : "nightly",
     "HasLogsToExtract" : true,
-    
+
     "NotificationEnabled" : true,
     "NotificationChannel" : "#kremlin-build",
     "PublicBranches" : [ "master" ],
