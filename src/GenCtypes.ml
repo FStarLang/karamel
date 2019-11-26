@@ -303,7 +303,9 @@ let mk_ocaml_bindings
             | Global (name,_,_,_,_)
             | Type (name,_,_) -> begin
                 match Hashtbl.find_opt modules name with
-                | Some (_, m) -> b || List.exists (fun p -> Bundle.pattern_matches p m) !Options.ctypes
+                | Some decl_module ->
+                    let decl_module_name = Idents.module_name decl_module in
+                    b || List.exists (fun p -> Bundle.pattern_matches p decl_module_name) !Options.ctypes
                 | None -> false
               end
             | External _
@@ -328,9 +330,10 @@ let mk_ocaml_bindings
             | Function (_,_,_,name,_,_)
             | Global (name,_,_,_,_) ->
                 begin match Hashtbl.find_opt modules name with
-                  | Some (_, decl_module) ->
+                  | Some decl_module ->
+                      let decl_module_name = Idents.module_name decl_module in
                       Hashtbl.add should_bind_decl name
-                        (List.exists (fun p -> Bundle.pattern_matches p decl_module) !Options.ctypes)
+                        (List.exists (fun p -> Bundle.pattern_matches p decl_module_name) !Options.ctypes)
                   | None ->
                       Hashtbl.add should_bind_decl name false
                 end
@@ -338,9 +341,10 @@ let mk_ocaml_bindings
                 (* let keys = Utils.hashtbl_keys_to_list modules in *)
                 (* Printf.printf "Name: %s; Keys: %s\n" name (String.concat ", " keys); *)
                 begin match Hashtbl.find_opt modules name with
-                  | Some (_, decl_module) ->
+                  | Some decl_module ->
+                      let decl_module_name = Idents.module_name decl_module in
                       Hashtbl.add should_bind_decl name
-                        (List.exists (fun p -> Bundle.pattern_matches p decl_module) !Options.ctypes ||
+                        (List.exists (fun p -> Bundle.pattern_matches p decl_module_name) !Options.ctypes ||
                          List.mem f_name bundles)
                   | None ->
                       Hashtbl.add should_bind_decl name false
