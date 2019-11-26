@@ -383,6 +383,7 @@ let fill_cc_args () =
 
   cc_args :=
     (if not !Options.struct_passing then [ Dash.d "KRML_NOSTRUCT_PASSING" ] else [])
+    @ Dash.i (!kremlib_dir ^^ "dist" ^^ "minimal")
     @ List.flatten (List.rev_map Dash.i (!Options.tmpdir :: !Options.includes))
     @ List.rev !Options.ccopts
     @ !cc_args

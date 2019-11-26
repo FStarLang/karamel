@@ -13,7 +13,7 @@ FILES		= \
   InlineTest.test Ghost1.test Loops.test Structs.test \
   TotalLoops.test \
   Recursive.test RecursivePoly.test Structs2.test \
-  FunctionalEncoding.test FunPtr.test Test128.test \
+  FunctionalEncoding.test FunPtr.test \
   CheckedInt.test Polymorphic.test GcTypes.test BadMatch.test C89.test \
   PatternAny.test hello-system/HelloSystem.test Server.test \
   ExitCode.test DataTypesMut.test ParamAbbrev.test Null.test Failwith.test \
@@ -115,9 +115,6 @@ endif
 $(OUTPUT_DIR)/Structs2.exe: EXTRA = -wasm -d force-c wasm-stubs.c
 $(OUTPUT_DIR)/ML16.exe: EXTRA = ml16-native.c
 $(OUTPUT_DIR)/Scope.exe: EXTRA = -ccopt -O3
-# libkremlib.a being passed last, the symbols are already resolved for uint128
-# against the extracted implementation... slightly hackish
-$(OUTPUT_DIR)/Test128.exe: EXTRA = -extract-uints -static-header 'FStar.*' -ccopt -DKRML_VERIFIED_UINT128
 $(OUTPUT_DIR)/HigherOrder.exe: EXTRA = -warn-error +9
 $(OUTPUT_DIR)/C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic -fc89
 $(OUTPUT_DIR)/Debug.exe: EXTRA = -d c-calls
