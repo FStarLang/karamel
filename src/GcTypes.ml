@@ -19,8 +19,8 @@ let mk_table files =
   )
 
 let just_gc'd table = function
-  | TBuf (TApp (lid, _))
-  | TBuf (TQualified lid) when Hashtbl.mem table lid ->
+  | TBuf (TApp (lid, _), _)
+  | TBuf (TQualified lid, _) when Hashtbl.mem table lid ->
       true
   | _ ->
       false
@@ -32,14 +32,14 @@ let alloc table = object (self)
   method! visit_TQualified _env lid =
     (* Every occurrence of t becomes TBuf t *)
     if Hashtbl.mem table lid then
-      TBuf (TQualified lid)
+      TBuf (TQualified lid, false) (* JP: should attempt const here? *)
     else
       TQualified lid
 
   method! visit_TApp env lid ts =
     let ts = List.map (self#visit_typ env) ts in
     if Hashtbl.mem table lid then
-      TBuf (TApp (lid, ts))
+      TBuf (TApp (lid, ts), false)
     else
       TApp (lid, ts)
 

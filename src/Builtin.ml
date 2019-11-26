@@ -86,6 +86,14 @@ let prims: file =
     DType ((["Prims"], "nat"), [ Common.Private ], 0, Abbrev (TQualified (["Prims"], "int")))
   ]
 
+(* JP: as a guiding principle: builtins that are from LowStar.Monotonic.Buffer
+ * are not aware of any const qualifier (only LowStar.ConstBuffer does), so
+ * let's not bother with putting const qualifiers on those signatures -- most of
+ * them will be eliminated anyhow.
+ *
+ * We make an exception for eqb below in the hope that this triggers more
+ * optimizations for the compiler? *)
+
 let buffer: file =
   "FStar_Buffer", [
     (* let eqb #a b1 b2 len =
@@ -97,8 +105,8 @@ let buffer: file =
      *   ret
      *)
     DFunction (None, [ ], 1, TBool, ([ "FStar"; "Buffer" ], "eqb"),
-      [ fresh_binder "b1" (TBuf (TBound 0));
-        fresh_binder "b2" (TBuf (TBound 0));
+      [ fresh_binder "b1" (TBuf (TBound 0, true));
+        fresh_binder "b2" (TBuf (TBound 0, true));
         fresh_binder "len" uint32 ],
       with_type TBool (ELet (fresh_binder ~mut:true "ret" TBool, etrue,
       with_type TBool (ESequence [
@@ -111,10 +119,10 @@ let buffer: file =
               (EOp (K.Neq, K.Bool)),
               [ TBound 0 ])), [
             with_type (TBound 0) (EBufRead (
-              with_type (TBuf (TBound 0)) (EBound 3),
+              with_type (TBuf (TBound 0, true)) (EBound 3),
               with_type uint32 (EBound 0)));
             with_type (TBound 0) (EBufRead (
-              with_type (TBuf (TBound 0)) (EBound 4),
+              with_type (TBuf (TBound 0, true)) (EBound 4),
               with_type uint32 (EBound 0)))])),
           with_unit (ESequence [
             with_unit (EAssign (with_type TBool (EBound 1), efalse));
@@ -124,7 +132,7 @@ let buffer: file =
 
     DFunction (None, [ Common.MustDisappear ], 1, TUnit,
       ([ "FStar"; "Buffer" ], "recall"),
-      [ fresh_binder "x" (TBuf (TBound 0)) ],
+      [ fresh_binder "x" (TBuf (TBound 0, true)) ],
       eunit);
   ]
 
@@ -176,7 +184,7 @@ let hs: file =
         fresh_binder "x" TUnit;
         fresh_binder "x" TUnit;
         fresh_binder "x" TUnit;
-        fresh_binder "x" (TBuf TAny);
+        fresh_binder "x" (TBuf (TAny, false));
         fresh_binder "x" TUnit;
       ],
       eunit);
@@ -185,7 +193,7 @@ let hs: file =
   ]
 
 let dyn: file =
-  let void_star = TBuf TAny in
+  let void_star = TBuf (TAny, false) in
   "FStar_Dyn", [
     DFunction (None, [], 1, void_star,
       ([ "FStar"; "Dyn" ], "mkdyn"),
@@ -195,26 +203,26 @@ let dyn: file =
 
 let lowstar_monotonic_buffer: file =
   "LowStar_Monotonic_Buffer", [
-    mk_val [ "LowStar"; "Monotonic"; "Buffer" ] "is_null" (TArrow (TBuf TAny, TBool));
-    mk_val [ "LowStar"; "Monotonic"; "Buffer" ] "mnull" (TArrow (TAny, TBuf TAny));
+    mk_val [ "LowStar"; "Monotonic"; "Buffer" ] "is_null" (TArrow (TBuf (TAny, false), TBool));
+    mk_val [ "LowStar"; "Monotonic"; "Buffer" ] "mnull" (TArrow (TAny, TBuf (TAny, false)));
     DFunction (None, [ Common.MustDisappear ], 3, TUnit,
       ([ "LowStar"; "Monotonic"; "Buffer" ], "recall"),
-      [ fresh_binder "x" (TBuf (TBound 2)) ],
+      [ fresh_binder "x" (TBuf (TBound 2, false)) ],
       eunit);
     DFunction (None, [ Common.MustDisappear ], 3, TUnit,
       ([ "LowStar"; "Monotonic"; "Buffer" ], "frameOf"),
-      [ fresh_binder "x" (TBuf (TBound 2)) ],
+      [ fresh_binder "x" (TBuf (TBound 2, false)) ],
       eunit);
   ]
 
 let lowstar_buffer: file =
   "LowStar_Buffer", [
-    mk_val [ "LowStar"; "Buffer" ] "null" (TArrow (TAny, TBuf TAny));
+    mk_val [ "LowStar"; "Buffer" ] "null" (TArrow (TAny, TBuf (TAny, false)));
   ]
 
 let lowstar_endianness: file =
   let open Constant in
-  let buf8 = TBuf (TInt UInt8) in
+  let buf8 = TBuf (TInt UInt8, false) in
   let int32 = TInt UInt32 in
   (* In the model, store depends on store_i; however, at run-time, we define store
    * and store_i is just an alias for store along with a buffer offset. *)
@@ -269,8 +277,8 @@ let c_nullity: file =
   (* Poor man's substitute to polymorphic assumes ... this needs to be here to
    * provide proper typing when is_null is in match position. *)
   "C_Nullity", [
-    mk_val [ "C"; "Nullity" ] "is_null" (TArrow (TBuf TAny, TBool));
-    mk_val [ "C"; "Nullity" ] "null" (TArrow (TAny, TBuf TAny))
+    mk_val [ "C"; "Nullity" ] "is_null" (TArrow (TBuf (TAny, false), TBool));
+    mk_val [ "C"; "Nullity" ] "null" (TArrow (TAny, TBuf (TAny, false)))
   ]
 
 (* These modules are entirely written by hand in abstract syntax. *)
