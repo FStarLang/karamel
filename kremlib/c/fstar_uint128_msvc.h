@@ -9,6 +9,7 @@
  */
 #include "kremlin/internal/types.h"
 #include "FStar_UInt128.h"
+#include "FStar_UInt_8_16_32_64.h"
 
 #ifndef _MSC_VER
 #  error This file only works with the MSVC compiler
@@ -58,11 +59,11 @@ inline static void store128_be(uint8_t *b, uint128_t n) {
   store64_be(b + 8, n.low);
 }
 
-inline static static uint64_t FStar_UInt128_constant_time_carry(uint64_t a, uint64_t b) {
+inline static uint64_t FStar_UInt128_constant_time_carry(uint64_t a, uint64_t b) {
   return (a ^ (a ^ b | a - b ^ b)) >> (uint32_t)63U;
 }
 
-inline static static uint64_t FStar_UInt128_carry(uint64_t a, uint64_t b) {
+inline static uint64_t FStar_UInt128_carry(uint64_t a, uint64_t b) {
   return FStar_UInt128_constant_time_carry(a, b);
 }
 
