@@ -99,8 +99,11 @@ inline static int32_t krml_time() {
 #  define KRML_HOST_SNPRINTF(buf, sz, fmt, arg) snprintf(buf, sz, fmt, arg)
 #endif
 
-#if defined(__GNUC__)
+#if defined(__GNUC__) && __GNUC__ >= 4 && __GNUC_MINOR__ > 4
 #  define KRML_DEPRECATED(x) __attribute__((deprecated(x)))
+#elif  defined(__GNUC__)
+/* deprecated attribute is not defined in GCC < 4.5. */
+#  define KRML_DEPRECATED(x)
 #elif defined(_MSC_VER)
 #  define KRML_DEPRECATED(x) __declspec(deprecated(x))
 #endif
