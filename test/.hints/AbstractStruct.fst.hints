@@ -8,7 +8,7 @@
       1,
       [ "@query", "assumption_FStar.Int32.t__uu___haseq" ],
       0,
-      "1cf2bd21bdd1bfac29d3f17b95e8e53d"
+      "b1ecd452b77ff6aae22896180e2ea418"
     ],
     [
       "AbstractStruct.main",
@@ -21,7 +21,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "9dc6832b7756eb3978f82b7b21dbc026"
+      "bcf1f129f6cd17b2eecbd0f58bd40028"
     ]
   ]
 ]
