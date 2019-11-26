@@ -7,6 +7,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 /* Types which are either abstract, meaning that have to be implemented in C, or
  * which are models, meaning that they are swapped out at compile-time for
