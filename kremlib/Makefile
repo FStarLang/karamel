@@ -128,7 +128,7 @@ $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) 
 	  -bundle FStar.UInt64[rename=FStar_UInt_8_16_32_64] \
 	  -bundle FStar.UInt128=[rename=FStar_UInt128_Verified] \
 	  -fc89 \
-	  -bundle '\*' \
+	  -bundle '*,WindowsWorkaroundSigh' \
 	  -static-header FStar.UInt128,FStar.UInt64 \
 	  -ccopt -DKRML_VERIFIED_UINT128 \
 	  -o libkremlib.a \
