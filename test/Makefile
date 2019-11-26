@@ -137,6 +137,7 @@ $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
 $(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel memcpymodel_impl.c
 $(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
 $(OUTPUT_DIR)/Lowlevel.exe: EXTRA = -ctypes 'Lowlevel' -skip-compilation
+$(OUTPUT_DIR)/Failwith.exe: EXTRA = -ccopt -Wno-deprecated-declarations
 
 Failure.test: NEGATIVE=true
 
