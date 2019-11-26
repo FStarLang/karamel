@@ -26,7 +26,7 @@ FILES		= \
   AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
   UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test \
   ProperErasure.test EmptyStruct.test IfDef.test StringLit.test IfThenElse.test \
-  Macro.test Mini.test Endianness.test Printf.test ConstBuffer.test
+  Macro.test Mini.test Endianness.test Printf.test ConstBuffer.test Failure.test
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
@@ -105,7 +105,7 @@ $(OUTPUT_DIR)/%.exe: $(filter-out %/prims.krml,$(ALL_KRML_FILES)) $(KRML_BIN)
 
 .SECONDEXPANSION:
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe
-	@$^ && echo "\033[01;32m✔\033[00m [TEST,$*]" || (echo "\033[01;31m✘\033[00m [TEST,$*]" && false)
+	@(if $(NEGATIVE); then ! $^; else $^; fi) && echo "\033[01;32m✔\033[00m [TEST,$*]" || (echo "\033[01;31m✘\033[00m [TEST,$*]" && false)
 
 ifeq ($(OS),Windows_NT)
   HELLOSYSTEM_LDOPTS = -ldopts -lws2_32
@@ -137,6 +137,8 @@ $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
 $(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel memcpymodel_impl.c
 $(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
 $(OUTPUT_DIR)/Lowlevel.exe: EXTRA = -ctypes 'Lowlevel' -skip-compilation
+
+Failure.test: NEGATIVE=true
 
 # Some custom targets
 

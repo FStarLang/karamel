@@ -98,6 +98,7 @@ and expr =
   | EAbortS of string
   | EBufFree of expr
   | EBufCreateNoInit of (lifetime * expr)
+  | EAbortT of (string * typ)
 
 and branches =
   branch list
