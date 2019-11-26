@@ -122,7 +122,8 @@ and comment =
   string
 
 and declaration_or_function =
-  | Decl of comment list * declaration
+  | Decl of comment list * bool * declaration
+    (** bool only set when generating a function prototype *)
   | Function of comment list * bool * declaration * stmt
     (** [stmt] _must_ be a compound statement; boolean is inline *)
   | Text of string

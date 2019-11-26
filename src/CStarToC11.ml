@@ -932,20 +932,20 @@ let mk_function_or_global_body (d: decl): C.declaration_or_function list =
         let static = if List.exists ((=) Private) flags then Some Static else None in
         match expr with
         | Any ->
-            wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, None ])))
+            wrap_verbatim flags (Decl ([], false, (qs, spec, static, [ decl, None ])))
         | BufCreateL (_, es) ->
             let es = List.map struct_as_initializer es in
-            wrap_verbatim flags (Decl ([], (qs, spec, static, [
+            wrap_verbatim flags (Decl ([], false, (qs, spec, static, [
               decl, Some (Initializer es) ])))
         (* Global static arrays of arithmetic type are initialized implicitly to 0 *)
         | BufCreate (_, Constant (_, "0"), _)
         | BufCreate (_, CStar.Bool false, _)
         | BufCreate (_, CStar.Any, _) ->
-            wrap_verbatim flags (Decl ([], (qs, spec, static, [
+            wrap_verbatim flags (Decl ([], false, (qs, spec, static, [
               decl, None ])))
         | _ ->
             let expr = struct_as_initializer expr in
-            wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, Some expr ])))
+            wrap_verbatim flags (Decl ([], false, (qs, spec, static, [ decl, Some expr ])))
 
 (** Function prototype, or extern global declaration (no definition). *)
 let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
@@ -962,7 +962,7 @@ let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
         begin try
           let parameters = List.map (fun { name; typ } -> name, typ) parameters in
           let qs, spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
-          wrap_verbatim flags (Decl (mk_comments flags, (qs, spec, None, [ decl, None ])))
+          wrap_verbatim flags (Decl (mk_comments flags, false, (qs, spec, None, [ decl, None ])))
         with e ->
           beprintf "Fatal exception raised in %s\n" name;
           raise e
@@ -974,7 +974,7 @@ let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
       else
         let t = strengthen_array t expr in
         let qs, spec, decl = mk_spec_and_declarator name t in
-        wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
+        wrap_verbatim flags (Decl ([], false, (qs, spec, Some Extern, [ decl, None ])))
 
 type where = H | C
 
@@ -983,7 +983,7 @@ type where = H | C
  * not twice. *)
 let mk_type_or_external (w: where) (d: decl): C.declaration_or_function list =
   let mk_forward_decl name flags =
-    wrap_verbatim flags (Decl ([], ([], C.Struct (Some (name ^ "_s"), None), Some Typedef, [ Ident name, None ])))
+    wrap_verbatim flags (Decl ([], false, ([], C.Struct (Some (name ^ "_s"), None), Some Typedef, [ Ident name, None ])))
   in
   match d with
   | TypeForward (name, flags) ->
@@ -1008,10 +1008,10 @@ let mk_type_or_external (w: where) (d: decl): C.declaration_or_function list =
             in
             wrap_verbatim flags (Text (enum_as_macros cases)) @
             let qs, spec, decl = mk_spec_and_declarator_t name (Int t) in
-            [ Decl ([], (qs, spec, Some Typedef, [ decl, None ]))]
+            [ Decl ([], false, (qs, spec, Some Typedef, [ decl, None ]))]
         | _ ->
             let qs, spec, decl = mk_spec_and_declarator_t name t in
-            wrap_verbatim flags (Decl ([], (qs, spec, Some Typedef, [ decl, None ])))
+            wrap_verbatim flags (Decl ([], false, (qs, spec, Some Typedef, [ decl, None ])))
       end
 
   | External (name, Function (cc, t, ts), flags, pp) ->
@@ -1028,14 +1028,14 @@ let mk_type_or_external (w: where) (d: decl): C.declaration_or_function list =
             fst (KList.split (List.length ts) pp)
         in
         let qs, spec, decl = mk_spec_and_declarator_f cc name t (List.combine arg_names ts) in
-        wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
+        wrap_verbatim flags (Decl ([], false, (qs, spec, Some Extern, [ decl, None ])))
 
   | External (name, t, flags, _) ->
       if is_primitive name then
         []
       else
         let qs, spec, decl = mk_spec_and_declarator name t in
-        wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
+        wrap_verbatim flags (Decl ([], false, (qs, spec, Some Extern, [ decl, None ])))
 
   | Global (name, macro, _, _, body) when macro ->
       (* Macros behave like types, they ought to be declared once. *)
@@ -1107,9 +1107,14 @@ let mk_files (map: (Ast.ident, Ast.lident) Hashtbl.t) files =
 
 let mk_static f d =
   List.map (function
-    | C.Decl (comments, (qs, ts, _, decl_inits)) ->
-        C.Decl (comments, (qs, ts, Some Static, decl_inits))
-    | C.Function (comments, _inline, (qs, ts, (None | Some Static), decl_inits), body) ->
+    | C.Decl (comments, _inline, (qs, ts, (None | Some (Static | Extern)), decl_inits)) ->
+        let is_func = match decl_inits with
+          | [ Function _, _ ] -> true
+          | [ _ ] -> false
+          | _ -> assert false
+        in
+        C.Decl (comments, is_func, (qs, ts, Some Static, decl_inits))
+    | C.Function (comments, _inline, (qs, ts, (None | Some (Static | Extern)), decl_inits), body) ->
         C.Function (comments, true, (qs, ts, Some Static, decl_inits), body)
     | d ->
         d

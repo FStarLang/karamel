@@ -7,7 +7,7 @@ let _ =
     let d: CStar.decl = Type ("t", t, []) in
     let d = CStarToC11.(mk_type_or_external C d) in
     match d with
-    | [ C11.Decl ([], d) ] ->
+    | [ C11.Decl ([], _, d) ] ->
         Print.print (group (PrintC.p_declaration d));
         print_newline ()
     | _ ->

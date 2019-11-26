@@ -41,6 +41,13 @@ typedef unsigned long long TestLib_cycles;
 
 typedef uint64_t FStar_Date_dateTime, FStar_Date_timeSpan;
 
+/* Now Prims.string is no longer illegal with the new model in LowStar.Printf;
+ * it's operations that produce Prims_string which are illegal. Bring the
+ * definition into scope by default. */
+typedef const char *Prims_string;
+
+/* The great static header headache. */
+
 /* The uint128 type is a special case since we offer several implementations of
  * it, depending on the compiler and whether the user wants the verified
  * implementation or not. */
@@ -58,9 +65,18 @@ typedef struct FStar_UInt128_uint128_s {
 
 typedef FStar_UInt128_uint128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t;
 
-/* Now Prims.string is no longer illegal with the new model in LowStar.Printf;
- * it's operations that produce Prims_string which are illegal. Bring the
- * definition into scope by default. */
-typedef const char *Prims_string;
+#include "kremlin/lowstar_endianness.h"
+
+/* This one is always included, because it defines C.Endianness functions too. */
+#if !defined(_MSC_VER)
+#include "fstar_uint128_gcc64.h"
+#endif
+
+#if !defined(KRML_VERIFIED_UINT128) && defined(_MSC_VER)
+#include "fstar_uint128_msvc.h"
+#elif defined(KRML_VERIFIED_UINT128)
+#include "FStar_UInt128_Verified.h"
+#endif
+
 
 #endif

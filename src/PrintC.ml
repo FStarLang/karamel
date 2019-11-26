@@ -384,9 +384,10 @@ let p_decl_or_function (df: declaration_or_function) =
       (* This will generate incorrect syntax if for some reason this ever needs
        * to break... *)
       group (sharp ^^ string "define" ^/^ string name ^/^ parens (p_expr def))
-  | Decl (comments, d) ->
+  | Decl (comments, inline, d) ->
+      let inline = if inline then string "inline" ^^ space else empty in
       p_comments comments ^^
-      group (p_declaration d ^^ semi)
+      inline ^^ group (p_declaration d ^^ semi)
   | Function (comments, inline, d, stmt) ->
       p_comments comments ^^
       let inline = if inline then string "inline" ^^ space else empty in

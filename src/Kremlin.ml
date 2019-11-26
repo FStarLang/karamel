@@ -352,6 +352,15 @@ Supported options:|}
   (* First enable the default warn-error string. *)
   Warn.parse_warn_error !Options.warn_error;
 
+  (* Non-negotiable: the whole world has to be in agreement about what is
+   * already in the kremlib header, otherwise there will be two definitions in
+   * scope, one with internal linkage and possibly one with external linkage if
+   * some client of kremlib runs without this option. Let's avoid that. *)
+  let m x = Bundle.Module x in
+  Options.static_header :=
+    m [ "C"; "Endianness" ] ::
+    List.map (fun x -> m [ "FStar"; x ]) [ "UInt8"; "UInt16"; "UInt32"; "UInt64"; "UInt128" ];
+
   (* Meta-options that enable other options. Do this now because it influences
    * the default options for each compiler. *)
   if !Options.wasm then begin
