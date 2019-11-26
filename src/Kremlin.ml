@@ -355,7 +355,10 @@ Supported options:|}
   (* Non-negotiable: the whole world has to be in agreement about what is
    * already in the kremlib header, otherwise there will be two definitions in
    * scope, one with internal linkage and possibly one with external linkage if
-   * some client of kremlib runs without this option. Let's avoid that. *)
+   * some client of kremlib runs without this option. Let's avoid that. Note
+   * that there is also a per-definition criterion in CStarToC11.ml to
+   * selectively mark some of the definitions in machine integers as static
+   * inline. *)
   Options.static_header := [
     Bundle.Module [ "C"; "Endianness" ];
     Bundle.Module [ "LowStar"; "Endianness" ];
