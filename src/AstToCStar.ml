@@ -339,8 +339,29 @@ and mk_stmts env e ret_type =
         begin try
           env, mk_ifdef env return_pos acc e1 e2 e3
         with NotIfDef ->
-          let e = CStar.IfThenElse (false, mk_expr env false e1, mk_block env return_pos e2, mk_block env return_pos e3) in
-          env, e :: acc
+          (* Early return optimization. It is more idiomatic in C to write:
+           *
+           * if (...) {
+           *   ...;
+           *   return ...;
+           * }
+           * ...
+           *
+           * than
+           *
+           * if (...) {
+           *   ...;
+           *   return ...;
+           * } else {
+           *   ...
+           * }
+           *)
+          if return_pos then
+            let e = CStar.IfThenElse (false, mk_expr env false e1, mk_block env return_pos e2, []) in
+            collect (env, e :: acc) return_pos e3
+          else
+            let e = CStar.IfThenElse (false, mk_expr env false e1, mk_block env return_pos e2, mk_block env return_pos e3) in
+            env, e :: acc
         end
 
     | ESequence es ->
