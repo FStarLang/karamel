@@ -259,7 +259,7 @@ let lowstar_endianness: file =
       DFunction (None, [ Common.MustDisappear ], 2, t,
       load_i_lid,
       [ fresh_binder "b" buf8; fresh_binder "i" int32 ],
-      with_unit (EApp (with_type load_t (EQualified load_lid),
+      with_type t (EApp (with_type load_t (EQualified load_lid),
         [ with_type buf8 (EBufSub (with_type buf8 (EBound 1), with_type int32 (EBound 0)))])));
     ]
   in
