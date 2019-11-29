@@ -1,7 +1,7 @@
 RECENT_GCC	= $(shell [ "$$(gcc -dumpversion | cut -c -1)" -ge 5 ] && echo yes)
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
-TEST_OPTS	= -warn-error @4
+TEST_OPTS	= -warn-error @4 -verbose
 KRML_BIN	= ../_build/src/Kremlin.native
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 FILES		= \
@@ -13,7 +13,7 @@ FILES		= \
   InlineTest.test Ghost1.test Loops.test Structs.test \
   TotalLoops.test \
   Recursive.test RecursivePoly.test Structs2.test \
-  FunctionalEncoding.test FunPtr.test Test128.test \
+  FunctionalEncoding.test FunPtr.test \
   CheckedInt.test Polymorphic.test GcTypes.test BadMatch.test C89.test \
   PatternAny.test hello-system/HelloSystem.test Server.test \
   ExitCode.test DataTypesMut.test ParamAbbrev.test Null.test Failwith.test \
@@ -26,7 +26,7 @@ FILES		= \
   AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
   UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test \
   ProperErasure.test EmptyStruct.test IfDef.test StringLit.test IfThenElse.test \
-  Macro.test Mini.test Endianness.test Printf.test ConstBuffer.test
+  Macro.test Mini.test Endianness.test Printf.test ConstBuffer.test Failure.test
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
 endif
@@ -105,13 +105,13 @@ $(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_BIN)
         -skip-compilation $(filter %.krml,$^) \
 
 .PRECIOUS: $(OUTPUT_DIR)/%.exe
-$(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_BIN)
+$(OUTPUT_DIR)/%.exe: $(filter-out %/prims.krml,$(ALL_KRML_FILES)) $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
 	  -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack,\*
 
 .SECONDEXPANSION:
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe
-	@$^ && echo "\033[01;32m✔\033[00m [TEST,$*]" || (echo "\033[01;31m✘\033[00m [TEST,$*]" && false)
+	@(if $(NEGATIVE); then ! $^; else $^; fi) && echo "\033[01;32m✔\033[00m [TEST,$*]" || (echo "\033[01;31m✘\033[00m [TEST,$*]" && false)
 
 ifeq ($(OS),Windows_NT)
   HELLOSYSTEM_LDOPTS = -ldopts -lws2_32
@@ -121,9 +121,6 @@ endif
 $(OUTPUT_DIR)/Structs2.exe: EXTRA = -wasm -d force-c wasm-stubs.c
 $(OUTPUT_DIR)/ML16.exe: EXTRA = ml16-native.c
 $(OUTPUT_DIR)/Scope.exe: EXTRA = -ccopt -O3
-# libkremlib.a being passed last, the symbols are already resolved for uint128
-# against the extracted implementation... slightly hackish
-$(OUTPUT_DIR)/Test128.exe: EXTRA = -extract-uints -static-header 'FStar.*' -ccopt -DKRML_VERIFIED_UINT128
 $(OUTPUT_DIR)/HigherOrder.exe: EXTRA = -warn-error +9
 $(OUTPUT_DIR)/C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic -fc89
 $(OUTPUT_DIR)/Debug.exe: EXTRA = -d c-calls
@@ -151,6 +148,9 @@ $(OUTPUT_DIR)/Ctypes2.exe: EXTRA = -ctypes 'Ctypes2,Ctypes4' \
     -bundle 'Ctypes1=' \
     -bundle '*,WindowsHack[rename=Leftovers]' \
 	-no-prefix 'Ctypes4' -skip-compilation
+$(OUTPUT_DIR)/Failwith.exe: EXTRA = -ccopt -Wno-deprecated-declarations
+
+Failure.test: NEGATIVE=true
 
 # Some custom targets
 
@@ -184,7 +184,7 @@ $(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Ctypes2.exe $(addprefix $(LOWLEVEL_
 # All WASM targets get the -wasm flag; some specific targets may override
 # NEGATIVE for negative tests.
 .PRECIOUS: $(OUTPUT_DIR)/%.wasm
-$(OUTPUT_DIR)/%.wasm: $(ALL_KRML_FILES) $(KRML_BIN)
+$(OUTPUT_DIR)/%.wasm: $(filter-out %/prims.krml,$(ALL_KRML_FILES)) $(KRML_BIN)
 	$(KRML) -minimal -bundle WasmSupport= -bundle 'FStar.*' -bundle Prims \
 	  -bundle C -bundle C.Endianness -bundle C.Nullity -bundle C.String \
 	  -bundle TestLib \

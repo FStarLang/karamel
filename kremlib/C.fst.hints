@@ -1,5 +1,5 @@
 [
-  "#‰`≈G⁄∫7öE±€≤∏\u001f†",
+  "9…õπÅòx'=5G›\u0019°…0",
   [
     [
       "C.char_uint8",
@@ -8,7 +8,7 @@
       1,
       [ "@query", "assumption_C.HasEq_char" ],
       0,
-      "a640728c5c896be76792be1543f96573"
+      "58c9a569fff7a4f262cf77b3d11e9e42"
     ],
     [
       "C.uint8_char",
@@ -17,7 +17,7 @@
       1,
       [ "@query", "assumption_FStar.UInt8.t__uu___haseq" ],
       0,
-      "a3bfaa6075670088c7bfc91218b79c94"
+      "ac2466d85267cc33b73123be10e0cf61"
     ]
   ]
 ]

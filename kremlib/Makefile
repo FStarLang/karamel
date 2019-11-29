@@ -38,7 +38,7 @@ FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules \
 ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
   FStar.UInt128.fst FStar.Date.fsti \
     FStar.HyperStack.IO.fst FStar.IO.fst FStar.Int.Cast.Full.fst \
-    FStar.Bytes.fsti FStar.Dyn.fsti LowStar.Printf.fst
+    FStar.Bytes.fsti FStar.Dyn.fsti LowStar.Printf.fst LowStar.Endianness.fst
 
 .PHONY: clean clean-c
 clean: clean-c
@@ -49,11 +49,17 @@ SHELL=/bin/bash
 clean-c:
 	rm -rf dist out extract-all */*.o
 
-.depend: Makefile
+ifndef NODEPEND
+ifndef MAKE_RESTARTS
+.depend: .FORCE
 	$(FSTAR) $(OTHERFLAGS) --dep full $(ROOTS) > $@
 
-include .depend
+.PHONY: .FORCE
+.FORCE:
+endif
+endif
 
+include .depend
 
 %.checked:
 	$(FSTAR) $(OTHERFLAGS) $< && \
@@ -67,50 +73,68 @@ $(EXTRACT_DIR)/%.krml: | .depend
 	  $(notdir $(subst .checked,,$<)) && \
 	touch $@
 
-KREMLIN_ARGS += -fparentheses -fcurly-braces -fno-shadow -header copyright-header.txt
+KREMLIN_ARGS += -fparentheses -fcurly-braces -fno-shadow -header copyright-header.txt \
+  -minimal -skip-compilation -extract-uints
 
-# Default build
-$(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(wildcard c/*.c) .depend ../_build/src/Kremlin.native
-	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(GENERIC_DIR) \
-	  -warn-error +9+11 -skip-compilation -extract-uints \
+MACHINE_INTS = \
+  -bundle FStar.UInt64+FStar.UInt32+FStar.UInt16+FStar.UInt8=[rename=FStar_UInt_8_16_32_64] \
+  -library FStar.UInt128
+
+$(MINI_DIR):
+	mkdir -p $@
+
+$(GENERIC_DIR):
+	mkdir -p $@
+
+# Everything in the universe
+$(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../_build/src/Kremlin.native
+	../krml $(KREMLIN_ARGS) -tmpdir $(GENERIC_DIR) \
+	  -warn-error +9+11 \
+	  $(MACHINE_INTS) \
 	  $(addprefix -add-include ,'<inttypes.h>' '"kremlib.h"' '"kremlin/internal/compat.h"' '"kremlin/internal/target.h"') \
-	  -bundle FStar.UInt64+FStar.UInt32+FStar.UInt16+FStar.UInt8=[rename=FStar_UInt_8_16_32_64] \
-	  -bundle C.Endianness= \
-	  -bundle FStar.Reflection,FStar.Reflection.*,FStar.Tactics,FStar.Tactics.*,FStar.Range \
-	  -library C,C.Endianness,C.Failure,C.Loops,FStar.BitVector,FStar.Bytes,FStar.Char,FStar.Int,FStar.Kremlin.Endianness,FStar.Math.Lib,FStar.ModifiesGen,FStar.Monotonic.Heap,FStar.Monotonic.HyperStack,FStar.Mul,FStar.Pervasives,FStar.Pervasives.Native,FStar.ST,FStar.UInt,FStar.UInt128,FStar.UInt63,LowStar.Printf \
+	  -bundle LowStar.Endianness= \
+	  -bundle FStar.Endianness,FStar.Reflection,FStar.Reflection.*,FStar.Tactics,FStar.Tactics.*,FStar.Range \
+	  -library C,C.Endianness,C.Failure,C.Loops,FStar.BitVector,FStar.Bytes,FStar.Char,FStar.Int,FStar.Kremlin.Endianness,FStar.Math.Lib,FStar.ModifiesGen,FStar.Monotonic.Heap,FStar.Monotonic.HyperStack,FStar.Mul,FStar.Pervasives,FStar.Pervasives.Native,FStar.ST,FStar.UInt,FStar.UInt63,LowStar.Printf \
 	  $(filter-out fstar_uint128_msvc.c,$(notdir $(wildcard c/*.c))) \
 	  -o libkremlib.a \
 	  $^
-	cp c/*.c $(GENERIC_DIR)/
+	cp c/*.c c/*.h $(dir $@)
 
-# UInt128-only build
-$(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | .depend ../_build/src/Kremlin.native
-	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(UINT128_DIR) -skip-compilation -extract-uints \
-	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"kremlin/internal/types.h"' '"kremlin/internal/target.h"') \
-	  -bundle FStar.UInt128=* \
-	  -ccopt -DKRML_VERIFIED_UINT128 \
-	  -o libkremlib.a \
-	  $^
-
-# Minimalistic build
-$(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | c/fstar_uint128.c .depend ../_build/src/Kremlin.native
+# Minimalistic build (just machine integers and endianness)
+$(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar_uint128*.h) ../_build/src/Kremlin.native
 	mkdir -p $(dir $@)
-	../krml $(KREMLIN_ARGS) -minimal -tmpdir $(MINI_DIR) -skip-compilation -extract-uints \
+	../krml $(KREMLIN_ARGS) -tmpdir $(MINI_DIR) \
+	  $(MACHINE_INTS) \
 	  $(addprefix -add-include , \
 	    '<inttypes.h>' '<stdbool.h>' \
 	    '"kremlin/internal/compat.h"' \
 	    '"kremlin/lowstar_endianness.h"' \
 	    '"kremlin/internal/types.h"' \
 	    '"kremlin/internal/target.h"') \
-	  -bundle FStar.UInt64+FStar.UInt32+FStar.UInt16+FStar.UInt8=[rename=FStar_UInt_8_16_32_64] \
-	  -bundle C.Endianness= \
-	  -library FStar.UInt128 \
+	  -bundle LowStar.Endianness= \
 	  -bundle FStar.UInt128= \
 	  -bundle '*,WindowsWorkaroundSigh' \
 	  fstar_uint128.c \
 	  -o libkremlib.a \
 	  $^
-	cp c/fstar_uint128.c $(dir $@)
+	cp c/fstar_uint128_gcc64.h c/fstar_uint128_msvc.h $(dir $@)
+
+# Extracted (and verified) uint128s; copied into generic and minimal. Note that
+# FStar.UInt64 shares the same bundle name, meaning that
+# FStar_UInt128_Verified.h can be dropped in any of the two kremlibs above.
+$(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) ../_build/src/Kremlin.native
+	../krml $(KREMLIN_ARGS) -tmpdir $(UINT128_DIR) \
+	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"kremlin/internal/types.h"' '"kremlin/internal/target.h"') \
+	  -bundle FStar.UInt64[rename=FStar_UInt_8_16_32_64] \
+	  -bundle FStar.UInt128=[rename=FStar_UInt128_Verified] \
+	  -fc89 \
+	  -bundle '*,WindowsWorkaroundSigh' \
+	  -static-header FStar.UInt128,FStar.UInt64 \
+	  -ccopt -DKRML_VERIFIED_UINT128 \
+	  -o libkremlib.a \
+	  $^
+	cp $(dir $@)/FStar_UInt128_Verified.h $(GENERIC_DIR)/
+	cp $(dir $@)/FStar_UInt128_Verified.h $(MINI_DIR)/
 
 ################################################################################
 # Compilation, only works after the stage above has run and C files exist      #
@@ -119,7 +143,7 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | c/fstar_uint128.c .depend ../_
 CFLAGS += -O3 -march=native -mtune=native
 export CFLAGS
 
-compile-all: compile-dist-generic compile-dist-uint128 compile-dist-minimal
+compile-all: compile-dist-generic $(MINI_DIR)/Makefile.include $(UINT128_DIR)/Makefile.include
 
 .PHONY: compile-dist-%
 compile-dist-%: dist/%/Makefile.include

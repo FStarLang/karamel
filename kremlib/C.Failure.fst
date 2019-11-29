@@ -7,7 +7,7 @@ let whatever (): Stack bool
   (ensures (fun h0 _ h1 -> h0 == h1)) =
   true
 
-// Convenience functions
+[@(deprecated "LowStar.Failure.failwith")]
 let rec failwith (#a: Type) (s: C.String.t): Stack a
   (requires (fun _ -> true))
   (ensures (fun h0 _ h1 -> h0 == h1)) =

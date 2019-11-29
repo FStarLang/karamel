@@ -582,6 +582,8 @@ let root: HS.rid = HS.root
 ///     The ``root`` is not a stack region and does *not* satisfy ``is_stack_region``.
 
 let _ =
+  //AR: TODO: FIXME: temporary until I fix it in the memory model
+  HS.root_is_not_freeable ();
   assert (ST.is_eternal_region root /\ ~ (Monotonic.HyperStack.is_stack_region root))
 
 

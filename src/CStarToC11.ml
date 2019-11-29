@@ -37,6 +37,9 @@ let builtin_names =
     "rand"; "srand"; "exit"; "fflush"; "clock";
     (* Hand-written type definition parameterized over KRML_VERIFIED_UINT128 *)
     "FStar_UInt128_uint128";
+    (* Might appear twice otherwise, which is not C89-compatible. Defined by
+     * hand *)
+    "FStar_UInt128_t";
     (* Hand-written implementations in include/kremlin/fstar_int.h *)
     "FStar_Int8_shift_arithmetic_right";
     "FStar_Int16_shift_arithmetic_right";
@@ -79,6 +82,99 @@ let builtin_names =
     "store64_le_i";
     "load64_be_i";
     "store64_be_i";
+    (* Realized with native C arithmetic. *)
+    "FStar_UInt8_add";
+    "FStar_UInt8_add_underspec";
+    "FStar_UInt8_add_mod";
+    "FStar_UInt8_sub";
+    "FStar_UInt8_sub_underspec";
+    "FStar_UInt8_sub_mod";
+    "FStar_UInt8_mul";
+    "FStar_UInt8_mul_underspec";
+    "FStar_UInt8_mul_mod";
+    "FStar_UInt8_mul_div";
+    "FStar_UInt8_div";
+    "FStar_UInt8_rem";
+    "FStar_UInt8_logand";
+    "FStar_UInt8_logxor";
+    "FStar_UInt8_logor";
+    "FStar_UInt8_lognot";
+    "FStar_UInt8_shift_right";
+    "FStar_UInt8_shift_left";
+    "FStar_UInt8_eq";
+    "FStar_UInt8_gt";
+    "FStar_UInt8_gte";
+    "FStar_UInt8_lt";
+    "FStar_UInt8_lte";
+    "FStar_UInt16_add";
+    "FStar_UInt16_add_underspec";
+    "FStar_UInt16_add_mod";
+    "FStar_UInt16_sub";
+    "FStar_UInt16_sub_underspec";
+    "FStar_UInt16_sub_mod";
+    "FStar_UInt16_mul";
+    "FStar_UInt16_mul_underspec";
+    "FStar_UInt16_mul_mod";
+    "FStar_UInt16_mul_div";
+    "FStar_UInt16_div";
+    "FStar_UInt16_rem";
+    "FStar_UInt16_logand";
+    "FStar_UInt16_logxor";
+    "FStar_UInt16_logor";
+    "FStar_UInt16_lognot";
+    "FStar_UInt16_shift_right";
+    "FStar_UInt16_shift_left";
+    "FStar_UInt16_eq";
+    "FStar_UInt16_gt";
+    "FStar_UInt16_gte";
+    "FStar_UInt16_lt";
+    "FStar_UInt16_lte";
+    "FStar_UInt32_add";
+    "FStar_UInt32_add_underspec";
+    "FStar_UInt32_add_mod";
+    "FStar_UInt32_sub";
+    "FStar_UInt32_sub_underspec";
+    "FStar_UInt32_sub_mod";
+    "FStar_UInt32_mul";
+    "FStar_UInt32_mul_underspec";
+    "FStar_UInt32_mul_mod";
+    "FStar_UInt32_mul_div";
+    "FStar_UInt32_div";
+    "FStar_UInt32_rem";
+    "FStar_UInt32_logand";
+    "FStar_UInt32_logxor";
+    "FStar_UInt32_logor";
+    "FStar_UInt32_lognot";
+    "FStar_UInt32_shift_right";
+    "FStar_UInt32_shift_left";
+    "FStar_UInt32_eq";
+    "FStar_UInt32_gt";
+    "FStar_UInt32_gte";
+    "FStar_UInt32_lt";
+    "FStar_UInt32_lte";
+    "FStar_UInt64_add";
+    "FStar_UInt64_add_underspec";
+    "FStar_UInt64_add_mod";
+    "FStar_UInt64_sub";
+    "FStar_UInt64_sub_underspec";
+    "FStar_UInt64_sub_mod";
+    "FStar_UInt64_mul";
+    "FStar_UInt64_mul_underspec";
+    "FStar_UInt64_mul_mod";
+    "FStar_UInt64_mul_div";
+    "FStar_UInt64_div";
+    "FStar_UInt64_rem";
+    "FStar_UInt64_logand";
+    "FStar_UInt64_logxor";
+    "FStar_UInt64_logor";
+    "FStar_UInt64_lognot";
+    "FStar_UInt64_shift_right";
+    "FStar_UInt64_shift_left";
+    "FStar_UInt64_eq";
+    "FStar_UInt64_gt";
+    "FStar_UInt64_gte";
+    "FStar_UInt64_lt";
+    "FStar_UInt64_lte";
   ] in
   let h = Hashtbl.create 41 in
   List.iter (fun s -> Hashtbl.add h s ()) known;
@@ -932,20 +1028,20 @@ let mk_function_or_global_body (d: decl): C.declaration_or_function list =
         let static = if List.exists ((=) Private) flags then Some Static else None in
         match expr with
         | Any ->
-            wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, None ])))
+            wrap_verbatim flags (Decl ([], false, (qs, spec, static, [ decl, None ])))
         | BufCreateL (_, es) ->
             let es = List.map struct_as_initializer es in
-            wrap_verbatim flags (Decl ([], (qs, spec, static, [
+            wrap_verbatim flags (Decl ([], false, (qs, spec, static, [
               decl, Some (Initializer es) ])))
         (* Global static arrays of arithmetic type are initialized implicitly to 0 *)
         | BufCreate (_, Constant (_, "0"), _)
         | BufCreate (_, CStar.Bool false, _)
         | BufCreate (_, CStar.Any, _) ->
-            wrap_verbatim flags (Decl ([], (qs, spec, static, [
+            wrap_verbatim flags (Decl ([], false, (qs, spec, static, [
               decl, None ])))
         | _ ->
             let expr = struct_as_initializer expr in
-            wrap_verbatim flags (Decl ([], (qs, spec, static, [ decl, Some expr ])))
+            wrap_verbatim flags (Decl ([], false, (qs, spec, static, [ decl, Some expr ])))
 
 (** Function prototype, or extern global declaration (no definition). *)
 let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
@@ -962,7 +1058,7 @@ let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
         begin try
           let parameters = List.map (fun { name; typ } -> name, typ) parameters in
           let qs, spec, decl = mk_spec_and_declarator_f cc name return_type parameters in
-          wrap_verbatim flags (Decl (mk_comments flags, (qs, spec, None, [ decl, None ])))
+          wrap_verbatim flags (Decl (mk_comments flags, false, (qs, spec, None, [ decl, None ])))
         with e ->
           beprintf "Fatal exception raised in %s\n" name;
           raise e
@@ -974,7 +1070,7 @@ let mk_function_or_global_stub (d: decl): C.declaration_or_function list =
       else
         let t = strengthen_array t expr in
         let qs, spec, decl = mk_spec_and_declarator name t in
-        wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
+        wrap_verbatim flags (Decl ([], false, (qs, spec, Some Extern, [ decl, None ])))
 
 type where = H | C
 
@@ -983,7 +1079,7 @@ type where = H | C
  * not twice. *)
 let mk_type_or_external (w: where) (d: decl): C.declaration_or_function list =
   let mk_forward_decl name flags =
-    wrap_verbatim flags (Decl ([], ([], C.Struct (Some (name ^ "_s"), None), Some Typedef, [ Ident name, None ])))
+    wrap_verbatim flags (Decl ([], false, ([], C.Struct (Some (name ^ "_s"), None), Some Typedef, [ Ident name, None ])))
   in
   match d with
   | TypeForward (name, flags) ->
@@ -1008,10 +1104,10 @@ let mk_type_or_external (w: where) (d: decl): C.declaration_or_function list =
             in
             wrap_verbatim flags (Text (enum_as_macros cases)) @
             let qs, spec, decl = mk_spec_and_declarator_t name (Int t) in
-            [ Decl ([], (qs, spec, Some Typedef, [ decl, None ]))]
+            [ Decl ([], false, (qs, spec, Some Typedef, [ decl, None ]))]
         | _ ->
             let qs, spec, decl = mk_spec_and_declarator_t name t in
-            wrap_verbatim flags (Decl ([], (qs, spec, Some Typedef, [ decl, None ])))
+            wrap_verbatim flags (Decl ([], false, (qs, spec, Some Typedef, [ decl, None ])))
       end
 
   | External (name, Function (cc, t, ts), flags, pp) ->
@@ -1028,14 +1124,14 @@ let mk_type_or_external (w: where) (d: decl): C.declaration_or_function list =
             fst (KList.split (List.length ts) pp)
         in
         let qs, spec, decl = mk_spec_and_declarator_f cc name t (List.combine arg_names ts) in
-        wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
+        wrap_verbatim flags (Decl ([], false, (qs, spec, Some Extern, [ decl, None ])))
 
   | External (name, t, flags, _) ->
       if is_primitive name then
         []
       else
         let qs, spec, decl = mk_spec_and_declarator name t in
-        wrap_verbatim flags (Decl ([], (qs, spec, Some Extern, [ decl, None ])))
+        wrap_verbatim flags (Decl ([], false, (qs, spec, Some Extern, [ decl, None ])))
 
   | Global (name, macro, _, _, body) when macro ->
       (* Macros behave like types, they ought to be declared once. *)
@@ -1082,7 +1178,17 @@ let if_header_inline_static (map: (Ast.ident, Ast.lident) Hashtbl.t) f1 f2 d =
   let is_inline_static =
     List.exists (fun p ->
       Bundle.pattern_matches p (String.concat "_" (fst (Hashtbl.find map id))))
-    !Options.static_header
+    !Options.static_header ||
+    List.mem id [
+      "FStar_UInt8_eq_mask";
+      "FStar_UInt8_gte_mask";
+      "FStar_UInt16_eq_mask";
+      "FStar_UInt16_gte_mask";
+      "FStar_UInt32_eq_mask";
+      "FStar_UInt32_gte_mask";
+      "FStar_UInt64_eq_mask";
+      "FStar_UInt64_gte_mask";
+    ]
   in
   if is_inline_static then
     f1 d
@@ -1107,9 +1213,14 @@ let mk_files (map: (Ast.ident, Ast.lident) Hashtbl.t) files =
 
 let mk_static f d =
   List.map (function
-    | C.Decl (comments, (qs, ts, _, decl_inits)) ->
-        C.Decl (comments, (qs, ts, Some Static, decl_inits))
-    | C.Function (comments, _inline, (qs, ts, (None | Some Static), decl_inits), body) ->
+    | C.Decl (comments, _inline, (qs, ts, (None | Some (Static | Extern)), decl_inits)) ->
+        let is_func = match decl_inits with
+          | [ Function _, _ ] -> true
+          | [ _ ] -> false
+          | _ -> assert false
+        in
+        C.Decl (comments, is_func, (qs, ts, Some Static, decl_inits))
+    | C.Function (comments, _inline, (qs, ts, (None | Some (Static | Extern)), decl_inits), body) ->
         C.Function (comments, true, (qs, ts, Some Static, decl_inits), body)
     | d ->
         d

@@ -57,5 +57,3 @@ type exit_code = | EXIT_SUCCESS | EXIT_FAILURE
 assume val print_bytes: b:LowStar.Buffer.buffer UInt8.t -> len:UInt32.t{UInt32.v len <= LowStar.Buffer.length b} -> Stack unit
   (requires (fun h -> LowStar.Buffer.live h b))
   (ensures  (fun h0 _ h1 -> h0 == h1))
-
-include C.Endianness

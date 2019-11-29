@@ -166,6 +166,8 @@ and mk_expr = function
       mk (EAbort None)
   | I.EAbortS s ->
       mk (EAbort (Some s))
+  | I.EAbortT (s, t) ->
+      { node = EAbort (Some s); typ = mk_typ t }
   | I.EReturn e ->
       mk (EReturn (mk_expr e))
   | I.EFlat (tname, fields) ->

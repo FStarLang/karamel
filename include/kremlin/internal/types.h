@@ -7,6 +7,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 /* Types which are either abstract, meaning that have to be implemented in C, or
  * which are models, meaning that they are swapped out at compile-time for
@@ -41,13 +42,21 @@ typedef unsigned long long TestLib_cycles;
 
 typedef uint64_t FStar_Date_dateTime, FStar_Date_timeSpan;
 
+/* Now Prims.string is no longer illegal with the new model in LowStar.Printf;
+ * it's operations that produce Prims_string which are illegal. Bring the
+ * definition into scope by default. */
+typedef const char *Prims_string;
+
+/* The great static header headache. */
+
 /* The uint128 type is a special case since we offer several implementations of
  * it, depending on the compiler and whether the user wants the verified
  * implementation or not. */
 #if !defined(KRML_VERIFIED_UINT128) && defined(_MSC_VER) && defined(_M_X64)
 #  include <emmintrin.h>
 typedef __m128i FStar_UInt128_uint128;
-#elif !defined(KRML_VERIFIED_UINT128) && !defined(_MSC_VER)
+#elif !defined(KRML_VERIFIED_UINT128) && !defined(_MSC_VER) && \
+      (defined(__x86_64__) || defined(__x86_64) || defined(__aarch64__))
 typedef unsigned __int128 FStar_UInt128_uint128;
 #else
 typedef struct FStar_UInt128_uint128_s {
@@ -56,11 +65,22 @@ typedef struct FStar_UInt128_uint128_s {
 } FStar_UInt128_uint128;
 #endif
 
-typedef FStar_UInt128_uint128 FStar_UInt128_t, FStar_UInt128_t_, uint128_t;
+/* The former is defined once, here (otherwise, conflicts for test-c89. The
+ * latter is for internal use. */
+typedef FStar_UInt128_uint128 FStar_UInt128_t, uint128_t;
 
-/* Now Prims.string is no longer illegal with the new model in LowStar.Printf;
- * it's operations that produce Prims_string which are illegal. Bring the
- * definition into scope by default. */
-typedef const char *Prims_string;
+#include "kremlin/lowstar_endianness.h"
+
+/* This one is always included, because it defines C.Endianness functions too. */
+#if !defined(_MSC_VER)
+#include "fstar_uint128_gcc64.h"
+#endif
+
+#if !defined(KRML_VERIFIED_UINT128) && defined(_MSC_VER)
+#include "fstar_uint128_msvc.h"
+#elif defined(KRML_VERIFIED_UINT128)
+#include "FStar_UInt128_Verified.h"
+#endif
+
 
 #endif
