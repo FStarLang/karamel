@@ -171,6 +171,21 @@ let zero = small "0"
 
 exception NotIfDef
 
+(** Treatment of return position. We either:
+  * - not in a return position
+  * - in a position where we may choose to insert a return (or skip it, e.g. if
+  *   the function returns void and we're in terminal position already)
+  * - in a position where we must early-return. *)
+type return_pos =
+  | Not
+  | May
+  | Must
+
+let string_of_return_pos = function
+  | Not -> "Not"
+  | May -> "May"
+  | Must -> "Must"
+
 let rec mk_expr env in_stmt e =
   let mk_expr env e = mk_expr env false e in
   match e.node with
@@ -267,7 +282,7 @@ and mk_ignored_stmt env e =
     env, [s]
 
 and mk_stmts env e ret_type =
-  let rec collect (env, acc) return_pos e =
+  let rec collect (env, acc) (return_pos: return_pos) e =
     match e.node with
     | ELet (binder, e1, e2) ->
         let env, binder = mk_and_push_binder env binder (Some e1) [ e2 ]
@@ -276,7 +291,7 @@ and mk_stmts env e ret_type =
         collect (env, acc) return_pos e2
 
     | EWhile (e1, e2) ->
-        let e = CStar.While (mk_expr env false e1, mk_block env false e2) in
+        let e = CStar.While (mk_expr env false e1, mk_block env Not e2) in
         env, e :: acc
 
     | EFor (_,
@@ -306,7 +321,7 @@ and mk_stmts env e ret_type =
         let rec mk acc i =
           if i < max then
             let body = DeBruijn.subst (mk_uint32 i) 0 body in
-            mk (CStar.Block (mk_block env false body) :: acc) (i + incr)
+            mk (CStar.Block (mk_block env Not body) :: acc) (i + incr)
           else
             acc
         in
@@ -319,11 +334,11 @@ and mk_stmts env e ret_type =
         let is_solo_assignment = binder.node.meta = Some MetaSequence in
         let env', binder = mk_and_push_binder env binder (Some e1) [ e2; e3; e4 ] in
         let e2 = mk_expr env' false e2 in
-        let e3 = KList.one (mk_block env' false e3) in
-        let e4 = mk_block env' false e4 in
+        let e3 = KList.one (mk_block env' Not e3) in
+        let e4 = mk_block env' Not e4 in
         let e =
           if is_solo_assignment then
-            let e1 = match mk_block env false e1 with
+            let e1 = match mk_block env Not e1 with
               | [ e1 ] -> `Stmt e1
               | [] -> `Skip
               | _ -> assert false
@@ -339,7 +354,7 @@ and mk_stmts env e ret_type =
         begin try
           env, mk_ifdef env return_pos acc e1 e2 e3
         with NotIfDef ->
-          (* Early return optimization. It is more idiomatic in C to write:
+          (* Early return optimization. It is sometimes more idiomatic in C to write:
            *
            * if (...) {
            *   ...;
@@ -356,18 +371,29 @@ and mk_stmts env e ret_type =
            *   ...
            * }
            *)
-          if return_pos then
-            let e = CStar.IfThenElse (false, mk_expr env false e1, mk_block env return_pos e2, []) in
-            collect (env, e :: acc) return_pos e3
-          else
-            let e = CStar.IfThenElse (false, mk_expr env false e1, mk_block env return_pos e2, mk_block env return_pos e3) in
+          if not !Options.no_return_else || return_pos = Not then
+            (* No optimization *)
+            let e = CStar.IfThenElse (false,
+              mk_expr env false e1,
+              mk_block env return_pos e2,
+              mk_block env return_pos e3
+            ) in
             env, e :: acc
+          else
+            (* no_return_else && return_pos <> Not,
+             *   i.e. optimization enabled; we are in return position *)
+            let e = CStar.IfThenElse (false,
+              mk_expr env false e1,
+              mk_block env Must e2,
+              []
+            ) in
+            collect (env, e :: acc) return_pos e3
         end
 
     | ESequence es ->
         let n = List.length es in
         KList.fold_lefti (fun i (_, acc) e ->
-          let return_pos = i = n - 1 && return_pos in
+          let return_pos = if i = n - 1 then return_pos else Not in
           collect (env, acc) return_pos e
         ) (env, acc) es
 
@@ -439,7 +465,7 @@ and mk_stmts env e ret_type =
           ) branches, default) :: acc
 
     | EReturn e ->
-        mk_as_return env e acc return_pos
+        mk_as_return env e acc Must
 
     | EComment (s, e, s') ->
         let env, stmts = collect (env, CStar.Comment s :: acc) return_pos e in
@@ -452,7 +478,7 @@ and mk_stmts env e ret_type =
     | EBreak ->
         env, CStar.Break :: acc
 
-    | _ when return_pos ->
+    | _ when return_pos <> Not ->
         mk_as_return env e acc return_pos
 
     | _ ->
@@ -468,7 +494,7 @@ and mk_stmts env e ret_type =
   and mk_as_return env e acc return_pos =
     let maybe_return_nothing s =
       (* "return" when already in return position is un-needed *)
-      if return_pos then s else CStar.Return None :: s
+      if return_pos = May then s else CStar.Return None :: s
     in
     if ret_type = CStar.Void && is_readonly_c_expression e then
       env, maybe_return_nothing acc
@@ -506,12 +532,14 @@ and mk_stmts env e ret_type =
        * ill-parenthesized, or if there's B1 && B'1
        *)
       match e1.node with
-      | EApp ({ node = EOp (K.And, K.Bool); _ }, [ e1; e1' ]) when return_pos ->
+      | EApp ({ node = EOp (K.And, K.Bool); _ }, [ e1; e1' ]) when return_pos <> Not ->
           let cond = mk_ifcond env e1 in
+          (* Can't recursively call mk_block with Must because it'll insert a
+           * return in the else-branch. *)
           let e2 = Helpers.nest_in_return_pos TUnit (fun _ e -> with_type TUnit (EReturn e)) e2 in
-          let inner_if = mk_block env false (with_unit (EIfThenElse (e1', e2, eunit))) in
+          let inner_if = mk_block env Not (with_unit (EIfThenElse (e1', e2, eunit))) in
           let acc = CStar.IfThenElse (true, cond, inner_if, []) :: acc in
-          snd (collect (env, acc) true e3)
+          snd (collect (env, acc) return_pos e3)
       | _ ->
           raise NotIfDef
 
@@ -539,7 +567,7 @@ and mk_stmts env e ret_type =
 
   in
 
-  snd (collect (env, []) true e)
+  snd (collect (env, []) May e)
 
 
 (** This enforces the push/pop frame invariant. The invariant can be described

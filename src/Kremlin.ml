@@ -272,6 +272,8 @@ Supported options:|}
       around blocks";
     "-fnoshort-enums", Arg.Clear Options.short_enums, "  use C11 enums instead \
       of C macros and uint8_t for enums";
+    "-fnoreturn-else", Arg.Set Options.no_return_else, "  if the body of an \
+      if-block always returns (terminal position), don't insert an else block";
     "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
     "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see \
       above) + also disable variadic-length KRML_HOST_EPRINTF";
