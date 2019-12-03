@@ -226,7 +226,8 @@ let strengthen_array t e2 =
 let is_readonly_builtin_lid lid =
   let pure_builtin_lids = [
     [ "C"; "String" ], "get";
-    [ "C"; "Nullity" ], "op_Bang_Star"
+    [ "C"; "Nullity" ], "op_Bang_Star";
+    [ "Lib"; "IntVector"; "Intrinsics" ], "vec128_smul64"
   ] in
   List.exists (fun lid' ->
     let lid = Idents.string_of_lident lid in
@@ -247,8 +248,6 @@ class ['self] readonly_visitor = object (self: 'self)
   method! visit_EBufBlit _ _ _ _ _ _ = false
   method! visit_EBufFill _ _ _ _ = false
   method! visit_EBufFree _ _ = false
-  method! visit_EPushFrame _ = false
-  method! visit_EPopFrame _ = false
   method! visit_EMatch _ _ _ = false
   method! visit_ESwitch _ _ _ = false
   method! visit_EReturn _ _ = false
@@ -256,6 +255,10 @@ class ['self] readonly_visitor = object (self: 'self)
   method! visit_EFor _ _ _ _ _ _ = false
   method! visit_ETApp _ _ _ = false
   method! visit_EWhile _ _ _ = false
+  method! visit_EPushFrame _ = false
+  (* PushFrame markers have a semantic meaning (they indicate the beginning of
+   * scope for hoisting phases) so we cannot remove them. We, however, don't do
+   * anything meaningful with PopFrames so they can be safely eliminated. *)
 
   method! visit_EApp _ e es =
     match e.node with

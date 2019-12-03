@@ -43,8 +43,6 @@ and stmt =
   | BufBlit of expr * expr * expr * expr * expr
   | BufFill of expr * expr * expr
   | BufFree of expr
-  | PushFrame
-  | PopFrame
   | Block of block
   | Comment of string
 

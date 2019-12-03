@@ -687,9 +687,6 @@ and mk_stmt (stmt: stmt): C.stmt list =
   | While (e1, e2) ->
       [ While (mk_expr e1, mk_compound_if (mk_stmts e2) false) ]
 
-  | PushFrame | PopFrame ->
-      failwith "[mk_stmt]: nested frames to be handled by [mk_stmts]"
-
   | Switch (e, branches, default) ->
       [ Switch (
           mk_expr e,
@@ -745,16 +742,7 @@ and mk_stmt (stmt: stmt): C.stmt list =
 
 
 and mk_stmts stmts: C.stmt list =
-  let stmts = KList.map_flatten (function
-    | PushFrame | PopFrame ->
-        (* We totally give up on inserting braces for push/pop frame, since
-         * they're a semantic criterion in F*, which we cannot recover
-         * syntactically here. See PushPop.fst in test/ for an example of a
-         * tricky situation. *)
-        []
-    | stmt ->
-        mk_stmt stmt
-  ) stmts in
+  let stmts = KList.map_flatten mk_stmt stmts in
   let rec fixup_c89 in_decls (stmts: C.stmt list) =
     match stmts with
     | C.Decl _ as stmt :: stmts ->

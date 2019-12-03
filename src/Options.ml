@@ -1,11 +1,7 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
 (* Licensed under the Apache 2.0 License. *)
 
-(** Some of these will be filled by [Driver]. In particular, the following are
- * automatically added:
- * $krml_home/kremlib/kremlib.c is added to c_files
- * $krml_home/kremlib is added to includes
- *)
+(** Some of these will be filled by [Driver].  *)
 let no_prefix: Bundle.pat list ref = ref Bundle.[
   Module [ "C" ];
   Module [ "C"; "Compat" ];
@@ -53,6 +49,7 @@ let curly_braces = ref false
 let unroll_loops = ref (-1)
 let tail_calls = ref false
 let no_shadow = ref false
+let no_return_else = ref false
 
 let extract_uints = ref false
 let builtin_uint128 = ref false
