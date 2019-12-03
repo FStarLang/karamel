@@ -255,6 +255,10 @@ class ['self] readonly_visitor = object (self: 'self)
   method! visit_EFor _ _ _ _ _ _ = false
   method! visit_ETApp _ _ _ = false
   method! visit_EWhile _ _ _ = false
+  method! visit_EPushFrame _ = false
+  (* PushFrame markers have a semantic meaning (they indicate the beginning of
+   * scope for hoisting phases) so we cannot remove them. We, however, don't do
+   * anything meaningful with PopFrames so they can be safely eliminated. *)
 
   method! visit_EApp _ e es =
     match e.node with

@@ -472,6 +472,9 @@ and mk_stmts env e ret_type =
     | EBreak ->
         env, CStar.Break :: acc
 
+    | EPushFrame ->
+        env, acc
+
     | _ when return_pos <> Not ->
         mk_as_return env e acc return_pos
 
