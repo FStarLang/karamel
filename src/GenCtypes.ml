@@ -441,18 +441,33 @@ let write_ml (path: string) (m: structure_item list) =
   structure Format.std_formatter (migration.copy_structure m);
   Format.pp_print_flush Format.std_formatter ()
 
-let write_gen_module files =
+let write_gen_module (deps, files) =
   if List.length files > 0 then
     Driver.mkdirp (!Options.tmpdir ^ "/lib_gen");
   List.iter (fun name ->
     let m = mk_gen_decls name in
     let path = !Options.tmpdir ^ "/lib_gen/" ^ name ^ "_gen.ml" in
     write_ml path [m]
-  ) files
+  ) files;
+
+  let b = Buffer.create 1024 in
+  List.iter (fun (f, ds) ->
+    Printf.bprintf b "lib/%s_bindings.cmx: " f;
+    List.iter (Printf.bprintf b "lib/%s_bindings.cmx ") ds;
+    Buffer.add_string b "\n";
+    Printf.bprintf b "lib_gen/%s_gen.exe: " f;
+    List.iter (fun d ->
+      Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx " d d
+    ) ds;
+    Printf.bprintf b "lib/%s_bindings.cmx lib_gen/%s_gen.cmx " f f;
+    Buffer.add_string b "\n"
+  ) deps;
+  Buffer.output_buffer (open_out (!Options.tmpdir ^ "/ctypes.depend")) b
 
 let write_bindings (files: (string * string list * structure_item list) list) =
   if List.length files > 0 then
     Driver.mkdirp (!Options.tmpdir ^ "/lib");
+  List.map (fun (name, deps, _) -> name, deps) files,
   List.map (fun (name, _, m) ->
     let path = !Options.tmpdir ^ "/lib/" ^ name ^ "_bindings.ml" in
     write_ml path m;
