@@ -453,7 +453,9 @@ let write_gen_module (deps, files) =
   let b = Buffer.create 1024 in
   List.iter (fun (f, ds) ->
     Printf.bprintf b "lib/%s_bindings.cmx: " f;
-    List.iter (Printf.bprintf b "lib/%s_bindings.cmx ") ds;
+    List.iter (fun d ->
+      Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx" d d
+    ) ds;
     Buffer.add_string b "\n";
     Printf.bprintf b "lib_gen/%s_gen.exe: " f;
     List.iter (fun d ->
