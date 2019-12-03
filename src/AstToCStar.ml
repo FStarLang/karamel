@@ -334,7 +334,7 @@ and mk_stmts env e ret_type =
         let is_solo_assignment = binder.node.meta = Some MetaSequence in
         let env', binder = mk_and_push_binder env binder (Some e1) [ e2; e3; e4 ] in
         let e2 = mk_expr env' false e2 in
-        let e3 = KList.one (mk_block env' Not e3) in
+        let e3 = KList.last (mk_block env' Not e3) in
         let e4 = mk_block env' Not e4 in
         let e =
           if is_solo_assignment then
@@ -436,12 +436,6 @@ and mk_stmts env e ret_type =
 
     | EMatch _ ->
         fatal_error "[AstToCStar.collect EMatch]: not implemented"
-
-    | EPushFrame ->
-        env, CStar.PushFrame :: acc
-
-    | EPopFrame ->
-        env, CStar.PopFrame :: acc
 
     | EAbort s ->
         env, CStar.Abort (Option.or_empty s) :: acc
@@ -570,51 +564,8 @@ and mk_stmts env e ret_type =
   snd (collect (env, []) May e)
 
 
-(** This enforces the push/pop frame invariant. The invariant can be described
- * as follows (the extra cases are here to provide better error messages):
- * - a function may choose not to use push/pop frame (it's a pure computation);
- * - if it chooses to use push/pop frame, then either:
- *   - it starts with push_frame and ends with pop_frame (implies the return type
- *     is void)
- *   - it starts with push_frame and ends with pop_frame, and returns a value
- *     immediately after the pop_frame; F* guarantees that this value is
- *     well-scoped and requires no deep-copy (the user will perform it manually,
- *     if needed)
- *   - it uses push_frame and pop_frame in the middle of the function body... in
- *     which case we check no special invariant
- *)
 and mk_function_block env e t =
-  (** This function expects an environment where names and in_block have been
-   * populated with the function's parameters. *)
-  let stmts = mk_stmts env e t in
-
-  (** This just enforces some invariants and drops push/pop frame when they span
-   * the entire function body (because it's redundant with the function frame). *)
-  match List.rev stmts, stmts with
-  | [], _ ->
-      if t <> CStar.Void then
-        (* TODO: type aliases for void *)
-        raise_error (BadFrame "empty function body, but non-void return type");
-      []
-
-  | CStar.PushFrame :: _, CStar.PopFrame :: rest ->
-      if t <> CStar.Void then
-        (* TODO: type aliases for void *)
-        raise_error (BadFrame "push/pop spans function body, but return type is not void");
-      List.tl (List.rev rest)
-
-  | CStar.PushFrame :: _, e :: CStar.PopFrame :: rest ->
-      (* Note: it is no longer the case that [e] ought to be a [Return]. It
-       * could be, for instance, an if-then-else with several [Returns] in
-       * terminal position. [Simplify.fixup_return_pos] is precisely about this. *)
-      List.tl (List.rev (e :: rest))
-
-  (* Note: block scopes may not fit the entire function body, so it's ok if we
-   * have an unmatched pushframe at the beginning (or an unmatched popframe at
-   * the end *)
-
-  | stmts, _ ->
-      stmts
+  List.rev (mk_stmts env e t)
 
 (* These two mutually recursive functions implement a unit-to-void type translation that is
  * consistent with the same translation for expressions above. *)
