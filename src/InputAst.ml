@@ -99,6 +99,7 @@ and expr =
   | EBufFree of expr
   | EBufCreateNoInit of (lifetime * expr)
   | EAbortT of (string * typ)
+  | EComment of (string * expr * string)
 
 and branches =
   branch list

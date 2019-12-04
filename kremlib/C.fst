@@ -57,3 +57,16 @@ type exit_code = | EXIT_SUCCESS | EXIT_FAILURE
 assume val print_bytes: b:LowStar.Buffer.buffer UInt8.t -> len:UInt32.t{UInt32.v len <= LowStar.Buffer.length b} -> Stack unit
   (requires (fun h -> LowStar.Buffer.live h b))
   (ensures  (fun h0 _ h1 -> h0 == h1))
+
+assume val comment_gen: #t: Type -> before: string -> body: t -> after: string -> Stack t
+  (requires (fun h -> True))
+  (ensures (fun h0 res h1 -> h0 == h1 /\ res == body))
+
+inline_for_extraction
+noextract
+let comment
+  (s: string)
+: Stack unit
+  (requires (fun _ -> True))
+  (ensures (fun h0 _ h1 -> h0 == h1))
+= comment_gen #unit s () ""
