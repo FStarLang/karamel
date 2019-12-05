@@ -239,6 +239,8 @@ Supported options:|}
     "-ctypes", Arg.String (fun s ->
       List.iter (prepend Options.ctypes) (Parsers.drop s)),
       "  also generate Ctypes OCaml bindings for these modules";
+    "-rst-snippets", Arg.Set Options.rst_snippets, " generate SNIPPET_START and \
+      SNIPPET_END directives for RST documentation";
     "-I", Arg.String (prepend Options.includes), " add directory to search path \
       (F* and C compiler)";
     "-o", Arg.Set_string Options.exe_name, "  name of the resulting executable";
