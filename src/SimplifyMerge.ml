@@ -96,7 +96,7 @@ let rec merge (env: (typ * ident) M.t) (u: S.t) (e: expr): S.t * S.t * expr =
       begin match M.fold (fun x (t, i) acc ->
         match acc with
         | None when
-          t = b.typ && not (S.mem x u) && not (Atom.equal x b.node.atom) ->
+          t = b.typ && not (S.mem x u) && not (Atom.equal x b.node.atom) && S.mem x d1 ->
             Some (x, i)
         | _ ->
             acc
