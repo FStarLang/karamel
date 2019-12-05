@@ -466,7 +466,7 @@ and mk_stmts env e ret_type =
         env, CStar.Comment s' :: stmts
 
     | EStandaloneComment s ->
-        env, [CStar.Comment s]
+        env, CStar.Comment s :: acc
 
     | EIgnore e ->
         let env, s = mk_ignored_stmt env e in
