@@ -276,6 +276,8 @@ Supported options:|}
       of C macros and uint8_t for enums";
     "-fnoreturn-else", Arg.Set Options.no_return_else, "  if the body of an \
       if-block always returns (terminal position), don't insert an else block";
+    "-fmerge", Arg.Set Options.merge_variables, "  merge variables together \
+      rather than emit shadowing let-bindings";
     "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
     "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see \
       above) + also disable variadic-length KRML_HOST_EPRINTF";
@@ -580,6 +582,7 @@ Supported options:|}
   (* Note: generates let-bindings, so needs to be before simplify2 *)
   let files = Simplify.remove_unused files in
   let files = if !Options.tail_calls then Simplify.tail_calls files else files in
+  let files = if !Options.merge_variables then SimplifyMerge.simplify files else files in
   let files = Simplify.simplify2 files in
   let files = Inlining.cross_call_analysis files in
   if !arg_print_structs then
