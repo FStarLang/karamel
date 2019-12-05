@@ -742,6 +742,7 @@ and hoist_expr loc pos e =
   | EString _
   | EEnum _
   | EAddrOf _
+  | EStandaloneComment _
   | EOp _ ->
       [], e
 

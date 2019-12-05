@@ -58,15 +58,12 @@ assume val print_bytes: b:LowStar.Buffer.buffer UInt8.t -> len:UInt32.t{UInt32.v
   (requires (fun h -> LowStar.Buffer.live h b))
   (ensures  (fun h0 _ h1 -> h0 == h1))
 
-assume val comment_gen: #t: Type -> before: string -> body: t -> after: string -> Stack t
-  (requires (fun h -> True))
-  (ensures (fun h0 res h1 -> h0 == h1 /\ res == body))
+assume val comment_gen: #t: Type -> before: string -> body: t -> after: string -> Pure t
+  (requires (True))
+  (ensures (fun res -> res == body))
 
-inline_for_extraction
-noextract
-let comment
+assume val comment
   (s: string)
 : Stack unit
   (requires (fun _ -> True))
-  (ensures (fun h0 _ h1 -> h0 == h1))
-= comment_gen #unit s () ""
+  (ensures (fun h _ h' -> h == h'))
