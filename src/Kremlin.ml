@@ -679,7 +679,7 @@ Supported options:|}
     end;
 
     if not (KList.is_empty !Options.ctypes) then
-      Printf.printf "KreMLin: wrote out .ml files for %s\n" (String.concat ", " (snd ml_files));
+      Printf.printf "KreMLin: wrote out .ml files for %s\n" (String.concat ", " ml_files);
 
     if !arg_skip_compilation then
       exit 0;

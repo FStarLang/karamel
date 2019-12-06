@@ -42,9 +42,9 @@ let mk_ident name = Lident name |> mk_sym_ident
 
 let exp_ident n = Exp.ident (mk_ident n)
 
-let check_supported_type n =
+let check_supported_type module_name n =
   if String.equal n "FStar_UInt128_uint128" then
-    Warn.fatal_error "Ctypes bindings generation is not supported for code that uses uint128"
+    Warn.fatal_error "Ctypes bindings generation is not supported for code that uses uint128 (in %s)" module_name
 
 
 (* generic AST helpers *)
@@ -121,11 +121,11 @@ let rec get_qualified_types = function
   | Void
   | Bool -> []
 
-let rec mk_typ module_name = function
+let rec mk_typ (module_name: string) = function
   | Int w -> exp_ident (PrintCommon.width_to_string w ^ "_t")
   | Pointer t -> Exp.apply (exp_ident "ptr") [(Nolabel, mk_typ module_name t)]
   | Void -> exp_ident "void"
-  | Qualified l -> check_supported_type l; exp_ident (mk_unqual_name l)
+  | Qualified l -> check_supported_type module_name l; exp_ident (mk_unqual_name l)
   | Bool -> exp_ident "bool"
   | Function (_, return_type, parameters) -> build_foreign_fun module_name return_type (List.map (fun x -> {name=""; typ=x}) parameters)
   | Union _
@@ -249,6 +249,9 @@ let mk_ctypes_decl module_name (d: decl): structure =
 
 let mk_include name =
   let module_name = Mod.apply (Mod.ident (mk_ident (name ^ "_bindings.Bindings"))) (Mod.ident (mk_ident (name ^ "_stubs"))) in
+  (* let modul = Str.module_ (Mb.mk (mk_sym name) module_name) in
+   * let open_modul = Str.open_ (Opn.mk (mk_ident name)) in
+   * [modul; open_modul] *)
   Str.include_ (Incl.mk module_name)
 
 let mk_ocaml_bind module_name deps decls =
@@ -287,6 +290,8 @@ let build_module (module_name: ident) deps program: structure option =
  *     the set of types on which it depends. These types are also marked. Since the list of bundles (but not the modules
  *     within each bundle!) is topologically sorted, it is processed here in reverse order. *)
 let should_bind_decl = Hashtbl.create 20
+let direct_deps = Hashtbl.create 20
+let transitive_deps = Hashtbl.create 20
 
 let mk_ocaml_bindings
   (files : (ident * string list * decl list) list)
@@ -368,6 +373,7 @@ let mk_ocaml_bindings
               let qts = KList.map_flatten get_qualified_types (typ :: (List.map (fun x -> x.typ) binders)) in
               if Hashtbl.find should_bind_decl name then
                 (List.iter (fun x -> Hashtbl.replace should_bind_decl x true) qts;
+                 (* Printf.printf "Qts for %s: %s\n" name (String.concat ", " qts); *)
                 true)
               else
                 false
@@ -376,6 +382,7 @@ let mk_ocaml_bindings
               let qts = get_qualified_types typ in
               if Hashtbl.find should_bind_decl name then
                 (List.iter (fun x -> Hashtbl.replace should_bind_decl x true) qts;
+                 (* Printf.printf "Qts for %s: %s\n" name (String.concat ", " qts); *)
                  true)
               else
                 false
@@ -385,6 +392,13 @@ let mk_ocaml_bindings
           (f_name, f_deps, f_decls)::(compute_dependency fs decls)
     in
     compute_dependency (List.rev files) modules
+  in
+
+  let compute_transitive_deps name deps =
+    let tds = KList.map_flatten (fun x -> (Hashtbl.find direct_deps x) @ (Hashtbl.find transitive_deps x)) deps in
+    Hashtbl.add direct_deps name deps;
+    Hashtbl.add transitive_deps name tds;
+    List.filter (fun x -> not (List.mem x tds)) deps
   in
 
   if KList.is_empty !Options.ctypes then
@@ -397,15 +411,20 @@ let mk_ocaml_bindings
         Warn.fatal_error "Module %s passed to -ctypes is not one of the F* modules passed to Kremlin" (Bundle.string_of_pattern p)
       ) !Options.ctypes;
     let () = compute_bindings files modules in
-    let files = compute_dependencies files modules in
+    (* List.iter (fun (name, deps, _) -> Printf.printf "Deps for %s: %s\n" name (String.concat ", " deps)) files; *)
+    let files = List.rev (compute_dependencies files modules) in
+    (* List.iter (fun (name, deps, _) -> Printf.printf "Deps post for %s: %s\n" name (String.concat ", " deps)) files; *)
 
     let rec build_modules files modules_acc names_acc =
-      match (List.rev files) with
+      match files with
       | [] -> modules_acc
       | (name, deps, program) :: fs -> begin
+          (* Printf.printf "[build_modules] %s; deps: %s\n" name (String.concat ", " deps); *)
           let deps = List.filter (fun d -> List.mem d names_acc) deps in
-          match build_module name deps program with
-          | Some m -> build_modules fs ((name, deps, m) :: modules_acc) (name :: names_acc)
+          let trans_deps = compute_transitive_deps name deps in
+          (* Printf.printf "[build_modules] %s; deps AFTER: %s\n" name (String.concat ", " deps); *)
+          match build_module name trans_deps program with
+          | Some m -> (* Printf.printf "[build_modules] Some %s\n" name; *) build_modules fs ((name, deps, m) :: modules_acc) (name :: names_acc)
           | None -> build_modules fs modules_acc names_acc
         end
     in
@@ -441,7 +460,7 @@ let write_ml (path: string) (m: structure_item list) =
   structure Format.std_formatter (migration.copy_structure m);
   Format.pp_print_flush Format.std_formatter ()
 
-let write_gen_module (deps, files) =
+let write_gen_module files =
   if List.length files > 0 then
     Driver.mkdirp (!Options.tmpdir ^ "/lib_gen");
   List.iter (fun name ->
@@ -451,10 +470,11 @@ let write_gen_module (deps, files) =
   ) files;
 
   let b = Buffer.create 1024 in
-  List.iter (fun (f, ds) ->
+  List.iter (fun f ->
+    let ds = (Hashtbl.find transitive_deps f) @ (Hashtbl.find direct_deps f) in
     Printf.bprintf b "lib/%s_bindings.cmx: " f;
     List.iter (fun d ->
-      Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx" d d
+      Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx " d d
     ) ds;
     Buffer.add_string b "\n";
     Printf.bprintf b "lib_gen/%s_gen.exe: " f;
@@ -463,13 +483,12 @@ let write_gen_module (deps, files) =
     ) ds;
     Printf.bprintf b "lib/%s_bindings.cmx lib_gen/%s_gen.cmx " f f;
     Buffer.add_string b "\n"
-  ) deps;
+  ) files;
   Buffer.output_buffer (open_out (!Options.tmpdir ^ "/ctypes.depend")) b
 
 let write_bindings (files: (string * string list * structure_item list) list) =
   if List.length files > 0 then
     Driver.mkdirp (!Options.tmpdir ^ "/lib");
-  List.map (fun (name, deps, _) -> name, deps) files,
   List.map (fun (name, _, m) ->
     let path = !Options.tmpdir ^ "/lib/" ^ name ^ "_bindings.ml" in
     write_ml path m;
