@@ -10,11 +10,20 @@ open PrintAst
 module S = Set.Make(Atom)
 module M = Map.Make(Atom)
 
-let keys (type a) (m: a M.t): S.t =
-  M.fold (fun k _ acc -> S.add k acc) m S.empty
+type env = (Atom.t * (typ * ident)) list
 
-let p env (x: S.t) =
-  let l = List.map (fun x -> snd (M.find x env)) (S.elements x) in
+let keys (e: env): S.t =
+  List.fold_left (fun acc (k, _) -> S.add k acc) S.empty e
+
+let extend x y (env: env) =
+  (x, y) :: env
+
+let find =
+  List.assoc
+
+(* Print elements of x based on atom -> ident mapping in env *)
+let p (env: env) (x: S.t) =
+  let l = List.map (fun x -> try snd (find x env) with Not_found -> "?") (S.elements x) in
   String.concat ", " l
 
 (* Only meaningful when all binders are open *)
@@ -28,7 +37,7 @@ let replace_atom (a: Atom.t) (a': Atom.t) (e: expr) =
   end)#visit_expr_w () e
 
 (* This function receives:
- * - env, the map of all the variables in scope to their types
+ * - env, an associative list of all the variables in scope to their types
  * - the set U of variables from env that are no longer dead because they
  *   were used and assigned to at some point
  * - an expression e to rewrite
@@ -38,7 +47,7 @@ let replace_atom (a: Atom.t) (a': Atom.t) (e: expr) =
  * - an updated set U'.
  * Therefore, the set of dead variables in e' (rewritten) is D - U'.
  * Therefore, the set of candidates for reusing a variable slot is env - U'. *)
-let rec merge (env: (typ * ident) M.t) (u: S.t) (e: expr): S.t * S.t * expr =
+let rec merge (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
   let w = with_type e.typ in
   match e.node with
   | ETApp _
@@ -85,22 +94,23 @@ let rec merge (env: (typ * ident) M.t) (u: S.t) (e: expr): S.t * S.t * expr =
   | ELet (b, e1, e2) ->
       (* Following the reverse order of control-flow for u *)
       let b, e2 = open_binder b e2 in
-      let env = M.add b.node.atom (b.typ, b.node.name) env in
+      let env = extend b.node.atom (b.typ, b.node.name) env in
       let d2, u, e2 = merge env u e2 in
 
       (* For later *)
       let d1, u_final, e1 = merge env u e1 in
       let d_final = S.inter d1 d2 in
 
-      (* TODO: find_valid predicate *)
-      begin match M.fold (fun x (t, i) acc ->
-        match acc with
-        | None when
-          t = b.typ && not (S.mem x u) && not (Atom.equal x b.node.atom) && S.mem x d1 ->
-            Some (x, i)
-        | _ ->
-            acc
-      ) env None with
+      (* Note: thanks to the fact we encode the environment as a list, we can
+       * apply a heuristic, which is to use the nearest binding. *)
+      begin match KList.find_opt (fun (x, (t, i)) ->
+        if t = b.typ && not (S.mem x u) &&
+          not (Atom.equal x b.node.atom) && S.mem x d2
+        then
+          Some (x, i)
+        else
+          None
+      ) env with
       | Some (y, i) ->
           (* We are now rewriting:
            *   let x: t = e1 in e2
@@ -152,7 +162,7 @@ let merge_visitor = object(_)
   inherit [_] map
   method! visit_DFunction () cc flags n ret name binders body =
     let binders, body = open_binders binders body in
-    let _, _, body = merge M.empty S.empty body in
+    let _, _, body = merge [] S.empty body in
     let body = close_binders binders body in
     DFunction (cc, flags, n, ret, name, binders, body)
 end
