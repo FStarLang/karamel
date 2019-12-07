@@ -12,7 +12,7 @@ module M = Map.Make(Atom)
 
 let debug = false
 
-type env = (Atom.t * (typ * ident)) list
+type env = (Atom.t * (typ * bool * ident)) list
 
 let keys (e: env): S.t =
   List.fold_left (fun acc (k, _) -> S.add k acc) S.empty e
@@ -25,7 +25,9 @@ let find =
 
 (* Print elements of x based on atom -> ident mapping in env *)
 let p (env: env) (x: S.t) =
-  let l = List.map (fun x -> try snd (find x env) with Not_found -> "?") (S.elements x) in
+  let l = List.map (fun x ->
+    try let _, _, i = find x env in i with Not_found -> "?"
+  ) (S.elements x) in
   String.concat ", " l
 
 (* Only meaningful when all binders are open *)
@@ -93,12 +95,16 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
   | ELet (b, e1, e2) ->
       (* Following the reverse order of control-flow for u *)
       let b, e2 = open_binder b e2 in
-      let strengthen t e1 =
-        match Helpers.strengthen_array' t e1 with
-        | Some t -> t
-        | None -> t
+      let has_storage t e1 =
+        match t, e1.node with
+        | TArray _, _
+        | _, EBufCreate (Stack, _, _)
+        | _, EBufCreateL (Stack, _) ->
+            true
+        | _ ->
+            false
       in
-      let env = extend b.node.atom (strengthen b.typ e1, b.node.name) env in
+      let env = extend b.node.atom (b.typ, has_storage b.typ e1, b.node.name) env in
       let d2, u, e2 = merge env u e2 in
 
       let candidate =
@@ -108,7 +114,7 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
              * but CStarToC11 doesn't allow it (why?). *)
             None
         | _ ->
-            let fits x t =
+            let fits x has_storage t =
               (* Compatible type *)
               t = b.typ &&
               (* Hasn't been used further down the control-flow *)
@@ -120,9 +126,9 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
               (* Ignore sequence let-bindings *)
               not (t = TUnit) &&
               (* Array types are not assignable *)
-              not (Helpers.is_array t)
+              not has_storage
             in
-            KList.find_opt (fun (x, (t, i)) -> if fits x t then Some (x, i) else None) env
+            KList.find_opt (fun (x, (t, h, i)) -> if fits x h t then Some (x, i) else None) env
       in
 
       (* For later *)
@@ -145,8 +151,17 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
               Used in e2: %s\n\
               Chose: %s\n\
               e2 now: %a\n\n" b.node.name (p env d2) (p env u) i pexpr e2;
+          let self_assignment =
+            match e1.node with
+            | EOpen (_, x1) when Atom.equal x1 y ->
+                true
+            | _ ->
+                false
+          in
           let e =
             if e1.node = EAny then
+              e2.node
+            else if self_assignment then
               e2.node
             else
               ELet (Helpers.sequence_binding (),
