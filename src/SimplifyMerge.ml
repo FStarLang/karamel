@@ -93,8 +93,37 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
   | ELet (b, e1, e2) ->
       (* Following the reverse order of control-flow for u *)
       let b, e2 = open_binder b e2 in
-      let env = extend b.node.atom (b.typ, b.node.name) env in
+      let strengthen t e1 =
+        match Helpers.strengthen_array' t e1 with
+        | Some t -> t
+        | None -> t
+      in
+      let env = extend b.node.atom (strengthen b.typ e1, b.node.name) env in
       let d2, u, e2 = merge env u e2 in
+
+      let candidate =
+        match e1.node with
+        | EBufCreateL _ | EBufCreate (_, _, _) ->
+            (* I guess we could allow heap-allocated buffers to reuse variables,
+             * but CStarToC11 doesn't allow it (why?). *)
+            None
+        | _ ->
+            let fits x t =
+              (* Compatible type *)
+              t = b.typ &&
+              (* Hasn't been used further down the control-flow *)
+              not (S.mem x u) &&
+              (* No self-assignments *)
+              not (Atom.equal x b.node.atom) &&
+              (* Must be dead *)
+              S.mem x d2 &&
+              (* Ignore sequence let-bindings *)
+              not (t = TUnit) &&
+              (* Array types are not assignable *)
+              not (Helpers.is_array t)
+            in
+            KList.find_opt (fun (x, (t, i)) -> if fits x t then Some (x, i) else None) env
+      in
 
       (* For later *)
       let d1, u_final, e1 = merge env u e1 in
@@ -102,15 +131,7 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
 
       (* Note: thanks to the fact we encode the environment as a list, we can
        * apply a heuristic, which is to use the nearest binding. *)
-      begin match KList.find_opt (fun (x, (t, i)) ->
-        if t = b.typ && not (S.mem x u) &&
-          not (Atom.equal x b.node.atom) && S.mem x d2 &&
-          not (t = TUnit)
-        then
-          Some (x, i)
-        else
-          None
-      ) env with
+      begin match candidate with
       | Some (y, i) ->
           (* We are now rewriting:
            *   let x: t = e1 in e2
@@ -236,9 +257,23 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
       let d, u, e = merge env u e in
       d, u, w (EReturn e)
 
-  | EFor _ -> Warn.fatal_error "TODO: EFor"
-  | EComment _ -> Warn.fatal_error "TODO: EComment"
-  | EAddrOf _ -> Warn.fatal_error "TODO: EAddrOf"
+  | EFor (b, e1, e2, e3, e4) ->
+      let binder, s = opening_binder b in
+      let e2 = s e2 and e3 = s e3 and e4 = s e4 in
+      let d4, u, e4 = merge env u e4 in
+      let d3, u, e3 = merge env u e3 in
+      let d2, u, e2 = merge env u e2 in
+      let d1, u, e1 = merge env u e1 in
+      let s = closing_binder binder in
+      KList.reduce S.inter [ d1; d2; d3; d4 ], u, w (EFor (b, e1, s e2, s e3, s e4))
+
+  | EComment (s1, e, s2) ->
+      let d, u, e = merge env u e in
+      d, u, w (EComment (s1, e, s2))
+
+  | EAddrOf e ->
+      let d, u, e = merge env u e in
+      d, u, w (EAddrOf e)
 
 and merge (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
   let d, u, e = merge' env u e in
