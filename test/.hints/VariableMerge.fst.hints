@@ -1,5 +1,5 @@
 [
-  "\u001f≤.œ\u000f«@Ba–/£+›>{",
+  "Â_ ©Z—Á_vﬂ÷.\b\u001d∑¡",
   [
     [
       "VariableMerge.f",
@@ -12,7 +12,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "8951fe1dc838194d697933df859a98f7"
+      "1b593f0ff37a219d92d26501c17e2682"
     ],
     [
       "VariableMerge.test",
@@ -34,7 +34,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "7724bac4c9ffcd10b6c8c4d8e6d4c366"
+      "833eb99c519093daa21bc8eb21cecfb1"
     ],
     [
       "VariableMerge.test1",
@@ -56,7 +56,29 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "229386cc8f3c7a913f10fbf128714746"
+      "b47039d79b6726ca236d2574ee092d97"
+    ],
+    [
+      "VariableMerge.test2",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "equation_FStar.Monotonic.HyperStack.is_tip",
+        "equation_FStar.Monotonic.HyperStack.is_wf_with_ctr_and_tip",
+        "equation_FStar.Monotonic.HyperStack.mem",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_elim",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro",
+        "lemma_FStar.Monotonic.HyperStack.lemma_map_invariant",
+        "lemma_FStar.Monotonic.HyperStack.lemma_tip_top_smt",
+        "refinement_interpretation_Tm_refine_05e15190c946858f68c69156f585f95a",
+        "typing_FStar.Monotonic.HyperStack.get_tip"
+      ],
+      0,
+      "9a4f4d087cf46280ca635e547a0e35d2"
     ],
     [
       "VariableMerge.main",
@@ -78,7 +100,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "91341b73baf1a101fb0438d9aca59037"
+      "09a1d6d73bfc8eac4bbe35bd776b084d"
     ]
   ]
 ]

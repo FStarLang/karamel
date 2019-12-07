@@ -10,6 +10,8 @@ open PrintAst
 module S = Set.Make(Atom)
 module M = Map.Make(Atom)
 
+let debug = false
+
 type env = (Atom.t * (typ * ident)) list
 
 let keys (e: env): S.t =
@@ -47,7 +49,7 @@ let replace_atom (a: Atom.t) (a': Atom.t) (e: expr) =
  * - an updated set U'.
  * Therefore, the set of dead variables in e' (rewritten) is D - U'.
  * Therefore, the set of candidates for reusing a variable slot is env - U'. *)
-let rec merge (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
+let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
   let w = with_type e.typ in
   match e.node with
   | ETApp _
@@ -85,11 +87,8 @@ let rec merge (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
 
   | EApp (e, es) ->
       let d, u, e = merge env u e in
-      let d, u, es = List.fold_left (fun (d, u, es) e ->
-        let d', u, e = merge env u e in
-        S.inter d d', u, e :: es
-      ) (d, u, []) es in
-      d, u, w (EApp (e, List.rev es))
+      let d, u, es = merge_list env d u es in
+      d, u, w (EApp (e, es))
 
   | ELet (b, e1, e2) ->
       (* Following the reverse order of control-flow for u *)
@@ -105,7 +104,8 @@ let rec merge (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
        * apply a heuristic, which is to use the nearest binding. *)
       begin match KList.find_opt (fun (x, (t, i)) ->
         if t = b.typ && not (S.mem x u) &&
-          not (Atom.equal x b.node.atom) && S.mem x d2
+          not (Atom.equal x b.node.atom) && S.mem x d2 &&
+          not (t = TUnit)
         then
           Some (x, i)
         else
@@ -118,11 +118,12 @@ let rec merge (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
            *   let _ = y := e1 in // will be made a sequence later
            *   e2 *)
           let e2 = replace_atom b.node.atom y e2 in
-          KPrint.bprintf "In the let-binding for %s:\n\
-            Dead in e2: %s\n\
-            Used in e2: %s\n\
-            Chose: %s\n\
-            e2 now: %a\n\n" b.node.name (p env d2) (p env u) i pexpr e2;
+          if debug then
+            KPrint.bprintf "In the let-binding for %s:\n\
+              Dead in e2: %s\n\
+              Used in e2: %s\n\
+              Chose: %s\n\
+              e2 now: %a\n\n" b.node.name (p env d2) (p env u) i pexpr e2;
           let e = ELet (Helpers.sequence_binding (),
             with_type TUnit (EAssign (
               with_type b.typ (EOpen (i, y)),
@@ -131,36 +132,130 @@ let rec merge (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
           in
           d_final, S.add y u_final, w e
       | None ->
-          let mut = if S.mem b.node.atom u_final then true else false in
+          if debug then
+            KPrint.bprintf "In the let-binding for %s:\n\
+              Dead in e2: %s\n\
+              Used in e2: %s\n\
+              No candidate\n\n" b.node.name (p env d2) (p env u);
+
+          let mut = if S.mem b.node.atom u_final then true else b.node.mut in
           let b = { b with node = { b.node with mut }} in
           let e = ELet (b, e1, close_binder b e2) in
           d_final, u_final, w e
       end
 
 
-  | EIfThenElse _ -> Warn.fatal_error "TODO: EIfThenElse"
-  | EAssign _ -> Warn.fatal_error "TODO: EAssign"
-  | EBufCreate _ -> Warn.fatal_error "TODO: EBufCreate"
-  | EBufCreateL _ -> Warn.fatal_error "TODO: EBufCreateL"
-  | EBufRead _ -> Warn.fatal_error "TODO: EBufRead"
-  | EBufWrite _ -> Warn.fatal_error "TODO: EBufWrite"
-  | EBufSub _ -> Warn.fatal_error "TODO: EBufSub"
-  | EBufBlit _ -> Warn.fatal_error "TODO: EBufBlit"
-  | EBufFill _ -> Warn.fatal_error "TODO: EBufFill"
-  | EBufFree _ -> Warn.fatal_error "TODO: EBufFree"
-  | ESwitch _ -> Warn.fatal_error "TODO: ESwitch"
-  | EFlat _ -> Warn.fatal_error "TODO: EFlat"
-  | EField _ -> Warn.fatal_error "TODO: EField"
-  | EBreak -> Warn.fatal_error "TODO: EBreak"
-  | EReturn _ -> Warn.fatal_error "TODO: EReturn"
-  | EWhile _ -> Warn.fatal_error "TODO: EWhile"
+  | EIfThenElse (e1, e2, e3) ->
+      let d2, u2, e2 = merge env u e2 in
+      let d3, u3, e3 = merge env u e3 in
+      let d1, u, e1 = merge env (S.union u2 u3) e1 in
+      S.inter (S.inter d1 d2) d3, u, w (EIfThenElse (e1, e2, e3))
+
+  | EAssign (e1, e2) ->
+      let d2, u, e2 = merge env u e2 in
+      let d1, u, e1 = merge env u e1 in
+      S.inter d1 d2, u, w (EAssign (e1, e2))
+
+  | EBufRead (e1, e2) ->
+      let d2, u, e2 = merge env u e2 in
+      let d1, u, e1 = merge env u e1 in
+      S.inter d1 d2, u, w (EBufRead (e1, e2))
+
+  | EBufCreate (l, e1, e2) ->
+      let d2, u, e2 = merge env u e2 in
+      let d1, u, e1 = merge env u e1 in
+      S.inter d1 d2, u, w (EBufCreate (l, e1, e2))
+
+  | EBufCreateL (l, es) ->
+      let d, u, es = merge_list env (keys env) u es in
+      d, u, w (EBufCreateL (l, es))
+
+  | EBufWrite (e1, e2, e3) ->
+      let d1, u, e1 = merge env u e1 in
+      let d2, u, e2 = merge env u e2 in
+      let d3, u, e3 = merge env u e3 in
+      S.inter (S.inter d1 d2) d3, u, w (EBufWrite (e1, e2, e3))
+
+  | EBufSub (e1, e2) ->
+      let d1, u, e1 = merge env u e1 in
+      let d2, u, e2 = merge env u e2 in
+      S.inter d1 d2, u, w (EBufSub (e1, e2))
+
+  | EBufBlit (e1, e2, e3, e4, e5) ->
+      let d1, u, e1 = merge env u e1 in
+      let d2, u, e2 = merge env u e2 in
+      let d3, u, e3 = merge env u e3 in
+      let d4, u, e4 = merge env u e4 in
+      let d5, u, e5 = merge env u e5 in
+      KList.reduce S.inter [ d1; d2; d3; d4; d5 ], u, w (EBufBlit (e1, e2, e3, e4, e5))
+
+  | EBufFill (e1, e2, e3) ->
+      let d1, u, e1 = merge env u e1 in
+      let d2, u, e2 = merge env u e2 in
+      let d3, u, e3 = merge env u e3 in
+      S.inter (S.inter d1 d2) d3, u, w (EBufFill (e1, e2, e3))
+
+  | EBufFree e1 ->
+      let d1, u, e1 = merge env u e1 in
+      d1, u, w (EBufFree e1)
+
+  | ESwitch (e, es) ->
+      let ds, us, es = List.fold_left (fun (ds, us, es) (c, e) ->
+        let d, u, e = merge env u e in
+        d :: ds, u :: us, (c, e) :: es
+      ) ([], [], []) es in
+      let es = List.rev es in
+      let u = KList.reduce S.union us in
+      let d, u, e = merge env u e in
+      let d = KList.reduce S.inter (d :: ds) in
+      d, u, w (ESwitch (e, es))
+
+  | EFlat fieldexprs ->
+      let fs, es = List.split fieldexprs in
+      let d, u, es = merge_list env (keys env) u es in
+      let fieldexprs = List.combine fs es in
+      d, u, w (EFlat fieldexprs)
+
+  | EField (e, f) ->
+      let d, u, e = merge env u e in
+      d, u, w (EField (e, f))
+
+  | EWhile (e1, e2) ->
+      let d2, u, e2 = merge env u e2 in
+      let d1, u, e1 = merge env u e1 in
+      S.inter d1 d2, u, w (EWhile (e1, e2))
+
+  | EBreak ->
+      keys env, u, w EBreak
+
+  | EReturn e ->
+      let d, u, e = merge env u e in
+      d, u, w (EReturn e)
+
   | EFor _ -> Warn.fatal_error "TODO: EFor"
   | EComment _ -> Warn.fatal_error "TODO: EComment"
   | EAddrOf _ -> Warn.fatal_error "TODO: EAddrOf"
 
+and merge (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
+  let d, u, e = merge' env u e in
+  if debug then
+    KPrint.bprintf "After visiting %a: D=%s\n" pexpr e (p env d);
+  d, u, e
+
+and merge_list env d u es =
+  let d, u, es =
+    List.fold_left (fun (d, u, es) e ->
+      let d', u, e = merge env u e in
+      S.inter d d', u, e :: es
+    ) (d, u, []) es
+  in
+  d, u, List.rev es
+
 let merge_visitor = object(_)
   inherit [_] map
   method! visit_DFunction () cc flags n ret name binders body =
+    if debug then
+      KPrint.bprintf "Variable merge: visiting %a\n%a\n" plid name ppexpr body;
     let binders, body = open_binders binders body in
     let _, _, body = merge [] S.empty body in
     let body = close_binders binders body in
@@ -173,6 +268,7 @@ end
 let simplify files =
   let files = Simplify.sequence_to_let#visit_files () files in
   let files = merge_visitor#visit_files () files in
-  PPrint.(Print.(print (PrintAst.print_files files ^^ hardline)));
+  if debug then
+    PPrint.(Print.(print (PrintAst.print_files files ^^ hardline)));
   let files = Simplify.let_to_sequence#visit_files () files in
   files
