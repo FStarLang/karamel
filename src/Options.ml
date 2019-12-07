@@ -50,7 +50,8 @@ let unroll_loops = ref (-1)
 let tail_calls = ref false
 let no_shadow = ref false
 let no_return_else = ref false
-let merge_variables = ref false
+type merge = No | Prefix | Aggressive
+let merge_variables = ref No
 
 let extract_uints = ref false
 let builtin_uint128 = ref false

@@ -114,7 +114,16 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
              * but CStarToC11 doesn't allow it (why?). *)
             None
         | _ ->
-            let fits x has_storage t =
+            let rec common_prefix i s1 s2 =
+              if String.length s1 = i || String.length s2 = i then
+                i
+              else if s1.[i] = s2.[i] then
+                common_prefix (i + 1) s1 s2
+              else
+                i
+            in
+
+            let fits x t has_storage i =
               (* Compatible type *)
               t = b.typ &&
               (* Hasn't been used further down the control-flow *)
@@ -126,9 +135,11 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
               (* Ignore sequence let-bindings *)
               not (t = TUnit) &&
               (* Array types are not assignable *)
-              not has_storage
+              not has_storage &&
+              (* If in prefix mode, must find a common prefix *)
+              (Options.(!merge_variables <> Prefix) || common_prefix 0 i b.node.name > 0)
             in
-            KList.find_opt (fun (x, (t, h, i)) -> if fits x h t then Some (x, i) else None) env
+            KList.find_opt (fun (x, (t, h, i)) -> if fits x t h i then Some (x, i) else None) env
       in
 
       (* For later *)

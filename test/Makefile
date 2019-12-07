@@ -150,7 +150,7 @@ $(OUTPUT_DIR)/Ctypes2.exe: EXTRA = -ctypes 'Ctypes2,Ctypes4' \
     -bundle '*,WindowsHack[rename=Leftovers]' \
 	-no-prefix 'Ctypes4' -skip-compilation
 $(OUTPUT_DIR)/Failwith.exe: EXTRA = -ccopt -Wno-deprecated-declarations
-$(OUTPUT_DIR)/VariableMerge.exe: EXTRA = -fmerge
+$(OUTPUT_DIR)/VariableMerge.exe: EXTRA = -fmerge aggressive
 
 Failure.test: NEGATIVE=true
 
