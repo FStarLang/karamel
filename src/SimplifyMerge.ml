@@ -75,7 +75,7 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
       keys env, u, e
 
   | EOpen (_, a) ->
-      S.remove a (keys env), u, e
+      S.remove a (keys env), S.add a u, e
 
   | ECast (e, t) ->
       let d, u, e = merge env u e in
@@ -124,11 +124,15 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
               Used in e2: %s\n\
               Chose: %s\n\
               e2 now: %a\n\n" b.node.name (p env d2) (p env u) i pexpr e2;
-          let e = ELet (Helpers.sequence_binding (),
-            with_type TUnit (EAssign (
-              with_type b.typ (EOpen (i, y)),
-              e1)),
-            e2)
+          let e =
+            if e1.node = EAny then
+              e2.node
+            else
+              ELet (Helpers.sequence_binding (),
+                with_type TUnit (EAssign (
+                  with_type b.typ (EOpen (i, y)),
+                  e1)),
+                e2)
           in
           d_final, S.add y u_final, w e
       | None ->
