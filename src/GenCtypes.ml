@@ -461,30 +461,32 @@ let write_ml (path: string) (m: structure_item list) =
   Format.pp_print_flush Format.std_formatter ()
 
 let write_gen_module files =
-  if List.length files > 0 then
+  if List.length files > 0 then begin
     Driver.mkdirp (!Options.tmpdir ^ "/lib_gen");
-  List.iter (fun name ->
-    let m = mk_gen_decls name in
-    let path = !Options.tmpdir ^ "/lib_gen/" ^ name ^ "_gen.ml" in
-    write_ml path [m]
-  ) files;
 
-  let b = Buffer.create 1024 in
-  List.iter (fun f ->
-    let ds = (Hashtbl.find transitive_deps f) @ (Hashtbl.find direct_deps f) in
-    Printf.bprintf b "lib/%s_bindings.cmx: " f;
-    List.iter (fun d ->
-      Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx " d d
-    ) ds;
-    Buffer.add_string b "\n";
-    Printf.bprintf b "lib_gen/%s_gen.exe: " f;
-    List.iter (fun d ->
-      Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx lib/%s_c_stubs.o " d d d
-    ) ds;
-    Printf.bprintf b "lib/%s_bindings.cmx lib_gen/%s_gen.cmx " f f;
-    Buffer.add_string b "\n"
-  ) files;
-  Buffer.output_buffer (open_out (!Options.tmpdir ^ "/ctypes.depend")) b
+    List.iter (fun name ->
+      let m = mk_gen_decls name in
+      let path = !Options.tmpdir ^ "/lib_gen/" ^ name ^ "_gen.ml" in
+      write_ml path [m]
+    ) files;
+
+    let b = Buffer.create 1024 in
+    List.iter (fun f ->
+      let ds = (Hashtbl.find transitive_deps f) @ (Hashtbl.find direct_deps f) in
+      Printf.bprintf b "lib/%s_bindings.cmx: " f;
+      List.iter (fun d ->
+        Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx " d d
+      ) ds;
+      Buffer.add_string b "\n";
+      Printf.bprintf b "lib_gen/%s_gen.exe: " f;
+      List.iter (fun d ->
+        Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx lib/%s_c_stubs.o " d d d
+      ) ds;
+      Printf.bprintf b "lib/%s_bindings.cmx lib_gen/%s_gen.cmx " f f;
+      Buffer.add_string b "\n"
+    ) files;
+    Buffer.output_buffer (open_out (!Options.tmpdir ^ "/ctypes.depend")) b
+  end
 
 let write_bindings (files: (string * string list * structure_item list) list) =
   if List.length files > 0 then
