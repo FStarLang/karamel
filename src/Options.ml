@@ -54,6 +54,8 @@ let no_return_else = ref false
 let extract_uints = ref false
 let builtin_uint128 = ref false
 
+let rst_snippets = ref false
+
 let header = ref ""
 let c89_std = ref false
 let c89_scope = ref false
