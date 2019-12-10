@@ -77,7 +77,7 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
       keys env, u, e
 
   | EOpen (_, a) ->
-      S.remove a (keys env), S.add a u, e
+      S.remove a (keys env), u, e
 
   | ECast (e, t) ->
       let d, u, e = merge env u e in
@@ -104,8 +104,8 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
         | _ ->
             false
       in
-      let env = extend b.node.atom (b.typ, has_storage b.typ e1, b.node.name) env in
-      let d2, u, e2 = merge env u e2 in
+      let env' = extend b.node.atom (b.typ, has_storage b.typ e1, b.node.name) env in
+      let d2, u, e2 = merge env' u e2 in
 
       let candidate =
         match e1.node with
