@@ -181,6 +181,10 @@ and mk_expr = function
       { node = ECons (id, List.map mk_expr es); typ = mk_typ lid }
   | I.EFun (bs, e, t) ->
       mk (EFun (mk_binders bs, mk_expr e, mk_typ t))
+  | I.EComment (before, e, after) ->
+      mk (EComment (before, mk_expr e, after))
+  | I.EStandaloneComment s ->
+      mk (EStandaloneComment s)
 
 and mk_branches branches =
   List.map mk_branch branches

@@ -235,6 +235,7 @@ type expr' =
      * The scope of the binder is the second, third and fourth expressions. *)
   | ECast of expr * typ_wo
   | EComment of string * expr * string
+  | EStandaloneComment of string
   | EAddrOf of expr
 
   [@@deriving show,

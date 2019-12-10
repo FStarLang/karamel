@@ -181,6 +181,8 @@ and print_expr { node; typ } =
   match node with
   | EComment (s, e, s') ->
       surround 2 1 (string s) (print_expr e) (string s')
+  | EStandaloneComment s ->
+      surround 2 1 (string "/*") (string s) (string "*/")
   | EAny ->
       string "$any"
   | EAbort s ->

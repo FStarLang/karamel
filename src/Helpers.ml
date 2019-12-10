@@ -239,6 +239,7 @@ class ['self] readonly_visitor = object (self: 'self)
   inherit [_] reduce
   method private zero = true
   method private plus = (&&)
+  method! visit_EStandaloneComment _ _ = false
   method! visit_EIfThenElse _ _ _ _ = false
   method! visit_ESequence _ _ = false
   method! visit_EAssign _ _ _ = false
@@ -278,6 +279,7 @@ class ['self] value_visitor = object (_self: 'self)
   method! visit_ELet _ _ _ _ = false
   method! visit_EBufRead _ _ _ = false
   method! visit_EBufSub _ _ _ = false
+  method! visit_EStandaloneComment _ _ = false
 end
 
 let is_value = (new value_visitor)#visit_expr_w ()
