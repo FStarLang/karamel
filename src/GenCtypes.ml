@@ -249,12 +249,11 @@ let mk_ctypes_decl module_name (d: decl): structure =
 
 let mk_include name =
   let module_name = Mod.apply (Mod.ident (mk_ident (name ^ "_bindings.Bindings"))) (Mod.ident (mk_ident (name ^ "_stubs"))) in
-  (* let modul = Str.module_ (Mb.mk (mk_sym name) module_name) in
-   * let open_modul = Str.open_ (Opn.mk (mk_ident name)) in
-   * [modul; open_modul] *)
   Str.include_ (Incl.mk module_name)
 
+let should_bind_decl = Hashtbl.create 20
 let mk_ocaml_bind module_name deps decls =
+  let decls = List.filter (fun x -> match Hashtbl.find_opt should_bind_decl (CStar.ident_of_decl x) with Some true -> true | _ -> false) decls in
   let decls = KList.map_flatten
     (if_not_private (mk_ctypes_decl module_name)) decls
   in
@@ -289,9 +288,9 @@ let build_module (module_name: ident) deps program: structure option =
  *   3) `compute_dependencies` goes over each bundle and computes, for each declaration marked in the second pass,
  *     the set of types on which it depends. These types are also marked. Since the list of bundles (but not the modules
  *     within each bundle!) is topologically sorted, it is processed here in reverse order. *)
-let should_bind_decl = Hashtbl.create 20
 let direct_deps = Hashtbl.create 20
 let transitive_deps = Hashtbl.create 20
+let bundle_of_decl = Hashtbl.create 20
 
 let mk_ocaml_bindings
   (files : (ident * string list * decl list) list)
@@ -337,6 +336,7 @@ let mk_ocaml_bindings
                 begin match Hashtbl.find_opt modules name with
                   | Some decl_module ->
                       let decl_module_name = Idents.module_name decl_module in
+                      Hashtbl.add bundle_of_decl name f_name;
                       Hashtbl.add should_bind_decl name
                         (List.exists (fun p -> Bundle.pattern_matches p decl_module_name) !Options.ctypes)
                   | None ->
@@ -348,6 +348,7 @@ let mk_ocaml_bindings
                 begin match Hashtbl.find_opt modules name with
                   | Some decl_module ->
                       let decl_module_name = Idents.module_name decl_module in
+                      Hashtbl.add bundle_of_decl name f_name;
                       Hashtbl.add should_bind_decl name
                         (List.exists (fun p -> Bundle.pattern_matches p decl_module_name) !Options.ctypes ||
                          List.mem f_name bundles)
@@ -367,28 +368,31 @@ let mk_ocaml_bindings
       match files with
       | [] -> []
       | (f_name, f_deps, f_decls)::fs ->
-          let f_decls = List.filter (fun d ->
+          let deps = KList.map_flatten (fun d ->
             match (d: decl) with
             | Function (_,_,typ,name,binders,_) ->
               let qts = KList.map_flatten get_qualified_types (typ :: (List.map (fun x -> x.typ) binders)) in
               if Hashtbl.find should_bind_decl name then
                 (List.iter (fun x -> Hashtbl.replace should_bind_decl x true) qts;
+                 List.map (fun x -> Hashtbl.find bundle_of_decl x) qts
                  (* Printf.printf "Qts for %s: %s\n" name (String.concat ", " qts); *)
-                true)
-              else
-                false
+                 (* Printf.printf "Their modules are: %s\n" (String.concat ", " (List.map (fun x -> Idents.module_name (Hashtbl.find modules x)) qts)) *))
+              else []
             | Global (name,_,_,typ,_)
             | Type (name,typ,_) ->
               let qts = get_qualified_types typ in
               if Hashtbl.find should_bind_decl name then
                 (List.iter (fun x -> Hashtbl.replace should_bind_decl x true) qts;
                  (* Printf.printf "Qts for %s: %s\n" name (String.concat ", " qts); *)
-                 true)
-              else
-                false
+                 List.map (fun x -> Hashtbl.find bundle_of_decl x) qts
+                 (* Printf.printf "Their modules are: %s\n" (String.concat ", " (List.map (fun x -> Idents.module_name (Hashtbl.find modules x)) qts)) *))
+              else []
             | External _
-            | TypeForward _ -> false) f_decls
+            | TypeForward _ -> []) f_decls
           in
+          (* Printf.printf "[compute_dependencies] %s   deps: %s\n" f_name (String.concat ", " deps);
+           * Printf.printf "[compute_dependencies] %s f_deps: %s\n" f_name (String.concat ", " f_deps); *)
+          let f_deps = List.filter (fun x -> List.mem x deps) f_deps in
           (f_name, f_deps, f_decls)::(compute_dependency fs decls)
     in
     compute_dependency (List.rev files) modules
@@ -415,20 +419,17 @@ let mk_ocaml_bindings
     let files = List.rev (compute_dependencies files modules) in
     (* List.iter (fun (name, deps, _) -> Printf.printf "Deps post for %s: %s\n" name (String.concat ", " deps)) files; *)
 
-    let rec build_modules files modules_acc names_acc =
+    let rec build_modules files modules_acc =
       match files with
       | [] -> modules_acc
       | (name, deps, program) :: fs -> begin
-          (* Printf.printf "[build_modules] %s; deps: %s\n" name (String.concat ", " deps); *)
-          let deps = List.filter (fun d -> List.mem d names_acc) deps in
           let trans_deps = compute_transitive_deps name deps in
-          (* Printf.printf "[build_modules] %s; deps AFTER: %s\n" name (String.concat ", " deps); *)
           match build_module name trans_deps program with
-          | Some m -> (* Printf.printf "[build_modules] Some %s\n" name; *) build_modules fs ((name, deps, m) :: modules_acc) (name :: names_acc)
-          | None -> build_modules fs modules_acc names_acc
+          | Some m -> build_modules fs ((name, deps, m) :: modules_acc)
+          | None -> build_modules fs modules_acc
         end
     in
-    build_modules files [] []
+    build_modules files []
   end
 
 let mk_gen_decls module_name =
