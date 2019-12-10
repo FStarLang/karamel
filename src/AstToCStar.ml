@@ -465,6 +465,9 @@ and mk_stmts env e ret_type =
         let env, stmts = collect (env, CStar.Comment s :: acc) return_pos e in
         env, CStar.Comment s' :: stmts
 
+    | EStandaloneComment s ->
+        env, CStar.Comment s :: acc
+
     | EIgnore e ->
         let env, s = mk_ignored_stmt env e in
         env, s @ acc

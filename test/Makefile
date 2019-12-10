@@ -27,6 +27,7 @@ FILES		= \
   UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test \
   ProperErasure.test EmptyStruct.test IfDef.test StringLit.test IfThenElse.test \
   Macro.test Mini.test Endianness.test Printf.test ConstBuffer.test Failure.test \
+  Comment.test \
   VariableMerge.test
 ifeq ($(RECENT_GCC),"yes")
   FILES 	+= Debug.test
