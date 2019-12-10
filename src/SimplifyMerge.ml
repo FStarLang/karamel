@@ -73,6 +73,7 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
   | EPushFrame
   | EPopFrame
   | EEnum _
+  | EStandaloneComment _
   | EAbort _ ->
       keys env, u, e
 
