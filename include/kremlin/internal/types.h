@@ -59,7 +59,7 @@ typedef __m128i FStar_UInt128_uint128;
 #elif !defined(KRML_VERIFIED_UINT128) && !defined(_MSC_VER) && \
       (defined(__x86_64__) || defined(__x86_64) || defined(__aarch64__))
 typedef unsigned __int128 FStar_UInt128_uint128;
-#elif defined(_MSC_VER) && defined(__clang__)
+#elif !defined(KRML_VERIFIED_UINT128) && defined(_MSC_VER) && defined(__clang__)
 typedef __uint128_t FStar_UInt128_uint128;
 #else
 typedef struct FStar_UInt128_uint128_s {
@@ -81,7 +81,7 @@ typedef FStar_UInt128_uint128 FStar_UInt128_t, uint128_t;
 
 #if !defined(KRML_VERIFIED_UINT128) && defined(_MSC_VER) && !defined(__clang__)
 #include "fstar_uint128_msvc.h"
-#elif defined(KRML_VERIFIED_UINT128) && !defined(__clang__)
+#elif defined(KRML_VERIFIED_UINT128)
 #include "FStar_UInt128_Verified.h"
 #endif
 
