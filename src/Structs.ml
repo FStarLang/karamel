@@ -376,6 +376,7 @@ let to_addr is_struct =
     | EConstant _
     | EPushFrame
     | EPopFrame
+    | EStandaloneComment _
     | EEnum _ ->
         not_struct ();
         e

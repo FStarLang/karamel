@@ -790,6 +790,9 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EUnit ->
       locals, cflat_unit
 
+  | EStandaloneComment _ ->
+      locals, cflat_unit
+
   | EField (e1, f) ->
       (* e1 is a structure expression, and structures are allocated in memory. *)
       let s = array_size_of env e.typ in

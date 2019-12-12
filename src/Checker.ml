@@ -258,6 +258,7 @@ and check' env t e =
   | EFun _
   | EFor _
   | EIgnore _
+  | EStandaloneComment _
   | EApp _ ->
       c (infer env e)
 
@@ -501,6 +502,9 @@ and infer' env e =
 
   | EConstant (w, _) ->
       TInt w
+
+  | EStandaloneComment _ ->
+      TUnit
 
   | EUnit ->
       TUnit

@@ -307,7 +307,7 @@ let rec p_stmt (s: stmt) =
   | Expr expr ->
       group (p_expr expr ^^ semi)
   | Comment s ->
-      group (string "/*" ^/^ separate break1 (words s) ^/^ string "*/")
+      p_comment s
   | For (decl, e2, e3, stmt) ->
       let init = match decl with
         | `Decl decl -> p_declaration decl
