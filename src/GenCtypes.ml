@@ -89,8 +89,7 @@ let special_types = ["C_String_t"]
 let check_bindable_type decl_name typ =
   if String.length typ > 3 && String.equal (String.sub typ 0 4) "Lib_" then begin
     unsupported_types := true;
-    (* TODO: replace with a relevant warning *)
-    Warn.(maybe_fatal_error (decl_name, Warn.ExternalTypeApp ([], typ)));
+    Warn.(maybe_fatal_error (decl_name, Warn.DropCtypesDeclaration typ));
     false
   end else
     true
@@ -99,13 +98,13 @@ let check_supported_type module_name typ =
   if String.equal typ "FStar_UInt128_uint128" then
     Warn.fatal_error "Ctypes bindings generation is not supported for code that uses uint128 (in %s)" module_name
 
-let find_type tbl typ default =
+let find_type tbl typ default location =
   match Hashtbl.find_opt tbl typ with
   | Some r -> r
   | None ->
     if List.mem typ special_types then
       default
-    else Warn.fatal_error "Type %s not found in context and special handling not defined" typ
+    else Warn.fatal_error "Type %s (in %s) not found in context and special handling not defined" typ location
 
 (* building Ctypes declarations *)
 type structured =
@@ -459,9 +458,7 @@ let mk_ocaml_bindings
         let is_supported = List.fold_left (fun x y -> x && (check_bindable_type name y)) true qts in
         if is_supported then begin
           List.iter (fun x -> Hashtbl.replace should_bind_decl x (Bind true)) qts;
-          (* Printf.printf "Qts for %s: %s\n" name (String.concat ", " qts);
-           * Printf.printf "Their modules are: %s\n" (String.concat ", " (List.map (fun x -> Idents.module_name (find_type modules x ([], ""))) qts)); *)
-          List.map (fun x -> find_type bundle_of_decl x "") qts
+          List.map (fun x -> find_type bundle_of_decl x "" name) qts
         end else begin
           Hashtbl.replace should_bind_decl name Unsupported;
           []
@@ -474,8 +471,6 @@ let mk_ocaml_bindings
       | [] -> []
       | (f_name, f_deps, f_decls)::fs ->
           let deps = KList.map_flatten (fun d -> match_decl_with_types d bind_decls []) f_decls in
-          (* Printf.printf "[compute_dependencies] %s   deps: %s\n" f_name (String.concat ", " deps);
-           * Printf.printf "[compute_dependencies] %s f_deps: %s\n" f_name (String.concat ", " f_deps); *)
           let f_deps = List.filter (fun x -> List.mem x deps) f_deps in
           (f_name, f_deps, f_decls)::(compute_dependency fs decls)
     in
