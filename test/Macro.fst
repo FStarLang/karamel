@@ -4,7 +4,7 @@ open FStar.Integers
 
 [@ CMacro ]
 private
-let x = 2l + 3l - 5l
+let xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx = 2l + 3l - 5l
 
 [@ CMacro ]
 let y = false
@@ -16,5 +16,5 @@ let main () =
   if test then
     -1l
   else
-    x
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
