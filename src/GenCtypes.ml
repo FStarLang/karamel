@@ -42,9 +42,9 @@ let mk_ident name = Lident name |> mk_sym_ident
 
 let exp_ident n = Exp.ident (mk_ident n)
 
-let check_supported_type n =
+let check_supported_type module_name n =
   if String.equal n "FStar_UInt128_uint128" then
-    Warn.fatal_error "Ctypes bindings generation is not supported for code that uses uint128"
+    Warn.fatal_error "Ctypes bindings generation is not supported for code that uses uint128 (in %s)" module_name
 
 
 (* generic AST helpers *)
@@ -121,11 +121,11 @@ let rec get_qualified_types = function
   | Void
   | Bool -> []
 
-let rec mk_typ module_name = function
+let rec mk_typ (module_name: string) = function
   | Int w -> exp_ident (PrintCommon.width_to_string w ^ "_t")
   | Pointer t -> Exp.apply (exp_ident "ptr") [(Nolabel, mk_typ module_name t)]
   | Void -> exp_ident "void"
-  | Qualified l -> check_supported_type l; exp_ident (mk_unqual_name l)
+  | Qualified l -> check_supported_type module_name l; exp_ident (mk_unqual_name l)
   | Bool -> exp_ident "bool"
   | Function (_, return_type, parameters) -> build_foreign_fun module_name return_type (List.map (fun x -> {name=""; typ=x}) parameters)
   | Union _
@@ -251,7 +251,9 @@ let mk_include name =
   let module_name = Mod.apply (Mod.ident (mk_ident (name ^ "_bindings.Bindings"))) (Mod.ident (mk_ident (name ^ "_stubs"))) in
   Str.include_ (Incl.mk module_name)
 
+let should_bind_decl = Hashtbl.create 20
 let mk_ocaml_bind module_name deps decls =
+  let decls = List.filter (fun x -> match Hashtbl.find_opt should_bind_decl (CStar.ident_of_decl x) with Some true -> true | _ -> false) decls in
   let decls = KList.map_flatten
     (if_not_private (mk_ctypes_decl module_name)) decls
   in
@@ -286,7 +288,9 @@ let build_module (module_name: ident) deps program: structure option =
  *   3) `compute_dependencies` goes over each bundle and computes, for each declaration marked in the second pass,
  *     the set of types on which it depends. These types are also marked. Since the list of bundles (but not the modules
  *     within each bundle!) is topologically sorted, it is processed here in reverse order. *)
-let should_bind_decl = Hashtbl.create 20
+let direct_deps = Hashtbl.create 20
+let transitive_deps = Hashtbl.create 20
+let bundle_of_decl = Hashtbl.create 20
 
 let mk_ocaml_bindings
   (files : (ident * string list * decl list) list)
@@ -332,6 +336,7 @@ let mk_ocaml_bindings
                 begin match Hashtbl.find_opt modules name with
                   | Some decl_module ->
                       let decl_module_name = Idents.module_name decl_module in
+                      Hashtbl.add bundle_of_decl name f_name;
                       Hashtbl.add should_bind_decl name
                         (List.exists (fun p -> Bundle.pattern_matches p decl_module_name) !Options.ctypes)
                   | None ->
@@ -343,6 +348,7 @@ let mk_ocaml_bindings
                 begin match Hashtbl.find_opt modules name with
                   | Some decl_module ->
                       let decl_module_name = Idents.module_name decl_module in
+                      Hashtbl.add bundle_of_decl name f_name;
                       Hashtbl.add should_bind_decl name
                         (List.exists (fun p -> Bundle.pattern_matches p decl_module_name) !Options.ctypes ||
                          List.mem f_name bundles)
@@ -362,29 +368,41 @@ let mk_ocaml_bindings
       match files with
       | [] -> []
       | (f_name, f_deps, f_decls)::fs ->
-          let f_decls = List.filter (fun d ->
+          let deps = KList.map_flatten (fun d ->
             match (d: decl) with
             | Function (_,_,typ,name,binders,_) ->
               let qts = KList.map_flatten get_qualified_types (typ :: (List.map (fun x -> x.typ) binders)) in
               if Hashtbl.find should_bind_decl name then
                 (List.iter (fun x -> Hashtbl.replace should_bind_decl x true) qts;
-                true)
-              else
-                false
+                 List.map (fun x -> Hashtbl.find bundle_of_decl x) qts
+                 (* Printf.printf "Qts for %s: %s\n" name (String.concat ", " qts); *)
+                 (* Printf.printf "Their modules are: %s\n" (String.concat ", " (List.map (fun x -> Idents.module_name (Hashtbl.find modules x)) qts)) *))
+              else []
             | Global (name,_,_,typ,_)
             | Type (name,typ,_) ->
               let qts = get_qualified_types typ in
               if Hashtbl.find should_bind_decl name then
                 (List.iter (fun x -> Hashtbl.replace should_bind_decl x true) qts;
-                 true)
-              else
-                false
+                 (* Printf.printf "Qts for %s: %s\n" name (String.concat ", " qts); *)
+                 List.map (fun x -> Hashtbl.find bundle_of_decl x) qts
+                 (* Printf.printf "Their modules are: %s\n" (String.concat ", " (List.map (fun x -> Idents.module_name (Hashtbl.find modules x)) qts)) *))
+              else []
             | External _
-            | TypeForward _ -> false) f_decls
+            | TypeForward _ -> []) f_decls
           in
+          (* Printf.printf "[compute_dependencies] %s   deps: %s\n" f_name (String.concat ", " deps);
+           * Printf.printf "[compute_dependencies] %s f_deps: %s\n" f_name (String.concat ", " f_deps); *)
+          let f_deps = List.filter (fun x -> List.mem x deps) f_deps in
           (f_name, f_deps, f_decls)::(compute_dependency fs decls)
     in
     compute_dependency (List.rev files) modules
+  in
+
+  let compute_transitive_deps name deps =
+    let tds = KList.map_flatten (fun x -> (Hashtbl.find direct_deps x) @ (Hashtbl.find transitive_deps x)) deps in
+    Hashtbl.add direct_deps name deps;
+    Hashtbl.add transitive_deps name tds;
+    List.filter (fun x -> not (List.mem x tds)) deps
   in
 
   if KList.is_empty !Options.ctypes then
@@ -397,19 +415,21 @@ let mk_ocaml_bindings
         Warn.fatal_error "Module %s passed to -ctypes is not one of the F* modules passed to Kremlin" (Bundle.string_of_pattern p)
       ) !Options.ctypes;
     let () = compute_bindings files modules in
-    let files = compute_dependencies files modules in
+    (* List.iter (fun (name, deps, _) -> Printf.printf "Deps for %s: %s\n" name (String.concat ", " deps)) files; *)
+    let files = List.rev (compute_dependencies files modules) in
+    (* List.iter (fun (name, deps, _) -> Printf.printf "Deps post for %s: %s\n" name (String.concat ", " deps)) files; *)
 
-    let rec build_modules files modules_acc names_acc =
-      match (List.rev files) with
+    let rec build_modules files modules_acc =
+      match files with
       | [] -> modules_acc
       | (name, deps, program) :: fs -> begin
-          let deps = List.filter (fun d -> List.mem d names_acc) deps in
-          match build_module name deps program with
-          | Some m -> build_modules fs ((name, deps, m) :: modules_acc) (name :: names_acc)
-          | None -> build_modules fs modules_acc names_acc
+          let trans_deps = compute_transitive_deps name deps in
+          match build_module name trans_deps program with
+          | Some m -> build_modules fs ((name, deps, m) :: modules_acc)
+          | None -> build_modules fs modules_acc
         end
     in
-    build_modules files [] []
+    build_modules files []
   end
 
 let mk_gen_decls module_name =
@@ -441,35 +461,37 @@ let write_ml (path: string) (m: structure_item list) =
   structure Format.std_formatter (migration.copy_structure m);
   Format.pp_print_flush Format.std_formatter ()
 
-let write_gen_module (deps, files) =
-  if List.length files > 0 then
+let write_gen_module files =
+  if List.length files > 0 then begin
     Driver.mkdirp (!Options.tmpdir ^ "/lib_gen");
-  List.iter (fun name ->
-    let m = mk_gen_decls name in
-    let path = !Options.tmpdir ^ "/lib_gen/" ^ name ^ "_gen.ml" in
-    write_ml path [m]
-  ) files;
 
-  let b = Buffer.create 1024 in
-  List.iter (fun (f, ds) ->
-    Printf.bprintf b "lib/%s_bindings.cmx: " f;
-    List.iter (fun d ->
-      Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx" d d
-    ) ds;
-    Buffer.add_string b "\n";
-    Printf.bprintf b "lib_gen/%s_gen.exe: " f;
-    List.iter (fun d ->
-      Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx " d d
-    ) ds;
-    Printf.bprintf b "lib/%s_bindings.cmx lib_gen/%s_gen.cmx " f f;
-    Buffer.add_string b "\n"
-  ) deps;
-  Buffer.output_buffer (open_out (!Options.tmpdir ^ "/ctypes.depend")) b
+    List.iter (fun name ->
+      let m = mk_gen_decls name in
+      let path = !Options.tmpdir ^ "/lib_gen/" ^ name ^ "_gen.ml" in
+      write_ml path [m]
+    ) files;
+
+    let b = Buffer.create 1024 in
+    List.iter (fun f ->
+      let ds = (Hashtbl.find transitive_deps f) @ (Hashtbl.find direct_deps f) in
+      Printf.bprintf b "lib/%s_bindings.cmx: " f;
+      List.iter (fun d ->
+        Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx " d d
+      ) ds;
+      Buffer.add_string b "\n";
+      Printf.bprintf b "lib_gen/%s_gen.exe: " f;
+      List.iter (fun d ->
+        Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx lib/%s_c_stubs.o " d d d
+      ) ds;
+      Printf.bprintf b "lib/%s_bindings.cmx lib_gen/%s_gen.cmx " f f;
+      Buffer.add_string b "\n"
+    ) files;
+    Buffer.output_buffer (open_out (!Options.tmpdir ^ "/ctypes.depend")) b
+  end
 
 let write_bindings (files: (string * string list * structure_item list) list) =
   if List.length files > 0 then
     Driver.mkdirp (!Options.tmpdir ^ "/lib");
-  List.map (fun (name, deps, _) -> name, deps) files,
   List.map (fun (name, _, m) ->
     let path = !Options.tmpdir ^ "/lib/" ^ name ^ "_bindings.ml" in
     write_ml path m;
