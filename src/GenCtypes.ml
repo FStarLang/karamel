@@ -229,7 +229,12 @@ and mk_typedef module_name name typ =
   ; mk_simple_app_decl typ_name None "typedef" [mk_typ module_name typ; mk_const name] ]
 
 and build_foreign_fun module_name return_type parameters : expression =
-  let types = List.map (fun n -> mk_typ module_name n.typ) parameters in
+  let types =
+    if KList.is_empty parameters then
+      [mk_typ module_name Void]
+    else
+      List.map (fun n -> mk_typ module_name n.typ) parameters
+  in
   let returning = mk_app (exp_ident "returning") [mk_typ module_name return_type] in
   List.fold_right (fun t1 t2 -> mk_app (exp_ident "@->") [t1; t2]) types returning
 
