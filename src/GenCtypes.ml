@@ -84,6 +84,8 @@ let mk_struct_name n = n ^ "_s" (* c.f. CStarToC11.mk_spec_and_declarator_t *)
 (* Checking supported types for Ctypes bindings *)
 let unsupported_types = ref false
 
+let special_types = ["C_String_t"]
+
 let check_bindable_type decl_name typ =
   if String.length typ > 3 && String.equal (String.sub typ 0 4) "Lib_" then begin
     unsupported_types := true;
@@ -97,6 +99,13 @@ let check_supported_type module_name typ =
   if String.equal typ "FStar_UInt128_uint128" then
     Warn.fatal_error "Ctypes bindings generation is not supported for code that uses uint128 (in %s)" module_name
 
+let find_type tbl typ default =
+  match Hashtbl.find_opt tbl typ with
+  | Some r -> r
+  | None ->
+    if List.mem typ special_types then
+      default
+    else Warn.fatal_error "Type %s not found in context and special handling not defined" typ
 
 (* building Ctypes declarations *)
 type structured =
@@ -134,11 +143,20 @@ let rec get_qualified_types = function
   | Void
   | Bool -> []
 
+let mk_qualified_type module_name typ =
+  check_supported_type module_name typ;
+  if List.mem typ special_types then
+    match typ with
+    | "C_String_t" -> exp_ident (mk_unqual_name "string") (* Ctypes.string is `char *` *)
+    | _ -> Warn.fatal_error "Special handling for special type %s (in %s) not defined" typ module_name
+  else
+  exp_ident (mk_unqual_name typ)
+
 let rec mk_typ (module_name: string) = function
   | Int w -> exp_ident (PrintCommon.width_to_string w ^ "_t")
   | Pointer t -> Exp.apply (exp_ident "ptr") [(Nolabel, mk_typ module_name t)]
   | Void -> exp_ident "void"
-  | Qualified l -> check_supported_type module_name l; exp_ident (mk_unqual_name l)
+  | Qualified l -> mk_qualified_type module_name l
   | Bool -> exp_ident "bool"
   | Function (_, return_type, parameters) -> build_foreign_fun module_name return_type (List.map (fun x -> {name=""; typ=x}) parameters)
   | Union _
@@ -221,7 +239,14 @@ and build_foreign_exp module_name name return_type parameters : expression =
 let build_binding module_name name return_type parameters : structure_item =
   let func_name = mk_unqual_name name in
   let e = build_foreign_exp module_name name return_type parameters in
-  let p = Pat.mk (Ppat_var (mk_sym func_name)) in
+  let p =
+    match return_type with
+    | Qualified "C_String_t" ->
+        (* C_String_t is `const char *` and requires the function returning it to be marked as constant *)
+        Pat.mk (Ppat_var (mk_sym ("constant " ^ func_name)))
+    | _ ->
+        Pat.mk (Ppat_var (mk_sym func_name))
+  in
   mk_decl p e
 
 let mk_enum_tags name tags =
@@ -430,8 +455,8 @@ let mk_ocaml_bindings
         if is_supported then begin
           List.iter (fun x -> Hashtbl.replace should_bind_decl x (Bind true)) qts;
           (* Printf.printf "Qts for %s: %s\n" name (String.concat ", " qts);
-           * Printf.printf "Their modules are: %s\n" (String.concat ", " (List.map (fun x -> Idents.module_name (Hashtbl.find modules x)) qts)); *)
-          List.map (fun x -> Hashtbl.find bundle_of_decl x) qts
+           * Printf.printf "Their modules are: %s\n" (String.concat ", " (List.map (fun x -> Idents.module_name (find_type modules x ([], ""))) qts)); *)
+          List.map (fun x -> find_type bundle_of_decl x "") qts
         end else begin
           Hashtbl.replace should_bind_decl name Unsupported;
           []
