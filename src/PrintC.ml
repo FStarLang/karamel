@@ -387,14 +387,12 @@ let macro name d: document =
     method private print o s =
       s.column <- 0;
 
-      o#char '\n';
       o#char '#';
       String.iter o#char "define";
       o#char ' ';
       String.iter o#char name;
       o#char ' ';
-      pretty o s 0 true d;
-      o#char '\n'
+      pretty o s 0 true d
 
     method compact _ =
       failwith "cannot print a macro in compact mode"
