@@ -377,13 +377,39 @@ let p_comments cs =
   separate_map hardline (fun c -> string ("/*\n" ^ c ^ "\n*/")) cs ^^
   if List.length cs > 0 then hardline else empty
 
+(* We require infinite width to force this to be rendered on a single line. We
+ * then force the rendering of the subexpression on a single line as well. *)
+let macro name d: document =
+  let open PPrintEngine in
+  let c: custom = object (self)
+    method requirement = infinity
+
+    method private print o s =
+      s.column <- 0;
+
+      o#char '\n';
+      o#char '#';
+      String.iter o#char "define";
+      o#char ' ';
+      String.iter o#char name;
+      o#char ' ';
+      pretty o s 0 true d;
+      o#char '\n'
+
+    method compact _ =
+      failwith "cannot print a macro in compact mode"
+
+    method pretty o s _ _ =
+      self#print o s
+  end
+  in
+  custom c
+
 let p_decl_or_function (df: declaration_or_function) =
   match df with
   | Macro (name, def) ->
       let name = String.uppercase name in
-      (* This will generate incorrect syntax if for some reason this ever needs
-       * to break... *)
-      group (sharp ^^ string "define" ^/^ string name ^/^ parens (p_expr def))
+      macro name (parens (p_expr def))
   | Decl (comments, inline, d) ->
       let inline = if inline then string "inline" ^^ space else empty in
       p_comments comments ^^
