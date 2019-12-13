@@ -266,7 +266,9 @@ let mk_ctypes_decl modules bundle_name (d: decl): structure =
       (* Don't generate bindings for projectors and internal names *)
       let module_name = Idents.module_name (Hashtbl.find modules name) in
       if not (KString.starts_with name (module_name ^ "___proj__")) &&
-         not (KString.starts_with name (module_name ^ "_uu___"))then
+         not (KString.starts_with name (module_name ^ "_uu___")) &&
+         not (KString.starts_with name "__proj__") &&
+         not (KString.starts_with name "uu___") then
         [build_binding module_name name return_type parameters]
       else
         []
