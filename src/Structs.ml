@@ -258,6 +258,9 @@ let pass_by_ref is_struct = object (self)
         begin try
           let args = List.map (self#visit_expr_w to_be_starred) args in
           let b, e2 = DeBruijn.open_binder b e2 in
+          (* Anticipating on the next phase; marking mut to prevent it from
+           * turning into a const pointer (it *is* going to be mutated!) *)
+          let b = Helpers.mark_mut b in
           let e1 = self#rewrite_app to_be_starred e args (Some (DeBruijn.term_of_binder b)) in
           ELet (b, Helpers.any, DeBruijn.close_binder b (with_type t (
             ESequence [
