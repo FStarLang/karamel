@@ -18,7 +18,7 @@ let p_storage_spec = function
   | Static -> string "static"
 
 let rec p_type_spec = function
-  | Int w -> print_width w ^^ string "_t"
+  | Int w -> print_width w
   | Void -> string "void"
   | Named s -> string s
   | Union (name, decls) ->

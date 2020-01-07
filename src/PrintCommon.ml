@@ -19,18 +19,20 @@ let braces_with_nesting contents =
 let int i = string (string_of_int i)
 
 let width_to_string = function
-  | UInt8 -> "uint8"
-  | UInt16 -> "uint16"
-  | UInt32 -> "uint32"
-  | UInt64 -> "uint64"
+  | UInt8 -> if !Options.linux_ints then "u8" else "uint8"
+  | UInt16 -> if !Options.linux_ints then "u16" else "uint16"
+  | UInt32 -> if !Options.linux_ints then "u32" else "uint32"
+  | UInt64 -> if !Options.linux_ints then "u64" else "uint64"
   | CInt -> "krml_checked_int"
-  | Int8 -> "int8"
-  | Int16 -> "int16"
-  | Int32 -> "int32"
-  | Int64 -> "int64"
+  | Int8 -> if !Options.linux_ints then "s8" else "int8"
+  | Int16 -> if !Options.linux_ints then "s16" else "int16"
+  | Int32 -> if !Options.linux_ints then "s32" else "int32"
+  | Int64 -> if !Options.linux_ints then "s64" else "int64"
   | Bool -> "bool"
 
-let print_width w = string (width_to_string w)
+let print_width w =
+  string (width_to_string w) ^^
+  (if !Options.linux_ints then empty else string "_t")
 
 let print_constant = function
   | w, s -> string s ^^ print_width w
