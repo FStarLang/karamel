@@ -792,7 +792,7 @@ let mk_macros_set files =
           Warn.(maybe_fatal_error ("", CannotMacro name));
           StringSet.empty
         end else
-          StringSet.singleton (Simplify.target_c_name name)
+          StringSet.singleton (Simplify.target_c_name name false)
       else
         StringSet.empty
   end)#visit_files () files
@@ -804,7 +804,7 @@ let mk_ifdefs_set files =
     method private plus = StringSet.union
     method visit_DExternal _ _ flags name _ _ =
       if List.mem Common.IfDef flags then
-        StringSet.singleton (Simplify.target_c_name name)
+        StringSet.singleton (Simplify.target_c_name name false)
       else
         StringSet.empty
   end)#visit_files () files
