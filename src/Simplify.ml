@@ -1050,8 +1050,9 @@ class scope_helpers = object (self)
     else
       global_scope
 
-  method private record env flags lident =
-    let target = target_c_name lident (self#is_private_scope flags lident) in
+  method private record env is_external flags lident =
+    let attempt_shortening = self#is_private_scope flags lident && not is_external in
+    let target = target_c_name lident attempt_shortening in
     let c_name = GlobalNames.extend (self#find_scope env flags lident) lident target in
     if not (self#is_private_scope flags lident) then
       Hashtbl.add original_of_c_name c_name lident
@@ -1079,26 +1080,23 @@ let record_toplevel_names = object (self)
 
   (* We record the names of all top-level declarations. *)
   method! visit_DGlobal env flags name _ _ _ =
-    self#record env flags name
+    self#record env false flags name
 
   method! visit_DFunction env _ flags _ _ name _ _ =
-    self#record env flags name
+    self#record env false flags name
 
   method! visit_DExternal env _ flags name _ _ =
-    self#record env flags name
+    self#record env true flags name
 
   val forward = Hashtbl.create 41
 
   method! visit_DType env name flags _ def =
-    begin match def with
-    | Enum lids -> List.iter (self#record env flags) lids
-    | Forward ->
-        Hashtbl.add forward name ();
-        self#record env flags name
-    | _ -> ()
-    end;
     if not (Hashtbl.mem forward name) then
-      self#record env flags name
+      self#record env false flags name;
+    match def with
+    | Enum lids -> List.iter (self#record env false flags) lids
+    | Forward -> Hashtbl.add forward name ()
+    | _ -> ()
 end
 
 (* Has to be done in two passes, because of mutual recursion. *)
