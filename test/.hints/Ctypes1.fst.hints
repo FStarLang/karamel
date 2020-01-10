@@ -1,0 +1,23 @@
+[
+  "\u001dš¼>Î×9\tÃß[~\u0018jPŒ",
+  [
+    [
+      "Ctypes1.point",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_FStar.UInt32.t__uu___haseq" ],
+      0,
+      "0561e34116e61d46dda7025090a2778d"
+    ],
+    [
+      "Ctypes1.point_no_bind",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_FStar.UInt32.t__uu___haseq" ],
+      0,
+      "90ad6a64cff5b3f07f45dac71456b497"
+    ]
+  ]
+]
