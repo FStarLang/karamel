@@ -618,7 +618,11 @@ Supported options:|}
   Diagnostics.all files !arg_diagnostics;
 
   (* 7. Final transformation on the AST: go to C names. This must really be done
-   * at the last minute, since it invalidates pretty much any map ever built. *)
+   * at the last minute, since it invalidates pretty much any map ever built.
+   * For instance, we compute dependencies now rather than have to deal with
+   * potential name conflicts owing to global collisions after dropping the
+   * prefix for static declarations. *)
+  let deps = AstToCStar.mk_deps files in
   let files, c_name_map = Simplify.to_c_names files in
 
   if !Options.wasm && not (Options.debug "force-c") then
@@ -650,6 +654,7 @@ Supported options:|}
 
     (* Translate to C*... *)
     let files = AstToCStar.mk_files files ifdefs macros in
+    let files = List.map2 (fun (name, program) deps -> name, deps, program) files deps in
     tick_print true "AstToCStar";
 
     let files = List.filter (fun (_, _, decls) -> List.length decls > 0) files in

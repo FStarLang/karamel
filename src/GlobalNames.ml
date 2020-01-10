@@ -5,28 +5,12 @@
 
 open Warn
 open Idents
+open Ast
+open PrintAst.Ops
 
-let c_of_original = Hashtbl.create 41
-let used_c_names: (string, unit) Hashtbl.t = Hashtbl.create 41
+type t = (lident, string) Hashtbl.t * (string, unit) Hashtbl.t
 
-let record original_name desired_name =
-  match Hashtbl.find c_of_original original_name with
-  | exception Not_found ->
-      let unique_c_name = mk_fresh desired_name (Hashtbl.mem used_c_names) in
-      Hashtbl.add c_of_original original_name unique_c_name;
-      Hashtbl.add used_c_names unique_c_name ();
-      unique_c_name
-  | _ ->
-      fatal_error "Duplicate global name: %s" original_name
-
-let translate name fallback =
-  try
-    Hashtbl.find c_of_original name
-  with Not_found ->
-    (* Assuming some externally-realized function. *)
-    to_c_identifier fallback
-
-let _ =
+let reserve_keywords used_c_names =
   let keywords = [
     "_Alignas";
     "_Alignof";
@@ -139,4 +123,46 @@ let _ =
     "xor";
     "xor_eq";
   ] in
-  List.iter (fun k -> Hashtbl.add used_c_names k ()) keywords
+  List.iter (fun k -> Hashtbl.add used_c_names k ()) keywords;
+  (* Some stuff that's already almost always in scope. *)
+  let std = [
+    "errno"
+  ] in
+  List.iter (fun k -> Hashtbl.add used_c_names k ()) std
+
+let create () =
+  let c_of_original = Hashtbl.create 41 in
+  let used_c_names: (string, unit) Hashtbl.t = Hashtbl.create 41 in
+  reserve_keywords used_c_names;
+  c_of_original, used_c_names
+
+let extend (global: t) (local: t) is_local original_name desired_name =
+  let c_of_original, g_used_c_names = global in
+  let _, l_used_c_names = local in
+  if Hashtbl.mem c_of_original original_name then
+    fatal_error "Duplicate global name: %a" plid original_name;
+
+  let unique_c_name = mk_fresh desired_name (fun x ->
+    Hashtbl.mem g_used_c_names x || Hashtbl.mem l_used_c_names x) in
+  Hashtbl.add c_of_original original_name unique_c_name;
+  if is_local then
+    Hashtbl.add l_used_c_names unique_c_name ()
+  else
+    Hashtbl.add g_used_c_names unique_c_name ();
+  unique_c_name
+
+let lookup (env: t) name =
+  let c_of_original, _ = env in
+  Hashtbl.find_opt c_of_original name
+
+let clone (env: t) =
+  let c_of_original, used_c_names = env in
+  Hashtbl.copy c_of_original, Hashtbl.copy used_c_names
+
+let dump (env: t) =
+  Hashtbl.iter (fun lident c_name ->
+    KPrint.bprintf "%a --> %s\n" plid lident c_name
+  ) (fst env);
+  Hashtbl.iter (fun c_name _ ->
+    KPrint.bprintf "%s is used\n" c_name
+  ) (snd env)

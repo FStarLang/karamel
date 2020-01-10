@@ -1173,6 +1173,8 @@ let if_header_inline_static (map: (Ast.ident, Ast.lident) Hashtbl.t) f1 f2 d =
   let id = CStar.ident_of_decl d in
   let is_inline_static =
     List.exists (fun p ->
+      (* Only things that end up in headers are in the reverse-map. *)
+      Hashtbl.mem map id &&
       Bundle.pattern_matches p (String.concat "_" (fst (Hashtbl.find map id))))
     !Options.static_header ||
     List.mem id [

@@ -770,15 +770,16 @@ and mk_program name env decls =
 
 and mk_files files ifdefs macros =
   let env = { empty with ifdefs; macros } in
+  List.map (fun file ->
+    let name, program = file in
+    name, mk_program name env program
+  ) files
+
+let mk_deps files =
   (* Construct the mapping needed to get direct dependencies *)
   let file_of = Bundle.mk_file_of files in
   List.map (fun file ->
-    (* Why are we not getting duplicates here? *)
-    let deps: string list = Hashtbl.fold (fun k _ acc -> k :: acc)
-      (Bundles.direct_dependencies file_of file) []
-    in
-    let name, program = file in
-    name, deps, mk_program name env program
+    Hashtbl.fold (fun k _ acc -> k :: acc) (Bundles.direct_dependencies file_of file) []
   ) files
 
 let mk_macros_set files =
@@ -792,7 +793,7 @@ let mk_macros_set files =
           Warn.(maybe_fatal_error ("", CannotMacro name));
           StringSet.empty
         end else
-          StringSet.singleton (Simplify.target_c_name name)
+          StringSet.singleton (Simplify.target_c_name name false)
       else
         StringSet.empty
   end)#visit_files () files
@@ -804,7 +805,7 @@ let mk_ifdefs_set files =
     method private plus = StringSet.union
     method visit_DExternal _ _ flags name _ _ =
       if List.mem Common.IfDef flags then
-        StringSet.singleton (Simplify.target_c_name name)
+        StringSet.singleton (Simplify.target_c_name name false)
       else
         StringSet.empty
   end)#visit_files () files

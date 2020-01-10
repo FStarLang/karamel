@@ -1009,67 +1009,103 @@ end
 
 
 
-
 (* Make top-level names C-compatible using a global translation table **********)
 
 let skip_prefix prefix =
   List.exists (fun p -> Bundle.pattern_matches p (String.concat "_" prefix)) !Options.no_prefix
 
-let target_c_name lident =
-  if skip_prefix (fst lident) then
+(* Because of dedicated treatment in CStarToC11 *)
+let ineligible lident =
+  List.mem (fst lident) [
+    ["FStar"; "UInt128"];
+    ["C"; "Nullity"];
+    ["C"; "String"];
+    ["C"; "Compat"; "String"];
+    ["LowStar"; "BufferOps"];
+    ["LowStar"; "Buffer"];
+    ["LowStar"; "Monotonic"; "Buffer"]
+  ]
+
+let target_c_name lident is_private_scope =
+  if skip_prefix (fst lident) && not (ineligible lident) then
+    snd lident
+  else if is_private_scope && not (ineligible lident) && snd lident <> "main" then
     snd lident
   else
     string_of_lident lident
 
-let record_name lident =
-  [], GlobalNames.record (string_of_lident lident) (target_c_name lident)
+(* A reverse map whose domain is all the top-level declarations that end up
+ * in a .h file. Notably, private functions are absent from the map. *)
+let original_of_c_name: (ident, lident) Hashtbl.t = Hashtbl.create 43
 
-let decls: (ident, lident) Hashtbl.t = Hashtbl.create 43
+type scope_env = GlobalNames.t * (string, GlobalNames.t) Hashtbl.t
 
-let record_toplevel_names = object (self)
-  inherit [_] map
+class scope_helpers = object (self)
+  val mutable current_file = ""
 
-  method! visit_DGlobal _ flags name n t body =
-    let target_name = record_name name in
-    Hashtbl.add decls (snd target_name) name;
-    DGlobal (flags, target_name, n, t, body)
+  method private is_private_scope flags lident =
+    List.mem Common.Private flags && not (Helpers.is_static_header lident)
 
-  method! visit_DFunction _ cc flags n ret name args body =
-    let target_name = record_name name in
-    Hashtbl.add decls (snd target_name) name;
-    DFunction (cc, flags, n, ret, target_name, args, body)
+  method private record (global_scope, local_scopes) is_external flags lident =
+    let is_private = self#is_private_scope flags lident in
+    let local_scope = Hashtbl.find local_scopes current_file in
+    let attempt_shortening = is_private && not is_external in
+    let target = target_c_name lident attempt_shortening in
+    let c_name = GlobalNames.extend global_scope local_scope is_private lident target in
+    if not (self#is_private_scope flags lident) then
+      Hashtbl.add original_of_c_name c_name lident
 
-  method! visit_DExternal _ cc flags name t pp =
-    let target_name = record_name name in
-    Hashtbl.add decls (snd target_name) name;
-    DExternal (cc, flags, target_name, t, pp)
-
-  method! visit_DType env name flags n t =
-    (* TODO: this is not correct since record_name might, on the second call
-     * (not forward), return something disambiguated with a suffix. *)
-    let name =
-      if t = Forward then
-        name
-      else
-        let target_name = record_name name in
-        Hashtbl.add decls (snd target_name) name;
-        target_name
-    in
-    DType (name, flags, n, self#visit_type_def env t)
-
-  method! visit_Enum _ tags =
-    Enum (List.map record_name tags)
+  method private recall (global_scope, _) lident =
+    match GlobalNames.lookup global_scope lident with
+    | Some name -> [], name
+    | None -> [], to_c_identifier (target_c_name lident false)
 end
 
+let record_toplevel_names = object (self)
+  inherit [_] iter as super
+  inherit scope_helpers
 
-let t lident =
-  [], GlobalNames.translate (string_of_lident lident) (target_c_name lident)
+  (* Every file gets a fresh local scope. This is after bundling. *)
+  method! visit_file (env: scope_env) f =
+    let global_scope, local_scopes = env in
+    current_file <- fst f;
+    Hashtbl.add local_scopes (fst f) (GlobalNames.clone global_scope);
+    super#visit_file env f
 
-let replace_references_to_toplevel_names = object
-  inherit [_] map
+  (* We record the names of all top-level declarations. *)
+  method! visit_DGlobal env flags name _ _ _ =
+    self#record env false flags name
+
+  method! visit_DFunction env _ flags _ _ name _ _ =
+    self#record env false flags name
+
+  method! visit_DExternal env _ flags name _ _ =
+    self#record env true flags name
+
+  val forward = Hashtbl.create 41
+
+  method! visit_DType env name flags _ def =
+    if not (Hashtbl.mem forward name) then
+      self#record env false flags name;
+    match def with
+    | Enum lids -> List.iter (self#record env false flags) lids
+    | Forward -> Hashtbl.add forward name ()
+    | _ -> ()
+end
+
+(* Has to be done in two passes, because of mutual recursion. *)
+
+let replace_references_to_toplevel_names env = object (self)
+  inherit scope_helpers
+  inherit [_] map as super
+
+  (* Every file gets a fresh local scope. This is after bundling. *)
+  method! visit_file (env: scope_env) f =
+    current_file <- fst f;
+    super#visit_file env f
 
   method! visit_lident _ lident =
-    t lident
+    self#recall env lident
 end
 
 
@@ -1528,11 +1564,23 @@ let remove_unused (files: file list): file list =
   let files = remove_unused_parameters#visit_files () files in
   files
 
+let debug env =
+  KPrint.bprintf "Global scope:\n";
+  GlobalNames.dump (fst env);
+  KPrint.bprintf "\n";
+  Hashtbl.iter (fun f s ->
+    KPrint.bprintf "%s scope:\n" f;
+    GlobalNames.dump s;
+    KPrint.bprintf "\n"
+  ) (snd env)
+
 (* Allocate C names avoiding keywords and name collisions. This should be done
  * as the last operations, otherwise, any table for memoization suddenly becomes
  * invalid. *)
 let to_c_names (files: file list): file list * (ident, lident) Hashtbl.t =
-  let files = record_toplevel_names#visit_files () files in
-  let files = replace_references_to_toplevel_names#visit_files () files in
-  files, decls
+  let env = GlobalNames.create (), Hashtbl.create 41 in
+  record_toplevel_names#visit_files env files;
+
+  let files = (replace_references_to_toplevel_names env)#visit_files env files in
+  files, original_of_c_name
 

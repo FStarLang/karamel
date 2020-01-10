@@ -208,12 +208,6 @@ let marked_private: (_, unit) Hashtbl.t = Hashtbl.create 41
  * compilers, this is just a warning. *)
 let cross_call_analysis files =
 
-  let is_static_inline lid =
-    List.exists (fun p ->
-      Bundle.pattern_matches p (String.concat "_" (fst lid))
-    ) !Options.static_header
-  in
-
   (* A map that *eventually* will contain the exactly the set of [lid]s that can
    * be safely marked as private. The invariant is not established yet. *)
   let safely_private = Hashtbl.create 41 in
@@ -222,7 +216,7 @@ let cross_call_analysis files =
     List.iter (fun d ->
       let name = lid_of_decl d in
       let flags = flags_of_decl d in
-      if List.mem Private flags && not (is_static_inline name) then
+      if List.mem Private flags && not (Helpers.is_static_header name) then
         (* -static-header takes precedence over private, see CStarToC11.ml *)
         Hashtbl.add safely_private name ();
       if List.mem Inline flags then
@@ -316,12 +310,12 @@ let cross_call_analysis files =
       method! visit_DFunction () _ _ _ ret name binders body =
         self#visit_typ () ret;
         self#visit_binders_w () binders;
-        if is_static_inline name then
+        if Helpers.is_static_header name then
           self#visit_expr_w () body
 
       method! visit_DGlobal () _ name _ typ body =
         self#visit_typ () typ;
-        if is_static_inline name then
+        if Helpers.is_static_header name then
           self#visit_expr_w () body
 
       method! visit_decl env d =
@@ -337,7 +331,7 @@ let cross_call_analysis files =
    * functions that cannot keep their [Private] flag. *)
   let files =
     let keep_if table flag name flags =
-      if not (Hashtbl.mem table name) || Simplify.target_c_name name = "main" then
+      if not (Hashtbl.mem table name) || Simplify.target_c_name name false = "main" then
         List.filter ((<>) flag) flags
       else
         flags
@@ -366,8 +360,8 @@ let cross_call_analysis files =
 (** A whole-program transformation that inlines functions according to... *)
 
 let always_live name =
-  Simplify.target_c_name name = "main" ||
-  let n = Simplify.target_c_name name in
+  let n = Simplify.target_c_name name false in
+  n = "main" ||
   String.length n >= 11 &&
   String.sub n 0 11 = "WasmSupport" &&
   !Options.wasm
