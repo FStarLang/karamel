@@ -51,6 +51,7 @@ let tail_calls = ref false
 let no_shadow = ref false
 let no_return_else = ref false
 let linux_ints = ref false
+let unsound_variable_elimination = ref false
 
 let extract_uints = ref false
 let builtin_uint128 = ref false

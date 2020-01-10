@@ -280,6 +280,7 @@ Supported options:|}
     "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see \
       above) + also disable variadic-length KRML_HOST_EPRINTF";
     "-flinux-ints", Arg.Set Options.linux_ints, " use Linux kernel int types";
+    "-funsound-variable-elimination", Arg.Set Options.unsound_variable_elimination, "";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
@@ -578,11 +579,13 @@ Supported options:|}
   in
   let files = if not !Options.wasm then Simplify.simplify1 files else files in
   let files = if not !Options.wasm then Structs.collect_initializers files else files in
+  (* Need correct private qualifiers for remove_unused to drop arguments for
+   * static declarations. *)
+  let files = Inlining.cross_call_analysis files in
   (* Note: generates let-bindings, so needs to be before simplify2 *)
   let files = Simplify.remove_unused files in
   let files = if !Options.tail_calls then Simplify.tail_calls files else files in
   let files = Simplify.simplify2 files in
-  let files = Inlining.cross_call_analysis files in
   if !arg_print_structs then
     print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in
