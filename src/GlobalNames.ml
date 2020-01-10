@@ -123,7 +123,12 @@ let reserve_keywords used_c_names =
     "xor";
     "xor_eq";
   ] in
-  List.iter (fun k -> Hashtbl.add used_c_names k ()) keywords
+  List.iter (fun k -> Hashtbl.add used_c_names k ()) keywords;
+  (* Some stuff that's already almost always in scope. *)
+  let std = [
+    "errno"
+  ] in
+  List.iter (fun k -> Hashtbl.add used_c_names k ()) std
 
 let create () =
   let c_of_original = Hashtbl.create 41 in
