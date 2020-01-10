@@ -152,7 +152,7 @@ and print_typ_paren = function
       print_typ t
 
 and print_typ = function
-  | TInt w -> print_width w ^^ string "_t"
+  | TInt w -> print_width w
   | TBuf (t, bool) -> (if bool then string "const" else empty) ^/^ print_typ t ^^ star
   | TArray (t, k) -> print_typ t ^^ lbracket ^^ print_constant k ^^ rbracket
   | TUnit -> string "()"
@@ -232,7 +232,7 @@ and print_expr { node; typ } =
   | EBufFill (e1, e2, e3) ->
       print_app string "fillbuf" print_expr [e1; e2; e3 ]
   | EBufFree e ->
-      print_app string "freebug" print_expr [ e ]
+      print_app string "freebuf" print_expr [ e ]
   | EMatch (e, branches) ->
       group (string "match" ^/^ print_expr e ^/^ string "with") ^^
       jump ~indent:0 (print_branches branches)

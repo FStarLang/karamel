@@ -87,16 +87,13 @@ let unsupported_types = ref false
 let special_types = ["C_String_t"]
 
 let check_bindable_type decl_name typ =
-  if String.length typ > 3 && String.equal (String.sub typ 0 4) "Lib_" then begin
+  if String.equal typ "FStar_UInt128_uint128" ||
+    (String.length typ > 3 && String.equal (String.sub typ 0 4) "Lib_") then begin
     unsupported_types := true;
     Warn.(maybe_fatal_error (decl_name, Warn.DropCtypesDeclaration typ));
     false
   end else
     true
-
-let check_supported_type module_name typ =
-  if String.equal typ "FStar_UInt128_uint128" then
-    Warn.fatal_error "Ctypes bindings generation is not supported for code that uses uint128 (in %s)" module_name
 
 let find_type tbl typ default location =
   match Hashtbl.find_opt tbl typ with
@@ -143,7 +140,6 @@ let rec get_qualified_types = function
   | Bool -> []
 
 let mk_qualified_type module_name typ =
-  check_supported_type module_name typ;
   if List.mem typ special_types then
     match typ with
     | "C_String_t" -> exp_ident (mk_unqual_name "string") (* Ctypes.string is `char *` *)
@@ -158,11 +154,11 @@ let rec mk_typ (module_name: string) = function
   | Qualified l -> mk_qualified_type module_name l
   | Bool -> exp_ident "bool"
   | Function (_, return_type, parameters) -> build_foreign_fun module_name return_type (List.map (fun x -> {name=""; typ=x}) parameters)
+  | Const t -> mk_typ module_name t
   | Union _
   | Array _
   | Struct _
-  | Enum _
-  | Const _ -> Warn.fatal_error "Unreachable"
+  | Enum _ -> Warn.fatal_error "Unreachable"
 
 and mk_extern_decl module_name name keyword typ: structure_item =
   mk_simple_app_decl (mk_unqual_name name) None keyword [mk_const name; mk_typ module_name typ]
@@ -264,27 +260,34 @@ let mk_enum_tags name tags =
   in
   mk_tags 0 tags
 
-let mk_ctypes_decl module_name (d: decl): structure =
+let mk_ctypes_decl modules bundle_name (d: decl): structure =
   match d with
   | Function (_, _, return_type, name, parameters, _) ->
       (* Don't generate bindings for projectors and internal names *)
+      let module_name = Idents.module_name (Hashtbl.find modules name) in
       if not (KString.starts_with name (module_name ^ "___proj__")) &&
-         not (KString.starts_with name (module_name ^ "_uu___"))then
+         not (KString.starts_with name (module_name ^ "_uu___")) &&
+         not (KString.starts_with name "__proj__") &&
+         not (KString.starts_with name "uu___") then
         [build_binding module_name name return_type parameters]
       else
         []
   | Type (name, typ, _) -> begin
       match typ with
-      | Struct fields  -> mk_struct_decl Struct module_name name fields
+      | Struct fields  -> mk_struct_decl Struct bundle_name name fields
       | Enum tags ->
-        (mk_typedef module_name name (Int Constant.UInt8)) @ (mk_enum_tags name tags)
-      | Qualified t -> mk_typedef module_name name (Qualified t)
+        (mk_typedef bundle_name name (Int Constant.UInt8)) @ (mk_enum_tags name tags)
+      | Qualified t -> mk_typedef bundle_name name (Qualified t)
       | _ -> []
       end
   | Global (name, _, _, typ, _) -> begin
       match typ with
-      | Function _ -> [mk_extern_decl module_name name "foreign" typ]
-      | _ -> [mk_extern_decl module_name name "foreign_value" typ]
+      | Function _ ->
+        [mk_extern_decl bundle_name name "foreign" typ]
+      | Pointer _ ->
+        Warn.(maybe_fatal_error (name, Warn.DropCtypesDeclaration "extern *"));
+        []
+      | _ -> [mk_extern_decl bundle_name name "foreign_value" typ]
       end
   | External _
   | TypeForward _ -> []
@@ -298,13 +301,13 @@ type bind_decl =
   | Unsupported
 
 let should_bind_decl = Hashtbl.create 20
-let mk_ocaml_bind module_name deps decls =
+let mk_ocaml_bind modules bundle_name deps decls =
   let decls = List.filter (fun x ->
       match Hashtbl.find_opt should_bind_decl (CStar.ident_of_decl x) with
         | Some (Bind true) -> true
         |_ -> false) decls in
   let decls = KList.map_flatten
-    (if_not_private (mk_ctypes_decl module_name)) decls
+    (if_not_private (mk_ctypes_decl modules bundle_name)) decls
   in
   if not (KList.is_empty decls) then
     let open_f = Str.open_ (Opn.mk ?override:(Some Fresh) (mk_ident "F")) in
@@ -316,8 +319,8 @@ let mk_ocaml_bind module_name deps decls =
   else
     None
 
-let build_module (module_name: ident) deps program: structure option =
-  let modul = mk_ocaml_bind module_name deps program in
+let build_module modules (bundle_name: ident) deps program: structure option =
+  let modul = mk_ocaml_bind modules bundle_name deps program in
   let open_decls = List.map (fun m ->
     Str.open_ (Opn.mk ?override:(Some Fresh) (mk_ident m))) ["Ctypes"] in
   Option.map (fun m -> open_decls @ [m]) modul
@@ -504,7 +507,7 @@ let mk_ocaml_bindings
       | [] -> modules_acc
       | (name, deps, program) :: fs -> begin
           let trans_deps = compute_transitive_deps name deps in
-          match build_module name trans_deps program with
+          match build_module modules name trans_deps program with
           | Some m -> build_modules fs ((name, deps, m) :: modules_acc)
           | None -> build_modules fs modules_acc
         end
@@ -560,6 +563,7 @@ let write_gen_module files =
         Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx " d d
       ) ds;
       Buffer.add_string b "\n";
+      Printf.bprintf b "lib_gen/%s_gen.cmx: lib/%s_bindings.cmx\n" f f;
       Printf.bprintf b "lib_gen/%s_gen.exe: " f;
       List.iter (fun d ->
         Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx lib/%s_c_stubs.o " d d d

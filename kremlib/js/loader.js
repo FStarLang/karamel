@@ -446,6 +446,7 @@ function link(imports, modules) {
     //   error: module is not an object or function
     // This merely indicates a missing import. Look at the .wast to figure it
     // out.
+    my_print("Attempting to instantiate", name);
     let { module, instance } = await WebAssembly.instantiate(buf, imports);
     propagate(name, imports, instance);
     return fold(imports, ms);

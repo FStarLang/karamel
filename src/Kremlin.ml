@@ -286,6 +286,7 @@ Supported options:|}
     "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
     "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see \
       above) + also disable variadic-length KRML_HOST_EPRINTF";
+    "-flinux-ints", Arg.Set Options.linux_ints, " use Linux kernel int types";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)

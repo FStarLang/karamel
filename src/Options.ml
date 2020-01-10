@@ -52,6 +52,7 @@ let no_shadow = ref false
 let no_return_else = ref false
 type merge = No | Prefix | Aggressive
 let merge_variables = ref No
+let linux_ints = ref false
 
 let extract_uints = ref false
 let builtin_uint128 = ref false
@@ -73,7 +74,7 @@ let default_options () =
     "-ccopts";
     "-Wall,-Werror,-Wno-unused-variable," ^
     "-Wno-unknown-warning-option,-Wno-unused-but-set-variable," ^
-    "-g,-fwrapv,-fstack-check,-D_BSD_SOURCE,-D_DEFAULT_SOURCE" ^
+    "-g,-fwrapv,-D_BSD_SOURCE,-D_DEFAULT_SOURCE" ^
     (if Sys.os_type = "Win32" then ",-D__USE_MINGW_ANSI_STDIO" else "") ^
     (if !parentheses then "" else ",-Wno-parentheses")
   |] in

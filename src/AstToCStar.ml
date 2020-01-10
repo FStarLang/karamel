@@ -283,6 +283,16 @@ and mk_ignored_stmt env e =
 
 and mk_stmts env e ret_type =
   let rec collect (env, acc) (return_pos: return_pos) e =
+    (* If we reach the end of the list of statements and are at a terminal atomic
+     * node (not a disjunction in the control-flow), we may be required when `ret_type
+     * = Must` to insert a return. *)
+    let maybe_return acc =
+      if return_pos = Must then
+        CStar.Return None :: acc
+      else
+        acc
+    in
+
     match e.node with
     | ELet (binder, e1, e2) ->
         let env, binder = mk_and_push_binder env binder (Some e1) [ e2 ]
@@ -292,7 +302,7 @@ and mk_stmts env e ret_type =
 
     | EWhile (e1, e2) ->
         let e = CStar.While (mk_expr env false e1, mk_block env Not e2) in
-        env, e :: acc
+        env, maybe_return (e :: acc)
 
     | EFor (_,
       { node = EConstant (K.UInt32, init); _ },
@@ -325,7 +335,7 @@ and mk_stmts env e ret_type =
           else
             acc
         in
-        env, mk [] init @ acc
+        env, maybe_return (mk [] init @ acc)
 
 
     | EFor (binder, e1, e2, e3, e4) ->
@@ -348,7 +358,7 @@ and mk_stmts env e ret_type =
             let e1 = mk_expr env false e1 in
             CStar.For (`Decl (binder, e1), e2, e3, e4)
         in
-        env', e :: acc
+        env', maybe_return (e :: acc)
 
     | EIfThenElse (e1, e2, e3) ->
         begin try
@@ -402,7 +412,7 @@ and mk_stmts env e ret_type =
 
     | EAssign (e1, e2) ->
         let e = CStar.Assign (mk_expr env false e1, mk_type env e1.typ, mk_expr env false e2) in
-        env, e :: acc
+        env, maybe_return (e :: acc)
 
     | EBufBlit (e1, e2, e3, e4, e5) ->
         let e = CStar.BufBlit (
@@ -412,7 +422,7 @@ and mk_stmts env e ret_type =
           mk_expr env false e4,
           mk_expr env false e5
         ) in
-        env, e :: acc
+        env, maybe_return (e :: acc)
 
     | EBufWrite (e1, e2, e3) ->
         let e = CStar.BufWrite (
@@ -420,7 +430,7 @@ and mk_stmts env e ret_type =
           mk_expr env false e2,
           mk_expr env false e3
         ) in
-        env, e :: acc
+        env, maybe_return (e :: acc)
 
     | EBufFill (e1, e2, e3) ->
         let e = CStar.BufFill (
@@ -428,11 +438,11 @@ and mk_stmts env e ret_type =
           mk_expr env false e2,
           mk_expr env false e3
         ) in
-        env, e :: acc
+        env, maybe_return (e :: acc)
 
     | EBufFree e ->
         let e = CStar.BufFree (mk_expr env false e) in
-        env, e :: acc
+        env, maybe_return (e :: acc)
 
     | EMatch _ ->
         fatal_error "[AstToCStar.collect EMatch]: not implemented"
@@ -466,11 +476,11 @@ and mk_stmts env e ret_type =
         env, CStar.Comment s' :: stmts
 
     | EStandaloneComment s ->
-        env, CStar.Comment s :: acc
+        env, maybe_return (CStar.Comment s :: acc)
 
     | EIgnore e ->
         let env, s = mk_ignored_stmt env e in
-        env, s @ acc
+        env, maybe_return (s @ acc)
 
     | EBreak ->
         env, CStar.Break :: acc
@@ -482,6 +492,7 @@ and mk_stmts env e ret_type =
         mk_as_return env e acc return_pos
 
     | _ ->
+        (* This is a specialized instance of `mk_as_return` when return_pos = Not *)
         if is_readonly_c_expression e then
           env, acc
         else

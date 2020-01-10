@@ -958,6 +958,10 @@ let mk_func env { args; locals; body; name; ret; _ } =
   let ftype = mk_var i in
   dummy_phrase W.Ast.({ locals; ftype; body })
 
+let mut_of_bool = function
+  | true -> W.Types.Mutable
+  | false -> W.Types.Immutable
+
 (* Some globals, such as string constants, generate non-constant expressions for
  * their bodies; we provide a dummy and remember to run the initializer at
  * module load-time.
@@ -967,6 +971,9 @@ let mk_func env { args; locals; body; name; ret; _ } =
  * fields. *)
 let mk_global env name size body post_init =
   let body = mk_expr env body in
+  if Options.debug "wasm" then
+    KPrint.bprintf "Constant %s: length(body)=%d, length(post_init)=%d\n"
+      name (List.length body) (List.length post_init);
   let post_init =
     if post_init = [] then
       []
@@ -977,14 +984,14 @@ let mk_global env name size body post_init =
     if List.length body > 1 then
       body @ [ dummy_phrase (W.Ast.SetGlobal (mk_var (find_global env name))) ] @ post_init,
       [ dummy_phrase (W.Ast.Const (match size with I32 -> mk_int32 0l | I64 -> mk_int64 0L))],
-      W.Types.Mutable
+      true
     else
-      post_init, body, W.Types.Immutable
+      post_init, body, false
   in
   init, dummy_phrase W.Ast.({
-    gtype = W.Types.GlobalType (mk_type size, mut);
+    gtype = W.Types.GlobalType (mk_type size, mut_of_bool mut);
     value = dummy_phrase body
-  })
+  }), mut
 
 
 (******************************************************************************)
@@ -1163,8 +1170,11 @@ let mk_module types imports (name, decls):
    * not rely on an indirection via a type table like functions. *)
   let inits, globals = List.fold_left (fun (inits, globals) d ->
     match d with
-    | Global (name, size, body, post, _) ->
-        let init, global = mk_global env name size body post in
+    | Global (name, size, body, post, public) ->
+        let init, global, mut = mk_global env name size body post in
+        if mut && public then
+          Warn.fatal_error "Global %s is public and mutable; this is going \
+            to be rejected by the WASM validator." name;
         init :: inits, global :: globals
     | _ ->
         inits, globals
