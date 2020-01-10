@@ -1046,27 +1046,19 @@ class scope_helpers = object (self)
   method private is_private_scope flags lident =
     List.mem Common.Private flags && not (Helpers.is_static_header lident)
 
-  method private find_scope (global_scope, local_scopes) flags lident =
-    if self#is_private_scope flags lident then
-      Hashtbl.find local_scopes current_file
-    else
-      global_scope
-
-  method private record env is_external flags lident =
-    let attempt_shortening = self#is_private_scope flags lident && not is_external in
+  method private record (global_scope, local_scopes) is_external flags lident =
+    let is_private = self#is_private_scope flags lident in
+    let local_scope = Hashtbl.find local_scopes current_file in
+    let attempt_shortening = is_private && not is_external in
     let target = target_c_name lident attempt_shortening in
-    let c_name = GlobalNames.extend (self#find_scope env flags lident) lident target in
+    let c_name = GlobalNames.extend global_scope local_scope is_private lident target in
     if not (self#is_private_scope flags lident) then
       Hashtbl.add original_of_c_name c_name lident
 
-  method private recall (global_scope, local_scopes) lident =
-    match GlobalNames.lookup (Hashtbl.find local_scopes current_file) lident with
+  method private recall (global_scope, _) lident =
+    match GlobalNames.lookup global_scope lident with
     | Some name -> [], name
-    | None ->
-        match GlobalNames.lookup global_scope lident with
-        | Some name -> [], name
-        | None ->
-            [], to_c_identifier (target_c_name lident false)
+    | None -> [], to_c_identifier (target_c_name lident false)
 end
 
 let record_toplevel_names = object (self)

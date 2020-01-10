@@ -8,7 +8,7 @@ open Idents
 open Ast
 open PrintAst.Ops
 
-type t = (lident, ident) Hashtbl.t * (string, unit) Hashtbl.t
+type t = (lident, string) Hashtbl.t * (string, unit) Hashtbl.t
 
 let reserve_keywords used_c_names =
   let keywords = [
@@ -131,16 +131,20 @@ let create () =
   reserve_keywords used_c_names;
   c_of_original, used_c_names
 
-let extend (env: t) original_name desired_name =
-  let c_of_original, used_c_names = env in
-  match Hashtbl.find c_of_original original_name with
-  | exception Not_found ->
-      let unique_c_name = mk_fresh desired_name (Hashtbl.mem used_c_names) in
-      Hashtbl.add c_of_original original_name unique_c_name;
-      Hashtbl.add used_c_names unique_c_name ();
-      unique_c_name
-  | _ ->
-      fatal_error "Duplicate global name: %a" plid original_name
+let extend (global: t) (local: t) is_local original_name desired_name =
+  let c_of_original, g_used_c_names = global in
+  let _, l_used_c_names = local in
+  if Hashtbl.mem c_of_original original_name then
+    fatal_error "Duplicate global name: %a" plid original_name;
+
+  let unique_c_name = mk_fresh desired_name (fun x ->
+    Hashtbl.mem g_used_c_names x || Hashtbl.mem l_used_c_names x) in
+  Hashtbl.add c_of_original original_name unique_c_name;
+  if is_local then
+    Hashtbl.add l_used_c_names unique_c_name ()
+  else
+    Hashtbl.add g_used_c_names unique_c_name ();
+  unique_c_name
 
 let lookup (env: t) name =
   let c_of_original, _ = env in
@@ -153,4 +157,7 @@ let clone (env: t) =
 let dump (env: t) =
   Hashtbl.iter (fun lident c_name ->
     KPrint.bprintf "%a --> %s\n" plid lident c_name
-  ) (fst env)
+  ) (fst env);
+  Hashtbl.iter (fun c_name _ ->
+    KPrint.bprintf "%s is used\n" c_name
+  ) (snd env)

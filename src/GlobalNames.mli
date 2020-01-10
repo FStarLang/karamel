@@ -9,7 +9,7 @@ val create: unit -> t
 (** `extend t name c_name` tries to associate `c_name` to `name` in the table
  * `t`. If case there is a name conflict or `c_name` is an invalid C identifier,
  * a suitable replacement name based on `c_name` will be chosen. *)
-val extend: t -> Ast.lident -> string -> string
+val extend: t -> t -> bool -> Ast.lident -> string -> string
 
 (** `lookup t name fallback` recalls the C name associated to `name` in `t`. *)
 val lookup: t -> Ast.lident -> string option

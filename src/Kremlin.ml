@@ -618,7 +618,10 @@ Supported options:|}
   Diagnostics.all files !arg_diagnostics;
 
   (* 7. Final transformation on the AST: go to C names. This must really be done
-   * at the last minute, since it invalidates pretty much any map ever built. *)
+   * at the last minute, since it invalidates pretty much any map ever built.
+   * For instance, we compute dependencies now rather than have to deal with
+   * potential name conflicts owing to global collisions after dropping the
+   * prefix for static declarations. *)
   let deps = AstToCStar.mk_deps files in
   let files, c_name_map = Simplify.to_c_names files in
 
