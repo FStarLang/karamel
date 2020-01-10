@@ -1027,7 +1027,9 @@ let ineligible lident =
   ]
 
 let target_c_name lident is_private_scope =
-  if (skip_prefix (fst lident) || is_private_scope) && not (ineligible lident) then
+  if skip_prefix (fst lident) && not (ineligible lident) then
+    snd lident
+  else if is_private_scope && not (ineligible lident) && snd lident <> "main" then
     snd lident
   else
     string_of_lident lident
