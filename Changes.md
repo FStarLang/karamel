@@ -1,3 +1,13 @@
+### Jan 9th, 2020
+
+- C++ keywords are now avoided in the code generation for clients who compile
+  KreMLin-generated code with C++ compilers.
+
+### Dec 3rd, 2019
+
+- New *experimental* option: `-fnoreturn-else`, to skip `else` statements in
+  case the `then` branch can be ended with `return`.
+
 ### November 22nd, 2019
 
 - Syntax change for the -static-header option; it now takes a list of patterns
