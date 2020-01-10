@@ -1,3 +1,11 @@
+### Jan 10th, 2020
+
+- `static` functions that are not defined as `static inline` in the `.h` file
+  (i.e. purely in the scope of the `.c` file) will now enjoy short names and
+  will drop the long prefix with the original F\* module name -- this may cause
+  collisions with functions in scope from included headers. Please shout out if
+  this breaks anyone's workflow.
+
 ### Jan 9th, 2020
 
 - C++ keywords are now avoided in the code generation for clients who compile
