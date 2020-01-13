@@ -116,7 +116,11 @@ let implies x y =
 let unused parameter_table lid ts (i: int) =
   (* Is the parameter at index i unused? *)
   let unused_i i =
-    Hashtbl.mem parameter_table lid && (List.nth (Hashtbl.find parameter_table lid) i) ||
+    Hashtbl.mem parameter_table lid && (
+      let l = Hashtbl.find parameter_table lid in
+      i < List.length l &&
+      List.nth l i
+    ) ||
     List.nth ts i = TUnit
   in
   unused_i i &&
