@@ -880,7 +880,7 @@ and mk_expr (e: expr): C.expr =
       Cast (([], Int w, Ident ""), Constant (w, c))
 
   | BufCreate _ | BufCreateL _ ->
-      failwith "[mk_expr]: Buffer.create; Buffer.createl may only appear as let ... = Buffer.create"
+      failwith "[mk_expr]: Buffer.create and Buffer.createl may only appear as let ... = Buffer.create"
 
   | BufSub (e1, Constant (_, "0")) ->
       mk_expr e1

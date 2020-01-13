@@ -276,6 +276,13 @@ Supported options:|}
       of C macros and uint8_t for enums";
     "-fnoreturn-else", Arg.Set Options.no_return_else, "  if the body of an \
       if-block always returns (terminal position), don't insert an else block";
+    "-fmerge", Arg.String (function
+      | "aggressive" -> Options.(merge_variables := Aggressive)
+      | "prefix" -> Options.(merge_variables := Prefix)
+      | _ -> failwith "Unknown value for option -fmerge (must be one of: aggressive, prefix)"),
+      "  merge variables together rather than emit shadowing let-bindings; \
+        prefix restricts merges to variables that share a common prefix; \
+        aggressive always merges";
     "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
     "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see \
       above) + also disable variadic-length KRML_HOST_EPRINTF";
@@ -582,6 +589,7 @@ Supported options:|}
   let files = Simplify.remove_unused files in
   let files = if !Options.tail_calls then Simplify.tail_calls files else files in
   let files = Simplify.simplify2 files in
+  let files = if Options.(!merge_variables <> No) then SimplifyMerge.simplify files else files in
   let files = Inlining.cross_call_analysis files in
   if !arg_print_structs then
     print PrintAst.print_files files;
