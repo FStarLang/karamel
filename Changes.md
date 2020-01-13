@@ -1,3 +1,9 @@
+### Jan 13th, 2020
+
+- New *experimental* option: `-fmerge`, to merge variables, i.e. reuse existing
+  variable slots rather than declare new variables. Improves readability
+  especially for meta-programmed code.
+
 ### Jan 10th, 2020
 
 - `static` functions that are not defined as `static inline` in the `.h` file
