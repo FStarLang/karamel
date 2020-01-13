@@ -287,7 +287,6 @@ Supported options:|}
     "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see \
       above) + also disable variadic-length KRML_HOST_EPRINTF";
     "-flinux-ints", Arg.Set Options.linux_ints, " use Linux kernel int types";
-    "-funsound-variable-elimination", Arg.Set Options.unsound_variable_elimination, "";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)

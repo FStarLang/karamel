@@ -67,71 +67,104 @@ let count_and_remove_locals = object (self)
 
 end
 
+(* Unused parameter elimination ***********************************************)
+
+(* Done by typing (in general), and based on usage information (strictly for
+ * static, first-order functions. Relies on an accurate count from
+ * count_and_remove_locals. *)
+
+(* Build a table that maps each lid to a list of booleans, where true indicates
+ * that the parameter is unused in the body. *)
+
+let unused_parameter_table = object (_)
+
+  inherit [_] iter
+
+  method! visit_DFunction parameter_table _ flags _ _ name binders _ =
+    let is_private = List.mem Common.Private flags && not (Helpers.is_static_header name) in
+    let unused_vector = List.map (fun b -> is_private && !(b.node.mark) = 0) binders in
+    Hashtbl.add parameter_table name unused_vector
+
+end
+
+(* Remove entries in the table if they appear anywhere other than the head of an
+ * application. *)
+
+let ignore_non_first_order = object (self)
+
+  inherit [_] iter
+
+  method! visit_EApp env e es =
+    List.iter (self#visit_expr env) es;
+    match e.node with
+    | EQualified _ -> ()
+    | _ -> self#visit_expr env e
+
+  method! visit_EQualified (parameter_table, _) lid =
+    if Hashtbl.mem parameter_table lid then
+      Hashtbl.remove parameter_table lid
+
+end
+
+(* Now we are ready to effectively remove unused parameters *)
+
 let implies x y =
   not x || y
 
-let unused_in_list criterion l i =
-  let t = List.nth l i in
-  (* The first typ may be marked as unused only if there's another unused
-   * typ later on, otherwise, it serves at the one remaining typ that
-   * makes sure this is still a function, and not a computation. *)
-  criterion t &&
-  implies (i = 0) (List.exists (fun t -> not (criterion t)) (List.tl l))
-
-let unused_arg =
-  unused_in_list (fun (t, zero_count) -> t = TUnit || zero_count)
-
-let unused_typ =
-  unused_in_list ((=) TUnit)
-
-let unused_by_usage is_private b =
-  !(b.node.mark) = 0 && is_private && !Options.unsound_variable_elimination
-
-let unused_binder is_private binders i: bool =
-  unused_arg (List.map (fun b -> b.typ, unused_by_usage is_private b) binders) i
-
-(* To be run immediately after the phase above. *)
+(* Subtlety: we decline to remove the first parameter if all others are removed,
+ * since we don't have zero-argument functions at this stage. *)
+let unused parameter_table lid ts (i: int) =
+  (* Is the parameter at index i unused? *)
+  let unused_i i =
+    Hashtbl.mem parameter_table lid && (List.nth (Hashtbl.find parameter_table lid) i) ||
+    List.nth ts i = TUnit
+  in
+  unused_i i &&
+  implies (i = 0) (List.exists not (KList.make (List.length ts) unused_i))
 
 let remove_unused_parameters = object (self)
   inherit [_] map
 
-  val private_lids = Hashtbl.create 41
-
-  method! visit_DFunction env cc flags n ret name binders body =
-    (* This doesn't work, because of higher-order. Enabled only for some
-     * specific use-cases that are known to be first-order. *)
-    let is_private = List.mem Common.Private flags && not (Helpers.is_static_header name) in
-    if !Options.unsound_variable_elimination then
-      Hashtbl.add private_lids name (List.map (unused_by_usage is_private) binders);
-
-    let binders = self#visit_binders_w env binders in
-    let ret = self#visit_typ env ret in
+  method! visit_DFunction parameter_table cc flags n ret name binders body =
+    let binders = self#visit_binders_w parameter_table binders in
+    let ret = self#visit_typ parameter_table ret in
 
     let n_binders = List.length binders in
+    let ts = List.map (fun b -> b.typ) binders in
+    let unused = unused parameter_table name ts in
     let body = List.fold_left (fun body i ->
-      (* When unsound_variable_elimination = false, this coincides with
-       * unused_typ, i.e. only a sound, type-based argument elimination. *)
-      if unused_binder is_private binders i then begin
+      if unused i then begin
         DeBruijn.subst eunit (n_binders - 1 - i) body
       end else
         body
     ) body (KList.make n_binders (fun i -> i)) in
-    let body = self#visit_expr_w env body in
-    let unused = KList.make (List.length binders) (fun i -> not (unused_binder is_private binders i)) in
-    let binders = KList.filter_mask unused binders in
+    let body = self#visit_expr_w parameter_table body in
+    let binders = KList.filter_mapi (fun i b -> if unused i then None else Some b) binders in
     DFunction (cc, flags, n, ret, name, binders, body)
 
-  method! visit_TArrow _ t1 t2 =
+  method! visit_TArrow parameter_table t1 t2 =
+    (* Important: the only entries in `parameter_table` are those which are
+     * first order, i.e. for which the only occurrence is under an EApp, which
+     * does *not* recurse into visit_TArrow! *)
+    let dummy_lid = [], "" in
     let ret, args = flatten_arrow (TArrow (t1, t2)) in
-    let used = KList.make (List.length args) (fun i -> not (unused_typ args i)) in
-    let args = KList.filter_mask used args in
+    let args = KList.filter_mapi (fun i arg ->
+      if unused parameter_table dummy_lid args i then
+        None
+      else
+        Some arg
+    ) args in
     fold_arrow args ret
 
-  method! visit_EApp (env, _) e es =
-    (* This transformation is entirely type-based due to local let-bindings with
-     * functions types, also going through unused argument elimination. *)
-    let es = List.map (self#visit_expr_w env) es in
+  method! visit_EApp (parameter_table, _) e es =
+    let es = List.map (self#visit_expr_w parameter_table) es in
     let t, ts = flatten_arrow e.typ in
+    let lid = match e.node with
+      | EQualified lid -> lid
+      | _ -> [], ""
+    in
+    let unused = unused parameter_table lid ts in
+
     (* Three cases:
      * - more arguments than the type indicates; it's fairly bad, but happens,
      *   e.g. because the function is not in scope (no extract, polymorphic
@@ -140,19 +173,11 @@ let remove_unused_parameters = object (self)
      * - less arguments than the type indicates: perform the transformation on
      *   the arguments we have, transform the type nonetheless *)
     if List.length es <= List.length ts then
-      let unused =
-        match e.node with
-        | EQualified lid when Hashtbl.mem private_lids lid ->
-            (* hash table is empty when unsound_variable_elimination = false *)
-            unused_arg (List.combine ts (Hashtbl.find private_lids lid))
-        | _ ->
-            unused_typ ts
-      in
 
       (* Transform the type of the head *)
       let used = KList.make (List.length ts) (fun i -> not (unused i)) in
       let ts = KList.filter_mask used ts in
-      let ts = List.map (self#visit_typ env) ts in
+      let ts = List.map (self#visit_typ parameter_table) ts in
       let e = { e with typ = fold_arrow ts t } in
       (* Then transform the arguments, on a possible prefix of used when there's
        * a partial application. *)
@@ -176,7 +201,7 @@ let remove_unused_parameters = object (self)
       let app = if List.length es > 0 then with_type t (EApp (e, es)) else e in
       (nest to_evaluate t app).node
     else
-      EApp (self#visit_expr_w env e, es)
+      EApp (self#visit_expr_w parameter_table e, es)
 end
 
 
@@ -1588,8 +1613,11 @@ let simplify2 (files: file list): file list =
 (* This should be run late since inlining may create more opportunities for the
  * removal of unused variables. *)
 let remove_unused (files: file list): file list =
+  let parameter_table = Hashtbl.create 41 in
   let files = count_and_remove_locals#visit_files [] files in
-  let files = remove_unused_parameters#visit_files () files in
+  unused_parameter_table#visit_files parameter_table files;
+  ignore_non_first_order#visit_files parameter_table files;
+  let files = remove_unused_parameters#visit_files parameter_table files in
   files
 
 let debug env =

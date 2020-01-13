@@ -53,7 +53,6 @@ let no_return_else = ref false
 type merge = No | Prefix | Aggressive
 let merge_variables = ref No
 let linux_ints = ref false
-let unsound_variable_elimination = ref false
 
 let extract_uints = ref false
 let builtin_uint128 = ref false
