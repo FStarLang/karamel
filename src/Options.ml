@@ -50,6 +50,8 @@ let unroll_loops = ref (-1)
 let tail_calls = ref false
 let no_shadow = ref false
 let no_return_else = ref false
+type merge = No | Prefix | Aggressive
+let merge_variables = ref No
 let linux_ints = ref false
 let unsound_variable_elimination = ref false
 

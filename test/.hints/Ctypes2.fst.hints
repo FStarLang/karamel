@@ -1,38 +1,30 @@
 [
-  "p\u000e!¬mú4á1Yøé,>YÆ",
+  "<cÙ`èu¦Õgón‚H®¤",
   [
     [
-      "UnusedParameter.t",
+      "Ctypes2.point_sum2",
       1,
       2,
       1,
       [
-        "@query", "assumption_FStar.Int64.t__uu___haseq",
-        "haseqFStar.List.Tot.Base_Tm_refine_9f8cb5a84b67f50c9d5f87a914037545"
-      ],
-      0,
-      "0304de15e916b4862e71e4714c761e78"
-    ],
-    [
-      "UnusedParameter.touch",
-      1,
-      2,
-      1,
-      [
-        "@MaxIFuel_assumption", "@query",
+        "@MaxIFuel_assumption", "@query", "b2t_def",
         "equation_FStar.HyperStack.ST.equal_domains",
         "equation_FStar.Monotonic.Heap.equal_dom",
         "equation_FStar.Monotonic.HyperHeap.hmap",
         "equation_FStar.Monotonic.HyperStack.mem",
+        "equation_FStar.UInt.fits", "equation_FStar.UInt.size",
+        "fuel_guarded_inversion_Ctypes1.point",
         "function_token_typing_FStar.Monotonic.Heap.heap",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
-        "lemma_FStar.Set.lemma_equal_refl",
+        "lemma_FStar.Set.lemma_equal_refl", "primitive_Prims.op_AmpAmp",
+        "projection_inverse_BoxBool_proj_0",
         "refinement_interpretation_Tm_refine_05e15190c946858f68c69156f585f95a",
+        "refinement_interpretation_Tm_refine_43563b9a610302898b2869ed5b0bad92",
         "typing_FStar.Map.domain", "typing_FStar.Monotonic.HyperHeap.rid",
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "1962a4f92f32ce40965e6a0ee6b07413"
+      "d7b443b93fe72ed3ce16176a3313751e"
     ]
   ]
 ]

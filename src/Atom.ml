@@ -11,3 +11,5 @@ let fresh () =
   !r
 
 let equal = (=)
+
+let compare = compare
