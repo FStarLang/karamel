@@ -375,7 +375,7 @@ Supported options:|}
     Bundle.Module [ "C"; "Endianness" ];
     Bundle.Module [ "LowStar"; "Endianness" ];
     Bundle.Module [ "FStar"; "UInt128" ]
-  ];
+  ] @ !Options.static_header;
 
   (* Meta-options that enable other options. Do this now because it influences
    * the default options for each compiler. *)
