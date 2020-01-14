@@ -1231,6 +1231,8 @@ let mk_header (map: (Ast.ident, Ast.lident) Hashtbl.t) decls =
   (* What should be the behavior for a type declaration marked as CAbstract but
    * whose module has -static-header? This ignores CAbstract. *)
   (* Note that static_header has precedence over private qualifiers *)
+  (* TODO: can't mark as static inline a function stub -- need to rework these
+   * combinators *)
   KList.map_flatten
     (if_header_inline_static map
       (mk_static (either mk_function_or_global_body (mk_type_or_external C)))
