@@ -21,11 +21,16 @@ let string_of_lident (idents, ident) =
     ident
 
 let to_c_identifier name =
-  let is_valid = function
-    | 'a'..'z' | 'A'..'Z' | '0'..'9' | '_' -> true
-    | _ -> false
-  in
-  String.map (fun c -> if not (is_valid c) then '_' else c) name
+  let b = Buffer.create 256 in
+  String.iter (function
+    | 'a'..'z' | 'A'..'Z' | '0'..'9' | '_' as c ->
+        Buffer.add_char b c
+    | '\'' ->
+        Buffer.add_string b "_prime"
+    | _ ->
+        Buffer.add_char b '_'
+  ) name;
+  Buffer.contents b
 
 let mk_fresh name test =
   let name = to_c_identifier name in
