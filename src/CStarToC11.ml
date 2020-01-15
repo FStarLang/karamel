@@ -284,6 +284,14 @@ let bytes_in = function
   | Qualified "Lib_IntVector_Intrinsics_vec32" -> Some (32 / 8)
   | _ -> None
 
+let trim_trailing_zeros l =
+  let rec trim_trailing_zeros = function
+    | CStar.Constant (_, "0") :: tl -> trim_trailing_zeros tl
+    | [] -> [ CStar.Constant (K.UInt32, "0") ]
+    | l -> List.rev l
+  in
+  trim_trailing_zeros (List.rev l)
+
 (* Turns the ML declaration inside-out to match the C reading of a type.
  *   See: en.cppreference.com/w/c/language/declarations.
  * The continuation is key in the Function case. *)
@@ -591,6 +599,10 @@ and mk_stmt (stmt: stmt): C.stmt list =
         CStar.show_stmt s)
 
   | Decl (binder, BufCreateL (Stack, inits)) ->
+      (* Per the C standard, static initializers guarantee for missing fields
+       * that they're initialized as if they had static storage duration, i.e.
+       * with zero. *)
+      let inits = trim_trailing_zeros inits in
       let t = ensure_array binder.typ (Constant (K.uint32_of_int (List.length inits))) in
       let qs, spec, decl = mk_spec_and_declarator binder.name t in
       [ Decl (qs, spec, None, [ decl, Some (Initializer (List.map (fun e ->
@@ -1026,6 +1038,7 @@ let mk_function_or_global_body (d: decl): C.declaration_or_function list =
         | Any ->
             wrap_verbatim name flags (Decl ([], false, (qs, spec, static, [ decl, None ])))
         | BufCreateL (_, es) ->
+            let es = trim_trailing_zeros es in
             let es = List.map struct_as_initializer es in
             wrap_verbatim name flags (Decl ([], false, (qs, spec, static, [
               decl, Some (Initializer es) ])))
