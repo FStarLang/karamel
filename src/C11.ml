@@ -79,7 +79,8 @@ and param =
   qualifier list * type_spec * declarator
 
 and declaration =
-  qualifier list * type_spec * storage_spec option * declarator_and_inits
+  qualifier list * type_spec * bool * storage_spec option * declarator_and_inits
+  (* bool is for inline, only valid when declaring functions *)
 
 and ident =
   string
@@ -122,10 +123,9 @@ and comment =
   string
 
 and declaration_or_function =
-  | Decl of comment list * bool * declaration
-    (** bool only set when generating a function prototype *)
-  | Function of comment list * bool * declaration * stmt
-    (** [stmt] _must_ be a compound statement; boolean is inline *)
+  | Decl of comment list * declaration
+  | Function of comment list * declaration * stmt
+    (** [stmt] _must_ be a compound statement *)
   | Text of string
   | Macro of string * expr
     (** passed in from F*, to be printed as-is *)

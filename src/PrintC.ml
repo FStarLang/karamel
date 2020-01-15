@@ -252,9 +252,10 @@ and p_decl_and_init (decl, init) =
     | None ->
         empty)
 
-and p_declaration (qs, spec, stor, decl_and_inits) =
+and p_declaration (qs, spec, inline, stor, decl_and_inits) =
+  let inline = if inline then string "inline" ^^ space else empty in
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
-  stor ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
+  stor ^^ inline ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
 (* This is abusing the definition of a compound statement to ensure it is printed with braces. *)
@@ -412,14 +413,10 @@ let p_decl_or_function (df: declaration_or_function) =
   | Macro (name, def) ->
       let name = String.uppercase name in
       macro name (parens (p_expr def))
-  | Decl (comments, inline, d) ->
-      let inline = if inline then string "inline" ^^ space else empty in
-      p_comments comments ^^
-      inline ^^ group (p_declaration d ^^ semi)
-  | Function (comments, inline, d, stmt) ->
-      p_comments comments ^^
-      let inline = if inline then string "inline" ^^ space else empty in
-      inline ^^ group (p_declaration d) ^/^ p_stmt stmt
+  | Decl (comments, d) ->
+      p_comments comments ^^ group (p_declaration d ^^ semi)
+  | Function (comments, d, stmt) ->
+      p_comments comments ^^ group (p_declaration d) ^/^ p_stmt stmt
   | Text s ->
       string s
 
