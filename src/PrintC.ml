@@ -183,7 +183,11 @@ and p_expr' curr = function
       let e =
         match e with
         | Type _ -> parens_with_nesting (p_expr' right e)
-        | _ -> p_expr' right e
+        | _ ->
+            if !Options.parentheses then
+              parens_with_nesting (p_expr' right e)
+            else
+              p_expr' right e
       in
       paren_if curr mine (string "sizeof" ^^ space ^^ e)
   | Address e ->
