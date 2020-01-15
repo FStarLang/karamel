@@ -634,6 +634,12 @@ and mk_stmt (stmt: stmt): C.stmt list =
   | Assign (BufRead _, _, (Any | Cast (Any, _))) ->
       []
 
+  | Assign (Var x, _, Call (Op (K.Add, _), [ Var y; Constant (_, "1") ])) when x = y ->
+      [ Expr (Op1 (PostIncr, Name x)) ]
+
+  | Assign (Var x, _, Call (Op (K.Sub, _), [ Var y; Constant (_, "1") ])) when x = y ->
+      [ Expr (Op1 (PostDecr, Name x)) ]
+
   | Assign (e1, t, BufCreate (Eternal, init, size)) ->
       let v = assert_var e1 in
       (* Evil bug:
