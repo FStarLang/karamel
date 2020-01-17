@@ -212,15 +212,29 @@ let cross_call_analysis files =
    * be safely marked as private. The invariant is not established yet. *)
   let safely_private = Hashtbl.create 41 in
   let safely_inline = Hashtbl.create 41 in
+
+  (* Constants that will end up being mutable in Wasm because of the compilation
+   * scheme of constants as little-endian encoded pre-laid out byte literals
+   * relative to `data_start` *)
+  let wasm_mutable = Hashtbl.create 41 in
+
   List.iter (fun (_, decls) ->
     List.iter (fun d ->
       let name = lid_of_decl d in
       let flags = flags_of_decl d in
+
       if List.mem Private flags && not (Helpers.is_static_header name) then
         (* -static-header takes precedence over private, see CStarToC11.ml *)
         Hashtbl.add safely_private name ();
+
       if List.mem Inline flags then
-        Hashtbl.add safely_inline name ()
+        Hashtbl.add safely_inline name ();
+
+      match d with
+      | DGlobal (_, _, _, (TBuf _ | TArray _), _) ->
+          Hashtbl.add wasm_mutable name ()
+      | _ ->
+          ()
     ) decls
   ) files;
 
@@ -255,24 +269,75 @@ let cross_call_analysis files =
     end
   in
 
+  let getters = Hashtbl.create 41 in
+  let name_of_getter lid =
+    fst lid, "__get_" ^ snd lid
+  in
+  let type_of_getter t = TArrow (TUnit, t) in
+
   (* A visitor that, when passed a function's name and body, detects
    * cross-translation unit calls and modifies safely_private and safely_inline
    * accordingly. *)
-  let unmark_private_in = object (self)
-    inherit [_] iter as super
+  let unmark_private_in = object
+    inherit [_] map as super
     val mutable name = [],""
-    method! visit_EQualified _ name' =
-      warn_and_remove name name'
+    method! visit_EQualified ((_, t) as env) name' =
+      if !Options.wasm && cross_call name name' && Hashtbl.mem wasm_mutable name' then begin
+        if Options.debug "wasm" then
+          KPrint.bprintf "%a accesses %a, a mutable global, across modules: getter \
+            must be generated\n" plid name plid name';
+        Hashtbl.add getters name' ();
+        EApp (with_type (type_of_getter t) (EQualified (name_of_getter name')),
+          [ Helpers.eunit ])
+      end else begin
+        warn_and_remove name name';
+        super#visit_EQualified env name'
+      end
+
     method! visit_TQualified () name' =
-      warn_and_remove name name'
+      warn_and_remove name name';
+      super#visit_TQualified () name'
+
     method! visit_TApp () name' ts =
       warn_and_remove name name';
-      List.iter (self#visit_typ ()) ts
+      super#visit_TApp () name' ts
+
     method! visit_decl () d =
       name <- lid_of_decl d;
       super#visit_decl () d
   end in
-  unmark_private_in#visit_files () files;
+  let files = unmark_private_in#visit_files () files in
+
+  let generate_getters = object
+    inherit [_] map as super
+    val mutable new_decls = []
+    method! visit_DGlobal () flags name n t body =
+      if Hashtbl.mem getters name then begin
+        let d = DFunction (None, [], 0,
+          t,
+          name_of_getter name,
+          [ Helpers.fresh_binder "_" TUnit ],
+          with_type t (EQualified name)
+        ) in
+        new_decls <- d :: new_decls
+      end;
+
+      let flags =
+        if Hashtbl.mem wasm_mutable name then begin
+          Hashtbl.add safely_private name ();
+          Common.Private :: flags
+        end else
+          flags
+      in
+
+      DGlobal (flags, name, n, t, body)
+
+    method! visit_program () decls =
+      new_decls <- [];
+      let decls = super#visit_program () decls in
+      decls @ List.rev new_decls
+  end in
+  let files = generate_getters#visit_files () files in
 
   (* Another visitor, that only visits the types reachable from types in
    * function definitions and removes their private qualifiers accordingly. For

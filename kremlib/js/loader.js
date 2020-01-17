@@ -177,6 +177,22 @@ let mkLibRandomBufferSystem = (mem) => ({
   Lib_RandomBuffer_System_randombytes: (addr, len) => { return my_random(mem, addr, len); }
 });
 
+let mkLibMemzero = (mem) => ({
+  Lib_Memzero_clear_words_u8: (nwords, addr) => {
+    let m8 = new Uint8Array(mem.buffer);
+    for (let i = 0; i < nwords; ++i) {
+      m8[addr+i] = 0;
+    }
+  },
+  Lib_Memzero_clear_words_u16: (nwords, addr) => {
+    let m8 = new Uint8Array(mem.buffer);
+    for (let i = 0; i < nwords; ++i) {
+      m8[addr+2*i] = 0;
+      m8[addr+2*i+1] = 0;
+    }
+  }
+});
+
 let mkLowStarEndianness = (mem) => ({
   htole16: (x) => { throw new Error("todo: htole16") },
   le16toh: (x) => { throw new Error("todo: le16toh") },
@@ -404,7 +420,8 @@ function init() {
     C_Compat_String: mkCString(mem, 'C_Compat_String'),
     TestLib: mkTestLib(mem, 'TestLib'),
     TestLib_Compat: mkTestLib(mem, 'TestLib_Compat'),
-    Lib_RandomBuffer_System: mkLibRandomBufferSystem(mem)
+    Lib_RandomBuffer_System: mkLibRandomBufferSystem(mem),
+    Lib_Memzero: mkLibMemzero(mem)
   };
   return imports;
 }
