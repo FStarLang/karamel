@@ -337,7 +337,7 @@ let cross_call_analysis files =
       let decls = super#visit_program () decls in
       decls @ List.rev new_decls
   end in
-  let files = generate_getters#visit_files () files in
+  let files = if !Options.wasm then generate_getters#visit_files () files else files in
 
   (* Another visitor, that only visits the types reachable from types in
    * function definitions and removes their private qualifiers accordingly. For
