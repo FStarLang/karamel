@@ -11,13 +11,13 @@ type program =
   decl list
 
 and decl =
-  | Global of ident * bool * flag list * typ * expr
+  | Global of lident * bool * flag list * typ * expr
     (** The boolean indicates whether this variable is intended to be compiled
      * as a macro. *)
-  | Function of calling_convention option * flag list * typ * ident * binder list * block
-  | Type of ident * typ * flag list
-  | TypeForward of ident * flag list
-  | External of ident * typ * flag list * string list
+  | Function of calling_convention option * flag list * typ * lident * binder list * block
+  | Type of lident * typ * flag list
+  | TypeForward of lident * flag list
+  | External of lident * typ * flag list * string list
     (** String list for pretty-printing the names of the arguments. *)
 
 and stmt =
@@ -51,7 +51,7 @@ and expr =
   | Call of expr * expr list
     (** First expression has to be a [Qualified] or an [Op]. *)
   | Var of ident
-  | Qualified of ident
+  | Qualified of lident
   | Constant of K.t
   | BufCreate of lifetime * expr * expr
     (** initial value, length *)
@@ -93,6 +93,9 @@ and binder = {
 and ident =
   string
 
+and lident =
+  string list * string
+
 (** About data types (struct, enum, union):
   * - they never carry a name (we never emit "struct foo { ... }");
   * - they can appear in the body of type definitions, or
@@ -101,7 +104,7 @@ and typ =
   | Int of Constant.width
   | Pointer of typ
   | Void
-  | Qualified of ident
+  | Qualified of lident
   | Array of typ * expr
   | Function of calling_convention option * typ * typ list
       (** Return type, arguments *)
@@ -114,7 +117,7 @@ and typ =
       (* note: when we have restrict, or MinLength, extend this to be a
        * Qualifier node or something more general *)
 
-let ident_of_decl (d: decl): string =
+let lid_of_decl (d: decl): lident =
   match d with
   | Global (id, _, _, _, _)
   | Function (_, _, _, id, _, _)

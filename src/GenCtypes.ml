@@ -20,6 +20,7 @@ open Ast_helper
 open Asttypes
 open Location
 open Longident
+open PrintAst.Ops
 
 
 let migration = Versions.migrate Versions.ocaml_405 Versions.ocaml_current
@@ -70,38 +71,52 @@ let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
  * -no-prefix options. If this is the beginning of a top-level name, lower is
  * true and we force the first letter to be lowercase to abide by OCaml syntax
  * restrictions. *)
-let mk_unqual_name n =
-  if KString.starts_with n "K___" then
-    "t_" ^ n (* VD: might want to proccess this differently or alias to more user-friendly names *)
-  else if Char.lowercase n.[0] <> n.[0] then
-    String.make 1 (Char.lowercase n.[0]) ^ String.sub n 1 (String.length n - 1)
-  else
-    n
+let mk_unqual_name m (n: Ast.lident) =
+  match n with
+  | [ "K" ], n ->
+      "t_" ^ n (* VD: might want to process this differently or alias to more user-friendly names *)
+  | _ ->
+      let n = GlobalNames.to_c_name m n in
+      if Char.lowercase n.[0] <> n.[0] then
+        String.make 1 (Char.lowercase n.[0]) ^ String.sub n 1 (String.length n - 1)
+      else
+        n
 
-let mk_struct_name n = n ^ "_s" (* c.f. CStarToC11.mk_spec_and_declarator_t *)
+let mk_struct_name (m, n) = m, n ^ "_s" (* c.f. CStarToC11.mk_spec_and_declarator_t *)
 
 
 (* Checking supported types for Ctypes bindings *)
 let unsupported_types = ref false
 
-let special_types = ["C_String_t"]
-
-let check_bindable_type decl_name typ =
-  if String.equal typ "FStar_UInt128_uint128" ||
-    (String.length typ > 3 && String.equal (String.sub typ 0 4) "Lib_") then begin
+let check_bindable_type m decl_name typ =
+  match typ with
+  | [ "FStar"; "UInt128" ], "uint128"
+  | "Lib" :: _, _ ->
     unsupported_types := true;
+    let typ = GlobalNames.to_c_name m typ in
+    let decl_name = GlobalNames.to_c_name m decl_name in
     Warn.(maybe_fatal_error (decl_name, Warn.DropCtypesDeclaration typ));
     false
-  end else
+  | _ ->
     true
+
+let special_types =
+  let m = Hashtbl.create 41 in
+  List.iter (fun (k, v) -> Hashtbl.add m k v) [
+    ([ "C"; "String" ], "t"), "string" (* Ctypes.string is `char *` *)
+  ];
+  m
 
 let find_type tbl typ default location =
   match Hashtbl.find_opt tbl typ with
   | Some r -> r
   | None ->
-    if List.mem typ special_types then
+    if Hashtbl.mem special_types typ then
       default
-    else Warn.fatal_error "Type %s (in %s) not found in context and special handling not defined" typ location
+    else
+      Warn.fatal_error "Type %a (in %a) not found in context and special \
+        handling not defined"
+        plid typ plid location
 
 (* building Ctypes declarations *)
 type structured =
@@ -139,29 +154,26 @@ let rec get_qualified_types = function
   | Void
   | Bool -> []
 
-let mk_qualified_type module_name typ =
-  if List.mem typ special_types then
-    match typ with
-    | "C_String_t" -> exp_ident (mk_unqual_name "string") (* Ctypes.string is `char *` *)
-    | _ -> Warn.fatal_error "Special handling for special type %s (in %s) not defined" typ module_name
-  else
-  exp_ident (mk_unqual_name typ)
+let mk_qualified_type m (typ: Ast.lident) =
+  (* module_name is for debug only *)
+  try exp_ident (Hashtbl.find special_types typ)
+  with Not_found -> exp_ident (mk_unqual_name m typ)
 
-let rec mk_typ (module_name: string) = function
+let rec mk_typ m (module_name: string) = function
   | Int w -> exp_ident (PrintCommon.width_to_string w ^ "_t")
-  | Pointer t -> Exp.apply (exp_ident "ptr") [(Nolabel, mk_typ module_name t)]
+  | Pointer t -> Exp.apply (exp_ident "ptr") [(Nolabel, mk_typ m module_name t)]
   | Void -> exp_ident "void"
-  | Qualified l -> mk_qualified_type module_name l
+  | Qualified l -> mk_qualified_type m l
   | Bool -> exp_ident "bool"
-  | Function (_, return_type, parameters) -> build_foreign_fun module_name return_type (List.map (fun x -> {name=""; typ=x}) parameters)
-  | Const t -> mk_typ module_name t
+  | Function (_, return_type, parameters) -> build_foreign_fun m module_name return_type (List.map (fun x -> {name=""; typ=x}) parameters)
+  | Const t -> mk_typ m module_name t
   | Union _
   | Array _
   | Struct _
   | Enum _ -> Warn.fatal_error "Unreachable"
 
-and mk_extern_decl module_name name keyword typ: structure_item =
-  mk_simple_app_decl (mk_unqual_name name) None keyword [mk_const name; mk_typ module_name typ]
+and mk_extern_decl m module_name name keyword typ: structure_item =
+  mk_simple_app_decl (mk_unqual_name m name) None keyword [mk_const (GlobalNames.to_c_name m name); mk_typ m module_name typ]
 
 (* For binding structs, e.g. (in header file Types.h)
  *   typedef struct Types_point_s {
@@ -173,38 +185,43 @@ and mk_extern_decl module_name name keyword typ: structure_item =
  *   let point_x = field point "x" uint32_t
  *   let point_y = field point "y" uint32_t
  *   let _ = seal point *)
-and mk_struct_decl (k: structured) module_name name fields: structure_item list =
-  let unqual_name = mk_unqual_name name in
+and mk_struct_decl m (k: structured) module_name (name: Ast.lident) fields: structure_item list =
+  let unqual_name = mk_unqual_name m name in
   let tm = mk_struct_manifest k unqual_name in
   let ctypes_structure =
     let struct_name = match k with
-      | Union when !Options.anonymous_unions -> ""
+      | Union when !Options.anonymous_unions ->
+          [], ""
       | Union
-      | Struct -> mk_struct_name name
+      | Struct ->
+          mk_struct_name name
     in
+    let struct_name = GlobalNames.to_c_name m struct_name in
     let t = Typ.mk (Ptyp_constr (mk_ident "typ", [tm])) in
     let e = mk_app (exp_ident (structured_kw k)) [mk_const struct_name] in
     let p = Pat.mk (Ppat_var (mk_sym unqual_name)) in
     mk_decl ~t p e
   in
+  let suffix (m, n) suffix = m, n ^ "_" ^ suffix in
   let rec mk_field anon ((f_name, f_typ): string option * CStar.typ) =
-    (* A field can be a named or an anonymous union, which needs to be handled separately and generates
-       additional declaratons, or another type, which only generates the field declaration *)
+    (* A field can be a named or an anonymous union, which needs to be handled
+     * separately and generates additional declaratons, or another type, which
+     * only generates the field declaration *)
     match f_typ with
     | Union fields ->
       let anon, name =
         match f_name with
-        | Some name -> false, unqual_name ^ "_" ^ name
-        | _ -> true, unqual_name ^ "_val"
+        | Some field_name -> false, suffix name field_name
+        | _ -> true, suffix name "val"
       in
       let fields = List.map (fun (x, y) -> (Some x, y)) fields in
-      (mk_struct_decl Union module_name name fields) @ (mk_field anon (Some "u", Qualified name))
+      (mk_struct_decl m Union module_name name fields) @ (mk_field anon (Some "u", Qualified name))
     | _ ->
       begin match f_name with
       | Some name ->
         let p = Pat.mk (Ppat_var (mk_sym (unqual_name ^ "_" ^ name))) in
-        let c_name = if anon then "" else name in
-        let e = mk_app (exp_ident "field") [exp_ident unqual_name; mk_const c_name; mk_typ module_name f_typ] in
+        let c_name = if anon then  "" else name in
+        let e = mk_app (exp_ident "field") [exp_ident unqual_name; mk_const c_name; mk_typ m module_name f_typ] in
         [[Vb.mk p e] |> Str.value Nonrecursive]
       | None -> Warn.fatal_error "Unreachable" (* only unions can be anonymous *)
       end
@@ -213,35 +230,37 @@ and mk_struct_decl (k: structured) module_name name fields: structure_item list 
   let seal_decl = mk_decl (Pat.any ()) (mk_app (exp_ident "seal") [exp_ident unqual_name]) in
   [type_decl; ctypes_structure] @ (KList.map_flatten (mk_field false) fields) @ [seal_decl]
 
-and mk_typedef module_name name typ =
+and mk_typedef m module_name name typ =
   let type_const = match typ with
     | Int Constant.UInt8 -> Typ.mk (Ptyp_constr (mk_ident "Unsigned.UInt8.t", []))
-    | Qualified t -> Typ.mk (Ptyp_constr (mk_ident (mk_unqual_name t), []))
+    | Qualified t -> Typ.mk (Ptyp_constr (mk_ident (mk_unqual_name m t), []))
     | _ -> Warn.fatal_error "Unreachable"
   in
-  let typ_name = mk_unqual_name name in
+  let typ_name = mk_unqual_name m name in
+  let name = GlobalNames.to_c_name m name in
   [ Str.type_ Recursive [Type.mk ?manifest:(Some type_const) (mk_sym typ_name)]
-  ; mk_simple_app_decl typ_name None "typedef" [mk_typ module_name typ; mk_const name] ]
+  ; mk_simple_app_decl typ_name None "typedef" [mk_typ m module_name typ; mk_const name] ]
 
-and build_foreign_fun module_name return_type parameters : expression =
+and build_foreign_fun m module_name return_type parameters : expression =
   let types =
     if KList.is_empty parameters then
-      [mk_typ module_name Void]
+      [mk_typ m module_name Void]
     else
-      List.map (fun n -> mk_typ module_name n.typ) parameters
+      List.map (fun n -> mk_typ m module_name n.typ) parameters
   in
-  let returning = mk_app (exp_ident "returning") [mk_typ module_name return_type] in
+  let returning = mk_app (exp_ident "returning") [mk_typ m module_name return_type] in
   List.fold_right (fun t1 t2 -> mk_app (exp_ident "@->") [t1; t2]) types returning
 
-and build_foreign_exp module_name name return_type parameters : expression =
-  mk_app (exp_ident "foreign") [mk_const name; build_foreign_fun module_name return_type parameters]
+and build_foreign_exp m module_name name return_type parameters : expression =
+  mk_app (exp_ident "foreign") [mk_const name; build_foreign_fun m module_name return_type parameters]
 
-let build_binding module_name name return_type parameters : structure_item =
-  let func_name = mk_unqual_name name in
-  let e = build_foreign_exp module_name name return_type parameters in
+let build_binding m module_name name return_type parameters : structure_item =
+  let func_name = mk_unqual_name m name in
+  let name = GlobalNames.to_c_name m name in
+  let e = build_foreign_exp m module_name name return_type parameters in
   let p =
     match return_type with
-    | Qualified "C_String_t" ->
+    | Qualified ([ "C"; "String" ], "t") ->
         (* C_String_t is `const char *` and requires the function returning it to be marked as constant *)
         Pat.mk (Ppat_var (mk_sym ("constant " ^ func_name)))
     | _ ->
@@ -249,45 +268,43 @@ let build_binding module_name name return_type parameters : structure_item =
   in
   mk_decl p e
 
-let mk_enum_tags name tags =
+let mk_enum_tags m name tags =
   let rec mk_tags n tags =
     match tags with
     | [] -> []
     | t :: ts ->
-      let tag_name = String.concat "_" [mk_unqual_name name; t] in
+      let tag_name = String.concat "_" [mk_unqual_name m name; t] in
       (mk_simple_app_decl tag_name None "Unsigned.UInt8.of_int"
          [Exp.constant (Const.int n)]) :: (mk_tags (n+1) ts)
   in
   mk_tags 0 tags
 
-let mk_ctypes_decl modules bundle_name (d: decl): structure =
+let mk_ctypes_decl m modules bundle_name (d: decl): structure =
   match d with
   | Function (_, _, return_type, name, parameters, _) ->
       (* Don't generate bindings for projectors and internal names *)
       let module_name = Idents.module_name (Hashtbl.find modules name) in
-      if not (KString.starts_with name (module_name ^ "___proj__")) &&
-         not (KString.starts_with name (module_name ^ "_uu___")) &&
-         not (KString.starts_with name "__proj__") &&
-         not (KString.starts_with name "uu___") then
-        [build_binding module_name name return_type parameters]
+      if not (KString.starts_with (snd name) "__proj__") &&
+         not (KString.starts_with (snd name) "uu___") then
+        [build_binding m module_name name return_type parameters]
       else
         []
   | Type (name, typ, _) -> begin
       match typ with
-      | Struct fields  -> mk_struct_decl Struct bundle_name name fields
+      | Struct fields  -> mk_struct_decl m Struct bundle_name name fields
       | Enum tags ->
-        (mk_typedef bundle_name name (Int Constant.UInt8)) @ (mk_enum_tags name tags)
-      | Qualified t -> mk_typedef bundle_name name (Qualified t)
+        (mk_typedef m bundle_name name (Int Constant.UInt8)) @ (mk_enum_tags m name tags)
+      | Qualified t -> mk_typedef m bundle_name name (Qualified t)
       | _ -> []
       end
   | Global (name, _, _, typ, _) -> begin
       match typ with
       | Function _ ->
-        [mk_extern_decl bundle_name name "foreign" typ]
+        [mk_extern_decl m bundle_name name "foreign" typ]
       | Pointer _ ->
-        Warn.(maybe_fatal_error (name, Warn.DropCtypesDeclaration "extern *"));
+        Warn.(maybe_fatal_error (GlobalNames.to_c_name m name, Warn.DropCtypesDeclaration "extern *"));
         []
-      | _ -> [mk_extern_decl bundle_name name "foreign_value" typ]
+      | _ -> [mk_extern_decl m bundle_name name "foreign_value" typ]
       end
   | External _
   | TypeForward _ -> []
@@ -301,13 +318,13 @@ type bind_decl =
   | Unsupported
 
 let should_bind_decl = Hashtbl.create 20
-let mk_ocaml_bind modules bundle_name deps decls =
+let mk_ocaml_bind m modules bundle_name deps decls =
   let decls = List.filter (fun x ->
-      match Hashtbl.find_opt should_bind_decl (CStar.ident_of_decl x) with
+      match Hashtbl.find_opt should_bind_decl (CStar.lid_of_decl x) with
         | Some (Bind true) -> true
         |_ -> false) decls in
   let decls = KList.map_flatten
-    (if_not_private (mk_ctypes_decl modules bundle_name)) decls
+    (if_not_private (mk_ctypes_decl m modules bundle_name)) decls
   in
   if not (KList.is_empty decls) then
     let open_f = Str.open_ (Opn.mk ?override:(Some Fresh) (mk_ident "F")) in
@@ -319,8 +336,8 @@ let mk_ocaml_bind modules bundle_name deps decls =
   else
     None
 
-let build_module modules (bundle_name: ident) deps program: structure option =
-  let modul = mk_ocaml_bind modules bundle_name deps program in
+let build_module modules m (bundle_name: ident) deps program: structure option =
+  let modul = mk_ocaml_bind m modules bundle_name deps program in
   let open_decls = List.map (fun m ->
     Str.open_ (Opn.mk ?override:(Some Fresh) (mk_ident m))) ["Ctypes"] in
   Option.map (fun m -> open_decls @ [m]) modul
@@ -348,13 +365,13 @@ let match_decl_with_types (d: decl) f default =
   | External _
   | TypeForward _ -> default
 
-let prune_unsupported_decls files =
+let prune_unsupported_decls m files =
   let finished = ref false in
   let check_decl name qts =
     if Hashtbl.find should_bind_decl name = Bind true then
       if List.exists (fun x -> Hashtbl.find should_bind_decl x = Unsupported) qts then begin
         Hashtbl.replace should_bind_decl name Unsupported;
-        Warn.(maybe_fatal_error (name, Warn.ExternalTypeApp ([], "")));
+        Warn.(maybe_fatal_error (GlobalNames.to_c_name m name, Warn.ExternalTypeApp ([], "")));
         finished := false
       end
   in
@@ -397,7 +414,7 @@ let bundle_of_decl = Hashtbl.create 20
 
 let mk_ocaml_bindings
   (files : (ident * string list * decl list) list)
-  (modules : (Ast.ident, Ast.lident) Hashtbl.t) :
+  (m : (Ast.lident, Ast.ident) Hashtbl.t) :
   (string * string list * structure_item list) list =
 
   let rec compute_bundles files modules =
@@ -458,7 +475,7 @@ let mk_ocaml_bindings
   let compute_dependencies files modules =
     let bind_decls name qts =
       if Hashtbl.find should_bind_decl name = Bind true then begin
-        let is_supported = List.fold_left (fun x y -> x && (check_bindable_type name y)) true qts in
+        let is_supported = List.fold_left (fun x y -> x && (check_bindable_type m name y)) true qts in
         if is_supported then begin
           List.iter (fun x -> Hashtbl.replace should_bind_decl x (Bind true)) qts;
           List.map (fun x -> find_type bundle_of_decl x "" name) qts
@@ -479,7 +496,7 @@ let mk_ocaml_bindings
     in
     let files = compute_dependency (List.rev files) modules in
     if !unsupported_types then
-      prune_unsupported_decls (List.rev files);
+      prune_unsupported_decls m (List.rev files);
     files
   in
 
@@ -493,14 +510,15 @@ let mk_ocaml_bindings
   if KList.is_empty !Options.ctypes then
     []
   else begin
-    let module_names = List.map Idents.module_name (Utils.hashtbl_values_to_list modules) in
+    let module_names = List.map Idents.module_name (Hashtbl.fold (fun k _ acc -> k :: acc) m []) in
     (* Check that all modules passed to -ctypes are valid F* modules *)
     List.iter (fun p ->
       if not (List.exists (fun m -> Bundle.pattern_matches p m) module_names) then
         Warn.fatal_error "Module %s passed to -ctypes is not one of the F* modules passed to Kremlin" (Bundle.string_of_pattern p)
       ) !Options.ctypes;
-    let () = compute_bindings files modules in
-    let files = List.rev (compute_dependencies files modules) in
+    (* JP: why the second parameter here when m is already in scope? *)
+    let () = compute_bindings files m in
+    let files = List.rev (compute_dependencies files m) in
 
     let rec build_modules files modules_acc =
       match files with

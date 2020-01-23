@@ -10,6 +10,14 @@ open PrintAst.Ops
 
 type t = (lident, string) Hashtbl.t * (string, unit) Hashtbl.t
 
+let dump (env: t) =
+  Hashtbl.iter (fun lident c_name ->
+    KPrint.bprintf "%a --> %s\n" plid lident c_name
+  ) (fst env);
+  Hashtbl.iter (fun c_name _ ->
+    KPrint.bprintf "%s is used\n" c_name
+  ) (snd env)
+
 let reserve_keywords used_c_names =
   let keywords = [
     "_Alignas";
@@ -137,6 +145,8 @@ let create () =
   c_of_original, used_c_names
 
 let extend (global: t) (local: t) is_local original_name desired_name =
+  KPrint.bprintf "Adding %a --> %s (%s)\n"
+    plid original_name desired_name (if is_local then "local" else "global");
   let c_of_original, g_used_c_names = global in
   let _, l_used_c_names = local in
   if Hashtbl.mem c_of_original original_name then
@@ -159,10 +169,19 @@ let clone (env: t) =
   let c_of_original, used_c_names = env in
   Hashtbl.copy c_of_original, Hashtbl.copy used_c_names
 
-let dump (env: t) =
-  Hashtbl.iter (fun lident c_name ->
-    KPrint.bprintf "%a --> %s\n" plid lident c_name
-  ) (fst env);
-  Hashtbl.iter (fun c_name _ ->
-    KPrint.bprintf "%s is used\n" c_name
-  ) (snd env)
+let mapping = fst
+
+let target_c_name lident attempt_shortening =
+  if skip_prefix (fst lident) && not (ineligible lident) then
+    snd lident
+  else if attempt_shortening && not (ineligible lident) && snd lident <> "main" then
+    snd lident
+  else
+    string_of_lident lident
+
+let to_c_name m lid =
+  try
+    Hashtbl.find m lid
+  with Not_found ->
+    Idents.to_c_identifier (GlobalNames.target_c_name lid false)
+

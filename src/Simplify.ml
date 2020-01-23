@@ -6,7 +6,6 @@
 
 open Ast
 open DeBruijn
-open Idents
 open Warn
 open PrintAst.Ops
 open Helpers
@@ -1082,14 +1081,6 @@ let ineligible lident =
     ["LowStar"; "Monotonic"; "Buffer"]
   ]
 
-let target_c_name lident is_private_scope =
-  if skip_prefix (fst lident) && not (ineligible lident) then
-    snd lident
-  else if is_private_scope && not (ineligible lident) && snd lident <> "main" then
-    snd lident
-  else
-    string_of_lident lident
-
 (* A reverse map whose domain is all the top-level declarations that end up
  * in a .h file. Notably, private functions are absent from the map. *)
 let original_of_c_name: (ident, lident) Hashtbl.t = Hashtbl.create 43
@@ -1106,15 +1097,13 @@ class scope_helpers = object (self)
     let is_private = self#is_private_scope flags lident in
     let local_scope = Hashtbl.find local_scopes current_file in
     let attempt_shortening = is_private && not is_external in
-    let target = target_c_name lident attempt_shortening in
+    KPrint.bprintf "record %a: \n  \
+      is_private? %b\n  \
+      is_external? %b\n" plid lident is_private is_external;
+    let target = GlobalNames.target_c_name lident attempt_shortening in
     let c_name = GlobalNames.extend global_scope local_scope is_private lident target in
-    if not (self#is_private_scope flags lident) then
+    if not is_private then
       Hashtbl.add original_of_c_name c_name lident
-
-  method private recall (global_scope, _) lident =
-    match GlobalNames.lookup global_scope lident with
-    | Some name -> [], name
-    | None -> [], to_c_identifier (target_c_name lident false)
 end
 
 let record_toplevel_names = object (self)
@@ -1147,21 +1136,6 @@ let record_toplevel_names = object (self)
     | Enum lids -> List.iter (self#record env false flags) lids
     | Forward -> Hashtbl.add forward name ()
     | _ -> ()
-end
-
-(* Has to be done in two passes, because of mutual recursion. *)
-
-let replace_references_to_toplevel_names env = object (self)
-  inherit scope_helpers
-  inherit [_] map as super
-
-  (* Every file gets a fresh local scope. This is after bundling. *)
-  method! visit_file (env: scope_env) f =
-    current_file <- fst f;
-    super#visit_file env f
-
-  method! visit_lident _ lident =
-    self#recall env lident
 end
 
 
@@ -1627,20 +1601,19 @@ let remove_unused (files: file list): file list =
 let debug env =
   KPrint.bprintf "Global scope:\n";
   GlobalNames.dump (fst env);
-  KPrint.bprintf "\n";
+  KPrint.bprintf "\n\n";
   Hashtbl.iter (fun f s ->
     KPrint.bprintf "%s scope:\n" f;
     GlobalNames.dump s;
-    KPrint.bprintf "\n"
-  ) (snd env)
+    KPrint.bprintf "\n\n"
+  ) (snd env);
+  KPrint.bprintf "Reverse-map:\n";
+  Hashtbl.iter (fun c_name original ->
+    KPrint.bprintf "C name %s was %a\n" c_name plid original
+  ) original_of_c_name
 
-(* Allocate C names avoiding keywords and name collisions. This should be done
- * as the last operations, otherwise, any table for memoization suddenly becomes
- * invalid. *)
-let to_c_names (files: file list): file list * (ident, lident) Hashtbl.t =
+(* Allocate C names avoiding keywords and name collisions. *)
+let to_c_names (files: file list): (lident, ident) Hashtbl.t =
   let env = GlobalNames.create (), Hashtbl.create 41 in
   record_toplevel_names#visit_files env files;
-
-  let files = (replace_references_to_toplevel_names env)#visit_files env files in
-  files, original_of_c_name
-
+  GlobalNames.mapping (fst env)

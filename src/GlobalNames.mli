@@ -3,6 +3,8 @@
 
 type t
 
+type mapping = (Ast.lident, Ast.ident) Hashtbl.t
+
 (** Allocate a new (mutable) table for a given C scope of top-level declarations. *)
 val create: unit -> t
 
@@ -14,6 +16,12 @@ val extend: t -> t -> bool -> Ast.lident -> string -> string
 (** `lookup t name fallback` recalls the C name associated to `name` in `t`. *)
 val lookup: t -> Ast.lident -> string option
 
+val mapping: t -> mapping
+
 val dump: t -> unit
 
 val clone: t -> t
+
+val target_c_name: Ast.lident -> bool -> string
+
+val to_c_name: mapping -> Ast.lident -> string
