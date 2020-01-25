@@ -313,19 +313,8 @@ let mk_include name =
   let module_name = Mod.apply (Mod.ident (mk_ident (name ^ "_bindings.Bindings"))) (Mod.ident (mk_ident (name ^ "_stubs"))) in
   Str.include_ (Incl.mk module_name)
 
-type bind_decl =
-  | Bind of bool
-  | Unsupported
-
-let should_bind_decl = Hashtbl.create 20
 let mk_ocaml_bind m modules bundle_name deps decls =
-  let decls = List.filter (fun x ->
-      match Hashtbl.find_opt should_bind_decl (CStar.lid_of_decl x) with
-        | Some (Bind true) -> true
-        |_ -> false) decls in
-  let decls = KList.map_flatten
-    (if_not_private (mk_ctypes_decl m modules bundle_name)) decls
-  in
+  let decls = KList.map_flatten (mk_ctypes_decl m modules bundle_name) decls in
   if not (KList.is_empty decls) then
     let open_f = Str.open_ (Opn.mk ?override:(Some Fresh) (mk_ident "F")) in
     let includes = List.map mk_include deps in
@@ -342,197 +331,23 @@ let build_module modules m (bundle_name: ident) deps program: structure option =
     Str.open_ (Opn.mk ?override:(Some Fresh) (mk_ident m))) ["Ctypes"] in
   Option.map (fun m -> open_decls @ [m]) modul
 
+(* We now need to compute which declarations will be bound, and in the process:
+ * - generate declarations for all the types that are reachable through said
+ *   declarations, and
+ * - compute transitive dependencies for the sake of generating include OCaml
+ *   statements. *)
 
-(* functions for matching on a relevant decl and using either its name or its name and the types in
- * its signature *)
-let match_decl (d: decl) f_fun f_types default =
-  match (d: decl) with
-  | Function (_,_,_,name,_,_)
-  | Global (name,_,_,_,_) -> f_fun name
-  | Type (name,_,_) -> f_types name
-  | External _
-  | TypeForward _ -> default
-
-let match_decl_with_types (d: decl) f default =
-  match (d: decl) with
-  | Function (_,_,typ,name,binders,_) ->
-    let qts = KList.map_flatten get_qualified_types (typ :: (List.map (fun x -> x.typ) binders)) in
-    f name qts
-  | Global (name,_,_,typ,_)
-  | Type (name,typ,_) ->
-    let qts = get_qualified_types typ in
-    f name qts
-  | External _
-  | TypeForward _ -> default
-
-let prune_unsupported_decls m files =
-  let finished = ref false in
-  let check_decl name qts =
-    if Hashtbl.find should_bind_decl name = Bind true then
-      if List.exists (fun x -> Hashtbl.find should_bind_decl x = Unsupported) qts then begin
-        Hashtbl.replace should_bind_decl name Unsupported;
-        Warn.(maybe_fatal_error (GlobalNames.to_c_name m name, Warn.ExternalTypeApp ([], "")));
-        finished := false
-      end
-  in
-  let rec prune_loop files =
-    match files with
-    | [] -> ()
-    | (_, _, f_decls)::fs -> begin
-      List.iter (fun d -> match_decl_with_types d check_decl ()) f_decls;
-      prune_loop fs
-    end
-  in
-  while not !finished do
-    finished := true;
-    prune_loop files
-  done
-
-
-(* Given a list of bundles, their dependencies and the declaratons they contain (`files`) and
- * a table of declarations and the F* module they originate from (`modules`), we need to decide
- * the subset of declarations for which a binding will be generated. These are:
- *   1) Every delcaration from a module which is passed to the `-ctypes` option.
- *   2) Every type declaration from bundles which include a module passed to the `-ctypes` option.
- *   3) Every other type declaration which is used in one of the declarations for which we generate a binding.
- * This is done in 3 corresponding passes:
- *   1) `compute_bundles` goes over each bundle and includes it in the list of bundles for which
- *      bindings will be generated if it contains any declarations originally from modules passed to `-ctypes`
- *   2) `compute_bindings` goes over each bundle and builds a table of declarations (`should_bind_decl`) according to
-       criteria (1) and (2) above
- *   3) `compute_dependencies` goes over each bundle and computes, for each declaration marked in the second pass,
- *     the set of types on which it depends. These types are also marked. Since the list of bundles (but not the modules
- *     within each bundle!) is topologically sorted, it is processed here in reverse order.
- *
- * `compute_dependencies` also checks if a declaration depends on an unsupported type. In this case, it is marked as
- * Unsupported in `should_bind_decl` and will not have bindings generated for it. A `prune_unsupported_decls` pass
- * is then made to prune every declaration that depends on an unsupported declaration, until convergence.
-*)
-let direct_deps = Hashtbl.create 20
-let transitive_deps = Hashtbl.create 20
-let bundle_of_decl = Hashtbl.create 20
-
+(* We receive
+ * - a list of: a file name, file along with its transitive dependencies (as C
+ *   file names), and corresponding Cstar declarations;
+ * - a translation map for name resolution.
+ * We return the filtered transitive dependencies, keeping only those for which
+ * OCaml code was generated, along with OCaml declarations. *)
 let mk_ocaml_bindings
   (files : (ident * string list * decl list) list)
   (m : (Ast.lident, Ast.ident) Hashtbl.t) :
-  (string * string list * structure_item list) list =
-
-  let rec compute_bundles files modules =
-    let bind_bundle b name =
-      match Hashtbl.find_opt modules name with
-      | Some decl_module ->
-        let decl_module_name = Idents.module_name decl_module in
-        b || List.exists (fun p -> Bundle.pattern_matches p decl_module_name) !Options.ctypes
-      | None -> false
-    in
-    match files with
-    | [] -> []
-    | (f_name, _, f_decls)::fs -> begin
-       let is_extracted_bundle = List.fold_left (fun b d ->
-         match_decl d (bind_bundle b) (bind_bundle b) false) false f_decls
-       in
-       if is_extracted_bundle then
-          f_name::(compute_bundles fs modules)
-        else
-          compute_bundles fs modules
-     end
-  in
-
-  let compute_bindings files modules =
-    let bundles = compute_bundles files modules in
-    let bind_fun f_name name =
-      match Hashtbl.find_opt modules name with
-      | Some decl_module ->
-        let decl_module_name = Idents.module_name decl_module in
-        Hashtbl.add bundle_of_decl name f_name;
-        Hashtbl.add should_bind_decl name
-          (Bind (List.exists (fun p -> Bundle.pattern_matches p decl_module_name) !Options.ctypes))
-      | None ->
-        Hashtbl.add should_bind_decl name (Bind false)
-    in
-    let bind_type f_name name =
-      match Hashtbl.find_opt modules name with
-      | Some decl_module ->
-        let decl_module_name = Idents.module_name decl_module in
-        Hashtbl.add bundle_of_decl name f_name;
-        Hashtbl.add should_bind_decl name
-          (Bind (List.exists (fun p -> Bundle.pattern_matches p decl_module_name) !Options.ctypes ||
-                 List.mem f_name bundles))
-      | None ->
-        Hashtbl.add should_bind_decl name (Bind false)
-    in
-    let rec compute_bundle files =
-      match files with
-      | [] -> ()
-      | (f_name, _, f_decls)::fs -> begin
-          List.iter (fun d -> match_decl d (bind_fun f_name) (bind_type f_name) ()) f_decls;
-          compute_bundle fs
-        end
-    in
-    compute_bundle files
-  in
-
-  let compute_dependencies files modules =
-    let bind_decls name qts =
-      if Hashtbl.find should_bind_decl name = Bind true then begin
-        let is_supported = List.fold_left (fun x y -> x && (check_bindable_type m name y)) true qts in
-        if is_supported then begin
-          List.iter (fun x -> Hashtbl.replace should_bind_decl x (Bind true)) qts;
-          List.map (fun x -> find_type bundle_of_decl x "" name) qts
-        end else begin
-          Hashtbl.replace should_bind_decl name Unsupported;
-          []
-        end
-      end else
-        []
-    in
-    let rec compute_dependency files decls =
-      match files with
-      | [] -> []
-      | (f_name, f_deps, f_decls)::fs ->
-          let deps = KList.map_flatten (fun d -> match_decl_with_types d bind_decls []) f_decls in
-          let f_deps = List.filter (fun x -> List.mem x deps) f_deps in
-          (f_name, f_deps, f_decls)::(compute_dependency fs decls)
-    in
-    let files = compute_dependency (List.rev files) modules in
-    if !unsupported_types then
-      prune_unsupported_decls m (List.rev files);
-    files
-  in
-
-  let compute_transitive_deps name deps =
-    let tds = KList.map_flatten (fun x -> (Hashtbl.find direct_deps x) @ (Hashtbl.find transitive_deps x)) deps in
-    Hashtbl.add direct_deps name deps;
-    Hashtbl.add transitive_deps name tds;
-    List.filter (fun x -> not (List.mem x tds)) deps
-  in
-
-  if KList.is_empty !Options.ctypes then
-    []
-  else begin
-    let module_names = List.map Idents.module_name (Hashtbl.fold (fun k _ acc -> k :: acc) m []) in
-    (* Check that all modules passed to -ctypes are valid F* modules *)
-    List.iter (fun p ->
-      if not (List.exists (fun m -> Bundle.pattern_matches p m) module_names) then
-        Warn.fatal_error "Module %s passed to -ctypes is not one of the F* modules passed to Kremlin" (Bundle.string_of_pattern p)
-      ) !Options.ctypes;
-    (* JP: why the second parameter here when m is already in scope? *)
-    let () = compute_bindings files m in
-    let files = List.rev (compute_dependencies files m) in
-
-    let rec build_modules files modules_acc =
-      match files with
-      | [] -> modules_acc
-      | (name, deps, program) :: fs -> begin
-          let trans_deps = compute_transitive_deps name deps in
-          match build_module modules name trans_deps program with
-          | Some m -> build_modules fs ((name, deps, m) :: modules_acc)
-          | None -> build_modules fs modules_acc
-        end
-    in
-    build_modules files []
-  end
-
+  (string * string list * structure_item list) list
+=
 
 let mk_gen_decls module_name =
   let mk_out_channel n =
