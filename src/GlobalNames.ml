@@ -8,7 +8,8 @@ open Idents
 open Ast
 open PrintAst.Ops
 
-type t = (lident, string) Hashtbl.t * (string, unit) Hashtbl.t
+type mapping = (lident, string) Hashtbl.t
+type t = mapping * (string, unit) Hashtbl.t
 
 let dump (env: t) =
   Hashtbl.iter (fun lident c_name ->
@@ -171,6 +172,21 @@ let clone (env: t) =
 
 let mapping = fst
 
+let skip_prefix prefix =
+  List.exists (fun p -> Bundle.pattern_matches p (String.concat "_" prefix)) !Options.no_prefix
+
+(* Because of dedicated treatment in CStarToC11 *)
+let ineligible lident =
+  List.mem (fst lident) [
+    ["FStar"; "UInt128"];
+    ["C"; "Nullity"];
+    ["C"; "String"];
+    ["C"; "Compat"; "String"];
+    ["LowStar"; "BufferOps"];
+    ["LowStar"; "Buffer"];
+    ["LowStar"; "Monotonic"; "Buffer"]
+  ]
+
 let target_c_name lident attempt_shortening =
   if skip_prefix (fst lident) && not (ineligible lident) then
     snd lident
@@ -183,5 +199,5 @@ let to_c_name m lid =
   try
     Hashtbl.find m lid
   with Not_found ->
-    Idents.to_c_identifier (GlobalNames.target_c_name lid false)
+    Idents.to_c_identifier (target_c_name lid false)
 

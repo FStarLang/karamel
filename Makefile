@@ -6,7 +6,7 @@ include $(shell ocamlfind query visitors)/Makefile.preprocess
 OCAMLBUILD=ocamlbuild -I src -I lib -I parser -I kremlib -use-menhir -use-ocamlfind -classic-display \
  -menhir "menhir --infer --explain"
 FLAVOR?=native
-TARGETS=Kremlin.$(FLAVOR) Tests.$(FLAVOR)
+TARGETS=Kremlin.$(FLAVOR)
 EXTRA_TARGETS=Ast.inferred.mli kremlib/C.cmx kremlib/TestLib.cmx kremlib/C.cmo kremlib/TestLib.cmo
 
 ifeq ($(OS),Windows_NT)
@@ -20,7 +20,7 @@ all: minimal pre kremlib
 
 minimal: src/AutoConfig.ml
 	@# Workaround Windows bug in OCamlbuild
-	$(shell [ -f Kremlin.$(FLAVOR) ] && rm Kremlin.$(FLAVOR); [ -f Tests.$(FLAVOR) ] && rm Tests.$(FLAVOR))
+	$(shell [ -f Kremlin.$(FLAVOR) ] && rm Kremlin.$(FLAVOR))
 	$(OCAMLBUILD) $(TARGETS)
 	ln -sf Kremlin.$(FLAVOR) krml
 
@@ -41,12 +41,11 @@ src/AutoConfig.ml:
 	fi
 
 clean:
-	rm -rf krml _build Tests.$(FLAVOR) Kremlin.$(FLAVOR)
+	rm -rf krml _build Kremlin.$(FLAVOR)
 	make -C test clean
 	make -C kremlib clean
 
 test: all
-	./Tests.native
 	+make -C test
 
 # Auto-detection

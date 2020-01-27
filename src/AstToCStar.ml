@@ -768,10 +768,8 @@ and mk_program name env decls =
           (Printexc.to_string e)
   ) decls
 
-and mk_files files ifdefs macros =
+and mk_files files file_of ifdefs macros =
   let env = { empty with ifdefs; macros } in
-  (* Construct the mapping needed to get direct dependencies *)
-  let file_of = Bundle.mk_file_of files in
   List.map (fun file ->
     let deps = 
       Hashtbl.fold (fun k _ acc -> k :: acc) (Bundles.direct_dependencies file_of file) []

@@ -1066,21 +1066,6 @@ end
 
 (* Make top-level names C-compatible using a global translation table **********)
 
-let skip_prefix prefix =
-  List.exists (fun p -> Bundle.pattern_matches p (String.concat "_" prefix)) !Options.no_prefix
-
-(* Because of dedicated treatment in CStarToC11 *)
-let ineligible lident =
-  List.mem (fst lident) [
-    ["FStar"; "UInt128"];
-    ["C"; "Nullity"];
-    ["C"; "String"];
-    ["C"; "Compat"; "String"];
-    ["LowStar"; "BufferOps"];
-    ["LowStar"; "Buffer"];
-    ["LowStar"; "Monotonic"; "Buffer"]
-  ]
-
 (* A reverse map whose domain is all the top-level declarations that end up
  * in a .h file. Notably, private functions are absent from the map. *)
 let original_of_c_name: (ident, lident) Hashtbl.t = Hashtbl.create 43
@@ -1613,7 +1598,7 @@ let debug env =
   ) original_of_c_name
 
 (* Allocate C names avoiding keywords and name collisions. *)
-let to_c_names (files: file list): (lident, ident) Hashtbl.t =
+let allocate_c_names (files: file list): (lident, ident) Hashtbl.t =
   let env = GlobalNames.create (), Hashtbl.create 41 in
   record_toplevel_names#visit_files env files;
   GlobalNames.mapping (fst env)
