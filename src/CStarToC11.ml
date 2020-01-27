@@ -990,6 +990,7 @@ and mk_expr m (e: expr): C.expr =
 
 
 and mk_compound_literal m name fields =
+  let name = to_c_name m name in
   (* TODO really properly specify C's type_name! *)
   CompoundLiteral (([], Named name, Ident ""), fields_as_initializer_list m fields)
 

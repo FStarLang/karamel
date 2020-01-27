@@ -62,7 +62,7 @@ and expr =
   | Cast of expr * typ
     (** to *)
   | Bool of bool
-  | Struct of ident option * (ident option * expr) list
+  | Struct of lident option * (ident option * expr) list
     (** Some invariants. A struct can appear in an expression (and comes with
      * the name of the corresponding type definition), or within a struct (will
      * be translated as an initializer list) and may not have a type annotation
