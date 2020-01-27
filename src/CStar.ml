@@ -52,6 +52,7 @@ and expr =
     (** First expression has to be a [Qualified] or an [Op]. *)
   | Var of ident
   | Qualified of lident
+  | Macro of lident
   | Constant of K.t
   | BufCreate of lifetime * expr * expr
     (** initial value, length *)

@@ -1,7 +1,3 @@
-### Jan 27th, 2020
-
-- Breaking change: macros no longer observe -no-prefix.
-
 ### Jan 13th, 2020
 
 - New *experimental* option: `-fmerge`, to merge variables, i.e. reuse existing

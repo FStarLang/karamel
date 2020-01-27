@@ -260,6 +260,8 @@ let rec vars_of m = function
       S.singleton v
   | CStar.Qualified v ->
       S.singleton (to_c_name m v)
+  | CStar.Macro v ->
+      S.singleton (String.uppercase (to_c_name m v))
   | CStar.Constant _
   | CStar.Bool _
   | CStar.StringLiteral _
@@ -937,6 +939,9 @@ and mk_expr m (e: expr): C.expr =
 
   | Qualified ident ->
       Name (to_c_name m ident)
+
+  | Macro ident ->
+      Name (String.uppercase (to_c_name m ident))
 
   | Constant (w, c) ->
       Cast (([], Int w, Ident ""), Constant (w, c))

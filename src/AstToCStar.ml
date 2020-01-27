@@ -200,7 +200,7 @@ let rec mk_expr env in_stmt e =
       if LidSet.mem lident env.ifdefs then
         Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, IfDef lident));
       if LidSet.mem lident env.macros then
-        CStar.Var (String.uppercase (string_of_lident lident))
+        CStar.Macro lident
       else
         CStar.Qualified lident
   | EConstant c ->
@@ -572,7 +572,7 @@ and mk_stmts env e ret_type =
   and mk_ifcond env e =
     match e.node with
     | EQualified name when LidSet.mem name env.ifdefs ->
-        CStar.Var (String.uppercase (string_of_lident name))
+        CStar.Macro name
     | EApp ({ node = EOp ((K.And | K.Or) as o, K.Bool); _ }, [ e1; e2 ]) ->
         CStar.Call (CStar.Op (o, K.Bool), [ mk_ifcond env e1; mk_ifcond env e2 ])
     | _ ->
