@@ -270,7 +270,8 @@ let mk_ctypes_decl m (d: decl): structure =
       match typ with
       | Struct fields  -> mk_struct_decl m Struct name fields
       | Enum tags ->
-        (mk_typedef m name (Int Constant.UInt8)) @ (mk_enum_tags m name tags)
+          let tags = List.map (GlobalNames.to_c_name m) tags in
+          (mk_typedef m name (Int Constant.UInt8)) @ (mk_enum_tags m name tags)
       | Qualified t -> mk_typedef m name (Qualified t)
       | _ -> []
       end

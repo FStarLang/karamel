@@ -37,7 +37,7 @@ and stmt =
      * iteration expression. *)
   | Assign of expr * typ * expr
     (** Destination (i.e. Var), Source *)
-  | Switch of expr * ([`Ident of ident | `Int of K.t] * block) list * block option
+  | Switch of expr * ([`Ident of lident | `Int of K.t] * block) list * block option
   | BufWrite of expr * expr * expr
     (** First expression has to be a [Bound] or [Open]. *)
   | BufBlit of expr * expr * expr * expr * expr
@@ -111,7 +111,7 @@ and typ =
   | Bool
   | Struct of (ident option * typ) list
       (** In support of anonymous unions. *)
-  | Enum of ident list
+  | Enum of lident list
   | Union of (ident * typ) list
   | Const of typ
       (* note: when we have restrict, or MinLength, extend this to be a

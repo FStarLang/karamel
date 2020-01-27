@@ -465,7 +465,7 @@ and mk_stmts env e ret_type =
           List.map (fun (lid, e) ->
             (match lid with
             | SConstant k -> `Int k
-            | SEnum lid -> `Ident (string_of_lident lid)
+            | SEnum lid -> `Ident lid
             | _ -> failwith "impossible"),
             mk_block env return_pos e
           ) branches, default) :: acc
@@ -742,7 +742,7 @@ and mk_type_def env d: CStar.typ =
       failwith "Variant should've been desugared at this stage"
 
   | Enum tags ->
-      CStar.Enum (List.map string_of_lident tags)
+      CStar.Enum tags
 
   | Union fields ->
       CStar.Union (List.map (fun (f, t) ->

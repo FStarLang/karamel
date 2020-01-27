@@ -362,6 +362,7 @@ let rec mk_spec_and_decl m name qs (t: typ) (k: C.declarator -> C.declarator):
   | Qualified l ->
       qs, Named (mk_pretty_type (to_c_name m l)), k (Ident name)
   | Enum tags ->
+      let tags = List.map (to_c_name m) tags in
       qs, Enum (None, tags), k (Ident name)
   | Bool ->
       qs, Named "bool", k (Ident name)
@@ -747,7 +748,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
           mk_expr m e,
           List.map (fun (ident, block) ->
             (match ident with
-            | `Ident ident -> Name ident
+            | `Ident ident -> Name (to_c_name m ident)
             | `Int k -> Constant k),
             let block = mk_stmts m block in
             if List.length block > 0 then
@@ -1170,6 +1171,7 @@ let mk_type_or_external m (w: where) (d: decl): C.declaration_or_function list =
               else
                 failwith (KPrint.bsprintf "Too many cases for enum %s" name)
             in
+            let cases = List.map (to_c_name m) cases in
             wrap_verbatim name flags (Text (enum_as_macros cases)) @
             let qs, spec, decl = mk_spec_and_declarator_t m name (Int t) in
             [ Decl ([], (qs, spec, false, Some Typedef, [ decl, None ]))]
