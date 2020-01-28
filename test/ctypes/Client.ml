@@ -55,11 +55,11 @@ let _ =
   
   let arg = Unsigned.UInt32.of_int 6 in
   let f = replicate arg in
-  assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_fst = arg);
-  assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_snd = arg);
-  assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_thd = arg);
-  assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_f3 = arg);
-  assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_f4 = arg);
+  assert (getf f t___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_fst = arg);
+  assert (getf f t___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_snd = arg);
+  assert (getf f t___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_thd = arg);
+  assert (getf f t___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_f3 = arg);
+  assert (getf f t___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_f4 = arg);
   
   let n = make int_opt in
   setf n int_opt_tag int_opt_tags_IntSome;
