@@ -135,3 +135,33 @@ let flags_of_decl (d: decl): Common.flag list =
   | TypeForward (_, flags)
   | External (_, _, flags, _) ->
       flags
+
+(* An ad-hoc iterator for the C* equivalent of TQualified *)
+let rec iter_typ f: typ -> unit = function
+  | Qualified l -> f l
+  | Function (_, return_type, parameters) ->
+      List.iter (iter_typ f) (return_type :: parameters)
+  | Union l ->
+      List.iter (fun x -> iter_typ f (snd x)) l
+  | Struct l ->
+      List.iter (fun x -> iter_typ f (snd x)) l
+  | Pointer t
+  | Array (t, _)
+  | Const t ->
+      iter_typ f t
+  | Enum _
+  | Int _
+  | Void
+  | Bool ->
+      ()
+
+let iter_decl f = function
+  | Global (_, _, _, t, _) ->
+      iter_typ f t
+  | Function (_, _, t, _, bs, _) ->
+      iter_typ f t;
+      List.iter (fun b -> iter_typ f b.typ) bs
+  | Type (_, t, _) ->
+      iter_typ f t
+  | _ ->
+      ()
