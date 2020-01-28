@@ -395,12 +395,10 @@ let mk_ocaml_bindings
     Hashtbl.replace ocaml_deps source (remove_duplicates (curr @ lids))
   in
 
-  (** Sanity check: no superfluous arguments to -ctypes *)
-  List.iter (fun p ->
-    if not (List.exists (fun (name, _, _) -> Bundle.pattern_matches p name) files) then
-      Warn.fatal_error "Pattern %s was passed to -ctypes but no source module matches"
-        (Bundle.string_of_pattern p);
-  ) !Options.ctypes;
+  (** Files for which we have successfully emitted declarations. *)
+  let ocaml_files = ref [] in
+
+  let ocaml_file lid = ocaml_files := String.concat "_" (fst lid) :: !ocaml_files in
 
   (** First phase: generate OCaml bindings for all the declarations that need it. The
    * syntactic generation of binding code (the various `mk_*`) is not recursive,
@@ -442,6 +440,7 @@ let mk_ocaml_bindings
                * dependencies for later. *)
               ocaml_add lid (mk_ctypes_decl m d);
               ocaml_dep lid (List.rev !lids);
+              ocaml_file lid;
               true
           end
       | None ->
@@ -461,6 +460,13 @@ let mk_ocaml_bindings
         ignore (iter_lid [] lid)
     ) decls
   ) files;
+
+  (* Sanity check: no superfluous arguments to -ctypes *)
+  List.iter (fun p ->
+    if not (List.exists (Bundle.pattern_matches p) !ocaml_files) then
+      Warn.fatal_error "Pattern %s was passed to -ctypes but no source module matches"
+        (Bundle.string_of_pattern p);
+  ) !Options.ctypes;
 
   (** In a second phase, we need to compute transitive dependencies for
    * generating the ctypes.depend file. *)
