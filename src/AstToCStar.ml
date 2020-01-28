@@ -28,14 +28,17 @@ open PrintAst.Ops
 open Helpers
 
 module C = Checker
-module StringSet = Set.Make(String)
+module LidSet = Set.Make(struct
+  type t = lident
+  let compare = compare
+end)
 
 type env = {
   location: loc list;
   names: ident list;
   in_block: ident list;
-  ifdefs: StringSet.t;
-  macros: StringSet.t;
+  ifdefs: LidSet.t;
+  macros: LidSet.t;
 }
 
 let locate env loc =
@@ -45,8 +48,8 @@ let empty: env = {
   names = [];
   in_block = [];
   location = [];
-  ifdefs = StringSet.empty;
-  macros = StringSet.empty;
+  ifdefs = LidSet.empty;
+  macros = LidSet.empty;
 }
 
 let reset_block env = {
@@ -192,15 +195,14 @@ let rec mk_expr env in_stmt e =
   | EBound var ->
       CStar.Var (find env var)
   | EEnum lident ->
-      CStar.Qualified (string_of_lident lident)
+      CStar.Qualified lident
   | EQualified lident ->
-      let name = string_of_lident lident in
-      if StringSet.mem name env.ifdefs then
+      if LidSet.mem lident env.ifdefs then
         Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, IfDef lident));
-      if StringSet.mem name env.macros then
-        CStar.Qualified (String.uppercase name)
+      if LidSet.mem lident env.macros then
+        CStar.Macro lident
       else
-        CStar.Qualified name
+        CStar.Qualified lident
   | EConstant c ->
       CStar.Constant c
   | EApp (e, es) ->
@@ -250,7 +252,7 @@ let rec mk_expr env in_stmt e =
   | EString s ->
       CStar.StringLiteral s
   | EFlat fields ->
-      let name = match e.typ with TQualified lid -> Some (string_of_lident lid) | _ -> None in
+      let name = match e.typ with TQualified lid -> Some lid | _ -> None in
       CStar.Struct (name, List.map (fun (name, expr) ->
         name, mk_expr env expr
       ) fields)
@@ -463,7 +465,7 @@ and mk_stmts env e ret_type =
           List.map (fun (lid, e) ->
             (match lid with
             | SConstant k -> `Int k
-            | SEnum lid -> `Ident (string_of_lident lid)
+            | SEnum lid -> `Ident lid
             | _ -> failwith "impossible"),
             mk_block env return_pos e
           ) branches, default) :: acc
@@ -569,8 +571,8 @@ and mk_stmts env e ret_type =
 
   and mk_ifcond env e =
     match e.node with
-    | EQualified (_, name) when StringSet.mem name env.ifdefs ->
-        CStar.Qualified (String.uppercase name)
+    | EQualified name when LidSet.mem name env.ifdefs ->
+        CStar.Macro name
     | EApp ({ node = EOp ((K.And | K.Or) as o, K.Bool); _ }, [ e1; e2 ]) ->
         CStar.Call (CStar.Op (o, K.Bool), [ mk_ifcond env e1; mk_ifcond env e2 ])
     | _ ->
@@ -598,7 +600,7 @@ and mk_return_type env = function
   | TUnit ->
       CStar.Void
   | TQualified name ->
-      CStar.Qualified (string_of_lident name)
+      CStar.Qualified name
   | TBool ->
       CStar.Bool
   | TAny ->
@@ -691,36 +693,34 @@ and mk_declaration env d: CStar.decl option =
         let env, binders = mk_and_push_binders env binders in
         let binders = mark_binders_const flags binders in
         let body = mk_function_block env body t in
-        CStar.Function (cc, flags, t, (string_of_lident name), binders, body)
+        CStar.Function (cc, flags, t, name, binders, body)
       end))
 
   | DGlobal (flags, name, n, t, body) ->
       assert (n = 0);
       let env = locate env (InTop name) in
-      let macro = StringSet.mem (string_of_lident name) env.macros in
+      let macro = LidSet.mem name env.macros in
       Some (CStar.Global (
-        string_of_lident name,
+        name,
         macro,
         flags,
         mk_type env t,
         mk_expr env false body))
 
   | DExternal (cc, flags, name, t, pp) ->
-      if StringSet.mem (snd name) env.ifdefs then
+      if LidSet.mem name env.ifdefs then
         None
       else
         let add_cc = function
           | CStar.Function (_, t, ts) -> CStar.Function (cc, t, ts)
           | t -> t
         in
-        Some (CStar.External (string_of_lident name, add_cc (mk_type env t), flags, pp))
+        Some (CStar.External (name, add_cc (mk_type env t), flags, pp))
 
   | DType (name, flags, _, Forward) ->
-      let name = string_of_lident name in
       Some (CStar.TypeForward (name, flags))
 
   | DType (name, flags, 0, def) ->
-      let name = string_of_lident name in
       Some (CStar.Type (name, mk_type_def env def, flags))
 
   | DType _ ->
@@ -742,7 +742,7 @@ and mk_type_def env d: CStar.typ =
       failwith "Variant should've been desugared at this stage"
 
   | Enum tags ->
-      CStar.Enum (List.map string_of_lident tags)
+      CStar.Enum tags
 
   | Union fields ->
       CStar.Union (List.map (fun (f, t) ->
@@ -768,44 +768,40 @@ and mk_program name env decls =
           (Printexc.to_string e)
   ) decls
 
-and mk_files files ifdefs macros =
+and mk_files files file_of ifdefs macros =
   let env = { empty with ifdefs; macros } in
   List.map (fun file ->
+    let deps = 
+      Hashtbl.fold (fun k _ acc -> k :: acc) (Bundles.direct_dependencies file_of file) []
+    in
     let name, program = file in
-    name, mk_program name env program
-  ) files
-
-let mk_deps files =
-  (* Construct the mapping needed to get direct dependencies *)
-  let file_of = Bundle.mk_file_of files in
-  List.map (fun file ->
-    Hashtbl.fold (fun k _ acc -> k :: acc) (Bundles.direct_dependencies file_of file) []
+    name, deps, mk_program name env program
   ) files
 
 let mk_macros_set files =
   (object
     inherit [_] reduce
-    method private zero = StringSet.empty
-    method private plus = StringSet.union
+    method private zero = LidSet.empty
+    method private plus = LidSet.union
     method visit_DGlobal _ flags name _ _ body =
       if List.mem Common.Macro flags then
         if body.node = EAny then begin
           Warn.(maybe_fatal_error ("", CannotMacro name));
-          StringSet.empty
+          LidSet.empty
         end else
-          StringSet.singleton (Simplify.target_c_name name false)
+          LidSet.singleton name
       else
-        StringSet.empty
+        LidSet.empty
   end)#visit_files () files
 
 let mk_ifdefs_set files =
   (object
     inherit [_] reduce
-    method private zero = StringSet.empty
-    method private plus = StringSet.union
+    method private zero = LidSet.empty
+    method private plus = LidSet.union
     method visit_DExternal _ _ flags name _ _ =
       if List.mem Common.IfDef flags then
-        StringSet.singleton (Simplify.target_c_name name false)
+        LidSet.singleton name
       else
-        StringSet.empty
+        LidSet.empty
   end)#visit_files () files

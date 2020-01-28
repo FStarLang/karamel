@@ -3,22 +3,24 @@ open PosixTypes
 open Foreign
 
 module Lowlevel = Lowlevel_bindings.Bindings(Lowlevel_stubs)
+module Ctypes1 = Ctypes1_bindings.Bindings(Ctypes1_stubs)
+open Ctypes1
 module Ctypes2 = Ctypes2_bindings.Bindings(Ctypes2_stubs)
 
-let point_sum (p1: Lowlevel.ctypes1_point)
-  (p2: Lowlevel.ctypes1_point) =
+let point_sum (p1: ctypes1_point)
+  (p2: ctypes1_point) =
   Lowlevel.point_sum p1 p2
 
-let point_sum2 (p1: Ctypes2.ctypes1_point)
-  (p2: Ctypes2.ctypes1_point) =
+let point_sum2 (p1: Ctypes1.ctypes1_point)
+  (p2: Ctypes1.ctypes1_point) =
   Ctypes2.ctypes2_point_sum2 p1 p2
 
 let move_circle (c: Lowlevel.ctypes3_circle)
-  (p: Lowlevel.ctypes1_point) =
+  (p: ctypes1_point) =
   Lowlevel.move_circle c p
 
-let point_to_tuple (p: Lowlevel.ctypes1_point) =
-  (Unsigned.UInt32.to_int (getf p Lowlevel.ctypes1_point_x), Unsigned.UInt32.to_int (getf p Lowlevel.ctypes1_point_y))
+let point_to_tuple (p: ctypes1_point) =
+  (Unsigned.UInt32.to_int (getf p ctypes1_point_x), Unsigned.UInt32.to_int (getf p ctypes1_point_y))
 
 let _ =
   let open Lowlevel in
@@ -55,11 +57,11 @@ let _ =
   
   let arg = Unsigned.UInt32.of_int 6 in
   let f = replicate arg in
-  assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_fst = arg);
-  assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_snd = arg);
-  assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_thd = arg);
-  assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_f3 = arg);
-  assert (getf f t_K___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_f4 = arg);
+  assert (getf f t___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_fst = arg);
+  assert (getf f t___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_snd = arg);
+  assert (getf f t___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_thd = arg);
+  assert (getf f t___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_f3 = arg);
+  assert (getf f t___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_f4 = arg);
   
   let n = make int_opt in
   setf n int_opt_tag int_opt_tags_IntSome;

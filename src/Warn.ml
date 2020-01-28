@@ -33,7 +33,7 @@ and raw_error =
   | BundleCollision of string
   | IfDef of lident
   | CannotMacro of lident
-  | DropCtypesDeclaration of string
+  | DropCtypesDeclaration of lident
 
 and location =
   string
@@ -206,7 +206,7 @@ let rec perr buf (loc, raw_error) =
   | CannotMacro lid ->
       p "The variable %a cannot be translated as a macro, most likely because it generated a static initializer" plid lid
   | DropCtypesDeclaration id ->
-     p "Dropping declaration from Ctypes bindings because it uses unsupported type %s" id
+     p "Dropping declaration from Ctypes bindings because it uses unsupported type %a" plid id
 
 
 let maybe_fatal_error error =

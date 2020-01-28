@@ -208,6 +208,8 @@ let marked_private: (_, unit) Hashtbl.t = Hashtbl.create 41
  * compilers, this is just a warning. *)
 let cross_call_analysis files =
 
+  let file_of = Bundle.mk_file_of files in
+
   (* A map that *eventually* will contain the exactly the set of [lid]s that can
    * be safely marked as private. The invariant is not established yet. *)
   let safely_private = Hashtbl.create 41 in
@@ -237,11 +239,6 @@ let cross_call_analysis files =
           ()
     ) decls
   ) files;
-
-  (* Note that because of bundling, we no longer have the invariant that the
-   * left-hand-side of an [lident] maps to the name of the file it originates
-   * from. *)
-  let file_of = Bundle.mk_file_of files in
 
   let cross_call name1 name2 =
     let file1 = file_of name1 in
@@ -384,7 +381,7 @@ let cross_call_analysis files =
           self#visit_expr_w () body
 
       method! visit_decl env d =
-        if not (self#still_private d) then begin
+        if not (self#still_private d) || Helpers.is_static_header (lid_of_decl d) then begin
           Hashtbl.add seen (lid_of_decl d) ();
           super#visit_decl env d
         end
@@ -396,7 +393,7 @@ let cross_call_analysis files =
    * functions that cannot keep their [Private] flag. *)
   let files =
     let keep_if table flag name flags =
-      if not (Hashtbl.mem table name) || Simplify.target_c_name name false = "main" then
+      if not (Hashtbl.mem table name) || GlobalNames.target_c_name name false = "main" then
         List.filter ((<>) flag) flags
       else
         flags
@@ -425,7 +422,7 @@ let cross_call_analysis files =
 (** A whole-program transformation that inlines functions according to... *)
 
 let always_live name =
-  let n = Simplify.target_c_name name false in
+  let n = GlobalNames.target_c_name name false in
   n = "main" ||
   String.length n >= 11 &&
   String.sub n 0 11 = "WasmSupport" &&

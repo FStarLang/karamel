@@ -8,7 +8,16 @@ open Idents
 open Ast
 open PrintAst.Ops
 
-type t = (lident, string) Hashtbl.t * (string, unit) Hashtbl.t
+type mapping = (lident, string) Hashtbl.t
+type t = mapping * (string, unit) Hashtbl.t
+
+let dump (env: t) =
+  Hashtbl.iter (fun lident c_name ->
+    KPrint.bprintf "%a --> %s\n" plid lident c_name
+  ) (fst env);
+  Hashtbl.iter (fun c_name _ ->
+    KPrint.bprintf "%s is used\n" c_name
+  ) (snd env)
 
 let reserve_keywords used_c_names =
   let keywords = [
@@ -159,10 +168,34 @@ let clone (env: t) =
   let c_of_original, used_c_names = env in
   Hashtbl.copy c_of_original, Hashtbl.copy used_c_names
 
-let dump (env: t) =
-  Hashtbl.iter (fun lident c_name ->
-    KPrint.bprintf "%a --> %s\n" plid lident c_name
-  ) (fst env);
-  Hashtbl.iter (fun c_name _ ->
-    KPrint.bprintf "%s is used\n" c_name
-  ) (snd env)
+let mapping = fst
+
+let skip_prefix prefix =
+  List.exists (fun p -> Bundle.pattern_matches p (String.concat "_" prefix)) !Options.no_prefix
+
+(* Because of dedicated treatment in CStarToC11 *)
+let ineligible lident =
+  List.mem (fst lident) [
+    ["FStar"; "UInt128"];
+    ["C"; "Nullity"];
+    ["C"; "String"];
+    ["C"; "Compat"; "String"];
+    ["LowStar"; "BufferOps"];
+    ["LowStar"; "Buffer"];
+    ["LowStar"; "Monotonic"; "Buffer"]
+  ]
+
+let target_c_name lident attempt_shortening =
+  if skip_prefix (fst lident) && not (ineligible lident) then
+    snd lident
+  else if attempt_shortening && not (ineligible lident) && snd lident <> "main" then
+    snd lident
+  else
+    string_of_lident lident
+
+let to_c_name m lid =
+  try
+    Hashtbl.find m lid
+  with Not_found ->
+    Idents.to_c_identifier (target_c_name lid false)
+
