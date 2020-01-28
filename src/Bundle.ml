@@ -10,7 +10,7 @@ type t = api list * pat list * attr list
 
 and api = string list
 
-and attr = Rename of string
+and attr = Rename of string | RenamePrefix
 
 and pat =
   | Module of string list
@@ -34,6 +34,7 @@ let string_of_patterns patterns =
 
 let string_of_attr = function
   | Rename s -> "rename=" ^ s
+  | RenamePrefix -> "rename-prefix"
 
 let string_of_attrs attrs =
   String.concat "," (List.map string_of_attr attrs)
@@ -68,3 +69,21 @@ let pattern_matches (p: pat) (m: string) =
       String.concat "_" m' = m
   | Prefix p ->
       p = [] || KString.starts_with m (String.concat "_" p ^ "_")
+
+(* For generating the filename. NOT for pretty-printing. *)
+let bundle_filename (api, patterns, attrs) =
+  match KList.find_opt (function Rename s -> Some s | _ -> None) attrs with
+  | Some s ->
+      s
+  | _ ->
+      match api with
+      | [] ->
+          String.concat "_" (KList.map_flatten (function
+            | Module m -> m
+            | Prefix p -> p
+          ) patterns)
+      | _ ->
+         String.concat "_" (List.map (String.concat "_") api)
+
+let attrs_of_bundle (_, _, attrs) =
+  attrs

@@ -4,7 +4,8 @@
 
 %token<int>     INT
 %token<string>  UIDENT LIDENT
-%token          PLUS MINUS STAR AT DOT EOF COMMA EQUALS RENAME LBRACK RBRACK
+%token          PLUS MINUS STAR AT DOT EOF COMMA EQUALS LBRACK RBRACK
+%token          RENAME RENAME_PREFIX
 
 %start <(Flags.flag * (int * int)) list> warn_error_list
 %start <Bundle.t> bundle
@@ -80,6 +81,8 @@ api:
 attr:
 | RENAME EQUALS s = ident
   { Rename s }
+| RENAME_PREFIX
+  { RenamePrefix }
 
 drop:
 | p = separated_list(COMMA, pat) EOF

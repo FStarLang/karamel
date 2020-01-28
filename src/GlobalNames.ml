@@ -170,8 +170,8 @@ let clone (env: t) =
 
 let mapping = fst
 
-let skip_prefix prefix =
-  List.exists (fun p -> Bundle.pattern_matches p (String.concat "_" prefix)) !Options.no_prefix
+let skip_prefix lid =
+  List.exists (fun p -> Helpers.pattern_matches p lid) !Options.no_prefix
 
 (* Because of dedicated treatment in CStarToC11 *)
 let ineligible lident =
@@ -185,13 +185,28 @@ let ineligible lident =
     ["LowStar"; "Monotonic"; "Buffer"]
   ]
 
-let target_c_name lident attempt_shortening =
-  if skip_prefix (fst lident) && not (ineligible lident) then
-    snd lident
-  else if attempt_shortening && not (ineligible lident) && snd lident <> "main" then
-    snd lident
-  else
-    string_of_lident lident
+let bundle_matches (apis, patterns, _) lid =
+  List.mem (fst lid) apis ||
+  List.exists (fun p -> Helpers.pattern_matches p lid) patterns
+
+let rename_prefix lid =
+  KList.find_opt (fun b ->
+    if List.mem Bundle.RenamePrefix (Bundle.attrs_of_bundle b) && bundle_matches b lid then
+      Some (Bundle.bundle_filename b)
+    else
+      None
+  ) !Options.bundle
+
+let target_c_name lid attempt_shortening =
+  if skip_prefix lid && not (ineligible lid) then
+    snd lid
+  else if attempt_shortening && not (ineligible lid) && snd lid <> "main" then
+    snd lid
+  else match rename_prefix lid with
+  | Some prefix ->
+      prefix ^ "_" ^ snd lid
+  | None ->
+      string_of_lident lid
 
 let to_c_name m lid =
   try

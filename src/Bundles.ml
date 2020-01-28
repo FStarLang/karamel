@@ -9,20 +9,6 @@ open Ast
 
 module StringMap = Map.Make(String)
 
-(* For generating the filename. NOT for pretty-printing. *)
-let bundle_filename (api, patterns, attrs) =
-  match KList.find_opt (function Rename s -> Some s) attrs with
-  | Some s ->
-      s
-  | _ ->
-      match api with
-      | [] ->
-          String.concat "_" (KList.map_flatten (function
-            | Module m -> m
-            | Prefix p -> p
-          ) patterns)
-      | _ ->
-         String.concat "_" (List.map (String.concat "_") api)
 
 let uniq =
   let r = ref (-1) in

@@ -1,3 +1,8 @@
+### Jan 28th, 2020
+
+- New bundle option: rename-prefix (no argument) overrides the original module
+  name with the one from the bundle.
+
 ### Jan 13th, 2020
 
 - New *experimental* option: `-fmerge`, to merge variables, i.e. reuse existing

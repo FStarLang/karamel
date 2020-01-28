@@ -5,14 +5,15 @@ let digit = [%sedlex.regexp? '0'..'9']
 let integer = [%sedlex.regexp? Plus digit]
 let low_alpha = [%sedlex.regexp? 'a'..'z']
 let up_alpha =  [%sedlex.regexp? 'A'..'Z']
-let any = [%sedlex.regexp? up_alpha | low_alpha | '_' | digit]
+let any = [%sedlex.regexp? up_alpha | low_alpha | '_' | '-' | digit]
 let lident = [%sedlex.regexp? low_alpha, Star (any)]
 let uident = [%sedlex.regexp? up_alpha, Star (any)]
 
 let locate _ tok = tok, Lexing.dummy_pos, Lexing.dummy_pos
 
 let keywords = [
-  "rename", RENAME
+  "rename", RENAME;
+  "rename-prefix", RENAME_PREFIX
 ]
 
 let rec token lexbuf =
