@@ -695,7 +695,7 @@ Supported options:|}
       Printf.printf "KreMLin: wrote out .h files for %s\n" (String.concat ", " (List.map fst3 headers))
     end;
 
-    let ml_files = List.map (fun (f, _, _) -> f) ml_files in
+    let ml_files = GenCtypes.file_list ml_files in
     if not (KList.is_empty !Options.ctypes) then
       Printf.printf "KreMLin: wrote out .ml files for %s\n" (String.concat ", " ml_files);
 

@@ -101,17 +101,6 @@ let special_types =
   ];
   m
 
-let find_type tbl typ default location =
-  match Hashtbl.find_opt tbl typ with
-  | Some r -> r
-  | None ->
-    if Hashtbl.mem special_types typ then
-      default
-    else
-      Warn.fatal_error "Type %a (in %a) not found in context and special \
-        handling not defined"
-        plid typ plid location
-
 (* building Ctypes declarations *)
 type structured =
   | Struct
@@ -309,12 +298,15 @@ let build_module deps program: structure =
     Str.open_ (Opn.mk ?override:(Some Fresh) (mk_ident m))) ["Ctypes"] in
   open_decls @ [m]
 
-(* We now need to visite the entire call-graph, and:
+type t =
+  (string * string list * structure_item list) list
+
+(* We now need to visit the entire call-graph, and:
  * - generate OCaml bindings for: all the C* declarations whose lid matches a -ctypes
- *   pattern, but also all C* types that are reachable through those declarations, and
- * - compute accurate direct and transitive dependencies; the former for the sake of
- *   generating include OCaml statements in the generate files, and the latter
- *   for generating a suitable .depend file to aid compiling these bindings.
+ *   pattern, but also all C* types that are reachable through those declarations
+ * - compute accurate transitive dependencies; these determine both the open
+ *   OCaml statements in the generated files, and the contents of the
+ *   ctypes.depend file to aid compiling these bindings.
  *
  * For that purpose, we receive:
  * - C* files
@@ -469,7 +461,9 @@ let mk_ocaml_bindings
   ) !Options.ctypes;
 
   (** In a second phase, we need to compute transitive dependencies for
-   * generating the ctypes.depend file. *)
+   * generating the ctypes.depend file. The syntactic generation of OCaml
+   * binding code assumes that all the required types are in scope, so we open
+   * all the transitive dependencies. *)
   let transitive_deps = Hashtbl.create 41 in
   List.iter (fun (name, _, _) ->
     let deps = try Hashtbl.find ocaml_deps name with Not_found -> [] in
@@ -486,9 +480,8 @@ let mk_ocaml_bindings
     | None -> None
     | Some decls -> 
         let decls = List.flatten (List.rev decls) in
-        let ocaml_deps = try Hashtbl.find ocaml_deps name with Not_found -> [] in
         let build_deps = Hashtbl.find transitive_deps name in
-        Some (name, build_deps, build_module ocaml_deps decls)
+        Some (name, build_deps, build_module build_deps decls)
   ) files
 
 let mk_gen_decls module_name =
@@ -555,3 +548,6 @@ let write_bindings (files: (string * string list * structure_item list) list) =
     let path = !Options.tmpdir ^ "/lib/" ^ name ^ "_bindings.ml" in
     write_ml path m
   ) files
+
+let file_list files =
+  List.map (fun (f, _, _) -> f) files
