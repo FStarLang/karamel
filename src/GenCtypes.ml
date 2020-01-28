@@ -335,7 +335,6 @@ let mk_ocaml_bindings
   let decl_map = Hashtbl.create 41 in
   List.iter (fun (_, _, decls) ->
     List.iter (fun d ->
-      KPrint.bprintf "Adding %a to the decl map\n" plid (CStar.lid_of_decl d);
       Hashtbl.add decl_map (CStar.lid_of_decl d) (T.Unvisited d)
     ) decls
   ) files;

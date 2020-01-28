@@ -146,8 +146,6 @@ let create () =
   c_of_original, used_c_names
 
 let extend (global: t) (local: t) is_local original_name desired_name =
-  KPrint.bprintf "Adding %a --> %s (%s)\n"
-    plid original_name desired_name (if is_local then "local" else "global");
   let c_of_original, g_used_c_names = global in
   let _, l_used_c_names = local in
   if Hashtbl.mem c_of_original original_name then
