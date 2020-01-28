@@ -1,1 +1,23 @@
-[ "9…õπÅòx'=5G›\u0019°…0", [] ]
+[
+  "9…õπÅòx'=5G›\u0019°…0",
+  [
+    [
+      "C.char_uint8",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_C.HasEq_char" ],
+      0,
+      "c9104389acba96586721ef6e5ba53d48"
+    ],
+    [
+      "C.uint8_char",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_FStar.UInt8.t__uu___haseq" ],
+      0,
+      "2b6d42ffdad4f9286e6a2776d15c1d3e"
+    ]
+  ]
+]

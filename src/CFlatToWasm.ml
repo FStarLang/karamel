@@ -42,6 +42,12 @@ let empty = {
   location = []
 }
 
+let debug m { globals; funcs; _ } =
+  KPrint.bprintf "===== WASM DEBUG for %s =====\n" m;
+  StringMap.iter (fun f i -> KPrint.bprintf "Function $%d is %s\n" i f) funcs;
+  StringMap.iter (fun g i -> KPrint.bprintf "Global $%d is %s\n" i g) globals;
+  KPrint.bprintf "\n\n"
+
 let locate env loc =
   { env with location = update_location env.location loc }
 
@@ -1085,8 +1091,6 @@ let mk_module types imports (name, decls):
    * global) index space, namely, this module's functions (resp. globals) *)
   let rec assign env f g = function
     | Function { name; _ } :: tl ->
-        if Options.debug "wasm" then
-          KPrint.bprintf "In this module, function $%d is %s\n" f name;
         let env = { env with funcs = StringMap.add name f env.funcs } in
         assign env (f + 1) g tl
     | Global (name, _, _, _, _) :: tl ->
@@ -1099,6 +1103,9 @@ let mk_module types imports (name, decls):
         env
   in
   let env = assign env n_imported_funcs n_imported_globals decls in
+
+  if Options.debug "wasm" then
+    debug name env;
 
   (* START detour to generate the next module's import table. *)
 

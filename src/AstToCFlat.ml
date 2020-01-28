@@ -442,10 +442,15 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
         ) fields
     | EString s ->
         write_le dst ofs Helpers.uint32 (Z.of_int (Hashtbl.hash s));
-        [ CF.BufWrite (CF.GetGlobal (snd lid), ofs, CF.StringLiteral s, A32) ]
+        let name = GlobalNames.to_c_name env.names lid in
+        [ CF.BufWrite (CF.GetGlobal name, ofs, CF.StringLiteral s, A32) ]
     | EQualified lid' ->
-        write_le dst ofs Helpers.uint32 (Z.of_int (Hashtbl.hash (snd lid')));
-        [ CF.BufWrite (CF.GetGlobal (snd lid), ofs, CF.GetGlobal (snd lid'), A32) ]
+        let name = GlobalNames.to_c_name env.names lid in
+        let name' = GlobalNames.to_c_name env.names lid' in
+        (* This is to disable constant string initializers sharing -- we write a
+         * dummy value. *)
+        write_le dst ofs Helpers.uint32 (Z.of_int (Hashtbl.hash name'));
+        [ CF.BufWrite (CF.GetGlobal name, ofs, CF.GetGlobal name', A32) ]
     | EApp ({ node = EQualified (["LowStar"; "Monotonic"; "Buffer"], "mnull"); _ }, _) ->
         write_le dst ofs Helpers.uint32 Z.zero;
         []
@@ -547,7 +552,8 @@ and mk_addr env e =
       | TBuf _ -> ()
       | TQualified lid -> assert (is_lflat (LidMap.find lid env.layouts))
       | _ -> () end;
-      CF.GetGlobal (snd lid)
+      let name = GlobalNames.to_c_name env.names lid in
+      CF.GetGlobal name
   | EAbort _ ->
       mk_expr_no_locals env e
   | _ ->
@@ -890,8 +896,8 @@ let mk_decl env (d: decl): env * CF.decl option =
 
 (* Definitions to be skipped because they have a built-in compilation scheme. *)
 let skip (lid: lident) =
-  let skip = [ "LowStar_Monotonic_Buffer_mnull"] in
-  List.mem (snd lid) skip
+  let skip = [[ "LowStar"; "Monotonic"; "Buffer" ], "mnull"] in
+  List.mem lid skip
 
 let mk_module env decls =
   let env, decls = List.fold_left (fun (env, decls) d ->
