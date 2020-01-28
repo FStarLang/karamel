@@ -312,7 +312,7 @@ let build_module deps program: structure =
  *   OCaml statements.
  *
  * For that purpose, we receive:
- * - C* files, along with their transitive dependencies (as C file names);
+ * - C* files, along with their direct dependencies (as C file names);
  * - a translation map for name resolution
  * - a reverse-map that to each long ident maps its corresponding C file
  *
@@ -324,9 +324,7 @@ let mk_ocaml_bindings
   (file_of: Ast.lident -> string option):
   (string * string list * structure_item list) list
 =
-  (* A multi-state traversal where Unsupported indicates that the given declaration
-   * was meant to have bindings generated but ended up being skipped owing to an
-   * unsupported type. *)
+  (* A multi-state traversal of the call-graph. *)
   let module T = struct
     type state =
     | Unvisited of CStar.decl
@@ -386,10 +384,12 @@ let mk_ocaml_bindings
         ()
   in
 
-  let should_bind lid flags =
-    List.exists (fun p -> Helpers.pattern_matches p lid) !Options.ctypes &&
-    not (List.mem Common.Private flags)
-  in
+  (* Sanity check: no superfluous arguments to -ctypes *)
+  List.iter (fun p ->
+    if not (List.exists (fun (name, _, _) -> Bundle.pattern_matches p name) files) then
+      Warn.fatal_error "Pattern %s was passed to -ctypes but no source module matches"
+        (Bundle.string_of_pattern p);
+  ) !Options.ctypes;
 
   (* First phase: generate OCaml decls for all the bindings that need it. The
    * syntactic generation of binding code (the various `mk_*`) is not recursive,
@@ -433,6 +433,11 @@ let mk_ocaml_bindings
           false
   in
 
+  let should_bind lid flags =
+    List.exists (fun p -> Helpers.pattern_matches p lid) !Options.ctypes &&
+    not (List.mem Common.Private flags)
+  in
+
   List.iter (fun (_name, _deps, decls) ->
     List.iter (fun decl ->
       let lid = CStar.lid_of_decl decl in
@@ -442,16 +447,41 @@ let mk_ocaml_bindings
     ) decls
   ) files;
 
-  (* In a second phase, we collect the generated declarations, and turn them
+  (* In a second phase, we need to compute transitive dependencies for
+   * generating the ctypes.depend file. *)
+  let remove_duplicates deps =
+    let deps = List.fold_left (fun deps next ->
+      if List.mem next deps then
+        deps
+      else
+        next :: deps
+    ) [] deps in
+    List.rev deps
+  in
+
+  let ocaml_deps = Hashtbl.create 41 in
+  List.iter (fun (name, deps, _) ->
+    Hashtbl.add ocaml_deps name (List.filter (Hashtbl.mem ocaml_decls) deps)
+  ) files;
+  let transitive_deps = Hashtbl.create 41 in
+  List.iter (fun (name, _, _) ->
+    let deps = Hashtbl.find ocaml_deps name in
+    let deps = KList.map_flatten (fun x ->
+      Hashtbl.find transitive_deps x @ [ x ]
+    ) deps in
+    Hashtbl.add transitive_deps name (remove_duplicates deps)
+  ) files;
+
+  (* In a third phase, we collect the generated declarations, and turn them
    * into full-fledged OCaml modules. *)
-  KList.filter_map (fun (name, deps, _) ->
+  KList.filter_map (fun (name, _, _) ->
     match Hashtbl.find_opt ocaml_decls name with
     | None -> None
     | Some decls -> 
-        let decls = List.rev decls in
-        let decls = List.flatten decls in
-        let deps = List.filter (Hashtbl.mem ocaml_decls) deps in
-        Some (name, deps, build_module deps decls)
+        let decls = List.flatten (List.rev decls) in
+        let ocaml_deps = Hashtbl.find ocaml_deps name in
+        let build_deps = Hashtbl.find transitive_deps name in
+        Some (name, build_deps, build_module ocaml_deps decls)
   ) files
 
 let mk_gen_decls module_name =
