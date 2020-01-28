@@ -1082,9 +1082,6 @@ class scope_helpers = object (self)
     let is_private = self#is_private_scope flags lident in
     let local_scope = Hashtbl.find local_scopes current_file in
     let attempt_shortening = is_private && not is_external in
-    KPrint.bprintf "record %a: \n  \
-      is_private? %b\n  \
-      is_external? %b\n" plid lident is_private is_external;
     let target = GlobalNames.target_c_name lident attempt_shortening in
     let c_name = GlobalNames.extend global_scope local_scope is_private lident target in
     if not is_private then

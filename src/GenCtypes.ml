@@ -386,7 +386,10 @@ let mk_ocaml_bindings
         ()
   in
 
-  let should_bind lid = List.exists (fun p -> Helpers.pattern_matches p lid) !Options.ctypes in
+  let should_bind lid flags =
+    List.exists (fun p -> Helpers.pattern_matches p lid) !Options.ctypes &&
+    not (List.mem Common.Private flags)
+  in
 
   (* First phase: generate OCaml decls for all the bindings that need it. The
    * syntactic generation of binding code (the various `mk_*`) is not recursive,
@@ -433,7 +436,8 @@ let mk_ocaml_bindings
   List.iter (fun (_name, _deps, decls) ->
     List.iter (fun decl ->
       let lid = CStar.lid_of_decl decl in
-      if should_bind lid then
+      let flags = CStar.flags_of_decl decl in
+      if should_bind lid flags then
         ignore (iter_lid [] lid)
     ) decls
   ) files;

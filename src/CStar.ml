@@ -126,3 +126,12 @@ let lid_of_decl (d: decl): lident =
   | TypeForward (id, _)
   | External (id, _, _, _) ->
       id
+
+let flags_of_decl (d: decl): Common.flag list =
+  match d with
+  | Global (_, _, flags, _, _)
+  | Function (_, flags, _, _, _, _)
+  | Type (_, _, flags)
+  | TypeForward (_, flags)
+  | External (_, _, flags, _) ->
+      flags
