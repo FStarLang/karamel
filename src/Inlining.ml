@@ -206,7 +206,9 @@ let marked_private: (_, unit) Hashtbl.t = Hashtbl.create 41
  * As such, this phase must happen after all three steps above.
  * The Inline qualifier is also dropped if compiling for CompCert; for other
  * compilers, this is just a warning. *)
-let cross_call_analysis files file_of =
+let cross_call_analysis files =
+
+  let file_of = Bundle.mk_file_of files in
 
   (* A map that *eventually* will contain the exactly the set of [lid]s that can
    * be safely marked as private. The invariant is not established yet. *)

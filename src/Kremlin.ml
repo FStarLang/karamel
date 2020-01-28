@@ -491,7 +491,6 @@ Supported options:|}
    * checking it. Note that bundling calls [drop_unused] already to do a first
    * round of unused code elimination! *)
   let files = Bundles.make_bundles files in
-  let file_of_map = Bundle.mk_file_of files in
   (* This needs to happen before type monomorphization, so that list<t> and
    * list<t'> don't generate two distinct declarations (e.g. list__t and
    * list__t'). Also needs to happen before monomorphization of equalities. *)
@@ -588,7 +587,7 @@ Supported options:|}
   let files = if not !Options.wasm then Structs.collect_initializers files else files in
   (* Need correct private qualifiers for remove_unused to drop arguments for
    * static declarations. *)
-  let files = Inlining.cross_call_analysis files file_of_map in
+  let files = Inlining.cross_call_analysis files in
   (* Note: generates let-bindings, so needs to be before simplify2 *)
   let files = Simplify.remove_unused files in
   let files = if !Options.tail_calls then Simplify.tail_calls files else files in
@@ -663,6 +662,7 @@ Supported options:|}
       Output.write_def files;
 
     (* Translate to C*... *)
+    let file_of_map = Bundle.mk_file_of files in
     let files = AstToCStar.mk_files files file_of_map ifdefs macros in
     tick_print true "AstToCStar";
 

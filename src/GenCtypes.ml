@@ -335,6 +335,7 @@ let mk_ocaml_bindings
   let decl_map = Hashtbl.create 41 in
   List.iter (fun (_, _, decls) ->
     List.iter (fun d ->
+      KPrint.bprintf "Adding %a to the decl map\n" plid (CStar.lid_of_decl d);
       Hashtbl.add decl_map (CStar.lid_of_decl d) (T.Unvisited d)
     ) decls
   ) files;
@@ -345,11 +346,13 @@ let mk_ocaml_bindings
   (* Register, in a suitable file, the OCaml binding for `lid` *)
   let ocaml_add lid decls =
     match file_of lid with
-    | None -> failwith "impossible"
+    | None ->
+        Warn.fatal_error "Cannot register %a since we don't know what file it \
+          originated from!" plid lid
     | Some file ->
         match Hashtbl.find_opt ocaml_decls file with
-        | Some l -> Hashtbl.replace ocaml_decls file (List.rev_append decls l)
-        | None -> Hashtbl.add ocaml_decls file decls
+        | Some l -> Hashtbl.replace ocaml_decls file (decls :: l)
+        | None -> Hashtbl.add ocaml_decls file [ decls ]
   in
 
   (* An ad-hoc iterator for the C* equivalent of TQualified *)
@@ -443,6 +446,7 @@ let mk_ocaml_bindings
     | None -> None
     | Some decls -> 
         let decls = List.rev decls in
+        let decls = List.flatten decls in
         let deps = List.filter (Hashtbl.mem ocaml_decls) deps in
         Some (name, deps, build_module deps decls)
   ) files
