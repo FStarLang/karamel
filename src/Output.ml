@@ -140,15 +140,16 @@ let write_makefile user_ccopts custom_c_files c_files h_files =
   );
   Utils.cp Driver.(!Options.tmpdir ^^ "Makefile.basic") Driver.(!misc_dir ^^ "Makefile.basic")
 
-let write_def c_files =
+let write_def m c_files =
   let dst = in_tmp_dir (Filename.chop_extension !Options.exe_name ^ ".def") in
   with_open_out_bin dst (fun oc ->
     KPrint.bfprintf oc "LIBRARY %s\n\nEXPORTS\n"
       (Filename.basename (Filename.chop_extension !Options.exe_name));
     List.iter (fun (_, decls) ->
       List.iter (function
-        | Ast.DFunction (_, flags, _, _, (_, name), _, _)
+        | Ast.DFunction (_, flags, _, _, name, _, _)
           when not (List.mem Common.Private flags) ->
+            let name = GlobalNames.to_c_name m name in
             KPrint.bfprintf oc "  %s\n" name
         | _ -> ()
       ) decls

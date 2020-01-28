@@ -659,7 +659,7 @@ Supported options:|}
   else
     let _ = () in
     if KString.starts_with !Options.exe_name "lib" then
-      Output.write_def files;
+      Output.write_def c_name_map files;
 
     (* Translate to C*... *)
     let file_of_map = Bundle.mk_file_of files in
