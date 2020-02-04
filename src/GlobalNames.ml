@@ -197,20 +197,53 @@ let rename_prefix lid =
       None
   ) !Options.bundle
 
-let target_c_name lid attempt_shortening =
-  if skip_prefix lid && not (ineligible lid) then
-    snd lid
-  else if attempt_shortening && not (ineligible lid) && snd lid <> "main" then
-    snd lid
-  else match rename_prefix lid with
-  | Some prefix ->
-      prefix ^ "_" ^ snd lid
-  | None ->
-      string_of_lident lid
+let pascal_case name =
+  let has_underscore = String.contains name '_' in
+  if has_underscore then
+    let b = Buffer.create 256 in
+    let after_underscore = ref true in
+    for i = 0 to String.length name - 1 do
+      match name.[i] with
+      | '_' -> after_underscore := true
+      | c ->
+          let c = if !after_underscore then Char.uppercase c else Char.lowercase c in
+          after_underscore := false;
+          Buffer.add_char b c
+    done;
+    Buffer.contents b
+  else
+    String.uppercase (String.sub name 0 1) ^ 
+    String.sub name 1 (String.length name - 1)
+
+let strip_leading_underscores name =
+  let i = ref 0 in
+  while name.[!i] = '_' do incr i done;
+  if !i = String.length name then
+    failwith "cannot have a name made of a single underscore";
+  String.sub name !i (String.length name - !i)
+
+let target_c_name ~attempt_shortening ~is_macro lid =
+  let pre_name =
+    if skip_prefix lid && not (ineligible lid) then
+      snd lid
+    else if attempt_shortening && not (ineligible lid) && snd lid <> "main" then
+      snd lid
+    else match rename_prefix lid with
+    | Some prefix ->
+        prefix ^ "_" ^ snd lid
+    | None ->
+        string_of_lident lid
+  in
+  if !Options.microsoft && not is_macro && pre_name <> "main" then
+    pascal_case pre_name
+  else if !Options.microsoft && is_macro then
+    strip_leading_underscores pre_name
+  else
+    pre_name
 
 let to_c_name m lid =
   try
     Hashtbl.find m lid
   with Not_found ->
-    Idents.to_c_identifier (target_c_name lid false)
+    Idents.to_c_identifier (target_c_name ~attempt_shortening:false ~is_macro:false lid)
 
