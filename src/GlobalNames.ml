@@ -198,22 +198,36 @@ let rename_prefix lid =
   ) !Options.bundle
 
 let pascal_case name =
+  let module T = struct type what = | Keep | Up | Low end in
   let has_underscore = String.contains name '_' in
   if has_underscore then
     let b = Buffer.create 256 in
-    let after_underscore = ref true in
+    let what_next = ref T.Up in
     for i = 0 to String.length name - 1 do
       match name.[i] with
-      | '_' -> after_underscore := true
+      | '_' ->
+          what_next := T.Up
       | c ->
-          let c = if !after_underscore then Char.uppercase c else Char.lowercase c in
-          after_underscore := false;
-          Buffer.add_char b c
+          let c_next = match !what_next with
+            | T.Keep -> c
+            | T.Up -> Char.uppercase c
+            | T.Low -> Char.lowercase c
+          in
+          if Char.uppercase c = c then
+            what_next := T.Low
+          else if Char.lowercase c = c then
+            what_next := T.Keep;
+          Buffer.add_char b c_next
     done;
     Buffer.contents b
   else
     String.uppercase (String.sub name 0 1) ^ 
     String.sub name 1 (String.length name - 1)
+
+let camel_case name =
+  let name = pascal_case name in
+  String.lowercase (String.sub name 0 1) ^ 
+  String.sub name 1 (String.length name - 1)
 
 let strip_leading_underscores name =
   let i = ref 0 in
