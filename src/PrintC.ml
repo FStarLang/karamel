@@ -382,6 +382,10 @@ let p_comments cs =
   separate_map hardline (fun c -> string ("/*\n" ^ c ^ "\n*/")) cs ^^
   if List.length cs > 0 then hardline else empty
 
+let p_microsoft_comments cs =
+  separate_map hardline (fun c -> string ("/*++\n" ^ c ^ "\n--*/")) cs ^^
+  if List.length cs > 0 then hardline else empty
+
 (* We require infinite width to force this to be rendered on a single line. We
  * then force the rendering of the subexpression on a single line as well. *)
 let macro name d: document =
@@ -416,7 +420,10 @@ let p_decl_or_function (df: declaration_or_function) =
   | Decl (comments, d) ->
       p_comments comments ^^ group (p_declaration d ^^ semi)
   | Function (comments, d, stmt) ->
-      p_comments comments ^^ group (p_declaration d) ^/^ p_stmt stmt
+      if !Options.microsoft then
+        group (p_declaration d) ^/^ p_microsoft_comments comments ^^ p_stmt stmt
+      else
+        p_comments comments ^^ group (p_declaration d) ^/^ p_stmt stmt
   | Text s ->
       string s
 

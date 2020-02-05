@@ -184,6 +184,8 @@ type return_pos =
   | May
   | Must
 
+type binder_pos = Function | Local
+
 let string_of_return_pos = function
   | Not -> "Not"
   | May -> "May"
@@ -297,7 +299,7 @@ and mk_stmts env e ret_type =
 
     match e.node with
     | ELet (binder, e1, e2) ->
-        let env, binder = mk_and_push_binder env binder (Some e1) [ e2 ]
+        let env, binder = mk_and_push_binder env binder Local (Some e1) [ e2 ]
         and e1 = mk_expr env false e1 in
         let acc = CStar.Decl (binder, e1) :: acc in
         collect (env, acc) return_pos e2
@@ -344,7 +346,7 @@ and mk_stmts env e ret_type =
         (* Note: the arguments to mk_and_push_binder are solely for the purpose
          * of avoiding name collisions. *)
         let is_solo_assignment = binder.node.meta = Some MetaSequence in
-        let env', binder = mk_and_push_binder env binder (Some e1) [ e2; e3; e4 ] in
+        let env', binder = mk_and_push_binder env binder Local (Some e1) [ e2; e3; e4 ] in
         let e2 = mk_expr env' false e2 in
         let e3 = KList.last (mk_block env' Not e3) in
         let e4 = mk_block env' Not e4 in
@@ -629,14 +631,22 @@ and mk_type env = function
  * other. *)
 and mk_and_push_binders env binders =
   let env, acc = List.fold_left (fun (env, acc) binder ->
-    let env, binder = mk_and_push_binder env binder None [] in
+    let env, binder = mk_and_push_binder env binder Function None [] in
     env, binder :: acc
   ) (env, []) binders in
   env, List.rev acc
 
-and mk_and_push_binder env binder body cont =
+and mk_and_push_binder env binder pos body cont =
+  let name =
+    if !Options.microsoft then
+      match pos with
+      | Local -> GlobalNames.camel_case binder.node.name
+      | Function -> GlobalNames.pascal_case binder.node.name
+    else
+      binder.node.name
+  in
   let binder = {
-    CStar.name = ensure_fresh env binder.node.name body cont;
+    CStar.name = ensure_fresh env name body cont;
     typ = mk_type env binder.typ
   } in
   push env binder, binder

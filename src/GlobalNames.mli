@@ -22,6 +22,9 @@ val dump: t -> unit
 
 val clone: t -> t
 
-val target_c_name: Ast.lident -> bool -> string
+val target_c_name: attempt_shortening:bool -> is_macro:bool -> Ast.lident -> string
 
 val to_c_name: mapping -> Ast.lident -> string
+
+val pascal_case: string -> string
+val camel_case: string -> string

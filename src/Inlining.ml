@@ -393,7 +393,9 @@ let cross_call_analysis files =
    * functions that cannot keep their [Private] flag. *)
   let files =
     let keep_if table flag name flags =
-      if not (Hashtbl.mem table name) || GlobalNames.target_c_name name false = "main" then
+      if not (Hashtbl.mem table name) ||
+        GlobalNames.target_c_name ~attempt_shortening:false ~is_macro:false name = "main"
+      then
         List.filter ((<>) flag) flags
       else
         flags
@@ -422,7 +424,7 @@ let cross_call_analysis files =
 (** A whole-program transformation that inlines functions according to... *)
 
 let always_live name =
-  let n = GlobalNames.target_c_name name false in
+  let n = GlobalNames.target_c_name ~attempt_shortening:false ~is_macro:false name in
   n = "main" ||
   String.length n >= 11 &&
   String.sub n 0 11 = "WasmSupport" &&

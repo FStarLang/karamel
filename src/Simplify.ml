@@ -1079,10 +1079,11 @@ class scope_helpers = object (self)
     List.mem Common.Private flags && not (Helpers.is_static_header lident)
 
   method private record (global_scope, local_scopes) is_external flags lident =
+    let is_macro = List.mem Common.Macro flags in
     let is_private = self#is_private_scope flags lident in
     let local_scope = Hashtbl.find local_scopes current_file in
     let attempt_shortening = is_private && not is_external in
-    let target = GlobalNames.target_c_name lident attempt_shortening in
+    let target = GlobalNames.target_c_name ~attempt_shortening ~is_macro lident in
     let c_name = GlobalNames.extend global_scope local_scope is_private lident target in
     if not is_private then
       Hashtbl.add original_of_c_name c_name lident
