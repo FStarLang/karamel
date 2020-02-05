@@ -42,6 +42,7 @@ let rec print_decl = function
       jump (print_typ typ)
 
   | DGlobal (flags, name, n, typ, expr) ->
+      print_comment flags ^^
       print_flags flags ^^ langle ^^ int n ^^ rangle ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
   | DType (name, flags, n, def) ->

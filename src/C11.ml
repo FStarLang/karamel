@@ -127,7 +127,7 @@ and declaration_or_function =
   | Function of comment list * declaration * stmt
     (** [stmt] _must_ be a compound statement *)
   | Text of string
-  | Macro of string * expr
+  | Macro of comment list * string * expr
     (** passed in from F*, to be printed as-is *)
 
 and declaration_or_expr = [

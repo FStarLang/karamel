@@ -414,9 +414,9 @@ let macro name d: document =
 
 let p_decl_or_function (df: declaration_or_function) =
   match df with
-  | Macro (name, def) ->
+  | Macro (comments, name, def) ->
       let name = String.uppercase name in
-      macro name (parens (p_expr def))
+      p_comments comments ^^ macro name (parens (p_expr def))
   | Decl (comments, d) ->
       p_comments comments ^^ group (p_declaration d ^^ semi)
   | Function (comments, d, stmt) ->
