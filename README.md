@@ -37,7 +37,7 @@ key component of [Project Everest](https://project-everest.github.io/).
 
 ## Trying out KreMLin
 
-KreMLin requires OCaml (>= 4.05.0), OPAM, and a recent version of GNU make.
+KreMLin requires OCaml (>= 4.05.0, < 4.08.0), OPAM, and a recent version of GNU make.
 
 **Regarding GNU make:** On OSX, this may require you to install a recent GNU
 make via homebrew, and invoke `gmake` instead of `make`.
