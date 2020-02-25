@@ -367,7 +367,8 @@ let rec mk_spec_and_decl m name qs (t: typ) (k: C.declarator -> C.declarator):
       let tags = List.map (to_c_name m) tags in
       qs, Enum (None, tags), k (Ident name)
   | Bool ->
-      qs, Named "bool", k (Ident name)
+      let bool = if !Options.microsoft then "BOOLEAN" else "bool" in
+      qs, Named bool, k (Ident name)
   | Struct fields ->
       qs, Struct (None, mk_fields m fields), k (Ident name)
   | Union fields ->

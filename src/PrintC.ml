@@ -201,7 +201,12 @@ and p_expr' curr = function
   | Member _ | MemberP _ ->
       failwith "[p_expr']: not implemented"
   | Bool b ->
-      string (string_of_bool b)
+      if !Options.microsoft then
+        string (match b with
+        | false -> "FALSE"
+        | true -> "TRUE")
+      else
+        string (string_of_bool b)
   | CompoundLiteral (t, init) ->
       (* NOTE: always parenthesize compound literal no matter what, because GCC
        * parses an application of a function to a compound literal as an n-ary
