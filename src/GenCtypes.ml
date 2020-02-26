@@ -126,9 +126,14 @@ let mk_qualified_type m (typ: Ast.lident) =
   try exp_ident (Hashtbl.find special_types typ)
   with Not_found -> exp_ident (mk_unqual_name m typ)
 
-let rec mk_typ m = function
+let rec mk_typ ?(bytes=false) m = function
   | Int w -> exp_ident (PrintCommon.width_to_string w ^ "_t")
-  | Pointer t -> Exp.apply (exp_ident "ptr") [(Nolabel, mk_typ m t)]
+  | Pointer t ->
+    if bytes && t = Int Constant.UInt8 then
+      (* special handling for functions which take uint8_t* as arguments in order to pass OCaml Bytes.t directly *)
+      exp_ident "ocaml_bytes"
+    else
+      Exp.apply (exp_ident "ptr") [(Nolabel, mk_typ m t)]
   | Void -> exp_ident "void"
   | Qualified l -> mk_qualified_type m l
   | Bool -> exp_ident "bool"
@@ -213,7 +218,7 @@ and build_foreign_fun m return_type parameters : expression =
     if KList.is_empty parameters then
       [mk_typ m Void]
     else
-      List.map (fun n -> mk_typ m n.typ) parameters
+      List.map (fun n -> mk_typ m n.typ ~bytes:true) parameters
   in
   let returning = mk_app (exp_ident "returning") [mk_typ m return_type] in
   List.fold_right (fun t1 t2 -> mk_app (exp_ident "@->") [t1; t2]) types returning
@@ -524,6 +529,9 @@ let write_gen_module files =
     ) files;
 
     let b = Buffer.create 1024 in
+    Printf.bprintf b "CTYPES_DEPS=";
+    List.iter (fun (f, _, _) -> Printf.bprintf b "lib/%s_stubs.cmx lib/%s_bindings.cmx " f f) files;
+    Buffer.add_string b "\n";
     List.iter (fun (f, ds, _) ->
       Printf.bprintf b "lib/%s_bindings.cmx: " f;
       List.iter (fun d ->
