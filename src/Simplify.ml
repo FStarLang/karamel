@@ -95,8 +95,15 @@ let ignore_non_first_order = object (self)
 
   method! visit_EApp env e es =
     List.iter (self#visit_expr env) es;
+    let parameter_table, _ = env in
+    let _, ts = Helpers.flatten_arrow e.typ in
     match e.node with
-    | EQualified _ -> ()
+    | EQualified lid ->
+        (* partial applications are not first-order... may be overly
+         * conservative with higher-order code that really means to return a
+         * function pointer but that's not the end of the world *)
+        if List.length es <> List.length ts then
+          Hashtbl.remove parameter_table lid
     | _ -> self#visit_expr env e
 
   method! visit_EQualified (parameter_table, _) lid =

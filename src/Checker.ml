@@ -224,8 +224,8 @@ and smallest t1 t2 =
       t1
 
 and check env t e =
-  (* if !debug then KPrint.bprintf "[check] t=%a for e=%a\n" ptyp t pexpr e; *)
-  (* if !debug then KPrint.bprintf "[check] annot=%a for e=%a\n" ptyp e.typ pexpr e; *)
+  if !debug then KPrint.bprintf "[check] t=%a for e=%a\n" ptyp t pexpr e;
+  if !debug then KPrint.bprintf "[check] annot=%a for e=%a\n" ptyp e.typ pexpr e;
   check' env t e;
   e.typ <- smallest e.typ t
 
@@ -358,6 +358,7 @@ and check' env t e =
       | _ ->
           ()
       end;
+      let env = locate env (Call ident) in
       let ts' = args_of_branch env t ident in
       List.iter2 (check env) ts' exprs
 
@@ -451,12 +452,12 @@ and args_of_branch env t ident =
       checker_error env "Type annotation is not an lid but %a" ptyp t
 
 and infer env e =
-  (* if !debug then KPrint.bprintf "[infer] %a\n" pexpr e; *)
+  if !debug then KPrint.bprintf "[infer] %a\n" pexpr e;
   let t = infer' env e in
-  (* if !debug then KPrint.bprintf "[infer, got] %a\n" ptyp t; *)
+  if !debug then KPrint.bprintf "[infer, got] %a\n" ptyp t;
   check_subtype env t e.typ;
   e.typ <- prefer_nominal t e.typ;
-  (* if !debug then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ; *)
+  if !debug then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ;
   t
 
 and prefer_nominal t1 t2 =
@@ -646,7 +647,7 @@ and infer' env e =
   | ETuple es ->
       TTuple (List.map (infer env) es)
 
-  | ECons (_, args) ->
+  | ECons (ident, args) ->
       begin match expand_abbrev env e.typ with
       | TQualified lid
       | TApp (lid, _) ->
@@ -654,6 +655,7 @@ and infer' env e =
       | _ ->
           ()
       end;
+      let env = locate env (Call ident) in
       ignore (List.map (infer env) args);
       (* Preserve the provided type annotation that (hopefully) was there in the
        * first place. *)

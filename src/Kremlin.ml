@@ -592,6 +592,7 @@ Supported options:|}
   let files = Inlining.cross_call_analysis files in
   (* Note: generates let-bindings, so needs to be before simplify2 *)
   let files = Simplify.remove_unused files in
+    print PrintAst.print_files files;
   let files = if !Options.tail_calls then Simplify.tail_calls files else files in
   let files = Simplify.simplify2 files in
   let files = if Options.(!merge_variables <> No) then SimplifyMerge.simplify files else files in
