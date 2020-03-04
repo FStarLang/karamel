@@ -52,7 +52,8 @@ typedef const char *Prims_string;
 #define IS_MSVC64 (defined(_MSC_VER) && defined(_M_X64) && !defined(__clang__))
 #define HAS_INT128 ((defined(__x86_64__) || defined(__x86_64) || \
                      defined(__aarch64__) || \
-                     (defined(__powerpc64__) && defined(__LITTLE_ENDIAN__))) || \
+                     (defined(__powerpc64__) && defined(__LITTLE_ENDIAN__)) || \
+                     defined(__s390x__)) || \
                     (defined(_MSC_VER) && !defined(_M_X64) && defined(__clang__)))
 
 /* The uint128 type is a special case since we offer several implementations of
