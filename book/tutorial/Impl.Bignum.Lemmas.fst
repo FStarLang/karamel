@@ -44,6 +44,16 @@ let v_zero_tail (x: Spec.t): Lemma
   (ensures Spec.v (S.slice x 1 (S.length x)) = 0)
 =
   ()
+
+let rec v_all_zeroes (x: Spec.t): Lemma
+  (requires x `S.equal` S.create (S.length x) 0ul)
+  (ensures Spec.v x == 0)
+  (decreases (S.length x))
+=
+  if S.length x = 0 then
+    ()
+  else
+    v_all_zeroes (S.tail x)
 #pop-options
 
 let lemma_empty #a (x: S.seq a): Lemma

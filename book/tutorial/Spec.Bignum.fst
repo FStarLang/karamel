@@ -74,6 +74,7 @@ let rec v (x: t): Tot nat (decreases (S.length x)) =
 /// A stylistic note: parentheses are oftentimes ommitted after ``requires``and
 /// ``ensures`` but for some reason are still needed for ``decreases``. See
 /// https://github.com/FStarLang/FStar/issues/1765
+inline_for_extraction
 let add_carry (x y: U32.t): Pure (U32.t & U32.t)
   (requires True)
   (ensures fun z ->
@@ -169,14 +170,15 @@ let v_1 (x: U32.t) (y: t): Lemma
 /// proof to do in the helper too, so might as well do it once. I guess it's a
 /// matter of taste and personal preference at this stage.
 ///
-/// This function failed once as I was trying to process it in the interactive,
-/// then succeeded again on the second try without me changing anything. This
-/// generally means one of two things: either the proof is operating very close
-/// to the maximum allowed rlimit, or the proof is very unstable and I should
-/// make it more robust. I used the ``quake`` option which tweaks the z3seed to
-/// ensure that the proof is reasonably robust. It probably was an rlimit issue
-/// (after all, I had not tweaked the default rlimit setting until now!).
-#push-options "--quake 3 --z3rlimit 20"
+/// This function failed once as I was trying to process it in the interactive
+/// mode, then succeeded again on the second try without me changing anything.
+/// This generally means one of two things: either the proof is operating very
+/// close to the maximum allowed rlimit, or the proof is very unstable and I
+/// should make it more robust. I used the ``quake`` option which tweaks the
+/// z3seed to ensure that the proof is reasonably robust. It probably was an
+/// rlimit issue (after all, I had not tweaked the default rlimit setting until
+/// now!).
+#push-options "--z3rlimit 20" // --quake 3
 let rec add' (x y: t) (c0: U32.t): Pure t
   (requires True)
   (ensures fun z -> v x + v y + U32.v c0 = v z)
@@ -246,16 +248,6 @@ let rec add' (x y: t) (c0: U32.t): Pure t
     let a2, c2 = add_carry a1 c0 in
     let c = U32.(c1 +^ c2) in
     let r = S.cons a2 (add' x_tail y_tail c) in
-    // This should be provable within the calc statement (see below) but for
-    // some reason the tactic fails, so I'm leaving this on the side. The main
-    // reason for using the tactic here is that this is basic distributivity,
-    // but I know from experience that Z3 might struggle with this fact, and
-    // that I don't want to write all of the arguments to all three calls to the
-    // distributivity lemma by hand.
-    assert (
-      U32.v a2 + pow2 32 * (v x_tail + v y_tail + U32.v c1 + U32.v c2) ==
-      U32.v a2 + pow2 32 * v x_tail + pow2 32 * v y_tail + pow2 32 * U32.v c1 + pow2 32 * U32.v c2
-      ) by (FStar.Tactics.CanonCommSemiring.int_semiring ());
     // As usual, a calc statement is more robust.
     calc (==) {
       v r;
@@ -263,7 +255,11 @@ let rec add' (x y: t) (c0: U32.t): Pure t
       U32.v a2 + pow2 32 * v (add' x_tail y_tail c);
     (==) { }
       U32.v a2 + pow2 32 * (v x_tail + v y_tail + U32.v c1 + U32.v c2);
-    (==) { (* should be: _ by (FStar.Tactics.CanonCommSemiring.int_semiring ()) *) }
+    (==) { _ by (FStar.Tactics.CanonCommSemiring.int_semiring ()) }
+      // The main reason for using the tactic here is that this is basic
+      // distributivity, but I know from experience that Z3 might struggle with
+      // this fact, and that I don't want to write all of the arguments to all
+      // three calls to the distributivity lemma by hand.
       U32.v a2 + pow2 32 * v x_tail + pow2 32 * v y_tail + pow2 32 * U32.v c1 + pow2 32 * U32.v c2;
     };
     // Knowing from the S.length x = 0 case above that reasoning about S.tail
@@ -278,5 +274,5 @@ let add (x y: t): Tot (z:t { v z = v x + v y }) =
   add' x y 0ul
 
 /// The next steps are of course to define ``mul_carry``, ``mul'`` and ``mul``.
-/// Another cool next step would be to make this module parametric of the limb
+/// Another cool next step would be to make this module parametric over the limb
 /// type, to allow, say, U32 or U64.

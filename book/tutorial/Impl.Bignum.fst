@@ -54,10 +54,12 @@ let loc (x: t) = B.loc_buffer (snd x)
 /// preconditions is also great!
 let add'_pre (dst x y: t) (c0: U32.t) (h0: HS.mem) =
   invariant h0 dst /\ invariant h0 x /\ invariant h0 y /\
-  B.all_disjoint [ loc dst; loc x; loc y] /\
+  B.loc_disjoint (loc dst) (loc x) /\
+  B.loc_disjoint (loc dst) (loc y) /\
   // Note here that I am doing the ``+1`` with a nat rather than a U32,
   // otherwise I would have to add a precondition related to the fact that
-  // neither x or y can have an array size of max_length.
+  // neither x or y can have an array size of max_length. I'll add this
+  // precondition at the very end of this module.
   U32.v (fst dst) == U32.v (max32 (fst x) (fst y)) + 1 /\
   Spec.v (as_seq h0 dst) == 0
 
@@ -81,6 +83,7 @@ val add'_zero (add': add'_t) (dst x y: t) (c0: U32.t): Stack unit
   (ensures add'_post dst x y c0)
 
 #push-options "--z3rlimit 30"
+inline_for_extraction
 let add'_zero add' dst x y c0 =
   let x_l, x_b = x in
   let y_l, y_b = y in
@@ -99,11 +102,13 @@ let add'_zero add' dst x y c0 =
   (**) norm_spec [zeta; iota; primops; delta_only [`%Spec.add']]
     (Spec.add' (B.as_seq h00 x_b) (B.as_seq h00 y_b) c0);
 
-  // Split y. In my experience, doing separate modifications on two
-  // sub-buffers that have been manually cut gives more slices in the context
-  // and results in better SMT triggering. So whenever I have operations that
-  // morally modify two disjoint sub-parts of a buffer, I always make the
-  // sub-buffers explicit.
+  // Split y. In my experience, if you are doing modifications to two different
+  // sub-parts of a buffer, then make sure you materialize these disjoint parts
+  // by calling ``sub`` twice. This ensures that the equational lemmas for the
+  // modifies theory trigger, hence giving you "for free" the fact that
+  // modifying one half of the buffer leaves the other one unchanged. Without
+  // that, you'd have to do manual sequence reasoning by hand which would be
+  // very painful.
   let y_hd = B.sub y_b 0ul 1ul in
   let y_tl_l = y_l `U32.sub` 1ul in
   let y_tl = B.sub y_b 1ul y_tl_l in
@@ -116,7 +121,19 @@ let add'_zero add' dst x y c0 =
   (**) let h0 = ST.get () in
   (**) v_zero_tail (B.as_seq h0 dst_b);
 
-  // Actual computation.
+  // Actual computation. Note that this will *not* generate a pair in the
+  // resulting C code! With the inline_for_extraction on Spec.add_carry, this
+  // becomes (in the internal KreMLin AST) something like:
+  //   match (let a = ... in let c = ... in a, c) with (a', c')
+  // KreMLin hoists the let-bindings:
+  //   let a = ... in
+  //   let c = ... in
+  //   match a, c with a', c' -> ...
+  // then gets rid of the match as it is a trivial match on a pair literal. This
+  // is a well-known technique that applies to tuples of any lengths, and allows
+  // sharing copious amounts of code between spec and implementation. It is used
+  // pervasively in HACL*.
+  // See https://github.com/FStarLang/kremlin/blob/04054342cb527ecb97633d0d88a739ae0b320146/src/DataTypes.ml#L1014
   let a, c1 = Spec.add_carry y_b.(0ul) c0 in
   dst_hd.(0ul) <- a;
 
@@ -133,9 +150,9 @@ let add'_zero add' dst x y c0 =
   // that.
   assert (B.get h1 dst_hd 0 == B.get h2 dst_hd 0);
 
-  // Trick: this is the last element in the sequence, so it's ok to use Ghost
-  // code from here on since the whole let-binding will enjoy unit-ghost to
-  // unit-tot promotion.
+  // Trick: this let-binding is the last element in the ;-separated sequence
+  // that makes up this function body, so it's ok to use Ghost code from here on
+  // since the whole let-binding will enjoy unit-ghost to unit-tot promotion.
   let dst1 = B.as_seq h2 dst_b in
 
   // Always use S.equal for sequences!
@@ -231,12 +248,13 @@ let rec add' dst x y c0 =
     // This is mostly a copy-paste of the previous calc statement. As mentioned
     // above, I much prefer littering my code with calc's rather than dropping
     // the two manual lemma calls that are needed because the proof is fresh in
-    // my head. At this stage, the proof takes a few seconds; rlimit 50 is still
-    // pretty commendable (it's still pretty low) and the function body is
-    // relatively big, so perhaps it's not that surprising that the function
-    // should take a few seconds to go through. At this stage, I'm confident
-    // that the proof is robust enough thanks to the calc statement, so I'm
-    // moving on.
+    // my head. At this stage, the proof takes a few seconds; rlimit 50 is
+    // commendable (it's still pretty low) and the function body is relatively
+    // big, so perhaps it's not that surprising that the function should take a
+    // few seconds to go through. At this stage, I'm mildly confident that the
+    // proof is robust enough thanks to the calc statement, so I'm moving on,
+    // but a more thorough investigation would be in order to understand why
+    // this proof sometimes takes a while.
     calc (S.equal) {
       dst1;
     (S.equal) { lemma_slice dst1 1 }
@@ -256,3 +274,61 @@ let rec add' dst x y c0 =
     }
 
 #pop-options
+
+/// We now demonstrate a function that performs an allocation and returns the
+/// corresponding value. This showcases heap-based allocation. Note that we are
+/// no longer in the Stack effect (which means "only stack allocations"); ST
+/// allows heap allocations.
+val add_alloc (r: HS.rid) (x y: t): ST t
+  (requires fun h0 ->
+    invariant h0 x /\ invariant h0 y /\
+    U32.v (fst x) <> UInt.max_int 32 /\
+    U32.v (fst y) <> UInt.max_int 32 /\
+    ST.is_eternal_region r)
+  (ensures fun h0 z h1 ->
+    invariant h1 x /\ invariant h1 y /\ invariant h1 z /\
+    // There are many key things to reveal to clients when returning a fresh
+    // allocation. Lacking these, a client will not be able to reason about the
+    // return value.
+    //
+    // 1. No existing memory locations were modified. (Allocating does not count
+    // towards the modifies clause).
+    B.(modifies loc_none h0 h1) /\
+    // 2. The new location is fresh. Thanks various lemmas and patterns, clients
+    // will be able to deduce disjointness from any allocation that they knew
+    // existed before.
+    B.(fresh_loc (loc_buffer (snd z)) h0 h1) /\
+    // 3. Unless a region is provided, this function will never be useful to
+    // verified clients. So, we need to say that we allocated the function in
+    // the requested region.
+    B.(loc_includes (loc_region_only true r) (loc_buffer (snd z))))
+
+#push-options "--z3rlimit 100"
+let add_alloc r x y =
+  // Without these bindings, some SMT patterns don't trigger on x_l and prevent
+  // me from concluding liveness of x_l after malloc. Perhaps it would've been
+  // wiser to avoid pairs and pass arguments separately?
+  let x_l, x_b = x in
+  let y_l, y_b = y in
+
+  let h0 = ST.get () in
+  let dst_l = max32 (fst x) (fst y) `U32.add` 1ul in
+  let dst_b = B.malloc r 0ul dst_l in
+  let dst = dst_l, dst_b in
+
+  let h1 = ST.get () in
+  v_all_zeroes (B.as_seq h1 dst_b);
+  add' (dst_l, dst_b) x y 0ul;
+
+  let h2 = ST.get () in
+  // A key lemma is needed here. Since the library is a bit big, I usually just
+  // skim EverCrypt.Hash.Incremental which I authored a while ago and contains
+  // similar heap-manipulating functions.
+  B.(modifies_only_not_unused_in loc_none h0 h2);
+  dst
+
+/// At this stage, a nice exercise would be to write an alternative
+/// specification using Spec.Loops. Then perform a proof of spec equivalence
+/// between add'_loop and add'. Finally, write a Low* implementation of
+/// add'_loop and show that it performs an addition using the spec equivalence
+/// lemma.
