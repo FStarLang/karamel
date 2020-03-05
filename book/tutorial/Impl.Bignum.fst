@@ -48,9 +48,6 @@ let loc (x: t) = B.loc_buffer (snd x)
 /// integers. Pairs might introduce a runtime inefficiency but we'll see how to
 /// limit that.
 
-let max32 (x y: U32.t): U32.t =
-  if x `U32.gt` y then x else y
-
 /// I was writing the body of add', then realized that the two symmetrical cases
 /// could be hoisted into a separate function. It's always better to factor
 /// code, and separate functions allow for more robust proofs. Sharing
@@ -61,8 +58,8 @@ let add'_pre (dst x y: t) (c0: U32.t) (h0: HS.mem) =
   // Note here that I am doing the ``+1`` with a nat rather than a U32,
   // otherwise I would have to add a precondition related to the fact that
   // neither x or y can have an array size of max_length.
-  U32.v (fst dst) = U32.v (max32 (fst x) (fst y)) + 1 /\
-  Spec.v (as_seq h0 dst) = 0
+  U32.v (fst dst) == U32.v (max32 (fst x) (fst y)) + 1 /\
+  Spec.v (as_seq h0 dst) == 0
 
 let add'_post (dst x y: t) (c0: U32.t) (h0: HS.mem) () (h1: HS.mem) =
   B.modifies (loc dst) h0 h1 /\
@@ -83,11 +80,24 @@ val add'_zero (add': add'_t) (dst x y: t) (c0: U32.t): Stack unit
   (requires fun h0 -> fst x = 0ul /\ fst y <> 0ul /\ add'_pre dst x y c0 h0)
   (ensures add'_post dst x y c0)
 
-#push-options "--z3rlimit 30 --fuel 1"
+#push-options "--z3rlimit 30"
 let add'_zero add' dst x y c0 =
   let x_l, x_b = x in
   let y_l, y_b = y in
   let dst_l, dst_b = dst in
+
+  // I added this bit afterwards, so I'm using lexicographic number for my h variables.
+  (**) let h00 = ST.get () in
+  // Ninja trick. Remember how I was previously preaching for a zero-fuel
+  // zero-ifuel approach to proofs. Here, we need to unroll the definition of
+  // add' in order to prove that we are doing the right thing and generating the
+  // right recursive call. This would normally warrant a --fuel 1 setting.
+  // However, we can manually instruct the normalizer to perform a step of
+  // reduction on the desired post-condition for this function, revealing its
+  // definition in the process, and skipping the need for fuel altogether since
+  // this is performed in F* without any reliance on Z3.
+  (**) norm_spec [zeta; iota; primops; delta_only [`%Spec.add']]
+    (Spec.add' (B.as_seq h00 x_b) (B.as_seq h00 y_b) c0);
 
   // Split y. In my experience, doing separate modifications on two
   // sub-buffers that have been manually cut gives more slices in the context
@@ -141,7 +151,7 @@ let add'_zero add' dst x y c0 =
     S.cons a (Spec.add' S.empty (B.as_seq h1 y_tl) c1);
   (S.equal) { }
     S.cons a (Spec.add' S.empty (B.as_seq h0 y_tl) c1);
-  (S.equal) { S.lemma_tl (B.get h1 y_b 0) (B.as_seq h0 y_tl) }
+  (S.equal) { S.lemma_tl (B.get h0 y_b 0) (B.as_seq h0 y_tl) }
     // Frankly, at this stage, it appears that using S.tail in the spec was a
     // mistake. So much more work!
     S.cons a (Spec.add' S.empty (S.tail (B.as_seq h0 y_b)) c1);
@@ -154,8 +164,8 @@ let add'_zero add' dst x y c0 =
 /// the type even checks.
 val add': add'_t
 
-/// Here, the fuel unit seems really inevitable, as we need to unroll the definition of add'.
-#push-options "--z3rlimit 30 --fuel 1"
+/// Of course, a fuel setting of 1 would work as an alternative to the normalization trick demonstrated earlier.
+#push-options "--z3rlimit 50 --fuel 1"
 let rec add' dst x y c0 =
   let x_l, x_b = x in
   let y_l, y_b = y in
@@ -171,5 +181,78 @@ let rec add' dst x y c0 =
     add'_zero add' dst y x c0
 
   else
-    admit ()
+    let x_hd = B.sub x_b 0ul 1ul in
+    let x_tl_l = x_l `U32.sub` 1ul in
+    let x_tl = B.sub x_b 1ul x_tl_l in
+
+    let y_hd = B.sub y_b 0ul 1ul in
+    let y_tl_l = y_l `U32.sub` 1ul in
+    let y_tl = B.sub y_b 1ul y_tl_l in
+
+    let dst_hd = B.sub dst_b 0ul 1ul in
+    let dst_tl_l = dst_l `U32.sub` 1ul in
+    let dst_tl = B.sub dst_b 1ul dst_tl_l in
+
+    (**) let h0 = ST.get () in
+    (**) v_zero_tail (B.as_seq h0 dst_b);
+    // I've had in the past typing errors when arguments to the function are
+    // effectful computations. If that happens, just let-bind the arguments.
+    let a1, c1 = Spec.add_carry x_hd.(0ul) y_hd.(0ul) in
+    let a2, c2 = Spec.add_carry a1 c0 in
+    dst_hd.(0ul) <- a2;
+
+
+    (**) let h1 = ST.get () in
+    // I tend to structure my code with `let h... = ST.get ()` before every
+    // stateful operation, since proofs almost always need to refer to every
+    // single point of the state. The (**) is a nice trick that indicates which
+    // lines are for the purposes of proofs only. The fstar-mode.el supports
+    // hiding those.
+    let c = U32.(c1 +^ c2) in
+    // Why am I calling this lemma? Well. I noticed that the proof was not as
+    // snappy as it should be. Using the "sliding admit" technique, I moved an
+    // admit up and down the function to figure out where the time was spent. I
+    // realized that once more the time was spent in the recursive call.
+    // However, I already was calling ``v_zero_tail`` manually, so it had to be
+    // something else. So right before the recursive call, I started asserting
+    // parts of the precondition one by one, to figure out which was was the
+    // culprit. It turns out that the ``max`` condition was adding quite a few
+    // seconds to the proof! In a sense, it's not surprising, because it's
+    // non-linear arithmetic, and while it always works great on small examples,
+    // it a larger context, it can easily send the proof off the rails. So I
+    // just moved that fact to a separate lemma, called it manually, and the
+    // proof became very fast again.
+    max_fact dst_l x_l y_l;
+    add' (dst_tl_l, dst_tl) (x_tl_l, x_tl) (y_tl_l, y_tl) c;
+
+    (**) let h2 = ST.get () in
+    (**) let dst1 = B.as_seq h2 dst_b in
+
+    // This is mostly a copy-paste of the previous calc statement. As mentioned
+    // above, I much prefer littering my code with calc's rather than dropping
+    // the two manual lemma calls that are needed because the proof is fresh in
+    // my head. At this stage, the proof takes a few seconds; rlimit 50 is still
+    // pretty commendable (it's still pretty low) and the function body is
+    // relatively big, so perhaps it's not that surprising that the function
+    // should take a few seconds to go through. At this stage, I'm confident
+    // that the proof is robust enough thanks to the calc statement, so I'm
+    // moving on.
+    calc (S.equal) {
+      dst1;
+    (S.equal) { lemma_slice dst1 1 }
+      S.slice dst1 0 1 `S.append` S.slice dst1 1 (S.length dst1);
+    (S.equal) { slice_create 0 dst1 }
+      S.cons a2 (S.slice dst1 1 (S.length dst1));
+    (S.equal) { }
+      S.cons a2 (B.as_seq h2 dst_tl);
+    (S.equal) { }
+      S.cons a2 (Spec.add' (B.as_seq h1 x_tl) (B.as_seq h1 y_tl) c);
+    (S.equal) { }
+      S.cons a2 (Spec.add' (B.as_seq h0 x_tl) (B.as_seq h0 y_tl) c);
+    (S.equal) { S.lemma_tl (B.get h0 y_b 0) (B.as_seq h0 y_tl) }
+      S.cons a2 (Spec.add' (B.as_seq h0 x_tl) (S.tail (B.as_seq h0 y_b)) c);
+    (S.equal) { S.lemma_tl (B.get h0 x_b 0) (B.as_seq h0 x_tl) }
+      S.cons a2 (Spec.add' (S.tail (B.as_seq h0 x_b)) (S.tail (B.as_seq h0 y_b)) c);
+    }
+
 #pop-options

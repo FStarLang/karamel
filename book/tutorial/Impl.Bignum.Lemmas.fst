@@ -51,3 +51,21 @@ let lemma_empty #a (x: S.seq a): Lemma
   (ensures x `S.equal` S.empty)
 =
   ()
+
+let max32 (x y: U32.t): U32.t =
+  if x `U32.gt` y then x else y
+
+let max_fact (z x y: U32.t): Lemma
+  (requires U32.(
+    x >^ 0ul /\ y >^ 0ul /\ z >^ 0ul /\
+    U32.v z == U32.v (max32 x y) + 1))
+  (ensures
+    U32.(v (z -^ 1ul) == U32.v (max32 (x -^ 1ul) (y -^ 1ul)) + 1))
+=
+  ()
+
+let slice_create #a (i: nat) (s: S.seq a): Lemma
+  (requires S.length s > 0 /\ i + 1 < S.length s)
+  (ensures S.slice s i (i + 1) `S.equal` S.create 1 (S.index s i))
+=
+  ()
