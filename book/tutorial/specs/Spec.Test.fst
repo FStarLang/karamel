@@ -5,6 +5,7 @@ module Spec.Test
 /// every time to Z3, polluting the context and slowing proofs down. Don't do that!
 
 module S = FStar.Seq
+#set-options "--lax"
 module Spec = Spec.Bignum
 
 let test (): bool =

@@ -80,7 +80,7 @@ let add_carry (x y: U32.t): Pure (U32.t & U32.t)
   (ensures fun z ->
     let open U32 in
     let a, c = z in
-    U32.v x + U32.v y == U32.v a + max * U32.v c /\
+    U32.v x + U32.v y == U32.v a + pow2 32 * U32.v c /\
     U32.v c <= 1
   )
 =

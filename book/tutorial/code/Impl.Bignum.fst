@@ -73,17 +73,22 @@ let add'_post (dst x y: t) (c0: U32.t) (h0: HS.mem) () (h1: HS.mem) =
 
 /// I really want to separate this function but it needs recursion, so I just do
 /// an open recursion and rely on inline_for_extraction to get the code I want.
+/// Note that in Low*, type abbreviations that are used to annotate functions
+/// later on MUST BE inline for extraction (they're used to understand how many
+/// arguments there are to the function).
+inline_for_extraction noextract
 let add'_t = dst:t -> x:t -> y:t -> c0:U32.t -> Stack unit
   (requires add'_pre dst x y c0)
   (ensures add'_post dst x y c0)
 
 /// So let's focus on the simple case first where one of the two sequences is zero.
+inline_for_extraction noextract
 val add'_zero (add': add'_t) (dst x y: t) (c0: U32.t): Stack unit
   (requires fun h0 -> fst x = 0ul /\ fst y <> 0ul /\ add'_pre dst x y c0 h0)
   (ensures add'_post dst x y c0)
 
 #push-options "--z3rlimit 30"
-inline_for_extraction
+inline_for_extraction noextract
 let add'_zero add' dst x y c0 =
   let x_l, x_b = x in
   let y_l, y_b = y in
@@ -332,3 +337,5 @@ let add_alloc r x y =
 /// between add'_loop and add'. Finally, write a Low* implementation of
 /// add'_loop and show that it performs an addition using the spec equivalence
 /// lemma.
+///
+/// Another nice exercise would be to use Impl.Bignum.Intrinsics instead of Spec.add_carry.
