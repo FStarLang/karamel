@@ -17,6 +17,7 @@ The KreMLin user manual and documentation
    ExampleRingBuffer
    ExampleMemCpy
    AdvancedTips
+   AdvancedTopics
 
 
 Indices and tables
