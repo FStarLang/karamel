@@ -22,7 +22,7 @@ endif
 
 all: dist/libbignum.a
 
-test: tests/c-tests.test obj/spec-tests.test
+test: tests/c-tests.test obj/specs-test.test
 
 %.test: %.exe
 	$<
@@ -36,9 +36,9 @@ FSTAR_HINTS ?= --use_hints --use_hint_hashes --record_hints
 
 # This flag controls what gets extracted to OCaml. Generally, we don't extract
 # the FStar namespace since it's already extracted and packaged as the ocamlfind
-# package fstarlib. Here, unlike in -bundle, +Bignum matches both Bignum and
-# Bignum.*
-FSTAR_EXTRACT = --extract '-* +Bignum'
+# package fstarlib. Here, unlike in -bundle, +Spec matches both Spec and
+# Spec.*
+FSTAR_EXTRACT = --extract '-* +Spec'
 
 # Some reasonable flags to turn on:
 # - 247: checked file not written because some of its dependencies...
@@ -146,6 +146,11 @@ obj/%.krml:
 	$(FSTAR) $(notdir $(subst .checked,,$<)) --codegen Kremlin \
 	--extract_module $(basename $(notdir $(subst .checked,,$<)))
 
+obj/Specs_Driver.ml: specs/ml/Specs_Driver.ml
+	# This ensures that all the source directories are not polluted with
+	# build artifacts
+	cp $< $@
+
 # F* --> C
 # --------
 
@@ -156,7 +161,6 @@ KRML=$(KREMLIN_HOME)/krml
 # and pass -static-header Impl.Bignum.Intrinsics as described in the
 # documentation.
 HAND_WRITTEN_C_FILES = code/c/Impl_Bignum_Intrinsics.c
-HAND_WRITTEN_ML_FILES = specs/ml/Spec_Driver.ml
 
 # This is now the preferred and recommended way to compile C code with KreMLin.
 #
@@ -177,7 +181,7 @@ HAND_WRITTEN_ML_FILES = specs/ml/Spec_Driver.ml
 # describes the supported canonical way of compiling code.
 #
 # See the advanced topics section for an in-depth explanation of how the -bundle
-# option works.
+# option works. We also use -minimal.
 dist/Makefile.basic: $(filter-out %prims.krml,$(ALL_KRML_FILES)) $(HAND_WRITTEN_C_FILES)
 	mkdir -p $(dir $@)
 	cp $(HAND_WRITTEN_C_FILES) $(dir $@)
@@ -186,7 +190,11 @@ dist/Makefile.basic: $(filter-out %prims.krml,$(ALL_KRML_FILES)) $(HAND_WRITTEN_
 	  -warn-error @4@5@18 \
 	  -fparentheses \
 	  -bundle Impl.Bignum.Intrinsics= \
-	  -bundle Impl.Bignum.*,Spec.*[rename=Bignum] \
+	  -bundle Impl.Bignum=Spec.*[rename=Bignum] \
+	  -minimal \
+	  -bundle 'FStar.*' \
+	  -add-include '<stdint.h>' \
+	  -add-include '"kremlin/internal/target.h"' \
 	  $(notdir $(HAND_WRITTEN_C_FILES)) \
 	  -o libbignum.a
 
@@ -228,10 +236,6 @@ ALL_CMX_FILES = $(patsubst %.ml,%.cmx,$(shell echo $(ALL_ML_FILES) | $(TAC)))
 # hand-written file only needs to be inserted at the end of the list of CMX
 # files. If it had to be inserted somewhere in the middle of the topological
 # order, it would be trickier...
-obj/Specs_Driver.ml: specs/Specs_Driver.ml
-	# This ensures that all the source directories are not polluted with
-	# build artifacts
-	cp $< $@
 
 obj/Specs_Driver.cmx: $(ALL_CMX_FILES)
 
@@ -244,10 +248,12 @@ obj/%.cmx: obj/%.ml
 	$(OCAMLOPT) -c $< -o $@
 
 obj/specs-test.exe: $(ALL_CMX_FILES) obj/Specs_Driver.cmx
-	$(OCAMLOPT) $< -o $@
+	$(OCAMLOPT) $^ -o $@
 
 # Compiling the hand-written test
 # -------------------------------
+
+CFLAGS += -I dist -I $(KREMLIN_HOME)/include
 
 tests/c-tests.exe: dist/libbignum.a tests/c-tests.o
 	$(CC) $^ -o $@

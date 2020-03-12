@@ -22,10 +22,14 @@ SOURCE_DIRS = $(BIGNUM_HOME)/code $(BIGNUM_HOME)/specs
 # kremlib as part of this build (which would be doomed to fail since there's a
 # lot of trickery involved in building ulib -- better leave it up to the F*
 # build!).
+#
+# Also note that we have our own directory on the include path for the sake of
+# the interactive mode, for finding checked files for our own F* files.
 INCLUDE_DIRS = \
   $(SOURCE_DIRS) \
   $(FSTAR_HOME)/ulib/.cache \
-  $(KREMLIN_HOME)/kremlib
+  $(KREMLIN_HOME)/kremlib \
+  $(BIGNUM_HOME)/obj
 
 
 FSTAR_INCLUDES = $(addprefix --include ,$(INCLUDE_DIRS))

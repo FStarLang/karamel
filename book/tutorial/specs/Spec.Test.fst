@@ -5,8 +5,19 @@ module Spec.Test
 /// every time to Z3, polluting the context and slowing proofs down. Don't do that!
 
 module S = FStar.Seq
-#set-options "--lax"
 module Spec = Spec.Bignum
 
-let test (): bool =
-  true
+open FStar.All
+
+let test_v_vectors = [
+  [ 4020757606ul; 24784186ul ], 106447272348738662;
+  [ 1154478784ul; 20791736ul ], 89299827301544640
+]
+
+let test_v arg: ML _ =
+  let s, v = arg in
+  if Spec.v (S.seq_of_list s) <> v then
+    failwith ("Spec.v is not equal to expected value " ^ string_of_int v)
+
+let test (): ML _ =
+  List.iter test_v test_v_vectors
