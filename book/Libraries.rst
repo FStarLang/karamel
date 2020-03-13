@@ -63,7 +63,7 @@ is the type of regions.
 
 .. code:: fstar
 
-let root: HS.rid = HS.roo
+  let root: HS.rid = HS.roo
 
 Stack frames are modeled as distinguished regions that satisfy the
 ``is_stack_region`` predicate. Allocating in a stack frame, unsurprisingly,

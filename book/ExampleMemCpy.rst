@@ -4,15 +4,10 @@ Example: `memcpy`
 The snippet below implements a classic ``memcpy`` function, copying ``len``
 elements of type ``a`` from ``src`` into ``dst``.
 
-.. literalinclude:: MemCpy.fst
+.. literalinclude:: ../test/MemCpy.fst
 
-..  :language: c
-    :start-after: SNIPPET_START: Spec_Agile_AEAD_alg
-    :end-before: SNIPPET_END: Spec_Agile_AEAD_alg
-
-This example showcases several features of Low*. We first present the code from
-a high-level point of view, then show how it compiles to C. We leave a detailed
-discussion of Low* to the subsequent chapters of this tutorial.
+This example showcases several features of Low*. We only present the code from
+a high-level point of view.
 
 The code starts by opening several modules that are part of the "Low*
 standard library".
@@ -54,4 +49,3 @@ by the ``UL`` Low* suffix for machine integers. The ``memcpy`` function is
 called over these two arrays. From a verification perspective, since the stack
 frame is freed after calling ``main``, we can successfully state that ``main``
 modifies no buffer.
-

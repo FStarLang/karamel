@@ -19,7 +19,7 @@ The KreMLin user manual and documentation
    Toy
    LinkedList4
    RingBuffer
-   MemCpy
+   ExampleMemCpy
    AdvancedTips
    AdvancedTopics
 

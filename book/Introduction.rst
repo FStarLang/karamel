@@ -22,6 +22,7 @@ KreMLin tool and the various ways it can be used to generate C programs or
 libraries; covers a few advanced examples.
 
 Low* has been successfully used to write numerous projects, including:
+
 - `HACL* <https://github.com/mitls/hacl-star>`_, a library of verified
   cryptographic primitives used in Firefox, the Linux Kernel and other projects;
 - `EverCrypt <https://hacl-star.github.io/HaclValeEverCrypt.html>`_, a
@@ -84,6 +85,7 @@ Structure of this manual
 ------------------------
 
 The goal of this manual is to provide both:
+
 - a user's guide to getting started with Low* and the toolchain, setting up a
   project, its build, the interactive mode, and providing pointers for idiomatic
   examples of how to author code in Low*

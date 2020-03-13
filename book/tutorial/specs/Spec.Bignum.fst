@@ -160,7 +160,7 @@ let v_1 (x: U32.t) (y: t): Lemma
 #pop-options
 
 /// Since I authored the two lemmas above, I don't need to rely on Z3 unfolding
-/// the definition of ``v``for my proof to go through. This is in line with my
+/// the definition of ``v`` for my proof to go through. This is in line with my
 /// earlier digression about always running with zero fuel and ifuel.
 ///
 /// I thought about requiring ``S.length x = S.length y`` and then having a

@@ -11,9 +11,6 @@ exercises left as comments at the bottom of the various. There are numerous
 comments about what is the preferred style.
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
    Spec.Bignum
    Spec.Test
    Impl.Bignum.Lemmas

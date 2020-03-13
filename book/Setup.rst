@@ -38,7 +38,7 @@ In any case, remember to export suitable values for the ``FSTAR_HOME`` and
 ``KREMLIN_HOME`` environment variables once you're done.
 
 Be aware that KreMLin is not at this time compatible with recent versions of
-OCaml. See `https://github.com/FStarLang/kremlin/issues/169`_ for the discussion.
+OCaml. See `<https://github.com/FStarLang/kremlin/issues/169>`_ for the discussion.
 
 We strongly recommend using the `fstar-mode.el
 <https://github.com/FStarLang/fstar-mode.el>`_ Emacs plugin for interactive mode
@@ -48,7 +48,7 @@ support.
 
   There is an extra customization step which allows querying a Makefile
   to figure out the arguments to pass to F*; please follow instructions at
-  `https://github.com/project-everest/mitls-fstar#configuring-emacs-mode`_ -- this
+  `<https://github.com/project-everest/mitls-fstar#configuring-emacs-mode>`_ -- this
   is used pretty pervasively throughout all of the Everest projects and the
   sample project uses it too.
 

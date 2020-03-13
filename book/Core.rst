@@ -402,7 +402,7 @@ pointer and its argument.
 
 Local closures are not supported, as they do not have a natural compilation
 scheme to C. You can, however, rely on ``[@inline_let]`` to define local
-helpers. 
+helpers.
 
 .. code:: fstar
 
@@ -419,6 +419,7 @@ helpers.
      uint32_t x0 = x * x;
      return x0 * x0;
    }
+
 If this is not workable, you will have to define the closure state
 yourself, carry it around, and apply the closure to its environment manually.
 
