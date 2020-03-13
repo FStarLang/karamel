@@ -4,7 +4,7 @@
 
 // Note: I always include the generated header, that way I get a compilation
 // error in my hand-written test if for some reason the signature of a function
-// changes.
+// changes. Don't declare extern functions!
 #include "Bignum.h"
 
 // Could've been written in Low*, just like this entire file...

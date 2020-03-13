@@ -159,5 +159,40 @@ the user needs to rebuild F*.
 Reference Makefile
 ^^^^^^^^^^^^^^^^^^
 
+I now provide a reference build system (authored with GNU make) that contains
+more comments than actual code.  It describes a very comprehensive scenario in
+which:
+
+- you need to mix hand-written and kremlin-generated C files to produce a C
+  library ``libbignum.a``
+- you need to extract the specs to OCaml for spec testing, with a hand-written
+  test driver;
+- you have hand-written C tests.
+
+Of course this should be simplified if you're not relying on all these features.
+This build is under Everest CI and will remain up-to-date.
+
+The first Makefile defines just enough to compute the arguments to the
+interactive mode:
+
+.. literalinclude:: tutorial/Makefile.include
+    :language: make
+
+This allows authoring a minimalistic Makefile for sub-directories, whose sole
+purpose is to compute include paths for the interactive mode:
+
+.. literalinclude:: tutorial/code/Makefile
+    :language: make
+
+See note above regarding the customization for the fstar-mode.el that you
+absolutely should have.
+
+The top-level Makefile combines everything together. Note that, at this stage,
+the jury is still out as to whether you should rely on the F*-generated
+``.depend`` to perform OCaml compilation, or fork out the build of the extracted
+OCaml code to an external tool (e.g. Dune). The latter is simpler but you lose
+parallelism in your build quite significantly, since extraction & compilation of
+OCaml can no longer be interleaved.
+
 .. literalinclude:: tutorial/Makefile
     :language: make

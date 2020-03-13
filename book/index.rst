@@ -14,8 +14,12 @@ The KreMLin user manual and documentation
    Setup
    Core
    Libraries
-   ExampleRingBuffer
-   ExampleMemCpy
+   BufferLibraries
+   MoreLibraries
+   Toy
+   LinkedList4
+   RingBuffer
+   MemCpy
    AdvancedTips
    AdvancedTopics
 
