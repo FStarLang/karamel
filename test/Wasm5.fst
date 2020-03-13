@@ -14,4 +14,7 @@ let z = C.String.of_literal "\0x57\0x68\0x69\0x73\0x70\0x65\0x72\0x54\0x65\0x78\
 let main (): FStar.HyperStack.ST.St Int32.t =
   B.recall x;
   let x: FStar.UInt8.t = x.(2ul) in
-  FStar.Int.Cast.Full.uint8_to_int32 FStar.UInt8.(42uy -%^ x)
+  if FStar.UInt8.(42uy -%^ x) = 0uy then
+    0l
+  else
+    1l
