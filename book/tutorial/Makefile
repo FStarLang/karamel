@@ -190,7 +190,8 @@ dist/Makefile.basic: $(filter-out %prims.krml,$(ALL_KRML_FILES)) $(HAND_WRITTEN_
 	  -warn-error @4@5@18 \
 	  -fparentheses \
 	  -bundle Impl.Bignum.Intrinsics= \
-	  -bundle Impl.Bignum=Spec.*[rename=Bignum] \
+	  -bundle 'LowStar.*,Prims' \
+	  -bundle Impl.Bignum=Impl.Bignum.*,Spec.*[rename=Bignum] \
 	  -minimal \
 	  -bundle 'FStar.*' \
 	  -add-include '<stdint.h>' \
