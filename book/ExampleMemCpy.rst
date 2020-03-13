@@ -5,6 +5,7 @@ The snippet below implements a classic ``memcpy`` function, copying ``len``
 elements of type ``a`` from ``src`` into ``dst``.
 
 .. literalinclude:: ../test/MemCpy.fst
+    :language: fstar
 
 This example showcases several features of Low*. We only present the code from
 a high-level point of view.

@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include <immintrin.h>
+#include <x86intrin.h>
 
 #include "Impl_Bignum_Intrinsics.h"
 
