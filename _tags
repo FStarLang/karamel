@@ -12,4 +12,5 @@ true: annot, bin_annot, warn(@1-2-3@8..12@14..21@23..29-30@31..38-39-40-41@43@57
   package(compiler-libs.common), package(ocaml-migrate-parsetree)
 <test>: -traverse
 <kremlib/{extracted,c,out,dist}>: -traverse
+<book/tutorial>: -traverse
 <kremlib/**/*.ml>: package(fstarlib)
