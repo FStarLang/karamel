@@ -134,8 +134,10 @@ function custom_pygments() {
   if ! pygmentize -L | grep fstar; then
     pip3 uninstall Pygments
     git clone https://github.com/denismerigoux/pygments
+    cd pygments
     git checkout 763/protz/fstar
-    (cd pygments && python3 setup.py install)
+    python3 setup.py install
+    cd ..
   fi
   pip3 list | grep -i pygments
 }
