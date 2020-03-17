@@ -10,11 +10,11 @@ ARG COMMITID
 FROM ${DOCKERHUBPROJECT}fstar-linux:${COMMITID}
 
 RUN pip3 install --upgrade pip && pip install --user sphinx
-RUN yes | pip3 uninstall Pygments && \
+RUN yes | sudo pip3 uninstall Pygments && \
     git clone https://github.com/denismerigoux/pygments && \
     cd pygments && \
     git checkout 763/protz/fstar && \
-    python3 setup.py install
+    sudo python3 setup.py install
 
 ARG BUILDLOGFILE
 ARG MAXTHREADS
