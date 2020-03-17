@@ -130,18 +130,6 @@ function refresh_tutorial() {
   fi
 }
 
-function custom_pygments() {
-  if ! pygmentize -L | grep fstar; then
-    pip3 uninstall Pygments
-    git clone https://github.com/denismerigoux/pygments
-    cd pygments
-    git checkout 763/protz/fstar
-    python3 setup.py install
-    cd ..
-  fi
-  pip3 list | grep -i pygments
-}
-
 function exec_build() {
 
     # this is a special file that is parsed by Azure Devops
@@ -174,6 +162,5 @@ echo $PATH
 
 cd kremlin
 rootPath=$(pwd)
-custom_pygments
 exec_build
 cd ..
