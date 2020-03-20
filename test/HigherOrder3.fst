@@ -9,7 +9,7 @@ inline_for_extraction type t_Func (t_Param:Type) =
 
 noeq type t_Closure (t_Param:Type) =
   | Closure_Cons :
-    func  : (h:t_Func t_Param) ->
+    func  : t_Func t_Param ->
     t_Closure t_Param
 
 val createClosure (#t_Param:Type) (f:(t_Func t_Param)) : HST.St (t_Closure t_Param)
