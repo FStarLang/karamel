@@ -16,8 +16,8 @@ inline_for_extraction type t_Func (t_Param:Type)  =
 (* A type that holds a function pointer and a parameter *)
 noeq type t_Closure (t_Param:Type) =
   | Closure_Cons :
-    func     : (h:t_Func t_Param) ->
-    param    : (d:t_Param) ->
+    func     : t_Func t_Param ->
+    param    : t_Param ->
     t_Closure t_Param
 
 (* A function that invokes the target closure *)
