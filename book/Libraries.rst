@@ -323,7 +323,7 @@ the stack and in the heap. ``LowStar.Buffer`` models C arrays as follows:
     noeq
     type buffer (a:Type) =
       | MkBuffer: max_length:UInt32.t
-        -> content:reference (s: lseq a (U32.v max_length))
+        -> content:reference (lseq a (U32.v max_length))
         -> idx:UInt32.t
         -> length:UInt32.t{U32.(v idx + v length <= v max_length)}
         -> buffer a

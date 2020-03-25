@@ -70,7 +70,7 @@ say, for now, that this code demonstrates:
 
 Once compiled by the KreMLin compiler, we obtain the following C code:
 
-.. literalinclude:: ../test/.output/Introduction.out/Introduction.c
+.. literalinclude:: ../test/.output/Intro.out/Intro.c
     :language: c
     :start-after: SNIPPET_START: main
     :end-before: SNIPPET_END: main
