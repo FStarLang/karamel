@@ -1,5 +1,5 @@
 [
-  "Êõ dç›Ó¤:±Ds$ª“(",
+  "X\u0016-+½\"?,”«(ûš.ÈÓ",
   [
     [
       "HigherOrder2.invoke",
@@ -8,7 +8,7 @@
       1,
       [ "@query" ],
       0,
-      "7bcd5f7b267923c1823a9c1346ac4691"
+      "5882c13c3f2ef90676c427fff9339019"
     ],
     [
       "HigherOrder2.exampleFunc",
@@ -31,7 +31,7 @@
         "typing_LowStar.Monotonic.Buffer.loc_none"
       ],
       0,
-      "3304cbb9baefbccb3e482c439b50a2c5"
+      "09de563bb6b64eeb90ffa99a634a1c27"
     ],
     [
       "HigherOrder2.main",
@@ -45,7 +45,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "b8210f1383af9655c596fea1dee6fc79"
+      "6d6128b486f0333d9c852db8025ad253"
     ]
   ]
 ]

@@ -1,5 +1,5 @@
 [
-  "³¼G N\"Ðo\u001f-&†ÁGe<",
+  "þ:æ”ë4ïâ:æ§\u001e\u0013ä!",
   [
     [
       "HigherOrder3.createClosure",
@@ -12,7 +12,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "aa0eea971b5ec089fbafc74ad7c68ed9"
+      "cb45a943f60ea7ce18591a10d0597a10"
     ],
     [
       "HigherOrder3.exampleFunc",
@@ -25,7 +25,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "368c0f8c4792dda96cf843ad1940c6eb"
+      "29b61bb7c285e67101b49866d202b938"
     ],
     [
       "HigherOrder3.main",
@@ -34,7 +34,7 @@
       1,
       [ "@query" ],
       0,
-      "1f5e32ed7de8f95e4880f3343b299347"
+      "c5856f7afc598771809a0c9bda5ba95f"
     ]
   ]
 ]

@@ -1,5 +1,5 @@
-Getting started
-===============
+Tooling and project setup
+=========================
 
 For the sake of this tutorial, we use a sample project that provides a toy
 implementation of bignum addition in C. The project is located in the kremlin

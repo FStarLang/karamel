@@ -1,4 +1,4 @@
-Core Low* libraries
+Low* core libraries
 ===================
 
 Low* is made up of a few primitive libraries that enjoy first-class support in

@@ -1,5 +1,8 @@
-Extra buffer types
-==================
+Low* buffer libraries
+=====================
+
+In addition to mutable buffers, we provide libraries for immutable buffers,
+const pointers and uninitializer buffers.
 
 Immutable buffers
 -----------------
@@ -32,11 +35,3 @@ in C, as the conversion from ``t*`` to ``const t*`` is implicit.
 
 Projecting ``const_buffer`` to either ``buffer`` or ``ibuffer`` generates a
 cast.
-
-Resizable vector data structure
--------------------------------
-
-The ``LowStar.RVector`` module offers a high-level abstraction over regular
-mutable buffers that can be resized automatically. This requires the use of a
-manually-encoded typeclass of regional elements for reasoning about things being
-stored in the vector in case they are allocated.

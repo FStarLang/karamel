@@ -13,13 +13,9 @@ The KreMLin user manual and documentation
    Introduction
    Setup
    Core
-   Libraries
-   BufferLibraries
-   MoreLibraries
+   TocLibraries
+   TocExamples
    Toy
-   LinkedList4
-   RingBuffer
-   ExampleMemCpy
    AdvancedTips
    AdvancedTopics
 
