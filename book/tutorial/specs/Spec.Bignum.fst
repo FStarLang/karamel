@@ -1,3 +1,6 @@
+/// Main specification
+/// ==================
+
 module Spec.Bignum
 
 /// This specification module provides a functional implementation of bignum

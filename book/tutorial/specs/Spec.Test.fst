@@ -1,3 +1,6 @@
+/// Specification test
+/// ==================
+
 module Spec.Test
 
 /// It's really important to put spec tests in a separate module. Putting them

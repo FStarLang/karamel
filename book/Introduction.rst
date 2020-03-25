@@ -45,7 +45,7 @@ The essence of Low*
 
 Consider the following very simple program:
 
-.. literalinclude:: Introduction.fst
+.. literalinclude:: notfslit/Intro.fst
     :language: fstar
 
 Leaving an in-depth explanation of the code to subsequent sections, suffices to

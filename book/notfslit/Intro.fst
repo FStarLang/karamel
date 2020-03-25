@@ -1,4 +1,4 @@
-module Introduction
+module Intro
 
 module P = LowStar.Printf
 module C = LowStar.Comment

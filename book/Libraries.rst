@@ -273,7 +273,7 @@ Machine integers modules also define operators, suffixed with ``^``. For
 instance, the ``+`` operation for ``UInt32`` is ``+^``. Wraparound variants
 have an extra ``%`` character, such as ``+%^``, when available.
 
-.. fixme :: JP
+.. note ::
 
    The unary minus is broken for machine integers.
    This does not parse: ``let x = UInt32.(-^ 0ul)``

@@ -1,3 +1,6 @@
+/// Main implementation file
+/// ========================
+
 module Impl.Bignum
 
 /// These are the somewhat standard names across a lot of code for module

@@ -1,0 +1,3 @@
+For files that are not meant to undergo the fst2rst translation, but rather be
+included textually, while still being compiled and extracted as part of the test
+suite.

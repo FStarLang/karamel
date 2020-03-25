@@ -1,3 +1,6 @@
+/// Auxiliary implementation lemmas
+/// ===============================
+
 module Impl.Bignum.Lemmas
 
 /// Let's move lemmas to a separate module. It'll be cleaner!

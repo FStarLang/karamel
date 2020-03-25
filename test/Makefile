@@ -14,7 +14,7 @@ BROKEN		= \
 FILES		= \
   $(patsubst %.fst,%.test,$(filter-out ML16Externals.fst MemCpyModel.fst Lowlevel.fst $(BROKEN),$(wildcard *.fst))) \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.test \
-  $(patsubst %.fst,%.test,$(wildcard ../book/*.fst))
+  $(patsubst %.fst,%.test,$(wildcard ../book/*.fst ../book/notfslit/*.fst))
 
 ifneq ($(RECENT_GCC),"yes")
   FILES 	:= $(filter-out Debug.test,$(FILES))

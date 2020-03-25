@@ -14,7 +14,7 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../fstar-mode.el/etc/'))
+#sys.path.insert(0, os.path.abspath('../fstar-mode.el/etc/'))
 
 
 # -- Project information -----------------------------------------------------
@@ -40,7 +40,7 @@ release = u''
 # ones.
 extensions = [
     'sphinx.ext.mathjax',
-    'fslit.sphinx4fstar',
+#    'fslit.sphinx4fstar',
 ]
 
 # Add any paths that contain templates here, relative to this directory.

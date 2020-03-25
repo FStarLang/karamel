@@ -11,10 +11,10 @@ exercises left as comments at the bottom of the various. There are numerous
 comments about what is the preferred style.
 
 .. toctree::
-   Spec.Bignum
-   Spec.Test
-   Impl.Bignum.Lemmas
-   Impl.Bignum
-   Impl.Bignum.Intrinsics
+   tutorial/specs/Spec.Bignum
+   tutorial/specs/Spec.Test
+   tutorial/code/Impl.Bignum.Lemmas
+   tutorial/code/Impl.Bignum
+   tutorial/code/Impl.Bignum.Intrinsics
 
 Once the project has been built, check out the final C test in ``tests/``.

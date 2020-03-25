@@ -3,8 +3,8 @@ type state = Rst | Fst
 let is_fslit s =
   String.length s >= 3 && String.sub s 0 3 = "///"
 
-let next_state s =
-  if is_fslit s then
+let next_state prev s =
+  if is_fslit s || prev = Rst && s = "" then
     Rst
   else
     Fst
@@ -18,7 +18,7 @@ let _ =
   set_binary_mode_out stdout true;
   while try
     let s = input_line stdin in
-    let next = next_state s in
+    let next = next_state !state s in
     if !state = Rst && next = Fst then
       print_endline fst_prefix
     else if !state = Fst && next = Rst then
@@ -26,7 +26,10 @@ let _ =
     state := next;
     match !state with
     | Rst ->
-        print_endline (String.trim (String.sub s 3 (String.length s - 3)))
+        if s = "" then
+          print_newline ()
+        else
+          print_endline (String.trim (String.sub s 3 (String.length s - 3)))
     | Fst ->
         print_string "  ";
         print_endline s
