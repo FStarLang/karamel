@@ -137,6 +137,7 @@ function exec_build() {
 
     if misc && make -j $threads && \
       make -C test everything -j $threads && \
+      make -C book/tutorial && \
       refresh_tutorial
     then
         echo "Build succeeded"

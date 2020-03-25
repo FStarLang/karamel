@@ -1,0 +1,39 @@
+# This Makefile may be included from any sub-directory, provided BIGNUM_HOME is
+# suitably defined, in order to define the %.fst-in and %.fsti-in targets for
+# computing the arguments to the interactive mode.
+
+BIGNUM_HOME ?= .
+
+ifeq (,$(FSTAR_HOME))
+  $(error FSTAR_HOME is not defined)
+endif
+
+ifeq (,$(KREMLIN_HOME))
+  $(error KREMLIN_HOME is not defined)
+endif
+
+# I prefer to always check all fst files in the source directories; otherwise,
+# it's too easy to add a new file only to find out later that it's not being
+# checked. Note the usage of BIGNUM_HOME
+SOURCE_DIRS = $(BIGNUM_HOME)/code $(BIGNUM_HOME)/specs
+
+# We want our source tree on the include path, along with pre-built ulib and
+# kremlib so that F* can reuse these build artifacts rather than reverify F* and
+# kremlib as part of this build (which would be doomed to fail since there's a
+# lot of trickery involved in building ulib -- better leave it up to the F*
+# build!).
+#
+# Also note that we have our own directory on the include path for the sake of
+# the interactive mode, for finding checked files for our own F* files.
+INCLUDE_DIRS = \
+  $(SOURCE_DIRS) \
+  $(FSTAR_HOME)/ulib/.cache \
+  $(KREMLIN_HOME)/kremlib \
+  $(BIGNUM_HOME)/obj
+
+
+FSTAR_INCLUDES = $(addprefix --include ,$(INCLUDE_DIRS))
+
+%.fst-in %.fsti-in:
+	@echo $(FSTAR_INCLUDES)
+

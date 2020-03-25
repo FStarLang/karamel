@@ -416,9 +416,12 @@ Supported options:|}
   end;
 
   (* Then, bring in the "default options" for each compiler. *)
+  let ccopts = !Options.ccopts in
+  Options.ccopts := [];
   Arg.parse_argv ~current:(ref 0)
     (Array.append [| Sys.argv.(0) |] (List.assoc !Options.cc (Options.default_options ())))
     spec anon_fun usage;
+  Options.ccopts := ccopts @ !Options.ccopts;
 
   (* Then refine that based on the user's preferences. *)
   if !arg_warn_error <> "" then

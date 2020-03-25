@@ -4,45 +4,28 @@ CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 TEST_OPTS	= -warn-error @4 -verbose
 KRML_BIN	= ../_build/src/Kremlin.native
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
+
+BROKEN		= \
+  HigherOrder6.fst RecordTypingLimitation.fst ForwardDecl.fst \
+  Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst
+
+# Lowlevel is not really broken, but its test shouldn't be run since it's a
+# special file and doesn't have a main.
 FILES		= \
-  TestKremBytes.test Hoisting.test Flat.test Renaming.test Vla.test Inline.test \
-  Fill.test \
-  Private.test ML16.test Abbrev.test Tuples.test \
-  DataTypesSimple.test DataTypes.test Parameterized.test \
-  Scope.test Attributes.test Unsound.test Substitute.test \
-  InlineTest.test Ghost1.test Loops.test Structs.test \
-  TotalLoops.test \
-  Recursive.test RecursivePoly.test Structs2.test \
-  FunctionalEncoding.test FunPtr.test \
-  CheckedInt.test Polymorphic.test GcTypes.test BadMatch.test C89.test \
-  PatternAny.test hello-system/HelloSystem.test Server.test \
-  ExitCode.test DataTypesMut.test ParamAbbrev.test Null.test Failwith.test \
-  CustomEq.test Uu.test WildCard.test UnusedParameter.test EqB.test MutRec.test \
-  MallocFree.test TestAlloca.test OptimizedOption.test PushPop.test EtaStruct.test \
-  Verbatim.test Const.test $(CRYPTO)/Crypto.Symmetric.Chacha20.test Uu.test \
-  LinkedList1.test LinkedList2.test LinkedList3.test LinkedList4.test \
-  NoExtract.test InlineNoExtract.test ../book/RingBuffer.test \
-  ../book/Introduction.test TopLevelArray.test NoShadow.test Library.test \
-  AbstractStruct.test HigherOrder.test HigherOrder2.test HigherOrder3.test \
-  UBuffer.test HigherOrder4.fst HigherOrder5.fst TailCalls.test DataTypesEq.test \
-  ProperErasure.test EmptyStruct.test IfDef.test StringLit.test IfThenElse.test \
-  Macro.test Mini.test Endianness.test Printf.test ConstBuffer.test Failure.test \
-  Comment.test \
-  VariableMerge.test
-ifeq ($(RECENT_GCC),"yes")
-  FILES 	+= Debug.test
+  $(patsubst %.fst,%.test,$(filter-out ML16Externals.fst MemCpyModel.fst Lowlevel.fst $(BROKEN),$(wildcard *.fst))) \
+  $(CRYPTO)/Crypto.Symmetric.Chacha20.test \
+  $(patsubst %.fst,%.test,$(wildcard ../book/*.fst ../book/notfslit/*.fst))
+
+ifneq ($(RECENT_GCC),"yes")
+  FILES 	:= $(filter-out Debug.test,$(FILES))
 endif
+
 CUSTOM		= count-uu
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
   Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test
 NEGATIVE	= false
-# Lowlevel is not really broken, but its test shouldn't be run since it's a
-# special file and doesn't have a main.
-BROKEN		= \
-  HigherOrder6.fst RecordTypingLimitation.fst ForwardDecl.fst \
-  Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst
 
 WEB_DIR		?= web
 CACHE_DIR	= .cache
@@ -61,7 +44,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules --use_two_phase_tc true \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
   --include hello-system --include ../kremlib/compat \
   --include ../kremlib --include ../runtime \
-  --include $(CRYPTO) --include ../book --use_hints --record_hints \
+  --include $(CRYPTO) --include ../book --include ../book/notfslit --use_hints --record_hints \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity' \
   --trivial_pre_for_unannotated_effectful_fns false
 
@@ -150,8 +133,9 @@ $(OUTPUT_DIR)/Ctypes2.exe: EXTRA = -ctypes 'Ctypes2,Ctypes4' \
     -bundle 'Ctypes1=' \
     -bundle '*,WindowsHack[rename=Leftovers]' \
 	-no-prefix 'Ctypes4' -skip-compilation
-$(OUTPUT_DIR)/Failwith.exe: EXTRA = -ccopt -Wno-deprecated-declarations
+$(OUTPUT_DIR)/Failwith.exe: EXTRA = -ccopts -Wno-deprecated-declarations,-Wno-infinite-recursion
 $(OUTPUT_DIR)/VariableMerge.exe: EXTRA = -fmerge aggressive
+$(OUTPUT_DIR)/Introduction.exe $(OUTPUT_DIR)/MemCpy.exe: EXTRA = -rst-snippets
 
 Failure.test: NEGATIVE=true
 
