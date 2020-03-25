@@ -1,14 +1,15 @@
 #include "LowStar_Printf.h"
+#include "kremlin/internal/target.h"
 
 #define PRINT(N, T, M) \
   void LowStar_Printf_print_ ## N (T x) { \
-    printf("%" M, x); \
+    KRML_HOST_PRINTF("%" M, x); \
   }
 
 #define PRINTB(N, T, M) \
   void LowStar_Printf_print_lmbuffer_ ## N (uint32_t len, T *x) { \
     for (size_t i = 0; i < (size_t) len; ++i) \
-      printf("%" M " ", x[i]); \
+      KRML_HOST_PRINTF("%" M " ", x[i]); \
   }
 
 #define PRINT2(N, T, M1, M2) \
@@ -27,11 +28,11 @@ PRINT2 (i32, int32_t, PRIi32, PRIx32)
 PRINT2 (i64, int64_t, PRIi64, PRIx64)
 
 void LowStar_Printf_print_bool(bool b) {
-  printf("%s", b ? "true" : "false");
+  KRML_HOST_PRINTF("%s", b ? "true" : "false");
 }
 
 void LowStar_Printf_print_lmbuffer_bool(uint32_t len, bool *x) {
   for (size_t i = 0; i < (size_t) len; ++i)
-    printf("%s ", x[i] ? "true" : "false");
+    KRML_HOST_PRINTF("%s ", x[i] ? "true" : "false");
 }
 

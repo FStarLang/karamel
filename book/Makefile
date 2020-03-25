@@ -14,7 +14,14 @@ help:
 
 .PHONY: help Makefile
 
+%.rst: %.fst
+	ocamlfind ocaml fst2rst.ml < $< > $@
+
+DIRS=tutorial/specs tutorial/code .
+
+all-rst: $(patsubst %.fst,%.rst,$(subst %,%/*.fst,$(DIRS)))
+
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
-%: Makefile
+%: Makefile all-rst
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
