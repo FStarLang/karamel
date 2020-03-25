@@ -77,7 +77,7 @@ Once compiled by the KreMLin compiler, we obtain the following C code:
 
 Once compiled by a C compiler, the output is as follows:
 
-.. code-block::
+.. code-block:: bash
 
   Hello from from Low*!
   buffer contents: ff 0 0 0 0 0 0 0
