@@ -11,7 +11,7 @@
         "primitive_Prims.op_Subtraction", "projection_inverse_BoxInt_proj_0"
       ],
       0,
-      "009baf544f4d37b497bc9c4c899b52cf"
+      "1c78ad1dafca18bf609213b16c67d071"
     ],
     [
       "C.String.well_formed",
@@ -27,7 +27,7 @@
         "typing_FStar.Seq.Base.length"
       ],
       0,
-      "11fd955b547083afbdc9b5d7da494a51"
+      "fc444c961cbe2b5e49b15edef089905f"
     ],
     [
       "C.String.t",
@@ -35,12 +35,11 @@
       2,
       1,
       [
-        "@query", "assumption_C.HasEq_char",
-        "assumption_FStar.Seq.Base.seq__uu___haseq",
-        "function_token_typing_C.char"
+        "@query", "assumption_C.HasEq_char", "function_token_typing_C.char",
+        "lemma_FStar.Seq.Base.hasEq_lemma"
       ],
       0,
-      "96215f34c8b2ee1d8341c24670f9df95"
+      "45fef411ad401ade8fcc47bb86f1bb5a"
     ],
     [
       "C.String.length",
@@ -54,7 +53,7 @@
         "typing_C.String.__proj__S__item__s"
       ],
       0,
-      "0386b138bd20432300ac2ad24b595989"
+      "6e61d9ab352d037db0a7a1b59bcb7a36"
     ],
     [
       "C.String.get",
@@ -74,7 +73,7 @@
         "typing_FStar.UInt32.v"
       ],
       0,
-      "02ad1f6d7f46a44687181f48ea247daa"
+      "f374dd23e209ffc251466d69eddb4ae1"
     ],
     [
       "C.String.nonzero_is_lt",
@@ -94,7 +93,7 @@
         "typing_FStar.UInt32.v"
       ],
       0,
-      "d23a6d132a9e95274badd11a0788644f"
+      "611dc06e3611269336bf221549108bcb"
     ],
     [
       "C.String.memcpy",
@@ -102,13 +101,13 @@
       2,
       1,
       [
-        "@query", "assumption_FStar.Seq.Base.seq__uu___haseq",
-        "assumption_FStar.UInt32.t__uu___haseq",
+        "@query", "assumption_FStar.UInt32.t__uu___haseq",
         "assumption_FStar.UInt8.t__uu___haseq",
-        "function_token_typing_FStar.UInt8.t"
+        "function_token_typing_FStar.UInt8.t",
+        "lemma_FStar.Seq.Base.hasEq_lemma"
       ],
       0,
-      "5d02148225aea5a0a28c7958666382f9"
+      "0563e5203c1595dfdbd32c16707ace34"
     ]
   ]
 ]

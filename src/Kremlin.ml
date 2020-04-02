@@ -114,6 +114,8 @@ The default is %s and the available warnings are:
       appears in the wrong position)
   20: right-hand side of short-circuiting boolean operator gives rise to
       let-bindings, rewriting to an if-then-else
+  21: cannot translate to macro
+  22: dropping declaration at ctypes bindings generation time
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
 The Api= part is optional and Api is made up of a non-empty list of modules
