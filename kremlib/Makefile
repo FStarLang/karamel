@@ -24,7 +24,9 @@ GENERIC_DIR = dist/generic
 UINT128_DIR = dist/uint128
 MINI_DIR = dist/minimal
 
+#332 is turning abstract keyword usage into a fatal error
 FSTAR_OPTIONS += --record_hints --use_hints --use_two_phase_tc true --odir $(EXTRACT_DIR) \
+  --warn_error @332
   # --use_extracted_interfaces
 
 INCLUDE_PATHS = ../runtime
