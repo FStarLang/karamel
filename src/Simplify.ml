@@ -1444,11 +1444,12 @@ let combinators = object(self)
     in
 
     match e.node, es with
-    | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), "for_"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
-        self#mk_for start finish body K.UInt32
-
     | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), "for64"), [ start; finish; _inv; { node = EFun (_, body, _); _ } ] ->
         self#mk_for start finish body K.UInt64
+
+    | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), s), [ start; finish; _inv; { node = EFun (_, body, _); _ } ]
+      when KString.starts_with s "for" ->
+        self#mk_for start finish body K.UInt32
 
     | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), s), [ _measure; _inv; tcontinue; body; init ]
         when KString.starts_with s "total_while_gen"
