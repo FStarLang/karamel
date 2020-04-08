@@ -6,9 +6,13 @@
       1,
       2,
       1,
-      [ "@query", "assumption_FStar.UInt32.t__uu___haseq" ],
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.UInt32.t"
+      ],
       0,
-      "851ad092b7eae4cf17fdd6740d4340c5"
+      "a6ccf419a6614e629fcdb5102e56a182"
     ],
     [
       "DataTypesSimple.f",
@@ -31,7 +35,7 @@
         "typing_tok_DataTypesSimple.Cons1@tok"
       ],
       0,
-      "0e4d8a6be91a859d7b96d3e4fa8f0ae4"
+      "3c4fbdecf70ab47dd8596903eb97ade4"
     ],
     [
       "DataTypesSimple.main",
@@ -52,7 +56,7 @@
         "typing_tok_C.EXIT_SUCCESS@tok"
       ],
       0,
-      "70b44daeea05e2bbd51e315edaac998f"
+      "7290e0800feb58d874d728326dbc3b8d"
     ]
   ]
 ]

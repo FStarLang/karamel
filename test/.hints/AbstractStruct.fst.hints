@@ -6,9 +6,13 @@
       1,
       2,
       1,
-      [ "@query", "assumption_FStar.Int32.t__uu___haseq" ],
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.Int32.t"
+      ],
       0,
-      "64460cd64f0336a26a2a11fb5f2d85f4"
+      "f69df1b8eb886b4b9d8e8abdd4bc5d59"
     ],
     [
       "AbstractStruct.main",
@@ -21,7 +25,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "123bbdb71d337bba6047e78b67697a8e"
+      "0f2e07e20c785c9538544c0fe69181dc"
     ]
   ]
 ]

@@ -27,7 +27,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "1ab2647ec3daf2cfa03359d492b5d255"
+      "8e4c3d5c5a5a1789cc031297058c129f"
     ],
     [
       "TopLevelArray.y",
@@ -55,7 +55,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "17c87ad07c841d3b8b92f9ec40affbae"
+      "8d5dca51b42acc250e9e3c89f2282294"
     ],
     [
       "TopLevelArray.x",
@@ -83,7 +83,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "2ba1feb0a8162251f6a83297c50d47b6"
+      "277d1ea8bba89d8f3ac6d7dda95ea613"
     ],
     [
       "TopLevelArray.g",
@@ -97,7 +97,7 @@
         "refinement_interpretation_TopLevelArray_Tm_refine_cb33895ece621ae8bc092dc7297a0116"
       ],
       0,
-      "527d18d5d743e897013e924ed568217d"
+      "16fb38cc3695f88239c68b894dc2995f"
     ],
     [
       "TopLevelArray.main",
@@ -105,9 +105,7 @@
       2,
       1,
       [
-        "@MaxIFuel_assumption", "@query",
-        "assumption_FStar.Int32.t__uu___haseq",
-        "data_elim_TopLevelArray.Mkt",
+        "@MaxIFuel_assumption", "@query", "data_elim_TopLevelArray.Mkt",
         "equation_FStar.HyperStack.ST.equal_stack_domains",
         "equation_FStar.Monotonic.Heap.equal_dom",
         "fuel_guarded_inversion_TopLevelArray.t",
@@ -115,13 +113,13 @@
         "proj_equation_TopLevelArray.Mkt_w",
         "proj_equation_TopLevelArray.Mkt_y",
         "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_Tm_refine_10b700189f8a2297a0ad75cda44ce2fe",
-        "refinement_interpretation_Tm_refine_21815c8e4d17104e306910790281cd7d",
+        "refinement_interpretation_Tm_refine_7b1859ecd70873b6afa813c321ec29c7",
+        "refinement_interpretation_Tm_refine_a392d7dd5ab54788572a63fdc45f82a5",
         "refinement_interpretation_Tm_refine_cdc16c4110b147587ea5cf3760ceac60",
         "typing_TopLevelArray.__proj__Mkt__item__y", "typing_TopLevelArray.x"
       ],
       0,
-      "c2826151a5705cdc4c4d5323950b2a73"
+      "d0ab19cd0cef66444af1bdd3bf99ca5c"
     ]
   ]
 ]

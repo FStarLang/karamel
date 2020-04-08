@@ -12,7 +12,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "82808a19ecdb12a7c1f5b0d1d0092649"
+      "0b070712eba7534ebe1f696845d6dac3"
     ],
     [
       "HigherOrder6.t_D",
@@ -20,13 +20,12 @@
       2,
       1,
       [
-        "@MaxIFuel_assumption", "@query",
-        "assumption_FStar.Int32.t__uu___haseq", "equation_Prims.eqtype",
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
         "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
-        "typing_FStar.Monotonic.HyperHeap.rid"
+        "typing_FStar.Int32.t", "typing_FStar.Monotonic.HyperHeap.rid"
       ],
       0,
-      "73adcd1cd1dce3df949753181faf8458"
+      "5f2b865c259fc4fa4d8f94e8c04b449b"
     ],
     [
       "HigherOrder6.foo",
@@ -39,7 +38,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "d775e1d0cb7f1140adf44efc86e6bbcb"
+      "ab00ca34911046cdc9d2197f9f7249fd"
     ],
     [
       "HigherOrder6.main",
@@ -74,7 +73,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "95b1d54c605305fafc68b897d1f9e7e5"
+      "d5b8882afee44fb1012bc6fc36d314f4"
     ]
   ]
 ]

@@ -6,9 +6,13 @@
       1,
       2,
       1,
-      [ "@query", "assumption_FStar.UInt32.t__uu___haseq" ],
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.UInt32.t"
+      ],
       0,
-      "d224127dafd272f8a38269d627901f6c"
+      "6ff265b1cdb6ae25de5d240add26f54b"
     ],
     [
       "BadMatch.baz",
@@ -17,7 +21,7 @@
       1,
       [ "@query", "assumption_BadMatch.bar__uu___haseq" ],
       0,
-      "a13a4fe2cc4cca4fe5a7f5962d82b1a2"
+      "6a95da306c7655e07320288f871f5412"
     ]
   ]
 ]
