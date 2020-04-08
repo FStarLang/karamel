@@ -36,6 +36,8 @@ end)
 type env = {
   location: loc list;
   names: ident list;
+  type_names: ident list;
+    (* type names which we never can shadow via a local, see NameCollision.test *)
   in_block: ident list;
   ifdefs: LidSet.t;
   macros: LidSet.t;
@@ -46,6 +48,7 @@ let locate env loc =
 
 let empty: env = {
   names = [];
+  type_names = [];
   in_block = [];
   location = [];
   ifdefs = LidSet.empty;
@@ -57,6 +60,7 @@ let reset_block env = {
 }
 
 let push env binder = CStar.{
+  type_names = env.type_names;
   names = binder.name :: env.names;
   in_block = binder.name :: env.in_block;
   location = env.location;
@@ -148,7 +152,8 @@ let ensure_fresh env name body cont =
     tricky_shadowing_see_comment_above tentative body 0 ||
     List.exists (fun cont -> tricky_shadowing_see_comment_above tentative (Some cont) 1) cont ||
     List.mem tentative env.in_block ||
-    !Options.no_shadow && List.mem tentative env.names)
+    !Options.no_shadow && List.mem tentative env.names ||
+    List.mem tentative env.type_names)
 
 
 (** AstToCStar performs a unit-to-void conversion.
@@ -765,7 +770,7 @@ and mk_type_def env d: CStar.typ =
 and mk_program m name env decls =
   let decls, _ = List.fold_left (fun (decls, names) d ->
     let n = string_of_lident (Ast.lid_of_decl d) in
-    match mk_declaration m { env with names } d with
+    match mk_declaration m { env with type_names = names } d with
     | exception (Error e) ->
         Warn.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
         decls, names

@@ -98,7 +98,7 @@
         "typing_LowStar.UninitializedBuffer.initialization_preorder"
       ],
       0,
-      "873c3c2fd016217da8ae969a59c14baa"
+      "bf89425613d63630b85198e791f084c0"
     ],
     [
       "UBuffer.test_ub_stack",
@@ -188,7 +188,7 @@
         "typing_LowStar.UninitializedBuffer.initialization_preorder"
       ],
       0,
-      "ab4efbb67c42721f4ed3a9d9f3e24088"
+      "429cf532fd5e3bf596b1c7836c1c0baa"
     ],
     [
       "UBuffer.main",
