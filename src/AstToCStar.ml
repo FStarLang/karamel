@@ -36,6 +36,8 @@ end)
 type env = {
   location: loc list;
   names: ident list;
+  type_names: ident list;
+    (* type names which we never can shadow via a local, see NameCollision.test *)
   in_block: ident list;
   ifdefs: LidSet.t;
   macros: LidSet.t;
@@ -46,6 +48,7 @@ let locate env loc =
 
 let empty: env = {
   names = [];
+  type_names = [];
   in_block = [];
   location = [];
   ifdefs = LidSet.empty;
@@ -57,6 +60,7 @@ let reset_block env = {
 }
 
 let push env binder = CStar.{
+  type_names = env.type_names;
   names = binder.name :: env.names;
   in_block = binder.name :: env.in_block;
   location = env.location;
@@ -148,7 +152,8 @@ let ensure_fresh env name body cont =
     tricky_shadowing_see_comment_above tentative body 0 ||
     List.exists (fun cont -> tricky_shadowing_see_comment_above tentative (Some cont) 1) cont ||
     List.mem tentative env.in_block ||
-    !Options.no_shadow && List.mem tentative env.names)
+    !Options.no_shadow && List.mem tentative env.names ||
+    List.mem tentative env.type_names)
 
 
 (** AstToCStar performs a unit-to-void conversion.
@@ -682,7 +687,7 @@ and mark_binders_const flags binders =
     { CStar.name; typ = mark_const (List.mem (Common.Const name) flags) typ }
   ) binders
 
-and mk_declaration env d: CStar.decl option =
+and mk_declaration m env d: (CStar.decl * _) option =
   let wrap_throw name (comp: CStar.decl Lazy.t) =
     try Lazy.force comp with
     | Error e ->
@@ -698,13 +703,12 @@ and mk_declaration env d: CStar.decl option =
       let env = locate env (InTop name) in
       Some (wrap_throw (string_of_lident name) (lazy begin
         let t = mk_return_type env t in
-        assert (env.names = []);
         let binders, body = a_unit_is_a_unit binders body in
         let env, binders = mk_and_push_binders env binders in
         let binders = mark_binders_const flags binders in
         let body = mk_function_block env body t in
         CStar.Function (cc, flags, t, name, binders, body)
-      end))
+      end), [])
 
   | DGlobal (flags, name, n, t, body) ->
       assert (n = 0);
@@ -715,7 +719,7 @@ and mk_declaration env d: CStar.decl option =
         macro,
         flags,
         mk_type env t,
-        mk_expr env false body))
+        mk_expr env false body), [])
 
   | DExternal (cc, flags, name, t, pp) ->
       if LidSet.mem name env.ifdefs then
@@ -725,13 +729,13 @@ and mk_declaration env d: CStar.decl option =
           | CStar.Function (_, t, ts) -> CStar.Function (cc, t, ts)
           | t -> t
         in
-        Some (CStar.External (name, add_cc (mk_type env t), flags, pp))
+        Some (CStar.External (name, add_cc (mk_type env t), flags, pp), [])
 
   | DType (name, flags, _, Forward) ->
-      Some (CStar.TypeForward (name, flags))
+      Some (CStar.TypeForward (name, flags), [ GlobalNames.to_c_name m name ])
 
   | DType (name, flags, 0, def) ->
-      Some (CStar.Type (name, mk_type_def env def, flags))
+      Some (CStar.Type (name, mk_type_def env def, flags), [ GlobalNames.to_c_name m name ] )
 
   | DType _ ->
       None
@@ -763,29 +767,32 @@ and mk_type_def env d: CStar.typ =
       failwith "impossible, handled by mk_declaration"
 
 
-and mk_program name env decls =
-  KList.filter_map (fun d ->
+and mk_program m name env decls =
+  let decls, _ = List.fold_left (fun (decls, names) d ->
     let n = string_of_lident (Ast.lid_of_decl d) in
-    try
-      mk_declaration env d
-    with
-    | Error e ->
+    match mk_declaration m { env with type_names = names } d with
+    | exception (Error e) ->
         Warn.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
-        None
-    | e ->
+        decls, names
+    | exception e ->
         Warn.fatal_error "Fatal failure in %a: %s\n"
           plid (Ast.lid_of_decl d)
           (Printexc.to_string e)
-  ) decls
+    | None ->
+        decls, names
+    | Some (decl, name) ->
+        decl :: decls, name @ names
+  ) ([], []) decls in
+  List.rev decls
 
-and mk_files files file_of ifdefs macros =
+and mk_files files file_of m ifdefs macros =
   let env = { empty with ifdefs; macros } in
   List.map (fun file ->
     let deps = 
       Hashtbl.fold (fun k _ acc -> k :: acc) (Bundles.direct_dependencies file_of file) []
     in
     let name, program = file in
-    name, deps, mk_program name env program
+    name, deps, mk_program m name env program
   ) files
 
 let mk_macros_set files =

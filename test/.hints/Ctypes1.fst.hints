@@ -6,18 +6,26 @@
       1,
       2,
       1,
-      [ "@query", "assumption_FStar.UInt32.t__uu___haseq" ],
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.UInt32.t"
+      ],
       0,
-      "a150ab69a3f0e22791e0b5ef35af9b55"
+      "8173ab5199540787bb822e92d659d79f"
     ],
     [
       "Ctypes1.point_no_bind",
       1,
       2,
       1,
-      [ "@query", "assumption_FStar.UInt32.t__uu___haseq" ],
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.UInt32.t"
+      ],
       0,
-      "a964edac20b267f173ae2241dfa19d4b"
+      "f193f3b75d4675ae6cc0fc8f13fb41aa"
     ]
   ]
 ]

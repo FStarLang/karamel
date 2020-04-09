@@ -12,7 +12,7 @@ BROKEN		= \
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
 # special file and doesn't have a main.
 FILES		= \
-  $(patsubst %.fst,%.test,$(filter-out ML16Externals.fst MemCpyModel.fst Lowlevel.fst $(BROKEN),$(wildcard *.fst))) \
+  $(patsubst %.fst,%.test,$(filter-out NameCollisionHelper.fst ML16Externals.fst MemCpyModel.fst Lowlevel.fst $(BROKEN),$(wildcard *.fst))) \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.test \
   $(patsubst %.fst,%.test,$(wildcard ../book/*.fst ../book/notfslit/*.fst))
 
@@ -135,6 +135,7 @@ $(OUTPUT_DIR)/Ctypes2.exe: EXTRA = -ctypes 'Ctypes2,Ctypes4' \
 	-no-prefix 'Ctypes4' -skip-compilation
 $(OUTPUT_DIR)/Failwith.exe: EXTRA = -ccopts -Wno-deprecated-declarations,-Wno-infinite-recursion
 $(OUTPUT_DIR)/VariableMerge.exe: EXTRA = -fmerge aggressive
+$(OUTPUT_DIR)/NameCollision.exe: EXTRA = -no-prefix NameCollisionHelper
 $(OUTPUT_DIR)/Intro.exe $(OUTPUT_DIR)/MemCpy.exe: EXTRA = -rst-snippets
 
 Failure.test: NEGATIVE=true

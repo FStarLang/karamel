@@ -670,7 +670,7 @@ Supported options:|}
 
     (* Translate to C*... *)
     let file_of_map = Bundle.mk_file_of files in
-    let files = AstToCStar.mk_files files file_of_map ifdefs macros in
+    let files = AstToCStar.mk_files files file_of_map c_name_map ifdefs macros in
     tick_print true "AstToCStar";
 
     let files = List.filter (fun (_, _, decls) -> List.length decls > 0) files in

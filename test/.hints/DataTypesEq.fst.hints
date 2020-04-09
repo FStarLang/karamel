@@ -6,9 +6,13 @@
       1,
       2,
       1,
-      [ "@query", "assumption_FStar.UInt32.t__uu___haseq" ],
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.UInt32.t"
+      ],
       0,
-      "878fba1414b3024ab43fdb543494478e"
+      "f78700d856c0356bd620dda6449dddbf"
     ],
     [
       "DataTypesEq.__proj__A__item___0",
@@ -21,7 +25,7 @@
         "refinement_interpretation_Tm_refine_7fe4ec39530be71d09622e6ea631b362"
       ],
       0,
-      "b708cdc21a54c67a414e3b330fcdfd32"
+      "2355ed13e16c8ae000778d6d320ccfe9"
     ],
     [
       "DataTypesEq.__proj__B__item___0",
@@ -34,7 +38,7 @@
         "refinement_interpretation_Tm_refine_4d5e6c06bbfb6471b81e2745aebd0ea5"
       ],
       0,
-      "02a9d0e0fba154362b8f9c469fe2662e"
+      "4e3da14e6bafea0adb058175621ca5e9"
     ],
     [
       "DataTypesEq.f",
@@ -55,7 +59,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "4e8a9eba1f26f1dcb4daa4b09fc9ebcc"
+      "65e7b60ad63a29910ddd0067fc097398"
     ],
     [
       "DataTypesEq.main",
@@ -64,7 +68,7 @@
       1,
       [ "@query", "assumption_DataTypesEq.t__uu___haseq" ],
       0,
-      "23ec40db8ffc1a1209fae1b149769439"
+      "7a984029c535995f01631660e051f188"
     ]
   ]
 ]

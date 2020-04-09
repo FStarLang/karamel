@@ -27,7 +27,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "dba9ea2066e0c7395c9867ea1f041e3f"
+      "72f70be60f3c9b762a69d688a06cf235"
     ],
     [
       "Wasm5.y",
@@ -55,7 +55,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "845c4fb402d33fc9ac32a0926d6e1c4d"
+      "f927e71c9536f03d5b6e466558300e70"
     ],
     [
       "Wasm5.main",
@@ -64,16 +64,15 @@
       1,
       [
         "@MaxIFuel_assumption", "@query",
-        "assumption_FStar.UInt8.t__uu___haseq",
         "equation_FStar.HyperStack.ST.equal_stack_domains",
         "equation_FStar.Monotonic.Heap.equal_dom",
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro",
         "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_Tm_refine_8f0d1081fef096d5fdd9623f07701d03",
+        "refinement_interpretation_Tm_refine_e1238b221dbc2edd6238dd41973678ad",
         "typing_Wasm5.x"
       ],
       0,
-      "74e2b7fce590d54253f6200b40454a04"
+      "ab0db8bdcb816ee38bdc477095920a4e"
     ]
   ]
 ]

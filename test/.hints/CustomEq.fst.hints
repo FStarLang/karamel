@@ -6,9 +6,13 @@
       1,
       2,
       1,
-      [ "@query", "assumption_FStar.Int32.t__uu___haseq" ],
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.Int32.t"
+      ],
       0,
-      "401d32a811ad01731975c121363fcc4c"
+      "afa1ce2505d641840052e9143e385d00"
     ],
     [
       "CustomEq.t",
@@ -17,7 +21,7 @@
       1,
       [ "@query", "assumption_CustomEq.point__uu___haseq" ],
       0,
-      "5b38286b21923610f9c56fabdbaa4a30"
+      "3d01dbad3851d3d2edb45e986f5bcef9"
     ],
     [
       "CustomEq.__proj__A__item__p1",
@@ -30,7 +34,7 @@
         "refinement_interpretation_Tm_refine_b42bbc5acfd996b49e25c6ab17e83c41"
       ],
       0,
-      "e4dad0f4ea42b68aca79fa5e586122ff"
+      "1cd694ff23eb5e6b7b25dcbcf3c4ce21"
     ],
     [
       "CustomEq.__proj__A__item__p2",
@@ -43,7 +47,7 @@
         "refinement_interpretation_Tm_refine_b42bbc5acfd996b49e25c6ab17e83c41"
       ],
       0,
-      "a0a4dad5c6aebd1e9c881859957b16cf"
+      "c1ef8134abea14e3c99914c810f14402"
     ],
     [
       "CustomEq.__proj__B__item___0",
@@ -56,7 +60,7 @@
         "refinement_interpretation_Tm_refine_499f060f30a6559751f4282e23af22de"
       ],
       0,
-      "529798c5f5b11467b66305d3693137d4"
+      "e1d223707bafbfb1911e3deec864bd98"
     ],
     [
       "CustomEq.p1",
@@ -77,7 +81,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "604a3370156076094019f5be09632cc8"
+      "d8d3c13bee773bb26c17b27be11686b7"
     ],
     [
       "CustomEq.f",
@@ -98,7 +102,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "fada06ae3178d7437a9c3a9a92f0ff45"
+      "64a43aecfc994e6d56854430520e7035"
     ],
     [
       "CustomEq.p2",
@@ -107,7 +111,7 @@
       1,
       [ "@query" ],
       0,
-      "47fd854e2fe2852eff86f4c31c3e4f1f"
+      "0e9f3e5254256f95189983288f37a067"
     ],
     [
       "CustomEq.t1",
@@ -116,7 +120,7 @@
       1,
       [ "@query", "lemma_FStar.HyperStack.ST.lemma_equal_domains_trans" ],
       0,
-      "050d9f47cffec78661d40ba9b724c144"
+      "93ee4deb8da905d2b9a8166002f9266c"
     ],
     [
       "CustomEq.t2",
@@ -137,7 +141,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "6a3d51e5d0ae15b6ca63bf3edfa9a71f"
+      "c161b9f3c98da358b7d0dbdd48a2e310"
     ],
     [
       "CustomEq.id",
@@ -158,7 +162,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "aaf602b24347f52b7d18fb6fab3faf49"
+      "7ba0832015ec99b0848622505d80aced"
     ],
     [
       "CustomEq.main",
@@ -170,16 +174,15 @@
         "Prims_pretyping_ae567c2fb75be05905677af440075565",
         "assumption_CustomEq.point__uu___haseq",
         "assumption_CustomEq.t__uu___haseq",
-        "assumption_FStar.Int64.t__uu___haseq",
         "assumption_Prims.list__uu___haseq", "equation_Prims.eqtype",
-        "function_token_typing_FStar.Int64.t",
         "function_token_typing_Prims.__cache_version_number__",
         "function_token_typing_Prims.int",
         "lemma_FStar.HyperStack.ST.lemma_equal_domains_trans",
-        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f"
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.Int64.t"
       ],
       0,
-      "598c08c723027a41d924681caee242e8"
+      "4b8af0a148e9031b71ad2c36f37caf13"
     ]
   ]
 ]
