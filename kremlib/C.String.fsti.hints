@@ -1,0 +1,76 @@
+[
+  "\u00005ö\u001dÉùRî¯\u0004=íX\u0000\n$",
+  [
+    [
+      "C.String.zero_free",
+      1,
+      2,
+      1,
+      [
+        "@query", "assumption_C.HasEq_char",
+        "primitive_Prims.op_Subtraction", "projection_inverse_BoxInt_proj_0"
+      ],
+      0,
+      "8cf7f6d83123669661e9ed4baf362375"
+    ],
+    [
+      "C.String.well_formed",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "assumption_C.HasEq_char",
+        "equation_Prims.nat", "function_token_typing_C.char",
+        "int_inversion", "primitive_Prims.op_Subtraction",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_Tm_refine_542f9d4f129664613f2483a6c88bc7c2",
+        "typing_FStar.Seq.Base.length"
+      ],
+      0,
+      "c6914a714447944d420ac33fc18890ed"
+    ],
+    [
+      "C.String.get",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "assumption_C.HasEq_char",
+        "b2t_def", "equation_FStar.UInt.fits", "equation_FStar.UInt.min_int",
+        "equation_FStar.UInt.size", "primitive_Prims.op_AmpAmp",
+        "primitive_Prims.op_LessThanOrEqual",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_Tm_refine_dfcb8c150fd42ce38050af33905be19c"
+      ],
+      0,
+      "7bcf311087a07e095f8bb5cbfd4f379d"
+    ],
+    [
+      "C.String.nonzero_is_lt",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "assumption_C.HasEq_char",
+        "refinement_interpretation_Tm_refine_a4691fadffad56bb755d245a5fc50b20",
+        "typing_C.String.length"
+      ],
+      0,
+      "4f2b6c391e350b6711302d5f6e5067ba"
+    ],
+    [
+      "C.String.memcpy",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "lemma_FStar.Seq.Base.hasEq_lemma",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.UInt8.t"
+      ],
+      0,
+      "38b2206de6359126f3583be00a2c4245"
+    ]
+  ]
+]

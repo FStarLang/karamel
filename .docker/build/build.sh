@@ -130,12 +130,16 @@ function refresh_tutorial() {
   fi
 }
 
+function check_version_controlled() {
+  make -C kremlib/dist/generic -f Makefile.basic -j
+}
+
 function exec_build() {
 
     # this is a special file that is parsed by Azure Devops
     result_file="../result.txt"
 
-    if misc && make -j $threads && \
+    if misc && check_version_controlled && make -j $threads && \
       make -C test everything -j $threads && \
       make -C book/tutorial && \
       refresh_tutorial

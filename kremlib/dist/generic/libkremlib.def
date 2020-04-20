@@ -1,0 +1,28 @@
+LIBRARY libkremlib
+
+EXPORTS
+  FStar_UInt64_eq_mask
+  FStar_UInt64_gte_mask
+  FStar_UInt32_eq_mask
+  FStar_UInt32_gte_mask
+  FStar_UInt16_eq_mask
+  FStar_UInt16_gte_mask
+  FStar_UInt8_eq_mask
+  FStar_UInt8_gte_mask
+  WasmSupport_align_64
+  WasmSupport_check_buffer_size
+  WasmSupport_betole32
+  WasmSupport_betole64
+  FStar_Order_uu___is_Lt
+  FStar_Order_uu___is_Eq
+  FStar_Order_uu___is_Gt
+  FStar_Order_ge
+  FStar_Order_le
+  FStar_Order_ne
+  FStar_Order_gt
+  FStar_Order_lt
+  FStar_Order_eq
+  FStar_Order_lex
+  FStar_Order_order_from_int
+  FStar_Order_int_of_order
+  FStar_Order_compare_int

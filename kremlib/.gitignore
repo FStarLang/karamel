@@ -3,6 +3,6 @@
 .depend
 *.a
 *.o
+*.so
 *.d
 .extract
-dist
