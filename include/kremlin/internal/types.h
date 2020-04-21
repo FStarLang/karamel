@@ -50,11 +50,13 @@ typedef const char *Prims_string;
 /* The great static header headache. */
 
 #define IS_MSVC64 (defined(_MSC_VER) && defined(_M_X64) && !defined(__clang__))
-#define HAS_INT128 ((defined(__x86_64__) || defined(__x86_64) || \
+#define HAS_INT128 (defined(__x86_64__) || defined(__x86_64) || \
                      defined(__aarch64__) || \
                      (defined(__powerpc64__) && defined(__LITTLE_ENDIAN__)) || \
-                     defined(__s390x__)) || \
-                    (defined(_MSC_VER) && !defined(_M_X64) && defined(__clang__)))
+                     defined(__s390x__) || \
+                    (defined(_MSC_VER) && !defined(_M_X64) && defined(__clang__)) || \
+                    (defined(__mips__) && defined(__LP64__)) || \
+                    (defined(__riscv) && __riscv_xlen == 64))
 
 /* The uint128 type is a special case since we offer several implementations of
  * it, depending on the compiler and whether the user wants the verified
@@ -77,14 +79,13 @@ typedef FStar_UInt128_uint128 FStar_UInt128_t, uint128_t;
 
 #include "kremlin/lowstar_endianness.h"
 
-#if !defined(KRML_VERIFIED_UINT128) && HAS_INT128
-#include "fstar_uint128_gcc64.h"
 #if !defined(KRML_VERIFIED_UINT128) && IS_MSVC64
 #include "fstar_uint128_msvc.h"
-#elif defined(KRML_VERIFIED_UINT128)
+#elif !defined(KRML_VERIFIED_UINT128) && HAS_INT128
+#include "fstar_uint128_gcc64.h"
+#else
 #include "FStar_UInt128_Verified.h"
 #include "fstar_uint128_struct_endianness.h"
 #endif
-
 
 #endif
