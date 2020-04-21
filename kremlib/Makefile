@@ -119,7 +119,7 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar
 	  fstar_uint128.c \
 	  -o libkremlib.a \
 	  $^
-	cp c/fstar_uint128_gcc64.h c/fstar_uint128_msvc.h $(dir $@)
+	cp c/fstar_uint128_struct_endianness.h c/fstar_uint128_gcc64.h c/fstar_uint128_msvc.h $(dir $@)
 
 # Extracted (and verified) uint128s; copied into generic and minimal. Note that
 # FStar.UInt64 shares the same bundle name, meaning that

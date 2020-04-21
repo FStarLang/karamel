@@ -49,22 +49,28 @@ typedef const char *Prims_string;
 
 /* The great static header headache. */
 
-#define IS_MSVC64 (defined(_MSC_VER) && defined(_M_X64) && !defined(__clang__))
-#define HAS_INT128 (defined(__x86_64__) || defined(__x86_64) || \
-                     defined(__aarch64__) || \
-                     (defined(__powerpc64__) && defined(__LITTLE_ENDIAN__)) || \
-                     defined(__s390x__) || \
-                    (defined(_MSC_VER) && !defined(_M_X64) && defined(__clang__)) || \
-                    (defined(__mips__) && defined(__LP64__)) || \
-                    (defined(__riscv) && __riscv_xlen == 64))
+#if (defined(_MSC_VER) && defined(_M_X64) && !defined(__clang__))
+#define IS_MSVC64 1
+#endif
+
+#if (defined(__x86_64__) || \
+    defined(__x86_64) || \
+    defined(__aarch64__) || \
+    (defined(__powerpc64__) && defined(__LITTLE_ENDIAN__)) || \
+    defined(__s390x__) || \
+    (defined(_MSC_VER) && !defined(_M_X64) && defined(__clang__)) || \
+    (defined(__mips__) && defined(__LP64__)) || \
+    (defined(__riscv) && __riscv_xlen == 64))
+#define HAS_INT128 1
+#endif
 
 /* The uint128 type is a special case since we offer several implementations of
  * it, depending on the compiler and whether the user wants the verified
  * implementation or not. */
-#if !defined(KRML_VERIFIED_UINT128) && IS_MSVC64
+#if !defined(KRML_VERIFIED_UINT128) && defined(IS_MSVC64)
 #  include <emmintrin.h>
 typedef __m128i FStar_UInt128_uint128;
-#elif !defined(KRML_VERIFIED_UINT128) && HAS_INT128
+#elif !defined(KRML_VERIFIED_UINT128) && defined(HAS_INT128)
 typedef unsigned __int128 FStar_UInt128_uint128;
 #else
 typedef struct FStar_UInt128_uint128_s {
@@ -79,9 +85,9 @@ typedef FStar_UInt128_uint128 FStar_UInt128_t, uint128_t;
 
 #include "kremlin/lowstar_endianness.h"
 
-#if !defined(KRML_VERIFIED_UINT128) && IS_MSVC64
+#if !defined(KRML_VERIFIED_UINT128) && defined(IS_MSVC64)
 #include "fstar_uint128_msvc.h"
-#elif !defined(KRML_VERIFIED_UINT128) && HAS_INT128
+#elif !defined(KRML_VERIFIED_UINT128) && defined(HAS_INT128)
 #include "fstar_uint128_gcc64.h"
 #else
 #include "FStar_UInt128_Verified.h"
