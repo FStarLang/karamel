@@ -14,7 +14,7 @@
 
 
 
-extern void C_Loops_for_(uint32_t start, uint32_t finish, void (*inv)(uint32_t x0));
+extern void C_Loops_for(uint32_t start, uint32_t finish, void (*inv)(uint32_t x0));
 
 extern void C_Loops_for64(uint64_t start, uint64_t finish, void (*inv)(uint64_t x0));
 

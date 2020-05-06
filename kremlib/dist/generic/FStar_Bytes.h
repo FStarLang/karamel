@@ -34,9 +34,9 @@ extern uint8_t FStar_Bytes_op_String_Access(FStar_Bytes_bytes x0, uint32_t x1);
 
 extern uint8_t FStar_Bytes_index(FStar_Bytes_bytes b, Prims_int i);
 
-extern FStar_Bytes_bytes FStar_Bytes_create(uint32_t len1, uint8_t v1);
+extern FStar_Bytes_bytes FStar_Bytes_create(uint32_t len1, uint8_t v);
 
-extern FStar_Bytes_bytes FStar_Bytes_create_(Prims_int n1, uint8_t v1);
+extern FStar_Bytes_bytes FStar_Bytes_create_(Prims_int n, uint8_t v);
 
 extern FStar_Bytes_bytes FStar_Bytes_init(uint32_t len1, uint8_t (*f)(uint32_t x0));
 
@@ -74,11 +74,11 @@ FStar_Bytes_split(FStar_Bytes_bytes b, uint32_t k);
 extern K___FStar_Bytes_bytes_FStar_Bytes_bytes
 FStar_Bytes_split_(FStar_Bytes_bytes b, Prims_int k);
 
-extern Prims_pos FStar_Bytes_repr_bytes(Prims_int n1);
+extern Prims_pos FStar_Bytes_repr_bytes(Prims_int n);
 
 extern Prims_int FStar_Bytes_int_of_bytes(FStar_Bytes_bytes b);
 
-extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int(Prims_int k, Prims_int n1);
+extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int(Prims_int k, Prims_int n);
 
 extern uint32_t FStar_Bytes_int32_of_bytes(FStar_Bytes_bytes b);
 
@@ -86,17 +86,17 @@ extern uint16_t FStar_Bytes_int16_of_bytes(FStar_Bytes_bytes b);
 
 extern uint8_t FStar_Bytes_int8_of_bytes(FStar_Bytes_bytes b);
 
-extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int32(uint32_t n1);
+extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int32(uint32_t n);
 
-extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int16(uint16_t n1);
+extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int16(uint16_t n);
 
-extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int8(uint8_t n1);
-
-extern FStar_Bytes_bytes
-FStar_Bytes_xor(uint32_t n1, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
+extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int8(uint8_t n);
 
 extern FStar_Bytes_bytes
-FStar_Bytes_xor_(Prims_int n1, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
+FStar_Bytes_xor(uint32_t n, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
+
+extern FStar_Bytes_bytes
+FStar_Bytes_xor_(Prims_int n, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
 
 extern FStar_Bytes_bytes FStar_Bytes_utf8_encode(Prims_string s);
 

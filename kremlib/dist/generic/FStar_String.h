@@ -60,7 +60,7 @@ extern Prims_string FStar_String_lowercase(Prims_string uu____193);
 
 extern Prims_string FStar_String_uppercase(Prims_string uu____207);
 
-extern FStar_Char_char FStar_String_index(Prims_string s, Prims_int n1);
+extern FStar_Char_char FStar_String_index(Prims_string s, Prims_int n);
 
 extern Prims_int FStar_String_index_of(Prims_string uu____251, FStar_Char_char uu____252);
 

@@ -15,6 +15,8 @@
 #include "FStar_BitVector.h"
 
 
+typedef void *FStar_Pervasives_pattern;
+
 typedef void *FStar_Pervasives_ex_pre;
 
 #define FStar_Pervasives_PpxDerivingShow 0

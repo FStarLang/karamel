@@ -38,11 +38,11 @@ extern Prims_int FStar_Kremlin_Endianness_be_to_n(Prims_list__uint8_t *b);
 
 KRML_DEPRECATED("FStar.Endianness.n_to_le")
 
-extern Prims_list__uint8_t *FStar_Kremlin_Endianness_n_to_le(uint32_t len, Prims_int n1);
+extern Prims_list__uint8_t *FStar_Kremlin_Endianness_n_to_le(uint32_t len, Prims_int n);
 
 KRML_DEPRECATED("FStar.Endianness.n_to_be")
 
-extern Prims_list__uint8_t *FStar_Kremlin_Endianness_n_to_be(uint32_t len, Prims_int n1);
+extern Prims_list__uint8_t *FStar_Kremlin_Endianness_n_to_be(uint32_t len, Prims_int n);
 
 KRML_DEPRECATED("FStar.Endianness.uint32_of_le")
 

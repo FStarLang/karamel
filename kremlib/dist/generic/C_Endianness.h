@@ -48,7 +48,7 @@ static inline uint64_t index_64_le(uint8_t *b, uint32_t i);
 
 KRML_DEPRECATED("LowStar.Endianness.upd_32_be")
 
-static inline void upd_32_be(uint8_t *b, uint32_t i, uint32_t v1);
+static inline void upd_32_be(uint8_t *b, uint32_t i, uint32_t v);
 
 #define __C_Endianness_H_DEFINED
 #endif

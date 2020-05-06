@@ -66,7 +66,7 @@ extern Prims_int FStar_UInt_div_underspec(Prims_int n, Prims_int a, Prims_int b)
 
 extern Prims_int FStar_UInt_udiv(Prims_pos n, Prims_int a, Prims_int b);
 
-extern Prims_int FStar_UInt_mod_(Prims_int n, Prims_int a, Prims_int b);
+extern Prims_int FStar_UInt_mod(Prims_int n, Prims_int a, Prims_int b);
 
 extern bool FStar_UInt_eq(Prims_int n, Prims_int a, Prims_int b);
 
