@@ -483,10 +483,13 @@ let mk_ocaml_bindings
   KList.filter_map (fun (name, _, _) ->
     match Hashtbl.find_opt ocaml_decls name with
     | None -> None
-    | Some decls -> 
+    | Some decls ->
         let decls = List.flatten (List.rev decls) in
-        let build_deps = Hashtbl.find transitive_deps name in
-        Some (name, build_deps, build_module build_deps decls)
+        if List.length decls > 0 then begin
+          let build_deps = Hashtbl.find transitive_deps name in
+          Some (name, build_deps, build_module build_deps decls)
+        end else
+          None
   ) files
 
 let mk_gen_decls module_name =
