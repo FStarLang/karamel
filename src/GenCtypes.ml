@@ -71,15 +71,11 @@ let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
  * true and we force the first letter to be lowercase to abide by OCaml syntax
  * restrictions. *)
 let mk_unqual_name m (n: Ast.lident) =
-  match n with
-  | [ "K" ], n ->
-      "t_" ^ n (* VD: might want to process this differently or alias to more user-friendly names *)
-  | _ ->
-      let n = GlobalNames.to_c_name m n in
-      if Char.lowercase n.[0] <> n.[0] then
-        String.make 1 (Char.lowercase n.[0]) ^ String.sub n 1 (String.length n - 1)
-      else
-        n
+  let n = GlobalNames.to_c_name m n in
+  if Char.lowercase n.[0] <> n.[0] then
+    String.make 1 (Char.lowercase n.[0]) ^ String.sub n 1 (String.length n - 1)
+  else
+    n
 
 let mk_struct_name (m, n) = m, n ^ "_s" (* c.f. CStarToC11.mk_spec_and_declarator_t *)
 
@@ -483,10 +479,13 @@ let mk_ocaml_bindings
   KList.filter_map (fun (name, _, _) ->
     match Hashtbl.find_opt ocaml_decls name with
     | None -> None
-    | Some decls -> 
+    | Some decls ->
         let decls = List.flatten (List.rev decls) in
-        let build_deps = Hashtbl.find transitive_deps name in
-        Some (name, build_deps, build_module build_deps decls)
+        if List.length decls > 0 then begin
+          let build_deps = Hashtbl.find transitive_deps name in
+          Some (name, build_deps, build_module build_deps decls)
+        end else
+          None
   ) files
 
 let mk_gen_decls module_name =
