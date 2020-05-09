@@ -208,6 +208,7 @@ let remove_unused_parameters = object (self)
        * argument to become a reference to a function pointer. Useful for
        * functions that take regions but that we still want to use as function
        * pointers. *)
+      let e = self#visit_expr_w parameter_table e in
       let app = if List.length es > 0 then with_type t (EApp (e, es)) else e in
       (nest to_evaluate t app).node
     else
