@@ -281,6 +281,11 @@ let c_nullity: file =
     mk_val [ "C"; "Nullity" ] "null" (TArrow (TAny, TBuf (TAny, false)))
   ]
 
+let lib_memzero0: file =
+  "Lib_Memzero0", [
+    mk_val [ "Lib"; "Memzero0" ] "memzero" (TArrow (TAny, TArrow (TInt UInt32, TUnit)))
+  ]
+
 (* These modules are entirely written by hand in abstract syntax. *)
 let hand_written = [
   buffer;
@@ -296,6 +301,7 @@ let hand_written = [
 (* These modules get a couple bonus definitions. *)
 let addendum = [
   c_nullity;
+  lib_memzero0;
 ]
 
 let make_abstract_function_or_global = function
