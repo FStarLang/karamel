@@ -41,3 +41,16 @@ uint64_t WasmSupport_betole64(uint64_t x)
   return low << (uint32_t)32U | high;
 }
 
+void WasmSupport_memzero(uint8_t *x, uint32_t len, uint32_t sz)
+{
+  if (len >= (uint32_t)0xffffffffU / sz)
+  {
+    WasmSupport_trap();
+  }
+  uint32_t n_bytes = len * sz;
+  for (uint32_t i = (uint32_t)0U; i < n_bytes; i++)
+  {
+    x[i] = (uint8_t)0U;
+  }
+}
+

@@ -601,6 +601,14 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EOpen _ ->
       invalid_arg "mk_expr (EOpen)"
 
+  | EApp ({ node = EQualified (["Lib"; "Memzero0"],"memzero"); _ }, [ dst; len ]) ->
+      let size = cell_size_b env dst.typ in
+      let hd = with_type
+        (TArrow (TBuf (TInt K.UInt8, false), TArrow (TInt K.UInt32, TArrow (TInt K.UInt32, TUnit))))
+        (EQualified (["WasmSupport"], "memzero"))
+      in
+      mk_expr env locals (with_type e.typ (EApp (hd, [ dst; len; Helpers.mk_uint32 size ])))
+
   | EApp ({ node = EOp (o, w); _ }, es) ->
       let locals, es = fold (mk_expr env) locals es in
       locals, CF.CallOp ((w, o), es)

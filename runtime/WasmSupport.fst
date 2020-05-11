@@ -6,10 +6,14 @@ module C = FStar.Int.Cast
 module I64 = FStar.Int64
 module U32 = FStar.UInt32
 module U64 = FStar.UInt64
+module B = LowStar.Buffer
+
+open LowStar.BufferOps
+open FStar.Mul
 
 (* Functions implemented primitively in JS. *)
 
-assume val trap: unit -> Stack unit (fun _ -> True) (fun _ _ _ -> True)
+assume val trap: unit -> Stack unit (fun _ -> True) (fun _ _ _ -> false)
 
 (* Functions that the code-generator expects to find, either at the Ast, CFlat
  * or Wasm levels. In SimplifyWasm.ml, we prefix these with their module (before
@@ -39,3 +43,18 @@ let betole64 (x: U64.t) =
   let low = C.uint32_to_uint64 (betole32 (C.uint64_to_uint32 x)) in
   let high = C.uint32_to_uint64 (betole32 (C.uint64_to_uint32 (U64.shift_right x 32ul))) in
   U64.logor (U64.shift_left low 32ul) high
+
+let memzero (x: B.buffer UInt8.t) (len: UInt32.t) (sz: UInt32.t): Stack unit
+  (requires fun h0 -> B.live h0 x /\ sz <> 0ul /\ B.length x = U32.v len * U32.v sz)
+  (ensures (fun h0 _ h1 -> B.(modifies (loc_buffer x) h0 h1)))
+=
+  if len `U32.gte` (0xfffffffful `U32.div` sz) then
+    trap ();
+  let n_bytes = U32.mul len sz in
+  let h0 = FStar.HyperStack.ST.get () in
+  C.Loops.for 0ul n_bytes (fun h _ ->
+    B.live h x /\
+    B.(modifies (loc_buffer x) h0 h)
+  ) (fun i ->
+    x.(i) <- 0uy
+  )

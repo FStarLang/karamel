@@ -13,6 +13,7 @@ EXPORTS
   WasmSupport_check_buffer_size
   WasmSupport_betole32
   WasmSupport_betole64
+  WasmSupport_memzero
   FStar_Order_uu___is_Lt
   FStar_Order_uu___is_Eq
   FStar_Order_uu___is_Gt
