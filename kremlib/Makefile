@@ -31,7 +31,8 @@ FSTAR_OPTIONS += --record_hints --use_hints --use_two_phase_tc true --odir $(EXT
 
 INCLUDE_PATHS = ../runtime
 
-FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules \
+FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules --cache_dir obj \
+  --hint_dir hints \
   $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
   --already_cached 'Prims FStar -FStar.Kremlin.Endianness LowStar'
 
@@ -63,7 +64,10 @@ endif
 
 include .depend
 
-%.checked:
+obj:
+	mkdir $@
+
+%.checked: | obj
 	$(FSTAR) $(OTHERFLAGS) $< && \
 	touch $@
 
