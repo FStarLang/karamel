@@ -9,7 +9,7 @@ ARG DOCKERHUBPROJECT
 ARG COMMITID
 FROM ${DOCKERHUBPROJECT}fstar-linux:${COMMITID}
 
-RUN echo "export PATH=${MYHOME}/.local/bin:""$""PATH" > ${MYHOME}/.profile && cat ${MYHOME}/.profile
+RUN echo "export PATH=${MYHOME}/.local/bin:\$PATH" >> ${MYHOME}/.profile && cat ${MYHOME}/.profile
 RUN pip3 install --upgrade pip && pip install --user sphinx
 RUN yes | sudo pip3 uninstall Pygments && \
     git clone https://github.com/denismerigoux/pygments && \
