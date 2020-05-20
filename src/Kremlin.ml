@@ -576,13 +576,15 @@ Supported options:|}
   let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
   let files =
     if !Options.wasm then
+      let files = Simplify.sequence_to_let#visit_files () files in
+      let files = Simplify.count_and_remove_locals#visit_files [] files in
       let files = SimplifyWasm.simplify1 files in
-      (* JP: would be lovely to remove this one *)
-      let files = Simplify.simplify2 files in
+      let files = Simplify.hoist#visit_files [] files in
       let files = Structs.in_memory files in
       (* This one near the end because [in_memory] generates new EBufCreate's that
        * need to be desugared into EBufCreate Any + EBufWrite. See e2ceb92e. *)
       let files = SimplifyWasm.simplify2 files in
+      let files = Simplify.let_to_sequence#visit_files () files in
       tick_print true "Wasm specific";
       files
     else if not !Options.compound_literals then
