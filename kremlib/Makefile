@@ -34,7 +34,7 @@ INCLUDE_PATHS = ../runtime
 FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules --cache_dir obj \
   --hint_dir hints \
   $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
-  --already_cached 'Prims FStar -FStar.Kremlin.Endianness LowStar'
+  --already_cached 'Prims FStar -FStar.Kremlin.Endianness LowStar -LowStar.Lib'
 
 # Note: not compatible with the OPAM layout until fstar can be queried for the
 # location of ulib.
