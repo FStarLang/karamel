@@ -204,6 +204,34 @@ let push #a #n pl x =
 
   ()
 
+val pop: (#a: Type) -> (#n: G.erased (list a)) -> (pl: B.pointer (t a)) ->
+  ST a
+    (requires (fun h ->
+      let l = B.deref h pl in
+      B.live h pl /\
+      well_formed h l n /\
+      invariant h l n /\
+      B.loc_disjoint (B.loc_buffer pl) (footprint h l n) /\
+      Cons? n
+    ))
+    (ensures (fun h0 _ h1 ->
+      let l = B.deref h1 pl in
+      let n' = L.tl n in
+      // Liveness follows for pl from modifies loc_buffer (not loc_addr_of_buffer)
+      B.modifies (B.loc_buffer pl) h0 h1 /\
+      well_formed h1 l n' /\
+      invariant h1 l n' /\ (
+      forall (l': B.loc). {:pattern B.(loc_disjoint l' (footprint h0 (deref h0 pl) n)) }
+        B.(loc_in l' h0 /\ loc_disjoint l' (footprint h0 (deref h0 pl) n)) ==>
+        B.loc_disjoint l' (footprint h1 l n')
+    )))
+
+let pop #a #n pl =
+  let l = !* pl in
+  let r = (!*l).data in
+  pl *= (!*l).next;
+  r
+
 val free_: (#a: Type) -> (#n: G.erased (list a)) -> (l: t a) ->
   ST unit
     (requires (fun h ->
@@ -239,85 +267,8 @@ val free: (#a: Type) -> (#n: G.erased (list a)) -> (pl: B.pointer (t a)) ->
 
 let free #a #n pl =
   free_ #_ #n !*pl;
-  pl *= B.null 
+  pl *= B.null
 
-
-/// Finally, the pop operation. Here we use the classic representation
-/// using null pointers, which requires the client to pass a pointer
-/// to a pointer, which is then filled with the address of the next
-/// cell, or null if this was the last element in the list.
-
-/// The code is straightforward and crucially relies on the call to the lemma
-/// above. Note that at this stage we do not prove full functional correctness
-/// of our implementation. Rather, we just state that the lengths is as
-/// expected.
-
-/// This version uses an erased integer n; we have to work a little bit to
-/// hide/reveal the computationally-irrelevant length.
-val pop: (#a: Type) -> (#n: G.erased (list a)) -> (pl: B.pointer (t a)) ->
-  Stack a
-  (requires (fun h ->
-    let l = B.get h pl 0 in
-    B.live h pl /\
-    well_formed h l n /\
-    B.loc_disjoint (B.loc_buffer pl) (footprint h l n) /\
-    Cons? (G.reveal n)
-  ))
-  (ensures (fun h0 v h1 ->
-    let l = B.get h1 pl 0 in
-    let n' = G.hide (L.tl (G.reveal n)) in
-    B.live h1 pl /\
-    B.modifies (B.loc_buffer pl) h0 h1 /\
-    well_formed h1 l n' /\
-    B.loc_disjoint (B.loc_buffer pl) (footprint h1 l n')
-  ))
-
-let pop #a #n pl =
-  let l = !* pl in
-  let lcell = !* l in
-  let h0 = get () in
-  pl *= lcell.next;
-  let h1 = get () in
-  well_formed_head_tail_disjoint h0 l n;
-  modifies_disjoint_footprint h0 l n (B.loc_buffer pl) h1;
-  lcell.data
-
-val push: (#a: Type) -> (#n: G.erased (list a)) -> (pl: B.pointer (t a)) -> (x: a) ->
-  ST unit
-    (requires (fun h ->
-      let l = B.get h pl 0 in
-      B.live h pl /\
-      well_formed h l n /\
-      B.loc_disjoint (B.loc_buffer pl) (footprint h l n)
-    ))
-    (ensures (fun h0 _ h1 ->
-      let n' = G.hide (x :: G.reveal n) in
-      let l = B.get h1 pl 0 in
-      B.modifies (B.loc_buffer pl) h0 h1 /\
-      B.live h1 pl /\
-      well_formed h1 l n' /\
-      B.loc_disjoint (B.loc_buffer pl) (footprint h1 l n')
-    ))
-
-let push #a #n pl x =
-  let h0 = get () in
-  let l = !* pl in
-  let c = {
-    data = x;
-    next = l;
-  }
-  in
-  let pc: B.pointer (cell a) = B.malloc HS.root c 1ul in
-  unused_in_well_formed_disjoint_from_list h0 pc l n;
-  let h1 = get () in
-  modifies_disjoint_footprint h0 l n (B.loc_buffer pc) h1;
-  pl *= pc;
-  let h2 = get () in
-  modifies_disjoint_footprint h1 l n (B.loc_buffer pl) h2
-
-/// Connecting our predicate `well_formed` to the regular length function.
-/// Note that this function takes a list whose length is unknown statically,
-/// because of the existential quantification.
 val length (#a: Type) (gn: G.erased (list a)) (l: t a): Stack UInt32.t
   (requires (fun h -> well_formed h l gn))
   (ensures (fun h0 n h1 ->
@@ -325,23 +276,16 @@ val length (#a: Type) (gn: G.erased (list a)) (l: t a): Stack UInt32.t
     U32.v n = L.length (G.reveal gn)
   ))
 
-/// Note that we could have as easily returned an option, but sometimes fatal
-/// errors are just easier to handle for client code. The `C.String` module
-/// provides facilities for dealing with constant C string literals. It reveals
-/// that they are zero-terminated and allows looping over them if one wants to,
-/// say, copy an immutable constant string into a mutable buffer.
 let rec length #a gn l =
-  if B.is_null l
-  then 0ul
+  if B.is_null l then
+    0ul
   else
     let open U32 in
     let c = !* l in
     let next = c.next in
     let n = length (G.hide (L.tail (G.reveal gn))) next in
     if n = 0xfffffffful then begin
-      C.String.(print !$"Integer overflow while computing length");
-      C.exit 255l;
-      0ul // dummy return value, this point is unreachable
+      LowStar.Failure.failwith "Integer overflow in LowStar.LinkedList.length"
     end else
       n +^ 1ul
 
