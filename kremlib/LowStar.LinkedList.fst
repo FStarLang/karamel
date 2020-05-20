@@ -7,6 +7,7 @@ module HS = FStar.HyperStack
 module G = FStar.Ghost
 module L = FStar.List.Tot
 module U32 = FStar.UInt32
+module ST = FStar.HyperStack.ST
 
 open FStar.HyperStack.ST
 
@@ -59,16 +60,62 @@ let rec footprint #a h l n =
     let refs = footprint h next (G.hide (L.tl n)) in
     B.loc_union (B.loc_addr_of_buffer l) refs
 
+/// Departing from LinkedList4 here. I prefer to bolt these into the invariant
+/// rather than requiring on some wizard lemmas from LowStar.Monotonic.Buffer to
+/// deduce these.
+val cells_pairwise_disjoint: #a:Type -> h:HS.mem -> l:t a -> n:list a -> Ghost Type0
+  (requires well_formed h l n)
+  (ensures fun _ -> True)
+  (decreases n)
+
+let rec cells_pairwise_disjoint #_ h l n =
+  if B.g_is_null l then
+    True
+  else
+    let next = (B.deref h l).next in
+    B.loc_disjoint (B.loc_addr_of_buffer l) (footprint h next (L.tl n)) /\
+    cells_pairwise_disjoint h next (L.tl n)
+
+val cells_live_freeable: #a:Type -> h:HS.mem -> l:t a -> n:list a -> Ghost Type0
+  (requires well_formed h l n)
+  (ensures fun _ -> True)
+  (decreases n)
+
+let rec cells_live_freeable #_ h l n =
+  if B.g_is_null l then
+    True
+  else
+    let next = (B.deref h l).next in
+    B.live h l /\ B.freeable l /\
+    cells_live_freeable h next (L.tl n)
+
 val invariant: #a:Type -> h:HS.mem -> l: t a -> n:list a -> Ghost Type0
   (requires well_formed h l n)
   (ensures fun _ -> True)
   (decreases n)
-let rec invariant #a h l n =
-  if B.g_is_null l then
-    True
-  else
-    B.live h l /\ invariant h (B.deref h l).next (L.tl n)
+let invariant #a h l n =
+  cells_live_freeable h l n /\ cells_pairwise_disjoint h l n
 
+/// Normally this would be automatic and writing a custom lemma for that stuff
+/// would be needed only when writing an fsti, however, as stated earlier,
+/// recursion makes everything more difficult and this absolutely needs to be in
+/// scope otherwise the modifies-clause theory cannot deduce disjointness of
+/// fresh allocations w.r.t. the footprint.
+let rec invariant_loc_in_footprint (#a: Type) (h: HS.mem) (l: t a) (n: list a): Lemma
+  (requires well_formed h l n)
+  (ensures B.loc_in (footprint h l n) h)
+  (decreases n)
+  [ SMTPat (invariant h l n) ]
+=
+  if B.g_is_null l then
+    ()
+  else
+    let next = (B.deref h l).next in
+    invariant_loc_in_footprint h next (L.tl n)
+
+/// Another absolutely essential lemma, for which interestingly the pattern
+/// "invariant h1 l n" does not work, but well_formed does... I guess that's
+/// alright.
 let rec frame (#a: Type) (l: t a) (n: list a) (r: B.loc) (h0 h1: HS.mem): Lemma
   (requires (
     well_formed h0 l n /\
@@ -82,6 +129,7 @@ let rec frame (#a: Type) (l: t a) (n: list a) (r: B.loc) (h0 h1: HS.mem): Lemma
     invariant h1 l n
   ))
   (decreases n)
+  [ SMTPat (well_formed h1 l n); SMTPat (B.modifies r h0 h1) ]
 =
   if B.g_is_null l then
     ()
@@ -107,72 +155,92 @@ let rec length_functional #a (h: HS.mem) (c: t a) (l1 l2: list a):
     let { next=next } = B.get h c 0 in
     length_functional h next (G.hide (L.tl l1)) (G.hide (L.tl l2))
 
-let rec well_formed_distinct_lengths_disjoint
-  #a
-  (c1 c2: B.pointer (cell a))
-  (n1 n2: list a)
-  (h: HS.mem)
-: Lemma
-  (requires (
-    well_formed h c1 n1 /\
-    well_formed h c2 n2 /\
-    L.length n1 <> L.length n2
-  ))
-  (ensures (
-    B.disjoint c1 c2
-  ))
-  (decreases (L.length n1 + L.length n2))
-= let {next = next1} = B.get h c1 0 in
-  let {next = next2} = B.get h c2 0 in
-  let f () : Lemma (next1 =!= next2) =
-    if B.g_is_null next1 || B.g_is_null next2
-    then ()
-    else
-      well_formed_distinct_lengths_disjoint next1 next2 (L.tl n1) (L.tl n2) h
-  in
-  f ();
-  B.pointer_distinct_sel_disjoint c1 c2 h
+/// The footprint is based on loc_addr_of_buffer so that we can write a free
+/// operation that operates on the footprint. However, this invalidates most of
+/// the helper lemmas for disjointness that were present in the previous
+/// iteration of this module, named LinkedList4.fst.
 
-let rec well_formed_gt_lengths_disjoint_from_list
-  #a
-  (h: HS.mem)
-  (c1 c2: B.pointer_or_null (cell a))
-  (n1 n2: list a)
-: Lemma
-  (requires (well_formed h c1 n1 /\ well_formed h c2 n2 /\ L.length n1 > L.length n2))
-  (ensures (B.loc_disjoint (B.loc_buffer c1) (footprint h c2 n2)))
-  (decreases n2)
-= match n2 with
-  | [] -> ()
-  | _ ->
-    well_formed_distinct_lengths_disjoint c1 c2 n1 n2 h;
-    well_formed_gt_lengths_disjoint_from_list h c1 (B.get h c2 0).next n1 (L.tl n2)
+/// Stateful operations
+/// -------------------
 
-let well_formed_head_tail_disjoint
-  (#a: Type)
-  (h: HS.mem)
-  (c: B.pointer (cell a))
-  (n: G.erased (list a))
-: Lemma
-  (requires (well_formed h c n))
-  (ensures (
-    B.loc_disjoint (B.loc_buffer c) (footprint h (B.get h c 0).next (G.hide (L.tl (G.reveal n))))
-  ))
-= well_formed_gt_lengths_disjoint_from_list h c (B.get h c 0).next n (G.hide (L.tl (G.reveal n)))
+val push: (#a: Type) -> (#n: G.erased (list a)) -> (pl: B.pointer (t a)) -> (x: a) ->
+  ST unit
+    (requires (fun h ->
+      let l = B.deref h pl in
+      B.live h pl /\
+      well_formed h l n /\
+      invariant h l n /\
+      B.loc_disjoint (B.loc_buffer pl) (footprint h l n)
+    ))
+    (ensures (fun h0 _ h1 ->
+      let n' = G.hide (x :: G.reveal n) in
+      let l = B.deref h1 pl in
+      // Liveness follows for pl from modifies loc_buffer (not loc_addr_of_buffer)
+      B.modifies (B.loc_buffer pl) h0 h1 /\
+      well_formed h1 l n' /\
+      invariant h1 l n' /\ (
+      forall (l': B.loc). {:pattern B.(loc_disjoint l' (footprint h0 (deref h0 pl) n)) }
+        B.(loc_in l' h0 /\ loc_disjoint l' (footprint h0 (deref h0 pl) n)) ==>
+        B.loc_disjoint l' (footprint h1 l n')
+    )))
 
-let rec unused_in_well_formed_disjoint_from_list
-  #a #b
-  (h: HS.mem)
-  (r: B.buffer a)
-  (l: B.pointer_or_null (cell b))
-  (n: G.erased (list b))
-: Lemma
-  (requires (r `B.unused_in` h /\ well_formed h l n))
-  (ensures (B.loc_disjoint (B.loc_buffer r) (footprint h l n)))
-  (decreases (G.reveal n))
-= match G.reveal n with
-  | [] -> ()
-  | _ -> unused_in_well_formed_disjoint_from_list h r (B.get h l 0).next (G.hide (L.tl (G.reveal n)))
+let push #a #n pl x =
+  (**) let h0 = ST.get () in
+  let l = !* pl in
+  let c = { data = x; next = l } in
+
+  let pc: B.pointer (cell a) = B.malloc HS.root c 1ul in
+  (**) let h1 = ST.get () in
+  (**) B.(modifies_only_not_unused_in loc_none h0 h1);
+  (**) assert B.(loc_disjoint (loc_buffer pc) (footprint h0 l n));
+
+  pl *= pc;
+  (**) let h2 = ST.get () in
+  (**) let n' = G.hide (x :: G.reveal n) in
+  (**) B.(modifies_trans loc_none h0 h1 (loc_buffer pl) h2);
+  (**) assert (well_formed h2 (B.deref h2 pl) n');
+  (**) assert (invariant h2 (B.deref h2 pl) n');
+  (**) assert ((B.deref h2 (B.deref h2 pl)).next == l);
+
+  ()
+
+val free_: (#a: Type) -> (#n: G.erased (list a)) -> (l: t a) ->
+  ST unit
+    (requires (fun h ->
+      well_formed h l n /\
+      invariant h l n
+    ))
+    (ensures (fun h0 _ h1 ->
+      B.(modifies (footprint h0 l n) h0 h1)))
+
+let rec free_ #a #n l =
+  if B.is_null l then
+    ()
+  else begin
+    let tl: G.erased (list a) = G.hide (L.tl (G.reveal n)) in
+    free_ #_ #tl (!*l).next;
+    B.free l
+  end
+
+val free: (#a: Type) -> (#n: G.erased (list a)) -> (pl: B.pointer (t a)) ->
+  ST unit
+    (requires (fun h ->
+      let l = B.deref h pl in
+      B.live h pl /\
+      well_formed h l n /\
+      invariant h l n /\
+      B.loc_disjoint (B.loc_buffer pl) (footprint h l n)
+    ))
+    (ensures (fun h0 _ h1 ->
+      let l = B.deref h1 pl in
+      well_formed h1 l [] /\
+      invariant h1 l [] /\
+      B.(modifies (footprint h0 (B.deref h0 pl) n `loc_union` loc_buffer pl) h0 h1)))
+
+let free #a #n pl =
+  free_ #_ #n !*pl;
+  pl *= B.null 
+
 
 /// Finally, the pop operation. Here we use the classic representation
 /// using null pointers, which requires the client to pass a pointer
