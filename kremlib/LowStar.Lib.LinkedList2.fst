@@ -15,20 +15,29 @@ open FStar.HyperStack.ST
 
 #set-options "--fuel 0 --ifuel 0"
 
+// Modulo the upcoming KreMLin optimization, this type will extract just like
+// ``B.pointer (LL.t a)`` would, with no indirection due to the record.
 noeq
 type t a = {
   ptr: B.pointer (LL.t a);
   // Relies on an upcoming pointer-to-unit elimination phase in KreMLin
   v: B.pointer (G.erased (list a));
+  // For separation; all erased.
   r: HS.rid;
   spine_rid: HS.rid;
-  ptr_rid: HS.rid;
+  ptr_v_rid: HS.rid;
 }
 
 val invariant: #a:Type -> h:HS.mem -> ll:t a -> Type0
 let invariant #a h ll =
   let head = B.deref h ll.ptr in
   let v = B.deref h ll.v in
+  // This is where we switch from a predicate (cumbersome for clients, requires
+  // materializing the list at any time) to a ``v`` function which makes
+  // specifications much easier. Any time the invariant holds, the pointer ``v``
+  // holds a computationally-irrelevant representation of the list that in turns
+  // allows us to under-the-hood state the various predicates from LL that
+  // require exhibiting a list.
   B.live h ll.ptr /\
   B.freeable ll.ptr /\
   B.live h ll.v /\
@@ -36,17 +45,22 @@ let invariant #a h ll =
   LL.well_formed h head v /\
   LL.invariant h head v /\
 
+  // We use regions for separation only, not for any footprint reasoning:
+  // - ptr_v_rid is a sub-region of r and contains ptr and v, disjoint from each other
+  // - spine_rid is a sub-region of r, disjoint from ptr_v_rid, and contains the LL.footprint
   ST.is_eternal_region ll.r /\
   ST.is_eternal_region ll.spine_rid /\
-  ST.is_eternal_region ll.ptr_rid /\
-  B.(loc_includes (loc_region_only true ll.ptr_rid) (loc_addr_of_buffer ll.ptr `loc_union` loc_addr_of_buffer ll.v)) /\
+  ST.is_eternal_region ll.ptr_v_rid /\
+  B.(loc_includes (loc_region_only true ll.ptr_v_rid) (loc_addr_of_buffer ll.ptr `loc_union` loc_addr_of_buffer ll.v)) /\
   B.(loc_includes (loc_region_only true ll.spine_rid) (LL.footprint h head v)) /\
   B.(loc_disjoint (loc_addr_of_buffer ll.ptr) (loc_addr_of_buffer ll.v)) /\
-  B.(loc_disjoint (loc_region_only true ll.ptr_rid) (loc_region_only true ll.spine_rid)) /\
+  B.(loc_disjoint (loc_region_only true ll.ptr_v_rid) (loc_region_only true ll.spine_rid)) /\
 
-  HS.extends ll.ptr_rid ll.r /\
+  // These are not redundant, and are important for showing that the footprint
+  // is contained in ``r`` at any time, so long as the invariant holds.
+  HS.extends ll.ptr_v_rid ll.r /\
   HS.extends ll.spine_rid ll.r /\
-  HS.parent ll.ptr_rid == ll.r /\
+  HS.parent ll.ptr_v_rid == ll.r /\
   HS.parent ll.spine_rid == ll.r
 
 val footprint: #a:Type -> h:HS.mem -> ll: t a -> Ghost B.loc
@@ -57,18 +71,20 @@ let footprint #a h ll =
   let v = B.deref h ll.v in
   B.(loc_addr_of_buffer ll.ptr `loc_union` loc_addr_of_buffer ll.v `loc_union` LL.footprint h head v)
 
+/// There! Much easier reasoning for clients.
 val v: #a:Type -> h:HS.mem -> ll: t a -> GTot (list a)
 let v #_ h ll =
   B.deref h ll.v
 
 /// This is a most useful lemma for clients: all the bookkeeping of this linked
-/// list, including spine, is subsumed in region r. Clients will typically
-/// allocate a fresh region for r and will maintain the invariant that their own
-/// data structures are disjoint from ``r``, hence getting easy framing at any
-/// time.
+/// list, including spine, is subsumed in region r, at any time.
 ///
-/// Note that we don't generally have to this, but because this module's
-/// footprint is dynamic, we have to state that this holds at all times.
+/// This allows clients to allocate a new region for ``r``, maintain the
+/// invariant that ``r`` is disjoint from their own data structures, and get
+/// easy separation and framing for their own data this way.
+///
+/// Note that we don't generally have to state such lemmas, since in many cases,
+/// footprints are static and do not grow dynamically.
 let footprint_in_r #a (h: HS.mem) (ll: t a): Lemma
   (requires invariant h ll)
   (ensures B.(loc_includes (loc_all_regions_from true ll.r) (footprint h ll)))
@@ -76,6 +92,9 @@ let footprint_in_r #a (h: HS.mem) (ll: t a): Lemma
   assert B.(loc_includes (loc_region_only true ll.spine_rid) (LL.footprint h (B.deref h ll.ptr) (v h ll)));
   assert B.(loc_includes (loc_all_regions_from true ll.r) (loc_region_only true ll.spine_rid))
 
+/// This lemma is perhaps overly precise, but for clients, as long as they know
+/// they are disjoint from ``r``, they can conclude they are disjoint from the
+/// footprint via the lemma above.
 val frame (#a: Type) (ll: t a) (l: B.loc) (h0 h1: HS.mem): Lemma
   (requires
     invariant h0 ll /\
@@ -98,11 +117,11 @@ val create_in: #a:Type -> r:HS.rid -> ST (t a)
 
 #push-options "--fuel 1"
 let create_in #a r =
-  let ptr_rid = ST.new_region r in
+  let ptr_v_rid = ST.new_region r in
   let spine_rid = ST.new_region r in
-  let ptr = B.malloc ptr_rid (B.null <: LL.t a) 1ul in
-  let v = B.malloc ptr_rid (G.hide ([] <: list a)) 1ul in
-  { ptr; v; r; ptr_rid; spine_rid }
+  let ptr = B.malloc ptr_v_rid (B.null <: LL.t a) 1ul in
+  let v = B.malloc ptr_v_rid (G.hide ([] <: list a)) 1ul in
+  { ptr; v; r; ptr_v_rid; spine_rid }
 #pop-options
 
 val push: #a:Type -> ll: t a -> x: a -> ST unit
