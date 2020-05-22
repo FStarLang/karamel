@@ -42,7 +42,7 @@ endif
 
 FSTAR		= $(FSTAR_EXE) --cache_checked_modules --use_two_phase_tc true \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
-  --include hello-system --include ../kremlib/compat \
+  --include hello-system --include ../kremlib/compat --include ../kremlib/obj \
   --include ../kremlib --include ../runtime \
   --include $(CRYPTO) --include ../book --include ../book/notfslit --use_hints --record_hints \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity' \

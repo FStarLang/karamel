@@ -61,6 +61,29 @@ val v: #a:Type -> h:HS.mem -> ll: t a -> GTot (list a)
 let v #_ h ll =
   B.deref h ll.v
 
+/// This is a most useful lemma for clients: all the bookkeeping of this linked
+/// list, including spine, is subsumed in region r. Clients will typically
+/// allocate a fresh region for r and will maintain the invariant that their own
+/// data structures are disjoint from ``r``, hence getting easy framing at any
+/// time.
+let footprint_in_r #a (h: HS.mem) (ll: t a): Lemma
+  (requires invariant h ll)
+  (ensures B.(loc_includes (loc_all_regions_from true ll.r) (footprint h ll)))
+=
+  assert B.(loc_includes (loc_region_only true ll.spine_rid) (LL.footprint h (B.deref h ll.ptr) (v h ll)));
+  assert B.(loc_includes (loc_all_regions_from true ll.r) (loc_region_only true ll.spine_rid))
+
+val frame (#a: Type) (ll: t a) (l: B.loc) (h0 h1: HS.mem): Lemma
+  (requires
+    invariant h0 ll /\
+    B.loc_disjoint l (footprint h0 ll) /\
+    B.modifies l h0 h1)
+  (ensures
+    invariant h1 ll /\
+    footprint h1 ll == footprint h0 ll)
+let frame #_ _ _ _ _ =
+  ()
+
 val create_in: #a:Type -> r:HS.rid -> ST (t a)
   (requires fun h0 ->
     ST.is_eternal_region r)
@@ -68,8 +91,6 @@ val create_in: #a:Type -> r:HS.rid -> ST (t a)
     invariant h1 ll /\
     B.(modifies loc_none h0 h1) /\
     B.fresh_loc (footprint h1 ll) h0 h1 /\
-    B.(loc_includes (loc_all_regions_from true r) (footprint h1 ll)) /\
-
     v h1 ll == [])
 
 #push-options "--fuel 1"
@@ -95,6 +116,4 @@ let push #a ll x =
   let v = !* ll.v in
   ll.v *= G.hide (x :: v);
   let h2 = ST.get () in
-  assert (LL.well_formed h2 (B.deref h2 ll.ptr) (x :: v));
-  assert B.(loc_includes (loc_region_only true ll.spine_rid) (LL.footprint h2 (B.deref h2 ll.ptr) (x :: v)));
-  assert B.(loc_includes (loc_all_regions_from true ll.r) (loc_region_only true ll.spine_rid))
+  assert (LL.well_formed h2 (B.deref h2 ll.ptr) (x :: v))
