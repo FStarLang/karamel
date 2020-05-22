@@ -66,6 +66,9 @@ let v #_ h ll =
 /// allocate a fresh region for r and will maintain the invariant that their own
 /// data structures are disjoint from ``r``, hence getting easy framing at any
 /// time.
+///
+/// Note that we don't generally have to this, but because this module's
+/// footprint is dynamic, we have to state that this holds at all times.
 let footprint_in_r #a (h: HS.mem) (ll: t a): Lemma
   (requires invariant h ll)
   (ensures B.(loc_includes (loc_all_regions_from true ll.r) (footprint h ll)))
@@ -108,12 +111,77 @@ val push: #a:Type -> ll: t a -> x: a -> ST unit
   (ensures fun h0 _ h1 ->
     invariant h1 ll /\
     B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v) h0 h1) /\
-    B.(loc_includes (loc_all_regions_from true ll.r) (footprint h1 ll)) /\
     v h1 ll == x :: v h0 ll)
 
 let push #a ll x =
   LL.push ll.spine_rid (!* ll.v) ll.ptr x;
   let v = !* ll.v in
-  ll.v *= G.hide (x :: v);
-  let h2 = ST.get () in
-  assert (LL.well_formed h2 (B.deref h2 ll.ptr) (x :: v))
+  ll.v *= G.hide (x :: v)
+
+val pop: #a:Type -> ll: t a -> ST a
+  (requires fun h0 ->
+    invariant h0 ll /\
+    Cons? (v h0 ll))
+  (ensures fun h0 x h1 ->
+    let hd :: tl = v h0 ll in
+    invariant h1 ll /\
+    B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v) h0 h1) /\
+    v h1 ll == tl /\
+    x == hd)
+
+let pop #a ll =
+  let r = LL.pop ll.spine_rid (!* ll.v) ll.ptr in
+  let v = !* ll.v in
+  ll.v *= G.hide (List.Tot.tl v);
+  r
+
+val maybe_pop: #a:Type -> ll: t a -> ST (option a)
+  (requires fun h0 ->
+    invariant h0 ll)
+  (ensures fun h0 x h1 ->
+    invariant h1 ll /\
+    B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v) h0 h1) /\ (
+    match x with
+    | Some x ->
+        Cons? (v h0 ll) /\ (
+        let hd :: tl = v h0 ll in
+        v h1 ll == tl /\
+        x == hd)
+    | None ->
+        Nil? (v h0 ll)))
+
+#push-options "--fuel 1 --ifuel 1"
+let maybe_pop #a ll =
+  if not (B.is_null (!* ll.ptr)) then
+    let v = !* ll.v in
+    let r = LL.pop ll.spine_rid (!* ll.v) ll.ptr in
+    ll.v *= G.hide (List.Tot.tl v);
+    Some r
+  else
+    None
+#pop-options
+
+val clear: #a:Type -> ll: t a -> ST unit
+  (requires fun h0 ->
+    invariant h0 ll)
+  (ensures fun h0 _ h1 ->
+    invariant h1 ll /\
+    B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v `loc_union` loc_region_only true ll.spine_rid) h0 h1) /\
+    v h1 ll == [])
+
+let clear #a ll =
+  let v = !* ll.v in
+  LL.free #_ #v ll.ptr;
+  ll.v *= G.hide []
+
+val free: #a:Type -> ll: t a -> ST unit
+  (requires fun h0 ->
+    invariant h0 ll)
+  (ensures fun h0 _ h1 ->
+    B.(modifies (footprint h0 ll) h0 h1))
+
+let free #_ ll =
+  let v = !* ll.v in
+  LL.free #_ #v ll.ptr;
+  B.free ll.ptr;
+  B.free ll.v

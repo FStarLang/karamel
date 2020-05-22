@@ -221,9 +221,10 @@ val pop: (#a: Type) -> (r: HS.rid) -> (n: G.erased (list a)) -> (pl: B.pointer (
       B.loc_disjoint (B.loc_buffer pl) (footprint h l n) /\
       Cons? n
     ))
-    (ensures (fun h0 _ h1 ->
+    (ensures (fun h0 x h1 ->
       let l = B.deref h1 pl in
       let n' = L.tl n in
+      x == L.hd n /\
       // Liveness follows for pl from modifies loc_buffer (not loc_addr_of_buffer)
       B.modifies (B.loc_buffer pl) h0 h1 /\
       well_formed h1 l n' /\
@@ -267,6 +268,7 @@ val free: (#a: Type) -> (#n: G.erased (list a)) -> (pl: B.pointer (t a)) ->
       let l = B.deref h1 pl in
       well_formed h1 l [] /\
       invariant h1 l [] /\
+      footprint h1 l [] == B.loc_none /\
       B.(modifies (footprint h0 (B.deref h0 pl) n `loc_union` loc_buffer pl) h0 h1)))
 
 let free #a #n pl =
