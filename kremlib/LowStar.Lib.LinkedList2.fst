@@ -41,13 +41,11 @@ let invariant #a h ll =
   ST.is_eternal_region ll.ptr_rid /\
   B.(loc_includes (loc_region_only true ll.ptr_rid) (loc_addr_of_buffer ll.ptr `loc_union` loc_addr_of_buffer ll.v)) /\
   B.(loc_includes (loc_region_only true ll.spine_rid) (LL.footprint h head v)) /\
-  B.(loc_disjoint (loc_buffer ll.ptr) (loc_buffer ll.v)) /\
-  B.(loc_disjoint (loc_buffer ll.ptr) (loc_region_only true ll.spine_rid)) /\
-  B.(loc_disjoint (loc_buffer ll.v) (loc_region_only true ll.spine_rid)) /\
+  B.(loc_disjoint (loc_addr_of_buffer ll.ptr) (loc_addr_of_buffer ll.v)) /\
+  B.(loc_disjoint (loc_region_only true ll.ptr_rid) (loc_region_only true ll.spine_rid)) /\
 
   HS.extends ll.ptr_rid ll.r /\
   HS.extends ll.spine_rid ll.r /\
-  B.(loc_disjoint (loc_region_only true ll.ptr_rid) (loc_region_only true ll.spine_rid)) /\
   HS.parent ll.ptr_rid == ll.r /\
   HS.parent ll.spine_rid == ll.r
 
