@@ -79,8 +79,11 @@ $(EXTRACT_DIR)/%.krml: | .depend
 	  $(notdir $(subst .checked,,$<)) && \
 	touch $@
 
+# We don't extract LowStar.Lib as everything is generic data structures that
+# need to be specialized based on their usage from client code.
 KREMLIN_ARGS += -fparentheses -fcurly-braces -fno-shadow -header copyright-header.txt \
-  -minimal -skip-compilation -extract-uints
+  -minimal -skip-compilation -extract-uints \
+  -bundle 'LowStar.Lib.\*'
 
 MACHINE_INTS = \
   -bundle FStar.UInt64+FStar.UInt32+FStar.UInt16+FStar.UInt8=[rename=FStar_UInt_8_16_32_64] \

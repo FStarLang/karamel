@@ -76,6 +76,9 @@ val v: #a:Type -> h:HS.mem -> ll: t a -> GTot (list a)
 let v #_ h ll =
   B.deref h ll.v
 
+// A workaround to avoid putting loc_all_regions_from true in patterns.
+let region_of ll = B.loc_all_regions_from true ll.r
+
 /// This is a most useful lemma for clients: all the bookkeeping of this linked
 /// list, including spine, is subsumed in region r, at any time.
 ///
@@ -87,7 +90,8 @@ let v #_ h ll =
 /// footprints are static and do not grow dynamically.
 let footprint_in_r #a (h: HS.mem) (ll: t a): Lemma
   (requires invariant h ll)
-  (ensures B.(loc_includes (loc_all_regions_from true ll.r) (footprint h ll)))
+  (ensures B.(loc_includes (region_of ll) (footprint h ll)))
+  //[ SMTPat (region_of ll); SMTPat (footprint h ll) ]
 =
   assert B.(loc_includes (loc_region_only true ll.spine_rid) (LL.footprint h (B.deref h ll.ptr) (v h ll)));
   assert B.(loc_includes (loc_all_regions_from true ll.r) (loc_region_only true ll.spine_rid))
@@ -95,7 +99,7 @@ let footprint_in_r #a (h: HS.mem) (ll: t a): Lemma
 /// This lemma is perhaps overly precise, but for clients, as long as they know
 /// they are disjoint from ``r``, they can conclude they are disjoint from the
 /// footprint via the lemma above.
-val frame (#a: Type) (ll: t a) (l: B.loc) (h0 h1: HS.mem): Lemma
+val frame_footprint (#a: Type) (ll: t a) (l: B.loc) (h0 h1: HS.mem): Lemma
   (requires
     invariant h0 ll /\
     B.loc_disjoint l (footprint h0 ll) /\
@@ -103,8 +107,22 @@ val frame (#a: Type) (ll: t a) (l: B.loc) (h0 h1: HS.mem): Lemma
   (ensures
     invariant h1 ll /\
     footprint h1 ll == footprint h0 ll)
-let frame #_ _ _ _ _ =
+let frame_footprint #_ _ _ _ _ =
   ()
+
+/// This one seems to work better and enforce region-based reasoning.
+val frame_region (#a: Type) (ll: t a) (l: B.loc) (h0 h1: HS.mem): Lemma
+  (requires
+    invariant h0 ll /\
+    B.(loc_disjoint l (region_of ll)) /\
+    B.modifies l h0 h1)
+  (ensures
+    invariant h1 ll /\
+    footprint h1 ll == footprint h0 ll)
+let frame_region #_ ll _ h0 h1 =
+  footprint_in_r h0 ll;
+  ()
+
 
 val create_in: #a:Type -> r:HS.rid -> ST (t a)
   (requires fun h0 ->
@@ -129,7 +147,11 @@ val push: #a:Type -> ll: t a -> x: a -> ST unit
     invariant h0 ll)
   (ensures fun h0 _ h1 ->
     invariant h1 ll /\
-    B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v) h0 h1) /\
+    // Coarse modifies clause
+    B.(modifies (footprint h0 ll) h0 h1) /\
+    // Precise modifies clause, commented out -- I'd rather force the clients to
+    // reason via the footprint and the lemma about footprint inclusion.
+    // B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v) h0 h1) /\
     v h1 ll == x :: v h0 ll)
 
 let push #a ll x =
@@ -144,7 +166,8 @@ val pop: #a:Type -> ll: t a -> ST a
   (ensures fun h0 x h1 ->
     let hd :: tl = v h0 ll in
     invariant h1 ll /\
-    B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v) h0 h1) /\
+    B.(modifies (footprint h0 ll) h0 h1) /\
+    // B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v) h0 h1) /\
     v h1 ll == tl /\
     x == hd)
 
@@ -159,7 +182,8 @@ val maybe_pop: #a:Type -> ll: t a -> ST (option a)
     invariant h0 ll)
   (ensures fun h0 x h1 ->
     invariant h1 ll /\
-    B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v) h0 h1) /\ (
+    B.(modifies (footprint h0 ll) h0 h1) /\ (
+    // B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v) h0 h1) /\
     match x with
     | Some x ->
         Cons? (v h0 ll) /\ (
@@ -185,7 +209,8 @@ val clear: #a:Type -> ll: t a -> ST unit
     invariant h0 ll)
   (ensures fun h0 _ h1 ->
     invariant h1 ll /\
-    B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v `loc_union` loc_region_only true ll.spine_rid) h0 h1) /\
+    B.(modifies (footprint h0 ll) h0 h1) /\
+    // B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v `loc_union` loc_region_only true ll.spine_rid) h0 h1) /\
     v h1 ll == [])
 
 let clear #a ll =
@@ -204,3 +229,26 @@ let free #_ ll =
   LL.free #_ #v ll.ptr;
   B.free ll.ptr;
   B.free ll.v
+
+#push-options "--z3rlimit 50"
+let test (): St unit =
+  let r = HS.(new_region root) in
+  let b = B.malloc HS.root 0ul 1ul in
+  let l: t UInt32.t = create_in r in
+  push l 0ul;
+  push l 1ul;
+  push l 2ul;
+  B.upd b 0ul 1ul;
+  let h0 = ST.get () in
+  assert (v h0 l == [ 2ul; 1ul; 0ul ]);
+  assert (B.deref h0 b == 1ul);
+  ignore (pop l);
+  let h1 = ST.get () in
+  assert (v h1 l == [ 1ul; 0ul ]);
+  assert (B.deref h0 b == 1ul);
+  clear l;
+  let h2 = ST.get () in
+  assert (v h2 l == []);
+  assert (B.deref h2 b == 1ul);
+  free l;
+  ()

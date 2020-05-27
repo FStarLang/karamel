@@ -295,9 +295,9 @@ let rec length #a gn l =
     end else
       n +^ 1ul
 
-val main: unit -> ST (Int32.t) (fun _ -> true) (fun _ _ _ -> true)
+val test: unit -> ST (Int32.t) (fun _ -> true) (fun _ _ _ -> true)
 
-let main () =
+let test () =
   let l: B.pointer_or_null (t Int32.t) = B.malloc HS.root B.null 1ul in
   let l_region = new_region HS.root in
   push #Int32.t l_region (G.hide []) l 1l;
