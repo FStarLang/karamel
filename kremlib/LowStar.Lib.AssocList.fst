@@ -24,16 +24,8 @@ open LowStar.BufferOps
 /// We prefer the packed representation that is in general easier to use and will
 /// look at the underlying predicate-based representation from LL1 only when
 /// strictly needed.
-val t: eqtype -> Type0 -> Type0
 let t k v =
   LL2.t (k & v)
-
-/// Rather than force clients to provide a dummy value for the type (which would
-/// allow us to do something like initialize an empty map with ``restrict (const
-/// default)``, we use an option.
-val map: eqtype -> Type0 -> Type0
-let map k v =
-  M.t k (option v)
 
 /// Functions suffixed with an underscore operate on either LL1 or raw lists
 /// while those without operate on LL2.
@@ -42,20 +34,27 @@ let v_ #_ #t_v l =
   List.Tot.fold_right (fun (k, v) m -> M.upd m k (Some v)) l (M.const (None #t_v))
 
 /// Reflecting a stateful, imperative map as a functional one in a given heap.
-val v: #t_k:eqtype -> #t_v:Type0 -> h:HS.mem -> ll:t t_k t_v -> GTot (map t_k t_v)
 let v #_ #_ h ll =
   let l = LL2.v h ll in
   v_ l
 
-val invariant: #t_k:eqtype -> #t_v:Type0 -> h:HS.mem -> ll:t t_k t_v -> Type0
 let invariant #_ #_ h ll =
   LL2.invariant h ll
 
-val footprint: #t_k:eqtype -> #t_v:Type0 -> h:HS.mem -> ll:t t_k t_v -> Ghost B.loc
-  (requires invariant h ll)
-  (ensures fun _ -> True)
 let footprint #_ #_ h ll =
   LL2.footprint h ll
+
+let region_of #_ #_ ll =
+  LL2.region_of ll
+
+let frame #_ #_ _ _ _ _ =
+  ()
+
+let footprint_in_r #_ #_ h0 ll =
+  LL2.footprint_in_r h0 ll
+
+let modifies_disjoint #_ #_ ll l h0 h1 =
+  ()
 
 /// What's the best way for clients to reason about this? Maybe a lemma that says:
 ///
@@ -64,6 +63,11 @@ let footprint #_ #_ h ll =
 /// This would allow clients to deduce that their own allocations are disjoint
 /// from the footprint of this. And also to apply the framing lemma with proper
 /// patterns!
+
+#push-options "--fuel 1"
+let create_in #_ #_ r =
+  LL2.create_in r
+#pop-options
 
 /// Find
 /// ----
@@ -91,29 +95,12 @@ let rec find_ #_ #_ hd l k =
       find_ cell.LL1.next (List.Tot.tl l) k
 #pop-options
 
-val find (#t_k: eqtype) (#t_v: Type0) (ll: t t_k t_v) (k: t_k):
-  Stack (option t_v)
-    (requires fun h0 ->
-      invariant h0 ll)
-    (ensures fun h0 x h1 ->
-      let m: map t_k t_v = v h0 ll in
-      h0 == h1 /\
-      x == M.sel m k)
 
 let find #_ #_ ll k =
   find_ !*ll.LL2.ptr !*ll.LL2.v k
 
 /// Adding elements
 /// ---------------
-
-val add (#t_k: eqtype) (#t_v: Type0) (ll: t t_k t_v) (k: t_k) (x: t_v):
-  ST unit
-    (requires fun h0 ->
-      invariant h0 ll)
-    (ensures fun h0 _ h1 ->
-      B.modifies (footprint h0 ll) h0 h1 /\
-      invariant h1 ll /\
-      v h1 ll == M.upd (v h0 ll) k (Some x))
 
 #push-options "--fuel 1"
 let add #_ #_ ll k x =
@@ -189,18 +176,6 @@ let rec remove_all_ #t_k #t_v hd l k =
   end
 #pop-options
 
-val remove_all (#t_k: eqtype)
-  (#t_v: Type0)
-  (ll: t t_k t_v)
-  (k: t_k):
-  ST unit
-    (requires fun h0 ->
-      invariant h0 ll)
-    (ensures fun h0 _ h1 ->
-      B.modifies (footprint h0 ll) h0 h1 /\
-      invariant h1 ll /\
-      v h1 ll == M.upd (v h0 ll) k None)
-
 let remove_all #_ #_ ll k =
   let open LL2 in
   let hd, v = remove_all_ !*ll.ptr !*ll.v k in
@@ -210,17 +185,6 @@ let remove_all #_ #_ ll k =
 /// Clearing (resetting)
 /// --------------------
 
-val clear (#t_k: eqtype)
-  (#t_v: Type0)
-  (ll: t t_k t_v):
-  ST unit
-    (requires fun h0 ->
-      invariant h0 ll)
-    (ensures fun h0 _ h1 ->
-      B.modifies (footprint h0 ll) h0 h1 /\
-      invariant h1 ll /\
-      v h1 ll == M.const None)
-
 #push-options "--fuel 1"
 let clear #_ #_ ll =
   LL2.clear ll
@@ -228,15 +192,6 @@ let clear #_ #_ ll =
 
 /// Freeing the resource
 /// --------------------
-
-val free (#t_k: eqtype)
-  (#t_v: Type0)
-  (ll: t t_k t_v):
-  ST unit
-    (requires fun h0 ->
-      invariant h0 ll)
-    (ensures fun h0 _ h1 ->
-      B.modifies (footprint h0 ll) h0 h1)
 
 let free #_ #_ ll =
   LL2.free ll
