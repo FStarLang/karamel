@@ -131,7 +131,8 @@ val create_in: #a:Type -> r:HS.rid -> ST (t a)
     invariant h1 ll /\
     B.(modifies loc_none h0 h1) /\
     B.fresh_loc (footprint h1 ll) h0 h1 /\
-    v h1 ll == [])
+    v h1 ll == [] /\
+    ll.r == r)
 
 #push-options "--fuel 1"
 let create_in #a r =
