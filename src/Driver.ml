@@ -427,10 +427,18 @@ let compile files extra_c_files =
   let gcc_c file =
     flush stdout;
     let info = Printf.sprintf "[CC,%s]" file in
-    run_or_warn info !cc (!cc_args @ Dash.c file @ Dash.o_obj (o_of_c file))
+    let args = !cc_args @ Dash.c file @ Dash.o_obj (o_of_c file) in
+    run_or_warn info !cc args
   in
+
   let files = List.filter gcc_c files in
   let extra_c_files = List.filter gcc_c extra_c_files in
+
+  let ide_support = open_out (!Options.tmpdir ^^ "compile_flags.txt") in
+  output_string ide_support (String.concat "\n" !cc_args);
+  output_char ide_support '\n';
+  close_out ide_support;
+
   files @ extra_c_files
 
 (** All the [.o] files thus obtained and all the [.o] files passed on the
