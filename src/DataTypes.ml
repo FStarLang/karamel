@@ -491,6 +491,89 @@ let compile_simple_matches (map, enums) = object(self)
 end
 
 (* Third step: whole-program transformation to remove unit fields. *)
+
+(* We need this too since we now remove (TBuf (TUnit | TAny)) *)
+let remove_unit_buffers = object (self)
+  inherit [_] map
+
+  method! visit_EBufCreate (_, t) l e1 e2 =
+    match t with
+    | TBuf ((TUnit | TAny), _) ->
+        EUnit
+    | _ ->
+        let e1 = self#visit_expr_w () e1 in
+        let e2 = self#visit_expr_w () e2 in
+        EBufCreate (l, e1, e2)
+
+  method! visit_EBufCreateL (_, t) l es =
+    match t with
+    | TBuf ((TUnit | TAny), _) ->
+        EUnit
+    | _ ->
+        let es = List.map (self#visit_expr_w ()) es in
+        EBufCreateL (l, es)
+
+  method! visit_EBufRead _ e1 e2 =
+    match e1.typ with
+    | TBuf ((TUnit | TAny), _) ->
+        EUnit
+    | _ ->
+        let e1 = self#visit_expr_w () e1 in
+        let e2 = self#visit_expr_w () e2 in
+        EBufRead (e1, e2)
+
+  method! visit_EBufWrite _ e1 e2 e3 =
+    match e1.typ with
+    | TBuf ((TUnit | TAny), _) ->
+        EUnit
+    | _ ->
+        let e1 = self#visit_expr_w () e1 in
+        let e1 = self#visit_expr_w () e1 in
+        let e2 = self#visit_expr_w () e2 in
+        let e3 = self#visit_expr_w () e3 in
+        EBufWrite (e1, e2, e3)
+
+  method! visit_EBufSub _ e1 e2 =
+    match e1.typ with
+    | TBuf ((TUnit | TAny), _) ->
+        EUnit
+    | _ ->
+        let e1 = self#visit_expr_w () e1 in
+        let e2 = self#visit_expr_w () e2 in
+        EBufSub (e1, e2)
+
+  method! visit_EBufBlit _ e1 e2 e3 e4 e5 =
+    match e1.typ with
+    | TBuf ((TUnit | TAny), _) ->
+        EUnit
+    | _ ->
+        let e1 = self#visit_expr_w () e1 in
+        let e2 = self#visit_expr_w () e2 in
+        let e3 = self#visit_expr_w () e3 in
+        let e4 = self#visit_expr_w () e4 in
+        let e5 = self#visit_expr_w () e5 in
+        EBufBlit (e1, e2, e3, e4, e5)
+
+  method! visit_EBufFill _ e1 e2 e3 =
+    match e1.typ with
+    | TBuf ((TUnit | TAny), _) ->
+        EUnit
+    | _ ->
+        let e1 = self#visit_expr_w () e1 in
+        let e2 = self#visit_expr_w () e2 in
+        let e3 = self#visit_expr_w () e3 in
+        EBufFill (e1, e2, e3)
+
+  method! visit_EBufFree _ e1 =
+    match e1.typ with
+    | TBuf ((TUnit | TAny), _) ->
+        EUnit
+    | _ ->
+        let e1 = self#visit_expr_w () e1 in
+        EBufFree e1
+
+end
+
 let remove_unit_fields = object (self)
 
   inherit [_] map
@@ -500,6 +583,7 @@ let remove_unit_fields = object (self)
 
   method private is_erasable = function
     | TUnit | TAny -> true
+    | TBuf ((TUnit | TAny), _) -> true
     | _ -> false
 
   method private default_value = function
@@ -1083,6 +1167,7 @@ let simplify files =
 
 let everything files =
   let files = remove_unit_fields#visit_files () files in
+  let files = remove_unit_buffers#visit_files () files in
   let map = build_scheme_map files in
   let files = (compile_simple_matches map)#visit_files () files in
   let files = (compile_all_matches map)#visit_files () files in

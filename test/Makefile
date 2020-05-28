@@ -6,7 +6,7 @@ KRML_BIN	= ../_build/src/Kremlin.native
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 
 BROKEN		= \
-  HigherOrder6.fst RecordTypingLimitation.fst ForwardDecl.fst \
+  HigherOrder6.fst ForwardDecl.fst \
   Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst
 
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
@@ -45,7 +45,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules --use_two_phase_tc true \
   --include hello-system --include ../kremlib/compat --include ../kremlib/obj \
   --include ../kremlib --include ../runtime \
   --include $(CRYPTO) --include ../book --include ../book/notfslit --use_hints --record_hints \
-  --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity' \
+  --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
   --trivial_pre_for_unannotated_effectful_fns false
 
 # This just needs F* + KreMLin
