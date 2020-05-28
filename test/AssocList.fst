@@ -13,7 +13,7 @@ open FStar.HyperStack.ST
 
 #set-options "--fuel 0 --ifuel 0"
 
-let main (): St unit =
+let main (): St Int32.t =
   let r = ST.new_region HS.root in
   let m: I.t nat (nat & nat) = I.create_in r in
   (**) let h0 = ST.get () in
@@ -41,4 +41,4 @@ let main (): St unit =
   (**) let h6 = ST.get () in
   (**) assert (M.sel (I.v h6 m) 0 == None);
   (**) assert (B.deref h6 b == 2ul);
-  ()
+  0l

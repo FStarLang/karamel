@@ -537,6 +537,7 @@ Supported options:|}
   let files = GcTypes.heap_allocate_gc_types files in
   (* Note: this phase re-inserts some type abbreviations. *)
   let datatypes_state, files = DataTypes.everything files in
+  print PrintAst.print_files files;
   if !arg_print_pattern then
     print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in
