@@ -1170,9 +1170,7 @@ let simplify files =
   files
 
 let everything files =
-PPrint.(Print.(print (PrintAst.print_files files ^^ hardline)));
   let files = remove_unit_buffers#visit_files () files in
-PPrint.(Print.(print (PrintAst.print_files files ^^ hardline)));
   let files = remove_unit_fields#visit_files () files in
   let map = build_scheme_map files in
   let files = (compile_simple_matches map)#visit_files () files in
