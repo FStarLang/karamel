@@ -20,7 +20,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "53ab9b5b1c5b7fc59f5a36e16cb4cd44"
+      "f8f6be4b3bd1c6e71e9a11936c992f93"
     ],
     [
       "ParamAbbrev.g",
@@ -42,7 +42,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "bb54edfd4984eae37e8885e38096cb43"
+      "351555ed0151470a3f5c0bc44cf16478"
     ],
     [
       "ParamAbbrev.touch",
@@ -63,16 +63,33 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "1913810d9c2cd9d68f20c2180fc36fa8"
+      "80963b0f8dc25c4923e7e141f6ebc136"
     ],
     [
       "ParamAbbrev.main",
       1,
       2,
       1,
-      [ "@query", "lemma_FStar.HyperStack.ST.lemma_equal_domains_trans" ],
+      [
+        "@MaxIFuel_assumption",
+        "@fuel_correspondence_Prims.pow2.fuel_instrumented", "@query",
+        "b2t_def", "equation_FStar.Int.fits", "equation_FStar.Int.int_t",
+        "equation_FStar.Int.max_int", "equation_FStar.Int.min_int",
+        "equation_FStar.Int.size", "equation_Prims.nat",
+        "equation_Prims.pos", "int_typing",
+        "lemma_FStar.HyperStack.ST.lemma_equal_domains_trans",
+        "primitive_Prims.op_AmpAmp", "primitive_Prims.op_LessThanOrEqual",
+        "primitive_Prims.op_Minus", "primitive_Prims.op_Subtraction",
+        "projection_inverse_BoxBool_proj_0",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_Tm_refine_542f9d4f129664613f2483a6c88bc7c2",
+        "refinement_interpretation_Tm_refine_627e9f1cc724efa294bbc10092665eb4",
+        "refinement_interpretation_Tm_refine_774ba3f728d91ead8ef40be66c9802e5",
+        "refinement_interpretation_Tm_refine_c156ecc6eab05d1687a383ef171435eb",
+        "typing_FStar.Int32.int_to_t", "typing_Prims.pow2"
+      ],
       0,
-      "1df0c6d41f811527eb8d0c935bcedd6e"
+      "fdd1d9e3dbf2cf7fee311b71ef43f841"
     ]
   ]
 ]

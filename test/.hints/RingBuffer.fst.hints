@@ -12,7 +12,7 @@
         "refinement_interpretation_Tm_refine_573cfed777dae20cc82e8fef9622857e"
       ],
       0,
-      "58cdd545d9cddc13e09212653911789f"
+      "ff938fabad5b6748b7cf6ee3ebf5615b"
     ],
     [
       "RingBuffer.well_formed_f",
@@ -24,7 +24,7 @@
         "haseqRingBuffer_Tm_refine_7f014d1f670e5d2ecdc0d7946b4a693d"
       ],
       0,
-      "cccf54f4993dbea5ccced471d11ea475"
+      "6b5ace57cd7b48da7382d1f5c3f1c5be"
     ],
     [
       "RingBuffer.next",
@@ -51,7 +51,7 @@
         "typing_FStar.UInt32.v"
       ],
       0,
-      "7f7a665665da58060ca55e954f51a9b6"
+      "5d29477513f4f6c33694ff98ec176df9"
     ],
     [
       "RingBuffer.prev",
@@ -77,7 +77,7 @@
         "typing_FStar.UInt32.v"
       ],
       0,
-      "a97a2daa96df7a13f2e8ab44a22426fb"
+      "17e74c246111af0eb63d396c921ddfaf"
     ],
     [
       "RingBuffer.remaining_space",
@@ -113,7 +113,7 @@
         "typing_RingBuffer.__proj__Mkt__item__total_length"
       ],
       0,
-      "e6361dbebe6b021d8f932c38e1a7e842"
+      "128638d27dbd70c0a8d95ba60526e2f4"
     ],
     [
       "RingBuffer.as_list_f",
@@ -161,7 +161,7 @@
         "well-founded-ordering-on-nat"
       ],
       0,
-      "dc1861e1c3e78fc67ea5f939e64be4c3"
+      "6923aa726ed2609fa0aba552d8a678cb"
     ],
     [
       "RingBuffer.as_list_f",
@@ -203,7 +203,7 @@
         "well-founded-ordering-on-nat"
       ],
       0,
-      "833a3a46e0f500ebb9b517e6c82cb230"
+      "934387c5922df040ee79222eeef6349b"
     ],
     [
       "RingBuffer.seq_update_unused_preserves_list",
@@ -229,7 +229,7 @@
         "typing_FStar.UInt32.v"
       ],
       0,
-      "f8a52c33ed9306e91ec35fa38a7f8752"
+      "8ee76425ef506eda79e5ab67ac2917e2"
     ],
     [
       "RingBuffer.seq_update_unused_preserves_list",
@@ -286,7 +286,7 @@
         "well-founded-ordering-on-nat"
       ],
       0,
-      "c9b06dd4f8cce6446ef9fe1a45df0549"
+      "f8696ed599dc941641e651517d2d1a41"
     ],
     [
       "RingBuffer.as_list",
@@ -303,7 +303,7 @@
         "haseqRingBuffer_Tm_refine_7f014d1f670e5d2ecdc0d7946b4a693d"
       ],
       0,
-      "962214d4bd5ffb45a5ee919bd75b4e05"
+      "983da79b77c2bf97341ffd67b65086ed"
     ],
     [
       "RingBuffer.pop",
@@ -398,7 +398,7 @@
         "typing_RingBuffer.as_list", "typing_RingBuffer.remaining_space"
       ],
       0,
-      "38b84386f7a9187caacaddd432f1a4ce"
+      "552e090b044f7b97fceb24e688042af9"
     ],
     [
       "RingBuffer.push",
@@ -504,7 +504,7 @@
         "typing_RingBuffer.prev", "typing_RingBuffer.remaining_space"
       ],
       0,
-      "0e773f3ab318abc7f348f8a1e88e6110"
+      "3ed6b644dca134b4ca0de9960707c518"
     ],
     [
       "RingBuffer.one_past_last",
@@ -534,7 +534,7 @@
         "typing_FStar.UInt32.v"
       ],
       0,
-      "4929f65af870aabc84543f8746d5230a"
+      "e81e568dc9e991eb64f7bc31370b591b"
     ],
     [
       "RingBuffer.as_list_append_one",
@@ -564,7 +564,7 @@
         "typing_RingBuffer.one_past_last"
       ],
       0,
-      "b5b53ae62392b8d6179935efa81392dc"
+      "1b713a1423b853b4b8414cda55e98252"
     ],
     [
       "RingBuffer.as_list_append_one",
@@ -632,7 +632,7 @@
         "typing_RingBuffer.one_past_last", "well-founded-ordering-on-nat"
       ],
       0,
-      "5885d5621a7749564708a9f0d72f307e"
+      "393baee9f5fdeeb38aa9fab2347d406a"
     ],
     [
       "RingBuffer.push_back",
@@ -721,7 +721,7 @@
         "typing_RingBuffer.as_list_f", "typing_RingBuffer.remaining_space"
       ],
       0,
-      "7f4924399b0d84e1a593f3592b5f12ed"
+      "6fc2f3a10ef4a3be661eede9f87fa474"
     ],
     [
       "RingBuffer.as_list_minus_one",
@@ -757,7 +757,7 @@
         "typing_RingBuffer.prev"
       ],
       0,
-      "ea159f1c4ba22b1dc01b4d07ab12a0f8"
+      "594ef2aa0811d60de5fa97a0a1fe4f35"
     ],
     [
       "RingBuffer.as_list_minus_one",
@@ -828,7 +828,7 @@
         "typing_RingBuffer.prev", "well-founded-ordering-on-nat"
       ],
       0,
-      "fb17b8e6b07d61ca14b8a9ebef20f7c3"
+      "9c19ec1e32ddeab8a8309c18188effc0"
     ],
     [
       "RingBuffer.pop_back",
@@ -916,7 +916,7 @@
         "typing_RingBuffer.as_list_f", "typing_RingBuffer.remaining_space"
       ],
       0,
-      "b4b0fb27b452a5db630e617cc8d73d91"
+      "37f0aec5c84a85ab4757752fe8ebc3f4"
     ],
     [
       "RingBuffer.create",
@@ -927,6 +927,7 @@
         "@MaxIFuel_assumption", "@query",
         "FStar.UInt32_pretyping_2ab3c8ba2d08b0172817fc70b5994868", "b2t_def",
         "bool_inversion", "bool_typing",
+        "data_typing_intro_RingBuffer.Mkt@tok",
         "equation_FStar.HyperStack.ST.inline_stack_inv",
         "equation_FStar.Monotonic.Heap.equal_dom",
         "equation_FStar.Monotonic.HyperHeap.hmap",
@@ -938,7 +939,8 @@
         "equation_FStar.UInt.max_int", "equation_FStar.UInt.min_int",
         "equation_FStar.UInt.size", "equation_FStar.UInt.uint_t",
         "equation_FStar.UInt32.gt", "equation_FStar.UInt32.lt",
-        "equation_FStar.UInt32.lte",
+        "equation_FStar.UInt32.lte", "equation_LowStar.Buffer.buffer",
+        "equation_LowStar.Buffer.pointer",
         "equation_LowStar.Buffer.trivial_preorder",
         "equation_LowStar.Monotonic.Buffer.get", "equation_Prims.eqtype",
         "equation_Prims.nat", "equation_RingBuffer.remaining_space",
@@ -983,6 +985,7 @@
         "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
         "refinement_interpretation_Tm_refine_485808b6c08b8fa1bad00cc3070d942a",
         "refinement_interpretation_Tm_refine_542f9d4f129664613f2483a6c88bc7c2",
+        "refinement_interpretation_Tm_refine_573cfed777dae20cc82e8fef9622857e",
         "refinement_interpretation_Tm_refine_aa4b3d268075d84252df525db1f85524",
         "refinement_interpretation_Tm_refine_c1424615841f28cac7fc34e92b7ff33c",
         "refinement_interpretation_Tm_refine_c16bc1b61f58b349bf6fc1c94dcaf83b",
@@ -1010,7 +1013,7 @@
         "typing_RingBuffer.remaining_space"
       ],
       0,
-      "ee04271a83d2b157e0b9c17cab93d02d"
+      "2aa05e75ab9d7ac65652480ba5a92f4f"
     ],
     [
       "RingBuffer.main",
@@ -1124,7 +1127,7 @@
         "typing_RingBuffer.space_left"
       ],
       0,
-      "48eebce1a16c8636b48dbe27164e8abc"
+      "a9f0e0536ccc379d41b5ed6ad962012d"
     ]
   ]
 ]

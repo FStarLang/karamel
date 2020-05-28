@@ -20,7 +20,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "a9355a63098d8b062a36d1dd5848548d"
+      "ba70ca83978a19a906f5cba840d8dc94"
     ],
     [
       "CheckedInt.two",
@@ -41,16 +41,20 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "9a4d4aa55da189762f6f55018301e571"
+      "309b52d1ea9b0a0f79b34557871df944"
     ],
     [
       "CheckedInt.main",
       1,
       2,
       1,
-      [ "@query", "lemma_FStar.HyperStack.ST.lemma_equal_domains_trans" ],
+      [
+        "@query", "int_typing",
+        "lemma_FStar.HyperStack.ST.lemma_equal_domains_trans",
+        "primitive_Prims.op_Subtraction"
+      ],
       0,
-      "b8be1a3e3716272a21393b3b3f42f6c8"
+      "8119187638c3b92057e5d7a2ac1ec6cb"
     ]
   ]
 ]

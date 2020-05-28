@@ -1,0 +1,87 @@
+[
+  "|85Í}«)òL¦Ž[mª)Ž",
+  [
+    [
+      "LowStar.Lib.AssocList.frame",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.l_and",
+        "equation_Prims.squash", "l_and-interp",
+        "refinement_interpretation_Tm_refine_2de20c066034c13bf76e9c0b94f4806c"
+      ],
+      0,
+      "098cf610ab1fa4f8accad28afad40145"
+    ],
+    [
+      "LowStar.Lib.AssocList.footprint_in_r",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.squash",
+        "refinement_interpretation_Tm_refine_2de20c066034c13bf76e9c0b94f4806c"
+      ],
+      0,
+      "9d793310c6666a37d89bd9966ffc5885"
+    ],
+    [
+      "LowStar.Lib.AssocList.create_in",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "fd903444b888191c1b3bcc4d6cbb94b6"
+    ],
+    [
+      "LowStar.Lib.AssocList.add",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "refinement_interpretation_Tm_refine_b582da5b18980dd549f83acfd27b47df"
+      ],
+      0,
+      "b2c3a064f128a497219016ca38beb8a2"
+    ],
+    [
+      "LowStar.Lib.AssocList.remove_all",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "refinement_interpretation_Tm_refine_b582da5b18980dd549f83acfd27b47df"
+      ],
+      0,
+      "9190962d6ceb70c11de2bec0058cf366"
+    ],
+    [
+      "LowStar.Lib.AssocList.clear",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "refinement_interpretation_Tm_refine_b582da5b18980dd549f83acfd27b47df"
+      ],
+      0,
+      "67cb99af93a4e441cd9e83457c436ae3"
+    ],
+    [
+      "LowStar.Lib.AssocList.free",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "refinement_interpretation_Tm_refine_b582da5b18980dd549f83acfd27b47df"
+      ],
+      0,
+      "9d082c9b185fb9e1edd059c8907f669f"
+    ]
+  ]
+]
