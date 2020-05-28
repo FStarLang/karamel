@@ -41,12 +41,17 @@ val region_of: #t_k:eqtype -> #t_v:Type0 -> ll:t t_k t_v -> GTot B.loc
 val frame: #t_k:eqtype -> #t_v:Type0 -> ll:t t_k t_v -> l:B.loc -> h0:HS.mem -> h1: HS.mem -> Lemma
   (requires
     invariant h0 ll /\
-    B.loc_disjoint l (footprint h0 ll) /\
+    B.loc_disjoint l (region_of ll) /\
     B.modifies l h0 h1)
   (ensures
     invariant h1 ll /\
-    footprint h1 ll == footprint h0 ll)
-  [ SMTPat (invariant h1 ll); SMTPat (B.modifies l h0 h1) ]
+    footprint h1 ll == footprint h0 ll /\
+    v h1 ll == v h0 ll)
+  [ SMTPatOr [
+      [ SMTPat (invariant h1 ll); SMTPat (B.modifies l h0 h1) ];
+      [ SMTPat (footprint h1 ll); SMTPat (B.modifies l h0 h1) ];
+      [ SMTPat (v h1 ll); SMTPat (B.modifies l h0 h1) ];
+    ]]
 
 val footprint_in_r: #t_k:eqtype -> #t_v:Type0 -> h0:HS.mem -> ll:t t_k t_v -> Lemma
   (requires
@@ -57,14 +62,15 @@ val footprint_in_r: #t_k:eqtype -> #t_v:Type0 -> h0:HS.mem -> ll:t t_k t_v -> Le
 /// How to automate the application of the lemma above? Tentative
 /// TODO: figure out if the patterns are good!
 
-val modifies_disjoint: #t_k:eqtype -> #t_v:Type0 -> ll:t t_k t_v -> l:B.loc -> h0:HS.mem -> h1: HS.mem -> Lemma
+val modifies_disjoint: #t_k:eqtype -> #t_v:Type0 -> r:HS.rid -> ll:t t_k t_v -> l:B.loc -> h0:HS.mem -> h1: HS.mem -> Lemma
   (requires
     invariant h0 ll /\
-    B.loc_disjoint l (region_of ll) /\
+    B.(loc_disjoint l (loc_all_regions_from true r)) /\
+    region_of ll == B.(loc_all_regions_from true r) /\
     B.modifies l h0 h1)
   (ensures
     B.(loc_includes (region_of ll) (footprint h0 ll)))
-  [ SMTPat (B.modifies l h0 h1); SMTPat (B.loc_disjoint l (region_of ll)) ]
+  [ SMTPat (B.modifies l h0 h1); SMTPat (B.(loc_disjoint l (loc_all_regions_from true r))); SMTPat (invariant h0 ll) ]
 
 /// Creating an imperative map
 /// --------------------------

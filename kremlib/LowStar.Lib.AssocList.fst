@@ -47,14 +47,14 @@ let footprint #_ #_ h ll =
 let region_of #_ #_ ll =
   LL2.region_of ll
 
-let frame #_ #_ _ _ _ _ =
-  ()
+let frame #_ #_ ll _ h0 _ =
+  LL2.footprint_in_r h0 ll
 
 let footprint_in_r #_ #_ h0 ll =
   LL2.footprint_in_r h0 ll
 
-let modifies_disjoint #_ #_ ll l h0 h1 =
-  ()
+let modifies_disjoint #_ #_ r ll l h0 h1 =
+  LL2.footprint_in_r h0 ll
 
 /// What's the best way for clients to reason about this? Maybe a lemma that says:
 ///
