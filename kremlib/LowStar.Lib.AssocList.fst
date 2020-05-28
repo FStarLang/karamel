@@ -53,9 +53,6 @@ let frame #_ #_ ll _ h0 _ =
 let footprint_in_r #_ #_ h0 ll =
   LL2.footprint_in_r h0 ll
 
-let modifies_disjoint #_ #_ r ll l h0 h1 =
-  LL2.footprint_in_r h0 ll
-
 /// What's the best way for clients to reason about this? Maybe a lemma that says:
 ///
 /// B.(loc_disjoint l (loc_all_regions_from true r)) ==> B.(loc_disjoint l (footprint h ll))

@@ -58,19 +58,7 @@ val footprint_in_r: #t_k:eqtype -> #t_v:Type0 -> h0:HS.mem -> ll:t t_k t_v -> Le
     invariant h0 ll)
   (ensures
     B.(loc_includes (region_of ll) (footprint h0 ll)))
-
-/// How to automate the application of the lemma above? Tentative
-/// TODO: figure out if the patterns are good!
-
-val modifies_disjoint: #t_k:eqtype -> #t_v:Type0 -> r:HS.rid -> ll:t t_k t_v -> l:B.loc -> h0:HS.mem -> h1: HS.mem -> Lemma
-  (requires
-    invariant h0 ll /\
-    B.(loc_disjoint l (loc_all_regions_from true r)) /\
-    region_of ll == B.(loc_all_regions_from true r) /\
-    B.modifies l h0 h1)
-  (ensures
-    B.(loc_includes (region_of ll) (footprint h0 ll)))
-  [ SMTPat (B.modifies l h0 h1); SMTPat (B.(loc_disjoint l (loc_all_regions_from true r))); SMTPat (invariant h0 ll) ]
+  [ SMTPat (footprint h0 ll) ]
 
 /// Creating an imperative map
 /// --------------------------

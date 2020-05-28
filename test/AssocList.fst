@@ -32,13 +32,11 @@ let main (): St unit =
   (**) let h4 = ST.get () in
   (**) assert (M.sel (I.v h4 m) 0 == Some (2, 1));
   (**) assert (B.deref h4 b == 2ul);
-  (**) I.footprint_in_r h4 m; // FIXME
   (**) assert B.(loc_disjoint (loc_buffer b) (I.footprint h4 m));
   I.remove_all m 1;
   (**) let h5 = ST.get () in
   (**) assert (M.sel (I.v h5 m) 0 == Some (2, 1));
   (**) assert (B.deref h5 b == 2ul);
-  (**) I.footprint_in_r h5 m; // FIXME
   I.remove_all m 0;
   (**) let h6 = ST.get () in
   (**) assert (M.sel (I.v h6 m) 0 == None);
