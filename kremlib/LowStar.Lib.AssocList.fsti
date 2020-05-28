@@ -47,18 +47,12 @@ val frame: #t_k:eqtype -> #t_v:Type0 -> ll:t t_k t_v -> l:B.loc -> h0:HS.mem -> 
     invariant h1 ll /\
     footprint h1 ll == footprint h0 ll /\
     v h1 ll == v h0 ll)
-  [ SMTPatOr [
-      [ SMTPat (invariant h1 ll); SMTPat (B.modifies l h0 h1) ];
-      [ SMTPat (footprint h1 ll); SMTPat (B.modifies l h0 h1) ];
-      [ SMTPat (v h1 ll); SMTPat (B.modifies l h0 h1) ];
-    ]]
 
 val footprint_in_r: #t_k:eqtype -> #t_v:Type0 -> h0:HS.mem -> ll:t t_k t_v -> Lemma
   (requires
     invariant h0 ll)
   (ensures
     B.(loc_includes (region_of ll) (footprint h0 ll)))
-  [ SMTPat (footprint h0 ll) ]
 
 /// Creating an imperative map
 /// --------------------------
