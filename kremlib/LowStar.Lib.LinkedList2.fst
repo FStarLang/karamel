@@ -15,12 +15,12 @@ open FStar.HyperStack.ST
 
 #set-options "--fuel 0 --ifuel 0"
 
-// Modulo the upcoming KreMLin optimization, this type will extract just like
+// Thanks to the KreMLin optimization, this type will extract just like
 // ``B.pointer (LL.t a)`` would, with no indirection due to the record.
 noeq
 type t a = {
   ptr: B.pointer (LL.t a);
-  // Relies on an upcoming pointer-to-unit elimination phase in KreMLin
+  // Relies on a new pointer-to-unit elimination phase in KreMLin
   v: B.pointer (G.erased (list a));
   // For separation; all erased.
   r: HS.rid;
@@ -77,7 +77,7 @@ let v #_ h ll =
   B.deref h ll.v
 
 // A workaround to avoid putting loc_all_regions_from true in patterns.
-let region_of ll = B.loc_all_regions_from true ll.r
+let region_of ll = B.loc_all_regions_from false ll.r
 
 /// This is a most useful lemma for clients: all the bookkeeping of this linked
 /// list, including spine, is subsumed in region r, at any time.

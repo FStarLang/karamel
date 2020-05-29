@@ -41,6 +41,11 @@ let v #_ #_ h ll =
 let invariant #_ #_ h ll =
   LL2.invariant h ll
 
+// No longer needed in the fsti.
+val footprint: #t_k:eqtype -> #t_v:Type0 -> h:HS.mem -> ll:t t_k t_v -> Ghost B.loc
+  (requires invariant h ll)
+  (ensures fun _ -> True)
+
 let footprint #_ #_ h ll =
   LL2.footprint h ll
 
@@ -49,6 +54,13 @@ let region_of #_ #_ ll =
 
 let frame #_ #_ ll _ h0 _ =
   LL2.footprint_in_r h0 ll
+
+val footprint_in_r: #t_k:eqtype -> #t_v:Type0 -> h0:HS.mem -> ll:t t_k t_v -> Lemma
+  (requires
+    invariant h0 ll)
+  (ensures
+    B.(loc_includes (region_of ll) (footprint h0 ll)))
+  [ SMTPat (footprint h0 ll) ]
 
 let footprint_in_r #_ #_ h0 ll =
   LL2.footprint_in_r h0 ll

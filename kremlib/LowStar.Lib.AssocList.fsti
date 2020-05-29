@@ -16,8 +16,8 @@ module LL1 = LowStar.Lib.LinkedList
 open FStar.HyperStack.ST
 open LowStar.BufferOps
 
-/// Types, invariants, footprint
-/// ----------------------------
+/// Types, invariants
+/// -----------------
 
 val t: eqtype -> Type0 -> Type0
 
@@ -32,10 +32,6 @@ val v: #t_k:eqtype -> #t_v:Type0 -> h:HS.mem -> ll:t t_k t_v -> GTot (map t_k t_
 
 val invariant: #t_k:eqtype -> #t_v:Type0 -> h:HS.mem -> ll:t t_k t_v -> Type0
 
-val footprint: #t_k:eqtype -> #t_v:Type0 -> h:HS.mem -> ll:t t_k t_v -> Ghost B.loc
-  (requires invariant h ll)
-  (ensures fun _ -> True)
-
 val region_of: #t_k:eqtype -> #t_v:Type0 -> ll:t t_k t_v -> GTot B.loc
 
 val frame: #t_k:eqtype -> #t_v:Type0 -> ll:t t_k t_v -> l:B.loc -> h0:HS.mem -> h1: HS.mem -> Lemma
@@ -45,33 +41,27 @@ val frame: #t_k:eqtype -> #t_v:Type0 -> ll:t t_k t_v -> l:B.loc -> h0:HS.mem -> 
     B.modifies l h0 h1)
   (ensures
     invariant h1 ll /\
-    footprint h1 ll == footprint h0 ll /\
     v h1 ll == v h0 ll)
   [ SMTPatOr [
       [ SMTPat (invariant h1 ll); SMTPat (B.modifies l h0 h1) ];
-      [ SMTPat (footprint h1 ll); SMTPat (B.modifies l h0 h1) ];
       [ SMTPat (v h1 ll); SMTPat (B.modifies l h0 h1) ];
     ]]
-
-val footprint_in_r: #t_k:eqtype -> #t_v:Type0 -> h0:HS.mem -> ll:t t_k t_v -> Lemma
-  (requires
-    invariant h0 ll)
-  (ensures
-    B.(loc_includes (region_of ll) (footprint h0 ll)))
-  [ SMTPat (footprint h0 ll) ]
 
 /// Creating an imperative map
 /// --------------------------
 
+/// We completely eliminate the notion of footprint here; every modifies clause
+/// from this module will henceforth refer to ``region_of ll`` -- up to the
+/// client to maintain suitable freshness, disjointness, etc. invariants for
+/// ``loc_all_regions_from false r``.
 val create_in: #t_k:eqtype -> #t_v:Type -> r:HS.rid -> ST (t t_k t_v)
   (requires fun h0 ->
     ST.is_eternal_region r)
   (ensures fun h0 ll h1 ->
     invariant h1 ll /\
     B.(modifies loc_none h0 h1) /\
-    B.fresh_loc (footprint h1 ll) h0 h1 /\
     v h1 ll == M.const None /\
-    region_of ll == B.(loc_all_regions_from true r))
+    region_of ll == B.(loc_all_regions_from false r))
 
 
 /// Find
@@ -94,7 +84,7 @@ val add (#t_k: eqtype) (#t_v: Type0) (ll: t t_k t_v) (k: t_k) (x: t_v):
     (requires fun h0 ->
       invariant h0 ll)
     (ensures fun h0 _ h1 ->
-      B.modifies (footprint h0 ll) h0 h1 /\
+      B.modifies (region_of ll) h0 h1 /\
       invariant h1 ll /\
       v h1 ll == M.upd (v h0 ll) k (Some x))
 
@@ -109,7 +99,7 @@ val remove_all (#t_k: eqtype)
     (requires fun h0 ->
       invariant h0 ll)
     (ensures fun h0 _ h1 ->
-      B.modifies (footprint h0 ll) h0 h1 /\
+      B.modifies (region_of ll) h0 h1 /\
       invariant h1 ll /\
       v h1 ll == M.upd (v h0 ll) k None)
 
@@ -123,7 +113,7 @@ val clear (#t_k: eqtype)
     (requires fun h0 ->
       invariant h0 ll)
     (ensures fun h0 _ h1 ->
-      B.modifies (footprint h0 ll) h0 h1 /\
+      B.modifies (region_of ll) h0 h1 /\
       invariant h1 ll /\
       v h1 ll == M.const None)
 
@@ -137,4 +127,4 @@ val free (#t_k: eqtype)
     (requires fun h0 ->
       invariant h0 ll)
     (ensures fun h0 _ h1 ->
-      B.modifies (footprint h0 ll) h0 h1)
+      B.modifies (region_of ll) h0 h1)

@@ -26,13 +26,11 @@ let main (): St Int32.t =
   (**) assert (M.sel (I.v h2 m) 0 == Some (1, 2));
   b *= 2ul;
   (**) let h3 = ST.get () in
-  (**) assert B.(loc_disjoint (loc_buffer b) (I.footprint h3 m));
   (**) assert (M.sel (I.v h3 m) 0 == Some (1, 2));
   I.add m 0 (2, 1);
   (**) let h4 = ST.get () in
   (**) assert (M.sel (I.v h4 m) 0 == Some (2, 1));
   (**) assert (B.deref h4 b == 2ul);
-  (**) assert B.(loc_disjoint (loc_buffer b) (I.footprint h4 m));
   I.remove_all m 1;
   (**) let h5 = ST.get () in
   (**) assert (M.sel (I.v h5 m) 0 == Some (2, 1));
