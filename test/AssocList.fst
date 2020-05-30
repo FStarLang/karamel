@@ -145,7 +145,8 @@ let invariant (h: HS.mem) (d: device) =
   peers_back h d (LL2.v h d.peers) /\
 
   LL2.invariant h d.peers /\
-  I.invariant h d.peer_of_id
+  I.invariant h d.peer_of_id /\
+  peers_invariant h d.r_handshake (LL2.v h d.peers)
 
 #push-options "--fuel 1"
 let create_in (r: HS.rid): ST device
