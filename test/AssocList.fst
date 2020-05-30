@@ -88,7 +88,7 @@ let rec peers_invariants (h: HS.mem) (r: HS.rid) (ps: list peer) =
   match ps with
   | [] -> True
   | p :: ps ->
-      B.(loc_region_only false r `loc_includes` peer_footprint p) /\
+      B.(loc_all_regions_from false r `loc_includes` peer_footprint p) /\
       peer_invariant h p /\
       peers_invariants h r ps
 
@@ -157,8 +157,6 @@ let invariant (h: HS.mem) (d: device) =
 
   d.peers.LL2.r == d.r_peers /\
   I.region_of d.peer_of_id == B.loc_all_regions_from false d.r_peer_of_id /\
-  // This is covered by the peers_invariant:
-  // loc_region d.r_handshake `loc_includes` peers_footprint (LL2.v h d.peers)
 
   (forall (i: UInt64.t). {:pattern peer_of_id_in_peers h d i }
     peer_of_id_in_peers h d i) /\
@@ -255,14 +253,55 @@ let free d =
   assert (I.invariant h2 d.peer_of_id);
   I.free d.peer_of_id
 
-let test (): St unit =
-  let r = ST.new_region HS.root in
-  let d = create_in r in
-  // TODO: talk about where the backpoint lives (which region?), how live it is, etc. etc. etc.
-  let p = { id = 0UL; hs = B.malloc d.r_handshake 0uy 8ul; device = B.malloc HS.root d 1ul } in
+
+val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
+  (requires fun h0 ->
+    invariant h0 d /\
+    peer_by_id id (LL2.v h0 d.peers) == None /\
+
+    B.live h0 hs /\
+    B.length hs == 8 /\
+    B.freeable hs /\
+    // TODO: probably need to keep a loc_in peers_footprint in the global invariant
+    B.loc_addr_of_buffer hs `B.loc_disjoint` peers_footprint (LL2.v h0 d.peers) /\
+    B.(loc_all_regions_from false d.r_peers_payload `loc_includes` loc_addr_of_buffer hs)
+    )
+  (ensures fun h0 _ h1 ->
+    invariant h1 d /\ (
+    let peers = LL2.v h1 d.peers in
+    Cons? peers /\ (
+    let p :: ps = peers in
+    p.id == id /\
+    p.hs == hs /\
+    ps == LL2.v h0 d.peers /\
+    // Clients can conclude that hs remains unchanged.
+    B.(modifies (loc_all_regions_from false d.r_peers) h0 h1))))
+
+#push-options "--z3rlimit 50"
+let insert_peer d id hs =
+  (**) let h0 = ST.get () in
+  (**) let l0: G.erased _ = LL2.v h0 d.peers in
+  let device = B.malloc d.r_peers_payload d 1ul in
+  let p = { id; hs; device } in
   LL2.push d.peers p;
-  let h1 = ST.get () in
-  () // assert (invariant h1 d)
+  (**) let h1 = ST.get () in
+  (**) let l1: G.erased _ = LL2.v h1 d.peers in
+  (**) LL2.footprint_in_r h1 d.peers;
+  (**) I.frame d.peer_of_id (B.loc_all_regions_from false d.r_peers) h0 h1;
+  (**) assert (I.v h1 d.peer_of_id == I.v h0 d.peer_of_id);
+  let aux (i: UInt64.t): Lemma
+    (ensures peer_of_id_in_peers h1 d i)
+  =
+    assert (peer_of_id_in_peers h0 d i);
+    if i <> id then begin
+      assert (peer_by_id i l1 == peer_by_id i l0);
+      admit ()
+    end else
+      admit ()
+  in
+  admit ()
+  //assert (invariant h1 d);
+  //admit ()
 
 let main (): St Int32.t =
   let r = ST.new_region HS.root in
