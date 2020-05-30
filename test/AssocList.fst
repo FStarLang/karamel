@@ -9,6 +9,7 @@ module HS = FStar.HyperStack
 module ST = FStar.HyperStack.ST
 module LL1 = LowStar.Lib.LinkedList
 module LL2 = LowStar.Lib.LinkedList2
+module G = FStar.Ghost
 
 open LowStar.BufferOps
 open FStar.HyperStack.ST
@@ -36,45 +37,55 @@ and device = {
   r: HS.rid;
   r_peers: HS.rid;
   r_peer_of_id: HS.rid;
-  r_handshake: HS.rid;
+  r_peers_payload: HS.rid;
 }
 
 /// A single peer
 /// -------------
 let peer_invariant (h: HS.mem) (p: peer) =
-  B.live h p.hs /\ B.length p.hs == 8 /\
-  B.freeable p.hs
+  B.live h p.hs /\
+  B.length p.hs == 8 /\
+  B.freeable p.hs /\
+  B.live h p.device /\
+  B.freeable p.device /\
+  B.loc_disjoint (B.loc_addr_of_buffer p.hs) (B.loc_addr_of_buffer p.device)
 
-let peer_footprint (h: HS.mem) (p: peer) =
-  B.loc_addr_of_buffer p.hs
+let peer_footprint (p: peer) =
+  B.loc_addr_of_buffer p.hs `B.loc_union`
+  B.loc_addr_of_buffer p.device
 
 /// Properties of the payload of the linked list
 /// --------------------------------------------
 
 // Cannot use List.Tot.fold_right because GTot / Tot effect mistmatch
-let rec peers_footprint (h: HS.mem) (ps: list peer): GTot B.loc =
+// IMPORTANT: the footprint themselves are not heap-dependent, otherwise, there
+// would have to be a framing lemma for the footprint itself.
+let rec peers_footprint (ps: list peer): GTot B.loc =
   allow_inversion (list peer);
   match ps with
   | [] -> B.loc_none
-  | p :: ps -> peer_footprint h p `B.loc_union` peers_footprint h ps
+  | p :: ps -> peer_footprint p `B.loc_union` peers_footprint ps
 
-let rec peers_disjoint (h: HS.mem) (ps: list peer) =
+let rec peers_disjoint (ps: list peer) =
   allow_inversion (list peer);
   match ps with
   | [] -> True
   | p :: ps ->
-      peer_footprint h p `B.loc_disjoint` peers_footprint h ps /\
-      peers_disjoint h ps
+      peer_footprint p `B.loc_disjoint` peers_footprint ps /\
+      peers_disjoint ps
 
-let rec peers_invariant (h: HS.mem) (r: HS.rid) (ps: list peer) =
+let rec peers_invariants (h: HS.mem) (r: HS.rid) (ps: list peer) =
   allow_inversion (list peer);
   match ps with
   | [] -> True
   | p :: ps ->
-      B.(loc_region_only false r `loc_includes` peer_footprint h p) /\
+      B.(loc_region_only false r `loc_includes` peer_footprint p) /\
       peer_invariant h p /\
-      peers_disjoint h ps /\
-      peers_invariant h r ps
+      peers_invariants h r ps
+
+let peers_invariant (h: HS.mem) (r: HS.rid) (ps: list peer) =
+  peers_disjoint ps /\
+  peers_invariants h r ps
 
 // TODO: ids are pairwise disjoint, to facilitate insertion
 
@@ -121,19 +132,19 @@ let invariant (h: HS.mem) (d: device) =
   ST.is_eternal_region d.r /\
   ST.is_eternal_region d.r_peers /\
   ST.is_eternal_region d.r_peer_of_id /\
-  ST.is_eternal_region d.r_handshake /\
+  ST.is_eternal_region d.r_peers_payload /\
 
   HS.extends d.r_peers d.r /\
   HS.extends d.r_peer_of_id d.r /\
-  HS.extends d.r_handshake d.r /\
+  HS.extends d.r_peers_payload d.r /\
 
   HS.parent d.r_peers == d.r /\
   HS.parent d.r_peer_of_id == d.r /\
-  HS.parent d.r_handshake == d.r /\
+  HS.parent d.r_peers_payload == d.r /\
 
-  B.(loc_disjoint (loc_region_only false d.r_peers) (loc_region_only false d.r_peer_of_id)) /\
-  B.(loc_disjoint (loc_region_only false d.r_peers) (loc_region_only false d.r_handshake)) /\
-  B.(loc_disjoint (loc_region_only false d.r_peer_of_id) (loc_region_only false d.r_handshake)) /\
+  B.(loc_disjoint (loc_all_regions_from false d.r_peers) (loc_all_regions_from false d.r_peer_of_id)) /\
+  B.(loc_disjoint (loc_all_regions_from false d.r_peers) (loc_region_only false d.r_peers_payload)) /\
+  B.(loc_disjoint (loc_all_regions_from false d.r_peer_of_id) (loc_region_only false d.r_peers_payload)) /\
 
   d.peers.LL2.r == d.r_peers /\
   I.region_of d.peer_of_id == B.loc_all_regions_from false d.r_peer_of_id /\
@@ -146,7 +157,28 @@ let invariant (h: HS.mem) (d: device) =
 
   LL2.invariant h d.peers /\
   I.invariant h d.peer_of_id /\
-  peers_invariant h d.r_handshake (LL2.v h d.peers)
+  peers_invariant h d.r_peers_payload (LL2.v h d.peers)
+
+#push-options "--fuel 1 --ifuel 1"
+let rec frame_peers_invariant (r_payload: HS.rid) (l: LL1.t peer) (n: list peer) (r: B.loc) (h0 h1: HS.mem): Lemma
+  (requires (
+    LL1.well_formed h0 l n /\
+    peers_invariants h0 r_payload n /\
+    B.(loc_disjoint r (peers_footprint n)) /\
+    B.modifies r h0 h1
+  ))
+  (ensures (
+    peers_invariants h1 r_payload n
+  ))
+  (decreases n)
+  [ SMTPat (peers_invariant h1 r_payload n); SMTPat (LL1.well_formed h1 l n); SMTPat (B.modifies r h0 h1) ]
+=
+  if B.g_is_null l then
+    ()
+  else
+    let p = List.Tot.hd n in
+    let ps = List.Tot.tl n in
+    frame_peers_invariant r_payload (B.deref h0 l).LL1.next (List.Tot.tl n) r h0 h1
 
 #push-options "--fuel 1"
 let create_in (r: HS.rid): ST device
@@ -161,11 +193,55 @@ let create_in (r: HS.rid): ST device
 =
   let r_peers = ST.new_region r in
   let r_peer_of_id = ST.new_region r in
-  let r_handshake = ST.new_region r in
+  let r_peers_payload = ST.new_region r in
   let peers = LL2.create_in r_peers in
   let peer_of_id = I.create_in r_peer_of_id in
-  { peers; peer_of_id; r; r_peers; r_peer_of_id; r_handshake }
+  { peers; peer_of_id; r; r_peers; r_peer_of_id; r_peers_payload }
 #pop-options
+
+#push-options "--fuel 1"
+let rec free_peer_list (r_spine: HS.rid) (r_peers_payload: HS.rid) (hd: LL1.t peer) (l: G.erased (list peer)):
+  ST unit
+    (requires fun h0 ->
+      peers_invariant h0 r_peers_payload l /\
+      B.(loc_disjoint (loc_all_regions_from false r_spine) (loc_region_only false r_peers_payload)) /\
+      LL1.well_formed h0 hd l /\
+      B.(loc_includes (loc_all_regions_from false r_spine) (LL1.footprint h0 hd l)) /\
+      LL1.invariant h0 hd l)
+    (ensures fun h0 _ h1 ->
+      B.(modifies (loc_region_only false r_peers_payload) h0 h1))
+=
+  if B.is_null hd then
+    ()
+  else
+    let { LL1.data; LL1.next } = !* hd in
+    let h0 = ST.get () in
+    B.free data.device;
+    B.free data.hs;
+    let h1 = ST.get () in
+    LL1.frame next (List.Tot.tl l) B.(loc_region_only false r_peers_payload) h0 h1;
+    frame_peers_invariant r_peers_payload next (List.Tot.tl l)
+      B.(loc_addr_of_buffer data.device `loc_union` loc_addr_of_buffer data.hs) h0 h1;
+    free_peer_list r_spine r_peers_payload next (List.Tot.tl l)
+#pop-options
+
+val free (d: device): ST unit
+  (requires fun h0 ->
+    invariant h0 d)
+  (ensures fun h0 _ h1 ->
+    B.(modifies (loc_all_regions_from false d.r) h0 h1))
+
+let free d =
+  free_peer_list d.r_peers d.r_peers_payload (!* d.peers.LL2.ptr) (!* d.peers.LL2.v);
+  let h1 = ST.get () in
+  assert B.(loc_includes (loc_all_regions_from false d.r_peers) (LL2.footprint h1 d.peers));
+  LL2.free d.peers;
+  let h2 = ST.get () in
+  assert (B.modifies (B.loc_all_regions_from false d.r_peers) h1 h2);
+  assert (I.region_of d.peer_of_id == B.loc_all_regions_from false d.r_peer_of_id);
+  I.frame d.peer_of_id (B.loc_all_regions_from false d.r_peers) h1 h2;
+  assert (I.invariant h2 d.peer_of_id);
+  I.free d.peer_of_id
 
 let test (): St unit =
   let r = ST.new_region HS.root in
