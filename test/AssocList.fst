@@ -112,6 +112,24 @@ let rec peer_by_id (id: UInt64.t) (ps: list peer) =
   | [] ->
       None
 
+#push-options "--fuel 1 --ifuel 1"
+let rec ptr_by_id (h: HS.mem) (hd: LL1.t peer) (ps: list peer) (id: UInt64.t): Ghost (B.pointer (LL1.cell peer))
+  (requires
+    LL1.well_formed h hd ps /\
+    LL1.invariant h hd ps /\
+    Some? (peer_by_id id ps))
+  (ensures fun ptr ->
+    (B.deref h ptr).LL1.data == Some?.v (peer_by_id id ps))
+  (decreases ps)
+=
+  assert (not (B.g_is_null hd));
+  let cell = B.deref h hd in
+  if cell.LL1.data.id = id then
+    hd
+  else
+    ptr_by_id h cell.LL1.next (List.Tot.tl ps) id
+#pop-options
+
 let peer_of_id_in_peers (h: HS.mem) (d: device) (i: UInt64.t): Ghost Type
   (requires LL2.invariant h d.peers)
   (ensures fun _ -> True)
@@ -121,8 +139,8 @@ let peer_of_id_in_peers (h: HS.mem) (d: device) (i: UInt64.t): Ghost Type
   match M.sel m i with
   | None -> p == None
   | Some ptr ->
-      ~(B.g_is_null ptr) /\
-      B.(loc_includes (LL2.footprint h d.peers) (loc_addr_of_buffer ptr)) /\
+      Some? p /\
+      ptr == ptr_by_id h (B.deref h d.peers.LL2.ptr) (B.deref h d.peers.LL2.v) i /\
       p == Some ((B.deref h ptr).LL1.data)
 
 /// Back pointers invariant
@@ -299,7 +317,7 @@ val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
     // Clients can conclude that hs remains unchanged.
     B.(modifies (loc_all_regions_from false d.r_peers) h0 h1))))
 
-#push-options "--z3rlimit 100"
+#push-options "--fuel 1 --ifuel 1 --z3rlimit 50"
 let insert_peer d id hs =
   (**) let h0 = ST.get () in
   (**) let l0: G.erased _ = LL2.v h0 d.peers in
@@ -324,8 +342,11 @@ let insert_peer d id hs =
       | Some ptr ->
           peer_by_id_invariant h0 d.r_peers_payload l0 (Some?.v p) i;
           assert (peer_invariant h0 (Some?.v p));
-          assert (B.deref h1 ptr == B.deref h0 ptr);
-          admit ()
+          assert (Some? p);
+          assume (ptr_by_id h0 (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v) i ==
+            ptr_by_id h1 (B.deref h1 d.peers.LL2.ptr) (B.deref h1 d.peers.LL2.v) i);
+          assert ((B.deref h1 ptr).LL1.data == Some?.v p);
+          ()
     end else
       admit ()
   in
