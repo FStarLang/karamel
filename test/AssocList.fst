@@ -112,13 +112,17 @@ let rec peer_by_id (id: UInt64.t) (ps: list peer) =
   | [] ->
       None
 
-let peer_of_id_in_peers (h: HS.mem) (d: device) (i: UInt64.t) =
+let peer_of_id_in_peers (h: HS.mem) (d: device) (i: UInt64.t): Ghost Type
+  (requires LL2.invariant h d.peers)
+  (ensures fun _ -> True)
+=
   let m = I.v h d.peer_of_id in
   let p = peer_by_id i (LL2.v h d.peers) in
   match M.sel m i with
   | None -> p == None
   | Some ptr ->
       ~(B.g_is_null ptr) /\
+      B.(loc_includes (LL2.footprint h d.peers) (loc_addr_of_buffer ptr)) /\
       p == Some ((B.deref h ptr).LL1.data)
 
 /// Back pointers invariant
@@ -158,13 +162,14 @@ let invariant (h: HS.mem) (d: device) =
   d.peers.LL2.r == d.r_peers /\
   I.region_of d.peer_of_id == B.loc_all_regions_from false d.r_peer_of_id /\
 
-  (forall (i: UInt64.t). {:pattern peer_of_id_in_peers h d i }
-    peer_of_id_in_peers h d i) /\
-  peers_back h d (LL2.v h d.peers) /\
-
   LL2.invariant h d.peers /\
   I.invariant h d.peer_of_id /\
-  peers_invariant h d.r_peers_payload (LL2.v h d.peers)
+  peers_invariant h d.r_peers_payload (LL2.v h d.peers) /\
+
+  (forall (i: UInt64.t). {:pattern peer_of_id_in_peers h d i }
+    peer_of_id_in_peers h d i) /\
+  peers_back h d (LL2.v h d.peers)
+
 
 #push-options "--fuel 1 --ifuel 1"
 let rec frame_peers_invariant (r_payload: HS.rid) (l: LL1.t peer) (n: list peer) (r: B.loc) (h0 h1: HS.mem): Lemma
@@ -186,6 +191,23 @@ let rec frame_peers_invariant (r_payload: HS.rid) (l: LL1.t peer) (n: list peer)
     let p = List.Tot.hd n in
     let ps = List.Tot.tl n in
     frame_peers_invariant r_payload (B.deref h0 l).LL1.next (List.Tot.tl n) r h0 h1
+
+#push-options "--fuel 1 --ifuel 1"
+let rec peer_by_id_invariant (h: HS.mem) (r: HS.rid) (ps: list peer) (p: peer) (id: UInt64.t): Lemma
+  (requires
+    peers_invariant h r ps /\
+    Some p == peer_by_id id ps)
+  (ensures
+    B.(loc_all_regions_from false r `loc_includes` peer_footprint p) /\
+    peer_invariant h p)
+=
+  match ps with
+  | p' :: ps' ->
+      if p'.id = id then
+        ()
+      else
+        peer_by_id_invariant h r ps' p id
+#pop-options
 
 #push-options "--fuel 1"
 let create_in (r: HS.rid): ST device
@@ -277,7 +299,7 @@ val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
     // Clients can conclude that hs remains unchanged.
     B.(modifies (loc_all_regions_from false d.r_peers) h0 h1))))
 
-#push-options "--z3rlimit 50"
+#push-options "--z3rlimit 100"
 let insert_peer d id hs =
   (**) let h0 = ST.get () in
   (**) let l0: G.erased _ = LL2.v h0 d.peers in
@@ -293,9 +315,17 @@ let insert_peer d id hs =
     (ensures peer_of_id_in_peers h1 d i)
   =
     assert (peer_of_id_in_peers h0 d i);
+    let m = I.v h1 d.peer_of_id in
+    let p = peer_by_id i l1 in
     if i <> id then begin
-      assert (peer_by_id i l1 == peer_by_id i l0);
-      admit ()
+      assert (p == peer_by_id i l0);
+      match M.sel m i with
+      | None -> ()
+      | Some ptr ->
+          peer_by_id_invariant h0 d.r_peers_payload l0 (Some?.v p) i;
+          assert (peer_invariant h0 (Some?.v p));
+          assert (B.deref h1 ptr == B.deref h0 ptr);
+          admit ()
     end else
       admit ()
   in
