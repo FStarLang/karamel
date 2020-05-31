@@ -324,7 +324,7 @@ let insert_peer d id hs =
       | Some ptr ->
           peer_by_id_invariant h0 d.r_peers_payload l0 (Some?.v p) i;
           assert (peer_invariant h0 (Some?.v p));
-          assert (B.deref h1 ptr == B.deref h0 ptr);
+          //assert (B.deref h1 ptr == B.deref h0 ptr);
           admit ()
     end else
       admit ()
