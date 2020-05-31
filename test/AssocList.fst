@@ -254,13 +254,13 @@ let rec free_peer_list (r_spine: HS.rid) (r_peers_payload: HS.rid) (hd: LL1.t pe
     free_peer_list r_spine r_peers_payload next (List.Tot.tl l)
 #pop-options
 
-val free (d: device): ST unit
+val free_ (d: device): ST unit
   (requires fun h0 ->
     invariant h0 d)
   (ensures fun h0 _ h1 ->
     B.(modifies (loc_all_regions_from false d.r) h0 h1))
 
-let free d =
+let free_ d =
   let h0 = ST.get () in
   free_peer_list d.r_peers d.r_peers_payload (!* d.peers.LL2.ptr) (!* d.peers.LL2.v);
   let h1 = ST.get () in
