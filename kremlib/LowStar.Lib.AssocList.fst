@@ -178,7 +178,9 @@ let rec remove_all_ #t_k #t_v hd l k =
       hd *= { LL1.data; LL1.next = hd' };
       let h1 = ST.get () in
       M.lemma_equal_intro (v_ ((k', v) :: l')) (M.upd (v_ l) k None);
-      assert (LL1.well_formed h1 hd (data :: l'));
+      assert B.(loc_disjoint (loc_buffer hd) (LL1.footprint h1 hd' l'));
+      assert (B.live h1 hd /\ B.length hd == 1);
+      assert (LL1.well_formed h1 hd' l');
       assert (LL1.invariant h1 hd (data :: l'));
       hd, G.hide ((k', v) :: l')
     end

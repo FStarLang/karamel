@@ -1,5 +1,13 @@
 module LowStar.Lib.LinkedList
 
+/// This module, oftentimes referred to as LL1 in other parts of the
+/// documentation, provides a low-level view over a linked list. Unless you
+/// intend on modifying the structure of the linked list (e.g. removing cells)
+/// or iterating over each cell, your are probably better off using LL2.
+///
+/// This module is intentionally not relying on a tight abstraction, to permit
+/// direct-style iteration by clients.
+
 open LowStar.BufferOps
 
 module B = LowStar.Buffer
@@ -32,7 +40,7 @@ and cell (a: Type0) = {
 /// there may be an infinite number of cells in the heap.
 ///
 /// Note: no need to use erased here for ``l`` since the function is already in ``GTot``.
-let rec well_formed #a (h: HS.mem) (c: t a) (l: list a): GTot Type0 (decreases (G.reveal l)) =
+let rec well_formed #a (h: HS.mem) (c: t a) (l: list a): GTot Type0 (decreases l) =
   B.live h c /\ (
   match l with
   | [] ->
@@ -182,7 +190,8 @@ val push: (#a: Type) -> (r: HS.rid) -> (n: G.erased (list a)) -> (pl: B.pointer 
     (ensures (fun h0 _ h1 ->
       let n' = G.hide (x :: G.reveal n) in
       let l = B.deref h1 pl in
-      // Liveness follows for pl from modifies loc_buffer (not loc_addr_of_buffer)
+      // Style note: I don't repeat ``B.live pl`` in the post-condition since
+      // ``B.modifies (loc_buffer pl) h0 h1`` implies that ``B.live h1 pl``.
       B.modifies (B.loc_buffer pl) h0 h1 /\
       well_formed h1 l n' /\
       invariant h1 l n' /\
@@ -225,8 +234,19 @@ val pop: (#a: Type) -> (r: HS.rid) -> (n: G.erased (list a)) -> (pl: B.pointer (
       let l = B.deref h1 pl in
       let n' = L.tl n in
       x == L.hd n /\
-      // Liveness follows for pl from modifies loc_buffer (not loc_addr_of_buffer)
-      B.modifies (B.loc_buffer pl) h0 h1 /\
+      // Introducing a super precise modifies clause (e.g. loc_addr_of_buffer
+      // (B.deref h0 pl)) here is not useful and prevents trigger-based
+      // reasoning, while also requiring clients to unroll footprint. There's a
+      // tension here between revealing that ``pop`` does nothing stupid (e.g.
+      // re-allocating all the list cells) and providing an abstract enough
+      // predicate to work with.
+      //
+      // TODO: introduce a cells predicate that returns the list of cells, and reveal that
+      // ``List.map (B.deref h) cells`` is the same all the erased list passed
+      // to well-formed. Then, reveal that ``pop`` just removes the head of
+      // ``cells``, and modifies outer pointer + footprint, to provide a modicum
+      // of abstraction.
+      B.(modifies (loc_buffer pl `loc_union` footprint h0 (B.deref h0 pl) n) h0 h1) /\
       well_formed h1 l n' /\
       invariant h1 l n' /\
       B.(loc_includes (loc_region_only true r) (footprint h1 l n'))))
@@ -235,6 +255,7 @@ let pop #a r n pl =
   let l = !* pl in
   let r = (!*l).data in
   pl *= (!*l).next;
+  B.free l;
   r
 
 val free_: (#a: Type) -> (#n: G.erased (list a)) -> (l: t a) ->

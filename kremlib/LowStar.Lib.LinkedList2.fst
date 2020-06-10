@@ -1,5 +1,13 @@
 module LowStar.Lib.LinkedList2
 
+/// This module provides a convenient abstraction over LL1 which uses a ``v``
+/// function, therefore eliminating a large amount of syntactic overhead. It
+/// also takes care of packing the existential, dealing with the extra outer
+/// reference, and suitable high-level operations.
+///
+/// Clients who want to modify the spine of the list or iterate over it can
+/// always use the LL1 definitions. AssocList is such an example.
+
 open LowStar.BufferOps
 
 module B = LowStar.Buffer
