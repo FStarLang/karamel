@@ -1,8 +1,8 @@
 module AssocList
 
-/// Testing the API of the interactive map
-
-module I = LowStar.Lib.AssocList
+/// We are relying on an associative list to implement our imperative map but
+/// this will be upgraded to a hash table that offers the same interface.
+module IM = LowStar.Lib.AssocList
 module M = FStar.Map
 module B = LowStar.Buffer
 module HS = FStar.HyperStack
@@ -31,9 +31,9 @@ type peer = {
 // Simplified equivalent of wg_device.
 and device = {
   peers: LL2.t peer;
-  // I'm doing pointer sharing here so that the peers in peer_of_id are pointing
+  // IM'm doing pointer sharing here so that the peers in peer_of_id are pointing
   // directly to the list cells in the linked list, like in WireGuard
-  peer_of_id: I.t UInt64.t (LL1.t peer);
+  peer_of_id: IM.t UInt64.t (LL1.t peer);
   r: HS.rid;
   r_peers: HS.rid;
   r_peer_of_id: HS.rid;
@@ -43,9 +43,11 @@ and device = {
 /// A single peer
 /// -------------
 let peer_invariant (h: HS.mem) (p: peer) =
+  // Sample invariant for the handshake_state -- to be filled out with something more realistic.
   B.live h p.hs /\
   B.length p.hs == 8 /\
   B.freeable p.hs /\
+  // Back-pointer invariant.
   B.live h p.device /\
   B.freeable p.device /\
   B.loc_disjoint (B.loc_addr_of_buffer p.hs) (B.loc_addr_of_buffer p.device)
@@ -112,11 +114,24 @@ let rec peer_by_id (id: UInt64.t) (ps: list peer) =
   | [] ->
       None
 
+// let rec cell_by_id (h: HS.mem) (id: UInt64.t) (cs: list (B.pointer (LL1.cell peer))): Ghost (option (LL1.cell peer))
+//   (requires LL1.well_formed h 
+//   allow_inversion (list (LL1.cell peer));
+//   match cs with
+//   | c :: cs ->
+//       let p = B.deref h c in
+//       if p.LL1.data.id = id then
+//         Some c
+//       else
+//         cell_by_id h id cs
+//   | [] ->
+//       None
+
 let peer_of_id_in_peers (h: HS.mem) (d: device) (i: UInt64.t): Ghost Type
   (requires LL2.invariant h d.peers)
   (ensures fun _ -> True)
 =
-  let m = I.v h d.peer_of_id in
+  let m = IM.v h d.peer_of_id in
   let p = peer_by_id i (LL2.v h d.peers) in
   match M.sel m i with
   | None -> p == None
@@ -160,10 +175,10 @@ let invariant (h: HS.mem) (d: device) =
   B.(loc_disjoint (loc_all_regions_from false d.r_peer_of_id) (loc_all_regions_from false d.r_peers_payload)) /\
 
   d.peers.LL2.r == d.r_peers /\
-  I.region_of d.peer_of_id == B.loc_all_regions_from false d.r_peer_of_id /\
+  IM.region_of d.peer_of_id == B.loc_all_regions_from false d.r_peer_of_id /\
 
   LL2.invariant h d.peers /\
-  I.invariant h d.peer_of_id /\
+  IM.invariant h d.peer_of_id /\
   peers_invariant h d.r_peers_payload (LL2.v h d.peers) /\
 
   (forall (i: UInt64.t). {:pattern peer_of_id_in_peers h d i }
@@ -216,7 +231,7 @@ let create_in (r: HS.rid): ST device
   (ensures fun h0 d h1 ->
     invariant h1 d /\
     B.(modifies loc_none h0 h1) /\
-    I.v h1 d.peer_of_id == M.const None /\
+    IM.v h1 d.peer_of_id == M.const None /\
     LL2.v h1 d.peers == [] /\
     d.r == r)
 =
@@ -224,7 +239,7 @@ let create_in (r: HS.rid): ST device
   let r_peer_of_id = ST.new_region r in
   let r_peers_payload = ST.new_region r in
   let peers = LL2.create_in r_peers in
-  let peer_of_id = I.create_in r_peer_of_id in
+  let peer_of_id = IM.create_in r_peer_of_id in
   { peers; peer_of_id; r; r_peers; r_peer_of_id; r_peers_payload }
 #pop-options
 
@@ -270,10 +285,10 @@ let free_ d =
   LL2.free d.peers;
   let h2 = ST.get () in
   assert (B.modifies (B.loc_all_regions_from false d.r_peers) h1 h2);
-  assert (I.region_of d.peer_of_id == B.loc_all_regions_from false d.r_peer_of_id);
-  I.frame d.peer_of_id (B.loc_all_regions_from false d.r_peers) h1 h2;
-  assert (I.invariant h2 d.peer_of_id);
-  I.free d.peer_of_id
+  assert (IM.region_of d.peer_of_id == B.loc_all_regions_from false d.r_peer_of_id);
+  IM.frame d.peer_of_id (B.loc_all_regions_from false d.r_peers) h1 h2;
+  assert (IM.invariant h2 d.peer_of_id);
+  IM.free d.peer_of_id
 
 
 val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
@@ -309,13 +324,13 @@ let insert_peer d id hs =
   (**) let h1 = ST.get () in
   (**) let l1: G.erased _ = LL2.v h1 d.peers in
   (**) LL2.footprint_in_r h1 d.peers;
-  (**) I.frame d.peer_of_id (B.loc_all_regions_from false d.r_peers) h0 h1;
-  (**) assert (I.v h1 d.peer_of_id == I.v h0 d.peer_of_id);
+  (**) IM.frame d.peer_of_id (B.loc_all_regions_from false d.r_peers) h0 h1;
+  (**) assert (IM.v h1 d.peer_of_id == IM.v h0 d.peer_of_id);
   let aux (i: UInt64.t): Lemma
     (ensures peer_of_id_in_peers h1 d i)
   =
     assert (peer_of_id_in_peers h0 d i);
-    let m = I.v h1 d.peer_of_id in
+    let m = IM.v h1 d.peer_of_id in
     let p = peer_by_id i l1 in
     if i <> id then begin
       assert (p == peer_by_id i l0);
@@ -335,28 +350,28 @@ let insert_peer d id hs =
 
 let main (): St Int32.t =
   let r = ST.new_region HS.root in
-  let m: I.t nat (nat & nat) = I.create_in r in
+  let m: IM.t nat (nat & nat) = IM.create_in r in
   (**) let h0 = ST.get () in
-  (**) assert (M.sel (I.v h0 m) 0 == None);
-  I.add m 0 (1, 2);
+  (**) assert (M.sel (IM.v h0 m) 0 == None);
+  IM.add m 0 (1, 2);
   (**) let h1 = ST.get () in
-  (**) assert (M.sel (I.v h1 m) 0 == Some (1, 2));
+  (**) assert (M.sel (IM.v h1 m) 0 == Some (1, 2));
   let b = B.malloc HS.root 0ul 1ul in
   (**) let h2 = ST.get () in
-  (**) assert (M.sel (I.v h2 m) 0 == Some (1, 2));
+  (**) assert (M.sel (IM.v h2 m) 0 == Some (1, 2));
   b *= 2ul;
   (**) let h3 = ST.get () in
-  (**) assert (M.sel (I.v h3 m) 0 == Some (1, 2));
-  I.add m 0 (2, 1);
+  (**) assert (M.sel (IM.v h3 m) 0 == Some (1, 2));
+  IM.add m 0 (2, 1);
   (**) let h4 = ST.get () in
-  (**) assert (M.sel (I.v h4 m) 0 == Some (2, 1));
+  (**) assert (M.sel (IM.v h4 m) 0 == Some (2, 1));
   (**) assert (B.deref h4 b == 2ul);
-  I.remove_all m 1;
+  IM.remove_all m 1;
   (**) let h5 = ST.get () in
-  (**) assert (M.sel (I.v h5 m) 0 == Some (2, 1));
+  (**) assert (M.sel (IM.v h5 m) 0 == Some (2, 1));
   (**) assert (B.deref h5 b == 2ul);
-  I.remove_all m 0;
+  IM.remove_all m 0;
   (**) let h6 = ST.get () in
-  (**) assert (M.sel (I.v h6 m) 0 == None);
+  (**) assert (M.sel (IM.v h6 m) 0 == None);
   (**) assert (B.deref h6 b == 2ul);
   0l

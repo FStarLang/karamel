@@ -23,8 +23,17 @@ Bundles for grouping files together
 
 The first purpose of bundles is to group F* modules into a single C file. All of
 the ``Nᵢ`` and ``Mᵢ`` are concatenated into a C single file. The name of the single
-file is ``N₁_..._Mₙ``, but can be controlled by appending an optional
+file is ``N₁_..._Nₙ``, but can be controlled by appending an optional
 ``[rename=FooBar]`` argument to the bundle ``B``.
+
+.. note::
+
+  Bundles do not allow you to duplicate code and have it appear in multiple
+  places. This would cause errors with conflicting symbols at link-time, and
+  would have a disastrous impact on your code segment size. Bundles do not
+  change the fact that a definition only appears in a single place for each
+  kremlin invocation.
+
 
 Bundles for hiding implementation details
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

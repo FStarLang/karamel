@@ -52,6 +52,28 @@ let rec well_formed #a (h: HS.mem) (c: t a) (l: list a): GTot Type0 (decreases l
     well_formed h next (G.hide q)
   ))
 
+/// One more thing
+/// --------------
+///
+/// The modifies clauses are given either on the footprint of the list, or on a
+/// region that includes the footprint of the list (higher up the stack, e.g.
+/// LL2). This is good, but does not rule out "stupid" implementations that
+/// might re-allocate every single list cell when, say, doing a pop.
+///
+/// For advanced usages which take pointers directly to individual list cells,
+/// it's important to rule out these cases. We thus define the ``cells``
+/// predicate for that purpose.
+
+let rec cells #a (h: HS.mem) (c: t a) (l: list a): Ghost (list (B.pointer (cell a)))
+  (requires well_formed h c l)
+  (ensures fun _ -> True)
+  (decreases l)
+=
+  if B.g_is_null c then
+    []
+  else
+    c :: cells h (B.deref h c).next (List.Tot.tl l)
+
 /// Classic stateful reasoning lemmas
 /// ---------------------------------
 
@@ -134,6 +156,7 @@ let rec frame (#a: Type) (l: t a) (n: list a) (r: B.loc) (h0 h1: HS.mem): Lemma
   (ensures (
     well_formed h1 l n /\
     footprint h1 l n == footprint h0 l n /\
+    cells h1 l n == cells h0 l n /\
     invariant h1 l n
   ))
   (decreases n)
@@ -195,7 +218,8 @@ val push: (#a: Type) -> (r: HS.rid) -> (n: G.erased (list a)) -> (pl: B.pointer 
       B.modifies (B.loc_buffer pl) h0 h1 /\
       well_formed h1 l n' /\
       invariant h1 l n' /\
-      B.(loc_includes (loc_region_only true r) (footprint h1 l n'))
+      B.(loc_includes (loc_region_only true r) (footprint h1 l n') /\
+      Cons? (cells h1 l n') /\ List.Tot.tail (cells h1 l n') == cells h0 (B.deref h0 pl) n)
     ))
 
 let push #a r n pl x =
@@ -240,21 +264,22 @@ val pop: (#a: Type) -> (r: HS.rid) -> (n: G.erased (list a)) -> (pl: B.pointer (
       // tension here between revealing that ``pop`` does nothing stupid (e.g.
       // re-allocating all the list cells) and providing an abstract enough
       // predicate to work with.
-      //
-      // TODO: introduce a cells predicate that returns the list of cells, and reveal that
-      // ``List.map (B.deref h) cells`` is the same all the erased list passed
-      // to well-formed. Then, reveal that ``pop`` just removes the head of
-      // ``cells``, and modifies outer pointer + footprint, to provide a modicum
-      // of abstraction.
       B.(modifies (loc_buffer pl `loc_union` footprint h0 (B.deref h0 pl) n) h0 h1) /\
       well_formed h1 l n' /\
       invariant h1 l n' /\
-      B.(loc_includes (loc_region_only true r) (footprint h1 l n'))))
+      B.(loc_includes (loc_region_only true r) (footprint h1 l n')) /\
+      List.Tot.tail (cells h0 (B.deref h0 pl) n) == cells h1 l n'))
 
 let pop #a r n pl =
   let l = !* pl in
   let r = (!*l).data in
-  pl *= (!*l).next;
+  let next = (!*l).next in
+  (**) let h1 = ST.get () in
+  (**) assert (cells h1 l n == l :: cells h1 next (List.Tot.tl n));
+  (**) assert B.(loc_disjoint (loc_buffer pl) (footprint h1 l n));
+  (**) assert B.(loc_disjoint (loc_buffer pl) (footprint h1 next (List.Tot.tl n)));
+
+  pl *= next;
   B.free l;
   r
 
@@ -290,6 +315,7 @@ val free: (#a: Type) -> (#n: G.erased (list a)) -> (pl: B.pointer (t a)) ->
       well_formed h1 l [] /\
       invariant h1 l [] /\
       footprint h1 l [] == B.loc_none /\
+      cells h1 l [] == [] /\
       B.(modifies (footprint h0 (B.deref h0 pl) n `loc_union` loc_buffer pl) h0 h1)))
 
 let free #a #n pl =
