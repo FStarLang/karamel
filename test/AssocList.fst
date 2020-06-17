@@ -168,6 +168,10 @@ let invariant (h: HS.mem) (d: device) =
   LL2.invariant h d.peers /\
   IM.invariant h d.peer_of_id /\
   peers_invariant h d.r_peers_payload (LL2.v h d.peers) /\
+  // Technicality: just like for LL1 (see comment there), since the footprint of
+  // the payload of the peers is recursive, we don't automatically get
+  // disjointness of fresh allocations w.r.t. peers_footprint which is a drag.
+  B.loc_in (peers_footprint (LL2.v h d.peers)) h /\
 
   (forall (i: UInt64.t). {:pattern peer_of_id_in_peers h d i }
     peer_of_id_in_peers h d i) /\
@@ -280,29 +284,6 @@ let free_ d =
   IM.free d.peer_of_id
 
 
-val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
-  (requires fun h0 ->
-    invariant h0 d /\
-    peer_by_id id (LL2.v h0 d.peers) == None /\
-
-    B.live h0 hs /\
-    B.length hs == 8 /\
-    B.freeable hs /\
-    // TODO: probably need to keep a loc_in peers_footprint in the global invariant
-    B.loc_addr_of_buffer hs `B.loc_disjoint` peers_footprint (LL2.v h0 d.peers) /\
-    B.(loc_all_regions_from false d.r_peers_payload `loc_includes` loc_addr_of_buffer hs)
-    )
-  (ensures fun h0 _ h1 ->
-    invariant h1 d /\ (
-    let peers = LL2.v h1 d.peers in
-    Cons? peers /\ (
-    let p :: ps = peers in
-    p.id == id /\
-    p.hs == hs /\
-    ps == LL2.v h0 d.peers /\
-    // Clients can conclude that hs remains unchanged.
-    B.(modifies (loc_all_regions_from false d.r_peers) h0 h1))))
-
 #push-options "--ifuel 1"
 let rec footprint_via_cells #a (l: list (B.pointer (LL1.cell a))): GTot B.loc =
   match l with
@@ -365,6 +346,29 @@ let push_grows_footprint #a (ll: LL2.t a) (h0 h1: HS.mem): Lemma
   }
 #pop-options
 
+val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
+  (requires fun h0 ->
+    invariant h0 d /\
+    peer_by_id id (LL2.v h0 d.peers) == None /\
+
+    B.live h0 hs /\
+    B.length hs == 8 /\
+    B.freeable hs /\
+    // TODO: probably need to keep a loc_in peers_footprint in the global invariant
+    B.loc_addr_of_buffer hs `B.loc_disjoint` peers_footprint (LL2.v h0 d.peers) /\
+    B.(loc_all_regions_from false d.r_peers_payload `loc_includes` loc_addr_of_buffer hs)
+    )
+  (ensures fun h0 _ h1 ->
+    invariant h1 d /\ (
+    let peers = LL2.v h1 d.peers in
+    Cons? peers /\ (
+    let p :: ps = peers in
+    p.id == id /\
+    p.hs == hs /\
+    ps == LL2.v h0 d.peers /\
+    // Clients can conclude that hs remains unchanged.
+    B.(modifies (loc_all_regions_from false d.r_peers) h0 h1))))
+
 #push-options "--z3rlimit 100 --ifuel 1 --fuel 1"
 let insert_peer d id hs =
   (**) let h0 = ST.get () in
@@ -378,7 +382,7 @@ let insert_peer d id hs =
   (**) LL2.footprint_in_r h1 d.peers;
   (**) IM.frame d.peer_of_id (B.loc_all_regions_from false d.r_peers) h0 h1;
   (**) assert (IM.v h1 d.peer_of_id == IM.v h0 d.peer_of_id);
-  (**) assert (peers_disjoint (LL2.v h0 d.peers));
+  (**) assert (peers_disjoint (LL2.v h1 d.peers));
   admit ()
 
 let main (): St Int32.t =
