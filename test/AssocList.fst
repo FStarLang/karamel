@@ -171,15 +171,17 @@ let invariant (h: HS.mem) (d: device) =
   // Technicality: just like for LL1 (see comment there), since the footprint of
   // the payload of the peers is recursive, we don't automatically get
   // disjointness of fresh allocations w.r.t. peers_footprint which is a drag.
+  B.(loc_includes (loc_all_regions_from false d.r_peers_payload) (peers_footprint (LL2.v h d.peers))) /\
   B.loc_in (peers_footprint (LL2.v h d.peers)) h /\
 
+  peers_back h d (LL2.v h d.peers) /\
   (forall (i: UInt64.t). {:pattern peer_of_id_in_peers h d i }
     peer_of_id_in_peers h d i) /\
-  peers_back h d (LL2.v h d.peers)
+  True
 
 
 #push-options "--fuel 1 --ifuel 1"
-let rec frame_peers_invariant (r_payload: HS.rid) (l: LL1.t peer) (n: list peer) (r: B.loc) (h0 h1: HS.mem): Lemma
+let rec frame_peers_invariants (r_payload: HS.rid) (l: LL1.t peer) (n: list peer) (r: B.loc) (h0 h1: HS.mem): Lemma
   (requires (
     LL1.well_formed h0 l n /\
     peers_invariants h0 r_payload n /\
@@ -197,7 +199,7 @@ let rec frame_peers_invariant (r_payload: HS.rid) (l: LL1.t peer) (n: list peer)
   else
     let p = List.Tot.hd n in
     let ps = List.Tot.tl n in
-    frame_peers_invariant r_payload (B.deref h0 l).LL1.next (List.Tot.tl n) r h0 h1
+    frame_peers_invariants r_payload (B.deref h0 l).LL1.next (List.Tot.tl n) r h0 h1
 #pop-options
 
 #push-options "--fuel 1 --ifuel 1"
@@ -257,7 +259,7 @@ let rec free_peer_list (r_spine: HS.rid) (r_peers_payload: HS.rid) (hd: LL1.t pe
     B.free data.hs;
     let h1 = ST.get () in
     LL1.frame next (List.Tot.tl l) B.(loc_all_regions_from false r_peers_payload) h0 h1;
-    frame_peers_invariant r_peers_payload next (List.Tot.tl l)
+    frame_peers_invariants r_peers_payload next (List.Tot.tl l)
       B.(loc_addr_of_buffer data.device `loc_union` loc_addr_of_buffer data.hs) h0 h1;
     free_peer_list r_spine r_peers_payload next (List.Tot.tl l)
 #pop-options
@@ -354,7 +356,6 @@ val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
     B.live h0 hs /\
     B.length hs == 8 /\
     B.freeable hs /\
-    // TODO: probably need to keep a loc_in peers_footprint in the global invariant
     B.loc_addr_of_buffer hs `B.loc_disjoint` peers_footprint (LL2.v h0 d.peers) /\
     B.(loc_all_regions_from false d.r_peers_payload `loc_includes` loc_addr_of_buffer hs)
     )
@@ -369,20 +370,33 @@ val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
     // Clients can conclude that hs remains unchanged.
     B.(modifies (loc_all_regions_from false d.r_peers) h0 h1))))
 
-#push-options "--z3rlimit 100 --ifuel 1 --fuel 1"
+#push-options "--z3rlimit 200 --fuel 1 \
+  --using_facts_from '* -LowStar.Monotonic.Buffer.unused_in_not_unused_in_disjoint_2'"
 let insert_peer d id hs =
   (**) let h0 = ST.get () in
+  (**) B.loc_unused_in_not_unused_in_disjoint h0;
   (**) let l0: G.erased _ = LL2.v h0 d.peers in
   let device = B.malloc d.r_peers_payload d 1ul in
+  (**) let h01 = ST.get () in
+  (**) B.loc_unused_in_not_unused_in_disjoint h01;
   let p = { id; hs; device } in
   LL2.push d.peers p;
   (**) let h1 = ST.get () in
+  (**) B.loc_unused_in_not_unused_in_disjoint h1;
+  (**) assert B.(modifies (loc_all_regions_from false d.r_peers) h0 h1);
   (**) push_grows_footprint d.peers h0 h1;
   (**) let l1: G.erased _ = LL2.v h1 d.peers in
   (**) LL2.footprint_in_r h1 d.peers;
   (**) IM.frame d.peer_of_id (B.loc_all_regions_from false d.r_peers) h0 h1;
   (**) assert (IM.v h1 d.peer_of_id == IM.v h0 d.peer_of_id);
   (**) assert (peers_disjoint (LL2.v h1 d.peers));
+  (**) assert (peer_invariant h1 p);
+  (**) assert (B.(loc_all_regions_from false d.r_peers_payload `loc_includes` peer_footprint p));
+  (**) assert (peers_invariants h0 d.r_peers_payload (LL2.v h0 d.peers));
+  (**) frame_peers_invariants d.r_peers_payload (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v)
+    B.(loc_all_regions_from false d.r_peers) h0 h1;
+  (**) assert (peers_invariants h1 d.r_peers_payload (LL2.v h0 d.peers));
+  (**) assert (peers_invariants h1 d.r_peers_payload (LL2.v h1 d.peers));
   admit ()
 
 let main (): St Int32.t =
