@@ -147,6 +147,7 @@ val create_in: #a:Type -> r:HS.rid -> ST (t a)
     B.(modifies loc_none h0 h1) /\
     B.fresh_loc (footprint h1 ll) h0 h1 /\
     v h1 ll == [] /\
+    cells h1 ll == [] /\
     ll.r == r)
 
 #push-options "--fuel 1"
@@ -168,13 +169,17 @@ val push: #a:Type -> ll: t a -> x: a -> ST unit
     // Precise modifies clause, commented out -- I'd rather force the clients to
     // reason via the footprint and the lemma about footprint inclusion.
     // B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v) h0 h1) /\
-    v h1 ll == x :: v h0 ll)
+    v h1 ll == x :: v h0 ll /\
+    Cons? (cells h1 ll) /\ List.Tot.tl (cells h1 ll) == cells h0 ll)
 
+#push-options "--fuel 1"
 let push #a ll x =
   LL1.push ll.spine_rid (!* ll.v) ll.ptr x;
   let v = !* ll.v in
   ll.v *= G.hide (x :: v)
+#pop-options
 
+#push-options "--fuel 1"
 val pop: #a:Type -> ll: t a -> ST a
   (requires fun h0 ->
     invariant h0 ll /\
@@ -185,6 +190,7 @@ val pop: #a:Type -> ll: t a -> ST a
     B.(modifies (footprint h0 ll) h0 h1) /\
     // B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v) h0 h1) /\
     v h1 ll == tl /\
+    cells h1 ll == List.Tot.tl (cells h0 ll) /\
     x == hd)
 
 let pop #a ll =
@@ -205,9 +211,11 @@ val maybe_pop: #a:Type -> ll: t a -> ST (option a)
         Cons? (v h0 ll) /\ (
         let hd :: tl = v h0 ll in
         v h1 ll == tl /\
+        cells h1 ll == List.Tot.tl (cells h0 ll) /\
         x == hd)
     | None ->
         Nil? (v h0 ll)))
+#pop-options
 
 #push-options "--fuel 1 --ifuel 1"
 let maybe_pop #a ll =
@@ -227,12 +235,15 @@ val clear: #a:Type -> ll: t a -> ST unit
     invariant h1 ll /\
     B.(modifies (footprint h0 ll) h0 h1) /\
     // B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v `loc_union` loc_region_only true ll.spine_rid) h0 h1) /\
-    v h1 ll == [])
+    v h1 ll == [] /\
+    cells h1 ll == [])
 
+#push-options "--fuel 1"
 let clear #a ll =
   let v = !* ll.v in
   LL1.free #_ #v ll.ptr;
   ll.v *= G.hide []
+#pop-options
 
 val free: #a:Type -> ll: t a -> ST unit
   (requires fun h0 ->

@@ -235,6 +235,7 @@ let is_readonly_builtin_lid lid =
     [ "C"; "Nullity" ], "op_Bang_Star";
     [ "Lib"; "IntVector"; "Intrinsics" ], "vec128_smul64";
     [ "Lib"; "IntVector"; "Intrinsics" ], "vec256_smul64";
+    [ "FStar"; "UInt128" ], "uint128_to_uint64";
     ["LowStar"; "Monotonic"; "Buffer"], "mnull";
   ] in
   List.exists (fun lid' ->

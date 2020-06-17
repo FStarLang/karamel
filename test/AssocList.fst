@@ -31,7 +31,7 @@ type peer = {
 // Simplified equivalent of wg_device.
 and device = {
   peers: LL2.t peer;
-  // IM'm doing pointer sharing here so that the peers in peer_of_id are pointing
+  // I'm doing pointer sharing here so that the peers in peer_of_id are pointing
   // directly to the list cells in the linked list, like in WireGuard
   peer_of_id: IM.t UInt64.t (LL1.t peer);
   r: HS.rid;
@@ -51,6 +51,7 @@ let peer_invariant (h: HS.mem) (p: peer) =
   B.live h p.device /\
   B.freeable p.device /\
   B.loc_disjoint (B.loc_addr_of_buffer p.hs) (B.loc_addr_of_buffer p.device)
+  // JP: should this be strengthened to say that this peer is the one found in peer_of_id via p.device?
 
 let peer_footprint (p: peer) =
   B.loc_addr_of_buffer p.hs `B.loc_union`
@@ -113,19 +114,6 @@ let rec peer_by_id (id: UInt64.t) (ps: list peer) =
         peer_by_id id ps
   | [] ->
       None
-
-// let rec cell_by_id (h: HS.mem) (id: UInt64.t) (cs: list (B.pointer (LL1.cell peer))): Ghost (option (LL1.cell peer))
-//   (requires LL1.well_formed h 
-//   allow_inversion (list (LL1.cell peer));
-//   match cs with
-//   | c :: cs ->
-//       let p = B.deref h c in
-//       if p.LL1.data.id = id then
-//         Some c
-//       else
-//         cell_by_id h id cs
-//   | [] ->
-//       None
 
 let peer_of_id_in_peers (h: HS.mem) (d: device) (i: UInt64.t): Ghost Type
   (requires LL2.invariant h d.peers)
@@ -206,6 +194,7 @@ let rec frame_peers_invariant (r_payload: HS.rid) (l: LL1.t peer) (n: list peer)
     let p = List.Tot.hd n in
     let ps = List.Tot.tl n in
     frame_peers_invariant r_payload (B.deref h0 l).LL1.next (List.Tot.tl n) r h0 h1
+#pop-options
 
 #push-options "--fuel 1 --ifuel 1"
 let rec peer_by_id_invariant (h: HS.mem) (r: HS.rid) (ps: list peer) (p: peer) (id: UInt64.t): Lemma
@@ -243,7 +232,7 @@ let create_in (r: HS.rid): ST device
   { peers; peer_of_id; r; r_peers; r_peer_of_id; r_peers_payload }
 #pop-options
 
-#push-options "--fuel 1"
+#push-options "--fuel 1 --ifuel 1"
 let rec free_peer_list (r_spine: HS.rid) (r_peers_payload: HS.rid) (hd: LL1.t peer) (l: G.erased (list peer)):
   ST unit
     (requires fun h0 ->
@@ -314,6 +303,68 @@ val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
     // Clients can conclude that hs remains unchanged.
     B.(modifies (loc_all_regions_from false d.r_peers) h0 h1))))
 
+#push-options "--ifuel 1"
+let rec footprint_via_cells #a (l: list (B.pointer (LL1.cell a))): GTot B.loc =
+  match l with
+  | c :: cs -> B.loc_addr_of_buffer c `B.loc_union` footprint_via_cells cs
+  | [] -> B.loc_none
+#pop-options
+
+#push-options "--fuel 1 --ifuel 1"
+let rec footprint_via_cells_is_footprint #a (h: HS.mem) (ll: LL1.t a) (l: list a): Lemma
+  (requires LL1.well_formed h ll l)
+  (ensures
+    LL1.footprint h ll l == footprint_via_cells (LL1.cells h ll l))
+  (decreases l)
+=
+  if B.g_is_null ll then
+    ()
+  else
+    footprint_via_cells_is_footprint h (B.deref h ll).LL1.next (List.Tot.tl l)
+#pop-options
+
+#push-options "--fuel 1 --ifuel 1"
+let push_grows_footprint #a (ll: LL2.t a) (h0 h1: HS.mem): Lemma
+  (requires (
+    LL2.invariant h0 ll /\
+    LL2.invariant h1 ll /\
+    Cons? (LL2.cells h1 ll) /\
+    List.Tot.tl (LL2.cells h1 ll) == LL2.cells h0 ll /\
+    List.Tot.tl (LL2.v h1 ll) == LL2.v h0 ll))
+  (ensures (
+    LL2.footprint h1 ll `B.loc_includes` LL2.footprint h0 ll))
+=
+  let open LL2 in
+  let head = B.deref h1 ll.ptr in
+  let v = B.deref h1 ll.v in
+  calc (==) {
+    footprint h1 ll;
+  (==) { }
+    B.(loc_addr_of_buffer ll.ptr `loc_union`
+      loc_addr_of_buffer ll.v `loc_union` LL1.footprint h1 head v);
+  (==) { }
+    B.(loc_addr_of_buffer ll.ptr `loc_union`
+      loc_addr_of_buffer ll.v `loc_union`
+      (loc_addr_of_buffer (B.deref h1 ll.ptr) `loc_union`
+      LL1.footprint h1 (B.deref h1 head).LL1.next (List.Tot.tl v)));
+  (==) { footprint_via_cells_is_footprint h1 (B.deref h1 head).LL1.next (List.Tot.tl v) }
+    B.(loc_addr_of_buffer ll.ptr `loc_union`
+      loc_addr_of_buffer ll.v `loc_union`
+      (loc_addr_of_buffer (B.deref h1 ll.ptr) `loc_union`
+      footprint_via_cells (LL1.cells h1 (B.deref h1 head).LL1.next (List.Tot.tl v))));
+  (==) { }
+    B.(loc_addr_of_buffer ll.ptr `loc_union`
+      loc_addr_of_buffer ll.v `loc_union`
+      (loc_addr_of_buffer (B.deref h1 ll.ptr) `loc_union`
+      footprint_via_cells (LL2.cells h0 ll)));
+  (==) { footprint_via_cells_is_footprint h0 (B.deref h0 ll.LL2.ptr) (List.Tot.tl v) }
+    B.(loc_addr_of_buffer ll.ptr `loc_union`
+      loc_addr_of_buffer ll.v `loc_union`
+      (loc_addr_of_buffer (B.deref h1 ll.ptr) `loc_union`
+      LL1.footprint h0 (B.deref h0 ll.ptr) (List.Tot.tl v)));
+  }
+#pop-options
+
 #push-options "--z3rlimit 100"
 let insert_peer d id hs =
   (**) let h0 = ST.get () in
@@ -322,31 +373,12 @@ let insert_peer d id hs =
   let p = { id; hs; device } in
   LL2.push d.peers p;
   (**) let h1 = ST.get () in
+  (**) push_grows_footprint d.peers h0 h1;
   (**) let l1: G.erased _ = LL2.v h1 d.peers in
   (**) LL2.footprint_in_r h1 d.peers;
   (**) IM.frame d.peer_of_id (B.loc_all_regions_from false d.r_peers) h0 h1;
   (**) assert (IM.v h1 d.peer_of_id == IM.v h0 d.peer_of_id);
-  let aux (i: UInt64.t): Lemma
-    (ensures peer_of_id_in_peers h1 d i)
-  =
-    assert (peer_of_id_in_peers h0 d i);
-    let m = IM.v h1 d.peer_of_id in
-    let p = peer_by_id i l1 in
-    if i <> id then begin
-      assert (p == peer_by_id i l0);
-      match M.sel m i with
-      | None -> ()
-      | Some ptr ->
-          peer_by_id_invariant h0 d.r_peers_payload l0 (Some?.v p) i;
-          assert (peer_invariant h0 (Some?.v p));
-          //assert (B.deref h1 ptr == B.deref h0 ptr);
-          admit ()
-    end else
-      admit ()
-  in
   admit ()
-  //assert (invariant h1 d);
-  //admit ()
 
 let main (): St Int32.t =
   let r = ST.new_region HS.root in
