@@ -172,13 +172,24 @@ let invariant (h: HS.mem) (d: device) =
   // the payload of the peers is recursive, we don't automatically get
   // disjointness of fresh allocations w.r.t. peers_footprint which is a drag.
   B.(loc_includes (loc_all_regions_from false d.r_peers_payload) (peers_footprint (LL2.v h d.peers))) /\
-  B.loc_in (peers_footprint (LL2.v h d.peers)) h /\
 
   peers_back h d (LL2.v h d.peers) /\
   (forall (i: UInt64.t). {:pattern peer_of_id_in_peers h d i }
     peer_of_id_in_peers h d i) /\
   True
 
+#push-options "--fuel 1"
+let rec peer_footprint_in (h: HS.mem) (r: HS.rid) (ps: list peer): Lemma
+  (requires peers_invariant h r ps)
+  (ensures B.loc_in (peers_footprint ps) h)
+=
+  let _ = allow_inversion (list peer) in
+  match ps with
+  | [] -> ()
+  | p :: ps ->
+      assert (B.loc_in (peer_footprint p) h);
+      peer_footprint_in h r ps
+#pop-options
 
 #push-options "--fuel 1 --ifuel 1"
 let rec frame_peers_invariants (r_payload: HS.rid) (l: LL1.t peer) (n: list peer) (r: B.loc) (h0 h1: HS.mem): Lemma
@@ -192,7 +203,6 @@ let rec frame_peers_invariants (r_payload: HS.rid) (l: LL1.t peer) (n: list peer
     peers_invariants h1 r_payload n
   ))
   (decreases n)
-  [ SMTPat (peers_invariant h1 r_payload n); SMTPat (LL1.well_formed h1 l n); SMTPat (B.modifies r h0 h1) ]
 =
   if B.g_is_null l then
     ()
@@ -285,6 +295,8 @@ let free_ d =
   assert (IM.invariant h2 d.peer_of_id);
   IM.free d.peer_of_id
 
+/// Start helpers that did not turn out to be useful
+/// ------------------------------------------------
 
 #push-options "--ifuel 1"
 let rec footprint_via_cells #a (l: list (B.pointer (LL1.cell a))): GTot B.loc =
@@ -348,6 +360,9 @@ let push_grows_footprint #a (ll: LL2.t a) (h0 h1: HS.mem): Lemma
   }
 #pop-options
 
+/// ----------------------------------------------
+/// End helpers that did not turn out to be useful
+
 val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
   (requires fun h0 ->
     invariant h0 d /\
@@ -370,26 +385,45 @@ val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
     // Clients can conclude that hs remains unchanged.
     B.(modifies (loc_all_regions_from false d.r_peers) h0 h1))))
 
+/// Because of this using_facts_from I have to manually call
+/// loc_unused_in_not_unused_in_disjoint after every stateful operation.
 #push-options "--z3rlimit 200 --fuel 1 \
   --using_facts_from '* -LowStar.Monotonic.Buffer.unused_in_not_unused_in_disjoint_2'"
 let insert_peer d id hs =
   (**) let h0 = ST.get () in
   (**) B.loc_unused_in_not_unused_in_disjoint h0;
   (**) let l0: G.erased _ = LL2.v h0 d.peers in
+
   let device = B.malloc d.r_peers_payload d 1ul in
   (**) let h01 = ST.get () in
   (**) B.loc_unused_in_not_unused_in_disjoint h01;
+
   let p = { id; hs; device } in
   LL2.push d.peers p;
+  // Let's start by stating some things we know
   (**) let h1 = ST.get () in
+  (**) let l1: G.erased _ = LL2.v h1 d.peers in
   (**) B.loc_unused_in_not_unused_in_disjoint h1;
   (**) assert B.(modifies (loc_all_regions_from false d.r_peers) h0 h1);
-  (**) push_grows_footprint d.peers h0 h1;
-  (**) let l1: G.erased _ = LL2.v h1 d.peers in
+
+  //(**) push_grows_footprint d.peers h0 h1;
+  // This one does not trigger...
   (**) LL2.footprint_in_r h1 d.peers;
+
+  // Establishing IM.invariant
   (**) IM.frame d.peer_of_id (B.loc_all_regions_from false d.r_peers) h0 h1;
   (**) assert (IM.v h1 d.peer_of_id == IM.v h0 d.peer_of_id);
+
+  // This one crucially relies on the loc_in clause. Note: I tried to keep the
+  // loc_in in the invariant but this turned out to be a nightmare to establish
+  // (cf a discussion with Tahina on address-insensitive locations to which I
+  // understand close to nothing), so it's easier to derive it from the
+  // invariant. In general, there's a limit to how much stuff one should cram
+  // into the invariant!
+  (**) peer_footprint_in h0 d.r_peers_payload (LL2.v h0 d.peers);
   (**) assert (peers_disjoint (LL2.v h1 d.peers));
+
+  // Trying to establish peers_invariant
   (**) assert (peer_invariant h1 p);
   (**) assert (B.(loc_all_regions_from false d.r_peers_payload `loc_includes` peer_footprint p));
   (**) assert (peers_invariants h0 d.r_peers_payload (LL2.v h0 d.peers));
