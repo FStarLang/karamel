@@ -198,6 +198,10 @@ let rec length_functional #a (h: HS.mem) (c: t a) (l1 l2: list a):
 /// very convenient, but that's alright, another layer of abstraction will take
 /// care of adding existentials and extra machinery to make this more pleasant
 /// to use.
+///
+/// All of the operations below are low-level (in the sense that they rely on
+/// the predicate). I expect clients to use exclusively the variants of these
+/// functions present in LL2.
 
 val push: (#a: Type) -> (r: HS.rid) -> (n: G.erased (list a)) -> (pl: B.pointer (t a)) -> (x: a) ->
   ST unit
@@ -219,7 +223,8 @@ val push: (#a: Type) -> (r: HS.rid) -> (n: G.erased (list a)) -> (pl: B.pointer 
       well_formed h1 l n' /\
       invariant h1 l n' /\
       B.(loc_includes (loc_region_only true r) (footprint h1 l n') /\
-      Cons? (cells h1 l n') /\ List.Tot.tail (cells h1 l n') == cells h0 (B.deref h0 pl) n)
+      Cons? (cells h1 l n') /\ List.Tot.tail (cells h1 l n') == cells h0 (B.deref h0 pl) n /\
+      B.fresh_loc (B.loc_addr_of_buffer (List.Tot.hd (cells h1 l n'))) h0 h1)
     ))
 
 let push #a r n pl x =

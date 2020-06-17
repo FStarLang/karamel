@@ -85,6 +85,11 @@ val v: #a:Type -> h:HS.mem -> ll: t a -> GTot (list a)
 let v #_ h ll =
   B.deref h ll.v
 
+/// Normally clients want to reason via the footprint. However, in some case
+/// (e.g. taking pointers directly to list cells), it's helpful to have a more
+/// precise way to reason about the footprint. This is done via the cells, a
+/// list of pointers to the individual cells, which characterizes fully the
+/// footprint (see footprint_via_cells_is_footprint).
 val cells: #a:Type -> h:HS.mem -> ll: t a -> Ghost (list (B.pointer (LL1.cell a)))
   (requires invariant h ll)
   (ensures fun _ -> True)
@@ -138,7 +143,20 @@ let frame_region #_ ll _ h0 h1 =
   footprint_in_r h0 ll;
   ()
 
+/// Stateful operations
+/// -------------------
+///
+/// These are high-level and use the ``v`` function. I expect clients to drop
+/// into the LL1 representation only when they need to iterate, e.g. to find a
+/// list element, or to remove a list element.
+///
+/// Note that these functions have a "dual" specification, both in terms of the
+/// ``footprint`` predicate (coarse) and in terms of the ``cells`` predicate
+/// (precise). Most clients will be content with the former and region-based
+/// reasoning, but advanced clients that e.g. take pointers directly to list
+/// cells will most likely need to use the latter.
 
+/// Heap allocation of a fresh linked list.
 val create_in: #a:Type -> r:HS.rid -> ST (t a)
   (requires fun h0 ->
     ST.is_eternal_region r)
@@ -166,11 +184,12 @@ val push: #a:Type -> ll: t a -> x: a -> ST unit
     invariant h1 ll /\
     // Coarse modifies clause
     B.(modifies (footprint h0 ll) h0 h1) /\
-    // Precise modifies clause, commented out -- I'd rather force the clients to
-    // reason via the footprint and the lemma about footprint inclusion.
-    // B.(modifies (loc_buffer ll.ptr `loc_union` loc_buffer ll.v) h0 h1) /\
+    // Functional spec
     v h1 ll == x :: v h0 ll /\
-    Cons? (cells h1 ll) /\ List.Tot.tl (cells h1 ll) == cells h0 ll)
+    // Precise effect on memory, ignore if you're content with reasoning via the
+    // footprint (which is known to be always included in the region).
+    Cons? (cells h1 ll) /\ List.Tot.tl (cells h1 ll) == cells h0 ll /\
+    B.fresh_loc (B.loc_addr_of_buffer (List.Tot.hd (cells h1 ll))) h0 h1)
 
 #push-options "--fuel 1"
 let push #a ll x =

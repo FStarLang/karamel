@@ -365,7 +365,7 @@ let push_grows_footprint #a (ll: LL2.t a) (h0 h1: HS.mem): Lemma
   }
 #pop-options
 
-#push-options "--z3rlimit 100"
+#push-options "--z3rlimit 100 --ifuel 1 --fuel 1"
 let insert_peer d id hs =
   (**) let h0 = ST.get () in
   (**) let l0: G.erased _ = LL2.v h0 d.peers in
@@ -378,6 +378,7 @@ let insert_peer d id hs =
   (**) LL2.footprint_in_r h1 d.peers;
   (**) IM.frame d.peer_of_id (B.loc_all_regions_from false d.r_peers) h0 h1;
   (**) assert (IM.v h1 d.peer_of_id == IM.v h0 d.peer_of_id);
+  (**) assert (peers_disjoint (LL2.v h0 d.peers));
   admit ()
 
 let main (): St Int32.t =
