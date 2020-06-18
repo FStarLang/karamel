@@ -16,6 +16,8 @@ open FStar.HyperStack.ST
 
 #set-options "--fuel 0 --ifuel 0"
 
+/// Definition of types. I'm aiming to capture the essence of the Wireguard use case.
+
 // Simple representation of noise_handshake. One extra indirection compared to
 // wireguard, alas.
 let handshake_state = B.buffer UInt8.t
@@ -35,8 +37,11 @@ and device = {
   // directly to the list cells in the linked list, like in WireGuard
   peer_of_id: IM.t UInt64.t (LL1.t peer);
   r: HS.rid;
+  // Region for the spine of the linked list.
   r_peers: HS.rid;
+  // Region for the imperative map.
   r_peer_of_id: HS.rid;
+  // Region for the payload of each list cell.
   r_peers_payload: HS.rid;
 }
 
@@ -122,7 +127,10 @@ let peer_of_id_in_peers (h: HS.mem) (d: device) (i: UInt64.t): Ghost Type
   let m = IM.v h d.peer_of_id in
   let p = peer_by_id i (LL2.v h d.peers) in
   match M.sel m i with
-  | None -> p == None
+  | None ->
+      // peer_of_id is an incomplete map -- it may not contain pointers to all elements in peer_of_id
+      // if we wanted to make is so, we'd have to have p == None here
+      True
   | Some ptr ->
       ~(B.g_is_null ptr) /\
       B.(loc_includes (LL2.footprint h d.peers) (loc_addr_of_buffer ptr)) /\
@@ -168,9 +176,10 @@ let invariant (h: HS.mem) (d: device) =
   LL2.invariant h d.peers /\
   IM.invariant h d.peer_of_id /\
   peers_invariant h d.r_peers_payload (LL2.v h d.peers) /\
-  // Technicality: just like for LL1 (see comment there), since the footprint of
-  // the payload of the peers is recursive, we don't automatically get
-  // disjointness of fresh allocations w.r.t. peers_footprint which is a drag.
+  // This is one more fact (like peer_footprint_in) that should be readily
+  // available, but that cannot be derived automatically since it involves
+  // inductive reasoning on the list of peers. We therefore stash it in the
+  // invariant.
   B.(loc_includes (loc_all_regions_from false d.r_peers_payload) (peers_footprint (LL2.v h d.peers))) /\
 
   peers_back h d (LL2.v h d.peers) /\
@@ -179,6 +188,10 @@ let invariant (h: HS.mem) (d: device) =
   True
 
 #push-options "--fuel 1"
+/// Technicality: just like for LL1 (see comment there), since the footprint of
+/// the payload of the peers is recursive, we don't automatically get
+/// disjointness of fresh allocations w.r.t. peers_footprint which is a drag.
+/// So, clients have to manually call this lemma.
 let rec peer_footprint_in (h: HS.mem) (r: HS.rid) (ps: list peer): Lemma
   (requires peers_invariant h r ps)
   (ensures B.loc_in (peers_footprint ps) h)
@@ -190,6 +203,11 @@ let rec peer_footprint_in (h: HS.mem) (r: HS.rid) (ps: list peer): Lemma
       assert (B.loc_in (peer_footprint p) h);
       peer_footprint_in h r ps
 #pop-options
+
+/// Framing lemmas
+/// --------------
+///
+/// Since the list of peers is a recursive data structure, everything has to be framed manually.
 
 #push-options "--fuel 1 --ifuel 1"
 let rec frame_peers_back (l: B.loc) (h0 h1: HS.mem) (d: device) (ps: list peer): Lemma
@@ -225,8 +243,10 @@ let rec frame_peers_invariants (r_payload: HS.rid) (l: LL1.t peer) (n: list peer
     let p = List.Tot.hd n in
     let ps = List.Tot.tl n in
     frame_peers_invariants r_payload (B.deref h0 l).LL1.next (List.Tot.tl n) r h0 h1
+
 #pop-options
 
+/// TODO: what is this needed for?
 #push-options "--fuel 1 --ifuel 1"
 let rec peer_by_id_invariant (h: HS.mem) (r: HS.rid) (ps: list peer) (p: peer) (id: UInt64.t): Lemma
   (requires
@@ -243,6 +263,9 @@ let rec peer_by_id_invariant (h: HS.mem) (r: HS.rid) (ps: list peer) (p: peer) (
       else
         peer_by_id_invariant h r ps' p id
 #pop-options
+
+/// Stateful API
+/// ------------
 
 #push-options "--fuel 1"
 let create_in (r: HS.rid): ST device
@@ -449,7 +472,39 @@ let insert_peer d id hs =
 
   // Now, peers_back... getting near the end of the global invariant.
   (**) frame_peers_back B.(loc_all_regions_from false d.r_peers) h0 h1 d (LL2.v h0 d.peers);
-  admit ()
+
+  // Last part of the invariant
+  let aux (i: UInt64.t): Lemma
+    (ensures (peer_of_id_in_peers h1 d i))
+    [ SMTPat (peer_of_id_in_peers h1 d i) ]
+  =
+    assert (peer_of_id_in_peers h0 d i);
+    assert (IM.v h1 d.peer_of_id == IM.v h0 d.peer_of_id);
+    if i = id then begin
+      if Some? (M.sel (IM.v h0 d.peer_of_id) i) then begin
+        assert (Some? (peer_by_id i (LL2.v h0 d.peers)));
+        false_elim ()
+      end;
+      let _ = allow_inversion (option (LL1.t peer)) in
+      assert (M.sel (IM.v h0 d.peer_of_id) i == None);
+      assert (M.sel (IM.v h1 d.peer_of_id) i == None);
+      ()
+    end else begin
+      assert (List.Tot.tl (LL2.v h1 d.peers) == LL2.v h0 d.peers);
+      assert (peer_by_id i (List.Tot.tl (LL2.v h1 d.peers)) == peer_by_id i (LL2.v h0 d.peers));
+      assert (peer_by_id i (LL2.v h1 d.peers) == peer_by_id i (LL2.v h0 d.peers));
+      let m = IM.v h1 d.peer_of_id in
+      let p = peer_by_id i (LL2.v h1 d.peers) in
+      match M.sel m i with
+      | None -> ()
+      | Some ptr ->
+          assert (~(B.g_is_null ptr));
+          push_grows_footprint d.peers h0 h1;
+          assert (B.(loc_includes (LL2.footprint h1 d.peers) (loc_addr_of_buffer ptr)));
+          assume (p == Some ((B.deref h1 ptr).LL1.data))
+    end
+  in
+  ()
 
 let main (): St Int32.t =
   let r = ST.new_region HS.root in
