@@ -192,6 +192,21 @@ let rec peer_footprint_in (h: HS.mem) (r: HS.rid) (ps: list peer): Lemma
 #pop-options
 
 #push-options "--fuel 1 --ifuel 1"
+let rec frame_peers_back (l: B.loc) (h0 h1: HS.mem) (d: device) (ps: list peer): Lemma
+  (requires
+    B.(loc_disjoint l (loc_all_regions_from false d.r_peers_payload)) /\
+    peers_invariants h0 d.r_peers_payload ps /\
+    B.modifies l h0 h1 /\
+    peers_back h0 d ps)
+  (ensures
+    peers_back h1 d ps)
+=
+  match ps with
+  | [] ->
+      ()
+  | p :: ps ->
+      frame_peers_back l h0 h1 d ps
+
 let rec frame_peers_invariants (r_payload: HS.rid) (l: LL1.t peer) (n: list peer) (r: B.loc) (h0 h1: HS.mem): Lemma
   (requires (
     LL1.well_formed h0 l n /\
@@ -431,6 +446,9 @@ let insert_peer d id hs =
     B.(loc_all_regions_from false d.r_peers) h0 h1;
   (**) assert (peers_invariants h1 d.r_peers_payload (LL2.v h0 d.peers));
   (**) assert (peers_invariants h1 d.r_peers_payload (LL2.v h1 d.peers));
+
+  // Now, peers_back... getting near the end of the global invariant.
+  (**) frame_peers_back B.(loc_all_regions_from false d.r_peers) h0 h1 d (LL2.v h0 d.peers);
   admit ()
 
 let main (): St Int32.t =
