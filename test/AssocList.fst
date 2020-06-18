@@ -120,21 +120,41 @@ let rec peer_by_id (id: UInt64.t) (ps: list peer) =
   | [] ->
       None
 
+let rec cell_by_id (h: HS.mem) (id: UInt64.t) (ps: list (B.pointer (LL1.cell peer))):
+  GTot (option (B.pointer (LL1.cell peer)))
+=
+  allow_inversion (list (B.pointer (LL1.cell peer)));
+  match ps with
+  | p :: ps ->
+      if (B.deref h p).LL1.data.id = id then
+        Some p
+      else
+        cell_by_id h id ps
+  | [] ->
+      None
+
 let peer_of_id_in_peers (h: HS.mem) (d: device) (i: UInt64.t): Ghost Type
   (requires LL2.invariant h d.peers)
   (ensures fun _ -> True)
 =
   let m = IM.v h d.peer_of_id in
   let p = peer_by_id i (LL2.v h d.peers) in
+  // Note: going via cells has numerous advantages. First, we can switch back
+  // and forth between the footprint view and the cells view, and we have
+  // auxiliary lemmas for that here. Second, clients can derive useful
+  // properties by doing a induction on cells (which will reveal it computes the
+  // same thing as LL2.v).
+  let cell = cell_by_id h i (LL2.cells h d.peers) in
   match M.sel m i with
   | None ->
       // peer_of_id is an incomplete map -- it may not contain pointers to all elements in peer_of_id
       // if we wanted to make is so, we'd have to have p == None here
       True
   | Some ptr ->
-      ~(B.g_is_null ptr) /\
-      B.(loc_includes (LL2.footprint h d.peers) (loc_addr_of_buffer ptr)) /\
-      p == Some ((B.deref h ptr).LL1.data)
+      // Much simpler than before! Clients can use cell_by_id is peer_by_id to
+      // derive stuff like, the peer found in the table verifies its invariant.
+      Some? cell /\
+      ptr == Some?.v cell
 
 /// Back pointers invariant
 /// -----------------------
@@ -246,7 +266,7 @@ let rec frame_peers_invariants (r_payload: HS.rid) (l: LL1.t peer) (n: list peer
 
 #pop-options
 
-/// TODO: what is this needed for?
+/// A helper lemma for clients.
 #push-options "--fuel 1 --ifuel 1"
 let rec peer_by_id_invariant (h: HS.mem) (r: HS.rid) (ps: list peer) (p: peer) (id: UInt64.t): Lemma
   (requires
@@ -333,9 +353,10 @@ let free_ d =
   assert (IM.invariant h2 d.peer_of_id);
   IM.free d.peer_of_id
 
-/// Start helpers that did not turn out to be useful
-/// ------------------------------------------------
+/// Some helper lemmas
+/// ------------------
 
+/// TODO: move to LL2
 #push-options "--ifuel 1"
 let rec footprint_via_cells #a (l: list (B.pointer (LL1.cell a))): GTot B.loc =
   match l with
@@ -343,6 +364,7 @@ let rec footprint_via_cells #a (l: list (B.pointer (LL1.cell a))): GTot B.loc =
   | [] -> B.loc_none
 #pop-options
 
+/// TODO: move to LL2
 #push-options "--fuel 1 --ifuel 1"
 let rec footprint_via_cells_is_footprint #a (h: HS.mem) (ll: LL1.t a) (l: list a): Lemma
   (requires LL1.well_formed h ll l)
@@ -356,6 +378,59 @@ let rec footprint_via_cells_is_footprint #a (h: HS.mem) (ll: LL1.t a) (l: list a
     footprint_via_cells_is_footprint h (B.deref h ll).LL1.next (List.Tot.tl l)
 #pop-options
 
+#push-options "--fuel 1 --ifuel 1"
+let rec cell_by_id_is_peer_by_id (h: HS.mem) (i: UInt64.t) (ll: LL1.t peer) (l: list peer): Lemma
+  (requires
+    LL1.well_formed h ll l /\
+    LL1.invariant h ll l)
+  (ensures (
+    let p = peer_by_id i l in
+    let c = cell_by_id h i (LL1.cells h ll l) in
+    (Some? c <==> Some? p) /\
+    (Some? c ==>
+      (B.deref h (Some?.v c)).LL1.data == (Some?.v p))))
+  (decreases l)
+=
+  if B.g_is_null ll then
+    ()
+  else
+    let p = peer_by_id i l in
+    let c = cell_by_id h i (LL1.cells h ll l) in
+    cell_by_id_is_peer_by_id h i (B.deref h ll).LL1.next (List.Tot.tl l)
+
+// Incredibly difficult to prove... sigh!!
+let rec cell_by_id_depends_only_on_v (h0 h1: HS.mem) (i: UInt64.t) (ll: LL1.t peer) (l: list peer): Lemma
+  (requires
+    LL1.well_formed h0 ll l /\
+    LL1.invariant h0 ll l /\
+    LL1.well_formed h1 ll l /\
+    LL1.invariant h1 ll l /\
+    LL1.cells h0 ll l == LL1.cells h1 ll l)
+  (ensures (
+    cell_by_id h0 i (LL1.cells h0 ll l) ==
+    cell_by_id h1 i (LL1.cells h0 ll l)))
+  (decreases l)
+=
+  if B.g_is_null ll then
+    ()
+  else if B.g_is_null (B.deref h0 ll).LL1.next && not (B.g_is_null (B.deref h1 ll).LL1.next) then
+    false_elim ()
+  else if not (B.g_is_null (B.deref h0 ll).LL1.next) && B.g_is_null (B.deref h1 ll).LL1.next then
+    false_elim ()
+  else if B.g_is_null (B.deref h0 ll).LL1.next && B.g_is_null (B.deref h1 ll).LL1.next then begin
+    B.null_unique (B.deref h0 ll).LL1.next;
+    B.null_unique (B.deref h1 ll).LL1.next;
+    assert ((B.deref h0 ll).LL1.next == (B.deref h1 ll).LL1.next);
+    cell_by_id_depends_only_on_v h0 h1 i (B.deref h1 ll).LL1.next (List.Tot.tl l)
+  end else begin
+    assert (LL1.cells h0 ll l == ll :: LL1.cells h0 (B.deref h0 ll).LL1.next (List.Tot.tl l));
+    assert (LL1.cells h1 ll l == ll :: LL1.cells h1 (B.deref h1 ll).LL1.next (List.Tot.tl l));
+    assert ((B.deref h0 ll).LL1.next == (B.deref h1 ll).LL1.next);
+    cell_by_id_depends_only_on_v h0 h1 i (B.deref h1 ll).LL1.next (List.Tot.tl l)
+  end
+#pop-options
+
+/// TODO: remove if unused or archive
 #push-options "--fuel 1 --ifuel 1"
 let push_grows_footprint #a (ll: LL2.t a) (h0 h1: HS.mem): Lemma
   (requires (
@@ -480,6 +555,8 @@ let insert_peer d id hs =
   =
     assert (peer_of_id_in_peers h0 d i);
     assert (IM.v h1 d.peer_of_id == IM.v h0 d.peer_of_id);
+    cell_by_id_is_peer_by_id h1 i (B.deref h1 d.peers.LL2.ptr) (B.deref h1 d.peers.LL2.v);
+    cell_by_id_is_peer_by_id h0 i (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v);
     if i = id then begin
       if Some? (M.sel (IM.v h0 d.peer_of_id) i) then begin
         assert (Some? (peer_by_id i (LL2.v h0 d.peers)));
@@ -490,19 +567,36 @@ let insert_peer d id hs =
       assert (M.sel (IM.v h1 d.peer_of_id) i == None);
       ()
     end else begin
-      assert (List.Tot.tl (LL2.v h1 d.peers) == LL2.v h0 d.peers);
-      assert (peer_by_id i (List.Tot.tl (LL2.v h1 d.peers)) == peer_by_id i (LL2.v h0 d.peers));
+      // Some reasoning about v peer_by_id... easy because it's not a stateful predicate.
+      assert (peer_by_id i (LL2.v h1 d.peers) == peer_by_id i (List.Tot.tl (LL2.v h1 d.peers)));
       assert (peer_by_id i (LL2.v h1 d.peers) == peer_by_id i (LL2.v h0 d.peers));
-      let m = IM.v h1 d.peer_of_id in
-      let p = peer_by_id i (LL2.v h1 d.peers) in
-      match M.sel m i with
-      | None -> ()
-      | Some ptr ->
-          assert (~(B.g_is_null ptr));
-          push_grows_footprint d.peers h0 h1;
-          assert (B.(loc_includes (LL2.footprint h1 d.peers) (loc_addr_of_buffer ptr)));
-          assume (p == Some ((B.deref h1 ptr).LL1.data))
-    end
+      // The cell is to be found in the tail of the list.
+      assert ((B.deref h1 (List.Tot.hd (LL2.cells h1 d.peers))).LL1.data == p);
+      assert (cell_by_id h1 i (LL2.cells h1 d.peers) == cell_by_id h1 i (List.Tot.tl (LL2.cells h1 d.peers)));
+      assert (cell_by_id h1 i (LL2.cells h1 d.peers) == cell_by_id h1 i (LL2.cells h0 d.peers));
+      assert (LL2.cells h0 d.peers == LL1.cells h0 (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v));
+      assert (List.Tot.tl (LL2.cells h1 d.peers) == LL1.cells h0 (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v));
+      assert (LL1.well_formed h0 (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v));
+      assert (LL1.well_formed h1 (B.deref h1 d.peers.LL2.ptr) (B.deref h1 d.peers.LL2.v));
+      let _ = allow_inversion (list peer) in
+      assert LL1.(well_formed h1 (B.deref h1 (B.deref h1 d.peers.LL2.ptr)).next (List.Tot.tl (B.deref h1 d.peers.LL2.v)));
+      assert (List.Tot.tl (B.deref h1 d.peers.LL2.v) == LL2.v h0 d.peers);
+      if B.g_is_null (B.deref h1 (B.deref h1 d.peers.LL2.ptr)).LL1.next &&
+        B.g_is_null (B.deref h0 d.peers.LL2.ptr)
+      then begin
+        B.null_unique (B.deref h1 (B.deref h1 d.peers.LL2.ptr)).LL1.next;
+        B.null_unique (B.deref h0 d.peers.LL2.ptr);
+        assert ((B.deref h1 (B.deref h1 d.peers.LL2.ptr)).LL1.next == B.deref h0 d.peers.LL2.ptr)
+      end else if not (B.g_is_null (B.deref h1 (B.deref h1 d.peers.LL2.ptr)).LL1.next) &&
+        not (B.g_is_null (B.deref h0 d.peers.LL2.ptr))
+      then begin
+        assert (LL1.cells h1 ((B.deref h1 (B.deref h1 d.peers.LL2.ptr)).LL1.next) (LL2.v h0 d.peers) ==
+          LL1.cells h1 (B.deref h0 d.peers.LL2.ptr) (LL2.v h0 d.peers));
+        assert ((B.deref h1 (B.deref h1 d.peers.LL2.ptr)).LL1.next == B.deref h0 d.peers.LL2.ptr)
+      end else
+        false_elim ();
+      cell_by_id_depends_only_on_v h0 h1 i (B.deref h0 d.peers.LL2.ptr) (LL2.v h0 d.peers)
+      end
   in
   ()
 
