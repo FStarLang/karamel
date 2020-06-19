@@ -74,6 +74,30 @@ let rec cells #a (h: HS.mem) (c: t a) (l: list a): Ghost (list (B.pointer (cell 
   else
     c :: cells h (B.deref h c).next (List.Tot.tl l)
 
+/// This should be absolutely trivial, yet, because there's no pattern on
+/// null_unique, we have to do the case analysis and the decomposition
+/// ourselves. This is quite tedious, as it usually takes a while (at least it
+/// did for me!) to realize that this property does not hold automatically.
+///
+/// I'm setting an SMTPat on this lemma because it's absolutely impossible to
+/// get any work done without it.
+let same_cells_same_pointer #a (h0 h1: HS.mem) (ll0 ll1: t a) (l: list a): Lemma
+  (requires (
+    well_formed h0 ll0 l /\
+    well_formed h1 ll1 l /\
+    cells h0 ll0 l == cells h1 ll1 l))
+  (ensures (
+    ll0 == ll1))
+  [ SMTPat (cells h0 ll0 l); SMTPat (cells h1 ll1 l) ]
+=
+  if B.g_is_null ll0 && B.g_is_null ll1 then begin
+    B.null_unique ll0;
+    B.null_unique ll1
+  end else if not (B.g_is_null ll0) && not (B.g_is_null ll1) then begin
+    ()
+  end else
+    false_elim ()
+
 /// Classic stateful reasoning lemmas
 /// ---------------------------------
 
@@ -185,6 +209,32 @@ let rec length_functional #a (h: HS.mem) (c: t a) (l1 l2: list a):
   else
     let { next=next } = B.get h c 0 in
     length_functional h next (G.hide (L.tl l1)) (G.hide (L.tl l2))
+
+/// These two allow conveniently switching to a low-level representation of the
+/// footprint in case clients want to do some ultra-precise reasoning about
+/// what's happening with the list spine. However, the fact that all
+/// operations from this module specify things in terms of ``cells`` along with
+/// ``same_cells_same_pointer`` should cover most common cases.
+#push-options "--ifuel 1"
+let rec footprint_via_cells #a (l: list (B.pointer (cell a))): GTot B.loc =
+  match l with
+  | c :: cs -> B.loc_addr_of_buffer c `B.loc_union` footprint_via_cells cs
+  | [] -> B.loc_none
+#pop-options
+
+/// TODO: move to LL2
+#push-options "--fuel 1 --ifuel 1"
+let rec footprint_via_cells_is_footprint #a (h: HS.mem) (ll: t a) (l: list a): Lemma
+  (requires well_formed h ll l)
+  (ensures
+    footprint h ll l == footprint_via_cells (cells h ll l))
+  (decreases l)
+=
+  if B.g_is_null ll then
+    ()
+  else
+    footprint_via_cells_is_footprint h (B.deref h ll).next (List.Tot.tl l)
+#pop-options
 
 /// The footprint is based on loc_addr_of_buffer so that we can write a free
 /// operation that operates on the footprint. However, this invalidates most of

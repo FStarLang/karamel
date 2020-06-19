@@ -356,27 +356,6 @@ let free_ d =
 /// Some helper lemmas
 /// ------------------
 
-/// TODO: move to LL2
-#push-options "--ifuel 1"
-let rec footprint_via_cells #a (l: list (B.pointer (LL1.cell a))): GTot B.loc =
-  match l with
-  | c :: cs -> B.loc_addr_of_buffer c `B.loc_union` footprint_via_cells cs
-  | [] -> B.loc_none
-#pop-options
-
-/// TODO: move to LL2
-#push-options "--fuel 1 --ifuel 1"
-let rec footprint_via_cells_is_footprint #a (h: HS.mem) (ll: LL1.t a) (l: list a): Lemma
-  (requires LL1.well_formed h ll l)
-  (ensures
-    LL1.footprint h ll l == footprint_via_cells (LL1.cells h ll l))
-  (decreases l)
-=
-  if B.g_is_null ll then
-    ()
-  else
-    footprint_via_cells_is_footprint h (B.deref h ll).LL1.next (List.Tot.tl l)
-#pop-options
 
 #push-options "--fuel 1 --ifuel 1"
 let rec cell_by_id_is_peer_by_id (h: HS.mem) (i: UInt64.t) (ll: LL1.t peer) (l: list peer): Lemma
@@ -398,7 +377,6 @@ let rec cell_by_id_is_peer_by_id (h: HS.mem) (i: UInt64.t) (ll: LL1.t peer) (l: 
     let c = cell_by_id h i (LL1.cells h ll l) in
     cell_by_id_is_peer_by_id h i (B.deref h ll).LL1.next (List.Tot.tl l)
 
-// Incredibly difficult to prove... sigh!!
 let rec cell_by_id_depends_only_on_v (h0 h1: HS.mem) (i: UInt64.t) (ll: LL1.t peer) (l: list peer): Lemma
   (requires
     LL1.well_formed h0 ll l /\
@@ -411,70 +389,12 @@ let rec cell_by_id_depends_only_on_v (h0 h1: HS.mem) (i: UInt64.t) (ll: LL1.t pe
     cell_by_id h1 i (LL1.cells h0 ll l)))
   (decreases l)
 =
+  // Crucially depends on same_cells_same_next.
   if B.g_is_null ll then
     ()
-  else if B.g_is_null (B.deref h0 ll).LL1.next && not (B.g_is_null (B.deref h1 ll).LL1.next) then
-    false_elim ()
-  else if not (B.g_is_null (B.deref h0 ll).LL1.next) && B.g_is_null (B.deref h1 ll).LL1.next then
-    false_elim ()
-  else if B.g_is_null (B.deref h0 ll).LL1.next && B.g_is_null (B.deref h1 ll).LL1.next then begin
-    B.null_unique (B.deref h0 ll).LL1.next;
-    B.null_unique (B.deref h1 ll).LL1.next;
-    assert ((B.deref h0 ll).LL1.next == (B.deref h1 ll).LL1.next);
+  else
     cell_by_id_depends_only_on_v h0 h1 i (B.deref h1 ll).LL1.next (List.Tot.tl l)
-  end else begin
-    assert (LL1.cells h0 ll l == ll :: LL1.cells h0 (B.deref h0 ll).LL1.next (List.Tot.tl l));
-    assert (LL1.cells h1 ll l == ll :: LL1.cells h1 (B.deref h1 ll).LL1.next (List.Tot.tl l));
-    assert ((B.deref h0 ll).LL1.next == (B.deref h1 ll).LL1.next);
-    cell_by_id_depends_only_on_v h0 h1 i (B.deref h1 ll).LL1.next (List.Tot.tl l)
-  end
 #pop-options
-
-/// TODO: remove if unused or archive
-#push-options "--fuel 1 --ifuel 1"
-let push_grows_footprint #a (ll: LL2.t a) (h0 h1: HS.mem): Lemma
-  (requires (
-    LL2.invariant h0 ll /\
-    LL2.invariant h1 ll /\
-    Cons? (LL2.cells h1 ll) /\
-    List.Tot.tl (LL2.cells h1 ll) == LL2.cells h0 ll /\
-    List.Tot.tl (LL2.v h1 ll) == LL2.v h0 ll))
-  (ensures (
-    LL2.footprint h1 ll `B.loc_includes` LL2.footprint h0 ll))
-=
-  let open LL2 in
-  let head = B.deref h1 ll.ptr in
-  let v = B.deref h1 ll.v in
-  calc (==) {
-    footprint h1 ll;
-  (==) { }
-    B.(loc_addr_of_buffer ll.ptr `loc_union`
-      loc_addr_of_buffer ll.v `loc_union` LL1.footprint h1 head v);
-  (==) { }
-    B.(loc_addr_of_buffer ll.ptr `loc_union`
-      loc_addr_of_buffer ll.v `loc_union`
-      (loc_addr_of_buffer (B.deref h1 ll.ptr) `loc_union`
-      LL1.footprint h1 (B.deref h1 head).LL1.next (List.Tot.tl v)));
-  (==) { footprint_via_cells_is_footprint h1 (B.deref h1 head).LL1.next (List.Tot.tl v) }
-    B.(loc_addr_of_buffer ll.ptr `loc_union`
-      loc_addr_of_buffer ll.v `loc_union`
-      (loc_addr_of_buffer (B.deref h1 ll.ptr) `loc_union`
-      footprint_via_cells (LL1.cells h1 (B.deref h1 head).LL1.next (List.Tot.tl v))));
-  (==) { }
-    B.(loc_addr_of_buffer ll.ptr `loc_union`
-      loc_addr_of_buffer ll.v `loc_union`
-      (loc_addr_of_buffer (B.deref h1 ll.ptr) `loc_union`
-      footprint_via_cells (LL2.cells h0 ll)));
-  (==) { footprint_via_cells_is_footprint h0 (B.deref h0 ll.LL2.ptr) (List.Tot.tl v) }
-    B.(loc_addr_of_buffer ll.ptr `loc_union`
-      loc_addr_of_buffer ll.v `loc_union`
-      (loc_addr_of_buffer (B.deref h1 ll.ptr) `loc_union`
-      LL1.footprint h0 (B.deref h0 ll.ptr) (List.Tot.tl v)));
-  }
-#pop-options
-
-/// ----------------------------------------------
-/// End helpers that did not turn out to be useful
 
 val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
   (requires fun h0 ->
@@ -548,7 +468,10 @@ let insert_peer d id hs =
   // Now, peers_back... getting near the end of the global invariant.
   (**) frame_peers_back B.(loc_all_regions_from false d.r_peers) h0 h1 d (LL2.v h0 d.peers);
 
-  // Last part of the invariant
+  // Last part of the invariant. Note: this is littered with asserts, most of
+  // which aren't strictly necessary for the proof, but while debugging the
+  // invariant and establishing auxiliary lemmas (e.g. same_pointer_same_thing)
+  // they were really helpful, so I'm leaving them in.
   let aux (i: UInt64.t): Lemma
     (ensures (peer_of_id_in_peers h1 d i))
     [ SMTPat (peer_of_id_in_peers h1 d i) ]
@@ -581,24 +504,62 @@ let insert_peer d id hs =
       let _ = allow_inversion (list peer) in
       assert LL1.(well_formed h1 (B.deref h1 (B.deref h1 d.peers.LL2.ptr)).next (List.Tot.tl (B.deref h1 d.peers.LL2.v)));
       assert (List.Tot.tl (B.deref h1 d.peers.LL2.v) == LL2.v h0 d.peers);
-      if B.g_is_null (B.deref h1 (B.deref h1 d.peers.LL2.ptr)).LL1.next &&
-        B.g_is_null (B.deref h0 d.peers.LL2.ptr)
-      then begin
-        B.null_unique (B.deref h1 (B.deref h1 d.peers.LL2.ptr)).LL1.next;
-        B.null_unique (B.deref h0 d.peers.LL2.ptr);
-        assert ((B.deref h1 (B.deref h1 d.peers.LL2.ptr)).LL1.next == B.deref h0 d.peers.LL2.ptr)
-      end else if not (B.g_is_null (B.deref h1 (B.deref h1 d.peers.LL2.ptr)).LL1.next) &&
-        not (B.g_is_null (B.deref h0 d.peers.LL2.ptr))
-      then begin
-        assert (LL1.cells h1 ((B.deref h1 (B.deref h1 d.peers.LL2.ptr)).LL1.next) (LL2.v h0 d.peers) ==
-          LL1.cells h1 (B.deref h0 d.peers.LL2.ptr) (LL2.v h0 d.peers));
-        assert ((B.deref h1 (B.deref h1 d.peers.LL2.ptr)).LL1.next == B.deref h0 d.peers.LL2.ptr)
-      end else
-        false_elim ();
+      // Also crucially depends on same_cells_same_pointer.
       cell_by_id_depends_only_on_v h0 h1 i (B.deref h0 d.peers.LL2.ptr) (LL2.v h0 d.peers)
       end
   in
   ()
+
+/// Continuing with the convention that the _ suffix indicates a function that
+/// operates on a LL1 and that a more convenient function is about to follow.
+/// Note that this function is specified in terms of cell_by_id which is
+/// stronger and can be converted to peer_by_id via the suitable lemma.
+let rec find_peer_by_id_ (ll: LL1.t peer) (l: G.erased (list peer)) (id: UInt64.t):
+  Stack (B.pointer_or_null (LL1.cell peer))
+    (requires fun h0 ->
+      LL1.well_formed h0 ll l /\
+      LL1.invariant h0 ll l)
+    (ensures fun h0 p h1 ->
+      h0 == h1 /\ (
+      let maybe_cell = cell_by_id h0 id (LL1.cells h0 ll l) in
+      (None? maybe_cell <==> B.g_is_null p) /\ (
+      not (B.g_is_null p) ==>
+        Some?.v maybe_cell == p)))
+=
+  let _ = allow_inversion (list peer) in
+  if B.is_null ll then
+    B.null
+  else
+    let { LL1.next; LL1.data } = !* ll in
+    if data.id = id then
+      ll
+    else
+      find_peer_by_id_ next (List.Tot.tl l) id
+
+let find_peer_by_id (d: device) (id: UInt64.t):
+  Stack (B.pointer_or_null (LL1.cell peer))
+    (requires fun h0 ->
+      invariant h0 d)
+    (ensures fun h0 p h1 ->
+      h0 == h1 /\ (
+      let maybe_cell = cell_by_id h0 id (LL2.cells h0 d.peers) in
+      (None? maybe_cell <==> B.g_is_null p) /\ (
+      not (B.g_is_null p) ==>
+        Some?.v maybe_cell == p)))
+=
+  find_peer_by_id_ !*d.peers.LL2.ptr !*d.peers.LL2.v id
+
+let link_peer_by_id (d: device) (id: UInt64.t):
+  Stack unit
+    (requires fun h0 ->
+      invariant h0 d /\
+      Some? (peer_by_id id (LL2.v h0 d.peers)))
+    (ensures fun h0 _ h1 ->
+      B.(modifies (loc_all_regions_from false d.r_peer_of_id) h0 h1) /\
+      invariant h1 d /\
+      Some? (M.sel (IM.v h1 d.peer_of_id) id))
+=
+  admit ()
 
 let main (): St Int32.t =
   let r = ST.new_region HS.root in
