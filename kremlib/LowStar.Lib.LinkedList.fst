@@ -81,14 +81,14 @@ let rec cells #a (h: HS.mem) (c: t a) (l: list a): Ghost (list (B.pointer (cell 
 ///
 /// I'm setting an SMTPat on this lemma because it's absolutely impossible to
 /// get any work done without it.
-let same_cells_same_pointer #a (h0 h1: HS.mem) (ll0 ll1: t a) (l: list a): Lemma
+let same_cells_same_pointer #a (h0 h1: HS.mem) (ll0 ll1: t a) (l0 l1: list a): Lemma
   (requires (
-    well_formed h0 ll0 l /\
-    well_formed h1 ll1 l /\
-    cells h0 ll0 l == cells h1 ll1 l))
+    well_formed h0 ll0 l0 /\
+    well_formed h1 ll1 l1 /\
+    cells h0 ll0 l0 == cells h1 ll1 l1))
   (ensures (
     ll0 == ll1))
-  [ SMTPat (cells h0 ll0 l); SMTPat (cells h1 ll1 l) ]
+  [ SMTPat (cells h0 ll0 l0); SMTPat (cells h1 ll1 l1) ]
 =
   if B.g_is_null ll0 && B.g_is_null ll1 then begin
     B.null_unique ll0;
