@@ -191,7 +191,7 @@ val push: #a:Type -> ll: t a -> x: a -> ST unit
     Cons? (cells h1 ll) /\ List.Tot.tl (cells h1 ll) == cells h0 ll /\
     B.fresh_loc (B.loc_addr_of_buffer (List.Tot.hd (cells h1 ll))) h0 h1)
 
-#push-options "--fuel 1"
+#push-options "--fuel 1 --ifuel 1"
 let push #a ll x =
   LL1.push ll.spine_rid (!* ll.v) ll.ptr x;
   let v = !* ll.v in
