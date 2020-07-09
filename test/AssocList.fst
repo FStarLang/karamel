@@ -138,7 +138,6 @@ let peer_of_id_in_peers (h: HS.mem) (d: device) (i: UInt64.t): Ghost Type
   (ensures fun _ -> True)
 =
   let m = IM.v h d.peer_of_id in
-  let p = peer_by_id i (LL2.v h d.peers) in
   // Note: going via cells has numerous advantages. First, we can switch back
   // and forth between the footprint view and the cells view, and we have
   // auxiliary lemmas for that here. Second, clients can derive useful
@@ -396,6 +395,7 @@ let rec cell_by_id_depends_only_on_v (h0 h1: HS.mem) (i: UInt64.t) (ll: LL1.t pe
     cell_by_id_depends_only_on_v h0 h1 i (B.deref h1 ll).LL1.next (List.Tot.tl l)
 #pop-options
 
+// JP: should this one return the freshly-allocated peer?
 val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
   (requires fun h0 ->
     invariant h0 d /\
@@ -550,7 +550,7 @@ let find_peer_by_id (d: device) (id: UInt64.t):
   find_peer_by_id_ !*d.peers.LL2.ptr !*d.peers.LL2.v id
 
 let link_peer_by_id (d: device) (id: UInt64.t):
-  Stack unit
+  ST unit
     (requires fun h0 ->
       invariant h0 d /\
       Some? (peer_by_id id (LL2.v h0 d.peers)))
@@ -559,32 +559,40 @@ let link_peer_by_id (d: device) (id: UInt64.t):
       invariant h1 d /\
       Some? (M.sel (IM.v h1 d.peer_of_id) id))
 =
-  admit ()
+  (**) let h0 = ST.get () in
+  let p = find_peer_by_id d id in
+  IM.add d.peer_of_id id p;
+  (**) let h1 = ST.get () in
+  (**) LL2.frame_region d.peers B.(loc_all_regions_from false d.r_peer_of_id) h0 h1;
+  (**) LL2.footprint_in_r h1 d.peers;
+  (**) peer_footprint_in h0 d.r_peers_payload (LL2.v h0 d.peers);
+  (**) frame_peers_invariants d.r_peers_payload (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v)
+    B.(loc_all_regions_from false d.r_peer_of_id) h0 h1;
+  (**) peer_footprint_in h1 d.r_peers_payload (LL2.v h1 d.peers);
+  (**) frame_peers_back B.(loc_all_regions_from false d.r_peer_of_id) h0 h1 d (LL2.v h0 d.peers);
+  let aux (i: UInt64.t): Lemma
+    (ensures (peer_of_id_in_peers h1 d i))
+    [ SMTPat (peer_of_id_in_peers h1 d i) ]
+  =
+    assert (peer_of_id_in_peers h0 d i);
+    cell_by_id_depends_only_on_v h0 h1 i (B.deref h0 d.peers.LL2.ptr) (LL2.v h0 d.peers);
+    cell_by_id_is_peer_by_id h0 i (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v);
+    ()
+  in
+  ()
 
 let main (): St Int32.t =
   let r = ST.new_region HS.root in
-  let m: IM.t nat (nat & nat) = IM.create_in r in
-  (**) let h0 = ST.get () in
-  (**) assert (M.sel (IM.v h0 m) 0 == None);
-  IM.add m 0 (1, 2);
-  (**) let h1 = ST.get () in
-  (**) assert (M.sel (IM.v h1 m) 0 == Some (1, 2));
-  let b = B.malloc HS.root 0ul 1ul in
-  (**) let h2 = ST.get () in
-  (**) assert (M.sel (IM.v h2 m) 0 == Some (1, 2));
-  b *= 2ul;
-  (**) let h3 = ST.get () in
-  (**) assert (M.sel (IM.v h3 m) 0 == Some (1, 2));
-  IM.add m 0 (2, 1);
-  (**) let h4 = ST.get () in
-  (**) assert (M.sel (IM.v h4 m) 0 == Some (2, 1));
-  (**) assert (B.deref h4 b == 2ul);
-  IM.remove_all m 1;
-  (**) let h5 = ST.get () in
-  (**) assert (M.sel (IM.v h5 m) 0 == Some (2, 1));
-  (**) assert (B.deref h5 b == 2ul);
-  IM.remove_all m 0;
-  (**) let h6 = ST.get () in
-  (**) assert (M.sel (IM.v h6 m) 0 == None);
-  (**) assert (B.deref h6 b == 2ul);
+  let wg_device = create_in r in
+  let hs1: handshake_state = B.malloc wg_device.r_peers_payload 0uy 8ul in
+  insert_peer wg_device 0UL hs1;
+  link_peer_by_id wg_device 0UL;
+  let h1 = ST.get () in
+  let p1 = find_peer_by_id wg_device 0UL in
+  // Woohoo, we can reason about things.
+  assert (not (B.g_is_null p1));
+  // JP: todo, need auto-framing of invariant
+  // let hs2: handshake_state = B.malloc wg_device.r_peers_payload 0uy 8ul in
+  // insert_peer wg_device 0UL hs2;
+  free_ wg_device;
   0l
