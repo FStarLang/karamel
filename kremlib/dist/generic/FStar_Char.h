@@ -16,17 +16,17 @@
 
 typedef uint32_t FStar_Char_char_code;
 
-extern uint32_t FStar_Char_u32_of_char(FStar_Char_char uu____10);
+extern uint32_t FStar_Char_u32_of_char(FStar_Char_char uu____7);
 
-extern FStar_Char_char FStar_Char_char_of_u32(uint32_t uu____22);
+extern FStar_Char_char FStar_Char_char_of_u32(uint32_t uu____15);
 
 extern Prims_int FStar_Char_int_of_char(FStar_Char_char c);
 
 extern FStar_Char_char FStar_Char_char_of_int(Prims_int i);
 
-extern FStar_Char_char FStar_Char_lowercase(FStar_Char_char uu____52);
+extern FStar_Char_char FStar_Char_lowercase(FStar_Char_char uu____35);
 
-extern FStar_Char_char FStar_Char_uppercase(FStar_Char_char uu____66);
+extern FStar_Char_char FStar_Char_uppercase(FStar_Char_char uu____43);
 
 #define __FStar_Char_H_DEFINED
 #endif

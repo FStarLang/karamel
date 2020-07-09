@@ -58,9 +58,9 @@ extern bool FStar_Int8_lte(int8_t a, int8_t b);
 
 extern int8_t FStar_Int8_ct_abs(int8_t a);
 
-extern Prims_string FStar_Int8_to_string(int8_t uu____636);
+extern Prims_string FStar_Int8_to_string(int8_t uu____387);
 
-extern int8_t FStar_Int8_of_string(Prims_string uu____647);
+extern int8_t FStar_Int8_of_string(Prims_string uu____393);
 
 #define __FStar_Int8_H_DEFINED
 #endif

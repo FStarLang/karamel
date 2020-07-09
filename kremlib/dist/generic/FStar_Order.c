@@ -233,9 +233,9 @@ FStar_Order_order FStar_Order_order_from_int(Prims_int i)
   }
 }
 
-Prims_int FStar_Order_int_of_order(FStar_Order_order uu___0_129)
+Prims_int FStar_Order_int_of_order(FStar_Order_order uu___0_93)
 {
-  switch (uu___0_129)
+  switch (uu___0_93)
   {
     case FStar_Order_Lt:
       {
