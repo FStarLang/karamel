@@ -169,8 +169,10 @@ let rec peers_back (h: HS.mem) (d: device) (ps: list peer) =
 
 /// Global invariant on the device
 /// ------------------------------
+///
+/// Note to self: I usually comment out the "unfold" to figure out which part fails.
 
-unfold
+//unfold
 let invariant (h: HS.mem) (d: device) =
   ST.is_eternal_region d.r /\
   ST.is_eternal_region d.r_peers /\
@@ -223,6 +225,13 @@ let rec peer_footprint_in (h: HS.mem) (r: HS.rid) (ps: list peer): Lemma
       peer_footprint_in h r ps
 #pop-options
 
+let device_peers_footprint_in (h: HS.mem) (d: device): Lemma
+  (requires invariant h d)
+  (ensures B.loc_in (peers_footprint (LL2.v h d.peers)) h)
+  [ SMTPat (invariant h d) ]
+=
+  peer_footprint_in h d.r_peers_payload (LL2.v h d.peers)
+
 /// Framing lemmas
 /// --------------
 ///
@@ -263,6 +272,50 @@ let rec frame_peers_invariants (r_payload: HS.rid) (l: LL1.t peer) (n: list peer
     let ps = List.Tot.tl n in
     frame_peers_invariants r_payload (B.deref h0 l).LL1.next (List.Tot.tl n) r h0 h1
 
+
+#pop-options
+
+/// Some helper lemmas
+/// ------------------
+
+
+#push-options "--fuel 1 --ifuel 1"
+let rec cell_by_id_is_peer_by_id (h: HS.mem) (i: UInt64.t) (ll: LL1.t peer) (l: list peer): Lemma
+  (requires
+    LL1.well_formed h ll l /\
+    LL1.invariant h ll l)
+  (ensures (
+    let p = peer_by_id i l in
+    let c = cell_by_id h i (LL1.cells h ll l) in
+    (Some? c <==> Some? p) /\
+    (Some? c ==>
+      (B.deref h (Some?.v c)).LL1.data == (Some?.v p))))
+  (decreases l)
+=
+  if B.g_is_null ll then
+    ()
+  else
+    let p = peer_by_id i l in
+    let c = cell_by_id h i (LL1.cells h ll l) in
+    cell_by_id_is_peer_by_id h i (B.deref h ll).LL1.next (List.Tot.tl l)
+
+let rec cell_by_id_depends_only_on_v (h0 h1: HS.mem) (i: UInt64.t) (ll: LL1.t peer) (l: list peer): Lemma
+  (requires
+    LL1.well_formed h0 ll l /\
+    LL1.invariant h0 ll l /\
+    LL1.well_formed h1 ll l /\
+    LL1.invariant h1 ll l /\
+    LL1.cells h0 ll l == LL1.cells h1 ll l)
+  (ensures (
+    cell_by_id h0 i (LL1.cells h0 ll l) ==
+    cell_by_id h1 i (LL1.cells h0 ll l)))
+  (decreases l)
+=
+  // Crucially depends on same_cells_same_next.
+  if B.g_is_null ll then
+    ()
+  else
+    cell_by_id_depends_only_on_v h0 h1 i (B.deref h1 ll).LL1.next (List.Tot.tl l)
 #pop-options
 
 /// A helper lemma for clients.
@@ -282,6 +335,50 @@ let rec peer_by_id_invariant (h: HS.mem) (r: HS.rid) (ps: list peer) (p: peer) (
       else
         peer_by_id_invariant h r ps' p id
 #pop-options
+
+/// The central framming lemma
+/// --------------------------
+///
+/// Requires the two lemmas above to perform extensional reasoning on each index entry in the table.
+
+let frame_invariant (l: B.loc) (h0 h1: HS.mem) (d: device): Lemma
+  (requires
+    B.(loc_disjoint l (loc_all_regions_from false d.r)) /\
+    B.modifies l h0 h1 /\
+    invariant h0 d)
+  (ensures
+    // These two somewhat redundant, owing to the respective framing lemmas of
+    // LL2 and IM, but good to reveal once we seal this module with an
+    // abstraction.
+    LL2.v h1 d.peers == LL2.v h0 d.peers /\
+    IM.v h1 d.peer_of_id == IM.v h0 d.peer_of_id /\
+    invariant h1 d)
+  // TODO: this pattern does not work
+  // [ SMTPat [ B.modifies l h0 h1; invariant h1 d ] ]
+=
+  // UGH!! This does not trigger! Must write these assertions for the loc_disjoints to work.
+  assert B.(loc_includes (loc_all_regions_from false d.r) (loc_all_regions_from false d.r_peers));
+  assert B.(loc_includes (loc_all_regions_from false d.r) (loc_all_regions_from false d.r_peers_payload));
+  assert B.(loc_includes (loc_all_regions_from false d.r) (loc_all_regions_from false d.r_peer_of_id));
+  assert B.(loc_disjoint l (loc_all_regions_from false d.r_peers));
+  assert B.(loc_disjoint l (loc_all_regions_from false d.r_peers_payload));
+  assert B.(loc_disjoint l (loc_all_regions_from false d.r_peer_of_id));
+  LL2.frame_region d.peers l h0 h1;
+  LL2.footprint_in_r h1 d.peers;
+  peer_footprint_in h0 d.r_peers_payload (LL2.v h0 d.peers);
+  frame_peers_invariants d.r_peers_payload (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v) l h0 h1;
+  frame_peers_back l h0 h1 d (LL2.v h0 d.peers);
+  let aux (i: UInt64.t): Lemma
+    (ensures (peer_of_id_in_peers h1 d i))
+    [ SMTPat (peer_of_id_in_peers h1 d i) ]
+  =
+    assert (peer_of_id_in_peers h0 d i);
+    cell_by_id_depends_only_on_v h0 h1 i (B.deref h0 d.peers.LL2.ptr) (LL2.v h0 d.peers);
+    cell_by_id_is_peer_by_id h0 i (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v);
+    ()
+  in
+  peer_footprint_in h1 d.r_peers_payload (LL2.v h1 d.peers);
+  ()
 
 /// Stateful API
 /// ------------
@@ -352,49 +449,6 @@ let free_ d =
   assert (IM.invariant h2 d.peer_of_id);
   IM.free d.peer_of_id
 
-/// Some helper lemmas
-/// ------------------
-
-
-#push-options "--fuel 1 --ifuel 1"
-let rec cell_by_id_is_peer_by_id (h: HS.mem) (i: UInt64.t) (ll: LL1.t peer) (l: list peer): Lemma
-  (requires
-    LL1.well_formed h ll l /\
-    LL1.invariant h ll l)
-  (ensures (
-    let p = peer_by_id i l in
-    let c = cell_by_id h i (LL1.cells h ll l) in
-    (Some? c <==> Some? p) /\
-    (Some? c ==>
-      (B.deref h (Some?.v c)).LL1.data == (Some?.v p))))
-  (decreases l)
-=
-  if B.g_is_null ll then
-    ()
-  else
-    let p = peer_by_id i l in
-    let c = cell_by_id h i (LL1.cells h ll l) in
-    cell_by_id_is_peer_by_id h i (B.deref h ll).LL1.next (List.Tot.tl l)
-
-let rec cell_by_id_depends_only_on_v (h0 h1: HS.mem) (i: UInt64.t) (ll: LL1.t peer) (l: list peer): Lemma
-  (requires
-    LL1.well_formed h0 ll l /\
-    LL1.invariant h0 ll l /\
-    LL1.well_formed h1 ll l /\
-    LL1.invariant h1 ll l /\
-    LL1.cells h0 ll l == LL1.cells h1 ll l)
-  (ensures (
-    cell_by_id h0 i (LL1.cells h0 ll l) ==
-    cell_by_id h1 i (LL1.cells h0 ll l)))
-  (decreases l)
-=
-  // Crucially depends on same_cells_same_next.
-  if B.g_is_null ll then
-    ()
-  else
-    cell_by_id_depends_only_on_v h0 h1 i (B.deref h1 ll).LL1.next (List.Tot.tl l)
-#pop-options
-
 // JP: should this one return the freshly-allocated peer?
 val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
   (requires fun h0 ->
@@ -409,12 +463,19 @@ val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
     )
   (ensures fun h0 _ h1 ->
     invariant h1 d /\ (
+    // A new list cell has been freshly allocated in order to hold { id, hs } at
+    // the head of the peer list.
     let peers = LL2.v h1 d.peers in
     Cons? peers /\ (
     let p :: ps = peers in
     p.id == id /\
     p.hs == hs /\
     ps == LL2.v h0 d.peers /\
+    // Furthermore, the map from id's to peers is unchanged. This is a little
+    // redundant, because clients can already conclude this since they know that
+    // only d.r_peers is modified (see right below), and that d.peer_of_id lives
+    // in d.r_peer_of_id.
+    IM.v h0 d.peer_of_id == IM.v h1 d.peer_of_id /\
     // Clients can conclude that hs remains unchanged.
     B.(modifies (loc_all_regions_from false d.r_peers) h0 h1))))
 
@@ -549,7 +610,14 @@ let find_peer_by_id (d: device) (id: UInt64.t):
 =
   find_peer_by_id_ !*d.peers.LL2.ptr !*d.peers.LL2.v id
 
-let link_peer_by_id (d: device) (id: UInt64.t):
+// This function is somewhat missing a post-condition stating that any entry
+// that was in peer_of_id is still there, i.e. that the domain of the map is
+// growing monotonically. This is tricky to state and we can't use M.domain
+// since the map is defined for all id's and points to None by default. Probably
+// something like:
+//   forall i {:pattern ???}.
+//     (Some? (M.sel (IM.v h0 d.peer_of_id) i) ==> Some? (M.sel (IM.v h1 d.peer_of_id) i)
+val link_peer_by_id (d: device) (id: UInt64.t):
   ST unit
     (requires fun h0 ->
       invariant h0 d /\
@@ -557,8 +625,10 @@ let link_peer_by_id (d: device) (id: UInt64.t):
     (ensures fun h0 _ h1 ->
       B.(modifies (loc_all_regions_from false d.r_peer_of_id) h0 h1) /\
       invariant h1 d /\
+      LL2.v h0 d.peers == LL2.v h1 d.peers /\
       Some? (M.sel (IM.v h1 d.peer_of_id) id))
-=
+
+let link_peer_by_id d id =
   (**) let h0 = ST.get () in
   let p = find_peer_by_id d id in
   IM.add d.peer_of_id id p;
@@ -580,19 +650,44 @@ let link_peer_by_id (d: device) (id: UInt64.t):
     ()
   in
   ()
+#pop-options
 
+/// A sanity test
+/// -------------
+///
+/// Need to figure out why invariant auto-framing doesn't work that well.
+/// Returning the freshly-allocated peer would perhaps also help name the result
+/// of List.hd d.peers after calling insert_peer, maybe better SMT performance
+/// would follow?
+
+#push-options "--fuel 2 --z3rlimit 200"
 let main (): St Int32.t =
-  let r = ST.new_region HS.root in
+  (**) let r = ST.new_region HS.root in
+
   let wg_device = create_in r in
+  (**) let h0 = ST.get () in
+  (**) assert (LL2.v h0 wg_device.peers == []);
+
   let hs1: handshake_state = B.malloc wg_device.r_peers_payload 0uy 8ul in
   insert_peer wg_device 0UL hs1;
+  (**) let h1 = ST.get () in
+  (**) assert (List.Tot.length (LL2.v h1 wg_device.peers) == 1);
+
   link_peer_by_id wg_device 0UL;
-  let h1 = ST.get () in
+  (**) let h2 = ST.get () in
   let p1 = find_peer_by_id wg_device 0UL in
-  // Woohoo, we can reason about things.
-  assert (not (B.g_is_null p1));
-  // JP: todo, need auto-framing of invariant
-  // let hs2: handshake_state = B.malloc wg_device.r_peers_payload 0uy 8ul in
-  // insert_peer wg_device 0UL hs2;
+  (**) assert (not (B.g_is_null p1));
+
+  // JP: TODO
+  (*cell_by_id_is_peer_by_id h2 0UL (B.deref h2 wg_device.peers.LL2.ptr) (B.deref h2 wg_device.peers.LL2.v);
+  peer_by_id_invariant h2 wg_device.r_peers_payload (LL2.v h2 wg_device.peers) (B.deref h2 p1) 0UL;
+  (**) assert (peer_invariant h2 (B.deref h2 p1));*)
+
+  let hs2: handshake_state = B.malloc wg_device.r_peers_payload 0uy 8ul in
+  (**) let h3 = ST.get () in
+  (**) B.(modifies_only_not_unused_in loc_none h2 h3);
+  (**) frame_invariant B.loc_none h2 h3 wg_device;
+
+  insert_peer wg_device 1UL hs2;
   free_ wg_device;
   0l
