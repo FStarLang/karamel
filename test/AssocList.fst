@@ -16,7 +16,54 @@ open FStar.HyperStack.ST
 
 #set-options "--fuel 0 --ifuel 0"
 
-/// Definition of types. I'm aiming to capture the essence of the Wireguard use case.
+/// Library
+/// -------
+
+#push-options "--ifuel 1"
+let rec gmap #a #b (f: a -> GTot b) (xs: list a): GTot (list b) =
+  match xs with
+  | [] -> []
+  | x :: xs -> f x :: gmap f xs
+
+let rec gfind2 #a #b #c (f: a -> b -> GTot (option c)) (xs: list a) (ys: list b): GTot (option c) =
+  match xs, ys with
+  | x :: xs, y :: ys ->
+      begin match f x y with
+      | Some z -> Some z
+      | None -> gfind2 f xs ys
+      end
+  | _ ->
+      None
+#pop-options
+
+/// LL1 helpers
+/// -----------
+///
+/// TODO: move those to LL1
+
+let deref_data #a (h: HS.mem) (c: B.pointer (LL1.cell a)): GTot a =
+  (B.deref h c).LL1.data
+
+#push-options "--fuel 1 --ifuel 1"
+let rec deref_cells_is_v #a (h: HS.mem) (ll: LL1.t a) (l: list a): Lemma
+  (requires
+    LL1.well_formed h ll l /\
+    LL1.invariant h ll l)
+  (ensures
+    gmap (deref_data h) (LL1.cells h ll l) == l)
+  (decreases l)
+  [ SMTPat (LL1.well_formed h ll l) ]
+=
+  if B.g_is_null ll then
+    ()
+  else
+    deref_cells_is_v h (B.deref h ll).LL1.next (List.Tot.tl l)
+#pop-options
+
+/// Definition of types
+/// -------------------
+///
+/// I'm aiming to capture the essence of the Wireguard use case.
 
 // Simple representation of noise_handshake. One extra indirection compared to
 // wireguard, alas.
@@ -120,18 +167,28 @@ let rec peer_by_id (id: UInt64.t) (ps: list peer) =
   | [] ->
       None
 
-let rec cell_by_id (h: HS.mem) (id: UInt64.t) (ps: list (B.pointer (LL1.cell peer))):
+let cell_by_id (h: HS.mem) (id: UInt64.t) (ps: list (B.pointer (LL1.cell peer))):
   GTot (option (B.pointer (LL1.cell peer)))
 =
-  allow_inversion (list (B.pointer (LL1.cell peer)));
-  match ps with
-  | p :: ps ->
-      if (B.deref h p).LL1.data.id = id then
-        Some p
-      else
-        cell_by_id h id ps
-  | [] ->
-      None
+  gfind2
+    (fun v c -> if v.id = id then Some c else None)
+    (gmap (deref_data h) ps)
+    ps
+
+/// Note: previous definition was:
+///
+///  allow_inversion (list (B.pointer (LL1.cell peer)));
+///  match ps with
+///  | p :: ps ->
+///      if (B.deref h p).LL1.data.id = id then
+///        Some p
+///      else
+///        cell_by_id h id ps
+///  | [] ->
+///      None
+///
+/// The new definition, in combination with deref_cells_is_v, allows equational
+/// reasoning about cell_by_id without having to deal with recursion.
 
 let peer_of_id_in_peers (h: HS.mem) (d: device) (i: UInt64.t): Ghost Type
   (requires LL2.invariant h d.peers)
@@ -143,6 +200,13 @@ let peer_of_id_in_peers (h: HS.mem) (d: device) (i: UInt64.t): Ghost Type
   // auxiliary lemmas for that here. Second, clients can derive useful
   // properties by doing a induction on cells (which will reveal it computes the
   // same thing as LL2.v).
+
+  // Second note: we could be more lax here and just state that this returns *a*
+  // pointer that, once dereferenced, has a data field that matches peer_by_id.
+  // This is seemingly an improvement, since this moves from a stateful
+  // predicate (cell_by_id h) to a pure one (peer_by_id) which should facilitate
+  // reasoning. But then we'd have to start thinking about where this cell
+  // lives, frame it, etc. -- at least here we know where the cell is coming from!
   let cell = cell_by_id h i (LL2.cells h d.peers) in
   match M.sel m i with
   | None ->
@@ -278,8 +342,18 @@ let rec frame_peers_invariants (r_payload: HS.rid) (l: LL1.t peer) (n: list peer
 /// Some helper lemmas
 /// ------------------
 
-
 #push-options "--fuel 1 --ifuel 1"
+
+/// Central commutation diagram:
+///
+///               peer_by_id
+///       l ----------------------> p
+///       ^                         ^
+///       |                         |
+///     v |                         | deref_data
+///       |       cell_by_id        |
+///      ll, id  -----------------> cell
+///
 let rec cell_by_id_is_peer_by_id (h: HS.mem) (i: UInt64.t) (ll: LL1.t peer) (l: list peer): Lemma
   (requires
     LL1.well_formed h ll l /\
@@ -298,24 +372,6 @@ let rec cell_by_id_is_peer_by_id (h: HS.mem) (i: UInt64.t) (ll: LL1.t peer) (l: 
     let p = peer_by_id i l in
     let c = cell_by_id h i (LL1.cells h ll l) in
     cell_by_id_is_peer_by_id h i (B.deref h ll).LL1.next (List.Tot.tl l)
-
-let rec cell_by_id_depends_only_on_v (h0 h1: HS.mem) (i: UInt64.t) (ll: LL1.t peer) (l: list peer): Lemma
-  (requires
-    LL1.well_formed h0 ll l /\
-    LL1.invariant h0 ll l /\
-    LL1.well_formed h1 ll l /\
-    LL1.invariant h1 ll l /\
-    LL1.cells h0 ll l == LL1.cells h1 ll l)
-  (ensures (
-    cell_by_id h0 i (LL1.cells h0 ll l) ==
-    cell_by_id h1 i (LL1.cells h0 ll l)))
-  (decreases l)
-=
-  // Crucially depends on same_cells_same_next.
-  if B.g_is_null ll then
-    ()
-  else
-    cell_by_id_depends_only_on_v h0 h1 i (B.deref h1 ll).LL1.next (List.Tot.tl l)
 #pop-options
 
 /// A helper lemma for clients.
@@ -373,7 +429,6 @@ let frame_invariant (l: B.loc) (h0 h1: HS.mem) (d: device): Lemma
     [ SMTPat (peer_of_id_in_peers h1 d i) ]
   =
     assert (peer_of_id_in_peers h0 d i);
-    cell_by_id_depends_only_on_v h0 h1 i (B.deref h0 d.peers.LL2.ptr) (LL2.v h0 d.peers);
     cell_by_id_is_peer_by_id h0 i (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v);
     ()
   in
@@ -529,45 +584,13 @@ let insert_peer d id hs =
   // Now, peers_back... getting near the end of the global invariant.
   (**) frame_peers_back B.(loc_all_regions_from false d.r_peers) h0 h1 d (LL2.v h0 d.peers);
 
-  // Last part of the invariant. Note: this is littered with asserts, most of
-  // which aren't strictly necessary for the proof, but while debugging the
-  // invariant and establishing auxiliary lemmas (e.g. same_pointer_same_thing)
-  // they were really helpful, so I'm leaving them in.
   let aux (i: UInt64.t): Lemma
     (ensures (peer_of_id_in_peers h1 d i))
     [ SMTPat (peer_of_id_in_peers h1 d i) ]
   =
     assert (peer_of_id_in_peers h0 d i);
-    assert (IM.v h1 d.peer_of_id == IM.v h0 d.peer_of_id);
     cell_by_id_is_peer_by_id h1 i (B.deref h1 d.peers.LL2.ptr) (B.deref h1 d.peers.LL2.v);
-    cell_by_id_is_peer_by_id h0 i (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v);
-    if i = id then begin
-      if Some? (M.sel (IM.v h0 d.peer_of_id) i) then begin
-        assert (Some? (peer_by_id i (LL2.v h0 d.peers)));
-        false_elim ()
-      end;
-      let _ = allow_inversion (option (LL1.t peer)) in
-      assert (M.sel (IM.v h0 d.peer_of_id) i == None);
-      assert (M.sel (IM.v h1 d.peer_of_id) i == None);
-      ()
-    end else begin
-      // Some reasoning about v peer_by_id... easy because it's not a stateful predicate.
-      assert (peer_by_id i (LL2.v h1 d.peers) == peer_by_id i (List.Tot.tl (LL2.v h1 d.peers)));
-      assert (peer_by_id i (LL2.v h1 d.peers) == peer_by_id i (LL2.v h0 d.peers));
-      // The cell is to be found in the tail of the list.
-      assert ((B.deref h1 (List.Tot.hd (LL2.cells h1 d.peers))).LL1.data == p);
-      assert (cell_by_id h1 i (LL2.cells h1 d.peers) == cell_by_id h1 i (List.Tot.tl (LL2.cells h1 d.peers)));
-      assert (cell_by_id h1 i (LL2.cells h1 d.peers) == cell_by_id h1 i (LL2.cells h0 d.peers));
-      assert (LL2.cells h0 d.peers == LL1.cells h0 (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v));
-      assert (List.Tot.tl (LL2.cells h1 d.peers) == LL1.cells h0 (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v));
-      assert (LL1.well_formed h0 (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v));
-      assert (LL1.well_formed h1 (B.deref h1 d.peers.LL2.ptr) (B.deref h1 d.peers.LL2.v));
-      let _ = allow_inversion (list peer) in
-      assert LL1.(well_formed h1 (B.deref h1 (B.deref h1 d.peers.LL2.ptr)).next (List.Tot.tl (B.deref h1 d.peers.LL2.v)));
-      assert (List.Tot.tl (B.deref h1 d.peers.LL2.v) == LL2.v h0 d.peers);
-      // Also crucially depends on same_cells_same_pointer.
-      cell_by_id_depends_only_on_v h0 h1 i (B.deref h0 d.peers.LL2.ptr) (LL2.v h0 d.peers)
-      end
+    cell_by_id_is_peer_by_id h0 i (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v)
   in
   ()
 
@@ -645,7 +668,6 @@ let link_peer_by_id d id =
     [ SMTPat (peer_of_id_in_peers h1 d i) ]
   =
     assert (peer_of_id_in_peers h0 d i);
-    cell_by_id_depends_only_on_v h0 h1 i (B.deref h0 d.peers.LL2.ptr) (LL2.v h0 d.peers);
     cell_by_id_is_peer_by_id h0 i (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v);
     ()
   in
@@ -655,10 +677,21 @@ let link_peer_by_id d id =
 /// A sanity test
 /// -------------
 ///
-/// Need to figure out why invariant auto-framing doesn't work that well.
-/// Returning the freshly-allocated peer would perhaps also help name the result
-/// of List.hd d.peers after calling insert_peer, maybe better SMT performance
-/// would follow?
+/// - Need to figure out why invariant auto-framing doesn't work that well.
+/// - Returning the freshly-allocated peer would perhaps also help name the result
+///   of List.hd d.peers after calling insert_peer, maybe better SMT performance
+///   would follow?
+///
+/// This example demonstrates the stateful API and the insertion of a new peer in
+/// the list followed by the addition of a link in the hash table from a given
+/// peer's id towards the corresponding list cell.
+///
+/// The example also demonstrates how to lookup a peer -- here, we do
+/// smt-reasoning to keep track of the list at all times, but a client can also
+/// choose to check at run-time whether the return of find_peer_by_id is null,
+/// and if not, conclude that they have computed faithfully the result of
+/// peer_by_id and that therefore the invariant holds for the peer that was just
+/// freshly found.
 
 #push-options "--fuel 2 --z3rlimit 200"
 let main (): St Int32.t =
@@ -678,10 +711,9 @@ let main (): St Int32.t =
   let p1 = find_peer_by_id wg_device 0UL in
   (**) assert (not (B.g_is_null p1));
 
-  // JP: TODO
-  (*cell_by_id_is_peer_by_id h2 0UL (B.deref h2 wg_device.peers.LL2.ptr) (B.deref h2 wg_device.peers.LL2.v);
-  peer_by_id_invariant h2 wg_device.r_peers_payload (LL2.v h2 wg_device.peers) (B.deref h2 p1) 0UL;
-  (**) assert (peer_invariant h2 (B.deref h2 p1));*)
+  (**) cell_by_id_is_peer_by_id h2 0UL (B.deref h2 wg_device.peers.LL2.ptr) (B.deref h2 wg_device.peers.LL2.v);
+  (**) peer_by_id_invariant h2 wg_device.r_peers_payload (LL2.v h2 wg_device.peers) (B.deref h2 p1).LL1.data 0UL;
+  (**) assert (peer_invariant h2 (B.deref h2 p1).LL1.data);
 
   let hs2: handshake_state = B.malloc wg_device.r_peers_payload 0uy 8ul in
   (**) let h3 = ST.get () in
