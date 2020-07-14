@@ -515,6 +515,10 @@ and mk_calloc m t s =
 and mk_free e =
   C.Call (C.Name "KRML_HOST_FREE", [ e ])
 
+(* NOTE: this is only legal because we rule out the creation of zero-length
+ * heap-allocated buffers; if we were to allow that, then this begs the question
+ * of whether memset(malloc(0), 0, 0) is UB or not! The result of malloc(0) is
+ * implementation-defined, not undefined behavior. *)
 and mk_eternal_bufcreate m buf (t: CStar.typ) init size =
   let size = mk_expr m size in
   let e, extra_stmt = match init with
