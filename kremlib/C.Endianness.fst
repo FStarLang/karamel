@@ -192,7 +192,7 @@ let index_32_be (b: B.buffer UInt8.t) (i: UInt32.t):
       B.(modifies loc_none h0 h1) /\
       r = Seq.index (seq_uint32_of_be (B.length b / 4) (B.as_seq h0 b)) (UInt32.v i)))
 =
-  load32_be (B.sub b FStar.UInt32.(4ul *^ i) 4ul)
+  load32_be (B.sub b FStar.UInt32.(4ul *^ i) 4ul #true)
 
 inline_for_extraction
 [@(deprecated "LowStar.Endianness.index_32_le")]
@@ -205,7 +205,7 @@ let index_32_le (b: B.buffer UInt8.t) (i: UInt32.t):
       B.(modifies loc_none h0 h1) /\
       r = Seq.index (seq_uint32_of_le (B.length b / 4) (B.as_seq h0 b)) (UInt32.v i)))
 =
-  load32_le (B.sub b FStar.UInt32.(4ul *^ i) 4ul)
+  load32_le (B.sub b FStar.UInt32.(4ul *^ i) 4ul #true)
 
 inline_for_extraction
 [@(deprecated "LowStar.Endianness.index_64_be")]
@@ -218,7 +218,7 @@ let index_64_be (b: B.buffer UInt8.t) (i: UInt32.t):
       B.(modifies loc_none h0 h1) /\
       r = Seq.index (seq_uint64_of_be (B.length b / 8) (B.as_seq h0 b)) (UInt32.v i)))
 =
-  load64_be (B.sub b FStar.UInt32.(8ul *^ i) 8ul)
+  load64_be (B.sub b FStar.UInt32.(8ul *^ i) 8ul #true)
 
 inline_for_extraction
 [@(deprecated "LowStar.Endianness.index_64_le")]
@@ -231,7 +231,7 @@ let index_64_le (b: B.buffer UInt8.t) (i: UInt32.t):
       B.(modifies loc_none h0 h1) /\
       r = Seq.index (seq_uint64_of_le (B.length b / 8) (B.as_seq h0 b)) (UInt32.v i)))
 =
-  load64_le (B.sub b FStar.UInt32.(8ul *^ i) 8ul)
+  load64_le (B.sub b FStar.UInt32.(8ul *^ i) 8ul #true)
 
 #reset-options "--using_facts_from '* -FStar.UInt8 -FStar.UInt16 -FStar.UInt32 -FStar.UInt64 -FStar.Int8 -FStar.Int16 -FStar.Int32 -FStar.Int64'"
 
@@ -255,7 +255,7 @@ let upd_32_be (b: B.buffer UInt8.t) (i: UInt32.t) (v: UInt32.t):
       seq_uint32_of_be (B.length b / 4) (B.as_seq h1 b) `Seq.equal` Seq.upd (seq_uint32_of_be (B.length b / 4) (B.as_seq h0 b)) (UInt32.v i) v
     ))
 = let h0 = get () in
-  store32_be (B.sub b FStar.UInt32.(4ul *^ i) 4ul) v;
+  store32_be (B.sub b FStar.UInt32.(4ul *^ i) 4ul #true) v;
   let h1 = get () in
   let f () : Lemma
     (seq_uint32_of_be (B.length b / 4) (B.as_seq h1 b) `Seq.equal` Seq.upd (seq_uint32_of_be (B.length b / 4) (B.as_seq h0 b)) (UInt32.v i) v)
