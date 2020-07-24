@@ -170,7 +170,9 @@ type expr' =
   | EOpen of ident * atom_t
     (** [ident] for debugging purposes only *)
 
-  | EOp of op * width
+  | EArithOp of arith_op * width
+  | EBoolOp of bool_op
+  | EEqOp of eq_op * typ_wo
   | EQualified of lident
   | EConstant of constant
   | EUnit

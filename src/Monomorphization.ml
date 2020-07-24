@@ -460,6 +460,15 @@ let equalities files =
                 in
                 EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
             | Variant branches ->
+                (* TODO: if all branches have constant constructors here (i.e.
+                 * without arguments), then we should be able to do a fast-path
+                 * and leave the polymorphic equality "as-is", with the
+                 * understanding that once the data type compilation scheme
+                 * happens, this will be an equality at an enum type. *)
+                (* If this criterion is met, we could insert this:
+                 *   EOp (op, <name-of-the-type>)
+                 * although this will almost certainly fail the KreMLin internal
+                 * type-checker. *)
                 let def () =
                   let fail_case = match eq_kind with
                     | `Eq -> efalse

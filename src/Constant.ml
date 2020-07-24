@@ -8,7 +8,6 @@ type t = width * string
 
 and width =
   | UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64
-  | Bool
   | CInt (** Checked signed integers. *)
 
 let bytes_of_width (w: width) =
@@ -22,34 +21,50 @@ let bytes_of_width (w: width) =
   | Int32 -> 4
   | Int64 -> 8
   | CInt -> 4
-  | _ -> invalid_arg "bytes_of_width"
 
-type op =
+type arith_op =
   (* Arithmetic operations *)
   | Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
   (* Bitwise operations *)
   | BOr | BAnd | BXor | BShiftL | BShiftR | BNot
   (* Arithmetic comparisons / boolean comparisons *)
-  | Eq | Neq | Lt | Lte | Gt | Gte
+  | Lt | Lte | Gt | Gte
+  [@@deriving yojson,show]
+
+type eq_op =
+  | Eq | Neq
+  [@@deriving yojson,show]
+
+type bool_op =
   (* Boolean operations *)
   | And | Or | Xor | Not
+  [@@deriving yojson,show]
+
+type c_op =
   (* Effectful operations. Only appears in C. *)
   | Assign | PreIncr | PreDecr | PostIncr | PostDecr
   (* Misc *)
   | Comma
   [@@deriving yojson,show]
 
+(* For the sake of pretty-printing C code, all operators are the same and fall
+ * within the same syntactic category. *)
+type c_grammar_op =
+  | Arith of arith_op
+  | Equality of eq_op
+  | Bool of bool_op
+  | C of c_op
+
 let unsigned_of_signed = function
   | Int8 -> UInt8
   | Int16 -> UInt16
   | Int32 -> UInt32
   | Int64 -> UInt64
-  | CInt | UInt8 | UInt16 | UInt32 | UInt64 | Bool -> raise (Invalid_argument "unsigned_of_signed")
+  | CInt | UInt8 | UInt16 | UInt32 | UInt64
 
 let is_signed = function
   | Int8 | Int16 | Int32 | Int64 | CInt -> true
   | UInt8 | UInt16 | UInt32 | UInt64 -> false
-  | Bool -> raise (Invalid_argument "is_signed")
 
 let is_unsigned w = not (is_signed w)
 

@@ -524,8 +524,10 @@ Supported options:|}
    * spurious dependencies otherwise. *)
   let files = DataTypes.simplify files in
   let files = Monomorphization.datatypes files in
+  let files = DataTypes.remove_fields files in
   let files = Monomorphization.equalities files in
   let files = Inlining.inline files in
+  print PrintAst.print_files files;
   let files = Inlining.drop_unused files in
   if !arg_print_inline then
     print PrintAst.print_files files;

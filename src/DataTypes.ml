@@ -1169,9 +1169,12 @@ let simplify files =
   let files = remove_full_matches#visit_files () files in
   files
 
-let everything files =
+let remove_fields files =
   let files = remove_unit_buffers#visit_files () files in
   let files = remove_unit_fields#visit_files () files in
+  files
+
+let everything files =
   let map = build_scheme_map files in
   let files = (compile_simple_matches map)#visit_files () files in
   let files = (compile_all_matches map)#visit_files () files in
