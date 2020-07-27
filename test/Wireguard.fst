@@ -1,4 +1,4 @@
-module AssocList
+module Wireguard
 
 /// We are relying on an associative list to implement our imperative map but
 /// this will be upgraded to a hash table that offers the same interface.
@@ -16,15 +16,10 @@ open FStar.HyperStack.ST
 
 #set-options "--fuel 0 --ifuel 0"
 
-/// Library
+/// Helpers
 /// -------
 
 #push-options "--ifuel 1"
-let rec gmap #a #b (f: a -> GTot b) (xs: list a): GTot (list b) =
-  match xs with
-  | [] -> []
-  | x :: xs -> f x :: gmap f xs
-
 let rec gfind2 #a #b #c (f: a -> b -> GTot (option c)) (xs: list a) (ys: list b): GTot (option c) =
   match xs, ys with
   | x :: xs, y :: ys ->
@@ -34,30 +29,6 @@ let rec gfind2 #a #b #c (f: a -> b -> GTot (option c)) (xs: list a) (ys: list b)
       end
   | _ ->
       None
-#pop-options
-
-/// LL1 helpers
-/// -----------
-///
-/// TODO: move those to LL1
-
-let deref_data #a (h: HS.mem) (c: B.pointer (LL1.cell a)): GTot a =
-  (B.deref h c).LL1.data
-
-#push-options "--fuel 1 --ifuel 1"
-let rec deref_cells_is_v #a (h: HS.mem) (ll: LL1.t a) (l: list a): Lemma
-  (requires
-    LL1.well_formed h ll l /\
-    LL1.invariant h ll l)
-  (ensures
-    gmap (deref_data h) (LL1.cells h ll l) == l)
-  (decreases l)
-  [ SMTPat (LL1.well_formed h ll l) ]
-=
-  if B.g_is_null ll then
-    ()
-  else
-    deref_cells_is_v h (B.deref h ll).LL1.next (List.Tot.tl l)
 #pop-options
 
 /// Definition of types
@@ -172,7 +143,7 @@ let cell_by_id (h: HS.mem) (id: UInt64.t) (ps: list (B.pointer (LL1.cell peer)))
 =
   gfind2
     (fun v c -> if v.id = id then Some c else None)
-    (gmap (deref_data h) ps)
+    (LL1.gmap (LL1.deref_data h) ps)
     ps
 
 /// Note: previous definition was:
@@ -188,7 +159,9 @@ let cell_by_id (h: HS.mem) (id: UInt64.t) (ps: list (B.pointer (LL1.cell peer)))
 ///      None
 ///
 /// The new definition, in combination with deref_cells_is_v, allows equational
-/// reasoning about cell_by_id without having to deal with recursion.
+/// reasoning about cell_by_id without having to deal with recursion. This is a
+/// fundamental design choice of this module that simplifies a lot of the
+/// reasoning further down.
 
 let peer_of_id_in_peers (h: HS.mem) (d: device) (i: UInt64.t): Ghost Type
   (requires LL2.invariant h d.peers)
@@ -619,6 +592,7 @@ let rec find_peer_by_id_ (ll: LL1.t peer) (l: G.erased (list peer)) (id: UInt64.
       ll
     else
       find_peer_by_id_ next (List.Tot.tl l) id
+#pop-options
 
 let find_peer_by_id (d: device) (id: UInt64.t):
   Stack (B.pointer_or_null (LL1.cell peer))
@@ -651,6 +625,7 @@ val link_peer_by_id (d: device) (id: UInt64.t):
       LL2.v h0 d.peers == LL2.v h1 d.peers /\
       Some? (M.sel (IM.v h1 d.peer_of_id) id))
 
+#push-options "--z3rlimit 100"
 let link_peer_by_id d id =
   (**) let h0 = ST.get () in
   let p = find_peer_by_id d id in

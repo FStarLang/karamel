@@ -89,7 +89,7 @@ let v #_ h ll =
 /// (e.g. taking pointers directly to list cells), it's helpful to have a more
 /// precise way to reason about the footprint. This is done via the cells, a
 /// list of pointers to the individual cells, which characterizes fully the
-/// footprint (see footprint_via_cells_is_footprint).
+/// footprint and the v function. See LL1.
 val cells: #a:Type -> h:HS.mem -> ll: t a -> Ghost (list (B.pointer (LL1.cell a)))
   (requires invariant h ll)
   (ensures fun _ -> True)
@@ -108,17 +108,20 @@ let region_of ll = B.loc_all_regions_from false ll.r
 ///
 /// Note that we don't generally have to state such lemmas, since in many cases,
 /// footprints are static and do not grow dynamically.
+///
+/// Unfortunately, this lemma requires stating some intermediary asserts for
+/// some triggers to fire, and I could not find a good SMTPat for it, so clients
+/// have to call it manually. See test/Wireguard.fst.
 let footprint_in_r #a (h: HS.mem) (ll: t a): Lemma
   (requires invariant h ll)
   (ensures B.(loc_includes (region_of ll) (footprint h ll)))
-  //[ SMTPat (region_of ll); SMTPat (footprint h ll) ]
+  //[ SMTPat (footprint h ll) ]
 =
   assert B.(loc_includes (loc_region_only true ll.spine_rid) (LL1.footprint h (B.deref h ll.ptr) (v h ll)));
   assert B.(loc_includes (loc_all_regions_from true ll.r) (loc_region_only true ll.spine_rid))
 
-/// This lemma is perhaps overly precise, but for clients, as long as they know
-/// they are disjoint from ``r``, they can conclude they are disjoint from the
-/// footprint via the lemma above.
+/// I'm stating this one for completeness, but clients are able to derive this
+/// lemma automatically because the representation is transparent.
 val frame_footprint (#a: Type) (ll: t a) (l: B.loc) (h0 h1: HS.mem): Lemma
   (requires
     invariant h0 ll /\
@@ -130,7 +133,9 @@ val frame_footprint (#a: Type) (ll: t a) (l: B.loc) (h0 h1: HS.mem): Lemma
 let frame_footprint #_ _ _ _ _ =
   ()
 
-/// This one seems to work better and enforce region-based reasoning.
+/// This one is the framing lemma clients want to use if they adopt region-based
+/// reasoning for their LL2 instance. Owing to the lack of pattern on footprint_in_r,
+/// clients also have to call this one manually, sadly.
 val frame_region (#a: Type) (ll: t a) (l: B.loc) (h0 h1: HS.mem): Lemma
   (requires
     invariant h0 ll /\
@@ -236,9 +241,9 @@ val maybe_pop: #a:Type -> ll: t a -> ST (option a)
         Nil? (v h0 ll)))
 #pop-options
 
-#push-options "--fuel 1 --ifuel 1"
+#push-options "--fuel 1 --ifuel 1 --z3rlimit 50"
 let maybe_pop #a ll =
-  if not (B.is_null (!* ll.ptr)) then
+   if not (B.is_null (!* ll.ptr)) then
     let v = !* ll.v in
     let r = LL1.pop ll.spine_rid (!* ll.v) ll.ptr in
     ll.v *= G.hide (List.Tot.tl v);
@@ -275,6 +280,9 @@ let free #_ ll =
   LL1.free #_ #v ll.ptr;
   B.free ll.ptr;
   B.free ll.v
+
+/// Some small testing
+/// ------------------
 
 #push-options "--z3rlimit 50"
 let test (): St unit =

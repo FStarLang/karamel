@@ -65,14 +65,6 @@ val footprint_in_r: #t_k:eqtype -> #t_v:Type0 -> h0:HS.mem -> ll:t t_k t_v -> Le
 let footprint_in_r #_ #_ h0 ll =
   LL2.footprint_in_r h0 ll
 
-/// What's the best way for clients to reason about this? Maybe a lemma that says:
-///
-/// B.(loc_disjoint l (loc_all_regions_from true r)) ==> B.(loc_disjoint l (footprint h ll))
-///
-/// This would allow clients to deduce that their own allocations are disjoint
-/// from the footprint of this. And also to apply the framing lemma with proper
-/// patterns!
-
 #push-options "--fuel 1"
 let create_in #_ #_ r =
   LL2.create_in r
@@ -175,13 +167,15 @@ let rec remove_all_ #t_k #t_v hd l k =
       hd', l'
     end else begin
       let hd', l' = remove_all_ next (List.Tot.tail l) k in
-      hd *= { LL1.data; LL1.next = hd' };
       let h1 = ST.get () in
+      hd *= { LL1.data; LL1.next = hd' };
+      let h2 = ST.get () in
+      LL1.frame hd' l' (B.loc_addr_of_buffer hd) h1 h2;
       M.lemma_equal_intro (v_ ((k', v) :: l')) (M.upd (v_ l) k None);
-      assert B.(loc_disjoint (loc_buffer hd) (LL1.footprint h1 hd' l'));
-      assert (B.live h1 hd /\ B.length hd == 1);
-      assert (LL1.well_formed h1 hd' l');
-      assert (LL1.invariant h1 hd (data :: l'));
+      assert B.(loc_disjoint (loc_buffer hd) (LL1.footprint h2 hd' l'));
+      assert (B.live h2 hd /\ B.length hd == 1);
+      assert (LL1.well_formed h2 hd' l');
+      assert (LL1.invariant h2 hd (data :: l'));
       hd, G.hide ((k', v) :: l')
     end
   end

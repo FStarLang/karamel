@@ -5,8 +5,24 @@ module LowStar.Lib.LinkedList
 /// intend on modifying the structure of the linked list (e.g. removing cells)
 /// or iterating over each cell, your are probably better off using LL2.
 ///
-/// This module is intentionally not relying on a tight abstraction, to permit
-/// direct-style iteration by clients.
+/// This module is intentionally not relying on a tight abstraction, to i) permit
+/// direct-style iteration by clients and ii) allow stating some SMTPat lemmas
+/// only on LL1 rather than replicating them in LL2 (going from LL2 to LL1 can
+/// happen automatically at the SMT level since LL2 does not have an fsti either).
+///
+/// Some open questions relative to the design of this module:
+/// - should ``v`` be defined directly in terms of ``cells`` rather than have a
+///   recursive definition along with an equivalence lemma?
+/// - should ``footprint`` be defined directly in terms of ``cells`` rather than
+///   have a recursive definition along with an equivalence lemma?
+/// - is it worth the trouble defining a footprint? my intuition is that it's
+///   fine and allows some clients to do very precise reasoning -- other modules
+///   (e.g. AssocList), when establishing abstraction boundaries, can simplify
+///   things and get rid of the precise footprint reasoning in favor of a static
+///   region-based footprint
+///
+/// Some remaining work items:
+/// - switch to C.Loops.while
 
 open LowStar.BufferOps
 
@@ -34,10 +50,12 @@ and cell (a: Type0) = {
   data: a;
 }
 
-/// Unlike the canonical style that associated a ``v`` function to any stateful
+/// Unlike the canonical style that associates a ``v`` function to any stateful
 /// representation, we use a relation here. Writing a function is just
 /// impossible, since we can't prove termination of ``v`` owing to the fact that
 /// there may be an infinite number of cells in the heap.
+///
+/// LL2 is the module that switches to the function style.
 ///
 /// Note: no need to use erased here for ``l`` since the function is already in ``GTot``.
 let rec well_formed #a (h: HS.mem) (c: t a) (l: list a): GTot Type0 (decreases l) =
@@ -52,8 +70,8 @@ let rec well_formed #a (h: HS.mem) (c: t a) (l: list a): GTot Type0 (decreases l
     well_formed h next (G.hide q)
   ))
 
-/// One more thing
-/// --------------
+/// Precise reasoning via the cells predicate
+/// -----------------------------------------
 ///
 /// The modifies clauses are given either on the footprint of the list, or on a
 /// region that includes the footprint of the list (higher up the stack, e.g.
@@ -73,6 +91,9 @@ let rec cells #a (h: HS.mem) (c: t a) (l: list a): Ghost (list (B.pointer (cell 
     []
   else
     c :: cells h (B.deref h c).next (List.Tot.tl l)
+
+/// A missing bit of automated reasoning
+/// ------------------------------------
 
 /// This should be absolutely trivial, yet, because there's no pattern on
 /// null_unique, we have to do the case analysis and the decomposition
@@ -100,6 +121,11 @@ let same_cells_same_pointer #a (h0 h1: HS.mem) (ll0 ll1: t a) (l0 l1: list a): L
 
 /// Classic stateful reasoning lemmas
 /// ---------------------------------
+///
+/// This essentially follows ``stateful``, the type class of a mutable piece of
+/// state defined using the modifies-theory of Low*v2 and equipped with the
+/// right lemmas to enable usage by clients. See
+/// hacl-star/code/streaming/Hacl.Streaming.Interface.fst for more context.
 
 val footprint: (#a: Type) -> (h: HS.mem) -> (l: t a) -> (n: list a) -> Ghost B.loc
   (requires (well_formed h l n))
@@ -210,24 +236,75 @@ let rec length_functional #a (h: HS.mem) (c: t a) (l1 l2: list a):
     let { next=next } = B.get h c 0 in
     length_functional h next (G.hide (L.tl l1)) (G.hide (L.tl l2))
 
-/// These two allow conveniently switching to a low-level representation of the
+/// The footprint is based on loc_addr_of_buffer so that we can write a free
+/// operation that operates on the footprint. However, this invalidates most of
+/// the helper lemmas for disjointness that were present in the previous
+/// iteration of this module, named LinkedList4.fst. It's ok, we bake
+/// disjointness directly onto the invariant and it works just as well.
+
+/// Connection between ``cells`` and ``v``
+/// --------------------------------------
+
+/// Redefining some helpers.
+#push-options "--ifuel 1"
+let rec gmap #a #b (f: a -> GTot b) (xs: list a): GTot (list b) =
+  match xs with
+  | [] -> []
+  | x :: xs -> f x :: gmap f xs
+
+/// "As we all know", right folds are the easiest to work with because they
+/// follow the natural structure of recursion (left-folds are evil).
+let rec gfold_right #a #b (f: b -> a -> GTot b) (xs: list a) (acc: b): Ghost b
+  (requires True)
+  (ensures fun _ -> True)
+  (decreases xs)
+=
+  match xs with
+  | [] -> acc
+  | x :: xs -> f (gfold_right f xs acc) x
+#pop-options
+
+/// Connecting ``v`` and ``cells``.
+///
+/// See ``tests/Wireguard.fst`` for why going through gmap is important and how
+/// to structure your definitions (should you need to reason about ``cells``) in
+/// a way that will make your life easier.
+let deref_data #a (h: HS.mem) (c: B.pointer (cell a)): GTot a =
+  (B.deref h c).data
+
+#push-options "--fuel 1 --ifuel 1"
+let rec deref_cells_is_v #a (h: HS.mem) (ll: t a) (l: list a): Lemma
+  (requires
+    well_formed h ll l /\
+    invariant h ll l)
+  (ensures
+    gmap (deref_data h) (cells h ll l) == l)
+  (decreases l)
+  [ SMTPat (well_formed h ll l) ]
+=
+  if B.g_is_null ll then
+    ()
+  else
+    deref_cells_is_v h (B.deref h ll).next (List.Tot.tl l)
+#pop-options
+
+/// Connecting ``footprint`` and ``cells``.
+///
+/// This allows conveniently switching to a low-level representation of the
 /// footprint in case clients want to do some ultra-precise reasoning about
 /// what's happening with the list spine. However, the fact that all
 /// operations from this module specify things in terms of ``cells`` along with
-/// ``same_cells_same_pointer`` should cover most common cases.
-#push-options "--ifuel 1"
-let rec footprint_via_cells #a (l: list (B.pointer (cell a))): GTot B.loc =
-  match l with
-  | c :: cs -> B.loc_addr_of_buffer c `B.loc_union` footprint_via_cells cs
-  | [] -> B.loc_none
-#pop-options
-
-/// TODO: move to LL2
-#push-options "--fuel 1 --ifuel 1"
+/// ``same_cells_same_pointer`` should cover most common cases. (This predates
+/// the introduction of ``same_cells_same_pointer``.)
+///
+/// So, no SMTPat here. Note, I also used the same trick as above with
+/// higher-order combinators to isolate the use of the argument ``h`` to a
+/// single sub-term rather than having it passed down the recursive calls.
+#push-options "--fuel 2 --ifuel 2"
 let rec footprint_via_cells_is_footprint #a (h: HS.mem) (ll: t a) (l: list a): Lemma
   (requires well_formed h ll l)
   (ensures
-    footprint h ll l == footprint_via_cells (cells h ll l))
+    footprint h ll l == (gfold_right B.loc_union (gmap B.loc_addr_of_buffer (cells h ll l)) B.loc_none))
   (decreases l)
 =
   if B.g_is_null ll then
@@ -236,10 +313,6 @@ let rec footprint_via_cells_is_footprint #a (h: HS.mem) (ll: t a) (l: list a): L
     footprint_via_cells_is_footprint h (B.deref h ll).next (List.Tot.tl l)
 #pop-options
 
-/// The footprint is based on loc_addr_of_buffer so that we can write a free
-/// operation that operates on the footprint. However, this invalidates most of
-/// the helper lemmas for disjointness that were present in the previous
-/// iteration of this module, named LinkedList4.fst.
 
 /// Stateful operations
 /// -------------------
@@ -396,6 +469,9 @@ let rec length #a gn l =
       LowStar.Failure.failwith "Integer overflow in LowStar.LinkedList.length"
     end else
       n +^ 1ul
+
+/// Small test
+/// ----------
 
 val test: unit -> ST (Int32.t) (fun _ -> true) (fun _ _ _ -> true)
 
