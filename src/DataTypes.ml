@@ -520,11 +520,14 @@ let remove_unit_buffers = object (self)
         super#visit_EBufCreate env l e1 e2
 
   method! visit_EBufCreateL env l es =
-    match (List.hd es).typ with
-    | TUnit (* | TAny *) ->
-        EUnit
-    | _ ->
-        super#visit_EBufCreateL env l es
+    if List.length es > 0 then
+      match (List.hd es).typ with
+      | TUnit (* | TAny *) ->
+          EUnit
+      | _ ->
+          super#visit_EBufCreateL env l es
+    else
+      super#visit_EBufCreateL env l es
 
   method! visit_EBufRead env e1 e2 =
     match e1.typ with
