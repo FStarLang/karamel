@@ -491,6 +491,94 @@ let compile_simple_matches (map, enums) = object(self)
 end
 
 (* Third step: whole-program transformation to remove unit fields. *)
+
+(* New: remove pointers to unit. *)
+let remove_unit_buffers = object (self)
+  inherit [_] map as super
+
+  method! visit_TBuf _ t b =
+    match t with
+    | TUnit (* | TAny *) ->
+        TUnit
+    | _ ->
+        TBuf (t, b)
+
+  (* t has been rewritten *)
+  method! visit_EField (_, t) e1 f =
+    match t with
+    | TUnit (* | TAny *) ->
+        EUnit
+    | _ ->
+        let e1 = self#visit_expr_w () e1 in
+        EField (e1, f)
+
+  method! visit_EBufCreate env l e1 e2 =
+    match e1.typ with
+    | TUnit (* | TAny *) ->
+        EUnit
+    | _ ->
+        super#visit_EBufCreate env l e1 e2
+
+  method! visit_EBufCreateL env l es =
+    match (List.hd es).typ with
+    | TUnit (* | TAny *) ->
+        EUnit
+    | _ ->
+        super#visit_EBufCreateL env l es
+
+  method! visit_EBufRead env e1 e2 =
+    match e1.typ with
+    | TBuf ((TUnit (* | TAny *)), _) ->
+        EUnit
+    | _ ->
+      super#visit_EBufRead env e1 e2
+
+  method! visit_EBufWrite env e1 e2 e3 =
+    match e1.typ with
+    | TBuf ((TUnit (* | TAny *)), _) ->
+        EUnit
+    | _ ->
+      super#visit_EBufWrite env e1 e2 e3
+
+  method! visit_EBufSub env e1 e2 =
+    match e1.typ with
+    | TBuf ((TUnit (* | TAny *)), _) ->
+        EUnit
+    | _ ->
+      super#visit_EBufSub env e1 e2
+
+  method! visit_EBufBlit env e1 e2 e3 e4 e5 =
+    match e1.typ with
+    | TBuf ((TUnit (* | TAny *)), _) ->
+        EUnit
+    | _ ->
+      super#visit_EBufBlit env e1 e2 e3 e4 e5
+
+  method! visit_EBufFill env e1 e2 e3 =
+    match e1.typ with
+    | TBuf ((TUnit (* | TAny *)), _) ->
+        EUnit
+    | _ ->
+      super#visit_EBufFill env e1 e2 e3
+
+  method! visit_EBufFree env e1 =
+    match e1.typ with
+    | TBuf ((TUnit (* | TAny *)), _) ->
+        EUnit
+    | _ ->
+      super#visit_EBufFree env e1
+
+  method! visit_EApp env e1 es =
+    match e1.node, es with
+    | EQualified ([ "LowStar"; "BufferOps" ], s), { typ = TBuf (TUnit, _); _ } :: _ when
+      KString.starts_with s "op_Bang_Star__" ||
+      KString.starts_with s "op_Star_Equals__" ->
+        EUnit
+    | _ ->
+        super#visit_EApp env e1 es
+
+end
+
 let remove_unit_fields = object (self)
 
   inherit [_] map
@@ -1082,6 +1170,7 @@ let simplify files =
   files
 
 let everything files =
+  let files = remove_unit_buffers#visit_files () files in
   let files = remove_unit_fields#visit_files () files in
   let map = build_scheme_map files in
   let files = (compile_simple_matches map)#visit_files () files in

@@ -12,7 +12,7 @@
         "typing_FStar.UInt8.t"
       ],
       0,
-      "5f2ab56d20bac782cf0a5e9bbcf2be65"
+      "8ff6699be3d5d18fccb2c47d46285558"
     ],
     [
       "Structs2.point",
@@ -25,7 +25,7 @@
         "typing_FStar.UInt32.t"
       ],
       0,
-      "18b597952e51955630015f6277f78a2a"
+      "6fcae2d91c63d3cb668625b14e112752"
     ],
     [
       "Structs2.t",
@@ -37,7 +37,7 @@
         "assumption_Structs2.point__uu___haseq"
       ],
       0,
-      "8bf48d11a9380876b375f06e3c77b033"
+      "bcd6ee88052da307cbbe774d55aa9be9"
     ],
     [
       "Structs2.test1",
@@ -58,7 +58,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "29eecf1f36e5a7736d14a97e53767ea3"
+      "d62adfb2c82091b7c1956ce179de1091"
     ],
     [
       "Structs2.main",
@@ -66,13 +66,25 @@
       2,
       1,
       [
-        "@MaxIFuel_assumption", "@query", "equation_C.exit_success",
-        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem",
-        "function_token_typing_C.exit_success",
-        "lemma_FStar.HyperStack.ST.lemma_equal_domains_trans"
+        "@MaxIFuel_assumption",
+        "@fuel_correspondence_Prims.pow2.fuel_instrumented", "@query",
+        "b2t_def", "equation_FStar.Int.fits", "equation_FStar.Int.int_t",
+        "equation_FStar.Int.max_int", "equation_FStar.Int.min_int",
+        "equation_FStar.Int.size", "equation_Prims.nat",
+        "equation_Prims.pos", "int_typing",
+        "lemma_FStar.HyperStack.ST.lemma_equal_domains_trans",
+        "primitive_Prims.op_AmpAmp", "primitive_Prims.op_LessThanOrEqual",
+        "primitive_Prims.op_Minus", "primitive_Prims.op_Subtraction",
+        "projection_inverse_BoxBool_proj_0",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_Tm_refine_542f9d4f129664613f2483a6c88bc7c2",
+        "refinement_interpretation_Tm_refine_627e9f1cc724efa294bbc10092665eb4",
+        "refinement_interpretation_Tm_refine_774ba3f728d91ead8ef40be66c9802e5",
+        "refinement_interpretation_Tm_refine_c156ecc6eab05d1687a383ef171435eb",
+        "typing_FStar.Int32.int_to_t", "typing_Prims.pow2"
       ],
       0,
-      "60b01d4fa29f6bead250af1c1761d6b2"
+      "97921d3736da66ac8db148c0262306c7"
     ]
   ]
 ]

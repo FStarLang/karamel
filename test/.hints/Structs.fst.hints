@@ -12,7 +12,7 @@
         "typing_FStar.Int32.t"
       ],
       0,
-      "22b7d5bf99a01321a6811d38a0699b4c"
+      "0656c9663a4cae5d1c095ff6a0b48807"
     ],
     [
       "Structs.f",
@@ -33,7 +33,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "a0f301be22c402915fc0e9bc40219b9f"
+      "c769878b2b6355ee0c11181d59ab1620"
     ],
     [
       "Structs.main",
@@ -41,11 +41,11 @@
       2,
       1,
       [
-        "@query", "equation_C.exit_success",
-        "function_token_typing_C.exit_success"
+        "@query", "equality_tok_C.EXIT_SUCCESS@tok",
+        "typing_tok_C.EXIT_SUCCESS@tok"
       ],
       0,
-      "826b5325ba8672144bbe28fb0e14a121"
+      "9f30e4a19992d0567e03e49b72258979"
     ]
   ]
 ]

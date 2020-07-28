@@ -20,17 +20,17 @@ extern Prims_int FStar_Date_secondsFromDawn();
 
 extern FStar_Date_timeSpan
 FStar_Date_newTimeSpan(
-  Prims_int uu____52,
-  Prims_int uu____53,
-  Prims_int uu____54,
-  Prims_int uu____55
+  Prims_int uu____44,
+  Prims_int uu____45,
+  Prims_int uu____46,
+  Prims_int uu____47
 );
 
 extern FStar_Date_dateTime
-FStar_Date_addTimeSpan(FStar_Date_dateTime uu____76, FStar_Date_timeSpan uu____77);
+FStar_Date_addTimeSpan(FStar_Date_dateTime uu____62, FStar_Date_timeSpan uu____63);
 
 extern bool
-FStar_Date_greaterDateTime(FStar_Date_dateTime uu____95, FStar_Date_dateTime uu____96);
+FStar_Date_greaterDateTime(FStar_Date_dateTime uu____78, FStar_Date_dateTime uu____79);
 
 #define __FStar_Date_H_DEFINED
 #endif

@@ -22,7 +22,7 @@ typedef uint32_t FStar_Bytes_u32;
 
 typedef uint8_t FStar_Bytes_byte;
 
-extern uint32_t FStar_Bytes_len(FStar_Bytes_bytes uu____18);
+extern uint32_t FStar_Bytes_len(FStar_Bytes_bytes uu____7);
 
 extern Prims_int FStar_Bytes_length(FStar_Bytes_bytes b);
 
@@ -114,17 +114,17 @@ FStar_Pervasives_Native_option__Prims_string;
 
 extern FStar_Pervasives_Native_option__Prims_string FStar_Bytes_iutf8_opt(FStar_Bytes_bytes m);
 
-extern Prims_string FStar_Bytes_string_of_hex(Prims_string uu____763);
+extern Prims_string FStar_Bytes_string_of_hex(Prims_string uu____507);
 
-extern FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string uu____777);
+extern FStar_Bytes_bytes FStar_Bytes_bytes_of_hex(Prims_string uu____515);
 
-extern Prims_string FStar_Bytes_hex_of_string(Prims_string uu____791);
+extern Prims_string FStar_Bytes_hex_of_string(Prims_string uu____523);
 
-extern Prims_string FStar_Bytes_hex_of_bytes(FStar_Bytes_bytes uu____805);
+extern Prims_string FStar_Bytes_hex_of_bytes(FStar_Bytes_bytes uu____531);
 
-extern Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes uu____819);
+extern Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes uu____539);
 
-extern FStar_Bytes_bytes FStar_Bytes_bytes_of_string(Prims_string uu____833);
+extern FStar_Bytes_bytes FStar_Bytes_bytes_of_string(Prims_string uu____547);
 
 extern FStar_Bytes_bytes FStar_Bytes_of_buffer(uint32_t l, uint8_t *p);
 

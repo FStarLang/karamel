@@ -12,7 +12,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "0e5c265c5d91a25340824dd0275348a3"
+      "5911025a8e010017e420c8da25cfbb55"
     ],
     [
       "HigherOrder3.exampleFunc",
@@ -25,16 +25,32 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "0e0712f49bd8e802f900cf38c41600c0"
+      "15236c32a1209cbdd6ac27d153207c26"
     ],
     [
       "HigherOrder3.main",
       1,
       2,
       1,
-      [ "@query" ],
+      [
+        "@MaxIFuel_assumption",
+        "@fuel_correspondence_Prims.pow2.fuel_instrumented", "@query",
+        "b2t_def", "equation_FStar.Int.fits", "equation_FStar.Int.int_t",
+        "equation_FStar.Int.max_int", "equation_FStar.Int.min_int",
+        "equation_FStar.Int.size", "equation_Prims.nat",
+        "equation_Prims.pos", "int_typing", "primitive_Prims.op_AmpAmp",
+        "primitive_Prims.op_LessThanOrEqual", "primitive_Prims.op_Minus",
+        "primitive_Prims.op_Subtraction",
+        "projection_inverse_BoxBool_proj_0",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_Tm_refine_542f9d4f129664613f2483a6c88bc7c2",
+        "refinement_interpretation_Tm_refine_627e9f1cc724efa294bbc10092665eb4",
+        "refinement_interpretation_Tm_refine_774ba3f728d91ead8ef40be66c9802e5",
+        "refinement_interpretation_Tm_refine_c156ecc6eab05d1687a383ef171435eb",
+        "typing_FStar.Int32.int_to_t", "typing_Prims.pow2"
+      ],
       0,
-      "a285a769f6450f382470f95a4631e08c"
+      "90930978a34875c3cfe1888ac3981ee1"
     ]
   ]
 ]

@@ -20,7 +20,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "e27cb95f7d2bebab110ec073fb42288d"
+      "1d8eb255beb8e5f61d3255fd9862ba85"
     ],
     [
       "GcTypes.main",
@@ -29,10 +29,11 @@
       1,
       [
         "@MaxIFuel_assumption", "@query",
-        "fuel_guarded_inversion_FStar.Monotonic.HyperStack.mem"
+        "refinement_interpretation_Tm_refine_77b9eba70e6e83667080c8e5f50b96df",
+        "refinement_interpretation_Tm_refine_abf749ae3c800f91a6f1dcf2ecb5621e"
       ],
       0,
-      "3ae2759bde62aa244eb4c55d0c1b9f2e"
+      "5a551134c6c50bfb4ba1dc016c2a040f"
     ]
   ]
 ]

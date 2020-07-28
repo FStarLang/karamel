@@ -231,7 +231,7 @@ typedef struct Prims_list__FStar_Pervasives_norm_step_s
 Prims_list__FStar_Pervasives_norm_step;
 
 extern void
-*FStar_Pervasives_norm(Prims_list__FStar_Pervasives_norm_step *uu____2438, void *uu____2439);
+*FStar_Pervasives_norm(Prims_list__FStar_Pervasives_norm_step *uu____2151, void *uu____2152);
 
 #define __FStar_Pervasives_H_DEFINED
 #endif

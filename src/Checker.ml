@@ -142,6 +142,15 @@ let locate env loc =
 
 (** Checking ---------------------------------------------------------------- *)
 
+type flat = Record | Union
+
+let kind env lid: flat option =
+  match lookup_type env lid with
+  | Flat _ -> Some Record
+  | Union _ -> Some Union
+  | _ -> None
+
+
 let rec check_everything ?warn files: bool * file list =
   let env = populate_env files in
   let env = match warn with Some true -> { env with warn = true } | _ -> env in
@@ -222,6 +231,37 @@ and smallest t1 t2 =
       TBuf (smallest t1 t2, b1 && b2)
   | _ ->
       t1
+
+and check_fields_opt env fieldexprs fieldtyps =
+  if List.length fieldexprs > List.length fieldtyps then
+    checker_error env "some fields are superfluous";
+  List.iter (fun (field, expr) ->
+    let field = Option.must field in
+    let t, _ = KList.assoc_opt field fieldtyps in
+    check env t expr
+  ) fieldexprs
+
+and check_fieldpats env fieldexprs fieldtyps =
+  if List.length fieldexprs > List.length fieldtyps then
+    checker_error env "some fields are superfluous";
+  List.iter (fun (field, expr) ->
+    let t, _ = KList.assoc_opt field fieldtyps in
+    check_pat env t expr
+  ) fieldexprs
+
+and check_union env fieldexprs fieldtyps =
+  match fieldexprs with
+  | [ Some f, e ] ->
+      begin try
+        check env (List.assoc f fieldtyps) e
+      with Not_found ->
+        checker_error env "Union does not have such a field"
+      end
+  | [ None, { node = EConstant (_, "0"); _ } ] ->
+      ()
+  | _ ->
+      checker_error env "Union expected, i.e. exactly one provided field";
+
 
 and check env t e =
   if !debug then KPrint.bprintf "[check] t=%a for e=%a\n" ptyp t pexpr e;
@@ -372,40 +412,29 @@ and check' env t e =
        * typing comes into play. Indeed, a flat record is typed nominally (if
        * the context demands it) or structurally (default). TODO just type
        * structurally, and let the subtyping relation do the rest? *)
-      let check_fields fieldexprs fieldtyps =
-        if List.length fieldexprs > List.length fieldtyps then
-          checker_error env "some fields are superfluous";
-        List.iter (fun (field, expr) ->
-          let field = Option.must field in
-          let t, _ = KList.assoc_opt field fieldtyps in
-          check env t expr
-        ) fieldexprs
-      in
       begin match expand_abbrev env t with
-      | TQualified lid ->
+      | TQualified lid when kind env lid = Some Record ->
           let fieldtyps = assert_flat env (lookup_type env lid) in
-          check_fields fieldexprs fieldtyps
-      | TApp (lid, ts) ->
+          check_fields_opt env fieldexprs fieldtyps
+      | TQualified lid when kind env lid = Some Union ->
+          let fieldtyps = assert_union env (lookup_type env lid) in
+          check_union env fieldexprs fieldtyps
+      | TApp (lid, ts) when kind env lid = Some Record ->
           let fieldtyps = assert_flat env (lookup_type env lid) in
           let fieldtyps = List.map (fun (field, (typ, m)) ->
             field, (DeBruijn.subst_tn ts typ, m)
           ) fieldtyps in
-          check_fields fieldexprs fieldtyps
+          check_fields_opt env fieldexprs fieldtyps
+      | TApp (lid, ts) when kind env lid = Some Union ->
+          let fieldtyps = assert_union env (lookup_type env lid) in
+          let fieldtyps = List.map (fun (field, typ) ->
+            field, DeBruijn.subst_tn ts typ
+          ) fieldtyps in
+          check_union env fieldexprs fieldtyps
       | TAnonymous (Flat fieldtyps) ->
-          check_fields fieldexprs fieldtyps
+          check_fields_opt env fieldexprs fieldtyps
       | TAnonymous (Union fieldtyps) ->
-          begin match fieldexprs with
-          | [ Some f, e ] ->
-              begin try
-                check env (List.assoc f fieldtyps) e
-              with Not_found ->
-                checker_error env "Union does not have such a field"
-              end
-          | [ None, { node = EConstant (_, "0"); _ } ] ->
-              ()
-          | _ ->
-              checker_error env "Union expected, i.e. exactly one provided field";
-          end
+          check_union env fieldexprs fieldtyps
       | _ ->
           checker_error env "Not a record %a" ptyp t
       end
@@ -854,18 +883,21 @@ and check_pat env t_context pat =
       pat.typ <- t_context
 
   | PRecord fieldpats ->
-      (* See test/RecordTypingLimitation.fst for the bug triggered here. *)
-      let lid = assert_qualified env t_context in
-      let fieldtyps = assert_flat env (lookup_type env lid) in
-      List.iter (fun ((field, pat): ident * pattern) ->
-        let t, _ =
-          try
-            KList.assoc_opt field fieldtyps
-          with Not_found ->
-            checker_error env "%a, type %a has no field named %s" ploc env.location plid lid field
-        in
-        check_pat env t pat
-      ) fieldpats;
+      begin match expand_abbrev env t_context with
+      | TQualified lid when kind env lid = Some Record ->
+          let fieldtyps = assert_flat env (lookup_type env lid) in
+          check_fieldpats env fieldpats fieldtyps
+      | TApp (lid, ts) when kind env lid = Some Record ->
+          let fieldtyps = assert_flat env (lookup_type env lid) in
+          let fieldtyps = List.map (fun (field, (typ, m)) ->
+            field, (DeBruijn.subst_tn ts typ, m)
+          ) fieldtyps in
+          check_fieldpats env fieldpats fieldtyps
+      | TAnonymous (Flat fieldtyps) ->
+          check_fieldpats env fieldpats fieldtyps
+      | _ ->
+          checker_error env "Not a record %a" ptyp t_context
+      end;
       pat.typ <- t_context
 
   | PEnum tag ->
@@ -903,6 +935,13 @@ and assert_flat env t =
       def
   | _ ->
       checker_error env "%a, %a is not a record definition" ploc env.location pdef t
+
+and assert_union env t =
+  match t with
+  | Union def ->
+      def
+  | _ ->
+      checker_error env "%a, %a is not a union definition" ploc env.location pdef t
 
 and assert_qualified env t =
   match expand_abbrev env t with

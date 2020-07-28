@@ -358,7 +358,7 @@ let detect_gnu flavor =
         Warn.fatal_error "gcc not found in path!";
   in
   let crosscc = if !Options.m32 then format_of_string "i686-w64-mingw32-%s" else format_of_string "x86_64-w64-mingw32-%s" in
-  search [ "%s-8"; "%s-7"; "%s-6"; "%s-5"; crosscc; "%s" ];
+  search [ "%s-10"; "%s-9"; "%s-8"; "%s-7"; "%s-6"; "%s-5"; crosscc; "%s" ];
 
   if not !Options.silent then
     KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !cc;
@@ -427,10 +427,18 @@ let compile files extra_c_files =
   let gcc_c file =
     flush stdout;
     let info = Printf.sprintf "[CC,%s]" file in
-    run_or_warn info !cc (!cc_args @ Dash.c file @ Dash.o_obj (o_of_c file))
+    let args = !cc_args @ Dash.c file @ Dash.o_obj (o_of_c file) in
+    run_or_warn info !cc args
   in
+
   let files = List.filter gcc_c files in
   let extra_c_files = List.filter gcc_c extra_c_files in
+
+  let ide_support = open_out (!Options.tmpdir ^^ "compile_flags.txt") in
+  output_string ide_support (String.concat "\n" !cc_args);
+  output_char ide_support '\n';
+  close_out ide_support;
+
   files @ extra_c_files
 
 (** All the [.o] files thus obtained and all the [.o] files passed on the

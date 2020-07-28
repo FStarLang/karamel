@@ -14,11 +14,11 @@
 
 
 
-extern void portable_exit(int32_t uu____60);
+extern void portable_exit(int32_t uu____31);
 
-extern char char_of_uint8(uint8_t uu____94);
+extern char char_of_uint8(uint8_t uu____53);
 
-extern uint8_t uint8_of_char(char uu____106);
+extern uint8_t uint8_of_char(char uu____61);
 
 extern bool uu___is_EXIT_SUCCESS(exit_code projectee);
 
