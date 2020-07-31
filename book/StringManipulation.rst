@@ -9,7 +9,12 @@ This is a valid Low* usage and will not trigger a warning. These strings are
 compiled as C literals and as such are zero-terminated.
 
 You may also use non-allocating functions that operate over strings, such as
-``FStar.strlen``. All other functions, e.g. ``strcat``, ``substring`` are
+``FStar.strlen``, ``string_of_bool``, polymorphic equality over strings ``=``
+(compiles into ``strcmp``), etc. -- note that these are not part of the
+"minimal" kremlib and you'll have to link in
+``kremlib/dist/generic/libkremlib.a``.
+
+All other functions, e.g. ``strcat``, ``substring``, ``string_of_int`` are
 non-Low* and will trigger Warning 15, because they perform unchecked
 allocations.
 

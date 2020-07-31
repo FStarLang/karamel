@@ -106,6 +106,8 @@ let check_features files =
       match lid with
       | ["FStar"; "String"], "strlen" ->
           ()
+      | ["Prims"], "string_of_int"
+      | ["Prims"], "strcat"
       | ["FStar"; "String"], _ ->
           diag.gc_string_ops <- LidSet.add lid diag.gc_string_ops
       | _ ->
