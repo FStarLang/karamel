@@ -28,10 +28,7 @@ open PrintAst.Ops
 open Helpers
 
 module C = Checker
-module LidSet = Set.Make(struct
-  type t = lident
-  let compare = compare
-end)
+module LidSet = Idents.LidSet
 
 type env = {
   location: loc list;

@@ -67,13 +67,14 @@ let types_depth files =
 
   l
 
+module LidSet = Idents.LidSet
 
 type diag = {
   name: lident;
   mutable uses_nat: bool;
   mutable uses_gctype: bool;
   mutable uses_rec: bool;
-  mutable uses_string: bool;
+  mutable gc_string_ops: LidSet.t;
 }
 
 let fresh_diag lid = {
@@ -81,7 +82,7 @@ let fresh_diag lid = {
   uses_nat = false;
   uses_gctype = false;
   uses_rec = false;
-  uses_string = false
+  gc_string_ops = LidSet.empty
 }
 
 
@@ -99,28 +100,24 @@ let check_features files =
 
     val mutable diag = fresh_diag ([], "")
 
-    method! visit_EQualified env lid =
-      super#visit_EQualified env lid;
+    method! visit_EQualified _ lid =
       if lid = diag.name then
-        diag.uses_rec <- true
+        diag.uses_rec <- true;
+      match lid with
+      | ["FStar"; "String"], "strlen" ->
+          ()
+      | ["FStar"; "String"], _ ->
+          diag.gc_string_ops <- LidSet.add lid diag.gc_string_ops
+      | _ ->
+          ()
 
     method private check_tlid lid =
       if is_gctype lid then
         diag.uses_gctype <- true;
-      if lid = ([ "Prims" ], "string") then
-        diag.uses_string <- true
 
     method! visit_TInt _ w =
       if w = K.CInt then
         diag.uses_nat <- true
-
-    method! visit_EApp env e es =
-      match e.node with
-      | EQualified (["C"; "String"], l)
-      | EQualified (["C"; "Compat"; "String"], l) when KString.starts_with l "of_literal" ->
-          ()
-      | _ ->
-          super#visit_EApp env e es
 
     method! visit_TQualified _ lid =
       self#check_tlid lid
@@ -132,7 +129,7 @@ let check_features files =
     method! visit_decl env d =
       diag <- fresh_diag (lid_of_decl d);
       super#visit_decl env d;
-      if diag.uses_nat || diag.uses_gctype || diag.uses_rec || diag.uses_string then
+      if diag.uses_nat || diag.uses_gctype || diag.uses_rec || not (LidSet.is_empty diag.gc_string_ops) then
         diags := diag :: !diags
   end)#visit_files () files;
 
@@ -166,7 +163,7 @@ let all files verbose =
     ) diags
   end;
 
-  List.iter (fun { name; uses_nat; uses_gctype; uses_string; _ } ->
+  List.iter (fun { name; uses_nat; uses_gctype; gc_string_ops; _ } ->
     if uses_nat then
       Warn.(maybe_fatal_error ("", NeedsCompat (name,
         "it uses mathematical integers and runtime checks may fail; rewrite your \
@@ -180,12 +177,14 @@ let all files verbose =
         need to link with a garbage-collector; if this declaration is for \
         specification purposes only, consider marking it noextract or using \
         -bundle <name-of-the-module> to only keep reachable definitions.")));
-    if uses_string then
+    if not (LidSet.is_empty gc_string_ops) then
       Warn.(maybe_fatal_error ("", NeedsCompat (name,
-        "it uses F*'s Prims.string type and will leak memory; you \
+        KPrint.bsprintf "it uses %s which will leak memory; you \
         need to link with a garbage-collector; if this declaration is for \
         specification purposes only, consider marking it noextract or using \
         -bundle <name-of-the-module> to only keep reachable definitions; if you \
         are looking to use C strings, look into C.String (in kremlib/) and Server \
-        (in test/). See the KreMLin tutorial for more information.")));
+        (in test/). See the KreMLin tutorial for more information."
+        (String.concat "," (List.map Idents.string_of_lident (LidSet.elements gc_string_ops)))
+      )));
   ) warnings

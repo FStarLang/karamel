@@ -9,3 +9,4 @@ with KreMLin and compile to C.
    BufferLibraries
    MoreLibraries
    DataStructures
+   StringManipulation
