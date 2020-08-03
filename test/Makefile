@@ -12,7 +12,7 @@ BROKEN		= \
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
 # special file and doesn't have a main.
 FILES		= \
-  $(patsubst %.fst,%.test,$(filter-out NameCollisionHelper.fst ML16Externals.fst MemCpyModel.fst Lowlevel.fst $(BROKEN),$(wildcard *.fst))) \
+  $(patsubst %.fst,%.test,$(filter-out StaticHeaderAPI.fst StaticHeaderLib.fst NameCollisionHelper.fst ML16Externals.fst MemCpyModel.fst Lowlevel.fst $(BROKEN),$(wildcard *.fst))) \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.test \
   $(patsubst %.fst,%.test,$(wildcard ../book/*.fst ../book/notfslit/*.fst))
 
@@ -46,7 +46,8 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules --use_two_phase_tc true \
   --include ../kremlib --include ../runtime \
   --include $(CRYPTO) --include ../book --include ../book/notfslit --use_hints --record_hints \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
-  --trivial_pre_for_unannotated_effectful_fns false
+  --trivial_pre_for_unannotated_effectful_fns false \
+  --cmi
 
 # This just needs F* + KreMLin
 all: $(FILES) $(CUSTOM) ctypes-test
@@ -115,8 +116,8 @@ $(OUTPUT_DIR)/TailCalls.exe: EXTRA = -add-include '"kremlin/internal/compat.h"' 
 $(OUTPUT_DIR)/FunctionalEncoding.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/Crypto_Symmetric_Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 $(OUTPUT_DIR)/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
-	hello-system/system.c -I hello-system -no-prefix SystemNative \
-	-drop SystemNative $(HELLOSYSTEM_LDOPTS)
+  hello-system/system.c -I hello-system -no-prefix SystemNative \
+  -drop SystemNative $(HELLOSYSTEM_LDOPTS)
 $(OUTPUT_DIR)/TestKremBytes.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/TestAlloca.exe: EXTRA = -falloca
 $(OUTPUT_DIR)/EtaStruct.exe: EXTRA = -fnostruct-passing
@@ -128,15 +129,16 @@ $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
 $(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel memcpymodel_impl.c
 $(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
 $(OUTPUT_DIR)/Ctypes2.exe: EXTRA = -ctypes 'Ctypes2,Ctypes4' \
-	-bundle 'Ctypes3+Ctypes4=[rename=Lowlevel]' \
-    -bundle 'Ctypes2=' \
-    -bundle 'Ctypes1=' \
-    -bundle '*,WindowsHack[rename=Leftovers]' \
-	-no-prefix 'Ctypes4' -skip-compilation
+  -bundle 'Ctypes3+Ctypes4=[rename=Lowlevel]' \
+  -bundle 'Ctypes2=' \
+  -bundle 'Ctypes1=' \
+  -bundle '*,WindowsHack[rename=Leftovers]' \
+  -no-prefix 'Ctypes4' -skip-compilation
 $(OUTPUT_DIR)/Failwith.exe: EXTRA = -ccopts -Wno-deprecated-declarations,-Wno-infinite-recursion
 $(OUTPUT_DIR)/VariableMerge.exe: EXTRA = -fmerge aggressive
 $(OUTPUT_DIR)/NameCollision.exe: EXTRA = -no-prefix NameCollisionHelper
 $(OUTPUT_DIR)/Intro.exe $(OUTPUT_DIR)/MemCpy.exe: EXTRA = -rst-snippets
+$(OUTPUT_DIR)/StaticHeader.exe: EXTRA = -static-header StaticHeaderLib -bundle StaticHeaderAPI=StaticHeaderLib -warn-error @7@8
 
 Failure.test: NEGATIVE=true
 
