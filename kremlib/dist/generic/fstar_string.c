@@ -5,8 +5,21 @@
 #include "FStar_String.h"
 
 
+/* F* now imposes utf8 encoding for string literals.
+ *
+ * We assume only well-formed utf8 string literals, e.g. no overlong invalid
+ * encodings, etc. */
 Prims_nat FStar_String_strlen(Prims_string s) {
-  return strlen(s);
+  uint64_t count = 0;
+  uint64_t i = 0;
+  while (s[i]) {
+    uint8_t byte = (uint8_t) s[i];
+    if ((byte & 0xc0) != 0x80)
+      // Not a continuation byte, i.e. start of a codepoint.
+      count++;
+    i++;
+  }
+  return count;
 }
 
 /* Backwards-compatibility; remove me. */
