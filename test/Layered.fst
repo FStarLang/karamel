@@ -100,11 +100,11 @@ let lift_pure (a:Type) (wp:pure_wp a) (f:eqtype_as_type unit -> PURE a wp)
 sub_effect PURE ~> BUG = lift_pure
 
 inline_for_extraction
-let test () : BUG U32.t (fun p tup -> p 5ul tup)
-  = 5ul
+let test () : BUG Int32.t (fun p tup -> p 5ul tup)
+  = 0l
 
 let main ()
-  : ST U32.t (fun _ -> True) (fun _ _ _ -> True) =
+  : ST Int32.t (fun _ -> True) (fun _ _ _ -> True) =
   let ctx = Context in
   let test_ret = reify (test ()) ctx in
   test_ret
