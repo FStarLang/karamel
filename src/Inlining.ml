@@ -463,6 +463,11 @@ let inline files =
 
 
 let inline_type_abbrevs files =
+  let gc_map = Helpers.build_map files (fun map -> function
+    | DType (lid, flags, _, _) when List.mem GcType flags -> Hashtbl.add map lid ()
+    | _ -> ()
+  ) in
+
   let map = Helpers.build_map files (fun map -> function
     | DType (lid, _, _, Abbrev t) -> Hashtbl.add map lid (White, t)
     | _ -> ()
@@ -490,7 +495,13 @@ let inline_type_abbrevs files =
   filter_decls (function
     | DType (lid, flags, n, Abbrev def) ->
         begin match def with
-        | TApp (hd, args) when List.assoc_opt (hd, args) !Monomorphization.hints = None ->
+        | TApp (hd, args)
+          when List.assoc_opt (hd, args) !Monomorphization.hints = None &&
+          not (Hashtbl.mem gc_map hd) ->
+            (* Don't use a type abbreviation towards a to-be-GC'd type as a
+             * hint, because there will be a mismatch later on with a * being
+             * added. This is mosly for backwards-compat with miTLS having
+             * hand-written code in mitlsffi.c. *)
             Monomorphization.(hints := ((hd, args), lid) :: !hints);
             (* Never leave the abbreviation in the program otherwise there will
              * be two types with the same name, the abbreviation and the
