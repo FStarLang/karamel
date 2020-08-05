@@ -624,7 +624,6 @@ let equalities files =
       | _ -> super#visit_EApp env e es
 
     method! visit_EOp _ op w =
-      KPrint.bprintf "visit_EOp\n";
       match op with
       | K.Eq | K.Neq ->
           (* If we get here, then this is an unapplied equality appearing in an
