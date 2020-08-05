@@ -98,11 +98,13 @@ let monomorphize_data_types map = object(self)
     let lid, args = n in
     if List.length args > 0 then
       try
-        List.assoc n !hints
+        let pretty = List.assoc n !hints in
+        if Options.debug "names" then
+          KPrint.bprintf "Hit: %a --> %a\n" ptyp (TApp (lid, args)) plid pretty;
+        pretty
       with Not_found ->
         if Options.debug "names" then begin
-          KPrint.bprintf "No pretty name for %a applied to %a\n"
-            plid lid ptyps args;
+          KPrint.bprintf "No hit: %a\n" ptyp (TApp (lid, args));
           debug_hints ()
         end;
         let doc = PPrint.(separate_map underscore PrintAst.print_typ args) in
@@ -126,6 +128,33 @@ let monomorphize_data_types map = object(self)
     (* White, gray or black? *)
     begin match Hashtbl.find state n with
     | exception Not_found ->
+        (* Update hints table to now use names that have been previously
+         * allocated, including the current node's (in case this is a
+         * recursive type). Cannot use the current visitor because it would
+         * force visiting sub-nodes that we don't intend to visit yet. *)
+        hints := List.map (fun ((hd, args), lid) ->
+          (hd, List.map (
+            (object
+              inherit [_] map as self'
+
+              method! visit_TApp _ hd args =
+                if Hashtbl.mem state (hd, args) then
+                  let args = List.map (self'#visit_typ ()) args in
+                  TQualified (self#lid_of (hd, args))
+                else
+                  let args = List.map (self'#visit_typ ()) args in
+                  TApp (hd, args)
+
+              method! visit_TTuple _ args =
+                if Hashtbl.mem state (tuple_lid, args) then
+                  let args = List.map (self'#visit_typ ()) args in
+                  TQualified (self#lid_of (tuple_lid, args))
+                else
+                  let args = List.map (self'#visit_typ ()) args in
+                  TTuple args
+            end)#visit_typ ()
+          ) args), lid) !hints;
+
         (* Subtletly: we decline to insert type monomorphizations in dropped
          * files, on the basis that they might be needed later in an actual
          * file. *)
@@ -137,33 +166,6 @@ let monomorphize_data_types map = object(self)
         else begin
           (* This specific node has not been visited yet. *)
           Hashtbl.add state n Gray;
-
-          (* Update hints table to now use names that have been previously
-           * allocated, including the current node's (in case this is a
-           * recursive type). Cannot use the current visitor because it would
-           * force visiting sub-nodes that we don't intend to visit yet. *)
-          hints := List.map (fun ((hd, args), lid) ->
-            (hd, List.map (
-              (object
-                inherit [_] map as self'
-
-                method! visit_TApp _ hd args =
-                  if Hashtbl.mem state (hd, args) then
-                    let args = List.map (self'#visit_typ ()) args in
-                    TQualified (self#lid_of (hd, args))
-                  else
-                    let args = List.map (self'#visit_typ ()) args in
-                    TApp (hd, args)
-
-                method! visit_TTuple _ args =
-                  if Hashtbl.mem state (tuple_lid, args) then
-                    let args = List.map (self'#visit_typ ()) args in
-                    TQualified (self#lid_of (tuple_lid, args))
-                  else
-                    let args = List.map (self'#visit_typ ()) args in
-                    TTuple args
-              end)#visit_typ ()
-            ) args), lid) !hints;
 
           let subst fields = List.map (fun (field, (t, m)) ->
             field, (DeBruijn.subst_tn args t, m)
