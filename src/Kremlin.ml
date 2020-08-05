@@ -291,6 +291,8 @@ Supported options:|}
     "-flinux-ints", Arg.Set Options.linux_ints, " use Linux kernel int types";
     "-fmicrosoft", Arg.Set Options.microsoft, " various Microsoft-specific \
       tweaks";
+    "-fextern-c", Arg.Set Options.extern_c, " wrap declarations in each header \
+      with extern \"C\" {";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
