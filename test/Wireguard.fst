@@ -63,6 +63,14 @@ and device = {
   r_peers_payload: HS.rid;
 }
 
+// Naming a bunch of abbreviations for code-gen quality
+let peer_list2 = LL2.t peer
+let peer_list1 = LL1.t peer
+let peer_cell = LL1.cell peer
+let peer_id_map_entry = UInt64.t & B.pointer peer_cell
+let peer_id_map_cell = LL1.cell (UInt64.t & B.pointer peer_cell)
+let peer_id_map = LL2.t (UInt64.t & B.pointer peer_cell)
+
 /// A single peer
 /// -------------
 let peer_invariant (h: HS.mem) (p: peer) =

@@ -8,6 +8,9 @@ extern "C" {
 #endif
 ```
 
+- Better heuristics for picking the name of the monomorphized data types, based
+  on the presence of type abbreviations in the original source files.
+
 ### Jan 28th, 2020
 
 - New bundle option: rename-prefix (no argument) overrides the original module
