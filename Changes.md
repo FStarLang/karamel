@@ -1,3 +1,13 @@
+### Aug 4th, 2020
+
+- New feature: -fextern-c wraps the contents of each header in
+
+```
+#if defined(__cplusplus)
+extern "C" {
+#endif
+```
+
 ### Jan 28th, 2020
 
 - New bundle option: rename-prefix (no argument) overrides the original module
