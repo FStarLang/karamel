@@ -8,11 +8,11 @@
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
+
 #ifndef __C_Endianness_H
 #define __C_Endianness_H
 
 #include "FStar_UInt128.h"
-
 
 KRML_DEPRECATED("LowStar.Endianness.load128_le")
 

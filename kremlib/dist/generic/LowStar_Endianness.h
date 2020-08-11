@@ -8,11 +8,11 @@
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
+
 #ifndef __LowStar_Endianness_H
 #define __LowStar_Endianness_H
 
 #include "FStar_UInt128.h"
-
 
 static inline void store128_le(uint8_t *x0, FStar_UInt128_uint128 x1);
 

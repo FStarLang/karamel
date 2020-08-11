@@ -8,9 +8,9 @@
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
+
 #ifndef __FStar_BitVector_H
 #define __FStar_BitVector_H
-
 
 
 
@@ -29,7 +29,7 @@ typedef struct Prims_list__bool_s
 }
 Prims_list__bool;
 
-typedef Prims_list__bool *FStar_Seq_Base_seq__bool;
+typedef Prims_list__bool *FStar_BitVector_bv_t;
 
 extern Prims_list__bool *FStar_BitVector_zero_vec(Prims_pos n);
 

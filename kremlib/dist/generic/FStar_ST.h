@@ -8,11 +8,11 @@
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
+
 #ifndef __FStar_ST_H
 #define __FStar_ST_H
 
 #include "FStar_Monotonic_Heap.h"
-
 
 typedef void *FStar_ST_gst_pre;
 
