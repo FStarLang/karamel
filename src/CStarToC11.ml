@@ -630,7 +630,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       let qs, spec, decl = mk_spec_and_declarator m binder.name t in
       let extra_stmt: C.stmt list =
         if needs_init then
-          [ mk_initializer (mk_type m t) (Name binder.name) size init ]
+          [ mk_initializer (mk_type m (assert_pointer t)) (Name binder.name) size init ]
         else
           []
       in
@@ -705,7 +705,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
         let size = mk_expr m size in
         let stmt_init = mk_stmt m (Decl ({ name = name_init; typ = t_elt }, init)) in
         let stmt_assign = [ Expr (Assign (mk_expr m e1, mk_malloc m t_elt size)) ] in
-        let stmt_fill = mk_initializer (mk_type m t) (mk_expr m e1) size (mk_expr m (Var name_init)) in
+        let stmt_fill = mk_initializer (mk_type m t_elt) (mk_expr m e1) size (mk_expr m (Var name_init)) in
         stmt_init @
         stmt_assign @
         [ stmt_fill ]
