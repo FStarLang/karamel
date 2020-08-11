@@ -442,7 +442,8 @@ and mk_for_loop name qs t init test incr body =
       `Decl (qs, t, false, None, [ Ident name, Some (InitExpr init)]),
       test, incr, body)
 
-and mk_initializer e_array e_size e_value: C.stmt =
+(* Takes e_array of type (Buf t) *)
+and mk_initializer t e_array e_size e_value: C.stmt =
   match e_size with
   | C.Constant (_, "1")
   | C.Cast (_, C.Constant (_, "1")) ->
@@ -452,11 +453,11 @@ and mk_initializer e_array e_size e_value: C.stmt =
       match e_value with
       | C.Constant (_, s)
       | C.Cast (_, C.Constant (_, s)) when int_of_string s = 0 ->
-          mk_memset e_array e_size (C.Constant (K.UInt8, "0"))
+          mk_memset t e_array e_size (C.Constant (K.UInt8, "0"))
 
       | C.Constant (K.UInt8, _)
       | C.Cast (_, C.Constant (K.UInt8, _)) ->
-          mk_memset e_array e_size e_value
+          mk_memset t e_array e_size e_value
 
       | _ ->
           mk_for_loop "_i" [] (Int K.UInt32) zero
@@ -464,7 +465,7 @@ and mk_initializer e_array e_size e_value: C.stmt =
             (Op1 (K.PreIncr, Name "_i"))
             (Expr (Op2 (K.Assign, Index (e_array, Name "_i"), e_value)))
 
-and mk_memset e_array e_size e_init =
+and mk_memset t e_array e_size e_init =
   let e_size =
     (* Commenting out this optimization below, because:
      *   error: ‘memset’ used with length equal to number of elements without
@@ -474,7 +475,7 @@ and mk_memset e_array e_size e_init =
     | C.Constant (K.UInt8, _) ->
         e_size
     | _ -> *)
-        Op2 (K.Mult, e_size, Sizeof (Index (e_array, zero)))
+        Op2 (K.Mult, e_size, Sizeof (Type t))
   in
   Expr (Call (Name "memset", [ e_array; e_init; e_size]))
 
@@ -528,7 +529,7 @@ and mk_eternal_bufcreate m buf (t: CStar.typ) init size =
         mk_malloc m t size, []
     | _ ->
         mk_malloc m t size,
-        [ mk_initializer (mk_expr m buf) size (mk_expr m init) ]
+        [ mk_initializer (mk_type m t) (mk_expr m buf) size (mk_expr m init) ]
   in
   mk_check_size m t size, e, extra_stmt
 
@@ -629,7 +630,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       let qs, spec, decl = mk_spec_and_declarator m binder.name t in
       let extra_stmt: C.stmt list =
         if needs_init then
-          [ mk_initializer (Name binder.name) size init ]
+          [ mk_initializer (mk_type m t) (Name binder.name) size init ]
         else
           []
       in
@@ -704,7 +705,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
         let size = mk_expr m size in
         let stmt_init = mk_stmt m (Decl ({ name = name_init; typ = t_elt }, init)) in
         let stmt_assign = [ Expr (Assign (mk_expr m e1, mk_malloc m t_elt size)) ] in
-        let stmt_fill = mk_initializer (mk_expr m e1) size (mk_expr m (Var name_init)) in
+        let stmt_fill = mk_initializer (mk_type m t) (mk_expr m e1) size (mk_expr m (Var name_init)) in
         stmt_init @
         stmt_assign @
         [ stmt_fill ]
@@ -726,7 +727,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
   | BufWrite (e1, e2, e3) ->
       [ Expr (Assign (mk_index m e1 e2, mk_expr m e3)) ]
 
-  | BufBlit (e1, e2, e3, e4, e5) ->
+  | BufBlit (t, e1, e2, e3, e4, e5) ->
       let dest = match e4 with
         | Constant (_, "0") -> mk_expr m e3
         | _ -> Op2 (K.Add, mk_expr m e3, mk_expr m e4)
@@ -738,11 +739,11 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       [ Expr (Call (Name "memcpy", [
         dest;
         source;
-        Op2 (K.Mult, mk_expr m e5, Sizeof (Index (mk_expr m e1, zero)))])) ]
+        Op2 (K.Mult, mk_expr m e5, mk_sizeof m t)])) ]
 
-  | BufFill (buf, v, size) ->
+  | BufFill (t, buf, v, size) ->
       (* Again, assuming that these are non-effectful. *)
-      [ mk_initializer (mk_expr m buf) (mk_expr m size) (mk_expr m v) ]
+      [ mk_initializer (mk_type m t) (mk_expr m buf) (mk_expr m size) (mk_expr m v) ]
 
   | BufFree e ->
       [ Expr (mk_free (mk_expr m e)) ]

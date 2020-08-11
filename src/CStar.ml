@@ -40,8 +40,8 @@ and stmt =
   | Switch of expr * ([`Ident of lident | `Int of K.t] * block) list * block option
   | BufWrite of expr * expr * expr
     (** First expression has to be a [Bound] or [Open]. *)
-  | BufBlit of expr * expr * expr * expr * expr
-  | BufFill of expr * expr * expr
+  | BufBlit of typ * expr * expr * expr * expr * expr
+  | BufFill of typ * expr * expr * expr
   | BufFree of expr
   | Block of block
   | Comment of string
@@ -57,6 +57,8 @@ and expr =
   | BufCreate of lifetime * expr * expr
     (** initial value, length *)
   | BufCreateL of lifetime * expr list
+    (** no need for types on bufcreate; they're either under a (typed) binder or
+     * on the rhs of a (typed) assignment *)
   | BufRead of expr * expr
   | BufSub of expr * expr
   | Op of op

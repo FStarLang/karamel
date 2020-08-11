@@ -422,6 +422,7 @@ and mk_stmts env e ret_type =
 
     | EBufBlit (e1, e2, e3, e4, e5) ->
         let e = CStar.BufBlit (
+          mk_type env (assert_tbuf e1.typ),
           mk_expr env false e1,
           mk_expr env false e2,
           mk_expr env false e3,
@@ -440,6 +441,7 @@ and mk_stmts env e ret_type =
 
     | EBufFill (e1, e2, e3) ->
         let e = CStar.BufFill (
+          mk_type env (assert_tbuf e1.typ),
           mk_expr env false e1,
           mk_expr env false e2,
           mk_expr env false e3
