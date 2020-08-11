@@ -24,7 +24,7 @@ CUSTOM		= count-uu
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
-  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test
+  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test Crypto.Symmetric.Chacha20.wasm-test
 NEGATIVE	= false
 
 WEB_DIR		?= web
@@ -180,6 +180,7 @@ $(OUTPUT_DIR)/%.wasm: $(filter-out %/prims.krml,$(ALL_KRML_FILES)) $(KRML_BIN)
 	  -bundle TestLib \
 	  -bundle $(subst _,.,$*)=WindowsHack,\* \
 	  -wasm $(EXTRA) -tmpdir $@ $(JSFILES) -no-prefix $* $(filter %.krml,$^)
+	cp $(JSFILES) $@
 
 %.wasm-test: $(OUTPUT_DIR)/%.wasm
 	cd $^ && \
@@ -187,8 +188,8 @@ $(OUTPUT_DIR)/%.wasm: $(filter-out %/prims.krml,$(ALL_KRML_FILES)) $(KRML_BIN)
 	  else ! node main.js && echo "\033[01;32m✔\033[00m [WASM-TEST,$*]" || (echo "\033[01;31m✘\033[00m [WASM-TEST,$*]" && false); fi
 
 # Customizing some WASM targets.
-$(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: JSFILES=main-Chacha.js
-$(CRYPTO)/Crypto.Symmetric.Chacha20.wasm: EXTRA+=$(CRYPTO_OPTS) -drop FStar
+%/Crypto.Symmetric.Chacha20.wasm: JSFILES=./main-Chacha.js
+%/Crypto.Symmetric.Chacha20.wasm: EXTRA+=$(CRYPTO_OPTS) -drop FStar
 WasmTrap.wasm-test: NEGATIVE = true
 
 clean:

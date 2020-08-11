@@ -53,3 +53,6 @@ function main(imports) {
   my_print("SUCCESS");
 }
 
+module.exports = {
+  main: main
+}
