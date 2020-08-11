@@ -13,7 +13,7 @@ const cipher = [
   0x1a, 0xb7, 0x79, 0x37, 0x36, 0x5a, 0xf9, 0x0b, 0xbf, 0x74, 0xa3, 0x5b, 0xe6,
   0xb4, 0x0b, 0x8e, 0xed, 0xf2, 0x78, 0x5e, 0x42, 0x87, 0x4d ];
 
-function main(imports) {
+function main({ reserve, dump, my_print, hex }, imports) {
   let mem = imports.Kremlin.mem;
   let start = reserve(mem, 1024);
   dump(mem, 2*1024);
@@ -51,8 +51,11 @@ function main(imports) {
   dump(mem, 2*1024);
 
   my_print("SUCCESS");
+
+  return 0;
 }
 
-module.exports = {
-  main: main
-}
+if (typeof module !== "undefined")
+  module.exports = {
+    main: main
+  }
