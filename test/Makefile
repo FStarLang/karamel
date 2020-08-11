@@ -180,7 +180,7 @@ $(OUTPUT_DIR)/%.wasm: $(filter-out %/prims.krml,$(ALL_KRML_FILES)) $(KRML_BIN)
 	  -bundle TestLib \
 	  -bundle $(subst _,.,$*)=WindowsHack,\* \
 	  -wasm $(EXTRA) -tmpdir $@ $(JSFILES) -no-prefix $* $(filter %.krml,$^)
-	[ x$(JSFILES) != x ] && cp $(JSFILES) $@
+	[ x$(JSFILES) != x ] && cp $(JSFILES) $@ || true
 
 %.wasm-test: $(OUTPUT_DIR)/%.wasm
 	cd $^ && \
