@@ -24,7 +24,7 @@ typedef struct Prims_list__uint8_t_s
 }
 Prims_list__uint8_t;
 
-typedef Prims_list__uint8_t *FStar_Kremlin_Endianness_bytes;
+typedef Prims_list__uint8_t *FStar_Seq_Base_seq__uint8_t;
 
 KRML_DEPRECATED("FStar.Endianness.le_to_n")
 

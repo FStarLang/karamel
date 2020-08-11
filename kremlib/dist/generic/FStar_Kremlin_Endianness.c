@@ -8,9 +8,5 @@
 
 #define MkSeq 0
 
-typedef uint8_t bytes_tags;
-
-#define MkSeq0 0
-
-typedef uint8_t seq__uint32_t_tags;
+typedef uint8_t seq__uint8_t_tags;
 
