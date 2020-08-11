@@ -6,7 +6,7 @@ KRML_BIN	= ../_build/src/Kremlin.native
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 
 BROKEN		= \
-  HigherOrder6.fst ForwardDecl.fst \
+  HigherOrder6.fst ForwardDecl.fst BlitNull.fst \
   Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst
 
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
