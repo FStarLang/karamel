@@ -12,6 +12,7 @@ module S = FStar.Seq
 (* Selectively imported from Hacl*'s FStar.Endianness.fst library, with several
 name changes *)
 
+inline_for_extraction noextract
 type bytes = S.seq U8.t
 
 /// lt_to_n interprets a byte sequence as a little-endian natural number
