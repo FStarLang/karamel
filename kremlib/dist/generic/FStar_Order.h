@@ -8,11 +8,11 @@
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
+
 #ifndef __FStar_Order_H
 #define __FStar_Order_H
 
 #include "Prims.h"
-
 
 #define FStar_Order_Lt 0
 #define FStar_Order_Eq 1

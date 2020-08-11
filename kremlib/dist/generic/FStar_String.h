@@ -8,11 +8,11 @@
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
+
 #ifndef __FStar_String_H
 #define __FStar_String_H
 
 #include "FStar_BitVector.h"
-
 
 typedef FStar_Char_char FStar_String_char;
 

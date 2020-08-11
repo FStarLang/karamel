@@ -8,11 +8,11 @@
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
+
 #ifndef __FStar_UInt_H
 #define __FStar_UInt_H
 
 #include "FStar_BitVector.h"
-
 
 extern Prims_int FStar_UInt_max_int(Prims_int n);
 

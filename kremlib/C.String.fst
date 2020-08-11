@@ -8,6 +8,8 @@ module M = LowStar.Modifies
 
 open FStar.HyperStack.ST
 
+#set-options "--__temp_no_proj C.String"
+
 type t = | S: s:Seq.seq C.char { well_formed s } -> t
 
 let v s = s.s

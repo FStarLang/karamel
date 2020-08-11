@@ -8,11 +8,11 @@
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
+
 #ifndef __FStar_Kremlin_Endianness_H
 #define __FStar_Kremlin_Endianness_H
 
 #include "FStar_BitVector.h"
-
 
 typedef struct Prims_list__uint8_t_s Prims_list__uint8_t;
 
@@ -23,8 +23,6 @@ typedef struct Prims_list__uint8_t_s
   Prims_list__uint8_t *tl;
 }
 Prims_list__uint8_t;
-
-typedef Prims_list__uint8_t *FStar_Seq_Base_seq__uint8_t;
 
 typedef Prims_list__uint8_t *FStar_Kremlin_Endianness_bytes;
 
