@@ -88,7 +88,7 @@ let in_tmp_dir name =
   else
     name
 
-let write_one name extern_c prefix program suffix =
+let write_one name extern_c prefix includes program suffix =
   let if_cpp doc =
     string "#if defined(__cplusplus)" ^^ hardline ^^
     doc ^^ hardline ^^
@@ -97,8 +97,8 @@ let write_one name extern_c prefix program suffix =
   with_open_out_bin (in_tmp_dir name) (fun oc ->
     let doc =
       prefix ^^
-      (if extern_c then if_cpp (string "extern \"C\" {") ^^ hardline else empty) ^^
-      hardline ^^
+      (if extern_c then hardline ^^ if_cpp (string "extern \"C\" {") ^^ hardline else empty) ^^
+      includes ^^
       separate_map (hardline ^^ hardline) PrintC.p_decl_or_function program ^^
       hardline ^^
       (if extern_c then hardline ^^ if_cpp (string "}") ^^ hardline else empty) ^^
@@ -122,7 +122,7 @@ let write_c files =
       else
         prefix
     in
-    write_one (name ^ ".c") false prefix program empty;
+    write_one (name ^ ".c") false prefix hardline program empty;
     name
   ) files
 
@@ -130,8 +130,8 @@ let write_h files =
   List.map (fun file ->
     let name, deps, program = file in
     let prefix, suffix = prefix_suffix name in
-    let prefix = prefix ^^ hardline ^^ includes_for name deps in
-    write_one (name ^ ".h") !Options.extern_c prefix program suffix;
+    let includes = hardline ^^ includes_for name deps ^^ hardline in
+    write_one (name ^ ".h") !Options.extern_c prefix includes program suffix;
     name
   ) files
 
