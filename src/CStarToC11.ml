@@ -323,13 +323,19 @@ let bytes_in = function
   | Qualified ([ "Lib"; "IntVector"; "Intrinsics" ], "vec32") -> Some (32 / 8)
   | _ -> None
 
+(* Trim all trailing zeroes from an initializer list (per the C standard, static
+ * initializers guarantee for missing fields that they're initialized as if they
+ * had static storage duration, i.e. with zero.). For prettyness, leave at least
+ * one zero, unless the array was empty to start with (admissible with globals). *)
 let trim_trailing_zeros l =
   let rec trim_trailing_zeros = function
     | CStar.Constant (_, "0") :: tl -> trim_trailing_zeros tl
     | [] -> [ CStar.Constant (K.UInt32, "0") ]
     | l -> List.rev l
   in
-  trim_trailing_zeros (List.rev l)
+  match l with
+  | [] -> []
+  | _ -> trim_trailing_zeros (List.rev l)
 
 (* Turns the ML declaration inside-out to match the C reading of a type.
  *   See: en.cppreference.com/w/c/language/declarations.
@@ -648,8 +654,8 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       (* Per the C standard, static initializers guarantee for missing fields
        * that they're initialized as if they had static storage duration, i.e.
        * with zero. *)
-      let inits = trim_trailing_zeros inits in
       let t = ensure_array binder.typ (Constant (K.uint32_of_int (List.length inits))) in
+      let inits = trim_trailing_zeros inits in
       let qs, spec, decl = mk_spec_and_declarator m binder.name t in
       [ Decl (qs, spec, false, None, [ decl, Some (Initializer (List.map (fun e ->
         InitExpr (mk_expr m e)
