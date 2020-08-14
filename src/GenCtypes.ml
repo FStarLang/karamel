@@ -79,16 +79,18 @@ let mk_unqual_name m (n: Ast.lident) =
 
 let mk_struct_name (m, n) = m, n ^ "_s" (* c.f. CStarToC11.mk_spec_and_declarator_t *)
 
+(* We keep a list of types for which a binding cannot be generated because they are
+ * defined using unsupported types (see below) *)
+let non_bindable_types = ref []
 
 (* Checking supported types for Ctypes bindings *)
-
 let is_bindable_type lid =
   match lid with
   | [ "FStar"; "UInt128" ], "uint128"
   | "Lib" :: _, _ ->
     false
   | _ ->
-    true
+    not (List.mem lid !non_bindable_types)
 
 let special_types =
   let m = Hashtbl.create 41 in
@@ -424,6 +426,7 @@ let mk_ocaml_bindings
           begin match !faulty with
           | Some faulty_lid  ->
               let loc = String.concat " <-- " (List.map Idents.string_of_lident call_stack) in
+              non_bindable_types := lid :: !non_bindable_types;
               Warn.(maybe_fatal_error (loc, Warn.DropCtypesDeclaration faulty_lid));
               false
           | None ->
