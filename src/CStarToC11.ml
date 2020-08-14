@@ -326,7 +326,7 @@ let bytes_in = function
 let trim_trailing_zeros l =
   let rec trim_trailing_zeros = function
     | CStar.Constant (_, "0") :: tl -> trim_trailing_zeros tl
-    | [] -> [ CStar.Constant (K.UInt32, "0") ]
+    | [] -> [ ]
     | l -> List.rev l
   in
   trim_trailing_zeros (List.rev l)
