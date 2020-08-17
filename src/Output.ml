@@ -66,8 +66,14 @@ let header (): string =
 let prefix_suffix name =
   Driver.detect_fstar_if ();
   Driver.detect_kremlin_if ();
+  let if_cpp doc =
+    string "#if defined(__cplusplus)" ^^ hardline ^^
+    doc ^^ hardline ^^
+    string "#endif" ^^ hardline
+  in
   let prefix =
     string (header ()) ^^ hardline ^^
+    (if !Options.extern_c then hardline ^^ if_cpp (string "extern \"C\" {") ^^ hardline else empty) ^^
     mk_includes (filter_includes name !Options.add_early_include) ^^ hardline ^^
     kremlib_include () ^^ hardline ^^ hardline ^^
     string (Printf.sprintf "#ifndef __%s_H" name) ^^ hardline ^^
@@ -76,7 +82,8 @@ let prefix_suffix name =
   let suffix =
     hardline ^^
     string (Printf.sprintf "#define __%s_H_DEFINED" name) ^^ hardline ^^
-    string "#endif"
+    string "#endif" ^^
+    (if !Options.extern_c then hardline ^^ hardline ^^ if_cpp (string "}") else empty)
   in
   prefix, suffix
 
@@ -88,20 +95,12 @@ let in_tmp_dir name =
   else
     name
 
-let write_one name extern_c prefix includes program suffix =
-  let if_cpp doc =
-    string "#if defined(__cplusplus)" ^^ hardline ^^
-    doc ^^ hardline ^^
-    string "#endif"
-  in
+let write_one name prefix program suffix =
   with_open_out_bin (in_tmp_dir name) (fun oc ->
     let doc =
       prefix ^^
-      (if extern_c then hardline ^^ if_cpp (string "extern \"C\" {") ^^ hardline else empty) ^^
-      includes ^^
       separate_map (hardline ^^ hardline) PrintC.p_decl_or_function program ^^
       hardline ^^
-      (if extern_c then hardline ^^ if_cpp (string "}") ^^ hardline else empty) ^^
       suffix ^^ hardline
     in
     PPrint.ToChannel.pretty 0.95 100 oc doc
@@ -122,7 +121,7 @@ let write_c files =
       else
         prefix
     in
-    write_one (name ^ ".c") false prefix hardline program empty;
+    write_one (name ^ ".c") (prefix ^^ hardline) program empty;
     name
   ) files
 
@@ -131,7 +130,7 @@ let write_h files =
     let name, deps, program = file in
     let prefix, suffix = prefix_suffix name in
     let includes = hardline ^^ includes_for name deps ^^ hardline in
-    write_one (name ^ ".h") !Options.extern_c prefix includes program suffix;
+    write_one (name ^ ".h") (prefix ^^ includes) program suffix;
     name
   ) files
 
