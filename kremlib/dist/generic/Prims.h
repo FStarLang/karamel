@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __Prims_H
+#define __Prims_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __Prims_H
-#define __Prims_H
 
 
 
@@ -43,6 +43,7 @@ extern Prims_string Prims_strcat(Prims_string x0, Prims_string x1);
 extern Prims_string Prims_string_of_int(krml_checked_int_t x0);
 
 typedef void *Prims_prop;
+
 
 #define __Prims_H_DEFINED
 #endif

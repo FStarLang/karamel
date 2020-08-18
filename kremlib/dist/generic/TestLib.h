@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __TestLib_H
+#define __TestLib_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __TestLib_H
-#define __TestLib_H
 
 
 
@@ -63,6 +63,7 @@ TestLib_print_cycles_per_round(
   TestLib_cycles uu____277,
   uint32_t uu____278
 );
+
 
 #define __TestLib_H_DEFINED
 #endif

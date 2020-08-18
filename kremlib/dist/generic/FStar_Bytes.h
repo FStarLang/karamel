@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_Bytes_H
+#define __FStar_Bytes_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_Bytes_H
-#define __FStar_Bytes_H
 
 
 
@@ -129,6 +129,7 @@ extern FStar_Bytes_bytes FStar_Bytes_bytes_of_string(Prims_string uu____547);
 extern FStar_Bytes_bytes FStar_Bytes_of_buffer(uint32_t l, uint8_t *p);
 
 extern void FStar_Bytes_store_bytes(FStar_Bytes_bytes src, uint8_t *dst);
+
 
 #define __FStar_Bytes_H_DEFINED
 #endif

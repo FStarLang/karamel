@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __C_Loops_H
+#define __C_Loops_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __C_Loops_H
-#define __C_Loops_H
 
 
 
@@ -32,6 +32,7 @@ C_Loops_interruptible_for(uint32_t start, uint32_t finish, bool (*inv)(uint32_t 
 
 extern K___uint32_t_bool
 C_Loops_interruptible_reverse_for(uint32_t start, uint32_t finish, bool (*inv)(uint32_t x0));
+
 
 #define __C_Loops_H_DEFINED
 #endif

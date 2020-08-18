@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __LowStar_Endianness_H
+#define __LowStar_Endianness_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __LowStar_Endianness_H
-#define __LowStar_Endianness_H
 
 #include "FStar_UInt128.h"
 
@@ -21,6 +21,7 @@ static inline FStar_UInt128_uint128 load128_le(uint8_t *x0);
 static inline void store128_be(uint8_t *x0, FStar_UInt128_uint128 x1);
 
 static inline FStar_UInt128_uint128 load128_be(uint8_t *x0);
+
 
 #define __LowStar_Endianness_H_DEFINED
 #endif

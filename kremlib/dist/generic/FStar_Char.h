@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_Char_H
+#define __FStar_Char_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_Char_H
-#define __FStar_Char_H
 
 
 
@@ -27,6 +27,7 @@ extern FStar_Char_char FStar_Char_char_of_int(Prims_int i);
 extern FStar_Char_char FStar_Char_lowercase(FStar_Char_char uu____35);
 
 extern FStar_Char_char FStar_Char_uppercase(FStar_Char_char uu____43);
+
 
 #define __FStar_Char_H_DEFINED
 #endif

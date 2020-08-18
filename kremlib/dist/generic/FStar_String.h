@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_String_H
+#define __FStar_String_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_String_H
-#define __FStar_String_H
 
 #include "FStar_BitVector.h"
 
@@ -75,6 +75,7 @@ extern Prims_string
 FStar_String_substring(Prims_string uu____243, Prims_int uu____244, Prims_int uu____245);
 
 extern FStar_Char_char FStar_String_get(Prims_string uu____260, Prims_int uu____261);
+
 
 #define __FStar_String_H_DEFINED
 #endif

@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_Math_Lib_H
+#define __FStar_Math_Lib_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_Math_Lib_H
-#define __FStar_Math_Lib_H
 
 
 
@@ -35,6 +35,7 @@ extern Prims_int FStar_Math_Lib_arithmetic_shift_right(Prims_int v, Prims_int i)
 extern Prims_int FStar_Math_Lib_signed_modulo(Prims_int v, Prims_pos p);
 
 extern Prims_int FStar_Math_Lib_op_Plus_Percent(Prims_int a, Prims_pos p);
+
 
 #define __FStar_Math_Lib_H_DEFINED
 #endif

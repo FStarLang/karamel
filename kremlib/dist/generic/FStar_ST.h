@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_ST_H
+#define __FStar_ST_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_ST_H
-#define __FStar_ST_H
 
 #include "FStar_Monotonic_Heap.h"
 
@@ -25,6 +25,7 @@ typedef void *FStar_ST_heap_predicate;
 typedef void *FStar_ST_st_pre;
 
 extern FStar_Monotonic_Heap_heap_rec FStar_ST_get();
+
 
 #define __FStar_ST_H_DEFINED
 #endif

@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_Kremlin_Endianness_H
+#define __FStar_Kremlin_Endianness_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_Kremlin_Endianness_H
-#define __FStar_Kremlin_Endianness_H
 
 #include "FStar_BitVector.h"
 
@@ -133,6 +133,7 @@ extern Prims_list__uint64_t
 KRML_DEPRECATED("FStar.Endianness.be_of_seq_uint64")
 
 extern Prims_list__uint8_t *FStar_Kremlin_Endianness_be_of_seq_uint64(Prims_list__uint64_t *s);
+
 
 #define __FStar_Kremlin_Endianness_H_DEFINED
 #endif
