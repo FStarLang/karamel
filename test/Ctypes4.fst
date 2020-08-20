@@ -8,6 +8,7 @@ module B = LowStar.Buffer
 module M = LowStar.Modifies
 module U16 = FStar.UInt16
 module U32 = FStar.UInt32
+module U128 = FStar.UInt128
 
 open Ctypes1
 open Ctypes3
@@ -93,3 +94,26 @@ let flip_t p =
   in
   upd p 0ul v
 
+type unsupported_t = {
+  a1: U32.t;
+  b1: U128.t;
+}
+
+[@ CAbstractStruct ]
+type unsupported_abstract_t = {
+  a2: U32.t;
+  b2: U128.t;
+}
+
+type u = B.pointer unsupported_abstract_t
+
+let create_u (): St u =
+  B.malloc FStar.HyperStack.root ({ a2 = 6ul; b2 = Int.Cast.Full.uint64_to_uint128 0UL }) 1ul
+
+val read_u_a2: x: u -> Stack U32.t
+  (requires fun h -> B.live h x)
+  (ensures fun h0 _ h1 -> True)
+let read_u_a2 x =
+  let open LowStar.Monotonic.Buffer in
+  let v = B.index x 0ul in
+  v.a2
