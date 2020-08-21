@@ -425,6 +425,7 @@ let mk_ocaml_bindings
       | Some T.Visited ->
           true
       | Some (T.Unvisited d) ->
+        begin
           Hashtbl.replace decl_map lid T.Visited;
           let faulty = ref None in
           let lids = ref [] in
@@ -434,22 +435,22 @@ let mk_ocaml_bindings
               faulty := Some sub_lid;
               lids := sub_lid :: !lids
           ) d;
-          begin match !faulty with
-          | Some faulty_lid  ->
-               if is_abstract_struct d then begin
-                (* This is a struct which contains unsupported types but since it is marked as
-                 * abstract it is safe to bind as an empty, unsealed struct because it will only
-                 * be manipulated through pointers (Ctypes enforces this at runtime) *)
-                ocaml_add lid (mk_struct_decl ~sealed:false m Struct lid []);
-                ocaml_file lid;
-                true
-              end else begin
-                let loc = String.concat " <-- " (List.map Idents.string_of_lident call_stack) in
-                non_bindable_types := lid :: !non_bindable_types;
-                Warn.(maybe_fatal_error (loc, Warn.DropCtypesDeclaration faulty_lid));
-                false
-              end
-          | None ->
+          if is_abstract_struct d then begin
+            (* Wether it contains unsupported types or not, an abstract struct will be bound
+             * as an empty, unsealed struct since it will only be manipulated through pointers
+             * (Ctypes enforces this at runtime) *)
+            ocaml_add lid (mk_struct_decl ~sealed:false m Struct lid []);
+            ocaml_file lid;
+            true
+          end else
+            (* Check if it depends on any unsupported types *)
+            match !faulty with
+            | Some faulty_lid  ->
+              let loc = String.concat " <-- " (List.map Idents.string_of_lident call_stack) in
+              non_bindable_types := lid :: !non_bindable_types;
+              Warn.(maybe_fatal_error (loc, Warn.DropCtypesDeclaration faulty_lid));
+              false
+            | None ->
               (* All of the lids that this declaration depends on have been
                * suitably bound with no error. Proceed with generating OCaml
                * bindings for the current declaration. Also register
@@ -458,7 +459,7 @@ let mk_ocaml_bindings
               ocaml_dep lid (List.rev !lids);
               ocaml_file lid;
               true
-          end
+        end
       | None ->
           false
   in
