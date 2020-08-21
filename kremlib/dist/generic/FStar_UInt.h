@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_UInt_H
+#define __FStar_UInt_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_UInt_H
-#define __FStar_UInt_H
 
 #include "FStar_BitVector.h"
 
@@ -109,6 +109,7 @@ extern Prims_list__bool *FStar_UInt_one_extend_vec(Prims_pos n, Prims_list__bool
 extern Prims_int FStar_UInt_zero_extend(Prims_pos n, Prims_int a);
 
 extern Prims_int FStar_UInt_one_extend(Prims_pos n, Prims_int a);
+
 
 #define __FStar_UInt_H_DEFINED
 #endif

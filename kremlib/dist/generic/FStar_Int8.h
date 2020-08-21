@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_Int8_H
+#define __FStar_Int8_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_Int8_H
-#define __FStar_Int8_H
 
 
 
@@ -61,6 +61,7 @@ extern int8_t FStar_Int8_ct_abs(int8_t a);
 extern Prims_string FStar_Int8_to_string(int8_t uu____387);
 
 extern int8_t FStar_Int8_of_string(Prims_string uu____393);
+
 
 #define __FStar_Int8_H_DEFINED
 #endif

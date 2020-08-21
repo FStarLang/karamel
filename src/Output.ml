@@ -20,7 +20,7 @@ let kremlib_include () =
   if !Options.minimal then
     empty
   else
-    mk_includes [ "\"kremlib.h\"" ]
+    mk_includes [ "\"kremlib.h\"" ] ^^ hardline
 
 (* A Pprint document with:
  * - #include X for X in the dependencies of the file, followed by
@@ -72,18 +72,18 @@ let prefix_suffix name =
     string "#endif" ^^ hardline
   in
   let prefix =
-    string (header ()) ^^ hardline ^^
+    string (header ()) ^^ hardline ^^ hardline ^^
+    string (Printf.sprintf "#ifndef __%s_H" name) ^^ hardline ^^
+    string (Printf.sprintf "#define __%s_H" name) ^^ hardline ^^
     (if !Options.extern_c then hardline ^^ if_cpp (string "extern \"C\" {") ^^ hardline else empty) ^^
     mk_includes (filter_includes name !Options.add_early_include) ^^ hardline ^^
-    kremlib_include () ^^ hardline ^^ hardline ^^
-    string (Printf.sprintf "#ifndef __%s_H" name) ^^ hardline ^^
-    string (Printf.sprintf "#define __%s_H" name) ^^ hardline
+    kremlib_include () ^^ hardline
   in
   let suffix =
     hardline ^^
+    (if !Options.extern_c then if_cpp (string "}") else empty) ^^ hardline ^^
     string (Printf.sprintf "#define __%s_H_DEFINED" name) ^^ hardline ^^
-    string "#endif" ^^
-    (if !Options.extern_c then hardline ^^ hardline ^^ if_cpp (string "}") else empty)
+    string "#endif"
   in
   prefix, suffix
 

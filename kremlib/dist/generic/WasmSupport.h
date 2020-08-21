@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __WasmSupport_H
+#define __WasmSupport_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __WasmSupport_H
-#define __WasmSupport_H
 
 
 
@@ -25,6 +25,7 @@ uint32_t WasmSupport_betole32(uint32_t x);
 uint64_t WasmSupport_betole64(uint64_t x);
 
 void WasmSupport_memzero(uint8_t *x, uint32_t len, uint32_t sz);
+
 
 #define __WasmSupport_H_DEFINED
 #endif

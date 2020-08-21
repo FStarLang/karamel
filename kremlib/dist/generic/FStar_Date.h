@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_Date_H
+#define __FStar_Date_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_Date_H
-#define __FStar_Date_H
 
 
 
@@ -31,6 +31,7 @@ FStar_Date_addTimeSpan(FStar_Date_dateTime uu____62, FStar_Date_timeSpan uu____6
 
 extern bool
 FStar_Date_greaterDateTime(FStar_Date_dateTime uu____78, FStar_Date_dateTime uu____79);
+
 
 #define __FStar_Date_H_DEFINED
 #endif

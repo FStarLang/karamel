@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_Int_Cast_H
+#define __FStar_Int_Cast_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_Int_Cast_H
-#define __FStar_Int_Cast_H
 
 
 
@@ -189,6 +189,7 @@ extern uint32_t FStar_Int_Cast_int64_to_uint32(int64_t x);
 extern uint16_t FStar_Int_Cast_int64_to_uint16(int64_t x);
 
 extern uint8_t FStar_Int_Cast_int64_to_uint8(int64_t x);
+
 
 #define __FStar_Int_Cast_H_DEFINED
 #endif

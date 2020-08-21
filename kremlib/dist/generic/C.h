@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __C_H
+#define __C_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __C_H
-#define __C_H
 
 
 
@@ -25,6 +25,7 @@ extern bool uu___is_EXIT_SUCCESS(exit_code projectee);
 extern bool uu___is_EXIT_FAILURE(exit_code projectee);
 
 extern void print_bytes(uint8_t *b, uint32_t len);
+
 
 #define __C_H_DEFINED
 #endif

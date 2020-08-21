@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_Int_H
+#define __FStar_Int_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_Int_H
-#define __FStar_Int_H
 
 #include "FStar_BitVector.h"
 
@@ -109,6 +109,7 @@ extern Prims_int FStar_Int_shift_left(Prims_pos n, Prims_int a, Prims_int s);
 extern Prims_int FStar_Int_shift_right(Prims_pos n, Prims_int a, Prims_int s);
 
 extern Prims_int FStar_Int_shift_arithmetic_right(Prims_pos n, Prims_int a, Prims_int s);
+
 
 #define __FStar_Int_H_DEFINED
 #endif

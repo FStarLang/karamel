@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_Pervasives_H
+#define __FStar_Pervasives_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_Pervasives_H
-#define __FStar_Pervasives_H
 
 #include "FStar_String.h"
 #include "FStar_BitVector.h"
@@ -232,6 +232,7 @@ Prims_list__FStar_Pervasives_norm_step;
 
 extern void
 *FStar_Pervasives_norm(Prims_list__FStar_Pervasives_norm_step *uu____2151, void *uu____2152);
+
 
 #define __FStar_Pervasives_H_DEFINED
 #endif

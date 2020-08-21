@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_UInt_8_16_32_64_H
+#define __FStar_UInt_8_16_32_64_H
 #include <inttypes.h>
 #include <stdbool.h>
 #include "kremlin/internal/types.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_UInt_8_16_32_64_H
-#define __FStar_UInt_8_16_32_64_H
 
 
 
@@ -35,6 +35,7 @@ static inline uint64_t FStar_UInt64_gte_mask(uint64_t a, uint64_t b)
   uint64_t x_xor_q_ = x_xor_q >> (uint32_t)63U;
   return x_xor_q_ - (uint64_t)1U;
 }
+
 
 #define __FStar_UInt_8_16_32_64_H_DEFINED
 #endif

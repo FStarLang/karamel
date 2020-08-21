@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __LowStar_Printf_H
+#define __LowStar_Printf_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __LowStar_Printf_H
-#define __LowStar_Printf_H
 
 
 
@@ -71,6 +71,7 @@ extern void
 LowStar_Printf_test2(K___Prims_int_Prims_int x, void (*print_pair)(K___Prims_int_Prims_int x0));
 
 extern void LowStar_Printf_test3(uint64_t m, uint32_t l, bool *r);
+
 
 #define __LowStar_Printf_H_DEFINED
 #endif

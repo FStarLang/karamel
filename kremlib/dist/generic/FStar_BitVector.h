@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_BitVector_H
+#define __FStar_BitVector_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_BitVector_H
-#define __FStar_BitVector_H
 
 
 
@@ -56,6 +56,7 @@ extern Prims_list__bool
 
 extern Prims_list__bool
 *FStar_BitVector_shift_arithmetic_right_vec(Prims_pos n, Prims_list__bool *a, Prims_int s);
+
 
 #define __FStar_BitVector_H_DEFINED
 #endif

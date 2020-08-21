@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_Int64_H
+#define __FStar_Int64_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_Int64_H
-#define __FStar_Int64_H
 
 
 
@@ -61,6 +61,7 @@ extern int64_t FStar_Int64_ct_abs(int64_t a);
 extern Prims_string FStar_Int64_to_string(int64_t uu____387);
 
 extern int64_t FStar_Int64_of_string(Prims_string uu____393);
+
 
 #define __FStar_Int64_H_DEFINED
 #endif

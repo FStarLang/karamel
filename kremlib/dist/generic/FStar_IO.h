@@ -3,14 +3,14 @@
   Licensed under the Apache 2.0 License.
 */
 
+
+#ifndef __FStar_IO_H
+#define __FStar_IO_H
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
 
-
-#ifndef __FStar_IO_H
-#define __FStar_IO_H
 
 
 
@@ -75,6 +75,7 @@ extern Prims_string FStar_IO_read_line(FStar_IO_fd_read uu____240);
 extern void FStar_IO_write_string(FStar_IO_fd_write uu____255, Prims_string uu____256);
 
 extern bool FStar_IO_debug_print_string(Prims_string uu____264);
+
 
 #define __FStar_IO_H_DEFINED
 #endif
