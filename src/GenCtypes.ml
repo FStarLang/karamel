@@ -99,8 +99,8 @@ let special_types =
   ];
   m
 
-let is_abstract_struct d flags =
-  if List.mem Common.AbstractStruct flags then
+let is_abstract_struct d =
+  if List.mem Common.AbstractStruct (CStar.flags_of_decl d) then
     match d with
     | Type (_, typ, _) ->
       (match typ with
@@ -412,7 +412,7 @@ let mk_ocaml_bindings
    * depends on have been suitably generated. So, we perform the recursive
    * traversal ourselves, avoiding loops and generating bindings in prefix order
    * of the traversal. *)
-  let rec iter_lid call_stack lid flags: bool =
+  let rec iter_lid call_stack lid : bool =
     if not (is_bindable_type lid) then
       (* Case 1: an unsupported type. Bail. *)
       false
@@ -430,13 +430,13 @@ let mk_ocaml_bindings
           let lids = ref [] in
           (* Would be nice to have fold *)
           CStar.iter_decl (fun sub_lid ->
-            if not (iter_lid (lid :: call_stack) sub_lid flags) then
+            if not (iter_lid (lid :: call_stack) sub_lid) then
               faulty := Some sub_lid;
               lids := sub_lid :: !lids
           ) d;
           begin match !faulty with
           | Some faulty_lid  ->
-               if is_abstract_struct d flags then begin
+               if is_abstract_struct d then begin
                 (* This is a struct which contains unsupported types but since it is marked as
                  * abstract it is safe to bind as an empty, unsealed struct because it will only
                  * be manipulated through pointers (Ctypes enforces this at runtime) *)
@@ -473,7 +473,7 @@ let mk_ocaml_bindings
       let lid = CStar.lid_of_decl decl in
       let flags = CStar.flags_of_decl decl in
       if should_bind lid flags then
-        ignore (iter_lid [] lid flags)
+        ignore (iter_lid [] lid)
     ) decls
   ) files;
 
