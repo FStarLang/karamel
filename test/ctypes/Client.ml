@@ -31,15 +31,15 @@ let _ =
   let centre = make ctypes1_point in
   let _ = setf centre ctypes1_point_x (Unsigned.UInt32.of_int 3) in
   let _ = setf centre ctypes1_point_y (Unsigned.UInt32.of_int 5) in
-  
+
   let circle = make ctypes3_circle in
   let _ = setf circle ctypes3_circle_c centre in
   let _ = setf circle ctypes3_circle_r (Unsigned.UInt32.of_int 5) in
-  
+
   let p = make ctypes1_point in
   let _ = setf p ctypes1_point_x (Unsigned.UInt32.of_int 3) in
   let _ = setf p ctypes1_point_y (Unsigned.UInt32.of_int 2) in
-  
+
   let circle_ret = move_circle circle p in
   let centre_ret = getf circle_ret ctypes3_circle_c in
   assert (point_to_tuple centre_ret = (6, 7));
@@ -54,7 +54,7 @@ let _ =
   let _ = my_not_pointer b2_ptr in
   let v = !@ b2_ptr in
   assert (v = my_bool_MyTrue);
-  
+
   let arg = Unsigned.UInt32.of_int 6 in
   let f = replicate arg in
   assert (getf f k___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_fst = arg);
@@ -62,7 +62,7 @@ let _ =
   assert (getf f k___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_thd = arg);
   assert (getf f k___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_f3 = arg);
   assert (getf f k___uint32_t_uint32_t_uint32_t_uint32_t_uint32_t_f4 = arg);
-  
+
   let n = make int_opt in
   setf n int_opt_tag int_opt_tags_IntSome;
   setf n int_opt__0 (Unsigned.UInt32.of_int 12);
@@ -70,19 +70,23 @@ let _ =
   maybe_double n_ptr;
   let v = !@ n_ptr in
   assert (getf v int_opt_tag = int_opt_tags_IntSome && getf v int_opt__0 = Unsigned.UInt32.of_int 24);
-  
+
   let arg1 = (Unsigned.UInt32.of_int 5) in
   let e1 = make_L arg1 in
   assert (getf e1 eith_tag = eith_tags_L && getf (getf e1 eith_u) eith_val_case_L = arg1);
-  
+
   let arg2 = (Unsigned.UInt16.of_int 7) in
   let e2 = make_R arg2 in
   assert (getf e2 eith_tag = eith_tags_R && getf (getf e2 eith_u) eith_val_case_R = arg2);
-  
+
   let n_ptr = allocate Lowlevel.eith e2 in
   flip_t n_ptr;
   let v = !@ n_ptr in
   assert (getf v eith_tag = eith_tags_L && getf (getf v eith_u) eith_val_case_L = Unsigned.UInt32.of_int 7);
+
+  let u = Lowlevel.create_u () in
+  let u_fst = Lowlevel.read_u_a2 u in
+  assert (u_fst = Unsigned.UInt32.of_int 6);
 
   let string_of_backend_type = function
     | Sys.Native -> "Native"

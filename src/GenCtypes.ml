@@ -99,6 +99,17 @@ let special_types =
   ];
   m
 
+let is_abstract_struct d =
+  if List.mem Common.AbstractStruct (CStar.flags_of_decl d) then
+    match d with
+    | Type (_, typ, _) ->
+      (match typ with
+       | Struct _ -> true
+       | _ -> false)
+    | _ -> false
+  else
+    false
+
 (* building Ctypes declarations *)
 type structured =
   | Struct
@@ -155,7 +166,7 @@ and mk_extern_decl m name keyword typ: structure_item =
  *   let point_x = field point "x" uint32_t
  *   let point_y = field point "y" uint32_t
  *   let _ = seal point *)
-and mk_struct_decl m (k: structured) (name: Ast.lident) fields: structure_item list =
+and mk_struct_decl ?(sealed=true) m (k: structured) (name: Ast.lident) fields: structure_item list =
   let unqual_name = mk_unqual_name m name in
   let tm = mk_struct_manifest k unqual_name in
   let ctypes_structure =
@@ -198,7 +209,7 @@ and mk_struct_decl m (k: structured) (name: Ast.lident) fields: structure_item l
   in
   let type_decl = Str.type_ Recursive [Type.mk ?manifest:(Some tm) (mk_sym unqual_name)] in
   let seal_decl = mk_decl (Pat.any ()) (mk_app (exp_ident "seal") [exp_ident unqual_name]) in
-  [type_decl; ctypes_structure] @ (KList.map_flatten (mk_field false) fields) @ [seal_decl]
+  [type_decl; ctypes_structure] @ (KList.map_flatten (mk_field false) fields) @ (if sealed then [seal_decl] else [])
 
 and mk_typedef m name typ =
   let type_const = match typ with
@@ -401,7 +412,7 @@ let mk_ocaml_bindings
    * depends on have been suitably generated. So, we perform the recursive
    * traversal ourselves, avoiding loops and generating bindings in prefix order
    * of the traversal. *)
-  let rec iter_lid call_stack lid: bool =
+  let rec iter_lid call_stack lid : bool =
     if not (is_bindable_type lid) then
       (* Case 1: an unsupported type. Bail. *)
       false
@@ -414,6 +425,7 @@ let mk_ocaml_bindings
       | Some T.Visited ->
           true
       | Some (T.Unvisited d) ->
+        begin
           Hashtbl.replace decl_map lid T.Visited;
           let faulty = ref None in
           let lids = ref [] in
@@ -423,13 +435,22 @@ let mk_ocaml_bindings
               faulty := Some sub_lid;
               lids := sub_lid :: !lids
           ) d;
-          begin match !faulty with
-          | Some faulty_lid  ->
+          if is_abstract_struct d then begin
+            (* Wether it contains unsupported types or not, an abstract struct will be bound
+             * as an empty, unsealed struct since it will only be manipulated through pointers
+             * (Ctypes enforces this at runtime) *)
+            ocaml_add lid (mk_struct_decl ~sealed:false m Struct lid []);
+            ocaml_file lid;
+            true
+          end else
+            (* Check if it depends on any unsupported types *)
+            match !faulty with
+            | Some faulty_lid  ->
               let loc = String.concat " <-- " (List.map Idents.string_of_lident call_stack) in
               non_bindable_types := lid :: !non_bindable_types;
               Warn.(maybe_fatal_error (loc, Warn.DropCtypesDeclaration faulty_lid));
               false
-          | None ->
+            | None ->
               (* All of the lids that this declaration depends on have been
                * suitably bound with no error. Proceed with generating OCaml
                * bindings for the current declaration. Also register
@@ -438,7 +459,7 @@ let mk_ocaml_bindings
               ocaml_dep lid (List.rev !lids);
               ocaml_file lid;
               true
-          end
+        end
       | None ->
           false
   in
