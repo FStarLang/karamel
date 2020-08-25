@@ -14,11 +14,11 @@
 
 
 
-extern void C_String_print(C_String_t uu____71);
+extern void C_String_print(C_String_t uu___);
 
-extern uint32_t C_String_strlen(C_String_t uu____77);
+extern uint32_t C_String_strlen(C_String_t uu___);
 
-extern void C_String_memcpy(uint8_t *uu____95, C_String_t uu____96, uint32_t uu____97);
+extern void C_String_memcpy(uint8_t *uu___, C_String_t uu___1, uint32_t uu___2);
 
 
 #define __C_String_H_DEFINED

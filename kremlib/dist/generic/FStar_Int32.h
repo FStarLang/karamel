@@ -58,9 +58,9 @@ extern bool FStar_Int32_lte(int32_t a, int32_t b);
 
 extern int32_t FStar_Int32_ct_abs(int32_t a);
 
-extern Prims_string FStar_Int32_to_string(int32_t uu____387);
+extern Prims_string FStar_Int32_to_string(int32_t uu___);
 
-extern int32_t FStar_Int32_of_string(Prims_string uu____393);
+extern int32_t FStar_Int32_of_string(Prims_string uu___);
 
 
 #define __FStar_Int32_H_DEFINED

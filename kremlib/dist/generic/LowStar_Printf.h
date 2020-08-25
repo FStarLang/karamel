@@ -14,27 +14,27 @@
 
 
 
-extern void LowStar_Printf_print_string(Prims_string uu____39);
+extern void LowStar_Printf_print_string(Prims_string uu___);
 
-extern void LowStar_Printf_print_char(FStar_Char_char uu____47);
+extern void LowStar_Printf_print_char(FStar_Char_char uu___);
 
-extern void LowStar_Printf_print_u8(uint8_t uu____55);
+extern void LowStar_Printf_print_u8(uint8_t uu___);
 
-extern void LowStar_Printf_print_u16(uint16_t uu____63);
+extern void LowStar_Printf_print_u16(uint16_t uu___);
 
-extern void LowStar_Printf_print_u32(uint32_t uu____71);
+extern void LowStar_Printf_print_u32(uint32_t uu___);
 
-extern void LowStar_Printf_print_u64(uint64_t uu____79);
+extern void LowStar_Printf_print_u64(uint64_t uu___);
 
-extern void LowStar_Printf_print_i8(int8_t uu____87);
+extern void LowStar_Printf_print_i8(int8_t uu___);
 
-extern void LowStar_Printf_print_i16(int16_t uu____95);
+extern void LowStar_Printf_print_i16(int16_t uu___);
 
-extern void LowStar_Printf_print_i32(int32_t uu____103);
+extern void LowStar_Printf_print_i32(int32_t uu___);
 
-extern void LowStar_Printf_print_i64(int64_t uu____111);
+extern void LowStar_Printf_print_i64(int64_t uu___);
 
-extern void LowStar_Printf_print_bool(bool uu____119);
+extern void LowStar_Printf_print_bool(bool uu___);
 
 extern void LowStar_Printf_print_lmbuffer_bool(uint32_t l, bool *r);
 

@@ -58,9 +58,9 @@ extern bool FStar_Int64_lte(int64_t a, int64_t b);
 
 extern int64_t FStar_Int64_ct_abs(int64_t a);
 
-extern Prims_string FStar_Int64_to_string(int64_t uu____387);
+extern Prims_string FStar_Int64_to_string(int64_t uu___);
 
-extern int64_t FStar_Int64_of_string(Prims_string uu____393);
+extern int64_t FStar_Int64_of_string(Prims_string uu___);
 
 
 #define __FStar_Int64_H_DEFINED

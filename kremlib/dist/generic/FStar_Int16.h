@@ -58,9 +58,9 @@ extern bool FStar_Int16_lte(int16_t a, int16_t b);
 
 extern int16_t FStar_Int16_ct_abs(int16_t a);
 
-extern Prims_string FStar_Int16_to_string(int16_t uu____387);
+extern Prims_string FStar_Int16_to_string(int16_t uu___);
 
-extern int16_t FStar_Int16_of_string(Prims_string uu____393);
+extern int16_t FStar_Int16_of_string(Prims_string uu___);
 
 
 #define __FStar_Int16_H_DEFINED
