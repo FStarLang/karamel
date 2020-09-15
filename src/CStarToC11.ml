@@ -1177,7 +1177,7 @@ let declared_in_library lid =
 (* Type declarations, external function declarations. These are the things that
  * are either declared in the header (public), or in the c file (private), but
  * not twice. *)
-let mk_type_or_external m (w: where) (d: decl): C.declaration_or_function list =
+let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.declaration_or_function list =
   let mk_forward_decl name flags =
     wrap_verbatim name flags (Decl ([], ([], C.Struct (Some (name ^ "_s"), None), false, Some Typedef, [ Ident name, None ])))
   in
@@ -1189,7 +1189,7 @@ let mk_type_or_external m (w: where) (d: decl): C.declaration_or_function list =
       let name = to_c_name m name in
       mk_forward_decl name flags
   | Type (name, t, flags) ->
-      if is_primitive name || declared_in_library name then
+      if is_primitive name || (is_inline_static && declared_in_library name) then
         []
       else begin
         let name = to_c_name m name in
@@ -1349,7 +1349,7 @@ let mk_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
    * combinators *)
   KList.map_flatten
     (if_header_inline_static m
-      (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m C)))
+      (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
       (if_not_private (either (mk_function_or_global_stub m) (mk_type_or_external m H))))
     decls
 
