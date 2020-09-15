@@ -1171,6 +1171,9 @@ let replace_decl (d: decl): decl =
   | _ ->
       d
 
+let declared_in_library lid =
+  List.exists (fun b -> Bundle.pattern_matches b (String.concat "_" (fst lid))) !Options.library
+
 (* Type declarations, external function declarations. These are the things that
  * are either declared in the header (public), or in the c file (private), but
  * not twice. *)
@@ -1186,7 +1189,7 @@ let mk_type_or_external m (w: where) (d: decl): C.declaration_or_function list =
       let name = to_c_name m name in
       mk_forward_decl name flags
   | Type (name, t, flags) ->
-      if is_primitive name then
+      if is_primitive name || declared_in_library name then
         []
       else begin
         let name = to_c_name m name in
@@ -1339,6 +1342,9 @@ let mk_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
   (* What should be the behavior for a type declaration marked as CAbstract but
    * whose module has -static-header? This ignores CAbstract. *)
   (* Note that static_header has precedence over private qualifiers *)
+  (* Note that static_header + library means that corresponding declarations are
+   * effectively dropped on the basis that the user is doing separate extraction
+   * & compilation + providing the required header. *)
   (* TODO: can't mark as static inline a function stub -- need to rework these
    * combinators *)
   KList.map_flatten
