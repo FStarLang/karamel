@@ -50,7 +50,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules --use_two_phase_tc true \
   --cmi
 
 # This just needs F* + KreMLin
-all: $(FILES) $(CUSTOM) ctypes-test
+all: $(FILES) $(CUSTOM) ctypes-test sepcomp-test
 
 # Needs node
 wasm: $(WASM_FILES)
@@ -161,6 +161,10 @@ $(LOWLEVEL_DIR)/%: ctypes/%
 ctypes-test: $(LOWLEVEL_DIR)/Client.native
 	cd $(LOWLEVEL_DIR)/_build && export LD_LIBRARY_PATH=. && \
 	  ./Client.native && ./Client.byte
+
+sepcomp-test:
+	+$(MAKE) -C sepcomp
+.PHONY: sepcomp-test
 
 CTYPES_HAND_WRITTEN_FILES=myocamlbuild.ml Client.ml _tags
 
