@@ -169,6 +169,7 @@ dist/A.h: $(filter-out %prims.krml,$(ALL_KRML_FILES))
 	  -warn-error @4@5@18 \
 	  -fparentheses \
 	  -static-header A \
+	  -library 'FStar.*,LowStar.*,Prims' \
 	  -bundle 'A=FStar.*,LowStar.*,Prims'
 	! test -e dist/A.c
 
