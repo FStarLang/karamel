@@ -170,6 +170,7 @@ dist/A.h: $(filter-out %prims.krml,$(ALL_KRML_FILES))
 	  -fparentheses \
 	  -static-header A \
 	  -bundle 'A=FStar.*,LowStar.*,Prims'
+	! test -e dist/A.c
 
 clean:
 	rm -rf obj dist *~
