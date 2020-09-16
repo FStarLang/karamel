@@ -169,8 +169,10 @@ dist/A.h: $(filter-out %prims.krml,$(ALL_KRML_FILES))
 	  -warn-error @4@5@18 \
 	  -fparentheses \
 	  -static-header A.Base \
-	  -bundle 'A.Base=A.*,FStar.*,LowStar.*,Prims[rename=A]'
+	  -bundle 'FStar.*,LowStar.*,Prims[rename=SHOULDNOTBETHERE]' \
+	  -bundle 'A.Base=A.*[rename=A,rename-prefix]'
 	! test -e dist/A.c
+	! test -e dist/SHOULDNOTBETHERE.h
 
 clean:
 	rm -rf obj dist *~
