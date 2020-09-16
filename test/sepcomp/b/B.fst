@@ -2,8 +2,9 @@ module B
 module U32 = FStar.UInt32
 module U64 = FStar.UInt64
 module Cast = FStar.Int.Cast
+module A = A.Top
 
-let g (x: A.t) : Tot U64.t = A.f x `U64.sub` Cast.uint32_to_uint64 x.A.b
+let g (x: A.t) : Tot U64.t = A.f Cast.uint32_to_uint64 x
 
 let main () : FStar.HyperStack.ST.St C.exit_code =
   let x : A.t = {

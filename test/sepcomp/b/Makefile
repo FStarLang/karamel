@@ -168,13 +168,14 @@ dist/Makefile.basic: $(filter-out %prims.krml,$(ALL_KRML_FILES))
 	  $(filter %.krml,$^) \
 	  -warn-error @4@5@18 \
 	  -fparentheses \
-	  -static-header A \
-	  -library A \
-	  -bundle 'B=A,FStar.*,LowStar.*,Prims,C' \
+	  -static-header A.Base \
+	  -library A.* \
+	  -bundle 'B=A.*,FStar.*,LowStar.*,Prims,C' \
 	  -no-prefix B \
 	  -minimal \
 	  -add-include '"A.h"' \
 	  -o B.exe
+	! test -e dist/A.h
 
 dist/B.exe: dist/Makefile.basic
 	$(MAKE) -C $(dir $@) -f $(notdir $<) USER_CFLAGS=-I$(realpath ../a/dist)

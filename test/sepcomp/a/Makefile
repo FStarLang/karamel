@@ -168,8 +168,8 @@ dist/A.h: $(filter-out %prims.krml,$(ALL_KRML_FILES))
 	  $(filter %.krml,$^) \
 	  -warn-error @4@5@18 \
 	  -fparentheses \
-	  -static-header A \
-	  -bundle 'A=FStar.*,LowStar.*,Prims'
+	  -static-header A.Base \
+	  -bundle 'A.Base=A.*,FStar.*,LowStar.*,Prims[rename=A]'
 	! test -e dist/A.c
 
 clean:

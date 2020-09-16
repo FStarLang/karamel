@@ -1,6 +1,6 @@
 all: b/dist/B.exe
 
-a/dist/A.h: a/A.fst
+a/dist/A.h: $(wildcard a/*.fst)
 	+$(MAKE) -C a
 
 b/dist/B.exe: a/dist/A.h b/B.fst
