@@ -42,7 +42,7 @@ FStar_Order_order FStar_Order_lex(FStar_Order_order o1, FStar_Order_order (*o2)(
 
 FStar_Order_order FStar_Order_order_from_int(Prims_int i);
 
-Prims_int FStar_Order_int_of_order(FStar_Order_order uu___0_93);
+Prims_int FStar_Order_int_of_order(FStar_Order_order uu___);
 
 FStar_Order_order FStar_Order_compare_int(Prims_int i, Prims_int j);
 
