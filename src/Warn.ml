@@ -131,7 +131,8 @@ let p_file = function
 
 let rec perr buf (loc, raw_error) =
   (* Now, print an error-specific message. *)
-  let p fmt = Printf.bprintf buf ("Warning %d: %s: " ^^ fmt ^^ "\n") (errno_of_error raw_error) loc in
+  let loc = if loc = "" then "" else Printf.sprintf "%s: " loc in
+  let p fmt = Printf.bprintf buf ("Warning %d: %s" ^^ fmt ^^ "\n") (errno_of_error raw_error) loc in
   match raw_error with
   | Dropping (d, e) ->
       p "Not generating code for %s because of the error below:" d;
