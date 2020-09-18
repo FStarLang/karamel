@@ -52,6 +52,7 @@ let _ =
   let arg_skip_translation = ref false in
   let arg_skip_compilation = ref false in
   let arg_skip_linking = ref false in
+  let arg_skip_makefiles = ref false in
   let arg_diagnostics = ref false in
   let arg_verify = ref false in
   let arg_warn_error = ref "" in
@@ -197,6 +198,7 @@ Supported options:|}
     "-skip-translation", Arg.Set arg_skip_translation, " stop after step 2.";
     "-skip-compilation", Arg.Set arg_skip_compilation, " stop after step 3.";
     "-skip-linking", Arg.Set arg_skip_linking, " stop after step 4.";
+    "-skip-makefiles", Arg.Set arg_skip_makefiles, " do not produce Makefile.basic, Makefile.include";
     "-verify", Arg.Set arg_verify, " ask F* to verify the program";
     "-verbose", Arg.Set Options.verbose, "  show the output of intermediary \
       tools when acting as a driver for F* or the C compiler";
@@ -696,7 +698,7 @@ Supported options:|}
     let h_output = Output.write_h headers in
     GenCtypes.write_bindings ml_files;
     GenCtypes.write_gen_module ml_files;
-    Output.write_makefile user_ccopts !c_files c_output h_output;
+    if not !arg_skip_makefiles then Output.write_makefile user_ccopts !c_files c_output h_output;
     tick_print true "PrettyPrinting";
 
     let fst3 (f, _, _) = f in
