@@ -2,7 +2,8 @@ module Wireguard
 
 /// We are relying on an associative list to implement our imperative map but
 /// this will be upgraded to a hash table that offers the same interface.
-module IM = LowStar.Lib.AssocList
+//module IM = LowStar.Lib.AssocList
+module IM = LowStar.Lib.AssocListFunctor
 module M = FStar.Map
 module B = LowStar.Buffer
 module HS = FStar.HyperStack
@@ -42,18 +43,18 @@ let handshake_state = B.buffer UInt8.t
 
 noeq
 // Simplified equivalent of wg_peer.
-type peer = {
+type peer (al : IM.assoc_list) = {
   hs: handshake_state;
   id: UInt64.t;
-  device: B.pointer device;
+  device: B.pointer (device al);
 }
 
 // Simplified equivalent of wg_device.
-and device = {
-  peers: LL2.t peer;
+and device (al : IM.assoc_list) = {
+  peers: LL2.t (peer al);
   // I'm doing pointer sharing here so that the peers in peer_of_id are pointing
   // directly to the list cells in the linked list, like in WireGuard
-  peer_of_id: IM.t UInt64.t (LL1.t peer);
+  peer_of_id: al.IM.t UInt64.t (LL1.t (peer al));
   r: HS.rid;
   // Region for the spine of the linked list.
   r_peers: HS.rid;
@@ -64,16 +65,16 @@ and device = {
 }
 
 // Naming a bunch of abbreviations for code-gen quality
-let peer_list2 = LL2.t peer
-let peer_list1 = LL1.t peer
-let peer_cell = LL1.cell peer
-let peer_id_map_entry = UInt64.t & B.pointer peer_cell
-let peer_id_map_cell = LL1.cell (UInt64.t & B.pointer peer_cell)
-let peer_id_map = LL2.t (UInt64.t & B.pointer peer_cell)
+let peer_list2 al = LL2.t (peer al)
+let peer_list1 al = LL1.t (peer al)
+let peer_cell al = LL1.cell (peer al)
+let peer_id_map_entry al = UInt64.t & B.pointer (peer_cell al)
+let peer_id_map_cell al = LL1.cell (UInt64.t & B.pointer (peer_cell al))
+let peer_id_map al = LL2.t (UInt64.t & B.pointer (peer_cell al))
 
 /// A single peer
 /// -------------
-let peer_invariant (h: HS.mem) (p: peer) =
+let peer_invariant #al (h: HS.mem) (p: peer al) =
   // Sample invariant for the handshake_state -- to be filled out with something more realistic.
   B.live h p.hs /\
   B.length p.hs == 8 /\
@@ -84,7 +85,7 @@ let peer_invariant (h: HS.mem) (p: peer) =
   B.loc_disjoint (B.loc_addr_of_buffer p.hs) (B.loc_addr_of_buffer p.device)
   // JP: should this be strengthened to say that this peer is the one found in peer_of_id via p.device?
 
-let peer_footprint (p: peer) =
+let peer_footprint #al (p: peer al) =
   B.loc_addr_of_buffer p.hs `B.loc_union`
   B.loc_addr_of_buffer p.device
 
@@ -103,22 +104,22 @@ let peer_footprint (p: peer) =
 //   that the peers' rids are mutually disjoint, and that the rid is, say, the
 //   region_of the LL2.t
 // This yields non heap-dependent predicates which keeps complexity under control.
-let rec peers_footprint (ps: list peer): GTot B.loc =
-  allow_inversion (list peer);
+let rec peers_footprint #al (ps: list (peer al)): GTot B.loc =
+  allow_inversion (list (peer al));
   match ps with
   | [] -> B.loc_none
   | p :: ps -> peer_footprint p `B.loc_union` peers_footprint ps
 
-let rec peers_disjoint (ps: list peer) =
-  allow_inversion (list peer);
+let rec peers_disjoint #al (ps: list (peer al)) =
+  allow_inversion (list (peer al));
   match ps with
   | [] -> True
   | p :: ps ->
       peer_footprint p `B.loc_disjoint` peers_footprint ps /\
       peers_disjoint ps
 
-let rec peers_invariants (h: HS.mem) (r: HS.rid) (ps: list peer) =
-  allow_inversion (list peer);
+let rec peers_invariants #al (h: HS.mem) (r: HS.rid) (ps: list (peer al)) =
+  allow_inversion (list (peer al));
   match ps with
   | [] -> True
   | p :: ps ->
@@ -126,7 +127,7 @@ let rec peers_invariants (h: HS.mem) (r: HS.rid) (ps: list peer) =
       peer_invariant h p /\
       peers_invariants h r ps
 
-let peers_invariant (h: HS.mem) (r: HS.rid) (ps: list peer) =
+let peers_invariant #al (h: HS.mem) (r: HS.rid) (ps: list (peer al)) =
   peers_disjoint ps /\
   peers_invariants h r ps
 
@@ -135,8 +136,8 @@ let peers_invariant (h: HS.mem) (r: HS.rid) (ps: list peer) =
 /// Relating peer_of_id to a given list of peers
 /// --------------------------------------------
 
-let rec peer_by_id (id: UInt64.t) (ps: list peer) =
-  allow_inversion (list peer);
+let rec peer_by_id #al (id: UInt64.t) (ps: list (peer al)) =
+  allow_inversion (list (peer al));
   match ps with
   | p :: ps ->
       if p.id = id then
@@ -146,8 +147,8 @@ let rec peer_by_id (id: UInt64.t) (ps: list peer) =
   | [] ->
       None
 
-let cell_by_id (h: HS.mem) (id: UInt64.t) (ps: list (B.pointer (LL1.cell peer))):
-  GTot (option (B.pointer (LL1.cell peer)))
+let cell_by_id #al (h: HS.mem) (id: UInt64.t) (ps: list (B.pointer (LL1.cell (peer al)))):
+  GTot (option (B.pointer (LL1.cell (peer al))))
 =
   gfind2
     (fun v c -> if v.id = id then Some c else None)
@@ -171,11 +172,11 @@ let cell_by_id (h: HS.mem) (id: UInt64.t) (ps: list (B.pointer (LL1.cell peer)))
 /// fundamental design choice of this module that simplifies a lot of the
 /// reasoning further down.
 
-let peer_of_id_in_peers (h: HS.mem) (d: device) (i: UInt64.t): Ghost Type
+let peer_of_id_in_peers #al (h: HS.mem) (d: device al) (i: UInt64.t): Ghost Type
   (requires LL2.invariant h d.peers)
   (ensures fun _ -> True)
 =
-  let m = IM.v h d.peer_of_id in
+  let m = al.IM.v h d.peer_of_id in
   // Note: going via cells has numerous advantages. First, we can switch back
   // and forth between the footprint view and the cells view, and we have
   // auxiliary lemmas for that here. Second, clients can derive useful
@@ -203,8 +204,8 @@ let peer_of_id_in_peers (h: HS.mem) (d: device) (i: UInt64.t): Ghost Type
 /// Back pointers invariant
 /// -----------------------
 
-let rec peers_back (h: HS.mem) (d: device) (ps: list peer) =
-  allow_inversion (list peer);
+let rec peers_back #al (h: HS.mem) (d: device al) (ps: list (peer al)) =
+  allow_inversion (list (peer al));
   match ps with
   | p :: ps ->
       B.deref h p.device == d /\
@@ -218,7 +219,7 @@ let rec peers_back (h: HS.mem) (d: device) (ps: list peer) =
 /// Note to self: I usually comment out the "unfold" to figure out which part fails.
 
 //unfold
-let invariant (h: HS.mem) (d: device) =
+let invariant #al (h: HS.mem) (d: device al) =
   ST.is_eternal_region d.r /\
   ST.is_eternal_region d.r_peers /\
   ST.is_eternal_region d.r_peer_of_id /\
@@ -237,10 +238,10 @@ let invariant (h: HS.mem) (d: device) =
   B.(loc_disjoint (loc_all_regions_from false d.r_peer_of_id) (loc_all_regions_from false d.r_peers_payload)) /\
 
   d.peers.LL2.r == d.r_peers /\
-  IM.region_of d.peer_of_id == B.loc_all_regions_from false d.r_peer_of_id /\
+  al.IM.region_of d.peer_of_id == B.loc_all_regions_from false d.r_peer_of_id /\
 
   LL2.invariant h d.peers /\
-  IM.invariant h d.peer_of_id /\
+  al.IM.invariant h d.peer_of_id /\
   peers_invariant h d.r_peers_payload (LL2.v h d.peers) /\
   // This is one more fact (like peer_footprint_in) that should be readily
   // available, but that cannot be derived automatically since it involves
@@ -258,11 +259,11 @@ let invariant (h: HS.mem) (d: device) =
 /// the payload of the peers is recursive, we don't automatically get
 /// disjointness of fresh allocations w.r.t. peers_footprint which is a drag.
 /// So, clients have to manually call this lemma.
-let rec peer_footprint_in (h: HS.mem) (r: HS.rid) (ps: list peer): Lemma
+let rec peer_footprint_in #al (h: HS.mem) (r: HS.rid) (ps: list (peer al)): Lemma
   (requires peers_invariant h r ps)
   (ensures B.loc_in (peers_footprint ps) h)
 =
-  let _ = allow_inversion (list peer) in
+  let _ = allow_inversion (list (peer al)) in
   match ps with
   | [] -> ()
   | p :: ps ->
@@ -270,7 +271,7 @@ let rec peer_footprint_in (h: HS.mem) (r: HS.rid) (ps: list peer): Lemma
       peer_footprint_in h r ps
 #pop-options
 
-let device_peers_footprint_in (h: HS.mem) (d: device): Lemma
+let device_peers_footprint_in #al (h: HS.mem) (d: device al): Lemma
   (requires invariant h d)
   (ensures B.loc_in (peers_footprint (LL2.v h d.peers)) h)
   [ SMTPat (invariant h d) ]
@@ -283,7 +284,7 @@ let device_peers_footprint_in (h: HS.mem) (d: device): Lemma
 /// Since the list of peers is a recursive data structure, everything has to be framed manually.
 
 #push-options "--fuel 1 --ifuel 1"
-let rec frame_peers_back (l: B.loc) (h0 h1: HS.mem) (d: device) (ps: list peer): Lemma
+let rec frame_peers_back #al (l: B.loc) (h0 h1: HS.mem) (d: device al) (ps: list (peer al)): Lemma
   (requires
     B.(loc_disjoint l (loc_all_regions_from false d.r_peers_payload)) /\
     peers_invariants h0 d.r_peers_payload ps /\
@@ -298,7 +299,7 @@ let rec frame_peers_back (l: B.loc) (h0 h1: HS.mem) (d: device) (ps: list peer):
   | p :: ps ->
       frame_peers_back l h0 h1 d ps
 
-let rec frame_peers_invariants (r_payload: HS.rid) (l: LL1.t peer) (n: list peer) (r: B.loc) (h0 h1: HS.mem): Lemma
+let rec frame_peers_invariants #al (r_payload: HS.rid) (l: LL1.t (peer al)) (n: list (peer al)) (r: B.loc) (h0 h1: HS.mem): Lemma
   (requires (
     LL1.well_formed h0 l n /\
     peers_invariants h0 r_payload n /\
@@ -335,7 +336,7 @@ let rec frame_peers_invariants (r_payload: HS.rid) (l: LL1.t peer) (n: list peer
 ///       |       cell_by_id        |
 ///      ll, id  -----------------> cell
 ///
-let rec cell_by_id_is_peer_by_id (h: HS.mem) (i: UInt64.t) (ll: LL1.t peer) (l: list peer): Lemma
+let rec cell_by_id_is_peer_by_id #al (h: HS.mem) (i: UInt64.t) (ll: LL1.t (peer al)) (l: list (peer al)): Lemma
   (requires
     LL1.well_formed h ll l /\
     LL1.invariant h ll l)
@@ -357,7 +358,7 @@ let rec cell_by_id_is_peer_by_id (h: HS.mem) (i: UInt64.t) (ll: LL1.t peer) (l: 
 
 /// A helper lemma for clients.
 #push-options "--fuel 1 --ifuel 1"
-let rec peer_by_id_invariant (h: HS.mem) (r: HS.rid) (ps: list peer) (p: peer) (id: UInt64.t): Lemma
+let rec peer_by_id_invariant #al (h: HS.mem) (r: HS.rid) (ps: list (peer al)) (p: peer al) (id: UInt64.t): Lemma
   (requires
     peers_invariant h r ps /\
     Some p == peer_by_id id ps)
@@ -378,7 +379,7 @@ let rec peer_by_id_invariant (h: HS.mem) (r: HS.rid) (ps: list peer) (p: peer) (
 ///
 /// Requires the two lemmas above to perform extensional reasoning on each index entry in the table.
 
-let frame_invariant (l: B.loc) (h0 h1: HS.mem) (d: device): Lemma
+let frame_invariant #al (l: B.loc) (h0 h1: HS.mem) (d: device al): Lemma
   (requires
     B.(loc_disjoint l (loc_all_regions_from false d.r)) /\
     B.modifies l h0 h1 /\
@@ -388,7 +389,7 @@ let frame_invariant (l: B.loc) (h0 h1: HS.mem) (d: device): Lemma
     // LL2 and IM, but good to reveal once we seal this module with an
     // abstraction.
     LL2.v h1 d.peers == LL2.v h0 d.peers /\
-    IM.v h1 d.peer_of_id == IM.v h0 d.peer_of_id /\
+    al.IM.v h1 d.peer_of_id == al.IM.v h0 d.peer_of_id /\
     invariant h1 d)
   // TODO: this pattern does not work
   // [ SMTPat [ B.modifies l h0 h1; invariant h1 d ] ]
@@ -411,22 +412,22 @@ let frame_invariant (l: B.loc) (h0 h1: HS.mem) (d: device): Lemma
   =
     assert (peer_of_id_in_peers h0 d i);
     cell_by_id_is_peer_by_id h0 i (B.deref h0 d.peers.LL2.ptr) (B.deref h0 d.peers.LL2.v);
-    ()
+    admit()
   in
   peer_footprint_in h1 d.r_peers_payload (LL2.v h1 d.peers);
-  ()
+  admit()
 
 /// Stateful API
 /// ------------
 
 #push-options "--fuel 1"
-let create_in (r: HS.rid): ST device
+let create_in #al (r: HS.rid): ST (device al)
   (requires fun h0 ->
     ST.is_eternal_region r)
   (ensures fun h0 d h1 ->
     invariant h1 d /\
     B.(modifies loc_none h0 h1) /\
-    IM.v h1 d.peer_of_id == M.const None /\
+    al.IM.v h1 d.peer_of_id == M.const None /\
     LL2.v h1 d.peers == [] /\
     d.r == r)
 =
@@ -434,12 +435,12 @@ let create_in (r: HS.rid): ST device
   let r_peer_of_id = ST.new_region r in
   let r_peers_payload = ST.new_region r in
   let peers = LL2.create_in r_peers in
-  let peer_of_id = IM.create_in r_peer_of_id in
+  let peer_of_id = al.IM.create_in r_peer_of_id in
   { peers; peer_of_id; r; r_peers; r_peer_of_id; r_peers_payload }
 #pop-options
 
 #push-options "--fuel 1 --ifuel 1"
-let rec free_peer_list (r_spine: HS.rid) (r_peers_payload: HS.rid) (hd: LL1.t peer) (l: G.erased (list peer)):
+let rec free_peer_list #al (r_spine: HS.rid) (r_peers_payload: HS.rid) (hd: LL1.t (peer al)) (l: G.erased (list (peer al))):
   ST unit
     (requires fun h0 ->
       peers_invariant h0 r_peers_payload l /\
@@ -464,13 +465,13 @@ let rec free_peer_list (r_spine: HS.rid) (r_peers_payload: HS.rid) (hd: LL1.t pe
     free_peer_list r_spine r_peers_payload next (List.Tot.tl l)
 #pop-options
 
-val free_ (d: device): ST unit
+val free_ (#al : IM.assoc_list) (d: device al): ST unit
   (requires fun h0 ->
     invariant h0 d)
   (ensures fun h0 _ h1 ->
     B.(modifies (loc_all_regions_from false d.r) h0 h1))
 
-let free_ d =
+let free_ #al d =
   let h0 = ST.get () in
   free_peer_list d.r_peers d.r_peers_payload (!* d.peers.LL2.ptr) (!* d.peers.LL2.v);
   let h1 = ST.get () in
@@ -480,13 +481,14 @@ let free_ d =
   LL2.free d.peers;
   let h2 = ST.get () in
   assert (B.modifies (B.loc_all_regions_from false d.r_peers) h1 h2);
-  assert (IM.region_of d.peer_of_id == B.loc_all_regions_from false d.r_peer_of_id);
-  IM.frame d.peer_of_id (B.loc_all_regions_from false d.r_peers) h1 h2;
-  assert (IM.invariant h2 d.peer_of_id);
-  IM.free d.peer_of_id
+  assert (al.IM.region_of d.peer_of_id == B.loc_all_regions_from false d.r_peer_of_id);
+  assume(IM.AssocList?.invariant al h1 (Mkdevice?.peer_of_id d));
+  al.IM.frame d.peer_of_id (B.loc_all_regions_from false d.r_peers) h1 h2;
+  assert (al.IM.invariant h2 d.peer_of_id);
+  al.IM.free d.peer_of_id
 
 // JP: should this one return the freshly-allocated peer?
-val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
+val insert_peer (#al : IM.assoc_list) (d: device al) (id: UInt64.t) (hs: handshake_state): ST unit
   (requires fun h0 ->
     invariant h0 d /\
     peer_by_id id (LL2.v h0 d.peers) == None /\
@@ -511,7 +513,7 @@ val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
     // redundant, because clients can already conclude this since they know that
     // only d.r_peers is modified (see right below), and that d.peer_of_id lives
     // in d.r_peer_of_id.
-    IM.v h0 d.peer_of_id == IM.v h1 d.peer_of_id /\
+    al.IM.v h0 d.peer_of_id == al.IM.v h1 d.peer_of_id /\
     // Clients can conclude that hs remains unchanged.
     B.(modifies (loc_all_regions_from false d.r_peers) h0 h1))))
 
@@ -519,7 +521,7 @@ val insert_peer (d: device) (id: UInt64.t) (hs: handshake_state): ST unit
 /// loc_unused_in_not_unused_in_disjoint after every stateful operation.
 #push-options "--z3rlimit 200 --fuel 1 \
   --using_facts_from '* -LowStar.Monotonic.Buffer.unused_in_not_unused_in_disjoint_2'"
-let insert_peer d id hs =
+let insert_peer #al d id hs =
   (**) let h0 = ST.get () in
   (**) B.loc_unused_in_not_unused_in_disjoint h0;
   (**) let l0: G.erased _ = LL2.v h0 d.peers in
@@ -540,9 +542,9 @@ let insert_peer d id hs =
   // This one does not trigger...
   (**) LL2.footprint_in_r h1 d.peers;
 
-  // Establishing IM.invariant
-  (**) IM.frame d.peer_of_id (B.loc_all_regions_from false d.r_peers) h0 h1;
-  (**) assert (IM.v h1 d.peer_of_id == IM.v h0 d.peer_of_id);
+  // Establishing al.IM.invariant
+  (**) al.IM.frame d.peer_of_id (B.loc_all_regions_from false d.r_peers) h0 h1;
+  (**) assert (al.IM.v h1 d.peer_of_id == al.IM.v h0 d.peer_of_id);
 
   // This one crucially relies on the loc_in clause. Note: I tried to keep the
   // loc_in in the invariant but this turned out to be a nightmare to establish
@@ -579,8 +581,8 @@ let insert_peer d id hs =
 /// operates on a LL1 and that a more convenient function is about to follow.
 /// Note that this function is specified in terms of cell_by_id which is
 /// stronger and can be converted to peer_by_id via the suitable lemma.
-let rec find_peer_by_id_ (ll: LL1.t peer) (l: G.erased (list peer)) (id: UInt64.t):
-  Stack (B.pointer_or_null (LL1.cell peer))
+let rec find_peer_by_id_ #al (ll: LL1.t (peer al)) (l: G.erased (list (peer al))) (id: UInt64.t):
+  Stack (B.pointer_or_null (LL1.cell (peer al)))
     (requires fun h0 ->
       LL1.well_formed h0 ll l /\
       LL1.invariant h0 ll l)
@@ -591,7 +593,7 @@ let rec find_peer_by_id_ (ll: LL1.t peer) (l: G.erased (list peer)) (id: UInt64.
       not (B.g_is_null p) ==>
         Some?.v maybe_cell == p)))
 =
-  let _ = allow_inversion (list peer) in
+  let _ = allow_inversion (list (peer al)) in
   if B.is_null ll then
     B.null
   else
@@ -602,8 +604,8 @@ let rec find_peer_by_id_ (ll: LL1.t peer) (l: G.erased (list peer)) (id: UInt64.
       find_peer_by_id_ next (List.Tot.tl l) id
 #pop-options
 
-let find_peer_by_id (d: device) (id: UInt64.t):
-  Stack (B.pointer_or_null (LL1.cell peer))
+let find_peer_by_id #al (d: device al) (id: UInt64.t):
+  Stack (B.pointer_or_null (LL1.cell (peer al)))
     (requires fun h0 ->
       invariant h0 d)
     (ensures fun h0 p h1 ->
@@ -621,8 +623,8 @@ let find_peer_by_id (d: device) (id: UInt64.t):
 // since the map is defined for all id's and points to None by default. Probably
 // something like:
 //   forall i {:pattern ???}.
-//     (Some? (M.sel (IM.v h0 d.peer_of_id) i) ==> Some? (M.sel (IM.v h1 d.peer_of_id) i)
-val link_peer_by_id (d: device) (id: UInt64.t):
+//     (Some? (M.sel (al.IM.v h0 d.peer_of_id) i) ==> Some? (M.sel (al.IM.v h1 d.peer_of_id) i)
+val link_peer_by_id (#al : IM.assoc_list) (d: device al) (id: UInt64.t):
   ST unit
     (requires fun h0 ->
       invariant h0 d /\
@@ -631,13 +633,13 @@ val link_peer_by_id (d: device) (id: UInt64.t):
       B.(modifies (loc_all_regions_from false d.r_peer_of_id) h0 h1) /\
       invariant h1 d /\
       LL2.v h0 d.peers == LL2.v h1 d.peers /\
-      Some? (M.sel (IM.v h1 d.peer_of_id) id))
+      Some? (M.sel (al.IM.v h1 d.peer_of_id) id))
 
 #push-options "--z3rlimit 100"
-let link_peer_by_id d id =
+let link_peer_by_id #al d id =
   (**) let h0 = ST.get () in
   let p = find_peer_by_id d id in
-  IM.add d.peer_of_id id p;
+  al.IM.add d.peer_of_id id p;
   (**) let h1 = ST.get () in
   (**) LL2.frame_region d.peers B.(loc_all_regions_from false d.r_peer_of_id) h0 h1;
   (**) LL2.footprint_in_r h1 d.peers;
@@ -677,15 +679,17 @@ let link_peer_by_id d id =
 /// freshly found.
 
 #push-options "--fuel 2 --z3rlimit 200"
-let main (): St Int32.t =
+let main #al (): St Int32.t =
   (**) let r = ST.new_region HS.root in
 
-  let wg_device = create_in r in
+  let wg_device = create_in #al r in
   (**) let h0 = ST.get () in
   (**) assert (LL2.v h0 wg_device.peers == []);
 
   let hs1: handshake_state = B.malloc wg_device.r_peers_payload 0uy 8ul in
-  insert_peer wg_device 0UL hs1;
+  (**) let h1 = ST.get () in
+  assume(Wireguard.invariant h1 wg_device);
+  insert_peer #al wg_device 0UL hs1;
   (**) let h1 = ST.get () in
   (**) assert (List.Tot.length (LL2.v h1 wg_device.peers) == 1);
 
@@ -704,5 +708,5 @@ let main (): St Int32.t =
   (**) frame_invariant B.loc_none h2 h3 wg_device;
 
   insert_peer wg_device 1UL hs2;
-  free_ wg_device;
+  free_ #al wg_device;
   0l
