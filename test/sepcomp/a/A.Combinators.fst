@@ -9,6 +9,8 @@ let f
   (x: t)
 : Tot a
 =
-  if a_le_b x
+  if x.a `U32.lt` this_is_a_constant
+  then g this_is_a_constant
+  else if a_le_b x
   then g (x.b `U32.sub` x.a)
   else g (x.a `U32.sub` x.b)
