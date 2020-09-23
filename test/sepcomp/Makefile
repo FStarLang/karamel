@@ -1,4 +1,5 @@
 all: b/dist/B.exe
+	$<
 
 a/dist/A.h: $(wildcard a/*.fst)
 	+$(MAKE) -C a
