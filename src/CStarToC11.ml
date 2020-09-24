@@ -1239,7 +1239,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
         let qs, spec, decl = mk_spec_and_declarator m name t in
         wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, false, Some Extern, [ decl, None ])))
 
-  | Global (name, macro, flags, _, body) when macro && not is_inline_static ->
+  | Global (name, macro, flags, _, body) when macro && not (is_inline_static && declared_in_library name) ->
       (* Macros behave like types, they ought to be declared once. *)
       let name = to_c_name m name in
       wrap_verbatim name flags (Macro (mk_comments flags, name, mk_expr m body))

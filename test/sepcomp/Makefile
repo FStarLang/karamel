@@ -1,3 +1,5 @@
+.PHONY: %
+
 all: b/dist/B.exe
 	$<
 
@@ -10,5 +12,3 @@ b/dist/B.exe: a/dist/A.h b/B.fst
 clean:
 	+$(MAKE) -C b clean || true
 	+$(MAKE) -C a clean
-
-.PHONY: all clean
