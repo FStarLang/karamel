@@ -182,6 +182,8 @@ dist/B.exe: dist/Makefile.basic
 	$(MAKE) -C $(dir $@) -f $(notdir $<) USER_CFLAGS=-I$(realpath ../a/dist)
 	$@
 
+.DELETE_ON_ERROR: dist/B.exe
+
 clean:
 	rm -rf obj dist *~
 

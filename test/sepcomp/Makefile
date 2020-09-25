@@ -1,9 +1,11 @@
-all: b/dist/B.exe
+.PHONY: all a b clean
 
-a/dist/A.h: $(wildcard a/*.fst)
+all: b
+
+a:
 	+$(MAKE) -C a
 
-b/dist/B.exe: a/dist/A.h b/B.fst
+b: a
 	+$(MAKE) -C b
 
 clean:
