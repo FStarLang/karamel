@@ -1,7 +1,7 @@
 RECENT_GCC	= $(shell [ "$$(gcc -dumpversion | cut -c -1)" -ge 5 ] && echo yes)
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
-TEST_OPTS	= -warn-error @4 -verbose
+TEST_OPTS	= -warn-error @4 -verbose -skip-makefiles
 KRML_BIN	= ../_build/src/Kremlin.native
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 
@@ -50,7 +50,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules --use_two_phase_tc true \
   --cmi
 
 # This just needs F* + KreMLin
-all: $(FILES) $(CUSTOM) ctypes-test
+all: $(FILES) $(CUSTOM) ctypes-test sepcomp-test
 
 # Needs node
 wasm: $(WASM_FILES)
@@ -161,6 +161,10 @@ $(LOWLEVEL_DIR)/%: ctypes/%
 ctypes-test: $(LOWLEVEL_DIR)/Client.native
 	cd $(LOWLEVEL_DIR)/_build && export LD_LIBRARY_PATH=. && \
 	  ./Client.native && ./Client.byte
+
+sepcomp-test:
+	+$(MAKE) -C sepcomp
+.PHONY: sepcomp-test
 
 CTYPES_HAND_WRITTEN_FILES=myocamlbuild.ml Client.ml _tags
 

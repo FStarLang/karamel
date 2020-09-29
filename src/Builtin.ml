@@ -311,7 +311,7 @@ let make_abstract_function_or_global = function
         Some (DExternal (cc, flags, name, t, List.map (fun x -> x.node.name) bs))
       else
         None
-  | DGlobal (flags, name, n, t, _) ->
+  | DGlobal (flags, name, n, t, _) when not (List.mem Common.Macro flags) ->
       if n = 0 then
         Some (DExternal (None, flags, name, t, []))
       else
