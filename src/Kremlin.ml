@@ -653,8 +653,10 @@ Supported options:|}
     if List.length is_support = 0 then
       Warn.fatal_error "The module WasmSupport wasn't passed to kremlin or \
         was hidden in a bundle!";
-    let files = is_support @ rest in
 
+    (* If present, place the fallback intrinsics module immediately after. *)
+    let intrinsics, rest = List.partition (fun (name, _) -> name = "Hacl_IntTypes_Intrinsics") rest in
+    let files = is_support @ intrinsics @ rest in
     (* The Wasm backend diverges here. We go to [CFlat] (an expression
      * language), then directly into the Wasm AST. *)
     let files = AstToCFlat.mk_files files c_name_map in

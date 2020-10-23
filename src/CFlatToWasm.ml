@@ -61,10 +61,20 @@ let name_of_string = W.Utf8.decode
 let string_of_name = W.Ast.string_of_name
 
 let rec find_func env name =
-  try
-    StringMap.find name env.funcs
-  with Not_found ->
-    Warn.fatal_error "%a: Could not resolve function %s" ploc env.location name
+    try
+      StringMap.find name env.funcs
+    with Not_found ->
+      begin
+        (* If the function is a fallback implementation of an intrinsic, find it
+         * using its correct name *)
+        match name with
+        | "Lib_IntTypes_Intrinsics_add_carry_u64" ->
+          find_func env "Hacl_IntTypes_Intrinsics_add_carry_u64"
+        | "Lib_IntTypes_Intrinsics_sub_borrow_u64" ->
+          find_func env "Hacl_IntTypes_Intrinsics_sub_borrow_u64"
+        | _ ->
+          Warn.fatal_error "%a: Could not resolve function %s" ploc env.location name
+      end
 
 let primitives = [
   "load32_le";
