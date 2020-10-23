@@ -227,21 +227,21 @@ let mkLowStarEndianness = (mem) => ({
   store128_be: (addr, n) => { throw new Error("todo: store128_be") },
   load128_be: (addr) => { throw new Error("todo: load128_be") },
   // this definition works for both C.Endianness and LowStar.Endianness
-  store16_le_i: (addr, n) => { throw new Error("todo_i: store16_le") },
-  load16_le_i: (addr) => { throw new Error("todo_i: load16_le") },
-  store16_be_i: (addr, n) => { throw new Error("todo_i: store16_be") },
-  load16_be_i: (addr) => { throw new Error("todo_i: load16_be") },
-  store32_le_i: (addr, n) => { throw new error("todo_i: store32_le") },
-  store32_be_i: (addr, n) => { throw new error("todo_i: store32_be") },
-  load32_be_i: (addr) => { throw new Error("todo_i: load32_be") },
-  store64_le_i: (addr, n) => { throw new Error("todo_i: store64_le") },
-  load64_le_i: (addr) => { throw new Error("todo_i: load64_le") },
-  store64_be_i: (addr, n) => { throw new Error("todo_i: store64_be") },
-  load64_be_i: (addr) => { throw new Error("todo_i: load64_be") },
-  store128_le_i: (addr, n) => { throw new Error("todo_i: store128_le") },
-  load128_le_i: (addr) => { throw new Error("todo_i: load128_le") },
-  store128_be_i: (addr, n) => { throw new Error("todo_i: store128_be") },
-  load128_be_i: (addr) => { throw new Error("todo_i: load128_be") }
+  store16_le_i: (addr, n) => { throw new Error("todo: store16_le_i") },
+  load16_le_i: (addr) => { throw new Error("todo: load16_le_i") },
+  store16_be_i: (addr, n) => { throw new Error("todo: store16_be_i") },
+  load16_be_i: (addr) => { throw new Error("todo: load16_be_i") },
+  store32_le_i: (addr, n) => { throw new error("todo: store32_le_i") },
+  store32_be_i: (addr, n) => { throw new error("todo: store32_be_i") },
+  load32_be_i: (addr) => { throw new Error("todo: load32_be_i") },
+  store64_le_i: (addr, n) => { throw new Error("todo: store64_le_i") },
+  load64_le_i: (addr) => { throw new Error("todo: load64_le_i") },
+  store64_be_i: (addr, n) => { throw new Error("todo: store64_be_i") },
+  load64_be_i: (addr) => { throw new Error("todo: load64_be_i") },
+  store128_le_i: (addr, n) => { throw new Error("todo: store128_le_i") },
+  load128_le_i: (addr) => { throw new Error("todo: load128_le_i") },
+  store128_be_i: (addr, n) => { throw new Error("todo: store128_be_i") },
+  load128_be_i: (addr) => { throw new Error("todo: load128_be_i") }
 });
 
 let mkCNullity = (mem) => ({
