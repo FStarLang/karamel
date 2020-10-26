@@ -61,10 +61,10 @@ let name_of_string = W.Utf8.decode
 let string_of_name = W.Ast.string_of_name
 
 let rec find_func env name =
-    try
-      StringMap.find name env.funcs
-    with Not_found ->
-      Warn.fatal_error "%a: Could not resolve function %s" ploc env.location name
+  try
+    StringMap.find name env.funcs
+  with Not_found ->
+    Warn.fatal_error "%a: Could not resolve function %s" ploc env.location name
 
 let primitives = [
   "load32_le";
