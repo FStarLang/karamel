@@ -64,17 +64,7 @@ let rec find_func env name =
     try
       StringMap.find name env.funcs
     with Not_found ->
-      begin
-        (* If the function is a fallback implementation of an intrinsic, find it
-         * using its correct name *)
-        match name with
-        | "Lib_IntTypes_Intrinsics_add_carry_u64" ->
-          find_func env "Hacl_IntTypes_Intrinsics_add_carry_u64"
-        | "Lib_IntTypes_Intrinsics_sub_borrow_u64" ->
-          find_func env "Hacl_IntTypes_Intrinsics_sub_borrow_u64"
-        | _ ->
-          Warn.fatal_error "%a: Could not resolve function %s" ploc env.location name
-      end
+      Warn.fatal_error "%a: Could not resolve function %s" ploc env.location name
 
 let primitives = [
   "load32_le";
@@ -654,6 +644,13 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallFunc ("LowStar_Buffer_null", [ _ ] )
   | CallFunc ("C_Nullity_null", [ _ ]) ->
       [ dummy_phrase (W.Ast.Const (mk_int32 0l)) ]
+
+  (* If the function is a fallback implementation of an intrinsic, call it
+   * using its correct name *)
+  | CallFunc ("Lib_IntTypes_Intrinsics_add_carry_u64", args) ->
+      mk_expr env (CallFunc ("Hacl_IntTypes_Intrinsics_add_carry_u64", args))
+  | CallFunc ("Lib_IntTypes_Intrinsics_sub_borrow_u64", args) ->
+      mk_expr env (CallFunc ("Hacl_IntTypes_Intrinsics_sub_borrow_u64", args))
 
   | CallFunc (("load16_le_i" | "load16_le"), [ e ]) ->
       mk_expr env e @
