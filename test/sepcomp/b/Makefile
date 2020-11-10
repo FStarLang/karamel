@@ -171,6 +171,7 @@ dist/Makefile.basic: $(filter-out %prims.krml,$(ALL_KRML_FILES))
 	  -static-header A.Base \
 	  -library A.* \
 	  -bundle 'B=A.*,FStar.*,LowStar.*,Prims,C' \
+	  -bundle 'D=A.*,FStar.*,LowStar.*,Prims,C' \
 	  -bundle 'A.*[rename=A,rename-prefix]' \
 	  -no-prefix B \
 	  -minimal \
