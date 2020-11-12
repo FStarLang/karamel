@@ -55,6 +55,7 @@ let merge_variables = ref No
 let linux_ints = ref false
 let microsoft = ref false
 let extern_c = ref false
+let force_inline = ref false
 
 let extract_uints = ref false
 let builtin_uint128 = ref false

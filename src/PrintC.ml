@@ -259,8 +259,11 @@ and p_decl_and_init (decl, init) =
     | None ->
         empty)
 
+and p_inline () =
+  string (if !Options.force_inline then "force_inline" else "inline")
+
 and p_declaration (qs, spec, inline, stor, decl_and_inits) =
-  let inline = if inline then string "inline" ^^ space else empty in
+  let inline = if inline then p_inline () ^^ space else empty in
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
   stor ^^ inline ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits

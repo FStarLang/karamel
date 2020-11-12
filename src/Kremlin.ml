@@ -295,6 +295,8 @@ Supported options:|}
       tweaks";
     "-fextern-c", Arg.Set Options.extern_c, " wrap declarations in each header \
       with extern \"C\" {";
+    "-fforce-inline", Arg.Set Options.force_inline, " emit force_inline instead \
+      of inline, whose definition is in callconv.h";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)

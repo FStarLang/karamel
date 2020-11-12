@@ -39,6 +39,8 @@
 #  else
 #    define force_inline inline
 #  endif
+#elif defined(_MSC_VER)
+#  define force_inline inline __forceinline
 #else
 #  define force_inline inline
 #endif

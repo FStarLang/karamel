@@ -177,8 +177,11 @@ let read_file (f: string): file list =
       | Error e ->
           Printf.eprintf "Couldn't read from .json file: %s\n" e;
           exit 1
-    else
+    else try
       with_open_in f input_value
+    with e ->
+      Printf.eprintf "Error reading %s: %s\n" f (Printexc.to_string e);
+      exit 1
   in
   let version, files = contents in
   if version > current_version then
