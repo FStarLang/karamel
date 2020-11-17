@@ -81,8 +81,9 @@ let unused_parameter_table = object (_)
 
   method! visit_DFunction parameter_table _ flags _ _ name binders _ =
     let is_private = List.mem Common.Private flags && not (Helpers.is_static_header name) in
-    let unused_vector = List.map (fun b -> is_private && !(b.node.mark) = 0) binders in
-    Hashtbl.add parameter_table name unused_vector
+    if is_private then
+      let unused_vector = List.map (fun b -> !(b.node.mark)) binders in
+      Hashtbl.add parameter_table name unused_vector
 
 end
 
@@ -119,14 +120,16 @@ let implies x y =
 
 (* Subtlety: we decline to remove the first parameter if all others are removed,
  * since we don't have zero-argument functions at this stage. *)
-let unused parameter_table lid ts (i: int) =
+let unused private_count_table lid ts (i: int) =
   (* Is the parameter at index i unused? *)
   let unused_i i =
-    Hashtbl.mem parameter_table lid && (
-      let l = Hashtbl.find parameter_table lid in
+    (* First case: private function (i.e. in the table) that is also unused *)
+    Hashtbl.mem private_count_table lid && (
+      let l = Hashtbl.find private_count_table lid in
       i < List.length l &&
-      List.nth l i
+      List.nth l i = 0
     ) ||
+    (* Second case: it's a unit, so here type-based elimination *)
     List.nth ts i = TUnit
   in
   unused_i i &&
@@ -135,9 +138,21 @@ let unused parameter_table lid ts (i: int) =
 let remove_unused_parameters = object (self)
   inherit [_] map
 
-  method! visit_DFunction parameter_table cc flags n ret name binders body =
-    let binders = self#visit_binders_w parameter_table binders in
-    let ret = self#visit_typ parameter_table ret in
+  val mutable current_lid = [], ""
+
+  method! extend (table, j) _ =
+    table, j + 1
+
+  method! visit_DFunction (parameter_table, _) cc flags n ret name binders body =
+    current_lid <- name;
+
+    (* Visit first: this may create more unused parameters and modify
+     * parameter_table. *)
+    let body = self#visit_expr_w (parameter_table, 0) body in
+
+    (* Then eliminate stuff. *)
+    let binders = self#visit_binders_w (parameter_table, 0) binders in
+    let ret = self#visit_typ (parameter_table, 0) ret in
 
     let n_binders = List.length binders in
     let ts = List.map (fun b -> b.typ) binders in
@@ -148,11 +163,10 @@ let remove_unused_parameters = object (self)
       end else
         body
     ) body (KList.make n_binders (fun i -> i)) in
-    let body = self#visit_expr_w parameter_table body in
     let binders = KList.filter_mapi (fun i b -> if unused i then None else Some b) binders in
     DFunction (cc, flags, n, ret, name, binders, body)
 
-  method! visit_TArrow parameter_table t1 t2 =
+  method! visit_TArrow (parameter_table, _) t1 t2 =
     (* Important: the only entries in `parameter_table` are those which are
      * first order, i.e. for which the only occurrence is under an EApp, which
      * does *not* recurse into visit_TArrow! *)
@@ -166,14 +180,42 @@ let remove_unused_parameters = object (self)
     ) args in
     fold_arrow args ret
 
-  method! visit_EApp (parameter_table, _) e es =
-    let es = List.map (self#visit_expr_w parameter_table) es in
+  method private update_table_current private_use_table unused i es =
+    (* We are currently rewriting the body of [f], which is eligible for
+     * use-based unused parameter elimination (because it's private). *)
+    if Hashtbl.mem private_use_table current_lid then
+      let l = List.length (Hashtbl.find private_use_table current_lid) in
+      List.iteri (fun arg_i e ->
+        match e.node with
+        (* We are currently looking at a function call. The arguments are [es]
+         * and each [unused] contains a matching boolean for each one of the [es]. *)
+        | EBound j when j >= i && unused arg_i ->
+            (* We're about to eliminate [EBound j], which refers to a formal
+             * parameter of [f]. This is an opportunity to update the entry for
+             * [f]. *)
+            Hashtbl.replace private_use_table current_lid
+              (List.mapi (fun k count ->
+                (* 0 is the last parameter, l - 1 the first *)
+                if k == l - 1 - (j - i) then begin
+                  assert (count > 0);
+                  count - 1
+                end else
+                  count
+              ) (Hashtbl.find private_use_table current_lid))
+        | _ -> ()
+      ) es
+
+  method! visit_EApp ((parameter_table, i), _) e es =
     let t, ts = flatten_arrow e.typ in
     let lid = match e.node with
       | EQualified lid -> lid
       | _ -> [], ""
     in
     let unused = unused parameter_table lid ts in
+
+    let es = List.map (self#visit_expr_w (parameter_table, i)) es in
+
+    self#update_table_current parameter_table unused i es;
 
     (* Three cases:
      * - more arguments than the type indicates; it's fairly bad, but happens,
@@ -187,7 +229,7 @@ let remove_unused_parameters = object (self)
       (* Transform the type of the head *)
       let used = KList.make (List.length ts) (fun i -> not (unused i)) in
       let ts = KList.filter_mask used ts in
-      let ts = List.map (self#visit_typ parameter_table) ts in
+      let ts = List.map (self#visit_typ (parameter_table, 0)) ts in
       let e = { e with typ = fold_arrow ts t } in
       (* Then transform the arguments, on a possible prefix of used when there's
        * a partial application. *)
@@ -208,11 +250,11 @@ let remove_unused_parameters = object (self)
        * argument to become a reference to a function pointer. Useful for
        * functions that take regions but that we still want to use as function
        * pointers. *)
-      let e = self#visit_expr_w parameter_table e in
+      let e = self#visit_expr_w (parameter_table, i) e in
       let app = if List.length es > 0 then with_type t (EApp (e, es)) else e in
       (nest to_evaluate t app).node
     else
-      EApp (self#visit_expr_w parameter_table e, es)
+      EApp (self#visit_expr_w (parameter_table, i) e, es)
 end
 
 
@@ -1560,7 +1602,7 @@ let simplify1 (files: file list): file list =
   let files = let_to_sequence#visit_files () files in
   files
 
-(* Many phases rely on a statement like language where let-bindings, buffer
+(* Many phases rely on a statement-like language where let-bindings, buffer
  * allocations and writes are hoisted; where if-then-else is always in statement
  * position; where sequences are not nested. These series of transformations
  * re-establish this invariant. *)
@@ -1587,7 +1629,7 @@ let remove_unused (files: file list): file list =
   let files = count_and_remove_locals#visit_files [] files in
   unused_parameter_table#visit_files parameter_table files;
   ignore_non_first_order#visit_files parameter_table files;
-  let files = remove_unused_parameters#visit_files parameter_table files in
+  let files = remove_unused_parameters#visit_files (parameter_table, 0) files in
   files
 
 let debug env =
