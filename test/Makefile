@@ -154,6 +154,9 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 check-unused: $(OUTPUT_DIR)/Unused_B.exe
 	egrep -q 'gets_eliminated.*foobar\)' $(OUTPUT_DIR)/Unused_B.out/Unused_A.c
 
+check-no-constructor: $(OUTPUT_DIR)/NoConstructor.exe
+	! grep -q define $(OUTPUT_DIR)/NoConstructor.out/NoConstructor.c
+
 # Custom ctypes target
 
 LOWLEVEL_DIR=$(OUTPUT_DIR)/Ctypes2.out

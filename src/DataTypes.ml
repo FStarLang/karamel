@@ -407,7 +407,6 @@ let compile_simple_matches (map, enums) = object(self)
         | exception Not_found ->
             DType (lid, flags, 0, Variant branches)
         | Eliminate t ->
-            ignore (self#allocate_enum_lid lid branches);
             DType (lid, flags, 0, Abbrev t)
         | ToTaggedUnion _ ->
             ignore (self#allocate_enum_lid lid branches);
