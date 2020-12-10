@@ -1562,7 +1562,7 @@ let combinators = object(self)
         { node = EFun (_, test, _); _ };
         { node = EFun (_, body, _); _ } ]
       when KString.starts_with s "while" ->
-        EWhile (DeBruijn.subst Helpers.eunit 0 test,
+        EWhile (DeBruijn.subst Helpers.eunit 0 (self#visit_expr_w () test),
           DeBruijn.subst Helpers.eunit 0 (self#visit_expr_w () body))
 
     | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), s), [ { node = EFun (_, body, _); _ } ]
@@ -1574,6 +1574,38 @@ let combinators = object(self)
 
     | _ ->
         super#visit_EApp ((), t) e es
+
+end
+
+let fixup_while_tests = object (self)
+
+  inherit [_] map as super
+
+  method! visit_EWhile (_, t) cond body =
+    match cond.node with
+    (* TODO: Helpers.unlikely_expression *)
+    | ELet _
+    | EIfThenElse _ ->
+        let body = self#visit_expr_w () body in
+        let cond = self#visit_expr_w () cond in
+
+        let b_cond, def_cond, _ =
+          mk_named_binding "cond" cond.typ cond.node
+        in
+        let b_cond = mark_mut b_cond in
+
+        (* let cond = <cond> in *)
+        ELet (b_cond, def_cond,
+          (* while (cond) { *)
+          with_type t (EWhile (with_type cond.typ (EBound 0),
+            (* let _ = <body> in *)
+            with_type body.typ (ELet (sequence_binding (),
+              DeBruijn.lift 1 body,
+              (* cond <- <cond> *)
+              with_unit (EAssign (with_type cond.typ (EBound 1), DeBruijn.lift 2 def_cond)))))))
+
+    | _ ->
+        super#visit_EWhile ((), t) cond body
 
 end
 
@@ -1611,6 +1643,7 @@ let simplify2 (files: file list): file list =
   (* Quality of hoisting is WIDELY improved if we remove un-necessary
    * let-bindings. *)
   let files = count_and_remove_locals#visit_files [] files in
+  let files = fixup_while_tests#visit_files () files in
   let files = hoist#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
   let files = hoist_bufcreate#visit_files () files in
