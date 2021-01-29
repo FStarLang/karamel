@@ -93,7 +93,7 @@ and prec_of_op2 op =
   | BXor | Xor -> 9, 9, 9
   | BShiftL | BShiftR ->
       5, 5, 4
-  | Eq | Neq -> 7, 7, 7
+  | Eq | Neq -> 7, 7, 6
   | Lt | Lte | Gt | Gte -> 6, 6, 5
   | And -> 11, 11, 11
   | Or -> 12, 12, 12
