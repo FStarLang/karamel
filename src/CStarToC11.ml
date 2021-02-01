@@ -1215,7 +1215,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
       end
 
   | External (name, Function (cc, t, ts), flags, pp) ->
-      if is_primitive name then
+      if is_primitive name || (is_inline_static && declared_in_library name) then
         []
       else
         let name = to_c_name m name in
@@ -1232,7 +1232,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
         wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, false, Some Extern, [ decl, None ])))
 
   | External (name, t, flags, _) ->
-      if is_primitive name then
+      if is_primitive name || (is_inline_static && declared_in_library name) then
         []
       else
         let name = to_c_name m name in
