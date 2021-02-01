@@ -314,7 +314,7 @@ let compile_simple_matches (map, enums) = object(self)
         | exception Not_found ->
             EField (e', f)
         | Eliminate _ ->
-            e.node
+            e'.node
         | _ ->
             assert false
         end
