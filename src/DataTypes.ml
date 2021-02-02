@@ -103,6 +103,11 @@ let remove_unused_type_arguments files =
         TQualified lid
   end in
 
+  Monomorphization.hints := List.map (fun ((head, args), hint) ->
+    let args = List.map (remove_unused#visit_typ ()) args in
+    (head, KList.filter_mapi (fun i arg -> if uses_nth head i then Some arg else None) args), hint
+  ) !Monomorphization.hints;
+
   remove_unused#visit_files () files
 
 
