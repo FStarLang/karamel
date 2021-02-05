@@ -16,12 +16,13 @@ else
 endif
 
 all: minimal pre kremlib
+	OCAML_ERROR_STYLE="short" \
 	OCAMLPATH="$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/bin" $(OCAMLBUILD) $(EXTRA_TARGETS)
 
 minimal: src/AutoConfig.ml
 	@# Workaround Windows bug in OCamlbuild
 	$(shell [ -f Kremlin.$(FLAVOR) ] && rm Kremlin.$(FLAVOR))
-	$(OCAMLBUILD) $(TARGETS)
+	OCAML_ERROR_STYLE="short" $(OCAMLBUILD) $(TARGETS)
 	ln -sf Kremlin.$(FLAVOR) krml
 
 kremlib: minimal

@@ -51,7 +51,7 @@ type env = {
 }
 
 and layout =
-  | LEnum
+  | LEnum (* compiled as an I32 instead of a U8 when going to C (the default) *)
   | LFlat of flat_layout
   | LBuiltin of size * array_size
 

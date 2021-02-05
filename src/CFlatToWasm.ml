@@ -193,38 +193,38 @@ let mk_drop =
  * the first two of size I64; the last two of size I32. The Wasm register
  * allocator will take care of optimizing all of that. *)
 let dup32 env =
-  [ dummy_phrase (W.Ast.TeeLocal (mk_var (env.n_args + 2)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 2))) ]
+  [ dummy_phrase (W.Ast.LocalTee (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.LocalGet (mk_var (env.n_args + 2))) ]
 
 let dup64 env =
-  [ dummy_phrase (W.Ast.TeeLocal (mk_var (env.n_args + 0)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0))) ]
+  [ dummy_phrase (W.Ast.LocalTee (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.LocalGet (mk_var (env.n_args + 0))) ]
 
 let swap32 env =
-  [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 2)));
-    dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 3)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 2)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 3))) ]
+  [ dummy_phrase (W.Ast.LocalSet (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.LocalSet (mk_var (env.n_args + 3)));
+    dummy_phrase (W.Ast.LocalGet (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.LocalGet (mk_var (env.n_args + 3))) ]
 
 let swap64 env =
-  [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 0)));
-    dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 1)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 1))) ]
+  [ dummy_phrase (W.Ast.LocalSet (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.LocalSet (mk_var (env.n_args + 1)));
+    dummy_phrase (W.Ast.LocalGet (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.LocalGet (mk_var (env.n_args + 1))) ]
 
 (* I64 at the top of the stack *)
 let swap6432 env =
-  [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 0)));
-    dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 2)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 2))) ]
+  [ dummy_phrase (W.Ast.LocalSet (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.LocalSet (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.LocalGet (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.LocalGet (mk_var (env.n_args + 2))) ]
 
 (* I32 at the top of the stack *)
 let swap3264 env =
-  [ dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 2)));
-    dummy_phrase (W.Ast.SetLocal (mk_var (env.n_args + 0)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 2)));
-    dummy_phrase (W.Ast.GetLocal (mk_var (env.n_args + 0))) ]
+  [ dummy_phrase (W.Ast.LocalSet (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.LocalSet (mk_var (env.n_args + 0)));
+    dummy_phrase (W.Ast.LocalGet (mk_var (env.n_args + 2)));
+    dummy_phrase (W.Ast.LocalGet (mk_var (env.n_args + 0))) ]
 
 
 (******************************************************************************)
@@ -267,7 +267,7 @@ let grow_highwater env =
  * module exports its new data_size, and the loader grows Kremlin.data_start by
  * this module's data_size before loading the next module. *)
 let compute_string_offset env rel_addr =
-  [ dummy_phrase (W.Ast.GetGlobal (mk_var (find_global env "data_start"))) ] @
+  [ dummy_phrase (W.Ast.GlobalGet (mk_var (find_global env "data_start"))) ] @
   [ dummy_phrase (W.Ast.Const (mk_int32 (Int32.of_int rel_addr))) ] @
   i32_add
 
@@ -502,7 +502,7 @@ module Debug = struct
       mk_const (mk_int32 (Int32.of_int ofs)) @
       mk_const (mk_int32 (Int32.of_int c)) @
       [ dummy_phrase W.Ast.(Store {
-          ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.Mem8 })]
+          ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Types.Pack8 })]
     in
 
     let rec byte_and_store ofs c t f tl =
@@ -526,13 +526,13 @@ module Debug = struct
             dup32 env @ addr @ swap32 env) tl
       | `Local32 i :: tl ->
           byte_and_store ofs '\x02' I32 (fun addr ->
-            addr @ [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]) tl
+            addr @ [ dummy_phrase (W.Ast.LocalGet (mk_var i)) ]) tl
       | `Peek64 :: tl ->
           byte_and_store ofs '\x03' I64 (fun addr ->
             dup64 env @ addr @ swap3264 env) tl
       | `Local64 i :: tl ->
           byte_and_store ofs '\x03' I64 (fun addr ->
-            addr @ [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]) tl
+            addr @ [ dummy_phrase (W.Ast.LocalGet (mk_var i)) ]) tl
       | `Incr :: tl ->
           char ofs '\x04' @
           aux (ofs + 1) tl
@@ -629,7 +629,7 @@ and mk_size size =
 and mk_expr env (e: expr): W.Ast.instr list =
   match e with
   | Var i ->
-      [ dummy_phrase (W.Ast.GetLocal (mk_var i)) ]
+      [ dummy_phrase (W.Ast.LocalGet (mk_var i)) ]
 
   | Constant (w, lit) ->
       mk_const (mk_lit w lit)
@@ -654,7 +654,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
 
   | CallFunc (("load16_le_i" | "load16_le"), [ e ]) ->
       mk_expr env e @
-      [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.(Mem16, ZX) })]
+      [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Types.(Pack16, ZX) })]
 
   | CallFunc (("load16_be_i" | "load16_be"), [ e ]) ->
       mk_expr env (CallFunc ("WasmSupport_betole16", [ CallFunc ("load16_le", [ e ])]))
@@ -679,20 +679,20 @@ and mk_expr env (e: expr): W.Ast.instr list =
       let local_dst = local_src + 1 in
       (* Using the two 32-bit scratch locals for the two addresses. *)
       mk_expr env src @
-      [ dummy_phrase (W.Ast.SetLocal (mk_var local_src)) ] @
+      [ dummy_phrase (W.Ast.LocalSet (mk_var local_src)) ] @
       mk_expr env dst @
-      [ dummy_phrase (W.Ast.SetLocal (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.LocalSet (mk_var local_dst)) ] @
       (* Push dst and src on the stack; load src; store. This is low. *)
-      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.LocalGet (mk_var local_dst)) ] @
       [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
       i32_add @
-      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
+      [ dummy_phrase (W.Ast.LocalGet (mk_var local_src)) ] @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
       [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_betole64"))) ] @
       [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
       (* Same thing with +8b offset. This is high. *)
-      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
-      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
+      [ dummy_phrase (W.Ast.LocalGet (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.LocalGet (mk_var local_src)) ] @
       [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
       i32_add @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
@@ -707,19 +707,19 @@ and mk_expr env (e: expr): W.Ast.instr list =
       let local_dst = local_src + 1 in
       (* Using the two 32-bit scratch locals for the two addresses. *)
       mk_expr env src @
-      [ dummy_phrase (W.Ast.SetLocal (mk_var local_src)) ] @
+      [ dummy_phrase (W.Ast.LocalSet (mk_var local_src)) ] @
       mk_expr env dst @
-      [ dummy_phrase (W.Ast.SetLocal (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.LocalSet (mk_var local_dst)) ] @
       (* Push dst and src on the stack; load src; store. This is low. *)
-      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
-      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
+      [ dummy_phrase (W.Ast.LocalGet (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.LocalGet (mk_var local_src)) ] @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
       [ dummy_phrase W.Ast.(Store { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
       (* Same thing with +8b offset. This is high. *)
-      [ dummy_phrase (W.Ast.GetLocal (mk_var local_dst)) ] @
+      [ dummy_phrase (W.Ast.LocalGet (mk_var local_dst)) ] @
       [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
       i32_add @
-      [ dummy_phrase (W.Ast.GetLocal (mk_var local_src)) ] @
+      [ dummy_phrase (W.Ast.LocalGet (mk_var local_src)) ] @
       [ dummy_phrase (W.Ast.Const (mk_int32 8l)) ] @
       i32_add @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I64; align = 0; offset = 0l; sz = None })] @
@@ -730,7 +730,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallFunc (("store16_le_i" | "store16_le"), [ e1; e2 ]) ->
       mk_expr env e1 @
       mk_expr env e2 @
-      [ dummy_phrase W.Ast.(Store { ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Memory.Mem16 })] @
+      [ dummy_phrase W.Ast.(Store { ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Types.Pack16 })] @
       mk_unit
 
   | CallFunc (("store16_be_i" | "store16_be"), [ e1; e2 ]) ->
@@ -779,8 +779,8 @@ and mk_expr env (e: expr): W.Ast.instr list =
         (* we store 32-bit integers in 32-bit slots, and smaller than that in
          * 32-bit slots as well, so no conversion M32 for us *)
         sz = match size with
-          | A16 -> Some W.Memory.(Mem16, ZX)
-          | A8 -> Some W.Memory.(Mem8, ZX)
+          | A16 -> Some W.Types.(Pack16, ZX)
+          | A8 -> Some W.Types.(Pack8, ZX)
           | _ -> None })]
 
   | BufSub (e1, e2, size) ->
@@ -797,11 +797,11 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | IfThenElse (e, b1, b2, s) ->
       let s = mk_type s in
       mk_expr env e @
-      [ dummy_phrase (W.Ast.If ([ s ], mk_expr env b1, mk_expr env b2)) ]
+      [ dummy_phrase (W.Ast.If (W.Ast.ValBlockType (Some s), mk_expr env b1, mk_expr env b2)) ]
 
   | Assign (i, e) ->
       mk_expr env e @
-      [ dummy_phrase (W.Ast.SetLocal (mk_var i)) ] @
+      [ dummy_phrase (W.Ast.LocalSet (mk_var i)) ] @
       mk_unit
 
   | BufWrite (e1, ofs, e3, size) ->
@@ -812,15 +812,15 @@ and mk_expr env (e: expr): W.Ast.instr list =
         align = 0;
         offset = Int32.of_int ofs;
         sz = match size with
-          | A16 -> Some W.Memory.Mem16
-          | A8 -> Some W.Memory.Mem8
+          | A16 -> Some W.Types.Pack16
+          | A8 -> Some W.Types.Pack8
           | _ -> None })] @
       mk_unit
 
   | While (e, expr) ->
-      [ dummy_phrase (W.Ast.Loop ([],
+      [ dummy_phrase (W.Ast.Loop (W.Ast.ValBlockType None,
         mk_expr env e @
-        [ dummy_phrase (W.Ast.If ([],
+        [ dummy_phrase (W.Ast.If (W.Ast.ValBlockType None,
           read_highwater @
           mk_expr env expr @
           mk_drop @
@@ -848,7 +848,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
 
 
   | GetGlobal i ->
-      [ dummy_phrase (W.Ast.GetGlobal (mk_var (find_global env i))) ]
+      [ dummy_phrase (W.Ast.GlobalGet (mk_var (find_global env i))) ]
 
   | StringLiteral s ->
       (* These strings are '\0'-terminated... revisit? *)
@@ -899,7 +899,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
         | ((_, c), body) :: branches ->
             let c = int_of_string c in
             table.(c) <- mk_var (n - i);
-            [ dummy_phrase (W.Ast.Block ([ s ],
+            [ dummy_phrase (W.Ast.Block (W.Ast.ValBlockType (Some s),
                 mk (i + 1) branches @
                 mk_expr env body @
                 [ dummy_phrase (W.Ast.Br (mk_var i))]))]
@@ -913,8 +913,8 @@ and mk_expr env (e: expr): W.Ast.instr list =
              * case, for non-contiguous jump tables, and the out-of-bounds case,
              * which happens if the switch does not cover the last constructors.
              * *)
-            [ dummy_phrase (W.Ast.Block ([ s ],
-              [ dummy_phrase (W.Ast.Block ([ s ],
+            [ dummy_phrase (W.Ast.Block (W.Ast.ValBlockType (Some s),
+              [ dummy_phrase (W.Ast.Block (W.Ast.ValBlockType (Some s),
                 dummy @
                 mk_expr env e @
                 [ dummy_phrase (W.Ast.BrTable (Array.to_list table, mk_var 0))]))] @
@@ -995,7 +995,7 @@ let mk_global env name size body post_init =
   in
   let init, body, mut =
     if List.length body > 1 then
-      body @ [ dummy_phrase (W.Ast.SetGlobal (mk_var (find_global env name))) ] @ post_init,
+      body @ [ dummy_phrase (W.Ast.GlobalSet (mk_var (find_global env name))) ] @ post_init,
       [ dummy_phrase (W.Ast.Const (match size with I32 -> mk_int32 0l | I64 -> mk_int64 0L))],
       true
     else
@@ -1230,7 +1230,7 @@ let mk_module types imports (name, decls):
     [ dummy_phrase W.Ast.({
         index = mk_var 0;
         offset = dummy_phrase [ dummy_phrase (
-          W.Ast.GetGlobal (mk_var (find_global env "data_start"))) ];
+          W.Ast.GlobalGet (mk_var (find_global env "data_start"))) ];
         init = Bytes.to_string buf })]
   in
 

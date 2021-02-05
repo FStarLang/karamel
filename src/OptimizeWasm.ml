@@ -12,8 +12,8 @@ module StringMap = Map.Make(String)
 let is_readonly = function
   | Ast.Const _
   | Ast.Load _
-  | Ast.GetLocal _
-  | Ast.GetGlobal _ ->
+  | Ast.LocalGet _
+  | Ast.GlobalGet _ ->
       true
   | _ ->
       false
