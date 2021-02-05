@@ -372,7 +372,7 @@ let functions files =
           end
 
       | EOp ((K.Eq | K.Neq), _) ->
-          ETApp (e, ts)
+          assert false
 
       | EOp (_, _) ->
          (self#visit_expr env e).node
@@ -430,10 +430,9 @@ let equalities files =
      * equality predicate that implements F*'s structural equality. *)
     method private generate_equality t op =
       (* A set of helpers use for generating abstract syntax. *)
-      let eq_kind, eq_lid = match op with
-        | K.Eq -> `Eq, ([], "__eq")
-        | K.Neq -> `Neq, ([], "__neq")
-        | _ -> assert false
+      let eq_lid = match op with
+        | K.PEq -> [], "__eq"
+        | K.PNeq -> [], "__neq"
       in
       let eq_typ = TArrow (t, TArrow (t, TBool)) in
       let instance_lid = Gen.gen_lid eq_lid [ t ] in
@@ -442,19 +441,18 @@ let equalities files =
 
       match t with
       | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) ->
-          EOp (op, K.CInt)
+          EOp (K.op_of_poly_comp op, K.CInt)
 
       | TInt w ->
-          EOp (op, w)
+          EOp (K.op_of_poly_comp op, w)
 
       | TBool ->
-          EOp (op, K.Bool)
+          EOp (K.op_of_poly_comp op, K.Bool)
 
       | TBuf _ ->
-          (* Buffers do not have eqtype. The only instance of pointer types compared via equality is
-           * thus references, which are compared by address. Type-checking is lax and will accept
-           * this even though the K.Bool is incorrect... *)
-          EOp (op, K.UInt64)
+          (* 20210205: I don't think this is allowed anymore, at all. Maybe with
+             Steel? *)
+          EPolyComp (op, t)
 
       | TQualified lid when Hashtbl.mem types_map lid ->
           begin try
@@ -466,9 +464,9 @@ let equalities files =
             EQualified existing_lid
           with Not_found ->
             let mk_conj_or_disj es =
-              match eq_kind with
-              | `Eq -> List.fold_left mk_and etrue es
-              | `Neq -> List.fold_left mk_or efalse es
+              match op with
+              | K.PEq -> List.fold_left mk_and etrue es
+              | K.PNeq -> List.fold_left mk_or efalse es
             in
             let mk_rec_equality t e1 e2 =
               match t with
@@ -511,9 +509,9 @@ let equalities files =
                 EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
             | Variant branches ->
                 let def () =
-                  let fail_case = match eq_kind with
-                    | `Eq -> efalse
-                    | `Neq -> etrue
+                  let fail_case = match op with
+                    | K.PEq -> efalse
+                    | K.PNeq -> etrue
                   in
                   (* let __eq__typ y x = *)
                   DFunction (None, [ Common.Private ], 0, TBool, instance_lid, [ y; x ],
@@ -527,7 +525,7 @@ let equalities files =
                           fresh_binder (KPrint.bsprintf "x_%s" f) t
                         ) fields in
                         (* \. xn ... x0. *)
-                        List.rev binders_x, 
+                        List.rev binders_x,
                         (* A x0 ... xn -> *)
                         with_type t (PCons (cons, List.mapi (fun i (_, (t_f, _)) ->
                           with_type t_f (PBound i)) fields)),
@@ -567,30 +565,25 @@ let equalities files =
             EQualified (Hashtbl.find Gen.generated_lids (eq_lid, [ t ]))
           with Not_found ->
             (* External type without a definition. Comparison of function types? *)
-            begin match eq_kind with
-            | `Neq ->
+            begin match op with
+            | K.PNeq ->
                 (* let __neq__t x y = not (__eq__t x y) *)
                 let def () =
                   let body = mk_not (with_type TBool (
-                    EApp (with_type eq_typ (self#generate_equality t K.Eq), [
+                    EApp (with_type eq_typ (self#generate_equality t K.PEq), [
                       with_type t (EBound 0); with_type t (EBound 1) ])))
                   in
                   DFunction (None, [], 0, TBool, instance_lid, [ y; x ], body)
                 in
                 EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
-            | `Eq ->
+            | K.PEq ->
                 (* assume val __eq__t: t -> t -> bool *)
                 let def () = DExternal (None, [], instance_lid, eq_typ, [ "x"; "y" ]) in
                 EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
             end
 
-    method! visit_ETApp _ e ts =
-      match e.node with
-      | EOp (K.Eq | K.Neq as op, _) ->
-          let t = KList.one ts in
-          self#generate_equality t op
-      | _ ->
-          failwith "should've been eliminated by Monomorphize.functions"
+    method! visit_EPolyComp _ op t =
+      self#generate_equality t op
 
     (* New feature: generate top-level specialized equalities in case a
      * higher-order occurrence of the equality operator occurs, at a scalar
