@@ -1215,7 +1215,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
       end
 
   | External (name, Function (cc, t, ts), flags, pp) ->
-      if is_primitive name then
+      if is_primitive name || (is_inline_static && declared_in_library name) then
         []
       else
         let name = to_c_name m name in
@@ -1232,7 +1232,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
         wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, false, Some Extern, [ decl, None ])))
 
   | External (name, t, flags, _) ->
-      if is_primitive name then
+      if is_primitive name || (is_inline_static && declared_in_library name) then
         []
       else
         let name = to_c_name m name in
@@ -1345,8 +1345,6 @@ let mk_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
   (* Note that static_header + library means that corresponding declarations are
    * effectively dropped on the basis that the user is doing separate extraction
    * & compilation + providing the required header. *)
-  (* TODO: can't mark as static inline a function stub -- need to rework these
-   * combinators *)
   KList.map_flatten
     (if_header_inline_static m
       (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
@@ -1354,6 +1352,16 @@ let mk_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
     decls
 
 let mk_headers (map: (Ast.lident, Ast.ident) Hashtbl.t) files =
-  List.map (fun (name, deps, program) ->
-    name, deps, mk_header map program
-  ) files
+  let headers = List.fold_left (fun acc (name, deps, program) ->
+    let h = mk_header map program in
+    if List.length h > 0 then
+      (name, deps, h) :: acc
+    else
+      acc
+  ) [] files in
+  let headers = List.rev headers in
+  let not_dropped f = List.exists (fun (name, _, _) -> f = name) headers in
+  let headers = List.map (fun (name, deps, program) ->
+    name, List.filter not_dropped deps, program
+  ) headers in
+  headers
