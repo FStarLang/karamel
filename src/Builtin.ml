@@ -115,9 +115,7 @@ let buffer: file =
         mk_incr32,
         with_unit (EIfThenElse (with_type TBool (
           EApp (with_type (TArrow (TBound 0, TArrow (TBound 0, TBool)))
-            (ETApp (with_type (TArrow (TBound 0, TArrow (TBound 0, TBool)))
-              (EOp (K.Neq, K.Bool)),
-              [ TBound 0 ])), [
+            (EPolyComp (K.PNeq, TBound 0)), [
             with_type (TBound 0) (EBufRead (
               with_type (TBuf (TBound 0, true)) (EBound 3),
               with_type uint32 (EBound 0)));

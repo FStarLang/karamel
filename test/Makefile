@@ -63,12 +63,14 @@ everything: all wasm
 # Use F*'s dependency mechanism and fill out the missing rules.
 
 ifndef MAKE_RESTARTS
+ifndef NODEPEND
 .depend: .FORCE
 	$(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
 	  $(BROKEN) ../runtime/WasmSupport.fst --extract Kremlin > $@
 
 .PHONY: .FORCE
 .FORCE:
+endif
 endif
 
 include .depend

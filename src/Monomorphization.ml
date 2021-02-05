@@ -396,7 +396,7 @@ let equalities files =
 
   let monomorphize = object(self)
 
-    inherit [_] map as super
+    inherit [_] map as _super
 
     val mutable current_file = ""
     val mutable has_cycle = false
@@ -582,20 +582,16 @@ let equalities files =
                 EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
             end
 
-    method! visit_EPolyComp _ op t =
-      self#generate_equality t op
-
-    (* New feature: generate top-level specialized equalities in case a
+    (* New feature (somewhat unrelated to polymorphic equality
+     * monomorphization): generate top-level specialized equalities in case a
      * higher-order occurrence of the equality operator occurs, at a scalar
      * type. *)
 
-    method private eta_expand_op op w =
-      let eq_lid = match op with
-        | K.Eq -> [], "__eq"
-        | K.Neq -> [], "__neq"
-        | _ -> assert false
+    method private eta_expand_op c t =
+      let eq_lid = match c with
+        | K.PEq -> [], "__eq"
+        | K.PNeq -> [], "__neq"
       in
-      let t = TInt w in
       try
         (* Already monomorphized? *)
         let existing_lid = Hashtbl.find Gen.generated_lids (eq_lid, [ t ]) in
@@ -605,27 +601,26 @@ let equalities files =
         let instance_lid = Gen.gen_lid eq_lid [ t ] in
         let x = fresh_binder "x" t in
         let y = fresh_binder "y" t in
-        EQualified (Gen.register_def current_file eq_lid [ TInt w ] instance_lid (fun _ ->
+        EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid (fun _ ->
           DFunction (None, [ Common.Private ], 0, TBool, instance_lid, [ y; x ],
             with_type TBool (
-              EApp (with_type eq_typ (EOp (op, w)), [
+              EApp (with_type eq_typ (EPolyComp (c, t)), [
                 with_type t (EBound 0); with_type t (EBound 1) ])))))
 
     method! visit_EApp env e es =
       match e.node with
-      | EOp ((K.Eq | K.Neq), _) -> EApp (e, List.map (self#visit_expr env) es)
-      | _ -> super#visit_EApp env e es
-
-    method! visit_EOp _ op w =
-      match op with
-      | K.Eq | K.Neq ->
-          (* If we get here, then this is an unapplied equality appearing in an
-           * expression, which then needs to be hoisted into an eta-expanded
-           * top-level definition. Note that we will still bail on partial
-           * applications of the equality. *)
-          self#eta_expand_op op w
+      | EPolyComp (op, t) ->
+          EApp (with_type e.typ (self#generate_equality t op), List.map (self#visit_expr env) es)
       | _ ->
-          EOp (op, w)
+          EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
+
+    method! visit_EPolyComp _ c t =
+      (* We are NOT under an application, meaning this is an unapplied equality
+         stemming from a higher-order usage of a monomorphic equality operator.
+         We perform something similar to `generate_equality` above, namely, we
+         register a top-level function that "fills in" for this equality
+         function. *)
+      self#eta_expand_op c t
 
   end in
 

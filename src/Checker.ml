@@ -278,9 +278,7 @@ and check' env t e =
       (match e.node with EOp ((K.Eq | K.Neq), _) -> () | _ -> assert false);
       check env t e
 
-  | EPolyComp (_, t) ->
-      check env t e
-
+  | EPolyComp _
   | EBound _
   | EOpen _
   | EQualified _
