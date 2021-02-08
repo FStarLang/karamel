@@ -20,15 +20,6 @@ let build_def_map files =
         ()
   )
 
-(* A set of hints to pick better names for monomorphized data types. Filled by
- * Inlining.ml. *)
-let hints: ((lident * typ list) * lident) list ref = ref []
-
-let debug_hints () =
-  KPrint.bprintf "==== state of naming hints ====\n";
-  List.iter (fun ((hd, args), lid) ->
-    KPrint.bprintf "%a --> %a\n" ptyp (TApp (hd, args)) plid lid
-  ) !hints
 
 
 (* We visit type declarations in order to monomorphize parameterized type
@@ -98,14 +89,14 @@ let monomorphize_data_types map = object(self)
     let lid, args = n in
     if List.length args > 0 then
       try
-        let pretty = List.assoc n !hints in
+        let pretty = List.assoc n !NamingHints.hints in
         if Options.debug "names" then
           KPrint.bprintf "Hit: %a --> %a\n" ptyp (TApp (lid, args)) plid pretty;
         pretty
       with Not_found ->
         if Options.debug "names" then begin
           KPrint.bprintf "No hit: %a\n" ptyp (TApp (lid, args));
-          debug_hints ()
+          NamingHints.debug ()
         end;
         let doc = PPrint.(separate_map underscore PrintAst.print_typ args) in
         fst lid, KPrint.bsprintf "%s__%a" (snd lid) PrintCommon.pdoc doc
@@ -132,7 +123,7 @@ let monomorphize_data_types map = object(self)
          * allocated, including the current node's (in case this is a
          * recursive type). Cannot use the current visitor because it would
          * force visiting sub-nodes that we don't intend to visit yet. *)
-        hints := List.map (fun ((hd, args), lid) ->
+        NamingHints.hints := List.map (fun ((hd, args), lid) ->
           (hd, List.map (
             (object
               inherit [_] map as self'
@@ -153,7 +144,7 @@ let monomorphize_data_types map = object(self)
                   let args = List.map (self'#visit_typ ()) args in
                   TTuple args
             end)#visit_typ ()
-          ) args), lid) !hints;
+          ) args), lid) !NamingHints.hints;
 
         (* Subtletly: we decline to insert type monomorphizations in dropped
          * files, on the basis that they might be needed later in an actual
@@ -394,6 +385,21 @@ let equalities files =
     | _ -> ()
   ) in
 
+  (* I first tried carrying over the map from DataTypes to here, but this map is
+     invalidated by the call to GcTypes which results in stale data type definitions
+     being left in the map. So, we anticipate a little bit on the result of
+     DataTypes.everything here, and just replicate the logic to determine
+     whether this is going to end up being an enum or not. *)
+  let enum_eventually lid =
+    match Hashtbl.find types_map lid with
+    | exception Not_found ->
+        false
+    | Variant branches ->
+        List.for_all (fun (_, fields) -> List.length fields = 0) branches
+    | _ ->
+        false
+  in
+
   let monomorphize = object(self)
 
     inherit [_] map as _super
@@ -443,6 +449,9 @@ let equalities files =
       | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) ->
           EOp (K.op_of_poly_comp op, K.CInt)
 
+      | TQualified lid when enum_eventually lid ->
+          EPolyComp (op, t)
+
       | TInt w ->
           EOp (K.op_of_poly_comp op, w)
 
@@ -451,7 +460,8 @@ let equalities files =
 
       | TBuf _ ->
           (* 20210205: I don't think this is allowed anymore, at all. Maybe with
-             Steel? *)
+             Steel we'll have raw pointer comparison? Leaving it here just in
+             case. *)
           EPolyComp (op, t)
 
       | TQualified lid when Hashtbl.mem types_map lid ->
