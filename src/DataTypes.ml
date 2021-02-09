@@ -103,10 +103,10 @@ let remove_unused_type_arguments files =
         TQualified lid
   end in
 
-  Monomorphization.hints := List.map (fun ((head, args), hint) ->
+  NamingHints.hints := List.map (fun ((head, args), hint) ->
     let args = List.map (remove_unused#visit_typ ()) args in
     (head, KList.filter_mapi (fun i arg -> if uses_nth head i then Some arg else None) args), hint
-  ) !Monomorphization.hints;
+  ) !NamingHints.hints;
 
   remove_unused#visit_files () files
 
@@ -148,7 +148,7 @@ let build_scheme_map files =
           List.length fields = 0
         ) branches in
         if List.length non_constant = 0 then
-          Hashtbl.add map lid ToEnum
+          Hashtbl.add map lid ToEnum (* logic replicated in Monomorphization *)
         else if List.length branches = 1 then
           Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
         else if List.length non_constant = 1 then
@@ -1168,14 +1168,20 @@ end
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
 (* debug_map (fst map); *)
 
+(* Cosmetic *)
 let simplify files =
   let files = remove_trivial_matches#visit_files () files in
   let files = remove_full_matches#visit_files () files in
   files
 
-let everything files =
+(* Unit elimination, after monomorphization *)
+let optimize files =
   let files = remove_unit_buffers#visit_files () files in
   let files = remove_unit_fields#visit_files () files in
+  files
+
+(* General compilation scheme *)
+let everything files =
   let map = build_scheme_map files in
   let files = (compile_simple_matches map)#visit_files () files in
   let files = (compile_all_matches map)#visit_files () files in

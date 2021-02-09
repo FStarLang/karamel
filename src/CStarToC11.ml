@@ -686,10 +686,10 @@ and mk_stmt m (stmt: stmt): C.stmt list =
   | Assign (BufRead _, _, (Any | Cast (Any, _))) ->
       []
 
-  | Assign (Var x, _, Call (Op (K.Add, _), [ Var y; Constant (_, "1") ])) when x = y ->
+  | Assign (Var x, _, Call (Op K.Add, [ Var y; Constant (_, "1") ])) when x = y ->
       [ Expr (Op1 (PostIncr, Name x)) ]
 
-  | Assign (Var x, _, Call (Op (K.Sub, _), [ Var y; Constant (_, "1") ])) when x = y ->
+  | Assign (Var x, _, Call (Op K.Sub, [ Var y; Constant (_, "1") ])) when x = y ->
       [ Expr (Op1 (PostDecr, Name x)) ]
 
   | Assign (e1, t, BufCreate (Eternal, init, size)) ->
@@ -863,10 +863,10 @@ and mk_expr m (e: expr): C.expr =
   | InlineComment (s, e, s') ->
       InlineComment (s, mk_expr m e, s')
 
-  | Call (Op (o, _), [ e ]) ->
+  | Call (Op o, [ e ]) ->
       Op1 (o, mk_expr m e)
 
-  | Call (Op (o, _), [ e1; e2 ]) ->
+  | Call (Op o, [ e1; e2 ]) ->
       Op2 (o, mk_expr m e1, mk_expr m e2)
 
   | Comma (e1, e2) ->
