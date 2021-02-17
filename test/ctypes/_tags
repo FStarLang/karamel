@@ -1,4 +1,4 @@
-true: package(ctypes), package(ctypes.stubs), package(ctypes.foreign), package(threads)
+true: package(ctypes), package(ctypes.stubs), package(ctypes.foreign), package(threads), thread
 "Lowlevel_c_stubs.c": use_ctypes
 <Client.{byte,native}>: use_stubs
 "lib": include
