@@ -51,146 +51,34 @@ bool FStar_Order_uu___is_Gt(FStar_Order_order projectee)
   }
 }
 
-static bool __neq__FStar_Order_order(FStar_Order_order y, FStar_Order_order x)
-{
-  switch (x)
-  {
-    case FStar_Order_Lt:
-      {
-        switch (y)
-        {
-          case FStar_Order_Lt:
-            {
-              return false;
-            }
-          default:
-            {
-              return true;
-            }
-        }
-        break;
-      }
-    case FStar_Order_Eq:
-      {
-        switch (y)
-        {
-          case FStar_Order_Eq:
-            {
-              return false;
-            }
-          default:
-            {
-              return true;
-            }
-        }
-        break;
-      }
-    case FStar_Order_Gt:
-      {
-        switch (y)
-        {
-          case FStar_Order_Gt:
-            {
-              return false;
-            }
-          default:
-            {
-              return true;
-            }
-        }
-        break;
-      }
-    default:
-      {
-        return true;
-      }
-  }
-}
-
 bool FStar_Order_ge(FStar_Order_order o)
 {
-  return __neq__FStar_Order_order(o, FStar_Order_Lt);
+  return o != FStar_Order_Lt;
 }
 
 bool FStar_Order_le(FStar_Order_order o)
 {
-  return __neq__FStar_Order_order(o, FStar_Order_Gt);
+  return o != FStar_Order_Gt;
 }
 
 bool FStar_Order_ne(FStar_Order_order o)
 {
-  return __neq__FStar_Order_order(o, FStar_Order_Eq);
-}
-
-static bool __eq__FStar_Order_order(FStar_Order_order y, FStar_Order_order x)
-{
-  switch (x)
-  {
-    case FStar_Order_Lt:
-      {
-        switch (y)
-        {
-          case FStar_Order_Lt:
-            {
-              return true;
-            }
-          default:
-            {
-              return false;
-            }
-        }
-        break;
-      }
-    case FStar_Order_Eq:
-      {
-        switch (y)
-        {
-          case FStar_Order_Eq:
-            {
-              return true;
-            }
-          default:
-            {
-              return false;
-            }
-        }
-        break;
-      }
-    case FStar_Order_Gt:
-      {
-        switch (y)
-        {
-          case FStar_Order_Gt:
-            {
-              return true;
-            }
-          default:
-            {
-              return false;
-            }
-        }
-        break;
-      }
-    default:
-      {
-        return false;
-      }
-  }
+  return o != FStar_Order_Eq;
 }
 
 bool FStar_Order_gt(FStar_Order_order o)
 {
-  return __eq__FStar_Order_order(o, FStar_Order_Gt);
+  return o == FStar_Order_Gt;
 }
 
 bool FStar_Order_lt(FStar_Order_order o)
 {
-  return __eq__FStar_Order_order(o, FStar_Order_Lt);
+  return o == FStar_Order_Lt;
 }
 
 bool FStar_Order_eq(FStar_Order_order o)
 {
-  return __eq__FStar_Order_order(o, FStar_Order_Eq);
+  return o == FStar_Order_Eq;
 }
 
 FStar_Order_order FStar_Order_lex(FStar_Order_order o1, FStar_Order_order (*o2)())
