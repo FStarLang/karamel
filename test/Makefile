@@ -40,7 +40,7 @@ else
   FSTAR_EXE=fstar.exe
 endif
 
-FSTAR		= $(FSTAR_EXE) --cache_checked_modules --use_two_phase_tc true \
+FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
   --include hello-system --include ../kremlib/compat --include ../kremlib/obj \
   --include ../kremlib --include ../runtime \

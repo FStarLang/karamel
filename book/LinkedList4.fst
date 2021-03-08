@@ -13,7 +13,7 @@ module MO = LowStar.Modifies
 
 open FStar.HyperStack.ST
 
-#set-options "--__no_positivity --use_two_phase_tc true"
+#set-options "--__no_positivity"
 
 /// We revisit the classic example of lists, but in a low-level
 /// setting, using linked lists. This second version uses
