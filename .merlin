@@ -5,5 +5,5 @@ PKG ppx_deriving.std ppx_deriving_yojson zarith pprint unix wasm process sedlex
 PKG visitors.ppx visitors.runtime
 PKG compiler-libs
 PKG compiler-libs.common
-PKG ocaml-migrate-parsetree
+PKG ppxlib
 PKG ocamlbuild
