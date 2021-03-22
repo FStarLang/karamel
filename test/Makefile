@@ -40,7 +40,7 @@ else
   FSTAR_EXE=fstar.exe
 endif
 
-FSTAR		= $(FSTAR_EXE) --cache_checked_modules --use_two_phase_tc true \
+FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
   --include hello-system --include ../kremlib/compat --include ../kremlib/obj \
   --include ../kremlib --include ../runtime \
@@ -63,12 +63,14 @@ everything: all wasm
 # Use F*'s dependency mechanism and fill out the missing rules.
 
 ifndef MAKE_RESTARTS
+ifndef NODEPEND
 .depend: .FORCE
 	$(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
 	  $(BROKEN) ../runtime/WasmSupport.fst --extract Kremlin > $@
 
 .PHONY: .FORCE
 .FORCE:
+endif
 endif
 
 include .depend

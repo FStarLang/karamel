@@ -42,7 +42,6 @@ typedef struct FStar_VConfig_vconfig_s
   Prims_int z3rlimit;
   Prims_int z3rlimit_factor;
   Prims_int z3seed;
-  bool use_two_phase_tc;
   bool trivial_pre_for_unannotated_effectful_fns;
   FStar_Pervasives_Native_option__Prims_string reuse_hint_for;
 }
@@ -113,8 +112,6 @@ Prims_int
 FStar_VConfig___proj__Mkvconfig__item__z3rlimit_factor(FStar_VConfig_vconfig projectee);
 
 Prims_int FStar_VConfig___proj__Mkvconfig__item__z3seed(FStar_VConfig_vconfig projectee);
-
-bool FStar_VConfig___proj__Mkvconfig__item__use_two_phase_tc(FStar_VConfig_vconfig projectee);
 
 bool
 FStar_VConfig___proj__Mkvconfig__item__trivial_pre_for_unannotated_effectful_fns(

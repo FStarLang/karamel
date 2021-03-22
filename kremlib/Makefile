@@ -25,7 +25,7 @@ UINT128_DIR = dist/uint128
 MINI_DIR = dist/minimal
 
 #332 is turning abstract keyword usage into a fatal error
-FSTAR_OPTIONS += --record_hints --use_hints --use_two_phase_tc true --odir $(EXTRACT_DIR) \
+FSTAR_OPTIONS += --record_hints --use_hints --odir $(EXTRACT_DIR) \
   --warn_error @332
   # --use_extracted_interfaces
 
@@ -47,7 +47,7 @@ ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
 clean: clean-c
 	rm -rf *.checked *.source .depend
 
-SHELL=/bin/bash
+SHELL:=$(shell which bash)
 
 clean-c:
 	rm -rf dist out extract-all */*.o

@@ -111,6 +111,27 @@ let size_of (env: env) (t: typ): size =
   | _ ->
       failwith (KPrint.bsprintf "size_of: this case should've been eliminated: %a" ptyp t)
 
+(* When going to WASM, we assume equality comparisons are only used for base
+ * types. *)
+let width_of_poly_eq (env: env) (t: typ): K.width =
+  match t with
+  | TInt w ->
+      w
+  | TBool | TUnit ->
+      K.UInt32
+  | TAnonymous (Enum _) ->
+      K.UInt32
+  | TQualified lid ->
+      begin match LidMap.find lid env.layouts with
+      | exception Not_found ->
+          failwith (KPrint.bsprintf "width_of_poly_eq: %a not found" plid lid)
+      | LEnum -> K.UInt32
+      | _ -> failwith (KPrint.bsprintf "width_of_poly_eq: invalid lid/type %a" ptyp t)
+      end
+  | _ ->
+      failwith (KPrint.bsprintf "width_of_poly_eq: invalid type %a" ptyp t)
+
+
 (* The size of a type that fits in one WASM array cell. See [byte_size] for the
  * general version. *)
 let array_size_of (env: env) (t: typ): array_size =
@@ -609,6 +630,12 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       in
       mk_expr env locals (with_type e.typ (EApp (hd, [ dst; len; Helpers.mk_uint32 size ])))
 
+  | EApp ({ node = EPolyComp (c, t); _ }, es) ->
+      let locals, es = fold (mk_expr env) locals es in
+      let w = width_of_poly_eq env t in
+      let o = K.op_of_poly_comp c in
+      locals, CF.CallOp ((w, o), es)
+
   | EApp ({ node = EOp (o, w); _ }, es) ->
       let locals, es = fold (mk_expr env) locals es in
       locals, CF.CallOp ((w, o), es)
@@ -831,6 +858,9 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | ETApp _ ->
       invalid_arg "no type apps"
+
+  | EPolyComp _ ->
+      invalid_arg "higher order usage of polymorphic equality"
 
   | EFun _ ->
       invalid_arg "funs should've been substituted"

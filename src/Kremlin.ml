@@ -528,6 +528,7 @@ Supported options:|}
    * spurious dependencies otherwise. *)
   let files = DataTypes.simplify files in
   let files = Monomorphization.datatypes files in
+  let files = DataTypes.optimize files in
   let files = Monomorphization.equalities files in
   let files = Inlining.inline files in
   let files = Inlining.drop_unused files in
@@ -538,6 +539,10 @@ Supported options:|}
 
   (* 3. Compile data types and pattern matches to enums, structs, switches and
    * if-then-elses. Better have monomorphized functions first! *)
+
+  (* This needs to come after monomorphization of equalities -- otherwise the
+     insertion of pointers will make things look like pointer equalities for
+     which the recursive equality predicates are not generated. *)
   let files = GcTypes.heap_allocate_gc_types files in
   (* Note: this phase re-inserts some type abbreviations. *)
   let datatypes_state, files = DataTypes.everything files in

@@ -145,11 +145,6 @@ Prims_int FStar_VConfig___proj__Mkvconfig__item__z3seed(FStar_VConfig_vconfig pr
   return projectee.z3seed;
 }
 
-bool FStar_VConfig___proj__Mkvconfig__item__use_two_phase_tc(FStar_VConfig_vconfig projectee)
-{
-  return projectee.use_two_phase_tc;
-}
-
 bool
 FStar_VConfig___proj__Mkvconfig__item__trivial_pre_for_unannotated_effectful_fns(
   FStar_VConfig_vconfig projectee

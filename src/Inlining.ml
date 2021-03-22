@@ -496,19 +496,19 @@ let inline_type_abbrevs files =
     | DType (lid, flags, n, Abbrev def) ->
         begin match def with
         | TApp (hd, args)
-          when List.assoc_opt (hd, args) !Monomorphization.hints = None &&
+          when List.assoc_opt (hd, args) !NamingHints.hints = None &&
           not (Hashtbl.mem gc_map hd) ->
             (* Don't use a type abbreviation towards a to-be-GC'd type as a
              * hint, because there will be a mismatch later on with a * being
              * added. This is mosly for backwards-compat with miTLS having
              * hand-written code in mitlsffi.c. *)
-            Monomorphization.(hints := ((hd, args), lid) :: !hints);
+            NamingHints.(hints := ((hd, args), lid) :: !hints);
             (* Never leave the abbreviation in the program otherwise there will
              * be two types with the same name, the abbreviation and the
              * monomorphized one. *)
             None
-        | TTuple args when List.assoc_opt (Monomorphization.tuple_lid, args) !Monomorphization.hints = None ->
-            Monomorphization.(hints := ((tuple_lid, args), lid) :: !hints);
+        | TTuple args when List.assoc_opt (Monomorphization.tuple_lid, args) !NamingHints.hints = None ->
+            NamingHints.(hints := ((Monomorphization.tuple_lid, args), lid) :: !hints);
             None
         | _ ->
           if n = 0 then

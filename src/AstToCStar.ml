@@ -241,8 +241,13 @@ let rec mk_expr env in_stmt e =
       CStar.BufRead (mk_expr env e1, mk_expr env e2)
   | EBufSub (e1, e2) ->
       CStar.BufSub (mk_expr env e1, mk_expr env e2)
-  | EOp (o, w) ->
-      CStar.Op (o, w)
+  | EOp (o, _) ->
+      CStar.Op o
+  | EPolyComp (c, _) ->
+      (* Note: there is no checking here, and we just assume that the previous
+         phases only left polymorphic equalities which we be compiled to a
+         scalar type in C that is supported by C's equality comparison. *)
+      CStar.Op (K.op_of_poly_comp c)
   | ECast (e, t) ->
       CStar.Cast (mk_expr env e, mk_type env t)
   | EAbort s ->
@@ -580,7 +585,7 @@ and mk_stmts env e ret_type =
     | EQualified name when LidSet.mem name env.ifdefs ->
         CStar.Macro name
     | EApp ({ node = EOp ((K.And | K.Or) as o, K.Bool); _ }, [ e1; e2 ]) ->
-        CStar.Call (CStar.Op (o, K.Bool), [ mk_ifcond env e1; mk_ifcond env e2 ])
+        CStar.Call (CStar.Op o, [ mk_ifcond env e1; mk_ifcond env e2 ])
     | _ ->
         raise NotIfDef
 
