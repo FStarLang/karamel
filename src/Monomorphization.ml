@@ -58,7 +58,6 @@ let build_def_map files =
  *)
 type node = lident * typ list
 type color = Gray | Black
-let tuple_lid = [ "K" ], ""
 
 let monomorphize_data_types map = object(self)
 

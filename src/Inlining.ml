@@ -463,11 +463,6 @@ let inline files =
 
 
 let inline_type_abbrevs files =
-  let gc_map = Helpers.build_map files (fun map -> function
-    | DType (lid, flags, _, _) when List.mem GcType flags -> Hashtbl.add map lid ()
-    | _ -> ()
-  ) in
-
   let map = Helpers.build_map files (fun map -> function
     | DType (lid, _, _, Abbrev t) -> Hashtbl.add map lid (White, t)
     | _ -> ()
@@ -493,31 +488,21 @@ let inline_type_abbrevs files =
    *   type pair a b = Tuple (1, 0)
    * breaks this invariant. *)
   filter_decls (function
-    | DType (lid, flags, n, Abbrev def) ->
-        begin match def with
-        | TApp (hd, args)
-          when List.assoc_opt (hd, args) !NamingHints.hints = None &&
-          not (Hashtbl.mem gc_map hd) ->
-            (* Don't use a type abbreviation towards a to-be-GC'd type as a
-             * hint, because there will be a mismatch later on with a * being
-             * added. This is mosly for backwards-compat with miTLS having
-             * hand-written code in mitlsffi.c. *)
-            NamingHints.(hints := ((hd, args), lid) :: !hints);
-            (* Never leave the abbreviation in the program otherwise there will
-             * be two types with the same name, the abbreviation and the
-             * monomorphized one. *)
-            None
-        | TTuple args when List.assoc_opt (Monomorphization.tuple_lid, args) !NamingHints.hints = None ->
-            NamingHints.(hints := ((Monomorphization.tuple_lid, args), lid) :: !hints);
-            None
-        | _ ->
-          if n = 0 then
-            Some (DType (lid, flags, n, Abbrev def))
-          else
-            (* A type definition with parameters is not something we'll be able to
-             * generate code for (at the moment). So, drop it. *)
-            None
-        end
+    | DType (_, _, n, Abbrev def) as d ->
+        let in_hints = match def with
+          | TApp (hd, args) ->
+              List.assoc_opt (hd, args) !NamingHints.hints <> None
+          | TTuple args ->
+              List.assoc_opt (tuple_lid, args) !NamingHints.hints <> None
+          | _ ->
+              false
+        in
+        if in_hints then
+          None
+        else if n > 0 then
+          None
+        else
+          Some d
 
     | d ->
         Some d

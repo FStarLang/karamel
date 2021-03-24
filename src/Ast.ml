@@ -629,3 +629,5 @@ let flags_of_decl = function
   | DType (_, flags, _, _)
   | DExternal (_, flags, _, _, _) ->
       flags
+
+let tuple_lid = [ "K" ], ""
