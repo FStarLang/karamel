@@ -144,6 +144,7 @@ FStar_Pervasives_uu___is_CMacro(FStar_Pervasives___internal_ocaml_attributes pro
 #define FStar_Pervasives_UnfoldOnly 10
 #define FStar_Pervasives_UnfoldFully 11
 #define FStar_Pervasives_UnfoldAttr 12
+#define FStar_Pervasives_UnfoldQual 13
 
 typedef uint8_t FStar_Pervasives_norm_step_tags;
 
@@ -154,6 +155,7 @@ typedef struct FStar_Pervasives_norm_step_s
     Prims_list__Prims_string *case_UnfoldOnly;
     Prims_list__Prims_string *case_UnfoldFully;
     Prims_list__Prims_string *case_UnfoldAttr;
+    Prims_list__Prims_string *case_UnfoldQual;
   }
   ;
 }
@@ -194,6 +196,11 @@ extern bool FStar_Pervasives_uu___is_UnfoldAttr(FStar_Pervasives_norm_step proje
 extern Prims_list__Prims_string
 *FStar_Pervasives___proj__UnfoldAttr__item___0(FStar_Pervasives_norm_step projectee);
 
+extern bool FStar_Pervasives_uu___is_UnfoldQual(FStar_Pervasives_norm_step projectee);
+
+extern Prims_list__Prims_string
+*FStar_Pervasives___proj__UnfoldQual__item___0(FStar_Pervasives_norm_step projectee);
+
 extern FStar_Pervasives_norm_step FStar_Pervasives_simplify;
 
 extern FStar_Pervasives_norm_step FStar_Pervasives_weak;
@@ -219,6 +226,9 @@ extern FStar_Pervasives_norm_step FStar_Pervasives_delta_only(Prims_list__Prims_
 extern FStar_Pervasives_norm_step FStar_Pervasives_delta_fully(Prims_list__Prims_string *s);
 
 extern FStar_Pervasives_norm_step FStar_Pervasives_delta_attr(Prims_list__Prims_string *s);
+
+extern FStar_Pervasives_norm_step
+FStar_Pervasives_delta_qualifier(Prims_list__Prims_string *s);
 
 typedef struct Prims_list__FStar_Pervasives_norm_step_s Prims_list__FStar_Pervasives_norm_step;
 

@@ -87,7 +87,10 @@ KREMLIN_ARGS += -fparentheses -fcurly-braces -fno-shadow -header copyright-heade
 
 MACHINE_INTS = \
   -bundle FStar.UInt64+FStar.UInt32+FStar.UInt16+FStar.UInt8=[rename=FStar_UInt_8_16_32_64] \
-  -library FStar.UInt128
+  -library FStar.UInt128 \
+  -bundle FStar.UInt128= \
+  -static-header FStar.UInt128 \
+  -hand-written FStar.UInt128
 
 $(MINI_DIR):
 	mkdir -p $@
@@ -121,7 +124,6 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar
 	    '"kremlin/internal/types.h"' \
 	    '"kremlin/internal/target.h"') \
 	  -bundle LowStar.Endianness= \
-	  -bundle FStar.UInt128= \
 	  -bundle '*,WindowsWorkaroundSigh' \
 	  fstar_uint128.c \
 	  -o libkremlib.a \

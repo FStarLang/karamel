@@ -131,6 +131,7 @@ function refresh_tutorial() {
 }
 
 function check_version_controlled() {
+  make -C kremlib clean && \
   make -C kremlib/dist/generic -f Makefile.basic -j
 }
 
