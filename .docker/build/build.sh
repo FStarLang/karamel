@@ -139,7 +139,7 @@ function exec_build() {
     # this is a special file that is parsed by Azure Devops
     result_file="../result.txt"
 
-    if misc && check_version_controlled && make clean && make -j $threads && \
+    if misc && check_version_controlled && make -C kremlib clean && make -j $threads && \
       make -C test everything -j $threads && \
       make -C book/tutorial && \
       refresh_tutorial
