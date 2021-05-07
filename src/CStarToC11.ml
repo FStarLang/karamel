@@ -513,11 +513,17 @@ and mk_sizeof_mul m t s =
     | _ ->
         C.Op2 (K.Mult, mk_sizeof m t, s)
 
+and mk_alloc_cast m t e =
+  if !Options.cast_allocations then
+    C.Cast (mk_type m (Pointer t), e)
+  else
+    e
+
 and mk_malloc m t s =
-  C.Call (C.Name "KRML_HOST_MALLOC", [ mk_sizeof_mul m t s ])
+  mk_alloc_cast m t (C.Call (C.Name "KRML_HOST_MALLOC", [ mk_sizeof_mul m t s ]))
 
 and mk_calloc m t s =
-  C.Call (C.Name "KRML_HOST_CALLOC", [ s; mk_sizeof m t ])
+  mk_alloc_cast m t (C.Call (C.Name "KRML_HOST_CALLOC", [ s; mk_sizeof m t ]))
 
 and mk_free e =
   C.Call (C.Name "KRML_HOST_FREE", [ e ])
@@ -625,8 +631,8 @@ and mk_stmt m (stmt: stmt): C.stmt list =
         (* If we're doing an alloca, override the initial value (it's now the
          * call to alloca) and decay the array to a pointer type. *)
         if use_alloca then
-          let bytes = C.Call (C.Name "alloca", [
-            C.Op2 (K.Mult, size, C.Sizeof (C.Type (mk_type m (assert_pointer t)))) ]) in
+          let bytes = mk_alloc_cast m (assert_pointer t) (C.Call (C.Name "alloca", [
+            C.Op2 (K.Mult, size, C.Sizeof (C.Type (mk_type m (assert_pointer t)))) ])) in
           assert (maybe_init = None);
           decay_array t, Some (InitExpr bytes)
         else
