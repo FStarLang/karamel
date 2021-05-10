@@ -495,16 +495,19 @@ let inline_type_abbrevs files =
    *   type pair a b = Tuple (1, 0)
    * breaks this invariant. *)
   filter_decls (function
-    | DType (_, _, n, Abbrev def) as d ->
-        let in_hints = match def with
+    | DType (lid, _, n, Abbrev def) as d ->
+        let hint_preferred_name = match def with
           | TApp (hd, args) ->
-              List.assoc_opt (hd, args) !NamingHints.hints <> None
+              List.assoc_opt (hd, args) !NamingHints.hints
           | TTuple args ->
-              List.assoc_opt (tuple_lid, args) !NamingHints.hints <> None
+              List.assoc_opt (tuple_lid, args) !NamingHints.hints
           | _ ->
-              false
+              None
         in
-        if in_hints then
+        if hint_preferred_name = Some lid then
+          (* We are about to generate a monomorphized instance with this very
+             name. We don't want two type definitions with the same name. Drop
+             it. *)
           None
         else if n > 0 then
           None
