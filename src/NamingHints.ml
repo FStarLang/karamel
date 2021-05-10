@@ -16,6 +16,11 @@ open PrintAst.Ops
    elimination / unit field elimination. *)
 let hints: ((lident * typ list) * lident) list ref = ref []
 
+let debug () =
+  KPrint.bprintf "==== state of naming hints ====\n";
+  List.iter (fun ((hd, args), lid) ->
+    KPrint.bprintf "%a --> %a\n" ptyp (TApp (hd, args)) plid lid
+  ) !hints
 
 let record files =
   let gc_map = Helpers.build_map files (fun map -> function
@@ -45,10 +50,7 @@ let record files =
 
       | _ ->
           ()
-  end)#visit_files () files
+  end)#visit_files () files;
 
-let debug () =
-  KPrint.bprintf "==== state of naming hints ====\n";
-  List.iter (fun ((hd, args), lid) ->
-    KPrint.bprintf "%a --> %a\n" ptyp (TApp (hd, args)) plid lid
-  ) !hints
+  if Options.debug "names" then
+    debug ()
