@@ -12,7 +12,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "3c52055c5a25b1a2ff54e55f5ac95fca"
+      "493743ce946f4040054683f3b7ff042b"
     ],
     [
       "IfThenElse.main",
@@ -34,7 +34,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "9d8aec3f955c31a9187e13b4aaba5454"
+      "ca51536cd02307a180c76ae450fb1e9e"
     ]
   ]
 ]

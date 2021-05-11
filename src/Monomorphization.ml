@@ -58,7 +58,6 @@ let build_def_map files =
  *)
 type node = lident * typ list
 type color = Gray | Black
-let tuple_lid = [ "K" ], ""
 
 let monomorphize_data_types map = object(self)
 
@@ -129,19 +128,17 @@ let monomorphize_data_types map = object(self)
               inherit [_] map as self'
 
               method! visit_TApp _ hd args =
+                let args = List.map (self'#visit_typ ()) args in
                 if Hashtbl.mem state (hd, args) then
-                  let args = List.map (self'#visit_typ ()) args in
                   TQualified (self#lid_of (hd, args))
                 else
-                  let args = List.map (self'#visit_typ ()) args in
                   TApp (hd, args)
 
               method! visit_TTuple _ args =
+                let args = List.map (self'#visit_typ ()) args in
                 if Hashtbl.mem state (tuple_lid, args) then
-                  let args = List.map (self'#visit_typ ()) args in
                   TQualified (self#lid_of (tuple_lid, args))
                 else
-                  let args = List.map (self'#visit_typ ()) args in
                   TTuple args
             end)#visit_typ ()
           ) args), lid) !NamingHints.hints;
