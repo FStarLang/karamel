@@ -8,6 +8,10 @@
 
 intptr_t nullptr = (intptr_t) NULL;
 
+char char_of_uint8(uint8_t c) {
+    return c;
+}
+
 bool __eq__C_char(char c1, char c2) {
   return c1 == c2;
 }

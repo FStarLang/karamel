@@ -1180,6 +1180,9 @@ let replace_decl (d: decl): decl =
 let declared_in_library lid =
   List.exists (fun b -> Bundle.pattern_matches b (String.concat "_" (fst lid))) !Options.library
 
+let hand_written lid =
+  List.exists (fun b -> Bundle.pattern_matches b (String.concat "_" (fst lid))) !Options.hand_written
+
 (* Type declarations, external function declarations. These are the things that
  * are either declared in the header (public), or in the c file (private), but
  * not twice. *)
@@ -1221,7 +1224,9 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
       end
 
   | External (name, Function (cc, t, ts), flags, pp) ->
-      if is_primitive name || (is_inline_static && declared_in_library name) then
+      if is_primitive name ||
+        (is_inline_static && declared_in_library name && not (hand_written name))
+      then
         []
       else
         let name = to_c_name m name in
@@ -1238,7 +1243,9 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
         wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, false, Some Extern, [ decl, None ])))
 
   | External (name, t, flags, _) ->
-      if is_primitive name || (is_inline_static && declared_in_library name) then
+      if is_primitive name ||
+        (is_inline_static && declared_in_library name && not (hand_written name))
+      then
         []
       else
         let name = to_c_name m name in

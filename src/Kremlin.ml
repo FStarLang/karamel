@@ -235,6 +235,9 @@ Supported options:|}
     "-library", Arg.String (fun s ->
       List.iter (prepend Options.library) (Parsers.drop s)),
       "  this is a model and all functions should be made abstract";
+    "-hand-written", Arg.String (fun s ->
+      List.iter (prepend Options.hand_written) (Parsers.drop s)),
+      "  in conjunction with static-header and library";
     "-extract-uints", Arg.Set Options.extract_uints, ""; (* no doc, intentional *)
     "-header", Arg.Set_string Options.header, " prepend the contents of the given \
       file at the beginning of each .c and .h";
