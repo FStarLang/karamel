@@ -2,7 +2,7 @@ RECENT_GCC	= $(shell [ "$$(gcc -dumpversion | cut -c -1)" -ge 5 ] && echo yes)
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 TEST_OPTS	= -warn-error @4 -verbose -skip-makefiles
-KRML_BIN	= ../_build/src/Kremlin.native
+KRML_BIN	= ../src/_build/default/kremlin.exe
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 
 BROKEN		= \

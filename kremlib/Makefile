@@ -49,14 +49,17 @@ ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
     FStar.HyperStack.IO.fst FStar.IO.fst FStar.Int.Cast.Full.fst \
     FStar.Bytes.fsti FStar.Dyn.fsti LowStar.Printf.fst LowStar.Endianness.fst
 
-.PHONY: clean clean-c
-clean: clean-c
+.PHONY: clean clean-c clean-ml
+clean: clean-c clean-ml
 	rm -rf *.checked *.source .depend
 
 SHELL:=$(shell which bash)
 
 clean-c:
 	rm -rf dist out extract-all */*.o
+
+clean-ml:
+	dune clean
 
 ifndef NODEPEND
 ifndef MAKE_RESTARTS
@@ -105,7 +108,7 @@ $(GENERIC_DIR):
 	mkdir -p $@
 
 # Everything in the universe
-$(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../_build/src/Kremlin.native
+$(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../src/_build/default/kremlin.exe
 	../krml $(KREMLIN_ARGS) -tmpdir $(GENERIC_DIR) \
 	  -warn-error +9+11 \
 	  $(MACHINE_INTS) \
@@ -119,7 +122,7 @@ $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c
 	cp c/*.c c/*.h $(dir $@)
 
 # Minimalistic build (just machine integers and endianness)
-$(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar_uint128*.h) ../_build/src/Kremlin.native
+$(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar_uint128*.h) ../src/_build/default/kremlin.exe
 	mkdir -p $(dir $@)
 	../krml $(KREMLIN_ARGS) -tmpdir $(MINI_DIR) \
 	  $(MACHINE_INTS) \
@@ -139,7 +142,7 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar
 # Extracted (and verified) uint128s; copied into generic and minimal. Note that
 # FStar.UInt64 shares the same bundle name, meaning that
 # FStar_UInt128_Verified.h can be dropped in any of the two kremlibs above.
-$(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) ../_build/src/Kremlin.native
+$(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) ../src/_build/default/kremlin.exe
 	../krml $(KREMLIN_ARGS) -tmpdir $(UINT128_DIR) \
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"kremlin/internal/types.h"' '"kremlin/internal/target.h"') \
 	  -bundle FStar.UInt64[rename=FStar_UInt_8_16_32_64] \

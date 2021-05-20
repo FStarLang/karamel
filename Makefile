@@ -3,11 +3,6 @@ include $(shell ocamlfind query visitors)/Makefile.preprocess
 
 .PHONY: all minimal clean test pre extra kremlib install
 
-OCAMLBUILD=ocamlbuild -I src -I lib -I parser -I kremlib -use-menhir -use-ocamlfind -classic-display \
- -menhir "menhir --infer --explain"
-FLAVOR?=native
-TARGETS=Kremlin.$(FLAVOR)
-
 ifeq ($(OS),Windows_NT)
   OCAMLPATH_SEP=;
 else
@@ -21,10 +16,8 @@ extra: pre kremlib
 	OCAMLPATH="$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/bin" $(MAKE) -C kremlib extra
 
 minimal: src/AutoConfig.ml
-	@# Workaround Windows bug in OCamlbuild
-	$(shell [ -f Kremlin.$(FLAVOR) ] && rm Kremlin.$(FLAVOR))
-	OCAML_ERROR_STYLE="short" $(OCAMLBUILD) $(TARGETS)
-	ln -sf Kremlin.$(FLAVOR) krml
+	+ OCAML_ERROR_STYLE="short" $(MAKE) -C src
+	ln -sf src/_build/default/kremlin.exe krml
 
 kremlib: minimal
 	+$(MAKE) -C kremlib
@@ -43,9 +36,10 @@ src/AutoConfig.ml:
 	fi
 
 clean:
-	rm -rf krml _build Kremlin.$(FLAVOR)
-	$(MAKE) -C test clean
+	rm -rf krml
+	$(MAKE) -C src clean
 	$(MAKE) -C kremlib clean
+	$(MAKE) -C test clean
 
 test: all
 	+$(MAKE) -C test
@@ -60,7 +54,7 @@ pre:
 install: all
 	@if [ x"$(PREFIX)" = x ]; then echo "please define PREFIX"; exit 1; fi
 	mkdir -p $(PREFIX)/bin
-	cp _build/src/Kremlin.native $(PREFIX)/bin/krml
+	cp src/_build/default/kremlin.exe $(PREFIX)/bin/krml
 	mkdir -p $(PREFIX)/include
 	cp -r include/* $(PREFIX)/include
 	mkdir -p $(PREFIX)/lib/kremlin
