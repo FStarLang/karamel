@@ -6,6 +6,12 @@
 
 all: verify-all compile-all
 
+extra:
+	+dune build
+
+.PHONY: all verify-all compile-all extra
+
+
 ################################################################################
 # Verification & extraction                                                    #
 ################################################################################

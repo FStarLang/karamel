@@ -6,3 +6,4 @@
 *.so
 *.d
 .extract
+dune-project

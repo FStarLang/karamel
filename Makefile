@@ -7,7 +7,6 @@ OCAMLBUILD=ocamlbuild -I src -I lib -I parser -I kremlib -use-menhir -use-ocamlf
  -menhir "menhir --infer --explain"
 FLAVOR?=native
 TARGETS=Kremlin.$(FLAVOR)
-EXTRA_TARGETS=Ast.inferred.mli kremlib/C.cmx kremlib/TestLib.cmx kremlib/C.cmo kremlib/TestLib.cmo
 
 ifeq ($(OS),Windows_NT)
   OCAMLPATH_SEP=;
@@ -18,8 +17,8 @@ endif
 all: minimal kremlib extra
 
 extra: pre kremlib
-	OCAML_ERROR_STYLE="short" \
-	OCAMLPATH="$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/bin" $(OCAMLBUILD) $(EXTRA_TARGETS)
+	+ OCAML_ERROR_STYLE="short" \
+	OCAMLPATH="$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/bin" $(MAKE) -C kremlib extra
 
 minimal: src/AutoConfig.ml
 	@# Workaround Windows bug in OCamlbuild
