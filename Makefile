@@ -1,7 +1,7 @@
 # make src/Ast.processed.ml
 include $(shell ocamlfind query visitors)/Makefile.preprocess
 
-.PHONY: all minimal clean test
+.PHONY: all minimal clean test pre extra kremlib install
 
 OCAMLBUILD=ocamlbuild -I src -I lib -I parser -I kremlib -use-menhir -use-ocamlfind -classic-display \
  -menhir "menhir --infer --explain"
@@ -15,7 +15,9 @@ else
   OCAMLPATH_SEP=:
 endif
 
-all: minimal pre kremlib
+all: minimal kremlib extra
+
+extra: pre kremlib
 	OCAML_ERROR_STYLE="short" \
 	OCAMLPATH="$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/bin" $(OCAMLBUILD) $(EXTRA_TARGETS)
 
@@ -26,7 +28,7 @@ minimal: src/AutoConfig.ml
 	ln -sf Kremlin.$(FLAVOR) krml
 
 kremlib: minimal
-	$(MAKE) -C kremlib
+	+$(MAKE) -C kremlib
 
 src/AutoConfig.ml:
 	@if [ x"$(PREFIX)" != x ]; then \
