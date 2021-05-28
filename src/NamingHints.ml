@@ -53,4 +53,6 @@ let record files =
   end)#visit_files () files;
 
   if Options.debug "names" then
-    debug ()
+    debug ();
+
+  hints := List.rev !hints
