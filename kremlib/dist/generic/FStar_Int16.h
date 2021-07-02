@@ -24,6 +24,10 @@ extern Prims_int FStar_Int16_v(int16_t x);
 
 extern int16_t FStar_Int16_int_to_t(Prims_int x);
 
+extern int16_t FStar_Int16_zero;
+
+extern int16_t FStar_Int16_one;
+
 extern int16_t FStar_Int16_add(int16_t a, int16_t b);
 
 extern int16_t FStar_Int16_sub(int16_t a, int16_t b);

@@ -72,7 +72,7 @@ let prims: file =
     mk_binop "op_Division";
     mk_binop "op_Subtraction";
     mk_binop "op_Addition";
-    mk_binop "op_Minus";
+    mk_unop "op_Minus";
     mk_binop "op_Modulus";
     mk_boolop "op_LessThanOrEqual";
     mk_boolop "op_GreaterThan";
