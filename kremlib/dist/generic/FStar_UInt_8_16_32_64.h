@@ -14,8 +14,6 @@
 
 
 
-extern Prims_int FStar_UInt64_n;
-
 extern bool FStar_UInt64_uu___is_Mk(uint64_t projectee);
 
 extern Prims_int FStar_UInt64___proj__Mk__item__v(uint64_t projectee);
@@ -23,14 +21,6 @@ extern Prims_int FStar_UInt64___proj__Mk__item__v(uint64_t projectee);
 extern Prims_int FStar_UInt64_v(uint64_t x);
 
 extern uint64_t FStar_UInt64_uint_to_t(Prims_int x);
-
-extern uint64_t FStar_UInt64_zero;
-
-extern uint64_t FStar_UInt64_one;
-
-extern uint64_t FStar_UInt64_minus(uint64_t a);
-
-extern uint32_t FStar_UInt64_n_minus_one;
 
 static inline uint64_t FStar_UInt64_eq_mask(uint64_t a, uint64_t b)
 {
