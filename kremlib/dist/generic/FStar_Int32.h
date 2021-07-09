@@ -24,6 +24,10 @@ extern Prims_int FStar_Int32_v(int32_t x);
 
 extern int32_t FStar_Int32_int_to_t(Prims_int x);
 
+extern int32_t FStar_Int32_zero;
+
+extern int32_t FStar_Int32_one;
+
 extern int32_t FStar_Int32_add(int32_t a, int32_t b);
 
 extern int32_t FStar_Int32_sub(int32_t a, int32_t b);

@@ -24,6 +24,10 @@ extern Prims_int FStar_Int64_v(int64_t x);
 
 extern int64_t FStar_Int64_int_to_t(Prims_int x);
 
+extern int64_t FStar_Int64_zero;
+
+extern int64_t FStar_Int64_one;
+
 extern int64_t FStar_Int64_add(int64_t a, int64_t b);
 
 extern int64_t FStar_Int64_sub(int64_t a, int64_t b);

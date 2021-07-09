@@ -22,7 +22,7 @@ extern krml_checked_int_t Prims_op_Subtraction(krml_checked_int_t x, krml_checke
 
 extern krml_checked_int_t Prims_op_Addition(krml_checked_int_t x, krml_checked_int_t y);
 
-extern krml_checked_int_t Prims_op_Minus(krml_checked_int_t x, krml_checked_int_t y);
+extern krml_checked_int_t Prims_op_Minus(krml_checked_int_t x0);
 
 extern krml_checked_int_t Prims_op_Modulus(krml_checked_int_t x, krml_checked_int_t y);
 
