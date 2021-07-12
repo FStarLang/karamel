@@ -3,7 +3,7 @@
 
 #include "TestLib.h"
 
-#ifndef _MSC_VER
+#if (defined(__x86_64__) || defined(__i386__)) && !defined(_MSC_VER)
 TestLib_cycles TestLib_cpucycles(void) {
   unsigned hi, lo;
   __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));

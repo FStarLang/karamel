@@ -292,7 +292,7 @@ Supported options:|}
         aggressive always merges";
     "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
     "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see \
-      above) + also disable variadic-length KRML_HOST_EPRINTF";
+      above) + also disable variadic-length KRML_HOST_EPRINTF + cast allocations";
     "-flinux-ints", Arg.Set Options.linux_ints, " use Linux kernel int types";
     "-fmicrosoft", Arg.Set Options.microsoft, " various Microsoft-specific \
       tweaks";
@@ -419,6 +419,7 @@ Supported options:|}
   if !arg_c89 then begin
     Options.anonymous_unions := false;
     Options.compound_literals := false;
+    Options.cast_allocations := true;
     Options.c89_scope := true;
     Options.c89_std := true;
     Options.ccopts := Driver.Dash.d "KRML_VERIFIED_UINT128" :: !Options.ccopts
@@ -498,8 +499,8 @@ Supported options:|}
    *   A_f" comes before "static void B_g" (since they're static, there's no
    *   forward declaration in the header. *)
   let files = Builtin.make_libraries files in
-  NamingHints.record files;
   let files = Bundles.topological_sort files in
+  NamingHints.record files;
 
   (* 1. We create bundles, and monomorphize functions first. This creates more
    * applications of parameterized types, which we make sure are in the AST by

@@ -427,7 +427,7 @@ and mk_stmts env e ret_type =
 
     | EBufBlit (e1, e2, e3, e4, e5) ->
         let e = CStar.BufBlit (
-          mk_type env (assert_tbuf e1.typ),
+          mk_type env (assert_tbuf_or_tarray e1.typ),
           mk_expr env false e1,
           mk_expr env false e2,
           mk_expr env false e3,
@@ -779,6 +779,8 @@ and mk_program m name env decls =
         Warn.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
         decls, names
     | exception e ->
+        if Options.debug "backtraces" then
+          Printexc.print_backtrace stdout;
         Warn.fatal_error "Fatal failure in %a: %s\n"
           plid (Ast.lid_of_decl d)
           (Printexc.to_string e)
