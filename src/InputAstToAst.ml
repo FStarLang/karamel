@@ -179,6 +179,8 @@ and mk_expr = function
       mk (EComment (before, mk_expr e, after))
   | I.EStandaloneComment s ->
       mk (EStandaloneComment s)
+  | I.EAddrOf e ->
+      mk (EAddrOf (mk_expr e))
 
 and mk_branches branches =
   List.map mk_branch branches
