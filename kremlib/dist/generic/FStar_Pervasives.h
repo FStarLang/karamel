@@ -31,6 +31,7 @@ typedef void *FStar_Pervasives_pattern;
 #define FStar_Pervasives_UnfoldFully 11
 #define FStar_Pervasives_UnfoldAttr 12
 #define FStar_Pervasives_UnfoldQual 13
+#define FStar_Pervasives_Unmeta 14
 
 typedef uint8_t FStar_Pervasives_norm_step_tags;
 
@@ -87,6 +88,8 @@ extern bool FStar_Pervasives_uu___is_UnfoldQual(FStar_Pervasives_norm_step proje
 extern Prims_list__Prims_string
 *FStar_Pervasives___proj__UnfoldQual__item___0(FStar_Pervasives_norm_step projectee);
 
+extern bool FStar_Pervasives_uu___is_Unmeta(FStar_Pervasives_norm_step projectee);
+
 extern FStar_Pervasives_norm_step FStar_Pervasives_simplify;
 
 extern FStar_Pervasives_norm_step FStar_Pervasives_weak;
@@ -115,6 +118,8 @@ extern FStar_Pervasives_norm_step FStar_Pervasives_delta_attr(Prims_list__Prims_
 
 extern FStar_Pervasives_norm_step
 FStar_Pervasives_delta_qualifier(Prims_list__Prims_string *s);
+
+extern FStar_Pervasives_norm_step FStar_Pervasives_unmeta;
 
 typedef struct Prims_list__FStar_Pervasives_norm_step_s Prims_list__FStar_Pervasives_norm_step;
 
