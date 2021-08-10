@@ -40,6 +40,7 @@ and decl =
        * for it. *)
   | DExternal2 of (calling_convention option * flag list * lident * typ * string list)
       (** New variant that keeps names of arguments *)
+  | DUntaggedUnion of (lident * flag list * int * (ident * typ) list)
 
 and fields_t =
   (ident * (typ * bool)) list
