@@ -147,6 +147,8 @@ and typ =
   | TApp of (lident * typ list)
   | TTuple of typ list
   | TConstBuf of typ
+  | TArray of (typ * K.t)
+    (** For flat arrays within structs. *)
 
 let flatten_arrow =
   let rec flatten_arrow acc = function

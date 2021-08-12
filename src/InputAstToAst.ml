@@ -97,6 +97,8 @@ and mk_typ = function
       TApp (lid, List.map mk_typ ts)
   | I.TTuple ts ->
       TTuple (List.map mk_typ ts)
+  | I.TArray (t, c) ->
+      TArray (mk_typ t, c)
 
 and mk_expr = function
   | I.EBound i ->
