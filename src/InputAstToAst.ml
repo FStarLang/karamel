@@ -56,6 +56,8 @@ let rec mk_decl = function
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
   | I.DTypeAbstractStruct name ->
       DType (name, [], 0, Forward)
+  | I.DUntaggedUnion (name, flags, n, branches) ->
+      DType (name, flags, n, Union (List.map (fun (f, t) -> f, mk_typ t) branches))
 
 and mk_binders bs =
   List.map mk_binder bs
@@ -95,6 +97,8 @@ and mk_typ = function
       TApp (lid, List.map mk_typ ts)
   | I.TTuple ts ->
       TTuple (List.map mk_typ ts)
+  | I.TArray (t, c) ->
+      TArray (mk_typ t, c)
 
 and mk_expr = function
   | I.EBound i ->
@@ -179,6 +183,8 @@ and mk_expr = function
       mk (EComment (before, mk_expr e, after))
   | I.EStandaloneComment s ->
       mk (EStandaloneComment s)
+  | I.EAddrOf e ->
+      mk (EAddrOf (mk_expr e))
 
 and mk_branches branches =
   List.map mk_branch branches

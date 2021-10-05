@@ -40,6 +40,7 @@ and decl =
        * for it. *)
   | DExternal2 of (calling_convention option * flag list * lident * typ * string list)
       (** New variant that keeps names of arguments *)
+  | DUntaggedUnion of (lident * flag list * int * (ident * typ) list)
 
 and fields_t =
   (ident * (typ * bool)) list
@@ -101,6 +102,7 @@ and expr =
   | EAbortT of (string * typ)
   | EComment of (string * expr * string)
   | EStandaloneComment of string
+  | EAddrOf of expr
 
 and branches =
   branch list
@@ -145,6 +147,8 @@ and typ =
   | TApp of (lident * typ list)
   | TTuple of typ list
   | TConstBuf of typ
+  | TArray of (typ * K.t)
+    (** For flat arrays within structs. *)
 
 let flatten_arrow =
   let rec flatten_arrow acc = function
