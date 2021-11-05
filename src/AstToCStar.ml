@@ -794,7 +794,7 @@ and mk_program m name env decls =
 and mk_files files file_of m ifdefs macros =
   let env = { empty with ifdefs; macros } in
   List.map (fun file ->
-    let deps = 
+    let deps =
       Hashtbl.fold (fun k _ acc -> k :: acc) (Bundles.direct_dependencies file_of file) []
     in
     let name, program = file in
@@ -802,6 +802,13 @@ and mk_files files file_of m ifdefs macros =
   ) files
 
 let mk_macros_set files =
+  let seen = Hashtbl.create 31 in
+  let record x =
+    let t = String.uppercase (GlobalNames.target_c_name ~attempt_shortening:false ~is_macro:true x) in
+    if Hashtbl.mem seen t then
+      Warn.(maybe_fatal_error ("", ConflictMacro (x, t)));
+    Hashtbl.add seen t ()
+  in
   (object
     inherit [_] reduce
     method private zero = LidSet.empty
@@ -811,8 +818,10 @@ let mk_macros_set files =
         if body.node = EAny then begin
           Warn.(maybe_fatal_error ("", CannotMacro name));
           LidSet.empty
-        end else
+        end else begin
+          record name;
           LidSet.singleton name
+        end
       else
         LidSet.empty
   end)#visit_files () files

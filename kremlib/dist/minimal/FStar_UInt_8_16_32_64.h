@@ -18,6 +18,8 @@
 
 extern Prims_int FStar_UInt64_n;
 
+extern bool FStar_UInt64_uu___is_Mk(uint64_t projectee);
+
 extern Prims_int FStar_UInt64___proj__Mk__item__v(uint64_t projectee);
 
 extern Prims_int FStar_UInt64_v(uint64_t x);
@@ -63,6 +65,8 @@ extern Prims_string FStar_UInt64_to_string_hex_pad(uint64_t uu___);
 extern uint64_t FStar_UInt64_of_string(Prims_string uu___);
 
 extern Prims_int FStar_UInt32_n;
+
+extern bool FStar_UInt32_uu___is_Mk(uint32_t projectee);
 
 extern Prims_int FStar_UInt32___proj__Mk__item__v(uint32_t projectee);
 
@@ -110,6 +114,8 @@ extern uint32_t FStar_UInt32_of_string(Prims_string uu___);
 
 extern Prims_int FStar_UInt16_n;
 
+extern bool FStar_UInt16_uu___is_Mk(uint16_t projectee);
+
 extern Prims_int FStar_UInt16___proj__Mk__item__v(uint16_t projectee);
 
 extern Prims_int FStar_UInt16_v(uint16_t x);
@@ -155,6 +161,8 @@ extern Prims_string FStar_UInt16_to_string_hex_pad(uint16_t uu___);
 extern uint16_t FStar_UInt16_of_string(Prims_string uu___);
 
 extern Prims_int FStar_UInt8_n;
+
+extern bool FStar_UInt8_uu___is_Mk(uint8_t projectee);
 
 extern Prims_int FStar_UInt8___proj__Mk__item__v(uint8_t projectee);
 

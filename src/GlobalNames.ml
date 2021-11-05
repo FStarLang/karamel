@@ -260,4 +260,3 @@ let to_c_name m lid =
     Hashtbl.find m lid
   with Not_found ->
     Idents.to_c_identifier (target_c_name ~attempt_shortening:false ~is_macro:false lid)
-
