@@ -115,6 +115,7 @@ $(OUTPUT_DIR)/Debug.exe: EXTRA = -d c-calls
 $(OUTPUT_DIR)/Server.exe: EXTRA = main-Server.c helpers-Server.c
 $(OUTPUT_DIR)/StringLit.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/TailCalls.exe: EXTRA = -add-include '"kremlin/internal/compat.h"' -ftail-calls
+$(OUTPUT_DIR)/TailCalls2.exe: EXTRA = -ftail-calls
 $(OUTPUT_DIR)/FunctionalEncoding.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
 $(OUTPUT_DIR)/Crypto_Symmetric_Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 $(OUTPUT_DIR)/HelloSystem.exe: EXTRA = -add-include '"system.h"' \

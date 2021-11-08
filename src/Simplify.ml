@@ -1225,17 +1225,28 @@ let tail_calls =
 
         | EApp ({ node = EQualified lid'; _ }, args) when lid' = lid ->
             found := true;
-            let stmts = KList.filter_some (List.map2 (fun x arg ->
+            (* Implement a capture-avoiding substitution by first assigning in a
+               set of temporaries, then assigning the temporaries back into the
+               mutable arguments. We could reuse the function arguments for
+               that, but I thought it'd be cleaner to have a set of variables
+               named `tmp` whose purpose is 100% clear. *)
+            let replacements = KList.filter_some (List.map2 (fun x arg ->
               (* Don't generate x = x as this is oftentimes a fatal warning. *)
               if x = arg then
                 None
               else
-                Some (with_unit (EAssign (x, arg)))
+                let tmp_arg_b, tmp_arg_ref =
+                  Helpers.mk_binding ~mut:true "tmp" arg.typ
+                in
+                Some ((tmp_arg_b, arg), with_unit (EAssign (x, tmp_arg_ref)))
             ) a_args args) in
-            if stmts = [] then
+            if replacements = [] then
               EUnit
             else
-              ESequence stmts
+              let tmp_args, assignments = List.split replacements in
+              (List.fold_right (fun (b, def) arg ->
+                with_unit (ELet (b, def, close_binder b arg))
+              ) tmp_args (with_unit (ESequence assignments))).node
 
         | ESequence es ->
             let es, last = KList.split_at_last es in
