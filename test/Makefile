@@ -66,7 +66,7 @@ ifndef MAKE_RESTARTS
 ifndef NODEPEND
 .depend: .FORCE
 	$(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
-	  $(BROKEN) ../runtime/WasmSupport.fst --extract Kremlin > $@
+	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'Kremlin:*' > $@
 
 .PHONY: .FORCE
 .FORCE:

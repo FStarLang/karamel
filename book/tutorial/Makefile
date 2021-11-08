@@ -38,7 +38,7 @@ FSTAR_HINTS ?= --use_hints --use_hint_hashes --record_hints
 # the FStar namespace since it's already extracted and packaged as the ocamlfind
 # package fstarlib. Here, unlike in -bundle, +Spec matches both Spec and
 # Spec.*
-FSTAR_EXTRACT = --extract '-* +Spec'
+FSTAR_EXTRACT = --extract 'OCaml:-* +Spec'
 
 # Some reasonable flags to turn on:
 # - 247: checked file not written because some of its dependencies...
