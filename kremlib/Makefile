@@ -151,7 +151,7 @@ $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) 
 # Compilation, only works after the stage above has run and C files exist      #
 ################################################################################
 
-CFLAGS += -O3 -march=native -mtune=native
+CFLAGS += -O3
 export CFLAGS
 
 compile-all: compile-dist-generic $(MINI_DIR)/Makefile.include $(UINT128_DIR)/Makefile.include
