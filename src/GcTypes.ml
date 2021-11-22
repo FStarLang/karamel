@@ -74,7 +74,6 @@ let alloc table = object (self)
       EField (with_type (assert_tbuf e.typ) (EBufRead (e, Helpers.zerou32)), f)
     else
       EField (e, f)
-
 end
 
 let heap_allocate_gc_types files =

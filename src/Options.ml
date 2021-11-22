@@ -29,6 +29,7 @@ let ldopts: string list ref = ref []
  * behind the "Options.minimal" test. *)
 let bundle: Bundle.t list ref = ref []
 let library: Bundle.pat list ref = ref []
+let hand_written: Bundle.pat list ref = ref []
 let debug_modules: string list ref = ref []
 let debug s = List.exists ((=) s) !debug_modules
 let wasm = ref false
@@ -44,6 +45,7 @@ let anonymous_unions = ref true
 let compound_literals = ref true
 let short_enums = ref true
 let alloca_if_vla = ref false
+let cast_allocations = ref false
 let parentheses = ref false
 let curly_braces = ref false
 let unroll_loops = ref (-1)

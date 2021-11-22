@@ -445,7 +445,8 @@ let repeat_range #a l min max f b fc =
 
 let rec total_while_gen
   (#t: Type)
-  (tmes: (t -> GTot lex_t))
+  (#a:t -> Type)
+  (tmes: (x:t -> GTot (a x)))
   (tinv: (bool -> t -> GTot Type0))
   (tcontinue: (t -> Tot bool))
   (body:
@@ -487,7 +488,7 @@ let total_while
   (decreases (tmes x))
 = let (_, res) =
     total_while_gen
-      (fun (_, x) -> LexCons (tmes x) LexTop)
+      (fun (_, x) -> tmes x)
       (fun b (b_, x) -> b == b_ /\ tinv b x)
       (fun (x, _) -> x)
       (fun (_, x) -> body x)

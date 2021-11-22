@@ -72,7 +72,7 @@ let prims: file =
     mk_binop "op_Division";
     mk_binop "op_Subtraction";
     mk_binop "op_Addition";
-    mk_binop "op_Minus";
+    mk_unop "op_Minus";
     mk_binop "op_Modulus";
     mk_boolop "op_LessThanOrEqual";
     mk_boolop "op_GreaterThan";
@@ -115,9 +115,7 @@ let buffer: file =
         mk_incr32,
         with_unit (EIfThenElse (with_type TBool (
           EApp (with_type (TArrow (TBound 0, TArrow (TBound 0, TBool)))
-            (ETApp (with_type (TArrow (TBound 0, TArrow (TBound 0, TBool)))
-              (EOp (K.Neq, K.Bool)),
-              [ TBound 0 ])), [
+            (EPolyComp (K.PNeq, TBound 0)), [
             with_type (TBound 0) (EBufRead (
               with_type (TBuf (TBound 0, true)) (EBound 3),
               with_type uint32 (EBound 0)));
@@ -263,6 +261,10 @@ let lowstar_endianness: file =
         [ with_type buf8 (EBufSub (with_type buf8 (EBound 1), with_type int32 (EBound 0)))])));
     ]
   in
+  let mk_conv s t = [
+    mk_val [ "LowStar"; "Endianness" ] ("hto" ^ s) (TArrow (TInt t, TInt t));
+    mk_val [ "LowStar"; "Endianness" ] (s ^ "toh") (TArrow (TInt t, TInt t))
+  ] in
   "LowStar_Endianness",
   mk (TInt UInt16) "le" @
   mk (TInt UInt16) "be" @
@@ -271,7 +273,14 @@ let lowstar_endianness: file =
   mk (TInt UInt64) "le" @
   mk (TInt UInt64) "be" @
   mk (TQualified (["FStar"; "UInt128"], "uint128")) "le" @
-  mk (TQualified (["FStar"; "UInt128"], "uint128")) "be"
+  mk (TQualified (["FStar"; "UInt128"], "uint128")) "be" @
+  mk_conv "le16" UInt16 @
+  mk_conv "le32" UInt32 @
+  mk_conv "le64" UInt64 @
+  mk_conv "be16" UInt16 @
+  mk_conv "be32" UInt32 @
+  mk_conv "be64" UInt64
+
 
 let c_nullity: file =
   (* Poor man's substitute to polymorphic assumes ... this needs to be here to

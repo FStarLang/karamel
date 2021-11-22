@@ -26,6 +26,7 @@ and width = K.width [@ opaque]
 and lifetime = Common.lifetime [@ opaque]
 and constant = K.t [@ opaque]
 and ident = string [@ opaque]
+and poly_comp = K.poly_comp [@ opaque]
 and lident = ident list * ident [@ opaque]
   [@@deriving show,
     visitors { variety = "iter"; name = "iter_misc"; polymorphic = true },
@@ -185,6 +186,7 @@ type expr' =
 
   | EApp of expr * expr list
   | ETApp of expr * typ_wo list
+  | EPolyComp of poly_comp * typ_wo
   | ELet of binder * expr * expr
   | EFun of binder list * expr * typ_wo
   | EIfThenElse of expr * expr * expr
@@ -627,3 +629,5 @@ let flags_of_decl = function
   | DType (_, flags, _, _)
   | DExternal (_, flags, _, _, _) ->
       flags
+
+let tuple_lid = [ "K" ], ""

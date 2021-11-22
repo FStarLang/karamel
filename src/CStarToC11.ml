@@ -513,11 +513,17 @@ and mk_sizeof_mul m t s =
     | _ ->
         C.Op2 (K.Mult, mk_sizeof m t, s)
 
+and mk_alloc_cast m t e =
+  if !Options.cast_allocations then
+    C.Cast (mk_type m (Pointer t), e)
+  else
+    e
+
 and mk_malloc m t s =
-  C.Call (C.Name "KRML_HOST_MALLOC", [ mk_sizeof_mul m t s ])
+  mk_alloc_cast m t (C.Call (C.Name "KRML_HOST_MALLOC", [ mk_sizeof_mul m t s ]))
 
 and mk_calloc m t s =
-  C.Call (C.Name "KRML_HOST_CALLOC", [ s; mk_sizeof m t ])
+  mk_alloc_cast m t (C.Call (C.Name "KRML_HOST_CALLOC", [ s; mk_sizeof m t ]))
 
 and mk_free e =
   C.Call (C.Name "KRML_HOST_FREE", [ e ])
@@ -625,8 +631,8 @@ and mk_stmt m (stmt: stmt): C.stmt list =
         (* If we're doing an alloca, override the initial value (it's now the
          * call to alloca) and decay the array to a pointer type. *)
         if use_alloca then
-          let bytes = C.Call (C.Name "alloca", [
-            C.Op2 (K.Mult, size, C.Sizeof (C.Type (mk_type m (assert_pointer t)))) ]) in
+          let bytes = mk_alloc_cast m (assert_pointer t) (C.Call (C.Name "alloca", [
+            C.Op2 (K.Mult, size, C.Sizeof (C.Type (mk_type m (assert_pointer t)))) ])) in
           assert (maybe_init = None);
           decay_array t, Some (InitExpr bytes)
         else
@@ -686,10 +692,10 @@ and mk_stmt m (stmt: stmt): C.stmt list =
   | Assign (BufRead _, _, (Any | Cast (Any, _))) ->
       []
 
-  | Assign (Var x, _, Call (Op (K.Add, _), [ Var y; Constant (_, "1") ])) when x = y ->
+  | Assign (Var x, _, Call (Op K.Add, [ Var y; Constant (_, "1") ])) when x = y ->
       [ Expr (Op1 (PostIncr, Name x)) ]
 
-  | Assign (Var x, _, Call (Op (K.Sub, _), [ Var y; Constant (_, "1") ])) when x = y ->
+  | Assign (Var x, _, Call (Op K.Sub, [ Var y; Constant (_, "1") ])) when x = y ->
       [ Expr (Op1 (PostDecr, Name x)) ]
 
   | Assign (e1, t, BufCreate (Eternal, init, size)) ->
@@ -863,10 +869,10 @@ and mk_expr m (e: expr): C.expr =
   | InlineComment (s, e, s') ->
       InlineComment (s, mk_expr m e, s')
 
-  | Call (Op (o, _), [ e ]) ->
+  | Call (Op o, [ e ]) ->
       Op1 (o, mk_expr m e)
 
-  | Call (Op (o, _), [ e1; e2 ]) ->
+  | Call (Op o, [ e1; e2 ]) ->
       Op2 (o, mk_expr m e1, mk_expr m e2)
 
   | Comma (e1, e2) ->
@@ -1174,6 +1180,9 @@ let replace_decl (d: decl): decl =
 let declared_in_library lid =
   List.exists (fun b -> Bundle.pattern_matches b (String.concat "_" (fst lid))) !Options.library
 
+let hand_written lid =
+  List.exists (fun b -> Bundle.pattern_matches b (String.concat "_" (fst lid))) !Options.hand_written
+
 (* Type declarations, external function declarations. These are the things that
  * are either declared in the header (public), or in the c file (private), but
  * not twice. *)
@@ -1215,7 +1224,9 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
       end
 
   | External (name, Function (cc, t, ts), flags, pp) ->
-      if is_primitive name then
+      if is_primitive name ||
+        (is_inline_static && declared_in_library name && not (hand_written name))
+      then
         []
       else
         let name = to_c_name m name in
@@ -1232,7 +1243,9 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
         wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, false, Some Extern, [ decl, None ])))
 
   | External (name, t, flags, _) ->
-      if is_primitive name then
+      if is_primitive name ||
+        (is_inline_static && declared_in_library name && not (hand_written name))
+      then
         []
       else
         let name = to_c_name m name in
@@ -1345,8 +1358,6 @@ let mk_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
   (* Note that static_header + library means that corresponding declarations are
    * effectively dropped on the basis that the user is doing separate extraction
    * & compilation + providing the required header. *)
-  (* TODO: can't mark as static inline a function stub -- need to rework these
-   * combinators *)
   KList.map_flatten
     (if_header_inline_static m
       (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
@@ -1354,6 +1365,16 @@ let mk_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
     decls
 
 let mk_headers (map: (Ast.lident, Ast.ident) Hashtbl.t) files =
-  List.map (fun (name, deps, program) ->
-    name, deps, mk_header map program
-  ) files
+  let headers = List.fold_left (fun acc (name, deps, program) ->
+    let h = mk_header map program in
+    if List.length h > 0 then
+      (name, deps, h) :: acc
+    else
+      acc
+  ) [] files in
+  let headers = List.rev headers in
+  let not_dropped f = List.exists (fun (name, _, _) -> f = name) headers in
+  let headers = List.map (fun (name, deps, program) ->
+    name, List.filter not_dropped deps, program
+  ) headers in
+  headers

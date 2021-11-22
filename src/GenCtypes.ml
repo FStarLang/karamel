@@ -7,9 +7,12 @@ open CStar
 
 module D = Driver
 
-open Migrate_parsetree
-open Migrate_parsetree.Ast_405
-open Migrate_parsetree.Ast_405.Parsetree
+(* Ppxlib_ast also has a module called Ast which shadows the src/Ast.ml module
+ *)
+module A = Ast
+
+open Ppxlib_ast
+open Parsetree
 
 module Driver = D
 
@@ -22,9 +25,6 @@ open Longident
 open PrintAst.Ops
 
 
-let migration = Versions.migrate Versions.ocaml_405 Versions.ocaml_current
-
-
 (* helper functions for generating names and paths *)
 let no_position : Lexing.position =
   {pos_fname = ""; pos_lnum = 0; pos_bol = 0; pos_cnum = 0}
@@ -35,6 +35,8 @@ let no_location : Location.t =
 let no_attrs: attributes = []
 
 let mk_sym s: string Location.loc = {txt=s; loc=no_location}
+
+let mk_sym_opt s: string option Location.loc = {txt=Some s; loc=no_location}
 
 let mk_sym_ident s: Longident.t Location.loc = {txt=s; loc=no_location}
 
@@ -83,7 +85,7 @@ let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
  * -no-prefix options. If this is the beginning of a top-level name, lower is
  * true and we force the first letter to be lowercase to abide by OCaml syntax
  * restrictions. *)
-let mk_unqual_name m (n: Ast.lident) =
+let mk_unqual_name m (n: A.lident) =
   let n = GlobalNames.to_c_name m n in
   if Char.lowercase n.[0] <> n.[0] then
     String.make 1 (Char.lowercase n.[0]) ^ String.sub n 1 (String.length n - 1)
@@ -139,11 +141,16 @@ let mk_struct_manifest (k: structured) t =
        in which case they are assigned a name *)
     | Union -> if !Options.anonymous_unions then "anonymous" else t
   in
-  let row_field = Rtag(tag, no_attrs, false, []) in
+  let row_field_desc = Rtag(mk_sym tag, false, []) in
+  let row_field = {
+    prf_desc= row_field_desc;
+    prf_loc=no_location;
+    prf_attributes=no_attrs
+  } in
   let row = Typ.variant [row_field] Closed None in
   Typ.mk (Ptyp_constr (mk_ident (structured_kw k), [row]))
 
-let mk_qualified_type m (typ: Ast.lident) =
+let mk_qualified_type m (typ: A.lident) =
   (* m is for debug only *)
   try exp_ident (Hashtbl.find special_types typ)
   with Not_found -> exp_ident (mk_unqual_name m typ)
@@ -179,7 +186,7 @@ and mk_extern_decl m name keyword typ: structure_item =
  *   let point_x = field point "x" uint32_t
  *   let point_y = field point "y" uint32_t
  *   let _ = seal point *)
-and mk_struct_decl ?(sealed=true) m (k: structured) (name: Ast.lident) fields: structure_item list =
+and mk_struct_decl ?(sealed=true) m (k: structured) (name: A.lident) fields: structure_item list =
   let unqual_name = mk_unqual_name m name in
   let tm = mk_struct_manifest k unqual_name in
   let ctypes_structure =
@@ -305,24 +312,24 @@ let mk_ctypes_decl m (d: decl): structure =
 
 let mk_include name =
   let module_app = Mod.apply (Mod.ident (mk_ident (name ^ "_bindings.Bindings"))) (Mod.ident (mk_ident (name ^ "_stubs"))) in
-  let module_def = Str.module_ (Mb.mk (mk_sym (name ^ "_applied")) module_app) in
+  let module_def = Str.module_ (Mb.mk (mk_sym_opt (name ^ "_applied")) module_app) in
   [
     module_def;
-    Str.open_ (Opn.mk (mk_ident (name ^ "_applied")));
+    Str.open_ (Opn.mk (Mod.ident (mk_ident (name ^ "_applied"))));
   ]
 
 let mk_ocaml_bind deps decls =
-  let open_f = Str.open_ (Opn.mk ?override:(Some Fresh) (mk_ident "F")) in
+  let open_f = Str.open_ (Opn.mk ?override:(Some Fresh) (Mod.ident (mk_ident "F"))) in
   let includes = KList.map_flatten mk_include deps in
   let module_exp = Mod.mk (Pmod_structure (open_f::(includes@decls))) in
   let functor_type = Mty.mk (Pmty_ident (mk_ident "Cstubs.FOREIGN")) in
-  let functor_exp = Mod.functor_ (mk_sym "F") (Some functor_type) module_exp in
-  Str.module_ (Mb.mk (mk_sym "Bindings") functor_exp)
+  let functor_exp = Mod.functor_ (Named (mk_sym_opt "F", functor_type)) module_exp in
+  Str.module_ (Mb.mk (mk_sym_opt "Bindings") functor_exp)
 
 let build_module deps program: structure =
   let m = mk_ocaml_bind deps program in
   let open_decls = List.map (fun m ->
-    Str.open_ (Opn.mk ?override:(Some Fresh) (mk_ident m))) ["Ctypes"] in
+    Str.open_ (Opn.mk ?override:(Some Fresh) (Mod.ident (mk_ident m)))) ["Ctypes"] in
   open_decls @ [m]
 
 type t =
@@ -349,8 +356,8 @@ type t =
  * OCaml declarations. *)
 let mk_ocaml_bindings
   (files : (ident * string list * decl list) list)
-  (m: (Ast.lident, Ast.ident) Hashtbl.t)
-  (file_of: Ast.lident -> string option):
+  (m: (A.lident, A.ident) Hashtbl.t)
+  (file_of: A.lident -> string option):
   (string * string list * structure_item list) list
 =
   (** A multi-state traversal of the call-graph; we map each lid to its
@@ -551,7 +558,7 @@ let mk_gen_decls module_name =
 
 let write_ml (path: string) (m: structure_item list) =
   Format.set_formatter_out_channel (open_out_bin path);
-  structure Format.std_formatter (migration.copy_structure m);
+  structure Format.std_formatter m;
   Format.pp_print_flush Format.std_formatter ()
 
 let write_gen_module files =

@@ -463,11 +463,6 @@ let inline files =
 
 
 let inline_type_abbrevs files =
-  let gc_map = Helpers.build_map files (fun map -> function
-    | DType (lid, flags, _, _) when List.mem GcType flags -> Hashtbl.add map lid ()
-    | _ -> ()
-  ) in
-
   let map = Helpers.build_map files (fun map -> function
     | DType (lid, _, _, Abbrev t) -> Hashtbl.add map lid (White, t)
     | _ -> ()
@@ -484,8 +479,15 @@ let inline_type_abbrevs files =
   end in
 
   let inline_one = memoize_inline map (fun recurse -> (inliner recurse)#visit_typ ()) in
+  let i = inliner inline_one in
 
-  let files = (inliner inline_one)#visit_files () files in
+  let files = i#visit_files () files in
+
+  (* There may be type abbreviations in here... since we recorded the naming
+     hints early! So, expand them there, too. *)
+  NamingHints.hints := List.map (fun ((hd, args), lid) ->
+    (hd, List.map (i#visit_typ ()) args), lid
+  ) !NamingHints.hints;
 
   (* After we've inlined things, drop type abbreviations definitions now. This
    * is important, as the monomorphization of data types relies on all types
@@ -493,31 +495,24 @@ let inline_type_abbrevs files =
    *   type pair a b = Tuple (1, 0)
    * breaks this invariant. *)
   filter_decls (function
-    | DType (lid, flags, n, Abbrev def) ->
-        begin match def with
-        | TApp (hd, args)
-          when List.assoc_opt (hd, args) !Monomorphization.hints = None &&
-          not (Hashtbl.mem gc_map hd) ->
-            (* Don't use a type abbreviation towards a to-be-GC'd type as a
-             * hint, because there will be a mismatch later on with a * being
-             * added. This is mosly for backwards-compat with miTLS having
-             * hand-written code in mitlsffi.c. *)
-            Monomorphization.(hints := ((hd, args), lid) :: !hints);
-            (* Never leave the abbreviation in the program otherwise there will
-             * be two types with the same name, the abbreviation and the
-             * monomorphized one. *)
-            None
-        | TTuple args when List.assoc_opt (Monomorphization.tuple_lid, args) !Monomorphization.hints = None ->
-            Monomorphization.(hints := ((tuple_lid, args), lid) :: !hints);
-            None
-        | _ ->
-          if n = 0 then
-            Some (DType (lid, flags, n, Abbrev def))
-          else
-            (* A type definition with parameters is not something we'll be able to
-             * generate code for (at the moment). So, drop it. *)
-            None
-        end
+    | DType (lid, _, n, Abbrev def) as d ->
+        let hint_preferred_name = match def with
+          | TApp (hd, args) ->
+              List.assoc_opt (hd, args) !NamingHints.hints
+          | TTuple args ->
+              List.assoc_opt (tuple_lid, args) !NamingHints.hints
+          | _ ->
+              None
+        in
+        if hint_preferred_name = Some lid then
+          (* We are about to generate a monomorphized instance with this very
+             name. We don't want two type definitions with the same name. Drop
+             it. *)
+          None
+        else if n > 0 then
+          None
+        else
+          Some d
 
     | d ->
         Some d

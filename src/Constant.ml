@@ -67,3 +67,24 @@ let uint8_of_int i =
 let uint32_of_int i =
   assert (i < (1 lsl 32) && i >= 0);
   UInt32, string_of_int i
+
+(* New: polymorphic equalities, treated properly, finally (Feb 2021)
+   Some background info... initially, equalities were only accepted by KreMlin
+   at base scalar types (int, bool) that have a "width". However, with time
+   passing, KreMLin gained the ability to monomorphize functions and therefore
+   had to accept equalities on data types, units, and so on. Equalities on base
+   types were represented as `Op (Eq, w)` while equalities on complex types were
+   represented as `TApp (Op (Eq, <dummy width>), t)` which was clearly
+   suboptimal.
+
+   Now, any occurrence of equality is represented as EPolyComp (Eq, t) where t
+   can be any type. This allows removing the kludge of dummy values, and also
+   allows keeping equalities on types without a width (e.g. an enum) that we
+   nonetheless know will be comparable with a target Eq operator.
+
+   For that reason, we keep Eq and Neq in the op type above, even though they
+   will with this patch only be used for pretty-printing (like, the comma
+   operator). *)
+type poly_comp = PEq | PNeq
+
+let op_of_poly_comp = function PEq -> Eq | PNeq -> Neq

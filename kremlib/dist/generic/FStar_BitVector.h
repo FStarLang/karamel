@@ -29,7 +29,7 @@ typedef struct Prims_list__bool_s
 }
 Prims_list__bool;
 
-typedef Prims_list__bool *FStar_BitVector_bv_t;
+typedef Prims_list__bool *FStar_Seq_Base_seq__bool;
 
 extern Prims_list__bool *FStar_BitVector_zero_vec(Prims_pos n);
 

@@ -25,7 +25,7 @@ UINT128_DIR = dist/uint128
 MINI_DIR = dist/minimal
 
 #332 is turning abstract keyword usage into a fatal error
-FSTAR_OPTIONS += --record_hints --use_hints --use_two_phase_tc true --odir $(EXTRACT_DIR) \
+FSTAR_OPTIONS += --record_hints --use_hints --odir $(EXTRACT_DIR) \
   --warn_error @332
   # --use_extracted_interfaces
 
@@ -47,14 +47,14 @@ ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
 clean: clean-c
 	rm -rf *.checked *.source .depend
 
-SHELL=/bin/bash
+SHELL:=$(shell which bash)
 
 clean-c:
 	rm -rf dist out extract-all */*.o
 
 ifndef NODEPEND
 ifndef MAKE_RESTARTS
-.depend: .FORCE
+.depend: .FORCE obj
 	$(FSTAR) $(OTHERFLAGS) --dep full $(ROOTS) > $@
 
 .PHONY: .FORCE
@@ -87,7 +87,10 @@ KREMLIN_ARGS += -fparentheses -fcurly-braces -fno-shadow -header copyright-heade
 
 MACHINE_INTS = \
   -bundle FStar.UInt64+FStar.UInt32+FStar.UInt16+FStar.UInt8=[rename=FStar_UInt_8_16_32_64] \
-  -library FStar.UInt128
+  -library FStar.UInt128 \
+  -bundle FStar.UInt128= \
+  -static-header FStar.UInt128 \
+  -hand-written FStar.UInt128
 
 $(MINI_DIR):
 	mkdir -p $@
@@ -121,7 +124,6 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar
 	    '"kremlin/internal/types.h"' \
 	    '"kremlin/internal/target.h"') \
 	  -bundle LowStar.Endianness= \
-	  -bundle FStar.UInt128= \
 	  -bundle '*,WindowsWorkaroundSigh' \
 	  fstar_uint128.c \
 	  -o libkremlib.a \
@@ -149,7 +151,7 @@ $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) 
 # Compilation, only works after the stage above has run and C files exist      #
 ################################################################################
 
-CFLAGS += -O3 -march=native -mtune=native
+CFLAGS += -O3
 export CFLAGS
 
 compile-all: compile-dist-generic $(MINI_DIR)/Makefile.include $(UINT128_DIR)/Makefile.include

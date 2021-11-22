@@ -235,6 +235,9 @@ Supported options:|}
     "-library", Arg.String (fun s ->
       List.iter (prepend Options.library) (Parsers.drop s)),
       "  this is a model and all functions should be made abstract";
+    "-hand-written", Arg.String (fun s ->
+      List.iter (prepend Options.hand_written) (Parsers.drop s)),
+      "  in conjunction with static-header and library";
     "-extract-uints", Arg.Set Options.extract_uints, ""; (* no doc, intentional *)
     "-header", Arg.Set_string Options.header, " prepend the contents of the given \
       file at the beginning of each .c and .h";
@@ -289,7 +292,7 @@ Supported options:|}
         aggressive always merges";
     "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
     "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see \
-      above) + also disable variadic-length KRML_HOST_EPRINTF";
+      above) + also disable variadic-length KRML_HOST_EPRINTF + cast allocations";
     "-flinux-ints", Arg.Set Options.linux_ints, " use Linux kernel int types";
     "-fmicrosoft", Arg.Set Options.microsoft, " various Microsoft-specific \
       tweaks";
@@ -416,6 +419,7 @@ Supported options:|}
   if !arg_c89 then begin
     Options.anonymous_unions := false;
     Options.compound_literals := false;
+    Options.cast_allocations := true;
     Options.c89_scope := true;
     Options.c89_std := true;
     Options.ccopts := Driver.Dash.d "KRML_VERIFIED_UINT128" :: !Options.ccopts
@@ -496,6 +500,7 @@ Supported options:|}
    *   forward declaration in the header. *)
   let files = Builtin.make_libraries files in
   let files = Bundles.topological_sort files in
+  NamingHints.record files;
 
   (* 1. We create bundles, and monomorphize functions first. This creates more
    * applications of parameterized types, which we make sure are in the AST by
@@ -528,6 +533,7 @@ Supported options:|}
    * spurious dependencies otherwise. *)
   let files = DataTypes.simplify files in
   let files = Monomorphization.datatypes files in
+  let files = DataTypes.optimize files in
   let files = Monomorphization.equalities files in
   let files = Inlining.inline files in
   let files = Inlining.drop_unused files in
@@ -538,6 +544,10 @@ Supported options:|}
 
   (* 3. Compile data types and pattern matches to enums, structs, switches and
    * if-then-elses. Better have monomorphized functions first! *)
+
+  (* This needs to come after monomorphization of equalities -- otherwise the
+     insertion of pointers will make things look like pointer equalities for
+     which the recursive equality predicates are not generated. *)
   let files = GcTypes.heap_allocate_gc_types files in
   (* Note: this phase re-inserts some type abbreviations. *)
   let datatypes_state, files = DataTypes.everything files in
@@ -653,8 +663,10 @@ Supported options:|}
     if List.length is_support = 0 then
       Warn.fatal_error "The module WasmSupport wasn't passed to kremlin or \
         was hidden in a bundle!";
-    let files = is_support @ rest in
 
+    (* If present, place the fallback intrinsics module immediately after. *)
+    let intrinsics, rest = List.partition (fun (name, _) -> name = "Hacl_IntTypes_Intrinsics") rest in
+    let files = is_support @ intrinsics @ rest in
     (* The Wasm backend diverges here. We go to [CFlat] (an expression
      * language), then directly into the Wasm AST. *)
     let files = AstToCFlat.mk_files files c_name_map in

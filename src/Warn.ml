@@ -34,6 +34,7 @@ and raw_error =
   | IfDef of lident
   | CannotMacro of lident
   | DropCtypesDeclaration of lident * lident
+  | ConflictMacro of lident * string
 
 and location =
   string
@@ -67,7 +68,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 23 CError;;
+let flags = Array.make 24 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -120,6 +121,8 @@ let errno_of_error = function
       21
   | DropCtypesDeclaration _ ->
       22
+  | ConflictMacro _ ->
+      23
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -208,7 +211,9 @@ let rec perr buf (loc, raw_error) =
       p "The variable %a cannot be translated as a macro, most likely because it generated a static initializer" plid lid
   | DropCtypesDeclaration (id, faulty_id) ->
      p "Dropping declaration %a from Ctypes bindings because it uses unsupported type %a" plid id plid faulty_id
-
+  | ConflictMacro (lid, macro) ->
+     p "%a cannot be compiled to macro %s because another identifier already \
+       compiles to the same macro" plid lid macro
 
 let maybe_fatal_error error =
   flush stdout;

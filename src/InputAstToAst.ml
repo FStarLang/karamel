@@ -56,6 +56,8 @@ let rec mk_decl = function
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
   | I.DTypeAbstractStruct name ->
       DType (name, [], 0, Forward)
+  | I.DUntaggedUnion (name, flags, n, branches) ->
+      DType (name, flags, n, Union (List.map (fun (f, t) -> f, mk_typ t) branches))
 
 and mk_binders bs =
   List.map mk_binder bs
@@ -95,6 +97,8 @@ and mk_typ = function
       TApp (lid, List.map mk_typ ts)
   | I.TTuple ts ->
       TTuple (List.map mk_typ ts)
+  | I.TArray (t, c) ->
+      TArray (mk_typ t, c)
 
 and mk_expr = function
   | I.EBound i ->
@@ -110,14 +114,8 @@ and mk_expr = function
   | I.EApp (e, es) ->
       mk (EApp (mk_expr e, List.map mk_expr es))
   | I.ETApp (I.EOp ((K.Eq | K.Neq as op), _), [ t ]) ->
-      begin match width_of_equality (mk_typ t) with
-      | Some w ->
-          mk (EOp (op, w))
-      | None ->
-          (* Dummy value inserted here, to be caught later on by the
-           * monomorphization that kicks in for equalities too. *)
-          mk (ETApp (mk (EOp (op, K.Bool)), [ mk_typ t ]))
-      end
+      let c = match op with K.Eq -> K.PEq | K.Neq -> K.PNeq | _ -> assert false in
+      mk (EPolyComp (c, mk_typ t))
   | I.ETApp (e, es) ->
       mk (ETApp (mk_expr e, List.map mk_typ es))
   | I.ELet (b, e1, e2) ->
@@ -185,6 +183,8 @@ and mk_expr = function
       mk (EComment (before, mk_expr e, after))
   | I.EStandaloneComment s ->
       mk (EStandaloneComment s)
+  | I.EAddrOf e ->
+      mk (EAddrOf (mk_expr e))
 
 and mk_branches branches =
   List.map mk_branch branches

@@ -35,10 +35,16 @@ let remove_unused_type_arguments files =
 
     let def_map = Helpers.build_map files (fun map d ->
       match d with
-      | DType (lid, _, n, d) -> Hashtbl.add map lid (n, d)
+      | DType (lid, _, n, d) ->
+          Hashtbl.add map lid (`Typ (n, d))
+      | DFunction (_, _, n, t_ret, lid, bs, body) ->
+          let ts = List.map (fun b -> b.typ) bs in
+          Hashtbl.add map lid (`Fun (n, t_ret :: ts, body))
       | _ -> ()
     ) in
 
+    (* An ad-hoc reduce visitor over the bool monoid that simply returns true if
+      there is an occurrence of the i-th type parameter.*)
     let find_ith valuation = object(self)
       inherit [_] reduce
       method zero = false
@@ -47,7 +53,8 @@ let remove_unused_type_arguments files =
 
       method! visit_TBound (j, n) i =
         j = n - i - 1
-      method! visit_TApp env lid args =
+
+      method private visit_app env lid args =
         let args = List.mapi (fun i arg ->
           if valuation (lid, i) then
             self#visit_typ env arg
@@ -55,12 +62,26 @@ let remove_unused_type_arguments files =
             self#zero
         ) args in
         List.fold_left self#plus self#zero args
+
+      method! visit_TApp env lid args =
+        self#visit_app env lid args
+
+      method! visit_ETApp env e args =
+        let lid = assert_elid e.node in
+        self#visit_app (fst env) lid args
     end in
 
     let equations (lid, i) valuation =
       try
-        let n, def = Hashtbl.find def_map lid in
-        (find_ith valuation)#visit_type_def (i, n) def
+        match Hashtbl.find def_map lid with
+        | `Typ (n, def) ->
+            (find_ith valuation)#visit_type_def (i, n) def
+        | `Fun (n, ts, def) ->
+            (* This is an approximation because this LFP is not mutually
+               recursive with private-functions unused argument elimination. *)
+            List.fold_left (||) false
+              ((find_ith valuation)#visit_expr_w (i, n) def ::
+                List.map ((find_ith valuation)#visit_typ (i, n)) ts)
       with Not_found ->
         true
     in
@@ -79,10 +100,10 @@ let remove_unused_type_arguments files =
         if i = n then
           kept, def
         else
-          if uses_nth lid (n - i - 1) then
+          if uses_nth lid i then
             chop (kept + 1) (i + 1) def
           else
-            let def = (new DeBruijn.subst_t TAny)#visit_type_def i def in
+            let def = (new DeBruijn.subst_t TAny)#visit_type_def (n - i - 1) def in
             chop kept (i + 1) def
       in
       let n, def = chop 0 0 def in
@@ -101,7 +122,45 @@ let remove_unused_type_arguments files =
         TApp (lid, args)
       else
         TQualified lid
+
+    method! visit_DFunction env cc flags n ret lid binders def =
+      let binders = self#visit_binders_w env binders in
+      let ret = self#visit_typ env ret in
+      let def = self#visit_expr_w env def in
+      let rec chop kept i (def, binders, ret) =
+        if i = n then
+          kept, (def, binders, ret)
+        else
+          if uses_nth lid i then
+            chop (kept + 1) (i + 1) (def, binders, ret)
+          else
+            let def = DeBruijn.subst_te TAny (n - i - 1) def in
+            let binders = List.map (fun { node; typ } -> { node; typ = DeBruijn.subst_t TAny (n - i - 1) typ }) binders in
+            let ret = DeBruijn.subst_t TAny (n - i - 1) ret in
+            chop kept (i + 1) (def, binders, ret)
+      in
+      let n, (def, binders, ret) = chop 0 0 (def, binders, ret) in
+      DFunction (cc, flags, n, ret, lid, binders, def)
+
+    method! visit_ETApp env e args =
+      let lid = assert_elid e.node in
+      let args = List.map (self#visit_typ_wo env) args in
+      let args = KList.filter_mapi (fun i arg ->
+        if uses_nth lid i then
+          Some arg
+        else
+          None
+      ) args in
+      if List.length args > 0 then
+        ETApp (e, args)
+      else
+        e.node
   end in
+
+  NamingHints.hints := List.map (fun ((head, args), hint) ->
+    let args = List.map (remove_unused#visit_typ ()) args in
+    (head, KList.filter_mapi (fun i arg -> if uses_nth head i then Some arg else None) args), hint
+  ) !NamingHints.hints;
 
   remove_unused#visit_files () files
 
@@ -143,7 +202,7 @@ let build_scheme_map files =
           List.length fields = 0
         ) branches in
         if List.length non_constant = 0 then
-          Hashtbl.add map lid ToEnum
+          Hashtbl.add map lid ToEnum (* logic replicated in Monomorphization *)
         else if List.length branches = 1 then
           Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
         else if List.length non_constant = 1 then
@@ -314,7 +373,7 @@ let compile_simple_matches (map, enums) = object(self)
         | exception Not_found ->
             EField (e', f)
         | Eliminate _ ->
-            e.node
+            e'.node
         | _ ->
             assert false
         end
@@ -407,7 +466,6 @@ let compile_simple_matches (map, enums) = object(self)
         | exception Not_found ->
             DType (lid, flags, 0, Variant branches)
         | Eliminate t ->
-            ignore (self#allocate_enum_lid lid branches);
             DType (lid, flags, 0, Abbrev t)
         | ToTaggedUnion _ ->
             ignore (self#allocate_enum_lid lid branches);
@@ -1164,14 +1222,20 @@ end
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
 (* debug_map (fst map); *)
 
+(* Cosmetic *)
 let simplify files =
   let files = remove_trivial_matches#visit_files () files in
   let files = remove_full_matches#visit_files () files in
   files
 
-let everything files =
+(* Unit elimination, after monomorphization *)
+let optimize files =
   let files = remove_unit_buffers#visit_files () files in
   let files = remove_unit_fields#visit_files () files in
+  files
+
+(* General compilation scheme *)
+let everything files =
   let map = build_scheme_map files in
   let files = (compile_simple_matches map)#visit_files () files in
   let files = (compile_all_matches map)#visit_files () files in

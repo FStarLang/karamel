@@ -375,6 +375,7 @@ let to_addr is_struct =
     | EBool _
     | EString _
     | EOp _
+    | EPolyComp _
     | EBreak
     | EConstant _
     | EPushFrame

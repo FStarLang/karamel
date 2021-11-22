@@ -61,7 +61,7 @@ and expr =
      * on the rhs of a (typed) assignment *)
   | BufRead of expr * expr
   | BufSub of expr * expr
-  | Op of op
+  | Op of K.op
   | Cast of expr * typ
     (** to *)
   | Bool of bool
@@ -82,8 +82,6 @@ and expr =
 
 and block =
   stmt list
-
-and op = K.op * K.width
 
 and var =
   int

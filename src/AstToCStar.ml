@@ -241,8 +241,13 @@ let rec mk_expr env in_stmt e =
       CStar.BufRead (mk_expr env e1, mk_expr env e2)
   | EBufSub (e1, e2) ->
       CStar.BufSub (mk_expr env e1, mk_expr env e2)
-  | EOp (o, w) ->
-      CStar.Op (o, w)
+  | EOp (o, _) ->
+      CStar.Op o
+  | EPolyComp (c, _) ->
+      (* Note: there is no checking here, and we just assume that the previous
+         phases only left polymorphic equalities which we be compiled to a
+         scalar type in C that is supported by C's equality comparison. *)
+      CStar.Op (K.op_of_poly_comp c)
   | ECast (e, t) ->
       CStar.Cast (mk_expr env e, mk_type env t)
   | EAbort s ->
@@ -422,7 +427,7 @@ and mk_stmts env e ret_type =
 
     | EBufBlit (e1, e2, e3, e4, e5) ->
         let e = CStar.BufBlit (
-          mk_type env (assert_tbuf e1.typ),
+          mk_type env (assert_tbuf_or_tarray e1.typ),
           mk_expr env false e1,
           mk_expr env false e2,
           mk_expr env false e3,
@@ -580,7 +585,7 @@ and mk_stmts env e ret_type =
     | EQualified name when LidSet.mem name env.ifdefs ->
         CStar.Macro name
     | EApp ({ node = EOp ((K.And | K.Or) as o, K.Bool); _ }, [ e1; e2 ]) ->
-        CStar.Call (CStar.Op (o, K.Bool), [ mk_ifcond env e1; mk_ifcond env e2 ])
+        CStar.Call (CStar.Op o, [ mk_ifcond env e1; mk_ifcond env e2 ])
     | _ ->
         raise NotIfDef
 
@@ -774,6 +779,8 @@ and mk_program m name env decls =
         Warn.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
         decls, names
     | exception e ->
+        if Options.debug "backtraces" then
+          Printexc.print_backtrace stdout;
         Warn.fatal_error "Fatal failure in %a: %s\n"
           plid (Ast.lid_of_decl d)
           (Printexc.to_string e)
@@ -787,7 +794,7 @@ and mk_program m name env decls =
 and mk_files files file_of m ifdefs macros =
   let env = { empty with ifdefs; macros } in
   List.map (fun file ->
-    let deps = 
+    let deps =
       Hashtbl.fold (fun k _ acc -> k :: acc) (Bundles.direct_dependencies file_of file) []
     in
     let name, program = file in
@@ -795,6 +802,13 @@ and mk_files files file_of m ifdefs macros =
   ) files
 
 let mk_macros_set files =
+  let seen = Hashtbl.create 31 in
+  let record x =
+    let t = String.uppercase (GlobalNames.target_c_name ~attempt_shortening:false ~is_macro:true x) in
+    if Hashtbl.mem seen t then
+      Warn.(maybe_fatal_error ("", ConflictMacro (x, t)));
+    Hashtbl.add seen t ()
+  in
   (object
     inherit [_] reduce
     method private zero = LidSet.empty
@@ -804,8 +818,10 @@ let mk_macros_set files =
         if body.node = EAny then begin
           Warn.(maybe_fatal_error ("", CannotMacro name));
           LidSet.empty
-        end else
+        end else begin
+          record name;
           LidSet.singleton name
+        end
       else
         LidSet.empty
   end)#visit_files () files

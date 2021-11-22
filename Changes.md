@@ -1,3 +1,55 @@
+### Feb 8th, 2021
+
+Compile recursive equality predicates better.
+
+Now, for data types that after:
+
+- unused type argument elimination,
+- unit field elimination,
+- pointer to unit field elimination and
+- type monomorphization
+
+have only constant constructors, recursive equality predicates compile
+to a simple C equality test using the `==` primitive operator (which works
+regardless of whether the enum tags compile to a C11 `enum`, or a scalar type
+like `uint8_t`, or larger).
+
+### Dec 10th, 2020
+
+New compilation scheme for while loops
+
+If the condition of the loop is not trivially an expression, rewrite
+
+```
+while (<cond>) { <body> }
+```
+
+into
+
+```
+let x = <cond> in
+while (x) {
+  <body>;
+  x <- <cond>
+}
+```
+
+### Fall 2020
+
+Numerous improvements to the interaction of `-library`, `-static-header`,
+`CMacro` and other features.
+
+The compilation scheme described in the KreMLin manual for separate compilation
+should now work much better. In particular declarations (functions, types,
+macros) that are both subject to `-library` and `-static-header` are now
+understood to be compiled and extracted elsewhere -- as such, KreMLin will no
+longer generate *any* code for those declarations that are both compiled
+elsewhere ("library") as static inline definitions ("static header").
+
+As a consequence, users will need to make sure they perform a separate run of
+kremlin for the same module, and provide a suitable `-add-include` option so
+that the required definitions now be present in the scope.
+
 ### Aug 4th, 2020
 
 - New feature: -fextern-c wraps the contents of each header in

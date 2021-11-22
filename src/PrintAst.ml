@@ -294,6 +294,12 @@ and print_expr { node; typ } =
       )
   | EAddrOf e ->
       ampersand ^^ parens_with_nesting (print_expr e)
+  | EPolyComp (c, t) ->
+      parens_with_nesting (print_poly_comp c ^^ comma ^^ space ^^ print_typ t)
+
+and print_poly_comp = function
+  | PEq -> equals
+  | PNeq -> bang ^^ equals
 
 and print_case = function
   | SConstant s ->

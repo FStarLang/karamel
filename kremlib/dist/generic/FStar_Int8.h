@@ -24,6 +24,10 @@ extern Prims_int FStar_Int8_v(int8_t x);
 
 extern int8_t FStar_Int8_int_to_t(Prims_int x);
 
+extern int8_t FStar_Int8_zero;
+
+extern int8_t FStar_Int8_one;
+
 extern int8_t FStar_Int8_add(int8_t a, int8_t b);
 
 extern int8_t FStar_Int8_sub(int8_t a, int8_t b);
