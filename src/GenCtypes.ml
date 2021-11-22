@@ -44,19 +44,11 @@ let mk_ident name = Lident name |> mk_sym_ident
 
 let exp_ident n = Exp.ident (mk_ident n)
 
-
-(* Only raise one warning for each dropped declaration *)
-let dropped_decls_lids = ref []
-
 let warn_drop_declaration loc lid_decl lid_type =
   if not (KString.starts_with (snd lid_decl) "__proj__") &&
-     not (KString.starts_with (snd lid_decl) "uu___") &&
-     not (List.mem lid_decl !dropped_decls_lids)
-  then begin
-    dropped_decls_lids := lid_decl :: !dropped_decls_lids;
-    Warn.(maybe_fatal_error (loc, Warn.DropCtypesDeclaration (lid_decl, lid_type)))
-  end
-
+     not (KString.starts_with (snd lid_decl) "uu___")
+  then
+    Warn.(maybe_fatal_error (loc, Error.DropCtypesDeclaration (lid_decl, lid_type)))
 
 (* generic AST helpers *)
 let mk_const c =
