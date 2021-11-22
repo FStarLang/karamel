@@ -4,40 +4,14 @@
 (** Unified warning handling *)
 
 open Flags
-open Ast
 open PrintAst
+open Error
 
-type error = location * raw_error
+module S = Set.Make(Error)
 
-and raw_error =
-  | Dropping of string * error
-  | UnboundReference of string
-  | BadFrame of string
-  | TypeError of string
-  | Unsupported of string
-  | ExternalError of string
-  | ExternalTypeApp of lident
-  | Vla of ident
-  | LostStatic of string option * lident * string option * lident
-  | LostInline of string option * lident * string option * lident
-  | MustCallKrmlInit
-  | Deprecated of string * string
-  | NotLowStar of expr
-  | NeedsCompat of lident * string
-  | NotWasmCompatible of lident * string
-  | DropDeclaration of lident * string
-  | NotTailCall of lident
-  | GeneratesLetBindings of string * expr * (binder * expr) list
-  | Arity of lident * string
-  | NotInitializerConstant of lident * expr
-  | BundleCollision of string
-  | IfDef of lident
-  | CannotMacro of lident
-  | DropCtypesDeclaration of lident
-  | ConflictMacro of lident * string
-
-and location =
-  string
+(* Avoid printing the same warning twice by keeping a set of warnings that have
+ * already been emitted *)
+let emitted_warnings = ref S.empty
 
 let locate loc e =
   loc, snd e
@@ -45,7 +19,7 @@ let locate loc e =
 let dummy_loc = "unknown"
 
 (** For user-controllable warnings and recoverable errors. *)
-exception Error of error
+exception Error of Error.t
 exception Fatal of string
 
 let raise_error e =
@@ -134,7 +108,8 @@ let p_file = function
 
 let rec perr buf (loc, raw_error) =
   (* Now, print an error-specific message. *)
-  let p fmt = Printf.bprintf buf ("Warning %d: %s: " ^^ fmt ^^ "\n") (errno_of_error raw_error) loc in
+  let loc = if loc = "" then "" else Printf.sprintf "%s: " loc in
+  let p fmt = Printf.bprintf buf ("Warning %d: %s" ^^ fmt ^^ "\n") (errno_of_error raw_error) loc in
   match raw_error with
   | Dropping (d, e) ->
       p "Not generating code for %s because of the error below:" d;
@@ -208,8 +183,8 @@ let rec perr buf (loc, raw_error) =
       p "The variable %a cannot be translated as an if-def" plid lid
   | CannotMacro lid ->
       p "The variable %a cannot be translated as a macro, most likely because it generated a static initializer" plid lid
-  | DropCtypesDeclaration id ->
-     p "Dropping declaration from Ctypes bindings because it uses unsupported type %a" plid id
+  | DropCtypesDeclaration (id, faulty_id) ->
+     p "Dropping declaration %a from Ctypes bindings because it uses unsupported type %a" plid id plid faulty_id
   | ConflictMacro (lid, macro) ->
      p "%a cannot be compiled to macro %s because another identifier already \
        compiles to the same macro" plid lid macro
@@ -224,7 +199,10 @@ let maybe_fatal_error error =
       KPrint.beprintf "Warning %d is fatal, exiting.\n" errno;
       exit 255
   | CWarning ->
-      KPrint.beprintf "%a" perr error
+      if not (S.mem error !emitted_warnings) then begin
+        emitted_warnings := S.add error !emitted_warnings;
+        KPrint.beprintf "%a" perr error
+      end
   | CSilent ->
       ()
 ;;

@@ -77,11 +77,11 @@ let find env i =
 (** Errors ------------------------------------------------------------------ *)
 
 (* An error for which the only way to recover is to drop the definition. *)
-exception CheckerError of Warn.error
+exception CheckerError of Error.t
 
 let checker_error env fmt =
   Printf.kbprintf (fun buf ->
-    raise (CheckerError (KPrint.bsprintf "%a" ploc env.location, Warn.TypeError (Buffer.contents buf)))
+    raise (CheckerError (KPrint.bsprintf "%a" ploc env.location, Error.TypeError (Buffer.contents buf)))
   ) (Buffer.create 16) fmt
 
 let check_mut env s c =
@@ -700,7 +700,7 @@ and infer' env e =
 
   | EFlat fieldexprs ->
       prefer_nominal
-        e.typ 
+        e.typ
         (TAnonymous (Flat (List.map (fun (f, e) ->
           f, (infer env e, false)
         ) fieldexprs)))
