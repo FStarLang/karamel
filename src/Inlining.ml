@@ -256,6 +256,8 @@ let cross_call_analysis files =
      * [name_from‘], meaning that the latter cannot safely remain
      * inline. *)
     if cross_call name_from name_to && Hashtbl.mem private_or_internal name_to then begin
+      (* KPrint.bprintf "Cross-call from %a to %a which becomes internal\n" *)
+      (*   plid name_from plid name_to; *)
       Hashtbl.replace private_or_internal name_to T.Internal
     end;
     if cross_call name_from name_to && Hashtbl.mem safely_inline name_to &&
@@ -363,10 +365,13 @@ let cross_call_analysis files =
       inherit [_] iter as super
 
       method private still_private d =
-        List.mem Private (flags_of_decl d) && Hashtbl.mem private_or_internal (lid_of_decl d)
+        List.mem Private (flags_of_decl d) &&
+        Hashtbl.find_opt private_or_internal (lid_of_decl d) = Some T.Private
 
       method private remove_and_visit name =
         if Hashtbl.mem private_or_internal name then begin
+          (* KPrint.bprintf "Remove_and_visit %a with mode %s\n" plid name *)
+          (*   (match !mode with `Public -> "public" | `Internal -> "internal"); *)
           match !mode with
           | `Internal ->
               Hashtbl.replace private_or_internal name T.Internal
@@ -400,6 +405,7 @@ let cross_call_analysis files =
       (* Traversal starts here at the top-level. Note that remove_and_visit does
          not call into this method (but rather the default one via super). *)
       method! visit_decl env d =
+        (* KPrint.bprintf "Visiting %a?? still_private=%b\n" plid (lid_of_decl d) (self#still_private d); *)
         (* We visit any non-private declaration; static header takes precedence
            over private. *)
         let name = lid_of_decl d in
@@ -408,8 +414,10 @@ let cross_call_analysis files =
             match Hashtbl.find private_or_internal name with
             | exception Not_found -> `Public
             | T.Internal -> `Internal
-            | T.Private -> `Public; ;
+            | T.Private -> assert (Helpers.is_static_header name); `Public ; ;
           Hashtbl.add seen (lid_of_decl d) !mode;
+          (* KPrint.bprintf "Visiting %a with mode %s\n" plid (lid_of_decl d) *)
+          (*   (match !mode with `Public -> "public" | `Internal -> "internal"); *)
           super#visit_decl env d
         end
     end
