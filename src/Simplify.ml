@@ -1695,4 +1695,6 @@ let debug env =
 let allocate_c_names (files: file list): (lident, ident) Hashtbl.t =
   let env = GlobalNames.create (), Hashtbl.create 41 in
   record_toplevel_names#visit_files env files;
+  if Options.debug "c-names" then
+    debug env;
   GlobalNames.mapping (fst env)

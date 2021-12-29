@@ -352,11 +352,13 @@ let cross_call_analysis files =
       | _ -> ()
     ) in
     let seen = Hashtbl.create 41 in
-    (* False means we entered the traversal from a public definition, meaning
-       whatever we reach goes into the public header. True means we entered the
-       traversal from an internal definition, meaning whatever we reach goes
-       into the internal header. *)
-    let is_internal = ref false in
+    (* TODO: switch to a fixpoint calculation... this is bad *)
+    let mode = ref `Internal in
+    let mode_lt x y =
+      match x, y with
+      | `Internal, `Public -> true
+      | _ -> false
+    in
     object (self)
       inherit [_] iter as super
 
@@ -364,14 +366,16 @@ let cross_call_analysis files =
         List.mem Private (flags_of_decl d) && Hashtbl.mem private_or_internal (lid_of_decl d)
 
       method private remove_and_visit name =
-        if Hashtbl.mem private_or_internal name then
-          if !is_internal then
-            Hashtbl.replace private_or_internal name T.Internal
-          else
-            Hashtbl.remove private_or_internal name;
-        if not (Hashtbl.mem seen name) then begin
-          Hashtbl.add seen name ();
-          try self#visit_decl () (Hashtbl.find decl_map name)
+        if Hashtbl.mem private_or_internal name then begin
+          match !mode with
+          | `Internal ->
+              Hashtbl.replace private_or_internal name T.Internal
+          | `Public ->
+              Hashtbl.remove private_or_internal name
+        end;
+        if not (Hashtbl.mem seen name) || mode_lt (Hashtbl.find seen name) !mode then begin
+          Hashtbl.replace seen name !mode;
+          try super#visit_decl () (Hashtbl.find decl_map name)
           with Not_found -> ()
         end
 
@@ -393,10 +397,18 @@ let cross_call_analysis files =
         if Helpers.is_static_header name then
           self#visit_expr_w () body
 
+      (* Traversal starts here at the top-level. Note that remove_and_visit does
+         not call into this method (but rather the default one via super). *)
       method! visit_decl env d =
+        (* We visit any non-private declaration; static header takes precedence
+           over private. *)
         if not (self#still_private d) || Helpers.is_static_header (lid_of_decl d) then begin
-          Hashtbl.add seen (lid_of_decl d) ();
-          is_internal := Hashtbl.find_opt private_or_internal (lid_of_decl d) = Some T.Internal;
+          mode :=
+            match Hashtbl.find private_or_internal (lid_of_decl d) with
+            | exception Not_found -> `Public
+            | T.Internal -> `Internal
+            | T.Private -> assert false; ;
+          Hashtbl.add seen (lid_of_decl d) !mode;
           super#visit_decl env d
         end
     end
