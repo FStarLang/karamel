@@ -402,12 +402,13 @@ let cross_call_analysis files =
       method! visit_decl env d =
         (* We visit any non-private declaration; static header takes precedence
            over private. *)
-        if not (self#still_private d) || Helpers.is_static_header (lid_of_decl d) then begin
+        let name = lid_of_decl d in
+        if not (self#still_private d) || Helpers.is_static_header name then begin
           mode :=
-            match Hashtbl.find private_or_internal (lid_of_decl d) with
+            match Hashtbl.find private_or_internal name with
             | exception Not_found -> `Public
             | T.Internal -> `Internal
-            | T.Private -> assert false; ;
+            | T.Private -> `Public; ;
           Hashtbl.add seen (lid_of_decl d) !mode;
           super#visit_decl env d
         end
