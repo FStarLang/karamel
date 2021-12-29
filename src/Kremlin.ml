@@ -683,6 +683,7 @@ Supported options:|}
 
   else
     let () = () in
+    Driver.maybe_create_output_dir ();
     if KString.starts_with !Options.exe_name "lib" then
       Output.write_def c_name_map files;
 
@@ -717,7 +718,7 @@ Supported options:|}
 
     flush stdout;
     flush stderr;
-    Output.create_output_directories headers;
+    Output.maybe_create_internal_dir headers;
     let c_output = Output.write_c files internal_headers deps in
     let h_output = Output.write_h headers public_headers deps in
     GenCtypes.write_bindings ml_files;

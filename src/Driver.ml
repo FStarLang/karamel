@@ -93,7 +93,7 @@ let mkdirp d =
   let d = if d.[String.length d - 1] = '\\' then String.sub d 0 (String.length d - 1) else d in
   mkdirp d
 
-let mk_tmpdir_if () =
+let maybe_create_output_dir () =
   if !Options.tmpdir <> "" then
     mkdirp !Options.tmpdir
 
@@ -337,7 +337,7 @@ let run_fstar verify skip_extract skip_translate files =
       "--lax" :: args
     in
     flush stdout;
-    mk_tmpdir_if ();
+    maybe_create_output_dir ();
     if not (run_or_warn "[F*,extract]" !fstar args) then
       fatal_error "F* failed";
     if skip_translate then

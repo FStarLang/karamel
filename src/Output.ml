@@ -105,8 +105,7 @@ let write_one name prefix program suffix =
     PPrint.ToChannel.pretty 0.95 100 oc doc
   )
 
-let create_output_directories h =
-  Driver.mk_tmpdir_if ();
+let maybe_create_internal_dir h =
   if List.exists (function (_, C11.Internal _) -> true | _ -> false) h then
     if !Options.tmpdir = "" then
       Driver.mkdirp "internal"
