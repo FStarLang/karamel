@@ -396,7 +396,6 @@ let p_microsoft_comments cs =
 (* We require infinite width to force this to be rendered on a single line. We
  * then force the rendering of the subexpression on a single line as well. *)
 let macro name d: document =
-  let open PPrintEngine in
   let c: custom = object (self)
     method requirement = infinity
 
