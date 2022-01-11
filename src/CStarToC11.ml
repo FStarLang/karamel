@@ -1285,8 +1285,14 @@ let if_private_or_abstract_struct f d =
   else
     []
 
-let if_not_private f d =
-  if not (List.mem Private (flags_of_decl d)) then
+let if_public f d =
+  if not (List.mem Private (flags_of_decl d)) && not (List.mem Internal (flags_of_decl d)) then
+    f d
+  else
+    []
+
+let if_internal f d =
+  if List.mem Internal (flags_of_decl d) then
     f d
   else
     []
@@ -1331,7 +1337,9 @@ let mk_file m decls =
     decls
 
 let mk_files (map: (Ast.lident, Ast.ident) Hashtbl.t) files =
-  List.map (fun (name, deps, program) -> name, deps, mk_file map program) files
+  List.map (fun (name, program) -> name, mk_file map program) files
+
+(* Building three flavors of headers. *)
 
 let mk_static f d =
   List.map (function
@@ -1348,8 +1356,9 @@ let mk_static f d =
         d
   ) (f d)
 
-(* Building the two flavors of headers. *)
-let mk_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
+(* Generates either a static header (the union of public + internal), OR just
+   the public part. *)
+let mk_public_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
   (* In the header file, we put functions and global stubs, along with type
    * definitions that are visible from the outside. *)
   (* What should be the behavior for a type declaration marked as CAbstract but
@@ -1361,20 +1370,45 @@ let mk_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
   KList.map_flatten
     (if_header_inline_static m
       (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
-      (if_not_private (either (mk_function_or_global_stub m) (mk_type_or_external m H))))
+      (if_public (either (mk_function_or_global_stub m) (mk_type_or_external m H))))
     decls
 
-let mk_headers (map: (Ast.lident, Ast.ident) Hashtbl.t) files =
-  let headers = List.fold_left (fun acc (name, deps, program) ->
-    let h = mk_header map program in
-    if List.length h > 0 then
-      (name, deps, h) :: acc
-    else
-      acc
+(* Private part if not already a static header, empty otherwise. *)
+let mk_internal_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
+  (* We make the choice here to not split static headers between public and
+     internal. Could be revisited. *)
+  KList.map_flatten
+    (if_header_inline_static m
+      none
+      (if_internal (either (mk_function_or_global_stub m) (mk_type_or_external m H))))
+    decls
+
+let mk_headers (map: (Ast.lident, Ast.ident) Hashtbl.t)
+  (files: (string * CStar.decl list) list)
+=
+  (* Generate headers with a sensible order for the message "WRITING H FILES: ...". *)
+  let headers = List.fold_left (fun acc (name, program) ->
+    let h = mk_public_header map program in
+    let acc = if List.length h > 0 then (name, Public h) :: acc else acc in
+    let h = mk_internal_header map program in
+    let acc = if List.length h > 0 then (name, C.Internal h) :: acc else acc in
+    acc
   ) [] files in
-  let headers = List.rev headers in
-  let not_dropped f = List.exists (fun (name, _, _) -> f = name) headers in
-  let headers = List.map (fun (name, deps, program) ->
-    name, List.filter not_dropped deps, program
+  List.rev headers
+
+let drop_empty_headers deps headers: Bundles.deps Bundles.StringMap.t =
+  let open Bundles in
+  (* Refine dependencies to ignore now-gone empty headers. *)
+  let not_dropped_internal f = List.exists (function
+    | (name, C.Internal _) when f = name -> true
+    | _ -> false
   ) headers in
-  headers
+  let not_dropped_public f = List.exists (function
+    | (name, Public _) when f = name -> true
+    | _ -> false
+  ) headers in
+  StringMap.map (fun { internal; public } -> {
+    internal = StringSet.filter not_dropped_internal internal;
+    public = StringSet.filter not_dropped_public public
+  }) deps
+

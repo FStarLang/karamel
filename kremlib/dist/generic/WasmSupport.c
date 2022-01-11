@@ -6,6 +6,8 @@
 
 #include "WasmSupport.h"
 
+
+
 uint32_t WasmSupport_align_64(uint32_t x)
 {
   if (!((x & (uint32_t)0x07U) == (uint32_t)0U))

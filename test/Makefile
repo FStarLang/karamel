@@ -47,7 +47,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --include $(CRYPTO) --include ../book --include ../book/notfslit --use_hints --record_hints \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
   --trivial_pre_for_unannotated_effectful_fns false \
-  --cmi
+  --cmi --warn_error -274
 
 # This just needs F* + KreMLin
 all: $(FILES) $(CUSTOM) ctypes-test sepcomp-test

@@ -14,7 +14,7 @@ and raw_error =
   | ExternalError of string
   | ExternalTypeApp of lident
   | Vla of ident
-  | LostStatic of string option * lident * string option * lident
+  | LostStatic of string option * lident * string option * lident (* UNUSED *)
   | LostInline of string option * lident * string option * lident
   | MustCallKrmlInit
   | Deprecated of string * string

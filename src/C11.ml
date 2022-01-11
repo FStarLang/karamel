@@ -136,3 +136,8 @@ and declaration_or_expr = [
   | `Skip
 ]
 [@@deriving show]
+
+type header =
+  | Public of program
+  | Internal of program
+

@@ -682,22 +682,34 @@ Supported options:|}
     OutputJs.write_all !js_files modules !arg_print_wasm
 
   else
-    let _ = () in
+    let () = () in
+    Driver.maybe_create_output_dir ();
     if KString.starts_with !Options.exe_name "lib" then
       Output.write_def c_name_map files;
 
+
     (* Translate to C*... *)
     let file_of_map = Bundle.mk_file_of files in
-    let files = AstToCStar.mk_files files file_of_map c_name_map ifdefs macros in
+    let deps = Bundles.direct_dependencies_with_internal files file_of_map in
+    (* Bundles.debug_deps deps; *)
+    let files = AstToCStar.mk_files files c_name_map ifdefs macros in
     tick_print true "AstToCStar";
 
-    let files = List.filter (fun (_, _, decls) -> List.length decls > 0) files in
+    let files = List.filter (fun (_, decls) -> List.length decls > 0) files in
 
     (* ... then to C *)
     let headers = CStarToC11.mk_headers c_name_map files in
+    let deps = CStarToC11.drop_empty_headers deps headers in
+    let internal_headers = Bundles.StringSet.of_list
+      (List.filter_map (function (name, C11.Internal _) -> Some name | _ -> None) headers)
+    in
+    let public_headers = Bundles.StringSet.of_list
+      (List.filter_map (function (name, C11.Public _) -> Some name | _ -> None) headers)
+    in
+    (* Bundles.debug_deps deps; *)
     let ml_files  = GenCtypes.mk_ocaml_bindings files c_name_map file_of_map in
     let files = CStarToC11.mk_files c_name_map files in
-    let files = List.filter (fun (_, _, decls) -> List.length decls > 0) files in
+    let files = List.filter (fun (_, decls) -> List.length decls > 0) files in
     tick_print true "CStarToC";
 
     (* -dc *)
@@ -706,18 +718,17 @@ Supported options:|}
 
     flush stdout;
     flush stderr;
-    let c_output = Output.write_c files in
-    let h_output = Output.write_h headers in
+    Output.maybe_create_internal_dir headers;
+    let c_output = Output.write_c files internal_headers deps in
+    let h_output = Output.write_h headers public_headers deps in
     GenCtypes.write_bindings ml_files;
-    GenCtypes.write_gen_module ml_files;
+    GenCtypes.write_gen_module ~public:public_headers ~internal:internal_headers ml_files;
     if not !arg_skip_makefiles then Output.write_makefile user_ccopts !c_files c_output h_output;
     tick_print true "PrettyPrinting";
 
-    let fst3 (f, _, _) = f in
-
     if not !Options.silent then begin
-      Printf.printf "KreMLin: wrote out .c files for %s\n" (String.concat ", " (List.map fst3 files));
-      Printf.printf "KreMLin: wrote out .h files for %s\n" (String.concat ", " (List.map fst3 headers))
+      Printf.printf "KreMLin: wrote out .c files for %s\n" (String.concat ", " (List.map fst files));
+      Printf.printf "KreMLin: wrote out .h files for %s\n" (String.concat ", " (List.map fst headers))
     end;
 
     let ml_files = GenCtypes.file_list ml_files in
@@ -726,7 +737,7 @@ Supported options:|}
 
     if !arg_skip_compilation then
       exit 0;
-    let remaining_c_files = Driver.compile (List.map fst3 files) !c_files in
+    let remaining_c_files = Driver.compile (List.map fst files) !c_files in
 
     if !arg_skip_linking then
       exit 0;

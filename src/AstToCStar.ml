@@ -791,14 +791,11 @@ and mk_program m name env decls =
   ) ([], []) decls in
   List.rev decls
 
-and mk_files files file_of m ifdefs macros =
+and mk_files files m ifdefs macros =
   let env = { empty with ifdefs; macros } in
   List.map (fun file ->
-    let deps =
-      Hashtbl.fold (fun k _ acc -> k :: acc) (Bundles.direct_dependencies file_of file) []
-    in
     let name, program = file in
-    name, deps, mk_program m name env program
+    name, mk_program m name env program
   ) files
 
 let mk_macros_set files =

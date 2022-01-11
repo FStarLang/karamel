@@ -133,6 +133,8 @@ and print_flag = function
       string "macro"
   | Deprecated s ->
       string ("deprecated: " ^ s)
+  | Internal ->
+      string "internal"
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   (if mut then string "mutable" ^^ break 1 else empty) ^^

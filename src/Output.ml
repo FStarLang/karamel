@@ -11,9 +11,8 @@ let mk_includes =
 
 let filter_includes file includes =
   KList.filter_some (List.rev_map (function
-    | Some file', h when file = file' -> Some h
+    | Some file', h -> if file = file' then Some h else None
     | None, h -> Some h
-    | _ -> None
   ) includes)
 
 let kremlib_include () =
@@ -63,7 +62,7 @@ let header (): string =
  * and a footer, containing:
  * - the #endif
  *)
-let prefix_suffix name =
+let prefix_suffix original_name name =
   Driver.detect_fstar_if ();
   Driver.detect_kremlin_if ();
   let if_cpp doc =
@@ -71,24 +70,24 @@ let prefix_suffix name =
     doc ^^ hardline ^^
     string "#endif" ^^ hardline
   in
+  let macro_name = String.map (function '/' -> '_' | c -> c) name in
   let prefix =
     string (header ()) ^^ hardline ^^ hardline ^^
-    string (Printf.sprintf "#ifndef __%s_H" name) ^^ hardline ^^
-    string (Printf.sprintf "#define __%s_H" name) ^^ hardline ^^
+    string (Printf.sprintf "#ifndef __%s_H" macro_name) ^^ hardline ^^
+    string (Printf.sprintf "#define __%s_H" macro_name) ^^ hardline ^^
     (if !Options.extern_c then hardline ^^ if_cpp (string "extern \"C\" {") ^^ hardline else empty) ^^
-    mk_includes (filter_includes name !Options.add_early_include) ^^ hardline ^^
+    mk_includes (filter_includes original_name !Options.add_early_include) ^^ hardline ^^
     kremlib_include () ^^ hardline
   in
   let suffix =
     hardline ^^
     (if !Options.extern_c then if_cpp (string "}") else empty) ^^ hardline ^^
-    string (Printf.sprintf "#define __%s_H_DEFINED" name) ^^ hardline ^^
+    string (Printf.sprintf "#define __%s_H_DEFINED" macro_name) ^^ hardline ^^
     string "#endif"
   in
   prefix, suffix
 
 let in_tmp_dir name =
-  Driver.mk_tmpdir_if ();
   let open Driver in
   if !Options.tmpdir <> "" then
     !Options.tmpdir ^^ name
@@ -106,13 +105,27 @@ let write_one name prefix program suffix =
     PPrint.ToChannel.pretty 0.95 100 oc doc
   )
 
-let write_c files =
+let maybe_create_internal_dir h =
+  if List.exists (function (_, C11.Internal _) -> true | _ -> false) h then
+    if !Options.tmpdir = "" then
+      Driver.mkdirp "internal"
+    else
+      Driver.mkdirp (!Options.tmpdir ^ "/internal")
+
+let write_c files internal_headers deps =
   Driver.detect_fstar_if ();
   Driver.detect_kremlin_if ();
   List.map (fun file ->
-    let name, _, program = file in
+    let name, program = file in
+    let deps = Bundles.StringMap.find name deps in
+    let deps = List.of_seq (Bundles.StringSet.to_seq deps.Bundles.internal) in
+    let deps = List.map (fun f -> "internal/" ^ f) deps in
+    let includes = hardline ^^ includes_for name deps ^^ hardline in
     let header = header () in
-    let prefix = string (Printf.sprintf "%s\n\n#include \"%s.h\"" header name) ^^ hardline in
+    let internal = if Bundles.StringSet.mem name internal_headers then "internal/" else "" in
+    (* If there is an internal header, we include that rather than the public
+       one. The internal header always includes the public one. *)
+    let prefix = string (Printf.sprintf "%s\n\n#include \"%s%s.h\"" header internal name) ^^ hardline in
     let prefix =
       if !Options.add_include_tmh then
         string "#ifdef WPP_CONTROL_GUIDS" ^^ hardline ^^
@@ -121,15 +134,37 @@ let write_c files =
       else
         prefix
     in
-    write_one (name ^ ".c") (prefix ^^ hardline) program empty;
+    write_one (name ^ ".c") (prefix ^^ includes) program empty;
     name
   ) files
 
-let write_h files =
+let write_h files public_headers deps =
   List.map (fun file ->
-    let name, deps, program = file in
-    let prefix, suffix = prefix_suffix name in
-    let includes = hardline ^^ includes_for name deps ^^ hardline in
+    let name, program = file in
+    let { Bundles.public; internal } = Bundles.StringMap.find name deps in
+    let public = List.of_seq (Bundles.StringSet.to_seq public) in
+    let internal = List.of_seq (Bundles.StringSet.to_seq internal) in
+    let original_name = name in
+    let name, program, deps =
+      match program with
+      | C11.Internal h ->
+          (* Internal header depends on public header + other internal headers.
+           The "../" is annoying but otherwise this ends up resolving to the
+           internal header in the current (internal) directory.
+           TODO: figure out whether kremlin should generate includes with <...>? *)
+          let internal_headers = List.map (fun f -> "internal/" ^ f) internal in
+          let headers =
+            if Bundles.StringSet.mem name public_headers then
+              ("../" ^ name) :: internal_headers
+            else
+              public @ internal_headers
+          in
+          "internal/" ^ name, h, headers
+      | C11.Public h ->
+          name, h, public
+    in
+    let includes = hardline ^^ includes_for original_name deps ^^ hardline in
+    let prefix, suffix = prefix_suffix original_name name in
     write_one (name ^ ".h") (prefix ^^ includes) program suffix;
     name
   ) files

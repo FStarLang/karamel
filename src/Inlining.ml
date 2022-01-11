@@ -4,7 +4,6 @@
 (** Whole-program inlining based on the [MustDisappear] flag passed by F*. *)
 
 open Ast
-open Warn
 open PrintAst.Ops
 open Common
 
@@ -77,7 +76,7 @@ let rec memoize_inline map visit lid =
   let color, body = Hashtbl.find map lid in
   match color with
   | Gray ->
-      fatal_error "[Frames]: cyclic dependency on %a" plid lid
+      Warn.fatal_error "[Frames]: cyclic dependency on %a" plid lid
   | Black ->
       body
   | White ->
@@ -126,7 +125,7 @@ let mk_inliner files criterion =
     method! visit_EQualified (_, t) lid =
       match t with
       | TArrow _ when Hashtbl.mem map lid && criterion lid ->
-          fatal_error "[Frames]: %a partially applied function; not meant to happen" plid lid
+          Warn.fatal_error "[Frames]: %a partially applied function; not meant to happen" plid lid
       | _ ->
           EQualified lid
   end)#visit_expr_w ()) in
@@ -191,11 +190,6 @@ let inline_analysis files =
   in
   must_inline, must_disappear
 
-(* The functions that the user intentionally marked as private through a named
- * bundle with an API. Contrast that with the "as-needed" usage when no API
- * module is provided. Filled out by Bundles. *)
-let marked_private: (_, unit) Hashtbl.t = Hashtbl.create 41
-
 (** This phase drops private qualifiers if a function is called across
  * translation units. The visibility rules of F* notwithstanding, these can
  * happen because:
@@ -210,9 +204,11 @@ let cross_call_analysis files =
 
   let file_of = Bundle.mk_file_of files in
 
+  let module T = struct type outcome = Private | Internal end in
+
   (* A map that *eventually* will contain the exactly the set of [lid]s that can
    * be safely marked as private. The invariant is not established yet. *)
-  let safely_private = Hashtbl.create 41 in
+  let private_or_internal = Hashtbl.create 41 in
   let safely_inline = Hashtbl.create 41 in
 
   (* Constants that will end up being mutable in Wasm because of the compilation
@@ -220,6 +216,10 @@ let cross_call_analysis files =
    * relative to `data_start` *)
   let wasm_mutable = Hashtbl.create 41 in
 
+  (* In the initial state, we optimistically mark every private function as
+     being private, every inline function as being inline. We also anticipate
+     on the WASM compilation phase and record all the globals that will be
+     compiled as WASM mutable globals. *)
   List.iter (fun (_, decls) ->
     List.iter (fun d ->
       let name = lid_of_decl d in
@@ -227,7 +227,7 @@ let cross_call_analysis files =
 
       if List.mem Private flags && not (Helpers.is_static_header name) then
         (* -static-header takes precedence over private, see CStarToC11.ml *)
-        Hashtbl.add safely_private name ();
+        Hashtbl.add private_or_internal name T.Private;
 
       if List.mem Inline flags then
         Hashtbl.add safely_inline name ();
@@ -255,10 +255,10 @@ let cross_call_analysis files =
     (* There is a cross-compilation-unit call from [name_from] to
      * [name_from‘], meaning that the latter cannot safely remain
      * inline. *)
-    if cross_call name_from name_to && Hashtbl.mem safely_private name_to then begin
-      if Hashtbl.mem marked_private name_to then
-        Warn.maybe_fatal_error ("", LostStatic (file_of name_from, name_from, file_of name_to, name_to));
-      Hashtbl.remove safely_private name_to
+    if cross_call name_from name_to && Hashtbl.mem private_or_internal name_to then begin
+      (* KPrint.bprintf "Cross-call from %a to %a which becomes internal\n" *)
+      (*   plid name_from plid name_to; *)
+      Hashtbl.replace private_or_internal name_to T.Internal
     end;
     if cross_call name_from name_to && Hashtbl.mem safely_inline name_to &&
       not (Helpers.is_static_header name_to)
@@ -307,6 +307,11 @@ let cross_call_analysis files =
   end in
   let files = unmark_private_in#visit_files () files in
 
+  (* WASM compilers error out when a module tries to directly access a mutable
+     global constant for another module (this appears to work on OSX but not
+     other OSes for dynamic linking issues I don't pretend to understand). We
+     detect those accesses here too, and when N.f accesses M.x, we generate
+     M.__get_x, and then N.f calls `M.__get_x ()` instead of reading `M.x`. *)
   let generate_getters = object
     inherit [_] map as super
     val mutable new_decls = []
@@ -323,7 +328,7 @@ let cross_call_analysis files =
 
       let flags =
         if Hashtbl.mem wasm_mutable name then begin
-          Hashtbl.add safely_private name ();
+          Hashtbl.add private_or_internal name Private;
           Common.Private :: flags
         end else
           flags
@@ -345,22 +350,37 @@ let cross_call_analysis files =
   let unmark_private_types_in =
     let decl_map = Helpers.build_map files (fun map d ->
       match d with
-      | DType (lid, _, _, d) -> Hashtbl.add map lid d
+      | DType (lid, _, _, _) -> Hashtbl.add map lid d
       | _ -> ()
     ) in
     let seen = Hashtbl.create 41 in
+    (* TODO: switch to a fixpoint calculation... this is bad *)
+    let mode = ref `Internal in
+    let mode_lt x y =
+      match x, y with
+      | `Internal, `Public -> true
+      | _ -> false
+    in
     object (self)
       inherit [_] iter as super
 
       method private still_private d =
-        List.mem Private (flags_of_decl d) && Hashtbl.mem safely_private (lid_of_decl d)
+        List.mem Private (flags_of_decl d) &&
+        Hashtbl.find_opt private_or_internal (lid_of_decl d) = Some T.Private
 
       method private remove_and_visit name =
-        if Hashtbl.mem safely_private name then
-          Hashtbl.remove safely_private name;
-        if not (Hashtbl.mem seen name) then begin
-          Hashtbl.add seen name ();
-          try self#visit_type_def () (Hashtbl.find decl_map name)
+        if Hashtbl.mem private_or_internal name then begin
+          (* KPrint.bprintf "Remove_and_visit %a with mode %s\n" plid name *)
+          (*   (match !mode with `Public -> "public" | `Internal -> "internal"); *)
+          match !mode with
+          | `Internal ->
+              Hashtbl.replace private_or_internal name T.Internal
+          | `Public ->
+              Hashtbl.remove private_or_internal name
+        end;
+        if not (Hashtbl.mem seen name) || mode_lt (Hashtbl.find seen name) !mode then begin
+          Hashtbl.replace seen name !mode;
+          try super#visit_decl () (Hashtbl.find decl_map name)
           with Not_found -> ()
         end
 
@@ -382,9 +402,22 @@ let cross_call_analysis files =
         if Helpers.is_static_header name then
           self#visit_expr_w () body
 
+      (* Traversal starts here at the top-level. Note that remove_and_visit does
+         not call into this method (but rather the default one via super). *)
       method! visit_decl env d =
-        if not (self#still_private d) || Helpers.is_static_header (lid_of_decl d) then begin
-          Hashtbl.add seen (lid_of_decl d) ();
+        (* KPrint.bprintf "Visiting %a?? still_private=%b\n" plid (lid_of_decl d) (self#still_private d); *)
+        (* We visit any non-private declaration; static header takes precedence
+           over private. *)
+        let name = lid_of_decl d in
+        if not (self#still_private d) || Helpers.is_static_header name then begin
+          mode :=
+            match Hashtbl.find private_or_internal name with
+            | exception Not_found -> `Public
+            | T.Internal -> `Internal
+            | T.Private -> assert (Helpers.is_static_header name); `Public ; ;
+          Hashtbl.add seen (lid_of_decl d) !mode;
+          (* KPrint.bprintf "Visiting %a with mode %s\n" plid (lid_of_decl d) *)
+          (*   (match !mode with `Public -> "public" | `Internal -> "internal"); *)
           super#visit_decl env d
         end
     end
@@ -396,6 +429,7 @@ let cross_call_analysis files =
   let files =
     let keep_if table flag name flags =
       if not (Hashtbl.mem table name) ||
+        (* TODO why? `main` can neither be inline or private ?! *)
         GlobalNames.target_c_name ~attempt_shortening:false ~is_macro:false name = "main"
       then
         List.filter ((<>) flag) flags
@@ -403,7 +437,12 @@ let cross_call_analysis files =
         flags
     in
     let filter name flags =
-      let flags = keep_if safely_private Private name flags in
+      let flags =
+        match Hashtbl.find private_or_internal name with
+        | exception Not_found -> List.filter ((<>) Private) flags
+        | T.Private -> flags
+        | T.Internal -> Internal :: List.filter ((<>) Private) flags
+      in
       if !Options.cc = "compcert" then
         keep_if safely_inline Inline name flags
       else
