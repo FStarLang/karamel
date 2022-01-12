@@ -14,7 +14,7 @@
 
 
 
-extern void WasmSupport_trap();
+extern void WasmSupport_trap(Prims_string uu___);
 
 uint32_t WasmSupport_align_64(uint32_t x);
 

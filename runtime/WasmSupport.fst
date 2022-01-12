@@ -13,7 +13,7 @@ open FStar.Mul
 
 (* Functions implemented primitively in JS. *)
 
-assume val trap: unit -> Stack unit (fun _ -> True) (fun _ _ _ -> false)
+assume val trap: Prims.string -> Stack unit (fun _ -> True) (fun _ _ _ -> false)
 
 (* Functions that the code-generator expects to find, either at the Ast, CFlat
  * or Wasm levels. In SimplifyWasm.ml, we prefix these with their module (before
@@ -30,7 +30,7 @@ let align_64 (x: U32.t): Tot U32.t =
 (* Non-zero sizes are not supported, period. *)
 let check_buffer_size (s: U32.t): Stack unit (fun _-> True) (fun _ _ _ -> True) =
   if U32.( s =^ 0ul ) then
-    trap ()
+    trap "Zero-sized arrays are not supported in C and in WASM either. See WasmSupport.fst"
 
 let betole32 (x: U32.t) =
   let open U32 in
@@ -49,7 +49,7 @@ let memzero (x: B.buffer UInt8.t) (len: UInt32.t) (sz: UInt32.t): Stack unit
   (ensures (fun h0 _ h1 -> B.(modifies (loc_buffer x) h0 h1)))
 =
   if len `U32.gte` (0xfffffffful `U32.div` sz) then
-    trap ();
+    trap "Overflow in memzero; see WasmSupport.fst";
   let n_bytes = U32.mul len sz in
   let h0 = FStar.HyperStack.ST.get () in
   C.Loops.for 0ul n_bytes (fun h _ ->

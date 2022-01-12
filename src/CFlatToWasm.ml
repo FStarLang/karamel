@@ -766,6 +766,12 @@ and mk_expr env (e: expr): W.Ast.instr list =
       i32_mul @
       grow_highwater env
 
+  | BufCreate (Common.Heap, _, _) ->
+      let loc = KPrint.bsprintf "%a" ploc env.location in
+      Warn.(maybe_fatal_error (loc, NotWasmCompatible (([], ""), "heap allocations not supported")));
+      mk_expr env (Abort (StringLiteral (
+        KPrint.bsprintf "In %s, heap allocations are not supported yet" loc)))
+
   | BufRead (e1, ofs, size) ->
       (* github.com/WebAssembly/spec/blob/master/interpreter/spec/eval.ml#L189 *)
       mk_expr env e1 @

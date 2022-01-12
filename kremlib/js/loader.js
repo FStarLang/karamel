@@ -137,9 +137,10 @@ function dummyModule(funcs, globals) {
 }
 
 let mkWasmSupport = (mem) => ({
-  WasmSupport_trap: () => {
+  WasmSupport_trap: (s) => {
     dump(mem, 2*1024);
-    my_print("Run-time trap, e.g. zero-sized array or abort.");
+    my_print(stringAtAddr(mem, addr));
+    my_print("Run-time trap, e.g. zero-sized array or abort. See error message above.");
     throw new Error();
   }
 });

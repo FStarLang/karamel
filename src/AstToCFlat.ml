@@ -878,6 +878,10 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 let scratch_locals =
   [ I64; I64; I32; I32 ]
 
+let msg_i64 = format_of_string "Abort: %s was meant to be hand-written and \
+  provided at link-time, but contains an I64 and therefore cannot be called from \
+  WASM."
+
 let mk_decl env (d: decl): env * CF.decl option =
   match d with
   | DFunction (_, flags, n, ret, name, args, body) ->
@@ -926,7 +930,10 @@ let mk_decl env (d: decl): env * CF.decl option =
             Warn.(maybe_fatal_error ("", NotWasmCompatible (lid, "functions \
               implemented natively in JS (because they're assumed) cannot take or \
               return I64")));
-            env, None
+            env, Some CF.(Function { name; args; ret; locals = [];
+              body = CF.Abort (CF.StringLiteral (Printf.sprintf msg_i64 name));
+              public = true
+            })
           end else
             env, Some (CF.ExternalFunction (name, args, ret))
       | _ ->
