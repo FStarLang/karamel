@@ -930,7 +930,7 @@ let mk_decl env (d: decl): env * CF.decl option =
             Warn.(maybe_fatal_error ("", NotWasmCompatible (lid, "functions \
               implemented natively in JS (because they're assumed) cannot take or \
               return I64")));
-            env, Some CF.(Function { name; args; ret; locals = [];
+            env, Some CF.(Function { name; args; ret; locals = scratch_locals;
               body = CF.Abort (CF.StringLiteral (Printf.sprintf msg_i64 name));
               public = true
             })
