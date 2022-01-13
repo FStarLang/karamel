@@ -1,3 +1,40 @@
+### Dec 29th, 2021
+
+Eliminate projectors and discriminators unless otherwise necessary.
+
+### Dec 28th, 2021
+
+New feature: external headers.
+
+Prior to this change, KReMLin would expose too many internal functions
+in public headers. Due to e.g. `inline_for_extraction`, `friend` or
+bundling, it would be frequently the case that `f` (in file `M`) would
+need to call `g` (in file `N`) when `g` was marked as `private` in F\*
+and was never intended to be part of the public API.
+
+The prior behavior was for KReMLin to mark `g` as public and expose it
+in `N.h`. This behavior started being really unpleasant, because with
+meta-programming, it is now frequent for e.g. Chacha-Poly to call
+internal helpers in both Chacha and Poly.
+
+The new behavior is that `N.h` remains unchanged. Rather, KReMLin now
+emits `internal/N.h`, an internal header that exposes private
+definitions. The internal headers are included by other files within
+the library (i.e. within the same KReMLin invocation), but are not
+intended to be included by client code.
+
+This results is subtantially higher-quality headers.
+
+### Aug 10th, 2021
+
+Remove unused type arguments from functions, which in turn removes spurious
+monomorphizations.
+
+### May 10th, 2021
+
+Numerous improvements to "naming hints", i.e. user-provided names for
+applications of polymorphic data types.
+
 ### Feb 8th, 2021
 
 Compile recursive equality predicates better.
