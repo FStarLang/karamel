@@ -199,6 +199,12 @@ let dyn: file =
       with_type void_star (ECast (with_type (TBound 0) (EBound 0), void_star)))
   ]
 
+let steel_reference : file =
+  "Steel_Reference", [
+    mk_val [ "Steel"; "Reference" ] "is_null" (TArrow (TBuf (TAny, false), TBool));
+    mk_val [ "Steel"; "Reference" ] "null" (TArrow (TAny, TBuf (TAny, false)));
+  ]
+
 let lowstar_monotonic_buffer: file =
   "LowStar_Monotonic_Buffer", [
     mk_val [ "LowStar"; "Monotonic"; "Buffer" ] "is_null" (TArrow (TBuf (TAny, false), TBool));
@@ -298,6 +304,7 @@ let lib_memzero0: file =
 (* These modules are entirely written by hand in abstract syntax. *)
 let hand_written = [
   buffer;
+  steel_reference;
   lowstar_monotonic_buffer;
   lowstar_buffer;
   lowstar_endianness;
