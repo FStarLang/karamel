@@ -58,6 +58,13 @@ install coreutils`).
 If you have the right version of F\* and `fstar.exe` is in your `PATH` then you
 can run the KreMLin test suite by doing `make test`.
 
+## Installing through OPAM
+
+KreMLin is also available on OPAM, by running `opam install kremlin`.
+
+If you installed the latest version of F* through OPAM, using `opam pin add fstar --dev-repo`,
+you can also install the most up-to-date version of KreMLin by running `opam pin add kremlin --dev-repo`.
+
 File a bug if things don't work!
 
 ## Documentation
