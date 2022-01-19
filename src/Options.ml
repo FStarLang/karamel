@@ -33,6 +33,7 @@ let hand_written: Bundle.pat list ref = ref []
 let debug_modules: string list ref = ref []
 let debug s = List.exists ((=) s) !debug_modules
 let wasm = ref false
+let rust = ref false
 let static_header: Bundle.pat list ref = ref []
 let minimal = ref false
 let by_ref: (string list * string) list ref = ref []

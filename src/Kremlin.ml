@@ -48,6 +48,7 @@ let _ =
   let arg_print_structs = ref false in
   let arg_print_c = ref false in
   let arg_print_wasm = ref false in
+  let arg_print_rust = ref false in
   let arg_skip_extraction = ref false in
   let arg_skip_translation = ref false in
   let arg_skip_compilation = ref false in
@@ -207,6 +208,7 @@ Supported options:|}
     "-diagnostics", Arg.Set arg_diagnostics, "  list recursive functions and \
       overly nested data types (useful for MSVC)";
     "-wasm", Arg.Set Options.wasm, "  emit a .wasm file instead of C";
+    "-rust", Arg.Set Options.rust, "  emit a .rs file instead of C";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* Controlling the behavior of KreMLin *)
@@ -315,6 +317,7 @@ Supported options:|}
       struct transformations";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-dwasm", Arg.Set arg_print_wasm, " pretty-print the output Wasm";
+    "-drust", Arg.Set arg_print_rust, " pretty-print the output Rust";
     "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific \
       comma-separated list of values; currently supported: \
       inline,bundle,reachability,c-calls,wasm-calls,wasm-memory,wasm,force-c,cflat";
@@ -513,6 +516,12 @@ Supported options:|}
   let files = Inlining.inline_type_abbrevs files in
   let files = DataTypes.remove_unused_type_arguments files in
   let files = Inlining.reparenthesize_applications files in
+
+  (* Rust has support for polymorphic types. If we want to extract to Rust,
+     we want to do it before monomorphizing functions *)
+  if !Options.rust then
+    exit 0;
+
   let files = Monomorphization.functions files in
   if !arg_print_monomorphization then
     print PrintAst.print_files files;
