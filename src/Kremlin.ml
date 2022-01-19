@@ -516,12 +516,6 @@ Supported options:|}
   let files = Inlining.inline_type_abbrevs files in
   let files = DataTypes.remove_unused_type_arguments files in
   let files = Inlining.reparenthesize_applications files in
-
-  (* Rust has support for polymorphic types. If we want to extract to Rust,
-     we want to do it before monomorphizing functions *)
-  if !Options.rust then
-    exit 0;
-
   let files = Monomorphization.functions files in
   if !arg_print_monomorphization then
     print PrintAst.print_files files;
@@ -690,7 +684,10 @@ Supported options:|}
 
     OutputJs.write_all !js_files modules !arg_print_wasm
 
-  else
+  else if !Options.rust && not (Options.debug "force-c") then (
+    print PrintAst.print_files files;
+    exit 0
+  ) else
     let () = () in
     Driver.maybe_create_output_dir ();
     if KString.starts_with !Options.exe_name "lib" then
