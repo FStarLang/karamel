@@ -176,7 +176,7 @@ let is_union = function TAnonymous (Union _) -> true | _ -> false
 let is_null = function
   | { node = EApp (
       { node = EQualified (
-          ([ "LowStar"; "Buffer" ] | [ "C"; "Nullity" ]), "null" |
+          ([ "LowStar"; "Buffer" ] | [ "Steel"; "Reference" ] | [ "C"; "Nullity" ]), "null" |
           ([ "LowStar"; "Monotonic"; "Buffer" ], "mnull"));
         _ }, _); _ }
   ->
@@ -239,6 +239,7 @@ let is_readonly_builtin_lid lid =
     [ "FStar"; "UInt32" ], "v";
     [ "FStar"; "UInt128" ], "uint128_to_uint64";
     [ "LowStar"; "Monotonic"; "Buffer" ], "mnull";
+    [ "Steel"; "Reference" ], "null";
   ] in
   List.exists (fun lid' ->
     let lid = Idents.string_of_lident lid in
