@@ -304,7 +304,6 @@ let lib_memzero0: file =
 (* These modules are entirely written by hand in abstract syntax. *)
 let hand_written = [
   buffer;
-  steel_reference;
   lowstar_monotonic_buffer;
   lowstar_buffer;
   lowstar_endianness;
@@ -381,7 +380,7 @@ let is_model name =
 (* We have several different treatments. *)
 let prepare files =
   (* prims is a special-case, as it is not extracted by F* (FIXME) *)
-  prims :: List.map (fun f ->
+  prims :: steel_reference :: List.map (fun f ->
     let name = fst f in
     (* machine integers, some modules from the C namespace just become abstract in Low*. *)
     let f = if is_model name then make_abstract f else f in
