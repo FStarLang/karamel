@@ -304,7 +304,6 @@ let lib_memzero0: file =
 (* These modules are entirely written by hand in abstract syntax. *)
 let hand_written = [
   buffer;
-  steel_reference;
   lowstar_monotonic_buffer;
   lowstar_buffer;
   lowstar_endianness;
