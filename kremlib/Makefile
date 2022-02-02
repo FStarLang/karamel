@@ -116,6 +116,7 @@ $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c
 # Minimalistic build (just machine integers and endianness)
 $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar_uint128*.h) ../_build/src/Kremlin.native
 	mkdir -p $(dir $@)
+	KREMLIN_HOME=$(shell pwd)/.. \
 	../krml $(KREMLIN_ARGS) -tmpdir $(MINI_DIR) \
 	  $(MACHINE_INTS) \
 	  $(addprefix -add-include , \
