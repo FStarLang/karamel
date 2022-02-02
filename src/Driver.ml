@@ -145,7 +145,7 @@ let detect_base_tools_if () =
 let detect_kremlin () =
   detect_base_tools_if ();
 
-  if AutoConfig.kremlib_dir <> "" then begin
+  if AutoConfig.kremlib_dir <> "" && try ignore (Sys.getenv "KREMLIN_HOME"); false with Not_found -> true then begin
     kremlib_dir := AutoConfig.kremlib_dir;
     runtime_dir := AutoConfig.runtime_dir;
     include_dir := AutoConfig.include_dir;
