@@ -135,6 +135,7 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar
 # FStar.UInt64 shares the same bundle name, meaning that
 # FStar_UInt128_Verified.h can be dropped in any of the two kremlibs above.
 $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) ../_build/src/Kremlin.native
+	KREMLIN_HOME=$(shell pwd)/.. \
 	../krml $(KREMLIN_ARGS) -tmpdir $(UINT128_DIR) \
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"kremlin/internal/types.h"' '"kremlin/internal/target.h"') \
 	  -bundle FStar.UInt64[rename=FStar_UInt_8_16_32_64] \
@@ -159,4 +160,5 @@ compile-all: compile-dist-generic $(MINI_DIR)/Makefile.include $(UINT128_DIR)/Ma
 
 .PHONY: compile-dist-%
 compile-dist-%: dist/%/Makefile.include
+	KREMLIN_HOME=$(shell pwd)/.. \
 	$(MAKE) -C dist/$* -f Makefile.basic
