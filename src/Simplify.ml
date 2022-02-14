@@ -1517,6 +1517,10 @@ let combinators = object(self)
       when KString.starts_with s "for" ->
         self#mk_for start finish body K.UInt32
 
+    | EQualified (["Steel"; "ST"; "Loops"], s), [ start; finish; _inv; { node = EFun (_, body, _); _ } ]
+      when KString.starts_with s "for_loop" ->
+        self#mk_for start finish body K.UInt32
+
     | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), s), [ _measure; _inv; tcontinue; body; init ]
         when KString.starts_with s "total_while_gen"
        ->
@@ -1585,6 +1589,13 @@ let combinators = object(self)
         { node = EFun (_, test, _); _ };
         { node = EFun (_, body, _); _ } ]
       when KString.starts_with s "while" ->
+        EWhile (DeBruijn.subst Helpers.eunit 0 (self#visit_expr_w () test),
+          DeBruijn.subst Helpers.eunit 0 (self#visit_expr_w () body))
+
+    | EQualified (["Steel"; "ST"; "Loops"], s), [ _inv;
+        { node = EFun (_, test, _); _ };
+        { node = EFun (_, body, _); _ } ]
+      when KString.starts_with s "while_loop" ->
         EWhile (DeBruijn.subst Helpers.eunit 0 (self#visit_expr_w () test),
           DeBruijn.subst Helpers.eunit 0 (self#visit_expr_w () body))
 
