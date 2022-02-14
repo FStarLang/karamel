@@ -1,7 +1,7 @@
 RECENT_GCC	= $(shell [ "$$(gcc -dumpversion | cut -c -1)" -ge 5 ] && echo yes)
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
-TEST_OPTS	= -warn-error @4 -verbose -skip-makefiles
+TEST_OPTS	= -warn-error @4@2 -verbose -skip-makefiles
 KRML_BIN	= ../_build/src/Kremlin.native
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 
@@ -109,8 +109,7 @@ ifeq ($(OS),Windows_NT)
 endif
 
 # Various flags to be passed to some targets...
-$(OUTPUT_DIR)/SteelNull.exe: EXTRA = -warn-error @2
-$(OUTPUT_DIR)/SteelNotNull.exe: EXTRA = -warn-error @2
+$(OUTPUT_DIR)/NoExtract.exe: EXTRA = -warn-error +2
 $(OUTPUT_DIR)/Structs2.exe: EXTRA = -wasm -d force-c wasm-stubs.c
 $(OUTPUT_DIR)/ML16.exe: EXTRA = ml16-native.c
 $(OUTPUT_DIR)/Scope.exe: EXTRA = -ccopt -O3

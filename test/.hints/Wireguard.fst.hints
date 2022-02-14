@@ -15,7 +15,7 @@
         "subterm_ordering_Prims.Cons"
       ],
       0,
-      "5b5db7e5e0f1c0d9a42c13b08ee2c5e6"
+      "1bb20bb641ba8576a697c92578474110"
     ],
     [
       "Wireguard.peers_footprint",
@@ -31,7 +31,7 @@
         "subterm_ordering_Prims.Cons"
       ],
       0,
-      "60e83d6e6d91f9592234f07fd5c6a356"
+      "2399a1ae67b0f91d0b7114fc3ce5a504"
     ],
     [
       "Wireguard.peers_disjoint",
@@ -47,7 +47,7 @@
         "subterm_ordering_Prims.Cons"
       ],
       0,
-      "00bf3580824e53111385b3bcf03c44b8"
+      "63b200b571a2f1f6d0171dae482d7391"
     ],
     [
       "Wireguard.peers_invariants",
@@ -58,13 +58,13 @@
         "@MaxIFuel_assumption", "@query",
         "binder_x_c3df284ae08f5d6d7d95fa3e7578e035_2",
         "disc_equation_Prims.Cons", "disc_equation_Prims.Nil",
-        "equality_tok_Prims.LexTop@tok",
         "equation_FStar.Monotonic.HyperStack.mem",
+        "equation_Prims.op_Equals_Equals_Equals",
         "fuel_guarded_inversion_Prims.list", "inversion-interp",
         "projection_inverse_BoxBool_proj_0", "subterm_ordering_Prims.Cons"
       ],
       0,
-      "eeb57428ca99cbf1a25b0f494da9ad18"
+      "e4e0184fb0630e75b9fc356473636cd8"
     ],
     [
       "Wireguard.peer_by_id",
@@ -77,12 +77,12 @@
         "binder_x_c3df284ae08f5d6d7d95fa3e7578e035_1",
         "binder_x_fe73a94f2dd77d31df9370eb9a76c290_0",
         "disc_equation_Prims.Cons", "disc_equation_Prims.Nil",
-        "equality_tok_Prims.LexTop@tok", "fuel_guarded_inversion_Prims.list",
-        "inversion-interp", "projection_inverse_BoxBool_proj_0",
-        "subterm_ordering_Prims.Cons"
+        "equation_Prims.op_Equals_Equals_Equals",
+        "fuel_guarded_inversion_Prims.list", "inversion-interp",
+        "projection_inverse_BoxBool_proj_0", "subterm_ordering_Prims.Cons"
       ],
       0,
-      "981e9011ea7385dd836a1340493ebf32"
+      "f47dc740e72d21c2aae7a96decafc879"
     ],
     [
       "Wireguard.peer_of_id_in_peers",
@@ -102,7 +102,7 @@
         "typing_LowStar.Lib.LinkedList.t"
       ],
       0,
-      "aa918c11faa6e337d4c6e57d758e2c01"
+      "17ac0d0d67158e7c217f60f82c026206"
     ],
     [
       "Wireguard.peers_back",
@@ -115,14 +115,14 @@
         "binder_x_bd2454368a978faa5ec07157e732fe28_1",
         "binder_x_c3df284ae08f5d6d7d95fa3e7578e035_2",
         "disc_equation_Prims.Cons", "disc_equation_Prims.Nil",
-        "equality_tok_Prims.LexTop@tok",
         "equation_FStar.Monotonic.HyperStack.mem",
+        "equation_Prims.op_Equals_Equals_Equals",
         "fuel_guarded_inversion_Prims.list",
         "fuel_guarded_inversion_Wireguard.device", "inversion-interp",
         "projection_inverse_BoxBool_proj_0", "subterm_ordering_Prims.Cons"
       ],
       0,
-      "a0b61cea94edb292ab7a0af01b5820a0"
+      "7d99307084d010c906fb957ffcc6b902"
     ],
     [
       "Wireguard.invariant",
@@ -140,7 +140,7 @@
         "typing_Wireguard.__proj__Mkdevice__item__r"
       ],
       0,
-      "704f812798783d636a60fe266da6eb77"
+      "c62bb7e02f3a4655c02b21add581f044"
     ],
     [
       "Wireguard.peer_footprint_in",
@@ -160,13 +160,13 @@
         "binder_x_ed25b04ac1a3660bf4cdc8ae577888d8_0", "bool_inversion",
         "constructor_distinct_Prims.Cons", "constructor_distinct_Prims.Nil",
         "disc_equation_Prims.Cons", "disc_equation_Prims.Nil",
-        "equality_tok_Prims.LexTop@tok",
         "equation_FStar.Monotonic.HyperStack.is_wf_with_ctr_and_tip",
         "equation_FStar.Monotonic.HyperStack.mem",
         "equation_LowStar.Buffer.buffer", "equation_LowStar.Buffer.pointer",
         "equation_LowStar.Buffer.trivial_preorder",
         "equation_LowStar.Monotonic.Buffer.loc_in", "equation_Prims.eqtype",
-        "equation_Prims.nat", "equation_Wireguard.handshake_state",
+        "equation_Prims.nat", "equation_Prims.op_Equals_Equals_Equals",
+        "equation_Wireguard.handshake_state",
         "equation_Wireguard.peer_footprint",
         "equation_Wireguard.peer_invariant",
         "equation_Wireguard.peers_invariant",
@@ -206,7 +206,7 @@
         "typing_Wireguard.peer_footprint", "typing_Wireguard.peers_footprint"
       ],
       0,
-      "196eb128306318ca2b8425c87049e25f"
+      "a59ddd356e07c0de7bd9ca7ac97d2881"
     ],
     [
       "Wireguard.device_peers_footprint_in",
@@ -215,7 +215,7 @@
       0,
       [ "@query", "equation_Wireguard.invariant" ],
       0,
-      "c4495fb6c395c4c67111faeb147223a9"
+      "71b0916c53d2eb67342a6937608e6628"
     ],
     [
       "Wireguard.frame_peers_back",
@@ -237,7 +237,6 @@
         "bool_typing", "constructor_distinct_Prims.Cons",
         "constructor_distinct_Prims.Nil", "data_elim_Wireguard.Mkdevice",
         "disc_equation_Prims.Cons", "disc_equation_Prims.Nil", "eq2-interp",
-        "equality_tok_Prims.LexTop@tok",
         "equation_FStar.Monotonic.HyperHeap.hmap",
         "equation_FStar.Monotonic.HyperStack.is_tip",
         "equation_FStar.Monotonic.HyperStack.is_wf_with_ctr_and_tip",
@@ -245,7 +244,8 @@
         "equation_LowStar.Buffer.buffer", "equation_LowStar.Buffer.pointer",
         "equation_LowStar.Buffer.trivial_preorder",
         "equation_LowStar.Monotonic.Buffer.get", "equation_Prims.eqtype",
-        "equation_Prims.nat", "equation_Wireguard.handshake_state",
+        "equation_Prims.nat", "equation_Prims.op_Equals_Equals_Equals",
+        "equation_Wireguard.handshake_state",
         "equation_Wireguard.peer_footprint",
         "equation_Wireguard.peer_invariant",
         "equation_with_fuel_Wireguard.peers_back.fuel_instrumented",
@@ -291,7 +291,7 @@
         "typing_Wireguard.__proj__Mkpeer__item__hs"
       ],
       0,
-      "5319802f9c5ff9f244df9eaf96074107"
+      "017b29052bef7943ee4e1aae88d29703"
     ],
     [
       "Wireguard.frame_peers_invariants",
@@ -377,7 +377,7 @@
         "typing_Wireguard.peer_footprint"
       ],
       0,
-      "771a36a8ecb0aa7bda31e09876fd6f56"
+      "ce1f571f23c5ea0dfd2c6061a1ae4d5d"
     ],
     [
       "Wireguard.cell_by_id_is_peer_by_id",
@@ -392,7 +392,7 @@
         "refinement_interpretation_Tm_refine_573cfed777dae20cc82e8fef9622857e"
       ],
       0,
-      "ec2d08b940778f7ca99a2df2190e65ae"
+      "17f5d317770ba512bb5abf2c08deb5b9"
     ],
     [
       "Wireguard.cell_by_id_is_peer_by_id",
@@ -501,7 +501,7 @@
         "typing_Wireguard.cell_by_id", "typing_Wireguard.peer_by_id"
       ],
       0,
-      "61be7fd9ff1b19779ab85c0273f5f909"
+      "bf6ad0c0fd6b3c97fd2ef51e7daebe42"
     ],
     [
       "Wireguard.peer_by_id_invariant",
@@ -525,6 +525,7 @@
         "constructor_distinct_Tm_unit", "data_elim_Prims.Cons",
         "disc_equation_Prims.Cons",
         "equation_FStar.Monotonic.HyperStack.mem",
+        "equation_Prims.op_Equals_Equals_Equals",
         "equation_Wireguard.peers_invariant",
         "equation_with_fuel_Wireguard.peer_by_id.fuel_instrumented",
         "equation_with_fuel_Wireguard.peers_disjoint.fuel_instrumented",
@@ -536,7 +537,7 @@
         "projection_inverse_Prims.Cons_tl", "subterm_ordering_Prims.Cons"
       ],
       0,
-      "f813388e51ed587f9819c6067a6decd8"
+      "e30d313593680b3ed4ad15475819245b"
     ],
     [
       "Wireguard.frame_invariant",
@@ -637,7 +638,7 @@
         "typing_Wireguard.peers_footprint"
       ],
       0,
-      "6fac539cc4c26e69b22ba9e5820957d3"
+      "d5fc67457b3f6b3dfd31080d3d7f1f11"
     ],
     [
       "Wireguard.create_in",
@@ -774,7 +775,7 @@
         "typing_LowStar.Monotonic.Buffer.loc_regions"
       ],
       0,
-      "7db9c9c988c6562412229a31329b521d"
+      "03a0c60c47544e3ac295696da9621e65"
     ],
     [
       "Wireguard.free_peer_list",
@@ -879,7 +880,7 @@
         "typing_Wireguard.peer_footprint"
       ],
       0,
-      "5e4b5cd7659535901b387e3c741e5ec6"
+      "e85c85e8f61ca311ee75354d9fd1f2a2"
     ],
     [
       "Wireguard.free_",
@@ -945,7 +946,7 @@
         "typing_Wireguard.__proj__Mkdevice__item__r_peers_payload"
       ],
       0,
-      "0d38465c4d566f737949d87fb683201a"
+      "9870b7e10136b59a0f6664abffe1c95d"
     ],
     [
       "Wireguard.insert_peer",
@@ -954,7 +955,7 @@
       0,
       [ "@query" ],
       0,
-      "7ade437a82d083c2e76fa7b8f9bbc6b5"
+      "45951dac0e9e53d967fbe6dac70d5f40"
     ],
     [
       "Wireguard.insert_peer",
@@ -1150,7 +1151,7 @@
         "typing_Wireguard.peers_footprint"
       ],
       0,
-      "e7a2fa261fc56b049e2fa4a70e1ee875"
+      "89e588d898215f9166924ff7de260ff0"
     ],
     [
       "Wireguard.find_peer_by_id_",
@@ -1249,7 +1250,7 @@
         "typing_Wireguard.cell_by_id"
       ],
       0,
-      "b7363873cefccf187219675e07056a8c"
+      "91c43027fa30ceba1fc9065f29dbc4af"
     ],
     [
       "Wireguard.find_peer_by_id",
@@ -1275,7 +1276,7 @@
         "typing_Wireguard.__proj__Mkdevice__item__peers"
       ],
       0,
-      "89693d3cdbe41af4c3d5d80d512487e3"
+      "248fefcb2233b18861851c4e513e0bbc"
     ],
     [
       "Wireguard.link_peer_by_id",
@@ -1385,7 +1386,7 @@
         "typing_Wireguard.peer_by_id", "typing_Wireguard.peers_footprint"
       ],
       0,
-      "c88ca132dbac0ff4c0c8d2da124f7dec"
+      "aff7396ba9551a8e4b4ab7a94ae2cb66"
     ],
     [
       "Wireguard.main",
@@ -1590,7 +1591,7 @@
         "typing_Wireguard.peer_by_id", "typing_Wireguard.peers_footprint"
       ],
       0,
-      "acf0bd2fb6fae31df08d68a5ec8684c6"
+      "74b85fdd1dd3c93c2c85e222bc7507ac"
     ]
   ]
 ]
