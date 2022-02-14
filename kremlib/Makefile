@@ -47,7 +47,7 @@ ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
 clean: clean-c
 	rm -rf *.checked *.source .depend
 
-SHELL:=$(shell which bash)
+SHELL:=$(shell command -v bash)
 
 clean-c:
 	rm -rf dist out extract-all */*.o
