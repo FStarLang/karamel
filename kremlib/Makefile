@@ -100,7 +100,6 @@ $(GENERIC_DIR):
 
 # Everything in the universe
 $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../_build/src/Kremlin.native
-	KREMLIN_HOME=$(shell pwd)/.. \
 	../krml $(KREMLIN_ARGS) -tmpdir $(GENERIC_DIR) \
 	  -warn-error +9+11 \
 	  $(MACHINE_INTS) \
