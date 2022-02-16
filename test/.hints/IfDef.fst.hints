@@ -20,7 +20,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "eb1e8c60a0726a301796b396d23b3ca2"
+      "518814fc59efef6eb2250165f14ec4de"
     ],
     [
       "IfDef.foo'",
@@ -41,7 +41,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "30cad21a5a7761080b2bc9e92179de35"
+      "da6217fb4f5ee5354cc44492d73acf3b"
     ],
     [
       "IfDef.test",
@@ -63,7 +63,7 @@
         "unit_typing"
       ],
       0,
-      "f9250ea92f7fbd4d1665c0219832b67f"
+      "a175b00d469f5a0065d64bf38b07a7b7"
     ],
     [
       "IfDef.bar",
@@ -84,7 +84,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "78276aa1b3683689a251a40523e923f2"
+      "af6f6241809f381356a7138a5069d1b7"
     ],
     [
       "IfDef.test3",
@@ -93,7 +93,7 @@
       1,
       [ "@query", "lemma_FStar.HyperStack.ST.lemma_equal_domains_trans" ],
       0,
-      "15390b7d0612bf86e700de9c612e4c23"
+      "0e93d256566a73dde31480399e89f91e"
     ]
   ]
 ]
