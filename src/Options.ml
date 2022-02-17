@@ -1,6 +1,13 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
 (* Licensed under the Apache 2.0 License. *)
 
+type include_ = All | HeaderOnly of string | COnly of string
+
+let pinc b = function
+  | All -> Buffer.add_string b "*"
+  | HeaderOnly h -> Buffer.add_string b h; Buffer.add_string b ".h"
+  | COnly h -> Buffer.add_string b h; Buffer.add_string b ".c"
+
 (** Some of these will be filled by [Driver].  *)
 let no_prefix: Bundle.pat list ref = ref Bundle.[
   Module [ "C" ];
@@ -11,10 +18,10 @@ let no_prefix: Bundle.pat list ref = ref Bundle.[
 ]
 (* kremlib.h now added directly in Output.ml so that it appears before the first
  * #ifdef *)
-let add_include: (string option * string) list ref = ref [ ]
+let add_include: (include_ * string) list ref = ref [ ]
 let add_include_tmh = ref false
-let add_early_include: (string option * string) list ref = ref [ ]
-let warn_error = ref "+1..2@3+4..8@9+10@11+12..18@19+20..22"
+let add_early_include: (include_ * string) list ref = ref [ ]
+let warn_error = ref "+1@2@3+4..8@9+10@11+12..18@19+20..22"
 let tmpdir = ref "."
 let includes: string list ref = ref []
 let verbose = ref false
