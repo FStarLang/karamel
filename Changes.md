@@ -1,3 +1,8 @@
+### Feb 14th, 2022
+
+New option syntax: `-add-include 'Foobar.c:XXX'` results in `#include XXX`
+prepended only in the C file.
+
 ### Dec 29th, 2021
 
 Eliminate projectors and discriminators unless otherwise necessary.
