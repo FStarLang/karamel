@@ -12,13 +12,13 @@ let mk_includes =
 let filter_includes ~is_c file (includes: (Options.include_ * string) list) =
   (* KPrint.bprintf "-- filter_includes for %s (%d)\n" file (List.length includes); *)
   KList.filter_some (List.rev_map (function
-    | Options.HeaderOnly file', h when file = file' ->
+    | Options.HeaderOnly file', h when file = file' && not is_c ->
         (* KPrint.bprintf "--- H Match %s: include %s\n" file h; *)
         Some h
     | COnly file', h when file = file' && is_c ->
         (* KPrint.bprintf "--- C Match %s: include %s\n" file h; *)
         Some h
-    | All, h ->
+    | All, h when not is_c ->
         (* KPrint.bprintf "--- All Match %s: include %s\n" file h; *)
         Some h
     | _i, _h ->
