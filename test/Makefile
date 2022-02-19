@@ -12,7 +12,9 @@ BROKEN		= \
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
 # special file and doesn't have a main.
 FILES		= \
-  $(patsubst %.fst,%.test,$(filter-out Unused_A.fst StaticHeaderAPI.fst StaticHeaderLib.fst NameCollisionHelper.fst ML16Externals.fst MemCpyModel.fst Lowlevel.fst $(BROKEN),$(wildcard *.fst))) \
+  $(patsubst %.fst,%.test,$(filter-out Unused_A.fst StaticHeaderAPI.fst \
+    StaticHeaderLib.fst NameCollisionHelper.fst ML16Externals.fst MemCpyModel.fst \
+    Lowlevel.fst PrivateInclude1.fst $(BROKEN),$(wildcard *.fst))) \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.test \
   $(patsubst %.fst,%.test,$(wildcard ../book/*.fst ../book/notfslit/*.fst))
 
@@ -147,6 +149,7 @@ $(OUTPUT_DIR)/NameCollision.exe: EXTRA = -no-prefix NameCollisionHelper
 $(OUTPUT_DIR)/Intro.exe $(OUTPUT_DIR)/MemCpy.exe: EXTRA = -rst-snippets
 $(OUTPUT_DIR)/StaticHeader.exe: EXTRA = -static-header StaticHeaderLib -bundle StaticHeaderAPI=StaticHeaderLib -warn-error @7@8
 $(OUTPUT_DIR)/Unused_B.exe: EXTRA=-bundle Unused_A
+$(OUTPUT_DIR)/PrivateInclude2.exe: EXTRA=-no-prefix PrivateInclude1 -bundle PrivateInclude1 -add-include 'PrivateInclude1.c:"../../foobar.h"'
 
 Failure.test: NEGATIVE=true
 

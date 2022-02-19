@@ -9,10 +9,22 @@ open PPrint
 let mk_includes =
   separate_map hardline (fun x -> string "#include " ^^ string x)
 
-let filter_includes file includes =
+let filter_includes ~is_c file (includes: (Options.include_ * string) list) =
+  (* KPrint.bprintf "-- filter_includes for %s (%d)\n" file (List.length includes); *)
   KList.filter_some (List.rev_map (function
-    | Some file', h -> if file = file' then Some h else None
-    | None, h -> Some h
+    | Options.HeaderOnly file', h when file = file' && not is_c ->
+        (* KPrint.bprintf "--- H Match %s: include %s\n" file h; *)
+        Some h
+    | COnly file', h when file = file' && is_c ->
+        (* KPrint.bprintf "--- C Match %s: include %s\n" file h; *)
+        Some h
+    | All, h when not is_c ->
+        (* KPrint.bprintf "--- All Match %s: include %s\n" file h; *)
+        Some h
+    | _i, _h ->
+        (* KPrint.bprintf "--- No match for %s: -add-include %a:%s (is_c: %b)\n" *)
+        (*   file Options.pinc _i _h is_c; *)
+        None
   ) includes)
 
 let kremlib_include () =
@@ -25,8 +37,8 @@ let kremlib_include () =
  * - #include X for X in the dependencies of the file, followed by
  * - #include Y for each -add-include Y passed on the command-line
  *)
-let includes_for file files =
-  let extra_includes = mk_includes (filter_includes file !Options.add_include) in
+let includes_for ~is_c file files =
+  let extra_includes = mk_includes (filter_includes ~is_c file !Options.add_include) in
   let includes = mk_includes (List.rev_map (Printf.sprintf "\"%s.h\"") files) in
   separate hardline [ includes; extra_includes ]
 
@@ -71,12 +83,13 @@ let prefix_suffix original_name name =
     string "#endif" ^^ hardline
   in
   let macro_name = String.map (function '/' -> '_' | c -> c) name in
+  (* KPrint.bprintf "- add_early_includes: %s\n" original_name; *)
   let prefix =
     string (header ()) ^^ hardline ^^ hardline ^^
     string (Printf.sprintf "#ifndef __%s_H" macro_name) ^^ hardline ^^
     string (Printf.sprintf "#define __%s_H" macro_name) ^^ hardline ^^
     (if !Options.extern_c then hardline ^^ if_cpp (string "extern \"C\" {") ^^ hardline else empty) ^^
-    mk_includes (filter_includes original_name !Options.add_early_include) ^^ hardline ^^
+    mk_includes (filter_includes ~is_c:false original_name !Options.add_early_include) ^^ hardline ^^
     kremlib_include () ^^ hardline
   in
   let suffix =
@@ -120,7 +133,8 @@ let write_c files internal_headers deps =
     let deps = Bundles.StringMap.find name deps in
     let deps = List.of_seq (Bundles.StringSet.to_seq deps.Bundles.internal) in
     let deps = List.map (fun f -> "internal/" ^ f) deps in
-    let includes = hardline ^^ includes_for name deps ^^ hardline in
+    (* KPrint.bprintf "- write_c: %s\n" name; *)
+    let includes = hardline ^^ includes_for ~is_c:true name deps ^^ hardline in
     let header = header () in
     let internal = if Bundles.StringSet.mem name internal_headers then "internal/" else "" in
     (* If there is an internal header, we include that rather than the public
@@ -163,7 +177,8 @@ let write_h files public_headers deps =
       | C11.Public h ->
           name, h, public
     in
-    let includes = hardline ^^ includes_for original_name deps ^^ hardline in
+    (* KPrint.bprintf "- write_h: %s\n" name; *)
+    let includes = hardline ^^ includes_for ~is_c:false original_name deps ^^ hardline in
     let prefix, suffix = prefix_suffix original_name name in
     write_one (name ^ ".h") (prefix ^^ includes) program suffix;
     name
