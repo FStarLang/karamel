@@ -6,14 +6,14 @@
 
 #ifndef __FStar_Float_H
 #define __FStar_Float_H
+
+
+
+
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
-
-
-
-
 typedef FStar_Float_float FStar_Float_double;
 
 

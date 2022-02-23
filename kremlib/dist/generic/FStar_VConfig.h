@@ -6,15 +6,15 @@
 
 #ifndef __FStar_VConfig_H
 #define __FStar_VConfig_H
-#include <inttypes.h>
-#include "kremlib.h"
-#include "kremlin/internal/compat.h"
-#include "kremlin/internal/target.h"
+
 
 
 #include "FStar_String.h"
 #include "FStar_Bytes.h"
-
+#include <inttypes.h>
+#include "kremlib.h"
+#include "kremlin/internal/compat.h"
+#include "kremlin/internal/target.h"
 typedef struct FStar_VConfig_vconfig_s
 {
   Prims_int initial_fuel;

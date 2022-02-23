@@ -6,14 +6,14 @@
 
 #ifndef __FStar_Int_H
 #define __FStar_Int_H
+
+
+
+#include "FStar_BitVector.h"
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
-
-
-#include "FStar_BitVector.h"
-
 extern Prims_int FStar_Int_max_int(Prims_pos n);
 
 extern Prims_int FStar_Int_min_int(Prims_pos n);

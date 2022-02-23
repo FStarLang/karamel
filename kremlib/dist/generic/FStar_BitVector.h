@@ -6,14 +6,14 @@
 
 #ifndef __FStar_BitVector_H
 #define __FStar_BitVector_H
+
+
+
+
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
-
-
-
-
 typedef struct Prims_list__bool_s Prims_list__bool;
 
 #define Prims_Nil 0

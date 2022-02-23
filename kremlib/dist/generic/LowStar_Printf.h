@@ -6,14 +6,14 @@
 
 #ifndef __LowStar_Printf_H
 #define __LowStar_Printf_H
+
+
+
+
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
-
-
-
-
 extern void LowStar_Printf_print_string(Prims_string uu___);
 
 extern void LowStar_Printf_print_char(FStar_Char_char uu___);

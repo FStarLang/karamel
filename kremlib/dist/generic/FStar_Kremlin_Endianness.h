@@ -6,14 +6,14 @@
 
 #ifndef __FStar_Kremlin_Endianness_H
 #define __FStar_Kremlin_Endianness_H
+
+
+
+#include "FStar_BitVector.h"
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
-
-
-#include "FStar_BitVector.h"
-
 typedef struct Prims_list__uint8_t_s Prims_list__uint8_t;
 
 typedef struct Prims_list__uint8_t_s
