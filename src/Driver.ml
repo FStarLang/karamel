@@ -263,7 +263,6 @@ let detect_fstar () =
   let fstar_includes = List.map expand_prefixes !Options.includes in
   fstar_options := [
     "--trace_error";
-    "--cache_checked_modules";
     "--expose_interfaces"
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
   (* This is a superset of the needed modules... some will be dropped very early
