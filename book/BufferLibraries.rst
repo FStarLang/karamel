@@ -27,7 +27,7 @@ In order to manipulate const pointers, you can use ``LowStar.ConstPointer``. It
 is represented as an abstract type distinct from regular, immutable, or unitialized
 buffers (all instances of the base monotonic buffer type). Having a separate
 abstract type allows identifiying const pointers as a separate, disjoint type at
-extraction, without requiring the built-in Low* checker in KreMLin to insert
+extraction, without requiring the built-in Low* checker in KaRaMeL to insert
 casts.
 
 Injecting ``buffer`` or ``ibuffer`` into a ``const_buffer`` generates no casts

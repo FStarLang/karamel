@@ -4,7 +4,7 @@
 # You can set these variables from the command line.
 SPHINXOPTS    = -W
 SPHINXBUILD   = sphinx-build
-SPHINXPROJ    = TheKreMLinusermanual
+SPHINXPROJ    = TheKaRaMeLusermanual
 SOURCEDIR     = .
 BUILDDIR      = _build
 
