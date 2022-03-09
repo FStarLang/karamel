@@ -39,7 +39,7 @@ key component of [Project Everest](https://project-everest.github.io/).
 
 ## Trying out KaRaMeL
 
-KaRaMeL requires OCaml (>= 4.08.0, <= 4.12.0), OPAM, and a recent version of GNU make.
+KaRaMeL requires OCaml (>= 4.08.0), OPAM, and a recent version of GNU make.
 
 **Regarding GNU make:** On OSX, this may require you to install a recent GNU
 make via homebrew, and invoke `gmake` instead of `make`.
