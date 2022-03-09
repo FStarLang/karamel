@@ -27,7 +27,7 @@ library.
 
   $ ./everest z3 opam
 
-Then, you can either install F* and KreMLin yourself, or rely on the Everest
+Then, you can either install F* and KaRaMeL yourself, or rely on the Everest
 script for that purpose:
 
 .. code-block:: bash
@@ -37,7 +37,7 @@ script for that purpose:
 In any case, remember to export suitable values for the ``FSTAR_HOME`` and
 ``KREMLIN_HOME`` environment variables once you're done.
 
-Be aware that KreMLin is not at this time compatible with recent versions of
+Be aware that KaRaMeL is not at this time compatible with recent versions of
 OCaml. See `<https://github.com/FStarLang/kremlin/issues/169>`_ for the discussion.
 
 We strongly recommend using the `fstar-mode.el
@@ -66,7 +66,7 @@ We adopt the following canonical and recommended structure for the toy project.
 - ``obj``: F* and OCaml build artifacts, i.e. whatever is covered by F*'s
   ``--depend`` facility: ``.checked`` files (binary serialized build products
   once a file has been verified), ``.ml`` files (the result of F* extracting to
-  OCaml), ``.krml`` files (the result of F* dumping its AST for KreMLin),
+  OCaml), ``.krml`` files (the result of F* dumping its AST for KaRaMeL),
   ``.cm*`` files (OCaml build), etc.
 - ``hints``: F* hint files, i.e. serialized Z3 unsat-cores that facilitate proof
   replay
@@ -107,7 +107,7 @@ sucessfully build a Low* project:
 - verify all the source files for this project, generating ``.checked`` files
 - extract F* code using those checked files to either ``.krml`` or ``.ml``
 - build and link ML code (for specs)
-- run KreMLin and generate C code
+- run KaRaMeL and generate C code
 - dependency analysis for the generated C code
 - build C code, generating a C library (more rarely, an executable)
 - build C tests and link against compiled library.
@@ -145,7 +145,7 @@ w.r.t. their respective source files; similarly, running make in ``kremlin/``
 ensures that all the ``kremlib`` (C support libraries) ``.checked`` files are
 up-to-date.
 
-Any Low* program will need to refer to both ulib in F* and kremlib in KreMLin.
+Any Low* program will need to refer to both ulib in F* and kremlib in KaRaMeL.
 The client Makefile we provide will therefore *enforce* that all the checked
 files for the projects it depends on be up-to-date, and will error out
 otherwise.

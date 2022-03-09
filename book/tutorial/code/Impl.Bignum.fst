@@ -131,9 +131,9 @@ let add'_zero add' dst x y c0 =
 
   // Actual computation. Note that this will *not* generate a pair in the
   // resulting C code! With the inline_for_extraction on Spec.add_carry, this
-  // becomes (in the internal KreMLin AST) something like:
+  // becomes (in the internal KaRaMeL AST) something like:
   //   match (let a = ... in let c = ... in a, c) with (a', c')
-  // KreMLin hoists the let-bindings:
+  // KaRaMeL hoists the let-bindings:
   //   let a = ... in
   //   let c = ... in
   //   match a, c with a', c' -> ...

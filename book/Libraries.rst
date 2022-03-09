@@ -2,7 +2,7 @@ Low* core libraries
 ===================
 
 Low* is made up of a few primitive libraries that enjoy first-class support in
-KreMLin. These core libraries are typically made up of a model (an ``.fst``
+KaRaMeL. These core libraries are typically made up of a model (an ``.fst``
 file) and an interface (an ``.fsti`` file). Verification is performed against
 the model, but at extraction-time, the model is replaced with primitive C
 constructs.
@@ -240,7 +240,7 @@ Machine integers
 ----------------
 
 Machine integers are modeled as natural numbers that fit within a certain number
-of bits. This model is dropped by KreMLin, in favor of C's fixed-width types.
+of bits. This model is dropped by KaRaMeL, in favor of C's fixed-width types.
 
 Fixed-width integers are found in ``FStar.UInt{16,32,64,128}.fst`` and
 ``FStar.Int{16,32,64,128}``. The ``FStar.Int.Cast.Full.fst`` module offers
@@ -248,7 +248,7 @@ conversion functions between these integer types.
 
 .. warning ::
 
-   By default, KreMLin relies on the non-standard ``unsigned __int128`` C
+   By default, KaRaMeL relies on the non-standard ``unsigned __int128`` C
    type to implement ``FStar.UInt128.t``. This type is widely supported
    across GCC and Clang versions, but not by the Microsoft compilers. If you
    need 128-bit unsigned integers, consider reading
@@ -332,7 +332,7 @@ In other words, buffers are modeled as a reference to a sequence, along with
 a starting index ``idx``, and a ``length``, which captures how much of an
 allocation slice one is currently pointing to.
 
-This is a model: at compilation-time, KreMLin implements buffers using C arrays.
+This is a model: at compilation-time, KaRaMeL implements buffers using C arrays.
 
 **The length** is available in ghost (proof) code only: just like in C, one
 cannot compute the length of a buffer at run-time. Therefore, a typical

@@ -51,7 +51,7 @@ let rec well_formed #a (h: HS.mem) (c: t a) (l: G.erased (list a))
 /// run-time. Functions called at run-time will, conversely, use a length of
 /// type `erased nat`, which states that the length is
 /// computationally-irrelevant and can be safely removed from the resulting C
-/// code via a combination of F* + KreMLin erasure.
+/// code via a combination of F* + KaRaMeL erasure.
 
 let rec length_functional #a (h: HS.mem) (c: t a) (l1 l2: G.erased (list a)):
   Lemma
