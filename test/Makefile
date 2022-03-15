@@ -22,7 +22,7 @@ ifneq ($(RECENT_GCC),"yes")
   FILES 	:= $(filter-out Debug.test,$(FILES))
 endif
 
-CUSTOM		= count-uu check-unused
+CUSTOM		= count-uu check-unused check-no-constructor check-no-erased
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
@@ -166,6 +166,9 @@ check-unused: $(OUTPUT_DIR)/Unused_B.exe
 
 check-no-constructor: $(OUTPUT_DIR)/NoConstructor.exe
 	! grep -q define $(OUTPUT_DIR)/NoConstructor.out/NoConstructor.c
+
+check-no-erased: $(OUTPUT_DIR)/Shifting.exe
+	! grep -q erased $(OUTPUT_DIR)/Shifting.out/Shifting.c
 
 # Custom ctypes target
 
