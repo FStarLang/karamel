@@ -221,7 +221,7 @@ let detect_fstar () =
     fstar_home := r;
     fstar := r ^^ "bin" ^^ "fstar.exe"
   with Not_found -> try
-    fstar := read_one_line "which" [| "fstar.exe" |];
+    fstar := read_one_line "sh" [| "-c"; "command -v fstar.exe" |];
     fstar_home := d (d !fstar);
     if not !Options.silent then
       KPrint.bprintf "FSTAR_HOME is %s (via fstar.exe in PATH)\n" !fstar_home

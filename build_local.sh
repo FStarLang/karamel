@@ -1,15 +1,15 @@
-#!/usr/bin/env bash
+#!/bin/sh
 set -e
 
 # Look for config.json file
 FILE=".docker/build/config.json"
-if [[ ! -f $FILE ]]; then
+if [ ! -f $FILE ]; then
    echo "File $FILE does not exist."
 fi
 
 # In case you want to build windows, change agentOS here to windows-nt if OSTYPE is not working
 agentOS=linux
-if [[ "$OSTYPE" == "cygwin" ]]; then
+if [ "$OSTYPE" == "cygwin" ]; then
     agentOS=linux #windows-nt
 fi
 
@@ -32,7 +32,7 @@ REQUESTEDBRANCHNAME=$(jq -c -r ".BranchName" "$FILE")
 REQUESTEDCOMMITID=$(jq -c -r ".BaseContainerImageTagOrCommitId" "$FILE")
 COMMITURL=$(jq -c -r ".GithubCommitUrl" "$FILE")/$REQUESTEDBRANCHNAME
 
-if [[ $(jq -c -r ".BaseContainerImageTagOrCommitId" "$FILE") -ne "latest" ]]; then
+if [ "$(jq -c -r '.BaseContainerImageTagOrCommitId' "$FILE")" -ne "latest" ]; then
     COMMITURL=$(jq -c -r ".GithubCommitUrl" "$FILE")/$REQUESTEDCOMMITID
 fi
 
