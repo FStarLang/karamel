@@ -166,11 +166,13 @@ let remove_unused_parameters = object (self)
     let binders = KList.filter_mapi (fun i b -> if unused i then None else Some b) binders in
     DFunction (cc, flags, n, ret, name, binders, body)
 
-  method! visit_TArrow (parameter_table, _) t1 t2 =
+  method! visit_TArrow (parameter_table, _ as env) t1 t2 =
     (* Important: the only entries in `parameter_table` are those which are
      * first order, i.e. for which the only occurrence is under an EApp, which
      * does *not* recurse into visit_TArrow! *)
     let dummy_lid = [], "" in
+    let t1 = self#visit_typ env t1 in
+    let t2 = self#visit_typ env t2 in
     let ret, args = flatten_arrow (TArrow (t1, t2)) in
     let args = KList.filter_mapi (fun i arg ->
       if unused parameter_table dummy_lid args i then
@@ -202,7 +204,9 @@ let remove_unused_parameters = object (self)
                 end else
                   count
               ) (Hashtbl.find private_use_table current_lid))
-        | _ -> ()
+        | _ ->
+            (* TODO: we could be smarter here *)
+            ()
       ) es
 
   method! visit_EApp ((parameter_table, i), _) e es =
