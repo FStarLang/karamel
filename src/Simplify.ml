@@ -166,6 +166,25 @@ let remove_unused_parameters = object (self)
     let binders = KList.filter_mapi (fun i b -> if unused i then None else Some b) binders in
     DFunction (cc, flags, n, ret, name, binders, body)
 
+  method! visit_DExternal (parameter_table, _ as env) cc flags name t hints =
+    let dummy_lid = [], "" in
+    let ret, args = flatten_arrow t in
+    let hints = KList.filter_mapi (fun i arg ->
+      if unused parameter_table dummy_lid args i then
+        None
+      else
+        Some arg
+    ) hints in
+    let args = KList.filter_mapi (fun i arg ->
+      if unused parameter_table dummy_lid args i then
+        None
+      else
+        Some (self#visit_typ env arg)
+    ) args in
+    let ret = self#visit_typ env ret in
+    let t = fold_arrow args ret in
+    DExternal (cc, flags, name, t, hints)
+
   method! visit_TArrow (parameter_table, _ as env) t1 t2 =
     (* Important: the only entries in `parameter_table` are those which are
      * first order, i.e. for which the only occurrence is under an EApp, which
