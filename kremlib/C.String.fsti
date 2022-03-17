@@ -8,8 +8,6 @@ module M = LowStar.Modifies
 
 open FStar.HyperStack.ST
 
-#set-options "--__temp_no_proj C.String"
-
 let zero_free (s: Seq.seq C.char) =
   forall (i: nat). {:pattern (Seq.index s i)}
     i < Seq.length s - 1 ==> Seq.index s i <> C.char_of_uint8 0uy
