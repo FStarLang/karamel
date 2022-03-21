@@ -1,5 +1,5 @@
 {
-    "ProjectName" : "Kremlin",
+    "ProjectName" : "Karamel",
 
     "BaseContainerIsEverestImage" : true,
     "BaseContainerImageName" : "fstar",
@@ -20,11 +20,11 @@
     "HasLogsToExtract" : true,
 
     "NotificationEnabled" : true,
-    "NotificationChannel" : "#kremlin-build",
+    "NotificationChannel" : "#karamel-build",
     "PublicBranches" : [ "master" ],
 
     "CompressBuildFolder": true,
-    "FolderToCompress" : "kremlin",
+    "FolderToCompress" : "karamel",
     "FoldersToExclude" : [ ],
 
     "TrackPerformance" : false,

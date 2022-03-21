@@ -1668,7 +1668,7 @@ end
 
 
 
-(* The various series of rewritings called by Kremlin.ml **********************)
+(* The various series of rewritings called by Karamel.ml **********************)
 
 (* Debug any intermediary AST as follows: *)
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)

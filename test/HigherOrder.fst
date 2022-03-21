@@ -15,7 +15,7 @@ let higher_id (f:bool_function) : bool_function = f
 let still_const_f : bool_function =
   higher_id const_f
 
-// on the other hand, after eta expansion KreMLin doesn't call higher_id correctly
+// on the other hand, after eta expansion KaRaMeL doesn't call higher_id correctly
 let buggy_const_f (b:bool) =
   higher_id const_f b
 

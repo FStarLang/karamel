@@ -1,4 +1,4 @@
-// This module tests the -library flag of KreMLin that turns a model into a set
+// This module tests the -library flag of KaRaMeL that turns a model into a set
 // of abstract definitions suitable for implementing "natively".
 module MemCpyModel
 

@@ -69,9 +69,9 @@ let uint32_of_int i =
   UInt32, string_of_int i
 
 (* New: polymorphic equalities, treated properly, finally (Feb 2021)
-   Some background info... initially, equalities were only accepted by KreMlin
+   Some background info... initially, equalities were only accepted by KaRaMeL
    at base scalar types (int, bool) that have a "width". However, with time
-   passing, KreMLin gained the ability to monomorphize functions and therefore
+   passing, KaRaMeL gained the ability to monomorphize functions and therefore
    had to accept equalities on data types, units, and so on. Equalities on base
    types were represented as `Op (Eq, w)` while equalities on complex types were
    represented as `TApp (Op (Eq, <dummy width>), t)` which was clearly

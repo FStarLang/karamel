@@ -16,7 +16,7 @@ let no_prefix: Bundle.pat list ref = ref Bundle.[
   Module [ "C"; "Compat"; "Endianness" ];
   Module [ "LowStar"; "Endianness" ]
 ]
-(* kremlib.h now added directly in Output.ml so that it appears before the first
+(* krmllib.h now added directly in Output.ml so that it appears before the first
  * #ifdef *)
 let add_include: (include_ * string) list ref = ref [ ]
 let add_include_tmh = ref false
@@ -32,7 +32,7 @@ let m32 = ref false
 let fsopts: string list ref = ref []
 let ccopts: string list ref = ref []
 let ldopts: string list ref = ref []
-(* Note: do not populate this field directly but rather do it in Kremlin.ml
+(* Note: do not populate this field directly but rather do it in Karamel.ml
  * behind the "Options.minimal" test. *)
 let bundle: Bundle.t list ref = ref []
 let library: Bundle.pat list ref = ref []

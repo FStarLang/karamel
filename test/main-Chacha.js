@@ -14,7 +14,7 @@ const cipher = [
   0xb4, 0x0b, 0x8e, 0xed, 0xf2, 0x78, 0x5e, 0x42, 0x87, 0x4d ];
 
 function main({ reserve, dump, my_print, hex }, imports) {
-  let mem = imports.Kremlin.mem;
+  let mem = imports.Karamel.mem;
   let start = reserve(mem, 1024);
   dump(mem, 2*1024);
 

@@ -315,8 +315,8 @@ let collect_initializers (files: Ast.file list) =
       DGlobal (flags, name, n, t, body)
   end)#visit_files () files in
   if !initializers != [] then
-    let file = "kremlinit",
-      [ DFunction (None, [ Common.Prologue hidden_visibility ], 0, TUnit, (["kremlinit"], "globals"),
+    let file = "krmlinit",
+      [ DFunction (None, [ Common.Prologue hidden_visibility ], 0, TUnit, (["krmlinit"], "globals"),
         [Helpers.fresh_binder "_" TUnit],
         with_type TUnit (ESequence (List.rev !initializers)))] in
     let files = files @ [ file ] in
@@ -329,7 +329,7 @@ let collect_initializers (files: Ast.file list) =
             found := true;
             with_type ret (ESequence [
               with_type TUnit (EApp (
-                with_type (TArrow (TUnit, TUnit)) (EQualified ([ "kremlinit" ], "globals")),
+                with_type (TArrow (TUnit, TUnit)) (EQualified ([ "krmlinit" ], "globals")),
                 [ Helpers.eunit ]));
               body
             ])

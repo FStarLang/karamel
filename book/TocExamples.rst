@@ -1,7 +1,7 @@
 Low* examples
 =============
 
-For the most recent examples, see ``kremlib/LowStar.Lib.*`` where many
+For the most recent examples, see ``krmllib/LowStar.Lib.*`` where many
 "reference" data structures are now being added, including a linked list that's
 actually ready for general use in your programs. See also
 ``test/Wireguard.fst`` for an example of a complex data structure that keeps

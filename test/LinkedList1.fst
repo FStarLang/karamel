@@ -48,7 +48,7 @@ let rec well_formed #a (h: HS.mem) (c: t a) (l: nat):
 /// run-time. Functions called at run-time will, conversely, use a length of
 /// type `erased nat`, which states that the length is
 /// computationally-irrelevant and can be safely removed from the resulting C
-/// code via a combination of F* + KreMLin erasure.
+/// code via a combination of F* + KaRaMeL erasure.
 
 /// When traversing a list `l` such that `well_formed h l n`, it is often
 /// the case that we recursively visit the Cons cell, passing `n - 1` for the

@@ -46,7 +46,7 @@ let builtin_names =
     (* Might appear twice otherwise, which is not C89-compatible. Defined by
      * hand *)
     ["FStar"; "UInt128"], "t";
-    (* Hand-written implementations in include/kremlin/fstar_int.h. TODO: since
+    (* Hand-written implementations in include/krml/fstar_int.h. TODO: since
      * these are now static inline, it should theoretically be ok to emit
      * definitions for them. *)
     ["FStar"; "Int8"], "shift_arithmetic_right";
@@ -787,7 +787,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
               let p = if !Options.c89_std then "KRML_HOST_PRINTF" else "KRML_HOST_EPRINTF" in
               Compound [
                 Expr (Call (Name p, [
-                  Literal "KreMLin incomplete match at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
+                  Literal "KaRaMeL incomplete match at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
                 Expr (Call (Name "KRML_HOST_EXIT", [ Constant (K.UInt8, "253") ]))
               ]
       )]
@@ -795,7 +795,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
   | Abort s ->
       let p = if !Options.c89_std then "KRML_HOST_PRINTF" else "KRML_HOST_EPRINTF" in
       [ Expr (Call (Name p, [
-          Literal "KreMLin abort at %s:%d\\n%s\\n"; Name "__FILE__"; Name "__LINE__"; Literal (escape_string s) ]));
+          Literal "KaRaMeL abort at %s:%d\\n%s\\n"; Name "__FILE__"; Name "__LINE__"; Literal (escape_string s) ]));
         Expr (Call (Name "KRML_HOST_EXIT", [ Constant (K.UInt8, "255") ])); ]
 
   | For (`Decl (binder, e1), e2, e3, b) ->
@@ -851,7 +851,7 @@ and mk_deref m (e: expr) : C.expr =
   Deref (mk_expr m e)
 
 (* Some functions get a special treatment and are pretty-printed in a specific
- * way at the very last minute. KreMLin is never supposed to generate unused
+ * way at the very last minute. KaRaMeL is never supposed to generate unused
  * declarations, so these primitives must not be output in the resulting C
  * files. *)
 and is_primitive s =

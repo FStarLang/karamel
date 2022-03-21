@@ -36,7 +36,7 @@ type env = {
      *   - For atomic values (e.g. integers), this is trivially compilable as a
      *     Global slot in WASM that is initialized to a constant then read at
      *     reference-time.
-     *   - For struct values, we lay them out according to the KreMLin layout in
+     *   - For struct values, we lay them out according to the KaRaMeL layout in
      *     a string. Because of the struct-by-address transformation, these will
      *     only be referred to via the AddressOf operator, meaning that any
      *     &Foo_bar should resolve to the address of the global in the data

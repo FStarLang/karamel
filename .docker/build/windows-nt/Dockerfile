@@ -1,4 +1,4 @@
-# kremlin build container
+# karamel build container
 
 # Define on fstar-version.json what FStar base container image
 # mitls build should use.
@@ -27,11 +27,11 @@ RUN Invoke-BashCmd '"cd .ssh && cp ../everestsshkey/id_rsa . && chmod 600 id_rsa
 RUN Invoke-BashCmd rm -f build.sh build_helper.sh buildlog.txt buildlogfile.txt log_no_replay.html log_worst.html orange_status.txt result.txt status.txt commitinfofilename.json
 
 # Copy source files
-WORKDIR "kremlin"
+WORKDIR "karamel"
 COPY / .
 WORKDIR ".."
 
-RUN Invoke-BashCmd rm kremlin/Dockerfile kremlin/build.sh kremlin/build_helper.sh kremlin/id_rsa kremlin/commitinfofilename.json
+RUN Invoke-BashCmd rm karamel/Dockerfile karamel/build.sh karamel/build_helper.sh karamel/id_rsa karamel/commitinfofilename.json
 
 COPY build.sh build.sh
 COPY build_helper.sh build_helper.sh

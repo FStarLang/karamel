@@ -15,7 +15,7 @@ type t = {
   z: C.String.t;
 }
 
-// Note: KreMLin will *not* extract this as const char s[] = "whatevs", meaning
+// Note: KaRaMeL will *not* extract this as const char s[] = "whatevs", meaning
 // it can't be used within an initializer, so we use inline_for_extraction.
 inline_for_extraction
 let s = C.String.of_literal "whatevs"

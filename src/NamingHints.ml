@@ -5,7 +5,7 @@
 
    let my-name = t t1 t2
 
-   Then nudges kremlin to pick <my-name> for the typedef struct used for the
+   Then nudges karamel to pick <my-name> for the typedef struct used for the
    monomorphic instance of t specialized for t1 and t2.
 *)
 
