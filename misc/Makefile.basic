@@ -13,7 +13,7 @@ endif
 
 CFLAGS 	+= -I. -I $(KRML_HOME)/include -I $(KRML_HOME)/krmllib/dist/minimal
 CFLAGS 	+= -Wall -Wextra -Werror -std=c11 -Wno-unused-variable \
-  -Wno-unknown-warning-option -Wno-unused-but-set-variable \
+  -Wno-unknown-warning-option -Wno-unused-but-set-variable -Wno-unused-function \
   -Wno-unused-parameter -Wno-infinite-recursion \
   -g -fwrapv -D_BSD_SOURCE -D_DEFAULT_SOURCE
 ifeq ($(OS),Windows_NT)
