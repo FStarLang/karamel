@@ -191,9 +191,9 @@ let write_makefile user_ccopts custom_c_files c_files h_files =
   Utils.with_open_out_bin (in_tmp_dir "Makefile.include") (fun oc ->
     KPrint.bfprintf oc "USER_TARGET=%s\n" !Options.exe_name;
     KPrint.bfprintf oc "USER_CFLAGS=%s\n" (concat_map "" (List.rev user_ccopts));
-    KPrint.bfprintf oc "USER_C_FILES=%s\n" (concat_map "" custom_c_files);
-    KPrint.bfprintf oc "ALL_C_FILES=%s\n" (concat_map ".c" c_files);
-    KPrint.bfprintf oc "ALL_H_FILES=%s\n" (concat_map ".h" h_files)
+    KPrint.bfprintf oc "USER_C_FILES=%s\n" (concat_map "" (List.sort compare custom_c_files));
+    KPrint.bfprintf oc "ALL_C_FILES=%s\n" (concat_map ".c" (List.sort compare c_files));
+    KPrint.bfprintf oc "ALL_H_FILES=%s\n" (concat_map ".h" (List.sort compare h_files))
   );
   Utils.cp Driver.(!Options.tmpdir ^^ "Makefile.basic") Driver.(!misc_dir ^^ "Makefile.basic")
 
