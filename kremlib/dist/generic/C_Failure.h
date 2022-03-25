@@ -6,14 +6,14 @@
 
 #ifndef __C_Failure_H
 #define __C_Failure_H
+
+
+
+
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
-
-
-
-
 extern bool C_Failure_whatever();
 
 

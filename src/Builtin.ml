@@ -199,6 +199,12 @@ let dyn: file =
       with_type void_star (ECast (with_type (TBound 0) (EBound 0), void_star)))
   ]
 
+let steel_reference : file =
+  "Steel_Reference", [
+    mk_val [ "Steel"; "Reference" ] "is_null" (TArrow (TBuf (TAny, false), TBool));
+    mk_val [ "Steel"; "Reference" ] "null" (TArrow (TAny, TBuf (TAny, false)));
+  ]
+
 let lowstar_monotonic_buffer: file =
   "LowStar_Monotonic_Buffer", [
     mk_val [ "LowStar"; "Monotonic"; "Buffer" ] "is_null" (TArrow (TBuf (TAny, false), TBool));
@@ -374,7 +380,7 @@ let is_model name =
 (* We have several different treatments. *)
 let prepare files =
   (* prims is a special-case, as it is not extracted by F* (FIXME) *)
-  prims :: List.map (fun f ->
+  prims :: steel_reference :: List.map (fun f ->
     let name = fst f in
     (* machine integers, some modules from the C namespace just become abstract in Low*. *)
     let f = if is_model name then make_abstract f else f in

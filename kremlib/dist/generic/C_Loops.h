@@ -6,14 +6,14 @@
 
 #ifndef __C_Loops_H
 #define __C_Loops_H
+
+
+
+
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
-
-
-
-
 extern void C_Loops_for(uint32_t start, uint32_t finish, void (*inv)(uint32_t x0));
 
 extern void C_Loops_for64(uint64_t start, uint64_t finish, void (*inv)(uint64_t x0));

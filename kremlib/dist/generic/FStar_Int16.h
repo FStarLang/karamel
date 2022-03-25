@@ -6,14 +6,14 @@
 
 #ifndef __FStar_Int16_H
 #define __FStar_Int16_H
+
+
+
+
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
-
-
-
-
 extern Prims_int FStar_Int16_n;
 
 extern bool FStar_Int16_uu___is_Mk(int16_t projectee);

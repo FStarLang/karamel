@@ -1,8 +1,8 @@
 # How to build
 
 ```
-$ git clone https://github.com/FStarLang/kremlin.git
-$ cd kremlin
+$ git clone https://github.com/FStarLang/karamel.git
+$ cd karamel
 $ git clone https://github.com/fstarlang/fstar-mode.el
 $ pip3 install sphinx_rtd_theme
 $ cd book

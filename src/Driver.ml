@@ -145,7 +145,7 @@ let detect_base_tools_if () =
 let detect_kremlin () =
   detect_base_tools_if ();
 
-  if AutoConfig.kremlib_dir <> "" then begin
+  if AutoConfig.kremlib_dir <> "" && try ignore (Sys.getenv "KREMLIN_HOME"); false with Not_found -> true then begin
     kremlib_dir := AutoConfig.kremlib_dir;
     runtime_dir := AutoConfig.runtime_dir;
     include_dir := AutoConfig.include_dir;
@@ -263,7 +263,6 @@ let detect_fstar () =
   let fstar_includes = List.map expand_prefixes !Options.includes in
   fstar_options := [
     "--trace_error";
-    "--cache_checked_modules";
     "--expose_interfaces"
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
   (* This is a superset of the needed modules... some will be dropped very early

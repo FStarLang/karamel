@@ -19,7 +19,7 @@ import sys
 
 # -- Project information -----------------------------------------------------
 
-project = u'The KreMLin user manual'
+project = u'The KaRaMeL user manual'
 copyright = u'2018, Jonathan Protzenko'
 author = u'Jonathan Protzenko'
 
@@ -103,7 +103,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'TheKreMLinusermanualdoc'
+htmlhelp_basename = 'TheKaRaMeLusermanualdoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -130,7 +130,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'TheKreMLinusermanual.tex', u'The KreMLin user manual Documentation',
+    (master_doc, 'TheKaRaMeLnusermanual.tex', u'The KaRaMeL user manual Documentation',
      u'Jonathan Protzenko', 'manual'),
 ]
 
@@ -140,7 +140,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'thekremlinusermanual', u'The KreMLin user manual Documentation',
+    (master_doc, 'theKaRaMeLusermanual', u'The KaRaMeL user manual Documentation',
      [author], 1)
 ]
 
@@ -151,8 +151,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'TheKreMLinusermanual', u'The KreMLin user manual Documentation',
-     author, 'TheKreMLinusermanual', 'One line description of project.',
+    (master_doc, 'TheKaRaMeLusermanual', u'The KaRaMeL user manual Documentation',
+     author, 'TheKaRaMeLusermanual', 'One line description of project.',
      'Miscellaneous'),
 ]
 

@@ -6,14 +6,14 @@
 
 #ifndef __FStar_UInt_8_16_32_64_H
 #define __FStar_UInt_8_16_32_64_H
+
+
+
+
 #include <inttypes.h>
 #include <stdbool.h>
 #include "kremlin/internal/types.h"
 #include "kremlin/internal/target.h"
-
-
-
-
 static inline uint64_t FStar_UInt64_eq_mask(uint64_t a, uint64_t b)
 {
   uint64_t x = a ^ b;

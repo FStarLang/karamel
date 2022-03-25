@@ -12,7 +12,9 @@ BROKEN		= \
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
 # special file and doesn't have a main.
 FILES		= \
-  $(patsubst %.fst,%.test,$(filter-out Unused_A.fst StaticHeaderAPI.fst StaticHeaderLib.fst NameCollisionHelper.fst ML16Externals.fst MemCpyModel.fst Lowlevel.fst $(BROKEN),$(wildcard *.fst))) \
+  $(patsubst %.fst,%.test,$(filter-out Unused_A.fst StaticHeaderAPI.fst \
+    StaticHeaderLib.fst NameCollisionHelper.fst ML16Externals.fst MemCpyModel.fst \
+    Lowlevel.fst PrivateInclude1.fst $(BROKEN),$(wildcard *.fst))) \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.test \
   $(patsubst %.fst,%.test,$(wildcard ../book/*.fst ../book/notfslit/*.fst))
 
@@ -20,7 +22,7 @@ ifneq ($(RECENT_GCC),"yes")
   FILES 	:= $(filter-out Debug.test,$(FILES))
 endif
 
-CUSTOM		= count-uu check-unused
+CUSTOM		= count-uu check-unused check-no-constructor check-no-erased
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
@@ -45,7 +47,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --include hello-system --include ../kremlib/compat --include ../kremlib/obj \
   --include ../kremlib --include ../runtime \
   --include $(CRYPTO) --include ../book --include ../book/notfslit --use_hints --record_hints \
-  --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
+  --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport Steel' \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274
 
@@ -75,6 +77,9 @@ endif
 
 include .depend
 
+# AF: The Steel files should not be extracted by KreMLin, they are filtered out
+FILTERED_KRML_FILES = $(filter-out $(OUTPUT_DIR)/FStar_NMST.krml $(OUTPUT_DIR)/Steel_%.krml,$(ALL_KRML_FILES))
+
 $(HINTS_DIR):
 	mkdir -p $@
 
@@ -87,13 +92,13 @@ $(OUTPUT_DIR)/%.krml: | .depend
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<))
 
-$(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_BIN)
+$(OUTPUT_DIR)/Ctypes2.exe: $(FILTERED_KRML_FILES) $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) \
 	  -o $@ $(filter %.krml,$^) \
         -skip-compilation $(filter %.krml,$^) \
 
 .PRECIOUS: $(OUTPUT_DIR)/%.exe
-$(OUTPUT_DIR)/%.exe: $(filter-out %/prims.krml,$(ALL_KRML_FILES)) $(KRML_BIN)
+$(OUTPUT_DIR)/%.exe: $(filter-out %/prims.krml,$(FILTERED_KRML_FILES)) $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
 	  -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack,\*
 
@@ -106,6 +111,7 @@ ifeq ($(OS),Windows_NT)
 endif
 
 # Various flags to be passed to some targets...
+$(OUTPUT_DIR)/NoExtract.exe: EXTRA = -warn-error +2
 $(OUTPUT_DIR)/Structs2.exe: EXTRA = -wasm -d force-c wasm-stubs.c
 $(OUTPUT_DIR)/ML16.exe: EXTRA = ml16-native.c
 $(OUTPUT_DIR)/Scope.exe: EXTRA = -ccopt -O3
@@ -143,6 +149,7 @@ $(OUTPUT_DIR)/NameCollision.exe: EXTRA = -no-prefix NameCollisionHelper
 $(OUTPUT_DIR)/Intro.exe $(OUTPUT_DIR)/MemCpy.exe: EXTRA = -rst-snippets
 $(OUTPUT_DIR)/StaticHeader.exe: EXTRA = -static-header StaticHeaderLib -bundle StaticHeaderAPI=StaticHeaderLib -warn-error @7@8
 $(OUTPUT_DIR)/Unused_B.exe: EXTRA=-bundle Unused_A
+$(OUTPUT_DIR)/PrivateInclude2.exe: EXTRA=-no-prefix PrivateInclude1 -bundle PrivateInclude1 -add-include 'PrivateInclude1.c:"../../foobar.h"'
 
 Failure.test: NEGATIVE=true
 
@@ -159,6 +166,9 @@ check-unused: $(OUTPUT_DIR)/Unused_B.exe
 
 check-no-constructor: $(OUTPUT_DIR)/NoConstructor.exe
 	! grep -q define $(OUTPUT_DIR)/NoConstructor.out/NoConstructor.c
+
+check-no-erased: $(OUTPUT_DIR)/Shifting.exe
+	! grep -q erased $(OUTPUT_DIR)/Shifting.out/Shifting.c
 
 # Custom ctypes target
 
@@ -188,7 +198,7 @@ $(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Ctypes2.exe $(addprefix $(LOWLEVEL_
 # All WASM targets get the -wasm flag; some specific targets may override
 # NEGATIVE for negative tests.
 .PRECIOUS: $(OUTPUT_DIR)/%.wasm
-$(OUTPUT_DIR)/%.wasm: $(filter-out %/prims.krml,$(ALL_KRML_FILES)) $(KRML_BIN)
+$(OUTPUT_DIR)/%.wasm: $(filter-out %/prims.krml,$(FILTERED_KRML_FILES)) $(KRML_BIN)
 	$(KRML) -minimal -bundle WasmSupport= -bundle 'FStar.*' -bundle Prims \
 	  -bundle C -bundle C.Endianness -bundle C.Nullity -bundle C.String \
 	  -bundle TestLib \

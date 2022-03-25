@@ -6,14 +6,14 @@
 
 #ifndef __FStar_String_H
 #define __FStar_String_H
+
+
+
+#include "FStar_BitVector.h"
 #include <inttypes.h>
 #include "kremlib.h"
 #include "kremlin/internal/compat.h"
 #include "kremlin/internal/target.h"
-
-
-#include "FStar_BitVector.h"
-
 typedef FStar_Char_char FStar_String_char;
 
 typedef struct Prims_list__FStar_Char_char_s Prims_list__FStar_Char_char;

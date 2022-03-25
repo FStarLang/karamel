@@ -18,6 +18,8 @@ let builtin_names =
     ["C"; "Nullity"], "is_null";
     ["LowStar"; "Monotonic"; "Buffer"], "mnull";
     ["LowStar"; "Buffer"], "null";
+    ["Steel"; "Reference"], "null";
+    ["Steel"; "Reference"], "is_null";
     ["C"; "Nullity"], "null";
     ["C"; "String"], "get";
     ["C"; "String"], "t";
@@ -905,10 +907,12 @@ and mk_expr m (e: expr): C.expr =
 
   | Call (Qualified ([ "LowStar"; "Monotonic"; "Buffer" ], "mnull"), _)
   | Call (Qualified ([ "LowStar"; "Buffer" ], "null"), _)
+  | Call (Qualified ([ "Steel"; "Reference" ], "null"), _)
   | Call (Qualified ([ "C"; "Nullity" ], "null"), _) ->
       Name "NULL"
 
   | Call (Qualified ( [ "LowStar"; "Monotonic"; "Buffer" ], "is_null"), [ e ] )
+  | Call (Qualified ( [ "Steel"; "Reference" ], "is_null"), [ e ] )
   | Call (Qualified ( [ "C"; "Nullity" ], "is_null"), [ e ]) ->
       Op2 (K.Eq, mk_expr m e, C.Name "NULL")
 
