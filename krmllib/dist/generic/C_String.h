@@ -11,9 +11,9 @@
 
 
 #include <inttypes.h>
-#include "kremlib.h"
-#include "kremlin/internal/compat.h"
-#include "kremlin/internal/target.h"
+#include "krmllib.h"
+#include "krml/internal/compat.h"
+#include "krml/internal/target.h"
 extern void C_String_print(C_String_t uu___);
 
 extern uint32_t C_String_strlen(C_String_t uu___);

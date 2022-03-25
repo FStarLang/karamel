@@ -11,9 +11,9 @@
 
 
 #include <inttypes.h>
-#include "kremlib.h"
-#include "kremlin/internal/compat.h"
-#include "kremlin/internal/target.h"
+#include "krmllib.h"
+#include "krml/internal/compat.h"
+#include "krml/internal/target.h"
 extern void WasmSupport_trap();
 
 uint32_t WasmSupport_align_64(uint32_t x);

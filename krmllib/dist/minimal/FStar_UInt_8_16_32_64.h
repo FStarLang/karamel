@@ -12,10 +12,10 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
-#include "kremlin/internal/compat.h"
-#include "kremlin/lowstar_endianness.h"
-#include "kremlin/internal/types.h"
-#include "kremlin/internal/target.h"
+#include "krml/internal/compat.h"
+#include "krml/lowstar_endianness.h"
+#include "krml/internal/types.h"
+#include "krml/internal/target.h"
 extern Prims_int FStar_UInt64_n;
 
 extern bool FStar_UInt64_uu___is_Mk(uint64_t projectee);

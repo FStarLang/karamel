@@ -11,9 +11,9 @@
 
 #include "FStar_UInt128.h"
 #include <inttypes.h>
-#include "kremlib.h"
-#include "kremlin/internal/compat.h"
-#include "kremlin/internal/target.h"
+#include "krmllib.h"
+#include "krml/internal/compat.h"
+#include "krml/internal/target.h"
 static inline void store128_le(uint8_t *x0, FStar_UInt128_uint128 x1);
 
 static inline FStar_UInt128_uint128 load128_le(uint8_t *x0);

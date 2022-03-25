@@ -11,9 +11,9 @@
 
 
 #include <inttypes.h>
-#include "kremlib.h"
-#include "kremlin/internal/compat.h"
-#include "kremlin/internal/target.h"
+#include "krmllib.h"
+#include "krml/internal/compat.h"
+#include "krml/internal/target.h"
 typedef uint8_t FStar_Bytes_u8;
 
 typedef uint16_t FStar_Bytes_u16;
@@ -126,7 +126,7 @@ extern Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes uu___);
 
 extern FStar_Bytes_bytes FStar_Bytes_bytes_of_string(Prims_string uu___);
 
-extern FStar_Bytes_bytes FStar_Bytes_of_buffer(uint32_t l, uint8_t *p);
+extern FStar_Bytes_bytes FStar_Bytes_of_buffer(uint32_t l, uint8_t *buf);
 
 extern void FStar_Bytes_store_bytes(FStar_Bytes_bytes src, uint8_t *dst);
 

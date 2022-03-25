@@ -11,9 +11,9 @@
 
 
 #include <inttypes.h>
-#include "kremlib.h"
-#include "kremlin/internal/compat.h"
-#include "kremlin/internal/target.h"
+#include "krmllib.h"
+#include "krml/internal/compat.h"
+#include "krml/internal/target.h"
 typedef void *FStar_HyperStack_ST_erid;
 
 typedef void *FStar_HyperStack_ST_ex_rid;

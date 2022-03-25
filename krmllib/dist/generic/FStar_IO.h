@@ -11,9 +11,9 @@
 
 
 #include <inttypes.h>
-#include "kremlib.h"
-#include "kremlin/internal/compat.h"
-#include "kremlin/internal/target.h"
+#include "krmllib.h"
+#include "krml/internal/compat.h"
+#include "krml/internal/target.h"
 extern FStar_IO_fd_read FStar_IO_stdin;
 
 extern FStar_IO_fd_write FStar_IO_stdout;

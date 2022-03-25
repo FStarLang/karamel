@@ -11,9 +11,9 @@
 
 #include "FStar_Monotonic_Heap.h"
 #include <inttypes.h>
-#include "kremlib.h"
-#include "kremlin/internal/compat.h"
-#include "kremlin/internal/target.h"
+#include "krmllib.h"
+#include "krml/internal/compat.h"
+#include "krml/internal/target.h"
 typedef void *FStar_ST_gst_pre;
 
 extern FStar_Monotonic_Heap_heap_rec FStar_ST_gst_get();

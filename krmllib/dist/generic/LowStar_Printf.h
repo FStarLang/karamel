@@ -11,9 +11,9 @@
 
 
 #include <inttypes.h>
-#include "kremlib.h"
-#include "kremlin/internal/compat.h"
-#include "kremlin/internal/target.h"
+#include "krmllib.h"
+#include "krml/internal/compat.h"
+#include "krml/internal/target.h"
 extern void LowStar_Printf_print_string(Prims_string uu___);
 
 extern void LowStar_Printf_print_char(FStar_Char_char uu___);
@@ -36,29 +36,29 @@ extern void LowStar_Printf_print_i64(int64_t uu___);
 
 extern void LowStar_Printf_print_bool(bool uu___);
 
-extern void LowStar_Printf_print_lmbuffer_bool(uint32_t l, bool *r);
+extern void LowStar_Printf_print_lmbuffer_bool(uint32_t l, bool *b);
 
-extern void LowStar_Printf_print_lmbuffer_char(uint32_t l, FStar_Char_char *r);
+extern void LowStar_Printf_print_lmbuffer_char(uint32_t l, FStar_Char_char *b);
 
-extern void LowStar_Printf_print_lmbuffer_string(uint32_t l, Prims_string *r);
+extern void LowStar_Printf_print_lmbuffer_string(uint32_t l, Prims_string *b);
 
-extern void LowStar_Printf_print_lmbuffer_u8(uint32_t l, uint8_t *r);
+extern void LowStar_Printf_print_lmbuffer_u8(uint32_t l, uint8_t *b);
 
-extern void LowStar_Printf_print_lmbuffer_u16(uint32_t l, uint16_t *r);
+extern void LowStar_Printf_print_lmbuffer_u16(uint32_t l, uint16_t *b);
 
-extern void LowStar_Printf_print_lmbuffer_u32(uint32_t l, uint32_t *r);
+extern void LowStar_Printf_print_lmbuffer_u32(uint32_t l, uint32_t *b);
 
-extern void LowStar_Printf_print_lmbuffer_u64(uint32_t l, uint64_t *r);
+extern void LowStar_Printf_print_lmbuffer_u64(uint32_t l, uint64_t *b);
 
-extern void LowStar_Printf_print_lmbuffer_i8(uint32_t l, int8_t *r);
+extern void LowStar_Printf_print_lmbuffer_i8(uint32_t l, int8_t *b);
 
-extern void LowStar_Printf_print_lmbuffer_i16(uint32_t l, int16_t *r);
+extern void LowStar_Printf_print_lmbuffer_i16(uint32_t l, int16_t *b);
 
-extern void LowStar_Printf_print_lmbuffer_i32(uint32_t l, int32_t *r);
+extern void LowStar_Printf_print_lmbuffer_i32(uint32_t l, int32_t *b);
 
-extern void LowStar_Printf_print_lmbuffer_i64(uint32_t l, int64_t *r);
+extern void LowStar_Printf_print_lmbuffer_i64(uint32_t l, int64_t *b);
 
-extern void LowStar_Printf_test(uint64_t m, uint32_t l, bool *r);
+extern void LowStar_Printf_test(uint64_t m, uint32_t l, bool *x);
 
 typedef struct K___Prims_int_Prims_int_s
 {
@@ -70,7 +70,7 @@ K___Prims_int_Prims_int;
 extern void
 LowStar_Printf_test2(K___Prims_int_Prims_int x, void (*print_pair)(K___Prims_int_Prims_int x0));
 
-extern void LowStar_Printf_test3(uint64_t m, uint32_t l, bool *r);
+extern void LowStar_Printf_test3(uint64_t m, uint32_t l, bool *x);
 
 
 #define __LowStar_Printf_H_DEFINED

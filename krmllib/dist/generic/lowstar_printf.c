@@ -1,5 +1,5 @@
 #include "LowStar_Printf.h"
-#include "kremlin/internal/target.h"
+#include "krml/internal/target.h"
 
 #define PRINT(N, T, M) \
   void LowStar_Printf_print_ ## N (T x) { \

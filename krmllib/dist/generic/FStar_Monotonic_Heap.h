@@ -11,9 +11,9 @@
 
 #include "FStar_Bytes.h"
 #include <inttypes.h>
-#include "kremlib.h"
-#include "kremlin/internal/compat.h"
-#include "kremlin/internal/target.h"
+#include "krmllib.h"
+#include "krml/internal/compat.h"
+#include "krml/internal/target.h"
 typedef FStar_Pervasives_Native_option__Prims_string_tags FStar_Pervasives_Native_option____;
 
 typedef struct FStar_Pervasives_dtuple4_____FStar_Pervasives_Native_option_____bool_any_s

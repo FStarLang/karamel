@@ -12,9 +12,9 @@
 #include "FStar_String.h"
 #include "FStar_Bytes.h"
 #include <inttypes.h>
-#include "kremlib.h"
-#include "kremlin/internal/compat.h"
-#include "kremlin/internal/target.h"
+#include "krmllib.h"
+#include "krml/internal/compat.h"
+#include "krml/internal/target.h"
 typedef struct FStar_VConfig_vconfig_s
 {
   Prims_int initial_fuel;

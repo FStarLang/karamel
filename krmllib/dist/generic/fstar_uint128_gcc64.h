@@ -16,7 +16,7 @@
  * FStar.UInt128 to avoid a maze of preprocessor guards and hand-written code.
  * */
 
-/* This file is used for both the minimal and generic kremlib distributions. As
+/* This file is used for both the minimal and generic krmllib distributions. As
  * such, it assumes that the machine integers have been bundled the exact same
  * way in both cases. */
 

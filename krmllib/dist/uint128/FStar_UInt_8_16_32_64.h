@@ -12,8 +12,8 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
-#include "kremlin/internal/types.h"
-#include "kremlin/internal/target.h"
+#include "krml/internal/types.h"
+#include "krml/internal/target.h"
 static inline uint64_t FStar_UInt64_eq_mask(uint64_t a, uint64_t b)
 {
   uint64_t x = a ^ b;

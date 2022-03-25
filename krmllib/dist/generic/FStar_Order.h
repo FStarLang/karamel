@@ -11,9 +11,9 @@
 
 #include "Prims.h"
 #include <inttypes.h>
-#include "kremlib.h"
-#include "kremlin/internal/compat.h"
-#include "kremlin/internal/target.h"
+#include "krmllib.h"
+#include "krml/internal/compat.h"
+#include "krml/internal/target.h"
 #define FStar_Order_Lt 0
 #define FStar_Order_Eq 1
 #define FStar_Order_Gt 2

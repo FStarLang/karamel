@@ -101,7 +101,7 @@ FStar_Order_order FStar_Order_lex(FStar_Order_order o1, FStar_Order_order (*o2)(
       }
     default:
       {
-        KRML_HOST_EPRINTF("KreMLin incomplete match at %s:%d\n", __FILE__, __LINE__);
+        KRML_HOST_EPRINTF("KaRaMeL incomplete match at %s:%d\n", __FILE__, __LINE__);
         KRML_HOST_EXIT(253U);
       }
   }
@@ -141,7 +141,7 @@ Prims_int FStar_Order_int_of_order(FStar_Order_order uu___)
       }
     default:
       {
-        KRML_HOST_EPRINTF("KreMLin incomplete match at %s:%d\n", __FILE__, __LINE__);
+        KRML_HOST_EPRINTF("KaRaMeL incomplete match at %s:%d\n", __FILE__, __LINE__);
         KRML_HOST_EXIT(253U);
       }
   }

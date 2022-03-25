@@ -20,7 +20,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "b2606d37bcfde55b9e1b123f4e140f8a"
+      "17b691006b6318aee304234ed5c85be6"
     ],
     [
       "StringLit.cat",
@@ -41,7 +41,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "d2ac56d144f81dd96ebbe797aaa8db44"
+      "e4494b20e7a4153c6b53e52d5ca2d7f0"
     ],
     [
       "StringLit.test_c_string",
@@ -50,7 +50,7 @@
       1,
       [ "@query" ],
       0,
-      "c37a36dcd6acc9ebdcc0154947d4605b"
+      "1ab7ae91f819246d920aaef8bd9facec"
     ],
     [
       "StringLit.main",
@@ -69,7 +69,7 @@
         "typing_FStar.Int.Cast.uint8_to_int32"
       ],
       0,
-      "923e4ea2e4a91f684994afaee8164822"
+      "6c8eb2312f55341608d9e95597a484e7"
     ]
   ]
 ]

@@ -11,9 +11,9 @@
 
 
 #include <inttypes.h>
-#include "kremlib.h"
-#include "kremlin/internal/compat.h"
-#include "kremlin/internal/target.h"
+#include "krmllib.h"
+#include "krml/internal/compat.h"
+#include "krml/internal/target.h"
 extern krml_checked_int_t Prims_op_Multiply(krml_checked_int_t x, krml_checked_int_t y);
 
 extern krml_checked_int_t Prims_op_Division(krml_checked_int_t x, krml_checked_int_t y);

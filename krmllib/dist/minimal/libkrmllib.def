@@ -1,4 +1,4 @@
-LIBRARY libkremlib
+LIBRARY libkrmllib
 
 EXPORTS
   FStar_UInt64_eq_mask

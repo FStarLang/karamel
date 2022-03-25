@@ -12,10 +12,10 @@
 #include "FStar_UInt128.h"
 #include <inttypes.h>
 #include <stdbool.h>
-#include "kremlin/internal/compat.h"
-#include "kremlin/lowstar_endianness.h"
-#include "kremlin/internal/types.h"
-#include "kremlin/internal/target.h"
+#include "krml/internal/compat.h"
+#include "krml/lowstar_endianness.h"
+#include "krml/internal/types.h"
+#include "krml/internal/target.h"
 static inline void store128_le(uint8_t *x0, FStar_UInt128_uint128 x1);
 
 static inline FStar_UInt128_uint128 load128_le(uint8_t *x0);

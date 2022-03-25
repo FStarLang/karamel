@@ -12,9 +12,9 @@
 #include "FStar_String.h"
 #include "FStar_BitVector.h"
 #include <inttypes.h>
-#include "kremlib.h"
-#include "kremlin/internal/compat.h"
-#include "kremlin/internal/target.h"
+#include "krmllib.h"
+#include "krml/internal/compat.h"
+#include "krml/internal/target.h"
 typedef void *FStar_Pervasives_pattern;
 
 #define FStar_Pervasives_Simpl 0
@@ -131,8 +131,7 @@ typedef struct Prims_list__FStar_Pervasives_norm_step_s
 }
 Prims_list__FStar_Pervasives_norm_step;
 
-extern void
-*FStar_Pervasives_norm(Prims_list__FStar_Pervasives_norm_step *uu___, void *uu___1);
+extern void *FStar_Pervasives_norm(Prims_list__FStar_Pervasives_norm_step *uu___, void *x);
 
 typedef void *FStar_Pervasives_ex_pre;
 
