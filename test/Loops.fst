@@ -116,6 +116,34 @@ let square_while () =
   C.Loops.while #(test_pre b r) #(test_post b r) test body;
   pop_frame ()
 
+(* Same as square_while except testing the while loop with ST effect *)
+#set-options "--max_ifuel 0 --z3rlimit 30"
+val square_while_st: unit -> ST unit (fun _ -> true) (fun h0 _ h1 -> true)
+let square_while_st () =
+  //let open C.Nullity in
+  let open FStar.UInt32 in
+  push_frame ();
+  let b = Buffer.alloca_of_list [ 0ul; 1ul; 2ul ] in
+  // JP: createL doesn't work here!
+  let r = Buffer.alloca 0ul 1ul in
+  // JP: eta-expansions seem necessary for the pre/post
+  let test (): ST bool (requires (fun h -> test_pre b r h)) (ensures (fun _ ret h1 -> test_post b r ret h1)) =
+    (!*r) <> 2ul
+  in
+  let body (): ST unit (requires (fun h -> test_post b r true h)) (ensures (fun _ _ h1 -> test_pre b r h1)) =
+    let h = get () in
+    assert (Buffer.live h r /\ Buffer.length r = 1);
+    b.(!*r) <- b.(!*r) *%^ b.(!*r);
+    r.(0ul) <- !*r +%^ 1ul
+  in
+  let h = get () in
+  assert (
+    UInt32.v (Buffer.get h r 0) < Buffer.length b /\
+    UInt32.v (Buffer.get h r 0) >= 0
+  );
+  C.Loops.while_st #(test_pre b r) #(test_post b r) test body;
+  pop_frame ()
+
 let test_map (): St unit =
   push_frame ();
   let b = Buffer.alloca 1ul 3ul in
@@ -189,6 +217,7 @@ let main () =
   TestLib.checku32 (sum_to_n_buf 12ul) 12ul;
 
   square_while ();
+  square_while_st ();
 
   pop_frame ();
 
