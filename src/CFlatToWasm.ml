@@ -647,6 +647,10 @@ and mk_expr env (e: expr): W.Ast.instr list =
 
   (* If the function is a fallback implementation of an intrinsic, call it
    * using its correct name *)
+  | CallFunc ("Lib_IntTypes_Intrinsics_add_carry_u32", args) ->
+      mk_expr env (CallFunc ("Hacl_IntTypes_Intrinsics_add_carry_u32", args))
+  | CallFunc ("Lib_IntTypes_Intrinsics_sub_borrow_u32", args) ->
+      mk_expr env (CallFunc ("Hacl_IntTypes_Intrinsics_sub_borrow_u32", args))
   | CallFunc ("Lib_IntTypes_Intrinsics_add_carry_u64", args) ->
       mk_expr env (CallFunc ("Hacl_IntTypes_Intrinsics_add_carry_u64", args))
   | CallFunc ("Lib_IntTypes_Intrinsics_sub_borrow_u64", args) ->
