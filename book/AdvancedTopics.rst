@@ -186,9 +186,9 @@ type (see digression above).
 
 .. note::
 
-  kremlib does a mix of these two approaches; uint modules are extracted as
+  krmllib does a mix of these two approaches; uint modules are extracted as
   static headers (and the suitable -static-header and -library options for
   clients are hardcoded in KaRaMeL) -- this allows projects such as HACL* to not
-  require any libkremlib.a; other parts of kremlib do not use this facility,
-  meaning that projects like miTLS still link against libkremlib.a to find
+  require any libkrmllib.a; other parts of krmllib do not use this facility,
+  meaning that projects like miTLS still link against libkrmllib.a to find
   external symbols (e.g. from ``FStar.Date``)

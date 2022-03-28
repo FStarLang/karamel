@@ -105,7 +105,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: (int * Bundle.t
         Warn.fatal_error "There an issue with your bundle.\n\
           You specified: -bundle %s\n\
           Here's the issue: one of these modules doesn't exist: %s.\n\
-          Suggestion #1: if the file does exist, pass it to KreMLin.\n\
+          Suggestion #1: if the file does exist, pass it to KaRaMeL.\n\
           Suggestion #2: if it doesn't, skip the %s= part and write -bundle %s"
           (string_of_bundle bundle)
           (string_of_apis api)

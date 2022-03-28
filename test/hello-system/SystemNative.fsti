@@ -1,10 +1,10 @@
 module SystemNative
 
 (* Note: since this example was written, many of these concepts have been
- * promoted to first-class status in kremlib. See C.Nullity, C.String, and
+ * promoted to first-class status in krmllib. See C.Nullity, C.String, and
  * others. *)
 
-(* This module is not extracted by KreMLin; rather, whichever functions are
+(* This module is not extracted by KaRaMeL; rather, whichever functions are
  * exposed here are implemented in C. Since this module does not get a prefix,
  * it may be the case that an enum case (e.g. AI_PASSIVE) is extracted as
  * AI_PASSIVE which happens to *exactly* match the macro. In other cases, stubs

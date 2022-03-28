@@ -8,9 +8,9 @@ true: annot, bin_annot, warn(@1-2-3@8..12@14..21@23..29-30@31..38-39-40-41@43@57
   package(process), package(fix), package(wasm), debug, strict_sequence, \
   package(visitors.ppx), package(visitors.runtime)
 "parser/KLexer.ml": package(sedlex.ppx)
-"src/GenCtypes.ml" or "src/Kremlin.native": package(compiler-libs), \
+"src/GenCtypes.ml" or "src/Karamel.native": package(compiler-libs), \
   package(compiler-libs.common), package(ppxlib)
 <test>: -traverse
-<kremlib/{extracted,c,out,dist}>: -traverse
+<krmllib/{extracted,c,out,dist}>: -traverse
 <book/tutorial>: -traverse
-<kremlib/**/*.ml>: package(fstarlib)
+<krmllib/**/*.ml>: package(fstarlib)

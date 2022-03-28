@@ -27,7 +27,7 @@ and decl =
       (** Name, number of parameters (De Bruijn), definition. *)
   | DTypeFlat of (lident * flag list * int * fields_t)
       (** The boolean indicates if the field is mutable *)
-  (* Assumed things that the type-checker of KreMLin needs to be aware of *)
+  (* Assumed things that the type-checker of KaRaMeL needs to be aware of *)
   | DExternal of (calling_convention option * flag list * lident * typ)
   | DTypeVariant of (lident * flag list * int * branches_t)
   | DTypeAbstractStruct of lident
@@ -187,7 +187,7 @@ let read_file (f: string): file list =
   let version, files = contents in
   if version > current_version then
     failwith (Printf.sprintf "F*-extracted %s has version %d; \
-      this build of KreMLin can only read up to version %d; upgrade KreMLin"
+      this build of KaRaMeL can only read up to version %d; upgrade KaRaMeL"
       f version current_version);
   files
 

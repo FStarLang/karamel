@@ -48,7 +48,7 @@ FSTAR_EXTRACT = --extract 'OCaml:-* +Spec'
 # But also:
 # - --cmi, for cross-module inlining, a must-have for anyone who relies on
 #   inline_for_extraction in the presence of interfaces
-# - --cache_checked_modules to rely on a pre-built ulib and kremlib
+# - --cache_checked_modules to rely on a pre-built ulib and krmllib
 # - --cache_dir, to avoid polluting our generated build artifacts outside o
 FSTAR_NO_FLAGS = $(FSTAR_HOME)/bin/fstar.exe $(FSTAR_HINTS) \
   --odir obj --cache_checked_modules $(FSTAR_INCLUDES) --cmi \
@@ -143,7 +143,7 @@ obj/%.ml:
 
 .PRECIOUS: obj/%.krml
 obj/%.krml:
-	$(FSTAR) $(notdir $(subst .checked,,$<)) --codegen Kremlin \
+	$(FSTAR) $(notdir $(subst .checked,,$<)) --codegen krml \
 	--extract_module $(basename $(notdir $(subst .checked,,$<)))
 
 obj/Specs_Driver.ml: specs/ml/Specs_Driver.ml
@@ -154,7 +154,7 @@ obj/Specs_Driver.ml: specs/ml/Specs_Driver.ml
 # F* --> C
 # --------
 
-KRML=$(KREMLIN_HOME)/krml
+KRML=$(KRML_HOME)/krml
 
 # Note: the implementation of the intrinsic uses external linkage, but you could
 # easily turn this file into a .h, use -add-include '"Impl_Bignum_Intrinsics.h"'
@@ -195,7 +195,7 @@ dist/Makefile.basic: $(filter-out %prims.krml,$(ALL_KRML_FILES)) $(HAND_WRITTEN_
 	  -minimal \
 	  -bundle 'FStar.*' \
 	  -add-include '<stdint.h>' \
-	  -add-include '"kremlin/internal/target.h"' \
+	  -add-include '"krml/internal/target.h"' \
 	  $(notdir $(HAND_WRITTEN_C_FILES)) \
 	  -o libbignum.a
 
@@ -204,7 +204,7 @@ dist/Makefile.basic: $(filter-out %prims.krml,$(ALL_KRML_FILES)) $(HAND_WRITTEN_
 
 # Here we do a recursive make invocation because a new dependency analysis needs
 # to be performed on the generated C files. This recursive make deals with all
-# the files copied in dist, which includes kremlin-generated and hand-written,
+# the files copied in dist, which includes karamel-generated and hand-written,
 # copied files from HAND_WRITTEN_C_FILES.
 
 dist/libbignum.a: dist/Makefile.basic
@@ -254,7 +254,7 @@ obj/specs-test.exe: $(ALL_CMX_FILES) obj/Specs_Driver.cmx
 # Compiling the hand-written test
 # -------------------------------
 
-CFLAGS += -I dist -I $(KREMLIN_HOME)/include
+CFLAGS += -I dist -I $(KRML_HOME)/include
 
 tests/c-tests.exe: dist/libbignum.a tests/c-tests.o
 	$(CC) $^ -o $@
