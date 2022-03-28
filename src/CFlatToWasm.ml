@@ -856,7 +856,6 @@ and mk_expr env (e: expr): W.Ast.instr list =
         ) es) @
         mk_expr env e
 
-
   | GetGlobal i ->
       [ dummy_phrase (W.Ast.GlobalGet (mk_var (find_global env i))) ]
 

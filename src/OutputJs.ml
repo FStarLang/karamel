@@ -76,7 +76,7 @@ server from this directory. If you don't have one already:
 Then, run `http-server .` and navigate to http://localhost:8080/main.html
 |}
 
-let write_all js_files modules print =
+let write_all js_files modules print layouts =
   Driver.detect_kremlin_if ();
   Driver.mkdirp !Options.tmpdir;
 
@@ -121,6 +121,11 @@ let write_all js_files modules print =
   List.iter (fun f ->
     Utils.cp (!Options.tmpdir ^^ f) (!Driver.kremlib_dir ^^ "js" ^^ f)
   ) [ "browser.js"; "loader.js"; "main.js" ];
+
+  (* Layout map... for serializing in and out of WASM memory *)
+  Utils.with_open_out_bin (!Options.tmpdir ^^ "layouts.json") (fun oc ->
+    Yojson.Safe.to_channel oc layouts
+  );
 
   (* Be nice *)
   Utils.with_open_out_bin (!Options.tmpdir ^^ "README") (fun oc -> output_string oc readme)

@@ -16,6 +16,8 @@
 #include "kremlin/internal/target.h"
 extern void WasmSupport_trap(Prims_string uu___);
 
+extern uint32_t WasmSupport_malloc(uint32_t uu___);
+
 uint32_t WasmSupport_align_64(uint32_t x);
 
 void WasmSupport_check_buffer_size(uint32_t s);

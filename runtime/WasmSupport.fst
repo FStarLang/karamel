@@ -11,9 +11,12 @@ module B = LowStar.Buffer
 open LowStar.BufferOps
 open FStar.Mul
 
-(* Functions implemented primitively in JS. *)
+(* Functions implemented primitively in JS. No F* client should call those! *)
 
-assume val trap: Prims.string -> Stack unit (fun _ -> True) (fun _ _ _ -> false)
+assume val trap: Prims.string -> Stack unit (fun _ -> True) (fun _ _ _ -> False)
+
+(* Really not meant to be called by F* clients... *)
+assume val malloc: U32.t -> Stack U32.t (fun _ -> False) (fun _ _ _ -> False)
 
 (* Functions that the code-generator expects to find, either at the Ast, CFlat
  * or Wasm levels. In SimplifyWasm.ml, we prefix these with their module (before

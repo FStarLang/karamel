@@ -126,7 +126,7 @@ extern Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes uu___);
 
 extern FStar_Bytes_bytes FStar_Bytes_bytes_of_string(Prims_string uu___);
 
-extern FStar_Bytes_bytes FStar_Bytes_of_buffer(uint32_t l, uint8_t *p);
+extern FStar_Bytes_bytes FStar_Bytes_of_buffer(uint32_t l, uint8_t *buf);
 
 extern void FStar_Bytes_store_bytes(FStar_Bytes_bytes src, uint8_t *dst);
 

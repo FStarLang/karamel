@@ -676,7 +676,7 @@ Supported options:|}
     let files = is_support @ intrinsics @ rest in
     (* The Wasm backend diverges here. We go to [CFlat] (an expression
      * language), then directly into the Wasm AST. *)
-    let files = AstToCFlat.mk_files files c_name_map in
+    let layouts, files = AstToCFlat.mk_files files c_name_map in
     let files = List.filter (fun (_, decls) -> List.length decls > 0) files in
     tick_print true "AstToCFlat";
 
@@ -686,7 +686,7 @@ Supported options:|}
     let modules = OptimizeWasm.optimize_files modules in
     tick_print true "OptimizeWasm";
 
-    OutputJs.write_all !js_files modules !arg_print_wasm
+    OutputJs.write_all !js_files modules !arg_print_wasm layouts
 
   else
     let () = () in

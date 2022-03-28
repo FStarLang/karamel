@@ -18,6 +18,31 @@ open PrintAst.Ops
  * Variable declarations are visited in infix order; this order is used for
  * numbering the corresponding Cflat local declarations. Wasm will later on take
  * care of register allocation. *)
+type layout =
+  | LEnum (* compiled as an I32 instead of a U8 when going to C (the default) *)
+  | LFlat of flat_layout
+  | LBuiltin of size * array_size
+  [@@deriving yojson ]
+
+and flat_layout = {
+  size: int;
+    (** In bytes *)
+  fields: (string * offset * runtime_type) list;
+    (** Any struct must be laid out on a word boundary (64-bit). Then, fields
+     * can be always accessed using the most efficient offset computation.
+     * Note: size information is only relevant for serialization/deserialization
+     * of data structures to/from WASM memory from JS, guided by a JSON dump of
+     * this layout. *)
+}
+
+and offset = int
+  (** In byte *)
+
+and runtime_type =
+  | Int of size
+  | Pointer of runtime_type
+  | Layout of string
+
 type env = {
   binders: int list;
   enums: int LidMap.t;
@@ -50,21 +75,6 @@ type env = {
   names: (lident, ident) Hashtbl.t;
 }
 
-and layout =
-  | LEnum (* compiled as an I32 instead of a U8 when going to C (the default) *)
-  | LFlat of flat_layout
-  | LBuiltin of size * array_size
-
-and flat_layout = {
-  size: int;
-    (** In bytes *)
-  fields: (string * offset) list;
-    (** Any struct must be laid out on a word boundary (64-bit). Then, fields
-     * can be always accessed using the most efficient offset computation. *)
-}
-
-and offset = int
-  (** In byte *)
 
 let empty names = {
   binders = [];
@@ -225,12 +235,12 @@ and flat_layout env fields: flat_layout =
           (* Structs and unions align on a 64-byte boundary *)
           let size = byte_size env t in
           let ofs = align A64 ofs in
-          (fname, ofs) :: fields, ofs + size
+          (fname, ofs, runtime_type env t) :: fields, ofs + size
       | t ->
           (* All other elements align on their width. *)
           let s = array_size_of env t in
           let ofs = align s ofs in
-          (fname, ofs) :: fields, ofs + bytes_in s
+          (fname, ofs, runtime_type env t) :: fields, ofs + bytes_in s
     ) ([], 0) fields
   in
   let fields = List.rev fields in
@@ -967,6 +977,11 @@ let mk_module env decls =
   ) (env, []) decls in
   env, List.rev decls
 
+let mk_layouts env =
+  `Assoc (LidMap.fold (fun lid layout acc ->
+    (GlobalNames.to_c_name env.names lid, layout_to_yojson layout) :: acc
+  ) env.layouts [])
+
 let mk_files files names =
   let env = populate (empty names) files in
   if Options.debug "cflat" then
@@ -975,4 +990,4 @@ let mk_files files names =
     let env, decls = mk_module env decls in
     env, (name, decls) :: ms
   ) (env, []) files in
-  List.rev modules
+  mk_layouts env, List.rev modules

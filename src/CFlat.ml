@@ -22,7 +22,7 @@ module Sizes = struct
   type size =
     | I32
     | I64
-    [@@deriving show]
+    [@@deriving show, yojson]
 
   (* We may want, however, to adopt a more optimal representation for arrays, and
    * store bytes within arrays. Therefore, there is a different notion of how
