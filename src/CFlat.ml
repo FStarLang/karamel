@@ -33,6 +33,13 @@ module Sizes = struct
     | A32
     | A64
 
+  (** For the JS boundary functions *)
+  and runtime_type =
+    | Int of array_size
+    | Pointer of runtime_type
+    | Layout of string
+    | Unknown (* anonymous struct / unions *)
+
   let string_of_size = function
     | I32 -> "I32"
     | I64 -> "I64"

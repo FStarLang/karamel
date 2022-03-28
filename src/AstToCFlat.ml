@@ -27,7 +27,7 @@ type layout =
 and flat_layout = {
   size: int;
     (** In bytes *)
-  fields: (string * offset * runtime_type) list;
+  fields: (string * (offset * runtime_type)) list;
     (** Any struct must be laid out on a word boundary (64-bit). Then, fields
      * can be always accessed using the most efficient offset computation.
      * Note: size information is only relevant for serialization/deserialization
@@ -37,11 +37,6 @@ and flat_layout = {
 
 and offset = int
   (** In byte *)
-
-and runtime_type =
-  | Int of size
-  | Pointer of runtime_type
-  | Layout of string
 
 type env = {
   binders: int list;
@@ -166,6 +161,24 @@ let array_size_of (env: env) (t: typ): array_size =
   | _ ->
       failwith (KPrint.bsprintf "array_size_of: this case should've been eliminated: %a" ptyp t)
 
+
+(* The exact size as a number of bytes of any type. *)
+let rec runtime_type (env: env) (t: typ): runtime_type =
+  match t with
+  | TQualified lid ->
+      begin match LidMap.find lid env.layouts with
+      | LEnum -> Int A32
+      | LBuiltin (_, s) -> Int s
+      | _ -> Layout (GlobalNames.to_c_name env.names lid)
+      end
+  | TAnonymous _ ->
+      Unknown
+  | TBuf (t, _) ->
+      Pointer (runtime_type env t)
+  | _ ->
+      Int (array_size_of env t)
+
+
 (* The alignment takes an array size, an our invariant is that integers are
  * aligned on a multiple of their size (i.e. 64-bit aligned on 64 bits, 32-bits
  * aligned on 32 bits, etc. Structs are always on a 64-bit boundary. This is
@@ -235,12 +248,12 @@ and flat_layout env fields: flat_layout =
           (* Structs and unions align on a 64-byte boundary *)
           let size = byte_size env t in
           let ofs = align A64 ofs in
-          (fname, ofs, runtime_type env t) :: fields, ofs + size
+          (fname, (ofs, runtime_type env t)) :: fields, ofs + size
       | t ->
           (* All other elements align on their width. *)
           let s = array_size_of env t in
           let ofs = align s ofs in
-          (fname, ofs, runtime_type env t) :: fields, ofs + bytes_in s
+          (fname, (ofs, runtime_type env t)) :: fields, ofs + bytes_in s
     ) ([], 0) fields
   in
   let fields = List.rev fields in
@@ -249,12 +262,12 @@ and flat_layout env fields: flat_layout =
 let field_offset env t f =
   match t with
   | TQualified lid ->
-      List.assoc f (assert_lflat (LidMap.find lid env.layouts)).fields
+      fst (List.assoc f (assert_lflat (LidMap.find lid env.layouts)).fields)
   | TAnonymous (Union cases) ->
       assert (List.mem_assoc f cases);
       0
   | TAnonymous (Flat struct_fields) ->
-      List.assoc f (flat_layout env (fields_of_struct struct_fields)).fields
+      fst (List.assoc f (flat_layout env (fields_of_struct struct_fields)).fields)
   | _ ->
       failwith (KPrint.bsprintf "Not something we can field-offset: %a" ptyp t)
 
@@ -328,7 +341,7 @@ let debug_env { layouts; enums; _ } =
     match l with
     | LFlat { size; fields } ->
         KPrint.bprintf "%a (size=%d, %d fields)\n" plid lid size (List.length fields);
-        List.iter (fun (f, ofs) ->
+        List.iter (fun (f, (ofs, _)) ->
           KPrint.bprintf "  +%d: %s\n" ofs f
         ) fields
     | LEnum ->
@@ -468,7 +481,7 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
         let layout = Option.must (layout_of env e) in
         KList.map_flatten (fun (fname, e) ->
           let fname = Option.must fname in
-          let fofs = List.assoc fname layout.fields in
+          let fofs = fst (List.assoc fname layout.fields) in
           write_scalar dst (ofs + fofs) e
         ) fields
     | EString s ->
@@ -533,7 +546,7 @@ let rec write_at (env: env)
             let locals, writes =
               fold (fun locals (fname, e) ->
                 let fname = Option.must fname in
-                let fofs = List.assoc fname layout.fields in
+                let fofs = fst (List.assoc fname layout.fields) in
                 (* Recursively write each field of the struct at its offset. *)
                 write_at locals (ofs + fofs, e)
               ) locals fields
@@ -699,7 +712,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | EAddrOf ({ node = EField (e1, f); _ }) ->
       (* This is the "address-of" operation from the paper. *)
-      let ofs = List.assoc f (Option.must (layout_of env e1)).fields in
+      let ofs = fst (List.assoc f (Option.must (layout_of env e1)).fields) in
       let locals, e1 = mk_expr env locals (with_type (TBuf (e1.typ, true)) (EAddrOf e1)) in
       locals, mk_add32 e1 (mk_uint32 ofs)
 
