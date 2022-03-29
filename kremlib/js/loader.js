@@ -194,11 +194,11 @@ let mkFStar = () => dummyModule(
   [ "FStar_Monotonic_Heap_lemma_mref_injectivity" ]);
 
 let mkLowStar = (mem) => ({
-  LowStar_Monotonic_Buffer_is_null: (addr) => (addr != 0)
+  LowStar_Monotonic_Buffer_is_null: (addr) => (addr == 0)
 });
 
 let mkSteelReference = (mem) => ({
-  Steel_Reference_is_null: (addr) => (addr != 0)
+  Steel_Reference_is_null: (addr) => (addr == 0)
 });
 
 let mkPrims = (mem) => ({
