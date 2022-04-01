@@ -171,6 +171,7 @@ let mkWasmSupport = (mem) => ({
     // Header.
     //   First four bytes are allocation size, next four bytes are
     //   reserved. Data follows.
+    my_print("malloc: requested " + p32(sz) + " bytes");
     sz += 8;
 
     // Tentative pointer.
@@ -183,7 +184,7 @@ let mkWasmSupport = (mem) => ({
     m32[heap_size_addr] = new_heap_size;
     // Header contains size of allocation block.
     m32[p/4] = sz;
-    my_print("mem_size = " + p32(memSize) + "; allocated " + p32(sz) + " bytes, header 0x" + p32(p));
+    my_print("total mem_size: " + p32(memSize) + "; new allocation: " + p32(sz) + " bytes, header: 0x" + p32(p));
     my_print("new heap size: "+p32(new_heap_size));
     return p+8;
   }
