@@ -305,6 +305,10 @@ Supported options:|}
       tweaks";
     "-fextern-c", Arg.Set Options.extern_c, " wrap declarations in each header \
       with extern \"C\" {";
+    "-fnoshort-names", Arg.Clear Options.short_names, "  disable unprefix names \
+      for private (static) functions that are not exposed in headers; this ensures \
+      robust collision-avoidance in case your private function names collide with \
+      one of the included system headers";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
