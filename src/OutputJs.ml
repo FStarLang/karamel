@@ -52,13 +52,9 @@ let as_js_list l =
 let readme =
 {|How to run the WASM output of KreMLin?
 
-# With v8, from the console
+# With node, from the console
 
-Install and build Google's v8 engine, which should give a d8 binary. Then:
-
-    d8 --allow-natives-syntax main.js
-
-Note: on my machine, it's better to call d8 through an absolute path.
+    node main.js
 
 # With Chakra, from the console
 
@@ -71,7 +67,7 @@ Install and build ChakraCore, which should give a ch binary. Then:
 Chrome won't run this from the file:// URL, so you'll need to start an HTTP
 server from this directory. If you don't have one already:
 
-    npm install http-server
+    npm install -g http-server
 
 Then, run `http-server .` and navigate to http://localhost:8080/main.html
 |}
