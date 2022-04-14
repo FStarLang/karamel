@@ -25,7 +25,7 @@
 
 #include "FStar_UInt128.h"
 #include "FStar_UInt_8_16_32_64.h"
-#include "LowStar_Endianness.h"
+#include "lowstar_endianness.h"
 
 /* GCC + using native unsigned __int128 support */
 
