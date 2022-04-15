@@ -33,12 +33,12 @@ RUN chmod 600 ${MYHOME}/.ssh/id_rsa
 RUN rm -f build.sh build_helper.sh buildlogfile.txt log_no_replay.html log_worst.html orange_status.txt result.txt status.txt commitinfofilename.json
 
 # Copy source files
-RUN mkdir ${MYHOME}/kremlin
-COPY --chown=everest / ${MYHOME}/kremlin
+RUN mkdir ${MYHOME}/karamel
+COPY --chown=everest / ${MYHOME}/karamel
 
 # The Azure Devops build copies these files from .docker/linux/, etc. into the
-# root of the kremlin git repository.
-RUN rm kremlin/Dockerfile kremlin/build.sh kremlin/build_helper.sh kremlin/id_rsa kremlin/commitinfofilename.json
+# root of the karamel git repository.
+RUN rm karamel/Dockerfile karamel/build.sh karamel/build_helper.sh karamel/id_rsa karamel/commitinfofilename.json
 
 COPY --chown=everest build.sh ${MYHOME}/build.sh
 RUN chmod +x build.sh

@@ -177,7 +177,7 @@ let inline_analysis files =
       Hashtbl.replace map lid (Black, flags, 0, body);
       false
   in
-  Hashtbl.add map ([ "kremlinit" ], "globals") (Black, [], 0, Helpers.any);
+  Hashtbl.add map ([ "krmlinit" ], "globals") (Black, [], 0, Helpers.any);
   let must_disappear lid =
     let _, flags, _, _ = Hashtbl.find map lid in
     List.mem MustDisappear flags
@@ -196,7 +196,7 @@ let inline_analysis files =
  * - StackInline created such a cross-call
  * - -bundle optimistically marked functions as private
  * - initializing of constants whose initial value is not a C value from the
- *   separate "kremlinit" translation unit.
+ *   separate "krmlinit" translation unit.
  * As such, this phase must happen after all three steps above.
  * The Inline qualifier is also dropped if compiling for CompCert; for other
  * compilers, this is just a warning. *)
@@ -564,7 +564,7 @@ let inline_type_abbrevs files =
  * function is marked as static AND is not used within this translation unit.
  * We just perform a per-file reachability analysis starting from non-private
  * functions. Note to my future self: errors may arise if the only use site is a
- * macro that drops its parameter... check kremlib.h! *)
+ * macro that drops its parameter... check krmllib.h! *)
 let drop_unused files =
   let seen = Hashtbl.create 41 in
 

@@ -73,7 +73,7 @@ let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
   mk_decl ?t p e
 
 
-(* Note: keeping the naming scheme as decided by KreMLin, in accordance with the
+(* Note: keeping the naming scheme as decided by KaRaMeL, in accordance with the
  * -no-prefix options. If this is the beginning of a top-level name, lower is
  * true and we force the first letter to be lowercase to abide by OCaml syntax
  * restrictions. *)

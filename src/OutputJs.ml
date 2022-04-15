@@ -9,7 +9,7 @@ let html_stub = format_of_string {|
 <html>
   <head>
     <meta charset="utf-8">
-    <title>KreMLin main driver</title>
+    <title>KaRaMeL main driver</title>
     %s
     <script type="application/javascript">
       var my_modules = %s;
@@ -17,7 +17,7 @@ let html_stub = format_of_string {|
     <script type="application/javascript" src="browser.js"></script>
     <script type="application/javascript" src="loader.js"></script>
     <script type="application/javascript">
-      window.addEventListener("load", kremlin_start);
+      window.addEventListener("load", karamel_start);
     </script>
   </head>
   <body>
@@ -50,7 +50,7 @@ let as_js_list l =
   ) l) ^ "]"
 
 let readme =
-{|How to run the WASM output of KreMLin?
+{|How to run the WASM output of KaRaMeL?
 
 # With node, from the console
 
@@ -73,7 +73,7 @@ Then, run `http-server .` and navigate to http://localhost:8080/main.html
 |}
 
 let write_all js_files modules print layouts =
-  Driver.detect_kremlin_if ();
+  Driver.detect_karamel_if ();
   Driver.mkdirp !Options.tmpdir;
 
   (* Write out all the individual .wasm files *)
@@ -115,7 +115,7 @@ let write_all js_files modules print layouts =
   (* Files that are needed for the tmpdir to be runnable and complete. *)
   let ( ^^ ) = Filename.concat in
   List.iter (fun f ->
-    Utils.cp (!Options.tmpdir ^^ f) (!Driver.kremlib_dir ^^ "js" ^^ f)
+    Utils.cp (!Options.tmpdir ^^ f) (!Driver.krmllib_dir ^^ "js" ^^ f)
   ) [ "browser.js"; "loader.js"; "main.js" ];
 
   (* Layout map... for serializing in and out of WASM memory *)

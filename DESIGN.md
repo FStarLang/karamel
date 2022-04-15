@@ -1,14 +1,14 @@
-Overview of KreMLin
+Overview of KaRaMeL
 -------------------
 
-From a high-level perspective, KreMLin takes an input AST, translates it into a
+From a high-level perspective, KaRaMeL takes an input AST, translates it into a
 typed internal AST, then massages the program by performing repeated
 transformations until the program fits within a simple enough subset dubbed
 Low\*. Once a program is valid Low\*, it translates almost trivially into C\*, an
 idealized dialect of C. Then, the program is translated to an abstract C AST,
 and finally pretty-printed.
 
-The detailed steps are as follows. KreMLin:
+The detailed steps are as follows. KaRaMeL:
 - loads an AST written by F\* or Dafny (see `InputAst.ml`)
 - translates it into an AST where expressions and patterns are annotated with
   their types (see `InputAstToAst.ml`, `Ast.ml`)
@@ -46,7 +46,7 @@ The detailed steps are as follows. KreMLin:
 - performs part of the "round of transformations" again (‡).
 
 At this stage, the (unverified) invariant is that the any program fits the
-definition of Low\* and can be trivially translated to C\*; KreMLin then:
+definition of Low\* and can be trivially translated to C\*; KaRaMeL then:
 - translates the program to C* (see `CStar.ml`, `AstToCStar.ml`); this involves
   * going from a lexical scope to a block scope while preserving names insofar
     as possible;
@@ -71,7 +71,7 @@ WASM Backend
 This is an alternative code generation pipeline that branches off at (‡), i.e.
 after the "round of transformations".
 
-This codepath is conditional on the `-wasm` flag; KreMLin then:
+This codepath is conditional on the `-wasm` flag; KaRaMeL then:
 - desugars some more high-level constructs (e.g. creation of a buffer with an
   initial value, buffer blitting) into a series of loops and assignments --
   these were only kept to generate more idiomatic C code;

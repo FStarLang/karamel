@@ -3,7 +3,7 @@ KaRaMeL
 
 | Linux | Windows |
 |---------|-------|
-| [![Linux](https://msr-project-everest.visualstudio.com/Everest/_apis/build/status/Kremlin/Kremlin-Linux?branchName=master)](https://msr-project-everest.visualstudio.com/Everest/_build/latest?definitionId=38&branchName=master) | [![Windows](https://msr-project-everest.visualstudio.com/Everest/_apis/build/status/Kremlin/Kremlin-Windows?branchName=master)](https://msr-project-everest.visualstudio.com/Everest/_build/latest?definitionId=40&branchName=master) |
+| [![Linux](https://msr-project-everest.visualstudio.com/Everest/_apis/build/status/Karamel/Karamel-Linux?branchName=master)](https://msr-project-everest.visualstudio.com/Everest/_build/latest?definitionId=38&branchName=master) | [![Windows](https://msr-project-everest.visualstudio.com/Everest/_apis/build/status/Karamel/Karamel-Windows?branchName=master)](https://msr-project-everest.visualstudio.com/Everest/_build/latest?definitionId=40&branchName=master) |
 
 KaRaMeL (formerly known as KReMLin) is a tool that extracts an F\* program to
 readable C code: K&R meets ML!
@@ -62,10 +62,10 @@ can run the KaRaMeL test suite by doing `make test`.
 
 ## Installing through OPAM
 
-KaRaMeL is also available on OPAM, by running `opam install kremlin`.
+KaRaMeL is also available on OPAM, by running `opam install karamel`.
 
 If you installed the latest version of F\* through OPAM, using `opam pin add fstar --dev-repo`,
-you can also install the most up-to-date version of KaRaMeL by running `opam pin add kremlin --dev-repo`.
+you can also install the most up-to-date version of KaRaMeL by running `opam pin add karamel --dev-repo`.
 
 File a bug if things don't work!
 

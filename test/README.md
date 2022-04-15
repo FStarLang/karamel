@@ -1,4 +1,4 @@
-# Tests for KreMLin
+# Tests for KaRaMeL
 
 `make standalone` will generate a series of unit tests that can be run with a
 sole dependency on the F\* binary and its standard libraries.

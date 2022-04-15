@@ -140,7 +140,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'theKaRaMeLusermanual', u'The KaRaMeL user manual Documentation',
+    (master_doc, 'TheKaRaMeLusermanual', u'The KaRaMeL user manual Documentation',
      [author], 1)
 ]
 
