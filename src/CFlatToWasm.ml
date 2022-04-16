@@ -645,17 +645,6 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallFunc ("C_Nullity_null", [ _ ]) ->
       [ dummy_phrase (W.Ast.Const (mk_int32 0l)) ]
 
-  (* If the function is a fallback implementation of an intrinsic, call it
-   * using its correct name *)
-  | CallFunc ("Lib_IntTypes_Intrinsics_add_carry_u32", args) ->
-      mk_expr env (CallFunc ("Hacl_IntTypes_Intrinsics_add_carry_u32", args))
-  | CallFunc ("Lib_IntTypes_Intrinsics_sub_borrow_u32", args) ->
-      mk_expr env (CallFunc ("Hacl_IntTypes_Intrinsics_sub_borrow_u32", args))
-  | CallFunc ("Lib_IntTypes_Intrinsics_add_carry_u64", args) ->
-      mk_expr env (CallFunc ("Hacl_IntTypes_Intrinsics_add_carry_u64", args))
-  | CallFunc ("Lib_IntTypes_Intrinsics_sub_borrow_u64", args) ->
-      mk_expr env (CallFunc ("Hacl_IntTypes_Intrinsics_sub_borrow_u64", args))
-
   | CallFunc (("load16_le_i" | "load16_le"), [ e ]) ->
       mk_expr env e @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Types.(Pack16, ZX) })]

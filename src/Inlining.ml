@@ -170,7 +170,7 @@ let inline_analysis files =
     try
       let size = compute_size lid in
       (* 0 encodes a cycle meaning we shouldn't inline the function *)
-      let small = 0 < size && size < 1000 in
+      let small = 0 < size && size < 0 in
       small
     with T.Cycle ->
       let _, flags, _, body = Hashtbl.find map lid in

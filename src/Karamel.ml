@@ -506,6 +506,7 @@ Supported options:|}
    *   A_f" comes before "static void B_g" (since they're static, there's no
    *   forward declaration in the header. *)
   let files = Builtin.make_libraries files in
+  let files = SimplifyWasm.intrinsics#visit_files () files in
   let files = Bundles.topological_sort files in
   NamingHints.record files;
 
@@ -601,11 +602,9 @@ Supported options:|}
       let files = Simplify.count_and_remove_locals#visit_files [] files in
       let files = SimplifyWasm.simplify1 files in
       let files = Simplify.hoist#visit_files [] files in
-      print PrintAst.print_files files;
       let files = Structs.in_memory files in
       (* This one near the end because [in_memory] generates new EBufCreate's that
        * need to be desugared into EBufCreate Any + EBufWrite. See e2ceb92e. *)
-      print PrintAst.print_files files;
       let files = SimplifyWasm.simplify2 files in
       let files = Simplify.let_to_sequence#visit_files () files in
       tick_print true "Wasm specific";
@@ -673,9 +672,7 @@ Supported options:|}
       Warn.fatal_error "The module WasmSupport wasn't passed to karamel or \
         was hidden in a bundle!";
 
-    (* If present, place the fallback intrinsics module immediately after. *)
-    let intrinsics, rest = List.partition (fun (name, _) -> name = "Hacl_IntTypes_Intrinsics") rest in
-    let files = is_support @ intrinsics @ rest in
+    let files = is_support @ rest in
     (* The Wasm backend diverges here. We go to [CFlat] (an expression
      * language), then directly into the Wasm AST. *)
     let layouts, files = AstToCFlat.mk_files files c_name_map in
