@@ -22,7 +22,7 @@ module Sizes = struct
   type size =
     | I32
     | I64
-    [@@deriving show]
+    [@@deriving show, yojson]
 
   (* We may want, however, to adopt a more optimal representation for arrays, and
    * store bytes within arrays. Therefore, there is a different notion of how
@@ -32,6 +32,13 @@ module Sizes = struct
     | A16
     | A32
     | A64
+
+  (** For the JS boundary functions *)
+  and runtime_type =
+    | Int of array_size
+    | Pointer of runtime_type
+    | Layout of string
+    | Unknown (* anonymous struct / unions *)
 
   let string_of_size = function
     | I32 -> "I32"

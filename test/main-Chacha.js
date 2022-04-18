@@ -13,10 +13,11 @@ const cipher = [
   0x1a, 0xb7, 0x79, 0x37, 0x36, 0x5a, 0xf9, 0x0b, 0xbf, 0x74, 0xa3, 0x5b, 0xe6,
   0xb4, 0x0b, 0x8e, 0xed, 0xf2, 0x78, 0x5e, 0x42, 0x87, 0x4d ];
 
-function main({ reserve, dump, my_print, hex }, imports) {
+function main({ reserve, dump, my_print, hex, p32 }, imports) {
   let mem = imports.Karamel.mem;
   let start = reserve(mem, 1024);
   dump(mem, 2*1024);
+  my_print("start =" + p32(start));
 
   // Allocating our parameters in the first 1k of the memory.
   let m8 = new Uint8Array(mem.buffer);
@@ -35,6 +36,10 @@ function main({ reserve, dump, my_print, hex }, imports) {
 
   let counter_mode = imports.Crypto_Symmetric_Chacha20.counter_mode;
   counter_mode(p_key, p_iv, counter, len, p_plain, p_cipher);
+
+  my_print("p_plain =" + p32(p_plain));
+  my_print("p_cipher =" + p32(p_cipher));
+  dump(mem, 2*1024);
 
   my_print("Chacha20 finished (len="+len+")");
   my_print("Plaintext was:");

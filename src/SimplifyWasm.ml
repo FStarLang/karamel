@@ -10,6 +10,16 @@ open DeBruijn
 let check_buffer_size =
   with_type (TArrow (TInt K.UInt32, TUnit)) (EQualified ([ "WasmSupport" ], "check_buffer_size"))
 
+let intrinsics = object
+  inherit [_] map
+
+  method! visit_EQualified ((), _) lid =
+    match lid with
+    | ["Lib"; "IntTypes"; "Intrinsics"], x ->
+        EQualified (["Hacl"; "IntTypes"; "Intrinsics"], x)
+    | _ ->
+        EQualified lid
+end
 
 let hoist_reads_and_writes = object(self)
   inherit [_] map
