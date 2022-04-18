@@ -506,7 +506,7 @@ Supported options:|}
    *   A_f" comes before "static void B_g" (since they're static, there's no
    *   forward declaration in the header. *)
   let files = Builtin.make_libraries files in
-  let files = SimplifyWasm.intrinsics#visit_files () files in
+  let files = if !Options.wasm then SimplifyWasm.intrinsics#visit_files () files else files in
   let files = Bundles.topological_sort files in
   NamingHints.record files;
 
