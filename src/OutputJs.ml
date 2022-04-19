@@ -52,13 +52,9 @@ let as_js_list l =
 let readme =
 {|How to run the WASM output of KaRaMeL?
 
-# With v8, from the console
+# With node, from the console
 
-Install and build Google's v8 engine, which should give a d8 binary. Then:
-
-    d8 --allow-natives-syntax main.js
-
-Note: on my machine, it's better to call d8 through an absolute path.
+    node main.js
 
 # With Chakra, from the console
 
@@ -71,12 +67,12 @@ Install and build ChakraCore, which should give a ch binary. Then:
 Chrome won't run this from the file:// URL, so you'll need to start an HTTP
 server from this directory. If you don't have one already:
 
-    npm install http-server
+    npm install -g http-server
 
 Then, run `http-server .` and navigate to http://localhost:8080/main.html
 |}
 
-let write_all js_files modules print =
+let write_all js_files modules print layouts =
   Driver.detect_karamel_if ();
   Driver.mkdirp !Options.tmpdir;
 
@@ -121,6 +117,11 @@ let write_all js_files modules print =
   List.iter (fun f ->
     Utils.cp (!Options.tmpdir ^^ f) (!Driver.krmllib_dir ^^ "js" ^^ f)
   ) [ "browser.js"; "loader.js"; "main.js" ];
+
+  (* Layout map... for serializing in and out of WASM memory *)
+  Utils.with_open_out_bin (!Options.tmpdir ^^ "layouts.json") (fun oc ->
+    Yojson.Safe.to_channel oc layouts
+  );
 
   (* Be nice *)
   Utils.with_open_out_bin (!Options.tmpdir ^^ "README") (fun oc -> output_string oc readme)
