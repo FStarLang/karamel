@@ -22,7 +22,7 @@
 #include "krml/internal/debug.h"
 #include "krml/internal/types.h"
 
-#include "krml/lowstar_endianness.h"
+#include "krml/lowstar_endianness_builtins.h"
 #include "krml/fstar_int.h"
 
 #endif     /* __KRMLLIB_H */

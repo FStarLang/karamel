@@ -85,7 +85,7 @@ typedef struct FStar_UInt128_uint128_s {
  * latter is for internal use. */
 typedef FStar_UInt128_uint128 FStar_UInt128_t, uint128_t;
 
-#include "krml/lowstar_endianness.h"
+#include "krml/lowstar_endianness_builtins.h"
 
 #endif
 
