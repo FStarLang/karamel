@@ -25,4 +25,3 @@ static inline FStar_UInt128_uint128 load128_be(uint8_t *x0);
 
 #define __LowStar_Endianness_H_DEFINED
 #endif
-diff --git a/krmllib/dist/generic/LowStar_Endianness.h b/krmllib/dist/generic/LowStar_Endianness.h
