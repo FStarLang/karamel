@@ -1,3 +1,29 @@
+### Apr 19th, 2022
+
+Limited support for heap allocations in the WASM backend:
+- krml now dumps in a file called `layouts.json` the layout of Low\* structs as
+  emitted by the WASM.
+- `layouts.json` contains size, field offsets, types... it's essentially a
+  run-time type description
+- krml has been extended with support for heap allocations in a very degenerate
+  fashion: allocations are accumulated at the end of the memory; each heap block
+  starts with a header that describes its size; nothing is ever freed (see
+  comments in the malloc implementation in `loader.js`)
+- for those functions that we know return a heap-allocated value that
+  - contains no cycles
+  - contains no sharing
+  - and where the entirety of the heap allocations performed by the function are
+    reachable via the return value (no global state),
+  - then we now have the ability to use `layouts.json` to "copy out" the value
+    allocated on the temporary heap
+
+Disable several transformations that were not needed for WASM, since it is an
+expression language.
+
+Simplify treatment of intrinsics from HACL.
+
+Many other bugfixes.
+
 ### Feb 14th, 2022
 
 New option syntax: `-add-include 'Foobar.c:XXX'` results in `#include XXX`
