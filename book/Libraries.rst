@@ -252,7 +252,7 @@ conversion functions between these integer types.
    type to implement ``FStar.UInt128.t``. This type is widely supported
    across GCC and Clang versions, but not by the Microsoft compilers. If you
    need 128-bit unsigned integers, consider reading
-   ``kremlib/README.md``, which offers both an MSVC-specific alternative,
+   ``krmllib/README.md``, which offers both an MSVC-specific alternative,
    and a portable, albeit slower, implementation.
 
 Machine integers offer the classic set of arithmetic operations. Like in C,

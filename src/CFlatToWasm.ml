@@ -261,10 +261,10 @@ let grow_highwater env =
 
 (* We want to store constant string literals in the data segment, for efficiency
  * reasons. Since all of our modules share the same linear memory, we proceed as
- * follows. Each module imports, in addition to Kremlin.mem, a constant known as
- * Kremlin.data_start. This module then lays out its strings in the data
+ * follows. Each module imports, in addition to Karamel.mem, a constant known as
+ * Karamel.data_start. This module then lays out its strings in the data
  * segment, relative to data_start. Once all strings have been laid out, the
- * module exports its new data_size, and the loader grows Kremlin.data_start by
+ * module exports its new data_size, and the loader grows Karamel.data_start by
  * this module's data_size before loading the next module. *)
 let compute_string_offset env rel_addr =
   [ dummy_phrase (W.Ast.GlobalGet (mk_var (find_global env "data_start"))) ] @
@@ -481,7 +481,7 @@ module Debug = struct
    * wouldn't be limited to 124b of debugging info. *)
   let default_imports = [
     dummy_phrase W.Ast.({
-      module_name = name_of_string "Kremlin";
+      module_name = name_of_string "Karamel";
       item_name = name_of_string "debug";
       idesc = dummy_phrase (FuncImport (mk_var 0))
     });
@@ -557,7 +557,7 @@ module Base = struct
    * each module with the start address of its own data segment. *)
   let data_start =
     dummy_phrase W.Ast.({
-      module_name = name_of_string "Kremlin";
+      module_name = name_of_string "Karamel";
       item_name = name_of_string "data_start";
       idesc = dummy_phrase (GlobalImport W.Types.(
         GlobalType (mk_type I32, Immutable)))})
@@ -565,7 +565,7 @@ module Base = struct
   let memory =
     let mtype = W.Types.MemoryType W.Types.({ min = 16l; max = None }) in
     dummy_phrase W.Ast.({
-      module_name = name_of_string "Kremlin";
+      module_name = name_of_string "Karamel";
       item_name = name_of_string "mem";
       idesc = dummy_phrase (MemoryImport mtype)})
 
@@ -644,13 +644,6 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallFunc ("LowStar_Buffer_null", [ _ ] )
   | CallFunc ("C_Nullity_null", [ _ ]) ->
       [ dummy_phrase (W.Ast.Const (mk_int32 0l)) ]
-
-  (* If the function is a fallback implementation of an intrinsic, call it
-   * using its correct name *)
-  | CallFunc ("Lib_IntTypes_Intrinsics_add_carry_u64", args) ->
-      mk_expr env (CallFunc ("Hacl_IntTypes_Intrinsics_add_carry_u64", args))
-  | CallFunc ("Lib_IntTypes_Intrinsics_sub_borrow_u64", args) ->
-      mk_expr env (CallFunc ("Hacl_IntTypes_Intrinsics_sub_borrow_u64", args))
 
   | CallFunc (("load16_le_i" | "load16_le"), [ e ]) ->
       mk_expr env e @
@@ -766,6 +759,12 @@ and mk_expr env (e: expr): W.Ast.instr list =
       i32_mul @
       grow_highwater env
 
+  | BufCreate (Common.Heap, n_elts, elt_size) ->
+      mk_expr env n_elts @
+      mk_size elt_size @
+      i32_mul @
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_malloc"))) ]
+
   | BufRead (e1, ofs, size) ->
       (* github.com/WebAssembly/spec/blob/master/interpreter/spec/eval.ml#L189 *)
       mk_expr env e1 @
@@ -845,7 +844,6 @@ and mk_expr env (e: expr): W.Ast.instr list =
           [ dummy_phrase W.Ast.Drop ]
         ) es) @
         mk_expr env e
-
 
   | GetGlobal i ->
       [ dummy_phrase (W.Ast.GlobalGet (mk_var (find_global env i))) ]

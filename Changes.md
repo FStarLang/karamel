@@ -1,3 +1,29 @@
+### Apr 19th, 2022
+
+Limited support for heap allocations in the WASM backend:
+- krml now dumps in a file called `layouts.json` the layout of Low\* structs as
+  emitted by the WASM.
+- `layouts.json` contains size, field offsets, types... it's essentially a
+  run-time type description
+- krml has been extended with support for heap allocations in a very degenerate
+  fashion: allocations are accumulated at the end of the memory; each heap block
+  starts with a header that describes its size; nothing is ever freed (see
+  comments in the malloc implementation in `loader.js`)
+- for those functions that we know return a heap-allocated value that
+  - contains no cycles
+  - contains no sharing
+  - and where the entirety of the heap allocations performed by the function are
+    reachable via the return value (no global state),
+  - then we now have the ability to use `layouts.json` to "copy out" the value
+    allocated on the temporary heap
+
+Disable several transformations that were not needed for WASM, since it is an
+expression language.
+
+Simplify treatment of intrinsics from HACL.
+
+Many other bugfixes.
+
 ### Feb 14th, 2022
 
 New option syntax: `-add-include 'Foobar.c:XXX'` results in `#include XXX`
@@ -11,21 +37,21 @@ Eliminate projectors and discriminators unless otherwise necessary.
 
 New feature: external headers.
 
-Prior to this change, KReMLin would expose too many internal functions
+Prior to this change, KaRaMeL would expose too many internal functions
 in public headers. Due to e.g. `inline_for_extraction`, `friend` or
 bundling, it would be frequently the case that `f` (in file `M`) would
 need to call `g` (in file `N`) when `g` was marked as `private` in F\*
 and was never intended to be part of the public API.
 
-The prior behavior was for KReMLin to mark `g` as public and expose it
+The prior behavior was for KaRaMeL to mark `g` as public and expose it
 in `N.h`. This behavior started being really unpleasant, because with
 meta-programming, it is now frequent for e.g. Chacha-Poly to call
 internal helpers in both Chacha and Poly.
 
-The new behavior is that `N.h` remains unchanged. Rather, KReMLin now
+The new behavior is that `N.h` remains unchanged. Rather, KaRaMeL now
 emits `internal/N.h`, an internal header that exposes private
 definitions. The internal headers are included by other files within
-the library (i.e. within the same KReMLin invocation), but are not
+the library (i.e. within the same KaRaMeL invocation), but are not
 intended to be included by client code.
 
 This results is subtantially higher-quality headers.
@@ -81,15 +107,15 @@ while (x) {
 Numerous improvements to the interaction of `-library`, `-static-header`,
 `CMacro` and other features.
 
-The compilation scheme described in the KreMLin manual for separate compilation
+The compilation scheme described in the KaRaMeL manual for separate compilation
 should now work much better. In particular declarations (functions, types,
 macros) that are both subject to `-library` and `-static-header` are now
-understood to be compiled and extracted elsewhere -- as such, KreMLin will no
+understood to be compiled and extracted elsewhere -- as such, KaRaMeL will no
 longer generate *any* code for those declarations that are both compiled
 elsewhere ("library") as static inline definitions ("static header").
 
 As a consequence, users will need to make sure they perform a separate run of
-kremlin for the same module, and provide a suitable `-add-include` option so
+karamel for the same module, and provide a suitable `-add-include` option so
 that the required definitions now be present in the scope.
 
 ### Aug 4th, 2020
@@ -127,7 +153,7 @@ extern "C" {
 ### Jan 9th, 2020
 
 - C++ keywords are now avoided in the code generation for clients who compile
-  KreMLin-generated code with C++ compilers.
+  KaRaMeL-generated code with C++ compilers.
 
 ### Dec 3rd, 2019
 
@@ -183,12 +209,12 @@ extern "C" {
 
 ### January 18th, 2019
 
-- Allow %s in header files (passed to KReMLin via -header), to indicate where to
-  insert the KReMLin invocation.
+- Allow %s in header files (passed to KaRaMeL via -header), to indicate where to
+  insert the KaRaMeL invocation.
 
 ### January 1st, 2019
 
-- Headers now only depend on their direct dependencies. Previously, KreMLin
+- Headers now only depend on their direct dependencies. Previously, KaRaMeL
   would order C files in a valid topological order, then each header would
   include *all the previous headers*. This meant that users could only exclude
   (say, from their build) suffixes of the (unspecified, unstable) topological
@@ -221,8 +247,8 @@ extern "C" {
 
 ### November 29th, 2018
 
-- The build process of kremlib now produces several flavors in kremlib/dist, all
-  of which are standalone; their compilation is under CI. See kremlib/README for
+- The build process of krmllib now produces several flavors in krmllib/dist, all
+  of which are standalone; their compilation is under CI. See krmllib/README for
   more details.
 
 ### November 27th, 2018
@@ -233,8 +259,8 @@ extern "C" {
   right-hand side of "=". This allows: `-bundle Foo,Bar[rename=MyLib] -bundle *[rename=TheRest]`
 - Make the topological sort preserve the order of bundles in the
   resulting `#includes`
-- KreMLin now generates a basic Makefile that can be used to compile
-  your project. kremlib/dist/uint128 and kremlib/dist/minimal are
+- KaRaMeL now generates a basic Makefile that can be used to compile
+  your project. krmllib/dist/uint128 and krmllib/dist/minimal are
   examples.
 
 ### November 12th, 2018
@@ -332,7 +358,7 @@ extern "C" {
   extern __stdcall void my_asm_routine(uint8_t *x);
   ```
 
-  The `_stdcall` macro is defined in `include/kremlin/internal/callconv.h`. This
+  The `_stdcall` macro is defined in `include/krml/internal/callconv.h`. This
   also works for function declarations, not just prototypes.
 
 - Allow writing top-level constant arrays. Examples from the testsuite:
@@ -370,16 +396,16 @@ extern "C" {
 
 ### May 2nd, 2018
 
-Massive cleanup and refactoring of the .h kremlib files (part 1)
+Massive cleanup and refactoring of the .h krmllib files (part 1)
 
-- Directory structure change: include/kremlin/internal contains the
-  headers that define macros and functions that KreMLin expects to be
+- Directory structure change: include/krml/internal contains the
+  headers that define macros and functions that KaRaMeL expects to be
   in scope when generating C code (example: `__cdecl`, `KRML_CHECK_SIZE`,
-  etc.), and include/kremlin contains individual .h files for each F\*
+  etc.), and include/krml contains individual .h files for each F\*
   source file
-- Naming convention change: include/kremlib.h is a meta-header that
+- Naming convention change: include/krmllib.h is a meta-header that
   includes most of what was there before. Individual implementations are
-  in include/kremlin and are named after the F\* module that they
+  in include/krml and are named after the F\* module that they
   implement (c_string.h, fstar_dyn.h, etc.) or, for non-Low\* features
   like Prims.int and Prims.string, after the feature that they implement
   (prims_int.h, prims_string.h are the only two)
@@ -472,7 +498,7 @@ Massive cleanup and refactoring of the .h kremlib files (part 1)
 ### December 14th, 2017
 
 - Support for separate extraction of various out.krml, to be passed /en masse/
-  to KreMLin. Support for this feature is in F\* 69f79f7. Exemplary Makefile is
+  to KaRaMeL. Support for this feature is in F\* 69f79f7. Exemplary Makefile is
   at https://github.com/mitls/hacl-star/blob/28d65c2f24e5f6c8a1d032ae978e996475009c7a/secure_api/Makefile.extract#L93
 
 ### December 13th, 2017
@@ -541,7 +567,7 @@ Massive cleanup and refactoring of the .h kremlib files (part 1)
     let x = uu___1 + uu___2
   ```
 
-  KreMLin will do its best, and will manage to fold in only the first uu___.
+  KaRaMeL will do its best, and will manage to fold in only the first uu___.
   This gives:
 
   ```
@@ -579,7 +605,7 @@ Massive cleanup and refactoring of the .h kremlib files (part 1)
 - Support for -bundle Foo=*, which, in combination with -minimal, can be used
   for large-scale separate compilation. Example:
 
-  krml Foo.fst -minimal -bundle Foo=* -add-include '"kremlib.h"'
+  krml Foo.fst -minimal -bundle Foo=* -add-include '"krmllib.h"'
 
   This will generate a single C file with only the public functions from Foo
   visible.
@@ -590,10 +616,10 @@ Massive cleanup and refactoring of the .h kremlib files (part 1)
 
 ### November 20th, 2017
 
-- New -minimal option to disable #include "kremlib.h" and -bundle FStar.*
-- krembytes.h, a library in support of value bytes, backed by a conservative GC,
+- New -minimal option to disable #include "krmllib.h" and -bundle FStar.*
+- krmlbytes.h, a library in support of value bytes, backed by a conservative GC,
   modeled in ulib/FStar.Bytes.fsti -- see the command-line parameters in
-  test/Makefile for TestKremBytes.fst
+  test/Makefile for TestKrmlBytes.fst
 
 ### November 16th, 2017
 
@@ -610,19 +636,19 @@ Massive cleanup and refactoring of the .h kremlib files (part 1)
 
   extern bool __eq__FStar_Bytes_bytes(FStar_Bytes_bytes x, FStar_Bytes_bytes y);
 
-  in this case, the function is implemented in krembytes.h, but in the general
-  case, the user will want to declare it in a .c file to be passed to KreMLin.
+  in this case, the function is implemented in krmlbytes.h, but in the general
+  case, the user will want to declare it in a .c file to be passed to KaRaMeL.
 
 ### November 15th, 2017
 
 Big cleanup in the treatment of strings.
 
 - C.string is a low-level string that can be blitted into a buffer, and is
-  revelead to be zero-terminated. Support is in `kremlib/C.String.fst`, and
-  clients will need `-add-include '"kremstr.h"'`.
+  revelead to be zero-terminated. Support is in `krmllib/C.String.fst`, and
+  clients will need `-add-include '"krmlstr.h"'`.
 - Prims.string is a value type that supports operations such as `(^)` and is
   backed by a GC. Support is in `ulib/FStar.String.fst` and
-  `FStar.HyperStack.IO.fst`. Clients will need to pass `kremstr.c` to KreMLin.
+  `FStar.HyperStack.IO.fst`. Clients will need to pass `krmlstr.c` to KaRaMeL.
 - Users will need to replace `C.print_string (C.string_of_literal "foo")` with
   `C.String.print (C.String.of_literal "foo")` -- the useless two definitions in
   `C.fst` that were there very early on for debugging have been deprecated for a
@@ -635,7 +661,7 @@ New features.
 - A new `-add-early-include` option that generates `#include <<your-file>>` at
   the very beginning of the file; this is useful to define host-specific macros,
   e.g. `KRML_HOST_MALLOC`, or simply to do `#define KRML_NOUINT128` before
-  `kremlib.h` gets included
+  `krmllib.h` gets included
 - a `!*` operator in `C.Nullity.fsti` that guarantees that `!*p` gets
   pretty-printed as `*p` rather than `p[(uint32_t)0U]`
 - `C.Failure`, a new module that allows you to write things like:
@@ -663,7 +689,7 @@ analysis allows one to easily get rid of un-needed code.
 
 New reachability analysis.
 - Elimination of unused globals, externals, types and function definitions (i.e.
-  all types of KreMLin declarations) based on reachability. Reminder: the
+  all types of KaRaMeL declarations) based on reachability. Reminder: the
   reachability analysis starts from:
   - the `main` of your program, if any
   - the public functions
@@ -695,7 +721,7 @@ New syntax for `-bundle`:
 
 ### November 6th, 2017
 
-KreMLin is now much smarter about mutual recursion, parameters and type
+KaRaMeL is now much smarter about mutual recursion, parameters and type
 definitions; we now support parameterized, mutually recursive type definitions,
 with the following caveats:
 - the type must have a finite size in C (i.e. the C compiler will bail out if it
@@ -705,10 +731,10 @@ with the following caveats:
   get a forward declaration of `t2` (i.e. `typedef struct t2_s t2`; in C), the
   declaration of `t1` (`typedef { ... fields of t1 ... } t1;`), then the declaration
   of `t2` (`typedef struct t2_s { ... actual fields ... } t2;`), or the opposite
-- the size of the type graph must be finite, i.e. kremlin will happily loop on
+- the size of the type graph must be finite, i.e. karamel will happily loop on
   `type t a = | C: t (a * a) -> t a | D`
 - if a polymorphic type definition is missing, but some code still refers to it,
-  then kremlin will assign names to the instances, along with forward
+  then karamel will assign names to the instances, along with forward
   declarations, i.e. if you decided to `-drop Foo`, but still had `type t =
   Foo.u int32` in your code, then you'd get `typedef struct Foo_u_int32_s
   Foo_u_int32;`

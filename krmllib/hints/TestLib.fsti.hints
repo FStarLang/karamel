@@ -1,0 +1,23 @@
+[
+  "jžž:*8ê¤ÁW\u007f\u0015—òRú",
+  [
+    [
+      "TestLib.compare_and_print",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "9bbbfcfb8adc8cf75ff598e59404eddc"
+    ],
+    [
+      "TestLib.unsafe_malloc",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "d7a532c7c3f4b317399d833210ad3214"
+    ]
+  ]
+]

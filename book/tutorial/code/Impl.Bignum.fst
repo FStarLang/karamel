@@ -141,7 +141,7 @@ let add'_zero add' dst x y c0 =
   // is a well-known technique that applies to tuples of any lengths, and allows
   // sharing copious amounts of code between spec and implementation. It is used
   // pervasively in HACL*.
-  // See https://github.com/FStarLang/kremlin/blob/04054342cb527ecb97633d0d88a739ae0b320146/src/DataTypes.ml#L1014
+  // See https://github.com/FStarLang/karamel/blob/04054342cb527ecb97633d0d88a739ae0b320146/src/DataTypes.ml#L1014
   let a, c1 = Spec.add_carry y_b.(0ul) c0 in
   dst_hd.(0ul) <- a;
 

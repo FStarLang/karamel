@@ -150,7 +150,10 @@ let pass_by_ref is_struct = object (self)
           let args = args @ [ with_type (TBuf (t, false)) (EAddrOf dest) ] in
           Helpers.nest bs t (with_type TUnit (EApp (e, args)))
       | None ->
-          let x, dest = Helpers.mk_binding "ret" t in
+          (* Indicate to the following phase that this is going to be mutated
+             (although by reference, which is kinda not really the semantics of
+             mut in the internal AST) *)
+          let x, dest = Helpers.mk_binding ~mut:true "ret" t in
           let bs = (x, with_type TAny EAny) :: bs in
           let args = args @ [ with_type (TBuf (t, false)) (EAddrOf dest) ] in
           Helpers.nest bs t (with_type t (ESequence [
@@ -315,8 +318,8 @@ let collect_initializers (files: Ast.file list) =
       DGlobal (flags, name, n, t, body)
   end)#visit_files () files in
   if !initializers != [] then
-    let file = "kremlinit",
-      [ DFunction (None, [ Common.Prologue hidden_visibility ], 0, TUnit, (["kremlinit"], "globals"),
+    let file = "krmlinit",
+      [ DFunction (None, [ Common.Prologue hidden_visibility ], 0, TUnit, (["krmlinit"], "globals"),
         [Helpers.fresh_binder "_" TUnit],
         with_type TUnit (ESequence (List.rev !initializers)))] in
     let files = files @ [ file ] in
@@ -329,7 +332,7 @@ let collect_initializers (files: Ast.file list) =
             found := true;
             with_type ret (ESequence [
               with_type TUnit (EApp (
-                with_type (TArrow (TUnit, TUnit)) (EQualified ([ "kremlinit" ], "globals")),
+                with_type (TArrow (TUnit, TUnit)) (EQualified ([ "krmlinit" ], "globals")),
                 [ Helpers.eunit ]));
               body
             ])

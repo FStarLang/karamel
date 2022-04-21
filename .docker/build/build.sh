@@ -131,7 +131,7 @@ function refresh_tutorial() {
 }
 
 function check_version_controlled() {
-  make -C kremlib/dist/generic -f Makefile.basic -j
+  make -C krmllib/dist/generic -f Makefile.basic -j
 }
 
 function exec_build() {
@@ -139,7 +139,7 @@ function exec_build() {
     # this is a special file that is parsed by Azure Devops
     result_file="../result.txt"
 
-    if misc && check_version_controlled && make -C kremlib clean && make -j $threads && \
+    if misc && check_version_controlled && make -C krmllib clean && make -j $threads && \
       make -C test everything -j $threads && \
       make -C book/tutorial && \
       refresh_tutorial
@@ -158,13 +158,13 @@ export OTHERFLAGS="--print_z3_statistics --use_hints --query_stats"
 export MAKEFLAGS="$MAKEFLAGS -Otarget"
 
 export_home FSTAR "$(pwd)/FStar"
-export_home KREMLIN "$(pwd)/kremlin"
-export_home KRML "$(pwd)/kremlin"
+export_home KARAMEL "$(pwd)/karamel"
+export_home KRML "$(pwd)/karamel"
 
 export PATH=$FSTAR_HOME/bin:$PATH
 echo $PATH
 
-cd kremlin
+cd karamel
 rootPath=$(pwd)
 exec_build
 cd ..

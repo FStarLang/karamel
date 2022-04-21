@@ -18,6 +18,26 @@ open PrintAst.Ops
  * Variable declarations are visited in infix order; this order is used for
  * numbering the corresponding Cflat local declarations. Wasm will later on take
  * care of register allocation. *)
+type layout =
+  | LEnum (* compiled as an I32 instead of a U8 when going to C (the default) *)
+  | LFlat of flat_layout
+  | LBuiltin of size * array_size
+  [@@deriving yojson ]
+
+and flat_layout = {
+  size: int;
+    (** In bytes *)
+  fields: (string * (offset * runtime_type)) list;
+    (** Any struct must be laid out on a word boundary (64-bit). Then, fields
+     * can be always accessed using the most efficient offset computation.
+     * Note: size information is only relevant for serialization/deserialization
+     * of data structures to/from WASM memory from JS, guided by a JSON dump of
+     * this layout. *)
+}
+
+and offset = int
+  (** In byte *)
+
 type env = {
   binders: int list;
   enums: int LidMap.t;
@@ -36,7 +56,7 @@ type env = {
      *   - For atomic values (e.g. integers), this is trivially compilable as a
      *     Global slot in WASM that is initialized to a constant then read at
      *     reference-time.
-     *   - For struct values, we lay them out according to the KreMLin layout in
+     *   - For struct values, we lay them out according to the KaRaMeL layout in
      *     a string. Because of the struct-by-address transformation, these will
      *     only be referred to via the AddressOf operator, meaning that any
      *     &Foo_bar should resolve to the address of the global in the data
@@ -50,21 +70,6 @@ type env = {
   names: (lident, ident) Hashtbl.t;
 }
 
-and layout =
-  | LEnum (* compiled as an I32 instead of a U8 when going to C (the default) *)
-  | LFlat of flat_layout
-  | LBuiltin of size * array_size
-
-and flat_layout = {
-  size: int;
-    (** In bytes *)
-  fields: (string * offset) list;
-    (** Any struct must be laid out on a word boundary (64-bit). Then, fields
-     * can be always accessed using the most efficient offset computation. *)
-}
-
-and offset = int
-  (** In byte *)
 
 let empty names = {
   binders = [];
@@ -156,6 +161,24 @@ let array_size_of (env: env) (t: typ): array_size =
   | _ ->
       failwith (KPrint.bsprintf "array_size_of: this case should've been eliminated: %a" ptyp t)
 
+
+(* The exact size as a number of bytes of any type. *)
+let rec runtime_type (env: env) (t: typ): runtime_type =
+  match t with
+  | TQualified lid ->
+      begin match LidMap.find lid env.layouts with
+      | LEnum -> Int A32
+      | LBuiltin (_, s) -> Int s
+      | _ -> Layout (GlobalNames.to_c_name env.names lid)
+      end
+  | TAnonymous _ ->
+      Unknown
+  | TBuf (t, _) ->
+      Pointer (runtime_type env t)
+  | _ ->
+      Int (array_size_of env t)
+
+
 (* The alignment takes an array size, an our invariant is that integers are
  * aligned on a multiple of their size (i.e. 64-bit aligned on 64 bits, 32-bits
  * aligned on 32 bits, etc. Structs are always on a 64-bit boundary. This is
@@ -225,12 +248,12 @@ and flat_layout env fields: flat_layout =
           (* Structs and unions align on a 64-byte boundary *)
           let size = byte_size env t in
           let ofs = align A64 ofs in
-          (fname, ofs) :: fields, ofs + size
+          (fname, (ofs, runtime_type env t)) :: fields, ofs + size
       | t ->
           (* All other elements align on their width. *)
           let s = array_size_of env t in
           let ofs = align s ofs in
-          (fname, ofs) :: fields, ofs + bytes_in s
+          (fname, (ofs, runtime_type env t)) :: fields, ofs + bytes_in s
     ) ([], 0) fields
   in
   let fields = List.rev fields in
@@ -239,12 +262,12 @@ and flat_layout env fields: flat_layout =
 let field_offset env t f =
   match t with
   | TQualified lid ->
-      List.assoc f (assert_lflat (LidMap.find lid env.layouts)).fields
+      fst (List.assoc f (assert_lflat (LidMap.find lid env.layouts)).fields)
   | TAnonymous (Union cases) ->
       assert (List.mem_assoc f cases);
       0
   | TAnonymous (Flat struct_fields) ->
-      List.assoc f (flat_layout env (fields_of_struct struct_fields)).fields
+      fst (List.assoc f (flat_layout env (fields_of_struct struct_fields)).fields)
   | _ ->
       failwith (KPrint.bsprintf "Not something we can field-offset: %a" ptyp t)
 
@@ -318,7 +341,7 @@ let debug_env { layouts; enums; _ } =
     match l with
     | LFlat { size; fields } ->
         KPrint.bprintf "%a (size=%d, %d fields)\n" plid lid size (List.length fields);
-        List.iter (fun (f, ofs) ->
+        List.iter (fun (f, (ofs, _)) ->
           KPrint.bprintf "  +%d: %s\n" ofs f
         ) fields
     | LEnum ->
@@ -458,7 +481,7 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
         let layout = Option.must (layout_of env e) in
         KList.map_flatten (fun (fname, e) ->
           let fname = Option.must fname in
-          let fofs = List.assoc fname layout.fields in
+          let fofs = fst (List.assoc fname layout.fields) in
           write_scalar dst (ofs + fofs) e
         ) fields
     | EString s ->
@@ -523,7 +546,7 @@ let rec write_at (env: env)
             let locals, writes =
               fold (fun locals (fname, e) ->
                 let fname = Option.must fname in
-                let fofs = List.assoc fname layout.fields in
+                let fofs = fst (List.assoc fname layout.fields) in
                 (* Recursively write each field of the struct at its offset. *)
                 write_at locals (ofs + fofs, e)
               ) locals fields
@@ -689,7 +712,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | EAddrOf ({ node = EField (e1, f); _ }) ->
       (* This is the "address-of" operation from the paper. *)
-      let ofs = List.assoc f (Option.must (layout_of env e1)).fields in
+      let ofs = fst (List.assoc f (Option.must (layout_of env e1)).fields) in
       let locals, e1 = mk_expr env locals (with_type (TBuf (e1.typ, true)) (EAddrOf e1)) in
       locals, mk_add32 e1 (mk_uint32 ofs)
 
@@ -878,6 +901,10 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 let scratch_locals =
   [ I64; I64; I32; I32 ]
 
+let msg_i64 = format_of_string "Abort: %s was meant to be hand-written and \
+  provided at link-time, but contains an I64 and therefore cannot be called from \
+  WASM."
+
 let mk_decl env (d: decl): env * CF.decl option =
   match d with
   | DFunction (_, flags, n, ret, name, args, body) ->
@@ -926,7 +953,10 @@ let mk_decl env (d: decl): env * CF.decl option =
             Warn.(maybe_fatal_error ("", NotWasmCompatible (lid, "functions \
               implemented natively in JS (because they're assumed) cannot take or \
               return I64")));
-            env, None
+            env, Some CF.(Function { name; args; ret; locals = scratch_locals;
+              body = CF.Abort (CF.StringLiteral (Printf.sprintf msg_i64 name));
+              public = true
+            })
           end else
             env, Some (CF.ExternalFunction (name, args, ret))
       | _ ->
@@ -960,6 +990,11 @@ let mk_module env decls =
   ) (env, []) decls in
   env, List.rev decls
 
+let mk_layouts env =
+  `Assoc (LidMap.fold (fun lid layout acc ->
+    (GlobalNames.to_c_name env.names lid, layout_to_yojson layout) :: acc
+  ) env.layouts [])
+
 let mk_files files names =
   let env = populate (empty names) files in
   if Options.debug "cflat" then
@@ -968,4 +1003,4 @@ let mk_files files names =
     let env, decls = mk_module env decls in
     env, (name, decls) :: ms
   ) (env, []) files in
-  List.rev modules
+  mk_layouts env, List.rev modules

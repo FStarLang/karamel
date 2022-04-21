@@ -2,7 +2,7 @@ RECENT_GCC	= $(shell [ "$$(gcc -dumpversion | cut -c -1)" -ge 5 ] && echo yes)
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 TEST_OPTS	= -warn-error @4 -verbose -skip-makefiles
-KRML_BIN	= ../_build/src/Kremlin.native
+KRML_BIN	= ../_build/src/Karamel.native
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 
 BROKEN		= \
@@ -44,14 +44,14 @@ endif
 
 FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
-  --include hello-system --include ../kremlib/compat --include ../kremlib/obj \
-  --include ../kremlib --include ../runtime \
+  --include hello-system --include ../krmllib/compat --include ../krmllib/obj \
+  --include ../krmllib --include ../runtime \
   --include $(CRYPTO) --include ../book --include ../book/notfslit --use_hints --record_hints \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport Steel' \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274
 
-# This just needs F* + KreMLin
+# This just needs F* + KaRaMeL
 all: $(FILES) $(CUSTOM) ctypes-test sepcomp-test
 
 # Needs node
@@ -68,7 +68,7 @@ ifndef MAKE_RESTARTS
 ifndef NODEPEND
 .depend: .FORCE
 	$(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
-	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'Kremlin:*' > $@
+	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*' > $@
 
 .PHONY: .FORCE
 .FORCE:
@@ -77,7 +77,7 @@ endif
 
 include .depend
 
-# AF: The Steel files should not be extracted by KreMLin, they are filtered out
+# AF: The Steel files should not be extracted by KaRaMeL, they are filtered out
 FILTERED_KRML_FILES = $(filter-out $(OUTPUT_DIR)/FStar_NMST.krml $(OUTPUT_DIR)/Steel_%.krml,$(ALL_KRML_FILES))
 
 $(HINTS_DIR):
@@ -88,7 +88,7 @@ $(CACHE_DIR)/%.checked: | .depend $(HINTS_DIR)
 	touch $@
 
 $(OUTPUT_DIR)/%.krml: | .depend
-	$(FSTAR) $(OTHERFLAGS) --codegen Kremlin \
+	$(FSTAR) $(OTHERFLAGS) --codegen krml \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<))
 
@@ -119,20 +119,20 @@ $(OUTPUT_DIR)/HigherOrder.exe: EXTRA = -warn-error +9
 $(OUTPUT_DIR)/C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic,-Wno-c99-extensions -fc89
 $(OUTPUT_DIR)/Debug.exe: EXTRA = -d c-calls
 $(OUTPUT_DIR)/Server.exe: EXTRA = main-Server.c helpers-Server.c
-$(OUTPUT_DIR)/StringLit.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
-$(OUTPUT_DIR)/TailCalls.exe: EXTRA = -add-include '"kremlin/internal/compat.h"' -ftail-calls
+$(OUTPUT_DIR)/StringLit.exe: EXTRA = -add-include '"krml/internal/compat.h"'
+$(OUTPUT_DIR)/TailCalls.exe: EXTRA = -add-include '"krml/internal/compat.h"' -ftail-calls
 $(OUTPUT_DIR)/TailCalls2.exe: EXTRA = -ftail-calls
-$(OUTPUT_DIR)/FunctionalEncoding.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
+$(OUTPUT_DIR)/FunctionalEncoding.exe: EXTRA = -add-include '"krml/internal/compat.h"'
 $(OUTPUT_DIR)/Crypto_Symmetric_Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 $(OUTPUT_DIR)/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
   hello-system/system.c -I hello-system -no-prefix SystemNative \
   -drop SystemNative $(HELLOSYSTEM_LDOPTS)
-$(OUTPUT_DIR)/TestKremBytes.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
+$(OUTPUT_DIR)/TestKrmlBytes.exe: EXTRA = -add-include '"krml/internal/compat.h"'
 $(OUTPUT_DIR)/TestAlloca.exe: EXTRA = -falloca
 $(OUTPUT_DIR)/EtaStruct.exe: EXTRA = -fnostruct-passing
-$(OUTPUT_DIR)/TotalLoops.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
-$(OUTPUT_DIR)/CheckedInt.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
-$(OUTPUT_DIR)/CustomEq.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
+$(OUTPUT_DIR)/TotalLoops.exe: EXTRA = -add-include '"krml/internal/compat.h"'
+$(OUTPUT_DIR)/CheckedInt.exe: EXTRA = -add-include '"krml/internal/compat.h"'
+$(OUTPUT_DIR)/CustomEq.exe: EXTRA = -add-include '"krml/internal/compat.h"'
 $(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fnoshort-enums
 $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
 $(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel memcpymodel_impl.c

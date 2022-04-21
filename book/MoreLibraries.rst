@@ -5,7 +5,7 @@ Low* system libraries
 
 KaRaMeL offers primitive support for a variety of C concepts. All new libraries
 are in F*'s standard library ("ulib") and are prefixed with ``LowStar``. Older
-libraries found in ``kremlin/kremlib`` are being phased out and should not be
+libraries found in ``karamel/krmllib`` are being phased out and should not be
 used.
 
 Comments

@@ -144,8 +144,8 @@ let rec perr buf (loc, raw_error) =
   | MustCallKrmlInit ->
       p "Some globals did not compile to C values and must be initialized \
         before starting main(). You did not provide a main function, so users of \
-        your library MUST MAKE SURE they call kremlinit_globals(); (see \
-        kremlinit.c). Once you have fixed this, use -warn-error +9 to make this \
+        your library MUST MAKE SURE they call krmlinit_globals(); (see \
+        krmlinit.c). Once you have fixed this, use -warn-error +9 to make this \
         warning non-fatal."
   | NotLowStar e ->
       p "this expression is not Low*; the enclosing function cannot be translated into C*: %a" pexpr e

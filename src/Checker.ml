@@ -188,7 +188,7 @@ and check_program env r (name, decls) =
     KPrint.beprintf "Warning: %a\n" pdoc (
       english_join (List.map print_lident decl_lids) ^/^ mentions ^/^
       print_lident lid ^/^
-      flow break1 (words "meaning that they cannot be type-checked by KreMLin")
+      flow break1 (words "meaning that they cannot be type-checked by KaRaMeL")
     )
   ) by_lid;
 

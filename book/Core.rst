@@ -428,8 +428,8 @@ Non-constant globals
 
 In the case that the user defines a global variable that does not compile to
 a C11 constant, KaRaMeL generates a "static initializer" in the special
-``kremlinit_globals`` function. If the program has a ``main``, KaRaMeL
-automatically prepends a call to ``kremlinit_globals`` in the ``main``. If
+``krmlinit_globals`` function. If the program has a ``main``, KaRaMeL
+automatically prepends a call to ``krmlinit_globals`` in the ``main``. If
 the program does not have a ``main`` and is intended to be used as a
 library, KaRaMeL emits a warning, which is fatal by default.
 
@@ -446,12 +446,12 @@ library, KaRaMeL emits a warning, which is fatal by default.
    (...)
    Warning 9: : Some globals did not compile to C values and must be
    initialized before starting main(). You did not provide a main function,
-   so users of your library MUST MAKE SURE they call kremlinit_globals();
-   (see kremlinit.c).
+   so users of your library MUST MAKE SURE they call krmlinit_globals();
+   (see krmlinit.c).
 
-   $ cat kremlinit.c
+   $ cat krmlinit.c
    (...)
-   void kremlinit_globals()
+   void krmlinit_globals()
    {
      zero = uint128_zero();
    }
@@ -670,7 +670,7 @@ If you are lucky, the C compiler may generate an error:
 
 .. code:: bash
 
-   $ krml -skip-linking LowStar.fst -add-include '"kremstr.h"' -no-prefix LowStar -warn-error +9
+   $ krml -skip-linking LowStar.fst -add-include '"krmlstr.h"' -no-prefix LowStar -warn-error +9
 
    ✘ [CC,./LowStar.c]
    ./LowStar.c: In function ‘default_t’:

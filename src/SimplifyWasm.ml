@@ -10,6 +10,16 @@ open DeBruijn
 let check_buffer_size =
   with_type (TArrow (TInt K.UInt32, TUnit)) (EQualified ([ "WasmSupport" ], "check_buffer_size"))
 
+let intrinsics = object
+  inherit [_] map
+
+  method! visit_EQualified ((), _) lid =
+    match lid with
+    | ["Lib"; "IntTypes"; "Intrinsics"], x ->
+        EQualified (["Hacl"; "IntTypes"; "Intrinsics"], x)
+    | _ ->
+        EQualified lid
+end
 
 let hoist_reads_and_writes = object(self)
   inherit [_] map
@@ -187,7 +197,7 @@ let simplify2 (files: file list): file list =
    * but this is only because we're not tracking the natural arity of a
    * function, just like OCaml does for the natural arity of a function at the C
    * ABI level.
-   * See https://github.com/FStarLang/kremlin/issues/52 for reference.
+   * See https://github.com/FStarLang/karamel/issues/52 for reference.
    * *)
   let files = eta_expand#visit_files () files in
   files

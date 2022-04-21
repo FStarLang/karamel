@@ -1,0 +1,139 @@
+[
+  "\b≈]5ºGlΩí\f^\u001a°C¢›",
+  [
+    [
+      "C.String.zero_free",
+      1,
+      2,
+      1,
+      [
+        "@query", "assumption_C.HasEq_char",
+        "primitive_Prims.op_Subtraction", "projection_inverse_BoxInt_proj_0"
+      ],
+      0,
+      "8a37e0d09b445fa10f2a0e8779734178"
+    ],
+    [
+      "C.String.well_formed",
+      1,
+      2,
+      1,
+      [
+        "@query", "assumption_C.HasEq_char",
+        "primitive_Prims.op_Subtraction", "projection_inverse_BoxInt_proj_0"
+      ],
+      0,
+      "fccbfb9609d168f2eebb60a62013005d"
+    ],
+    [
+      "C.String.t",
+      1,
+      2,
+      1,
+      [
+        "@query", "assumption_C.HasEq_char", "function_token_typing_C.char",
+        "lemma_FStar.Seq.Base.hasEq_lemma"
+      ],
+      0,
+      "b4ce6cdb2e9ed876e12d6da030a376a0"
+    ],
+    [
+      "C.String.length",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "data_elim_C.String.S",
+        "equation_C.String.v", "equation_C.String.well_formed",
+        "fuel_guarded_inversion_C.String.t", "proj_equation_C.String.S_s",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_Tm_refine_ed6e8a85e123e1e628ba0dad885f3031"
+      ],
+      0,
+      "d6b1978241bf1051daae936e342f4873"
+    ],
+    [
+      "C.String.get",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "assumption_C.HasEq_char",
+        "b2t_def", "equation_FStar.UInt.fits", "equation_FStar.UInt.min_int",
+        "equation_FStar.UInt.size", "primitive_Prims.op_AmpAmp",
+        "primitive_Prims.op_LessThanOrEqual",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_Tm_refine_dfcb8c150fd42ce38050af33905be19c"
+      ],
+      0,
+      "4c8c3bd13af8e46ad57cb759fc10386b"
+    ],
+    [
+      "C.String.get",
+      2,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "b2t_def", "equation_C.String.v",
+        "equation_FStar.UInt.fits", "equation_FStar.UInt.min_int",
+        "equation_FStar.UInt.size", "equation_FStar.UInt.uint_t",
+        "fuel_guarded_inversion_C.String.t", "int_inversion",
+        "primitive_Prims.op_AmpAmp", "primitive_Prims.op_LessThanOrEqual",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_Tm_refine_dfcb8c150fd42ce38050af33905be19c",
+        "refinement_interpretation_Tm_refine_f13070840248fced9d9d60d77bdae3ec",
+        "typing_FStar.UInt32.v"
+      ],
+      0,
+      "55d698cceed7b00155ed5a5d03721e39"
+    ],
+    [
+      "C.String.nonzero_is_lt",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "assumption_C.HasEq_char",
+        "equation_C.String.length", "equation_C.String.v",
+        "fuel_guarded_inversion_C.String.t"
+      ],
+      0,
+      "5835c585174262bed556376e6fe4ff0d"
+    ],
+    [
+      "C.String.nonzero_is_lt",
+      2,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_C.String.get",
+        "equation_C.String.length", "equation_C.String.v",
+        "equation_C.String.well_formed", "equation_FStar.UInt.uint_t",
+        "fuel_guarded_inversion_C.String.t", "int_inversion", "int_typing",
+        "primitive_Prims.op_Subtraction", "proj_equation_C.String.S_s",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_Tm_refine_a4691fadffad56bb755d245a5fc50b20",
+        "refinement_interpretation_Tm_refine_ed6e8a85e123e1e628ba0dad885f3031",
+        "refinement_interpretation_Tm_refine_f13070840248fced9d9d60d77bdae3ec",
+        "typing_C.String.__proj__S__item__s", "typing_C.String.length",
+        "typing_FStar.UInt32.v"
+      ],
+      0,
+      "d084237ee1279839e93170aa8946da16"
+    ],
+    [
+      "C.String.memcpy",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "lemma_FStar.Seq.Base.hasEq_lemma",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.UInt8.t"
+      ],
+      0,
+      "a62721bc00716c9656c338412fff0fea"
+    ]
+  ]
+]

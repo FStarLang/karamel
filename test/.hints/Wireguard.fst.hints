@@ -15,7 +15,7 @@
         "subterm_ordering_Prims.Cons"
       ],
       0,
-      "1bb20bb641ba8576a697c92578474110"
+      "df6d55ad017eac1a22c0c8db5a5b6294"
     ],
     [
       "Wireguard.peers_footprint",
@@ -31,7 +31,7 @@
         "subterm_ordering_Prims.Cons"
       ],
       0,
-      "2399a1ae67b0f91d0b7114fc3ce5a504"
+      "6c32432868c6669395db1941773e1bf4"
     ],
     [
       "Wireguard.peers_disjoint",
@@ -47,7 +47,7 @@
         "subterm_ordering_Prims.Cons"
       ],
       0,
-      "63b200b571a2f1f6d0171dae482d7391"
+      "d91cee99f2bd291483b6d9b54a37b5b1"
     ],
     [
       "Wireguard.peers_invariants",
@@ -64,7 +64,7 @@
         "projection_inverse_BoxBool_proj_0", "subterm_ordering_Prims.Cons"
       ],
       0,
-      "e4e0184fb0630e75b9fc356473636cd8"
+      "603daffcc3d54aedff98d4d34eb5fcaf"
     ],
     [
       "Wireguard.peer_by_id",
@@ -82,7 +82,7 @@
         "projection_inverse_BoxBool_proj_0", "subterm_ordering_Prims.Cons"
       ],
       0,
-      "f47dc740e72d21c2aae7a96decafc879"
+      "d14536e93752381be23ddf97daa30798"
     ],
     [
       "Wireguard.peer_of_id_in_peers",
@@ -102,7 +102,7 @@
         "typing_LowStar.Lib.LinkedList.t"
       ],
       0,
-      "17ac0d0d67158e7c217f60f82c026206"
+      "4eab2662e60afd5fbd2e4f5db74369d6"
     ],
     [
       "Wireguard.peers_back",
@@ -122,7 +122,7 @@
         "projection_inverse_BoxBool_proj_0", "subterm_ordering_Prims.Cons"
       ],
       0,
-      "7d99307084d010c906fb957ffcc6b902"
+      "4752c7d3fa2efc64b6b9c7ca0a16545f"
     ],
     [
       "Wireguard.invariant",
@@ -140,7 +140,7 @@
         "typing_Wireguard.__proj__Mkdevice__item__r"
       ],
       0,
-      "c62bb7e02f3a4655c02b21add581f044"
+      "d778a58457ba9679c506cd8553e6bcc7"
     ],
     [
       "Wireguard.peer_footprint_in",
@@ -206,7 +206,7 @@
         "typing_Wireguard.peer_footprint", "typing_Wireguard.peers_footprint"
       ],
       0,
-      "a59ddd356e07c0de7bd9ca7ac97d2881"
+      "2de377d92b302746015d63732a0a0f3a"
     ],
     [
       "Wireguard.device_peers_footprint_in",
@@ -215,7 +215,7 @@
       0,
       [ "@query", "equation_Wireguard.invariant" ],
       0,
-      "71b0916c53d2eb67342a6937608e6628"
+      "db94fac5779f1b5273b1ac197a2ead68"
     ],
     [
       "Wireguard.frame_peers_back",
@@ -291,7 +291,7 @@
         "typing_Wireguard.__proj__Mkpeer__item__hs"
       ],
       0,
-      "017b29052bef7943ee4e1aae88d29703"
+      "f42a1e2603de20bb9e9e1cedcb85e03c"
     ],
     [
       "Wireguard.frame_peers_invariants",
@@ -377,7 +377,7 @@
         "typing_Wireguard.peer_footprint"
       ],
       0,
-      "ce1f571f23c5ea0dfd2c6061a1ae4d5d"
+      "c7993a3bbd6d927ddf383fe797e3145d"
     ],
     [
       "Wireguard.cell_by_id_is_peer_by_id",
@@ -385,14 +385,11 @@
       1,
       1,
       [
-        "@MaxIFuel_assumption", "@query", "equation_LowStar.Buffer.pointer",
-        "equation_Prims.squash", "l_and-interp",
-        "projection_inverse_BoxInt_proj_0",
-        "refinement_interpretation_Tm_refine_2de20c066034c13bf76e9c0b94f4806c",
-        "refinement_interpretation_Tm_refine_573cfed777dae20cc82e8fef9622857e"
+        "@MaxIFuel_assumption", "@query",
+        "refinement_interpretation_Tm_refine_e3e1e282af9636913d877dace707a50a"
       ],
       0,
-      "17f5d317770ba512bb5abf2c08deb5b9"
+      "2565769fad425842d61d512eade8afd0"
     ],
     [
       "Wireguard.cell_by_id_is_peer_by_id",
@@ -443,8 +440,8 @@
         "equation_LowStar.Buffer.trivial_preorder",
         "equation_LowStar.Lib.LinkedList.deref_data",
         "equation_LowStar.Lib.LinkedList.invariant",
-        "equation_LowStar.Lib.LinkedList.t", "equation_Prims.squash",
-        "equation_Wireguard.cell_by_id", "equation_Wireguard.peer_cell",
+        "equation_LowStar.Lib.LinkedList.t", "equation_Wireguard.cell_by_id",
+        "equation_Wireguard.peer_cell",
         "equation_with_fuel_LowStar.Lib.LinkedList.cells.fuel_instrumented",
         "equation_with_fuel_LowStar.Lib.LinkedList.cells_live_freeable.fuel_instrumented",
         "equation_with_fuel_LowStar.Lib.LinkedList.cells_pairwise_disjoint.fuel_instrumented",
@@ -461,7 +458,7 @@
         "function_token_typing_Wireguard.peer_cell",
         "interpretation_Tm_abs_ee4c8bcc5623b840b27b3a10c255e726",
         "kinding_Wireguard.peer@tok", "l_and-interp",
-        "lemma_FStar.Ghost.reveal_hide", "lemma_FStar.Map.lemma_ContainsDom",
+        "lemma_FStar.Map.lemma_ContainsDom",
         "lemma_FStar.Pervasives.invertOption",
         "lemma_LowStar.Lib.LinkedList.deref_cells_is_v",
         "lemma_LowStar.Monotonic.Buffer.length_null_2",
@@ -480,11 +477,9 @@
         "projection_inverse_Prims.Cons_hd",
         "projection_inverse_Prims.Cons_tl",
         "refinement_interpretation_Tm_refine_05e15190c946858f68c69156f585f95a",
-        "refinement_interpretation_Tm_refine_28365fc077f3541084ad092e68dbebcc",
-        "refinement_interpretation_Tm_refine_2de20c066034c13bf76e9c0b94f4806c",
         "refinement_interpretation_Tm_refine_65066f33fb59c1309d112f41fe704b3f",
+        "refinement_interpretation_Tm_refine_bf027dadf5bab8f7a64ad49394c599ad",
         "refinement_interpretation_Tm_refine_cd18e9962a0d204005dcfcda04529ffc",
-        "refinement_kinding_Tm_refine_28365fc077f3541084ad092e68dbebcc",
         "subterm_ordering_Prims.Cons",
         "token_correspondence_LowStar.Lib.LinkedList.cells.fuel_instrumented",
         "token_correspondence_LowStar.Lib.LinkedList.deref_data",
@@ -501,7 +496,7 @@
         "typing_Wireguard.cell_by_id", "typing_Wireguard.peer_by_id"
       ],
       0,
-      "bf6ad0c0fd6b3c97fd2ef51e7daebe42"
+      "a73436d4fc5c655879886f7c6c8aaff8"
     ],
     [
       "Wireguard.peer_by_id_invariant",
@@ -537,7 +532,7 @@
         "projection_inverse_Prims.Cons_tl", "subterm_ordering_Prims.Cons"
       ],
       0,
-      "e30d313593680b3ed4ad15475819245b"
+      "5b5adc692f24de5b7a3971722a57693d"
     ],
     [
       "Wireguard.frame_invariant",
@@ -638,7 +633,7 @@
         "typing_Wireguard.peers_footprint"
       ],
       0,
-      "d5fc67457b3f6b3dfd31080d3d7f1f11"
+      "667dee0c3c5c0e64b8f34c5c02bf68ef"
     ],
     [
       "Wireguard.create_in",
@@ -775,7 +770,7 @@
         "typing_LowStar.Monotonic.Buffer.loc_regions"
       ],
       0,
-      "03a0c60c47544e3ac295696da9621e65"
+      "743dc003f93c80e9a8771f1c55732bf2"
     ],
     [
       "Wireguard.free_peer_list",
@@ -880,7 +875,7 @@
         "typing_Wireguard.peer_footprint"
       ],
       0,
-      "e85c85e8f61ca311ee75354d9fd1f2a2"
+      "c0ba0c5a7324b1f181a298112421c133"
     ],
     [
       "Wireguard.free_",
@@ -946,7 +941,7 @@
         "typing_Wireguard.__proj__Mkdevice__item__r_peers_payload"
       ],
       0,
-      "9870b7e10136b59a0f6664abffe1c95d"
+      "9a8bdff20ca334f3f011b9ae8ebdcabb"
     ],
     [
       "Wireguard.insert_peer",
@@ -955,7 +950,7 @@
       0,
       [ "@query" ],
       0,
-      "45951dac0e9e53d967fbe6dac70d5f40"
+      "feaec717cef143f6b3e3ed04a4aba297"
     ],
     [
       "Wireguard.insert_peer",
@@ -1151,7 +1146,7 @@
         "typing_Wireguard.peers_footprint"
       ],
       0,
-      "89e588d898215f9166924ff7de260ff0"
+      "caa67a1d1e9505e289aa3a5222b87946"
     ],
     [
       "Wireguard.find_peer_by_id_",
@@ -1250,7 +1245,7 @@
         "typing_Wireguard.cell_by_id"
       ],
       0,
-      "91c43027fa30ceba1fc9065f29dbc4af"
+      "2f55784bb6f8f64372b14c4dce890ba2"
     ],
     [
       "Wireguard.find_peer_by_id",
@@ -1276,7 +1271,7 @@
         "typing_Wireguard.__proj__Mkdevice__item__peers"
       ],
       0,
-      "248fefcb2233b18861851c4e513e0bbc"
+      "561500ccdaa807d28414c8f4a4901143"
     ],
     [
       "Wireguard.link_peer_by_id",
@@ -1386,7 +1381,7 @@
         "typing_Wireguard.peer_by_id", "typing_Wireguard.peers_footprint"
       ],
       0,
-      "aff7396ba9551a8e4b4ab7a94ae2cb66"
+      "b5148d24a0f83d6154da334c5fa36d8d"
     ],
     [
       "Wireguard.main",
@@ -1591,7 +1586,7 @@
         "typing_Wireguard.peer_by_id", "typing_Wireguard.peers_footprint"
       ],
       0,
-      "74b85fdd1dd3c93c2c85e222bc7507ac"
+      "dc71f42c1cef84759ee0b4617db33c1f"
     ]
   ]
 ]

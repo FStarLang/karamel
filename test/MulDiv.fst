@@ -17,7 +17,7 @@ let test (n:U32.t) : U32.t =
   U32.mul_mod 4ul k
 
 
-(* Kremlin extracts above as
+(* Karamel extracts above as
 
 uint32_t Example_test(uint32_t n)
 {
