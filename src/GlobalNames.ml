@@ -264,8 +264,11 @@ let target_c_name ~attempt_shortening ?(kind=Other) lid =
   else
     pre_name
 
-let to_c_name m lid =
+let to_c_name ?kind m lid =
   try
     Hashtbl.find m lid
   with Not_found ->
-    Idents.to_c_identifier (target_c_name ~attempt_shortening:false lid)
+    (* Note: this happens for external types which are not retained as DType
+       nodes and therefore are not recorded in the initial name-assignment
+       phase. *)
+    Idents.to_c_identifier (target_c_name ?kind ~attempt_shortening:false lid)

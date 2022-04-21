@@ -324,7 +324,7 @@ Supported options:|}
     "-dwasm", Arg.Set arg_print_wasm, " pretty-print the output Wasm";
     "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific \
       comma-separated list of values; currently supported: \
-      inline,bundle,reachability,c-calls,wasm-calls,wasm-memory,wasm,force-c,cflat";
+      inline,bundle,reachability,c-calls,c-names,wasm-calls,wasm-memory,wasm,force-c,cflat";
     "", Arg.Unit (fun _ -> ()), " ";
   ] in
   let spec = Arg.align spec in
