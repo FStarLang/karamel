@@ -582,12 +582,14 @@ let functional_updates = object (self)
         ELet (b, e1, self#visit_expr env e2)
     in
 
+    (* Note: uu's are substituted at this point, so these two patterns seem
+       no longer relevant...? *)
     match e1.node, e2.node with
     | EBufRead ({ node = EBound i; _ }, j),
       EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ })
       when j = j' && iplusone = i + 1 ->
         (* let uu = (Bound i)[j];
-         * (Bound (i + 1))[j] <- { fi = ei } with ei = e if i = k, (Bound 0).fi otherwise
+         * (Bound (i + 1))[j] <- { f0 = (Bound 0).f0; ... except fk = e }
          * -->
          * (Bound i)[j].fk <- (unlift 1 e)
          *)
@@ -611,6 +613,34 @@ let functional_updates = object (self)
 
     | _ ->
         ELet (b, e1, self#visit_expr env e2)
+
+  method! visit_EBufWrite env e1 e2 e3 =
+    let e1 = self#visit_expr env e1 in
+    let e2 = self#visit_expr env e2 in
+    let e3 = self#visit_expr env e3 in
+    (* bufwrite (e1, e2, { fi = bufread (e1, e2).fi except fk = e }) *)
+    match e3.node with
+    | EFlat fields ->
+        let f, _ = List.partition (function
+          | Some f, { node = EField ({ node = EBufRead (e1', e2'); _ }, f'); _ }
+            when f = f' && e1 = e1' && e2 = e2' ->
+              false
+          | _ ->
+              true
+        ) fields in
+        begin match f with
+        | [ Some f, e ] ->
+            make_mut <- (assert_tlid e3.typ, f) :: make_mut;
+            EAssign (with_type e.typ (
+              EField (
+                with_type e3.typ (EBufRead (e1, e2)),
+                f)),
+              e)
+        | _ ->
+            EBufWrite (e1, e2, e3)
+        end
+    | _ ->
+        EBufWrite (e1, e2, e3)
 
   (* The same object is called a second time with the mark_mut flag set to true
    * to mark those fields that now ought to be mutable *)
@@ -1679,6 +1709,8 @@ let simplify0 (files: file list): file list =
   let files = remove_local_function_bindings#visit_files () files in
   let files = count_and_remove_locals#visit_files [] files in
   let files = remove_uu#visit_files () files in
+  let files = functional_updates#visit_files false files in
+  let files = functional_updates#visit_files true files in
   let files = remove_proj_is#visit_files () files in
   let files = combinators#visit_files () files in
   let files = wrapping_arithmetic#visit_files () files in
@@ -1708,8 +1740,7 @@ let simplify2 (files: file list): file list =
   let files = if !Options.wasm then files else fixup_hoist#visit_files () files in
   let files = if !Options.wasm then files else let_if_to_assign#visit_files () files in
   let files = misc_cosmetic#visit_files () files in
-  let files = functional_updates#visit_files false files in
-  let files = functional_updates#visit_files true files in
+  PPrint.(Print.(print (PrintAst.print_files files ^^ hardline)));
   let files = let_to_sequence#visit_files () files in
   files
 
