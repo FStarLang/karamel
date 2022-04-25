@@ -561,6 +561,10 @@ let functional_updates = object (self)
 
   val mutable make_mut = []
 
+  (* The general case with >= 3 fields reveals a let-binding. This assumes we
+     run after `hoist` to avoid nested let-bindings. This has the disadvantage
+     that for the version with operators, we leave superfluous monomorphized
+     instances of the operators in the file without eliminating them. *)
   method! visit_ELet env b e1 e2 =
     let b = self#visit_binder env b in
     let e1 = self#visit_expr env e1 in
@@ -573,6 +577,12 @@ let functional_updates = object (self)
               true
         ) fields in
       if List.length the_field = 1 then
+        let e1 = match e1.node with
+          | EApp ({ node = EQualified (["LowStar"; "BufferOps"], op2); _ }, [ e2 ])
+            when KString.starts_with op2 "op_Bang_Star" ->
+              with_type e1.typ (EBufRead (e2, Helpers.zerou32))
+          | _ -> e1
+        in
         let the_field, the_expr = List.hd the_field in
         let the_field = Option.must the_field in
         let the_expr = self#visit_expr env (snd (open_binder b the_expr)) in
@@ -582,9 +592,8 @@ let functional_updates = object (self)
         ELet (b, e1, self#visit_expr env e2)
     in
 
-    (* Note: uu's are substituted at this point, so these two patterns seem
-       no longer relevant...? *)
     match e1.node, e2.node with
+    (* Not in terminal position, no shorthand operators. *)
     | EBufRead ({ node = EBound i; _ }, j),
       EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ })
       when j = j' && iplusone = i + 1 ->
@@ -595,13 +604,14 @@ let functional_updates = object (self)
          *)
         make_assignment fields (fun x -> x)
 
+    (* In terminal position, no shorthand operators. *)
     | EBufRead ({ node = EBound i; _ }, j),
       ELet (b,
         { node = EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ }); _ },
         e3)
       when j = j' && iplusone = i + 1 ->
         (* let uu = (Bound i)[j];
-         * let _ = (Bound (i + 1))[j] <- { fi = ei } with ei = e if i = k, * (Bound 0).fi otherwise in
+         * let _ = (Bound (i + 1))[j] <- { fi = (Bound 0).fi, except fk = e } in
          * e3
          * -->
          * let _ = (Bound i)[j].fk <- (unlift 1 e) in
@@ -611,8 +621,73 @@ let functional_updates = object (self)
           let e3 = self#visit_expr env (snd (open_binder b e3)) in
           ELet (b, with_unit x, e3))
 
+    (* Not in terminal position, both shorthand operators. *)
+    | EApp ({ node = EQualified (["LowStar"; "BufferOps"], op2); _ }, [ e1 ]),
+        EApp ({ node = EQualified (["LowStar"; "BufferOps"], op1); _ },
+          [ e1'; { node = EFlat fields; _ } ])
+      when
+        KString.starts_with op1 "op_Star_Equals" &&
+        KString.starts_with op2 "op_Bang_Star" &&
+          e1' = DeBruijn.lift 1 e1
+      ->
+        (* let uu = !* e1 in
+         * e1 *= { fi = uu.fi except fk = e2 } *)
+        make_assignment fields (fun x -> x)
+
+    (* In terminal position, both shorthand operators. *)
+    | EApp ({ node = EQualified (["LowStar"; "BufferOps"], op2); _ }, [ e1 ]),
+      ELet (b,
+        { node = EApp ({ node = EQualified (["LowStar"; "BufferOps"], op1); _ },
+          [ e1'; { node = EFlat fields; _ } ]); _ },
+        e3)
+      when
+          KString.starts_with op1 "op_Star_Equals" &&
+          KString.starts_with op2 "op_Bang_Star" &&
+          e1' = DeBruijn.lift 1 e1
+      ->
+        make_assignment fields (fun x ->
+          let e3 = self#visit_expr env (snd (open_binder b e3)) in
+          ELet (b, with_unit x, e3))
+
     | _ ->
         ELet (b, e1, self#visit_expr env e2)
+
+  (* The two cases below cover the case where there are only two fields in the
+     record, meaning that there is no intermediate variable (of the form uu_...)
+     being introduced for the dereference expression. *)
+  method! visit_EApp env e es =
+    let e = self#visit_expr env e in
+    let es = List.map (self#visit_expr env) es in
+    match e.node, es with
+    | EQualified (["LowStar"; "BufferOps"], op1),
+      [ e1; { node = EFlat fields; _ } ]
+      when KString.starts_with op1 "op_Star_Equals" ->
+        (* e1: (buf t) *= { fi =  (!* e1).fi except fk = e } *)
+        let f, _ = List.partition (function
+          | Some f, { node =
+              EField ({ node =
+                EApp ( { node =
+                  EQualified (["LowStar"; "BufferOps"], op2); _ },
+                  [ e1' ]); _ }, f'); _ }
+            when f = f' && e1 = e1' && KString.starts_with op2 "op_Bang_Star" ->
+              false
+          | _ ->
+              true
+        ) fields in
+        begin match f with
+        | [ Some f, e ] ->
+            let t = assert_tbuf e1.typ in
+            make_mut <- (assert_tlid t, f) :: make_mut;
+            EAssign (with_type e.typ (
+              EField (
+                with_type t (EBufRead (e1, Helpers.zerou32)),
+                f)),
+              e)
+        | _ ->
+            EApp (e, es)
+        end
+    | _ ->
+        EApp (e, es)
 
   method! visit_EBufWrite env e1 e2 e3 =
     let e1 = self#visit_expr env e1 in
@@ -693,7 +768,7 @@ let misc_cosmetic = object (self)
     | _ ->
         EIfThenElse (e1, e2, e3)
 
-  (* &x[0] --> x *)
+  (* &(x[0]) --> x *)
   method! visit_EAddrOf env e =
     let e = self#visit_expr env e in
     match e.node with
@@ -702,6 +777,7 @@ let misc_cosmetic = object (self)
     | _ ->
         EAddrOf e
 
+  (* (&x)[0] --> x *)
   method! visit_EBufRead env e1 e2 =
     let e1 = self#visit_expr env e1 in
     let e2 = self#visit_expr env e2 in
@@ -710,6 +786,18 @@ let misc_cosmetic = object (self)
         e.node
     | _ ->
         EBufRead (e1, e2)
+
+  (* *(&x) --> x *)
+  method! visit_EApp env e es =
+    let e = self#visit_expr env e in
+    let es = List.map (self#visit_expr env) es in
+    match e.node, es with
+    | EQualified (["LowStar"; "BufferOps"], op2),
+      [ { node = EAddrOf e2; _ } ]
+      when KString.starts_with op2 "op_Bang_Star" ->
+        e2.node
+    | _ ->
+        EApp (e, es)
 
   method! visit_EBufWrite env e1 e2 e3 =
     let e1 = self#visit_expr env e1 in
@@ -1708,9 +1796,8 @@ end
 let simplify0 (files: file list): file list =
   let files = remove_local_function_bindings#visit_files () files in
   let files = count_and_remove_locals#visit_files [] files in
+  let files = misc_cosmetic#visit_files () files in
   let files = remove_uu#visit_files () files in
-  let files = functional_updates#visit_files false files in
-  let files = functional_updates#visit_files true files in
   let files = remove_proj_is#visit_files () files in
   let files = combinators#visit_files () files in
   let files = wrapping_arithmetic#visit_files () files in
@@ -1740,7 +1827,8 @@ let simplify2 (files: file list): file list =
   let files = if !Options.wasm then files else fixup_hoist#visit_files () files in
   let files = if !Options.wasm then files else let_if_to_assign#visit_files () files in
   let files = misc_cosmetic#visit_files () files in
-  PPrint.(Print.(print (PrintAst.print_files files ^^ hardline)));
+  let files = functional_updates#visit_files false files in
+  let files = functional_updates#visit_files true files in
   let files = let_to_sequence#visit_files () files in
   files
 

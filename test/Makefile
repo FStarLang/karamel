@@ -162,7 +162,8 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 	  | uniq | wc -l` = 1 ]
 
 count-point: $(OUTPUT_DIR)/FunctionalUpdate.exe
-	[ `grep point $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 2 ]
+	[ `grep point $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 6 ]
+	[ `grep uu___ $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 0 ]
 
 check-unused: $(OUTPUT_DIR)/Unused_B.exe
 	egrep -q 'gets_eliminated.*foobar\)' $(OUTPUT_DIR)/Unused_B.out/Unused_A.c
