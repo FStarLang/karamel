@@ -5,9 +5,11 @@ TEST_OPTS	= -warn-error @4 -verbose -skip-makefiles
 KRML_BIN	= ../_build/src/Karamel.native
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 
+# TODO: disambiguate between broken tests that arguably should work (maybe
+# HigherOrder6?) and helper files that are required for multiple-module tests
 BROKEN		= \
   HigherOrder6.fst ForwardDecl.fst BlitNull.fst \
-  Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst
+  Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst Abstract.fsti
 
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
 # special file and doesn't have a main.
@@ -150,6 +152,7 @@ $(OUTPUT_DIR)/Intro.exe $(OUTPUT_DIR)/MemCpy.exe: EXTRA = -rst-snippets
 $(OUTPUT_DIR)/StaticHeader.exe: EXTRA = -static-header StaticHeaderLib -bundle StaticHeaderAPI=StaticHeaderLib -warn-error @7@8
 $(OUTPUT_DIR)/Unused_B.exe: EXTRA=-bundle Unused_A
 $(OUTPUT_DIR)/PrivateInclude2.exe: EXTRA=-no-prefix PrivateInclude1 -bundle PrivateInclude1 -add-include 'PrivateInclude1.c:"../../foobar.h"'
+$(OUTPUT_DIR)/MonomorphizationCrash.exe: EXTRA=monomorphization_crash.c -add-include 'MonomorphizationCrash.c:"monomorphization_crash.h"' -ccopt -I.
 
 Failure.test: NEGATIVE=true
 
