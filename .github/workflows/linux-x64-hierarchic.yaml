@@ -15,3 +15,14 @@ jobs:
       - name: Build Karamel and its dependencies
         run: |
           docker build -t karamel:local-branch-$GITHUB_REF_NAME -t karamel:local-commit-$GITHUB_SHA -f .docker/$KRML_CI_FLAVOR.Dockerfile --build-arg FSTAR_BRANCH=$FSTAR_BRANCH .
+      - name: Post to the Slack channel
+        id: slack
+        uses: slackapi/slack-github-action@v1.16.0
+        with:
+          # Slack channel id, channel name, or user id to post message.
+          # See also: https://api.slack.com/methods/chat.postMessage#channels
+          channel-id: '#karamel-build'
+          # For posting a simple plain text message
+          slack-message: "GitHub build result: ${{ job.status }}\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
