@@ -9,7 +9,8 @@ KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 # HigherOrder6?) and helper files that are required for multiple-module tests
 BROKEN		= \
   HigherOrder6.fst ForwardDecl.fst BlitNull.fst \
-  Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst Abstract.fsti
+  Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst \
+  AbstractStructAbstract.fst
 
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
 # special file and doesn't have a main.
