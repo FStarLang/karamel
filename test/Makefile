@@ -162,7 +162,7 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 	  | uniq | wc -l` = 1 ]
 
 count-point: $(OUTPUT_DIR)/FunctionalUpdate.exe
-	[ `grep point $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 6 ]
+	[ `grep point $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 9 ]
 	[ `grep uu___ $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 0 ]
 
 check-unused: $(OUTPUT_DIR)/Unused_B.exe

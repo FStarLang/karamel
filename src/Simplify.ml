@@ -594,9 +594,9 @@ let functional_updates = object (self)
 
     match e1.node, e2.node with
     (* Not in terminal position, no shorthand operators. *)
-    | EBufRead ({ node = EBound i; _ }, j),
-      EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ })
-      when j = j' && iplusone = i + 1 ->
+    | EBufRead (e1, j),
+      EBufWrite (e1', j', { node = EFlat fields; _ })
+      when j = j' && e1' = DeBruijn.lift 1 e1 ->
         (* let uu = (Bound i)[j];
          * (Bound (i + 1))[j] <- { f0 = (Bound 0).f0; ... except fk = e }
          * -->
@@ -605,11 +605,11 @@ let functional_updates = object (self)
         make_assignment fields (fun x -> x)
 
     (* In terminal position, no shorthand operators. *)
-    | EBufRead ({ node = EBound i; _ }, j),
+    | EBufRead (e1, j),
       ELet (b,
-        { node = EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ }); _ },
+        { node = EBufWrite (e1', j', { node = EFlat fields; _ }); _ },
         e3)
-      when j = j' && iplusone = i + 1 ->
+      when j = j' && e1' = DeBruijn.lift 1 e1 ->
         (* let uu = (Bound i)[j];
          * let _ = (Bound (i + 1))[j] <- { fi = (Bound 0).fi, except fk = e } in
          * e3
