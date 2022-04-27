@@ -4,6 +4,9 @@ jobs:
   build:
     runs-on: [self-hosted, linux, X64]
     steps:
+      - name: Record initial timestamp
+        run: |
+          echo "CI_INITIAL_TIMESTAMP=$(date '+%s')" >> $GITHUB_ENV
       - name: Check out repo        
         uses: actions/checkout@v2
       - name: Identify the base FStar branch
@@ -15,6 +18,13 @@ jobs:
       - name: Build Karamel and its dependencies
         run: |
           docker build -t karamel:local-branch-$GITHUB_REF_NAME -t karamel:local-commit-$GITHUB_SHA -f .docker/$KRML_CI_FLAVOR.Dockerfile --build-arg FSTAR_BRANCH=$FSTAR_BRANCH .
+      - name: Compute elapsed time
+        run: |
+          CI_FINAL_TIMESTAMP=$(date '+%s')
+          CI_TIME_DIFF=$(( $CI_FINAL_TIMESTAMP - $CI_INITIAL_TIMESTAMP ))
+          echo "CI_TIME_DIFF_S=$(( $CI_TIME_DIFF % 60 ))" >> $GITHUB_ENV
+          echo "CI_TIME_DIFF_M=$(( ($CI_TIME_DIFF / 60) % 60 ))" >> $GITHUB_ENV
+          echo "CI_TIME_DIFF_H=$(( $CI_TIME_DIFF / 3600 ))" >> $GITHUB_ENV
       - name: Post to the Slack channel
         id: slack
         uses: slackapi/slack-github-action@v1.16.0
@@ -22,7 +32,10 @@ jobs:
           # Slack channel id, channel name, or user id to post message.
           # See also: https://api.slack.com/methods/chat.postMessage#channels
           channel-id: '#karamel-build'
-          # For posting a simple plain text message
-          slack-message: "GitHub build result: ${{ job.status }}\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
+          payload: |
+            {
+              "type": "mrkdwn",
+              "text": "<${{ github.event.head_commit.url }}|${{ github.event.head_commit.id }}> by ${{ github.event.head_commit.author.username }}\n<https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}|${{ github.event.head_commit.message }}>\n${{ job.status }}\nDuration: ${{ env.CI_TIME_DIFF_H }} h ${{ env.CI_TIME_DIFF_M }} min ${{ env.CI_TIME_DIFF_S }} s\n"
+            }
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
