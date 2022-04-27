@@ -27,13 +27,13 @@ jobs:
           echo "CI_TIME_DIFF_H=$(( $CI_TIME_DIFF / 3600 ))" >> $GITHUB_ENV
           case ${{ job.status }} in
           (success)
-            echo "CI_EMOJI=:cat-face:" >> $GITHUB_ENV
+            echo "CI_EMOJI=🐱" >> $GITHUB_ENV
             ;;
           (cancelled)
-            echo "CI_EMOJI=:pouting-cat-face:" >> $GITHUB_ENV
+            echo "CI_EMOJI=😾" >> $GITHUB_ENV
             ;;
           (*)
-            echo "CI_EMOJI=:crying-cat-face:" >> $GITHUB_ENV
+            echo "CI_EMOJI=😿" >> $GITHUB_ENV
             ;;
           esac
       - name: Post to the Slack channel
