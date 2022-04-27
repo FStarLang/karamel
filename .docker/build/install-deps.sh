@@ -11,5 +11,7 @@ opam depext conf-gmp z3.4.8.5 conf-m4
 git clone https://github.com/FStarLang/FStar "$FSTAR_HOME"
 opam install --deps-only "$FSTAR_HOME/fstar.opam"
 OTHERFLAGS='--admit_smt_queries true' make -j 24 -C "$FSTAR_HOME"
-grep -v -i fstar < karamel.opam > karamel-nofstar.opam
-opam install --deps-only ./karamel-nofstar.opam
+
+# Install other deps
+build_home="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+"$build_home"/install-other-deps.sh

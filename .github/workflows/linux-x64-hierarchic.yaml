@@ -1,0 +1,14 @@
+name: Build and test Karamel based on a FStar image
+on: push
+jobs:
+  build:
+    runs-on: [self-hosted, linux, X64]
+    steps:
+      - name: Check out repo        
+        uses: actions/checkout@v2
+      - name: Identify the base FStar branch
+        run: |
+          echo "FSTAR_BRANCH=$(jq -c -r '.BranchName' .docker/build/config.json)" >> $GITHUB_ENV
+      - name: Build Karamel and its dependencies
+        run: |
+          docker build -t karamel:local-branch-$GITHUB_REF_NAME -t karamel:local-commit-$GITHUB_SHA -f .docker/hierarchic.Dockerfile --build-arg FSTAR_BRANCH=$FSTAR_BRANCH .
