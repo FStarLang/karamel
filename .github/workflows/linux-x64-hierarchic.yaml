@@ -25,6 +25,17 @@ jobs:
           echo "CI_TIME_DIFF_S=$(( $CI_TIME_DIFF % 60 ))" >> $GITHUB_ENV
           echo "CI_TIME_DIFF_M=$(( ($CI_TIME_DIFF / 60) % 60 ))" >> $GITHUB_ENV
           echo "CI_TIME_DIFF_H=$(( $CI_TIME_DIFF / 3600 ))" >> $GITHUB_ENV
+          case ${{ job.status }} in
+          (success)
+            echo "CI_EMOJI=:cat-face:" >> $GITHUB_ENV
+            ;;
+          (cancelled)
+            echo "CI_EMOJI=:pouting-cat-face:" >> $GITHUB_ENV
+            ;;
+          (*)
+            echo "CI_EMOJI=:crying-cat-face:" >> $GITHUB_ENV
+            ;;
+          esac
       - name: Post to the Slack channel
         id: slack
         uses: slackapi/slack-github-action@v1.16.0
@@ -35,7 +46,7 @@ jobs:
           payload: |
             {
               "type": "mrkdwn",
-              "text": "<${{ github.event.head_commit.url }}|${{ github.event.head_commit.id }}> by ${{ github.event.head_commit.author.username }}\n<https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}|${{ github.event.head_commit.message }}>\n${{ job.status }}\nDuration: ${{ env.CI_TIME_DIFF_H }} h ${{ env.CI_TIME_DIFF_M }} min ${{ env.CI_TIME_DIFF_S }} s\n"
+              "text": "<${{ github.event.head_commit.url }}|${{ github.event.head_commit.id }}> on (${{ github.ref_name }}) by ${{ github.event.head_commit.author.username }}\n${{ github.event.head_commit.message }}\n${{ env.CI_EMOJI }} <https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}|${{ job.status }}>\nDuration: ${{ env.CI_TIME_DIFF_H }} h ${{ env.CI_TIME_DIFF_M }} min ${{ env.CI_TIME_DIFF_S }} s\n"
             }
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
