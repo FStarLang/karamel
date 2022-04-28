@@ -40,13 +40,39 @@ jobs:
         id: slack
         uses: slackapi/slack-github-action@v1.16.0
         with:
-          # Slack channel id, channel name, or user id to post message.
-          # See also: https://api.slack.com/methods/chat.postMessage#channels
           channel-id: '#karamel-build'
           payload: |
             {
-              "type": "mrkdwn",
-              "text": "<${{ github.event.head_commit.url }}|${{ github.event.head_commit.id }}> on (${{ github.ref_name }}) by ${{ github.event.head_commit.author.username }}\n${{ github.event.head_commit.message }}\n${{ env.CI_EMOJI }} <https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}|${{ job.status }}>\nDuration: ${{ env.CI_TIME_DIFF_H }} h ${{ env.CI_TIME_DIFF_M }} min ${{ env.CI_TIME_DIFF_S }} s\n"
+              "blocks" : [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "<${{ github.event.head_commit.url }}|${{ github.event.head_commit.id }}> on (${{ github.ref_name }}) by ${{ github.event.head_commit.author.username }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "plain_text",
+                    "text": ${{ toJSON(github.event.head_commit.message) }}
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "${{ env.CI_EMOJI }} <https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}|${{ job.status }}>"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "Duration: ${{ env.CI_TIME_DIFF_H }} h ${{ env.CI_TIME_DIFF_M }} min ${{ env.CI_TIME_DIFF_S }} s"
+                  }
+                }
+              ]
             }
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
