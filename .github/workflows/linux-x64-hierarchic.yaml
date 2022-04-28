@@ -9,9 +9,10 @@ jobs:
           echo "CI_INITIAL_TIMESTAMP=$(date '+%s')" >> $GITHUB_ENV
       - name: Check out repo        
         uses: actions/checkout@v2
-      - name: Identify the base FStar branch
+      - name: Identify the base FStar branch and the notification channel
         run: |
           echo "FSTAR_BRANCH=$(jq -c -r '.BranchName' .docker/build/config.json)" >> $GITHUB_ENV
+          echo "CI_SLACK_CHANNEL=$(jq -c -r '.NotificationChannel' .docker/build/config.json)" >> $GITHUB_ENV
       - name: Determine the build flavor
         run: |
           if docker image inspect fstar:local-branch-$FSTAR_BRANCH ; then echo KRML_CI_FLAVOR=hierarchic >> $GITHUB_ENV ; else echo KRML_CI_FLAVOR=standalone >> $GITHUB_ENV ; fi
@@ -40,7 +41,7 @@ jobs:
         id: slack
         uses: slackapi/slack-github-action@v1.16.0
         with:
-          channel-id: '#karamel-build'
+          channel-id: ${{ env.CI_SLACK_CHANNEL }}
           payload: |
             {
               "blocks" : [
