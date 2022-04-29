@@ -11,17 +11,43 @@ module K = Constant
 module StringMap = Map.Make(String)
 
 (******************************************************************************)
+(* Global State                                                               *)
+(******************************************************************************)
+
+(* For each module that has been code-gen'd, we register all of its public
+   exports in this table so that subsequent modules can lookup functions by name
+   and register corresponding import requests, on an as-needed basis. *)
+let imports: (string, [
+    | `Function of string * (int -> (W.Ast.import * W.Types.func_type W.Source.phrase))
+    | `Global of string * W.Ast.import
+  ]) Hashtbl.t
+=
+  Hashtbl.create 41
+
+
+(******************************************************************************)
 (* Environments                                                               *)
 (******************************************************************************)
 
 type env = {
-  funcs: int StringMap.t;
-    (** Mapping each function to its index in the function index space. *)
-  globals: int StringMap.t;
-    (** Mapping each global to its index in the global index space. *)
-  n_args: int;
-    (** The number of arguments to the current function. Needed to compute the
-     * index of the four "scratch" variables that each function has (see dup32). *)
+  funcs: (string, int) Hashtbl.t;
+    (** Mapping each function to its index in the function index space. This may
+        be extended on the fly to account for new imports from other modules. *)
+  next_func: int ref;
+    (* If we generate a fresh import request because of a function implemented
+       in another module, `next_func` will be the id associated to it. *)
+  imported_funcs: (W.Ast.import * W.Types.func_type W.Source.phrase) list ref; 
+    (* All of the required imports that have been issued as part of the
+       translation. *)
+
+  globals: (string, int) Hashtbl.t;
+    (** Mapping each global to its index in the global index space. Also may be
+        extended on the fly for the same reasons. *)
+  next_global: int ref;
+    (* Same as next_func, but for globals. *)
+  imported_globals: W.Ast.import list ref;
+    (* Same as imported_funcs, but for globals. *)
+
   strings: (string, int) Hashtbl.t;
     (** Mapping constant string literals to their offset relative to the start
      * of THIS module's data segment. *)
@@ -29,23 +55,34 @@ type env = {
     (** The current size of THIS module's data segment. This field and the one
      * above are mutable, so as to lazily allocate string literals as we hit
      * them. *)
+
+  n_args: int;
+    (** The number of arguments to the current function. Needed to compute the
+     * index of the four "scratch" variables that each function has (see dup32). *)
   location: loc list;
     (** For debugging *)
 }
 
 let empty = {
-  funcs = StringMap.empty;
-  globals = StringMap.empty;
-  n_args = 0;
+  funcs = Hashtbl.create 41;
+  next_func = ref 0;
+  imported_funcs = ref [];
+
+  globals = Hashtbl.create 41;
+  next_global = ref 0;
+  imported_globals = ref [];
+
   strings = Hashtbl.create 41;
   data_size = ref 0;
+
+  n_args = 0;
   location = []
 }
 
 let debug m { globals; funcs; _ } =
   KPrint.bprintf "===== WASM DEBUG for %s =====\n" m;
-  StringMap.iter (fun f i -> KPrint.bprintf "Function $%d is %s\n" i f) funcs;
-  StringMap.iter (fun g i -> KPrint.bprintf "Global $%d is %s\n" i g) globals;
+  Hashtbl.iter (fun f i -> KPrint.bprintf "Function $%d is %s\n" i f) funcs;
+  Hashtbl.iter (fun g i -> KPrint.bprintf "Global $%d is %s\n" i g) globals;
   KPrint.bprintf "\n\n"
 
 let locate env loc =
@@ -53,18 +90,37 @@ let locate env loc =
 
 let find_global env name =
   try
-    StringMap.find name env.globals
+    Hashtbl.find env.globals name
   with Not_found ->
-    Warn.fatal_error "Could not resolve global %s (look out for Warning 12)" name
+    match Hashtbl.find imports name with
+    | exception Not_found
+    | `Function _ ->
+        Warn.fatal_error "Could not resolve global %s (look out for Warning 12)" name
+    | `Global (g_name, g) ->
+        env.imported_globals := g :: !(env.imported_globals);
+        let g_id = !(env.next_global) in
+        Hashtbl.add env.globals g_name g_id;
+        incr env.next_global;
+        g_id
 
 let name_of_string = W.Utf8.decode
 let string_of_name = W.Ast.string_of_name
 
 let rec find_func env name =
   try
-    StringMap.find name env.funcs
+    Hashtbl.find env.funcs name
   with Not_found ->
-    Warn.fatal_error "%a: Could not resolve function %s" ploc env.location name
+    match Hashtbl.find imports name with
+    | exception Not_found
+    | `Global _ ->
+        Warn.fatal_error "Could not resolve global %s (look out for Warning 12)" name
+    | `Function (f_name, f) ->
+        let f_id = !(env.next_func) in
+        let f = f f_id in
+        env.imported_funcs := f :: !(env.imported_funcs);
+        Hashtbl.add env.funcs f_name f_id;
+        incr env.next_func;
+        f_id
 
 let primitives = [
   "load32_le";
@@ -1009,50 +1065,55 @@ let mk_global env name size body post_init =
 (* Putting it all together: generating a Wasm module                          *)
 (******************************************************************************)
 
+(* Extend imports with all the public exports of the current module
+   `module_name` *)
+let add_global_imports module_name decls =
+  List.iter (function
+    | Function f when f.public ->
+        (* if Options.debug "wasm" then *)
+        (*   KPrint.bprintf "Imported function $%d is %s\n" next_func f.name; *)
+        Hashtbl.add imports f.name (`Function (f.name, fun func_id ->
+          dummy_phrase W.Ast.({
+            module_name = name_of_string module_name;
+            item_name = name_of_string f.name;
+            idesc = dummy_phrase (FuncImport (mk_var func_id))
+          }), mk_func_type f))
+
+    | Global (g_name, size, _, _, public) when public ->
+        let t = mk_type size in
+        Hashtbl.add imports g_name (`Global (g_name, dummy_phrase W.Ast.({
+          module_name = name_of_string module_name;
+          item_name = name_of_string g_name;
+          idesc = dummy_phrase (
+            GlobalImport W.Types.(GlobalType (t, W.Types.Immutable)))
+        })))
+
+    | _ ->
+        ()
+  ) decls
+
 (* From [types] (all the function types in the universe) and [imports] (some
  * globals, a memory, and exactly [List.length types] functions who come in the
  * same order as [types]), build a current module; as a bonus, grow [types] and
  * [imports] with the exports from this module. *)
-let mk_module types imports (name, decls):
-  W.Types.func_type W.Source.phrase list * W.Ast.import list * (string * W.Ast.module_) =
+let mk_module (name, decls): (string * W.Ast.module_) =
 
   if Options.debug "wasm" then
     KPrint.bprintf ">>> Numbering import-exports for %s\n" name;
 
-  (* Layout the import and types for the current module. The current module's
-   * types start with [types]; the current module's imports starts with
-   * [imports]. We fold over these to build our environment's maps, which
-   * associate to each function & global an index. The Wasm function
-   * (resp. globals) index space is made up of all the imported functions (resp.
-   * globals), then the current module's functions (resp. globals). *)
-  let rec assign env f g imports =
-    (* We have seen [f] functions and [g] globals. *)
-    match imports with
-    | { W.Source.it = { W.Ast.item_name; idesc = { W.Source.it = W.Ast.FuncImport n; _ }; _ }; _ } :: tl ->
-        let env = { env with funcs = StringMap.add (string_of_name item_name) f env.funcs } in
-        assert (Int32.to_int n.W.Source.it = f);
-        assign env (f + 1) g tl
-    | { W.Source.it = { W.Ast.item_name; idesc = { W.Source.it = W.Ast.GlobalImport _; _ }; _ }; _ } :: tl ->
-        let env = { env with globals = StringMap.add (string_of_name item_name) g env.globals } in
-        assign env f (g + 1) tl
-    | _ :: tl ->
-        (* Intentionally skipping other imports (e.g. memory). *)
-        assign env f g tl
-    | [] ->
-        f, g, env
-  in
-  let n_imported_funcs, n_imported_globals, env = assign empty 0 0 imports in
-
-  assert (n_imported_funcs = List.length types);
+  let env = empty in
 
   (* For every global and function that's assumed (via "assume val"), we
-   * generate an import request. This means they are implemented "natively". *)
+   * generate an import request. This means they are implemented "natively". We
+   * also assume that the combination of proper bundling and reachability
+   * analysis did not result in any superfluous assume vals -- we unconditionally
+   * request all of them in the current module's imports. *)
   let rec assign env imports f g decls =
     match decls with
     | ExternalFunction (fname, _, _) :: tl when not (is_primitive fname) ->
         if Options.debug "wasm" then
           KPrint.bprintf "Imported function $%d is %s\n" f fname;
-        let env = { env with funcs = StringMap.add fname f env.funcs } in
+        Hashtbl.add env.funcs fname f;
         let imports =
           dummy_phrase W.Ast.({
             module_name = name_of_string name;
@@ -1062,7 +1123,7 @@ let mk_module types imports (name, decls):
         in
         assign env imports (f + 1) g tl
     | ExternalGlobal (gname, t) :: tl ->
-        let env = { env with globals = StringMap.add gname g env.globals } in
+        Hashtbl.add env.globals gname g;
         let imports =
           dummy_phrase W.Ast.({
             module_name = name_of_string name;
@@ -1077,29 +1138,31 @@ let mk_module types imports (name, decls):
     | [] ->
         List.rev imports, f, g, env
   in
-  let imports', n_imported_funcs, n_imported_globals, env =
-    assign env [] n_imported_funcs n_imported_globals decls
+  let imports, n_imported_funcs, n_imported_globals, env =
+    assign env [] 0 0 decls
   in
-  let imports = imports @ imports' in
+  (* let imports = imports @ imports' in *)
 
   (* Generate types for the assumed function declarations. Re-establish the invariant
    * that the function at index i in the function index space has type i in the
    * types index space. *)
-  let types = types @ KList.filter_map (function
+  let types = KList.filter_map (function
     | ExternalFunction (fname, args, ret) when not (is_primitive fname)->
         Some (mk_func_type' args ret)
     | _ ->
         None
   ) decls in
 
+  assert (List.length types = n_imported_funcs);
+
   (* Continue filling our environment with the rest of the function (resp.
    * global) index space, namely, this module's functions (resp. globals) *)
   let rec assign env f g = function
     | Function { name; _ } :: tl ->
-        let env = { env with funcs = StringMap.add name f env.funcs } in
+        Hashtbl.add env.funcs name f;
         assign env (f + 1) g tl
     | Global (name, _, _, _, _) :: tl ->
-        let env = { env with globals = StringMap.add name g env.globals } in
+        Hashtbl.add env.globals name g;
         assign env f (g + 1) tl
     | _ :: tl ->
         (* Intentionally skipping type declarations. *)
@@ -1112,48 +1175,6 @@ let mk_module types imports (name, decls):
   if Options.debug "wasm" then
     debug name env;
 
-  (* START detour to generate the next module's import table. *)
-
-  (* Subtlety: we do not want to export private functions. So, we build a
-   * slightly different list of types, to which we only append public types.
-   * This means that we can't poke at the environment to find the index of a
-   * given function in this list. *)
-  let types_only_public = types @ KList.filter_map (function
-    | Function f when f.public ->
-        Some (mk_func_type f)
-    | _ ->
-        None
-  ) decls in
-
-  (* Now, this means that we can easily extend [imports] with our own functions
-   * & globals, to be passed to the next module when they want to import all the
-   * stuff in the universe, including the current module's "stuff". Note: this
-   * maintains the invariant that the i-th function in [imports_me_included]
-   * points to type index i. *)
-  let _, my_imports = List.fold_left (fun (next_func, acc) -> function
-    | Function f when f.public ->
-        if Options.debug "wasm" then
-          KPrint.bprintf "Imported function $%d is %s\n" next_func f.name;
-        next_func + 1, dummy_phrase W.Ast.({
-          module_name = name_of_string name;
-          item_name = name_of_string f.name;
-          idesc = dummy_phrase (FuncImport (mk_var next_func))
-        }) :: acc
-    | Global (g_name, size, _, _, public) when public ->
-        let t = mk_type size in
-        next_func, dummy_phrase W.Ast.({
-          module_name = name_of_string name;
-          item_name = name_of_string g_name;
-          idesc = dummy_phrase (
-            GlobalImport W.Types.(GlobalType (t, W.Types.Immutable)))
-        }) :: acc
-    | _ ->
-        next_func, acc
-  ) (List.length types, []) decls in
-  let imports_me_included = imports @ List.rev my_imports in
-
-  (* END detour to generate the next module's import table. *)
-
   (* Generate types for the function declarations. Re-establish the invariant
    * that the function at index i in the function index space has type i in the
    * types index space. *)
@@ -1163,6 +1184,10 @@ let mk_module types imports (name, decls):
     | _ ->
         None
   ) decls in
+
+  (* Record the next available indices. *)
+  env.next_func := n_imported_funcs;
+  env.next_global := n_imported_globals;
 
   (* Compile the functions. *)
   let funcs = KList.filter_map (function
@@ -1177,6 +1202,16 @@ let mk_module types imports (name, decls):
     | _ ->
         None
   ) decls in
+
+  (* We have lazily generated import requests as part of compiling this module.
+     Record those, and refresh our local variables that count how many
+     functions/globals have been requested so far. Note that we stop using
+     env.next_{func,global} from here on (TODO: merge n_imported_{func,global}s
+     with env.next_{func,global}. *)
+  let types = types @ List.map snd !(env.imported_funcs) in
+  let imports = imports @ List.map fst !(env.imported_funcs) @ !(env.imported_globals) in
+  let n_imported_funcs = n_imported_funcs + List.length !(env.imported_funcs) in
+  let n_imported_globals = n_imported_globals + List.length !(env.imported_globals) in
 
   (* The globals, too. Global have their types directly attached to them and do
    * not rely on an indirection via a type table like functions. *)
@@ -1262,6 +1297,10 @@ let mk_module types imports (name, decls):
     })]
   in
 
+  (* Register this module's public functions in the global imports table to
+     generate them on-demand for the modules that we will compile next. *)
+  add_global_imports name decls;
+
   let module_ = dummy_phrase W.Ast.({
     empty_module with
     funcs;
@@ -1272,16 +1311,9 @@ let mk_module types imports (name, decls):
     data;
     start
   }) in
-  types_only_public, imports_me_included, (name, module_)
+  name, module_
 
 
-(* Since the modules are already topologically sorted, we make each module
- * import all the exports from all the previous modules. [imports] is a list of
- * everything that been made visible so far... ideally, we should only import
- * things that we need. *)
-let mk_files files =
-  let _, _, modules = List.fold_left (fun (types, imports, modules) file ->
-    let types, imports, module_ = mk_module types imports file in
-    types, imports, module_ :: modules
-  ) (Base.types, Base.imports, []) files in
-  List.rev modules
+(* We preserve the topological order. *)
+let mk_files =
+  List.map mk_module
