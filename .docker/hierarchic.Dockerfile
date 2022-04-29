@@ -13,7 +13,9 @@ RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
 RUN sudo apt-get install -y nodejs
 
 # CI proper
-RUN eval $(opam env) && .docker/build/build-standalone.sh
+ARG CI_THREADS=24
+ARG CI_BRANCH=master
+RUN eval $(opam env) && .docker/build/build-standalone.sh $CI_THREADS $CI_BRANCH
 
 WORKDIR $HOME
 ENV KRML_HOME $HOME/karamel
