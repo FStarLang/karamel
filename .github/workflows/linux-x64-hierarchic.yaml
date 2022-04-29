@@ -20,6 +20,7 @@ jobs:
         run: |
           docker build -t karamel:local-branch-$GITHUB_REF_NAME -t karamel:local-commit-$GITHUB_SHA -f .docker/$KRML_CI_FLAVOR.Dockerfile --build-arg FSTAR_BRANCH=$FSTAR_BRANCH --build-arg CI_BRANCH=$GITHUB_REF_NAME .
       - name: Compute elapsed time
+        if: ${{ always() }}
         run: |
           CI_FINAL_TIMESTAMP=$(date '+%s')
           CI_TIME_DIFF=$(( $CI_FINAL_TIMESTAMP - $CI_INITIAL_TIMESTAMP ))
@@ -39,6 +40,7 @@ jobs:
           esac
           echo "CI_COMMIT=$(echo ${{ github.event.head_commit.id || github.event.pull_request.head.sha }} | grep -o '^........')" >> $GITHUB_ENV
       - name: Post to the Slack channel
+        if: ${{ always() }}
         id: slack
         uses: slackapi/slack-github-action@v1.16.0
         with:
