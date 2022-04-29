@@ -623,9 +623,6 @@ Supported options:|}
   let files = Simplify.remove_unused files in
   let files = if !Options.tail_calls then Simplify.tail_calls files else files in
   let files = Simplify.simplify2 files in
-  (* TODO: Inlining.drop_unused here, since this creates more opportunities for
-     elimination (see comment in functional_updates; also true for
-     Simplify.remove_unused). *)
   let files = if Options.(!merge_variables <> No) then SimplifyMerge.simplify files else files in
   if !arg_print_structs then
     print PrintAst.print_files files;
