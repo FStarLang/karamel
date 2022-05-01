@@ -68,10 +68,8 @@ function refresh_hints() {
 }
 
 function refresh_tutorial_is_enabled () {
-    [[ "$OS" != "Windows_NT" ]] && {
-        [[ $branchname == "master" ]] ||
-        [[ $branchname == "taramana_github_actions" ]]
-    }
+    [[ "$OS" != "Windows_NT" ]] &&
+    [[ $branchname == "master" ]]
 }
 
 function misc () {
