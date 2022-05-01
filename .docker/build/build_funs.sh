@@ -83,7 +83,8 @@ function misc () {
   echo After cloning fstar-mode.el
   
   if refresh_tutorial_is_enabled ; then
-      git clone git@github.com:fstarlang/fstarlang.github.io fstarlang-github-io
+      [[ -n "$DZOMO_GITHUB_TOKEN" ]]
+      git clone https://"$DZOMO_GITHUB_TOKEN"@github.com/fstarlang/fstarlang.github.io fstarlang-github-io
   fi
 
   echo Creating _tags
