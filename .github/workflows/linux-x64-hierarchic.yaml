@@ -23,7 +23,12 @@ jobs:
           if docker image inspect fstar:local-branch-$FSTAR_BRANCH ; then echo KRML_CI_FLAVOR=hierarchic >> $GITHUB_ENV ; else echo KRML_CI_FLAVOR=standalone >> $GITHUB_ENV ; fi
       - name: Build Karamel and its dependencies
         run: |
-          docker buildx build --secret id=DZOMO_GITHUB_TOKEN -t karamel:local-branch-$GITHUB_REF_NAME -t karamel:local-commit-$GITHUB_SHA -f .docker/$KRML_CI_FLAVOR.Dockerfile --build-arg FSTAR_BRANCH=$FSTAR_BRANCH --build-arg CI_BRANCH=$GITHUB_REF_NAME .
+          if { echo $GITHUB_REF_NAME | grep '/' ; } ; then
+            docker_build_tag_opt=
+          else
+            docker_build_tag_opt="-t karamel:local-branch-$GITHUB_REF_NAME"
+          fi
+          docker buildx build --secret id=DZOMO_GITHUB_TOKEN $docker_build_tag_opt -t karamel:local-commit-$GITHUB_SHA -f .docker/$KRML_CI_FLAVOR.Dockerfile --build-arg FSTAR_BRANCH=$FSTAR_BRANCH --build-arg CI_BRANCH=$GITHUB_REF_NAME .
         env:
           DZOMO_GITHUB_TOKEN: ${{ secrets.DZOMO_GITHUB_TOKEN }}
       - name: Compute elapsed time
