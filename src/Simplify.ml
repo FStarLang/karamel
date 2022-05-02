@@ -585,7 +585,8 @@ let functional_updates = object (self)
         in
         let the_field, the_expr = List.hd the_field in
         let the_field = Option.must the_field in
-        let the_expr = self#visit_expr env (snd (open_binder b the_expr)) in
+        let the_expr = DeBruijn.subst e1 0 the_expr in
+        let the_expr = self#visit_expr env the_expr in
         make_mut <- (assert_tlid e1.typ, the_field) :: make_mut;
         k (EAssign (with_type the_expr.typ (EField (e1, the_field)), the_expr))
       else
