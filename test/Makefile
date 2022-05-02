@@ -68,7 +68,7 @@ ifndef MAKE_RESTARTS
 ifndef NODEPEND
 .depend: .FORCE
 	$(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
-	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*' > $@
+	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*,-FStar.MSTTotal,-FStar.NMSTTotal,-FStar.MST' > $@
 
 .PHONY: .FORCE
 .FORCE:
