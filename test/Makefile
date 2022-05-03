@@ -66,9 +66,10 @@ everything: all wasm
 
 ifndef MAKE_RESTARTS
 ifndef NODEPEND
+# AF: The Steel files should not be extracted by KaRaMeL, they are filtered out
 .depend: .FORCE
 	$(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
-	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*' > $@
+	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*,-Prims,-FStar.MSTTotal,-FStar.NMSTTotal,-FStar.MST,-FStar.NMST,-Steel' > $@
 
 .PHONY: .FORCE
 .FORCE:
@@ -76,9 +77,6 @@ endif
 endif
 
 include .depend
-
-# AF: The Steel files should not be extracted by KaRaMeL, they are filtered out
-FILTERED_KRML_FILES = $(filter-out $(OUTPUT_DIR)/FStar_NMST.krml $(OUTPUT_DIR)/Steel_%.krml,$(ALL_KRML_FILES))
 
 $(HINTS_DIR):
 	mkdir -p $@
@@ -92,13 +90,13 @@ $(OUTPUT_DIR)/%.krml: | .depend
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<))
 
-$(OUTPUT_DIR)/Ctypes2.exe: $(FILTERED_KRML_FILES) $(KRML_BIN)
+$(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) \
 	  -o $@ $(filter %.krml,$^) \
         -skip-compilation $(filter %.krml,$^) \
 
 .PRECIOUS: $(OUTPUT_DIR)/%.exe
-$(OUTPUT_DIR)/%.exe: $(filter-out %/prims.krml,$(FILTERED_KRML_FILES)) $(KRML_BIN)
+$(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
 	  -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack,\*
 
@@ -198,7 +196,7 @@ $(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Ctypes2.exe $(addprefix $(LOWLEVEL_
 # All WASM targets get the -wasm flag; some specific targets may override
 # NEGATIVE for negative tests.
 .PRECIOUS: $(OUTPUT_DIR)/%.wasm
-$(OUTPUT_DIR)/%.wasm: $(filter-out %/prims.krml,$(FILTERED_KRML_FILES)) $(KRML_BIN)
+$(OUTPUT_DIR)/%.wasm: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(KRML) -minimal -bundle WasmSupport= -bundle 'FStar.*' -bundle Prims \
 	  -bundle C -bundle C.Endianness -bundle C.Nullity -bundle C.String \
 	  -bundle TestLib \
