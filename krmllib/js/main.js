@@ -41,12 +41,12 @@ if (typeof WebAssembly === "undefined")
 
 // Load extra modules... with the understanding that shell.js is written by
 // KaRaMeL
-var link, reserve, dump, hex;
+var link, reserve, dump, hex, p32;
 var my_js_files, my_modules, my_debug, my_imports = {};
 
 my_print("... loader.js");
 if (is_node) {
-  ({ link, reserve, dump, hex } = require("./loader.js"));
+  ({ link, reserve, dump, hex, p32 } = require("./loader.js"));
   ({ my_js_files, my_modules, my_debug } = require("./shell.js"));
 } else {
   my_load("loader.js");
@@ -97,7 +97,7 @@ scope.then(scope => {
       my_print("... no main in current scope");
       throw new Error("Aborting");
     }
-    with_debug((imports) => global.main({ reserve, dump, my_print, hex }, imports));
+    with_debug((imports) => global.main({ reserve, dump, my_print, hex, p32 }, imports));
   }
   my_print("... done running main");
   my_quit(err);

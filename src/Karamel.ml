@@ -510,6 +510,7 @@ Supported options:|}
    *   A_f" comes before "static void B_g" (since they're static, there's no
    *   forward declaration in the header. *)
   let files = Builtin.make_libraries files in
+  let files = if !Options.wasm then SimplifyWasm.intrinsics#visit_files () files else files in
   let files = Bundles.topological_sort files in
   NamingHints.record files;
 
@@ -675,12 +676,10 @@ Supported options:|}
       Warn.fatal_error "The module WasmSupport wasn't passed to karamel or \
         was hidden in a bundle!";
 
-    (* If present, place the fallback intrinsics module immediately after. *)
-    let intrinsics, rest = List.partition (fun (name, _) -> name = "Hacl_IntTypes_Intrinsics") rest in
-    let files = is_support @ intrinsics @ rest in
+    let files = is_support @ rest in
     (* The Wasm backend diverges here. We go to [CFlat] (an expression
      * language), then directly into the Wasm AST. *)
-    let files = AstToCFlat.mk_files files c_name_map in
+    let layouts, files = AstToCFlat.mk_files files c_name_map in
     let files = List.filter (fun (_, decls) -> List.length decls > 0) files in
     tick_print true "AstToCFlat";
 
@@ -690,7 +689,7 @@ Supported options:|}
     let modules = OptimizeWasm.optimize_files modules in
     tick_print true "OptimizeWasm";
 
-    OutputJs.write_all !js_files modules !arg_print_wasm
+    OutputJs.write_all !js_files modules !arg_print_wasm layouts
 
   else
     let () = () in

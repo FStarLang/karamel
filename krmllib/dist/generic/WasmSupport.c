@@ -24,7 +24,7 @@ void WasmSupport_check_buffer_size(uint32_t s)
 {
   if (s == (uint32_t)0U)
   {
-    WasmSupport_trap();
+    WasmSupport_trap("Zero-sized arrays are not supported in C and in WASM either. See WasmSupport.fst");
   }
 }
 
@@ -47,7 +47,7 @@ void WasmSupport_memzero(uint8_t *x, uint32_t len, uint32_t sz)
 {
   if (len >= (uint32_t)0xffffffffU / sz)
   {
-    WasmSupport_trap();
+    WasmSupport_trap("Overflow in memzero; see WasmSupport.fst");
   }
   uint32_t n_bytes = len * sz;
   for (uint32_t i = (uint32_t)0U; i < n_bytes; i++)

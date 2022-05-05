@@ -645,13 +645,6 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallFunc ("C_Nullity_null", [ _ ]) ->
       [ dummy_phrase (W.Ast.Const (mk_int32 0l)) ]
 
-  (* If the function is a fallback implementation of an intrinsic, call it
-   * using its correct name *)
-  | CallFunc ("Lib_IntTypes_Intrinsics_add_carry_u64", args) ->
-      mk_expr env (CallFunc ("Hacl_IntTypes_Intrinsics_add_carry_u64", args))
-  | CallFunc ("Lib_IntTypes_Intrinsics_sub_borrow_u64", args) ->
-      mk_expr env (CallFunc ("Hacl_IntTypes_Intrinsics_sub_borrow_u64", args))
-
   | CallFunc (("load16_le_i" | "load16_le"), [ e ]) ->
       mk_expr env e @
       [ dummy_phrase W.Ast.(Load { ty = mk_type I32; align = 0; offset = 0l; sz = Some W.Types.(Pack16, ZX) })]
@@ -766,6 +759,12 @@ and mk_expr env (e: expr): W.Ast.instr list =
       i32_mul @
       grow_highwater env
 
+  | BufCreate (Common.Heap, n_elts, elt_size) ->
+      mk_expr env n_elts @
+      mk_size elt_size @
+      i32_mul @
+      [ dummy_phrase (W.Ast.Call (mk_var (find_func env "WasmSupport_malloc"))) ]
+
   | BufRead (e1, ofs, size) ->
       (* github.com/WebAssembly/spec/blob/master/interpreter/spec/eval.ml#L189 *)
       mk_expr env e1 @
@@ -845,7 +844,6 @@ and mk_expr env (e: expr): W.Ast.instr list =
           [ dummy_phrase W.Ast.Drop ]
         ) es) @
         mk_expr env e
-
 
   | GetGlobal i ->
       [ dummy_phrase (W.Ast.GlobalGet (mk_var (find_global env i))) ]
