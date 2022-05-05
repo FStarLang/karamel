@@ -28,7 +28,7 @@ let count_and_remove_locals = object (self)
 
   method private remove_trivial_let e =
     match e with
-    | ELet (_, e1, { node = EBound 0; _ }) when Helpers.is_readonly_c_expression e1 ->
+    | ELet (_, e1, { node = EBound 0; _ }) ->
         e1.node
     | _ ->
         e
