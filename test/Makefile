@@ -69,7 +69,7 @@ ifndef NODEPEND
 # AF: The Steel files should not be extracted by KaRaMeL, they are filtered out
 .depend: .FORCE
 	$(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
-	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*,-Prims,-FStar.MSTTotal,-FStar.NMSTTotal,-FStar.MST,-FStar.NMST,-Steel' > $@
+	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*,-Prims,-FStar.MSTTotal,-FStar.NMSTTotal,-FStar.MST,-FStar.NMST,-Steel.Effect,-Steel.Effect.Atomic,-Steel.HigherReference,-Steel.Reference,-Steel.Semantics.Hoare.MST' > $@
 
 .PHONY: .FORCE
 .FORCE:
@@ -77,6 +77,19 @@ endif
 endif
 
 include .depend
+
+# AF: The Steel files should not be extracted by KaRaMeL, they are filtered out
+FILTERED_STEEL_FILES = \
+  $(OUTPUT_DIR)/FStar_MSTTotal.krml \
+  $(OUTPUT_DIR)/FStar_NMSTTotal.krml \
+  $(OUTPUT_DIR)/FStar_NMST.krml \
+  $(OUTPUT_DIR)/FStar_MST.krml \
+  $(OUTPUT_DIR)/Steel_Effect.krml \
+  $(OUTPUT_DIR)/Steel_Effect_Atomic.krml \
+  $(OUTPUT_DIR)/Steel_HigherReference.krml \
+  $(OUTPUT_DIR)/Steel_Reference.krml \
+  $(OUTPUT_DIR)/Steel_Semantics_Hoare_MST.krml
+FILTERED_KRML_FILES = $(filter-out $(FILTERED_STEEL_FILES), $(ALL_KRML_FILES))
 
 $(HINTS_DIR):
 	mkdir -p $@
