@@ -28,7 +28,7 @@ let count_and_remove_locals = object (self)
 
   method private remove_trivial_let e =
     match e with
-    | ELet (_, e1, { node = EBound 0; _ }) when Helpers.is_readonly_c_expression e1 ->
+    | ELet (_, e1, { node = EBound 0; _ }) ->
         e1.node
     | _ ->
         e
@@ -1712,12 +1712,12 @@ let simplify2 (files: file list): file list =
   (* Quality of hoisting is WIDELY improved if we remove un-necessary
    * let-bindings. *)
   let files = count_and_remove_locals#visit_files [] files in
-  let files = fixup_while_tests#visit_files () files in
+  let files = if !Options.wasm then files else fixup_while_tests#visit_files () files in
   let files = hoist#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
-  let files = hoist_bufcreate#visit_files () files in
-  let files = fixup_hoist#visit_files () files in
-  let files = let_if_to_assign#visit_files () files in
+  let files = if !Options.wasm then files else hoist_bufcreate#visit_files () files in
+  let files = if !Options.wasm then files else fixup_hoist#visit_files () files in
+  let files = if !Options.wasm then files else let_if_to_assign#visit_files () files in
   let files = misc_cosmetic#visit_files () files in
   let files = functional_updates#visit_files false files in
   let files = functional_updates#visit_files true files in

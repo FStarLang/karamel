@@ -229,12 +229,13 @@ let detect_fstar () =
     fatal_error "Did not find fstar.exe in PATH and FSTAR_HOME is not set"
   end;
 
-  if KString.exists !fstar_home "opam"; then begin
+  let fstar_ulib = !fstar_home ^^ "ulib" in
+  if not (Sys.file_exists fstar_ulib && Sys.is_directory fstar_ulib) ; then begin
     if not !Options.silent then
-      KPrint.bprintf "Detected an OPAM setup of F*\n";
+      KPrint.bprintf "F* library not found in ulib; falling back to lib/fstar\n";
     fstar_lib := !fstar_home ^^ "lib" ^^ "fstar"
   end else begin
-    fstar_lib := !fstar_home ^^ "ulib"
+    fstar_lib := fstar_ulib
   end;
 
   if success "which" [| "cygpath" |] then begin
