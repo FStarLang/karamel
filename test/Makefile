@@ -69,7 +69,7 @@ ifndef NODEPEND
 # AF: The Steel files should not be extracted by KaRaMeL, they are filtered out
 .depend: .FORCE
 	$(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
-	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*,-Prims,-FStar.MSTTotal,-FStar.NMSTTotal,-FStar.MST,-FStar.NMST,-Steel' > $@
+	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*,-Prims,-FStar.MSTTotal,-FStar.NMSTTotal,-FStar.MST,-FStar.NMST,-Steel.Effect,-Steel.Effect.Atomic,-Steel.HigherReference,-Steel.Reference,-Steel.Semantics.Hoare.MST' > $@
 
 .PHONY: .FORCE
 .FORCE:
