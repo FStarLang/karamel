@@ -78,7 +78,15 @@ endif
 include .depend
 
 # AF: The Steel files should not be extracted by KaRaMeL, they are filtered out
-FILTERED_KRML_FILES = $(filter-out $(OUTPUT_DIR)/FStar_NMST.krml $(OUTPUT_DIR)/Steel_%.krml,$(ALL_KRML_FILES))
+FILTERED_STEEL_FILES = \
+  $(OUTPUT_DIR)/FStar_MSTTotal.krml \
+  $(OUTPUT_DIR)/FStar_NMSTTotal.krml \
+  $(OUTPUT_DIR)/FStar_NMST.krml \
+  $(OUTPUT_DIR)/FStar_MST.krml \
+  $(OUTPUT_DIR)/Steel_Effect.krml \
+  $(OUTPUT_DIR)/Steel_Effect_Atomic.krml \
+  $(OUTPUT_DIR)/Steel_Semantics_Hoare_MST.krml
+FILTERED_KRML_FILES = $(filter-out $(FILTERED_STEEL_FILES), $(ALL_KRML_FILES))
 
 $(HINTS_DIR):
 	mkdir -p $@
