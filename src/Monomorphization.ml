@@ -466,7 +466,7 @@ let equalities files =
                 EApp (with_type eq_typ' (self#generate_equality t K.PEq), [
                   with_type t' (EBound 0); with_type t' (EBound 1) ])))
               in
-              DFunction (None, [], 0, TBool, instance_lid, [ y; x ], body)
+              DFunction (None, [ Common.Private ], 0, TBool, instance_lid, [ y; x ], body)
             in
             EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
         | K.PEq ->
