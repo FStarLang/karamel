@@ -25,7 +25,7 @@ ifneq ($(RECENT_GCC),"yes")
   FILES 	:= $(filter-out Debug.test,$(FILES))
 endif
 
-CUSTOM		= count-uu check-unused check-no-constructor check-no-erased
+CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
@@ -164,6 +164,7 @@ $(OUTPUT_DIR)/Intro.exe $(OUTPUT_DIR)/MemCpy.exe: EXTRA = -rst-snippets
 $(OUTPUT_DIR)/StaticHeader.exe: EXTRA = -static-header StaticHeaderLib -bundle StaticHeaderAPI=StaticHeaderLib -warn-error @7@8
 $(OUTPUT_DIR)/Unused_B.exe: EXTRA=-bundle Unused_A
 $(OUTPUT_DIR)/PrivateInclude2.exe: EXTRA=-no-prefix PrivateInclude1 -bundle PrivateInclude1 -add-include 'PrivateInclude1.c:"../../foobar.h"'
+$(OUTPUT_DIR)/ExternalEq.exe: EXTRA=-add-include '"external_eq.h"' -ccopt -I. external_eq.c
 $(OUTPUT_DIR)/MonomorphizationCrash.exe: EXTRA=monomorphization_crash.c -add-include 'MonomorphizationCrash.c:"monomorphization_crash.h"' -ccopt -I.
 
 Failure.test: NEGATIVE=true
@@ -175,6 +176,14 @@ count-uu: $(OUTPUT_DIR)/Uu.exe
 	[ `grep uu___ $(OUTPUT_DIR)/Uu.out/Uu.c | \
 	  $(SED) 's/.*\(uu____\([0-9]\+\)\).*/\1/g' \
 	  | uniq | wc -l` = 1 ]
+
+count-eq: $(OUTPUT_DIR)/ExternalEq.exe
+	[ `grep eq__ $(OUTPUT_DIR)/ExternalEq.out/ExternalEq.h | wc -l` = 1 ]
+
+count-point: $(OUTPUT_DIR)/FunctionalUpdate.exe
+	[ `grep point $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 9 ]
+	[ `grep uu___ $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 0 ]
+
 
 check-unused: $(OUTPUT_DIR)/Unused_B.exe
 	egrep -q 'gets_eliminated.*foobar\)' $(OUTPUT_DIR)/Unused_B.out/Unused_A.c
