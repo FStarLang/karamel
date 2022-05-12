@@ -240,7 +240,7 @@ let target_c_name ~attempt_shortening ~is_macro lid =
   let pre_name =
     if skip_prefix lid && not (ineligible lid) then
       snd lid
-    else if attempt_shortening && not (ineligible lid) && snd lid <> "main" then
+    else if attempt_shortening && !Options.short_names && not (ineligible lid) && snd lid <> "main" then
       snd lid
     else match rename_prefix lid with
     | Some prefix ->
