@@ -429,6 +429,18 @@ let equalities files =
         equalities @ [ d ]
       ) decls
 
+    method private maybe_by_addr head x y =
+      let t_op, x, y =
+        match x.typ with
+        | TQualified lid when Hashtbl.find_opt types_map lid = Some Forward ->
+            let t = TBuf (x.typ, true) in
+            TArrow (t, TArrow (t, TBool)), with_type t (EAddrOf x), with_type t (EAddrOf y)
+        | _ ->
+            let t = x.typ in
+            TArrow (t, TArrow (t, TBool)), x, y
+      in
+      EApp (with_type t_op head, [x;y])
+
     (* For type [t] and either [op = Eq] or [op = Neq], generate a recursive
      * equality predicate that implements F*'s structural equality. *)
     method private generate_equality t op =
@@ -437,10 +449,32 @@ let equalities files =
         | K.PEq -> [], "__eq"
         | K.PNeq -> [], "__neq"
       in
-      let eq_typ = TArrow (t, TArrow (t, TBool)) in
       let instance_lid = Gen.gen_lid eq_lid [ t ] in
       let x = fresh_binder "x" t in
       let y = fresh_binder "y" t in
+
+      (* Generate an external to stand in for a user-provided equality operator
+         for an external type. *)
+      let gen_poly ?(pointer=false) () =
+        let t' = if pointer then TBuf (t, true) else t in
+        let eq_typ' = TArrow (t', TArrow (t', TBool)) in
+        match op with
+        | K.PNeq ->
+            (* let __neq__t x y = not (__eq__t x y) *)
+            let def () =
+              let body = mk_not (with_type TBool (
+                EApp (with_type eq_typ' (self#generate_equality t K.PEq), [
+                  with_type t' (EBound 0); with_type t' (EBound 1) ])))
+              in
+              DFunction (None, [ Common.Private ], 0, TBool, instance_lid, [ y; x ], body)
+            in
+            EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
+        | K.PEq ->
+            (* assume val __eq__t: t -> t -> bool *)
+            let def () = DExternal (None, [], instance_lid, eq_typ', [ "x"; "y" ]) in
+            EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
+      in
+
 
       match t with
       | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) ->
@@ -489,17 +523,23 @@ let equalities files =
                   with_type TBool (EBool true)
               | _ ->
                   with_type TBool (
-                    EApp (
-                      with_type (TArrow (t, TArrow (t, TBool))) (
-                        self#generate_equality t op), [
-                        with_type t e1;
-                        with_type t e2]))
+                    self#maybe_by_addr (self#generate_equality t op) (with_type t e1) (with_type t e2))
             in
             match Hashtbl.find types_map lid with
-            | Abbrev _ | Enum _ | Union _ | Forward ->
+            | Abbrev _ | Enum _ | Union _ as e ->
+                KPrint.bprintf "Error: did not expect %a\n" ppdef e;
                 (* No abbreviations (this runs after inline_type abbrevs).
                  * No Enum / Union / Forward (this runs before data types). *)
                 assert false
+
+            | Forward ->
+                (* Happens when an abstract external type is marked as
+                   CAbstractStruct. TODO this is really unpleasant because
+                   without the annotation, the type wouldn't be generated at all
+                   and would end up "implicitly" external, as in the final case
+                   below. *)
+                gen_poly ~pointer:true ()
+
             | Flat fields ->
                 (* Either a conjunction of equalities, or a disjunction of inequalities. *)
                 let def () =
@@ -572,24 +612,7 @@ let equalities files =
             EQualified (Hashtbl.find Gen.generated_lids (eq_lid, [ t ]))
           with Not_found ->
             (* External type without a definition. Comparison of function types? *)
-            begin match op with
-            | K.PNeq ->
-                (* let __neq__t x y = not (__eq__t x y) *)
-                let def () =
-                  let body = mk_not (with_type TBool (
-                    EApp (with_type eq_typ (self#generate_equality t K.PEq), [
-                      with_type t (EBound 0); with_type t (EBound 1) ])))
-                  in
-                  DFunction (None, [ Common.Private ], 0, TBool, instance_lid, [ y; x ], body)
-                in
-                EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
-            | K.PEq ->
-                (* assume val __eq__t: t -> t -> bool *)
-                let def () = DExternal (None, [], instance_lid, eq_typ, [ "x"; "y" ]) in
-                (* Leaving this one public to make sure the user has a header to
-                   include in order to fill out the definition. *)
-                EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
-            end
+            gen_poly ()
 
     (* New feature (somewhat unrelated to polymorphic equality
      * monomorphization): generate top-level specialized equalities in case a
@@ -617,9 +640,9 @@ let equalities files =
                 with_type t (EBound 0); with_type t (EBound 1) ])))))
 
     method! visit_EApp env e es =
-      match e.node with
-      | EPolyComp (op, t) ->
-          EApp (with_type e.typ (self#generate_equality t op), List.map (self#visit_expr env) es)
+      match e.node, es with
+      | EPolyComp (op, t), [ x; y ] ->
+          self#maybe_by_addr (self#generate_equality t op) (self#visit_expr env x) (self#visit_expr env y)
       | _ ->
           EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
 

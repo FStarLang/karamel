@@ -305,6 +305,10 @@ Supported options:|}
       tweaks";
     "-fextern-c", Arg.Set Options.extern_c, " wrap declarations in each header \
       with extern \"C\" {";
+    "-fnoshort-names", Arg.Clear Options.short_names, "  disable unprefix names \
+      for private (static) functions that are not exposed in headers; this ensures \
+      robust collision-avoidance in case your private function names collide with \
+      one of the included system headers";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
@@ -623,9 +627,6 @@ Supported options:|}
   let files = Simplify.remove_unused files in
   let files = if !Options.tail_calls then Simplify.tail_calls files else files in
   let files = Simplify.simplify2 files in
-  (* TODO: Inlining.drop_unused here, since this creates more opportunities for
-     elimination (see comment in functional_updates; also true for
-     Simplify.remove_unused). *)
   let files = if Options.(!merge_variables <> No) then SimplifyMerge.simplify files else files in
   if !arg_print_structs then
     print PrintAst.print_files files;

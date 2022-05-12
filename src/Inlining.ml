@@ -210,6 +210,7 @@ let cross_call_analysis files =
    * be safely marked as private. The invariant is not established yet. *)
   let private_or_internal = Hashtbl.create 41 in
   let safely_inline = Hashtbl.create 41 in
+  let c_abstract_structs = Hashtbl.create 41 in
 
   (* Constants that will end up being mutable in Wasm because of the compilation
    * scheme of constants as little-endian encoded pre-laid out byte literals
@@ -228,6 +229,9 @@ let cross_call_analysis files =
       if List.mem Private flags && not (Helpers.is_static_header name) then
         (* -static-header takes precedence over private, see CStarToC11.ml *)
         Hashtbl.add private_or_internal name T.Private;
+
+      if List.mem AbstractStruct flags then
+        Hashtbl.add c_abstract_structs name ();
 
       if List.mem Inline flags then
         Hashtbl.add safely_inline name ();
@@ -369,19 +373,20 @@ let cross_call_analysis files =
         Hashtbl.find_opt private_or_internal (lid_of_decl d) = Some T.Private
 
       method private remove_and_visit name =
+        (* KPrint.bprintf "Remove_and_visit %a with mode %s\n" plid name *)
+        (*   (match !mode with `Public -> "public" | `Internal -> "internal"); *)
         if Hashtbl.mem private_or_internal name then begin
-          (* KPrint.bprintf "Remove_and_visit %a with mode %s\n" plid name *)
-          (*   (match !mode with `Public -> "public" | `Internal -> "internal"); *)
           match !mode with
           | `Internal ->
               Hashtbl.replace private_or_internal name T.Internal
           | `Public ->
               Hashtbl.remove private_or_internal name
         end;
-        if not (Hashtbl.mem seen name) || mode_lt (Hashtbl.find seen name) !mode then begin
+        if (not (Hashtbl.mem seen name) || mode_lt (Hashtbl.find seen name) !mode) then begin
           Hashtbl.replace seen name !mode;
-          try super#visit_decl () (Hashtbl.find decl_map name)
-          with Not_found -> ()
+          if not (Hashtbl.mem c_abstract_structs name) then
+            try super#visit_decl () (Hashtbl.find decl_map name)
+            with Not_found -> ()
         end
 
       method! visit_TQualified () name =
@@ -409,7 +414,10 @@ let cross_call_analysis files =
         (* We visit any non-private declaration; static header takes precedence
            over private. *)
         let name = lid_of_decl d in
-        if not (self#still_private d) || Helpers.is_static_header name then begin
+        let flags = flags_of_decl d in
+        if (not (self#still_private d) || Helpers.is_static_header name) &&
+          not (List.mem AbstractStruct flags)
+        then begin
           mode :=
             match Hashtbl.find private_or_internal name with
             | exception Not_found -> `Public
@@ -443,6 +451,7 @@ let cross_call_analysis files =
         | T.Private -> flags
         | T.Internal -> Internal :: List.filter ((<>) Private) flags
       in
+      (* KPrint.bprintf "%a: %s\n" plid name (String.concat " " (List.map show_flag flags)); *)
       if !Options.cc = "compcert" then
         keep_if safely_inline Inline name flags
       else
