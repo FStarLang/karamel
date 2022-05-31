@@ -98,7 +98,7 @@
         "typing_LowStar.UninitializedBuffer.initialization_preorder"
       ],
       0,
-      "b3affd472c1957fb0b00da3b10653ee3"
+      "954178abe6a8cd4bde930640f6b76dd4"
     ],
     [
       "UBuffer.test_ub_stack",
@@ -188,7 +188,7 @@
         "typing_LowStar.UninitializedBuffer.initialization_preorder"
       ],
       0,
-      "ae53389e042d03ef55f1997a90def4fa"
+      "a48a9cde59aced8e48e76d4229b96b42"
     ],
     [
       "UBuffer.main",
@@ -213,7 +213,7 @@
         "typing_FStar.Int32.int_to_t", "typing_Prims.pow2"
       ],
       0,
-      "2355ed6f55d6514881a8754a53777162"
+      "17ca4e794501db8e2cf9592a9650b243"
     ]
   ]
 ]
