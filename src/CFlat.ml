@@ -135,6 +135,7 @@ and expr =
   | CallFunc of ident * expr list
   | Cast of expr * width * width
       (** from; to *)
+  | CastI64ToPacked of expr
 
 and var =
   int (** NOT De Bruijn *)

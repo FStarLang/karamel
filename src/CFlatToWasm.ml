@@ -263,9 +263,13 @@ let mk_drop =
  * top of the stack) and swap (to swap the two topmost operands). There are some
  * macros, such as grow_highwater (or 16/8-bit arithmetic), that we want to
  * expand at the last minute (since they use some very low-level Wasm concepts).
- * Therefore, as a convention, every function frame has four "scratch" locals;
- * the first two of size I64; the last two of size I32. The Wasm register
- * allocator will take care of optimizing all of that. *)
+ * Therefore, as a convention, every function frame has five "scratch" locals;
+ * the first two of size I64; the last three of size I32. The Wasm register
+ * allocator will take care of optimizing all of that.
+ *
+ * The first four scratch locals (up to env.n_args + 3) are always available and their value is not
+ * guaranteed to be preserved. The fifth one stores the stack pointer upon entry in a function, and
+ * therefore should never be used except in mk_func. *)
 let dup32 env =
   [ dummy_phrase (W.Ast.LocalTee (mk_var (env.n_args + 2)));
     dummy_phrase (W.Ast.LocalGet (mk_var (env.n_args + 2))) ]
@@ -820,6 +824,20 @@ and mk_expr env (e: expr): W.Ast.instr list =
       mk_expr env e1 @
       mk_cast w_from w_to
 
+  | CastI64ToPacked e ->
+      let scratch_i64 = mk_var (env.n_args + 0) in
+      mk_expr env e @
+      (* Store result in first scratch local *)
+      [ dummy_phrase (W.Ast.LocalSet scratch_i64) ] @
+      (* Load result, truncate low bits *)
+      [ dummy_phrase (W.Ast.LocalGet scratch_i64) ] @
+      [ dummy_phrase W.Ast.(Convert (W.Values.I32 IntOp.WrapI64)) ] @
+      (* Load result, shift 32 places, truncate to get high bits *)
+      [ dummy_phrase (W.Ast.LocalGet scratch_i64) ] @
+      mk_const (mk_int64 32L) @
+      [ dummy_phrase (W.Ast.Binary (mk_value I64 (Wasm.Ast.IntOp.ShrU))) ] @
+      [ dummy_phrase W.Ast.(Convert (W.Values.I32 IntOp.WrapI64)) ]
+
   | IfThenElse (e, b1, b2, s) ->
       let s = mk_value_type s in
       mk_expr env e @
@@ -983,11 +1001,9 @@ let mk_func env { args; locals; body; name; ret; _ } =
     in
     (if name <> "WasmSupport_align_64" then Debug.mk env debug_enter else []) @
     read_highwater @
+    [ dummy_phrase (W.Ast.LocalSet (mk_var (env.n_args + 4))) ] @
     mk_expr env body @
-    (match ret with
-      | [ I32 ] -> swap32 env
-      | [ I64 ] -> swap6432 env
-      | _ -> []) @
+    [ dummy_phrase (W.Ast.LocalGet (mk_var (env.n_args + 4))) ] @
     write_highwater env @
     if name <> "WasmSupport_align_64" then Debug.mk env debug_exit else []
   in
@@ -1154,7 +1170,7 @@ let collect_external_imports env decls =
     inherit [_] iter
     method visit_CallFunc _ name _ =
       if not (StringSet.mem name known_funcs) && not (Hashtbl.mem env.funcs name) && not (is_primitive name) then
-        register_func name 
+        register_func name
     method visit_GetGlobal _ name =
       if not (StringSet.mem name known_globals) && not (Hashtbl.mem env.globals name) then
         register_global name
