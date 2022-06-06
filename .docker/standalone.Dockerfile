@@ -1,13 +1,37 @@
 # This Dockerfile should be run from the root FStar directory
 
-ARG ocaml_version=4.12
-FROM ocaml/opam:ubuntu-ocaml-$ocaml_version
+FROM ubuntu:22.04
 
-ADD --chown=opam:opam ./ karamel/
+# CI dependencies: opam, jq (to identify F* branch)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      jq \
+      ca-certificates \
+      curl \
+      wget \
+      git \
+      sudo \
+      opam
+
+
+# Create a new user and give them sudo rights
+RUN useradd -d /home/test test
+RUN echo 'test ALL=NOPASSWD: ALL' >> /etc/sudoers
+RUN mkdir /home/test
+RUN chown test:test /home/test
+USER test
+ENV HOME /home/test
+WORKDIR $HOME
+SHELL ["/bin/bash", "--login", "-c"]
+
+# Install OCaml
+ARG OCAML_VERSION=4.12.0
+RUN opam init --compiler=$OCAML_VERSION --disable-sandboxing 
+RUN opam env --set-switch | tee --append $HOME/.profile $HOME/.bashrc $HOME/.bash_profile
+ENV OPAMYES=1
+
+ADD --chown=test:test ./ karamel/
 WORKDIR karamel
-
-# CI dependencies: jq (to identify F* branch)
-RUN sudo apt-get install -y --no-install-recommends jq
 
 # Dependencies (F* and opam packages)
 ENV FSTAR_HOME=$HOME/FStar
@@ -28,4 +52,5 @@ RUN sudo pip3 install sphinx==1.7.2 jinja2==3.0.0 sphinx_rtd_theme
 # CI proper
 ARG CI_THREADS=24
 ARG CI_BRANCH=master
-RUN --mount=type=secret,id=DZOMO_GITHUB_TOKEN eval $(opam env) && DZOMO_GITHUB_TOKEN=$(sudo cat /run/secrets/DZOMO_GITHUB_TOKEN) .docker/build/build-standalone.sh $CI_THREADS $CI_BRANCH
+# RUN --mount=type=secret,id=DZOMO_GITHUB_TOKEN eval $(opam env) && DZOMO_GITHUB_TOKEN=$(sudo cat /run/secrets/DZOMO_GITHUB_TOKEN) .docker/build/build-standalone.sh $CI_THREADS $CI_BRANCH
+RUN eval $(opam env) && .docker/build/build-standalone.sh $CI_THREADS $CI_BRANCH
