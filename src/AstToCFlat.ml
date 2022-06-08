@@ -373,7 +373,7 @@ let extend (env: env) (binder: binder) (locals: locals): locals * var * env =
   size_of env binder.typ :: locals,
   v,
   { env with
-    binders = List.length locals :: env.binders;
+    binders = v :: env.binders;
   }
 
 (** Find a variable in the environment. *)
@@ -899,32 +899,57 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
 (* See digression for [dup32] in CFlatToWasm *)
 let scratch_locals =
-  [ I64; I64; I32; I32 ]
+  [ I64; I64; I32; I32; I32 ]
 
 let msg_i64 = format_of_string "Abort: %s was meant to be hand-written and \
   provided at link-time, but contains an I64 and therefore cannot be called from \
   WASM."
 
-let mk_decl env (d: decl): env * CF.decl option =
+let mk_wrapper orig_name n_args locals =
+  let name = orig_name ^ "_packed" in
+  (* KPrint.bprintf "%s: %d locals, %d args\n" name (List.length locals) n_args; *)
+  let ret = [ I32; I32 ] in
+  let locals = List.rev locals in
+  let args, locals = KList.split n_args locals in
+  let body =
+    CF.CastI64ToPacked (
+      CF.CallFunc (orig_name, KList.make (List.length args) (fun i -> CF.Var i))
+    )
+  in
+  CF.(Function { name; args; ret; locals; body; public = true })
+
+let mk_decl env (d: decl): env * CF.decl list =
   match d with
   | DFunction (_, flags, n, ret, name, args, body) ->
       assert (n = 0);
-      let public = not (List.exists ((=) Common.Private) flags) in
+      let public = not (List.mem Common.Private flags) in
       let locals, env = List.fold_left (fun (locals, env) b ->
         let locals, _, env = extend env b locals in
         locals, env
       ) ([], env) args in
       let locals = List.rev_append scratch_locals locals in
+      let name = GlobalNames.to_c_name env.names name in
+
+      (* Interlude: generate a wrapper, possibly *)
+      let wrapper () = mk_wrapper name (List.length args) locals in
+
       let locals, body = mk_expr env locals body in
       let ret = [ size_of env ret ] in
       let locals = List.rev locals in
       let args, locals = KList.split (List.length args) locals in
-      let name = GlobalNames.to_c_name env.names name in
-      env, Some CF.(Function { name; args; ret; locals; body; public })
+      let wrapper =
+        if public && ret = [ I64 ] && not (List.mem Common.Internal flags) then
+          [ wrapper () ]
+        else
+          []
+      in
+      env, [
+        CF.(Function { name; args; ret; locals; body; public })
+      ] @ wrapper
 
   | DType _ ->
       (* Not translating type declarations. *)
-      env, None
+      env, []
 
   | DGlobal (flags, name, n, typ, body) ->
       assert (n = 0);
@@ -936,11 +961,13 @@ let mk_decl env (d: decl): env * CF.decl option =
       in
       if size = I64 then begin
         Warn.(maybe_fatal_error ("", NotWasmCompatible (name, "I64 constant")));
-        env, None
+        env, []
       end else
         let env, body, post_init = mk_global env name body in
         let name = GlobalNames.to_c_name env.names name in
-        env, Some (CF.Global (name, size, body, post_init, public))
+        env, [
+          CF.Global (name, size, body, post_init, public)
+        ]
 
   | DExternal (_, _, lid, t, _) ->
       let name = GlobalNames.to_c_name env.names lid in
@@ -953,14 +980,19 @@ let mk_decl env (d: decl): env * CF.decl option =
             Warn.(maybe_fatal_error ("", NotWasmCompatible (lid, "functions \
               implemented natively in JS (because they're assumed) cannot take or \
               return I64")));
-            env, Some CF.(Function { name; args; ret; locals = scratch_locals;
-              body = CF.Abort (CF.StringLiteral (Printf.sprintf msg_i64 name));
-              public = true
-            })
+            env, [
+              CF.(Function { name; args; ret; locals = scratch_locals;
+                body = CF.Abort (CF.StringLiteral (Printf.sprintf msg_i64 name));
+                public = true
+              })]
           end else
-            env, Some (CF.ExternalFunction (name, args, ret))
+            env, [
+              CF.ExternalFunction (name, args, ret)
+            ]
       | _ ->
-          env, Some (CF.ExternalGlobal (name, size_of env t))
+          env, [
+            CF.ExternalGlobal (name, size_of env t)
+          ]
 
 (* Definitions to be skipped because they have a built-in compilation scheme. *)
 let skip (lid: lident) =
@@ -975,9 +1007,7 @@ let mk_module env decls =
       else begin
         flush stdout; flush stderr;
         let env, d = mk_decl env d in
-        match d with
-        | None -> env, decls
-        | Some d -> env, d :: decls
+        env, List.rev_append d decls
       end
     with e ->
       flush stdout;

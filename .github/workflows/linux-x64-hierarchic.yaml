@@ -23,14 +23,24 @@ jobs:
           if docker image inspect fstar:local-branch-$FSTAR_BRANCH ; then echo KRML_CI_FLAVOR=hierarchic >> $GITHUB_ENV ; else echo KRML_CI_FLAVOR=standalone >> $GITHUB_ENV ; fi
       - name: Build Karamel and its dependencies
         run: |
-          if { echo $GITHUB_REF_NAME | grep '/' ; } ; then
-            docker_build_tag_opt=
-          else
-            docker_build_tag_opt="-t karamel:local-branch-$GITHUB_REF_NAME"
+          ci_docker_image_tag=karamel:local-run-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT
+          docker buildx build --secret id=DZOMO_GITHUB_TOKEN -t $ci_docker_image_tag -f .docker/$KRML_CI_FLAVOR.Dockerfile --build-arg FSTAR_BRANCH=$FSTAR_BRANCH --build-arg CI_BRANCH=$GITHUB_REF_NAME .
+          if docker run $ci_docker_image_tag /bin/bash -c 'cat $KRML_HOME/result.txt' | grep Success ; then ci_docker_status=true ; else ci_docker_status=false ; fi
+          if $ci_docker_status ; then
+            if ! { echo $GITHUB_REF_NAME | grep '/' ; } ; then
+              docker tag $ci_docker_image_tag karamel:local-branch-$GITHUB_REF_NAME
+            fi
+            docker tag $ci_docker_image_tag karamel:local-commit-$GITHUB_SHA
           fi
-          docker buildx build --secret id=DZOMO_GITHUB_TOKEN $docker_build_tag_opt -t karamel:local-commit-$GITHUB_SHA -f .docker/$KRML_CI_FLAVOR.Dockerfile --build-arg FSTAR_BRANCH=$FSTAR_BRANCH --build-arg CI_BRANCH=$GITHUB_REF_NAME .
+          docker run $ci_docker_image_tag /bin/bash -c 'cat $KRML_HOME/log.txt' > log.txt
+          $ci_docker_status
         env:
           DZOMO_GITHUB_TOKEN: ${{ secrets.DZOMO_GITHUB_TOKEN }}
+      - name: Archive build log
+        uses: actions/upload-artifact@v3
+        with:
+          name: log
+          path: log.txt
       - name: Compute elapsed time
         if: ${{ always() }}
         run: |
