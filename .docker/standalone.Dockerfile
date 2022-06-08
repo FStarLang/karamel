@@ -1,4 +1,4 @@
-# This Dockerfile should be run from the root FStar directory
+# This Dockerfile should be run from the root Karamel directory
 
 FROM ubuntu:22.04
 
@@ -15,12 +15,14 @@ RUN apt-get update && \
 
 
 # Create a new user and give them sudo rights
-RUN useradd -d /home/test test
-RUN echo 'test ALL=NOPASSWD: ALL' >> /etc/sudoers
-RUN mkdir /home/test
-RUN chown test:test /home/test
-USER test
-ENV HOME /home/test
+# NOTE: we give them the name "opam" to keep compatibility with
+# derived hierarchical CI
+RUN useradd -d /home/opam opam
+RUN echo 'opam ALL=NOPASSWD: ALL' >> /etc/sudoers
+RUN mkdir /home/opam
+RUN chown opam:opam /home/opam
+USER opam
+ENV HOME /home/opam
 WORKDIR $HOME
 SHELL ["/bin/bash", "--login", "-c"]
 
@@ -30,8 +32,8 @@ RUN opam init --compiler=$OCAML_VERSION --disable-sandboxing
 RUN opam env --set-switch | tee --append $HOME/.profile $HOME/.bashrc $HOME/.bash_profile
 ENV OPAMYES=1
 
-ADD --chown=test:test ./ karamel/
-WORKDIR karamel
+ADD --chown=opam:opam ./ $HOME/karamel/
+WORKDIR $HOME/karamel
 
 # Dependencies (F* and opam packages)
 ENV FSTAR_HOME=$HOME/FStar
@@ -52,5 +54,8 @@ RUN sudo pip3 install sphinx==1.7.2 jinja2==3.0.0 sphinx_rtd_theme
 # CI proper
 ARG CI_THREADS=24
 ARG CI_BRANCH=master
-# RUN --mount=type=secret,id=DZOMO_GITHUB_TOKEN eval $(opam env) && DZOMO_GITHUB_TOKEN=$(sudo cat /run/secrets/DZOMO_GITHUB_TOKEN) .docker/build/build-standalone.sh $CI_THREADS $CI_BRANCH
-RUN eval $(opam env) && .docker/build/build-standalone.sh $CI_THREADS $CI_BRANCH
+RUN --mount=type=secret,id=DZOMO_GITHUB_TOKEN eval $(opam env) && DZOMO_GITHUB_TOKEN=$(sudo cat /run/secrets/DZOMO_GITHUB_TOKEN) .docker/build/build-standalone.sh $CI_THREADS $CI_BRANCH
+# RUN eval $(opam env) && .docker/build/build-standalone.sh $CI_THREADS $CI_BRANCH
+
+WORKDIR $HOME
+ENV KRML_HOME=$HOME/karamel
