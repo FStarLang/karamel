@@ -10,6 +10,8 @@ RUN apt-get update && \
       curl \
       wget \
       git \
+      gawk \
+      coreutils \
       sudo \
       opam
 
