@@ -37,6 +37,7 @@ jobs:
         env:
           DZOMO_GITHUB_TOKEN: ${{ secrets.DZOMO_GITHUB_TOKEN }}
       - name: Archive build log
+        if: ${{ always() }}
         uses: actions/upload-artifact@v3
         with:
           name: log
