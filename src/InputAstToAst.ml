@@ -80,7 +80,7 @@ and mk_constant (w, s) =
     if i = String.length s then
       i
     else if s.[i] = '0' then
-      skip_zero (i + 1)
+      skip_zeroes (i + 1)
     else begin
       skip_digits i;
       i
