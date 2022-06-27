@@ -75,17 +75,32 @@ and mk_fields fields =
   List.map (fun (name, field) -> Some name, mk_expr field) fields
 
 and mk_constant (w, s) =
-  let rec first_non_zero i =
-    if i < String.length s && s.[i] = '0' then
-      first_non_zero (i+1)
-    else
+  let module T = struct exception Error end in
+  let rec skip_zeroes i =
+    if i = String.length s then
       i
+    else if s.[i] = '0' then
+      skip_zero (i + 1)
+    else begin
+      skip_digits i;
+      i
+    end
+  and skip_digits i =
+    if i = String.length s then
+      ()
+    else if not ('0' <= s.[i] && s.[i] <= '9') then
+      raise T.Error
+    else
+      skip_digits (i + 1)
   in
   if String.length s = 0 then
     w, s
   else
-    let i = first_non_zero 0 in
-    w, if i = String.length s then "0" else String.sub s i (String.length s - i)
+    try
+      let i = skip_zeroes 0 in
+      w, if i = String.length s then "0" else String.sub s i (String.length s - i)
+    with T.Error ->
+      w, s
 
 and mk_typ = function
   | I.TInt x ->
