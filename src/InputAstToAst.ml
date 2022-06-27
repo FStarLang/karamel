@@ -74,6 +74,19 @@ and mk_tfields_opt fields =
 and mk_fields fields =
   List.map (fun (name, field) -> Some name, mk_expr field) fields
 
+and mk_constant (w, s) =
+  let rec first_non_zero i =
+    if i < String.length s && s.[i] = '0' then
+      first_non_zero (i+1)
+    else
+      i
+  in
+  if String.length s = 0 then
+    w, s
+  else
+    let i = first_non_zero 0 in
+    w, if i = String.length s then "0" else String.sub s i (String.length s - i)
+
 and mk_typ = function
   | I.TInt x ->
       TInt x
@@ -98,7 +111,7 @@ and mk_typ = function
   | I.TTuple ts ->
       TTuple (List.map mk_typ ts)
   | I.TArray (t, c) ->
-      TArray (mk_typ t, c)
+      TArray (mk_typ t, mk_constant c)
 
 and mk_expr = function
   | I.EBound i ->
@@ -106,7 +119,7 @@ and mk_expr = function
   | I.EQualified lid ->
       mk (EQualified lid)
   | I.EConstant k ->
-      mk (EConstant k)
+      mk (EConstant (mk_constant k))
   | I.EUnit ->
       mk (EUnit)
   | I.EString s ->
@@ -212,7 +225,7 @@ and mk_pat binders pat =
         field, mk_pat pat
       ) fields))
   | I.PConstant k ->
-      mk (PConstant k)
+      mk (PConstant (mk_constant k))
   in
   mk_pat pat
 
