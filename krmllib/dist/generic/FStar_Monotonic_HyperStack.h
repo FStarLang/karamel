@@ -14,8 +14,6 @@
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
-typedef void *FStar_Monotonic_HyperStack_mem;
-
 extern void *FStar_Monotonic_HyperStack_root;
 
 

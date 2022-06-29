@@ -15,8 +15,6 @@
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
-typedef void *FStar_Pervasives_pattern;
-
 #define FStar_Pervasives_Simpl 0
 #define FStar_Pervasives_Weak 1
 #define FStar_Pervasives_HNF 2
@@ -132,8 +130,6 @@ typedef struct Prims_list__FStar_Pervasives_norm_step_s
 Prims_list__FStar_Pervasives_norm_step;
 
 extern void *FStar_Pervasives_norm(Prims_list__FStar_Pervasives_norm_step *uu___, void *x);
-
-typedef void *FStar_Pervasives_ex_pre;
 
 #define FStar_Pervasives_PpxDerivingShow 0
 #define FStar_Pervasives_PpxDerivingShowConstant 1

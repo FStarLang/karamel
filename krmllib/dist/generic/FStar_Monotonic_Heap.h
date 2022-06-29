@@ -39,8 +39,6 @@ typedef struct FStar_Monotonic_Heap_heap_rec_s
 }
 FStar_Monotonic_Heap_heap_rec;
 
-typedef FStar_Monotonic_Heap_heap_rec FStar_Monotonic_Heap_heap;
-
 extern FStar_Monotonic_Heap_heap_rec FStar_Monotonic_Heap_emp;
 
 typedef struct FStar_Monotonic_Heap_aref__s
@@ -49,8 +47,6 @@ typedef struct FStar_Monotonic_Heap_aref__s
   bool a_mm;
 }
 FStar_Monotonic_Heap_aref_;
-
-typedef FStar_Monotonic_Heap_aref_ FStar_Monotonic_Heap_aref;
 
 extern FStar_Monotonic_Heap_aref_ FStar_Monotonic_Heap_dummy_aref;
 

@@ -14,14 +14,6 @@
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
-typedef uint8_t FStar_Bytes_u8;
-
-typedef uint16_t FStar_Bytes_u16;
-
-typedef uint32_t FStar_Bytes_u32;
-
-typedef uint8_t FStar_Bytes_byte;
-
 extern uint32_t FStar_Bytes_len(FStar_Bytes_bytes uu___);
 
 extern Prims_int FStar_Bytes_length(FStar_Bytes_bytes b);

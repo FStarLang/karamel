@@ -42,8 +42,6 @@ extern Prims_string Prims_strcat(Prims_string x0, Prims_string x1);
 
 extern Prims_string Prims_string_of_int(krml_checked_int_t x0);
 
-typedef void *Prims_prop;
-
 
 #define __Prims_H_DEFINED
 #endif
