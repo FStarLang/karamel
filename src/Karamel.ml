@@ -512,7 +512,6 @@ Supported options:|}
   let files = Builtin.make_libraries files in
   let files = if !Options.wasm then SimplifyWasm.intrinsics#visit_files () files else files in
   let files = Bundles.topological_sort files in
-  NamingHints.record files;
 
   (* 1. We create bundles, and monomorphize functions first. This creates more
    * applications of parameterized types, which we make sure are in the AST by

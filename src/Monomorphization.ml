@@ -70,6 +70,8 @@ let monomorphize_data_types map = object(self)
   val mutable pending = []
   (* Current file, for warning purposes. *)
   val mutable current_file = ""
+  (* Possibly populated with something relevant *)
+  val mutable best_hint: node * lident = (dummy_lid, []), dummy_lid
 
   (* Record a new declaration. *)
   method private record (d: decl) =
@@ -85,22 +87,19 @@ let monomorphize_data_types map = object(self)
 
   (* Compute the name of a given node in the graph. *)
   method private lid_of (n: node) =
-    let lid, args = n in
-    if List.length args > 0 then
-      try
-        let pretty = List.assoc n !NamingHints.hints in
-        if Options.debug "names" then
-          KPrint.bprintf "Hit: %a --> %a\n" ptyp (TApp (lid, args)) plid pretty;
-        pretty
-      with Not_found ->
-        if Options.debug "names" then begin
-          KPrint.bprintf "No hit: %a\n" ptyp (TApp (lid, args));
-          NamingHints.debug ()
-        end;
-        let doc = PPrint.(separate_map underscore PrintAst.print_typ args) in
-        fst lid, KPrint.bsprintf "%s__%a" (snd lid) PrintCommon.pdoc doc
+    if List.length (snd n) = 0 then
+      fst n
+    else if fst best_hint = n then
+      let _ = KPrint.bprintf "Hint: %a <> %a --> %a\n" plid (fst n) ptyps (snd n) plid (snd best_hint) in
+      snd best_hint
     else
-      lid
+      let _ = KPrint.bprintf "No hint: %a <> %a\n" plid (fst n) ptyps (snd n) in
+      let _ = KPrint.bprintf "Current hint: %a <> %a\n" plid (fst (fst best_hint)) ptyps (snd (fst best_hint)) in
+      let lid, args = n in
+      let doc = PPrint.(separate_map underscore PrintAst.print_typ args) in
+      let name = fst lid, KPrint.bsprintf "%s__%a" (snd lid) PrintCommon.pdoc doc in
+      let _ = KPrint.bprintf "Name chosen: %a\n" plid name in
+      name
 
   (* Prettifying the field names for n-uples. *)
   method private field_at i =
@@ -118,34 +117,6 @@ let monomorphize_data_types map = object(self)
     (* White, gray or black? *)
     begin match Hashtbl.find state n with
     | exception Not_found ->
-        (* Update hints table to now use names that have been previously
-         * allocated, including the current node's (in case this is a
-         * recursive type). Cannot use the current visitor because it would
-         * force visiting sub-nodes that we don't intend to visit yet. *)
-        NamingHints.hints := List.map (fun ((hd, args), lid) ->
-          (hd, List.map (
-            (object
-              inherit [_] map as self'
-
-              method! visit_TApp _ hd args =
-                let args = List.map (self'#visit_typ ()) args in
-                if Hashtbl.mem state (hd, args) then
-                  TQualified (self#lid_of (hd, args))
-                else
-                  TApp (hd, args)
-
-              method! visit_TTuple _ args =
-                let args = List.map (self'#visit_typ ()) args in
-                if Hashtbl.mem state (tuple_lid, args) then
-                  TQualified (self#lid_of (tuple_lid, args))
-                else
-                  TTuple args
-            end)#visit_typ ()
-          ) args), lid) !NamingHints.hints;
-
-        (* Subtletly: we decline to insert type monomorphizations in dropped
-         * files, on the basis that they might be needed later in an actual
-         * file. *)
         if lid = tuple_lid then
           (* For tuples, we immediately know how to generate a definition. *)
           let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
@@ -197,20 +168,41 @@ let monomorphize_data_types map = object(self)
     current_file <- name;
     name, KList.map_flatten (fun d ->
       match d with
-      | DType (lid, _, n, (Flat _ | Variant _ | Abbrev _)) ->
-          if n = 0 then
-            ignore (self#visit_node (lid, []));
+      | DType (lid, _, n, Abbrev (TTuple args)) when n = 0 && not (Hashtbl.mem state (tuple_lid, args)) ->
+          Hashtbl.remove map lid;
+          best_hint <- (tuple_lid, args), lid;
+          ignore (self#visit_node (tuple_lid, args));
+          self#clear ()
+
+      | DType (lid, _, n, Abbrev (TApp (hd, args))) when n = 0 && not (Hashtbl.mem state (hd, args)) ->
+          (* We have not yet monomorphized this type, and conveniently, we have
+             a type abbreviation that provides us with a name hint! We simply
+             ditch the type abbreviation and replace it with a monomorphization
+             of the same name. *)
+          Hashtbl.remove map lid;
+          best_hint <- (hd, args), lid;
+          ignore (self#visit_node (hd, args));
+          self#clear ()
+
+      | DType (_, _, n, _) when n > 0 ->
+          (* Can't do anything useful with this, and will not generate further
+             monomorphizations. Drop. *)
+          []
+
+      | DType (_, _, _, (Flat _ | Variant _ | Abbrev _)) ->
+          (* Re-inserted by visit_node... don't insert twice. *)
+          ignore (self#visit_decl () d);
           self#clear ()
 
       | _ ->
-          self#clear () @ [ self#visit_decl () d ]
+          (* An actual run-time definition, needs to be retained. *)
+          let d = self#visit_decl () d in
+          self#clear () @ [ d ]
     ) decls
 
   method! visit_DType env name flags n d =
     if n > 0 then
-      (* This drops polymorphic type definitions by making them a no-op that
-       * registers nothing. *)
-      DType (name, flags, n, d)
+      assert false
     else
       super#visit_DType env name flags n d
 
