@@ -217,6 +217,7 @@ let lowstar_monotonic_buffer: file =
       ([ "LowStar"; "Monotonic"; "Buffer" ], "frameOf"),
       [ fresh_binder "x" (TBuf (TBound 2, false)) ],
       eunit);
+    DType (([ "LowStar"; "Monotonic"; "Buffer" ], "loc_disjoint"), [ Common.MustDisappear ], 2, Abbrev TUnit);
   ]
 
 let lowstar_buffer: file =

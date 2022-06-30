@@ -165,18 +165,22 @@ let monomorphize_data_types map = object(self)
     current_file <- name;
     name, KList.map_flatten (fun d ->
       match d with
-      | DType (lid, _, n, Abbrev (TTuple args)) when n = 0 && not (Hashtbl.mem state (tuple_lid, args)) ->
+      | DType (lid, _, n, Abbrev (TTuple args as t)) when n = 0 && not (Hashtbl.mem state (tuple_lid, args)) ->
           Hashtbl.remove map lid;
+          if Options.debug "monomorphization" then
+            KPrint.bprintf "%a abbreviation for %a\n" plid lid ptyp t;
           best_hint <- (tuple_lid, args), lid;
           ignore (self#visit_node (tuple_lid, args));
           self#clear ()
 
-      | DType (lid, _, n, Abbrev (TApp (hd, args))) when n = 0 && not (Hashtbl.mem state (hd, args)) ->
+      | DType (lid, _, n, Abbrev (TApp (hd, args) as t)) when n = 0 && not (Hashtbl.mem state (hd, args)) ->
           (* We have not yet monomorphized this type, and conveniently, we have
              a type abbreviation that provides us with a name hint! We simply
              ditch the type abbreviation and replace it with a monomorphization
              of the same name. *)
           Hashtbl.remove map lid;
+          if Options.debug "monomorphization" then
+            KPrint.bprintf "%a abbreviation for %a\n" plid lid ptyp t;
           best_hint <- (hd, args), lid;
           ignore (self#visit_node (hd, args));
           self#clear ()
