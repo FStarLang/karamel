@@ -132,7 +132,7 @@ function check_version_controlled() {
 
 function exec_build() {
 
-    if misc && check_version_controlled && make -C krmllib clean && make -j $threads && \
+    if misc && check_version_controlled && make -C krmllib clean && make -j $threads -k && \
       make -C test everything -j $threads && \
       make -C book/tutorial && \
       refresh_tutorial
