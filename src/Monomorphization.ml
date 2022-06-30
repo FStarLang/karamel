@@ -90,15 +90,11 @@ let monomorphize_data_types map = object(self)
     if List.length (snd n) = 0 then
       fst n
     else if fst best_hint = n then
-      let _ = KPrint.bprintf "Hint: %a <> %a --> %a\n" plid (fst n) ptyps (snd n) plid (snd best_hint) in
       snd best_hint
     else
-      let _ = KPrint.bprintf "No hint: %a <> %a\n" plid (fst n) ptyps (snd n) in
-      let _ = KPrint.bprintf "Current hint: %a <> %a\n" plid (fst (fst best_hint)) ptyps (snd (fst best_hint)) in
       let lid, args = n in
       let doc = PPrint.(separate_map underscore PrintAst.print_typ args) in
       let name = fst lid, KPrint.bsprintf "%s__%a" (snd lid) PrintCommon.pdoc doc in
-      let _ = KPrint.bprintf "Name chosen: %a\n" plid name in
       name
 
   (* Prettifying the field names for n-uples. *)
@@ -189,9 +185,16 @@ let monomorphize_data_types map = object(self)
              monomorphizations. Drop. *)
           []
 
-      | DType (_, _, _, (Flat _ | Variant _ | Abbrev _)) ->
+      | DType (lid, _, n, (Flat _ | Variant _ | Abbrev _)) ->
           (* Re-inserted by visit_node... don't insert twice. *)
+          assert (n = 0);
+          (* FIXME: the logic here is quite twisted... it should be simplified. My
+             understanding is we want to BOTH visit the body of the type in case
+             it recursively needs to trigger monomorphizations, and
+             side-effectfully register the type as visited in our map for
+             further uses (but why?). *)
           ignore (self#visit_decl () d);
+          ignore (self#visit_node (lid, []));
           self#clear ()
 
       | _ ->
