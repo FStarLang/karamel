@@ -111,16 +111,17 @@ let monomorphize_data_types map = object(self)
   method private visit_node (n: node) =
     let lid, args = n in
     (* White, gray or black? *)
-    begin match Hashtbl.find state n with
+    match Hashtbl.find state n with
     | exception Not_found ->
+        let chosen_lid = self#lid_of n in
         if lid = tuple_lid then
           (* For tuples, we immediately know how to generate a definition. *)
           let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
           self#record (DType (self#lid_of n, [ Common.Private ], 0, Flat fields));
-          Hashtbl.add state n Black
+          Hashtbl.add state n (Black, chosen_lid)
         else begin
           (* This specific node has not been visited yet. *)
-          Hashtbl.add state n Gray;
+          Hashtbl.add state n (Gray, chosen_lid);
 
           let subst fields = List.map (fun (field, (t, m)) ->
             field, (DeBruijn.subst_tn args t, m)
@@ -142,19 +143,19 @@ let monomorphize_data_types map = object(self)
           | _ ->
               ()
           end;
-          Hashtbl.replace state n Black
-        end
-    | Gray ->
+          Hashtbl.replace state n (Black, chosen_lid)
+        end;
+        chosen_lid
+    | Gray, chosen_lid ->
         begin match Hashtbl.find map lid with
         | exception Not_found ->
             ()
         | flags, _ ->
             self#record (DType (self#lid_of n, flags, 0, Forward))
-        end
-    | Black ->
-        ()
-    end;
-    self#lid_of n
+        end;
+        chosen_lid
+    | Black, chosen_lid ->
+        chosen_lid
 
   (* Top-level, non-parameterized declarations are root of our graph traversal.
    * This also visits, via occurrences in code, applications of parameterized
