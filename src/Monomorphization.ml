@@ -95,6 +95,11 @@ let monomorphize_data_types map = object(self)
       let lid, args = n in
       let doc = PPrint.(separate_map underscore PrintAst.print_typ args) in
       let name = fst lid, KPrint.bsprintf "%s__%a" (snd lid) PrintCommon.pdoc doc in
+      if Options.debug "monomorphization" then
+        KPrint.bprintf "No hint provided for %a, current best hint: %a -> %a\n"
+          ptyp (TApp (lid, args))
+          ptyp (TApp (fst (fst best_hint), snd (fst best_hint)))
+          plid (snd best_hint);
       name
 
   (* Prettifying the field names for n-uples. *)
@@ -115,9 +120,10 @@ let monomorphize_data_types map = object(self)
     | exception Not_found ->
         let chosen_lid = self#lid_of n in
         if lid = tuple_lid then
+          let args = List.map (self#visit_typ ()) args in
           (* For tuples, we immediately know how to generate a definition. *)
           let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
-          self#record (DType (self#lid_of n, [ Common.Private ], 0, Flat fields));
+          self#record (DType (chosen_lid, [ Common.Private ], 0, Flat fields));
           Hashtbl.add state n (Black, chosen_lid)
         else begin
           (* This specific node has not been visited yet. *)
@@ -132,14 +138,14 @@ let monomorphize_data_types map = object(self)
           | flags, Variant branches ->
               let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
               let branches = self#visit_branches_t () branches in
-              self#record (DType (self#lid_of n, flags, 0, Variant branches))
+              self#record (DType (chosen_lid, flags, 0, Variant branches))
           | flags, Flat fields ->
               let fields = self#visit_fields_t_opt () (subst fields) in
-              self#record (DType (self#lid_of n, flags, 0, Flat fields))
+              self#record (DType (chosen_lid, flags, 0, Flat fields))
           | flags, Abbrev t ->
               let t = DeBruijn.subst_tn args t in
               let t = self#visit_typ () t in
-              self#record (DType (self#lid_of n, flags, 0, Abbrev t))
+              self#record (DType (chosen_lid, flags, 0, Abbrev t))
           | _ ->
               ()
           end;
@@ -151,7 +157,7 @@ let monomorphize_data_types map = object(self)
         | exception Not_found ->
             ()
         | flags, _ ->
-            self#record (DType (self#lid_of n, flags, 0, Forward))
+            self#record (DType (chosen_lid, flags, 0, Forward))
         end;
         chosen_lid
     | Black, chosen_lid ->
@@ -165,10 +171,10 @@ let monomorphize_data_types map = object(self)
     current_file <- name;
     name, KList.map_flatten (fun d ->
       match d with
-      | DType (lid, _, n, Abbrev (TTuple args as t)) when n = 0 && not (Hashtbl.mem state (tuple_lid, args)) ->
+      | DType (lid, _, n, Abbrev (TTuple args)) when n = 0 && not (Hashtbl.mem state (tuple_lid, args)) ->
           Hashtbl.remove map lid;
           if Options.debug "monomorphization" then
-            KPrint.bprintf "%a abbreviation for %a\n" plid lid ptyp t;
+            KPrint.bprintf "%a abbreviation for %a\n" plid lid ptyp (TApp (tuple_lid, args));
           best_hint <- (tuple_lid, args), lid;
           ignore (self#visit_node (tuple_lid, args));
           self#clear ()
@@ -221,13 +227,13 @@ let monomorphize_data_types map = object(self)
     PRecord (List.mapi (fun i p -> self#field_at i, self#visit_pattern_w () p) pats)
 
   method! visit_TTuple _ ts =
-    TQualified (self#visit_node (tuple_lid, List.map (self#visit_typ ()) ts))
+    TQualified (self#visit_node (tuple_lid, ts))
 
   method! visit_TQualified _ lid =
     TQualified (self#visit_node (lid, []))
 
   method! visit_TApp _ lid ts =
-    TQualified (self#visit_node (lid, List.map (self#visit_typ ()) ts))
+    TQualified (self#visit_node (lid, ts))
 end
 
 let datatypes files =
