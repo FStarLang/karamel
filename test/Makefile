@@ -25,6 +25,9 @@ ifneq ($(RECENT_GCC),"yes")
   FILES 	:= $(filter-out Debug.test,$(FILES))
 endif
 
+# See F* bug 2641 and associated PR
+FILES := $(filter-out Layered.test,$(FILES))
+
 CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
