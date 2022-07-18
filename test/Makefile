@@ -26,7 +26,7 @@ ifneq ($(RECENT_GCC),"yes")
 endif
 
 # See F* bug 2641 and associated PR
-FILES := $(filter-out Layered.fst,$(FILES))
+FILES := $(filter-out Layered.test,$(FILES))
 
 CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased
 WASM_FILES	= \
