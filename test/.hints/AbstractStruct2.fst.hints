@@ -31,7 +31,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "9375772c08e344607c914b2829b7d005"
+      "b8c06caf68e0474f1b54b9af4790cee5"
     ],
     [
       "AbstractStruct2.main",
@@ -40,7 +40,7 @@
       1,
       [ "@query" ],
       0,
-      "56c7c54a12fa28d5318800f7e0c681c5"
+      "8041f6e81b11767ba27b3e624b5b073b"
     ]
   ]
 ]
