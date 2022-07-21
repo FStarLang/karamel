@@ -85,6 +85,31 @@ let monomorphize_data_types map = object(self)
     pending <- [];
     r
 
+  (* This method produces a type that is *unsuitable* for further passes, since
+     it breaks the invariant that type abbreviations are inlined away. It is,
+     however, a good candidate for picking a suitable, auto-generated name while
+     using existing, previously-picked abbreviations. NB: not doing so will
+     generate type errors, see miTLS for a minimal testcase *)
+  method pretty (t: typ) =
+    (object
+      inherit [_] map
+      method! visit_TTuple () args =
+        match Hashtbl.find state (tuple_lid, args) with
+        | exception Not_found ->
+            let args = List.map (self#visit_typ ()) args in
+            TTuple args
+        | _, chosen_lid ->
+            TQualified chosen_lid
+
+      method! visit_TApp () lid args =
+        match Hashtbl.find state (lid, args) with
+        | exception Not_found ->
+            let args = List.map (self#visit_typ ()) args in
+            TApp (lid, args)
+        | _, chosen_lid ->
+            TQualified chosen_lid
+    end)#visit_typ () t
+
   (* Compute the name of a given node in the graph. *)
   method private lid_of (n: node) =
     if List.length (snd n) = 0 then
@@ -93,13 +118,14 @@ let monomorphize_data_types map = object(self)
       snd best_hint
     else
       let lid, args = n in
-      let doc = PPrint.(separate_map underscore PrintAst.print_typ args) in
+      let doc = PPrint.(separate_map underscore PrintAst.print_typ (List.map self#pretty args)) in
       let name = fst lid, KPrint.bsprintf "%s__%a" (snd lid) PrintCommon.pdoc doc in
       if Options.debug "monomorphization" then
-        KPrint.bprintf "No hint provided for %a, current best hint: %a -> %a\n"
+        KPrint.bprintf "No hint provided for %a\n  current best hint: %a -> %a\n  picking: %a\n"
           ptyp (TApp (lid, args))
           ptyp (TApp (fst (fst best_hint), snd (fst best_hint)))
-          plid (snd best_hint);
+          plid (snd best_hint)
+          plid name;
       name
 
   (* Prettifying the field names for n-uples. *)
@@ -119,13 +145,14 @@ let monomorphize_data_types map = object(self)
     match Hashtbl.find state n with
     | exception Not_found ->
         let chosen_lid = self#lid_of n in
-        if lid = tuple_lid then
+        if lid = tuple_lid then begin
+          Hashtbl.add state n (Gray, chosen_lid);
           let args = List.map (self#visit_typ ()) args in
           (* For tuples, we immediately know how to generate a definition. *)
           let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
           self#record (DType (chosen_lid, [ Common.Private ], 0, Flat fields));
-          Hashtbl.add state n (Black, chosen_lid)
-        else begin
+          Hashtbl.replace state n (Black, chosen_lid)
+        end else begin
           (* This specific node has not been visited yet. *)
           Hashtbl.add state n (Gray, chosen_lid);
 
