@@ -14,6 +14,8 @@
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+typedef FStar_Char_char FStar_String_char;
+
 typedef struct Prims_list__FStar_Char_char_s Prims_list__FStar_Char_char;
 
 typedef struct Prims_list__FStar_Char_char_s
@@ -31,6 +33,8 @@ extern Prims_string FStar_String_string_of_list(Prims_list__FStar_Char_char *uu_
 extern Prims_int FStar_String_strlen(Prims_string s);
 
 extern Prims_int FStar_String_length(Prims_string s);
+
+typedef void *FStar_String_maxlen;
 
 extern Prims_string FStar_String_make(Prims_int l, FStar_Char_char uu___);
 

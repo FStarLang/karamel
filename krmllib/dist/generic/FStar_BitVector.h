@@ -48,6 +48,10 @@ extern Prims_list__bool
 
 extern Prims_list__bool *FStar_BitVector_lognot_vec(Prims_pos n, Prims_list__bool *a);
 
+typedef void *FStar_BitVector_is_subset_vec;
+
+typedef void *FStar_BitVector_is_superset_vec;
+
 extern Prims_list__bool
 *FStar_BitVector_shift_left_vec(Prims_pos n, Prims_list__bool *a, Prims_int s);
 

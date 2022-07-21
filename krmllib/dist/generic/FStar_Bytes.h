@@ -14,9 +14,23 @@
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+typedef uint8_t FStar_Bytes_u8;
+
+typedef uint16_t FStar_Bytes_u16;
+
+typedef uint32_t FStar_Bytes_u32;
+
+typedef uint8_t FStar_Bytes_byte;
+
 extern uint32_t FStar_Bytes_len(FStar_Bytes_bytes uu___);
 
 extern Prims_int FStar_Bytes_length(FStar_Bytes_bytes b);
+
+typedef FStar_Bytes_bytes FStar_Bytes_lbytes;
+
+typedef FStar_Bytes_bytes FStar_Bytes_kbytes;
+
+typedef FStar_Bytes_bytes FStar_Bytes_lbytes32;
 
 extern FStar_Bytes_bytes FStar_Bytes_empty_bytes;
 
@@ -25,6 +39,8 @@ extern uint8_t FStar_Bytes_get(FStar_Bytes_bytes b, uint32_t pos);
 extern uint8_t FStar_Bytes_op_String_Access(FStar_Bytes_bytes x0, uint32_t x1);
 
 extern uint8_t FStar_Bytes_index(FStar_Bytes_bytes b, Prims_int i);
+
+typedef void *FStar_Bytes_equal;
 
 extern FStar_Bytes_bytes FStar_Bytes_create(uint32_t len1, uint8_t v);
 
@@ -66,6 +82,10 @@ FStar_Bytes_split(FStar_Bytes_bytes b, uint32_t k);
 extern K___FStar_Bytes_bytes_FStar_Bytes_bytes
 FStar_Bytes_split_(FStar_Bytes_bytes b, Prims_int k);
 
+typedef void *FStar_Bytes_fits_in_k_bytes;
+
+typedef Prims_int FStar_Bytes_uint_k;
+
 extern Prims_pos FStar_Bytes_repr_bytes(Prims_int n);
 
 extern Prims_int FStar_Bytes_int_of_bytes(FStar_Bytes_bytes b);
@@ -83,6 +103,8 @@ extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int32(uint32_t n);
 extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int16(uint16_t n);
 
 extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int8(uint8_t n);
+
+typedef FStar_Bytes_bytes FStar_Bytes_minbytes;
 
 extern FStar_Bytes_bytes
 FStar_Bytes_xor(uint32_t n, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
@@ -117,6 +139,8 @@ extern Prims_string FStar_Bytes_hex_of_bytes(FStar_Bytes_bytes uu___);
 extern Prims_string FStar_Bytes_print_bytes(FStar_Bytes_bytes uu___);
 
 extern FStar_Bytes_bytes FStar_Bytes_bytes_of_string(Prims_string uu___);
+
+typedef uint8_t *FStar_Bytes_lbuffer;
 
 extern FStar_Bytes_bytes FStar_Bytes_of_buffer(uint32_t l, uint8_t *buf);
 

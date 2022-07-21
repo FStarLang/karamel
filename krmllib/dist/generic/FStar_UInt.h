@@ -20,6 +20,10 @@ extern Prims_int FStar_UInt_min_int(Prims_int n);
 
 extern bool FStar_UInt_fits(Prims_int x, Prims_int n);
 
+typedef void *FStar_UInt_size;
+
+typedef Prims_int FStar_UInt_uint_t;
+
 extern Prims_int FStar_UInt_zero(Prims_int n);
 
 extern Prims_int FStar_UInt_pow2_n(Prims_pos n, Prims_int p);
