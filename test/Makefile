@@ -7,10 +7,12 @@ KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 
 # TODO: disambiguate between broken tests that arguably should work (maybe
 # HigherOrder6?) and helper files that are required for multiple-module tests
+# For Layered.test: see F* bug 2641 and associated PR
 BROKEN		= \
   HigherOrder6.fst ForwardDecl.fst BlitNull.fst \
   Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst \
-  AbstractStructAbstract.fst MonomorphizationSeparate1.fst
+  AbstractStructAbstract.fst MonomorphizationSeparate1.fst \
+  Layered.test
 
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
 # special file and doesn't have a main.
