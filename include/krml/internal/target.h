@@ -46,6 +46,10 @@
 #  define KRML_HOST_FREE free
 #endif
 
+#ifndef KRML_HOST_IGNORE
+#  define KRML_HOST_IGNORE(x) (void)(x)
+#endif
+
 #ifndef KRML_HOST_TIME
 
 #  include <time.h>
