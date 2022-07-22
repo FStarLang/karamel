@@ -188,6 +188,7 @@ let hs: file =
       eunit);
     DType (([ "FStar"; "HyperStack"; "ST" ], "erid"), [], 0, Abbrev TUnit);
     DType (([ "FStar"; "HyperStack"; "ST" ], "ex_rid"), [], 0, Abbrev TUnit);
+    DType (([ "FStar"; "HyperStack"; "ST" ], "witnessed"), [ Common.MustDisappear ], 1, Abbrev TUnit);
   ]
 
 let dyn: file =
