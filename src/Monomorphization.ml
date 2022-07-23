@@ -220,7 +220,7 @@ let monomorphize_data_types map = object(self)
              support lists "trivially" at the expense of a run-time GC)... then
              we need to make sure the generated name refers to the GC'd type. So
              the monomorphized type will be named foobar_gc... *)
-          let abbrev_for_gc_type = List.mem Common.GcType (fst (Hashtbl.find map hd)) in
+          let abbrev_for_gc_type = Hashtbl.mem map hd && List.mem Common.GcType (fst (Hashtbl.find map hd)) in
 
           if abbrev_for_gc_type then
             best_hint <- (hd, args), (fst lid, snd lid ^ "_gc")
