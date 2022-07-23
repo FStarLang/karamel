@@ -214,8 +214,27 @@ let monomorphize_data_types map = object(self)
           Hashtbl.remove map lid;
           if Options.debug "monomorphization" then
             KPrint.bprintf "%a abbreviation for %a\n" plid lid ptyp t;
-          best_hint <- (hd, args), lid;
+
+          (* miTLS backwards-compat strikes again: if the type is about to be
+             GC'd (i.e. automatically rewritten to be heap-allocated to e.g.
+             support lists "trivially" at the expense of a run-time GC)... then
+             we need to make sure the generated name refers to the GC'd type. So
+             the monomorphized type will be named foobar_gc... *)
+          let abbrev_for_gc_type = List.mem Common.GcType (fst (Hashtbl.find map hd)) in
+
+          if abbrev_for_gc_type then
+            best_hint <- (hd, args), (fst lid, snd lid ^ "_gc")
+          else
+            best_hint <- (hd, args), lid;
+
           ignore (self#visit_node (hd, args));
+
+          (* And a type abbreviation will automatically be rewritten (see
+             GcTypes) into `typedef foobar foobar_gc *`. And mitlsffi.ci will be
+             happy. *)
+          if abbrev_for_gc_type then
+            self#record (DType (lid, [], 0, Abbrev (TQualified (fst lid, snd lid ^ "_gc"))));
+
           self#clear ()
 
       | DType (_, _, n, _) when n > 0 ->
