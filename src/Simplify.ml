@@ -167,7 +167,6 @@ let remove_unused_parameters = object (self)
     DFunction (cc, flags, n, ret, name, binders, body)
 
   method! visit_DExternal (parameter_table, _ as env) cc flags name t hints =
-    let dummy_lid = [], "" in
     let ret, args = flatten_arrow t in
     let hints = KList.filter_mapi (fun i arg ->
       if unused parameter_table dummy_lid args i then
@@ -189,7 +188,6 @@ let remove_unused_parameters = object (self)
     (* Important: the only entries in `parameter_table` are those which are
      * first order, i.e. for which the only occurrence is under an EApp, which
      * does *not* recurse into visit_TArrow! *)
-    let dummy_lid = [], "" in
     let t1 = self#visit_typ env t1 in
     let t2 = self#visit_typ env t2 in
     let ret, args = flatten_arrow (TArrow (t1, t2)) in

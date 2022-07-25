@@ -529,42 +529,7 @@ let inline_type_abbrevs files =
   let inline_one = memoize_inline map (fun recurse -> (inliner recurse)#visit_typ ()) in
   let i = inliner inline_one in
 
-  let files = i#visit_files () files in
-
-  (* There may be type abbreviations in here... since we recorded the naming
-     hints early! So, expand them there, too. *)
-  NamingHints.hints := List.map (fun ((hd, args), lid) ->
-    (hd, List.map (i#visit_typ ()) args), lid
-  ) !NamingHints.hints;
-
-  (* After we've inlined things, drop type abbreviations definitions now. This
-   * is important, as the monomorphization of data types relies on all types
-   * being fully applied (i.e. no more TBound), and leaving things such as:
-   *   type pair a b = Tuple (1, 0)
-   * breaks this invariant. *)
-  filter_decls (function
-    | DType (lid, _, n, Abbrev def) as d ->
-        let hint_preferred_name = match def with
-          | TApp (hd, args) ->
-              List.assoc_opt (hd, args) !NamingHints.hints
-          | TTuple args ->
-              List.assoc_opt (tuple_lid, args) !NamingHints.hints
-          | _ ->
-              None
-        in
-        if hint_preferred_name = Some lid then
-          (* We are about to generate a monomorphized instance with this very
-             name. We don't want two type definitions with the same name. Drop
-             it. *)
-          None
-        else if n > 0 then
-          None
-        else
-          Some d
-
-    | d ->
-        Some d
-  ) files
+  i#visit_files () files
 
 
 (* Drop unused private functions **********************************************)

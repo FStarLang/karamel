@@ -157,11 +157,6 @@ let remove_unused_type_arguments files =
         e.node
   end in
 
-  NamingHints.hints := List.map (fun ((head, args), hint) ->
-    let args = List.map (remove_unused#visit_typ ()) args in
-    (head, KList.filter_mapi (fun i arg -> if uses_nth head i then Some arg else None) args), hint
-  ) !NamingHints.hints;
-
   remove_unused#visit_files () files
 
 
@@ -651,7 +646,7 @@ let remove_unit_fields = object (self)
   method private default_value = function
     | TUnit -> EUnit
     | TAny -> EAny
-    | _ -> assert false
+    | t -> Warn.fatal_error "default_value: %a" ptyp t
 
   method! visit_DType _ lid flags n type_def =
     match type_def with
