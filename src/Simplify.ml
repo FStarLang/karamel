@@ -49,8 +49,9 @@ let count_and_remove_locals = object (self)
          *   int unused = f();
          * or:
          *   (void)f(); ? *)
-        (* ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit}, push_ignore e1, e2) *)
-        self#remove_trivial_let (ELet (b, e1, e2))
+        self#remove_trivial_let (
+          ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit}, push_ignore e1, e2))
+        (* self#remove_trivial_let (ELet (b, e1, e2)) *)
     else
       self#remove_trivial_let (ELet (b, e1, e2))
 

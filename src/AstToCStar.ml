@@ -274,6 +274,12 @@ let rec mk_expr env in_stmt e =
   | EAddrOf e ->
       CStar.AddrOf (mk_expr env e)
 
+  | EIgnore e ->
+      (* An ignore node ended up in expression position. Rather than have a
+         sketchy macro, we just drop the ignore here and make it a "best-effort"
+         thing. *)
+      mk_expr env e
+
   | _ ->
       Warn.maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, NotLowStar e);
       CStar.Any
