@@ -238,6 +238,7 @@ let is_readonly_builtin_lid lid =
     [ "Lib"; "IntVector"; "Intrinsics" ], "vec256_smul64";
     [ "FStar"; "UInt32" ], "v";
     [ "FStar"; "UInt128" ], "uint128_to_uint64";
+    [ "FStar"; "UInt128" ], "uint64_to_uint128";
     [ "LowStar"; "Monotonic"; "Buffer" ], "mnull";
     [ "Steel"; "Reference" ], "null";
   ] in
