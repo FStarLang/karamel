@@ -248,6 +248,16 @@ let is_readonly_builtin_lid lid =
     KString.starts_with lid lid'
   ) pure_builtin_lids
 
+class ['self] closed_term_visitor = object (_: 'self)
+  inherit [_] reduce
+  method private zero = true
+  method private plus = (&&)
+  method! visit_EBound _ _ = false
+  method! visit_EOpen _ _ _ = false
+end
+
+let is_closed_term = (new closed_term_visitor)#visit_expr_w ()
+
 class ['self] readonly_visitor = object (self: 'self)
   inherit [_] reduce
   method private zero = true

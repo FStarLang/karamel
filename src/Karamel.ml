@@ -625,7 +625,12 @@ Supported options:|}
   (* Note: generates let-bindings, so needs to be before simplify2 *)
   let files = Simplify.remove_unused files in
   let files = if !Options.tail_calls then Simplify.tail_calls files else files in
-  let files = Simplify.simplify2 files in
+
+  (* This allows drop'ing the module that contains just ifdefs. *)
+  let ifdefs = AstToCStar.mk_ifdefs_set files in
+  let macros = AstToCStar.mk_macros_set files in
+
+  let files = Simplify.simplify2 ifdefs files in
   let files = if Options.(!merge_variables <> No) then SimplifyMerge.simplify files else files in
   if !arg_print_structs then
     print PrintAst.print_files files;
@@ -639,10 +644,6 @@ Supported options:|}
     else
       files
   in
-
-  (* This allows drop'ing the module that contains just ifdefs. *)
-  let ifdefs = AstToCStar.mk_ifdefs_set files in
-  let macros = AstToCStar.mk_macros_set files in
 
   (* 6. Drop both files and selected declarations within some files, as a [-drop
    * Foo -bundle Bar=Foo] command-line requires us to go inside file [Bar] to

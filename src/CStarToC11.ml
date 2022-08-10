@@ -537,7 +537,9 @@ and mk_free e =
 and mk_eternal_bufcreate m buf (t: CStar.typ) init size =
   let size = mk_expr m size in
   let e, extra_stmt = match init with
-    | Constant (_, "0") ->
+    | Constant (_, "0")
+    | Qualified (["Lib"; "IntVector"; "Intrinsics"],
+      ("vec128_zero" | "vec256_zero" | "vec512_zero")) ->
         mk_calloc m t size, []
     | Any | Cast (Any, _) ->
         mk_malloc m t size, []
@@ -619,11 +621,14 @@ and mk_stmt m (stmt: stmt): C.stmt list =
              * initialization needed either. *)
             None, false
 
-        | Constant ((_, "0") as k), Constant _ when not use_alloca ->
+        | (Constant (_, "0") |
+          Qualified (["Lib"; "IntVector"; "Intrinsics"],
+            ("vec128_zero" | "vec256_zero" | "vec512_zero"))),
+          Constant _ when not use_alloca ->
             (* The only case the we can initialize statically is a known, static
              * size _and_ a zero initializer. If we're about to alloca, don't
              * use a zero-initializer. *)
-            Some (Initializer [ InitExpr (C.Constant k) ]), false
+            Some (Initializer [ InitExpr (C.Constant (K.UInt32, "0")) ]), false
 
         | _ ->
             None, true
