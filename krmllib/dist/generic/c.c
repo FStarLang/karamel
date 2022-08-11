@@ -27,3 +27,5 @@ void print_bytes(uint8_t *b, uint32_t len) {
 void portable_exit(int code) {
   KRML_HOST_EXIT(code);
 }
+
+uint32_t _zero_for_deref = 0;

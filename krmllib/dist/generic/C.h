@@ -26,6 +26,8 @@ extern bool uu___is_EXIT_FAILURE(exit_code projectee);
 
 extern void print_bytes(uint8_t *b, uint32_t len);
 
+extern uint32_t _zero_for_deref;
+
 
 #define __C_H_DEFINED
 #endif

@@ -846,14 +846,24 @@ and mk_stmts m stmts: C.stmt list =
 
 
 and mk_index m (e1: expr) (e2: expr): C.expr =
-  match mk_expr m e2 with
-  | Cast (_, (Constant _ as c)) ->
-      Index (mk_expr m e1, c)
+  match e2 with
+  | Qualified (["C"], "_zero_for_deref") ->
+      mk_deref m e1
   | _ ->
-      Index (mk_expr m e1, mk_expr m e2)
+    begin match mk_expr m e2 with
+    | Cast (_, (Constant _ as c)) ->
+        Index (mk_expr m e1, c)
+    | e2' ->
+        Index (mk_expr m e1, e2')
+    end
 
 and mk_deref m (e: expr) : C.expr =
-  Deref (mk_expr m e)
+  match mk_expr m e with
+  | Address e' ->
+      (* *&expr is equivalent to expr *)
+      e'
+  | e' ->
+      Deref e'
 
 (* Some functions get a special treatment and are pretty-printed in a specific
  * way at the very last minute. KaRaMeL is never supposed to generate unused
