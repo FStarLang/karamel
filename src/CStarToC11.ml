@@ -41,6 +41,8 @@ let builtin_names =
     ["C"], "exit";
     ["C"], "fflush";
     ["C"], "clock";
+    (* Special array index to turn b[0] into *b (cf. PR #278) *)
+    ["C"], "_zero_for_deref";
     (* Hand-written type definition parameterized over KRML_VERIFIED_UINT128 *)
     ["FStar"; "UInt128"], "uint128";
     (* Might appear twice otherwise, which is not C89-compatible. Defined by
