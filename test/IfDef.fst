@@ -43,7 +43,7 @@ let test3 (): Stack unit (fun _ -> true) (fun _ _ _ -> true) =
     foo' ()
 
 let main (): Int32.t =
-  if x && y then
+  if x && y && not x then
     1l
   else if x || y then
     0l

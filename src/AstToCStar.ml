@@ -586,6 +586,8 @@ and mk_stmts env e ret_type =
         CStar.Macro name
     | EApp ({ node = EOp ((K.And | K.Or) as o, K.Bool); _ }, [ e1; e2 ]) ->
         CStar.Call (CStar.Op o, [ mk_ifcond env e1; mk_ifcond env e2 ])
+    | EApp ({ node = EOp (K.Not as o, K.Bool); _ }, [ e1 ]) ->
+        CStar.Call (CStar.Op o, [ mk_ifcond env e1 ])
     | _ ->
         raise NotIfDef
 
