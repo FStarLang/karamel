@@ -528,6 +528,9 @@ let write_global env lid e =
   let s, es = write_static env lid e in
   { env with globals = LidMap.add lid s env.globals }, CF.StringLiteral s, es
 
+let current_lid = ref ([], "")
+let errors = Hashtbl.create 41
+
 (* Desugar an assignment into a series of possibly many assigments (e.g. struct
   * literal), or into a memcopy. We want to write [e] at address [dst] corrected
   * by an offset [ofs] in bytes. *)
@@ -638,6 +641,22 @@ and mk_global (env: env) (lid: lident) (e: expr): env * CF.expr * CF.expr list =
 
   | _ ->
       env, mk_expr_no_locals env e, []
+
+(* Attempt to translate an expression; if an error occurs, record the issue, and
+   generate a run-time failure. *)
+and mk_expr_or_bail (env: env) (locals: locals) (e: expr): locals * CF.expr =
+  try mk_expr env locals e with
+  | e ->
+      let s = Printexc.to_string e in
+      if Hashtbl.mem errors !current_lid then
+        Hashtbl.replace errors !current_lid (s :: Hashtbl.find errors !current_lid)
+      else
+        Hashtbl.add errors !current_lid [ s ];
+      let bt = if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "" in
+      let msg = KPrint.bsprintf "%a: compilation error turned to runtime failure\n%s%s"
+        plid !current_lid s bt
+      in
+      mk_expr env locals (Helpers.with_unit (EAbort (Some msg)))
 
 
 (** The actual translation. Note that the environment is dropped, but that the
@@ -761,12 +780,12 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | ELet (b, e1, e2) ->
       if e1.node = EAny then
         let locals, _, env = extend env b locals in
-        let locals, e2 = mk_expr env locals e2 in
+        let locals, e2 = mk_expr_or_bail env locals e2 in
         locals, e2
       else
         let locals, e1 = mk_expr env locals e1 in
         let locals, v, env = extend env b locals in
-        let locals, e2 = mk_expr env locals e2 in
+        let locals, e2 = mk_expr_or_bail env locals e2 in
         locals, CF.Sequence [
           CF.Assign (v, e1);
           e2
@@ -933,25 +952,13 @@ let mk_decl env (d: decl): env * CF.decl list =
         locals, env
       ) ([], env) args in
       let locals = List.rev_append scratch_locals locals in
+      current_lid := name;
       let name = GlobalNames.to_c_name env.names name in
 
       (* Interlude: generate a wrapper, possibly *)
       let wrapper () = mk_wrapper name (List.length args) locals in
 
-      let locals, body =
-        try mk_expr env locals body with
-        | e ->
-            (* Happens if something in the body is wrong. The body becomes a
-               run-time error *)
-            let msg = KPrint.bsprintf "%s could not be compiled\n\
-              %s\nsee krml log for more info\n"
-              name (Printexc.to_string e)
-            in
-            KPrint.beprintf "[AstToC♭] stubbing %s%s%s:\n%s\n%s"
-              Ansi.underline name Ansi.reset (Printexc.to_string e)
-              (if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "");
-            mk_expr env locals (Helpers.with_unit (EAbort (Some msg)))
-      in
+      let locals, body = mk_expr_or_bail env locals body in
       let ret = [ size_of env ret ] in
       let locals = List.rev locals in
       let args, locals = KList.split (List.length args) locals in
@@ -1044,6 +1051,12 @@ let mk_layouts env =
     (GlobalNames.to_c_name env.names lid, layout_to_yojson layout) :: acc
   ) env.layouts [])
 
+let report_failures () =
+  Hashtbl.iter (fun lid errors ->
+    KPrint.bprintf "[AstToC♭] declaration %a generated compilation errors\n" plid lid;
+    List.iteri (fun i e -> KPrint.bprintf "Error #%d: %s\n" i e) errors
+  ) errors
+
 let mk_files files names =
   let env = populate (empty names) files in
   if Options.debug "cflat" then
@@ -1052,4 +1065,5 @@ let mk_files files names =
     let env, decls = mk_module env decls in
     env, (name, decls) :: ms
   ) (env, []) files in
+  report_failures ();
   mk_layouts env, List.rev modules
