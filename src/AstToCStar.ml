@@ -185,6 +185,7 @@ type return_pos =
   | Not
   | May
   | Must
+[@@deriving show]
 
 type binder_pos = Function | Local
 
