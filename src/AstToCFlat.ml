@@ -167,6 +167,10 @@ let rec runtime_type (env: env) (t: typ): runtime_type =
   match t with
   | TQualified lid ->
       begin match LidMap.find lid env.layouts with
+      | exception Not_found ->
+          if Options.debug "cflat" then
+            KPrint.beprintf "[AstToC♭] runtime_type: %a not found\n" plid lid;
+          Unknown
       | LEnum -> Int A32
       | LBuiltin (_, s) -> Int s
       | _ -> Layout (GlobalNames.to_c_name env.names lid)
@@ -280,6 +284,7 @@ let cell_size (env: env) (t: typ): int * array_size =
   match t with
   | TQualified lid ->
       begin match LidMap.find lid env.layouts with
+      | exception Not_found -> failwith (KPrint.bsprintf "missing type in layout map: %a" plid lid)
       | LFlat _ -> round_up (byte_size env t)
       | _ -> 1, array_size_of env t
       end
@@ -324,9 +329,9 @@ let populate env files =
             let l = flat_layout env (fields_of_struct fields) in
             { env with layouts = LidMap.add lid (LFlat l) env.layouts }
           with e ->
-            KPrint.beprintf "[AstToC♭] Can't compute the layout of %a:\n%s\n%s"
+            KPrint.beprintf "[AstToC♭] can't compute the layout of %a:\n%s\n%s"
               PrintAst.plid lid (Printexc.to_string e)
-              (if Options.debug "cflat" then Printexc.get_backtrace () ^ "\n" else "");
+              (if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "");
             env
           end
       | _ ->
@@ -933,7 +938,20 @@ let mk_decl env (d: decl): env * CF.decl list =
       (* Interlude: generate a wrapper, possibly *)
       let wrapper () = mk_wrapper name (List.length args) locals in
 
-      let locals, body = mk_expr env locals body in
+      let locals, body =
+        try mk_expr env locals body with
+        | e ->
+            (* Happens if something in the body is wrong. The body becomes a
+               run-time error *)
+            let msg = KPrint.bsprintf "%s could not be compiled\n\
+              %s\nsee krml log for more info\n"
+              name (Printexc.to_string e)
+            in
+            KPrint.beprintf "[AstToC♭] stubbing %s%s%s:\n%s\n%s"
+              Ansi.underline name Ansi.reset (Printexc.to_string e)
+              (if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "");
+            mk_expr env locals (Helpers.with_unit (EAbort (Some msg)))
+      in
       let ret = [ size_of env ret ] in
       let locals = List.rev locals in
       let args, locals = KList.split (List.length args) locals in
@@ -1010,10 +1028,11 @@ let mk_module env decls =
         env, List.rev_append d decls
       end
     with e ->
+      (* Happens if something is wrong beyond the function body, e.g. a type
+         that doesn't even make sense in WASM. The function is entirely skipped. *)
       flush stdout;
       flush stderr;
-      (* Remove when everything starts working *)
-      KPrint.beprintf "[AstToC♭] Couldn't translate %s%a%s:\n%s\n%s"
+      KPrint.beprintf "[AstToC♭] skipping %s%a%s:\n%s\n%s"
         Ansi.underline PrintAst.plid (lid_of_decl d) Ansi.reset (Printexc.to_string e)
         (if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "");
       env, decls

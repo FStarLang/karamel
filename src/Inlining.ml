@@ -286,7 +286,7 @@ let cross_call_analysis files =
     val mutable name = [],""
     method! visit_EQualified ((_, t) as env) name' =
       if !Options.wasm && cross_call name name' && Hashtbl.mem wasm_mutable name' then begin
-        if Options.debug "wasm" then
+        if Options.debug "wasm" && not (Hashtbl.mem getters name') then
           KPrint.bprintf "%a accesses %a, a mutable global, across modules: getter \
             must be generated\n" plid name plid name';
         Hashtbl.add getters name' ();
