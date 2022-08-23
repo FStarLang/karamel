@@ -78,6 +78,10 @@ and expr =
   | Any
   | AddrOf of expr
   | EAbort of typ * string
+  | Stmt of stmt list
+    (** Solely for the purposes of macro-calls, which are function-like and
+        therefore are more closely modeled as an expression, but truly may
+        contain anything as arguments, including statements. *)
   [@@deriving show]
 
 and block =

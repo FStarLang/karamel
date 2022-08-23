@@ -260,33 +260,108 @@ module S = Set.Make(String)
 let rec vars_of m = function
   | CStar.Var v ->
       S.singleton v
-  | CStar.Qualified v ->
+  | Qualified v ->
       S.singleton (to_c_name m v)
-  | CStar.Macro v ->
+  | Macro v ->
       S.singleton (String.uppercase (to_c_name m v))
-  | CStar.Constant _
-  | CStar.Bool _
-  | CStar.StringLiteral _
-  | CStar.Any
-  | CStar.EAbort _
-  | CStar.Op _ ->
+  | Constant _
+  | Bool _
+  | StringLiteral _
+  | Any
+  | EAbort _
+  | Op _ ->
       S.empty
-  | CStar.Cast (e, _)
-  | CStar.Field (e, _)
-  | CStar.AddrOf e
-  | CStar.InlineComment (_, e, _) ->
+  | Cast (e, _)
+  | Field (e, _)
+  | AddrOf e
+  | InlineComment (_, e, _) ->
       vars_of m e
-  | CStar.BufRead (e1, e2)
-  | CStar.BufSub (e1, e2)
-  | CStar.Comma (e1, e2)
-  | CStar.BufCreate (_, e1, e2) ->
+  | BufRead (e1, e2)
+  | BufSub (e1, e2)
+  | Comma (e1, e2)
+  | BufCreate (_, e1, e2) ->
       S.union (vars_of m e1) (vars_of m e2)
-  | CStar.Call (e, es) ->
+  | Call (e, es) ->
       List.fold_left S.union (vars_of m e) (List.map (vars_of m) es)
-  | CStar.BufCreateL (_, es) ->
+  | BufCreateL (_, es) ->
       KList.reduce S.union (List.map (vars_of m) es)
-  | CStar.Struct (_, fieldexprs) ->
+  | Struct (_, fieldexprs) ->
       KList.reduce S.union (List.map (fun (_, e) -> vars_of m e) fieldexprs)
+  | Stmt stmts ->
+      vars_of_block m stmts
+
+and vars_of_block m stmts =
+  KList.reduce S.union (List.map (vars_of_stmt m) stmts)
+
+and vars_of_stmt m = function
+  | CStar.Abort _
+  | Return _
+  | Break
+  | Comment _ ->
+      S.empty
+  | Ignore e
+  | BufFree e ->
+      vars_of m e
+  | Block stmts ->
+      vars_of_block m stmts
+  | Decl ({ name; _ }, e) ->
+      S.remove name (vars_of m e)
+  | IfThenElse (_, e, b1, b2) ->
+      S.union (vars_of m e) (S.union (vars_of_block m b1) (vars_of_block m b2))
+  | While (e, b) ->
+      S.union (vars_of m e) (vars_of_block m b)
+  | For (i, e, s, b) ->
+      begin match i with
+      | `Decl ({ name; _ }, e') ->
+          S.remove name (
+            KList.reduce S.union [
+              vars_of m e;
+              vars_of m e';
+              vars_of_stmt m s;
+              vars_of_block m b
+            ]
+          )
+      | `Skip ->
+          KList.reduce S.union [
+            vars_of m e;
+            vars_of_stmt m s;
+            vars_of_block m b
+          ]
+      | `Stmt s' ->
+          KList.reduce S.union [
+            vars_of m e;
+            vars_of_stmt m s;
+            vars_of_stmt m s';
+            vars_of_block m b
+          ]
+      end
+  | Assign (e, _, e') ->
+      S.union (vars_of m e) (vars_of m e')
+  | Switch (e, cs, b) ->
+      KList.reduce S.union ([
+        vars_of m e;
+        match b with Some b -> vars_of_block m b | None -> S.empty
+      ] @ List.map (fun (_, b) -> vars_of_block m b) cs)
+  | BufWrite (e1, e2, e3) ->
+      KList.reduce S.union [
+        vars_of m e1;
+        vars_of m e2;
+        vars_of m e3;
+      ]
+  | BufFill (_, e2, e3, e4) ->
+      KList.reduce S.union [
+        vars_of m e2;
+        vars_of m e3;
+        vars_of m e4;
+      ]
+  | BufBlit (_, e2, e3, e4, e5, e6) ->
+      KList.reduce S.union [
+        vars_of m e2;
+        vars_of m e3;
+        vars_of m e4;
+        vars_of m e5;
+        vars_of m e6;
+      ]
 
 let c99_format w =
   let open K in
@@ -1025,6 +1100,9 @@ and mk_expr m (e: expr): C.expr =
 
   | EAbort (t, s) ->
       Call (Name "KRML_EABORT", [ Type (mk_type m t); Literal (escape_string s) ])
+
+  | Stmt s ->
+      Stmt (KList.map_flatten (mk_stmt m) s)
 
 
 and mk_compound_literal m name fields =

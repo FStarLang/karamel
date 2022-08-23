@@ -169,6 +169,7 @@ $(OUTPUT_DIR)/PrivateInclude2.exe: EXTRA=-no-prefix PrivateInclude1 -bundle Priv
 $(OUTPUT_DIR)/ExternalEq.exe: EXTRA=-add-include '"external_eq.h"' -ccopt -I. external_eq.c
 $(OUTPUT_DIR)/MonomorphizationCrash.exe: EXTRA=monomorphization_crash.c -add-include 'MonomorphizationCrash.c:"monomorphization_crash.h"' -ccopt -I.
 $(OUTPUT_DIR)/MonomorphizationSeparate2.exe: EXTRA=-bundle MonomorphizationSeparate1=
+$(OUTPUT_DIR)/Loops.exe: EXTRA=-funroll-loops 16
 
 Failure.test: NEGATIVE=true
 
