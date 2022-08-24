@@ -341,13 +341,24 @@ and mk_stmts env e ret_type =
         let max = int_of_string max in
         let incr = int_of_string incr in
         let n_loops = (max - init + incr - 1) / incr in
-        assert (n_loops <= 16);
-        let env, { CStar.name; _ } = mk_and_push_binder env binder Local None [ e_init; e_max; e_incr; body ] in
-        let body = mk_block env Not body in
 
-        env, maybe_return (CStar.Ignore (Call (
-          Macro (["KRML_MAYBE"], "FOR" ^ string_of_int n_loops),
-          [ Var name; Constant k_init; Constant k_max; Constant k_incr; Stmt body ])) :: acc)
+        if n_loops = 0 then
+          env, maybe_return acc
+
+        else if n_loops = 1 then
+          let body = DeBruijn.subst e_init 0 body in
+          let body = mk_block env Not body in
+          env, (Block body) :: acc
+
+        else begin
+          assert (n_loops <= 16);
+          let env, { CStar.name; _ } = mk_and_push_binder env binder Local None [ e_init; e_max; e_incr; body ] in
+          let body = mk_block env Not body in
+
+          env, maybe_return (CStar.Ignore (Call (
+            Macro (["KRML_MAYBE"], "FOR" ^ string_of_int n_loops),
+            [ Var name; Constant k_init; Constant k_max; Constant k_incr; Stmt body ])) :: acc)
+        end
 
 
     | EFor (binder, e1, e2, e3, e4) ->
