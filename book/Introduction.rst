@@ -2,7 +2,7 @@ Introduction
 ============
 
 This manual documents Low*, a subset of F* that enjoys compilation to C
-through its companion compiler KaRaMeL. As such, Kre\ **ML**\ in offers an
+through its companion compiler KaRaMeL. As such, KaRa\ **M**\ e\ **L**\ in offers an
 alternative to OCa\ **ML** for extracting and running F* programs (hence the
 name -- also a pun on K&R C).
 
