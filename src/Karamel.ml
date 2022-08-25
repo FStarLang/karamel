@@ -278,8 +278,15 @@ Supported options:|}
       "  don't generate C11 compound literals";
     "-ftail-calls", Arg.Set Options.tail_calls, "  statically compile tail-calls \
       into loops";
-    "-funroll-loops", Arg.Set_int Options.unroll_loops, "  textually expand \
-      loops smaller than N";
+    "-funroll-loops", Arg.Set_int Options.unroll_loops, "  loops whose number of \
+      iterations is statically known to be smaller than the given argument and \
+      smaller than 16 are compiled as macro calls KRML_MAYBE_FORN (N=2, 3, ..., 16); \
+      then, at C compile-time, any KRML_MAYBE_FORN for N <= KRML_UNROLL_MAX gets \
+      macro-expanded into a series of C blocks. KRML_UNROLL_MAX is initially \
+      defined to be 16, but can be overridden at build-time for any given file \
+      by passing -DKRML_UNROLL_MAX=N' to the compiler invocation. With this \
+      option, loops with 0 iteration get eliminated and loops with 1 iteration \
+      get replaced by the body.";
     "-fparentheses", Arg.Set Options.parentheses, "  add unnecessary parentheses \
       to silence GCC and Clang's -Wparentheses";
     "-fno-shadow", Arg.Set Options.no_shadow, "  add unnecessary renamings to \
@@ -378,6 +385,11 @@ Supported options:|}
      List.length !fst_files > 0 && List.length !filenames > 0
   then begin
     print_endline (Arg.usage_string spec usage);
+    exit 1
+  end;
+
+  if !Options.unroll_loops > 16 then begin
+    print_endline "Error: argument to -funroll-loops cannot be greater than 16";
     exit 1
   end;
 
