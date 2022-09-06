@@ -299,8 +299,16 @@ and p_designator = function
   | Bracket i ->
       lbracket ^^ int i ^^ rbracket
 
-and p_decl_and_init (decl, init) =
-  group (p_type_declarator decl ^^ match init with
+and p_decl_and_init (decl, alignment, init) =
+  let pre, post = match alignment with
+    | Some t ->
+        p_expr (Call (Name "KRML_PRE_ALIGN", [ t ])) ^^ break1,
+        break1 ^^ p_expr (Call (Name "KRML_POST_ALIGN", [ t ]))
+    | None ->
+        empty,
+        empty
+  in
+  group (pre ^^ p_type_declarator decl ^^ post ^^ match init with
     | Some init ->
         space ^^ equals ^^ jump (p_init init)
     | None ->

@@ -467,7 +467,7 @@ and mk_stmts env e ret_type =
         env, maybe_return (e :: acc)
 
     | EBufFree e ->
-        let e = CStar.BufFree (mk_expr env false e) in
+        let e = CStar.BufFree (mk_type env (assert_tbuf e.typ), mk_expr env false e) in
         env, maybe_return (e :: acc)
 
     | EMatch _ ->
