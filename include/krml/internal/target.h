@@ -64,7 +64,7 @@
 
 #ifndef KRML_ALIGNED_MALLOC
 #  ifdef _MSC_VER
-#    define KRML_ALIGNED_MALLOC(X, Y) _aligned_malloc(X, Y)
+#    define KRML_ALIGNED_MALLOC(X, Y) _aligned_malloc(Y, X)
 #  else
 #    define KRML_ALIGNED_MALLOC(X, Y) aligned_alloc(X, Y)
 #  endif
