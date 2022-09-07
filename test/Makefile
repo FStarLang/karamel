@@ -193,6 +193,7 @@ count-point: $(OUTPUT_DIR)/FunctionalUpdate.exe
 # expected to be turned into *b or even local non-array variables.
 count-deref: $(OUTPUT_DIR)/Deref.exe
 	[ `grep '\[0U\]' $(OUTPUT_DIR)/Deref.out/Deref.c | wc -l` = 1 ]
+	! grep _zero_for_deref $(OUTPUT_DIR)/Deref.out/Deref.c $(OUTPUT_DIR)/Deref.out/Deref.h
 
 check-unused: $(OUTPUT_DIR)/Unused_B.exe
 	egrep -q 'gets_eliminated.*foobar\)' $(OUTPUT_DIR)/Unused_B.out/Unused_A.c
