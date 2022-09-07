@@ -680,10 +680,12 @@ and is_aligned_type = function
 and mk_alignment m t: C11.expr option =
   if is_aligned_type t then
     match t with
-    | Qualified (["Lib"; "IntVector"; "Intrinsics"], "vec128")
-    | Qualified (["Lib"; "IntVector"; "Intrinsics"], "vec256")
-    | Qualified (["Lib"; "IntVector"; "Intrinsics"], "vec512") ->
+    | Qualified (["Lib"; "IntVector"; "Intrinsics"], "vec128") ->
         Some (Constant (CInt, "16"))
+    | Qualified (["Lib"; "IntVector"; "Intrinsics"], "vec256") ->
+        Some (Constant (CInt, "32"))
+    | Qualified (["Lib"; "IntVector"; "Intrinsics"], "vec512") ->
+        Some (Constant (CInt, "64"))
     | _ ->
         Some (Sizeof (Type (mk_type m t)))
   else
