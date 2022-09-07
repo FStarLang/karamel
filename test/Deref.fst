@@ -3,6 +3,11 @@ module Deref
 module B = LowStar.Buffer
 module HST = FStar.HyperStack.ST
 
+[@@Comment "
+  test1 is expected to be the only function with a remaining explicit
+  array access. All other accesses are expected to be turned into *b
+  or even local non-array variables.
+"]
 let test1 (b: B.buffer bool) : HST.Stack bool
   (fun h -> B.live h b /\ B.length b == 1)
   (fun _ _ _ -> True)
