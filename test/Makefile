@@ -27,7 +27,7 @@ ifneq ($(RECENT_GCC),"yes")
   FILES 	:= $(filter-out Debug.test,$(FILES))
 endif
 
-CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased check-right-file
+CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased check-right-file count-deref
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
@@ -188,6 +188,12 @@ count-point: $(OUTPUT_DIR)/FunctionalUpdate.exe
 	[ `grep point $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 9 ]
 	[ `grep uu___ $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 0 ]
 
+# FStarLang/Karamel#278: in the Deref test, there is expected to be
+# only one remaining explicit array access. All other accesses are
+# expected to be turned into *b or even local non-array variables.
+count-deref: $(OUTPUT_DIR)/Deref.exe
+	[ `grep '\[0U\]' $(OUTPUT_DIR)/Deref.out/Deref.c | wc -l` = 1 ]
+	! grep _zero_for_deref $(OUTPUT_DIR)/Deref.out/Deref.c $(OUTPUT_DIR)/Deref.out/Deref.h
 
 check-unused: $(OUTPUT_DIR)/Unused_B.exe
 	egrep -q 'gets_eliminated.*foobar\)' $(OUTPUT_DIR)/Unused_B.out/Unused_A.c
