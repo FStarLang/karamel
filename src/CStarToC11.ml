@@ -42,7 +42,7 @@ let builtin_names =
     ["C"], "fflush";
     ["C"], "clock";
     (* Special array index to turn b[0] into *b (cf. PR #278) *)
-    ["C"], "_zero_for_deref";
+    ["C"; "RefAsArray"], "_zero_for_deref";
     (* Hand-written type definition parameterized over KRML_VERIFIED_UINT128 *)
     ["FStar"; "UInt128"], "uint128";
     (* Might appear twice otherwise, which is not C89-compatible. Defined by
@@ -924,7 +924,7 @@ and mk_stmts m stmts: C.stmt list =
 
 and mk_index m (e1: expr) (e2: expr): C.expr =
   match e2 with
-  | Qualified (["C"], "_zero_for_deref") ->
+  | Qualified (["C"; "RefAsArray"], "_zero_for_deref") ->
       mk_deref m e1
   | _ ->
     begin match mk_expr m e2 with

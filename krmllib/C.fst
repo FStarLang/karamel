@@ -57,9 +57,3 @@ type exit_code = | EXIT_SUCCESS | EXIT_FAILURE
 assume val print_bytes: b:LowStar.Buffer.buffer UInt8.t -> len:UInt32.t{UInt32.v len <= LowStar.Buffer.length b} -> Stack unit
   (requires (fun h -> LowStar.Buffer.live h b))
   (ensures  (fun h0 _ h1 -> h0 == h1))
-
-// An index to be used as argument to Buffer.index so that
-// b[_zero_for_deref] is turned into *b
-// Special treatment: marked to not be emitted to C
-// in CStarToC11.builtin_names
-let _zero_for_deref : FStar.UInt32.t = 0ul
