@@ -202,7 +202,10 @@ let write_def m c_files =
   with_open_out_bin dst (fun oc ->
     KPrint.bfprintf oc "LIBRARY %s\n\nEXPORTS\n"
       (Filename.basename (Filename.chop_extension !Options.exe_name));
+    (* Sorting, so as to have stable output. *)
+    let c_files = List.sort (fun (f1, _) (f2, _) -> compare f1 f2) c_files in
     List.iter (fun (_, decls) ->
+      let decls = List.sort Ast.(fun d1 d2 -> compare (lid_of_decl d1) (lid_of_decl d2)) decls in
       List.iter (function
         | Ast.DFunction (_, flags, _, _, name, _, _)
           when not (List.mem Common.Private flags) ->

@@ -448,7 +448,7 @@ let mk_ocaml_bindings
               lids := sub_lid :: !lids
           ) d;
           if is_abstract_struct d then begin
-            (* Wether it contains unsupported types or not, an abstract struct will be bound
+            (* Whether it contains unsupported types or not, an abstract struct will be bound
              * as an empty, unsealed struct since it will only be manipulated through pointers
              * (Ctypes enforces this at runtime) *)
             ocaml_add lid (mk_struct_decl ~sealed:false m Struct lid []);
@@ -566,6 +566,8 @@ let write_ml (path: string) (m: structure_item list) =
   Format.pp_print_flush Format.std_formatter ()
 
 let write_gen_module ~public:public_headers ~internal:internal_headers files =
+  (* For the stability of the generated depend *)
+  let files = List.sort (fun (n1, _, _) (n2, _, _) -> compare n1 n2) files in
   if List.length files > 0 then begin
     Driver.mkdirp (!Options.tmpdir ^ "/lib_gen");
 
@@ -580,6 +582,7 @@ let write_gen_module ~public:public_headers ~internal:internal_headers files =
     List.iter (fun (f, _, _) -> Printf.bprintf b "lib/%s_stubs.cmx lib/%s_bindings.cmx " f f) files;
     Buffer.add_string b "\n";
     List.iter (fun (f, ds, _) ->
+      let ds = List.sort compare ds in
       Printf.bprintf b "lib/%s_bindings.cmx: " f;
       List.iter (fun d ->
         Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx " d d

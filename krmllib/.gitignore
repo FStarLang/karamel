@@ -5,4 +5,5 @@
 *.o
 *.so
 *.d
+*.d.*
 .extract
