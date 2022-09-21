@@ -7,10 +7,12 @@ KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 
 # TODO: disambiguate between broken tests that arguably should work (maybe
 # HigherOrder6?) and helper files that are required for multiple-module tests
+# For Layered.test: see F* bug 2641 and associated PR
 BROKEN		= \
   HigherOrder6.fst ForwardDecl.fst BlitNull.fst \
   Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst \
-  AbstractStructAbstract.fst
+  AbstractStructAbstract.fst MonomorphizationSeparate1.fst \
+  Layered.fst GlobalInit2.fst
 
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
 # special file and doesn't have a main.
@@ -25,7 +27,8 @@ ifneq ($(RECENT_GCC),"yes")
   FILES 	:= $(filter-out Debug.test,$(FILES))
 endif
 
-CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased
+CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased \
+  check-right-file count-deref check-global-init
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
@@ -166,6 +169,9 @@ $(OUTPUT_DIR)/Unused_B.exe: EXTRA=-bundle Unused_A
 $(OUTPUT_DIR)/PrivateInclude2.exe: EXTRA=-no-prefix PrivateInclude1 -bundle PrivateInclude1 -add-include 'PrivateInclude1.c:"../../foobar.h"'
 $(OUTPUT_DIR)/ExternalEq.exe: EXTRA=-add-include '"external_eq.h"' -ccopt -I. external_eq.c
 $(OUTPUT_DIR)/MonomorphizationCrash.exe: EXTRA=monomorphization_crash.c -add-include 'MonomorphizationCrash.c:"monomorphization_crash.h"' -ccopt -I.
+$(OUTPUT_DIR)/MonomorphizationSeparate2.exe: EXTRA=-bundle MonomorphizationSeparate1=
+$(OUTPUT_DIR)/Loops.exe: EXTRA=-funroll-loops 16
+$(OUTPUT_DIR)/GlobalInit.exe: EXTRA=global_init.c
 
 Failure.test: NEGATIVE=true
 
@@ -184,6 +190,15 @@ count-point: $(OUTPUT_DIR)/FunctionalUpdate.exe
 	[ `grep point $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 9 ]
 	[ `grep uu___ $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 0 ]
 
+# FStarLang/Karamel#278: in the Deref test, there is expected to be
+# only one remaining explicit array access. All other accesses are
+# expected to be turned into *b or even local non-array variables.
+count-deref: $(OUTPUT_DIR)/Deref.exe
+	[ `grep '\[0U\]' $(OUTPUT_DIR)/Deref.out/Deref.c | wc -l` = 1 ]
+	! grep _zero_for_deref $(OUTPUT_DIR)/Deref.out/Deref.c $(OUTPUT_DIR)/Deref.out/Deref.h
+
+check-global-init: $(OUTPUT_DIR)/GlobalInit.exe
+	! egrep -q GlobalInit2_x $(OUTPUT_DIR)/GlobalInit.out/GlobalInit.h
 
 check-unused: $(OUTPUT_DIR)/Unused_B.exe
 	egrep -q 'gets_eliminated.*foobar\)' $(OUTPUT_DIR)/Unused_B.out/Unused_A.c
@@ -193,6 +208,9 @@ check-no-constructor: $(OUTPUT_DIR)/NoConstructor.exe
 
 check-no-erased: $(OUTPUT_DIR)/Shifting.exe
 	! grep -q erased $(OUTPUT_DIR)/Shifting.out/Shifting.c
+
+check-right-file: $(OUTPUT_DIR)/MonomorphizationSeparate2.exe
+	egrep -q 'typedef.*pair' $(OUTPUT_DIR)/MonomorphizationSeparate2.out/MonomorphizationSeparate1.h
 
 # Custom ctypes target
 

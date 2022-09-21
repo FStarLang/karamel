@@ -33,6 +33,7 @@ and lident = ident list * ident [@ opaque]
     visitors { variety = "reduce"; name = "reduce_misc"; polymorphic = true },
     visitors { variety = "map"; name = "map_misc"; polymorphic = true }]
 
+let dummy_lid = [], ""
 
 (* The visitor of types composes with the misc. visitor. *)
 type typ =

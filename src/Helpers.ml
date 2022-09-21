@@ -238,6 +238,7 @@ let is_readonly_builtin_lid lid =
     [ "Lib"; "IntVector"; "Intrinsics" ], "vec256_smul64";
     [ "FStar"; "UInt32" ], "v";
     [ "FStar"; "UInt128" ], "uint128_to_uint64";
+    [ "FStar"; "UInt128" ], "uint64_to_uint128";
     [ "LowStar"; "Monotonic"; "Buffer" ], "mnull";
     [ "Steel"; "Reference" ], "null";
   ] in
@@ -246,6 +247,16 @@ let is_readonly_builtin_lid lid =
     let lid' = Idents.string_of_lident lid' in
     KString.starts_with lid lid'
   ) pure_builtin_lids
+
+class ['self] closed_term_visitor = object (_: 'self)
+  inherit [_] reduce
+  method private zero = true
+  method private plus = (&&)
+  method! visit_EBound _ _ = false
+  method! visit_EOpen _ _ _ = false
+end
+
+let is_closed_term = (new closed_term_visitor)#visit_expr_w ()
 
 class ['self] readonly_visitor = object (self: 'self)
   inherit [_] reduce

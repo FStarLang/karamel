@@ -33,6 +33,10 @@ C_Loops_interruptible_for(uint32_t start, uint32_t finish, bool (*f)(uint32_t x0
 extern K___uint32_t_bool
 C_Loops_interruptible_reverse_for(uint32_t start, uint32_t finish, bool (*f)(uint32_t x0));
 
+typedef void *C_Loops_repeat_range_body_interp;
+
+typedef void (*C_Loops_repeat_range_body_impl)(uint32_t x0);
+
 
 #define __C_Loops_H_DEFINED
 #endif

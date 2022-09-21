@@ -74,6 +74,34 @@ and mk_tfields_opt fields =
 and mk_fields fields =
   List.map (fun (name, field) -> Some name, mk_expr field) fields
 
+and mk_constant (w, s) =
+  let module T = struct exception Error end in
+  let rec skip_zeroes i =
+    if i = String.length s then
+      i
+    else if s.[i] = '0' then
+      skip_zeroes (i + 1)
+    else begin
+      skip_digits i;
+      i
+    end
+  and skip_digits i =
+    if i = String.length s then
+      ()
+    else if not ('0' <= s.[i] && s.[i] <= '9') then
+      raise T.Error
+    else
+      skip_digits (i + 1)
+  in
+  if String.length s = 0 then
+    w, s
+  else
+    try
+      let i = skip_zeroes 0 in
+      w, if i = String.length s then "0" else String.sub s i (String.length s - i)
+    with T.Error ->
+      w, s
+
 and mk_typ = function
   | I.TInt x ->
       TInt x
@@ -98,7 +126,7 @@ and mk_typ = function
   | I.TTuple ts ->
       TTuple (List.map mk_typ ts)
   | I.TArray (t, c) ->
-      TArray (mk_typ t, c)
+      TArray (mk_typ t, mk_constant c)
 
 and mk_expr = function
   | I.EBound i ->
@@ -106,7 +134,7 @@ and mk_expr = function
   | I.EQualified lid ->
       mk (EQualified lid)
   | I.EConstant k ->
-      mk (EConstant k)
+      mk (EConstant (mk_constant k))
   | I.EUnit ->
       mk (EUnit)
   | I.EString s ->
@@ -212,7 +240,7 @@ and mk_pat binders pat =
         field, mk_pat pat
       ) fields))
   | I.PConstant k ->
-      mk (PConstant k)
+      mk (PConstant (mk_constant k))
   in
   mk_pat pat
 

@@ -10,3 +10,6 @@ let print_string = print_string
 let fflush = flush
 let stdout = stdout
 let stderr = stderr
+
+let _zero_for_deref = FStar_UInt32.zero
+
