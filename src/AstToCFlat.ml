@@ -768,14 +768,22 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.Cast (e, wf, wt)
 
   | ECast (e, TAny) ->
+      (* Why is the value discarded?! Rationale for this? *)
       let locals, e = mk_expr env locals e in
       locals, CF.Sequence [ e; cflat_any ]
 
-  | EAny ->
-      locals, cflat_any
+  | ECast (e, TBuf _) ->
+      (* Being restrictive here because there might be some "non-Low*" casts
+         in the source, owing to e.g. indexed types, that we cannot correctly
+         compile. Buffers always have the same representation, though, so those
+         we know how to cast. The rest errors out below. *)
+      mk_expr env locals e
 
   | ECast _ ->
       Warn.fatal_error "unsupported cast: %a" pexpr e
+
+  | EAny ->
+      locals, cflat_any
 
   | ELet (b, e1, e2) ->
       if e1.node = EAny then
