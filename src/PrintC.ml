@@ -299,8 +299,14 @@ and p_designator = function
   | Bracket i ->
       lbracket ^^ int i ^^ rbracket
 
-and p_decl_and_init (decl, init) =
-  group (p_type_declarator decl ^^ match init with
+and p_decl_and_init (decl, alignment, init) =
+  let post = match alignment with
+    | Some t ->
+        break1 ^^ p_expr (Call (Name "KRML_POST_ALIGN", [ t ]))
+    | None ->
+        empty
+  in
+  group (p_type_declarator decl ^^ post ^^ match init with
     | Some init ->
         space ^^ equals ^^ jump (p_init init)
     | None ->
@@ -309,7 +315,17 @@ and p_decl_and_init (decl, init) =
 and p_declaration (qs, spec, inline, stor, decl_and_inits) =
   let inline = if inline then string "inline" ^^ space else empty in
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
-  stor ^^ inline ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
+  let _, alignment, _ = List.hd decl_and_inits in
+  if not (List.for_all (fun (_, a, _) -> a = alignment) decl_and_inits) then
+    Warn.fatal_error "In a declarator group, not all declarations have the same \
+      alignment, which is not supported for MSVC. Bailing.";
+  let pre = match alignment with
+    | Some t ->
+        p_expr (Call (Name "KRML_PRE_ALIGN", [ t ])) ^^ break1
+    | None ->
+        empty
+  in
+  pre ^^ stor ^^ inline ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
 

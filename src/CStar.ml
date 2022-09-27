@@ -42,7 +42,7 @@ and stmt =
     (** First expression has to be a [Bound] or [Open]. *)
   | BufBlit of typ * expr * expr * expr * expr * expr
   | BufFill of typ * expr * expr * expr
-  | BufFree of expr
+  | BufFree of typ * expr
   | Block of block
   | Comment of string
 
