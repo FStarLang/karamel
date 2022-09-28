@@ -1589,10 +1589,6 @@ let combinators = object(self)
       when KString.starts_with s "for_loop" ->
         self#mk_for start finish body K.UInt32
 
-    | EQualified (["Steel"; "Loops"], s), [ start; finish; _inv; _inv_sel; { node = EFun (_, body, _); _ } ]
-      when KString.starts_with s "for_loop_full" ->
-        self#mk_for start finish body K.UInt32
-
     | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), s), [ _measure; _inv; tcontinue; body; init ]
         when KString.starts_with s "total_while_gen"
        ->
