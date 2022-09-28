@@ -635,8 +635,16 @@ let misc_cosmetic = object (self)
   method! visit_ELet env b e1 e2 =
     let b = self#visit_binder env b in
     let e1 = self#visit_expr env e1 in
+    (* We cannot optimize aligned types, because CStarToC11 is only inserting alignment directives
+       on arrays, not local variables. *)
+    let is_aligned = match e1.typ with
+      | TQualified lid when Helpers.is_aligned_type lid ->
+          true
+      | _ ->
+          false
+    in
     match e1.node with
-    | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) when not !Options.wasm ->
+    | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) when not !Options.wasm && not is_aligned ->
         (* int x[1]; x[0] = e; x
          * -->
          * int x; x = e; &x *)

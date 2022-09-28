@@ -169,6 +169,10 @@ let flatten_arrow =
 let fold_arrow ts t_ret =
   List.fold_right (fun t arr -> TArrow (t, arr)) ts t_ret
 
+(* TODO: figure this out through an attribute in the source code
+   rather than a hardcoded list in krml *)
+let is_aligned_type = function ["Lib"; "IntVector"; "Intrinsics"], ("vec128"|"vec256"|"vec512") -> true | _ -> false
+
 let is_array = function TArray _ -> true | _ -> false
 
 let is_union = function TAnonymous (Union _) -> true | _ -> false
