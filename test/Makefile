@@ -12,7 +12,7 @@ BROKEN		= \
   HigherOrder6.fst ForwardDecl.fst BlitNull.fst \
   Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst \
   AbstractStructAbstract.fst MonomorphizationSeparate1.fst \
-  Layered.fst
+  Layered.fst GlobalInit2.fst
 
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
 # special file and doesn't have a main.
@@ -27,7 +27,8 @@ ifneq ($(RECENT_GCC),"yes")
   FILES 	:= $(filter-out Debug.test,$(FILES))
 endif
 
-CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased check-right-file
+CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased \
+  check-right-file count-deref check-global-init
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
@@ -171,6 +172,7 @@ $(OUTPUT_DIR)/ExternalEq.exe: EXTRA=-add-include '"external_eq.h"' -ccopt -I. ex
 $(OUTPUT_DIR)/MonomorphizationCrash.exe: EXTRA=monomorphization_crash.c -add-include 'MonomorphizationCrash.c:"monomorphization_crash.h"' -ccopt -I.
 $(OUTPUT_DIR)/MonomorphizationSeparate2.exe: EXTRA=-bundle MonomorphizationSeparate1=
 $(OUTPUT_DIR)/Loops.exe: EXTRA=-funroll-loops 16
+$(OUTPUT_DIR)/GlobalInit.exe: EXTRA=global_init.c
 
 Failure.test: NEGATIVE=true
 
@@ -189,6 +191,9 @@ count-point: $(OUTPUT_DIR)/FunctionalUpdate.exe
 	[ `grep point $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 9 ]
 	[ `grep uu___ $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 0 ]
 
+
+check-global-init: $(OUTPUT_DIR)/GlobalInit.exe
+	! egrep -q GlobalInit2_x $(OUTPUT_DIR)/GlobalInit.out/GlobalInit.h
 
 check-unused: $(OUTPUT_DIR)/Unused_B.exe
 	egrep -q 'gets_eliminated.*foobar\)' $(OUTPUT_DIR)/Unused_B.out/Unused_A.c
