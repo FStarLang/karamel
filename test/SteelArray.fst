@@ -1,7 +1,6 @@
-module SteelNotNull
+module SteelArray
 
 open Steel.Effect
-open Steel.Reference
 open Steel.Array
 
 noextract inline_for_extraction
