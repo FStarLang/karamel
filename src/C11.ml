@@ -29,7 +29,10 @@ and qualifier =
   | Restrict
 
 and declarator_and_init =
-  declarator * init option
+  declarator * alignment option * init option
+
+and alignment =
+  expr
 
 and declarator_and_inits =
   declarator_and_init list
