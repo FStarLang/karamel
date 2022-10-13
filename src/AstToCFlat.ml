@@ -167,6 +167,10 @@ let rec runtime_type (env: env) (t: typ): runtime_type =
   match t with
   | TQualified lid ->
       begin match LidMap.find lid env.layouts with
+      | exception Not_found ->
+          if Options.debug "cflat" then
+            KPrint.beprintf "[AstToC♭] runtime_type: %a not found\n" plid lid;
+          Unknown
       | LEnum -> Int A32
       | LBuiltin (_, s) -> Int s
       | _ -> Layout (GlobalNames.to_c_name env.names lid)
@@ -280,6 +284,7 @@ let cell_size (env: env) (t: typ): int * array_size =
   match t with
   | TQualified lid ->
       begin match LidMap.find lid env.layouts with
+      | exception Not_found -> failwith (KPrint.bsprintf "missing type in layout map: %a" plid lid)
       | LFlat _ -> round_up (byte_size env t)
       | _ -> 1, array_size_of env t
       end
@@ -324,9 +329,9 @@ let populate env files =
             let l = flat_layout env (fields_of_struct fields) in
             { env with layouts = LidMap.add lid (LFlat l) env.layouts }
           with e ->
-            KPrint.beprintf "[AstToC♭] Can't compute the layout of %a:\n%s\n%s"
+            KPrint.beprintf "[AstToC♭] can't compute the layout of %a:\n%s\n%s"
               PrintAst.plid lid (Printexc.to_string e)
-              (if Options.debug "cflat" then Printexc.get_backtrace () ^ "\n" else "");
+              (if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "");
             env
           end
       | _ ->
@@ -523,6 +528,9 @@ let write_global env lid e =
   let s, es = write_static env lid e in
   { env with globals = LidMap.add lid s env.globals }, CF.StringLiteral s, es
 
+let current_lid = ref ([], "")
+let errors = Hashtbl.create 41
+
 (* Desugar an assignment into a series of possibly many assigments (e.g. struct
   * literal), or into a memcopy. We want to write [e] at address [dst] corrected
   * by an offset [ofs] in bytes. *)
@@ -634,6 +642,22 @@ and mk_global (env: env) (lid: lident) (e: expr): env * CF.expr * CF.expr list =
   | _ ->
       env, mk_expr_no_locals env e, []
 
+(* Attempt to translate an expression; if an error occurs, record the issue, and
+   generate a run-time failure. *)
+and mk_expr_or_bail (env: env) (locals: locals) (e: expr): locals * CF.expr =
+  try mk_expr env locals e with
+  | e ->
+      let s = Printexc.to_string e in
+      if Hashtbl.mem errors !current_lid then
+        Hashtbl.replace errors !current_lid (s :: Hashtbl.find errors !current_lid)
+      else
+        Hashtbl.add errors !current_lid [ s ];
+      let bt = if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "" in
+      let msg = KPrint.bsprintf "%a: compilation error turned to runtime failure\n%s%s"
+        plid !current_lid s bt
+      in
+      mk_expr env locals (Helpers.with_unit (EAbort (Some msg)))
+
 
 (** The actual translation. Note that the environment is dropped, but that the
  * locals are chained through (state-passing style). *)
@@ -744,24 +768,32 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.Cast (e, wf, wt)
 
   | ECast (e, TAny) ->
+      (* Why is the value discarded?! Rationale for this? *)
       let locals, e = mk_expr env locals e in
       locals, CF.Sequence [ e; cflat_any ]
 
-  | EAny ->
-      locals, cflat_any
+  | ECast (e, TBuf _) ->
+      (* Being restrictive here because there might be some "non-Low*" casts
+         in the source, owing to e.g. indexed types, that we cannot correctly
+         compile. Buffers always have the same representation, though, so those
+         we know how to cast. The rest errors out below. *)
+      mk_expr env locals e
 
   | ECast _ ->
       Warn.fatal_error "unsupported cast: %a" pexpr e
 
+  | EAny ->
+      locals, cflat_any
+
   | ELet (b, e1, e2) ->
       if e1.node = EAny then
         let locals, _, env = extend env b locals in
-        let locals, e2 = mk_expr env locals e2 in
+        let locals, e2 = mk_expr_or_bail env locals e2 in
         locals, e2
       else
         let locals, e1 = mk_expr env locals e1 in
         let locals, v, env = extend env b locals in
-        let locals, e2 = mk_expr env locals e2 in
+        let locals, e2 = mk_expr_or_bail env locals e2 in
         locals, CF.Sequence [
           CF.Assign (v, e1);
           e2
@@ -928,12 +960,13 @@ let mk_decl env (d: decl): env * CF.decl list =
         locals, env
       ) ([], env) args in
       let locals = List.rev_append scratch_locals locals in
+      current_lid := name;
       let name = GlobalNames.to_c_name env.names name in
 
       (* Interlude: generate a wrapper, possibly *)
       let wrapper () = mk_wrapper name (List.length args) locals in
 
-      let locals, body = mk_expr env locals body in
+      let locals, body = mk_expr_or_bail env locals body in
       let ret = [ size_of env ret ] in
       let locals = List.rev locals in
       let args, locals = KList.split (List.length args) locals in
@@ -1010,10 +1043,11 @@ let mk_module env decls =
         env, List.rev_append d decls
       end
     with e ->
+      (* Happens if something is wrong beyond the function body, e.g. a type
+         that doesn't even make sense in WASM. The function is entirely skipped. *)
       flush stdout;
       flush stderr;
-      (* Remove when everything starts working *)
-      KPrint.beprintf "[AstToC♭] Couldn't translate %s%a%s:\n%s\n%s"
+      KPrint.beprintf "[AstToC♭] skipping %s%a%s:\n%s\n%s"
         Ansi.underline PrintAst.plid (lid_of_decl d) Ansi.reset (Printexc.to_string e)
         (if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "");
       env, decls
@@ -1025,6 +1059,12 @@ let mk_layouts env =
     (GlobalNames.to_c_name env.names lid, layout_to_yojson layout) :: acc
   ) env.layouts [])
 
+let report_failures () =
+  Hashtbl.iter (fun lid errors ->
+    KPrint.bprintf "[AstToC♭] declaration %a generated compilation errors\n" plid lid;
+    List.iteri (fun i e -> KPrint.bprintf "Error #%d: %s\n" i e) errors
+  ) errors
+
 let mk_files files names =
   let env = populate (empty names) files in
   if Options.debug "cflat" then
@@ -1033,4 +1073,5 @@ let mk_files files names =
     let env, decls = mk_module env decls in
     env, (name, decls) :: ms
   ) (env, []) files in
+  report_failures ();
   mk_layouts env, List.rev modules

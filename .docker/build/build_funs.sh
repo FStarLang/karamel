@@ -132,7 +132,7 @@ function check_version_controlled() {
 
 function exec_build() {
 
-    if misc && check_version_controlled && make -C krmllib clean && make -j $threads && \
+    if misc && check_version_controlled && make -C krmllib clean && make -j $threads -k && \
       make -C test everything -j $threads && \
       make -C book/tutorial && \
       refresh_tutorial
@@ -147,7 +147,7 @@ function exec_build() {
 
 # Some environment variables we want
 export OCAMLRUNPARAM=b
-export OTHERFLAGS="--print_z3_statistics --use_hints --query_stats"
+export OTHERFLAGS="--use_hints"
 export MAKEFLAGS="$MAKEFLAGS -Otarget"
 
 export PATH=$FSTAR_HOME/bin:$PATH

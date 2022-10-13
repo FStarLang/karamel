@@ -18,6 +18,8 @@ typedef void *FStar_HyperStack_ST_erid;
 
 typedef void *FStar_HyperStack_ST_ex_rid;
 
+typedef void *FStar_HyperStack_ST_witnessed;
+
 
 #define __FStar_HyperStack_ST_H_DEFINED
 #endif

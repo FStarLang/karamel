@@ -16,6 +16,12 @@
 #include "krml/internal/target.h"
 typedef void *FStar_All_all_pre;
 
+typedef void *FStar_All_all_post_;
+
+typedef void *FStar_All_all_post;
+
+typedef void *FStar_All_all_wp;
+
 
 #define __FStar_All_H_DEFINED
 #endif

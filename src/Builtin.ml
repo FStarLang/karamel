@@ -188,6 +188,7 @@ let hs: file =
       eunit);
     DType (([ "FStar"; "HyperStack"; "ST" ], "erid"), [], 0, Abbrev TUnit);
     DType (([ "FStar"; "HyperStack"; "ST" ], "ex_rid"), [], 0, Abbrev TUnit);
+    DType (([ "FStar"; "HyperStack"; "ST" ], "witnessed"), [ Common.MustDisappear ], 1, Abbrev TUnit);
   ]
 
 let dyn: file =
@@ -217,6 +218,7 @@ let lowstar_monotonic_buffer: file =
       ([ "LowStar"; "Monotonic"; "Buffer" ], "frameOf"),
       [ fresh_binder "x" (TBuf (TBound 2, false)) ],
       eunit);
+    DType (([ "LowStar"; "Monotonic"; "Buffer" ], "loc_disjoint"), [ Common.MustDisappear ], 2, Abbrev TUnit);
   ]
 
 let lowstar_buffer: file =

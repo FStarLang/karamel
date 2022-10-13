@@ -234,7 +234,7 @@ and smallest t1 t2 =
 
 and check_fields_opt env fieldexprs fieldtyps =
   if List.length fieldexprs > List.length fieldtyps then
-    checker_error env "some fields are superfluous";
+    checker_error env "some fields are superfluous (expr) in %a" pexpr (with_unit (EFlat fieldexprs));
   List.iter (fun (field, expr) ->
     let field = Option.must field in
     let t, _ = KList.assoc_opt field fieldtyps in
@@ -243,7 +243,7 @@ and check_fields_opt env fieldexprs fieldtyps =
 
 and check_fieldpats env fieldexprs fieldtyps =
   if List.length fieldexprs > List.length fieldtyps then
-    checker_error env "some fields are superfluous";
+    checker_error env "some fields are superfluous (pat) in %a" ppat (with_unit (PRecord fieldexprs));
   List.iter (fun (field, expr) ->
     let t, _ = KList.assoc_opt field fieldtyps in
     check_pat env t expr
@@ -889,6 +889,9 @@ and check_pat env t_context pat =
   | PRecord fieldpats ->
       begin match expand_abbrev env t_context with
       | TQualified lid when kind env lid = Some Record ->
+          (* KPrint.bprintf "lid: %a\ndef: %a\n" *)
+          (*   plid lid *)
+          (*   pdef (lookup_type env lid); *)
           let fieldtyps = assert_flat env (lookup_type env lid) in
           check_fieldpats env fieldpats fieldtyps
       | TApp (lid, ts) when kind env lid = Some Record ->

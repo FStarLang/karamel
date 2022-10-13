@@ -14,6 +14,10 @@
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+typedef void *C_String_zero_free;
+
+typedef void *C_String_well_formed;
+
 extern void C_String_print(C_String_t uu___);
 
 extern uint32_t C_String_strlen(C_String_t uu___);
