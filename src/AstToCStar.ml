@@ -838,7 +838,7 @@ let mk_macros_set files =
 
 let mk_ifdefs_set files =
   (object
-    inherit [_] reduce
+    inherit [_] reduce as super
     method private zero = LidSet.empty
     method private plus = LidSet.union
     method visit_DExternal _ _ flags name _ _ =
@@ -846,4 +846,8 @@ let mk_ifdefs_set files =
         LidSet.singleton name
       else
         LidSet.empty
+    method visit_DGlobal env flags name n t =
+      if List.mem Common.IfDef flags then
+        Warn.maybe_fatal_error ("", IfDefOnGlobal name);
+      super#visit_DGlobal env flags name n t
   end)#visit_files () files

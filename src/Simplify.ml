@@ -1173,7 +1173,7 @@ class scope_helpers = object (self)
     let kind =
       if is_type then
         GlobalNames.Type
-      else if List.mem Common.Macro flags then
+      else if List.mem Common.Macro flags || List.mem Common.IfDef flags then
         Macro
       else
         Other
