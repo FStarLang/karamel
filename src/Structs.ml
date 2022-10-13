@@ -311,7 +311,7 @@ let collect_initializers (files: Ast.file list) =
         if not (Helpers.is_initializer_constant body) then begin
           Warn.(maybe_fatal_error ("", NotInitializerConstant (name, body)));
           record (with_type TUnit (EAssign (with_type t (EQualified name), body)));
-          List.filter ((<>) Private) flags, with_type t EAny
+          flags, with_type t EAny
         end else
           flags, body
       in

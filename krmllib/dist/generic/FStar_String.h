@@ -34,6 +34,8 @@ extern Prims_int FStar_String_strlen(Prims_string s);
 
 extern Prims_int FStar_String_length(Prims_string s);
 
+typedef void *FStar_String_maxlen;
+
 extern Prims_string FStar_String_make(Prims_int l, FStar_Char_char uu___);
 
 extern Prims_string FStar_String_string_of_char(FStar_Char_char c);

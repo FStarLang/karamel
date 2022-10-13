@@ -167,7 +167,6 @@ let remove_unused_parameters = object (self)
     DFunction (cc, flags, n, ret, name, binders, body)
 
   method! visit_DExternal (parameter_table, _ as env) cc flags name t hints =
-    let dummy_lid = [], "" in
     let ret, args = flatten_arrow t in
     let hints = KList.filter_mapi (fun i arg ->
       if unused parameter_table dummy_lid args i then
@@ -189,7 +188,6 @@ let remove_unused_parameters = object (self)
     (* Important: the only entries in `parameter_table` are those which are
      * first order, i.e. for which the only occurrence is under an EApp, which
      * does *not* recurse into visit_TArrow! *)
-    let dummy_lid = [], "" in
     let t1 = self#visit_typ env t1 in
     let t2 = self#visit_typ env t2 in
     let ret, args = flatten_arrow (TArrow (t1, t2)) in
@@ -637,8 +635,16 @@ let misc_cosmetic = object (self)
   method! visit_ELet env b e1 e2 =
     let b = self#visit_binder env b in
     let e1 = self#visit_expr env e1 in
+    (* We cannot optimize aligned types, because CStarToC11 is only inserting alignment directives
+       on arrays, not local variables. *)
+    let is_aligned = match e1.typ with
+      | TQualified lid when Helpers.is_aligned_type lid ->
+          true
+      | _ ->
+          false
+    in
     match e1.node with
-    | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) when not !Options.wasm ->
+    | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) when not !Options.wasm && not is_aligned ->
         (* int x[1]; x[0] = e; x
          * -->
          * int x; x = e; &x *)
@@ -1364,7 +1370,9 @@ let tail_calls =
  * This function assumes [hoist] has been run so that every single [EBufCreate]
  * appears as a [let x = bufcreate...], always in statement position.
  *)
-let rec hoist_bufcreate (e: expr) =
+let rec hoist_bufcreate ifdefs (e: expr) =
+  let hoist_bufcreate = hoist_bufcreate ifdefs in
+  let under_pushframe = under_pushframe ifdefs in
   let mk node = { node; typ = e.typ } in
   match e.node with
   | EMatch _ ->
@@ -1399,26 +1407,29 @@ let rec hoist_bufcreate (e: expr) =
        * proper instructions now. *)
       begin match strengthen_array b.typ e1 with
       | TArray (t, size) as tarray ->
+          (* b is the binder that is about to be moved up *)
           let b, e2 = open_binder b e2 in
-          (* Any assignments into this one will be desugared as a
+          (* Any assignments into b will be desugared as a
            * copy-assignment, thanks to the strengthened type. *)
           let b = { b with typ = tarray } in
           let bs, e2 = hoist_bufcreate e2 in
           (* WASM/C discrepancy; in C, the array type makes sure we allocate
            * stack space. In Wasm, we rely on the expression to actually
            * generate run-time code. *)
-          let init = with_type (TBuf (t, false)) (
-            EBufCreate (Common.Stack, any, with_type uint32 (EConstant size)))
+          let init e = with_type (TBuf (t, false)) (
+            EBufCreate (Common.Stack, e, with_type uint32 (EConstant size)))
           in
-          (mark_mut b, init) :: bs,
           begin match e1.node with
           | EAny ->
               failwith "not allowing that per WASM restrictions"
+          | EBufCreate (_, e, _) when Helpers.is_closed_term e ->
+              (b, init e) :: bs, e2
           | EBufCreate (_, { node = EAny; _ }, _) ->
               (* We're visiting this node again. *)
-              e2
+              (mark_mut b, init any) :: bs, e2
           | _ ->
               (* Need actual copy-assigment. *)
+              (mark_mut b, init any) :: bs,
               mk (ELet (sequence_binding (),
                 with_type TUnit (mk_copy_assignment (t, size) (EOpen (b.node.name, b.node.atom)) e1),
                 lift 1 e2
@@ -1433,13 +1444,34 @@ let rec hoist_bufcreate (e: expr) =
   | _ ->
       [], e
 
-and under_pushframe (e: expr) =
+(* TODO: the control-flow is super convoluted here. Also, why the difference in
+   treatment between while loops and for loops above? Is this some ancient
+   Dafny-related stuff? In any case, I believe the two mutually-recursive
+   functions could be greatly clarified if they operated at the level of lets
+   instead of alternating between the sequence of statements (all lets) and the
+   bodies of the lets themselves. *)
+and under_pushframe ifdefs (e: expr) =
+  let hoist_bufcreate = hoist_bufcreate ifdefs in
+  let under_pushframe = under_pushframe ifdefs in
   let mk node = { node; typ = e.typ } in
   match e.node with
+  | ELet (b, { node = EIfThenElse ({ node = EQualified lid; _ } as e1, e2, e3); typ }, ek)
+    when Idents.LidSet.mem lid ifdefs ->
+      (* Do not hoist, since this if will turn into an ifdef which does NOT
+         shorten the scope...! *)
+      let e2 = under_pushframe e2 in  
+      let e3 = under_pushframe e3 in  
+      let ek = under_pushframe ek in
+      mk (ELet (b, { node = EIfThenElse (e1, e2, e3); typ }, ek))
   | ELet (b, e1, e2) ->
       let b1, e1 = hoist_bufcreate e1 in
       let e2 = under_pushframe e2 in
       nest b1 e.typ (mk (ELet (b, e1, e2)))
+  | EIfThenElse ({ node = EQualified lid; _ } as e1, e2, e3)
+    when Idents.LidSet.mem lid ifdefs ->
+      let e2 = under_pushframe e2 in  
+      let e3 = under_pushframe e3 in  
+      mk (EIfThenElse (e1, e2, e3))
   | _ ->
       let b, e' = hoist_bufcreate e in
       nest b e.typ e'
@@ -1450,33 +1482,42 @@ and under_pushframe (e: expr) =
  * - or, something happens (e.g. allocation), and this means that the function
  *   WILL be inlined, and that its caller will take care of hoisting things up
  *   in the second round.
+ *
+ * JP, 20220810: the second case above seems EXTREMELY outdated, since now all
+ * StackInline functions are also marked as inline_for_extraction.
+ *
  * Note: we could do this in a simpler manner with a visitor whose env is a
  * [ref * (list (binder * expr))] but that would degrade the quality of the
  * code. This recursive routine is smarter and preserves the sequence of
  * let-bindings starting from the beginning of the scope. *)
-let rec skip (e: expr) =
+let rec find_pushframe ifdefs (e: expr) =
   let mk node = { node; typ = e.typ } in
   match e.node with
   | ELet (b, ({ node = EPushFrame; _ } as e1), e2) ->
-      mk (ELet (b, e1, under_pushframe e2))
+      mk (ELet (b, e1, under_pushframe ifdefs e2))
   | ELet (b, e1, e2) ->
-      mk (ELet (b, skip e1, skip e2))
+      (* No need to descend into `e1` since we won't find let bindings there. *)
+      mk (ELet (b, e1, find_pushframe ifdefs e2))
   (* Descend into conditionals that are in return position. *)
   | EIfThenElse (e1, e2, e3) ->
-      mk (EIfThenElse (e1, skip e2, skip e3))
+      mk (EIfThenElse (e1, find_pushframe ifdefs e2, find_pushframe ifdefs e3))
   | ESwitch (e, branches) ->
-      mk (ESwitch (e, List.map (fun (t, e) -> t, skip e) branches))
+      mk (ESwitch (e, List.map (fun (t, e) -> t, find_pushframe ifdefs e) branches))
   | _ ->
       e
 
-(* TODO: figure out if we want to ignore the other cases for performance
- * reasons. *)
+(* This phase operates after `hoist` and `let_if_to_assign`, meaning we can rely
+  on a few invariants:
+  - let-bindings do not nest right
+  - buffer allocations are always immediately underneath a let-bindings
+  - ifs are in statement position
+  - there are no sequences, but unit let-bindings. *)
 let hoist_bufcreate = object
   inherit [_] map
 
-  method visit_DFunction () cc flags n ret name binders expr =
+  method visit_DFunction ifdefs cc flags n ret name binders expr =
     try
-      DFunction (cc, flags, n, ret, name, binders, skip expr)
+      DFunction (cc, flags, n, ret, name, binders, find_pushframe ifdefs expr)
     with Fatal s ->
       KPrint.bprintf "Fatal error in %a:\n%s\n" plid name s;
       exit 151
@@ -1548,6 +1589,10 @@ let combinators = object(self)
         self#mk_for start finish body K.UInt32
 
     | EQualified (["Steel"; "ST"; "Loops"], s), [ start; finish; _inv; { node = EFun (_, body, _); _ } ]
+      when KString.starts_with s "for_loop" ->
+        self#mk_for start finish body K.UInt32
+
+    | EQualified (["Steel"; "Loops"], s), [ start; finish; _inv; { node = EFun (_, body, _); _ } ]
       when KString.starts_with s "for_loop" ->
         self#mk_for start finish body K.UInt32
 
@@ -1629,6 +1674,13 @@ let combinators = object(self)
         EWhile (DeBruijn.subst Helpers.eunit 0 (self#visit_expr_w () test),
           DeBruijn.subst Helpers.eunit 0 (self#visit_expr_w () body))
 
+    | EQualified (["Steel"; "Loops"], s), [ _inv;
+        { node = EFun (_, test, _); _ };
+        { node = EFun (_, body, _); _ } ]
+      when KString.starts_with s "while_loop" ->
+        EWhile (DeBruijn.subst Helpers.eunit 0 (self#visit_expr_w () test),
+          DeBruijn.subst Helpers.eunit 0 (self#visit_expr_w () body))
+
     | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), s), [ { node = EFun (_, body, _); _ } ]
       when KString.starts_with s "do_while" ->
         EWhile (etrue, with_unit (
@@ -1703,7 +1755,7 @@ let simplify1 (files: file list): file list =
  * allocations and writes are hoisted; where if-then-else is always in statement
  * position; where sequences are not nested. These series of transformations
  * re-establish this invariant. *)
-let simplify2 (files: file list): file list =
+let simplify2 ifdefs (files: file list): file list =
   let files = sequence_to_let#visit_files () files in
   (* Quality of hoisting is WIDELY improved if we remove un-necessary
    * let-bindings. *)
@@ -1711,9 +1763,9 @@ let simplify2 (files: file list): file list =
   let files = if !Options.wasm then files else fixup_while_tests#visit_files () files in
   let files = hoist#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
-  let files = if !Options.wasm then files else hoist_bufcreate#visit_files () files in
   let files = if !Options.wasm then files else fixup_hoist#visit_files () files in
   let files = if !Options.wasm then files else let_if_to_assign#visit_files () files in
+  let files = if !Options.wasm then files else hoist_bufcreate#visit_files ifdefs files in
   let files = misc_cosmetic#visit_files () files in
   let files = functional_updates#visit_files false files in
   let files = functional_updates#visit_files true files in

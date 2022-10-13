@@ -17,6 +17,51 @@ let p_storage_spec = function
   | Extern -> string "extern"
   | Static -> string "static"
 
+(* This is abusing the definition of a compound statement to ensure it is printed with braces. *)
+let nest_if f stmt =
+  match stmt with
+  | Compound _ ->
+      hardline ^^ f stmt
+  | _ ->
+      nest 2 (hardline ^^ f stmt)
+
+(* A note on the classic dangling else problem. Remember that this is how things
+ * are parsed (note the indentation):
+ *
+ * if (foo)
+ *   if (bar)
+ *     ...
+ *   else
+ *     ...
+ *
+ * And remember that this needs braces:
+ *
+ * if (foo) {
+ *   if (bar)
+ *     ...
+ * } else
+ *   ...
+ *
+ * [protect_solo_if] adds braces to the latter case. However, GCC, unless
+ * -Wnoparentheses is given, will produce a warning for the former case.
+ * [protect_ite_if_needed] adds braces to the former case, when the user has
+ * requested the extra, unnecessary parentheses needed to silence -Wparentheses.
+ * *)
+let protect_solo_if s =
+  match s with
+  | If _ -> Compound [ s ]
+  | _ -> s
+
+let protect_ite_if_needed s =
+  match s with
+  | IfElse _ when !Options.parentheses -> Compound [ s ]
+  | _ -> s
+
+let p_or p x =
+  match x with
+  | Some x -> p x
+  | None -> empty
+
 let rec p_type_spec = function
   | Int w -> print_width w
   | Void -> string "void"
@@ -223,6 +268,8 @@ and p_expr' curr = function
       p_expr' 1 expr ^^ string "->" ^^ string member
   | InlineComment (s, e, s') ->
       surround 2 1 (p_comment s) (p_expr' curr e) (p_comment s')
+  | Stmt stmts ->
+      p_stmts stmts
 
 and p_comment s =
   (* TODO: escape *)
@@ -252,8 +299,14 @@ and p_designator = function
   | Bracket i ->
       lbracket ^^ int i ^^ rbracket
 
-and p_decl_and_init (decl, init) =
-  group (p_type_declarator decl ^^ match init with
+and p_decl_and_init (decl, alignment, init) =
+  let post = match alignment with
+    | Some t ->
+        break1 ^^ p_expr (Call (Name "KRML_POST_ALIGN", [ t ]))
+    | None ->
+        empty
+  in
+  group (p_type_declarator decl ^^ post ^^ match init with
     | Some init ->
         space ^^ equals ^^ jump (p_init init)
     | None ->
@@ -262,55 +315,21 @@ and p_decl_and_init (decl, init) =
 and p_declaration (qs, spec, inline, stor, decl_and_inits) =
   let inline = if inline then string "inline" ^^ space else empty in
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
-  stor ^^ inline ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
+  let _, alignment, _ = List.hd decl_and_inits in
+  if not (List.for_all (fun (_, a, _) -> a = alignment) decl_and_inits) then
+    Warn.fatal_error "In a declarator group, not all declarations have the same \
+      alignment, which is not supported for MSVC. Bailing.";
+  let pre = match alignment with
+    | Some t ->
+        p_expr (Call (Name "KRML_PRE_ALIGN", [ t ])) ^^ break1
+    | None ->
+        empty
+  in
+  pre ^^ stor ^^ inline ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
-(* This is abusing the definition of a compound statement to ensure it is printed with braces. *)
-let nest_if f stmt =
-  match stmt with
-  | Compound _ ->
-      hardline ^^ f stmt
-  | _ ->
-      nest 2 (hardline ^^ f stmt)
 
-(* A note on the classic dangling else problem. Remember that this is how things
- * are parsed (note the indentation):
- *
- * if (foo)
- *   if (bar)
- *     ...
- *   else
- *     ...
- *
- * And remember that this needs braces:
- *
- * if (foo) {
- *   if (bar)
- *     ...
- * } else
- *   ...
- *
- * [protect_solo_if] adds braces to the latter case. However, GCC, unless
- * -Wnoparentheses is given, will produce a warning for the former case.
- * [protect_ite_if_needed] adds braces to the former case, when the user has
- * requested the extra, unnecessary parentheses needed to silence -Wparentheses.
- * *)
-let protect_solo_if s =
-  match s with
-  | If _ -> Compound [ s ]
-  | _ -> s
-
-let protect_ite_if_needed s =
-  match s with
-  | IfElse _ when !Options.parentheses -> Compound [ s ]
-  | _ -> s
-
-let p_or p x =
-  match x with
-  | Some x -> p x
-  | None -> empty
-
-let rec p_stmt (s: stmt) =
+and p_stmt (s: stmt) =
   (* [p_stmt] is responsible for appending [semi] and calling [group]! *)
   match s with
   | Compound stmts ->

@@ -70,6 +70,8 @@ let monomorphize_data_types map = object(self)
   val mutable pending = []
   (* Current file, for warning purposes. *)
   val mutable current_file = ""
+  (* Possibly populated with something relevant *)
+  val mutable best_hint: node * lident = (dummy_lid, []), dummy_lid
 
   (* Record a new declaration. *)
   method private record (d: decl) =
@@ -83,24 +85,48 @@ let monomorphize_data_types map = object(self)
     pending <- [];
     r
 
+  (* This method produces a type that is *unsuitable* for further passes, since
+     it breaks the invariant that type abbreviations are inlined away. It is,
+     however, a good candidate for picking a suitable, auto-generated name while
+     using existing, previously-picked abbreviations. NB: not doing so will
+     generate type errors, see miTLS for a minimal testcase *)
+  method pretty (t: typ) =
+    (object
+      inherit [_] map
+      method! visit_TTuple () args =
+        match Hashtbl.find state (tuple_lid, args) with
+        | exception Not_found ->
+            let args = List.map (self#visit_typ ()) args in
+            TTuple args
+        | _, chosen_lid ->
+            TQualified chosen_lid
+
+      method! visit_TApp () lid args =
+        match Hashtbl.find state (lid, args) with
+        | exception Not_found ->
+            let args = List.map (self#visit_typ ()) args in
+            TApp (lid, args)
+        | _, chosen_lid ->
+            TQualified chosen_lid
+    end)#visit_typ () t
+
   (* Compute the name of a given node in the graph. *)
   method private lid_of (n: node) =
-    let lid, args = n in
-    if List.length args > 0 then
-      try
-        let pretty = List.assoc n !NamingHints.hints in
-        if Options.debug "names" then
-          KPrint.bprintf "Hit: %a --> %a\n" ptyp (TApp (lid, args)) plid pretty;
-        pretty
-      with Not_found ->
-        if Options.debug "names" then begin
-          KPrint.bprintf "No hit: %a\n" ptyp (TApp (lid, args));
-          NamingHints.debug ()
-        end;
-        let doc = PPrint.(separate_map underscore PrintAst.print_typ args) in
-        fst lid, KPrint.bsprintf "%s__%a" (snd lid) PrintCommon.pdoc doc
+    if List.length (snd n) = 0 then
+      fst n
+    else if fst best_hint = n then
+      snd best_hint
     else
-      lid
+      let lid, args = n in
+      let doc = PPrint.(separate_map underscore PrintAst.print_typ (List.map self#pretty args)) in
+      let name = fst lid, KPrint.bsprintf "%s__%a" (snd lid) PrintCommon.pdoc doc in
+      if Options.debug "monomorphization" then
+        KPrint.bprintf "No hint provided for %a\n  current best hint: %a -> %a\n  picking: %a\n"
+          ptyp (TApp (lid, args))
+          ptyp (TApp (fst (fst best_hint), snd (fst best_hint)))
+          plid (snd best_hint)
+          plid name;
+      name
 
   (* Prettifying the field names for n-uples. *)
   method private field_at i =
@@ -116,44 +142,19 @@ let monomorphize_data_types map = object(self)
   method private visit_node (n: node) =
     let lid, args = n in
     (* White, gray or black? *)
-    begin match Hashtbl.find state n with
+    match Hashtbl.find state n with
     | exception Not_found ->
-        (* Update hints table to now use names that have been previously
-         * allocated, including the current node's (in case this is a
-         * recursive type). Cannot use the current visitor because it would
-         * force visiting sub-nodes that we don't intend to visit yet. *)
-        NamingHints.hints := List.map (fun ((hd, args), lid) ->
-          (hd, List.map (
-            (object
-              inherit [_] map as self'
-
-              method! visit_TApp _ hd args =
-                let args = List.map (self'#visit_typ ()) args in
-                if Hashtbl.mem state (hd, args) then
-                  TQualified (self#lid_of (hd, args))
-                else
-                  TApp (hd, args)
-
-              method! visit_TTuple _ args =
-                let args = List.map (self'#visit_typ ()) args in
-                if Hashtbl.mem state (tuple_lid, args) then
-                  TQualified (self#lid_of (tuple_lid, args))
-                else
-                  TTuple args
-            end)#visit_typ ()
-          ) args), lid) !NamingHints.hints;
-
-        (* Subtletly: we decline to insert type monomorphizations in dropped
-         * files, on the basis that they might be needed later in an actual
-         * file. *)
-        if lid = tuple_lid then
+        let chosen_lid = self#lid_of n in
+        if lid = tuple_lid then begin
+          Hashtbl.add state n (Gray, chosen_lid);
+          let args = List.map (self#visit_typ ()) args in
           (* For tuples, we immediately know how to generate a definition. *)
           let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
-          self#record (DType (self#lid_of n, [ Common.Private ], 0, Flat fields));
-          Hashtbl.add state n Black
-        else begin
+          self#record (DType (chosen_lid, [ Common.Private ], 0, Flat fields));
+          Hashtbl.replace state n (Black, chosen_lid)
+        end else begin
           (* This specific node has not been visited yet. *)
-          Hashtbl.add state n Gray;
+          Hashtbl.add state n (Gray, chosen_lid);
 
           let subst fields = List.map (fun (field, (t, m)) ->
             field, (DeBruijn.subst_tn args t, m)
@@ -164,30 +165,30 @@ let monomorphize_data_types map = object(self)
           | flags, Variant branches ->
               let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
               let branches = self#visit_branches_t () branches in
-              self#record (DType (self#lid_of n, flags, 0, Variant branches))
+              self#record (DType (chosen_lid, flags, 0, Variant branches))
           | flags, Flat fields ->
               let fields = self#visit_fields_t_opt () (subst fields) in
-              self#record (DType (self#lid_of n, flags, 0, Flat fields))
+              self#record (DType (chosen_lid, flags, 0, Flat fields))
           | flags, Abbrev t ->
               let t = DeBruijn.subst_tn args t in
               let t = self#visit_typ () t in
-              self#record (DType (self#lid_of n, flags, 0, Abbrev t))
+              self#record (DType (chosen_lid, flags, 0, Abbrev t))
           | _ ->
               ()
           end;
-          Hashtbl.replace state n Black
-        end
-    | Gray ->
+          Hashtbl.replace state n (Black, chosen_lid)
+        end;
+        chosen_lid
+    | Gray, chosen_lid ->
         begin match Hashtbl.find map lid with
         | exception Not_found ->
             ()
         | flags, _ ->
-            self#record (DType (self#lid_of n, flags, 0, Forward))
-        end
-    | Black ->
-        ()
-    end;
-    self#lid_of n
+            self#record (DType (chosen_lid, flags, 0, Forward))
+        end;
+        chosen_lid
+    | Black, chosen_lid ->
+        chosen_lid
 
   (* Top-level, non-parameterized declarations are root of our graph traversal.
    * This also visits, via occurrences in code, applications of parameterized
@@ -197,21 +198,71 @@ let monomorphize_data_types map = object(self)
     current_file <- name;
     name, KList.map_flatten (fun d ->
       match d with
+      | DType (lid, _, n, Abbrev (TTuple args)) when n = 0 && not (Hashtbl.mem state (tuple_lid, args)) ->
+          Hashtbl.remove map lid;
+          if Options.debug "monomorphization" then
+            KPrint.bprintf "%a abbreviation for %a\n" plid lid ptyp (TApp (tuple_lid, args));
+          best_hint <- (tuple_lid, args), lid;
+          ignore (self#visit_node (tuple_lid, args));
+          self#clear ()
+
+      | DType (lid, _, n, Abbrev (TApp (hd, args) as t)) when n = 0 && not (Hashtbl.mem state (hd, args)) ->
+          (* We have not yet monomorphized this type, and conveniently, we have
+             a type abbreviation that provides us with a name hint! We simply
+             ditch the type abbreviation and replace it with a monomorphization
+             of the same name. *)
+          Hashtbl.remove map lid;
+          if Options.debug "monomorphization" then
+            KPrint.bprintf "%a abbreviation for %a\n" plid lid ptyp t;
+
+          (* miTLS backwards-compat strikes again: if the type is about to be
+             GC'd (i.e. automatically rewritten to be heap-allocated to e.g.
+             support lists "trivially" at the expense of a run-time GC)... then
+             we need to make sure the generated name refers to the GC'd type. So
+             the monomorphized type will be named foobar_gc... *)
+          let abbrev_for_gc_type = Hashtbl.mem map hd && List.mem Common.GcType (fst (Hashtbl.find map hd)) in
+
+          if abbrev_for_gc_type then
+            best_hint <- (hd, args), (fst lid, snd lid ^ "_gc")
+          else
+            best_hint <- (hd, args), lid;
+
+          ignore (self#visit_node (hd, args));
+
+          (* And a type abbreviation will automatically be rewritten (see
+             GcTypes) into `typedef foobar foobar_gc *`. And mitlsffi.ci will be
+             happy. *)
+          if abbrev_for_gc_type then
+            self#record (DType (lid, [], 0, Abbrev (TQualified (fst lid, snd lid ^ "_gc"))));
+
+          self#clear ()
+
+      | DType (_, _, n, _) when n > 0 ->
+          (* Can't do anything useful with this, and will not generate further
+             monomorphizations. Drop. *)
+          []
+
       | DType (lid, _, n, (Flat _ | Variant _ | Abbrev _)) ->
+          (* Re-inserted by visit_node... don't insert twice. *)
+          assert (n = 0);
+          (* FIXME: the logic here is quite twisted... it should be simplified. My
+             understanding is we want to BOTH visit the body of the type in case
+             it recursively needs to trigger monomorphizations, and
+             side-effectfully register the type as visited in our map for
+             further uses (but why?). *)
           ignore (self#visit_decl () d);
-          if n = 0 then
-            ignore (self#visit_node (lid, []));
+          ignore (self#visit_node (lid, []));
           self#clear ()
 
       | _ ->
-          self#clear () @ [ self#visit_decl () d ]
+          (* An actual run-time definition, needs to be retained. *)
+          let d = self#visit_decl () d in
+          self#clear () @ [ d ]
     ) decls
 
   method! visit_DType env name flags n d =
     if n > 0 then
-      (* This drops polymorphic type definitions by making them a no-op that
-       * registers nothing. *)
-      DType (name, flags, n, d)
+      assert false
     else
       super#visit_DType env name flags n d
 
@@ -222,13 +273,13 @@ let monomorphize_data_types map = object(self)
     PRecord (List.mapi (fun i p -> self#field_at i, self#visit_pattern_w () p) pats)
 
   method! visit_TTuple _ ts =
-    TQualified (self#visit_node (tuple_lid, List.map (self#visit_typ ()) ts))
+    TQualified (self#visit_node (tuple_lid, ts))
 
   method! visit_TQualified _ lid =
     TQualified (self#visit_node (lid, []))
 
   method! visit_TApp _ lid ts =
-    TQualified (self#visit_node (lid, List.map (self#visit_typ ()) ts))
+    TQualified (self#visit_node (lid, ts))
 end
 
 let datatypes files =
@@ -429,6 +480,18 @@ let equalities files =
         equalities @ [ d ]
       ) decls
 
+    method private maybe_by_addr head x y =
+      let t_op, x, y =
+        match x.typ with
+        | TQualified lid when Hashtbl.find_opt types_map lid = Some Forward ->
+            let t = TBuf (x.typ, true) in
+            TArrow (t, TArrow (t, TBool)), with_type t (EAddrOf x), with_type t (EAddrOf y)
+        | _ ->
+            let t = x.typ in
+            TArrow (t, TArrow (t, TBool)), x, y
+      in
+      EApp (with_type t_op head, [x;y])
+
     (* For type [t] and either [op = Eq] or [op = Neq], generate a recursive
      * equality predicate that implements F*'s structural equality. *)
     method private generate_equality t op =
@@ -437,10 +500,32 @@ let equalities files =
         | K.PEq -> [], "__eq"
         | K.PNeq -> [], "__neq"
       in
-      let eq_typ = TArrow (t, TArrow (t, TBool)) in
       let instance_lid = Gen.gen_lid eq_lid [ t ] in
       let x = fresh_binder "x" t in
       let y = fresh_binder "y" t in
+
+      (* Generate an external to stand in for a user-provided equality operator
+         for an external type. *)
+      let gen_poly ?(pointer=false) () =
+        let t' = if pointer then TBuf (t, true) else t in
+        let eq_typ' = TArrow (t', TArrow (t', TBool)) in
+        match op with
+        | K.PNeq ->
+            (* let __neq__t x y = not (__eq__t x y) *)
+            let def () =
+              let body = mk_not (with_type TBool (
+                EApp (with_type eq_typ' (self#generate_equality t K.PEq), [
+                  with_type t' (EBound 0); with_type t' (EBound 1) ])))
+              in
+              DFunction (None, [ Common.Private ], 0, TBool, instance_lid, [ y; x ], body)
+            in
+            EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
+        | K.PEq ->
+            (* assume val __eq__t: t -> t -> bool *)
+            let def () = DExternal (None, [], instance_lid, eq_typ', [ "x"; "y" ]) in
+            EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
+      in
+
 
       match t with
       | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) ->
@@ -489,17 +574,23 @@ let equalities files =
                   with_type TBool (EBool true)
               | _ ->
                   with_type TBool (
-                    EApp (
-                      with_type (TArrow (t, TArrow (t, TBool))) (
-                        self#generate_equality t op), [
-                        with_type t e1;
-                        with_type t e2]))
+                    self#maybe_by_addr (self#generate_equality t op) (with_type t e1) (with_type t e2))
             in
             match Hashtbl.find types_map lid with
-            | Abbrev _ | Enum _ | Union _ | Forward ->
+            | Abbrev _ | Enum _ | Union _ as e ->
+                KPrint.bprintf "Error: did not expect %a\n" ppdef e;
                 (* No abbreviations (this runs after inline_type abbrevs).
                  * No Enum / Union / Forward (this runs before data types). *)
                 assert false
+
+            | Forward ->
+                (* Happens when an abstract external type is marked as
+                   CAbstractStruct. TODO this is really unpleasant because
+                   without the annotation, the type wouldn't be generated at all
+                   and would end up "implicitly" external, as in the final case
+                   below. *)
+                gen_poly ~pointer:true ()
+
             | Flat fields ->
                 (* Either a conjunction of equalities, or a disjunction of inequalities. *)
                 let def () =
@@ -572,22 +663,7 @@ let equalities files =
             EQualified (Hashtbl.find Gen.generated_lids (eq_lid, [ t ]))
           with Not_found ->
             (* External type without a definition. Comparison of function types? *)
-            begin match op with
-            | K.PNeq ->
-                (* let __neq__t x y = not (__eq__t x y) *)
-                let def () =
-                  let body = mk_not (with_type TBool (
-                    EApp (with_type eq_typ (self#generate_equality t K.PEq), [
-                      with_type t (EBound 0); with_type t (EBound 1) ])))
-                  in
-                  DFunction (None, [], 0, TBool, instance_lid, [ y; x ], body)
-                in
-                EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
-            | K.PEq ->
-                (* assume val __eq__t: t -> t -> bool *)
-                let def () = DExternal (None, [], instance_lid, eq_typ, [ "x"; "y" ]) in
-                EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
-            end
+            gen_poly ()
 
     (* New feature (somewhat unrelated to polymorphic equality
      * monomorphization): generate top-level specialized equalities in case a
@@ -615,9 +691,9 @@ let equalities files =
                 with_type t (EBound 0); with_type t (EBound 1) ])))))
 
     method! visit_EApp env e es =
-      match e.node with
-      | EPolyComp (op, t) ->
-          EApp (with_type e.typ (self#generate_equality t op), List.map (self#visit_expr env) es)
+      match e.node, es with
+      | EPolyComp (op, t), [ x; y ] ->
+          self#maybe_by_addr (self#generate_equality t op) (self#visit_expr env x) (self#visit_expr env y)
       | _ ->
           EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
 

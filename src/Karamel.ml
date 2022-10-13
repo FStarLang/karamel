@@ -278,8 +278,15 @@ Supported options:|}
       "  don't generate C11 compound literals";
     "-ftail-calls", Arg.Set Options.tail_calls, "  statically compile tail-calls \
       into loops";
-    "-funroll-loops", Arg.Set_int Options.unroll_loops, "  textually expand \
-      loops smaller than N";
+    "-funroll-loops", Arg.Set_int Options.unroll_loops, "  loops whose number of \
+      iterations is statically known to be smaller than the given argument and \
+      smaller than 16 are compiled as macro calls KRML_MAYBE_FORN (N=2, 3, ..., 16); \
+      then, at C compile-time, any KRML_MAYBE_FORN for N <= KRML_UNROLL_MAX gets \
+      macro-expanded into a series of C blocks. KRML_UNROLL_MAX is initially \
+      defined to be 16, but can be overridden at build-time for any given file \
+      by passing -DKRML_UNROLL_MAX=N' to the compiler invocation. With this \
+      option, loops with 0 iteration get eliminated and loops with 1 iteration \
+      get replaced by the body.";
     "-fparentheses", Arg.Set Options.parentheses, "  add unnecessary parentheses \
       to silence GCC and Clang's -Wparentheses";
     "-fno-shadow", Arg.Set Options.no_shadow, "  add unnecessary renamings to \
@@ -305,6 +312,10 @@ Supported options:|}
       tweaks";
     "-fextern-c", Arg.Set Options.extern_c, " wrap declarations in each header \
       with extern \"C\" {";
+    "-fnoshort-names", Arg.Clear Options.short_names, "  disable unprefix names \
+      for private (static) functions that are not exposed in headers; this ensures \
+      robust collision-avoidance in case your private function names collide with \
+      one of the included system headers";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
@@ -374,6 +385,11 @@ Supported options:|}
      List.length !fst_files > 0 && List.length !filenames > 0
   then begin
     print_endline (Arg.usage_string spec usage);
+    exit 1
+  end;
+
+  if !Options.unroll_loops > 16 then begin
+    print_endline "Error: argument to -funroll-loops cannot be greater than 16";
     exit 1
   end;
 
@@ -508,7 +524,6 @@ Supported options:|}
   let files = Builtin.make_libraries files in
   let files = if !Options.wasm then SimplifyWasm.intrinsics#visit_files () files else files in
   let files = Bundles.topological_sort files in
-  NamingHints.record files;
 
   (* 1. We create bundles, and monomorphize functions first. This creates more
    * applications of parameterized types, which we make sure are in the AST by
@@ -622,7 +637,12 @@ Supported options:|}
   (* Note: generates let-bindings, so needs to be before simplify2 *)
   let files = Simplify.remove_unused files in
   let files = if !Options.tail_calls then Simplify.tail_calls files else files in
-  let files = Simplify.simplify2 files in
+
+  (* This allows drop'ing the module that contains just ifdefs. *)
+  let ifdefs = AstToCStar.mk_ifdefs_set files in
+  let macros = AstToCStar.mk_macros_set files in
+
+  let files = Simplify.simplify2 ifdefs files in
   let files = if Options.(!merge_variables <> No) then SimplifyMerge.simplify files else files in
   if !arg_print_structs then
     print PrintAst.print_files files;
@@ -636,10 +656,6 @@ Supported options:|}
     else
       files
   in
-
-  (* This allows drop'ing the module that contains just ifdefs. *)
-  let ifdefs = AstToCStar.mk_ifdefs_set files in
-  let macros = AstToCStar.mk_macros_set files in
 
   (* 6. Drop both files and selected declarations within some files, as a [-drop
    * Foo -bundle Bar=Foo] command-line requires us to go inside file [Bar] to

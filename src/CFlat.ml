@@ -11,8 +11,6 @@
   * instructions to emit (e.g. for small int types, we want to add a
   * truncation); we also keep the signedness to pick the right operator.
   *)
-open Common
-
 module K = Constant
 
 module Sizes = struct
@@ -79,8 +77,6 @@ module Sizes = struct
     | A64 -> 8
 end
 
-open Sizes
-
 type program =
   decl list
 
@@ -89,6 +85,14 @@ and decl =
   | Function of function_t
   | ExternalFunction of ident * size list (* args *) * size list (* ret *)
   | ExternalGlobal of ident * size
+  [@@deriving show,
+    visitors { variety = "iter" }]
+
+and size = Sizes.size [@opaque]
+and array_size = Sizes.array_size [@opaque]
+and width = K.width [@opaque]
+and op = K.op [@opaque]
+and lifetime = Common.lifetime [@opaque]
 
 and function_t = {
   name: ident;
@@ -104,7 +108,7 @@ and locals =
   size list
 
 and constant =
-  K.width * string
+  width * string
 
 and expr =
   | Var of var
@@ -127,16 +131,16 @@ and expr =
   | BufWrite of expr * int * expr * array_size
       (** Ibid. *)
 
-  | CallOp of op * expr list
+  | CallOp of op_ * expr list
   | CallFunc of ident * expr list
-  | Cast of expr * K.width * K.width
+  | Cast of expr * width * width
       (** from; to *)
-  [@@deriving show]
+  | CastI64ToPacked of expr
 
 and var =
   int (** NOT De Bruijn *)
 
-and op = K.width * K.op
+and op_ = width * op
 
 and ident =
   string

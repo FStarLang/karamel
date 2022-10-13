@@ -24,7 +24,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "0ab7628649548ddee202a004b091d333"
+      "7da6fa8ef44d423af2756b959dd8ab66"
     ],
     [
       "Ctypes4.move_circle",
@@ -37,7 +37,7 @@
         "typing_Ctypes3.__proj__Mkcircle__item__r"
       ],
       0,
-      "5ccf1c7e895aee4e9e6c735aff3fe825"
+      "f40cb7ab5b5a161db3010314ac27cf45"
     ],
     [
       "Ctypes4.my_not",
@@ -62,7 +62,7 @@
         "true_interp"
       ],
       0,
-      "db83dc3fe3f3588e58a87fa41cbefb18"
+      "8a456058be530aeefba1fd4ab9f9aa30"
     ],
     [
       "Ctypes4.tr",
@@ -77,7 +77,7 @@
         "typing_FStar.UInt32.t"
       ],
       0,
-      "8cac74677dd2dbfa2b53ec573dc55a5a"
+      "d7f7045a36adeab8a0c53f8c34ab1ad1"
     ],
     [
       "Ctypes4.replicate",
@@ -90,7 +90,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "07e863382241db026a36288105e85009"
+      "6167bd4d819fc9d625570527e5fa9808"
     ],
     [
       "Ctypes4.int_opt",
@@ -103,7 +103,7 @@
         "typing_FStar.UInt32.t"
       ],
       0,
-      "bbd317c43558d5a38f52f9bab3aa89f9"
+      "8f9296e2508aaab0d70a0559024c1ce7"
     ],
     [
       "Ctypes4.__proj__IntSome__item___0",
@@ -116,7 +116,7 @@
         "refinement_interpretation_Tm_refine_747e8dbcdadc1011beb312d289ca27b1"
       ],
       0,
-      "67e952b911616a36f53b8da7fa606690"
+      "70b958f60a49c4b4b7c95576ee9b22d8"
     ],
     [
       "Ctypes4.maybe_double",
@@ -138,7 +138,7 @@
         "typing_LowStar.Buffer.trivial_preorder"
       ],
       0,
-      "1f41cd25e3b5a661d01af140b4394d6c"
+      "fab4ab334294eedae2459282dcb340f0"
     ],
     [
       "Ctypes4.maybe_double",
@@ -147,34 +147,34 @@
       1,
       [
         "@MaxIFuel_assumption", "@query",
-        "Ctypes4_pretyping_1086a8dacadf20a3071e540af19e9711", "b2t_def",
+        "Ctypes4_pretyping_1086a8dacadf20a3071e540af19e9711",
         "bool_inversion", "constructor_distinct_Ctypes4.IntNone",
         "constructor_distinct_Ctypes4.IntSome",
         "data_typing_intro_Ctypes4.IntNone@tok",
         "disc_equation_Ctypes4.IntNone", "disc_equation_Ctypes4.IntSome",
-        "equality_tok_Ctypes4.IntNone@tok", "equation_FStar.UInt.fits",
-        "equation_FStar.UInt.size", "equation_FStar.UInt.uint_t",
-        "equation_LowStar.Buffer.buffer", "equation_LowStar.Buffer.pointer",
+        "equation_FStar.Monotonic.HyperHeap.hmap",
+        "equation_FStar.Monotonic.HyperStack.is_tip",
+        "equation_FStar.Monotonic.HyperStack.is_wf_with_ctr_and_tip",
+        "equation_FStar.Monotonic.HyperStack.mem",
+        "equation_LowStar.Buffer.pointer",
         "equation_LowStar.Buffer.trivial_preorder",
-        "equation_LowStar.Monotonic.Buffer.length", "equation_Prims.nat",
+        "function_token_typing_FStar.Monotonic.Heap.heap",
         "function_token_typing_LowStar.Buffer.trivial_preorder",
-        "int_typing",
         "interpretation_Tm_abs_612136ee4143d24977831c80e4f470a1",
-        "kinding_Ctypes4.int_opt@tok", "primitive_Prims.op_AmpAmp",
-        "primitive_Prims.op_Multiply", "projection_inverse_BoxBool_proj_0",
+        "lemma_FStar.Map.lemma_ContainsDom",
         "projection_inverse_BoxInt_proj_0",
         "projection_inverse_Ctypes4.IntSome__0",
+        "refinement_interpretation_Tm_refine_05e15190c946858f68c69156f585f95a",
         "refinement_interpretation_Tm_refine_1b2ce59e79227b56280a45d01ab278ee",
-        "refinement_interpretation_Tm_refine_542f9d4f129664613f2483a6c88bc7c2",
-        "refinement_interpretation_Tm_refine_56be5b610fae35b624d70b1291ac633f",
         "refinement_interpretation_Tm_refine_573cfed777dae20cc82e8fef9622857e",
-        "refinement_interpretation_Tm_refine_f13070840248fced9d9d60d77bdae3ec",
-        "true_interp", "typing_FStar.UInt.fits", "typing_FStar.UInt32.v",
-        "typing_LowStar.Buffer.trivial_preorder",
-        "typing_LowStar.Monotonic.Buffer.len"
+        "refinement_interpretation_Tm_refine_98e236b88b9d3b03a3f3e224485608a5",
+        "true_interp", "typing_FStar.Map.contains",
+        "typing_FStar.Monotonic.HyperHeap.rid",
+        "typing_FStar.Monotonic.HyperStack.get_hmap",
+        "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "31680fabd5a56998605f2e0512991880"
+      "4d988283b7492869f7b1903a0f38b7d7"
     ],
     [
       "Ctypes4.__proj__L__item___0",
@@ -187,7 +187,7 @@
         "refinement_interpretation_Tm_refine_369514edfb0ad292ed962e8252b9565a"
       ],
       0,
-      "86955b9a9d28aeca851bf7f594710bfa"
+      "bc36cb4a4a7cceee2c76ca9d75d33a77"
     ],
     [
       "Ctypes4.__proj__R__item___0",
@@ -200,7 +200,7 @@
         "refinement_interpretation_Tm_refine_692b693643b05e0d1ba47aa0fabd554b"
       ],
       0,
-      "700768114a83aaead23168b5fe50b1e4"
+      "494dabf3d19138da7324897d7fe99f49"
     ],
     [
       "Ctypes4.make_L",
@@ -213,7 +213,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "fc2d99c8acae0eb55b1af7e77af3d0c2"
+      "131856bbe5db450d11dd11a095cf78e4"
     ],
     [
       "Ctypes4.make_R",
@@ -226,7 +226,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "6fc0e8f3a365e210c38db07ce45862df"
+      "963da681a8e83a839217773a3ee092d3"
     ],
     [
       "Ctypes4.flip_t",
@@ -249,7 +249,7 @@
         "true_interp"
       ],
       0,
-      "1ffab6cd935364acec099febb58b5f4a"
+      "dd682472bf331644ee32a67e8ffbc8ca"
     ],
     [
       "Ctypes4.unsupported_t",
@@ -262,7 +262,7 @@
         "typing_FStar.UInt128.t", "typing_FStar.UInt32.t"
       ],
       0,
-      "2da5ea65a524c37ea66a2f62ffa6056a"
+      "3138549141b610a3f9989d1f572d3e26"
     ],
     [
       "Ctypes4.unsupported_abstract_t",
@@ -275,7 +275,7 @@
         "typing_FStar.UInt128.t", "typing_FStar.UInt32.t"
       ],
       0,
-      "66649594ccbb48ec68b184dd6d265de2"
+      "0a11282f8283b2e6665fc2c161f54d32"
     ],
     [
       "Ctypes4.create_u",
@@ -308,7 +308,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "bb682748d4491725b1349687408095a9"
+      "3fadc8f70c63898f6d79725fab1cd60a"
     ],
     [
       "Ctypes4.read_u_a2",
@@ -324,7 +324,7 @@
         "typing_Ctypes4.__proj__Mkunsupported_abstract_t__item__a2"
       ],
       0,
-      "f00960f60877e96733fdc67607b625a9"
+      "8c58a7262610f6c440dc768ecc9796d7"
     ]
   ]
 ]

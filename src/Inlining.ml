@@ -210,6 +210,7 @@ let cross_call_analysis files =
    * be safely marked as private. The invariant is not established yet. *)
   let private_or_internal = Hashtbl.create 41 in
   let safely_inline = Hashtbl.create 41 in
+  let c_abstract_structs = Hashtbl.create 41 in
 
   (* Constants that will end up being mutable in Wasm because of the compilation
    * scheme of constants as little-endian encoded pre-laid out byte literals
@@ -228,6 +229,9 @@ let cross_call_analysis files =
       if List.mem Private flags && not (Helpers.is_static_header name) then
         (* -static-header takes precedence over private, see CStarToC11.ml *)
         Hashtbl.add private_or_internal name T.Private;
+
+      if List.mem AbstractStruct flags then
+        Hashtbl.add c_abstract_structs name ();
 
       if List.mem Inline flags then
         Hashtbl.add safely_inline name ();
@@ -282,7 +286,7 @@ let cross_call_analysis files =
     val mutable name = [],""
     method! visit_EQualified ((_, t) as env) name' =
       if !Options.wasm && cross_call name name' && Hashtbl.mem wasm_mutable name' then begin
-        if Options.debug "wasm" then
+        if Options.debug "wasm" && not (Hashtbl.mem getters name') then
           KPrint.bprintf "%a accesses %a, a mutable global, across modules: getter \
             must be generated\n" plid name plid name';
         Hashtbl.add getters name' ();
@@ -369,19 +373,20 @@ let cross_call_analysis files =
         Hashtbl.find_opt private_or_internal (lid_of_decl d) = Some T.Private
 
       method private remove_and_visit name =
+        (* KPrint.bprintf "Remove_and_visit %a with mode %s\n" plid name *)
+        (*   (match !mode with `Public -> "public" | `Internal -> "internal"); *)
         if Hashtbl.mem private_or_internal name then begin
-          (* KPrint.bprintf "Remove_and_visit %a with mode %s\n" plid name *)
-          (*   (match !mode with `Public -> "public" | `Internal -> "internal"); *)
           match !mode with
           | `Internal ->
               Hashtbl.replace private_or_internal name T.Internal
           | `Public ->
               Hashtbl.remove private_or_internal name
         end;
-        if not (Hashtbl.mem seen name) || mode_lt (Hashtbl.find seen name) !mode then begin
+        if (not (Hashtbl.mem seen name) || mode_lt (Hashtbl.find seen name) !mode) then begin
           Hashtbl.replace seen name !mode;
-          try super#visit_decl () (Hashtbl.find decl_map name)
-          with Not_found -> ()
+          if not (Hashtbl.mem c_abstract_structs name) then
+            try super#visit_decl () (Hashtbl.find decl_map name)
+            with Not_found -> ()
         end
 
       method! visit_TQualified () name =
@@ -409,7 +414,10 @@ let cross_call_analysis files =
         (* We visit any non-private declaration; static header takes precedence
            over private. *)
         let name = lid_of_decl d in
-        if not (self#still_private d) || Helpers.is_static_header name then begin
+        let flags = flags_of_decl d in
+        if (not (self#still_private d) || Helpers.is_static_header name) &&
+          not (List.mem AbstractStruct flags)
+        then begin
           mode :=
             match Hashtbl.find private_or_internal name with
             | exception Not_found -> `Public
@@ -443,6 +451,7 @@ let cross_call_analysis files =
         | T.Private -> flags
         | T.Internal -> Internal :: List.filter ((<>) Private) flags
       in
+      (* KPrint.bprintf "%a: %s\n" plid name (String.concat " " (List.map show_flag flags)); *)
       if !Options.cc = "compcert" then
         keep_if safely_inline Inline name flags
       else
@@ -520,42 +529,7 @@ let inline_type_abbrevs files =
   let inline_one = memoize_inline map (fun recurse -> (inliner recurse)#visit_typ ()) in
   let i = inliner inline_one in
 
-  let files = i#visit_files () files in
-
-  (* There may be type abbreviations in here... since we recorded the naming
-     hints early! So, expand them there, too. *)
-  NamingHints.hints := List.map (fun ((hd, args), lid) ->
-    (hd, List.map (i#visit_typ ()) args), lid
-  ) !NamingHints.hints;
-
-  (* After we've inlined things, drop type abbreviations definitions now. This
-   * is important, as the monomorphization of data types relies on all types
-   * being fully applied (i.e. no more TBound), and leaving things such as:
-   *   type pair a b = Tuple (1, 0)
-   * breaks this invariant. *)
-  filter_decls (function
-    | DType (lid, _, n, Abbrev def) as d ->
-        let hint_preferred_name = match def with
-          | TApp (hd, args) ->
-              List.assoc_opt (hd, args) !NamingHints.hints
-          | TTuple args ->
-              List.assoc_opt (tuple_lid, args) !NamingHints.hints
-          | _ ->
-              None
-        in
-        if hint_preferred_name = Some lid then
-          (* We are about to generate a monomorphized instance with this very
-             name. We don't want two type definitions with the same name. Drop
-             it. *)
-          None
-        else if n > 0 then
-          None
-        else
-          Some d
-
-    | d ->
-        Some d
-  ) files
+  i#visit_files () files
 
 
 (* Drop unused private functions **********************************************)
