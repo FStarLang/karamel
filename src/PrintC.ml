@@ -367,14 +367,14 @@ and p_stmt (s: stmt) =
         string (KPrint.bsprintf "%s %a" prefix pdoc doc)
       in
       group (mk_line "#if" (p_expr cond) ^^ hardline ^^
-        p_stmts then_block ^^ hardline ^^
+        p_stmt (Compound then_block) ^^ hardline ^^
         separate_map hardline (fun (cond, stmts) ->
           mk_line "#elif" (p_expr cond) ^^ hardline ^^
-          p_stmts stmts) elif_blocks ^^
+          p_stmt (Compound stmts)) elif_blocks ^^
         (if List.length elif_blocks > 0 then hardline else empty) ^^
         (if List.length else_block > 0 then
           string "#else" ^^ hardline ^^
-          p_stmts else_block ^^ hardline
+          p_stmt (Compound else_block) ^^ hardline
         else
           empty) ^^
         string "#endif")
