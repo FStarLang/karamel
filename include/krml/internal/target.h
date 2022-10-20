@@ -108,7 +108,7 @@ inline static int32_t krml_time() {
  * *elements*. Do an ugly, run-time check (some of which KaRaMeL can eliminate).
  */
 
-#if defined(__GNUC__) && __GNUC__ >= 4 && __GNUC_MINOR__ > 4
+#if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 4))
 #  define _KRML_CHECK_SIZE_PRAGMA                                              \
     _Pragma("GCC diagnostic ignored \"-Wtype-limits\"")
 #else
