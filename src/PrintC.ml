@@ -405,7 +405,7 @@ and p_stmt (s: stmt) =
 and p_stmts stmts = separate_map hardline p_stmt stmts
 
 let p_comments cs =
-  separate_map hardline (fun c -> string ("/*\n" ^ c ^ "\n*/")) cs ^^
+  separate_map hardline (fun c -> string ("/**\n" ^ c ^ "\n*/")) cs ^^
   if List.length cs > 0 then hardline else empty
 
 let p_microsoft_comments cs =
