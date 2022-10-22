@@ -10,3 +10,4 @@ book/_build
 fstar-mode.el
 .#*
 src/Version.ml
+*.runlim

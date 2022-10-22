@@ -31,7 +31,14 @@ FSTAR_OPTIONS += --record_hints --use_hints --odir $(EXTRACT_DIR) \
 
 INCLUDE_PATHS = ../runtime
 
-FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules --cache_dir obj \
+# Passing MON=1 to this Makefile will create .runlim files throughout
+# the tree with resource information. The $(RUNLIM) variable can also be
+# defined directly if needed.
+ifneq ($(MON),)
+  RUNLIM = runlim -p -o $@.runlim
+endif
+
+FSTAR = $(RUNLIM) $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules --cache_dir obj \
   --hint_dir hints \
   $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
   --already_cached 'Prims FStar -FStar.Krml.Endianness LowStar -LowStar.Lib'
