@@ -9,8 +9,8 @@ type t = width * string
 and width =
   | UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64
   | Bool
-  | SizeT | PtrdiffT
   | CInt (** Checked signed integers. *)
+  | SizeT | PtrdiffT
 
 let bytes_of_width (w: width) =
   match w with
