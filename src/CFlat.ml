@@ -67,7 +67,7 @@ module Sizes = struct
         A16
     | UInt8 | Int8 ->
         A8
-    | Bool ->
+    | Bool | SizeT | PtrdiffT ->
         invalid_arg "array_size_of_width"
 
   let bytes_in = function
