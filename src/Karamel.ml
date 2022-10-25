@@ -305,6 +305,7 @@ Supported options:|}
         prefix restricts merges to variables that share a common prefix; \
         aggressive always merges";
     "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
+    "-fcast-allocations", Arg.Set Options.cast_allocations, "  cast allocations (for C89, or for C++)";
     "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see \
       above) + also disable variadic-length KRML_HOST_EPRINTF + cast allocations";
     "-flinux-ints", Arg.Set Options.linux_ints, " use Linux kernel int types";
