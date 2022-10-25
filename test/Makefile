@@ -154,6 +154,7 @@ $(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fnoshort-enums
 $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
 $(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel memcpymodel_impl.c
 $(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
+$(OUTPUT_DIR)/IfDefKrml.exe: EXTRA = -fmicrosoft -ccopts -DBOOLEAN=bool,-DTRUE=true,-DFALSE=false
 $(OUTPUT_DIR)/Ctypes2.exe: EXTRA = -ctypes 'Ctypes2,Ctypes4' \
   -bundle 'Ctypes3+Ctypes4=[rename=Lowlevel]' \
   -bundle 'Ctypes2=' \

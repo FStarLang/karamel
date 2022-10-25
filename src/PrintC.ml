@@ -366,15 +366,16 @@ and p_stmt (s: stmt) =
       let mk_line prefix doc =
         string (KPrint.bsprintf "%s %a" prefix pdoc doc)
       in
+      let p stmts = if !Options.microsoft then p_stmt (Compound stmts) else p_stmts stmts in
       group (mk_line "#if" (p_expr cond) ^^ hardline ^^
-        p_stmt (Compound then_block) ^^ hardline ^^
+        p then_block ^^ hardline ^^
         separate_map hardline (fun (cond, stmts) ->
           mk_line "#elif" (p_expr cond) ^^ hardline ^^
-          p_stmt (Compound stmts)) elif_blocks ^^
+          p stmts) elif_blocks ^^
         (if List.length elif_blocks > 0 then hardline else empty) ^^
         (if List.length else_block > 0 then
           string "#else" ^^ hardline ^^
-          p_stmt (Compound else_block) ^^ hardline
+          p else_block ^^ hardline
         else
           empty) ^^
         string "#endif")
