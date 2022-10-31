@@ -206,6 +206,12 @@ let steel_reference : file =
     mk_val [ "Steel"; "Reference" ] "null" (TArrow (TAny, TBuf (TAny, false)));
   ]
 
+let steel_sizet_intros : file =
+  "Steel_ST_HigherArray", [
+    mk_val ["Steel"; "ST"; "HigherArray" ] "intro_fits_u32" (TArrow (TUnit, TArrow (TUnit, TUnit)));
+    mk_val ["Steel"; "ST"; "HigherArray" ] "intro_fits_u64" (TArrow (TUnit, TArrow (TUnit, TUnit)));
+  ]
+
 let lowstar_monotonic_buffer: file =
   "LowStar_Monotonic_Buffer", [
     mk_val [ "LowStar"; "Monotonic"; "Buffer" ] "is_null" (TArrow (TBuf (TAny, false), TBool));
@@ -311,6 +317,7 @@ let hand_written = [
   lowstar_endianness;
   monotonic_hh;
   monotonic_hs;
+  steel_sizet_intros;
   hs;
   dyn;
 ]

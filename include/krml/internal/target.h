@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <assert.h>
 
 #include "krml/internal/callconv.h"
 
