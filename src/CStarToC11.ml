@@ -20,6 +20,8 @@ let builtin_names =
     ["LowStar"; "Buffer"], "null";
     ["Steel"; "Reference"], "null";
     ["Steel"; "Reference"], "is_null";
+    ["Steel"; "ST"; "HigherArray"], "intro_fits_u32";
+    ["Steel"; "ST"; "HigherArray"], "intro_fits_u64";
     ["C"; "Nullity"], "null";
     ["C"; "String"], "get";
     ["C"; "String"], "t";
@@ -1053,6 +1055,11 @@ and mk_expr m (e: expr): C.expr =
   | Call (Qualified ([ "Steel"; "Reference" ], "null"), _)
   | Call (Qualified ([ "C"; "Nullity" ], "null"), _) ->
       Name "NULL"
+
+  | Call (Qualified ( [ "Steel"; "ST"; "HigherArray" ], "intro_fits_u32"), _ ) ->
+      Call (Name "static_assert", [Op2 (K.Lte, Name "UINT32_MAX", Name "SIZE_MAX")])
+  | Call (Qualified ( [ "Steel"; "ST"; "HigherArray" ], "intro_fits_u64"), _ ) ->
+      Call (Name "static_assert", [Op2 (K.Lte, Name "UINT64_MAX", Name "SIZE_MAX")])
 
   | Call (Qualified ( [ "LowStar"; "Monotonic"; "Buffer" ], "is_null"), [ e ] )
   | Call (Qualified ( [ "Steel"; "Reference" ], "is_null"), [ e ] )
