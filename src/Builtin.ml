@@ -208,8 +208,8 @@ let steel_reference : file =
 
 let steel_sizet_intros : file =
   "Steel_ST_HigherArray", [
-    mk_val ["Steel"; "ST"; "HigherArray" ] "intro_fits_u32" (TArrow (TUnit, TArrow (TUnit, TUnit)));
-    mk_val ["Steel"; "ST"; "HigherArray" ] "intro_fits_u64" (TArrow (TUnit, TArrow (TUnit, TUnit)));
+    mk_val ["Steel"; "ST"; "HigherArray" ] "intro_fits_u32" (TArrow (TUnit, TUnit));
+    mk_val ["Steel"; "ST"; "HigherArray" ] "intro_fits_u64" (TArrow (TUnit, TUnit));
   ]
 
 let lowstar_monotonic_buffer: file =
