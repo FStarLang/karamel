@@ -410,7 +410,12 @@ let prepare files =
         name, snd f @ extra
       with Not_found ->
         f
-  ) files @ if List.mem_assoc "C" files then [] else [c_deref]
+  ) files @
+  (* This is unfortunately needed because of PR #278, and especially the corresponding
+     F* PR: References to module C can now occur even when the module is not in the scope.
+     If so, we add the definition that is needed as a builtin, since it will be rewritten
+     during C code generation *)
+  if List.mem_assoc "C" files then [] else [c_deref]
 
 let make_libraries files =
   List.map (fun f ->
