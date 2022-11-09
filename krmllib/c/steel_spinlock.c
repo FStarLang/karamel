@@ -2,9 +2,7 @@
 #include <pthread.h>
 
 Steel_SpinLock_lock_t Steel_SpinLock_new_lock () {
-  pthread_mutex_t mutex;
-  int rc = pthread_mutex_init(&mutex, NULL);
-  assert (rc = 0);
+  pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
   return mutex;
 }
 
