@@ -40,6 +40,7 @@ FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules --cache_dir obj \
 # location of ulib.
 ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
   FStar.UInt128.fst FStar.Date.fsti \
+    Steel.SpinLock.fsti \
     FStar.HyperStack.IO.fst FStar.IO.fst FStar.Int.Cast.Full.fst \
     FStar.Bytes.fsti FStar.Dyn.fsti LowStar.Printf.fst LowStar.Endianness.fst
 
@@ -98,6 +99,19 @@ $(MINI_DIR):
 $(GENERIC_DIR):
 	mkdir -p $@
 
+FILTERED_STEEL_FILES = \
+  $(EXTRACT_DIR)/FStar_MSTTotal.krml \
+  $(EXTRACT_DIR)/FStar_NMSTTotal.krml \
+  $(EXTRACT_DIR)/FStar_NMST.krml \
+  $(EXTRACT_DIR)/FStar_MST.krml \
+  $(EXTRACT_DIR)/Steel_Effect.krml \
+  $(EXTRACT_DIR)/Steel_Effect_Atomic.krml \
+  $(EXTRACT_DIR)/Steel_ST_Effect_Atomic.krml \
+  $(EXTRACT_DIR)/Steel_HigherReference.krml \
+  $(EXTRACT_DIR)/Steel_Reference.krml \
+  $(EXTRACT_DIR)/Steel_Semantics_Hoare_MST.krml
+ALL_KRML_FILES:= $(filter-out $(FILTERED_STEEL_FILES), $(ALL_KRML_FILES))
+
 # Everything in the universe
 $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../_build/src/Karamel.native
 	../krml $(KRML_ARGS) -tmpdir $(GENERIC_DIR) \
@@ -105,6 +119,7 @@ $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c
 	  $(MACHINE_INTS) \
 	  $(addprefix -add-include ,'<inttypes.h>' '"krmllib.h"' '"krml/internal/compat.h"' '"krml/internal/target.h"') \
 	  -bundle LowStar.Endianness= \
+	  -bundle Steel.SpinLock= -bundle Steel.*,FStar.Real -add-include 'Steel_SpinLock:"krml/steel_types.h"' \
 	  -bundle FStar.Endianness,FStar.Reflection,FStar.Reflection.*,FStar.Tactics,FStar.Tactics.*,FStar.Range \
 	  -library C,C.Endianness,C.Failure,C.Loops,FStar.BitVector,FStar.Bytes,FStar.Char,FStar.Int,FStar.Krml.Endianness,FStar.Math.Lib,FStar.ModifiesGen,FStar.Monotonic.Heap,FStar.Monotonic.HyperStack,FStar.Mul,FStar.Pervasives,FStar.Pervasives.Native,FStar.ST,FStar.UInt,FStar.UInt63,LowStar.Printf \
 	  $(filter-out fstar_uint128_msvc.c,$(notdir $(wildcard c/*.c))) \

@@ -388,7 +388,8 @@ let is_model name =
     List.mem name [
       "C_String";
       "C_Compat_String";
-      "FStar_String"
+      "FStar_String";
+      "Steel_SpinLock"
     ]
 
 (* We have several different treatments. *)
