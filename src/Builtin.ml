@@ -394,7 +394,7 @@ let is_model name =
 (* We have several different treatments. *)
 let prepare files =
   (* prims is a special-case, as it is not extracted by F* (FIXME) *)
-  prims :: steel_reference :: c_deref :: List.map (fun f ->
+  prims :: steel_reference :: List.map (fun f ->
     let name = fst f in
     (* machine integers, some modules from the C namespace just become abstract in Low*. *)
     let f = if is_model name then make_abstract f else f in
@@ -410,7 +410,7 @@ let prepare files =
         name, snd f @ extra
       with Not_found ->
         f
-  ) files
+  ) files @ if List.mem_assoc "C" files then [] else [c_deref]
 
 let make_libraries files =
   List.map (fun f ->
