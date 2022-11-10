@@ -411,7 +411,7 @@ let prepare files =
         name, snd f @ extra
       with Not_found ->
         f
-  ) files @
+  ) (List.remove_assoc "Steel_Reference" files) @
   (* This is unfortunately needed because of PR #278, and especially the corresponding
      F* PR: References to module C can now occur even when the module is not in the scope.
      If so, we add the definition that is needed as a builtin, since it will be rewritten
