@@ -43,7 +43,7 @@ src/AutoConfig.ml:
 
 .PHONY: src/Version.ml
 src/Version.ml:
-	git rev-parse HEAD > $@
+	@echo "let version = \"$(shell (git rev-parse HEAD))\"" > $@ \
 
 clean:
 	rm -rf krml _build Karamel.$(FLAVOR)
