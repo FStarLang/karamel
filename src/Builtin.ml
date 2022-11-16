@@ -322,6 +322,7 @@ let hand_written = [
   lowstar_endianness;
   monotonic_hh;
   monotonic_hs;
+  steel_reference;
   steel_sizet_intros;
   hs;
   dyn;
@@ -395,7 +396,7 @@ let is_model name =
 (* We have several different treatments. *)
 let prepare files =
   (* prims is a special-case, as it is not extracted by F* (FIXME) *)
-  prims :: steel_reference :: List.map (fun f ->
+  prims :: List.map (fun f ->
     let name = fst f in
     (* machine integers, some modules from the C namespace just become abstract in Low*. *)
     let f = if is_model name then make_abstract f else f in

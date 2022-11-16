@@ -99,19 +99,6 @@ $(MINI_DIR):
 $(GENERIC_DIR):
 	mkdir -p $@
 
-FILTERED_STEEL_FILES = \
-  $(EXTRACT_DIR)/FStar_MSTTotal.krml \
-  $(EXTRACT_DIR)/FStar_NMSTTotal.krml \
-  $(EXTRACT_DIR)/FStar_NMST.krml \
-  $(EXTRACT_DIR)/FStar_MST.krml \
-  $(EXTRACT_DIR)/Steel_Effect.krml \
-  $(EXTRACT_DIR)/Steel_Effect_Atomic.krml \
-  $(EXTRACT_DIR)/Steel_ST_Effect_Atomic.krml \
-  $(EXTRACT_DIR)/Steel_HigherReference.krml \
-  $(EXTRACT_DIR)/Steel_Reference.krml \
-  $(EXTRACT_DIR)/Steel_Semantics_Hoare_MST.krml
-ALL_KRML_FILES:= $(filter-out $(FILTERED_STEEL_FILES), $(ALL_KRML_FILES))
-
 # Everything in the universe
 $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../_build/src/Karamel.native
 	../krml $(KRML_ARGS) -tmpdir $(GENERIC_DIR) \
