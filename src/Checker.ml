@@ -47,6 +47,7 @@ module M = Map.Make(struct
 end)
 
 let uint32 = TInt UInt32
+let sizet = TInt SizeT
 let c_string = TQualified ([ "C" ], "string")
 
 type env = {
@@ -339,38 +340,38 @@ and check' env t e =
       if t = TAny then
         checker_error env buf_any_msg ppexpr e;
       check env t e1;
-      check env uint32 e2;
+      check_array_index env e2;
       c (best_buffer_type t e2)
 
   | EBufRead (e1, e2) ->
-      check env uint32 e2;
+      check_array_index env e2;
       check env (TBuf (t, true)) e1
 
   | EBufWrite (e1, e2, e3) ->
-      check env uint32 e2;
+      check_array_index env e2;
       let t1, c1 = infer_buffer env e1 in
       check env t1 e3;
       check_mut env "write" c1;
       c TUnit
 
   | EBufSub (e1, e2) ->
-      check env uint32 e2;
+      check_array_index env e2;
       check_buffer env t e1
 
   | EBufFill (e1, e2, e3) ->
       let t1, c1 = infer_buffer env e1 in
       check env t1 e2;
       check_mut env "fill" c1;
-      check env uint32 e3;
+      check_array_index env e3;
       c TUnit
 
   | EBufBlit (b1, i1, b2, i2, len) ->
       let t1, c1 = infer_buffer env b1 in
       check_mut env "blit" c1;
       check env (TBuf (t1, false)) b2;
-      check env uint32 i1;
-      check env uint32 i2;
-      check env uint32 len;
+      check_array_index env i1;
+      check_array_index env i2;
+      check_array_index env len;
       c TUnit
 
   | EBufCreateL (_, es) ->
@@ -596,22 +597,22 @@ and infer' env e =
 
   | EBufCreate (_, e1, e2) ->
       let t1 = infer env e1 in
-      check env uint32 e2;
+      check_array_index env e2;
       best_buffer_type t1 e2
 
   | EBufRead (e1, e2) ->
-      check env uint32 e2;
+      check_array_index env e2;
       fst (infer_buffer env e1)
 
   | EBufWrite (e1, e2, e3) ->
-      check env uint32 e2;
+      check_array_index env e2;
       let t1, c = infer_buffer env e1 in
       check_mut env "write" c;
       check env t1 e3;
       TUnit
 
   | EBufSub (e1, e2) ->
-      check env uint32 e2;
+      check_array_index env e2;
       let t1, c = infer_buffer env e1 in
       TBuf (t1, c)
 
@@ -619,16 +620,16 @@ and infer' env e =
       let t1, c = infer_buffer env e1 in
       check_mut env "fill" c;
       check env t1 e2;
-      check env uint32 e3;
+      check_array_index env e3;
       TUnit
 
   | EBufBlit (b1, i1, b2, i2, len) ->
       let t1, c = infer_buffer env b1 in
       check_mut env "blit" c;
       check env (TBuf (t1, c)) b2;
-      check env uint32 i1;
-      check env uint32 i2;
-      check env uint32 len;
+      check_array_index env i1;
+      check_array_index env i2;
+      check_array_index env len;
       TUnit
 
   | EBufFree e ->
@@ -1086,3 +1087,9 @@ and expand_abbrev env t =
       end
   | _ ->
       t
+
+and check_array_index env e =
+    match check env uint32 e with
+    | exception CheckerError _ -> check env sizet e
+    | x -> x
+
