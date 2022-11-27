@@ -397,6 +397,8 @@ let mk_pretty_type = function
       x
 
 let bytes_in = function
+  (* SizeT does not have a statically known size *)
+  | Int SizeT -> None
   | Int w -> Some (K.bytes_of_width w)
   | Qualified ([ "FStar"; "UInt128" ], "uint128") -> Some (128 / 8)
   | Qualified ([ "Lib"; "IntVector"; "Intrinsics" ], "vec128") -> Some (128 / 8)
