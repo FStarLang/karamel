@@ -36,6 +36,7 @@ module Sizes = struct
     | Int of array_size
     | Pointer of runtime_type
     | Layout of string
+    | Union of runtime_type list
     | Unknown (* anonymous struct / unions *)
 
   let string_of_size = function

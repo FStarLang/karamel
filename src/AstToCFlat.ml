@@ -175,6 +175,8 @@ let rec runtime_type (env: env) (t: typ): runtime_type =
       | LBuiltin (_, s) -> Int s
       | _ -> Layout (GlobalNames.to_c_name env.names lid)
       end
+  | TAnonymous (Union branches) ->
+      Union (List.map (fun (_, t) -> runtime_type env t) branches)
   | TAnonymous _ ->
       Unknown
   | TBuf (t, _) ->
@@ -298,6 +300,51 @@ let cell_size (env: env) (t: typ): int * array_size =
 let cell_size_b env t =
   let mult, base = cell_size env t in
   mult * bytes_in base
+
+(* We name flat layouts to i) avoid recomputing layouts all the time and hit the
+   cache in env.layouts, and ii) to simplify the representation of runtime types
+   and make it recursive only via named layouts. *)
+let name_flat_layouts = object (self)
+  inherit [_] map as super
+
+  val mutable count = 0
+  val mutable current_prefix = []
+
+  method private gensym =
+    let r = Printf.sprintf "anonymous_struct_%d" count in
+    count <- count + 1;
+    current_prefix, r
+
+  val hash_cons = Hashtbl.create 41
+
+  val mutable new_decls = []
+
+  method! visit_TAnonymous () def =
+    match def with
+    | Flat fields ->
+        let fields = self#visit_fields_t_opt () fields in
+        begin match Hashtbl.find_opt hash_cons fields with
+        | Some lid ->
+            TQualified lid
+        | None ->
+            let name = self#gensym in
+            Hashtbl.add hash_cons fields name;
+            new_decls <- (name, fields) :: new_decls;
+            TQualified name
+        end
+    | _ ->
+        super#visit_TAnonymous () def
+
+  method! visit_program () decls =
+    List.concat_map (fun d ->
+      current_prefix <- fst (lid_of_decl d);
+      let d = self#visit_decl () d in
+      let ds: decl list = List.map (fun (name, fields) -> DType (name, [], 0, Flat fields)) new_decls in
+      new_decls <- [];
+      List.rev_append ds [ d ]
+    ) decls
+
+end
 
 let populate env files =
   (* Assign integers to enums *)
@@ -1066,6 +1113,7 @@ let report_failures () =
   ) errors
 
 let mk_files files names =
+  let files = name_flat_layouts#visit_files () files in
   let env = populate (empty names) files in
   if Options.debug "cflat" then
     debug_env env;
