@@ -1163,6 +1163,10 @@ end
  * Specific rewriting rule:
  *   (ii)  match let x = e0 in (e1, e2) with (x, y) -> e  ~~~>
  *         let x = e0 in match (e1, e2) with (x, y) -> e
+ * Specific rewriting rule, 20221202 (mostly because other stuff from simplify
+ * hasn't run yet, and we haven't called sequence_to_let):
+ *   (iii) match e1; ...; en -> e  ~~~>
+ *         e1; ...; match en -> e
  *)
 let remove_full_matches = object (self)
 
@@ -1172,6 +1176,10 @@ let remove_full_matches = object (self)
     let scrut0 = scrut in
     let scrut = self#visit_expr env scrut in
     match scrut.node with
+    | ESequence es ->
+        let es, e = KList.split_at_last es in
+        ESequence (es @ [
+          self#visit_expr env (with_type t (EMatch (e, branches)))])
     | ELet (b, e1, e2) ->
         let b, e2 = open_binder b e2 in
         (self#visit_expr env (with_type t (ELet (b, e1,
