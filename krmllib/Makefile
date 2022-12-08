@@ -31,15 +31,24 @@ FSTAR_OPTIONS += --record_hints --use_hints --odir $(EXTRACT_DIR) \
 
 INCLUDE_PATHS = ../runtime
 
-FSTAR = $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules --cache_dir obj \
+# Passing RESOURCEMONITOR=1 to this Makefile will create .runlim files
+# throughout the tree with resource information. The $(RUNLIM) variable
+# can also be defined directly if needed. The results can then be
+# tallied with the res_summary.sh script.
+ifneq ($(RESOURCEMONITOR),)
+  RUNLIM = runlim -p -o $@.runlim
+endif
+
+FSTAR = $(RUNLIM) $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules --cache_dir obj \
   --hint_dir hints \
   $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
-  --already_cached 'Prims FStar -FStar.Krml.Endianness LowStar -LowStar.Lib'
+  --already_cached 'Prims FStar Steel -FStar.Krml.Endianness LowStar -LowStar.Lib'
 
 # Note: not compatible with the OPAM layout until fstar can be queried for the
 # location of ulib.
 ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
   FStar.UInt128.fst FStar.Date.fsti \
+    Steel.SpinLock.fsti \
     FStar.HyperStack.IO.fst FStar.IO.fst FStar.Int.Cast.Full.fst \
     FStar.Bytes.fsti FStar.Dyn.fsti LowStar.Printf.fst LowStar.Endianness.fst
 
@@ -105,6 +114,7 @@ $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c
 	  $(MACHINE_INTS) \
 	  $(addprefix -add-include ,'<inttypes.h>' '"krmllib.h"' '"krml/internal/compat.h"' '"krml/internal/target.h"') \
 	  -bundle LowStar.Endianness= \
+	  -bundle Steel.SpinLock= -bundle Steel.*,FStar.Real -add-include 'Steel_SpinLock:"krml/steel_types.h"' \
 	  -bundle FStar.Endianness,FStar.Reflection,FStar.Reflection.*,FStar.Tactics,FStar.Tactics.*,FStar.Range \
 	  -library C,C.Endianness,C.Failure,C.Loops,FStar.BitVector,FStar.Bytes,FStar.Char,FStar.Int,FStar.Krml.Endianness,FStar.Math.Lib,FStar.ModifiesGen,FStar.Monotonic.Heap,FStar.Monotonic.HyperStack,FStar.Mul,FStar.Pervasives,FStar.Pervasives.Native,FStar.ST,FStar.UInt,FStar.UInt63,LowStar.Printf \
 	  $(filter-out fstar_uint128_msvc.c,$(notdir $(wildcard c/*.c))) \

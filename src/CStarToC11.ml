@@ -22,6 +22,8 @@ let builtin_names =
     ["LowStar"; "Buffer"], "null";
     ["Steel"; "Reference"], "null";
     ["Steel"; "Reference"], "is_null";
+    ["Steel"; "ST"; "HigherArray"], "intro_fits_u32";
+    ["Steel"; "ST"; "HigherArray"], "intro_fits_u64";
     ["C"; "Nullity"], "null";
     ["C"; "String"], "get";
     ["C"; "String"], "t";
@@ -397,6 +399,8 @@ let mk_pretty_type = function
       x
 
 let bytes_in = function
+  (* SizeT does not have a statically known size *)
+  | Int SizeT -> None
   | Int w -> Some (K.bytes_of_width w)
   | Qualified ([ "FStar"; "UInt128" ], "uint128") -> Some (128 / 8)
   | Qualified ([ "Lib"; "IntVector"; "Intrinsics" ], "vec128") -> Some (128 / 8)
@@ -579,16 +583,22 @@ and mk_check_size m t n_elements: C.stmt list =
    * hopefully a constant *)
   let default = [ C.Expr (C.Call (C.Name "KRML_CHECK_SIZE", [ mk_sizeof m t; n_elements ])) ] in
   match bytes_in t, n_elements with
+  | _, C.Cast (_, C.Constant (_, "1")) ->
+      (* C compilers also don't seem to let the user define a type that would be
+         greater than size_t, so if the element size is 1, then we can get rid
+         of the check as well. *)
+      []
   | Some w, C.Cast (_, C.Constant (_, n_elements)) ->
+      (* Compute, if we can, the size statically *)
       let size_bytes = Z.(of_int w * of_string n_elements) in
-      (* Note: this is a wild assumption and ought to be checked via a static
-       * assert. *)
-      let ptr_size = Z.(one lsl 32) in
-      if Z.( lt size_bytes ptr_size ) then
+      let ptr_size = Z.(one lsl 16) in
+      (* The C data model guarantees 16 bits wide for size_t, at least. *)
+      if Z.( lt size_bytes ptr_size )then
         []
       else
         default
   | _ ->
+      (* Nothing much we can deduce statically, bail *)
       default
 
 and mk_sizeof m t =
@@ -1061,6 +1071,11 @@ and mk_expr m (e: expr): C.expr =
   | Call (Qualified ([ "Steel"; "Reference" ], "null"), _)
   | Call (Qualified ([ "C"; "Nullity" ], "null"), _) ->
       Name "NULL"
+
+  | Call (Qualified ( [ "Steel"; "ST"; "HigherArray" ], "intro_fits_u32"), _ ) ->
+      Call (Name "static_assert", [Op2 (K.Lte, Name "UINT32_MAX", Name "SIZE_MAX")])
+  | Call (Qualified ( [ "Steel"; "ST"; "HigherArray" ], "intro_fits_u64"), _ ) ->
+      Call (Name "static_assert", [Op2 (K.Lte, Name "UINT64_MAX", Name "SIZE_MAX")])
 
   | Call (Qualified ( [ "LowStar"; "Monotonic"; "Buffer" ], "is_null"), [ e ] )
   | Call (Qualified ( [ "Steel"; "Reference" ], "is_null"), [ e ] )

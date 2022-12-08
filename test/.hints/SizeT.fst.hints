@@ -1,0 +1,36 @@
+[
+  "¸wvpZ{Å(æ¹þ~gP3\u0000",
+  [
+    [
+      "SizeT.f",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.nat", "int_typing",
+        "lemma_FStar.SizeT.fits_lte", "primitive_Prims.op_Addition",
+        "primitive_Prims.op_Multiply", "primitive_Prims.op_Subtraction",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_Tm_refine_542f9d4f129664613f2483a6c88bc7c2",
+        "refinement_interpretation_Tm_refine_7df43cb9feb536df62477b7b30ce1682",
+        "typing_FStar.SizeT.v"
+      ],
+      0,
+      "f3a6db3d2b768c780492143f2635d433"
+    ],
+    [
+      "SizeT.ft",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "primitive_Prims.op_Addition",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_Tm_refine_6b07a7df7c7c19089ed2c63d6620b5f0",
+        "typing_FStar.PtrdiffT.v"
+      ],
+      0,
+      "a2403857f2e012c945944fb576f14696"
+    ]
+  ]
+]

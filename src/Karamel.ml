@@ -39,6 +39,7 @@ module Time = struct
 end
 
 let _ =
+  let arg_version = ref false in
   let arg_print_ast = ref false in
   let arg_print_json = ref false in
   let arg_print_simplify = ref false in
@@ -176,7 +177,7 @@ Supported options:|}
     match String.split_on_char ':' s with
     | [ h; i ] ->
         begin match Filename.chop_suffix_opt ~suffix:".c" h with
-        | Some h -> 
+        | Some h ->
             COnly h, i
         | None ->
             HeaderOnly h, i
@@ -338,6 +339,9 @@ Supported options:|}
       comma-separated list of values; currently supported: \
       inline,bundle,reachability,c-calls,wasm-calls,wasm-memory,wasm,force-c,cflat";
     "", Arg.Unit (fun _ -> ()), " ";
+
+      (* General utilities *)
+    "-version", Arg.Set arg_version, " Display version number";
   ] in
   let spec = Arg.align spec in
   let rec anon_fun f =
@@ -379,6 +383,11 @@ Supported options:|}
     KPrint.bprintf "Complete invocation was: %s\n"
       (String.concat "␣" (Array.to_list Sys.argv));
     exit 1
+  end;
+
+  if !arg_version then begin
+    Printf.printf "KaRaMeL version: %s\n" Version.version;
+    exit 0
   end;
 
   if not !found_file ||

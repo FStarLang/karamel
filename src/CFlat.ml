@@ -36,6 +36,7 @@ module Sizes = struct
     | Int of array_size
     | Pointer of runtime_type
     | Layout of string
+    | Union of runtime_type list
     | Unknown (* anonymous struct / unions *)
 
   let string_of_size = function
@@ -67,7 +68,7 @@ module Sizes = struct
         A16
     | UInt8 | Int8 ->
         A8
-    | Bool ->
+    | Bool | SizeT | PtrdiffT ->
         invalid_arg "array_size_of_width"
 
   let bytes_in = function
