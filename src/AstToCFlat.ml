@@ -122,7 +122,8 @@ let width_of_poly_eq (env: env) (t: typ): K.width =
   match t with
   | TInt w ->
       w
-  | TBool | TUnit ->
+  | TBool | TUnit | TBuf _ ->
+      (* We can compare a pointer to NULL *)
       K.UInt32
   | TAnonymous (Enum _) ->
       K.UInt32
