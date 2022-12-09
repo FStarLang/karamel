@@ -178,15 +178,8 @@ let is_array = function TArray _ -> true | _ -> false
 let is_union = function TAnonymous (Union _) -> true | _ -> false
 
 let is_null = function
-  | { node = EApp (
-      { node = EQualified (
-          ([ "LowStar"; "Buffer" ] | [ "Steel"; "Reference" ] | [ "C"; "Nullity" ]), "null" |
-          ([ "LowStar"; "Monotonic"; "Buffer" ], "mnull"));
-        _ }, _); _ }
-  ->
-      true
-  | _ ->
-      false
+  | { node = EBufNull; _ } -> true
+  | _ -> false
 
 let is_uu name = KString.starts_with name "uu__"
 

@@ -547,7 +547,7 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
          * dummy value. *)
         write_le dst ofs Helpers.uint32 (Z.of_int (Hashtbl.hash name'));
         [ CF.BufWrite (CF.GetGlobal name, ofs, CF.GetGlobal name', A32) ]
-    | EApp ({ node = EQualified (["LowStar"; "Monotonic"; "Buffer"], "mnull"); _ }, _) ->
+    | EBufNull ->
         write_le dst ofs Helpers.uint32 Z.zero;
         []
     | _ ->
