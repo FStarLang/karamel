@@ -527,6 +527,9 @@ let to_addr is_struct =
         (* Not descending, this is already an address *)
         w (EBufFree e)
 
+    | EBufNull ->
+        w EBufNull
+
     | ESwitch (e, branches) ->
         let e = to_addr false e in
         let branches = List.map (fun (lid, e) -> lid, to_addr false e) branches in

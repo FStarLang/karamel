@@ -875,6 +875,7 @@ and hoist_expr loc pos e =
   | ETApp _ ->
       assert false
 
+  | EBufNull
   | EAbort _
   | EAny
   | EBound _

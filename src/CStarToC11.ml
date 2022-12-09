@@ -273,6 +273,7 @@ let rec vars_of m = function
   | StringLiteral _
   | Any
   | EAbort _
+  | BufNull
   | Op _ ->
       S.empty
   | Cast (e, _)
@@ -1058,21 +1059,13 @@ and mk_expr m (e: expr): C.expr =
   | BufRead (e1, e2) ->
       mk_index m e1 e2
 
-  | Call (Qualified ([ "LowStar"; "Monotonic"; "Buffer" ], "mnull"), _)
-  | Call (Qualified ([ "LowStar"; "Buffer" ], "null"), _)
-  | Call (Qualified ([ "Steel"; "Reference" ], "null"), _)
-  | Call (Qualified ([ "C"; "Nullity" ], "null"), _) ->
+  | BufNull ->
       Name "NULL"
 
   | Call (Qualified ( [ "Steel"; "ST"; "HigherArray" ], "intro_fits_u32"), _ ) ->
       Call (Name "static_assert", [Op2 (K.Lte, Name "UINT32_MAX", Name "SIZE_MAX")])
   | Call (Qualified ( [ "Steel"; "ST"; "HigherArray" ], "intro_fits_u64"), _ ) ->
       Call (Name "static_assert", [Op2 (K.Lte, Name "UINT64_MAX", Name "SIZE_MAX")])
-
-  | Call (Qualified ( [ "LowStar"; "Monotonic"; "Buffer" ], "is_null"), [ e ] )
-  | Call (Qualified ( [ "Steel"; "Reference" ], "is_null"), [ e ] )
-  | Call (Qualified ( [ "C"; "Nullity" ], "is_null"), [ e ]) ->
-      Op2 (K.Eq, mk_expr m e, C.Name "NULL")
 
   | Call (Qualified ( [ "FStar"; "UInt128" ], "add"), [ e1; e2 ]) when !Options.builtin_uint128 ->
       Op2 (K.Add, mk_expr m e1, mk_expr m e2)

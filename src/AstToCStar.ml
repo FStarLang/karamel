@@ -275,6 +275,9 @@ let rec mk_expr env in_stmt e =
   | EAddrOf e ->
       CStar.AddrOf (mk_expr env e)
 
+  | EBufNull ->
+      CStar.BufNull
+
   | _ ->
       Warn.maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, NotLowStar e);
       CStar.Any

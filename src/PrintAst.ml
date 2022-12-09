@@ -298,6 +298,8 @@ and print_expr { node; typ } =
       ampersand ^^ parens_with_nesting (print_expr e)
   | EPolyComp (c, t) ->
       parens_with_nesting (print_poly_comp c ^^ comma ^^ space ^^ print_typ t)
+  | EBufNull ->
+      string "NULL" ^^ langle ^^ print_typ typ ^^ rangle
 
 and print_poly_comp = function
   | PEq -> equals

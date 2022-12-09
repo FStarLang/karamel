@@ -975,6 +975,9 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, e = mk_expr env locals e in
       locals, CF.Ignore (e, s)
 
+  | EBufNull ->
+      locals, CF.Constant (K.UInt32, "0")
+
 
 (* See digression for [dup32] in CFlatToWasm *)
 let scratch_locals =

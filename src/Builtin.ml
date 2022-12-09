@@ -200,12 +200,6 @@ let dyn: file =
       with_type void_star (ECast (with_type (TBound 0) (EBound 0), void_star)))
   ]
 
-let steel_reference : file =
-  "Steel_Reference", [
-    mk_val [ "Steel"; "Reference" ] "is_null" (TArrow (TBuf (TAny, false), TBool));
-    mk_val [ "Steel"; "Reference" ] "null" (TArrow (TAny, TBuf (TAny, false)));
-  ]
-
 let steel_sizet_intros : file =
   "Steel_ST_HigherArray", [
     mk_val ["Steel"; "ST"; "HigherArray" ] "intro_fits_u32" (TArrow (TUnit, TUnit));
@@ -214,8 +208,6 @@ let steel_sizet_intros : file =
 
 let lowstar_monotonic_buffer: file =
   "LowStar_Monotonic_Buffer", [
-    mk_val [ "LowStar"; "Monotonic"; "Buffer" ] "is_null" (TArrow (TBuf (TAny, false), TBool));
-    mk_val [ "LowStar"; "Monotonic"; "Buffer" ] "mnull" (TArrow (TAny, TBuf (TAny, false)));
     DFunction (None, [ Common.MustDisappear ], 3, TUnit,
       ([ "LowStar"; "Monotonic"; "Buffer" ], "recall"),
       [ fresh_binder "x" (TBuf (TBound 2, false)) ],
@@ -322,7 +314,6 @@ let hand_written = [
   lowstar_endianness;
   monotonic_hh;
   monotonic_hs;
-  steel_reference;
   steel_sizet_intros;
   hs;
   dyn;

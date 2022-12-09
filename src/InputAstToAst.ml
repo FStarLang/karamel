@@ -139,6 +139,21 @@ and mk_expr = function
       mk (EUnit)
   | I.EString s ->
       mk (EString s)
+
+  | I.EApp (I.ETApp (I.EQualified ([ "LowStar"; "Monotonic"; "Buffer" ], "mnull"), [ t; _; _ ]), [ I.EUnit ])
+  | I.EApp (I.ETApp (I.EQualified ([ "LowStar"; "Buffer" ], "null"), [ t ]), [ I.EUnit ])
+  | I.EApp (I.ETApp (I.EQualified ([ "LowStar"; "ConstBuffer" ], "null"), [ t ]), [ I.EUnit ])
+  | I.EApp (I.ETApp (I.EQualified ([ "Steel"; "Reference" ], "null"), [ t ]), [ I.EUnit ])
+  | I.EApp (I.ETApp (I.EQualified ([ "C"; "Nullity" ], "null"), [ t ]), [ I.EUnit ])
+  | I.EBufNull t ->
+      { node = EBufNull; typ = TBuf (mk_typ t, false) }
+
+  | I.EApp (I.ETApp (I.EQualified ( [ "LowStar"; "Monotonic"; "Buffer" ], "is_null"), [ t; _; _ ]), [ e ])
+  | I.EApp (I.ETApp (I.EQualified ( [ "Steel"; "Reference" ], "is_null"), [ t ]), [ e ]) ->
+      mk (EApp (mk (EPolyComp (K.PEq, TBuf (mk_typ t, false))), [
+        mk_expr e;
+        { node = EBufNull; typ = TBuf (mk_typ t, false) }]))
+
   | I.EApp (e, es) ->
       mk (EApp (mk_expr e, List.map mk_expr es))
   | I.ETApp (I.EOp ((K.Eq | K.Neq as op), _), [ t ]) ->
