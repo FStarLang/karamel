@@ -760,7 +760,8 @@ Supported options:|}
 
     if not !Options.silent then begin
       Printf.printf "KaRaMeL: wrote out .c files for %s\n" (String.concat ", " (List.map fst files));
-      Printf.printf "KaRaMeL: wrote out .h files for %s\n" (String.concat ", " (List.map fst headers))
+      Printf.printf "KaRaMeL: wrote out .h files for %s\n" (String.concat ", "
+        (List.map (function | h, C11.Internal _ -> "internal/"^h | h, Public _ -> h) headers))
     end;
 
     let ml_files = GenCtypes.file_list ml_files in
