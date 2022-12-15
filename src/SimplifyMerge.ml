@@ -75,7 +75,8 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
   | EPopFrame
   | EEnum _
   | EStandaloneComment _
-  | EAbort _ ->
+  | EAbort _
+  | EBufNull ->
       keys env, u, e
 
   | EOpen (_, a) ->

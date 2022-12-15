@@ -103,6 +103,7 @@ and expr =
   | EComment of (string * expr * string)
   | EStandaloneComment of string
   | EAddrOf of expr
+  | EBufNull of typ
 
 and branches =
   branch list

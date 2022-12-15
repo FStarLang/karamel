@@ -208,6 +208,7 @@ type expr' =
     (** e1 (source), index; e2 (dest), index; len *)
   | EBufFill of expr * expr * expr
   | EBufFree of expr
+  | EBufNull
   | EPushFrame
   | EPopFrame
 

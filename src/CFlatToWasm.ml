@@ -674,7 +674,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallFunc ("LowStar_Monotonic_Buffer_mnull", [ _ ] )
   | CallFunc ("LowStar_Buffer_null", [ _ ] )
   | CallFunc ("C_Nullity_null", [ _ ]) ->
-      [ dummy_phrase (W.Ast.Const (mk_int32 0l)) ]
+      assert false
 
   | CallFunc (("load16_le_i" | "load16_le"), [ e ]) ->
       mk_expr env e @

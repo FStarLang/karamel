@@ -290,6 +290,7 @@ and check' env t e =
   | EOp _
   | EPushFrame | EPopFrame
   | EAny | EAbort _
+  | EBufNull
   | EReturn _
   | EBreak
   | EBool _
@@ -755,6 +756,11 @@ and infer' env e =
 
   | EAddrOf e ->
       TBuf (infer env e, false)
+
+  | EBufNull ->
+      assert (e.typ <> TAny);
+      (* e.typ is the type of the whole node, so it's already of the form TBuf _ *)
+      e.typ
 
 and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
   fun env f l ->

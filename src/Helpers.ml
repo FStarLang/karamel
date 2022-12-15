@@ -178,15 +178,8 @@ let is_array = function TArray _ -> true | _ -> false
 let is_union = function TAnonymous (Union _) -> true | _ -> false
 
 let is_null = function
-  | { node = EApp (
-      { node = EQualified (
-          ([ "LowStar"; "Buffer" ] | [ "Steel"; "Reference" ] | [ "C"; "Nullity" ]), "null" |
-          ([ "LowStar"; "Monotonic"; "Buffer" ], "mnull"));
-        _ }, _); _ }
-  ->
-      true
-  | _ ->
-      false
+  | { node = EBufNull; _ } -> true
+  | _ -> false
 
 let is_uu name = KString.starts_with name "uu__"
 
@@ -243,8 +236,6 @@ let is_readonly_builtin_lid lid =
     [ "FStar"; "UInt32" ], "v";
     [ "FStar"; "UInt128" ], "uint128_to_uint64";
     [ "FStar"; "UInt128" ], "uint64_to_uint128";
-    [ "LowStar"; "Monotonic"; "Buffer" ], "mnull";
-    [ "Steel"; "Reference" ], "null";
   ] in
   List.exists (fun lid' ->
     let lid = Idents.string_of_lident lid in
