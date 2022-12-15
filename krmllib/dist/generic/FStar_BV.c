@@ -18,7 +18,6 @@ Prims_list__bool *FStar_List_Tot_Base_append__bool(Prims_list__bool *x, Prims_li
   {
     Prims_list__bool *tl1 = x->tl;
     bool a1 = x->hd;
-    KRML_CHECK_SIZE(sizeof (Prims_list__bool), (uint32_t)1U);
     Prims_list__bool *buf = KRML_HOST_MALLOC(sizeof (Prims_list__bool));
     buf[0U]
     =
@@ -48,7 +47,6 @@ Prims_list__bool *FStar_Seq_Base_append__bool(Prims_list__bool *s1, Prims_list__
 
 static Prims_list__bool *cons__bool(bool x, Prims_list__bool *s)
 {
-  KRML_CHECK_SIZE(sizeof (Prims_list__bool), (uint32_t)1U);
   Prims_list__bool *buf = KRML_HOST_MALLOC(sizeof (Prims_list__bool));
   buf[0U] = ((Prims_list__bool){ .tag = Prims_Cons, .hd = x, .tl = s });
   return buf;
@@ -58,7 +56,6 @@ Prims_list__bool *FStar_Seq_Base_create__bool(Prims_int len, bool v)
 {
   if (len == (krml_checked_int_t)0)
   {
-    KRML_CHECK_SIZE(sizeof (Prims_list__bool), (uint32_t)1U);
     Prims_list__bool *buf = KRML_HOST_MALLOC(sizeof (Prims_list__bool));
     buf[0U] = ((Prims_list__bool){ .tag = Prims_Nil });
     return buf;
@@ -82,7 +79,6 @@ Prims_int (*FStar_BV_bv2int)(Prims_pos x0, Prims_list__bool *x1) = FStar_UInt_fr
 
 Prims_list__bool *FStar_Seq_Base_empty__bool()
 {
-  KRML_CHECK_SIZE(sizeof (Prims_list__bool), (uint32_t)1U);
   Prims_list__bool *buf = KRML_HOST_MALLOC(sizeof (Prims_list__bool));
   buf[0U] = ((Prims_list__bool){ .tag = Prims_Nil });
   return buf;
@@ -223,7 +219,6 @@ static Prims_list__bool *slice___bool(Prims_list__bool *s, Prims_int i, Prims_in
   }
   else if (j == (krml_checked_int_t)0)
   {
-    KRML_CHECK_SIZE(sizeof (Prims_list__bool), (uint32_t)1U);
     Prims_list__bool *buf = KRML_HOST_MALLOC(sizeof (Prims_list__bool));
     buf[0U] = ((Prims_list__bool){ .tag = Prims_Nil });
     return buf;
@@ -243,14 +238,12 @@ Prims_list__bool *FStar_Seq_Properties_seq_to_list__bool(Prims_list__bool *s)
 {
   if (FStar_Seq_Base_length__bool(s) == (krml_checked_int_t)0)
   {
-    KRML_CHECK_SIZE(sizeof (Prims_list__bool), (uint32_t)1U);
     Prims_list__bool *buf = KRML_HOST_MALLOC(sizeof (Prims_list__bool));
     buf[0U] = ((Prims_list__bool){ .tag = Prims_Nil });
     return buf;
   }
   else
   {
-    KRML_CHECK_SIZE(sizeof (Prims_list__bool), (uint32_t)1U);
     Prims_list__bool *buf = KRML_HOST_MALLOC(sizeof (Prims_list__bool));
     buf[0U]
     =
