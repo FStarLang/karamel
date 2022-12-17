@@ -241,8 +241,7 @@ let cross_call_analysis files =
       let is_static_inline = Helpers.is_static_header name in
       let is_inline = List.mem Common.Inline f in
       if is_static_inline && is_inline then
-        Warn.fatal_error "%a is both marked [@CInline] and -static-header... \
-          can't use both at the same time" plid (lid_of_decl d);
+        Warn.maybe_fatal_error ("", InlineStaticInline (lid_of_decl d));
       if is_static_inline then
         StaticInline
       else if is_inline then
