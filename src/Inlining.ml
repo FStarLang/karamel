@@ -193,7 +193,7 @@ let inline_analysis files =
   must_inline, must_disappear
 
 (** This phase is concerned with three whole-program, cross-compilation-unit
-    analyses, performed a single pass:
+    analyses, performed ina single pass:
     - assign correct visibility to declarations in the presence of bundling,
       static-header, mutually-recursive definitions, stackinline,
       inline_for_extraction, the friend mechanism, and the krmlinit_globals
@@ -210,6 +210,7 @@ let cross_call_analysis files =
     type inlining = Nope | Inline | StaticInline
     type info = {
       visibility: visibility;
+      callers: LidSet.t;
       inlining: inlining;
       wasm_mutable: bool;
       wasm_needs_getter: bool;
@@ -219,9 +220,12 @@ let cross_call_analysis files =
 
   (* We associate to each declaration some initial information. Three fields may
      change after initially filling the map:
-     - visibility may go upward along the visibility lattice
+     - visibility may go upward along the visibility lattice (this is only a
+       LOWER bound, not the actual final visibility which needs a fixpoint
+       computation)
      - inlining may be downgraded from Inline to Nope
-     - the flag wasm_needs_getter might be set *)
+     - the flag wasm_needs_getter might be set
+     - the callers are recorded for the purposes of the fixpoint computation *)
   let info_map = Helpers.build_map files (fun map d ->
     let f = flags_of_decl d in
     let name = lid_of_decl d in
@@ -254,7 +258,8 @@ let cross_call_analysis files =
           false
     in
     let wasm_needs_getter = false in
-    Hashtbl.add map (lid_of_decl d) { visibility; inlining; wasm_mutable; wasm_needs_getter }
+    let callers = LidSet.empty in
+    Hashtbl.add map (lid_of_decl d) { visibility; inlining; wasm_mutable; wasm_needs_getter; callers }
   ) in
 
   (* We keep track of the declarations we have seen so far. Since the
@@ -272,10 +277,24 @@ let cross_call_analysis files =
     | _ -> Public
   in
 
-  (* Possibly raise the visibility of an lid *)
+  (* Set a lower a bound on the visibility of `lid`. *)
   let raise lid v =
-    let info = Hashtbl.find info_map lid in
-    Hashtbl.replace info_map lid { info with visibility = lub v info.visibility }
+    try
+      let info = Hashtbl.find info_map lid in
+      Hashtbl.replace info_map lid { info with visibility = lub v info.visibility }
+    with Not_found ->
+      (* External type currently modeled as an lid without a definition (sigh) *)
+      ()
+  in
+
+  (* Record a call from `caller` to `callee` *)
+  let record_call_from_to caller callee =
+    try
+      let info = Hashtbl.find info_map callee in
+      Hashtbl.replace info_map callee { info with callers = LidSet.add caller info.callers }
+    with Not_found ->
+      (* External type currently modeled as an lid without a definition (sigh) *)
+      ()
   in
 
   (* Is this a call across compilation units? *)
@@ -290,7 +309,8 @@ let cross_call_analysis files =
     not (should_drop file1 || should_drop file2)
   in
 
-  (* Dealing with visibility, and with dropping inline qualifiers. *)
+  (* First, collect information in the info map. Side-effect: downgrade inlining
+     qualifiers. *)
   List.iter (fun (_, decls) ->
     List.iter (fun (d: decl) ->
       let lid = lid_of_decl d in
@@ -299,23 +319,31 @@ let cross_call_analysis files =
       (* if `lid` calls into `name` across translation units, then `name` must
          lose its inline qualifier, if any *)
       let maybe_strip_inline name =
-        let info = Hashtbl.find info_map name in
-        if info.inlining = Inline then begin
-          Warn.maybe_fatal_error ("", LostInline (file_of lid, lid, file_of name, name));
-          Hashtbl.replace info_map name { info with inlining = Nope }
-        end
+        try
+          let info = Hashtbl.find info_map name in
+          if info.inlining = Inline then begin
+            Warn.maybe_fatal_error ("", LostInline (file_of lid, lid, file_of name, name));
+            Hashtbl.replace info_map name { info with inlining = Nope }
+          end
+        with Not_found ->
+          if Options.debug "visibility-fixpoint" then
+            KPrint.bprintf "[maybe_strip_inline]: definition not found %a\n" plid name
       in
 
       (* if `lid` refers to `name` across translation units, then `name` needs a
          getter in WASM *)
       let maybe_needs_getter name =
-        let info = Hashtbl.find info_map name in
-        if info.wasm_mutable then begin
-          if Options.debug "wasm" && not info.wasm_needs_getter then
-            KPrint.bprintf "%a accesses %a, a mutable global, across modules: getter \
-              must be generated\n" plid lid plid name;
-          Hashtbl.replace info_map name { info with wasm_needs_getter = true }
-        end
+        try
+          let info = Hashtbl.find info_map name in
+          if info.wasm_mutable then begin
+            if Options.debug "wasm" && not info.wasm_needs_getter then
+              KPrint.bprintf "%a accesses %a, a mutable global, across modules: getter \
+                must be generated\n" plid lid plid name;
+            Hashtbl.replace info_map name { info with wasm_needs_getter = true }
+          end
+        with Not_found ->
+          if Options.debug "visibility-fixpoint" then
+            KPrint.bprintf "[maybe_needs_getter]: definition not found %a\n" plid name
       in
 
       let visit in_body = object (self)
@@ -332,7 +360,7 @@ let cross_call_analysis files =
              disjunction) must, in addition to the criterion above, follow
              the same rules as for a prototype. *)
           if in_body && my_info.inlining = StaticInline || not in_body then
-            raise name my_info.visibility
+            record_call_from_to lid name
 
         method! visit_TApp () name ts =
           self#visit_TQualified () name;
@@ -351,7 +379,7 @@ let cross_call_analysis files =
              visible as the caller, so that the callee is in scope of the
              caller. *)
           if my_info.inlining = StaticInline then
-            raise name my_info.visibility;
+            record_call_from_to lid name;
           (* Unrelated to visibility: MSVC and CompCert follow the C standard
              closely and make inline
              functions no externally-visible (which would result in a linking
@@ -385,10 +413,27 @@ let cross_call_analysis files =
     ) decls
   ) files;
 
-  (* Adjust definitions based on `info_map` *)
+  (* Fixpoint computation *)
+  let module F = Fix.Fix.ForOrderedType(struct
+    type t = lident
+    let compare = Pervasives.compare
+  end)(struct
+    type property = visibility
+    let bottom = Private
+    let equal = (=)
+    let is_maximal = (=) Public
+  end) in
+  let valuation = F.lfp (fun lid valuation ->
+    let info = Hashtbl.find info_map lid in
+    LidSet.fold (fun caller v -> lub v (valuation caller)) info.callers info.visibility
+  ) in
+
+  (* Adjust definitions based on `info_map` updated with fixpoint *)
   let files = List.map (fun (f, decls) ->
     f, List.map (fun d ->
-      let info = Hashtbl.find info_map (lid_of_decl d) in
+      let lid = lid_of_decl d in
+      let info = Hashtbl.find info_map lid in
+      let info = { info with visibility = valuation (lid_of_decl d) } in
       let remove_if cond flag flags = if cond then List.filter ((<>) flag) flags else flags in
       let add_if cond flag flags = if cond && not (List.mem flag flags) then flag :: flags else flags in
       let adjust flags =
