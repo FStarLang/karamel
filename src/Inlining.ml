@@ -252,6 +252,8 @@ let cross_call_analysis files =
     let wasm_mutable =
       match d with
       | DGlobal (_, _, _, (TBuf _ | TArray _), _) ->
+          if Options.debug "visibility-fixpoint" then
+            KPrint.bprintf "[wasm_mutable]: marking %a\n" plid (lid_of_decl d);
           true
       | _ ->
           false
@@ -341,7 +343,7 @@ let cross_call_analysis files =
         try
           let info = Hashtbl.find info_map name in
           if info.wasm_mutable then begin
-            if Options.debug "wasm" && not info.wasm_needs_getter then
+            if Options.debug "visibility-fixpoint" && not info.wasm_needs_getter then
               KPrint.bprintf "%a accesses %a, a mutable global, across modules: getter \
                 must be generated\n" plid lid plid name;
             Hashtbl.replace info_map name { info with wasm_needs_getter = true }
@@ -440,18 +442,23 @@ let cross_call_analysis files =
       let info = Hashtbl.find info_map lid in
       let info = { info with visibility = valuation (lid_of_decl d) } in
       if Options.debug "visibility-fixpoint" then
-        KPrint.bprintf "[adjustment]: %a: %a\n" plid lid pvis info.visibility;
+        KPrint.bprintf "[adjustment]: %a: %a, wasm: mut %b getter %b\n"
+          plid lid pvis info.visibility info.wasm_mutable info.wasm_needs_getter;
       let remove_if cond flag flags = if cond then List.filter ((<>) flag) flags else flags in
       let add_if cond flag flags = if cond && not (List.mem flag flags) then flag :: flags else flags in
       let adjust flags =
-        let flags = remove_if info.wasm_needs_getter Common.Internal flags in
-        let flags = add_if info.wasm_needs_getter Common.Private flags in
         let flags = remove_if (info.inlining = Nope) Common.Inline flags in
         let flags = remove_if (info.visibility <> Private) Common.Private flags in
         let flags = add_if (info.visibility = Private) Common.Private flags in
         let flags = remove_if (info.visibility <> Internal) Common.Internal flags in
         let flags = add_if (info.visibility = Internal) Common.Internal flags in
-        flags
+        if !Options.wasm then
+          (* We override the previous logic in the case of WASM *)
+          let flags = remove_if info.wasm_mutable Common.Internal flags in
+          let flags = add_if info.wasm_mutable Common.Private flags in
+          flags
+        else
+          flags
       in
       match d with
       | DFunction (cc, flags, n, t, name, bs, e) ->
