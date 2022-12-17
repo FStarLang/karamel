@@ -267,6 +267,12 @@ let cross_call_analysis files =
      another function indicates that there is mutual recursion. *)
   let seen = ref LidSet.empty in
 
+  let pvis b = function
+    | Private -> Buffer.add_string b "Private"
+    | Internal -> Buffer.add_string b "Internal"
+    | Public -> Buffer.add_string b "Public"
+  in
+
   (* T.Visibility forms a trivial lattice where Private <= Internal <= Public *)
   let lub v v' =
     match v, v' with
@@ -434,6 +440,8 @@ let cross_call_analysis files =
       let lid = lid_of_decl d in
       let info = Hashtbl.find info_map lid in
       let info = { info with visibility = valuation (lid_of_decl d) } in
+      if Options.debug "visibility-fixpoint" then
+        KPrint.bprintf "[adjustment]: %a: %a\n" plid lid pvis info.visibility;
       let remove_if cond flag flags = if cond then List.filter ((<>) flag) flags else flags in
       let add_if cond flag flags = if cond && not (List.mem flag flags) then flag :: flags else flags in
       let adjust flags =

@@ -1522,24 +1522,23 @@ let mk_public_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
    * definitions that are visible from the outside. *)
   (* What should be the behavior for a type declaration marked as CAbstract but
    * whose module has -static-header? This ignores CAbstract. *)
-  (* Note that static_header has precedence over private qualifiers *)
   (* Note that static_header + library means that corresponding declarations are
    * effectively dropped on the basis that the user is doing separate extraction
    * & compilation + providing the required header. *)
   KList.map_flatten
-    (if_header_inline_static m
-      (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
-      (if_public (either (mk_function_or_global_stub m) (mk_type_or_external m H))))
+    (if_public (
+      (if_header_inline_static m
+        (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
+        (either (mk_function_or_global_stub m) (mk_type_or_external m H)))))
     decls
 
 (* Private part if not already a static header, empty otherwise. *)
 let mk_internal_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
-  (* We make the choice here to not split static headers between public and
-     internal. Could be revisited. *)
   KList.map_flatten
-    (if_header_inline_static m
-      none
-      (if_internal (either (mk_function_or_global_stub m) (mk_type_or_external m H))))
+    (if_internal (
+      (if_header_inline_static m
+        (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
+        (either (mk_function_or_global_stub m) (mk_type_or_external m H)))))
     decls
 
 let mk_headers (map: (Ast.lident, Ast.ident) Hashtbl.t)
