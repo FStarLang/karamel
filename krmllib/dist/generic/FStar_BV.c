@@ -4,7 +4,7 @@
 */
 
 
-#include "FStar_BV.h"
+#include "internal/FStar_BV.h"
 
 
 
@@ -208,12 +208,12 @@ static bool hd__bool(Prims_list__bool *s)
   return FStar_List_Tot_Base_hd__bool(s);
 }
 
-static Prims_list__bool *slice___bool(Prims_list__bool *s, Prims_int i, Prims_int j)
+Prims_list__bool *FStar_Seq_Base_slice___bool(Prims_list__bool *s, Prims_int i, Prims_int j)
 {
   if (Prims_op_GreaterThan(i, (krml_checked_int_t)0))
   {
     return
-      slice___bool(tl__bool(s),
+      FStar_Seq_Base_slice___bool(tl__bool(s),
         Prims_op_Subtraction(i, (krml_checked_int_t)1),
         Prims_op_Subtraction(j, (krml_checked_int_t)1));
   }
@@ -227,12 +227,13 @@ static Prims_list__bool *slice___bool(Prims_list__bool *s, Prims_int i, Prims_in
   {
     return
       cons__bool(hd__bool(s),
-        slice___bool(tl__bool(s), i, Prims_op_Subtraction(j, (krml_checked_int_t)1)));
+        FStar_Seq_Base_slice___bool(tl__bool(s), i, Prims_op_Subtraction(j, (krml_checked_int_t)1)));
   }
 }
 
 Prims_list__bool
-*(*FStar_Seq_Base_slice__bool)(Prims_list__bool *x0, Prims_int x1, Prims_int x2) = slice___bool;
+*(*FStar_Seq_Base_slice__bool)(Prims_list__bool *x0, Prims_int x1, Prims_int x2) =
+  FStar_Seq_Base_slice___bool;
 
 Prims_list__bool *FStar_Seq_Properties_seq_to_list__bool(Prims_list__bool *s)
 {

@@ -723,7 +723,6 @@ Supported options:|}
     (* Translate to C*... *)
     let file_of_map = Bundle.mk_file_of files in
     let deps = Bundles.direct_dependencies_with_internal files file_of_map in
-    (* Bundles.debug_deps deps; *)
     let files = AstToCStar.mk_files files c_name_map ifdefs macros in
     tick_print true "AstToCStar";
 

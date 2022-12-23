@@ -160,6 +160,7 @@ $(OUTPUT_DIR)/MonomorphizationSeparate2.exe: EXTRA=-bundle MonomorphizationSepar
 $(OUTPUT_DIR)/Loops.exe: EXTRA=-funroll-loops 16
 $(OUTPUT_DIR)/GlobalInit.exe: EXTRA=global_init.c
 $(OUTPUT_DIR)/SteelLock.exe: EXTRA=-bundle Steel.* -add-include 'Steel:"krml/steel_types.h"'
+$(OUTPUT_DIR)/SizeT.exe: EXTRA=-ccopt -std=c2x
 
 Failure.test: NEGATIVE=true
 
