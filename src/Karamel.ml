@@ -447,6 +447,7 @@ Supported options:|}
       ([], [ Bundle.Module [ "Prims" ] ], []) ::
       ([], [ Bundle.Prefix [ "FStar" ] ], []) ::
       ([], [ Bundle.Prefix [ "LowStar" ] ], []) ::
+      ([], [ Bundle.Prefix [ "WasmSupport" ] ], []) ::
       !Options.bundle;
 
   if !arg_c89 then begin
