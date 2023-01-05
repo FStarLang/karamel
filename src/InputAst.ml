@@ -104,6 +104,7 @@ and expr =
   | EStandaloneComment of string
   | EAddrOf of expr
   | EBufNull of typ
+  | EIsNull of (typ * expr)
 
 and branches =
   branch list

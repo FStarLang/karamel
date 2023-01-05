@@ -148,6 +148,7 @@ and mk_expr = function
   | I.EBufNull t ->
       { node = EBufNull; typ = TBuf (mk_typ t, false) }
 
+  | I.EIsNull (t, e)
   | I.EApp (I.ETApp (I.EQualified ( [ "LowStar"; "Monotonic"; "Buffer" ], "is_null"), [ t; _; _ ]), [ e ])
   | I.EApp (I.ETApp (I.EQualified ( [ "Steel"; "Reference" ], "is_null"), [ t ]), [ e ]) ->
       mk (EApp (mk (EPolyComp (K.PEq, TBuf (mk_typ t, false))), [
