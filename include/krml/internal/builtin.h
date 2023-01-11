@@ -13,4 +13,8 @@
  * generate and try to link last a function with this type: */
 void krmlinit_globals(void);
 
+static inline within_bounds_intro(void *left, void *p, void *right) {
+  return (uintptr_t) left <= (uintptr_t) p && (uintptr_t) p <= (uintptr_t) right;
+}
+
 #endif

@@ -384,6 +384,7 @@ let is_model name =
       "C_String";
       "C_Compat_String";
       "FStar_String";
+      "Steel_ArrayArith";
       "Steel_SpinLock"
     ]
 
