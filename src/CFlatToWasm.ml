@@ -820,6 +820,9 @@ and mk_expr env (e: expr): W.Ast.instr list =
       i32_mul @
       i32_add
 
+  | BufDiff (_e1, _e2, _size) ->
+      failwith "Pointer subtraction is not supported for Wasm" 
+
   | Cast (e1, w_from, w_to) ->
       mk_expr env e1 @
       mk_cast w_from w_to

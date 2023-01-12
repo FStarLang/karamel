@@ -127,6 +127,7 @@ and expr =
 
   | BufCreate of lifetime * expr * array_size
   | BufSub of expr * expr * array_size
+  | BufDiff of expr * expr * array_size
   | BufRead of expr * int * array_size
       (** Constant offset expressed in number of BYTES. *)
   | BufWrite of expr * int * expr * array_size
