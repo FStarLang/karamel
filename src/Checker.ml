@@ -359,6 +359,10 @@ and check' env t e =
       check_array_index env e2;
       check_buffer env t e1
 
+  | EBufDiff (e1, e2) ->
+      let t1, _ = infer_buffer env e1 in
+      check env (TBuf (t1, false)) e2 
+
   | EBufFill (e1, e2, e3) ->
       let t1, c1 = infer_buffer env e1 in
       check env t1 e2;
@@ -616,6 +620,11 @@ and infer' env e =
       check_array_index env e2;
       let t1, c = infer_buffer env e1 in
       TBuf (t1, c)
+
+  | EBufDiff (e1, e2) ->
+      let t1, _ = infer_buffer env e1 in
+      check env (TBuf (t1, false)) e2;
+      TInt PtrdiffT
 
   | EBufFill (e1, e2, e3) ->
       let t1, c = infer_buffer env e1 in
