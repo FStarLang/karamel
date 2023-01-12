@@ -242,6 +242,8 @@ let rec mk_expr env in_stmt e =
       CStar.BufRead (mk_expr env e1, mk_expr env e2)
   | EBufSub (e1, e2) ->
       CStar.BufSub (mk_expr env e1, mk_expr env e2)
+  | EBufDiff (e1, e2) ->
+      CStar.BufDiff (mk_expr env e1, mk_expr env e2)
   | EOp (o, _) ->
       CStar.Op o
   | EPolyComp (c, _) ->
