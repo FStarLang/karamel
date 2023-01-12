@@ -514,6 +514,9 @@ let to_addr is_struct =
     | EBufSub (e1, e2) ->
         w (EBufSub (e1, e2))
 
+    | EBufDiff (e1, e2) ->
+        w (EBufDiff (e1, e2))
+
     | EBufBlit (e1, e2, e3, e4, e5) ->
         w (EBufBlit (to_addr false e1, to_addr false e2, to_addr false e3, to_addr false e4, to_addr false e5))
 

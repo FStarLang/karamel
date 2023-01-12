@@ -204,7 +204,7 @@ type expr' =
     (** e1[e2] <- e3 *)
   | EBufSub of expr * expr
     (** e1 + e2 *)
-  | EBufDiff of (expr * expr)
+  | EBufDiff of expr * expr
     (** e1 - e2 *)
   | EBufBlit of expr * expr * expr * expr * expr
     (** e1 (source), index; e2 (dest), index; len *)

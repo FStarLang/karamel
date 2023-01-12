@@ -600,6 +600,13 @@ let remove_unit_buffers = object (self)
     | _ ->
       super#visit_EBufSub env e1 e2
 
+  method! visit_EBufDiff env e1 e2 =
+    match e1.typ with
+    | TBuf ((TUnit (* | TAny *)), _) ->
+        EUnit
+    | _ ->
+      super#visit_EBufDiff env e1 e2
+  
   method! visit_EBufBlit env e1 e2 e3 e4 e5 =
     match e1.typ with
     | TBuf ((TUnit (* | TAny *)), _) ->
