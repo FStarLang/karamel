@@ -70,6 +70,8 @@ and expr =
     (** e1[e2] <- e3 *)
   | EBufSub of (expr * expr)
     (** e1 + e2 *)
+  | EBufDiff of (expr * expr)
+    (** e1 - e2 *)
   | EBufBlit of (expr * expr * expr * expr * expr)
     (** e1, index; e2, index; len *)
   | EMatch of (expr * branches)
