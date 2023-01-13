@@ -452,8 +452,14 @@ let assert_buf = function
 let mk_add32 e1 e2 =
   CF.CallOp ((K.UInt32, K.Add), [ e1; e2 ])
 
+let mk_sub32 e1 e2 =
+  CF.CallOp ((K.UInt32, K.Sub), [ e1; e2 ])
+
 let mk_mul32 e1 e2 =
   CF.CallOp ((K.UInt32, K.Mult), [ e1; e2 ])
+
+let mk_div32 e1 e2 =
+  CF.CallOp ((K.UInt32, K.Div), [ e1; e2 ])
 
 let mk_lt32 e1 e2 =
   CF.CallOp ((K.UInt32, K.Lt), [ e1; e2 ])
@@ -796,10 +802,10 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.BufSub (e1, mk_mul32 e2 (mk_uint32 mult), base_size)
 
   | EBufDiff (e1, e2) ->
-      let mult, base_size = cell_size env (assert_buf e.typ) in
+      let mult, _ = cell_size env (assert_buf e.typ) in
       let locals, e1 = mk_expr env locals e1 in
       let locals, e2 = mk_expr env locals e2 in
-      locals, CF.BufDiff (e1, mk_mul32 e2 (mk_uint32 mult), base_size)
+      locals, mk_div32 (mk_sub32 e1 e2) (mk_uint32 mult)
 
   | EBufWrite ({ node = EBound v1; _ }, e2, e3) ->
       let v1 = CF.Var (find env v1) in
