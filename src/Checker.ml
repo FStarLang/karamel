@@ -360,8 +360,8 @@ and check' env t e =
       check_buffer env t e1
 
   | EBufDiff (e1, e2) ->
-      let t1, _ = infer_buffer env e1 in
-      check env (TBuf (t1, false)) e2 
+      let t1 = infer env e1 in
+      check_buffer env t1 e2
 
   | EBufFill (e1, e2, e3) ->
       let t1, c1 = infer_buffer env e1 in
@@ -622,8 +622,8 @@ and infer' env e =
       TBuf (t1, c)
 
   | EBufDiff (e1, e2) ->
-      let t1, _ = infer_buffer env e1 in
-      check env (TBuf (t1, false)) e2;
+      let t1 = infer env e1 in
+      check_buffer env t1 e2;
       TInt PtrdiffT
 
   | EBufFill (e1, e2, e3) ->
