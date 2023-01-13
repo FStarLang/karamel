@@ -283,7 +283,6 @@ let rec vars_of m = function
       vars_of m e
   | BufRead (e1, e2)
   | BufSub (e1, e2)
-  | BufDiff (e1, e2)
   | Comma (e1, e2)
   | BufCreate (_, e1, e2) ->
       S.union (vars_of m e1) (vars_of m e2)
@@ -1133,9 +1132,6 @@ and mk_expr m (e: expr): C.expr =
 
   | BufSub (e1, e2) ->
       Op2 (K.Add, mk_expr m e1, mk_expr m e2)
-
-  | BufDiff (e1, e2) ->
-      Op2 (K.Sub, mk_expr m e1, mk_expr m e2)
 
   | Cast (e, t') ->
       (* JP: what is this? TODO review. *)

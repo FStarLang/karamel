@@ -61,7 +61,6 @@ and expr =
      * on the rhs of a (typed) assignment *)
   | BufRead of expr * expr
   | BufSub of expr * expr
-  | BufDiff of expr * expr
   | BufNull
   | Op of K.op
   | Cast of expr * typ
