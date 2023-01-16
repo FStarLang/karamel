@@ -802,10 +802,10 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.BufSub (e1, mk_mul32 e2 (mk_uint32 mult), base_size)
 
   | EBufDiff (e1, e2) ->
-      let mult, _ = cell_size env (assert_buf e.typ) in
+      let mult, base_size = cell_size env (assert_buf e.typ) in
       let locals, e1 = mk_expr env locals e1 in
       let locals, e2 = mk_expr env locals e2 in
-      locals, mk_div32 (mk_sub32 e1 e2) (mk_uint32 mult)
+      locals, mk_div32 (mk_sub32 e1 e2) (mk_mul32 (mk_uint32 mult) (mk_uint32 (bytes_in base_size)))
 
   | EBufWrite ({ node = EBound v1; _ }, e2, e3) ->
       let v1 = CF.Var (find env v1) in
