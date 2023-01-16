@@ -160,6 +160,7 @@ $(OUTPUT_DIR)/MonomorphizationCrash.exe: EXTRA=monomorphization_crash.c -add-inc
 $(OUTPUT_DIR)/MonomorphizationSeparate2.exe: EXTRA=-bundle MonomorphizationSeparate1=
 $(OUTPUT_DIR)/Loops.exe: EXTRA=-funroll-loops 16
 $(OUTPUT_DIR)/GlobalInit.exe: EXTRA=global_init.c
+$(OUTPUT_DIR)/SteelArrayArith.exe: EXTRA=-static-header Steel.ArrayArith -no-prefix Steel.ArrayArith
 $(OUTPUT_DIR)/SteelLock.exe: EXTRA=-bundle Steel.* -add-include 'Steel:"krml/steel_types.h"'
 $(OUTPUT_DIR)/SizeT.exe: EXTRA=-ccopt -std=c2x
 
