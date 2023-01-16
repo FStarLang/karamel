@@ -32,7 +32,8 @@ CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased \
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
-  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test Crypto.Symmetric.Chacha20.wasm-test
+  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test Wasm11.wasm-test \
+  Crypto.Symmetric.Chacha20.wasm-test
 NEGATIVE	= false
 
 WEB_DIR		?= web
