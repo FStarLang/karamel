@@ -18,10 +18,6 @@ typedef void *FStar_MST_pre_t;
 
 typedef void *FStar_MST_post_t;
 
-typedef void *FStar_MST_s_predicate;
-
-typedef void *FStar_MST_stable;
-
 
 #define __FStar_MST_H_DEFINED
 #endif

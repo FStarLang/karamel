@@ -9,14 +9,15 @@
 
 
 
-#include "FStar_Bytes.h"
+#include "Steel_FStar_Real.h"
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
 typedef void *FStar_Monotonic_Heap_tset;
 
-typedef FStar_Pervasives_Native_option__Prims_string_tags FStar_Pervasives_Native_option____;
+typedef FStar_Pervasives_Native_option__Steel_Heap_cell_tags
+FStar_Pervasives_Native_option____;
 
 typedef struct FStar_Pervasives_dtuple4_____FStar_Pervasives_Native_option_____bool_any_s
 {
@@ -28,7 +29,7 @@ FStar_Pervasives_dtuple4_____FStar_Pervasives_Native_option_____bool_any;
 typedef struct
 FStar_Pervasives_Native_option__FStar_Pervasives_dtuple4____FStar_Pervasives_Native_option_____bool_any_s
 {
-  FStar_Pervasives_Native_option__Prims_string_tags tag;
+  FStar_Pervasives_Native_option__Steel_Heap_cell_tags tag;
   FStar_Pervasives_dtuple4_____FStar_Pervasives_Native_option_____bool_any v;
 }
 FStar_Pervasives_Native_option__FStar_Pervasives_dtuple4____FStar_Pervasives_Native_option_____bool_any;

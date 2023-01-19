@@ -18,10 +18,6 @@ typedef void *FStar_MSTTotal_pre_t;
 
 typedef void *FStar_MSTTotal_post_t;
 
-typedef void *FStar_MSTTotal_s_predicate;
-
-typedef void *FStar_MSTTotal_stable;
-
 
 #define __FStar_MSTTotal_H_DEFINED
 #endif

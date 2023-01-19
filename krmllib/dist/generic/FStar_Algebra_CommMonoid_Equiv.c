@@ -13,7 +13,7 @@ bool FStar_Algebra_CommMonoid_Equiv_uu___is_EQ(FStar_Algebra_CommMonoid_Equiv_eq
   return true;
 }
 
-FStar_Algebra_CommMonoid_Equiv_equiv FStar_Algebra_CommMonoid_Equiv_equality_equiv()
+FStar_Algebra_CommMonoid_Equiv_equiv FStar_Algebra_CommMonoid_Equiv_equality_equiv(void)
 {
   return FStar_Algebra_CommMonoid_Equiv_EQ;
 }

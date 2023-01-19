@@ -30,7 +30,7 @@ extern Prims_list__bool *(*FStar_BV_int2bv)(Prims_pos x0, Prims_int x1);
 
 extern Prims_int (*FStar_BV_bv2int)(Prims_pos x0, Prims_list__bool *x1);
 
-Prims_list__bool *FStar_Seq_Base_empty__bool();
+Prims_list__bool *FStar_Seq_Base_empty__bool(void);
 
 Prims_list__bool *FStar_Seq_Base_op_At_Bar__bool(Prims_list__bool *s1, Prims_list__bool *s2);
 

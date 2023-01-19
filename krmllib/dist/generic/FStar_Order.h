@@ -38,7 +38,7 @@ bool FStar_Order_lt(FStar_Order_order o);
 
 bool FStar_Order_eq(FStar_Order_order o);
 
-FStar_Order_order FStar_Order_lex(FStar_Order_order o1, FStar_Order_order (*o2)());
+FStar_Order_order FStar_Order_lex(FStar_Order_order o1, FStar_Order_order (*o2)(void));
 
 FStar_Order_order FStar_Order_order_from_int(Prims_int i);
 
