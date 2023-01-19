@@ -230,6 +230,8 @@ and print_expr { node; typ } =
       string "<-" ^/^ print_expr e3
   | EBufSub (e1, e2) ->
       print_app string "subbuf" print_expr [e1; e2]
+  | EBufDiff (e1, e2) ->
+      print_app string "diffbuf" print_expr [e1; e2]
   | EBufBlit (e1, e2, e3, e4, e5) ->
       print_app string "blitbuf" print_expr [e1; e2; e3; e4; e5]
   | EBufFill (e1, e2, e3) ->

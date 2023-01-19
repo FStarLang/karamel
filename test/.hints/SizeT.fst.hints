@@ -1,5 +1,5 @@
 [
-  "¸wvpZ{Å(æ¹þ~gP3\u0000",
+  "Æ_±‡õÏ˜§WËzMgO\u0005s",
   [
     [
       "SizeT.f",
@@ -16,7 +16,7 @@
         "typing_FStar.SizeT.v"
       ],
       0,
-      "f3a6db3d2b768c780492143f2635d433"
+      "13f0a077deb31decf1168a0760392cc6"
     ],
     [
       "SizeT.ft",
@@ -30,7 +30,19 @@
         "typing_FStar.PtrdiffT.v"
       ],
       0,
-      "a2403857f2e012c945944fb576f14696"
+      "a48c6e05e956b390b70b75918a4d4955"
+    ],
+    [
+      "SizeT.main",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.squash",
+        "refinement_interpretation_Tm_refine_2de20c066034c13bf76e9c0b94f4806c"
+      ],
+      0,
+      "a5af400adfa6df83f23fb6eee4e9084c"
     ]
   ]
 ]

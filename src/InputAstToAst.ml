@@ -185,6 +185,8 @@ and mk_expr = function
       mk (EBufFill (mk_expr e1, mk_expr e2, mk_expr e3))
   | I.EBufSub (e1, e2) ->
       mk (EBufSub (mk_expr e1, mk_expr e2))
+  | I.EBufDiff (e1, e2) ->
+      mk (EBufDiff (mk_expr e1, mk_expr e2))
   | I.EBufBlit (e1, e2, e3, e4, e5) ->
       mk (EBufBlit (mk_expr e1, mk_expr e2, mk_expr e3, mk_expr e4, mk_expr e5))
   | I.EBufFree e ->
