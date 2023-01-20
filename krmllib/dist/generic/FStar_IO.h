@@ -20,7 +20,7 @@ extern FStar_IO_fd_write FStar_IO_stdout;
 
 extern FStar_IO_fd_write FStar_IO_stderr;
 
-extern void FStar_IO_print_newline();
+extern void FStar_IO_print_newline(void);
 
 extern void FStar_IO_print_string(Prims_string uu___);
 
@@ -56,11 +56,11 @@ extern void FStar_IO_print_uint32_dec_pad(uint32_t uu___);
 
 extern void FStar_IO_print_uint64_dec_pad(uint64_t uu___);
 
-extern Prims_string FStar_IO_input_line();
+extern Prims_string FStar_IO_input_line(void);
 
-extern Prims_int FStar_IO_input_int();
+extern Prims_int FStar_IO_input_int(void);
 
-extern FStar_Float_float FStar_IO_input_float();
+extern FStar_Float_float FStar_IO_input_float(void);
 
 extern FStar_IO_fd_read FStar_IO_open_read_file(Prims_string uu___);
 
