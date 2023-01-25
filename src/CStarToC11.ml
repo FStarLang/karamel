@@ -13,6 +13,8 @@ open Common
 (* Builtin names, meaning we don't generate declarations for them *)
 let builtin_names =
   let known = [
+    (* Built-in macro in include/krml/internal/target.h *)
+    ["LowStar"; "Ignore"], "ignore";
     (* Useless definitions: they are bypassed by custom codegen. *)
     ["LowStar"; "Monotonic"; "Buffer"], "is_null";
     ["C"; "Nullity"], "is_null";
@@ -635,6 +637,9 @@ and mk_free t e =
   | _ ->
       C.Call (C.Name "KRML_HOST_FREE", [ e ])
 
+and mk_ignore e =
+  C.Call (C.Name "KRML_HOST_IGNORE", [ e ])
+
 (* NOTE: this is only legal because we rule out the creation of zero-length
  * heap-allocated buffers; if we were to allow that, then this begs the question
  * of whether memset(malloc(0), 0, 0) is UB or not! The result of malloc(0) is
@@ -1038,6 +1043,9 @@ and mk_expr m (e: expr): C.expr =
       let dst = mk_expr m dst in
       let len = mk_expr m len in
       Call (mk_expr m f, [ dst; Op2 (K.Mult, len, Sizeof (Index (dst, zero))) ])
+
+  | Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), [ arg ]) ->
+      mk_ignore (mk_expr m arg)
 
   | Call (Qualified ([ "C"; "Nullity" ], s), [ e1 ]) when KString.starts_with s "op_Bang_Star__" ->
       mk_deref m e1
