@@ -585,6 +585,11 @@ Supported options:|}
   let files = GcTypes.heap_allocate_gc_types files in
   (* Note: this phase re-inserts some type abbreviations. *)
   let datatypes_state, files = DataTypes.everything files in
+  (* Avoid polluting our scope with:
+      abbrev k___chosen_internal_name = foo
+    stemming from the monomorphization then elimination of type bar x = | Foo of foo
+  *)
+  let files = Inlining.inline_type_abbrevs ~just_auto_generated:true files in
   if !arg_print_pattern then
     print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in

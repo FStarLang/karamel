@@ -77,7 +77,7 @@ Prims_list__bool *(*FStar_BV_int2bv)(Prims_pos x0, Prims_int x1) = FStar_UInt_to
 
 Prims_int (*FStar_BV_bv2int)(Prims_pos x0, Prims_list__bool *x1) = FStar_UInt_from_vec;
 
-Prims_list__bool *FStar_Seq_Base_empty__bool()
+Prims_list__bool *FStar_Seq_Base_empty__bool(void)
 {
   Prims_list__bool *buf = KRML_HOST_MALLOC(sizeof (Prims_list__bool));
   buf[0U] = ((Prims_list__bool){ .tag = Prims_Nil });
