@@ -100,6 +100,7 @@
 #  else
 #    define KRML_ALIGNED_FREE(X) free(X)
 #  endif
+#endif
 
 #ifndef KRML_HOST_TIME
 
