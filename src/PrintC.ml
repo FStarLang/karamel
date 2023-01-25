@@ -102,9 +102,16 @@ and p_type_declarator d =
         p_noptr d ^^ lbracket ^^ p_qualifiers_break qs ^^ p_expr s ^^ rbracket
     | Function (cc, d, params) ->
         let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
-        group (cc ^^ p_noptr d ^^ parens_with_nesting (separate_map (comma ^^ break 1) (fun (qs, spec, decl) ->
-          group (p_qualifiers_break qs ^^ p_type_spec spec ^/^ p_any decl)
-        ) params))
+        let params =
+          if params = [] then
+            (* Avoid old-style K&R declarations *)
+            string "void"
+          else
+            separate_map (comma ^^ break 1) (fun (qs, spec, decl) ->
+              group (p_qualifiers_break qs ^^ p_type_spec spec ^/^ p_any decl)
+            ) params
+        in
+        group (cc ^^ p_noptr d ^^ parens_with_nesting params)
     | d ->
         lparen ^^ p_any d ^^ rparen
   and p_any = function

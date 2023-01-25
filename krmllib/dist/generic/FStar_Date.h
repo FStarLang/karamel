@@ -14,9 +14,9 @@
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
-extern FStar_Date_dateTime FStar_Date_now();
+extern FStar_Date_dateTime FStar_Date_now(void);
 
-extern Prims_int FStar_Date_secondsFromDawn();
+extern Prims_int FStar_Date_secondsFromDawn(void);
 
 extern FStar_Date_timeSpan
 FStar_Date_newTimeSpan(Prims_int uu___, Prims_int uu___1, Prims_int uu___2, Prims_int uu___3);

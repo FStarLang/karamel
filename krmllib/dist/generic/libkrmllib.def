@@ -23,6 +23,7 @@ EXPORTS
   FStar_List_Tot_Base_tail__bool
   FStar_List_Tot_Base_index__bool
   FStar_Seq_Base_index__bool
+  FStar_Seq_Base_slice___bool
   FStar_Seq_Properties_seq_to_list__bool
   FStar_BV_bv2list
   FStar_BV_bv_zero

@@ -290,6 +290,7 @@ and check' env t e =
   | EOp _
   | EPushFrame | EPopFrame
   | EAny | EAbort _
+  | EBufNull
   | EReturn _
   | EBreak
   | EBool _
@@ -357,6 +358,10 @@ and check' env t e =
   | EBufSub (e1, e2) ->
       check_array_index env e2;
       check_buffer env t e1
+
+  | EBufDiff (e1, e2) ->
+      let t1 = infer env e1 in
+      check_buffer env t1 e2
 
   | EBufFill (e1, e2, e3) ->
       let t1, c1 = infer_buffer env e1 in
@@ -616,6 +621,11 @@ and infer' env e =
       let t1, c = infer_buffer env e1 in
       TBuf (t1, c)
 
+  | EBufDiff (e1, e2) ->
+      let t1 = infer env e1 in
+      check_buffer env t1 e2;
+      TInt PtrdiffT
+
   | EBufFill (e1, e2, e3) ->
       let t1, c = infer_buffer env e1 in
       check_mut env "fill" c;
@@ -755,6 +765,11 @@ and infer' env e =
 
   | EAddrOf e ->
       TBuf (infer env e, false)
+
+  | EBufNull ->
+      assert (e.typ <> TAny);
+      (* e.typ is the type of the whole node, so it's already of the form TBuf _ *)
+      e.typ
 
 and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
   fun env f l ->
@@ -988,6 +1003,10 @@ and assert_cons_of env t id: fields_t =
 and subtype env t1 t2 =
   match expand_abbrev env t1, expand_abbrev env t2 with
   | TInt w1, TInt w2 when w1 = w2 ->
+      true
+  | TInt K.SizeT, TInt K.UInt32 when !Options.wasm ->
+      true
+  | TInt K.UInt32, TInt K.SizeT when !Options.wasm ->
       true
   | TArray (t1, (_, l1)), TArray (t2, (_, l2)) when subtype env t1 t2 && l1 = l2 ->
       true

@@ -3,6 +3,8 @@
 
 (** Whole-program inlining based on the [MustDisappear] flag passed by F*. *)
 
+module LidSet = Idents.LidSet
+
 open Ast
 open PrintAst.Ops
 open Common
@@ -190,60 +192,119 @@ let inline_analysis files =
   in
   must_inline, must_disappear
 
-(** This phase drops private qualifiers if a function is called across
- * translation units. The visibility rules of F* notwithstanding, these can
- * happen because:
- * - StackInline created such a cross-call
- * - -bundle optimistically marked functions as private
- * - initializing of constants whose initial value is not a C value from the
- *   separate "krmlinit" translation unit.
- * As such, this phase must happen after all three steps above.
- * The Inline qualifier is also dropped if compiling for CompCert; for other
- * compilers, this is just a warning. *)
+(** This phase is concerned with three whole-program, cross-compilation-unit
+    analyses, performed ina single pass:
+    - assign correct visibility to declarations in the presence of bundling,
+      static-header, mutually-recursive definitions, stackinline,
+      inline_for_extraction, the friend mechanism, and the krmlinit_globals
+      initializer, all of which force some symbols to become visible
+    - strip incorrect inline annotations
+    - generate proper wasm mutable getters
+*)
 let cross_call_analysis files =
 
   let file_of = Bundle.mk_file_of files in
 
-  let module T = struct type outcome = Private | Internal end in
+  let module T = struct
+    type visibility = Private | Internal | Public
+    type inlining = Nope | Inline | StaticInline
+    type info = {
+      visibility: visibility;
+      callers: LidSet.t;
+      inlining: inlining;
+      wasm_mutable: bool;
+      wasm_needs_getter: bool;
+    }
+  end in
+  let open T in
 
-  (* A map that *eventually* will contain the exactly the set of [lid]s that can
-   * be safely marked as private. The invariant is not established yet. *)
-  let private_or_internal = Hashtbl.create 41 in
-  let safely_inline = Hashtbl.create 41 in
-  let c_abstract_structs = Hashtbl.create 41 in
-
-  (* Constants that will end up being mutable in Wasm because of the compilation
-   * scheme of constants as little-endian encoded pre-laid out byte literals
-   * relative to `data_start` *)
-  let wasm_mutable = Hashtbl.create 41 in
-
-  (* In the initial state, we optimistically mark every private function as
-     being private, every inline function as being inline. We also anticipate
-     on the WASM compilation phase and record all the globals that will be
-     compiled as WASM mutable globals. *)
-  List.iter (fun (_, decls) ->
-    List.iter (fun d ->
-      let name = lid_of_decl d in
-      let flags = flags_of_decl d in
-
-      if List.mem Private flags && not (Helpers.is_static_header name) then
-        (* -static-header takes precedence over private, see CStarToC11.ml *)
-        Hashtbl.add private_or_internal name T.Private;
-
-      if List.mem AbstractStruct flags then
-        Hashtbl.add c_abstract_structs name ();
-
-      if List.mem Inline flags then
-        Hashtbl.add safely_inline name ();
-
+  (* We associate to each declaration some initial information. Three fields may
+     change after initially filling the map:
+     - visibility may go upward along the visibility lattice (this is only a
+       LOWER bound, not the actual final visibility which needs a fixpoint
+       computation)
+     - inlining may be downgraded from Inline to Nope
+     - the flag wasm_needs_getter might be set
+     - the callers are recorded for the purposes of the fixpoint computation *)
+  let info_map = Helpers.build_map files (fun map d ->
+    let f = flags_of_decl d in
+    let name = lid_of_decl d in
+    let visibility =
+      if List.mem Common.Private f then
+        Private
+      else begin
+        assert (not (List.mem Common.Internal f));
+        Public
+      end
+    in
+    let inlining =
+      let is_static_inline = Helpers.is_static_header name in
+      let is_inline = List.mem Common.Inline f in
+      if is_static_inline && is_inline then
+        Warn.maybe_fatal_error ("", InlineStaticInline (lid_of_decl d));
+      if is_static_inline then
+        StaticInline
+      else if is_inline then
+        Inline
+      else
+        Nope
+    in
+    let wasm_mutable =
       match d with
       | DGlobal (_, _, _, (TBuf _ | TArray _), _) ->
-          Hashtbl.add wasm_mutable name ()
+          if Options.debug "visibility-fixpoint" then
+            KPrint.bprintf "[wasm_mutable]: marking %a\n" plid (lid_of_decl d);
+          true
       | _ ->
-          ()
-    ) decls
-  ) files;
+          false
+    in
+    let wasm_needs_getter = false in
+    let callers = LidSet.empty in
+    Hashtbl.add map (lid_of_decl d) { visibility; inlining; wasm_mutable; wasm_needs_getter; callers }
+  ) in
 
+  (* We keep track of the declarations we have seen so far. Since the
+     declarations are quasi-topologically ordered, a forward reference to
+     another function indicates that there is mutual recursion. *)
+  let seen = ref LidSet.empty in
+
+  let pvis b = function
+    | Private -> Buffer.add_string b "Private"
+    | Internal -> Buffer.add_string b "Internal"
+    | Public -> Buffer.add_string b "Public"
+  in
+
+  (* T.Visibility forms a trivial lattice where Private <= Internal <= Public *)
+  let lub v v' =
+    match v, v' with
+    | Private, _ -> v'
+    | _, Private -> v
+    | Internal, _ -> v'
+    | _, Internal -> v
+    | _ -> Public
+  in
+
+  (* Set a lower a bound on the visibility of `lid`. *)
+  let raise lid v =
+    try
+      let info = Hashtbl.find info_map lid in
+      Hashtbl.replace info_map lid { info with visibility = lub v info.visibility }
+    with Not_found ->
+      (* External type currently modeled as an lid without a definition (sigh) *)
+      ()
+  in
+
+  (* Record a call from `caller` to `callee` *)
+  let record_call_from_to caller callee =
+    try
+      let info = Hashtbl.find info_map callee in
+      Hashtbl.replace info_map callee { info with callers = LidSet.add caller info.callers }
+    with Not_found ->
+      (* External type currently modeled as an lid without a definition (sigh) *)
+      ()
+  in
+
+  (* Is this a call across compilation units? *)
   let cross_call name1 name2 =
     let file1 = file_of name1 in
     let file2 = file_of name2 in
@@ -255,72 +316,181 @@ let cross_call_analysis files =
     not (should_drop file1 || should_drop file2)
   in
 
-  let warn_and_remove name_from name_to =
-    (* There is a cross-compilation-unit call from [name_from] to
-     * [name_from‘], meaning that the latter cannot safely remain
-     * inline. *)
-    if cross_call name_from name_to && Hashtbl.mem private_or_internal name_to then begin
-      (* KPrint.bprintf "Cross-call from %a to %a which becomes internal\n" *)
-      (*   plid name_from plid name_to; *)
-      Hashtbl.replace private_or_internal name_to T.Internal
-    end;
-    if cross_call name_from name_to && Hashtbl.mem safely_inline name_to &&
-      not (Helpers.is_static_header name_to)
-    then begin
-      Warn.maybe_fatal_error ("", LostInline (file_of name_from, name_from, file_of name_to, name_to));
-      Hashtbl.remove safely_inline name_to
-    end
-  in
+  (* First, collect information in the info map. Side-effect: downgrade inlining
+     qualifiers. *)
+  List.iter (fun (_, decls) ->
+    List.iter (fun (d: decl) ->
+      let lid = lid_of_decl d in
+      let my_info = Hashtbl.find info_map lid in
 
-  let getters = Hashtbl.create 41 in
-  let name_of_getter lid =
-    fst lid, "__get_" ^ snd lid
-  in
-  let type_of_getter t = TArrow (TUnit, t) in
+      (* if `lid` calls into `name` across translation units, then `name` must
+         lose its inline qualifier, if any *)
+      let maybe_strip_inline name =
+        try
+          let info = Hashtbl.find info_map name in
+          if info.inlining = Inline then begin
+            Warn.maybe_fatal_error ("", LostInline (file_of lid, lid, file_of name, name));
+            Hashtbl.replace info_map name { info with inlining = Nope }
+          end
+        with Not_found ->
+          if Options.debug "visibility-fixpoint" then
+            KPrint.bprintf "[maybe_strip_inline]: definition not found %a\n" plid name
+      in
 
-  (* A visitor that, when passed a function's name and body, detects
-   * cross-translation unit calls and modifies safely_private and safely_inline
-   * accordingly. *)
-  let unmark_private_in = object
-    inherit [_] map as super
-    val mutable name = [],""
-    method! visit_EQualified ((_, t) as env) name' =
-      if !Options.wasm && cross_call name name' && Hashtbl.mem wasm_mutable name' then begin
-        if Options.debug "wasm" && not (Hashtbl.mem getters name') then
-          KPrint.bprintf "%a accesses %a, a mutable global, across modules: getter \
-            must be generated\n" plid name plid name';
-        Hashtbl.add getters name' ();
-        EApp (with_type (type_of_getter t) (EQualified (name_of_getter name')),
-          [ Helpers.eunit ])
-      end else begin
-        warn_and_remove name name';
-        super#visit_EQualified env name'
-      end
+      (* if `lid` refers to `name` across translation units, then `name` needs a
+         getter in WASM *)
+      let maybe_needs_getter name =
+        try
+          let info = Hashtbl.find info_map name in
+          if info.wasm_mutable then begin
+            if Options.debug "visibility-fixpoint" && not info.wasm_needs_getter then
+              KPrint.bprintf "%a accesses %a, a mutable global, across modules: getter \
+                must be generated\n" plid lid plid name;
+            Hashtbl.replace info_map name { info with wasm_needs_getter = true }
+          end
+        with Not_found ->
+          if Options.debug "visibility-fixpoint" then
+            KPrint.bprintf "[maybe_needs_getter]: definition not found %a\n" plid name
+      in
 
-    method! visit_TQualified () name' =
-      warn_and_remove name name';
-      super#visit_TQualified () name'
+      let visit in_body = object (self)
+        inherit [_] iter
 
-    method! visit_TApp () name' ts =
-      warn_and_remove name name';
-      super#visit_TApp () name' ts
+        method! visit_TQualified () name =
+          (* Cross-compilation-unit reference to `name`, a type that we need in
+             scope for this definition to compile. *)
+          if cross_call lid name then
+            raise name Internal;
+          (* Types that appear in prototypes (i.e., `not in_body`) must be
+             raised to the level of visibility of the current definition.
+             Types that appear in static inline function definitions (lhs of the
+             disjunction) must, in addition to the criterion above, follow
+             the same rules as for a prototype. *)
+          if in_body && my_info.inlining = StaticInline || not in_body then
+            record_call_from_to lid name
 
-    method! visit_decl () d =
-      name <- lid_of_decl d;
-      super#visit_decl () d
-  end in
-  let files = unmark_private_in#visit_files () files in
+        method! visit_TApp () name ts =
+          self#visit_TQualified () name;
+          List.iter (self#visit_typ ()) ts
+
+        method! visit_EQualified _ name =
+          (* Cross-compilation unit calls force the callee to become visible, at
+             least through an internal header. *)
+          if cross_call lid name then
+            raise name Internal;
+          (* Mutually recursive calls require the prototype to be in scope, at
+             least through the internal header. *)
+          if not (LidSet.mem name !seen) then
+            raise name Internal;
+          (* Static inline definitions force the callee to be at least as
+             visible as the caller, so that the callee is in scope of the
+             caller. *)
+          if my_info.inlining = StaticInline then
+            record_call_from_to lid name;
+          (* Unrelated to visibility: MSVC and CompCert follow the C standard
+             closely and make inline
+             functions no externally-visible (which would result in a linking
+             error for us). *)
+          if cross_call lid name then
+            maybe_strip_inline name;
+          (* Unrelated to visibility: WASM can't handle cross-module references
+             to mutable globals. We mark this definition as needing a getter. *)
+          if cross_call lid name then
+            maybe_needs_getter name
+      end in
+
+      begin match d with
+      | DFunction (_, _, _, t, _, bs, e) ->
+          (visit false)#visit_typ () t;
+          (visit false)#visit_binders_w () bs;
+          (visit true)#visit_expr_w () e
+      | DGlobal (_, _, _, t, e) ->
+          (visit false)#visit_typ () t;
+          (* Even though the grammar of C global variable initializers is very
+             limited, this is still useful e.g. in the presence of function
+             pointers. *)
+          (visit true)#visit_expr_w () e
+      | DExternal (_, _, _, t, _) ->
+          (visit false)#visit_typ () t
+      | DType (_, flags, _, d) ->
+          if not (List.mem Common.AbstractStruct flags) then
+            (visit false)#visit_type_def () d
+      end;
+      seen := LidSet.add lid !seen
+    ) decls
+  ) files;
+
+  (* Fixpoint computation *)
+  let module F = Fix.Fix.ForOrderedType(struct
+    type t = lident
+    let compare = Pervasives.compare
+  end)(struct
+    type property = visibility
+    let bottom = Private
+    let equal = (=)
+    let is_maximal = (=) Public
+  end) in
+  let valuation = F.lfp (fun lid valuation ->
+    let info = Hashtbl.find info_map lid in
+    LidSet.fold (fun caller v -> lub v (valuation caller)) info.callers info.visibility
+  ) in
+
+  (* Adjust definitions based on `info_map` updated with fixpoint *)
+  let files = List.map (fun (f, decls) ->
+    f, List.map (fun d ->
+      let lid = lid_of_decl d in
+      let info = Hashtbl.find info_map lid in
+      let info = { info with visibility = valuation (lid_of_decl d) } in
+      if Options.debug "visibility-fixpoint" then
+        KPrint.bprintf "[adjustment]: %a: %a, wasm: mut %b getter %b\n"
+          plid lid pvis info.visibility info.wasm_mutable info.wasm_needs_getter;
+      let remove_if cond flag flags = if cond then List.filter ((<>) flag) flags else flags in
+      let add_if cond flag flags = if cond && not (List.mem flag flags) then flag :: flags else flags in
+      let adjust flags =
+        let flags = remove_if (info.inlining = Nope) Common.Inline flags in
+        let flags = remove_if (info.visibility <> Private) Common.Private flags in
+        let flags = add_if (info.visibility = Private) Common.Private flags in
+        let flags = remove_if (info.visibility <> Internal) Common.Internal flags in
+        let flags = add_if (info.visibility = Internal) Common.Internal flags in
+        if !Options.wasm then
+          (* We override the previous logic in the case of WASM *)
+          let flags = remove_if info.wasm_mutable Common.Internal flags in
+          let flags = add_if info.wasm_mutable Common.Private flags in
+          flags
+        else
+          flags
+      in
+      match d with
+      | DFunction (cc, flags, n, t, name, bs, e) ->
+          DFunction (cc, adjust flags, n, t, name, bs, e)
+      | DGlobal (flags, name, n, t, e) ->
+          DGlobal (adjust flags, name, n, t, e)
+      | DExternal (cc, flags, name, t, hints) ->
+          DExternal (cc, adjust flags, name, t, hints)
+      | DType (name, flags, n, def) ->
+          DType (name, adjust flags, n, def)
+    ) decls
+  ) files in
 
   (* WASM compilers error out when a module tries to directly access a mutable
      global constant for another module (this appears to work on OSX but not
      other OSes for dynamic linking issues I don't pretend to understand). We
      detect those accesses here too, and when N.f accesses M.x, we generate
      M.__get_x, and then N.f calls `M.__get_x ()` instead of reading `M.x`. *)
+  let name_of_getter lid = fst lid, "__get_" ^ snd lid in
+  let type_of_getter t = TArrow (TUnit, t) in
   let generate_getters = object
     inherit [_] map as super
+
+    method! visit_EQualified (_, t) name =
+      if (Hashtbl.find info_map name).wasm_needs_getter then
+        EApp (with_type (type_of_getter t) (EQualified (name_of_getter name)), [ Helpers.eunit ])
+      else
+        EQualified name
+
     val mutable new_decls = []
     method! visit_DGlobal () flags name n t body =
-      if Hashtbl.mem getters name then begin
+      if (Hashtbl.find info_map name).wasm_needs_getter then begin
         let d = DFunction (None, [], 0,
           t,
           name_of_getter name,
@@ -329,15 +499,6 @@ let cross_call_analysis files =
         ) in
         new_decls <- d :: new_decls
       end;
-
-      let flags =
-        if Hashtbl.mem wasm_mutable name then begin
-          Hashtbl.add private_or_internal name Private;
-          Common.Private :: flags
-        end else
-          flags
-      in
-
       DGlobal (flags, name, n, t, body)
 
     method! visit_program () decls =
@@ -346,128 +507,6 @@ let cross_call_analysis files =
       decls @ List.rev new_decls
   end in
   let files = if !Options.wasm then generate_getters#visit_files () files else files in
-
-  (* Another visitor, that only visits the types reachable from types in
-   * function definitions and removes their private qualifiers accordingly. For
-   * static inline functions (whose bodies end up in the header file), we need
-   * to visit the bodies as well. *)
-  let unmark_private_types_in =
-    let decl_map = Helpers.build_map files (fun map d ->
-      match d with
-      | DType (lid, _, _, _) -> Hashtbl.add map lid d
-      | _ -> ()
-    ) in
-    let seen = Hashtbl.create 41 in
-    (* TODO: switch to a fixpoint calculation... this is bad *)
-    let mode = ref `Internal in
-    let mode_lt x y =
-      match x, y with
-      | `Internal, `Public -> true
-      | _ -> false
-    in
-    object (self)
-      inherit [_] iter as super
-
-      method private still_private d =
-        List.mem Private (flags_of_decl d) &&
-        Hashtbl.find_opt private_or_internal (lid_of_decl d) = Some T.Private
-
-      method private remove_and_visit name =
-        (* KPrint.bprintf "Remove_and_visit %a with mode %s\n" plid name *)
-        (*   (match !mode with `Public -> "public" | `Internal -> "internal"); *)
-        if Hashtbl.mem private_or_internal name then begin
-          match !mode with
-          | `Internal ->
-              Hashtbl.replace private_or_internal name T.Internal
-          | `Public ->
-              Hashtbl.remove private_or_internal name
-        end;
-        if (not (Hashtbl.mem seen name) || mode_lt (Hashtbl.find seen name) !mode) then begin
-          Hashtbl.replace seen name !mode;
-          if not (Hashtbl.mem c_abstract_structs name) then
-            try super#visit_decl () (Hashtbl.find decl_map name)
-            with Not_found -> ()
-        end
-
-      method! visit_TQualified () name =
-        self#remove_and_visit name
-
-      method! visit_TApp () name ts =
-        self#remove_and_visit name;
-        List.iter (self#visit_typ ()) ts
-
-      method! visit_DFunction () _ _ _ ret name binders body =
-        self#visit_typ () ret;
-        self#visit_binders_w () binders;
-        if Helpers.is_static_header name then
-          self#visit_expr_w () body
-
-      method! visit_DGlobal () _ name _ typ body =
-        self#visit_typ () typ;
-        if Helpers.is_static_header name then
-          self#visit_expr_w () body
-
-      (* Traversal starts here at the top-level. Note that remove_and_visit does
-         not call into this method (but rather the default one via super). *)
-      method! visit_decl env d =
-        (* KPrint.bprintf "Visiting %a?? still_private=%b\n" plid (lid_of_decl d) (self#still_private d); *)
-        (* We visit any non-private declaration; static header takes precedence
-           over private. *)
-        let name = lid_of_decl d in
-        let flags = flags_of_decl d in
-        if (not (self#still_private d) || Helpers.is_static_header name) &&
-          not (List.mem AbstractStruct flags)
-        then begin
-          mode :=
-            match Hashtbl.find private_or_internal name with
-            | exception Not_found -> `Public
-            | T.Internal -> `Internal
-            | T.Private -> assert (Helpers.is_static_header name); `Public ; ;
-          Hashtbl.add seen (lid_of_decl d) !mode;
-          (* KPrint.bprintf "Visiting %a with mode %s\n" plid (lid_of_decl d) *)
-          (*   (match !mode with `Public -> "public" | `Internal -> "internal"); *)
-          super#visit_decl env d
-        end
-    end
-  in
-  unmark_private_types_in#visit_files () files;
-
-  (* The invariant for [safely_private] is now established, and we drop those
-   * functions that cannot keep their [Private] flag. *)
-  let files =
-    let keep_if table flag name flags =
-      if not (Hashtbl.mem table name) ||
-        (* TODO why? `main` can neither be inline or private ?! *)
-        GlobalNames.target_c_name ~attempt_shortening:false ~is_macro:false name = "main"
-      then
-        List.filter ((<>) flag) flags
-      else
-        flags
-    in
-    let filter name flags =
-      let flags =
-        match Hashtbl.find private_or_internal name with
-        | exception Not_found -> List.filter ((<>) Private) flags
-        | T.Private -> flags
-        | T.Internal -> Internal :: List.filter ((<>) Private) flags
-      in
-      (* KPrint.bprintf "%a: %s\n" plid name (String.concat " " (List.map show_flag flags)); *)
-      if !Options.cc = "compcert" then
-        keep_if safely_inline Inline name flags
-      else
-        flags
-    in
-    map_decls (function
-      | DFunction (cc, flags, n, ret, name, binders, body) ->
-          DFunction (cc, filter name flags, n, ret, name, binders, body)
-      | DGlobal (flags, name, n, e, t) ->
-          DGlobal (filter name flags, name, n, e, t)
-      | DExternal (cc, flags, name, t, pp) ->
-          DExternal (cc, filter name flags, name, t, pp)
-      | DType (name, flags, n, t) ->
-          DType (name, filter name flags, n, t)
-    ) files
-  in
 
   files
 
@@ -510,9 +549,11 @@ let inline files =
   files
 
 
-let inline_type_abbrevs files =
+let inline_type_abbrevs ?(just_auto_generated=false) files =
   let map = Helpers.build_map files (fun map -> function
-    | DType (lid, _, _, Abbrev t) -> Hashtbl.add map lid (White, t)
+    | DType (lid, flags, _, Abbrev t) when
+      not just_auto_generated || just_auto_generated && List.mem AutoGenerated flags ->
+        Hashtbl.add map lid (White, t)
     | _ -> ()
   ) in
 
@@ -529,7 +570,17 @@ let inline_type_abbrevs files =
   let inline_one = memoize_inline map (fun recurse -> (inliner recurse)#visit_typ ()) in
   let i = inliner inline_one in
 
-  i#visit_files () files
+  let files = i#visit_files () files in
+  if just_auto_generated then
+    filter_decls (fun d ->
+      match d with
+      | DType (_, flags, _, Abbrev _) when List.mem AutoGenerated flags ->
+          None
+      | _ ->
+          Some d
+    ) files
+  else
+    files
 
 
 (* Drop unused private functions **********************************************)

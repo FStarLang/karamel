@@ -447,6 +447,7 @@ Supported options:|}
       ([], [ Bundle.Module [ "Prims" ] ], []) ::
       ([], [ Bundle.Prefix [ "FStar" ] ], []) ::
       ([], [ Bundle.Prefix [ "LowStar" ] ], []) ::
+      ([], [ Bundle.Prefix [ "WasmSupport" ] ], []) ::
       !Options.bundle;
 
   if !arg_c89 then begin
@@ -584,6 +585,11 @@ Supported options:|}
   let files = GcTypes.heap_allocate_gc_types files in
   (* Note: this phase re-inserts some type abbreviations. *)
   let datatypes_state, files = DataTypes.everything files in
+  (* Avoid polluting our scope with:
+      abbrev k___chosen_internal_name = foo
+    stemming from the monomorphization then elimination of type bar x = | Foo of foo
+  *)
+  let files = Inlining.inline_type_abbrevs ~just_auto_generated:true files in
   if !arg_print_pattern then
     print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in
@@ -723,7 +729,6 @@ Supported options:|}
     (* Translate to C*... *)
     let file_of_map = Bundle.mk_file_of files in
     let deps = Bundles.direct_dependencies_with_internal files file_of_map in
-    (* Bundles.debug_deps deps; *)
     let files = AstToCStar.mk_files files c_name_map ifdefs macros in
     tick_print true "AstToCStar";
 
@@ -760,7 +765,8 @@ Supported options:|}
 
     if not !Options.silent then begin
       Printf.printf "KaRaMeL: wrote out .c files for %s\n" (String.concat ", " (List.map fst files));
-      Printf.printf "KaRaMeL: wrote out .h files for %s\n" (String.concat ", " (List.map fst headers))
+      Printf.printf "KaRaMeL: wrote out .h files for %s\n" (String.concat ", "
+        (List.map (function | h, C11.Internal _ -> "internal/"^h | h, Public _ -> h) headers))
     end;
 
     let ml_files = GenCtypes.file_list ml_files in

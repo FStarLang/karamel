@@ -20,7 +20,7 @@ typedef uint8_t FStar_Algebra_CommMonoid_Equiv_equiv;
 
 bool FStar_Algebra_CommMonoid_Equiv_uu___is_EQ(FStar_Algebra_CommMonoid_Equiv_equiv projectee);
 
-FStar_Algebra_CommMonoid_Equiv_equiv FStar_Algebra_CommMonoid_Equiv_equality_equiv();
+FStar_Algebra_CommMonoid_Equiv_equiv FStar_Algebra_CommMonoid_Equiv_equality_equiv(void);
 
 typedef struct FStar_Algebra_CommMonoid_Equiv_cm__Prims_int_s
 {

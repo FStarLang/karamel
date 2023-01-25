@@ -122,7 +122,8 @@ let width_of_poly_eq (env: env) (t: typ): K.width =
   match t with
   | TInt w ->
       w
-  | TBool | TUnit ->
+  | TBool | TUnit | TBuf _ ->
+      (* We can compare a pointer to NULL *)
       K.UInt32
   | TAnonymous (Enum _) ->
       K.UInt32
@@ -451,8 +452,14 @@ let assert_buf = function
 let mk_add32 e1 e2 =
   CF.CallOp ((K.UInt32, K.Add), [ e1; e2 ])
 
+let mk_sub32 e1 e2 =
+  CF.CallOp ((K.UInt32, K.Sub), [ e1; e2 ])
+
 let mk_mul32 e1 e2 =
   CF.CallOp ((K.UInt32, K.Mult), [ e1; e2 ])
+
+let mk_div32 e1 e2 =
+  CF.CallOp ((K.UInt32, K.Div), [ e1; e2 ])
 
 let mk_lt32 e1 e2 =
   CF.CallOp ((K.UInt32, K.Lt), [ e1; e2 ])
@@ -547,7 +554,7 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
          * dummy value. *)
         write_le dst ofs Helpers.uint32 (Z.of_int (Hashtbl.hash name'));
         [ CF.BufWrite (CF.GetGlobal name, ofs, CF.GetGlobal name', A32) ]
-    | EApp ({ node = EQualified (["LowStar"; "Monotonic"; "Buffer"], "mnull"); _ }, _) ->
+    | EBufNull ->
         write_le dst ofs Helpers.uint32 Z.zero;
         []
     | _ ->
@@ -794,6 +801,12 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, e2 = mk_expr env locals e2 in
       locals, CF.BufSub (e1, mk_mul32 e2 (mk_uint32 mult), base_size)
 
+  | EBufDiff (e1, e2) ->
+      let mult, base_size = cell_size env (assert_buf e1.typ) in
+      let locals, e1 = mk_expr env locals e1 in
+      let locals, e2 = mk_expr env locals e2 in
+      locals, mk_div32 (mk_sub32 e1 e2) (mk_mul32 (mk_uint32 mult) (mk_uint32 (bytes_in base_size)))
+
   | EBufWrite ({ node = EBound v1; _ }, e2, e3) ->
       let v1 = CF.Var (find env v1) in
       let locals, dst, offset = mk_offset env locals v1 e2 (cell_size_b env e3.typ) in
@@ -974,6 +987,9 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let s = size_of env e.typ in
       let locals, e = mk_expr env locals e in
       locals, CF.Ignore (e, s)
+
+  | EBufNull ->
+      locals, CF.Constant (K.UInt32, "0")
 
 
 (* See digression for [dup32] in CFlatToWasm *)

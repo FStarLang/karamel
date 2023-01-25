@@ -28,11 +28,12 @@ ifneq ($(RECENT_GCC),"yes")
 endif
 
 CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased \
-  check-right-file count-deref check-global-init
+  check-right-file count-deref check-global-init check-useless-alias
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
-  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test Crypto.Symmetric.Chacha20.wasm-test
+  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test Wasm11.wasm-test \
+  Crypto.Symmetric.Chacha20.wasm-test
 NEGATIVE	= false
 
 WEB_DIR		?= web
@@ -159,13 +160,18 @@ $(OUTPUT_DIR)/MonomorphizationCrash.exe: EXTRA=monomorphization_crash.c -add-inc
 $(OUTPUT_DIR)/MonomorphizationSeparate2.exe: EXTRA=-bundle MonomorphizationSeparate1=
 $(OUTPUT_DIR)/Loops.exe: EXTRA=-funroll-loops 16
 $(OUTPUT_DIR)/GlobalInit.exe: EXTRA=global_init.c
+$(OUTPUT_DIR)/SteelArrayArith.exe: EXTRA=-static-header Steel.ArrayArith -no-prefix Steel.ArrayArith
 $(OUTPUT_DIR)/SteelLock.exe: EXTRA=-bundle Steel.* -add-include 'Steel:"krml/steel_types.h"'
+$(OUTPUT_DIR)/SizeT.exe: EXTRA=-ccopt -std=c2x
 
 Failure.test: NEGATIVE=true
 
 # Some custom targets
 
 SED=$(shell which gsed >/dev/null 2>&1 && echo gsed || echo sed)
+check-useless-alias: $(OUTPUT_DIR)/DepPair.exe
+	! grep dtuple2___int32_t____ $(OUTPUT_DIR)/DepPair.out/DepPair.c
+
 count-uu: $(OUTPUT_DIR)/Uu.exe
 	[ `grep uu___ $(OUTPUT_DIR)/Uu.out/Uu.c | \
 	  $(SED) 's/.*\(uu____\([0-9]\+\)\).*/\1/g' \

@@ -275,6 +275,7 @@ let rec vars_of m = function
   | StringLiteral _
   | Any
   | EAbort _
+  | BufNull
   | Op _ ->
       S.empty
   | Cast (e, _)
@@ -1066,21 +1067,13 @@ and mk_expr m (e: expr): C.expr =
   | BufRead (e1, e2) ->
       mk_index m e1 e2
 
-  | Call (Qualified ([ "LowStar"; "Monotonic"; "Buffer" ], "mnull"), _)
-  | Call (Qualified ([ "LowStar"; "Buffer" ], "null"), _)
-  | Call (Qualified ([ "Steel"; "Reference" ], "null"), _)
-  | Call (Qualified ([ "C"; "Nullity" ], "null"), _) ->
+  | BufNull ->
       Name "NULL"
 
   | Call (Qualified ( [ "Steel"; "ST"; "HigherArray" ], "intro_fits_u32"), _ ) ->
       Call (Name "static_assert", [Op2 (K.Lte, Name "UINT32_MAX", Name "SIZE_MAX")])
   | Call (Qualified ( [ "Steel"; "ST"; "HigherArray" ], "intro_fits_u64"), _ ) ->
       Call (Name "static_assert", [Op2 (K.Lte, Name "UINT64_MAX", Name "SIZE_MAX")])
-
-  | Call (Qualified ( [ "LowStar"; "Monotonic"; "Buffer" ], "is_null"), [ e ] )
-  | Call (Qualified ( [ "Steel"; "Reference" ], "is_null"), [ e ] )
-  | Call (Qualified ( [ "C"; "Nullity" ], "is_null"), [ e ]) ->
-      Op2 (K.Eq, mk_expr m e, C.Name "NULL")
 
   | Call (Qualified ( [ "FStar"; "UInt128" ], "add"), [ e1; e2 ]) when !Options.builtin_uint128 ->
       Op2 (K.Add, mk_expr m e1, mk_expr m e2)
@@ -1537,24 +1530,23 @@ let mk_public_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
    * definitions that are visible from the outside. *)
   (* What should be the behavior for a type declaration marked as CAbstract but
    * whose module has -static-header? This ignores CAbstract. *)
-  (* Note that static_header has precedence over private qualifiers *)
   (* Note that static_header + library means that corresponding declarations are
    * effectively dropped on the basis that the user is doing separate extraction
    * & compilation + providing the required header. *)
   KList.map_flatten
-    (if_header_inline_static m
-      (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
-      (if_public (either (mk_function_or_global_stub m) (mk_type_or_external m H))))
+    (if_public (
+      (if_header_inline_static m
+        (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
+        (either (mk_function_or_global_stub m) (mk_type_or_external m H)))))
     decls
 
 (* Private part if not already a static header, empty otherwise. *)
 let mk_internal_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
-  (* We make the choice here to not split static headers between public and
-     internal. Could be revisited. *)
   KList.map_flatten
-    (if_header_inline_static m
-      none
-      (if_internal (either (mk_function_or_global_stub m) (mk_type_or_external m H))))
+    (if_internal (
+      (if_header_inline_static m
+        (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
+        (either (mk_function_or_global_stub m) (mk_type_or_external m H)))))
     decls
 
 let mk_headers (map: (Ast.lident, Ast.ident) Hashtbl.t)
