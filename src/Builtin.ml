@@ -12,8 +12,8 @@ let t_string = TQualified (["Prims"], "string")
 let mk_binop m n t =
   DExternal (None, [ ], (m, n), TArrow (t, TArrow (t, t)), [ "x"; "y" ])
 
-let mk_val m n t =
-  DExternal (None, [ ], (m, n), t, [])
+let mk_val ?(flags=[]) m n t =
+  DExternal (None, flags, (m, n), t, [])
 
 let prims: file =
   let t = TInt K.CInt in
@@ -238,6 +238,11 @@ let lowstar_buffer: file =
     mk_val [ "LowStar"; "Buffer" ] "null" (TArrow (TAny, TBuf (TAny, false)));
   ]
 
+let lowstar_ignore: file =
+  "LowStar_Ignore", [
+    mk_val ~flags:Common.[ Macro ] [ "LowStar"; "Ignore" ] "ignore" (TArrow (TAny, TUnit))
+  ]
+
 let lowstar_endianness: file =
   let open Constant in
   let buf8 = TBuf (TInt UInt8, false) in
@@ -325,6 +330,7 @@ let hand_written = [
   buffer;
   lowstar_monotonic_buffer;
   lowstar_buffer;
+  lowstar_ignore;
   lowstar_endianness;
   monotonic_hh;
   monotonic_hs;

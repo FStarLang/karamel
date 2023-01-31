@@ -1068,6 +1068,11 @@ and hoist_expr loc pos e =
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
       lhs1 @ lhs2, mk (EBufSub (e1, e2))
 
+  | EBufDiff (e1, e2) ->
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
+      lhs1 @ lhs2, mk (EBufDiff (e1, e2))
+
   | ECast (e, t) ->
       let lhs, e = hoist_expr loc Unspecified e in
       lhs, mk (ECast (e, t))

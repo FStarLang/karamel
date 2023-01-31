@@ -40,6 +40,7 @@ let rec gfind2 #a #b #c (f: a -> b -> GTot (option c)) (xs: list a) (ys: list b)
 // wireguard, alas.
 let handshake_state = B.buffer UInt8.t
 
+#push-options "--__no_positivity"
 noeq
 // Simplified equivalent of wg_peer.
 type peer = {
@@ -62,6 +63,7 @@ and device = {
   // Region for the payload of each list cell.
   r_peers_payload: HS.rid;
 }
+#pop-options
 
 // Naming a bunch of abbreviations for code-gen quality
 let peer_list2 = LL2.t peer

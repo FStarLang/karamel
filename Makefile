@@ -3,8 +3,8 @@ include $(shell ocamlfind query visitors)/Makefile.preprocess
 
 .PHONY: all minimal clean test
 
-OCAMLBUILD=ocamlbuild -I src -I lib -I parser -I krmllib -use-menhir -use-ocamlfind -classic-display \
- -menhir "menhir --infer --explain"
+OCAMLBUILD=ocamlbuild -I src -I lib -I parser -I krmllib -use-menhir -use-ocamlfind \
+ -menhir "menhir --infer --explain" -quiet
 FLAVOR?=native
 TARGETS=Karamel.$(FLAVOR)
 EXTRA_TARGETS=Ast.inferred.mli krmllib/C.cmx krmllib/TestLib.cmx krmllib/C.cmo krmllib/TestLib.cmo
