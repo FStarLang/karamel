@@ -19,7 +19,7 @@ extern bool Steel_SpinLock_uu___is_Lock(Steel_SpinLock_lock____ projectee);
 
 extern bool *Steel_SpinLock___proj__Lock__item__r(Steel_SpinLock_lock____ projectee);
 
-extern Prims_int Steel_SpinLock___proj__Lock__item__i(Steel_SpinLock_lock____ projectee);
+extern void Steel_SpinLock___proj__Lock__item__i(Steel_SpinLock_lock____ projectee);
 
 extern Steel_SpinLock_lock____ Steel_SpinLock_new_lock(void);
 

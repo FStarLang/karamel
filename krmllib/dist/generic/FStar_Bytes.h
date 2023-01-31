@@ -9,7 +9,7 @@
 
 
 
-#include "Steel_FStar_Real.h"
+
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
@@ -114,9 +114,14 @@ FStar_Bytes_xor_(Prims_int n, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
 
 extern FStar_Bytes_bytes FStar_Bytes_utf8_encode(Prims_string s);
 
+#define FStar_Pervasives_Native_None 0
+#define FStar_Pervasives_Native_Some 1
+
+typedef uint8_t FStar_Pervasives_Native_option__Prims_string_tags;
+
 typedef struct FStar_Pervasives_Native_option__Prims_string_s
 {
-  FStar_Pervasives_Native_option__Steel_Heap_cell_tags tag;
+  FStar_Pervasives_Native_option__Prims_string_tags tag;
   Prims_string v;
 }
 FStar_Pervasives_Native_option__Prims_string;
