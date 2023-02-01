@@ -7,5 +7,6 @@
 #include <pthread.h>
 
 typedef pthread_mutex_t Steel_SpinLock_lock____;
+typedef Steel_SpinLock_lock____ Steel_SpinLock_lock_t;
 
 #endif
