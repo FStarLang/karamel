@@ -1365,7 +1365,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
       let name = to_c_name m name in
       mk_forward_decl name flags
   | Type (name, t, flags) ->
-      if is_primitive name || declared_in_library name then
+      if is_primitive name || (is_inline_static && declared_in_library name) then
         []
       else begin
         let name = to_c_name m name in
