@@ -24,8 +24,6 @@ typedef struct Prims_list__uint8_t_s
 }
 Prims_list__uint8_t;
 
-typedef Prims_list__uint8_t *FStar_Seq_Base_seq__uint8_t;
-
 KRML_DEPRECATED("FStar.Endianness.le_to_n")
 
 extern Prims_int FStar_Krml_Endianness_le_to_n(Prims_list__uint8_t *b);
@@ -84,8 +82,6 @@ typedef struct Prims_list__uint32_t_s
 }
 Prims_list__uint32_t;
 
-typedef Prims_list__uint32_t *FStar_Seq_Base_seq__uint32_t;
-
 KRML_DEPRECATED("FStar.Endianness.seq_uint32_of_le")
 
 extern Prims_list__uint32_t
@@ -113,8 +109,6 @@ typedef struct Prims_list__uint64_t_s
   Prims_list__uint64_t *tl;
 }
 Prims_list__uint64_t;
-
-typedef Prims_list__uint64_t *FStar_Seq_Base_seq__uint64_t;
 
 KRML_DEPRECATED("FStar.Endianness.seq_uint64_of_le")
 

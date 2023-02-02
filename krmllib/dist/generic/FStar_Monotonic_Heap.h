@@ -16,11 +16,9 @@
 #include "krml/internal/target.h"
 typedef void *FStar_Monotonic_Heap_tset;
 
-typedef FStar_Pervasives_Native_option__Prims_string_tags FStar_Pervasives_Native_option____;
-
 typedef struct FStar_Pervasives_dtuple4_____FStar_Pervasives_Native_option_____bool_any_s
 {
-  FStar_Pervasives_Native_option____ _2;
+  FStar_Pervasives_Native_option__Prims_string_tags _2;
   bool _3;
 }
 FStar_Pervasives_dtuple4_____FStar_Pervasives_Native_option_____bool_any;

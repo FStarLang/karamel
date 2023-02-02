@@ -16,10 +16,6 @@
 #include "krml/internal/target.h"
 typedef bool (*FStar_NMST_tape)(Prims_int x0);
 
-typedef void *FStar_NMST_s_predicate;
-
-typedef void *FStar_NMST_stable;
-
 
 #define __FStar_NMST_H_DEFINED
 #endif
