@@ -242,6 +242,8 @@ let rec mk_expr env in_stmt e =
       CStar.BufRead (mk_expr env e1, mk_expr env e2)
   | EBufSub (e1, e2) ->
       CStar.BufSub (mk_expr env e1, mk_expr env e2)
+  | EBufDiff (e1, e2) ->
+      CStar.Call (CStar.Op K.Sub, [mk_expr env e1; mk_expr env e2])
   | EOp (o, _) ->
       CStar.Op o
   | EPolyComp (c, _) ->
@@ -274,6 +276,9 @@ let rec mk_expr env in_stmt e =
 
   | EAddrOf e ->
       CStar.AddrOf (mk_expr env e)
+
+  | EBufNull ->
+      CStar.BufNull
 
   | _ ->
       Warn.maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, NotLowStar e);
@@ -599,6 +604,8 @@ and mk_stmts env e ret_type =
         CStar.Macro name
     | EApp ({ node = EOp ((K.And | K.Or) as o, K.Bool); _ }, [ e1; e2 ]) ->
         CStar.Call (CStar.Op o, [ mk_ifcond env e1; mk_ifcond env e2 ])
+    | EApp ({ node = EOp (K.Not as o, K.Bool); _ }, [ e1 ]) ->
+        CStar.Call (CStar.Op o, [ mk_ifcond env e1 ])
     | _ ->
         raise NotIfDef
 

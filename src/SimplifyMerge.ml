@@ -75,7 +75,8 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
   | EPopFrame
   | EEnum _
   | EStandaloneComment _
-  | EAbort _ ->
+  | EAbort _
+  | EBufNull ->
       keys env, u, e
 
   | EOpen (_, a) ->
@@ -233,6 +234,11 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
       let d1, u, e1 = merge env u e1 in
       let d2, u, e2 = merge env u e2 in
       S.inter d1 d2, u, w (EBufSub (e1, e2))
+
+  | EBufDiff (e1, e2) ->
+      let d1, u, e1 = merge env u e1 in
+      let d2, u, e2 = merge env u e2 in
+      S.inter d1 d2, u, w (EBufDiff (e1, e2))
 
   | EBufBlit (e1, e2, e3, e4, e5) ->
       let d1, u, e1 = merge env u e1 in

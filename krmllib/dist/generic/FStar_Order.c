@@ -83,7 +83,7 @@ bool FStar_Order_eq(FStar_Order_order o)
   return o == FStar_Order_Eq;
 }
 
-FStar_Order_order FStar_Order_lex(FStar_Order_order o1, FStar_Order_order (*o2)())
+FStar_Order_order FStar_Order_lex(FStar_Order_order o1, FStar_Order_order (*o2)(void))
 {
   switch (o1)
   {

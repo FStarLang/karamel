@@ -13,6 +13,8 @@ open Common
 (* Builtin names, meaning we don't generate declarations for them *)
 let builtin_names =
   let known = [
+    (* Built-in macro in include/krml/internal/target.h *)
+    ["LowStar"; "Ignore"], "ignore";
     (* Useless definitions: they are bypassed by custom codegen. *)
     ["LowStar"; "Monotonic"; "Buffer"], "is_null";
     ["C"; "Nullity"], "is_null";
@@ -20,6 +22,8 @@ let builtin_names =
     ["LowStar"; "Buffer"], "null";
     ["Steel"; "Reference"], "null";
     ["Steel"; "Reference"], "is_null";
+    ["Steel"; "ST"; "HigherArray"], "intro_fits_u32";
+    ["Steel"; "ST"; "HigherArray"], "intro_fits_u64";
     ["C"; "Nullity"], "null";
     ["C"; "String"], "get";
     ["C"; "String"], "t";
@@ -271,6 +275,7 @@ let rec vars_of m = function
   | StringLiteral _
   | Any
   | EAbort _
+  | BufNull
   | Op _ ->
       S.empty
   | Cast (e, _)
@@ -395,6 +400,8 @@ let mk_pretty_type = function
       x
 
 let bytes_in = function
+  (* SizeT does not have a statically known size *)
+  | Int SizeT -> None
   | Int w -> Some (K.bytes_of_width w)
   | Qualified ([ "FStar"; "UInt128" ], "uint128") -> Some (128 / 8)
   | Qualified ([ "Lib"; "IntVector"; "Intrinsics" ], "vec128") -> Some (128 / 8)
@@ -577,16 +584,22 @@ and mk_check_size m t n_elements: C.stmt list =
    * hopefully a constant *)
   let default = [ C.Expr (C.Call (C.Name "KRML_CHECK_SIZE", [ mk_sizeof m t; n_elements ])) ] in
   match bytes_in t, n_elements with
+  | _, C.Cast (_, C.Constant (_, "1")) ->
+      (* C compilers also don't seem to let the user define a type that would be
+         greater than size_t, so if the element size is 1, then we can get rid
+         of the check as well. *)
+      []
   | Some w, C.Cast (_, C.Constant (_, n_elements)) ->
+      (* Compute, if we can, the size statically *)
       let size_bytes = Z.(of_int w * of_string n_elements) in
-      (* Note: this is a wild assumption and ought to be checked via a static
-       * assert. *)
-      let ptr_size = Z.(one lsl 32) in
-      if Z.( lt size_bytes ptr_size ) then
+      let ptr_size = Z.(one lsl 16) in
+      (* The C data model guarantees 16 bits wide for size_t, at least. *)
+      if Z.( lt size_bytes ptr_size )then
         []
       else
         default
   | _ ->
+      (* Nothing much we can deduce statically, bail *)
       default
 
 and mk_sizeof m t =
@@ -623,6 +636,9 @@ and mk_free t e =
       C.Call (C.Name "KRML_ALIGNED_FREE", [ e ])
   | _ ->
       C.Call (C.Name "KRML_HOST_FREE", [ e ])
+
+and mk_ignore e =
+  C.Call (C.Name "KRML_HOST_IGNORE", [ e ])
 
 (* NOTE: this is only legal because we rule out the creation of zero-length
  * heap-allocated buffers; if we were to allow that, then this begs the question
@@ -1028,6 +1044,9 @@ and mk_expr m (e: expr): C.expr =
       let len = mk_expr m len in
       Call (mk_expr m f, [ dst; Op2 (K.Mult, len, Sizeof (Index (dst, zero))) ])
 
+  | Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), [ arg ]) ->
+      mk_ignore (mk_expr m arg)
+
   | Call (Qualified ([ "C"; "Nullity" ], s), [ e1 ]) when KString.starts_with s "op_Bang_Star__" ->
       mk_deref m e1
 
@@ -1048,16 +1067,13 @@ and mk_expr m (e: expr): C.expr =
   | BufRead (e1, e2) ->
       mk_index m e1 e2
 
-  | Call (Qualified ([ "LowStar"; "Monotonic"; "Buffer" ], "mnull"), _)
-  | Call (Qualified ([ "LowStar"; "Buffer" ], "null"), _)
-  | Call (Qualified ([ "Steel"; "Reference" ], "null"), _)
-  | Call (Qualified ([ "C"; "Nullity" ], "null"), _) ->
+  | BufNull ->
       Name "NULL"
 
-  | Call (Qualified ( [ "LowStar"; "Monotonic"; "Buffer" ], "is_null"), [ e ] )
-  | Call (Qualified ( [ "Steel"; "Reference" ], "is_null"), [ e ] )
-  | Call (Qualified ( [ "C"; "Nullity" ], "is_null"), [ e ]) ->
-      Op2 (K.Eq, mk_expr m e, C.Name "NULL")
+  | Call (Qualified ( [ "Steel"; "ST"; "HigherArray" ], "intro_fits_u32"), _ ) ->
+      Call (Name "static_assert", [Op2 (K.Lte, Name "UINT32_MAX", Name "SIZE_MAX")])
+  | Call (Qualified ( [ "Steel"; "ST"; "HigherArray" ], "intro_fits_u64"), _ ) ->
+      Call (Name "static_assert", [Op2 (K.Lte, Name "UINT64_MAX", Name "SIZE_MAX")])
 
   | Call (Qualified ( [ "FStar"; "UInt128" ], "add"), [ e1; e2 ]) when !Options.builtin_uint128 ->
       Op2 (K.Add, mk_expr m e1, mk_expr m e2)
@@ -1514,24 +1530,23 @@ let mk_public_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
    * definitions that are visible from the outside. *)
   (* What should be the behavior for a type declaration marked as CAbstract but
    * whose module has -static-header? This ignores CAbstract. *)
-  (* Note that static_header has precedence over private qualifiers *)
   (* Note that static_header + library means that corresponding declarations are
    * effectively dropped on the basis that the user is doing separate extraction
    * & compilation + providing the required header. *)
   KList.map_flatten
-    (if_header_inline_static m
-      (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
-      (if_public (either (mk_function_or_global_stub m) (mk_type_or_external m H))))
+    (if_public (
+      (if_header_inline_static m
+        (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
+        (either (mk_function_or_global_stub m) (mk_type_or_external m H)))))
     decls
 
 (* Private part if not already a static header, empty otherwise. *)
 let mk_internal_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
-  (* We make the choice here to not split static headers between public and
-     internal. Could be revisited. *)
   KList.map_flatten
-    (if_header_inline_static m
-      none
-      (if_internal (either (mk_function_or_global_stub m) (mk_type_or_external m H))))
+    (if_internal (
+      (if_header_inline_static m
+        (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
+        (either (mk_function_or_global_stub m) (mk_type_or_external m H)))))
     decls
 
 let mk_headers (map: (Ast.lident, Ast.ident) Hashtbl.t)

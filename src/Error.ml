@@ -31,6 +31,7 @@ and raw_error =
   | CannotMacro of lident
   | DropCtypesDeclaration of lident * lident
   | ConflictMacro of lident * string
+  | InlineStaticInline of lident
   | IfDefOnGlobal of lident
 
 and location =

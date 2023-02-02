@@ -28,11 +28,12 @@ ifneq ($(RECENT_GCC),"yes")
 endif
 
 CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased \
-  check-right-file count-deref check-global-init
+  check-right-file count-deref check-global-init check-useless-alias
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
-  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test Crypto.Symmetric.Chacha20.wasm-test
+  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test Wasm11.wasm-test \
+  Crypto.Symmetric.Chacha20.wasm-test
 NEGATIVE	= false
 
 WEB_DIR		?= web
@@ -72,10 +73,9 @@ everything: all wasm
 
 ifndef MAKE_RESTARTS
 ifndef NODEPEND
-# AF: The Steel files should not be extracted by KaRaMeL, they are filtered out
 .depend: .FORCE
 	$(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
-	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*,-Prims,-FStar.MSTTotal,-FStar.NMSTTotal,-FStar.MST,-FStar.NMST,-Steel.Effect,-Steel.Effect.Atomic,-Steel.HigherReference,-Steel.Reference,-Steel.Semantics.Hoare.MST' > $@
+	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*,-Prims' > $@
 
 .PHONY: .FORCE
 .FORCE:
@@ -83,19 +83,6 @@ endif
 endif
 
 include .depend
-
-# AF: The Steel files should not be extracted by KaRaMeL, they are filtered out
-FILTERED_STEEL_FILES = \
-  $(OUTPUT_DIR)/FStar_MSTTotal.krml \
-  $(OUTPUT_DIR)/FStar_NMSTTotal.krml \
-  $(OUTPUT_DIR)/FStar_NMST.krml \
-  $(OUTPUT_DIR)/FStar_MST.krml \
-  $(OUTPUT_DIR)/Steel_Effect.krml \
-  $(OUTPUT_DIR)/Steel_Effect_Atomic.krml \
-  $(OUTPUT_DIR)/Steel_HigherReference.krml \
-  $(OUTPUT_DIR)/Steel_Reference.krml \
-  $(OUTPUT_DIR)/Steel_Semantics_Hoare_MST.krml
-FILTERED_KRML_FILES = $(filter-out $(FILTERED_STEEL_FILES), $(ALL_KRML_FILES))
 
 $(HINTS_DIR):
 	mkdir -p $@
@@ -154,6 +141,7 @@ $(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fnoshort-enums
 $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
 $(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel memcpymodel_impl.c
 $(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
+$(OUTPUT_DIR)/IfDefKrml.exe: EXTRA = -fmicrosoft -ccopts -DBOOLEAN=bool,-DTRUE=true,-DFALSE=false
 $(OUTPUT_DIR)/Ctypes2.exe: EXTRA = -ctypes 'Ctypes2,Ctypes4' \
   -bundle 'Ctypes3+Ctypes4=[rename=Lowlevel]' \
   -bundle 'Ctypes2=' \
@@ -172,12 +160,18 @@ $(OUTPUT_DIR)/MonomorphizationCrash.exe: EXTRA=monomorphization_crash.c -add-inc
 $(OUTPUT_DIR)/MonomorphizationSeparate2.exe: EXTRA=-bundle MonomorphizationSeparate1=
 $(OUTPUT_DIR)/Loops.exe: EXTRA=-funroll-loops 16
 $(OUTPUT_DIR)/GlobalInit.exe: EXTRA=global_init.c
+$(OUTPUT_DIR)/SteelArrayArith.exe: EXTRA=-static-header Steel.ArrayArith -no-prefix Steel.ArrayArith
+$(OUTPUT_DIR)/SteelLock.exe: EXTRA=-bundle Steel.* -add-include 'Steel:"krml/steel_types.h"'
+$(OUTPUT_DIR)/SizeT.exe: EXTRA=-ccopt -std=c2x
 
 Failure.test: NEGATIVE=true
 
 # Some custom targets
 
 SED=$(shell which gsed >/dev/null 2>&1 && echo gsed || echo sed)
+check-useless-alias: $(OUTPUT_DIR)/DepPair.exe
+	! grep dtuple2___int32_t____ $(OUTPUT_DIR)/DepPair.out/DepPair.c
+
 count-uu: $(OUTPUT_DIR)/Uu.exe
 	[ `grep uu___ $(OUTPUT_DIR)/Uu.out/Uu.c | \
 	  $(SED) 's/.*\(uu____\([0-9]\+\)\).*/\1/g' \

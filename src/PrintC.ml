@@ -102,9 +102,16 @@ and p_type_declarator d =
         p_noptr d ^^ lbracket ^^ p_qualifiers_break qs ^^ p_expr s ^^ rbracket
     | Function (cc, d, params) ->
         let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
-        group (cc ^^ p_noptr d ^^ parens_with_nesting (separate_map (comma ^^ break 1) (fun (qs, spec, decl) ->
-          group (p_qualifiers_break qs ^^ p_type_spec spec ^/^ p_any decl)
-        ) params))
+        let params =
+          if params = [] then
+            (* Avoid old-style K&R declarations *)
+            string "void"
+          else
+            separate_map (comma ^^ break 1) (fun (qs, spec, decl) ->
+              group (p_qualifiers_break qs ^^ p_type_spec spec ^/^ p_any decl)
+            ) params
+        in
+        group (cc ^^ p_noptr d ^^ parens_with_nesting params)
     | d ->
         lparen ^^ p_any d ^^ rparen
   and p_any = function
@@ -366,15 +373,16 @@ and p_stmt (s: stmt) =
       let mk_line prefix doc =
         string (KPrint.bsprintf "%s %a" prefix pdoc doc)
       in
+      let p stmts = if !Options.microsoft then p_stmt (Compound stmts) else p_stmts stmts in
       group (mk_line "#if" (p_expr cond) ^^ hardline ^^
-        p_stmts then_block ^^ hardline ^^
+        p then_block ^^ hardline ^^
         separate_map hardline (fun (cond, stmts) ->
           mk_line "#elif" (p_expr cond) ^^ hardline ^^
-          p_stmts stmts) elif_blocks ^^
+          p stmts) elif_blocks ^^
         (if List.length elif_blocks > 0 then hardline else empty) ^^
         (if List.length else_block > 0 then
           string "#else" ^^ hardline ^^
-          p_stmts else_block ^^ hardline
+          p else_block ^^ hardline
         else
           empty) ^^
         string "#endif")
@@ -405,7 +413,7 @@ and p_stmt (s: stmt) =
 and p_stmts stmts = separate_map hardline p_stmt stmts
 
 let p_comments cs =
-  separate_map hardline (fun c -> string ("/*\n" ^ c ^ "\n*/")) cs ^^
+  separate_map hardline (fun c -> string ("/**\n" ^ c ^ "\n*/")) cs ^^
   if List.length cs > 0 then hardline else empty
 
 let p_microsoft_comments cs =

@@ -875,6 +875,7 @@ and hoist_expr loc pos e =
   | ETApp _ ->
       assert false
 
+  | EBufNull
   | EAbort _
   | EAny
   | EBound _
@@ -1066,6 +1067,11 @@ and hoist_expr loc pos e =
       let lhs1, e1 = hoist_expr loc Unspecified e1 in
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
       lhs1 @ lhs2, mk (EBufSub (e1, e2))
+
+  | EBufDiff (e1, e2) ->
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
+      lhs1 @ lhs2, mk (EBufDiff (e1, e2))
 
   | ECast (e, t) ->
       let lhs, e = hoist_expr loc Unspecified e in
@@ -1459,8 +1465,8 @@ and under_pushframe ifdefs (e: expr) =
     when Idents.LidSet.mem lid ifdefs ->
       (* Do not hoist, since this if will turn into an ifdef which does NOT
          shorten the scope...! *)
-      let e2 = under_pushframe e2 in  
-      let e3 = under_pushframe e3 in  
+      let e2 = under_pushframe e2 in
+      let e3 = under_pushframe e3 in
       let ek = under_pushframe ek in
       mk (ELet (b, { node = EIfThenElse (e1, e2, e3); typ }, ek))
   | ELet (b, e1, e2) ->
@@ -1469,8 +1475,8 @@ and under_pushframe ifdefs (e: expr) =
       nest b1 e.typ (mk (ELet (b, e1, e2)))
   | EIfThenElse ({ node = EQualified lid; _ } as e1, e2, e3)
     when Idents.LidSet.mem lid ifdefs ->
-      let e2 = under_pushframe e2 in  
-      let e3 = under_pushframe e3 in  
+      let e2 = under_pushframe e2 in
+      let e3 = under_pushframe e3 in
       mk (EIfThenElse (e1, e2, e3))
   | _ ->
       let b, e' = hoist_bufcreate e in
@@ -1590,11 +1596,11 @@ let combinators = object(self)
 
     | EQualified (["Steel"; "ST"; "Loops"], s), [ start; finish; _inv; { node = EFun (_, body, _); _ } ]
       when KString.starts_with s "for_loop" ->
-        self#mk_for start finish body K.UInt32
+        self#mk_for start finish body K.SizeT
 
     | EQualified (["Steel"; "Loops"], s), [ start; finish; _inv; { node = EFun (_, body, _); _ } ]
       when KString.starts_with s "for_loop" ->
-        self#mk_for start finish body K.UInt32
+        self#mk_for start finish body K.SizeT
 
     | EQualified ("C" :: (["Loops"]|["Compat";"Loops"]), s), [ _measure; _inv; tcontinue; body; init ]
         when KString.starts_with s "total_while_gen"

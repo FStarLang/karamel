@@ -290,15 +290,18 @@ let mk_ctypes_decl m (d: decl): structure =
       | Qualified t -> mk_typedef m name (Qualified t)
       | _ -> []
       end
-  | Global (name, _, _, typ, _) -> begin
-      match typ with
-      | Function _ ->
-        [mk_extern_decl m name "foreign" typ]
-      | Pointer _ ->
-        warn_drop_declaration "" (lid_of_decl d) ([], "extern *");
+  | Global (name, _, flags, typ, _) -> begin
+      if List.mem Common.Macro flags then
         []
-      | _ -> [mk_extern_decl m name "foreign_value" typ]
-      end
+      else
+        match typ with
+        | Function _ ->
+          [mk_extern_decl m name "foreign" typ]
+        | Pointer _ ->
+          warn_drop_declaration "" (lid_of_decl d) ([], "extern *");
+          []
+        | _ -> [mk_extern_decl m name "foreign_value" typ]
+        end
   | External _
   | TypeForward _ -> []
 

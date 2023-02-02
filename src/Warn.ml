@@ -42,7 +42,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 25 CError;;
+let flags = Array.make 26 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -97,8 +97,10 @@ let errno_of_error = function
       22
   | ConflictMacro _ ->
       23
-  | IfDefOnGlobal _ ->
+  | InlineStaticInline _ ->
       24
+  | IfDefOnGlobal _ ->
+      25
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -193,6 +195,10 @@ let rec perr buf (loc, raw_error) =
   | ConflictMacro (lid, macro) ->
      p "%a cannot be compiled to macro %s because another identifier already \
        compiles to the same macro" plid lid macro
+  | InlineStaticInline lid ->
+      p "%a is marked [@CInline] and also covered by a -static-header krml \
+      option... the [@CInline] is redundant because -static-header generates \
+      code marked as static inline" plid lid
 
 let maybe_fatal_error error =
   flush stdout;

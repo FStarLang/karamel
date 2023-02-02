@@ -211,7 +211,7 @@ let mk_lit w lit =
       let n = Z.of_string lit in
       let n = if Z.( n >= ~$2 ** 63 ) then Z.( n - ~$2 ** 64 ) else n in
       mk_int64 (Z.to_int64 n)
-  | K.Int32 | K.UInt8 | K.UInt16 | K.UInt32 | K.Bool | K.CInt ->
+  | K.Int32 | K.UInt8 | K.UInt16 | K.UInt32 | K.SizeT | K.PtrdiffT | K.Bool | K.CInt ->
       let n = Z.of_string lit in
       let n = if Z.( n >= ~$2 ** 31 ) then Z.( n - ~$2 ** 32 ) else n in
       mk_int32 (Z.to_int32 n)
@@ -674,7 +674,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | CallFunc ("LowStar_Monotonic_Buffer_mnull", [ _ ] )
   | CallFunc ("LowStar_Buffer_null", [ _ ] )
   | CallFunc ("C_Nullity_null", [ _ ]) ->
-      [ dummy_phrase (W.Ast.Const (mk_int32 0l)) ]
+      assert false
 
   | CallFunc (("load16_le_i" | "load16_le"), [ e ]) ->
       mk_expr env e @

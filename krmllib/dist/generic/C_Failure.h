@@ -14,7 +14,7 @@
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
-extern bool C_Failure_whatever();
+extern bool C_Failure_whatever(void);
 
 
 #define __C_Failure_H_DEFINED

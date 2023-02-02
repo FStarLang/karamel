@@ -39,6 +39,7 @@ module Time = struct
 end
 
 let _ =
+  let arg_version = ref false in
   let arg_print_ast = ref false in
   let arg_print_json = ref false in
   let arg_print_simplify = ref false in
@@ -176,7 +177,7 @@ Supported options:|}
     match String.split_on_char ':' s with
     | [ h; i ] ->
         begin match Filename.chop_suffix_opt ~suffix:".c" h with
-        | Some h -> 
+        | Some h ->
             COnly h, i
         | None ->
             HeaderOnly h, i
@@ -305,6 +306,7 @@ Supported options:|}
         prefix restricts merges to variables that share a common prefix; \
         aggressive always merges";
     "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
+    "-fcast-allocations", Arg.Set Options.cast_allocations, "  cast allocations (for C89, or for C++)";
     "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see \
       above) + also disable variadic-length KRML_HOST_EPRINTF + cast allocations";
     "-flinux-ints", Arg.Set Options.linux_ints, " use Linux kernel int types";
@@ -337,6 +339,9 @@ Supported options:|}
       comma-separated list of values; currently supported: \
       inline,bundle,reachability,c-calls,c-names,wasm-calls,wasm-memory,wasm,force-c,cflat";
     "", Arg.Unit (fun _ -> ()), " ";
+
+      (* General utilities *)
+    "-version", Arg.Set arg_version, " Display version number";
   ] in
   let spec = Arg.align spec in
   let rec anon_fun f =
@@ -378,6 +383,11 @@ Supported options:|}
     KPrint.bprintf "Complete invocation was: %s\n"
       (String.concat "␣" (Array.to_list Sys.argv));
     exit 1
+  end;
+
+  if !arg_version then begin
+    Printf.printf "KaRaMeL version: %s\n" Version.version;
+    exit 0
   end;
 
   if not !found_file ||
@@ -437,6 +447,7 @@ Supported options:|}
       ([], [ Bundle.Module [ "Prims" ] ], []) ::
       ([], [ Bundle.Prefix [ "FStar" ] ], []) ::
       ([], [ Bundle.Prefix [ "LowStar" ] ], []) ::
+      ([], [ Bundle.Prefix [ "WasmSupport" ] ], []) ::
       !Options.bundle;
 
   if !arg_c89 then begin
@@ -574,6 +585,11 @@ Supported options:|}
   let files = GcTypes.heap_allocate_gc_types files in
   (* Note: this phase re-inserts some type abbreviations. *)
   let datatypes_state, files = DataTypes.everything files in
+  (* Avoid polluting our scope with:
+      abbrev k___chosen_internal_name = foo
+    stemming from the monomorphization then elimination of type bar x = | Foo of foo
+  *)
+  let files = Inlining.inline_type_abbrevs ~just_auto_generated:true files in
   if !arg_print_pattern then
     print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in
@@ -713,7 +729,6 @@ Supported options:|}
     (* Translate to C*... *)
     let file_of_map = Bundle.mk_file_of files in
     let deps = Bundles.direct_dependencies_with_internal files file_of_map in
-    (* Bundles.debug_deps deps; *)
     let files = AstToCStar.mk_files files c_name_map ifdefs macros in
     tick_print true "AstToCStar";
 
@@ -750,7 +765,8 @@ Supported options:|}
 
     if not !Options.silent then begin
       Printf.printf "KaRaMeL: wrote out .c files for %s\n" (String.concat ", " (List.map fst files));
-      Printf.printf "KaRaMeL: wrote out .h files for %s\n" (String.concat ", " (List.map fst headers))
+      Printf.printf "KaRaMeL: wrote out .h files for %s\n" (String.concat ", "
+        (List.map (function | h, C11.Internal _ -> "internal/"^h | h, Public _ -> h) headers))
     end;
 
     let ml_files = GenCtypes.file_list ml_files in

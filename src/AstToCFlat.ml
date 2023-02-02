@@ -122,7 +122,8 @@ let width_of_poly_eq (env: env) (t: typ): K.width =
   match t with
   | TInt w ->
       w
-  | TBool | TUnit ->
+  | TBool | TUnit | TBuf _ ->
+      (* We can compare a pointer to NULL *)
       K.UInt32
   | TAnonymous (Enum _) ->
       K.UInt32
@@ -175,6 +176,8 @@ let rec runtime_type (env: env) (t: typ): runtime_type =
       | LBuiltin (_, s) -> Int s
       | _ -> Layout (GlobalNames.to_c_name env.names lid)
       end
+  | TAnonymous (Union branches) ->
+      Union (List.map (fun (_, t) -> runtime_type env t) branches)
   | TAnonymous _ ->
       Unknown
   | TBuf (t, _) ->
@@ -299,6 +302,51 @@ let cell_size_b env t =
   let mult, base = cell_size env t in
   mult * bytes_in base
 
+(* We name flat layouts to i) avoid recomputing layouts all the time and hit the
+   cache in env.layouts, and ii) to simplify the representation of runtime types
+   and make it recursive only via named layouts. *)
+let name_flat_layouts = object (self)
+  inherit [_] map as super
+
+  val mutable count = 0
+  val mutable current_prefix = []
+
+  method private gensym =
+    let r = Printf.sprintf "anonymous_struct_%d" count in
+    count <- count + 1;
+    current_prefix, r
+
+  val hash_cons = Hashtbl.create 41
+
+  val mutable new_decls = []
+
+  method! visit_TAnonymous () def =
+    match def with
+    | Flat fields ->
+        let fields = self#visit_fields_t_opt () fields in
+        begin match Hashtbl.find_opt hash_cons fields with
+        | Some lid ->
+            TQualified lid
+        | None ->
+            let name = self#gensym in
+            Hashtbl.add hash_cons fields name;
+            new_decls <- (name, fields) :: new_decls;
+            TQualified name
+        end
+    | _ ->
+        super#visit_TAnonymous () def
+
+  method! visit_program () decls =
+    List.concat_map (fun d ->
+      current_prefix <- fst (lid_of_decl d);
+      let d = self#visit_decl () d in
+      let ds: decl list = List.map (fun (name, fields) -> DType (name, [], 0, Flat fields)) new_decls in
+      new_decls <- [];
+      List.rev_append ds [ d ]
+    ) decls
+
+end
+
 let populate env files =
   (* Assign integers to enums *)
   let env = List.fold_left (fun env (_, decls) ->
@@ -404,8 +452,14 @@ let assert_buf = function
 let mk_add32 e1 e2 =
   CF.CallOp ((K.UInt32, K.Add), [ e1; e2 ])
 
+let mk_sub32 e1 e2 =
+  CF.CallOp ((K.UInt32, K.Sub), [ e1; e2 ])
+
 let mk_mul32 e1 e2 =
   CF.CallOp ((K.UInt32, K.Mult), [ e1; e2 ])
+
+let mk_div32 e1 e2 =
+  CF.CallOp ((K.UInt32, K.Div), [ e1; e2 ])
 
 let mk_lt32 e1 e2 =
   CF.CallOp ((K.UInt32, K.Lt), [ e1; e2 ])
@@ -500,7 +554,7 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
          * dummy value. *)
         write_le dst ofs Helpers.uint32 (Z.of_int (Hashtbl.hash name'));
         [ CF.BufWrite (CF.GetGlobal name, ofs, CF.GetGlobal name', A32) ]
-    | EApp ({ node = EQualified (["LowStar"; "Monotonic"; "Buffer"], "mnull"); _ }, _) ->
+    | EBufNull ->
         write_le dst ofs Helpers.uint32 Z.zero;
         []
     | _ ->
@@ -747,6 +801,12 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, e2 = mk_expr env locals e2 in
       locals, CF.BufSub (e1, mk_mul32 e2 (mk_uint32 mult), base_size)
 
+  | EBufDiff (e1, e2) ->
+      let mult, base_size = cell_size env (assert_buf e1.typ) in
+      let locals, e1 = mk_expr env locals e1 in
+      let locals, e2 = mk_expr env locals e2 in
+      locals, mk_div32 (mk_sub32 e1 e2) (mk_mul32 (mk_uint32 mult) (mk_uint32 (bytes_in base_size)))
+
   | EBufWrite ({ node = EBound v1; _ }, e2, e3) ->
       let v1 = CF.Var (find env v1) in
       let locals, dst, offset = mk_offset env locals v1 e2 (cell_size_b env e3.typ) in
@@ -928,6 +988,9 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, e = mk_expr env locals e in
       locals, CF.Ignore (e, s)
 
+  | EBufNull ->
+      locals, CF.Constant (K.UInt32, "0")
+
 
 (* See digression for [dup32] in CFlatToWasm *)
 let scratch_locals =
@@ -1066,6 +1129,7 @@ let report_failures () =
   ) errors
 
 let mk_files files names =
+  let files = name_flat_layouts#visit_files () files in
   let env = populate (empty names) files in
   if Options.debug "cflat" then
     debug_env env;
