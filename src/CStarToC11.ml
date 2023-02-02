@@ -454,7 +454,7 @@ let rec mk_spec_and_decl m name qs (t: typ) (k: C.declarator -> C.declarator):
   | Void ->
       qs, Void, k (Ident name)
   | Qualified l ->
-      qs, Named (mk_pretty_type (to_c_name m l)), k (Ident name)
+      qs, Named (mk_pretty_type (to_c_name ~kind:Type m l)), k (Ident name)
   | Enum tags ->
       let tags = List.map (to_c_name m) tags in
       qs, Enum (None, tags), k (Ident name)
