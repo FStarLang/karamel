@@ -31,16 +31,27 @@ let krmllib_include () =
   if !Options.minimal then
     empty
   else
-    mk_includes [ "\"krmllib.h\"" ] ^^ hardline
+    mk_includes [ "\"krmllib.h\"" ] ^^ hardline ^^ hardline
 
 (* A Pprint document with:
  * - #include X for X in the dependencies of the file, followed by
  * - #include Y for each -add-include Y passed on the command-line
  *)
 let includes_for ~is_c file files =
-  let extra_includes = mk_includes (filter_includes ~is_c file !Options.add_include) in
-  let includes = mk_includes (List.rev_map (Printf.sprintf "\"%s.h\"") files) in
-  separate hardline [ includes; extra_includes ]
+  let extra_includes = filter_includes ~is_c file !Options.add_include in
+  let includes = List.rev_map (Printf.sprintf "\"%s.h\"") files in
+  let includes = includes @ extra_includes in
+  if includes = [] then
+    empty
+  else
+    mk_includes includes ^^ hardline ^^ hardline
+
+let early_includes_for ~is_c file =
+  let includes = filter_includes ~is_c file !Options.add_early_include in
+  if includes = [] then
+    empty
+  else
+    mk_includes includes ^^ hardline ^^ hardline
 
 let invocation (): string =
   KPrint.bsprintf
@@ -88,9 +99,10 @@ let prefix_suffix original_name name =
     string (header ()) ^^ hardline ^^ hardline ^^
     string (Printf.sprintf "#ifndef __%s_H" macro_name) ^^ hardline ^^
     string (Printf.sprintf "#define __%s_H" macro_name) ^^ hardline ^^
-    (if !Options.extern_c then hardline ^^ if_cpp (string "extern \"C\" {") ^^ hardline else empty) ^^
-    mk_includes (filter_includes ~is_c:false original_name !Options.add_early_include) ^^ hardline ^^
-    krmllib_include () ^^ hardline
+    (if !Options.extern_c then hardline ^^ if_cpp (string "extern \"C\" {") else empty) ^^
+    hardline ^^
+    early_includes_for ~is_c:false original_name ^^
+    krmllib_include ()
   in
   let suffix =
     hardline ^^
@@ -134,21 +146,25 @@ let write_c files internal_headers deps =
     let deps = List.of_seq (Bundles.StringSet.to_seq deps.Bundles.internal) in
     let deps = List.map (fun f -> "internal/" ^ f) deps in
     (* KPrint.bprintf "- write_c: %s\n" name; *)
-    let includes = hardline ^^ includes_for ~is_c:true name deps ^^ hardline in
-    let header = header () in
+    let includes = includes_for ~is_c:true name deps in
+    let header = string (header ()) ^^ hardline ^^ hardline in
     let internal = if Bundles.StringSet.mem name internal_headers then "internal/" else "" in
     (* If there is an internal header, we include that rather than the public
        one. The internal header always includes the public one. *)
-    let prefix = string (Printf.sprintf "%s\n\n#include \"%s%s.h\"" header internal name) ^^ hardline in
+    let my_h = string (Printf.sprintf "#include \"%s%s.h\"" internal name) in
     let prefix =
-      if !Options.add_include_tmh then
+      header ^^
+      early_includes_for ~is_c:true name ^^
+      (if !Options.add_include_tmh then
         string "#ifdef WPP_CONTROL_GUIDS" ^^ hardline ^^
         string (Printf.sprintf "#include <%s.tmh>" name) ^^ hardline ^^
-        string "#endif" ^^ hardline ^^ prefix
+        string "#endif" ^^ hardline
       else
-        prefix
+        empty) ^^
+      my_h ^^ hardline ^^ hardline ^^
+      includes
     in
-    write_one (name ^ ".c") (prefix ^^ includes) program empty;
+    write_one (name ^ ".c") prefix program empty;
     name
   ) files
 
@@ -178,7 +194,7 @@ let write_h files public_headers deps =
           name, h, public
     in
     (* KPrint.bprintf "- write_h: %s\n" name; *)
-    let includes = hardline ^^ includes_for ~is_c:false original_name deps ^^ hardline in
+    let includes = includes_for ~is_c:false original_name deps in
     let prefix, suffix = prefix_suffix original_name name in
     write_one (name ^ ".h") (prefix ^^ includes) program suffix;
     name

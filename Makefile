@@ -16,13 +16,13 @@ else
 endif
 
 all: minimal pre krmllib
-	OCAML_ERROR_STYLE="short" \
+	@OCAML_ERROR_STYLE="short" \
 	OCAMLPATH="$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/bin" $(OCAMLBUILD) $(EXTRA_TARGETS)
 
 minimal: src/AutoConfig.ml src/Version.ml
 	@# Workaround Windows bug in OCamlbuild
 	$(shell [ -f Karamel.$(FLAVOR) ] && rm Karamel.$(FLAVOR))
-	OCAML_ERROR_STYLE="short" $(OCAMLBUILD) $(TARGETS)
+	@OCAML_ERROR_STYLE="short" $(OCAMLBUILD) $(TARGETS)
 	ln -sf Karamel.$(FLAVOR) krml
 
 krmllib: minimal
