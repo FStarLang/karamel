@@ -13,4 +13,4 @@ true: annot, bin_annot, warn(@1-2-3@8..12@14..21@23..29-30@31..38-39-40-41@43@57
 <test>: -traverse
 <krmllib/{extracted,c,out,dist}>: -traverse
 <book/tutorial>: -traverse
-<krmllib/**/*.ml>: package(fstarlib)
+<krmllib/**/*.ml>: package(fstar.lib)

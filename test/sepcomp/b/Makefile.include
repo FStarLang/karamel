@@ -4,10 +4,6 @@
 
 PROJECT_HOME ?= .
 
-ifeq (,$(FSTAR_HOME))
-  $(error FSTAR_HOME is not defined)
-endif
-
 ifeq (,$(KRML_HOME))
   $(error KRML_HOME is not defined)
 endif
@@ -27,7 +23,6 @@ SOURCE_DIRS = $(PROJECT_HOME)
 # the interactive mode, for finding checked files for our own F* files.
 INCLUDE_DIRS = \
   $(SOURCE_DIRS) \
-  $(FSTAR_HOME)/ulib/.cache \
   $(KRML_HOME)/krmllib \
   $(KRML_HOME)/krmllib/obj \
   $(PROJECT_HOME)/../a \

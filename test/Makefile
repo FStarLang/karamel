@@ -1,6 +1,30 @@
+
+
 RECENT_GCC	= $(shell [ "$$(gcc -dumpversion | cut -c -1)" -ge 5 ] && echo yes)
-CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
-CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
+
+ifdef FSTAR_HOME
+  # Assume there is a F* source tree
+  FSTAR_EXE=$(FSTAR_HOME)/bin/fstar.exe
+else
+  FSTAR_EXE=$(shell which fstar.exe)
+  ifeq ($(FSTAR_EXE),)
+    $(error "fstar.exe not found, please install F*")
+  endif
+  # Assume F* in the PATH, in some ..../bin directory
+  FSTAR_HOME=$(dir FSTAR_EXE)/..
+endif
+
+CRYPTO = $(shell \
+  if test -d $(FSTAR_HOME)/examples/low-level/crypto ; \
+  then echo $(FSTAR_HOME)/examples/low-level/crypto ; \
+  elif test -d $(FSTAR_HOME)/share/fstar/examples/low-level/crypto ; \
+  then echo $(FSTAR_HOME)/share/fstar/examples/low-level/crypto ; \
+  fi \
+)
+
+ifneq ($(CRYPTO),)
+  CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
+endif
 TEST_OPTS	= -warn-error @4 -verbose -skip-makefiles
 KRML_BIN	= ../_build/src/Karamel.native
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
@@ -16,11 +40,16 @@ BROKEN		= \
 
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
 # special file and doesn't have a main.
+
+ifneq ($(CRYPTO),)
+  CRYPTO_FILES=$(CRYPTO)/Crypto.Symmetric.Chacha20.test
+endif
+
 FILES		= \
   $(patsubst %.fst,%.test,$(filter-out Unused_A.fst StaticHeaderAPI.fst \
     StaticHeaderLib.fst NameCollisionHelper.fst ML16Externals.fst MemCpyModel.fst \
     Lowlevel.fst PrivateInclude1.fst $(BROKEN),$(wildcard *.fst))) \
-  $(CRYPTO)/Crypto.Symmetric.Chacha20.test \
+  $(CRYPTO_FILES) \
   $(patsubst %.fst,%.test,$(wildcard ../book/*.fst ../book/notfslit/*.fst))
 
 ifneq ($(RECENT_GCC),"yes")
@@ -29,11 +58,14 @@ endif
 
 CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased \
   check-right-file count-deref check-global-init check-useless-alias
+ifneq ($(CRYPTO),)
+  CRYPTO_WASM_FILES=Crypto.Symmetric.Chacha20.wasm-test
+endif
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
   Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test Wasm11.wasm-test \
-  Crypto.Symmetric.Chacha20.wasm-test
+  $(CRYPTO_WASM_FILES)
 NEGATIVE	= false
 
 WEB_DIR		?= web
@@ -41,19 +73,14 @@ CACHE_DIR	= .cache
 OUTPUT_DIR	= .output
 HINTS_DIR	= .hints
 
-ifdef FSTAR_HOME
-  # Assume there is a F* source tree
-  FSTAR_EXE=$(FSTAR_HOME)/bin/fstar.exe
-else
-  # Assume F* in the PATH
-  FSTAR_EXE=fstar.exe
+ifneq ($(CRYPTO),)
+  INCLUDE_CRYPTO=--include $(CRYPTO)
 endif
-
 FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
   --include hello-system --include ../krmllib/compat --include ../krmllib/obj \
   --include ../krmllib --include ../runtime \
-  --include $(CRYPTO) --include ../book --include ../book/notfslit --use_hints --record_hints \
+  $(INCLUDE_CRYPTO) --include ../book --include ../book/notfslit --use_hints --record_hints \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport Steel' \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274

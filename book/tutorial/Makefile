@@ -36,7 +36,7 @@ FSTAR_HINTS ?= --use_hints --use_hint_hashes --record_hints
 
 # This flag controls what gets extracted to OCaml. Generally, we don't extract
 # the FStar namespace since it's already extracted and packaged as the ocamlfind
-# package fstarlib. Here, unlike in -bundle, +Spec matches both Spec and
+# package fstar.lib. Here, unlike in -bundle, +Spec matches both Spec and
 # Spec.*
 FSTAR_EXTRACT = --extract 'OCaml:-* +Spec'
 
@@ -50,6 +50,19 @@ FSTAR_EXTRACT = --extract 'OCaml:-* +Spec'
 #   inline_for_extraction in the presence of interfaces
 # - --cache_checked_modules to rely on a pre-built ulib and krmllib
 # - --cache_dir, to avoid polluting our generated build artifacts outside o
+
+# Where is F* ?
+ifndef FSTAR_HOME
+  FSTAR_EXE=$(shell which fstar.exe)
+  ifneq ($(FSTAR_EXE),)
+    # Assuming that fstar.exe is in some ..../bin directory
+    FSTAR_HOME=$(dir $(FSTAR_EXE))/..
+  else
+    $(error "fstar.exe not found, please install FStar")
+  endif
+endif
+export FSTAR_HOME
+
 FSTAR_NO_FLAGS = $(FSTAR_HOME)/bin/fstar.exe $(FSTAR_HINTS) \
   --odir obj --cache_checked_modules $(FSTAR_INCLUDES) --cmi \
   --already_cached 'Prims FStar LowStar C Spec.Loops TestLib WasmSupport' --warn_error '+241@247+285' \
@@ -219,10 +232,11 @@ dist/libbignum.a: dist/Makefile.basic
 # extra dependency analysis.
 
 # First complication... no comment.
+# NOTE: if F* was installed via opam, then this is redundant
 ifeq ($(OS),Windows_NT)
-  export OCAMLPATH := $(FSTAR_HOME)/bin;$(OCAMLPATH)
+  export OCAMLPATH := $(FSTAR_HOME)/lib;$(OCAMLPATH)
 else
-  export OCAMLPATH := $(FSTAR_HOME)/bin:$(OCAMLPATH)
+  export OCAMLPATH := $(FSTAR_HOME)/lib:$(OCAMLPATH)
 endif
 
 # Second complication: F* generates a list of ML files in the reverse linking
@@ -242,7 +256,7 @@ obj/Specs_Driver.cmx: $(ALL_CMX_FILES)
 
 # Finally, how to compile things...
 
-OCAMLOPT = ocamlfind opt -package fstarlib -linkpkg -g -I $(BIGNUM_HOME)/obj -w -8-20-26
+OCAMLOPT = ocamlfind opt -package fstar.lib -linkpkg -g -I $(BIGNUM_HOME)/obj -w -8-20-26
 
 .PRECIOUS: obj/%.cmx
 obj/%.cmx: obj/%.ml
