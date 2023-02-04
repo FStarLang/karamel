@@ -131,9 +131,9 @@ let add'_zero add' dst x y c0 =
 
   // Actual computation. Note that this will *not* generate a pair in the
   // resulting C code! With the inline_for_extraction on Spec.add_carry, this
-  // becomes (in the internal KreMLin AST) something like:
+  // becomes (in the internal KaRaMeL AST) something like:
   //   match (let a = ... in let c = ... in a, c) with (a', c')
-  // KreMLin hoists the let-bindings:
+  // KaRaMeL hoists the let-bindings:
   //   let a = ... in
   //   let c = ... in
   //   match a, c with a', c' -> ...
@@ -141,7 +141,7 @@ let add'_zero add' dst x y c0 =
   // is a well-known technique that applies to tuples of any lengths, and allows
   // sharing copious amounts of code between spec and implementation. It is used
   // pervasively in HACL*.
-  // See https://github.com/FStarLang/kremlin/blob/04054342cb527ecb97633d0d88a739ae0b320146/src/DataTypes.ml#L1014
+  // See https://github.com/FStarLang/karamel/blob/04054342cb527ecb97633d0d88a739ae0b320146/src/DataTypes.ml#L1014
   let a, c1 = Spec.add_carry y_b.(0ul) c0 in
   dst_hd.(0ul) <- a;
 

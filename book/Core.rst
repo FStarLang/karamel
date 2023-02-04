@@ -196,14 +196,14 @@ source of truth.
 Extensions to Low*
 ------------------
 
-KreMLin supports a number of programming patterns beyond the original paper
+KaRaMeL supports a number of programming patterns beyond the original paper
 formalization, which aim to maximize programmer productivity. We now review
 the main ones.
 
 Equalities monomorphization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-One can rely on KreMLin to compile F*'s structural equality (the ``(=)``
+One can rely on KaRaMeL to compile F*'s structural equality (the ``(=)``
 operator) to C functions specialized to each type. Furthermore, the function
 below demonstrates the use of a struct type as a value, which is
 straightforwardly compiled to a C structure passed by value. Be aware that doing
@@ -229,7 +229,7 @@ so has performance implications (see ??).
 Inductives as tagged unions; pattern-matching compilation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-One may also use F* inductives, knowing that KreMLin will compile them as
+One may also use F* inductives, knowing that KaRaMeL will compile them as
 tagged unions. There are currently five different compilation schemes for data
 types that all aim to generate C code that is "as natural" as possible:
 
@@ -275,7 +275,7 @@ scheme and generates a complete tagged union.
 Data type monomorphization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Generally, KreMLin performs a whole-program monomorphization of
+Generally, KaRaMeL performs a whole-program monomorphization of
 parameterized data types. The example below demonstrates this, along with a
 "pretty" compilation scheme for the option type that does not involves an
 anonymous union.
@@ -323,8 +323,8 @@ anonymous union.
 Pattern matches compilation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Inductives are compiled by KreMLin, and so are pattern matches. Note that
-for a series of cascading if-then-elses, KreMLin has to insert a fallback
+Inductives are compiled by KaRaMeL, and so are pattern matches. Note that
+for a series of cascading if-then-elses, KaRaMeL has to insert a fallback
 else statement, both because the original F* code may be unverified and the
 pattern-matching may be incomplete, but also because the C compiler may
 trigger an error.
@@ -358,7 +358,7 @@ trigger an error.
      }
      else
      {
-       KRML_HOST_PRINTF("KreMLin abort at %s:%d\n%s\n",
+       KRML_HOST_PRINTF("KaRaMeL abort at %s:%d\n%s\n",
          __FILE__,
          __LINE__,
          "unreachable (pattern matches are exhaustive in F*)");
@@ -427,11 +427,11 @@ Non-constant globals
 ^^^^^^^^^^^^^^^^^^^^
 
 In the case that the user defines a global variable that does not compile to
-a C11 constant, KreMLin generates a "static initializer" in the special
-``kremlinit_globals`` function. If the program has a ``main``, KreMLin
-automatically prepends a call to ``kremlinit_globals`` in the ``main``. If
+a C11 constant, KaRaMeL generates a "static initializer" in the special
+``krmlinit_globals`` function. If the program has a ``main``, KaRaMeL
+automatically prepends a call to ``krmlinit_globals`` in the ``main``. If
 the program does not have a ``main`` and is intended to be used as a
-library, KreMLin emits a warning, which is fatal by default.
+library, KaRaMeL emits a warning, which is fatal by default.
 
 .. code:: fstar
 
@@ -446,12 +446,12 @@ library, KreMLin emits a warning, which is fatal by default.
    (...)
    Warning 9: : Some globals did not compile to C values and must be
    initialized before starting main(). You did not provide a main function,
-   so users of your library MUST MAKE SURE they call kremlinit_globals();
-   (see kremlinit.c).
+   so users of your library MUST MAKE SURE they call krmlinit_globals();
+   (see krmlinit.c).
 
-   $ cat kremlinit.c
+   $ cat krmlinit.c
    (...)
-   void kremlinit_globals()
+   void krmlinit_globals()
    {
      zero = uint128_zero();
    }
@@ -459,7 +459,7 @@ library, KreMLin emits a warning, which is fatal by default.
 Code quality improvements
 -------------------------
 
-In addition to all the features describe above, KreMLin will go great lengths to
+In addition to all the features describe above, KaRaMeL will go great lengths to
 generate readable code. Here are some of the optimization passes performed.
 
 Unused argument elimination
@@ -485,14 +485,14 @@ Temporary variable elimination
 
 F* introduces a significant amount of temporary variables called ``uu___``,
 owing to its monadic let semantics. (You can see these variables looking at the
-generated OCaml code.) KreMLin uses two different syntactic criteria to get rid
+generated OCaml code.) KaRaMeL uses two different syntactic criteria to get rid
 of those.
 
 Tuple elimination
 ^^^^^^^^^^^^^^^^^
 
 To avoid allocating too many intermediary values of monomorphized tuple types,
-KreMLin applies the following two rules before data type compilation &
+KaRaMeL applies the following two rules before data type compilation &
 monomorphization:
 
 .. code::
@@ -542,7 +542,7 @@ Low*.
 The example below cannot be compiled for the following reasons:
 
 - local recursive let-bindings are not Low*;
-- local closure captures variable in scope (KreMLin does not do closure conversion)
+- local closure captures variable in scope (KaRaMeL does not do closure conversion)
 - the list type is not Low*.
 
 .. code:: fstar
@@ -566,15 +566,15 @@ to generate a ``.krml`` file.
 .. code:: bash
 
    $ krml -skip-compilation -verbose LowStar.fst
-   ⚙ KreMLin auto-detecting tools.
+   ⚙ KaRaMeL auto-detecting tools.
    (...)
    ✔ [F*,extract]
    <dummy>(0,0-0,0): (Warning 250) Error while extracting LowStar.filter_map
-   to KreMLin (Failure("Internal error: name not found aux\n"))
+   to KaRaMeL (Failure("Internal error: name not found aux\n"))
 
 To explain why the list type cannot be compiled to C, consider the snippet
 below. Data types are compiled as flat structures in C, meaning that the
-list type would have infinite size in C. This is compiled by KreMLin but
+list type would have infinite size in C. This is compiled by KaRaMeL but
 rejected by the C compiler. See ?? for an example of a linked list.
 
 .. code:: fstar
@@ -592,14 +592,14 @@ C compiler to generate a ``.o`` file.
 .. code:: bash
 
    $ krml -skip-linking -verbose LowStar.fst
-   ⚙ KreMLin auto-detecting tools.
+   ⚙ KaRaMeL auto-detecting tools.
    (...)
    ✘ [CC,./LowStar.c]
    In file included from ./LowStar.c:8:0:
    ./LowStar.h:95:22: error: field ‘tl’ has incomplete type
       LowStar_list_int32 tl;
 
-Polymorphic assumes are also not compiled. KreMLin could generate one C
+Polymorphic assumes are also not compiled. KaRaMeL could generate one C
 ``extern`` declaration per monomorphic use, but this would require the user
 to provide a substantial amount of manually-written code, so instead we
 refuse to compile the definition below.
@@ -616,14 +616,14 @@ to generate a ``.krml`` file.
 .. code:: bash
 
    $ krml -skip-compilation -verbose LowStar.fst
-   ⚙ KreMLin auto-detecting tools.
+   ⚙ KaRaMeL auto-detecting tools.
    (...)
    ✔ [F*,extract]
-   Not extracting LowStar.pair_up to KreMLin (polymorphic assumes are not supported)
+   Not extracting LowStar.pair_up to KaRaMeL (polymorphic assumes are not supported)
 
 One point worth mentioning is that indexed types are by default not
-supported. See section ?? for an unofficial KreMLin extension that works in
-some very narrow cases, or rewrite your code to make ``t`` an inductive. KreMLin
+supported. See section ?? for an unofficial KaRaMeL extension that works in
+some very narrow cases, or rewrite your code to make ``t`` an inductive. KaRaMeL
 currently does not have support for untagged unions, i.e. automatically
 making ``t`` a C union.
 
@@ -660,7 +660,7 @@ Trying to compile the snippet above will generate invalid C code.
          }
        default:
          {
-           KRML_HOST_PRINTF("KreMLin incomplete match at %s:%d\n", __FILE__, __LINE__);
+           KRML_HOST_PRINTF("KaRaMeL incomplete match at %s:%d\n", __FILE__, __LINE__);
            KRML_HOST_EXIT(253U);
          }
      }
@@ -670,7 +670,7 @@ If you are lucky, the C compiler may generate an error:
 
 .. code:: bash
 
-   $ krml -skip-linking LowStar.fst -add-include '"kremstr.h"' -no-prefix LowStar -warn-error +9
+   $ krml -skip-linking LowStar.fst -add-include '"krmlstr.h"' -no-prefix LowStar -warn-error +9
 
    ✘ [CC,./LowStar.c]
    ./LowStar.c: In function ‘default_t’:

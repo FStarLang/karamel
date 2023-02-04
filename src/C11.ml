@@ -29,7 +29,10 @@ and qualifier =
   | Restrict
 
 and declarator_and_init =
-  declarator * init option
+  declarator * alignment option * init option
+
+and alignment =
+  expr
 
 and declarator_and_inits =
   declarator_and_init list
@@ -62,7 +65,8 @@ and expr =
   | MemberAccessPointer of expr * ident
   | InlineComment of string * expr * string
   | Type of type_name
-    (** note: these two not in the C grammar *)
+  | Stmt of stmt list
+    (** note: last three in the C grammar *)
 
 (** this is a WILD approximation of the notion of "type name" in C _and_ a hack
  * because there's the invariant that the ident found at the bottom of the
@@ -98,7 +102,7 @@ and designator =
  * declarations can only be part of a compound statement... we do not enforce
  * this invariant via the type [stmt], but rather check it at runtime (see
  * [mk_compound_if]), at the risk of messing things up, naturally. *)
-type stmt =
+and stmt =
   | Compound of stmt list
   | Decl of declaration
   | Expr of expr
@@ -136,3 +140,8 @@ and declaration_or_expr = [
   | `Skip
 ]
 [@@deriving show]
+
+type header =
+  | Public of program
+  | Internal of program
+

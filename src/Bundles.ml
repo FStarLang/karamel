@@ -42,11 +42,9 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: (int * Bundle.t
   let mark_private =
     let add_if name flags =
       let is_private = List.mem Common.Private flags in
-      if not is_private && not (Inlining.always_live name) then begin
-        if List.length api > 0 then
-          Hashtbl.add Inlining.marked_private name ();
+      if not is_private && not (Inlining.always_live name) then
         Common.Private :: flags
-      end else
+      else
         flags
     in
     function
@@ -107,7 +105,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: (int * Bundle.t
         Warn.fatal_error "There an issue with your bundle.\n\
           You specified: -bundle %s\n\
           Here's the issue: one of these modules doesn't exist: %s.\n\
-          Suggestion #1: if the file does exist, pass it to KreMLin.\n\
+          Suggestion #1: if the file does exist, pass it to KaRaMeL.\n\
           Suggestion #2: if it doesn't, skip the %s= part and write -bundle %s"
           (string_of_bundle bundle)
           (string_of_apis api)
@@ -216,3 +214,68 @@ let make_bundles files =
   let files = Inlining.drop_unused files in
 
   topological_sort files
+
+(* A more refined version of direct_dependencies (found above), which
+   distinguishes between internal and public dependencies. Keeps less dependency
+   information, too, since it does not need to generate precise error messages.
+   To be used after Inlining has run. *)
+
+module StringSet = Set.Make(String)
+module LidSet = Idents.LidSet
+
+type deps = {
+  internal: StringSet.t;
+  public: StringSet.t;
+}
+
+let empty_deps = { internal = StringSet.empty; public = StringSet.empty }
+
+let drop_dinstinction { internal; public } =
+  List.of_seq (StringSet.to_seq (StringSet.union internal public))
+
+let direct_dependencies_with_internal files file_of =
+  (* Set of decls marked as internal *)
+  let internal = List.fold_left (fun set (_, decls) ->
+    List.fold_left (fun set decl ->
+      if List.mem Common.Internal (Ast.flags_of_decl decl) then
+        LidSet.add (Ast.lid_of_decl decl) set
+      else
+        set
+    ) set decls
+  ) LidSet.empty files in
+
+  List.fold_left (fun by_file file ->
+    let gen_dep (callee: lident) =
+      match file_of callee with
+      | Some f when f <> fst file ->
+          if LidSet.mem callee internal then
+            { empty_deps with internal = StringSet.singleton f }
+          else
+            { empty_deps with public = StringSet.singleton f }
+      | _ ->
+          empty_deps
+    in
+    let deps =
+      (object
+        inherit [_] reduce
+        method plus { internal = i1; public = p1 } { internal = i2; public = p2 } =
+          { internal = StringSet.union i1 i2; public = StringSet.union p1 p2 }
+        method zero = empty_deps
+        method! visit_EQualified _ lid =
+          gen_dep lid
+        method! visit_TQualified _ lid =
+          gen_dep lid
+        method! visit_TApp _ lid _ =
+          gen_dep lid
+      end)#visit_file () file
+    in
+    StringMap.add (fst file) deps by_file
+  ) StringMap.empty files
+
+
+let debug_deps deps =
+  StringMap.iter (fun name { internal; public } ->
+    KPrint.bprintf "%s --> internal: %s | public: %s\n" name
+      (String.concat ", " (List.of_seq (StringSet.to_seq internal)))
+      (String.concat ", " (List.of_seq (StringSet.to_seq public)))
+  ) deps

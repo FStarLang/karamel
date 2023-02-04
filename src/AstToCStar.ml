@@ -185,6 +185,7 @@ type return_pos =
   | Not
   | May
   | Must
+[@@deriving show]
 
 type binder_pos = Function | Local
 
@@ -241,6 +242,8 @@ let rec mk_expr env in_stmt e =
       CStar.BufRead (mk_expr env e1, mk_expr env e2)
   | EBufSub (e1, e2) ->
       CStar.BufSub (mk_expr env e1, mk_expr env e2)
+  | EBufDiff (e1, e2) ->
+      CStar.Call (CStar.Op K.Sub, [mk_expr env e1; mk_expr env e2])
   | EOp (o, _) ->
       CStar.Op o
   | EPolyComp (c, _) ->
@@ -273,6 +276,9 @@ let rec mk_expr env in_stmt e =
 
   | EAddrOf e ->
       CStar.AddrOf (mk_expr env e)
+
+  | EBufNull ->
+      CStar.BufNull
 
   | _ ->
       Warn.maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, NotLowStar e);
@@ -315,44 +321,56 @@ and mk_stmts env e ret_type =
         let e = CStar.While (mk_expr env false e1, mk_block env Not e2) in
         env, maybe_return (e :: acc)
 
-    | EFor (_,
-      { node = EConstant (K.UInt32, init); _ },
+    | EFor (binder,
+      ({ node = EConstant (K.UInt32, init as k_init); _ } as e_init),
       { node = EApp (
         { node = EOp (K.Lt, K.UInt32); _ },
         [{ node = EBound 0; _ };
-        { node = EConstant (K.UInt32, max); _ }]); _},
+        ({ node = EConstant (K.UInt32, max as k_max); _ } as e_max)]); _},
       { node = EAssign (
         { node = EBound 0; _ },
         { node = EApp (
           { node = EOp (K.Add, K.UInt32); _ },
           [{ node = EBound 0; _ };
-          { node = EConstant (K.UInt32, incr); _ }]); _}); _},
+          ({ node = EConstant (K.UInt32, incr as k_incr); _ } as e_incr)]); _}); _},
       body)
       when (
         let init = int_of_string init in
         let max = int_of_string max in
         let incr = int_of_string incr in
-        let len = (max - init) / incr in
-        len <= !Options.unroll_loops
+        let n_loops = (max - init + incr - 1) / incr in
+        n_loops <= !Options.unroll_loops
       )
       ->
         let init = int_of_string init in
         let max = int_of_string max in
         let incr = int_of_string incr in
-        let rec mk acc i =
-          if i < max then
-            let body = DeBruijn.subst (mk_uint32 i) 0 body in
-            mk (CStar.Block (mk_block env Not body) :: acc) (i + incr)
-          else
-            acc
-        in
-        env, maybe_return (mk [] init @ acc)
+        let n_loops = (max - init + incr - 1) / incr in
+
+        if n_loops = 0 then
+          env, maybe_return acc
+
+        else if n_loops = 1 then
+          let body = DeBruijn.subst e_init 0 body in
+          let body = mk_block env Not body in
+          env, (Block body) :: acc
+
+        else begin
+          assert (n_loops <= 16);
+          let env, { CStar.name; _ } = mk_and_push_binder env binder Local None [ e_init; e_max; e_incr; body ] in
+          let body = mk_block env Not body in
+
+          env, maybe_return (CStar.Ignore (Call (
+            Macro (["KRML_MAYBE"], "FOR" ^ string_of_int n_loops),
+            [ Var name; Constant k_init; Constant k_max; Constant k_incr; Stmt body ])) :: acc)
+        end
 
 
     | EFor (binder, e1, e2, e3, e4) ->
         (* Note: the arguments to mk_and_push_binder are solely for the purpose
          * of avoiding name collisions. *)
         let is_solo_assignment = binder.node.meta = Some MetaSequence in
+        (* TODO: shouldn't e1 be added here? *)
         let env', binder = mk_and_push_binder env binder Local (Some e1) [ e2; e3; e4 ] in
         let e2 = mk_expr env' false e2 in
         let e3 = KList.last (mk_block env' Not e3) in
@@ -454,7 +472,7 @@ and mk_stmts env e ret_type =
         env, maybe_return (e :: acc)
 
     | EBufFree e ->
-        let e = CStar.BufFree (mk_expr env false e) in
+        let e = CStar.BufFree (mk_type env (assert_tbuf e.typ), mk_expr env false e) in
         env, maybe_return (e :: acc)
 
     | EMatch _ ->
@@ -586,6 +604,8 @@ and mk_stmts env e ret_type =
         CStar.Macro name
     | EApp ({ node = EOp ((K.And | K.Or) as o, K.Bool); _ }, [ e1; e2 ]) ->
         CStar.Call (CStar.Op o, [ mk_ifcond env e1; mk_ifcond env e2 ])
+    | EApp ({ node = EOp (K.Not as o, K.Bool); _ }, [ e1 ]) ->
+        CStar.Call (CStar.Op o, [ mk_ifcond env e1 ])
     | _ ->
         raise NotIfDef
 
@@ -791,17 +811,21 @@ and mk_program m name env decls =
   ) ([], []) decls in
   List.rev decls
 
-and mk_files files file_of m ifdefs macros =
+and mk_files files m ifdefs macros =
   let env = { empty with ifdefs; macros } in
   List.map (fun file ->
-    let deps = 
-      Hashtbl.fold (fun k _ acc -> k :: acc) (Bundles.direct_dependencies file_of file) []
-    in
     let name, program = file in
-    name, deps, mk_program m name env program
+    name, mk_program m name env program
   ) files
 
 let mk_macros_set files =
+  let seen = Hashtbl.create 31 in
+  let record x =
+    let t = String.uppercase (GlobalNames.target_c_name ~attempt_shortening:false ~is_macro:true x) in
+    if Hashtbl.mem seen t then
+      Warn.(maybe_fatal_error ("", ConflictMacro (x, t)));
+    Hashtbl.add seen t ()
+  in
   (object
     inherit [_] reduce
     method private zero = LidSet.empty
@@ -811,8 +835,10 @@ let mk_macros_set files =
         if body.node = EAny then begin
           Warn.(maybe_fatal_error ("", CannotMacro name));
           LidSet.empty
-        end else
+        end else begin
+          record name;
           LidSet.singleton name
+        end
       else
         LidSet.empty
   end)#visit_files () files

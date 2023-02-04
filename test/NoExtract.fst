@@ -1,5 +1,7 @@
 module NoExtract
 
+// THIS KIND OF STUFF IS SUPER DISCOURAGED!!
+
 open FStar.HyperStack.ST
 
 noextract

@@ -2,17 +2,24 @@ RECENT_GCC	= $(shell [ "$$(gcc -dumpversion | cut -c -1)" -ge 5 ] && echo yes)
 CRYPTO		= $(FSTAR_HOME)/examples/low-level/crypto
 CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 TEST_OPTS	= -warn-error @4 -verbose -skip-makefiles
-KRML_BIN	= ../src/_build/default/kremlin.exe
+KRML_BIN	= ../src/_build/default/Karamel.exe
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 
+# TODO: disambiguate between broken tests that arguably should work (maybe
+# HigherOrder6?) and helper files that are required for multiple-module tests
+# For Layered.test: see F* bug 2641 and associated PR
 BROKEN		= \
   HigherOrder6.fst ForwardDecl.fst BlitNull.fst \
-  Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst
+  Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst \
+  AbstractStructAbstract.fst MonomorphizationSeparate1.fst \
+  Layered.fst GlobalInit2.fst
 
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
 # special file and doesn't have a main.
 FILES		= \
-  $(patsubst %.fst,%.test,$(filter-out Unused_A.fst StaticHeaderAPI.fst StaticHeaderLib.fst NameCollisionHelper.fst ML16Externals.fst MemCpyModel.fst Lowlevel.fst $(BROKEN),$(wildcard *.fst))) \
+  $(patsubst %.fst,%.test,$(filter-out Unused_A.fst StaticHeaderAPI.fst \
+    StaticHeaderLib.fst NameCollisionHelper.fst ML16Externals.fst MemCpyModel.fst \
+    Lowlevel.fst PrivateInclude1.fst $(BROKEN),$(wildcard *.fst))) \
   $(CRYPTO)/Crypto.Symmetric.Chacha20.test \
   $(patsubst %.fst,%.test,$(wildcard ../book/*.fst ../book/notfslit/*.fst))
 
@@ -20,11 +27,13 @@ ifneq ($(RECENT_GCC),"yes")
   FILES 	:= $(filter-out Debug.test,$(FILES))
 endif
 
-CUSTOM		= count-uu check-unused
+CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased \
+  check-right-file count-deref check-global-init check-useless-alias
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
-  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test Crypto.Symmetric.Chacha20.wasm-test
+  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test Wasm11.wasm-test \
+  Crypto.Symmetric.Chacha20.wasm-test
 NEGATIVE	= false
 
 WEB_DIR		?= web
@@ -42,14 +51,14 @@ endif
 
 FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
-  --include hello-system --include ../kremlib/compat --include ../kremlib/obj \
-  --include ../kremlib --include ../runtime \
+  --include hello-system --include ../krmllib/compat --include ../krmllib/obj \
+  --include ../krmllib --include ../runtime \
   --include $(CRYPTO) --include ../book --include ../book/notfslit --use_hints --record_hints \
-  --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
+  --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport Steel' \
   --trivial_pre_for_unannotated_effectful_fns false \
-  --cmi
+  --cmi --warn_error -274
 
-# This just needs F* + KreMLin
+# This just needs F* + KaRaMeL
 all: $(FILES) $(CUSTOM) ctypes-test sepcomp-test
 
 # Needs node
@@ -66,7 +75,7 @@ ifndef MAKE_RESTARTS
 ifndef NODEPEND
 .depend: .FORCE
 	$(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
-	  $(BROKEN) ../runtime/WasmSupport.fst --extract Kremlin > $@
+	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*,-Prims' > $@
 
 .PHONY: .FORCE
 .FORCE:
@@ -83,7 +92,7 @@ $(CACHE_DIR)/%.checked: | .depend $(HINTS_DIR)
 	touch $@
 
 $(OUTPUT_DIR)/%.krml: | .depend
-	$(FSTAR) $(OTHERFLAGS) --codegen Kremlin \
+	$(FSTAR) $(OTHERFLAGS) --codegen krml \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<))
 
@@ -93,7 +102,7 @@ $(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_BIN)
         -skip-compilation $(filter %.krml,$^) \
 
 .PRECIOUS: $(OUTPUT_DIR)/%.exe
-$(OUTPUT_DIR)/%.exe: $(filter-out %/prims.krml,$(ALL_KRML_FILES)) $(KRML_BIN)
+$(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
 	  -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack,\*
 
@@ -106,30 +115,33 @@ ifeq ($(OS),Windows_NT)
 endif
 
 # Various flags to be passed to some targets...
+$(OUTPUT_DIR)/NoExtract.exe: EXTRA = -warn-error +2
 $(OUTPUT_DIR)/Structs2.exe: EXTRA = -wasm -d force-c wasm-stubs.c
 $(OUTPUT_DIR)/ML16.exe: EXTRA = ml16-native.c
 $(OUTPUT_DIR)/Scope.exe: EXTRA = -ccopt -O3
 $(OUTPUT_DIR)/HigherOrder.exe: EXTRA = -warn-error +9
-$(OUTPUT_DIR)/C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic -fc89
+$(OUTPUT_DIR)/C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic,-Wno-c99-extensions -fc89
 $(OUTPUT_DIR)/Debug.exe: EXTRA = -d c-calls
 $(OUTPUT_DIR)/Server.exe: EXTRA = main-Server.c helpers-Server.c
-$(OUTPUT_DIR)/StringLit.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
-$(OUTPUT_DIR)/TailCalls.exe: EXTRA = -add-include '"kremlin/internal/compat.h"' -ftail-calls
-$(OUTPUT_DIR)/FunctionalEncoding.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
+$(OUTPUT_DIR)/StringLit.exe: EXTRA = -add-include '"krml/internal/compat.h"'
+$(OUTPUT_DIR)/TailCalls.exe: EXTRA = -add-include '"krml/internal/compat.h"' -ftail-calls
+$(OUTPUT_DIR)/TailCalls2.exe: EXTRA = -ftail-calls
+$(OUTPUT_DIR)/FunctionalEncoding.exe: EXTRA = -add-include '"krml/internal/compat.h"'
 $(OUTPUT_DIR)/Crypto_Symmetric_Chacha20.exe: EXTRA+=$(CRYPTO_OPTS) main-Chacha.c
 $(OUTPUT_DIR)/HelloSystem.exe: EXTRA = -add-include '"system.h"' \
   hello-system/system.c -I hello-system -no-prefix SystemNative \
   -drop SystemNative $(HELLOSYSTEM_LDOPTS)
-$(OUTPUT_DIR)/TestKremBytes.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
+$(OUTPUT_DIR)/TestKrmlBytes.exe: EXTRA = -add-include '"krml/internal/compat.h"'
 $(OUTPUT_DIR)/TestAlloca.exe: EXTRA = -falloca
 $(OUTPUT_DIR)/EtaStruct.exe: EXTRA = -fnostruct-passing
-$(OUTPUT_DIR)/TotalLoops.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
-$(OUTPUT_DIR)/CheckedInt.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
-$(OUTPUT_DIR)/CustomEq.exe: EXTRA = -add-include '"kremlin/internal/compat.h"'
+$(OUTPUT_DIR)/TotalLoops.exe: EXTRA = -add-include '"krml/internal/compat.h"'
+$(OUTPUT_DIR)/CheckedInt.exe: EXTRA = -add-include '"krml/internal/compat.h"'
+$(OUTPUT_DIR)/CustomEq.exe: EXTRA = -add-include '"krml/internal/compat.h"'
 $(OUTPUT_DIR)/DataTypes.exe: EXTRA = -fnoshort-enums
 $(OUTPUT_DIR)/NoShadow.exe: EXTRA = -ccopt -Wshadow -fno-shadow
 $(OUTPUT_DIR)/Library.exe: EXTRA = -bundle MemCpyModel= -library MemCpyModel memcpymodel_impl.c
 $(OUTPUT_DIR)/IfDef.exe: EXTRA = -ccopt -DX
+$(OUTPUT_DIR)/IfDefKrml.exe: EXTRA = -fmicrosoft -ccopts -DBOOLEAN=bool,-DTRUE=true,-DFALSE=false
 $(OUTPUT_DIR)/Ctypes2.exe: EXTRA = -ctypes 'Ctypes2,Ctypes4' \
   -bundle 'Ctypes3+Ctypes4=[rename=Lowlevel]' \
   -bundle 'Ctypes2=' \
@@ -142,22 +154,57 @@ $(OUTPUT_DIR)/NameCollision.exe: EXTRA = -no-prefix NameCollisionHelper
 $(OUTPUT_DIR)/Intro.exe $(OUTPUT_DIR)/MemCpy.exe: EXTRA = -rst-snippets
 $(OUTPUT_DIR)/StaticHeader.exe: EXTRA = -static-header StaticHeaderLib -bundle StaticHeaderAPI=StaticHeaderLib -warn-error @7@8
 $(OUTPUT_DIR)/Unused_B.exe: EXTRA=-bundle Unused_A
+$(OUTPUT_DIR)/PrivateInclude2.exe: EXTRA=-no-prefix PrivateInclude1 -bundle PrivateInclude1 -add-include 'PrivateInclude1.c:"../../foobar.h"'
+$(OUTPUT_DIR)/ExternalEq.exe: EXTRA=-add-include '"external_eq.h"' -ccopt -I. external_eq.c
+$(OUTPUT_DIR)/MonomorphizationCrash.exe: EXTRA=monomorphization_crash.c -add-include 'MonomorphizationCrash.c:"monomorphization_crash.h"' -ccopt -I.
+$(OUTPUT_DIR)/MonomorphizationSeparate2.exe: EXTRA=-bundle MonomorphizationSeparate1=
+$(OUTPUT_DIR)/Loops.exe: EXTRA=-funroll-loops 16
+$(OUTPUT_DIR)/GlobalInit.exe: EXTRA=global_init.c
+$(OUTPUT_DIR)/SteelArrayArith.exe: EXTRA=-static-header Steel.ArrayArith -no-prefix Steel.ArrayArith
+$(OUTPUT_DIR)/SteelLock.exe: EXTRA=-bundle Steel.* -add-include 'Steel:"krml/steel_types.h"'
+$(OUTPUT_DIR)/SizeT.exe: EXTRA=-ccopt -std=c2x
 
 Failure.test: NEGATIVE=true
 
 # Some custom targets
 
 SED=$(shell which gsed >/dev/null 2>&1 && echo gsed || echo sed)
+check-useless-alias: $(OUTPUT_DIR)/DepPair.exe
+	! grep dtuple2___int32_t____ $(OUTPUT_DIR)/DepPair.out/DepPair.c
+
 count-uu: $(OUTPUT_DIR)/Uu.exe
 	[ `grep uu___ $(OUTPUT_DIR)/Uu.out/Uu.c | \
 	  $(SED) 's/.*\(uu____\([0-9]\+\)\).*/\1/g' \
 	  | uniq | wc -l` = 1 ]
+
+count-eq: $(OUTPUT_DIR)/ExternalEq.exe
+	[ `grep eq__ $(OUTPUT_DIR)/ExternalEq.out/ExternalEq.h | wc -l` = 1 ]
+
+count-point: $(OUTPUT_DIR)/FunctionalUpdate.exe
+	[ `grep point $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 9 ]
+	[ `grep uu___ $(OUTPUT_DIR)/FunctionalUpdate.out/FunctionalUpdate.c | wc -l` = 0 ]
+
+# FStarLang/Karamel#278: in the Deref test, there is expected to be
+# only one remaining explicit array access. All other accesses are
+# expected to be turned into *b or even local non-array variables.
+count-deref: $(OUTPUT_DIR)/Deref.exe
+	[ `grep '\[0U\]' $(OUTPUT_DIR)/Deref.out/Deref.c | wc -l` = 1 ]
+	! grep _zero_for_deref $(OUTPUT_DIR)/Deref.out/Deref.c $(OUTPUT_DIR)/Deref.out/Deref.h
+
+check-global-init: $(OUTPUT_DIR)/GlobalInit.exe
+	! egrep -q GlobalInit2_x $(OUTPUT_DIR)/GlobalInit.out/GlobalInit.h
 
 check-unused: $(OUTPUT_DIR)/Unused_B.exe
 	egrep -q 'gets_eliminated.*foobar\)' $(OUTPUT_DIR)/Unused_B.out/Unused_A.c
 
 check-no-constructor: $(OUTPUT_DIR)/NoConstructor.exe
 	! grep -q define $(OUTPUT_DIR)/NoConstructor.out/NoConstructor.c
+
+check-no-erased: $(OUTPUT_DIR)/Shifting.exe
+	! grep -q erased $(OUTPUT_DIR)/Shifting.out/Shifting.c
+
+check-right-file: $(OUTPUT_DIR)/MonomorphizationSeparate2.exe
+	egrep -q 'typedef.*pair' $(OUTPUT_DIR)/MonomorphizationSeparate2.out/MonomorphizationSeparate1.h
 
 # Custom ctypes target
 
@@ -187,7 +234,7 @@ $(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Ctypes2.exe $(addprefix $(LOWLEVEL_
 # All WASM targets get the -wasm flag; some specific targets may override
 # NEGATIVE for negative tests.
 .PRECIOUS: $(OUTPUT_DIR)/%.wasm
-$(OUTPUT_DIR)/%.wasm: $(filter-out %/prims.krml,$(ALL_KRML_FILES)) $(KRML_BIN)
+$(OUTPUT_DIR)/%.wasm: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(KRML) -minimal -bundle WasmSupport= -bundle 'FStar.*' -bundle Prims \
 	  -bundle C -bundle C.Endianness -bundle C.Nullity -bundle C.String \
 	  -bundle TestLib \

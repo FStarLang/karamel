@@ -2,7 +2,7 @@ Tooling and project setup
 =========================
 
 For the sake of this tutorial, we use a sample project that provides a toy
-implementation of bignum addition in C. The project is located in the kremlin
+implementation of bignum addition in C. The project is located in the karamel
 repository, under the ``book/tutorial`` directory.
 
 The sample project has a minimal specification, a corresponding implementation,
@@ -27,18 +27,18 @@ library.
 
   $ ./everest z3 opam
 
-Then, you can either install F* and KreMLin yourself, or rely on the Everest
+Then, you can either install F* and KaRaMeL yourself, or rely on the Everest
 script for that purpose:
 
 .. code-block:: bash
 
-  $ ./everest pull FStar make kremlin make
+  $ ./everest pull FStar make karamel make
 
 In any case, remember to export suitable values for the ``FSTAR_HOME`` and
-``KREMLIN_HOME`` environment variables once you're done.
+``KRML_HOME`` environment variables once you're done.
 
-Be aware that KreMLin is not at this time compatible with recent versions of
-OCaml. See `<https://github.com/FStarLang/kremlin/issues/169>`_ for the discussion.
+Be aware that KaRaMeL is not at this time compatible with recent versions of
+OCaml. See `<https://github.com/FStarLang/karamel/issues/169>`_ for the discussion.
 
 We strongly recommend using the `fstar-mode.el
 <https://github.com/FStarLang/fstar-mode.el>`_ Emacs plugin for interactive mode
@@ -66,7 +66,7 @@ We adopt the following canonical and recommended structure for the toy project.
 - ``obj``: F* and OCaml build artifacts, i.e. whatever is covered by F*'s
   ``--depend`` facility: ``.checked`` files (binary serialized build products
   once a file has been verified), ``.ml`` files (the result of F* extracting to
-  OCaml), ``.krml`` files (the result of F* dumping its AST for KreMLin),
+  OCaml), ``.krml`` files (the result of F* dumping its AST for KaRaMeL),
   ``.cm*`` files (OCaml build), etc.
 - ``hints``: F* hint files, i.e. serialized Z3 unsat-cores that facilitate proof
   replay
@@ -107,7 +107,7 @@ sucessfully build a Low* project:
 - verify all the source files for this project, generating ``.checked`` files
 - extract F* code using those checked files to either ``.krml`` or ``.ml``
 - build and link ML code (for specs)
-- run KreMLin and generate C code
+- run KaRaMeL and generate C code
 - dependency analysis for the generated C code
 - build C code, generating a C library (more rarely, an executable)
 - build C tests and link against compiled library.
@@ -141,11 +141,11 @@ Separate F* builds
 
 Each project is expected to build its own .checked files; running ``make`` in
 ``FStar/`` establishes the invariant that all the checked files are up-to-date
-w.r.t. their respective source files; similarly, running make in ``kremlin/``
-ensures that all the ``kremlib`` (C support libraries) ``.checked`` files are
+w.r.t. their respective source files; similarly, running make in ``karamel/``
+ensures that all the ``krmllib`` (C support libraries) ``.checked`` files are
 up-to-date.
 
-Any Low* program will need to refer to both ulib in F* and kremlib in KreMLin.
+Any Low* program will need to refer to both ulib in F* and krmllib in KaRaMeL.
 The client Makefile we provide will therefore *enforce* that all the checked
 files for the projects it depends on be up-to-date, and will error out
 otherwise.
@@ -163,7 +163,7 @@ I now provide a reference build system (authored with GNU make) that contains
 more comments than actual code.  It describes a very comprehensive scenario in
 which:
 
-- you need to mix hand-written and kremlin-generated C files to produce a C
+- you need to mix hand-written and karamel-generated C files to produce a C
   library ``libbignum.a``
 - you need to extract the specs to OCaml for spec testing, with a hand-written
   test driver;

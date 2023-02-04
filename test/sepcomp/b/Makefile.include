@@ -8,8 +8,8 @@ ifeq (,$(FSTAR_HOME))
   $(error FSTAR_HOME is not defined)
 endif
 
-ifeq (,$(KREMLIN_HOME))
-  $(error KREMLIN_HOME is not defined)
+ifeq (,$(KRML_HOME))
+  $(error KRML_HOME is not defined)
 endif
 
 # I prefer to always check all fst files in the source directories; otherwise,
@@ -18,8 +18,8 @@ endif
 SOURCE_DIRS = $(PROJECT_HOME)
 
 # We want our source tree on the include path, along with pre-built ulib and
-# kremlib so that F* can reuse these build artifacts rather than reverify F* and
-# kremlib as part of this build (which would be doomed to fail since there's a
+# krmllib so that F* can reuse these build artifacts rather than reverify F* and
+# krmllib as part of this build (which would be doomed to fail since there's a
 # lot of trickery involved in building ulib -- better leave it up to the F*
 # build!).
 #
@@ -28,8 +28,8 @@ SOURCE_DIRS = $(PROJECT_HOME)
 INCLUDE_DIRS = \
   $(SOURCE_DIRS) \
   $(FSTAR_HOME)/ulib/.cache \
-  $(KREMLIN_HOME)/kremlib \
-  $(KREMLIN_HOME)/kremlib/obj \
+  $(KRML_HOME)/krmllib \
+  $(KRML_HOME)/krmllib/obj \
   $(PROJECT_HOME)/../a \
   $(PROJECT_HOME)/../a/obj \
   $(PROJECT_HOME)/obj

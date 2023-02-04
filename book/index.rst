@@ -1,9 +1,9 @@
-.. The KreMLin user manual documentation master file, created by
+.. The KaRaMeL user manual documentation master file, created by
    sphinx-quickstart on Mon Apr 23 15:16:54 2018.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-The KreMLin user manual and documentation
+The KaRaMeL user manual and documentation
 =========================================
 
 .. toctree::

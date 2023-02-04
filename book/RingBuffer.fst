@@ -314,7 +314,7 @@ let pop_back (#a: eqtype) (x: t a): Stack a
 
 /// ``create`` leverages the ``StackInline`` effect, and allocates three buffers
 /// -- we encapsulate stack allocation in a separate function, which facilitates
-/// verification. Relying on KreMLin's support, ``create`` will be textually
+/// verification. Relying on KaRaMeL's support, ``create`` will be textually
 /// inlined at call-site so that the allocations are effectively in the caller's
 /// stack frame.
 let create (#a: eqtype) (init: a) (len: U32.t): StackInline (t a)

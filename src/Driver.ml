@@ -51,8 +51,8 @@ let fstar_lib = ref ""
 let fstar_rev = ref "<unknown>"
 let fstar_options = ref []
 
-(** By [detect_kremlin] *)
-let kremlib_dir = ref ""
+(** By [detect_karamel] *)
+let krmllib_dir = ref ""
 let runtime_dir = ref ""
 let include_dir = ref ""
 let misc_dir = ref ""
@@ -93,7 +93,7 @@ let mkdirp d =
   let d = if d.[String.length d - 1] = '\\' then String.sub d 0 (String.length d - 1) else d in
   mkdirp d
 
-let mk_tmpdir_if () =
+let maybe_create_output_dir () =
   if !Options.tmpdir <> "" then
     mkdirp !Options.tmpdir
 
@@ -118,7 +118,7 @@ let read_one_error_line cmd args =
 (** The tools we depend on; namely, readlink. *)
 let detect_base_tools () =
   if not !Options.silent then
-    KPrint.bprintf "%s⚙ KreMLin auto-detecting tools.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+    KPrint.bprintf "%s⚙ KaRaMeL auto-detecting tools.%s Here's what we found:\n" Ansi.blue Ansi.reset;
 
   if success "which" [| "greadlink" |] then
     readlink := "greadlink"
@@ -142,22 +142,22 @@ let detect_base_tools_if () =
 
 
 (** Fills in *_dir, and fills in [Options.includes]. *)
-let detect_kremlin () =
+let detect_karamel () =
   detect_base_tools_if ();
 
-  if AutoConfig.kremlib_dir <> "" then begin
-    kremlib_dir := AutoConfig.kremlib_dir;
+  if AutoConfig.krmllib_dir <> "" && try ignore (Sys.getenv "KRML_HOME"); false with Not_found -> true then begin
+    krmllib_dir := AutoConfig.krmllib_dir;
     runtime_dir := AutoConfig.runtime_dir;
     include_dir := AutoConfig.include_dir;
     misc_dir := AutoConfig.misc_dir
   end else begin
 
     if not !Options.silent then
-      KPrint.bprintf "%sKreMLin called via:%s %s\n" Ansi.underline Ansi.reset Sys.argv.(0);
+      KPrint.bprintf "%sKaRaMeL called via:%s %s\n" Ansi.underline Ansi.reset Sys.argv.(0);
 
     let krml_home =
       begin try
-        Sys.getenv "KREMLIN_HOME"
+        Sys.getenv "KRML_HOME"
       with Not_found -> try
         let real_krml =
           let me = Sys.argv.(0) in
@@ -167,16 +167,16 @@ let detect_kremlin () =
             try read_one_line !readlink [| "-f"; read_one_line "which" [| me |] |]
             with _ -> fatal_error "Could not compute full krml path"
         in
-        (* ../_build/src/Kremlin.native *)
+        (* ../_build/src/Karamel.native *)
         if not !Options.silent then
-          KPrint.bprintf "%sthe Kremlin executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
+          KPrint.bprintf "%sthe Karamel executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
         read_one_line !readlink [| "-f"; d real_krml ^^ ".." ^^ ".." |]
       with _ ->
         fatal_error "Could not compute krml_home"
       end
     in
     if not !Options.silent then
-      KPrint.bprintf "%sKreMLin home is:%s %s\n" Ansi.underline Ansi.reset krml_home;
+      KPrint.bprintf "%sKaRaMeL home is:%s %s\n" Ansi.underline Ansi.reset krml_home;
 
     if try Sys.is_directory (krml_home ^^ ".git") with Sys_error _ -> false then begin
       let cwd = Sys.getcwd () in
@@ -185,7 +185,7 @@ let detect_kremlin () =
       Sys.chdir cwd
     end;
 
-    kremlib_dir := krml_home ^^ "kremlib";
+    krmllib_dir := krml_home ^^ "krmllib";
     runtime_dir := krml_home ^^ "runtime";
     include_dir := krml_home ^^ "include";
     misc_dir := krml_home ^^ "misc"
@@ -193,11 +193,11 @@ let detect_kremlin () =
   end;
 
   (* The first one for the C compiler, the second one for F* *)
-  Options.includes := !include_dir :: !Options.includes @ [ !kremlib_dir ]
+  Options.includes := !include_dir :: !Options.includes @ [ !krmllib_dir ]
 
-let detect_kremlin_if () =
-  if !kremlib_dir = "" then
-    detect_kremlin ()
+let detect_karamel_if () =
+  if !krmllib_dir = "" then
+    detect_karamel ()
 
 let expand_prefixes s =
   if KString.starts_with s "FSTAR_LIB" then
@@ -209,10 +209,10 @@ let expand_prefixes s =
 
 (* Fills in fstar{,_home,_options} *)
 let detect_fstar () =
-  detect_kremlin_if ();
+  detect_karamel_if ();
 
   if not !Options.silent then
-    KPrint.bprintf "%s⚙ KreMLin will drive F*.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+    KPrint.bprintf "%s⚙ KaRaMeL will drive F*.%s Here's what we found:\n" Ansi.blue Ansi.reset;
 
   begin try
     let r = Sys.getenv "FSTAR_HOME" in
@@ -229,12 +229,13 @@ let detect_fstar () =
     fatal_error "Did not find fstar.exe in PATH and FSTAR_HOME is not set"
   end;
 
-  if KString.exists !fstar_home "opam"; then begin
+  let fstar_ulib = !fstar_home ^^ "ulib" in
+  if not (Sys.file_exists fstar_ulib && Sys.is_directory fstar_ulib) ; then begin
     if not !Options.silent then
-      KPrint.bprintf "Detected an OPAM setup of F*\n";
+      KPrint.bprintf "F* library not found in ulib; falling back to lib/fstar\n";
     fstar_lib := !fstar_home ^^ "lib" ^^ "fstar"
   end else begin
-    fstar_lib := !fstar_home ^^ "ulib"
+    fstar_lib := fstar_ulib
   end;
 
   if success "which" [| "cygpath" |] then begin
@@ -263,11 +264,10 @@ let detect_fstar () =
   let fstar_includes = List.map expand_prefixes !Options.includes in
   fstar_options := [
     "--trace_error";
-    "--cache_checked_modules";
     "--expose_interfaces"
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
   (* This is a superset of the needed modules... some will be dropped very early
-   * on in Kremlin.ml *)
+   * on in Karamel.ml *)
   fstar_options := (!fstar_lib ^^ "FStar.UInt128.fst") :: !fstar_options;
   fstar_options := (!runtime_dir ^^ "WasmSupport.fst") :: !fstar_options;
   if not !Options.silent then
@@ -333,11 +333,11 @@ let run_fstar verify skip_extract skip_translate files =
   else
     let args =
       "--odir" :: !Options.tmpdir ::
-      "--codegen" :: "Kremlin" ::
+      "--codegen" :: "krml" ::
       "--lax" :: args
     in
     flush stdout;
-    mk_tmpdir_if ();
+    maybe_create_output_dir ();
     if not (run_or_warn "[F*,extract]" !fstar args) then
       fatal_error "F* failed";
     if skip_translate then
@@ -346,7 +346,7 @@ let run_fstar verify skip_extract skip_translate files =
 
 let detect_gnu flavor =
   if not !Options.silent then
-    KPrint.bprintf "%s⚙ KreMLin will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+    KPrint.bprintf "%s⚙ KaRaMeL will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
   let rec search = function
     | fmt :: rest ->
         let cmd = KPrint.bsprintf fmt flavor in
@@ -379,11 +379,11 @@ let detect_compcert () =
 
 let fill_cc_args () =
   (** For the side-effect of filling in [Options.include] *)
-  detect_kremlin_if ();
+  detect_karamel_if ();
 
   cc_args :=
     (if not !Options.struct_passing then [ Dash.d "KRML_NOSTRUCT_PASSING" ] else [])
-    @ Dash.i (!kremlib_dir ^^ "dist" ^^ "minimal")
+    @ Dash.i (!krmllib_dir ^^ "dist" ^^ "minimal")
     @ List.flatten (List.rev_map Dash.i (!Options.tmpdir :: !Options.includes))
     @ List.rev !Options.ccopts
     @ !cc_args
@@ -411,13 +411,13 @@ let o_of_c f =
   !Options.tmpdir ^^ Filename.chop_suffix (Filename.basename f) ".c" ^ dot_o
 
 
-(** For "kremlib.c", and every [.c] file generated by Kremlin or passed on the
+(** For "krmllib.c", and every [.c] file generated by Karamel or passed on the
  * command-line, run [gcc -c] to obtain a [.o]. Files that don't compile are
- * silently dropped, or KreMLin aborts if warning 3 is fatal. *)
+ * silently dropped, or KaRaMeL aborts if warning 3 is fatal. *)
 let compile files extra_c_files =
   assert (List.length files > 0);
   let extra_c_files = List.map expand_prefixes extra_c_files in
-  detect_kremlin_if ();
+  detect_karamel_if ();
   detect_cc_if ();
   flush stdout;
 
@@ -447,7 +447,7 @@ let compile files extra_c_files =
 let link c_files o_files =
   let o_files = List.map expand_prefixes o_files in
   let objects = List.map o_of_c c_files @ o_files @
-    [ !kremlib_dir ^^ "dist" ^^ "generic" ^^ "libkremlib.a" ]
+    [ !krmllib_dir ^^ "dist" ^^ "generic" ^^ "libkrmllib.a" ]
   in
   let extra_arg = if !Options.exe_name <> "" then Dash.o_exe !Options.exe_name else [] in
   if run_or_warn "[LD]" !cc (!cc_args @ objects @ extra_arg @ List.rev !Options.ldopts) then begin

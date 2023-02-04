@@ -47,6 +47,7 @@ module M = Map.Make(struct
 end)
 
 let uint32 = TInt UInt32
+let sizet = TInt SizeT
 let c_string = TQualified ([ "C" ], "string")
 
 type env = {
@@ -77,11 +78,11 @@ let find env i =
 (** Errors ------------------------------------------------------------------ *)
 
 (* An error for which the only way to recover is to drop the definition. *)
-exception CheckerError of Warn.error
+exception CheckerError of Error.t
 
 let checker_error env fmt =
   Printf.kbprintf (fun buf ->
-    raise (CheckerError (KPrint.bsprintf "%a" ploc env.location, Warn.TypeError (Buffer.contents buf)))
+    raise (CheckerError (KPrint.bsprintf "%a" ploc env.location, Error.TypeError (Buffer.contents buf)))
   ) (Buffer.create 16) fmt
 
 let check_mut env s c =
@@ -188,7 +189,7 @@ and check_program env r (name, decls) =
     KPrint.beprintf "Warning: %a\n" pdoc (
       english_join (List.map print_lident decl_lids) ^/^ mentions ^/^
       print_lident lid ^/^
-      flow break1 (words "meaning that they cannot be type-checked by KreMLin")
+      flow break1 (words "meaning that they cannot be type-checked by KaRaMeL")
     )
   ) by_lid;
 
@@ -234,7 +235,7 @@ and smallest t1 t2 =
 
 and check_fields_opt env fieldexprs fieldtyps =
   if List.length fieldexprs > List.length fieldtyps then
-    checker_error env "some fields are superfluous";
+    checker_error env "some fields are superfluous (expr) in %a" pexpr (with_unit (EFlat fieldexprs));
   List.iter (fun (field, expr) ->
     let field = Option.must field in
     let t, _ = KList.assoc_opt field fieldtyps in
@@ -243,7 +244,7 @@ and check_fields_opt env fieldexprs fieldtyps =
 
 and check_fieldpats env fieldexprs fieldtyps =
   if List.length fieldexprs > List.length fieldtyps then
-    checker_error env "some fields are superfluous";
+    checker_error env "some fields are superfluous (pat) in %a" ppat (with_unit (PRecord fieldexprs));
   List.iter (fun (field, expr) ->
     let t, _ = KList.assoc_opt field fieldtyps in
     check_pat env t expr
@@ -289,6 +290,7 @@ and check' env t e =
   | EOp _
   | EPushFrame | EPopFrame
   | EAny | EAbort _
+  | EBufNull
   | EReturn _
   | EBreak
   | EBool _
@@ -339,38 +341,42 @@ and check' env t e =
       if t = TAny then
         checker_error env buf_any_msg ppexpr e;
       check env t e1;
-      check env uint32 e2;
+      check_array_index env e2;
       c (best_buffer_type t e2)
 
   | EBufRead (e1, e2) ->
-      check env uint32 e2;
+      check_array_index env e2;
       check env (TBuf (t, true)) e1
 
   | EBufWrite (e1, e2, e3) ->
-      check env uint32 e2;
+      check_array_index env e2;
       let t1, c1 = infer_buffer env e1 in
       check env t1 e3;
       check_mut env "write" c1;
       c TUnit
 
   | EBufSub (e1, e2) ->
-      check env uint32 e2;
+      check_array_index env e2;
       check_buffer env t e1
+
+  | EBufDiff (e1, e2) ->
+      let t1 = infer env e1 in
+      check_buffer env t1 e2
 
   | EBufFill (e1, e2, e3) ->
       let t1, c1 = infer_buffer env e1 in
       check env t1 e2;
       check_mut env "fill" c1;
-      check env uint32 e3;
+      check_array_index env e3;
       c TUnit
 
   | EBufBlit (b1, i1, b2, i2, len) ->
       let t1, c1 = infer_buffer env b1 in
       check_mut env "blit" c1;
       check env (TBuf (t1, false)) b2;
-      check env uint32 i1;
-      check env uint32 i2;
-      check env uint32 len;
+      check_array_index env i1;
+      check_array_index env i2;
+      check_array_index env len;
       c TUnit
 
   | EBufCreateL (_, es) ->
@@ -596,39 +602,44 @@ and infer' env e =
 
   | EBufCreate (_, e1, e2) ->
       let t1 = infer env e1 in
-      check env uint32 e2;
+      check_array_index env e2;
       best_buffer_type t1 e2
 
   | EBufRead (e1, e2) ->
-      check env uint32 e2;
+      check_array_index env e2;
       fst (infer_buffer env e1)
 
   | EBufWrite (e1, e2, e3) ->
-      check env uint32 e2;
+      check_array_index env e2;
       let t1, c = infer_buffer env e1 in
       check_mut env "write" c;
       check env t1 e3;
       TUnit
 
   | EBufSub (e1, e2) ->
-      check env uint32 e2;
+      check_array_index env e2;
       let t1, c = infer_buffer env e1 in
       TBuf (t1, c)
+
+  | EBufDiff (e1, e2) ->
+      let t1 = infer env e1 in
+      check_buffer env t1 e2;
+      TInt PtrdiffT
 
   | EBufFill (e1, e2, e3) ->
       let t1, c = infer_buffer env e1 in
       check_mut env "fill" c;
       check env t1 e2;
-      check env uint32 e3;
+      check_array_index env e3;
       TUnit
 
   | EBufBlit (b1, i1, b2, i2, len) ->
       let t1, c = infer_buffer env b1 in
       check_mut env "blit" c;
       check env (TBuf (t1, c)) b2;
-      check env uint32 i1;
-      check env uint32 i2;
-      check env uint32 len;
+      check_array_index env i1;
+      check_array_index env i2;
+      check_array_index env len;
       TUnit
 
   | EBufFree e ->
@@ -700,7 +711,7 @@ and infer' env e =
 
   | EFlat fieldexprs ->
       prefer_nominal
-        e.typ 
+        e.typ
         (TAnonymous (Flat (List.map (fun (f, e) ->
           f, (infer env e, false)
         ) fieldexprs)))
@@ -754,6 +765,11 @@ and infer' env e =
 
   | EAddrOf e ->
       TBuf (infer env e, false)
+
+  | EBufNull ->
+      assert (e.typ <> TAny);
+      (* e.typ is the type of the whole node, so it's already of the form TBuf _ *)
+      e.typ
 
 and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
   fun env f l ->
@@ -889,6 +905,9 @@ and check_pat env t_context pat =
   | PRecord fieldpats ->
       begin match expand_abbrev env t_context with
       | TQualified lid when kind env lid = Some Record ->
+          (* KPrint.bprintf "lid: %a\ndef: %a\n" *)
+          (*   plid lid *)
+          (*   pdef (lookup_type env lid); *)
           let fieldtyps = assert_flat env (lookup_type env lid) in
           check_fieldpats env fieldpats fieldtyps
       | TApp (lid, ts) when kind env lid = Some Record ->
@@ -984,6 +1003,10 @@ and assert_cons_of env t id: fields_t =
 and subtype env t1 t2 =
   match expand_abbrev env t1, expand_abbrev env t2 with
   | TInt w1, TInt w2 when w1 = w2 ->
+      true
+  | TInt K.SizeT, TInt K.UInt32 when !Options.wasm ->
+      true
+  | TInt K.UInt32, TInt K.SizeT when !Options.wasm ->
       true
   | TArray (t1, (_, l1)), TArray (t2, (_, l2)) when subtype env t1 t2 && l1 = l2 ->
       true
@@ -1083,3 +1106,9 @@ and expand_abbrev env t =
       end
   | _ ->
       t
+
+and check_array_index env e =
+    match check env uint32 e with
+    | exception CheckerError _ -> check env sizet e
+    | x -> x
+

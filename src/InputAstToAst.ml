@@ -56,6 +56,8 @@ let rec mk_decl = function
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
   | I.DTypeAbstractStruct name ->
       DType (name, [], 0, Forward)
+  | I.DUntaggedUnion (name, flags, n, branches) ->
+      DType (name, flags, n, Union (List.map (fun (f, t) -> f, mk_typ t) branches))
 
 and mk_binders bs =
   List.map mk_binder bs
@@ -71,6 +73,34 @@ and mk_tfields_opt fields =
 
 and mk_fields fields =
   List.map (fun (name, field) -> Some name, mk_expr field) fields
+
+and mk_constant (w, s) =
+  let module T = struct exception Error end in
+  let rec skip_zeroes i =
+    if i = String.length s then
+      i
+    else if s.[i] = '0' then
+      skip_zeroes (i + 1)
+    else begin
+      skip_digits i;
+      i
+    end
+  and skip_digits i =
+    if i = String.length s then
+      ()
+    else if not ('0' <= s.[i] && s.[i] <= '9') then
+      raise T.Error
+    else
+      skip_digits (i + 1)
+  in
+  if String.length s = 0 then
+    w, s
+  else
+    try
+      let i = skip_zeroes 0 in
+      w, if i = String.length s then "0" else String.sub s i (String.length s - i)
+    with T.Error ->
+      w, s
 
 and mk_typ = function
   | I.TInt x ->
@@ -95,6 +125,8 @@ and mk_typ = function
       TApp (lid, List.map mk_typ ts)
   | I.TTuple ts ->
       TTuple (List.map mk_typ ts)
+  | I.TArray (t, c) ->
+      TArray (mk_typ t, mk_constant c)
 
 and mk_expr = function
   | I.EBound i ->
@@ -102,11 +134,26 @@ and mk_expr = function
   | I.EQualified lid ->
       mk (EQualified lid)
   | I.EConstant k ->
-      mk (EConstant k)
+      mk (EConstant (mk_constant k))
   | I.EUnit ->
       mk (EUnit)
   | I.EString s ->
       mk (EString s)
+
+  | I.EApp (I.ETApp (I.EQualified ([ "LowStar"; "Monotonic"; "Buffer" ], "mnull"), [ t; _; _ ]), [ I.EUnit ])
+  | I.EApp (I.ETApp (I.EQualified ([ "LowStar"; "Buffer" ], "null"), [ t ]), [ I.EUnit ])
+  | I.EApp (I.ETApp (I.EQualified ([ "LowStar"; "ConstBuffer" ], "null"), [ t ]), [ I.EUnit ])
+  | I.EApp (I.ETApp (I.EQualified ([ "Steel"; "Reference" ], "null"), [ t ]), [ I.EUnit ])
+  | I.EApp (I.ETApp (I.EQualified ([ "C"; "Nullity" ], "null"), [ t ]), [ I.EUnit ])
+  | I.EBufNull t ->
+      { node = EBufNull; typ = TBuf (mk_typ t, false) }
+
+  | I.EApp (I.ETApp (I.EQualified ( [ "LowStar"; "Monotonic"; "Buffer" ], "is_null"), [ t; _; _ ]), [ e ])
+  | I.EApp (I.ETApp (I.EQualified ( [ "Steel"; "Reference" ], "is_null"), [ t ]), [ e ]) ->
+      mk (EApp (mk (EPolyComp (K.PEq, TBuf (mk_typ t, false))), [
+        mk_expr e;
+        { node = EBufNull; typ = TBuf (mk_typ t, false) }]))
+
   | I.EApp (e, es) ->
       mk (EApp (mk_expr e, List.map mk_expr es))
   | I.ETApp (I.EOp ((K.Eq | K.Neq as op), _), [ t ]) ->
@@ -138,6 +185,8 @@ and mk_expr = function
       mk (EBufFill (mk_expr e1, mk_expr e2, mk_expr e3))
   | I.EBufSub (e1, e2) ->
       mk (EBufSub (mk_expr e1, mk_expr e2))
+  | I.EBufDiff (e1, e2) ->
+      mk (EBufDiff (mk_expr e1, mk_expr e2))
   | I.EBufBlit (e1, e2, e3, e4, e5) ->
       mk (EBufBlit (mk_expr e1, mk_expr e2, mk_expr e3, mk_expr e4, mk_expr e5))
   | I.EBufFree e ->
@@ -179,6 +228,8 @@ and mk_expr = function
       mk (EComment (before, mk_expr e, after))
   | I.EStandaloneComment s ->
       mk (EStandaloneComment s)
+  | I.EAddrOf e ->
+      mk (EAddrOf (mk_expr e))
 
 and mk_branches branches =
   List.map mk_branch branches
@@ -206,7 +257,7 @@ and mk_pat binders pat =
         field, mk_pat pat
       ) fields))
   | I.PConstant k ->
-      mk (PConstant k)
+      mk (PConstant (mk_constant k))
   in
   mk_pat pat
 

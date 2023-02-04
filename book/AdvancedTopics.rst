@@ -1,4 +1,4 @@
-Advanced KreMLin topics
+Advanced KaRaMeL topics
 =======================
 
 Bundling
@@ -32,7 +32,7 @@ file is ``N₁_..._Nₙ``, but can be controlled by appending an optional
   places. This would cause errors with conflicting symbols at link-time, and
   would have a disastrous impact on your code segment size. Bundles do not
   change the fact that a definition only appears in a single place for each
-  kremlin invocation.
+  KaRaMeL invocation.
 
 
 Bundles for hiding implementation details
@@ -72,7 +72,7 @@ as follows:
 
 .. note::
 
-  Since KreMLin automatically eliminates unreachable definitions by default,
+  Since KaRaMeL automatically eliminates unreachable definitions by default,
   bundling oftentimes prunes the call-graph quite heavily and is used to remove
   definitions that would otherwise be unreachable.
 
@@ -111,7 +111,7 @@ spec). If a declaration is not eliminated as expected, use ``-d reachability``
 which will explain why a declaration is still reachable and, therefore, not
 marked as private.
 
-Separate compilation via KreMLin
+Separate compilation via KaRaMeL
 --------------------------------
 
 This sections covers authoring two different projects that are built, extracted to
@@ -132,7 +132,7 @@ In particular, this means that if project B (e.g. miTLS) depends on project A
   ``--already_cached``) and compiled to ``liba.a`` (via suitable ``make``
   checks)
 - project B must ensure that no linker symbols from project A are generated as
-  part of its build (using kremlin's ``-library`` option)
+  part of its build (using KaRaMeL's ``-library`` option)
 - project B will regenerate headers for declarations from within project A that
   will be used by project A: this is the declaration from B, as seen from
   project A; see as an example ``mitls-fstar/src/tls/dist/compact/EverCrypt.h``
@@ -140,14 +140,14 @@ In particular, this means that if project B (e.g. miTLS) depends on project A
 The last point means that project B will *never* include a header that was
 generated via the build of project A.
 
-The reason for doing so is related to monomorphization. Since kremlin does not
+The reason for doing so is related to monomorphization. Since KaRaMeL does not
 dump information from project A to project B, project A may contain a copy of,
 say, ``K__int32__int32`` (the type of pairs monomorphized to ``int32``). When
-compiling project B, however, kremlin does not know that this pair has already
+compiling project B, however, KaRaMeL does not know that this pair has already
 been monomorphized and may generate a second monomorphization of it in project
 B, resulting in C name conflicts and compilation errors if you try to mix
-headers from the kremlin run of A with the kremlin run of B. *Never mix headers
-obtained from different runs of kremlin!*
+headers from the KaRaMeL run of A with the KaRaMeL run of B. *Never mix headers
+obtained from different runs of KaRaMeL!*
 
 Via static headers
 ^^^^^^^^^^^^^^^^^^
@@ -158,7 +158,7 @@ exclusively as a set of static headers, i.e. headers that contain definitions
 marked as ``inline static``.
 
 In that case, project A must pass a suitable ``-static-header`` option to
-KreMLin (same syntax as ``-bundle``, ``-library``, etc.). Definitions that match
+KaRaMeL (same syntax as ``-bundle``, ``-library``, etc.). Definitions that match
 the argument will then appear in their respective header files.
 
 Project B will then need to use (in addition to ``-library``):
@@ -186,9 +186,9 @@ type (see digression above).
 
 .. note::
 
-  kremlib does a mix of these two approaches; uint modules are extracted as
+  krmllib does a mix of these two approaches; uint modules are extracted as
   static headers (and the suitable -static-header and -library options for
-  clients are hardcoded in kremlin) -- this allows projects such as HACL* to not
-  require any libkremlib.a; other parts of kremlib do not use this facility,
-  meaning that projects like miTLS still link against libkremlib.a to find
+  clients are hardcoded in KaRaMeL) -- this allows projects such as HACL* to not
+  require any libkrmllib.a; other parts of krmllib do not use this facility,
+  meaning that projects like miTLS still link against libkrmllib.a to find
   external symbols (e.g. from ``FStar.Date``)

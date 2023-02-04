@@ -170,7 +170,7 @@ let all files verbose =
       Warn.(maybe_fatal_error ("", NeedsCompat (name,
         "it uses mathematical integers and runtime checks may fail; rewrite your \
         code to use machine integers, or if you must, use -add-include \
-        '\"kremlin/internal/compat.h\"'; if this declaration is for specification purposes \
+        '\"krml/internal/compat.h\"'; if this declaration is for specification purposes \
         only, consider marking it noextract or using -bundle \
         <name-of-the-module> to only keep reachable definitions.")));
     if uses_gctype then
@@ -185,8 +185,8 @@ let all files verbose =
         need to link with a garbage-collector; if this declaration is for \
         specification purposes only, consider marking it noextract or using \
         -bundle <name-of-the-module> to only keep reachable definitions; if you \
-        are looking to use C strings, look into C.String (in kremlib/) and Server \
-        (in test/). See the KreMLin tutorial for more information."
+        are looking to use C strings, look into C.String (in krmllib/) and Server \
+        (in test/). See the KaRaMeL tutorial for more information."
         (String.concat "," (List.map Idents.string_of_lident (LidSet.elements gc_string_ops)))
       )));
   ) warnings

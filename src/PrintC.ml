@@ -17,6 +17,51 @@ let p_storage_spec = function
   | Extern -> string "extern"
   | Static -> string "static"
 
+(* This is abusing the definition of a compound statement to ensure it is printed with braces. *)
+let nest_if f stmt =
+  match stmt with
+  | Compound _ ->
+      hardline ^^ f stmt
+  | _ ->
+      nest 2 (hardline ^^ f stmt)
+
+(* A note on the classic dangling else problem. Remember that this is how things
+ * are parsed (note the indentation):
+ *
+ * if (foo)
+ *   if (bar)
+ *     ...
+ *   else
+ *     ...
+ *
+ * And remember that this needs braces:
+ *
+ * if (foo) {
+ *   if (bar)
+ *     ...
+ * } else
+ *   ...
+ *
+ * [protect_solo_if] adds braces to the latter case. However, GCC, unless
+ * -Wnoparentheses is given, will produce a warning for the former case.
+ * [protect_ite_if_needed] adds braces to the former case, when the user has
+ * requested the extra, unnecessary parentheses needed to silence -Wparentheses.
+ * *)
+let protect_solo_if s =
+  match s with
+  | If _ -> Compound [ s ]
+  | _ -> s
+
+let protect_ite_if_needed s =
+  match s with
+  | IfElse _ when !Options.parentheses -> Compound [ s ]
+  | _ -> s
+
+let p_or p x =
+  match x with
+  | Some x -> p x
+  | None -> empty
+
 let rec p_type_spec = function
   | Int w -> print_width w
   | Void -> string "void"
@@ -57,9 +102,16 @@ and p_type_declarator d =
         p_noptr d ^^ lbracket ^^ p_qualifiers_break qs ^^ p_expr s ^^ rbracket
     | Function (cc, d, params) ->
         let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
-        group (cc ^^ p_noptr d ^^ parens_with_nesting (separate_map (comma ^^ break 1) (fun (qs, spec, decl) ->
-          group (p_qualifiers_break qs ^^ p_type_spec spec ^/^ p_any decl)
-        ) params))
+        let params =
+          if params = [] then
+            (* Avoid old-style K&R declarations *)
+            string "void"
+          else
+            separate_map (comma ^^ break 1) (fun (qs, spec, decl) ->
+              group (p_qualifiers_break qs ^^ p_type_spec spec ^/^ p_any decl)
+            ) params
+        in
+        group (cc ^^ p_noptr d ^^ parens_with_nesting params)
     | d ->
         lparen ^^ p_any d ^^ rparen
   and p_any = function
@@ -223,6 +275,8 @@ and p_expr' curr = function
       p_expr' 1 expr ^^ string "->" ^^ string member
   | InlineComment (s, e, s') ->
       surround 2 1 (p_comment s) (p_expr' curr e) (p_comment s')
+  | Stmt stmts ->
+      p_stmts stmts
 
 and p_comment s =
   (* TODO: escape *)
@@ -252,8 +306,14 @@ and p_designator = function
   | Bracket i ->
       lbracket ^^ int i ^^ rbracket
 
-and p_decl_and_init (decl, init) =
-  group (p_type_declarator decl ^^ match init with
+and p_decl_and_init (decl, alignment, init) =
+  let post = match alignment with
+    | Some t ->
+        break1 ^^ p_expr (Call (Name "KRML_POST_ALIGN", [ t ]))
+    | None ->
+        empty
+  in
+  group (p_type_declarator decl ^^ post ^^ match init with
     | Some init ->
         space ^^ equals ^^ jump (p_init init)
     | None ->
@@ -262,55 +322,21 @@ and p_decl_and_init (decl, init) =
 and p_declaration (qs, spec, inline, stor, decl_and_inits) =
   let inline = if inline then string "inline" ^^ space else empty in
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
-  stor ^^ inline ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
+  let _, alignment, _ = List.hd decl_and_inits in
+  if not (List.for_all (fun (_, a, _) -> a = alignment) decl_and_inits) then
+    Warn.fatal_error "In a declarator group, not all declarations have the same \
+      alignment, which is not supported for MSVC. Bailing.";
+  let pre = match alignment with
+    | Some t ->
+        p_expr (Call (Name "KRML_PRE_ALIGN", [ t ])) ^^ break1
+    | None ->
+        empty
+  in
+  pre ^^ stor ^^ inline ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
-(* This is abusing the definition of a compound statement to ensure it is printed with braces. *)
-let nest_if f stmt =
-  match stmt with
-  | Compound _ ->
-      hardline ^^ f stmt
-  | _ ->
-      nest 2 (hardline ^^ f stmt)
 
-(* A note on the classic dangling else problem. Remember that this is how things
- * are parsed (note the indentation):
- *
- * if (foo)
- *   if (bar)
- *     ...
- *   else
- *     ...
- *
- * And remember that this needs braces:
- *
- * if (foo) {
- *   if (bar)
- *     ...
- * } else
- *   ...
- *
- * [protect_solo_if] adds braces to the latter case. However, GCC, unless
- * -Wnoparentheses is given, will produce a warning for the former case.
- * [protect_ite_if_needed] adds braces to the former case, when the user has
- * requested the extra, unnecessary parentheses needed to silence -Wparentheses.
- * *)
-let protect_solo_if s =
-  match s with
-  | If _ -> Compound [ s ]
-  | _ -> s
-
-let protect_ite_if_needed s =
-  match s with
-  | IfElse _ when !Options.parentheses -> Compound [ s ]
-  | _ -> s
-
-let p_or p x =
-  match x with
-  | Some x -> p x
-  | None -> empty
-
-let rec p_stmt (s: stmt) =
+and p_stmt (s: stmt) =
   (* [p_stmt] is responsible for appending [semi] and calling [group]! *)
   match s with
   | Compound stmts ->
@@ -347,15 +373,16 @@ let rec p_stmt (s: stmt) =
       let mk_line prefix doc =
         string (KPrint.bsprintf "%s %a" prefix pdoc doc)
       in
+      let p stmts = if !Options.microsoft then p_stmt (Compound stmts) else p_stmts stmts in
       group (mk_line "#if" (p_expr cond) ^^ hardline ^^
-        p_stmts then_block ^^ hardline ^^
+        p then_block ^^ hardline ^^
         separate_map hardline (fun (cond, stmts) ->
           mk_line "#elif" (p_expr cond) ^^ hardline ^^
-          p_stmts stmts) elif_blocks ^^
+          p stmts) elif_blocks ^^
         (if List.length elif_blocks > 0 then hardline else empty) ^^
         (if List.length else_block > 0 then
           string "#else" ^^ hardline ^^
-          p_stmts else_block ^^ hardline
+          p else_block ^^ hardline
         else
           empty) ^^
         string "#endif")
@@ -386,7 +413,7 @@ let rec p_stmt (s: stmt) =
 and p_stmts stmts = separate_map hardline p_stmt stmts
 
 let p_comments cs =
-  separate_map hardline (fun c -> string ("/*\n" ^ c ^ "\n*/")) cs ^^
+  separate_map hardline (fun c -> string ("/**\n" ^ c ^ "\n*/")) cs ^^
   if List.length cs > 0 then hardline else empty
 
 let p_microsoft_comments cs =
@@ -396,7 +423,6 @@ let p_microsoft_comments cs =
 (* We require infinite width to force this to be rendered on a single line. We
  * then force the rendering of the subexpression on a single line as well. *)
 let macro name d: document =
-  let open PPrintEngine in
   let c: custom = object (self)
     method requirement = infinity
 
@@ -435,5 +461,4 @@ let p_decl_or_function (df: declaration_or_function) =
       string s
 
 let print_files files =
-  let files = List.map (fun (f, _, d) -> f, d) files in
   PrintCommon.print_files p_decl_or_function files

@@ -1,0 +1,27 @@
+[
+  "<ñóRˆmè47ÝZž\u001búç",
+  [
+    [
+      "MonomorphizationCrash.pair",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_Abstract.t"
+      ],
+      0,
+      "3357b2e6952f92f124e606dec5b7f24f"
+    ],
+    [
+      "MonomorphizationCrash.test",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_MonomorphizationCrash.pair__uu___haseq" ],
+      0,
+      "002b33823963e31b8a6ac4dd29659342"
+    ]
+  ]
+]

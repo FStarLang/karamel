@@ -42,7 +42,7 @@ and stmt =
     (** First expression has to be a [Bound] or [Open]. *)
   | BufBlit of typ * expr * expr * expr * expr * expr
   | BufFill of typ * expr * expr * expr
-  | BufFree of expr
+  | BufFree of typ * expr
   | Block of block
   | Comment of string
 
@@ -61,6 +61,7 @@ and expr =
      * on the rhs of a (typed) assignment *)
   | BufRead of expr * expr
   | BufSub of expr * expr
+  | BufNull
   | Op of K.op
   | Cast of expr * typ
     (** to *)
@@ -78,6 +79,10 @@ and expr =
   | Any
   | AddrOf of expr
   | EAbort of typ * string
+  | Stmt of stmt list
+    (** Solely for the purposes of macro-calls, which are function-like and
+        therefore are more closely modeled as an expression, but truly may
+        contain anything as arguments, including statements. *)
   [@@deriving show]
 
 and block =

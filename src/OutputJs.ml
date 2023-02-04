@@ -9,7 +9,7 @@ let html_stub = format_of_string {|
 <html>
   <head>
     <meta charset="utf-8">
-    <title>KreMLin main driver</title>
+    <title>KaRaMeL main driver</title>
     %s
     <script type="application/javascript">
       var my_modules = %s;
@@ -17,7 +17,7 @@ let html_stub = format_of_string {|
     <script type="application/javascript" src="browser.js"></script>
     <script type="application/javascript" src="loader.js"></script>
     <script type="application/javascript">
-      window.addEventListener("load", kremlin_start);
+      window.addEventListener("load", karamel_start);
     </script>
   </head>
   <body>
@@ -50,15 +50,11 @@ let as_js_list l =
   ) l) ^ "]"
 
 let readme =
-{|How to run the WASM output of KreMLin?
+{|How to run the WASM output of KaRaMeL?
 
-# With v8, from the console
+# With node, from the console
 
-Install and build Google's v8 engine, which should give a d8 binary. Then:
-
-    d8 --allow-natives-syntax main.js
-
-Note: on my machine, it's better to call d8 through an absolute path.
+    node main.js
 
 # With Chakra, from the console
 
@@ -71,13 +67,13 @@ Install and build ChakraCore, which should give a ch binary. Then:
 Chrome won't run this from the file:// URL, so you'll need to start an HTTP
 server from this directory. If you don't have one already:
 
-    npm install http-server
+    npm install -g http-server
 
 Then, run `http-server .` and navigate to http://localhost:8080/main.html
 |}
 
-let write_all js_files modules print =
-  Driver.detect_kremlin_if ();
+let write_all js_files modules print layouts =
+  Driver.detect_karamel_if ();
   Driver.mkdirp !Options.tmpdir;
 
   (* Write out all the individual .wasm files *)
@@ -119,8 +115,13 @@ let write_all js_files modules print =
   (* Files that are needed for the tmpdir to be runnable and complete. *)
   let ( ^^ ) = Filename.concat in
   List.iter (fun f ->
-    Utils.cp (!Options.tmpdir ^^ f) (!Driver.kremlib_dir ^^ "js" ^^ f)
+    Utils.cp (!Options.tmpdir ^^ f) (!Driver.krmllib_dir ^^ "js" ^^ f)
   ) [ "browser.js"; "loader.js"; "main.js" ];
+
+  (* Layout map... for serializing in and out of WASM memory *)
+  Utils.with_open_out_bin (!Options.tmpdir ^^ "layouts.json") (fun oc ->
+    Yojson.Safe.to_channel oc layouts
+  );
 
   (* Be nice *)
   Utils.with_open_out_bin (!Options.tmpdir ^^ "README") (fun oc -> output_string oc readme)

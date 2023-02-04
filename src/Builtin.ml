@@ -12,8 +12,8 @@ let t_string = TQualified (["Prims"], "string")
 let mk_binop m n t =
   DExternal (None, [ ], (m, n), TArrow (t, TArrow (t, t)), [ "x"; "y" ])
 
-let mk_val m n t =
-  DExternal (None, [ ], (m, n), t, [])
+let mk_val ?(flags=[]) m n t =
+  DExternal (None, flags, (m, n), t, [])
 
 let prims: file =
   let t = TInt K.CInt in
@@ -188,6 +188,7 @@ let hs: file =
       eunit);
     DType (([ "FStar"; "HyperStack"; "ST" ], "erid"), [], 0, Abbrev TUnit);
     DType (([ "FStar"; "HyperStack"; "ST" ], "ex_rid"), [], 0, Abbrev TUnit);
+    DType (([ "FStar"; "HyperStack"; "ST" ], "witnessed"), [ Common.MustDisappear ], 1, Abbrev TUnit);
   ]
 
 let dyn: file =
@@ -199,10 +200,28 @@ let dyn: file =
       with_type void_star (ECast (with_type (TBound 0) (EBound 0), void_star)))
   ]
 
+let steel_sizet_intros : file =
+  "Steel_ST_HigherArray", [
+    mk_val ["Steel"; "ST"; "HigherArray" ] "intro_fits_u32" (TArrow (TUnit, TUnit));
+    mk_val ["Steel"; "ST"; "HigherArray" ] "intro_fits_u64" (TArrow (TUnit, TUnit));
+  ]
+
+let steel_arrayarith : file =
+  "Steel_ArrayArith", [
+    mk_val ["Steel"; "ArrayArith"] "within_bounds_ptr"
+      (TArrow 
+        (* The three arrays passed as arguments *)
+        (TBuf (TAny, false), TArrow (TBuf (TAny, false), TArrow (TBuf (TAny, false), 
+        (* The three ghost lengths, extracted to unit *)
+        TArrow (TUnit, TArrow (TUnit, TArrow (TUnit,
+        (* The three ghost sequences, extracted to unit *)
+        TArrow (TUnit, TArrow (TUnit, TArrow (TUnit,
+        (* The actual return type *)
+        TBool))))))))))
+  ]
+
 let lowstar_monotonic_buffer: file =
   "LowStar_Monotonic_Buffer", [
-    mk_val [ "LowStar"; "Monotonic"; "Buffer" ] "is_null" (TArrow (TBuf (TAny, false), TBool));
-    mk_val [ "LowStar"; "Monotonic"; "Buffer" ] "mnull" (TArrow (TAny, TBuf (TAny, false)));
     DFunction (None, [ Common.MustDisappear ], 3, TUnit,
       ([ "LowStar"; "Monotonic"; "Buffer" ], "recall"),
       [ fresh_binder "x" (TBuf (TBound 2, false)) ],
@@ -211,11 +230,17 @@ let lowstar_monotonic_buffer: file =
       ([ "LowStar"; "Monotonic"; "Buffer" ], "frameOf"),
       [ fresh_binder "x" (TBuf (TBound 2, false)) ],
       eunit);
+    DType (([ "LowStar"; "Monotonic"; "Buffer" ], "loc_disjoint"), [ Common.MustDisappear ], 2, Abbrev TUnit);
   ]
 
 let lowstar_buffer: file =
   "LowStar_Buffer", [
     mk_val [ "LowStar"; "Buffer" ] "null" (TArrow (TAny, TBuf (TAny, false)));
+  ]
+
+let lowstar_ignore: file =
+  "LowStar_Ignore", [
+    mk_val ~flags:Common.[ Macro ] [ "LowStar"; "Ignore" ] "ignore" (TArrow (TAny, TUnit))
   ]
 
 let lowstar_endianness: file =
@@ -295,14 +320,22 @@ let lib_memzero0: file =
     mk_val [ "Lib"; "Memzero0" ] "memzero" (TArrow (TAny, TArrow (TInt UInt32, TUnit)))
   ]
 
+let c_deref: file =
+  "C", [
+    mk_val ["C"] "_zero_for_deref" (TInt UInt32)
+  ]
+
 (* These modules are entirely written by hand in abstract syntax. *)
 let hand_written = [
   buffer;
   lowstar_monotonic_buffer;
   lowstar_buffer;
+  lowstar_ignore;
   lowstar_endianness;
   monotonic_hh;
   monotonic_hs;
+  steel_arrayarith;
+  steel_sizet_intros;
   hs;
   dyn;
 ]
@@ -325,6 +358,9 @@ let make_abstract_function_or_global = function
         Some (DExternal (None, flags, name, t, []))
       else
         None
+  | DType (name, flags, _, _) when List.mem Common.AbstractStruct flags ->
+      (* We assume the module doesn't lie and the CAbstractStruct will type-check in C. *)
+      Some (DType (name, List.filter ((<>) Common.AbstractStruct) flags, 0, Forward))
   | d ->
       Some d
 
@@ -368,7 +404,8 @@ let is_model name =
     List.mem name [
       "C_String";
       "C_Compat_String";
-      "FStar_String"
+      "FStar_String";
+      "Steel_SpinLock"
     ]
 
 (* We have several different treatments. *)
@@ -390,7 +427,12 @@ let prepare files =
         name, snd f @ extra
       with Not_found ->
         f
-  ) files
+  ) files @
+  (* This is unfortunately needed because of PR #278, and especially the corresponding
+     F* PR: References to module C can now occur even when the module is not in the scope.
+     If so, we add the definition that is needed as a builtin, since it will be rewritten
+     during C code generation *)
+  if List.mem_assoc "C" files then [] else [c_deref]
 
 let make_libraries files =
   List.map (fun f ->

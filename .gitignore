@@ -1,7 +1,7 @@
 *.native
 *.byte
 _build
-krml
+/krml
 tags
 *.checked
 *.checked.lax
@@ -9,3 +9,5 @@ tags
 book/_build
 fstar-mode.el
 .#*
+src/Version.ml
+*.runlim

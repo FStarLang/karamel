@@ -44,6 +44,11 @@ let mk_ident name = Lident name |> mk_sym_ident
 
 let exp_ident n = Exp.ident (mk_ident n)
 
+let warn_drop_declaration loc lid_decl lid_type =
+  if not (KString.starts_with (snd lid_decl) "__proj__") &&
+     not (KString.starts_with (snd lid_decl) "uu___")
+  then
+    Warn.(maybe_fatal_error (loc, Error.DropCtypesDeclaration (lid_decl, lid_type)))
 
 (* generic AST helpers *)
 let mk_const c =
@@ -68,7 +73,7 @@ let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
   mk_decl ?t p e
 
 
-(* Note: keeping the naming scheme as decided by KreMLin, in accordance with the
+(* Note: keeping the naming scheme as decided by KaRaMeL, in accordance with the
  * -no-prefix options. If this is the beginning of a top-level name, lower is
  * true and we force the first letter to be lowercase to abide by OCaml syntax
  * restrictions. *)
@@ -285,15 +290,18 @@ let mk_ctypes_decl m (d: decl): structure =
       | Qualified t -> mk_typedef m name (Qualified t)
       | _ -> []
       end
-  | Global (name, _, _, typ, _) -> begin
-      match typ with
-      | Function _ ->
-        [mk_extern_decl m name "foreign" typ]
-      | Pointer _ ->
-        Warn.(maybe_fatal_error (GlobalNames.to_c_name m name, Warn.DropCtypesDeclaration ([], "extern *")));
+  | Global (name, _, flags, typ, _) -> begin
+      if List.mem Common.Macro flags then
         []
-      | _ -> [mk_extern_decl m name "foreign_value" typ]
-      end
+      else
+        match typ with
+        | Function _ ->
+          [mk_extern_decl m name "foreign" typ]
+        | Pointer _ ->
+          warn_drop_declaration "" (lid_of_decl d) ([], "extern *");
+          []
+        | _ -> [mk_extern_decl m name "foreign_value" typ]
+        end
   | External _
   | TypeForward _ -> []
 
@@ -342,7 +350,7 @@ type t =
  * OCaml bindings, now no longer related to C/H files), along with generated
  * OCaml declarations. *)
 let mk_ocaml_bindings
-  (files : (ident * string list * decl list) list)
+  (files : (ident * decl list) list)
   (m: (A.lident, A.ident) Hashtbl.t)
   (file_of: A.lident -> string option):
   (string * string list * structure_item list) list
@@ -355,7 +363,7 @@ let mk_ocaml_bindings
     | Visited
   end in
   let decl_map = Hashtbl.create 41 in
-  List.iter (fun (_, _, decls) ->
+  List.iter (fun (_, decls) ->
     List.iter (fun d ->
       Hashtbl.add decl_map (CStar.lid_of_decl d) (T.Unvisited d)
     ) decls
@@ -455,7 +463,7 @@ let mk_ocaml_bindings
             | Some faulty_lid  ->
               let loc = String.concat " <-- " (List.map Idents.string_of_lident call_stack) in
               non_bindable_types := lid :: !non_bindable_types;
-              Warn.(maybe_fatal_error (loc, Warn.DropCtypesDeclaration faulty_lid));
+              warn_drop_declaration loc lid faulty_lid;
               false
             | None ->
               (* All of the lids that this declaration depends on have been
@@ -476,7 +484,7 @@ let mk_ocaml_bindings
     not (List.mem Common.Private flags)
   in
 
-  List.iter (fun (_name, _deps, decls) ->
+  List.iter (fun (_name, decls) ->
     List.iter (fun decl ->
       let lid = CStar.lid_of_decl decl in
       let flags = CStar.flags_of_decl decl in
@@ -497,7 +505,7 @@ let mk_ocaml_bindings
    * binding code assumes that all the required types are in scope, so we open
    * all the transitive dependencies. *)
   let transitive_deps = Hashtbl.create 41 in
-  List.iter (fun (name, _, _) ->
+  List.iter (fun (name, _) ->
     let deps = try Hashtbl.find ocaml_deps name with Not_found -> [] in
     let deps = KList.map_flatten (fun x ->
       Hashtbl.find transitive_deps x @ [ x ]
@@ -507,7 +515,7 @@ let mk_ocaml_bindings
 
   (** In a third phase, we collect the generated declarations, and turn them
    * into full-fledged OCaml modules. *)
-  KList.filter_map (fun (name, _, _) ->
+  KList.filter_map (fun (name, _) ->
     match Hashtbl.find_opt ocaml_decls name with
     | None -> None
     | Some decls ->
@@ -519,7 +527,7 @@ let mk_ocaml_bindings
           None
   ) files
 
-let mk_gen_decls module_name =
+let mk_gen_decls ~public:public_headers ~internal:internal_headers module_name =
   let mk_out_channel n =
     mk_app
       (exp_ident "Format.set_formatter_out_channel")
@@ -533,11 +541,23 @@ let mk_gen_decls module_name =
       ; (Nolabel, mk_app (exp_ident "module") [exp_ident (n ^ "_bindings.Bindings")]) ]
   in
   let mk_printf s = mk_app (exp_ident "Format.printf") [mk_const s] in
+  let internal_include =
+    if Bundles.StringSet.mem module_name internal_headers then
+      Printf.sprintf "#include \"internal/%s.h\"\n" module_name
+    else
+      ""
+  in
+  let public_include =
+    if Bundles.StringSet.mem module_name public_headers then
+      Printf.sprintf "#include \"%s.h\"\n" module_name
+    else
+      ""
+  in
   let decls =
     [ mk_out_channel ("lib/" ^ module_name ^ "_stubs.ml")
     ; mk_cstubs_write "ml" module_name
     ; mk_out_channel ("lib/" ^ module_name ^ "_c_stubs.c")
-    ; mk_printf (Printf.sprintf "#include \"%s.h\"\n" module_name)
+    ; mk_printf (Printf.sprintf "%s%s" public_include internal_include)
     ; mk_cstubs_write "c" module_name ]
   in
   mk_decl (Pat.any ()) (KList.reduce Exp.sequence decls)
@@ -548,12 +568,12 @@ let write_ml (path: string) (m: structure_item list) =
   structure Format.std_formatter m;
   Format.pp_print_flush Format.std_formatter ()
 
-let write_gen_module files =
+let write_gen_module ~public:public_headers ~internal:internal_headers files =
   if List.length files > 0 then begin
     Driver.mkdirp (!Options.tmpdir ^ "/lib_gen");
 
     List.iter (fun (name, _, _) ->
-      let m = mk_gen_decls name in
+      let m = mk_gen_decls ~public:public_headers ~internal:internal_headers name in
       let path = !Options.tmpdir ^ "/lib_gen/" ^ name ^ "_gen.ml" in
       write_ml path [m]
     ) files;

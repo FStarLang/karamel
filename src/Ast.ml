@@ -33,6 +33,7 @@ and lident = ident list * ident [@ opaque]
     visitors { variety = "reduce"; name = "reduce_misc"; polymorphic = true },
     visitors { variety = "map"; name = "map_misc"; polymorphic = true }]
 
+let dummy_lid = [], ""
 
 (* The visitor of types composes with the misc. visitor. *)
 type typ =
@@ -203,10 +204,13 @@ type expr' =
     (** e1[e2] <- e3 *)
   | EBufSub of expr * expr
     (** e1 + e2 *)
+  | EBufDiff of expr * expr
+    (** e1 - e2 *)
   | EBufBlit of expr * expr * expr * expr * expr
     (** e1 (source), index; e2 (dest), index; len *)
   | EBufFill of expr * expr * expr
   | EBufFree of expr
+  | EBufNull
   | EPushFrame
   | EPopFrame
 

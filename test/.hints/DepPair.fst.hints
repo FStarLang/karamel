@@ -1,0 +1,20 @@
+[
+  "\u001aV\t,™¨ŽYæa\u001bˆ½«IË",
+  [
+    [
+      "DepPair.deref",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_DepPair.non_null_buffer",
+        "equation_LowStar.Buffer.buffer",
+        "fuel_guarded_inversion_Prims.dtuple2",
+        "projection_inverse_BoxInt_proj_0",
+        "refinement_interpretation_Tm_refine_07df04c09226e2c84c0e481d49caecb3"
+      ],
+      0,
+      "fb76a482b3207b4c72cec4cec24a78a1"
+    ]
+  ]
+]

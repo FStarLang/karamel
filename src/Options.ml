@@ -1,6 +1,13 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
 (* Licensed under the Apache 2.0 License. *)
 
+type include_ = All | HeaderOnly of string | COnly of string
+
+let pinc b = function
+  | All -> Buffer.add_string b "*"
+  | HeaderOnly h -> Buffer.add_string b h; Buffer.add_string b ".h"
+  | COnly h -> Buffer.add_string b h; Buffer.add_string b ".c"
+
 (** Some of these will be filled by [Driver].  *)
 let no_prefix: Bundle.pat list ref = ref Bundle.[
   Module [ "C" ];
@@ -9,12 +16,12 @@ let no_prefix: Bundle.pat list ref = ref Bundle.[
   Module [ "C"; "Compat"; "Endianness" ];
   Module [ "LowStar"; "Endianness" ]
 ]
-(* kremlib.h now added directly in Output.ml so that it appears before the first
+(* krmllib.h now added directly in Output.ml so that it appears before the first
  * #ifdef *)
-let add_include: (string option * string) list ref = ref [ ]
+let add_include: (include_ * string) list ref = ref [ ]
 let add_include_tmh = ref false
-let add_early_include: (string option * string) list ref = ref [ ]
-let warn_error = ref "+1..2@3+4..8@9+10@11+12..18@19+20..22"
+let add_early_include: (include_ * string) list ref = ref [ ]
+let warn_error = ref "+1@2@3+4..8@9+10@11+12..18@19+20..22+24"
 let tmpdir = ref "."
 let includes: string list ref = ref []
 let verbose = ref false
@@ -25,7 +32,7 @@ let m32 = ref false
 let fsopts: string list ref = ref []
 let ccopts: string list ref = ref []
 let ldopts: string list ref = ref []
-(* Note: do not populate this field directly but rather do it in Kremlin.ml
+(* Note: do not populate this field directly but rather do it in Karamel.ml
  * behind the "Options.minimal" test. *)
 let bundle: Bundle.t list ref = ref []
 let library: Bundle.pat list ref = ref []
@@ -57,6 +64,7 @@ let merge_variables = ref No
 let linux_ints = ref false
 let microsoft = ref false
 let extern_c = ref false
+let short_names = ref true
 
 let extract_uints = ref false
 let builtin_uint128 = ref false
@@ -77,7 +85,7 @@ let default_options () =
   let gcc_like_options = [|
     "-ccopts";
     "-Wall,-Werror,-Wno-unused-variable," ^
-    "-Wno-unknown-warning-option,-Wno-unused-but-set-variable," ^
+    "-Wno-unknown-warning-option,-Wno-unused-but-set-variable,-Wno-unused-function," ^
     "-g,-fwrapv,-D_BSD_SOURCE,-D_DEFAULT_SOURCE" ^
     (if Sys.os_type = "Win32" then ",-D__USE_MINGW_ANSI_STDIO" else "") ^
     (if !parentheses then "" else ",-Wno-parentheses")

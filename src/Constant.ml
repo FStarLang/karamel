@@ -10,6 +10,7 @@ and width =
   | UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64
   | Bool
   | CInt (** Checked signed integers. *)
+  | SizeT | PtrdiffT
 
 let bytes_of_width (w: width) =
   match w with
@@ -44,11 +45,11 @@ let unsigned_of_signed = function
   | Int16 -> UInt16
   | Int32 -> UInt32
   | Int64 -> UInt64
-  | CInt | UInt8 | UInt16 | UInt32 | UInt64 | Bool -> raise (Invalid_argument "unsigned_of_signed")
+  | CInt | UInt8 | UInt16 | UInt32 | UInt64 | SizeT | PtrdiffT | Bool -> raise (Invalid_argument "unsigned_of_signed")
 
 let is_signed = function
-  | Int8 | Int16 | Int32 | Int64 | CInt -> true
-  | UInt8 | UInt16 | UInt32 | UInt64 -> false
+  | Int8 | Int16 | Int32 | Int64 | CInt | PtrdiffT -> true
+  | UInt8 | UInt16 | UInt32 | UInt64 | SizeT -> false
   | Bool -> raise (Invalid_argument "is_signed")
 
 let is_unsigned w = not (is_signed w)
@@ -69,9 +70,9 @@ let uint32_of_int i =
   UInt32, string_of_int i
 
 (* New: polymorphic equalities, treated properly, finally (Feb 2021)
-   Some background info... initially, equalities were only accepted by KreMlin
+   Some background info... initially, equalities were only accepted by KaRaMeL
    at base scalar types (int, bool) that have a "width". However, with time
-   passing, KreMLin gained the ability to monomorphize functions and therefore
+   passing, KaRaMeL gained the ability to monomorphize functions and therefore
    had to accept equalities on data types, units, and so on. Equalities on base
    types were represented as `Op (Eq, w)` while equalities on complex types were
    represented as `TApp (Op (Eq, <dummy width>), t)` which was clearly
