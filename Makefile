@@ -15,7 +15,7 @@ extra: pre krmllib
 	+ OCAML_ERROR_STYLE="short" \
 	OCAMLPATH="$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/bin" $(MAKE) -C krmllib extra
 
-minimal: src/AutoConfig.ml
+minimal: src/AutoConfig.ml src/Version.ml
 	+ OCAML_ERROR_STYLE="short" $(MAKE) -C src
 	ln -sf src/_build/default/Karamel.exe krml
 
