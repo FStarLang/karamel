@@ -507,13 +507,12 @@ let cross_call_analysis files =
       decls @ List.rev new_decls
   end in
   let files = if !Options.wasm then generate_getters#visit_files () files else files in
-
   files
 
 (** A whole-program transformation that inlines functions according to... *)
 
 let always_live name =
-  let n = GlobalNames.target_c_name ~attempt_shortening:false ~is_macro:false name in
+  let n = GlobalNames.target_c_name ~attempt_shortening:false name in
   n = "main" ||
   String.length n >= 11 &&
   String.sub n 0 11 = "WasmSupport" &&

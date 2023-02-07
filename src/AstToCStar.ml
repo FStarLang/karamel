@@ -821,7 +821,7 @@ and mk_files files m ifdefs macros =
 let mk_macros_set files =
   let seen = Hashtbl.create 31 in
   let record x =
-    let t = String.uppercase (GlobalNames.target_c_name ~attempt_shortening:false ~is_macro:true x) in
+    let t = String.uppercase GlobalNames.(target_c_name ~attempt_shortening:false ~kind:Macro x) in
     if Hashtbl.mem seen t then
       Warn.(maybe_fatal_error ("", ConflictMacro (x, t)));
     Hashtbl.add seen t ()
@@ -845,7 +845,7 @@ let mk_macros_set files =
 
 let mk_ifdefs_set files =
   (object
-    inherit [_] reduce
+    inherit [_] reduce as super
     method private zero = LidSet.empty
     method private plus = LidSet.union
     method visit_DExternal _ _ flags name _ _ =
@@ -853,4 +853,8 @@ let mk_ifdefs_set files =
         LidSet.singleton name
       else
         LidSet.empty
+    method visit_DGlobal env flags name n t =
+      if List.mem Common.IfDef flags then
+        Warn.maybe_fatal_error ("", IfDefOnGlobal name);
+      super#visit_DGlobal env flags name n t
   end)#visit_files () files
