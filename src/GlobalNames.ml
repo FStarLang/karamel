@@ -236,7 +236,9 @@ let strip_leading_underscores name =
     failwith "cannot have a name made of a single underscore";
   String.sub name !i (String.length name - !i)
 
-let target_c_name ~attempt_shortening ~is_macro lid =
+type kind = Macro | Type | Other
+
+let target_c_name ~attempt_shortening ?(kind=Other) lid =
   let pre_name =
     if skip_prefix lid && not (ineligible lid) then
       snd lid
@@ -248,15 +250,25 @@ let target_c_name ~attempt_shortening ~is_macro lid =
     | None ->
         string_of_lident lid
   in
-  if !Options.microsoft && not is_macro && pre_name <> "main" then
-    pascal_case pre_name
-  else if !Options.microsoft && is_macro then
-    strip_leading_underscores pre_name
+  if !Options.microsoft then
+    if pre_name = "main" then
+      pre_name
+    else
+      match kind with
+      | Other ->
+          pascal_case pre_name
+      | Macro ->
+          strip_leading_underscores pre_name
+      | Type ->
+          String.uppercase_ascii (strip_leading_underscores pre_name)
   else
     pre_name
 
-let to_c_name m lid =
+let to_c_name ?kind m lid =
   try
     Hashtbl.find m lid
   with Not_found ->
-    Idents.to_c_identifier (target_c_name ~attempt_shortening:false ~is_macro:false lid)
+    (* Note: this happens for external types which are not retained as DType
+       nodes and therefore are not recorded in the initial name-assignment
+       phase. *)
+    Idents.to_c_identifier (target_c_name ?kind ~attempt_shortening:false lid)
