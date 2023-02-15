@@ -210,14 +210,16 @@ let steel_arrayarith : file =
   "Steel_ArrayArith", [
     mk_val ["Steel"; "ArrayArith"] "within_bounds_ptr"
       (TArrow 
+        (* The three permissions, extracted to unit *)
+        (TUnit, TArrow (TUnit, TArrow (TUnit,
         (* The three arrays passed as arguments *)
-        (TBuf (TAny, false), TArrow (TBuf (TAny, false), TArrow (TBuf (TAny, false), 
+        TArrow (TBuf (TAny, false), TArrow (TBuf (TAny, false), TArrow (TBuf (TAny, false), 
         (* The three ghost lengths, extracted to unit *)
         TArrow (TUnit, TArrow (TUnit, TArrow (TUnit,
         (* The three ghost sequences, extracted to unit *)
         TArrow (TUnit, TArrow (TUnit, TArrow (TUnit,
         (* The actual return type *)
-        TBool))))))))))
+        TBool)))))))))))))
   ]
 
 let lowstar_monotonic_buffer: file =
