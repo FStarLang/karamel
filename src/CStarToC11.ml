@@ -24,6 +24,8 @@ let builtin_names =
     ["Steel"; "Reference"], "is_null";
     ["Steel"; "ST"; "HigherArray"], "intro_fits_u32";
     ["Steel"; "ST"; "HigherArray"], "intro_fits_u64";
+    ["Steel"; "ST"; "HigherArray"], "intro_fits_ptrdiff32";
+    ["Steel"; "ST"; "HigherArray"], "intro_fits_ptrdiff64";
     ["C"; "Nullity"], "null";
     ["C"; "String"], "get";
     ["C"; "String"], "t";
@@ -1074,6 +1076,10 @@ and mk_expr m (e: expr): C.expr =
       Call (Name "static_assert", [Op2 (K.Lte, Name "UINT32_MAX", Name "SIZE_MAX")])
   | Call (Qualified ( [ "Steel"; "ST"; "HigherArray" ], "intro_fits_u64"), _ ) ->
       Call (Name "static_assert", [Op2 (K.Lte, Name "UINT64_MAX", Name "SIZE_MAX")])
+  | Call (Qualified ( [ "Steel"; "ST"; "HigherArray" ], "intro_fits_ptrdiff32"), _ ) ->
+      Call (Name "static_assert", [Op2 (K.Lte, Name "INT32_MAX", Name "PTRDIFF_MAX")])
+  | Call (Qualified ( [ "Steel"; "ST"; "HigherArray" ], "intro_fits_ptrdiff64"), _ ) ->
+      Call (Name "static_assert", [Op2 (K.Lte, Name "INT64_MAX", Name "PTRDIFF_MAX")])
 
   | Call (Qualified ( [ "FStar"; "UInt128" ], "add"), [ e1; e2 ]) when !Options.builtin_uint128 ->
       Op2 (K.Add, mk_expr m e1, mk_expr m e2)
