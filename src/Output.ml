@@ -145,7 +145,6 @@ let write_c files internal_headers deps =
     let deps = Bundles.StringMap.find name deps in
     let deps = List.of_seq (Bundles.StringSet.to_seq deps.Bundles.internal) in
     let deps = List.map (fun f -> "internal/" ^ f) deps in
-    (* KPrint.bprintf "- write_c: %s\n" name; *)
     let includes = includes_for ~is_c:true name deps in
     let header = string (header ()) ^^ hardline ^^ hardline in
     let internal = if Bundles.StringSet.mem name internal_headers then "internal/" else "" in
