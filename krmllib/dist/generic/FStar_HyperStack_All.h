@@ -7,13 +7,11 @@
 #ifndef __FStar_HyperStack_All_H
 #define __FStar_HyperStack_All_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef void *FStar_HyperStack_All_all_pre;
 
 typedef void *FStar_HyperStack_All_all_post_;

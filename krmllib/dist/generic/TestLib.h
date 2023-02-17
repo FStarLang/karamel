@@ -7,13 +7,11 @@
 #ifndef __TestLib_H
 #define __TestLib_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 extern void TestLib_touch(int32_t uu___);
 
 extern void TestLib_check(bool uu___);

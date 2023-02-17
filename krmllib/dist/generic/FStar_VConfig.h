@@ -7,14 +7,13 @@
 #ifndef __FStar_VConfig_H
 #define __FStar_VConfig_H
 
-
-
 #include "FStar_String.h"
 #include "FStar_Bytes.h"
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef struct FStar_VConfig_vconfig_s
 {
   Prims_int initial_fuel;

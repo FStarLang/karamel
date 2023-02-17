@@ -7,14 +7,13 @@
 #ifndef __FStar_Pervasives_H
 #define __FStar_Pervasives_H
 
-
-
 #include "FStar_String.h"
 #include "FStar_BitVector.h"
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef void *FStar_Pervasives_pattern;
 
 typedef void *FStar_Pervasives_eqtype_u;

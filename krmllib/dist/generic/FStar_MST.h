@@ -7,13 +7,11 @@
 #ifndef __FStar_MST_H
 #define __FStar_MST_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef void *FStar_MST_pre_t;
 
 typedef void *FStar_MST_post_t;

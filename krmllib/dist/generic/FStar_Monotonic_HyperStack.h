@@ -7,13 +7,11 @@
 #ifndef __FStar_Monotonic_HyperStack_H
 #define __FStar_Monotonic_HyperStack_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef void *FStar_Monotonic_HyperStack_mem;
 
 extern void *FStar_Monotonic_HyperStack_root;

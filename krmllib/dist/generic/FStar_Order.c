@@ -6,8 +6,6 @@
 
 #include "FStar_Order.h"
 
-
-
 bool FStar_Order_uu___is_Lt(FStar_Order_order projectee)
 {
   switch (projectee)

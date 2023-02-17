@@ -7,13 +7,12 @@
 #ifndef __FStar_ST_H
 #define __FStar_ST_H
 
-
-
 #include "FStar_Monotonic_Heap.h"
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef void *FStar_ST_gst_pre;
 
 typedef void *FStar_ST_gst_post_;
