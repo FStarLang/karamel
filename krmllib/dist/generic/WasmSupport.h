@@ -7,13 +7,11 @@
 #ifndef __WasmSupport_H
 #define __WasmSupport_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 extern void WasmSupport_trap(Prims_string uu___);
 
 extern uint32_t WasmSupport_malloc(uint32_t uu___);

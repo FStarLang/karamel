@@ -7,13 +7,11 @@
 #ifndef __C_Failure_H
 #define __C_Failure_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 extern bool C_Failure_whatever(void);
 
 

@@ -247,7 +247,9 @@ let direct_dependencies_with_internal files file_of =
   List.fold_left (fun by_file file ->
     let gen_dep (callee: lident) =
       match file_of callee with
-      | Some f when f <> fst file ->
+      | Some f when f <> fst file && not (Helpers.is_primitive callee) ->
+          (* KPrint.bprintf "In file %s, reference to %a (in file %s)\n" *)
+          (*   (fst file) PrintAst.plid callee f; *)
           if LidSet.mem callee internal then
             { empty_deps with internal = StringSet.singleton f }
           else

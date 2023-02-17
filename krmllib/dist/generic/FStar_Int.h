@@ -7,13 +7,12 @@
 #ifndef __FStar_Int_H
 #define __FStar_Int_H
 
-
-
 #include "FStar_BitVector.h"
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 extern Prims_int FStar_Int_max_int(Prims_pos n);
 
 extern Prims_int FStar_Int_min_int(Prims_pos n);

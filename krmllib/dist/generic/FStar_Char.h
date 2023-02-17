@@ -7,13 +7,11 @@
 #ifndef __FStar_Char_H
 #define __FStar_Char_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef uint32_t FStar_Char_char_code;
 
 extern uint32_t FStar_Char_u32_of_char(FStar_Char_char uu___);

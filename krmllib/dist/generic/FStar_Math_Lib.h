@@ -7,13 +7,11 @@
 #ifndef __FStar_Math_Lib_H
 #define __FStar_Math_Lib_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 extern Prims_int FStar_Math_Lib_log_2(Prims_pos x);
 
 extern Prims_int FStar_Math_Lib_powx(Prims_int x, Prims_int n);

@@ -7,13 +7,12 @@
 #ifndef __FStar_String_H
 #define __FStar_String_H
 
-
-
 #include "FStar_BitVector.h"
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef FStar_Char_char FStar_String_char;
 
 typedef struct Prims_list__FStar_Char_char_s Prims_list__FStar_Char_char;

@@ -7,13 +7,11 @@
 #ifndef __FStar_Int_Cast_H
 #define __FStar_Int_Cast_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 extern uint64_t FStar_Int_Cast_uint8_to_uint64(uint8_t a);
 
 extern uint32_t FStar_Int_Cast_uint8_to_uint32(uint8_t x);
