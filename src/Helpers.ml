@@ -386,6 +386,8 @@ let builtin_names =
     ["Steel"; "Reference"], "is_null";
     ["Steel"; "ST"; "HigherArray"], "intro_fits_u32";
     ["Steel"; "ST"; "HigherArray"], "intro_fits_u64";
+    ["Steel"; "ST"; "HigherArray"], "intro_fits_ptrdiff32";
+    ["Steel"; "ST"; "HigherArray"], "intro_fits_ptrdiff64";
     ["C"; "Nullity"], "null";
     ["C"; "String"], "get";
     ["C"; "String"], "t";
