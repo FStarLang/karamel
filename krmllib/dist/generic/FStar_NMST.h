@@ -7,13 +7,11 @@
 #ifndef __FStar_NMST_H
 #define __FStar_NMST_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef bool (*FStar_NMST_tape)(Prims_int x0);
 
 

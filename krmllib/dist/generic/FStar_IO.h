@@ -7,13 +7,11 @@
 #ifndef __FStar_IO_H
 #define __FStar_IO_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 extern FStar_IO_fd_read FStar_IO_stdin;
 
 extern FStar_IO_fd_write FStar_IO_stdout;

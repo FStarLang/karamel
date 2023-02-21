@@ -7,13 +7,11 @@
 #ifndef __FStar_GSet_H
 #define __FStar_GSet_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef void *FStar_GSet_set;
 
 typedef void *FStar_GSet_equal;

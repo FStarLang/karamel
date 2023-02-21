@@ -7,13 +7,11 @@
 #ifndef __C_Loops_H
 #define __C_Loops_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 extern void C_Loops_for(uint32_t start, uint32_t finish, void (*f)(uint32_t x0));
 
 extern void C_Loops_for64(uint64_t start, uint64_t finish, void (*f)(uint64_t x0));

@@ -7,13 +7,11 @@
 #ifndef __FStar_Bytes_H
 #define __FStar_Bytes_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef uint8_t FStar_Bytes_u8;
 
 typedef uint16_t FStar_Bytes_u16;

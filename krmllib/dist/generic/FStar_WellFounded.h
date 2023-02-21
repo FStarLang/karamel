@@ -7,13 +7,11 @@
 #ifndef __FStar_WellFounded_H
 #define __FStar_WellFounded_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef void *FStar_WellFounded_binrel;
 
 typedef void *FStar_WellFounded_well_founded;

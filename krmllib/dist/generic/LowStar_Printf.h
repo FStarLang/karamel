@@ -7,13 +7,11 @@
 #ifndef __LowStar_Printf_H
 #define __LowStar_Printf_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 extern void LowStar_Printf_print_string(Prims_string uu___);
 
 extern void LowStar_Printf_print_char(FStar_Char_char uu___);

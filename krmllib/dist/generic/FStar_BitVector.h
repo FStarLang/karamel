@@ -7,13 +7,11 @@
 #ifndef __FStar_BitVector_H
 #define __FStar_BitVector_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef struct Prims_list__bool_s Prims_list__bool;
 
 #define Prims_Nil 0

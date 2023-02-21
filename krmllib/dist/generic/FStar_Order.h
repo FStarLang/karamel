@@ -7,13 +7,12 @@
 #ifndef __FStar_Order_H
 #define __FStar_Order_H
 
-
-
 #include "Prims.h"
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 #define FStar_Order_Lt 0
 #define FStar_Order_Eq 1
 #define FStar_Order_Gt 2

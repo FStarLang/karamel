@@ -7,13 +7,12 @@
 #ifndef __FStar_Monotonic_Heap_H
 #define __FStar_Monotonic_Heap_H
 
-
-
 #include "FStar_Bytes.h"
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef void *FStar_Monotonic_Heap_tset;
 
 typedef struct FStar_Pervasives_dtuple4_____FStar_Pervasives_Native_option_____bool_any_s

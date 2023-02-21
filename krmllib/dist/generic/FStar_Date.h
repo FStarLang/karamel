@@ -7,13 +7,11 @@
 #ifndef __FStar_Date_H
 #define __FStar_Date_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 extern FStar_Date_dateTime FStar_Date_now(void);
 
 extern Prims_int FStar_Date_secondsFromDawn(void);

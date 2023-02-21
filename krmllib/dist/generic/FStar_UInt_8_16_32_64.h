@@ -7,13 +7,11 @@
 #ifndef __FStar_UInt_8_16_32_64_H
 #define __FStar_UInt_8_16_32_64_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 extern Prims_int FStar_UInt64_n;
 
 extern bool FStar_UInt64_uu___is_Mk(uint64_t projectee);

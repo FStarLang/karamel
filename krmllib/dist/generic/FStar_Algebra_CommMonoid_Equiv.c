@@ -6,8 +6,6 @@
 
 #include "FStar_Algebra_CommMonoid_Equiv.h"
 
-
-
 bool FStar_Algebra_CommMonoid_Equiv_uu___is_EQ(FStar_Algebra_CommMonoid_Equiv_equiv projectee)
 {
   return true;

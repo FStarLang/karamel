@@ -7,13 +7,11 @@
 #ifndef __FStar_FunctionalExtensionality_H
 #define __FStar_FunctionalExtensionality_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef void *FStar_FunctionalExtensionality_feq;
 
 typedef void *FStar_FunctionalExtensionality_is_restricted;
