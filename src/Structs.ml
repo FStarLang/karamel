@@ -74,7 +74,7 @@ let analyze_function_type is_struct = function
 
 (* Rewrite functions and expressions to take and possibly return struct
  * pointers. This transformation is entirely type-based. *)
-let pass_by_ref is_struct = object (self)
+let pass_by_ref should_rewrite = object (self)
 
   (* We open all the parameters of a function; then, we pass down as the
    * environment the list of atoms that correspond to by-ref parameters. These
@@ -116,7 +116,7 @@ let pass_by_ref is_struct = object (self)
     (* Determine using our computed table which of the arguments and the
      * return type must be passed by reference. We could alternatively use
      * the type of [e], but it sometimes may be incomplete. *)
-    let ret_is_struct, args_are_structs = analyze_function_type is_struct e.typ in
+    let ret_is_struct, args_are_structs = analyze_function_type should_rewrite e.typ in
 
     (* Partial application. Not Low*... bail. This ensures [t] is the return
      * type of the function call. *)
@@ -171,8 +171,8 @@ let pass_by_ref is_struct = object (self)
     (* Step 1: open all the binders *)
     let binders, body = DeBruijn.open_binders binders body in
 
-    let ret_is_struct = is_struct ret in
-    let args_are_structs = List.map (fun x -> is_struct x.typ) binders in
+    let ret_is_struct = should_rewrite ret in
+    let args_are_structs = List.map (fun x -> should_rewrite x.typ) binders in
 
     (* Step 2: rewrite the types of the arguments to take pointers to structs *)
     let binders = List.map2 (fun binder is_struct ->
@@ -214,7 +214,7 @@ let pass_by_ref is_struct = object (self)
 
   method! visit_TArrow _ t1 t2 =
     let t = TArrow (t1, t2) in
-    self#rewrite_function_type (analyze_function_type is_struct t) t
+    self#rewrite_function_type (analyze_function_type should_rewrite t) t
 
   method! visit_EOpen (to_be_starred, t) name atom =
     (* [x] was a struct parameter that is now passed by reference; replace it
@@ -227,7 +227,7 @@ let pass_by_ref is_struct = object (self)
   method! visit_EAssign (to_be_starred, _) e1 e2 =
     let e1 = self#visit_expr_w to_be_starred e1 in
     match e2.node with
-    | EApp (e, args) when fst (analyze_function_type is_struct e.typ) ->
+    | EApp (e, args) when fst (analyze_function_type should_rewrite e.typ) ->
         begin try
           let args = List.map (self#visit_expr_w to_be_starred) args in
           assert (will_be_lvalue e1);
@@ -242,7 +242,7 @@ let pass_by_ref is_struct = object (self)
     let e1 = self#visit_expr_w to_be_starred e1 in
     let e2 = self#visit_expr_w to_be_starred e2 in
     match e3.node with
-    | EApp (e, args) when fst (analyze_function_type is_struct e.typ) ->
+    | EApp (e, args) when fst (analyze_function_type should_rewrite e.typ) ->
         begin try
           let args = List.map (self#visit_expr_w to_be_starred) args in
           let t = Helpers.assert_tbuf e1.typ in
@@ -257,7 +257,7 @@ let pass_by_ref is_struct = object (self)
   method! visit_ELet (to_be_starred, t) b e1 e2 =
     let e2 = self#visit_expr_w to_be_starred e2 in
     match e1.node with
-    | EApp (e, args) when fst (analyze_function_type is_struct e.typ) ->
+    | EApp (e, args) when fst (analyze_function_type should_rewrite e.typ) ->
         begin try
           let args = List.map (self#visit_expr_w to_be_starred) args in
           let b, e2 = DeBruijn.open_binder b e2 in
@@ -289,7 +289,23 @@ end
 
 let pass_by_ref files =
   let is_struct = mk_is_struct files in
-  (pass_by_ref is_struct)#visit_files [] files
+  let should_rewrite = function
+    (* The Steel SpinLock type is a type that violates the value semantics of
+       Low*. Its low-level implementation, using pthread, relies on the address
+       where the value lives; therefore, this is a type that cannot be passed by
+       value (it would create new locks). In order to maintain the "identity" of
+       a lock (the address of the value of type Steel_SpinLock_lock), we pass
+       it by reference, therefore guaranteeing that the value lives only in a
+       single place in memory. *)
+    | TQualified (["Steel"; "SpinLock"], "lock__()")->
+        true
+    | t ->
+        if not !Options.struct_passing then
+          is_struct t
+        else
+          false
+  in
+  (pass_by_ref should_rewrite)#visit_files [] files
 
 let hidden_visibility = {|
 #if defined(__GNUC__) && !(defined(_WIN32) || defined(_WIN64))
