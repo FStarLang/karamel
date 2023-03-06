@@ -7,13 +7,11 @@
 #ifndef __C_H
 #define __C_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 extern void portable_exit(int32_t uu___);
 
 extern char char_of_uint8(uint8_t uu___);

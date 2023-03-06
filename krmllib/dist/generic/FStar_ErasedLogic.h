@@ -7,13 +7,11 @@
 #ifndef __FStar_ErasedLogic_H
 #define __FStar_ErasedLogic_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef void *FStar_ErasedLogic_sig_;
 
 typedef void *FStar_ErasedLogic_ex;

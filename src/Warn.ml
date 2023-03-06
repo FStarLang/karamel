@@ -42,7 +42,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 25 CError;;
+let flags = Array.make 26 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -99,6 +99,8 @@ let errno_of_error = function
       23
   | InlineStaticInline _ ->
       24
+  | IfDefOnGlobal _ ->
+      25
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -183,6 +185,9 @@ let rec perr buf (loc, raw_error) =
       p "After bundling, two C files are named %s" name
   | IfDef lid ->
       p "The variable %a cannot be translated as an if-def" plid lid
+  | IfDefOnGlobal lid ->
+      p "The global %a has a CIfDef attribute -- this will be ignored, use \
+        CIfDef only for assume vals" plid lid
   | CannotMacro lid ->
       p "The variable %a cannot be translated as a macro, most likely because it generated a static initializer" plid lid
   | DropCtypesDeclaration (id, faulty_id) ->

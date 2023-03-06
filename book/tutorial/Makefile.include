@@ -4,9 +4,17 @@
 
 BIGNUM_HOME ?= .
 
-ifeq (,$(FSTAR_HOME))
-  $(error FSTAR_HOME is not defined)
+# Where is F* ?
+ifndef FSTAR_HOME
+  FSTAR_EXE=$(shell which fstar.exe)
+  ifneq ($(FSTAR_EXE),)
+    # Assuming that fstar.exe is in some ..../bin directory
+    FSTAR_HOME=$(dir $(FSTAR_EXE))/..
+  else
+    $(error "fstar.exe not found, please install FStar")
+  endif
 endif
+export FSTAR_HOME
 
 ifeq (,$(KRML_HOME))
   $(error KRML_HOME is not defined)
@@ -27,7 +35,6 @@ SOURCE_DIRS = $(BIGNUM_HOME)/code $(BIGNUM_HOME)/specs
 # the interactive mode, for finding checked files for our own F* files.
 INCLUDE_DIRS = \
   $(SOURCE_DIRS) \
-  $(FSTAR_HOME)/ulib/.cache \
   $(KRML_HOME)/krmllib \
   $(BIGNUM_HOME)/obj
 

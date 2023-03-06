@@ -7,13 +7,11 @@
 #ifndef __LowStar_Monotonic_Buffer_H
 #define __LowStar_Monotonic_Buffer_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef void *LowStar_Monotonic_Buffer_loc_disjoint;
 
 

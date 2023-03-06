@@ -7,13 +7,12 @@
 #ifndef __FStar_Algebra_CommMonoid_Equiv_H
 #define __FStar_Algebra_CommMonoid_Equiv_H
 
-
-
 #include "Prims.h"
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 #define FStar_Algebra_CommMonoid_Equiv_EQ 0
 
 typedef uint8_t FStar_Algebra_CommMonoid_Equiv_equiv;

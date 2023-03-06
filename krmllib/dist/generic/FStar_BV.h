@@ -7,8 +7,6 @@
 #ifndef __FStar_BV_H
 #define __FStar_BV_H
 
-
-
 #include "Prims.h"
 #include "FStar_UInt.h"
 #include "FStar_BitVector.h"
@@ -16,6 +14,7 @@
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef Prims_list__bool *FStar_BV_bv_t;
 
 Prims_list__bool *FStar_List_Tot_Base_append__bool(Prims_list__bool *x, Prims_list__bool *y);

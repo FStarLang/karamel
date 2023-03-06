@@ -6,8 +6,6 @@
 
 #include "internal/FStar_BV.h"
 
-
-
 Prims_list__bool *FStar_List_Tot_Base_append__bool(Prims_list__bool *x, Prims_list__bool *y)
 {
   if (x->tag == Prims_Nil)

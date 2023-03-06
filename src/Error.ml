@@ -32,6 +32,7 @@ and raw_error =
   | DropCtypesDeclaration of lident * lident
   | ConflictMacro of lident * string
   | InlineStaticInline of lident
+  | IfDefOnGlobal of lident
 
 and location =
   string

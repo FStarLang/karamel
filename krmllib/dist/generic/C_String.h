@@ -7,13 +7,11 @@
 #ifndef __C_String_H
 #define __C_String_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef void *C_String_zero_free;
 
 typedef void *C_String_well_formed;

@@ -11,6 +11,20 @@ endif
 
 all: minimal krmllib extra
 
+ifdef FSTAR_HOME
+  OCAMLPATH:=$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/lib
+else
+  FSTAR_EXE=$(shell which fstar.exe)
+  ifneq ($(FSTAR_EXE),)
+    FSTAR_HOME=$(dir $(FSTAR_EXE))/..
+    OCAMLPATH:=$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/lib
+  else
+    $(error "fstar.exe not found, please install FStar")
+  endif
+endif
+export FSTAR_HOME
+export OCAMLPATH
+
 extra: pre krmllib
 	+ OCAML_ERROR_STYLE="short" \
 	OCAMLPATH="$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/bin" $(MAKE) -C krmllib extra
@@ -50,10 +64,8 @@ test: all
 
 # Auto-detection
 pre:
-	@which fstar.exe >/dev/null 2>&1 || [ -x $(FSTAR_HOME)/bin/fstar.exe ] || \
-	  { echo "Didn't find fstar.exe in the path or in FSTAR_HOME (which is: $(FSTAR_HOME))"; exit 1; }
-	@ocamlfind query fstarlib >/dev/null 2>&1 || [ -f $(FSTAR_HOME)/bin/fstarlib/fstarlib.cmxa ] || \
-	  { echo "Didn't find fstarlib via ocamlfind or in FSTAR_HOME (which is: $(FSTAR_HOME)); run $(MAKE) -C $(FSTAR_HOME)/ulib/ml"; exit 1; }
+	@ocamlfind query fstar.lib >/dev/null 2>&1 || \
+	  { echo "Didn't find fstar.lib via ocamlfind or in FSTAR_HOME (which is: $(FSTAR_HOME)); run $(MAKE) -C $(FSTAR_HOME)"; exit 1; }
 
 
 install: all

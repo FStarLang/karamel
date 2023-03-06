@@ -7,13 +7,11 @@
 #ifndef __FStar_BigOps_H
 #define __FStar_BigOps_H
 
-
-
-
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
+
 typedef void *FStar_BigOps_big_and_;
 
 typedef void *FStar_BigOps_big_and;
