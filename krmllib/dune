@@ -1,6 +1,6 @@
 (library
   (name krmllib)
   (libraries
-    fstarlib)
+    fstar.lib)
   (wrapped false)
 )
