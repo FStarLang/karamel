@@ -1,0 +1,39 @@
+(executable
+  (name Client)
+  (libraries
+    Ctypes1_stubs
+    Lowlevel_bindings
+    Lowlevel_stubs
+    Ctypes2_bindings
+    Ctypes2_stubs
+    Client_foreign
+  )
+  (link_flags "-linkall")
+  (modes (byte exe) (native exe))
+  (flags (:standard -w -32-33))
+)
+
+(library
+  (name Client_foreign)
+  (modules)
+  (wrapped false)
+  (foreign_stubs (language c) (names Lowlevel Ctypes1 Ctypes2 Lowlevel_c_stubs Ctypes1_c_stubs Ctypes2_c_stubs) (include_dirs %{env:KRML_HOME=../../..}/include %{env:KRML_HOME=../../..}/krmllib/dist/generic internal %{env:CTYPES_LIB_DIR=.}))
+)
+
+(rule
+  (target Ctypes1_c_stubs.c)
+  (deps lib/Ctypes1_c_stubs.c)
+  (action (copy %{deps} %{target}))
+)
+
+(rule
+  (target Lowlevel_c_stubs.c)
+  (deps lib/Lowlevel_c_stubs.c)
+  (action (copy %{deps} %{target}))
+)
+
+(rule
+  (target Ctypes2_c_stubs.c)
+  (deps lib/Ctypes2_c_stubs.c)
+  (action (copy %{deps} %{target}))
+)

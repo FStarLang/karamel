@@ -1,0 +1,77 @@
+(library
+  (name Ctypes1_bindings)
+  (wrapped false)
+  (libraries
+    ctypes
+  )
+  (modules Ctypes1_bindings)
+  (flags (:standard -w -A))
+)
+
+(library
+  (name Lowlevel_bindings)
+  (wrapped false)
+  (libraries
+    ctypes
+    Ctypes1_bindings
+    Ctypes1_stubs
+  )
+  (modules Lowlevel_bindings)
+  (flags (:standard -w -A))
+)
+
+(library
+  (name Ctypes2_bindings)
+  (wrapped false)
+  (modules Ctypes2_bindings)
+  (libraries
+    Ctypes1_bindings
+    Ctypes1_stubs
+  )
+  (flags (:standard -w -A))
+)
+
+(library
+  (name Lowlevel_stubs)
+  (wrapped false)
+  (modules Lowlevel_stubs)
+  (libraries
+    ctypes.stubs
+  )
+)
+
+(library
+  (name Ctypes1_stubs)
+  (wrapped false)
+  (modules Ctypes1_stubs)
+  (libraries
+    ctypes.stubs
+  )
+)
+
+(library
+  (name Ctypes2_stubs)
+  (wrapped false)
+  (modules Ctypes2_stubs)
+  (libraries
+    ctypes.stubs
+  )
+)
+
+(rule
+  (targets Ctypes1_stubs.ml Ctypes1_c_stubs.c)
+  (deps ../lib_gen/Ctypes1_gen.exe)
+  (action (chdir .. (run %{dep:../lib_gen/Ctypes1_gen.exe})))
+)
+
+(rule
+  (targets Lowlevel_stubs.ml Lowlevel_c_stubs.c)
+  (deps ../lib_gen/Lowlevel_gen.exe)
+  (action (chdir .. (run %{dep:../lib_gen/Lowlevel_gen.exe})))
+)
+
+(rule
+  (targets Ctypes2_stubs.ml Ctypes2_c_stubs.c)
+  (deps ../lib_gen/Ctypes2_gen.exe)
+  (action (chdir .. (run %{dep:../lib_gen/Ctypes2_gen.exe})))
+)

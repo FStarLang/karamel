@@ -242,19 +242,18 @@ $(LOWLEVEL_DIR)/%: ctypes/%
 	cp $< $@
 
 ctypes-test: $(LOWLEVEL_DIR)/Client.native
-	cd $(LOWLEVEL_DIR)/_build && export LD_LIBRARY_PATH=. && \
-	  ./Client.native && ./Client.byte
+	cd $(LOWLEVEL_DIR)/_build/default && export LD_LIBRARY_PATH=. && \
+	  ./Client.exe && ./Client.bc
 
 sepcomp-test:
 	+$(MAKE) -C sepcomp
 .PHONY: sepcomp-test
 
-CTYPES_HAND_WRITTEN_FILES=myocamlbuild.ml Client.ml _tags
+CTYPES_HAND_WRITTEN_FILES=Client.ml dune dune-workspace lib/dune lib_gen/dune
 
 .PHONY: $(LOWLEVEL_DIR)/Client.native
 $(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Ctypes2.exe $(addprefix $(LOWLEVEL_DIR)/,$(CTYPES_HAND_WRITTEN_FILES))
-	cd $(dir $@) && \
-	  CTYPES_LIB_DIR=$(shell ocamlfind query ctypes) ocamlbuild -use-ocamlfind $(notdir $@) Client.byte
+	cd $(dir $@) && env CTYPES_LIB_DIR=$(shell ocamlfind query ctypes) LOWLEVEL_DIR=$(realpath $(LOWLEVEL_DIR)) dune build
 
 
 # A pseudo-target for WASM compilation that does not match any specific file.
