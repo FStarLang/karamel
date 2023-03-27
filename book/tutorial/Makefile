@@ -256,7 +256,7 @@ obj/Specs_Driver.cmx: $(ALL_CMX_FILES)
 
 # Finally, how to compile things...
 
-OCAMLOPT = ocamlfind opt -package fstar.lib -linkpkg -g -I $(BIGNUM_HOME)/obj -w -8-20-26
+OCAMLOPT = ocamlfind opt -package fstar.lib.num -linkpkg -g -I $(BIGNUM_HOME)/obj -w -8-20-26
 
 .PRECIOUS: obj/%.cmx
 obj/%.cmx: obj/%.ml
