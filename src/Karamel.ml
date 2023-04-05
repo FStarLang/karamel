@@ -663,6 +663,7 @@ Supported options:|}
   let files = if Options.(!merge_variables <> No) then SimplifyMerge.simplify files else files in
   if !arg_print_structs then
     print PrintAst.print_files files;
+  Structs.check_for_illegal_copies files;
   let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Structs + Simplify 2";
 

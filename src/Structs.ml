@@ -298,6 +298,8 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
 
 end
 
+let check_for_illegal_copies = ref (fun _ -> assert false)
+
 let pass_by_ref files =
   let is_struct = mk_is_struct files in
   let should_rewrite = function
@@ -359,25 +361,28 @@ let pass_by_ref files =
         r
   in
   let files = (pass_by_ref should_rewrite)#visit_files [] files in
-  (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
-  (object
-    inherit [_] iter
+  check_for_illegal_copies := (fun files ->
+    (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
+    (object
+      inherit [_] iter
 
-    method! visit_EAssign _ e e' =
-      if should_rewrite e.typ = NoCopies then
-        Warn.fatal_error "In the assignment %a, the left-hand side has a type that \
-          should not be copied (e.g. Steel.Spinlock) -- please rewrite your \
-          code"
-          pexpr (Helpers.with_unit (EAssign (e, e')))
+      method! visit_EAssign _ e e' =
+        if should_rewrite e.typ = NoCopies then
+          Warn.fatal_error "In the assignment %a, the left-hand side has a type that \
+            should not be copied (e.g. Steel.Spinlock) -- please rewrite your \
+            code"
+            pexpr (Helpers.with_unit (EAssign (e, e')))
 
-    method! visit_EBufWrite _ e1 e2 e3 =
-      if should_rewrite e3.typ = NoCopies then
-        Warn.fatal_error "In the array update %a, the left-hand side has a type that \
-          should not be copied (e.g. Steel.Spinlock) -- please rewrite your \
-          code"
-          pexpr (Helpers.with_unit (EBufWrite (e1, e2, e3)))
-  end)#visit_files () files;
+      method! visit_EBufWrite _ e1 e2 e3 =
+        if should_rewrite e3.typ = NoCopies then
+          Warn.fatal_error "In the array update %a, the left-hand side has a type that \
+            should not be copied (e.g. Steel.Spinlock) -- please rewrite your \
+            code"
+            pexpr (Helpers.with_unit (EBufWrite (e1, e2, e3)))
+    end)#visit_files () files);
   files
+
+let check_for_illegal_copies files = !check_for_illegal_copies files
 
 let hidden_visibility = {|
 #if defined(__GNUC__) && !(defined(_WIN32) || defined(_WIN64))
