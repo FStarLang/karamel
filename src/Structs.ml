@@ -68,13 +68,10 @@ let ppol b = function
   | Never -> Buffer.add_string b "Never"
 
 let analyze_function_type policy t =
-  let is_struct = fun x -> policy x <> Never in
   match t with
   | TArrow _ as t ->
       let ret, args = Helpers.flatten_arrow t in
-      let ret_is_struct = is_struct ret in
-      let args_are_structs = List.map is_struct args in
-      ret_is_struct, args_are_structs
+      policy ret, List.map policy args
   | t ->
       Warn.fatal_error "analyze_function_type: %a is not a function type" ptyp t
 
@@ -96,18 +93,18 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
   inherit [_] map
 
   (* Rewrite a function type to take and possibly return struct pointers. *)
-  method private rewrite_function_type (ret_is_struct, args_are_structs) t =
+  method private rewrite_function_type (ret_policy, args_policies) t =
     let ret, args = Helpers.flatten_arrow t in
     let ret = self#visit_typ [] ret in
     let args = List.map (self#visit_typ []) args in
-    let args = List.map2 (fun arg is_struct ->
-      if is_struct then
-        TBuf (arg, true)
+    let args = List.map2 (fun arg pol ->
+      if pol <> Never then
+        TBuf (arg, (pol = Always))
       else
         arg
-    ) args args_are_structs in
+    ) args args_policies in
     let ret, args =
-      if ret_is_struct then
+      if ret_policy <> Never then
         TUnit, args @ [ TBuf (ret, false) ]
       else
         ret, args
@@ -145,20 +142,20 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
      * [lvalue]. This is, sadly, a little bit of an anticipation over the
      * ast-to-C* translation phase. TODO remove the check, and rely on
      * AstToCStar or a Helpers phase to fix this. *)
-    let bs, args = KList.fold_lefti (fun i (bs, es) (e, is_struct) ->
-      if is_struct then
+    let bs, args = KList.fold_lefti (fun i (bs, es) (e, pol) ->
+      if pol <> Never then
         if will_be_lvalue e then
-          bs, with_type (TBuf (e.typ, true)) (EAddrOf e) :: es
+          bs, with_type (TBuf (e.typ, pol = Always)) (EAddrOf e) :: es
         else
           let x, atom = Helpers.mk_binding (Printf.sprintf "s%d" i) e.typ in
-          (x, e) :: bs, with_type (TBuf (e.typ, true)) (EAddrOf atom) :: es
+          (x, e) :: bs, with_type (TBuf (e.typ, pol = Always)) (EAddrOf atom) :: es
       else
         bs, e :: es
     ) ([], []) (List.combine args args_are_structs) in
     let args = List.rev args in
 
     (* The three behaviors described above. *)
-    if ret_is_struct then
+    if ret_is_struct <> Never then
       match dest with
       | Some dest ->
           let args = args @ [ with_type (TBuf (t, false)) (EAddrOf dest) ] in
@@ -241,7 +238,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
   method! visit_EAssign (to_be_starred, _) e1 e2 =
     let e1 = self#visit_expr_w to_be_starred e1 in
     match e2.node with
-    | EApp (e, args) when fst (analyze_function_type should_rewrite e.typ) ->
+    | EApp (e, args) when fst (analyze_function_type should_rewrite e.typ) <> Never ->
         begin try
           let args = List.map (self#visit_expr_w to_be_starred) args in
           assert (will_be_lvalue e1);
@@ -256,7 +253,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     let e1 = self#visit_expr_w to_be_starred e1 in
     let e2 = self#visit_expr_w to_be_starred e2 in
     match e3.node with
-    | EApp (e, args) when fst (analyze_function_type should_rewrite e.typ) ->
+    | EApp (e, args) when fst (analyze_function_type should_rewrite e.typ) <> Never ->
         begin try
           let args = List.map (self#visit_expr_w to_be_starred) args in
           let t = Helpers.assert_tbuf e1.typ in
@@ -271,7 +268,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
   method! visit_ELet (to_be_starred, t) b e1 e2 =
     let e2 = self#visit_expr_w to_be_starred e2 in
     match e1.node with
-    | EApp (e, args) when fst (analyze_function_type should_rewrite e.typ) ->
+    | EApp (e, args) when fst (analyze_function_type should_rewrite e.typ) <> Never ->
         begin try
           let args = List.map (self#visit_expr_w to_be_starred) args in
           let b, e2 = DeBruijn.open_binder b e2 in
