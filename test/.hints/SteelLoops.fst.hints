@@ -8,7 +8,7 @@
       1,
       [ "@query" ],
       0,
-      "a1ccc22400dbc75d57f53f6a76f43a08"
+      "0b89407f59d841c867a7ce4740f79c2b"
     ],
     [
       "SteelLoops.sum_to_n_for_2",
@@ -54,7 +54,7 @@
         "typing_Steel.FractionalPermission.full_perm"
       ],
       0,
-      "65594f60c225705fc6278b3533422b2f"
+      "294a5331959cbc40f2d788c2d6b1cb25"
     ],
     [
       "SteelLoops.sum_to_n_while",
@@ -63,7 +63,7 @@
       1,
       [ "@query" ],
       0,
-      "3802af5943eeace2f530be8b44718e2b"
+      "16afe19ff1ce8194abde26c7a046e238"
     ]
   ]
 ]

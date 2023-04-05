@@ -362,7 +362,7 @@ let pass_by_ref files =
         r
   in
   let files = (pass_by_ref should_rewrite)#visit_files [] files in
-  PPrint.(Print.(print (PrintAst.print_files files ^^ hardline)));
+  (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
   (object
     inherit [_] iter
 
