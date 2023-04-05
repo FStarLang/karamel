@@ -298,7 +298,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
 
 end
 
-let check_for_illegal_copies = ref (fun _ -> assert false)
+let check_for_illegal_copies = ref (fun _ -> ())
 
 let pass_by_ref files =
   let is_struct = mk_is_struct files in
