@@ -626,6 +626,8 @@ let functional_updates = object (self)
         DType (name, flags, n, def)
 end
 
+let mutated_types = Hashtbl.create 41
+
 let misc_cosmetic = object (self)
 
   inherit [_] map as super
@@ -654,7 +656,96 @@ let misc_cosmetic = object (self)
         ELet (b, e1, self#visit_expr env (DeBruijn.subst_no_open ref 0 e2))
 
     | _ ->
-        ELet (b, e1, self#visit_expr env e2)
+
+        (* let x = $any in
+              ^^   ^^^
+              b     e1
+           let _  = f  (&x) in // sequence
+              ^^    ^^
+              b'    e3
+           p[0] <- { ... f: x ... }
+           ^^     ^^^^^^^^^^^^^
+           e4         fs
+           -->
+           f (&p[0].f);
+           p.f' <- e';
+           ...
+        *)
+        match e1.node, e2.node with
+        | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
+            { node = EBufWrite (e4, { node = EConstant (_, "0"); _ }, { node = EFlat fields; _ }); _ })
+          when b'.node.meta = Some MetaSequence &&
+          List.exists (fun (f, x) -> f <> None && x.node = EBound 1) fields &&
+          !(b.node.mark) = 2 ->
+
+            (* if true then Warn.fatal_error "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
+
+            let f, { typ = x_typ; _ } = List.find (fun (_, x) -> x.node = EBound 1) fields in
+            let f = Option.must f in
+
+            let e3 = snd (DeBruijn.open_binder b e3) in
+            let e4 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4))) in
+            let fields = List.map (fun (f, e) -> f, snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e)))) fields in
+
+            let e4_typ = assert_tbuf e4.typ in
+            Hashtbl.add mutated_types (assert_tlid e4_typ) ();
+            let e4 = with_type e4_typ (EBufRead (e4, Helpers.zerou32)) in
+
+            ESequence (
+              with_unit (EApp (e3, [
+                with_type (TBuf (x_typ, false)) (EAddrOf (
+                  with_type x_typ (EField (e4, f))))])) ::
+              List.filter_map (fun (f', e) ->
+                let f' = Option.must f' in
+                if f = f' then
+                  None
+                else
+                  Some (with_unit (EAssign (
+                    with_type e.typ (EField (e4, f')),
+                    e)))
+              ) fields)
+
+        (* let x = $any in
+              ^^   ^^^
+              b     e1
+           let _  = f  (&x) in // sequence
+              ^^    ^^
+              b'    e3
+           p := x
+           ^^
+           e4
+           -->
+           f (&p);
+           ...
+        *)
+        | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
+            { node = EAssign (e4, { node = EBound 1; _ }); _ })
+          when b'.node.meta = Some MetaSequence &&
+          !(b.node.mark) = 2 ->
+
+            (* KPrint.bprintf "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
+
+            let e3 = snd (DeBruijn.open_binder b e3) in
+            let e4 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4))) in
+
+            EApp (e3, [ with_type (TBuf (e4.typ, false)) (EAddrOf e4)])
+
+        | EAny, ELet (b',
+            { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
+            { node = ELet (b'', { node = EAssign (e4, { node = EBound 1; _ }); _ }, e5); _ })
+          when b'.node.meta = Some MetaSequence &&
+          !(b.node.mark) = 2 ->
+
+            (* KPrint.bprintf "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
+
+            let e3 = snd (DeBruijn.open_binder b e3) in
+            let e4 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4))) in
+            let e5 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e5))) in
+
+            ELet (b'', with_unit (EApp (e3, [ with_type (TBuf (e4.typ, false)) (EAddrOf e4)])), self#visit_expr env e5)
+
+        | _, _ ->
+            ELet (b, e1, self#visit_expr env e2)
 
   (* Turn empty then branches into empty else branches to get prettier syntax
    * later on. *)
@@ -711,6 +802,16 @@ let misc_cosmetic = object (self)
     else
       binder
 
+end
+
+let misc_cosmetic2 = object
+  inherit [_] map
+  method! visit_DType () name flags n def =
+    match def with
+    | Flat fields when Hashtbl.mem mutated_types name ->
+        DType (name, flags, n, Flat (List.map (fun (f, (t, _)) -> f, (t, true)) fields))
+    | _ ->
+        DType (name, flags, n, def)
 end
 
 (* No left-nested let-bindings ************************************************)
@@ -1773,6 +1874,7 @@ let simplify2 ifdefs (files: file list): file list =
   let files = if !Options.wasm then files else let_if_to_assign#visit_files () files in
   let files = if !Options.wasm then files else hoist_bufcreate#visit_files ifdefs files in
   let files = misc_cosmetic#visit_files () files in
+  let files = misc_cosmetic2#visit_files () files in
   let files = functional_updates#visit_files false files in
   let files = functional_updates#visit_files true files in
   let files = let_to_sequence#visit_files () files in
