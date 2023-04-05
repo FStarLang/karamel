@@ -54,7 +54,22 @@ let will_be_lvalue e =
 
 exception NotLowStar
 
-let analyze_function_type is_struct = function
+(* Three behaviors:
+  - a given type should always be passed by reference (e.g., user passed
+    -no-struct-passing, or we are in wasm)
+  - the type should be passed by ref, but attempting to copy it should raise an
+    error (the steel lock issue, see notes for commit 44b77193
+  - type remains unaffected *)
+type policy = Always | NoCopies | Never
+
+let ppol b = function
+  | Always -> Buffer.add_string b "Always"
+  | NoCopies -> Buffer.add_string b "NoCopies"
+  | Never -> Buffer.add_string b "Never"
+
+let analyze_function_type policy t =
+  let is_struct = fun x -> policy x <> Never in
+  match t with
   | TArrow _ as t ->
       let ret, args = Helpers.flatten_arrow t in
       let ret_is_struct = is_struct ret in
@@ -71,10 +86,9 @@ let analyze_function_type is_struct = function
  * cast (to_buffer and to_ibuffer) is not available; therefore, it is ok to
  * declare them with a const qualifier. *)
 
-
 (* Rewrite functions and expressions to take and possibly return struct
  * pointers. This transformation is entirely type-based. *)
-let pass_by_ref should_rewrite = object (self)
+let pass_by_ref (should_rewrite: _ -> policy) = object (self)
 
   (* We open all the parameters of a function; then, we pass down as the
    * environment the list of atoms that correspond to by-ref parameters. These
@@ -171,8 +185,8 @@ let pass_by_ref should_rewrite = object (self)
     (* Step 1: open all the binders *)
     let binders, body = DeBruijn.open_binders binders body in
 
-    let ret_is_struct = should_rewrite ret in
-    let args_are_structs = List.map (fun x -> should_rewrite x.typ) binders in
+    let ret_is_struct = should_rewrite ret <> Never in
+    let args_are_structs = List.map (fun x -> should_rewrite x.typ <> Never) binders in
 
     (* Step 2: rewrite the types of the arguments to take pointers to structs *)
     let binders = List.map2 (fun binder is_struct ->
@@ -297,13 +311,55 @@ let pass_by_ref files =
        a lock (the address of the value of type Steel_SpinLock_lock), we pass
        it by reference, therefore guaranteeing that the value lives only in a
        single place in memory. *)
-    | TQualified (["Steel"; "SpinLock"], "lock__()")->
-        true
+    | TQualified (["Test"], "t")
+    | TQualified (["Steel"; "SpinLock"], "lock__()") ->
+        NoCopies
     | t ->
-        if not !Options.struct_passing then
-          is_struct t
+        if not !Options.struct_passing && is_struct t then
+          Always
         else
-          false
+          Never
+  in
+  let def_map = Helpers.build_map files (fun map d ->
+    match d with
+    | DType (lid, _, _, (Flat fs)) ->
+        Hashtbl.add map lid (List.map (fun (_, (t, _)) -> t) fs)
+    | DType (lid, _, _, (Union fs)) ->
+        Hashtbl.add map lid (List.map snd fs)
+    | _ ->
+        ()
+  ) in
+  (* All of the fields laid out flatly within a given struct type *)
+  let rec fields t =
+    match t with
+    | TQualified lid ->
+        begin try
+          Hashtbl.find def_map lid
+        with Not_found ->
+          []
+        end
+    | TAnonymous (Flat fs) ->
+        List.map (fun (_, (t, _)) -> t) fs
+    | TAnonymous (Union fs) ->
+        KList.map_flatten (fun f -> fields (snd f)) fs
+    | _ ->
+        []
+  in
+  let should_rewrite t =
+    if is_struct t && List.exists (fun t -> should_rewrite t = NoCopies) (fields t) then
+      NoCopies
+    else
+      should_rewrite t
+  in
+  let should_rewrite =
+    let cache = Hashtbl.create 41 in
+    fun t ->
+      try Hashtbl.find cache t
+      with Not_found ->
+        let r = should_rewrite t in
+        Hashtbl.add cache t r;
+        KPrint.bprintf "should_rewrite %a: %a" ptyp t ppol r;
+        r
   in
   (pass_by_ref should_rewrite)#visit_files [] files
 
