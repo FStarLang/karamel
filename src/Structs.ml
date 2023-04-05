@@ -311,7 +311,7 @@ let pass_by_ref files =
        a lock (the address of the value of type Steel_SpinLock_lock), we pass
        it by reference, therefore guaranteeing that the value lives only in a
        single place in memory. *)
-    | TQualified (["Test"], "t")
+    (* | TQualified (["Test"], "t") *)
     | TQualified (["Steel"; "SpinLock"], "lock__()") ->
         NoCopies
     | t ->
@@ -358,10 +358,29 @@ let pass_by_ref files =
       with Not_found ->
         let r = should_rewrite t in
         Hashtbl.add cache t r;
-        KPrint.bprintf "should_rewrite %a: %a" ptyp t ppol r;
+        (* KPrint.bprintf "should_rewrite %a: %a" ptyp t ppol r; *)
         r
   in
-  (pass_by_ref should_rewrite)#visit_files [] files
+  let files = (pass_by_ref should_rewrite)#visit_files [] files in
+  PPrint.(Print.(print (PrintAst.print_files files ^^ hardline)));
+  (object
+    inherit [_] iter
+
+    method! visit_EAssign _ e e' =
+      if should_rewrite e.typ = NoCopies then
+        Warn.fatal_error "In the assignment %a, the left-hand side has a type that \
+          should not be copied (e.g. Steel.Spinlock) -- please rewrite your \
+          code"
+          pexpr (Helpers.with_unit (EAssign (e, e')))
+
+    method! visit_EBufWrite _ e1 e2 e3 =
+      if should_rewrite e3.typ = NoCopies then
+        Warn.fatal_error "In the array update %a, the left-hand side has a type that \
+          should not be copied (e.g. Steel.Spinlock) -- please rewrite your \
+          code"
+          pexpr (Helpers.with_unit (EBufWrite (e1, e2, e3)))
+  end)#visit_files () files;
+  files
 
 let hidden_visibility = {|
 #if defined(__GNUC__) && !(defined(_WIN32) || defined(_WIN64))
