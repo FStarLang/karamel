@@ -1,5 +1,3 @@
-
-
 RECENT_GCC	= $(shell [ "$$(gcc -dumpversion | cut -c -1)" -ge 5 ] && echo yes)
 
 ifdef FSTAR_HOME
@@ -242,18 +240,18 @@ $(LOWLEVEL_DIR)/%: ctypes/%
 	cp $< $@
 
 ctypes-test: $(LOWLEVEL_DIR)/Client.native
-	cd $(LOWLEVEL_DIR)/_build/default && export LD_LIBRARY_PATH=. && \
+	cd $(LOWLEVEL_DIR) && export LD_LIBRARY_PATH=. && \
 	  ./Client.exe && ./Client.bc
 
 sepcomp-test:
 	+$(MAKE) -C sepcomp
 .PHONY: sepcomp-test
 
-CTYPES_HAND_WRITTEN_FILES=Client.ml dune dune-workspace lib/dune lib_gen/dune
+CTYPES_HAND_WRITTEN_FILES=Client.ml Makefile
 
 .PHONY: $(LOWLEVEL_DIR)/Client.native
 $(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Ctypes2.exe $(addprefix $(LOWLEVEL_DIR)/,$(CTYPES_HAND_WRITTEN_FILES))
-	cd $(dir $@) && env CTYPES_LIB_DIR=$(shell ocamlfind query ctypes) LOWLEVEL_DIR=$(realpath $(LOWLEVEL_DIR)) dune build
+	cd $(dir $@) && env CTYPES_LIB_DIR=$(shell ocamlfind query ctypes) LOWLEVEL_DIR=$(realpath $(LOWLEVEL_DIR)) make
 
 
 # A pseudo-target for WASM compilation that does not match any specific file.
