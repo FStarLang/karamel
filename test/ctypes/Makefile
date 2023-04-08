@@ -12,7 +12,7 @@ KARAMEL_INCLUDES	= \
   -I../../../include \
   -I../../../krmllib/dist/minimal/
 
-CFLAGS += $(KARAMEL_INCLUDES) -I.
+CFLAGS += $(KARAMEL_INCLUDES) -I. -fPIC
 
 # This could also be dynamic linking, not demonstrated here
 libdemo.a: $(ALL_O_FILES)
