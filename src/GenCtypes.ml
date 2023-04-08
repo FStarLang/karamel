@@ -588,6 +588,13 @@ let write_gen_module ~public:public_headers ~internal:internal_headers files =
         Printf.bprintf b "lib/%s_bindings.cmx lib/%s_stubs.cmx " d d
       ) ds;
       Buffer.add_string b "\n";
+
+      Printf.bprintf b "lib/%s_bindings.cmo: " f;
+      List.iter (fun d ->
+        Printf.bprintf b "lib/%s_bindings.cmo lib/%s_stubs.cmo " d d
+      ) ds;
+      Buffer.add_string b "\n";
+
       Printf.bprintf b "lib_gen/%s_gen.cmx: lib/%s_bindings.cmx\n" f f;
       Printf.bprintf b "lib_gen/%s_gen.exe: " f;
       List.iter (fun d ->
