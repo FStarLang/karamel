@@ -35,6 +35,12 @@ let check_buffer_size (s: U32.t): Stack unit (fun _-> True) (fun _ _ _ -> True) 
   if U32.( s =^ 0ul ) then
     trap "Zero-sized arrays are not supported in C and in WASM either. See WasmSupport.fst"
 
+let betole16 (x: FStar.UInt16.t) =
+  let open FStar.UInt16 in
+  logor
+    (logand (shift_right x 8ul) 0x00FFus)
+    (logand (shift_left x 8ul) 0xFF00us)
+
 let betole32 (x: U32.t) =
   let open U32 in
   logor (logor (logor (logand (shift_right x 24ul) 0x000000FFul)
