@@ -20,6 +20,8 @@ uint32_t WasmSupport_align_64(uint32_t x);
 
 void WasmSupport_check_buffer_size(uint32_t s);
 
+uint16_t WasmSupport_betole16(uint16_t x);
+
 uint32_t WasmSupport_betole32(uint32_t x);
 
 uint64_t WasmSupport_betole64(uint64_t x);

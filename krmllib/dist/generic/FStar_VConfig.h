@@ -35,7 +35,6 @@ typedef struct FStar_VConfig_vconfig_s
   bool tcnorm;
   bool no_plugins;
   bool no_tactics;
-  FStar_Pervasives_Native_option__Prims_string vcgen_optimize_bind_as_seq;
   Prims_list__Prims_string *z3cliopt;
   Prims_list__Prims_string *z3smtopt;
   bool z3refresh;
