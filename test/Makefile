@@ -64,7 +64,7 @@ endif
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
-  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test Wasm11.wasm-test \
+  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test \
   $(CRYPTO_WASM_FILES)
 NEGATIVE	= false
 
@@ -81,7 +81,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --include hello-system --include ../krmllib/compat --include ../krmllib/obj \
   --include ../krmllib --include ../runtime \
   $(INCLUDE_CRYPTO) --include ../book --include ../book/notfslit --use_hints --record_hints \
-  --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport Steel' \
+  --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274
 
@@ -187,9 +187,6 @@ $(OUTPUT_DIR)/MonomorphizationCrash.exe: EXTRA=monomorphization_crash.c -add-inc
 $(OUTPUT_DIR)/MonomorphizationSeparate2.exe: EXTRA=-bundle MonomorphizationSeparate1=
 $(OUTPUT_DIR)/Loops.exe: EXTRA=-funroll-loops 16
 $(OUTPUT_DIR)/GlobalInit.exe: EXTRA=global_init.c
-$(OUTPUT_DIR)/SteelArrayArith.exe: EXTRA=-static-header Steel.ArrayArith -no-prefix Steel.ArrayArith
-$(OUTPUT_DIR)/SteelLock.exe: EXTRA=-bundle Steel.* -add-include 'Steel:"krml/steel_types.h"'
-$(OUTPUT_DIR)/SizeT.exe: EXTRA=-ccopt -std=c2x
 
 Failure.test: NEGATIVE=true
 
