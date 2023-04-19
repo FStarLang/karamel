@@ -298,7 +298,39 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
 
 end
 
-let check_for_illegal_copies = ref (fun _ -> ())
+let should_rewrite_ = ref (fun _ -> Never)
+let should_rewrite lid = !should_rewrite_ lid
+
+let check_for_illegal_copies files =
+  (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
+  (object
+    inherit [_] iter
+
+    method! visit_EAssign _ e e' =
+      if should_rewrite e.typ = NoCopies then
+        Warn.fatal_error "In the assignment %a, the left-hand side has a type that \
+          should not be copied (namely, %a) -- please rewrite your \
+          code"
+          pexpr (Helpers.with_unit (EAssign (e, e')))
+          ptyp e.typ
+
+    method! visit_EBufWrite _ e1 e2 e3 =
+      if should_rewrite e3.typ = NoCopies then
+        Warn.fatal_error "In the array update %a, the left-hand side has a type that \
+          should not be copied (namely, %a) -- please rewrite your \
+          code"
+          pexpr (Helpers.with_unit (EBufWrite (e1, e2, e3)))
+          ptyp e3.typ
+
+    method! visit_ELet _ b e1 e2 =
+      if should_rewrite b.typ = NoCopies && e2.node <> EAny then
+        Warn.fatal_error "The let-binding let %s = %a creates a copy of a type that \
+          should not be copied (namely, %a) -- please rewrite your \
+          code"
+          b.node.name
+          pexpr e1
+          ptyp b.typ
+  end)#visit_files () files
 
 let pass_by_ref files =
   let is_struct = mk_is_struct files in
@@ -360,29 +392,9 @@ let pass_by_ref files =
         (* KPrint.bprintf "should_rewrite %a: %a" ptyp t ppol r; *)
         r
   in
+  should_rewrite_ := should_rewrite;
   let files = (pass_by_ref should_rewrite)#visit_files [] files in
-  check_for_illegal_copies := (fun files ->
-    (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
-    (object
-      inherit [_] iter
-
-      method! visit_EAssign _ e e' =
-        if should_rewrite e.typ = NoCopies then
-          Warn.fatal_error "In the assignment %a, the left-hand side has a type that \
-            should not be copied (e.g. Steel.Spinlock) -- please rewrite your \
-            code"
-            pexpr (Helpers.with_unit (EAssign (e, e')))
-
-      method! visit_EBufWrite _ e1 e2 e3 =
-        if should_rewrite e3.typ = NoCopies then
-          Warn.fatal_error "In the array update %a, the left-hand side has a type that \
-            should not be copied (e.g. Steel.Spinlock) -- please rewrite your \
-            code"
-            pexpr (Helpers.with_unit (EBufWrite (e1, e2, e3)))
-    end)#visit_files () files);
   files
-
-let check_for_illegal_copies files = !check_for_illegal_copies files
 
 let hidden_visibility = {|
 #if defined(__GNUC__) && !(defined(_WIN32) || defined(_WIN64))

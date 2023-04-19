@@ -10,6 +10,104 @@ open Warn
 open PrintAst.Ops
 open Helpers
 
+(* A visitor that determines whether it is safe to substitute bound variable 0
+ * with its definition, assuming that:
+ * - said definition is read-only
+ * - there is a single use of it in the continuation.
+ * The notion of "safe" can be customized; here, we let EBufRead be a safe node,
+ * so by default, safe means read-only. *)
+type use = Safe | SafeUse | Unsafe
+class ['self] safe_use = object (self: 'self)
+  inherit [_] reduce as super
+
+  (* By default, everything is safe. We override several cases below. *)
+  method private zero = Safe
+
+  (* The default composition rule; it only applies if the expression itself is
+   * safe. (For instance, this is not a valid composition rule for an
+   * EBufWrite node.) *)
+  method private plus x y =
+    match x, y with
+    | Safe, SafeUse
+    | SafeUse, Safe ->
+        SafeUse
+    | Safe, Safe ->
+        Safe
+    | SafeUse, SafeUse ->
+        failwith "this contradicts the use-analysis (1)"
+    | _ ->
+        Unsafe
+  method private expr_plus_typ = self#plus
+
+  method! extend j _ =
+    j + 1
+
+  (* The composition rule for [es] expressions, whose evaluation order is
+   * unspecified, but is known to happen before an unsafe expression. The only
+   * safe case is if the use is found among safe nodes. *)
+  method private unordered (j, _) es =
+    let es = List.map (self#visit_expr_w j) es in
+    let the_use, the_rest = List.partition ((=) SafeUse) es in
+    match List.length the_use, List.for_all ((=) Safe) the_rest with
+    | 1, true -> SafeUse
+    | x, _ when x > 1 -> failwith "this contradicts the use-analysis (2)"
+    | _ -> Unsafe
+
+  (* The sequential composition rule, where [e1] is known be to be
+   * sequentialized before [e2]. Two cases: the use is found in [e1] (and we
+   * don't care what happens in [e2]), otherwise, just a regular composition. *)
+  method private sequential (j, _) e1 e2 =
+    match self#visit_expr_w j e1, e2 with
+    | SafeUse, _ -> SafeUse
+    | x, Some e2 ->
+        self#plus x (self#visit_expr_w (j + 1) e2)
+    | _, None ->
+        (* We don't know what comes after; can't conclude anything. *)
+        Unsafe
+
+  method! visit_EBound (j, _) i = if i = j then SafeUse else Safe
+
+  method! visit_EBufWrite env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
+  method! visit_EBufFill env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
+  method! visit_EBufBlit env e1 e2 e3 e4 e5 = self#unordered env [ e1; e2; e3; e4; e5 ]
+  method! visit_EAssign env e1 e2 = self#unordered env [ e1; e2 ]
+  method! visit_EApp env e es =
+    match e.node with
+    | EOp _ -> super#visit_EApp env e es
+    | EQualified lid when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
+    | _ -> self#unordered env (e :: es)
+
+  method! visit_ELet env _ e1 e2 = self#sequential env e1 (Some e2)
+  method! visit_EIfThenElse env e _ _ = self#sequential env e None
+  method! visit_ESwitch env e _ = self#sequential env e None
+  method! visit_EWhile env e _ = self#sequential env e None
+  method! visit_EFor env _ e _ _ _ = self#sequential env e None
+  method! visit_EMatch env e _ = self#sequential env e None
+  method! visit_ESequence env es = self#sequential env (List.hd es) None
+end
+
+let safe_readonly_use e =
+  match (new safe_use)#visit_expr_w 0 e with
+  | SafeUse -> true
+  | Unsafe -> false
+  | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
+
+class ['self] safe_pure_use = object (self: 'self)
+  inherit [_] reduce as super
+  inherit [_] safe_use
+  method! visit_EBufRead env e1 e2 = self#unordered env [ e1; e2 ]
+  method! visit_EApp env e es =
+    match e.node with
+    | EOp _ -> super#visit_EApp env e es
+    | _ -> self#unordered env (e :: es)
+end
+
+let safe_pure_use e =
+  match (new safe_pure_use)#visit_expr_w 0 e with
+  | SafeUse -> true
+  | Unsafe -> false
+  | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
+
 
 (* Count the number of occurrences of each variable ***************************)
 
@@ -40,6 +138,14 @@ let count_and_remove_locals = object (self)
     let e2 = self#visit_expr_w env e2 in
     if !(b.node.mark) = 0 && is_readonly_c_expression e1 then
       self#remove_trivial_let (snd (open_binder b e2)).node
+    else if Structs.should_rewrite b.typ = NoCopies &&
+      !(b.node.mark) = 1 && (
+        is_readonly_c_expression e1 &&
+        safe_readonly_use e2 ||
+        safe_pure_use e2
+      )
+    then
+      (DeBruijn.subst e1 0 e2).node
     else if !(b.node.mark) = 0 then
       if e1.typ = TUnit then
         self#remove_trivial_let (ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2))
@@ -310,104 +416,6 @@ let wrapping_arithmetic = object (self)
         EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
 end
 
-
-(* A visitor that determines whether it is safe to substitute bound variable 0
- * with its definition, assuming that:
- * - said definition is read-only
- * - there is a single use of it in the continuation.
- * The notion of "safe" can be customized; here, we let EBufRead be a safe node,
- * so by default, safe means read-only. *)
-type use = Safe | SafeUse | Unsafe
-class ['self] safe_use = object (self: 'self)
-  inherit [_] reduce as super
-
-  (* By default, everything is safe. We override several cases below. *)
-  method private zero = Safe
-
-  (* The default composition rule; it only applies if the expression itself is
-   * safe. (For instance, this is not a valid composition rule for an
-   * EBufWrite node.) *)
-  method private plus x y =
-    match x, y with
-    | Safe, SafeUse
-    | SafeUse, Safe ->
-        SafeUse
-    | Safe, Safe ->
-        Safe
-    | SafeUse, SafeUse ->
-        failwith "this contradicts the use-analysis (1)"
-    | _ ->
-        Unsafe
-  method private expr_plus_typ = self#plus
-
-  method! extend j _ =
-    j + 1
-
-  (* The composition rule for [es] expressions, whose evaluation order is
-   * unspecified, but is known to happen before an unsafe expression. The only
-   * safe case is if the use is found among safe nodes. *)
-  method private unordered (j, _) es =
-    let es = List.map (self#visit_expr_w j) es in
-    let the_use, the_rest = List.partition ((=) SafeUse) es in
-    match List.length the_use, List.for_all ((=) Safe) the_rest with
-    | 1, true -> SafeUse
-    | x, _ when x > 1 -> failwith "this contradicts the use-analysis (2)"
-    | _ -> Unsafe
-
-  (* The sequential composition rule, where [e1] is known be to be
-   * sequentialized before [e2]. Two cases: the use is found in [e1] (and we
-   * don't care what happens in [e2]), otherwise, just a regular composition. *)
-  method private sequential (j, _) e1 e2 =
-    match self#visit_expr_w j e1, e2 with
-    | SafeUse, _ -> SafeUse
-    | x, Some e2 ->
-        self#plus x (self#visit_expr_w (j + 1) e2)
-    | _, None ->
-        (* We don't know what comes after; can't conclude anything. *)
-        Unsafe
-
-  method! visit_EBound (j, _) i = if i = j then SafeUse else Safe
-
-  method! visit_EBufWrite env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
-  method! visit_EBufFill env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
-  method! visit_EBufBlit env e1 e2 e3 e4 e5 = self#unordered env [ e1; e2; e3; e4; e5 ]
-  method! visit_EAssign env e1 e2 = self#unordered env [ e1; e2 ]
-  method! visit_EApp env e es =
-    match e.node with
-    | EOp _ -> super#visit_EApp env e es
-    | EQualified lid when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
-    | _ -> self#unordered env (e :: es)
-
-  method! visit_ELet env _ e1 e2 = self#sequential env e1 (Some e2)
-  method! visit_EIfThenElse env e _ _ = self#sequential env e None
-  method! visit_ESwitch env e _ = self#sequential env e None
-  method! visit_EWhile env e _ = self#sequential env e None
-  method! visit_EFor env _ e _ _ _ = self#sequential env e None
-  method! visit_EMatch env e _ = self#sequential env e None
-  method! visit_ESequence env es = self#sequential env (List.hd es) None
-end
-
-let safe_readonly_use e =
-  match (new safe_use)#visit_expr_w 0 e with
-  | SafeUse -> true
-  | Unsafe -> false
-  | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
-
-class ['self] safe_pure_use = object (self: 'self)
-  inherit [_] reduce as super
-  inherit [_] safe_use
-  method! visit_EBufRead env e1 e2 = self#unordered env [ e1; e2 ]
-  method! visit_EApp env e es =
-    match e.node with
-    | EOp _ -> super#visit_EApp env e es
-    | _ -> self#unordered env (e :: es)
-end
-
-let safe_pure_use e =
-  match (new safe_pure_use)#visit_expr_w 0 e with
-  | SafeUse -> true
-  | Unsafe -> false
-  | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
 
 (* Try to remove the infamous let uu____ from F*. Needs an accurate use count
  * for each variable. *)
