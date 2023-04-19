@@ -1,19 +1,15 @@
 # make src/Ast.processed.ml
 include $(shell ocamlfind query visitors)/Makefile.preprocess
 
-.PHONY: all minimal clean test
-
-OCAMLBUILD=ocamlbuild -I src -I lib -I parser -I krmllib -use-menhir -use-ocamlfind \
- -menhir "menhir --infer --explain" -quiet
-FLAVOR?=native
-TARGETS=Karamel.$(FLAVOR)
-EXTRA_TARGETS=Ast.inferred.mli krmllib/C.cmx krmllib/TestLib.cmx krmllib/C.cmo krmllib/TestLib.cmo
+.PHONY: all minimal clean test pre krmllib install
 
 ifeq ($(OS),Windows_NT)
   OCAMLPATH_SEP=;
 else
   OCAMLPATH_SEP=:
 endif
+
+all: minimal krmllib
 
 ifdef FSTAR_HOME
   OCAMLPATH:=$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/lib
@@ -29,15 +25,9 @@ endif
 export FSTAR_HOME
 export OCAMLPATH
 
-all: minimal krmllib
-	@OCAML_ERROR_STYLE="short" \
-	 $(OCAMLBUILD) $(EXTRA_TARGETS)
-
 minimal: src/AutoConfig.ml src/Version.ml
-	@# Workaround Windows bug in OCamlbuild
-	$(shell [ -f Karamel.$(FLAVOR) ] && rm Karamel.$(FLAVOR))
-	@OCAML_ERROR_STYLE="short" $(OCAMLBUILD) $(TARGETS)
-	ln -sf Karamel.$(FLAVOR) krml
+	+ OCAML_ERROR_STYLE="short" $(MAKE) -C src
+	ln -sf src/_build/default/Karamel.exe krml
 
 krmllib: minimal
 	$(MAKE) -C krmllib
@@ -60,12 +50,13 @@ src/Version.ml:
 	@echo "let version = \"$(shell git rev-parse HEAD)\"" > $@ \
 
 clean:
-	rm -rf krml _build Karamel.$(FLAVOR)
-	$(MAKE) -C test clean
+	rm -rf krml
+	$(MAKE) -C src clean
 	$(MAKE) -C krmllib clean
+	$(MAKE) -C test clean
 
 test: all
-	+$(MAKE) -C test
+	$(MAKE) -C test
 
 # Auto-detection
 pre:
@@ -76,7 +67,7 @@ pre:
 install: all
 	@if [ x"$(PREFIX)" = x ]; then echo "please define PREFIX"; exit 1; fi
 	mkdir -p $(PREFIX)/bin
-	cp _build/src/Karamel.native $(PREFIX)/bin/krml
+	cp src/_build/default/Karamel.exe $(PREFIX)/bin/krml
 	mkdir -p $(PREFIX)/include
 	cp -r include/* $(PREFIX)/include
 	mkdir -p $(PREFIX)/lib/krml
