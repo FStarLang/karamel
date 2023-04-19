@@ -30,7 +30,7 @@ minimal: src/AutoConfig.ml src/Version.ml
 	ln -sf src/_build/default/Karamel.exe krml
 
 krmllib: minimal
-	+$(MAKE) -C krmllib
+	$(MAKE) -C krmllib
 
 src/AutoConfig.ml:
 	@if [ x"$(PREFIX)" != x ]; then \
@@ -56,7 +56,7 @@ clean:
 	$(MAKE) -C test clean
 
 test: all
-	+$(MAKE) -C test
+	$(MAKE) -C test
 
 # Auto-detection
 pre:
