@@ -75,12 +75,12 @@ let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
 
 (* Note: keeping the naming scheme as decided by KaRaMeL, in accordance with the
  * -no-prefix options. If this is the beginning of a top-level name, lower is
- * true and we force the first letter to be lowercase to abide by OCaml syntax
+ * true and we force the first letter to be lowercase_ascii to abide by OCaml syntax
  * restrictions. *)
 let mk_unqual_name m (n: A.lident) =
   let n = GlobalNames.to_c_name m n in
-  if Char.lowercase n.[0] <> n.[0] then
-    String.make 1 (Char.lowercase n.[0]) ^ String.sub n 1 (String.length n - 1)
+  if Char.lowercase_ascii n.[0] <> n.[0] then
+    String.make 1 (Char.lowercase_ascii n.[0]) ^ String.sub n 1 (String.length n - 1)
   else
     n
 

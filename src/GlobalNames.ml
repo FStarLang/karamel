@@ -210,23 +210,23 @@ let pascal_case name =
       | c ->
           let c_next = match !what_next with
             | T.Keep -> c
-            | T.Up -> Char.uppercase c
-            | T.Low -> Char.lowercase c
+            | T.Up -> Char.uppercase_ascii c
+            | T.Low -> Char.lowercase_ascii c
           in
-          if Char.uppercase c = c then
+          if Char.uppercase_ascii c = c then
             what_next := T.Low
-          else if Char.lowercase c = c then
+          else if Char.lowercase_ascii c = c then
             what_next := T.Keep;
           Buffer.add_char b c_next
     done;
     Buffer.contents b
   else
-    String.uppercase (String.sub name 0 1) ^ 
+    String.uppercase_ascii (String.sub name 0 1) ^ 
     String.sub name 1 (String.length name - 1)
 
 let camel_case name =
   let name = pascal_case name in
-  String.lowercase (String.sub name 0 1) ^ 
+  String.lowercase_ascii (String.sub name 0 1) ^ 
   String.sub name 1 (String.length name - 1)
 
 let strip_leading_underscores name =
