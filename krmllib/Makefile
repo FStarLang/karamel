@@ -118,6 +118,7 @@ $(GENERIC_DIR):
 
 # Everything in the universe
 $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../src/_build/default/Karamel.exe
+	KRML_HOME=$(shell pwd)/.. \
 	../krml $(KRML_ARGS) -tmpdir $(GENERIC_DIR) \
 	  -warn-error +9+11 \
 	  $(MACHINE_INTS) \
@@ -154,6 +155,7 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar
 # FStar.UInt64 shares the same bundle name, meaning that
 # FStar_UInt128_Verified.h can be dropped in any of the two krmllibs above.
 $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) ../src/_build/default/Karamel.exe
+	KRML_HOME=$(shell pwd)/.. \
 	../krml $(KRML_ARGS) -tmpdir $(UINT128_DIR) \
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"krml/internal/types.h"' '"krml/internal/target.h"') \
 	  -bundle FStar.UInt64[rename=FStar_UInt_8_16_32_64] \
