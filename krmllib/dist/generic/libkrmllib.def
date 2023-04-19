@@ -35,6 +35,7 @@ EXPORTS
   FStar_BV_bvmul
   WasmSupport_align_64
   WasmSupport_check_buffer_size
+  WasmSupport_betole16
   WasmSupport_betole32
   WasmSupport_betole64
   WasmSupport_memzero
