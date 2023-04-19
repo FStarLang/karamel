@@ -6,10 +6,7 @@
 
 all: verify-all compile-all
 
-extra:
-	+dune build
-
-.PHONY: all verify-all compile-all extra
+.PHONY: all verify-all compile-all
 
 
 ################################################################################
@@ -58,17 +55,14 @@ ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
     FStar.HyperStack.IO.fst FStar.IO.fst FStar.Int.Cast.Full.fst \
     FStar.Bytes.fsti FStar.Dyn.fsti LowStar.Printf.fst LowStar.Endianness.fst
 
-.PHONY: clean clean-c clean-ml
-clean: clean-c clean-ml
+.PHONY: clean clean-c
+clean: clean-c
 	rm -rf *.checked *.source .depend
 
 SHELL:=$(shell which bash)
 
 clean-c:
 	rm -rf dist out extract-all */*.o
-
-clean-ml:
-	dune clean
 
 ifndef NODEPEND
 ifndef MAKE_RESTARTS

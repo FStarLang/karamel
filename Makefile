@@ -1,7 +1,7 @@
 # make src/Ast.processed.ml
 include $(shell ocamlfind query visitors)/Makefile.preprocess
 
-.PHONY: all minimal clean test pre extra krmllib install
+.PHONY: all minimal clean test pre krmllib install
 
 ifeq ($(OS),Windows_NT)
   OCAMLPATH_SEP=;
@@ -9,7 +9,7 @@ else
   OCAMLPATH_SEP=:
 endif
 
-all: minimal krmllib extra
+all: minimal krmllib
 
 ifdef FSTAR_HOME
   OCAMLPATH:=$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/lib
@@ -24,10 +24,6 @@ else
 endif
 export FSTAR_HOME
 export OCAMLPATH
-
-extra: pre krmllib
-	+ OCAML_ERROR_STYLE="short" \
-	OCAMLPATH="$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/bin" $(MAKE) -C krmllib extra
 
 minimal: src/AutoConfig.ml src/Version.ml
 	+ OCAML_ERROR_STYLE="short" $(MAKE) -C src
