@@ -6,6 +6,9 @@
 
 all: verify-all compile-all
 
+.PHONY: all verify-all compile-all
+
+
 ################################################################################
 # Verification & extraction                                                    #
 ################################################################################
@@ -108,7 +111,8 @@ $(GENERIC_DIR):
 	mkdir -p $@
 
 # Everything in the universe
-$(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../_build/src/Karamel.native
+$(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../src/_build/default/Karamel.exe
+	KRML_HOME=$(shell pwd)/.. \
 	../krml $(KRML_ARGS) -tmpdir $(GENERIC_DIR) \
 	  -warn-error +9+11 \
 	  $(MACHINE_INTS) \
@@ -123,7 +127,7 @@ $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c
 	cp c/*.c c/*.h $(dir $@)
 
 # Minimalistic build (just machine integers and endianness)
-$(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar_uint128*.h) ../_build/src/Karamel.native
+$(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar_uint128*.h) ../src/_build/default/Karamel.exe
 	mkdir -p $(dir $@)
 	KRML_HOME=$(shell pwd)/.. \
 	../krml $(KRML_ARGS) -tmpdir $(MINI_DIR) \
@@ -144,7 +148,7 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar
 # Extracted (and verified) uint128s; copied into generic and minimal. Note that
 # FStar.UInt64 shares the same bundle name, meaning that
 # FStar_UInt128_Verified.h can be dropped in any of the two krmllibs above.
-$(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) ../_build/src/Karamel.native
+$(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) ../src/_build/default/Karamel.exe
 	KRML_HOME=$(shell pwd)/.. \
 	../krml $(KRML_ARGS) -tmpdir $(UINT128_DIR) \
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"krml/internal/types.h"' '"krml/internal/target.h"') \

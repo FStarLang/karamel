@@ -167,10 +167,10 @@ let detect_karamel () =
             try read_one_line !readlink [| "-f"; read_one_line "which" [| me |] |]
             with _ -> fatal_error "Could not compute full krml path"
         in
-        (* ../_build/src/Karamel.native *)
+        (* src/_build/default/Karamel.exe *)
         if not !Options.silent then
           KPrint.bprintf "%sthe Karamel executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
-        read_one_line !readlink [| "-f"; d real_krml ^^ ".." ^^ ".." |]
+        read_one_line !readlink [| "-f"; d real_krml ^^ ".." ^^ ".." ^^ ".." |]
       with _ ->
         fatal_error "Could not compute krml_home"
       end

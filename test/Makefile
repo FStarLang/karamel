@@ -1,5 +1,3 @@
-
-
 RECENT_GCC	= $(shell [ "$$(gcc -dumpversion | cut -c -1)" -ge 5 ] && echo yes)
 
 ifdef FSTAR_HOME
@@ -26,7 +24,7 @@ ifneq ($(CRYPTO),)
   CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 endif
 TEST_OPTS	= -warn-error @4 -verbose -skip-makefiles
-KRML_BIN	= ../_build/src/Karamel.native
+KRML_BIN	= ../src/_build/default/Karamel.exe
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 
 # TODO: disambiguate between broken tests that arguably should work (maybe
@@ -242,19 +240,18 @@ $(LOWLEVEL_DIR)/%: ctypes/%
 	cp $< $@
 
 ctypes-test: $(LOWLEVEL_DIR)/Client.native
-	cd $(LOWLEVEL_DIR)/_build && export LD_LIBRARY_PATH=. && \
-	  ./Client.native && ./Client.byte
+	cd $(LOWLEVEL_DIR) && export LD_LIBRARY_PATH=. && \
+	  ./Client.exe && ./Client.bc
 
 sepcomp-test:
 	+$(MAKE) -C sepcomp
 .PHONY: sepcomp-test
 
-CTYPES_HAND_WRITTEN_FILES=myocamlbuild.ml Client.ml _tags
+CTYPES_HAND_WRITTEN_FILES=Client.ml Makefile
 
 .PHONY: $(LOWLEVEL_DIR)/Client.native
 $(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Ctypes2.exe $(addprefix $(LOWLEVEL_DIR)/,$(CTYPES_HAND_WRITTEN_FILES))
-	cd $(dir $@) && \
-	  CTYPES_LIB_DIR=$(shell ocamlfind query ctypes) ocamlbuild -use-ocamlfind $(notdir $@) Client.byte
+	cd $(dir $@) && env CTYPES_LIB_DIR=$(shell ocamlfind query ctypes) LOWLEVEL_DIR=$(realpath $(LOWLEVEL_DIR)) make
 
 
 # A pseudo-target for WASM compilation that does not match any specific file.
