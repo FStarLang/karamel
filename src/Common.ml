@@ -17,13 +17,13 @@ type flag =
   | Private
       (** An F* private qualifier. *)
   | WipeBody
-      [@ocaml.deprecated "Left there for compatibility with previous ASTs."]
+      (** DEPRECATED. Left there for compatibility with previous ASTs. *)
   | Inline
       (** User demanded a C inline keyword *)
   | Substitute
-      [@ocaml.deprecated "User used [@ Substitute ] -- function inlined at call-site, but not \
-       necessarily removed. Deprecated in favor of using inline_for_extraction \
-       at the F* level."]
+      (** DEPRECATED. User used [@ Substitute ] -- function inlined at call-site, but not
+       * necessarily removed. Deprecated in favor of using inline_for_extraction
+       * at the F* level. *)
   | GcType
       (** Automatic insertion of pointers because this type will be collected
        * by a conservative garbage collector. *)
@@ -34,8 +34,8 @@ type flag =
        * and its definition shall be removed entirely. Used for Ghost and
        * StackInline functions. *)
   | Const of string
-      [@ocaml.deprecated "Identify a parameter by name, to be marked as const.  Deprecated in \
-       favor of LowStar.ConstBuffer. "]
+      (** DEPRECATED. Identify a parameter by name, to be marked as const. Deprecated in
+       * favor of LowStar.ConstBuffer. *)
   | Prologue of string
       (** Verbatim C code, inserted before. *)
   | Epilogue of string
