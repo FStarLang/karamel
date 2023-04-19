@@ -5,8 +5,10 @@
 PROJECT_HOME ?= .
 
 ifeq (,$(KRML_HOME))
-  $(error KRML_HOME is not defined)
+  # assuming test/sepcomp/b
+  KRML_HOME=$(CURDIR)/../../..
 endif
+export KRML_HOME
 
 # I prefer to always check all fst files in the source directories; otherwise,
 # it's too easy to add a new file only to find out later that it's not being
