@@ -26,6 +26,11 @@ void WasmSupport_check_buffer_size(uint32_t s)
   }
 }
 
+uint16_t WasmSupport_betole16(uint16_t x)
+{
+  return (x >> (uint32_t)8U & (uint16_t)0x00FFU) | (x << (uint32_t)8U & (uint16_t)0xFF00U);
+}
+
 uint32_t WasmSupport_betole32(uint32_t x)
 {
   return
