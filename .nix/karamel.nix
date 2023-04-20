@@ -12,7 +12,7 @@ stdenv.mkDerivation {
   buildInputs = [ fstar removeReferencesTo symlinks which z3 ]
     ++ (with ocamlPackages; [
       ocaml
-      ocamlbuild
+      dune_3
       findlib
       batteries
       stdint
