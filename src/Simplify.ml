@@ -10,6 +10,104 @@ open Warn
 open PrintAst.Ops
 open Helpers
 
+(* A visitor that determines whether it is safe to substitute bound variable 0
+ * with its definition, assuming that:
+ * - said definition is read-only
+ * - there is a single use of it in the continuation.
+ * The notion of "safe" can be customized; here, we let EBufRead be a safe node,
+ * so by default, safe means read-only. *)
+type use = Safe | SafeUse | Unsafe
+class ['self] safe_use = object (self: 'self)
+  inherit [_] reduce as super
+
+  (* By default, everything is safe. We override several cases below. *)
+  method private zero = Safe
+
+  (* The default composition rule; it only applies if the expression itself is
+   * safe. (For instance, this is not a valid composition rule for an
+   * EBufWrite node.) *)
+  method private plus x y =
+    match x, y with
+    | Safe, SafeUse
+    | SafeUse, Safe ->
+        SafeUse
+    | Safe, Safe ->
+        Safe
+    | SafeUse, SafeUse ->
+        failwith "this contradicts the use-analysis (1)"
+    | _ ->
+        Unsafe
+  method private expr_plus_typ = self#plus
+
+  method! extend j _ =
+    j + 1
+
+  (* The composition rule for [es] expressions, whose evaluation order is
+   * unspecified, but is known to happen before an unsafe expression. The only
+   * safe case is if the use is found among safe nodes. *)
+  method private unordered (j, _) es =
+    let es = List.map (self#visit_expr_w j) es in
+    let the_use, the_rest = List.partition ((=) SafeUse) es in
+    match List.length the_use, List.for_all ((=) Safe) the_rest with
+    | 1, true -> SafeUse
+    | x, _ when x > 1 -> failwith "this contradicts the use-analysis (2)"
+    | _ -> Unsafe
+
+  (* The sequential composition rule, where [e1] is known be to be
+   * sequentialized before [e2]. Two cases: the use is found in [e1] (and we
+   * don't care what happens in [e2]), otherwise, just a regular composition. *)
+  method private sequential (j, _) e1 e2 =
+    match self#visit_expr_w j e1, e2 with
+    | SafeUse, _ -> SafeUse
+    | x, Some e2 ->
+        self#plus x (self#visit_expr_w (j + 1) e2)
+    | _, None ->
+        (* We don't know what comes after; can't conclude anything. *)
+        Unsafe
+
+  method! visit_EBound (j, _) i = if i = j then SafeUse else Safe
+
+  method! visit_EBufWrite env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
+  method! visit_EBufFill env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
+  method! visit_EBufBlit env e1 e2 e3 e4 e5 = self#unordered env [ e1; e2; e3; e4; e5 ]
+  method! visit_EAssign env e1 e2 = self#unordered env [ e1; e2 ]
+  method! visit_EApp env e es =
+    match e.node with
+    | EOp _ -> super#visit_EApp env e es
+    | EQualified lid when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
+    | _ -> self#unordered env (e :: es)
+
+  method! visit_ELet env _ e1 e2 = self#sequential env e1 (Some e2)
+  method! visit_EIfThenElse env e _ _ = self#sequential env e None
+  method! visit_ESwitch env e _ = self#sequential env e None
+  method! visit_EWhile env e _ = self#sequential env e None
+  method! visit_EFor env _ e _ _ _ = self#sequential env e None
+  method! visit_EMatch env e _ = self#sequential env e None
+  method! visit_ESequence env es = self#sequential env (List.hd es) None
+end
+
+let safe_readonly_use e =
+  match (new safe_use)#visit_expr_w 0 e with
+  | SafeUse -> true
+  | Unsafe -> false
+  | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
+
+class ['self] safe_pure_use = object (self: 'self)
+  inherit [_] reduce as super
+  inherit [_] safe_use
+  method! visit_EBufRead env e1 e2 = self#unordered env [ e1; e2 ]
+  method! visit_EApp env e es =
+    match e.node with
+    | EOp _ -> super#visit_EApp env e es
+    | _ -> self#unordered env (e :: es)
+end
+
+let safe_pure_use e =
+  match (new safe_pure_use)#visit_expr_w 0 e with
+  | SafeUse -> true
+  | Unsafe -> false
+  | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
+
 
 (* Count the number of occurrences of each variable ***************************)
 
@@ -40,6 +138,14 @@ let count_and_remove_locals = object (self)
     let e2 = self#visit_expr_w env e2 in
     if !(b.node.mark) = 0 && is_readonly_c_expression e1 then
       self#remove_trivial_let (snd (open_binder b e2)).node
+    else if Structs.should_rewrite b.typ = NoCopies &&
+      !(b.node.mark) = 1 && (
+        is_readonly_c_expression e1 &&
+        safe_readonly_use e2 ||
+        safe_pure_use e2
+      )
+    then
+      (DeBruijn.subst e1 0 e2).node
     else if !(b.node.mark) = 0 then
       if e1.typ = TUnit then
         self#remove_trivial_let (ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2))
@@ -311,104 +417,6 @@ let wrapping_arithmetic = object (self)
 end
 
 
-(* A visitor that determines whether it is safe to substitute bound variable 0
- * with its definition, assuming that:
- * - said definition is read-only
- * - there is a single use of it in the continuation.
- * The notion of "safe" can be customized; here, we let EBufRead be a safe node,
- * so by default, safe means read-only. *)
-type use = Safe | SafeUse | Unsafe
-class ['self] safe_use = object (self: 'self)
-  inherit [_] reduce as super
-
-  (* By default, everything is safe. We override several cases below. *)
-  method private zero = Safe
-
-  (* The default composition rule; it only applies if the expression itself is
-   * safe. (For instance, this is not a valid composition rule for an
-   * EBufWrite node.) *)
-  method private plus x y =
-    match x, y with
-    | Safe, SafeUse
-    | SafeUse, Safe ->
-        SafeUse
-    | Safe, Safe ->
-        Safe
-    | SafeUse, SafeUse ->
-        failwith "this contradicts the use-analysis (1)"
-    | _ ->
-        Unsafe
-  method private expr_plus_typ = self#plus
-
-  method! extend j _ =
-    j + 1
-
-  (* The composition rule for [es] expressions, whose evaluation order is
-   * unspecified, but is known to happen before an unsafe expression. The only
-   * safe case is if the use is found among safe nodes. *)
-  method private unordered (j, _) es =
-    let es = List.map (self#visit_expr_w j) es in
-    let the_use, the_rest = List.partition ((=) SafeUse) es in
-    match List.length the_use, List.for_all ((=) Safe) the_rest with
-    | 1, true -> SafeUse
-    | x, _ when x > 1 -> failwith "this contradicts the use-analysis (2)"
-    | _ -> Unsafe
-
-  (* The sequential composition rule, where [e1] is known be to be
-   * sequentialized before [e2]. Two cases: the use is found in [e1] (and we
-   * don't care what happens in [e2]), otherwise, just a regular composition. *)
-  method private sequential (j, _) e1 e2 =
-    match self#visit_expr_w j e1, e2 with
-    | SafeUse, _ -> SafeUse
-    | x, Some e2 ->
-        self#plus x (self#visit_expr_w (j + 1) e2)
-    | _, None ->
-        (* We don't know what comes after; can't conclude anything. *)
-        Unsafe
-
-  method! visit_EBound (j, _) i = if i = j then SafeUse else Safe
-
-  method! visit_EBufWrite env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
-  method! visit_EBufFill env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
-  method! visit_EBufBlit env e1 e2 e3 e4 e5 = self#unordered env [ e1; e2; e3; e4; e5 ]
-  method! visit_EAssign env e1 e2 = self#unordered env [ e1; e2 ]
-  method! visit_EApp env e es =
-    match e.node with
-    | EOp _ -> super#visit_EApp env e es
-    | EQualified lid when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
-    | _ -> self#unordered env (e :: es)
-
-  method! visit_ELet env _ e1 e2 = self#sequential env e1 (Some e2)
-  method! visit_EIfThenElse env e _ _ = self#sequential env e None
-  method! visit_ESwitch env e _ = self#sequential env e None
-  method! visit_EWhile env e _ = self#sequential env e None
-  method! visit_EFor env _ e _ _ _ = self#sequential env e None
-  method! visit_EMatch env e _ = self#sequential env e None
-  method! visit_ESequence env es = self#sequential env (List.hd es) None
-end
-
-let safe_readonly_use e =
-  match (new safe_use)#visit_expr_w 0 e with
-  | SafeUse -> true
-  | Unsafe -> false
-  | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
-
-class ['self] safe_pure_use = object (self: 'self)
-  inherit [_] reduce as super
-  inherit [_] safe_use
-  method! visit_EBufRead env e1 e2 = self#unordered env [ e1; e2 ]
-  method! visit_EApp env e es =
-    match e.node with
-    | EOp _ -> super#visit_EApp env e es
-    | _ -> self#unordered env (e :: es)
-end
-
-let safe_pure_use e =
-  match (new safe_pure_use)#visit_expr_w 0 e with
-  | SafeUse -> true
-  | Unsafe -> false
-  | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
-
 (* Try to remove the infamous let uu____ from F*. Needs an accurate use count
  * for each variable. *)
 let remove_uu = object (self)
@@ -626,6 +634,8 @@ let functional_updates = object (self)
         DType (name, flags, n, def)
 end
 
+let mutated_types = Hashtbl.create 41
+
 let misc_cosmetic = object (self)
 
   inherit [_] map as super
@@ -654,7 +664,96 @@ let misc_cosmetic = object (self)
         ELet (b, e1, self#visit_expr env (DeBruijn.subst_no_open ref 0 e2))
 
     | _ ->
-        ELet (b, e1, self#visit_expr env e2)
+
+        (* let x = $any in
+              ^^   ^^^
+              b     e1
+           let _  = f  (&x) in // sequence
+              ^^    ^^
+              b'    e3
+           p[0] <- { ... f: x ... }
+           ^^     ^^^^^^^^^^^^^
+           e4         fs
+           -->
+           f (&p[0].f);
+           p.f' <- e';
+           ...
+        *)
+        match e1.node, e2.node with
+        | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
+            { node = EBufWrite (e4, { node = EConstant (_, "0"); _ }, { node = EFlat fields; _ }); _ })
+          when b'.node.meta = Some MetaSequence &&
+          List.exists (fun (f, x) -> f <> None && x.node = EBound 1) fields &&
+          !(b.node.mark) = 2 ->
+
+            (* if true then Warn.fatal_error "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
+
+            let f, { typ = x_typ; _ } = List.find (fun (_, x) -> x.node = EBound 1) fields in
+            let f = Option.must f in
+
+            let e3 = snd (DeBruijn.open_binder b e3) in
+            let e4 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4))) in
+            let fields = List.map (fun (f, e) -> f, snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e)))) fields in
+
+            let e4_typ = assert_tbuf e4.typ in
+            Hashtbl.add mutated_types (assert_tlid e4_typ) ();
+            let e4 = with_type e4_typ (EBufRead (e4, Helpers.zerou32)) in
+
+            ESequence (
+              with_unit (EApp (e3, [
+                with_type (TBuf (x_typ, false)) (EAddrOf (
+                  with_type x_typ (EField (e4, f))))])) ::
+              List.filter_map (fun (f', e) ->
+                let f' = Option.must f' in
+                if f = f' then
+                  None
+                else
+                  Some (with_unit (EAssign (
+                    with_type e.typ (EField (e4, f')),
+                    e)))
+              ) fields)
+
+        (* let x = $any in
+              ^^   ^^^
+              b     e1
+           let _  = f  (&x) in // sequence
+              ^^    ^^
+              b'    e3
+           p := x
+           ^^
+           e4
+           -->
+           f (&p);
+           ...
+        *)
+        | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
+            { node = EAssign (e4, { node = EBound 1; _ }); _ })
+          when b'.node.meta = Some MetaSequence &&
+          !(b.node.mark) = 2 ->
+
+            (* KPrint.bprintf "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
+
+            let e3 = snd (DeBruijn.open_binder b e3) in
+            let e4 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4))) in
+
+            EApp (e3, [ with_type (TBuf (e4.typ, false)) (EAddrOf e4)])
+
+        | EAny, ELet (b',
+            { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
+            { node = ELet (b'', { node = EAssign (e4, { node = EBound 1; _ }); _ }, e5); _ })
+          when b'.node.meta = Some MetaSequence &&
+          !(b.node.mark) = 2 ->
+
+            (* KPrint.bprintf "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
+
+            let e3 = snd (DeBruijn.open_binder b e3) in
+            let e4 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4))) in
+            let e5 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e5))) in
+
+            ELet (b'', with_unit (EApp (e3, [ with_type (TBuf (e4.typ, false)) (EAddrOf e4)])), self#visit_expr env e5)
+
+        | _, _ ->
+            ELet (b, e1, self#visit_expr env e2)
 
   (* Turn empty then branches into empty else branches to get prettier syntax
    * later on. *)
@@ -711,6 +810,16 @@ let misc_cosmetic = object (self)
     else
       binder
 
+end
+
+let misc_cosmetic2 = object
+  inherit [_] map
+  method! visit_DType () name flags n def =
+    match def with
+    | Flat fields when Hashtbl.mem mutated_types name ->
+        DType (name, flags, n, Flat (List.map (fun (f, (t, _)) -> f, (t, true)) fields))
+    | _ ->
+        DType (name, flags, n, def)
 end
 
 (* No left-nested let-bindings ************************************************)
@@ -1773,6 +1882,7 @@ let simplify2 ifdefs (files: file list): file list =
   let files = if !Options.wasm then files else let_if_to_assign#visit_files () files in
   let files = if !Options.wasm then files else hoist_bufcreate#visit_files ifdefs files in
   let files = misc_cosmetic#visit_files () files in
+  let files = misc_cosmetic2#visit_files () files in
   let files = functional_updates#visit_files false files in
   let files = functional_updates#visit_files true files in
   let files = let_to_sequence#visit_files () files in

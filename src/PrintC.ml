@@ -448,7 +448,7 @@ let macro name d: document =
 let p_decl_or_function (df: declaration_or_function) =
   match df with
   | Macro (comments, name, def) ->
-      let name = String.uppercase name in
+      let name = String.uppercase_ascii name in
       p_comments comments ^^ macro name (parens (p_expr def))
   | Decl (comments, d) ->
       p_comments comments ^^ group (p_declaration d ^^ semi)

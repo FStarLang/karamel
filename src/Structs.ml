@@ -54,12 +54,24 @@ let will_be_lvalue e =
 
 exception NotLowStar
 
-let analyze_function_type is_struct = function
+(* Three behaviors:
+  - a given type should always be passed by reference (e.g., user passed
+    -no-struct-passing, or we are in wasm)
+  - the type should be passed by ref, but attempting to copy it should raise an
+    error (the steel lock issue, see notes for commit 44b77193
+  - type remains unaffected *)
+type policy = Always | NoCopies | Never
+
+let ppol b = function
+  | Always -> Buffer.add_string b "Always"
+  | NoCopies -> Buffer.add_string b "NoCopies"
+  | Never -> Buffer.add_string b "Never"
+
+let analyze_function_type policy t =
+  match t with
   | TArrow _ as t ->
       let ret, args = Helpers.flatten_arrow t in
-      let ret_is_struct = is_struct ret in
-      let args_are_structs = List.map is_struct args in
-      ret_is_struct, args_are_structs
+      policy ret, List.map policy args
   | t ->
       Warn.fatal_error "analyze_function_type: %a is not a function type" ptyp t
 
@@ -71,10 +83,9 @@ let analyze_function_type is_struct = function
  * cast (to_buffer and to_ibuffer) is not available; therefore, it is ok to
  * declare them with a const qualifier. *)
 
-
 (* Rewrite functions and expressions to take and possibly return struct
  * pointers. This transformation is entirely type-based. *)
-let pass_by_ref is_struct = object (self)
+let pass_by_ref (should_rewrite: _ -> policy) = object (self)
 
   (* We open all the parameters of a function; then, we pass down as the
    * environment the list of atoms that correspond to by-ref parameters. These
@@ -82,18 +93,18 @@ let pass_by_ref is_struct = object (self)
   inherit [_] map
 
   (* Rewrite a function type to take and possibly return struct pointers. *)
-  method private rewrite_function_type (ret_is_struct, args_are_structs) t =
+  method private rewrite_function_type (ret_policy, args_policies) t =
     let ret, args = Helpers.flatten_arrow t in
     let ret = self#visit_typ [] ret in
     let args = List.map (self#visit_typ []) args in
-    let args = List.map2 (fun arg is_struct ->
-      if is_struct then
-        TBuf (arg, true)
+    let args = List.map2 (fun arg pol ->
+      if pol <> Never then
+        TBuf (arg, (pol = Always))
       else
         arg
-    ) args args_are_structs in
+    ) args args_policies in
     let ret, args =
-      if ret_is_struct then
+      if ret_policy <> Never then
         TUnit, args @ [ TBuf (ret, false) ]
       else
         ret, args
@@ -116,7 +127,7 @@ let pass_by_ref is_struct = object (self)
     (* Determine using our computed table which of the arguments and the
      * return type must be passed by reference. We could alternatively use
      * the type of [e], but it sometimes may be incomplete. *)
-    let ret_is_struct, args_are_structs = analyze_function_type is_struct e.typ in
+    let ret_is_struct, args_are_structs = analyze_function_type should_rewrite e.typ in
 
     (* Partial application. Not Low*... bail. This ensures [t] is the return
      * type of the function call. *)
@@ -131,20 +142,20 @@ let pass_by_ref is_struct = object (self)
      * [lvalue]. This is, sadly, a little bit of an anticipation over the
      * ast-to-C* translation phase. TODO remove the check, and rely on
      * AstToCStar or a Helpers phase to fix this. *)
-    let bs, args = KList.fold_lefti (fun i (bs, es) (e, is_struct) ->
-      if is_struct then
+    let bs, args = KList.fold_lefti (fun i (bs, es) (e, pol) ->
+      if pol <> Never then
         if will_be_lvalue e then
-          bs, with_type (TBuf (e.typ, true)) (EAddrOf e) :: es
+          bs, with_type (TBuf (e.typ, pol = Always)) (EAddrOf e) :: es
         else
           let x, atom = Helpers.mk_binding (Printf.sprintf "s%d" i) e.typ in
-          (x, e) :: bs, with_type (TBuf (e.typ, true)) (EAddrOf atom) :: es
+          (x, e) :: bs, with_type (TBuf (e.typ, pol = Always)) (EAddrOf atom) :: es
       else
         bs, e :: es
     ) ([], []) (List.combine args args_are_structs) in
     let args = List.rev args in
 
     (* The three behaviors described above. *)
-    if ret_is_struct then
+    if ret_is_struct <> Never then
       match dest with
       | Some dest ->
           let args = args @ [ with_type (TBuf (t, false)) (EAddrOf dest) ] in
@@ -171,8 +182,8 @@ let pass_by_ref is_struct = object (self)
     (* Step 1: open all the binders *)
     let binders, body = DeBruijn.open_binders binders body in
 
-    let ret_is_struct = is_struct ret in
-    let args_are_structs = List.map (fun x -> is_struct x.typ) binders in
+    let ret_is_struct = should_rewrite ret <> Never in
+    let args_are_structs = List.map (fun x -> should_rewrite x.typ <> Never) binders in
 
     (* Step 2: rewrite the types of the arguments to take pointers to structs *)
     let binders = List.map2 (fun binder is_struct ->
@@ -214,7 +225,7 @@ let pass_by_ref is_struct = object (self)
 
   method! visit_TArrow _ t1 t2 =
     let t = TArrow (t1, t2) in
-    self#rewrite_function_type (analyze_function_type is_struct t) t
+    self#rewrite_function_type (analyze_function_type should_rewrite t) t
 
   method! visit_EOpen (to_be_starred, t) name atom =
     (* [x] was a struct parameter that is now passed by reference; replace it
@@ -227,7 +238,7 @@ let pass_by_ref is_struct = object (self)
   method! visit_EAssign (to_be_starred, _) e1 e2 =
     let e1 = self#visit_expr_w to_be_starred e1 in
     match e2.node with
-    | EApp (e, args) when fst (analyze_function_type is_struct e.typ) ->
+    | EApp (e, args) when fst (analyze_function_type should_rewrite e.typ) <> Never ->
         begin try
           let args = List.map (self#visit_expr_w to_be_starred) args in
           assert (will_be_lvalue e1);
@@ -242,7 +253,7 @@ let pass_by_ref is_struct = object (self)
     let e1 = self#visit_expr_w to_be_starred e1 in
     let e2 = self#visit_expr_w to_be_starred e2 in
     match e3.node with
-    | EApp (e, args) when fst (analyze_function_type is_struct e.typ) ->
+    | EApp (e, args) when fst (analyze_function_type should_rewrite e.typ) <> Never ->
         begin try
           let args = List.map (self#visit_expr_w to_be_starred) args in
           let t = Helpers.assert_tbuf e1.typ in
@@ -257,7 +268,7 @@ let pass_by_ref is_struct = object (self)
   method! visit_ELet (to_be_starred, t) b e1 e2 =
     let e2 = self#visit_expr_w to_be_starred e2 in
     match e1.node with
-    | EApp (e, args) when fst (analyze_function_type is_struct e.typ) ->
+    | EApp (e, args) when fst (analyze_function_type should_rewrite e.typ) <> Never ->
         begin try
           let args = List.map (self#visit_expr_w to_be_starred) args in
           let b, e2 = DeBruijn.open_binder b e2 in
@@ -287,9 +298,103 @@ let pass_by_ref is_struct = object (self)
 
 end
 
+let should_rewrite_ = ref (fun _ -> Never)
+let should_rewrite lid = !should_rewrite_ lid
+
+let check_for_illegal_copies files =
+  (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
+  (object
+    inherit [_] iter
+
+    method! visit_EAssign _ e e' =
+      if should_rewrite e.typ = NoCopies then
+        Warn.fatal_error "In the assignment %a, the left-hand side has a type that \
+          should not be copied (namely, %a) -- please rewrite your \
+          code"
+          pexpr (Helpers.with_unit (EAssign (e, e')))
+          ptyp e.typ
+
+    method! visit_EBufWrite _ e1 e2 e3 =
+      if should_rewrite e3.typ = NoCopies then
+        Warn.fatal_error "In the array update %a, the left-hand side has a type that \
+          should not be copied (namely, %a) -- please rewrite your \
+          code"
+          pexpr (Helpers.with_unit (EBufWrite (e1, e2, e3)))
+          ptyp e3.typ
+
+    method! visit_ELet _ b e1 e2 =
+      if should_rewrite b.typ = NoCopies && e2.node <> EAny then
+        Warn.fatal_error "The let-binding let %s = %a creates a copy of a type that \
+          should not be copied (namely, %a) -- please rewrite your \
+          code"
+          b.node.name
+          pexpr e1
+          ptyp b.typ
+  end)#visit_files () files
+
 let pass_by_ref files =
   let is_struct = mk_is_struct files in
-  (pass_by_ref is_struct)#visit_files [] files
+  let should_rewrite = function
+    (* The Steel SpinLock type is a type that violates the value semantics of
+       Low*. Its low-level implementation, using pthread, relies on the address
+       where the value lives; therefore, this is a type that cannot be passed by
+       value (it would create new locks). In order to maintain the "identity" of
+       a lock (the address of the value of type Steel_SpinLock_lock), we pass
+       it by reference, therefore guaranteeing that the value lives only in a
+       single place in memory. *)
+    (* | TQualified (["Test"], "t") *)
+    | TQualified (["Steel"; "SpinLock"], "lock__()") ->
+        NoCopies
+    | t ->
+        if not !Options.struct_passing && is_struct t then
+          Always
+        else
+          Never
+  in
+  let def_map = Helpers.build_map files (fun map d ->
+    match d with
+    | DType (lid, _, _, (Flat fs)) ->
+        Hashtbl.add map lid (List.map (fun (_, (t, _)) -> t) fs)
+    | DType (lid, _, _, (Union fs)) ->
+        Hashtbl.add map lid (List.map snd fs)
+    | _ ->
+        ()
+  ) in
+  (* All of the fields laid out flatly within a given struct type *)
+  let rec fields t =
+    match t with
+    | TQualified lid ->
+        begin try
+          Hashtbl.find def_map lid
+        with Not_found ->
+          []
+        end
+    | TAnonymous (Flat fs) ->
+        List.map (fun (_, (t, _)) -> t) fs
+    | TAnonymous (Union fs) ->
+        KList.map_flatten (fun f -> fields (snd f)) fs
+    | _ ->
+        []
+  in
+  let should_rewrite t =
+    if is_struct t && List.exists (fun t -> should_rewrite t = NoCopies) (fields t) then
+      NoCopies
+    else
+      should_rewrite t
+  in
+  let should_rewrite =
+    let cache = Hashtbl.create 41 in
+    fun t ->
+      try Hashtbl.find cache t
+      with Not_found ->
+        let r = should_rewrite t in
+        Hashtbl.add cache t r;
+        (* KPrint.bprintf "should_rewrite %a: %a" ptyp t ppol r; *)
+        r
+  in
+  should_rewrite_ := should_rewrite;
+  let files = (pass_by_ref should_rewrite)#visit_files [] files in
+  files
 
 let hidden_visibility = {|
 #if defined(__GNUC__) && !(defined(_WIN32) || defined(_WIN64))

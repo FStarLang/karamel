@@ -541,6 +541,11 @@ Supported options:|}
    * checking it. Note that bundling calls [drop_unused] already to do a first
    * round of unused code elimination! *)
   let files = Bundles.make_bundles files in
+  let has_spinlock = List.exists (fun (_, ds) ->
+    List.exists (fun d ->
+      fst (Ast.lid_of_decl d) = [ "Steel"; "SpinLock" ]
+    ) ds
+  ) files in
   (* This needs to happen before type monomorphization, so that list<t> and
    * list<t'> don't generate two distinct declarations (e.g. list__t and
    * list__t'). Also needs to happen before monomorphization of equalities. *)
@@ -626,7 +631,7 @@ Supported options:|}
    *
    * There is an extraneous call to "simplify 2" before "in memory"; it would be
    * good to remove it. *)
-  let files = if not !Options.struct_passing then Structs.pass_by_ref files else files in
+  let files = if not !Options.struct_passing || has_spinlock then Structs.pass_by_ref files else files in
   let files =
     if !Options.wasm then
       let files = Simplify.sequence_to_let#visit_files () files in
@@ -662,6 +667,7 @@ Supported options:|}
   let files = if Options.(!merge_variables <> No) then SimplifyMerge.simplify files else files in
   if !arg_print_structs then
     print PrintAst.print_files files;
+  Structs.check_for_illegal_copies files;
   let has_errors, files = Checker.check_everything files in
   tick_print (not has_errors) "Structs + Simplify 2";
 
