@@ -83,7 +83,7 @@ let print_program p decls =
 
 let print_files print_decl files =
   separate_map hardline (fun (f, p) ->
-    string (String.uppercase f) ^^ colon ^^ jump (print_program print_decl p)
+    string (String.uppercase_ascii f) ^^ colon ^^ jump (print_program print_decl p)
   ) files
 
 let printf_of_pprint f =
