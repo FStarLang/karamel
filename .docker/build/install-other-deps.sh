@@ -3,5 +3,8 @@
 set -e
 set -x
 
+build_home="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$build_home/../.."
+
 grep -v -i fstar < karamel.opam > karamel-nofstar.opam
 opam install --deps-only ./karamel-nofstar.opam
