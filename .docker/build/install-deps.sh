@@ -9,7 +9,12 @@ build_home="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 opam depext conf-gmp z3.4.8.5 conf-m4
 
 # Identify the F* branch
-FSTAR_BRANCH=$(jq -c -r '.BranchName' "$build_home"/config.json)
+if [[ -z "$FSTAR_BRANCH" ]] ; then
+    FSTAR_BRANCH=$(jq -c -r '.BranchName' "$build_home"/config.json)
+    if [[ -z "$FSTAR_BRANCH" ]] ; then
+        FSTAR_BRANCH=master
+    fi
+fi
 
 # Install F*
 [[ -n "$FSTAR_HOME" ]]
