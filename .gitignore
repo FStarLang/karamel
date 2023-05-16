@@ -11,3 +11,4 @@ fstar-mode.el
 .#*
 src/Version.ml
 *.runlim
+karamel-nofstar.opam
