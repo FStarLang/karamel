@@ -5,6 +5,9 @@ on:
     - _**
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Midnight UTC
+    - cron: '0 0 * * *'
 jobs:
   build:
     runs-on: [self-hosted, linux, X64]
