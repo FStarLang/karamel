@@ -334,7 +334,7 @@ let check_for_illegal_copies files =
 
 let pass_by_ref files =
   let is_struct = mk_is_struct files in
-  let should_rewrite = function
+  let should_rewrite_base = function
     (* The Steel SpinLock type is a type that violates the value semantics of
        Low*. Its low-level implementation, using pthread, relies on the address
        where the value lives; therefore, this is a type that cannot be passed by
@@ -376,18 +376,20 @@ let pass_by_ref files =
     | _ ->
         []
   in
-  let should_rewrite t =
+  (* NOTE: this does not perform a fixpoint computation, so for recursive types,
+     this will perhaps not implement the desirable behavior *)
+  let should_rewrite_one should_rewrite t =
     if is_struct t && List.exists (fun t -> should_rewrite t = NoCopies) (fields t) then
       NoCopies
     else
-      should_rewrite t
+      should_rewrite_base t
   in
-  let should_rewrite =
+  let rec should_rewrite =
     let cache = Hashtbl.create 41 in
     fun t ->
       try Hashtbl.find cache t
       with Not_found ->
-        let r = should_rewrite t in
+        let r = should_rewrite_one should_rewrite t in
         Hashtbl.add cache t r;
         (* KPrint.bprintf "should_rewrite %a: %a" ptyp t ppol r; *)
         r
