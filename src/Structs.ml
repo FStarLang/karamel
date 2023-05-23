@@ -304,7 +304,7 @@ let should_rewrite lid = !should_rewrite_ lid
 let check_for_illegal_copies files =
   (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
   (object (self)
-    inherit [_] iter as super
+    inherit [_] iter
 
     method! visit_EAssign _ e e' =
       if should_rewrite e.typ = NoCopies then
