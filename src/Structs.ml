@@ -301,6 +301,22 @@ end
 let should_rewrite_ = ref (fun _ -> Never)
 let should_rewrite lid = !should_rewrite_ lid
 
+let tip = {|
+This is hard to debug, so here are some tips.
+- Pass -dstructs to krml and try to locate where the illegal copy takes place.
+  Perhaps you can rewrite your code.
+- If the illegal copy stems from a global (top-level) variable definition.
+  - Make sure your global is of the form let x = f ()
+  - Barring that, try making it `inline_for_extraction noextract`
+- If the illegal copy stems from composite structs that contain a spinlock, krml
+  guarantees that functions that take/return such structs will do so by
+  reference. It is then a matter of making sure that both caller and callee do
+  not contain copies of the problematic field (e.g. a spinlock). To that end,
+  krml guarantees a few peephole optimizations that are solely aimed at removing
+  those copies. See
+  https://github.com/FStarLang/karamel/blob/578af02c9e9a4efe9e67abfe7eb1e1640c2c9870/src/Simplify.ml#L668-L681
+  and below, or add a new dedicated one if it makes sense.|}
+
 let check_for_illegal_copies files =
   (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
   (object (self)
@@ -310,9 +326,10 @@ let check_for_illegal_copies files =
       if should_rewrite e.typ = NoCopies then
         Warn.fatal_error "In the assignment %a, the left-hand side has a type that \
           should not be copied (namely, %a) -- please rewrite your \
-          code"
+          code\n%s"
           pexpr (Helpers.with_unit (EAssign (e, e')))
           ptyp e.typ
+          tip;
       self#visit_expr_w () e;
       self#visit_expr_w () e'
 
@@ -320,9 +337,10 @@ let check_for_illegal_copies files =
       if should_rewrite e3.typ = NoCopies then
         Warn.fatal_error "In the array update %a, the left-hand side has a type that \
           should not be copied (namely, %a) -- please rewrite your \
-          code"
+          code\n%s"
           pexpr (Helpers.with_unit (EBufWrite (e1, e2, e3)))
           ptyp e3.typ
+          tip;
       self#visit_expr_w () e2;
       self#visit_expr_w () e3
 
@@ -330,10 +348,11 @@ let check_for_illegal_copies files =
       if should_rewrite b.typ = NoCopies && e2.node <> EAny then
         Warn.fatal_error "The let-binding let %s = %a creates a copy of a type that \
           should not be copied (namely, %a) -- please rewrite your \
-          code"
+          code\n%s"
           b.node.name
           pexpr e1
-          ptyp b.typ;
+          ptyp b.typ
+          tip;
       self#visit_expr_w () e1;
       self#visit_expr_w () e2
 
