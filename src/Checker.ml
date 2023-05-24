@@ -284,7 +284,6 @@ and check' env t e =
   | EOpen _
   | EQualified _
   | EConstant _
-  | ECast _
   | EUnit
   | EAssign _
   | EOp _
@@ -303,6 +302,11 @@ and check' env t e =
   | EIgnore _
   | EStandaloneComment _
   | EApp _ ->
+      c (infer env e)
+
+  | ECast (_, t) ->
+      if t = TAny then
+        Warn.maybe_fatal_error ("", NotLowStarCast e);
       c (infer env e)
 
   | EComment (_, e, _) ->
@@ -550,6 +554,8 @@ and infer' env e =
       TUnit
 
   | ECast (e, t) ->
+      if t = TAny then
+        Warn.maybe_fatal_error ("", NotLowStarCast e);
       ignore (infer env e);
       t
 
