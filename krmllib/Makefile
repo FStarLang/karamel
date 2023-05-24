@@ -113,7 +113,7 @@ $(GENERIC_DIR):
 $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../src/_build/default/Karamel.exe
 	KRML_HOME=$(shell pwd)/.. \
 	../krml $(KRML_ARGS) -tmpdir $(GENERIC_DIR) \
-	  -warn-error +9+11 \
+	  -warn-error +9+11@26 \
 	  $(MACHINE_INTS) \
 	  $(addprefix -add-include ,'<inttypes.h>' '"krmllib.h"' '"krml/internal/compat.h"' '"krml/internal/target.h"') \
 	  -bundle LowStar.Endianness= \

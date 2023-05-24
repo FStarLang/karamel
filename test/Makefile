@@ -23,7 +23,7 @@ CRYPTO = $(shell \
 ifneq ($(CRYPTO),)
   CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 endif
-TEST_OPTS	= -warn-error @4 -verbose -skip-makefiles
+TEST_OPTS	= -warn-error @4@26 -verbose -skip-makefiles
 KRML_BIN	= ../src/_build/default/Karamel.exe
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 
