@@ -713,6 +713,54 @@ let misc_cosmetic = object (self)
                     e)))
               ) fields)
 
+        (* let x;
+           f(&x);
+           p[0] <- { ... f: x ... };
+           ...
+           -->
+           f (&p[0].f);
+           p.f' <- e';
+           ...
+
+           (Same as above, but in non-terminal position)
+        *)
+        | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
+            { node = ELet (b'', { node = EBufWrite (e4, { node = EConstant (_, "0"); _ }, { node = EFlat fields; _ }); _ }, e5); _ })
+          when b'.node.meta = Some MetaSequence &&
+          b''.node.meta = Some MetaSequence &&
+          List.exists (fun (f, x) -> f <> None && x.node = EBound 1) fields &&
+          !(b.node.mark) = 2 ->
+
+            (* if true then Warn.fatal_error "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
+
+            let f, { typ = x_typ; _ } = List.find (fun (_, x) -> x.node = EBound 1) fields in
+            let f = Option.must f in
+
+            let e3 = snd (DeBruijn.open_binder b e3) in
+            let e4 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4))) in
+            let fields = List.map (fun (f, e) -> f, snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e)))) fields in
+
+            let e4_typ = assert_tbuf e4.typ in
+            Hashtbl.add mutated_types (assert_tlid e4_typ) ();
+            let e4 = with_type e4_typ (EBufRead (e4, Helpers.zerou32)) in
+
+            let e5 = self#visit_expr env e5 in
+
+            ESequence (
+              with_unit (EApp (e3, [
+                with_type (TBuf (x_typ, false)) (EAddrOf (
+                  with_type x_typ (EField (e4, f))))])) ::
+              List.filter_map (fun (f', e) ->
+                let f' = Option.must f' in
+                if f = f' then
+                  None
+                else
+                  Some (with_unit (EAssign (
+                    with_type e.typ (EField (e4, f')),
+                    e)))
+              ) fields @
+              [ e5 ])
+
         (* let x = $any in
               ^^   ^^^
               b     e1
@@ -738,6 +786,12 @@ let misc_cosmetic = object (self)
 
             EApp (e3, [ with_type (TBuf (e4.typ, false)) (EAddrOf e4)])
 
+        (* let x = $any in
+           let _ = f(&x) in
+           let _ = p := x in
+           ...
+
+           (same as above but not in non-terminal position) *)
         | EAny, ELet (b',
             { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
             { node = ELet (b'', { node = EAssign (e4, { node = EBound 1; _ }); _ }, e5); _ })
