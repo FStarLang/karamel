@@ -671,17 +671,16 @@ let misc_cosmetic = object (self)
            let _  = f  (&x) in // sequence
               ^^    ^^
               b'    e3
-           p[0] <- { ... f: x ... }
+           p[k] <- { ... f: x ... }
            ^^     ^^^^^^^^^^^^^
            e4         fs
            -->
-           f (&p[0].f);
-           p.f' <- e';
-           ...
+           f (&p[k].f);
+           p[k].f' <- e'
         *)
         match e1.node, e2.node with
         | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
-            { node = EBufWrite (e4, { node = EConstant (_, "0"); _ }, { node = EFlat fields; _ }); _ })
+            { node = EBufWrite (e4, e4_index, { node = EFlat fields; _ }); _ })
           when b'.node.meta = Some MetaSequence &&
           List.exists (fun (f, x) -> f <> None && x.node = EBound 1) fields &&
           !(b.node.mark) = 2 ->
@@ -693,11 +692,12 @@ let misc_cosmetic = object (self)
 
             let e3 = snd (DeBruijn.open_binder b e3) in
             let e4 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4))) in
+            let e4_index = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4_index))) in
             let fields = List.map (fun (f, e) -> f, snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e)))) fields in
 
             let e4_typ = assert_tbuf e4.typ in
             Hashtbl.add mutated_types (assert_tlid e4_typ) ();
-            let e4 = with_type e4_typ (EBufRead (e4, Helpers.zerou32)) in
+            let e4 = with_type e4_typ (EBufRead (e4, e4_index)) in
 
             ESequence (
               with_unit (EApp (e3, [
@@ -715,17 +715,17 @@ let misc_cosmetic = object (self)
 
         (* let x;
            f(&x);
-           p[0] <- { ... f: x ... };
+           p[k] <- { ... f: x ... };
            ...
            -->
-           f (&p[0].f);
+           f (&p[k].f);
            p.f' <- e';
            ...
 
            (Same as above, but in non-terminal position)
         *)
         | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
-            { node = ELet (b'', { node = EBufWrite (e4, { node = EConstant (_, "0"); _ }, { node = EFlat fields; _ }); _ }, e5); _ })
+            { node = ELet (b'', { node = EBufWrite (e4, e4_index, { node = EFlat fields; _ }); _ }, e5); _ })
           when b'.node.meta = Some MetaSequence &&
           b''.node.meta = Some MetaSequence &&
           List.exists (fun (f, x) -> f <> None && x.node = EBound 1) fields &&
@@ -738,11 +738,12 @@ let misc_cosmetic = object (self)
 
             let e3 = snd (DeBruijn.open_binder b e3) in
             let e4 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4))) in
+            let e4_index = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4_index))) in
             let fields = List.map (fun (f, e) -> f, snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e)))) fields in
 
             let e4_typ = assert_tbuf e4.typ in
             Hashtbl.add mutated_types (assert_tlid e4_typ) ();
-            let e4 = with_type e4_typ (EBufRead (e4, Helpers.zerou32)) in
+            let e4 = with_type e4_typ (EBufRead (e4, e4_index)) in
 
             let e5 = self#visit_expr env e5 in
 
