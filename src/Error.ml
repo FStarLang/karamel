@@ -33,6 +33,7 @@ and raw_error =
   | ConflictMacro of lident * string
   | InlineStaticInline of lident
   | IfDefOnGlobal of lident
+  | NotLowStarCast of expr
 
 and location =
   string

@@ -42,7 +42,7 @@ let fatal_error fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 26 CError;;
+let flags = Array.make 27 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -101,6 +101,8 @@ let errno_of_error = function
       24
   | IfDefOnGlobal _ ->
       25
+  | NotLowStarCast _ ->
+      26
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -199,6 +201,11 @@ let rec perr buf (loc, raw_error) =
       p "%a is marked [@CInline] and also covered by a -static-header krml \
       option... the [@CInline] is redundant because -static-header generates \
       code marked as static inline" plid lid
+  | NotLowStarCast e ->
+      p "Expression %a is cast to the Top type, which typically indicates code \
+      that falls outside of the Low* subset. Please use -dmonomorphization, grep \
+      for <: any in the code, and try to rewrite your source code. miTLS \
+      relies on this but this is completely unsupported." pexpr e
 
 let maybe_fatal_error error =
   flush stdout;
