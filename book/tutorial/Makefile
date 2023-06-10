@@ -86,7 +86,7 @@ FSTAR_ROOTS = $(wildcard $(addsuffix /*.fsti,$(SOURCE_DIRS))) \
 # mtime of the moved files.
 ifndef MAKE_RESTARTS
 .depend: .FORCE
-	$(FSTAR_NO_FLAGS) --dep full $(notdir $(FSTAR_ROOTS)) $(FSTAR_EXTRACT) > $@
+	$(FSTAR_NO_FLAGS) --dep full $(notdir $(FSTAR_ROOTS)) $(FSTAR_EXTRACT) --output_deps_to $@
 
 .PHONY: .FORCE
 .FORCE:

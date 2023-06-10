@@ -68,7 +68,7 @@ FSTAR_ROOTS = $(wildcard $(addsuffix /*.fsti,$(SOURCE_DIRS))) \
 ifndef MAKE_RESTARTS
 obj/.depend: .FORCE
 	mkdir -p obj
-	$(FSTAR_NO_FLAGS) --dep full $(notdir $(FSTAR_ROOTS)) $(FSTAR_EXTRACT) > $@
+	$(FSTAR_NO_FLAGS) --dep full $(notdir $(FSTAR_ROOTS)) $(FSTAR_EXTRACT) --output_deps_to $@
 
 .PHONY: .FORCE
 .FORCE:
