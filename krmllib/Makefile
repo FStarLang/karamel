@@ -66,7 +66,7 @@ clean-c:
 ifndef NODEPEND
 ifndef MAKE_RESTARTS
 .depend: .FORCE obj
-	$(FSTAR) $(OTHERFLAGS) --dep full $(ROOTS) > $@
+	$(FSTAR) $(OTHERFLAGS) --dep full $(ROOTS) --output_deps_to $@
 
 .PHONY: .FORCE
 .FORCE:
