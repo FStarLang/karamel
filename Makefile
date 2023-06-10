@@ -19,7 +19,10 @@ else
     FSTAR_HOME=$(dir $(FSTAR_EXE))/..
     OCAMLPATH:=$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/lib
   else
-    $(error "fstar.exe not found, please install FStar")
+    # If we are just trying to do a minimal build, we don't need F*.
+    ifneq ($(MAKECMDGOALS),minimal)
+      $(error "fstar.exe not found, please install FStar")
+    endif
   endif
 endif
 export FSTAR_HOME
