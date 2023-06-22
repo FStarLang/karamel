@@ -66,15 +66,9 @@ jobs:
           esac
           echo "CI_COMMIT=$(echo ${{ github.sha }} | grep -o '^........')" >> $GITHUB_ENV
           echo "CI_COMMIT_URL=https://github.com/FStarLang/FStar/commit/${{ github.sha }}" >> $GITHUB_ENV
-          if [[ '${{github.event_name}}' == 'schedule' ]]; then
-            CI_TRIGGER='schedule'
-          else
-            CI_TRIGGER='${{github.triggering_actor}}'
-          fi
-          echo "CI_TRIGGER=$CI_TRIGGER" >> $GITHUB_ENV
-      - name: Post to the Slack channel
-        if: ${{ always() }}
-        id: slack
+      - name: Post to the Slack channel (if push/PR)
+        if: ${{ always() && github.event_name != 'schedule' }}
+        id: slack-pushpr
         uses: slackapi/slack-github-action@v1.23.0
         with:
           channel-id: ${{ env.CI_SLACK_CHANNEL }}
@@ -85,7 +79,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "<${{ env.CI_COMMIT_URL }}|${{ env.CI_COMMIT }}> on (${{ github.ref_name }}) by ${{ env.CI_TRIGGER }}"
+                    "text": "<${{ env.CI_COMMIT_URL }}|${{ env.CI_COMMIT }}> on (${{ github.ref_name }}) by ${{github.triggering_actor}}"
                   }
                 },
                 {
@@ -100,6 +94,34 @@ jobs:
                   "text": {
                     "type": "mrkdwn",
                     "text": "${{ env.CI_EMOJI }} <https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}|${{ job.status }}>"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "Duration: ${{ env.CI_TIME_DIFF_H }}h ${{ env.CI_TIME_DIFF_M }}min ${{ env.CI_TIME_DIFF_S }}s"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+      - name: Post to the Slack channel (if schedule)
+        if: ${{ always() && github.event_name == 'schedule' }}
+        id: slack-scheduled
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          channel-id: ${{ env.CI_SLACK_CHANNEL }}
+          payload: |
+            {
+              "blocks" : [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "${{ env.CI_EMOJI }} Nightly CI <https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}|${{ job.status }}> on <${{ env.CI_COMMIT_URL }}|${{ env.CI_COMMIT }}>"
                   }
                 },
                 {
