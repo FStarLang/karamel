@@ -63,10 +63,15 @@ SHELL:=$(shell which bash)
 clean-c:
 	rm -rf dist out extract-all */*.o
 
+FSTAR_EXTRACT:=*
+FSTAR_EXTRACT+=-Prims # No prims, F* won't extract it anyway
+FSTAR_EXTRACT+=-FStar.Tactics -FStar.Reflection # No tactics modules
+FSTAR_EXTRACT+=-FStar.Stubs # This namespace is for interfaces into the compiler, nothing we want to extract here
+
 ifndef NODEPEND
 ifndef MAKE_RESTARTS
 .depend: .FORCE obj
-	$(FSTAR) $(OTHERFLAGS) --dep full $(ROOTS) > $@
+	$(FSTAR) $(OTHERFLAGS) --extract '$(FSTAR_EXTRACT)' --dep full $(ROOTS) --output_deps_to $@
 
 .PHONY: .FORCE
 .FORCE:
@@ -88,7 +93,7 @@ $(EXTRACT_DIR)/%.krml: | .depend
 	$(FSTAR) $(OTHERFLAGS) --codegen krml \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<)) && \
-	touch $@
+	touch -c $@
 
 # We don't extract LowStar.Lib as everything is generic data structures that
 # need to be specialized based on their usage from client code.
@@ -117,7 +122,7 @@ $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c
 	  $(MACHINE_INTS) \
 	  $(addprefix -add-include ,'<inttypes.h>' '"krmllib.h"' '"krml/internal/compat.h"' '"krml/internal/target.h"') \
 	  -bundle LowStar.Endianness= \
-	  -bundle FStar.Endianness,FStar.Reflection,FStar.Reflection.*,FStar.Tactics,FStar.Tactics.*,FStar.Range \
+	  -bundle FStar.Endianness,FStar.Range \
 	  -library C,C.Endianness,C.Failure,C.Loops,FStar.BitVector,FStar.Bytes,FStar.Char,FStar.Int,FStar.Krml.Endianness,FStar.Math.Lib,FStar.ModifiesGen,FStar.Monotonic.Heap,FStar.Monotonic.HyperStack,FStar.Mul,FStar.Pervasives,FStar.Pervasives.Native,FStar.ST,FStar.UInt,FStar.UInt63,LowStar.Printf \
 	  $(filter-out fstar_uint128_msvc.c,$(notdir $(wildcard c/*.c))) \
 	  -o libkrmllib.a \
