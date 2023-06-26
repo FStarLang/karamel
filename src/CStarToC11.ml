@@ -1289,7 +1289,7 @@ let mk_file m decls =
         (if_private_or_abstract_struct (mk_type_or_external m C))))
     decls
 
-let mk_files (map: (Ast.lident, Ast.ident) Hashtbl.t) files =
+let mk_files (map: GlobalNames.mapping) files =
   List.map (fun (name, program) -> name, mk_file map program) files
 
 (* Building three flavors of headers. *)
@@ -1311,7 +1311,7 @@ let mk_static f d =
 
 (* Generates either a static header (the union of public + internal), OR just
    the public part. *)
-let mk_public_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
+let mk_public_header (m: GlobalNames.mapping) decls =
   (* In the header file, we put functions and global stubs, along with type
    * definitions that are visible from the outside. *)
   (* What should be the behavior for a type declaration marked as CAbstract but
@@ -1327,7 +1327,7 @@ let mk_public_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
     decls
 
 (* Private part if not already a static header, empty otherwise. *)
-let mk_internal_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
+let mk_internal_header (m: GlobalNames.mapping) decls =
   KList.map_flatten
     (if_internal (
       (if_header_inline_static m
@@ -1335,7 +1335,7 @@ let mk_internal_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
         (either (mk_function_or_global_stub m) (mk_type_or_external m H)))))
     decls
 
-let mk_headers (map: (Ast.lident, Ast.ident) Hashtbl.t)
+let mk_headers (map: GlobalNames.mapping)
   (files: (string * CStar.decl list) list)
 =
   (* Generate headers with a sensible order for the message "WRITING H FILES: ...". *)

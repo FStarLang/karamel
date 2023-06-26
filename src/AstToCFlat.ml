@@ -67,7 +67,7 @@ type env = {
      *     StringLiteral. The strings are shared in memory at compile-time, and
      *     hashconsing in CFlatToWasm guarantees that they are shared in the
      *     resulting code, too. *)
-  names: (lident, ident) Hashtbl.t;
+  names: GlobalNames.mapping;
 }
 
 

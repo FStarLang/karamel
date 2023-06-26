@@ -433,7 +433,7 @@ let collect_initializers (files: Ast.file list) =
       inherit [_] map
       method! visit_DFunction _ cc flags n ret name binders body =
         let body =
-          if GlobalNames.target_c_name ~attempt_shortening:false name = "main" then begin
+          if fst (GlobalNames.target_c_name ~attempt_shortening:false name) = "main" then begin
             found := true;
             with_type ret (ESequence [
               with_type TUnit (EApp (
