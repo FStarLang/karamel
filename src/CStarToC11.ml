@@ -59,10 +59,9 @@ module S = Set.Make(String)
 let rec vars_of m = function
   | CStar.Var v ->
       S.singleton v
-  | Qualified v ->
-      S.singleton (to_c_name m v)
+  | Qualified v
   | Macro v ->
-      S.singleton (String.uppercase_ascii (to_c_name m v))
+      S.singleton (to_c_name m v)
   | Constant _
   | Bool _
   | StringLiteral _
@@ -909,11 +908,9 @@ and mk_expr m (e: expr): C.expr =
   | Var ident ->
       Name ident
 
-  | Qualified ident ->
-      Name (to_c_name m ident)
-
+  | Qualified ident
   | Macro ident ->
-      Name (String.uppercase_ascii (to_c_name m ident))
+      Name (to_c_name m ident)
 
   | Constant (w, c) ->
       Cast (([], Int w, Ident ""), Constant (w, c))

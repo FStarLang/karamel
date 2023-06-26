@@ -221,12 +221,12 @@ let pascal_case name =
     done;
     Buffer.contents b
   else
-    String.uppercase_ascii (String.sub name 0 1) ^ 
+    String.uppercase_ascii (String.sub name 0 1) ^
     String.sub name 1 (String.length name - 1)
 
 let camel_case name =
   let name = pascal_case name in
-  String.lowercase_ascii (String.sub name 0 1) ^ 
+  String.lowercase_ascii (String.sub name 0 1) ^
   String.sub name 1 (String.length name - 1)
 
 let strip_leading_underscores name =
@@ -272,6 +272,7 @@ let target_c_name ~attempt_shortening ?(kind=Other) lid =
     else
       pre_name
   in
+  let formatted_name = if kind = Macro then String.uppercase_ascii formatted_name else formatted_name in
   formatted_name, non_modular_renaming
 
 let to_c_name ?kind m lid =
