@@ -87,3 +87,27 @@ and object6_pair = {
   object6_pair_payload: object6;
 }
 *)
+
+// This test extracts. It should compile, but the C compiler complains with object7_pair incomplete because KaRaMeL extracted it too early
+
+noeq
+type object7_tagged = {
+  object7_tagged_tag: U64.t;
+  object7_tagged_payload: ref object7;
+}
+and object7_map = {
+  object7_map_entry_count: U64.t;
+  object7_map_payload: ref object7_pair;
+}
+and object7_case = {
+  object7_case_tagged: object7_tagged;
+  object7_case_map: object7_map;
+}
+and object7 = {
+  object7_type: U8.t;
+  object7_payload: object7_case;
+}
+and object7_pair = {
+  object7_pair_fst: object7;
+  object7_pair_snd: object7;
+}
