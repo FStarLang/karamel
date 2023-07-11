@@ -423,7 +423,7 @@ let cross_call_analysis files =
   (* Fixpoint computation *)
   let module F = Fix.Fix.ForOrderedType(struct
     type t = lident
-    let compare = Pervasives.compare
+    let compare = Stdlib.compare
   end)(struct
     type property = visibility
     let bottom = Private

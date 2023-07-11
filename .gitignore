@@ -9,6 +9,7 @@ tags
 book/_build
 fstar-mode.el
 .#*
-src/Version.ml
+lib/Version.ml
 *.runlim
 karamel-nofstar.opam
+lib/AutoConfig.ml
