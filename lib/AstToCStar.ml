@@ -745,7 +745,7 @@ and mk_declaration m env d: (CStar.decl * _) option =
         mk_type env t,
         mk_expr env false body), [])
 
-  | DExternal (cc, flags, name, t, pp) ->
+  | DExternal (cc, flags, _, name, t, pp) ->
       if LidSet.mem name env.ifdefs then
         None
       else
@@ -843,18 +843,18 @@ let mk_macros_set files =
         LidSet.empty
   end)#visit_files () files
 
-let mk_ifdefs_set files =
+let mk_ifdefs_set files: LidSet.t =
   (object
     inherit [_] reduce as super
     method private zero = LidSet.empty
     method private plus = LidSet.union
-    method visit_DExternal _ _ flags name _ _ =
+    method! visit_DExternal _env _cc (flags: flag list) _n (name: lident) _t _hints: LidSet.t =
       if List.mem Common.IfDef flags then
         LidSet.singleton name
       else
         LidSet.empty
-    method visit_DGlobal env flags name n t =
+    method! visit_DGlobal env flags name n t e: LidSet.t =
       if List.mem Common.IfDef flags then
         Warn.maybe_fatal_error ("", IfDefOnGlobal name);
-      super#visit_DGlobal env flags name n t
+      super#visit_DGlobal env flags name n t e
   end)#visit_files () files

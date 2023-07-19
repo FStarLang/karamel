@@ -10,10 +10,10 @@ open Helpers
 let t_string = TQualified (["Prims"], "string")
 
 let mk_binop m n t =
-  DExternal (None, [ ], (m, n), TArrow (t, TArrow (t, t)), [ "x"; "y" ])
+  DExternal (None, [ ], 0, (m, n), TArrow (t, TArrow (t, t)), [ "x"; "y" ])
 
 let mk_val ?(flags=[]) m n t =
-  DExternal (None, flags, (m, n), t, [])
+  DExternal (None, flags, 0, (m, n), t, [])
 
 let prims: file =
   let t = TInt K.CInt in
@@ -354,12 +354,12 @@ let make_abstract_function_or_global = function
   | DFunction (cc, flags, n, t, name, bs, _) ->
       let t = fold_arrow (List.map (fun b -> b.typ) bs) t in
       if n = 0 then
-        Some (DExternal (cc, flags, name, t, List.map (fun x -> x.node.name) bs))
+        Some (DExternal (cc, flags, 0, name, t, List.map (fun x -> x.node.name) bs))
       else
         None
   | DGlobal (flags, name, n, t, _) when not (List.mem Common.Macro flags) ->
       if n = 0 then
-        Some (DExternal (None, flags, name, t, []))
+        Some (DExternal (None, flags, 0, name, t, []))
       else
         None
   | DType (name, flags, _, _) when List.mem Common.AbstractStruct flags ->

@@ -130,7 +130,7 @@ let populate_env files =
             Warn.fatal_error "%a is polymorphic\n" plid lid;
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
-      | DExternal (_, _, lid, typ, _) ->
+      | DExternal (_, _, _, lid, typ, _) ->
           { env with globals = M.add lid typ env.globals }
     ) env decls
   ) empty files

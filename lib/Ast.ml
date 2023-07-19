@@ -411,7 +411,7 @@ and files =
 and decl =
   | DFunction of calling_convention option * flag list * int * typ * lident * binders_w * expr_w
   | DGlobal of flag list * lident * int * typ * expr_w
-  | DExternal of calling_convention option * flag list * lident * typ * string list
+  | DExternal of calling_convention option * flag list * int * lident * typ * string list
     (** String list: only for pretty-printing purposes, names of the first few
      * known arguments. *)
   | DType of lident * flag list * int * type_def
@@ -623,7 +623,7 @@ let with_type typ node =
 let lid_of_decl = function
   | DFunction (_, _, _, _, lid, _, _)
   | DGlobal (_, lid, _, _, _)
-  | DExternal (_, _, lid, _, _)
+  | DExternal (_, _, _, lid, _, _)
   | DType (lid, _, _, _) ->
       lid
 
@@ -631,7 +631,7 @@ let flags_of_decl = function
   | DFunction (_, flags, _, _, _, _, _)
   | DGlobal (flags, _, _, _, _)
   | DType (_, flags, _, _)
-  | DExternal (_, flags, _, _, _) ->
+  | DExternal (_, flags, _, _, _, _) ->
       flags
 
 let tuple_lid = [ "K" ], ""

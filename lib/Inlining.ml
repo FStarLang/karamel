@@ -410,7 +410,7 @@ let cross_call_analysis files =
              limited, this is still useful e.g. in the presence of function
              pointers. *)
           (visit true)#visit_expr_w () e
-      | DExternal (_, _, _, t, _) ->
+      | DExternal (_, _, _, _, t, _) ->
           (visit false)#visit_typ () t
       | DType (_, flags, _, d) ->
           if not (List.mem Common.AbstractStruct flags) then
@@ -465,8 +465,8 @@ let cross_call_analysis files =
           DFunction (cc, adjust flags, n, t, name, bs, e)
       | DGlobal (flags, name, n, t, e) ->
           DGlobal (adjust flags, name, n, t, e)
-      | DExternal (cc, flags, name, t, hints) ->
-          DExternal (cc, adjust flags, name, t, hints)
+      | DExternal (cc, flags, n, name, t, hints) ->
+          DExternal (cc, adjust flags, n, name, t, hints)
       | DType (name, flags, n, def) ->
           DType (name, adjust flags, n, def)
     ) decls

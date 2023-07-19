@@ -1065,7 +1065,7 @@ let mk_decl env (d: decl): env * CF.decl list =
           CF.Global (name, size, body, post_init, public)
         ]
 
-  | DExternal (_, _, lid, t, _) ->
+  | DExternal (_, _, _, lid, t, _) ->
       let name = GlobalNames.to_c_name env.names lid in
       match t with
       | TArrow _ ->

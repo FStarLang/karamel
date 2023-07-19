@@ -48,9 +48,9 @@ let rec mk_decl = function
   | I.DTypeFlat (name, flags, n, fields) ->
       DType (name, flags, n, Flat (mk_tfields_opt fields))
   | I.DExternal (cc, flags, name, t) ->
-      DExternal (cc, flags, name, mk_typ t, [])
+      DExternal (cc, flags, 0, name, mk_typ t, [])
   | I.DExternal2 (cc, flags, name, t, arg_names) ->
-      DExternal (cc, flags, name, mk_typ t, arg_names)
+      DExternal (cc, flags, 0, name, mk_typ t, arg_names)
   | I.DTypeVariant (name, flags, n, branches) ->
       DType (name, flags, n,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
