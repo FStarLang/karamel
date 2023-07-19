@@ -345,7 +345,7 @@ let check_for_illegal_copies files =
       self#visit_expr_w () e3
 
     method! visit_ELet _ b e1 e2 =
-      if should_rewrite b.typ = NoCopies && e2.node <> EAny then
+      if should_rewrite b.typ = NoCopies && e1.node <> EAny then
         Warn.fatal_error "The let-binding let %s = %a creates a copy of a type that \
           should not be copied (namely, %a) -- please rewrite your \
           code\n%s"
