@@ -28,6 +28,7 @@ let bytes_of_width (w: width) =
 type op =
   (* Arithmetic operations *)
   | Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
+  | Neg
   (* Bitwise operations *)
   | BOr | BAnd | BXor | BShiftL | BShiftR | BNot
   (* Arithmetic comparisons / boolean comparisons *)

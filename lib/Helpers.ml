@@ -45,7 +45,7 @@ let type_of_op op w =
       TArrow (TBool, TArrow (TBool, TBool))
   | Not ->
       TArrow (TBool, TBool)
-  | BNot ->
+  | BNot | Neg ->
       TArrow (TInt w, TInt w)
   | Assign | PreIncr | PreDecr | PostIncr | PostDecr | Comma ->
       invalid_arg "type_of_op"
