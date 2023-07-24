@@ -55,7 +55,7 @@ let rec mk_decl = function
       DType (name, flags, n,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
   | I.DTypeAbstractStruct name ->
-      DType (name, [], 0, Forward)
+      DType (name, [], 0, Forward FStruct)
   | I.DUntaggedUnion (name, flags, n, branches) ->
       DType (name, flags, n, Union (List.map (fun (f, t) -> f, mk_typ t) branches))
 

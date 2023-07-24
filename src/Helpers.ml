@@ -181,6 +181,10 @@ let is_null = function
   | { node = EBufNull; _ } -> true
   | _ -> false
 
+let is_forward = function
+  | Forward _ -> true
+  | _ -> false
+
 let is_uu name = KString.starts_with name "uu__"
 
 let pattern_matches p lid =
