@@ -8,7 +8,7 @@
       1,
       [ "@query" ],
       0,
-      "4f9f918a6e082d7db9d4092ad0ff6b81"
+      "45b6350ba401f6a379a17e5e6fca46fa"
     ],
     [
       "TestLib.unsafe_malloc",
@@ -17,7 +17,7 @@
       1,
       [ "@query" ],
       0,
-      "97bccd80df3f5de56d2fed4211c8b91e"
+      "40dbfc22afca7d5851a2b96d20b56b20"
     ]
   ]
 ]

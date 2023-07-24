@@ -175,7 +175,7 @@ let monomorphize_data_types map = object(self)
           begin match Hashtbl.find map lid with
           | exception Not_found ->
               Hashtbl.replace state n (Black, chosen_lid)
-          | flags, (Variant _ | Flat _) when under_ref && not (Hashtbl.mem seen_declarations lid) ->
+          | flags, (Variant _ | Flat _ | Union _) when under_ref && not (Hashtbl.mem seen_declarations lid) ->
               (* Because this looks up a definition in the global map, the
                  definitions are reordered according to the traversal order, which
                  is generally a good idea (we accept more programs!), EXCEPT
@@ -205,6 +205,14 @@ let monomorphize_data_types map = object(self)
           | flags, Flat fields ->
               let fields = self#visit_fields_t_opt under_ref (subst fields) in
               self#record (DType (chosen_lid, flag @ flags, 0, Flat fields));
+              Hashtbl.replace state n (Black, chosen_lid)
+          | flags, Union fields ->
+              let fields = List.map (fun (f, t) ->
+                let t = DeBruijn.subst_tn args t in
+                let t = self#visit_typ under_ref t in
+                f, t
+              ) fields in
+              self#record (DType (chosen_lid, flag @ flags, 0, Union fields));
               Hashtbl.replace state n (Black, chosen_lid)
           | flags, Abbrev t ->
               let t = DeBruijn.subst_tn args t in
@@ -294,7 +302,7 @@ let monomorphize_data_types map = object(self)
           Hashtbl.add seen_declarations lid ();
           self#clear ()
 
-      | DType (lid, _, n, (Flat _ | Variant _ | Abbrev _)) ->
+      | DType (lid, _, n, (Flat _ | Variant _ | Abbrev _ | Union _)) ->
           (* Re-inserted by visit_node... don't insert twice. *)
           assert (n = 0);
           (* FIXME: the logic here is quite twisted... it should be simplified. My
