@@ -292,6 +292,7 @@ and check' env t e =
   | EBufNull
   | EReturn _
   | EBreak
+  | EContinue
   | EBool _
   | EWhile _
   | EEnum _
@@ -460,6 +461,7 @@ and check' env t e =
   | EAddrOf e ->
       let t = infer env e in
       c (TBuf (t, false))
+
 
 and check_case env c t =
   match c, t with
@@ -670,6 +672,7 @@ and infer' env e =
       (** TODO: check that [EReturn] matches the expected return type *)
       TAny
 
+  | EContinue
   | EBreak ->
       TUnit
 

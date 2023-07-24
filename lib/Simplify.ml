@@ -1264,7 +1264,7 @@ and hoist_expr loc pos e =
   | ESequence _ ->
       fatal_error "[hoist_t]: sequences should've been translated as let _ ="
 
-  | EReturn _ | EBreak ->
+  | EReturn _ | EBreak | EContinue ->
       raise_error (Unsupported "[return] or [break] expressions should only appear in statement position")
 
 (* TODO: figure out if we want to ignore the other cases for performance

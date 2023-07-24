@@ -97,6 +97,7 @@ and vars_of_stmt m = function
   | CStar.Abort _
   | Return _
   | Break
+  | Continue
   | Comment _ ->
       S.empty
   | Ignore e
@@ -522,6 +523,9 @@ and mk_stmt m (stmt: stmt): C.stmt list =
 
   | Break ->
       [ Break ]
+
+  | Continue ->
+      [ Continue ]
 
   | Ignore e ->
       [ Expr (mk_expr m e) ]

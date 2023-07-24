@@ -106,6 +106,9 @@ let mk_or e1 e2 =
 let mk_uint32 i =
   with_type (TInt K.UInt32) (EConstant (K.UInt32, string_of_int i))
 
+let mk_sizet i =
+  with_type (TInt K.SizeT) (EConstant (K.SizeT, string_of_int i))
+
 (* e - 1 *)
 let mk_minus_one e =
   with_type uint32 (
@@ -362,7 +365,7 @@ let assert_tlid t =
   match t with TQualified lid -> lid | _ -> assert false
 
 let assert_tbuf t =
-  match t with TBuf (t, _) -> t | _ -> assert false
+  match t with TBuf (t, _) -> t | t -> Warn.fatal_error "Not a buffer: %a" ptyp t
 
 let assert_elid t =
   (* We only have nominal typing for variants. *)

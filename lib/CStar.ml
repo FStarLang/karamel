@@ -24,6 +24,7 @@ and stmt =
   | Abort of string
   | Return of expr option
   | Break
+  | Continue
   | Ignore of expr
   | Decl of binder * expr
     (** Scope is: statements that follow. *)

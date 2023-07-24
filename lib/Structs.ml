@@ -512,6 +512,7 @@ let to_addr is_struct =
     | EOp _
     | EPolyComp _
     | EBreak
+    | EContinue
     | EConstant _
     | EPushFrame
     | EPopFrame

@@ -117,6 +117,7 @@ and stmt =
   | Switch of expr * (expr * stmt) list * stmt
     (** the last component is the default statement *)
   | Break
+  | Continue
   | Comment of string
     (** note: this is not in the C grammar *)
 

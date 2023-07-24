@@ -516,6 +516,9 @@ and mk_stmts env e ret_type =
     | EBreak ->
         env, CStar.Break :: acc
 
+    | EContinue ->
+        env, CStar.Continue :: acc
+
     | EPushFrame ->
         env, acc
 

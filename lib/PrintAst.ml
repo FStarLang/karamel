@@ -305,6 +305,8 @@ and print_expr { node; typ } =
       parens_with_nesting (print_poly_comp c ^^ comma ^^ space ^^ print_typ t)
   | EBufNull ->
       string "NULL" ^^ langle ^^ print_typ typ ^^ rangle
+  | EContinue ->
+      string "continue"
 
 and print_poly_comp = function
   | PEq -> equals

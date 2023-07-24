@@ -968,6 +968,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EReturn _ ->
       invalid_arg "return shouldnt've been inserted"
 
+  | EContinue
   | EBreak ->
       failwith "todo break"
 
