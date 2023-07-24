@@ -364,7 +364,7 @@ let make_abstract_function_or_global = function
         None
   | DType (name, flags, _, _) when List.mem Common.AbstractStruct flags ->
       (* We assume the module doesn't lie and the CAbstractStruct will type-check in C. *)
-      Some (DType (name, List.filter ((<>) Common.AbstractStruct) flags, 0, Forward))
+      Some (DType (name, List.filter ((<>) Common.AbstractStruct) flags, 0, Forward FStruct))
   | d ->
       Some d
 

@@ -1385,7 +1385,7 @@ let record_toplevel_names = object (self)
       self#record env ~is_type:true ~is_external:false flags name;
     match def with
     | Enum lids -> List.iter (self#record env ~is_type:true ~is_external:false flags) lids
-    | Forward -> Hashtbl.add forward name ()
+    | Forward _ -> Hashtbl.add forward name ()
     | _ -> ()
 end
 

@@ -69,7 +69,11 @@ let rec p_type_spec = function
   | Union (name, decls) ->
       group (string "union" ^/^
       (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
-      braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
+      (match decls with
+      | Some decls ->
+          braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
+      | None ->
+          empty)
   | Struct (name, decls) ->
       group (string "struct" ^/^
       (match name with Some name -> string name | None -> empty)) ^^
