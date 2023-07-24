@@ -13,6 +13,11 @@ type lifetime =
   | Heap
   [@@deriving yojson,show]
 
+type forward_kind =
+  | FUnion
+  | FStruct
+  [@@deriving yojson,show]
+
 type flag =
   | Private
       (** An F* private qualifier. *)

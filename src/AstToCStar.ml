@@ -755,8 +755,8 @@ and mk_declaration m env d: (CStar.decl * _) option =
         in
         Some (CStar.External (name, add_cc (mk_type env t), flags, pp), [])
 
-  | DType (name, flags, _, Forward) ->
-      Some (CStar.TypeForward (name, flags), [ GlobalNames.to_c_name m name ])
+  | DType (name, flags, _, Forward k) ->
+      Some (CStar.TypeForward (name, flags, k), [ GlobalNames.to_c_name m name ])
 
   | DType (name, flags, 0, def) ->
       Some (CStar.Type (name, mk_type_def env def, flags), [ GlobalNames.to_c_name m name ] )
@@ -787,7 +787,7 @@ and mk_type_def env d: CStar.typ =
         f, mk_type env t
       ) fields)
 
-  | Forward ->
+  | Forward _ ->
       failwith "impossible, handled by mk_declaration"
 
 
