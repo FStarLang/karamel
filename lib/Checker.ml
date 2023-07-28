@@ -14,7 +14,7 @@ open PrintAst.Ops
 open Helpers
 
 (* For internal use; allows enabling debug after certain phases. *)
-let debug = ref false
+let debug = ref true
 
 let buf_any_msg = format_of_string {|
 This subexpression creates a buffer with an unknown type:
@@ -347,7 +347,7 @@ and check' env t e =
         checker_error env buf_any_msg ppexpr e;
       check env t e1;
       check_array_index env e2;
-      c (best_buffer_type t e2)
+      c (best_buffer_type lifetime t e2)
 
   | EBufRead (e1, e2) ->
       check_array_index env e2;
@@ -511,9 +511,9 @@ and prefer_nominal t1 t2 =
   | _, _ ->
       t1
 
-and best_buffer_type t1 e2 =
-  match e2.node with
-  | EConstant k ->
+and best_buffer_type l t1 e2 =
+  match e2.node, l with
+  | EConstant k, Common.Stack ->
       TArray (t1, k)
   | _ ->
       TBuf (t1, false)
@@ -521,13 +521,15 @@ and best_buffer_type t1 e2 =
 
 and infer' env e =
   match e.node with
-  | ETApp (e, t) ->
+  | ETApp (e, ts) ->
       begin match e.node with
       | EOp ((K.Eq | K.Neq), _) ->
-          let t = KList.one t in
+          (* Special incorrect encoding of polymorphic equalities *)
+          let t = KList.one ts in
           TArrow (t, TArrow (t, TBool))
       | _ ->
-          assert false
+          let t = infer env e in
+          DeBruijn.subst_tn ts t
       end
 
   | EPolyComp (_, t) ->
@@ -608,10 +610,10 @@ and infer' env e =
       check env t e2;
       TUnit
 
-  | EBufCreate (_, e1, e2) ->
+  | EBufCreate (l, e1, e2) ->
       let t1 = infer env e1 in
       check_array_index env e2;
-      best_buffer_type t1 e2
+      best_buffer_type l t1 e2
 
   | EBufRead (e1, e2) ->
       check_array_index env e2;
