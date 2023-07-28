@@ -367,9 +367,12 @@ let assert_tlid t =
 let assert_tbuf t =
   match t with TBuf (t, _) -> t | t -> Warn.fatal_error "Not a buffer: %a" ptyp t
 
+let assert_tarray t =
+  match t with TArray (t, _) -> t | t -> Warn.fatal_error "Not an array: %a" ptyp t
+
 let assert_elid t =
   (* We only have nominal typing for variants. *)
-  match t with EQualified lid -> lid | _ -> assert false
+  match t with EQualified lid -> lid | _ -> Warn.fatal_error "Not an equalified: %a" pexpr (with_type TAny t)
 
 let assert_tbuf_or_tarray t =
   match t with
