@@ -68,6 +68,7 @@ let rec vars_of m = function
   | StringLiteral _
   | Any
   | EAbort _
+  | Type _
   | BufNull
   | Op _ ->
       S.empty
@@ -972,6 +973,9 @@ and mk_expr m (e: expr): C.expr =
 
   | Stmt s ->
       Stmt (KList.map_flatten (mk_stmt m) s)
+
+  | Type t ->
+      Type (mk_type m t)
 
 
 and mk_compound_literal m name fields =

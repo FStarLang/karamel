@@ -1024,6 +1024,9 @@ and hoist_stmt loc e =
   | EBreak ->
       mk EBreak
 
+  | EContinue ->
+      mk EContinue
+
   | EComment (s, e, s') ->
       mk (EComment (s, hoist_stmt loc e, s'))
 
@@ -1045,8 +1048,9 @@ and hoist_stmt loc e =
 and hoist_expr loc pos e =
   let mk node = { node; typ = e.typ } in
   match e.node with
-  | ETApp _ ->
-      assert false
+  | ETApp (e, ts) ->
+      let lhs, e = hoist_expr loc Unspecified e in
+      lhs, mk (ETApp (e, ts))
 
   | EBufNull
   | EAbort _
@@ -1273,8 +1277,24 @@ and hoist_expr loc pos e =
   | ESequence _ ->
       fatal_error "[hoist_t]: sequences should've been translated as let _ ="
 
-  | EReturn _ | EBreak | EContinue ->
-      raise_error (Unsupported "[return] or [break] expressions should only appear in statement position")
+  | EReturn e ->
+      if pos = UnderStmtLet || pos = UnderConditional then
+        let lhs, e = hoist_expr loc Unspecified e in
+        lhs, mk (EReturn e)
+      else
+        Warn.fatal_error "%a: %s" Loc.ploc loc "[return] expressions should only appear in statement position"
+
+  | EBreak ->
+      if pos = UnderStmtLet || pos = UnderConditional then
+        [], mk EBreak
+      else
+        Warn.fatal_error "%a: %s" Loc.ploc loc "[break] expressions should only appear in statement position"
+
+  | EContinue ->
+      if pos = UnderStmtLet || pos = UnderConditional then
+        [], mk EContinue
+      else
+        Warn.fatal_error "%a: %s" Loc.ploc loc "[continue] expressions should only appear in statement position"
 
 (* TODO: figure out if we want to ignore the other cases for performance
  * reasons. *)

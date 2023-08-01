@@ -113,3 +113,5 @@ let default_options () =
  * now to use drop is if whatever definitions are in this module are NOT
  * implemented with external linkage (static inline, macros). *)
 let drop: Bundle.pat list ref = ref []
+
+let allow_tapps = ref false

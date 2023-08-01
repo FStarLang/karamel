@@ -210,6 +210,15 @@ let rec mk_expr env in_stmt e =
         CStar.Qualified lident
   | EConstant c ->
       CStar.Constant c
+
+  | ETApp ({ node = EApp (e, es); _ }, ts) when !Options.allow_tapps ->
+      CStar.Call (mk_expr env e,
+        List.map (mk_expr env) es @ List.map (fun t ->
+          CStar.Type (mk_type env t)) ts)
+
+  | ETApp ({ node = EQualified _; _ } as e, ts) when !Options.allow_tapps ->
+      CStar.Call (mk_expr env e, List.map (fun t -> CStar.Type (mk_type env t)) ts)
+
   | EApp (e, es) ->
       (* Functions that only take a unit take no argument. *)
       let t, ts = flatten_arrow e.typ in
@@ -646,7 +655,10 @@ and mk_return_type env = function
   | TBound _ ->
       fatal_error "Internal failure: no TBound here"
   | TApp (lid, _) ->
-      raise_error (ExternalTypeApp lid)
+      if !Options.allow_tapps then
+        CStar.Qualified lid
+      else
+        raise_error (ExternalTypeApp lid)
   | TTuple _ ->
       fatal_error "Internal failure: TTuple not desugared here"
   | TAnonymous t ->
@@ -748,8 +760,8 @@ and mk_declaration m env d: (CStar.decl * _) option =
         mk_type env t,
         mk_expr env false body), [])
 
-  | DExternal (cc, flags, _, name, t, pp) ->
-      if LidSet.mem name env.ifdefs then
+  | DExternal (cc, flags, n, name, t, pp) ->
+      if LidSet.mem name env.ifdefs || n > 0 then
         None
       else
         let add_cc = function

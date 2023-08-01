@@ -174,7 +174,8 @@ let monomorphize_data_types map = object(self)
           ) fields in
           begin match Hashtbl.find map lid with
           | exception Not_found ->
-              Hashtbl.replace state n (Black, chosen_lid)
+              (* Cannot happen since we intercept this case in visit_TApp *)
+              assert false
           | flags, (Variant _ | Flat _) when under_ref && not (Hashtbl.mem seen_declarations lid) ->
               (* Because this looks up a definition in the global map, the
                  definitions are reordered according to the traversal order, which
@@ -333,7 +334,10 @@ let monomorphize_data_types map = object(self)
     TQualified (self#visit_node under_ref (lid, []))
 
   method! visit_TApp under_ref lid ts =
-    TQualified (self#visit_node under_ref (lid, ts))
+    if Hashtbl.mem map lid then
+      TQualified (self#visit_node under_ref (lid, ts))
+    else
+      super#visit_TApp under_ref lid ts
 
   method! visit_TBuf _ t const =
     TBuf (self#visit_typ true t, const)
@@ -396,7 +400,7 @@ let functions files =
 
   let monomorphize = object(self)
 
-    inherit [_] map
+    inherit [_] map as super
 
     (* Current file, for warning purposes. *)
     val mutable current_file = ""
@@ -433,7 +437,7 @@ let functions files =
             match Hashtbl.find map lid with
             | exception Not_found ->
                 (* External function. Bail. *)
-                (self#visit_expr env e).node
+                super#visit_ETApp env e ts
             | `Function (cc, flags, n, ret, name, binders, body) ->
                 (* Need to generate a new instance. *)
                 if n <> List.length ts then begin
