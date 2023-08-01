@@ -55,7 +55,8 @@ class ['self] safe_use = object (self: 'self)
 
   (* The sequential composition rule, where [e1] is known be to be
    * sequentialized before [e2]. Two cases: the use is found in [e1] (and we
-   * don't care what happens in [e2]), otherwise, just a regular composition. *)
+   * don't care what happens in [e2]), otherwise, just a regular composition.
+   * Note: e2 = Some _ if and only if this is a let-node (hence the + 1). *)
   method private sequential (j, _) e1 e2 =
     match self#visit_expr_w j e1, e2 with
     | SafeUse, _ -> SafeUse
@@ -78,6 +79,8 @@ class ['self] safe_use = object (self: 'self)
     | _ -> self#unordered env (e :: es)
 
   method! visit_ELet env _ e1 e2 = self#sequential env e1 (Some e2)
+  (* All of the cases below could be refined with a more precise analysis that makes sure that
+     *every* path in the control-flow is safe. *)
   method! visit_EIfThenElse env e _ _ = self#sequential env e None
   method! visit_ESwitch env e _ = self#sequential env e None
   method! visit_EWhile env e _ = self#sequential env e None
@@ -133,7 +136,10 @@ let count_and_remove_locals = object (self)
 
   method! visit_ELet (env, _) b e1 e2 =
     (* Remove unused variables. Important to get rid of calls to [HST.get()]. *)
-    let e1 = self#visit_expr_w env e1 in
+    (* Note: we only visit e1 if we know it's going to be in the rewritten expression, otherwise it
+       generates spurious uses. This might influence the test below (is_readonly_c_expression e1)
+       but I don't think this has any concrete adverse consequences. *)
+    let env0 = env in
     let env = self#extend env b in
     let e2 = self#visit_expr_w env e2 in
     if !(b.node.mark) = 0 && is_readonly_c_expression e1 then
@@ -145,8 +151,10 @@ let count_and_remove_locals = object (self)
         safe_pure_use e2
       )
     then
+      let e1 = self#visit_expr_w env0 e1 in
       (DeBruijn.subst e1 0 e2).node
     else if !(b.node.mark) = 0 then
+      let e1 = self#visit_expr_w env0 e1 in
       if e1.typ = TUnit then
         self#remove_trivial_let (ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2))
       else
@@ -158,6 +166,7 @@ let count_and_remove_locals = object (self)
         (* ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit}, push_ignore e1, e2) *)
         self#remove_trivial_let (ELet (b, e1, e2))
     else
+      let e1 = self#visit_expr_w env0 e1 in
       self#remove_trivial_let (ELet (b, e1, e2))
 
   method! visit_EBufSub env e1 e2 =
@@ -431,7 +440,7 @@ let remove_uu = object (self)
         is_readonly_c_expression e1 &&
         safe_readonly_use e2 ||
         safe_pure_use e2
-      )
+      ) (* || is_readonly_and_variable_free_c_expression e1 && b.node.mut *)
     then
       (DeBruijn.subst e1 0 e2).node
     else

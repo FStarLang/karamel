@@ -13,9 +13,6 @@ open Loc
 open PrintAst.Ops
 open Helpers
 
-(* For internal use; allows enabling debug after certain phases. *)
-let debug = ref true
-
 let buf_any_msg = format_of_string {|
 This subexpression creates a buffer with an unknown type:
   %a
@@ -197,6 +194,8 @@ and check_program env r (name, decls) =
 
 
 and check_decl env d =
+  if Options.debug "checker" then
+    KPrint.bprintf "checking %a\n" plid (lid_of_decl d);
   match d with
   | DFunction (_, _, n, t, name, binders, body) ->
       assert (n = 0);
@@ -265,8 +264,8 @@ and check_union env fieldexprs fieldtyps =
 
 
 and check env t e =
-  if !debug then KPrint.bprintf "[check] t=%a for e=%a\n" ptyp t pexpr e;
-  if !debug then KPrint.bprintf "[check] annot=%a for e=%a\n" ptyp e.typ pexpr e;
+  if Options.debug "checker" then KPrint.bprintf "[check] t=%a for e=%a\n" ptyp t pexpr e;
+  if Options.debug "checker" then KPrint.bprintf "[check] annot=%a for e=%a\n" ptyp e.typ pexpr e;
   check' env t e;
   e.typ <- smallest e.typ t
 
@@ -351,7 +350,8 @@ and check' env t e =
 
   | EBufRead (e1, e2) ->
       check_array_index env e2;
-      check env (TBuf (t, true)) e1
+      check env (TBuf (t, true)) e1;
+      c t
 
   | EBufWrite (e1, e2, e3) ->
       check_array_index env e2;
@@ -494,12 +494,12 @@ and args_of_branch env t ident =
       checker_error env "Type annotation is not an lid but %a" ptyp t
 
 and infer env e =
-  if !debug then KPrint.bprintf "[infer] %a\n" pexpr e;
+  if Options.debug "checker" then KPrint.bprintf "[infer] %a\n" pexpr e;
   let t = infer' env e in
-  if !debug then KPrint.bprintf "[infer, got] %a\n" ptyp t;
+  if Options.debug "checker" then KPrint.bprintf "[infer, got] %a\n" ptyp t;
   check_subtype env t e.typ;
   e.typ <- prefer_nominal t e.typ;
-  if !debug then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ;
+  if Options.debug "checker" then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ;
   t
 
 and prefer_nominal t1 t2 =
@@ -848,6 +848,10 @@ and check_valid_assignment_lhs env e =
   | EQualified _ ->
       (* Introduced when collecting global initializers. *)
       e.typ
+  | EApp ({ node = ETApp _; _ }, _) ->
+      (* Will be emitted as a macro, optimistically assuming that's ok, the C
+         compiler will bark if not. *)
+      e.typ
   | _ ->
       checker_error env "EAssign wants a lhs that's a mutable, local variable, or a \
         path to a mutable field; got %a instead" pexpr e
@@ -1012,6 +1016,8 @@ and assert_cons_of env t id: fields_t =
       checker_error env "the annotated type %a is not a variant type" ptyp (TAnonymous t)
 
 and subtype env t1 t2 =
+  if Options.debug "checker" then
+    KPrint.bprintf "%a <=? %a\n" ptyp t1 ptyp t2;
   match expand_abbrev env t1, expand_abbrev env t2 with
   | TInt w1, TInt w2 when w1 = w2 ->
       true
@@ -1026,13 +1032,6 @@ and subtype env t1 t2 =
   | TBuf (t1, b1), TBuf (t2, b2) when subtype env t1 t2 && (b1 <= b2) ->
       true
   | TUnit, TUnit ->
-      true
-  | TQualified lid, _
-  | TApp (lid, _), _ when not (known_type env lid) ->
-      (* God bless Warning 57. *)
-      true
-  | _, TApp (lid, _)
-  | _, TQualified lid when not (known_type env lid) ->
       true
   | TQualified lid1, TQualified lid2 ->
       lid1 = lid2

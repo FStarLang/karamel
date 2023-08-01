@@ -213,7 +213,7 @@ and print_expr { node; typ } =
   | ETApp (e, ts) ->
       print_app print_expr e (fun t -> group (langle ^/^ print_typ t ^/^ rangle)) ts
   | ELet (binder, e1, e2) ->
-      group (print_let_binding (binder, e1) ^/^ string "in") ^/^
+      group (print_let_binding (binder, e1) ^/^ string "in") ^^ hardline ^^
       group (print_expr e2)
   | EIfThenElse (e1, e2, e3) ->
       string "if" ^/^ print_expr e1 ^/^ string "then" ^^

@@ -294,6 +294,13 @@ end
 
 let is_readonly_c_expression = (new readonly_visitor)#visit_expr_w ()
 
+let is_readonly_and_variable_free_c_expression = (object
+  inherit [_] readonly_visitor
+  method! visit_EBound _ _ = false
+  method! visit_EOpen _ _ _ = false
+end)#visit_expr_w ()
+
+
 class ['self] value_visitor = object (_self: 'self)
   inherit [_] readonly_visitor
   method! visit_EApp _ _ _ = false
