@@ -28,7 +28,6 @@ let bytes_of_width (w: width) =
 type op =
   (* Arithmetic operations *)
   | Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
-  | Neg
   (* Bitwise operations *)
   | BOr | BAnd | BXor | BShiftL | BShiftR | BNot
   (* Arithmetic comparisons / boolean comparisons *)
@@ -39,6 +38,7 @@ type op =
   | Assign | PreIncr | PreDecr | PostIncr | PostDecr
   (* Misc *)
   | Comma
+  | Neg
   [@@deriving yojson,show]
 
 let unsigned_of_signed = function
