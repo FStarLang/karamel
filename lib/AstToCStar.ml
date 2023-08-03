@@ -211,7 +211,7 @@ let rec mk_expr env in_stmt e =
   | EConstant c ->
       CStar.Constant c
 
-  | ETApp ({ node = EApp (e, es); _ }, ts) when !Options.allow_tapps ->
+  | EApp ({ node = ETApp (e, ts); _ }, es) when !Options.allow_tapps ->
       CStar.Call (mk_expr env e,
         List.map (mk_expr env) es @ List.map (fun t ->
           CStar.Type (mk_type env t)) ts)
