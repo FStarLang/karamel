@@ -194,6 +194,11 @@ let string_of_return_pos = function
   | May -> "May"
   | Must -> "Must"
 
+let whitelisted_tapp e =
+  match e.node with
+  | EQualified (["Lib"; "Memzero0"],"memzero") -> true
+  | _ -> false
+
 let rec mk_expr env in_stmt e =
   let mk_expr env e = mk_expr env false e in
   match e.node with
@@ -211,12 +216,12 @@ let rec mk_expr env in_stmt e =
   | EConstant c ->
       CStar.Constant c
 
-  | EApp ({ node = ETApp (e, ts); _ }, es) when !Options.allow_tapps ->
+  | EApp ({ node = ETApp (e, ts); _ }, es) when !Options.allow_tapps || whitelisted_tapp e ->
       CStar.Call (mk_expr env e,
         List.map (mk_expr env) es @ List.map (fun t ->
           CStar.Type (mk_type env t)) ts)
 
-  | ETApp ({ node = EQualified _; _ } as e, ts) when !Options.allow_tapps ->
+  | ETApp (e, ts) when !Options.allow_tapps || whitelisted_tapp e ->
       CStar.Call (mk_expr env e, List.map (fun t -> CStar.Type (mk_type env t)) ts)
 
   | EApp (e, es) ->

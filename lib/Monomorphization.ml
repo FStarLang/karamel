@@ -174,8 +174,8 @@ let monomorphize_data_types map = object(self)
           ) fields in
           begin match Hashtbl.find map lid with
           | exception Not_found ->
-              (* Cannot happen since we intercept this case in visit_TApp *)
-              Warn.fatal_error "lid not intercepted in visit_TApp: %a" plid lid
+              (* Unknown, external non-polymorphic lid, e.g. Prims.int *)
+              Hashtbl.replace state n (Black, chosen_lid)
           | flags, (Variant _ | Flat _) when under_ref && not (Hashtbl.mem seen_declarations lid) ->
               (* Because this looks up a definition in the global map, the
                  definitions are reordered according to the traversal order, which
