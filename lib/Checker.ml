@@ -549,7 +549,10 @@ and infer' env e =
       lookup_global env lid
 
   | EConstant (w, _) ->
-      TInt w
+      if w = CInt then
+        TQualified (["Prims"],"int")
+      else
+        TInt w
 
   | EStandaloneComment _ ->
       TUnit
