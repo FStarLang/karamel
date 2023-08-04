@@ -45,7 +45,7 @@ end)
 
 let uint32 = TInt UInt32
 let sizet = TInt SizeT
-let c_string = TQualified ([ "C" ], "string")
+let c_string = TQualified ([ "Prims" ], "string")
 
 type env = {
   globals: typ M.t;
@@ -549,10 +549,7 @@ and infer' env e =
       lookup_global env lid
 
   | EConstant (w, _) ->
-      if w = CInt then
-        TQualified (["Prims"],"int")
-      else
-        TInt w
+      TInt w
 
   | EStandaloneComment _ ->
       TUnit

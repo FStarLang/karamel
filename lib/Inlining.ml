@@ -556,6 +556,12 @@ let inline_type_abbrevs ?(just_auto_generated=false) files =
     | _ -> ()
   ) in
 
+  List.iter (fun (lid, t) -> Hashtbl.add map lid (White, t)) [
+    (["Prims"], "int"), TInt CInt;
+    (["Prims"], "nat"), TInt CInt;
+    (["Prims"], "pos"), TInt CInt
+  ];
+
   let inliner inline_one = object(self)
     inherit [_] map
     method! visit_TApp () lid ts =
