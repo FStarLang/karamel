@@ -559,7 +559,8 @@ let inline_type_abbrevs ?(just_auto_generated=false) files =
   List.iter (fun (lid, t) -> Hashtbl.add map lid (White, t)) [
     (["Prims"], "int"), TInt CInt;
     (["Prims"], "nat"), TInt CInt;
-    (["Prims"], "pos"), TInt CInt
+    (["Prims"], "pos"), TInt CInt;
+    (["C"; "String"], "t"), TQualified (["Prims"], "string");
   ];
 
   let inliner inline_one = object(self)

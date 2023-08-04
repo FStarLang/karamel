@@ -24,7 +24,7 @@ ifneq ($(CRYPTO),)
   CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 endif
 TEST_OPTS	= -warn-error @4 -verbose -skip-makefiles
-KRML_BIN	= ../src/_build/default/Karamel.exe
+KRML_BIN	= ../_build/default/src/Karamel.exe
 KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
 
 # TODO: disambiguate between broken tests that arguably should work (maybe
