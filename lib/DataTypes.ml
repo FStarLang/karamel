@@ -224,7 +224,7 @@ let build_scheme_map files =
     method visit_DType _ lid _ _ d =
       (* But if it turns out we can't eliminate, restore what otherwise would've
        * been the compilation scheme. (See OCaml doc for the behavior of add.) *)
-      if d = Forward then
+      if Helpers.is_forward d then
         match Hashtbl.find map lid with
         | exception Not_found ->
             ()

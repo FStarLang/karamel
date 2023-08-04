@@ -27,6 +27,7 @@ and lifetime = Common.lifetime [@ opaque]
 and constant = K.t [@ opaque]
 and ident = string [@ opaque]
 and poly_comp = K.poly_comp [@ opaque]
+and forward_kind = Common.forward_kind [@ opaque]
 and lident = ident list * ident [@ opaque]
   [@@deriving show,
     visitors { variety = "iter"; name = "iter_misc"; polymorphic = true },
@@ -72,7 +73,7 @@ and type_def =
   | Variant of branches_t
   | Enum of lident list
   | Union of (ident * typ) list
-  | Forward
+  | Forward of forward_kind
 
 and fields_t_opt =
   (ident option * (typ * bool)) list

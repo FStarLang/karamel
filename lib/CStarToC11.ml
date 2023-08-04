@@ -259,15 +259,18 @@ let rec mk_spec_and_decl m name qs (t: typ) (k: C.declarator -> C.declarator):
   | Struct fields ->
       qs, Struct (None, mk_fields m fields), k (Ident name)
   | Union fields ->
-      qs, Union (None, List.map (fun (name, typ) ->
-        let qs, spec, decl = mk_spec_and_decl m name [] typ (fun d -> d) in
-        qs, spec, false, None, [ decl, None, None ]
-      ) fields), k (Ident name)
+      qs, Union (None, mk_union_fields m fields), k (Ident name)
 
 and mk_fields m fields =
   Some (List.map (fun (name, typ) ->
     let name = match name with Some name -> name | None -> "" in
     let qs, spec, decl = mk_spec_and_declarator m name typ in
+    qs, spec, false, None, [ decl, None, None ]
+  ) fields)
+
+and mk_union_fields m fields =
+  Some (List.map (fun (name, typ) ->
+    let qs, spec, decl = mk_spec_and_decl m name [] typ (fun d -> d) in
     qs, spec, false, None, [ decl, None, None ]
   ) fields)
 
@@ -283,6 +286,8 @@ and mk_spec_and_declarator_t m name t =
        * unique, therefore, post-fixing them with "_s" also generates a set of
        * unique struct names. *)
       [], C.Struct (Some (name ^ "_s"), mk_fields m fields), Ident name
+  | Union fields ->
+      [], C.Union (Some (name ^ "_s"), mk_union_fields m fields), Ident name
   | _ ->
       mk_spec_and_declarator m name t
 
@@ -1134,16 +1139,20 @@ let hand_written lid =
  * are either declared in the header (public), or in the c file (private), but
  * not twice. *)
 let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.declaration_or_function list =
-  let mk_forward_decl name flags =
-    wrap_verbatim name flags (Decl ([], ([], C.Struct (Some (name ^ "_s"), None), false, Some Typedef, [ Ident name, None, None ])))
+  let mk_forward_decl name flags k =
+    let d = match k with
+      | FStruct -> C.Struct (Some (name ^ "_s"), None)
+      | FUnion -> C.Union (Some (name ^ "_s"), None)
+    in
+    wrap_verbatim name flags (Decl ([], ([], d, false, Some Typedef, [ Ident name, None, None ])))
   in
   match d with
-  | TypeForward (name, flags) ->
+  | TypeForward (name, flags, k) ->
       let name = to_c_name m name in
-      mk_forward_decl name flags
+      mk_forward_decl name flags k
   | Type (name, Struct _, flags) when w = H && List.mem AbstractStruct flags ->
       let name = to_c_name m name in
-      mk_forward_decl name flags
+      mk_forward_decl name flags FStruct
   | Type (name, t, flags) ->
       if is_primitive name || (is_inline_static && declared_in_library name) then
         []
@@ -1213,7 +1222,7 @@ let flags_of_decl (d: CStar.decl) =
   | Global (_, _, flags, _, _)
   | Function (_, flags, _, _, _, _)
   | Type (_, _, flags)
-  | TypeForward (_, flags)
+  | TypeForward (_, flags, _)
   | External (_, _, flags, _) ->
       flags
 

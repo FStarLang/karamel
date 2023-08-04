@@ -88,8 +88,11 @@ and print_type_def = function
       string "abbrev" ^/^
       jump (print_typ typ)
 
-  | Forward ->
-      string "forward"
+  | Forward FStruct ->
+      string "forward struct"
+
+  | Forward FUnion ->
+      string "forward union"
 
 and print_fields_t fields =
   separate_map (semi ^^ break1) (fun (ident, (typ, mut)) ->
