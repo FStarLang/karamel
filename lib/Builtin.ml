@@ -12,8 +12,8 @@ let t_string = TQualified (["Prims"], "string")
 let mk_binop m n t =
   DExternal (None, [ ], 0, (m, n), TArrow (t, TArrow (t, t)), [ "x"; "y" ])
 
-let mk_val ?(flags=[]) m n t =
-  DExternal (None, flags, 0, (m, n), t, [])
+let mk_val ?(flags=[]) ?(nvars=0) m n t =
+  DExternal (None, flags, nvars, (m, n), t, [])
 
 let prims: file =
   let t = TInt K.CInt in
@@ -321,7 +321,7 @@ let c_nullity: file =
 
 let lib_memzero0: file =
   "Lib_Memzero0", [
-    mk_val [ "Lib"; "Memzero0" ] "memzero" (TArrow (TAny, TArrow (TInt UInt32, TUnit)))
+    mk_val ~nvars:1 [ "Lib"; "Memzero0" ] "memzero" (TArrow (TBuf (TBound 0, false), TArrow (TInt UInt32, TUnit)))
   ]
 
 let c_deref: file =
