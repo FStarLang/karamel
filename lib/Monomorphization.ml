@@ -450,7 +450,10 @@ let functions files =
             match Hashtbl.find map lid with
             | exception Not_found ->
                 (* External function. Bail. *)
-                super#visit_ETApp env e ts
+                if !Options.allow_tapps || AstToCStar.whitelisted_tapp e then
+                  super#visit_ETApp env e ts
+                else
+                  (self#visit_expr env e).node
             | `Function (cc, flags, n, ret, name, binders, body) ->
                 (* Need to generate a new instance. *)
                 if n <> List.length ts then begin
