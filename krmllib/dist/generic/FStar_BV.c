@@ -50,7 +50,7 @@ static Prims_list__bool *cons__bool(bool x, Prims_list__bool *s)
   return buf;
 }
 
-Prims_list__bool *FStar_Seq_Base_create__bool(Prims_int len, bool v)
+Prims_list__bool *FStar_Seq_Base_create__bool(krml_checked_int_t len, bool v)
 {
   if (len == (krml_checked_int_t)0)
   {
@@ -66,14 +66,17 @@ Prims_list__bool *FStar_Seq_Base_create__bool(Prims_int len, bool v)
   }
 }
 
-Prims_list__bool *FStar_BV_bv_uext(Prims_pos n, Prims_pos i, Prims_list__bool *a)
+Prims_list__bool
+*FStar_BV_bv_uext(krml_checked_int_t n, krml_checked_int_t i, Prims_list__bool *a)
 {
   return FStar_Seq_Base_append__bool(FStar_Seq_Base_create__bool(i, false), a);
 }
 
-Prims_list__bool *(*FStar_BV_int2bv)(Prims_pos x0, Prims_int x1) = FStar_UInt_to_vec;
+Prims_list__bool
+*(*FStar_BV_int2bv)(krml_checked_int_t x0, krml_checked_int_t x1) = FStar_UInt_to_vec;
 
-Prims_int (*FStar_BV_bv2int)(Prims_pos x0, Prims_list__bool *x1) = FStar_UInt_from_vec;
+krml_checked_int_t
+(*FStar_BV_bv2int)(krml_checked_int_t x0, Prims_list__bool *x1) = FStar_UInt_from_vec;
 
 Prims_list__bool *FStar_Seq_Base_empty__bool(void)
 {
@@ -111,12 +114,12 @@ Prims_list__bool *FStar_Seq_Properties_seq_of_list__bool(Prims_list__bool *l)
   }
 }
 
-Prims_list__bool *FStar_BV_list2bv(Prims_pos n, Prims_list__bool *l)
+Prims_list__bool *FStar_BV_list2bv(krml_checked_int_t n, Prims_list__bool *l)
 {
   return FStar_Seq_Properties_seq_of_list__bool(l);
 }
 
-Prims_int FStar_List_Tot_Base_length__bool(Prims_list__bool *uu___)
+krml_checked_int_t FStar_List_Tot_Base_length__bool(Prims_list__bool *uu___)
 {
   if (uu___->tag == Prims_Nil)
   {
@@ -137,7 +140,7 @@ Prims_int FStar_List_Tot_Base_length__bool(Prims_list__bool *uu___)
   }
 }
 
-Prims_int FStar_Seq_Base_length__bool(Prims_list__bool *s)
+krml_checked_int_t FStar_Seq_Base_length__bool(Prims_list__bool *s)
 {
   return FStar_List_Tot_Base_length__bool(s);
 }
@@ -177,7 +180,7 @@ Prims_list__bool *FStar_List_Tot_Base_tail__bool(Prims_list__bool *uu___)
 Prims_list__bool
 *(*FStar_List_Tot_Base_tl__bool)(Prims_list__bool *x0) = FStar_List_Tot_Base_tail__bool;
 
-bool FStar_List_Tot_Base_index__bool(Prims_list__bool *l, Prims_int i)
+bool FStar_List_Tot_Base_index__bool(Prims_list__bool *l, krml_checked_int_t i)
 {
   if (i == (krml_checked_int_t)0)
   {
@@ -191,7 +194,7 @@ bool FStar_List_Tot_Base_index__bool(Prims_list__bool *l, Prims_int i)
   }
 }
 
-bool FStar_Seq_Base_index__bool(Prims_list__bool *s, Prims_int i)
+bool FStar_Seq_Base_index__bool(Prims_list__bool *s, krml_checked_int_t i)
 {
   return FStar_List_Tot_Base_index__bool(s, i);
 }
@@ -206,7 +209,8 @@ static bool hd__bool(Prims_list__bool *s)
   return FStar_List_Tot_Base_hd__bool(s);
 }
 
-Prims_list__bool *FStar_Seq_Base_slice___bool(Prims_list__bool *s, Prims_int i, Prims_int j)
+Prims_list__bool
+*FStar_Seq_Base_slice___bool(Prims_list__bool *s, krml_checked_int_t i, krml_checked_int_t j)
 {
   if (Prims_op_GreaterThan(i, (krml_checked_int_t)0))
   {
@@ -230,8 +234,11 @@ Prims_list__bool *FStar_Seq_Base_slice___bool(Prims_list__bool *s, Prims_int i, 
 }
 
 Prims_list__bool
-*(*FStar_Seq_Base_slice__bool)(Prims_list__bool *x0, Prims_int x1, Prims_int x2) =
-  FStar_Seq_Base_slice___bool;
+*(*FStar_Seq_Base_slice__bool)(
+  Prims_list__bool *x0,
+  krml_checked_int_t x1,
+  krml_checked_int_t x2
+) = FStar_Seq_Base_slice___bool;
 
 Prims_list__bool *FStar_Seq_Properties_seq_to_list__bool(Prims_list__bool *s)
 {
@@ -259,65 +266,70 @@ Prims_list__bool *FStar_Seq_Properties_seq_to_list__bool(Prims_list__bool *s)
   }
 }
 
-Prims_list__bool *FStar_BV_bv2list(Prims_pos n, Prims_list__bool *s)
+Prims_list__bool *FStar_BV_bv2list(krml_checked_int_t n, Prims_list__bool *s)
 {
   return FStar_Seq_Properties_seq_to_list__bool(s);
 }
 
 Prims_list__bool
-*(*FStar_BV_bvand)(Prims_pos x0, Prims_list__bool *x1, Prims_list__bool *x2) =
+*(*FStar_BV_bvand)(krml_checked_int_t x0, Prims_list__bool *x1, Prims_list__bool *x2) =
   FStar_BitVector_logand_vec;
 
 Prims_list__bool
-*(*FStar_BV_bvxor)(Prims_pos x0, Prims_list__bool *x1, Prims_list__bool *x2) =
+*(*FStar_BV_bvxor)(krml_checked_int_t x0, Prims_list__bool *x1, Prims_list__bool *x2) =
   FStar_BitVector_logxor_vec;
 
 Prims_list__bool
-*(*FStar_BV_bvor)(Prims_pos x0, Prims_list__bool *x1, Prims_list__bool *x2) =
+*(*FStar_BV_bvor)(krml_checked_int_t x0, Prims_list__bool *x1, Prims_list__bool *x2) =
   FStar_BitVector_logor_vec;
 
 Prims_list__bool
-*(*FStar_BV_bvnot)(Prims_pos x0, Prims_list__bool *x1) = FStar_BitVector_lognot_vec;
+*(*FStar_BV_bvnot)(krml_checked_int_t x0, Prims_list__bool *x1) = FStar_BitVector_lognot_vec;
 
 Prims_list__bool
-*(*FStar_BV_bvshl)(Prims_pos x0, Prims_list__bool *x1, Prims_int x2) =
+*(*FStar_BV_bvshl)(krml_checked_int_t x0, Prims_list__bool *x1, krml_checked_int_t x2) =
   FStar_BitVector_shift_left_vec;
 
 Prims_list__bool
-*(*FStar_BV_bvshr)(Prims_pos x0, Prims_list__bool *x1, Prims_int x2) =
+*(*FStar_BV_bvshr)(krml_checked_int_t x0, Prims_list__bool *x1, krml_checked_int_t x2) =
   FStar_BitVector_shift_right_vec;
 
-Prims_list__bool *FStar_BV_bv_zero(Prims_pos n)
+Prims_list__bool *FStar_BV_bv_zero(krml_checked_int_t n)
 {
   return FStar_BV_int2bv(n, (krml_checked_int_t)0);
 }
 
-bool FStar_BV_bvult(Prims_pos n, Prims_list__bool *a, Prims_list__bool *b)
+bool FStar_BV_bvult(krml_checked_int_t n, Prims_list__bool *a, Prims_list__bool *b)
 {
   return Prims_op_LessThan(FStar_BV_bv2int(n, a), FStar_BV_bv2int(n, b));
 }
 
-Prims_list__bool *FStar_BV_bvadd(Prims_pos n, Prims_list__bool *a, Prims_list__bool *b)
+Prims_list__bool
+*FStar_BV_bvadd(krml_checked_int_t n, Prims_list__bool *a, Prims_list__bool *b)
 {
   return FStar_BV_int2bv(n, FStar_UInt_add_mod(n, FStar_BV_bv2int(n, a), FStar_BV_bv2int(n, b)));
 }
 
-Prims_list__bool *FStar_BV_bvsub(Prims_pos n, Prims_list__bool *a, Prims_list__bool *b)
+Prims_list__bool
+*FStar_BV_bvsub(krml_checked_int_t n, Prims_list__bool *a, Prims_list__bool *b)
 {
   return FStar_BV_int2bv(n, FStar_UInt_sub_mod(n, FStar_BV_bv2int(n, a), FStar_BV_bv2int(n, b)));
 }
 
-Prims_list__bool *FStar_BV_bvdiv(Prims_pos n, Prims_list__bool *a, Prims_int b)
+Prims_list__bool
+*FStar_BV_bvdiv(krml_checked_int_t n, Prims_list__bool *a, krml_checked_int_t b)
 {
   return FStar_BV_int2bv(n, FStar_UInt_udiv(n, FStar_BV_bv2int(n, a), b));
 }
 
-Prims_list__bool *FStar_BV_bvmod(Prims_pos n, Prims_list__bool *a, Prims_int b)
+Prims_list__bool
+*FStar_BV_bvmod(krml_checked_int_t n, Prims_list__bool *a, krml_checked_int_t b)
 {
   return FStar_BV_int2bv(n, FStar_UInt_mod(n, FStar_BV_bv2int(n, a), b));
 }
 
-Prims_list__bool *FStar_BV_bvmul(Prims_pos n, Prims_list__bool *a, Prims_int b)
+Prims_list__bool
+*FStar_BV_bvmul(krml_checked_int_t n, Prims_list__bool *a, krml_checked_int_t b)
 {
   return FStar_BV_int2bv(n, FStar_UInt_mul_mod(n, FStar_BV_bv2int(n, a), b));
 }

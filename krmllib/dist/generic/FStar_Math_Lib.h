@@ -12,27 +12,32 @@
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
 
-extern Prims_int FStar_Math_Lib_log_2(Prims_pos x);
+extern krml_checked_int_t FStar_Math_Lib_log_2(krml_checked_int_t x);
 
-extern Prims_int FStar_Math_Lib_powx(Prims_int x, Prims_int n);
+extern krml_checked_int_t FStar_Math_Lib_powx(krml_checked_int_t x, krml_checked_int_t n);
 
-extern Prims_int FStar_Math_Lib_abs(Prims_int x);
+extern krml_checked_int_t FStar_Math_Lib_abs(krml_checked_int_t x);
 
-extern Prims_int FStar_Math_Lib_max(Prims_int x, Prims_int y);
+extern krml_checked_int_t FStar_Math_Lib_max(krml_checked_int_t x, krml_checked_int_t y);
 
-extern Prims_int FStar_Math_Lib_min(Prims_int x, Prims_int y);
+extern krml_checked_int_t FStar_Math_Lib_min(krml_checked_int_t x, krml_checked_int_t y);
 
-extern Prims_int FStar_Math_Lib_div(Prims_int a, Prims_pos b);
+extern krml_checked_int_t FStar_Math_Lib_div(krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Math_Lib_div_non_eucl(Prims_int a, Prims_pos b);
+extern krml_checked_int_t
+FStar_Math_Lib_div_non_eucl(krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Math_Lib_shift_left(Prims_int v, Prims_int i);
+extern krml_checked_int_t
+FStar_Math_Lib_shift_left(krml_checked_int_t v, krml_checked_int_t i);
 
-extern Prims_int FStar_Math_Lib_arithmetic_shift_right(Prims_int v, Prims_int i);
+extern krml_checked_int_t
+FStar_Math_Lib_arithmetic_shift_right(krml_checked_int_t v, krml_checked_int_t i);
 
-extern Prims_int FStar_Math_Lib_signed_modulo(Prims_int v, Prims_pos p);
+extern krml_checked_int_t
+FStar_Math_Lib_signed_modulo(krml_checked_int_t v, krml_checked_int_t p);
 
-extern Prims_int FStar_Math_Lib_op_Plus_Percent(Prims_int a, Prims_pos p);
+extern krml_checked_int_t
+FStar_Math_Lib_op_Plus_Percent(krml_checked_int_t a, krml_checked_int_t p);
 
 
 #define __FStar_Math_Lib_H_DEFINED

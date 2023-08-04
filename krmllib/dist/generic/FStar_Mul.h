@@ -12,7 +12,7 @@
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
 
-extern Prims_int FStar_Mul_op_Star(Prims_int x0, Prims_int x1);
+extern krml_checked_int_t FStar_Mul_op_Star(krml_checked_int_t x0, krml_checked_int_t x1);
 
 
 #define __FStar_Mul_H_DEFINED

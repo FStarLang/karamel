@@ -13,7 +13,8 @@
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
 
-Prims_list__bool *FStar_Seq_Base_slice___bool(Prims_list__bool *s, Prims_int i, Prims_int j);
+Prims_list__bool
+*FStar_Seq_Base_slice___bool(Prims_list__bool *s, krml_checked_int_t i, krml_checked_int_t j);
 
 
 #define __internal_FStar_BV_H_DEFINED

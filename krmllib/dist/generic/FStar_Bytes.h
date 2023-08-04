@@ -22,7 +22,7 @@ typedef uint8_t FStar_Bytes_byte;
 
 extern uint32_t FStar_Bytes_len(FStar_Bytes_bytes uu___);
 
-extern Prims_int FStar_Bytes_length(FStar_Bytes_bytes b);
+extern krml_checked_int_t FStar_Bytes_length(FStar_Bytes_bytes b);
 
 typedef FStar_Bytes_bytes FStar_Bytes_lbytes;
 
@@ -36,13 +36,13 @@ extern uint8_t FStar_Bytes_get(FStar_Bytes_bytes b, uint32_t pos);
 
 extern uint8_t FStar_Bytes_op_String_Access(FStar_Bytes_bytes x0, uint32_t x1);
 
-extern uint8_t FStar_Bytes_index(FStar_Bytes_bytes b, Prims_int i);
+extern uint8_t FStar_Bytes_index(FStar_Bytes_bytes b, krml_checked_int_t i);
 
 typedef void *FStar_Bytes_equal;
 
 extern FStar_Bytes_bytes FStar_Bytes_create(uint32_t len1, uint8_t v);
 
-extern FStar_Bytes_bytes FStar_Bytes_create_(Prims_int n, uint8_t v);
+extern FStar_Bytes_bytes FStar_Bytes_create_(krml_checked_int_t n, uint8_t v);
 
 extern FStar_Bytes_bytes FStar_Bytes_init(uint32_t len1, uint8_t (*f)(uint32_t x0));
 
@@ -63,7 +63,8 @@ extern FStar_Bytes_bytes FStar_Bytes_op_At_Bar(FStar_Bytes_bytes x0, FStar_Bytes
 
 extern FStar_Bytes_bytes FStar_Bytes_slice(FStar_Bytes_bytes b, uint32_t s, uint32_t e);
 
-extern FStar_Bytes_bytes FStar_Bytes_slice_(FStar_Bytes_bytes b, Prims_int s, Prims_int e);
+extern FStar_Bytes_bytes
+FStar_Bytes_slice_(FStar_Bytes_bytes b, krml_checked_int_t s, krml_checked_int_t e);
 
 extern FStar_Bytes_bytes FStar_Bytes_sub(FStar_Bytes_bytes b, uint32_t s, uint32_t l);
 
@@ -78,17 +79,17 @@ extern K___FStar_Bytes_bytes_FStar_Bytes_bytes
 FStar_Bytes_split(FStar_Bytes_bytes b, uint32_t k);
 
 extern K___FStar_Bytes_bytes_FStar_Bytes_bytes
-FStar_Bytes_split_(FStar_Bytes_bytes b, Prims_int k);
+FStar_Bytes_split_(FStar_Bytes_bytes b, krml_checked_int_t k);
 
 typedef void *FStar_Bytes_fits_in_k_bytes;
 
-typedef Prims_int FStar_Bytes_uint_k;
+typedef krml_checked_int_t FStar_Bytes_uint_k;
 
-extern Prims_pos FStar_Bytes_repr_bytes(Prims_int n);
+extern krml_checked_int_t FStar_Bytes_repr_bytes(krml_checked_int_t n);
 
-extern Prims_int FStar_Bytes_int_of_bytes(FStar_Bytes_bytes b);
+extern krml_checked_int_t FStar_Bytes_int_of_bytes(FStar_Bytes_bytes b);
 
-extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int(Prims_int k, Prims_int n);
+extern FStar_Bytes_bytes FStar_Bytes_bytes_of_int(krml_checked_int_t k, krml_checked_int_t n);
 
 extern uint32_t FStar_Bytes_int32_of_bytes(FStar_Bytes_bytes b);
 
@@ -108,7 +109,7 @@ extern FStar_Bytes_bytes
 FStar_Bytes_xor(uint32_t n, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
 
 extern FStar_Bytes_bytes
-FStar_Bytes_xor_(Prims_int n, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
+FStar_Bytes_xor_(krml_checked_int_t n, FStar_Bytes_bytes b1, FStar_Bytes_bytes b2);
 
 extern FStar_Bytes_bytes FStar_Bytes_utf8_encode(Prims_string s);
 
