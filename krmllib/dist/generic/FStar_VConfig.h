@@ -41,6 +41,7 @@ typedef struct FStar_VConfig_vconfig_s
   krml_checked_int_t z3rlimit;
   krml_checked_int_t z3rlimit_factor;
   krml_checked_int_t z3seed;
+  Prims_string z3version;
   bool trivial_pre_for_unannotated_effectful_fns;
   FStar_Pervasives_Native_option__Prims_string reuse_hint_for;
 }
