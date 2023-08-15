@@ -1036,6 +1036,8 @@ and subtype env t1 t2 =
   | TQualified lid1, TQualified lid2 ->
       lid1 = lid2
   | TBool, TBool
+  | _, TQualified (["FStar"; "Dyn"], "dyn")
+  | TQualified (["FStar"; "Dyn"], "dyn"), _
   | _, TAny
   | TAny, _ ->
       true

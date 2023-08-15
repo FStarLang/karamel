@@ -723,7 +723,11 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EOpen _ ->
       invalid_arg "mk_expr (EOpen)"
 
-  | EApp ({ node = EQualified (["Lib"; "Memzero0"],"memzero"); _ }, [ dst; len ]) ->
+  | EApp ({ node = ETApp ({ node = EQualified (["Lib"; "Memzero0"],"memzero"); _ }, _); _ }, [ dst; len ]) ->
+      (* TODO: now that the C backend is generic for type applications, do the
+         same here and have generic support for ETApp. Idea: reuse the JSON
+         representation of a type (used for layouts) and pass that to the JS
+         external. *)
       let size = cell_size_b env dst.typ in
       let hd = with_type
         (TArrow (TBuf (TInt K.UInt8, false), TArrow (TInt K.UInt32, TArrow (TInt K.UInt32, TUnit))))
