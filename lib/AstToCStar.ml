@@ -194,9 +194,15 @@ let string_of_return_pos = function
   | May -> "May"
   | Must -> "Must"
 
+let whitelisted_lid lid =
+  match lid with
+  | ["Lib"; "Memzero0"],"memzero" -> true
+  | ["Steel"; "SpinLock"],"lock" -> true
+  | _ -> false
+
 let whitelisted_tapp e =
   match e.node with
-  | EQualified (["Lib"; "Memzero0"],"memzero") -> true
+  | EQualified lid -> whitelisted_lid lid
   | _ -> false
 
 let rec mk_expr env in_stmt e =
@@ -661,7 +667,7 @@ and mk_return_type env = function
   | TBound _ ->
       fatal_error "Internal failure: no TBound here"
   | TApp (lid, _) ->
-      if !Options.allow_tapps then
+      if !Options.allow_tapps || whitelisted_lid lid then
         CStar.Qualified lid
       else
         raise_error (ExternalTypeApp lid)
