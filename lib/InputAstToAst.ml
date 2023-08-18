@@ -36,7 +36,7 @@ let rec mk_decl = function
   | I.DFunction (cc, flags, n, t, name, binders, body) ->
       let body =
         if List.mem WipeBody flags then
-          with_type TAny (EAbort (Some "noextract flag"))
+          with_type TAny (EAbort (None, Some "noextract flag"))
         else
           mk_expr body
       in
@@ -206,11 +206,11 @@ and mk_expr = function
   | I.EAny ->
       mk EAny
   | I.EAbort ->
-      mk (EAbort None)
+      mk (EAbort (None, None))
   | I.EAbortS s ->
-      mk (EAbort (Some s))
+      mk (EAbort (None, Some s))
   | I.EAbortT (s, t) ->
-      { node = EAbort (Some s); typ = mk_typ t }
+      { node = EAbort (Some (mk_typ t), Some s); typ = mk_typ t }
   | I.EReturn e ->
       mk (EReturn (mk_expr e))
   | I.EFlat (tname, fields) ->

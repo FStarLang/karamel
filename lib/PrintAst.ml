@@ -194,8 +194,9 @@ and print_expr { node; typ } =
       surround 2 1 (string "/*") (string s) (string "*/")
   | EAny ->
       string "$any"
-  | EAbort s ->
-      string "$abort" ^^
+  | EAbort (t, s) ->
+      let t = match t with Some t -> print_typ t | None -> string "??" in
+      string "$abort<" ^^ t ^^ string ">" ^^
       (match s with None -> empty | Some s -> string " (" ^^ string s ^^ string ")")
   | EIgnore e ->
       print_app string "ignore" print_expr [ e ]

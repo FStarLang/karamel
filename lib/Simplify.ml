@@ -1527,7 +1527,7 @@ let tail_calls =
         let body =
           nest state ret (with_type ret (ESequence [
             with_unit (EWhile (etrue, make_tail_calls name a_args body));
-            with_type ret (EAbort (Some "unreachable, returns inserted above"))
+            with_type ret (EAbort (None, Some "unreachable, returns inserted above"))
           ]))
         in
         DFunction (cc, flags, n, ret, name, binders, body)

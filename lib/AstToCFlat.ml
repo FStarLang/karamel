@@ -710,7 +710,7 @@ and mk_expr_or_bail (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let msg = KPrint.bsprintf "%a: compilation error turned to runtime failure\n%s%s"
         plid !current_lid s bt
       in
-      mk_expr env locals (Helpers.with_unit (EAbort (Some msg)))
+      mk_expr env locals (Helpers.with_unit (EAbort (None, Some msg)))
 
 
 (** The actual translation. Note that the environment is dropped, but that the
@@ -872,7 +872,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, e3 = mk_expr env locals e3 in
       locals, CF.IfThenElse (e1, e2, e3, s2)
 
-  | EAbort s ->
+  | EAbort (_, s) ->
       let s = match s with Some s -> s | None -> "<no message>" in
       locals, CF.Abort (CF.StringLiteral s)
 

@@ -182,8 +182,10 @@ type expr' =
   | EAny
     (** to indicate that the initial value of a mutable let-binding does not
      * matter *)
-  | EAbort of string option
-    (** exits the program prematurely *)
+  | EAbort of typ_wo option * string option
+    (** exits the program prematurely; ideally the type of the early return
+        should always be there, but sadly we don't always have it, so we do an
+        approximation *)
   | EIgnore of expr
 
   | EApp of expr * expr list

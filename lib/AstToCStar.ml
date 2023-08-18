@@ -267,8 +267,9 @@ let rec mk_expr env in_stmt e =
       CStar.Op (K.op_of_poly_comp c)
   | ECast (e, t) ->
       CStar.Cast (mk_expr env e, mk_type env t)
-  | EAbort s ->
-      CStar.EAbort (mk_type env e.typ, Option.or_empty s)
+  | EAbort (t, s) ->
+      let t = match t with Some t -> t | None -> e.typ in
+      CStar.EAbort (mk_type env t, Option.or_empty s)
   | EUnit ->
       CStar.Cast (zero, CStar.Pointer CStar.Void)
   | EAny ->
@@ -492,7 +493,7 @@ and mk_stmts env e ret_type =
     | EMatch _ ->
         fatal_error "[AstToCStar.collect EMatch]: not implemented"
 
-    | EAbort s ->
+    | EAbort (_, s) ->
         env, CStar.Abort (Option.or_empty s) :: acc
 
     | ESwitch (e, branches) ->
