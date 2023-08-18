@@ -410,7 +410,7 @@ let cross_call_analysis files =
              limited, this is still useful e.g. in the presence of function
              pointers. *)
           (visit true)#visit_expr_w () e
-      | DExternal (_, _, _, t, _) ->
+      | DExternal (_, _, _, _, t, _) ->
           (visit false)#visit_typ () t
       | DType (_, flags, _, d) ->
           if not (List.mem Common.AbstractStruct flags) then
@@ -423,7 +423,7 @@ let cross_call_analysis files =
   (* Fixpoint computation *)
   let module F = Fix.Fix.ForOrderedType(struct
     type t = lident
-    let compare = Pervasives.compare
+    let compare = Stdlib.compare
   end)(struct
     type property = visibility
     let bottom = Private
@@ -465,8 +465,8 @@ let cross_call_analysis files =
           DFunction (cc, adjust flags, n, t, name, bs, e)
       | DGlobal (flags, name, n, t, e) ->
           DGlobal (adjust flags, name, n, t, e)
-      | DExternal (cc, flags, name, t, hints) ->
-          DExternal (cc, adjust flags, name, t, hints)
+      | DExternal (cc, flags, n, name, t, hints) ->
+          DExternal (cc, adjust flags, n, name, t, hints)
       | DType (name, flags, n, def) ->
           DType (name, adjust flags, n, def)
     ) decls
@@ -555,6 +555,13 @@ let inline_type_abbrevs ?(just_auto_generated=false) files =
         Hashtbl.add map lid (White, t)
     | _ -> ()
   ) in
+
+  List.iter (fun (lid, t) -> Hashtbl.add map lid (White, t)) [
+    (["Prims"], "int"), TInt CInt;
+    (["Prims"], "nat"), TInt CInt;
+    (["Prims"], "pos"), TInt CInt;
+    (["C"; "String"], "t"), TQualified (["Prims"], "string");
+  ];
 
   let inliner inline_one = object(self)
     inherit [_] map

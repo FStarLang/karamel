@@ -28,14 +28,14 @@ endif
 export FSTAR_HOME
 export OCAMLPATH
 
-minimal: src/AutoConfig.ml src/Version.ml
-	+ OCAML_ERROR_STYLE="short" $(MAKE) -C src
-	ln -sf src/_build/default/Karamel.exe krml
+minimal: lib/AutoConfig.ml lib/Version.ml
+	dune build
+	ln -sf _build/default/src/Karamel.exe krml
 
 krmllib: minimal
 	$(MAKE) -C krmllib
 
-src/AutoConfig.ml:
+lib/AutoConfig.ml:
 	@if [ x"$(PREFIX)" != x ]; then \
 	  echo "let krmllib_dir = \"$(PREFIX)/lib/krml\";;" > $@; \
 	  echo "let runtime_dir = \"$(PREFIX)/lib/krml/runtime\";;" >> $@; \
@@ -49,7 +49,7 @@ src/AutoConfig.ml:
 	fi
 
 .PHONY: src/Version.ml
-src/Version.ml:
+lib/Version.ml:
 	@echo "let version = \"$(shell git rev-parse HEAD)\"" > $@ \
 
 clean:
@@ -70,7 +70,7 @@ pre:
 install: all
 	@if [ x"$(PREFIX)" = x ]; then echo "please define PREFIX"; exit 1; fi
 	mkdir -p $(PREFIX)/bin
-	cp src/_build/default/Karamel.exe $(PREFIX)/bin/krml
+	cp _build/default/Karamel.exe $(PREFIX)/bin/krml
 	mkdir -p $(PREFIX)/include
 	cp -r include/* $(PREFIX)/include
 	mkdir -p $(PREFIX)/lib/krml

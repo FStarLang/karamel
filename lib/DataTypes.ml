@@ -606,7 +606,7 @@ let remove_unit_buffers = object (self)
         EUnit
     | _ ->
       super#visit_EBufDiff env e1 e2
-  
+
   method! visit_EBufBlit env e1 e2 e3 e4 e5 =
     match e1.typ with
     | TBuf ((TUnit (* | TAny *)), _) ->
@@ -912,14 +912,15 @@ let compile_branch env scrut (binders, pat, expr): expr * expr =
   let conditionals, expr = compile_pattern env scrut pat expr in
   mk_conjunction conditionals, expr
 
-let compile_match env e_scrut branches =
+let compile_match ((_, t) as env) e_scrut branches =
+  let mk = with_type t in
   let rec fold_ite = function
     | [] ->
         failwith "impossible"
     | [ { node = EBool true; _ }, e ] ->
         e
     | [ cond, e ] ->
-        mk (EIfThenElse (cond, e, mk (EAbort (Some "unreachable (pattern matches are exhaustive in F*)"))))
+        mk (EIfThenElse (cond, e, mk (EAbort (Some t, Some "unreachable (pattern matches are exhaustive in F*)"))))
     | (cond, e) :: bs ->
         mk (EIfThenElse (cond, e, fold_ite bs))
   in

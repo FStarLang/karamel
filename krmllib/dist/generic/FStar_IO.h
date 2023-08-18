@@ -56,7 +56,7 @@ extern void FStar_IO_print_uint64_dec_pad(uint64_t uu___);
 
 extern Prims_string FStar_IO_input_line(void);
 
-extern Prims_int FStar_IO_input_int(void);
+extern krml_checked_int_t FStar_IO_input_int(void);
 
 extern FStar_Float_float FStar_IO_input_float(void);
 

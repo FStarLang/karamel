@@ -14,10 +14,15 @@
 
 extern FStar_Date_dateTime FStar_Date_now(void);
 
-extern Prims_int FStar_Date_secondsFromDawn(void);
+extern krml_checked_int_t FStar_Date_secondsFromDawn(void);
 
 extern FStar_Date_timeSpan
-FStar_Date_newTimeSpan(Prims_int uu___, Prims_int uu___1, Prims_int uu___2, Prims_int uu___3);
+FStar_Date_newTimeSpan(
+  krml_checked_int_t uu___,
+  krml_checked_int_t uu___1,
+  krml_checked_int_t uu___2,
+  krml_checked_int_t uu___3
+);
 
 extern FStar_Date_dateTime
 FStar_Date_addTimeSpan(FStar_Date_dateTime uu___, FStar_Date_timeSpan uu___1);

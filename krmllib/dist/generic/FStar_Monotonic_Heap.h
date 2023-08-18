@@ -32,9 +32,9 @@ FStar_Pervasives_Native_option__FStar_Pervasives_dtuple4____FStar_Pervasives_Nat
 
 typedef struct FStar_Monotonic_Heap_heap_rec_s
 {
-  Prims_pos next_addr;
+  krml_checked_int_t next_addr;
   FStar_Pervasives_Native_option__FStar_Pervasives_dtuple4____FStar_Pervasives_Native_option_____bool_any
-  (*memory)(Prims_pos x0);
+  (*memory)(krml_checked_int_t x0);
 }
 FStar_Monotonic_Heap_heap_rec;
 
@@ -60,7 +60,7 @@ typedef void *FStar_Monotonic_Heap_equal_dom;
 
 typedef struct FStar_Monotonic_Heap_aref__s
 {
-  Prims_int a_addr;
+  krml_checked_int_t a_addr;
   bool a_mm;
 }
 FStar_Monotonic_Heap_aref_;

@@ -133,7 +133,7 @@ and p_type_name (qs, spec, decl) =
   | _ ->
       p_qualifiers_break qs ^^ p_type_spec spec ^^ space ^^ p_type_declarator decl
 
-(* http:/ /en.cppreference.com/w/c/language/operator_precedence *)
+(* http://en.cppreference.com/w/c/language/operator_precedence *)
 and prec_of_op2 op =
   let open Constant in
   match op with
@@ -155,12 +155,12 @@ and prec_of_op2 op =
   | Or -> 12, 12, 12
   | Assign -> 14, 13, 14
   | Comma -> 15, 15, 14
-  | PreIncr | PostIncr | PreDecr | PostDecr | Not | BNot -> raise (Invalid_argument "prec_of_op2")
+  | PreIncr | PostIncr | PreDecr | PostDecr | Not | BNot | Neg -> raise (Invalid_argument "prec_of_op2")
 
 and prec_of_op1 op =
   let open Constant in
   match op with
-  | PreDecr | PreIncr | Not | BNot -> 2
+  | PreDecr | PreIncr | Not | BNot | Neg -> 2
   | PostDecr | PostIncr -> 1
   | _ -> raise (Invalid_argument "prec_of_op1")
 
@@ -413,6 +413,8 @@ and p_stmt (s: stmt) =
       )
   | Break ->
      string "break" ^^ semi
+  | Continue ->
+     string "continue" ^^ semi
 
 and p_stmts stmts = separate_map hardline p_stmt stmts
 

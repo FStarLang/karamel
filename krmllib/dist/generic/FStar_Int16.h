@@ -12,15 +12,15 @@
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
 
-extern Prims_int FStar_Int16_n;
+extern krml_checked_int_t FStar_Int16_n;
 
 extern bool FStar_Int16_uu___is_Mk(int16_t projectee);
 
-extern Prims_int FStar_Int16___proj__Mk__item__v(int16_t projectee);
+extern krml_checked_int_t FStar_Int16___proj__Mk__item__v(int16_t projectee);
 
-extern Prims_int FStar_Int16_v(int16_t x);
+extern krml_checked_int_t FStar_Int16_v(int16_t x);
 
-extern int16_t FStar_Int16_int_to_t(Prims_int x);
+extern int16_t FStar_Int16_int_to_t(krml_checked_int_t x);
 
 extern int16_t FStar_Int16_zero;
 

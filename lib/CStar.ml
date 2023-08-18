@@ -24,6 +24,7 @@ and stmt =
   | Abort of string
   | Return of expr option
   | Break
+  | Continue
   | Ignore of expr
   | Decl of binder * expr
     (** Scope is: statements that follow. *)
@@ -83,6 +84,7 @@ and expr =
     (** Solely for the purposes of macro-calls, which are function-like and
         therefore are more closely modeled as an expression, but truly may
         contain anything as arguments, including statements. *)
+  | Type of typ
   [@@deriving show]
 
 and block =

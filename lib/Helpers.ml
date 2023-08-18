@@ -45,7 +45,7 @@ let type_of_op op w =
       TArrow (TBool, TArrow (TBool, TBool))
   | Not ->
       TArrow (TBool, TBool)
-  | BNot ->
+  | BNot | Neg ->
       TArrow (TInt w, TInt w)
   | Assign | PreIncr | PreDecr | PostIncr | PostDecr | Comma ->
       invalid_arg "type_of_op"
@@ -105,6 +105,9 @@ let mk_or e1 e2 =
 
 let mk_uint32 i =
   with_type (TInt K.UInt32) (EConstant (K.UInt32, string_of_int i))
+
+let mk_sizet i =
+  with_type (TInt K.SizeT) (EConstant (K.SizeT, string_of_int i))
 
 (* e - 1 *)
 let mk_minus_one e =
@@ -295,6 +298,13 @@ end
 
 let is_readonly_c_expression = (new readonly_visitor)#visit_expr_w ()
 
+let is_readonly_and_variable_free_c_expression = (object
+  inherit [_] readonly_visitor
+  method! visit_EBound _ _ = false
+  method! visit_EOpen _ _ _ = false
+end)#visit_expr_w ()
+
+
 class ['self] value_visitor = object (_self: 'self)
   inherit [_] readonly_visitor
   method! visit_EApp _ _ _ = false
@@ -366,11 +376,14 @@ let assert_tlid t =
   match t with TQualified lid -> lid | _ -> assert false
 
 let assert_tbuf t =
-  match t with TBuf (t, _) -> t | _ -> assert false
+  match t with TBuf (t, _) -> t | t -> Warn.fatal_error "Not a buffer: %a" ptyp t
+
+let assert_tarray t =
+  match t with TArray (t, _) -> t | t -> Warn.fatal_error "Not an array: %a" ptyp t
 
 let assert_elid t =
   (* We only have nominal typing for variants. *)
-  match t with EQualified lid -> lid | _ -> assert false
+  match t with EQualified lid -> lid | _ -> Warn.fatal_error "Not an equalified: %a" pexpr (with_type TAny t)
 
 let assert_tbuf_or_tarray t =
   match t with

@@ -35,10 +35,11 @@ let rec print_decl = function
         print_expr body
       )
 
-  | DExternal (cc, flags, name, typ, _) ->
+  | DExternal (cc, flags, n, name, typ, _) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
       print_flags flags ^/^
-      group (cc ^^ string "external" ^/^ string (string_of_lident name) ^/^ colon) ^^
+      group (cc ^^ string "external" ^/^ string (string_of_lident name) ^/^
+        langle ^^ int n ^^ rangle ^^ colon) ^^
       jump (print_typ typ)
 
   | DGlobal (flags, name, n, typ, expr) ->
@@ -193,8 +194,9 @@ and print_expr { node; typ } =
       surround 2 1 (string "/*") (string s) (string "*/")
   | EAny ->
       string "$any"
-  | EAbort s ->
-      string "$abort" ^^
+  | EAbort (t, s) ->
+      let t = match t with Some t -> print_typ t | None -> string "??" in
+      string "$abort<" ^^ t ^^ string ">" ^^
       (match s with None -> empty | Some s -> string " (" ^^ string s ^^ string ")")
   | EIgnore e ->
       print_app string "ignore" print_expr [ e ]
@@ -215,7 +217,7 @@ and print_expr { node; typ } =
   | ETApp (e, ts) ->
       print_app print_expr e (fun t -> group (langle ^/^ print_typ t ^/^ rangle)) ts
   | ELet (binder, e1, e2) ->
-      group (print_let_binding (binder, e1) ^/^ string "in") ^/^
+      group (print_let_binding (binder, e1) ^/^ string "in") ^^ hardline ^^
       group (print_expr e2)
   | EIfThenElse (e1, e2, e3) ->
       string "if" ^/^ print_expr e1 ^/^ string "then" ^^
@@ -307,6 +309,8 @@ and print_expr { node; typ } =
       parens_with_nesting (print_poly_comp c ^^ comma ^^ space ^^ print_typ t)
   | EBufNull ->
       string "NULL" ^^ langle ^^ print_typ typ ^^ rangle
+  | EContinue ->
+      string "continue"
 
 and print_poly_comp = function
   | PEq -> equals

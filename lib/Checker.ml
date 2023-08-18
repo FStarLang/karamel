@@ -13,9 +13,6 @@ open Loc
 open PrintAst.Ops
 open Helpers
 
-(* For internal use; allows enabling debug after certain phases. *)
-let debug = ref false
-
 let buf_any_msg = format_of_string {|
 This subexpression creates a buffer with an unknown type:
   %a
@@ -48,7 +45,7 @@ end)
 
 let uint32 = TInt UInt32
 let sizet = TInt SizeT
-let c_string = TQualified ([ "C" ], "string")
+let c_string = TQualified ([ "Prims" ], "string")
 
 type env = {
   globals: typ M.t;
@@ -130,7 +127,7 @@ let populate_env files =
             Warn.fatal_error "%a is polymorphic\n" plid lid;
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
-      | DExternal (_, _, lid, typ, _) ->
+      | DExternal (_, _, _, lid, typ, _) ->
           { env with globals = M.add lid typ env.globals }
     ) env decls
   ) empty files
@@ -197,6 +194,8 @@ and check_program env r (name, decls) =
 
 
 and check_decl env d =
+  if Options.debug "checker" then
+    KPrint.bprintf "checking %a\n" plid (lid_of_decl d);
   match d with
   | DFunction (_, _, n, t, name, binders, body) ->
       assert (n = 0);
@@ -265,8 +264,8 @@ and check_union env fieldexprs fieldtyps =
 
 
 and check env t e =
-  if !debug then KPrint.bprintf "[check] t=%a for e=%a\n" ptyp t pexpr e;
-  if !debug then KPrint.bprintf "[check] annot=%a for e=%a\n" ptyp e.typ pexpr e;
+  if Options.debug "checker" then KPrint.bprintf "[check] t=%a for e=%a\n" ptyp t pexpr e;
+  if Options.debug "checker" then KPrint.bprintf "[check] annot=%a for e=%a\n" ptyp e.typ pexpr e;
   check' env t e;
   e.typ <- smallest e.typ t
 
@@ -292,6 +291,7 @@ and check' env t e =
   | EBufNull
   | EReturn _
   | EBreak
+  | EContinue
   | EBool _
   | EWhile _
   | EEnum _
@@ -346,11 +346,12 @@ and check' env t e =
         checker_error env buf_any_msg ppexpr e;
       check env t e1;
       check_array_index env e2;
-      c (best_buffer_type t e2)
+      c (best_buffer_type lifetime t e2)
 
   | EBufRead (e1, e2) ->
       check_array_index env e2;
-      check env (TBuf (t, true)) e1
+      check env (TBuf (t, true)) e1;
+      c t
 
   | EBufWrite (e1, e2, e3) ->
       check_array_index env e2;
@@ -461,6 +462,7 @@ and check' env t e =
       let t = infer env e in
       c (TBuf (t, false))
 
+
 and check_case env c t =
   match c, t with
   | SWild, _ ->
@@ -492,12 +494,12 @@ and args_of_branch env t ident =
       checker_error env "Type annotation is not an lid but %a" ptyp t
 
 and infer env e =
-  if !debug then KPrint.bprintf "[infer] %a\n" pexpr e;
+  if Options.debug "checker" then KPrint.bprintf "[infer] %a\n" pexpr e;
   let t = infer' env e in
-  if !debug then KPrint.bprintf "[infer, got] %a\n" ptyp t;
+  if Options.debug "checker" then KPrint.bprintf "[infer, got] %a\n" ptyp t;
   check_subtype env t e.typ;
   e.typ <- prefer_nominal t e.typ;
-  if !debug then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ;
+  if Options.debug "checker" then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ;
   t
 
 and prefer_nominal t1 t2 =
@@ -509,9 +511,9 @@ and prefer_nominal t1 t2 =
   | _, _ ->
       t1
 
-and best_buffer_type t1 e2 =
-  match e2.node with
-  | EConstant k ->
+and best_buffer_type l t1 e2 =
+  match e2.node, l with
+  | EConstant k, Common.Stack ->
       TArray (t1, k)
   | _ ->
       TBuf (t1, false)
@@ -519,13 +521,15 @@ and best_buffer_type t1 e2 =
 
 and infer' env e =
   match e.node with
-  | ETApp (e, t) ->
+  | ETApp (e, ts) ->
       begin match e.node with
       | EOp ((K.Eq | K.Neq), _) ->
-          let t = KList.one t in
+          (* Special incorrect encoding of polymorphic equalities *)
+          let t = KList.one ts in
           TArrow (t, TArrow (t, TBool))
       | _ ->
-          assert false
+          let t = infer env e in
+          DeBruijn.subst_tn ts t
       end
 
   | EPolyComp (_, t) ->
@@ -606,10 +610,10 @@ and infer' env e =
       check env t e2;
       TUnit
 
-  | EBufCreate (_, e1, e2) ->
+  | EBufCreate (l, e1, e2) ->
       let t1 = infer env e1 in
       check_array_index env e2;
-      best_buffer_type t1 e2
+      best_buffer_type l t1 e2
 
   | EBufRead (e1, e2) ->
       check_array_index env e2;
@@ -670,6 +674,7 @@ and infer' env e =
       (** TODO: check that [EReturn] matches the expected return type *)
       TAny
 
+  | EContinue
   | EBreak ->
       TUnit
 
@@ -843,6 +848,10 @@ and check_valid_assignment_lhs env e =
   | EQualified _ ->
       (* Introduced when collecting global initializers. *)
       e.typ
+  | EApp ({ node = ETApp _; _ }, _) ->
+      (* Will be emitted as a macro, optimistically assuming that's ok, the C
+         compiler will bark if not. *)
+      e.typ
   | _ ->
       checker_error env "EAssign wants a lhs that's a mutable, local variable, or a \
         path to a mutable field; got %a instead" pexpr e
@@ -1007,6 +1016,8 @@ and assert_cons_of env t id: fields_t =
       checker_error env "the annotated type %a is not a variant type" ptyp (TAnonymous t)
 
 and subtype env t1 t2 =
+  if Options.debug "checker" then
+    KPrint.bprintf "%a <=? %a\n" ptyp t1 ptyp t2;
   match expand_abbrev env t1, expand_abbrev env t2 with
   | TInt w1, TInt w2 when w1 = w2 ->
       true
@@ -1022,16 +1033,11 @@ and subtype env t1 t2 =
       true
   | TUnit, TUnit ->
       true
-  | TQualified lid, _
-  | TApp (lid, _), _ when not (known_type env lid) ->
-      (* God bless Warning 57. *)
-      true
-  | _, TApp (lid, _)
-  | _, TQualified lid when not (known_type env lid) ->
-      true
   | TQualified lid1, TQualified lid2 ->
       lid1 = lid2
   | TBool, TBool
+  | _, TQualified (["FStar"; "Dyn"], "dyn")
+  | TQualified (["FStar"; "Dyn"], "dyn"), _
   | _, TAny
   | TAny, _ ->
       true

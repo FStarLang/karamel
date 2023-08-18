@@ -68,6 +68,7 @@ let rec vars_of m = function
   | StringLiteral _
   | Any
   | EAbort _
+  | Type _
   | BufNull
   | Op _ ->
       S.empty
@@ -97,6 +98,7 @@ and vars_of_stmt m = function
   | CStar.Abort _
   | Return _
   | Break
+  | Continue
   | Comment _ ->
       S.empty
   | Ignore e
@@ -528,6 +530,9 @@ and mk_stmt m (stmt: stmt): C.stmt list =
   | Break ->
       [ Break ]
 
+  | Continue ->
+      [ Continue ]
+
   | Ignore e ->
       [ Expr (mk_expr m e) ]
 
@@ -826,11 +831,6 @@ and mk_expr m (e: expr): C.expr =
   | Comma (e1, e2) ->
       Op2 (K.Comma, mk_expr m e1, mk_expr m e2)
 
-  | Call (Qualified ([ "Lib"; "Memzero0" ], "memzero") as f, [ dst; len ]) ->
-      let dst = mk_expr m dst in
-      let len = mk_expr m len in
-      Call (mk_expr m f, [ dst; Op2 (K.Mult, len, Sizeof (Index (dst, zero))) ])
-
   | Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), [ arg ]) ->
       mk_ignore (mk_expr m arg)
 
@@ -973,6 +973,9 @@ and mk_expr m (e: expr): C.expr =
 
   | Stmt s ->
       Stmt (KList.map_flatten (mk_stmt m) s)
+
+  | Type t ->
+      Type (mk_type m t)
 
 
 and mk_compound_literal m name fields =
@@ -1126,15 +1129,6 @@ let mk_function_or_global_stub m (d: decl): C.declaration_or_function list =
 
 type where = H | C
 
-(* For some functions, we replace their declration on the fly. *)
-let replace_decl (d: decl): decl =
-  match d with
-  | External ((["Lib";"Memzero0"],"memzero") as f,
-    Function (cc, Void, [ Pointer Void; Int K.UInt32 ]), flags, args) ->
-      External (f, Function (cc, Void, [ Pointer Void; Int K.UInt64 ]), flags, args)
-  | _ ->
-      d
-
 let declared_in_library lid =
   List.exists (fun b -> Bundle.pattern_matches b (String.concat "_" (fst lid))) !Options.library
 
@@ -1152,7 +1146,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
     in
     wrap_verbatim name flags (Decl ([], ([], d, false, Some Typedef, [ Ident name, None, None ])))
   in
-  match replace_decl d with
+  match d with
   | TypeForward (name, flags, k) ->
       let name = to_c_name m name in
       mk_forward_decl name flags k

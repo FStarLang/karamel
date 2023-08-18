@@ -13,105 +13,128 @@
 #include "krml/internal/compat.h"
 #include "krml/internal/target.h"
 
-extern Prims_int FStar_Int_max_int(Prims_pos n);
+extern krml_checked_int_t FStar_Int_max_int(krml_checked_int_t n);
 
-extern Prims_int FStar_Int_min_int(Prims_pos n);
+extern krml_checked_int_t FStar_Int_min_int(krml_checked_int_t n);
 
-extern bool FStar_Int_fits(Prims_int x, Prims_pos n);
+extern bool FStar_Int_fits(krml_checked_int_t x, krml_checked_int_t n);
 
 typedef void *FStar_Int_size;
 
-typedef Prims_int FStar_Int_int_t;
+typedef krml_checked_int_t FStar_Int_int_t;
 
-extern Prims_int FStar_Int_op_Slash(Prims_int a, Prims_int b);
+extern krml_checked_int_t FStar_Int_op_Slash(krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_op_At_Percent(Prims_int v, Prims_int p);
+extern krml_checked_int_t FStar_Int_op_At_Percent(krml_checked_int_t v, krml_checked_int_t p);
 
-extern Prims_int FStar_Int_zero(Prims_pos n);
+extern krml_checked_int_t FStar_Int_zero(krml_checked_int_t n);
 
-extern Prims_int FStar_Int_pow2_n(Prims_pos n, Prims_int p);
+extern krml_checked_int_t FStar_Int_pow2_n(krml_checked_int_t n, krml_checked_int_t p);
 
-extern Prims_int FStar_Int_pow2_minus_one(Prims_pos n, Prims_int m);
+extern krml_checked_int_t FStar_Int_pow2_minus_one(krml_checked_int_t n, krml_checked_int_t m);
 
-extern Prims_int FStar_Int_one(Prims_pos n);
+extern krml_checked_int_t FStar_Int_one(krml_checked_int_t n);
 
-extern Prims_int FStar_Int_ones(Prims_pos n);
+extern krml_checked_int_t FStar_Int_ones(krml_checked_int_t n);
 
-extern Prims_int FStar_Int_incr(Prims_pos n, Prims_int a);
+extern krml_checked_int_t FStar_Int_incr(krml_checked_int_t n, krml_checked_int_t a);
 
-extern Prims_int FStar_Int_decr(Prims_pos n, Prims_int a);
+extern krml_checked_int_t FStar_Int_decr(krml_checked_int_t n, krml_checked_int_t a);
 
-extern Prims_int FStar_Int_incr_underspec(Prims_pos n, Prims_int a);
+extern krml_checked_int_t FStar_Int_incr_underspec(krml_checked_int_t n, krml_checked_int_t a);
 
-extern Prims_int FStar_Int_decr_underspec(Prims_pos n, Prims_int a);
+extern krml_checked_int_t FStar_Int_decr_underspec(krml_checked_int_t n, krml_checked_int_t a);
 
-extern Prims_int FStar_Int_incr_mod(Prims_pos n, Prims_int a);
+extern krml_checked_int_t FStar_Int_incr_mod(krml_checked_int_t n, krml_checked_int_t a);
 
-extern Prims_int FStar_Int_decr_mod(Prims_pos n, Prims_int a);
+extern krml_checked_int_t FStar_Int_decr_mod(krml_checked_int_t n, krml_checked_int_t a);
 
-extern Prims_int FStar_Int_add(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_add(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_add_underspec(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_add_underspec(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_add_mod(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_add_mod(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_sub(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_sub(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_sub_underspec(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_sub_underspec(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_sub_mod(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_sub_mod(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_mul(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_mul(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_mul_underspec(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_mul_underspec(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_mul_mod(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_mul_mod(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_div(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_div(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_div_underspec(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_div_underspec(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_udiv(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_udiv(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_mod(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_mod(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern bool FStar_Int_eq(Prims_pos n, Prims_int a, Prims_int b);
+extern bool FStar_Int_eq(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern bool FStar_Int_gt(Prims_pos n, Prims_int a, Prims_int b);
+extern bool FStar_Int_gt(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern bool FStar_Int_gte(Prims_pos n, Prims_int a, Prims_int b);
+extern bool FStar_Int_gte(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern bool FStar_Int_lt(Prims_pos n, Prims_int a, Prims_int b);
+extern bool FStar_Int_lt(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern bool FStar_Int_lte(Prims_pos n, Prims_int a, Prims_int b);
+extern bool FStar_Int_lte(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_to_uint(Prims_pos n, Prims_int x);
+extern krml_checked_int_t FStar_Int_to_uint(krml_checked_int_t n, krml_checked_int_t x);
 
-extern Prims_int FStar_Int_from_uint(Prims_pos n, Prims_int x);
+extern krml_checked_int_t FStar_Int_from_uint(krml_checked_int_t n, krml_checked_int_t x);
 
-extern Prims_int FStar_Int_to_int_t(Prims_pos m, Prims_int a);
+extern krml_checked_int_t FStar_Int_to_int_t(krml_checked_int_t m, krml_checked_int_t a);
 
-extern Prims_list__bool *FStar_Int_to_vec(Prims_pos n, Prims_int num);
+extern Prims_list__bool *FStar_Int_to_vec(krml_checked_int_t n, krml_checked_int_t num);
 
-extern Prims_int FStar_Int_from_vec(Prims_pos n, Prims_list__bool *vec);
+extern krml_checked_int_t FStar_Int_from_vec(krml_checked_int_t n, Prims_list__bool *vec);
 
-extern bool FStar_Int_nth(Prims_pos n, Prims_int a, Prims_int i);
+extern bool FStar_Int_nth(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t i);
 
-extern Prims_int FStar_Int_logand(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_logand(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_logxor(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_logxor(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_logor(Prims_pos n, Prims_int a, Prims_int b);
+extern krml_checked_int_t
+FStar_Int_logor(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
-extern Prims_int FStar_Int_lognot(Prims_pos n, Prims_int a);
+extern krml_checked_int_t FStar_Int_lognot(krml_checked_int_t n, krml_checked_int_t a);
 
-extern Prims_int FStar_Int_minus(Prims_pos n, Prims_int a);
+extern krml_checked_int_t FStar_Int_minus(krml_checked_int_t n, krml_checked_int_t a);
 
-extern Prims_int FStar_Int_shift_left(Prims_pos n, Prims_int a, Prims_int s);
+extern krml_checked_int_t
+FStar_Int_shift_left(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t s);
 
-extern Prims_int FStar_Int_shift_right(Prims_pos n, Prims_int a, Prims_int s);
+extern krml_checked_int_t
+FStar_Int_shift_right(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t s);
 
-extern Prims_int FStar_Int_shift_arithmetic_right(Prims_pos n, Prims_int a, Prims_int s);
+extern krml_checked_int_t
+FStar_Int_shift_arithmetic_right(
+  krml_checked_int_t n,
+  krml_checked_int_t a,
+  krml_checked_int_t s
+);
 
 
 #define __FStar_Int_H_DEFINED
