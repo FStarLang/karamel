@@ -33,6 +33,7 @@ let mk_is_struct files =
   function
     | TAnonymous (Flat _) ->
         true
+    | TApp (lid, _)
     | TQualified lid ->
         begin try
           Hashtbl.find map lid
@@ -369,6 +370,7 @@ let pass_by_ref files =
        it by reference, therefore guaranteeing that the value lives only in a
        single place in memory. *)
     (* | TQualified (["Test"], "t") *)
+    | TApp ((["Steel"; "SpinLock"], "lock"), _)
     | TQualified (["Steel"; "SpinLock"], "lock__()") ->
         NoCopies
     | t ->
