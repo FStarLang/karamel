@@ -324,7 +324,12 @@ and p_decl_and_init (decl, alignment, init) =
         empty)
 
 and p_declaration (qs, spec, inline, stor, decl_and_inits) =
-  let inline = if inline then string "inline" ^^ space else empty in
+  let inline =
+    match inline with
+    | None -> empty
+    | Some C11.Inline -> string "inline" ^^ space
+    | Some NoInline -> string "KRML_NOINLINE" ^^ space
+  in
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
   let _, alignment, _ = List.hd decl_and_inits in
   if not (List.for_all (fun (_, a, _) -> a = alignment) decl_and_inits) then

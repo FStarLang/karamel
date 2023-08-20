@@ -82,9 +82,16 @@ and param =
   (** Also approximate. *)
   qualifier list * type_spec * declarator
 
+and inline_stance =
+  | Inline
+  | NoInline
+
 and declaration =
-  qualifier list * type_spec * bool * storage_spec option * declarator_and_inits
-  (* bool is for inline, only valid when declaring functions *)
+  qualifier list * type_spec * inline_stance option * storage_spec option * declarator_and_inits
+  (* the inline stance is for functions only; in addition to the standard C
+     "inline" qualifier, we also distinguish a "noinline" version for
+     security-sensitive functions that would otherwise undergo upsetting
+     compiler optimizations *)
 
 and ident =
   string

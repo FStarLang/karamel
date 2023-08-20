@@ -239,6 +239,7 @@ typedef void *FStar_Pervasives_inversion;
 #define FStar_Pervasives_CAbstractStruct 11
 #define FStar_Pervasives_CIfDef 12
 #define FStar_Pervasives_CMacro 13
+#define FStar_Pervasives_CNoInline 14
 
 typedef uint8_t FStar_Pervasives___internal_ocaml_attributes_tags;
 
@@ -336,6 +337,9 @@ FStar_Pervasives_uu___is_CIfDef(FStar_Pervasives___internal_ocaml_attributes pro
 
 extern bool
 FStar_Pervasives_uu___is_CMacro(FStar_Pervasives___internal_ocaml_attributes projectee);
+
+extern bool
+FStar_Pervasives_uu___is_CNoInline(FStar_Pervasives___internal_ocaml_attributes projectee);
 
 
 #define __FStar_Pervasives_H_DEFINED
