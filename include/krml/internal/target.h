@@ -63,6 +63,7 @@
 #  elif defined (__GNUC__)
 #    define KRML_NOINLINE __attribute__((noinline))
 #  else
+#    define KRML_NOINLINE
 #    warning "The KRML_NOINLINE macro is not defined for this toolchain!"
 #    warning "The compiler may defeat side-channel resistance with optimizations."
 #    warning "Please locate target.h and try to fill it out with a suitable definition for this compiler."
