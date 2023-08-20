@@ -183,8 +183,11 @@ inline static int32_t krml_time(void) {
 #endif
 
 /* Macros for prettier unrolling of loops */
-#define KRML_LOOP1(i, n, x)                                                    \
-  { x i += n; }
+#define KRML_LOOP1(i, n, x) { \
+  x \
+  i += n; \
+  (void) i; \
+}
 
 #define KRML_LOOP2(i, n, x)                                                    \
   KRML_LOOP1(i, n, x)                                                          \
