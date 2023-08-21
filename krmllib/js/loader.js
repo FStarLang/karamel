@@ -251,10 +251,6 @@ let mkLibMemzero = (mem) => ({
   }
 });
 
-let mkLowStarIgnore = (mem) => ({
-  LowStar_Ignore_ignore: () => { }
-});
-
 let mkLowStarEndianness = (mem) => ({
   htole16: (x) => { throw new Error("todo: htole16") },
   le16toh: (x) => { throw new Error("todo: le16toh") },
@@ -485,8 +481,7 @@ function init() {
     TestLib: mkTestLib(mem, 'TestLib'),
     TestLib_Compat: mkTestLib(mem, 'TestLib_Compat'),
     Lib_RandomBuffer_System: mkLibRandomBufferSystem(mem),
-    Lib_Memzero: mkLibMemzero(mem),
-    LowStar_Ignore: mkLowStarIgnore(mem)
+    Lib_Memzero: mkLibMemzero(mem)
   };
   return imports;
 }
