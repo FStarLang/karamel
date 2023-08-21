@@ -1015,17 +1015,20 @@ let wrap_verbatim lid flags d =
   KList.filter_map (function
     | Prologue s -> Some (Text s)
     | _ -> None
-  ) flags @ KList.filter_map (function
+  ) flags @
+  KList.filter_map (function
     | Deprecated s -> Some (Text (KPrint.bsprintf "KRML_DEPRECATED(\"%s\")" s))
     | _ -> None
-  ) flags @ [ d ] @ KList.filter_map (function
+  ) flags @
+  [ d ] @ KList.filter_map (function
     | Epilogue s -> Some (Text s)
     | _ -> None
   ) flags @
   if !Options.rst_snippets then
     [ Text (KPrint.bsprintf "/* SNIPPET_END: %s */" lid) ]
   else
-    []
+    [] @
+  []
 
 let enum_as_macros cases =
   let lines: string list = List.mapi (fun i c ->
@@ -1317,20 +1320,23 @@ let mk_static f d =
     | Some NoInline -> Some NoInline
   in
 
-  List.map (function
+  KList.map_flatten (function
     | C.Decl (comments, (qs, ts, inline, (None | Some (Static | Extern)), decl_inits)) ->
         let is_func = match decl_inits with
           | [ Function _, _, _ ] -> promote_inline inline
           | [ _ ] -> inline
           | _ -> assert false
         in
-        C.Decl (comments, (qs, ts, is_func, Some Static, decl_inits))
+        [ C.Decl (comments, (qs, ts, is_func, Some Static, decl_inits)) ]
     | C.Function (comments, (qs, ts, inline, (None | Some (Static | Extern)), decl_inits), body) ->
         (* We make the function static *and* inline UNLESS the user requested
            NoInline *)
-        C.Function (comments, (qs, ts, promote_inline inline, Some Static, decl_inits), body)
+        let is_noinline = inline = Some C11.NoInline in
+        (if is_noinline then [ Text "KRML_NOINLINE_START" ] else []) @
+        [ C.Function (comments, (qs, ts, promote_inline inline, Some Static, decl_inits), body) ] @
+        (if is_noinline then [ Text "KRML_NOINLINE_END" ] else [])
     | d ->
-        d
+        [ d ]
   ) (f d)
 
 (* Generates either a static header (the union of public + internal), OR just
