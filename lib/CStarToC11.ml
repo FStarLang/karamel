@@ -1008,6 +1008,11 @@ let mk_comments =
   )
 
 let wrap_verbatim lid flags d =
+  let is_noinline_static = match d with
+    | C11.Function (_, (_, _, Some NoInline, Some Static, _), _) -> true
+    | _ -> false
+  in
+  (if is_noinline_static then [ Text "KRML_NOINLINE_START" ] else []) @
   (if !Options.rst_snippets then
     [ Text (KPrint.bsprintf "/* SNIPPET_START: %s */" lid) ]
   else
@@ -1015,17 +1020,21 @@ let wrap_verbatim lid flags d =
   KList.filter_map (function
     | Prologue s -> Some (Text s)
     | _ -> None
-  ) flags @ KList.filter_map (function
+  ) flags @
+  KList.filter_map (function
     | Deprecated s -> Some (Text (KPrint.bsprintf "KRML_DEPRECATED(\"%s\")" s))
     | _ -> None
-  ) flags @ [ d ] @ KList.filter_map (function
+  ) flags @
+  [ d ] @ KList.filter_map (function
     | Epilogue s -> Some (Text s)
     | _ -> None
   ) flags @
   if !Options.rst_snippets then
     [ Text (KPrint.bsprintf "/* SNIPPET_END: %s */" lid) ]
   else
-    []
+    [] @
+  (if is_noinline_static then [ Text "KRML_NOINLINE_END" ] else []) @
+  []
 
 let enum_as_macros cases =
   let lines: string list = List.mapi (fun i c ->

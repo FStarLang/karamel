@@ -57,6 +57,17 @@
 #  define KRML_HOST_IGNORE(x) (void)(x)
 #endif
 
+#ifndef KRML_NOINLINE_START
+#  define KRML_NOINLINE_START \
+  _Pragma("GCC diagnostic push") \
+  _Pragma("GCC diagnostic ignored \"-Wunused-function\"")
+#endif
+
+#ifndef KRML_NOINLINE_END
+#  define KRML_NOINLINE_END \
+  _Pragma("GCC diagnostic pop")
+#endif
+
 #ifndef KRML_NOINLINE
 #  if defined(_MSC_VER)
 #    define KRML_NOINLINE __declspec(noinline)
