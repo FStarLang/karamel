@@ -1206,8 +1206,6 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
         let inline =
           if List.mem NoInline flags then
             Some C11.NoInline
-          else if List.mem Inline flags then
-            Some C11.Inline
           else
             None
         in
