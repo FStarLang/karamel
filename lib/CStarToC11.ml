@@ -1203,7 +1203,15 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
             fst (KList.split (List.length ts) pp)
         in
         let qs, spec, decl = mk_spec_and_declarator_f m cc name t (List.combine arg_names ts) in
-        wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, Some Extern, [ decl, None, None ])))
+        let inline =
+          if List.mem NoInline flags then
+            Some C11.NoInline
+          else if List.mem Inline flags then
+            Some C11.Inline
+          else
+            None
+        in
+        wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, inline, Some Extern, [ decl, None, None ])))
 
   | External (name, t, flags, _) ->
       if is_primitive name ||
