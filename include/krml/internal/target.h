@@ -58,14 +58,22 @@
 #endif
 
 #ifndef KRML_NOINLINE_START
-#  define KRML_NOINLINE_START \
-  _Pragma("GCC diagnostic push") \
-  _Pragma("GCC diagnostic ignored \"-Wunused-function\"")
+#  if defined (__GNUC__)
+#    define KRML_NOINLINE_START \
+       _Pragma("GCC diagnostic push") \
+       _Pragma("GCC diagnostic ignored \"-Wunused-function\"")
+#  else
+#    define KRML_NOINLINE_START
+#  endif
 #endif
 
 #ifndef KRML_NOINLINE_END
-#  define KRML_NOINLINE_END \
-  _Pragma("GCC diagnostic pop")
+#  if defined (__GNUC__)
+#    define KRML_NOINLINE_END \
+      _Pragma("GCC diagnostic pop")
+#  else
+#    define KRML_NOINLINE_START
+#  endif
 #endif
 
 #ifndef KRML_NOINLINE
