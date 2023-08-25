@@ -1038,6 +1038,8 @@ and subtype env t1 t2 =
   | TBool, TBool
   | _, TQualified (["FStar"; "Dyn"], "dyn")
   | TQualified (["FStar"; "Dyn"], "dyn"), _
+  | TBuf (_, false), TQualified (["Steel"; "ST"; "C"; "Types"; "Base"], "void_ptr")
+  | TBuf (_, false), TQualified (["Steel"; "ST"; "C"; "Types"; "Array"], "array_void_ptr")
   | _, TAny
   | TAny, _ ->
       true
