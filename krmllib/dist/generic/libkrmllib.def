@@ -37,6 +37,7 @@ EXPORTS
   FStar_BV_bvadd
   FStar_BV_bvsub
   FStar_BV_bvdiv
+  FStar_BV_bvdiv_unsafe
   FStar_BV_bvmod
   FStar_BV_bvmul
   FStar_Order_uu___is_Lt
