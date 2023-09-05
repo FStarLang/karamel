@@ -70,7 +70,7 @@ pre:
 install: all
 	@if [ x"$(PREFIX)" = x ]; then echo "please define PREFIX"; exit 1; fi
 	mkdir -p $(PREFIX)/bin
-	cp _build/default/Karamel.exe $(PREFIX)/bin/krml
+	cp _build/default/src/Karamel.exe $(PREFIX)/bin/krml
 	mkdir -p $(PREFIX)/include
 	cp -r include/* $(PREFIX)/include
 	mkdir -p $(PREFIX)/lib/krml
