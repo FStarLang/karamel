@@ -12,8 +12,6 @@
 #include "krml/internal/types.h"
 #include "krml/internal/target.h"
 
-KRML_NOINLINE_START
-
 static KRML_NOINLINE uint64_t FStar_UInt64_eq_mask(uint64_t a, uint64_t b)
 {
   uint64_t x = a ^ b;
@@ -22,10 +20,6 @@ static KRML_NOINLINE uint64_t FStar_UInt64_eq_mask(uint64_t a, uint64_t b)
   uint64_t xnx = x_or_minus_x >> (uint32_t)63U;
   return xnx - (uint64_t)1U;
 }
-
-KRML_NOINLINE_END
-
-KRML_NOINLINE_START
 
 static KRML_NOINLINE uint64_t FStar_UInt64_gte_mask(uint64_t a, uint64_t b)
 {
@@ -39,8 +33,6 @@ static KRML_NOINLINE uint64_t FStar_UInt64_gte_mask(uint64_t a, uint64_t b)
   uint64_t x_xor_q_ = x_xor_q >> (uint32_t)63U;
   return x_xor_q_ - (uint64_t)1U;
 }
-
-KRML_NOINLINE_END
 
 
 #define __FStar_UInt_8_16_32_64_H_DEFINED

@@ -1331,10 +1331,7 @@ let mk_static f d =
     | C.Function (comments, (qs, ts, inline, (None | Some (Static | Extern)), decl_inits), body) ->
         (* We make the function static *and* inline UNLESS the user requested
            NoInline *)
-        let is_noinline = inline = Some C11.NoInline in
-        (if is_noinline then [ Text "KRML_NOINLINE_START" ] else []) @
-        [ C.Function (comments, (qs, ts, promote_inline inline, Some Static, decl_inits), body) ] @
-        (if is_noinline then [ Text "KRML_NOINLINE_END" ] else [])
+        [ C.Function (comments, (qs, ts, promote_inline inline, Some Static, decl_inits), body) ]
     | d ->
         [ d ]
   ) (f d)

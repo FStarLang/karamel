@@ -323,19 +323,6 @@ Prims_list__bool
 }
 
 Prims_list__bool
-*FStar_BV_bvdiv_unsafe(krml_checked_int_t n, Prims_list__bool *a, Prims_list__bool *b)
-{
-  if (FStar_BV_bv2int(n, b) != (krml_checked_int_t)0)
-  {
-    return FStar_BV_bvdiv(n, a, FStar_BV_bv2int(n, b));
-  }
-  else
-  {
-    return FStar_BV_int2bv(n, (krml_checked_int_t)0);
-  }
-}
-
-Prims_list__bool
 *FStar_BV_bvmod(krml_checked_int_t n, Prims_list__bool *a, krml_checked_int_t b)
 {
   return FStar_BV_int2bv(n, FStar_UInt_mod(n, FStar_BV_bv2int(n, a), b));
