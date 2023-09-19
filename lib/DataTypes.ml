@@ -647,7 +647,7 @@ let remove_unit_fields = object (self)
   val mutable atoms = []
 
   method private is_erasable = function
-    | TUnit | TAny -> true
+    | TUnit -> true
     | _ -> false
 
   method private default_value = function
