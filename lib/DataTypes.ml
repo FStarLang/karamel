@@ -647,7 +647,7 @@ let remove_unit_fields = object (self)
   val mutable atoms = []
 
   method private is_erasable = function
-    | TUnit | TAny -> true
+    | TUnit -> true
     | _ -> false
 
   method private default_value = function
@@ -660,7 +660,7 @@ let remove_unit_fields = object (self)
     | Variant branches ->
         DType (lid, flags, n, self#rewrite_variant lid branches)
     | Flat fields ->
-        DType (lid, flags, n, Flat (self#rewrite_fields lid None fields))
+        DType (lid, flags, n, Flat (self#rewrite_fields lid None (fun x -> x) fields))
     | _ ->
         DType (lid, flags, n, type_def)
 
@@ -669,17 +669,21 @@ let remove_unit_fields = object (self)
   method private rewrite_variant lid branches =
     let branches =
       List.map (fun (cons, fields) ->
-        cons, self#rewrite_fields lid (Some cons) fields
+        cons, self#rewrite_fields lid (Some cons) (fun x -> Some x) fields
       ) branches
     in
     Variant branches
 
   method private rewrite_fields:
-    'a. lident -> string option -> ('a * (typ * bool)) list -> ('a * (typ * bool)) list
-  = fun lid cons fields ->
+    'a. lident -> string option -> ('a -> ident option) -> ('a * (typ * bool)) list -> ('a * (typ * bool)) list
+  = fun lid cons as_fieldopt fields ->
     KList.filter_mapi (fun i (f, (t, m)) ->
       if self#is_erasable t then begin
-        Hashtbl.add erasable_fields (lid, cons, i) ();
+        (* We add the ability to lookup by index or field, as both are useful. *)
+        Hashtbl.add erasable_fields (lid, cons, (`Index i)) ();
+        match as_fieldopt f with
+        | Some f -> Hashtbl.add erasable_fields (lid, cons, (`Field f)) ()
+        | None -> (); ;
         None
       end else
         Some (f, (t, m))
@@ -706,7 +710,7 @@ let remove_unit_fields = object (self)
    * remember them. *)
   method! visit_PCons (_, t) cons pats =
     let pats = KList.filter_mapi (fun i p ->
-      if Hashtbl.mem erasable_fields (assert_tlid t, Some cons, i) then begin
+      if Hashtbl.mem erasable_fields (assert_tlid t, Some cons, `Index i) then begin
         begin match p.node with
         | POpen (_, a) ->
             atoms <- a :: atoms
@@ -721,7 +725,7 @@ let remove_unit_fields = object (self)
 
   method! visit_PRecord (_, t) pats =
     let pats = KList.filter_mapi (fun i (f, p) ->
-      if Hashtbl.mem erasable_fields (assert_tlid t, None, i) then begin
+      if Hashtbl.mem erasable_fields (assert_tlid t, None, `Index i) then begin
         begin match p.node with
         | POpen (_, a) ->
             atoms <- a :: atoms
@@ -734,10 +738,22 @@ let remove_unit_fields = object (self)
     ) pats in
     PRecord pats
 
+  method! visit_EField (_, t) e f =
+    if Hashtbl.mem erasable_fields (assert_tlid e.typ, None, `Field f) then begin
+      if is_readonly_c_expression e then
+        self#default_value t
+      else
+        ESequence [
+          with_type TUnit (EIgnore (self#visit_expr_w () e));
+          with_type t (self#default_value t)
+        ]
+    end else
+      EField (self#visit_expr_w () e, f)
+
   method! visit_EFlat (_, t) exprs =
     let seq = ref [] in
     let exprs = KList.filter_mapi (fun i (f, e) ->
-      if Hashtbl.mem erasable_fields (assert_tlid t, None, i) then begin
+      if Hashtbl.mem erasable_fields (assert_tlid t, None, `Index i) then begin
         if not (is_value e) then
           seq := (if e.typ = TUnit then e else with_unit (EIgnore (self#visit_expr_w () e))) :: !seq;
         None
@@ -753,7 +769,7 @@ let remove_unit_fields = object (self)
   method! visit_ECons (_, t) cons exprs =
     let seq = ref [] in
     let exprs = KList.filter_mapi (fun i e ->
-      if Hashtbl.mem erasable_fields (assert_tlid t, Some cons, i) then begin
+      if Hashtbl.mem erasable_fields (assert_tlid t, Some cons, `Index i) then begin
         if not (is_value e) then
           seq := (if e.typ = TUnit then e else with_unit (EIgnore (self#visit_expr_w () e))) :: !seq;
         None

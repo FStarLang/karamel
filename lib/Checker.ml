@@ -123,7 +123,7 @@ let populate_env files =
           assert (n = 0);
           { env with globals = M.add lid t env.globals }
       | DFunction (_, _, n, ret, lid, binders, _) ->
-          if n <> 0 then
+          if not !Options.allow_tapps && n <> 0 then
             Warn.fatal_error "%a is polymorphic\n" plid lid;
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
@@ -198,7 +198,7 @@ and check_decl env d =
     KPrint.bprintf "checking %a\n" plid (lid_of_decl d);
   match d with
   | DFunction (_, _, n, t, name, binders, body) ->
-      assert (n = 0);
+      assert (!Options.allow_tapps || n = 0);
       let env = List.fold_left push env binders in
       let env = locate env (InTop name) in
       check env t body
