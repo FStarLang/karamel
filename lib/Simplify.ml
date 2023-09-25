@@ -447,6 +447,18 @@ let remove_uu = object (self)
       ELet (b, e1, e2)
 end
 
+let remove_ignore_unit = object
+
+  inherit [_] map as super
+
+  method! visit_EApp env hd args =
+    match hd.node, args with
+    | ETApp ({ node = EQualified (["LowStar"; "Ignore"], "ignore"); _}, [ TUnit ]), [ { node = EUnit; _ } ] ->
+        EUnit
+    | _ ->
+        super#visit_EApp env hd args
+end
+
 let remove_proj_is = object
 
   inherit [_] map
@@ -1937,6 +1949,7 @@ let simplify0 (files: file list): file list =
   let files = remove_local_function_bindings#visit_files () files in
   let files = count_and_remove_locals#visit_files [] files in
   let files = remove_uu#visit_files () files in
+  let files = remove_ignore_unit#visit_files () files in
   let files = remove_proj_is#visit_files () files in
   let files = combinators#visit_files () files in
   let files = wrapping_arithmetic#visit_files () files in

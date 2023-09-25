@@ -723,7 +723,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EOpen _ ->
       invalid_arg "mk_expr (EOpen)"
 
-  | EApp ({ node = EQualified (["LowStar"; "Ignore"],"ignore"); _ }, [ _ ]) ->
+  | EApp ({ node = ETApp ({ node = EQualified (["LowStar"; "Ignore"],"ignore"); _ }, _); _ }, [ _ ]) ->
       locals, cflat_unit
 
   | EApp ({ node = ETApp ({ node = EQualified (["Lib"; "Memzero0"],"memzero"); _ }, _); _ }, [ dst; len ]) ->

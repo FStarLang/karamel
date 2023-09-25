@@ -534,6 +534,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       [ Continue ]
 
   | Ignore e ->
+      (* XXX why is this not compiled the same way as mk_ignore? *)
       [ Expr (mk_expr m e) ]
 
   | Decl (binder, BufCreate ((Eternal | Heap), init, size)) ->
@@ -831,7 +832,11 @@ and mk_expr m (e: expr): C.expr =
   | Comma (e1, e2) ->
       Op2 (K.Comma, mk_expr m e1, mk_expr m e2)
 
-  | Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), [ arg ]) ->
+  | Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), [ _ ]) ->
+      (* Only one argument because of unit-to-void elimination -- should not happen. *)
+      failwith "`ignore ()` should have been removed earlier on"
+
+  | Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), [ arg; _ ]) ->
       mk_ignore (mk_expr m arg)
 
   | Call (Qualified ([ "C"; "Nullity" ], s), [ e1 ]) when KString.starts_with s "op_Bang_Star__" ->

@@ -94,6 +94,9 @@ Prims_list__bool
 *FStar_BV_bvdiv(krml_checked_int_t n, Prims_list__bool *a, krml_checked_int_t b);
 
 Prims_list__bool
+*FStar_BV_bvdiv_unsafe(krml_checked_int_t n, Prims_list__bool *a, Prims_list__bool *b);
+
+Prims_list__bool
 *FStar_BV_bvmod(krml_checked_int_t n, Prims_list__bool *a, krml_checked_int_t b);
 
 Prims_list__bool

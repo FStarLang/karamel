@@ -197,6 +197,7 @@ let string_of_return_pos = function
 let whitelisted_lid lid =
   match lid with
   | ["Lib"; "Memzero0"],"memzero" -> true
+  | ["LowStar"; "Ignore"],"ignore" -> true
   | ["Steel"; "SpinLock"],"lock" -> true
   | _ -> false
 
