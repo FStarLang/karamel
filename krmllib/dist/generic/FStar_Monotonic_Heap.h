@@ -19,6 +19,7 @@ typedef struct FStar_Pervasives_dtuple4_____FStar_Pervasives_Native_option_____b
 {
   FStar_Pervasives_Native_option__Prims_string_tags _2;
   bool _3;
+  void *_4;
 }
 FStar_Pervasives_dtuple4_____FStar_Pervasives_Native_option_____bool_any;
 

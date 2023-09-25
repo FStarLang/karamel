@@ -9,6 +9,7 @@
 
 #include "FStar_String.h"
 #include "FStar_Bytes.h"
+#include "FStar_BitVector.h"
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
@@ -16,7 +17,17 @@
 
 typedef Prims_string FStar_Issue_issue_level_string;
 
-extern Prims_string FStar_Issue_message_of_issue(FStar_Issue_issue i);
+typedef struct Prims_list__FStar_Pprint_document_s Prims_list__FStar_Pprint_document;
+
+typedef struct Prims_list__FStar_Pprint_document_s
+{
+  Prims_list__bool_tags tag;
+  FStar_Pprint_document hd;
+  Prims_list__FStar_Pprint_document *tl;
+}
+Prims_list__FStar_Pprint_document;
+
+extern Prims_list__FStar_Pprint_document *FStar_Issue_message_of_issue(FStar_Issue_issue i);
 
 extern Prims_string FStar_Issue_level_of_issue(FStar_Issue_issue i);
 
@@ -35,10 +46,12 @@ FStar_Issue_range_of_issue(FStar_Issue_issue i);
 
 extern Prims_list__Prims_string *FStar_Issue_context_of_issue(FStar_Issue_issue i);
 
+extern Prims_string FStar_Issue_render_issue(FStar_Issue_issue i);
+
 extern FStar_Issue_issue
-FStar_Issue_mk_issue(
+FStar_Issue_mk_issue_doc(
   Prims_string i,
-  Prims_string msg,
+  Prims_list__FStar_Pprint_document *msg,
   FStar_Pervasives_Native_option__FStar_Range_range range,
   FStar_Pervasives_Native_option__krml_checked_int_t number,
   Prims_list__Prims_string *ctx
