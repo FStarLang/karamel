@@ -369,6 +369,7 @@ let print_files = print_files print_decl
 
 module Ops = struct
   let print_typs = separate_map (comma ^^ space) print_typ
+  let print_exprs = separate_map (comma ^^ space) print_expr
 
   let ploc = printf_of_pprint Loc.print_location
   let pwidth = printf_of_pprint print_width
@@ -377,6 +378,7 @@ module Ops = struct
   let ptyps = printf_of_pprint print_typs
   let pptyp = printf_of_pprint_pretty print_typ
   let pexpr = printf_of_pprint print_expr
+  let pexprs = printf_of_pprint print_exprs
   let ppexpr = printf_of_pprint_pretty print_expr
   let plid = printf_of_pprint print_lident
   let pplid = printf_of_pprint_pretty print_lident

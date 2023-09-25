@@ -205,7 +205,20 @@ let whitelisted_tapp e =
   | EQualified lid -> whitelisted_lid lid
   | _ -> false
 
-let rec mk_expr env in_stmt e =
+let rec unit_to_void env e es extra =
+  let mk_expr env e = mk_expr env false e in
+  match es with
+  | [ { node = EUnit; _ } ] ->
+      CStar.Call (mk_expr env e, [] @ extra)
+  | [ e' ] when e'.typ = TUnit ->
+      if is_readonly_c_expression e' then
+        CStar.Call (mk_expr env e, [] @ extra)
+      else
+        CStar.Comma (mk_expr env e', CStar.Call (mk_expr env e, [] @ extra))
+  | _ ->
+      CStar.Call (mk_expr env e, List.map (mk_expr env) es @ extra)
+
+and mk_expr env in_stmt e =
   let mk_expr env e = mk_expr env false e in
   match e.node with
   | EBound var ->
@@ -223,27 +236,15 @@ let rec mk_expr env in_stmt e =
       CStar.Constant c
 
   | EApp ({ node = ETApp (e, ts); _ }, es) when !Options.allow_tapps || whitelisted_tapp e ->
-      CStar.Call (mk_expr env e,
-        List.map (mk_expr env) es @ List.map (fun t ->
-          CStar.Type (mk_type env t)) ts)
+      unit_to_void env e es (List.map (fun t -> CStar.Type (mk_type env t)) ts)
 
   | ETApp (e, ts) when !Options.allow_tapps || whitelisted_tapp e ->
       CStar.Call (mk_expr env e, List.map (fun t -> CStar.Type (mk_type env t)) ts)
 
   | EApp (e, es) ->
       (* Functions that only take a unit take no argument. *)
-      let t, ts = flatten_arrow e.typ in
-      let call = match ts, es with
-        | [ TUnit ], [ { node = EUnit; _ } ] ->
-            CStar.Call (mk_expr env e, [])
-        | [ TUnit ], [ e' ] ->
-            if is_readonly_c_expression e' then
-              CStar.Call (mk_expr env e, [])
-            else
-              CStar.Comma (mk_expr env e', CStar.Call (mk_expr env e, []))
-        | _ ->
-            CStar.Call (mk_expr env e, List.map (mk_expr env) es)
-      in
+      let t, _ = flatten_arrow e.typ in
+      let call = unit_to_void env e es [] in
       (* This function call was originally typed as returning [TUnit], a.k.a.
        * [void*]. However, we optimize these functions to return [void], meaning
        * that we can't take their return value as an expression, since there's
