@@ -85,7 +85,7 @@ class ['self] safe_use = object (self: 'self)
   method! visit_ESwitch env e _ = self#sequential env e None
   method! visit_EWhile env e _ = self#sequential env e None
   method! visit_EFor env _ e _ _ _ = self#sequential env e None
-  method! visit_EMatch env e _ = self#sequential env e None
+  method! visit_EMatch env _ e _ = self#sequential env e None
   method! visit_ESequence env es = self#sequential env (List.hd es) None
 end
 
@@ -999,7 +999,6 @@ and hoist_stmt loc e =
   | EWhile (e1, e2) ->
       (* All of the following cases are valid statements (their return type is
        * [TUnit]. *)
-      assert (e.typ = TUnit);
       let lhs, e1 = hoist_expr loc Unspecified e1 in
       if lhs <> [] then
         Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,

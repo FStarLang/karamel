@@ -243,7 +243,7 @@ let mk_tag_lid type_lid cons =
   let prefix, _ = type_lid in
   prefix, cons
 
-let try_mk_switch e branches =
+let try_mk_switch c e branches =
   (* TODO if the last case is a PWild then make it the default case of the
    * switch *)
   try
@@ -255,7 +255,7 @@ let try_mk_switch e branches =
       | _ -> raise Exit
     ) branches)
   with Exit ->
-    EMatch (e, branches)
+    EMatch (c, e, branches)
 
 (* An ad-hoc criterion for determining when we don't want to let-bind the
  * scrutinee of a match. *)
@@ -270,13 +270,14 @@ let rec is_simple_expression e =
 let all_bound_variables fields =
   List.for_all (function (_, { node = PBound _; _ }) -> true | _ -> false) fields
 
-let try_mk_flat e t branches =
+let try_mk_flat c e t branches =
   match branches with
   | [ _, { node = PRecord fields; _ }, { node = EBound i; _ } ] when
     i < List.length fields &&
     all_bound_variables fields &&
     is_simple_expression e
   ->
+      (* match e with { ...; fi; ... } -> fi  ~~~~>  e.fi *)
       let f = List.nth fields (List.length fields - i - 1) in
       EField (e, fst f)
   | [ binders, { node = PRecord fields; _ }, body ] ->
@@ -297,9 +298,9 @@ let try_mk_flat e t branches =
           ) binders fields in
           ELet (scrut, e, close_binder scrut (nest bindings t body))
       else
-        EMatch (e, branches)
+        EMatch (c, e, branches)
   | _ ->
-      EMatch (e, branches)
+      EMatch (c, e, branches)
 
 type cached_lid =
   | Found of lident
@@ -524,7 +525,7 @@ let compile_simple_matches (map, enums) = object(self)
     | _ ->
         TQualified lid
 
-  method! visit_EMatch ((_, t) as env) e branches =
+  method! visit_EMatch ((_, t) as env) c e branches =
     let e = self#visit_expr_w () e in
     let branches = self#visit_branches env branches in
     match e.typ with
@@ -532,15 +533,15 @@ let compile_simple_matches (map, enums) = object(self)
         begin match Hashtbl.find map lid with
         | exception Not_found ->
             (* This might be a record in the first place. *)
-            try_mk_flat e t branches
+            try_mk_flat c e t branches
         | ToTaggedUnion _ | ToFlat _ | ToFlatTaggedUnion _ | Eliminate _ ->
-            try_mk_flat e t branches
+            try_mk_flat c e t branches
         | ToEnum ->
-            try_mk_switch e branches
+            try_mk_switch c e branches
         end
     | _ ->
         (* For switches on constants *)
-        try_mk_switch e branches
+        try_mk_switch c e branches
 end
 
 (* Third step: whole-program transformation to remove unit fields. *)
@@ -822,14 +823,14 @@ let remove_trivial_matches = object (self)
 
   method! visit_ELet (_, t) b e1 e2 =
     match open_binder b e2 with
-    | b, { node = EMatch ({ node = EOpen (_, a); _ }, branches); _ } when
+    | b, { node = EMatch (c, { node = EOpen (_, a); _ }, branches); _ } when
       is_special b.node.name && !(b.node.mark) = 1 &&
       Atom.equal a b.node.atom ->
-        self#visit_EMatch ((), t) e1 branches
+        self#visit_EMatch ((), t) c e1 branches
     | _ ->
         ELet (b, self#visit_expr_w () e1, self#visit_expr_w () e2)
 
-  method! visit_EMatch env e branches =
+  method! visit_EMatch env c e branches =
     let e = self#visit_expr env e in
     match e.node, branches with
     | EUnit, [ [], { node = PUnit; _ }, body ] ->
@@ -849,7 +850,7 @@ let remove_trivial_matches = object (self)
         else
           EIfThenElse (e, b1, b2)
     | _ ->
-        EMatch (e, self#visit_branches env branches)
+        EMatch (c, e, self#visit_branches env branches)
 
   method! visit_branch env (binders, pat, expr) =
     let _, binders, pat, expr = List.fold_left (fun (i, binders, pat, expr) b ->
@@ -928,7 +929,7 @@ let compile_branch env scrut (binders, pat, expr): expr * expr =
   let conditionals, expr = compile_pattern env scrut pat expr in
   mk_conjunction conditionals, expr
 
-let compile_match ((_, t) as env) e_scrut branches =
+let compile_match ((_, t) as env) c e_scrut branches =
   let mk = with_type t in
   let rec fold_ite = function
     | [] ->
@@ -936,7 +937,12 @@ let compile_match ((_, t) as env) e_scrut branches =
     | [ { node = EBool true; _ }, e ] ->
         e
     | [ cond, e ] ->
-        mk (EIfThenElse (cond, e, mk (EAbort (Some t, Some "unreachable (pattern matches are exhaustive in F*)"))))
+        begin match c with
+        | Checked ->
+            mk (EIfThenElse (cond, e, mk (EAbort (Some t, Some "unreachable (pattern matches are exhaustive in F*)"))))
+        | Unchecked ->
+            e
+        end
     | (cond, e) :: bs ->
         mk (EIfThenElse (cond, e, fold_ite bs))
   in
@@ -1090,10 +1096,10 @@ let compile_all_matches (map, enums) = object (self)
   (* Then compile patterns for those matches whose scrutinee is a data type.
    * Other matches remain (e.g. on units and booleans... [Helpers] will take
    * care of those dummy matches. *)
-  method visit_EMatch env e_scrut branches =
+  method visit_EMatch env c e_scrut branches =
     let e_scrut = self#visit_expr env e_scrut in
     let branches = self#visit_branches env branches in
-    (compile_match env e_scrut branches).node
+    (compile_match env c e_scrut branches).node
 
 end
 
@@ -1196,18 +1202,18 @@ let remove_full_matches = object (self)
 
   inherit [_] map as super
 
-  method! visit_EMatch (_, t as env) scrut branches =
+  method! visit_EMatch (_, t as env) c scrut branches =
     let scrut0 = scrut in
     let scrut = self#visit_expr env scrut in
     match scrut.node with
     | ESequence es ->
         let es, e = KList.split_at_last es in
         ESequence (es @ [
-          self#visit_expr env (with_type t (EMatch (e, branches)))])
+          self#visit_expr env (with_type t (EMatch (c, e, branches)))])
     | ELet (b, e1, e2) ->
         let b, e2 = open_binder b e2 in
         (self#visit_expr env (with_type t (ELet (b, e1,
-          close_binder b (with_type t (EMatch (e2, branches))))))).node
+          close_binder b (with_type t (EMatch (c, e2, branches))))))).node
     | _ ->
         let rec explode pat scrut =
           match pat.node, scrut.node with
@@ -1239,10 +1245,10 @@ let remove_full_matches = object (self)
               let binders = List.map (fun b -> b, List.assoc b.node.atom pairs) binders in
               (Helpers.nest binders t e).node
             with Not_found ->
-              super#visit_EMatch env scrut0 branches
+              super#visit_EMatch env c scrut0 branches
             end
         | _ ->
-            super#visit_EMatch env scrut branches
+            super#visit_EMatch env c scrut branches
 end
 
 (* Debug any intermediary AST as follows: *)
