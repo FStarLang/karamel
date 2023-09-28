@@ -435,7 +435,7 @@ let remove_uu = object (self)
   method! visit_ELet _ b e1 e2 =
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
-    if Helpers.is_uu b.node.name &&
+    if (Helpers.is_uu b.node.name || b.node.name = "scrut") &&
       !(b.node.mark) = 1 && (
         is_readonly_c_expression e1 &&
         safe_readonly_use e2 ||
