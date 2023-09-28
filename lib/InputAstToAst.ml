@@ -192,7 +192,7 @@ and mk_expr = function
   | I.EBufFree e ->
       mk (EBufFree (mk_expr e))
   | I.EMatch (e1, bs) ->
-      mk (EMatch (mk_expr e1, mk_branches bs))
+      mk (EMatch (Checked, mk_expr e1, mk_branches bs))
   | I.EOp (op, w) ->
       mk (EOp (op, w))
   | I.ECast (e1, t) ->

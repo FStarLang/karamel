@@ -695,7 +695,7 @@ let equalities files =
                   (* let __eq__typ y x = *)
                   DFunction (None, [ Common.Private ], 0, TBool, instance_lid, [ y; x ],
                     (* match *)
-                    with_type TBool (EMatch (
+                    with_type TBool (EMatch (Checked,
                       (* x with *)
                       with_type t (EBound 0),
                       List.map (fun (cons, fields) ->
@@ -709,7 +709,7 @@ let equalities files =
                         with_type t (PCons (cons, List.mapi (fun i (_, (t_f, _)) ->
                           with_type t_f (PBound i)) fields)),
                         (* match *)
-                        with_type TBool (EMatch (
+                        with_type TBool (EMatch (Checked,
                           (* y with *)
                           with_type t (EBound (n + 1)),
                           let binders_y = List.map (fun (f, (t, _)) ->

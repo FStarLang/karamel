@@ -414,7 +414,7 @@ and check' env t e =
       let ts' = args_of_branch env t ident in
       List.iter2 (check env) ts' exprs
 
-  | EMatch (e, bs) ->
+  | EMatch (_, e, bs) ->
       let t_scrut = infer (locate env Scrutinee) e in
       check_branches env t t_scrut bs
 
@@ -689,8 +689,11 @@ and infer' env e =
 
   | EWhile (e1, e2) ->
       check env TBool e1;
-      check env TUnit e2;
-      TUnit
+      let t = infer env e2 in
+      if t = TUnit || t = TAny then
+        t (* loops that end in return can be typed with TAny *)
+      else
+        checker_error env "%a, while loop is neither tany or tunit" ploc env.location
 
   | EBufCreateL (_, es) ->
       begin match es with
@@ -719,7 +722,7 @@ and infer' env e =
        * first place. *)
       e.typ
 
-  | EMatch (e, bs) ->
+  | EMatch (_, e, bs) ->
       let t_scrut = infer env e in
       infer_branches env t_scrut bs
 

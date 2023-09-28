@@ -85,7 +85,7 @@ class ['self] safe_use = object (self: 'self)
   method! visit_ESwitch env e _ = self#sequential env e None
   method! visit_EWhile env e _ = self#sequential env e None
   method! visit_EFor env _ e _ _ _ = self#sequential env e None
-  method! visit_EMatch env e _ = self#sequential env e None
+  method! visit_EMatch env _ e _ = self#sequential env e None
   method! visit_ESequence env es = self#sequential env (List.hd es) None
 end
 
@@ -435,7 +435,7 @@ let remove_uu = object (self)
   method! visit_ELet _ b e1 e2 =
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
-    if Helpers.is_uu b.node.name &&
+    if (Helpers.is_uu b.node.name || b.node.name = "scrut") &&
       !(b.node.mark) = 1 && (
         is_readonly_c_expression e1 &&
         safe_readonly_use e2 ||
@@ -999,7 +999,6 @@ and hoist_stmt loc e =
   | EWhile (e1, e2) ->
       (* All of the following cases are valid statements (their return type is
        * [TUnit]. *)
-      assert (e.typ = TUnit);
       let lhs, e1 = hoist_expr loc Unspecified e1 in
       if lhs <> [] then
         Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,

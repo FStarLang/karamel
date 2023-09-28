@@ -162,7 +162,6 @@ class virtual ['self] reduce_typ_adapter = object (self: 'self)
       self#plus a b
 end
 
-
 (* Next, the nodes that are annotated with types. Note that every occurrence of
  * [typ] is actually a [typ_wo] to make sure we strip the second component of
  * the environment.
@@ -218,7 +217,7 @@ type expr' =
   | EPopFrame
 
   | ETuple of expr list
-  | EMatch of expr * branches
+  | EMatch of match_flavor * expr * branches
   | ECons of ident * expr list
 
   | ESwitch of expr * (switch_case * expr) list
@@ -315,6 +314,8 @@ and binder =
 
 and meta =
   | MetaSequence
+
+and match_flavor = | Checked | Unchecked
 
 
 (* Now, we need to add a third layer: the entry points (files, declarations)

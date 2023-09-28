@@ -41,7 +41,7 @@ let prims: file =
       (["Prims"], "__proj__Mkdtuple2__item___1"),
       [ fresh_binder "pair" dtuple10 ],
       (* match pair with *)
-      with_type (TBound 1) (EMatch (with_type dtuple10 (EBound 0), [
+      with_type (TBound 1) (EMatch (Checked, with_type dtuple10 (EBound 0), [
         (* \ fst *)
         [ fresh_binder "fst" (TBound 1) ],
         (* Mkdtuple2 (fst, _) *)
@@ -57,7 +57,7 @@ let prims: file =
       (["Prims"], "__proj__Mkdtuple2__item___2"),
       [ fresh_binder "pair" dtuple10 ],
       (* match pair with *)
-      with_type (TBound 0) (EMatch (with_type dtuple10 (EBound 0), [
+      with_type (TBound 0) (EMatch (Checked, with_type dtuple10 (EBound 0), [
         (* \ snd *)
         [ fresh_binder "snd" (TBound 0) ],
         (* Mkdtuple2 (_, snd) *)

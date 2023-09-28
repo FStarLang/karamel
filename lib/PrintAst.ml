@@ -247,8 +247,9 @@ and print_expr { node; typ } =
       print_app string "fillbuf" print_expr [e1; e2; e3 ]
   | EBufFree e ->
       print_app string "freebuf" print_expr [ e ]
-  | EMatch (e, branches) ->
-      group (string "match" ^/^ print_expr e ^/^ string "with") ^^
+  | EMatch (c, e, branches) ->
+      let c = if c = Unchecked then string "UNCHECKED " else empty in
+      group (c ^^ string "match" ^/^ print_expr e ^/^ string "with") ^^
       jump ~indent:0 (print_branches branches)
   | EOp (o, w) ->
       string "(" ^^ print_op o ^^ string "," ^^ print_width w ^^ string ")"
@@ -272,7 +273,7 @@ and print_expr { node; typ } =
   | EField (expr, field) ->
       parens_with_nesting (print_expr expr) ^^ dot ^^ string field
   | EWhile (e1, e2) ->
-      string "while" ^/^ parens_with_nesting (print_expr e1) ^/^
+      string "while" ^^ langle ^^ print_typ typ ^^ rangle ^/^ parens_with_nesting (print_expr e1) ^/^
       braces_with_nesting (print_expr e2)
   | EFor (binder, e1, e2, e3, e4) ->
       string "for" ^/^ parens_with_nesting (
