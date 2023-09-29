@@ -243,6 +243,8 @@ let is_readonly_builtin_lid lid =
     [ "FStar"; "UInt32" ], "v";
     [ "FStar"; "UInt128" ], "uint128_to_uint64";
     [ "FStar"; "UInt128" ], "uint64_to_uint128";
+    [ "Eurydice" ], "vec_len";
+    [ "Eurydice" ], "vec_index";
   ] in
   List.exists (fun lid' ->
     let lid = Idents.string_of_lident lid in
@@ -291,6 +293,8 @@ class ['self] readonly_visitor = object (self: 'self)
     | EOp _ ->
         List.for_all (self#visit_expr_w ()) es
     | EQualified lid when is_readonly_builtin_lid lid ->
+        List.for_all (self#visit_expr_w ()) es
+    | ETApp ({ node = EQualified lid; _ }, _) when is_readonly_builtin_lid lid ->
         List.for_all (self#visit_expr_w ()) es
     | _ ->
         false
