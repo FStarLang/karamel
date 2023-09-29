@@ -158,16 +158,17 @@ let count_and_remove_locals final = object (self)
       let e1 = self#visit_expr_w env0 e1 in
       if e1.typ = TUnit then
         self#remove_trivial_let (ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2))
+      else if Helpers.is_readonly_c_expression e1 && e2.node = EBound 0 then
+        e1.node
+      else if is_bufcreate e1 then
+        ELet (b, e1, with_type e2.typ (
+          ELet (sequence_binding (),
+            push_ignore (with_type b.typ (EBound 0)),
+            DeBruijn.lift 1 e2)))
       else
-        (* We know the variable is unused... but its body cannot be determined
-         * to be readonly, so we have to keep it. What's better?
-         *   int unused = f();
-         * or:
-         *   (void)f(); ? *)
-        if Helpers.is_readonly_c_expression e1 && e2.node = EBound 0 then
-          e1.node
-        else
-          ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit}, push_ignore e1, e2)
+        ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit},
+          push_ignore e1,
+          e2)
     else
       let e1 = self#visit_expr_w env0 e1 in
       self#remove_trivial_let (ELet (b, e1, e2))
