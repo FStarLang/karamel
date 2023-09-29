@@ -637,7 +637,7 @@ Supported options:|}
   let files =
     if !Options.wasm then
       let files = Simplify.sequence_to_let#visit_files () files in
-      let files = Simplify.count_and_remove_locals#visit_files [] files in
+      let files = (Simplify.count_and_remove_locals false)#visit_files [] files in
       let files = SimplifyWasm.simplify1 files in
       let files = Simplify.hoist#visit_files [] files in
       let files = Structs.in_memory files in

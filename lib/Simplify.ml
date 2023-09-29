@@ -115,9 +115,9 @@ let safe_pure_use e =
 
 (* Count the number of occurrences of each variable ***************************)
 
-let count_and_remove_locals = object (self)
+let count_and_remove_locals final = object (self)
 
-  inherit [_] map
+  inherit [_] map as super
 
   method! extend env binder =
     binder.node.mark := 0;
@@ -164,8 +164,10 @@ let count_and_remove_locals = object (self)
          *   int unused = f();
          * or:
          *   (void)f(); ? *)
-        (* ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit}, push_ignore e1, e2) *)
-        self#remove_trivial_let (ELet (b, e1, e2))
+        if Helpers.is_readonly_c_expression e1 && e2.node = EBound 0 then
+          e1.node
+        else
+          ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit}, push_ignore e1, e2)
     else
       let e1 = self#visit_expr_w env0 e1 in
       self#remove_trivial_let (ELet (b, e1, e2))
@@ -179,6 +181,33 @@ let count_and_remove_locals = object (self)
         (self#visit_expr env e1).node
     | _ ->
         EBufSub (self#visit_expr env e1, self#visit_expr env e2)
+
+  method! visit_DFunction env cc flags n ret name binders body =
+    if not final then
+      super#visit_DFunction env cc flags n ret name binders body
+    else
+      let env = List.fold_left self#extend env binders in
+      let body = self#visit_expr_w env body in
+      let l = List.length binders in
+      let ignores = List.mapi (fun i b ->
+        if !(b.node.mark) = 0 && b.typ <> TUnit then
+          (* unit arguments will be eliminated, always, based on a type analysis *)
+          Some (push_ignore (with_type b.typ (EBound (l - i - 1))))
+        else
+          None
+      ) binders in
+      let ignores = KList.filter_some ignores in
+      let body =
+        if ignores = [] then
+          body
+        else
+          List.fold_right (fun i body ->
+            let b = sequence_binding () in
+            with_type body.typ (ELet (b, i, DeBruijn.lift 1 body))
+          ) ignores body
+      in
+      DFunction (cc, flags, n, ret, name, binders, body)
+
 
 end
 
@@ -1947,7 +1976,7 @@ end
  * compilation, once. *)
 let simplify0 (files: file list): file list =
   let files = remove_local_function_bindings#visit_files () files in
-  let files = count_and_remove_locals#visit_files [] files in
+  let files = (count_and_remove_locals false)#visit_files [] files in
   let files = remove_uu#visit_files () files in
   let files = remove_ignore_unit#visit_files () files in
   let files = remove_proj_is#visit_files () files in
@@ -1959,7 +1988,7 @@ let simplify0 (files: file list): file list =
  * calls of the form recall foobar in them. *)
 let simplify1 (files: file list): file list =
   let files = sequence_to_let#visit_files () files in
-  let files = count_and_remove_locals#visit_files [] files in
+  let files = (count_and_remove_locals false)#visit_files [] files in
   let files = let_to_sequence#visit_files () files in
   files
 
@@ -1971,7 +2000,7 @@ let simplify2 ifdefs (files: file list): file list =
   let files = sequence_to_let#visit_files () files in
   (* Quality of hoisting is WIDELY improved if we remove un-necessary
    * let-bindings. *)
-  let files = count_and_remove_locals#visit_files [] files in
+  let files = (count_and_remove_locals true)#visit_files [] files in
   let files = if !Options.wasm then files else fixup_while_tests#visit_files () files in
   let files = hoist#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
@@ -1989,7 +2018,7 @@ let simplify2 ifdefs (files: file list): file list =
  * removal of unused variables. *)
 let remove_unused (files: file list): file list =
   let parameter_table = Hashtbl.create 41 in
-  let files = count_and_remove_locals#visit_files [] files in
+  let files = (count_and_remove_locals false)#visit_files [] files in
   unused_parameter_table#visit_files parameter_table files;
   ignore_non_first_order#visit_files parameter_table files;
   let files = remove_unused_parameters#visit_files (parameter_table, 0) files in
