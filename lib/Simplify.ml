@@ -193,16 +193,6 @@ let count_and_remove_locals final = object (self)
       let e1 = self#visit_expr_w env0 e1 in
       self#remove_trivial_let (ELet (b, e1, e2))
 
-  method! visit_EBufSub env e1 e2 =
-    (* This creates more opportunities for values to be eliminated if unused.
-     * Also, AstToCStar emits BufSub (e, 0) as just e, so we need the value
-     * check to be in agreement on both sides. *)
-    match e2.node with
-    | EConstant (_, "0") ->
-        (self#visit_expr env e1).node
-    | _ ->
-        EBufSub (self#visit_expr env e1, self#visit_expr env e2)
-
   method! visit_DFunction env cc flags n ret name binders body =
     if not final then
       super#visit_DFunction env cc flags n ret name binders body
@@ -925,6 +915,15 @@ let misc_cosmetic = object (self)
         EAssign (e, e3)
     | _ ->
         EBufWrite (e1, e2, e3)
+
+  method! visit_EBufSub env e1 e2 =
+    (* AstToCStar emits BufSub (e, 0) as just e, so we need the value
+     * check to be in agreement on both sides. *)
+    match e2.node with
+    | EConstant (_, "0") ->
+        (self#visit_expr env e1).node
+    | _ ->
+        EBufSub (self#visit_expr env e1, self#visit_expr env e2)
 
   (* renumber uu's to have a stable numbering scheme that minimizes the diff
    * from one code generation to another *)
