@@ -115,6 +115,35 @@ let safe_pure_use e =
 
 (* Count the number of occurrences of each variable ***************************)
 
+(* This phase does several things.
+   - It mutates the mark field of each binder with a conservative approximation
+     of the number of times this variable syntactically appears in the
+     continuation of the let-binding. (To be used by remove_uu.)
+   - For those variables that are at used at most (exactly) zero times, either
+     inline their definition away (some syntactic criteria permitting), or wrap
+     them in a call to ignore (hence no longer making them unused).
+
+   This phase is implemented with a cheap top-down traversal, which makes it
+   fast but imprecise. Notably:
+   - the use-count is conservative, meaning `let x in if ... then x else x`
+     marks `x` as used twice (indeed, it does appear syntactically twice); this
+     means `remove_uu` misses an optimization opportunity -- to give better
+     information to `remove_uu`, this phase could instead compute a three-valued
+     map that to each variable associates either Unused, UsedAtMostOnce, or
+     Unknown
+   - the use-count only counts syntactic occurrences and is not aware of
+     ifdefs, meaning that a non-zero syntactic count does NOT mean the C
+     compiler won't emit an unused variable error; consider `let x in ifdef
+     FOOBAR then x else 0` -- `x` *may* end up not appearing in C if FOOBAR is
+     undefined. This requires a different analysis that does not behave the same
+     as the use-count and computes a two-valued map that to each variable
+     associates either MaybeAbsent (initial state, variable may not
+     syntactically occur post pre-processing in C), or DefinitelyAppears (we're
+     sure it'll be there meaning no unused variable warning). Notably,
+     `MaybeAbsent + DefinitelyAppears` = DefinitelyAppears (regular if) but =
+     MaybeAbsent (ifdef).
+*)
+
 let count_and_remove_locals final = object (self)
 
   inherit [_] map as super
@@ -145,15 +174,6 @@ let count_and_remove_locals final = object (self)
     let e2 = self#visit_expr_w env e2 in
     if !(b.node.mark) = 0 && is_readonly_c_expression e1 then
       self#remove_trivial_let (snd (open_binder b e2)).node
-    else if Structs.should_rewrite b.typ = NoCopies &&
-      !(b.node.mark) = 1 && (
-        is_readonly_c_expression e1 &&
-        safe_readonly_use e2 ||
-        safe_pure_use e2
-      )
-    then
-      let e1 = self#visit_expr_w env0 e1 in
-      (DeBruijn.subst e1 0 e2).node
     else if !(b.node.mark) = 0 then
       let e1 = self#visit_expr_w env0 e1 in
       if e1.typ = TUnit then
@@ -457,8 +477,11 @@ let wrapping_arithmetic = object (self)
 end
 
 
-(* Try to remove the infamous let uu____ from F*. Needs an accurate use count
- * for each variable. *)
+(* This phase tries to substitute away variables that are temporary (named
+   uu____ in F*, or "scrut" if inserted by the pattern matches compilation
+   phase), or that are of a type that cannot be copied (to hopefully skirt
+   future failures). This phase assumes the mark field of each binder contains a
+   conservative approximation of the number of uses of that binder. *)
 let remove_uu = object (self)
 
   inherit [_] map
@@ -466,7 +489,7 @@ let remove_uu = object (self)
   method! visit_ELet _ b e1 e2 =
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
-    if (Helpers.is_uu b.node.name || b.node.name = "scrut") &&
+    if (Helpers.is_uu b.node.name || b.node.name = "scrut" || Structs.should_rewrite b.typ = NoCopies) &&
       !(b.node.mark) = 1 && (
         is_readonly_c_expression e1 &&
         safe_readonly_use e2 ||
@@ -1993,6 +2016,16 @@ let simplify1 (files: file list): file list =
   let files = let_to_sequence#visit_files () files in
   files
 
+(* This should be run late since inlining may create more opportunities for the
+ * removal of unused variables. *)
+let remove_unused (files: file list): file list =
+  let parameter_table = Hashtbl.create 41 in
+  let files = (count_and_remove_locals false)#visit_files [] files in
+  unused_parameter_table#visit_files parameter_table files;
+  ignore_non_first_order#visit_files parameter_table files;
+  let files = remove_unused_parameters#visit_files (parameter_table, 0) files in
+  files
+
 (* Many phases rely on a statement-like language where let-bindings, buffer
  * allocations and writes are hoisted; where if-then-else is always in statement
  * position; where sequences are not nested. These series of transformations
@@ -2002,6 +2035,9 @@ let simplify2 ifdefs (files: file list): file list =
   (* Quality of hoisting is WIDELY improved if we remove un-necessary
    * let-bindings. *)
   let files = (count_and_remove_locals true)#visit_files [] files in
+  (* This one is mostly for the sake of removing copies of spinlock and the
+     like. *)
+  let files = remove_uu#visit_files () files in
   let files = if !Options.wasm then files else fixup_while_tests#visit_files () files in
   let files = hoist#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
@@ -2013,16 +2049,6 @@ let simplify2 ifdefs (files: file list): file list =
   let files = functional_updates#visit_files false files in
   let files = functional_updates#visit_files true files in
   let files = let_to_sequence#visit_files () files in
-  files
-
-(* This should be run late since inlining may create more opportunities for the
- * removal of unused variables. *)
-let remove_unused (files: file list): file list =
-  let parameter_table = Hashtbl.create 41 in
-  let files = (count_and_remove_locals false)#visit_files [] files in
-  unused_parameter_table#visit_files parameter_table files;
-  ignore_non_first_order#visit_files parameter_table files;
-  let files = remove_unused_parameters#visit_files (parameter_table, 0) files in
   files
 
 let debug env =
