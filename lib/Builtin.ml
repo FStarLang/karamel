@@ -436,7 +436,9 @@ let prepare files =
      F* PR: References to module C can now occur even when the module is not in the scope.
      If so, we add the definition that is needed as a builtin, since it will be rewritten
      during C code generation *)
-  if List.mem_assoc "C" files then [] else [c_deref]
+  if List.mem_assoc "C" files then [] else [c_deref] @
+  if List.mem_assoc "LowStar_Ignore" files then [] else [lowstar_ignore] @
+  []
 
 let make_libraries files =
   List.map (fun f ->
