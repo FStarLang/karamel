@@ -631,6 +631,7 @@ let drop_unused files =
       end
    end in
   visitor#visit_files [] files;
+  Hashtbl.add seen (["LowStar"; "Ignore"], "ignore") ();
   filter_decls (fun d ->
     let flags = flags_of_decl d in
     let lid = lid_of_decl d in

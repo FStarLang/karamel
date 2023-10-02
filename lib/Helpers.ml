@@ -188,6 +188,11 @@ let is_forward = function
   | Forward _ -> true
   | _ -> false
 
+let is_bufcreate x =
+  match x.node with
+  | EBufCreate _ | EBufCreateL _ -> true
+  | _ -> false
+
 let is_uu name = KString.starts_with name "uu__"
 
 let pattern_matches p lid =
@@ -666,8 +671,12 @@ let rec nest_in_return_pos i typ f e =
         t, nest_in_return_pos i typ f e
       ) branches in
       { node = ESwitch (e, branches); typ }
-  | EMatch _ ->
-      failwith "Matches should've been desugared"
+  | EMatch (c, e, branches) ->
+      { node =
+        EMatch (c, e, List.map (fun (bs, p, e) ->
+          bs, p, nest_in_return_pos (i + List.length bs) typ f e
+        ) branches);
+        typ }
   | ESequence es ->
       let l = List.length es in
       { node = ESequence (List.mapi (fun j e ->
@@ -681,7 +690,15 @@ let rec nest_in_return_pos i typ f e =
 
 let nest_in_return_pos = nest_in_return_pos 0
 
-let push_ignore = nest_in_return_pos TUnit (fun _ e -> with_type TUnit (EIgnore (strip_cast e)))
+let push_ignore = nest_in_return_pos TUnit (fun _ e ->
+  with_type TUnit (EApp (
+    with_type (TArrow (e.typ, TUnit)) (
+      ETApp (
+        with_type (TArrow (TBound 0, TUnit))
+          (EQualified (["LowStar"; "Ignore"], "ignore")),
+        [ e.typ ]
+      )),
+    [ e ])))
 
 (* Big AST nodes *************************************************************)
 
