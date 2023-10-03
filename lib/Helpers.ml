@@ -132,7 +132,7 @@ let mk_deref t ?(const=false) e =
 (* Binder nodes ***************************************************************)
 
 let fresh_binder ?(mut=false) name typ =
-  with_type typ { name; mut; mark = ref 0; meta = None; atom = Atom.fresh () }
+  with_type typ { name; mut; mark = ref Mark.default; meta = None; atom = Atom.fresh () }
 
 let mark_mut b =
   { b with node = { b.node with mut = true }}
@@ -140,7 +140,7 @@ let mark_mut b =
 let sequence_binding () = with_type TUnit {
   name = "_";
   mut = false;
-  mark = ref 0;
+  mark = ref Mark.default;
   meta = Some MetaSequence;
   atom = Atom.fresh ()
 }

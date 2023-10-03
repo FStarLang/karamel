@@ -113,114 +113,38 @@ let safe_pure_use e =
   | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
 
 
-(* Count the number of occurrences of each variable ***************************)
+(* This phase tries to substitute away variables that are temporary (named
+   uu____ in F*, or "scrut" if inserted by the pattern matches compilation
+   phase), or that are of a type that cannot be copied (to hopefully skirt
+   future failures). This phase assumes the mark field of each binder contains a
+   conservative approximation of the number of uses of that binder. *)
+let use_mark_to_inline_temporaries = object (self)
 
-(* This phase does several things.
-   - It mutates the mark field of each binder with a conservative approximation
-     of the number of times this variable syntactically appears in the
-     continuation of the let-binding. (To be used by remove_uu.)
-   - For those variables that are at used at most (exactly) zero times, either
-     inline their definition away (some syntactic criteria permitting), or wrap
-     them in a call to ignore (hence no longer making them unused).
+  inherit [_] map
 
-   This phase is implemented with a cheap top-down traversal, which makes it
-   fast but imprecise. Notably:
-   - the use-count is conservative, meaning `let x in if ... then x else x`
-     marks `x` as used twice (indeed, it does appear syntactically twice); this
-     means `remove_uu` misses an optimization opportunity -- to give better
-     information to `remove_uu`, this phase could instead compute a three-valued
-     map that to each variable associates either Unused, UsedAtMostOnce, or
-     Unknown
-   - the use-count only counts syntactic occurrences and is not aware of
-     ifdefs, meaning that a non-zero syntactic count does NOT mean the C
-     compiler won't emit an unused variable error; consider `let x in ifdef
-     FOOBAR then x else 0` -- `x` *may* end up not appearing in C if FOOBAR is
-     undefined. This requires a different analysis that does not behave the same
-     as the use-count and computes a two-valued map that to each variable
-     associates either MaybeAbsent (initial state, variable may not
-     syntactically occur post pre-processing in C), or DefinitelyAppears (we're
-     sure it'll be there meaning no unused variable warning). Notably,
-     `MaybeAbsent + DefinitelyAppears` = DefinitelyAppears (regular if) but =
-     MaybeAbsent (ifdef).
-*)
-
-let count_and_remove_locals final = object (self)
-
-  inherit [_] map as super
-
-  method! extend env binder =
-    binder.node.mark := 0;
-    binder :: env
-
-  method! visit_EBound (env, _) i =
-    let b = List.nth env i in
-    incr b.node.mark;
-    EBound i
-
-  method private remove_trivial_let e =
-    match e with
-    | ELet (_, e1, { node = EBound 0; _ }) when Helpers.is_readonly_c_expression e1 ->
-        e1.node
-    | _ ->
-        e
-
-  method! visit_ELet (env, _) b e1 e2 =
-    (* Remove unused variables. Important to get rid of calls to [HST.get()]. *)
-    (* Note: we only visit e1 if we know it's going to be in the rewritten expression, otherwise it
-       generates spurious uses. This might influence the test below (is_readonly_c_expression e1)
-       but I don't think this has any concrete adverse consequences. *)
-    let env0 = env in
-    let env = self#extend env b in
-    let e2 = self#visit_expr_w env e2 in
-    if !(b.node.mark) = 0 && is_readonly_c_expression e1 then
-      self#remove_trivial_let (snd (open_binder b e2)).node
-    else if !(b.node.mark) = 0 then
-      let e1 = self#visit_expr_w env0 e1 in
-      if e1.typ = TUnit then
-        self#remove_trivial_let (ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2))
-      else if Helpers.is_readonly_c_expression e1 && e2.node = EBound 0 then
-        e1.node
-      else if is_bufcreate e1 then
-        ELet (b, e1, with_type e2.typ (
-          ELet (sequence_binding (),
-            push_ignore (with_type b.typ (EBound 0)),
-            DeBruijn.lift 1 e2)))
-      else
-        ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit},
-          push_ignore e1,
-          e2)
+  method! visit_ELet _ b e1 e2 =
+    let e1 = self#visit_expr_w () e1 in
+    let e2 = self#visit_expr_w () e2 in
+    let _, v = !(b.node.mark) in
+    if (Helpers.is_uu b.node.name || b.node.name = "scrut" || Structs.should_rewrite b.typ = NoCopies) &&
+      v = AtMost 1 && (
+        is_readonly_c_expression e1 &&
+        safe_readonly_use e2 ||
+        safe_pure_use e2
+      ) (* || is_readonly_and_variable_free_c_expression e1 && b.node.mut *)
+    then
+      (DeBruijn.subst e1 0 e2).node
     else
-      let e1 = self#visit_expr_w env0 e1 in
-      self#remove_trivial_let (ELet (b, e1, e2))
-
-  method! visit_DFunction env cc flags n ret name binders body =
-    if not final then
-      super#visit_DFunction env cc flags n ret name binders body
-    else
-      let env = List.fold_left self#extend env binders in
-      let body = self#visit_expr_w env body in
-      let l = List.length binders in
-      let ignores = List.mapi (fun i b ->
-        if !(b.node.mark) = 0 && b.typ <> TUnit then
-          (* unit arguments will be eliminated, always, based on a type analysis *)
-          Some (push_ignore (with_type b.typ (EBound (l - i - 1))))
-        else
-          None
-      ) binders in
-      let ignores = KList.filter_some ignores in
-      let body =
-        if ignores = [] then
-          body
-        else
-          List.fold_right (fun i body ->
-            let b = sequence_binding () in
-            with_type body.typ (ELet (b, i, DeBruijn.lift 1 body))
-          ) ignores body
-      in
-      DFunction (cc, flags, n, ret, name, binders, body)
-
-
+      ELet (b, e1, e2)
 end
+
+let optimize_lets ?ifdefs files =
+  let open UseAnalysis in
+  let _ = (build_usage_map_and_mark ifdefs)#visit_files [] files in
+  let files = (use_mark_to_remove_or_ignore (not (ifdefs = None)))#visit_files () files in
+  let _ = (build_usage_map_and_mark ifdefs)#visit_files [] files in
+  let files = use_mark_to_inline_temporaries#visit_files () files in
+  files
 
 (* Unused parameter elimination ***********************************************)
 
@@ -283,7 +207,7 @@ let unused private_count_table lid ts (i: int) =
     Hashtbl.mem private_count_table lid && (
       let l = Hashtbl.find private_count_table lid in
       i < List.length l &&
-      List.nth l i = 0
+      snd (List.nth l i) = Mark.AtMost 0
     ) ||
     (* Second case: it's a unit, so here type-based elimination *)
     List.nth ts i = TUnit
@@ -369,13 +293,13 @@ let remove_unused_parameters = object (self)
              * parameter of [f]. This is an opportunity to update the entry for
              * [f]. *)
             Hashtbl.replace private_use_table current_lid
-              (List.mapi (fun k count ->
+              (List.mapi (fun k (o, Mark.AtMost count) ->
                 (* 0 is the last parameter, l - 1 the first *)
                 if k == l - 1 - (j - i) then begin
                   assert (count > 0);
-                  count - 1
+                  o, Mark.AtMost (count - 1)
                 end else
-                  count
+                  o, Mark.AtMost count
               ) (Hashtbl.find private_use_table current_lid))
         | _ ->
             (* TODO: we could be smarter here *)
@@ -466,30 +390,6 @@ let wrapping_arithmetic = object (self)
         EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
 end
 
-
-(* This phase tries to substitute away variables that are temporary (named
-   uu____ in F*, or "scrut" if inserted by the pattern matches compilation
-   phase), or that are of a type that cannot be copied (to hopefully skirt
-   future failures). This phase assumes the mark field of each binder contains a
-   conservative approximation of the number of uses of that binder. *)
-let remove_uu = object (self)
-
-  inherit [_] map
-
-  method! visit_ELet _ b e1 e2 =
-    let e1 = self#visit_expr_w () e1 in
-    let e2 = self#visit_expr_w () e2 in
-    if (Helpers.is_uu b.node.name || b.node.name = "scrut" || Structs.should_rewrite b.typ = NoCopies) &&
-      !(b.node.mark) = 1 && (
-        is_readonly_c_expression e1 &&
-        safe_readonly_use e2 ||
-        safe_pure_use e2
-      ) (* || is_readonly_and_variable_free_c_expression e1 && b.node.mut *)
-    then
-      (DeBruijn.subst e1 0 e2).node
-    else
-      ELet (b, e1, e2)
-end
 
 let remove_ignore_unit = object
 
@@ -748,7 +648,7 @@ let misc_cosmetic = object (self)
             { node = EBufWrite (e4, e4_index, { node = EFlat fields; _ }); _ })
           when b'.node.meta = Some MetaSequence &&
           List.exists (fun (f, x) -> f <> None && x.node = EBound 1) fields &&
-          !(b.node.mark) = 2 ->
+          Mark.is_atmost 2 (snd !(b.node.mark)) ->
 
             (* if true then Warn.fatal_error "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
 
@@ -794,7 +694,7 @@ let misc_cosmetic = object (self)
           when b'.node.meta = Some MetaSequence &&
           b''.node.meta = Some MetaSequence &&
           List.exists (fun (f, x) -> f <> None && x.node = EBound 1) fields &&
-          !(b.node.mark) = 2 ->
+          Mark.is_atmost 2 (snd !(b.node.mark)) ->
 
             (* if true then Warn.fatal_error "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
 
@@ -843,7 +743,7 @@ let misc_cosmetic = object (self)
         | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
             { node = EAssign (e4, { node = EBound 1; _ }); _ })
           when b'.node.meta = Some MetaSequence &&
-          !(b.node.mark) = 2 ->
+          Mark.is_atmost 2 (snd !(b.node.mark)) ->
 
             (* KPrint.bprintf "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
 
@@ -862,7 +762,7 @@ let misc_cosmetic = object (self)
             { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
             { node = ELet (b'', { node = EAssign (e4, { node = EBound 1; _ }); _ }, e5); _ })
           when b'.node.meta = Some MetaSequence &&
-          !(b.node.mark) = 2 ->
+          Mark.is_atmost 2 (snd !(b.node.mark)) ->
 
             (* KPrint.bprintf "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
 
@@ -1999,8 +1899,7 @@ end
  * compilation, once. *)
 let simplify0 (files: file list): file list =
   let files = remove_local_function_bindings#visit_files () files in
-  let files = (count_and_remove_locals false)#visit_files [] files in
-  let files = remove_uu#visit_files () files in
+  let files = optimize_lets files in
   let files = remove_ignore_unit#visit_files () files in
   let files = remove_proj_is#visit_files () files in
   let files = combinators#visit_files () files in
@@ -2011,15 +1910,16 @@ let simplify0 (files: file list): file list =
  * calls of the form recall foobar in them. *)
 let simplify1 (files: file list): file list =
   let files = sequence_to_let#visit_files () files in
-  let files = (count_and_remove_locals false)#visit_files [] files in
+  let files = optimize_lets files in
   let files = let_to_sequence#visit_files () files in
   files
 
 (* This should be run late since inlining may create more opportunities for the
  * removal of unused variables. *)
 let remove_unused (files: file list): file list =
+  (* Relying on the side-effect of refreshing the mark. *)
+  let files = optimize_lets files in
   let parameter_table = Hashtbl.create 41 in
-  let files = (count_and_remove_locals false)#visit_files [] files in
   unused_parameter_table#visit_files parameter_table files;
   ignore_non_first_order#visit_files parameter_table files;
   let files = remove_unused_parameters#visit_files (parameter_table, 0) files in
@@ -2032,17 +1932,16 @@ let remove_unused (files: file list): file list =
 let simplify2 ifdefs (files: file list): file list =
   let files = sequence_to_let#visit_files () files in
   (* Quality of hoisting is WIDELY improved if we remove un-necessary
-   * let-bindings. *)
-  let files = (count_and_remove_locals true)#visit_files [] files in
-  (* This one is mostly for the sake of removing copies of spinlock and the
-     like. *)
-  let files = remove_uu#visit_files () files in
+   * let-bindings. Also removes occurrences of spinlock and the like. *)
+  let files = optimize_lets ~ifdefs files in
   let files = if !Options.wasm then files else fixup_while_tests#visit_files () files in
   let files = hoist#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
   let files = if !Options.wasm then files else fixup_hoist#visit_files () files in
   let files = if !Options.wasm then files else let_if_to_assign#visit_files () files in
   let files = if !Options.wasm then files else hoist_bufcreate#visit_files ifdefs files in
+  (* This phase relies on up-to-date mark information. TODO move up after
+     optimize_lets. *)
   let files = misc_cosmetic#visit_files () files in
   let files = misc_cosmetic2#visit_files () files in
   let files = functional_updates#visit_files false files in
