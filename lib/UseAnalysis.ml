@@ -5,10 +5,10 @@ open Ast
 open DeBruijn
 open Helpers
 
-(* This module implements a graph traversal that updates the `mark` field of
-   nodes (specifically: of let-binders and function parameter binders) with
-   information regarding the usage of those variables. This module computes two
-   slightly different pieces of information.
+(* This module implements a tree traversal that updates the `mark` field of
+   nodes (specifically: of let-binders, branch binders and function parameter
+   binders) with information regarding the usage of those variables. This module
+   computes two slightly different pieces of information.
    - The first one is whether a given variable occurs in the generated C *after*
      C preprocessing. This is called an occurrence, and computing it involves
      reasoning about ifdefs. This is used exclusively to defeat C compilers'
@@ -84,8 +84,8 @@ let plus_map (plus: valuation -> valuation -> valuation) (m1: valuation IntMap.t
     Some (plus v1 v2)) m1 m2
 
 (* This phase performs a usage and occurrence analysis and stores the result
-   in the mark of binders who are in an ELet or in a DFunction node (marks for
-   all other binders, e.g. match binders, are unspecified). *)
+   in the mark of binders which are in an ELet, a branch, or in a DFunction node
+   (marks for all other binders, e.g. for-loop binders, are unspecified). *)
 let build_usage_map_and_mark ifdefs = object(self)
   inherit [_] reduce as super
 
