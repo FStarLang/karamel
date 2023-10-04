@@ -100,19 +100,52 @@ let build_usage_map_and_mark ifdefs = object(self)
     IntMap.singleton level (Present, AtMost 1)
 
   method! visit_EIfThenElse (env, _ as env_) e1 e2 e3 =
+    (* This mimics the logic of mk_ifdef in AstToCStar *)
     let is_ifdef =
-      match e1.node, ifdefs with
-      | EQualified lid, Some ifdefs when Idents.LidSet.mem lid ifdefs -> true
-      | _ -> false
+      match ifdefs with
+      | None ->
+          `No
+      | Some ifdefs ->
+          let rec is_ifdef e =
+            match e.node with
+            | EQualified lid when Idents.LidSet.mem lid ifdefs ->
+                true
+            | EApp ({ node = EOp ((K.And | K.Or), K.Bool); _ }, [ e1; e2 ]) ->
+                is_ifdef e1 && is_ifdef e2
+            | EApp ({ node = EOp (K.Not, K.Bool); _ }, [ e1 ]) ->
+                is_ifdef e1
+            | _ -> false
+          in
+          match e1.node with
+          | EApp ({ node = EOp (K.And, K.Bool); _ }, [ e1; e2 ]) ->
+              (* e2 will appear underneath the #if and thus deserves special
+                 treatment. *)
+              if is_ifdef e1 then
+                `YesWithExtra (e1, e2)
+              else
+                `No
+          | _ ->
+              if is_ifdef e1 then
+                `Yes
+              else
+                `No
     in
-    if not is_ifdef then
-      (* We do not use plus_if here since the syntactic criteria
-         (is_readonly_...) are not if-then-else aware so this would only lead
-         us to perform more work for no good reason. *)
-      super#visit_EIfThenElse env_ e1 e2 e3
-    else
-      let map = plus_map plus_ifdef (self#visit_expr_w env e2) (self#visit_expr_w env e3) in
-      self#plus map (self#visit_expr_w env e1)
+
+    match is_ifdef with
+    | `No ->
+        (* We do not use plus_if here since the syntactic criteria
+           (is_readonly_...) are not if-then-else aware so this would only lead
+           us to perform more work for no good reason. *)
+        super#visit_EIfThenElse env_ e1 e2 e3
+    | `Yes ->
+        let map = plus_map plus_ifdef (self#visit_expr_w env e2) (self#visit_expr_w env e3) in
+        self#plus map (self#visit_expr_w env e1)
+    | `YesWithExtra (e1, e2') ->
+        (* e1 is the new condition of the if-then-else -- and e2' will also go
+           underneath then then-branch with e2 *)
+        let map_e2 = self#plus (self#visit_expr_w env e2) (self#visit_expr_w env e2') in
+        let map = plus_map plus_ifdef map_e2 (self#visit_expr_w env e3) in
+        self#plus map (self#visit_expr_w env e1)
 
   method! visit_ELet env b e1 e2 =
     let map = super#visit_ELet env b e1 e2 in

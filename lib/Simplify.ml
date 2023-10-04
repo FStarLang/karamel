@@ -1625,7 +1625,7 @@ and under_pushframe ifdefs (e: expr) =
   | ELet (b, { node = EIfThenElse ({ node = EQualified lid; _ } as e1, e2, e3); typ }, ek)
     when Idents.LidSet.mem lid ifdefs ->
       (* Do not hoist, since this if will turn into an ifdef which does NOT
-         shorten the scope...! *)
+         shorten the scope...! TODO this does not catch all ifdefs *)
       let e2 = under_pushframe e2 in
       let e3 = under_pushframe e3 in
       let ek = under_pushframe ek in
