@@ -642,7 +642,7 @@ let drop_unused files =
   ) files
 
 let mark_possibly_unused ifdefs files =
-  let map = object (self)
+  let map = (object (self)
     inherit [_] reduce as super
     method zero = LidSet.empty
     method plus = LidSet.union
@@ -657,12 +657,12 @@ let mark_possibly_unused ifdefs files =
           LidSet.union (self#visit_expr env e1)
             (LidSet.inter
               (LidSet.union (self#visit_expr env e2) (self#visit_expr env e2')) (self#visit_expr env e3))
-  end#visit_files () files in
-  object
+  end)#visit_files () files in
+  (object
     inherit [_] map
     method! visit_DFunction _ cc flags n t name binders body =
       if not (LidSet.mem name map) && List.mem Private flags then
         DFunction (cc, MaybeUnused :: flags, n, t, name, binders, body)
       else
         DFunction (cc, flags, n, t, name, binders, body)
-  end#visit_files () files
+  end)#visit_files () files
