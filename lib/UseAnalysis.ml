@@ -175,18 +175,20 @@ let use_mark_to_remove_or_ignore final = object (self)
         self#remove_trivial_let (ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2))
       else if u = AtMost 0 && Helpers.is_readonly_c_expression e1 && e2.node = EBound 0 then
         e1.node
-      (* Last two cases: unclear if it's actually unused;
-         nothing really smart to do about this, except wrap in KRML_HOST_IGNORE
-         to prevent compiler warnings. *)
-      else if is_bufcreate e1 then
+      (* Definitely unused, but no optimization; push an ignore at depth *)
+      else if u = AtMost 0 then
+        ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit},
+          push_ignore e1,
+          e2)
+      (* Last case: unclear if it's actually unused! So we can't mess the
+         computation and push an ignore within e1. All we can do is wrap a
+         reference to the variable in KRML_HOST_IGNORE to prevent compiler
+         warnings. *)
+      else
         ELet (b, e1, with_type e2.typ (
           ELet (sequence_binding (),
             push_ignore (with_type b.typ (EBound 0)),
             DeBruijn.lift 1 e2)))
-      else
-        ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit},
-          push_ignore e1,
-          e2)
     else
       (* Default case *)
       self#remove_trivial_let (ELet (b, e1, e2))

@@ -571,7 +571,7 @@ Supported options:|}
    * bundle. *)
   let files = Simplify.simplify0 files in
   (* Remove trivial matches now because they eliminate code that would generate
-   * spurious dependencies otherwise. *)
+   * spurious dependencies otherwise. Requires accurate use count. *)
   let files = DataTypes.simplify files in
   let files = Monomorphization.datatypes files in
   let files = DataTypes.optimize files in
