@@ -176,30 +176,32 @@ let use_mark_to_remove_or_ignore final = object (self)
     let o, u = !(b.node.mark) in
     let e1 = self#visit_expr env e1 in
     let e2 = self#visit_expr env e2 in
-    if o = MaybeAbsent then
-      (* First three cases: we know for sure it's unused. Try various things. *)
-      if u = AtMost 0 && is_readonly_c_expression e1 then
+    if u = AtMost 0 then
+      (* The variable is unused, for sure! Try to get rid of it using various
+         mechanisms. The last one may result in spurious ignores over values,
+         but that's ok. *)
+      if is_readonly_c_expression e1 then
         self#remove_trivial_let (snd (open_binder b e2)).node
-      else if u = AtMost 0 && e1.typ = TUnit then
+      else if e1.typ = TUnit then
         self#remove_trivial_let (ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2))
-      else if u = AtMost 0 && Helpers.is_readonly_c_expression e1 && e2.node = EBound 0 then
+      else if Helpers.is_readonly_c_expression e1 && e2.node = EBound 0 then
         e1.node
       (* Definitely unused, but no optimization; push an ignore at depth *)
-      else if u = AtMost 0 then
+      else
         ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit},
           push_ignore e1,
           e2)
-      (* Last case: unclear if it's actually unused! So we can't mess the
+    else if o = MaybeAbsent then
+      (* The variable may be unused! So we can't mess the
          computation and push an ignore within e1. All we can do is wrap a
          reference to the variable in KRML_HOST_IGNORE to prevent compiler
          warnings. *)
-      else
-        ELet (b, e1, with_type e2.typ (
-          ELet (sequence_binding (),
-            push_ignore (with_type b.typ (EBound 0)),
-            DeBruijn.lift 1 e2)))
+      ELet (b, e1, with_type e2.typ (
+        ELet (sequence_binding (),
+          push_ignore (with_type b.typ (EBound 0)),
+          DeBruijn.lift 1 e2)))
     else
-      (* Default case *)
+      (* Nothing to do *)
       self#remove_trivial_let (ELet (b, e1, e2))
 
   method! visit_DFunction env cc flags n ret name binders body =
