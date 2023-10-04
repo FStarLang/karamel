@@ -103,32 +103,8 @@ let build_usage_map_and_mark ifdefs = object(self)
     (* This mimics the logic of mk_ifdef in AstToCStar *)
     let is_ifdef =
       match ifdefs with
-      | None ->
-          `No
-      | Some ifdefs ->
-          let rec is_ifdef e =
-            match e.node with
-            | EQualified lid when Idents.LidSet.mem lid ifdefs ->
-                true
-            | EApp ({ node = EOp ((K.And | K.Or), K.Bool); _ }, [ e1; e2 ]) ->
-                is_ifdef e1 && is_ifdef e2
-            | EApp ({ node = EOp (K.Not, K.Bool); _ }, [ e1 ]) ->
-                is_ifdef e1
-            | _ -> false
-          in
-          match e1.node with
-          | EApp ({ node = EOp (K.And, K.Bool); _ }, [ e1; e2 ]) ->
-              (* e2 will appear underneath the #if and thus deserves special
-                 treatment. *)
-              if is_ifdef e1 then
-                `YesWithExtra (e1, e2)
-              else
-                `No
-          | _ ->
-              if is_ifdef e1 then
-                `Yes
-              else
-                `No
+      | None -> `No
+      | Some ifdefs -> is_ifdef ifdefs e1
     in
 
     match is_ifdef with

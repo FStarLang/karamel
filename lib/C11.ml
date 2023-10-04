@@ -86,8 +86,13 @@ and inline_stance =
   | Inline
   | NoInline
 
+and extra = {
+  maybe_unused: bool
+}
+  (* some extra information that doesn't really pertain to the C standard *)
+
 and declaration =
-  qualifier list * type_spec * inline_stance option * storage_spec option * declarator_and_inits
+  qualifier list * type_spec * inline_stance option * storage_spec option * extra * declarator_and_inits
   (* the inline stance is for functions only; in addition to the standard C
      "inline" qualifier, we also distinguish a "noinline" version for
      security-sensitive functions that would otherwise undergo upsetting

@@ -666,6 +666,7 @@ Supported options:|}
   let macros = AstToCStar.mk_macros_set files in
 
   let files = Simplify.simplify2 ifdefs files in
+  let files = Inlining.mark_possibly_unused ifdefs files in
   let files = if Options.(!merge_variables <> No) then SimplifyMerge.simplify files else files in
   if !arg_print_structs then
     print PrintAst.print_files files;

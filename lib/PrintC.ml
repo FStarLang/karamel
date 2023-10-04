@@ -323,13 +323,14 @@ and p_decl_and_init (decl, alignment, init) =
     | None ->
         empty)
 
-and p_declaration (qs, spec, inline, stor, decl_and_inits) =
+and p_declaration (qs, spec, inline, stor, { maybe_unused }, decl_and_inits) =
   let inline =
     match inline with
     | None -> empty
     | Some C11.Inline -> string "inline" ^^ space
     | Some NoInline -> string "KRML_NOINLINE" ^^ space
   in
+  let maybe_unused = if maybe_unused then string "KRML_MAYBE_UNUSED" ^^ space else empty in
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
   let _, alignment, _ = List.hd decl_and_inits in
   if not (List.for_all (fun (_, a, _) -> a = alignment) decl_and_inits) then
@@ -341,7 +342,7 @@ and p_declaration (qs, spec, inline, stor, decl_and_inits) =
     | None ->
         empty
   in
-  pre ^^ stor ^^ inline ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
+  pre ^^ maybe_unused ^^ stor ^^ inline ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
 

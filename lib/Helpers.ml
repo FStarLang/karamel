@@ -195,6 +195,35 @@ let is_bufcreate x =
 
 let is_uu name = KString.starts_with name "uu__"
 
+(* Is this condition of an if-then-else going to give rise to an ifdef? Yes, no,
+   or yes with the extra caveat that e1 is the new condition and e2 appears
+   underneath the ifdef *)
+let is_ifdef ifdefs e1 =
+  let rec is_ifdef e =
+    match e.node with
+    | EQualified lid when Idents.LidSet.mem lid ifdefs ->
+        true
+    | EApp ({ node = EOp ((K.And | K.Or), K.Bool); _ }, [ e1; e2 ]) ->
+        is_ifdef e1 && is_ifdef e2
+    | EApp ({ node = EOp (K.Not, K.Bool); _ }, [ e1 ]) ->
+        is_ifdef e1
+    | _ -> false
+  in
+  match e1.node with
+  | EApp ({ node = EOp (K.And, K.Bool); _ }, [ e1; e2 ]) ->
+      (* e2 will appear underneath the #if and thus deserves special
+         treatment. *)
+      if is_ifdef e1 then
+        `YesWithExtra (e1, e2)
+      else
+        `No
+  | _ ->
+      if is_ifdef e1 then
+        `Yes
+      else
+        `No
+
+
 let pattern_matches p lid =
   Bundle.pattern_matches p (String.concat "_" (fst lid))
 
