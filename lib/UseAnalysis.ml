@@ -186,11 +186,18 @@ let use_mark_to_remove_or_ignore final = object (self)
         self#remove_trivial_let (ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2))
       else if Helpers.is_readonly_c_expression e1 && e2.node = EBound 0 then
         e1.node
-      (* Definitely unused, but no optimization; push an ignore at depth *)
-      else
+      (* Definitely unused, except we can't generate let _ = ignore (bufcreate
+         ...). *)
+      else if not (is_bufcreate e1) then
         ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit},
           push_ignore e1,
           e2)
+      (* Definitely unused, push an ignore at depth *)
+      else
+        ELet (b, e1, with_type e2.typ (
+          ELet (sequence_binding (),
+            push_ignore (with_type b.typ (EBound 0)),
+            DeBruijn.lift 1 e2)))
     else if o = MaybeAbsent then
       (* The variable may be unused! So we can't mess the
          computation and push an ignore within e1. All we can do is wrap a
