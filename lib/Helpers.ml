@@ -278,6 +278,7 @@ let is_readonly_builtin_lid lid =
     [ "FStar"; "UInt128" ], "";
     [ "Eurydice" ], "vec_len";
     [ "Eurydice" ], "vec_index";
+    [ "LowStar"; "Ignore" ], "ignore";
   ] in
   List.exists (fun lid' ->
     let lid = Idents.string_of_lident lid in
@@ -333,7 +334,8 @@ class ['self] readonly_visitor = object (self: 'self)
         false
 end
 
-let is_readonly_c_expression = (new readonly_visitor)#visit_expr_w ()
+let is_readonly_c_expression =
+  (new readonly_visitor)#visit_expr_w ()
 
 let is_readonly_and_variable_free_c_expression = (object
   inherit [_] readonly_visitor
