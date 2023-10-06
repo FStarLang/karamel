@@ -124,11 +124,17 @@ let build_usage_map_and_mark ifdefs = object(self)
         self#plus map (self#visit_expr_w env e1)
 
   method! visit_ELet env b e1 e2 =
-    let map = super#visit_ELet env b e1 e2 in
+    let env0 = self#extend (fst env) b in
+    let map = self#visit_expr_w env0 e2 in
     let level = List.length (fst env) in
     let v = match IntMap.find_opt level map with None -> zero | Some v -> v in
     b.node.mark := v;
-    restrict_map map level
+    let map = restrict_map map level in
+    if snd v = AtMost 0 && is_readonly_c_expression e1 then
+      (* will be eliminated -- don't visit *)
+      map
+    else
+      self#plus map (self#visit_expr env e1)
 
   method! visit_DFunction env cc flags n ret name binders body =
     let map = super#visit_DFunction env cc flags n ret name binders body in
@@ -184,8 +190,6 @@ let use_mark_to_remove_or_ignore final = object (self)
         self#remove_trivial_let (snd (open_binder b e2)).node
       else if e1.typ = TUnit then
         self#remove_trivial_let (ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2))
-      else if Helpers.is_readonly_c_expression e1 && e2.node = EBound 0 then
-        e1.node
       (* Definitely unused, except we can't generate let _ = ignore (bufcreate
          ...) -- this is a bad idea, as it'll force the hoisting phase to hoist
          the bufcreate back into a let-binding, which will then be named "buf". *)
