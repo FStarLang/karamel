@@ -73,3 +73,7 @@ int32_t Prims_op_Division(int32_t x, int32_t y) {
 int32_t Prims_op_Modulus(int32_t x, int32_t y) {
   RETURN_OR((int64_t)x % (int64_t)y);
 }
+
+int32_t Prims_op_Minus(int32_t x) {
+  RETURN_OR(-x);
+}
