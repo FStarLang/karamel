@@ -278,7 +278,6 @@ let is_readonly_builtin_lid lid =
     [ "FStar"; "UInt128" ], "";
     [ "Eurydice" ], "vec_len";
     [ "Eurydice" ], "vec_index";
-    [ "LowStar"; "Ignore" ], "ignore";
   ] in
   List.exists (fun lid' ->
     let lid = Idents.string_of_lident lid in

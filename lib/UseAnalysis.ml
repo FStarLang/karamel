@@ -180,13 +180,14 @@ let use_mark_to_remove_or_ignore final = object (self)
   method! visit_ELet env b e1 e2 =
     (* Remove unused variables. Important to get rid of calls to [HST.get()]. *)
     let o, u = !(b.node.mark) in
+    let is_readonly = is_readonly_c_expression e1 in
     let e1 = self#visit_expr env e1 in
     let e2 = self#visit_expr env e2 in
     if u = AtMost 0 then
       (* The variable is unused, for sure! Try to get rid of it using various
          mechanisms. The last one may result in spurious ignores over values,
          but that's ok. *)
-      if is_readonly_c_expression e1 then
+      if is_readonly then
         self#remove_trivial_let (snd (open_binder b e2)).node
       else if e1.typ = TUnit then
         self#remove_trivial_let (ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2))
