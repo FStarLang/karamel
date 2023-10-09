@@ -571,7 +571,7 @@ Supported options:|}
    * bundle. *)
   let files = Simplify.simplify0 files in
   (* Remove trivial matches now because they eliminate code that would generate
-   * spurious dependencies otherwise. *)
+   * spurious dependencies otherwise. Requires accurate use count. *)
   let files = DataTypes.simplify files in
   let files = Monomorphization.datatypes files in
   let files = DataTypes.optimize files in
@@ -637,7 +637,7 @@ Supported options:|}
   let files =
     if !Options.wasm then
       let files = Simplify.sequence_to_let#visit_files () files in
-      let files = (Simplify.count_and_remove_locals false)#visit_files [] files in
+      let files = Simplify.optimize_lets files in
       let files = SimplifyWasm.simplify1 files in
       let files = Simplify.hoist#visit_files [] files in
       let files = Structs.in_memory files in
@@ -666,6 +666,7 @@ Supported options:|}
   let macros = AstToCStar.mk_macros_set files in
 
   let files = Simplify.simplify2 ifdefs files in
+  let files = Inlining.mark_possibly_unused ifdefs files in
   let files = if Options.(!merge_variables <> No) then SimplifyMerge.simplify files else files in
   if !arg_print_structs then
     print PrintAst.print_files files;

@@ -265,13 +265,13 @@ and mk_fields m fields =
   Some (List.map (fun (name, typ) ->
     let name = match name with Some name -> name | None -> "" in
     let qs, spec, decl = mk_spec_and_declarator m name typ in
-    qs, spec, None, None, [ decl, None, None ]
+    qs, spec, None, None, { maybe_unused = false }, [ decl, None, None ]
   ) fields)
 
 and mk_union_fields m fields =
   Some (List.map (fun (name, typ) ->
     let qs, spec, decl = mk_spec_and_decl m name [] typ (fun d -> d) in
-    qs, spec, None, None, [ decl, None, None ]
+    qs, spec, None, None, { maybe_unused = false }, [ decl, None, None ]
   ) fields)
 
 (* Standard spec/declarator pair (e.g. int x). *)
@@ -324,14 +324,14 @@ and ensure_compound (stmts: C.stmt list): C.stmt =
 and mk_for_loop name qs t init test incr body =
   if !Options.c89_scope then
     Compound [
-      Decl (qs, t, None, None, [ Ident name, None, None ]);
+      Decl (qs, t, None, None, { maybe_unused = false }, [ Ident name, None, None ]);
       For (
         `Expr (Op2 (K.Assign, Name name, init)),
         test, incr, body)
     ]
   else
     For (
-      `Decl (qs, t, None, None, [ Ident name, None, Some (InitExpr init)]),
+      `Decl (qs, t, None, None, { maybe_unused = false }, [ Ident name, None, Some (InitExpr init)]),
       test, incr, body)
 
 (* Takes e_array of type (Buf t) *)
@@ -543,7 +543,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
         mk_eternal_bufcreate m (Var binder.name) t init size
       in
       let qs, spec, decl = mk_spec_and_declarator m binder.name binder.typ in
-      let decl: C.stmt list = [ Decl (qs, spec, None, None, [ decl, None, Some (InitExpr expr_alloc)]) ] in
+      let decl: C.stmt list = [ Decl (qs, spec, None, None, { maybe_unused = false }, [ decl, None, Some (InitExpr expr_alloc)]) ] in
       stmt_check @ decl @ stmt_extra
 
   | Decl (binder, BufCreate (Stack, init, size)) ->
@@ -600,7 +600,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
         else
           []
       in
-      let decl: C.stmt list = [ Decl (qs, spec, None, None, [ decl, alignment, maybe_init ]) ] in
+      let decl: C.stmt list = [ Decl (qs, spec, None, None, { maybe_unused = false }, [ decl, alignment, maybe_init ]) ] in
       mk_check_size m (assert_pointer binder.typ) size @
       decl @
       extra_stmt
@@ -618,14 +618,14 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       let alignment = mk_alignment m (assert_array t) in
       let inits = trim_trailing_zeros inits in
       let qs, spec, decl = mk_spec_and_declarator m binder.name t in
-      [ Decl (qs, spec, None, None, [ decl, alignment, Some (Initializer (List.map (fun e ->
+      [ Decl (qs, spec, None, None, { maybe_unused = false }, [ decl, alignment, Some (Initializer (List.map (fun e ->
         InitExpr (mk_expr m e)
       ) inits))])]
 
   | Decl (binder, e) ->
       let qs, spec, decl = mk_spec_and_declarator m binder.name binder.typ in
       let init: init option = match e with Any -> None | _ -> Some (struct_as_initializer m e) in
-      [ Decl (qs, spec, None, None, [ decl, None, init ]) ]
+      [ Decl (qs, spec, None, None, { maybe_unused = false }, [ decl, None, init ]) ]
 
   | IfThenElse (false, e, b1, b2) ->
       if List.length b2 > 0 then
@@ -1076,7 +1076,8 @@ let mk_function_or_global_body m (d: decl): C.declaration_or_function list =
           let parameters = List.map (fun { name; typ } -> name, typ) parameters in
           let qs, spec, decl = mk_spec_and_declarator_f m cc name return_type parameters in
           let body = ensure_compound (mk_debug name parameters @ mk_stmts m body) in
-          wrap_verbatim name flags (Function (mk_comments flags, (qs, spec, inline, static, [ decl, None, None ]), body))
+          let extra = { maybe_unused = List.mem MaybeUnused flags } in
+          wrap_verbatim name flags (Function (mk_comments flags, (qs, spec, inline, static, extra, [ decl, None, None ]), body))
         with e ->
           beprintf "Fatal exception raised in %s\n" name;
           raise e
@@ -1091,23 +1092,24 @@ let mk_function_or_global_body m (d: decl): C.declaration_or_function list =
         let alignment = if is_array t then mk_alignment m (assert_array t) else None in
         let qs, spec, decl = mk_spec_and_declarator m name t in
         let static = if List.exists ((=) Private) flags then Some Static else None in
+        let extra = { maybe_unused = List.mem MaybeUnused flags } in
         match expr with
         | Any ->
-            wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, static, [ decl, alignment, None ])))
+            wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, static, extra, [ decl, alignment, None ])))
         | BufCreateL (_, es) ->
             let es = trim_trailing_zeros es in
             let es = List.map (struct_as_initializer m) es in
-            wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, static, [
+            wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, static, extra, [
               decl, alignment, Some (Initializer es) ])))
         (* Global static arrays of arithmetic type are initialized implicitly to 0 *)
         | BufCreate (_, Constant (_, "0"), _)
         | BufCreate (_, CStar.Bool false, _)
         | BufCreate (_, CStar.Any, _) ->
-            wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, static, [
+            wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, static, extra, [
               decl, alignment, None ])))
         | _ ->
             let expr = struct_as_initializer m expr in
-            wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, static, [ decl, alignment, Some expr ])))
+            wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, static, extra, [ decl, alignment, Some expr ])))
 
 (** Function prototype, or extern global declaration (no definition). *)
 let mk_function_or_global_stub m (d: decl): C.declaration_or_function list =
@@ -1127,7 +1129,8 @@ let mk_function_or_global_stub m (d: decl): C.declaration_or_function list =
           let qs, spec, decl = mk_spec_and_declarator_f m cc name return_type parameters in
           (* JP: shouldn't we check for the presence of `inline` here? What does
            * the C standard say? inline on prototype and declaration? *)
-          wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, None, [ decl, None, None ])))
+          (* Regarding __attribute__((unused)), either one is enough. *)
+          wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, None, { maybe_unused = false }, [ decl, None, None ])))
         with e ->
           beprintf "Fatal exception raised in %s\n" name;
           raise e
@@ -1140,7 +1143,7 @@ let mk_function_or_global_stub m (d: decl): C.declaration_or_function list =
         let name = to_c_name m name in
         let t = strengthen_array t expr in
         let qs, spec, decl = mk_spec_and_declarator m name t in
-        wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, Some Extern, [ decl, None, None ])))
+        wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, Some Extern, { maybe_unused = false }, [ decl, None, None ])))
 
 type where = H | C
 
@@ -1159,7 +1162,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
       | FStruct -> C.Struct (Some (name ^ "_s"), None)
       | FUnion -> C.Union (Some (name ^ "_s"), None)
     in
-    wrap_verbatim name flags (Decl ([], ([], d, None, Some Typedef, [ Ident name, None, None ])))
+    wrap_verbatim name flags (Decl ([], ([], d, None, Some Typedef, { maybe_unused = false }, [ Ident name, None, None ])))
   in
   match d with
   | TypeForward (name, flags, k) ->
@@ -1188,10 +1191,10 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
             let cases = List.map (to_c_name m) cases in
             wrap_verbatim name flags (Text (enum_as_macros cases)) @
             let qs, spec, decl = mk_spec_and_declarator_t m name (Int t) in
-            [ Decl ([], (qs, spec, None, Some Typedef, [ decl, None, None ]))]
+            [ Decl ([], (qs, spec, None, Some Typedef, { maybe_unused = false }, [ decl, None, None ]))]
         | _ ->
             let qs, spec, decl = mk_spec_and_declarator_t m name t in
-            wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, Some Typedef, [ decl, None, None ])))
+            wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, Some Typedef, { maybe_unused = false }, [ decl, None, None ])))
       end
 
   | External (name, Function (cc, t, ts), flags, pp) ->
@@ -1217,7 +1220,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
           else
             None
         in
-        wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, inline, Some Extern, [ decl, None, None ])))
+        wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, inline, Some Extern, { maybe_unused = false }, [ decl, None, None ])))
 
   | External (name, t, flags, _) ->
       if is_primitive name ||
@@ -1227,7 +1230,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
       else
         let name = to_c_name m name in
         let qs, spec, decl = mk_spec_and_declarator m name t in
-        wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, Some Extern, [ decl, None, None ])))
+        wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, Some Extern, { maybe_unused = false }, [ decl, None, None ])))
 
   | Global (name, macro, flags, _, body) when macro && not (is_inline_static && declared_in_library name) ->
       (* Macros behave like types, they ought to be declared once. *)
@@ -1326,17 +1329,17 @@ let mk_static f d =
   in
 
   KList.map_flatten (function
-    | C.Decl (comments, (qs, ts, inline, (None | Some (Static | Extern)), decl_inits)) ->
+    | C.Decl (comments, (qs, ts, inline, (None | Some (Static | Extern)), extra, decl_inits)) ->
         let is_func = match decl_inits with
           | [ Function _, _, _ ] -> promote_inline inline
           | [ _ ] -> inline
           | _ -> assert false
         in
-        [ C.Decl (comments, (qs, ts, is_func, Some Static, decl_inits)) ]
-    | C.Function (comments, (qs, ts, inline, (None | Some (Static | Extern)), decl_inits), body) ->
+        [ C.Decl (comments, (qs, ts, is_func, Some Static, extra, decl_inits)) ]
+    | C.Function (comments, (qs, ts, inline, (None | Some (Static | Extern)), extra, decl_inits), body) ->
         (* We make the function static *and* inline UNLESS the user requested
            NoInline *)
-        [ C.Function (comments, (qs, ts, promote_inline inline, Some Static, decl_inits), body) ]
+        [ C.Function (comments, (qs, ts, promote_inline inline, Some Static, extra, decl_inits), body) ]
     | d ->
         [ d ]
   ) (f d)

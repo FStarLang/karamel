@@ -35,7 +35,6 @@ int main (int argc, char *argv[]) {
     key[i] = i;
   uint32_t counter = 1;
   uint8_t iv[12] = { 0, 0, 0, 0, 0, 0, 0, 0x4a, 0, 0, 0, 0 };
-  uint32_t constant = 0;
   uint8_t ciphertext[LEN] = { 0 };
 
   long n = argc > 1 ? strtol(argv[1], NULL, 10) : 1;

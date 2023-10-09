@@ -22,9 +22,9 @@ libdemo.a: $(ALL_O_FILES)
 
 .PRECIOUS: %.cmx %.cmi %.cmo
 
-OCAMLOPT=ocamlfind opt -package ctypes,ctypes.foreign,ctypes.stubs -linkpkg -I lib -I .
+OCAMLOPT=ocamlfind opt -package ctypes,ctypes.foreign,ctypes.stubs -linkpkg -I lib -I . -thread
 OCAMLDEP=ocamlfind dep -I lib -slash
-OCAMLC	=ocamlfind c -thread -g -package ctypes,ctypes.foreign,ctypes.stubs -linkpkg -I lib -I .
+OCAMLC	=ocamlfind c -thread -g -package ctypes,ctypes.foreign,ctypes.stubs -linkpkg -I lib -I . -thread
 
 CFLAGS += -I "$(shell ocamlfind query ctypes)" -I "$(shell ocamlfind c -where)" 
 

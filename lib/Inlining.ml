@@ -640,3 +640,29 @@ let drop_unused files =
     else
       Some d
   ) files
+
+let mark_possibly_unused ifdefs files =
+  let map = (object (self)
+    inherit [_] reduce as super
+    method zero = LidSet.empty
+    method plus = LidSet.union
+    method! visit_EQualified _ lid = LidSet.singleton lid
+    method! visit_EIfThenElse env e1 e2 e3 =
+      match Helpers.is_ifdef ifdefs e1 with
+      | `No -> super#visit_EIfThenElse env e1 e2 e3
+      | `Yes ->
+          LidSet.union (self#visit_expr env e1)
+            (LidSet.inter (self#visit_expr env e2) (self#visit_expr env e3))
+      | `YesWithExtra (e1, e2') ->
+          LidSet.union (self#visit_expr env e1)
+            (LidSet.inter
+              (LidSet.union (self#visit_expr env e2) (self#visit_expr env e2')) (self#visit_expr env e3))
+  end)#visit_files () files in
+  (object
+    inherit [_] map
+    method! visit_DFunction _ cc flags n t name binders body =
+      if not (LidSet.mem name map) && List.mem Private flags then
+        DFunction (cc, MaybeUnused :: flags, n, t, name, binders, body)
+      else
+        DFunction (cc, flags, n, t, name, binders, body)
+  end)#visit_files () files

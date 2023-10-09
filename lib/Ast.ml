@@ -29,6 +29,7 @@ and ident = string [@ opaque]
 and poly_comp = K.poly_comp [@ opaque]
 and forward_kind = Common.forward_kind [@ opaque]
 and lident = ident list * ident [@ opaque]
+and valuation = Mark.occurrence * Mark.usage [@ opaque]
   [@@deriving show,
     visitors { variety = "iter"; name = "iter_misc"; polymorphic = true },
     visitors { variety = "reduce"; name = "reduce_misc"; polymorphic = true },
@@ -303,7 +304,7 @@ and var =
 and binder' = {
   name: ident;
   mut: bool;
-  mark: int ref;
+  mark: valuation ref;
   meta: meta option;
   atom: atom_t;
     (** Only makes sense when opened! *)

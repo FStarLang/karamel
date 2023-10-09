@@ -69,6 +69,7 @@ Prims_list__bool *FStar_Seq_Base_create__bool(krml_checked_int_t len, bool v)
 Prims_list__bool
 *FStar_BV_bv_uext(krml_checked_int_t n, krml_checked_int_t i, Prims_list__bool *a)
 {
+  KRML_HOST_IGNORE(n);
   return FStar_Seq_Base_append__bool(FStar_Seq_Base_create__bool(i, false), a);
 }
 
@@ -116,6 +117,7 @@ Prims_list__bool *FStar_Seq_Properties_seq_of_list__bool(Prims_list__bool *l)
 
 Prims_list__bool *FStar_BV_list2bv(krml_checked_int_t n, Prims_list__bool *l)
 {
+  KRML_HOST_IGNORE(n);
   return FStar_Seq_Properties_seq_of_list__bool(l);
 }
 
@@ -268,6 +270,7 @@ Prims_list__bool *FStar_Seq_Properties_seq_to_list__bool(Prims_list__bool *s)
 
 Prims_list__bool *FStar_BV_bv2list(krml_checked_int_t n, Prims_list__bool *s)
 {
+  KRML_HOST_IGNORE(n);
   return FStar_Seq_Properties_seq_to_list__bool(s);
 }
 

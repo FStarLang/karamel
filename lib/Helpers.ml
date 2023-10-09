@@ -132,7 +132,7 @@ let mk_deref t ?(const=false) e =
 (* Binder nodes ***************************************************************)
 
 let fresh_binder ?(mut=false) name typ =
-  with_type typ { name; mut; mark = ref 0; meta = None; atom = Atom.fresh () }
+  with_type typ { name; mut; mark = ref Mark.default; meta = None; atom = Atom.fresh () }
 
 let mark_mut b =
   { b with node = { b.node with mut = true }}
@@ -140,7 +140,7 @@ let mark_mut b =
 let sequence_binding () = with_type TUnit {
   name = "_";
   mut = false;
-  mark = ref 0;
+  mark = ref Mark.default;
   meta = Some MetaSequence;
   atom = Atom.fresh ()
 }
@@ -195,6 +195,35 @@ let is_bufcreate x =
 
 let is_uu name = KString.starts_with name "uu__"
 
+(* Is this condition of an if-then-else going to give rise to an ifdef? Yes, no,
+   or yes with the extra caveat that e1 is the new condition and e2 appears
+   underneath the ifdef *)
+let is_ifdef ifdefs e1 =
+  let rec is_ifdef e =
+    match e.node with
+    | EQualified lid when Idents.LidSet.mem lid ifdefs ->
+        true
+    | EApp ({ node = EOp ((K.And | K.Or), K.Bool); _ }, [ e1; e2 ]) ->
+        is_ifdef e1 && is_ifdef e2
+    | EApp ({ node = EOp (K.Not, K.Bool); _ }, [ e1 ]) ->
+        is_ifdef e1
+    | _ -> false
+  in
+  match e1.node with
+  | EApp ({ node = EOp (K.And, K.Bool); _ }, [ e1; e2 ]) ->
+      (* e2 will appear underneath the #if and thus deserves special
+         treatment. *)
+      if is_ifdef e1 then
+        `YesWithExtra (e1, e2)
+      else
+        `No
+  | _ ->
+      if is_ifdef e1 then
+        `Yes
+      else
+        `No
+
+
 let pattern_matches p lid =
   Bundle.pattern_matches p (String.concat "_" (fst lid))
 
@@ -246,8 +275,7 @@ let is_readonly_builtin_lid lid =
     [ "Lib"; "IntVector"; "Intrinsics" ], "vec128_smul64";
     [ "Lib"; "IntVector"; "Intrinsics" ], "vec256_smul64";
     [ "FStar"; "UInt32" ], "v";
-    [ "FStar"; "UInt128" ], "uint128_to_uint64";
-    [ "FStar"; "UInt128" ], "uint64_to_uint128";
+    [ "FStar"; "UInt128" ], "";
     [ "Eurydice" ], "vec_len";
     [ "Eurydice" ], "vec_index";
   ] in
@@ -305,7 +333,8 @@ class ['self] readonly_visitor = object (self: 'self)
         false
 end
 
-let is_readonly_c_expression = (new readonly_visitor)#visit_expr_w ()
+let is_readonly_c_expression =
+  (new readonly_visitor)#visit_expr_w ()
 
 let is_readonly_and_variable_free_c_expression = (object
   inherit [_] readonly_visitor

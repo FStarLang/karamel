@@ -723,8 +723,11 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EOpen _ ->
       invalid_arg "mk_expr (EOpen)"
 
-  | EApp ({ node = ETApp ({ node = EQualified (["LowStar"; "Ignore"],"ignore"); _ }, _); _ }, [ _ ]) ->
-      locals, cflat_unit
+  | EApp ({ node = ETApp ({ node = EQualified (["LowStar"; "Ignore"],"ignore"); _ }, _); _ }, [ e ]) ->
+      let locals, e = mk_expr env locals e in
+      (* This is slightly ill-typed since everywhere else the result of
+         intermediary sequence bits is units, but that's fine *)
+      locals, CF.Sequence [ e; cflat_unit ]
 
   | EApp ({ node = ETApp ({ node = EQualified (["Lib"; "Memzero0"],"memzero"); _ }, _); _ }, [ dst; len ]) ->
       (* TODO: now that the C backend is generic for type applications, do the
