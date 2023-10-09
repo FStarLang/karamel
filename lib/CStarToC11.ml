@@ -16,6 +16,7 @@ let zero = C.Constant (K.UInt8, "0")
 
 let is_array = function Array _ -> true | _ -> false
 let is_var = function Var _ -> true | _ -> false
+let is_call = function Call _ -> true | _ -> false
 
 let fresh =
   let r = ref (-1) in
@@ -541,7 +542,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
      to double-ignore, since C does it for us automatically, and C compilers
      treat this as 100% normal UNLESS the programmer uses extensions like
      `__attribute__((nodiscard))`. *)
-  | Ignore (Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), [ arg; _ ])) when not (is_var arg) ->
+  | Ignore (Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), [ arg; _ ])) when is_call arg ->
       [ Expr (mk_expr m arg) ]
 
   | Ignore e ->
