@@ -7,7 +7,7 @@
 /* For alloca, when using KaRaMeL's -falloca */
 #if (defined(_WIN32) || defined(_WIN64))
 #  include <malloc.h>
-#else if (defined(sun))
+#elif (defined(sun))
 #  include <alloca.h>
 #endif
 
