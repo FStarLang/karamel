@@ -384,12 +384,14 @@ and mk_check_size m t n_elements: C.stmt list =
    * hopefully a constant *)
   let default = [ C.Expr (C.Call (C.Name "KRML_CHECK_SIZE", [ mk_sizeof m t; n_elements ])) ] in
   match bytes_in t, n_elements with
-  | _, C.Cast (_, C.Constant (_, "1")) ->
+  | _, C.Cast (_, C.Constant (_, "1"))
+  | _, C.Constant (_, "1") ->
       (* C compilers also don't seem to let the user define a type that would be
          greater than size_t, so if the element size is 1, then we can get rid
          of the check as well. *)
       []
-  | Some w, C.Cast (_, C.Constant (_, n_elements)) ->
+  | Some w, C.Cast (_, C.Constant (_, n_elements))
+  | Some w, C.Constant (_, n_elements) ->
       (* Compute, if we can, the size statically *)
       let size_bytes = Z.(of_int w * of_string n_elements) in
       let ptr_size = Z.(one lsl 16) in
@@ -926,7 +928,13 @@ and mk_expr m (e: expr): C.expr =
       Name (String.uppercase_ascii (to_c_name m ident))
 
   | Constant (w, c) ->
-      Cast (([], Int w, Ident ""), Constant (w, c))
+      (* See discussion in AstToCStar.ml, around mk_arith. *)
+      if K.is_unsigned w then
+        Constant (w, c)
+      else
+        (* Not sure what to do with signed integer types. TBD. Mostly trying to
+           avoid them being upcast into an unsigned type. *)
+        Cast (([], Int w, Ident ""), Constant (w, c))
 
   | BufCreate _ | BufCreateL _ ->
       failwith "[mk_expr m]: Buffer.create and Buffer.createl may only appear as let ... = Buffer.create"

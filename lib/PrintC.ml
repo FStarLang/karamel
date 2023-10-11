@@ -226,7 +226,12 @@ and p_expr' curr = function
   | Literal s ->
       dquote ^^ string s ^^ dquote
   | Constant (w, s) ->
-      string s ^^ if K.is_unsigned w then string "U" else empty
+      let suffix = match w with
+        | UInt64 -> string "ULL"
+        | UInt32 | UInt16 | UInt8 -> string "U"
+        | _ -> empty
+      in
+      string s ^^ suffix
   | Name s ->
       string s
   | Cast (t, e) ->
