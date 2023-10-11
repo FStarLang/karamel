@@ -323,8 +323,19 @@ and mk_arith env e =
       | _ ->
           assert false
       end, false
-  | _ ->
+  | EConstant _ ->
+      (* Constants are emitted with the U suffix which preserves the invariant
+         that every subexpression operates over unsigned int until the final
+         cast, or until a mask is needed to preserve semantics. *)
       mk_expr env false e, true
+  | _ ->
+      (* Something else. Who knows? Maybe a function call, a field reference, a
+         variable, a global... which will be upcast into `int`, which is *not*
+         what we want! (See compilation strategy above.). We cast. *)
+      if e.typ = TInt UInt16 || e.typ = TInt UInt8 then
+        CStar.Cast (mk_expr env false e, Int UInt32), true
+      else
+        mk_expr env false e, true
 
 and mk_expr env in_stmt e =
   let mk_expr env e = mk_expr env false e in
