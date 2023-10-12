@@ -228,12 +228,15 @@ let rec unit_to_void env e es extra =
   (https://www.viva64.com/en/t/0012/) and no, we don't intend to run the
   generated C code on a PDP-11.
 
-  A brief recap. In C, if the operands of an arithmetic expression are of a type
-  smaller than int, they are promoted to int and all intermediary computations
-  are performed on `int` before being cast into the destination type. The
-  destination type is known because the arithmetic expression appears underneath
-  an assignment, as an argument to a function call, as the value of a field with
-  a known type, and so on.
+  A brief recap (see [1], [2] for more). In C, if the operands of an arithmetic
+  expression are of a type smaller than int, they are promoted to int and all
+  intermediary computations are performed on `int` before being cast into the
+  destination type. The destination type is known because the arithmetic
+  expression appears underneath an assignment, as an argument to a function
+  call, as the value of a field with a known type, and so on.
+
+  [1]: https://wiki.sei.cmu.edu/confluence/display/c/INT02-C.+Understand+integer+conversion+rules
+  [2]: https://en.cppreference.com/w/c/language/conversion
 
   In Low*, operations are homogenous and the semantics is that every
   subexpression is cast immediately back to its original type.
