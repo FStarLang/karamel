@@ -16,7 +16,7 @@ let zero = C.Constant (K.UInt8, "0")
 
 let is_array = function Array _ -> true | _ -> false
 let is_var = function Var _ -> true | _ -> false
-let is_call = function Call _ -> true | _ -> false
+let is_call = function Call (Qualified _, _) -> true | _ -> false
 
 let fresh =
   let r = ref (-1) in
