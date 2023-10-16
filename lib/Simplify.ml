@@ -138,6 +138,8 @@ let use_mark_to_inline_temporaries = object (self)
       ELet (b, e1, e2)
 end
 
+(* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
+
 let optimize_lets ?ifdefs files =
   let open UseAnalysis in
   let _ = (build_usage_map_and_mark ifdefs)#visit_files [] files in
