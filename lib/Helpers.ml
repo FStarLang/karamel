@@ -271,6 +271,7 @@ let is_readonly_builtin_lid lid =
   let pure_builtin_lids = [
     [ "C"; "String" ], "get";
     [ "C"; "Nullity" ], "op_Bang_Star";
+    [ "LowStar"; "BufferOps" ], "op_Bang_Star";
     [ "Prims" ], "op_Minus";
     [ "Lib"; "IntVector"; "Intrinsics" ], "vec128_smul64";
     [ "Lib"; "IntVector"; "Intrinsics" ], "vec256_smul64";
