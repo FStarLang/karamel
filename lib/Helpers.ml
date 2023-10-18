@@ -271,6 +271,7 @@ let is_readonly_builtin_lid lid =
   let pure_builtin_lids = [
     [ "C"; "String" ], "get";
     [ "C"; "Nullity" ], "op_Bang_Star";
+    [ "LowStar"; "BufferOps" ], "op_Bang_Star";
     [ "Prims" ], "op_Minus";
     [ "Lib"; "IntVector"; "Intrinsics" ], "vec128_smul64";
     [ "Lib"; "IntVector"; "Intrinsics" ], "vec256_smul64";
@@ -300,7 +301,6 @@ class ['self] readonly_visitor = object (self: 'self)
   method private zero = true
   method private plus = (&&)
   method! visit_EStandaloneComment _ _ = false
-  method! visit_EIfThenElse _ _ _ _ = false
   method! visit_ESequence _ _ = false
   method! visit_EAssign _ _ _ = false
   method! visit_EBufCreate _ _ _ _ = false
@@ -309,12 +309,10 @@ class ['self] readonly_visitor = object (self: 'self)
   method! visit_EBufBlit _ _ _ _ _ _ = false
   method! visit_EBufFill _ _ _ _ = false
   method! visit_EBufFree _ _ = false
-  method! visit_EMatch _ _ _ _ = false
   method! visit_ESwitch _ _ _ = false
   method! visit_EReturn _ _ = false
   method! visit_EBreak _ = false
   method! visit_EFor _ _ _ _ _ _ = false
-  method! visit_ETApp _ _ _ = false
   method! visit_EWhile _ _ _ = false
   method! visit_EPushFrame _ = false
   (* PushFrame markers have a semantic meaning (they indicate the beginning of
@@ -323,6 +321,7 @@ class ['self] readonly_visitor = object (self: 'self)
 
   method! visit_EApp _ e es =
     match e.node with
+    | EPolyComp _
     | EOp _ ->
         List.for_all (self#visit_expr_w ()) es
     | EQualified lid when is_readonly_builtin_lid lid ->

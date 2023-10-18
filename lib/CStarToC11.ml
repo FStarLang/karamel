@@ -15,6 +15,11 @@ let is_primitive = Helpers.is_primitive
 let zero = C.Constant (K.UInt8, "0")
 
 let is_array = function Array _ -> true | _ -> false
+let is_var = function Var _ -> true | _ -> false
+let is_call = function
+  | Call (Qualified (_, s), _) ->
+      not (KString.starts_with s "op_Bang_Star__")
+  | _ -> false
 
 let fresh =
   let r = ref (-1) in
@@ -439,8 +444,11 @@ and mk_free t e =
   | _ ->
       C.Call (C.Name "KRML_HOST_FREE", [ e ])
 
-and mk_ignore e =
-  C.Call (C.Name "KRML_HOST_IGNORE", [ e ])
+and mk_ignore is_var e =
+  if is_var then
+    C.Call (C.Name "KRML_MAYBE_UNUSED_VAR", [ e ])
+  else
+    C.Call (C.Name "KRML_HOST_IGNORE", [ e ])
 
 (* NOTE: this is only legal because we rule out the creation of zero-length
  * heap-allocated buffers; if we were to allow that, then this begs the question
@@ -535,8 +543,14 @@ and mk_stmt m (stmt: stmt): C.stmt list =
   | Continue ->
       [ Continue ]
 
+  (* Ignore injects `expr`s into `stmt`s by ignoring their return value. No need
+     to double-ignore, since C does it for us automatically, and C compilers
+     treat this as 100% normal UNLESS the programmer uses extensions like
+     `__attribute__((nodiscard))`. *)
+  | Ignore (Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), [ arg; _ ])) when is_call arg ->
+      [ Expr (mk_expr m arg) ]
+
   | Ignore e ->
-      (* XXX why is this not compiled the same way as mk_ignore? *)
       [ Expr (mk_expr m e) ]
 
   | Decl (binder, BufCreate ((Eternal | Heap), init, size)) ->
@@ -839,7 +853,7 @@ and mk_expr m (e: expr): C.expr =
       failwith "`ignore ()` should have been removed earlier on"
 
   | Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), [ arg; _ ]) ->
-      mk_ignore (mk_expr m arg)
+      mk_ignore (is_var arg) (mk_expr m arg)
 
   | Call (Qualified ([ "C"; "Nullity" ], s), [ e1 ]) when KString.starts_with s "op_Bang_Star__" ->
       mk_deref m e1
