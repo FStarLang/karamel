@@ -299,7 +299,8 @@ and mask w e =
   | UInt16 -> CStar.Call (Op K.BAnd, [ e; Constant (UInt32, "0xFFFF") ])
   | _ -> e
 
-and is_arith = function
+and is_arith op w =
+  w <> K.Bool && K.is_unsigned w && match op with
   | K.Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
   | BOr | BAnd | BXor | BShiftL | BShiftR | BNot ->
       true
@@ -313,7 +314,7 @@ and is_arith = function
 and mk_arith env e =
   let mask_if is_atomic w e = if is_atomic then e else mask w e in
   match e.node with
-  | EApp ({ node = EOp (op, w); _ }, [ e1; e2 ]) when is_arith op ->
+  | EApp ({ node = EOp (op, w); _ }, [ e1; e2 ]) when is_arith op w ->
       let e1, a1 = mk_arith env e1 in
       let e2, a2 = mk_arith env e2 in
       begin match op with
@@ -363,7 +364,7 @@ and mk_expr env in_stmt e =
   | ETApp (e, ts) when !Options.allow_tapps || whitelisted_tapp e ->
       CStar.Call (mk_expr env e, List.map (fun t -> CStar.Type (mk_type env t)) ts)
 
-  | EApp ({ node = EOp (op, _); _ }, [ _; _ ]) when is_arith op ->
+  | EApp ({ node = EOp (op, w); _ }, [ _; _ ]) when is_arith op w ->
       fst (mk_arith env e)
 
   | EApp (e, es) ->
