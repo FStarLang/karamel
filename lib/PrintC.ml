@@ -228,7 +228,7 @@ and p_expr' curr = function
   | Constant (w, s) ->
       let suffix = match w with
         | UInt64 -> string "ULL"
-        | UInt32 | UInt16 | UInt8 -> string "U"
+        | UInt32 | UInt16 | UInt8 | SizeT -> string "U"
         | _ -> empty
       in
       string s ^^ suffix
