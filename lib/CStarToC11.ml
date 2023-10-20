@@ -943,7 +943,7 @@ and mk_expr m (e: expr): C.expr =
 
   | Constant (w, c) ->
       (* See discussion in AstToCStar.ml, around mk_arith. *)
-      if K.is_unsigned w then
+      if K.is_unsigned w && w <> SizeT then
         Constant (w, c)
       else
         (* Not sure what to do with signed integer types. TBD. Mostly trying to
