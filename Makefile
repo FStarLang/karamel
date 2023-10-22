@@ -50,7 +50,7 @@ lib/AutoConfig.ml:
 
 .PHONY: src/Version.ml
 lib/Version.ml:
-	@echo "let version = \"$(shell git rev-parse HEAD)\"" > $@ \
+	@echo "let version = \"$(shell git rev-parse HEAD || echo ${GIT_REV})\"" > $@
 
 clean:
 	rm -rf krml
