@@ -267,24 +267,23 @@ let strengthen_array t e2 =
         size is non-constant, so I don't know what declaration to write"
         pexpr e2
 
+let pure_builtin_lids = ref [
+  [ "C"; "String" ], "get";
+  [ "C"; "Nullity" ], "op_Bang_Star";
+  [ "LowStar"; "BufferOps" ], "op_Bang_Star";
+  [ "Prims" ], "op_Minus";
+  [ "Lib"; "IntVector"; "Intrinsics" ], "vec128_smul64";
+  [ "Lib"; "IntVector"; "Intrinsics" ], "vec256_smul64";
+  [ "FStar"; "UInt32" ], "v";
+  [ "FStar"; "UInt128" ], "";
+]
+
 let is_readonly_builtin_lid lid =
-  let pure_builtin_lids = [
-    [ "C"; "String" ], "get";
-    [ "C"; "Nullity" ], "op_Bang_Star";
-    [ "LowStar"; "BufferOps" ], "op_Bang_Star";
-    [ "Prims" ], "op_Minus";
-    [ "Lib"; "IntVector"; "Intrinsics" ], "vec128_smul64";
-    [ "Lib"; "IntVector"; "Intrinsics" ], "vec256_smul64";
-    [ "FStar"; "UInt32" ], "v";
-    [ "FStar"; "UInt128" ], "";
-    [ "Eurydice" ], "vec_len";
-    [ "Eurydice" ], "vec_index";
-  ] in
   List.exists (fun lid' ->
     let lid = Idents.string_of_lident lid in
     let lid' = Idents.string_of_lident lid' in
     KString.starts_with lid lid'
-  ) pure_builtin_lids
+  ) !pure_builtin_lids
 
 class ['self] closed_term_visitor = object (_: 'self)
   inherit [_] reduce
