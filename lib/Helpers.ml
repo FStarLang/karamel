@@ -267,7 +267,7 @@ let strengthen_array t e2 =
         size is non-constant, so I don't know what declaration to write"
         pexpr e2
 
-let pure_builtin_lids = ref [
+let pure_builtin_lids = [
   [ "C"; "String" ], "get";
   [ "C"; "Nullity" ], "op_Bang_Star";
   [ "LowStar"; "BufferOps" ], "op_Bang_Star";
@@ -278,12 +278,14 @@ let pure_builtin_lids = ref [
   [ "FStar"; "UInt128" ], "";
 ]
 
-let is_readonly_builtin_lid lid =
+let is_readonly_builtin_lid_ = ref (fun lid ->
   List.exists (fun lid' ->
     let lid = Idents.string_of_lident lid in
     let lid' = Idents.string_of_lident lid' in
     KString.starts_with lid lid'
-  ) !pure_builtin_lids
+  ) pure_builtin_lids)
+
+let is_readonly_builtin_lid lid = !is_readonly_builtin_lid_ lid
 
 class ['self] closed_term_visitor = object (_: 'self)
   inherit [_] reduce
