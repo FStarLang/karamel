@@ -16,11 +16,11 @@ typedef void *C_String_zero_free;
 
 typedef void *C_String_well_formed;
 
-extern void C_String_print(C_String_t uu___);
+extern void C_String_print(Prims_string uu___);
 
-extern uint32_t C_String_strlen(C_String_t uu___);
+extern uint32_t C_String_strlen(Prims_string uu___);
 
-extern void C_String_memcpy(uint8_t *uu___, C_String_t uu___1, uint32_t uu___2);
+extern void C_String_memcpy(uint8_t *uu___, Prims_string uu___1, uint32_t uu___2);
 
 
 #define __C_String_H_DEFINED

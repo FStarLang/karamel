@@ -69,7 +69,11 @@ let rec p_type_spec = function
   | Union (name, decls) ->
       group (string "union" ^/^
       (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
-      braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
+      (match decls with
+      | Some decls ->
+          braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
+      | None ->
+          empty)
   | Struct (name, decls) ->
       group (string "struct" ^/^
       (match name with Some name -> string name | None -> empty)) ^^
@@ -129,7 +133,7 @@ and p_type_name (qs, spec, decl) =
   | _ ->
       p_qualifiers_break qs ^^ p_type_spec spec ^^ space ^^ p_type_declarator decl
 
-(* http:/ /en.cppreference.com/w/c/language/operator_precedence *)
+(* http://en.cppreference.com/w/c/language/operator_precedence *)
 and prec_of_op2 op =
   let open Constant in
   match op with
@@ -151,12 +155,12 @@ and prec_of_op2 op =
   | Or -> 12, 12, 12
   | Assign -> 14, 13, 14
   | Comma -> 15, 15, 14
-  | PreIncr | PostIncr | PreDecr | PostDecr | Not | BNot -> raise (Invalid_argument "prec_of_op2")
+  | PreIncr | PostIncr | PreDecr | PostDecr | Not | BNot | Neg -> raise (Invalid_argument "prec_of_op2")
 
 and prec_of_op1 op =
   let open Constant in
   match op with
-  | PreDecr | PreIncr | Not | BNot -> 2
+  | PreDecr | PreIncr | Not | BNot | Neg -> 2
   | PostDecr | PostIncr -> 1
   | _ -> raise (Invalid_argument "prec_of_op1")
 
@@ -222,7 +226,12 @@ and p_expr' curr = function
   | Literal s ->
       dquote ^^ string s ^^ dquote
   | Constant (w, s) ->
-      string s ^^ if K.is_unsigned w then string "U" else empty
+      let suffix = match w with
+        | UInt64 -> string "ULL"
+        | UInt32 | UInt16 | UInt8 | SizeT -> string "U"
+        | _ -> empty
+      in
+      string s ^^ suffix
   | Name s ->
       string s
   | Cast (t, e) ->
@@ -319,8 +328,14 @@ and p_decl_and_init (decl, alignment, init) =
     | None ->
         empty)
 
-and p_declaration (qs, spec, inline, stor, decl_and_inits) =
-  let inline = if inline then string "inline" ^^ space else empty in
+and p_declaration (qs, spec, inline, stor, { maybe_unused }, decl_and_inits) =
+  let inline =
+    match inline with
+    | None -> empty
+    | Some C11.Inline -> string "inline" ^^ space
+    | Some NoInline -> string "KRML_NOINLINE" ^^ space
+  in
+  let maybe_unused = if maybe_unused then string "KRML_MAYBE_UNUSED" ^^ space else empty in
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
   let _, alignment, _ = List.hd decl_and_inits in
   if not (List.for_all (fun (_, a, _) -> a = alignment) decl_and_inits) then
@@ -332,7 +347,7 @@ and p_declaration (qs, spec, inline, stor, decl_and_inits) =
     | None ->
         empty
   in
-  pre ^^ stor ^^ inline ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
+  pre ^^ maybe_unused ^^ stor ^^ inline ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
 
@@ -409,6 +424,8 @@ and p_stmt (s: stmt) =
       )
   | Break ->
      string "break" ^^ semi
+  | Continue ->
+     string "continue" ^^ semi
 
 and p_stmts stmts = separate_map hardline p_stmt stmts
 

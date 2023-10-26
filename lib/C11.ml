@@ -13,7 +13,7 @@ type type_spec =
   | Struct of ident option * declaration list option
       (** Note: the option allows for zero-sized structs (GCC's C, C++) but as
        * of 2017/05/14 we never generate these. *)
-  | Union of ident option * declaration list
+  | Union of ident option * declaration list option
   | Enum of ident option * ident list
     (** not encoding all the invariants here *)
   [@@deriving show]
@@ -82,9 +82,21 @@ and param =
   (** Also approximate. *)
   qualifier list * type_spec * declarator
 
+and inline_stance =
+  | Inline
+  | NoInline
+
+and extra = {
+  maybe_unused: bool
+}
+  (* some extra information that doesn't really pertain to the C standard *)
+
 and declaration =
-  qualifier list * type_spec * bool * storage_spec option * declarator_and_inits
-  (* bool is for inline, only valid when declaring functions *)
+  qualifier list * type_spec * inline_stance option * storage_spec option * extra * declarator_and_inits
+  (* the inline stance is for functions only; in addition to the standard C
+     "inline" qualifier, we also distinguish a "noinline" version for
+     security-sensitive functions that would otherwise undergo upsetting
+     compiler optimizations *)
 
 and ident =
   string
@@ -117,6 +129,7 @@ and stmt =
   | Switch of expr * (expr * stmt) list * stmt
     (** the last component is the default statement *)
   | Break
+  | Continue
   | Comment of string
     (** note: this is not in the C grammar *)
 

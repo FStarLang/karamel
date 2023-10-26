@@ -10,10 +10,10 @@ open Helpers
 let t_string = TQualified (["Prims"], "string")
 
 let mk_binop m n t =
-  DExternal (None, [ ], (m, n), TArrow (t, TArrow (t, t)), [ "x"; "y" ])
+  DExternal (None, [ ], 0, (m, n), TArrow (t, TArrow (t, t)), [ "x"; "y" ])
 
-let mk_val ?(flags=[]) m n t =
-  DExternal (None, flags, (m, n), t, [])
+let mk_val ?(flags=[]) ?(nvars=0) m n t =
+  DExternal (None, flags, nvars, (m, n), t, [])
 
 let prims: file =
   let t = TInt K.CInt in
@@ -41,7 +41,7 @@ let prims: file =
       (["Prims"], "__proj__Mkdtuple2__item___1"),
       [ fresh_binder "pair" dtuple10 ],
       (* match pair with *)
-      with_type (TBound 1) (EMatch (with_type dtuple10 (EBound 0), [
+      with_type (TBound 1) (EMatch (Checked, with_type dtuple10 (EBound 0), [
         (* \ fst *)
         [ fresh_binder "fst" (TBound 1) ],
         (* Mkdtuple2 (fst, _) *)
@@ -57,7 +57,7 @@ let prims: file =
       (["Prims"], "__proj__Mkdtuple2__item___2"),
       [ fresh_binder "pair" dtuple10 ],
       (* match pair with *)
-      with_type (TBound 0) (EMatch (with_type dtuple10 (EBound 0), [
+      with_type (TBound 0) (EMatch (Checked, with_type dtuple10 (EBound 0), [
         (* \ snd *)
         [ fresh_binder "snd" (TBound 0) ],
         (* Mkdtuple2 (_, snd) *)
@@ -244,7 +244,7 @@ let lowstar_buffer: file =
 
 let lowstar_ignore: file =
   "LowStar_Ignore", [
-    mk_val ~flags:Common.[ Macro ] [ "LowStar"; "Ignore" ] "ignore" (TArrow (TAny, TUnit))
+    mk_val ~nvars:1 ~flags:Common.[ Macro ] [ "LowStar"; "Ignore" ] "ignore" (TArrow (TBound 0, TUnit))
   ]
 
 let lowstar_endianness: file =
@@ -321,7 +321,7 @@ let c_nullity: file =
 
 let lib_memzero0: file =
   "Lib_Memzero0", [
-    mk_val [ "Lib"; "Memzero0" ] "memzero" (TArrow (TAny, TArrow (TInt UInt32, TUnit)))
+    mk_val ~nvars:1 [ "Lib"; "Memzero0" ] "memzero" (TArrow (TBuf (TBound 0, false), TArrow (TInt UInt32, TUnit)))
   ]
 
 let c_deref: file =
@@ -354,17 +354,17 @@ let make_abstract_function_or_global = function
   | DFunction (cc, flags, n, t, name, bs, _) ->
       let t = fold_arrow (List.map (fun b -> b.typ) bs) t in
       if n = 0 then
-        Some (DExternal (cc, flags, name, t, List.map (fun x -> x.node.name) bs))
+        Some (DExternal (cc, flags, 0, name, t, List.map (fun x -> x.node.name) bs))
       else
         None
   | DGlobal (flags, name, n, t, _) when not (List.mem Common.Macro flags) ->
       if n = 0 then
-        Some (DExternal (None, flags, name, t, []))
+        Some (DExternal (None, flags, 0, name, t, []))
       else
         None
   | DType (name, flags, _, _) when List.mem Common.AbstractStruct flags ->
       (* We assume the module doesn't lie and the CAbstractStruct will type-check in C. *)
-      Some (DType (name, List.filter ((<>) Common.AbstractStruct) flags, 0, Forward))
+      Some (DType (name, List.filter ((<>) Common.AbstractStruct) flags, 0, Forward FStruct))
   | d ->
       Some d
 
@@ -436,7 +436,9 @@ let prepare files =
      F* PR: References to module C can now occur even when the module is not in the scope.
      If so, we add the definition that is needed as a builtin, since it will be rewritten
      during C code generation *)
-  if List.mem_assoc "C" files then [] else [c_deref]
+  if List.mem_assoc "C" files then [] else [c_deref] @
+  if List.mem_assoc "LowStar_Ignore" files then [] else [lowstar_ignore] @
+  []
 
 let make_libraries files =
   List.map (fun f ->

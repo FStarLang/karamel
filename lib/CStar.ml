@@ -16,7 +16,7 @@ and decl =
      * as a macro. *)
   | Function of calling_convention option * flag list * typ * lident * binder list * block
   | Type of lident * typ * flag list
-  | TypeForward of lident * flag list
+  | TypeForward of lident * flag list * forward_kind
   | External of lident * typ * flag list * string list
     (** String list for pretty-printing the names of the arguments. *)
 
@@ -24,6 +24,7 @@ and stmt =
   | Abort of string
   | Return of expr option
   | Break
+  | Continue
   | Ignore of expr
   | Decl of binder * expr
     (** Scope is: statements that follow. *)
@@ -83,6 +84,7 @@ and expr =
     (** Solely for the purposes of macro-calls, which are function-like and
         therefore are more closely modeled as an expression, but truly may
         contain anything as arguments, including statements. *)
+  | Type of typ
   [@@deriving show]
 
 and block =
@@ -128,7 +130,7 @@ let lid_of_decl (d: decl): lident =
   | Global (id, _, _, _, _)
   | Function (_, _, _, id, _, _)
   | Type (id, _, _)
-  | TypeForward (id, _)
+  | TypeForward (id, _, _)
   | External (id, _, _, _) ->
       id
 
@@ -137,7 +139,7 @@ let flags_of_decl (d: decl): Common.flag list =
   | Global (_, _, flags, _, _)
   | Function (_, flags, _, _, _, _)
   | Type (_, _, flags)
-  | TypeForward (_, flags)
+  | TypeForward (_, flags, _)
   | External (_, _, flags, _) ->
       flags
 

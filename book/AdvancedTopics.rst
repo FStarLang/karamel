@@ -192,3 +192,14 @@ type (see digression above).
   require any libkrmllib.a; other parts of krmllib do not use this facility,
   meaning that projects like miTLS still link against libkrmllib.a to find
   external symbols (e.g. from ``FStar.Date``)
+
+Assumptions on the C target
+---------------------------
+
+KaRaMeL makes several assumptions regarding the C target environment. Most of
+these are unlikely to be violated in any modern environment.
+
+- The size of `int` is at most 4. This ensures that our compilation strategy for
+  uint8 and uint16 (namely, upcast subexpressions into uint32_t to defeat the
+  promotion to unsigned int, which would lead to UB on overflow) is sound. This
+  strategy may be suboptimal on machines for which `sizeof int < 4`.

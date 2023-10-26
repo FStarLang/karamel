@@ -16,6 +16,7 @@ let main (): Stack Int32.t (fun _ -> true) (fun _ _ _ -> true) =
   let test = U128.mul_wide 0x30586768dbe7UL 0x3FFFFFFFFFFF69UL in
   let b = alloca (U128.uint64_to_uint128 0UL) 1ul in
   b.(0ul) <- test;
+  LowStar.Ignore.ignore b;
   pop_frame ();
   let low = U128.uint128_to_uint64 test in
   let high = U128.(uint128_to_uint64 (test >>^ 64ul)) in

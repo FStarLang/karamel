@@ -105,7 +105,7 @@ FStar_Order_order FStar_Order_lex(FStar_Order_order o1, FStar_Order_order (*o2)(
   }
 }
 
-FStar_Order_order FStar_Order_order_from_int(Prims_int i)
+FStar_Order_order FStar_Order_order_from_int(krml_checked_int_t i)
 {
   if (Prims_op_LessThan(i, (krml_checked_int_t)0))
   {
@@ -121,7 +121,7 @@ FStar_Order_order FStar_Order_order_from_int(Prims_int i)
   }
 }
 
-Prims_int FStar_Order_int_of_order(FStar_Order_order uu___)
+krml_checked_int_t FStar_Order_int_of_order(FStar_Order_order uu___)
 {
   switch (uu___)
   {
@@ -145,7 +145,7 @@ Prims_int FStar_Order_int_of_order(FStar_Order_order uu___)
   }
 }
 
-FStar_Order_order FStar_Order_compare_int(Prims_int i, Prims_int j)
+FStar_Order_order FStar_Order_compare_int(krml_checked_int_t i, krml_checked_int_t j)
 {
   return FStar_Order_order_from_int(Prims_op_Subtraction(i, j));
 }

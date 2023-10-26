@@ -194,7 +194,154 @@ let string_of_return_pos = function
   | May -> "May"
   | Must -> "Must"
 
-let rec mk_expr env in_stmt e =
+let whitelisted_lid lid =
+  match lid with
+  | ["Lib"; "Memzero0"],"memzero" -> true
+  | ["LowStar"; "Ignore"],"ignore" -> true
+  | ["Steel"; "SpinLock"],"lock" -> true
+  | _ -> false
+
+let whitelisted_tapp e =
+  match e.node with
+  | EQualified lid -> whitelisted_lid lid
+  | _ -> false
+
+let rec unit_to_void env e es extra =
+  let mk_expr env e = mk_expr env false e in
+  match es with
+  | [ { node = EUnit; _ } ] ->
+      CStar.Call (mk_expr env e, [] @ extra)
+  | [ e' ] when e'.typ = TUnit ->
+      if is_readonly_c_expression e' then
+        CStar.Call (mk_expr env e, [] @ extra)
+      else
+        CStar.Comma (mk_expr env e', CStar.Call (mk_expr env e, [] @ extra))
+  | _ ->
+      CStar.Call (mk_expr env e, List.map (mk_expr env) es @ extra)
+
+(* This function focuses on the compilation of arithmetic expressions to take
+  into account implicit promotions to `int` (per the C standard) of types
+  smaller than int. We make the following assumption: int = 4 bytes, short = 2
+  bytes, char = 1 byte, and the unsigned versions of theses types are called
+  uint32_t, uint16_t, and uint8_t. Yes, the C standard doesn't impose these
+  choices, but all systems that we care about obey these restrictions
+  (https://www.viva64.com/en/t/0012/) and no, we don't intend to run the
+  generated C code on a PDP-11.
+
+  A brief recap (see [1], [2] for more). In C, if the operands of an arithmetic
+  expression are of a type smaller than int, they are promoted to int and all
+  intermediary computations are performed on `int` before being cast into the
+  destination type. The destination type is known because the arithmetic
+  expression appears underneath an assignment, as an argument to a function
+  call, as the value of a field with a known type, and so on.
+
+  [1]: https://wiki.sei.cmu.edu/confluence/display/c/INT02-C.+Understand+integer+conversion+rules
+  [2]: https://en.cppreference.com/w/c/language/conversion
+
+  In Low*, operations are homogenous and the semantics is that every
+  subexpression is cast immediately back to its original type.
+
+  This means that a trivial identity compilation scheme from Low* to C will
+  generate incorrect results. Some examples:
+  - 200uy `FStar.UInt8.mul_mod` 225uy `FStar.UInt8.mul_mod` 200uy
+    `FStar.UInt8.mul_mod` 250uy generates UB (signed overflow) if compiled
+    trivially as `(uint8_t)200 * (uint8_t)225 * (uint8_t)200 * (uint8_t)250`.
+    (The effect of the casts is immediately undone by the promotion to int.)
+  - (255uy `FStar.UInt8.add_mod` 1uy) / FStar.UInt8.div 2uy gives 0uy in F*, but
+    ((uint8_t) 255 * (uint8_t) 1) / (uint8_t) 2 gives 128 in C
+  - same kinds of issues with shifts, bitwise complement (which materializes
+    "more bytes" in the intermediary expression), and so on.
+
+  The reason why upcasting for intermediary computations is an ok-ish semantics is
+  that modulos can be deferred for multiplications, additions and subtractions.
+  - ((a % n) * (b % n)) % n = (a * b) % n, see FStar.Math.Lemmas.lemma_mod_mul_distr_{r,l}
+  - (a + b) % n = a % n + b % n, see FStar.Math.Lemmas.lemma_mod_plus_distr_{r,l}
+  In other words, if all you do is multiply, add or subtract bytes here and
+  there, then rather than eagerly modulo-ing back every subexpression to its
+  intended width, you can wait until the end to perform the modulo-reduction,
+  provided you don't trigger UB via overflow, of course.
+
+  Leaving aside operations that don't compose with modulo (more on that in a
+  second), a first possible avenue is to perform a cursory analysis and force a
+  down-cast to the destination type as soon as a maximum number of operations is
+  exceeded, e.g. after two multiplications over uint8s happen, then an
+  intermediary cast is inserted. For instance, the first example would be
+  compiled as ((uint8_t) (200 * 225)) * ((uint8_t) (200 * 250)).
+
+  Except this doesn't work for uint16_t, because even a single multiplication
+  can overflow, e.g. 45000 * 50000 (which is basically the example above).
+
+  The solution preferred by this compilation scheme is to ensure that *all*
+  subexpressions operate on uint32_t (a.k.a. unsigned int), meaning we can let
+  the intermediary computations overflow (which *is* defined in C!) because of
+  the fact that (e % 2^32) % 2^8 = e % 2^8 (see
+  FStar.Math.Lemmas.modulo_modulo_lemma), in other words, if you overflow as
+  part of your intermediary computation, it's all going to be the same in the
+  end once you cast to the smaller type.
+
+  This means we can print uint8 and uint16 constants with just the U suffix; let
+  addition, multiplications and subtractions do their thing; and let C naturally
+  cast the result once it's done into the destination type. This also applies to
+  xor, and, or, complement -- these operations don't overflow, and obey the law
+  op(x % 2^8, y % 2^8) % 2^8 = op(x, y) % 2^8.
+
+  This leaves us with the problem of operations that don't compose with modulo, i.e.
+  what is the compilation scheme of FStar.UInt8.((255uy +%^ 1uy) >>^ 1ul)? For
+  those operations that don't compose with modulo, we force a modulo-reduction
+  by and-ing the intermediary computation with 0xff or 0xffff. In short (pun
+  intended), we emit ((255U + 1U) & 0xFFU) >> 1U. Same goes for division.
+
+*)
+
+and mask w e =
+  match w with
+  | K.UInt8 -> CStar.Call (Op K.BAnd, [ e; Constant (UInt32, "0xFF") ])
+  | UInt16 -> CStar.Call (Op K.BAnd, [ e; Constant (UInt32, "0xFFFF") ])
+  | _ -> e
+
+and is_arith op w =
+  w <> K.Bool && K.is_unsigned w && match op with
+  | K.Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
+  | BOr | BAnd | BXor | BShiftL | BShiftR | BNot ->
+      true
+  | _ ->
+      false
+
+(* As an optimization, this function returns a boolean indicating whether the
+   arithmetic expression was "atomic", i.e. something that certainly doesn't
+   have extra bits beyond the intended width of the type. Globals, results of
+   function calls, anything not an arithmetic operation, really, is atomic. *)
+and mk_arith env e =
+  let mask_if is_atomic w e = if is_atomic then e else mask w e in
+  match e.node with
+  | EApp ({ node = EOp (op, w); _ }, [ e1; e2 ]) when is_arith op w ->
+      let e1, a1 = mk_arith env e1 in
+      let e2, a2 = mk_arith env e2 in
+      begin match op with
+      | Add | AddW | Sub | SubW | Mult | MultW | BOr | BAnd | BXor | BNot | BShiftL ->
+          CStar.Call (Op op, [ e1; e2 ])
+      | Mod | Div | DivW ->
+          CStar.Call (Op op, [ mask_if a1 w e1; mask_if a2 w e2 ])
+      | BShiftR ->
+          CStar.Call (Op op, [ mask_if a1 w e1; e2 ])
+      | _ ->
+          assert false
+      end, false
+  | EConstant _ ->
+      (* Constants are emitted with the U suffix which preserves the invariant
+         that every subexpression operates over unsigned int until the final
+         cast, or until a mask is needed to preserve semantics. *)
+      mk_expr env false e, true
+  | _ ->
+      (* Something else. Who knows? Maybe a function call, a field reference, a
+         variable, a global... which will be upcast into `int`, which is *not*
+         what we want! (See compilation strategy above.). We cast. *)
+      if e.typ = TInt UInt16 || e.typ = TInt UInt8 then
+        CStar.Cast (mk_expr env false e, Int UInt32), true
+      else
+        mk_expr env false e, true
+
+and mk_expr env in_stmt e =
   let mk_expr env e = mk_expr env false e in
   match e.node with
   | EBound var ->
@@ -210,20 +357,20 @@ let rec mk_expr env in_stmt e =
         CStar.Qualified lident
   | EConstant c ->
       CStar.Constant c
+
+  | EApp ({ node = ETApp (e, ts); _ }, es) when !Options.allow_tapps || whitelisted_tapp e ->
+      unit_to_void env e es (List.map (fun t -> CStar.Type (mk_type env t)) ts)
+
+  | ETApp (e, ts) when !Options.allow_tapps || whitelisted_tapp e ->
+      CStar.Call (mk_expr env e, List.map (fun t -> CStar.Type (mk_type env t)) ts)
+
+  | EApp ({ node = EOp (op, w); _ }, [ _; _ ]) when is_arith op w ->
+      fst (mk_arith env e)
+
   | EApp (e, es) ->
       (* Functions that only take a unit take no argument. *)
-      let t, ts = flatten_arrow e.typ in
-      let call = match ts, es with
-        | [ TUnit ], [ { node = EUnit; _ } ] ->
-            CStar.Call (mk_expr env e, [])
-        | [ TUnit ], [ e' ] ->
-            if is_readonly_c_expression e' then
-              CStar.Call (mk_expr env e, [])
-            else
-              CStar.Comma (mk_expr env e', CStar.Call (mk_expr env e, []))
-        | _ ->
-            CStar.Call (mk_expr env e, List.map (mk_expr env) es)
-      in
+      let t, _ = flatten_arrow e.typ in
+      let call = unit_to_void env e es [] in
       (* This function call was originally typed as returning [TUnit], a.k.a.
        * [void*]. However, we optimize these functions to return [void], meaning
        * that we can't take their return value as an expression, since there's
@@ -253,8 +400,9 @@ let rec mk_expr env in_stmt e =
       CStar.Op (K.op_of_poly_comp c)
   | ECast (e, t) ->
       CStar.Cast (mk_expr env e, mk_type env t)
-  | EAbort s ->
-      CStar.EAbort (mk_type env e.typ, Option.or_empty s)
+  | EAbort (t, s) ->
+      let t = match t with Some t -> t | None -> e.typ in
+      CStar.EAbort (mk_type env t, Option.or_empty s)
   | EUnit ->
       CStar.Cast (zero, CStar.Pointer CStar.Void)
   | EAny ->
@@ -478,7 +626,7 @@ and mk_stmts env e ret_type =
     | EMatch _ ->
         fatal_error "[AstToCStar.collect EMatch]: not implemented"
 
-    | EAbort s ->
+    | EAbort (_, s) ->
         env, CStar.Abort (Option.or_empty s) :: acc
 
     | ESwitch (e, branches) ->
@@ -515,6 +663,9 @@ and mk_stmts env e ret_type =
 
     | EBreak ->
         env, CStar.Break :: acc
+
+    | EContinue ->
+        env, CStar.Continue :: acc
 
     | EPushFrame ->
         env, acc
@@ -643,7 +794,10 @@ and mk_return_type env = function
   | TBound _ ->
       fatal_error "Internal failure: no TBound here"
   | TApp (lid, _) ->
-      raise_error (ExternalTypeApp lid)
+      if !Options.allow_tapps || whitelisted_lid lid then
+        CStar.Qualified lid
+      else
+        raise_error (ExternalTypeApp lid)
   | TTuple _ ->
       fatal_error "Internal failure: TTuple not desugared here"
   | TAnonymous t ->
@@ -745,8 +899,8 @@ and mk_declaration m env d: (CStar.decl * _) option =
         mk_type env t,
         mk_expr env false body), [])
 
-  | DExternal (cc, flags, name, t, pp) ->
-      if LidSet.mem name env.ifdefs then
+  | DExternal (cc, flags, n, name, t, pp) ->
+      if LidSet.mem name env.ifdefs || n > 0 then
         None
       else
         let add_cc = function
@@ -755,8 +909,8 @@ and mk_declaration m env d: (CStar.decl * _) option =
         in
         Some (CStar.External (name, add_cc (mk_type env t), flags, pp), [])
 
-  | DType (name, flags, _, Forward) ->
-      Some (CStar.TypeForward (name, flags), [ GlobalNames.to_c_name m name ])
+  | DType (name, flags, _, Forward k) ->
+      Some (CStar.TypeForward (name, flags, k), [ GlobalNames.to_c_name m name ])
 
   | DType (name, flags, 0, def) ->
       Some (CStar.Type (name, mk_type_def env def, flags), [ GlobalNames.to_c_name m name ] )
@@ -787,7 +941,7 @@ and mk_type_def env d: CStar.typ =
         f, mk_type env t
       ) fields)
 
-  | Forward ->
+  | Forward _ ->
       failwith "impossible, handled by mk_declaration"
 
 
@@ -843,18 +997,18 @@ let mk_macros_set files =
         LidSet.empty
   end)#visit_files () files
 
-let mk_ifdefs_set files =
+let mk_ifdefs_set files: LidSet.t =
   (object
     inherit [_] reduce as super
     method private zero = LidSet.empty
     method private plus = LidSet.union
-    method visit_DExternal _ _ flags name _ _ =
+    method! visit_DExternal _env _cc (flags: flag list) _n (name: lident) _t _hints: LidSet.t =
       if List.mem Common.IfDef flags then
         LidSet.singleton name
       else
         LidSet.empty
-    method visit_DGlobal env flags name n t =
+    method! visit_DGlobal env flags name n t e: LidSet.t =
       if List.mem Common.IfDef flags then
         Warn.maybe_fatal_error ("", IfDefOnGlobal name);
-      super#visit_DGlobal env flags name n t
+      super#visit_DGlobal env flags name n t e
   end)#visit_files () files

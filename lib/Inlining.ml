@@ -410,7 +410,7 @@ let cross_call_analysis files =
              limited, this is still useful e.g. in the presence of function
              pointers. *)
           (visit true)#visit_expr_w () e
-      | DExternal (_, _, _, t, _) ->
+      | DExternal (_, _, _, _, t, _) ->
           (visit false)#visit_typ () t
       | DType (_, flags, _, d) ->
           if not (List.mem Common.AbstractStruct flags) then
@@ -423,7 +423,7 @@ let cross_call_analysis files =
   (* Fixpoint computation *)
   let module F = Fix.Fix.ForOrderedType(struct
     type t = lident
-    let compare = Pervasives.compare
+    let compare = Stdlib.compare
   end)(struct
     type property = visibility
     let bottom = Private
@@ -465,8 +465,8 @@ let cross_call_analysis files =
           DFunction (cc, adjust flags, n, t, name, bs, e)
       | DGlobal (flags, name, n, t, e) ->
           DGlobal (adjust flags, name, n, t, e)
-      | DExternal (cc, flags, name, t, hints) ->
-          DExternal (cc, adjust flags, name, t, hints)
+      | DExternal (cc, flags, n, name, t, hints) ->
+          DExternal (cc, adjust flags, n, name, t, hints)
       | DType (name, flags, n, def) ->
           DType (name, adjust flags, n, def)
     ) decls
@@ -556,6 +556,13 @@ let inline_type_abbrevs ?(just_auto_generated=false) files =
     | _ -> ()
   ) in
 
+  List.iter (fun (lid, t) -> Hashtbl.add map lid (White, t)) [
+    (["Prims"], "int"), TInt CInt;
+    (["Prims"], "nat"), TInt CInt;
+    (["Prims"], "pos"), TInt CInt;
+    (["C"; "String"], "t"), TQualified (["Prims"], "string");
+  ];
+
   let inliner inline_one = object(self)
     inherit [_] map
     method! visit_TApp () lid ts =
@@ -624,6 +631,7 @@ let drop_unused files =
       end
    end in
   visitor#visit_files [] files;
+  Hashtbl.add seen (["LowStar"; "Ignore"], "ignore") ();
   filter_decls (fun d ->
     let flags = flags_of_decl d in
     let lid = lid_of_decl d in
@@ -632,3 +640,29 @@ let drop_unused files =
     else
       Some d
   ) files
+
+let mark_possibly_unused ifdefs files =
+  let map = (object (self)
+    inherit [_] reduce as super
+    method zero = LidSet.empty
+    method plus = LidSet.union
+    method! visit_EQualified _ lid = LidSet.singleton lid
+    method! visit_EIfThenElse env e1 e2 e3 =
+      match Helpers.is_ifdef ifdefs e1 with
+      | `No -> super#visit_EIfThenElse env e1 e2 e3
+      | `Yes ->
+          LidSet.union (self#visit_expr env e1)
+            (LidSet.inter (self#visit_expr env e2) (self#visit_expr env e3))
+      | `YesWithExtra (e1, e2') ->
+          LidSet.union (self#visit_expr env e1)
+            (LidSet.inter
+              (LidSet.union (self#visit_expr env e2) (self#visit_expr env e2')) (self#visit_expr env e3))
+  end)#visit_files () files in
+  (object
+    inherit [_] map
+    method! visit_DFunction _ cc flags n t name binders body =
+      if not (LidSet.mem name map) && List.mem Private flags then
+        DFunction (cc, MaybeUnused :: flags, n, t, name, binders, body)
+      else
+        DFunction (cc, flags, n, t, name, binders, body)
+  end)#visit_files () files

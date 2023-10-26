@@ -58,15 +58,18 @@ extern void LowStar_Printf_print_lmbuffer_i64(uint32_t l, int64_t *b);
 
 extern void LowStar_Printf_test(uint64_t m, uint32_t l, bool *x);
 
-typedef struct K___Prims_int_Prims_int_s
+typedef struct K___krml_checked_int_t_krml_checked_int_t_s
 {
-  Prims_int fst;
-  Prims_int snd;
+  krml_checked_int_t fst;
+  krml_checked_int_t snd;
 }
-K___Prims_int_Prims_int;
+K___krml_checked_int_t_krml_checked_int_t;
 
 extern void
-LowStar_Printf_test2(K___Prims_int_Prims_int x, void (*print_pair)(K___Prims_int_Prims_int x0));
+LowStar_Printf_test2(
+  K___krml_checked_int_t_krml_checked_int_t x,
+  void (*print_pair)(K___krml_checked_int_t_krml_checked_int_t x0)
+);
 
 extern void LowStar_Printf_test3(uint64_t m, uint32_t l, bool *x);
 

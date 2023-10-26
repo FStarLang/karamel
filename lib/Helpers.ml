@@ -45,7 +45,7 @@ let type_of_op op w =
       TArrow (TBool, TArrow (TBool, TBool))
   | Not ->
       TArrow (TBool, TBool)
-  | BNot ->
+  | BNot | Neg ->
       TArrow (TInt w, TInt w)
   | Assign | PreIncr | PreDecr | PostIncr | PostDecr | Comma ->
       invalid_arg "type_of_op"
@@ -106,6 +106,9 @@ let mk_or e1 e2 =
 let mk_uint32 i =
   with_type (TInt K.UInt32) (EConstant (K.UInt32, string_of_int i))
 
+let mk_sizet i =
+  with_type (TInt K.SizeT) (EConstant (K.SizeT, string_of_int i))
+
 (* e - 1 *)
 let mk_minus_one e =
   with_type uint32 (
@@ -129,7 +132,7 @@ let mk_deref t ?(const=false) e =
 (* Binder nodes ***************************************************************)
 
 let fresh_binder ?(mut=false) name typ =
-  with_type typ { name; mut; mark = ref 0; meta = None; atom = Atom.fresh () }
+  with_type typ { name; mut; mark = ref Mark.default; meta = None; atom = Atom.fresh () }
 
 let mark_mut b =
   { b with node = { b.node with mut = true }}
@@ -137,7 +140,7 @@ let mark_mut b =
 let sequence_binding () = with_type TUnit {
   name = "_";
   mut = false;
-  mark = ref 0;
+  mark = ref Mark.default;
   meta = Some MetaSequence;
   atom = Atom.fresh ()
 }
@@ -181,7 +184,45 @@ let is_null = function
   | { node = EBufNull; _ } -> true
   | _ -> false
 
+let is_forward = function
+  | Forward _ -> true
+  | _ -> false
+
+let is_bufcreate x =
+  match x.node with
+  | EBufCreate _ | EBufCreateL _ -> true
+  | _ -> false
+
 let is_uu name = KString.starts_with name "uu__"
+
+(* Is this condition of an if-then-else going to give rise to an ifdef? Yes, no,
+   or yes with the extra caveat that e1 is the new condition and e2 appears
+   underneath the ifdef *)
+let is_ifdef ifdefs e1 =
+  let rec is_ifdef e =
+    match e.node with
+    | EQualified lid when Idents.LidSet.mem lid ifdefs ->
+        true
+    | EApp ({ node = EOp ((K.And | K.Or), K.Bool); _ }, [ e1; e2 ]) ->
+        is_ifdef e1 && is_ifdef e2
+    | EApp ({ node = EOp (K.Not, K.Bool); _ }, [ e1 ]) ->
+        is_ifdef e1
+    | _ -> false
+  in
+  match e1.node with
+  | EApp ({ node = EOp (K.And, K.Bool); _ }, [ e1; e2 ]) ->
+      (* e2 will appear underneath the #if and thus deserves special
+         treatment. *)
+      if is_ifdef e1 then
+        `YesWithExtra (e1, e2)
+      else
+        `No
+  | _ ->
+      if is_ifdef e1 then
+        `Yes
+      else
+        `No
+
 
 let pattern_matches p lid =
   Bundle.pattern_matches p (String.concat "_" (fst lid))
@@ -226,22 +267,25 @@ let strengthen_array t e2 =
         size is non-constant, so I don't know what declaration to write"
         pexpr e2
 
-let is_readonly_builtin_lid lid =
-  let pure_builtin_lids = [
-    [ "C"; "String" ], "get";
-    [ "C"; "Nullity" ], "op_Bang_Star";
-    [ "Prims" ], "op_Minus";
-    [ "Lib"; "IntVector"; "Intrinsics" ], "vec128_smul64";
-    [ "Lib"; "IntVector"; "Intrinsics" ], "vec256_smul64";
-    [ "FStar"; "UInt32" ], "v";
-    [ "FStar"; "UInt128" ], "uint128_to_uint64";
-    [ "FStar"; "UInt128" ], "uint64_to_uint128";
-  ] in
+let pure_builtin_lids = [
+  [ "C"; "String" ], "get";
+  [ "C"; "Nullity" ], "op_Bang_Star";
+  [ "LowStar"; "BufferOps" ], "op_Bang_Star";
+  [ "Prims" ], "op_Minus";
+  [ "Lib"; "IntVector"; "Intrinsics" ], "vec128_smul64";
+  [ "Lib"; "IntVector"; "Intrinsics" ], "vec256_smul64";
+  [ "FStar"; "UInt32" ], "v";
+  [ "FStar"; "UInt128" ], "";
+]
+
+let is_readonly_builtin_lid_ = ref (fun lid ->
   List.exists (fun lid' ->
     let lid = Idents.string_of_lident lid in
     let lid' = Idents.string_of_lident lid' in
     KString.starts_with lid lid'
-  ) pure_builtin_lids
+  ) pure_builtin_lids)
+
+let is_readonly_builtin_lid lid = !is_readonly_builtin_lid_ lid
 
 class ['self] closed_term_visitor = object (_: 'self)
   inherit [_] reduce
@@ -258,7 +302,6 @@ class ['self] readonly_visitor = object (self: 'self)
   method private zero = true
   method private plus = (&&)
   method! visit_EStandaloneComment _ _ = false
-  method! visit_EIfThenElse _ _ _ _ = false
   method! visit_ESequence _ _ = false
   method! visit_EAssign _ _ _ = false
   method! visit_EBufCreate _ _ _ _ = false
@@ -267,12 +310,10 @@ class ['self] readonly_visitor = object (self: 'self)
   method! visit_EBufBlit _ _ _ _ _ _ = false
   method! visit_EBufFill _ _ _ _ = false
   method! visit_EBufFree _ _ = false
-  method! visit_EMatch _ _ _ = false
   method! visit_ESwitch _ _ _ = false
   method! visit_EReturn _ _ = false
   method! visit_EBreak _ = false
   method! visit_EFor _ _ _ _ _ _ = false
-  method! visit_ETApp _ _ _ = false
   method! visit_EWhile _ _ _ = false
   method! visit_EPushFrame _ = false
   (* PushFrame markers have a semantic meaning (they indicate the beginning of
@@ -281,15 +322,26 @@ class ['self] readonly_visitor = object (self: 'self)
 
   method! visit_EApp _ e es =
     match e.node with
+    | EPolyComp _
     | EOp _ ->
         List.for_all (self#visit_expr_w ()) es
     | EQualified lid when is_readonly_builtin_lid lid ->
+        List.for_all (self#visit_expr_w ()) es
+    | ETApp ({ node = EQualified lid; _ }, _) when is_readonly_builtin_lid lid ->
         List.for_all (self#visit_expr_w ()) es
     | _ ->
         false
 end
 
-let is_readonly_c_expression = (new readonly_visitor)#visit_expr_w ()
+let is_readonly_c_expression =
+  (new readonly_visitor)#visit_expr_w ()
+
+let is_readonly_and_variable_free_c_expression = (object
+  inherit [_] readonly_visitor
+  method! visit_EBound _ _ = false
+  method! visit_EOpen _ _ _ = false
+end)#visit_expr_w ()
+
 
 class ['self] value_visitor = object (_self: 'self)
   inherit [_] readonly_visitor
@@ -362,11 +414,14 @@ let assert_tlid t =
   match t with TQualified lid -> lid | _ -> assert false
 
 let assert_tbuf t =
-  match t with TBuf (t, _) -> t | _ -> assert false
+  match t with TBuf (t, _) -> t | t -> Warn.fatal_error "Not a buffer: %a" ptyp t
+
+let assert_tarray t =
+  match t with TArray (t, _) -> t | t -> Warn.fatal_error "Not an array: %a" ptyp t
 
 let assert_elid t =
   (* We only have nominal typing for variants. *)
-  match t with EQualified lid -> lid | _ -> assert false
+  match t with EQualified lid -> lid | _ -> Warn.fatal_error "Not an equalified: %a" pexpr (with_type TAny t)
 
 let assert_tbuf_or_tarray t =
   match t with
@@ -645,8 +700,12 @@ let rec nest_in_return_pos i typ f e =
         t, nest_in_return_pos i typ f e
       ) branches in
       { node = ESwitch (e, branches); typ }
-  | EMatch _ ->
-      failwith "Matches should've been desugared"
+  | EMatch (c, e, branches) ->
+      { node =
+        EMatch (c, e, List.map (fun (bs, p, e) ->
+          bs, p, nest_in_return_pos (i + List.length bs) typ f e
+        ) branches);
+        typ }
   | ESequence es ->
       let l = List.length es in
       { node = ESequence (List.mapi (fun j e ->
@@ -660,7 +719,15 @@ let rec nest_in_return_pos i typ f e =
 
 let nest_in_return_pos = nest_in_return_pos 0
 
-let push_ignore = nest_in_return_pos TUnit (fun _ e -> with_type TUnit (EIgnore (strip_cast e)))
+let push_ignore = nest_in_return_pos TUnit (fun _ e ->
+  with_type TUnit (EApp (
+    with_type (TArrow (e.typ, TUnit)) (
+      ETApp (
+        with_type (TArrow (TBound 0, TUnit))
+          (EQualified (["LowStar"; "Ignore"], "ignore")),
+        [ e.typ ]
+      )),
+    [ e ])))
 
 (* Big AST nodes *************************************************************)
 

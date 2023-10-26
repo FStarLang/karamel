@@ -48,13 +48,9 @@ extern int32_t FStar_Int_Cast_int16_to_int32(int16_t x);
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
-
 extern int8_t FStar_Int_Cast_int16_to_int8(int16_t x);
 
 extern int64_t FStar_Int_Cast_int32_to_int64(int32_t x);
-
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
@@ -62,11 +58,7 @@ extern int16_t FStar_Int_Cast_int32_to_int16(int32_t x);
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
-
 extern int8_t FStar_Int_Cast_int32_to_int8(int32_t x);
-
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
@@ -74,11 +66,7 @@ extern int32_t FStar_Int_Cast_int64_to_int32(int64_t x);
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
-
 extern int16_t FStar_Int_Cast_int64_to_int16(int64_t x);
-
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
@@ -92,8 +80,6 @@ extern int16_t FStar_Int_Cast_uint8_to_int16(uint8_t x);
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
-
 extern int8_t FStar_Int_Cast_uint8_to_int8(uint8_t x);
 
 extern int64_t FStar_Int_Cast_uint16_to_int64(uint16_t x);
@@ -102,11 +88,7 @@ extern int32_t FStar_Int_Cast_uint16_to_int32(uint16_t x);
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
-
 extern int16_t FStar_Int_Cast_uint16_to_int16(uint16_t x);
-
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
@@ -116,11 +98,7 @@ extern int64_t FStar_Int_Cast_uint32_to_int64(uint32_t x);
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
-
 extern int32_t FStar_Int_Cast_uint32_to_int32(uint32_t x);
-
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
@@ -128,11 +106,7 @@ extern int16_t FStar_Int_Cast_uint32_to_int16(uint32_t x);
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
-
 extern int8_t FStar_Int_Cast_uint32_to_int8(uint32_t x);
-
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
@@ -140,17 +114,11 @@ extern int64_t FStar_Int_Cast_uint64_to_int64(uint64_t x);
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
-
 extern int32_t FStar_Int_Cast_uint64_to_int32(uint64_t x);
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
-
 extern int16_t FStar_Int_Cast_uint64_to_int16(uint64_t x);
-
-KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 
 KRML_DEPRECATED("with care; in C the result is implementation-defined when not representable")
 

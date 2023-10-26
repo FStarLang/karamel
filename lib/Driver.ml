@@ -309,7 +309,7 @@ let run_or_warn str exe args =
       KPrint.bprintf "%s✘%s %s%s\n" Ansi.red Ansi.reset str (verbose_msg ());
       List.iter print_endline stderr;
       List.iter print_endline stdout;
-      Pervasives.(flush stdout; flush stderr);
+      Stdlib.(flush stdout; flush stderr);
       maybe_fatal_error ("run_or_warn", ExternalError debug_str);
       false
 

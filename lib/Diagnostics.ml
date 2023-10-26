@@ -18,7 +18,7 @@ let types_depth files =
   let incr (d, p) = d + 1, p in
 
   let rec compute_depth lid (d: type_def) =
-    if not (Hashtbl.mem seen lid) && d <> Forward then
+    if not (Hashtbl.mem seen lid) && not (Helpers.is_forward d) then
       Hashtbl.add seen lid (depth_of_def [] d)
 
   and depth_of_def p d =
@@ -27,7 +27,7 @@ let types_depth files =
         depth_of_type p t
     | Flat fields ->
         incr (KList.max (List.map (fun (f, (t, _)) -> depth_of_type (Option.must f :: p) t) fields))
-    | Forward
+    | Forward _
     | Variant _ ->
         failwith "impossible"
     | Enum _ ->

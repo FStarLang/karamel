@@ -36,7 +36,7 @@ let rec mk_decl = function
   | I.DFunction (cc, flags, n, t, name, binders, body) ->
       let body =
         if List.mem WipeBody flags then
-          with_type TAny (EAbort (Some "noextract flag"))
+          with_type TAny (EAbort (None, Some "noextract flag"))
         else
           mk_expr body
       in
@@ -48,14 +48,14 @@ let rec mk_decl = function
   | I.DTypeFlat (name, flags, n, fields) ->
       DType (name, flags, n, Flat (mk_tfields_opt fields))
   | I.DExternal (cc, flags, name, t) ->
-      DExternal (cc, flags, name, mk_typ t, [])
+      DExternal (cc, flags, 0, name, mk_typ t, [])
   | I.DExternal2 (cc, flags, name, t, arg_names) ->
-      DExternal (cc, flags, name, mk_typ t, arg_names)
+      DExternal (cc, flags, 0, name, mk_typ t, arg_names)
   | I.DTypeVariant (name, flags, n, branches) ->
       DType (name, flags, n,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
   | I.DTypeAbstractStruct name ->
-      DType (name, [], 0, Forward)
+      DType (name, [], 0, Forward FStruct)
   | I.DUntaggedUnion (name, flags, n, branches) ->
       DType (name, flags, n, Union (List.map (fun (f, t) -> f, mk_typ t) branches))
 
@@ -192,7 +192,7 @@ and mk_expr = function
   | I.EBufFree e ->
       mk (EBufFree (mk_expr e))
   | I.EMatch (e1, bs) ->
-      mk (EMatch (mk_expr e1, mk_branches bs))
+      mk (EMatch (Checked, mk_expr e1, mk_branches bs))
   | I.EOp (op, w) ->
       mk (EOp (op, w))
   | I.ECast (e1, t) ->
@@ -206,11 +206,11 @@ and mk_expr = function
   | I.EAny ->
       mk EAny
   | I.EAbort ->
-      mk (EAbort None)
+      mk (EAbort (None, None))
   | I.EAbortS s ->
-      mk (EAbort (Some s))
+      mk (EAbort (None, Some s))
   | I.EAbortT (s, t) ->
-      { node = EAbort (Some s); typ = mk_typ t }
+      { node = EAbort (Some (mk_typ t), Some s); typ = mk_typ t }
   | I.EReturn e ->
       mk (EReturn (mk_expr e))
   | I.EFlat (tname, fields) ->

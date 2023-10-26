@@ -710,7 +710,7 @@ and mk_expr_or_bail (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let msg = KPrint.bsprintf "%a: compilation error turned to runtime failure\n%s%s"
         plid !current_lid s bt
       in
-      mk_expr env locals (Helpers.with_unit (EAbort (Some msg)))
+      mk_expr env locals (Helpers.with_unit (EAbort (None, Some msg)))
 
 
 (** The actual translation. Note that the environment is dropped, but that the
@@ -723,7 +723,17 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EOpen _ ->
       invalid_arg "mk_expr (EOpen)"
 
-  | EApp ({ node = EQualified (["Lib"; "Memzero0"],"memzero"); _ }, [ dst; len ]) ->
+  | EApp ({ node = ETApp ({ node = EQualified (["LowStar"; "Ignore"],"ignore"); _ }, _); _ }, [ e ]) ->
+      let locals, e = mk_expr env locals e in
+      (* This is slightly ill-typed since everywhere else the result of
+         intermediary sequence bits is units, but that's fine *)
+      locals, CF.Sequence [ e; cflat_unit ]
+
+  | EApp ({ node = ETApp ({ node = EQualified (["Lib"; "Memzero0"],"memzero"); _ }, _); _ }, [ dst; len ]) ->
+      (* TODO: now that the C backend is generic for type applications, do the
+         same here and have generic support for ETApp. Idea: reuse the JSON
+         representation of a type (used for layouts) and pass that to the JS
+         external. *)
       let size = cell_size_b env dst.typ in
       let hd = with_type
         (TArrow (TBuf (TInt K.UInt8, false), TArrow (TInt K.UInt32, TArrow (TInt K.UInt32, TUnit))))
@@ -868,7 +878,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let locals, e3 = mk_expr env locals e3 in
       locals, CF.IfThenElse (e1, e2, e3, s2)
 
-  | EAbort s ->
+  | EAbort (_, s) ->
       let s = match s with Some s -> s | None -> "<no message>" in
       locals, CF.Abort (CF.StringLiteral s)
 
@@ -968,6 +978,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EReturn _ ->
       invalid_arg "return shouldnt've been inserted"
 
+  | EContinue
   | EBreak ->
       failwith "todo break"
 
@@ -1065,7 +1076,7 @@ let mk_decl env (d: decl): env * CF.decl list =
           CF.Global (name, size, body, post_init, public)
         ]
 
-  | DExternal (_, _, lid, t, _) ->
+  | DExternal (_, _, _, lid, t, _) ->
       let name = GlobalNames.to_c_name env.names lid in
       match t with
       | TArrow _ ->

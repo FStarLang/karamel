@@ -38,6 +38,7 @@ type op =
   | Assign | PreIncr | PreDecr | PostIncr | PostDecr
   (* Misc *)
   | Comma
+  | Neg
   [@@deriving yojson,show]
 
 let unsigned_of_signed = function

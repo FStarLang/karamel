@@ -287,6 +287,9 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
   | EBreak ->
       keys env, u, w EBreak
 
+  | EContinue ->
+      keys env, u, w EContinue
+
   | EReturn e ->
       let d, u, e = merge env u e in
       d, u, w (EReturn e)

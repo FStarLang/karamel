@@ -11,8 +11,8 @@ module Time = struct
 
   let tick buf () =
     let t' = Unix.times () in
-    let diff = t'.Unix.tms_cutime -. (Option.must !t).Unix.tms_cutime +.
-      t'.Unix.tms_utime -. (Option.must !t).Unix.tms_utime
+    let diff = t'.Unix.tms_cutime -. (Option.get !t).Unix.tms_cutime +.
+      t'.Unix.tms_utime -. (Option.get !t).Unix.tms_utime
     in
     t := Some t';
 
@@ -37,6 +37,8 @@ module Time = struct
     in
     smart_format true (diff *. 1000.)
 end
+
+open Krml
 
 let _ =
   let arg_version = ref false in
@@ -437,7 +439,7 @@ Supported options:|}
 
     (* Self-help. *)
     if Options.debug "force-c" then begin
-      Options.add_include := (All, "\"krml/internal/wasmsupport.h\"") :: !Options.add_include;
+      Options.(add_include := (All, "\"krml/internal/wasmsupport.h\"") :: !add_include);
       Options.drop := Bundle.Module [ "WasmSupport" ] :: !Options.drop
     end
   end;
@@ -475,7 +477,7 @@ Supported options:|}
     Warn.parse_warn_error !arg_warn_error;
 
   if !used_drop then
-    Warn.(maybe_fatal_error ("", Deprecated ("-drop", "use a combination of \
+    Warn.(maybe_fatal_error ("", Error.Deprecated ("-drop", "use a combination of \
       -bundle and -d reachability to make sure the functions are eliminated as \
       you wish")));
 
@@ -572,7 +574,7 @@ Supported options:|}
    * bundle. *)
   let files = Simplify.simplify0 files in
   (* Remove trivial matches now because they eliminate code that would generate
-   * spurious dependencies otherwise. *)
+   * spurious dependencies otherwise. Requires accurate use count. *)
   let files = DataTypes.simplify files in
   let files = Monomorphization.datatypes files in
   let files = DataTypes.optimize files in
@@ -638,7 +640,7 @@ Supported options:|}
   let files =
     if !Options.wasm then
       let files = Simplify.sequence_to_let#visit_files () files in
-      let files = Simplify.count_and_remove_locals#visit_files [] files in
+      let files = Simplify.optimize_lets files in
       let files = SimplifyWasm.simplify1 files in
       let files = Simplify.hoist#visit_files [] files in
       let files = Structs.in_memory files in
@@ -667,6 +669,7 @@ Supported options:|}
   let macros = AstToCStar.mk_macros_set files in
 
   let files = Simplify.simplify2 ifdefs files in
+  let files = Inlining.mark_possibly_unused ifdefs files in
   let files = if Options.(!merge_variables <> No) then SimplifyMerge.simplify files else files in
   if !arg_print_structs then
     print PrintAst.print_files files;
@@ -779,7 +782,7 @@ Supported options:|}
     if not !Options.silent then begin
       Printf.printf "KaRaMeL: wrote out .c files for %s\n" (String.concat ", " (List.map fst files));
       Printf.printf "KaRaMeL: wrote out .h files for %s\n" (String.concat ", "
-        (List.map (function | h, C11.Internal _ -> "internal/"^h | h, Public _ -> h) headers))
+        (List.map (function | h, C11.Internal _ -> "internal/"^h | h, C11.Public _ -> h) headers))
     end;
 
     let ml_files = GenCtypes.file_list ml_files in

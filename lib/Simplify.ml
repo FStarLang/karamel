@@ -55,7 +55,8 @@ class ['self] safe_use = object (self: 'self)
 
   (* The sequential composition rule, where [e1] is known be to be
    * sequentialized before [e2]. Two cases: the use is found in [e1] (and we
-   * don't care what happens in [e2]), otherwise, just a regular composition. *)
+   * don't care what happens in [e2]), otherwise, just a regular composition.
+   * Note: e2 = Some _ if and only if this is a let-node (hence the + 1). *)
   method private sequential (j, _) e1 e2 =
     match self#visit_expr_w j e1, e2 with
     | SafeUse, _ -> SafeUse
@@ -75,14 +76,17 @@ class ['self] safe_use = object (self: 'self)
     match e.node with
     | EOp _ -> super#visit_EApp env e es
     | EQualified lid when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
+    | ETApp ({ node = EQualified lid; _ }, _) when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
     | _ -> self#unordered env (e :: es)
 
   method! visit_ELet env _ e1 e2 = self#sequential env e1 (Some e2)
+  (* All of the cases below could be refined with a more precise analysis that makes sure that
+     *every* path in the control-flow is safe. *)
   method! visit_EIfThenElse env e _ _ = self#sequential env e None
   method! visit_ESwitch env e _ = self#sequential env e None
   method! visit_EWhile env e _ = self#sequential env e None
   method! visit_EFor env _ e _ _ _ = self#sequential env e None
-  method! visit_EMatch env e _ = self#sequential env e None
+  method! visit_EMatch env _ e _ = self#sequential env e None
   method! visit_ESequence env es = self#sequential env (List.hd es) None
 end
 
@@ -109,68 +113,39 @@ let safe_pure_use e =
   | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
 
 
-(* Count the number of occurrences of each variable ***************************)
-
-let count_and_remove_locals = object (self)
+(* This phase tries to substitute away variables that are temporary (named
+   uu____ in F*, or "scrut" if inserted by the pattern matches compilation
+   phase), or that are of a type that cannot be copied (to hopefully skirt
+   future failures). This phase assumes the mark field of each binder contains a
+   conservative approximation of the number of uses of that binder. *)
+let use_mark_to_inline_temporaries = object (self)
 
   inherit [_] map
 
-  method! extend env binder =
-    binder.node.mark := 0;
-    binder :: env
-
-  method! visit_EBound (env, _) i =
-    let b = List.nth env i in
-    incr b.node.mark;
-    EBound i
-
-  method private remove_trivial_let e =
-    match e with
-    | ELet (_, e1, { node = EBound 0; _ }) when Helpers.is_readonly_c_expression e1 ->
-        e1.node
-    | _ ->
-        e
-
-  method! visit_ELet (env, _) b e1 e2 =
-    (* Remove unused variables. Important to get rid of calls to [HST.get()]. *)
-    let e1 = self#visit_expr_w env e1 in
-    let env = self#extend env b in
-    let e2 = self#visit_expr_w env e2 in
-    if !(b.node.mark) = 0 && is_readonly_c_expression e1 then
-      self#remove_trivial_let (snd (open_binder b e2)).node
-    else if Structs.should_rewrite b.typ = NoCopies &&
-      !(b.node.mark) = 1 && (
+  method! visit_ELet _ b e1 e2 =
+    let e1 = self#visit_expr_w () e1 in
+    let e2 = self#visit_expr_w () e2 in
+    let _, v = !(b.node.mark) in
+    if (Helpers.is_uu b.node.name || b.node.name = "scrut" || Structs.should_rewrite b.typ = NoCopies) &&
+      v = AtMost 1 && (
         is_readonly_c_expression e1 &&
         safe_readonly_use e2 ||
         safe_pure_use e2
-      )
+      ) (* || is_readonly_and_variable_free_c_expression e1 && b.node.mut *)
     then
       (DeBruijn.subst e1 0 e2).node
-    else if !(b.node.mark) = 0 then
-      if e1.typ = TUnit then
-        self#remove_trivial_let (ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2))
-      else
-        (* We know the variable is unused... but its body cannot be determined
-         * to be readonly, so we have to keep it. What's better?
-         *   int unused = f();
-         * or:
-         *   (void)f(); ? *)
-        (* ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit}, push_ignore e1, e2) *)
-        self#remove_trivial_let (ELet (b, e1, e2))
     else
-      self#remove_trivial_let (ELet (b, e1, e2))
-
-  method! visit_EBufSub env e1 e2 =
-    (* This creates more opportunities for values to be eliminated if unused.
-     * Also, AstToCStar emits BufSub (e, 0) as just e, so we need the value
-     * check to be in agreement on both sides. *)
-    match e2.node with
-    | EConstant (_, "0") ->
-        (self#visit_expr env e1).node
-    | _ ->
-        EBufSub (self#visit_expr env e1, self#visit_expr env e2)
-
+      ELet (b, e1, e2)
 end
+
+(* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
+
+let optimize_lets ?ifdefs files =
+  let open UseAnalysis in
+  let _ = (build_usage_map_and_mark ifdefs)#visit_files [] files in
+  let files = (use_mark_to_remove_or_ignore (not (ifdefs = None)))#visit_files () files in
+  let files = use_mark_to_inline_temporaries#visit_files () files in
+  files
 
 (* Unused parameter elimination ***********************************************)
 
@@ -233,7 +208,7 @@ let unused private_count_table lid ts (i: int) =
     Hashtbl.mem private_count_table lid && (
       let l = Hashtbl.find private_count_table lid in
       i < List.length l &&
-      List.nth l i = 0
+      snd (List.nth l i) = Mark.AtMost 0
     ) ||
     (* Second case: it's a unit, so here type-based elimination *)
     List.nth ts i = TUnit
@@ -272,7 +247,7 @@ let remove_unused_parameters = object (self)
     let binders = KList.filter_mapi (fun i b -> if unused i then None else Some b) binders in
     DFunction (cc, flags, n, ret, name, binders, body)
 
-  method! visit_DExternal (parameter_table, _ as env) cc flags name t hints =
+  method! visit_DExternal (parameter_table, _ as env) cc flags n name t hints =
     let ret, args = flatten_arrow t in
     let hints = KList.filter_mapi (fun i arg ->
       if unused parameter_table dummy_lid args i then
@@ -288,7 +263,7 @@ let remove_unused_parameters = object (self)
     ) args in
     let ret = self#visit_typ env ret in
     let t = fold_arrow args ret in
-    DExternal (cc, flags, name, t, hints)
+    DExternal (cc, flags, n, name, t, hints)
 
   method! visit_TArrow (parameter_table, _ as env) t1 t2 =
     (* Important: the only entries in `parameter_table` are those which are
@@ -319,13 +294,13 @@ let remove_unused_parameters = object (self)
              * parameter of [f]. This is an opportunity to update the entry for
              * [f]. *)
             Hashtbl.replace private_use_table current_lid
-              (List.mapi (fun k count ->
+              (List.mapi (fun k (o, Mark.AtMost count) ->
                 (* 0 is the last parameter, l - 1 the first *)
                 if k == l - 1 - (j - i) then begin
                   assert (count > 0);
-                  count - 1
+                  o, Mark.AtMost (count - 1)
                 end else
-                  count
+                  o, Mark.AtMost count
               ) (Hashtbl.find private_use_table current_lid))
         | _ ->
             (* TODO: we could be smarter here *)
@@ -417,25 +392,16 @@ let wrapping_arithmetic = object (self)
 end
 
 
-(* Try to remove the infamous let uu____ from F*. Needs an accurate use count
- * for each variable. *)
-let remove_uu = object (self)
+let remove_ignore_unit = object
 
-  inherit [_] map
+  inherit [_] map as super
 
-  method! visit_ELet _ b e1 e2 =
-    let e1 = self#visit_expr_w () e1 in
-    let e2 = self#visit_expr_w () e2 in
-    if Helpers.is_uu b.node.name &&
-      !(b.node.mark) = 1 && (
-        is_readonly_c_expression e1 &&
-        safe_readonly_use e2 ||
-        safe_pure_use e2
-      )
-    then
-      (DeBruijn.subst e1 0 e2).node
-    else
-      ELet (b, e1, e2)
+  method! visit_EApp env hd args =
+    match hd.node, args with
+    | ETApp ({ node = EQualified (["LowStar"; "Ignore"], "ignore"); _}, [ TUnit ]), [ { node = EUnit; _ } ] ->
+        EUnit
+    | _ ->
+        super#visit_EApp env hd args
 end
 
 let remove_proj_is = object
@@ -671,20 +637,19 @@ let misc_cosmetic = object (self)
            let _  = f  (&x) in // sequence
               ^^    ^^
               b'    e3
-           p[0] <- { ... f: x ... }
+           p[k] <- { ... f: x ... }
            ^^     ^^^^^^^^^^^^^
            e4         fs
            -->
-           f (&p[0].f);
-           p.f' <- e';
-           ...
+           f (&p[k].f);
+           p[k].f' <- e'
         *)
         match e1.node, e2.node with
         | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
-            { node = EBufWrite (e4, { node = EConstant (_, "0"); _ }, { node = EFlat fields; _ }); _ })
+            { node = EBufWrite (e4, e4_index, { node = EFlat fields; _ }); _ })
           when b'.node.meta = Some MetaSequence &&
           List.exists (fun (f, x) -> f <> None && x.node = EBound 1) fields &&
-          !(b.node.mark) = 2 ->
+          Mark.is_atmost 2 (snd !(b.node.mark)) ->
 
             (* if true then Warn.fatal_error "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
 
@@ -693,11 +658,12 @@ let misc_cosmetic = object (self)
 
             let e3 = snd (DeBruijn.open_binder b e3) in
             let e4 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4))) in
+            let e4_index = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4_index))) in
             let fields = List.map (fun (f, e) -> f, snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e)))) fields in
 
             let e4_typ = assert_tbuf e4.typ in
             Hashtbl.add mutated_types (assert_tlid e4_typ) ();
-            let e4 = with_type e4_typ (EBufRead (e4, Helpers.zerou32)) in
+            let e4 = with_type e4_typ (EBufRead (e4, e4_index)) in
 
             ESequence (
               with_unit (EApp (e3, [
@@ -712,6 +678,55 @@ let misc_cosmetic = object (self)
                     with_type e.typ (EField (e4, f')),
                     e)))
               ) fields)
+
+        (* let x;
+           f(&x);
+           p[k] <- { ... f: x ... };
+           ...
+           -->
+           f (&p[k].f);
+           p.f' <- e';
+           ...
+
+           (Same as above, but in non-terminal position)
+        *)
+        | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
+            { node = ELet (b'', { node = EBufWrite (e4, e4_index, { node = EFlat fields; _ }); _ }, e5); _ })
+          when b'.node.meta = Some MetaSequence &&
+          b''.node.meta = Some MetaSequence &&
+          List.exists (fun (f, x) -> f <> None && x.node = EBound 1) fields &&
+          Mark.is_atmost 2 (snd !(b.node.mark)) ->
+
+            (* if true then Warn.fatal_error "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
+
+            let f, { typ = x_typ; _ } = List.find (fun (_, x) -> x.node = EBound 1) fields in
+            let f = Option.must f in
+
+            let e3 = snd (DeBruijn.open_binder b e3) in
+            let e4 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4))) in
+            let e4_index = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4_index))) in
+            let fields = List.map (fun (f, e) -> f, snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e)))) fields in
+
+            let e4_typ = assert_tbuf e4.typ in
+            Hashtbl.add mutated_types (assert_tlid e4_typ) ();
+            let e4 = with_type e4_typ (EBufRead (e4, e4_index)) in
+
+            let e5 = self#visit_expr env e5 in
+
+            ESequence (
+              with_unit (EApp (e3, [
+                with_type (TBuf (x_typ, false)) (EAddrOf (
+                  with_type x_typ (EField (e4, f))))])) ::
+              List.filter_map (fun (f', e) ->
+                let f' = Option.must f' in
+                if f = f' then
+                  None
+                else
+                  Some (with_unit (EAssign (
+                    with_type e.typ (EField (e4, f')),
+                    e)))
+              ) fields @
+              [ e5 ])
 
         (* let x = $any in
               ^^   ^^^
@@ -729,7 +744,7 @@ let misc_cosmetic = object (self)
         | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
             { node = EAssign (e4, { node = EBound 1; _ }); _ })
           when b'.node.meta = Some MetaSequence &&
-          !(b.node.mark) = 2 ->
+          Mark.is_atmost 2 (snd !(b.node.mark)) ->
 
             (* KPrint.bprintf "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
 
@@ -738,11 +753,17 @@ let misc_cosmetic = object (self)
 
             EApp (e3, [ with_type (TBuf (e4.typ, false)) (EAddrOf e4)])
 
+        (* let x = $any in
+           let _ = f(&x) in
+           let _ = p := x in
+           ...
+
+           (same as above but not in non-terminal position) *)
         | EAny, ELet (b',
             { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
             { node = ELet (b'', { node = EAssign (e4, { node = EBound 1; _ }); _ }, e5); _ })
           when b'.node.meta = Some MetaSequence &&
-          !(b.node.mark) = 2 ->
+          Mark.is_atmost 2 (snd !(b.node.mark)) ->
 
             (* KPrint.bprintf "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
 
@@ -795,6 +816,15 @@ let misc_cosmetic = object (self)
         EAssign (e, e3)
     | _ ->
         EBufWrite (e1, e2, e3)
+
+  method! visit_EBufSub env e1 e2 =
+    (* AstToCStar emits BufSub (e, 0) as just e, so we need the value
+     * check to be in agreement on both sides. *)
+    match e2.node with
+    | EConstant (_, "0") ->
+        (self#visit_expr env e1).node
+    | _ ->
+        EBufSub (self#visit_expr env e1, self#visit_expr env e2)
 
   (* renumber uu's to have a stable numbering scheme that minimizes the diff
    * from one code generation to another *)
@@ -923,7 +953,6 @@ and hoist_stmt loc e =
   | EWhile (e1, e2) ->
       (* All of the following cases are valid statements (their return type is
        * [TUnit]. *)
-      assert (e.typ = TUnit);
       let lhs, e1 = hoist_expr loc Unspecified e1 in
       if lhs <> [] then
         Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,
@@ -960,6 +989,9 @@ and hoist_stmt loc e =
   | EBreak ->
       mk EBreak
 
+  | EContinue ->
+      mk EContinue
+
   | EComment (s, e, s') ->
       mk (EComment (s, hoist_stmt loc e, s'))
 
@@ -981,8 +1013,9 @@ and hoist_stmt loc e =
 and hoist_expr loc pos e =
   let mk node = { node; typ = e.typ } in
   match e.node with
-  | ETApp _ ->
-      assert false
+  | ETApp (e, ts) ->
+      let lhs, e = hoist_expr loc Unspecified e in
+      lhs, mk (ETApp (e, ts))
 
   | EBufNull
   | EAbort _
@@ -1209,8 +1242,24 @@ and hoist_expr loc pos e =
   | ESequence _ ->
       fatal_error "[hoist_t]: sequences should've been translated as let _ ="
 
-  | EReturn _ | EBreak ->
-      raise_error (Unsupported "[return] or [break] expressions should only appear in statement position")
+  | EReturn e ->
+      if pos = UnderStmtLet || pos = UnderConditional then
+        let lhs, e = hoist_expr loc Unspecified e in
+        lhs, mk (EReturn e)
+      else
+        Warn.fatal_error "%a: %s" Loc.ploc loc "[return] expressions should only appear in statement position"
+
+  | EBreak ->
+      if pos = UnderStmtLet || pos = UnderConditional then
+        [], mk EBreak
+      else
+        Warn.fatal_error "%a: %s" Loc.ploc loc "[break] expressions should only appear in statement position"
+
+  | EContinue ->
+      if pos = UnderStmtLet || pos = UnderConditional then
+        [], mk EContinue
+      else
+        Warn.fatal_error "%a: %s" Loc.ploc loc "[continue] expressions should only appear in statement position"
 
 (* TODO: figure out if we want to ignore the other cases for performance
  * reasons. *)
@@ -1320,7 +1369,7 @@ let record_toplevel_names = object (self)
   method! visit_DFunction env _ flags _ _ name _ _ =
     self#record env ~is_type:false ~is_external:false flags name
 
-  method! visit_DExternal env _ flags name _ _ =
+  method! visit_DExternal env _ flags _ name _ _ =
     self#record env ~is_type:false ~is_external:true flags name
 
   val forward = Hashtbl.create 41
@@ -1330,7 +1379,7 @@ let record_toplevel_names = object (self)
       self#record env ~is_type:true ~is_external:false flags name;
     match def with
     | Enum lids -> List.iter (self#record env ~is_type:true ~is_external:false flags) lids
-    | Forward -> Hashtbl.add forward name ()
+    | Forward _ -> Hashtbl.add forward name ()
     | _ -> ()
 end
 
@@ -1443,7 +1492,7 @@ let tail_calls =
         let body =
           nest state ret (with_type ret (ESequence [
             with_unit (EWhile (etrue, make_tail_calls name a_args body));
-            with_type ret (EAbort (Some "unreachable, returns inserted above"))
+            with_type ret (EAbort (None, Some "unreachable, returns inserted above"))
           ]))
         in
         DFunction (cc, flags, n, ret, name, binders, body)
@@ -1573,7 +1622,7 @@ and under_pushframe ifdefs (e: expr) =
   | ELet (b, { node = EIfThenElse ({ node = EQualified lid; _ } as e1, e2, e3); typ }, ek)
     when Idents.LidSet.mem lid ifdefs ->
       (* Do not hoist, since this if will turn into an ifdef which does NOT
-         shorten the scope...! *)
+         shorten the scope...! TODO this does not catch all ifdefs *)
       let e2 = under_pushframe e2 in
       let e3 = under_pushframe e3 in
       let ek = under_pushframe ek in
@@ -1851,8 +1900,8 @@ end
  * compilation, once. *)
 let simplify0 (files: file list): file list =
   let files = remove_local_function_bindings#visit_files () files in
-  let files = count_and_remove_locals#visit_files [] files in
-  let files = remove_uu#visit_files () files in
+  let files = optimize_lets files in
+  let files = remove_ignore_unit#visit_files () files in
   let files = remove_proj_is#visit_files () files in
   let files = combinators#visit_files () files in
   let files = wrapping_arithmetic#visit_files () files in
@@ -1862,8 +1911,19 @@ let simplify0 (files: file list): file list =
  * calls of the form recall foobar in them. *)
 let simplify1 (files: file list): file list =
   let files = sequence_to_let#visit_files () files in
-  let files = count_and_remove_locals#visit_files [] files in
+  let files = optimize_lets files in
   let files = let_to_sequence#visit_files () files in
+  files
+
+(* This should be run late since inlining may create more opportunities for the
+ * removal of unused variables. *)
+let remove_unused (files: file list): file list =
+  (* Relying on the side-effect of refreshing the mark. *)
+  let files = optimize_lets files in
+  let parameter_table = Hashtbl.create 41 in
+  unused_parameter_table#visit_files parameter_table files;
+  ignore_non_first_order#visit_files parameter_table files;
+  let files = remove_unused_parameters#visit_files (parameter_table, 0) files in
   files
 
 (* Many phases rely on a statement-like language where let-bindings, buffer
@@ -1873,29 +1933,21 @@ let simplify1 (files: file list): file list =
 let simplify2 ifdefs (files: file list): file list =
   let files = sequence_to_let#visit_files () files in
   (* Quality of hoisting is WIDELY improved if we remove un-necessary
-   * let-bindings. *)
-  let files = count_and_remove_locals#visit_files [] files in
+   * let-bindings. Also removes occurrences of spinlock and the like. *)
+  let files = optimize_lets ~ifdefs files in
   let files = if !Options.wasm then files else fixup_while_tests#visit_files () files in
   let files = hoist#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
   let files = if !Options.wasm then files else fixup_hoist#visit_files () files in
   let files = if !Options.wasm then files else let_if_to_assign#visit_files () files in
   let files = if !Options.wasm then files else hoist_bufcreate#visit_files ifdefs files in
+  (* This phase relies on up-to-date mark information. TODO move up after
+     optimize_lets. *)
   let files = misc_cosmetic#visit_files () files in
   let files = misc_cosmetic2#visit_files () files in
   let files = functional_updates#visit_files false files in
   let files = functional_updates#visit_files true files in
   let files = let_to_sequence#visit_files () files in
-  files
-
-(* This should be run late since inlining may create more opportunities for the
- * removal of unused variables. *)
-let remove_unused (files: file list): file list =
-  let parameter_table = Hashtbl.create 41 in
-  let files = count_and_remove_locals#visit_files [] files in
-  unused_parameter_table#visit_files parameter_table files;
-  ignore_non_first_order#visit_files parameter_table files;
-  let files = remove_unused_parameters#visit_files (parameter_table, 0) files in
   files
 
 let debug env =

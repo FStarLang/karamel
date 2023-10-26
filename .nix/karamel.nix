@@ -30,6 +30,7 @@ stdenv.mkDerivation {
     ]);
 
   FSTAR_HOME = fstar;
+  GIT_REV = version;
 
   configurePhase = "export KRML_HOME=$(pwd)";
 

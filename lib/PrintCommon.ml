@@ -69,6 +69,7 @@ let print_op = function
   | PostDecr | PreDecr -> string "--"
   | Assign -> string "="
   | Comma -> string ","
+  | Neg -> string "-"
 
 let print_cc = function
   | CDecl -> string "__cdecl"
