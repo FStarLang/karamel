@@ -178,11 +178,9 @@ let detect_karamel () =
     if not !Options.silent then
       KPrint.bprintf "%sKaRaMeL home is:%s %s\n" Ansi.underline Ansi.reset krml_home;
 
-    if try Sys.is_directory (krml_home ^^ ".git") with Sys_error _ -> false then begin
-      let cwd = Sys.getcwd () in
-      Sys.chdir krml_home;
-      krml_rev := String.sub (read_one_line "git" [| "rev-parse"; "HEAD" |]) 0 12;
-      Sys.chdir cwd
+    krml_rev := begin
+      try String.sub Version.version 0 12
+      with Invalid_argument _ -> Version.version
     end;
 
     krmllib_dir := krml_home ^^ "krmllib";
