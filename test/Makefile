@@ -121,6 +121,10 @@ $(OUTPUT_DIR)/%.krml: | .depend
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  $(notdir $(subst .checked,,$<))
 
+###############
+# Regular (C) #
+###############
+
 $(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) \
 	  -o $@ $(filter %.krml,$^) \
@@ -228,7 +232,15 @@ check-no-erased: $(OUTPUT_DIR)/Shifting.exe
 check-right-file: $(OUTPUT_DIR)/MonomorphizationSeparate2.exe
 	egrep -q 'typedef.*pair' $(OUTPUT_DIR)/MonomorphizationSeparate2.out/MonomorphizationSeparate1.h
 
-# Custom ctypes target
+clean:
+	rm -rf $(WEB_DIR) .output
+
+distclean: clean
+	rm -rf .cache
+
+##########
+# CTypes #
+##########
 
 LOWLEVEL_DIR=$(OUTPUT_DIR)/Ctypes2.out
 
@@ -250,6 +262,9 @@ CTYPES_HAND_WRITTEN_FILES=Client.ml Makefile
 $(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Ctypes2.exe $(addprefix $(LOWLEVEL_DIR)/,$(CTYPES_HAND_WRITTEN_FILES))
 	cd $(dir $@) && env CTYPES_LIB_DIR=$(shell ocamlfind query ctypes) LOWLEVEL_DIR=$(realpath $(LOWLEVEL_DIR)) make
 
+########
+# WASM #
+########
 
 # A pseudo-target for WASM compilation that does not match any specific file.
 # All WASM targets get the -wasm flag; some specific targets may override
@@ -260,7 +275,7 @@ $(OUTPUT_DIR)/%.wasm: $(ALL_KRML_FILES) $(KRML_BIN)
 	  -bundle C -bundle C.Endianness -bundle C.Nullity -bundle C.String \
 	  -bundle TestLib \
 	  -bundle $(subst _,.,$*)=WindowsHack,\* \
-	  -wasm $(EXTRA) -tmpdir $@ $(JSFILES) -no-prefix $* $(filter %.krml,$^)
+	  -backend wasm $(EXTRA) -tmpdir $@ $(JSFILES) -no-prefix $* $(filter %.krml,$^)
 	[ x$(JSFILES) != x ] && cp $(JSFILES) $@ || true
 
 %.wasm-test: $(OUTPUT_DIR)/%.wasm
@@ -273,8 +288,14 @@ $(OUTPUT_DIR)/%.wasm: $(ALL_KRML_FILES) $(KRML_BIN)
 %/Crypto.Symmetric.Chacha20.wasm: EXTRA+=$(CRYPTO_OPTS) -drop FStar
 WasmTrap.wasm-test: NEGATIVE = true
 
-clean:
-	rm -rf $(WEB_DIR) .output
+########
+# Rust #
+########
 
-distclean: clean
-	rm -rf .cache
+.PRECIOUS: %.rs
+%.rs: $(ALL_KRML_FILES) $(KRML_BIN)
+	$(KRML) -minimal -bundle $(notdir $*)=\* \
+	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)
+
+%.rust-test: $(OUTPUT_DIR)/%.rs
+	rustc $< && ./$*

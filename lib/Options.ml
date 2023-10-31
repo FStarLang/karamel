@@ -39,7 +39,12 @@ let library: Bundle.pat list ref = ref []
 let hand_written: Bundle.pat list ref = ref []
 let debug_modules: string list ref = ref []
 let debug s = List.exists ((=) s) !debug_modules
-let wasm = ref false
+
+type backend = C | Rust | Wasm
+let backend = ref C
+let wasm () = !backend = Wasm
+let rust () = !backend = Rust
+
 let static_header: Bundle.pat list ref = ref []
 let minimal = ref false
 let by_ref: (string list * string) list ref = ref []

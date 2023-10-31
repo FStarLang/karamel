@@ -5,6 +5,7 @@ type borrow_kind = Mut | Shared
 type typ =
   | Constant of Constant.width (* excludes cint, ptrdifft *)
   | Ref of borrow_kind * typ
+  | Vec of typ
   | Array of typ * int
   | Slice of typ (* always appears underneath Ref *)
   | Unit
@@ -35,19 +36,32 @@ type array_expr =
 and expr =
   | Operator of Constant.op
   | Array of array_expr
+  | VecNew of array_expr
   | Name of name
-  | Var of db_index
-  | Ref of borrow_kind * expr
-  | Index of expr * expr
+  | Borrow of borrow_kind * expr
   | Constant of Constant.t
-  | Let of binding * expr
+  | Let of binding * expr * expr
   | Call of expr * expr list
-    (** Note that this representation admits empty argument lists -- Ast always
-        takes unit *)
+    (** Note that this representation admits empty argument lists -- as opposed
+        to Ast which always takes unit *)
   | Unit
   | Panic of string
   | IfThenElse of expr * expr * expr option
-  | Assign of expr * expr
+  | Assign of place * expr
+  | As of expr * typ
+  | Place of place
+      (** Injection of lvalues ("places") into rvalues ("expressions") *)
+  | For of binding * expr
+  | While of expr * expr
+
+and place =
+  | Var of db_index
+  | Index of place * expr
 
 type decl =
-  | Function of binding list * typ * expr
+  | Function of {
+    name: name;
+    parameters: binding list;
+    return_type: typ;
+    body: expr
+  }

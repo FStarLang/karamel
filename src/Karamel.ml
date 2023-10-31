@@ -216,7 +216,18 @@ Supported options:|}
       external commands messages";
     "-diagnostics", Arg.Set arg_diagnostics, "  list recursive functions and \
       overly nested data types (useful for MSVC)";
-    "-wasm", Arg.Set Options.wasm, "  emit a .wasm file instead of C";
+    "-wasm", Arg.Unit (fun () ->
+      KPrint.beprintf "Warning: -wasm is deprecated, use -backend wasm instead\n";
+      Options.(backend := Wasm)
+    ), "  emit a .wasm file instead of C";
+    "-backend", Arg.String (fun s ->
+      let open Options in
+      match String.lowercase_ascii s with
+      | "wasm" -> backend := Wasm
+      | "c" -> backend := C
+      | "rust" -> backend := Rust
+      | _ -> failwith ("unrecognized backend: " ^ s)
+    ), "  generate code for either one of c (default), rust or wasm";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* Controlling the behavior of KaRaMeL *)
@@ -425,7 +436,7 @@ Supported options:|}
 
   (* Meta-options that enable other options. Do this now because it influences
    * the default options for each compiler. *)
-  if !Options.wasm then begin
+  if Options.wasm () then begin
     Options.anonymous_unions := false;
     Options.struct_passing := false;
 
@@ -535,7 +546,7 @@ Supported options:|}
    *   A_f" comes before "static void B_g" (since they're static, there's no
    *   forward declaration in the header. *)
   let files = Builtin.make_libraries files in
-  let files = if !Options.wasm then SimplifyWasm.intrinsics#visit_files () files else files in
+  let files = if Options.wasm () then SimplifyWasm.intrinsics#visit_files () files else files in
   let files = Bundles.topological_sort files in
 
   (* 1. We create bundles, and monomorphize functions first. This creates more
@@ -635,7 +646,7 @@ Supported options:|}
    * good to remove it. *)
   let files = if not !Options.struct_passing || has_spinlock then Structs.pass_by_ref files else files in
   let files =
-    if !Options.wasm then
+    if Options.wasm () then
       let files = Simplify.sequence_to_let#visit_files () files in
       let files = Simplify.optimize_lets files in
       let files = SimplifyWasm.simplify1 files in
@@ -652,8 +663,8 @@ Supported options:|}
     else
       files
   in
-  let files = if not !Options.wasm then Simplify.simplify1 files else files in
-  let files = if not !Options.wasm then Structs.collect_initializers files else files in
+  let files = if not (Options.wasm ()) then Simplify.simplify1 files else files in
+  let files = if not (Options.wasm ()) then Structs.collect_initializers files else files in
   (* Need correct private qualifiers for remove_unused to drop arguments for
    * static declarations. *)
   let files = Inlining.cross_call_analysis files in
@@ -706,7 +717,7 @@ Supported options:|}
    * prefix for static declarations. *)
   let c_name_map = Simplify.allocate_c_names files in
 
-  if !Options.wasm && not (Options.debug "force-c") then
+  if Options.wasm () && not (Options.debug "force-c") then
     (* Runtime support files first. *)
     let is_support, rest = List.partition (fun (name, _) -> name = "WasmSupport") files in
     if List.length is_support = 0 then
@@ -727,6 +738,11 @@ Supported options:|}
     tick_print true "OptimizeWasm";
 
     OutputJs.write_all !js_files modules !arg_print_wasm layouts
+
+  else if Options.rust () then
+    let files = AstToMiniRust.translate_files files in
+    OutputRust.write_all files
+
 
   else
     let () = () in
