@@ -61,8 +61,11 @@ let rec print_typ (t: typ): document =
       group (parens (separate_map (comma ^^ break1) print_typ ts)) ^/^
       print_typ t
 
-let print_binding (x, t) =
-  group (string x ^^ colon ^/^ print_typ t)
+let print_mut b =
+  if b then string "mut" ^^ break1 else empty
+
+let print_binding { mut; name; typ } =
+  group (print_mut mut ^^ string name ^^ colon ^/^ print_typ typ)
 
 let rec print_block env (e: expr): document =
   if is_block_expression e then
@@ -72,10 +75,10 @@ let rec print_block env (e: expr): document =
 
 and print_statements env (e: expr): document =
   match e with
-  | Let ((_, Unit), e1, e2) ->
+  | Let ({ typ = Unit; _ }, e1, e2) ->
       print_expr env max_int e1 ^^ semi ^^ hardline ^^
       print_statements (push env (`GoneUnit)) e2
-  | Let ((x, _) as b, e1, e2) ->
+  | Let ({ name = x; _ } as b, e1, e2) ->
       group (
         group (string "let" ^/^ print_binding b ^/^ equals) ^^
         nest 2 (break 1 ^^ print_expr env max_int e1) ^^ semi) ^^ hardline ^^
@@ -211,10 +214,10 @@ and print_expr env (context: int) (e: expr): document =
   | Place p ->
       print_place env context p
   | For (b, e1, e2) ->
-      let env = push env (`Named (fst b)) in
+      let env = push env (`Named b.name) in
       group @@
       (* Note: specifying the type of a pattern isn't supported, per rustc *)
-      group (string "for" ^/^ string (fst b) ^/^ string "in" ^/^ print_expr env max_int e1) ^/^
+      group (string "for" ^/^ string b.name ^/^ string "in" ^/^ print_expr env max_int e1) ^/^
       print_block env e2
   | While (e1, e2) ->
       group @@
@@ -267,7 +270,7 @@ let print_decl ns (d: decl) =
   let env = fresh ns in
   match d with
   | Function { name; parameters; return_type; body } ->
-      let env = List.fold_left (fun env (x, _) -> push env (`Named x)) env parameters in
+      let env = List.fold_left (fun env (b: binding) -> push env (`Named b.name)) env parameters in
       group @@
       group (group (string "fn" ^/^ print_name env name) ^^
         parens_with_nesting (separate_map (comma ^^ break1) print_binding parameters) ^^

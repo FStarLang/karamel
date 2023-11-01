@@ -39,7 +39,7 @@ type env = {
 
 let empty = { decls = LidMap.empty; vars = []; prefix = [] }
 
-let push env (x, t) = { env with vars = (x, t) :: env.vars }
+let push env b = { env with vars = b :: env.vars }
 
 let push_global env name t =
   assert (not (LidMap.mem name env.decls));
@@ -153,7 +153,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
   | EOpen _ ->
       failwith "unexpected: EOpen"
   | EBound v ->
-      let _, t = lookup env v in
+      let t = (lookup env v).typ in
       possibly_convert (Place (Var v)) t
   | EOp (o, _) ->
       Operator o
@@ -192,13 +192,13 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       failwith "unexpected: EPolyComp"
   | ELet (b, ({ node = EBufCreate _ | EBufCreateL _; _ } as init), e2) ->
       let e1, t = translate_array env false init in
-      let binding = b.node.name, t in
+      let binding: MiniRust.binding = { name = b.node.name; typ = t; mut = true } in
       let env = push env binding in
       Let (binding, e1, translate_expr_with_type env e2 t_ret)
   | ELet (b, e1, e2) ->
       let e1 = translate_expr env e1 in
       let t = translate_type b.typ in
-      let binding = b.node.name, t in
+      let binding : MiniRust.binding = { name = b.node.name; typ = t; mut = false } in
       let env = push env binding in
       Let (binding, e1, translate_expr_with_type env e2 t_ret)
   | EFun _ ->
@@ -288,7 +288,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
               PrintAst.Ops.pexpr e_test
               PrintAst.Ops.pexpr e_incr
       in
-      let binding = b.node.name, translate_type b.typ in
+      let binding: MiniRust.binding = { name = b.node.name; typ = translate_type b.typ; mut = false } in
       let e_start = translate_expr env e_start in
       let e_end = translate_expr env e_end in
       let e_body = translate_expr (push env binding) e_body in
@@ -318,12 +318,16 @@ let translate_decl env (d: Ast.decl) =
   | Ast.DFunction (_cc, _flags, _n, t, lid, args, body) ->
       if Options.debug "rs" then
         KPrint.bprintf "Ast.DFunction (%a)\n" PrintAst.Ops.plid lid;
-      let parameters = List.map (fun b -> b.Ast.node.Ast.name, translate_type b.typ) args in
+      let parameters = List.map (fun (b: Ast.binder) ->
+        let typ = translate_type b.typ in
+        let mut = false in
+        { MiniRust.mut; name = b.Ast.node.Ast.name; typ }
+      ) args in
       let env0 = List.fold_left push env parameters in
       let body = translate_expr env0 body in
       let return_type = translate_type t in
       let name = translate_lid env lid in
-      let env = push_global env lid (name, Function (snd (List.split parameters), return_type)) in
+      let env = push_global env lid (name, Function (List.map (fun x -> x.MiniRust.typ) parameters, return_type)) in
       Some (env, MiniRust.Function { parameters; return_type; body; name })
   | Ast.DGlobal (_, lid, _, t, e) ->
       let body, typ = match e.node with

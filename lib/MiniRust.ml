@@ -27,7 +27,7 @@ let usize = Constant SizeT
 type db_index = int
 [@@deriving show]
 
-type binding = string * typ
+type binding = { name: string; typ: typ; mut: bool }
 [@@deriving show]
 
 (* Top-level declarations *)
