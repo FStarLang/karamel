@@ -62,7 +62,7 @@ let rec print_typ (t: typ): document =
       print_typ t
 
 let print_binding (x, t) =
-  string x ^^ colon ^/^ print_typ t
+  group (string x ^^ colon ^/^ print_typ t)
 
 let rec print_block env (e: expr): document =
   if is_block_expression e then
@@ -166,7 +166,7 @@ and print_expr env (context: int) (e: expr): document =
   | Borrow (k, e) ->
       let mine = 6 in
       paren_if mine @@
-      group (ampersand ^^ print_borrow_kind k ^/^ print_expr env mine e)
+      group (ampersand ^^ print_borrow_kind k ^^ print_expr env mine e)
   | Constant c ->
       print_constant c
   | Let _ ->
@@ -191,11 +191,11 @@ and print_expr env (context: int) (e: expr): document =
       group (string "panic!" ^^ parens_with_nesting (string msg))
   | IfThenElse (e1, e2, e3) ->
       group @@
-      string "if" ^/^ print_expr env max_int e1 ^/^
-      braces_with_nesting (print_block env e2) ^^
+      group (string "if" ^/^ print_expr env max_int e1) ^/^
+      print_block env e2 ^^
       begin match e3 with
       | Some e3 ->
-          break1 ^^ string "else" ^/^ braces_with_nesting (print_block env e3)
+          break1 ^^ string "else" ^/^ print_block env e3
       | None ->
           empty
       end
@@ -213,7 +213,8 @@ and print_expr env (context: int) (e: expr): document =
   | For (b, e1, e2) ->
       let env = push env (`Named (fst b)) in
       group @@
-      group (string "for" ^/^ print_binding b ^/^ string "in" ^/^ print_expr env max_int e1) ^/^
+      (* Note: specifying the type of a pattern isn't supported, per rustc *)
+      group (string "for" ^/^ string (fst b) ^/^ string "in" ^/^ print_expr env max_int e1) ^/^
       print_block env e2
   | While (e1, e2) ->
       group @@
@@ -258,7 +259,7 @@ and print_array_expr env (e: array_expr) =
       brackets (nest 2 (separate_map (comma ^^ break1) (print_expr env max_int) es))
   | Repeat (e, n) ->
       group @@
-      print_expr env max_int e ^^ semi ^/^ print_expr env max_int n
+      group (brackets (nest 2 (print_expr env max_int e ^^ semi ^/^ print_expr env max_int n)))
 
 let arrow = string "->"
 
@@ -275,4 +276,4 @@ let print_decl ns (d: decl) =
   | Constant { name; typ; body } ->
       group @@
       group (string "const" ^/^ print_name env name ^^ colon ^/^ print_typ typ ^/^ equals) ^^
-      nest 2 (break1 ^^ print_expr env max_int body)
+      nest 2 (break1 ^^ print_expr env max_int body) ^^ semi

@@ -416,6 +416,9 @@ let assert_tlid t =
 let assert_tbuf t =
   match t with TBuf (t, _) -> t | t -> Warn.fatal_error "Not a buffer: %a" ptyp t
 
+let assert_tint t =
+  match t with TInt w -> w | t -> Warn.fatal_error "Not an int: %a" ptyp t
+
 let assert_tarray t =
   match t with TArray (t, _) -> t | t -> Warn.fatal_error "Not an array: %a" ptyp t
 
