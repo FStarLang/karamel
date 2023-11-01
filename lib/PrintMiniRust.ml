@@ -54,7 +54,7 @@ let rec print_typ (t: typ): document =
   | Ref (k, t) -> group (ampersand ^^ print_borrow_kind k ^^ print_typ t)
   | Vec t -> group (string "Vec" ^^ angles (print_typ t))
   | Array (t, n) -> group (brackets (print_typ t ^^ semi ^/^ int n))
-  | Slice t -> group (ampersand ^^ brackets (print_typ t))
+  | Slice t -> group (brackets (print_typ t))
   | Unit -> parens empty
   | Function (ts, t) ->
       group @@
@@ -268,9 +268,9 @@ let print_decl ns (d: decl) =
   | Function { name; parameters; return_type; body } ->
       let env = List.fold_left (fun env (x, _) -> push env (`Named x)) env parameters in
       group @@
-      group (string "fn" ^/^ print_name env name ^^
-        parens_with_nesting (separate_map (comma ^^ break1) print_binding parameters) ^/^
-        arrow ^/^ print_typ return_type) ^/^
+      group (group (string "fn" ^/^ print_name env name) ^^
+        parens_with_nesting (separate_map (comma ^^ break1) print_binding parameters) ^^
+        space ^^ arrow ^^ (nest 2 (break1 ^^ print_typ return_type))) ^/^
       print_block env body
   | Constant { name; typ; body } ->
       group @@

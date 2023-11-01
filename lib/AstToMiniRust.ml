@@ -59,8 +59,28 @@ let translate_lid (m, n) = m @ [ n ]
 
 module H = struct
 
-  let plus e1 e2: MiniRust.expr = Call (Operator Add, [ e1; e2 ])
-  let range_with_len start len: MiniRust.expr = Range (Some start, Some (plus start len), false)
+  let plus e1 e2: MiniRust.expr =
+    Call (Operator Add, [ e1; e2 ])
+
+  let range_with_len start len: MiniRust.expr =
+    Range (Some start, Some (plus start len), false)
+
+  let wrapping_operator_opt = function
+    | Constant.Add -> Some "wrapping_add"
+    | Div -> Some "wrapping_div"
+    | Mult -> Some "wrapping_mul"
+    | Neg -> Some "wrapping_neg"
+    | Mod -> Some "wrapping_rem"
+    | BShiftL -> Some "wrapping_shl"
+    | BShiftR -> Some "wrapping_shr"
+    | Sub -> Some "wrapping_sub"
+    | _ -> None
+
+  let wrapping_operator o =
+    Option.must (wrapping_operator_opt o)
+
+  let is_wrapping_operator o =
+    wrapping_operator_opt o <> None
 
 end
 
@@ -147,6 +167,9 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       Panic (Stdlib.Option.value ~default:"" s)
   | EIgnore _ ->
       failwith "unexpected: EIgnore"
+  | EApp ({ node = EOp (o, _); _ }, es) when H.is_wrapping_operator o ->
+      let es = List.map (translate_expr env) es in
+      MethodCall (List.hd es, [ H.wrapping_operator o ], List.tl es)
   | EApp (e, es) ->
       Call (translate_expr env e, List.map (translate_expr env) es)
   | ETApp _ ->
@@ -183,7 +206,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       Place (translate_place env e)
   | EBufWrite (e1, e2, e3) ->
       let e1 = translate_expr env e1 in
-      let e2 = translate_expr env e2 in
+      let e2 = translate_expr_with_type env e2 (Constant SizeT) in
       let e3 = translate_expr env e3 in
       Assign (Index (e1, e2), e3)
   | EBufSub (e1, e2) ->
@@ -271,7 +294,7 @@ and translate_place env (e: Ast.expr): MiniRust.place =
       Var v
   | EBufRead (e1, e2) ->
       let e1 = translate_expr env e1 in
-      let e2 = translate_expr env e2 in
+      let e2 = translate_expr_with_type env e2 (Constant SizeT) in
       Index (e1, e2)
   | _ ->
       Warn.fatal_error "unexpected: not a place: %a" PrintAst.Ops.pexpr e
