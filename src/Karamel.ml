@@ -740,6 +740,16 @@ Supported options:|}
     OutputJs.write_all !js_files modules !arg_print_wasm layouts
 
   else if Options.rust () then
+    let files = Simplify.sequence_to_let#visit_files () files in
+    let files = Ast.(
+      object
+        inherit [_] map
+        method visit_EPushFrame _ = EUnit
+        method visit_EPopFrame _ = EUnit
+      end
+    )#visit_files () files in
+    if Options.debug "rs" then
+      print PrintAst.print_files files;
     let files = AstToMiniRust.translate_files files in
     OutputRust.write_all files
 

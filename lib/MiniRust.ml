@@ -1,6 +1,7 @@
 (* A minimalistic representation of Rust *)
 
 type borrow_kind = Mut | Shared
+[@@deriving show]
 
 type typ =
   | Constant of Constant.width (* excludes cint, ptrdifft *)
@@ -10,6 +11,7 @@ type typ =
   | Slice of typ (* always appears underneath Ref *)
   | Unit
   | Function of typ list * typ
+[@@deriving show]
 
 let bool = Constant Bool
 let u32 = Constant UInt32
@@ -23,15 +25,19 @@ let usize = Constant SizeT
      regard. We'll do "the right thing" once we go to a concrete Rust syntax
      tree prior to pretty-printing. *)
 type db_index = int
+[@@deriving show]
 
 type binding = string * typ
+[@@deriving show]
 
 (* Top-level declarations *)
 type name = string list
+[@@deriving show]
 
 type array_expr =
   | List of expr list
   | Repeat of expr * expr (* [ e; n ] *)
+[@@deriving show]
 
 and expr =
   | Operator of Constant.op
@@ -51,12 +57,14 @@ and expr =
   | As of expr * typ
   | Place of place
       (** Injection of lvalues ("places") into rvalues ("expressions") *)
-  | For of binding * expr
+  | For of binding * expr * expr
   | While of expr * expr
+  | MethodCall of expr * name * expr list
+  | Range of expr option * expr option * bool (* inclusive? *)
 
 and place =
   | Var of db_index
-  | Index of place * expr
+  | Index of expr * expr
 
 type decl =
   | Function of {
@@ -64,4 +72,9 @@ type decl =
     parameters: binding list;
     return_type: typ;
     body: expr
+  }
+  | Constant of {
+    name: name;
+    typ: typ;
+    body: expr;
   }
