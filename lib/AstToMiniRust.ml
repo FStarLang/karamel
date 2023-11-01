@@ -66,7 +66,7 @@ let translate_lid env lid =
   env.prefix @ [ snd lid ]
 
 let translate_unknown_lid (m, n) =
-  List.map String.lowercase_ascii m @ [ n ]
+  "" :: List.map String.lowercase_ascii m @ [ n ]
 
 (* Helpers *)
 
