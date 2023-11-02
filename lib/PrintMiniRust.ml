@@ -205,7 +205,7 @@ and print_expr env (context: int) (e: expr): document =
   | Assign (e1, e2) ->
       let mine, left, right = 18, 17, 18 in
       paren_if mine @@
-      group (print_place env left e1 ^^ equals ^^
+      group (print_place env left e1 ^^ space ^^ equals ^^
         (nest 2 (break1 ^^ print_expr env right e2)))
   | As (e1, e2) ->
       let mine = 7 in

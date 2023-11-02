@@ -676,6 +676,7 @@ Supported options:|}
   let ifdefs = AstToCStar.mk_ifdefs_set files in
   let macros = AstToCStar.mk_macros_set files in
 
+  let files = if Options.rust () then SimplifyRust.simplify files else files in
   let files = Simplify.simplify2 ifdefs files in
   let files = Inlining.mark_possibly_unused ifdefs files in
   let files = if Options.(!merge_variables <> No) then SimplifyMerge.simplify files else files in
@@ -741,18 +742,10 @@ Supported options:|}
 
   else if Options.rust () then
     let files = Simplify.sequence_to_let#visit_files () files in
-    let files = Ast.(
-      object
-        inherit [_] map
-        method visit_EPushFrame _ = EUnit
-        method visit_EPopFrame _ = EUnit
-      end
-    )#visit_files () files in
     if Options.debug "rs" then
       print PrintAst.print_files files;
     let files = AstToMiniRust.translate_files files in
     OutputRust.write_all files
-
 
   else
     let () = () in
