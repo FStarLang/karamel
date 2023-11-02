@@ -44,6 +44,7 @@ let static_header: Bundle.pat list ref = ref []
 let minimal = ref false
 let by_ref: (string list * string) list ref = ref []
 let ctypes: Bundle.pat list ref = ref []
+let record_renamings = ref false
 
 (* wasm = true ==> these two are false *)
 let struct_passing = ref true

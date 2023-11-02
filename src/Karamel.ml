@@ -249,6 +249,9 @@ Supported options:|}
       List.iter (prepend Options.hand_written) (Parsers.drop s)),
       "  in conjunction with static-header and library";
     "-extract-uints", Arg.Set Options.extract_uints, ""; (* no doc, intentional *)
+    "-record-renamings", Arg.Set Options.record_renamings, " write a map from \
+      old names to new names in KrmlRenamings.h, useful if you're a library and \
+      don't want to impose clients to follow all of your usages of rename-prefix";
     "-header", Arg.Set_string Options.header, " prepend the contents of the given \
       file at the beginning of each .c and .h";
     "-tmpdir", Arg.Set_string Options.tmpdir, " temporary directory for .out, \
@@ -769,7 +772,11 @@ Supported options:|}
     let h_output = Output.write_h headers public_headers deps in
     GenCtypes.write_bindings ml_files;
     GenCtypes.write_gen_module ~public:public_headers ~internal:internal_headers ml_files;
-    if not !arg_skip_makefiles then Output.write_makefile user_ccopts !c_files c_output h_output;
+    if not !arg_skip_makefiles then
+      Output.write_makefile user_ccopts !c_files c_output h_output;
+    if !Options.record_renamings then
+      Output.write_renamings c_name_map;
+
     tick_print true "PrettyPrinting";
 
     if not !Options.silent then begin

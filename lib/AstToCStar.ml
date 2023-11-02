@@ -975,7 +975,7 @@ and mk_files files m ifdefs macros =
 let mk_macros_set files =
   let seen = Hashtbl.create 31 in
   let record x =
-    let t = String.uppercase_ascii GlobalNames.(target_c_name ~attempt_shortening:false ~kind:Macro x) in
+    let t = fst GlobalNames.(target_c_name ~attempt_shortening:false ~kind:Macro x) in
     if Hashtbl.mem seen t then
       Warn.(maybe_fatal_error ("", ConflictMacro (x, t)));
     Hashtbl.add seen t ()

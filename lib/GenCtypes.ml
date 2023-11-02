@@ -351,7 +351,7 @@ type t =
  * OCaml declarations. *)
 let mk_ocaml_bindings
   (files : (ident * decl list) list)
-  (m: (A.lident, A.ident) Hashtbl.t)
+  (m: GlobalNames.mapping)
   (file_of: A.lident -> string option):
   (string * string list * structure_item list) list
 =
