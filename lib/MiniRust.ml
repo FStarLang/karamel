@@ -3,6 +3,9 @@
 type borrow_kind = Mut | Shared
 [@@deriving show]
 
+type name = string list
+[@@deriving show]
+
 type typ =
   | Constant of Constant.width (* excludes cint, ptrdifft *)
   | Ref of borrow_kind * typ
@@ -11,6 +14,7 @@ type typ =
   | Slice of typ (* always appears underneath Ref *)
   | Unit
   | Function of typ list * typ
+  | Name of name
 [@@deriving show]
 
 let bool = Constant Bool
@@ -31,8 +35,6 @@ type binding = { name: string; typ: typ; mut: bool }
 [@@deriving show]
 
 (* Top-level declarations *)
-type name = string list
-[@@deriving show]
 
 type array_expr =
   | List of expr list

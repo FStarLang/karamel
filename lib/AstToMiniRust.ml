@@ -3,41 +3,16 @@
 module LidMap = Idents.LidMap
 
 
-(* Types *)
-
-let borrow_kind_of_bool b: MiniRust.borrow_kind =
-  if b (* const *) then
-    Shared
-  else
-    Mut
-
-let rec translate_type (t: Ast.typ): MiniRust.typ =
-  match t with
-  | TInt w -> Constant w
-  | TBool -> Constant Bool
-  | TUnit -> Unit
-  | TAny -> failwith "unexpected: no casts in Low* -> Rust"
-  | TBuf (t, b) -> Ref (borrow_kind_of_bool b, Slice (translate_type t))
-  | TArray (t, c) -> Array (translate_type t, int_of_string (snd c))
-  | TQualified _ -> failwith "TODO: TQualified"
-  | TArrow _ ->
-      let t, ts = Helpers.flatten_arrow t in
-      Function (List.map translate_type ts, translate_type t)
-  | TApp _ -> failwith "TODO: TApp"
-  | TBound _ -> failwith "TODO: TBound"
-  | TTuple _ -> failwith "TODO: TTuple"
-  | TAnonymous _ -> failwith "unexpected: we don't compile data types going to Rust"
-
-
 (* Environments *)
 
 type env = {
   decls: (MiniRust.name * MiniRust.typ) LidMap.t;
+  types: MiniRust.name LidMap.t;
   vars: MiniRust.binding list;
   prefix: string list;
 }
 
-let empty = { decls = LidMap.empty; vars = []; prefix = [] }
+let empty = { decls = LidMap.empty; types = LidMap.empty; vars = []; prefix = [] }
 
 let push env b = { env with vars = b :: env.vars }
 
@@ -47,8 +22,45 @@ let push_global env name t =
 
 let lookup env v = List.nth env.vars v
 
-let lookup_global env name =
+let lookup_decl env name =
   LidMap.find name env.decls
+
+let lookup_type env name =
+  LidMap.find name env.types
+
+
+(* Types *)
+
+let translate_unknown_lid (m, n) =
+  "" :: List.map String.lowercase_ascii m @ [ n ]
+
+let borrow_kind_of_bool b: MiniRust.borrow_kind =
+  if b (* const *) then
+    Shared
+  else
+    Mut
+
+let rec translate_type (env: env) (t: Ast.typ): MiniRust.typ =
+  match t with
+  | TInt w -> Constant w
+  | TBool -> Constant Bool
+  | TUnit -> Unit
+  | TAny -> failwith "unexpected: no casts in Low* -> Rust"
+  | TBuf (t, b) -> Ref (borrow_kind_of_bool b, Slice (translate_type env t))
+  | TArray (t, c) -> Array (translate_type env t, int_of_string (snd c))
+  | TQualified lid ->
+      begin try
+        Name (lookup_type env lid)
+      with Not_found ->
+        Name (translate_unknown_lid lid)
+      end
+  | TArrow _ ->
+      let t, ts = Helpers.flatten_arrow t in
+      Function (List.map (translate_type env) ts, translate_type env t)
+  | TApp _ -> failwith "TODO: TApp"
+  | TBound _ -> failwith "TODO: TBound"
+  | TTuple _ -> failwith "TODO: TTuple"
+  | TAnonymous _ -> failwith "unexpected: we don't compile data types going to Rust"
 
 
 (* Expressions *)
@@ -64,9 +76,6 @@ let lookup_global env name =
    This leaves a lot of room for a better strategy, but this can happen later. *)
 let translate_lid env lid =
   env.prefix @ [ snd lid ]
-
-let translate_unknown_lid (m, n) =
-  "" :: List.map String.lowercase_ascii m @ [ n ]
 
 (* Helpers *)
 
@@ -100,7 +109,7 @@ end
 (* Translate an expression, and take the annotated original type to be the
    expected type. *)
 let rec translate_expr (env: env) (e: Ast.expr): MiniRust.expr =
-  translate_expr_with_type env e (translate_type e.typ)
+  translate_expr_with_type env e (translate_type env e.typ)
 
 and translate_array (env: env) is_toplevel (init: Ast.expr): MiniRust.expr * MiniRust.typ =
   let to_array = function
@@ -111,7 +120,7 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): MiniRust.expr * Min
 
   match init.node with
   | EBufCreate (lifetime, e_init, ({ node = EConstant (_, s); _ } as len)) ->
-      let t = translate_type (Helpers.assert_tbuf_or_tarray init.typ) in
+      let t = translate_type env (Helpers.assert_tbuf_or_tarray init.typ) in
       let l = int_of_string s in
       let len = translate_expr_with_type env len (Constant SizeT) in
       let e_init = MiniRust.Repeat (translate_expr env e_init, len) in
@@ -120,7 +129,7 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): MiniRust.expr * Min
       else
         VecNew e_init, Vec t
   | EBufCreateL (lifetime, es) ->
-      let t = translate_type (Helpers.assert_tbuf_or_tarray init.typ) in
+      let t = translate_type env (Helpers.assert_tbuf_or_tarray init.typ) in
       let l = List.length es in
       let e_init = MiniRust.List (List.map (translate_expr env) es) in
       if to_array lifetime then
@@ -143,7 +152,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
         if t = t_ret then
           x
         else
-          Warn.fatal_error "type mismatch;\n  t=%s\n  t_ret=%s\n  x=%s"
+          Warn.fatal_error "type mismatch;\n  e=%a\n  t=%s\n  t_ret=%s\n  x=%s"
+            PrintAst.Ops.pexpr e
             (MiniRust.show_typ t) (MiniRust.show_typ t_ret)
             (MiniRust.show_expr x)
     end
@@ -159,7 +169,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       Operator o
   | EQualified lid ->
       begin try
-        let name, t = lookup_global env lid in
+        let name, t = lookup_decl env lid in
         possibly_convert (Name name) t
       with Not_found ->
         (* External -- TODO: make sure external definitions are properly added
@@ -197,7 +207,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       Let (binding, e1, translate_expr_with_type env e2 t_ret)
   | ELet (b, e1, e2) ->
       let e1 = translate_expr env e1 in
-      let t = translate_type b.typ in
+      let t = translate_type env b.typ in
       let binding : MiniRust.binding = { name = b.node.name; typ = t; mut = false } in
       let env = push env binding in
       Let (binding, e1, translate_expr_with_type env e2 t_ret)
@@ -276,19 +286,21 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
   | EWhile _ ->
       failwith "TODO: EWhile"
   | EFor (b, e_start, e_test, e_incr, e_body) ->
+      (* b is in scope for e_test, e_incr, e_body! *)
       let e_end = match e_test.node, e_incr.node with
         | EApp ({ node = EOp (Lt, _); _ }, [ { node = EBound 0; _ }; e_end ]),
           EAssign ({ node = EBound 0; _ },
           { node = EApp ({ node = EOp ((Add | AddW), _); _ }, [
             { node = EBound 0; _ };
             { node = EConstant (_, "1"); _ } ]); _ }) ->
-              e_end
+              (* Assuming that b does not occur in e_end *)
+              DeBruijn.subst Helpers.eunit 0 e_end
         | _ ->
             Warn.fatal_error "Unsupported loop:\n e_test=%a\n e_incr=%a\n"
               PrintAst.Ops.pexpr e_test
               PrintAst.Ops.pexpr e_incr
       in
-      let binding: MiniRust.binding = { name = b.node.name; typ = translate_type b.typ; mut = false } in
+      let binding: MiniRust.binding = { name = b.node.name; typ = translate_type env b.typ; mut = false } in
       let e_start = translate_expr env e_start in
       let e_end = translate_expr env e_end in
       let e_body = translate_expr (push env binding) e_body in
@@ -319,13 +331,13 @@ let translate_decl env (d: Ast.decl) =
       if Options.debug "rs" then
         KPrint.bprintf "Ast.DFunction (%a)\n" PrintAst.Ops.plid lid;
       let parameters = List.map (fun (b: Ast.binder) ->
-        let typ = translate_type b.typ in
+        let typ = translate_type env b.typ in
         let mut = false in
         { MiniRust.mut; name = b.Ast.node.Ast.name; typ }
       ) args in
       let env0 = List.fold_left push env parameters in
       let body = translate_expr env0 body in
-      let return_type = translate_type t in
+      let return_type = translate_type env t in
       let name = translate_lid env lid in
       let env = push_global env lid (name, Function (List.map (fun x -> x.MiniRust.typ) parameters, return_type)) in
       Some (env, MiniRust.Function { parameters; return_type; body; name })
@@ -335,7 +347,7 @@ let translate_decl env (d: Ast.decl) =
             KPrint.bprintf "array!!!\n";
             translate_array env true e
         | _ ->
-            translate_expr env e, translate_type t
+            translate_expr env e, translate_type env t
       in
       if Options.debug "rs" then
         KPrint.bprintf "Ast.DGlobal (%a: %s)\n" PrintAst.Ops.plid lid (MiniRust.show_typ typ);
@@ -349,9 +361,25 @@ let translate_decl env (d: Ast.decl) =
       KPrint.bprintf "TODO: Ast.DType (%a)\n" PrintAst.Ops.plid name;
       None
 
+let identify_path_components filename =
+  let components = ref [] in
+  let is_uppercase c = 'A' <= c && c <= 'Z' in
+  let start = ref 0 in
+  for i = 0 to String.length filename - 2 do
+    if filename.[i] = '_' && is_uppercase filename.[i+1] then begin
+      components := String.sub filename !start (i - !start) :: !components;
+      start := i + 1
+    end
+  done;
+  if !start <> String.length filename - 1 then
+    components := String.sub filename !start (String.length filename - !start) :: !components;
+  List.rev !components
+
 let translate_files files =
   let _, files = List.fold_left (fun (env, files) (f, decls) ->
-    let prefix = String.split_on_char '_' (String.lowercase_ascii f) in
+    let prefix = List.map String.lowercase_ascii (identify_path_components f) in
+    if Options.debug "rs" then
+      KPrint.bprintf "Translating file %s\n" (String.concat "::" prefix);
     let env = { env with prefix } in
     let env, decls = List.fold_left (fun (env, decls) d ->
       match translate_decl env d with

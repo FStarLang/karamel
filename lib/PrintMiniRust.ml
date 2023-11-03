@@ -25,6 +25,15 @@ let print env =
     | `GoneUnit -> "–"
   ) env.vars))
 
+let print_name env n =
+  let n =
+    if List.length n > List.length env.prefix && fst (KList.split (List.length env.prefix) n) = env.prefix then
+      snd (KList.split (List.length env.prefix) n)
+    else
+      n
+  in
+  group (separate_map (colon ^^ colon) string n)
+
 let string_of_width (w: Constant.width) =
   match w with
   | Constant.UInt8 -> "u8"
@@ -48,24 +57,30 @@ let print_borrow_kind k =
 let print_constant (w, s) =
   string s ^^ string (string_of_width w)
 
-let rec print_typ (t: typ): document =
+let rec print_typ env (t: typ): document =
   match t with
   | Constant w -> string (string_of_width w)
-  | Ref (k, t) -> group (ampersand ^^ print_borrow_kind k ^^ print_typ t)
-  | Vec t -> group (string "Vec" ^^ angles (print_typ t))
-  | Array (t, n) -> group (brackets (print_typ t ^^ semi ^/^ int n))
-  | Slice t -> group (brackets (print_typ t))
+  | Ref (k, t) -> group (ampersand ^^ print_borrow_kind k ^^ print_typ env t)
+  | Vec t -> group (string "Vec" ^^ angles (print_typ env t))
+  | Array (t, n) -> group (brackets (print_typ env t ^^ semi ^/^ int n))
+  | Slice t -> group (brackets (print_typ env t))
   | Unit -> parens empty
   | Function (ts, t) ->
       group @@
-      group (parens (separate_map (comma ^^ break1) print_typ ts)) ^/^
-      print_typ t
+      group (parens (separate_map (comma ^^ break1) (print_typ env) ts)) ^/^
+      print_typ env t
+  | Name n ->
+      print_name env n
 
 let print_mut b =
   if b then string "mut" ^^ break1 else empty
 
-let print_binding { mut; name; typ } =
-  group (print_mut mut ^^ string name ^^ colon ^/^ print_typ typ)
+let print_binding env { mut; name; typ } =
+  group (print_mut mut ^^ string name ^^ colon ^/^ print_typ env typ)
+
+let print_op = function
+  | Constant.BNot -> string "!"
+  | op -> print_op op
 
 let rec print_block env (e: expr): document =
   if is_block_expression e then
@@ -80,7 +95,7 @@ and print_statements env (e: expr): document =
       print_statements (push env (`GoneUnit)) e2
   | Let ({ name = x; _ } as b, e1, e2) ->
       group (
-        group (string "let" ^/^ print_binding b ^/^ equals) ^^
+        group (string "let" ^/^ print_binding env b ^/^ equals) ^^
         nest 2 (break 1 ^^ print_expr env max_int e1) ^^ semi) ^^ hardline ^^
       print_statements (push env (`Named x)) e2
   | _ ->
@@ -138,15 +153,6 @@ and prec_of_op1 o =
   | Not | BNot | Neg -> 6
   | _ -> failwith "unexpected: unknown unary operator"
 
-
-and print_name env n =
-  let n =
-    if List.length n > List.length env.prefix && fst (KList.split (List.length env.prefix) n) = env.prefix then
-      snd (KList.split (List.length env.prefix) n)
-    else
-      n
-  in
-  group (separate_map (colon ^^ colon) string n)
 
 and print_expr env (context: int) (e: expr): document =
   (* If the current expressions precedence level exceeds that of the context, it
@@ -210,7 +216,7 @@ and print_expr env (context: int) (e: expr): document =
   | As (e1, e2) ->
       let mine = 7 in
       paren_if mine @@
-      group (print_expr env mine e1 ^/^ string "as" ^/^ print_typ e2)
+      group (print_expr env mine e1 ^/^ string "as" ^/^ print_typ env e2)
   | Place p ->
       print_place env context p
   | For (b, e1, e2) ->
@@ -273,10 +279,10 @@ let print_decl ns (d: decl) =
       let env = List.fold_left (fun env (b: binding) -> push env (`Named b.name)) env parameters in
       group @@
       group (group (string "fn" ^/^ print_name env name) ^^
-        parens_with_nesting (separate_map (comma ^^ break1) print_binding parameters) ^^
-        space ^^ arrow ^^ (nest 2 (break1 ^^ print_typ return_type))) ^/^
+        parens_with_nesting (separate_map (comma ^^ break1) (print_binding env) parameters) ^^
+        space ^^ arrow ^^ (nest 2 (break1 ^^ print_typ env return_type))) ^/^
       print_block env body
   | Constant { name; typ; body } ->
       group @@
-      group (string "const" ^/^ print_name env name ^^ colon ^/^ print_typ typ ^/^ equals) ^^
+      group (string "const" ^/^ print_name env name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
       nest 2 (break1 ^^ print_expr env max_int body) ^^ semi
