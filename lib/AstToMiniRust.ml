@@ -2,19 +2,114 @@
 
 module LidMap = Idents.LidMap
 
+(* Rust's ownership system forbids raw pointer manipulations, meaning that Low*'s "EBufSub"
+   operation cannot be compiled as a pointer addition. Instead, we choose to compile it as
+   `split_at_mut`, a compilation scheme that entails several limitations.
+   - Since the length information is not available to us (it's erased by the time we get here), we
+     split on the offset and retain that information. Consider the following sample program, which
+     sub-divides an array of length 12 into three equal parts -- a typical usage in Low*.
+     ```
+     let x0 = x + 0
+     let x1 = x + 8
+     let x2 = x + 4
+     ```
+     we the first line as:
+     ```
+     let xr0 = x.split_at_mut(0) and retains x is split at [ 0 ] in the environment
+     ```
+     then, any subsequent *usage* of x0 will compile to a usage of xr0... notably:
+     ```
+     let xr1 = xr0.1.split_at_mut(8)
+     ```
+     knowing that x is *already* split, we know that indices 8 and above are to be found in the
+     right component of xr0 (which holds the range 0..)
+
+     we continue with the third split
+     ```
+     let xr2 = xr0.1.0.split_at_mut(4)
+     ```
+
+     eventually, the splits for x form a tree:
+
+              0
+               \
+               8
+             /
+            4
+
+     a reference to x compiles to xr.1 followed by as many 0's as possible (based on the split info)
+
+  - This compilation scheme obviously does not work if the original program does something like:
+    ```
+    let x0 = x + 4
+    x[4] = ...
+    ```
+    this will throw a runtime exception in Rust -- in a sense, our compilation scheme is optimistic
+
+  - This compilation scheme obviously only works well when indices are static -- instead of
+    constants for the split indices, one could have a slightly broader language of expressions,
+    which make this compilation scheme a tad bit better.
+
+  - In case this does not work, the programmer can always modify the original Low* code.
+*)
+
+module Splits = struct
+  type index = int
+  let gte = (>=)
+
+  type indices = index list
+
+  type path_elem = Left | Right
+  type path = path_elem list
+
+  type info = {
+    indices: indices;
+      (* This variable (originally a "buffer") has been successively split at those indices *)
+    splits: (MiniRust.db_index * path) option;
+      (* This variable "splits" db_index after path consecutive splits *)
+  }
+
+  let empty = { indices = []; splits = None }
+
+  (* The variable with `info` is being split at `index` *)
+  let record info index =
+    { info with indices = info.indices @ [ index ] }
+
+  (* The caller is trying to compile a reference to a variable whose source is (info, path) --
+     essentially, the source field of the reference after doing an environment lookup. *)
+  let reference info path =
+    path @ List.init (List.length info.indices - List.length path) (fun _ -> Left)
+
+  (* Find the variable to be split. Used when compiling a fresh split. *)
+  let compute_path indices index =
+    let rec compute_path indices index path =
+      match indices with
+      | [] -> index, List.rev path
+      | i :: indices ->
+          if gte index i then
+            (* The index we're looking for is in the right-hand side of the slice *)
+            compute_path indices (index - i) (Right :: path)
+          else
+            compute_path indices index (Left :: path)
+    in
+    compute_path indices index []
+end
+
 
 (* Environments *)
 
 type env = {
   decls: (MiniRust.name * MiniRust.typ) LidMap.t;
   types: MiniRust.name LidMap.t;
-  vars: MiniRust.binding list;
+  vars: (MiniRust.binding * Splits.info) list;
   prefix: string list;
 }
 
 let empty = { decls = LidMap.empty; types = LidMap.empty; vars = []; prefix = [] }
 
-let push env b = { env with vars = b :: env.vars }
+let push env b = { env with vars = (b, Splits.empty) :: env.vars }
+
+let push_with_info env b = { env with vars = b :: env.vars }
 
 let push_global env name t =
   assert (not (LidMap.mem name env.decls));
@@ -106,6 +201,25 @@ module H = struct
 
 end
 
+let find_path (env: env) (v_base: MiniRust.db_index) (path: Splits.path): MiniRust.expr =
+  if path = [] then
+    Place (Var v_base)
+  else
+    let path, path_elem = KList.split_at_last path in
+    let rec find ofs bs =
+      match bs with
+      | (_, info) :: bs ->
+          if info.Splits.splits = Some (v_base - ofs, path) then
+            MiniRust.Place (Var ofs)
+          else
+            find (ofs + 1) bs
+      | [] ->
+          failwith "unexpected: path not found"
+    in
+    match path_elem with
+    | Left -> Place (Field (find 0 env.vars, "0"))
+    | Right -> Place (Field (find 0 env.vars, "1"))
+
 (* Translate an expression, and take the annotated original type to be the
    expected type. *)
 let rec translate_expr (env: env) (e: Ast.expr): MiniRust.expr =
@@ -163,8 +277,18 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
   | EOpen _ ->
       failwith "unexpected: EOpen"
   | EBound v ->
-      let t = (lookup env v).typ in
-      possibly_convert (Place (Var v)) t
+      let { MiniRust.typ; _ }, info = lookup env v in
+      let e: MiniRust.expr =
+        match info.splits with
+        | None ->
+            Place (Var v)
+        | Some (v_base, p) ->
+            let _, info_base = lookup env (v + v_base) in
+            let p = Splits.reference info_base p in
+            find_path env (v + v_base) p
+      in
+      possibly_convert e typ
+
   | EOp (o, _) ->
       Operator o
   | EQualified lid ->
@@ -200,6 +324,37 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       failwith "TODO: ETApp"
   | EPolyComp _ ->
       failwith "unexpected: EPolyComp"
+
+  | ELet (b, { node = EBufSub ({ node = EBound v_base; _ }, e_ofs); _ }, e2) ->
+      let index, index_n =
+        match e_ofs.node with
+        | EConstant (_, n) -> int_of_string n, n
+        | _ -> failwith "TODO: non-constant split index"
+      in
+      (* We're splitting a variable x_base. *)
+      let _, info_base = lookup env v_base in
+      (* At the end of `path` is the variable we want to split. *)
+      let index, path = Splits.compute_path info_base.indices index in
+
+      let e_nearest = find_path env v_base path in
+
+      let e1 = MiniRust.MethodCall (e_nearest , ["split_at_mut"], [ Constant (SizeT, index_n) ]) in
+      let t = translate_type env b.typ in
+      let binding : MiniRust.binding * Splits.info =
+        { name = b.node.name; typ = Tuple [ t; t ]; mut = false },
+        { indices = []; splits = Some (v_base, path) }
+      in
+
+      (* Now, update a few things in the environment. *)
+      let env = { env with vars =
+        List.mapi (fun i (b, info) ->
+          b, if i = v_base then Splits.record info index else info
+        ) env.vars
+      } in
+      let env = push_with_info env binding in
+
+      Let (fst binding, e1, translate_expr_with_type env e2 t_ret)
+
   | ELet (b, ({ node = EBufCreate _ | EBufCreateL _; _ } as init), e2) ->
       let e1, t = translate_array env false init in
       let binding: MiniRust.binding = { name = b.node.name; typ = t; mut = true } in
@@ -234,8 +389,9 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       let e3 = translate_expr env e3 in
       Assign (Index (e1, e2), e3)
   | EBufSub (e1, e2) ->
-      (* TODO: static analysis to collect and do something smarter with
-         slice_at_mut *)
+      (* This is a fallback for the analysis above. Happens if, for instance, the pointer arithmetic
+         appears in subexpression position (like, function call), in which case there's a chance
+         this might still work! *)
       let e1 = translate_expr env e1 in
       let e2 = translate_expr_with_type env e2 (Constant SizeT) in
       Borrow (Mut, Place (Index (e1, Range (Some e2, None, false))))

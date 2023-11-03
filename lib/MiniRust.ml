@@ -15,6 +15,7 @@ type typ =
   | Unit
   | Function of typ list * typ
   | Name of name
+  | Tuple of typ list
 [@@deriving show]
 
 let bool = Constant Bool
@@ -67,6 +68,7 @@ and expr =
 and place =
   | Var of db_index
   | Index of expr * expr
+  | Field of expr * string
 
 type decl =
   | Function of {

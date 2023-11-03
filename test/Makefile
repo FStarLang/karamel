@@ -34,7 +34,7 @@ BROKEN		= \
   HigherOrder6.fst ForwardDecl.fst BlitNull.fst \
   Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst \
   AbstractStructAbstract.fst MonomorphizationSeparate1.fst \
-  Layered.fst GlobalInit2.fst
+  Layered.fst GlobalInit2.fst Rust1.fst
 
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
 # special file and doesn't have a main.
@@ -83,14 +83,13 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274
 
-# This just needs F* + KaRaMeL
-all: $(FILES) $(CUSTOM) ctypes-test sepcomp-test
+all: $(FILES) $(RUST_FILES) $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test
 
 # Needs node
 wasm: $(WASM_FILES)
 
 # All of the above
-everything: all wasm
+everything: all
 
 .PRECIOUS: %.krml
 
@@ -299,3 +298,7 @@ WasmTrap.wasm-test: NEGATIVE = true
 
 %.rust-test: $(OUTPUT_DIR)/%.rs
 	rustc $< && ./$*
+
+rust: $(RUST_FILES)
+
+RUST_FILES = $(patsubst %.rs,%.rust-test,$(wildcard Rust*.fst))

@@ -71,6 +71,8 @@ let rec print_typ env (t: typ): document =
       print_typ env t
   | Name n ->
       print_name env n
+  | Tuple ts ->
+      group (parens (separate_map (comma ^^ break1) (print_typ env) ts))
 
 let print_mut b =
   if b then string "mut" ^^ break1 else empty
@@ -260,6 +262,8 @@ and print_place env context p =
       let mine = 4 in
       paren_if mine @@
       print_expr env mine p ^^ group (brackets (print_expr env max_int e))
+  | Field (e, s) ->
+      group (print_expr env max_int e ^^ dot ^^ string s)
 
 and print_array_expr env (e: array_expr) =
   match e with
