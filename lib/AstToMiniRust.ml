@@ -6,38 +6,68 @@ module LidMap = Idents.LidMap
    operation cannot be compiled as a pointer addition. Instead, we choose to compile it as
    `split_at_mut`, a compilation scheme that entails several limitations.
    - Since the length information is not available to us (it's erased by the time we get here), we
-     split on the offset and retain that information. Consider the following sample program, which
-     sub-divides an array of length 12 into three equal parts -- a typical usage in Low*.
+     split on the offset and retain the history of how a given variable was split. Consider the
+     following sample program, which sub-divides an array of length 16 into four equal parts -- a
+     typical usage in Low*.
      ```
      let x0 = x + 0
      let x1 = x + 8
      let x2 = x + 4
+     let x3 = x + 12
      ```
-     we the first line as:
+     we compile the first line as:
      ```
-     let xr0 = x.split_at_mut(0) and retains x is split at [ 0 ] in the environment
+     let xr0 = x.split_at_mut(0)
      ```
-     then, any subsequent *usage* of x0 will compile to a usage of xr0... notably:
+     and retain the following split tree:
+
+              xr0, 0
+
+     at that point, a *usage* of x0 compiles to `xr0.1` (the right component of xr0).
+
+     Then, we compile xr1 as follows:
      ```
      let xr1 = xr0.1.split_at_mut(8)
      ```
-     knowing that x is *already* split, we know that indices 8 and above are to be found in the
-     right component of xr0 (which holds the range 0..)
 
-     we continue with the third split
+     This updates the split tree of x as follows
+
+              xr0, 0
+                  \
+                  xr1, 8
+
+     At that stage, note that a *usage* of x0 compiles to `xr1.0`, while a usage of x1 compiles to
+     `xr1.1`. We continue with the third split
      ```
-     let xr2 = xr0.1.0.split_at_mut(4)
+     let xr2 = xr1.0.split_at_mut(4)
      ```
 
-     eventually, the splits for x form a tree:
+     This updates the split tree of `x`:
 
-              0
+              xr0, 0
                \
-               8
+               xr1, 8
              /
-            4
+            xr2, 4
 
-     a reference to x compiles to xr.1 followed by as many 0's as possible (based on the split info)
+    At that stage, x0 compiles to xr2.0, x1 compiles to xr1.1, and x2 compiles to xr2.1. The final
+    split updates the split tree of x as follows:
+
+              xr0, 0
+               \
+               xr1, 8
+             /      \
+            xr2, 4  xr3, 12
+
+  - In order to avoid keeping downwards pointers in the environment from the split tree of `x` down
+    to the various xri, the split tree contains only indices, and each one of the xri remembers its
+    own position in the tree in the form of a `path`.
+
+  - In order to compute a usage of xri, it suffices to:
+    - Lookup xri's path in the tree
+    - Find the nearest variable whose path is of the form path(xri) ++ (r ++ l* )? -- i.e. the path
+      of xri, followed by a right component, followed by a series of left components.
+    - Select the right or left component of that variable, according to the search path above.
 
   - This compilation scheme obviously does not work if the original program does something like:
     ```
@@ -59,40 +89,69 @@ module Splits = struct
 
   let gte = (>=)
 
-  type indices = index list
+  (* A binary search tree that records the splits that have occured *)
+  type tree =
+    | Node of index * tree * tree
+    | Leaf
     [@@deriving show]
 
   type path_elem = Left | Right
     [@@deriving show]
+
+  let string_of_path_elem = function
+    | Left -> "0"
+    | Right -> "1"
+
+  (* A path from the root into a node of the tree *)
   type path = path_elem list
     [@@deriving show]
 
   type info = {
-    indices: indices;
+    tree: tree;
       (* This variable (originally a "buffer") has been successively split at those indices *)
-    splits: (MiniRust.db_index * path) option;
+    path: (MiniRust.db_index * path) option;
       (* This variable "splits" db_index after path consecutive splits *)
   }
 
-  let empty = { indices = []; splits = None }
+  let empty = { tree = Leaf; path = None }
 
   (* The variable with `info` is being split at `index` *)
-  let record info index =
-    { info with indices = info.indices @ [ index ] }
-
-  (* Find the variable to be split. Used when compiling a fresh split. *)
-  let compute_path indices index =
-    let rec compute_path indices index path =
-      match indices with
-      | [] -> index, List.rev path
-      | i :: indices ->
-          if gte index i then
-            (* The index we're looking for is in the right-hand side of the slice *)
-            compute_path indices (index - i) (Right :: path)
+  let split info index =
+    let rec split tree index =
+      match tree with
+      | Leaf ->
+          Node (index, Leaf, Leaf), []
+      | Node (index', t1, t2) ->
+          if gte index index' then
+            let t2, path = split t2 index in
+            Node (index', t1, t2), Right :: path
           else
-            compute_path indices index (Left :: path)
+            let t1, path = split t1 index in
+            Node (index', t1, t2), Left :: path
     in
-    compute_path indices index []
+    let tree, path = split info.tree index in
+    { info with tree }, path
+
+  (* We are trying to access a variable whose position in the tree was originally p1 -- however,
+     many more splits may have occurred since this variable was defined. Does p2 provide a way to
+     access p1, and if so, via which side? *)
+  let accessible_via p1 p2: path_elem option =
+    let l1 = List.length p1 in
+    let l2 = List.length p2 in
+    if l2 < l1 then
+      None
+    else
+      let p2_prefix, p2_suffix = KList.split l1 p2 in
+      if p2_prefix <> p1 then
+        None
+      else
+        match p2_suffix with
+        | [] ->
+            Some Right
+        | Right :: p2_suffix when List.for_all ((=) Left) p2_suffix ->
+            Some Left
+        | _ ->
+            None
 end
 
 
@@ -127,10 +186,10 @@ let debug env =
   List.iteri (fun i (b, info) ->
     let open MiniRust in
     let open Splits in
-    KPrint.bprintf "%d\t %s: %s\n  indices = %s\n  splits = %s\n"
+    KPrint.bprintf "%d\t %s: %s\n  tree = %s\n  path = %s\n"
       i b.name (show_typ b.typ)
-      (show_indices info.indices)
-      (match info.splits with
+      (show_tree info.tree)
+      (match info.path with
       | None -> ""
       | Some (v, p) -> KPrint.bsprintf "%d -- %s" v (show_path p))
   ) env.vars
@@ -213,27 +272,30 @@ module H = struct
 
 end
 
-let find_path (env: env) (v_base: MiniRust.db_index) (path: Splits.path): MiniRust.expr =
+(* Trying to compile a *reference* to variable, who originates from a split of `v_base`, and whose
+   original path in the tree is `path`. *)
+let lookup_split (env: env) (v_base: MiniRust.db_index) (path: Splits.path): MiniRust.expr =
   if Options.debug "rs" then
     KPrint.bprintf "looking up from base = %d path %s\n" v_base (Splits.show_path path);
-  let path, path_elem = KList.split_at_last path in
-  if Options.debug "rs" then
-    KPrint.bprintf "non-empty path: %s ++ %s\n" (Splits.show_path path) (Splits.show_path_elem path_elem);
   let rec find ofs bs =
     match bs with
-    | (b, info) :: bs ->
+    | (_, info) :: bs ->
         KPrint.bprintf "looking for %d\n" (v_base - ofs);
-        if info.Splits.splits = Some (v_base - ofs, path) then
-          let _ = KPrint.bprintf "found %s\n" b.MiniRust.name in
-          MiniRust.Place (Var ofs)
-        else
-          find (ofs + 1) bs
+        begin match info.Splits.path with
+        | Some (v_base', path') when v_base' = v_base - ofs ->
+            begin match Splits.accessible_via path path' with
+            | Some pe ->
+                MiniRust.(Place (Field (Place (Var ofs), Splits.string_of_path_elem pe)))
+            | None ->
+                find (ofs + 1) bs
+            end
+        | _ ->
+            find (ofs + 1) bs
+        end
     | [] ->
         failwith "unexpected: path not found"
   in
-  match path_elem with
-  | Left -> Place (Field (find 1 env.vars, "0"))
-  | Right -> Place (Field (find 1 env.vars, "1"))
+  find 0 env.vars
 
 (* Translate an expression, and take the annotated original type to be the
    expected type. *)
@@ -299,12 +361,9 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
 
       let { MiniRust.typ; _ }, info = lookup env v in
       let e: MiniRust.expr =
-        match info.splits with
-        | None ->
-            Place (Var v)
-        | Some (v_base, p) ->
-            KPrint.bprintf "v_base: %d\n" v_base;
-            find_path env (v + v_base) p
+        match info.path with
+        | None -> Place (Var v)
+        | Some (v_base, p) -> lookup_split env v_base p
       in
       possibly_convert e typ
 
@@ -358,21 +417,34 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       (* We're splitting a variable x_base. *)
       let _, info_base = lookup env v_base in
       (* At the end of `path` is the variable we want to split. *)
-      let index, path = Splits.compute_path info_base.indices index in
+      let info_base, path = Splits.split info_base index in
 
-      let e_nearest: MiniRust.expr = if path = [] then Place (Var v_base) else find_path env v_base path in
+      let rec find ofs bs =
+        match bs with
+        | (_, info) :: bs ->
+            KPrint.bprintf "[ELet] looking for %d\n" (v_base - ofs);
+            begin match info.Splits.path with
+            | Some (v_base', path') when v_base' = v_base - ofs && path' = path ->
+                MiniRust.(Place (Var ofs))
+            | _ ->
+                find (ofs + 1) bs
+            end
+        | [] ->
+            failwith "[ELet] unexpected: path not found"
+      in
+      let e_nearest = find 0 env.vars in
 
-      let e1: MiniRust.expr = MethodCall (e_nearest , ["split_at_mut"], [ Constant (SizeT, index_n) ]) in
+      let e1 = MiniRust.MethodCall (e_nearest , ["split_at_mut"], [ Constant (SizeT, index_n) ]) in
       let t = translate_type env b.typ in
       let binding : MiniRust.binding * Splits.info =
         { name = b.node.name; typ = Tuple [ t; t ]; mut = false },
-        { indices = []; splits = Some (v_base, path) }
+        { tree = Leaf; path = Some (v_base, path) }
       in
 
       (* Now, update a few things in the environment. *)
       let env = { env with vars =
         List.mapi (fun i (b, info) ->
-          b, if i = v_base then Splits.record info index else info
+          b, if i = v_base then info_base else info
         ) env.vars
       } in
       let env = push_with_info env binding in
