@@ -384,6 +384,7 @@ module Ops = struct
   let ptyps = printf_of_pprint print_typs
   let pptyp = printf_of_pprint_pretty print_typ
   let pexpr = printf_of_pprint print_expr
+  let pbind = printf_of_pprint print_binder
   let pexprs = printf_of_pprint print_exprs
   let ppexpr = printf_of_pprint_pretty print_expr
   let plid = printf_of_pprint print_lident

@@ -821,7 +821,7 @@ let misc_cosmetic = object (self)
     (* AstToCStar emits BufSub (e, 0) as just e, so we need the value
      * check to be in agreement on both sides. *)
     match e2.node with
-    | EConstant (_, "0") ->
+    | EConstant (_, "0") when not (Options.rust ()) ->
         (self#visit_expr env e1).node
     | _ ->
         EBufSub (self#visit_expr env e1, self#visit_expr env e2)

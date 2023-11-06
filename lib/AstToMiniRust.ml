@@ -55,12 +55,17 @@ module LidMap = Idents.LidMap
 
 module Splits = struct
   type index = int
+    [@@deriving show]
+
   let gte = (>=)
 
   type indices = index list
+    [@@deriving show]
 
   type path_elem = Left | Right
+    [@@deriving show]
   type path = path_elem list
+    [@@deriving show]
 
   type info = {
     indices: indices;
@@ -74,11 +79,6 @@ module Splits = struct
   (* The variable with `info` is being split at `index` *)
   let record info index =
     { info with indices = info.indices @ [ index ] }
-
-  (* The caller is trying to compile a reference to a variable whose source is (info, path) --
-     essentially, the source field of the reference after doing an environment lookup. *)
-  let reference info path =
-    path @ List.init (List.length info.indices - List.length path) (fun _ -> Left)
 
   (* Find the variable to be split. Used when compiling a fresh split. *)
   let compute_path indices index =
@@ -122,6 +122,18 @@ let lookup_decl env name =
 
 let lookup_type env name =
   LidMap.find name env.types
+
+let debug env =
+  List.iteri (fun i (b, info) ->
+    let open MiniRust in
+    let open Splits in
+    KPrint.bprintf "%d\t %s: %s\n  indices = %s\n  splits = %s\n"
+      i b.name (show_typ b.typ)
+      (show_indices info.indices)
+      (match info.splits with
+      | None -> ""
+      | Some (v, p) -> KPrint.bsprintf "%d -- %s" v (show_path p))
+  ) env.vars
 
 
 (* Types *)
@@ -202,23 +214,26 @@ module H = struct
 end
 
 let find_path (env: env) (v_base: MiniRust.db_index) (path: Splits.path): MiniRust.expr =
-  if path = [] then
-    Place (Var v_base)
-  else
-    let path, path_elem = KList.split_at_last path in
-    let rec find ofs bs =
-      match bs with
-      | (_, info) :: bs ->
-          if info.Splits.splits = Some (v_base - ofs, path) then
-            MiniRust.Place (Var ofs)
-          else
-            find (ofs + 1) bs
-      | [] ->
-          failwith "unexpected: path not found"
-    in
-    match path_elem with
-    | Left -> Place (Field (find 0 env.vars, "0"))
-    | Right -> Place (Field (find 0 env.vars, "1"))
+  if Options.debug "rs" then
+    KPrint.bprintf "looking up from base = %d path %s\n" v_base (Splits.show_path path);
+  let path, path_elem = KList.split_at_last path in
+  if Options.debug "rs" then
+    KPrint.bprintf "non-empty path: %s ++ %s\n" (Splits.show_path path) (Splits.show_path_elem path_elem);
+  let rec find ofs bs =
+    match bs with
+    | (b, info) :: bs ->
+        KPrint.bprintf "looking for %d\n" (v_base - ofs);
+        if info.Splits.splits = Some (v_base - ofs, path) then
+          let _ = KPrint.bprintf "found %s\n" b.MiniRust.name in
+          MiniRust.Place (Var ofs)
+        else
+          find (ofs + 1) bs
+    | [] ->
+        failwith "unexpected: path not found"
+  in
+  match path_elem with
+  | Left -> Place (Field (find 1 env.vars, "0"))
+  | Right -> Place (Field (find 1 env.vars, "1"))
 
 (* Translate an expression, and take the annotated original type to be the
    expected type. *)
@@ -277,14 +292,18 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
   | EOpen _ ->
       failwith "unexpected: EOpen"
   | EBound v ->
+      if Options.debug "rs" then begin
+        KPrint.bprintf "Translating: %a\n" PrintAst.Ops.pexpr e;
+        debug env
+      end;
+
       let { MiniRust.typ; _ }, info = lookup env v in
       let e: MiniRust.expr =
         match info.splits with
         | None ->
             Place (Var v)
         | Some (v_base, p) ->
-            let _, info_base = lookup env (v + v_base) in
-            let p = Splits.reference info_base p in
+            KPrint.bprintf "v_base: %d\n" v_base;
             find_path env (v + v_base) p
       in
       possibly_convert e typ
@@ -325,7 +344,12 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
   | EPolyComp _ ->
       failwith "unexpected: EPolyComp"
 
-  | ELet (b, { node = EBufSub ({ node = EBound v_base; _ }, e_ofs); _ }, e2) ->
+  | ELet (b, ({ node = EBufSub ({ node = EBound v_base; _ }, e_ofs); _ } as e1), e2) ->
+      if Options.debug "rs" then begin
+        KPrint.bprintf "Translating: let %a = %a\n" PrintAst.Ops.pbind b PrintAst.Ops.pexpr e1;
+        debug env
+      end;
+
       let index, index_n =
         match e_ofs.node with
         | EConstant (_, n) -> int_of_string n, n
@@ -336,9 +360,9 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       (* At the end of `path` is the variable we want to split. *)
       let index, path = Splits.compute_path info_base.indices index in
 
-      let e_nearest = find_path env v_base path in
+      let e_nearest: MiniRust.expr = if path = [] then Place (Var v_base) else find_path env v_base path in
 
-      let e1 = MiniRust.MethodCall (e_nearest , ["split_at_mut"], [ Constant (SizeT, index_n) ]) in
+      let e1: MiniRust.expr = MethodCall (e_nearest , ["split_at_mut"], [ Constant (SizeT, index_n) ]) in
       let t = translate_type env b.typ in
       let binding : MiniRust.binding * Splits.info =
         { name = b.node.name; typ = Tuple [ t; t ]; mut = false },
