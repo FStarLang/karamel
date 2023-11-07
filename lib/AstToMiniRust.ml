@@ -430,7 +430,11 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
 
       let { MiniRust.typ; _ }, info = lookup env v in
       begin match info.path with
-      | None -> possibly_convert (Var v) typ
+      | None ->
+          if info.tree <> Leaf then
+            lookup_split env v []
+          else
+            possibly_convert (Var v) typ
       | Some (v_base, p) -> lookup_split env (v_base + v + 1) p
       end
 
