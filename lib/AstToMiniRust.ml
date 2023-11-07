@@ -87,7 +87,9 @@ module Splits = struct
   type index = int
     [@@deriving show]
 
-  let gte = (>=)
+  let gte: index -> index -> bool = (>=)
+
+  let sub: index -> index -> index = (-)
 
   (* A binary search tree that records the splits that have occured *)
   type tree =
@@ -117,20 +119,20 @@ module Splits = struct
 
   (* The variable with `info` is being split at `index` *)
   let split info index =
-    let rec split tree index =
+    let rec split tree index ofs =
       match tree with
       | Leaf ->
-          Node (index, Leaf, Leaf), []
+          Node (index, Leaf, Leaf), [], ofs
       | Node (index', t1, t2) ->
           if gte index index' then
-            let t2, path = split t2 index in
-            Node (index', t1, t2), Right :: path
+            let t2, path, ofs = split t2 index (sub index index') in
+            Node (index', t1, t2), Right :: path, ofs
           else
-            let t1, path = split t1 index in
-            Node (index', t1, t2), Left :: path
+            let t1, path, ofs = split t1 index ofs in
+            Node (index', t1, t2), Left :: path, ofs
     in
-    let tree, path = split info.tree index in
-    { info with tree }, path
+    let tree, path, ofs = split info.tree index index in
+    { info with tree }, path, ofs
 
   (* We are trying to access a variable whose position in the tree was originally p1 -- however,
      many more splits may have occurred since this variable was defined. Does p2 provide a way to
@@ -409,15 +411,15 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
         debug env
       end;
 
-      let index, index_n =
+      let index =
         match e_ofs.node with
-        | EConstant (_, n) -> int_of_string n, n
-        | _ -> failwith "TODO: non-constant split index"
+        | EConstant (_, n) -> int_of_string n
+        | _ -> Warn.fatal_error "TODO: non-constant split index: %a" PrintAst.Ops.pexpr e_ofs
       in
       (* We're splitting a variable x_base. *)
       let _, info_base = lookup env v_base in
       (* At the end of `path` is the variable we want to split. *)
-      let info_base, path = Splits.split info_base index in
+      let info_base, path, index = Splits.split info_base index in
 
       let e_nearest =
         if path = [] then
@@ -440,7 +442,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
           MiniRust.(Place (Field (find 0 env.vars, Splits.string_of_path_elem path_elem)))
       in
 
-      let e1 = MiniRust.MethodCall (e_nearest , ["split_at_mut"], [ Constant (SizeT, index_n) ]) in
+      let e1 = MiniRust.MethodCall (e_nearest , ["split_at_mut"], [ Constant (SizeT, string_of_int index) ]) in
       let t = translate_type env b.typ in
       let binding : MiniRust.binding * Splits.info =
         { name = b.node.name; typ = Tuple [ t; t ]; mut = false },
