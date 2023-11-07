@@ -49,6 +49,7 @@ and expr =
   | Name of name
   | Borrow of borrow_kind * expr
   | Constant of Constant.t
+  | ConstantString of string
   | Let of binding * expr * expr
   | Call of expr * expr list
     (** Note that this representation admits empty argument lists -- as opposed

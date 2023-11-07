@@ -244,6 +244,8 @@ and print_expr env (context: int) (e: expr): document =
       let e2 = Option.value ~default:empty (Option.map (print_expr env mine) e2) in
       let inclusive = if inclusive then equals else empty in
       e1 ^^ dot ^^ dot ^^ e2 ^^ inclusive
+  | ConstantString s ->
+      dquotes (string (CStarToC11.escape_string s))
 
 and print_place env context p =
   let paren_if mine doc =

@@ -280,9 +280,9 @@ let lookup_split (env: env) (v_base: MiniRust.db_index) (path: Splits.path): Min
   let rec find ofs bs =
     match bs with
     | (_, info) :: bs ->
-        KPrint.bprintf "looking for %d\n" (v_base - ofs);
+        KPrint.bprintf "looking for %d\n" (v_base - ofs - 1);
         begin match info.Splits.path with
-        | Some (v_base', path') when v_base' = v_base - ofs ->
+        | Some (v_base', path') when v_base' = v_base - ofs - 1 ->
             begin match Splits.accessible_via path path' with
             | Some pe ->
                 MiniRust.(Place (Field (Place (Var ofs), Splits.string_of_path_elem pe)))
@@ -360,12 +360,10 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       end;
 
       let { MiniRust.typ; _ }, info = lookup env v in
-      let e: MiniRust.expr =
-        match info.path with
-        | None -> Place (Var v)
-        | Some (v_base, p) -> lookup_split env v_base p
-      in
-      possibly_convert e typ
+      begin match info.path with
+      | None -> possibly_convert (Place (Var v)) typ
+      | Some (v_base, p) -> lookup_split env (v_base + v + 1) p
+      end
 
   | EOp (o, _) ->
       Operator o
@@ -384,8 +382,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       Unit
   | EBool b ->
       Constant (Bool, string_of_bool b)
-  | EString _ ->
-      failwith "TODO: strings"
+  | EString s ->
+      ConstantString s
   | EAny ->
       failwith "unexpected: no casts in Low* -> Rust"
   | EAbort (_, s) ->
@@ -396,6 +394,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       let w = Helpers.assert_tint (List.hd es).typ in
       let es = List.map (translate_expr env) es in
       possibly_convert (MethodCall (List.hd es, [ H.wrapping_operator o ], List.tl es)) (Constant w)
+  | EApp ({ node = EQualified (["LowStar"; "Printf"], _); _ }, es) ->
+      Call (Name [ "print!" ], ConstantString "{}" :: List.map (translate_expr env) es)
   | EApp (e, es) ->
       Call (translate_expr env e, List.map (translate_expr env) es)
   | ETApp _ ->
@@ -419,20 +419,26 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       (* At the end of `path` is the variable we want to split. *)
       let info_base, path = Splits.split info_base index in
 
-      let rec find ofs bs =
-        match bs with
-        | (_, info) :: bs ->
-            KPrint.bprintf "[ELet] looking for %d\n" (v_base - ofs);
-            begin match info.Splits.path with
-            | Some (v_base', path') when v_base' = v_base - ofs && path' = path ->
-                MiniRust.(Place (Var ofs))
-            | _ ->
-                find (ofs + 1) bs
-            end
-        | [] ->
-            failwith "[ELet] unexpected: path not found"
+      let e_nearest =
+        if path = [] then
+          MiniRust.(Place (Var v_base))
+        else
+          let path, path_elem = KList.split_at_last path in
+          let rec find ofs bs =
+            match bs with
+            | (_, info) :: bs ->
+                KPrint.bprintf "[ELet] looking for %d\n" (v_base - ofs - 1);
+                begin match info.Splits.path with
+                | Some (v_base', path') when v_base' = v_base - ofs - 1 && path' = path ->
+                    MiniRust.(Place (Var ofs))
+                | _ ->
+                    find (ofs + 1) bs
+                end
+            | [] ->
+                failwith "[ELet] unexpected: path not found"
+          in
+          MiniRust.(Place (Field (find 0 env.vars, Splits.string_of_path_elem path_elem)))
       in
-      let e_nearest = find 0 env.vars in
 
       let e1 = MiniRust.MethodCall (e_nearest , ["split_at_mut"], [ Constant (SizeT, index_n) ]) in
       let t = translate_type env b.typ in
