@@ -84,12 +84,73 @@ module LidMap = Idents.LidMap
 *)
 
 module Splits = struct
-  type index = int
+  type leveled_expr = int * MiniRust.expr
     [@@deriving show]
 
-  let gte: index -> index -> bool = (>=)
+  (* We retain the depth of the environment at the time non-constant indices were recorded, in order
+     to be able to compare them properly. *)
+  let term_eq (l1, e1) (l2, e2) =
+    let e1 = MiniRust.lift (max l1 l2 - l1) e1 in
+    let e2 = MiniRust.lift (max l1 l2 - l2) e2 in
+    e1 = e2
 
-  let sub: index -> index -> index = (-)
+  (* A super simple grammar of symbolic terms to be compared abstractly *)
+  type index =
+    | Constant of int
+    | Add of leveled_expr * int
+    [@@deriving show]
+
+  (* l current length of the environment *)
+  let index_of_expr (l: int) (e_ofs: MiniRust.expr): index =
+    match e_ofs with
+    | Constant (_, n) -> Constant (int_of_string n)
+    | MethodCall (e1, [ "wrapping_add" ], [ Constant (_, n) ])
+    | MethodCall (Constant (_, n), [ "wrapping_add" ], [ e1 ]) ->
+        Add ((l, e1), int_of_string n)
+    | _ ->
+        Add ((l, e_ofs), 0)
+
+  (* l current length of the environment *)
+  let expr_of_index (l: int) (e: index): MiniRust.expr =
+    match e with
+    | Constant i ->
+        Constant (SizeT, string_of_int i)
+    | Add ((l', e), i) ->
+        let e = MiniRust.lift (l - l') e in
+        MethodCall (e, [ "wrapping_add" ], [ Constant (SizeT, string_of_int i) ])
+
+  let gte i1 i2 =
+    match i1, i2 with
+    | Constant i1, Constant i2 ->
+        i1 >= i2
+    | Add (e1, i1), Add (e2, i2) when term_eq e1 e2 ->
+        i1 >= i2
+    | Add (_e1, i1), Constant i2 ->
+        (* operations are homogenous, meaning e1 must have type usize/u32, meaning e1 >= 0 *)
+        i1 >= i2
+    | Constant i1, Add (e2, i2) ->
+        Warn.fatal_error "Cannot compare constant %d and %a + %d\n"
+          i1 PrintMiniRust.pexpr (snd e2) i2
+    | Add (e1, i1), Add (e2, i2) ->
+        Warn.fatal_error "Cannot compare constant %a@%d + %d and %a@%d + %d\n"
+          PrintMiniRust.pexpr (snd e1) (fst e1) i1
+          PrintMiniRust.pexpr (snd e2) (fst e2) i2
+
+  let sub i1 i2 =
+    match i1, i2 with
+    | Constant i1, Constant i2 ->
+        Constant (i1 - i2)
+    | Add (e1, i1), Add (e2, i2) when term_eq e1 e2 ->
+        Constant (i1 - i2)
+    | Add (e1, i1), Constant i2 ->
+        Add (e1, i1 - i2)
+    | Constant i1, Add (e2, i2) ->
+        Warn.fatal_error "Cannot subtract constant %d and %a + %d\n"
+          i1 PrintMiniRust.pexpr (snd e2) i2
+    | Add (e1, i1), Add (e2, i2) ->
+        Warn.fatal_error "Cannot subtract constant %a@%d + %d and %a@%d + %d\n"
+          PrintMiniRust.pexpr (snd e1) (fst e1) i1
+          PrintMiniRust.pexpr (snd e2) (fst e2) i2
 
   (* A binary search tree that records the splits that have occured *)
   type tree =
@@ -118,7 +179,7 @@ module Splits = struct
   let empty = { tree = Leaf; path = None }
 
   (* The variable with `info` is being split at `index` *)
-  let split info index =
+  let split l info index: info * path * MiniRust.expr =
     let rec split tree index ofs =
       match tree with
       | Leaf ->
@@ -132,7 +193,7 @@ module Splits = struct
             Node (index', t1, t2), Left :: path, ofs
     in
     let tree, path, ofs = split info.tree index index in
-    { info with tree }, path, ofs
+    { info with tree }, path, expr_of_index l ofs
 
   (* We are trying to access a variable whose position in the tree was originally p1 -- however,
      many more splits may have occurred since this variable was defined. Does p2 provide a way to
@@ -411,15 +472,13 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
         debug env
       end;
 
-      let index =
-        match e_ofs.node with
-        | EConstant (_, n) -> int_of_string n
-        | _ -> Warn.fatal_error "TODO: non-constant split index: %a" PrintAst.Ops.pexpr e_ofs
-      in
+      let l = List.length env.vars in
+
+      let index = Splits.index_of_expr l (translate_expr env e_ofs) in
       (* We're splitting a variable x_base. *)
       let _, info_base = lookup env v_base in
       (* At the end of `path` is the variable we want to split. *)
-      let info_base, path, index = Splits.split info_base index in
+      let info_base, path, index = Splits.split l info_base index in
 
       let e_nearest =
         if path = [] then
@@ -442,7 +501,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
           MiniRust.(Place (Field (find 0 env.vars, Splits.string_of_path_elem path_elem)))
       in
 
-      let e1 = MiniRust.MethodCall (e_nearest , ["split_at_mut"], [ Constant (SizeT, string_of_int index) ]) in
+      let e1 = MiniRust.MethodCall (e_nearest , ["split_at_mut"], [ index ]) in
       let t = translate_type env b.typ in
       let binding : MiniRust.binding * Splits.info =
         { name = b.node.name; typ = Tuple [ t; t ]; mut = false },

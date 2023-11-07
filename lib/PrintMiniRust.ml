@@ -15,10 +15,19 @@ let is_block_expression e =
 type env = {
   vars: [ `Named of string | `GoneUnit ] list;
   prefix: string list;
+  debug: bool;
 }
 let push env x = { env with vars = x :: env.vars }
-let lookup env x = List.nth env.vars x
-let fresh prefix = { vars = []; prefix }
+let lookup env x =
+  try
+    List.nth env.vars x
+  with Not_found ->
+    if env.debug then
+      `Named ("@" ^ string_of_int x)
+    else
+      Warn.fatal_error "internal error: unbound variable %d" x
+let fresh prefix = { vars = []; prefix; debug = false }
+let debug = { vars = []; prefix = []; debug = true }
 let print env =
   print_endline (String.concat ", " (List.map (function
     | `Named x -> x
@@ -292,3 +301,5 @@ let print_decl ns (d: decl) =
       group @@
       group (string "const" ^/^ print_name env name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
       nest 2 (break1 ^^ print_expr env max_int body) ^^ semi
+
+let pexpr = printf_of_pprint (print_expr debug max_int)
