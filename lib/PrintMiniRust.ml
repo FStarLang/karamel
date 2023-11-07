@@ -222,14 +222,12 @@ and print_expr env (context: int) (e: expr): document =
   | Assign (e1, e2) ->
       let mine, left, right = 18, 17, 18 in
       paren_if mine @@
-      group (print_place env left e1 ^^ space ^^ equals ^^
+      group (print_expr env left e1 ^^ space ^^ equals ^^
         (nest 2 (break1 ^^ print_expr env right e2)))
   | As (e1, e2) ->
       let mine = 7 in
       paren_if mine @@
       group (print_expr env mine e1 ^/^ string "as" ^/^ print_typ env e2)
-  | Place p ->
-      print_place env context p
   | For (b, e1, e2) ->
       let env = push env (`Named b.name) in
       group @@
@@ -256,19 +254,12 @@ and print_expr env (context: int) (e: expr): document =
   | ConstantString s ->
       dquotes (string (CStarToC11.escape_string s))
 
-and print_place env context p =
-  let paren_if mine doc =
-    if mine > context then
-      parens doc
-    else
-      doc
-  in
-  match p with
   | Var v ->
       begin match lookup env v with
       | `Named x -> string x
       | `GoneUnit -> print env; failwith "unexpected: unit-returning computation was let-bound and used"
       end
+
   | Index (p, e) ->
       let mine = 4 in
       paren_if mine @@

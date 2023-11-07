@@ -101,14 +101,20 @@ module Splits = struct
     [@@deriving show]
 
   (* l current length of the environment *)
-  let index_of_expr (l: int) (e_ofs: MiniRust.expr): index =
+  let index_of_expr (l: int) (e_ofs: MiniRust.expr) (t_ofs: MiniRust.typ): index =
     match e_ofs with
     | Constant (_, n) -> Constant (int_of_string n)
     | MethodCall (e1, [ "wrapping_add" ], [ Constant (_, n) ])
     | MethodCall (Constant (_, n), [ "wrapping_add" ], [ e1 ]) ->
-        Add ((l, e1), int_of_string n)
+        if t_ofs = Constant SizeT then
+          Add ((l, e1), int_of_string n)
+        else
+          Add ((l, As (e1, Constant SizeT)), int_of_string n)
     | _ ->
-        Add ((l, e_ofs), 0)
+        if t_ofs = Constant SizeT then
+          Add ((l, e_ofs), 0)
+        else
+          Add ((l, As (e_ofs, Constant SizeT)), 0)
 
   (* l current length of the environment *)
   let expr_of_index (l: int) (e: index): MiniRust.expr =
@@ -348,7 +354,7 @@ let lookup_split (env: env) (v_base: MiniRust.db_index) (path: Splits.path): Min
         | Some (v_base', path') when v_base' = v_base - ofs - 1 ->
             begin match Splits.accessible_via path path' with
             | Some pe ->
-                MiniRust.(Place (Field (Place (Var ofs), Splits.string_of_path_elem pe)))
+                MiniRust.(Field (Var ofs, Splits.string_of_path_elem pe))
             | None ->
                 find (ofs + 1) bs
             end
@@ -424,7 +430,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
 
       let { MiniRust.typ; _ }, info = lookup env v in
       begin match info.path with
-      | None -> possibly_convert (Place (Var v)) typ
+      | None -> possibly_convert (Var v) typ
       | Some (v_base, p) -> lookup_split env (v_base + v + 1) p
       end
 
@@ -466,7 +472,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
   | EPolyComp _ ->
       failwith "unexpected: EPolyComp"
 
-  | ELet (b, ({ node = EBufSub ({ node = EBound v_base; _ }, e_ofs); _ } as e1), e2) ->
+  | ELet (b, ({ node = EBufSub ({ node = EBound v_base; _ } as e_base, e_ofs); _ } as e1), e2) ->
       if Options.debug "rs" then begin
         KPrint.bprintf "Translating: let %a = %a\n" PrintAst.Ops.pbind b PrintAst.Ops.pexpr e1;
         debug env
@@ -474,7 +480,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
 
       let l = List.length env.vars in
 
-      let index = Splits.index_of_expr l (translate_expr env e_ofs) in
+      let index = Splits.index_of_expr l (translate_expr env e_ofs) (translate_type env e_ofs.typ) in
       (* We're splitting a variable x_base. *)
       let _, info_base = lookup env v_base in
       (* At the end of `path` is the variable we want to split. *)
@@ -482,7 +488,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
 
       let e_nearest =
         if path = [] then
-          MiniRust.(Place (Var v_base))
+          translate_expr env e_base
         else
           let path, path_elem = KList.split_at_last path in
           let rec find ofs bs =
@@ -491,14 +497,14 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
                 KPrint.bprintf "[ELet] looking for %d\n" (v_base - ofs - 1);
                 begin match info.Splits.path with
                 | Some (v_base', path') when v_base' = v_base - ofs - 1 && path' = path ->
-                    MiniRust.(Place (Var ofs))
+                    MiniRust.(Var ofs)
                 | _ ->
                     find (ofs + 1) bs
                 end
             | [] ->
                 failwith "[ELet] unexpected: path not found"
           in
-          MiniRust.(Place (Field (find 0 env.vars, Splits.string_of_path_elem path_elem)))
+          MiniRust.(Field (find 0 env.vars, Splits.string_of_path_elem path_elem))
       in
 
       let e1 = MiniRust.MethodCall (e_nearest , ["split_at_mut"], [ index ]) in
@@ -539,13 +545,15 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
   | ESequence _ ->
       failwith "unexpected: ESequence"
   | EAssign (e1, e2) ->
-      Assign (translate_place env e1, translate_expr env e2)
+      Assign (translate_expr env e1, translate_expr env e2)
   | EBufCreate _ ->
       failwith "unexpected: EBufCreate"
   | EBufCreateL _ ->
       failwith "unexpected: EBufCreateL"
-  | EBufRead _ ->
-      Place (translate_place env e)
+  | EBufRead (e1, e2) ->
+      let e1 = translate_expr env e1 in
+      let e2 = translate_expr_with_type env e2 (Constant SizeT) in
+      Index (e1, e2)
   | EBufWrite (e1, e2, e3) ->
       let e1 = translate_expr env e1 in
       let e2 = translate_expr_with_type env e2 (Constant SizeT) in
@@ -557,7 +565,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
          this might still work! *)
       let e1 = translate_expr env e1 in
       let e2 = translate_expr_with_type env e2 (Constant SizeT) in
-      Borrow (Mut, Place (Index (e1, Range (Some e2, None, false))))
+      Borrow (Mut, Index (e1, Range (Some e2, None, false)))
   | EBufDiff _ ->
       failwith "unexpected: EBufDiff"
   | EBufBlit (src, src_index, dst, dst_index, len) ->
@@ -567,9 +575,9 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       let dst_index = translate_expr_with_type env dst_index (Constant SizeT) in
       let len = translate_expr_with_type env len (Constant SizeT) in
       MethodCall (
-        Place (Index (dst, H.range_with_len dst_index len)),
+        Index (dst, H.range_with_len dst_index len),
         [ "copy_from_slice" ],
-        [ Borrow (Shared, Place (Index (src, H.range_with_len src_index len))) ])
+        [ Borrow (Shared, Index (src, H.range_with_len src_index len)) ])
   | EBufFill _ ->
       failwith "TODO: EBufFill"
   | EBufFree _ ->
@@ -632,17 +640,6 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       failwith "TODO: EStandaloneComment"
   | EAddrOf e ->
       Borrow (Mut, translate_expr env e)
-
-and translate_place env (e: Ast.expr): MiniRust.place =
-  match e.node with
-  | EBound v ->
-      Var v
-  | EBufRead (e1, e2) ->
-      let e1 = translate_expr env e1 in
-      let e2 = translate_expr_with_type env e2 (Constant SizeT) in
-      Index (e1, e2)
-  | _ ->
-      Warn.fatal_error "unexpected: not a place: %a" PrintAst.Ops.pexpr e
 
 let translate_decl env (d: Ast.decl) =
   match d with

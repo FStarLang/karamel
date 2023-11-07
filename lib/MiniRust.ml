@@ -68,16 +68,14 @@ and expr =
   | Unit
   | Panic of string
   | IfThenElse of expr * expr * expr option
-  | Assign of place * expr
+  | Assign of expr * expr
   | As of expr * typ
-  | Place of place
-      (** Injection of lvalues ("places") into rvalues ("expressions") *)
   | For of binding * expr * expr
   | While of expr * expr
   | MethodCall of expr * name * expr list
   | Range of expr option * expr option * bool (* inclusive? *)
 
-and place =
+  (* Place expressions *)
   | Var of db_index
   | Index of expr * expr
   | Field of expr * string
