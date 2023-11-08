@@ -21,7 +21,7 @@ let push env x = { env with vars = x :: env.vars }
 let lookup env x =
   try
     List.nth env.vars x
-  with Not_found ->
+  with Failure _ ->
     if env.debug then
       `Named ("@" ^ string_of_int x)
     else
@@ -292,5 +292,25 @@ let print_decl ns (d: decl) =
       group @@
       group (string "const" ^/^ print_name env name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
       nest 2 (break1 ^^ print_expr env max_int body) ^^ semi
+
+let failures = ref 0
+
+let name_of_decl = function
+  | Function { name; _ }
+  | Constant { name; _ } ->
+      name
+
+let string_of_name = String.concat "::"
+
+let print_decl ns d =
+  try
+    print_decl ns d
+  with e ->
+    incr failures;
+    KPrint.bprintf "%sERROR printing %s: %s%s\n%s\n" Ansi.red
+      (string_of_name (name_of_decl d))
+      (Printexc.to_string e) Ansi.reset
+      (Printexc.get_backtrace ());
+    empty
 
 let pexpr = printf_of_pprint (print_expr debug max_int)

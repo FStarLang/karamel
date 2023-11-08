@@ -1939,7 +1939,7 @@ let simplify2 ifdefs (files: file list): file list =
   let files = hoist#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
   let files = if Options.wasm () then files else fixup_hoist#visit_files () files in
-  let files = if Options.wasm () then files else let_if_to_assign#visit_files () files in
+  let files = if Options.wasm () || Options.rust () then files else let_if_to_assign#visit_files () files in
   let files = if Options.wasm () then files else hoist_bufcreate#visit_files ifdefs files in
   (* This phase relies on up-to-date mark information. TODO move up after
      optimize_lets. *)

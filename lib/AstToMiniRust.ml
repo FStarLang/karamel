@@ -76,9 +76,8 @@ module LidMap = Idents.LidMap
     ```
     this will throw a runtime exception in Rust -- in a sense, our compilation scheme is optimistic
 
-  - This compilation scheme obviously only works well when indices are static -- instead of
-    constants for the split indices, one could have a slightly broader language of expressions,
-    which make this compilation scheme a tad bit better.
+  - This compilation scheme has been enhanced to deal with a very simple language of indices, which
+    includes constants and addition of constants to terms. This could definitely be improved.
 
   - In case this does not work, the programmer can always modify the original Low* code.
 *)
@@ -135,10 +134,10 @@ module Splits = struct
         (* operations are homogenous, meaning e1 must have type usize/u32, meaning e1 >= 0 *)
         i1 >= i2
     | Constant i1, Add (e2, i2) ->
-        Warn.fatal_error "Cannot compare constant %d and %a + %d\n"
+        Warn.failwith "Cannot compare constant %d and %a + %d\n"
           i1 PrintMiniRust.pexpr (snd e2) i2
     | Add (e1, i1), Add (e2, i2) ->
-        Warn.fatal_error "Cannot compare constant %a@%d + %d and %a@%d + %d\n"
+        Warn.failwith "Cannot compare %a@%d + %d and %a@%d + %d\n"
           PrintMiniRust.pexpr (snd e1) (fst e1) i1
           PrintMiniRust.pexpr (snd e2) (fst e2) i2
 
@@ -151,10 +150,10 @@ module Splits = struct
     | Add (e1, i1), Constant i2 ->
         Add (e1, i1 - i2)
     | Constant i1, Add (e2, i2) ->
-        Warn.fatal_error "Cannot subtract constant %d and %a + %d\n"
+        Warn.failwith "Cannot subtract constant %d and %a + %d\n"
           i1 PrintMiniRust.pexpr (snd e2) i2
     | Add (e1, i1), Add (e2, i2) ->
-        Warn.fatal_error "Cannot subtract constant %a@%d + %d and %a@%d + %d\n"
+        Warn.failwith "Cannot subtract constant %a@%d + %d and %a@%d + %d\n"
           PrintMiniRust.pexpr (snd e1) (fst e1) i1
           PrintMiniRust.pexpr (snd e2) (fst e2) i2
 
@@ -349,7 +348,7 @@ let lookup_split (env: env) (v_base: MiniRust.db_index) (path: Splits.path): Min
   let rec find ofs bs =
     match bs with
     | (_, info) :: bs ->
-        KPrint.bprintf "looking for %d\n" (v_base - ofs - 1);
+        (* KPrint.bprintf "looking for %d\n" (v_base - ofs - 1); *)
         begin match info.Splits.path with
         | Some (v_base', path') when v_base' = v_base - ofs - 1 ->
             begin match Splits.accessible_via path path' with
@@ -412,7 +411,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
         if t = t_ret then
           x
         else
-          Warn.fatal_error "type mismatch;\n  e=%a\n  t=%s\n  t_ret=%s\n  x=%s"
+          Warn.failwith "type mismatch;\n  e=%a\n  t=%s\n  t_ret=%s\n  x=%s"
             PrintAst.Ops.pexpr e
             (MiniRust.show_typ t) (MiniRust.show_typ t_ret)
             (MiniRust.show_expr x)
@@ -429,14 +428,13 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       end;
 
       let { MiniRust.typ; _ }, info = lookup env v in
-      begin match info.path with
-      | None ->
-          if info.tree <> Leaf then
-            lookup_split env v []
-          else
-            possibly_convert (Var v) typ
-      | Some (v_base, p) -> lookup_split env (v_base + v + 1) p
-      end
+      if info.tree <> Leaf then
+        lookup_split env v []
+      else
+        begin match info.path with
+        | None -> possibly_convert (Var v) typ
+        | Some (v_base, p) -> lookup_split env (v_base + v + 1) p
+        end
 
   | EOp (o, _) ->
       Operator o
@@ -498,7 +496,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
           let rec find ofs bs =
             match bs with
             | (_, info) :: bs ->
-                KPrint.bprintf "[ELet] looking for %d\n" (v_base - ofs - 1);
+                (* KPrint.bprintf "[ELet] looking for %d\n" (v_base - ofs - 1); *)
                 begin match info.Splits.path with
                 | Some (v_base', path') when v_base' = v_base - ofs - 1 && path' = path ->
                     MiniRust.(Var ofs)
@@ -627,7 +625,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
               (* Assuming that b does not occur in e_end *)
               DeBruijn.subst Helpers.eunit 0 e_end
         | _ ->
-            Warn.fatal_error "Unsupported loop:\n e_test=%a\n e_incr=%a\n"
+            Warn.failwith "Unsupported loop:\n e_test=%a\n e_incr=%a\n"
               PrintAst.Ops.pexpr e_test
               PrintAst.Ops.pexpr e_incr
       in
@@ -660,11 +658,10 @@ let translate_decl env (d: Ast.decl) =
       let return_type = translate_type env t in
       let name = translate_lid env lid in
       let env = push_global env lid (name, Function (List.map (fun x -> x.MiniRust.typ) parameters, return_type)) in
-      Some (env, MiniRust.Function { parameters; return_type; body; name })
+      env, MiniRust.Function { parameters; return_type; body; name }
   | Ast.DGlobal (_, lid, _, t, e) ->
       let body, typ = match e.node with
         | EBufCreate _ | EBufCreateL _ ->
-            KPrint.bprintf "array!!!\n";
             translate_array env true e
         | _ ->
             translate_expr env e, translate_type env t
@@ -673,15 +670,13 @@ let translate_decl env (d: Ast.decl) =
         KPrint.bprintf "Ast.DGlobal (%a: %s)\n" PrintAst.Ops.plid lid (MiniRust.show_typ typ);
       let name = translate_lid env lid in
       let env = push_global env lid (name, typ) in
-      Some (env, MiniRust.Constant { name; typ; body })
+      env, MiniRust.Constant { name; typ; body }
   | Ast.DExternal (_, _, _, name, _, _) ->
-      KPrint.bprintf "TODO: Ast.DExternal (%a)\n" PrintAst.Ops.plid name;
-      None
+      Warn.failwith "TODO: Ast.DExternal (%a)\n" PrintAst.Ops.plid name
   | Ast.DType (name, _, _, _) ->
-      KPrint.bprintf "TODO: Ast.DType (%a)\n" PrintAst.Ops.plid name;
-      None
+      Warn.failwith "TODO: Ast.DType (%a)\n" PrintAst.Ops.plid name
 
-let identify_path_components filename =
+let identify_path_components_rev filename =
   let components = ref [] in
   let is_uppercase c = 'A' <= c && c <= 'Z' in
   let start = ref 0 in
@@ -693,22 +688,32 @@ let identify_path_components filename =
   done;
   if !start <> String.length filename - 1 then
     components := String.sub filename !start (String.length filename - !start) :: !components;
-  List.rev !components
+  !components
 
 let translate_files files =
+  let failures = ref 0 in
   let _, files = List.fold_left (fun (env, files) (f, decls) ->
-    let prefix = List.map String.lowercase_ascii (identify_path_components f) in
+    let prefix = List.map String.lowercase_ascii (identify_path_components_rev f) in
     if Options.debug "rs" then
       KPrint.bprintf "Translating file %s\n" (String.concat "::" prefix);
     let env = { env with prefix } in
     let env, decls = List.fold_left (fun (env, decls) d ->
-      match translate_decl env d with
-      | Some (env, d) ->
-          env, d :: decls
-      | None ->
-          env, decls
+      try
+        let env, d = translate_decl env d in
+        env, d :: decls
+      with e ->
+        incr failures;
+        KPrint.bprintf "%sERROR translating %a: %s%s\n%s\n" Ansi.red
+          PrintAst.Ops.plid (Ast.lid_of_decl d)
+          (Printexc.to_string e) Ansi.reset
+          (Printexc.get_backtrace ());
+        env, decls
     ) (env, []) decls in
     let decls = List.rev decls in
     env, (prefix, decls) :: files
   ) (empty, []) files in
+
+  if !failures > 0 then
+    KPrint.bprintf "%s%d total errors%s\n" Ansi.red !failures Ansi.reset;
+
   List.rev files

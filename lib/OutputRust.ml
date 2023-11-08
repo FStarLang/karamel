@@ -16,4 +16,6 @@ let write_file file =
 
 let write_all files =
   Driver.maybe_create_output_dir ();
-  List.iter write_file files
+  List.iter write_file files;
+  if !PrintMiniRust.failures > 0 then
+    KPrint.bprintf "%s%d total printing errors%s\n" Ansi.red !PrintMiniRust.failures Ansi.reset
