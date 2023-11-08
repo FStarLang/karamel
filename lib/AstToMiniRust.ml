@@ -690,10 +690,19 @@ let identify_path_components_rev filename =
     components := String.sub filename !start (String.length filename - !start) :: !components;
   !components
 
+let compress_prefix depth prefix =
+  let prefix, last = KList.split_at_last prefix in
+  if List.length prefix <= depth then
+    prefix @ [ last ]
+  else
+    let path, prefix = KList.split depth prefix in
+    path @ [ String.concat "_" (prefix @ [ last ]) ]
+
 let translate_files files =
   let failures = ref 0 in
   let _, files = List.fold_left (fun (env, files) (f, decls) ->
     let prefix = List.map String.lowercase_ascii (identify_path_components_rev f) in
+    let prefix = compress_prefix !Options.depth (List.rev prefix) in
     if Options.debug "rs" then
       KPrint.bprintf "Translating file %s\n" (String.concat "::" prefix);
     let env = { env with prefix } in
