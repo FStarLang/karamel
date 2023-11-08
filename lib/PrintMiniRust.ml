@@ -39,9 +39,13 @@ let print_name env n =
     if List.length n > List.length env.prefix && fst (KList.split (List.length env.prefix) n) = env.prefix then
       snd (KList.split (List.length env.prefix) n)
     else
-      n
+      (* Absolute reference, restart from crate top *)
+      "" :: n
   in
   group (separate_map (colon ^^ colon) string n)
+
+let print_path _env n =
+  group (separate_map dot string n)
 
 let string_of_width (w: Constant.width) =
   match w with
@@ -241,7 +245,7 @@ and print_expr env (context: int) (e: expr): document =
   | MethodCall (e, path, es) ->
       let mine = 2 in
       paren_if mine @@
-      group (print_expr env mine e ^^ dot ^^ print_name env path ^^ parens_with_nesting (
+      group (print_expr env mine e ^^ dot ^^ print_path env path ^^ parens_with_nesting (
         separate_map (comma ^^ break1) (print_expr env max_int) es))
   | Range (e1, e2, inclusive) ->
       let mine = 17 in
@@ -278,19 +282,22 @@ and print_array_expr env (e: array_expr) =
 
 let arrow = string "->"
 
+let print_pub p =
+  if p then string "pub" ^^ break1 else empty
+
 let print_decl ns (d: decl) =
   let env = fresh ns in
   match d with
-  | Function { name; parameters; return_type; body } ->
+  | Function { name; parameters; return_type; body; public } ->
       let env = List.fold_left (fun env (b: binding) -> push env (`Named b.name)) env parameters in
       group @@
-      group (group (string "fn" ^/^ print_name env name) ^^
+      group (group (print_pub public ^^ string "fn" ^/^ print_name env name) ^^
         parens_with_nesting (separate_map (comma ^^ break1) (print_binding env) parameters) ^^
         space ^^ arrow ^^ (nest 2 (break1 ^^ print_typ env return_type))) ^/^
       print_block env body
-  | Constant { name; typ; body } ->
+  | Constant { name; typ; body; public } ->
       group @@
-      group (string "const" ^/^ print_name env name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
+      group (print_pub public ^^ string "const" ^/^ print_name env name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
       nest 2 (break1 ^^ print_expr env max_int body) ^^ semi
 
 let failures = ref 0
@@ -314,3 +321,4 @@ let print_decl ns d =
     empty
 
 let pexpr = printf_of_pprint (print_expr debug max_int)
+let ptyp = printf_of_pprint (print_typ debug)

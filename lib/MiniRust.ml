@@ -86,12 +86,14 @@ type decl =
     name: name;
     parameters: binding list;
     return_type: typ;
-    body: expr
+    body: expr;
+    public: bool;
   }
   | Constant of {
     name: name;
     typ: typ;
     body: expr;
+    public: bool;
   }
 
 (* Some visitors for name management *)

@@ -266,7 +266,7 @@ let debug env =
 (* Types *)
 
 let translate_unknown_lid (m, n) =
-  "" :: List.map String.lowercase_ascii m @ [ n ]
+  List.map String.lowercase_ascii m @ [ n ]
 
 let borrow_kind_of_bool b: MiniRust.borrow_kind =
   if b (* const *) then
@@ -279,7 +279,7 @@ let rec translate_type (env: env) (t: Ast.typ): MiniRust.typ =
   | TInt w -> Constant w
   | TBool -> Constant Bool
   | TUnit -> Unit
-  | TAny -> failwith "unexpected: no casts in Low* -> Rust"
+  | TAny -> failwith "unexpected: [type] no casts in Low* -> Rust"
   | TBuf (t, b) -> Ref (borrow_kind_of_bool b, Slice (translate_type env t))
   | TArray (t, c) -> Array (translate_type env t, int_of_string (snd c))
   | TQualified lid ->
@@ -368,6 +368,7 @@ let lookup_split (env: env) (v_base: MiniRust.db_index) (path: Splits.path): Min
 (* Translate an expression, and take the annotated original type to be the
    expected type. *)
 let rec translate_expr (env: env) (e: Ast.expr): MiniRust.expr =
+  (* KPrint.bprintf "translate_expr: %a\n" PrintAst.Ops.pexpr e; *)
   translate_expr_with_type env e (translate_type env e.typ)
 
 and translate_array (env: env) is_toplevel (init: Ast.expr): MiniRust.expr * MiniRust.typ =
@@ -401,6 +402,7 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): MiniRust.expr * Min
 (* However, generally, we will have a type provided by the context that may
    necessitate the insertion of conversions *)
 and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): MiniRust.expr =
+  (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
   let possibly_convert x t: MiniRust.expr =
     begin match t, t_ret with
     | (MiniRust.Vec _ | Array _), Ref (k, Slice _) ->
@@ -456,7 +458,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
   | EString s ->
       ConstantString s
   | EAny ->
-      failwith "unexpected: no casts in Low* -> Rust"
+      failwith "unexpected: [expr] no casts in Low* -> Rust"
   | EAbort (_, s) ->
       Panic (Stdlib.Option.value ~default:"" s)
   | EIgnore _ ->
@@ -542,7 +544,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
   | EIfThenElse (e1, e2, e3) ->
       let e1 = translate_expr env e1 in
       let e2 = translate_expr_with_type env e2 t_ret in
-      let e3 = if e3.node = EUnit then Some (translate_expr_with_type env e3 t_ret) else None in
+      let e3 = if e3.node = EUnit then None else Some (translate_expr_with_type env e3 t_ret) in
       IfThenElse (e1, e2, e3)
   | ESequence _ ->
       failwith "unexpected: ESequence"
@@ -634,8 +636,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       let e_end = translate_expr env e_end in
       let e_body = translate_expr (push env binding) e_body in
       For (binding, Range (Some e_start, Some e_end, false), e_body)
-  | ECast _ ->
-      failwith "TODO: ECast"
+  | ECast (e, t) ->
+      As (translate_expr env e, translate_type env t)
   | EComment _ ->
       failwith "TODO: EComment"
   | EStandaloneComment _ ->
@@ -645,7 +647,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
 
 let translate_decl env (d: Ast.decl) =
   match d with
-  | Ast.DFunction (_cc, _flags, _n, t, lid, args, body) ->
+  | Ast.DFunction (_cc, flags, _n, t, lid, args, body) ->
       if Options.debug "rs" then
         KPrint.bprintf "Ast.DFunction (%a)\n" PrintAst.Ops.plid lid;
       let parameters = List.map (fun (b: Ast.binder) ->
@@ -658,8 +660,9 @@ let translate_decl env (d: Ast.decl) =
       let return_type = translate_type env t in
       let name = translate_lid env lid in
       let env = push_global env lid (name, Function (List.map (fun x -> x.MiniRust.typ) parameters, return_type)) in
-      env, MiniRust.Function { parameters; return_type; body; name }
-  | Ast.DGlobal (_, lid, _, t, e) ->
+      let public = not (List.mem Common.Private flags) in
+      env, MiniRust.Function { parameters; return_type; body; name; public }
+  | Ast.DGlobal (flags, lid, _, t, e) ->
       let body, typ = match e.node with
         | EBufCreate _ | EBufCreateL _ ->
             translate_array env true e
@@ -669,8 +672,9 @@ let translate_decl env (d: Ast.decl) =
       if Options.debug "rs" then
         KPrint.bprintf "Ast.DGlobal (%a: %s)\n" PrintAst.Ops.plid lid (MiniRust.show_typ typ);
       let name = translate_lid env lid in
+      let public = not (List.mem Common.Private flags) in
       let env = push_global env lid (name, typ) in
-      env, MiniRust.Constant { name; typ; body }
+      env, MiniRust.Constant { name; typ; body; public }
   | Ast.DExternal (_, _, _, name, _, _) ->
       Warn.failwith "TODO: Ast.DExternal (%a)\n" PrintAst.Ops.plid name
   | Ast.DType (name, _, _, _) ->

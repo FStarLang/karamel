@@ -38,7 +38,8 @@ let type_of_op op w =
   | BShiftL | BShiftR ->
       TArrow (TInt w, TArrow (uint32, TInt w))
   | Eq | Neq ->
-      TArrow (TAny, TArrow (TAny, TBool))
+      let t = if w = Bool then TBool else TInt w in
+      TArrow (t, TArrow (t, TBool))
   | Lt | Lte | Gt | Gte ->
       TArrow (TInt w, TArrow (TInt w, TBool))
   | And | Or | Xor ->
