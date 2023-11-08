@@ -868,26 +868,29 @@ end
 
 let union_field_of_cons = (^) "case_"
 
-let mk e =
-  with_type TAny e
-
 let mk_eq w e1 e2 =
-  mk (EApp (mk (EOp (K.Eq, w)), [ e1; e2 ]))
+  let eq = with_type (TArrow (TInt w, TArrow (TInt w, TBool))) (EOp (K.Eq, w)) in
+  with_type TBool (EApp (eq, [ e1; e2 ]))
+
+let mk_poly_eq t e1 e2 =
+  let eq = with_type (TArrow (t, TArrow (t, TBool))) (EPolyComp (K.PEq, t)) in
+  with_type TBool (EApp (eq, [ e1; e2 ]))
 
 let rec compile_pattern env scrut pat expr =
   match pat.node with
   | PTuple _ ->
       failwith "should've been desugared"
   | PUnit ->
-      [ mk_eq K.Int8 scrut (mk EUnit) ], expr
+      (* why generate a conditional here?? *)
+      [ mk_poly_eq TUnit scrut Helpers.eunit ], expr
   | PBool b ->
-      [ mk_eq K.Bool scrut (mk (EBool b)) ], expr
+      [ mk_eq K.Bool scrut (with_type TBool (EBool b)) ], expr
   | PEnum lid ->
-      [ mk_eq K.Int32 scrut (mk (EEnum lid)) ], expr
+      [ mk_poly_eq pat.typ scrut (with_type pat.typ (EEnum lid)) ], expr
   | PRecord fields ->
       let conds, expr =
         List.fold_left (fun (conds, expr) (f, p) ->
-          let scrut = mk (EField (scrut, f)) in
+          let scrut = with_type p.typ (EField (scrut, f)) in
           let cond, expr = compile_pattern env scrut p expr in
           cond :: conds, expr
         ) ([], expr) fields
@@ -901,7 +904,7 @@ let rec compile_pattern env scrut pat expr =
         meta = None;
         atom = b
       } in
-      [], mk (ELet (b, scrut, close_binder b expr))
+      [], with_type expr.typ (ELet (b, scrut, close_binder b expr))
   | PWild ->
       [], expr
   | PBound _ ->
@@ -909,19 +912,19 @@ let rec compile_pattern env scrut pat expr =
   | PCons (ident, _) ->
       failwith ("constructor hasn't been desugared: " ^ ident)
   | PDeref pat ->
-      let scrut = mk (EBufRead (scrut, zerou32)) in
+      let scrut = with_type (Helpers.assert_tbuf_or_tarray scrut.typ) (EBufRead (scrut, zerou32)) in
       compile_pattern env scrut pat expr
   | PConstant k ->
-      [ mk_eq (fst k) scrut (mk (EConstant k)) ], expr
+      [ mk_eq (fst k) scrut (with_type (TInt (fst k)) (EConstant k)) ], expr
 
 
 let rec mk_conjunction = function
   | [] ->
-      mk (EBool true)
+      with_type TBool (EBool true)
   | [ e1 ] ->
       e1
   | e1 :: es ->
-      mk (EApp (mk (EOp (K.And, K.Bool)), [ e1; mk_conjunction es ]))
+      with_type TBool (EApp (with_type (TArrow (TBool, TArrow (TBool, TBool))) (EOp (K.And, K.Bool)), [ e1; mk_conjunction es ]))
 
 let compile_branch env scrut (binders, pat, expr): expr * expr =
   let _binders, pat, expr = open_branch binders pat expr in
