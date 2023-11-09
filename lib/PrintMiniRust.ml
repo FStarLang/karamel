@@ -7,16 +7,23 @@ open PPrint
 open PrintCommon
 open MiniRust
 
-let is_block_expression e =
+let is_expression_with_block e =
   match e with
   | IfThenElse _ | For _ | While _ -> true
   | _ -> false
 
 type env = {
   vars: [ `Named of string | `GoneUnit ] list;
+  type_vars: string list;
   prefix: string list;
   debug: bool;
 }
+
+let lexical_conventions x =
+  String.map (function
+    | '\'' -> '_'
+    | c -> c
+  ) x
 
 let mk_uniq { vars; _ } x =
   if not (List.mem (`Named x) vars) then
@@ -26,6 +33,20 @@ let mk_uniq { vars; _ } x =
     let attempt () = x ^ string_of_int !i in
     while List.mem (`Named (attempt ())) vars do incr i done;
     attempt ()
+
+let avoid_keywords (x: string) =
+  let keywords = [
+    "as"; "break"; "const"; "continue"; "crate"; "else"; "enum"; "extern";
+    "false"; "fn"; "for"; "if"; "impl"; "in"; "let"; "loop"; "match"; "mod";
+    "move"; "mut"; "pub"; "ref"; "return"; "self"; "Self"; "static"; "struct";
+    "super"; "trait"; "true"; "type"; "unsafe"; "use"; "where"; "while";
+    "async"; "await"; "dyn"; "abstract"; "become"; "box"; "do"; "final";
+    "macro"; "override"; "priv"; "typeof"; "unsized"; "virtual"; "yield"; "try";
+  ] in
+  if List.mem x keywords then "r#" ^ x else x
+
+let allocate_name env x =
+  avoid_keywords (mk_uniq env (lexical_conventions x))
 
 let push env x =
   let x =
@@ -37,6 +58,14 @@ let push env x =
   in
   { env with vars = x :: env.vars }
 
+let push_type env x = { env with type_vars = x :: env.type_vars }
+
+let rec push_n_type env n =
+  if n = 0 then
+    env
+  else
+    push_n_type (push_type env ("T" ^ string_of_int n)) (n - 1)
+
 let lookup env x =
   try
     List.nth env.vars x
@@ -46,9 +75,12 @@ let lookup env x =
     else
       Warn.fatal_error "internal error: unbound variable %d" x
 
-let fresh prefix = { vars = []; prefix; debug = false }
+let lookup_type env x =
+  List.nth env.type_vars x
 
-let debug = { vars = []; prefix = []; debug = true }
+let fresh prefix = { vars = []; prefix; debug = false; type_vars = [] }
+
+let debug = { vars = []; prefix = []; debug = true; type_vars = [] }
 
 let print env =
   print_endline (String.concat ", " (List.map (function
@@ -100,14 +132,20 @@ let rec print_typ env (t: typ): document =
   | Array (t, n) -> group (brackets (print_typ env t ^^ semi ^/^ int n))
   | Slice t -> group (brackets (print_typ env t))
   | Unit -> parens empty
-  | Function (ts, t) ->
+  | Function (n, ts, t) ->
+      let env = push_n_type env n in
       group @@
       group (parens (separate_map (comma ^^ break1) (print_typ env) ts)) ^/^
       print_typ env t
+  | Bound n ->
+      string (lookup_type env n)
   | Name n ->
       print_name env n
   | Tuple ts ->
       group (parens (separate_map (comma ^^ break1) (print_typ env) ts))
+  | App (t, ts) ->
+      group (print_typ env t ^^
+        angles (separate_map (comma ^^ break1) (print_typ env) ts))
 
 let print_mut b =
   if b then string "mut" ^^ break1 else empty
@@ -119,11 +157,17 @@ let print_op = function
   | Constant.BNot -> string "!"
   | op -> print_op op
 
-let rec print_block env (e: expr): document =
-  if is_block_expression e then
+(* print a block *and* the expression within it *)
+let rec print_block_expression env e =
+  braces_with_nesting (print_statements env e)
+
+(* print an expression that possibly already has a block structure... quite
+   confusing, but that's the terminology used by the rust reference *)
+and print_expression_with_block env (e: expr): document =
+  if is_expression_with_block e then
     print_expr env max_int e
   else
-    braces_with_nesting (print_statements env e)
+    print_block_expression env e
 
 and print_statements env (e: expr): document =
   match e with
@@ -131,7 +175,7 @@ and print_statements env (e: expr): document =
       print_expr env max_int e1 ^^ semi ^^ hardline ^^
       print_statements (push env (`GoneUnit)) e2
   | Let ({ name; _ } as b, e1, e2) ->
-      let name = mk_uniq env name in
+      let name = allocate_name env name in
       let b = { b with name } in
       group (
         group (string "let" ^/^ print_binding env b ^/^ equals) ^^
@@ -218,20 +262,28 @@ and print_expr env (context: int) (e: expr): document =
   | Constant c ->
       print_constant c
   | Let _ ->
-      print_block env e
-  | Call (Operator o, [ e1; e2 ]) ->
+      print_block_expression env e
+  | Call (Operator o, ts, [ e1; e2 ]) ->
+      assert (ts = []);
       let mine, left, right = prec_of_op2 o in
       paren_if mine @@
       group (print_expr env left e1 ^/^
         (nest 4 (print_op o) ^/^ print_expr env right e2))
-  | Call (Operator o, [ e1 ]) ->
+  | Call (Operator o, ts, [ e1 ]) ->
+      assert (ts = []);
       let mine = prec_of_op1 o in
       paren_if mine @@
       group (print_op o ^/^ print_expr env mine e1)
-  | Call (e, es) ->
+  | Call (e, ts, es) ->
       let mine = 4 in
+      let tapp =
+        if ts = [] then
+          empty
+        else
+          colon ^^ colon ^^ angles (separate_map (comma ^^ break1) (print_typ env) ts)
+      in
       paren_if mine @@
-      group (print_expr env mine e ^^ parens_with_nesting (
+      group (print_expr env mine e ^^ tapp ^^ parens_with_nesting (
         separate_map (comma ^^ break1) (print_expr env max_int) es))
   | Unit ->
       lparen ^^ rparen
@@ -240,10 +292,10 @@ and print_expr env (context: int) (e: expr): document =
   | IfThenElse (e1, e2, e3) ->
       group @@
       group (string "if" ^/^ print_expr env max_int e1) ^/^
-      print_block env e2 ^^
+      print_expression_with_block env e2 ^^
       begin match e3 with
       | Some e3 ->
-          break1 ^^ string "else" ^/^ print_block env e3
+          break1 ^^ string "else" ^/^ print_expression_with_block env e3
       | None ->
           empty
       end
@@ -257,16 +309,16 @@ and print_expr env (context: int) (e: expr): document =
       paren_if mine @@
       group (print_expr env mine e1 ^/^ string "as" ^/^ print_typ env e2)
   | For (b, e1, e2) ->
-      let name = mk_uniq env b.name in
+      let name = allocate_name env b.name in
       group @@
       (* Note: specifying the type of a pattern isn't supported, per rustc *)
       group (string "for" ^/^ string name ^/^ string "in" ^/^ print_expr env max_int e1) ^/^
       let env = push env (`Named name) in
-      print_block env e2
+      print_expression_with_block env e2
   | While (e1, e2) ->
       group @@
       string "while" ^/^ print_expr env max_int e1 ^/^
-      print_block env e2
+      print_expression_with_block env e2
   | MethodCall (e, path, es) ->
       let mine = 2 in
       paren_if mine @@
@@ -295,6 +347,10 @@ and print_expr env (context: int) (e: expr): document =
       print_expr env mine p ^^ group (brackets (print_expr env max_int e))
   | Field (e, s) ->
       group (print_expr env max_int e ^^ dot ^^ string s)
+  | Deref e ->
+      let mine = 6 in
+      paren_if mine @@
+      group (star ^^ print_expr env mine e)
 
 and print_array_expr env (e: array_expr) =
   match e with
@@ -313,13 +369,15 @@ let print_pub p =
 let print_decl ns (d: decl) =
   let env = fresh ns in
   match d with
-  | Function { name; parameters; return_type; body; public } ->
+  | Function { name; type_parameters; parameters; return_type; body; public } ->
+      assert (type_parameters = 0);
+      let parameters = List.map (fun b -> { b with name = allocate_name env b.name }) parameters in
       let env = List.fold_left (fun env (b: binding) -> push env (`Named b.name)) env parameters in
       group @@
       group (group (print_pub public ^^ string "fn" ^/^ print_name env name) ^^
         parens_with_nesting (separate_map (comma ^^ break1) (print_binding env) parameters) ^^
         space ^^ arrow ^^ (nest 4 (break1 ^^ print_typ env return_type))) ^/^
-      print_block env body
+      print_block_expression env body
   | Constant { name; typ; body; public } ->
       group @@
       group (print_pub public ^^ string "const" ^/^ print_name env name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^

@@ -287,10 +287,20 @@ let debug env =
       | Some (v, p) -> KPrint.bsprintf "%d -- %s" v (show_path p))
   ) env.vars
 
+let compress_prefix prefix =
+  let depth = !Options.depth in
+  let prefix, last = KList.split_at_last prefix in
+  if List.length prefix <= depth then
+    prefix @ [ last ]
+  else
+    let path, prefix = KList.split depth prefix in
+    path @ [ String.concat "_" (prefix @ [ last ]) ]
+
 
 (* Types *)
 
 let translate_unknown_lid (m, n) =
+  let m = compress_prefix m in
   List.map String.lowercase_ascii m @ [ n ]
 
 let borrow_kind_of_bool b: MiniRust.borrow_kind =
@@ -315,9 +325,9 @@ let rec translate_type (env: env) (t: Ast.typ): MiniRust.typ =
       end
   | TArrow _ ->
       let t, ts = Helpers.flatten_arrow t in
-      Function (List.map (translate_type env) ts, translate_type env t)
+      Function (0, List.map (translate_type env) ts, translate_type env t)
   | TApp _ -> failwith "TODO: TApp"
-  | TBound _ -> failwith "TODO: TBound"
+  | TBound i -> Bound i
   | TTuple _ -> failwith "TODO: TTuple"
   | TAnonymous _ -> failwith "unexpected: we don't compile data types going to Rust"
 
@@ -341,7 +351,7 @@ let translate_lid env lid =
 module H = struct
 
   let plus e1 e2: MiniRust.expr =
-    Call (Operator Add, [ e1; e2 ])
+    Call (Operator Add, [], [ e1; e2 ])
 
   let range_with_len start len: MiniRust.expr =
     Range (Some start, Some (plus start len), false)
@@ -368,7 +378,7 @@ end
 (* Trying to compile a *reference* to variable, who originates from a split of `v_base`, and whose
    original path in the tree is `path`. *)
 let lookup_split (env: env) (v_base: MiniRust.db_index) (path: Splits.root_or_path): MiniRust.expr =
-  if Options.debug "rs" then
+  if Options.debug "rs-splits" then
     KPrint.bprintf "looking up from base = %d path %s\n" v_base (Splits.show_root_or_path path);
   let rec find ofs bs =
     match bs with
@@ -437,6 +447,10 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
         Constant (SizeT, x)
     | _, Constant UInt32, Constant SizeT ->
         As (x, Constant SizeT)
+    | _, Function (_, ts, t), Function (_, ts', t') when ts = ts' && t = t' ->
+        (* The type annotations coming from Ast do not feature polymorphic binders in types, but we
+           do retain them in our Function type -- so we need to relax the comparison here *)
+        x
     | _ ->
         if t = t_ret then
           x
@@ -452,7 +466,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
   | EOpen _ ->
       failwith "unexpected: EOpen"
   | EBound v ->
-      if Options.debug "rs" then begin
+      if Options.debug "rs-splits" then begin
         KPrint.bprintf "Translating: %a\n" PrintAst.Ops.pexpr e;
         debug env
       end;
@@ -497,17 +511,24 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       let w = Helpers.assert_tint (List.hd es).typ in
       let es = List.map (translate_expr env) es in
       possibly_convert (MethodCall (List.hd es, [ H.wrapping_operator o ], List.tl es)) (Constant w)
-  | EApp ({ node = EQualified (["LowStar"; "Printf"], _); _ }, es) ->
-      Call (Name [ "print!" ], ConstantString "{}" :: List.map (translate_expr env) es)
+
+  | EApp ({ node = EQualified ([ "LowStar"; "BufferOps" ], s); _ }, e1 :: _) when KString.starts_with s "op_Bang_Star__" ->
+      Deref (translate_expr env e1)
+
+  | EApp ({ node = EQualified ([ "LowStar"; "BufferOps" ], s); _ }, e1 :: e2 :: _ ) when KString.starts_with s "op_Star_Equals__" ->
+      Assign (Deref (translate_expr env e1), translate_expr env e2)
+
+  | EApp ({ node = ETApp (e, ts); _ }, es) ->
+      Call (translate_expr env e, List.map (translate_type env) ts, List.map (translate_expr env) es)
   | EApp (e, es) ->
-      Call (translate_expr env e, List.map (translate_expr env) es)
-  | ETApp _ ->
+      Call (translate_expr env e, [], List.map (translate_expr env) es)
+  | ETApp (_, _) ->
       failwith "TODO: ETApp"
   | EPolyComp _ ->
       failwith "unexpected: EPolyComp"
 
   | ELet (b, ({ node = EBufSub ({ node = EBound v_base; _ } as e_base, e_ofs); _ } as e1), e2) ->
-      if Options.debug "rs" then begin
+      if Options.debug "rs-splits" then begin
         KPrint.bprintf "Translating: let %a = %a\n" PrintAst.Ops.pbind b PrintAst.Ops.pexpr e1;
         debug env
       end;
@@ -675,9 +696,27 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
   | EAddrOf e ->
       Borrow (Mut, translate_expr env e)
 
+let make_poly (t: MiniRust.typ) n: MiniRust.typ =
+  match t with
+  | Function (0, ts, t) ->
+      Function (n, ts, t)
+  | _ ->
+      failwith "impossible: make_poly received a non-function type"
+
 let translate_decl env (d: Ast.decl) =
+  let is_handled_primitively = function
+    | [ "LowStar"; "BufferOps" ], s ->
+        KString.starts_with s "op_Bang_Star__" ||
+        KString.starts_with s "op_Star_Equals__"
+    | _ ->
+        false
+  in
   match d with
-  | Ast.DFunction (_cc, flags, _n, t, lid, args, body) ->
+  | Ast.DFunction (_, _, _, _, lid, _, _) when is_handled_primitively lid ->
+      env, None
+
+  | Ast.DFunction (_cc, flags, type_parameters, t, lid, args, body) ->
+      assert (type_parameters = 0);
       if Options.debug "rs" then
         KPrint.bprintf "Ast.DFunction (%a)\n" PrintAst.Ops.plid lid;
       let parameters = List.map (fun (b: Ast.binder) ->
@@ -689,9 +728,10 @@ let translate_decl env (d: Ast.decl) =
       let body = translate_expr env0 body in
       let return_type = translate_type env t in
       let name = translate_lid env lid in
-      let env = push_global env lid (name, Function (List.map (fun x -> x.MiniRust.typ) parameters, return_type)) in
+      let env = push_global env lid (name, Function (type_parameters, List.map (fun x -> x.MiniRust.typ) parameters, return_type)) in
       let public = not (List.mem Common.Private flags) in
-      env, MiniRust.Function { parameters; return_type; body; name; public }
+      env, Some (MiniRust.Function { type_parameters; parameters; return_type; body; name; public })
+
   | Ast.DGlobal (flags, lid, _, t, e) ->
       let body, typ = match e.node with
         | EBufCreate _ | EBufCreateL _ ->
@@ -704,9 +744,13 @@ let translate_decl env (d: Ast.decl) =
       let name = translate_lid env lid in
       let public = not (List.mem Common.Private flags) in
       let env = push_global env lid (name, typ) in
-      env, MiniRust.Constant { name; typ; body; public }
-  | Ast.DExternal (_, _, _, name, _, _) ->
-      Warn.failwith "TODO: Ast.DExternal (%a)\n" PrintAst.Ops.plid name
+      env, Some (MiniRust.Constant { name; typ; body; public })
+
+  | Ast.DExternal (_, _, type_parameters, lid, t, _param_names) ->
+      let name = translate_unknown_lid lid in
+      let env = push_global env lid (name, make_poly (translate_type env t) type_parameters) in
+      env, None
+
   | Ast.DType (name, _, _, _) ->
       Warn.failwith "TODO: Ast.DType (%a)\n" PrintAst.Ops.plid name
 
@@ -724,21 +768,14 @@ let identify_path_components_rev filename =
     components := String.sub filename !start (String.length filename - !start) :: !components;
   !components
 
-let compress_prefix depth prefix =
-  let prefix, last = KList.split_at_last prefix in
-  if List.length prefix <= depth then
-    prefix @ [ last ]
-  else
-    let path, prefix = KList.split depth prefix in
-    path @ [ String.concat "_" (prefix @ [ last ]) ]
-
 let translate_files files =
   let failures = ref 0 in
-  let _, files = List.fold_left (fun (env, files) (f, decls) ->
+  let env, files = List.fold_left (fun (env, files) (f, decls) ->
     let prefix = List.map String.lowercase_ascii (identify_path_components_rev f) in
-    let prefix = compress_prefix !Options.depth (List.rev prefix) in
+    let prefix = compress_prefix (List.rev prefix) in
     if Options.debug "rs" then
       KPrint.bprintf "Translating file %s\n" (String.concat "::" prefix);
+    let total = List.length decls in
     let env = { env with prefix } in
     let env, decls = List.fold_left (fun (env, decls) d ->
       try
@@ -753,8 +790,16 @@ let translate_files files =
         env, decls
     ) (env, []) decls in
     let decls = List.rev decls in
+    if Options.debug "rs" then
+      KPrint.bprintf "... translated file %s (%d/%d)\n" (String.concat "::" prefix) (List.length decls) total;
+    let decls = KList.filter_some decls in
     env, (prefix, decls) :: files
   ) (empty, []) files in
+
+  if Options.debug "rs" then
+    LidMap.iter (fun lid (name, _) ->
+      KPrint.bprintf "%a --> %s\n" PrintAst.Ops.plid lid (PrintMiniRust.string_of_name name)
+    ) env.decls;
 
   if !failures > 0 then
     KPrint.bprintf "%s%d total errors%s\n" Ansi.red !failures Ansi.reset;

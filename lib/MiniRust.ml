@@ -4,8 +4,8 @@ type borrow_kind_ = Mut | Shared
 [@@deriving show]
 
 type borrow_kind = borrow_kind_ [@ opaque ]
-and op = Constant.op [@ opaque ]
 and constant = Constant.t [@ opaque ]
+and op = Constant.op [@ opaque ]
 and name = string list [@ opaque ]
 
 (* Some design choices.
@@ -26,14 +26,17 @@ type typ_ =
   | Array of typ_ * int
   | Slice of typ_ (* always appears underneath Ref *)
   | Unit
-  | Function of typ_ list * typ_
+  | Function of int * typ_ list * typ_
   | Name of name
   | Tuple of typ_ list
+  | App of typ_ * typ_ list
+  | Bound of db_index
 [@@deriving show]
 
 type typ = typ_ [@ opaque ]
 [@@deriving show,
-    visitors { variety = "map"; name = "map_typ"; polymorphic = true }]
+    visitors { variety = "map"; name = "map_typ"; polymorphic = true },
+    visitors { variety = "reduce"; name = "reduce_typ"; polymorphic = true }]
 
 let bool = Constant Bool
 let u32 = Constant UInt32
@@ -54,7 +57,6 @@ type array_expr =
     ancestors = [ "map_binding" ] }]
 
 and expr =
-  | Operator of op
   | Array of array_expr
   | VecNew of array_expr
   | Name of name
@@ -62,7 +64,7 @@ and expr =
   | Constant of constant
   | ConstantString of string
   | Let of binding * expr * expr
-  | Call of expr * expr list
+  | Call of expr * typ list * expr list
     (** Note that this representation admits empty argument lists -- as opposed
         to Ast which always takes unit *)
   | Unit
@@ -80,10 +82,15 @@ and expr =
   | Index of expr * expr
   | Field of expr * string
 
+  (* Operator expressions *)
+  | Operator of op
+  | Deref of expr
+
 (* TODO: visitors incompatible with inline records *)
 type decl =
   | Function of {
     name: name;
+    type_parameters: int;
     parameters: binding list;
     return_type: typ;
     body: expr;
