@@ -103,6 +103,8 @@ module Splits = struct
   let index_of_expr (l: int) (e_ofs: MiniRust.expr) (t_ofs: MiniRust.typ): index =
     match e_ofs with
     | Constant (_, n) -> Constant (int_of_string n)
+    (* TODO: NOT a wrapping add here so that we get a runtime exception if we end up out of bounds
+     *)
     | MethodCall (e1, [ "wrapping_add" ], [ Constant (_, n) ])
     | MethodCall (Constant (_, n), [ "wrapping_add" ], [ e1 ]) ->
         if t_ofs = Constant SizeT then
@@ -426,13 +428,16 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): MiniRust.expr * Min
    necessitate the insertion of conversions *)
 and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): MiniRust.expr =
   (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
-  let possibly_convert x t: MiniRust.expr =
-    begin match t, t_ret with
-    | (MiniRust.Vec _ | Array _), Ref (k, Slice _) ->
+  let possibly_convert (x: MiniRust.expr) t: MiniRust.expr =
+    begin match x, t, t_ret with
+    | _, (MiniRust.Vec _ | Array _), Ref (k, Slice _) ->
         Borrow (k, x)
-    | Constant UInt32, Constant SizeT ->
+    | Constant (w, x), Constant UInt32, Constant SizeT ->
+        assert (w = Constant.UInt32);
+        Constant (SizeT, x)
+    | _, Constant UInt32, Constant SizeT ->
         As (x, Constant SizeT)
-    | _, _ ->
+    | _ ->
         if t = t_ret then
           x
         else
