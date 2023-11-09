@@ -174,6 +174,11 @@ module Splits = struct
   type path = path_elem list
     [@@deriving show]
 
+  type root_or_path =
+    | Root
+    | Path of path
+    [@@deriving show]
+
   type info = {
     tree: tree;
       (* This variable (originally a "buffer") has been successively split at those indices *)
@@ -200,26 +205,44 @@ module Splits = struct
     let tree, path, ofs = split info.tree index index in
     { info with tree }, path, expr_of_index l ofs
 
+  let find_zero tree =
+    let rec find_zero path tree =
+      match tree with
+      | Leaf -> None
+      | Node (Constant 0, _, _) ->
+          Some path
+      | Node (_, t1, _) ->
+          find_zero (Left :: path) t1
+    in
+    find_zero [] tree
+
   (* We are trying to access a variable whose position in the tree was originally p1 -- however,
      many more splits may have occurred since this variable was defined. Does p2 provide a way to
      access p1, and if so, via which side? *)
   let accessible_via p1 p2: path_elem option =
-    let l1 = List.length p1 in
-    let l2 = List.length p2 in
-    if l2 < l1 then
-      None
-    else
-      let p2_prefix, p2_suffix = KList.split l1 p2 in
-      if p2_prefix <> p1 then
-        None
-      else
-        match p2_suffix with
-        | [] ->
-            Some Right
-        | Right :: p2_suffix when List.for_all ((=) Left) p2_suffix ->
-            Some Left
-        | _ ->
+    match p1 with
+    | Root ->
+        if List.for_all ((=) Left) p2 then
+          Some Left
+        else
+          None
+    | Path p1 ->
+        let l1 = List.length p1 in
+        let l2 = List.length p2 in
+        if l2 < l1 then
+          None
+        else
+          let p2_prefix, p2_suffix = KList.split l1 p2 in
+          if p2_prefix <> p1 then
             None
+          else
+            match p2_suffix with
+            | [] ->
+                Some Right
+            | Right :: p2_suffix when List.for_all ((=) Left) p2_suffix ->
+                Some Left
+            | _ ->
+                None
 end
 
 
@@ -342,9 +365,9 @@ end
 
 (* Trying to compile a *reference* to variable, who originates from a split of `v_base`, and whose
    original path in the tree is `path`. *)
-let lookup_split (env: env) (v_base: MiniRust.db_index) (path: Splits.path): MiniRust.expr =
+let lookup_split (env: env) (v_base: MiniRust.db_index) (path: Splits.root_or_path): MiniRust.expr =
   if Options.debug "rs" then
-    KPrint.bprintf "looking up from base = %d path %s\n" v_base (Splits.show_path path);
+    KPrint.bprintf "looking up from base = %d path %s\n" v_base (Splits.show_root_or_path path);
   let rec find ofs bs =
     match bs with
     | (_, info) :: bs ->
@@ -431,11 +454,13 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
 
       let { MiniRust.typ; _ }, info = lookup env v in
       if info.tree <> Leaf then
-        lookup_split env v []
+        match Splits.find_zero info.tree with
+        | Some p -> lookup_split env v (Path p)
+        | None -> lookup_split env v Root
       else
         begin match info.path with
         | None -> possibly_convert (Var v) typ
-        | Some (v_base, p) -> lookup_split env (v_base + v + 1) p
+        | Some (v_base, p) -> lookup_split env (v_base + v + 1) (Path p)
         end
 
   | EOp (o, _) ->
@@ -536,7 +561,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
   | ELet (b, e1, e2) ->
       let e1 = translate_expr env e1 in
       let t = translate_type env b.typ in
-      let binding : MiniRust.binding = { name = b.node.name; typ = t; mut = false } in
+      let binding : MiniRust.binding = { name = b.node.name; typ = t; mut = b.node.mut } in
       let env = push env binding in
       Let (binding, e1, translate_expr_with_type env e2 t_ret)
   | EFun _ ->
@@ -620,7 +645,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       (* b is in scope for e_test, e_incr, e_body! *)
       let e_end = match e_test.node, e_incr.node with
         | EApp ({ node = EOp (Lt, _); _ }, [ { node = EBound 0; _ }; e_end ]),
-          EAssign ({ node = EBound 0; _ },
+        EAssign ({ node = EBound 0; _ },
           { node = EApp ({ node = EOp ((Add | AddW), _); _ }, [
             { node = EBound 0; _ };
             { node = EConstant (_, "1"); _ } ]); _ }) ->

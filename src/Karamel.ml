@@ -225,7 +225,7 @@ Supported options:|}
       match String.lowercase_ascii s with
       | "wasm" -> backend := Wasm
       | "c" -> backend := C
-      | "rust" -> backend := Rust; allow_tapps := true
+      | "rust" -> backend := Rust; allow_tapps := true; PrintCommon.indent := 4
       | _ -> failwith ("unrecognized backend: " ^ s)
     ), "  generate code for either one of c (default), rust or wasm";
     "", Arg.Unit (fun _ -> ()), " ";

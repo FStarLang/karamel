@@ -193,7 +193,7 @@ and print_let_binding (binder, e1) =
   jump (print_expr e1))
 
 and print_expr { node; typ } =
-  print_typ typ ^^ colon ^^ space ^^
+  (* print_typ typ ^^ colon ^^ space ^^ *)
   match node with
   | EComment (s, e, s') ->
       surround 2 1 (string s) (print_expr e) (string s')

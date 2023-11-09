@@ -17,7 +17,26 @@ type env = {
   prefix: string list;
   debug: bool;
 }
-let push env x = { env with vars = x :: env.vars }
+
+let mk_uniq { vars; _ } x =
+  if not (List.mem (`Named x) vars) then
+    x
+  else
+    let i = ref 0 in
+    let attempt () = x ^ string_of_int !i in
+    while List.mem (`Named (attempt ())) vars do incr i done;
+    attempt ()
+
+let push env x =
+  let x =
+    match x with
+    | `Named _ when List.mem x env.vars ->
+        failwith "impossible: unexpected shadowing, please call mk_uniq"
+    | _ ->
+        x
+  in
+  { env with vars = x :: env.vars }
+
 let lookup env x =
   try
     List.nth env.vars x
@@ -26,8 +45,11 @@ let lookup env x =
       `Named ("@" ^ string_of_int x)
     else
       Warn.fatal_error "internal error: unbound variable %d" x
+
 let fresh prefix = { vars = []; prefix; debug = false }
+
 let debug = { vars = []; prefix = []; debug = true }
+
 let print env =
   print_endline (String.concat ", " (List.map (function
     | `Named x -> x
@@ -40,7 +62,7 @@ let print_name env n =
       snd (KList.split (List.length env.prefix) n)
     else
       (* Absolute reference, restart from crate top *)
-      "" :: n
+      "crate" :: n
   in
   group (separate_map (colon ^^ colon) string n)
 
@@ -108,11 +130,13 @@ and print_statements env (e: expr): document =
   | Let ({ typ = Unit; _ }, e1, e2) ->
       print_expr env max_int e1 ^^ semi ^^ hardline ^^
       print_statements (push env (`GoneUnit)) e2
-  | Let ({ name = x; _ } as b, e1, e2) ->
+  | Let ({ name; _ } as b, e1, e2) ->
+      let name = mk_uniq env name in
+      let b = { b with name } in
       group (
         group (string "let" ^/^ print_binding env b ^/^ equals) ^^
-        nest 2 (break 1 ^^ print_expr env max_int e1) ^^ semi) ^^ hardline ^^
-      print_statements (push env (`Named x)) e2
+        nest 4 (break 1 ^^ print_expr env max_int e1) ^^ semi) ^^ hardline ^^
+      print_statements (push env (`Named name)) e2
   | _ ->
       print_expr env max_int e
 
@@ -199,7 +223,7 @@ and print_expr env (context: int) (e: expr): document =
       let mine, left, right = prec_of_op2 o in
       paren_if mine @@
       group (print_expr env left e1 ^/^
-        (nest 2 (print_op o) ^/^ print_expr env right e2))
+        (nest 4 (print_op o) ^/^ print_expr env right e2))
   | Call (Operator o, [ e1 ]) ->
       let mine = prec_of_op1 o in
       paren_if mine @@
@@ -227,16 +251,17 @@ and print_expr env (context: int) (e: expr): document =
       let mine, left, right = 18, 17, 18 in
       paren_if mine @@
       group (print_expr env left e1 ^^ space ^^ equals ^^
-        (nest 2 (break1 ^^ print_expr env right e2)))
+        (nest 4 (break1 ^^ print_expr env right e2)))
   | As (e1, e2) ->
       let mine = 7 in
       paren_if mine @@
       group (print_expr env mine e1 ^/^ string "as" ^/^ print_typ env e2)
   | For (b, e1, e2) ->
-      let env = push env (`Named b.name) in
+      let name = mk_uniq env b.name in
       group @@
       (* Note: specifying the type of a pattern isn't supported, per rustc *)
-      group (string "for" ^/^ string b.name ^/^ string "in" ^/^ print_expr env max_int e1) ^/^
+      group (string "for" ^/^ string name ^/^ string "in" ^/^ print_expr env max_int e1) ^/^
+      let env = push env (`Named name) in
       print_block env e2
   | While (e1, e2) ->
       group @@
@@ -275,10 +300,10 @@ and print_array_expr env (e: array_expr) =
   match e with
   | List es ->
       group @@
-      brackets (nest 2 (separate_map (comma ^^ break1) (print_expr env max_int) es))
+      brackets (nest 4 (separate_map (comma ^^ break1) (print_expr env max_int) es))
   | Repeat (e, n) ->
       group @@
-      group (brackets (nest 2 (print_expr env max_int e ^^ semi ^/^ print_expr env max_int n)))
+      group (brackets (nest 4 (print_expr env max_int e ^^ semi ^/^ print_expr env max_int n)))
 
 let arrow = string "->"
 
@@ -293,12 +318,12 @@ let print_decl ns (d: decl) =
       group @@
       group (group (print_pub public ^^ string "fn" ^/^ print_name env name) ^^
         parens_with_nesting (separate_map (comma ^^ break1) (print_binding env) parameters) ^^
-        space ^^ arrow ^^ (nest 2 (break1 ^^ print_typ env return_type))) ^/^
+        space ^^ arrow ^^ (nest 4 (break1 ^^ print_typ env return_type))) ^/^
       print_block env body
   | Constant { name; typ; body; public } ->
       group @@
       group (print_pub public ^^ string "const" ^/^ print_name env name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
-      nest 2 (break1 ^^ print_expr env max_int body) ^^ semi
+      nest 4 (break1 ^^ print_expr env max_int body) ^^ semi
 
 let failures = ref 0
 
