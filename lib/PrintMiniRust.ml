@@ -369,12 +369,13 @@ let print_pub p =
 let print_decl ns (d: decl) =
   let env = fresh ns in
   match d with
-  | Function { name; type_parameters; parameters; return_type; body; public } ->
+  | Function { name; type_parameters; parameters; return_type; body; public; inline } ->
       assert (type_parameters = 0);
       let parameters = List.map (fun b -> { b with name = allocate_name env b.name }) parameters in
       let env = List.fold_left (fun env (b: binding) -> push env (`Named b.name)) env parameters in
+      let inline = if inline then string "#[inline]" ^^ break1 else empty in
       group @@
-      group (group (print_pub public ^^ string "fn" ^/^ print_name env name) ^^
+      group (group (inline ^^ print_pub public ^^ string "fn" ^/^ print_name env name) ^^
         parens_with_nesting (separate_map (comma ^^ break1) (print_binding env) parameters) ^^
         space ^^ arrow ^^ (nest 4 (break1 ^^ print_typ env return_type))) ^/^
       print_block_expression env body

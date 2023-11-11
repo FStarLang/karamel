@@ -730,7 +730,8 @@ let translate_decl env (d: Ast.decl) =
       let name = translate_lid env lid in
       let env = push_global env lid (name, Function (type_parameters, List.map (fun x -> x.MiniRust.typ) parameters, return_type)) in
       let public = not (List.mem Common.Private flags) in
-      env, Some (MiniRust.Function { type_parameters; parameters; return_type; body; name; public })
+      let inline = List.mem Common.Inline flags in
+      env, Some (MiniRust.Function { type_parameters; parameters; return_type; body; name; public; inline })
 
   | Ast.DGlobal (flags, lid, _, t, e) ->
       let body, typ = match e.node with

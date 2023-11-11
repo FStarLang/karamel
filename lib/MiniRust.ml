@@ -95,6 +95,7 @@ type decl =
     return_type: typ;
     body: expr;
     public: bool;
+    inline: bool;
   }
   | Constant of {
     name: name;
