@@ -527,9 +527,6 @@ and infer' env e =
           (* Special incorrect encoding of polymorphic equalities *)
           let t = KList.one ts in
           TArrow (t, TArrow (t, TBool))
-      | EQualified lid ->
-          let t = lookup_global env lid in
-          DeBruijn.subst_tn ts t
       | _ ->
           let t = infer env e in
           DeBruijn.subst_tn ts t

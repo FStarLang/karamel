@@ -373,6 +373,16 @@ module H = struct
   let is_wrapping_operator o =
     wrapping_operator_opt o <> None
 
+  let is_const (e: MiniRust.expr) =
+    match e with
+    | MiniRust.Constant _ -> true
+    | _ -> false
+
+  let assert_const (e: MiniRust.expr) =
+    match e with
+    | MiniRust.Constant (_, s) -> int_of_string s
+    | _ -> failwith "unexpected: assert_const not const"
+
 end
 
 (* Trying to compile a *reference* to variable, who originates from a split of `v_base`, and whose
@@ -403,7 +413,7 @@ let lookup_split (env: env) (v_base: MiniRust.db_index) (path: Splits.root_or_pa
 (* Translate an expression, and take the annotated original type to be the
    expected type. *)
 let rec translate_expr (env: env) (e: Ast.expr): MiniRust.expr =
-  (* KPrint.bprintf "translate_expr: %a\n" PrintAst.Ops.pexpr e; *)
+  KPrint.bprintf "translate_expr: %a : %a\n" PrintAst.Ops.pexpr e PrintAst.Ops.ptyp e.typ;
   translate_expr_with_type env e (translate_type env e.typ)
 
 and translate_array (env: env) is_toplevel (init: Ast.expr): MiniRust.expr * MiniRust.typ =
@@ -414,13 +424,12 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): MiniRust.expr * Min
   in
 
   match init.node with
-  | EBufCreate (lifetime, e_init, ({ node = EConstant (_, s); _ } as len)) ->
+  | EBufCreate (lifetime, e_init, len) ->
       let t = translate_type env (Helpers.assert_tbuf_or_tarray init.typ) in
-      let l = int_of_string s in
       let len = translate_expr_with_type env len (Constant SizeT) in
       let e_init = MiniRust.Repeat (translate_expr env e_init, len) in
-      if to_array lifetime then
-        Array e_init, Array (t, l)
+      if to_array lifetime && H.is_const len then
+        Array e_init, Array (t, H.assert_const len)
       else
         VecNew e_init, Vec t
   | EBufCreateL (lifetime, es) ->
@@ -432,7 +441,7 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): MiniRust.expr * Min
       else
         VecNew e_init, Vec t
   | _ ->
-      failwith "unexpected: non-bufcreate expression"
+      Warn.fatal_error "unexpected: non-bufcreate expression, got %a" PrintAst.Ops.pexpr init
 
 (* However, generally, we will have a type provided by the context that may
    necessitate the insertion of conversions *)
@@ -633,8 +642,20 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
         Index (dst, H.range_with_len dst_index len),
         [ "copy_from_slice" ],
         [ Borrow (Shared, Index (src, H.range_with_len src_index len)) ])
-  | EBufFill _ ->
-      failwith "TODO: EBufFill"
+  | EBufFill (dst, elt, len) ->
+      let dst = translate_expr env dst in
+      let elt = translate_expr env elt in
+      let len = translate_expr_with_type env len (Constant SizeT) in
+      if H.is_const len then
+        MethodCall (
+          Index (dst, H.range_with_len (Constant (SizeT, "0")) len),
+          [ "copy_from_slice" ],
+          [ Borrow (Shared, Array (Repeat (elt, len))) ])
+      else
+        MethodCall (
+          Index (dst, H.range_with_len (Constant (SizeT, "0")) len),
+          [ "copy_from_slice" ],
+          [ Borrow (Shared, VecNew (Repeat (elt, len))) ])
   | EBufFree _ ->
       failwith "unexpected: EBufFree"
   | EBufNull ->

@@ -244,7 +244,7 @@ let lowstar_buffer: file =
 
 let lowstar_ignore: file =
   "LowStar_Ignore", [
-    mk_val ~nvars:1 ~flags:Common.[ Macro ] [ "LowStar"; "Ignore" ] "ignore" (TArrow (TBound 0, TUnit))
+    mk_val ~nvars:1 [ "LowStar"; "Ignore" ] "ignore" (TArrow (TBound 0, TUnit))
   ]
 
 let lowstar_endianness: file =
