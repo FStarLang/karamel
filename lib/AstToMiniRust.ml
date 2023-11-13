@@ -392,6 +392,7 @@ let rec translate_type (env: env) (t: Ast.typ): MiniRust.typ =
       end
   | TArrow _ ->
       let t, ts = Helpers.flatten_arrow t in
+      let ts = match ts with [ TUnit ] -> [] | _ -> ts in
       Function (0, List.map (translate_type env) ts, translate_type env t)
   | TApp _ -> failwith "TODO: TApp"
   | TBound i -> Bound i
@@ -557,8 +558,18 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       Assign (Deref (translate_expr env e1), translate_expr env e2)
 
   | EApp ({ node = ETApp (e, ts); _ }, es) ->
+      let es =
+        match es with
+        | [ { typ = TUnit; node } ] -> assert (node = EUnit); []
+        | _ -> es
+      in
       Call (translate_expr env e, List.map (translate_type env) ts, List.map (translate_expr env) es)
   | EApp (e, es) ->
+      let es =
+        match es with
+        | [ { typ = TUnit; node } ] -> assert (node = EUnit); []
+        | _ -> es
+      in
       Call (translate_expr env e, [], List.map (translate_expr env) es)
   | ETApp (_, _) ->
       failwith "TODO: ETApp"
@@ -769,6 +780,12 @@ let translate_decl env (d: Ast.decl) =
       assert (type_parameters = 0);
       if Options.debug "rs" then
         KPrint.bprintf "Ast.DFunction (%a)\n" PrintAst.Ops.plid lid;
+      let args, body =
+        if List.length args = 1 && (List.hd args).Ast.typ = TUnit then
+          [], DeBruijn.subst Helpers.eunit 0 body
+        else
+          args, body
+      in
       let parameters = List.map (fun (b: Ast.binder) ->
         let typ = translate_type env b.typ in
         let mut = false in
