@@ -2,6 +2,56 @@
 
 module LidMap = Idents.LidMap
 
+(* Helpers *)
+
+module H = struct
+
+  let add (e1: MiniRust.expr) (e2: MiniRust.expr): MiniRust.expr =
+    match e1, e2 with
+    | Constant (_, "0"), _ -> e2
+    | _, Constant (_, "0") -> e1
+    | _, _ -> Call (Operator Add, [], [ e1; e2 ])
+
+  let sub (e1: MiniRust.expr) (e2: MiniRust.expr): MiniRust.expr =
+    match e1, e2 with
+    | _, Constant (_, "0") -> e1
+    | _, _ -> Call (Operator Sub, [], [ e1; e2 ])
+
+  let usize i: MiniRust.expr =
+    Constant (SizeT, string_of_int i)
+
+  let range_with_len start len: MiniRust.expr =
+    Range (Some start, Some (add start len), false)
+
+  let wrapping_operator_opt = function
+    | Constant.Add -> Some "wrapping_add"
+    | Div -> Some "wrapping_div"
+    | Mult -> Some "wrapping_mul"
+    | Neg -> Some "wrapping_neg"
+    | Mod -> Some "wrapping_rem"
+    | BShiftL -> Some "wrapping_shl"
+    | BShiftR -> Some "wrapping_shr"
+    | Sub -> Some "wrapping_sub"
+    | _ -> None
+
+  let wrapping_operator o =
+    Option.must (wrapping_operator_opt o)
+
+  let is_wrapping_operator o =
+    wrapping_operator_opt o <> None
+
+  let is_const (e: MiniRust.expr) =
+    match e with
+    | MiniRust.Constant _ -> true
+    | _ -> false
+
+  let assert_const (e: MiniRust.expr) =
+    match e with
+    | MiniRust.Constant (_, s) -> int_of_string s
+    | _ -> failwith "unexpected: assert_const not const"
+
+end
+
 (* Rust's ownership system forbids raw pointer manipulations, meaning that Low*'s "EBufSub"
    operation cannot be compiled as a pointer addition. Instead, we choose to compile it as
    `split_at_mut`, a compilation scheme that entails several limitations.
@@ -86,11 +136,16 @@ module Splits = struct
   type leveled_expr = int * MiniRust.expr
     [@@deriving show]
 
+  let equalize (l1, e1) (l2, e2) =
+    let l = max l1 l2 in
+    let e1 = MiniRust.lift (l - l1) e1 in
+    let e2 = MiniRust.lift (l - l2) e2 in
+    l, e1, e2
+
   (* We retain the depth of the environment at the time non-constant indices were recorded, in order
      to be able to compare them properly. *)
-  let term_eq (l1, e1) (l2, e2) =
-    let e1 = MiniRust.lift (max l1 l2 - l1) e1 in
-    let e2 = MiniRust.lift (max l1 l2 - l2) e2 in
+  let term_eq e1 e2 =
+    let _, e1, e2 = equalize e1 e2 in
     e1 = e2
 
   (* A super simple grammar of symbolic terms to be compared abstractly *)
@@ -103,8 +158,6 @@ module Splits = struct
   let index_of_expr (l: int) (e_ofs: MiniRust.expr) (t_ofs: MiniRust.typ): index =
     match e_ofs with
     | Constant (_, n) -> Constant (int_of_string n)
-    (* TODO: NOT a wrapping add here so that we get a runtime exception if we end up out of bounds
-     *)
     | MethodCall (e1, [ "wrapping_add" ], [ Constant (_, n) ])
     | MethodCall (Constant (_, n), [ "wrapping_add" ], [ e1 ]) ->
         if t_ofs = Constant SizeT then
@@ -122,9 +175,12 @@ module Splits = struct
     match e with
     | Constant i ->
         Constant (SizeT, string_of_int i)
+    | Add ((l', e), 0) ->
+        let e = MiniRust.lift (l - l') e in
+        e
     | Add ((l', e), i) ->
         let e = MiniRust.lift (l - l') e in
-        MethodCall (e, [ "wrapping_add" ], [ Constant (SizeT, string_of_int i) ])
+        Call (Operator Add, [], [ e; Constant (SizeT, string_of_int i) ])
 
   let gte i1 i2 =
     match i1, i2 with
@@ -136,12 +192,16 @@ module Splits = struct
         (* operations are homogenous, meaning e1 must have type usize/u32, meaning e1 >= 0 *)
         i1 >= i2
     | Constant i1, Add (e2, i2) ->
-        Warn.failwith "Cannot compare constant %d and %a + %d\n"
-          i1 PrintMiniRust.pexpr (snd e2) i2
+        (* TODO: proper warning system *)
+        KPrint.bprintf "WARN: cannot compare constant %d and %a + %d\n"
+          i1 PrintMiniRust.pexpr (snd e2) i2;
+        true
     | Add (e1, i1), Add (e2, i2) ->
-        Warn.failwith "Cannot compare %a@%d + %d and %a@%d + %d\n"
+        (* TODO: proper warning system *)
+        KPrint.bprintf "WARN: Cannot compare %a@%d + %d and %a@%d + %d\n"
           PrintMiniRust.pexpr (snd e1) (fst e1) i1
-          PrintMiniRust.pexpr (snd e2) (fst e2) i2
+          PrintMiniRust.pexpr (snd e2) (fst e2) i2;
+        true
 
   let sub i1 i2 =
     match i1, i2 with
@@ -151,13 +211,20 @@ module Splits = struct
         Constant (i1 - i2)
     | Add (e1, i1), Constant i2 ->
         Add (e1, i1 - i2)
-    | Constant i1, Add (e2, i2) ->
-        Warn.failwith "Cannot subtract constant %d and %a + %d\n"
-          i1 PrintMiniRust.pexpr (snd e2) i2
+    | Constant i1, Add ((l2, e2), i2) ->
+        KPrint.bprintf "WARN: Cannot subtract constant %d and %a + %d\n\
+          assuming monotonically increasing indices, this may cause runtime failures"
+          i1 PrintMiniRust.pexpr e2 i2;
+        (* i1 - (e2 + i2) *)
+        Add ((l2, H.sub (H.usize i1) (H.add e2 (H.usize i2))), 0)
     | Add (e1, i1), Add (e2, i2) ->
-        Warn.failwith "Cannot subtract constant %a@%d + %d and %a@%d + %d\n"
-          PrintMiniRust.pexpr (snd e1) (fst e1) i1
-          PrintMiniRust.pexpr (snd e2) (fst e2) i2
+        let l, e1, e2 = equalize e1 e2 in
+        KPrint.bprintf "WARN: Cannot subtract constant %a@%d + %d and %a@%d + %d\n\
+          assuming monotonically increasing indices, this may cause runtime failures"
+          PrintMiniRust.pexpr e1 l i1
+          PrintMiniRust.pexpr e2 l i2;
+        (* (e1 + i1) - (e2 + i2) *)
+        Add ((l, H.sub (H.add e1 (H.usize i1)) (H.add e2 (H.usize i2))), 0)
 
   (* A binary search tree that records the splits that have occured *)
   type tree =
@@ -346,44 +413,6 @@ let rec translate_type (env: env) (t: Ast.typ): MiniRust.typ =
 let translate_lid env lid =
   env.prefix @ [ snd lid ]
 
-(* Helpers *)
-
-module H = struct
-
-  let plus e1 e2: MiniRust.expr =
-    Call (Operator Add, [], [ e1; e2 ])
-
-  let range_with_len start len: MiniRust.expr =
-    Range (Some start, Some (plus start len), false)
-
-  let wrapping_operator_opt = function
-    | Constant.Add -> Some "wrapping_add"
-    | Div -> Some "wrapping_div"
-    | Mult -> Some "wrapping_mul"
-    | Neg -> Some "wrapping_neg"
-    | Mod -> Some "wrapping_rem"
-    | BShiftL -> Some "wrapping_shl"
-    | BShiftR -> Some "wrapping_shr"
-    | Sub -> Some "wrapping_sub"
-    | _ -> None
-
-  let wrapping_operator o =
-    Option.must (wrapping_operator_opt o)
-
-  let is_wrapping_operator o =
-    wrapping_operator_opt o <> None
-
-  let is_const (e: MiniRust.expr) =
-    match e with
-    | MiniRust.Constant _ -> true
-    | _ -> false
-
-  let assert_const (e: MiniRust.expr) =
-    match e with
-    | MiniRust.Constant (_, s) -> int_of_string s
-    | _ -> failwith "unexpected: assert_const not const"
-
-end
 
 (* Trying to compile a *reference* to variable, who originates from a split of `v_base`, and whose
    original path in the tree is `path`. *)

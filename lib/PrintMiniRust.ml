@@ -200,7 +200,7 @@ Level	Operator/Expression		Associativity
  6	Unary - * ! & &mut
  7	as				left to right
  8	* / %				left to right
- 9	+				left to right
+ 9	+ -				left to right
 10	<< >>				left to right
 11	&				left to right
 12	^				left to right
@@ -220,7 +220,7 @@ and prec_of_op2 o =
   let open Constant in
   match o with
   | Mult | Div | Mod -> 8, 8, 7
-  | Add -> 9, 9, 8
+  | Add | Sub -> 9, 9, 8
   | BShiftL | BShiftR -> 10, 10, 9
   | BAnd -> 11, 11, 10
   | BXor -> 12, 12, 11
