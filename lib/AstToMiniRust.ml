@@ -213,14 +213,14 @@ module Splits = struct
         Add (e1, i1 - i2)
     | Constant i1, Add ((l2, e2), i2) ->
         KPrint.bprintf "WARN: Cannot subtract constant %d and %a + %d\n\
-          assuming monotonically increasing indices, this may cause runtime failures"
+          assuming monotonically increasing indices, this may cause runtime failures\n"
           i1 PrintMiniRust.pexpr e2 i2;
         (* i1 - (e2 + i2) *)
         Add ((l2, H.sub (H.usize i1) (H.add e2 (H.usize i2))), 0)
     | Add (e1, i1), Add (e2, i2) ->
         let l, e1, e2 = equalize e1 e2 in
         KPrint.bprintf "WARN: Cannot subtract constant %a@%d + %d and %a@%d + %d\n\
-          assuming monotonically increasing indices, this may cause runtime failures"
+          assuming monotonically increasing indices, this may cause runtime failures\n"
           PrintMiniRust.pexpr e1 l i1
           PrintMiniRust.pexpr e2 l i2;
         (* (e1 + i1) - (e2 + i2) *)
@@ -443,7 +443,7 @@ let lookup_split (env: env) (v_base: MiniRust.db_index) (path: Splits.root_or_pa
 (* Translate an expression, and take the annotated original type to be the
    expected type. *)
 let rec translate_expr (env: env) (e: Ast.expr): MiniRust.expr =
-  KPrint.bprintf "translate_expr: %a : %a\n" PrintAst.Ops.pexpr e PrintAst.Ops.ptyp e.typ;
+  (* KPrint.bprintf "translate_expr: %a : %a\n" PrintAst.Ops.pexpr e PrintAst.Ops.ptyp e.typ; *)
   translate_expr_with_type env e (translate_type env e.typ)
 
 and translate_array (env: env) is_toplevel (init: Ast.expr): MiniRust.expr * MiniRust.typ =
@@ -611,7 +611,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
           MiniRust.(Field (find 0 env.vars, Splits.string_of_path_elem path_elem))
       in
 
-      let e1 = MiniRust.MethodCall (e_nearest , ["split_at_mut"], [ index ]) in
+      let split_at = match b.typ with TBuf (_, true) -> "split_at" | _ -> "split_at_mut" in
+      let e1 = MiniRust.MethodCall (e_nearest , [split_at], [ index ]) in
       let t = translate_type env b.typ in
       let binding : MiniRust.binding * Splits.info =
         { name = b.node.name; typ = Tuple [ t; t ]; mut = false },
@@ -672,6 +673,12 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
       Borrow (Mut, Index (e1, Range (Some e2, None, false)))
   | EBufDiff _ ->
       failwith "unexpected: EBufDiff"
+  (* Silly pattern in Low*: for historical reasons, the blit operations takes a
+     monotonic buffer (with any preorder) as its `src` argument. Since const pointers are an
+     abstract type, there is an explicit coercion *to mutable* to pass a const pointer as the source
+     of a bufblit operation. This is backwards, and should be fixed with an alternative `blit`
+     function in the ConstBuffer module (or in the BufferOps module). *)
+  | EBufBlit ({ node = ECast ({ typ = TBuf (_, true); _ } as src, TBuf (_, false)); _ }, src_index, dst, dst_index, len)
   | EBufBlit (src, src_index, dst, dst_index, len) ->
       let src = translate_expr env src in
       let src_index = translate_expr_with_type env src_index (Constant SizeT) in
@@ -791,11 +798,11 @@ let translate_decl env (d: Ast.decl) =
         let mut = false in
         { MiniRust.mut; name = b.Ast.node.Ast.name; typ }
       ) args in
-      let env0 = List.fold_left push env parameters in
-      let body = translate_expr env0 body in
       let return_type = translate_type env t in
       let name = translate_lid env lid in
       let env = push_global env lid (name, Function (type_parameters, List.map (fun x -> x.MiniRust.typ) parameters, return_type)) in
+      let env0 = List.fold_left push env parameters in
+      let body = translate_expr env0 body in
       let public = not (List.mem Common.Private flags) in
       let inline = List.mem Common.Inline flags in
       env, Some (MiniRust.Function { type_parameters; parameters; return_type; body; name; public; inline })
