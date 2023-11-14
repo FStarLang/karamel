@@ -122,7 +122,10 @@ let print_borrow_kind k =
   | Shared -> empty
 
 let print_constant (w, s) =
-  string s ^^ string (string_of_width w)
+  if w <> Constant.Bool then
+    string s ^^ string (string_of_width w)
+  else
+    string s
 
 let rec print_typ env (t: typ): document =
   match t with
