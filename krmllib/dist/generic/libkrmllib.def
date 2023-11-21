@@ -15,31 +15,6 @@ EXPORTS
   WasmSupport_betole32
   WasmSupport_betole64
   WasmSupport_memzero
-  FStar_List_Tot_Base_append__bool
-  FStar_Seq_Base_append__bool
-  FStar_Seq_Base_create__bool
-  FStar_BV_bv_uext
-  FStar_Seq_Base_empty__bool
-  FStar_Seq_Base_op_At_Bar__bool
-  FStar_Seq_Properties_seq_of_list__bool
-  FStar_BV_list2bv
-  FStar_List_Tot_Base_length__bool
-  FStar_Seq_Base_length__bool
-  FStar_List_Tot_Base_hd__bool
-  FStar_List_Tot_Base_tail__bool
-  FStar_List_Tot_Base_index__bool
-  FStar_Seq_Base_index__bool
-  FStar_Seq_Base_slice___bool
-  FStar_Seq_Properties_seq_to_list__bool
-  FStar_BV_bv2list
-  FStar_BV_bv_zero
-  FStar_BV_bvult
-  FStar_BV_bvadd
-  FStar_BV_bvsub
-  FStar_BV_bvdiv
-  FStar_BV_bvdiv_unsafe
-  FStar_BV_bvmod
-  FStar_BV_bvmul
   FStar_Order_uu___is_Lt
   FStar_Order_uu___is_Eq
   FStar_Order_uu___is_Gt
