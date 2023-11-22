@@ -512,7 +512,7 @@ let cross_call_analysis files =
 (** A whole-program transformation that inlines functions according to... *)
 
 let always_live name =
-  let n = GlobalNames.target_c_name ~attempt_shortening:false name in
+  let n = fst (GlobalNames.target_c_name ~attempt_shortening:false name) in
   n = "main" ||
   String.length n >= 11 &&
   String.sub n 0 11 = "WasmSupport" &&
