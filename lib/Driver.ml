@@ -75,8 +75,8 @@ let mkdirp d =
   let rec mkdirp d =
     if Sys.file_exists d then begin
       if not (Sys.is_directory d) then
-        failwith ("mkdirp: trying to recursively create a directory, but the file \
-          exists already and is not a directory: " ^ d)
+        failwith "mkdirp: trying to recursively create a directory, but the file \
+          exists already and is not a directory: %s" d
     end else begin
       mkdirp (Filename.dirname d);
       try Unix.mkdir d 0o755

@@ -212,6 +212,7 @@ type expr' =
   | EBufBlit of expr * expr * expr * expr * expr
     (** e1 (source), index; e2 (dest), index; len *)
   | EBufFill of expr * expr * expr
+    (** dst; elt; len *)
   | EBufFree of expr
   | EBufNull
   | EPushFrame

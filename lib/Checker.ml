@@ -527,9 +527,6 @@ and infer' env e =
           (* Special incorrect encoding of polymorphic equalities *)
           let t = KList.one ts in
           TArrow (t, TArrow (t, TBool))
-      | EQualified lid ->
-          let t = lookup_global env lid in
-          DeBruijn.subst_tn ts t
       | _ ->
           let t = infer env e in
           DeBruijn.subst_tn ts t
@@ -1027,9 +1024,9 @@ and subtype env t1 t2 =
   match expand_abbrev env t1, expand_abbrev env t2 with
   | TInt w1, TInt w2 when w1 = w2 ->
       true
-  | TInt K.SizeT, TInt K.UInt32 when !Options.wasm ->
+  | TInt K.SizeT, TInt K.UInt32 when Options.wasm () ->
       true
-  | TInt K.UInt32, TInt K.SizeT when !Options.wasm ->
+  | TInt K.UInt32, TInt K.SizeT when Options.wasm () ->
       true
   | TArray (t1, (_, l1)), TArray (t2, (_, l2)) when subtype env t1 t2 && l1 = l2 ->
       true

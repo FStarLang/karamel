@@ -38,7 +38,8 @@ let type_of_op op w =
   | BShiftL | BShiftR ->
       TArrow (TInt w, TArrow (uint32, TInt w))
   | Eq | Neq ->
-      TArrow (TAny, TArrow (TAny, TBool))
+      let t = if w = Bool then TBool else TInt w in
+      TArrow (t, TArrow (t, TBool))
   | Lt | Lte | Gt | Gte ->
       TArrow (TInt w, TArrow (TInt w, TBool))
   | And | Or | Xor ->
@@ -415,6 +416,9 @@ let assert_tlid t =
 
 let assert_tbuf t =
   match t with TBuf (t, _) -> t | t -> Warn.fatal_error "Not a buffer: %a" ptyp t
+
+let assert_tint t =
+  match t with TInt w -> w | t -> Warn.fatal_error "Not an int: %a" ptyp t
 
 let assert_tarray t =
   match t with TArray (t, _) -> t | t -> Warn.fatal_error "Not an array: %a" ptyp t
