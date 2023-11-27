@@ -869,7 +869,8 @@ end
 let union_field_of_cons = (^) "case_"
 
 let mk_eq w e1 e2 =
-  let eq = with_type (TArrow (TInt w, TArrow (TInt w, TBool))) (EOp (K.Eq, w)) in
+  let t = if w = K.Bool then TBool else TInt w in
+  let eq = with_type (TArrow (t, TArrow (t, TBool))) (EOp (K.Eq, w)) in
   with_type TBool (EApp (eq, [ e1; e2 ]))
 
 let mk_poly_eq t e1 e2 =
