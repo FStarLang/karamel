@@ -13,7 +13,9 @@ RUN apt-get update && \
       gawk \
       coreutils \
       sudo \
-      opam
+      opam \
+      python3 \
+      python3-distutils
 
 
 # Create a new user and give them sudo rights
