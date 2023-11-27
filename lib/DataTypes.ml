@@ -428,7 +428,7 @@ let compile_simple_matches (map, enums) = object(self)
     | ToFlat names ->
         PRecord (List.map2 (fun n e -> n, self#visit_pattern_w () e) names args)
     | ToFlatTaggedUnion branches ->
-        let t_tag = mk_tag_lid lid cons in
+        let t_tag = TQualified (self#allocate_enum_lid lid branches) in
         let fields =
           if List.length args = 0 then
             []
@@ -437,7 +437,7 @@ let compile_simple_matches (map, enums) = object(self)
             List.map2 (fun (f, _) e -> f, self#visit_pattern_w () e) fields args
         in
         PRecord ([
-          field_for_tag, with_type (TQualified t_tag) (PEnum (mk_tag_lid lid cons))
+          field_for_tag, with_type t_tag (PEnum (mk_tag_lid lid cons))
         ] @ fields)
 
   method private allocate_enum_lid lid branches =
