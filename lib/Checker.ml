@@ -688,7 +688,7 @@ and infer' env e =
       check env TBool e1;
       let t = infer env e2 in
       if t = TUnit || t = TAny then
-        t (* loops that end in return can be typed with TAny *)
+        TAny (* loops that end in return can be typed with TAny *)
       else
         checker_error env "%a, while loop is neither tany or tunit" ploc env.location
 
