@@ -43,8 +43,11 @@ type typ =
   | TBool
   | TUnit
   | TAny
-      (** appears because of casts introduced by erasure... eventually, should
+      (** top type -- appears because of casts introduced by erasure... eventually, should
        * not appear! *)
+  | TBottom
+      (** cannot be constructed -- used by the internal type-checking algorithm to return constructs
+          such as continue or break *)
   | TBuf of typ * bool
       (** a buffer in the Low* sense -- boolean indicates whether it's const or
        * not *)

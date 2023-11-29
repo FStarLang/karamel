@@ -802,6 +802,8 @@ and mk_return_type env = function
       fatal_error "Internal failure: TTuple not desugared here"
   | TAnonymous t ->
       mk_type_def env t
+  | TBottom ->
+      failwith "impossible: TBottom not eliminated"
 
 
 and mk_type env = function

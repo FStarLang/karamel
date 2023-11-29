@@ -13,6 +13,10 @@ open Loc
 open PrintAst.Ops
 open Helpers
 
+let indent = ref ""
+let incr () = indent := !indent ^ "  "
+let decr () = indent := String.sub !indent 2 (String.length !indent - 2)
+
 let buf_any_msg = format_of_string {|
 This subexpression creates a buffer with an unknown type:
   %a
@@ -195,7 +199,8 @@ and check_program env r (name, decls) =
 
 and check_decl env d =
   if Options.debug "checker" then
-    KPrint.bprintf "checking %a\n" plid (lid_of_decl d);
+    KPrint.bprintf "%schecking %a\n" !indent plid (lid_of_decl d);
+  indent := "  ";
   match d with
   | DFunction (_, _, n, t, name, binders, body) ->
       assert (!Options.allow_tapps || n = 0);
@@ -205,32 +210,17 @@ and check_decl env d =
   | DGlobal (_, name, n, t, body) ->
       assert (n = 0);
       let env = locate env (InTop name) in
-      check env t body
+      if body.node <> EAny then
+        check env t body
   | DExternal _
   | DType _ ->
       (* Barring any parameterized types, there's is nothing to check here
        * really. *)
-      ()
+      (); ;
+  decr ()
 
-and check_or_infer env t e =
-  if t = TAny then
-    infer env e
-  else begin
-    check env t e;
-    t
-  end
-
-and smallest t1 t2 =
-  (* This barely makes any sense. Need to clean up this typechecking algorithm. *)
-  match t1, t2 with
-  | TAny, _ ->
-      t2
-  | _, TAny ->
-      t1
-  | TBuf (t1, b1), TBuf (t2, b2) ->
-      TBuf (smallest t1 t2, b1 && b2)
-  | _ ->
-      t1
+and check_or_infer env _ e =
+  infer env e
 
 and check_fields_opt env fieldexprs fieldtyps =
   if List.length fieldexprs > List.length fieldtyps then
@@ -264,10 +254,14 @@ and check_union env fieldexprs fieldtyps =
 
 
 and check env t e =
-  if Options.debug "checker" then KPrint.bprintf "[check] t=%a for e=%a\n" ptyp t pexpr e;
-  if Options.debug "checker" then KPrint.bprintf "[check] annot=%a for e=%a\n" ptyp e.typ pexpr e;
+  if Options.debug "checker" then KPrint.bprintf "%s[check] t=%a (annot=%a) for e=%a\n" !indent
+    ptyp t ptyp e.typ pexpr e;
+  incr ();
   check' env t e;
-  e.typ <- smallest e.typ t
+  (* Un-annotated node (initial phase of checking) *)
+  if e.typ = TAny then
+    e.typ <- t;
+  decr ()
 
 and check' env t e =
   let c t' = check_subtype env t' t in
@@ -313,8 +307,10 @@ and check' env t e =
       check env t e
 
   | ELet (binder, body, cont) ->
-      let t' = check_or_infer (locate env (In binder.node.name)) binder.typ body in
-      binder.typ <- t';
+      if body.node <> EAny then begin
+        let t' = check_or_infer (locate env (In binder.node.name)) binder.typ body in
+        binder.typ <- t'
+      end;
       let env = push env binder in
       check (locate env (After binder.node.name)) t cont
 
@@ -344,7 +340,8 @@ and check' env t e =
       let t, _ = assert_buffer env t in
       if t = TAny then
         checker_error env buf_any_msg ppexpr e;
-      check env t e1;
+      if e1.node <> EAny then
+        check env t e1;
       check_array_index env e2;
       c (best_buffer_type lifetime t e2)
 
@@ -494,12 +491,14 @@ and args_of_branch env t ident =
       checker_error env "Type annotation is not an lid but %a" ptyp t
 
 and infer env e =
-  if Options.debug "checker" then KPrint.bprintf "[infer] %a\n" pexpr e;
+  if Options.debug "checker" then KPrint.bprintf "%s[infer] %a\n" !indent pexpr e;
+  incr ();
   let t = infer' env e in
-  if Options.debug "checker" then KPrint.bprintf "[infer, got] %a\n" ptyp t;
-  check_subtype env t e.typ;
+  decr ();
+  if Options.debug "checker" then KPrint.bprintf "%s[infer, got] %a\n" !indent ptyp t;
+  (* check_subtype env t e.typ; *)
   e.typ <- prefer_nominal t e.typ;
-  if Options.debug "checker" then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ;
+  if Options.debug "checker" then KPrint.bprintf "%s[infer, now] %a\n" !indent ptyp e.typ;
   t
 
 and prefer_nominal t1 t2 =
@@ -570,22 +569,20 @@ and infer' env e =
   | EApp (e, es) ->
       let env = locate env (Call (KPrint.bsprintf "%a" pexpr e)) in
       let t = infer env e in
-      if t = TAny then
-        let _ = List.map (infer env) es in
-        TAny
-      else
-        let t_ret, t_args = flatten_arrow t in
-        if List.length t_args = 0 then
-          checker_error env "This is not a function:\n%a" pexpr e;
-        if List.length es > List.length t_args then
-          checker_error env "Too many arguments for application:\n%a" pexpr e;
-        let t_args, t_remaining_args = KList.split (List.length es) t_args in
-        ignore (List.map2 (check_or_infer env) t_args es);
-        fold_arrow t_remaining_args t_ret
+      let t_ret, t_args = flatten_arrow t in
+      if List.length t_args = 0 then
+        checker_error env "This is not a function:\n%a" pexpr e;
+      if List.length es > List.length t_args then
+        checker_error env "Too many arguments for application:\n%a" pexpr e;
+      let t_args, t_remaining_args = KList.split (List.length es) t_args in
+      ignore (List.map2 (check_or_infer env) t_args es);
+      fold_arrow t_remaining_args t_ret
 
   | ELet (binder, body, cont) ->
-      let t = check_or_infer (locate env (In binder.node.name)) binder.typ body in
-      binder.typ <- t;
+      if body.node <> EAny then begin
+        let t = check_or_infer (locate env (In binder.node.name)) binder.typ body in
+        binder.typ <- t
+      end;
       let env = push env binder in
       infer (locate env (After binder.node.name)) cont
 
@@ -594,7 +591,7 @@ and infer' env e =
       let t1 = infer (locate env Then) e2 in
       let t2 = infer (locate env Else) e3 in
       check_eqtype env t1 t2;
-      t1
+      if t1 = TBottom then t2 else t1
 
   | ESequence es ->
       begin match List.rev es with
@@ -611,9 +608,12 @@ and infer' env e =
       TUnit
 
   | EBufCreate (l, e1, e2) ->
-      let t1 = infer env e1 in
       check_array_index env e2;
-      best_buffer_type l t1 e2
+      if e1.node <> EAny then
+        let t1 = infer env e1 in
+        best_buffer_type l t1 e2
+      else
+        checker_error env "uninitialized array without context type info"
 
   | EBufRead (e1, e2) ->
       check_array_index env e2;
@@ -666,17 +666,23 @@ and infer' env e =
   | EPushFrame | EPopFrame ->
       TUnit
 
-  | EAny | EAbort _ ->
-      TAny
+  | EAny ->
+      (* The poorly-named EAny stands for uninitialized values, which may be of
+         any type. *)
+      checker_error env "%a There should be no stray EAny except to encode \
+        uninitialized values" ploc env.location
+
+  | EAbort _ ->
+      TBottom
 
   | EReturn e ->
       ignore (infer env e);
       (** TODO: check that [EReturn] matches the expected return type *)
-      TAny
+      TBottom
 
   | EContinue
   | EBreak ->
-      TUnit
+      TBottom
 
   | EBool _ ->
       TBool
@@ -687,10 +693,10 @@ and infer' env e =
   | EWhile (e1, e2) ->
       check env TBool e1;
       let t = infer env e2 in
-      if t = TUnit || t = TAny then
-        t (* loops that end in return can be typed with TAny *)
+      if t = TUnit || t = TBottom then
+        TBottom (* conservative choice here as the loop may not terminate *)
       else
-        checker_error env "%a, while loop is neither tany or tunit" ploc env.location
+        checker_error env "%a, while loop is neither tbottom or tunit" ploc env.location
 
   | EBufCreateL (_, es) ->
       begin match es with
@@ -769,8 +775,10 @@ and infer' env e =
       List.fold_right (fun binder t -> TArrow (binder.typ, t)) binders t_ret
 
   | EFor (binder, e1, e2, e3, e4) ->
-      let t = check_or_infer (locate env (In binder.node.name)) binder.typ e1 in
-      binder.typ <- t;
+      if e1.node <> EAny then begin
+        let t = check_or_infer (locate env (In binder.node.name)) binder.typ e1 in
+        binder.typ <- t
+      end;
       let env = push env binder in
       check (locate env ForCond) TBool e2;
       check (locate env ForIter) TUnit e3;
@@ -1020,7 +1028,7 @@ and assert_cons_of env t id: fields_t =
 
 and subtype env t1 t2 =
   if Options.debug "checker" then
-    KPrint.bprintf "%a <=? %a\n" ptyp t1 ptyp t2;
+    KPrint.bprintf "%s%a <=? %a\n" !indent ptyp t1 ptyp t2;
   match expand_abbrev env t1, expand_abbrev env t2 with
   | TInt w1, TInt w2 when w1 = w2 ->
       true
@@ -1042,7 +1050,7 @@ and subtype env t1 t2 =
   | _, TQualified (["FStar"; "Dyn"], "dyn")
   | TQualified (["FStar"; "Dyn"], "dyn"), _
   | _, TAny
-  | TAny, _ ->
+  | TBottom, _ ->
       true
   | TArrow (t1, t2), TArrow (t'1, t'2) when
     subtype env t1 t'1 &&
@@ -1096,7 +1104,7 @@ and eqtype env t1 t2 =
   subtype env t1 t2 && subtype env t2 t1
 
 and check_eqtype env t1 t2 =
-  if not (eqtype env t1 t2) then
+  if t1 <> TBottom && t2 <> TBottom && not (eqtype env t1 t2) then
     checker_error env "eqtype mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
       ptyp t1 ptyp (expand_abbrev env t1) ptyp t2 ptyp (expand_abbrev env t2)
 

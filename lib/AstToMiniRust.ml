@@ -398,6 +398,7 @@ let rec translate_type (env: env) (t: Ast.typ): MiniRust.typ =
   | TBound i -> Bound i
   | TTuple _ -> failwith "TODO: TTuple"
   | TAnonymous _ -> failwith "unexpected: we don't compile data types going to Rust"
+  | TBottom -> failwith "impossible: TBottom not eliminated"
 
 
 (* Expressions *)

@@ -182,6 +182,8 @@ and print_typ = function
       separate_map (space ^^ star ^^ space) print_typ ts
   | TAnonymous t ->
       print_type_def t
+  | TBottom ->
+      utf8string "⊥"
 
 and print_lifetime = function
   | Stack -> string "stack"
