@@ -1066,7 +1066,7 @@ and hoist_expr loc pos e =
       (* We now allow IfThenElse nodes directly under IfThenElse, on the basis
        * that the outer IfThenElse is properly positioned under a let-binding.
        * let_if_to_assign will know how to deal with this. *)
-      if pos = UnderStmtLet || pos = UnderConditional || Options.rust () then
+      if pos = UnderStmtLet || pos = UnderConditional then
         lhs1, mk (EIfThenElse (e1, e2, e3))
       else
         let b, body, cont = mk_named_binding "ite" t (EIfThenElse (e1, e2, e3)) in
