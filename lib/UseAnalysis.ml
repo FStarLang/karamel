@@ -189,14 +189,14 @@ let use_mark_to_remove_or_ignore final = object (self)
          but that's ok. *)
       if is_readonly then
         self#remove_trivial_let (snd (open_binder b e2)).node
-      else if e1.typ = TUnit then
+      else if b.typ = TUnit then
         self#remove_trivial_let (ELet ({ b with node = { b.node with meta = Some MetaSequence }}, e1, e2))
       (* Definitely unused, except we can't generate let _ = ignore (bufcreate
          ...) -- this is a bad idea, as it'll force the hoisting phase to hoist
          the bufcreate back into a let-binding, which will then be named "buf". *)
       else if not (is_bufcreate e1) then
         ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit},
-          push_ignore e1,
+          push_ignore_with_type b.typ e1,
           e2)
       (* Definitely unused, push an ignore at depth *)
       else

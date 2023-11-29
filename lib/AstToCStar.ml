@@ -803,7 +803,7 @@ and mk_return_type env = function
   | TAnonymous t ->
       mk_type_def env t
   | TBottom ->
-      failwith "impossible: TBottom not eliminated"
+      CStar.Void
 
 
 and mk_type env = function

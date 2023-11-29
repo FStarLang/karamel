@@ -201,7 +201,7 @@ and check_decl env d =
   if Options.debug "checker" then
     KPrint.bprintf "%schecking %a\n" !indent plid (lid_of_decl d);
   indent := "  ";
-  match d with
+  begin match d with
   | DFunction (_, _, n, t, name, binders, body) ->
       assert (!Options.allow_tapps || n = 0);
       let env = List.fold_left push env binders in
@@ -216,7 +216,8 @@ and check_decl env d =
   | DType _ ->
       (* Barring any parameterized types, there's is nothing to check here
        * really. *)
-      (); ;
+      ()
+  end;
   decr ()
 
 and check_or_infer env _ e =

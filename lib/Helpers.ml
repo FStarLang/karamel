@@ -723,15 +723,18 @@ let rec nest_in_return_pos i typ f e =
 
 let nest_in_return_pos = nest_in_return_pos 0
 
-let push_ignore = nest_in_return_pos TUnit (fun _ e ->
+let push_ignore_ f = nest_in_return_pos TUnit (fun _ e ->
   with_type TUnit (EApp (
-    with_type (TArrow (e.typ, TUnit)) (
+    with_type (TArrow (f e.typ, TUnit)) (
       ETApp (
         with_type (TArrow (TBound 0, TUnit))
           (EQualified (["LowStar"; "Ignore"], "ignore")),
-        [ e.typ ]
+        [ f e.typ ]
       )),
     [ e ])))
+
+let push_ignore = push_ignore_ (fun x -> x)
+let push_ignore_with_type t = push_ignore_ (fun _ -> t)
 
 (* Big AST nodes *************************************************************)
 

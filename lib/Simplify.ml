@@ -145,6 +145,7 @@ let optimize_lets ?ifdefs files =
   let _ = (build_usage_map_and_mark ifdefs)#visit_files [] files in
   let files = (use_mark_to_remove_or_ignore (not (ifdefs = None)))#visit_files () files in
   let files = use_mark_to_inline_temporaries#visit_files () files in
+PPrint.(Print.(print (PrintAst.print_files files ^^ hardline)));
   files
 
 (* Unused parameter elimination ***********************************************)
