@@ -28,6 +28,7 @@ end
 (* Creating AST nodes *********************************************************)
 
 let uint32 = TInt K.UInt32
+let usize = TInt K.SizeT
 
 let type_of_op op w =
   let open Constant in
@@ -64,6 +65,8 @@ let zerou32 = zero K.UInt32
 let one w = with_type (TInt w) (EConstant (w, "1"))
 let oneu32 = one K.UInt32
 
+let zero_usize = zero K.SizeT
+
 let pwild = with_type TAny PWild
 
 let mk_op op w =
@@ -80,6 +83,9 @@ let mk_lt w finish =
 let mk_lt32 =
   mk_lt K.UInt32
 
+let mk_lt_usize =
+  mk_lt K.SizeT
+
 (* @0 <- @0 + 1ul *)
 let mk_incr w =
   let t = TInt w in
@@ -91,6 +97,8 @@ let mk_incr w =
         one w ]))))
 
 let mk_incr32 = mk_incr K.UInt32
+
+let mk_incr_usize = mk_incr K.SizeT
 
 let mk_neq e1 e2 =
   with_type TBool (EApp (mk_op K.Neq K.UInt32, [ e1; e2 ]))
