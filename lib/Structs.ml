@@ -226,10 +226,34 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     (* Step 4: if the function now takes an extra argument for the output struct. *)
     let body =
       if ret_is_struct then
-        if ret_is_array then
-          with_type TUnit (EAssign (Option.must ret_atom, body))
-        else
-          with_type TUnit (EBufWrite (Option.must ret_atom, Helpers.zerou32, body))
+        let assign_into_ret e =
+          if ret_is_array then
+            with_type TUnit (EAssign (Option.must ret_atom, e))
+          else
+            with_type TUnit (EBufWrite (Option.must ret_atom, Helpers.zerou32, e))
+        in
+        (* Step 4.1: early-returns `return e` become `dst := e; return` *)
+        let body = (object
+          inherit [_] map
+          method! visit_EReturn _ e =
+            ESequence [
+              assign_into_ret e;
+              with_type e.typ (EReturn Helpers.eunit)
+            ]
+        end)#visit_expr_w () body in
+        (* Step 4.2: the overall value computed by the function is also assigned into the
+           destination. This relies on the invariant that functions are either in the style of 4.1
+           where returns in terminal position have been removed earlier (eurydice), or in
+           expression-style. *)
+        Helpers.nest_in_return_pos TUnit (fun _ e ->
+          match e.node with
+          | EWhile _ -> e
+            (* ret is a struct type, not unit -- therefore, it must be the case that this is an
+               unreachable loop -- bail *)
+          | EReturn _ -> e
+            (* handled above *)
+          | _ -> assign_into_ret e
+        ) body
       else
         body
     in
