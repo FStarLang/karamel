@@ -230,6 +230,8 @@ let rec mk_spec_and_decl m name qs (t: typ) (k: C.declarator -> C.declarator):
 =
   match t with
   | Const t ->
+      (* Originally, this was added via a mechanism of attributes and made sense only in the pointer
+         case. Now... mostly used by Eurydice to mark constants as global. *)
       mk_spec_and_decl m name [ C.Const ] t k
   | Pointer t ->
       mk_spec_and_decl m name [] t (fun d -> Pointer (qs, k d))
@@ -240,7 +242,7 @@ let rec mk_spec_and_decl m name qs (t: typ) (k: C.declarator -> C.declarator):
         | Constant k -> C.Constant k
         | _ -> mk_expr m size
       in
-      mk_spec_and_decl m name [] t (fun d -> Array (qs, k d, size))
+      mk_spec_and_decl m name qs t (fun d -> Array ([], k d, size))
   | Function (cc, t, ts) ->
       (* Function types are pointers to function types, except in the top-level
        * declarator for a function, which gets special treatment via
@@ -1109,6 +1111,7 @@ let mk_function_or_global_body m (d: decl): C.declaration_or_function list =
         let name = to_c_name m name in
         let t = strengthen_array t expr in
         let alignment = if is_array t then mk_alignment m (assert_array t) else None in
+        let t = if List.mem (Common.Const "") flags then CStar.Const t else t in
         let qs, spec, decl = mk_spec_and_declarator m name t in
         let static = if List.exists ((=) Private) flags then Some Static else None in
         let extra = { maybe_unused = List.mem MaybeUnused flags } in
@@ -1161,6 +1164,7 @@ let mk_function_or_global_stub m (d: decl): C.declaration_or_function list =
       else
         let name = to_c_name m name in
         let t = strengthen_array t expr in
+        let t = if List.mem (Common.Const "") flags then CStar.Const t else t in
         let qs, spec, decl = mk_spec_and_declarator m name t in
         wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, Some Extern, { maybe_unused = false }, [ decl, None, None ])))
 

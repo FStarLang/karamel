@@ -206,7 +206,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     let ret, binders, ret_atom, ret_is_array =
       if ret_is_struct then
         let ret_is_array = Helpers.is_array ret in
-        let ret_binder, ret_atom = Helpers.mk_binding "ret" (if ret_is_array then ret else TBuf (ret, false)) in
+        let ret_binder, ret_atom = Helpers.mk_binding ~mut:true "ret" (if ret_is_array then ret else TBuf (ret, false)) in
         TUnit, binders @ [ ret_binder ], Some ret_atom, ret_is_array
       else
         ret, binders, None, false
