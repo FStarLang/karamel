@@ -513,6 +513,12 @@ class ['self] map = object (self: 'self)
     let env = self#extend_many env bs in
     let e = self#visit_expr_w env e in
     DFunction (cc, flags, n, t, lid, bs, e)
+
+  method! visit_ETApp env e ts =
+    let ts = List.map (self#visit_typ_wo env) ts in
+    let env = self#extend_tmany (fst env) (List.length ts) in
+    let e = self#visit_expr_w env e in
+    ETApp (e, ts)
 end
 
 class ['self] iter = object (self: 'self)

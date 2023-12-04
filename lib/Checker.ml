@@ -688,7 +688,7 @@ and infer' env e =
       check env TBool e1;
       let t = infer env e2 in
       if t = TUnit || t = TAny then
-        t (* loops that end in return can be typed with TAny *)
+        TAny (* loops that end in return can be typed with TAny *)
       else
         checker_error env "%a, while loop is neither tany or tunit" ploc env.location
 
@@ -1088,6 +1088,12 @@ and subtype env t1 t2 =
 
   | TAnonymous (Flat [ Some f, (t, _) ]), TAnonymous (Union ts) ->
       List.exists (fun (f', t') -> f = f' && subtype env t t') ts
+
+  | TApp (lid, ts), _ when Hashtbl.mem MonomorphizationState.state (lid, ts) ->
+      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts)))) t2
+
+  | _, TApp (lid, ts) when Hashtbl.mem MonomorphizationState.state (lid, ts) ->
+      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts))))
 
   | _ ->
       false
