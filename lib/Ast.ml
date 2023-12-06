@@ -51,6 +51,8 @@ type typ =
   | TArray of typ * constant
       (** appears when we start hoisting buffer definitions to their enclosing
        * push frame *)
+  | TCgArray of typ * int
+      (** for monomorphization of stuff coming from Rust (eurydice) *)
   | TQualified of lident
       (** a reference to a type that has been introduced via a DType *)
   | TArrow of typ * typ
@@ -189,7 +191,7 @@ type expr' =
   | EIgnore of expr
 
   | EApp of expr * expr list
-  | ETApp of expr * typ_wo list
+  | ETApp of expr * expr list * typ_wo list
   | EPolyComp of poly_comp * typ_wo
   | ELet of binder * expr * expr
   | EFun of binder list * expr * typ_wo
@@ -416,12 +418,12 @@ and files =
   file list
 
 and decl =
-  | DFunction of calling_convention option * flag list * int * typ * lident * binders_w * expr_w
+  | DFunction of calling_convention option * flag list * int * int * typ * lident * binders_w * expr_w
   | DGlobal of flag list * lident * int * typ * expr_w
   | DExternal of calling_convention option * flag list * int * lident * typ * string list
     (** String list: only for pretty-printing purposes, names of the first few
      * known arguments. *)
-  | DType of lident * flag list * int * type_def
+  | DType of lident * flag list * int * int * type_def
 
 and binders_w = binder_w list
 
@@ -496,14 +498,14 @@ class ['self] map = object (self: 'self)
     let e = self#visit_expr env e in
     bs, p, e
 
-  method! visit_DType env lid flags n d =
+  method! visit_DType env lid flags n_cg n d =
     let lid = self#visit_lident env lid in
     let flags = self#visit_flags env flags in
     let env = self#extend_tmany env n in
     let d = self#visit_type_def env d in
-    DType (lid, flags, n, d)
+    DType (lid, flags, n_cg, n, d)
 
-  method! visit_DFunction env cc flags n t lid bs e =
+  method! visit_DFunction env cc flags n_cg n t lid bs e =
     let cc = self#visit_calling_convention_option env cc in
     let flags = self#visit_flags env flags in
     let env = self#extend_tmany env n in
@@ -512,13 +514,14 @@ class ['self] map = object (self: 'self)
     let bs = self#visit_binders_w env bs in
     let env = self#extend_many env bs in
     let e = self#visit_expr_w env e in
-    DFunction (cc, flags, n, t, lid, bs, e)
+    DFunction (cc, flags, n_cg, n, t, lid, bs, e)
 
-  method! visit_ETApp env e ts =
+  method! visit_ETApp env e es ts =
     let ts = List.map (self#visit_typ_wo env) ts in
+    let es = List.map (self#visit_expr env) es in
     let env = self#extend_tmany (fst env) (List.length ts) in
     let e = self#visit_expr_w env e in
-    ETApp (e, ts)
+    ETApp (e, es, ts)
 end
 
 class ['self] iter = object (self: 'self)
@@ -551,13 +554,13 @@ class ['self] iter = object (self: 'self)
     self#visit_pattern env p;
     self#visit_expr env e
 
-  method! visit_DType env lid flags n d =
+  method! visit_DType env lid flags _n_cg n d =
     self#visit_lident env lid;
     self#visit_flags env flags;
     let env = self#extend_tmany env n in
     self#visit_type_def env d
 
-  method! visit_DFunction env cc flags n t lid bs e =
+  method! visit_DFunction env cc flags _n_cg n t lid bs e =
     self#visit_calling_convention_option env cc;
     self#visit_flags env flags;
     let env = self#extend_tmany env n in
@@ -602,14 +605,14 @@ class virtual ['self] reduce = object (self: 'self)
     let e = self#visit_expr env e in
     KList.reduce self#plus [ bs'; p; e ]
 
-  method! visit_DType env lid flags n d =
+  method! visit_DType env lid flags _n_cg n d =
     let lid = self#visit_lident env lid in
     let flags = self#visit_flags env flags in
     let env = self#extend_tmany env n in
     let d = self#visit_type_def env d in
     KList.reduce self#plus [ lid; flags; d ]
 
-  method! visit_DFunction env cc flags n t lid bs e =
+  method! visit_DFunction env cc flags _n_cg n t lid bs e =
     let cc = self#visit_calling_convention_option env cc in
     let flags = self#visit_flags env flags in
     let env = self#extend_tmany env n in
@@ -634,16 +637,16 @@ let with_type typ node =
   { typ; node }
 
 let lid_of_decl = function
-  | DFunction (_, _, _, _, lid, _, _)
+  | DFunction (_, _, _, _, _, lid, _, _)
   | DGlobal (_, lid, _, _, _)
   | DExternal (_, _, _, lid, _, _)
-  | DType (lid, _, _, _) ->
+  | DType (lid, _, _, _, _) ->
       lid
 
 let flags_of_decl = function
-  | DFunction (_, flags, _, _, _, _, _)
+  | DFunction (_, flags, _, _, _, _, _, _)
   | DGlobal (flags, _, _, _, _)
-  | DType (_, flags, _, _)
+  | DType (_, flags, _, _, _)
   | DExternal (_, flags, _, _, _, _) ->
       flags
 

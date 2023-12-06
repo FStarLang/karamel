@@ -358,10 +358,12 @@ and mk_expr env in_stmt e =
   | EConstant c ->
       CStar.Constant c
 
-  | EApp ({ node = ETApp (e, ts); _ }, es) when !Options.allow_tapps || whitelisted_tapp e ->
+  | EApp ({ node = ETApp (e, cgs, ts); _ }, es) when !Options.allow_tapps || whitelisted_tapp e ->
+      assert (cgs = []);
       unit_to_void env e es (List.map (fun t -> CStar.Type (mk_type env t)) ts)
 
-  | ETApp (e, ts) when !Options.allow_tapps || whitelisted_tapp e ->
+  | ETApp (e, cgs, ts) when !Options.allow_tapps || whitelisted_tapp e ->
+      assert (cgs = []);
       CStar.Call (mk_expr env e, List.map (fun t -> CStar.Type (mk_type env t)) ts)
 
   | EApp ({ node = EOp (op, w); _ }, [ _; _ ]) when is_arith op w ->
@@ -802,6 +804,8 @@ and mk_return_type env = function
       fatal_error "Internal failure: TTuple not desugared here"
   | TAnonymous t ->
       mk_type_def env t
+  | TCgArray _ ->
+      fatal_error "Internal failure: TCgArray not desugared here"
 
 
 and mk_type env = function
@@ -876,8 +880,8 @@ and mk_declaration m env d: (CStar.decl * _) option =
   in
 
   match d with
-  | DFunction (cc, flags, n, t, name, binders, body) ->
-      assert (n = 0);
+  | DFunction (cc, flags, n_cgs, n, t, name, binders, body) ->
+      assert (n = 0 && n_cgs = 0);
       let env = locate env (InTop name) in
       Some (wrap_throw (string_of_lident name) (lazy begin
         let t = mk_return_type env t in
@@ -909,10 +913,10 @@ and mk_declaration m env d: (CStar.decl * _) option =
         in
         Some (CStar.External (name, add_cc (mk_type env t), flags, pp), [])
 
-  | DType (name, flags, _, Forward k) ->
+  | DType (name, flags, _, _, Forward k) ->
       Some (CStar.TypeForward (name, flags, k), [ GlobalNames.to_c_name m name ])
 
-  | DType (name, flags, 0, def) ->
+  | DType (name, flags, 0, 0, def) ->
       Some (CStar.Type (name, mk_type_def env def, flags), [ GlobalNames.to_c_name m name ] )
 
   | DType _ ->

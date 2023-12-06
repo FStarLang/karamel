@@ -54,6 +54,8 @@ type env = {
   location: loc list;
   enums: lident M.t;
   warn: bool;
+  n_cgs: int;
+    (* Number of const generics, useful only for type-checking stuff coming in from Eurydice pre-monomorphization. *)
 }
 
 let empty: env = {
@@ -62,7 +64,8 @@ let empty: env = {
   types = M.empty;
   location = [];
   enums = M.empty;
-  warn = false
+  warn = false;
+  n_cgs = 0
 }
 
 let push env binder =
@@ -109,7 +112,7 @@ let populate_env files =
   List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
-      | DType (lid, _, _, typ) ->
+      | DType (lid, _, _, _, typ) ->
           let env = match typ with
           | Enum tags ->
               List.fold_left (fun env tag ->
@@ -122,7 +125,7 @@ let populate_env files =
       | DGlobal (_, lid, n, t, _) ->
           assert (n = 0);
           { env with globals = M.add lid t env.globals }
-      | DFunction (_, _, n, ret, lid, binders, _) ->
+      | DFunction (_, _, _, n, ret, lid, binders, _) ->
           if not !Options.allow_tapps && n <> 0 then
             Warn.fatal_error "%a is polymorphic\n" plid lid;
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
@@ -197,7 +200,7 @@ and check_decl env d =
   if Options.debug "checker" then
     KPrint.bprintf "checking %a\n" plid (lid_of_decl d);
   match d with
-  | DFunction (_, _, n, t, name, binders, body) ->
+  | DFunction (_, _, _n_cgs, n, t, name, binders, body) ->
       assert (!Options.allow_tapps || n = 0);
       let env = List.fold_left push env binders in
       let env = locate env (InTop name) in
@@ -272,7 +275,7 @@ and check env t e =
 and check' env t e =
   let c t' = check_subtype env t' t in
   match e.node with
-  | ETApp (e, _) ->
+  | ETApp (e, _, _) ->
       (* JP: is this code even reachable? *)
       (* Equalities are type checked with Any *)
       (match e.node with EOp ((K.Eq | K.Neq), _) -> () | _ -> assert false);
@@ -521,7 +524,7 @@ and best_buffer_type l t1 e2 =
 
 and infer' env e =
   match e.node with
-  | ETApp (e, ts) ->
+  | ETApp (e, cs, ts) ->
       begin match e.node with
       | EOp ((K.Eq | K.Neq), _) ->
           (* Special incorrect encoding of polymorphic equalities *)
@@ -529,6 +532,7 @@ and infer' env e =
           TArrow (t, TArrow (t, TBool))
       | _ ->
           let t = infer env e in
+          let t = DeBruijn.subst_ctn env.n_cgs cs t in
           DeBruijn.subst_tn ts t
       end
 

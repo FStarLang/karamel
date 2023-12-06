@@ -24,7 +24,7 @@ let mk_is_struct files =
   let map = Hashtbl.create 41 in
   List.iter (fun (_, decls) ->
     List.iter (function
-      | DType (lid, _, _, Flat _)  ->
+      | DType (lid, _, _, _, Flat _)  ->
           Hashtbl.add map lid true
       | _ ->
           ()
@@ -182,7 +182,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     else
       Helpers.nest bs t (with_type t (EApp (e, args)))
 
-  method! visit_DFunction _ cc flags n ret lid binders body =
+  method! visit_DFunction _ cc flags n_cg n ret lid binders body =
     (* Step 0: parameters at function types get transformed, too. This has no
      * incidence on the result of is_struct. *)
     let binders = self#visit_binders_w [] binders in
@@ -258,7 +258,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
         body
     in
     let body = DeBruijn.close_binders binders body in
-    DFunction (cc, flags, n, ret, lid, binders, body)
+    DFunction (cc, flags, n_cg, n, ret, lid, binders, body)
 
   method! visit_TArrow _ t1 t2 =
     let t = TArrow (t1, t2) in
@@ -417,9 +417,9 @@ let pass_by_ref files =
   in
   let def_map = Helpers.build_map files (fun map d ->
     match d with
-    | DType (lid, _, _, (Flat fs)) ->
+    | DType (lid, _, _, _, (Flat fs)) ->
         Hashtbl.add map lid (List.map (fun (_, (t, _)) -> t) fs)
-    | DType (lid, _, _, (Union fs)) ->
+    | DType (lid, _, _, _, (Union fs)) ->
         Hashtbl.add map lid (List.map snd fs)
     | _ ->
         ()
@@ -489,14 +489,14 @@ let collect_initializers (files: Ast.file list) =
   end)#visit_files () files in
   if !initializers != [] then
     let file = "krmlinit",
-      [ DFunction (None, [ Common.Prologue hidden_visibility ], 0, TUnit, (["krmlinit"], "globals"),
+      [ DFunction (None, [ Common.Prologue hidden_visibility ], 0, 0, TUnit, (["krmlinit"], "globals"),
         [Helpers.fresh_binder "_" TUnit],
         with_type TUnit (ESequence (List.rev !initializers)))] in
     let files = files @ [ file ] in
     let found = ref false in
     let files = (object
       inherit [_] map
-      method! visit_DFunction _ cc flags n ret name binders body =
+      method! visit_DFunction _ cc flags n_cgs n ret name binders body =
         let body =
           if fst (GlobalNames.target_c_name ~attempt_shortening:false name) = "main" then begin
             found := true;
@@ -509,7 +509,7 @@ let collect_initializers (files: Ast.file list) =
           end else
             body
         in
-        DFunction (cc, flags, n, ret, name, binders, body)
+        DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
     end)#visit_files () files in
     if not !found then
       Warn.(maybe_fatal_error ("", MustCallKrmlInit));
@@ -579,9 +579,10 @@ let to_addr is_struct =
         not_struct ();
         w (EIgnore (to_addr false e))
 
-    | ETApp (e, ts) ->
+    | ETApp (e, cgs, ts) ->
+        assert (cgs = []);
         not_struct ();
-        w (ETApp (to_addr false e, ts))
+        w (ETApp (to_addr false e, [], ts))
 
     | EApp (e, es) ->
         not_struct ();
@@ -731,8 +732,8 @@ let to_addr is_struct =
   object
     inherit [_] map
 
-    method! visit_DFunction _ cc flags n ret lid binders body =
-      DFunction (cc, flags, n, ret, lid, binders, to_addr false body)
+    method! visit_DFunction _ cc flags n_cgs n ret lid binders body =
+      DFunction (cc, flags, n_cgs, n, ret, lid, binders, to_addr false body)
   end
 
 

@@ -14,7 +14,7 @@ module K = Constant
 (* A whole-program map from type lids to their definitions. *)
 let build_def_map files =
   build_map files (fun map -> function
-    | DType (lid, flags, _, def) ->
+    | DType (lid, flags, _, _, def) ->
         Hashtbl.add map lid (flags, def)
     | _ ->
         ()
@@ -165,7 +165,7 @@ let monomorphize_data_types map = object(self)
           let args = List.map (self#visit_typ under_ref) args in
           (* For tuples, we immediately know how to generate a definition. *)
           let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
-          self#record (DType (chosen_lid, [ Common.Private ] @ flag, 0, Flat fields));
+          self#record (DType (chosen_lid, [ Common.Private ] @ flag, 0, 0, Flat fields));
           Hashtbl.replace state n (Black, chosen_lid)
         end else begin
           (* This specific node has not been visited yet. *)
@@ -198,19 +198,19 @@ let monomorphize_data_types map = object(self)
               if Options.debug "data-types-traversal" then
                 KPrint.bprintf "DEFERRING %a<%a>\n" plid (fst n) ptyps (snd n);
               if match def with Union _ -> true | _ -> false then
-                self#record (DType (chosen_lid, flags, 0, Forward FUnion))
+                self#record (DType (chosen_lid, flags, 0, 0, Forward FUnion))
               else
-                self#record (DType (chosen_lid, flags, 0, Forward FStruct));
+                self#record (DType (chosen_lid, flags, 0, 0, Forward FStruct));
               Hashtbl.add pending_monomorphizations (fst n) (snd n);
               Hashtbl.remove state n
           | flags, Variant branches ->
               let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
               let branches = self#visit_branches_t under_ref branches in
-              self#record (DType (chosen_lid, flag @ flags, 0, Variant branches));
+              self#record (DType (chosen_lid, flag @ flags, 0, 0, Variant branches));
               Hashtbl.replace state n (Black, chosen_lid)
           | flags, Flat fields ->
               let fields = self#visit_fields_t_opt under_ref (subst fields) in
-              self#record (DType (chosen_lid, flag @ flags, 0, Flat fields));
+              self#record (DType (chosen_lid, flag @ flags, 0, 0, Flat fields));
               Hashtbl.replace state n (Black, chosen_lid)
           | flags, Union fields ->
               let fields = List.map (fun (f, t) ->
@@ -218,12 +218,12 @@ let monomorphize_data_types map = object(self)
                 let t = self#visit_typ under_ref t in
                 f, t
               ) fields in
-              self#record (DType (chosen_lid, flag @ flags, 0, Union fields));
+              self#record (DType (chosen_lid, flag @ flags, 0, 0, Union fields));
               Hashtbl.replace state n (Black, chosen_lid)
           | flags, Abbrev t ->
               let t = DeBruijn.subst_tn args t in
               let t = self#visit_typ under_ref t in
-              self#record (DType (chosen_lid, flag @ flags, 0, Abbrev t));
+              self#record (DType (chosen_lid, flag @ flags, 0, 0, Abbrev t));
               Hashtbl.replace state n (Black, chosen_lid)
           | _ ->
               Hashtbl.replace state n (Black, chosen_lid)
@@ -237,9 +237,9 @@ let monomorphize_data_types map = object(self)
         | exception Not_found ->
             ()
         | flags, Union _ ->
-            self#record (DType (chosen_lid, flags, 0, Forward FUnion))
+            self#record (DType (chosen_lid, flags, 0, 0, Forward FUnion))
         | flags, _ ->
-            self#record (DType (chosen_lid, flags, 0, Forward FStruct))
+            self#record (DType (chosen_lid, flags, 0, 0, Forward FStruct))
         end;
         chosen_lid
     | Black, chosen_lid ->
@@ -257,7 +257,7 @@ let monomorphize_data_types map = object(self)
       if Options.debug "data-types-traversal" then
         KPrint.bprintf "decl %a\n" plid (lid_of_decl d);
       match d with
-      | DType (lid, _, n, Abbrev (TTuple args)) when n = 0 && not (Hashtbl.mem state (tuple_lid, args)) ->
+      | DType (lid, _, 0, 0, Abbrev (TTuple args)) when not (Hashtbl.mem state (tuple_lid, args)) ->
           Hashtbl.remove map lid;
           if Options.debug "monomorphization" then
             KPrint.bprintf "%a abbreviation for %a\n" plid lid ptyp (TApp (tuple_lid, args));
@@ -266,7 +266,7 @@ let monomorphize_data_types map = object(self)
           Hashtbl.add seen_declarations lid ();
           self#clear ()
 
-      | DType (lid, _, n, Abbrev (TApp (hd, args) as t)) when n = 0 && not (Hashtbl.mem state (hd, args)) ->
+      | DType (lid, _, 0, 0, Abbrev (TApp (hd, args) as t)) when not (Hashtbl.mem state (hd, args)) ->
           (* We have not yet monomorphized this type, and conveniently, we have
              a type abbreviation that provides us with a name hint! We simply
              ditch the type abbreviation and replace it with a monomorphization
@@ -293,12 +293,12 @@ let monomorphize_data_types map = object(self)
              GcTypes) into `typedef foobar foobar_gc *`. And mitlsffi.ci will be
              happy. *)
           if abbrev_for_gc_type then
-            self#record (DType (lid, [], 0, Abbrev (TQualified (fst lid, snd lid ^ "_gc"))));
+            self#record (DType (lid, [], 0, 0, Abbrev (TQualified (fst lid, snd lid ^ "_gc"))));
 
           Hashtbl.add seen_declarations lid ();
           self#clear ()
 
-      | DType (lid, _, n, _) when n > 0 ->
+      | DType (lid, _, n_cgs, n, _) when n > 0 || n_cgs > 0 ->
           (* The type itself cannot be monomorphized, but we may have seen in
              the past monomorphic instances of this type that we ought to
              generate. *)
@@ -310,9 +310,9 @@ let monomorphize_data_types map = object(self)
           Hashtbl.add seen_declarations lid ();
           self#clear ()
 
-      | DType (lid, _, n, (Flat _ | Variant _ | Abbrev _ | Union _)) ->
+      | DType (lid, _, n_cgs, n, (Flat _ | Variant _ | Abbrev _ | Union _)) ->
           (* Re-inserted by visit_node... don't insert twice. *)
-          assert (n = 0);
+          assert (n = 0 && n_cgs = 0);
           (* FIXME: the logic here is quite twisted... it should be simplified. My
              understanding is we want to BOTH visit the body of the type in case
              it recursively needs to trigger monomorphizations, and
@@ -403,9 +403,9 @@ end
  * application (caught via the visitor) generates an instance. *)
 let functions files =
   let map = Helpers.build_map files (fun map -> function
-    | DFunction (cc, flags, n, t, name, b, body) ->
-        if n > 0 then
-          Hashtbl.add map name (`Function (cc, flags, n, t, name, b, body))
+    | DFunction (cc, flags, n_cgs, n, t, name, b, body) ->
+        if n > 0 || n_cgs > 0 then
+          Hashtbl.add map name (`Function (cc, flags, n_cgs, n, t, name, b, body))
     | DGlobal (flags, name, n, t, body) ->
         if n > 0 then
           Hashtbl.add map name (`Global (flags, name, n, t, body))
@@ -424,12 +424,12 @@ let functions files =
       let file_name, decls = file in
       current_file <- file_name;
       file_name, KList.map_flatten (function
-        | DFunction (cc, flags, n, ret, name, binders, body) ->
+        | DFunction (cc, flags, n_cgs, n, ret, name, binders, body) ->
             if Hashtbl.mem map name then
               []
             else
-              let d = DFunction (cc, flags, n, ret, name, binders, self#visit_expr_w () body) in
-              assert (n = 0);
+              let d = DFunction (cc, flags, n_cgs, n, ret, name, binders, self#visit_expr_w () body) in
+              assert (n = 0 && n_cgs = 0);
               Gen.clear () @ [ d ]
         | DGlobal (flags, name, n, t, body) ->
             if Hashtbl.mem map name then
@@ -442,7 +442,8 @@ let functions files =
             [ d ]
       ) decls
 
-    method! visit_ETApp env e ts =
+    method! visit_ETApp env e cgs ts =
+      assert (cgs = []);
       match e.node with
       | EQualified lid ->
           begin try
@@ -453,13 +454,16 @@ let functions files =
             | exception Not_found ->
                 (* External function. Bail. *)
                 if !Options.allow_tapps || AstToCStar.whitelisted_tapp e then
-                  super#visit_ETApp env e ts
+                  super#visit_ETApp env e cgs ts
                 else
                   (self#visit_expr env e).node
-            | `Function (cc, flags, n, ret, name, binders, body) ->
+            | `Function (cc, flags, n_cgs, n, ret, name, binders, body) ->
                 (* Need to generate a new instance. *)
                 if n <> List.length ts then begin
                   KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
+                  (self#visit_expr env e).node
+                end else if n_cgs <> List.length cgs then begin
+                  KPrint.bprintf "%a is not fully cg-applied!\n" plid lid;
                   (self#visit_expr env e).node
                 end else
                   (* The thunk allows registering the name before visiting the
@@ -472,7 +476,7 @@ let functions files =
                     ) binders in
                     let body = DeBruijn.subst_ten ts body in
                     let body = self#visit_expr env body in
-                    DFunction (cc, flags, 0, ret, name, binders, body)
+                    DFunction (cc, flags, 0, 0, ret, name, binders, body)
                   in
                   EQualified (Gen.register_def current_file lid ts name def)
 
@@ -511,7 +515,7 @@ let equalities files =
 
   let types_map = Helpers.build_map files (fun map d ->
     match d with
-    | DType (lid, _, _, d) -> Hashtbl.add map lid d
+    | DType (lid, _, _, _, d) -> Hashtbl.add map lid d
     | _ -> ()
   ) in
 
@@ -544,7 +548,7 @@ let equalities files =
         let d = self#visit_decl env d in
         let equalities = Gen.clear () in
         let equalities = List.map (function
-          | DFunction (cc, flags, n, ret, name, binders, body) ->
+          | DFunction (cc, flags, n_cgs, n, ret, name, binders, body) ->
               (* This is a highly conservative criterion that is triggered by
                * any recursive type; we could be smarter and only break the
                * cycles by marking ONE declaration public.  *)
@@ -554,7 +558,7 @@ let equalities files =
                 else
                   flags
               in
-              DFunction (cc, flags, n, ret, name, binders, body)
+              DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
           | d ->
               d
         ) equalities in
@@ -600,7 +604,7 @@ let equalities files =
                 EApp (with_type eq_typ' (self#generate_equality t K.PEq), [
                   with_type t' (EBound 0); with_type t' (EBound 1) ])))
               in
-              DFunction (None, [ Common.Private ], 0, TBool, instance_lid, [ y; x ], body)
+              DFunction (None, [ Common.Private ], 0, 0, TBool, instance_lid, [ y; x ], body)
             in
             EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
         | K.PEq ->
@@ -684,7 +688,7 @@ let equalities files =
                       (EField (with_type t (EBound 0), f))
                       (EField (with_type t (EBound 1), f))
                   ) fields in
-                  DFunction (None, [ Common.Private ], 0, TBool, instance_lid, [ y; x ],
+                  DFunction (None, [ Common.Private ], 0, 0, TBool, instance_lid, [ y; x ],
                     mk_conj_or_disj sub_equalities)
                 in
                 EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
@@ -695,7 +699,7 @@ let equalities files =
                     | K.PNeq -> etrue
                   in
                   (* let __eq__typ y x = *)
-                  DFunction (None, [ Common.Private ], 0, TBool, instance_lid, [ y; x ],
+                  DFunction (None, [ Common.Private ], 0, 0, TBool, instance_lid, [ y; x ],
                     (* match *)
                     with_type TBool (EMatch (Checked,
                       (* x with *)
@@ -768,7 +772,7 @@ let equalities files =
         let x = fresh_binder "x" t in
         let y = fresh_binder "y" t in
         EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid (fun _ ->
-          DFunction (None, [ Common.Private ], 0, TBool, instance_lid, [ y; x ],
+          DFunction (None, [ Common.Private ], 0, 0, TBool, instance_lid, [ y; x ],
             with_type TBool (
               EApp (with_type eq_typ (EPolyComp (c, t)), [
                 with_type t (EBound 0); with_type t (EBound 1) ])))))

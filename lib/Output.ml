@@ -222,7 +222,7 @@ let write_def m c_files =
       (Filename.basename (Filename.chop_extension !Options.exe_name));
     List.iter (fun (_, decls) ->
       List.iter (function
-        | Ast.DFunction (_, flags, _, _, name, _, _)
+        | Ast.DFunction (_, flags, _, _, _, name, _, _)
           when not (List.mem Common.Private flags) ->
             let name = GlobalNames.to_c_name m name in
             KPrint.bfprintf oc "  %s\n" name

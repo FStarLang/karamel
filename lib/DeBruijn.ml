@@ -243,3 +243,72 @@ let open_branch bs pat expr =
     in
     b :: bs, pat, expr
   ) bs ([], pat, expr)
+
+(* ---------------------------------------------------------------------------- *)
+
+(* Const generic support *)
+
+class map_counting_cg = object
+  (* The environment [i] has type [int*int]. *)
+  inherit [_] map
+  (* The environment is a pair [i, i']. The first component [i] is the DeBruijn
+    index we are looking for, after entering ONLY the cg binders. It it set by
+    the caller and does not increase afterwards since the only cg binders are at
+    the function declaration level. The second component [i'] is the DeBruijn
+    index we are looking for, after entering ALL the binders. It is incremented
+    at each binder, in expressions. *)
+  method! extend ((i: int), i') (_: binder) =
+    i, i' + 1
+end
+
+let cg_of_expr n_cg (_, i') e =
+  match e.node with
+  | EBound k ->
+      let level = i' - k - 1 in
+      assert (n_cg - level - 1 >= 0);
+      `Var (n_cg - level - 1)
+  | EConstant (w, s) ->
+      `Const (w, s)
+  | _ ->
+      failwith "Unsuitable const generic"
+
+(* Substitute const generics *)
+class subst_c (n_cg: int) (c: expr) = object (self)
+  inherit map_counting_cg
+  method! visit_TCgArray ((i, _) as env) t j =
+    let t = self#visit_typ env t in
+    match cg_of_expr n_cg env c with
+    | `Var v' ->
+        (* we substitute v' for i in [ t; j ] *)
+        if j = i then
+          (* lift i c boils down to this since we never cross any binders *)
+          TCgArray (t, v' + i)
+        else
+          TCgArray (t, if j < i then j else j-1)
+    | `Const (w, s) ->
+        TArray (t, (w, s))
+
+  method! visit_EBound ((_, i), _) j =
+    if j = i then
+      (lift i c).node
+    else
+      EBound (if j < i then j else j-1)
+end
+
+let subst_ce n_cg c = (new subst_c n_cg c)#visit_expr_w
+let subst_ct n_cg c = (new subst_c n_cg c)#visit_typ
+
+(*let subst_cen n_cg cs e =
+  let l = List.length cs in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    subst_ce n_cg arg k body
+  ) e cs*)
+
+let subst_ctn n_cg cs t =
+  let l = List.length cs in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    subst_ct n_cg arg (k, k) body
+  ) t cs
+

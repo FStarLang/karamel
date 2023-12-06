@@ -340,7 +340,7 @@ let name_flat_layouts = object (self)
     List.concat_map (fun d ->
       current_prefix <- fst (lid_of_decl d);
       let d = self#visit_decl () d in
-      let ds: decl list = List.map (fun (name, fields) -> DType (name, [], 0, Flat fields)) new_decls in
+      let ds: decl list = List.map (fun (name, fields) -> DType (name, [], 0, 0, Flat fields)) new_decls in
       new_decls <- [];
       List.rev_append ds [ d ]
     ) decls
@@ -352,7 +352,7 @@ let populate env files =
   let env = List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
-      | DType (_, _, _, Enum idents) ->
+      | DType (_, _, _, _, Enum idents) ->
           KList.fold_lefti (fun i env ident ->
             assert (i < 256);
             { env with enums = LidMap.add ident i env.enums }
@@ -369,9 +369,9 @@ let populate env files =
   let env = List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
-      | DType (lid, _, _, Enum _) ->
+      | DType (lid, _, _, _, Enum _) ->
           { env with layouts = LidMap.add lid LEnum env.layouts }
-      | DType (lid, _, _, Flat fields) ->
+      | DType (lid, _, _, _, Flat fields) ->
           (* Need to pass in the layout of previous structs *)
           begin try
             let l = flat_layout env (fields_of_struct fields) in
@@ -723,13 +723,15 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EOpen _ ->
       invalid_arg "mk_expr (EOpen)"
 
-  | EApp ({ node = ETApp ({ node = EQualified (["LowStar"; "Ignore"],"ignore"); _ }, _); _ }, [ e ]) ->
+  | EApp ({ node = ETApp ({ node = EQualified (["LowStar"; "Ignore"],"ignore"); _ }, cgs, _); _ }, [ e ]) ->
+      assert (cgs = []);
       let locals, e = mk_expr env locals e in
       (* This is slightly ill-typed since everywhere else the result of
          intermediary sequence bits is units, but that's fine *)
       locals, CF.Sequence [ e; cflat_unit ]
 
-  | EApp ({ node = ETApp ({ node = EQualified (["Lib"; "Memzero0"],"memzero"); _ }, _); _ }, [ dst; len ]) ->
+  | EApp ({ node = ETApp ({ node = EQualified (["Lib"; "Memzero0"],"memzero"); _ }, cgs, _); _ }, [ dst; len ]) ->
+      assert (cgs = []);
       (* TODO: now that the C backend is generic for type applications, do the
          same here and have generic support for ETApp. Idea: reuse the JSON
          representation of a type (used for layouts) and pass that to the JS
@@ -1026,8 +1028,8 @@ let mk_wrapper orig_name n_args locals =
 
 let mk_decl env (d: decl): env * CF.decl list =
   match d with
-  | DFunction (_, flags, n, ret, name, args, body) ->
-      assert (n = 0);
+  | DFunction (_, flags, n_cgs, n, ret, name, args, body) ->
+      assert (n = 0 && n_cgs = 0);
       let public = not (List.mem Common.Private flags) in
       let locals, env = List.fold_left (fun (locals, env) b ->
         let locals, _, env = extend env b locals in

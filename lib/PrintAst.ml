@@ -24,10 +24,11 @@ let print_app f head g arguments =
   )
 
 let rec print_decl = function
-  | DFunction (cc, flags, n, typ, name, binders, body) ->
+  | DFunction (cc, flags, n_cg, n, typ, name, binders, body) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
       print_comment flags ^^
       cc ^^ print_flags flags ^^ group (string "function" ^/^ string (string_of_lident name) ^/^
+      langle ^^ string "cg: " ^^ int n_cg ^^ rangle ^^
       langle ^^ int n ^^ rangle ^^
       parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders
@@ -46,10 +47,11 @@ let rec print_decl = function
       print_comment flags ^^
       print_flags flags ^^ langle ^^ int n ^^ rangle ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
-  | DType (name, flags, n, def) ->
+  | DType (name, flags, n_cg, n, def) ->
       let args = KList.make n (fun i -> string ("t" ^ string_of_int i)) in
       let args = separate space args in
       group (string "type" ^/^ print_flags flags ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
+      langle ^^ string "cg: " ^^ int n_cg ^^ rangle ^^
       jump (print_type_def def)
 
 and print_comment flags =
@@ -170,6 +172,7 @@ and print_typ = function
   | TInt w -> print_width w
   | TBuf (t, bool) -> (if bool then string "const" else empty) ^/^ print_typ t ^^ star
   | TArray (t, k) -> print_typ t ^^ lbracket ^^ print_constant k ^^ rbracket
+  | TCgArray (t, v) -> print_typ t ^^ lbracket ^^ int v ^^ rbracket
   | TUnit -> string "()"
   | TQualified name -> string (string_of_lident name)
   | TBool -> string "bool"
@@ -221,8 +224,10 @@ and print_expr { node; typ } =
       dquote ^^ string s ^^ dquote
   | EApp (e, es) ->
       print_app print_expr e print_expr es
-  | ETApp (e, ts) ->
-      print_app print_expr e (fun t -> group (langle ^/^ print_typ t ^/^ rangle)) ts
+  | ETApp (e, es, ts) ->
+      print_app (fun (e, ts) ->
+        print_app print_expr e (fun t -> group (langle ^/^ print_typ t ^/^ rangle)) ts
+      ) (e, ts) print_expr es
   | ELet (binder, e1, e2) ->
       group (print_let_binding (binder, e1) ^/^ string "in") ^^ hardline ^^
       group (print_expr e2)

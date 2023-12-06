@@ -336,7 +336,7 @@ class ['self] readonly_visitor = object (self: 'self)
         List.for_all (self#visit_expr_w ()) es
     | EQualified lid when is_readonly_builtin_lid lid ->
         List.for_all (self#visit_expr_w ()) es
-    | ETApp ({ node = EQualified lid; _ }, _) when is_readonly_builtin_lid lid ->
+    | ETApp ({ node = EQualified lid; _ }, _, _) when is_readonly_builtin_lid lid ->
         List.for_all (self#visit_expr_w ()) es
     | _ ->
         false
@@ -737,6 +737,7 @@ let push_ignore = nest_in_return_pos TUnit (fun _ e ->
       ETApp (
         with_type (TArrow (TBound 0, TUnit))
           (EQualified (["LowStar"; "Ignore"], "ignore")),
+        [],
         [ e.typ ]
       )),
     [ e ])))

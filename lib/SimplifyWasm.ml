@@ -175,7 +175,7 @@ let eta_expand = object
           { node = EBound (n - i - 1); typ = t }
         ) targs) in
         let body = { node = EApp (body, args); typ = tret } in
-        DFunction (None, flags, 0, tret, name, binders, body)
+        DFunction (None, flags, 0, 0, tret, name, binders, body)
     | _ ->
         DGlobal (flags, name, n, t, body)
 end

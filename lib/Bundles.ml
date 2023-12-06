@@ -48,12 +48,12 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: (int * Bundle.t
         flags
     in
     function
-    | DFunction (cc, flags, n, typ, name, binders, body) ->
-        DFunction (cc, add_if name flags, n, typ, name, binders, body)
+    | DFunction (cc, flags, n_cgs, n, typ, name, binders, body) ->
+        DFunction (cc, add_if name flags, n_cgs, n, typ, name, binders, body)
     | DGlobal (flags, name, n, typ, body) ->
         DGlobal (add_if name flags, name, n, typ, body)
-    | DType (lid, flags, n, def) ->
-        DType (lid, add_if lid flags, n, def)
+    | DType (lid, flags, n_cgs, n, def) ->
+        DType (lid, add_if lid flags, n_cgs, n, def)
     | DExternal (cc, flags, n, lid, t, pp) ->
         DExternal (cc, add_if lid flags, n, lid, t, pp)
   in

@@ -9,7 +9,7 @@ open PrintAst.Ops
 let types_depth files =
   let def_map = Helpers.build_map files (fun map d ->
     match d with
-    | DType (lid, _, _, d) -> Hashtbl.add map lid d
+    | DType (lid, _, _, _, d) -> Hashtbl.add map lid d
     | _ -> ()
   ) in
 
@@ -38,7 +38,7 @@ let types_depth files =
   and depth_of_type p t =
     match t with
     | TArrow _
-    | TInt _ | TBool | TUnit | TAny | TBuf _ | TArray _ ->
+    | TInt _ | TBool | TUnit | TAny | TBuf _ | TArray _ | TCgArray _ ->
         0, List.rev p
     | TQualified lid ->
         begin try
@@ -58,7 +58,7 @@ let types_depth files =
 
   (object (_)
     inherit [_] iter
-    method! visit_DType _ lid _ _ def =
+    method! visit_DType _ lid _ _ _ def =
       compute_depth lid def
   end)#visit_files () files;
 
