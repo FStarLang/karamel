@@ -167,9 +167,9 @@ and prec_of_op1 op =
 and is_prefix op =
   let open Constant in
   match op with
-  | PreDecr | PreIncr | Not | BNot -> true
+  | PreDecr | PreIncr | Not | BNot | Neg -> true
   | PostDecr | PostIncr -> false
-  | _ -> raise (Invalid_argument "is_prefix")
+  | _ -> raise (Invalid_argument ("is_prefix " ^ show_op op))
 
 (* The precedence level [curr] is the maximum precedence the current node should
  * have. If it doesn't, then it should be parenthesized. Lower numbers bind

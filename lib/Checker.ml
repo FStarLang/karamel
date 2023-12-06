@@ -527,9 +527,6 @@ and infer' env e =
           (* Special incorrect encoding of polymorphic equalities *)
           let t = KList.one ts in
           TArrow (t, TArrow (t, TBool))
-      | EQualified lid ->
-          let t = lookup_global env lid in
-          DeBruijn.subst_tn ts t
       | _ ->
           let t = infer env e in
           DeBruijn.subst_tn ts t
@@ -691,7 +688,7 @@ and infer' env e =
       check env TBool e1;
       let t = infer env e2 in
       if t = TUnit || t = TAny then
-        t (* loops that end in return can be typed with TAny *)
+        TAny (* loops that end in return can be typed with TAny *)
       else
         checker_error env "%a, while loop is neither tany or tunit" ploc env.location
 
@@ -1027,9 +1024,9 @@ and subtype env t1 t2 =
   match expand_abbrev env t1, expand_abbrev env t2 with
   | TInt w1, TInt w2 when w1 = w2 ->
       true
-  | TInt K.SizeT, TInt K.UInt32 when !Options.wasm ->
+  | TInt K.SizeT, TInt K.UInt32 when Options.wasm () ->
       true
-  | TInt K.UInt32, TInt K.SizeT when !Options.wasm ->
+  | TInt K.UInt32, TInt K.SizeT when Options.wasm () ->
       true
   | TArray (t1, (_, l1)), TArray (t2, (_, l2)) when subtype env t1 t2 && l1 = l2 ->
       true
@@ -1091,6 +1088,12 @@ and subtype env t1 t2 =
 
   | TAnonymous (Flat [ Some f, (t, _) ]), TAnonymous (Union ts) ->
       List.exists (fun (f', t') -> f = f' && subtype env t t') ts
+
+  | TApp (lid, ts), _ when Hashtbl.mem MonomorphizationState.state (lid, ts) ->
+      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts)))) t2
+
+  | _, TApp (lid, ts) when Hashtbl.mem MonomorphizationState.state (lid, ts) ->
+      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts))))
 
   | _ ->
       false

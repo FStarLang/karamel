@@ -3,7 +3,7 @@
 
 type t
 
-type mapping = (Ast.lident, Ast.ident) Hashtbl.t
+type mapping = (Ast.lident, Ast.ident * bool) Hashtbl.t
 
 (** Allocate a new (mutable) table for a given C scope of top-level declarations. *)
 val create: unit -> t
@@ -11,7 +11,7 @@ val create: unit -> t
 (** `extend t name c_name` tries to associate `c_name` to `name` in the table
  * `t`. If case there is a name conflict or `c_name` is an invalid C identifier,
  * a suitable replacement name based on `c_name` will be chosen. *)
-val extend: t -> t -> bool -> Ast.lident -> string -> string
+val extend: t -> t -> bool -> Ast.lident -> (string * bool) -> string
 
 (** `lookup t name fallback` recalls the C name associated to `name` in `t`. *)
 val lookup: t -> Ast.lident -> string option
@@ -24,7 +24,7 @@ val clone: t -> t
 
 type kind = Macro | Type | Other
 
-val target_c_name: attempt_shortening:bool -> ?kind:kind -> Ast.lident -> string
+val target_c_name: attempt_shortening:bool -> ?kind:kind -> Ast.lident -> string * bool
 
 val to_c_name: ?kind:kind -> mapping -> Ast.lident -> string
 

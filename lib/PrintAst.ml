@@ -193,6 +193,7 @@ and print_let_binding (binder, e1) =
   jump (print_expr e1))
 
 and print_expr { node; typ } =
+  (* print_typ typ ^^ colon ^^ space ^^ *)
   match node with
   | EComment (s, e, s') ->
       surround 2 1 (string s) (print_expr e) (string s')
@@ -344,6 +345,7 @@ and print_branch (binders, pat, expr) =
   ) ^/^ jump ~indent:4 (print_expr expr)
 
 and print_pat p =
+  (* print_typ p.typ ^^ colon ^^ space ^^ *)
   match p.node with
   | PWild ->
       string "_"
@@ -383,6 +385,7 @@ module Ops = struct
   let ptyps = printf_of_pprint print_typs
   let pptyp = printf_of_pprint_pretty print_typ
   let pexpr = printf_of_pprint print_expr
+  let pbind = printf_of_pprint print_binder
   let pexprs = printf_of_pprint print_exprs
   let ppexpr = printf_of_pprint_pretty print_expr
   let plid = printf_of_pprint print_lident

@@ -186,7 +186,7 @@ let inline_analysis files =
   in
   let must_inline lid =
     let _, flags, _, _ = Hashtbl.find map lid in
-    (!Options.wasm && small_enough lid) ||
+    (Options.wasm () && small_enough lid) ||
     List.mem Substitute flags ||
     must_disappear lid
   in
@@ -452,7 +452,7 @@ let cross_call_analysis files =
         let flags = add_if (info.visibility = Private) Common.Private flags in
         let flags = remove_if (info.visibility <> Internal) Common.Internal flags in
         let flags = add_if (info.visibility = Internal) Common.Internal flags in
-        if !Options.wasm then
+        if Options.wasm () then
           (* We override the previous logic in the case of WASM *)
           let flags = remove_if info.wasm_mutable Common.Internal flags in
           let flags = add_if info.wasm_mutable Common.Private flags in
@@ -506,17 +506,17 @@ let cross_call_analysis files =
       let decls = super#visit_program () decls in
       decls @ List.rev new_decls
   end in
-  let files = if !Options.wasm then generate_getters#visit_files () files else files in
+  let files = if Options.wasm () then generate_getters#visit_files () files else files in
   files
 
 (** A whole-program transformation that inlines functions according to... *)
 
 let always_live name =
-  let n = GlobalNames.target_c_name ~attempt_shortening:false name in
+  let n = fst (GlobalNames.target_c_name ~attempt_shortening:false name) in
   n = "main" ||
   String.length n >= 11 &&
   String.sub n 0 11 = "WasmSupport" &&
-  !Options.wasm
+  Options.wasm ()
 
 let inline files =
 

@@ -620,7 +620,7 @@ let misc_cosmetic = object (self)
           false
     in
     match e1.node with
-    | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) when not !Options.wasm && not is_aligned ->
+    | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) when not (Options.wasm ()) && not is_aligned ->
         (* int x[1]; x[0] = e; x
          * -->
          * int x; x = e; &x *)
@@ -821,7 +821,7 @@ let misc_cosmetic = object (self)
     (* AstToCStar emits BufSub (e, 0) as just e, so we need the value
      * check to be in agreement on both sides. *)
     match e2.node with
-    | EConstant (_, "0") ->
+    | EConstant (_, "0") when not (Options.rust ()) ->
         (self#visit_expr env e1).node
     | _ ->
         EBufSub (self#visit_expr env e1, self#visit_expr env e2)
@@ -879,7 +879,7 @@ let rec flag_short_circuit loc t e0 es =
       (* In Wasm, we automatically inline functions based on their size, so we
        * can't ask the user to rewrite, but it's ok, because it's an expression
        * language, so we can have let-bindings anywhere. *)
-      if List.length lhs2 > 0 && not !Options.wasm then begin
+      if List.length lhs2 > 0 && not (Options.wasm ()) then begin
         Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,
           GeneratesLetBindings (
             KPrint.bsprintf "%a, a short-circuiting boolean operator" pexpr e0,
@@ -1935,12 +1935,12 @@ let simplify2 ifdefs (files: file list): file list =
   (* Quality of hoisting is WIDELY improved if we remove un-necessary
    * let-bindings. Also removes occurrences of spinlock and the like. *)
   let files = optimize_lets ~ifdefs files in
-  let files = if !Options.wasm then files else fixup_while_tests#visit_files () files in
+  let files = if Options.wasm () then files else fixup_while_tests#visit_files () files in
   let files = hoist#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
-  let files = if !Options.wasm then files else fixup_hoist#visit_files () files in
-  let files = if !Options.wasm then files else let_if_to_assign#visit_files () files in
-  let files = if !Options.wasm then files else hoist_bufcreate#visit_files ifdefs files in
+  let files = if Options.wasm () then files else fixup_hoist#visit_files () files in
+  let files = if Options.wasm () || Options.rust () then files else let_if_to_assign#visit_files () files in
+  let files = if Options.wasm () then files else hoist_bufcreate#visit_files ifdefs files in
   (* This phase relies on up-to-date mark information. TODO move up after
      optimize_lets. *)
   let files = misc_cosmetic#visit_files () files in
@@ -1965,7 +1965,7 @@ let debug env =
   ) original_of_c_name
 
 (* Allocate C names avoiding keywords and name collisions. *)
-let allocate_c_names (files: file list): (lident, ident) Hashtbl.t =
+let allocate_c_names (files: file list): GlobalNames.mapping =
   let env = GlobalNames.create (), Hashtbl.create 41 in
   record_toplevel_names#visit_files env files;
   if Options.debug "c-names" then

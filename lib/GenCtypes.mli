@@ -2,7 +2,7 @@ type t
 
 val mk_ocaml_bindings:
   (CStar.ident * CStar.decl list) list ->
-  (Ast.lident, Ast.ident) Hashtbl.t ->
+  GlobalNames.mapping ->
   (Ast.lident -> string option) ->
   t
 

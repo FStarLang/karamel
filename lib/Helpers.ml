@@ -28,6 +28,7 @@ end
 (* Creating AST nodes *********************************************************)
 
 let uint32 = TInt K.UInt32
+let usize = TInt K.SizeT
 
 let type_of_op op w =
   let open Constant in
@@ -38,7 +39,8 @@ let type_of_op op w =
   | BShiftL | BShiftR ->
       TArrow (TInt w, TArrow (uint32, TInt w))
   | Eq | Neq ->
-      TArrow (TAny, TArrow (TAny, TBool))
+      let t = if w = Bool then TBool else TInt w in
+      TArrow (t, TArrow (t, TBool))
   | Lt | Lte | Gt | Gte ->
       TArrow (TInt w, TArrow (TInt w, TBool))
   | And | Or | Xor ->
@@ -63,6 +65,8 @@ let zerou32 = zero K.UInt32
 let one w = with_type (TInt w) (EConstant (w, "1"))
 let oneu32 = one K.UInt32
 
+let zero_usize = zero K.SizeT
+
 let pwild = with_type TAny PWild
 
 let mk_op op w =
@@ -79,6 +83,9 @@ let mk_lt w finish =
 let mk_lt32 =
   mk_lt K.UInt32
 
+let mk_lt_usize =
+  mk_lt K.SizeT
+
 (* @0 <- @0 + 1ul *)
 let mk_incr w =
   let t = TInt w in
@@ -90,6 +97,8 @@ let mk_incr w =
         one w ]))))
 
 let mk_incr32 = mk_incr K.UInt32
+
+let mk_incr_usize = mk_incr K.SizeT
 
 let mk_neq e1 e2 =
   with_type TBool (EApp (mk_op K.Neq K.UInt32, [ e1; e2 ]))
@@ -415,6 +424,9 @@ let assert_tlid t =
 
 let assert_tbuf t =
   match t with TBuf (t, _) -> t | t -> Warn.fatal_error "Not a buffer: %a" ptyp t
+
+let assert_tint t =
+  match t with TInt w -> w | t -> Warn.fatal_error "Not an int: %a" ptyp t
 
 let assert_tarray t =
   match t with TArray (t, _) -> t | t -> Warn.fatal_error "Not an array: %a" ptyp t

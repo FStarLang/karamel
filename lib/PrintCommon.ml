@@ -5,16 +5,18 @@ open PPrint
 open Constant
 open Common
 
+let indent = ref 2
+
 let break1 = break 1
 
 let jump ?(indent=2) body =
   jump indent 1 body
 
 let parens_with_nesting contents =
-  surround 2 0 lparen contents rparen
+  surround !indent 0 lparen contents rparen
 
 let braces_with_nesting contents =
-  surround 2 1 lbrace contents rbrace
+  surround !indent 1 lbrace contents rbrace
 
 let int i = string (string_of_int i)
 

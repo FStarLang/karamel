@@ -56,15 +56,17 @@ let build_def_map files =
  *   type linked_list_int;
  *   type linked_list_int = Nil | Cons of int * buffer linked_list_int
  *)
-type node = lident * typ list
-type color = Gray | Black
+
+include MonomorphizationState
+
+let has_variables = List.exists (function TBound _ -> assert !Options.allow_tapps; true | _ -> false)
 
 let monomorphize_data_types map = object(self)
 
   inherit [_] map as super
 
   (* Assigning a color to each node. *)
-  val state = Hashtbl.create 41
+  val state = state
   (* We view tuples as the application of a special lid to its arguments. *)
   (* We record pending declarations as we visit top-level declarations. *)
   val mutable pending = []
@@ -347,7 +349,7 @@ let monomorphize_data_types map = object(self)
     TQualified (self#visit_node under_ref (lid, []))
 
   method! visit_TApp under_ref lid ts =
-    if Hashtbl.mem map lid then
+    if Hashtbl.mem map lid && not (has_variables ts) then
       TQualified (self#visit_node under_ref (lid, ts))
     else
       super#visit_TApp under_ref lid ts
