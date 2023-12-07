@@ -379,8 +379,8 @@ module Gen = struct
     let doc =
       let open PPrint in
       let open PrintAst in
-      separate_map underscore print_typ ts ^^ underscore ^^
-      separate_map underscore print_expr cgs
+      separate_map underscore print_typ ts ^^
+      (if cgs = [] then empty else underscore ^^ separate_map underscore print_expr cgs)
     in
     fst lid, snd lid ^ KPrint.bsprintf "__%a" PrintCommon.pdoc doc
 
