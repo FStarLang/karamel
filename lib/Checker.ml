@@ -130,7 +130,7 @@ let populate_env files =
             Warn.fatal_error "%a is polymorphic\n" plid lid;
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
-      | DExternal (_, _, _, lid, typ, _) ->
+      | DExternal (_, _, _, _, lid, typ, _) ->
           { env with globals = M.add lid typ env.globals }
     ) env decls
   ) empty files
@@ -523,17 +523,36 @@ and best_buffer_type l t1 e2 =
 
 
 and infer' env e =
+  let infer_app t es =
+    let t_ret, t_args = flatten_arrow t in
+    if List.length t_args = 0 then
+      checker_error env "This is not a function:\n%a" pexpr e;
+    if List.length es > List.length t_args then
+      checker_error env "Too many arguments for application:\n%a" pexpr e;
+    let t_args, t_remaining_args = KList.split (List.length es) t_args in
+    ignore (List.map2 (check_or_infer env) t_args es);
+    fold_arrow t_remaining_args t_ret
+  in
+
   match e.node with
-  | ETApp (e, cs, ts) ->
-      begin match e.node with
+  | ETApp (e0, cs, ts) ->
+      begin match e0.node with
       | EOp ((K.Eq | K.Neq), _) ->
           (* Special incorrect encoding of polymorphic equalities *)
           let t = KList.one ts in
           TArrow (t, TArrow (t, TBool))
       | _ ->
-          let t = infer env e in
-          let t = DeBruijn.subst_ctn env.n_cgs cs t in
-          DeBruijn.subst_tn ts t
+          let t = infer env e0 in
+          KPrint.bprintf "infer-cg: t=%a\n" ptyp t;
+          let diff = List.length env.locals - env.n_cgs in
+          let t = DeBruijn.subst_tn ts t in
+          KPrint.bprintf "infer-cg: subst_tn --> %a\n" ptyp t;
+          let t = DeBruijn.subst_ctn diff cs t in
+          KPrint.bprintf "infer-cg: subst_ctn --> %a\n" ptyp t;
+          (* Now type-check the application itself, after substitution *)
+          let t = infer_app t cs in
+          KPrint.bprintf "infer-cg: infer_app --> %a\n" ptyp t;
+          t
       end
 
   | EPolyComp (_, t) ->
@@ -578,14 +597,7 @@ and infer' env e =
         let _ = List.map (infer env) es in
         TAny
       else
-        let t_ret, t_args = flatten_arrow t in
-        if List.length t_args = 0 then
-          checker_error env "This is not a function:\n%a" pexpr e;
-        if List.length es > List.length t_args then
-          checker_error env "Too many arguments for application:\n%a" pexpr e;
-        let t_args, t_remaining_args = KList.split (List.length es) t_args in
-        ignore (List.map2 (check_or_infer env) t_args es);
-        fold_arrow t_remaining_args t_ret
+        infer_app t es
 
   | ELet (binder, body, cont) ->
       let t = check_or_infer (locate env (In binder.node.name)) binder.typ body in

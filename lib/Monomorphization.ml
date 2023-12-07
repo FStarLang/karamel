@@ -443,7 +443,14 @@ let functions files =
       ) decls
 
     method! visit_ETApp env e cgs ts =
-      assert (cgs = []);
+      let fail_if () =
+        if cgs <> [] then
+          Warn.fatal_error "TODO: e=%a\ncgs=%a\nts=%a\n%a\n"
+            pexpr e
+            pexprs cgs
+            ptyps ts
+            pexpr (with_type TUnit (ETApp (e, cgs, ts)));
+      in
       match e.node with
       | EQualified lid ->
           begin try
@@ -452,12 +459,14 @@ let functions files =
           with Not_found ->
             match Hashtbl.find map lid with
             | exception Not_found ->
-                (* External function. Bail. *)
+                (* External function. Bail. Leave cgs -- treated as normal
+                   arguments when going to C. C'est la vie. *)
                 if !Options.allow_tapps || AstToCStar.whitelisted_tapp e then
                   super#visit_ETApp env e cgs ts
                 else
                   (self#visit_expr env e).node
             | `Function (cc, flags, n_cgs, n, ret, name, binders, body) ->
+                fail_if ();
                 (* Need to generate a new instance. *)
                 if n <> List.length ts then begin
                   KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
@@ -481,6 +490,7 @@ let functions files =
                   EQualified (Gen.register_def current_file lid ts name def)
 
             | `Global (flags, name, n, t, body) ->
+                fail_if ();
                 if n <> List.length ts then begin
                   KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
                   (self#visit_expr env e).node
@@ -609,7 +619,7 @@ let equalities files =
             EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
         | K.PEq ->
             (* assume val __eq__t: t -> t -> bool *)
-            let def () = DExternal (None, [], 0, instance_lid, eq_typ', [ "x"; "y" ]) in
+            let def () = DExternal (None, [], 0, 0, instance_lid, eq_typ', [ "x"; "y" ]) in
             EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
       in
 

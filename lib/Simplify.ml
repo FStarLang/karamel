@@ -247,7 +247,7 @@ let remove_unused_parameters = object (self)
     let binders = KList.filter_mapi (fun i b -> if unused i then None else Some b) binders in
     DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
 
-  method! visit_DExternal (parameter_table, _ as env) cc flags n name t hints =
+  method! visit_DExternal (parameter_table, _ as env) cc flags n_cg n name t hints =
     let ret, args = flatten_arrow t in
     let hints = KList.filter_mapi (fun i arg ->
       if unused parameter_table dummy_lid args i then
@@ -263,7 +263,7 @@ let remove_unused_parameters = object (self)
     ) args in
     let ret = self#visit_typ env ret in
     let t = fold_arrow args ret in
-    DExternal (cc, flags, n, name, t, hints)
+    DExternal (cc, flags, n_cg, n, name, t, hints)
 
   method! visit_TArrow (parameter_table, _ as env) t1 t2 =
     (* Important: the only entries in `parameter_table` are those which are
@@ -1014,9 +1014,8 @@ and hoist_expr loc pos e =
   let mk node = { node; typ = e.typ } in
   match e.node with
   | ETApp (e, cgs, ts) ->
-      assert (cgs = []);
       let lhs, e = hoist_expr loc Unspecified e in
-      lhs, mk (ETApp (e, [], ts))
+      lhs, mk (ETApp (e, cgs, ts))
 
   | EBufNull
   | EAbort _
@@ -1370,7 +1369,7 @@ let record_toplevel_names = object (self)
   method! visit_DFunction env _ flags _ _ _ name _ _ =
     self#record env ~is_type:false ~is_external:false flags name
 
-  method! visit_DExternal env _ flags _ name _ _ =
+  method! visit_DExternal env _ flags _ _ name _ _ =
     self#record env ~is_type:false ~is_external:true flags name
 
   val forward = Hashtbl.create 41

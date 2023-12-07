@@ -261,28 +261,32 @@ class map_counting_cg = object
     i, i' + 1
 end
 
-let cg_of_expr n_cg (_, i') e =
+(* Converting an expression into a suitable const generic usable in types, knowing
+   `diff = n_cg - n_binders`, where
+   - n_cg is the total number of const generics in the current function / type,
+     and
+   - n_binders is the total number of expression binders traversed (including
+     const generics) *)
+let cg_of_expr diff e =
   match e.node with
   | EBound k ->
-      let level = i' - k - 1 in
-      assert (n_cg - level - 1 >= 0);
-      `Var (n_cg - level - 1)
+      assert (k - diff > 0);
+      `Var (k - diff)
   | EConstant (w, s) ->
       `Const (w, s)
   | _ ->
       failwith "Unsuitable const generic"
 
 (* Substitute const generics *)
-class subst_c (n_cg: int) (c: expr) = object (self)
+class subst_c (diff: int) (c: expr) = object (self)
   inherit map_counting_cg
   method! visit_TCgArray ((i, _) as env) t j =
     let t = self#visit_typ env t in
-    match cg_of_expr n_cg env c with
+    match cg_of_expr diff c with
     | `Var v' ->
         (* we substitute v' for i in [ t; j ] *)
         if j = i then
-          (* lift i c boils down to this since we never cross any binders *)
-          TCgArray (t, v' + i)
+          TCgArray (t, v' + i (* = lift_cg i v' *))
         else
           TCgArray (t, if j < i then j else j-1)
     | `Const (w, s) ->
@@ -295,20 +299,22 @@ class subst_c (n_cg: int) (c: expr) = object (self)
       EBound (if j < i then j else j-1)
 end
 
-let subst_ce n_cg c = (new subst_c n_cg c)#visit_expr_w
-let subst_ct n_cg c = (new subst_c n_cg c)#visit_typ
+(* Both of these function receive a cg debruijn index, whereas the argument c is
+ an expression that is in the expression debruijn space -- hence the extra diff
+ parameter to go one the latter to the former. *)
+let subst_ce diff c i = (new subst_c diff c)#visit_expr_w (i, i + diff)
+let subst_ct diff c i = (new subst_c diff c)#visit_typ (i, i + diff)
 
-(*let subst_cen n_cg cs e =
+let subst_cen diff cs t =
   let l = List.length cs in
   KList.fold_lefti (fun i body arg ->
     let k = l - i - 1 in
-    subst_ce n_cg arg k body
-  ) e cs*)
-
-let subst_ctn n_cg cs t =
-  let l = List.length cs in
-  KList.fold_lefti (fun i body arg ->
-    let k = l - i - 1 in
-    subst_ct n_cg arg (k, k) body
+    subst_ce diff arg k body
   ) t cs
 
+let subst_ctn diff cs t =
+  let l = List.length cs in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    subst_ct diff arg k body
+  ) t cs

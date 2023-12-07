@@ -359,12 +359,10 @@ and mk_expr env in_stmt e =
       CStar.Constant c
 
   | EApp ({ node = ETApp (e, cgs, ts); _ }, es) when !Options.allow_tapps || whitelisted_tapp e ->
-      assert (cgs = []);
-      unit_to_void env e es (List.map (fun t -> CStar.Type (mk_type env t)) ts)
+      unit_to_void env e (cgs @ es) (List.map (fun t -> CStar.Type (mk_type env t)) ts)
 
   | ETApp (e, cgs, ts) when !Options.allow_tapps || whitelisted_tapp e ->
-      assert (cgs = []);
-      CStar.Call (mk_expr env e, List.map (fun t -> CStar.Type (mk_type env t)) ts)
+      unit_to_void env e cgs (List.map (fun t -> CStar.Type (mk_type env t)) ts)
 
   | EApp ({ node = EOp (op, w); _ }, [ _; _ ]) when is_arith op w ->
       fst (mk_arith env e)
@@ -903,7 +901,7 @@ and mk_declaration m env d: (CStar.decl * _) option =
         mk_type env t,
         mk_expr env false body), [])
 
-  | DExternal (cc, flags, n, name, t, pp) ->
+  | DExternal (cc, flags, _, n, name, t, pp) ->
       if LidSet.mem name env.ifdefs || n > 0 then
         None
       else
@@ -1006,7 +1004,7 @@ let mk_ifdefs_set files: LidSet.t =
     inherit [_] reduce as super
     method private zero = LidSet.empty
     method private plus = LidSet.union
-    method! visit_DExternal _env _cc (flags: flag list) _n (name: lident) _t _hints: LidSet.t =
+    method! visit_DExternal _env _cc (flags: flag list) _n_cg _n (name: lident) _t _hints: LidSet.t =
       if List.mem Common.IfDef flags then
         LidSet.singleton name
       else

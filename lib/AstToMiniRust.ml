@@ -823,7 +823,7 @@ let translate_decl env (d: Ast.decl) =
       let env = push_global env lid (name, typ) in
       env, Some (MiniRust.Constant { name; typ; body; public })
 
-  | Ast.DExternal (_, _, type_parameters, lid, t, _param_names) ->
+  | Ast.DExternal (_, _, _, type_parameters, lid, t, _param_names) ->
       let name = translate_unknown_lid lid in
       let env = push_global env lid (name, make_poly (translate_type env t) type_parameters) in
       env, None

@@ -13,15 +13,18 @@ open Common
 let arrow = string "->"
 let lambda = fancystring "λ" 1
 
-let print_app f head g arguments =
+let print_app_ empty f head g arguments =
   group (
     f head ^^ jump (
       if List.length arguments = 0 then
-        utf8string "😱"
+        utf8string empty
       else
         separate_map (break 1) g arguments
     )
   )
+
+let print_app x = print_app_ "😱" x
+let print_cg_app x = print_app_ "□" x
 
 let rec print_decl = function
   | DFunction (cc, flags, n_cg, n, typ, name, binders, body) ->
@@ -36,11 +39,12 @@ let rec print_decl = function
         print_expr body
       )
 
-  | DExternal (cc, flags, n, name, typ, _) ->
+  | DExternal (cc, flags, n_cg, n, name, typ, _) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
       print_flags flags ^/^
       group (cc ^^ string "external" ^/^ string (string_of_lident name) ^/^
         langle ^^ int n ^^ rangle ^^ colon) ^^
+      langle ^^ string "cg: " ^^ int n_cg ^^ rangle ^^
       jump (print_typ typ)
 
   | DGlobal (flags, name, n, typ, expr) ->
@@ -225,9 +229,9 @@ and print_expr { node; typ } =
   | EApp (e, es) ->
       print_app print_expr e print_expr es
   | ETApp (e, es, ts) ->
-      print_app (fun (e, ts) ->
+      print_cg_app (fun (e, ts) ->
         print_app print_expr e (fun t -> group (langle ^/^ print_typ t ^/^ rangle)) ts
-      ) (e, ts) print_expr es
+      ) (e, ts) (fun e -> brackets (brackets (print_expr e))) es
   | ELet (binder, e1, e2) ->
       group (print_let_binding (binder, e1) ^/^ string "in") ^^ hardline ^^
       group (print_expr e2)
