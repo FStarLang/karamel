@@ -415,7 +415,7 @@ let functions files =
 
   let monomorphize = object(self)
 
-    inherit [_] map as super
+    inherit DeBruijn.map_counting as super
 
     (* Current file, for warning purposes. *)
     val mutable current_file = ""
@@ -428,21 +428,21 @@ let functions files =
             if Hashtbl.mem map name then
               []
             else
-              let d = DFunction (cc, flags, n_cgs, n, ret, name, binders, self#visit_expr_w () body) in
+              let d = DFunction (cc, flags, n_cgs, n, ret, name, binders, self#visit_expr_w 0 body) in
               assert (n = 0 && n_cgs = 0);
               Gen.clear () @ [ d ]
         | DGlobal (flags, name, n, t, body) ->
             if Hashtbl.mem map name then
               []
             else
-              let d = DGlobal (flags, name, n, t, self#visit_expr_w () body) in
+              let d = DGlobal (flags, name, n, t, self#visit_expr_w 0 body) in
               assert (n = 0);
               Gen.clear () @ [ d ]
         | d ->
             [ d ]
       ) decls
 
-    method! visit_ETApp env e cgs ts =
+    method! visit_ETApp ((diff, _) as env) e cgs ts =
       let fail_if () =
         if cgs <> [] then
           Warn.fatal_error "TODO: e=%a\ncgs=%a\nts=%a\n%a\n"
@@ -466,7 +466,6 @@ let functions files =
                 else
                   (self#visit_expr env e).node
             | `Function (cc, flags, n_cgs, n, ret, name, binders, body) ->
-                fail_if ();
                 (* Need to generate a new instance. *)
                 if n <> List.length ts then begin
                   KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
@@ -479,11 +478,13 @@ let functions files =
                    * body, for polymorphic recursive functions. *)
                   let name = Gen.gen_lid name ts in
                   let def () =
-                    let ret = DeBruijn.subst_tn ts ret in
+                    let ret = DeBruijn.(subst_ctn diff cgs (subst_tn ts ret)) in
+                    assert (List.length cgs = n_cgs);
+                    let _, binders = KList.split (List.length cgs) binders in
                     let binders = List.map (fun { node; typ } ->
-                      { node; typ = DeBruijn.subst_tn ts typ }
+                      { node; typ = DeBruijn.(subst_ctn diff cgs (subst_tn ts typ)) }
                     ) binders in
-                    let body = DeBruijn.subst_ten ts body in
+                    let body = DeBruijn.(subst_cen (List.length binders) cgs (subst_ten ts body)) in
                     let body = self#visit_expr env body in
                     DFunction (cc, flags, 0, 0, ret, name, binders, body)
                   in
@@ -518,7 +519,7 @@ let functions files =
 
   end in
 
-  monomorphize#visit_files () files
+  monomorphize#visit_files 0 files
 
 
 let equalities files =
