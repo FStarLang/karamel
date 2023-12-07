@@ -270,7 +270,7 @@ end
 let cg_of_expr diff e =
   match e.node with
   | EBound k ->
-      assert (k - diff > 0);
+      assert (k - diff >= 0);
       `Var (k - diff)
   | EConstant (w, s) ->
       `Const (w, s)

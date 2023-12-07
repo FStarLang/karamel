@@ -200,10 +200,11 @@ and check_decl env d =
   if Options.debug "checker" then
     KPrint.bprintf "checking %a\n" plid (lid_of_decl d);
   match d with
-  | DFunction (_, _, _n_cgs, n, t, name, binders, body) ->
+  | DFunction (_, _, n_cgs, n, t, name, binders, body) ->
       assert (!Options.allow_tapps || n = 0);
       let env = List.fold_left push env binders in
       let env = locate env (InTop name) in
+      let env = { env with n_cgs } in
       check env t body
   | DGlobal (_, name, n, t, body) ->
       assert (n = 0);
@@ -542,16 +543,16 @@ and infer' env e =
           let t = KList.one ts in
           TArrow (t, TArrow (t, TBool))
       | _ ->
+          let diff = List.length env.locals - env.n_cgs in
           let t = infer env e0 in
           if Options.debug "checker-cg" then
-            KPrint.bprintf "infer-cg: t=%a\n" ptyp t;
-          let diff = List.length env.locals - env.n_cgs in
+            KPrint.bprintf "infer-cg: t=%a, cs=%a, ts=%a, diff=%d\n" ptyp t pexprs cs ptyps ts diff;
           let t = DeBruijn.subst_tn ts t in
           if Options.debug "checker-cg" then
             KPrint.bprintf "infer-cg: subst_tn --> %a\n" ptyp t;
           let t = DeBruijn.subst_ctn diff cs t in
           if Options.debug "checker-cg" then
-            KPrint.bprintf "infer-cg: subst_ctn --> %a\n" ptyp t;
+            KPrint.bprintf "infer-cg: subst_ctn (diff=%d)--> %a\n" diff ptyp t;
           (* Now type-check the application itself, after substitution *)
           let t = infer_app t cs in
           if Options.debug "checker-cg" then
@@ -1017,6 +1018,8 @@ and assert_buffer env t =
       t1, b
   | TArray (t1, _) ->
       t1, false
+  | TCgArray (t1, _) ->
+      t1, false
   | t ->
       checker_error env "This is not a buffer: %a" ptyp t
 
@@ -1051,6 +1054,8 @@ and subtype env t1 t2 =
   | TArray (t1, (_, l1)), TArray (t2, (_, l2)) when subtype env t1 t2 && l1 = l2 ->
       true
   | TCgArray (t1, l1), TCgArray (t2, l2) when subtype env t1 t2 && l1 = l2 ->
+      true
+  | TCgArray (t1, _), TBuf (t2, _) when subtype env t1 t2 ->
       true
   | TArray (t1, _), TBuf (t2, _) when subtype env t1 t2 ->
       true
