@@ -375,16 +375,17 @@ module Gen = struct
   let generated_lids = Hashtbl.create 41
   let pending_defs = ref []
 
-  let gen_lid lid ts =
+  let gen_lid lid ts cgs =
     let doc =
       let open PPrint in
       let open PrintAst in
-      separate_map underscore print_typ ts
+      separate_map underscore print_typ ts ^^ underscore ^^
+      separate_map underscore print_expr cgs
     in
     fst lid, snd lid ^ KPrint.bsprintf "__%a" PrintCommon.pdoc doc
 
-  let register_def current_file original_lid ts lid def =
-    Hashtbl.add generated_lids (original_lid, ts) lid;
+  let register_def current_file original_lid cgs ts lid def =
+    Hashtbl.add generated_lids (original_lid, cgs, ts) lid;
     let d = def () in
     if Drop.file current_file then
       Warn.(maybe_fatal_error ("", DropDeclaration (lid_of_decl d, current_file)));
@@ -455,7 +456,7 @@ let functions files =
       | EQualified lid ->
           begin try
             (* Already monomorphized? *)
-            EQualified (Hashtbl.find Gen.generated_lids (lid, ts))
+            EQualified (Hashtbl.find Gen.generated_lids (lid, cgs, ts))
           with Not_found ->
             match Hashtbl.find map lid with
             | exception Not_found ->
@@ -476,7 +477,7 @@ let functions files =
                 end else
                   (* The thunk allows registering the name before visiting the
                    * body, for polymorphic recursive functions. *)
-                  let name = Gen.gen_lid name ts in
+                  let name = Gen.gen_lid name ts cgs in
                   let def () =
                     let ret = DeBruijn.(subst_ctn diff cgs (subst_tn ts ret)) in
                     assert (List.length cgs = n_cgs);
@@ -488,7 +489,7 @@ let functions files =
                     let body = self#visit_expr env body in
                     DFunction (cc, flags, 0, 0, ret, name, binders, body)
                   in
-                  EQualified (Gen.register_def current_file lid ts name def)
+                  EQualified (Gen.register_def current_file lid cgs ts name def)
 
             | `Global (flags, name, n, t, body) ->
                 fail_if ();
@@ -496,14 +497,14 @@ let functions files =
                   KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
                   (self#visit_expr env e).node
                 end else
-                  let name = Gen.gen_lid name ts in
+                  let name = Gen.gen_lid name ts [] in
                   let def () =
                     let t = DeBruijn.subst_tn ts t in
                     let body = DeBruijn.subst_ten ts body in
                     let body = self#visit_expr env body in
                     DGlobal (flags, name, 0, t, body)
                   in
-                  EQualified (Gen.register_def current_file lid ts name def)
+                  EQualified (Gen.register_def current_file lid [] ts name def)
 
           end
 
@@ -598,7 +599,7 @@ let equalities files =
         | K.PEq -> [], "__eq"
         | K.PNeq -> [], "__neq"
       in
-      let instance_lid = Gen.gen_lid eq_lid [ t ] in
+      let instance_lid = Gen.gen_lid eq_lid [ t ] [] in
       let x = fresh_binder "x" t in
       let y = fresh_binder "y" t in
 
@@ -617,11 +618,11 @@ let equalities files =
               in
               DFunction (None, [ Common.Private ], 0, 0, TBool, instance_lid, [ y; x ], body)
             in
-            EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
+            EQualified (Gen.register_def current_file eq_lid [] [ t ] instance_lid def)
         | K.PEq ->
             (* assume val __eq__t: t -> t -> bool *)
             let def () = DExternal (None, [], 0, 0, instance_lid, eq_typ', [ "x"; "y" ]) in
-            EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
+            EQualified (Gen.register_def current_file eq_lid [] [ t ] instance_lid def)
       in
 
 
@@ -647,7 +648,7 @@ let equalities files =
       | TQualified lid when Hashtbl.mem types_map lid ->
           begin try
             (* Already monomorphized? *)
-            let existing_lid = Hashtbl.find Gen.generated_lids (eq_lid, [ t ]) in
+            let existing_lid = Hashtbl.find Gen.generated_lids (eq_lid, [], [ t ]) in
             let is_cycle = List.exists (fun d -> lid_of_decl d = existing_lid) !Gen.pending_defs in
             if is_cycle then
               has_cycle <- true;
@@ -702,7 +703,7 @@ let equalities files =
                   DFunction (None, [ Common.Private ], 0, 0, TBool, instance_lid, [ y; x ],
                     mk_conj_or_disj sub_equalities)
                 in
-                EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
+                EQualified (Gen.register_def current_file eq_lid [] [ t ] instance_lid def)
             | Variant branches ->
                 let def () =
                   let fail_case = match op with
@@ -752,13 +753,13 @@ let equalities files =
                         with_type t PWild,
                         fail_case
                       ]))) in
-                EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid def)
+                EQualified (Gen.register_def current_file eq_lid [] [ t ] instance_lid def)
           end
 
       | _ ->
           try
             (* Already monomorphized? *)
-            EQualified (Hashtbl.find Gen.generated_lids (eq_lid, [ t ]))
+            EQualified (Hashtbl.find Gen.generated_lids (eq_lid, [], [ t ]))
           with Not_found ->
             (* External type without a definition. Comparison of function types? *)
             gen_poly ()
@@ -775,14 +776,14 @@ let equalities files =
       in
       try
         (* Already monomorphized? *)
-        let existing_lid = Hashtbl.find Gen.generated_lids (eq_lid, [ t ]) in
+        let existing_lid = Hashtbl.find Gen.generated_lids (eq_lid, [], [ t ]) in
         EQualified existing_lid
       with Not_found ->
         let eq_typ = TArrow (t, TArrow (t, TBool)) in
-        let instance_lid = Gen.gen_lid eq_lid [ t ] in
+        let instance_lid = Gen.gen_lid eq_lid [ t ] [] in
         let x = fresh_binder "x" t in
         let y = fresh_binder "y" t in
-        EQualified (Gen.register_def current_file eq_lid [ t ] instance_lid (fun _ ->
+        EQualified (Gen.register_def current_file eq_lid [] [ t ] instance_lid (fun _ ->
           DFunction (None, [ Common.Private ], 0, 0, TBool, instance_lid, [ y; x ],
             with_type TBool (
               EApp (with_type eq_typ (EPolyComp (c, t)), [
