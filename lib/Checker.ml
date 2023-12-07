@@ -543,15 +543,19 @@ and infer' env e =
           TArrow (t, TArrow (t, TBool))
       | _ ->
           let t = infer env e0 in
-          KPrint.bprintf "infer-cg: t=%a\n" ptyp t;
+          if Options.debug "checker-cg" then
+            KPrint.bprintf "infer-cg: t=%a\n" ptyp t;
           let diff = List.length env.locals - env.n_cgs in
           let t = DeBruijn.subst_tn ts t in
-          KPrint.bprintf "infer-cg: subst_tn --> %a\n" ptyp t;
+          if Options.debug "checker-cg" then
+            KPrint.bprintf "infer-cg: subst_tn --> %a\n" ptyp t;
           let t = DeBruijn.subst_ctn diff cs t in
-          KPrint.bprintf "infer-cg: subst_ctn --> %a\n" ptyp t;
+          if Options.debug "checker-cg" then
+            KPrint.bprintf "infer-cg: subst_ctn --> %a\n" ptyp t;
           (* Now type-check the application itself, after substitution *)
           let t = infer_app t cs in
-          KPrint.bprintf "infer-cg: infer_app --> %a\n" ptyp t;
+          if Options.debug "checker-cg" then
+            KPrint.bprintf "infer-cg: infer_app --> %a\n" ptyp t;
           t
       end
 
@@ -1045,6 +1049,8 @@ and subtype env t1 t2 =
   | TInt K.UInt32, TInt K.SizeT when Options.wasm () ->
       true
   | TArray (t1, (_, l1)), TArray (t2, (_, l2)) when subtype env t1 t2 && l1 = l2 ->
+      true
+  | TCgArray (t1, l1), TCgArray (t2, l2) when subtype env t1 t2 && l1 = l2 ->
       true
   | TArray (t1, _), TBuf (t2, _) when subtype env t1 t2 ->
       true
