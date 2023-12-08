@@ -172,11 +172,16 @@ and print_typ_paren = function
   | t ->
       print_typ t
 
+and print_cg = function
+  | CgVar i -> int i
+  | CgConst c -> print_constant c
+
 and print_typ = function
   | TInt w -> print_width w
   | TBuf (t, bool) -> (if bool then string "const" else empty) ^/^ print_typ t ^^ star
   | TArray (t, k) -> print_typ t ^^ lbracket ^^ print_constant k ^^ rbracket
   | TCgArray (t, v) -> print_typ t ^^ lbracket ^^ int v ^^ rbracket
+  | TCgApp (t, cg) -> print_typ t ^^ brackets (brackets (print_cg cg))
   | TUnit -> string "()"
   | TQualified name -> string (string_of_lident name)
   | TBool -> string "bool"

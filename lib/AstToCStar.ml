@@ -804,6 +804,8 @@ and mk_return_type env = function
       mk_type_def env t
   | TCgArray _ ->
       fatal_error "Internal failure: TCgArray not desugared here"
+  | TCgApp _ ->
+      fatal_error "Internal failure: TCgApp not desugared here"
 
 
 and mk_type env = function

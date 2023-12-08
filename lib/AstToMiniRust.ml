@@ -399,6 +399,7 @@ let rec translate_type (env: env) (t: Ast.typ): MiniRust.typ =
   | TTuple _ -> failwith "TODO: TTuple"
   | TAnonymous _ -> failwith "unexpected: we don't compile data types going to Rust"
   | TCgArray _ -> failwith "Impossible: TCgArray"
+  | TCgApp _ -> failwith "Impossible: TCgApp"
 
 
 (* Expressions *)

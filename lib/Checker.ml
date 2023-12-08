@@ -428,31 +428,34 @@ and check' env t e =
        * typing comes into play. Indeed, a flat record is typed nominally (if
        * the context demands it) or structurally (default). TODO just type
        * structurally, and let the subtyping relation do the rest? *)
-      begin match expand_abbrev env t with
-      | TQualified lid when kind env lid = Some Record ->
-          let fieldtyps = assert_flat env (lookup_type env lid) in
-          check_fields_opt env fieldexprs fieldtyps
-      | TQualified lid when kind env lid = Some Union ->
-          let fieldtyps = assert_union env (lookup_type env lid) in
-          check_union env fieldexprs fieldtyps
-      | TApp (lid, ts) when kind env lid = Some Record ->
+      let t = expand_abbrev env t in
+      begin match flatten_tapp t with
+      | exception Invalid_argument _ ->
+          begin match t with
+          | TAnonymous (Flat fieldtyps) ->
+              check_fields_opt env fieldexprs fieldtyps
+          | TAnonymous (Union fieldtyps) ->
+              check_union env fieldexprs fieldtyps
+          | _ ->
+              checker_error env "Not a record %a" ptyp t
+          end
+
+      | lid, ts, cgs when kind env lid = Some Record ->
           let fieldtyps = assert_flat env (lookup_type env lid) in
           let fieldtyps = List.map (fun (field, (typ, m)) ->
-            field, (DeBruijn.subst_tn ts typ, m)
+            field, (DeBruijn.subst_ctn' cgs (DeBruijn.subst_tn ts typ), m)
           ) fieldtyps in
           check_fields_opt env fieldexprs fieldtyps
-      | TApp (lid, ts) when kind env lid = Some Union ->
+
+      | lid, ts, cgs when kind env lid = Some Union ->
           let fieldtyps = assert_union env (lookup_type env lid) in
           let fieldtyps = List.map (fun (field, typ) ->
-            field, DeBruijn.subst_tn ts typ
+            field, DeBruijn.subst_ctn' cgs (DeBruijn.subst_tn ts typ)
           ) fieldtyps in
           check_union env fieldexprs fieldtyps
-      | TAnonymous (Flat fieldtyps) ->
-          check_fields_opt env fieldexprs fieldtyps
-      | TAnonymous (Union fieldtyps) ->
-          check_union env fieldexprs fieldtyps
+
       | _ ->
-          checker_error env "Not a record %a" ptyp t
+          checker_error env "Not a record (2) %a" ptyp t
       end
 
   | ESwitch (scrut, branches) ->
@@ -818,16 +821,18 @@ and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
   Option.must !t_base
 
 and find_field env t field =
-  match expand_abbrev env t with
-  | TQualified lid ->
-      Some (find_field_from_def env (lookup_type env lid) field)
-  | TApp (lid, ts) ->
+  let t = expand_abbrev env t in
+  match flatten_tapp t with
+  | exception Invalid_argument _ ->
+      begin match t with
+      | TAnonymous def ->
+          Some (find_field_from_def env def field)
+      | _ ->
+          None
+      end
+  | lid, ts, cgs ->
       let t, mut = find_field_from_def env (lookup_type env lid) field in
-      Some (DeBruijn.subst_tn ts t, mut)
-  | TAnonymous def ->
-      Some (find_field_from_def env def field)
-  | _ ->
-      None
+      Some (DeBruijn.(subst_ctn' cgs (subst_tn ts t), mut))
 
 and find_field_from_def env def field =
   try begin match def with
@@ -1079,6 +1084,8 @@ and subtype env t1 t2 =
       i = i'
   | TApp (lid, args), TApp (lid', args') ->
       lid = lid' && List.for_all2 (eqtype env) args args'
+  | TCgApp (lid, args), TCgApp (lid', args') ->
+      subtype env lid lid' && args = args'
   | TTuple ts1, TTuple ts2 ->
       List.length ts1 = List.length ts2 &&
       List.for_all2 (subtype env) ts1 ts2
@@ -1116,11 +1123,11 @@ and subtype env t1 t2 =
   | TAnonymous (Flat [ Some f, (t, _) ]), TAnonymous (Union ts) ->
       List.exists (fun (f', t') -> f = f' && subtype env t t') ts
 
-  | TApp (lid, ts), _ when Hashtbl.mem MonomorphizationState.state (lid, ts) ->
-      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts)))) t2
+  | TApp (lid, ts), _ when Hashtbl.mem MonomorphizationState.state (lid, ts, []) ->
+      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts, [])))) t2
 
-  | _, TApp (lid, ts) when Hashtbl.mem MonomorphizationState.state (lid, ts) ->
-      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts))))
+  | _, TApp (lid, ts) when Hashtbl.mem MonomorphizationState.state (lid, ts, []) ->
+      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts, []))))
 
   | _ ->
       false

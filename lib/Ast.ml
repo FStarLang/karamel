@@ -37,8 +37,12 @@ and valuation = Mark.occurrence * Mark.usage [@ opaque]
 
 let dummy_lid = [], ""
 
+type cg =
+  | CgVar of int
+  | CgConst of constant
+
 (* The visitor of types composes with the misc. visitor. *)
-type typ =
+and typ =
   | TInt of width
   | TBool
   | TUnit
@@ -59,6 +63,8 @@ type typ =
       (** t1 -> t2 *)
   | TApp of lident * typ list
       (** disappears after monomorphization *)
+  | TCgApp of typ * cg
+      (** typ is either TCgApp, TApp, or TQualified *)
   | TBound of int
       (** appears in type definitions... also disappears after monorphization *)
   | TTuple of typ list
@@ -635,6 +641,24 @@ let map_decls f files =
 
 let with_type typ node =
   { typ; node }
+
+let flatten_tapp t =
+  let rec flatten_tapp cgs t =
+    match t with
+    | TApp (lid, ts) ->
+        lid, ts, List.rev cgs
+    | TCgApp (t, cg) ->
+        flatten_tapp (cg :: cgs) t
+    | TQualified lid ->
+        lid, [], List.rev cgs
+    | _ ->
+        invalid_arg "flatten_tapp"
+  in
+  flatten_tapp [] t
+
+let fold_tapp (lid, ts, cgs) =
+  let t = if ts = [] then TQualified lid else TApp (lid, ts) in
+  List.fold_right (fun cg t -> TCgApp (t, cg)) cgs t
 
 let lid_of_decl = function
   | DFunction (_, _, _, _, _, lid, _, _)

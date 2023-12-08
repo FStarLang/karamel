@@ -271,26 +271,63 @@ let cg_of_expr diff e =
   match e.node with
   | EBound k ->
       assert (k - diff >= 0);
-      `Var (k - diff)
+      CgVar (k - diff)
   | EConstant (w, s) ->
-      `Const (w, s)
+      CgConst (w, s)
   | _ ->
       failwith "Unsuitable const generic"
 
 (* Substitute const generics *)
-class subst_c (diff: int) (c: expr) = object (self)
-  inherit map_counting_cg
-  method! visit_TCgArray ((i, _) as env) t j =
+class subst_ct (c: cg) = object (self)
+  (* There are no const generic binders -- nothing to increment *)
+  inherit [_] map
+  method! visit_TCgArray (i as env) t j =
     let t = self#visit_typ env t in
-    match cg_of_expr diff c with
-    | `Var v' ->
+    (* We wish to replace i with c in [ t; j ] *)
+    match c with
+    | CgVar v' ->
         (* we substitute v' for i in [ t; j ] *)
         if j = i then
           TCgArray (t, v' + i (* = lift_cg i v' *))
         else
           TCgArray (t, if j < i then j else j-1)
-    | `Const (w, s) ->
-        TArray (t, (w, s))
+    | CgConst (w, s) ->
+        if j = i then
+          TArray (t, (w, s))
+        else
+          TCgArray (t, if j < i then j else j-1)
+
+  method! visit_TCgApp (i as env) t arg =
+    let t = self#visit_typ env t in
+    (* We are seeking to replace i with c in TCgApp (t, arg) *)
+    match arg with
+    | CgVar j ->
+        (* We are visiting a TCgApp that contains a variable: that variable (the
+           argument of the TCgApp) is a candidate for substitution. *)
+        begin match c with
+        | CgVar v' ->
+            (* We substitute v' for i in TCgApp (t, CgVar j) *)
+            if j = i then
+              TCgApp (t, CgVar (v' + i) (* = lift_cg i v' *))
+            else
+              TCgApp (t, CgVar (if j < i then j else j-1))
+        | CgConst _ ->
+            (* We substitute c for i in TCgApp (t, CgVar j) *)
+            if j = i then
+              TCgApp (t, c)
+            else
+              TCgApp (t, CgVar (if j < i then j else j-1))
+        end
+    | _ ->
+        TCgApp (t, arg)
+end
+
+(* Substitute const generics *)
+class subst_c (diff: int) (c: expr) = object (_self)
+  inherit map_counting_cg
+  method! visit_typ ((i, _) as _env) t =
+    let c = cg_of_expr diff c in
+    (new subst_ct c)#visit_typ i t
 
   method! visit_EBound ((_, i), _) j =
     if j = i then
@@ -309,7 +346,9 @@ let subst_cen diff cs t =
   let l = List.length cs in
   KList.fold_lefti (fun i body arg ->
     let k = l - i - 1 in
-    subst_ce diff arg k body
+    let body = subst_ce diff arg k body in
+    (* KPrint.bprintf "k=%d body=%a\n\n" k PrintAst.pexpr body; *)
+    body
   ) t cs
 
 let subst_ctn diff cs t =
@@ -317,4 +356,11 @@ let subst_ctn diff cs t =
   KList.fold_lefti (fun i body arg ->
     let k = l - i - 1 in
     subst_ct diff arg k body
+  ) t cs
+
+let subst_ctn' cs t =
+  let l = List.length cs in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    (new subst_ct arg)#visit_typ k body
   ) t cs
