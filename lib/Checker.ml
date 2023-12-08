@@ -633,7 +633,8 @@ and infer' env e =
       end
 
   | EAssign (e1, e2) ->
-      let t = check_valid_assignment_lhs env e1 in
+      let t = infer env e1 in
+      check_valid_assignment_lhs env e1;
       check env t e2;
       TUnit
 
@@ -862,28 +863,24 @@ and check_valid_assignment_lhs env e =
   | EBound i ->
       let binder = find env i in
       if not binder.node.mut then
-        checker_error env "%a (a.k.a. %s) is not a mutable binding" pexpr e binder.node.name;
-      binder.typ
+        checker_error env "%a (a.k.a. %s) is not a mutable binding" pexpr e binder.node.name
   | EField (e, f) ->
       let t1 = check_valid_path env e in
       begin match find_field env t1 f with
-      | Some (t2, mut) ->
+      | Some (_, mut) ->
           if not mut then
-            checker_error env "the field %s of type %a is not marked as mutable" f ptyp t1;
-          t2
+            checker_error env "the field %s of type %a is not marked as mutable" f ptyp t1
       | None ->
           checker_error env "field not found %s" f
       end
-  | EBufRead _ ->
+  | EBufRead _
       (* Introduced by the wasm struct allocation phase. *)
-      e.typ
-  | EQualified _ ->
+  | EQualified _
       (* Introduced when collecting global initializers. *)
-      e.typ
   | EApp ({ node = ETApp _; _ }, _) ->
       (* Will be emitted as a macro, optimistically assuming that's ok, the C
          compiler will bark if not. *)
-      e.typ
+      ()
   | _ ->
       checker_error env "EAssign wants a lhs that's a mutable, local variable, or a \
         path to a mutable field; got %a instead" pexpr e
