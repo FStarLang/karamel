@@ -106,7 +106,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     ) args args_policies in
     let ret, args =
       if ret_policy <> Never then
-        TUnit, args @ [ TBuf (ret, false) ]
+        TUnit, args @ [ if Helpers.is_array ret then ret else TBuf (ret, false) ]
       else
         ret, args
     in
