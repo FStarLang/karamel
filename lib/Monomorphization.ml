@@ -59,7 +59,34 @@ let build_def_map files =
 
 include MonomorphizationState
 
-let has_variables = List.exists (function TBound _ -> assert !Options.allow_tapps; true | _ -> false)
+let has_variables ts=
+  let r =
+    (object
+      inherit [_] reduce
+      method zero = false
+      method plus = (||)
+      method! visit_TBound _ _ =
+        true
+    end)#visit_TApp () ([], "") ts
+  in
+  if r then
+    assert !Options.allow_tapps;
+  r
+
+let has_cg_array ts =
+  let r =
+    (object
+      inherit [_] reduce
+      method zero = false
+      method plus = (||)
+      method! visit_TCgArray _ _ _ =
+        true
+    end)#visit_TApp () ([], "") ts
+  in
+  if r then
+    assert !Options.allow_tapps;
+  r
+
 let has_cg_variables = List.exists (function CgVar _ -> assert !Options.allow_tapps; true | _ -> false)
 
 let monomorphize_data_types map = object(self)
@@ -177,6 +204,7 @@ let monomorphize_data_types map = object(self)
           let subst fields = List.map (fun (field, (t, m)) ->
             field, (DeBruijn.subst_ctn' cgs (DeBruijn.subst_tn args t), m)
           ) fields in
+          assert (not (Hashtbl.mem map lid) || not (has_variables args) && not (has_cg_variables cgs));
           begin match Hashtbl.find map lid with
           | exception Not_found ->
               (* Unknown, external non-polymorphic lid, e.g. Prims.int *)
@@ -348,13 +376,16 @@ let monomorphize_data_types map = object(self)
     PRecord (List.mapi (fun i p -> self#field_at i, self#visit_pattern under_ref p) pats)
 
   method! visit_TTuple under_ref ts =
-    TQualified (self#visit_node under_ref (tuple_lid, ts, []))
+    if not (has_variables ts) && not (has_cg_array ts) then
+      TQualified (self#visit_node under_ref (tuple_lid, ts, []))
+    else
+      super#visit_TTuple under_ref ts
 
   method! visit_TQualified under_ref lid =
     TQualified (self#visit_node under_ref (lid, [], []))
 
   method! visit_TApp under_ref lid ts =
-    if Hashtbl.mem map lid && not (has_variables ts) then
+    if Hashtbl.mem map lid && not (has_variables ts) && not (has_cg_array ts) then
       TQualified (self#visit_node under_ref (lid, ts, []))
     else
       super#visit_TApp under_ref lid ts

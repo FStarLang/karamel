@@ -185,7 +185,7 @@ let fold_arrow ts t_ret =
    rather than a hardcoded list in krml *)
 let is_aligned_type = function ["Lib"; "IntVector"; "Intrinsics"], ("vec128"|"vec256"|"vec512") -> true | _ -> false
 
-let is_array = function TArray _ -> true | _ -> false
+let is_array = function TCgArray _ | TArray _ -> true | _ -> false
 
 let is_union = function TAnonymous (Union _) -> true | _ -> false
 

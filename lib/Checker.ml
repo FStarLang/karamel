@@ -161,7 +161,10 @@ let rec check_everything ?warn files: bool * file list =
 and check_program env r (name, decls) =
   let env = locate env (File name) in
   let by_lid = Hashtbl.create 41 in
-  let decls = KList.filter_map (fun d ->
+  let total = List.length decls in
+  let decls = KList.filter_mapi (fun i d ->
+    if Options.debug "checker" then
+      KPrint.bprintf "CHECKER PROGRESS: %d/%d\n" (i + 1) total;
     try
       check_decl env d;
       Some d
@@ -1123,11 +1126,23 @@ and subtype env t1 t2 =
   | TAnonymous (Flat [ Some f, (t, _) ]), TAnonymous (Union ts) ->
       List.exists (fun (f', t') -> f = f' && subtype env t t') ts
 
+  | TTuple ts, _ when Hashtbl.mem MonomorphizationState.state (tuple_lid, ts, []) ->
+      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (tuple_lid, ts, [])))) t2
+
+  | _, TTuple ts when Hashtbl.mem MonomorphizationState.state (tuple_lid, ts, []) ->
+      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (tuple_lid, ts, []))))
+
   | TApp (lid, ts), _ when Hashtbl.mem MonomorphizationState.state (lid, ts, []) ->
       subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts, [])))) t2
 
   | _, TApp (lid, ts) when Hashtbl.mem MonomorphizationState.state (lid, ts, []) ->
       subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts, []))))
+
+  | TCgApp _, _ when Hashtbl.mem MonomorphizationState.state (flatten_tapp t1) ->
+      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (flatten_tapp t1)))) t2
+
+  | _, TCgApp _ when Hashtbl.mem MonomorphizationState.state (flatten_tapp t2) ->
+      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (flatten_tapp t2))))
 
   | _ ->
       false

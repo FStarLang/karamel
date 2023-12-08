@@ -250,7 +250,7 @@ let open_branch bs pat expr =
 
 class map_counting_cg = object
   (* The environment [i] has type [int*int]. *)
-  inherit [_] map
+  inherit [_] map as super
   (* The environment is a pair [i, i']. The first component [i] is the DeBruijn
     index we are looking for, after entering ONLY the cg binders. It it set by
     the caller and does not increase afterwards since the only cg binders are at
@@ -259,6 +259,9 @@ class map_counting_cg = object
     at each binder, in expressions. *)
   method! extend ((i: int), i') (_: binder) =
     i, i' + 1
+
+  method! visit_ETApp ((i, i'), env) e cgs ts =
+    super#visit_ETApp ((i + List.length cgs, i'), env) e cgs ts
 end
 
 (* Converting an expression into a suitable const generic usable in types, knowing
@@ -297,8 +300,8 @@ class subst_ct (c: cg) = object (self)
         else
           TCgArray (t, if j < i then j else j-1)
 
-  method! visit_TCgApp (i as env) t arg =
-    let t = self#visit_typ env t in
+  method! visit_TCgApp i t arg =
+    let t = self#visit_typ i t in
     (* We are seeking to replace i with c in TCgApp (t, arg) *)
     match arg with
     | CgVar j ->

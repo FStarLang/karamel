@@ -302,7 +302,7 @@ and print_expr { node; typ } =
       braces_with_nesting (print_expr e4)
   | EBufCreateL (l, es) ->
       print_lifetime l ^/^
-      string "newbuf" ^/^ braces_with_nesting (separate_map (comma ^^ break1) print_expr es)
+      string "newbuf" ^/^ braces_with_nesting (flow (comma ^^ break1) (List.map print_expr es))
   | ECons (ident, es) ->
       string ident ^/^
       if List.length es > 0 then

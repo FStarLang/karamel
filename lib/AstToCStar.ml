@@ -803,7 +803,7 @@ and mk_return_type env = function
   | TAnonymous t ->
       mk_type_def env t
   | TCgArray _ ->
-      fatal_error "Internal failure: TCgArray not desugared here"
+      CStar.Qualified (["Eurydice"], "error_t_cg_array")
   | TCgApp _ ->
       fatal_error "Internal failure: TCgApp not desugared here"
 

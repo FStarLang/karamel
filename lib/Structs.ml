@@ -741,19 +741,19 @@ let to_addr is_struct =
 let remove_literals = object (self)
   inherit [_] map as super
 
-  method private mk_path (e: expr) (t: typ) (fields: ident list) =
-    List.fold_left (fun acc f -> with_type t (EField (acc, f))) e fields
+  method private mk_path (e: expr) (fields: (ident * typ) list) =
+    List.fold_left (fun acc (f, t) -> with_type t (EField (acc, f))) e fields
 
-  method private explode (acc: expr list) (path: ident list) (e: expr) (dst: expr) =
+  method private explode (acc: expr list) (path: (ident * typ) list) (e: expr) (dst: expr): expr list =
     match e.node with
     | EFlat fields ->
         List.fold_left (fun acc (f, e) ->
           let f = Option.must f in
-          self#explode acc (f :: path) e dst
+          self#explode acc ((f, e.typ) :: path) e dst
         ) acc fields
     | _ ->
         let e = self#visit_expr_w () e in
-        with_type TUnit (EAssign (self#mk_path dst e.typ (List.rev path), e)) :: acc
+        with_type TUnit (EAssign (self#mk_path dst (List.rev path), e)) :: acc
 
   method! visit_ELet ((_, t) as env) b e1 e2 =
     match e1.node with
