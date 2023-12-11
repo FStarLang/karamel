@@ -236,7 +236,7 @@ and check_fields_opt env fieldexprs fieldtyps =
   if List.length fieldexprs > List.length fieldtyps then
     checker_error env "some fields are superfluous (expr) in %a" pexpr (with_unit (EFlat fieldexprs));
   List.iter (fun (field, expr) ->
-    let field = Option.must field in
+    let field = Option.get field in
     let t, _ = KList.assoc_opt field fieldtyps in
     check env t expr
   ) fieldexprs
@@ -794,7 +794,7 @@ and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
     | Some t_base -> check_eqtype env t_base t
     | None -> t_base := Some t
   ) l;
-  Option.must !t_base
+  Option.get !t_base
 
 and find_field env t field =
   match expand_abbrev env t with
@@ -863,7 +863,7 @@ and check_valid_path env e =
   match e.node with
   | EField (e, f) ->
       let t1 = check_valid_path env e in
-      fst (Option.must (find_field env t1 f))
+      fst (Option.get (find_field env t1 f))
 
   | EBufRead _
   | EBound _ ->

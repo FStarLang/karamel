@@ -102,7 +102,7 @@ and print_fields_t fields =
 
 and print_fields_opt_t fields =
   separate_map (semi ^^ break1) (fun (ident, (typ, mut)) ->
-    let ident = if ident = None then empty else string (Option.must ident) in
+    let ident = if ident = None then empty else string (Option.get ident) in
     let mut = if mut then string "mutable " else empty in
     group (group (mut ^^ ident ^^ colon) ^/^ print_typ typ)
   ) fields

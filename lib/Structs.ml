@@ -228,9 +228,9 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
       if ret_is_struct then
         let assign_into_ret e =
           if ret_is_array then
-            with_type TUnit (EAssign (Option.must ret_atom, e))
+            with_type TUnit (EAssign (Option.get ret_atom, e))
           else
-            with_type TUnit (EBufWrite (Option.must ret_atom, Helpers.zerou32, e))
+            with_type TUnit (EBufWrite (Option.get ret_atom, Helpers.zerou32, e))
         in
         (* Step 4.1: early-returns `return e` become `dst := e; return` *)
         let body = (object
@@ -747,7 +747,7 @@ let remove_literals = object (self)
     match e.node with
     | EFlat fields ->
         List.fold_left (fun acc (f, e) ->
-          let f = Option.must f in
+          let f = Option.get f in
           self#explode acc (f :: path) e dst
         ) acc fields
     | _ ->

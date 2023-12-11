@@ -625,10 +625,10 @@ let rec mk_callop2 env (w, o) e1 e2 =
   mk_expr env e2 @
   if is_binop (w, o) then
     mk_binop_conversion (w, o) @
-    [ dummy_phrase (W.Ast.Binary (mk_value size (Option.must (mk_binop (w, o))))) ] @
+    [ dummy_phrase (W.Ast.Binary (mk_value size (Option.get (mk_binop (w, o))))) ] @
     mk_mask w
   else if is_cmpop (w, o) then
-    [ dummy_phrase (W.Ast.Compare (mk_value size (Option.must (mk_cmpop (w, o))))) ] @
+    [ dummy_phrase (W.Ast.Compare (mk_value size (Option.get (mk_cmpop (w, o))))) ] @
     mk_mask w
   else
     failwith "todo mk_callop2"
