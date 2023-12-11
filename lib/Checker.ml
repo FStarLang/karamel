@@ -510,7 +510,17 @@ and infer env e =
   check_subtype env t e.typ;
   e.typ <- prefer_nominal t e.typ;
   if Options.debug "checker" then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ;
-  t
+
+  (* This is all because of external that retain their polymorphic
+     signatures. TODO: does this alleviate the need for those crappy checks in
+     subtype? *)
+  match Hashtbl.find_opt MonomorphizationState.state (flatten_tapp t) with
+  | exception Invalid_argument _ -> t
+  | Some (_, lid) ->
+      if Options.debug "checker" then
+        KPrint.bprintf "FOUND MONOMORPHIZATION %a\n" plid lid;
+      TQualified lid
+  | None -> t
 
 and prefer_nominal t1 t2 =
   match t1, t2 with
@@ -527,7 +537,6 @@ and best_buffer_type l t1 e2 =
       TArray (t1, k)
   | _ ->
       TBuf (t1, false)
-
 
 and infer' env e =
   let infer_app t es =
@@ -914,6 +923,8 @@ and infer_branches env t_scrutinee branches =
   ) branches
 
 and check_pat env t_context pat =
+  (* KPrint.bprintf "Checking pattern: %a\n" ppat pat; *)
+  (* KPrint.bprintf "t_context:%a\n" ptyp t_context; *)
   match pat.node with
   | PWild ->
       pat.typ <- t_context
