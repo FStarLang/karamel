@@ -546,7 +546,7 @@ let functional_updates = object (self)
         ) fields in
       if List.length the_field = 1 then
         let the_field, the_expr = List.hd the_field in
-        let the_field = Option.must the_field in
+        let the_field = Option.get the_field in
         let the_expr = self#visit_expr env (snd (open_binder b the_expr)) in
         make_mut <- (assert_tlid e1.typ, the_field) :: make_mut;
         k (EAssign (with_type the_expr.typ (EField (e1, the_field)), the_expr))
@@ -654,7 +654,7 @@ let misc_cosmetic = object (self)
             (* if true then Warn.fatal_error "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
 
             let f, { typ = x_typ; _ } = List.find (fun (_, x) -> x.node = EBound 1) fields in
-            let f = Option.must f in
+            let f = Option.get f in
 
             let e3 = snd (DeBruijn.open_binder b e3) in
             let e4 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4))) in
@@ -670,7 +670,7 @@ let misc_cosmetic = object (self)
                 with_type (TBuf (x_typ, false)) (EAddrOf (
                   with_type x_typ (EField (e4, f))))])) ::
               List.filter_map (fun (f', e) ->
-                let f' = Option.must f' in
+                let f' = Option.get f' in
                 if f = f' then
                   None
                 else
@@ -700,7 +700,7 @@ let misc_cosmetic = object (self)
             (* if true then Warn.fatal_error "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
 
             let f, { typ = x_typ; _ } = List.find (fun (_, x) -> x.node = EBound 1) fields in
-            let f = Option.must f in
+            let f = Option.get f in
 
             let e3 = snd (DeBruijn.open_binder b e3) in
             let e4 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4))) in
@@ -718,7 +718,7 @@ let misc_cosmetic = object (self)
                 with_type (TBuf (x_typ, false)) (EAddrOf (
                   with_type x_typ (EField (e4, f))))])) ::
               List.filter_map (fun (f', e) ->
-                let f' = Option.must f' in
+                let f' = Option.get f' in
                 if f = f' then
                   None
                 else

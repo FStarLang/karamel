@@ -202,7 +202,7 @@ let align array_size pos =
 
 (* Helper *)
 let fields_of_struct =
-  List.map (fun (name, (t, _mut)) -> Option.must name, t)
+  List.map (fun (name, (t, _mut)) -> Option.get name, t)
 
 (* A TQualified can either be a struct or an enum. Same for TAnonymous. *)
 let is_enum env t =
@@ -537,9 +537,9 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
         write_le dst ofs e.typ (Z.of_int (LidMap.find lid env.enums));
         []
     | EFlat fields ->
-        let layout = Option.must (layout_of env e) in
+        let layout = Option.get (layout_of env e) in
         KList.map_flatten (fun (fname, e) ->
-          let fname = Option.must fname in
+          let fname = Option.get fname in
           let fofs = fst (List.assoc fname layout.fields) in
           write_scalar dst (ofs + fofs) e
         ) fields
@@ -607,7 +607,7 @@ let rec write_at (env: env)
             (* KPrint.bprintf "    >>> write_at: literal\n"; *)
             let locals, writes =
               fold (fun locals (fname, e) ->
-                let fname = Option.must fname in
+                let fname = Option.get fname in
                 let fofs = fst (List.assoc fname layout.fields) in
                 (* Recursively write each field of the struct at its offset. *)
                 write_at locals (ofs + fofs, e)
@@ -800,7 +800,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | EAddrOf ({ node = EField (e1, f); _ }) ->
       (* This is the "address-of" operation from the paper. *)
-      let ofs = fst (List.assoc f (Option.must (layout_of env e1)).fields) in
+      let ofs = fst (List.assoc f (Option.get (layout_of env e1)).fields) in
       let locals, e1 = mk_expr env locals (with_type (TBuf (e1.typ, true)) (EAddrOf e1)) in
       locals, mk_add32 e1 (mk_uint32 ofs)
 

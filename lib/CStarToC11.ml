@@ -430,7 +430,7 @@ and mk_alloc_cast m t e =
 and mk_malloc m t s =
   match t with
   | Qualified lid when Helpers.is_aligned_type lid ->
-      let sz = Option.must (mk_alignment m t) in
+      let sz = Option.get (mk_alignment m t) in
       mk_alloc_cast m t (C.Call (C.Name "KRML_ALIGNED_MALLOC", [ sz; mk_sizeof_mul m t s ]))
   | _ ->
       mk_alloc_cast m t (C.Call (C.Name "KRML_HOST_MALLOC", [ mk_sizeof_mul m t s ]))
@@ -979,7 +979,7 @@ and mk_expr m (e: expr): C.expr =
   | Struct (typ, fields) ->
       if typ = None then
         failwith ("Expected a type annotation for: \n" ^ show_expr e);
-      let typ = Option.must typ in
+      let typ = Option.get typ in
       mk_compound_literal m typ fields
 
   | Field (BufRead (e, Constant (_, "0")), field) ->

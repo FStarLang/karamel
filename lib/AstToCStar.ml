@@ -402,7 +402,7 @@ and mk_expr env in_stmt e =
       CStar.Cast (mk_expr env e, mk_type env t)
   | EAbort (t, s) ->
       let t = match t with Some t -> t | None -> e.typ in
-      CStar.EAbort (mk_type env t, Option.or_empty s)
+      CStar.EAbort (mk_type env t, Option.value ~default:"" s)
   | EUnit ->
       CStar.Cast (zero, CStar.Pointer CStar.Void)
   | EAny ->
@@ -627,7 +627,7 @@ and mk_stmts env e ret_type =
         fatal_error "[AstToCStar.collect EMatch]: not implemented"
 
     | EAbort (_, s) ->
-        env, CStar.Abort (Option.or_empty s) :: acc
+        env, CStar.Abort (Option.value ~default:"" s) :: acc
 
     | ESwitch (e, branches) ->
         let default, branches =

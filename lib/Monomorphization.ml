@@ -678,7 +678,7 @@ let equalities files =
                 (* Either a conjunction of equalities, or a disjunction of inequalities. *)
                 let def () =
                   let sub_equalities = List.map (fun (f, (t_field, _)) ->
-                    let f = Option.must f in
+                    let f = Option.get f in
                     (* __eq__ x.f y.f *)
                     mk_rec_equality t_field
                       (EField (with_type t (EBound 0), f))
