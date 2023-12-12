@@ -738,7 +738,7 @@ let to_addr is_struct =
 
 
 (* For C89 *)
-let remove_literals = object (self)
+class remove_literals = object (self)
   inherit [_] map as super
 
   method private mk_path (e: expr) (fields: (ident * typ) list) =
@@ -777,7 +777,7 @@ let remove_literals = object (self)
 end
 
 let remove_literals files =
-  remove_literals#visit_files () files
+  (new remove_literals)#visit_files () files
 
 (* Debug any intermediary AST as follows: *)
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)

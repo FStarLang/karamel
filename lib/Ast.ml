@@ -352,8 +352,8 @@ class ['self] map_expr_adapter = object (self: 'self)
       let node = f (env, typ) x.node in
       { node; typ }
 
-  method visit_expr_w =
-    self#lift_w self#visit_expr'
+  method visit_expr_w env e =
+    self#visit_expr (env, e.typ) e
 
   method visit_binder_w =
     self#lift_w self#visit_binder'
