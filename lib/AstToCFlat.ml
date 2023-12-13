@@ -538,7 +538,7 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
         []
     | EFlat fields ->
         let layout = Option.get (layout_of env e) in
-        KList.map_flatten (fun (fname, e) ->
+        List.concat_map (fun (fname, e) ->
           let fname = Option.get fname in
           let fofs = fst (List.assoc fname layout.fields) in
           write_scalar dst (ofs + fofs) e
@@ -1019,7 +1019,7 @@ let mk_wrapper orig_name n_args locals =
   let args, locals = KList.split n_args locals in
   let body =
     CF.CastI64ToPacked (
-      CF.CallFunc (orig_name, KList.make (List.length args) (fun i -> CF.Var i))
+      CF.CallFunc (orig_name, List.init (List.length args) (fun i -> CF.Var i))
     )
   in
   CF.(Function { name; args; ret; locals; body; public = true })

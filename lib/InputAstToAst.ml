@@ -18,9 +18,9 @@ let rec binders_of_pat p =
       [ b ]
   | PTuple ps
   | PCons (_, ps) ->
-      KList.map_flatten binders_of_pat ps
+      List.concat_map binders_of_pat ps
   | PRecord fields ->
-      KList.map_flatten binders_of_pat (snd (List.split fields))
+      List.concat_map binders_of_pat (snd (List.split fields))
   | PConstant _
   | PUnit
   | PBool _ ->

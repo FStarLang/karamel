@@ -214,7 +214,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
 
     (* ... and remember the corresponding atoms: every occurrence becomes a
      * dereference. *)
-    let to_be_starred = KList.filter_map (fun (binder, is_struct) ->
+    let to_be_starred = List.filter_map (fun (binder, is_struct) ->
       if is_struct then
         Some binder.node.atom
       else
@@ -436,7 +436,7 @@ let pass_by_ref files =
     | TAnonymous (Flat fs) ->
         List.map (fun (_, (t, _)) -> t) fs
     | TAnonymous (Union fs) ->
-        KList.map_flatten (fun f -> fields (snd f)) fs
+        List.concat_map (fun f -> fields (snd f)) fs
     | _ ->
         []
   in

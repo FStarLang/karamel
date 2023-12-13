@@ -790,7 +790,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
 
 
 and mk_stmts m stmts: C.stmt list =
-  let stmts = KList.map_flatten (mk_stmt m) stmts in
+  let stmts = List.concat_map (mk_stmt m) stmts in
   let rec fixup_c89 in_decls (stmts: C.stmt list) =
     match stmts with
     | C.Decl _ as stmt :: stmts ->
@@ -998,7 +998,7 @@ and mk_expr m (e: expr): C.expr =
       Call (Name "KRML_EABORT", [ Type (mk_type m t); Literal (escape_string s) ])
 
   | Stmt s ->
-      Stmt (KList.map_flatten (mk_stmt m) s)
+      Stmt (List.concat_map (mk_stmt m) s)
 
   | Type t ->
       Type (mk_type m t)
@@ -1026,7 +1026,7 @@ and mk_type m t =
   mk_spec_and_declarator m "" t
 
 let mk_comments =
-  KList.filter_map (function
+  List.filter_map (function
     | Comment c when c <> "" ->
         Some c
     | _ ->
@@ -1038,15 +1038,15 @@ let wrap_verbatim lid flags d =
     [ Text (KPrint.bsprintf "/* SNIPPET_START: %s */" lid) ]
   else
     []) @
-  KList.filter_map (function
+  List.filter_map (function
     | Prologue s -> Some (Text s)
     | _ -> None
   ) flags @
-  KList.filter_map (function
+  List.filter_map (function
     | Deprecated s -> Some (Text (KPrint.bsprintf "KRML_DEPRECATED(\"%s\")" s))
     | _ -> None
   ) flags @
-  [ d ] @ KList.filter_map (function
+  [ d ] @ List.filter_map (function
     | Epilogue s -> Some (Text s)
     | _ -> None
   ) flags @
@@ -1230,7 +1230,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
         let missing_names = List.length ts - List.length pp in
         let arg_names =
           if missing_names >= 0 then
-            pp @ KList.make missing_names (fun i -> KPrint.bsprintf "x%d" i)
+            pp @ List.init missing_names (fun i -> KPrint.bsprintf "x%d" i)
           else
             (* For functions that take a single unit argument, the name of the
              * unit is gone. *)
@@ -1331,7 +1331,7 @@ let mk_file m decls =
   (* In the C file, we put function bodies, global bodies, and type
    * definitions and external definitions that were private to the file only.
    * *)
-  KList.map_flatten
+  List.concat_map
     (if_header_inline_static m
       none
       (either
@@ -1351,7 +1351,7 @@ let mk_static f d =
     | Some NoInline -> Some NoInline
   in
 
-  KList.map_flatten (function
+  List.concat_map (function
     | C.Decl (comments, (qs, ts, inline, (None | Some (Static | Extern)), extra, decl_inits)) ->
         let is_func = match decl_inits with
           | [ Function _, _, _ ] -> promote_inline inline
@@ -1377,7 +1377,7 @@ let mk_public_header (m: GlobalNames.mapping) decls =
   (* Note that static_header + library means that corresponding declarations are
    * effectively dropped on the basis that the user is doing separate extraction
    * & compilation + providing the required header. *)
-  KList.map_flatten
+  List.concat_map
     (if_public (
       (if_header_inline_static m
         (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
@@ -1386,7 +1386,7 @@ let mk_public_header (m: GlobalNames.mapping) decls =
 
 (* Private part if not already a static header, empty otherwise. *)
 let mk_internal_header (m: GlobalNames.mapping) decls =
-  KList.map_flatten
+  List.concat_map
     (if_internal (
       (if_header_inline_static m
         (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))

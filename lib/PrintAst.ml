@@ -47,13 +47,13 @@ let rec print_decl = function
       print_flags flags ^^ langle ^^ int n ^^ rangle ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
   | DType (name, flags, n, def) ->
-      let args = KList.make n (fun i -> string ("t" ^ string_of_int i)) in
+      let args = List.init n (fun i -> string ("t" ^ string_of_int i)) in
       let args = separate space args in
       group (string "type" ^/^ print_flags flags ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
       jump (print_type_def def)
 
 and print_comment flags =
-  match KList.find_opt (function Comment c -> Some c | _ -> None) flags with
+  match List.find_map (function Comment c -> Some c | _ -> None) flags with
   | Some c ->
       string "(*" ^^ string c ^^ string "*)" ^^ hardline
   | None ->
