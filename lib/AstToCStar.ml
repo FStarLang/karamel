@@ -954,6 +954,8 @@ and mk_program m name env decls =
     let n = string_of_lident (Ast.lid_of_decl d) in
     match mk_declaration m { env with type_names = names } d with
     | exception (Error e) ->
+        if Options.debug "backtraces" then
+          Printexc.print_backtrace stdout;
         Warn.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
         decls, names
     | exception e ->
