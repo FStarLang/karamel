@@ -47,17 +47,6 @@ let index p l =
   in
   index 0 l
 
-let assoc_opt k l =
-  begin match List.find_map (function
-    | Some k', v when k' = k ->
-        Some v
-    | _ ->
-        None
-  ) l with
-  | Some v -> v
-  | None -> raise Not_found
-  end
-
 let split i l =
   let rec split acc i l =
     if i = 0 then
