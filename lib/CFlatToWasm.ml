@@ -906,8 +906,8 @@ and mk_expr env (e: expr): W.Ast.instr list =
       [ dummy_phrase W.Ast.Unreachable ]
 
   | Switch (e, branches, default, s) ->
-      let vmax = KList.max (List.map (fun (c, _) -> Z.of_string (snd c)) branches) in
-      let vmin = KList.min (List.map (fun (c, _) -> Z.of_string (snd c)) branches) in
+      let vmax = KList.reduce max (List.map (fun (c, _) -> Z.of_string (snd c)) branches) in
+      let vmin = KList.reduce min (List.map (fun (c, _) -> Z.of_string (snd c)) branches) in
       if Z.( gt vmax ~$20 || lt vmin ~$0 ) then
         failwith "TODO: in AstToCFlat, don't pick Switch for matches on integers!";
 
