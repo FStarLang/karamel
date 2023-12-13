@@ -59,8 +59,10 @@ let split_at_last l =
   let all_but_last, last = split (List.length l - 1) l in
   all_but_last, List.hd last
 
-let last l =
-  snd (split_at_last l)
+let rec last = function
+  | [] -> failwith "KList.last"
+  | [x] -> x
+  | _ :: l -> last l
 
 let reduce f l =
   List.fold_left f (List.hd l) (List.tl l)
