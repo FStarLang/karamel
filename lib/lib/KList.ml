@@ -34,19 +34,6 @@ let fold_lefti f init l =
   in
   fold_lefti 0 init l
 
-let find_opt f l =
-  let rec find = function
-    | [] ->
-        None
-    | hd :: tl ->
-        match f hd with
-        | Some x ->
-            Some x
-        | None ->
-            find tl
-  in
-  find l
-
 let index p l =
   let rec index i l =
     match l with
@@ -61,7 +48,7 @@ let index p l =
   index 0 l
 
 let assoc_opt k l =
-  begin match find_opt (function
+  begin match List.find_map (function
     | Some k', v when k' = k ->
         Some v
     | _ ->

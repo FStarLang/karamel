@@ -142,7 +142,7 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
               (* If in prefix mode, must find a common prefix *)
               (Options.(!merge_variables <> Prefix) || common_prefix 0 i b.node.name > 0)
             in
-            KList.find_opt (fun (x, (t, h, i)) -> if fits x t h i then Some (x, i) else None) env
+            List.find_map (fun (x, (t, h, i)) -> if fits x t h i then Some (x, i) else None) env
       in
 
       (* For later *)

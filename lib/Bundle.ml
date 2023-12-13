@@ -72,7 +72,7 @@ let pattern_matches (p: pat) (m: string) =
 
 (* For generating the filename. NOT for pretty-printing. *)
 let bundle_filename (api, patterns, attrs) =
-  match KList.find_opt (function Rename s -> Some s | _ -> None) attrs with
+  match List.find_map (function Rename s -> Some s | _ -> None) attrs with
   | Some s ->
       s
   | _ ->
