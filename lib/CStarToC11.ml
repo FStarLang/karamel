@@ -1026,7 +1026,7 @@ and mk_type m t =
   mk_spec_and_declarator m "" t
 
 let mk_comments =
-  KList.filter_map (function
+  List.filter_map (function
     | Comment c when c <> "" ->
         Some c
     | _ ->
@@ -1038,15 +1038,15 @@ let wrap_verbatim lid flags d =
     [ Text (KPrint.bsprintf "/* SNIPPET_START: %s */" lid) ]
   else
     []) @
-  KList.filter_map (function
+  List.filter_map (function
     | Prologue s -> Some (Text s)
     | _ -> None
   ) flags @
-  KList.filter_map (function
+  List.filter_map (function
     | Deprecated s -> Some (Text (KPrint.bsprintf "KRML_DEPRECATED(\"%s\")" s))
     | _ -> None
   ) flags @
-  [ d ] @ KList.filter_map (function
+  [ d ] @ List.filter_map (function
     | Epilogue s -> Some (Text s)
     | _ -> None
   ) flags @

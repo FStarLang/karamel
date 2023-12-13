@@ -515,7 +515,7 @@ let mk_ocaml_bindings
 
   (** In a third phase, we collect the generated declarations, and turn them
    * into full-fledged OCaml modules. *)
-  KList.filter_map (fun (name, _) ->
+  List.filter_map (fun (name, _) ->
     match Hashtbl.find_opt ocaml_decls name with
     | None -> None
     | Some decls ->

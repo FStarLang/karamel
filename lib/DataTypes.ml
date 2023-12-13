@@ -980,7 +980,7 @@ let compile_all_matches (map, enums) = object (self)
 
   method private tag_and_val_type lid branches =
     let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
-    let structs = KList.filter_map (fun (cons, fields) ->
+    let structs = List.filter_map (fun (cons, fields) ->
       let fields = List.map (fun (f, t) -> Some f, t) fields in
       match List.length fields with
       | 0 ->

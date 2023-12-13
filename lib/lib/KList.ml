@@ -12,18 +12,7 @@ let rec filter_mapi i f l =
 let filter_mapi f l =
   filter_mapi 0 f l
 
-let rec filter_map f l =
-  match l with
-  | [] ->
-      []
-  | x :: l ->
-      match f x with
-      | Some x ->
-          x :: filter_map f l
-      | None ->
-          filter_map f l
-
-let filter_some l = filter_map (fun x -> x) l
+let filter_some l = List.filter_map Fun.id l
 
 let rec filter_mask mask l =
   match mask, l with

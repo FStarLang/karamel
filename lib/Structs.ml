@@ -214,7 +214,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
 
     (* ... and remember the corresponding atoms: every occurrence becomes a
      * dereference. *)
-    let to_be_starred = KList.filter_map (fun (binder, is_struct) ->
+    let to_be_starred = List.filter_map (fun (binder, is_struct) ->
       if is_struct then
         Some binder.node.atom
       else

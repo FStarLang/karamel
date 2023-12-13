@@ -158,7 +158,7 @@ let rec check_everything ?warn files: bool * file list =
 and check_program env r (name, decls) =
   let env = locate env (File name) in
   let by_lid = Hashtbl.create 41 in
-  let decls = KList.filter_map (fun d ->
+  let decls = List.filter_map (fun d ->
     try
       check_decl env d;
       Some d

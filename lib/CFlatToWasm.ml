@@ -1228,7 +1228,7 @@ let mk_module (name, decls): (string * W.Ast.module_) =
   (* Generate types for the function declarations. Re-establish the invariant
    * that the function at index i in the function index space has type i in the
    * types index space. *)
-  let types = imported_types @ KList.filter_map (function
+  let types = imported_types @ List.filter_map (function
     | Function f ->
         Some (mk_func_type f)
     | _ ->
@@ -1237,7 +1237,7 @@ let mk_module (name, decls): (string * W.Ast.module_) =
 
   (* Compile the functions. We assume all of the required functions have been
      inserted in env.funcs (ibid. globals) via the first pass. *)
-  let funcs = KList.filter_map (function
+  let funcs = List.filter_map (function
     | Function f ->
         begin try Some (mk_func (locate env (In f.name)) f) with
         | e ->
@@ -1316,7 +1316,7 @@ let mk_module (name, decls): (string * W.Ast.module_) =
   })] in
 
   (* Export all of the current module's functions & globals. *)
-  let exports = KList.filter_map (function
+  let exports = List.filter_map (function
     | Function { public; name; _ } when public ->
         Some (dummy_phrase W.Ast.({
           name = name_of_string name;
