@@ -25,14 +25,8 @@ let rec filter_mask mask l =
   | _ ->
       invalid_arg "filter_mask"
 
-let fold_lefti f init l =
-  let rec fold_lefti i acc = function
-    | hd :: tl ->
-        fold_lefti (i + 1) (f i acc hd) tl
-    | [] ->
-        acc
-  in
-  fold_lefti 0 init l
+let fold_lefti f s l =
+  snd @@ List.fold_left (fun (i, s) x -> (i + 1, f i s x)) (0, s) l
 
 (* NOTE: OCaml 5.1 introduces {!Stdlib.List.find_index} which is [index] except
    that it returns an option. *)
