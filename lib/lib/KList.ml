@@ -34,6 +34,8 @@ let fold_lefti f init l =
   in
   fold_lefti 0 init l
 
+(* NOTE: OCaml 5.1 introduces {!Stdlib.List.find_index} which is [index] except
+   that it returns an option. *)
 let index p l =
   let rec index i l =
     match l with
@@ -74,6 +76,7 @@ let one l =
   | [ x ] -> x
   | _ -> invalid_arg ("one: argument is of length " ^ string_of_int (List.length l))
 
+(* NOTE: provided by {!Stdlib.List} in OCaml 5.1. *)
 let is_empty = function
   | [] -> true
   | _ -> false
