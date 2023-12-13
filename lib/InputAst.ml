@@ -194,7 +194,7 @@ let read_file (f: string): file list =
       f version current_version);
   files
 
-let read_files = KList.map_flatten read_file
+let read_files = List.concat_map read_file
 
 let write_file (files: file list) (f: string): unit =
   with_open_out_bin f (fun oc ->

@@ -332,7 +332,7 @@ let compile_simple_matches (map, enums) = object(self)
 
   method! visit_file _ file =
     let name, decls = file in
-    name, KList.map_flatten (fun d ->
+    name, List.concat_map (fun d ->
       let d = self#visit_decl () d in
       let new_decls = !pending in
       pending := [];

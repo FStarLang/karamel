@@ -78,7 +78,7 @@ let bundle_filename (api, patterns, attrs) =
   | _ ->
       match api with
       | [] ->
-          String.concat "_" (KList.map_flatten (function
+          String.concat "_" (List.concat_map (function
             | Module m -> m
             | Prefix p -> p
           ) patterns)

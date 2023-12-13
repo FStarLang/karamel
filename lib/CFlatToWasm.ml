@@ -779,7 +779,7 @@ and mk_expr env (e: expr): W.Ast.instr list =
       mk_expr env (CallFunc ("store64_le", [ e1; CallFunc ("WasmSupport_betole64", [ e2 ])]))
 
   | CallFunc (name, es) ->
-      KList.map_flatten (mk_expr env) es @
+      List.concat_map (mk_expr env) es @
       [ dummy_phrase (W.Ast.Call (mk_var (find_func env name))) ]
 
   | BufCreate (Common.Stack, n_elts, elt_size) ->

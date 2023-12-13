@@ -436,7 +436,7 @@ let pass_by_ref files =
     | TAnonymous (Flat fs) ->
         List.map (fun (_, (t, _)) -> t) fs
     | TAnonymous (Union fs) ->
-        KList.map_flatten (fun f -> fields (snd f)) fs
+        List.concat_map (fun f -> fields (snd f)) fs
     | _ ->
         []
   in

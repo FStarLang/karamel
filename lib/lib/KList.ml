@@ -25,9 +25,6 @@ let rec filter_mask mask l =
   | _ ->
       invalid_arg "filter_mask"
 
-let map_flatten f l =
-  List.flatten (List.map f l)
-
 let fold_lefti f init l =
   let rec fold_lefti i acc = function
     | hd :: tl ->

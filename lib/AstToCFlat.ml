@@ -538,7 +538,7 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
         []
     | EFlat fields ->
         let layout = Option.get (layout_of env e) in
-        KList.map_flatten (fun (fname, e) ->
+        List.concat_map (fun (fname, e) ->
           let fname = Option.get fname in
           let fofs = fst (List.assoc fname layout.fields) in
           write_scalar dst (ofs + fofs) e

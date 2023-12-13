@@ -221,7 +221,7 @@ and mk_struct_decl ?(sealed=true) m (k: structured) (name: A.lident) fields: str
   in
   let type_decl = Str.type_ Recursive [Type.mk ?manifest:(Some tm) (mk_sym unqual_name)] in
   let seal_decl = mk_decl (Pat.any ()) (mk_app (exp_ident "seal") [exp_ident unqual_name]) in
-  [type_decl; ctypes_structure] @ (KList.map_flatten (mk_field false) fields) @ (if sealed then [seal_decl] else [])
+  [type_decl; ctypes_structure] @ (List.concat_map (mk_field false) fields) @ (if sealed then [seal_decl] else [])
 
 and mk_typedef m name typ =
   let type_const = match typ with
@@ -315,7 +315,7 @@ let mk_include name =
 
 let mk_ocaml_bind deps decls =
   let open_f = Str.open_ (Opn.mk ?override:(Some Fresh) (Mod.ident (mk_ident "F"))) in
-  let includes = KList.map_flatten mk_include deps in
+  let includes = List.concat_map mk_include deps in
   let module_exp = Mod.mk (Pmod_structure (open_f::(includes@decls))) in
   let functor_type = Mty.mk (Pmty_ident (mk_ident "Cstubs.FOREIGN")) in
   let functor_exp = Mod.functor_ (Named (mk_sym_opt "F", functor_type)) module_exp in
@@ -507,7 +507,7 @@ let mk_ocaml_bindings
   let transitive_deps = Hashtbl.create 41 in
   List.iter (fun (name, _) ->
     let deps = try Hashtbl.find ocaml_deps name with Not_found -> [] in
-    let deps = KList.map_flatten (fun x ->
+    let deps = List.concat_map (fun x ->
       Hashtbl.find transitive_deps x @ [ x ]
     ) deps in
     Hashtbl.add transitive_deps name (remove_duplicates deps)

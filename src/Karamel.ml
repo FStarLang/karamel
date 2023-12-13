@@ -160,9 +160,9 @@ where [hack.h] contains [#define WasmSupport_check_buffer_size(X)].
 Supported options:|}
     Sys.argv.(0)
     !Options.warn_error
-    (String.concat " " (KList.map_flatten (fun b ->
+    (String.concat " " (List.concat_map (fun b ->
       [ "-bundle"; Bundle.string_of_bundle b ]
-    ) !Options.bundle @ KList.map_flatten (fun p ->
+    ) !Options.bundle @ List.concat_map (fun p ->
       [ "-drop"; Bundle.string_of_pattern p ]
     ) !Options.drop))
     (p "gcc")
