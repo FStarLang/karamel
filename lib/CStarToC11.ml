@@ -1230,7 +1230,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
         let missing_names = List.length ts - List.length pp in
         let arg_names =
           if missing_names >= 0 then
-            pp @ KList.make missing_names (fun i -> KPrint.bsprintf "x%d" i)
+            pp @ List.init missing_names (fun i -> KPrint.bsprintf "x%d" i)
           else
             (* For functions that take a single unit argument, the name of the
              * unit is gone. *)

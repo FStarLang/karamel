@@ -1019,7 +1019,7 @@ let mk_wrapper orig_name n_args locals =
   let args, locals = KList.split n_args locals in
   let body =
     CF.CastI64ToPacked (
-      CF.CallFunc (orig_name, KList.make (List.length args) (fun i -> CF.Var i))
+      CF.CallFunc (orig_name, List.init (List.length args) (fun i -> CF.Var i))
     )
   in
   CF.(Function { name; args; ret; locals; body; public = true })

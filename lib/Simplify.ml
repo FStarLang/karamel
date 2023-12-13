@@ -214,7 +214,7 @@ let unused private_count_table lid ts (i: int) =
     List.nth ts i = TUnit
   in
   unused_i i &&
-  implies (i = 0) (List.exists not (KList.make (List.length ts) unused_i))
+  implies (i = 0) (List.exists not (List.init (List.length ts) unused_i))
 
 let remove_unused_parameters = object (self)
   inherit [_] map
@@ -243,7 +243,7 @@ let remove_unused_parameters = object (self)
         DeBruijn.subst eunit (n_binders - 1 - i) body
       end else
         body
-    ) body (KList.make n_binders (fun i -> i)) in
+    ) body (List.init n_binders (fun i -> i)) in
     let binders = KList.filter_mapi (fun i b -> if unused i then None else Some b) binders in
     DFunction (cc, flags, n, ret, name, binders, body)
 
@@ -329,7 +329,7 @@ let remove_unused_parameters = object (self)
     if List.length es <= List.length ts then
 
       (* Transform the type of the head *)
-      let used = KList.make (List.length ts) (fun i -> not (unused i)) in
+      let used = List.init (List.length ts) (fun i -> not (unused i)) in
       let ts = KList.filter_mask used ts in
       let ts = List.map (self#visit_typ (parameter_table, 0)) ts in
       let e = { e with typ = fold_arrow ts t } in

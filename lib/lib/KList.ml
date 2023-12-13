@@ -34,17 +34,6 @@ let fold_lefti f init l =
   in
   fold_lefti 0 init l
 
-let make n f =
-  if n < 0 then
-    invalid_arg "KList.make";
-  let rec make acc n f =
-    if n = 0 then
-      acc
-    else
-      make (f (n - 1) :: acc) (n - 1) f
-  in
-  make [] n f
-
 let find_opt f l =
   let rec find = function
     | [] ->
