@@ -1207,7 +1207,6 @@ let remove_full_matches = object (self)
   inherit [_] map as super
 
   method! visit_EMatch (_, t as env) c scrut branches =
-    let scrut0 = scrut in
     let scrut = self#visit_expr env scrut in
     match scrut.node with
     | ESequence es ->
@@ -1242,14 +1241,16 @@ let remove_full_matches = object (self)
         in
         match branches with
         | [ binders, pat, e ] ->
+            let e = self#visit_expr env e in
             begin try
-              let e = self#visit_expr env e in
               let binders, pat, e = open_branch binders pat e in
               let pairs = explode pat scrut in
               let binders = List.map (fun b -> b, List.assoc b.node.atom pairs) binders in
               (Helpers.nest binders t e).node
             with Not_found ->
-              super#visit_EMatch env c scrut0 branches
+              (* This was previously using the original unreduced scrut, but reducing it again using super#visit_EMatch.
+                 I have changed it to just return the already-reduced scrut and e, instead of re-reducing them. *)
+              EMatch (c, scrut, [ binders, pat, e ])
             end
         | _ ->
             super#visit_EMatch env c scrut branches
