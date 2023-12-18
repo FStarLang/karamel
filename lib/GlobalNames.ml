@@ -190,7 +190,7 @@ let bundle_matches (apis, patterns, _) lid =
   List.exists (fun p -> Helpers.pattern_matches p lid) patterns
 
 let rename_prefix lid =
-  KList.find_opt (fun b ->
+  List.find_map (fun b ->
     if List.mem Bundle.RenamePrefix (Bundle.attrs_of_bundle b) && bundle_matches b lid then
       Some (Bundle.bundle_filename b)
     else

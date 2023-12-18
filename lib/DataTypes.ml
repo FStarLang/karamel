@@ -332,7 +332,7 @@ let compile_simple_matches (map, enums) = object(self)
 
   method! visit_file _ file =
     let name, decls = file in
-    name, KList.map_flatten (fun d ->
+    name, List.concat_map (fun d ->
       let d = self#visit_decl () d in
       let new_decls = !pending in
       pending := [];
@@ -980,7 +980,7 @@ let compile_all_matches (map, enums) = object (self)
 
   method private tag_and_val_type lid branches =
     let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
-    let structs = KList.filter_map (fun (cons, fields) ->
+    let structs = List.filter_map (fun (cons, fields) ->
       let fields = List.map (fun (f, t) -> Some f, t) fields in
       match List.length fields with
       | 0 ->
@@ -1207,7 +1207,6 @@ let remove_full_matches = object (self)
   inherit [_] map as super
 
   method! visit_EMatch (_, t as env) c scrut branches =
-    let scrut0 = scrut in
     let scrut = self#visit_expr env scrut in
     match scrut.node with
     | ESequence es ->
@@ -1242,14 +1241,16 @@ let remove_full_matches = object (self)
         in
         match branches with
         | [ binders, pat, e ] ->
+            let e = self#visit_expr env e in
             begin try
-              let e = self#visit_expr env e in
               let binders, pat, e = open_branch binders pat e in
               let pairs = explode pat scrut in
               let binders = List.map (fun b -> b, List.assoc b.node.atom pairs) binders in
               (Helpers.nest binders t e).node
             with Not_found ->
-              super#visit_EMatch env c scrut0 branches
+              (* This was previously using the original unreduced scrut, but reducing it again using super#visit_EMatch.
+                 I have changed it to just return the already-reduced scrut and e, instead of re-reducing them. *)
+              EMatch (c, scrut, [ binders, pat, e ])
             end
         | _ ->
             super#visit_EMatch env c scrut branches

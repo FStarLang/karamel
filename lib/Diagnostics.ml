@@ -26,14 +26,14 @@ let types_depth files =
     | Abbrev t ->
         depth_of_type p t
     | Flat fields ->
-        incr (KList.max (List.map (fun (f, (t, _)) -> depth_of_type (Option.must f :: p) t) fields))
+        incr (KList.reduce max (List.map (fun (f, (t, _)) -> depth_of_type (Option.get f :: p) t) fields))
     | Forward _
     | Variant _ ->
         failwith "impossible"
     | Enum _ ->
         0, List.rev p
     | Union fields ->
-        incr (KList.max (List.map (fun (f, t) -> depth_of_type (f :: p) t) fields))
+        incr (KList.reduce max (List.map (fun (f, t) -> depth_of_type (f :: p) t) fields))
 
   and depth_of_type p t =
     match t with
