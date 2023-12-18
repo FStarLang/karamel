@@ -524,7 +524,17 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         | Some (v_base, p) -> lookup_split env (v_base + v + 1) (Path p)
         end
       in
-      (* TODO: Recursively erase tree for v *)
+
+      (* Reset the tree for variable v, as accessing it invalidates previous
+         splits on it.
+         TODO: Should probably do this recursively *)
+      let env = { env with vars =
+        List.mapi (fun i (b, info) ->
+          (* TODO: Only reset tree, not path? *)
+          b, if i = v then {info with Splits.tree = Splits.Leaf } else info
+        ) env.vars
+      } in
+
       env, e
 
   | EOp (o, _) ->
