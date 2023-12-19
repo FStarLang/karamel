@@ -514,13 +514,7 @@ and infer env e =
   (* This is all because of external that retain their polymorphic
      signatures. TODO: does this alleviate the need for those crappy checks in
      subtype? *)
-  match Hashtbl.find_opt MonomorphizationState.state (flatten_tapp t) with
-  | exception Invalid_argument _ -> t
-  | Some (_, lid) ->
-      if Options.debug "checker" then
-        KPrint.bprintf "FOUND MONOMORPHIZATION %a\n" plid lid;
-      TQualified lid
-  | None -> t
+  MonomorphizationState.resolve t
 
 and prefer_nominal t1 t2 =
   match t1, t2 with
