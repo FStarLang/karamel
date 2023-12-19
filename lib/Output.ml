@@ -130,12 +130,15 @@ let write_one name prefix program suffix =
     PPrint.ToChannel.pretty 0.95 100 oc doc
   )
 
+let create_subdir d =
+  if !Options.tmpdir = "" then
+    Driver.mkdirp d
+  else
+    Driver.mkdirp (!Options.tmpdir ^ "/" ^ d)
+
 let maybe_create_internal_dir h =
   if List.exists (function (_, C11.Internal _) -> true | _ -> false) h then
-    if !Options.tmpdir = "" then
-      Driver.mkdirp "internal"
-    else
-      Driver.mkdirp (!Options.tmpdir ^ "/internal")
+    create_subdir "internal"
 
 let write_c files internal_headers deps =
   Driver.detect_fstar_if ();
@@ -227,3 +230,17 @@ let write_def m c_files =
       ) decls
     ) c_files
   )
+
+let write_renamings (m: GlobalNames.mapping) =
+  create_subdir "clients";
+  let dst = in_tmp_dir "clients/krmlrenamings.h" in
+  with_open_out_bin dst (fun oc ->
+    Hashtbl.iter (fun original_name (new_name, non_modular_renaming) ->
+      (* Note: there is a slight imprecision here. If the original name WOULD
+         HAVE BEEN renamed because of a name collision, then this renaming map
+         will be incorrect. We would to track two maps in GlobalNames, the
+         actual one, and the "sans the renamings" one, in order to be accurate.
+         Too much work, unlikely to happen. *)
+      if non_modular_renaming then
+        KPrint.bfprintf oc "#define %s %s\n" (Idents.string_of_lident original_name) new_name)
+    m)

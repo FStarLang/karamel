@@ -56,15 +56,17 @@ let build_def_map files =
  *   type linked_list_int;
  *   type linked_list_int = Nil | Cons of int * buffer linked_list_int
  *)
-type node = lident * typ list
-type color = Gray | Black
+
+include MonomorphizationState
+
+let has_variables = List.exists (function TBound _ -> assert !Options.allow_tapps; true | _ -> false)
 
 let monomorphize_data_types map = object(self)
 
   inherit [_] map as super
 
   (* Assigning a color to each node. *)
-  val state = Hashtbl.create 41
+  val state = state
   (* We view tuples as the application of a special lid to its arguments. *)
   (* We record pending declarations as we visit top-level declarations. *)
   val mutable pending = []
@@ -251,7 +253,7 @@ let monomorphize_data_types map = object(self)
   method! visit_file _ file =
     let name, decls = file in
     current_file <- name;
-    name, KList.map_flatten (fun d ->
+    name, List.concat_map (fun d ->
       if Options.debug "data-types-traversal" then
         KPrint.bprintf "decl %a\n" plid (lid_of_decl d);
       match d with
@@ -347,7 +349,7 @@ let monomorphize_data_types map = object(self)
     TQualified (self#visit_node under_ref (lid, []))
 
   method! visit_TApp under_ref lid ts =
-    if Hashtbl.mem map lid then
+    if Hashtbl.mem map lid && not (has_variables ts) then
       TQualified (self#visit_node under_ref (lid, ts))
     else
       super#visit_TApp under_ref lid ts
@@ -421,7 +423,7 @@ let functions files =
     method! visit_file _ file =
       let file_name, decls = file in
       current_file <- file_name;
-      file_name, KList.map_flatten (function
+      file_name, List.concat_map (function
         | DFunction (cc, flags, n, ret, name, binders, body) ->
             if Hashtbl.mem map name then
               []
@@ -538,7 +540,7 @@ let equalities files =
     method! visit_file env file =
       let file_name, decls = file in
       current_file <- file_name;
-      file_name, KList.map_flatten (fun d ->
+      file_name, List.concat_map (fun d ->
         let d = self#visit_decl env d in
         let equalities = Gen.clear () in
         let equalities = List.map (function
@@ -676,7 +678,7 @@ let equalities files =
                 (* Either a conjunction of equalities, or a disjunction of inequalities. *)
                 let def () =
                   let sub_equalities = List.map (fun (f, (t_field, _)) ->
-                    let f = Option.must f in
+                    let f = Option.get f in
                     (* __eq__ x.f y.f *)
                     mk_rec_equality t_field
                       (EField (with_type t (EBound 0), f))

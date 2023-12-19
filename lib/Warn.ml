@@ -38,6 +38,9 @@ let fatal_error fmt =
     raise (Fatal "Unrecoverable error")
   ) (Buffer.create 16) fmt
 
+let failwith fmt =
+  Printf.kbprintf (fun buf -> raise (Fatal (Buffer.contents buf))) (Buffer.create 16) fmt
+
 (* -------------------------------------------------------------------------- *)
 
 (* The main error printing function. *)

@@ -47,13 +47,13 @@ let rec print_decl = function
       print_flags flags ^^ langle ^^ int n ^^ rangle ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
   | DType (name, flags, n, def) ->
-      let args = KList.make n (fun i -> string ("t" ^ string_of_int i)) in
+      let args = List.init n (fun i -> string ("t" ^ string_of_int i)) in
       let args = separate space args in
       group (string "type" ^/^ print_flags flags ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
       jump (print_type_def def)
 
 and print_comment flags =
-  match KList.find_opt (function Comment c -> Some c | _ -> None) flags with
+  match List.find_map (function Comment c -> Some c | _ -> None) flags with
   | Some c ->
       string "(*" ^^ string c ^^ string "*)" ^^ hardline
   | None ->
@@ -102,7 +102,7 @@ and print_fields_t fields =
 
 and print_fields_opt_t fields =
   separate_map (semi ^^ break1) (fun (ident, (typ, mut)) ->
-    let ident = if ident = None then empty else string (Option.must ident) in
+    let ident = if ident = None then empty else string (Option.get ident) in
     let mut = if mut then string "mutable " else empty in
     group (group (mut ^^ ident ^^ colon) ^/^ print_typ typ)
   ) fields
@@ -193,6 +193,7 @@ and print_let_binding (binder, e1) =
   jump (print_expr e1))
 
 and print_expr { node; typ } =
+  (* print_typ typ ^^ colon ^^ space ^^ *)
   match node with
   | EComment (s, e, s') ->
       surround 2 1 (string s) (print_expr e) (string s')
@@ -344,6 +345,7 @@ and print_branch (binders, pat, expr) =
   ) ^/^ jump ~indent:4 (print_expr expr)
 
 and print_pat p =
+  (* print_typ p.typ ^^ colon ^^ space ^^ *)
   match p.node with
   | PWild ->
       string "_"
@@ -383,6 +385,7 @@ module Ops = struct
   let ptyps = printf_of_pprint print_typs
   let pptyp = printf_of_pprint_pretty print_typ
   let pexpr = printf_of_pprint print_expr
+  let pbind = printf_of_pprint print_binder
   let pexprs = printf_of_pprint print_exprs
   let ppexpr = printf_of_pprint_pretty print_expr
   let plid = printf_of_pprint print_lident

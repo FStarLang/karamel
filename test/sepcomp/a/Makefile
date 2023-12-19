@@ -174,6 +174,7 @@ dist/A.h: $(filter-out %prims.krml,$(ALL_KRML_FILES))
 	$(KRML) -tmpdir $(dir $@) -skip-compilation \
 	  $(filter %.krml,$^) \
 	  -warn-error @4@5@18 \
+	  -record-renamings \
 	  -fparentheses \
 	  -static-header A.Base \
 	  -bundle 'FStar.*,LowStar.*,Prims[rename=SHOULDNOTBETHERE]' \

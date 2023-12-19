@@ -72,7 +72,7 @@ let analyze_function_type policy t =
   match t with
   | TArrow _ as t ->
       let ret, args = Helpers.flatten_arrow t in
-      policy ret, List.map policy args
+      (if Helpers.is_array ret then Always else policy ret), List.map policy args
   | t ->
       Warn.fatal_error "analyze_function_type: %a is not a function type" ptyp t
 
@@ -155,11 +155,19 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     ) ([], []) (List.combine args args_are_structs) in
     let args = List.rev args in
 
+    (* Arrays are passed by reference in C *)
+    let maybe_addrof e =
+      if Helpers.is_array e.typ then
+        e
+      else
+        with_type (TBuf (t, false)) (EAddrOf e)
+    in
+
     (* The three behaviors described above. *)
     if ret_is_struct <> Never then
       match dest with
       | Some dest ->
-          let args = args @ [ with_type (TBuf (t, false)) (EAddrOf dest) ] in
+          let args = args @ [ maybe_addrof dest ] in
           Helpers.nest bs t (with_type TUnit (EApp (e, args)))
       | None ->
           (* Indicate to the following phase that this is going to be mutated
@@ -167,7 +175,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
              mut in the internal AST) *)
           let x, dest = Helpers.mk_binding ~mut:true "ret" t in
           let bs = (x, with_type TAny EAny) :: bs in
-          let args = args @ [ with_type (TBuf (t, false)) (EAddrOf dest) ] in
+          let args = args @ [ maybe_addrof dest ] in
           Helpers.nest bs t (with_type t (ESequence [
             with_type TUnit (EApp (e, args));
             dest]))
@@ -183,7 +191,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     (* Step 1: open all the binders *)
     let binders, body = DeBruijn.open_binders binders body in
 
-    let ret_is_struct = should_rewrite ret <> Never in
+    let ret_is_struct = should_rewrite ret <> Never || Helpers.is_array ret in
     let args_are_structs = List.map (fun x -> should_rewrite x.typ <> Never) binders in
 
     (* Step 2: rewrite the types of the arguments to take pointers to structs *)
@@ -195,17 +203,18 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     ) binders args_are_structs in
 
     (* Step 3: add an extra argument in case the return type is a struct, too *)
-    let ret, binders, ret_atom =
+    let ret, binders, ret_atom, ret_is_array =
       if ret_is_struct then
-        let ret_binder, ret_atom = Helpers.mk_binding "ret" (TBuf (ret, false)) in
-        TUnit, binders @ [ ret_binder ], Some ret_atom
+        let ret_is_array = Helpers.is_array ret in
+        let ret_binder, ret_atom = Helpers.mk_binding ~mut:true "ret" (if ret_is_array then ret else TBuf (ret, false)) in
+        TUnit, binders @ [ ret_binder ], Some ret_atom, ret_is_array
       else
-        ret, binders, None
+        ret, binders, None, false
     in
 
     (* ... and remember the corresponding atoms: every occurrence becomes a
      * dereference. *)
-    let to_be_starred = KList.filter_map (fun (binder, is_struct) ->
+    let to_be_starred = List.filter_map (fun (binder, is_struct) ->
       if is_struct then
         Some binder.node.atom
       else
@@ -217,7 +226,34 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     (* Step 4: if the function now takes an extra argument for the output struct. *)
     let body =
       if ret_is_struct then
-        with_type TUnit (EBufWrite (Option.must ret_atom, Helpers.zerou32, body))
+        let assign_into_ret e =
+          if ret_is_array then
+            with_type TUnit (EAssign (Option.get ret_atom, e))
+          else
+            with_type TUnit (EBufWrite (Option.get ret_atom, Helpers.zerou32, e))
+        in
+        (* Step 4.1: early-returns `return e` become `dst := e; return` *)
+        let body = (object
+          inherit [_] map
+          method! visit_EReturn _ e =
+            ESequence [
+              assign_into_ret e;
+              with_type e.typ (EReturn Helpers.eunit)
+            ]
+        end)#visit_expr_w () body in
+        (* Step 4.2: the overall value computed by the function is also assigned into the
+           destination. This relies on the invariant that functions are either in the style of 4.1
+           where returns in terminal position have been removed earlier (eurydice), or in
+           expression-style. *)
+        Helpers.nest_in_return_pos TUnit (fun _ e ->
+          match e.node with
+          | EWhile _ -> e
+            (* ret is a struct type, not unit -- therefore, it must be the case that this is an
+               unreachable loop -- bail *)
+          | EReturn _ -> e
+            (* handled above *)
+          | _ -> assign_into_ret e
+        ) body
       else
         body
     in
@@ -400,7 +436,7 @@ let pass_by_ref files =
     | TAnonymous (Flat fs) ->
         List.map (fun (_, (t, _)) -> t) fs
     | TAnonymous (Union fs) ->
-        KList.map_flatten (fun f -> fields (snd f)) fs
+        List.concat_map (fun f -> fields (snd f)) fs
     | _ ->
         []
   in
@@ -462,7 +498,7 @@ let collect_initializers (files: Ast.file list) =
       inherit [_] map
       method! visit_DFunction _ cc flags n ret name binders body =
         let body =
-          if GlobalNames.target_c_name ~attempt_shortening:false name = "main" then begin
+          if fst (GlobalNames.target_c_name ~attempt_shortening:false name) = "main" then begin
             found := true;
             with_type ret (ESequence [
               with_type TUnit (EApp (
@@ -711,7 +747,7 @@ let remove_literals = object (self)
     match e.node with
     | EFlat fields ->
         List.fold_left (fun acc (f, e) ->
-          let f = Option.must f in
+          let f = Option.get f in
           self#explode acc (f :: path) e dst
         ) acc fields
     | _ ->

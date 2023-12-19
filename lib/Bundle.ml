@@ -72,13 +72,13 @@ let pattern_matches (p: pat) (m: string) =
 
 (* For generating the filename. NOT for pretty-printing. *)
 let bundle_filename (api, patterns, attrs) =
-  match KList.find_opt (function Rename s -> Some s | _ -> None) attrs with
+  match List.find_map (function Rename s -> Some s | _ -> None) attrs with
   | Some s ->
       s
   | _ ->
       match api with
       | [] ->
-          String.concat "_" (KList.map_flatten (function
+          String.concat "_" (List.concat_map (function
             | Module m -> m
             | Prefix p -> p
           ) patterns)

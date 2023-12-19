@@ -64,10 +64,9 @@ module S = Set.Make(String)
 let rec vars_of m = function
   | CStar.Var v ->
       S.singleton v
-  | Qualified v ->
-      S.singleton (to_c_name m v)
+  | Qualified v
   | Macro v ->
-      S.singleton (String.uppercase_ascii (to_c_name m v))
+      S.singleton (to_c_name m v)
   | Constant _
   | Bool _
   | StringLiteral _
@@ -231,6 +230,8 @@ let rec mk_spec_and_decl m name qs (t: typ) (k: C.declarator -> C.declarator):
 =
   match t with
   | Const t ->
+      (* Originally, this was added via a mechanism of attributes and made sense only in the pointer
+         case. Now... mostly used by Eurydice to mark constants as global. *)
       mk_spec_and_decl m name [ C.Const ] t k
   | Pointer t ->
       mk_spec_and_decl m name [] t (fun d -> Pointer (qs, k d))
@@ -241,7 +242,7 @@ let rec mk_spec_and_decl m name qs (t: typ) (k: C.declarator -> C.declarator):
         | Constant k -> C.Constant k
         | _ -> mk_expr m size
       in
-      mk_spec_and_decl m name [] t (fun d -> Array (qs, k d, size))
+      mk_spec_and_decl m name qs t (fun d -> Array ([], k d, size))
   | Function (cc, t, ts) ->
       (* Function types are pointers to function types, except in the top-level
        * declarator for a function, which gets special treatment via
@@ -429,7 +430,7 @@ and mk_alloc_cast m t e =
 and mk_malloc m t s =
   match t with
   | Qualified lid when Helpers.is_aligned_type lid ->
-      let sz = Option.must (mk_alignment m t) in
+      let sz = Option.get (mk_alignment m t) in
       mk_alloc_cast m t (C.Call (C.Name "KRML_ALIGNED_MALLOC", [ sz; mk_sizeof_mul m t s ]))
   | _ ->
       mk_alloc_cast m t (C.Call (C.Name "KRML_HOST_MALLOC", [ mk_sizeof_mul m t s ]))
@@ -789,7 +790,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
 
 
 and mk_stmts m stmts: C.stmt list =
-  let stmts = KList.map_flatten (mk_stmt m) stmts in
+  let stmts = List.concat_map (mk_stmt m) stmts in
   let rec fixup_c89 in_decls (stmts: C.stmt list) =
     match stmts with
     | C.Decl _ as stmt :: stmts ->
@@ -935,11 +936,9 @@ and mk_expr m (e: expr): C.expr =
   | Var ident ->
       Name ident
 
-  | Qualified ident ->
-      Name (to_c_name m ident)
-
+  | Qualified ident
   | Macro ident ->
-      Name (String.uppercase_ascii (to_c_name m ident))
+      Name (to_c_name m ident)
 
   | Constant (w, c) ->
       (* See discussion in AstToCStar.ml, around mk_arith. *)
@@ -980,7 +979,7 @@ and mk_expr m (e: expr): C.expr =
   | Struct (typ, fields) ->
       if typ = None then
         failwith ("Expected a type annotation for: \n" ^ show_expr e);
-      let typ = Option.must typ in
+      let typ = Option.get typ in
       mk_compound_literal m typ fields
 
   | Field (BufRead (e, Constant (_, "0")), field) ->
@@ -999,7 +998,7 @@ and mk_expr m (e: expr): C.expr =
       Call (Name "KRML_EABORT", [ Type (mk_type m t); Literal (escape_string s) ])
 
   | Stmt s ->
-      Stmt (KList.map_flatten (mk_stmt m) s)
+      Stmt (List.concat_map (mk_stmt m) s)
 
   | Type t ->
       Type (mk_type m t)
@@ -1027,7 +1026,7 @@ and mk_type m t =
   mk_spec_and_declarator m "" t
 
 let mk_comments =
-  KList.filter_map (function
+  List.filter_map (function
     | Comment c when c <> "" ->
         Some c
     | _ ->
@@ -1039,15 +1038,15 @@ let wrap_verbatim lid flags d =
     [ Text (KPrint.bsprintf "/* SNIPPET_START: %s */" lid) ]
   else
     []) @
-  KList.filter_map (function
+  List.filter_map (function
     | Prologue s -> Some (Text s)
     | _ -> None
   ) flags @
-  KList.filter_map (function
+  List.filter_map (function
     | Deprecated s -> Some (Text (KPrint.bsprintf "KRML_DEPRECATED(\"%s\")" s))
     | _ -> None
   ) flags @
-  [ d ] @ KList.filter_map (function
+  [ d ] @ List.filter_map (function
     | Epilogue s -> Some (Text s)
     | _ -> None
   ) flags @
@@ -1112,6 +1111,7 @@ let mk_function_or_global_body m (d: decl): C.declaration_or_function list =
         let name = to_c_name m name in
         let t = strengthen_array t expr in
         let alignment = if is_array t then mk_alignment m (assert_array t) else None in
+        let t = if List.mem (Common.Const "") flags then CStar.Const t else t in
         let qs, spec, decl = mk_spec_and_declarator m name t in
         let static = if List.exists ((=) Private) flags then Some Static else None in
         let extra = { maybe_unused = List.mem MaybeUnused flags } in
@@ -1164,6 +1164,7 @@ let mk_function_or_global_stub m (d: decl): C.declaration_or_function list =
       else
         let name = to_c_name m name in
         let t = strengthen_array t expr in
+        let t = if List.mem (Common.Const "") flags then CStar.Const t else t in
         let qs, spec, decl = mk_spec_and_declarator m name t in
         wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, Some Extern, { maybe_unused = false }, [ decl, None, None ])))
 
@@ -1229,7 +1230,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
         let missing_names = List.length ts - List.length pp in
         let arg_names =
           if missing_names >= 0 then
-            pp @ KList.make missing_names (fun i -> KPrint.bsprintf "x%d" i)
+            pp @ List.init missing_names (fun i -> KPrint.bsprintf "x%d" i)
           else
             (* For functions that take a single unit argument, the name of the
              * unit is gone. *)
@@ -1330,7 +1331,7 @@ let mk_file m decls =
   (* In the C file, we put function bodies, global bodies, and type
    * definitions and external definitions that were private to the file only.
    * *)
-  KList.map_flatten
+  List.concat_map
     (if_header_inline_static m
       none
       (either
@@ -1338,7 +1339,7 @@ let mk_file m decls =
         (if_private_or_abstract_struct (mk_type_or_external m C))))
     decls
 
-let mk_files (map: (Ast.lident, Ast.ident) Hashtbl.t) files =
+let mk_files (map: GlobalNames.mapping) files =
   List.map (fun (name, program) -> name, mk_file map program) files
 
 (* Building three flavors of headers. *)
@@ -1350,7 +1351,7 @@ let mk_static f d =
     | Some NoInline -> Some NoInline
   in
 
-  KList.map_flatten (function
+  List.concat_map (function
     | C.Decl (comments, (qs, ts, inline, (None | Some (Static | Extern)), extra, decl_inits)) ->
         let is_func = match decl_inits with
           | [ Function _, _, _ ] -> promote_inline inline
@@ -1368,7 +1369,7 @@ let mk_static f d =
 
 (* Generates either a static header (the union of public + internal), OR just
    the public part. *)
-let mk_public_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
+let mk_public_header (m: GlobalNames.mapping) decls =
   (* In the header file, we put functions and global stubs, along with type
    * definitions that are visible from the outside. *)
   (* What should be the behavior for a type declaration marked as CAbstract but
@@ -1376,7 +1377,7 @@ let mk_public_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
   (* Note that static_header + library means that corresponding declarations are
    * effectively dropped on the basis that the user is doing separate extraction
    * & compilation + providing the required header. *)
-  KList.map_flatten
+  List.concat_map
     (if_public (
       (if_header_inline_static m
         (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
@@ -1384,15 +1385,15 @@ let mk_public_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
     decls
 
 (* Private part if not already a static header, empty otherwise. *)
-let mk_internal_header (m: (Ast.lident, Ast.ident) Hashtbl.t) decls =
-  KList.map_flatten
+let mk_internal_header (m: GlobalNames.mapping) decls =
+  List.concat_map
     (if_internal (
       (if_header_inline_static m
         (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
         (either (mk_function_or_global_stub m) (mk_type_or_external m H)))))
     decls
 
-let mk_headers (map: (Ast.lident, Ast.ident) Hashtbl.t)
+let mk_headers (map: GlobalNames.mapping)
   (files: (string * CStar.decl list) list)
 =
   (* Generate headers with a sensible order for the message "WRITING H FILES: ...". *)

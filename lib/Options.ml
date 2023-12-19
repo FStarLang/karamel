@@ -39,11 +39,17 @@ let library: Bundle.pat list ref = ref []
 let hand_written: Bundle.pat list ref = ref []
 let debug_modules: string list ref = ref []
 let debug s = List.exists ((=) s) !debug_modules
-let wasm = ref false
+
+type backend = C | Rust | Wasm
+let backend = ref C
+let wasm () = !backend = Wasm
+let rust () = !backend = Rust
+
 let static_header: Bundle.pat list ref = ref []
 let minimal = ref false
 let by_ref: (string list * string) list ref = ref []
 let ctypes: Bundle.pat list ref = ref []
+let record_renamings = ref false
 
 (* wasm = true ==> these two are false *)
 let struct_passing = ref true
@@ -59,8 +65,11 @@ let unroll_loops = ref (-1)
 let tail_calls = ref false
 let no_shadow = ref false
 let no_return_else = ref false
+
+(* TODO: remove this *)
 type merge = No | Prefix | Aggressive
 let merge_variables = ref No
+
 let linux_ints = ref false
 let microsoft = ref false
 let extern_c = ref false
@@ -109,9 +118,16 @@ let default_options () =
   ]
 
 
-(** Drop is now deprecated and should be used as a last resort. The only reason
- * now to use drop is if whatever definitions are in this module are NOT
- * implemented with external linkage (static inline, macros). *)
+(** Drop is now deprecated and there is not a single situation left that calls
+    for it. If you must implement something with macros or static inline (i.e.,
+    something that has no external linkage), then it suffices to cover it with
+    -library *and* -static-inline. If you must use macros (don't), then [@
+    CMacro ] probably will come in handy, too. *)
 let drop: Bundle.pat list ref = ref []
 
+(* Use for rust and eurydice *)
 let allow_tapps = ref false
+
+(* Rust only: foo_bar_baz.fst gets emitted as foo/bar_baz.fst with depth=1 and
+   foo/bar/baz.fst with depth = 2 (you get the idea). *)
+let depth = ref 1

@@ -1,9 +1,9 @@
 KaRaMeL
 -------
 
-| Linux | Windows |
-|---------|-------|
-| [![Linux](https://msr-project-everest.visualstudio.com/Everest/_apis/build/status/Karamel/Karamel-Linux?branchName=master)](https://msr-project-everest.visualstudio.com/Everest/_build/latest?definitionId=38&branchName=master) | [![Windows](https://msr-project-everest.visualstudio.com/Everest/_apis/build/status/Karamel/Karamel-Windows?branchName=master)](https://msr-project-everest.visualstudio.com/Everest/_build/latest?definitionId=40&branchName=master) |
+| Linux  |
+|---------|
+| [![Build and Deploy](https://github.com/FStarLang/karamel/actions/workflows/linux-x64-hierarchic.yaml/badge.svg)](https://github.com/FStarLang/karamel/actions/workflows/linux-x64-hierarchic.yaml) |
 
 KaRaMeL (formerly known as KReMLin) is a tool that extracts an F\* program to
 readable C code: K&R meets ML!

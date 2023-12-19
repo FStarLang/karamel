@@ -8,12 +8,12 @@ open Idents
 open Ast
 open PrintAst.Ops
 
-type mapping = (lident, string) Hashtbl.t
+type mapping = (lident, string * bool) Hashtbl.t
 type t = mapping * (string, unit) Hashtbl.t
 
 let dump (env: t) =
-  Hashtbl.iter (fun lident c_name ->
-    KPrint.bprintf "%a --> %s\n" plid lident c_name
+  Hashtbl.iter (fun lident (c_name, nm) ->
+    KPrint.bprintf "%a --> %s%s\n" plid lident c_name (if nm then " (!)" else "")
   ) (fst env);
   Hashtbl.iter (fun c_name _ ->
     KPrint.bprintf "%s is used\n" c_name
@@ -145,7 +145,7 @@ let create () =
   reserve_keywords used_c_names;
   c_of_original, used_c_names
 
-let extend (global: t) (local: t) is_local original_name desired_name =
+let extend (global: t) (local: t) is_local original_name (desired_name, non_modular_renaming) =
   let c_of_original, g_used_c_names = global in
   let _, l_used_c_names = local in
   if Hashtbl.mem c_of_original original_name then
@@ -153,7 +153,7 @@ let extend (global: t) (local: t) is_local original_name desired_name =
 
   let unique_c_name = mk_fresh desired_name (fun x ->
     Hashtbl.mem g_used_c_names x || Hashtbl.mem l_used_c_names x) in
-  Hashtbl.add c_of_original original_name unique_c_name;
+  Hashtbl.add c_of_original original_name (unique_c_name, non_modular_renaming && not is_local);
   if is_local then
     Hashtbl.add l_used_c_names unique_c_name ()
   else
@@ -162,7 +162,7 @@ let extend (global: t) (local: t) is_local original_name desired_name =
 
 let lookup (env: t) name =
   let c_of_original, _ = env in
-  Hashtbl.find_opt c_of_original name
+  Option.map fst (Hashtbl.find_opt c_of_original name)
 
 let clone (env: t) =
   let c_of_original, used_c_names = env in
@@ -190,7 +190,7 @@ let bundle_matches (apis, patterns, _) lid =
   List.exists (fun p -> Helpers.pattern_matches p lid) patterns
 
 let rename_prefix lid =
-  KList.find_opt (fun b ->
+  List.find_map (fun b ->
     if List.mem Bundle.RenamePrefix (Bundle.attrs_of_bundle b) && bundle_matches b lid then
       Some (Bundle.bundle_filename b)
     else
@@ -221,12 +221,12 @@ let pascal_case name =
     done;
     Buffer.contents b
   else
-    String.uppercase_ascii (String.sub name 0 1) ^ 
+    String.uppercase_ascii (String.sub name 0 1) ^
     String.sub name 1 (String.length name - 1)
 
 let camel_case name =
   let name = pascal_case name in
-  String.lowercase_ascii (String.sub name 0 1) ^ 
+  String.lowercase_ascii (String.sub name 0 1) ^
   String.sub name 1 (String.length name - 1)
 
 let strip_leading_underscores name =
@@ -238,37 +238,48 @@ let strip_leading_underscores name =
 
 type kind = Macro | Type | Other
 
+(* Clients feed the result of this to extend -- this is a tentative name that
+   may still generate a collision. *)
 let target_c_name ~attempt_shortening ?(kind=Other) lid =
-  let pre_name =
+  (* A non-modular renaming is one that is influenced by command-line
+     options (e.g. -no-prefix, -bundle ...[rename-prefix], etc.). Such name
+     choices pose difficulties in the verified library + verified client
+     scenario, because the client needs to replicate the same options in order
+     to be able to link against the library. *)
+  let pre_name, non_modular_renaming =
     if skip_prefix lid && not (ineligible lid) then
-      snd lid
+      snd lid, true
     else if attempt_shortening && !Options.short_names && not (ineligible lid) && snd lid <> "main" then
-      snd lid
+      snd lid, false
     else match rename_prefix lid with
     | Some prefix ->
-        prefix ^ "_" ^ snd lid
+        prefix ^ "_" ^ snd lid, true
     | None ->
-        string_of_lident lid
+        string_of_lident lid, false
   in
-  if !Options.microsoft then
-    if pre_name = "main" then
-      pre_name
+  let formatted_name =
+    if !Options.microsoft then
+      if pre_name = "main" then
+        pre_name
+      else
+        match kind with
+        | Other ->
+            pascal_case pre_name
+        | Macro ->
+            strip_leading_underscores pre_name
+        | Type ->
+            String.uppercase_ascii (strip_leading_underscores pre_name)
     else
-      match kind with
-      | Other ->
-          pascal_case pre_name
-      | Macro ->
-          strip_leading_underscores pre_name
-      | Type ->
-          String.uppercase_ascii (strip_leading_underscores pre_name)
-  else
-    pre_name
+      pre_name
+  in
+  let formatted_name = if kind = Macro then String.uppercase_ascii formatted_name else formatted_name in
+  formatted_name, non_modular_renaming
 
 let to_c_name ?kind m lid =
   try
-    Hashtbl.find m lid
+    fst (Hashtbl.find m lid)
   with Not_found ->
     (* Note: this happens for external types which are not retained as DType
        nodes and therefore are not recorded in the initial name-assignment
        phase. *)
-    Idents.to_c_identifier (target_c_name ?kind ~attempt_shortening:false lid)
+    Idents.to_c_identifier (fst (target_c_name ?kind ~attempt_shortening:false lid))

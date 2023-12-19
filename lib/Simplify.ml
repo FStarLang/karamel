@@ -214,7 +214,7 @@ let unused private_count_table lid ts (i: int) =
     List.nth ts i = TUnit
   in
   unused_i i &&
-  implies (i = 0) (List.exists not (KList.make (List.length ts) unused_i))
+  implies (i = 0) (List.exists not (List.init (List.length ts) unused_i))
 
 let remove_unused_parameters = object (self)
   inherit [_] map
@@ -243,7 +243,7 @@ let remove_unused_parameters = object (self)
         DeBruijn.subst eunit (n_binders - 1 - i) body
       end else
         body
-    ) body (KList.make n_binders (fun i -> i)) in
+    ) body (List.init n_binders (fun i -> i)) in
     let binders = KList.filter_mapi (fun i b -> if unused i then None else Some b) binders in
     DFunction (cc, flags, n, ret, name, binders, body)
 
@@ -329,7 +329,7 @@ let remove_unused_parameters = object (self)
     if List.length es <= List.length ts then
 
       (* Transform the type of the head *)
-      let used = KList.make (List.length ts) (fun i -> not (unused i)) in
+      let used = List.init (List.length ts) (fun i -> not (unused i)) in
       let ts = KList.filter_mask used ts in
       let ts = List.map (self#visit_typ (parameter_table, 0)) ts in
       let e = { e with typ = fold_arrow ts t } in
@@ -546,7 +546,7 @@ let functional_updates = object (self)
         ) fields in
       if List.length the_field = 1 then
         let the_field, the_expr = List.hd the_field in
-        let the_field = Option.must the_field in
+        let the_field = Option.get the_field in
         let the_expr = self#visit_expr env (snd (open_binder b the_expr)) in
         make_mut <- (assert_tlid e1.typ, the_field) :: make_mut;
         k (EAssign (with_type the_expr.typ (EField (e1, the_field)), the_expr))
@@ -620,7 +620,7 @@ let misc_cosmetic = object (self)
           false
     in
     match e1.node with
-    | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) when not !Options.wasm && not is_aligned ->
+    | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) when not (Options.wasm ()) && not is_aligned ->
         (* int x[1]; x[0] = e; x
          * -->
          * int x; x = e; &x *)
@@ -654,7 +654,7 @@ let misc_cosmetic = object (self)
             (* if true then Warn.fatal_error "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
 
             let f, { typ = x_typ; _ } = List.find (fun (_, x) -> x.node = EBound 1) fields in
-            let f = Option.must f in
+            let f = Option.get f in
 
             let e3 = snd (DeBruijn.open_binder b e3) in
             let e4 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4))) in
@@ -670,7 +670,7 @@ let misc_cosmetic = object (self)
                 with_type (TBuf (x_typ, false)) (EAddrOf (
                   with_type x_typ (EField (e4, f))))])) ::
               List.filter_map (fun (f', e) ->
-                let f' = Option.must f' in
+                let f' = Option.get f' in
                 if f = f' then
                   None
                 else
@@ -700,7 +700,7 @@ let misc_cosmetic = object (self)
             (* if true then Warn.fatal_error "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
 
             let f, { typ = x_typ; _ } = List.find (fun (_, x) -> x.node = EBound 1) fields in
-            let f = Option.must f in
+            let f = Option.get f in
 
             let e3 = snd (DeBruijn.open_binder b e3) in
             let e4 = snd (DeBruijn.open_binder b (snd (DeBruijn.open_binder b' e4))) in
@@ -718,7 +718,7 @@ let misc_cosmetic = object (self)
                 with_type (TBuf (x_typ, false)) (EAddrOf (
                   with_type x_typ (EField (e4, f))))])) ::
               List.filter_map (fun (f', e) ->
-                let f' = Option.must f' in
+                let f' = Option.get f' in
                 if f = f' then
                   None
                 else
@@ -821,7 +821,7 @@ let misc_cosmetic = object (self)
     (* AstToCStar emits BufSub (e, 0) as just e, so we need the value
      * check to be in agreement on both sides. *)
     match e2.node with
-    | EConstant (_, "0") ->
+    | EConstant (_, "0") when not (Options.rust ()) ->
         (self#visit_expr env e1).node
     | _ ->
         EBufSub (self#visit_expr env e1, self#visit_expr env e2)
@@ -879,7 +879,7 @@ let rec flag_short_circuit loc t e0 es =
       (* In Wasm, we automatically inline functions based on their size, so we
        * can't ask the user to rewrite, but it's ok, because it's an expression
        * language, so we can have let-bindings anywhere. *)
-      if List.length lhs2 > 0 && not !Options.wasm then begin
+      if List.length lhs2 > 0 && not (Options.wasm ()) then begin
         Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,
           GeneratesLetBindings (
             KPrint.bsprintf "%a, a short-circuiting boolean operator" pexpr e0,
@@ -1935,12 +1935,12 @@ let simplify2 ifdefs (files: file list): file list =
   (* Quality of hoisting is WIDELY improved if we remove un-necessary
    * let-bindings. Also removes occurrences of spinlock and the like. *)
   let files = optimize_lets ~ifdefs files in
-  let files = if !Options.wasm then files else fixup_while_tests#visit_files () files in
+  let files = if Options.wasm () then files else fixup_while_tests#visit_files () files in
   let files = hoist#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
-  let files = if !Options.wasm then files else fixup_hoist#visit_files () files in
-  let files = if !Options.wasm then files else let_if_to_assign#visit_files () files in
-  let files = if !Options.wasm then files else hoist_bufcreate#visit_files ifdefs files in
+  let files = if Options.wasm () then files else fixup_hoist#visit_files () files in
+  let files = if Options.wasm () || Options.rust () then files else let_if_to_assign#visit_files () files in
+  let files = if Options.wasm () then files else hoist_bufcreate#visit_files ifdefs files in
   (* This phase relies on up-to-date mark information. TODO move up after
      optimize_lets. *)
   let files = misc_cosmetic#visit_files () files in
@@ -1965,7 +1965,7 @@ let debug env =
   ) original_of_c_name
 
 (* Allocate C names avoiding keywords and name collisions. *)
-let allocate_c_names (files: file list): (lident, ident) Hashtbl.t =
+let allocate_c_names (files: file list): GlobalNames.mapping =
   let env = GlobalNames.create (), Hashtbl.create 41 in
   record_toplevel_names#visit_files env files;
   if Options.debug "c-names" then

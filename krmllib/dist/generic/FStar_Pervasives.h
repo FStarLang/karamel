@@ -32,13 +32,14 @@ typedef void *FStar_Pervasives_ambient;
 #define FStar_Pervasives_Iota 7
 #define FStar_Pervasives_NBE 8
 #define FStar_Pervasives_Reify 9
-#define FStar_Pervasives_UnfoldOnly 10
-#define FStar_Pervasives_UnfoldFully 11
-#define FStar_Pervasives_UnfoldAttr 12
-#define FStar_Pervasives_UnfoldQual 13
-#define FStar_Pervasives_UnfoldNamespace 14
-#define FStar_Pervasives_Unmeta 15
-#define FStar_Pervasives_Unascribe 16
+#define FStar_Pervasives_NormDebug 10
+#define FStar_Pervasives_UnfoldOnly 11
+#define FStar_Pervasives_UnfoldFully 12
+#define FStar_Pervasives_UnfoldAttr 13
+#define FStar_Pervasives_UnfoldQual 14
+#define FStar_Pervasives_UnfoldNamespace 15
+#define FStar_Pervasives_Unmeta 16
+#define FStar_Pervasives_Unascribe 17
 
 typedef uint8_t FStar_Pervasives_norm_step_tags;
 
@@ -75,6 +76,8 @@ extern bool FStar_Pervasives_uu___is_Iota(FStar_Pervasives_norm_step projectee);
 extern bool FStar_Pervasives_uu___is_NBE(FStar_Pervasives_norm_step projectee);
 
 extern bool FStar_Pervasives_uu___is_Reify(FStar_Pervasives_norm_step projectee);
+
+extern bool FStar_Pervasives_uu___is_NormDebug(FStar_Pervasives_norm_step projectee);
 
 extern bool FStar_Pervasives_uu___is_UnfoldOnly(FStar_Pervasives_norm_step projectee);
 
@@ -114,6 +117,8 @@ extern FStar_Pervasives_norm_step FStar_Pervasives_hnf;
 extern FStar_Pervasives_norm_step FStar_Pervasives_primops;
 
 extern FStar_Pervasives_norm_step FStar_Pervasives_delta;
+
+extern FStar_Pervasives_norm_step FStar_Pervasives_norm_debug;
 
 extern FStar_Pervasives_norm_step FStar_Pervasives_zeta;
 

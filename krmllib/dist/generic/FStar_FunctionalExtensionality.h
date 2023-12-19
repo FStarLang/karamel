@@ -18,7 +18,7 @@ typedef void *FStar_FunctionalExtensionality_is_restricted;
 
 typedef void *FStar_FunctionalExtensionality_arrow_g;
 
-KRML_DEPRECATED("use arrow_g instead")
+KRML_DEPRECATED("Use arrow_g instead")
 
 typedef void *FStar_FunctionalExtensionality_efun_g;
 

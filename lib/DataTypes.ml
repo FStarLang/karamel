@@ -332,7 +332,7 @@ let compile_simple_matches (map, enums) = object(self)
 
   method! visit_file _ file =
     let name, decls = file in
-    name, KList.map_flatten (fun d ->
+    name, List.concat_map (fun d ->
       let d = self#visit_decl () d in
       let new_decls = !pending in
       pending := [];
@@ -428,7 +428,7 @@ let compile_simple_matches (map, enums) = object(self)
     | ToFlat names ->
         PRecord (List.map2 (fun n e -> n, self#visit_pattern_w () e) names args)
     | ToFlatTaggedUnion branches ->
-        let t_tag = mk_tag_lid lid cons in
+        let t_tag = TQualified (self#allocate_enum_lid lid branches) in
         let fields =
           if List.length args = 0 then
             []
@@ -437,7 +437,7 @@ let compile_simple_matches (map, enums) = object(self)
             List.map2 (fun (f, _) e -> f, self#visit_pattern_w () e) fields args
         in
         PRecord ([
-          field_for_tag, with_type (TQualified t_tag) (PEnum (mk_tag_lid lid cons))
+          field_for_tag, with_type t_tag (PEnum (mk_tag_lid lid cons))
         ] @ fields)
 
   method private allocate_enum_lid lid branches =
@@ -868,26 +868,30 @@ end
 
 let union_field_of_cons = (^) "case_"
 
-let mk e =
-  with_type TAny e
-
 let mk_eq w e1 e2 =
-  mk (EApp (mk (EOp (K.Eq, w)), [ e1; e2 ]))
+  let t = if w = K.Bool then TBool else TInt w in
+  let eq = with_type (TArrow (t, TArrow (t, TBool))) (EOp (K.Eq, w)) in
+  with_type TBool (EApp (eq, [ e1; e2 ]))
+
+let mk_poly_eq t e1 e2 =
+  let eq = with_type (TArrow (t, TArrow (t, TBool))) (EPolyComp (K.PEq, t)) in
+  with_type TBool (EApp (eq, [ e1; e2 ]))
 
 let rec compile_pattern env scrut pat expr =
   match pat.node with
   | PTuple _ ->
       failwith "should've been desugared"
   | PUnit ->
-      [ mk_eq K.Int8 scrut (mk EUnit) ], expr
+      (* why generate a conditional here?? *)
+      [ mk_poly_eq TUnit scrut Helpers.eunit ], expr
   | PBool b ->
-      [ mk_eq K.Bool scrut (mk (EBool b)) ], expr
+      [ mk_eq K.Bool scrut (with_type TBool (EBool b)) ], expr
   | PEnum lid ->
-      [ mk_eq K.Int32 scrut (mk (EEnum lid)) ], expr
+      [ mk_poly_eq pat.typ scrut (with_type pat.typ (EEnum lid)) ], expr
   | PRecord fields ->
       let conds, expr =
         List.fold_left (fun (conds, expr) (f, p) ->
-          let scrut = mk (EField (scrut, f)) in
+          let scrut = with_type p.typ (EField (scrut, f)) in
           let cond, expr = compile_pattern env scrut p expr in
           cond :: conds, expr
         ) ([], expr) fields
@@ -901,7 +905,7 @@ let rec compile_pattern env scrut pat expr =
         meta = None;
         atom = b
       } in
-      [], mk (ELet (b, scrut, close_binder b expr))
+      [], with_type expr.typ (ELet (b, scrut, close_binder b expr))
   | PWild ->
       [], expr
   | PBound _ ->
@@ -909,19 +913,19 @@ let rec compile_pattern env scrut pat expr =
   | PCons (ident, _) ->
       failwith ("constructor hasn't been desugared: " ^ ident)
   | PDeref pat ->
-      let scrut = mk (EBufRead (scrut, zerou32)) in
+      let scrut = with_type (Helpers.assert_tbuf_or_tarray scrut.typ) (EBufRead (scrut, zerou32)) in
       compile_pattern env scrut pat expr
   | PConstant k ->
-      [ mk_eq (fst k) scrut (mk (EConstant k)) ], expr
+      [ mk_eq (fst k) scrut (with_type (TInt (fst k)) (EConstant k)) ], expr
 
 
 let rec mk_conjunction = function
   | [] ->
-      mk (EBool true)
+      with_type TBool (EBool true)
   | [ e1 ] ->
       e1
   | e1 :: es ->
-      mk (EApp (mk (EOp (K.And, K.Bool)), [ e1; mk_conjunction es ]))
+      with_type TBool (EApp (with_type (TArrow (TBool, TArrow (TBool, TBool))) (EOp (K.And, K.Bool)), [ e1; mk_conjunction es ]))
 
 let compile_branch env scrut (binders, pat, expr): expr * expr =
   let _binders, pat, expr = open_branch binders pat expr in
@@ -976,7 +980,7 @@ let compile_all_matches (map, enums) = object (self)
 
   method private tag_and_val_type lid branches =
     let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
-    let structs = KList.filter_map (fun (cons, fields) ->
+    let structs = List.filter_map (fun (cons, fields) ->
       let fields = List.map (fun (f, t) -> Some f, t) fields in
       match List.length fields with
       | 0 ->
@@ -1203,7 +1207,6 @@ let remove_full_matches = object (self)
   inherit [_] map as super
 
   method! visit_EMatch (_, t as env) c scrut branches =
-    let scrut0 = scrut in
     let scrut = self#visit_expr env scrut in
     match scrut.node with
     | ESequence es ->
@@ -1238,14 +1241,16 @@ let remove_full_matches = object (self)
         in
         match branches with
         | [ binders, pat, e ] ->
+            let e = self#visit_expr env e in
             begin try
-              let e = self#visit_expr env e in
               let binders, pat, e = open_branch binders pat e in
               let pairs = explode pat scrut in
               let binders = List.map (fun b -> b, List.assoc b.node.atom pairs) binders in
               (Helpers.nest binders t e).node
             with Not_found ->
-              super#visit_EMatch env c scrut0 branches
+              (* This was previously using the original unreduced scrut, but reducing it again using super#visit_EMatch.
+                 I have changed it to just return the already-reduced scrut and e, instead of re-reducing them. *)
+              EMatch (c, scrut, [ binders, pat, e ])
             end
         | _ ->
             super#visit_EMatch env c scrut branches

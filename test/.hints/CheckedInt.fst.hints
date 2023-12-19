@@ -20,7 +20,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "80f2a612981d2a19725c948be2a5bd74"
+      "fbdce54fd600145de06debb5ceb4e662"
     ],
     [
       "CheckedInt.two",
@@ -41,7 +41,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "4ec1bcbe05534528ea739c68dd59e2dd"
+      "6d30b020f459e530feb435eb7725633a"
     ],
     [
       "CheckedInt.main",
@@ -54,7 +54,7 @@
         "primitive_Prims.op_Subtraction"
       ],
       0,
-      "bcd04df914da0f80a00e5f6c2353e0bd"
+      "48d5ff35dd85ef3d030d2bbbdb0def83"
     ]
   ]
 ]
