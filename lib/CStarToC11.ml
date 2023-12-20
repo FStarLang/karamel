@@ -548,7 +548,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
      to double-ignore, since C does it for us automatically, and C compilers
      treat this as 100% normal UNLESS the programmer uses extensions like
      `__attribute__((nodiscard))`. *)
-  | Ignore (Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), [ arg; _ ])) when is_call arg ->
+  | Ignore (Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), [ arg; _; _ ])) when is_call arg ->
       [ Expr (mk_expr m arg) ]
 
   | Ignore e ->
@@ -849,12 +849,12 @@ and mk_expr m (e: expr): C.expr =
   | Comma (e1, e2) ->
       Op2 (K.Comma, mk_expr m e1, mk_expr m e2)
 
-  | Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), [ _ ]) ->
+  | Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), [ arg; _; _ ]) ->
+      mk_ignore (is_var arg) (mk_expr m arg)
+
+  | Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), _) ->
       (* Only one argument because of unit-to-void elimination -- should not happen. *)
       failwith "`ignore ()` should have been removed earlier on"
-
-  | Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), [ arg; _ ]) ->
-      mk_ignore (is_var arg) (mk_expr m arg)
 
   | Call (Qualified ([ "C"; "Nullity" ], s), [ e1 ]) when KString.starts_with s "op_Bang_Star__" ->
       mk_deref m e1
