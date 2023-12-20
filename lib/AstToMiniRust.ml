@@ -328,8 +328,6 @@ let empty = { decls = LidMap.empty; types = LidMap.empty; vars = []; prefix = []
 
 let push env b = { env with vars = (b, Splits.empty) :: env.vars }
 
-let pop env = { env with vars = List.tl env.vars }
-
 let push_with_info env b = { env with vars = b :: env.vars }
 
 let push_global env name t =
@@ -530,7 +528,6 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
          TODO: Should probably do this recursively *)
       let env = { env with vars =
         List.mapi (fun i (b, info) ->
-          (* TODO: Only reset tree, not path? *)
           b, if i = v then {info with Splits.tree = Splits.Leaf } else info
         ) env.vars
       } in
@@ -601,7 +598,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       failwith "unexpected: EPolyComp"
 
   | ELet (b, ({ node = EBufSub ({ node = EBound v_base; _ } as e_base, e_ofs); _ } as e1), e2) ->
-      (* TODO: This is probably not correct when inside a structured block (e.g., if/then/else *)
+      (* Keep initial environment to return after translation *)
       let env0 = env in
       if Options.debug "rs-splits" then begin
         KPrint.bprintf "Translating: let %a = %a\n" PrintAst.Ops.pbind b PrintAst.Ops.pexpr e1;
@@ -657,16 +654,22 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       env0, Let (fst binding, e1, snd (translate_expr_with_type env e2 t_ret))
 
   | ELet (b, ({ node = EBufCreate _ | EBufCreateL _; _ } as init), e2) ->
+      (* Keep initial environment to return after translation *)
+      let env0 = env in
+
       let env, e1, t = translate_array env false init in
       let binding: MiniRust.binding = { name = b.node.name; typ = t; mut = true } in
       let env = push env binding in
-      pop env, Let (binding, e1, snd (translate_expr_with_type env e2 t_ret))
+      env0, Let (binding, e1, snd (translate_expr_with_type env e2 t_ret))
   | ELet (b, e1, e2) ->
+      (* Keep initial environment to return after translation *)
+      let env0 = env in
+
       let env, e1 = translate_expr env e1 in
       let t = translate_type env b.typ in
       let binding : MiniRust.binding = { name = b.node.name; typ = t; mut = b.node.mut } in
       let env = push env binding in
-      pop env, Let (binding, e1, snd (translate_expr_with_type env e2 t_ret))
+      env0, Let (binding, e1, snd (translate_expr_with_type env e2 t_ret))
   | EFun _ ->
       failwith "unexpected: EFun"
   | EIfThenElse (e1, e2, e3) ->
@@ -765,6 +768,9 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
   | EWhile _ ->
       failwith "TODO: EWhile"
   | EFor (b, e_start, e_test, e_incr, e_body) ->
+      (* Keep initial environment to return after translation *)
+      let env0 = env in
+
       (* b is in scope for e_test, e_incr, e_body! *)
       let e_end = match e_test.node, e_incr.node with
         | EApp ({ node = EOp (Lt, _); _ }, [ { node = EBound 0; _ }; e_end ]),
@@ -782,8 +788,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let binding: MiniRust.binding = { name = b.node.name; typ = translate_type env b.typ; mut = false } in
       let env, e_start = translate_expr env e_start in
       let env, e_end = translate_expr env e_end in
-      let env, e_body = translate_expr (push env binding) e_body in
-      pop env, For (binding, Range (Some e_start, Some e_end, false), e_body)
+      let _, e_body = translate_expr (push env binding) e_body in
+      env0, For (binding, Range (Some e_start, Some e_end, false), e_body)
   | ECast (e, t) ->
       let env, e = translate_expr env e in
       env, As (e, translate_type env t)
