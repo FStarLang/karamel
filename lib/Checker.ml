@@ -536,9 +536,9 @@ and infer' env e =
   let infer_app t es =
     let t_ret, t_args = flatten_arrow t in
     if List.length t_args = 0 then
-      checker_error env "This is not a function:\n%a" pexpr e;
+      checker_error env "This is not a function type:\n%a a.k.a. %s\n" ptyp t (show_typ t);
     if List.length es > List.length t_args then
-      checker_error env "Too many arguments for application:\n%a" pexpr e;
+      checker_error env "Too many arguments for application:\n%a" pexprs es;
     let t_args, t_remaining_args = KList.split (List.length es) t_args in
     ignore (List.map2 (check_or_infer env) t_args es);
     fold_arrow t_remaining_args t_ret
