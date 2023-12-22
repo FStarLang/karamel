@@ -376,7 +376,7 @@ let make_abstract_function_or_global = function
  * - lets are replaced by vals
  * - but we keep the gte_mask and eq_mask functions *)
 let make_abstract (name, decls) =
-  name, List.map (function
+  name, List.filter_map (function
     | DType (_, _, _, _, Abbrev _) as t ->
         Some t
     | DType _ ->
