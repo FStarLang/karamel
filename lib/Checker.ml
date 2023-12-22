@@ -54,6 +54,8 @@ type env = {
   location: loc list;
   enums: lident M.t;
   warn: bool;
+  n_cgs: int;
+    (* Number of const generics, useful only for type-checking stuff coming in from Eurydice pre-monomorphization. *)
 }
 
 let empty: env = {
@@ -62,7 +64,8 @@ let empty: env = {
   types = M.empty;
   location = [];
   enums = M.empty;
-  warn = false
+  warn = false;
+  n_cgs = 0
 }
 
 let push env binder =
@@ -109,7 +112,7 @@ let populate_env files =
   List.fold_left (fun env (_, decls) ->
     List.fold_left (fun env decl ->
       match decl with
-      | DType (lid, _, _, typ) ->
+      | DType (lid, _, _, _, typ) ->
           let env = match typ with
           | Enum tags ->
               List.fold_left (fun env tag ->
@@ -122,12 +125,12 @@ let populate_env files =
       | DGlobal (_, lid, n, t, _) ->
           assert (n = 0);
           { env with globals = M.add lid t env.globals }
-      | DFunction (_, _, n, ret, lid, binders, _) ->
+      | DFunction (_, _, _, n, ret, lid, binders, _) ->
           if not !Options.allow_tapps && n <> 0 then
             Warn.fatal_error "%a is polymorphic\n" plid lid;
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
           { env with globals = M.add lid t env.globals }
-      | DExternal (_, _, _, lid, typ, _) ->
+      | DExternal (_, _, _, _, lid, typ, _) ->
           { env with globals = M.add lid typ env.globals }
     ) env decls
   ) empty files
@@ -158,7 +161,10 @@ let rec check_everything ?warn files: bool * file list =
 and check_program env r (name, decls) =
   let env = locate env (File name) in
   let by_lid = Hashtbl.create 41 in
-  let decls = List.filter_map (fun d ->
+  let total = List.length decls in
+  let decls = KList.filter_mapi (fun i d ->
+    if Options.debug "checker" then
+      KPrint.bprintf "CHECKER PROGRESS: %d/%d\n" (i + 1) total;
     try
       check_decl env d;
       Some d
@@ -197,10 +203,11 @@ and check_decl env d =
   if Options.debug "checker" then
     KPrint.bprintf "checking %a\n" plid (lid_of_decl d);
   match d with
-  | DFunction (_, _, n, t, name, binders, body) ->
+  | DFunction (_, _, n_cgs, n, t, name, binders, body) ->
       assert (!Options.allow_tapps || n = 0);
       let env = List.fold_left push env binders in
       let env = locate env (InTop name) in
+      let env = { env with n_cgs } in
       check env t body
   | DGlobal (_, name, n, t, body) ->
       assert (n = 0);
@@ -272,7 +279,7 @@ and check env t e =
 and check' env t e =
   let c t' = check_subtype env t' t in
   match e.node with
-  | ETApp (e, _) ->
+  | ETApp (e, _, _) ->
       (* JP: is this code even reachable? *)
       (* Equalities are type checked with Any *)
       (match e.node with EOp ((K.Eq | K.Neq), _) -> () | _ -> assert false);
@@ -424,31 +431,34 @@ and check' env t e =
        * typing comes into play. Indeed, a flat record is typed nominally (if
        * the context demands it) or structurally (default). TODO just type
        * structurally, and let the subtyping relation do the rest? *)
-      begin match expand_abbrev env t with
-      | TQualified lid when kind env lid = Some Record ->
-          let fieldtyps = assert_flat env (lookup_type env lid) in
-          check_fields_opt env fieldexprs fieldtyps
-      | TQualified lid when kind env lid = Some Union ->
-          let fieldtyps = assert_union env (lookup_type env lid) in
-          check_union env fieldexprs fieldtyps
-      | TApp (lid, ts) when kind env lid = Some Record ->
+      let t = expand_abbrev env t in
+      begin match flatten_tapp t with
+      | exception Invalid_argument _ ->
+          begin match t with
+          | TAnonymous (Flat fieldtyps) ->
+              check_fields_opt env fieldexprs fieldtyps
+          | TAnonymous (Union fieldtyps) ->
+              check_union env fieldexprs fieldtyps
+          | _ ->
+              checker_error env "Not a record %a" ptyp t
+          end
+
+      | lid, ts, cgs when kind env lid = Some Record ->
           let fieldtyps = assert_flat env (lookup_type env lid) in
           let fieldtyps = List.map (fun (field, (typ, m)) ->
-            field, (DeBruijn.subst_tn ts typ, m)
+            field, (DeBruijn.subst_ctn' cgs (DeBruijn.subst_tn ts typ), m)
           ) fieldtyps in
           check_fields_opt env fieldexprs fieldtyps
-      | TApp (lid, ts) when kind env lid = Some Union ->
+
+      | lid, ts, cgs when kind env lid = Some Union ->
           let fieldtyps = assert_union env (lookup_type env lid) in
           let fieldtyps = List.map (fun (field, typ) ->
-            field, DeBruijn.subst_tn ts typ
+            field, DeBruijn.subst_ctn' cgs (DeBruijn.subst_tn ts typ)
           ) fieldtyps in
           check_union env fieldexprs fieldtyps
-      | TAnonymous (Flat fieldtyps) ->
-          check_fields_opt env fieldexprs fieldtyps
-      | TAnonymous (Union fieldtyps) ->
-          check_union env fieldexprs fieldtyps
+
       | _ ->
-          checker_error env "Not a record %a" ptyp t
+          checker_error env "Not a record (2) %a" ptyp t
       end
 
   | ESwitch (scrut, branches) ->
@@ -500,7 +510,11 @@ and infer env e =
   check_subtype env t e.typ;
   e.typ <- prefer_nominal t e.typ;
   if Options.debug "checker" then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ;
-  t
+
+  (* This is all because of external that retain their polymorphic
+     signatures. TODO: does this alleviate the need for those crappy checks in
+     subtype? *)
+  MonomorphizationState.resolve t
 
 and prefer_nominal t1 t2 =
   match t1, t2 with
@@ -518,18 +532,41 @@ and best_buffer_type l t1 e2 =
   | _ ->
       TBuf (t1, false)
 
-
 and infer' env e =
+  let infer_app t es =
+    let t_ret, t_args = flatten_arrow t in
+    if List.length t_args = 0 then
+      checker_error env "This is not a function type:\n%a a.k.a. %s\n" ptyp t (show_typ t);
+    if List.length es > List.length t_args then
+      checker_error env "Too many arguments for application:\n%a" pexprs es;
+    let t_args, t_remaining_args = KList.split (List.length es) t_args in
+    ignore (List.map2 (check_or_infer env) t_args es);
+    fold_arrow t_remaining_args t_ret
+  in
+
   match e.node with
-  | ETApp (e, ts) ->
-      begin match e.node with
+  | ETApp (e0, cs, ts) ->
+      begin match e0.node with
       | EOp ((K.Eq | K.Neq), _) ->
           (* Special incorrect encoding of polymorphic equalities *)
           let t = KList.one ts in
           TArrow (t, TArrow (t, TBool))
       | _ ->
-          let t = infer env e in
-          DeBruijn.subst_tn ts t
+          let diff = List.length env.locals - env.n_cgs in
+          let t = infer env e0 in
+          if Options.debug "checker-cg" then
+            KPrint.bprintf "infer-cg: t=%a, cs=%a, ts=%a, diff=%d\n" ptyp t pexprs cs ptyps ts diff;
+          let t = DeBruijn.subst_tn ts t in
+          if Options.debug "checker-cg" then
+            KPrint.bprintf "infer-cg: subst_tn --> %a\n" ptyp t;
+          let t = DeBruijn.subst_ctn diff cs t in
+          if Options.debug "checker-cg" then
+            KPrint.bprintf "infer-cg: subst_ctn (diff=%d)--> %a\n" diff ptyp t;
+          (* Now type-check the application itself, after substitution *)
+          let t = infer_app t cs in
+          if Options.debug "checker-cg" then
+            KPrint.bprintf "infer-cg: infer_app --> %a\n" ptyp t;
+          t
       end
 
   | EPolyComp (_, t) ->
@@ -574,14 +611,7 @@ and infer' env e =
         let _ = List.map (infer env) es in
         TAny
       else
-        let t_ret, t_args = flatten_arrow t in
-        if List.length t_args = 0 then
-          checker_error env "This is not a function:\n%a" pexpr e;
-        if List.length es > List.length t_args then
-          checker_error env "Too many arguments for application:\n%a" pexpr e;
-        let t_args, t_remaining_args = KList.split (List.length es) t_args in
-        ignore (List.map2 (check_or_infer env) t_args es);
-        fold_arrow t_remaining_args t_ret
+        infer_app t es
 
   | ELet (binder, body, cont) ->
       let t = check_or_infer (locate env (In binder.node.name)) binder.typ body in
@@ -606,7 +636,8 @@ and infer' env e =
       end
 
   | EAssign (e1, e2) ->
-      let t = check_valid_assignment_lhs env e1 in
+      let t = infer env e1 in
+      check_valid_assignment_lhs env e1;
       check env t e2;
       TUnit
 
@@ -797,16 +828,18 @@ and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
   Option.get !t_base
 
 and find_field env t field =
-  match expand_abbrev env t with
-  | TQualified lid ->
-      Some (find_field_from_def env (lookup_type env lid) field)
-  | TApp (lid, ts) ->
+  let t = expand_abbrev env t in
+  match flatten_tapp t with
+  | exception Invalid_argument _ ->
+      begin match t with
+      | TAnonymous def ->
+          Some (find_field_from_def env def field)
+      | _ ->
+          None
+      end
+  | lid, ts, cgs ->
       let t, mut = find_field_from_def env (lookup_type env lid) field in
-      Some (DeBruijn.subst_tn ts t, mut)
-  | TAnonymous def ->
-      Some (find_field_from_def env def field)
-  | _ ->
-      None
+      Some (DeBruijn.(subst_ctn' cgs (subst_tn ts t), mut))
 
 and find_field_from_def env def field =
   try begin match def with
@@ -833,28 +866,24 @@ and check_valid_assignment_lhs env e =
   | EBound i ->
       let binder = find env i in
       if not binder.node.mut then
-        checker_error env "%a (a.k.a. %s) is not a mutable binding" pexpr e binder.node.name;
-      binder.typ
+        checker_error env "%a (a.k.a. %s) is not a mutable binding" pexpr e binder.node.name
   | EField (e, f) ->
       let t1 = check_valid_path env e in
       begin match find_field env t1 f with
-      | Some (t2, mut) ->
+      | Some (_, mut) ->
           if not mut then
-            checker_error env "the field %s of type %a is not marked as mutable" f ptyp t1;
-          t2
+            checker_error env "the field %s of type %a is not marked as mutable" f ptyp t1
       | None ->
           checker_error env "field not found %s" f
       end
-  | EBufRead _ ->
+  | EBufRead _
       (* Introduced by the wasm struct allocation phase. *)
-      e.typ
-  | EQualified _ ->
+  | EQualified _
       (* Introduced when collecting global initializers. *)
-      e.typ
   | EApp ({ node = ETApp _; _ }, _) ->
       (* Will be emitted as a macro, optimistically assuming that's ok, the C
          compiler will bark if not. *)
-      e.typ
+      ()
   | _ ->
       checker_error env "EAssign wants a lhs that's a mutable, local variable, or a \
         path to a mutable field; got %a instead" pexpr e
@@ -888,6 +917,8 @@ and infer_branches env t_scrutinee branches =
   ) branches
 
 and check_pat env t_context pat =
+  (* KPrint.bprintf "Checking pattern: %a\n" ppat pat; *)
+  (* KPrint.bprintf "t_context:%a\n" ptyp t_context; *)
   match pat.node with
   | PWild ->
       pat.typ <- t_context
@@ -997,6 +1028,8 @@ and assert_buffer env t =
       t1, b
   | TArray (t1, _) ->
       t1, false
+  | TCgArray (t1, _) ->
+      t1, false
   | t ->
       checker_error env "This is not a buffer: %a" ptyp t
 
@@ -1030,6 +1063,10 @@ and subtype env t1 t2 =
       true
   | TArray (t1, (_, l1)), TArray (t2, (_, l2)) when subtype env t1 t2 && l1 = l2 ->
       true
+  | TCgArray (t1, l1), TCgArray (t2, l2) when subtype env t1 t2 && l1 = l2 ->
+      true
+  | TCgArray (t1, _), TBuf (t2, _) when subtype env t1 t2 ->
+      true
   | TArray (t1, _), TBuf (t2, _) when subtype env t1 t2 ->
       true
   | TBuf (t1, b1), TBuf (t2, b2) when subtype env t1 t2 && (b1 <= b2) ->
@@ -1052,6 +1089,8 @@ and subtype env t1 t2 =
       i = i'
   | TApp (lid, args), TApp (lid', args') ->
       lid = lid' && List.for_all2 (eqtype env) args args'
+  | TCgApp (lid, args), TCgApp (lid', args') ->
+      subtype env lid lid' && args = args'
   | TTuple ts1, TTuple ts2 ->
       List.length ts1 = List.length ts2 &&
       List.for_all2 (subtype env) ts1 ts2
@@ -1089,11 +1128,23 @@ and subtype env t1 t2 =
   | TAnonymous (Flat [ Some f, (t, _) ]), TAnonymous (Union ts) ->
       List.exists (fun (f', t') -> f = f' && subtype env t t') ts
 
-  | TApp (lid, ts), _ when Hashtbl.mem MonomorphizationState.state (lid, ts) ->
-      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts)))) t2
+  | TTuple ts, _ when Hashtbl.mem MonomorphizationState.state (tuple_lid, ts, []) ->
+      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (tuple_lid, ts, [])))) t2
 
-  | _, TApp (lid, ts) when Hashtbl.mem MonomorphizationState.state (lid, ts) ->
-      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts))))
+  | _, TTuple ts when Hashtbl.mem MonomorphizationState.state (tuple_lid, ts, []) ->
+      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (tuple_lid, ts, []))))
+
+  | TApp (lid, ts), _ when Hashtbl.mem MonomorphizationState.state (lid, ts, []) ->
+      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts, [])))) t2
+
+  | _, TApp (lid, ts) when Hashtbl.mem MonomorphizationState.state (lid, ts, []) ->
+      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts, []))))
+
+  | TCgApp _, _ when Hashtbl.mem MonomorphizationState.state (flatten_tapp t1) ->
+      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (flatten_tapp t1)))) t2
+
+  | _, TCgApp _ when Hashtbl.mem MonomorphizationState.state (flatten_tapp t2) ->
+      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (flatten_tapp t2))))
 
   | _ ->
       false

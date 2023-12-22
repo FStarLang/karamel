@@ -12,7 +12,7 @@ module C = Common
 
 let mk_table files =
   Helpers.build_map files (fun map -> function
-    | DType (lid, flags, _, _) when List.mem C.GcType flags ->
+    | DType (lid, flags, _, _, _) when List.mem C.GcType flags ->
         Hashtbl.add map lid ()
     | _ ->
         ()

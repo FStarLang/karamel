@@ -16,6 +16,24 @@ let uniq =
     incr r;
     !r
 
+let mark_private =
+  let add_if name flags =
+    let is_private = List.mem Common.Private flags in
+    if not is_private && not (Inlining.always_live name) then
+      Common.Private :: flags
+    else
+      flags
+  in
+  function
+  | DFunction (cc, flags, n_cgs, n, typ, name, binders, body) ->
+      DFunction (cc, add_if name flags, n_cgs, n, typ, name, binders, body)
+  | DGlobal (flags, name, n, typ, body) ->
+      DGlobal (add_if name flags, name, n, typ, body)
+  | DType (lid, flags, n_cgs, n, def) ->
+      DType (lid, add_if lid flags, n_cgs, n, def)
+  | DExternal (cc, flags, n_cg, n, lid, t, pp) ->
+      DExternal (cc, add_if lid flags, n_cg, n, lid, t, pp)
+
 (** This collects all the files that match a given bundle specification, while
  * preserving their original dependency ordering within the bundle. If the
  * bundle is of the form Apis=Patterns, then the declarations from any of Apis
@@ -37,25 +55,6 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: (int * Bundle.t
 
   let in_api_list name =
     List.mem name (List.map (String.concat "_") api)
-  in
-
-  let mark_private =
-    let add_if name flags =
-      let is_private = List.mem Common.Private flags in
-      if not is_private && not (Inlining.always_live name) then
-        Common.Private :: flags
-      else
-        flags
-    in
-    function
-    | DFunction (cc, flags, n, typ, name, binders, body) ->
-        DFunction (cc, add_if name flags, n, typ, name, binders, body)
-    | DGlobal (flags, name, n, typ, body) ->
-        DGlobal (add_if name flags, name, n, typ, body)
-    | DType (lid, flags, n, def) ->
-        DType (lid, add_if lid flags, n, def)
-    | DExternal (cc, flags, n, lid, t, pp) ->
-        DExternal (cc, add_if lid flags, n, lid, t, pp)
   in
 
   (* Match a file against the given list of patterns. *)

@@ -136,8 +136,8 @@ let build_usage_map_and_mark ifdefs = object(self)
     else
       self#plus map (self#visit_expr env e1)
 
-  method! visit_DFunction env cc flags n ret name binders body =
-    let map = super#visit_DFunction env cc flags n ret name binders body in
+  method! visit_DFunction env cc flags n_cgs n ret name binders body =
+    let map = super#visit_DFunction env cc flags n_cgs n ret name binders body in
     List.iteri (fun i b ->
       let v = match IntMap.find_opt i map with None -> zero | Some v -> v in
       b.node.mark := v
@@ -217,13 +217,13 @@ let use_mark_to_remove_or_ignore final = object (self)
       (* Nothing to do *)
       self#remove_trivial_let (ELet (b, e1, e2))
 
-  method! visit_DFunction env cc flags n ret name binders body =
+  method! visit_DFunction env cc flags n_cgs n ret name binders body =
     if not final then
       (* This is not the final phase, so we're still waiting for the removal of
          unused function parameters in private (non-externally visible)
          functions. This is done in a dedicated phase called `remove_unused`
          that relies on `unused_parameter_table`. *)
-      super#visit_DFunction env cc flags n ret name binders body
+      super#visit_DFunction env cc flags n_cgs n ret name binders body
     else
       let env = List.fold_left self#extend env binders in
       let body = self#visit_expr_w env body in
@@ -246,7 +246,7 @@ let use_mark_to_remove_or_ignore final = object (self)
             with_type body.typ (ELet (b, i, DeBruijn.lift 1 body))
           ) ignores body
       in
-      DFunction (cc, flags, n, ret, name, binders, body)
+      DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
 
 
 end

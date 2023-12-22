@@ -40,24 +40,24 @@ let rec mk_decl = function
         else
           mk_expr body
       in
-      DFunction (cc, flags, n, mk_typ t, name, mk_binders binders, body)
+      DFunction (cc, flags, 0, n, mk_typ t, name, mk_binders binders, body)
   | I.DTypeAlias (name, flags, n, t) ->
-      DType (name, flags, n, Abbrev (mk_typ t))
+      DType (name, flags, 0, n, Abbrev (mk_typ t))
   | I.DGlobal (flags, name, n, t, e) ->
       DGlobal (flags, name, n, mk_typ t, mk_expr e)
   | I.DTypeFlat (name, flags, n, fields) ->
-      DType (name, flags, n, Flat (mk_tfields_opt fields))
+      DType (name, flags, 0, n, Flat (mk_tfields_opt fields))
   | I.DExternal (cc, flags, name, t) ->
-      DExternal (cc, flags, 0, name, mk_typ t, [])
+      DExternal (cc, flags, 0, 0, name, mk_typ t, [])
   | I.DExternal2 (cc, flags, name, t, arg_names) ->
-      DExternal (cc, flags, 0, name, mk_typ t, arg_names)
+      DExternal (cc, flags, 0, 0, name, mk_typ t, arg_names)
   | I.DTypeVariant (name, flags, n, branches) ->
-      DType (name, flags, n,
+      DType (name, flags, 0, n,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
   | I.DTypeAbstractStruct name ->
-      DType (name, [], 0, Forward FStruct)
+      DType (name, [], 0, 0, Forward FStruct)
   | I.DUntaggedUnion (name, flags, n, branches) ->
-      DType (name, flags, n, Union (List.map (fun (f, t) -> f, mk_typ t) branches))
+      DType (name, flags, 0, n, Union (List.map (fun (f, t) -> f, mk_typ t) branches))
 
 and mk_binders bs =
   List.map mk_binder bs
@@ -160,7 +160,7 @@ and mk_expr = function
       let c = match op with K.Eq -> K.PEq | K.Neq -> K.PNeq | _ -> assert false in
       mk (EPolyComp (c, mk_typ t))
   | I.ETApp (e, es) ->
-      mk (ETApp (mk_expr e, List.map mk_typ es))
+      mk (ETApp (mk_expr e, [], List.map mk_typ es))
   | I.ELet (b, e1, e2) ->
       mk (ELet (mk_binder b, mk_expr e1, mk_expr e2))
   | I.EIfThenElse (e1, e2, e3) ->

@@ -76,7 +76,7 @@ class ['self] safe_use = object (self: 'self)
     match e.node with
     | EOp _ -> super#visit_EApp env e es
     | EQualified lid when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
-    | ETApp ({ node = EQualified lid; _ }, _) when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
+    | ETApp ({ node = EQualified lid; _ }, _, _) when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
     | _ -> self#unordered env (e :: es)
 
   method! visit_ELet env _ e1 e2 = self#sequential env e1 (Some e2)
@@ -160,7 +160,7 @@ let unused_parameter_table = object (_)
 
   inherit [_] iter
 
-  method! visit_DFunction parameter_table _ flags _ _ name binders _ =
+  method! visit_DFunction parameter_table _ flags _ _ _ name binders _ =
     let is_private = List.mem Common.Private flags && not (Helpers.is_static_header name) in
     if is_private then
       let unused_vector = List.map (fun b -> !(b.node.mark)) binders in
@@ -224,7 +224,7 @@ let remove_unused_parameters = object (self)
   method! extend (table, j) _ =
     table, j + 1
 
-  method! visit_DFunction (parameter_table, _) cc flags n ret name binders body =
+  method! visit_DFunction (parameter_table, _) cc flags n_cgs n ret name binders body =
     current_lid <- name;
 
     (* Visit first: this may create more unused parameters and modify
@@ -245,9 +245,9 @@ let remove_unused_parameters = object (self)
         body
     ) body (List.init n_binders (fun i -> i)) in
     let binders = KList.filter_mapi (fun i b -> if unused i then None else Some b) binders in
-    DFunction (cc, flags, n, ret, name, binders, body)
+    DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
 
-  method! visit_DExternal (parameter_table, _ as env) cc flags n name t hints =
+  method! visit_DExternal (parameter_table, _ as env) cc flags n_cg n name t hints =
     let ret, args = flatten_arrow t in
     let hints = KList.filter_mapi (fun i arg ->
       if unused parameter_table dummy_lid args i then
@@ -263,7 +263,7 @@ let remove_unused_parameters = object (self)
     ) args in
     let ret = self#visit_typ env ret in
     let t = fold_arrow args ret in
-    DExternal (cc, flags, n, name, t, hints)
+    DExternal (cc, flags, n_cg, n, name, t, hints)
 
   method! visit_TArrow (parameter_table, _ as env) t1 t2 =
     (* Important: the only entries in `parameter_table` are those which are
@@ -398,7 +398,7 @@ let remove_ignore_unit = object
 
   method! visit_EApp env hd args =
     match hd.node, args with
-    | ETApp ({ node = EQualified (["LowStar"; "Ignore"], "ignore"); _}, [ TUnit ]), [ { node = EUnit; _ } ] ->
+    | ETApp ({ node = EQualified (["LowStar"; "Ignore"], "ignore"); _}, _, [ TUnit ]), [ { node = EUnit; _ } ] ->
         EUnit
     | _ ->
         super#visit_EApp env hd args
@@ -408,11 +408,11 @@ let remove_proj_is = object
 
   inherit [_] map
 
-  method! visit_DFunction _ cc flags n t name binders body =
+  method! visit_DFunction _ cc flags n_cgs n t name binders body =
     if KString.starts_with (snd name) "__proj__" || KString.starts_with (snd name) "__is__" then
-      DFunction (cc, Private :: flags, n, t, name, binders, body)
+      DFunction (cc, Private :: flags, n_cgs, n, t, name, binders, body)
     else
-      DFunction (cc, flags, n, t, name, binders, body)
+      DFunction (cc, flags, n_cgs, n, t, name, binders, body)
 end
 
 
@@ -586,7 +586,7 @@ let functional_updates = object (self)
 
   (* The same object is called a second time with the mark_mut flag set to true
    * to mark those fields that now ought to be mutable *)
-  method! visit_DType mark_mut name flags n def =
+  method! visit_DType mark_mut name flags n_cgs n def =
     match def with
     | Flat fields when mark_mut ->
         let fields = List.map (fun (f, (t, m)) ->
@@ -595,9 +595,9 @@ let functional_updates = object (self)
           else
             f, (t, m)
         ) fields in
-        DType (name, flags, n, Flat fields)
+        DType (name, flags, n_cgs, n, Flat fields)
     | _ ->
-        DType (name, flags, n, def)
+        DType (name, flags, n_cgs, n, def)
 end
 
 let mutated_types = Hashtbl.create 41
@@ -844,12 +844,12 @@ end
 
 let misc_cosmetic2 = object
   inherit [_] map
-  method! visit_DType () name flags n def =
+  method! visit_DType () name flags n_cgs n def =
     match def with
     | Flat fields when Hashtbl.mem mutated_types name ->
-        DType (name, flags, n, Flat (List.map (fun (f, (t, _)) -> f, (t, true)) fields))
+        DType (name, flags, n_cgs, n, Flat (List.map (fun (f, (t, _)) -> f, (t, true)) fields))
     | _ ->
-        DType (name, flags, n, def)
+        DType (name, flags, n_cgs, n, def)
 end
 
 (* No left-nested let-bindings ************************************************)
@@ -1013,9 +1013,9 @@ and hoist_stmt loc e =
 and hoist_expr loc pos e =
   let mk node = { node; typ = e.typ } in
   match e.node with
-  | ETApp (e, ts) ->
+  | ETApp (e, cgs, ts) ->
       let lhs, e = hoist_expr loc Unspecified e in
-      lhs, mk (ETApp (e, ts))
+      lhs, mk (ETApp (e, cgs, ts))
 
   | EBufNull
   | EAbort _
@@ -1269,13 +1269,13 @@ let hoist = object
   method! visit_file loc file =
     super#visit_file Loc.(File (fst file) :: loc) file
 
-  method! visit_DFunction loc cc flags n ret name binders expr =
+  method! visit_DFunction loc cc flags n_cgs n ret name binders expr =
     let loc = Loc.(InTop name :: loc) in
     (* TODO: no nested let-bindings in top-level value declarations either *)
     let binders, expr = open_binders binders expr in
     let expr = hoist_stmt loc expr in
     let expr = close_binders binders expr in
-    DFunction (cc, flags, n, ret, name, binders, expr)
+    DFunction (cc, flags, n_cgs, n, ret, name, binders, expr)
 end
 
 
@@ -1313,8 +1313,8 @@ let rec fixup_return_pos e =
 let fixup_hoist = object
   inherit [_] map
 
-  method visit_DFunction _ cc flags n ret name binders expr =
-    DFunction (cc, flags, n, ret, name, binders, fixup_return_pos expr)
+  method visit_DFunction _ cc flags n_cgs n ret name binders expr =
+    DFunction (cc, flags, n_cgs, n, ret, name, binders, fixup_return_pos expr)
 end
 
 
@@ -1366,15 +1366,15 @@ let record_toplevel_names = object (self)
   method! visit_DGlobal env flags name _ _ _ =
     self#record env ~is_type:false ~is_external:false flags name
 
-  method! visit_DFunction env _ flags _ _ name _ _ =
+  method! visit_DFunction env _ flags _ _ _ name _ _ =
     self#record env ~is_type:false ~is_external:false flags name
 
-  method! visit_DExternal env _ flags _ name _ _ =
+  method! visit_DExternal env _ flags _ _ name _ _ =
     self#record env ~is_type:false ~is_external:true flags name
 
   val forward = Hashtbl.create 41
 
-  method! visit_DType env name flags _ def =
+  method! visit_DType env name flags _ _ def =
     if not (Hashtbl.mem forward name) then
       self#record env ~is_type:true ~is_external:false flags name;
     match def with
@@ -1479,7 +1479,7 @@ let tail_calls =
   let tail_calls = object (_)
     inherit [_] map
 
-    method! visit_DFunction () cc flags n ret name binders body =
+    method! visit_DFunction () cc flags n_cgs n ret name binders body =
       try
         let x_args = List.map (fun b -> Helpers.fresh_binder ~mut:true b.node.name b.typ) binders in
         let x_args, body = DeBruijn.open_binders x_args body in
@@ -1495,13 +1495,13 @@ let tail_calls =
             with_type ret (EAbort (None, Some "unreachable, returns inserted above"))
           ]))
         in
-        DFunction (cc, flags, n, ret, name, binders, body)
+        DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
       with
       | T.NotTailCall ->
           Warn.(maybe_fatal_error ("", NotTailCall name));
-          DFunction (cc, flags, n, ret, name, binders, body)
+          DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
       | T.NothingToTailCall ->
-          DFunction (cc, flags, n, ret, name, binders, body)
+          DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
   end in
 
   tail_calls#visit_files ()
@@ -1679,9 +1679,9 @@ let rec find_pushframe ifdefs (e: expr) =
 let hoist_bufcreate = object
   inherit [_] map
 
-  method visit_DFunction ifdefs cc flags n ret name binders expr =
+  method visit_DFunction ifdefs cc flags n_cgs n ret name binders expr =
     try
-      DFunction (cc, flags, n, ret, name, binders, find_pushframe ifdefs expr)
+      DFunction (cc, flags, n_cgs, n, ret, name, binders, find_pushframe ifdefs expr)
     with Fatal s ->
       KPrint.bprintf "Fatal error in %a:\n%s\n" plid name s;
       exit 151

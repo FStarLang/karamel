@@ -398,6 +398,8 @@ let rec translate_type (env: env) (t: Ast.typ): MiniRust.typ =
   | TBound i -> Bound i
   | TTuple _ -> failwith "TODO: TTuple"
   | TAnonymous _ -> failwith "unexpected: we don't compile data types going to Rust"
+  | TCgArray _ -> failwith "Impossible: TCgArray"
+  | TCgApp _ -> failwith "Impossible: TCgApp"
 
 
 (* Expressions *)
@@ -557,7 +559,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
   | EApp ({ node = EQualified ([ "LowStar"; "BufferOps" ], s); _ }, e1 :: e2 :: _ ) when KString.starts_with s "op_Star_Equals__" ->
       Assign (Deref (translate_expr env e1), translate_expr env e2)
 
-  | EApp ({ node = ETApp (e, ts); _ }, es) ->
+  | EApp ({ node = ETApp (e, cgs, ts); _ }, es) ->
+      assert (cgs = []);
       let es =
         match es with
         | [ { typ = TUnit; node } ] -> assert (node = EUnit); []
@@ -571,7 +574,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): Min
         | _ -> es
       in
       Call (translate_expr env e, [], List.map (translate_expr env) es)
-  | ETApp (_, _) ->
+  | ETApp (_, _, _) ->
       failwith "TODO: ETApp"
   | EPolyComp _ ->
       failwith "unexpected: EPolyComp"
@@ -780,11 +783,11 @@ let translate_decl env (d: Ast.decl) =
         false
   in
   match d with
-  | Ast.DFunction (_, _, _, _, lid, _, _) when is_handled_primitively lid ->
+  | Ast.DFunction (_, _, _, _, _, lid, _, _) when is_handled_primitively lid ->
       env, None
 
-  | Ast.DFunction (_cc, flags, type_parameters, t, lid, args, body) ->
-      assert (type_parameters = 0);
+  | Ast.DFunction (_cc, flags, n_cgs, type_parameters, t, lid, args, body) ->
+      assert (type_parameters = 0 && n_cgs = 0);
       if Options.debug "rs" then
         KPrint.bprintf "Ast.DFunction (%a)\n" PrintAst.Ops.plid lid;
       let args, body =
@@ -821,12 +824,12 @@ let translate_decl env (d: Ast.decl) =
       let env = push_global env lid (name, typ) in
       env, Some (MiniRust.Constant { name; typ; body; public })
 
-  | Ast.DExternal (_, _, type_parameters, lid, t, _param_names) ->
+  | Ast.DExternal (_, _, _, type_parameters, lid, t, _param_names) ->
       let name = translate_unknown_lid lid in
       let env = push_global env lid (name, make_poly (translate_type env t) type_parameters) in
       env, None
 
-  | Ast.DType (name, _, _, _) ->
+  | Ast.DType (name, _, _, _, _) ->
       Warn.failwith "TODO: Ast.DType (%a)\n" PrintAst.Ops.plid name
 
 let identify_path_components_rev filename =

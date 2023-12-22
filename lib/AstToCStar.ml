@@ -358,11 +358,15 @@ and mk_expr env in_stmt e =
   | EConstant c ->
       CStar.Constant c
 
-  | EApp ({ node = ETApp (e, ts); _ }, es) when !Options.allow_tapps || whitelisted_tapp e ->
-      unit_to_void env e es (List.map (fun t -> CStar.Type (mk_type env t)) ts)
+  | EApp ({ node = ETApp (e0, cgs, ts); _ }, es) when !Options.allow_tapps || whitelisted_tapp e0 ->
+      (* Return type is oftentimes very useful when having to build a return value using e.g. a
+         compound literal *)
+      let ret_t = CStar.Type (mk_type env (MonomorphizationState.resolve e.typ)) in
+      unit_to_void env e0 (cgs @ es) (List.map (fun t -> CStar.Type (mk_type env t)) ts @ [ ret_t ])
 
-  | ETApp (e, ts) when !Options.allow_tapps || whitelisted_tapp e ->
-      CStar.Call (mk_expr env e, List.map (fun t -> CStar.Type (mk_type env t)) ts)
+  | ETApp (e0, cgs, ts) when !Options.allow_tapps || whitelisted_tapp e0 ->
+      let ret_t = CStar.Type (mk_type env (MonomorphizationState.resolve e.typ)) in
+      unit_to_void env e0 cgs (List.map (fun t -> CStar.Type (mk_type env t)) ts @ [ ret_t ])
 
   | EApp ({ node = EOp (op, w); _ }, [ _; _ ]) when is_arith op w ->
       fst (mk_arith env e)
@@ -802,6 +806,10 @@ and mk_return_type env = function
       fatal_error "Internal failure: TTuple not desugared here"
   | TAnonymous t ->
       mk_type_def env t
+  | TCgArray _ ->
+      CStar.Qualified (["Eurydice"], "error_t_cg_array")
+  | TCgApp _ ->
+      fatal_error "Internal failure: TCgApp not desugared here"
 
 
 and mk_type env = function
@@ -876,8 +884,8 @@ and mk_declaration m env d: (CStar.decl * _) option =
   in
 
   match d with
-  | DFunction (cc, flags, n, t, name, binders, body) ->
-      assert (n = 0);
+  | DFunction (cc, flags, n_cgs, n, t, name, binders, body) ->
+      assert (n = 0 && n_cgs = 0);
       let env = locate env (InTop name) in
       Some (wrap_throw (string_of_lident name) (lazy begin
         let t = mk_return_type env t in
@@ -899,7 +907,7 @@ and mk_declaration m env d: (CStar.decl * _) option =
         mk_type env t,
         mk_expr env false body), [])
 
-  | DExternal (cc, flags, n, name, t, pp) ->
+  | DExternal (cc, flags, _, n, name, t, pp) ->
       if LidSet.mem name env.ifdefs || n > 0 then
         None
       else
@@ -909,10 +917,10 @@ and mk_declaration m env d: (CStar.decl * _) option =
         in
         Some (CStar.External (name, add_cc (mk_type env t), flags, pp), [])
 
-  | DType (name, flags, _, Forward k) ->
+  | DType (name, flags, _, _, Forward k) ->
       Some (CStar.TypeForward (name, flags, k), [ GlobalNames.to_c_name m name ])
 
-  | DType (name, flags, 0, def) ->
+  | DType (name, flags, 0, 0, def) ->
       Some (CStar.Type (name, mk_type_def env def, flags), [ GlobalNames.to_c_name m name ] )
 
   | DType _ ->
@@ -950,6 +958,8 @@ and mk_program m name env decls =
     let n = string_of_lident (Ast.lid_of_decl d) in
     match mk_declaration m { env with type_names = names } d with
     | exception (Error e) ->
+        if Options.debug "backtraces" then
+          Printexc.print_backtrace stdout;
         Warn.maybe_fatal_error (fst e, Dropping (name ^ "/" ^ n, e));
         decls, names
     | exception e ->
@@ -1002,7 +1012,7 @@ let mk_ifdefs_set files: LidSet.t =
     inherit [_] reduce as super
     method private zero = LidSet.empty
     method private plus = LidSet.union
-    method! visit_DExternal _env _cc (flags: flag list) _n (name: lident) _t _hints: LidSet.t =
+    method! visit_DExternal _env _cc (flags: flag list) _n_cg _n (name: lident) _t _hints: LidSet.t =
       if List.mem Common.IfDef flags then
         LidSet.singleton name
       else

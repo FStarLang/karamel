@@ -30,9 +30,9 @@ let hoist_lets = object (self)
         ) !env in
         nest bs t e
 
-  method! visit_DFunction _ cc flags n ret name binders body =
+  method! visit_DFunction _ cc flags n_cg n ret name binders body =
     let body = self#scope_start ret body in
-    DFunction (cc, flags, n, ret, name, binders, body)
+    DFunction (cc, flags, n_cg, n, ret, name, binders, body)
 
   method! visit_EIfThenElse (_, t) e1 e2 e3 =
     (* No ELet's in e1 *)
