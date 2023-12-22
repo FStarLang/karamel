@@ -35,7 +35,7 @@ module H = struct
     | _ -> None
 
   let wrapping_operator o =
-    Option.must (wrapping_operator_opt o)
+    Option.get (wrapping_operator_opt o)
 
   let is_wrapping_operator o =
     wrapping_operator_opt o <> None

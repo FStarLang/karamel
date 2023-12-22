@@ -376,7 +376,7 @@ let make_abstract_function_or_global = function
  * - lets are replaced by vals
  * - but we keep the gte_mask and eq_mask functions *)
 let make_abstract (name, decls) =
-  name, KList.filter_map (function
+  name, List.map (function
     | DType (_, _, _, _, Abbrev _) as t ->
         Some t
     | DType _ ->
@@ -394,7 +394,7 @@ let make_abstract (name, decls) =
 (* Transforms an F* module that contains a model into a set of "assume val" that
  * will generate proper "extern" declarations in C. *)
 let make_library (name, decls) =
-  name, KList.filter_map make_abstract_function_or_global decls
+  name, List.filter_map make_abstract_function_or_global decls
 
 let is_model name =
   let is_machine_integer name =

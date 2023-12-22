@@ -243,8 +243,8 @@ and check_fields_opt env fieldexprs fieldtyps =
   if List.length fieldexprs > List.length fieldtyps then
     checker_error env "some fields are superfluous (expr) in %a" pexpr (with_unit (EFlat fieldexprs));
   List.iter (fun (field, expr) ->
-    let field = Option.must field in
-    let t, _ = KList.assoc_opt field fieldtyps in
+    let field = Option.get field in
+    let t, _ = List.assoc (Some field) fieldtyps in
     check env t expr
   ) fieldexprs
 
@@ -252,7 +252,7 @@ and check_fieldpats env fieldexprs fieldtyps =
   if List.length fieldexprs > List.length fieldtyps then
     checker_error env "some fields are superfluous (pat) in %a" ppat (with_unit (PRecord fieldexprs));
   List.iter (fun (field, expr) ->
-    let t, _ = KList.assoc_opt field fieldtyps in
+    let t, _ = List.assoc (Some field) fieldtyps in
     check_pat env t expr
   ) fieldexprs
 
@@ -825,7 +825,7 @@ and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
     | Some t_base -> check_eqtype env t_base t
     | None -> t_base := Some t
   ) l;
-  Option.must !t_base
+  Option.get !t_base
 
 and find_field env t field =
   let t = expand_abbrev env t in
@@ -846,7 +846,7 @@ and find_field_from_def env def field =
     | Union fields ->
         List.assoc field fields, true (* owing to nocompound-literals which may mutate it *)
     | Flat fields ->
-        KList.assoc_opt field fields
+        List.assoc (Some field) fields
     | _ ->
         raise Not_found
   end with Not_found ->
@@ -892,7 +892,7 @@ and check_valid_path env e =
   match e.node with
   | EField (e, f) ->
       let t1 = check_valid_path env e in
-      fst (Option.must (find_field env t1 f))
+      fst (Option.get (find_field env t1 f))
 
   | EBufRead _
   | EBound _ ->

@@ -131,7 +131,7 @@ let direct_dependencies file_of file =
   let prepend lid =
     match file_of lid with
     | Some f when f <> fst file ->
-        let dep = (Option.must !current_decl, fst file, lid, f) in
+        let dep = (Option.get !current_decl, fst file, lid, f) in
         Hashtbl.replace deps f dep
     | _ ->
         ()
