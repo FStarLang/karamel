@@ -13,21 +13,25 @@ open Common
 let arrow = string "->"
 let lambda = fancystring "λ" 1
 
-let print_app f head g arguments =
+let print_app_ empty f head g arguments =
   group (
     f head ^^ jump (
       if List.length arguments = 0 then
-        utf8string "😱"
+        utf8string empty
       else
         separate_map (break 1) g arguments
     )
   )
 
+let print_app x = print_app_ "😱" x
+let print_cg_app x = print_app_ "□" x
+
 let rec print_decl = function
-  | DFunction (cc, flags, n, typ, name, binders, body) ->
+  | DFunction (cc, flags, n_cg, n, typ, name, binders, body) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
       print_comment flags ^^
       cc ^^ print_flags flags ^^ group (string "function" ^/^ string (string_of_lident name) ^/^
+      langle ^^ string "cg: " ^^ int n_cg ^^ rangle ^^
       langle ^^ int n ^^ rangle ^^
       parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders
@@ -35,21 +39,23 @@ let rec print_decl = function
         print_expr body
       )
 
-  | DExternal (cc, flags, n, name, typ, _) ->
+  | DExternal (cc, flags, n_cg, n, name, typ, _) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
       print_flags flags ^/^
       group (cc ^^ string "external" ^/^ string (string_of_lident name) ^/^
         langle ^^ int n ^^ rangle ^^ colon) ^^
+      langle ^^ string "cg: " ^^ int n_cg ^^ rangle ^^
       jump (print_typ typ)
 
   | DGlobal (flags, name, n, typ, expr) ->
       print_comment flags ^^
       print_flags flags ^^ langle ^^ int n ^^ rangle ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
 
-  | DType (name, flags, n, def) ->
+  | DType (name, flags, n_cg, n, def) ->
       let args = List.init n (fun i -> string ("t" ^ string_of_int i)) in
       let args = separate space args in
       group (string "type" ^/^ print_flags flags ^/^ string (string_of_lident name) ^/^ args ^/^ equals) ^^
+      langle ^^ string "cg: " ^^ int n_cg ^^ rangle ^^
       jump (print_type_def def)
 
 and print_comment flags =
@@ -166,10 +172,16 @@ and print_typ_paren = function
   | t ->
       print_typ t
 
+and print_cg = function
+  | CgVar i -> int i
+  | CgConst c -> print_constant c
+
 and print_typ = function
   | TInt w -> print_width w
   | TBuf (t, bool) -> (if bool then string "const" else empty) ^/^ print_typ t ^^ star
   | TArray (t, k) -> print_typ t ^^ lbracket ^^ print_constant k ^^ rbracket
+  | TCgArray (t, v) -> print_typ t ^^ lbracket ^^ int v ^^ rbracket
+  | TCgApp (t, cg) -> print_typ t ^^ brackets (brackets (print_cg cg))
   | TUnit -> string "()"
   | TQualified name -> string (string_of_lident name)
   | TBool -> string "bool"
@@ -221,8 +233,10 @@ and print_expr { node; typ } =
       dquote ^^ string s ^^ dquote
   | EApp (e, es) ->
       print_app print_expr e print_expr es
-  | ETApp (e, ts) ->
-      print_app print_expr e (fun t -> group (langle ^/^ print_typ t ^/^ rangle)) ts
+  | ETApp (e, es, ts) ->
+      print_cg_app (fun (e, ts) ->
+        print_app print_expr e (fun t -> group (langle ^/^ print_typ t ^/^ rangle)) ts
+      ) (e, ts) (fun e -> brackets (brackets (print_expr e))) es
   | ELet (binder, e1, e2) ->
       group (print_let_binding (binder, e1) ^/^ string "in") ^^ hardline ^^
       group (print_expr e2)
@@ -238,7 +252,7 @@ and print_expr { node; typ } =
       print_lifetime l ^^ space ^^
       print_app string "newbuf" print_expr [e1; e2]
   | EBufRead (e1, e2) ->
-      print_expr e1 ^^ colon ^^ print_typ e1.typ ^^ lbracket ^^ print_expr e2 ^^ rbracket
+      parens (print_expr e1 ^^ colon ^^ print_typ e1.typ) ^^ lbracket ^^ print_expr e2 ^^ rbracket
   | EBufWrite (e1, e2, e3) ->
       print_expr e1 ^^ (*colon ^^ print_typ e1.typ ^^*) lbracket ^^ print_expr e2 ^^ rbracket ^/^
       string "<-" ^/^ print_expr e3
@@ -288,7 +302,7 @@ and print_expr { node; typ } =
       braces_with_nesting (print_expr e4)
   | EBufCreateL (l, es) ->
       print_lifetime l ^/^
-      string "newbuf" ^/^ braces_with_nesting (separate_map (comma ^^ break1) print_expr es)
+      string "newbuf" ^/^ braces_with_nesting (flow (comma ^^ break1) (List.map print_expr es))
   | ECons (ident, es) ->
       string ident ^/^
       if List.length es > 0 then

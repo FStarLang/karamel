@@ -34,7 +34,7 @@ BROKEN		= \
   HigherOrder6.fst ForwardDecl.fst BlitNull.fst \
   Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst \
   AbstractStructAbstract.fst MonomorphizationSeparate1.fst \
-  Layered.fst GlobalInit2.fst Rust1.fst
+  Layered.fst GlobalInit2.fst $(wildcard Rust*.fst)
 
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
 # special file and doesn't have a main.
