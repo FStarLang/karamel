@@ -1,5 +1,10 @@
 RECENT_GCC	= $(shell [ "$$(gcc -dumpversion | cut -c -1)" -ge 5 ] && echo yes)
 
+ifeq (3.81,$(MAKE_VERSION))
+  $(error You seem to be using the OSX antiquated Make version. Hint: brew \
+    install make, then invoke gmake instead of make)
+endif
+
 ifdef FSTAR_HOME
   # Assume there is a F* source tree
   FSTAR_EXE=$(FSTAR_HOME)/bin/fstar.exe
@@ -295,10 +300,12 @@ WasmTrap.wasm-test: NEGATIVE = true
 %.rs: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(KRML) -minimal -bundle $(notdir $*)=\* \
 	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)
+	echo >> $@
+	echo 'fn main () { let r = main_ (); if r != 0 { println!("main_ returned: {}\\n", r); panic!() } }' >> $@
 
 %.rust-test: $(OUTPUT_DIR)/%.rs
 	rustc $< && ./$*
 
-rust: $(RUST_FILES)
+rust: $(RUST_FILES) $(patsubst %.fst,%.rust-test,$(filter-out Rust1.fst Rust2.fst Rust3.fst,$(wildcard Rust*.fst)))
 
 RUST_FILES = $(patsubst %.rs,%.rust-test,$(wildcard Rust*.fst))
