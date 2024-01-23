@@ -300,7 +300,7 @@ WasmTrap.wasm-test: NEGATIVE = true
 %.rs: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(KRML) -minimal -bundle $(notdir $*)=\* \
 	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)
-	echo >> $@
+	$(SED) -i 's/\(assignments..\)/\1\nmod lowstar { pub mod ignore { pub fn ignore<T>(_x: T) {}}}\n/' $@
 	echo 'fn main () { let r = main_ (); if r != 0 { println!("main_ returned: {}\\n", r); panic!() } }' >> $@
 
 %.rust-test: $(OUTPUT_DIR)/%.rs
