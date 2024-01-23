@@ -148,3 +148,11 @@ let lift (k: int) (expr: expr): expr =
     expr
   else
     (new lift k)#visit_expr 0 expr
+
+(* Helpers *)
+
+let name_of_decl (d: decl) =
+  match d with
+  | Function { name; _ }
+  | Constant { name; _ } ->
+      name

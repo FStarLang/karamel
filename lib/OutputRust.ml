@@ -23,7 +23,7 @@ let write_file file =
     Utils.with_open_out_bin filename (fun oc ->
       let doc =
         string directives ^^ hardline ^^ hardline ^^
-        separate_map (hardline ^^ hardline) (PrintMiniRust.print_decl prefix) decls ^^ hardline
+        PrintMiniRust.print_decls prefix decls
       in
       PPrint.ToChannel.pretty 0.95 100 oc doc
     )

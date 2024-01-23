@@ -7,6 +7,11 @@ open PPrint
 open PrintCommon
 open MiniRust
 
+module NameMap = Map.Make(struct
+  type t = name
+  let compare = compare
+end)
+
 let is_expression_with_block e =
   match e with
   | IfThenElse _ | For _ | While _ -> true
@@ -17,13 +22,25 @@ type env = {
   type_vars: string list;
   prefix: string list;
   debug: bool;
+  globals: name NameMap.t;
 }
 
 let lexical_conventions x =
-  String.map (function
-    | '\'' -> '_'
-    | c -> c
-  ) x
+  let dst = Buffer.create 128 in
+  String.iteri (fun i c ->
+    let cp = Uchar.of_char c in
+    let is_valid =
+      if i = 0 then
+        Uucp.Id.is_xid_start cp || c = '_'
+      else
+        Uucp.Id.is_xid_continue cp
+    in
+    if is_valid then
+      Buffer.add_utf_8_uchar dst cp
+    else
+      Buffer.add_utf_8_uchar dst (Uchar.of_int 0xb7)
+  ) x;
+  Buffer.contents dst
 
 let mk_uniq { vars; _ } x =
   if not (List.mem (`Named x) vars) then
@@ -58,6 +75,12 @@ let push env x =
   in
   { env with vars = x :: env.vars }
 
+let register_global env source_name =
+  (* Assuming no collisions in the source *)
+  let source_prefix, source_final = KList.split_at_last source_name in
+  let target_name = source_prefix @ [ avoid_keywords (lexical_conventions source_final) ] in
+  { env with globals = NameMap.add source_name target_name env.globals }, target_name
+
 let push_type env x = { env with type_vars = x :: env.type_vars }
 
 let rec push_n_type env n =
@@ -78,9 +101,9 @@ let lookup env x =
 let lookup_type env x =
   List.nth env.type_vars x
 
-let fresh prefix = { vars = []; prefix; debug = false; type_vars = [] }
+let fresh prefix = { vars = []; prefix; debug = false; type_vars = []; globals = NameMap.empty }
 
-let debug = { vars = []; prefix = []; debug = true; type_vars = [] }
+let debug = { vars = []; prefix = []; debug = true; type_vars = []; globals = NameMap.empty }
 
 let print env =
   print_endline (String.concat ", " (List.map (function
@@ -89,6 +112,7 @@ let print env =
   ) env.vars))
 
 let print_name env n =
+  let n = try NameMap.find n env.globals with Not_found -> n in
   let n =
     if List.length n > List.length env.prefix && fst (KList.split (List.length env.prefix) n) = env.prefix then
       snd (KList.split (List.length env.prefix) n)
@@ -369,43 +393,51 @@ let arrow = string "->"
 let print_pub p =
   if p then string "pub" ^^ break1 else empty
 
-let print_decl ns (d: decl) =
-  let env = fresh ns in
-  match d with
-  | Function { name; type_parameters; parameters; return_type; body; public; inline } ->
+let print_decl env (d: decl) =
+  let env, target_name = register_global env (name_of_decl d) in
+  env, match d with
+  | Function { type_parameters; parameters; return_type; body; public; inline; _ } ->
       assert (type_parameters = 0);
       let parameters = List.map (fun b -> { b with name = allocate_name env b.name }) parameters in
       let env = List.fold_left (fun env (b: binding) -> push env (`Named b.name)) env parameters in
       let inline = if inline then string "#[inline]" ^^ break1 else empty in
       group @@
-      group (group (inline ^^ print_pub public ^^ string "fn" ^/^ print_name env name) ^^
+      group (group (inline ^^ print_pub public ^^ string "fn" ^/^ print_name env target_name) ^^
         parens_with_nesting (separate_map (comma ^^ break1) (print_binding env) parameters) ^^
         space ^^ arrow ^^ (nest 4 (break1 ^^ print_typ env return_type))) ^/^
       print_block_expression env body
-  | Constant { name; typ; body; public } ->
+  | Constant { typ; body; public; _ } ->
       group @@
-      group (print_pub public ^^ string "const" ^/^ print_name env name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
+      group (print_pub public ^^ string "const" ^/^ print_name env target_name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
       nest 4 (break1 ^^ print_expr env max_int body) ^^ semi
 
 let failures = ref 0
 
-let name_of_decl = function
-  | Function { name; _ }
-  | Constant { name; _ } ->
-      name
-
 let string_of_name = String.concat "::"
 
-let print_decl ns d =
+let print_decl env d =
   try
-    print_decl ns d
+    print_decl env d
   with e ->
     incr failures;
     KPrint.bprintf "%sERROR printing %s: %s%s\n%s\n" Ansi.red
       (string_of_name (name_of_decl d))
       (Printexc.to_string e) Ansi.reset
       (Printexc.get_backtrace ());
-    empty
+    env, empty
+
+let print_decls ns ds =
+  let env = fresh ns in
+  let env, ds = List.fold_left (fun (env, ds) d ->
+    let env, d = print_decl env d in
+    env, d :: ds
+  ) (env, []) ds in
+  let ds = List.rev ds in
+  if Options.debug "rs-names" then
+    NameMap.iter (fun source target ->
+      KPrint.bprintf "%s --> %s\n" (String.concat "," source) (String.concat "," target)
+    ) env.globals;
+  separate (hardline ^^ hardline) ds ^^ hardline
 
 let pexpr = printf_of_pprint (print_expr debug max_int)
 let ptyp = printf_of_pprint (print_typ debug)
