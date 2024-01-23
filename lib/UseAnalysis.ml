@@ -155,7 +155,9 @@ let build_usage_map_and_mark ifdefs = object(self)
     let v = match IntMap.find_opt level map with None -> zero | Some v -> v in
     b.node.mark := v;
     let map = restrict_map map level in
-    assert (snd v <> AtMost 0);
+    (* May happen with interruptible_for... but we don't defeat the compiler
+       warning in that case. TODO *)
+    (* assert (snd v <> AtMost 0); *)
     self#plus map (self#visit_expr env e1)
 
   method! visit_branch env (binders, _, _ as b) =
