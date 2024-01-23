@@ -376,14 +376,14 @@ let borrow_kind_of_bool b: MiniRust.borrow_kind =
   else
     Mut
 
-let rec translate_type (env: env) (t: Ast.typ): MiniRust.typ =
+let rec translate_type_with_lt (env: env) (lt: MiniRust.lifetime option) (t: Ast.typ): MiniRust.typ =
   match t with
   | TInt w -> Constant w
   | TBool -> Constant Bool
   | TUnit -> Unit
   | TAny -> failwith "unexpected: [type] no casts in Low* -> Rust"
-  | TBuf (t, b) -> Ref (borrow_kind_of_bool b, Slice (translate_type env t))
-  | TArray (t, c) -> Array (translate_type env t, int_of_string (snd c))
+  | TBuf (t, b) -> Ref (lt, borrow_kind_of_bool b, Slice (translate_type_with_lt env lt t))
+  | TArray (t, c) -> Array (translate_type_with_lt env lt t, int_of_string (snd c))
   | TQualified lid ->
       begin try
         Name (lookup_type env lid)
@@ -393,13 +393,15 @@ let rec translate_type (env: env) (t: Ast.typ): MiniRust.typ =
   | TArrow _ ->
       let t, ts = Helpers.flatten_arrow t in
       let ts = match ts with [ TUnit ] -> [] | _ -> ts in
-      Function (0, List.map (translate_type env) ts, translate_type env t)
+      Function (0, List.map (translate_type_with_lt env lt) ts, translate_type_with_lt env lt t)
   | TApp _ -> failwith "TODO: TApp"
   | TBound i -> Bound i
   | TTuple _ -> failwith "TODO: TTuple"
   | TAnonymous _ -> failwith "unexpected: we don't compile data types going to Rust"
   | TCgArray _ -> failwith "Impossible: TCgArray"
   | TCgApp _ -> failwith "Impossible: TCgApp"
+
+let translate_type env = translate_type_with_lt env None
 
 
 (* Expressions *)
@@ -486,7 +488,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
   (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
   let possibly_convert (x: MiniRust.expr) t: MiniRust.expr =
     begin match x, t, t_ret with
-    | _, (MiniRust.Vec _ | Array _), Ref (k, Slice _) ->
+    | _, (MiniRust.Vec _ | Array _), Ref (_, k, Slice _) ->
         Borrow (k, x)
     | Constant (w, x), Constant UInt32, Constant SizeT ->
         assert (w = Constant.UInt32);
@@ -831,10 +833,10 @@ let translate_decl env (d: Ast.decl) =
         false
   in
   match d with
-  | Ast.DFunction (_, _, _, _, _, lid, _, _) when is_handled_primitively lid ->
+  | DFunction (_, _, _, _, _, lid, _, _) when is_handled_primitively lid ->
       env, None
 
-  | Ast.DFunction (_cc, flags, n_cgs, type_parameters, t, lid, args, body) ->
+  | DFunction (_cc, flags, n_cgs, type_parameters, t, lid, args, body) ->
       assert (type_parameters = 0 && n_cgs = 0);
       if Options.debug "rs" then
         KPrint.bprintf "Ast.DFunction (%a)\n" PrintAst.Ops.plid lid;
@@ -858,7 +860,7 @@ let translate_decl env (d: Ast.decl) =
       let inline = List.mem Common.Inline flags in
       env, Some (MiniRust.Function { type_parameters; parameters; return_type; body; name; public; inline })
 
-  | Ast.DGlobal (flags, lid, _, t, e) ->
+  | DGlobal (flags, lid, _, t, e) ->
       let body, typ = match e.node with
         | EBufCreate _ | EBufCreateL _ ->
             let _, body, typ = translate_array env true e in body, typ
@@ -872,13 +874,32 @@ let translate_decl env (d: Ast.decl) =
       let env = push_global env lid (name, typ) in
       env, Some (MiniRust.Constant { name; typ; body; public })
 
-  | Ast.DExternal (_, _, _, type_parameters, lid, t, _param_names) ->
+  | DExternal (_, _, _, type_parameters, lid, t, _param_names) ->
       let name = translate_unknown_lid lid in
       let env = push_global env lid (name, make_poly (translate_type env t) type_parameters) in
       env, None
 
-  | Ast.DType (name, _, _, _, _) ->
-      Warn.failwith "TODO: Ast.DType (%a)\n" PrintAst.Ops.plid name
+  | DType (lid, flags, _, _, decl) ->
+      (* creative naming for the lifetime *)
+      let name = translate_lid env lid in
+      let public = not (List.mem Common.Private flags) in
+      match decl with
+      | Flat fields ->
+          let lifetime = MiniRust.Label "a" in
+          let generic_params = [ MiniRust.Lifetime lifetime ] in
+          let fields = List.map (fun (f, (t, _m)) ->
+            let f = Option.get f in
+            f, translate_type_with_lt env (Some lifetime) t
+          ) fields in
+          env, Some (Struct { name; public; fields; generic_params })
+      | Enum idents ->
+          let items = List.map (fun i -> translate_lid env i, None) idents in
+          env, Some (Enumeration { name; public; items })
+      | Abbrev _
+      | Variant _
+      | Union _
+      | Forward _ ->
+          Warn.failwith "TODO: Ast.DType (%a)\n" PrintAst.Ops.plid lid
 
 let identify_path_components_rev filename =
   let components = ref [] in

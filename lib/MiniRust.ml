@@ -19,9 +19,13 @@ and db_index = int [@ opaque ]
 [@@deriving show,
     visitors { variety = "map"; name = "map_misc"; polymorphic = true }]
 
+type lifetime =
+  | Label of string
+[@@deriving show]
+
 type typ_ =
   | Constant of Constant.width (* excludes cint, ptrdifft *)
-  | Ref of borrow_kind * typ_
+  | Ref of lifetime option * borrow_kind * typ_
   | Vec of typ_
   | Array of typ_ * int
   | Slice of typ_ (* always appears underneath Ref *)
@@ -103,6 +107,27 @@ type decl =
     body: expr;
     public: bool;
   }
+  | Enumeration of {
+    name: name;
+    items: item list;
+    public: bool;
+  }
+  | Struct of {
+    name: name;
+    fields: struct_field list;
+    public: bool;
+    generic_params: generic_param list;
+  }
+
+and item =
+  (* Not supporting tuples yet *)
+  name * struct_field list option
+
+and generic_param =
+  | Lifetime of lifetime
+
+and struct_field =
+  string * typ
 
 (* Some visitors for name management *)
 
@@ -153,6 +178,8 @@ let lift (k: int) (expr: expr): expr =
 
 let name_of_decl (d: decl) =
   match d with
+  | Enumeration { name; _ }
+  | Struct { name; _ }
   | Function { name; _ }
   | Constant { name; _ } ->
       name

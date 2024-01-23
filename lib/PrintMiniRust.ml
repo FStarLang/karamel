@@ -151,10 +151,20 @@ let print_constant (w, s) =
   else
     string s
 
+let print_lifetime = function
+  | Label l ->
+      squote ^^ string l
+
+let print_lifetime_option = function
+  | Some l ->
+      print_lifetime l ^^ space
+  | None ->
+      empty
+
 let rec print_typ env (t: typ): document =
   match t with
   | Constant w -> string (string_of_width w)
-  | Ref (k, t) -> group (ampersand ^^ print_borrow_kind k ^^ print_typ env t)
+  | Ref (lt, k, t) -> group (ampersand ^^ print_lifetime_option lt ^^ print_borrow_kind k ^^ print_typ env t)
   | Vec t -> group (string "Vec" ^^ angles (print_typ env t))
   | Array (t, n) -> group (brackets (print_typ env t ^^ semi ^/^ int n))
   | Slice t -> group (brackets (print_typ env t))
@@ -398,7 +408,7 @@ let arrow = string "->"
 let print_pub p =
   if p then string "pub" ^^ break1 else empty
 
-let print_decl env (d: decl) =
+let rec print_decl env (d: decl) =
   let env, target_name = register_global env (name_of_decl d) in
   env, match d with
   | Function { type_parameters; parameters; return_type; body; public; inline; _ } ->
@@ -415,6 +425,31 @@ let print_decl env (d: decl) =
       group @@
       group (print_pub public ^^ string "const" ^/^ print_name env target_name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
       nest 4 (break1 ^^ print_expr env max_int body) ^^ semi
+  | Enumeration { items; public; _ } ->
+      group @@
+      group (print_pub public ^^ string "enum" ^/^ print_name env target_name) ^/^
+      braces_with_nesting (
+        separate_map (comma ^^ hardline) (fun (item_name, item_struct) ->
+          group @@
+          print_name env item_name ^^ match item_struct with
+          | None -> empty
+          | Some item_struct -> break1 ^^ print_struct env item_struct
+      ) items)
+  | Struct { fields; public; generic_params; _ } ->
+      group @@
+      group (print_pub public ^^ string "struct" ^/^ print_name env target_name ^^ print_generic_params generic_params) ^/^
+      braces_with_nesting (print_struct env fields)
+
+and print_generic_params params =
+  if params = [] then
+    empty
+  else
+    break1 ^^ angles (separate_map (comma ^^ break1) (function
+      | Lifetime l -> print_lifetime l
+    ) params)
+
+and print_struct env fields =
+  separate_map (comma ^^ break1) (fun (i, t) -> string i ^^ colon ^/^ group (print_typ env t)) fields
 
 let failures = ref 0
 
