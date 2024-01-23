@@ -228,7 +228,7 @@ and prec_of_op2 o =
   | BAnd -> 11, 11, 10
   | BXor -> 12, 12, 11
   | BOr -> 13, 13, 12
-  | Eq | Neq | Lt | Gt | Lte | Gte -> max_int, 13, 13
+  | Eq | Neq | Lt | Gt | Lte | Gte -> 14, 13, 13
   | And -> 15, 15, 14
   | Or -> 16, 16, 15
   | _ -> failwith ("unexpected: unknown binary operator: " ^ Constant.show_op o)

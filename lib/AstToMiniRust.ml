@@ -776,6 +776,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
 
       (* b is in scope for e_test, e_incr, e_body! *)
       let e_end = match e_test.node, e_incr.node with
+        (* If we have `i < e_end; i := i + 1`, then this is a range-loop and we can
+           lift `e_end` by 1. *)
         | EApp ({ node = EOp (Lt, _); _ }, [ { node = EBound 0; _ }; e_end ]),
         EAssign ({ node = EBound 0; _ },
           { node = EApp ({ node = EOp ((Add | AddW), _); _ }, [
@@ -788,7 +790,16 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
               PrintAst.Ops.pexpr e_test
               PrintAst.Ops.pexpr e_incr
       in
-      let binding: MiniRust.binding = { name = b.node.name; typ = translate_type env b.typ; mut = false } in
+      (* The loop index is unused if it has at most three uses; in that case,
+         all of those are in `i < e_end i := i + 1`, and they all go away since
+         this loop compiles to `i in e_start..e_end`, effectively marking this
+         variable unused. *)
+      let unused = snd !(b.node.mark) = AtMost 3 in
+      (* We do an ad-hoc thing since this didn't go through lowstar.ignore
+         insertion. Rust uses the OCaml convention (which I recall I did suggest
+         to Graydon back in 2010). *)
+      let unused = if unused then "_" else "" in
+      let binding: MiniRust.binding = { name = unused ^ b.node.name; typ = translate_type env b.typ; mut = false } in
       let env, e_start = translate_expr env e_start in
       let env, e_end = translate_expr env e_end in
       let _, e_body = translate_expr (push env binding) e_body in

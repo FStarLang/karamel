@@ -2,6 +2,12 @@
 
 open PPrint
 
+let directives = String.trim {|
+#![allow(non_snake_case)]
+#![allow(non_upper_case_globals)]
+#![allow(non_camel_case_types)]
+|}
+
 let rust_name f = f ^ ".rs"
 
 let write_file file =
@@ -14,7 +20,10 @@ let write_file file =
     Driver.mkdirp dirs;
     let filename = Driver.((^^)) dirs (rust_name filename) in
     Utils.with_open_out_bin filename (fun oc ->
-      let doc = separate_map (hardline ^^ hardline) (PrintMiniRust.print_decl prefix) decls ^^ hardline in
+      let doc =
+        string directives ^^ hardline ^^ hardline ^^
+        separate_map (hardline ^^ hardline) (PrintMiniRust.print_decl prefix) decls ^^ hardline
+      in
       PPrint.ToChannel.pretty 0.95 100 oc doc
     )
 

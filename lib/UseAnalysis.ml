@@ -145,7 +145,18 @@ let build_usage_map_and_mark ifdefs = object(self)
     map
 
   method! visit_EFor env b e1 e2 e3 e4 =
-    restrict_map (super#visit_EFor env b e1 e2 e3 e4) (List.length (fst env))
+    let env0 = self#extend (fst env) b in
+    let map = KList.reduce self#plus [
+      self#visit_expr_w env0 e2;
+      self#visit_expr_w env0 e3;
+      self#visit_expr_w env0 e4;
+    ] in
+    let level = List.length (fst env) in
+    let v = match IntMap.find_opt level map with None -> zero | Some v -> v in
+    b.node.mark := v;
+    let map = restrict_map map level in
+    assert (snd v <> AtMost 0);
+    self#plus map (self#visit_expr env e1)
 
   method! visit_branch env (binders, _, _ as b) =
     let map = super#visit_branch env b in
