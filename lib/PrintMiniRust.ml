@@ -188,6 +188,11 @@ let print_op = function
 let rec print_block_expression env e =
   braces_with_nesting (print_statements env e)
 
+and print_block_or_if_expression env e =
+  match e with
+  | IfThenElse _ -> print_expr env max_int e
+  | _ -> print_block_expression env e
+
 (* print an expression that possibly already has a block structure... quite
    confusing, but that's the terminology used by the rust reference *)
 and print_expression_with_block env (e: expr): document =
@@ -319,10 +324,10 @@ and print_expr env (context: int) (e: expr): document =
   | IfThenElse (e1, e2, e3) ->
       group @@
       group (string "if" ^/^ print_expr env max_int e1) ^/^
-      print_expression_with_block env e2 ^^
+      print_block_expression env e2 ^^
       begin match e3 with
       | Some e3 ->
-          break1 ^^ string "else" ^/^ print_expression_with_block env e3
+          break1 ^^ string "else" ^/^ print_block_or_if_expression env e3
       | None ->
           empty
       end
@@ -383,7 +388,7 @@ and print_array_expr env (e: array_expr) =
   match e with
   | List es ->
       group @@
-      brackets (nest 4 (separate_map (comma ^^ break1) (print_expr env max_int) es))
+      brackets (nest 4 (flow_map (comma ^^ break1) (print_expr env max_int) es))
   | Repeat (e, n) ->
       group @@
       group (brackets (nest 4 (print_expr env max_int e ^^ semi ^/^ print_expr env max_int n)))
