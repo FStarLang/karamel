@@ -80,6 +80,7 @@ and expr =
   | While of expr * expr
   | MethodCall of expr * name * expr list
   | Range of expr option * expr option * bool (* inclusive? *)
+  | Struct of name * (string * expr) list
 
   (* Place expressions *)
   | Var of db_index

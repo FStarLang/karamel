@@ -116,6 +116,9 @@ let print_name env n =
   let n =
     if List.length n > List.length env.prefix && fst (KList.split (List.length env.prefix) n) = env.prefix then
       snd (KList.split (List.length env.prefix) n)
+    (* TODO: what to do when code-gen references the Rust standard library?? *)
+    else if List.hd n = "Vec" then
+      n
     else
       (* Absolute reference, restart from crate top *)
       "crate" :: n
@@ -376,6 +379,15 @@ and print_expr env (context: int) (e: expr): document =
       e1 ^^ dot ^^ dot ^^ e2 ^^ inclusive
   | ConstantString s ->
       dquotes (string (CStarToC11.escape_string s))
+
+  | Struct (cons, fields) ->
+      group @@
+      print_name env cons ^/^ braces_with_nesting (
+        separate_map (comma ^^ break1) (fun (f, e) ->
+          group @@
+          string f ^^ colon ^/^ group (print_expr env max_int e)
+        ) fields
+      )
 
   | Var v ->
       begin match lookup env v with
