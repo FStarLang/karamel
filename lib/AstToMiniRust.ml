@@ -330,9 +330,13 @@ let push env b = { env with vars = (b, Splits.empty) :: env.vars }
 
 let push_with_info env b = { env with vars = b :: env.vars }
 
-let push_global env name t =
+let push_decl env name t =
   assert (not (LidMap.mem name env.decls));
   { env with decls = LidMap.add name t env.decls }
+
+let push_type env name t =
+  assert (not (LidMap.mem name env.types));
+  { env with types = LidMap.add name t env.types }
 
 let lookup env v = List.nth env.vars v
 
@@ -343,7 +347,7 @@ let lookup_type env name =
   LidMap.find name env.types
 
 let debug env =
-  List.iteri (fun i (b, info) ->
+  List.iteri (fun i ((b: MiniRust.binding), info) ->
     let open MiniRust in
     let open Splits in
     KPrint.bprintf "%d\t %s: %s\n  tree = %s\n  path = %s\n"
@@ -519,7 +523,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         debug env
       end;
 
-      let { MiniRust.typ; _ }, info = lookup env v in
+      let ({ MiniRust.typ; _ }: MiniRust.binding), info = lookup env v in
       let e =
         begin match info.path with
         | None -> possibly_convert (Var v) typ
@@ -570,7 +574,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
 
   | EApp ({ node = EQualified ([ "LowStar"; "BufferOps" ], s); _ }, e1 :: _) when KString.starts_with s "op_Bang_Star__" ->
       let env, e1 = translate_expr env e1 in
-      env, Deref e1
+      (* env, Deref e1 *)
+      env, Index (e1, MiniRust.zero_usize)
 
   | EApp ({ node = EQualified ([ "LowStar"; "BufferOps" ], s); _ }, e1 :: e2 :: _ ) when KString.starts_with s "op_Star_Equals__" ->
       let env, e1 = translate_expr env e1 in
@@ -762,8 +767,9 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       failwith "TODO: EEnum"
   | EFlat _ ->
       failwith "TODO: EFlat"
-  | EField _ ->
-      failwith "TODO: EField"
+  | EField (e, f) ->
+      let env, e = translate_expr env e in
+      env, Field (e, f)
   | EBreak ->
       failwith "TODO: EBreak"
   | EContinue ->
@@ -853,7 +859,7 @@ let translate_decl env (d: Ast.decl) =
       ) args in
       let return_type = translate_type env t in
       let name = translate_lid env lid in
-      let env = push_global env lid (name, Function (type_parameters, List.map (fun x -> x.MiniRust.typ) parameters, return_type)) in
+      let env = push_decl env lid (name, Function (type_parameters, List.map (fun (x: MiniRust.binding) -> x.typ) parameters, return_type)) in
       let env0 = List.fold_left push env parameters in
       let _, body = translate_expr env0 body in
       let public = not (List.mem Common.Private flags) in
@@ -871,17 +877,18 @@ let translate_decl env (d: Ast.decl) =
         KPrint.bprintf "Ast.DGlobal (%a: %s)\n" PrintAst.Ops.plid lid (MiniRust.show_typ typ);
       let name = translate_lid env lid in
       let public = not (List.mem Common.Private flags) in
-      let env = push_global env lid (name, typ) in
+      let env = push_decl env lid (name, typ) in
       env, Some (MiniRust.Constant { name; typ; body; public })
 
   | DExternal (_, _, _, type_parameters, lid, t, _param_names) ->
       let name = translate_unknown_lid lid in
-      let env = push_global env lid (name, make_poly (translate_type env t) type_parameters) in
+      let env = push_decl env lid (name, make_poly (translate_type env t) type_parameters) in
       env, None
 
   | DType (lid, flags, _, _, decl) ->
       (* creative naming for the lifetime *)
       let name = translate_lid env lid in
+      let env = push_type env lid name in
       let public = not (List.mem Common.Private flags) in
       match decl with
       | Flat fields ->
@@ -889,7 +896,7 @@ let translate_decl env (d: Ast.decl) =
           let generic_params = [ MiniRust.Lifetime lifetime ] in
           let fields = List.map (fun (f, (t, _m)) ->
             let f = Option.get f in
-            f, translate_type_with_lt env (Some lifetime) t
+            { MiniRust.name = f; public = true; typ = translate_type_with_lt env (Some lifetime) t }
           ) fields in
           env, Some (Struct { name; public; fields; generic_params })
       | Enum idents ->

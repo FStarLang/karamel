@@ -413,7 +413,7 @@ let rec print_decl env (d: decl) =
   env, match d with
   | Function { type_parameters; parameters; return_type; body; public; inline; _ } ->
       assert (type_parameters = 0);
-      let parameters = List.map (fun b -> { b with name = allocate_name env b.name }) parameters in
+      let parameters = List.map (fun (b: binding) -> { b with name = allocate_name env b.name }) parameters in
       let env = List.fold_left (fun env (b: binding) -> push env (`Named b.name)) env parameters in
       let inline = if inline then string "#[inline]" ^^ break1 else empty in
       group @@
@@ -449,7 +449,9 @@ and print_generic_params params =
     ) params)
 
 and print_struct env fields =
-  separate_map (comma ^^ break1) (fun (i, t) -> string i ^^ colon ^/^ group (print_typ env t)) fields
+  separate_map (comma ^^ break1) (fun { name; typ; public } ->
+    group (group (print_pub public ^^ string name ^^ colon) ^/^ group (print_typ env typ))
+  ) fields
 
 let failures = ref 0
 

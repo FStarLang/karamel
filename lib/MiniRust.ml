@@ -126,8 +126,11 @@ and item =
 and generic_param =
   | Lifetime of lifetime
 
-and struct_field =
-  string * typ
+and struct_field = {
+  name: string;
+  typ: typ;
+  public: bool;
+}
 
 (* Some visitors for name management *)
 
@@ -183,3 +186,5 @@ let name_of_decl (d: decl) =
   | Function { name; _ }
   | Constant { name; _ } ->
       name
+
+let zero_usize: expr = Constant (Constant.SizeT, "0")
