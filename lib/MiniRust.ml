@@ -37,6 +37,9 @@ type typ_ =
   | Bound of db_index
 [@@deriving show]
 
+let box t =
+  App (Name ["Box"], [t])
+
 type typ = typ_ [@ opaque ]
 [@@deriving show,
     visitors { variety = "map"; name = "map_typ"; polymorphic = true },

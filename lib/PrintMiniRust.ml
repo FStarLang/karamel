@@ -111,13 +111,17 @@ let print env =
     | `GoneUnit -> "–"
   ) env.vars))
 
+let is_uppercase c =
+  'A' <= c && c <= 'Z'
+
 let print_name env n =
   let n = try NameMap.find n env.globals with Not_found -> n in
   let n =
     if List.length n > List.length env.prefix && fst (KList.split (List.length env.prefix) n) = env.prefix then
       snd (KList.split (List.length env.prefix) n)
-    (* TODO: what to do when code-gen references the Rust standard library?? *)
-    else if List.hd n = "Vec" then
+    else if is_uppercase (List.hd n).[0] then
+      (* TODO: uppercase means it's a reference to Rust stdlib and outside the
+         crate, therefore doesn't need the crate:: prefix *)
       n
     else
       (* Absolute reference, restart from crate top *)

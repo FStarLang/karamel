@@ -322,9 +322,18 @@ type env = {
   types: MiniRust.name LidMap.t;
   vars: (MiniRust.binding * Splits.info) list;
   prefix: string list;
+  heap_structs: Idents.LidSet.t;
+  struct_fields: MiniRust.struct_field list LidMap.t;
 }
 
-let empty = { decls = LidMap.empty; types = LidMap.empty; vars = []; prefix = [] }
+let empty heap_structs = {
+  decls = LidMap.empty;
+  types = LidMap.empty;
+  vars = [];
+  prefix = [];
+  struct_fields = LidMap.empty;
+  heap_structs
+}
 
 let push env b = { env with vars = (b, Splits.empty) :: env.vars }
 
@@ -380,14 +389,26 @@ let borrow_kind_of_bool b: MiniRust.borrow_kind =
   else
     Mut
 
-let rec translate_type_with_lt (env: env) (lt: MiniRust.lifetime option) (t: Ast.typ): MiniRust.typ =
+type config = {
+  box: bool;
+}
+
+let default_config = {
+  box = false;
+}
+
+let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): MiniRust.typ =
   match t with
   | TInt w -> Constant w
   | TBool -> Constant Bool
   | TUnit -> Unit
   | TAny -> failwith "unexpected: [type] no casts in Low* -> Rust"
-  | TBuf (t, b) -> Ref (lt, borrow_kind_of_bool b, Slice (translate_type_with_lt env lt t))
-  | TArray (t, c) -> Array (translate_type_with_lt env lt t, int_of_string (snd c))
+  | TBuf (t, b) ->
+      if config.box then
+        MiniRust.box (Slice (translate_type_with_config env config t))
+      else
+        Ref (None, borrow_kind_of_bool b, Slice (translate_type_with_config env config t))
+  | TArray (t, c) -> Array (translate_type_with_config env config t, int_of_string (snd c))
   | TQualified lid ->
       begin try
         Name (lookup_type env lid)
@@ -397,7 +418,7 @@ let rec translate_type_with_lt (env: env) (lt: MiniRust.lifetime option) (t: Ast
   | TArrow _ ->
       let t, ts = Helpers.flatten_arrow t in
       let ts = match ts with [ TUnit ] -> [] | _ -> ts in
-      Function (0, List.map (translate_type_with_lt env lt) ts, translate_type_with_lt env lt t)
+      Function (0, List.map (translate_type_with_config env config) ts, translate_type_with_config env config t)
   | TApp _ -> failwith "TODO: TApp"
   | TBound i -> Bound i
   | TTuple _ -> failwith "TODO: TTuple"
@@ -405,7 +426,7 @@ let rec translate_type_with_lt (env: env) (lt: MiniRust.lifetime option) (t: Ast
   | TCgArray _ -> failwith "Impossible: TCgArray"
   | TCgApp _ -> failwith "Impossible: TCgApp"
 
-let translate_type env = translate_type_with_lt env None
+let translate_type env = translate_type_with_config env default_config
 
 
 (* Expressions *)
@@ -510,6 +531,10 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
 and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env * MiniRust.expr =
   (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
   let possibly_convert (x: MiniRust.expr) t: MiniRust.expr =
+    KPrint.bprintf "possibly_convert: %a: %a <: %a\n"
+      PrintMiniRust.pexpr x
+      PrintMiniRust.ptyp t
+      PrintMiniRust.ptyp t_ret;
     begin match x, t, t_ret with
     | _, (MiniRust.Vec _ | Array _), Ref (_, k, Slice _) ->
         Borrow (k, x)
@@ -522,6 +547,18 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         (* The type annotations coming from Ast do not feature polymorphic binders in types, but we
            do retain them in our Function type -- so we need to relax the comparison here *)
         x
+    (* More conversions due to box-ing types. *)
+    | _, App (Name ["Box"], [Slice _]), Ref (_, Mut, Slice _) ->
+        Borrow (Mut, Deref x)
+    | _, Ref (_, Mut, Slice _), App (Name ["Box"], [Slice _]) ->
+        MethodCall (Borrow (Shared, Deref x), ["into"], [])
+    | _, Ref (_, Shared, Slice _), App (Name ["Box"], [Slice _]) ->
+        MethodCall (x, ["into"], [])
+    | _, Vec _, App (Name ["Box"], [Slice _]) ->
+        MethodCall (MethodCall (x, ["try_into"], []), ["unwrap"], [])
+    | Borrow (_, x), Ref (_, _, Vec _), App (Name ["Box"], [Slice _]) ->
+        MethodCall (MethodCall (x, ["try_into"], []), ["unwrap"], [])
+
     | _ ->
         if t = t_ret then
           x
@@ -787,16 +824,21 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
 
   | EFlat fields ->
       let t_lid = Helpers.assert_tlid e.typ in
+      let struct_fields = LidMap.find t_lid env.struct_fields in
       let env, fields = List.fold_left (fun (env, fields) (f, e) ->
         let f = Option.get f in
-        let env, e = translate_expr env e in
+        let ret_t = (List.find (fun (sf: MiniRust.struct_field) -> sf.name = f) struct_fields).typ in
+        let env, e = translate_expr_with_type env e ret_t in
         env, (f, e) :: fields
       ) (env, []) fields in
       env, Struct (lookup_type env t_lid, List.rev fields)
 
   | EField (e, f) ->
+      let t_lid = Helpers.assert_tlid e.typ in
+      let struct_fields = LidMap.find t_lid env.struct_fields in
+      let t = (List.find (fun (sf: MiniRust.struct_field) -> sf.name = f) struct_fields).typ in
       let env, e = translate_expr env e in
-      env, Field (e, f)
+      env, possibly_convert (Field (e, f)) t
   | EBreak ->
       failwith "TODO: EBreak"
   | EContinue ->
@@ -884,7 +926,15 @@ let translate_decl env (d: Ast.decl) =
         let mut = false in
         { MiniRust.mut; name = b.Ast.node.Ast.name; typ }
       ) args in
-      let return_type = translate_type env t in
+      let return_type =
+        let box = match t with
+        | TBuf (TQualified lid, _) when Idents.LidSet.mem lid env.heap_structs ->
+            true
+        | _ ->
+            false
+        in
+        translate_type_with_config env { box } t
+      in
       let name = translate_lid env lid in
       let env = push_decl env lid (name, Function (type_parameters, List.map (fun (x: MiniRust.binding) -> x.typ) parameters, return_type)) in
       let env0 = List.fold_left push env parameters in
@@ -915,16 +965,17 @@ let translate_decl env (d: Ast.decl) =
   | DType (lid, flags, _, _, decl) ->
       (* creative naming for the lifetime *)
       let name = translate_lid env lid in
+      let box = Idents.LidSet.mem lid env.heap_structs in
       let env = push_type env lid name in
       let public = not (List.mem Common.Private flags) in
       match decl with
       | Flat fields ->
-          let lifetime = MiniRust.Label "a" in
-          let generic_params = [ MiniRust.Lifetime lifetime ] in
+          let generic_params = [] in
           let fields = List.map (fun (f, (t, _m)) ->
             let f = Option.get f in
-            { MiniRust.name = f; public = true; typ = translate_type_with_lt env (Some lifetime) t }
+            { MiniRust.name = f; public = true; typ = translate_type_with_config env { box } t }
           ) fields in
+          let env = { env with struct_fields = LidMap.add lid fields env.struct_fields } in
           env, Some (Struct { name; public; fields; generic_params })
       | Enum idents ->
           let items = List.map (fun i -> translate_lid env i, None) idents in
@@ -949,7 +1000,41 @@ let identify_path_components_rev filename =
     components := String.sub filename !start (String.length filename - !start) :: !components;
   !components
 
+let compute_likely_heap_structs files =
+  let returned = (object
+    inherit [_] Ast.reduce
+    method zero = Idents.LidSet.empty
+    method plus = Idents.LidSet.union
+    method! visit_DFunction _ _ _ _ _ ret_t _ _ _ =
+      match ret_t with
+      | TQualified lid -> Idents.LidSet.singleton lid
+      | _ -> Idents.LidSet.empty
+  end)#visit_files () files in
+
+  let with_inner_pointers = (object
+    inherit [_] Ast.reduce
+    method zero = Idents.LidSet.empty
+    method plus = Idents.LidSet.union
+    method! visit_DType _ lid _ _ _ def =
+      match def with
+      | Flat fields ->
+          if List.exists (fun (_, (t, _)) -> match t with Ast.TBuf _ -> true | _ -> false) fields then
+            Idents.LidSet.singleton lid
+          else
+            Idents.LidSet.empty
+      | _ ->
+          Idents.LidSet.empty
+  end)#visit_files () files in
+
+  Idents.LidSet.inter returned with_inner_pointers
+
 let translate_files files =
+  let heap_structs = compute_likely_heap_structs files in
+  if Options.debug "rs-structs" then begin
+    KPrint.bprintf "The following types are understood to be heap-allocated:\n";
+    List.iter (KPrint.bprintf "  %a\n" PrintAst.Ops.plid) (Idents.LidSet.elements heap_structs)
+  end;
+
   let failures = ref 0 in
   let env, files = List.fold_left (fun (env, files) (f, decls) ->
     let prefix = List.map String.lowercase_ascii (identify_path_components_rev f) in
@@ -975,7 +1060,7 @@ let translate_files files =
       KPrint.bprintf "... translated file %s (%d/%d)\n" (String.concat "::" prefix) (List.length decls) total;
     let decls = KList.filter_some decls in
     env, (prefix, decls) :: files
-  ) (empty, []) files in
+  ) (empty heap_structs, []) files in
 
   if Options.debug "rs" then
     LidMap.iter (fun lid (name, _) ->
