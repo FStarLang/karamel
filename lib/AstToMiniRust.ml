@@ -657,12 +657,12 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let env, es = translate_expr_list env es in
       env, Call (e, ts, es)
 
-  (* | EApp ({ node = EPolyComp (op, TBuf _); _ }, ([ { node = EBufNull; _ }; _ ] | [ _; { node = EBufNull; _ }])) -> *)
-  (*     (1* No null-checks in Rust -- function will panic. *1) *)
-  (*     begin match op with *)
-  (*     | PEq -> env, Constant (Bool, "false") *)
-  (*     | PNeq ->  env, Constant (Bool, "true") *)
-  (*     end *)
+  | EApp ({ node = EPolyComp (op, TBuf _); _ }, ([ { node = EBufNull; _ }; _ ] | [ _; { node = EBufNull; _ }])) ->
+      (* No null-checks in Rust -- function will panic. *)
+      begin match op with
+      | PEq -> env, Constant (Bool, "false") (* nothing is ever null *)
+      | PNeq ->  env, Constant (Bool, "true") (* everything is always non-null *)
+      end
 
   | EApp (e, es) ->
       let es =
@@ -820,7 +820,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
   | EBufFree _ ->
       failwith "unexpected: EBufFree"
   | EBufNull ->
-      env, possibly_convert (VecNew (List [])) (translate_type env e.typ)
+      env, possibly_convert (Borrow (Mut, Array (List []))) (translate_type env e.typ)
   | EPushFrame ->
       failwith "unexpected: EPushFrame"
   | EPopFrame ->
@@ -944,9 +944,15 @@ let translate_decl env (d: Ast.decl) =
         let mut = false in
         { MiniRust.mut; name = b.Ast.node.Ast.name; typ }
       ) args in
+      let is_likely_heap_allocation =
+        KString.exists (snd lid) "new" ||
+        KString.exists (snd lid) "malloc"
+      in
       let return_type =
         let box = match t with
         | TBuf (TQualified lid, _) when Idents.LidSet.mem lid env.heap_structs ->
+            true
+        | TBuf _ when is_likely_heap_allocation ->
             true
         | _ ->
             false
