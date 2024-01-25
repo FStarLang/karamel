@@ -335,7 +335,9 @@ let empty heap_structs = {
   heap_structs
 }
 
-let push env b = { env with vars = (b, Splits.empty) :: env.vars }
+let push env (b: MiniRust.binding) =
+  (* KPrint.bprintf "Pushing %s to environment at type %a\n" b.name PrintMiniRust.ptyp b.typ; *)
+  { env with vars = (b, Splits.empty) :: env.vars }
 
 let push_with_info env b = { env with vars = b :: env.vars }
 
@@ -405,7 +407,8 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
   | TAny -> failwith "unexpected: [type] no casts in Low* -> Rust"
   | TBuf (t, b) ->
       if config.box then
-        MiniRust.box (Slice (translate_type_with_config env config t))
+        (* MiniRust.box (Slice (translate_type_with_config env config t)) *)
+        Vec (translate_type_with_config env config t)
       else
         Ref (None, borrow_kind_of_bool b, Slice (translate_type_with_config env config t))
   | TArray (t, c) -> Array (translate_type_with_config env config t, int_of_string (snd c))
@@ -531,10 +534,10 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
 and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env * MiniRust.expr =
   (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
   let possibly_convert (x: MiniRust.expr) t: MiniRust.expr =
-    KPrint.bprintf "possibly_convert: %a: %a <: %a\n"
-      PrintMiniRust.pexpr x
-      PrintMiniRust.ptyp t
-      PrintMiniRust.ptyp t_ret;
+    (* KPrint.bprintf "possibly_convert: %a: %a <: %a\n" *)
+    (*   PrintMiniRust.pexpr x *)
+    (*   PrintMiniRust.ptyp t *)
+    (*   PrintMiniRust.ptyp t_ret; *)
     begin match x, t, t_ret with
     | _, (MiniRust.Vec _ | Array _), Ref (_, k, Slice _) ->
         Borrow (k, x)
@@ -556,17 +559,21 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         MethodCall (x, ["into"], [])
     | _, Vec _, App (Name ["Box"], [Slice _]) ->
         MethodCall (MethodCall (x, ["try_into"], []), ["unwrap"], [])
-    | Borrow (_, x), Ref (_, _, Vec _), App (Name ["Box"], [Slice _]) ->
-        MethodCall (MethodCall (x, ["try_into"], []), ["unwrap"], [])
+
+    (* More conversions due to vec-ing types *)
+    | _, Ref (_, Mut, Slice _), Vec _ ->
+        MethodCall (x, ["to_vec"], [])
+    | _, Ref (_, Shared, Slice _), Vec _ ->
+        MethodCall (x, ["to_vec"], [])
 
     | _ ->
         if t = t_ret then
           x
         else
-          Warn.failwith "type mismatch;\n  e=%a\n  t=%s\n  t_ret=%s\n  x=%s"
+          Warn.failwith "type mismatch;\n  e=%a\n  t=%a\n  t_ret=%a\n  x=%a"
             PrintAst.Ops.pexpr e
-            (MiniRust.show_typ t) (MiniRust.show_typ t_ret)
-            (MiniRust.show_expr x)
+            PrintMiniRust.ptyp t PrintMiniRust.ptyp t_ret
+            PrintMiniRust.pexpr x;
     end
   in
 
@@ -649,6 +656,14 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let ts = List.map (translate_type env) ts in
       let env, es = translate_expr_list env es in
       env, Call (e, ts, es)
+
+  (* | EApp ({ node = EPolyComp (op, TBuf _); _ }, ([ { node = EBufNull; _ }; _ ] | [ _; { node = EBufNull; _ }])) -> *)
+  (*     (1* No null-checks in Rust -- function will panic. *1) *)
+  (*     begin match op with *)
+  (*     | PEq -> env, Constant (Bool, "false") *)
+  (*     | PNeq ->  env, Constant (Bool, "true") *)
+  (*     end *)
+
   | EApp (e, es) ->
       let es =
         match es with
@@ -660,8 +675,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       env, Call (e, [], es)
   | ETApp (_, _, _) ->
       failwith "TODO: ETApp"
-  | EPolyComp _ ->
-      failwith "unexpected: EPolyComp"
+  | EPolyComp (_, t) ->
+      failwith (KPrint.bsprintf "unexpected: EPolyComp at type %a" PrintAst.Ops.ptyp t)
 
   | ELet (b, ({ node = EBufSub ({ node = EBound v_base; _ } as e_base, e_ofs); _ } as e1), e2) ->
       (* Keep initial environment to return after translation *)
@@ -724,6 +739,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let env0 = env in
 
       let env, e1, t = translate_array env false init in
+      (* KPrint.bprintf "Let %s: %a\n" b.node.name PrintMiniRust.ptyp t; *)
       let binding: MiniRust.binding = { name = b.node.name; typ = t; mut = true } in
       let env = push env binding in
       env0, Let (binding, e1, snd (translate_expr_with_type env e2 t_ret))
@@ -804,7 +820,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
   | EBufFree _ ->
       failwith "unexpected: EBufFree"
   | EBufNull ->
-      env, VecNew (List [])
+      env, possibly_convert (VecNew (List [])) (translate_type env e.typ)
   | EPushFrame ->
       failwith "unexpected: EPushFrame"
   | EPopFrame ->
@@ -888,9 +904,11 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       failwith "TODO: EComment"
   | EStandaloneComment _ ->
       failwith "TODO: EStandaloneComment"
-  | EAddrOf e ->
-      let env, e = translate_expr env e in
-      env, Borrow (Mut, e)
+  | EAddrOf e1 ->
+      let env, e1 = translate_expr env e1 in
+      (* TODO: determine if we need conversions here *)
+      (* possibly_convert (Borrow (Mut, e1)) (translate_type env e.typ) *)
+      env, e1
 
 let make_poly (t: MiniRust.typ) n: MiniRust.typ =
   match t with
@@ -938,7 +956,7 @@ let translate_decl env (d: Ast.decl) =
       let name = translate_lid env lid in
       let env = push_decl env lid (name, Function (type_parameters, List.map (fun (x: MiniRust.binding) -> x.typ) parameters, return_type)) in
       let env0 = List.fold_left push env parameters in
-      let _, body = translate_expr env0 body in
+      let _, body = translate_expr_with_type env0 body return_type in
       let public = not (List.mem Common.Private flags) in
       let inline = List.mem Common.Inline flags in
       env, Some (MiniRust.Function { type_parameters; parameters; return_type; body; name; public; inline })

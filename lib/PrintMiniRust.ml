@@ -182,7 +182,11 @@ let rec print_typ env (t: typ): document =
       group (parens (separate_map (comma ^^ break1) (print_typ env) ts)) ^/^
       print_typ env t
   | Bound n ->
-      string (lookup_type env n)
+      begin try
+        string (lookup_type env n)
+      with _ ->
+        bang ^^ bang ^^ int n
+      end
   | Name n ->
       print_name env n
   | Tuple ts ->
