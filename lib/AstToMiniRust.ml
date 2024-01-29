@@ -645,7 +645,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
   | EApp ({ node = EQualified ([ "LowStar"; "BufferOps" ], s); _ }, e1 :: e2 :: _ ) when KString.starts_with s "op_Star_Equals__" ->
       let env, e1 = translate_expr env e1 in
       let env, e2 = translate_expr env e2 in
-      env, Assign (Deref e1, e2)
+      env, Assign (Index (e1, MiniRust.zero_usize), e2)
 
   | EApp ({ node = ETApp (e, cgs, ts); _ }, es) ->
       assert (cgs = []);
@@ -837,8 +837,9 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
 
   | ESwitch _ ->
       failwith "TODO: ESwitch"
-  | EEnum _ ->
-      failwith "TODO: EEnum"
+  | EEnum lid ->
+      let name = lookup_type env (Helpers.assert_tlid e.typ) in
+      env, Name (name @ [ snd lid ])
 
   | EFlat fields ->
       let t_lid = Helpers.assert_tlid e.typ in
