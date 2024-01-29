@@ -393,10 +393,12 @@ let borrow_kind_of_bool b: MiniRust.borrow_kind =
 
 type config = {
   box: bool;
+  lifetime: MiniRust.lifetime option;
 }
 
 let default_config = {
   box = false;
+  lifetime = None;
 }
 
 let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): MiniRust.typ =
@@ -410,7 +412,7 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
         (* MiniRust.box (Slice (translate_type_with_config env config t)) *)
         Vec (translate_type_with_config env config t)
       else
-        Ref (None, borrow_kind_of_bool b, Slice (translate_type_with_config env config t))
+        Ref (config.lifetime, borrow_kind_of_bool b, Slice (translate_type_with_config env config t))
   | TArray (t, c) -> Array (translate_type_with_config env config t, int_of_string (snd c))
   | TQualified lid ->
       begin try
@@ -957,7 +959,7 @@ let translate_decl env (d: Ast.decl) =
         | _ ->
             false
         in
-        translate_type_with_config env { box } t
+        translate_type_with_config env { default_config with box } t
       in
       let name = translate_lid env lid in
       let env = push_decl env lid (name, Function (type_parameters, List.map (fun (x: MiniRust.binding) -> x.typ) parameters, return_type)) in
@@ -997,14 +999,28 @@ let translate_decl env (d: Ast.decl) =
           let generic_params = [] in
           let fields = List.map (fun (f, (t, _m)) ->
             let f = Option.get f in
-            { MiniRust.name = f; public = true; typ = translate_type_with_config env { box } t }
+            { MiniRust.name = f; public = true; typ = translate_type_with_config env { default_config with box } t }
           ) fields in
           let env = { env with struct_fields = LidMap.add lid fields env.struct_fields } in
           env, Some (Struct { name; public; fields; generic_params })
       | Enum idents ->
           let items = List.map (fun i -> translate_lid env i, None) idents in
           env, Some (Enumeration { name; public; items })
-      | Abbrev _
+      | Abbrev t ->
+          let has_inner_pointer = (object
+            inherit [_] Ast.reduce
+            method zero = false
+            method plus = (||)
+            method! visit_TBuf _ _ _ = true
+          end)#visit_typ () t in
+          let lifetime, generic_params =
+            if has_inner_pointer then
+              Some (MiniRust.Label "a"), [ MiniRust.Lifetime (Label "a") ]
+            else
+              None, []
+          in
+          let t = translate_type_with_config env { default_config with lifetime } t in
+          env, Some (Alias { name; public; body = t; generic_params })
       | Variant _
       | Union _
       | Forward _ ->

@@ -122,6 +122,12 @@ type decl =
     public: bool;
     generic_params: generic_param list;
   }
+  | Alias of {
+    name: name;
+    body: typ;
+    generic_params: generic_param list;
+    public: bool;
+  }
 
 and item =
   (* Not supporting tuples yet *)
@@ -185,6 +191,7 @@ let lift (k: int) (expr: expr): expr =
 
 let name_of_decl (d: decl) =
   match d with
+  | Alias { name; _ }
   | Enumeration { name; _ }
   | Struct { name; _ }
   | Function { name; _ }

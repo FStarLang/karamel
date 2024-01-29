@@ -459,6 +459,10 @@ let rec print_decl env (d: decl) =
       group @@
       group (print_pub public ^^ string "struct" ^/^ print_name env target_name ^^ print_generic_params generic_params) ^/^
       braces_with_nesting (print_struct env fields)
+  | Alias { generic_params; body; public; _ } ->
+      group @@
+      group (print_pub public ^^ string "type" ^/^ print_name env target_name  ^^ print_generic_params generic_params ^/^ equals) ^/^
+      group (print_typ env body ^^ semi)
 
 and print_generic_params params =
   if params = [] then
