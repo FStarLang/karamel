@@ -45,8 +45,8 @@ ENV FSTAR_HOME=$HOME/FStar
 RUN eval $(opam env) && .docker/build/install-deps.sh
 
 # CI dependencies: node.js, ctypes-foreign
-RUN opam depext ctypes-foreign
-RUN opam install ctypes-foreign
+RUN opam depext ctypes-foreign uucp
+RUN opam install ctypes-foreign uucp
 RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
 RUN sudo apt-get install -y --no-install-recommends nodejs
 
