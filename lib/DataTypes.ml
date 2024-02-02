@@ -1260,6 +1260,41 @@ let remove_full_matches = object (self)
             super#visit_EMatch env c scrut branches
 end
 
+let remove_empty_structs files =
+  let open Idents in
+  let empty_structs = (object
+
+    inherit [_] reduce
+
+    method zero = LidSet.empty
+    method plus = LidSet.union
+
+    method! visit_DType _ lid _ _ _ def =
+      if def = Flat [] then
+        LidSet.singleton lid
+      else
+        LidSet.empty
+  end)#visit_files () files in
+
+  (object
+
+    inherit [_] map as super
+
+    method! visit_TQualified _ lid =
+      if LidSet.mem lid empty_structs then
+        TUnit
+      else
+        TQualified lid
+
+    method! visit_EFlat ((_, t) as env) fields =
+      if fields = [] then begin
+        assert (LidSet.mem (Helpers.assert_tlid t) empty_structs);
+        EUnit
+      end else
+        super#visit_EFlat env fields
+  end)#visit_files () files
+
+
 (* Debug any intermediary AST as follows: *)
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
 (* debug_map (fst map); *)
@@ -1282,6 +1317,7 @@ let everything files =
   let files = (compile_simple_matches map)#visit_files () files in
   let files = (compile_all_matches map)#visit_files () files in
   let files = remove_non_scalar_casts#visit_files () files in
+  let files = remove_empty_structs files in
   map, files
 
 let anonymous_unions map files =
