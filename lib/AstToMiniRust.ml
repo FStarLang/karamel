@@ -677,8 +677,14 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       env, Call (e, [], es)
   | ETApp (_, _, _) ->
       failwith "TODO: ETApp"
-  | EPolyComp (_, t) ->
-      failwith (KPrint.bsprintf "unexpected: EPolyComp at type %a" PrintAst.Ops.ptyp t)
+
+  | EPolyComp (op, _t) ->
+      (* All that is left here is enumerations, which *do* derive eq. *)
+      begin match op with
+      | PEq -> env, Operator Eq
+      | PNeq -> env, Operator Neq
+      end
+      (* failwith (KPrint.bsprintf "unexpected: EPolyComp at type %a" PrintAst.Ops.ptyp t) *)
 
   | ELet (b, ({ node = EBufSub ({ node = EBound v_base; _ } as e_base, e_ofs); _ } as e1), e2) ->
       (* Keep initial environment to return after translation *)
@@ -835,8 +841,23 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
   | ECons _ ->
       failwith "TODO: ECons"
 
-  | ESwitch _ ->
-      failwith "TODO: ESwitch"
+  | ESwitch (scrut, patexprs) ->
+      let env, scrut_ = translate_expr env scrut in
+      let patexprs = List.map (fun (p, e) ->
+        let p =
+          match p with
+          | Ast.SConstant c ->
+              MiniRust.Literal c
+          | SEnum lid ->
+              let name = lookup_type env (Helpers.assert_tlid scrut.Ast.typ) in
+              StructP (name @ [ snd lid ])
+          | SWild ->
+              Wildcard
+        in
+        p, snd (translate_expr env e)
+      ) patexprs in
+      env, Match (scrut_, patexprs)
+
   | EEnum lid ->
       let name = lookup_type env (Helpers.assert_tlid e.typ) in
       env, Name (name @ [ snd lid ])

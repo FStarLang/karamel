@@ -84,6 +84,7 @@ and expr =
   | MethodCall of expr * name * expr list
   | Range of expr option * expr option * bool (* inclusive? *)
   | Struct of name * (string * expr) list
+  | Match of expr * (match_arm * expr) list
 
   (* Place expressions *)
   | Var of db_index
@@ -93,6 +94,14 @@ and expr =
   (* Operator expressions *)
   | Operator of op
   | Deref of expr
+
+and match_arm = pat
+
+and pat =
+  | Literal of constant
+  | Wildcard
+  | StructP of name (* TODO *)
+
 
 (* TODO: visitors incompatible with inline records *)
 type decl =
