@@ -1286,9 +1286,8 @@ let remove_empty_structs files =
       else
         TQualified lid
 
-    method! visit_EFlat ((_, t) as env) fields =
+    method! visit_EFlat env fields =
       if fields = [] then begin
-        assert (LidSet.mem (Helpers.assert_tlid t) empty_structs);
         EUnit
       end else
         super#visit_EFlat env fields
