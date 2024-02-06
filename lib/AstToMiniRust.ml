@@ -323,16 +323,18 @@ type env = {
   vars: (MiniRust.binding * Splits.info) list;
   prefix: string list;
   heap_structs: Idents.LidSet.t;
+  pointer_holding_structs: Idents.LidSet.t;
   struct_fields: MiniRust.struct_field list LidMap.t;
 }
 
-let empty heap_structs = {
+let empty heap_structs pointer_holding_structs = {
   decls = LidMap.empty;
   types = LidMap.empty;
   vars = [];
   prefix = [];
   struct_fields = LidMap.empty;
-  heap_structs
+  heap_structs;
+  pointer_holding_structs;
 }
 
 let push env (b: MiniRust.binding) =
@@ -567,6 +569,13 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         MethodCall (x, ["to_vec"], [])
     | _, Ref (_, Shared, Slice _), Vec _ ->
         MethodCall (x, ["to_vec"], [])
+
+    | _, Ref (_, b, t), Ref (_, b', t') when b = b' && t = t' ->
+        (* TODO: if field types are annotated with lifetimes, then we get a
+           comparison where one side has a lifetime and the other doesn't -- we
+           should probably run the arguments to this function through a
+           strip_lifetimes function or something. *)
+        x
 
     | _ ->
         if t = t_ret then
@@ -856,6 +865,15 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         in
         p, snd (translate_expr env e)
       ) patexprs in
+      (* Meh. We can't detect complete pattern matches, but we can't detect
+         incomplete ones either. Unreachable wildcards are a warning, incomplete
+         pattern matches are an error. *)
+      let patexprs =
+        if not (List.exists (fun (p, _) -> p = MiniRust.Wildcard) patexprs) then
+          patexprs @ [ Wildcard, Panic "Precondition of the function most likely violated" ]
+        else
+          patexprs
+      in
       env, Match (scrut_, patexprs)
 
   | EEnum lid ->
@@ -1013,15 +1031,23 @@ let translate_decl env (d: Ast.decl) =
   | DType (lid, flags, _, _, decl) ->
       (* creative naming for the lifetime *)
       let name = translate_lid env lid in
+      (* These sets are mutually exclusive, so we don't box *and* introduce a
+         lifetime at the same time *)
       let box = Idents.LidSet.mem lid env.heap_structs in
+      let lifetime =
+        if Idents.LidSet.mem lid env.pointer_holding_structs then
+          Some (MiniRust.Label "a")
+        else
+          None
+      in
       let env = push_type env lid name in
       let public = not (List.mem Common.Private flags) in
       match decl with
       | Flat fields ->
-          let generic_params = [] in
+          let generic_params = match lifetime with Some l -> [ MiniRust.Lifetime l ] | None -> [] in
           let fields = List.map (fun (f, (t, _m)) ->
             let f = Option.get f in
-            { MiniRust.name = f; public = true; typ = translate_type_with_config env { default_config with box } t }
+            { MiniRust.name = f; public = true; typ = translate_type_with_config env { box; lifetime } t }
           ) fields in
           let env = { env with struct_fields = LidMap.add lid fields env.struct_fields } in
           env, Some (Struct { name; public; fields; generic_params })
@@ -1062,7 +1088,7 @@ let identify_path_components_rev filename =
     components := String.sub filename !start (String.length filename - !start) :: !components;
   !components
 
-let compute_likely_heap_structs files =
+let compute_struct_info files =
   let returned = (object
     inherit [_] Ast.reduce
     method zero = Idents.LidSet.empty
@@ -1088,10 +1114,12 @@ let compute_likely_heap_structs files =
           Idents.LidSet.empty
   end)#visit_files () files in
 
-  Idents.LidSet.inter returned with_inner_pointers
+  let heap_structs = Idents.LidSet.inter returned with_inner_pointers in
+  (* TODO: the latter needs to be a fixpoint computation *)
+  heap_structs, Idents.LidSet.diff with_inner_pointers heap_structs
 
 let translate_files files =
-  let heap_structs = compute_likely_heap_structs files in
+  let heap_structs, pointer_holding_structs = compute_struct_info files in
   if Options.debug "rs-structs" then begin
     KPrint.bprintf "The following types are understood to be heap-allocated:\n";
     List.iter (KPrint.bprintf "  %a\n" PrintAst.Ops.plid) (Idents.LidSet.elements heap_structs)
@@ -1122,7 +1150,7 @@ let translate_files files =
       KPrint.bprintf "... translated file %s (%d/%d)\n" (String.concat "::" prefix) (List.length decls) total;
     let decls = KList.filter_some decls in
     env, (prefix, decls) :: files
-  ) (empty heap_structs, []) files in
+  ) (empty heap_structs pointer_holding_structs, []) files in
 
   if Options.debug "rs" then
     LidMap.iter (fun lid (name, _) ->

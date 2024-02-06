@@ -75,11 +75,15 @@ let push env x =
   in
   { env with vars = x :: env.vars }
 
-let register_global env source_name =
-  (* Assuming no collisions in the source *)
+let rec register_global env source_name =
   let source_prefix, source_final = KList.split_at_last source_name in
-  let target_name = source_prefix @ [ avoid_keywords (lexical_conventions source_final) ] in
-  { env with globals = NameMap.add source_name target_name env.globals }, target_name
+  (* There might be collisions in the source. This is neither optimal nor
+     correct. *)
+  if NameMap.mem source_name env.globals then
+    register_global env (source_prefix @ [ source_final ^ "·" ])
+  else
+    let target_name = source_prefix @ [ avoid_keywords (lexical_conventions source_final) ] in
+    { env with globals = NameMap.add source_name target_name env.globals }, target_name
 
 let push_type env x = { env with type_vars = x :: env.type_vars }
 
@@ -341,7 +345,7 @@ and print_expr env (context: int) (e: expr): document =
   | Unit ->
       lparen ^^ rparen
   | Panic msg ->
-      group (string "panic!" ^^ parens_with_nesting (string msg))
+      group (string "panic!" ^^ parens_with_nesting (dquotes (string msg)))
   | IfThenElse (e1, e2, e3) ->
       group @@
       group (string "if" ^/^ print_expr env max_int e1) ^/^
@@ -417,8 +421,9 @@ and print_expr env (context: int) (e: expr): document =
   | Match (scrut, patexprs) ->
       group @@
       group (string "match" ^/^ print_expr env max_int scrut) ^/^ braces_with_nesting (
-        separate_map break1 (fun (p, e) ->
-          group (print_pat env p ^/^ string "=>") ^/^ group (nest 2 (print_expr env max_int e))
+        separate_map (comma ^^ break1) (fun (p, e) ->
+          group @@
+          group (print_pat env p ^/^ string "=>") ^^ group (nest 2 (break1 ^^ print_expr env max_int e))
       ) patexprs)
 
 and print_pat env (p: pat) =

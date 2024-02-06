@@ -26,10 +26,17 @@ let write_file file =
         PrintMiniRust.print_decls prefix decls
       in
       PPrint.ToChannel.pretty 0.95 100 oc doc
-    )
+    );
+    Some filename
+  else
+    None
 
 let write_all files =
   Driver.maybe_create_output_dir ();
-  List.iter write_file files;
+  let filenames = List.map write_file files in
+  let filenames = KList.filter_some filenames in
+  if Options.debug "rs-filenames" then
+    KPrint.bfprintf stdout "INFO: wrote %d files\n%s\n" (List.length filenames)
+      (String.concat "\n" filenames);
   if !PrintMiniRust.failures > 0 then
     KPrint.bprintf "%s%d total printing errors%s\n" Ansi.red !PrintMiniRust.failures Ansi.reset
