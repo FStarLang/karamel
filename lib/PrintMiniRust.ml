@@ -463,8 +463,9 @@ let rec print_decl env (d: decl) =
       group @@
       group (print_pub public ^^ string "const" ^/^ print_name env target_name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
       nest 4 (break1 ^^ print_expr env max_int body) ^^ semi
-  | Enumeration { items; public; _ } ->
+  | Enumeration { items; public; derives; _ } ->
       group @@
+      group (print_derives derives) ^/^
       group (print_pub public ^^ string "enum" ^/^ print_name env target_name) ^/^
       braces_with_nesting (
         separate_map (comma ^^ hardline) (fun (item_name, item_struct) ->
@@ -481,6 +482,12 @@ let rec print_decl env (d: decl) =
       group @@
       group (print_pub public ^^ string "type" ^/^ print_name env target_name  ^^ print_generic_params generic_params ^/^ equals) ^/^
       group (print_typ env body ^^ semi)
+
+and print_derives traits =
+  group @@
+  string "#[derive(" ^^
+  separate_map (comma ^^ break1) (function PartialEq -> string "PartialEq") traits ^^
+  string ")]"
 
 and print_generic_params params =
   if params = [] then

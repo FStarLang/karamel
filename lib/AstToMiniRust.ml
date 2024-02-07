@@ -954,37 +954,37 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
 
 let make_poly (t: MiniRust.typ) n: MiniRust.typ =
   match t with
-  | Function (0, ts, t) ->
+  | Function (n', ts, t) ->
+      assert (n' = 0);
       Function (n, ts, t)
   | _ ->
-      failwith "impossible: make_poly received a non-function type"
+      (* Constants aren't supposed to be polymorphic *)
+      assert (n = 0);
+      t
 
-let translate_decl env (d: Ast.decl) =
-  let is_handled_primitively = function
-    | [ "LowStar"; "BufferOps" ], s ->
-        KString.starts_with s "op_Bang_Star__" ||
-        KString.starts_with s "op_Star_Equals__"
-    | _ ->
-        false
-  in
+let is_handled_primitively = function
+  | [ "LowStar"; "BufferOps" ], s ->
+      KString.starts_with s "op_Bang_Star__" ||
+      KString.starts_with s "op_Star_Equals__"
+  | _ ->
+      false
+
+(* In Rust, like in C, all the declarations from the current module are in
+ * scope immediately. This requires us to duplicate a little bit of work. *)
+let bind_decl env (d: Ast.decl): env =
   match d with
   | DFunction (_, _, _, _, _, lid, _, _) when is_handled_primitively lid ->
-      env, None
-
-  | DFunction (_cc, flags, n_cgs, type_parameters, t, lid, args, body) ->
-      assert (type_parameters = 0 && n_cgs = 0);
-      if Options.debug "rs" then
-        KPrint.bprintf "Ast.DFunction (%a)\n" PrintAst.Ops.plid lid;
-      let args, body =
+      env
+  | DFunction (_cc, _flags, _n_cgs, type_parameters, t, lid, args, _body) ->
+      let name = translate_lid env lid in
+      let args =
         if List.length args = 1 && (List.hd args).Ast.typ = TUnit then
-          [], DeBruijn.subst Helpers.eunit 0 body
+          []
         else
-          args, body
+          args
       in
       let parameters = List.map (fun (b: Ast.binder) ->
-        let typ = translate_type env b.typ in
-        let mut = false in
-        { MiniRust.mut; name = b.Ast.node.Ast.name; typ }
+        translate_type env b.typ
       ) args in
       let is_likely_heap_allocation =
         KString.exists (snd lid) "new" ||
@@ -1001,59 +1001,103 @@ let translate_decl env (d: Ast.decl) =
         in
         translate_type_with_config env { default_config with box } t
       in
-      let name = translate_lid env lid in
-      let env = push_decl env lid (name, Function (type_parameters, List.map (fun (x: MiniRust.binding) -> x.typ) parameters, return_type)) in
-      let env0 = List.fold_left push env parameters in
-      let _, body = translate_expr_with_type env0 body return_type in
-      let public = not (List.mem Common.Private flags) in
-      let inline = List.mem Common.Inline flags in
-      env, Some (MiniRust.Function { type_parameters; parameters; return_type; body; name; public; inline })
+      push_decl env lid (name, Function (type_parameters, parameters, return_type))
 
-  | DGlobal (flags, lid, _, t, e) ->
-      let body, typ = match e.node with
+  | DGlobal (_flags, lid, _, t, e) ->
+      let typ = match e.node with
         | EBufCreate _ | EBufCreateL _ ->
-            let _, body, typ = translate_array env true e in body, typ
+            (* TODO: split out the type computation *)
+            let _, _, typ = translate_array env true e in
+            typ
         | _ ->
-            snd (translate_expr env e), translate_type env t
+            translate_type env t
       in
-      if Options.debug "rs" then
-        KPrint.bprintf "Ast.DGlobal (%a: %s)\n" PrintAst.Ops.plid lid (MiniRust.show_typ typ);
       let name = translate_lid env lid in
-      let public = not (List.mem Common.Private flags) in
-      let env = push_decl env lid (name, typ) in
-      env, Some (MiniRust.Constant { name; typ; body; public })
+      push_decl env lid (name, typ)
 
   | DExternal (_, _, _, type_parameters, lid, t, _param_names) ->
       let name = translate_unknown_lid lid in
-      let env = push_decl env lid (name, make_poly (translate_type env t) type_parameters) in
-      env, None
+      push_decl env lid (name, make_poly (translate_type env t) type_parameters)
 
-  | DType (lid, flags, _, _, decl) ->
-      (* creative naming for the lifetime *)
+  | DType (lid, _flags, _, _, decl) ->
       let name = translate_lid env lid in
-      (* These sets are mutually exclusive, so we don't box *and* introduce a
-         lifetime at the same time *)
-      let box = Idents.LidSet.mem lid env.heap_structs in
-      let lifetime =
-        if Idents.LidSet.mem lid env.pointer_holding_structs then
-          Some (MiniRust.Label "a")
-        else
-          None
-      in
       let env = push_type env lid name in
-      let public = not (List.mem Common.Private flags) in
       match decl with
       | Flat fields ->
-          let generic_params = match lifetime with Some l -> [ MiniRust.Lifetime l ] | None -> [] in
+          (* These sets are mutually exclusive, so we don't box *and* introduce a
+             lifetime at the same time *)
+          let box = Idents.LidSet.mem lid env.heap_structs in
+          let lifetime =
+            if Idents.LidSet.mem lid env.pointer_holding_structs then
+              Some (MiniRust.Label "a")
+            else
+              None
+          in
           let fields = List.map (fun (f, (t, _m)) ->
             let f = Option.get f in
             { MiniRust.name = f; public = true; typ = translate_type_with_config env { box; lifetime } t }
           ) fields in
-          let env = { env with struct_fields = LidMap.add lid fields env.struct_fields } in
-          env, Some (Struct { name; public; fields; generic_params })
+          { env with struct_fields = LidMap.add lid fields env.struct_fields }
+      | _ ->
+          env
+
+
+let translate_decl env (d: Ast.decl): MiniRust.decl option =
+  match d with
+  | DFunction (_, _, _, _, _, lid, _, _) when is_handled_primitively lid ->
+      None
+  | DFunction (_cc, flags, n_cgs, type_parameters, _t, lid, args, body) ->
+      assert (type_parameters = 0 && n_cgs = 0);
+      if Options.debug "rs" then
+        KPrint.bprintf "Ast.DFunction (%a)\n" PrintAst.Ops.plid lid;
+      let name, parameters, return_type =
+        match lookup_decl env lid with
+        | name, Function (_, parameters, return_type) -> name, parameters, return_type
+        | _ -> failwith "impossible"
+      in
+      let body, args = if parameters = [] then DeBruijn.subst Helpers.eunit 0 body, [] else body, args in
+      let parameters = List.map2 (fun typ a -> { MiniRust.mut = false; name = a.Ast.node.Ast.name; typ }) parameters args in
+      let env = List.fold_left push env parameters in
+      let _, body = translate_expr_with_type env body return_type in
+      let public = not (List.mem Common.Private flags) in
+      let inline = List.mem Common.Inline flags in
+      Some (MiniRust.Function { type_parameters; parameters; return_type; body; name; public; inline })
+
+  | DGlobal (flags, lid, _, _t, e) ->
+      let name, typ = lookup_decl env lid in
+      if Options.debug "rs" then
+        KPrint.bprintf "Ast.DGlobal (%a: %s)\n" PrintAst.Ops.plid lid (MiniRust.show_typ typ);
+      let body = match e.node with
+        | EBufCreate _ | EBufCreateL _ ->
+            (* TODO: split out body computation *)
+            let _, body, _ = translate_array env true e in body
+        | _ ->
+            snd (translate_expr env e)
+      in
+      let public = not (List.mem Common.Private flags) in
+      Some (MiniRust.Constant { name; typ; body; public })
+
+  | DExternal _ ->
+      None
+
+  | DType (lid, flags, _, _, decl) ->
+      (* creative naming for the lifetime *)
+      let name = lookup_type env lid in
+      let public = not (List.mem Common.Private flags) in
+      match decl with
+      | Flat _ ->
+          let lifetime =
+            if Idents.LidSet.mem lid env.pointer_holding_structs then
+              Some (MiniRust.Label "a")
+            else
+              None
+          in
+          let generic_params = match lifetime with Some l -> [ MiniRust.Lifetime l ] | None -> [] in
+          let fields = LidMap.find lid env.struct_fields in
+          Some (Struct { name; public; fields; generic_params })
       | Enum idents ->
           let items = List.map (fun i -> translate_lid env i, None) idents in
-          env, Some (Enumeration { name; public; items })
+          Some (Enumeration { name; public; items; derives = [ PartialEq ] })
       | Abbrev t ->
           let has_inner_pointer = (object
             inherit [_] Ast.reduce
@@ -1068,7 +1112,7 @@ let translate_decl env (d: Ast.decl) =
               None, []
           in
           let t = translate_type_with_config env { default_config with lifetime } t in
-          env, Some (Alias { name; public; body = t; generic_params })
+          Some (Alias { name; public; body = t; generic_params })
       | Variant _
       | Union _
       | Forward _ ->
@@ -1133,21 +1177,38 @@ let translate_files files =
       KPrint.bprintf "Translating file %s\n" (String.concat "::" prefix);
     let total = List.length decls in
     let env = { env with prefix } in
-    let env, decls = List.fold_left (fun (env, decls) d ->
+
+    (* Step 1: bind all declarations and add them to the environment with their types *)
+    let env = List.fold_left (fun env d ->
       try
-        let env, d = translate_decl env d in
-        env, d :: decls
+        bind_decl env d
+      with e ->
+        (* We do not increase failures as this will be counted below. *)
+        KPrint.bprintf "%sERROR translating type of %a: %s%s\n%s\n" Ansi.red
+          PrintAst.Ops.plid (Ast.lid_of_decl d)
+          (Printexc.to_string e) Ansi.reset
+          (Printexc.get_backtrace ());
+        env
+    ) env decls in
+
+    (* Step 2: translate all declarations themselves. If step 1 didn't succeed
+       for some declaration, this will fail with Not_found via either
+       lookup_decl or lookup_type *)
+    let decls = List.map (fun d ->
+      try
+        translate_decl env d
       with e ->
         incr failures;
         KPrint.bprintf "%sERROR translating %a: %s%s\n%s\n" Ansi.red
           PrintAst.Ops.plid (Ast.lid_of_decl d)
           (Printexc.to_string e) Ansi.reset
           (Printexc.get_backtrace ());
-        env, decls
-    ) (env, []) decls in
-    let decls = List.rev decls in
+        None
+    ) decls in
+
     if Options.debug "rs" then
       KPrint.bprintf "... translated file %s (%d/%d)\n" (String.concat "::" prefix) (List.length decls) total;
+
     let decls = KList.filter_some decls in
     env, (prefix, decls) :: files
   ) (empty heap_structs pointer_holding_structs, []) files in

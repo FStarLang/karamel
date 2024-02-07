@@ -123,6 +123,7 @@ type decl =
   | Enumeration of {
     name: name;
     items: item list;
+    derives: trait list;
     public: bool;
   }
   | Struct of {
@@ -150,6 +151,9 @@ and struct_field = {
   typ: typ;
   public: bool;
 }
+
+and trait =
+  | PartialEq
 
 (* Some visitors for name management *)
 
