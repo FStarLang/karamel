@@ -213,14 +213,23 @@ let bytes_in = function
  * had static storage duration, i.e. with zero.). For prettyness, leave at least
  * one zero, unless the array was empty to start with (admissible with globals). *)
 let trim_trailing_zeros l =
-  let rec trim_trailing_zeros = function
-    | CStar.Constant (_, "0") :: tl -> trim_trailing_zeros tl
-    | [] -> [ CStar.Constant (K.UInt32, "0") ]
+  let rec all_zeros = function
+    | InitExpr (C11.Constant (_, "0")) -> true
+    | InitExpr (C11.Cast (_, Constant (_, "0"))) -> true
+    | Initializer inits -> List.for_all all_zeros inits
+    | _ -> false
+  in
+
+  let rec trim_trailing_zeros: C11.init list -> C11.init list = function
+    | hd :: tl when all_zeros hd -> trim_trailing_zeros tl
+    | [] -> [ InitExpr (C11.Constant (K.UInt32, "0")) ]
     | l -> List.rev l
   in
+
   match l with
-  | [] -> []
-  | _ -> trim_trailing_zeros (List.rev l)
+  | Initializer [] -> Initializer []
+  | Initializer l -> Initializer (trim_trailing_zeros (List.rev l))
+  | l -> l
 
 (* Turns the ML declaration inside-out to match the C reading of a type.
  *   See: en.cppreference.com/w/c/language/declarations.
@@ -627,17 +636,21 @@ and mk_stmt m (stmt: stmt): C.stmt list =
         uses createL, but we don't have (yet) codegen for this:\n" ^
         CStar.show_stmt s)
 
-  | Decl (binder, BufCreateL (Stack, inits)) ->
+  | Decl (binder, (BufCreateL (Stack, inits) as init_expr)) ->
       (* Per the C standard, static initializers guarantee for missing fields
        * that they're initialized as if they had static storage duration, i.e.
        * with zero. *)
       let t = ensure_array binder.typ (Constant (K.uint32_of_int (List.length inits))) in
       let alignment = mk_alignment m (assert_array t) in
-      let inits = trim_trailing_zeros inits in
       let qs, spec, decl = mk_spec_and_declarator m binder.name t in
-      [ Decl (qs, spec, None, None, { maybe_unused = false }, [ decl, alignment, Some (Initializer (List.map (fun e ->
-        InitExpr (mk_expr m e)
-      ) inits))])]
+      let rec to_initializer = function
+        | BufCreateL (Stack, inits) ->
+            Initializer (List.map to_initializer inits)
+        | e ->
+            InitExpr (mk_expr m e)
+      in
+      let init_expr = trim_trailing_zeros (to_initializer init_expr) in
+      [ Decl (qs, spec, None, None, { maybe_unused = false }, [ decl, alignment, Some init_expr])]
 
   | Decl (binder, e) ->
       let qs, spec, decl = mk_spec_and_declarator m binder.name binder.typ in
@@ -1119,10 +1132,10 @@ let mk_function_or_global_body m (d: decl): C.declaration_or_function list =
         | Any ->
             wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, static, extra, [ decl, alignment, None ])))
         | BufCreateL (_, es) ->
-            let es = trim_trailing_zeros es in
             let es = List.map (struct_as_initializer m) es in
+            let es = trim_trailing_zeros (Initializer es) in
             wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, static, extra, [
-              decl, alignment, Some (Initializer es) ])))
+              decl, alignment, Some es ])))
         (* Global static arrays of arithmetic type are initialized implicitly to 0 *)
         | BufCreate (_, Constant (_, "0"), _)
         | BufCreate (_, CStar.Bool false, _)
