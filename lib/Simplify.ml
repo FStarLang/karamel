@@ -898,6 +898,21 @@ let rec flag_short_circuit loc t e0 es =
       let lhs = lhs0 @ List.flatten lhss in
       lhs, with_type t (EApp (e0, es))
 
+(* When allocating an array, whether the initial elements of the array need to
+   be hoisted depend on the type; if it's an array of pointers, yes, we host. If
+   it's an array of arrays, we leave initializer lists in order to fill storage.
+   *)
+and maybe_hoist_initializer loc t e =
+  match e.node with
+  | EBufCreate _ when Helpers.is_array t ->
+      failwith "expected EBufCreateL here"
+  | EBufCreateL (l, es) when Helpers.is_array t ->
+      let lhs, es = List.split (List.map (maybe_hoist_initializer loc (Helpers.assert_tarray t)) es) in
+      let lhs = List.flatten lhs in
+      lhs, with_type t (EBufCreateL (l, es))
+  | _ ->
+      hoist_expr loc Unspecified e
+
 and hoist_stmt loc e =
   let mk = with_type e.typ in
   match e.node with
@@ -1136,7 +1151,7 @@ and hoist_expr loc pos e =
   | EBufCreate (l, e1, e2) ->
       let t = e.typ in
       let lhs1, e1 = hoist_expr loc Unspecified e1 in
-      let lhs2, e2 = hoist_expr loc Unspecified e2 in
+      let lhs2, e2 = maybe_hoist_initializer loc (Helpers.assert_tbuf_or_tarray t) e2 in
       if pos = UnderStmtLet then
         lhs1 @ lhs2, mk (EBufCreate (l, e1, e2))
       else
@@ -1145,7 +1160,7 @@ and hoist_expr loc pos e =
 
   | EBufCreateL (l, es) ->
       let t = e.typ in
-      let lhs, es = List.split (List.map (hoist_expr loc Unspecified) es) in
+      let lhs, es = List.split (List.map (maybe_hoist_initializer loc (Helpers.assert_tbuf_or_tarray t)) es) in
       let lhs = List.flatten lhs in
       if pos = UnderStmtLet then
         lhs, mk (EBufCreateL (l, es))
