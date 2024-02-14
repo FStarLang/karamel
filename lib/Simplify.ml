@@ -1979,10 +1979,15 @@ let debug env =
     KPrint.bprintf "C name %s was %a\n" c_name plid original
   ) original_of_c_name
 
-(* Allocate C names avoiding keywords and name collisions. *)
-let allocate_c_names (files: file list): GlobalNames.mapping =
+(* Returns the internal env for further name extension. *)
+let allocate_c_env (files: file list): scope_env =
   let env = GlobalNames.create (), Hashtbl.create 41 in
   record_toplevel_names#visit_files env files;
   if Options.debug "c-names" then
     debug env;
-  GlobalNames.mapping (fst env)
+  env
+
+(* Allocate C names avoiding keywords and name collisions. Mapping cannot be extended any further
+   since the internal data structures are gone. *)
+let allocate_c_names (files: file list): GlobalNames.mapping =
+  GlobalNames.mapping (fst (allocate_c_env files))
