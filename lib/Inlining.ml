@@ -354,7 +354,7 @@ let cross_call_analysis files =
       in
 
       let visit in_body = object (self)
-        inherit [_] iter
+        inherit [_] iter as super
 
         method! visit_TQualified () name =
           (* Cross-compilation-unit reference to `name`, a type that we need in
@@ -370,8 +370,26 @@ let cross_call_analysis files =
             record_call_from_to lid name
 
         method! visit_TApp () name ts =
-          self#visit_TQualified () name;
-          List.iter (self#visit_typ ()) ts
+          match Hashtbl.find_opt MonomorphizationState.state (name, ts, []) with
+          | Some (_, lid) ->
+              self#visit_TQualified () lid
+          | None ->
+              self#visit_TQualified () name;
+              List.iter (self#visit_typ ()) ts
+
+        method! visit_TTuple () ts =
+          match Hashtbl.find_opt MonomorphizationState.state (tuple_lid, ts, []) with
+          | Some (_, lid) ->
+              self#visit_TQualified () lid
+          | None ->
+              super#visit_TTuple () ts
+
+        method! visit_TCgApp () name ts =
+          match Hashtbl.find_opt MonomorphizationState.state (flatten_tapp (TCgApp (name, ts))) with
+          | Some (_, lid) ->
+              self#visit_TQualified () lid
+          | None ->
+              super#visit_TCgApp () name ts
 
         method! visit_EQualified _ name =
           (* Cross-compilation unit calls force the callee to become visible, at
