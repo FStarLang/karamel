@@ -353,7 +353,7 @@ let cross_call_analysis files =
             KPrint.bprintf "[maybe_needs_getter]: definition not found %a\n" plid name
       in
 
-      let visit in_body = object (self)
+      let rec visit lid in_body = object (self)
         inherit [_] iter as super
 
         method! visit_TQualified () name =
@@ -391,6 +391,24 @@ let cross_call_analysis files =
           | None ->
               super#visit_TCgApp () name ts
 
+        method! visit_ETApp ((), t) e _ ts =
+          (* Monomorphization happened long ago. If we hit this, this means we are the call-site for
+             a type- or cg-polymorphic external function. The callee retains its original
+             polymorphic signature (e.g. \0. () -> uint8[0] * uint8[0]), and the call-site (here)
+             provides the arguments (e.g. 840).
+
+             We need to do something, because once the user implements (with a macro) the
+             type- or cg-polymorphic definition, they will receive those type-names as arguments (to
+             be leveraged by the macro definition), meaning they will need access to those type
+             definitions to successfully implement the macro. (See Kyber for examples of this.)
+
+             Therefore, we treat this as a cross-call from the external function prototype (even
+             though it most likely won't be emitted, since it's too polymorphic for C), towards the
+             type definitions themselves. Thanks to the three cases above, we can simply substitute
+             and recursively visit. *)
+          let lid = Helpers.assert_elid e.node in
+          List.iter ((visit lid false)#visit_typ ()) (t :: ts)
+
         method! visit_EQualified _ name =
           (* Cross-compilation unit calls force the callee to become visible, at
              least through an internal header. *)
@@ -416,6 +434,8 @@ let cross_call_analysis files =
           if cross_call lid name then
             maybe_needs_getter name
       end in
+
+      let visit = visit lid in
 
       begin match d with
       | DFunction (_, _, _, _, t, _, bs, e) ->
