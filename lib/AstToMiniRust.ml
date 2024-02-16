@@ -417,10 +417,17 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
         Ref (config.lifetime, borrow_kind_of_bool b, Slice (translate_type_with_config env config t))
   | TArray (t, c) -> Array (translate_type_with_config env config t, int_of_string (snd c))
   | TQualified lid ->
+      let generic_params =
+        if Idents.LidSet.mem lid env.pointer_holding_structs && Option.is_some config.lifetime then
+          (* We are within a type declaration *)
+          [ MiniRust.Lifetime (Option.get config.lifetime) ]
+        else
+          []
+      in
       begin try
-        Name (lookup_type env lid)
+        Name (lookup_type env lid, generic_params)
       with Not_found ->
-        Name (translate_unknown_lid lid)
+        Name (translate_unknown_lid lid, generic_params)
       end
   | TArrow _ ->
       let t, ts = Helpers.flatten_arrow t in
@@ -555,13 +562,13 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
            do retain them in our Function type -- so we need to relax the comparison here *)
         x
     (* More conversions due to box-ing types. *)
-    | _, App (Name ["Box"], [Slice _]), Ref (_, Mut, Slice _) ->
+    | _, App (Name (["Box"], _), [Slice _]), Ref (_, Mut, Slice _) ->
         Borrow (Mut, Deref x)
-    | _, Ref (_, Mut, Slice _), App (Name ["Box"], [Slice _]) ->
+    | _, Ref (_, Mut, Slice _), App (Name (["Box"], _), [Slice _]) ->
         MethodCall (Borrow (Shared, Deref x), ["into"], [])
-    | _, Ref (_, Shared, Slice _), App (Name ["Box"], [Slice _]) ->
+    | _, Ref (_, Shared, Slice _), App (Name (["Box"], _), [Slice _]) ->
         MethodCall (x, ["into"], [])
-    | _, Vec _, App (Name ["Box"], [Slice _]) ->
+    | _, Vec _, App (Name (["Box"], _), [Slice _]) ->
         MethodCall (MethodCall (x, ["try_into"], []), ["unwrap"], [])
 
     (* More conversions due to vec-ing types *)
@@ -570,6 +577,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
     | _, Ref (_, Shared, Slice _), Vec _ ->
         MethodCall (x, ["to_vec"], [])
 
+    | _, Name (n, _), Name (n', _) when n = n' ->
+        x
     | _, Ref (_, b, t), Ref (_, b', t') when b = b' && t = t' ->
         (* TODO: if field types are annotated with lifetimes, then we get a
            comparison where one side has a lifetime and the other doesn't -- we
@@ -1027,6 +1036,7 @@ let bind_decl env (d: Ast.decl): env =
           (* These sets are mutually exclusive, so we don't box *and* introduce a
              lifetime at the same time *)
           let box = Idents.LidSet.mem lid env.heap_structs in
+          KPrint.bprintf "%a: lifetime=%b\n" PrintAst.Ops.plid lid (Idents.LidSet.mem lid env.pointer_holding_structs);
           let lifetime =
             if Idents.LidSet.mem lid env.pointer_holding_structs then
               Some (MiniRust.Label "a")
@@ -1143,23 +1153,58 @@ let compute_struct_info files =
       | _ -> Idents.LidSet.empty
   end)#visit_files () files in
 
-  let with_inner_pointers = (object
-    inherit [_] Ast.reduce
-    method zero = Idents.LidSet.empty
-    method plus = Idents.LidSet.union
-    method! visit_DType _ lid _ _ _ def =
-      match def with
-      | Flat fields ->
-          if List.exists (fun (_, (t, _)) -> match t with Ast.TBuf _ -> true | _ -> false) fields then
-            Idents.LidSet.singleton lid
-          else
-            Idents.LidSet.empty
-      | _ ->
-          Idents.LidSet.empty
-  end)#visit_files () files in
+  let with_inner_pointers =
+    let module F = Fix.Fix.ForOrderedType(struct
+      type t = Ast.lident
+      let compare = Stdlib.compare
+    end)(struct
+      type property = bool
+      let bottom = false
+      let equal = (=)
+      let is_maximal x = x
+    end) in
+
+    let flat_map = List.fold_left (fun acc (_, decls) ->
+      List.fold_left (fun acc decl ->
+        match decl with
+        | Ast.DType (lid, _, _, _, Flat fields) ->
+            Idents.LidMap.add lid fields acc
+        | _ ->
+            acc
+      ) acc decls
+    ) Idents.LidMap.empty files in
+
+    let equations lid valuation =
+      if not (Idents.LidMap.mem lid flat_map) then
+        false
+      else
+        let fields = Idents.LidMap.find lid flat_map in
+        let recursively_contains_pointers = (object(self)
+            inherit [_] Ast.reduce as super
+            method zero = false
+            method plus = (||)
+            method! visit_TQualified _ lid =
+              valuation lid
+            method! visit_TApp env lid ts =
+              self#plus (valuation lid) (super#visit_TApp env lid ts)
+          end)#visit_fields_t_opt () fields
+        in
+        let directly_contains_pointers =
+          List.exists (fun (_, (t, _)) -> match t with Ast.TBuf _ -> true | _ -> false) fields
+        in
+        KPrint.bprintf "%a contains pointers? %b\n" PrintAst.Ops.plid lid
+          (directly_contains_pointers || recursively_contains_pointers);
+        directly_contains_pointers || recursively_contains_pointers
+    in
+
+    let valuation = F.lfp equations in
+
+    Idents.LidMap.fold (fun lid _ acc ->
+      if valuation lid then Idents.LidSet.add lid acc else acc
+    ) flat_map Idents.LidSet.empty
+  in
 
   let heap_structs = Idents.LidSet.inter returned with_inner_pointers in
-  (* TODO: the latter needs to be a fixpoint computation *)
   heap_structs, Idents.LidSet.diff with_inner_pointers heap_structs
 
 let translate_files files =

@@ -191,13 +191,21 @@ let rec print_typ env (t: typ): document =
       with _ ->
         bang ^^ bang ^^ int n
       end
-  | Name n ->
-      print_name env n
+  | Name (n, params) ->
+      print_name env n ^^ print_generic_params params
   | Tuple ts ->
       group (parens (separate_map (comma ^^ break1) (print_typ env) ts))
   | App (t, ts) ->
       group (print_typ env t ^^
         angles (separate_map (comma ^^ break1) (print_typ env) ts))
+
+and print_generic_params params =
+  if params = [] then
+    empty
+  else
+    break1 ^^ angles (separate_map (comma ^^ break1) (function
+      | Lifetime l -> print_lifetime l
+    ) params)
 
 let print_mut b =
   if b then string "mut" ^^ break1 else empty
@@ -488,14 +496,6 @@ and print_derives traits =
   string "#[derive(" ^^
   separate_map (comma ^^ break1) (function PartialEq -> string "PartialEq") traits ^^
   string ")]"
-
-and print_generic_params params =
-  if params = [] then
-    empty
-  else
-    break1 ^^ angles (separate_map (comma ^^ break1) (function
-      | Lifetime l -> print_lifetime l
-    ) params)
 
 and print_struct env fields =
   separate_map (comma ^^ break1) (fun { name; typ; public } ->

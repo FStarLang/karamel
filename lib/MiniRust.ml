@@ -31,14 +31,17 @@ type typ_ =
   | Slice of typ_ (* always appears underneath Ref *)
   | Unit
   | Function of int * typ_ list * typ_
-  | Name of name
+  | Name of name * generic_param list
   | Tuple of typ_ list
   | App of typ_ * typ_ list
   | Bound of db_index
 [@@deriving show]
 
+and generic_param =
+  | Lifetime of lifetime
+
 let box t =
-  App (Name ["Box"], [t])
+  App (Name (["Box"], []), [t])
 
 type typ = typ_ [@ opaque ]
 [@@deriving show,
@@ -142,9 +145,6 @@ type decl =
 and item =
   (* Not supporting tuples yet *)
   name * struct_field list option
-
-and generic_param =
-  | Lifetime of lifetime
 
 and struct_field = {
   name: string;
