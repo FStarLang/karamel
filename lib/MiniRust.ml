@@ -154,6 +154,8 @@ and struct_field = {
 
 and trait =
   | PartialEq
+  | Clone
+  | Copy
 
 (* Some visitors for name management *)
 

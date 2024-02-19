@@ -317,8 +317,14 @@ end
 
 (* Environments *)
 
+module NameSet = Set.Make(struct
+  type t = string list
+  let compare = compare
+end)
+
 type env = {
   decls: (MiniRust.name * MiniRust.typ) LidMap.t;
+  global_scope: NameSet.t;
   types: MiniRust.name LidMap.t;
   vars: (MiniRust.binding * Splits.info) list;
   prefix: string list;
@@ -329,6 +335,7 @@ type env = {
 
 let empty heap_structs pointer_holding_structs = {
   decls = LidMap.empty;
+  global_scope = NameSet.empty;
   types = LidMap.empty;
   vars = [];
   prefix = [];
@@ -453,9 +460,25 @@ let translate_type env = translate_type_with_config env default_config
    pretty-printing time, all the definitions in module m have their fully
    qualified names starting with m (and ending up with a single path component).
 
-   This leaves a lot of room for a better strategy, but this can happen later. *)
+   As a further refinement, we at least make sure that the function is injective. The
+   pretty-printing phase will take care of dealing with lexical conventions and the like (e.g. the
+   fact that we oftentimes have single quotes in names but that's not ok in Rust -- not our problem
+   here). *)
 let translate_lid env lid =
-  env.prefix @ [ snd lid ]
+  let rec translate_lid last i =
+    let name = env.prefix @ [ last ^ string_of_int i ] in
+    if NameSet.mem name env.global_scope then
+      translate_lid last (i + 1)
+    else
+      allocate name
+  and allocate name =
+    { env with global_scope = NameSet.add name env.global_scope }, name
+  in
+  let name = env.prefix @ [ snd lid ] in
+  if NameSet.mem name env.global_scope then
+    translate_lid (snd lid) 0
+  else
+    allocate name
 
 
 (* Trying to compile a *reference* to variable, who originates from a split of `v_base`, and whose
@@ -987,7 +1010,7 @@ let bind_decl env (d: Ast.decl): env =
   | DFunction (_, _, _, _, _, lid, _, _) when is_handled_primitively lid ->
       env
   | DFunction (_cc, _flags, _n_cgs, type_parameters, t, lid, args, _body) ->
-      let name = translate_lid env lid in
+      let env, name = translate_lid env lid in
       let args =
         if List.length args = 1 && (List.hd args).Ast.typ = TUnit then
           []
@@ -1023,7 +1046,7 @@ let bind_decl env (d: Ast.decl): env =
         | _ ->
             translate_type env t
       in
-      let name = translate_lid env lid in
+      let env, name = translate_lid env lid in
       push_decl env lid (name, typ)
 
   | DExternal (_, _, _, type_parameters, lid, t, _param_names) ->
@@ -1031,7 +1054,7 @@ let bind_decl env (d: Ast.decl): env =
       push_decl env lid (name, make_poly (translate_type env t) type_parameters)
 
   | DType (lid, _flags, _, _, decl) ->
-      let name = translate_lid env lid in
+      let env, name = translate_lid env lid in
       let env = push_type env lid name in
       match decl with
       | Flat fields ->
@@ -1108,8 +1131,9 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
           let fields = LidMap.find lid env.struct_fields in
           Some (Struct { name; public; fields; generic_params })
       | Enum idents ->
-          let items = List.map (fun i -> translate_lid env i, None) idents in
-          Some (Enumeration { name; public; items; derives = [ PartialEq ] })
+          (* No need to do name binding here since there are entirely resolved via the type name. *)
+          let items = List.map (fun i -> [ snd i ], None) idents in
+          Some (Enumeration { name; public; items; derives = [ PartialEq; Clone; Copy ] })
       | Abbrev t ->
           let has_inner_pointer = (object
             inherit [_] Ast.reduce

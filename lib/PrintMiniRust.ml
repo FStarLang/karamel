@@ -494,7 +494,11 @@ let rec print_decl env (d: decl) =
 and print_derives traits =
   group @@
   string "#[derive(" ^^
-  separate_map (comma ^^ break1) (function PartialEq -> string "PartialEq") traits ^^
+  separate_map (comma ^^ break1) (function
+    | PartialEq -> string "PartialEq"
+    | Clone -> string "Clone"
+    | Copy -> string "Copy"
+  ) traits ^^
   string ")]"
 
 and print_struct env fields =
