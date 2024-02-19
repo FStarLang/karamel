@@ -572,10 +572,11 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         MethodCall (MethodCall (x, ["try_into"], []), ["unwrap"], [])
 
     (* More conversions due to vec-ing types *)
-    | _, Ref (_, Mut, Slice _), Vec _ ->
-        MethodCall (x, ["to_vec"], [])
+    | _, Ref (_, Mut, Slice _), Vec _
     | _, Ref (_, Shared, Slice _), Vec _ ->
         MethodCall (x, ["to_vec"], [])
+    | _, Array _, Vec _ ->
+        Call (Name ["Vec"; "from"], [], [x])
 
     | _, Name (n, _), Name (n', _) when n = n' ->
         x
@@ -684,15 +685,16 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       | PNeq ->  env, Constant (Bool, "true") (* everything is always non-null *)
       end
 
-  | EApp (e, es) ->
+  | EApp (e0, es) ->
       let es =
         match es with
         | [ { typ = TUnit; node } ] -> assert (node = EUnit); []
         | _ -> es
       in
-      let env, e = translate_expr env e in
+      let env, e0 = translate_expr env e0 in
       let env, es = translate_expr_list env es in
-      env, Call (e, [], es)
+      env, possibly_convert (Call (e0, [], es)) (translate_type env e.typ)
+
   | ETApp (_, _, _) ->
       failwith "TODO: ETApp"
 
@@ -1143,6 +1145,18 @@ let identify_path_components_rev filename =
   !components
 
 let compute_struct_info files =
+  (* A table from lid to fields, for all the structs in the program. *)
+  let struct_map = List.fold_left (fun acc (_, decls) ->
+    List.fold_left (fun acc decl ->
+      match decl with
+      | Ast.DType (lid, _, _, _, Flat fields) ->
+          Idents.LidMap.add lid fields acc
+      | _ ->
+          acc
+    ) acc decls
+  ) Idents.LidMap.empty files in
+
+  (* Base case: types that appear in return position. *)
   let returned = (object
     inherit [_] Ast.reduce
     method zero = Idents.LidSet.empty
@@ -1152,6 +1166,28 @@ let compute_struct_info files =
       | TQualified lid -> Idents.LidSet.singleton lid
       | _ -> Idents.LidSet.empty
   end)#visit_files () files in
+
+  (* Transitive closure: all the types that appear as part of a returned type. *)
+  let returned =
+    let h = Hashtbl.create 41 in
+    let rec visit_fields fields =
+      (object
+        inherit [_] Ast.iter as super
+        method! visit_TQualified _ lid = visit lid
+        method! visit_TApp _ lid ts = visit lid; super#visit_TApp () lid ts
+      end)#visit_fields_t_opt () fields
+    and visit lid =
+      if not (Hashtbl.mem h lid) then begin
+        Hashtbl.add h lid ();
+        match Idents.LidMap.find_opt lid struct_map with
+        | None ->
+            ()
+        | Some fields -> visit_fields fields
+      end
+    in
+    Idents.LidSet.iter visit returned;
+    Idents.LidSet.of_seq (Hashtbl.to_seq_keys h)
+  in
 
   let with_inner_pointers =
     let module F = Fix.Fix.ForOrderedType(struct
@@ -1164,21 +1200,12 @@ let compute_struct_info files =
       let is_maximal x = x
     end) in
 
-    let flat_map = List.fold_left (fun acc (_, decls) ->
-      List.fold_left (fun acc decl ->
-        match decl with
-        | Ast.DType (lid, _, _, _, Flat fields) ->
-            Idents.LidMap.add lid fields acc
-        | _ ->
-            acc
-      ) acc decls
-    ) Idents.LidMap.empty files in
-
     let equations lid valuation =
-      if not (Idents.LidMap.mem lid flat_map) then
+      if not (Idents.LidMap.mem lid struct_map) then
         false
       else
-        let fields = Idents.LidMap.find lid flat_map in
+        not (Idents.LidSet.mem lid returned) &&
+        let fields = Idents.LidMap.find lid struct_map in
         let recursively_contains_pointers = (object(self)
             inherit [_] Ast.reduce as super
             method zero = false
@@ -1192,8 +1219,6 @@ let compute_struct_info files =
         let directly_contains_pointers =
           List.exists (fun (_, (t, _)) -> match t with Ast.TBuf _ -> true | _ -> false) fields
         in
-        KPrint.bprintf "%a contains pointers? %b\n" PrintAst.Ops.plid lid
-          (directly_contains_pointers || recursively_contains_pointers);
         directly_contains_pointers || recursively_contains_pointers
     in
 
@@ -1201,11 +1226,17 @@ let compute_struct_info files =
 
     Idents.LidMap.fold (fun lid _ acc ->
       if valuation lid then Idents.LidSet.add lid acc else acc
-    ) flat_map Idents.LidSet.empty
+    ) struct_map Idents.LidSet.empty
   in
 
-  let heap_structs = Idents.LidSet.inter returned with_inner_pointers in
-  heap_structs, Idents.LidSet.diff with_inner_pointers heap_structs
+  assert Idents.LidSet.(is_empty (inter with_inner_pointers returned));
+
+  if Options.debug "rs-structs" then begin
+    KPrint.bprintf "returned: %a\n\n" PrintAst.Ops.plids (Idents.LidSet.elements returned);
+    KPrint.bprintf "with_inner_pointers: %a\n\n" PrintAst.Ops.plids (Idents.LidSet.elements with_inner_pointers);
+  end;
+
+  returned, with_inner_pointers
 
 let translate_files files =
   let heap_structs, pointer_holding_structs = compute_struct_info files in
