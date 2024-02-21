@@ -506,6 +506,12 @@ let lookup_split (env: env) (v_base: MiniRust.db_index) (path: Splits.root_or_pa
   in
   find 0 env.vars
 
+
+let field_type env (e: Ast.expr) f =
+  let t_lid = Helpers.assert_tlid e.typ in
+  let struct_fields = LidMap.find t_lid env.struct_fields in
+  (List.find (fun (sf: MiniRust.struct_field) -> sf.name = f) struct_fields).typ
+
 (* Translate an expression, and take the annotated original type to be the
    expected type. *)
 let rec translate_expr (env: env) (e: Ast.expr): env * MiniRust.expr =
@@ -840,8 +846,12 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
   | ESequence _ ->
       failwith "unexpected: ESequence"
   | EAssign (e1, e2) ->
-      let env, e1 = translate_expr env e1 in
-      let env, e2 = translate_expr env e2 in
+      let lvalue_type = match e1.node with
+        | EField (e, f) -> field_type env e f
+        | _ -> translate_type env e1.typ
+      in
+      let env, e1 = translate_expr_with_type env e1 lvalue_type in
+      let env, e2 = translate_expr_with_type env e2 lvalue_type in
       env, Assign (e1, e2)
   | EBufCreate _ ->
       failwith "unexpected: EBufCreate"
@@ -953,11 +963,9 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       env, Struct (lookup_type env t_lid, List.rev fields)
 
   | EField (e, f) ->
-      let t_lid = Helpers.assert_tlid e.typ in
-      let struct_fields = LidMap.find t_lid env.struct_fields in
-      let t = (List.find (fun (sf: MiniRust.struct_field) -> sf.name = f) struct_fields).typ in
-      let env, e = translate_expr env e in
-      env, possibly_convert (Field (e, f)) t
+      let env, e_ = translate_expr env e in
+      env, possibly_convert (Field (e_, f)) (field_type env e f)
+
   | EBreak ->
       failwith "TODO: EBreak"
   | EContinue ->
@@ -1240,7 +1248,7 @@ let compute_struct_info files =
     Idents.LidSet.of_seq (Hashtbl.to_seq_keys h)
   in
 
-  let with_inner_pointers =
+  let struct_fixpoint base_case =
     let module F = Fix.Fix.ForOrderedType(struct
       type t = Ast.lident
       let compare = Stdlib.compare
@@ -1255,7 +1263,7 @@ let compute_struct_info files =
       if not (Idents.LidMap.mem lid struct_map) then
         false
       else
-        not (Idents.LidSet.mem lid returned) &&
+        base_case lid &&
         let fields = Idents.LidMap.find lid struct_map in
         let recursively_contains_pointers = (object(self)
             inherit [_] Ast.reduce as super
@@ -1279,6 +1287,12 @@ let compute_struct_info files =
       if valuation lid then Idents.LidSet.add lid acc else acc
     ) struct_map Idents.LidSet.empty
   in
+
+  (* The base case of the fixpoint is structs that are *not returned* and still contain
+     pointers. We backpropagate starting from that. *)
+  let with_inner_pointers = struct_fixpoint (fun lid -> not (Idents.LidSet.mem lid returned)) in
+  (* This one eliminates structs that are in the returned-set but do not contain pointers. *)
+  let returned = struct_fixpoint (fun lid -> Idents.LidSet.mem lid returned) in
 
   assert Idents.LidSet.(is_empty (inter with_inner_pointers returned));
 

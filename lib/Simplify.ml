@@ -533,10 +533,19 @@ let functional_updates = object (self)
 
   val mutable make_mut = []
 
-  (* TODO: do all the variants with ops *)
+  (* TODO: there are many combinations of operators or not (both for reading and writing), a single
+     assignment or not... we don't cover everything *)
+
+  method private gen_assignments env e_read exprfields =
+    ESequence (List.map (fun (the_field, the_expr) ->
+      let the_field = Option.get the_field in
+      let the_expr = self#visit_expr env the_expr in
+      make_mut <- (assert_tlid e_read.typ, the_field) :: make_mut;
+      with_unit (EAssign (with_type the_expr.typ (EField (e_read, the_field)), the_expr))
+    ) exprfields)
 
   method! visit_EApp env e es =
-    (* Without temporary, any position
+    (* Without temporary, any position, support for multiple fields updated
 
        e1 *= { fi = ei } with ei = e if i = k, e1[0].fi otherwise
        -->
@@ -548,8 +557,8 @@ let functional_updates = object (self)
 
      *)
     match e.node, es with
-    | EQualified (["LowStar"; "BufferOps"], op), [ e1; ({ node = EFlat fields; _ } as e3) ] when KString.starts_with op "op_Star_Equal" ->
-        let the_field, _ = List.partition (function
+    | EQualified (["LowStar"; "BufferOps"], op), [ e1; { node = EFlat fields; _ }] when KString.starts_with op "op_Star_Equal" ->
+        let updated_fields, untouched_fields = List.partition (function
             | Some f, { node = EField ({ node = EBufRead (e1', e2); _ }, f'); _ } when
               f = f' && e1 = e1' && Helpers.is_zero e2 ->
                 false
@@ -566,22 +575,18 @@ let functional_updates = object (self)
                 true
           ) fields
         in
-        if List.length the_field = 1 then
-          let the_field, the_expr = List.hd the_field in
-          let the_field = Option.get the_field in
-          let the_expr = self#visit_expr env the_expr in
-          make_mut <- (assert_tlid e3.typ, the_field) :: make_mut;
+        if List.length untouched_fields > 0 then
           (* TODO: catch the monomorphized name of the *= operator above and use that for prettier
              code-gen *)
-          let e_read = EBufRead (e1, Helpers.zerou32) in
-          EAssign (with_type the_expr.typ (EField (with_type (assert_tbuf e1.typ) e_read, the_field)), the_expr)
+          let e_read = with_type (assert_tbuf e1.typ) (EBufRead (e1, Helpers.zerou32)) in
+          self#gen_assignments env e_read updated_fields
         else
           super#visit_EApp env e es
     | _ ->
         super#visit_EApp env e es
 
   method! visit_EBufWrite env e1 e2 e3 =
-    (* Without temporary, any position
+    (* Without temporary, any position, support for multiple fields updated
 
        e1[e2] <- { fi = ei } with ei = e if i = k, e1[e2].fi otherwise
        -->
@@ -595,7 +600,7 @@ let functional_updates = object (self)
     let e_read = EBufRead (e1, e2) in
     match e3.node with
     | EFlat fields ->
-        let the_field, _ = List.partition (function
+        let updated_fields, untouched_fields = List.partition (function
             | Some f, { node = EField (e_read', f'); _ } when f = f' && e_read = e_read'.node ->
                 false
             | Some f, { node = EField ({
@@ -611,12 +616,8 @@ let functional_updates = object (self)
                 true
           ) fields
         in
-        if List.length the_field = 1 then
-          let the_field, the_expr = List.hd the_field in
-          let the_field = Option.get the_field in
-          let the_expr = self#visit_expr env the_expr in
-          make_mut <- (assert_tlid e3.typ, the_field) :: make_mut;
-          EAssign (with_type the_expr.typ (EField (with_type (assert_tbuf e1.typ) e_read, the_field)), the_expr)
+        if List.length untouched_fields > 0 then
+          self#gen_assignments env (with_type (assert_tbuf e1.typ) e_read) updated_fields
         else
           super#visit_EBufWrite env e1 e2 e3
     | _ ->
@@ -628,23 +629,21 @@ let functional_updates = object (self)
     let e1 = self#visit_expr env e1 in
 
     let make_assignment fields k =
-      let the_field, _ = List.partition (function
+      let updated_fields, untouched_fields = List.partition (function
           | Some f, { node = EField ({ node = EBound 0; _ }, f'); _ } when f = f' ->
               false
           | _ ->
               true
         ) fields
       in
-      if List.length the_field = 1 then
-        let the_field, the_expr = List.hd the_field in
-        let the_field = Option.get the_field in
-        let the_expr = self#visit_expr env (snd (open_binder b the_expr)) in
-        make_mut <- (assert_tlid e1.typ, the_field) :: make_mut;
-        k (EAssign (with_type the_expr.typ (EField (e1, the_field)), the_expr))
+      if List.length untouched_fields > 0 then
+        let updated_fields = List.map (fun (f, e) -> f, snd (open_binder b e)) updated_fields in
+        k (self#gen_assignments env e1 updated_fields)
       else
         ELet (b, e1, self#visit_expr env e2)
     in
 
+    (* TODO: operators *)
     match e1.node, e2.node with
     | EBufRead ({ node = EBound i; _ }, j),
       EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ })
