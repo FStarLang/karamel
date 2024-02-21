@@ -2,11 +2,15 @@
 
 open PPrint
 
+(* It is understood that many of these need to go once the code-gen is improved. *)
 let directives = String.trim {|
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(unused_assignments)]
+#![allow(unused_mut)]
+#![allow(unreachable_patterns)]
+#![allow(const_item_mutation)]
 |}
 
 let rust_name f = f ^ ".rs"

@@ -610,6 +610,10 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
            strip_lifetimes function or something. *)
         x
 
+    (* More conversions due to borrowing structs with pointers *)
+    | _, Ref (_, _, t), t' when t = t' ->
+      Deref x
+
     | _ ->
         if t = t_ret then
           x
@@ -794,17 +798,40 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let binding: MiniRust.binding = { name = b.node.name; typ = t; mut = true } in
       let env = push env binding in
       env0, Let (binding, e1, snd (translate_expr_with_type env e2 t_ret))
+
   | ELet (b, e1, e2) ->
       (* Keep initial environment to return after translation *)
       let env0 = env in
 
       let env, e1 = translate_expr env e1 in
       let t = translate_type env b.typ in
-      let binding : MiniRust.binding = { name = b.node.name; typ = t; mut = b.node.mut } in
+      let is_owned_struct =
+        match b.typ with
+        | TQualified lid when Idents.LidSet.mem lid env.heap_structs -> true
+        | _ -> false
+      in
+      let mut = b.node.mut || is_owned_struct in
+      (* Here, the idea is to detect forbidden move-outs that are certain to result in a compilation
+         error. Typically, selecting a field, dereferencing an array, etc. when the underlying type
+         contains pointers means that the let-binding will be a move-out (i.e. moving out PART of an
+         object), which Rust forbids. Note that if t is a pointer type, this is fine, since we
+         compiler our pointer types as borrows, which means there is no move-out, only a borrow. But
+         if t is a struct type which contains pointers (hence, does not implement the copy trait),
+         this is certain to fail. In that case, we instead borrow the struct. Note that structs
+         cannot be mutated in place in Low*, so it's ok to borrow instead of copy. *)
+      let e1, t = match e1 with
+        | (Field _ | Index _) when is_owned_struct ->
+            MiniRust.(Borrow (Mut, e1), Ref (None, Mut, t))
+        | _ ->
+            e1, t
+      in
+      let binding : MiniRust.binding = { name = b.node.name; typ = t; mut } in
       let env = push env binding in
       env0, Let (binding, e1, snd (translate_expr_with_type env e2 t_ret))
+
   | EFun _ ->
       failwith "unexpected: EFun"
+
   | EIfThenElse (e1, e2, e3) ->
       let env, e1 = translate_expr env e1 in
       let env, e2 = translate_expr_with_type env e2 t_ret in

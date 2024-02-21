@@ -420,7 +420,7 @@ and print_expr env (context: int) (e: expr): document =
       paren_if mine @@
       print_expr env mine p ^^ group (brackets (print_expr env max_int e))
   | Field (e, s) ->
-      group (print_expr env max_int e ^^ dot ^^ string s)
+      group (print_expr env 3 e ^^ dot ^^ string s)
   | Deref e ->
       let mine = 6 in
       paren_if mine @@

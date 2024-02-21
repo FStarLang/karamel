@@ -204,6 +204,10 @@ let is_bufcreate x =
 
 let is_uu name = KString.starts_with name "uu__"
 
+let is_zero = function
+  | { node = EConstant (_, "0"); _ } -> true
+  | _ -> false
+
 (* Is this condition of an if-then-else going to give rise to an ifdef? Yes, no,
    or yes with the extra caveat that e1 is the new condition and e2 appears
    underneath the ifdef *)
