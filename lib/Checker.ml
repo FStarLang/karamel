@@ -279,11 +279,32 @@ and check env t e =
 and check' env t e =
   let c t' = check_subtype env t' t in
   match e.node with
-  | ETApp (e, _, _) ->
-      (* JP: is this code even reachable? *)
-      (* Equalities are type checked with Any *)
-      (match e.node with EOp ((K.Eq | K.Neq), _) -> () | _ -> assert false);
-      check env t e
+  | ETApp (e0, _, _) ->
+      begin match e0.node with
+      | EOp ((K.Eq | K.Neq), _) ->
+          (* This is probably old code that predates proper treatment of polymorphic equalities.
+             Check if this can be safely removed? *)
+          (* Equalities are type checked with Any (??) *)
+          check env t e0
+      | _ ->
+          let t = infer env e in
+          assert (t <> TAny);
+          (* If it is... probably need to do something like this:
+            let t = expand_abbrev env t in
+            match flatten_tapp t with
+            | exception Invalid_argument _ ->
+                assert (cgs' = [] && ts' = []);
+                check env t e
+            | lid, ts, cgs ->
+                List.iter2 (check_subtype env) ts' ts;
+                List.iter2 (fun cg cg' ->
+                  if cg <> cg' then
+                    checker_error env "cg mismatch in tyapp"
+                ) cgs cgs';
+                check_subtype env (TQualified lid) e
+          *)
+          c t
+      end
 
   | EPolyComp _
   | EBound _
