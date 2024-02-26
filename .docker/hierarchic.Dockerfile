@@ -6,6 +6,9 @@ FROM fstar:local-branch-$FSTAR_BRANCH
 ADD --chown=opam:opam ./ $HOME/karamel/
 WORKDIR $HOME/karamel
 
+# Let OPAM do its thing
+ENV OPAMYES=1
+
 # CI dependencies: node.js, ctypes-foreign
 RUN opam depext ctypes-foreign
 RUN opam install ctypes-foreign

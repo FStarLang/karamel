@@ -22,6 +22,8 @@ depends: [
   "ppx_deriving"
   "ppx_deriving_yojson"
   "fstar"
+  "ctypes"
+  "ctypes-foreign"
 ]
 depexts: ["coreutils"] {os = "macos" & os-distribution = "homebrew"}
 build: [
