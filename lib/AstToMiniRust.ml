@@ -909,7 +909,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
           [ "copy_from_slice" ],
           [ Borrow (Shared, VecNew (Repeat (elt, len))) ])
   | EBufFree _ ->
-      failwith "unexpected: EBufFree"
+      (* Rather than error out, we do nothing, as some functions may allocate then free. *)
+      env, Unit
   | EBufNull ->
       env, possibly_convert (Borrow (Mut, Array (List []))) (translate_type env e.typ)
   | EPushFrame ->
