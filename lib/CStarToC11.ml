@@ -212,12 +212,15 @@ let bytes_in = function
  * initializers guarantee for missing fields that they're initialized as if they
  * had static storage duration, i.e. with zero.). For prettyness, leave at least
  * one zero, unless the array was empty to start with (admissible with globals). *)
+let is_zero = function
+  | InitExpr (C11.Constant (_, "0")) -> true
+  | InitExpr (C11.Cast (_, Constant (_, "0"))) -> true
+  | _ -> false
+
 let trim_trailing_zeros l =
   let rec all_zeros = function
-    | InitExpr (C11.Constant (_, "0")) -> true
-    | InitExpr (C11.Cast (_, Constant (_, "0"))) -> true
     | Initializer inits -> List.for_all all_zeros inits
-    | _ -> false
+    | init -> is_zero init
   in
 
   let rec trim_trailing_zeros: C11.init list -> C11.init list = function
@@ -230,6 +233,24 @@ let trim_trailing_zeros l =
   | Initializer [] -> Initializer []
   | Initializer l -> Initializer (trim_trailing_zeros (List.rev l))
   | l -> l
+
+let workaround_gcc_bug53119_fml t init =
+  let rec array_nesting = function
+    | Array (t, _) -> 1 + array_nesting t
+    | Const t -> array_nesting t
+    | _ -> 0
+  in
+  match init with
+  | Initializer [ init ] when is_zero init && array_nesting t > 1 ->
+      let rec nest l =
+        if l = 0 then
+          Initializer [ init ]
+        else
+          Initializer [ nest (l - 1) ]
+      in
+      nest (array_nesting t - 1)
+  | _ ->
+      init
 
 (* Turns the ML declaration inside-out to match the C reading of a type.
  *   See: en.cppreference.com/w/c/language/declarations.
@@ -650,6 +671,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
             InitExpr (mk_expr m e)
       in
       let init_expr = trim_trailing_zeros (to_initializer init_expr) in
+      let init_expr = workaround_gcc_bug53119_fml t init_expr in
       [ Decl (qs, spec, None, None, { maybe_unused = false }, [ decl, alignment, Some init_expr])]
 
   | Decl (binder, e) ->
@@ -1134,6 +1156,7 @@ let mk_function_or_global_body m (d: decl): C.declaration_or_function list =
         | BufCreateL (_, es) ->
             let es = List.map (struct_as_initializer m) es in
             let es = trim_trailing_zeros (Initializer es) in
+            let es = workaround_gcc_bug53119_fml t es in
             wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, static, extra, [
               decl, alignment, Some es ])))
         (* Global static arrays of arithmetic type are initialized implicitly to 0 *)
