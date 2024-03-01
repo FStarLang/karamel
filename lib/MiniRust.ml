@@ -19,19 +19,29 @@ and db_index = int [@ opaque ]
 [@@deriving show,
     visitors { variety = "map"; name = "map_misc"; polymorphic = true }]
 
+type lifetime =
+  | Label of string
+[@@deriving show]
+
 type typ_ =
   | Constant of Constant.width (* excludes cint, ptrdifft *)
-  | Ref of borrow_kind * typ_
+  | Ref of lifetime option * borrow_kind * typ_
   | Vec of typ_
   | Array of typ_ * int
   | Slice of typ_ (* always appears underneath Ref *)
   | Unit
   | Function of int * typ_ list * typ_
-  | Name of name
+  | Name of name * generic_param list
   | Tuple of typ_ list
   | App of typ_ * typ_ list
   | Bound of db_index
 [@@deriving show]
+
+and generic_param =
+  | Lifetime of lifetime
+
+let box t =
+  App (Name (["Box"], []), [t])
 
 type typ = typ_ [@ opaque ]
 [@@deriving show,
@@ -76,6 +86,8 @@ and expr =
   | While of expr * expr
   | MethodCall of expr * name * expr list
   | Range of expr option * expr option * bool (* inclusive? *)
+  | Struct of name * (string * expr) list
+  | Match of expr * (match_arm * expr) list
 
   (* Place expressions *)
   | Var of db_index
@@ -85,6 +97,14 @@ and expr =
   (* Operator expressions *)
   | Operator of op
   | Deref of expr
+
+and match_arm = pat
+
+and pat =
+  | Literal of constant
+  | Wildcard
+  | StructP of name (* TODO *)
+
 
 (* TODO: visitors incompatible with inline records *)
 type decl =
@@ -103,6 +123,39 @@ type decl =
     body: expr;
     public: bool;
   }
+  | Enumeration of {
+    name: name;
+    items: item list;
+    derives: trait list;
+    public: bool;
+  }
+  | Struct of {
+    name: name;
+    fields: struct_field list;
+    public: bool;
+    generic_params: generic_param list;
+  }
+  | Alias of {
+    name: name;
+    body: typ;
+    generic_params: generic_param list;
+    public: bool;
+  }
+
+and item =
+  (* Not supporting tuples yet *)
+  name * struct_field list option
+
+and struct_field = {
+  name: string;
+  typ: typ;
+  public: bool;
+}
+
+and trait =
+  | PartialEq
+  | Clone
+  | Copy
 
 (* Some visitors for name management *)
 
@@ -148,3 +201,16 @@ let lift (k: int) (expr: expr): expr =
     expr
   else
     (new lift k)#visit_expr 0 expr
+
+(* Helpers *)
+
+let name_of_decl (d: decl) =
+  match d with
+  | Alias { name; _ }
+  | Enumeration { name; _ }
+  | Struct { name; _ }
+  | Function { name; _ }
+  | Constant { name; _ } ->
+      name
+
+let zero_usize: expr = Constant (Constant.SizeT, "0")

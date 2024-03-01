@@ -7,10 +7,10 @@ ADD --chown=opam:opam ./ $HOME/karamel/
 WORKDIR $HOME/karamel
 
 # CI dependencies: node.js, ctypes-foreign
-RUN opam depext ctypes-foreign
-RUN opam install ctypes-foreign
+RUN opam depext ctypes-foreign uucp
+RUN opam install ctypes-foreign uucp
 RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
-RUN sudo apt-get install -y nodejs
+RUN sudo apt-get install -y nodejs rust-all
 
 # CI dependencies: sphinx (for the docs)
 # sudo pip3 because of https://bugs.launchpad.net/ubuntu/+source/bash/+bug/1588562

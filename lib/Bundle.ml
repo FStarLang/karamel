@@ -15,6 +15,7 @@ and attr = Rename of string | RenamePrefix
 and pat =
   | Module of string list
   | Prefix of string list
+  | Lid of (string list * string)
 
 (* Pretty-printing functions. *)
 let string_of_mident mident =
@@ -28,6 +29,7 @@ let string_of_apis apis =
 let string_of_pattern = function
   | Module m -> String.concat "." m
   | Prefix p -> String.concat "." (p @ [ "*" ])
+  | Lid (m, n) -> String.concat "." m ^ "." ^ n
 
 let string_of_patterns patterns =
   String.concat "," (List.map string_of_pattern patterns)
@@ -69,6 +71,9 @@ let pattern_matches (p: pat) (m: string) =
       String.concat "_" m' = m
   | Prefix p ->
       p = [] || KString.starts_with m (String.concat "_" p ^ "_")
+  | Lid _ ->
+      (* This only matches files *)
+      false
 
 (* For generating the filename. NOT for pretty-printing. *)
 let bundle_filename (api, patterns, attrs) =
@@ -81,6 +86,7 @@ let bundle_filename (api, patterns, attrs) =
           String.concat "_" (List.concat_map (function
             | Module m -> m
             | Prefix p -> p
+            | Lid _ -> failwith "impossible"
           ) patterns)
       | _ ->
          String.concat "_" (List.map (String.concat "_") api)
