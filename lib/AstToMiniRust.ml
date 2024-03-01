@@ -620,6 +620,9 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
     | _, Ref (_, _, t), t' when t = t' ->
       Deref x
 
+    | Borrow (Mut, e) , Ref (_, _, t), Ref (_, _, Slice t') when t = t' ->
+        Borrow (Mut, Array (List [ e ]))
+
     | _ ->
         if t = t_ret then
           x
@@ -1016,10 +1019,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
   | EStandaloneComment _ ->
       failwith "TODO: EStandaloneComment"
   | EAddrOf e1 ->
-      let env, e1 = translate_expr env e1 in
-      (* TODO: determine if we need conversions here *)
-      (* possibly_convert (Borrow (Mut, e1)) (translate_type env e.typ) *)
-      env, e1
+      let env, e1_ = translate_expr env e1 in
+      env, possibly_convert (Borrow (Mut, e1_)) (Ref (None, Mut, translate_type env e1.typ))
 
 let make_poly (t: MiniRust.typ) n: MiniRust.typ =
   match t with

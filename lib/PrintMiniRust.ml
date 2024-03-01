@@ -379,7 +379,7 @@ and print_expr env (context: int) (e: expr): document =
       (* Note: specifying the type of a pattern isn't supported, per rustc *)
       group (string "for" ^/^ string name ^/^ string "in" ^/^ print_expr env max_int e1) ^/^
       let env = push env (`Named name) in
-      print_expression_with_block env e2
+      print_block_expression env e2
   | While (e1, e2) ->
       group @@
       string "while" ^/^ print_expr env max_int e1 ^/^
