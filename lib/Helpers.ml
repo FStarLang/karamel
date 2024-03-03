@@ -185,7 +185,7 @@ let fold_arrow ts t_ret =
    rather than a hardcoded list in krml *)
 let is_aligned_type = function ["Lib"; "IntVector"; "Intrinsics"], ("vec128"|"vec256"|"vec512") -> true | _ -> false
 
-let is_array = function TArray _ -> true | _ -> false
+let is_array = function TCgArray _ | TArray _ -> true | _ -> false
 
 let is_union = function TAnonymous (Union _) -> true | _ -> false
 
@@ -203,6 +203,10 @@ let is_bufcreate x =
   | _ -> false
 
 let is_uu name = KString.starts_with name "uu__"
+
+let is_zero = function
+  | { node = EConstant (_, "0"); _ } -> true
+  | _ -> false
 
 (* Is this condition of an if-then-else going to give rise to an ifdef? Yes, no,
    or yes with the extra caveat that e1 is the new condition and e2 appears
@@ -321,6 +325,8 @@ class ['self] readonly_visitor = object (self: 'self)
   method! visit_EBufFree _ _ = false
   method! visit_ESwitch _ _ _ = false
   method! visit_EReturn _ _ = false
+  method! visit_EContinue _ = false
+  method! visit_EAbort _ _ _ = false
   method! visit_EBreak _ = false
   method! visit_EFor _ _ _ _ _ _ = false
   method! visit_EWhile _ _ _ = false
@@ -336,7 +342,7 @@ class ['self] readonly_visitor = object (self: 'self)
         List.for_all (self#visit_expr_w ()) es
     | EQualified lid when is_readonly_builtin_lid lid ->
         List.for_all (self#visit_expr_w ()) es
-    | ETApp ({ node = EQualified lid; _ }, _) when is_readonly_builtin_lid lid ->
+    | ETApp ({ node = EQualified lid; _ }, _, _) when is_readonly_builtin_lid lid ->
         List.for_all (self#visit_expr_w ()) es
     | _ ->
         false
@@ -737,6 +743,7 @@ let push_ignore = nest_in_return_pos TUnit (fun _ e ->
       ETApp (
         with_type (TArrow (TBound 0, TUnit))
           (EQualified (["LowStar"; "Ignore"], "ignore")),
+        [],
         [ e.typ ]
       )),
     [ e ])))

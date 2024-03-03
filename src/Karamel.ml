@@ -691,7 +691,7 @@ Supported options:|}
 
   (* 5. Anonymous unions break typing. *)
   let files =
-    if !Options.anonymous_unions then
+    if !Options.anonymous_unions && not (Options.rust ()) then
       DataTypes.anonymous_unions datatypes_state files
     else
       files

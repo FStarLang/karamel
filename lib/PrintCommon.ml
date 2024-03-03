@@ -78,8 +78,11 @@ let print_cc = function
   | StdCall -> string "__stdcall"
   | FastCall -> string "__fastcall"
 
+let xstring s =
+  string (String.concat "␣" (KString.split_on_char ' ' s))
+
 let print_lident (idents, ident) =
-  separate_map dot string (idents @ [ ident ])
+  separate_map dot xstring (idents @ [ ident ])
 
 let print_program p decls =
   separate_map (hardline ^^ hardline) p decls

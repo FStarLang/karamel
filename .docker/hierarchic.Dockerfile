@@ -7,16 +7,16 @@ ADD --chown=opam:opam ./ $HOME/karamel/
 WORKDIR $HOME/karamel
 
 # CI dependencies: node.js, ctypes-foreign
-RUN opam depext ctypes-foreign
-RUN opam install ctypes-foreign
+RUN opam depext ctypes-foreign uucp
+RUN opam install ctypes-foreign uucp
 RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
-RUN sudo apt-get install -y nodejs
+RUN sudo apt-get install -y nodejs rust-all
 
 # CI dependencies: sphinx (for the docs)
 # sudo pip3 because of https://bugs.launchpad.net/ubuntu/+source/bash/+bug/1588562
 # jinja2==3.0.0 because of https://github.com/mkdocs/mkdocs/issues/2799
 RUN sudo apt-get install --yes --no-install-recommends python3-pip python3-setuptools python3-distutils
-RUN sudo pip3 install sphinx==1.7.2 jinja2==3.0.0 sphinx_rtd_theme
+RUN sudo pip3 install sphinx==1.7.2 jinja2==3.0.0 alabaster==0.7.13 sphinx_rtd_theme
 
 # CI proper
 ARG CI_THREADS=24

@@ -2,6 +2,17 @@
 
 open PPrint
 
+(* It is understood that many of these need to go once the code-gen is improved. *)
+let directives = String.trim {|
+#![allow(non_snake_case)]
+#![allow(non_upper_case_globals)]
+#![allow(non_camel_case_types)]
+#![allow(unused_assignments)]
+#![allow(unused_mut)]
+#![allow(unreachable_patterns)]
+#![allow(const_item_mutation)]
+|}
+
 let rust_name f = f ^ ".rs"
 
 let write_file file =
@@ -14,12 +25,22 @@ let write_file file =
     Driver.mkdirp dirs;
     let filename = Driver.((^^)) dirs (rust_name filename) in
     Utils.with_open_out_bin filename (fun oc ->
-      let doc = separate_map (hardline ^^ hardline) (PrintMiniRust.print_decl prefix) decls ^^ hardline in
+      let doc =
+        string directives ^^ hardline ^^ hardline ^^
+        PrintMiniRust.print_decls prefix decls
+      in
       PPrint.ToChannel.pretty 0.95 100 oc doc
-    )
+    );
+    Some filename
+  else
+    None
 
 let write_all files =
   Driver.maybe_create_output_dir ();
-  List.iter write_file files;
+  let filenames = List.map write_file files in
+  let filenames = KList.filter_some filenames in
+  if Options.debug "rs-filenames" then
+    KPrint.bfprintf stdout "INFO: wrote %d files\n%s\n" (List.length filenames)
+      (String.concat "\n" filenames);
   if !PrintMiniRust.failures > 0 then
     KPrint.bprintf "%s%d total printing errors%s\n" Ansi.red !PrintMiniRust.failures Ansi.reset
