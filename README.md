@@ -34,7 +34,7 @@ key component of [Project Everest](https://project-everest.github.io/).
   via KaRaMeL.
 
 [ML Workshop Paper]: https://jonathan.protzenko.fr/papers/ml16.pdf
-[HACL*]: https://github.com/mitls/hacl-star/
+[HACL\*]: https://github.com/hacl-star/hacl-star
 [ICFP 2017 Paper]: https://arxiv.org/abs/1703.00053
 
 ## Trying out KaRaMeL
@@ -46,7 +46,7 @@ make via homebrew, and invoke `gmake` instead of `make`.
 
 **Regarding OCaml:** Install OPAM via your package manager, then:
 
-`$ opam install ppx_deriving_yojson zarith pprint "menhir>=20161115" sedlex process fix "wasm>=2.0.0" visitors ctypes-foreign ctypes`
+`$ opam install ppx_deriving_yojson zarith pprint "menhir>=20161115" sedlex process fix "wasm>=2.0.0" visitors ctypes-foreign ctypes uucp`
 
 Next, make sure you have an up-to-date F\*, and that you ran `make` in the
 `ulib/ml` directory of F\*. The `fstar.exe` executable should be on your PATH
