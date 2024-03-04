@@ -22,6 +22,7 @@
     wasm
     ctypes
     visitors
+    uucp
   ];
   nativeBuildInputs = [fstar removeReferencesTo symlinks which z3] ++ (with ocamlPackages; [ocaml dune_3 findlib menhir]);
 in
