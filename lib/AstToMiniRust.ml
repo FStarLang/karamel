@@ -873,9 +873,13 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       (* This is a fallback for the analysis above. Happens if, for instance, the pointer arithmetic
          appears in subexpression position (like, function call), in which case there's a chance
          this might still work! *)
+      let is_const_tbuf = match e1.typ with
+        | TBuf (_, b) -> b
+        | _ -> false
+      in
       let env, e1 = translate_expr env e1 in
       let env, e2 = translate_expr_with_type env e2 (Constant SizeT) in
-      env, Borrow (Mut, Index (e1, Range (Some e2, None, false)))
+      env, Borrow ((if is_const_tbuf then Shared else Mut), Index (e1, Range (Some e2, None, false)))
   | EBufDiff _ ->
       failwith "unexpected: EBufDiff"
   (* Silly pattern in Low*: for historical reasons, the blit operations takes a
