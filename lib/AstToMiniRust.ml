@@ -2,6 +2,16 @@
 
 module LidMap = Idents.LidMap
 
+(* Location information *)
+
+type location = {
+  curr_func: Ast.lident;
+}
+
+let ploc b { curr_func } = PrintAst.Ops.plid b curr_func
+
+let empty_loc = { curr_func = [], "" }
+
 (* Helpers *)
 
 module H = struct
@@ -182,7 +192,7 @@ module Splits = struct
         let e = MiniRust.lift (l - l') e in
         Call (Operator Add, [], [ e; Constant (SizeT, string_of_int i) ])
 
-  let gte i1 i2 =
+  let gte (loc: location) i1 i2 =
     match i1, i2 with
     | Constant i1, Constant i2 ->
         i1 >= i2
@@ -193,17 +203,18 @@ module Splits = struct
         i1 >= i2
     | Constant i1, Add (e2, i2) ->
         (* TODO: proper warning system *)
-        KPrint.bprintf "WARN: cannot compare constant %d and %a + %d\n"
-          i1 PrintMiniRust.pexpr (snd e2) i2;
+        KPrint.bprintf "%a: WARN: cannot compare constant %d and %a + %d\n"
+          ploc loc i1 PrintMiniRust.pexpr (snd e2) i2;
         true
     | Add (e1, i1), Add (e2, i2) ->
         (* TODO: proper warning system *)
-        KPrint.bprintf "WARN: Cannot compare %a@%d + %d and %a@%d + %d\n"
+        KPrint.bprintf "%a: WARN: Cannot compare %a@%d + %d and %a@%d + %d\n"
+          ploc loc
           PrintMiniRust.pexpr (snd e1) (fst e1) i1
           PrintMiniRust.pexpr (snd e2) (fst e2) i2;
         true
 
-  let sub i1 i2 =
+  let sub (loc: location) i1 i2 =
     match i1, i2 with
     | Constant i1, Constant i2 ->
         Constant (i1 - i2)
@@ -212,15 +223,16 @@ module Splits = struct
     | Add (e1, i1), Constant i2 ->
         Add (e1, i1 - i2)
     | Constant i1, Add ((l2, e2), i2) ->
-        KPrint.bprintf "WARN: Cannot subtract constant %d and %a + %d\n\
+        KPrint.bprintf "%a: WARN: Cannot subtract constant %d and %a + %d\n\
           assuming monotonically increasing indices, this may cause runtime failures\n"
-          i1 PrintMiniRust.pexpr e2 i2;
+          ploc loc i1 PrintMiniRust.pexpr e2 i2;
         (* i1 - (e2 + i2) *)
         Add ((l2, H.sub (H.usize i1) (H.add e2 (H.usize i2))), 0)
     | Add (e1, i1), Add (e2, i2) ->
         let l, e1, e2 = equalize e1 e2 in
-        KPrint.bprintf "WARN: Cannot subtract constant %a@%d + %d and %a@%d + %d\n\
+        KPrint.bprintf "%a: WARN: Cannot subtract constant %a@%d + %d and %a@%d + %d\n\
           assuming monotonically increasing indices, this may cause runtime failures\n"
+          ploc loc
           PrintMiniRust.pexpr e1 l i1
           PrintMiniRust.pexpr e2 l i2;
         (* (e1 + i1) - (e2 + i2) *)
@@ -258,14 +270,14 @@ module Splits = struct
   let empty = { tree = Leaf; path = None }
 
   (* The variable with `info` is being split at `index` *)
-  let split l info index: info * path * MiniRust.expr =
+  let split loc l info index: info * path * MiniRust.expr =
     let rec split tree index ofs =
       match tree with
       | Leaf ->
           Node (index, Leaf, Leaf), [], ofs
       | Node (index', t1, t2) ->
-          if gte index index' then
-            let t2, path, ofs = split t2 index (sub index index') in
+          if gte loc index index' then
+            let t2, path, ofs = split t2 index (sub loc index index') in
             Node (index', t1, t2), Right :: path, ofs
           else
             let t1, path, ofs = split t1 index ofs in
@@ -331,6 +343,7 @@ type env = {
   heap_structs: Idents.LidSet.t;
   pointer_holding_structs: Idents.LidSet.t;
   struct_fields: MiniRust.struct_field list LidMap.t;
+  location: location;
 }
 
 let empty heap_structs pointer_holding_structs = {
@@ -342,7 +355,10 @@ let empty heap_structs pointer_holding_structs = {
   struct_fields = LidMap.empty;
   heap_structs;
   pointer_holding_structs;
+  location = empty_loc;
 }
+
+let locate env curr_func = { env with location = { curr_func } }
 
 let push env (b: MiniRust.binding) =
   (* KPrint.bprintf "Pushing %s to environment at type %a\n" b.name PrintMiniRust.ptyp b.typ; *)
@@ -757,7 +773,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       (* We're splitting a variable x_base. *)
       let _, info_base = lookup env v_base in
       (* At the end of `path` is the variable we want to split. *)
-      let info_base, path, index = Splits.split l info_base index in
+      let info_base, path, index = Splits.split env.location l info_base index in
 
       let env, e_nearest =
         if path = [] then
@@ -1128,6 +1144,7 @@ let bind_decl env (d: Ast.decl): env =
 
 
 let translate_decl env (d: Ast.decl): MiniRust.decl option =
+  let env = locate env (Ast.lid_of_decl d) in
   match d with
   | DFunction (_, _, _, _, _, lid, _, _) when is_handled_primitively lid ->
       None
