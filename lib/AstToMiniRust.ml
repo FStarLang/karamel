@@ -1033,6 +1033,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       (* PREVIOUSLY: *)
       (* let env, e1_ = translate_expr env e1 in *)
       (* env, possibly_convert (Borrow (Mut, e1_)) (Ref (None, Mut, translate_type env e1.typ)) *)
+      (* POSSIBLE FIX (if we care): insert slice::from_ref, since the expected
+         Rust type for this is a slice (and maybe ditch possibly_convert) *)
 
 let make_poly (t: MiniRust.typ) n: MiniRust.typ =
   match t with
