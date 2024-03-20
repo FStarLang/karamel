@@ -714,7 +714,7 @@ let misc_cosmetic = object (self)
           false
     in
     match e1.node with
-    | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) when not (Options.wasm ()) && not is_aligned ->
+    | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) when not (Options.wasm () || Options.rust ()) && not is_aligned ->
         (* int x[1]; x[0] = e; x
          * -->
          * int x; x = e; &x *)
