@@ -276,7 +276,9 @@ module Splits = struct
       | Leaf ->
           Node (index, Leaf, Leaf), [], ofs
       | Node (index', t1, t2) ->
-          if gte loc index index' then
+          if (index = index' || index = Constant 0) && t1 = Leaf && t2 = Leaf then
+            tree, [], ofs
+          else if gte loc index index' then
             let t2, path, ofs = split t2 index (sub loc index index') in
             Node (index', t1, t2), Right :: path, ofs
           else
@@ -771,9 +773,9 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let env, e_ofs' = translate_expr env e_ofs in
       let index = Splits.index_of_expr l e_ofs' (translate_type env e_ofs.typ) in
       (* We're splitting a variable x_base. *)
-      let _, info_base = lookup env v_base in
+      let _, old_info_base = lookup env v_base in
       (* At the end of `path` is the variable we want to split. *)
-      let info_base, path, index = Splits.split env.location l info_base index in
+      let info_base, path, index = Splits.split env.location l old_info_base index in
 
       let env, e_nearest =
         if path = [] then
@@ -796,8 +798,20 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
           env, MiniRust.(Field (find 0 env.vars, Splits.string_of_path_elem path_elem))
       in
 
-      let split_at = match b.typ with TBuf (_, true) -> "split_at" | _ -> "split_at_mut" in
-      let e1 = MiniRust.MethodCall (e_nearest , [split_at], [ index ]) in
+      let e1 =
+        if old_info_base.tree = info_base.tree then
+          let strip_field = function
+            | MiniRust.Field (e, _) -> e
+            | _ -> assert false
+          in
+          KPrint.bprintf "NO SPLIT OPTIMIZATION %s\n" (Splits.show_path path);
+          (* No split needed -- we found an exact match (see test/Rust7.fst) *)
+          strip_field (lookup_split env v_base (Path path))
+        else
+          let split_at = match b.typ with TBuf (_, true) -> "split_at" | _ -> "split_at_mut" in
+          KPrint.bprintf "REGULAR\n";
+          MiniRust.MethodCall (e_nearest , [split_at], [ index ])
+      in
       let t = translate_type env b.typ in
       let binding : MiniRust.binding * Splits.info =
         { name = b.node.name; typ = Tuple [ t; t ]; mut = false },
