@@ -353,9 +353,11 @@ let monomorphize_data_types map = object(self)
       | DType (lid, _, n_cgs, n, (Flat _ | Variant _ | Abbrev _ | Union _)) ->
           (* Re-inserted by visit_node... don't insert twice. *)
           assert (n = 0 && n_cgs = 0);
+          (* Visit the body of the declaration, since it may contain
+             monomorphizations. *)
           ignore (self#visit_decl false d);
           Hashtbl.add seen_declarations lid ();
-          self#clear ()
+          self#clear () @ [ d ]
 
       | _ ->
           (* An actual run-time definition, needs to be retained. *)

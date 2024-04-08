@@ -244,8 +244,9 @@ let remove_unused_parameters = object (self)
       end else
         body
     ) body (List.init n_binders (fun i -> i)) in
+    let n_unused_cgs = List.length (List.filteri (fun i _ -> unused i && i < n_cgs) binders) in
     let binders = KList.filter_mapi (fun i b -> if unused i then None else Some b) binders in
-    DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
+    DFunction (cc, flags, n_cgs - n_unused_cgs, n, ret, name, binders, body)
 
   method! visit_DExternal (parameter_table, _ as env) cc flags n_cg n name t hints =
     let ret, args = flatten_arrow t in
