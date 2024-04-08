@@ -885,7 +885,8 @@ and mk_declaration m env d: (CStar.decl * _) option =
 
   match d with
   | DFunction (cc, flags, n_cgs, n, t, name, binders, body) ->
-      assert (n = 0 && n_cgs = 0);
+      if not (n = 0 && n_cgs = 0) then
+        Warn.fatal_error "%a has n>0 || n_cgs>0" plid name;
       let env = locate env (InTop name) in
       Some (wrap_throw (string_of_lident name) (lazy begin
         let t = mk_return_type env t in

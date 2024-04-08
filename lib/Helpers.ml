@@ -426,7 +426,7 @@ let rec is_initializer_constant e =
 
 let assert_tlid t =
   (* We only have nominal typing for variants. *)
-  match t with TQualified lid -> lid | _ -> assert false
+  match t with TQualified lid -> lid | _ -> Warn.fatal_error "Not a lid: %a" ptyp t
 
 let assert_tbuf t =
   match t with TBuf (t, _) -> t | t -> Warn.fatal_error "Not a buffer: %a" ptyp t
@@ -443,7 +443,7 @@ let assert_elid t =
 
 let assert_tbuf_or_tarray t =
   match t with
-  | TBuf (t, _) | TArray (t, _) -> t
+  | TBuf (t, _) | TArray (t, _) | TCgArray (t, _) -> t
   | _ -> Warn.fatal_error "%a is neither a tbuf or tarray\n" ptyp t
 
 let builtin_names =

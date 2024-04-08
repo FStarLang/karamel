@@ -176,6 +176,9 @@ and print_cg = function
   | CgVar i -> int i
   | CgConst c -> print_constant c
 
+and print_cgs cgs =
+  separate_map (comma ^^ space) print_cg cgs
+
 and print_typ = function
   | TInt w -> print_width w
   | TBuf (t, bool) -> (if bool then string "const" else empty) ^/^ print_typ t ^^ star
@@ -396,6 +399,8 @@ module Ops = struct
   let ploc = printf_of_pprint Loc.print_location
   let pwidth = printf_of_pprint print_width
   let pcase = printf_of_pprint print_case
+  let pcg = printf_of_pprint print_cg
+  let pcgs = printf_of_pprint print_cgs
   let ptyp = printf_of_pprint print_typ
   let ptyps = printf_of_pprint print_typs
   let pptyp = printf_of_pprint_pretty print_typ

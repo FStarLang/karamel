@@ -59,13 +59,15 @@ let build_def_map files =
 
 include MonomorphizationState
 
-let has_variables ts=
+let has_variables ts =
   let r =
     (object
       inherit [_] reduce
       method zero = false
       method plus = (||)
       method! visit_TBound _ _ =
+        true
+      method! visit_CgVar _ _ =
         true
     end)#visit_TApp () ([], "") ts
   in
@@ -184,6 +186,11 @@ let monomorphize_data_types map = object(self)
    * visiting. *)
   method private visit_node (under_ref: bool) (n: node) =
     let lid, args, cgs = n in
+
+    (* Only operate on closed terms! *)
+    if has_variables args || has_cg_array args then
+      failwith "impossible";
+
     (* White, gray or black? *)
     match Hashtbl.find state n with
     | exception Not_found ->
@@ -245,7 +252,7 @@ let monomorphize_data_types map = object(self)
               Hashtbl.replace state n (Black, chosen_lid)
           | flags, Union fields ->
               let fields = List.map (fun (f, t) ->
-                let t = DeBruijn.subst_tn args t in
+                let t = DeBruijn.subst_ctn' cgs (DeBruijn.subst_tn args t) in
                 let t = self#visit_typ under_ref t in
                 f, t
               ) fields in
@@ -346,13 +353,7 @@ let monomorphize_data_types map = object(self)
       | DType (lid, _, n_cgs, n, (Flat _ | Variant _ | Abbrev _ | Union _)) ->
           (* Re-inserted by visit_node... don't insert twice. *)
           assert (n = 0 && n_cgs = 0);
-          (* FIXME: the logic here is quite twisted... it should be simplified. My
-             understanding is we want to BOTH visit the body of the type in case
-             it recursively needs to trigger monomorphizations, and
-             side-effectfully register the type as visited in our map for
-             further uses (but why?). *)
           ignore (self#visit_decl false d);
-          ignore (self#visit_node false (lid, [], []));
           Hashtbl.add seen_declarations lid ();
           self#clear ()
 
@@ -381,8 +382,8 @@ let monomorphize_data_types map = object(self)
     else
       super#visit_TTuple under_ref ts
 
-  method! visit_TQualified under_ref lid =
-    TQualified (self#visit_node under_ref (lid, [], []))
+(*   method! visit_TQualified under_ref lid = *)
+(*     TQualified (self#visit_node under_ref (lid, [], [])) *)
 
   method! visit_TApp under_ref lid ts =
     if Hashtbl.mem map lid && not (has_variables ts) && not (has_cg_array ts) then
@@ -514,7 +515,7 @@ let functions files =
                 if n <> List.length ts then begin
                   KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
                   (self#visit_expr env e).node
-                end else if n_cgs <> List.length cgs then begin
+                end else if List.length cgs > 0 && n_cgs <> List.length cgs then begin
                   KPrint.bprintf "%a is not fully cg-applied!\n" plid lid;
                   (self#visit_expr env e).node
                 end else
@@ -523,7 +524,7 @@ let functions files =
                   let name = Gen.gen_lid name ts cgs in
                   let def () =
                     let ret = DeBruijn.(subst_ctn diff cgs (subst_tn ts ret)) in
-                    assert (List.length cgs = n_cgs);
+                    assert (List.length cgs = 0 || List.length cgs = n_cgs);
                     let _, binders = KList.split (List.length cgs) binders in
                     let binders = List.map (fun { node; typ } ->
                       { node; typ = DeBruijn.(subst_ctn diff cgs (subst_tn ts typ)) }
@@ -537,7 +538,7 @@ let functions files =
                     let body = DeBruijn.(subst_cen (List.length binders) cgs (subst_ten ts body)) in
                     (* KPrint.bprintf "after substitution: body:%a\n\n" pexpr body; *)
                     let body = self#visit_expr env body in
-                    DFunction (cc, flags, 0, 0, ret, name, binders, body)
+                    DFunction (cc, flags, n_cgs - List.length cgs, 0, ret, name, binders, body)
                   in
                   EQualified (Gen.register_def current_file lid cgs ts name def)
 
