@@ -1052,12 +1052,17 @@ and hoist_stmt loc e =
       (* [e2] and [e3], however, are evaluated at each loop iteration! *)
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
       let lhs3, e3 = hoist_expr loc UnderStmtLet e3 in
+      (* Note: this should always be a fatal error when going to C, but only for
+         the for-loop (since there is no workaround like for the if-then-else
+         case. *)
       if lhs2 <> [] || lhs3 <> [] then
         Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,
           GeneratesLetBindings ("this for-loop's condition or iteration", e, (lhs2 @ lhs3))));
       let e4 = hoist_stmt loc e4 in
       let s = closing_binder binder in
-      nest lhs1 e.typ (mk (EFor (binder, e1, s e2, s e3, s e4)))
+      (* If we get here let-bindings are ok for the chosen backend, likely wasm
+         or rust *)
+      nest lhs1 e.typ (mk (EFor (binder, e1, s (nest lhs2 e2.typ e2), s (nest lhs3 e3.typ e3), s e4)))
 
   | EWhile (e1, e2) ->
       (* All of the following cases are valid statements (their return type is
@@ -1214,17 +1219,22 @@ and hoist_expr loc pos e =
       let e2 = s e2 and e3 = s e3 and e4 = s e4 in
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
       let lhs3, e3 = hoist_expr loc UnderStmtLet e3 in
+      (* Note: this should always be a fatal error when going to C, but only for
+         the for-loop (since there is no workaround like for the if-then-else
+         case. *)
       if lhs2 <> [] || lhs3 <> [] then
         Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,
           GeneratesLetBindings ("this for-loop's condition or iteration", e, (lhs2 @ lhs3))));
       let e4 = hoist_stmt loc e4 in
       let s = closing_binder binder in
+      (* If we get here let-bindings are ok for the chosen backend, likely wasm
+         or rust *)
       if pos = UnderStmtLet then
-        lhs1, mk (EFor (binder, e1, s e2, s e3, s e4))
+        lhs1, mk (EFor (binder, e1, s (nest lhs2 e2.typ e2), s (nest lhs3 e3.typ e3), s e4))
       else
         let b = fresh_binder "_" TUnit in
         let b = { b with node = { b.node with meta = Some MetaSequence }} in
-        lhs1 @ [ b, mk (EFor (binder, e1, s e2, s e3, s e4)) ], mk EUnit
+        lhs1 @ [ b, mk (EFor (binder, e1, s (nest lhs2 e2.typ e2), s (nest lhs3 e3.typ e3), s e4)) ], mk EUnit
 
   | EFun (binders, expr, t) ->
       let binders, expr = open_binders binders expr in
