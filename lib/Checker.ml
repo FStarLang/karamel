@@ -596,7 +596,7 @@ and infer' env e =
   | EBound i ->
       begin try
         (find env i).typ
-      with Not_found ->
+      with _ ->
         checker_error env "bound variable %d is malformed" i
       end
 

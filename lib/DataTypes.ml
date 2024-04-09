@@ -347,7 +347,7 @@ let compile_simple_matches (map, enums) = object(self)
   method! visit_EFlat (_, typ) exprs =
     let exprs = List.map (fun (i, e) -> i, self#visit_expr_w () e) exprs in
     match Hashtbl.find map (assert_tlid typ) with
-    | exception Not_found ->
+    | exception _ ->
         EFlat exprs
     | Eliminate _ ->
         (snd (KList.one exprs)).node
@@ -357,7 +357,7 @@ let compile_simple_matches (map, enums) = object(self)
   method! visit_PRecord (_, typ) pats =
     let pats = List.map (fun (i, p) -> i, self#visit_pattern_w () p) pats in
     match Hashtbl.find map (assert_tlid typ) with
-    | exception Not_found ->
+    | exception _ ->
         PRecord pats
     | Eliminate _ ->
         (snd (KList.one pats)).node
@@ -369,7 +369,7 @@ let compile_simple_matches (map, enums) = object(self)
     match e.typ with
     | TQualified lid ->
         begin match Hashtbl.find map lid with
-        | exception Not_found ->
+        | exception _ ->
             EField (e', f)
         | Eliminate _ ->
             e'.node
@@ -382,13 +382,8 @@ let compile_simple_matches (map, enums) = object(self)
   (* Four different compilation schemes for inductives, in one pass. *)
 
   method! visit_ECons (_, typ) cons args =
-    let lid =
-      match typ with
-      | TQualified lid -> lid
-      | _ -> Warn.fatal_error "not an lid: %s: %a" cons ptyp typ
-    in
-    match Hashtbl.find map lid with
-    | exception Not_found ->
+    match Hashtbl.find map (assert_tlid typ) with
+    | exception _ ->
         ECons (cons, List.map (self#visit_expr_w ()) args)
     | Eliminate _ ->
         (KList.one (List.map (self#visit_expr_w ()) args)).node
@@ -396,11 +391,11 @@ let compile_simple_matches (map, enums) = object(self)
         ECons (cons, List.map (self#visit_expr_w ()) args)
     | ToEnum ->
         assert (List.length args = 0);
-        EEnum (mk_tag_lid lid cons)
+        EEnum (mk_tag_lid (assert_tlid typ) cons)
     | ToFlat names ->
         EFlat (List.map2 (fun n e -> Some n, self#visit_expr_w () e) names args)
     | ToFlatTaggedUnion branches ->
-        let t_tag = TQualified (self#allocate_enum_lid lid branches) in
+        let t_tag = TQualified (self#allocate_enum_lid (assert_tlid typ) branches) in
         let fields =
           if List.length args = 0 then
             []
@@ -409,17 +404,12 @@ let compile_simple_matches (map, enums) = object(self)
             List.map2 (fun (f, _) e -> Some f, self#visit_expr_w () e) fields args
         in
         EFlat ([
-          Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons))
+          Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid (assert_tlid typ) cons))
         ] @ fields)
 
   method! visit_PCons (_, typ) cons args =
-    let lid =
-      match typ with
-      | TQualified lid -> lid
-      | _ -> Warn.fatal_error "not an lid: %s: %a" cons ptyp typ
-    in
-    match Hashtbl.find map lid with
-    | exception Not_found ->
+    match Hashtbl.find map (assert_tlid typ) with
+    | exception _ ->
         PCons (cons, List.map (self#visit_pattern_w ()) args)
     | Eliminate _ ->
         (KList.one (List.map (self#visit_pattern_w ()) args)).node
@@ -427,11 +417,11 @@ let compile_simple_matches (map, enums) = object(self)
         PCons (cons, List.map (self#visit_pattern_w ()) args)
     | ToEnum ->
         assert (List.length args = 0);
-        PEnum (mk_tag_lid lid cons)
+        PEnum (mk_tag_lid (assert_tlid typ) cons)
     | ToFlat names ->
         PRecord (List.map2 (fun n e -> n, self#visit_pattern_w () e) names args)
     | ToFlatTaggedUnion branches ->
-        let t_tag = TQualified (self#allocate_enum_lid lid branches) in
+        let t_tag = TQualified (self#allocate_enum_lid (assert_tlid typ) branches) in
         let fields =
           if List.length args = 0 then
             []
@@ -440,7 +430,7 @@ let compile_simple_matches (map, enums) = object(self)
             List.map2 (fun (f, _) e -> f, self#visit_pattern_w () e) fields args
         in
         PRecord ([
-          field_for_tag, with_type t_tag (PEnum (mk_tag_lid lid cons))
+          field_for_tag, with_type t_tag (PEnum (mk_tag_lid (assert_tlid typ) cons))
         ] @ fields)
 
   method private allocate_enum_lid lid branches =

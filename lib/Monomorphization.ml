@@ -404,12 +404,15 @@ let monomorphize_data_types map = object(self)
     TBuf (self#visit_typ true t, const)
 end
 
-let datatypes files =
+let datatypes_ files =
   let map = build_def_map files in
   let o = monomorphize_data_types map in
   let files = o#visit_files false files in
   (* o#sanity_check (); *)
-  files
+  o, files
+
+let datatypes files =
+  snd (datatypes_ files)
 
 
 (* Type monomorphization of functions. ****************************************)
