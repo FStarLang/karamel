@@ -139,6 +139,14 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     let t_rewritten = self#rewrite_function_type (ret_is_struct, args_are_structs) e.typ in
     let e = with_type t_rewritten (self#visit_expr' (to_be_starred, t_rewritten) e.node) in
 
+    (* TODO: this is not general *)
+    let e = match e.node, t_rewritten with
+      | ETApp ({ node = EQualified (["LowStar"; "Ignore"], "ignore"); _ } as e_ignore, [], _), TArrow (t, _) ->
+          with_type t_rewritten (ETApp (e_ignore, [], [ t ]))
+      | _ ->
+          e
+    in
+
     (* At call-site, [f e] can only be transformed into [f &e] is [e] is an
      * [lvalue]. This is, sadly, a little bit of an anticipation over the
      * ast-to-C* translation phase. TODO remove the check, and rely on
