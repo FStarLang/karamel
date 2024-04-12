@@ -998,6 +998,69 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       failwith "TODO: EReturn"
   | EWhile _ ->
       failwith "TODO: EWhile"
+
+  (* Loop with all constant bounds. *)
+  | EFor (b,
+    ({ node = EConstant (UInt32, init as k_init); _ } as e_init),
+    { node = EApp (
+      { node = EOp (Lt, UInt32); _ },
+      [{ node = EBound 0; _ };
+      ({ node = EConstant (UInt32, max); _ })]); _},
+    { node = EAssign (
+      { node = EBound 0; _ },
+      { node = EApp (
+        { node = EOp (Add, UInt32); _ },
+        [{ node = EBound 0; _ };
+        ({ node = EConstant (UInt32, incr as k_incr); _ })]); _}); _},
+    body)
+    when (
+      let init = int_of_string init in
+      let max = int_of_string max in
+      let incr = int_of_string incr in
+      let n_loops = (max - init + incr - 1) / incr in
+      n_loops <= !Options.unroll_loops
+    )
+    ->
+      (* Keep initial environment to return after translation *)
+      let env0 = env in
+
+      let init = int_of_string init in
+      let max = int_of_string max in
+      let incr = int_of_string incr in
+      let n_loops = (max - init + incr - 1) / incr in
+
+      if n_loops = 0 then
+        env, Unit
+
+      else if n_loops = 1 then
+        let body = DeBruijn.subst e_init 0 body in
+        translate_expr env body
+
+      else begin
+        assert (n_loops <= 16);
+
+        let unused = snd !(b.node.mark) = AtMost 3 in
+        (* We do an ad-hoc thing since this didn't go through lowstar.ignore
+           insertion. Rust uses the OCaml convention (which I recall I did suggest
+           to Graydon back in 2010). *)
+        let unused = if unused then "_" else "" in
+        let b: MiniRust.binding = { name = unused ^ b.node.name; typ = translate_type env b.typ; mut = false } in
+        let _, body = translate_expr (push env b) body in
+
+        (* This is a weird node, because it contains a binder, but does not rely
+           on a MiniRust.binding to encode that fact. For that reason, the
+           printer needs to be kept in sync and catch this special application
+           node. We could do this rewrite on the fly when pretty-printing, but
+           we'd have to retain the number of uses (above) in the node to figure
+           out whether to make the binder ignored or not. *)
+        env0, Call (Name ["krml"; "unroll_for!"], [], [
+          Constant (CInt, string_of_int n_loops);
+          ConstantString b.name;
+          Constant k_init;
+          Constant k_incr;
+          body ])
+      end
+
   | EFor (b, e_start, e_test, e_incr, e_body) ->
       (* Keep initial environment to return after translation *)
       let env0 = env in
