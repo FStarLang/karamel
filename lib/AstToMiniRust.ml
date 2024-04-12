@@ -1037,8 +1037,6 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         translate_expr env body
 
       else begin
-        assert (n_loops <= 16);
-
         let unused = snd !(b.node.mark) = AtMost 3 in
         (* We do an ad-hoc thing since this didn't go through lowstar.ignore
            insertion. Rust uses the OCaml convention (which I recall I did suggest
