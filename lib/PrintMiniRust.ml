@@ -123,7 +123,7 @@ let print_name env n =
   let n =
     if List.length n > List.length env.prefix && fst (KList.split (List.length env.prefix) n) = env.prefix then
       snd (KList.split (List.length env.prefix) n)
-    else if is_uppercase (List.hd n).[0] then
+    else if is_uppercase (List.hd n).[0] || List.hd n = "krml" then
       (* TODO: uppercase means it's a reference to Rust stdlib and outside the
          crate, therefore doesn't need the crate:: prefix *)
       n
@@ -148,7 +148,7 @@ let string_of_width (w: Constant.width) =
   | Constant.Int64 -> "i64"
   | Constant.Bool -> "bool"
   | Constant.SizeT -> "usize"
-  | Constant.CInt -> failwith "unexpected: cint"
+  | Constant.CInt -> ""
   | Constant.PtrdiffT -> failwith "unexpected: ptrdifft"
 
 let print_borrow_kind k =
@@ -311,6 +311,18 @@ and print_expr env (context: int) (e: expr): document =
     else
       doc
   in
+  let print_call env e ts es =
+    let mine = 4 in
+    let tapp =
+      if ts = [] then
+        empty
+      else
+        colon ^^ colon ^^ angles (separate_map (comma ^^ break1) (print_typ env) ts)
+    in
+    paren_if mine @@
+    group (print_expr env mine e ^^ tapp ^^ parens_with_nesting (
+      separate_map (comma ^^ break1) (print_expr env max_int) es))
+  in
   match e with
   | Operator _ ->
       failwith "unexpected: standalone operator"
@@ -339,17 +351,13 @@ and print_expr env (context: int) (e: expr): document =
       let mine = prec_of_op1 o in
       paren_if mine @@
       group (print_op o ^/^ print_expr env mine e1)
+  | Call (Name ["krml"; "unroll_for!"] as e, [], [ e1; ConstantString i; e3; e4; e5 ]) ->
+      (* This works because the variable only appears in the body, other
+         arguments are constants. *)
+      let i = allocate_name env i in
+      print_call (push env (`Named i)) e [] [ e1; ConstantString i; e3; e4; e5 ]
   | Call (e, ts, es) ->
-      let mine = 4 in
-      let tapp =
-        if ts = [] then
-          empty
-        else
-          colon ^^ colon ^^ angles (separate_map (comma ^^ break1) (print_typ env) ts)
-      in
-      paren_if mine @@
-      group (print_expr env mine e ^^ tapp ^^ parens_with_nesting (
-        separate_map (comma ^^ break1) (print_expr env max_int) es))
+      print_call env e ts es
   | Unit ->
       lparen ^^ rparen
   | Panic msg ->
