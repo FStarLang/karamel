@@ -211,11 +211,11 @@ let steel_sizet_intros : file =
 let steel_arrayarith : file =
   "Steel_ArrayArith", [
     mk_val ["Steel"; "ArrayArith"] "within_bounds_ptr"
-      (TArrow 
+      (TArrow
         (* The three permissions, extracted to unit *)
         (TUnit, TArrow (TUnit, TArrow (TUnit,
         (* The three arrays passed as arguments *)
-        TArrow (TBuf (TAny, false), TArrow (TBuf (TAny, false), TArrow (TBuf (TAny, false), 
+        TArrow (TBuf (TAny, false), TArrow (TBuf (TAny, false), TArrow (TBuf (TAny, false),
         (* The three ghost lengths, extracted to unit *)
         TArrow (TUnit, TArrow (TUnit, TArrow (TUnit,
         (* The three ghost sequences, extracted to unit *)
@@ -358,8 +358,38 @@ let make_abstract_function_or_global = function
         Some (DExternal (cc, flags, 0, 0, name, t, List.map (fun x -> x.node.name) bs))
       else
         None
-  | DGlobal (flags, name, n, t, _) when not (List.mem Common.Macro flags) ->
+  | DGlobal (flags, name, n, t, body) when not (List.mem Common.Macro flags) ->
+      let open PrintAst.Ops in
+      (* So it's pretty frustrating to have to pattern-match on expressions that we know will be
+         simplified later. But sadly, -library'ing must happen very early on, as successful bundling
+         depends on those definitions being made abstract. This is why we can't run this
+         per-definition, at a later phase, where e.g. simplify0 would've run and would relieve us of
+         having to do these silly pattern-matches. *)
       if n = 0 then
+        let t =
+          match t, body.node with
+          | TBuf (t, _), (EBufCreateL (_, l) | ELet (_, { node = EBufCreateL (_, l); _ }, { node = EBound 0; _ })) ->
+              TArray (t, (K.Int32, string_of_int (List.length l)))
+          | TBuf (t, _), (EBufCreate (_, _, size) | ELet (_, { node = EBufCreate (_, _, size); _ }, { node = EBound 0; _ })) ->
+              begin match size.node with
+              | EConstant k ->
+                  TArray (t, k)
+              | _ ->
+                  (* TODO: use a special encoding (e.g. max_int) to produce
+                     extern int x[]; *)
+                  Warn.fatal_error "-library on %a which has non-constant array length" plid name
+              end
+          | TBuf _, _ ->
+              (* Since this phase runs quite early, the goal is to make sure
+                 that we can safely assess whether this needs to have a storage
+                 type or a pointer type. (These don't link the same! See #130). *)
+              if not (Helpers.is_initializer_constant body) then
+                Warn.fatal_error "-library on %a: can't ascertain whether array or pointer\n%a"
+                  plid name pexpr body;
+              t
+          | _ ->
+              t
+        in
         Some (DExternal (None, flags, 0, 0, name, t, []))
       else
         None
@@ -390,11 +420,6 @@ let make_abstract (name, decls) =
         | _ ->
             make_abstract_function_or_global d
   ) decls
-
-(* Transforms an F* module that contains a model into a set of "assume val" that
- * will generate proper "extern" declarations in C. *)
-let make_library (name, decls) =
-  name, List.filter_map make_abstract_function_or_global decls
 
 let is_model name =
   let is_machine_integer name =
@@ -441,10 +466,14 @@ let prepare files =
   (if List.mem_assoc "LowStar_Ignore" files then [] else [lowstar_ignore]) @
   []
 
-let make_libraries files =
+let make_library (name, decls) =
+  name, List.filter_map make_abstract_function_or_global decls
+
+(* Transforms declarations covered by -library into a set of "assume val" that
+ * will generate proper "extern" declarations in C. *)
+let make_libraries =
   List.map (fun f ->
     if List.exists (fun p -> Bundle.pattern_matches p (fst f)) !Options.library then
       make_library f
     else
-      f
-  ) files
+      f)
