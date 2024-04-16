@@ -45,7 +45,7 @@ let failwith fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 27 CError;;
+let flags = Array.make 28 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -106,6 +106,8 @@ let errno_of_error = function
       25
   | NotLowStarCast _ ->
       26
+  | LibraryPointerAmbiguity _ ->
+      27
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -209,6 +211,11 @@ let rec perr buf (loc, raw_error) =
       that falls outside of the Low* subset. Please use -dmonomorphization, grep \
       for <: any in the code, and try to rewrite your source code. miTLS \
       relies on this but this is completely unsupported." pexpr e
+  | LibraryPointerAmbiguity (lid, e) ->
+      p "Top-level constant %a has a pointer type; is made abstract via \
+      -library; and its definition is too ambiguous to tell whether it's an \
+      array or a pointer. Disabling this warning is unsound. Definition \
+      below:\n%a" plid lid pexpr e
 
 let maybe_fatal_error error =
   flush stdout;

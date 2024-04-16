@@ -384,8 +384,7 @@ let make_abstract_function_or_global = function
                  that we can safely assess whether this needs to have a storage
                  type or a pointer type. (These don't link the same! See #130). *)
               if not (Helpers.is_initializer_constant body) then
-                Warn.fatal_error "-library on %a: can't ascertain whether array or pointer\n%a"
-                  plid name pexpr body;
+                Warn.maybe_fatal_error ("", LibraryPointerAmbiguity (name, body));
               t
           | _ ->
               t

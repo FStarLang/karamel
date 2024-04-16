@@ -34,6 +34,7 @@ and raw_error =
   | InlineStaticInline of lident
   | IfDefOnGlobal of lident
   | NotLowStarCast of expr
+  | LibraryPointerAmbiguity of lident * expr
 
 and location =
   string
