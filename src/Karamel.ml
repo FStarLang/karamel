@@ -414,7 +414,7 @@ Supported options:|}
     exit 1
   end;
 
-  if !Options.unroll_loops > 16 then begin
+  if !Options.unroll_loops > 16 && not (Options.rust ()) then begin
     print_endline "Error: argument to -funroll-loops cannot be greater than 16";
     exit 1
   end;
