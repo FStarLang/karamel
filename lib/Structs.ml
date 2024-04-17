@@ -235,10 +235,14 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     let body =
       if ret_is_struct then
         let assign_into_ret e =
-          if ret_is_array then
-            with_type TUnit (EAssign (Option.get ret_atom, e))
-          else
-            with_type TUnit (EBufWrite (Option.get ret_atom, Helpers.zerou32, e))
+          match e.node with
+          | EAbort _ ->
+              e
+          | _ ->
+              if ret_is_array then
+                with_type TUnit (EAssign (Option.get ret_atom, e))
+              else
+                with_type TUnit (EBufWrite (Option.get ret_atom, Helpers.zerou32, e))
         in
         (* Step 4.1: early-returns `return e` become `dst := e; return` *)
         let body = (object
