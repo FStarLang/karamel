@@ -312,8 +312,12 @@ let cross_call_analysis files =
       | Some f -> Drop.file f
       | None -> false
     in
-    file1 <> file2 &&
-    not (should_drop file1 || should_drop file2)
+    let r = file1 <> file2 && not (should_drop file1 || should_drop file2) in
+    if r && Options.debug "visibility-fixpoint" then
+      KPrint.bprintf "[visibility-fixpoint] cross-call from %a (%s) to %a (%s)\n"
+        plid name1 (Option.value ~default:"<none>" file1)
+        plid name2 (Option.value ~default:"<none>" file2);
+    r
   in
 
   (* First, collect information in the info map. Side-effect: downgrade inlining
@@ -407,7 +411,16 @@ let cross_call_analysis files =
              type definitions themselves. Thanks to the three cases above, we can simply substitute
              and recursively visit. *)
           let lid = Helpers.assert_elid e.node in
-          List.iter ((visit lid false)#visit_typ ()) (t :: ts)
+          (* This needs to be kept in sync with include/eurydice_glue.h *)
+          let external_call_needs_return_type =
+            match lid with
+            | ["Eurydice"], "slice_to_array2"
+            | ["Eurydice"], "into_iter"
+            | ["LowStar"], "ignore" -> false
+            | _ -> true
+          in
+          List.iter ((visit lid false)#visit_typ ())
+            (if external_call_needs_return_type then t :: ts else ts)
 
         method! visit_EQualified _ name =
           (* Cross-compilation unit calls force the callee to become visible, at
@@ -469,6 +482,8 @@ let cross_call_analysis files =
     let is_maximal = (=) Public
   end) in
   let valuation = F.lfp (fun lid valuation ->
+    if not (Hashtbl.mem info_map lid) then
+      Warn.fatal_error "No equation for %a" plid lid;
     let info = Hashtbl.find info_map lid in
     LidSet.fold (fun caller v -> lub v (valuation caller)) info.callers info.visibility
   ) in
