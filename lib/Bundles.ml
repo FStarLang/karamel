@@ -62,7 +62,7 @@ let make_one_bundle (bundle: Bundle.t) (files: file list) (used: (int * Bundle.t
     List.fold_left (fun (used, found) pattern ->
       let name = fst file in
       (* [is_api] overrides the default behavior (don't collect) *)
-      if pattern_matches pattern name && (is_api || not (in_api_list name)) then begin
+      if Bundle.pattern_matches_file pattern name && (is_api || not (in_api_list name)) then begin
         if debug then
           KPrint.bprintf "%s is a match\n" name;
 

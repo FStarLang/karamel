@@ -1207,10 +1207,10 @@ let mk_function_or_global_stub m (d: decl): C.declaration_or_function list =
 type where = H | C
 
 let declared_in_library lid =
-  List.exists (fun b -> Bundle.pattern_matches b (String.concat "_" (fst lid))) !Options.library
+  List.exists (fun b -> Bundle.pattern_matches_lid b lid) !Options.library
 
 let hand_written lid =
-  List.exists (fun b -> Bundle.pattern_matches b (String.concat "_" (fst lid))) !Options.hand_written
+  List.exists (fun b -> Bundle.pattern_matches_lid b lid) !Options.hand_written
 
 (* Type declarations, external function declarations. These are the things that
  * are either declared in the header (public), or in the c file (private), but
@@ -1344,7 +1344,7 @@ let if_header_inline_static m f1 f2 d =
     List.exists (fun p ->
       (* Only things that end up in headers are in the reverse-map. *)
       Hashtbl.mem m lid &&
-      Bundle.pattern_matches p (String.concat "_" (fst lid)))
+      Bundle.pattern_matches_lid p lid)
     !Options.static_header ||
     List.mem lid [
       [ "FStar"; "UInt8" ], "eq_mask";

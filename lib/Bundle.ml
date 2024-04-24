@@ -63,17 +63,29 @@ let mk_file_of files =
   in
   file_of
 
-(** A given pattern matches an F* filename (i.e. a string using the underscore
- * as a separator *)
-let pattern_matches (p: pat) (m: string) =
+let rec prefix_of p1 p2 =
+  match p1, p2 with
+  | [], _ -> true
+  | hd1 :: p1, hd2 :: p2 -> hd1 = hd2 && prefix_of p1 p2
+  | _ -> false
+
+let pattern_matches_lid (p: pat) (l: string list * string) =
   match p with
   | Module m' ->
-      String.concat "_" m' = m
+      m' = fst l
   | Prefix p ->
-      p = [] || KString.starts_with m (String.concat "_" p ^ "_")
-  | Lid _ ->
-      (* This only matches files *)
-      false
+      prefix_of p (fst l)
+  | Lid l' ->
+      l = l'
+
+let pattern_matches_file (p: pat) (name: string) =
+  match p with
+  | Lid _ -> false
+  | Module ns -> name = String.concat "_" ns
+  | Prefix ns -> KString.starts_with name (String.concat "_" ns ^ "_")
+
+(** A given pattern matches an F* filename (i.e. a string using the underscore
+ * as a separator *)
 
 (* For generating the filename. NOT for pretty-printing. *)
 let bundle_filename (api, patterns, attrs) =
