@@ -82,7 +82,7 @@ let pattern_matches_file (p: pat) (name: string) =
   match p with
   | Lid _ -> false
   | Module ns -> name = String.concat "_" ns
-  | Prefix ns -> KString.starts_with name (String.concat "_" ns ^ "_")
+  | Prefix ns -> ns = [] || KString.starts_with name (String.concat "_" ns ^ "_")
 
 (** A given pattern matches an F* filename (i.e. a string using the underscore
  * as a separator *)
