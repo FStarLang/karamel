@@ -472,7 +472,7 @@ let make_library (name, decls) =
  * will generate proper "extern" declarations in C. *)
 let make_libraries =
   List.map (fun f ->
-    if List.exists (fun p -> Bundle.pattern_matches p (fst f)) !Options.library then
+    if List.exists (fun p -> Bundle.pattern_matches_file p (fst f)) !Options.library then
       make_library f
     else
       f)

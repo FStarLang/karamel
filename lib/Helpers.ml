@@ -237,12 +237,8 @@ let is_ifdef ifdefs e1 =
         `No
 
 
-(* TODO: could be done more neatly... *)
-let pattern_matches p lid =
-  Bundle.pattern_matches p (String.concat "_" (fst lid))
-
 let is_static_header lid =
-  List.exists (fun p -> pattern_matches p lid) !Options.static_header
+  List.exists (fun p -> Bundle.pattern_matches_lid p lid) !Options.static_header
 
 (* If [e2] is assigned into an expression of type [t], we can sometimes
  * strengthen the type [t] into an array type. This is the only place that
