@@ -281,13 +281,13 @@ let cg_of_expr diff e =
       failwith "Unsuitable const generic"
 
 (* Substitute const generics *)
-class subst_ct (c: cg) = object (self)
+class subst_ct (c: cg Lazy.t) = object (self)
   (* There are no const generic binders -- nothing to increment *)
   inherit [_] map
   method! visit_TCgArray (i as env) t j =
     let t = self#visit_typ env t in
     (* We wish to replace i with c in [ t; j ] *)
-    match c with
+    match Lazy.force c with
     | CgVar v' ->
         (* we substitute v' for i in [ t; j ] *)
         if j = i then
@@ -307,14 +307,14 @@ class subst_ct (c: cg) = object (self)
     | CgVar j ->
         (* We are visiting a TCgApp that contains a variable: that variable (the
            argument of the TCgApp) is a candidate for substitution. *)
-        begin match c with
+        begin match Lazy.force c with
         | CgVar v' ->
             (* We substitute v' for i in TCgApp (t, CgVar j) *)
             if j = i then
               TCgApp (t, CgVar (v' + i) (* = lift_cg i v' *))
             else
               TCgApp (t, CgVar (if j < i then j else j-1))
-        | CgConst _ ->
+        | CgConst _ as c ->
             (* We substitute c for i in TCgApp (t, CgVar j) *)
             if j = i then
               TCgApp (t, c)
@@ -329,7 +329,7 @@ end
 class subst_c (diff: int) (c: expr) = object (_self)
   inherit map_counting_cg
   method! visit_typ ((i, _) as _env) t =
-    let c = cg_of_expr diff c in
+    let c = lazy (cg_of_expr diff c) in
     (new subst_ct c)#visit_typ i t
 
   method! visit_EBound ((_, i), _) j =
@@ -365,5 +365,5 @@ let subst_ctn' cs t =
   let l = List.length cs in
   KList.fold_lefti (fun i body arg ->
     let k = l - i - 1 in
-    (new subst_ct arg)#visit_typ k body
+    (new subst_ct (lazy arg))#visit_typ k body
   ) t cs
