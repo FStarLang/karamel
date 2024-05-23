@@ -256,9 +256,9 @@ let open_branch bs pat expr =
 
 (* Const generic support *)
 
-class map_counting_cg = object
+class map_counting_cg = object(self)
   (* The environment [i] has type [int*int]. *)
-  inherit [_] map as super
+  inherit [_] map as _super
   (* The environment is a pair [i, i']. The first component [i] is the DeBruijn
     index we are looking for, after entering ONLY the cg binders. It it set by
     the caller and does not increase afterwards since the only cg binders are at
@@ -268,8 +268,12 @@ class map_counting_cg = object
   method! extend ((i: int), i') (_: binder) =
     i, i' + 1
 
-  method! visit_ETApp ((i, i'), env) e cgs ts =
-    super#visit_ETApp ((i + List.length cgs, i'), env) e cgs ts
+  method! visit_ETApp (((i, i'), env) as env0) e cgs cgs' ts =
+    let env1 = (i + List.length cgs, i'), env in
+    ETApp (self#visit_expr env1 e,
+      List.map (self#visit_expr env0) cgs,
+      List.map (self#visit_expr env0) cgs',
+      List.map (self#visit_typ (fst env0)) ts)
 end
 
 (* Converting an expression into a suitable const generic usable in types, knowing
