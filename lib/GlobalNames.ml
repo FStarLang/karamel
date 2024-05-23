@@ -171,7 +171,7 @@ let clone (env: t) =
 let mapping = fst
 
 let skip_prefix lid =
-  List.exists (fun p -> Helpers.pattern_matches p lid) !Options.no_prefix
+  List.exists (fun p -> Bundle.pattern_matches_lid p lid) !Options.no_prefix
 
 (* Because of dedicated treatment in CStarToC11 *)
 let ineligible lident =
@@ -187,7 +187,7 @@ let ineligible lident =
 
 let bundle_matches (apis, patterns, _) lid =
   List.mem (fst lid) apis ||
-  List.exists (fun p -> Helpers.pattern_matches p lid) patterns
+  List.exists (fun p -> Bundle.pattern_matches_lid p lid) patterns
 
 let rename_prefix lid =
   List.find_map (fun b ->

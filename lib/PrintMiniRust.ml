@@ -7,6 +7,11 @@ open PPrint
 open PrintCommon
 open MiniRust
 
+module NameMap = Map.Make(struct
+  type t = name
+  let compare = compare
+end)
+
 let is_expression_with_block e =
   match e with
   | IfThenElse _ | For _ | While _ -> true
@@ -17,13 +22,25 @@ type env = {
   type_vars: string list;
   prefix: string list;
   debug: bool;
+  globals: name NameMap.t;
 }
 
 let lexical_conventions x =
-  String.map (function
-    | '\'' -> '_'
-    | c -> c
-  ) x
+  let dst = Buffer.create 128 in
+  String.iteri (fun i c ->
+    let cp = Uchar.of_char c in
+    let is_valid =
+      if i = 0 then
+        Uucp.Id.is_xid_start cp || c = '_'
+      else
+        Uucp.Id.is_xid_continue cp
+    in
+    if is_valid then
+      Buffer.add_utf_8_uchar dst cp
+    else
+      Buffer.add_utf_8_uchar dst (Uchar.of_int 0xb7)
+  ) x;
+  Buffer.contents dst
 
 let mk_uniq { vars; _ } x =
   if not (List.mem (`Named x) vars) then
@@ -58,6 +75,16 @@ let push env x =
   in
   { env with vars = x :: env.vars }
 
+let rec register_global env source_name =
+  let source_prefix, source_final = KList.split_at_last source_name in
+  (* There might be collisions in the source. This is neither optimal nor
+     correct. *)
+  if NameMap.mem source_name env.globals then
+    register_global env (source_prefix @ [ source_final ^ "·" ])
+  else
+    let target_name = source_prefix @ [ avoid_keywords (lexical_conventions source_final) ] in
+    { env with globals = NameMap.add source_name target_name env.globals }, target_name
+
 let push_type env x = { env with type_vars = x :: env.type_vars }
 
 let rec push_n_type env n =
@@ -78,9 +105,9 @@ let lookup env x =
 let lookup_type env x =
   List.nth env.type_vars x
 
-let fresh prefix = { vars = []; prefix; debug = false; type_vars = [] }
+let fresh prefix = { vars = []; prefix; debug = false; type_vars = []; globals = NameMap.empty }
 
-let debug = { vars = []; prefix = []; debug = true; type_vars = [] }
+let debug = { vars = []; prefix = []; debug = true; type_vars = []; globals = NameMap.empty }
 
 let print env =
   print_endline (String.concat ", " (List.map (function
@@ -88,10 +115,18 @@ let print env =
     | `GoneUnit -> "–"
   ) env.vars))
 
+let is_uppercase c =
+  'A' <= c && c <= 'Z'
+
 let print_name env n =
+  let n = try NameMap.find n env.globals with Not_found -> n in
   let n =
     if List.length n > List.length env.prefix && fst (KList.split (List.length env.prefix) n) = env.prefix then
       snd (KList.split (List.length env.prefix) n)
+    else if is_uppercase (List.hd n).[0] || List.hd n = "krml" then
+      (* TODO: uppercase means it's a reference to Rust stdlib and outside the
+         crate, therefore doesn't need the crate:: prefix *)
+      n
     else
       (* Absolute reference, restart from crate top *)
       "crate" :: n
@@ -113,7 +148,7 @@ let string_of_width (w: Constant.width) =
   | Constant.Int64 -> "i64"
   | Constant.Bool -> "bool"
   | Constant.SizeT -> "usize"
-  | Constant.CInt -> failwith "unexpected: cint"
+  | Constant.CInt -> ""
   | Constant.PtrdiffT -> failwith "unexpected: ptrdifft"
 
 let print_borrow_kind k =
@@ -127,10 +162,20 @@ let print_constant (w, s) =
   else
     string s
 
+let print_lifetime = function
+  | Label l ->
+      squote ^^ string l
+
+let print_lifetime_option = function
+  | Some l ->
+      print_lifetime l ^^ space
+  | None ->
+      empty
+
 let rec print_typ env (t: typ): document =
   match t with
   | Constant w -> string (string_of_width w)
-  | Ref (k, t) -> group (ampersand ^^ print_borrow_kind k ^^ print_typ env t)
+  | Ref (lt, k, t) -> group (ampersand ^^ print_lifetime_option lt ^^ print_borrow_kind k ^^ print_typ env t)
   | Vec t -> group (string "Vec" ^^ angles (print_typ env t))
   | Array (t, n) -> group (brackets (print_typ env t ^^ semi ^/^ int n))
   | Slice t -> group (brackets (print_typ env t))
@@ -141,14 +186,26 @@ let rec print_typ env (t: typ): document =
       group (parens (separate_map (comma ^^ break1) (print_typ env) ts)) ^/^
       print_typ env t
   | Bound n ->
-      string (lookup_type env n)
-  | Name n ->
-      print_name env n
+      begin try
+        string (lookup_type env n)
+      with _ ->
+        bang ^^ bang ^^ int n
+      end
+  | Name (n, params) ->
+      print_name env n ^^ print_generic_params params
   | Tuple ts ->
       group (parens (separate_map (comma ^^ break1) (print_typ env) ts))
   | App (t, ts) ->
       group (print_typ env t ^^
         angles (separate_map (comma ^^ break1) (print_typ env) ts))
+
+and print_generic_params params =
+  if params = [] then
+    empty
+  else
+    break1 ^^ angles (separate_map (comma ^^ break1) (function
+      | Lifetime l -> print_lifetime l
+    ) params)
 
 let print_mut b =
   if b then string "mut" ^^ break1 else empty
@@ -163,6 +220,11 @@ let print_op = function
 (* print a block *and* the expression within it *)
 let rec print_block_expression env e =
   braces_with_nesting (print_statements env e)
+
+and print_block_or_if_expression env e =
+  match e with
+  | IfThenElse _ -> print_expr env max_int e
+  | _ -> print_block_expression env e
 
 (* print an expression that possibly already has a block structure... quite
    confusing, but that's the terminology used by the rust reference *)
@@ -228,7 +290,7 @@ and prec_of_op2 o =
   | BAnd -> 11, 11, 10
   | BXor -> 12, 12, 11
   | BOr -> 13, 13, 12
-  | Eq | Neq | Lt | Gt | Lte | Gte -> 0, 13, 13
+  | Eq | Neq | Lt | Gt | Lte | Gte -> 14, 13, 13
   | And -> 15, 15, 14
   | Or -> 16, 16, 15
   | _ -> failwith ("unexpected: unknown binary operator: " ^ Constant.show_op o)
@@ -248,6 +310,18 @@ and print_expr env (context: int) (e: expr): document =
       parens doc
     else
       doc
+  in
+  let print_call env e ts es =
+    let mine = 4 in
+    let tapp =
+      if ts = [] then
+        empty
+      else
+        colon ^^ colon ^^ angles (separate_map (comma ^^ break1) (print_typ env) ts)
+    in
+    paren_if mine @@
+    group (print_expr env mine e ^^ tapp ^^ parens_with_nesting (
+      separate_map (comma ^^ break1) (print_expr env max_int) es))
   in
   match e with
   | Operator _ ->
@@ -277,28 +351,24 @@ and print_expr env (context: int) (e: expr): document =
       let mine = prec_of_op1 o in
       paren_if mine @@
       group (print_op o ^/^ print_expr env mine e1)
+  | Call (Name ["krml"; "unroll_for!"] as e, [], [ e1; ConstantString i; e3; e4; e5 ]) ->
+      (* This works because the variable only appears in the body, other
+         arguments are constants. *)
+      let i = allocate_name env i in
+      print_call (push env (`Named i)) e [] [ e1; ConstantString i; e3; e4; e5 ]
   | Call (e, ts, es) ->
-      let mine = 4 in
-      let tapp =
-        if ts = [] then
-          empty
-        else
-          colon ^^ colon ^^ angles (separate_map (comma ^^ break1) (print_typ env) ts)
-      in
-      paren_if mine @@
-      group (print_expr env mine e ^^ tapp ^^ parens_with_nesting (
-        separate_map (comma ^^ break1) (print_expr env max_int) es))
+      print_call env e ts es
   | Unit ->
       lparen ^^ rparen
   | Panic msg ->
-      group (string "panic!" ^^ parens_with_nesting (string msg))
+      group (string "panic!" ^^ parens_with_nesting (dquotes (string msg)))
   | IfThenElse (e1, e2, e3) ->
       group @@
       group (string "if" ^/^ print_expr env max_int e1) ^/^
-      print_expression_with_block env e2 ^^
+      print_block_expression env e2 ^^
       begin match e3 with
       | Some e3 ->
-          break1 ^^ string "else" ^/^ print_expression_with_block env e3
+          break1 ^^ string "else" ^/^ print_block_or_if_expression env e3
       | None ->
           empty
       end
@@ -317,7 +387,7 @@ and print_expr env (context: int) (e: expr): document =
       (* Note: specifying the type of a pattern isn't supported, per rustc *)
       group (string "for" ^/^ string name ^/^ string "in" ^/^ print_expr env max_int e1) ^/^
       let env = push env (`Named name) in
-      print_expression_with_block env e2
+      print_block_expression env e2
   | While (e1, e2) ->
       group @@
       string "while" ^/^ print_expr env max_int e1 ^/^
@@ -338,6 +408,15 @@ and print_expr env (context: int) (e: expr): document =
   | ConstantString s ->
       dquotes (string (CStarToC11.escape_string s))
 
+  | Struct (cons, fields) ->
+      group @@
+      print_name env cons ^/^ braces_with_nesting (
+        separate_map (comma ^^ break1) (fun (f, e) ->
+          group @@
+          string f ^^ colon ^/^ group (print_expr env max_int e)
+        ) fields
+      )
+
   | Var v ->
       begin match lookup env v with
       | `Named x -> string x
@@ -349,17 +428,31 @@ and print_expr env (context: int) (e: expr): document =
       paren_if mine @@
       print_expr env mine p ^^ group (brackets (print_expr env max_int e))
   | Field (e, s) ->
-      group (print_expr env max_int e ^^ dot ^^ string s)
+      group (print_expr env 3 e ^^ dot ^^ string s)
   | Deref e ->
       let mine = 6 in
       paren_if mine @@
       group (star ^^ print_expr env mine e)
 
+  | Match (scrut, patexprs) ->
+      group @@
+      group (string "match" ^/^ print_expr env max_int scrut) ^/^ braces_with_nesting (
+        separate_map (comma ^^ break1) (fun (p, e) ->
+          group @@
+          group (print_pat env p ^/^ string "=>") ^^ group (nest 2 (break1 ^^ print_expr env max_int e))
+      ) patexprs)
+
+and print_pat env (p: pat) =
+  match p with
+  | Literal c -> print_constant c
+  | Wildcard -> underscore
+  | StructP name -> print_name env name
+
 and print_array_expr env (e: array_expr) =
   match e with
   | List es ->
       group @@
-      brackets (nest 4 (separate_map (comma ^^ break1) (print_expr env max_int) es))
+      brackets (nest 4 (flow_map (comma ^^ break1) (print_expr env max_int) es))
   | Repeat (e, n) ->
       group @@
       group (brackets (nest 4 (print_expr env max_int e ^^ semi ^/^ print_expr env max_int n)))
@@ -369,43 +462,85 @@ let arrow = string "->"
 let print_pub p =
   if p then string "pub" ^^ break1 else empty
 
-let print_decl ns (d: decl) =
-  let env = fresh ns in
-  match d with
-  | Function { name; type_parameters; parameters; return_type; body; public; inline } ->
+let rec print_decl env (d: decl) =
+  let env, target_name = register_global env (name_of_decl d) in
+  env, match d with
+  | Function { type_parameters; parameters; return_type; body; public; inline; _ } ->
       assert (type_parameters = 0);
-      let parameters = List.map (fun b -> { b with name = allocate_name env b.name }) parameters in
+      let parameters = List.map (fun (b: binding) -> { b with name = allocate_name env b.name }) parameters in
       let env = List.fold_left (fun env (b: binding) -> push env (`Named b.name)) env parameters in
       let inline = if inline then string "#[inline]" ^^ break1 else empty in
       group @@
-      group (group (inline ^^ print_pub public ^^ string "fn" ^/^ print_name env name) ^^
+      group (group (inline ^^ print_pub public ^^ string "fn" ^/^ print_name env target_name) ^^
         parens_with_nesting (separate_map (comma ^^ break1) (print_binding env) parameters) ^^
         space ^^ arrow ^^ (nest 4 (break1 ^^ print_typ env return_type))) ^/^
       print_block_expression env body
-  | Constant { name; typ; body; public } ->
+  | Constant { typ; body; public; _ } ->
       group @@
-      group (print_pub public ^^ string "const" ^/^ print_name env name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
+      group (print_pub public ^^ string "const" ^/^ print_name env target_name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
       nest 4 (break1 ^^ print_expr env max_int body) ^^ semi
+  | Enumeration { items; public; derives; _ } ->
+      group @@
+      group (print_derives derives) ^/^
+      group (print_pub public ^^ string "enum" ^/^ print_name env target_name) ^/^
+      braces_with_nesting (
+        separate_map (comma ^^ hardline) (fun (item_name, item_struct) ->
+          group @@
+          print_name env item_name ^^ match item_struct with
+          | None -> empty
+          | Some item_struct -> break1 ^^ print_struct env item_struct
+      ) items)
+  | Struct { fields; public; generic_params; _ } ->
+      group @@
+      group (print_pub public ^^ string "struct" ^/^ print_name env target_name ^^ print_generic_params generic_params) ^/^
+      braces_with_nesting (print_struct env fields)
+  | Alias { generic_params; body; public; _ } ->
+      group @@
+      group (print_pub public ^^ string "type" ^/^ print_name env target_name  ^^ print_generic_params generic_params ^/^ equals) ^/^
+      group (print_typ env body ^^ semi)
+
+and print_derives traits =
+  group @@
+  string "#[derive(" ^^
+  separate_map (comma ^^ break1) (function
+    | PartialEq -> string "PartialEq"
+    | Clone -> string "Clone"
+    | Copy -> string "Copy"
+  ) traits ^^
+  string ")]"
+
+and print_struct env fields =
+  separate_map (comma ^^ break1) (fun { name; typ; public } ->
+    group (group (print_pub public ^^ string name ^^ colon) ^/^ group (print_typ env typ))
+  ) fields
 
 let failures = ref 0
 
-let name_of_decl = function
-  | Function { name; _ }
-  | Constant { name; _ } ->
-      name
-
 let string_of_name = String.concat "::"
 
-let print_decl ns d =
+let print_decl env d =
   try
-    print_decl ns d
+    print_decl env d
   with e ->
     incr failures;
     KPrint.bprintf "%sERROR printing %s: %s%s\n%s\n" Ansi.red
       (string_of_name (name_of_decl d))
       (Printexc.to_string e) Ansi.reset
       (Printexc.get_backtrace ());
-    empty
+    env, empty
+
+let print_decls ns ds =
+  let env = fresh ns in
+  let env, ds = List.fold_left (fun (env, ds) d ->
+    let env, d = print_decl env d in
+    env, d :: ds
+  ) (env, []) ds in
+  let ds = List.rev ds in
+  if Options.debug "rs-names" then
+    NameMap.iter (fun source target ->
+      KPrint.bprintf "%s --> %s\n" (String.concat "," source) (String.concat "," target)
+    ) env.globals;
+  separate (hardline ^^ hardline) ds ^^ hardline
 
 let pexpr = printf_of_pprint (print_expr debug max_int)
 let ptyp = printf_of_pprint (print_typ debug)

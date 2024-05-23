@@ -35,9 +35,10 @@ let remove_unused_type_arguments files =
 
     let def_map = Helpers.build_map files (fun map d ->
       match d with
-      | DType (lid, _, n, d) ->
+      | DType (lid, _, _, n, d) ->
+          (* TODO: ignore unused const generics *)
           Hashtbl.add map lid (`Typ (n, d))
-      | DFunction (_, _, n, t_ret, lid, bs, body) ->
+      | DFunction (_, _, _, n, t_ret, lid, bs, body) ->
           let ts = List.map (fun b -> b.typ) bs in
           Hashtbl.add map lid (`Fun (n, t_ret :: ts, body))
       | _ -> ()
@@ -66,7 +67,8 @@ let remove_unused_type_arguments files =
       method! visit_TApp env lid args =
         self#visit_app env lid args
 
-      method! visit_ETApp env e args =
+      method! visit_ETApp env e _ args =
+        (* TODO: for now, we ignore unused const generics *)
         let lid = assert_elid e.node in
         self#visit_app (fst env) lid args
     end in
@@ -94,7 +96,7 @@ let remove_unused_type_arguments files =
 
     (* Then, if the i-th type parameter is unused, we remove it from the type
      * definition... *)
-    method! visit_DType env lid flags n def =
+    method! visit_DType env lid flags n_cgs n def =
       let def = self#visit_type_def env def in
       let rec chop kept i def =
         if i = n then
@@ -107,7 +109,7 @@ let remove_unused_type_arguments files =
             chop kept (i + 1) def
       in
       let n, def = chop 0 0 def in
-      DType (lid, flags, n, def)
+      DType (lid, flags, n_cgs, n, def)
 
     (* ... and also any use of it. *)
     method! visit_TApp env lid args =
@@ -123,7 +125,7 @@ let remove_unused_type_arguments files =
       else
         TQualified lid
 
-    method! visit_DFunction env cc flags n ret lid binders def =
+    method! visit_DFunction env cc flags n_cgs n ret lid binders def =
       let binders = self#visit_binders_w env binders in
       let ret = self#visit_typ env ret in
       let def = self#visit_expr_w env def in
@@ -140,9 +142,10 @@ let remove_unused_type_arguments files =
             chop kept (i + 1) (def, binders, ret)
       in
       let n, (def, binders, ret) = chop 0 0 (def, binders, ret) in
-      DFunction (cc, flags, n, ret, lid, binders, def)
+      DFunction (cc, flags, n_cgs, n, ret, lid, binders, def)
 
-    method! visit_ETApp env e args =
+    method! visit_ETApp env e cgs args =
+      assert (cgs = []);
       let lid = assert_elid e.node in
       let args = List.map (self#visit_typ_wo env) args in
       let args = KList.filter_mapi (fun i arg ->
@@ -152,7 +155,7 @@ let remove_unused_type_arguments files =
           None
       ) args in
       if List.length args > 0 then
-        ETApp (e, args)
+        ETApp (e, [], args)
       else
         e.node
   end in
@@ -192,7 +195,7 @@ let one_non_constant_branch branches =
 
 let build_scheme_map files =
   let map = build_map files (fun map -> function
-    | DType (lid, _, 0, Variant branches) ->
+    | DType (lid, _, _, 0, Variant branches) ->
         let _constant, non_constant = List.partition (fun (_, fields) ->
           List.length fields = 0
         ) branches in
@@ -211,7 +214,7 @@ let build_scheme_map files =
         | _ ->
             ()
         end
-    | DType (lid, _, 0, Flat [ _, (t, _) ]) ->
+    | DType (lid, _, _, 0, Flat [ _, (t, _) ]) ->
         Hashtbl.add map lid (Eliminate t)
     | _ ->
         ()
@@ -221,7 +224,7 @@ let build_scheme_map files =
    * forward struct declaration is what allows us to compile these types. *)
   (object
     inherit [_] iter
-    method visit_DType _ lid _ _ d =
+    method visit_DType _ lid _ _ _ d =
       (* But if it turns out we can't eliminate, restore what otherwise would've
        * been the compilation scheme. (See OCaml doc for the behavior of add.) *)
       if Helpers.is_forward d then
@@ -315,7 +318,7 @@ let allocate_tag enums preferred_lid tags =
   | exception Not_found ->
       Hashtbl.add enums tags preferred_lid;
       (* Private will be removed, if needed, by the cross-call analysis. *)
-      Fresh (DType (preferred_lid, [ Common.Private ], 0, Enum tags))
+      Fresh (DType (preferred_lid, [ Common.Private ], 0, 0, Enum tags))
 
 let field_for_tag = "tag"
 let field_for_union = "val"
@@ -453,30 +456,31 @@ let compile_simple_matches (map, enums) = object(self)
         pending := decl :: !pending;
         preferred_lid
 
-  method! visit_DType env lid flags n def =
+  method! visit_DType env lid flags n_cgs n def =
+    assert (n_cgs = 0);
     let def = self#visit_type_def env def in
     match def with
     | Variant branches ->
         assert (n = 0);
         begin match Hashtbl.find map lid with
         | exception Not_found ->
-            DType (lid, flags, 0, Variant branches)
+            DType (lid, flags, 0, 0, Variant branches)
         | Eliminate t ->
-            DType (lid, flags, 0, Abbrev t)
+            DType (lid, flags, 0, 0, Abbrev t)
         | ToTaggedUnion _ ->
             ignore (self#allocate_enum_lid lid branches);
-            DType (lid, flags, 0, Variant branches)
+            DType (lid, flags, 0, 0, Variant branches)
         | ToEnum ->
             let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
             begin match allocate_tag enums lid tags with
             | Found other_lid ->
-                DType (lid, flags, 0, Abbrev (TQualified other_lid))
+                DType (lid, flags, 0, 0, Abbrev (TQualified other_lid))
             | Fresh decl ->
                 decl
             end
         | ToFlat _ ->
             let fields = List.map (fun (f, t) -> Some f, t) (snd (List.hd branches)) in
-            DType (lid, flags, 0, Flat fields)
+            DType (lid, flags, 0, 0, Flat fields)
         | ToFlatTaggedUnion branches ->
             ignore (self#allocate_enum_lid lid branches);
             (* First field for the tag, then flatly, the fields of the only one
@@ -484,20 +488,20 @@ let compile_simple_matches (map, enums) = object(self)
             let f_tag = field_for_tag, (TQualified (self#allocate_enum_lid lid branches), false) in
             let fields = snd (one_non_constant_branch branches) in
             let fields = List.map (fun (f, t) -> Some f, t) (f_tag :: fields) in
-            DType (lid, flags, 0, Flat fields)
+            DType (lid, flags, 0, 0, Flat fields)
             end
     | Flat fields ->
         assert (n = 0);
         begin match Hashtbl.find map lid with
         | exception Not_found ->
-            DType (lid, flags, 0, Flat fields)
+            DType (lid, flags, 0, 0, Flat fields)
         | Eliminate t ->
-            DType (lid, flags, 0, Abbrev t)
+            DType (lid, flags, 0, 0, Abbrev t)
         | _ ->
             assert false
         end
     | _ ->
-        DType (lid, flags, n, def)
+        DType (lid, flags, 0, n, def)
 
   (* Need the type to be mapped *after* the expression, so that we can examine
    * the old type. Maybe this should be the default? *)
@@ -656,14 +660,14 @@ let remove_unit_fields = object (self)
     | TAny -> EAny
     | t -> Warn.fatal_error "default_value: %a" ptyp t
 
-  method! visit_DType _ lid flags n type_def =
+  method! visit_DType _ lid flags n_cgs n type_def =
     match type_def with
     | Variant branches ->
-        DType (lid, flags, n, self#rewrite_variant lid branches)
+        DType (lid, flags, n_cgs, n, self#rewrite_variant lid branches)
     | Flat fields ->
-        DType (lid, flags, n, Flat (self#rewrite_fields lid None (fun x -> x) fields))
+        DType (lid, flags, n_cgs, n, Flat (self#rewrite_fields lid None (fun x -> x) fields))
     | _ ->
-        DType (lid, flags, n, type_def)
+        DType (lid, flags, n_cgs, n, type_def)
 
   (* Modify type definitions so that fields of type unit and any are removed.
    * Remember in a table that they are removed. *)
@@ -1006,12 +1010,12 @@ let compile_all_matches (map, enums) = object (self)
     in
     TQualified tag_lid, TAnonymous (Union structs)
 
-  method! visit_DType _ lid flags n type_def =
+  method! visit_DType _ lid flags n_cgs n type_def =
     match type_def with
     | Variant branches ->
-        DType (lid, flags, n, self#rewrite_variant lid branches)
+        DType (lid, flags, n_cgs, n, self#rewrite_variant lid branches)
     | _ ->
-        DType (lid, flags, n, type_def)
+        DType (lid, flags, n_cgs, n, type_def)
 
   (* A variant declaration is a struct declaration with two fields:
    * - [field_for_tag] is the field that holds the "tag" whose type is an
@@ -1073,11 +1077,11 @@ let compile_all_matches (map, enums) = object (self)
     )
 
   (* The match transformation is tricky: we open all binders. *)
-  method! visit_DFunction env cc flags n ret name binders expr =
+  method! visit_DFunction env cc flags n_cgs n ret name binders expr =
     let binders, expr = open_binders binders expr in
     let expr = self#visit_expr_w env expr in
     let expr = close_binders binders expr in
-    DFunction (cc, flags, n, ret, name, binders, expr)
+    DFunction (cc, flags, n_cgs, n, ret, name, binders, expr)
 
   method! visit_ELet _ binder e1 e2 =
     let e1 = self#visit_expr_w () e1 in
@@ -1131,10 +1135,10 @@ let anonymous_unions (map, _) = object (self)
 
   method! visit_decl env d =
     match d with
-    | DType (lid, flags, 0, Flat [ Some f1, t1; Some f2, t2 ]) when
+    | DType (lid, flags, 0, 0, Flat [ Some f1, t1; Some f2, t2 ]) when
       f1 = field_for_tag && f2 = field_for_union &&
       is_tagged_union map lid ->
-        DType (lid, flags, 0, Flat [ Some f1, t1; None, t2 ])
+        DType (lid, flags, 0, 0, Flat [ Some f1, t1; None, t2 ])
     | _ ->
         super#visit_decl env d
 
@@ -1256,6 +1260,40 @@ let remove_full_matches = object (self)
             super#visit_EMatch env c scrut branches
 end
 
+let remove_empty_structs files =
+  let open Idents in
+  let empty_structs = (object
+
+    inherit [_] reduce
+
+    method zero = LidSet.empty
+    method plus = LidSet.union
+
+    method! visit_DType _ lid _ _ _ def =
+      if def = Flat [] then
+        LidSet.singleton lid
+      else
+        LidSet.empty
+  end)#visit_files () files in
+
+  (object
+
+    inherit [_] map as super
+
+    method! visit_TQualified _ lid =
+      if LidSet.mem lid empty_structs then
+        TUnit
+      else
+        TQualified lid
+
+    method! visit_EFlat env fields =
+      if fields = [] then begin
+        EUnit
+      end else
+        super#visit_EFlat env fields
+  end)#visit_files () files
+
+
 (* Debug any intermediary AST as follows: *)
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
 (* debug_map (fst map); *)
@@ -1278,6 +1316,7 @@ let everything files =
   let files = (compile_simple_matches map)#visit_files () files in
   let files = (compile_all_matches map)#visit_files () files in
   let files = remove_non_scalar_casts#visit_files () files in
+  let files = remove_empty_structs files in
   map, files
 
 let anonymous_unions map files =

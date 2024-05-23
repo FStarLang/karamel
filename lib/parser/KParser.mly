@@ -46,12 +46,17 @@ pat:
   { Prefix [ ] }
 | u = UIDENT
   { Module [ u ] }
+| l = LIDENT
+  { Lid ([], l) }
 | u = UIDENT DOT p = pat
   { match p with
     | Module m ->
         Module (u :: m)
     | Prefix m ->
-        Prefix (u :: m) }
+        Prefix (u :: m)
+    | Lid (m, n) ->
+        Lid (u :: m, n)
+  }
 
 %inline
 uident:

@@ -24,6 +24,7 @@ depends: [
   "fstar"
   "ctypes"
   "ctypes-foreign"
+  "uucp"
 ]
 depexts: ["coreutils"] {os = "macos" & os-distribution = "homebrew"}
 build: [

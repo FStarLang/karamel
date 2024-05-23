@@ -2,8 +2,7 @@
 (* Licensed under the Apache 2.0 License. *)
 
 let file name =
-  List.exists (fun p -> Bundle.pattern_matches p name) !Options.drop
+  List.exists (fun p -> Bundle.pattern_matches_file p name) !Options.drop
 
-let lid lid =
-  let f = String.concat "_" (fst lid) in
-  file f
+let lid name =
+  List.exists (fun p -> Bundle.pattern_matches_lid p name) !Options.drop

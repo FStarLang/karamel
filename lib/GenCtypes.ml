@@ -480,7 +480,7 @@ let mk_ocaml_bindings
   in
 
   let should_bind lid flags =
-    List.exists (fun p -> Helpers.pattern_matches p lid) !Options.ctypes &&
+    List.exists (fun p -> Bundle.pattern_matches_lid p lid) !Options.ctypes &&
     not (List.mem Common.Private flags)
   in
 
@@ -495,7 +495,7 @@ let mk_ocaml_bindings
 
   (* Sanity check: no superfluous arguments to -ctypes *)
   List.iter (fun p ->
-    if not (List.exists (Bundle.pattern_matches p) !ocaml_files) then
+    if not (List.exists (Bundle.pattern_matches_file p) !ocaml_files) then
       Warn.fatal_error "Pattern %s was passed to -ctypes but no source module matches"
         (Bundle.string_of_pattern p);
   ) !Options.ctypes;

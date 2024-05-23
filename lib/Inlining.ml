@@ -16,7 +16,7 @@ let natural_arity = Hashtbl.create 43
 let compute_natural_arity = object
   inherit [_] iter
 
-  method! visit_DFunction () _ _ _ _ name args _ =
+  method! visit_DFunction () _ _ _ _ _ name args _ =
     Hashtbl.add natural_arity name (List.length args)
 end
 
@@ -36,7 +36,7 @@ let reparenthesize_applications = object (self)
     let es = List.map (self#visit_expr env) es in
     let e = self#visit_expr env e in
     match e.node with
-    | EQualified lid | ETApp ({ node = EQualified lid; _ }, _) ->
+    | EQualified lid | ETApp ({ node = EQualified lid; _ }, _, _) ->
         begin try
           let n = Hashtbl.find natural_arity lid in
           let first, last = KList.split n es in
@@ -105,7 +105,7 @@ let mk_inliner files criterion =
   (* Build a map suitable for the [memoize_inline] combinator. *)
   let map = Helpers.build_map files (fun map -> function
     | DGlobal (_, name, _, _, body)
-    | DFunction (_, _, _, _, name, _, body) ->
+    | DFunction (_, _, _, _, _, name, _, body) ->
         Hashtbl.add map name (White, body)
     | _ ->
         ()
@@ -138,7 +138,7 @@ let mk_inliner files criterion =
 let inline_analysis files =
   let map = Helpers.build_map files (fun map -> function
     | DGlobal (flags, name, _, _, body)
-    | DFunction (_, flags, _, _, name, _, body) ->
+    | DFunction (_, flags, _, _, _, name, _, body) ->
         Hashtbl.add map name (White, flags, 0, body)
     | _ ->
         ()
@@ -312,8 +312,12 @@ let cross_call_analysis files =
       | Some f -> Drop.file f
       | None -> false
     in
-    file1 <> file2 &&
-    not (should_drop file1 || should_drop file2)
+    let r = file1 <> file2 && not (should_drop file1 || should_drop file2) in
+    if r && Options.debug "visibility-fixpoint" then
+      KPrint.bprintf "[visibility-fixpoint] cross-call from %a (%s) to %a (%s)\n"
+        plid name1 (Option.value ~default:"<none>" file1)
+        plid name2 (Option.value ~default:"<none>" file2);
+    r
   in
 
   (* First, collect information in the info map. Side-effect: downgrade inlining
@@ -353,8 +357,8 @@ let cross_call_analysis files =
             KPrint.bprintf "[maybe_needs_getter]: definition not found %a\n" plid name
       in
 
-      let visit in_body = object (self)
-        inherit [_] iter
+      let rec visit lid in_body = object (self)
+        inherit [_] iter as super
 
         method! visit_TQualified () name =
           (* Cross-compilation-unit reference to `name`, a type that we need in
@@ -370,8 +374,53 @@ let cross_call_analysis files =
             record_call_from_to lid name
 
         method! visit_TApp () name ts =
-          self#visit_TQualified () name;
-          List.iter (self#visit_typ ()) ts
+          match Hashtbl.find_opt MonomorphizationState.state (name, ts, []) with
+          | Some (_, lid) ->
+              self#visit_TQualified () lid
+          | None ->
+              self#visit_TQualified () name;
+              List.iter (self#visit_typ ()) ts
+
+        method! visit_TTuple () ts =
+          match Hashtbl.find_opt MonomorphizationState.state (tuple_lid, ts, []) with
+          | Some (_, lid) ->
+              self#visit_TQualified () lid
+          | None ->
+              super#visit_TTuple () ts
+
+        method! visit_TCgApp () name ts =
+          match Hashtbl.find_opt MonomorphizationState.state (flatten_tapp (TCgApp (name, ts))) with
+          | Some (_, lid) ->
+              self#visit_TQualified () lid
+          | None ->
+              super#visit_TCgApp () name ts
+
+        method! visit_ETApp ((), t) e _ ts =
+          (* Monomorphization happened long ago. If we hit this, this means we are the call-site for
+             a type- or cg-polymorphic external function. The callee retains its original
+             polymorphic signature (e.g. \0. () -> uint8[0] * uint8[0]), and the call-site (here)
+             provides the arguments (e.g. 840).
+
+             We need to do something, because once the user implements (with a macro) the
+             type- or cg-polymorphic definition, they will receive those type-names as arguments (to
+             be leveraged by the macro definition), meaning they will need access to those type
+             definitions to successfully implement the macro. (See Kyber for examples of this.)
+
+             Therefore, we treat this as a cross-call from the external function prototype (even
+             though it most likely won't be emitted, since it's too polymorphic for C), towards the
+             type definitions themselves. Thanks to the three cases above, we can simply substitute
+             and recursively visit. *)
+          let lid = Helpers.assert_elid e.node in
+          (* This needs to be kept in sync with include/eurydice_glue.h *)
+          let external_call_needs_return_type =
+            match lid with
+            | ["Eurydice"], "slice_to_array2"
+            | ["Eurydice"], "into_iter"
+            | ["LowStar"], "ignore" -> false
+            | _ -> true
+          in
+          List.iter ((visit lid false)#visit_typ ())
+            (if external_call_needs_return_type then t :: ts else ts)
 
         method! visit_EQualified _ name =
           (* Cross-compilation unit calls force the callee to become visible, at
@@ -399,8 +448,10 @@ let cross_call_analysis files =
             maybe_needs_getter name
       end in
 
+      let visit = visit lid in
+
       begin match d with
-      | DFunction (_, _, _, t, _, bs, e) ->
+      | DFunction (_, _, _, _, t, _, bs, e) ->
           (visit false)#visit_typ () t;
           (visit false)#visit_binders_w () bs;
           (visit true)#visit_expr_w () e
@@ -410,9 +461,9 @@ let cross_call_analysis files =
              limited, this is still useful e.g. in the presence of function
              pointers. *)
           (visit true)#visit_expr_w () e
-      | DExternal (_, _, _, _, t, _) ->
+      | DExternal (_, _, _, _, _, t, _) ->
           (visit false)#visit_typ () t
-      | DType (_, flags, _, d) ->
+      | DType (_, flags, _, _, d) ->
           if not (List.mem Common.AbstractStruct flags) then
             (visit false)#visit_type_def () d
       end;
@@ -431,6 +482,8 @@ let cross_call_analysis files =
     let is_maximal = (=) Public
   end) in
   let valuation = F.lfp (fun lid valuation ->
+    if not (Hashtbl.mem info_map lid) then
+      Warn.fatal_error "No equation for %a" plid lid;
     let info = Hashtbl.find info_map lid in
     LidSet.fold (fun caller v -> lub v (valuation caller)) info.callers info.visibility
   ) in
@@ -461,14 +514,14 @@ let cross_call_analysis files =
           flags
       in
       match d with
-      | DFunction (cc, flags, n, t, name, bs, e) ->
-          DFunction (cc, adjust flags, n, t, name, bs, e)
+      | DFunction (cc, flags, n_cgs, n, t, name, bs, e) ->
+          DFunction (cc, adjust flags, n_cgs, n, t, name, bs, e)
       | DGlobal (flags, name, n, t, e) ->
           DGlobal (adjust flags, name, n, t, e)
-      | DExternal (cc, flags, n, name, t, hints) ->
-          DExternal (cc, adjust flags, n, name, t, hints)
-      | DType (name, flags, n, def) ->
-          DType (name, adjust flags, n, def)
+      | DExternal (cc, flags, n_cg, n, name, t, hints) ->
+          DExternal (cc, adjust flags, n_cg, n, name, t, hints)
+      | DType (name, flags, n_cgs, n, def) ->
+          DType (name, adjust flags, n_cgs, n, def)
     ) decls
   ) files in
 
@@ -491,7 +544,7 @@ let cross_call_analysis files =
     val mutable new_decls = []
     method! visit_DGlobal () flags name n t body =
       if (Hashtbl.find info_map name).wasm_needs_getter then begin
-        let d = DFunction (None, [], 0,
+        let d = DFunction (None, [], 0, 0,
           t,
           name_of_getter name,
           [ Helpers.fresh_binder "_" TUnit ],
@@ -531,13 +584,13 @@ let inline files =
    *   dropped accordingly.
    * *)
   let files = filter_decls (function
-    | DFunction (cc, flags, n, ret, name, binders, _) ->
+    | DFunction (cc, flags, n_cgs, n, ret, name, binders, _) ->
         if must_disappear name && not (always_live name) then begin
           if Options.debug "reachability" then
             KPrint.bprintf "REACHABILITY: %a must disappear\n" plid name;
           None
         end else
-          Some (DFunction (cc, flags, n, ret, name, binders, inline_one name))
+          Some (DFunction (cc, flags, n_cgs, n, ret, name, binders, inline_one name))
     | DGlobal (flags, name, n, t, _) ->
         (* Note: should we allow globals to marked as "must disappear"? *)
         Some (DGlobal (flags, name, n, t, inline_one name))
@@ -550,7 +603,7 @@ let inline files =
 
 let inline_type_abbrevs ?(just_auto_generated=false) files =
   let map = Helpers.build_map files (fun map -> function
-    | DType (lid, flags, _, Abbrev t) when
+    | DType (lid, flags, _, _, Abbrev t) when
       not just_auto_generated || just_auto_generated && List.mem AutoGenerated flags ->
         Hashtbl.add map lid (White, t)
     | _ -> ()
@@ -580,7 +633,7 @@ let inline_type_abbrevs ?(just_auto_generated=false) files =
   if just_auto_generated then
     filter_decls (fun d ->
       match d with
-      | DType (_, flags, _, Abbrev _) when List.mem AutoGenerated flags ->
+      | DType (_, flags, _, _, Abbrev _) when List.mem AutoGenerated flags ->
           None
       | _ ->
           Some d
@@ -660,9 +713,9 @@ let mark_possibly_unused ifdefs files =
   end)#visit_files () files in
   (object
     inherit [_] map
-    method! visit_DFunction _ cc flags n t name binders body =
+    method! visit_DFunction _ cc flags n_cgs n t name binders body =
       if not (LidSet.mem name map) && List.mem Private flags then
-        DFunction (cc, MaybeUnused :: flags, n, t, name, binders, body)
+        DFunction (cc, MaybeUnused :: flags, n_cgs, n, t, name, binders, body)
       else
-        DFunction (cc, flags, n, t, name, binders, body)
+        DFunction (cc, flags, n_cgs, n, t, name, binders, body)
   end)#visit_files () files

@@ -243,3 +243,127 @@ let open_branch bs pat expr =
     in
     b :: bs, pat, expr
   ) bs ([], pat, expr)
+
+(* ---------------------------------------------------------------------------- *)
+
+(* Const generic support *)
+
+class map_counting_cg = object
+  (* The environment [i] has type [int*int]. *)
+  inherit [_] map as super
+  (* The environment is a pair [i, i']. The first component [i] is the DeBruijn
+    index we are looking for, after entering ONLY the cg binders. It it set by
+    the caller and does not increase afterwards since the only cg binders are at
+    the function declaration level. The second component [i'] is the DeBruijn
+    index we are looking for, after entering ALL the binders. It is incremented
+    at each binder, in expressions. *)
+  method! extend ((i: int), i') (_: binder) =
+    i, i' + 1
+
+  method! visit_ETApp ((i, i'), env) e cgs ts =
+    super#visit_ETApp ((i + List.length cgs, i'), env) e cgs ts
+end
+
+(* Converting an expression into a suitable const generic usable in types, knowing
+   `diff = n_cg - n_binders`, where
+   - n_cg is the total number of const generics in the current function / type,
+     and
+   - n_binders is the total number of expression binders traversed (including
+     const generics) *)
+let cg_of_expr diff e =
+  match e.node with
+  | EBound k ->
+      assert (k - diff >= 0);
+      CgVar (k - diff)
+  | EConstant (w, s) ->
+      CgConst (w, s)
+  | _ ->
+      failwith "Unsuitable const generic"
+
+(* Substitute const generics *)
+class subst_ct (c: cg Lazy.t) = object (self)
+  (* There are no const generic binders -- nothing to increment *)
+  inherit [_] map
+  method! visit_TCgArray (i as env) t j =
+    let t = self#visit_typ env t in
+    (* We wish to replace i with c in [ t; j ] *)
+    match Lazy.force c with
+    | CgVar v' ->
+        (* we substitute v' for i in [ t; j ] *)
+        if j = i then
+          TCgArray (t, v' + i (* = lift_cg i v' *))
+        else
+          TCgArray (t, if j < i then j else j-1)
+    | CgConst (w, s) ->
+        if j = i then
+          TArray (t, (w, s))
+        else
+          TCgArray (t, if j < i then j else j-1)
+
+  method! visit_TCgApp i t arg =
+    let t = self#visit_typ i t in
+    (* We are seeking to replace i with c in TCgApp (t, arg) *)
+    match arg with
+    | CgVar j ->
+        (* We are visiting a TCgApp that contains a variable: that variable (the
+           argument of the TCgApp) is a candidate for substitution. *)
+        begin match Lazy.force c with
+        | CgVar v' ->
+            (* We substitute v' for i in TCgApp (t, CgVar j) *)
+            if j = i then
+              TCgApp (t, CgVar (v' + i) (* = lift_cg i v' *))
+            else
+              TCgApp (t, CgVar (if j < i then j else j-1))
+        | CgConst _ as c ->
+            (* We substitute c for i in TCgApp (t, CgVar j) *)
+            if j = i then
+              TCgApp (t, c)
+            else
+              TCgApp (t, CgVar (if j < i then j else j-1))
+        end
+    | _ ->
+        TCgApp (t, arg)
+end
+
+(* Substitute const generics *)
+class subst_c (diff: int) (c: expr) = object (_self)
+  inherit map_counting_cg
+  method! visit_typ ((i, _) as _env) t =
+    let c = lazy (cg_of_expr diff c) in
+    (new subst_ct c)#visit_typ i t
+
+  method! visit_EBound ((_, i), _) j =
+    if j = i then
+      (lift i c).node
+    else
+      EBound (if j < i then j else j-1)
+end
+
+(* Both of these function receive a cg debruijn index, whereas the argument c is
+ an expression that is in the expression debruijn space -- hence the extra diff
+ parameter to go one the latter to the former. *)
+let subst_ce diff c i = (new subst_c diff c)#visit_expr_w (i, i + diff)
+let subst_ct diff c i = (new subst_c diff c)#visit_typ (i, i + diff)
+
+let subst_cen diff cs t =
+  let l = List.length cs in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    let body = subst_ce diff arg k body in
+    (* KPrint.bprintf "k=%d body=%a\n\n" k PrintAst.pexpr body; *)
+    body
+  ) t cs
+
+let subst_ctn diff cs t =
+  let l = List.length cs in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    subst_ct diff arg k body
+  ) t cs
+
+let subst_ctn' cs t =
+  let l = List.length cs in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    (new subst_ct (lazy arg))#visit_typ k body
+  ) t cs

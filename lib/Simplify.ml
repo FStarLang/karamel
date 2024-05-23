@@ -76,7 +76,7 @@ class ['self] safe_use = object (self: 'self)
     match e.node with
     | EOp _ -> super#visit_EApp env e es
     | EQualified lid when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
-    | ETApp ({ node = EQualified lid; _ }, _) when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
+    | ETApp ({ node = EQualified lid; _ }, _, _) when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
     | _ -> self#unordered env (e :: es)
 
   method! visit_ELet env _ e1 e2 = self#sequential env e1 (Some e2)
@@ -160,7 +160,7 @@ let unused_parameter_table = object (_)
 
   inherit [_] iter
 
-  method! visit_DFunction parameter_table _ flags _ _ name binders _ =
+  method! visit_DFunction parameter_table _ flags _ _ _ name binders _ =
     let is_private = List.mem Common.Private flags && not (Helpers.is_static_header name) in
     if is_private then
       let unused_vector = List.map (fun b -> !(b.node.mark)) binders in
@@ -224,7 +224,7 @@ let remove_unused_parameters = object (self)
   method! extend (table, j) _ =
     table, j + 1
 
-  method! visit_DFunction (parameter_table, _) cc flags n ret name binders body =
+  method! visit_DFunction (parameter_table, _) cc flags n_cgs n ret name binders body =
     current_lid <- name;
 
     (* Visit first: this may create more unused parameters and modify
@@ -245,9 +245,9 @@ let remove_unused_parameters = object (self)
         body
     ) body (List.init n_binders (fun i -> i)) in
     let binders = KList.filter_mapi (fun i b -> if unused i then None else Some b) binders in
-    DFunction (cc, flags, n, ret, name, binders, body)
+    DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
 
-  method! visit_DExternal (parameter_table, _ as env) cc flags n name t hints =
+  method! visit_DExternal (parameter_table, _ as env) cc flags n_cg n name t hints =
     let ret, args = flatten_arrow t in
     let hints = KList.filter_mapi (fun i arg ->
       if unused parameter_table dummy_lid args i then
@@ -263,7 +263,7 @@ let remove_unused_parameters = object (self)
     ) args in
     let ret = self#visit_typ env ret in
     let t = fold_arrow args ret in
-    DExternal (cc, flags, n, name, t, hints)
+    DExternal (cc, flags, n_cg, n, name, t, hints)
 
   method! visit_TArrow (parameter_table, _ as env) t1 t2 =
     (* Important: the only entries in `parameter_table` are those which are
@@ -398,7 +398,7 @@ let remove_ignore_unit = object
 
   method! visit_EApp env hd args =
     match hd.node, args with
-    | ETApp ({ node = EQualified (["LowStar"; "Ignore"], "ignore"); _}, [ TUnit ]), [ { node = EUnit; _ } ] ->
+    | ETApp ({ node = EQualified (["LowStar"; "Ignore"], "ignore"); _}, _, [ TUnit ]), [ { node = EUnit; _ } ] ->
         EUnit
     | _ ->
         super#visit_EApp env hd args
@@ -408,11 +408,11 @@ let remove_proj_is = object
 
   inherit [_] map
 
-  method! visit_DFunction _ cc flags n t name binders body =
+  method! visit_DFunction _ cc flags n_cgs n t name binders body =
     if KString.starts_with (snd name) "__proj__" || KString.starts_with (snd name) "__is__" then
-      DFunction (cc, Private :: flags, n, t, name, binders, body)
+      DFunction (cc, Private :: flags, n_cgs, n, t, name, binders, body)
     else
-      DFunction (cc, flags, n, t, name, binders, body)
+      DFunction (cc, flags, n_cgs, n, t, name, binders, body)
 end
 
 
@@ -529,39 +529,131 @@ end
  * in-place field updates. *)
 let functional_updates = object (self)
 
-  inherit [_] map
+  inherit [_] map as super
 
   val mutable make_mut = []
+
+  (* TODO: there are many combinations of operators or not (both for reading and writing), a single
+     assignment or not... we don't cover everything *)
+
+  method private gen_assignments env e_read exprfields =
+    ESequence (List.map (fun (the_field, the_expr) ->
+      let the_field = Option.get the_field in
+      let the_expr = self#visit_expr env the_expr in
+      make_mut <- (assert_tlid e_read.typ, the_field) :: make_mut;
+      with_unit (EAssign (with_type the_expr.typ (EField (e_read, the_field)), the_expr))
+    ) exprfields)
+
+  method! visit_EApp env e es =
+    (* Without temporary, any position, support for multiple fields updated
+
+       e1 *= { fi = ei } with ei = e if i = k, e1[0].fi otherwise
+       -->
+       e1 *= e
+
+       e1 *= { fi = ei } with ei = e if i = k, !*e1.fi otherwise
+       -->
+       e1 *= e
+
+     *)
+    match e.node, es with
+    | EQualified (["LowStar"; "BufferOps"], op), [ e1; { node = EFlat fields; _ }] when KString.starts_with op "op_Star_Equal" ->
+        let updated_fields, untouched_fields = List.partition (function
+            | Some f, { node = EField ({ node = EBufRead (e1', e2); _ }, f'); _ } when
+              f = f' && e1 = e1' && Helpers.is_zero e2 ->
+                false
+            | Some f, { node = EField ({
+                node = EApp ({
+                  node = EQualified (["LowStar"; "BufferOps"], op); _
+                },
+                [ e1' ]); _
+              }, f'); _ } when
+              (* we match: !*e_deref.f' and request e_read = BufRead (e_deref, 0) *)
+              f = f' && e1 = e1' && KString.starts_with op "op_Bang_Star" ->
+                false
+            | _ ->
+                true
+          ) fields
+        in
+        if List.length untouched_fields > 0 then
+          (* TODO: catch the monomorphized name of the *= operator above and use that for prettier
+             code-gen *)
+          let e_read = with_type (assert_tbuf e1.typ) (EBufRead (e1, Helpers.zerou32)) in
+          self#gen_assignments env e_read updated_fields
+        else
+          super#visit_EApp env e es
+    | _ ->
+        super#visit_EApp env e es
+
+  method! visit_EBufWrite env e1 e2 e3 =
+    (* Without temporary, any position, support for multiple fields updated
+
+       e1[e2] <- { fi = ei } with ei = e if i = k, e1[e2].fi otherwise
+       -->
+       e1[e2].fk <- e
+
+       e1[0] <- { fi = ei } with ei = e if i = k, !*e1.fi otherwise
+       -->
+       e1[0].fk <- e
+
+     *)
+    let e_read = EBufRead (e1, e2) in
+    match e3.node with
+    | EFlat fields ->
+        let updated_fields, untouched_fields = List.partition (function
+            | Some f, { node = EField (e_read', f'); _ } when f = f' && e_read = e_read'.node ->
+                false
+            | Some f, { node = EField ({
+                node = EApp ({
+                  node = EQualified (["LowStar"; "BufferOps"], op); _
+                },
+                [ e_deref ]); _
+              }, f'); _ } when
+              (* we match: !*e_deref.f' and request e_read = BufRead (e_deref, 0) *)
+              f = f' && e1 = e_deref && Helpers.is_zero e2 && KString.starts_with op "op_Bang_Star" ->
+                false
+            | _ ->
+                true
+          ) fields
+        in
+        if List.length untouched_fields > 0 then
+          self#gen_assignments env (with_type (assert_tbuf e1.typ) e_read) updated_fields
+        else
+          super#visit_EBufWrite env e1 e2 e3
+    | _ ->
+        super#visit_EBufWrite env e1 e2 e3
+
 
   method! visit_ELet env b e1 e2 =
     let b = self#visit_binder env b in
     let e1 = self#visit_expr env e1 in
 
     let make_assignment fields k =
-      let the_field, _ = List.partition (function
+      let updated_fields, untouched_fields = List.partition (function
           | Some f, { node = EField ({ node = EBound 0; _ }, f'); _ } when f = f' ->
               false
           | _ ->
               true
-        ) fields in
-      if List.length the_field = 1 then
-        let the_field, the_expr = List.hd the_field in
-        let the_field = Option.get the_field in
-        let the_expr = self#visit_expr env (snd (open_binder b the_expr)) in
-        make_mut <- (assert_tlid e1.typ, the_field) :: make_mut;
-        k (EAssign (with_type the_expr.typ (EField (e1, the_field)), the_expr))
+        ) fields
+      in
+      if List.length untouched_fields > 0 then
+        let updated_fields = List.map (fun (f, e) -> f, snd (open_binder b e)) updated_fields in
+        k (self#gen_assignments env e1 updated_fields)
       else
         ELet (b, e1, self#visit_expr env e2)
     in
 
+    (* TODO: operators *)
     match e1.node, e2.node with
     | EBufRead ({ node = EBound i; _ }, j),
       EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ })
       when j = j' && iplusone = i + 1 ->
-        (* let uu = (Bound i)[j];
-         * (Bound (i + 1))[j] <- { fi = ei } with ei = e if i = k, (Bound 0).fi otherwise
-         * -->
-         * (Bound i)[j].fk <- (unlift 1 e)
+        (* With temporary, in terminal position:
+
+           let uu = (Bound i)[j] in
+           (Bound (i + 1))[j] <- { fi = ei } with ei = e if i = k, (Bound 0).fi otherwise
+           -->
+           (Bound i)[j].fk <- (unlift 1 e)
          *)
         make_assignment fields (fun x -> x)
 
@@ -570,12 +662,14 @@ let functional_updates = object (self)
         { node = EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ }); _ },
         e3)
       when j = j' && iplusone = i + 1 ->
-        (* let uu = (Bound i)[j];
-         * let _ = (Bound (i + 1))[j] <- { fi = ei } with ei = e if i = k, * (Bound 0).fi otherwise in
-         * e3
-         * -->
-         * let _ = (Bound i)[j].fk <- (unlift 1 e) in
-         * e3
+        (* With temporary, NOT in terminal position:
+
+           let uu = (Bound i)[j];
+           let _ = (Bound (i + 1))[j] <- { fi = ei } with ei = e if i = k, * (Bound 0).fi otherwise in
+           e3
+           -->
+           let _ = (Bound i)[j].fk <- (unlift 1 e) in
+           e3
          *)
         make_assignment fields (fun x ->
           let e3 = self#visit_expr env (snd (open_binder b e3)) in
@@ -586,7 +680,7 @@ let functional_updates = object (self)
 
   (* The same object is called a second time with the mark_mut flag set to true
    * to mark those fields that now ought to be mutable *)
-  method! visit_DType mark_mut name flags n def =
+  method! visit_DType mark_mut name flags n_cgs n def =
     match def with
     | Flat fields when mark_mut ->
         let fields = List.map (fun (f, (t, m)) ->
@@ -595,9 +689,9 @@ let functional_updates = object (self)
           else
             f, (t, m)
         ) fields in
-        DType (name, flags, n, Flat fields)
+        DType (name, flags, n_cgs, n, Flat fields)
     | _ ->
-        DType (name, flags, n, def)
+        DType (name, flags, n_cgs, n, def)
 end
 
 let mutated_types = Hashtbl.create 41
@@ -620,7 +714,7 @@ let misc_cosmetic = object (self)
           false
     in
     match e1.node with
-    | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) when not (Options.wasm ()) && not is_aligned ->
+    | EBufCreate (Common.Stack, e1, { node = EConstant (_, "1"); _ }) when not (Options.wasm () || Options.rust ()) && not is_aligned ->
         (* int x[1]; x[0] = e; x
          * -->
          * int x; x = e; &x *)
@@ -844,12 +938,12 @@ end
 
 let misc_cosmetic2 = object
   inherit [_] map
-  method! visit_DType () name flags n def =
+  method! visit_DType () name flags n_cgs n def =
     match def with
     | Flat fields when Hashtbl.mem mutated_types name ->
-        DType (name, flags, n, Flat (List.map (fun (f, (t, _)) -> f, (t, true)) fields))
+        DType (name, flags, n_cgs, n, Flat (List.map (fun (f, (t, _)) -> f, (t, true)) fields))
     | _ ->
-        DType (name, flags, n, def)
+        DType (name, flags, n_cgs, n, def)
 end
 
 (* No left-nested let-bindings ************************************************)
@@ -898,6 +992,21 @@ let rec flag_short_circuit loc t e0 es =
       let lhs = lhs0 @ List.flatten lhss in
       lhs, with_type t (EApp (e0, es))
 
+(* When allocating an array, whether the initial elements of the array need to
+   be hoisted depend on the type; if it's an array of pointers, yes, we host. If
+   it's an array of arrays, we leave initializer lists in order to fill storage.
+   *)
+and maybe_hoist_initializer loc t e =
+  match e.node with
+  | EBufCreate _ when Helpers.is_array t ->
+      failwith "expected EBufCreateL here"
+  | EBufCreateL (l, es) when Helpers.is_array t ->
+      let lhs, es = List.split (List.map (maybe_hoist_initializer loc (Helpers.assert_tarray t)) es) in
+      let lhs = List.flatten lhs in
+      lhs, with_type t (EBufCreateL (l, es))
+  | _ ->
+      hoist_expr loc Unspecified e
+
 and hoist_stmt loc e =
   let mk = with_type e.typ in
   match e.node with
@@ -943,12 +1052,17 @@ and hoist_stmt loc e =
       (* [e2] and [e3], however, are evaluated at each loop iteration! *)
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
       let lhs3, e3 = hoist_expr loc UnderStmtLet e3 in
+      (* Note: this should always be a fatal error when going to C, but only for
+         the for-loop (since there is no workaround like for the if-then-else
+         case. *)
       if lhs2 <> [] || lhs3 <> [] then
         Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,
           GeneratesLetBindings ("this for-loop's condition or iteration", e, (lhs2 @ lhs3))));
       let e4 = hoist_stmt loc e4 in
       let s = closing_binder binder in
-      nest lhs1 e.typ (mk (EFor (binder, e1, s e2, s e3, s e4)))
+      (* If we get here let-bindings are ok for the chosen backend, likely wasm
+         or rust *)
+      nest lhs1 e.typ (mk (EFor (binder, e1, s (nest lhs2 e2.typ e2), s (nest lhs3 e3.typ e3), s e4)))
 
   | EWhile (e1, e2) ->
       (* All of the following cases are valid statements (their return type is
@@ -1013,9 +1127,9 @@ and hoist_stmt loc e =
 and hoist_expr loc pos e =
   let mk node = { node; typ = e.typ } in
   match e.node with
-  | ETApp (e, ts) ->
+  | ETApp (e, cgs, ts) ->
       let lhs, e = hoist_expr loc Unspecified e in
-      lhs, mk (ETApp (e, ts))
+      lhs, mk (ETApp (e, cgs, ts))
 
   | EBufNull
   | EAbort _
@@ -1105,17 +1219,22 @@ and hoist_expr loc pos e =
       let e2 = s e2 and e3 = s e3 and e4 = s e4 in
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
       let lhs3, e3 = hoist_expr loc UnderStmtLet e3 in
+      (* Note: this should always be a fatal error when going to C, but only for
+         the for-loop (since there is no workaround like for the if-then-else
+         case. *)
       if lhs2 <> [] || lhs3 <> [] then
         Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,
           GeneratesLetBindings ("this for-loop's condition or iteration", e, (lhs2 @ lhs3))));
       let e4 = hoist_stmt loc e4 in
       let s = closing_binder binder in
+      (* If we get here let-bindings are ok for the chosen backend, likely wasm
+         or rust *)
       if pos = UnderStmtLet then
-        lhs1, mk (EFor (binder, e1, s e2, s e3, s e4))
+        lhs1, mk (EFor (binder, e1, s (nest lhs2 e2.typ e2), s (nest lhs3 e3.typ e3), s e4))
       else
         let b = fresh_binder "_" TUnit in
         let b = { b with node = { b.node with meta = Some MetaSequence }} in
-        lhs1 @ [ b, mk (EFor (binder, e1, s e2, s e3, s e4)) ], mk EUnit
+        lhs1 @ [ b, mk (EFor (binder, e1, s (nest lhs2 e2.typ e2), s (nest lhs3 e3.typ e3), s e4)) ], mk EUnit
 
   | EFun (binders, expr, t) ->
       let binders, expr = open_binders binders expr in
@@ -1136,7 +1255,7 @@ and hoist_expr loc pos e =
   | EBufCreate (l, e1, e2) ->
       let t = e.typ in
       let lhs1, e1 = hoist_expr loc Unspecified e1 in
-      let lhs2, e2 = hoist_expr loc Unspecified e2 in
+      let lhs2, e2 = maybe_hoist_initializer loc (Helpers.assert_tbuf_or_tarray t) e2 in
       if pos = UnderStmtLet then
         lhs1 @ lhs2, mk (EBufCreate (l, e1, e2))
       else
@@ -1145,7 +1264,7 @@ and hoist_expr loc pos e =
 
   | EBufCreateL (l, es) ->
       let t = e.typ in
-      let lhs, es = List.split (List.map (hoist_expr loc Unspecified) es) in
+      let lhs, es = List.split (List.map (maybe_hoist_initializer loc (Helpers.assert_tbuf_or_tarray t)) es) in
       let lhs = List.flatten lhs in
       if pos = UnderStmtLet then
         lhs, mk (EBufCreateL (l, es))
@@ -1269,13 +1388,13 @@ let hoist = object
   method! visit_file loc file =
     super#visit_file Loc.(File (fst file) :: loc) file
 
-  method! visit_DFunction loc cc flags n ret name binders expr =
+  method! visit_DFunction loc cc flags n_cgs n ret name binders expr =
     let loc = Loc.(InTop name :: loc) in
     (* TODO: no nested let-bindings in top-level value declarations either *)
     let binders, expr = open_binders binders expr in
     let expr = hoist_stmt loc expr in
     let expr = close_binders binders expr in
-    DFunction (cc, flags, n, ret, name, binders, expr)
+    DFunction (cc, flags, n_cgs, n, ret, name, binders, expr)
 end
 
 
@@ -1313,8 +1432,8 @@ let rec fixup_return_pos e =
 let fixup_hoist = object
   inherit [_] map
 
-  method visit_DFunction _ cc flags n ret name binders expr =
-    DFunction (cc, flags, n, ret, name, binders, fixup_return_pos expr)
+  method visit_DFunction _ cc flags n_cgs n ret name binders expr =
+    DFunction (cc, flags, n_cgs, n, ret, name, binders, fixup_return_pos expr)
 end
 
 
@@ -1366,15 +1485,15 @@ let record_toplevel_names = object (self)
   method! visit_DGlobal env flags name _ _ _ =
     self#record env ~is_type:false ~is_external:false flags name
 
-  method! visit_DFunction env _ flags _ _ name _ _ =
+  method! visit_DFunction env _ flags _ _ _ name _ _ =
     self#record env ~is_type:false ~is_external:false flags name
 
-  method! visit_DExternal env _ flags _ name _ _ =
+  method! visit_DExternal env _ flags _ _ name _ _ =
     self#record env ~is_type:false ~is_external:true flags name
 
   val forward = Hashtbl.create 41
 
-  method! visit_DType env name flags _ def =
+  method! visit_DType env name flags _ _ def =
     if not (Hashtbl.mem forward name) then
       self#record env ~is_type:true ~is_external:false flags name;
     match def with
@@ -1479,7 +1598,7 @@ let tail_calls =
   let tail_calls = object (_)
     inherit [_] map
 
-    method! visit_DFunction () cc flags n ret name binders body =
+    method! visit_DFunction () cc flags n_cgs n ret name binders body =
       try
         let x_args = List.map (fun b -> Helpers.fresh_binder ~mut:true b.node.name b.typ) binders in
         let x_args, body = DeBruijn.open_binders x_args body in
@@ -1495,13 +1614,13 @@ let tail_calls =
             with_type ret (EAbort (None, Some "unreachable, returns inserted above"))
           ]))
         in
-        DFunction (cc, flags, n, ret, name, binders, body)
+        DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
       with
       | T.NotTailCall ->
           Warn.(maybe_fatal_error ("", NotTailCall name));
-          DFunction (cc, flags, n, ret, name, binders, body)
+          DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
       | T.NothingToTailCall ->
-          DFunction (cc, flags, n, ret, name, binders, body)
+          DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
   end in
 
   tail_calls#visit_files ()
@@ -1679,9 +1798,9 @@ let rec find_pushframe ifdefs (e: expr) =
 let hoist_bufcreate = object
   inherit [_] map
 
-  method visit_DFunction ifdefs cc flags n ret name binders expr =
+  method visit_DFunction ifdefs cc flags n_cgs n ret name binders expr =
     try
-      DFunction (cc, flags, n, ret, name, binders, find_pushframe ifdefs expr)
+      DFunction (cc, flags, n_cgs, n, ret, name, binders, find_pushframe ifdefs expr)
     with Fatal s ->
       KPrint.bprintf "Fatal error in %a:\n%s\n" plid name s;
       exit 151
@@ -1964,10 +2083,15 @@ let debug env =
     KPrint.bprintf "C name %s was %a\n" c_name plid original
   ) original_of_c_name
 
-(* Allocate C names avoiding keywords and name collisions. *)
-let allocate_c_names (files: file list): GlobalNames.mapping =
+(* Returns the internal env for further name extension. *)
+let allocate_c_env (files: file list): scope_env =
   let env = GlobalNames.create (), Hashtbl.create 41 in
   record_toplevel_names#visit_files env files;
   if Options.debug "c-names" then
     debug env;
-  GlobalNames.mapping (fst env)
+  env
+
+(* Allocate C names avoiding keywords and name collisions. Mapping cannot be extended any further
+   since the internal data structures are gone. *)
+let allocate_c_names (files: file list): GlobalNames.mapping =
+  GlobalNames.mapping (fst (allocate_c_env files))

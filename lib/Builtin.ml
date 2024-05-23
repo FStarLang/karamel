@@ -10,10 +10,10 @@ open Helpers
 let t_string = TQualified (["Prims"], "string")
 
 let mk_binop m n t =
-  DExternal (None, [ ], 0, (m, n), TArrow (t, TArrow (t, t)), [ "x"; "y" ])
+  DExternal (None, [ ], 0, 0, (m, n), TArrow (t, TArrow (t, t)), [ "x"; "y" ])
 
 let mk_val ?(flags=[]) ?(nvars=0) m n t =
-  DExternal (None, flags, nvars, (m, n), t, [])
+  DExternal (None, flags, 0, nvars, (m, n), t, [])
 
 let prims: file =
   let t = TInt K.CInt in
@@ -23,21 +23,21 @@ let prims: file =
   let mk_val = mk_val [ "Prims" ] in
   let dtuple10 = TApp ((["Prims"],"dtuple2"), [ TBound 1; TBound 0 ]) in
   "Prims", [
-    DType ((["Prims"], "list"), [ Common.GcType ], 1, Variant [
+    DType ((["Prims"], "list"), [ Common.GcType ], 0, 1, Variant [
       "Nil", [];
       "Cons", [
         "hd", (TBound 0, false);
         "tl", (TApp ((["Prims"],"list"), [ TBound 0 ]), false)
       ]
     ]);
-    DType ((["Prims"], "dtuple2"), [], 2, Variant [
+    DType ((["Prims"], "dtuple2"), [], 0, 2, Variant [
       "Mkdtuple2", [
         "fst", (TBound 1, false);
         "snd", (TBound 0, false)
       ]
     ]);
     DFunction (None,
-      [ Common.Private ], 2, TBound 1,
+      [ Common.Private ], 0, 2, TBound 1,
       (["Prims"], "__proj__Mkdtuple2__item___1"),
       [ fresh_binder "pair" dtuple10 ],
       (* match pair with *)
@@ -53,7 +53,7 @@ let prims: file =
         with_type (TBound 1) (EBound 0)
       ])));
     DFunction (None,
-      [ Common.Private ], 2, TBound 0,
+      [ Common.Private ], 0, 2, TBound 0,
       (["Prims"], "__proj__Mkdtuple2__item___2"),
       [ fresh_binder "pair" dtuple10 ],
       (* match pair with *)
@@ -82,8 +82,8 @@ let prims: file =
     mk_unop "abs";
     mk_val "strcat" (TArrow (t_string, TArrow (t_string, t_string)));
     mk_val "string_of_int" (TArrow (TInt K.CInt, t_string));
-    DType ((["Prims"], "prop"), [], 0, Abbrev TUnit);
-    DType ((["Prims"], "nat"), [ Common.Private ], 0, Abbrev (TQualified (["Prims"], "int")))
+    DType ((["Prims"], "prop"), [], 0, 0, Abbrev TUnit);
+    DType ((["Prims"], "nat"), [ Common.Private ], 0, 0, Abbrev (TQualified (["Prims"], "int")))
   ]
 
 (* JP: as a guiding principle: builtins that are from LowStar.Monotonic.Buffer
@@ -104,7 +104,7 @@ let buffer: file =
      *       break
      *   ret
      *)
-    DFunction (None, [ ], 1, TBool, ([ "FStar"; "Buffer" ], "eqb"),
+    DFunction (None, [ ], 0, 1, TBool, ([ "FStar"; "Buffer" ], "eqb"),
       [ fresh_binder "b1" (TBuf (TBound 0, true));
         fresh_binder "b2" (TBuf (TBound 0, true));
         fresh_binder "len" uint32 ],
@@ -128,7 +128,7 @@ let buffer: file =
           eunit))));
       with_type TBool (EBound 0)]))));
 
-    DFunction (None, [ Common.MustDisappear ], 1, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, 1, TUnit,
       ([ "FStar"; "Buffer" ], "recall"),
       [ fresh_binder "x" (TBuf (TBound 0, true)) ],
       eunit);
@@ -136,47 +136,47 @@ let buffer: file =
 
 let monotonic_hs: file =
   "FStar_Monotonic_HyperStack", [
-    DType (([ "FStar"; "Monotonic"; "HyperStack" ], "mem"), [], 0, Abbrev TUnit);
+    DType (([ "FStar"; "Monotonic"; "HyperStack" ], "mem"), [], 0, 0, Abbrev TUnit);
     DGlobal ([], ([ "FStar"; "Monotonic"; "HyperStack" ], "root"), 0, TUnit, eunit);
   ]
 
 let monotonic_hh: file =
   "FStar_Monotonic_HyperHeap", [
-    DType (([ "FStar"; "Monotonic"; "HyperHeap" ], "rid"), [], 0, Abbrev TUnit)
+    DType (([ "FStar"; "Monotonic"; "HyperHeap" ], "rid"), [], 0, 0, Abbrev TUnit)
   ]
 
 let hs: file =
   "FStar_HyperStack_ST", [
-    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "new_region"),
       [ fresh_binder "x" TUnit ],
       with_unit (EBound 0));
-    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "new_colored_region"),
       [ fresh_binder "x" TUnit; fresh_binder "x" (TInt K.CInt) ],
       with_unit (EBound 1));
-    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "recall"),
       [ fresh_binder "x" TAny ],
       eunit);
-    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "testify"),
       [ fresh_binder "x" TAny ],
       eunit);
-    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "testify_forall"),
       [ fresh_binder "x" TAny ],
       eunit);
-    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "testify_forall_region_contains_pred"),
       [ fresh_binder "x" TAny;
         fresh_binder "y" TAny ],
       eunit);
-    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "recall_region"),
       [ fresh_binder "x" TUnit ],
       with_unit (EBound 0));
-    DFunction (None, [ Common.MustDisappear ], 0, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, 0, TUnit,
       ([ "FStar"; "HyperStack"; "ST" ], "mr_witness"),
       [
         fresh_binder "x" TUnit;
@@ -186,15 +186,15 @@ let hs: file =
         fresh_binder "x" TUnit;
       ],
       eunit);
-    DType (([ "FStar"; "HyperStack"; "ST" ], "erid"), [], 0, Abbrev TUnit);
-    DType (([ "FStar"; "HyperStack"; "ST" ], "ex_rid"), [], 0, Abbrev TUnit);
-    DType (([ "FStar"; "HyperStack"; "ST" ], "witnessed"), [ Common.MustDisappear ], 1, Abbrev TUnit);
+    DType (([ "FStar"; "HyperStack"; "ST" ], "erid"), [], 0, 0, Abbrev TUnit);
+    DType (([ "FStar"; "HyperStack"; "ST" ], "ex_rid"), [], 0, 0, Abbrev TUnit);
+    DType (([ "FStar"; "HyperStack"; "ST" ], "witnessed"), [ Common.MustDisappear ], 0, 1, Abbrev TUnit);
   ]
 
 let dyn: file =
   let void_star = TBuf (TAny, false) in
   "FStar_Dyn", [
-    DFunction (None, [], 1, void_star,
+    DFunction (None, [], 0, 1, void_star,
       ([ "FStar"; "Dyn" ], "mkdyn"),
       [ fresh_binder "x" (TBound 0) ],
       with_type void_star (ECast (with_type (TBound 0) (EBound 0), void_star)))
@@ -211,11 +211,11 @@ let steel_sizet_intros : file =
 let steel_arrayarith : file =
   "Steel_ArrayArith", [
     mk_val ["Steel"; "ArrayArith"] "within_bounds_ptr"
-      (TArrow 
+      (TArrow
         (* The three permissions, extracted to unit *)
         (TUnit, TArrow (TUnit, TArrow (TUnit,
         (* The three arrays passed as arguments *)
-        TArrow (TBuf (TAny, false), TArrow (TBuf (TAny, false), TArrow (TBuf (TAny, false), 
+        TArrow (TBuf (TAny, false), TArrow (TBuf (TAny, false), TArrow (TBuf (TAny, false),
         (* The three ghost lengths, extracted to unit *)
         TArrow (TUnit, TArrow (TUnit, TArrow (TUnit,
         (* The three ghost sequences, extracted to unit *)
@@ -226,15 +226,15 @@ let steel_arrayarith : file =
 
 let lowstar_monotonic_buffer: file =
   "LowStar_Monotonic_Buffer", [
-    DFunction (None, [ Common.MustDisappear ], 3, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, 3, TUnit,
       ([ "LowStar"; "Monotonic"; "Buffer" ], "recall"),
       [ fresh_binder "x" (TBuf (TBound 2, false)) ],
       eunit);
-    DFunction (None, [ Common.MustDisappear ], 3, TUnit,
+    DFunction (None, [ Common.MustDisappear ], 0, 3, TUnit,
       ([ "LowStar"; "Monotonic"; "Buffer" ], "frameOf"),
       [ fresh_binder "x" (TBuf (TBound 2, false)) ],
       eunit);
-    DType (([ "LowStar"; "Monotonic"; "Buffer" ], "loc_disjoint"), [ Common.MustDisappear ], 2, Abbrev TUnit);
+    DType (([ "LowStar"; "Monotonic"; "Buffer" ], "loc_disjoint"), [ Common.MustDisappear ], 0, 2, Abbrev TUnit);
   ]
 
 let lowstar_buffer: file =
@@ -266,7 +266,7 @@ let lowstar_endianness: file =
       (* assume val store16_le: buffer uint8 -> uint16 -> unit *)
       mk_val (fst store_lid) (snd store_lid) store_t;
       (* let store16_le_i #_ #_ b i x = store16_le (b + i) x *)
-      DFunction (None, [ Common.MustDisappear ], 2, TUnit,
+      DFunction (None, [ Common.MustDisappear ], 0, 2, TUnit,
       store_i_lid,
       [ fresh_binder "b" buf8; fresh_binder "i" int32; fresh_binder "x" t ],
       with_unit (EApp (with_type store_t (EQualified store_lid),
@@ -283,7 +283,7 @@ let lowstar_endianness: file =
       (* assume val load16_le: buffer uint8 -> uint16 *)
       mk_val (fst load_lid) (snd load_lid) load_t;
       (* let load16_le_i #_ #_ b i = load16_le (b + i) *)
-      DFunction (None, [ Common.MustDisappear ], 2, t,
+      DFunction (None, [ Common.MustDisappear ], 0, 2, t,
       load_i_lid,
       [ fresh_binder "b" buf8; fresh_binder "i" int32 ],
       with_type t (EApp (with_type load_t (EQualified load_lid),
@@ -351,20 +351,50 @@ let addendum = [
 ]
 
 let make_abstract_function_or_global = function
-  | DFunction (cc, flags, n, t, name, bs, _) ->
+  | DFunction (cc, flags, n_cg, n, t, name, bs, _) ->
       let t = fold_arrow (List.map (fun b -> b.typ) bs) t in
+      assert (n_cg = 0);
       if n = 0 then
-        Some (DExternal (cc, flags, 0, name, t, List.map (fun x -> x.node.name) bs))
+        Some (DExternal (cc, flags, 0, 0, name, t, List.map (fun x -> x.node.name) bs))
       else
         None
-  | DGlobal (flags, name, n, t, _) when not (List.mem Common.Macro flags) ->
+  | DGlobal (flags, name, n, t, body) when not (List.mem Common.Macro flags) ->
+      let open PrintAst.Ops in
+      (* So it's pretty frustrating to have to pattern-match on expressions that we know will be
+         simplified later. But sadly, -library'ing must happen very early on, as successful bundling
+         depends on those definitions being made abstract. This is why we can't run this
+         per-definition, at a later phase, where e.g. simplify0 would've run and would relieve us of
+         having to do these silly pattern-matches. *)
       if n = 0 then
-        Some (DExternal (None, flags, 0, name, t, []))
+        let t =
+          match t, body.node with
+          | TBuf (t, _), (EBufCreateL (_, l) | ELet (_, { node = EBufCreateL (_, l); _ }, { node = EBound 0; _ })) ->
+              TArray (t, (K.Int32, string_of_int (List.length l)))
+          | TBuf (t, _), (EBufCreate (_, _, size) | ELet (_, { node = EBufCreate (_, _, size); _ }, { node = EBound 0; _ })) ->
+              begin match size.node with
+              | EConstant k ->
+                  TArray (t, k)
+              | _ ->
+                  (* TODO: use a special encoding (e.g. max_int) to produce
+                     extern int x[]; *)
+                  Warn.fatal_error "-library on %a which has non-constant array length" plid name
+              end
+          | TBuf _, _ ->
+              (* Since this phase runs quite early, the goal is to make sure
+                 that we can safely assess whether this needs to have a storage
+                 type or a pointer type. (These don't link the same! See #130). *)
+              if not (Helpers.is_initializer_constant body) then
+                Warn.maybe_fatal_error ("", LibraryPointerAmbiguity (name, body));
+              t
+          | _ ->
+              t
+        in
+        Some (DExternal (None, flags, 0, 0, name, t, []))
       else
         None
-  | DType (name, flags, _, _) when List.mem Common.AbstractStruct flags ->
+  | DType (name, flags, _, _, _) when List.mem Common.AbstractStruct flags ->
       (* We assume the module doesn't lie and the CAbstractStruct will type-check in C. *)
-      Some (DType (name, List.filter ((<>) Common.AbstractStruct) flags, 0, Forward FStruct))
+      Some (DType (name, List.filter ((<>) Common.AbstractStruct) flags, 0, 0, Forward FStruct))
   | d ->
       Some d
 
@@ -376,7 +406,7 @@ let make_abstract_function_or_global = function
  * - but we keep the gte_mask and eq_mask functions *)
 let make_abstract (name, decls) =
   name, List.filter_map (function
-    | DType (_, _, _, Abbrev _) as t ->
+    | DType (_, _, _, _, Abbrev _) as t ->
         Some t
     | DType _ ->
         None
@@ -389,11 +419,6 @@ let make_abstract (name, decls) =
         | _ ->
             make_abstract_function_or_global d
   ) decls
-
-(* Transforms an F* module that contains a model into a set of "assume val" that
- * will generate proper "extern" declarations in C. *)
-let make_library (name, decls) =
-  name, List.filter_map make_abstract_function_or_global decls
 
 let is_model name =
   let is_machine_integer name =
@@ -436,14 +461,18 @@ let prepare files =
      F* PR: References to module C can now occur even when the module is not in the scope.
      If so, we add the definition that is needed as a builtin, since it will be rewritten
      during C code generation *)
-  if List.mem_assoc "C" files then [] else [c_deref] @
-  if List.mem_assoc "LowStar_Ignore" files then [] else [lowstar_ignore] @
+  (if List.mem_assoc "C" files then [] else [c_deref]) @
+  (if List.mem_assoc "LowStar_Ignore" files then [] else [lowstar_ignore]) @
   []
 
-let make_libraries files =
+let make_library (name, decls) =
+  name, List.filter_map make_abstract_function_or_global decls
+
+(* Transforms declarations covered by -library into a set of "assume val" that
+ * will generate proper "extern" declarations in C. *)
+let make_libraries =
   List.map (fun f ->
-    if List.exists (fun p -> Bundle.pattern_matches p (fst f)) !Options.library then
+    if List.exists (fun p -> Bundle.pattern_matches_file p (fst f)) !Options.library then
       make_library f
     else
-      f
-  ) files
+      f)

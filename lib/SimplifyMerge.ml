@@ -329,13 +329,13 @@ and merge_list env d u es =
 
 let merge_visitor = object(_)
   inherit [_] map
-  method! visit_DFunction () cc flags n ret name binders body =
+  method! visit_DFunction () cc flags n_cgs n ret name binders body =
     if debug then
       KPrint.bprintf "Variable merge: visiting %a\n%a\n" plid name ppexpr body;
     let binders, body = open_binders binders body in
     let _, _, body = merge [] S.empty body in
     let body = close_binders binders body in
-    DFunction (cc, flags, n, ret, name, binders, body)
+    DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
 end
 
 (* Debug any intermediary AST as follows: *)

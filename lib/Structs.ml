@@ -24,7 +24,7 @@ let mk_is_struct files =
   let map = Hashtbl.create 41 in
   List.iter (fun (_, decls) ->
     List.iter (function
-      | DType (lid, _, _, Flat _)  ->
+      | DType (lid, _, _, _, Flat _)  ->
           Hashtbl.add map lid true
       | _ ->
           ()
@@ -106,7 +106,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     ) args args_policies in
     let ret, args =
       if ret_policy <> Never then
-        TUnit, args @ [ TBuf (ret, false) ]
+        TUnit, args @ [ if Helpers.is_array ret then ret else TBuf (ret, false) ]
       else
         ret, args
     in
@@ -138,6 +138,14 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     (* Ensure things remain well-typed. *)
     let t_rewritten = self#rewrite_function_type (ret_is_struct, args_are_structs) e.typ in
     let e = with_type t_rewritten (self#visit_expr' (to_be_starred, t_rewritten) e.node) in
+
+    (* TODO: this is not general *)
+    let e = match e.node, t_rewritten with
+      | ETApp ({ node = EQualified (["LowStar"; "Ignore"], "ignore"); _ } as e_ignore, [], _), TArrow (t, _) ->
+          with_type t_rewritten (ETApp (e_ignore, [], [ t ]))
+      | _ ->
+          e
+    in
 
     (* At call-site, [f e] can only be transformed into [f &e] is [e] is an
      * [lvalue]. This is, sadly, a little bit of an anticipation over the
@@ -182,7 +190,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     else
       Helpers.nest bs t (with_type t (EApp (e, args)))
 
-  method! visit_DFunction _ cc flags n ret lid binders body =
+  method! visit_DFunction _ cc flags n_cg n ret lid binders body =
     (* Step 0: parameters at function types get transformed, too. This has no
      * incidence on the result of is_struct. *)
     let binders = self#visit_binders_w [] binders in
@@ -227,10 +235,14 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     let body =
       if ret_is_struct then
         let assign_into_ret e =
-          if ret_is_array then
-            with_type TUnit (EAssign (Option.get ret_atom, e))
-          else
-            with_type TUnit (EBufWrite (Option.get ret_atom, Helpers.zerou32, e))
+          match e.node with
+          | EAbort _ ->
+              e
+          | _ ->
+              if ret_is_array then
+                with_type TUnit (EAssign (Option.get ret_atom, e))
+              else
+                with_type TUnit (EBufWrite (Option.get ret_atom, Helpers.zerou32, e))
         in
         (* Step 4.1: early-returns `return e` become `dst := e; return` *)
         let body = (object
@@ -258,7 +270,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
         body
     in
     let body = DeBruijn.close_binders binders body in
-    DFunction (cc, flags, n, ret, lid, binders, body)
+    DFunction (cc, flags, n_cg, n, ret, lid, binders, body)
 
   method! visit_TArrow _ t1 t2 =
     let t = TArrow (t1, t2) in
@@ -417,9 +429,9 @@ let pass_by_ref files =
   in
   let def_map = Helpers.build_map files (fun map d ->
     match d with
-    | DType (lid, _, _, (Flat fs)) ->
+    | DType (lid, _, _, _, (Flat fs)) ->
         Hashtbl.add map lid (List.map (fun (_, (t, _)) -> t) fs)
-    | DType (lid, _, _, (Union fs)) ->
+    | DType (lid, _, _, _, (Union fs)) ->
         Hashtbl.add map lid (List.map snd fs)
     | _ ->
         ()
@@ -489,14 +501,14 @@ let collect_initializers (files: Ast.file list) =
   end)#visit_files () files in
   if !initializers != [] then
     let file = "krmlinit",
-      [ DFunction (None, [ Common.Prologue hidden_visibility ], 0, TUnit, (["krmlinit"], "globals"),
+      [ DFunction (None, [ Common.Prologue hidden_visibility ], 0, 0, TUnit, (["krmlinit"], "globals"),
         [Helpers.fresh_binder "_" TUnit],
         with_type TUnit (ESequence (List.rev !initializers)))] in
     let files = files @ [ file ] in
     let found = ref false in
     let files = (object
       inherit [_] map
-      method! visit_DFunction _ cc flags n ret name binders body =
+      method! visit_DFunction _ cc flags n_cgs n ret name binders body =
         let body =
           if fst (GlobalNames.target_c_name ~attempt_shortening:false name) = "main" then begin
             found := true;
@@ -509,7 +521,7 @@ let collect_initializers (files: Ast.file list) =
           end else
             body
         in
-        DFunction (cc, flags, n, ret, name, binders, body)
+        DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
     end)#visit_files () files in
     if not !found then
       Warn.(maybe_fatal_error ("", MustCallKrmlInit));
@@ -579,9 +591,10 @@ let to_addr is_struct =
         not_struct ();
         w (EIgnore (to_addr false e))
 
-    | ETApp (e, ts) ->
+    | ETApp (e, cgs, ts) ->
+        assert (cgs = []);
         not_struct ();
-        w (ETApp (to_addr false e, ts))
+        w (ETApp (to_addr false e, [], ts))
 
     | EApp (e, es) ->
         not_struct ();
@@ -731,28 +744,28 @@ let to_addr is_struct =
   object
     inherit [_] map
 
-    method! visit_DFunction _ cc flags n ret lid binders body =
-      DFunction (cc, flags, n, ret, lid, binders, to_addr false body)
+    method! visit_DFunction _ cc flags n_cgs n ret lid binders body =
+      DFunction (cc, flags, n_cgs, n, ret, lid, binders, to_addr false body)
   end
 
 
 (* For C89 *)
-let remove_literals = object (self)
+class remove_literals = object (self)
   inherit [_] map as super
 
-  method private mk_path (e: expr) (t: typ) (fields: ident list) =
-    List.fold_left (fun acc f -> with_type t (EField (acc, f))) e fields
+  method private mk_path (e: expr) (fields: (ident * typ) list) =
+    List.fold_left (fun acc (f, t) -> with_type t (EField (acc, f))) e fields
 
-  method private explode (acc: expr list) (path: ident list) (e: expr) (dst: expr) =
+  method private explode (acc: expr list) (path: (ident * typ) list) (e: expr) (dst: expr): expr list =
     match e.node with
     | EFlat fields ->
         List.fold_left (fun acc (f, e) ->
           let f = Option.get f in
-          self#explode acc (f :: path) e dst
+          self#explode acc ((f, e.typ) :: path) e dst
         ) acc fields
     | _ ->
         let e = self#visit_expr_w () e in
-        with_type TUnit (EAssign (self#mk_path dst e.typ (List.rev path), e)) :: acc
+        with_type TUnit (EAssign (self#mk_path dst (List.rev path), e)) :: acc
 
   method! visit_ELet ((_, t) as env) b e1 e2 =
     match e1.node with
@@ -776,7 +789,7 @@ let remove_literals = object (self)
 end
 
 let remove_literals files =
-  remove_literals#visit_files () files
+  (new remove_literals)#visit_files () files
 
 (* Debug any intermediary AST as follows: *)
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
