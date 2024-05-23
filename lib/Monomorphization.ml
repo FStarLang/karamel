@@ -487,6 +487,19 @@ let functions files =
       ) decls
 
     method! visit_ETApp ((diff, _) as env) e cgs cgs' ts =
+      (* Partial cg application generates this *)
+      let rec flatten_etapp e =
+        match e.node with
+        | ETApp (e, cgs, cgs_, ts) ->
+            assert (cgs_ = []);
+            let e, cgs', ts' = flatten_etapp e in
+            e, cgs' @ cgs, ts' @ ts
+        | _ ->
+            e, [], []
+      in
+      let e, cgs_, ts_ = flatten_etapp e in
+      let cgs, ts = cgs_ @ cgs, ts_ @ ts in
+
       let cgs' = List.map (self#visit_expr env) cgs' in
       let fail_if () =
         if cgs @ cgs' <> [] then
@@ -514,10 +527,10 @@ let functions files =
                 (* Need to generate a new instance. *)
                 if n <> List.length ts then begin
                   KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
-                  (self#visit_expr env e).node
+                  ETApp (self#visit_expr env e, cgs, cgs', ts)
                 end else if n_cgs <> List.length cgs then begin
                   KPrint.bprintf "%a is not fully cg-applied!\n" plid lid;
-                  (self#visit_expr env e).node
+                  ETApp (self#visit_expr env e, cgs, cgs', ts)
                 end else
                   (* The thunk allows registering the name before visiting the
                    * body, for polymorphic recursive functions. *)
@@ -573,7 +586,7 @@ let functions files =
 
       | _ ->
           KPrint.bprintf "%a is not an lid in the type application\n" pexpr e;
-          (self#visit_expr env e).node
+          ETApp (self#visit_expr env e, cgs, cgs', ts)
 
   end in
 

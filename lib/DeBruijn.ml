@@ -379,3 +379,10 @@ let subst_ctn' cs t =
     let k = l - i - 1 in
     (new subst_ct (lazy arg))#visit_typ k body
   ) t cs
+
+let subst_ctn'' ofs cs t =
+  let l = List.length cs in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 + ofs in
+    (new subst_ct (lazy arg))#visit_typ k body
+  ) t cs
