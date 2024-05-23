@@ -1,1 +1,51 @@
-[ "Åf¿h|2\u000eœ©\u0002m³l‚Û(", [] ]
+[
+  "Åf¿h|2\u000eœ©\u0002m³l‚Û(",
+  [
+    [
+      "Structs.t",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.Int32.t"
+      ],
+      0,
+      "471517faa6fbc541592b7010670092f7"
+    ],
+    [
+      "Structs.f",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.HyperStack.ST.equal_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "equation_FStar.Monotonic.HyperHeap.hmap",
+        "equation_FStar.Monotonic.HyperStack.mem",
+        "function_token_typing_FStar.Monotonic.Heap.heap",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
+        "lemma_FStar.Set.lemma_equal_refl",
+        "refinement_interpretation_Tm_refine_05e15190c946858f68c69156f585f95a",
+        "typing_FStar.Map.domain", "typing_FStar.Monotonic.HyperHeap.rid",
+        "typing_FStar.Monotonic.HyperStack.get_hmap"
+      ],
+      0,
+      "5ba80f77409c4d599fa41f2e4c5edd1f"
+    ],
+    [
+      "Structs.main",
+      1,
+      2,
+      1,
+      [
+        "@query", "equality_tok_C.EXIT_SUCCESS@tok",
+        "typing_tok_C.EXIT_SUCCESS@tok"
+      ],
+      0,
+      "1e1d517c9ebf936301b97dc6e7dea268"
+    ]
+  ]
+]

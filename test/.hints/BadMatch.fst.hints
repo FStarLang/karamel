@@ -1,1 +1,27 @@
-[ "%t¬{wö ) ³\u0015÷3m3", [] ]
+[
+  "%t¬{wö ) ³\u0015÷3m3",
+  [
+    [
+      "BadMatch.bar",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.UInt32.t"
+      ],
+      0,
+      "bbeef39209718547a25046f19766089a"
+    ],
+    [
+      "BadMatch.baz",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_BadMatch.bar__uu___haseq" ],
+      0,
+      "b14509794a49720af5749bc8b9067277"
+    ]
+  ]
+]

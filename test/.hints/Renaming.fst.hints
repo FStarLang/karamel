@@ -1,1 +1,38 @@
-[ "Ñ_\u0015_Ã”:ß\u0014ﬂëµΩj‚E", [] ]
+[
+  "Ñ_\u0015_Ã”:ß\u0014ﬂëµΩj‚E",
+  [
+    [
+      "Renaming.f",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.HyperStack.ST.equal_domains",
+        "equation_FStar.Monotonic.HyperStack.poppable",
+        "lemma_FStar.Buffer.lemma_equal_domains",
+        "lemma_FStar.Buffer.lemma_fresh_poppable",
+        "refinement_interpretation_Tm_refine_156c49afb7e1e070fbb2e47dc0e3d4b2"
+      ],
+      0,
+      "514251268b8cbc1def82666f6afbe8d8"
+    ],
+    [
+      "Renaming.main",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equality_tok_C.EXIT_SUCCESS@tok",
+        "equation_FStar.HyperStack.ST.equal_domains",
+        "equation_FStar.Monotonic.HyperStack.poppable",
+        "lemma_FStar.Buffer.lemma_equal_domains",
+        "lemma_FStar.Buffer.lemma_fresh_poppable",
+        "refinement_interpretation_Tm_refine_156c49afb7e1e070fbb2e47dc0e3d4b2",
+        "typing_tok_C.EXIT_SUCCESS@tok"
+      ],
+      0,
+      "fdb5f7a5cf1ae5821af225f183f0db57"
+    ]
+  ]
+]

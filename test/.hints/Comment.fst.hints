@@ -1,1 +1,17 @@
-[ "­}u«Šâ³ÑÌ8˜&Ùð\u0000ï", [] ]
+[
+  "­}u«Šâ³ÑÌ8˜&Ùð\u0000ï",
+  [
+    [
+      "Comment.main",
+      1,
+      2,
+      1,
+      [
+        "@query", "equality_tok_C.EXIT_SUCCESS@tok",
+        "typing_tok_C.EXIT_SUCCESS@tok"
+      ],
+      0,
+      "2c521d65eb5eda7a4bccbfef1d9e3ae8"
+    ]
+  ]
+]

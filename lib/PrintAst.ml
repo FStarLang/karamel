@@ -173,14 +173,14 @@ and print_typ_paren = function
       print_typ t
 
 and print_cg = function
-  | CgVar i -> int i
-  | CgConst c -> print_constant c
+  | CgVar i -> dollar ^^ int i
+  | CgConst c -> dollar ^^ print_constant c
 
 and print_typ = function
   | TInt w -> print_width w
   | TBuf (t, bool) -> (if bool then string "const" else empty) ^/^ print_typ t ^^ star
   | TArray (t, k) -> print_typ t ^^ lbracket ^^ print_constant k ^^ rbracket
-  | TCgArray (t, v) -> print_typ t ^^ lbracket ^^ int v ^^ rbracket
+  | TCgArray (t, v) -> print_typ t ^^ lbracket ^^ dollar ^^ int v ^^ rbracket
   | TCgApp (t, cg) -> print_typ t ^^ brackets (brackets (print_cg cg))
   | TUnit -> string "()"
   | TQualified name -> string (string_of_lident name)
@@ -205,7 +205,6 @@ and print_let_binding (binder, e1) =
   jump (print_expr e1))
 
 and print_expr { node; typ } =
-  (* print_typ typ ^^ colon ^^ space ^^ *)
   match node with
   | EComment (s, e, s') ->
       surround 2 1 (string s) (print_expr e) (string s')
@@ -233,10 +232,10 @@ and print_expr { node; typ } =
       dquote ^^ string s ^^ dquote
   | EApp (e, es) ->
       print_app print_expr e print_expr es
-  | ETApp (e, es, ts) ->
+  | ETApp (e, es, es', ts) ->
       print_cg_app (fun (e, ts) ->
         print_app print_expr e (fun t -> group (langle ^/^ print_typ t ^/^ rangle)) ts
-      ) (e, ts) (fun e -> brackets (brackets (print_expr e))) es
+      ) (e, ts) (fun e -> brackets (brackets (print_expr e))) (es @ es')
   | ELet (binder, e1, e2) ->
       group (print_let_binding (binder, e1) ^/^ string "in") ^^ hardline ^^
       group (print_expr e2)
@@ -389,6 +388,7 @@ and print_pat p =
 let print_files = print_files print_decl
 
 module Ops = struct
+  let print_cgs = separate_map (comma ^^ space) print_cg
   let print_typs = separate_map (comma ^^ space) print_typ
   let print_exprs = separate_map (comma ^^ space) print_expr
   let print_lidents = separate_map (comma  ^^ space) print_lident
@@ -398,6 +398,8 @@ module Ops = struct
   let pcase = printf_of_pprint print_case
   let ptyp = printf_of_pprint print_typ
   let ptyps = printf_of_pprint print_typs
+  let pcg = printf_of_pprint print_cg
+  let pcgs = printf_of_pprint print_cgs
   let pptyp = printf_of_pprint_pretty print_typ
   let pexpr = printf_of_pprint print_expr
   let pbind = printf_of_pprint print_binder

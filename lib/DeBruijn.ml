@@ -6,6 +6,7 @@
 (* ---------------------------------------------------------------------------- *)
 
 open Ast
+open PrintAst.Ops
 
 (* Counting binders. *)
 
@@ -116,6 +117,13 @@ let subst_n e es =
   KList.fold_lefti (fun i body arg ->
     let k = l - i - 1 in
     subst arg k body
+  ) e es
+
+let subst_n' ofs e es =
+  let l = List.length es in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    subst arg (k + ofs) body
   ) e es
 
 (* Substitute [t2] for [i] in [t1]. *)
@@ -278,7 +286,7 @@ let cg_of_expr diff e =
   | EConstant (w, s) ->
       CgConst (w, s)
   | _ ->
-      failwith "Unsuitable const generic"
+      failwith (KPrint.bsprintf "Unsuitable const generic: %a" pexpr e)
 
 (* Substitute const generics *)
 class subst_ct (c: cg Lazy.t) = object (self)

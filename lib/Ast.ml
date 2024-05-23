@@ -197,7 +197,13 @@ type expr' =
   | EIgnore of expr
 
   | EApp of expr * expr list
-  | ETApp of expr * expr list * typ_wo list
+  | ETApp of expr * expr list * expr list * typ_wo list
+    (** The arguments are:
+      - the head of the application
+      - the const generic args (TODO: switch those to cg from the get-go!
+        that'll save the need for those silly "diff" computations)
+      - additional arguments to monomorphize over NOT IN SCOPE in types
+      - type arguments *)
   | EPolyComp of poly_comp * typ_wo
   | ELet of binder * expr * expr
   | EFun of binder list * expr * typ_wo
@@ -522,12 +528,13 @@ class ['self] map = object (self: 'self)
     let e = self#visit_expr_w env e in
     DFunction (cc, flags, n_cg, n, t, lid, bs, e)
 
-  method! visit_ETApp env e es ts =
+  method! visit_ETApp env e es es' ts =
     let ts = List.map (self#visit_typ_wo env) ts in
     let es = List.map (self#visit_expr env) es in
+    let es' = List.map (self#visit_expr env) es' in
     let env = self#extend_tmany (fst env) (List.length ts) in
     let e = self#visit_expr_w env e in
-    ETApp (e, es, ts)
+    ETApp (e, es, es', ts)
 end
 
 class ['self] iter = object (self: 'self)

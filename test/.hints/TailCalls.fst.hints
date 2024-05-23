@@ -1,1 +1,18 @@
-[ "^½\u0015Äüú\u000b®aûùÂ·Û3\u0004", [] ]
+[
+  "^½\u0015Äüú\u000b®aûùÂ·Û3\u0004",
+  [
+    [
+      "TailCalls.main",
+      1,
+      2,
+      1,
+      [
+        "@query", "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "a1b093cd273129ab41ef6d3040a3f12b"
+    ]
+  ]
+]

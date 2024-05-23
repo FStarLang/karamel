@@ -486,14 +486,15 @@ let functions files =
             [ d ]
       ) decls
 
-    method! visit_ETApp ((diff, _) as env) e cgs ts =
+    method! visit_ETApp ((diff, _) as env) e cgs cgs' ts =
+      let cgs' = List.map (self#visit_expr env) cgs' in
       let fail_if () =
-        if cgs <> [] then
+        if cgs @ cgs' <> [] then
           Warn.fatal_error "TODO: e=%a\ncgs=%a\nts=%a\n%a\n"
             pexpr e
             pexprs cgs
             ptyps ts
-            pexpr (with_type TUnit (ETApp (e, cgs, ts)));
+            pexpr (with_type TUnit (ETApp (e, cgs, cgs', ts)));
       in
       match e.node with
       | EQualified lid ->
@@ -506,7 +507,7 @@ let functions files =
                 (* External function. Bail. Leave cgs -- treated as normal
                    arguments when going to C. C'est la vie. *)
                 if !Options.allow_tapps || AstToCStar.whitelisted_tapp e then
-                  super#visit_ETApp env e cgs ts
+                  super#visit_ETApp env e cgs cgs' ts
                 else
                   (self#visit_expr env e).node
             | `Function (cc, flags, n_cgs, n, ret, name, binders, body) ->
@@ -524,18 +525,24 @@ let functions files =
                   let def () =
                     let ret = DeBruijn.(subst_ctn diff cgs (subst_tn ts ret)) in
                     assert (List.length cgs = n_cgs);
-                    let _, binders = KList.split (List.length cgs) binders in
+                    (* binders are the remaining binders after the cg-binders have been eliminated *)
+                    let diff = List.length binders - List.length cgs in
+                    let _, binders = KList.split (List.length cgs + List.length cgs') binders in
                     let binders = List.map (fun { node; typ } ->
                       { node; typ = DeBruijn.(subst_ctn diff cgs (subst_tn ts typ)) }
                     ) binders in
-                    (* KPrint.bprintf "about to substitute: e=%a\ncgs=%a\nts=%a\n%a\n" *)
-                    (*   pexpr e *)
-                    (*   pexprs cgs *)
-                    (*   ptyps ts *)
-                    (*   pexpr (with_type TUnit (ETApp (e, cgs, ts))); *)
-                    (* KPrint.bprintf "after to substitute: body:%a\n\n" pexpr body; *)
-                    let body = DeBruijn.(subst_cen (List.length binders) cgs (subst_ten ts body)) in
-                    (* KPrint.bprintf "after substitution: body:%a\n\n" pexpr body; *)
+                    KPrint.bprintf "about to substitute:\n  e=%a\n  cgs=%a\n cgs'=%a\n  ts=%a\n  head type=%a\n%a\n"
+                      pexpr e
+                      pexprs cgs
+                      pexprs cgs'
+                      ptyps ts
+                      ptyp e.typ
+                      pexpr (with_type TUnit (ETApp (e, cgs, cgs', ts)));
+                    KPrint.bprintf "body: %a\n\n" pexpr body;
+                    KPrint.bprintf "subst_ten ts body: %a\n\n" pexpr DeBruijn.(subst_ten ts body);
+                    KPrint.bprintf "subst_cen diff cgs (subst_ten ts body): %a\n\n" pexpr DeBruijn.(subst_cen diff cgs (subst_ten ts body));
+                    let body = DeBruijn.(subst_n' (List.length binders) (subst_cen diff cgs (subst_ten ts body)) cgs') in
+                    KPrint.bprintf "after substitution: body :%a\n\n" pexpr body;
                     let body = self#visit_expr env body in
                     DFunction (cc, flags, 0, 0, ret, name, binders, body)
                   in

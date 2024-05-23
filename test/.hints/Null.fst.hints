@@ -1,1 +1,37 @@
-[ "áö‘ÛGC¹\u000eP'JºxÃ|™", [] ]
+[
+  "áö‘ÛGC¹\u000eP'JºxÃ|™",
+  [
+    [
+      "Null.f",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_LowStar.Buffer.pointer_or_null",
+        "refinement_interpretation_Tm_refine_cd18e9962a0d204005dcfcda04529ffc"
+      ],
+      0,
+      "b5d303c4e488a4b96e73edf210ed0222"
+    ],
+    [
+      "Null.main",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "bool_inversion",
+        "equation_LowStar.Buffer.trivial_preorder", "equation_Prims.eqtype",
+        "lemma_LowStar.Monotonic.Buffer.live_is_null",
+        "refinement_interpretation_Tm_refine_3daf37ab3cd19c1e74e63f8f5e0fb16a",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "refinement_interpretation_Tm_refine_cf5d9b684cc0717fc00db53f46e5b946",
+        "typing_FStar.Int32.t", "typing_LowStar.Buffer.trivial_preorder",
+        "typing_LowStar.Monotonic.Buffer.g_is_null",
+        "typing_LowStar.Monotonic.Buffer.mnull"
+      ],
+      0,
+      "aff57b7fe51f03e6ac0baef9a9c86d77"
+    ]
+  ]
+]

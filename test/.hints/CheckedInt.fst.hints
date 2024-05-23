@@ -1,1 +1,60 @@
-[ "³–\u001bÕƒ·\u001aòš”\r¦>„Çá", [] ]
+[
+  "³–\u001bÕƒ·\u001aòš”\r¦>„Çá",
+  [
+    [
+      "CheckedInt.one",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.HyperStack.ST.equal_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "equation_FStar.Monotonic.HyperHeap.hmap",
+        "equation_FStar.Monotonic.HyperStack.mem",
+        "function_token_typing_FStar.Monotonic.Heap.heap",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
+        "lemma_FStar.Set.lemma_equal_refl",
+        "refinement_interpretation_Tm_refine_05e15190c946858f68c69156f585f95a",
+        "typing_FStar.Map.domain", "typing_FStar.Monotonic.HyperHeap.rid",
+        "typing_FStar.Monotonic.HyperStack.get_hmap"
+      ],
+      0,
+      "396d24e94b6b9f183083fd7293737628"
+    ],
+    [
+      "CheckedInt.two",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "equation_FStar.HyperStack.ST.equal_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "equation_FStar.Monotonic.HyperHeap.hmap",
+        "equation_FStar.Monotonic.HyperStack.mem",
+        "function_token_typing_FStar.Monotonic.Heap.heap",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_all_regions_intro",
+        "lemma_FStar.Set.lemma_equal_refl",
+        "refinement_interpretation_Tm_refine_05e15190c946858f68c69156f585f95a",
+        "typing_FStar.Map.domain", "typing_FStar.Monotonic.HyperHeap.rid",
+        "typing_FStar.Monotonic.HyperStack.get_hmap"
+      ],
+      0,
+      "587199f1d55438e35e7edefbf7e7054e"
+    ],
+    [
+      "CheckedInt.main",
+      1,
+      2,
+      1,
+      [
+        "@query", "int_typing",
+        "lemma_FStar.HyperStack.ST.lemma_equal_domains_trans",
+        "primitive_Prims.op_Subtraction"
+      ],
+      0,
+      "2690b61e0785fa1634f08a99815f0870"
+    ]
+  ]
+]

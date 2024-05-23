@@ -180,6 +180,7 @@ and check_program env r (name, decls) =
           -dast for further debugging.\n\n"
           plid (lid_of_decl d) plid (lid_of_decl d);
         Warn.maybe_fatal_error e;
+        KPrint.beprintf "--------------------------------------------------------------------------------\n\n";
         flush stderr;
         None
   ) decls in
@@ -279,7 +280,7 @@ and check env t e =
 and check' env t e =
   let c t' = check_subtype env t' t in
   match e.node with
-  | ETApp (e0, _, _) ->
+  | ETApp (e0, _, _, _) ->
       begin match e0.node with
       | EOp ((K.Eq | K.Neq), _) ->
           (* This is probably old code that predates proper treatment of polymorphic equalities.
@@ -566,7 +567,7 @@ and infer' env e =
   in
 
   match e.node with
-  | ETApp (e0, cs, ts) ->
+  | ETApp (e0, cs, cs', ts) ->
       begin match e0.node with
       | EOp ((K.Eq | K.Neq), _) ->
           (* Special incorrect encoding of polymorphic equalities *)
@@ -577,14 +578,14 @@ and infer' env e =
           let t = infer env e0 in
           if Options.debug "checker-cg" then
             KPrint.bprintf "infer-cg: t=%a, cs=%a, ts=%a, diff=%d\n" ptyp t pexprs cs ptyps ts diff;
-          let t = DeBruijn.subst_tn ts t in
-          if Options.debug "checker-cg" then
-            KPrint.bprintf "infer-cg: subst_tn --> %a\n" ptyp t;
           let t = DeBruijn.subst_ctn diff cs t in
           if Options.debug "checker-cg" then
             KPrint.bprintf "infer-cg: subst_ctn (diff=%d)--> %a\n" diff ptyp t;
+          let t = DeBruijn.subst_tn ts t in
+          if Options.debug "checker-cg" then
+            KPrint.bprintf "infer-cg: subst_tn --> %a\n" ptyp t;
           (* Now type-check the application itself, after substitution *)
-          let t = infer_app t cs in
+          let t = infer_app t (cs @ cs') in
           if Options.debug "checker-cg" then
             KPrint.bprintf "infer-cg: infer_app --> %a\n" ptyp t;
           t
@@ -1180,7 +1181,7 @@ and check_eqtype env t1 t2 =
 
 and check_subtype env t1 t2 =
   if not (subtype env t1 t2) then
-    checker_error env "subtype mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
+    checker_error env "subtype mismatch:\n  %a (a.k.a. %a) vs:\n  %a (a.k.a. %a)"
       ptyp t1 ptyp (expand_abbrev env t1) ptyp t2 ptyp (expand_abbrev env t2)
 
 and expand_abbrev env t =

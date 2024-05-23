@@ -718,8 +718,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let env, e2 = translate_expr env e2 in
       env, Assign (Index (e1, MiniRust.zero_usize), e2)
 
-  | EApp ({ node = ETApp (e, cgs, ts); _ }, es) ->
-      assert (cgs = []);
+  | EApp ({ node = ETApp (e, cgs, cgs', ts); _ }, es) ->
+      assert (cgs @ cgs' = []);
       let es =
         match es with
         | [ { typ = TUnit; node } ] -> assert (node = EUnit); []
@@ -747,7 +747,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let env, es = translate_expr_list env es in
       env, possibly_convert (Call (e0, [], es)) (translate_type env e.typ)
 
-  | ETApp (_, _, _) ->
+  | ETApp (_, _, _, _) ->
       failwith "TODO: ETApp"
 
   | EPolyComp (op, _t) ->
