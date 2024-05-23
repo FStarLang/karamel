@@ -500,7 +500,6 @@ let functions files =
       let e, cgs_, ts_ = flatten_etapp e in
       let cgs, ts = cgs_ @ cgs, ts_ @ ts in
 
-      let cgs' = List.map (self#visit_expr env) cgs' in
       let fail_if () =
         if cgs @ cgs' <> [] then
           Warn.fatal_error "TODO: e=%a\ncgs=%a\nts=%a\n%a\n"
