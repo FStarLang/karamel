@@ -810,6 +810,8 @@ and mk_return_type env = function
       CStar.Qualified (["Eurydice"], "error_t_cg_array")
   | TCgApp _ ->
       fatal_error "Internal failure: TCgApp not desugared here"
+  | TPoly _ ->
+      fatal_error "Internal failure: TPoly not desugared here"
 
 
 and mk_type env = function

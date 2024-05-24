@@ -462,6 +462,7 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
   | TAnonymous _ -> failwith "unexpected: we don't compile data types going to Rust"
   | TCgArray _ -> failwith "Impossible: TCgArray"
   | TCgApp _ -> failwith "Impossible: TCgApp"
+  | TPoly _ -> failwith "Impossible: TPoly"
 
 let translate_type env = translate_type_with_config env default_config
 

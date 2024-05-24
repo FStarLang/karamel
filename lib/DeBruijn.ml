@@ -160,6 +160,13 @@ let subst_tn ts t =
     subst_t arg k body
   ) t ts
 
+let subst_tn' ofs ts t =
+  let l = List.length ts in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    subst_t arg (k + ofs) body
+  ) t ts
+
 class subst_p (p2: pattern) = object
   (* The environment [i] is the variable that we are looking for. *)
   inherit map_counting
@@ -268,8 +275,15 @@ class map_counting_cg = object(self)
   method! extend ((i: int), i') (_: binder) =
     i, i' + 1
 
+  method visit_TPoly (i, i') ts t =
+    TPoly (ts, self#visit_typ (i + ts.n_cgs, i') t)
+
   method! visit_ETApp (((i, i'), env) as env0) e cgs cgs' ts =
-    let env1 = (i + List.length cgs, i'), env in
+    let n_cgs = match e.typ with
+      | TPoly ({ n_cgs; _ }, _) -> n_cgs
+      | _ -> List.length cgs
+    in
+    let env1 = (i + n_cgs, i'), env in
     ETApp (self#visit_expr env1 e,
       List.map (self#visit_expr env0) cgs,
       List.map (self#visit_expr env0) cgs',
@@ -296,6 +310,10 @@ let cg_of_expr diff e =
 class subst_ct (c: cg Lazy.t) = object (self)
   (* There are no const generic binders -- nothing to increment *)
   inherit [_] map
+
+  method visit_TPoly i ts t =
+    TPoly (ts, self#visit_typ (i + ts.n_cgs) t)
+
   method! visit_TCgArray (i as env) t j =
     let t = self#visit_typ env t in
     (* We wish to replace i with c in [ t; j ] *)

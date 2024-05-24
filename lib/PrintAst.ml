@@ -194,6 +194,10 @@ and print_typ = function
       separate_map (space ^^ star ^^ space) print_typ ts
   | TAnonymous t ->
       print_type_def t
+  | TPoly ({ n; n_cgs }, t) ->
+      group @@
+      angles (string "N:" ^^ int n ^^ comma ^^ break1 ^^ string "CGS:" ^^ int
+        n_cgs) ^^ break1 ^^ print_typ t
 
 and print_lifetime = function
   | Stack -> string "stack"
@@ -205,7 +209,7 @@ and print_let_binding (binder, e1) =
   jump (print_expr e1))
 
 and print_expr { node; typ } =
-  (* print_typ typ ^^ colon ^^ space ^^ parens @@ *)
+  print_typ typ ^^ colon ^^ space ^^ parens @@
   match node with
   | EComment (s, e, s') ->
       surround 2 1 (string s) (print_expr e) (string s')

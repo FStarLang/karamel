@@ -125,10 +125,11 @@ let populate_env files =
       | DGlobal (_, lid, n, t, _) ->
           assert (n = 0);
           { env with globals = M.add lid t env.globals }
-      | DFunction (_, _, _, n, ret, lid, binders, _) ->
+      | DFunction (_, _, n_cgs, n, ret, lid, binders, _) ->
           if not !Options.allow_tapps && n <> 0 then
             Warn.fatal_error "%a is polymorphic\n" plid lid;
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
+          let t = if n_cgs > 0 || n > 0 then TPoly ({ n; n_cgs }, t) else t in
           { env with globals = M.add lid t env.globals }
       | DExternal (_, _, _, _, lid, typ, _) ->
           { env with globals = M.add lid typ env.globals }
@@ -578,6 +579,18 @@ and infer' env e =
           let t = infer env e0 in
           if Options.debug "checker-cg" then
             KPrint.bprintf "infer-cg: t=%a, cs=%a, ts=%a, diff=%d\n" ptyp t pexprs cs ptyps ts diff;
+          let t = match t with
+            | TPoly ({ n; n_cgs }, t) ->
+                let ts = { n = n - List.length ts; n_cgs = n_cgs - List.length cs } in
+                if ts.n > 0 || ts.n_cgs > 0 then
+                  TPoly (ts, t)
+                else
+                  t
+            | t ->
+                t
+          in
+          if Options.debug "checker-cg" then
+            KPrint.bprintf "infer-cg: chop --> %a\n" ptyp t;
           let t = DeBruijn.subst_ctn diff cs t in
           if Options.debug "checker-cg" then
             KPrint.bprintf "infer-cg: subst_ctn (diff=%d)--> %a\n" diff ptyp t;
@@ -585,7 +598,14 @@ and infer' env e =
           if Options.debug "checker-cg" then
             KPrint.bprintf "infer-cg: subst_tn --> %a\n" ptyp t;
           (* Now type-check the application itself, after substitution *)
-          let t = infer_app t (cs @ cs') in
+          let t =
+            match t with
+            | TPoly (ts, t) ->
+                assert (cs' = []);
+                TPoly (ts, infer_app t (cs @ cs'))
+            | t ->
+                infer_app t (cs @ cs')
+          in
           if Options.debug "checker-cg" then
             KPrint.bprintf "infer-cg: infer_app --> %a\n" ptyp t;
           t
@@ -1167,6 +1187,17 @@ and subtype env t1 t2 =
 
   | _, TCgApp _ when Hashtbl.mem MonomorphizationState.state (flatten_tapp t2) ->
       subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (flatten_tapp t2))))
+
+  | TPoly (ts1, t1), TPoly (ts2, t2) ->
+      ts1 = ts2 && subtype env t1 t2
+
+  (* TEMPORARY until we have unifor treatment of type schemes in Eurydice *)
+  | t1, TPoly (_, t2) ->
+      subtype env t1 t2
+
+  (* TEMPORARY until we have unifor treatment of type schemes in Eurydice *)
+  | TPoly (_, t2), t1 ->
+      subtype env t2 t1
 
   | _ ->
       false
