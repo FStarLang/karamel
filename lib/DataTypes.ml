@@ -209,12 +209,15 @@ let build_scheme_map files =
           Hashtbl.add map lid (ToTaggedUnion branches);
         (* Shadow the previous binding if we *think* we can "eliminate". *)
         begin match branches with
-        | [ _, [ _, (t, _ )] ] ->
+        | [ _, [ _, (t, _ )] ] when not (Helpers.is_array t) ->
+            (* An array wrapped in a struct is passed by copy. An array NOT
+               wrapped in a struct decays to a pointer and is passed by
+               reference. This phase is only correct if t is not an array. *)
             Hashtbl.add map lid (Eliminate t)
         | _ ->
             ()
         end
-    | DType (lid, _, _, 0, Flat [ _, (t, _) ]) ->
+    | DType (lid, _, _, 0, Flat [ _, (t, _) ]) when not (Helpers.is_array t) ->
         Hashtbl.add map lid (Eliminate t)
     | _ ->
         ()
