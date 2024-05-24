@@ -531,13 +531,13 @@ and infer env e =
   let t = infer' env e in
   if Options.debug "checker" then KPrint.bprintf "[infer, got] %a\n" ptyp t;
   check_subtype env t e.typ;
-  e.typ <- prefer_nominal t e.typ;
-  if Options.debug "checker" then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ;
-
   (* This is all because of external that retain their polymorphic
      signatures. TODO: does this alleviate the need for those crappy checks in
      subtype? *)
-  MonomorphizationState.resolve t
+  let t = MonomorphizationState.resolve_deep t in
+  e.typ <- prefer_nominal t e.typ;
+  if Options.debug "checker" then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ;
+  t
 
 and prefer_nominal t1 t2 =
   match t1, t2 with
@@ -604,7 +604,7 @@ and infer' env e =
                 assert (cs' = []);
                 TPoly (ts, infer_app t (cs @ cs'))
             | t ->
-                infer_app t (cs @ cs')
+                MonomorphizationState.resolve (infer_app t (cs @ cs'))
           in
           if Options.debug "checker-cg" then
             KPrint.bprintf "infer-cg: infer_app --> %a\n" ptyp t;
@@ -1096,7 +1096,8 @@ and assert_cons_of env t id: fields_t =
 and subtype env t1 t2 =
   if Options.debug "checker" then
     KPrint.bprintf "%a <=? %a\n" ptyp t1 ptyp t2;
-  match expand_abbrev env t1, expand_abbrev env t2 with
+  let normalize t = MonomorphizationState.resolve (expand_abbrev env t) in
+  match normalize t1, normalize t2 with
   | TInt w1, TInt w2 when w1 = w2 ->
       true
   | TInt K.SizeT, TInt K.UInt32 when Options.wasm () ->
@@ -1169,24 +1170,6 @@ and subtype env t1 t2 =
 
   | TAnonymous (Flat [ Some f, (t, _) ]), TAnonymous (Union ts) ->
       List.exists (fun (f', t') -> f = f' && subtype env t t') ts
-
-  | TTuple ts, _ when Hashtbl.mem MonomorphizationState.state (tuple_lid, ts, []) ->
-      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (tuple_lid, ts, [])))) t2
-
-  | _, TTuple ts when Hashtbl.mem MonomorphizationState.state (tuple_lid, ts, []) ->
-      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (tuple_lid, ts, []))))
-
-  | TApp (lid, ts), _ when Hashtbl.mem MonomorphizationState.state (lid, ts, []) ->
-      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts, [])))) t2
-
-  | _, TApp (lid, ts) when Hashtbl.mem MonomorphizationState.state (lid, ts, []) ->
-      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts, []))))
-
-  | TCgApp _, _ when Hashtbl.mem MonomorphizationState.state (flatten_tapp t1) ->
-      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (flatten_tapp t1)))) t2
-
-  | _, TCgApp _ when Hashtbl.mem MonomorphizationState.state (flatten_tapp t2) ->
-      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (flatten_tapp t2))))
 
   | TPoly (ts1, t1), TPoly (ts2, t2) ->
       ts1 = ts2 && subtype env t1 t2
