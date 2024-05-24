@@ -12,7 +12,7 @@ let resolve t: typ =
   | _ ->
       t
 
-let resolve_deep = object(self)
+let resolve_deep = (object(self)
   inherit [_] map
 
   method! visit_TApp () t ts =
@@ -25,4 +25,4 @@ let resolve_deep = object(self)
   method! visit_TTuple () ts =
     let ts = List.map (self#visit_typ ()) ts in
     resolve (TTuple ts)
-end#visit_typ ()
+end)#visit_typ ()
