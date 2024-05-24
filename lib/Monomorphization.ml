@@ -543,18 +543,18 @@ let functions files =
                     let binders = List.map (fun { node; typ } ->
                       { node; typ = DeBruijn.(subst_ctn diff cgs (subst_tn ts typ)) }
                     ) binders in
-                    KPrint.bprintf "about to substitute:\n  e=%a\n  cgs=%a\n cgs'=%a\n  ts=%a\n  head type=%a\n%a\n"
-                      pexpr e
-                      pexprs cgs
-                      pexprs cgs'
-                      ptyps ts
-                      ptyp e.typ
-                      pexpr (with_type TUnit (ETApp (e, cgs, cgs', ts)));
-                    KPrint.bprintf "body: %a\n\n" pexpr body;
-                    KPrint.bprintf "subst_ten ts body: %a\n\n" pexpr DeBruijn.(subst_ten ts body);
-                    KPrint.bprintf "subst_cen diff cgs (subst_ten ts body): %a\n\n" pexpr DeBruijn.(subst_cen diff cgs (subst_ten ts body));
+                    (* KPrint.bprintf "about to substitute:\n  e=%a\n  cgs=%a\n cgs'=%a\n  ts=%a\n  head type=%a\n%a\n" *)
+                    (*   pexpr e *)
+                    (*   pexprs cgs *)
+                    (*   pexprs cgs' *)
+                    (*   ptyps ts *)
+                    (*   ptyp e.typ *)
+                    (*   pexpr (with_type TUnit (ETApp (e, cgs, cgs', ts))); *)
+                    (* KPrint.bprintf "body: %a\n\n" pexpr body; *)
+                    (* KPrint.bprintf "subst_ten ts body: %a\n\n" pexpr DeBruijn.(subst_ten ts body); *)
+                    (* KPrint.bprintf "subst_cen diff cgs (subst_ten ts body): %a\n\n" pexpr DeBruijn.(subst_cen diff cgs (subst_ten ts body)); *)
                     let body = DeBruijn.(subst_n' (List.length binders) (subst_cen diff cgs (subst_ten ts body)) cgs') in
-                    KPrint.bprintf "after substitution: body :%a\n\n" pexpr body;
+                    (* KPrint.bprintf "after substitution: body :%a\n\n" pexpr body; *)
                     let body = self#visit_expr env body in
                     DFunction (cc, flags, 0, 0, ret, name, binders, body)
                   in

@@ -305,7 +305,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     | EApp (e, args) when fst (analyze_function_type should_rewrite e.typ) <> Never ->
         begin try
           let args = List.map (self#visit_expr_w to_be_starred) args in
-          let t = Helpers.assert_tbuf e1.typ in
+          let t = Helpers.assert_tbuf_or_tarray e1.typ in
           let dest = with_type t (EBufRead (e1, e2)) in
           (self#rewrite_app to_be_starred e args (Some dest)).node
         with Not_found | NotLowStar ->
