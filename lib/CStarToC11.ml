@@ -1357,6 +1357,7 @@ let if_header_inline_static m f1 f2 d =
       [ "FStar"; "UInt64" ], "gte_mask";
     ]
   in
+  (* KPrint.bprintf "%a is inline static? %b\n" PrintAst.Ops.plid lid is_inline_static; *)
   if is_inline_static then
     f1 d
   else
