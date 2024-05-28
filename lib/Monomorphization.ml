@@ -415,7 +415,6 @@ let datatypes files =
  * Hashtbl.find is in the visitor but the Gen functionality is clearly
  * outside... sigh. *)
 module Gen = struct
-  let generated_lids = Hashtbl.create 41
   let pending_defs = ref []
 
   let gen_lid lid ts cgs =
@@ -512,7 +511,7 @@ let functions files =
       | EQualified lid ->
           begin try
             (* Already monomorphized? *)
-            EQualified (Hashtbl.find Gen.generated_lids (lid, cgs, ts))
+            EQualified (Hashtbl.find generated_lids (lid, cgs @ cgs', ts))
           with Not_found ->
             match Hashtbl.find map lid with
             | exception Not_found ->
@@ -558,7 +557,7 @@ let functions files =
                     let body = self#visit_expr env body in
                     DFunction (cc, flags, 0, 0, ret, name, binders, body)
                   in
-                  EQualified (Gen.register_def current_file lid cgs ts name def)
+                  EQualified (Gen.register_def current_file lid (cgs @ cgs') ts name def)
 
             | `Global (flags, name, n, t, body) ->
                 fail_if ();
@@ -717,7 +716,7 @@ let equalities files =
       | TQualified lid when Hashtbl.mem types_map lid ->
           begin try
             (* Already monomorphized? *)
-            let existing_lid = Hashtbl.find Gen.generated_lids (eq_lid, [], [ t ]) in
+            let existing_lid = Hashtbl.find generated_lids (eq_lid, [], [ t ]) in
             let is_cycle = List.exists (fun d -> lid_of_decl d = existing_lid) !Gen.pending_defs in
             if is_cycle then
               has_cycle <- true;
@@ -828,7 +827,7 @@ let equalities files =
       | _ ->
           try
             (* Already monomorphized? *)
-            EQualified (Hashtbl.find Gen.generated_lids (eq_lid, [], [ t ]))
+            EQualified (Hashtbl.find generated_lids (eq_lid, [], [ t ]))
           with Not_found ->
             (* External type without a definition. Comparison of function types? *)
             gen_poly ()
@@ -845,7 +844,7 @@ let equalities files =
       in
       try
         (* Already monomorphized? *)
-        let existing_lid = Hashtbl.find Gen.generated_lids (eq_lid, [], [ t ]) in
+        let existing_lid = Hashtbl.find generated_lids (eq_lid, [], [ t ]) in
         EQualified existing_lid
       with Not_found ->
         let eq_typ = TArrow (t, TArrow (t, TBool)) in

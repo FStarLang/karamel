@@ -26,3 +26,5 @@ let resolve_deep = (object(self)
     let ts = List.map (self#visit_typ ()) ts in
     resolve (TTuple ts)
 end)#visit_typ ()
+
+let generated_lids: (lident * expr list * typ list, lident) Hashtbl.t = Hashtbl.create 41
