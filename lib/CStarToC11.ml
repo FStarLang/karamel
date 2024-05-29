@@ -524,10 +524,10 @@ and ensure_array_l t inits =
 and ensure_array m t expr =
   let mul x y = C.Op2 (K.Mult, x, y) in
   match t, expr with
-  | Pointer t, BufCreate (Stack, init, size)  ->
+  | Pointer t, BufCreate ((Stack | Eternal), init, size)  ->
       let t, init, size' = ensure_array m t init in
       Array (t, size), init, mul (mk_expr m size) size'
-  | Array (t, l), BufCreate (Stack, init, size) ->
+  | Array (t, l), BufCreate ((Stack | Eternal), init, size) ->
       assert (l = size);
       let t, init, size' = ensure_array m t init in
       Array (t, size), init, mul (mk_expr m size) size'
@@ -569,8 +569,14 @@ and mk_alignment m t: C11.expr option =
     None
 
 and to_initializer m = function
-  | BufCreateL (Stack, inits) ->
+  | BufCreateL ((Stack | Eternal), inits) ->
       Initializer (List.map (to_initializer m) inits)
+  | BufCreate ((Stack | Eternal), init, size) ->
+      begin match size with
+      | Constant (_, c) ->
+          Initializer (List.init (int_of_string c) (fun _ -> to_initializer m init))
+      | _ -> failwith (CStar.show_expr size ^ " is not a constant")
+      end
   | e ->
       InitExpr (mk_expr m e)
 
@@ -1175,7 +1181,7 @@ let mk_function_or_global_body m (d: decl): C.declaration_or_function list =
         match expr with
         | Any ->
             wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, static, extra, [ decl, alignment, None ])))
-        | BufCreateL _ as init_expr ->
+        | (BufCreateL _) as init_expr ->
             let init_expr = trim_trailing_zeros (to_initializer m init_expr) in
             let init_expr = workaround_gcc_bug53119_fml t init_expr in
             wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, static, extra, [
