@@ -370,8 +370,11 @@ and mk_for_loop name qs t init test incr body =
       `Decl (qs, t, None, None, { maybe_unused = false }, [ Ident name, None, Some (InitExpr init)]),
       test, incr, body)
 
-(* Takes e_array of type (Buf t) *)
+(* Takes e_array of type (Buf t). e_size = size of the array, in number of
+   elements *)
 and mk_initializer t e_array e_size e_value: C.stmt =
+  KPrint.bprintf "element_size is: %s\n" (C11.show_expr e_size); 
+  KPrint.bprintf "t is: %s\n" (C11.show_type_name t); 
   match e_size with
   | C.Constant (_, "1")
   | C.Cast (_, C.Constant (_, "1")) ->
@@ -381,6 +384,7 @@ and mk_initializer t e_array e_size e_value: C.stmt =
       match e_value with
       | C.Constant (_, s)
       | C.Cast (_, C.Constant (_, s)) when int_of_string s = 0 ->
+          KPrint.bprintf "need memset 0\n";
           mk_memset t e_array e_size (C.Constant (K.UInt8, "0"))
 
       | C.Name "Lib_IntVector_Intrinsics_vec128_zero"
@@ -389,10 +393,12 @@ and mk_initializer t e_array e_size e_value: C.stmt =
           (* Same as above. This is important to avoid generating avx2 instructions when merely
              allocating simd state. Under the hood, the C memset will use suitable instructions to
              go fast. *)
+          KPrint.bprintf "need memset 1\n";
           mk_memset t e_array e_size (C.Constant (K.UInt8, "0"))
 
       | C.Constant (K.UInt8, _)
       | C.Cast (_, C.Constant (K.UInt8, _)) ->
+          KPrint.bprintf "need memset 2\n";
           mk_memset t e_array e_size e_value
 
       | _ ->
@@ -616,6 +622,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
        * declare a fixed-length array; this is an "upcast" from pointer type to
        * array type, in the C sense. *)
       let t, init, size = ensure_array m binder.typ rhs in
+      KPrint.bprintf "size is: %s\n" (C11.show_expr size);
       let alignment = mk_alignment m (assert_array t) in
       let is_constant = match size with Constant _ -> true | _ -> false in
       let use_alloca = not is_constant && !Options.alloca_if_vla in
@@ -659,7 +666,11 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       let qs, spec, decl = mk_spec_and_declarator m binder.name t in
       let extra_stmt: C.stmt list =
         if needs_init then
-          [ mk_initializer (mk_type m (assert_pointer t)) (Name binder.name) size init ]
+          let n_elements = match size with
+            | C.Op2 (K.Mult, outer_size, _) -> outer_size
+            | _ -> failwith "impossible, see ensure_array"
+          in
+          [ mk_initializer (mk_type m (assert_pointer t)) (Name binder.name) n_elements init ]
         else
           []
       in
