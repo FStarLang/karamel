@@ -1143,11 +1143,14 @@ and hoist_expr loc pos e =
   | EBool _
   | EString _
   | EEnum _
-  | EAddrOf _
   | EStandaloneComment _
   | EPolyComp _
   | EOp _ ->
       [], e
+
+  | EAddrOf e ->
+      let lhs, e = hoist_expr loc Unspecified e in
+      lhs, mk (EAddrOf e)
 
   | EComment (s, e, s') ->
       let lhs, e = hoist_expr loc Unspecified e in

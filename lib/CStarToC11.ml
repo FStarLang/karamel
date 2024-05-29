@@ -507,14 +507,26 @@ and assert_pointer t =
   | _ ->
       Warn.fatal_error "let-bound bufcreate has type %s instead of Pointer" (show_typ t)
 
-and ensure_array t size =
+and ensure_array_l t inits =
+  assert (List.for_all (function BufCreate _ -> false | _ -> true) inits);
   match t with
   | Pointer t ->
-      Array (t, size)
-  | Array _ as t ->
+      Array (t, (Constant (K.uint32_of_int (List.length inits))))
+  | _ ->
       t
-  | t ->
-      Warn.fatal_error "impossible: %s" (show_typ t)
+
+and ensure_array m t expr =
+  let mul x y = C.Op2 (K.Mult, x, y) in
+  match t, expr with
+  | Pointer t, BufCreate (Stack, init, size)  ->
+      let t, init, size' = ensure_array m t init in
+      Array (t, size), init, mul (mk_expr m size) size'
+  | Array (t, l), BufCreate (Stack, init, size) ->
+      assert (l = size);
+      let t, init, size' = ensure_array m t init in
+      Array (t, size), init, mul (mk_expr m size) size'
+  | _ ->
+      t, expr, C.Sizeof (C.Type (mk_type m t))
 
 and decay_array t =
   match t with
@@ -549,6 +561,12 @@ and mk_alignment m t: C11.expr option =
         Some (Sizeof (Type (mk_type m t)))
   else
     None
+
+and to_initializer m = function
+  | BufCreateL (Stack, inits) ->
+      Initializer (List.map (to_initializer m) inits)
+  | e ->
+      InitExpr (mk_expr m e)
 
 and mk_stmt m (stmt: stmt): C.stmt list =
   match stmt with
@@ -593,11 +611,11 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       let decl: C.stmt list = [ Decl (qs, spec, None, None, { maybe_unused = false }, [ decl, None, Some (InitExpr expr_alloc)]) ] in
       stmt_check @ decl @ stmt_extra
 
-  | Decl (binder, BufCreate (Stack, init, size)) ->
+  | Decl (binder, (BufCreate (Stack, _, _) as rhs)) ->
       (* In the case where this is a buffer creation in the C* meaning, then we
        * declare a fixed-length array; this is an "upcast" from pointer type to
        * array type, in the C sense. *)
-      let t = ensure_array binder.typ size in
+      let t, init, size = ensure_array m binder.typ rhs in
       let alignment = mk_alignment m (assert_array t) in
       let is_constant = match size with Constant _ -> true | _ -> false in
       let use_alloca = not is_constant && !Options.alloca_if_vla in
@@ -621,7 +639,6 @@ and mk_stmt m (stmt: stmt): C.stmt list =
         | _ ->
             None, true
       in
-      let size = mk_expr m size in
       let t, maybe_init =
         (* If we're doing an alloca, override the initial value (it's now the
          * call to alloca) and decay the array to a pointer type. *)
@@ -632,8 +649,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
               use of alloca, which krml cannot yet align\n%s\n"
               (show_stmt stmt)
           else
-            let bytes = mk_alloc_cast m (assert_pointer t) (C.Call (C.Name "alloca", [
-              C.Op2 (K.Mult, size, C.Sizeof (C.Type (mk_type m (assert_pointer t)))) ])) in
+            let bytes = mk_alloc_cast m (assert_pointer t) (C.Call (C.Name "alloca", [ size ])) in
             assert (maybe_init = None);
             decay_array t, Some (InitExpr bytes)
         else
@@ -661,16 +677,10 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       (* Per the C standard, static initializers guarantee for missing fields
        * that they're initialized as if they had static storage duration, i.e.
        * with zero. *)
-      let t = ensure_array binder.typ (Constant (K.uint32_of_int (List.length inits))) in
+      let t = ensure_array_l binder.typ inits in
       let alignment = mk_alignment m (assert_array t) in
       let qs, spec, decl = mk_spec_and_declarator m binder.name t in
-      let rec to_initializer = function
-        | BufCreateL (Stack, inits) ->
-            Initializer (List.map to_initializer inits)
-        | e ->
-            InitExpr (mk_expr m e)
-      in
-      let init_expr = trim_trailing_zeros (to_initializer init_expr) in
+      let init_expr = trim_trailing_zeros (to_initializer m init_expr) in
       let init_expr = workaround_gcc_bug53119_fml t init_expr in
       [ Decl (qs, spec, None, None, { maybe_unused = false }, [ decl, alignment, Some init_expr])]
 
@@ -1097,12 +1107,13 @@ let enum_as_macros cases =
   ) cases in
   String.concat "\n" lines
 
-let strengthen_array t expr =
+let strengthen_array m t expr =
   match expr with
   | BufCreateL (_, es) ->
-      ensure_array t (Constant (K.uint32_of_int (List.length es)))
-  | BufCreate (_, _, size) ->
-      ensure_array t size
+      ensure_array_l t es
+  | BufCreate _ ->
+      let t, _, _ = ensure_array m t expr in
+      t
   | _ ->
       t
 
@@ -1144,7 +1155,7 @@ let mk_function_or_global_body m (d: decl): C.declaration_or_function list =
         []
       else
         let name = to_c_name m name in
-        let t = strengthen_array t expr in
+        let t = strengthen_array m t expr in
         let alignment = if is_array t then mk_alignment m (assert_array t) else None in
         let t = if List.mem (Common.Const "") flags then CStar.Const t else t in
         let qs, spec, decl = mk_spec_and_declarator m name t in
@@ -1153,12 +1164,11 @@ let mk_function_or_global_body m (d: decl): C.declaration_or_function list =
         match expr with
         | Any ->
             wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, static, extra, [ decl, alignment, None ])))
-        | BufCreateL (_, es) ->
-            let es = List.map (struct_as_initializer m) es in
-            let es = trim_trailing_zeros (Initializer es) in
-            let es = workaround_gcc_bug53119_fml t es in
+        | BufCreateL _ as init_expr ->
+            let init_expr = trim_trailing_zeros (to_initializer m init_expr) in
+            let init_expr = workaround_gcc_bug53119_fml t init_expr in
             wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, static, extra, [
-              decl, alignment, Some es ])))
+              decl, alignment, Some init_expr ])))
         (* Global static arrays of arithmetic type are initialized implicitly to 0 *)
         | BufCreate (_, Constant (_, "0"), _)
         | BufCreate (_, CStar.Bool false, _)
@@ -1199,7 +1209,7 @@ let mk_function_or_global_stub m (d: decl): C.declaration_or_function list =
         []
       else
         let name = to_c_name m name in
-        let t = strengthen_array t expr in
+        let t = strengthen_array m t expr in
         let t = if List.mem (Common.Const "") flags then CStar.Const t else t in
         let qs, spec, decl = mk_spec_and_declarator m name t in
         wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, Some Extern, { maybe_unused = false }, [ decl, None, None ])))

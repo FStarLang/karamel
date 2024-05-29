@@ -191,7 +191,7 @@ and print_typ = function
   | TApp (lid, args) ->
       string (string_of_lident lid) ^/^ separate_map space print_typ args
   | TTuple ts ->
-      separate_map (space ^^ star ^^ space) print_typ ts
+      parens (separate_map (space ^^ star ^^ space) print_typ ts)
   | TAnonymous t ->
       print_type_def t
   | TPoly ({ n; n_cgs }, t) ->
