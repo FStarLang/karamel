@@ -474,17 +474,17 @@ and mk_stmts env e ret_type =
         env, maybe_return (e :: acc)
 
     | EFor (binder,
-      ({ node = EConstant (K.UInt32, init as k_init); _ } as e_init),
+      ({ node = EConstant ((K.UInt32 | K.SizeT), init as k_init); _ } as e_init),
       { node = EApp (
-        { node = EOp (K.Lt, K.UInt32); _ },
+        { node = EOp (K.Lt, (K.UInt32 | K.SizeT)); _ },
         [{ node = EBound 0; _ };
-        ({ node = EConstant (K.UInt32, max as k_max); _ } as e_max)]); _},
+        ({ node = EConstant ((K.UInt32 | K.SizeT), max as k_max); _ } as e_max)]); _},
       { node = EAssign (
         { node = EBound 0; _ },
         { node = EApp (
-          { node = EOp (K.Add, K.UInt32); _ },
+          { node = EOp (K.Add, (K.UInt32 | K.SizeT)); _ },
           [{ node = EBound 0; _ };
-          ({ node = EConstant (K.UInt32, incr as k_incr); _ } as e_incr)]); _}); _},
+          ({ node = EConstant ((K.UInt32 | K.SizeT), incr as k_incr); _ } as e_incr)]); _}); _},
       body)
       when (
         let init = int_of_string init in
