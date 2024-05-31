@@ -232,10 +232,10 @@ let cross_call_analysis files =
     let visibility =
       if List.mem Common.Private f then
         Private
-      else begin
-        assert (not (List.mem Common.Internal f));
+      else if List.mem Common.Internal f then
+        Internal
+      else
         Public
-      end
     in
     let inlining =
       let is_static_inline = Helpers.is_static_header name in
