@@ -628,11 +628,17 @@ and mk_stmt m (stmt: stmt): C.stmt list =
        * declare a fixed-length array; this is an "upcast" from pointer type to
        * array type, in the C sense. *)
       let t, init, size = ensure_array m binder.typ rhs in
+      (* TODO: make ensure_array return both *)
+      let n_elements = match size with
+        | C.Op2 (K.Mult, outer_size, _) -> outer_size
+        | _ -> failwith "impossible, see ensure_array"
+      in
+
       (* KPrint.bprintf "size is: %s\n" (C11.show_expr size); *)
       let alignment = mk_alignment m (assert_array t) in
-      let is_constant = match size with Constant _ -> true | _ -> false in
+      let is_constant = match n_elements with Constant _ -> true | _ -> false in
       let use_alloca = not is_constant && !Options.alloca_if_vla in
-      let (maybe_init, needs_init): C.init option * _ = match init, size with
+      let (maybe_init, needs_init): C.init option * _ = match init, n_elements with
         | _, Constant (_, "0") (* zero-sized array... legal for malloc *)
         | Cast (Any, _), _
         | Any, _ ->
@@ -672,16 +678,12 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       let qs, spec, decl = mk_spec_and_declarator m binder.name t in
       let extra_stmt: C.stmt list =
         if needs_init then
-          let n_elements = match size with
-            | C.Op2 (K.Mult, outer_size, _) -> outer_size
-            | _ -> failwith "impossible, see ensure_array"
-          in
           [ mk_initializer (mk_type m (assert_pointer t)) (Name binder.name) n_elements init ]
         else
           []
       in
       let decl: C.stmt list = [ Decl (qs, spec, None, None, { maybe_unused = false }, [ decl, alignment, maybe_init ]) ] in
-      mk_check_size m (assert_pointer binder.typ) size @
+      mk_check_size m (assert_pointer binder.typ) n_elements @
       decl @
       extra_stmt
 
