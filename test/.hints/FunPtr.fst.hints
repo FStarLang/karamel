@@ -1,1 +1,33 @@
-[ "èê£F'á¬•­Û$5G&®K", [] ]
+[
+  "èê£F'á¬•­Û$5G&®K",
+  [
+    [
+      "FunPtr.f",
+      1,
+      2,
+      1,
+      [
+        "@query", "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "19fc063add061b526cb84648f4c9301d"
+    ],
+    [
+      "FunPtr.main",
+      1,
+      2,
+      1,
+      [
+        "@query", "equality_tok_C.EXIT_SUCCESS@tok",
+        "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro",
+        "typing_tok_C.EXIT_SUCCESS@tok"
+      ],
+      0,
+      "bafd71343fdb17a063a497016a8ea5bc"
+    ]
+  ]
+]

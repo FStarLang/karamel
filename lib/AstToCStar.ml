@@ -358,15 +358,15 @@ and mk_expr env in_stmt e =
   | EConstant c ->
       CStar.Constant c
 
-  | EApp ({ node = ETApp (e0, cgs, ts); _ }, es) when !Options.allow_tapps || whitelisted_tapp e0 ->
+  | EApp ({ node = ETApp (e0, cgs, cgs', ts); _ }, es) when !Options.allow_tapps || whitelisted_tapp e0 ->
       (* Return type is oftentimes very useful when having to build a return value using e.g. a
          compound literal *)
       let ret_t = CStar.Type (mk_type env (MonomorphizationState.resolve e.typ)) in
-      unit_to_void env e0 (cgs @ es) (List.map (fun t -> CStar.Type (mk_type env t)) ts @ [ ret_t ])
+      unit_to_void env e0 (cgs @ cgs' @ es) (List.map (fun t -> CStar.Type (mk_type env t)) ts @ [ ret_t ])
 
-  | ETApp (e0, cgs, ts) when !Options.allow_tapps || whitelisted_tapp e0 ->
+  | ETApp (e0, cgs, cgs', ts) when !Options.allow_tapps || whitelisted_tapp e0 ->
       let ret_t = CStar.Type (mk_type env (MonomorphizationState.resolve e.typ)) in
-      unit_to_void env e0 cgs (List.map (fun t -> CStar.Type (mk_type env t)) ts @ [ ret_t ])
+      unit_to_void env e0 (cgs @ cgs') (List.map (fun t -> CStar.Type (mk_type env t)) ts @ [ ret_t ])
 
   | EApp ({ node = EOp (op, w); _ }, [ _; _ ]) when is_arith op w ->
       fst (mk_arith env e)
@@ -474,17 +474,17 @@ and mk_stmts env e ret_type =
         env, maybe_return (e :: acc)
 
     | EFor (binder,
-      ({ node = EConstant (K.UInt32, init as k_init); _ } as e_init),
+      ({ node = EConstant ((K.UInt32 | K.SizeT), init as k_init); _ } as e_init),
       { node = EApp (
-        { node = EOp (K.Lt, K.UInt32); _ },
+        { node = EOp (K.Lt, (K.UInt32 | K.SizeT)); _ },
         [{ node = EBound 0; _ };
-        ({ node = EConstant (K.UInt32, max as k_max); _ } as e_max)]); _},
+        ({ node = EConstant ((K.UInt32 | K.SizeT), max as k_max); _ } as e_max)]); _},
       { node = EAssign (
         { node = EBound 0; _ },
         { node = EApp (
-          { node = EOp (K.Add, K.UInt32); _ },
+          { node = EOp (K.Add, (K.UInt32 | K.SizeT)); _ },
           [{ node = EBound 0; _ };
-          ({ node = EConstant (K.UInt32, incr as k_incr); _ } as e_incr)]); _}); _},
+          ({ node = EConstant ((K.UInt32 | K.SizeT), incr as k_incr); _ } as e_incr)]); _}); _},
       body)
       when (
         let init = int_of_string init in
@@ -810,6 +810,8 @@ and mk_return_type env = function
       CStar.Qualified (["Eurydice"], "error_t_cg_array")
   | TCgApp _ ->
       fatal_error "Internal failure: TCgApp not desugared here"
+  | TPoly _ ->
+      fatal_error "Internal failure: TPoly not desugared here"
 
 
 and mk_type env = function

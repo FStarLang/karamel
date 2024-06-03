@@ -67,7 +67,7 @@ let remove_unused_type_arguments files =
       method! visit_TApp env lid args =
         self#visit_app env lid args
 
-      method! visit_ETApp env e _ args =
+      method! visit_ETApp env e _ _ args =
         (* TODO: for now, we ignore unused const generics *)
         let lid = assert_elid e.node in
         self#visit_app (fst env) lid args
@@ -144,8 +144,8 @@ let remove_unused_type_arguments files =
       let n, (def, binders, ret) = chop 0 0 (def, binders, ret) in
       DFunction (cc, flags, n_cgs, n, ret, lid, binders, def)
 
-    method! visit_ETApp env e cgs args =
-      assert (cgs = []);
+    method! visit_ETApp env e cgs cgs' args =
+      assert (cgs @ cgs' = []);
       let lid = assert_elid e.node in
       let args = List.map (self#visit_typ_wo env) args in
       let args = KList.filter_mapi (fun i arg ->
@@ -155,7 +155,7 @@ let remove_unused_type_arguments files =
           None
       ) args in
       if List.length args > 0 then
-        ETApp (e, [], args)
+        ETApp (e, [], [], args)
       else
         e.node
   end in
@@ -209,12 +209,15 @@ let build_scheme_map files =
           Hashtbl.add map lid (ToTaggedUnion branches);
         (* Shadow the previous binding if we *think* we can "eliminate". *)
         begin match branches with
-        | [ _, [ _, (t, _ )] ] ->
+        | [ _, [ _, (t, _ )] ] when not (Helpers.is_array t) ->
+            (* An array wrapped in a struct is passed by copy. An array NOT
+               wrapped in a struct decays to a pointer and is passed by
+               reference. This phase is only correct if t is not an array. *)
             Hashtbl.add map lid (Eliminate t)
         | _ ->
             ()
         end
-    | DType (lid, _, _, 0, Flat [ _, (t, _) ]) ->
+    | DType (lid, _, _, 0, Flat [ _, (t, _) ]) when not (Helpers.is_array t) ->
         Hashtbl.add map lid (Eliminate t)
     | _ ->
         ()

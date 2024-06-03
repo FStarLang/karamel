@@ -1,1 +1,56 @@
-[ "«Ã,\u0015Ü*£≠v¡U\u001e\u0018\u0004œ&", [] ]
+[
+  "«Ã,\u0015Ü*£≠v¡U\u001e\u0018\u0004œ&",
+  [
+    [
+      "InlineTest.optresult",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "f25813eb13b56ae4453b1ab3998e3642"
+    ],
+    [
+      "InlineTest.__proj__Error__item___0",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "refinement_interpretation_Tm_refine_dc1c4313057dcc858ffa9fd88c3f020d"
+      ],
+      0,
+      "74d4846b597c38275ad4f23cfa440b50"
+    ],
+    [
+      "InlineTest.__proj__Correct__item___0",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "refinement_interpretation_Tm_refine_dc046c5c58c78691ac946f81662277ac"
+      ],
+      0,
+      "a7a974bac94b702375e871b9dcf0edfd"
+    ],
+    [
+      "InlineTest.main",
+      1,
+      2,
+      1,
+      [
+        "@query", "InlineTest_pretyping_117c08a1eaef5bedc68209b1944ac202",
+        "constructor_distinct_InlineTest.Correct",
+        "data_typing_intro_InlineTest.E1@tok",
+        "disc_equation_InlineTest.Correct", "equation_InlineTest.f",
+        "primitive_Prims.op_Equality", "projection_inverse_BoxBool_proj_0",
+        "projection_inverse_InlineTest.Correct__0",
+        "projection_inverse_InlineTest.Correct__a",
+        "projection_inverse_InlineTest.Correct__b"
+      ],
+      0,
+      "ee5ccd9f8dc6af780f981e3394d36abd"
+    ]
+  ]
+]

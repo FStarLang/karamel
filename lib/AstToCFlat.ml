@@ -723,14 +723,14 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EOpen _ ->
       invalid_arg "mk_expr (EOpen)"
 
-  | EApp ({ node = ETApp ({ node = EQualified (["LowStar"; "Ignore"],"ignore"); _ }, cgs, _); _ }, [ e ]) ->
+  | EApp ({ node = ETApp ({ node = EQualified (["LowStar"; "Ignore"],"ignore"); _ }, cgs, _, _); _ }, [ e ]) ->
       assert (cgs = []);
       let locals, e = mk_expr env locals e in
       (* This is slightly ill-typed since everywhere else the result of
          intermediary sequence bits is units, but that's fine *)
       locals, CF.Sequence [ e; cflat_unit ]
 
-  | EApp ({ node = ETApp ({ node = EQualified (["Lib"; "Memzero0"],"memzero"); _ }, cgs, _); _ }, [ dst; len ]) ->
+  | EApp ({ node = ETApp ({ node = EQualified (["Lib"; "Memzero0"],"memzero"); _ }, cgs, _, _); _ }, [ dst; len ]) ->
       assert (cgs = []);
       (* TODO: now that the C backend is generic for type applications, do the
          same here and have generic support for ETApp. Idea: reuse the JSON

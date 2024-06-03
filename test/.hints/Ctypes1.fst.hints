@@ -1,1 +1,31 @@
-[ "+ÅR≈ã\bõqC\u001c∂!õÁ\u0016ª", [] ]
+[
+  "+ÅR≈ã\bõqC\u001c∂!õÁ\u0016ª",
+  [
+    [
+      "Ctypes1.point",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.UInt32.t"
+      ],
+      0,
+      "df0550e59a5b9b6880386b2f72e5e198"
+    ],
+    [
+      "Ctypes1.point_no_bind",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.UInt32.t"
+      ],
+      0,
+      "01f1526f1e4b18032d707097270ff95d"
+    ]
+  ]
+]

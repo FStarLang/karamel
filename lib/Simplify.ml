@@ -76,7 +76,7 @@ class ['self] safe_use = object (self: 'self)
     match e.node with
     | EOp _ -> super#visit_EApp env e es
     | EQualified lid when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
-    | ETApp ({ node = EQualified lid; _ }, _, _) when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
+    | ETApp ({ node = EQualified lid; _ }, _, _, _) when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
     | _ -> self#unordered env (e :: es)
 
   method! visit_ELet env _ e1 e2 = self#sequential env e1 (Some e2)
@@ -398,7 +398,7 @@ let remove_ignore_unit = object
 
   method! visit_EApp env hd args =
     match hd.node, args with
-    | ETApp ({ node = EQualified (["LowStar"; "Ignore"], "ignore"); _}, _, [ TUnit ]), [ { node = EUnit; _ } ] ->
+    | ETApp ({ node = EQualified (["LowStar"; "Ignore"], "ignore"); _}, _, _, [ TUnit ]), [ { node = EUnit; _ } ] ->
         EUnit
     | _ ->
         super#visit_EApp env hd args
@@ -1127,9 +1127,9 @@ and hoist_stmt loc e =
 and hoist_expr loc pos e =
   let mk node = { node; typ = e.typ } in
   match e.node with
-  | ETApp (e, cgs, ts) ->
+  | ETApp (e, cgs, cgs', ts) ->
       let lhs, e = hoist_expr loc Unspecified e in
-      lhs, mk (ETApp (e, cgs, ts))
+      lhs, mk (ETApp (e, cgs, cgs', ts))
 
   | EBufNull
   | EAbort _
@@ -1143,11 +1143,14 @@ and hoist_expr loc pos e =
   | EBool _
   | EString _
   | EEnum _
-  | EAddrOf _
   | EStandaloneComment _
   | EPolyComp _
   | EOp _ ->
       [], e
+
+  | EAddrOf e ->
+      let lhs, e = hoist_expr loc Unspecified e in
+      lhs, mk (EAddrOf e)
 
   | EComment (s, e, s') ->
       let lhs, e = hoist_expr loc Unspecified e in

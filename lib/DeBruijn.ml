@@ -6,6 +6,7 @@
 (* ---------------------------------------------------------------------------- *)
 
 open Ast
+open PrintAst.Ops
 
 (* Counting binders. *)
 
@@ -118,6 +119,13 @@ let subst_n e es =
     subst arg k body
   ) e es
 
+let subst_n' ofs e es =
+  let l = List.length es in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    subst arg (k + ofs) body
+  ) e es
+
 (* Substitute [t2] for [i] in [t1]. *)
 
 class subst_t (t2: typ) = object
@@ -150,6 +158,13 @@ let subst_tn ts t =
   KList.fold_lefti (fun i body arg ->
     let k = l - i - 1 in
     subst_t arg k body
+  ) t ts
+
+let subst_tn' ofs ts t =
+  let l = List.length ts in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    subst_t arg (k + ofs) body
   ) t ts
 
 class subst_p (p2: pattern) = object
@@ -248,9 +263,9 @@ let open_branch bs pat expr =
 
 (* Const generic support *)
 
-class map_counting_cg = object
+class map_counting_cg = object(self)
   (* The environment [i] has type [int*int]. *)
-  inherit [_] map as super
+  inherit [_] map as _super
   (* The environment is a pair [i, i']. The first component [i] is the DeBruijn
     index we are looking for, after entering ONLY the cg binders. It it set by
     the caller and does not increase afterwards since the only cg binders are at
@@ -260,8 +275,19 @@ class map_counting_cg = object
   method! extend ((i: int), i') (_: binder) =
     i, i' + 1
 
-  method! visit_ETApp ((i, i'), env) e cgs ts =
-    super#visit_ETApp ((i + List.length cgs, i'), env) e cgs ts
+  method visit_TPoly (i, i') ts t =
+    TPoly (ts, self#visit_typ (i + ts.n_cgs, i') t)
+
+  method! visit_ETApp (((i, i'), env) as env0) e cgs cgs' ts =
+    let n_cgs = match e.typ with
+      | TPoly ({ n_cgs; _ }, _) -> n_cgs
+      | _ -> List.length cgs
+    in
+    let env1 = (i + n_cgs, i'), env in
+    ETApp (self#visit_expr env1 e,
+      List.map (self#visit_expr env0) cgs,
+      List.map (self#visit_expr env0) cgs',
+      List.map (self#visit_typ (fst env0)) ts)
 end
 
 (* Converting an expression into a suitable const generic usable in types, knowing
@@ -278,12 +304,16 @@ let cg_of_expr diff e =
   | EConstant (w, s) ->
       CgConst (w, s)
   | _ ->
-      failwith "Unsuitable const generic"
+      failwith (KPrint.bsprintf "Unsuitable const generic: %a" pexpr e)
 
 (* Substitute const generics *)
 class subst_ct (c: cg Lazy.t) = object (self)
   (* There are no const generic binders -- nothing to increment *)
   inherit [_] map
+
+  method visit_TPoly i ts t =
+    TPoly (ts, self#visit_typ (i + ts.n_cgs) t)
+
   method! visit_TCgArray (i as env) t j =
     let t = self#visit_typ env t in
     (* We wish to replace i with c in [ t; j ] *)
@@ -365,5 +395,12 @@ let subst_ctn' cs t =
   let l = List.length cs in
   KList.fold_lefti (fun i body arg ->
     let k = l - i - 1 in
+    (new subst_ct (lazy arg))#visit_typ k body
+  ) t cs
+
+let subst_ctn'' ofs cs t =
+  let l = List.length cs in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 + ofs in
     (new subst_ct (lazy arg))#visit_typ k body
   ) t cs

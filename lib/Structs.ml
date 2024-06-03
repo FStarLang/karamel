@@ -141,8 +141,8 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
 
     (* TODO: this is not general *)
     let e = match e.node, t_rewritten with
-      | ETApp ({ node = EQualified (["LowStar"; "Ignore"], "ignore"); _ } as e_ignore, [], _), TArrow (t, _) ->
-          with_type t_rewritten (ETApp (e_ignore, [], [ t ]))
+      | ETApp ({ node = EQualified (["LowStar"; "Ignore"], "ignore"); _ } as e_ignore, [], [], _), TArrow (t, _) ->
+          with_type t_rewritten (ETApp (e_ignore, [], [], [ t ]))
       | _ ->
           e
     in
@@ -305,7 +305,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     | EApp (e, args) when fst (analyze_function_type should_rewrite e.typ) <> Never ->
         begin try
           let args = List.map (self#visit_expr_w to_be_starred) args in
-          let t = Helpers.assert_tbuf e1.typ in
+          let t = Helpers.assert_tbuf_or_tarray e1.typ in
           let dest = with_type t (EBufRead (e1, e2)) in
           (self#rewrite_app to_be_starred e args (Some dest)).node
         with Not_found | NotLowStar ->
@@ -591,10 +591,10 @@ let to_addr is_struct =
         not_struct ();
         w (EIgnore (to_addr false e))
 
-    | ETApp (e, cgs, ts) ->
-        assert (cgs = []);
+    | ETApp (e, cgs, cgs', ts) ->
+        assert (cgs @ cgs' = []);
         not_struct ();
-        w (ETApp (to_addr false e, [], ts))
+        w (ETApp (to_addr false e, [], [], ts))
 
     | EApp (e, es) ->
         not_struct ();

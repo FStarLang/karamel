@@ -38,7 +38,8 @@ let types_depth files =
   and depth_of_type p t =
     match t with
     | TArrow _
-    | TInt _ | TBool | TUnit | TAny | TBuf _ | TArray _ | TCgArray _ | TCgApp _ ->
+    | TInt _ | TBool | TUnit | TAny | TBuf _ | TArray _ | TCgArray _ | TCgApp _
+    | TPoly _ ->
         0, List.rev p
     | TQualified lid ->
         begin try

@@ -41,6 +41,28 @@ type cg =
   | CgVar of int
   | CgConst of constant
 
+(* From 2016-2024, krml spent eight blissful years not dealing with
+   higher-order types, and all was fun and dandy. However, with the arrival of
+   Rust-style monomorphization, and the passing of trait methods as function
+   pointers before whole-program monomorphization, we now need to deal with
+   things such as:
+
+     trait Foo<const K: usize> { fn bar<const L: usize>(x: [u8; K]) -> (); }
+     fn f<const K:usize, T: Foo<K>>() { }
+
+   which needs to be translated as:
+
+     fn bar<K, L>(x: [u8; K]) -> ()
+
+     fn f<K: usize, T>(bar_k: <L>(x: [u8; K]) -> ())
+
+   and when instantiating the type scheme of f we need to know not to substitute
+   under <L>. *)
+and type_scheme = {
+  n_cgs: int;
+  n: int;
+}
+
 (* The visitor of types composes with the misc. visitor. *)
 and typ =
   | TInt of width
@@ -71,6 +93,8 @@ and typ =
       (** disappears after tuple removal *)
   | TAnonymous of type_def
       (** appears after data type translation to tagged enums *)
+  | TPoly of type_scheme * typ
+      (** only generated from trait methods in Rust *)
   [@@deriving show,
     visitors { variety = "iter"; ancestors = [ "iter_misc" ]; name = "iter_typ" },
     visitors { variety = "reduce"; ancestors = [ "reduce_misc" ]; name = "reduce_typ" },
@@ -197,7 +221,13 @@ type expr' =
   | EIgnore of expr
 
   | EApp of expr * expr list
-  | ETApp of expr * expr list * typ_wo list
+  | ETApp of expr * expr list * expr list * typ_wo list
+    (** The arguments are:
+      - the head of the application
+      - the const generic args (TODO: would be nice to have a way to deal with
+        those without those silly diff computations)
+      - additional arguments to monomorphize over NOT IN SCOPE in types
+      - type arguments *)
   | EPolyComp of poly_comp * typ_wo
   | ELet of binder * expr * expr
   | EFun of binder list * expr * typ_wo
@@ -522,12 +552,20 @@ class ['self] map = object (self: 'self)
     let e = self#visit_expr_w env e in
     DFunction (cc, flags, n_cg, n, t, lid, bs, e)
 
-  method! visit_ETApp env e es ts =
+  method! visit_TPoly env ts t =
+    TPoly (ts, self#visit_typ (self#extend_tmany env ts.n) t)
+
+  method! visit_ETApp env e es es' ts =
     let ts = List.map (self#visit_typ_wo env) ts in
     let es = List.map (self#visit_expr env) es in
-    let env = self#extend_tmany (fst env) (List.length ts) in
+    let es' = List.map (self#visit_expr env) es' in
+    let n = match e.typ with
+      | TPoly ({ n; _ }, _) -> n
+      | _ -> List.length ts
+    in
+    let env = self#extend_tmany (fst env) n in
     let e = self#visit_expr_w env e in
-    ETApp (e, es, ts)
+    ETApp (e, es, es', ts)
 end
 
 class ['self] iter = object (self: 'self)
