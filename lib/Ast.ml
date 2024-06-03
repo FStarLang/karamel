@@ -16,20 +16,20 @@ module K = Constant
 
 (* Just like int, float, and other OCaml base types, we generate polymorphic
  * methods for the "base types" of our AST. *)
-type calling_convention = Common.calling_convention [@ opaque]
+type calling_convention = Common.calling_convention [@ visitors.opaque]
 and calling_convention_option = calling_convention option
-and atom_t = Atom.t [@ opaque]
-and flag = Common.flag [@ opaque]
+and atom_t = Atom.t [@ visitors.opaque]
+and flag = Common.flag [@ visitors.opaque]
 and flags = flag list
-and op = K.op [@ opaque]
-and width = K.width [@ opaque]
-and lifetime = Common.lifetime [@ opaque]
-and constant = K.t [@ opaque]
-and ident = string [@ opaque]
-and poly_comp = K.poly_comp [@ opaque]
-and forward_kind = Common.forward_kind [@ opaque]
-and lident = ident list * ident [@ opaque]
-and valuation = Mark.occurrence * Mark.usage [@ opaque]
+and op = K.op [@ visitors.opaque]
+and width = K.width [@ visitors.opaque]
+and lifetime = Common.lifetime [@ visitors.opaque]
+and constant = K.t [@ visitors.opaque]
+and ident = string [@ visitors.opaque]
+and poly_comp = K.poly_comp [@ visitors.opaque] [@ show.opaque]
+and forward_kind = Common.forward_kind [@ visitors.opaque]
+and lident = ident list * ident [@ visitors.opaque]
+and valuation = Mark.occurrence * Mark.usage [@ visitors.opaque]
   [@@deriving show,
     visitors { variety = "iter"; name = "iter_misc"; polymorphic = true },
     visitors { variety = "reduce"; name = "reduce_misc"; polymorphic = true },
