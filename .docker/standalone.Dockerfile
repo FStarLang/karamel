@@ -1,6 +1,6 @@
 # This Dockerfile should be run from the root Karamel directory
 
-FROM ubuntu:22.04
+FROM ubuntu:23.10
 
 # CI dependencies: opam, jq (to identify F* branch)
 RUN apt-get update && \
