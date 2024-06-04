@@ -74,7 +74,7 @@ function refresh_tutorial_is_enabled () {
 
 function misc () {
   git config --global user.name "Dzomo, the Everest Yak"
-  git config --global user.email "everbld@microsoft.com"
+  git config --global user.email "24394600+dzomo@users.noreply.github.com"
 
   git clone https://github.com/fstarlang/fstar-mode.el
 

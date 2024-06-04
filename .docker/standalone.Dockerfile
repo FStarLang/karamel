@@ -1,6 +1,6 @@
 # This Dockerfile should be run from the root Karamel directory
 
-FROM ubuntu:22.04
+FROM ubuntu:23.10
 
 # CI dependencies: opam, jq (to identify F* branch)
 RUN apt-get update && \
@@ -54,7 +54,7 @@ RUN sudo apt-get install -y --no-install-recommends nodejs
 # sudo pip3 because of https://bugs.launchpad.net/ubuntu/+source/bash/+bug/1588562
 # jinja2==3.0.0 because of https://github.com/mkdocs/mkdocs/issues/2799
 RUN sudo apt-get install --yes --no-install-recommends python3-pip python3-setuptools python3-distutils
-RUN sudo pip3 install pytz tzdata sphinx==1.7.2 jinja2==3.0.0 alabaster==0.7.13 sphinx_rtd_theme
+RUN sudo pip3 install --break-system-packages pytz tzdata sphinx==1.7.2 jinja2==3.0.0 alabaster==0.7.13 sphinx_rtd_theme
 
 # CI proper
 ARG CI_THREADS=24
