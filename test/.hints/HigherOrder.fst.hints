@@ -1,1 +1,18 @@
-[ "\"+\u000fÝÇ©Rƒ*»ëøl2Gˆ", [] ]
+[
+  "\"+\u000fÝÇ©Rƒ*»ëøl2Gˆ",
+  [
+    [
+      "HigherOrder.const_f",
+      1,
+      2,
+      1,
+      [
+        "@query", "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "4e4f026f93e1c22f6907e34f0d4bb07b"
+    ]
+  ]
+]

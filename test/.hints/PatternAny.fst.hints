@@ -1,1 +1,14 @@
-[ "Z×ÿ5¦Þ‰û\u000fªhŸS%\u0006Ö", [] ]
+[
+  "Z×ÿ5¦Þ‰û\u000fªhŸS%\u0006Ö",
+  [
+    [
+      "PatternAny.id",
+      1,
+      2,
+      1,
+      [ "@query", "assumption_PatternAny.role__uu___haseq" ],
+      0,
+      "6c74f7d84709f60724906386e11f2199"
+    ]
+  ]
+]

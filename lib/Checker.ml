@@ -125,10 +125,11 @@ let populate_env files =
       | DGlobal (_, lid, n, t, _) ->
           assert (n = 0);
           { env with globals = M.add lid t env.globals }
-      | DFunction (_, _, _, n, ret, lid, binders, _) ->
+      | DFunction (_, _, n_cgs, n, ret, lid, binders, _) ->
           if not !Options.allow_tapps && n <> 0 then
             Warn.fatal_error "%a is polymorphic\n" plid lid;
           let t = List.fold_right (fun b t2 -> TArrow (b.typ, t2)) binders ret in
+          let t = if n_cgs > 0 || n > 0 then TPoly ({ n; n_cgs }, t) else t in
           { env with globals = M.add lid t env.globals }
       | DExternal (_, _, _, _, lid, typ, _) ->
           { env with globals = M.add lid typ env.globals }
@@ -180,6 +181,7 @@ and check_program env r (name, decls) =
           -dast for further debugging.\n\n"
           plid (lid_of_decl d) plid (lid_of_decl d);
         Warn.maybe_fatal_error e;
+        KPrint.beprintf "--------------------------------------------------------------------------------\n\n";
         flush stderr;
         None
   ) decls in
@@ -279,7 +281,7 @@ and check env t e =
 and check' env t e =
   let c t' = check_subtype env t' t in
   match e.node with
-  | ETApp (e0, _, _) ->
+  | ETApp (e0, _, _, _) ->
       begin match e0.node with
       | EOp ((K.Eq | K.Neq), _) ->
           (* This is probably old code that predates proper treatment of polymorphic equalities.
@@ -529,13 +531,13 @@ and infer env e =
   let t = infer' env e in
   if Options.debug "checker" then KPrint.bprintf "[infer, got] %a\n" ptyp t;
   check_subtype env t e.typ;
-  e.typ <- prefer_nominal t e.typ;
-  if Options.debug "checker" then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ;
-
   (* This is all because of external that retain their polymorphic
      signatures. TODO: does this alleviate the need for those crappy checks in
      subtype? *)
-  MonomorphizationState.resolve t
+  let t = MonomorphizationState.resolve_deep t in
+  e.typ <- prefer_nominal t e.typ;
+  if Options.debug "checker" then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ;
+  t
 
 and prefer_nominal t1 t2 =
   match t1, t2 with
@@ -566,7 +568,7 @@ and infer' env e =
   in
 
   match e.node with
-  | ETApp (e0, cs, ts) ->
+  | ETApp (e0, cs, cs', ts) ->
       begin match e0.node with
       | EOp ((K.Eq | K.Neq), _) ->
           (* Special incorrect encoding of polymorphic equalities *)
@@ -577,14 +579,33 @@ and infer' env e =
           let t = infer env e0 in
           if Options.debug "checker-cg" then
             KPrint.bprintf "infer-cg: t=%a, cs=%a, ts=%a, diff=%d\n" ptyp t pexprs cs ptyps ts diff;
-          let t = DeBruijn.subst_tn ts t in
+          let t = match t with
+            | TPoly ({ n; n_cgs }, t) ->
+                let ts = { n = n - List.length ts; n_cgs = n_cgs - List.length cs } in
+                if ts.n > 0 || ts.n_cgs > 0 then
+                  TPoly (ts, t)
+                else
+                  t
+            | t ->
+                t
+          in
           if Options.debug "checker-cg" then
-            KPrint.bprintf "infer-cg: subst_tn --> %a\n" ptyp t;
+            KPrint.bprintf "infer-cg: chop --> %a\n" ptyp t;
           let t = DeBruijn.subst_ctn diff cs t in
           if Options.debug "checker-cg" then
             KPrint.bprintf "infer-cg: subst_ctn (diff=%d)--> %a\n" diff ptyp t;
+          let t = DeBruijn.subst_tn ts t in
+          if Options.debug "checker-cg" then
+            KPrint.bprintf "infer-cg: subst_tn --> %a\n" ptyp t;
           (* Now type-check the application itself, after substitution *)
-          let t = infer_app t cs in
+          let t =
+            match t with
+            | TPoly (ts, t) ->
+                assert (cs' = []);
+                TPoly (ts, infer_app t (cs @ cs'))
+            | t ->
+                MonomorphizationState.resolve (infer_app t (cs @ cs'))
+          in
           if Options.debug "checker-cg" then
             KPrint.bprintf "infer-cg: infer_app --> %a\n" ptyp t;
           t
@@ -1075,7 +1096,8 @@ and assert_cons_of env t id: fields_t =
 and subtype env t1 t2 =
   if Options.debug "checker" then
     KPrint.bprintf "%a <=? %a\n" ptyp t1 ptyp t2;
-  match expand_abbrev env t1, expand_abbrev env t2 with
+  let normalize t = MonomorphizationState.resolve (expand_abbrev env t) in
+  match normalize t1, normalize t2 with
   | TInt w1, TInt w2 when w1 = w2 ->
       true
   | TInt K.SizeT, TInt K.UInt32 when Options.wasm () ->
@@ -1149,23 +1171,16 @@ and subtype env t1 t2 =
   | TAnonymous (Flat [ Some f, (t, _) ]), TAnonymous (Union ts) ->
       List.exists (fun (f', t') -> f = f' && subtype env t t') ts
 
-  | TTuple ts, _ when Hashtbl.mem MonomorphizationState.state (tuple_lid, ts, []) ->
-      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (tuple_lid, ts, [])))) t2
+  | TPoly (ts1, t1), TPoly (ts2, t2) ->
+      ts1 = ts2 && subtype env t1 t2
 
-  | _, TTuple ts when Hashtbl.mem MonomorphizationState.state (tuple_lid, ts, []) ->
-      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (tuple_lid, ts, []))))
+  (* TEMPORARY until we have unifor treatment of type schemes in Eurydice *)
+  | t1, TPoly (_, t2) ->
+      subtype env t1 t2
 
-  | TApp (lid, ts), _ when Hashtbl.mem MonomorphizationState.state (lid, ts, []) ->
-      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts, [])))) t2
-
-  | _, TApp (lid, ts) when Hashtbl.mem MonomorphizationState.state (lid, ts, []) ->
-      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (lid, ts, []))))
-
-  | TCgApp _, _ when Hashtbl.mem MonomorphizationState.state (flatten_tapp t1) ->
-      subtype env (TQualified (snd (Hashtbl.find MonomorphizationState.state (flatten_tapp t1)))) t2
-
-  | _, TCgApp _ when Hashtbl.mem MonomorphizationState.state (flatten_tapp t2) ->
-      subtype env t1 (TQualified (snd (Hashtbl.find MonomorphizationState.state (flatten_tapp t2))))
+  (* TEMPORARY until we have unifor treatment of type schemes in Eurydice *)
+  | TPoly (_, t2), t1 ->
+      subtype env t2 t1
 
   | _ ->
       false
@@ -1180,7 +1195,7 @@ and check_eqtype env t1 t2 =
 
 and check_subtype env t1 t2 =
   if not (subtype env t1 t2) then
-    checker_error env "subtype mismatch, %a (a.k.a. %a) vs %a (a.k.a. %a)"
+    checker_error env "subtype mismatch:\n  %a (a.k.a. %a) vs:\n  %a (a.k.a. %a)"
       ptyp t1 ptyp (expand_abbrev env t1) ptyp t2 ptyp (expand_abbrev env t2)
 
 and expand_abbrev env t =

@@ -1,1 +1,31 @@
-[ "2=W{ä»ž*3e\u0006\u000b\u000f÷AU", [] ]
+[
+  "2=W{ä»ž*3e\u0006\u000b\u000f÷AU",
+  [
+    [
+      "NoExtract.f",
+      1,
+      2,
+      1,
+      [
+        "@query", "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "2d6ba5212a82a9bf7628a895e36f2df9"
+    ],
+    [
+      "NoExtract.b",
+      1,
+      2,
+      1,
+      [
+        "@query", "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "8a3f2dd156d7b78f416c1b5ddfdad97e"
+    ]
+  ]
+]

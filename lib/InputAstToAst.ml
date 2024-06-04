@@ -160,7 +160,7 @@ and mk_expr = function
       let c = match op with K.Eq -> K.PEq | K.Neq -> K.PNeq | _ -> assert false in
       mk (EPolyComp (c, mk_typ t))
   | I.ETApp (e, es) ->
-      mk (ETApp (mk_expr e, [], List.map mk_typ es))
+      mk (ETApp (mk_expr e, [], [], List.map mk_typ es))
   | I.ELet (b, e1, e2) ->
       mk (ELet (mk_binder b, mk_expr e1, mk_expr e2))
   | I.EIfThenElse (e1, e2, e3) ->

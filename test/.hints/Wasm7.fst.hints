@@ -1,1 +1,91 @@
-[ "$£¶¾Q{›âë¦\u0005ÔÖÍ×ù", [] ]
+[
+  "$£¶¾Q{›âë¦\u0005ÔÖÍ×ù",
+  [
+    [
+      "Wasm7.t2",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.UInt32.t"
+      ],
+      0,
+      "f9702b420896d5f3227501f37c52c82c"
+    ],
+    [
+      "Wasm7.__proj__A__item___0",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "refinement_interpretation_Tm_refine_ec10ccf333cf39e2d779a27ff25f9f69"
+      ],
+      0,
+      "5ca7450480b8da65fc738c2eb4cc04e4"
+    ],
+    [
+      "Wasm7.__proj__A__item___1",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "refinement_interpretation_Tm_refine_ec10ccf333cf39e2d779a27ff25f9f69"
+      ],
+      0,
+      "496d8cbcd5892c4b8e93bf9047a38e52"
+    ],
+    [
+      "Wasm7.__proj__B__item___0",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "refinement_interpretation_Tm_refine_1ce3b1dcced40bb1a9aec7baaac607ca"
+      ],
+      0,
+      "ea4702e0e94a9264aa7e8f203d8de4e3"
+    ],
+    [
+      "Wasm7.__proj__B__item___1",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "refinement_interpretation_Tm_refine_1ce3b1dcced40bb1a9aec7baaac607ca"
+      ],
+      0,
+      "a4b10548e315603249098b68a1a73e4c"
+    ],
+    [
+      "Wasm7.__proj__B__item___2",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "refinement_interpretation_Tm_refine_1ce3b1dcced40bb1a9aec7baaac607ca"
+      ],
+      0,
+      "0bc3ab0af45932f520f9eaeb7a2ecf57"
+    ],
+    [
+      "Wasm7.v2",
+      1,
+      2,
+      1,
+      [
+        "@query", "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "37017ebdc102e1a3aca0779b50858815"
+    ]
+  ]
+]

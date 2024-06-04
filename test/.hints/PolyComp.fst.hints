@@ -1,1 +1,92 @@
-[ "àZØ¥©²ö›¾‡’‡¹n\u0017?", [] ]
+[
+  "àZØ¥©²ö›¾‡’‡¹n\u0017?",
+  [
+    [
+      "PolyComp.t",
+      1,
+      2,
+      1,
+      [ "@query" ],
+      0,
+      "04c6c3787a97b8b69e07bd192f33550a"
+    ],
+    [
+      "PolyComp.__proj__B__item___0",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "refinement_interpretation_Tm_refine_ace5180d8b9c0680cccc5c56d8744ca7"
+      ],
+      0,
+      "b29bf6ee2b16767aa9c00186ad3a8326"
+    ],
+    [
+      "PolyComp.one_t",
+      1,
+      2,
+      1,
+      [
+        "@query", "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "60a6393d3080d07e0ce04c87b8d4fa4c"
+    ],
+    [
+      "PolyComp.another_t",
+      1,
+      2,
+      1,
+      [
+        "@query", "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "10338fe95da1d62e26cea3b9ae32ea53"
+    ],
+    [
+      "PolyComp.yet_another_t",
+      1,
+      2,
+      1,
+      [
+        "@query", "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "4ab155f08f901fad84487dd0e9d2e33d"
+    ],
+    [
+      "PolyComp.main",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query",
+        "assumption_PolyComp.t__uu___haseq",
+        "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "equation_FStar.Monotonic.HyperStack.is_tip",
+        "equation_FStar.Monotonic.HyperStack.is_wf_with_ctr_and_tip",
+        "equation_FStar.Monotonic.HyperStack.mem",
+        "equation_FStar.Pervasives.pattern", "equation_Prims.eqtype",
+        "function_token_typing_FStar.Pervasives.pattern",
+        "function_token_typing_Prims.unit",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_elim",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro",
+        "lemma_FStar.Monotonic.HyperStack.lemma_map_invariant",
+        "lemma_FStar.Monotonic.HyperStack.lemma_tip_top_smt",
+        "refinement_interpretation_Tm_refine_05e15190c946858f68c69156f585f95a",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.Int32.t", "typing_FStar.Monotonic.HyperStack.get_tip"
+      ],
+      0,
+      "01171725aa3fe6ac2b0e38d549765bec"
+    ]
+  ]
+]

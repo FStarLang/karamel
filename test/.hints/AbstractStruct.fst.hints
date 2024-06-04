@@ -1,1 +1,31 @@
-[ ")’G\u00197’yè¸™æŸ%×¢=", [] ]
+[
+  ")’G\u00197’yè¸™æŸ%×¢=",
+  [
+    [
+      "AbstractStruct.t",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.Int32.t"
+      ],
+      0,
+      "c8c6d209ae05559e7c3c32f3596255c6"
+    ],
+    [
+      "AbstractStruct.main",
+      1,
+      2,
+      1,
+      [
+        "@query", "equation_FStar.HyperStack.ST.equal_stack_domains",
+        "equation_FStar.Monotonic.Heap.equal_dom",
+        "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
+      ],
+      0,
+      "55c363ed76836b9bc7a5e91d4ba9b897"
+    ]
+  ]
+]

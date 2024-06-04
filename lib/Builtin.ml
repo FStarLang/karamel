@@ -351,11 +351,10 @@ let addendum = [
 ]
 
 let make_abstract_function_or_global = function
-  | DFunction (cc, flags, n_cg, n, t, name, bs, _) ->
+  | DFunction (cc, flags, n_cgs, n, t, name, bs, _) ->
       let t = fold_arrow (List.map (fun b -> b.typ) bs) t in
-      assert (n_cg = 0);
-      if n = 0 then
-        Some (DExternal (cc, flags, 0, 0, name, t, List.map (fun x -> x.node.name) bs))
+      if n = 0 || !Options.allow_tapps then
+        Some (DExternal (cc, flags, n_cgs, n, name, t, List.map (fun x -> x.node.name) bs))
       else
         None
   | DGlobal (flags, name, n, t, body) when not (List.mem Common.Macro flags) ->

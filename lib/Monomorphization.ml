@@ -415,7 +415,6 @@ let datatypes files =
  * Hashtbl.find is in the visitor but the Gen functionality is clearly
  * outside... sigh. *)
 module Gen = struct
-  let generated_lids = Hashtbl.create 41
   let pending_defs = ref []
 
   let gen_lid lid ts cgs =
@@ -486,37 +485,50 @@ let functions files =
             [ d ]
       ) decls
 
-    method! visit_ETApp ((diff, _) as env) e cgs ts =
+    method! visit_ETApp ((diff, _) as env) e cgs cgs' ts =
+      (* Partial cg application generates this *)
+      let rec flatten_etapp e =
+        match e.node with
+        | ETApp (e, cgs, cgs_, ts) ->
+            assert (cgs_ = []);
+            let e, cgs', ts' = flatten_etapp e in
+            e, cgs' @ cgs, ts' @ ts
+        | _ ->
+            e, [], []
+      in
+      let e, cgs_, ts_ = flatten_etapp e in
+      let cgs, ts = cgs_ @ cgs, ts_ @ ts in
+
       let fail_if () =
-        if cgs <> [] then
+        if cgs @ cgs' <> [] then
           Warn.fatal_error "TODO: e=%a\ncgs=%a\nts=%a\n%a\n"
             pexpr e
             pexprs cgs
             ptyps ts
-            pexpr (with_type TUnit (ETApp (e, cgs, ts)));
+            pexpr (with_type TUnit (ETApp (e, cgs, cgs', ts)));
       in
       match e.node with
       | EQualified lid ->
           begin try
             (* Already monomorphized? *)
-            EQualified (Hashtbl.find Gen.generated_lids (lid, cgs, ts))
+            EQualified (Hashtbl.find generated_lids (lid, cgs @ cgs', ts))
           with Not_found ->
             match Hashtbl.find map lid with
             | exception Not_found ->
                 (* External function. Bail. Leave cgs -- treated as normal
                    arguments when going to C. C'est la vie. *)
                 if !Options.allow_tapps || AstToCStar.whitelisted_tapp e then
-                  super#visit_ETApp env e cgs ts
+                  super#visit_ETApp env e cgs cgs' ts
                 else
                   (self#visit_expr env e).node
             | `Function (cc, flags, n_cgs, n, ret, name, binders, body) ->
                 (* Need to generate a new instance. *)
                 if n <> List.length ts then begin
                   KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
-                  (self#visit_expr env e).node
+                  ETApp (self#visit_expr env e, cgs, cgs', ts)
                 end else if n_cgs <> List.length cgs then begin
                   KPrint.bprintf "%a is not fully cg-applied!\n" plid lid;
-                  (self#visit_expr env e).node
+                  ETApp (self#visit_expr env e, cgs, cgs', ts)
                 end else
                   (* The thunk allows registering the name before visiting the
                    * body, for polymorphic recursive functions. *)
@@ -524,22 +536,28 @@ let functions files =
                   let def () =
                     let ret = DeBruijn.(subst_ctn diff cgs (subst_tn ts ret)) in
                     assert (List.length cgs = n_cgs);
-                    let _, binders = KList.split (List.length cgs) binders in
+                    (* binders are the remaining binders after the cg-binders have been eliminated *)
+                    let diff = List.length binders - List.length cgs in
+                    let _, binders = KList.split (List.length cgs + List.length cgs') binders in
                     let binders = List.map (fun { node; typ } ->
                       { node; typ = DeBruijn.(subst_ctn diff cgs (subst_tn ts typ)) }
                     ) binders in
-                    (* KPrint.bprintf "about to substitute: e=%a\ncgs=%a\nts=%a\n%a\n" *)
+                    (* KPrint.bprintf "about to substitute:\n  e=%a\n  cgs=%a\n cgs'=%a\n  ts=%a\n  head type=%a\n%a\n" *)
                     (*   pexpr e *)
                     (*   pexprs cgs *)
+                    (*   pexprs cgs' *)
                     (*   ptyps ts *)
-                    (*   pexpr (with_type TUnit (ETApp (e, cgs, ts))); *)
-                    (* KPrint.bprintf "after to substitute: body:%a\n\n" pexpr body; *)
-                    let body = DeBruijn.(subst_cen (List.length binders) cgs (subst_ten ts body)) in
-                    (* KPrint.bprintf "after substitution: body:%a\n\n" pexpr body; *)
+                    (*   ptyp e.typ *)
+                    (*   pexpr (with_type TUnit (ETApp (e, cgs, cgs', ts))); *)
+                    (* KPrint.bprintf "body: %a\n\n" pexpr body; *)
+                    (* KPrint.bprintf "subst_ten ts body: %a\n\n" pexpr DeBruijn.(subst_ten ts body); *)
+                    (* KPrint.bprintf "subst_cen diff cgs (subst_ten ts body): %a\n\n" pexpr DeBruijn.(subst_cen diff cgs (subst_ten ts body)); *)
+                    let body = DeBruijn.(subst_n' (List.length binders) (subst_cen diff cgs (subst_ten ts body)) cgs') in
+                    (* KPrint.bprintf "after substitution: body :%a\n\n" pexpr body; *)
                     let body = self#visit_expr env body in
                     DFunction (cc, flags, 0, 0, ret, name, binders, body)
                   in
-                  EQualified (Gen.register_def current_file lid cgs ts name def)
+                  EQualified (Gen.register_def current_file lid (cgs @ cgs') ts name def)
 
             | `Global (flags, name, n, t, body) ->
                 fail_if ();
@@ -566,7 +584,7 @@ let functions files =
 
       | _ ->
           KPrint.bprintf "%a is not an lid in the type application\n" pexpr e;
-          (self#visit_expr env e).node
+          ETApp (self#visit_expr env e, cgs, cgs', ts)
 
   end in
 
@@ -698,7 +716,7 @@ let equalities files =
       | TQualified lid when Hashtbl.mem types_map lid ->
           begin try
             (* Already monomorphized? *)
-            let existing_lid = Hashtbl.find Gen.generated_lids (eq_lid, [], [ t ]) in
+            let existing_lid = Hashtbl.find generated_lids (eq_lid, [], [ t ]) in
             let is_cycle = List.exists (fun d -> lid_of_decl d = existing_lid) !Gen.pending_defs in
             if is_cycle then
               has_cycle <- true;
@@ -809,7 +827,7 @@ let equalities files =
       | _ ->
           try
             (* Already monomorphized? *)
-            EQualified (Hashtbl.find Gen.generated_lids (eq_lid, [], [ t ]))
+            EQualified (Hashtbl.find generated_lids (eq_lid, [], [ t ]))
           with Not_found ->
             (* External type without a definition. Comparison of function types? *)
             gen_poly ()
@@ -826,7 +844,7 @@ let equalities files =
       in
       try
         (* Already monomorphized? *)
-        let existing_lid = Hashtbl.find Gen.generated_lids (eq_lid, [], [ t ]) in
+        let existing_lid = Hashtbl.find generated_lids (eq_lid, [], [ t ]) in
         EQualified existing_lid
       with Not_found ->
         let eq_typ = TArrow (t, TArrow (t, TBool)) in
