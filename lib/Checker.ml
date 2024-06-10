@@ -1096,7 +1096,13 @@ and assert_cons_of env t id: fields_t =
 and subtype env t1 t2 =
   if Options.debug "checker" then
     KPrint.bprintf "%a <=? %a\n" ptyp t1 ptyp t2;
-  let normalize t = MonomorphizationState.resolve (expand_abbrev env t) in
+  let normalize t =
+    match MonomorphizationState.resolve (expand_abbrev env t) with
+    | TBuf (TApp ((["Eurydice"], "derefed_slice"), [ t ]), _) ->
+        TApp ((["Eurydice"], "slice"), [t])
+    | t ->
+        t
+  in
   match normalize t1, normalize t2 with
   | TInt w1, TInt w2 when w1 = w2 ->
       true

@@ -271,11 +271,14 @@ and p_expr' curr = function
       else
         string (string_of_bool b)
   | CompoundLiteral (t, init) ->
-      (* NOTE: always parenthesize compound literal no matter what, because GCC
+      (* We always parenthesize compound literals no matter what, because GCC
        * parses an application of a function to a compound literal as an n-ary
        * application. *)
       parens_with_nesting (
-        lparen ^^ p_type_name t ^^ rparen ^^
+        (if !Options.cxx_compat then
+          string "CLITERAL" ^^ parens (p_type_name t)
+        else
+          parens (p_type_name t)) ^^
         braces_with_nesting (separate_map (comma ^^ break1) p_init init)
       )
   | MemberAccess (expr, member) ->
