@@ -323,6 +323,8 @@ Supported options:|}
         aggressive always merges";
     "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
     "-fcast-allocations", Arg.Set Options.cast_allocations, "  cast allocations (for C89, or for C++)";
+    "-fc++-compat", Arg.Set Options.cxx_compat, "  various tweaks to make the \
+      generate code work in C++ mode: macro for C++20/C11 compound literals";
     "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see \
       above) + also disable variadic-length KRML_HOST_EPRINTF + cast allocations";
     "-flinux-ints", Arg.Set Options.linux_ints, " use Linux kernel int types";
