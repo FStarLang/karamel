@@ -125,12 +125,9 @@ let use_mark_to_inline_temporaries = object (self)
   method! visit_ELet _ b e1 e2 =
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
-    let forces_decay = match b.typ, e1.typ with TBuf _, TArray _ -> true | _ -> false in
-    (* if forces_decay then *)
-    (*   KPrint.bprintf "NOT substituting away %s because it forces decay\n" b.node.name; *)
     let _, v = !(b.node.mark) in
     if (Helpers.is_uu b.node.name || b.node.name = "scrut" || Structs.should_rewrite b.typ = NoCopies) &&
-      v = AtMost 1 && not forces_decay && (
+      v = AtMost 1 && (
         is_readonly_c_expression e1 &&
         safe_readonly_use e2 ||
         safe_pure_use e2
