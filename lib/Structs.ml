@@ -419,6 +419,7 @@ let pass_by_ref files =
        single place in memory. *)
     (* | TQualified (["Test"], "t") *)
     | TApp ((["Steel"; "SpinLock"], "lock"), _)
+    | TQualified (["Steel"; "SpinLock"], "s_lock") 
     | TQualified (["Steel"; "SpinLock"], "lock__()") ->
         NoCopies
     | t ->
