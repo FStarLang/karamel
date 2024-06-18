@@ -149,8 +149,12 @@ and print_flag = function
       string "auto_generated"
   | NoInline ->
       string "no_inline"
+  | MustInline ->
+      string "must_inline"
   | MaybeUnused ->
       string "__attribute__((unused))"
+  | Target s ->
+      string ("__attribute__((target = "^s^"))")
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   let o, u = !mark in
