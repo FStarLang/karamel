@@ -1269,6 +1269,7 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
             method zero = false
             method plus = (||)
             method! visit_TBuf _ _ _ = true
+            method! visit_TQualified _ lid = Idents.LidSet.mem lid env.pointer_holding_structs
           end)#visit_typ () t in
           let lifetime, generic_params =
             if has_inner_pointer then
