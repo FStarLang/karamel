@@ -113,6 +113,22 @@ let safe_pure_use e =
   | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
 
 
+exception NoSubst
+
+(* Because of arrays (see comments on the PR), a substitution of a variable that
+   has an array type is only legit in contexts that do not lead to a decay
+   (i.e., contexts that have storage space for it). *)
+class fallible_subst (e2: expr) = object
+  inherit DeBruijn.subst e2 as super
+
+  method! visit_EBound (i, t as env) j =
+    if i = j && not (t = e2.typ) then
+      let _ = KPrint.bprintf "Type mismatch: ctx=%a vs e2.typ=%a\n" ptyp t ptyp e2.typ in
+      raise NoSubst
+    else
+      super#visit_EBound env j
+end
+
 (* This phase tries to substitute away variables that are temporary (named
    uu____ in F*, or "scrut" if inserted by the pattern matches compilation
    phase), or that are of a type that cannot be copied (to hopefully skirt
@@ -123,20 +139,28 @@ let use_mark_to_inline_temporaries = object (self)
   inherit [_] map
 
   method! visit_ELet _ b e1 e2 =
+    (* KPrint.bprintf "%a\n" pexpr (with_unit (ELet (b, e1, e2))); *)
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
-    let forces_decay = match b.typ, e1.typ with TBuf _, TArray _ -> true | _ -> false in
-    (* if forces_decay then *)
-    (*   KPrint.bprintf "NOT substituting away %s because it forces decay\n" b.node.name; *)
     let _, v = !(b.node.mark) in
+    (* We encode Rust's copy semantics with a let-binding that has arrays on
+       both sides. *)
+    let is_copy_semantics = Helpers.is_array b.typ && Helpers.is_array e1.typ in
     if (Helpers.is_uu b.node.name || b.node.name = "scrut" || Structs.should_rewrite b.typ = NoCopies) &&
-      v = AtMost 1 && not forces_decay && (
+      v = AtMost 1 && (
         is_readonly_c_expression e1 &&
         safe_readonly_use e2 ||
         safe_pure_use e2
       ) (* || is_readonly_and_variable_free_c_expression e1 && b.node.mut *)
     then
-      (DeBruijn.subst e1 0 e2).node
+      try
+        if is_copy_semantics then
+          ((new fallible_subst e1)#visit_expr_w 0 e2).node
+        else
+          (DeBruijn.subst e1 0 e2).node
+      with NoSubst ->
+        KPrint.bprintf "NOT substituting away %s because it may decay\n" b.node.name;
+        ELet (b, e1, e2)
     else
       ELet (b, e1, e2)
 end
