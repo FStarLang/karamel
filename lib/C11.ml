@@ -85,9 +85,12 @@ and param =
 and inline_stance =
   | Inline
   | NoInline
+  | MustInline
+  
 
 and extra = {
-  maybe_unused: bool
+    maybe_unused: bool;
+    target: string option
 }
   (* some extra information that doesn't really pertain to the C standard *)
 
