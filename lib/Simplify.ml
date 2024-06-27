@@ -143,11 +143,27 @@ let use_mark_to_inline_temporaries = object (self)
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
     let _, v = !(b.node.mark) in
-    (* We encode Rust's copy semantics with a let-binding that has arrays on
-       both sides. *)
+    (* There are two concerns here. The first one is that something that is
+       genuinely allocating storage (b.typ = TArray _) is going to be
+       substituted into a context that does not have storage for it.
+
+       uint8_t x[2] = f(); // array-returning functions have not yet been desugared
+       uint8_t *y = x;
+       ... *)
     let is_copy_semantics = Helpers.is_array b.typ && Helpers.is_array e1.typ in
+    (* The second one is that this let-binding forces an array decay, and
+       removing it will give rise to a variably-modified type instead of the
+       intended pointer type. Consider for instance:
+
+       uint8_t x[1] = { 0 };
+       uint8_t *uu_ = x;
+       ... &uu_ ...
+       // &uu_ has type uint8_t **; substituting it away produces an
+       // (uint8_t * )[1] which is NOT THE SAME THING
+       *)
+    let forces_decay = match b.typ, e1.typ with TBuf _, TArray _ -> true | _ -> false in
     if (Helpers.is_uu b.node.name || b.node.name = "scrut" || Structs.should_rewrite b.typ = NoCopies) &&
-      v = AtMost 1 && (
+      v = AtMost 1 && not forces_decay && (
         is_readonly_c_expression e1 &&
         safe_readonly_use e2 ||
         safe_pure_use e2
