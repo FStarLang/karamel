@@ -589,17 +589,11 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
 (* However, generally, we will have a type provided by the context that may
    necessitate the insertion of conversions *)
 and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env * MiniRust.expr =
-  let rec erase_lifetime_info (t: MiniRust.typ) = match t with
-    | Ref (_, bk, t) -> MiniRust.Ref (None, bk, erase_lifetime_info t)
-    | Vec t -> Vec (erase_lifetime_info t)
-    | Array (t, n) -> Array (erase_lifetime_info t, n)
-    | Slice t -> Slice (erase_lifetime_info t)
-    | Function (n, tl, t) -> Function (n, List.map erase_lifetime_info tl, erase_lifetime_info t)
-    | Name (n, _) -> Name (n, [])
-    | Tuple tl -> Tuple (List.map erase_lifetime_info tl)
-    | App (t, tl) -> App (erase_lifetime_info t, List.map erase_lifetime_info tl)
-    (* Unit, Bound, Constant cases *)
-    | c -> c
+  let erase_lifetime_info = (object(self)
+    inherit [_] MiniRust.map
+    method! visit_Ref env _ bk t = Ref (None, bk, self#visit_typ env t)
+    method! visit_tname _ n _ = Name (n, [])
+  end)#visit_typ ()
   in
 
   (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
