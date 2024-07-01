@@ -589,6 +589,13 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
 (* However, generally, we will have a type provided by the context that may
    necessitate the insertion of conversions *)
 and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env * MiniRust.expr =
+  let erase_lifetime_info = (object(self)
+    inherit [_] MiniRust.map
+    method! visit_Ref env _ bk t = Ref (None, bk, self#visit_typ env t)
+    method! visit_tname _ n _ = Name (n, [])
+  end)#visit_typ ()
+  in
+
   (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
   let possibly_convert (x: MiniRust.expr) t: MiniRust.expr =
     (* KPrint.bprintf "possibly_convert: %a: %a <: %a\n" *)
@@ -641,7 +648,11 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         Borrow (Mut, Array (List [ e ]))
 
     | _ ->
-        if t = t_ret then
+        (* If we reach this case, we perform one last try by erasing the lifetime
+           information in both terms. This is useful to handle, e.g., implicit lifetime
+           annotations or annotations up to alpha-conversion.
+           Note, this is sound as lifetime mismatches will be caught by the Rust compiler *)
+        if erase_lifetime_info t = erase_lifetime_info t_ret then
           x
         else
           Warn.failwith "type mismatch;\n  e=%a\n  t=%a\n  t_ret=%a\n  x=%a"
