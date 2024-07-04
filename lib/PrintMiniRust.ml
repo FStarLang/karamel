@@ -473,7 +473,7 @@ let rec print_decl env (d: decl) =
       group @@
       group (group (inline ^^ print_pub public ^^ string "fn" ^/^ print_name env target_name) ^^
         parens_with_nesting (separate_map (comma ^^ break1) (print_binding env) parameters) ^^
-        space ^^ arrow ^^ (nest 4 (break1 ^^ print_typ env return_type))) ^/^
+        (match return_type with | Unit -> empty | _ -> space ^^ arrow ^^ (nest 4 (break1 ^^ print_typ env return_type)))) ^/^
       print_block_expression env body
   | Constant { typ; body; public; _ } ->
       group @@
