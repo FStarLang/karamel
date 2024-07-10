@@ -410,7 +410,7 @@ let translate_unknown_lid (m, n) =
   let m = compress_prefix m in
   List.map String.lowercase_ascii m @ [ n ]
 
-let borrow_kind_of_bool b: MiniRust.borrow_kind =
+let borrow_kind_of_bool _b: MiniRust.borrow_kind =
   Shared
 
 type config = {
@@ -587,7 +587,7 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
    necessitate the insertion of conversions *)
 and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env * MiniRust.expr =
   let erase_lifetime_info = (object(self)
-    inherit [_] MiniRust.map
+    inherit [_] MiniRust.DeBruijn.map
     method! visit_Ref env _ bk t = Ref (None, bk, self#visit_typ env t)
     method! visit_tname _ n _ = Name (n, [])
   end)#visit_typ ()
@@ -616,8 +616,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         Borrow (k, Deref x)
     | _, Ref (_, _, Slice _), App (Name (["Box"], _), [Slice _]) ->
         MethodCall (Borrow (Shared, Deref x), ["into"], [])
-    | _, Ref (_, Shared, Slice _), App (Name (["Box"], _), [Slice _]) ->
-        MethodCall (x, ["into"], [])
+    (* | _, Ref (_, Shared, Slice _), App (Name (["Box"], _), [Slice _]) -> *)
+    (*     MethodCall (x, ["into"], []) *)
     | _, Vec _, App (Name (["Box"], _), [Slice _]) ->
         MethodCall (MethodCall (x, ["try_into"], []), ["unwrap"], [])
 
@@ -899,10 +899,6 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       (* This is a fallback for the analysis above. Happens if, for instance, the pointer arithmetic
          appears in subexpression position (like, function call), in which case there's a chance
          this might still work! *)
-      let is_const_tbuf = match e1.typ with
-        | TBuf (_, b) -> b
-        | _ -> false
-      in
       let env, e1 = translate_expr env e1 in
       let env, e2 = translate_expr_with_type env e2 (Constant SizeT) in
       env, Borrow (Shared, Index (e1, Range (Some e2, None, false)))

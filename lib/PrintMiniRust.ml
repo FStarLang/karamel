@@ -442,6 +442,8 @@ and print_expr env (context: int) (e: expr): document =
           group (print_pat env p ^/^ string "=>") ^^ group (nest 2 (break1 ^^ print_expr env max_int e))
       ) patexprs)
 
+  | Open { name; _ } -> string name
+
 and print_pat env (p: pat) =
   match p with
   | Literal c -> print_constant c
