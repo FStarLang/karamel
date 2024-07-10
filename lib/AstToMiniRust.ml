@@ -411,10 +411,7 @@ let translate_unknown_lid (m, n) =
   List.map String.lowercase_ascii m @ [ n ]
 
 let borrow_kind_of_bool b: MiniRust.borrow_kind =
-  if b (* const *) then
-    Shared
-  else
-    Mut
+  Shared
 
 type config = {
   box: bool;
@@ -615,9 +612,9 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
            do retain them in our Function type -- so we need to relax the comparison here *)
         x
     (* More conversions due to box-ing types. *)
-    | _, App (Name (["Box"], _), [Slice _]), Ref (_, Mut, Slice _) ->
-        Borrow (Mut, Deref x)
-    | _, Ref (_, Mut, Slice _), App (Name (["Box"], _), [Slice _]) ->
+    | _, App (Name (["Box"], _), [Slice _]), Ref (_, k, Slice _) ->
+        Borrow (k, Deref x)
+    | _, Ref (_, _, Slice _), App (Name (["Box"], _), [Slice _]) ->
         MethodCall (Borrow (Shared, Deref x), ["into"], [])
     | _, Ref (_, Shared, Slice _), App (Name (["Box"], _), [Slice _]) ->
         MethodCall (x, ["into"], [])
@@ -625,8 +622,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         MethodCall (MethodCall (x, ["try_into"], []), ["unwrap"], [])
 
     (* More conversions due to vec-ing types *)
-    | _, Ref (_, Mut, Slice _), Vec _
-    | _, Ref (_, Shared, Slice _), Vec _ ->
+    | _, Ref (_, _, Slice _), Vec _ ->
         MethodCall (x, ["to_vec"], [])
     | _, Array _, Vec _ ->
         Call (Name ["Vec"; "from"], [], [x])
@@ -644,8 +640,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
     | _, Ref (_, _, t), t' when t = t' ->
       Deref x
 
-    | Borrow (Mut, e) , Ref (_, _, t), Ref (_, _, Slice t') when t = t' ->
-        Borrow (Mut, Array (List [ e ]))
+    | Borrow (k, e) , Ref (_, _, t), Ref (_, _, Slice t') when t = t' ->
+        Borrow (k, Array (List [ e ]))
 
     | _ ->
         (* If we reach this case, we perform one last try by erasing the lifetime
@@ -832,7 +828,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
 
       let env, e1, t = translate_array env false init in
       (* KPrint.bprintf "Let %s: %a\n" b.node.name PrintMiniRust.ptyp t; *)
-      let binding: MiniRust.binding = { name = b.node.name; typ = t; mut = true } in
+      let binding: MiniRust.binding = { name = b.node.name; typ = t; mut = false } in
       let env = push env binding in
       env0, Let (binding, e1, snd (translate_expr_with_type env e2 t_ret))
 
@@ -847,6 +843,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         | TQualified lid when Idents.LidSet.mem lid env.heap_structs -> true
         | _ -> false
       in
+      (* TODO how does this play out with the new "translate as non-mut by
+         default" strategy? *)
       let mut = b.node.mut || is_owned_struct in
       (* Here, the idea is to detect forbidden move-outs that are certain to result in a compilation
          error. Typically, selecting a field, dereferencing an array, etc. when the underlying type
@@ -858,7 +856,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
          cannot be mutated in place in Low*, so it's ok to borrow instead of copy. *)
       let e1, t = match e1 with
         | (Field _ | Index _) when is_owned_struct ->
-            MiniRust.(Borrow (Mut, e1), Ref (None, Mut, t))
+            MiniRust.(Borrow (Shared, e1), Ref (None, Shared, t))
         | _ ->
             e1, t
       in
@@ -907,7 +905,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       in
       let env, e1 = translate_expr env e1 in
       let env, e2 = translate_expr_with_type env e2 (Constant SizeT) in
-      env, Borrow ((if is_const_tbuf then Shared else Mut), Index (e1, Range (Some e2, None, false)))
+      env, Borrow (Shared, Index (e1, Range (Some e2, None, false)))
   | EBufDiff _ ->
       failwith "unexpected: EBufDiff"
   (* Silly pattern in Low*: for historical reasons, the blit operations takes a
@@ -944,7 +942,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       (* Rather than error out, we do nothing, as some functions may allocate then free. *)
       env, Unit
   | EBufNull ->
-      env, possibly_convert (Borrow (Mut, Array (List []))) (translate_type env e.typ)
+      env, possibly_convert (Borrow (Shared, Array (List []))) (translate_type env e.typ)
   | EPushFrame ->
       failwith "unexpected: EPushFrame"
   | EPopFrame ->
