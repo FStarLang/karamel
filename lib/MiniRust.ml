@@ -5,6 +5,7 @@ type borrow_kind_ = Mut | Shared
 
 type borrow_kind = borrow_kind_ [@ opaque ]
 and constant = Constant.t [@ opaque ]
+and width = Constant.width [@ opaque ]
 and op = Constant.op [@ opaque ]
 and name = string list [@ opaque ]
 
@@ -17,36 +18,34 @@ and name = string list [@ opaque ]
      tree prior to pretty-printing. *)
 and db_index = int [@ opaque ]
 [@@deriving show,
-    visitors { variety = "map"; name = "map_misc"; polymorphic = true }]
+    visitors { variety = "map"; name = "map_misc"; polymorphic = true },
+    visitors { variety = "reduce"; name = "reduce_misc"; polymorphic = true }]
 
-type lifetime =
-  | Label of string
-[@@deriving show]
 
-type typ_ =
-  | Constant of Constant.width (* excludes cint, ptrdifft *)
-  | Ref of lifetime option * borrow_kind * typ_
-  | Vec of typ_
-  | Array of typ_ * int
-  | Slice of typ_ (* always appears underneath Ref *)
-  | Unit
-  | Function of int * typ_ list * typ_
-  | Name of name * generic_param list
-  | Tuple of typ_ list
-  | App of typ_ * typ_ list
+type typ =
+  | Constant of width (* excludes cint, ptrdifft *) [@name "tconstant"]
+  | Ref of lifetime option * borrow_kind * typ
+  | Vec of typ
+  | Array of typ * int [@name "tarray"]
+  | Slice of typ (* always appears underneath Ref *)
+  | Unit [@name "tunit"]
+  | Function of int * typ list * typ
+  | Name of name * generic_param list [@name "tname"]
+  | Tuple of typ list
+  | App of typ * typ list
   | Bound of db_index
-[@@deriving show]
+[@@deriving show,
+    visitors { variety = "map"; name = "map_typ"; polymorphic = true; ancestors = ["map_misc"] },
+    visitors { variety = "reduce"; name = "reduce_typ"; polymorphic = true; ancestors = ["reduce_misc"] }]
 
 and generic_param =
   | Lifetime of lifetime
 
+and lifetime =
+  | Label of string
+
 let box t =
   App (Name (["Box"], []), [t])
-
-type typ = typ_ [@ opaque ]
-[@@deriving show,
-    visitors { variety = "map"; name = "map_typ"; polymorphic = true },
-    visitors { variety = "reduce"; name = "reduce_typ"; polymorphic = true }]
 
 let bool = Constant Bool
 let u32 = Constant UInt32
