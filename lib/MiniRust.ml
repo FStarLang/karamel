@@ -1,5 +1,10 @@
 (* A minimalistic representation of Rust *)
 
+module Name = struct
+  type t = string list
+  let compare = compare
+end
+
 type borrow_kind_ = Mut | Shared
 [@@deriving show]
 
@@ -7,7 +12,7 @@ type borrow_kind = borrow_kind_ [@ opaque ]
 and constant = Constant.t [@ opaque ]
 and width = Constant.width [@ opaque ]
 and op = Constant.op [@ opaque ]
-and name = string list [@ opaque ]
+and name = Name.t [@ opaque ]
 
 (* Some design choices.
    - We don't intend to perform any deep semantic transformations on this Rust
@@ -79,7 +84,7 @@ and expr =
   | Unit
   | Panic of string
   | IfThenElse of expr * expr * expr option
-  | Assign of expr * expr
+  | Assign of expr * expr * typ
   | As of expr * typ
   | For of binding * expr * expr
   | While of expr * expr
