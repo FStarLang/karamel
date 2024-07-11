@@ -1,1 +1,72 @@
-[ "\u00005ö\u001dÉùRî¯\u0004=íX\u0000\n$", [] ]
+[
+  "\u00005ö\u001dÉùRî¯\u0004=íX\u0000\n$",
+  [
+    [
+      "C.String.zero_free",
+      1,
+      2,
+      1,
+      [
+        "@query", "assumption_C.HasEq_char",
+        "primitive_Prims.op_Subtraction", "projection_inverse_BoxInt_proj_0"
+      ],
+      0,
+      "765a90588eacf38ecda82e3ca27697bb"
+    ],
+    [
+      "C.String.well_formed",
+      1,
+      2,
+      1,
+      [
+        "@query", "assumption_C.HasEq_char",
+        "primitive_Prims.op_Subtraction", "projection_inverse_BoxInt_proj_0"
+      ],
+      0,
+      "09ae70bc1040568e401d4366077b7471"
+    ],
+    [
+      "C.String.get",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "assumption_C.HasEq_char",
+        "b2t_def", "equation_FStar.UInt.fits", "equation_FStar.UInt.min_int",
+        "equation_FStar.UInt.size", "primitive_Prims.op_AmpAmp",
+        "primitive_Prims.op_LessThanOrEqual",
+        "projection_inverse_BoxBool_proj_0",
+        "refinement_interpretation_Tm_refine_dfcb8c150fd42ce38050af33905be19c"
+      ],
+      0,
+      "e681ce6c33f6c74844291f5ea27890de"
+    ],
+    [
+      "C.String.nonzero_is_lt",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "assumption_C.HasEq_char",
+        "refinement_interpretation_Tm_refine_a4691fadffad56bb755d245a5fc50b20",
+        "typing_C.String.length"
+      ],
+      0,
+      "7cc4c820a5ee5ba1f595c5d43b1a5be3"
+    ],
+    [
+      "C.String.memcpy",
+      1,
+      2,
+      1,
+      [
+        "@MaxIFuel_assumption", "@query", "equation_Prims.eqtype",
+        "lemma_FStar.Seq.Base.hasEq_lemma",
+        "refinement_interpretation_Tm_refine_414d0a9f578ab0048252f8c8f552b99f",
+        "typing_FStar.UInt8.t"
+      ],
+      0,
+      "5a4d6d7141e2d0c6eecab94c9919f1be"
+    ]
+  ]
+]
