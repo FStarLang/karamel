@@ -423,7 +423,6 @@ and print_expr env (context: int) (e: expr): document =
       | `GoneUnit -> print env; failwith "unexpected: unit-returning computation was let-bound and used"
       end
 
-  | IndexMut (p, e)
   | Index (p, e) ->
       let mine = 4 in
       paren_if mine @@

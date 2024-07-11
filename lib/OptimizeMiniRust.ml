@@ -45,9 +45,11 @@ let add_mut_var a known =
   { known with v = VarSet.add a known.v }
 
 let add_mut_borrow a known =
+  KPrint.bprintf "%s is &mut\n" (Ast.show_atom_t a);
   { known with r = VarSet.add a known.r }
 
 let want_mut_var a known =
+  KPrint.bprintf "%s is let mut\n" (Ast.show_atom_t a);
   VarSet.mem a known.v
 
 let want_mut_borrow a known =
@@ -93,10 +95,14 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Let (b, e1, e2) ->
       let a, e2 = open_ b e2 in
       let known, e2 = infer env expected known e2 in
-      let mut = want_mut_var a known in
-      let t1 = if want_mut_borrow a known then make_mut_borrow b.typ else b.typ in
+      let mut_var = want_mut_var a known in
+      let mut_borrow = want_mut_borrow a known in
+      KPrint.bprintf "[infer-mut,let] %s[%s]: %a let mut ? %b &mut ? %b\n" b.name
+        (show_atom_t a)
+        PrintMiniRust.ptyp b.typ mut_var mut_borrow;
+      let t1 = if mut_borrow then make_mut_borrow b.typ else b.typ in
       let known, e1 = infer env t1 known e1 in
-      known, Let ({ b with mut; typ = t1 }, e1, close a (Var 0) (lift 1 e2))
+      known, Let ({ b with mut = mut_var; typ = t1 }, e1, close a (Var 0) (lift 1 e2))
 
   | Call (Name n, targs, es) ->
       if NameMap.mem n env.seen then
@@ -113,22 +119,81 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       else
         failwith "TODO: recursion"
 
+  | Call _ ->
+      failwith "TODO: Call"
 
   | Assign (Open { atom; _ }, e3, t) ->
+      KPrint.bprintf "[infer-mut,assign] %a\n" PrintMiniRust.pexpr e;
       let known, e3 = infer env t known e3 in
       add_mut_var atom known, e3
 
-  | Assign (IndexMut (Open { atom; _ } as e1, e2), e3, t) ->
+  | Assign (Index (Open { atom; _ } as e1, e2), e3, t) ->
+      KPrint.bprintf "[infer-mut,assign] %a\n" PrintMiniRust.pexpr e;
       let known = add_mut_borrow atom known in
       let known, e2 = infer env usize known e2 in
       let known, e3 = infer env t known e3 in
-      known, Assign (IndexMut (e1, e2), e3, t)
+      known, Assign (Index (e1, e2), e3, t)
 
   | Assign _ ->
       failwith "TODO: unknown assignment"
 
-  | _ ->
-      failwith "TODO"
+  | Var _
+  | Array _
+  | VecNew _
+  | Name _
+  | Constant _
+  | ConstantString _
+  | Unit
+  | Panic _
+  | Operator _ ->
+      known, e
+
+  | IfThenElse (e1, e2, e3) ->
+      let known, e1 = infer env bool known e1 in
+      let known, e2 = infer env expected known e2 in
+      let known, e3 =
+        match e3 with
+        | Some e3 ->
+            let known, e3 = infer env expected known e3 in
+            known, Some e3
+        | None ->
+            known, None
+      in
+      known, IfThenElse (e1, e2, e3)
+
+  | As (e, t) ->
+      (* Not really correct, but As is only used for integer casts *)
+      let known, e = infer env t known e in
+      known, As (e, t)
+
+  | For (b, e1, e2) ->
+      let known, e2 = infer env Unit known e2 in
+      known, For (b, e1, e2)
+
+  | While (e1, e2) ->
+      let known, e2 = infer env Unit known e2 in
+      known, While (e1, e2)
+
+  | MethodCall _ ->
+      failwith "TODO: MethodCall"
+
+  | Range (e1, e2, b) ->
+      known, Range (e1, e2, b)
+
+  | Struct _ ->
+      failwith "TODO: Struct"
+
+  | Match _ ->
+      failwith "TODO: Match"
+
+  | Index _ ->
+      failwith "TODO: Index"
+
+  | Field _ ->
+      failwith "TODO: Field"
+
+  | Deref _ ->
+      failwith "TODO: Deref"
 
 let infer_mut_borrows files =
   let env = { seen = NameMap.empty } in
@@ -138,6 +203,8 @@ let infer_mut_borrows files =
       let env, decls = List.fold_left (fun (env, decls) decl ->
         match decl with
         | Function ({ name; body; return_type; parameters; _ } as f) ->
+            KPrint.bprintf "[infer-mut] visiting %s\n%a\n" (String.concat "." name)
+              PrintMiniRust.pexpr body;
             let atoms, body =
               List.fold_right (fun binder (atoms, e) ->
                 let a, e = open_ binder e in
