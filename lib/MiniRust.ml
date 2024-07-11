@@ -97,6 +97,7 @@ and expr =
   | Var of db_index
   | Open of open_var
   | Index of expr * expr
+  | IndexMut of expr * expr
   | Field of expr * string
 
   (* Operator expressions *)

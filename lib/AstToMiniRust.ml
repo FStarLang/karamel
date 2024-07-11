@@ -725,7 +725,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let env, e1 = translate_expr env e1 in
       let t2 = translate_type env e2.typ in
       let env, e2 = translate_expr env e2 in
-      env, Assign (Index (e1, MiniRust.zero_usize), e2, t2)
+      env, Assign (IndexMut (e1, MiniRust.zero_usize), e2, t2)
 
   | EApp ({ node = ETApp (e, cgs, cgs', ts); _ }, es) ->
       assert (cgs @ cgs' = []);
@@ -882,7 +882,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       in
       let env, e1 = translate_expr_with_type env e1 lvalue_type in
       let env, e2 = translate_expr_with_type env e2 lvalue_type in
-      env, Assign (e1, e2, translate_type env lvalue_type)
+      env, Assign (e1, e2, lvalue_type)
   | EBufCreate _ ->
       failwith "unexpected: EBufCreate"
   | EBufCreateL _ ->
@@ -896,7 +896,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let env, e2 = translate_expr_with_type env e2 (Constant SizeT) in
       let t3 = translate_type env e3.typ in
       let env, e3 = translate_expr env e3 in
-      env, Assign (Index (e1, e2), e3, t3)
+      env, Assign (IndexMut (e1, e2), e3, t3)
   | EBufSub (e1, e2) ->
       (* This is a fallback for the analysis above. Happens if, for instance, the pointer arithmetic
          appears in subexpression position (like, function call), in which case there's a chance
@@ -919,7 +919,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let env, dst_index = translate_expr_with_type env dst_index (Constant SizeT) in
       let env, len = translate_expr_with_type env len (Constant SizeT) in
       env, MethodCall (
-        Index (dst, H.range_with_len dst_index len),
+        IndexMut (dst, H.range_with_len dst_index len),
         [ "copy_from_slice" ],
         [ Borrow (Shared, Index (src, H.range_with_len src_index len)) ])
   | EBufFill (dst, elt, len) ->
@@ -928,12 +928,12 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let env, len = translate_expr_with_type env len (Constant SizeT) in
       if H.is_const len then
         env, MethodCall (
-          Index (dst, H.range_with_len (Constant (SizeT, "0")) len),
+          IndexMut (dst, H.range_with_len (Constant (SizeT, "0")) len),
           [ "copy_from_slice" ],
           [ Borrow (Shared, Array (Repeat (elt, len))) ])
       else
         env, MethodCall (
-          Index (dst, H.range_with_len (Constant (SizeT, "0")) len),
+          IndexMut (dst, H.range_with_len (Constant (SizeT, "0")) len),
           [ "copy_from_slice" ],
           [ Borrow (Shared, VecNew (Repeat (elt, len))) ])
   | EBufFree _ ->

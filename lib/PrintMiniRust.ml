@@ -372,7 +372,7 @@ and print_expr env (context: int) (e: expr): document =
       | None ->
           empty
       end
-  | Assign (e1, e2) ->
+  | Assign (e1, e2, _) ->
       let mine, left, right = 18, 17, 18 in
       paren_if mine @@
       group (print_expr env left e1 ^^ space ^^ equals ^^
@@ -423,6 +423,7 @@ and print_expr env (context: int) (e: expr): document =
       | `GoneUnit -> print env; failwith "unexpected: unit-returning computation was let-bound and used"
       end
 
+  | IndexMut (p, e)
   | Index (p, e) ->
       let mine = 4 in
       paren_if mine @@

@@ -42,10 +42,10 @@ type known = {
 }
 
 let add_mut_var a known =
-  { known with v = VarSet.add a v }
+  { known with v = VarSet.add a known.v }
 
 let add_mut_borrow a known =
-  { known with r = VarSet.add a r }
+  { known with r = VarSet.add a known.r }
 
 let want_mut_var a known =
   VarSet.mem a known.v
@@ -54,19 +54,19 @@ let want_mut_borrow a known =
   VarSet.mem a known.r
 
 let is_mut_borrow = function
-  | Borrow (Mut, _) -> true
+  | Ref (_, Mut, _) -> true
   | _ -> false
 
 let make_mut_borrow = function
-  | Borrow (_, t) -> Borrow (Mut, t)
+  | Ref (l, _, t) -> Ref (l, Mut, t)
   | _ -> failwith "impossible: make_mut_borrow"
 
 let assert_borrow = function
-  | Borrow (_, t) -> t
+  | Ref (_, _, t) -> t
   | _ -> failwith "impossible: assert_borrow"
 
 let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr =
-  match expr with
+  match e with
   | Borrow (k, e) ->
       (* If we expect this borrow to be a mutable borrow, then we make it a mutable borrow
          (obviously!), and also remember that the variable x itself needs to be `let mut` *)
@@ -82,25 +82,84 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
         let known, e = infer env (assert_borrow expected) known e in
         known, Borrow (k, e)
 
-  | Open { atom; _ } ->
+  | Open { atom; _ } ->
       (* If we expect this variable to be a mutable borrow, then we remember it and let the caller
          act accordingly. *)
-      if need = MakeMut then
-        add_mut_borrow atom known, expr
+      if is_mut_borrow expected then
+        add_mut_borrow atom known, e
       else
-        expr
+        known, e
 
   | Let (b, e1, e2) ->
       let a, e2 = open_ b e2 in
-      let known, e2 = infer env need known e2 in
+      let known, e2 = infer env expected known e2 in
       let mut = want_mut_var a known in
       let t1 = if want_mut_borrow a known then make_mut_borrow b.typ else b.typ in
-      let known, e1 = infer env typ e1 in
-      known, Let ({ b with mut; typ = t1 }, e1, close a (Var 0) e2)
+      let known, e1 = infer env t1 known e1 in
+      known, Let ({ b with mut; typ = t1 }, e1, close a (Var 0) (lift 1 e2))
 
   | Call (Name n, targs, es) ->
-      if NameMap.mem env.seen n then
-        let ts = NameMap.find env.seen n in
-        let known, es = List.fold_left (fun (known, es) e ->
-          let known, e = 
+      if NameMap.mem n env.seen then
+        (* TODO: substitute targs in ts -- for now, we assume we don't have a type-polymorphic
+           function that gets instantiated with a reference type *)
+        let ts = NameMap.find n env.seen in
+        let known, es = List.fold_left2 (fun (known, es) e t ->
+            let known, e = infer env t known e in
+            known, e :: es
+          ) (known, []) es ts
+        in
+        let es = List.rev es in
+        known, Call (Name n, targs, es)
+      else
+        failwith "TODO: recursion"
 
+
+  | Assign (Open { atom; _ }, e3, t) ->
+      let known, e3 = infer env t known e3 in
+      add_mut_var atom known, e3
+
+  | Assign (IndexMut (Open { atom; _ } as e1, e2), e3, t) ->
+      let known = add_mut_borrow atom known in
+      let known, e2 = infer env usize known e2 in
+      let known, e3 = infer env t known e3 in
+      known, Assign (IndexMut (e1, e2), e3, t)
+
+  | Assign _ ->
+      failwith "TODO: unknown assignment"
+
+  | _ ->
+      failwith "TODO"
+
+let infer_mut_borrows files =
+  let env = { seen = NameMap.empty } in
+  let known = { v = VarSet.empty; r = VarSet.empty } in
+  let _, files =
+    List.fold_left (fun (env, files) (filename, decls) ->
+      let env, decls = List.fold_left (fun (env, decls) decl ->
+        match decl with
+        | Function ({ name; body; return_type; parameters; _ } as f) ->
+            let atoms, body =
+              List.fold_right (fun binder (atoms, e) ->
+                let a, e = open_ binder e in
+                a :: atoms, e
+              ) parameters ([], body)
+            in
+            let known, body = infer env return_type known body in
+            let parameters, body =
+              List.fold_right2 (fun (binder: binding) atom (parameters, e) ->
+                let e = close atom (Var 0) (lift 1 e) in
+                let mut = want_mut_var atom known in
+                let typ = if want_mut_borrow atom known then make_mut_borrow binder.typ else binder.typ in
+                { binder with mut; typ } :: parameters, e
+              ) parameters atoms ([], body)
+            in
+            let env = { seen = NameMap.add name (List.map (fun (x: binding) -> x.typ) parameters) env.seen } in
+            env, Function { f with body; parameters } :: decls
+        | _ ->
+            env, decl :: decls
+      ) (env, []) decls in
+      let decls = List.rev decls in
+      env, (filename, decls) :: files
+    ) (env, []) files
+  in
+  List.rev files
