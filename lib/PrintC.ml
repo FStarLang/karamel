@@ -340,7 +340,7 @@ and p_declaration (qs, spec, inline, stor, { maybe_unused; target }, decl_and_in
     | Some MustInline -> string "KRML_MUSTINLINE" ^^ space
   in
   let maybe_unused = if maybe_unused then string "KRML_MAYBE_UNUSED" ^^ space else empty in
-  let target = match target with | None -> empty | Some x -> string ("KRML_ATTRIBUTE_TARGET(" ^ x ^ ")") ^^ space in
+  let target = match target with | None -> empty | Some x -> string "KRML_ATTRIBUTE_TARGET" ^^ parens (dquotes (string x)) ^^ break1 in
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
   let _, alignment, _ = List.hd decl_and_inits in
   if not (List.for_all (fun (_, a, _) -> a = alignment) decl_and_inits) then
