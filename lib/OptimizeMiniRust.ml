@@ -93,7 +93,9 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
         known, e
 
   | Let (b, e1, e2) ->
+      KPrint.bprintf "[infer-mut,let] %a\n" PrintMiniRust.pexpr e;
       let a, e2 = open_ b e2 in
+      KPrint.bprintf "[infer-mut,let] %a\n" PrintMiniRust.pexpr e2;
       let known, e2 = infer env expected known e2 in
       let mut_var = want_mut_var a known in
       let mut_borrow = want_mut_borrow a known in
@@ -204,13 +206,16 @@ let infer_mut_borrows files =
         match decl with
         | Function ({ name; body; return_type; parameters; _ } as f) ->
             KPrint.bprintf "[infer-mut] visiting %s\n%a\n" (String.concat "." name)
-              PrintMiniRust.pexpr body;
+              PrintMiniRust.pdecl decl;
             let atoms, body =
               List.fold_right (fun binder (atoms, e) ->
                 let a, e = open_ binder e in
+                KPrint.bprintf "[infer-mut] opened %s\n%a\n" binder.name PrintMiniRust.pexpr e;
                 a :: atoms, e
               ) parameters ([], body)
             in
+            KPrint.bprintf "[infer-mut] done opening %s\n%a\n" (String.concat "." name)
+              PrintMiniRust.pexpr body;
             let known, body = infer env return_type known body in
             let parameters, body =
               List.fold_right2 (fun (binder: binding) atom (parameters, e) ->

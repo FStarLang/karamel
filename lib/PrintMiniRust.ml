@@ -442,7 +442,7 @@ and print_expr env (context: int) (e: expr): document =
           group (print_pat env p ^/^ string "=>") ^^ group (nest 2 (break1 ^^ print_expr env max_int e))
       ) patexprs)
 
-  | Open { name; _ } -> string name
+  | Open { name; _ } -> at ^^ string name
 
 and print_pat env (p: pat) =
   match p with
@@ -546,3 +546,4 @@ let print_decls ns ds =
 
 let pexpr = printf_of_pprint (print_expr debug max_int)
 let ptyp = printf_of_pprint (print_typ debug)
+let pdecl = printf_of_pprint (fun x -> snd (print_decl debug x))

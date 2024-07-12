@@ -175,17 +175,21 @@ module DeBruijn = struct
   (* A usable map where the user can hook up to extend, called every time a new
      binding is added to the environment *)
   class ['self] map = object (self: 'self)
-    inherit [_] map_expr as super
+    inherit [_] map_expr as _super
 
     (* To be overridden by the user *)
     method extend env _ = env
 
     (* We list all binding nodes and feed those binders to the environment *)
     method! visit_Let env b e1 e2 =
-      super#visit_Let (self#extend env b) b e1 e2
+      let e1 = self#visit_expr env e1 in
+      let e2 = self#visit_expr (self#extend env b) e2 in
+      Let (b, e1, e2)
 
     method! visit_For env b e1 e2 =
-      super#visit_For (self#extend env b) b e1 e2
+      let e1 = self#visit_expr env e1 in
+      let e2 = self#visit_expr (self#extend env b) e2 in
+      For (b, e1, e2)
   end
 
   class map_counting = object
