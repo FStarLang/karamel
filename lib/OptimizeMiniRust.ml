@@ -212,8 +212,13 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       let known, e2 = infer env usize known e2 in
       known, Index (e1, e2)
 
+  | Index (Borrow (k, (Open { atom; _ } as e1)), e2) ->
+      let kind, known = if is_mut_borrow expected then Mut, add_mut_var atom known else k, known in
+      let known, e2 = infer env usize known e2 in
+      known, Index (Borrow (kind, e1), e2)
+
   | Index _ ->
-      failwith "TODO: Complex Index"
+      failwith "TODO: unknown Index"
 
   | Field _ ->
       failwith "TODO: Field"

@@ -56,14 +56,14 @@ let loop (ptr:B.lbuffer U32.t 10)  : Stack UInt32.t
   sum
 
 
-// let loop_alloc ()  : Stack UInt32.t
-//   (requires (fun h0 -> True))
-//   (ensures (fun h0 r h1 -> True)) =
-//   push_frame();
-//   let ptr = B.alloca 0ul 10ul in
-//   C.Loops.for 0ul 9ul
-//     (fun h i -> B.live h ptr)
-//     (fun i -> B.upd ptr i 1ul);
-//   let sum = B.index ptr 0ul in
-//   pop_frame();
-//   sum
+let loop_alloc ()  : Stack UInt32.t
+  (requires (fun h0 -> True))
+  (ensures (fun h0 r h1 -> True)) =
+  push_frame();
+  let ptr = B.alloca 0ul 10ul in
+  C.Loops.for 0ul 9ul
+    (fun h i -> B.live h ptr)
+    (fun i -> B.upd ptr i 1ul);
+  let sum = B.index ptr 0ul in
+  pop_frame();
+  sum
