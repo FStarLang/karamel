@@ -227,6 +227,9 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       failwith "TODO: unknown Index"
 
   | Field _ ->
+      (* We should be able to ignore this case, on the basis that we are not going to get any
+         mutability constraints from a field expression. However, we need to modify all of the cases
+         above (such as assignment) to handle the case where the assignee is a field. *)
       failwith "TODO: Field"
 
   | Deref _ ->

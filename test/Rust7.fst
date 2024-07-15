@@ -68,6 +68,9 @@ let loop_alloc ()  : Stack UInt32.t
   pop_frame();
   sum
 
+let touch (#a: Type) (x: a): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
+  ()
+
 let root_alias (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
   push_frame ();
   let x = B.alloca 0UL 6ul in
@@ -76,6 +79,11 @@ let root_alias (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
 
   let x00 = B.sub x0 0ul 1ul in
   let x01 = B.sub x0 1ul 1ul in
+
+  touch x0;
+  touch x1;
+  touch x00;
+  touch x01;
 
   (* B.upd x00 0ul 2UL; *)
   (* B.upd x0 0ul 2UL; *)
