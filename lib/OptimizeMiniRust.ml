@@ -118,8 +118,10 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
         in
         let es = List.rev es in
         known, Call (Name n, targs, es)
-      else
+      else (
+        KPrint.bprintf "[infer-mut,call] recursing on %s\n" (String.concat " :: " n);
         failwith "TODO: recursion"
+      )
 
   | Call _ ->
       failwith "TODO: Call"
@@ -198,8 +200,13 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Match _ ->
       failwith "TODO: Match"
 
+  | Index (Open {atom; _} as e1, e2) ->
+      let known = if is_mut_borrow expected then add_mut_borrow atom known else known in
+      let known, e2 = infer env usize known e2 in
+      known, Index (e1, e2)
+
   | Index _ ->
-      failwith "TODO: Index"
+      failwith "TODO: Complex Index"
 
   | Field _ ->
       failwith "TODO: Field"

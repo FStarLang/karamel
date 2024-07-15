@@ -2,22 +2,41 @@ module Rust7
 
 module U32 = FStar.UInt32
 module B = LowStar.Buffer
+open LowStar.BufferOps
 
+open FStar
 open FStar.HyperStack.ST
 
 val add_carry_u32:
   x:U32.t
   -> y:U32.t
-  -> r:B.lbuffer U32.t 1 ->
+  -> r:B.lbuffer U32.t 1
+  -> p:B.lbuffer U32.t 1 ->
   Stack U32.t
-  (requires fun h -> B.live h r)
+  (requires fun h -> B.live h r /\ B.live h p)
   (ensures  fun h0 c h1 -> True)
     // modifies1 r h0 h1 /\ v c <= 1 /\
     // (let r = Seq.index (as_seq h1 r) 0 in
     // v r + v c * pow2 (bits t) == v x + v y + v cin))
 
-let add_carry_u32 x y r =
+let add_carry_u32 x y r p =
+  let z = B.index p 0ul in
   let res = U32.add_mod x y in
+  let res = U32.add_mod res z in
   // let c = (U32.shift_right res 32ul) in
   B.upd r 0ul res;
   0ul
+
+
+// // simple for loop example - note that there is no framing
+// let loop ()  : Stack UInt32.t
+//   (requires (fun h0 -> True))
+//   (ensures (fun h0 r h1 -> True)) =
+//   push_frame();
+//   let ptr = B.alloca 0ul 10ul in
+//   let _ = C.Loops.for 0ul 9ul
+//     (fun h i -> B.live h ptr)
+//     (fun i -> ptr.(i) <- 1ul) in
+//   let sum = ptr.(0ul) in
+//   pop_frame();
+//   sum
