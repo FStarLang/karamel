@@ -239,7 +239,7 @@ let cross_call_analysis files =
     in
     let inlining =
       let is_static_inline = Helpers.is_static_header name in
-      let is_inline = List.mem Common.Inline f in
+      let is_inline = List.mem Common.Inline f || List.mem Common.MustInline f in
       if is_static_inline && is_inline then
         Warn.maybe_fatal_error ("", InlineStaticInline (lid_of_decl d));
       if is_static_inline then
@@ -501,6 +501,7 @@ let cross_call_analysis files =
       let add_if cond flag flags = if cond && not (List.mem flag flags) then flag :: flags else flags in
       let adjust flags =
         let flags = remove_if (info.inlining = Nope) Common.Inline flags in
+        let flags = remove_if (info.inlining = Nope) Common.MustInline flags in
         let flags = remove_if (info.visibility <> Private) Common.Private flags in
         let flags = add_if (info.visibility = Private) Common.Private flags in
         let flags = remove_if (info.visibility <> Internal) Common.Internal flags in
