@@ -27,6 +27,16 @@ let add_carry_u32 x y r p =
   B.upd r 0ul res;
   0ul
 
+let test_alloca (x: UInt32.t)  : Stack UInt32.t
+  (requires (fun h0 -> True))
+  (ensures (fun h0 r h1 -> True)) =
+  push_frame();
+  let ptr = B.alloca 0ul 10ul in
+  B.upd ptr 0ul x;
+  let res = B.index ptr 0ul in
+  pop_frame();
+  x
+
 // simple for loop example - note that there is no framing
 let loop (ptr:B.lbuffer U32.t 10)  : Stack UInt32.t
   (requires (fun h0 -> B.live h0 ptr))
@@ -46,7 +56,6 @@ let loop (ptr:B.lbuffer U32.t 10)  : Stack UInt32.t
   sum
 
 
-// // simple for loop example - note that there is no framing
 // let loop_alloc ()  : Stack UInt32.t
 //   (requires (fun h0 -> True))
 //   (ensures (fun h0 r h1 -> True)) =

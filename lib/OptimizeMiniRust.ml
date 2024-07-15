@@ -138,6 +138,13 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       let known, e3 = infer env t known e3 in
       known, Assign (Index (e1, e2), e3, t)
 
+  | Assign (Index (Borrow (_, (Open { atom; _ } as e1)), e2), e3, t) ->
+      KPrint.bprintf "[infer-mut,assign] %a\n" PrintMiniRust.pexpr e;
+      let known = add_mut_var atom known in
+      let known, e2 = infer env usize known e2 in
+      let known, e3 = infer env t known e3 in
+      known, Assign (Index (Borrow (Mut, e1), e2), e3, t)
+
   | Assign _ ->
       failwith "TODO: unknown assignment"
 
