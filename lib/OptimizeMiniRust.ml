@@ -214,8 +214,15 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Deref _ ->
       failwith "TODO: Deref"
 
+(* We store here a list of builtins, with the types of their arguments *)
+let builtins : (name * typ list) list = [
+  (* Constants are ignored by infer, we can give them any type *)
+  ["krml"; "unroll_for!"], [Unit; Unit; Unit; Unit; Unit];
+]
+
 let infer_mut_borrows files =
-  let env = { seen = NameMap.empty } in
+  (* Map.of_list is only available from OCaml 5.1 onwards *)
+  let env = { seen = List.to_seq builtins |> NameMap.of_seq } in
   let known = { v = VarSet.empty; r = VarSet.empty } in
   let _, files =
     List.fold_left (fun (env, files) (filename, decls) ->
