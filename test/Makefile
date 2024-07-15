@@ -88,7 +88,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274
 
-all: $(FILES) $(RUST_FILES) $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test
+all: $(FILES) rust $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test
 
 # Needs node
 wasm: $(WASM_FILES)
@@ -300,7 +300,7 @@ WasmTrap.wasm-test: NEGATIVE = true
 %.rs: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(KRML) -minimal -bundle $(notdir $*)=\* \
 	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)
-	$(SED) -i 's/\(assignments..\)/\1\nmod lowstar { pub mod ignore { pub fn ignore<T>(_x: T) {}}}\n/' $@
+	$(SED) -i 's/\(mutation..\)/\1\nmod lowstar { pub mod ignore { pub fn ignore<T>(_x: T) {}}}\n/' $@
 	echo 'fn main () { let r = main_ (); if r != 0 { println!("main_ returned: {}\\n", r); panic!() } }' >> $@
 
 %.rust-test: $(OUTPUT_DIR)/%.rs
