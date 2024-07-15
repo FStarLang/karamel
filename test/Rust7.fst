@@ -27,16 +27,34 @@ let add_carry_u32 x y r p =
   B.upd r 0ul res;
   0ul
 
+// simple for loop example - note that there is no framing
+let loop (ptr:B.lbuffer U32.t 10)  : Stack UInt32.t
+  (requires (fun h0 -> B.live h0 ptr))
+  (ensures (fun h0 r h1 -> True)) =
+  push_frame();
+  C.Loops.for 0ul 0ul
+    (fun h i -> B.live h ptr)
+    (fun i -> B.upd ptr i 1ul);
+  C.Loops.for 0ul 1ul
+    (fun h i -> B.live h ptr)
+    (fun i -> B.upd ptr i 1ul);
+  C.Loops.for 0ul 10ul
+    (fun h i -> B.live h ptr)
+    (fun i -> B.upd ptr i 1ul);
+  let sum = B.index ptr 0ul in
+  pop_frame();
+  sum
+
 
 // // simple for loop example - note that there is no framing
-// let loop ()  : Stack UInt32.t
+// let loop_alloc ()  : Stack UInt32.t
 //   (requires (fun h0 -> True))
 //   (ensures (fun h0 r h1 -> True)) =
 //   push_frame();
 //   let ptr = B.alloca 0ul 10ul in
-//   let _ = C.Loops.for 0ul 9ul
+//   C.Loops.for 0ul 9ul
 //     (fun h i -> B.live h ptr)
-//     (fun i -> ptr.(i) <- 1ul) in
-//   let sum = ptr.(0ul) in
+//     (fun i -> B.upd ptr i 1ul);
+//   let sum = B.index ptr 0ul in
 //   pop_frame();
 //   sum

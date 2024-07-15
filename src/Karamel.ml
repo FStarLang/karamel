@@ -751,6 +751,7 @@ Supported options:|}
       print PrintAst.print_files files;
     let files = AstToMiniRust.translate_files files in
     let files = OptimizeMiniRust.infer_mut_borrows files in
+    let files = RustMacroize.macroize files in
     OutputRust.write_all files
 
   else
