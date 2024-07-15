@@ -118,6 +118,12 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
         in
         let es = List.rev es in
         known, Call (Name n, targs, es)
+      else if n = ["lowstar";"ignore";"ignore"] then
+        (* Since we do not have type-level substitutions in MiniRust, we special-case ignore here.
+           Ideally, it would be added to builtins with `Bound 0` as a suitable type for the
+           argument. *)
+        let known, e = infer env (KList.one targs) known (KList.one es) in
+        known, Call (Name n, targs, [ e ])
       else (
         KPrint.bprintf "[infer-mut,call] recursing on %s\n" (String.concat " :: " n);
         failwith "TODO: recursion"
@@ -228,8 +234,6 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
 
 (* We store here a list of builtins, with the types of their arguments *)
 let builtins : (name * typ list) list = [
-  (* Constants are ignored by infer, we can give them any type *)
-  ["krml"; "unroll_for!"], [Unit; Unit; Unit; Unit; Unit];
 ]
 
 let infer_mut_borrows files =
