@@ -33,10 +33,12 @@ module NameMap = Map.Make(Name)
 module VarSet = Set.Make(Atom)
 
 type env = {
-  seen: typ list NameMap.t
+  seen: typ list NameMap.t;
+  structs: MiniRust.struct_field list NameMap.t;
 }
 
 type known = {
+  structs: MiniRust.struct_field list NameMap.t;
   v: VarSet.t;
   r: VarSet.t;
 }
@@ -324,8 +326,8 @@ let builtins : (name * typ list) list = [
 
 let infer_mut_borrows files =
   (* Map.of_list is only available from OCaml 5.1 onwards *)
-  let env = { seen = List.to_seq builtins |> NameMap.of_seq } in
-  let known = { v = VarSet.empty; r = VarSet.empty } in
+  let env = { seen = List.to_seq builtins |> NameMap.of_seq; structs = NameMap.empty } in
+  let known = { structs = NameMap.empty; v = VarSet.empty; r = VarSet.empty } in
   let _, files =
     List.fold_left (fun (env, files) (filename, decls) ->
       let env, decls = List.fold_left (fun (env, decls) decl ->
@@ -342,7 +344,8 @@ let infer_mut_borrows files =
             in
             KPrint.bprintf "[infer-mut] done opening %s\n%a\n" (String.concat "." name)
               PrintMiniRust.pexpr body;
-            let known, body = infer env return_type known body in
+            (* Start the analysis with the current state of struct mutability *)
+            let known, body = infer env return_type {known with structs = env.structs} body in
             let parameters, body =
               List.fold_left2 (fun (parameters, e) (binder: binding) atom ->
                 let e = close atom (Var 0) (lift 1 e) in
@@ -353,8 +356,16 @@ let infer_mut_borrows files =
               ) ([], body) parameters atoms
             in
             let parameters = List.rev parameters in
-            let env = { seen = NameMap.add name (List.map (fun (x: binding) -> x.typ) parameters) env.seen } in
+            (* We update the environment in two ways. First, we add the function declaration,
+               with the mutability of the parameters inferred during the analysis.
+               Second, we propagate the information about the mutability of struct fields
+               inferred while traversing this function to the global environment. Note, since
+               the traversal does not add or remove any bindings, but only increases the
+               mutability, we can do a direct replacement instead of a more complex merge *)
+            let env = { seen = NameMap.add name (List.map (fun (x: binding) -> x.typ) parameters) env.seen; structs = known.structs } in
             env, Function { f with body; parameters } :: decls
+        | Struct ({name; fields; _}) ->
+          {env with structs = NameMap.add name fields env.structs}, decl :: decls
         | _ ->
             env, decl :: decls
       ) (env, []) decls in
