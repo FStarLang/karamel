@@ -43,6 +43,14 @@ type known = {
   r: VarSet.t;
 }
 
+let assert_borrow = function
+  | Ref (_, _, t) -> t
+  | _ -> failwith "impossible: assert_borrow"
+
+let assert_name (t: typ option) = match t with
+  | Some (Name (n, _)) -> n
+  | _ -> failwith "impossible: assert_name"
+
 let add_mut_var a known =
   KPrint.bprintf "%s is let mut\n" (Ast.show_atom_t a);
   { known with v = VarSet.add a known.v }
@@ -66,11 +74,16 @@ let is_mut_borrow = function
 let make_mut_borrow = function
   | Ref (l, _, t) -> Ref (l, Mut, t)
   | Tuple [Ref (l1, _, t1); Ref (l2, _, t2)] -> Tuple [Ref (l1, Mut, t1); Ref (l2, Mut, t2)]
+  | Vec t -> Vec t
   | _ -> failwith "impossible: make_mut_borrow"
 
-let assert_borrow = function
-  | Ref (_, _, t) -> t
-  | _ -> failwith "impossible: assert_borrow"
+let add_mut_field ty f known =
+  let n = assert_name ty in
+  let fields = NameMap.find n known.structs in
+  (* Update the mutability of the field element *)
+  let fields = List.map (fun (sf: MiniRust.struct_field) ->
+    if sf.name = f then {sf with typ = make_mut_borrow sf.typ} else sf) fields in
+  {known with structs = NameMap.add n fields known.structs}
 
 let retrieve_pair_type = function
   | Tuple [e1; e2] -> assert (e1 = e2); e1
@@ -90,6 +103,14 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
         | Index (e1, (Range _ as r))  ->
             let known, e1 = infer env expected known e1 in
             known, Borrow (Mut, Index (e1, r))
+
+        | Field (Open _, "0", None)
+        | Field (Open _, "1", None) -> failwith "TODO: borrowing slices"
+
+        | Field (_, f, t) ->
+            let known = add_mut_field t f known in
+            known, Borrow (Mut, e)
+
         | _ ->
             KPrint.bprintf "[infer-mut, borrow] borrwing %a is not supported\n" PrintMiniRust.pexpr e;
             failwith "TODO: borrowing something other than a variable"
@@ -175,10 +196,15 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       let-binding.
    *)
   | Assign (Index (Field (Open {atom;_}, "0", None) as e1, e2), e3, t)
-  | Assign (Index (Field (Open {atom;_}, "1", None) as e1, e2), e3, t)
-  ->
+  | Assign (Index (Field (Open {atom;_}, "1", None) as e1, e2), e3, t) ->
       KPrint.bprintf "[infer-mut,assign] %a\n" PrintMiniRust.pexpr e;
       let known = add_mut_borrow atom known in
+      let known, e2 = infer env usize known e2 in
+      let known, e3 = infer env t known e3 in
+      known, Assign (Index (e1, e2), e3, t)
+
+  | Assign (Index (Field (_, f, st) as e1, e2), e3, t) ->
+      let known = add_mut_field st f known in
       let known, e2 = infer env usize known e2 in
       let known, e3 = infer env t known e3 in
       known, Assign (Index (e1, e2), e3, t)
@@ -190,7 +216,12 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       let known, e3 = infer env t known e3 in
       known, Assign (Index (Borrow (Mut, e1), e2), e3, t)
 
+  | Assign (Field (_, "0", None), _, _)
+  | Assign (Field (_, "1", None), _, _) ->
+      failwith "TODO: assignment on slice"
+
   | Assign _ ->
+      KPrint.bprintf "[infer-mut,assign] %a unsupported\n" PrintMiniRust.pexpr e;
       failwith "TODO: unknown assignment"
 
   | Var _
@@ -271,8 +302,11 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Range (e1, e2, b) ->
       known, Range (e1, e2, b)
 
-  | Struct _ ->
-      (* TODO: This should very likely be modified depending on the current struct
+  | Struct (name, _es) ->
+      (* The declaration of the struct should have been traversed beforehand, hence
+         it should be in the map *)
+      let _fields_mut = NameMap.find name known.structs in
+      (* TODO: This should be modified depending on the current struct
          in known. *)
       known, e
 
@@ -328,7 +362,7 @@ let infer_mut_borrows files =
   (* Map.of_list is only available from OCaml 5.1 onwards *)
   let env = { seen = List.to_seq builtins |> NameMap.of_seq; structs = NameMap.empty } in
   let known = { structs = NameMap.empty; v = VarSet.empty; r = VarSet.empty } in
-  let _, files =
+  let env, files =
     List.fold_left (fun (env, files) (filename, decls) ->
       let env, decls = List.fold_left (fun (env, decls) decl ->
         match decl with
@@ -373,4 +407,11 @@ let infer_mut_borrows files =
       env, (filename, decls) :: files
     ) (env, []) files
   in
-  List.rev files
+
+  (* We traverse all declarations again, and update the structure decls
+     with the new mutability info *)
+  List.map (fun (filename, decls) -> filename, List.map (function
+    | Struct ({ name; _ } as s) -> Struct { s with fields = NameMap.find name env.structs }
+    | x -> x
+    ) decls
+  ) (List.rev files)
