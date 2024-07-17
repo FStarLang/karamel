@@ -248,18 +248,14 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Match _ ->
       failwith "TODO: Match"
 
-  | Index (Open {atom; _} as e1, e2) ->
-      let known = if is_mut_borrow expected then add_mut_borrow atom known else known in
+  | Index (e1, e2) ->
+      (* The cases where we perform an assignment on an index should be caught
+         earlier. This should therefore only occur when accessing a variable
+         in an array *)
+      let expected = Ref (None, Shared, expected) in
+      let known, e1 = infer env expected known e1 in
       let known, e2 = infer env usize known e2 in
       known, Index (e1, e2)
-
-  | Index (Borrow (k, (Open { atom; _ } as e1)), e2) ->
-      let kind, known = if is_mut_borrow expected then Mut, add_mut_var atom known else k, known in
-      let known, e2 = infer env usize known e2 in
-      known, Index (Borrow (kind, e1), e2)
-
-  | Index _ ->
-      failwith "TODO: unknown Index"
 
   (* Special case for array slices. This occurs, e.g., when calling a function with 
      a struct field *)
