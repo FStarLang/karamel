@@ -122,5 +122,11 @@ let basic_copy2 (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
   B.blit x0 0ul y 0ul 2ul;
   pop_frame()
 
+noeq
+type point = { x : B.lbuffer U32.t 1; y : B.lbuffer U32.t 1 }
+
+let struct_upd (p: point) : Stack UInt32.t (fun h -> B.live h p.x) (fun _ _ _ -> True) =
+  B.index p.x 0ul
+
 
 let main_ () = 0l

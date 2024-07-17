@@ -258,6 +258,8 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
               as the left argument of copy_from_slice *)
           | _ -> failwith "ill-formed copy_from_slice"
           end
+      | [ "push" ] ->
+          known, MethodCall (e1, m, e2)
       | _ ->
           KPrint.bprintf "%a\n" PrintMiniRust.pexpr e;
           failwith "TODO: MethodCall"
@@ -314,6 +316,9 @@ let builtins : (name * typ list) list = [
   (* LowStar.Endianness *)
   [ "lowstar"; "endianness"; "load64_le" ], [Ref (None, Shared, Constant UInt8)];
   [ "lowstar"; "endianness"; "store64_le" ], [Ref (None, Mut, Constant UInt8); Constant UInt64];
+
+  (* Vec *)
+  [ "Vec"; "new" ], [];
 ]
 
 let infer_mut_borrows files =
