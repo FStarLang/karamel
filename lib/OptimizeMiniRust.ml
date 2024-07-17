@@ -57,15 +57,22 @@ let want_mut_borrow a known =
 
 let is_mut_borrow = function
   | Ref (_, Mut, _) -> true
+  (* Special-case for tuples; they should only occur with array slices *)
+  | Tuple [Ref (_, Mut, _); Ref (_, Mut, _)] -> true
   | _ -> false
 
 let make_mut_borrow = function
   | Ref (l, _, t) -> Ref (l, Mut, t)
+  | Tuple [Ref (l1, _, t1); Ref (l2, _, t2)] -> Tuple [Ref (l1, Mut, t1); Ref (l2, Mut, t2)]
   | _ -> failwith "impossible: make_mut_borrow"
 
 let assert_borrow = function
   | Ref (_, _, t) -> t
   | _ -> failwith "impossible: assert_borrow"
+
+let retrieve_pair_type = function
+  | Tuple [e1; e2] -> assert (e1 = e2); e1
+  | _ -> failwith "impossible: retrieve_pair_type"
 
 let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr =
   match e with
@@ -137,7 +144,16 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       let known, e3 = infer env t known e3 in
       add_mut_var atom known, e3
 
-  | Assign (Index (Open { atom; _ } as e1, e2), e3, t) ->
+  | Assign (Index (Open { atom; _ } as e1, e2), e3, t) 
+  (* Special-case when we perform a field assignment that comes from
+     a slice. This is the only case where we use native Rust tuples.
+     In this case, we mark the atom as mutable, and will replace
+     the corresponding call to split by split_at_mut when we reach
+      let-binding.
+   *)
+  | Assign (Index (Field (Open {atom;_}, "0") as e1, e2), e3, t)
+  | Assign (Index (Field (Open {atom;_}, "1") as e1, e2), e3, t)
+  ->
       KPrint.bprintf "[infer-mut,assign] %a\n" PrintMiniRust.pexpr e;
       let known = add_mut_borrow atom known in
       let known, e2 = infer env usize known e2 in
@@ -199,6 +215,15 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       begin match m with
       | [ "wrapping_add" ] ->
           known, MethodCall (e1, m, e2)
+      | ["split_at"] ->
+          assert (List.length e2 = 1);
+          let known, e2 = infer env usize known (List.hd e2) in
+          let t1 = retrieve_pair_type expected in
+          let known, e1 = infer env t1 known e1 in
+          if is_mut_borrow expected then
+            known, MethodCall (e1, ["split_at_mut"], [e2])
+          else
+            known, MethodCall (e1, m, [e2])
       | _ ->
           KPrint.bprintf "%a\n" PrintMiniRust.pexpr e;
           failwith "TODO: MethodCall"

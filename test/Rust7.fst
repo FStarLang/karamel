@@ -77,16 +77,16 @@ let root_alias (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
   let x0 = B.sub x 0ul 2ul in
   let x1 = B.sub x 2ul 2ul in
 
-  let x00 = B.sub x0 0ul 1ul in
-  let x01 = B.sub x0 1ul 1ul in
+  // let x00 = B.sub x0 0ul 1ul in
+  // let x01 = B.sub x0 1ul 1ul in
 
-  touch x0;
-  touch x1;
-  touch x00;
-  touch x01;
+  // touch x0;
+  // touch x1;
+  // touch x00;
+  // touch x01;
 
   (* B.upd x00 0ul 2UL; *)
-  (* B.upd x0 0ul 2UL; *)
+  B.upd x0 0ul 2UL;
   (* B.upd x 0ul 4UL; *)
   pop_frame()
 

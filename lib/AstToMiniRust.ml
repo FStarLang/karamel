@@ -805,7 +805,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
           env, MiniRust.(Field (find 0 env.vars, Splits.string_of_path_elem path_elem))
       in
 
-      let split_at = match b.typ with TBuf (_, true) -> "split_at" | _ -> "split_at_mut" in
+      let split_at = "split_at" in
       let e1 = MiniRust.MethodCall (e_nearest , [split_at], [ index ]) in
       let t = translate_type env b.typ in
       let binding : MiniRust.binding * Splits.info =
