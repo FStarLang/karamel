@@ -234,6 +234,18 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
             known, MethodCall (e1, ["split_at_mut"], [e2])
           else
             known, MethodCall (e1, m, [e2])
+      | ["copy_from_slice"] -> begin match e1 with
+          | Index (dst, range) ->
+            assert (List.length e2 = 1);
+            (* We do not have access to the types of e1 and e2. However, the concrete
+               type should not matter during mut inference, we thus use Unit as a default *)
+            let known, dst = infer env (Ref (None, Mut, Unit)) known dst in
+            let known, e2 = infer env (Ref (None, Shared, Unit)) known (List.hd e2) in
+            known, MethodCall (Index (dst, range), m, [e2])
+          (* The AstToMiniRust translation should always introduce an index
+              as the left argument of copy_from_slice *)
+          | _ -> failwith "ill-formed copy_from_slice"
+          end
       | _ ->
           KPrint.bprintf "%a\n" PrintMiniRust.pexpr e;
           failwith "TODO: MethodCall"

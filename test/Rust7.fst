@@ -104,4 +104,23 @@ let slice_upd (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
 
   pop_frame()
 
+let basic_copy1 (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
+  push_frame ();
+  let x = B.alloca 0ul 6ul in
+  let y = B.alloca 1ul 6ul in
+  B.blit y 0ul x 0ul 6ul;
+  pop_frame()
+
+let basic_copy2 (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
+  push_frame ();
+  let x = B.alloca 0ul 6ul in
+  let y = B.alloca 1ul 6ul in
+  let x0 = B.sub x 0ul 2ul in
+  let x1 = B.sub x0 0ul 1ul in
+
+  B.upd x1 0ul 5ul;
+  B.blit x0 0ul y 0ul 2ul;
+  pop_frame()
+
+
 let main_ () = 0l
