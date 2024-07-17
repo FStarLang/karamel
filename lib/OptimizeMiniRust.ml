@@ -135,7 +135,6 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
         (* Same as ignore above *)
         assert (List.length es = 2);
         let e1, e2 = KList.two es in
-        KPrint.bprintf "[infer-mut, call-memzero] %a \n" PrintMiniRust.pexpr e;
         let known, e1 = infer env (Ref (None, Mut, Slice (KList.one targs))) known e1 in
         let known, e2 = infer env (Constant UInt32) known e2 in
         known, Call (Name n, targs, [ e1; e2 ])
@@ -302,12 +301,16 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
    args should be added directly to Call in infer *)
 let builtins : (name * typ list) list = [
   (* FStar.UInt128 *)
+  [ "fstar"; "uint128"; "uint64_to_uint128" ], [Constant UInt64];
   [ "fstar"; "uint128"; "uint128_to_uint64" ], [Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "add_mod" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
   [ "fstar"; "uint128"; "shift_right" ],
       [Name (["fstar"; "uint128"; "uint128"], []); Constant UInt32];
 
   (* LowStar.Endianness *)
   [ "lowstar"; "endianness"; "load64_le" ], [Ref (None, Shared, Constant UInt8)];
+  [ "lowstar"; "endianness"; "store64_le" ], [Ref (None, Mut, Constant UInt8)];
 ]
 
 let infer_mut_borrows files =
