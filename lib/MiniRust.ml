@@ -97,7 +97,10 @@ and expr =
   | Var of db_index
   | Open of open_var
   | Index of expr * expr
-  | Field of expr * string
+  (* The type corresponds to the structure we are accessing.
+     We will store None when accessing a native Rust tuple,
+     corresponding to an array slice *)
+  | Field of expr * string * typ option
 
   (* Operator expressions *)
   | Operator of op

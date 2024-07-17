@@ -508,7 +508,7 @@ let lookup_split (env: env) (v_base: MiniRust.db_index) (path: Splits.root_or_pa
         | Some (v_base', path') when v_base' = v_base - ofs - 1 ->
             begin match Splits.accessible_via path path' with
             | Some pe ->
-                MiniRust.(Field (Var ofs, Splits.string_of_path_elem pe))
+                MiniRust.(Field (Var ofs, Splits.string_of_path_elem pe, None))
             | None ->
                 find (ofs + 1) bs
             end
@@ -802,7 +802,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
             | [] ->
                 failwith "[ELet] unexpected: path not found"
           in
-          env, MiniRust.(Field (find 0 env.vars, Splits.string_of_path_elem path_elem))
+          env, MiniRust.(Field (find 0 env.vars, Splits.string_of_path_elem path_elem, None))
       in
 
       let split_at = "split_at" in
@@ -996,7 +996,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
 
   | EField (e, f) ->
       let env, e_ = translate_expr env e in
-      env, possibly_convert (Field (e_, f)) (field_type env e f)
+      let t = translate_type env e.typ in
+      env, possibly_convert (Field (e_, f, Some t)) (field_type env e f)
 
   | EBreak ->
       failwith "TODO: EBreak"

@@ -89,6 +89,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
             let known, e1 = infer env expected known e1 in
             known, Borrow (Mut, Index (e1, r))
         | _ ->
+            KPrint.bprintf "[infer-mut, borrow] borrwing %a is not supported\n" PrintMiniRust.pexpr e;
             failwith "TODO: borrowing something other than a variable"
       else
         let known, e = infer env (assert_borrow expected) known e in
@@ -171,8 +172,8 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
      the corresponding call to split by split_at_mut when we reach
       let-binding.
    *)
-  | Assign (Index (Field (Open {atom;_}, "0") as e1, e2), e3, t)
-  | Assign (Index (Field (Open {atom;_}, "1") as e1, e2), e3, t)
+  | Assign (Index (Field (Open {atom;_}, "0", None) as e1, e2), e3, t)
+  | Assign (Index (Field (Open {atom;_}, "1", None) as e1, e2), e3, t)
   ->
       KPrint.bprintf "[infer-mut,assign] %a\n" PrintMiniRust.pexpr e;
       let known = add_mut_borrow atom known in
@@ -287,7 +288,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
 
   (* Special case for array slices. This occurs, e.g., when calling a function with 
      a struct field *)
-  | Field (Open { atom; _ }, "0") | Field (Open { atom; _}, "1") ->
+  | Field (Open { atom; _ }, "0", None) | Field (Open { atom; _}, "1", None) ->
       if is_mut_borrow expected then
         add_mut_borrow atom known, e
       else known, e
