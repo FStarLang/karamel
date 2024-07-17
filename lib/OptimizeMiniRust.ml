@@ -356,7 +356,41 @@ let builtins : (name * typ list) list = [
   [ "fstar"; "uint128"; "shift_right" ],
       [Name (["fstar"; "uint128"; "uint128"], []); Constant UInt32];
 
+  (* Lib.IntVector_intrinsics, Vec128 *)
+  [ "lib"; "intvector_intrinsics"; "vec128_add32"],
+    [Name (["lib"; "intvector_intrinsics"; "vec128"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec128"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec128_load32s"],
+    [ Constant UInt32; Constant UInt32; Constant UInt32; Constant UInt32];
+  [ "lib"; "intvector_intrinsics"; "vec128_rotate_right32"],
+    [Name (["lib"; "intvector_intrinsics"; "vec128"], []); Constant UInt32];
+  [ "lib"; "intvector_intrinsics"; "vec128_rotate_right_lanes32"],
+    [Name (["lib"; "intvector_intrinsics"; "vec128"], []); Constant UInt32];
+  [ "lib"; "intvector_intrinsics"; "vec128_store32_le"],
+    [Ref (None, Mut, Constant UInt8); Name (["lib"; "intvector_intrinsics"; "vec128"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec128_xor"],
+    [Name (["lib"; "intvector_intrinsics"; "vec128"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec128"], [])];
+
+  (* Lib.IntVector_intrinsics, Vec256 *)
+  [ "lib"; "intvector_intrinsics"; "vec256_add64"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec256_load64s"],
+    [ Constant UInt64; Constant UInt64; Constant UInt64; Constant UInt64];
+  [ "lib"; "intvector_intrinsics"; "vec256_rotate_right64"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
+  [ "lib"; "intvector_intrinsics"; "vec256_rotate_right_lanes64"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
+  [ "lib"; "intvector_intrinsics"; "vec256_store64_le"],
+    [Ref (None, Mut, Constant UInt8); Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec256_xor"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+
   (* LowStar.Endianness *)
+  [ "lowstar"; "endianness"; "load32_le" ], [Ref (None, Shared, Constant UInt8)];
+  [ "lowstar"; "endianness"; "store32_le" ], [Ref (None, Mut, Constant UInt8); Constant UInt32];
   [ "lowstar"; "endianness"; "load64_le" ], [Ref (None, Shared, Constant UInt8)];
   [ "lowstar"; "endianness"; "store64_le" ], [Ref (None, Mut, Constant UInt8); Constant UInt64];
 
