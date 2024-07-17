@@ -71,23 +71,37 @@ let loop_alloc ()  : Stack UInt32.t
 let touch (#a: Type) (x: a): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
   ()
 
+let upd (x: B.buffer UInt64.t): Stack unit (fun h -> B.live h x /\ B.length x >= 1)
+  (fun h0 _ h1 -> B.modifies (B.loc_buffer x) h0 h1) =
+  B.upd x 0ul 0UL
+
 let root_alias (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
   push_frame ();
   let x = B.alloca 0UL 6ul in
   let x0 = B.sub x 0ul 2ul in
   let x1 = B.sub x 2ul 2ul in
 
-  // let x00 = B.sub x0 0ul 1ul in
-  // let x01 = B.sub x0 1ul 1ul in
+  let x00 = B.sub x0 0ul 1ul in
+  let x01 = B.sub x0 1ul 1ul in
 
-  // touch x0;
-  // touch x1;
-  // touch x00;
-  // touch x01;
+  touch x0;
+  touch x1;
+  touch x00;
+  touch x01;
 
-  (* B.upd x00 0ul 2UL; *)
-  B.upd x0 0ul 2UL;
-  (* B.upd x 0ul 4UL; *)
+  pop_frame()
+
+let slice_upd (): Stack unit (fun _ -> True) (fun _ _ _ -> True) =
+  push_frame ();
+  let x = B.alloca 0UL 6ul in
+  let x0 = B.sub x 0ul 2ul in
+  let x1 = B.sub x 2ul 2ul in
+
+  let x00 = B.sub x0 0ul 1ul in
+  let x01 = B.sub x0 1ul 1ul in
+
+  upd x00;
+
   pop_frame()
 
 let main_ () = 0l

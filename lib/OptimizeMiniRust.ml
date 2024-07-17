@@ -251,6 +251,13 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Index _ ->
       failwith "TODO: unknown Index"
 
+  (* Special case for array slices. This occurs, e.g., when calling a function with 
+     a struct field *)
+  | Field (Open { atom; _ }, "0") | Field (Open { atom; _}, "1") ->
+      if is_mut_borrow expected then
+        add_mut_borrow atom known, e
+      else known, e
+
   | Field _ ->
       (* We should be able to ignore this case, on the basis that we are not going to get any
          mutability constraints from a field expression. However, we need to modify all of the cases
