@@ -85,6 +85,9 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
             failwith "impossible: missing open"
         | Open { atom; _ } ->
             add_mut_var atom known, Borrow (Mut, e)
+        | Index (e1, (Range _ as r))  ->
+            let known, e1 = infer env expected known e1 in
+            known, Borrow (Mut, Index (e1, r))
         | _ ->
             failwith "TODO: borrowing something other than a variable"
       else
@@ -310,7 +313,7 @@ let builtins : (name * typ list) list = [
 
   (* LowStar.Endianness *)
   [ "lowstar"; "endianness"; "load64_le" ], [Ref (None, Shared, Constant UInt8)];
-  [ "lowstar"; "endianness"; "store64_le" ], [Ref (None, Mut, Constant UInt8)];
+  [ "lowstar"; "endianness"; "store64_le" ], [Ref (None, Mut, Constant UInt8); Constant UInt64];
 ]
 
 let infer_mut_borrows files =
