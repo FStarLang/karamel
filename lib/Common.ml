@@ -61,4 +61,7 @@ type flag =
       (** Allows eliminating type abbreviations that originally stem from
           auto-generated names. *)
   | MaybeUnused
+  | Target of string
+      (** Inserts target attribute. *)
+  | MustInline
   [@@deriving yojson,show]
