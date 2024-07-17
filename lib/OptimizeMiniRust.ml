@@ -220,6 +220,12 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Assign (Field (_, "1", None), _, _) ->
       failwith "TODO: assignment on slice"
 
+  | Assign (Field (Index ((Open {atom; _} as e1), e2), f, st), e3, t) ->
+      let known = add_mut_borrow atom known in
+      let known, e2 = infer env usize known e2 in
+      let known, e3 = infer env t known e3 in
+      known, Assign (Field (Index (e1, e2), f, st), e3, t)
+
   | Assign _ ->
       KPrint.bprintf "[infer-mut,assign] %a unsupported\n" PrintMiniRust.pexpr e;
       failwith "TODO: unknown assignment"
