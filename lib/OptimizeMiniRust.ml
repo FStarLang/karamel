@@ -136,6 +136,14 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
         failwith "TODO: recursion"
       )
 
+  | Call (Operator o, [], _) -> begin match o with
+      (* Most operators are wrapping and were translated to a methodcall.
+         We list the few remaining ones here *)
+      | BOr | BAnd | BXor | BNot | And | Or | Xor | Not -> known, e
+      | _ ->
+        failwith "TODO: operator not supported"
+    end
+
   | Call _ ->
       failwith "TODO: Call"
 
@@ -213,7 +221,9 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
          AST node to indicate e.g. that the destination of `copy_from_slice` ought to be mutable, or
          we just bake that knowledge in right here. *)
       begin match m with
-      | [ "wrapping_add" ] ->
+      | [ "wrapping_add" ] | [ "wrapping_div" ] | [ "wrapping_mul" ] 
+      | [ "wrapping_neg" ] | [ "wrapping_rem" ] | [ "wrapping_shl" ]
+      | [ "wrapping_shr" ] | [ "wrapping_sub" ] ->
           known, MethodCall (e1, m, e2)
       | ["split_at"] ->
           assert (List.length e2 = 1);
