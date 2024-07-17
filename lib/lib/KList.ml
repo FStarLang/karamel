@@ -72,6 +72,11 @@ let one l =
   | [ x ] -> x
   | _ -> invalid_arg ("one: argument is of length " ^ string_of_int (List.length l))
 
+let two l =
+  match l with
+  | [ x; y ] -> (x, y)
+  | _ -> invalid_arg ("one: argument is of length " ^ string_of_int (List.length l))
+
 (* NOTE: provided by {!Stdlib.List} in OCaml 5.1. *)
 let is_empty = function
   | [] -> true

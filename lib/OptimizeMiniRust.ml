@@ -131,7 +131,15 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
            argument. *)
         let known, e = infer env (KList.one targs) known (KList.one es) in
         known, Call (Name n, targs, [ e ])
-      else (
+      else if n = [ "lib"; "memzero0"; "memzero" ] then (
+        (* Same as ignore above *)
+        assert (List.length es = 2);
+        let e1, e2 = KList.two es in
+        KPrint.bprintf "[infer-mut, call-memzero] %a \n" PrintMiniRust.pexpr e;
+        let known, e1 = infer env (Ref (None, Mut, Slice (KList.one targs))) known e1 in
+        let known, e2 = infer env (Constant UInt32) known e2 in
+        known, Call (Name n, targs, [ e1; e2 ])
+      ) else (
         KPrint.bprintf "[infer-mut,call] recursing on %s\n" (String.concat " :: " n);
         failwith "TODO: recursion"
       )
@@ -139,7 +147,9 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Call (Operator o, [], _) -> begin match o with
       (* Most operators are wrapping and were translated to a methodcall.
          We list the few remaining ones here *)
-      | BOr | BAnd | BXor | BNot | And | Or | Xor | Not -> known, e
+      | BOr | BAnd | BXor | BNot
+      | Eq | Neq | Lt | Lte | Gt | Gte
+      | And | Or | Xor | Not -> known, e
       | _ ->
         failwith "TODO: operator not supported"
     end
@@ -255,7 +265,9 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       known, Range (e1, e2, b)
 
   | Struct _ ->
-      failwith "TODO: Struct"
+      (* TODO: This should very likely be modified depending on the current struct
+         in known. *)
+      known, e
 
   | Match _ ->
       failwith "TODO: Match"
@@ -280,12 +292,14 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       (* We should be able to ignore this case, on the basis that we are not going to get any
          mutability constraints from a field expression. However, we need to modify all of the cases
          above (such as assignment) to handle the case where the assignee is a field. *)
-      failwith "TODO: Field"
+      known, e
 
   | Deref _ ->
       failwith "TODO: Deref"
 
-(* We store here a list of builtins, with the types of their arguments *)
+(* We store here a list of builtins, with the types of their arguments.
+   Type substitutions are currently not supported, functions with generic
+   args should be added directly to Call in infer *)
 let builtins : (name * typ list) list = [
   (* FStar.UInt128 *)
   [ "fstar"; "uint128"; "uint128_to_uint64" ], [Name (["fstar"; "uint128"; "uint128"], [])];
@@ -326,8 +340,8 @@ let infer_mut_borrows files =
                 { binder with mut; typ } :: parameters, e
               ) ([], body) parameters atoms
             in
-            let env = { seen = NameMap.add name (List.map (fun (x: binding) -> x.typ) parameters) env.seen } in
             let parameters = List.rev parameters in
+            let env = { seen = NameMap.add name (List.map (fun (x: binding) -> x.typ) parameters) env.seen } in
             env, Function { f with body; parameters } :: decls
         | _ ->
             env, decl :: decls
