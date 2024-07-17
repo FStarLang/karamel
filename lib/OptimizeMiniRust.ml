@@ -287,6 +287,13 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
 
 (* We store here a list of builtins, with the types of their arguments *)
 let builtins : (name * typ list) list = [
+  (* FStar.UInt128 *)
+  [ "fstar"; "uint128"; "uint128_to_uint64" ], [Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "shift_right" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Constant UInt32];
+
+  (* LowStar.Endianness *)
+  [ "lowstar"; "endianness"; "load64_le" ], [Ref (None, Shared, Constant UInt8)];
 ]
 
 let infer_mut_borrows files =
