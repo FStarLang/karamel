@@ -185,19 +185,24 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Call _ ->
       failwith "TODO: Call"
 
+  (* atom = e3 *)
   | Assign (Open { atom; _ }, e3, t) ->
       (* KPrint.bprintf "[infer-mut,assign] %a\n" PrintMiniRust.pexpr e; *)
       let known, e3 = infer env t known e3 in
       add_mut_var atom known, e3
 
+  (* atom[e2] = e2 *)
   | Assign (Index (Open { atom; _ } as e1, e2), e3, t) 
+
   (* Special-case when we perform a field assignment that comes from
      a slice. This is the only case where we use native Rust tuples.
      In this case, we mark the atom as mutable, and will replace
      the corresponding call to split by split_at_mut when we reach
       let-binding.
    *)
+  (* atom.0[e2] = e3 *)
   | Assign (Index (Field (Open {atom;_}, "0", None) as e1, e2), e3, t)
+  (* atom.1[e2] = e3 *)
   | Assign (Index (Field (Open {atom;_}, "1", None) as e1, e2), e3, t) ->
       (* KPrint.bprintf "[infer-mut,assign] %a\n" PrintMiniRust.pexpr e; *)
       let known = add_mut_borrow atom known in
@@ -205,12 +210,14 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       let known, e3 = infer env t known e3 in
       known, Assign (Index (e1, e2), e3, t)
 
+  (* x.f[e2] = e3 *)
   | Assign (Index (Field (_, f, st) as e1, e2), e3, t) ->
       let known = add_mut_field st f known in
       let known, e2 = infer env usize known e2 in
       let known, e3 = infer env t known e3 in
       known, Assign (Index (e1, e2), e3, t)
 
+  (* (&atom)[e2] = e3 *)
   | Assign (Index (Borrow (_, (Open { atom; _ } as e1)), e2), e3, t) ->
       (* KPrint.bprintf "[infer-mut,assign] %a\n" PrintMiniRust.pexpr e; *)
       let known = add_mut_var atom known in
@@ -222,17 +229,27 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Assign (Field (_, "1", None), _, _) ->
       failwith "TODO: assignment on slice"
 
+  (* (atom.f)[e2] = e3 *)
   | Assign (Field (Index ((Open {atom; _} as e1), e2), f, st), e3, t) ->
       let known = add_mut_borrow atom known in
       let known, e2 = infer env usize known e2 in
       let known, e3 = infer env t known e3 in
       known, Assign (Field (Index (e1, e2), f, st), e3, t)
 
+  (* (&n)[e2] = e3 *)
   | Assign (Index (Borrow (_, Name n), e2), e3, t) ->
       (* This case should only occur for globals. For now, we simply mutably borrow it *)
       let known, e2 = infer env usize known e2 in
       let known, e3 = infer env t known e3 in
       known, Assign (Index (Borrow (Mut, Name n), e2), e3, t)
+
+  (* (&(&atom)[e2])[e3] = e4 *)
+  | Assign (Index (Borrow (_, Index (Borrow (_, (Open {atom; _} as e1)), e2)), e3), e4, t) ->
+      let known = add_mut_var atom known in
+      let known, e2 = infer env usize known e2 in
+      let known, e3 = infer env usize known e3 in
+      let known, e4 = infer env t known e4 in
+      known, Assign (Index (Borrow (Mut, Index (Borrow (Mut, e1), e2)), e3), e4, t)
 
   | Assign _ ->
       KPrint.bprintf "[infer-mut,assign] %a unsupported\n" PrintMiniRust.pexpr e;
