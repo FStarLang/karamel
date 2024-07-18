@@ -316,8 +316,17 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
          in known. *)
       known, e
 
-  | Match _ ->
-      failwith "TODO: Match"
+  | Match (e, arms) ->
+      (* For now, all pattern-matching occur on simple terms, e.g., an enum for an
+         alg, hence we do not mutify the scrutinee. If this happens to be needed,
+         we would need to add the expected type of the scrutinee to the Match node,
+         similar to what is done for Assign and Field, in order to recurse on
+         the scrutinee *)
+      let known, arms = List.fold_left_map (fun known (pat, e) ->
+          let known, e = infer env expected known e in
+          known, (pat, e)
+        ) known arms in
+      known, Match (e, arms) 
 
   | Index (e1, e2) ->
       (* The cases where we perform an assignment on an index should be caught
