@@ -606,10 +606,11 @@ let builtins : (name * typ list) list = [
   [ "lowstar"; "endianness"; "store64_le" ], [Ref (None, Mut, Slice u8); u64];
 
   (* LowStar.Endianness, big-endian *)
+  [ "lowstar"; "endianness"; "store16_be" ], [Ref (None, Mut, Slice u8); u16];
   [ "lowstar"; "endianness"; "load32_be" ], [Ref (None, Shared, Slice u8)];
-  [ "lowstar"; "endianness"; "store32_be" ], [Ref (None, Mut, Slice u8); Constant UInt32];
+  [ "lowstar"; "endianness"; "store32_be" ], [Ref (None, Mut, Slice u8); u32];
   [ "lowstar"; "endianness"; "load64_be" ], [Ref (None, Shared, Slice u8)];
-  [ "lowstar"; "endianness"; "store64_be" ], [Ref (None, Mut, Slice u8); Constant UInt64];
+  [ "lowstar"; "endianness"; "store64_be" ], [Ref (None, Mut, Slice u8); u64];
   [ "lowstar"; "endianness"; "load128_be" ], [Ref (None, Shared, Slice u8)];
   [ "lowstar"; "endianness"; "store128_be" ],
     [Ref (None, Mut, Slice u8); Name (["fstar"; "uint128"; "uint128"], [])];
