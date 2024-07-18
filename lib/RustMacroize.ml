@@ -11,7 +11,7 @@ let unroll_loops = object
     let e2 = super#visit_expr () e2 in 
 
     match e1 with
-    | Range (Some (Constant (UInt32, init as k_init) as e_init), Some (Constant (UInt32, max as k_max)), false)
+    | Range (Some (Constant (UInt32, init as k_init) as e_init), Some (Constant (UInt32, max)), false)
       when (
         let init = int_of_string init in
         let max = int_of_string max in
@@ -30,7 +30,7 @@ let unroll_loops = object
           Constant (CInt, string_of_int n_loops);
           ConstantString b.name;
           Constant k_init;
-          Constant k_max;
+          Constant (UInt32, "1");
           e2
         ])
 
