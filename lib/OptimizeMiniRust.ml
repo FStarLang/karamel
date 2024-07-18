@@ -173,10 +173,12 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Call (Operator o, [], _) -> begin match o with
       (* Most operators are wrapping and were translated to a methodcall.
          We list the few remaining ones here *)
+      | Add | Sub
       | BOr | BAnd | BXor | BNot
       | Eq | Neq | Lt | Lte | Gt | Gte
       | And | Or | Xor | Not -> known, e
       | _ ->
+        KPrint.bprintf "[infer-mut,call] %a not supported\n" PrintMiniRust.pexpr e;
         failwith "TODO: operator not supported"
     end
 
@@ -281,7 +283,8 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       begin match m with
       | [ "wrapping_add" ] | [ "wrapping_div" ] | [ "wrapping_mul" ] 
       | [ "wrapping_neg" ] | [ "wrapping_rem" ] | [ "wrapping_shl" ]
-      | [ "wrapping_shr" ] | [ "wrapping_sub" ] ->
+      | [ "wrapping_shr" ] | [ "wrapping_sub" ]
+      | [ "to_vec" ] ->
           known, MethodCall (e1, m, e2)
       | ["split_at"] ->
           assert (List.length e2 = 1);
@@ -498,6 +501,85 @@ let builtins : (name * typ list) list = [
     Ref (None, Mut, Slice u32); Ref (None, Shared, Slice u8); u32;
     Ref (None, Shared, Slice u32)  
   ];
+  [ "vale"; "inline_x64_fadd_inline"; "add_scalar" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64); Ref (None, Shared, Slice u64)
+  ];
+  [ "vale"; "stdcalls_x64_fadd"; "add_scalar_e" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64); Ref (None, Shared, Slice u64)
+  ];
+  [ "vale"; "inline_x64_fadd_inline"; "fadd" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64); Ref (None, Shared, Slice u64)
+  ];
+  [ "vale"; "stdcalls_x64_fadd"; "fadd_e" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64); Ref (None, Shared, Slice u64)
+  ];
+  [ "vale"; "inline_x64_fadd_inline"; "fsub" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64); Ref (None, Shared, Slice u64)
+  ];
+  [ "vale"; "stdcalls_x64_fsub"; "fsub_e" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64); Ref (None, Shared, Slice u64)
+  ];
+  [ "vale"; "inline_x64_fmul_inline"; "fmul" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64);
+    Ref (None, Shared, Slice u64); Ref (None, Mut, Slice u64);
+  ];
+  [ "vale"; "stdcalls_x64_fmul"; "fmul_e" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64);
+    Ref (None, Shared, Slice u64); Ref (None, Mut, Slice u64);
+  ];
+  [ "vale"; "inline_x64_fmul_inline"; "fmul2" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64);
+    Ref (None, Shared, Slice u64); Ref (None, Mut, Slice u64);
+  ];
+  [ "vale"; "stdcalls_x64_fmul"; "fmul2_e" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64);
+    Ref (None, Shared, Slice u64); Ref (None, Mut, Slice u64);
+  ];
+  [ "vale"; "inline_x64_fmul_inline"; "fmul_scalar" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64); u64
+  ];
+  [ "vale"; "stdcalls_x64_fmul"; "fmul_scalar_e" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64); u64
+  ];
+  [ "vale"; "inline_x64_fsqr_inline"; "fsqr" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64); Ref (None, Mut, Slice u64)
+  ];
+  [ "vale"; "stdcalls_x64_fsqr"; "fsqr_e" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64); Ref (None, Mut, Slice u64)
+  ];
+  [ "vale"; "inline_x64_fsqr_inline"; "fsqr2" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64); Ref (None, Mut, Slice u64)
+  ];
+  [ "vale"; "stdcalls_x64_fsqr"; "fsqr2_e" ], [
+    Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64); Ref (None, Mut, Slice u64)
+  ];
+  [ "vale"; "inline_x64_fswap_inline"; "cswap2" ], [
+    u64; Ref (None, Mut, Slice u64); Ref (None, Mut, Slice u64)
+  ];
+  [ "vale"; "stdcalls_x64_fswap"; "cswap2_e" ], [
+    u64; Ref (None, Mut, Slice u64); Ref (None, Mut, Slice u64)
+  ];
+
+  (* TODO: These functions are recursive, and should be handled properly.
+     For now, we hardcode their expected type and mutability in HACL *)
+  [ "hacl"; "bignum"; "bn_karatsuba_mul_uint32"], [
+      u32; Ref (None, Shared, Slice u32); Ref (None, Shared, Slice u32);
+      Ref (None, Mut, Slice u32); Ref (None, Mut, Slice u32)
+  ];
+  [ "hacl"; "bignum"; "bn_karatsuba_mul_uint64"], [
+      u64; Ref (None, Shared, Slice u64); Ref (None, Shared, Slice u64);
+      Ref (None, Mut, Slice u64); Ref (None, Mut, Slice u64)
+  ];
+  [ "hacl"; "bignum"; "bn_karatsuba_sqr_uint32"], [
+      u32; Ref (None, Shared, Slice u32);
+      Ref (None, Mut, Slice u32); Ref (None, Mut, Slice u32)
+  ];
+  [ "hacl"; "bignum"; "bn_karatsuba_sqr_uint64"], [
+      u64; Ref (None, Shared, Slice u64);
+      Ref (None, Mut, Slice u64); Ref (None, Mut, Slice u64)
+  ];
+    
+
 ]
 
 let infer_mut_borrows files =
