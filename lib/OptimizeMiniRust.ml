@@ -52,11 +52,11 @@ let assert_name (t: typ option) = match t with
   | _ -> failwith "impossible: assert_name"
 
 let add_mut_var a known =
-  KPrint.bprintf "%s is let mut\n" (Ast.show_atom_t a);
+  (* KPrint.bprintf "%s is let mut\n" (Ast.show_atom_t a); *)
   { known with v = VarSet.add a known.v }
 
 let add_mut_borrow a known =
-  KPrint.bprintf "%s is &mut\n" (Ast.show_atom_t a);
+  (* KPrint.bprintf "%s is &mut\n" (Ast.show_atom_t a); *)
   { known with r = VarSet.add a known.r }
 
 let want_mut_var a known =
@@ -127,15 +127,15 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
         known, e
 
   | Let (b, e1, e2) ->
-      KPrint.bprintf "[infer-mut,let] %a\n" PrintMiniRust.pexpr e;
+      (* KPrint.bprintf "[infer-mut,let] %a\n" PrintMiniRust.pexpr e; *)
       let a, e2 = open_ b e2 in
-      KPrint.bprintf "[infer-mut,let] opened %s[%s]\n" b.name (show_atom_t a);
+      (* KPrint.bprintf "[infer-mut,let] opened %s[%s]\n" b.name (show_atom_t a); *)
       let known, e2 = infer env expected known e2 in
       let mut_var = want_mut_var a known in
       let mut_borrow = want_mut_borrow a known in
-      KPrint.bprintf "[infer-mut,let-done-e2] %s[%s]: %a let mut ? %b &mut ? %b\n" b.name
+      (* KPrint.bprintf "[infer-mut,let-done-e2] %s[%s]: %a let mut ? %b &mut ? %b\n" b.name
         (show_atom_t a)
-        PrintMiniRust.ptyp b.typ mut_var mut_borrow;
+        PrintMiniRust.ptyp b.typ mut_var mut_borrow; *)
       let t1 = if mut_borrow then make_mut_borrow b.typ else b.typ in
       let known, e1 = infer env t1 known e1 in
       known, Let ({ b with mut = mut_var; typ = t1 }, e1, close a (Var 0) (lift 1 e2))
@@ -184,7 +184,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       failwith "TODO: Call"
 
   | Assign (Open { atom; _ }, e3, t) ->
-      KPrint.bprintf "[infer-mut,assign] %a\n" PrintMiniRust.pexpr e;
+      (* KPrint.bprintf "[infer-mut,assign] %a\n" PrintMiniRust.pexpr e; *)
       let known, e3 = infer env t known e3 in
       add_mut_var atom known, e3
 
@@ -197,7 +197,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
    *)
   | Assign (Index (Field (Open {atom;_}, "0", None) as e1, e2), e3, t)
   | Assign (Index (Field (Open {atom;_}, "1", None) as e1, e2), e3, t) ->
-      KPrint.bprintf "[infer-mut,assign] %a\n" PrintMiniRust.pexpr e;
+      (* KPrint.bprintf "[infer-mut,assign] %a\n" PrintMiniRust.pexpr e; *)
       let known = add_mut_borrow atom known in
       let known, e2 = infer env usize known e2 in
       let known, e3 = infer env t known e3 in
@@ -210,7 +210,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       known, Assign (Index (e1, e2), e3, t)
 
   | Assign (Index (Borrow (_, (Open { atom; _ } as e1)), e2), e3, t) ->
-      KPrint.bprintf "[infer-mut,assign] %a\n" PrintMiniRust.pexpr e;
+      (* KPrint.bprintf "[infer-mut,assign] %a\n" PrintMiniRust.pexpr e; *)
       let known = add_mut_var atom known in
       let known, e2 = infer env usize known e2 in
       let known, e3 = infer env t known e3 in
@@ -225,6 +225,12 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       let known, e2 = infer env usize known e2 in
       let known, e3 = infer env t known e3 in
       known, Assign (Field (Index (e1, e2), f, st), e3, t)
+
+  | Assign (Index (Borrow (_, Name n), e2), e3, t) ->
+      (* This case should only occur for globals. For now, we simply mutably borrow it *)
+      let known, e2 = infer env usize known e2 in
+      let known, e3 = infer env t known e3 in
+      known, Assign (Index (Borrow (Mut, Name n), e2), e3, t)
 
   | Assign _ ->
       KPrint.bprintf "[infer-mut,assign] %a unsupported\n" PrintMiniRust.pexpr e;
@@ -301,7 +307,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       | [ "push" ] ->
           known, MethodCall (e1, m, e2)
       | _ ->
-          KPrint.bprintf "%a\n" PrintMiniRust.pexpr e;
+          KPrint.bprintf "%a unsupported\n" PrintMiniRust.pexpr e;
           failwith "TODO: MethodCall"
       end
 
@@ -357,6 +363,11 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
    Type substitutions are currently not supported, functions with generic
    args should be added directly to Call in infer *)
 let builtins : (name * typ list) list = [
+  (* EverCrypt.TargetConfig. The following two functions are handwritten,
+     while the rest of EverCrypt is generated *)
+  [ "evercrypt"; "targetconfig"; "has_vec128_not_avx" ], [];
+  [ "evercrypt"; "targetconfig"; "has_vec256_not_avx2" ], [];
+
   (* FStar.UInt128 *)
   [ "fstar"; "uint128"; "uint64_to_uint128" ], [Constant UInt64];
   [ "fstar"; "uint128"; "uint128_to_uint64" ], [Name (["fstar"; "uint128"; "uint128"], [])];
@@ -467,23 +478,23 @@ let infer_mut_borrows files =
       let env, decls = List.fold_left (fun (env, decls) decl ->
         match decl with
         | Function ({ name; body; return_type; parameters; _ } as f) ->
-            KPrint.bprintf "[infer-mut] visiting %s\n%a\n" (String.concat "." name)
-              PrintMiniRust.pdecl decl;
+            (* KPrint.bprintf "[infer-mut] visiting %s\n%a\n" (String.concat "." name)
+              PrintMiniRust.pdecl decl; *)
             let atoms, body =
               List.fold_right (fun binder (atoms, e) ->
                 let a, e = open_ binder e in
-                KPrint.bprintf "[infer-mut] opened %s[%s]\n%a\n" binder.name (show_atom_t a) PrintMiniRust.pexpr e;
+                (* KPrint.bprintf "[infer-mut] opened %s[%s]\n%a\n" binder.name (show_atom_t a) PrintMiniRust.pexpr e; *)
                 a :: atoms, e
               ) parameters ([], body)
             in
-            KPrint.bprintf "[infer-mut] done opening %s\n%a\n" (String.concat "." name)
-              PrintMiniRust.pexpr body;
+            (* KPrint.bprintf "[infer-mut] done opening %s\n%a\n" (String.concat "." name)
+              PrintMiniRust.pexpr body; *)
             (* Start the analysis with the current state of struct mutability *)
             let known, body = infer env return_type {known with structs = env.structs} body in
             let parameters, body =
               List.fold_left2 (fun (parameters, e) (binder: binding) atom ->
                 let e = close atom (Var 0) (lift 1 e) in
-                KPrint.bprintf "[infer-mut] closed %s[%s]\n%a\n" binder.name (show_atom_t atom) PrintMiniRust.pexpr e;
+                (* KPrint.bprintf "[infer-mut] closed %s[%s]\n%a\n" binder.name (show_atom_t atom) PrintMiniRust.pexpr e; *)
                 let mut = want_mut_var atom known in
                 let typ = if want_mut_borrow atom known then make_mut_borrow binder.typ else binder.typ in
                 { binder with mut; typ } :: parameters, e
