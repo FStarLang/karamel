@@ -163,7 +163,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
         assert (List.length es = 2);
         let e1, e2 = KList.two es in
         let known, e1 = infer env (Ref (None, Mut, Slice (KList.one targs))) known e1 in
-        let known, e2 = infer env (Constant UInt32) known e2 in
+        let known, e2 = infer env u32 known e2 in
         known, Call (Name n, targs, [ e1; e2 ])
       ) else (
         KPrint.bprintf "[infer-mut,call] recursing on %s\n" (String.concat " :: " n);
@@ -423,9 +423,9 @@ let builtins : (name * typ list) list = [
   [ "fstar"; "uint128"; "lognot" ],
       [Name (["fstar"; "uint128"; "uint128"], [])];
   [ "fstar"; "uint128"; "shift_left" ],
-      [Name (["fstar"; "uint128"; "uint128"], []); Constant UInt32];
+      [Name (["fstar"; "uint128"; "uint128"], []); u32];
   [ "fstar"; "uint128"; "shift_right" ],
-      [Name (["fstar"; "uint128"; "uint128"], []); Constant UInt32];
+      [Name (["fstar"; "uint128"; "uint128"], []); u32];
   [ "fstar"; "uint128"; "eq" ],
       [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
   [ "fstar"; "uint128"; "gt" ],
@@ -440,7 +440,7 @@ let builtins : (name * typ list) list = [
       [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
   [ "fstar"; "uint128"; "gte_mask" ],
       [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
-  [ "fstar"; "uint128"; "uint64_to_uint128" ], [Constant UInt64];
+  [ "fstar"; "uint128"; "uint64_to_uint128" ], [u64];
   [ "fstar"; "uint128"; "uint128_to_uint64" ], [Name (["fstar"; "uint128"; "uint128"], [])];
   [ "fstar"; "uint128"; "mul32" ], [u64; u32];
   [ "fstar"; "uint128"; "mul_wide" ], [u64; u32];
@@ -466,7 +466,7 @@ let builtins : (name * typ list) list = [
     [Name (["lib"; "intvector_intrinsics"; "vec128"], []);
      Name (["lib"; "intvector_intrinsics"; "vec128"], [])];
   [ "lib"; "intvector_intrinsics"; "vec128_extract64"],
-    [Name (["lib"; "intvector_intrinsics"; "vec128"], []); Constant UInt32];
+    [Name (["lib"; "intvector_intrinsics"; "vec128"], []); u32];
   [ "lib"; "intvector_intrinsics"; "vec128_gt64"],
     [Name (["lib"; "intvector_intrinsics"; "vec128"], []);
      Name (["lib"; "intvector_intrinsics"; "vec128"], [])];
@@ -484,9 +484,8 @@ let builtins : (name * typ list) list = [
   [ "lib"; "intvector_intrinsics"; "vec128_interleave_high64"],
     [Name (["lib"; "intvector_intrinsics"; "vec128"], []);
      Name (["lib"; "intvector_intrinsics"; "vec128"], [])];
-  [ "lib"; "intvector_intrinsics"; "vec128_load32"], [Constant UInt32];
-  [ "lib"; "intvector_intrinsics"; "vec128_load32s"],
-    [ Constant UInt32; Constant UInt32; Constant UInt32; Constant UInt32];
+  [ "lib"; "intvector_intrinsics"; "vec128_load32"], [u32];
+  [ "lib"; "intvector_intrinsics"; "vec128_load32s"], [u32; u32; u32; u32];
   [ "lib"; "intvector_intrinsics"; "vec128_load32_be"], [Ref (None, Shared, Slice u8)];
   [ "lib"; "intvector_intrinsics"; "vec128_load32_le"], [Ref (None, Shared, Slice u8)];
   [ "lib"; "intvector_intrinsics"; "vec128_load64"], [u64];
@@ -503,15 +502,17 @@ let builtins : (name * typ list) list = [
     [Name (["lib"; "intvector_intrinsics"; "vec128"], []);
      Name (["lib"; "intvector_intrinsics"; "vec128"], [])];
   [ "lib"; "intvector_intrinsics"; "vec128_rotate_left32"],
-    [Name (["lib"; "intvector_intrinsics"; "vec128"], []); Constant UInt32];
+    [Name (["lib"; "intvector_intrinsics"; "vec128"], []); u32];
   [ "lib"; "intvector_intrinsics"; "vec128_rotate_right32"],
-    [Name (["lib"; "intvector_intrinsics"; "vec128"], []); Constant UInt32];
+    [Name (["lib"; "intvector_intrinsics"; "vec128"], []); u32];
   [ "lib"; "intvector_intrinsics"; "vec128_rotate_right_lanes32"],
-    [Name (["lib"; "intvector_intrinsics"; "vec128"], []); Constant UInt32];
+    [Name (["lib"; "intvector_intrinsics"; "vec128"], []); u32];
   [ "lib"; "intvector_intrinsics"; "vec128_shift_left64"],
-    [Name (["lib"; "intvector_intrinsics"; "vec128"], []); Constant UInt32];
+    [Name (["lib"; "intvector_intrinsics"; "vec128"], []); u32];
+  [ "lib"; "intvector_intrinsics"; "vec128_shift_right32"],
+    [Name (["lib"; "intvector_intrinsics"; "vec128"], []); u32];
   [ "lib"; "intvector_intrinsics"; "vec128_shift_right64"],
-    [Name (["lib"; "intvector_intrinsics"; "vec128"], []); Constant UInt32];
+    [Name (["lib"; "intvector_intrinsics"; "vec128"], []); u32];
   [ "lib"; "intvector_intrinsics"; "vec128_smul64"],
     [Name (["lib"; "intvector_intrinsics"; "vec128"], []); u64];
   [ "lib"; "intvector_intrinsics"; "vec128_store32_be"],
@@ -567,9 +568,8 @@ let builtins : (name * typ list) list = [
   [ "lib"; "intvector_intrinsics"; "vec256_load32s"], [u32; u32; u32; u32; u32; u32; u32; u32]; 
   [ "lib"; "intvector_intrinsics"; "vec256_load32_be"], [Ref (None, Shared, Slice u8)];
   [ "lib"; "intvector_intrinsics"; "vec256_load32_le"], [Ref (None, Shared, Slice u8)];
-  [ "lib"; "intvector_intrinsics"; "vec256_load64"], [Constant UInt64];
-  [ "lib"; "intvector_intrinsics"; "vec256_load64s"],
-    [ Constant UInt64; Constant UInt64; Constant UInt64; Constant UInt64];
+  [ "lib"; "intvector_intrinsics"; "vec256_load64"], [u64];
+  [ "lib"; "intvector_intrinsics"; "vec256_load64s"], [u64; u64; u64; u64];
   [ "lib"; "intvector_intrinsics"; "vec256_load64_be"], [Ref (None, Shared, Slice u8)];
   [ "lib"; "intvector_intrinsics"; "vec256_load64_le"], [Ref (None, Shared, Slice u8)];
   [ "lib"; "intvector_intrinsics"; "vec256_lognot"],
@@ -581,19 +581,21 @@ let builtins : (name * typ list) list = [
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
      Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
   [ "lib"; "intvector_intrinsics"; "vec256_rotate_left32"],
-    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); u32];
   [ "lib"; "intvector_intrinsics"; "vec256_rotate_right32"],
-    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); u32];
   [ "lib"; "intvector_intrinsics"; "vec256_rotate_right64"],
-    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); u32];
   [ "lib"; "intvector_intrinsics"; "vec256_rotate_right_lanes64"],
-    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); u32];
   [ "lib"; "intvector_intrinsics"; "vec256_shift_left64"],
-    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); u32];
   [ "lib"; "intvector_intrinsics"; "vec256_shift_right"],
-    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); u32];
+  [ "lib"; "intvector_intrinsics"; "vec256_shift_right32"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); u32];
   [ "lib"; "intvector_intrinsics"; "vec256_shift_right64"],
-    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); u32];
   [ "lib"; "intvector_intrinsics"; "vec256_smul64"],
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []); u64];
   [ "lib"; "intvector_intrinsics"; "vec256_store32_be"],
