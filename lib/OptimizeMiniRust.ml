@@ -324,8 +324,10 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
               as the left argument of copy_from_slice *)
           | _ -> failwith "ill-formed copy_from_slice"
           end
-      | [ "push" ] ->
-          known, MethodCall (e1, m, e2)
+      | [ "push" ] -> begin match e1 with
+          | Open {atom; _} -> add_mut_var atom known, MethodCall (e1, m, e2)
+          | _ -> failwith "TODO: push on complex expressions"
+          end
       | _ ->
           KPrint.bprintf "%a unsupported\n" PrintMiniRust.pexpr e;
           failwith "TODO: MethodCall"
