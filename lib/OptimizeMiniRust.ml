@@ -399,13 +399,13 @@ let builtins : (name * typ list) list = [
   [ "lib"; "intvector_intrinsics"; "vec128_load32"], [Constant UInt32];
   [ "lib"; "intvector_intrinsics"; "vec128_load32s"],
     [ Constant UInt32; Constant UInt32; Constant UInt32; Constant UInt32];
-  [ "lib"; "intvector_intrinsics"; "vec128_load32_be"], [Ref (None, Shared, Constant UInt8)];
+  [ "lib"; "intvector_intrinsics"; "vec128_load32_be"], [Ref (None, Shared, Slice u8)];
   [ "lib"; "intvector_intrinsics"; "vec128_rotate_right32"],
     [Name (["lib"; "intvector_intrinsics"; "vec128"], []); Constant UInt32];
   [ "lib"; "intvector_intrinsics"; "vec128_rotate_right_lanes32"],
     [Name (["lib"; "intvector_intrinsics"; "vec128"], []); Constant UInt32];
   [ "lib"; "intvector_intrinsics"; "vec128_store32_le"],
-    [Ref (None, Mut, Constant UInt8); Name (["lib"; "intvector_intrinsics"; "vec128"], [])];
+    [Ref (None, Mut, Slice u8); Name (["lib"; "intvector_intrinsics"; "vec128"], [])];
   [ "lib"; "intvector_intrinsics"; "vec128_xor"],
     [Name (["lib"; "intvector_intrinsics"; "vec128"], []);
      Name (["lib"; "intvector_intrinsics"; "vec128"], [])];
@@ -432,8 +432,8 @@ let builtins : (name * typ list) list = [
   [ "lib"; "intvector_intrinsics"; "vec256_load64"], [Constant UInt64];
   [ "lib"; "intvector_intrinsics"; "vec256_load64s"],
     [ Constant UInt64; Constant UInt64; Constant UInt64; Constant UInt64];
-  [ "lib"; "intvector_intrinsics"; "vec256_load64_be"], [Ref (None, Shared, Constant UInt8)];
-  [ "lib"; "intvector_intrinsics"; "vec256_load64_le"], [Ref (None, Shared, Constant UInt8)];
+  [ "lib"; "intvector_intrinsics"; "vec256_load64_be"], [Ref (None, Shared, Slice u8)];
+  [ "lib"; "intvector_intrinsics"; "vec256_load64_le"], [Ref (None, Shared, Slice u8)];
   [ "lib"; "intvector_intrinsics"; "vec256_lognot"],
     [Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
   [ "lib"; "intvector_intrinsics"; "vec256_or"],
@@ -448,25 +448,31 @@ let builtins : (name * typ list) list = [
   [ "lib"; "intvector_intrinsics"; "vec256_shift_right64"],
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
   [ "lib"; "intvector_intrinsics"; "vec256_store64_le"],
-    [Ref (None, Mut, Constant UInt8); Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+    [Ref (None, Mut, Slice u8); Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
   [ "lib"; "intvector_intrinsics"; "vec256_xor"],
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
      Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
 
   (* LowStar.Endianness *)
-  [ "lowstar"; "endianness"; "load32_be" ], [Ref (None, Shared, Constant UInt8)];
-  [ "lowstar"; "endianness"; "load32_le" ], [Ref (None, Shared, Constant UInt8)];
-  [ "lowstar"; "endianness"; "store32_be" ], [Ref (None, Mut, Constant UInt8); Constant UInt32];
-  [ "lowstar"; "endianness"; "store32_le" ], [Ref (None, Mut, Constant UInt8); Constant UInt32];
-  [ "lowstar"; "endianness"; "load64_be" ], [Ref (None, Shared, Constant UInt8)];
-  [ "lowstar"; "endianness"; "load64_le" ], [Ref (None, Shared, Constant UInt8)];
-  [ "lowstar"; "endianness"; "store64_be" ], [Ref (None, Mut, Constant UInt8); Constant UInt64];
-  [ "lowstar"; "endianness"; "store64_le" ], [Ref (None, Mut, Constant UInt8); Constant UInt64];
+  [ "lowstar"; "endianness"; "load32_be" ], [Ref (None, Shared, Slice u8)];
+  [ "lowstar"; "endianness"; "load32_le" ], [Ref (None, Shared, Slice u8)];
+  [ "lowstar"; "endianness"; "store32_be" ], [Ref (None, Mut, Slice u8); Constant UInt32];
+  [ "lowstar"; "endianness"; "store32_le" ], [Ref (None, Mut, Slice u8); Constant UInt32];
+  [ "lowstar"; "endianness"; "load64_be" ], [Ref (None, Shared, Slice u8)];
+  [ "lowstar"; "endianness"; "load64_le" ], [Ref (None, Shared, Slice u8)];
+  [ "lowstar"; "endianness"; "store64_be" ], [Ref (None, Mut, Slice u8); Constant UInt64];
+  [ "lowstar"; "endianness"; "store64_le" ], [Ref (None, Mut, Slice u8); Constant UInt64];
   [ "lowstar"; "endianness"; "store128_be" ],
-    [Ref (None, Mut, Constant UInt8); Name (["fstar"; "uint128"; "uint128"], [])];
+    [Ref (None, Mut, Slice u8); Name (["fstar"; "uint128"; "uint128"], [])];
 
   (* Vec *)
   [ "Vec"; "new" ], [];
+
+  (* Vale assembly functions marked as extern. This should probably be handled earlier *)
+  [ "vale"; "stdcalls_x64_sha"; "sha256_update"], [
+    Ref (None, Mut, Slice u32); Ref (None, Shared, Slice u8); u32;
+    Ref (None, Shared, Slice u32)  
+  ];
 ]
 
 let infer_mut_borrows files =

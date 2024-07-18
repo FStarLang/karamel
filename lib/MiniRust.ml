@@ -53,6 +53,7 @@ let box t =
   App (Name (["Box"], []), [t])
 
 let bool = Constant Bool
+let u8 = Constant UInt8
 let u32 = Constant UInt32
 let usize = Constant SizeT
 
