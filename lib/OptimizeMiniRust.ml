@@ -501,10 +501,16 @@ let builtins : (name * typ list) list = [
      Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
   [ "lib"; "intvector_intrinsics"; "vec256_insert64"],
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []); u64; u32];
+  [ "lib"; "intvector_intrinsics"; "vec256_interleave_low32"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
   [ "lib"; "intvector_intrinsics"; "vec256_interleave_low64"],
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
      Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
   [ "lib"; "intvector_intrinsics"; "vec256_interleave_low128"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec256_interleave_high32"],
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
      Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
   [ "lib"; "intvector_intrinsics"; "vec256_interleave_high64"],
@@ -513,6 +519,10 @@ let builtins : (name * typ list) list = [
   [ "lib"; "intvector_intrinsics"; "vec256_interleave_high128"],
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
      Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec256_load32"], [u32];
+  [ "lib"; "intvector_intrinsics"; "vec256_load32s"], [u32; u32; u32; u32; u32; u32; u32; u32]; 
+  [ "lib"; "intvector_intrinsics"; "vec256_load32_be"], [Ref (None, Shared, Slice u8)];
+  [ "lib"; "intvector_intrinsics"; "vec256_load32_le"], [Ref (None, Shared, Slice u8)];
   [ "lib"; "intvector_intrinsics"; "vec256_load64"], [Constant UInt64];
   [ "lib"; "intvector_intrinsics"; "vec256_load64s"],
     [ Constant UInt64; Constant UInt64; Constant UInt64; Constant UInt64];
@@ -526,6 +536,10 @@ let builtins : (name * typ list) list = [
   [ "lib"; "intvector_intrinsics"; "vec256_or"],
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
      Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec256_rotate_left32"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
+  [ "lib"; "intvector_intrinsics"; "vec256_rotate_right32"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
   [ "lib"; "intvector_intrinsics"; "vec256_rotate_right64"],
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
   [ "lib"; "intvector_intrinsics"; "vec256_rotate_right_lanes64"],
@@ -538,6 +552,10 @@ let builtins : (name * typ list) list = [
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
   [ "lib"; "intvector_intrinsics"; "vec256_smul64"],
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []); u64];
+  [ "lib"; "intvector_intrinsics"; "vec256_store32_be"],
+    [Ref (None, Mut, Slice u8); Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec256_store32_le"],
+    [Ref (None, Mut, Slice u8); Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
   [ "lib"; "intvector_intrinsics"; "vec256_store64_be"],
     [Ref (None, Mut, Slice u8); Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
   [ "lib"; "intvector_intrinsics"; "vec256_store64_le"],
