@@ -389,17 +389,44 @@ let builtins : (name * typ list) list = [
 
 
   (* FStar.UInt128 *)
-  [ "fstar"; "uint128"; "uint64_to_uint128" ], [Constant UInt64];
-  [ "fstar"; "uint128"; "uint128_to_uint64" ], [Name (["fstar"; "uint128"; "uint128"], [])];
   [ "fstar"; "uint128"; "add" ],
       [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
   [ "fstar"; "uint128"; "add_mod" ],
       [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
-  [ "fstar"; "uint128"; "mul_wide" ], [Constant UInt64; Constant UInt64];
+  [ "fstar"; "uint128"; "sub" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "sub_mod" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "logand" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "logxor" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "logor" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "lognot" ],
+      [Name (["fstar"; "uint128"; "uint128"], [])];
   [ "fstar"; "uint128"; "shift_left" ],
       [Name (["fstar"; "uint128"; "uint128"], []); Constant UInt32];
   [ "fstar"; "uint128"; "shift_right" ],
       [Name (["fstar"; "uint128"; "uint128"], []); Constant UInt32];
+  [ "fstar"; "uint128"; "eq" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "gt" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "lt" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "gte" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "lte" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "eq_mask" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "gte_mask" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "uint64_to_uint128" ], [Constant UInt64];
+  [ "fstar"; "uint128"; "uint128_to_uint64" ], [Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "mul32" ], [u64; u32];
+  [ "fstar"; "uint128"; "mul_wide" ], [u64; u32];
 
   (* Lib.Inttypes_Intrinsics *)
   [ "lib"; "inttypes_intrinsics"; "add_carry_u32"], [ u32; u32; u32; Ref (None, Mut, Slice u32) ];
@@ -566,6 +593,9 @@ let builtins : (name * typ list) list = [
   [ "lib"; "intvector_intrinsics"; "vec256_xor"],
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
      Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+
+  (* Lib.RandomBuffer_System *)
+  [ "lib"; "randombuffer_system"; "randombytes"], [Ref (None, Mut, Slice u8); u32]; 
 
   (* LowStar.Endianness, little-endian *)
   [ "lowstar"; "endianness"; "load16_le" ], [Ref (None, Shared, Slice u8)];
