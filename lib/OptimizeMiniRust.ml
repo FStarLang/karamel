@@ -360,8 +360,12 @@ let builtins : (name * typ list) list = [
   (* FStar.UInt128 *)
   [ "fstar"; "uint128"; "uint64_to_uint128" ], [Constant UInt64];
   [ "fstar"; "uint128"; "uint128_to_uint64" ], [Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "add" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
   [ "fstar"; "uint128"; "add_mod" ],
       [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "shift_left" ],
+      [Name (["fstar"; "uint128"; "uint128"], []); Constant UInt32];
   [ "fstar"; "uint128"; "shift_right" ],
       [Name (["fstar"; "uint128"; "uint128"], []); Constant UInt32];
 
@@ -369,8 +373,22 @@ let builtins : (name * typ list) list = [
   [ "lib"; "intvector_intrinsics"; "vec128_add32"],
     [Name (["lib"; "intvector_intrinsics"; "vec128"], []);
      Name (["lib"; "intvector_intrinsics"; "vec128"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec128_interleave_low32"],
+    [Name (["lib"; "intvector_intrinsics"; "vec128"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec128"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec128_interleave_low64"],
+    [Name (["lib"; "intvector_intrinsics"; "vec128"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec128"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec128_interleave_high32"],
+    [Name (["lib"; "intvector_intrinsics"; "vec128"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec128"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec128_interleave_high64"],
+    [Name (["lib"; "intvector_intrinsics"; "vec128"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec128"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec128_load32"], [Constant UInt32];
   [ "lib"; "intvector_intrinsics"; "vec128_load32s"],
     [ Constant UInt32; Constant UInt32; Constant UInt32; Constant UInt32];
+  [ "lib"; "intvector_intrinsics"; "vec128_load32_be"], [Ref (None, Shared, Constant UInt8)];
   [ "lib"; "intvector_intrinsics"; "vec128_rotate_right32"],
     [Name (["lib"; "intvector_intrinsics"; "vec128"], []); Constant UInt32];
   [ "lib"; "intvector_intrinsics"; "vec128_rotate_right_lanes32"],
@@ -385,11 +403,38 @@ let builtins : (name * typ list) list = [
   [ "lib"; "intvector_intrinsics"; "vec256_add64"],
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
      Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec256_and"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec256_interleave_low64"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec256_interleave_low128"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec256_interleave_high64"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec256_interleave_high128"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec256_load64"], [Constant UInt64];
   [ "lib"; "intvector_intrinsics"; "vec256_load64s"],
     [ Constant UInt64; Constant UInt64; Constant UInt64; Constant UInt64];
+  [ "lib"; "intvector_intrinsics"; "vec256_load64_be"], [Ref (None, Shared, Constant UInt8)];
+  [ "lib"; "intvector_intrinsics"; "vec256_load64_le"], [Ref (None, Shared, Constant UInt8)];
+  [ "lib"; "intvector_intrinsics"; "vec256_lognot"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
+  [ "lib"; "intvector_intrinsics"; "vec256_or"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
+     Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
   [ "lib"; "intvector_intrinsics"; "vec256_rotate_right64"],
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
   [ "lib"; "intvector_intrinsics"; "vec256_rotate_right_lanes64"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
+  [ "lib"; "intvector_intrinsics"; "vec256_shift_left64"],
+    [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
+  [ "lib"; "intvector_intrinsics"; "vec256_shift_right64"],
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []); Constant UInt32];
   [ "lib"; "intvector_intrinsics"; "vec256_store64_le"],
     [Ref (None, Mut, Constant UInt8); Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
@@ -398,10 +443,16 @@ let builtins : (name * typ list) list = [
      Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
 
   (* LowStar.Endianness *)
+  [ "lowstar"; "endianness"; "load32_be" ], [Ref (None, Shared, Constant UInt8)];
   [ "lowstar"; "endianness"; "load32_le" ], [Ref (None, Shared, Constant UInt8)];
+  [ "lowstar"; "endianness"; "store32_be" ], [Ref (None, Mut, Constant UInt8); Constant UInt32];
   [ "lowstar"; "endianness"; "store32_le" ], [Ref (None, Mut, Constant UInt8); Constant UInt32];
+  [ "lowstar"; "endianness"; "load64_be" ], [Ref (None, Shared, Constant UInt8)];
   [ "lowstar"; "endianness"; "load64_le" ], [Ref (None, Shared, Constant UInt8)];
+  [ "lowstar"; "endianness"; "store64_be" ], [Ref (None, Mut, Constant UInt8); Constant UInt64];
   [ "lowstar"; "endianness"; "store64_le" ], [Ref (None, Mut, Constant UInt8); Constant UInt64];
+  [ "lowstar"; "endianness"; "store128_be" ],
+    [Ref (None, Mut, Constant UInt8); Name (["fstar"; "uint128"; "uint128"], [])];
 
   (* Vec *)
   [ "Vec"; "new" ], [];
