@@ -54,7 +54,9 @@ let box t =
 
 let bool = Constant Bool
 let u8 = Constant UInt8
+let u16 = Constant UInt16
 let u32 = Constant UInt32
+let u64 = Constant UInt64
 let usize = Constant SizeT
 
 type binding = { name: string; typ: typ; mut: bool }

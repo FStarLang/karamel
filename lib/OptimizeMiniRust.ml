@@ -368,6 +368,23 @@ let builtins : (name * typ list) list = [
   [ "evercrypt"; "targetconfig"; "has_vec128_not_avx" ], [];
   [ "evercrypt"; "targetconfig"; "has_vec256_not_avx2" ], [];
 
+  (* FStar.UInt8 *)
+  [ "fstar"; "uint8"; "eq_mask" ], [ u8; u8 ];
+  [ "fstar"; "uint8"; "gte_mask" ], [ u8; u8 ];
+
+  (* FStar.UInt16 *)
+  [ "fstar"; "uint16"; "eq_mask" ], [ u16; u16 ];
+  [ "fstar"; "uint16"; "gte_mask" ], [ u16; u16 ];
+
+  (* FStar.UInt32 *)
+  [ "fstar"; "uint32"; "eq_mask" ], [ u32; u32 ];
+  [ "fstar"; "uint32"; "gte_mask" ], [ u32; u32 ];
+
+  (* FStar.UInt64 *)
+  [ "fstar"; "uint64"; "eq_mask" ], [ u64; u64 ];
+  [ "fstar"; "uint64"; "gte_mask" ], [ u64; u64 ];
+
+
   (* FStar.UInt128 *)
   [ "fstar"; "uint128"; "uint64_to_uint128" ], [Constant UInt64];
   [ "fstar"; "uint128"; "uint128_to_uint64" ], [Name (["fstar"; "uint128"; "uint128"], [])];
@@ -375,10 +392,18 @@ let builtins : (name * typ list) list = [
       [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
   [ "fstar"; "uint128"; "add_mod" ],
       [Name (["fstar"; "uint128"; "uint128"], []); Name (["fstar"; "uint128"; "uint128"], [])];
+  [ "fstar"; "uint128"; "mul_wide" ], [Constant UInt64; Constant UInt64];
   [ "fstar"; "uint128"; "shift_left" ],
       [Name (["fstar"; "uint128"; "uint128"], []); Constant UInt32];
   [ "fstar"; "uint128"; "shift_right" ],
       [Name (["fstar"; "uint128"; "uint128"], []); Constant UInt32];
+
+  (* Lib.Inttypes_Intrinsics *)
+  [ "lib"; "inttypes_intrinsics"; "add_carry_u32"], [ u32; u32; u32; Ref (None, Mut, Slice u32) ];
+  [ "lib"; "inttypes_intrinsics"; "sub_borrow_u32"], [ u32; u32; u32; Ref (None, Mut, Slice u32) ];
+  [ "lib"; "inttypes_intrinsics"; "add_carry_u64"], [ u64; u64; u64; Ref (None, Mut, Slice u64) ];
+  [ "lib"; "inttypes_intrinsics"; "sub_borrow_u64"], [ u64; u64; u64; Ref (None, Mut, Slice u64) ];
+
 
   (* Lib.IntVector_intrinsics, Vec128 *)
   [ "lib"; "intvector_intrinsics"; "vec128_add32"],
