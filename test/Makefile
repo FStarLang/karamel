@@ -298,7 +298,7 @@ WasmTrap.wasm-test: NEGATIVE = true
 
 .PRECIOUS: %.rs
 %.rs: $(ALL_KRML_FILES) $(KRML_BIN)
-	$(KRML) -minimal -bundle $(notdir $*)=\* \
+	$(KRML) -minimal -bundle $(notdir $(subst rust,Rust,$*))=\* \
 	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)
 	$(SED) -i 's/\(mutation..\)/\1\nmod lowstar { pub mod ignore { pub fn ignore<T>(_x: T) {}}}\n/' $@
 	echo 'fn main () { let r = main_ (); if r != 0 { println!("main_ returned: {}\\n", r); panic!() } }' >> $@
@@ -306,6 +306,6 @@ WasmTrap.wasm-test: NEGATIVE = true
 %.rust-test: $(OUTPUT_DIR)/%.rs
 	rustc $< && ./$*
 
-rust: $(RUST_FILES) $(patsubst Rust%.fst,Rust%.rust-test,$(filter-out Rust1.fst Rust2.fst Rust3.fst,$(wildcard Rust*.fst)))
+rust: $(RUST_FILES) $(patsubst Rust%.fst,rust%.rust-test,$(filter-out Rust1.fst Rust2.fst Rust3.fst,$(wildcard Rust*.fst)))
 
 RUST_FILES = $(patsubst %.rs,%.rust-test,$(wildcard Rust*.fst))
