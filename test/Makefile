@@ -39,7 +39,7 @@ BROKEN		= \
   HigherOrder6.fst ForwardDecl.fst BlitNull.fst \
   Ctypes1.fst Ctypes2.fst Ctypes3.fst Ctypes4.fst \
   AbstractStructAbstract.fst MonomorphizationSeparate1.fst \
-  Layered.fst GlobalInit2.fst $(wildcard rust*.fst)
+  Layered.fst GlobalInit2.fst $(wildcard Rust*.fst)
 
 # Lowlevel is not really broken, but its test shouldn't be run since it's a
 # special file and doesn't have a main.
@@ -306,6 +306,6 @@ WasmTrap.wasm-test: NEGATIVE = true
 %.rust-test: $(OUTPUT_DIR)/%.rs
 	rustc $< && ./$*
 
-rust: $(RUST_FILES) $(patsubst %.fst,%.rust-test,$(filter-out rust1.fst rust2.fst rust3.fst,$(wildcard rust*.fst)))
+rust: $(RUST_FILES) $(patsubst %.fst,%.rust-test,$(filter-out Rust1.fst Rust2.fst Rust3.fst,$(wildcard Rust*.fst)))
 
-RUST_FILES = $(patsubst %.rs,%.rust-test,$(wildcard rust*.fst))
+RUST_FILES = $(patsubst %.rs,%.rust-test,$(wildcard Rust*.fst))
