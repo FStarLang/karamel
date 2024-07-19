@@ -107,9 +107,14 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
         | Field (Open _, "0", None)
         | Field (Open _, "1", None) -> failwith "TODO: borrowing slices"
 
-        | Field (_, f, t) ->
-            let known = add_mut_field t f known in
-            known, Borrow (Mut, e)
+        | Field (Open {atom; _}, _, _) ->
+            add_mut_var atom known, Borrow (Mut, e)
+
+        | Field (Deref (Open {atom; _}), _, _) ->
+            add_mut_borrow atom known, Borrow (Mut, e)
+
+        | Field (Index (Open {atom; _}, _), _, _) ->
+            add_mut_borrow atom known, Borrow (Mut, e)
 
         | _ ->
             KPrint.bprintf "[infer-mut, borrow] borrwing %a is not supported\n" PrintMiniRust.pexpr e;
