@@ -306,6 +306,6 @@ WasmTrap.wasm-test: NEGATIVE = true
 %.rust-test: $(OUTPUT_DIR)/%.rs
 	rustc $< && ./$*
 
-rust: $(RUST_FILES) $(patsubst %.fst,%.rust-test,$(filter-out Rust1.fst Rust2.fst Rust3.fst,$(wildcard Rust*.fst)))
+rust: $(RUST_FILES) $(patsubst Rust%.fst,Rust%.rust-test,$(filter-out Rust1.fst Rust2.fst Rust3.fst,$(wildcard Rust*.fst)))
 
 RUST_FILES = $(patsubst %.rs,%.rust-test,$(wildcard Rust*.fst))
