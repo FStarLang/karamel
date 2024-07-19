@@ -372,7 +372,7 @@ and print_expr env (context: int) (e: expr): document =
       | None ->
           empty
       end
-  | Assign (e1, e2) ->
+  | Assign (e1, e2, _) ->
       let mine, left, right = 18, 17, 18 in
       paren_if mine @@
       group (print_expr env left e1 ^^ space ^^ equals ^^
@@ -427,7 +427,7 @@ and print_expr env (context: int) (e: expr): document =
       let mine = 4 in
       paren_if mine @@
       print_expr env mine p ^^ group (brackets (print_expr env max_int e))
-  | Field (e, s) ->
+  | Field (e, s, _) ->
       group (print_expr env 3 e ^^ dot ^^ string s)
   | Deref e ->
       let mine = 6 in
@@ -441,6 +441,8 @@ and print_expr env (context: int) (e: expr): document =
           group @@
           group (print_pat env p ^/^ string "=>") ^^ group (nest 2 (break1 ^^ print_expr env max_int e))
       ) patexprs)
+
+  | Open { name; _ } -> at ^^ string name
 
 and print_pat env (p: pat) =
   match p with
@@ -544,3 +546,4 @@ let print_decls ns ds =
 
 let pexpr = printf_of_pprint (print_expr debug max_int)
 let ptyp = printf_of_pprint (print_typ debug)
+let pdecl = printf_of_pprint (fun x -> snd (print_decl debug x))

@@ -1,5 +1,10 @@
 (* A minimalistic representation of Rust *)
 
+module Name = struct
+  type t = string list
+  let compare = compare
+end
+
 type borrow_kind_ = Mut | Shared
 [@@deriving show]
 
@@ -7,7 +12,7 @@ type borrow_kind = borrow_kind_ [@ opaque ]
 and constant = Constant.t [@ opaque ]
 and width = Constant.width [@ opaque ]
 and op = Constant.op [@ opaque ]
-and name = string list [@ opaque ]
+and name = Name.t [@ opaque ]
 
 (* Some design choices.
    - We don't intend to perform any deep semantic transformations on this Rust
@@ -48,7 +53,10 @@ let box t =
   App (Name (["Box"], []), [t])
 
 let bool = Constant Bool
+let u8 = Constant UInt8
+let u16 = Constant UInt16
 let u32 = Constant UInt32
+let u64 = Constant UInt64
 let usize = Constant SizeT
 
 type binding = { name: string; typ: typ; mut: bool }
@@ -79,7 +87,7 @@ and expr =
   | Unit
   | Panic of string
   | IfThenElse of expr * expr * expr option
-  | Assign of expr * expr
+  | Assign of expr * expr * typ
   | As of expr * typ
   | For of binding * expr * expr
   | While of expr * expr
@@ -90,8 +98,12 @@ and expr =
 
   (* Place expressions *)
   | Var of db_index
+  | Open of open_var
   | Index of expr * expr
-  | Field of expr * string
+  (* The type corresponds to the structure we are accessing.
+     We will store None when accessing a native Rust tuple,
+     corresponding to an array slice *)
+  | Field of expr * string * typ option
 
   (* Operator expressions *)
   | Operator of op
@@ -104,6 +116,12 @@ and pat =
   | Wildcard
   | StructP of name (* TODO *)
 
+and open_var = {
+  name: string;
+  atom: atom_t
+}
+
+and atom_t = Atom.t [@ visitors.opaque]
 
 (* TODO: visitors incompatible with inline records *)
 type decl =
@@ -158,48 +176,92 @@ and trait =
 
 (* Some visitors for name management *)
 
-(* A usable map where the user can hook up to extend, called every time a new
-   binding is added to the environment *)
-class ['self] map = object (self: 'self)
-  inherit [_] map_expr as super
+module DeBruijn = struct
 
-  (* To be overridden by the user *)
-  method extend env _ = env
+  (* A usable map where the user can hook up to extend, called every time a new
+     binding is added to the environment *)
+  class ['self] map = object (self: 'self)
+    inherit [_] map_expr as _super
 
-  (* We list all binding nodes and feed those binders to the environment *)
-  method! visit_Let env b e1 e2 =
-    super#visit_Let (self#extend env b) b e1 e2
+    (* To be overridden by the user *)
+    method extend env _ = env
 
-  method! visit_For env b e1 e2 =
-    super#visit_For (self#extend env b) b e1 e2
+    (* We list all binding nodes and feed those binders to the environment *)
+    method! visit_Let env b e1 e2 =
+      let e1 = self#visit_expr env e1 in
+      let e2 = self#visit_expr (self#extend env b) e2 in
+      Let (b, e1, e2)
+
+    method! visit_For env b e1 e2 =
+      let e1 = self#visit_expr env e1 in
+      let e2 = self#visit_expr (self#extend env b) e2 in
+      For (b, e1, e2)
+  end
+
+  class map_counting = object
+    (* The environment [i] has type [int]. *)
+    inherit [_] map
+
+    (* The environment [i] keeps track of how many binders have been
+       entered. It is incremented at each binder. *)
+    method! extend (i: int) (_: binding) =
+      i + 1
+  end
+
+  class lift (k: int) = object
+    inherit map_counting
+    (* A local variable (one that is less than [i]) is unaffected;
+       a free variable is lifted up by [k]. *)
+    method! visit_Var i j =
+      if j < i then
+        Var j
+      else
+        Var (j + k)
+  end
+
+  class close (a: Atom.t) (e: expr) = object
+    inherit map_counting
+
+    method! visit_Open i ({ atom; _ } as v) =
+      if Atom.equal a atom then
+        (new lift i)#visit_expr 0 e
+      else
+        Open v
+  end
+
+  class subst e2 = object
+    inherit map_counting
+
+    method! visit_Var i j =
+      if j = i then
+        (new lift i)#visit_expr 0 e2
+      else
+        Var (if j < i then j else j - 1)
+  end
+
 end
 
-class map_counting = object
-  (* The environment [i] has type [int]. *)
-  inherit [_] map
-
-  (* The environment [i] keeps track of how many binders have been
-     entered. It is incremented at each binder. *)
-  method! extend (i: int) (_: binding) =
-    i + 1
-end
-
-class lift (k: int) = object
-  inherit map_counting
-  (* A local variable (one that is less than [i]) is unaffected;
-     a free variable is lifted up by [k]. *)
-  method! visit_Var i j =
-    if j < i then
-      Var j
-    else
-      Var (j + k)
-end
-
+(* Lift `expr` by `k` places so as to place it underneath `k` additional
+   binders. *)
 let lift (k: int) (expr: expr): expr =
   if k = 0 then
     expr
   else
-    (new lift k)#visit_expr 0 expr
+    (new DeBruijn.lift k)#visit_expr 0 expr
+
+(* Close `a`, replacing it on the fly with `e2` in `e1` *)
+let close a e2 e1 =
+  (new DeBruijn.close a e2)#visit_expr 0 e1
+
+(* Substitute `e2` for bound variable `i` in `e1` *)
+let subst e2 i e1 =
+  (new DeBruijn.subst e2)#visit_expr i e1
+
+(* Open b in e2, replacing occurrences of a bound variable with the
+   corresponding atom. *)
+let open_ (b: binding) e2 =
+  let atom = Atom.fresh () in
+  atom, subst (Open { atom; name = b.name }) 0 e2
 
 (* Helpers *)
 
