@@ -1156,6 +1156,14 @@ let bind_decl env (d: Ast.decl): env =
       | _ ->
           env
 
+let translate_meta flags =
+  let comments = List.filter_map (function Common.Comment c -> Some c | _ -> None) flags in
+  let comments = List.filter ((<>) "") comments in
+  {
+    (* TODO: replace with something more precise like (Pub | PubCrate) option *)
+    MiniRust.public = not (List.mem Common.Private flags);
+    comment = String.concat "\n" comments;
+  }
 
 let translate_decl env (d: Ast.decl): MiniRust.decl option =
   let env = locate env (Ast.lid_of_decl d) in
@@ -1175,9 +1183,9 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
       let parameters = List.map2 (fun typ a -> { MiniRust.mut = false; name = a.Ast.node.Ast.name; typ }) parameters args in
       let env = List.fold_left push env parameters in
       let _, body = translate_expr_with_type env body return_type in
-      let public = not (List.mem Common.Private flags) in
+      let meta = translate_meta flags in
       let inline = List.mem Common.Inline flags in
-      Some (MiniRust.Function { type_parameters; parameters; return_type; body; name; public; inline })
+      Some (MiniRust.Function { type_parameters; parameters; return_type; body; name; meta; inline })
 
   | DGlobal (flags, lid, _, _t, e) ->
       let name, typ = lookup_decl env lid in
@@ -1190,8 +1198,8 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
         | _ ->
             snd (translate_expr env e)
       in
-      let public = not (List.mem Common.Private flags) in
-      Some (MiniRust.Constant { name; typ; body; public })
+      let meta = translate_meta flags in
+      Some (MiniRust.Constant { name; typ; body; meta })
 
   | DExternal _ ->
       None
@@ -1199,7 +1207,7 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
   | DType (lid, flags, _, _, decl) ->
       (* creative naming for the lifetime *)
       let name = lookup_type env lid in
-      let public = not (List.mem Common.Private flags) in
+      let meta = translate_meta flags in
       match decl with
       | Flat _ ->
           let lifetime =
@@ -1210,11 +1218,11 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
           in
           let generic_params = match lifetime with Some l -> [ MiniRust.Lifetime l ] | None -> [] in
           let fields = LidMap.find lid env.struct_fields in
-          Some (Struct { name; public; fields; generic_params })
+          Some (Struct { name; meta; fields; generic_params })
       | Enum idents ->
           (* No need to do name binding here since there are entirely resolved via the type name. *)
           let items = List.map (fun i -> [ snd i ], None) idents in
-          Some (Enumeration { name; public; items; derives = [ PartialEq; Clone; Copy ] })
+          Some (Enumeration { name; meta; items; derives = [ PartialEq; Clone; Copy ] })
       | Abbrev t ->
           let has_inner_pointer = (object
             inherit [_] Ast.reduce
@@ -1230,7 +1238,7 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
               None, []
           in
           let t = translate_type_with_config env { default_config with lifetime } t in
-          Some (Alias { name; public; body = t; generic_params })
+          Some (Alias { name; meta; body = t; generic_params })
       | Variant _
       | Union _
       | Forward _ ->
