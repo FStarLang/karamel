@@ -461,17 +461,20 @@ and print_array_expr env (e: array_expr) =
 
 let arrow = string "->"
 
-let print_pub p =
-  if p then string "pub" ^^ break1 else empty
+let print_visibility v =
+  match v with
+  | None -> empty
+  | Some Pub -> string "pub" ^^ break1
+  | Some PubCrate -> string "pub(crate)" ^^ break1
 
-let print_inline_and_meta inline { public; comment } =
+let print_inline_and_meta inline { visibility; comment } =
   let inline = if inline then string "#[inline]" ^^ break1 else empty in
   let comment =
     if comment <> "" then
       string "/**" ^^ hardline ^^ string (String.trim comment) ^^ hardline ^^ string "*/" ^^ hardline
     else empty
   in
-  comment ^^ group (inline ^^ print_pub public)
+  comment ^^ group (inline ^^ print_visibility visibility)
 
 let print_meta = print_inline_and_meta false
 
@@ -522,8 +525,8 @@ and print_derives traits =
   string ")]"
 
 and print_struct env fields =
-  separate_map (comma ^^ break1) (fun { name; typ; public } ->
-    group (group (print_pub public ^^ string name ^^ colon) ^/^ group (print_typ env typ))
+  separate_map (comma ^^ break1) (fun { name; typ; visibility } ->
+    group (group (print_visibility visibility ^^ string name ^^ colon) ^/^ group (print_typ env typ))
   ) fields
 
 let failures = ref 0

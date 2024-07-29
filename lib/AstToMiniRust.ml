@@ -1150,7 +1150,7 @@ let bind_decl env (d: Ast.decl): env =
           in
           let fields = List.map (fun (f, (t, _m)) ->
             let f = Option.get f in
-            { MiniRust.name = f; public = true; typ = translate_type_with_config env { box; lifetime } t }
+            { MiniRust.name = f; visibility = Some Pub; typ = translate_type_with_config env { box; lifetime } t }
           ) fields in
           { env with struct_fields = LidMap.add lid fields env.struct_fields }
       | _ ->
@@ -1159,9 +1159,16 @@ let bind_decl env (d: Ast.decl): env =
 let translate_meta flags =
   let comments = List.filter_map (function Common.Comment c -> Some c | _ -> None) flags in
   let comments = List.filter ((<>) "") comments in
+  let visibility =
+    if List.mem Common.Private flags then
+      None
+    else if List.mem Common.Internal flags then
+      Some MiniRust.PubCrate
+    else
+      Some Pub
+  in
   {
-    (* TODO: replace with something more precise like (Pub | PubCrate) option *)
-    MiniRust.public = not (List.mem Common.Private flags);
+    MiniRust.visibility;
     comment = String.concat "\n" comments;
   }
 

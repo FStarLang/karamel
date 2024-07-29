@@ -123,8 +123,10 @@ and open_var = {
 
 and atom_t = Atom.t [@ visitors.opaque]
 
+type visibility = Pub | PubCrate
+
 type meta = {
-  public: bool;
+  visibility: visibility option;
   comment: string;
 }
 
@@ -171,7 +173,7 @@ and item =
 and struct_field = {
   name: string;
   typ: typ;
-  public: bool;
+  visibility: visibility option;
 }
 
 and trait =
