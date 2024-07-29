@@ -18,6 +18,10 @@ RUN sudo apt-get install -y nodejs rust-all
 RUN sudo apt-get install --yes --no-install-recommends python3-pip python3-setuptools python3-distutils
 RUN sudo pip3 install --break-system-packages pytz tzdata sphinx==1.7.2 jinja2==3.0.0 alabaster==0.7.13 sphinx_rtd_theme
 
+# unsafe-yes necessary to handle automatic system dependency changes with depext
+# See https://github.com/ocaml/opam/issues/4814
+ENV OPAMCONFIRMLEVEL=unsafe-yes
+
 # CI proper
 ARG CI_THREADS=24
 ARG CI_BRANCH=master

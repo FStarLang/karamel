@@ -5,9 +5,6 @@ set -x
 
 build_home="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# FIXME: the `opam depext` command should be unnecessary with opam 2.1
-opam depext conf-gmp z3.4.8.5-1 conf-m4
-
 # Identify the F* branch
 if [[ -z "$FSTAR_BRANCH" ]] ; then
     FSTAR_BRANCH=$(jq -c -r '.BranchName' "$build_home"/config.json)

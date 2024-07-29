@@ -35,7 +35,9 @@ SHELL ["/bin/bash", "--login", "-c"]
 ARG OCAML_VERSION=4.12.0
 RUN opam init --compiler=$OCAML_VERSION --disable-sandboxing 
 RUN opam env --set-switch | tee --append $HOME/.profile $HOME/.bashrc $HOME/.bash_profile
-ENV OPAMYES=1
+# unsafe-yes necessary to handle automatic system dependency changes with depext
+# See https://github.com/ocaml/opam/issues/4814
+ENV OPAMCONFIRMLEVEL=unsafe-yes
 
 ADD --chown=opam:opam ./ $HOME/karamel/
 WORKDIR $HOME/karamel
