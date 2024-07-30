@@ -461,30 +461,43 @@ and print_array_expr env (e: array_expr) =
 
 let arrow = string "->"
 
-let print_pub p =
-  if p then string "pub" ^^ break1 else empty
+let print_visibility v =
+  match v with
+  | None -> empty
+  | Some Pub -> string "pub" ^^ break1
+  | Some PubCrate -> string "pub(crate)" ^^ break1
+
+let print_inline_and_meta inline { visibility; comment } =
+  let inline = if inline then string "#[inline]" ^^ break1 else empty in
+  let comment =
+    if comment <> "" then
+      string "/**" ^^ hardline ^^ string (String.trim comment) ^^ hardline ^^ string "*/" ^^ hardline
+    else empty
+  in
+  comment ^^ group (inline ^^ print_visibility visibility)
+
+let print_meta = print_inline_and_meta false
 
 let rec print_decl env (d: decl) =
   let env, target_name = register_global env (name_of_decl d) in
   env, match d with
-  | Function { type_parameters; parameters; return_type; body; public; inline; _ } ->
+  | Function { type_parameters; parameters; return_type; body; meta; inline; _ } ->
       assert (type_parameters = 0);
       let parameters = List.map (fun (b: binding) -> { b with name = allocate_name env b.name }) parameters in
       let env = List.fold_left (fun env (b: binding) -> push env (`Named b.name)) env parameters in
-      let inline = if inline then string "#[inline]" ^^ break1 else empty in
       group @@
-      group (group (inline ^^ print_pub public ^^ string "fn" ^/^ print_name env target_name) ^^
+      group (group (print_inline_and_meta inline meta ^^ string "fn" ^/^ print_name env target_name) ^^
         parens_with_nesting (separate_map (comma ^^ break1) (print_binding env) parameters) ^^
         (match return_type with | Unit -> empty | _ -> space ^^ arrow ^^ (nest 4 (break1 ^^ print_typ env return_type)))) ^/^
       print_block_expression env body
-  | Constant { typ; body; public; _ } ->
+  | Constant { typ; body; meta; _ } ->
       group @@
-      group (print_pub public ^^ string "const" ^/^ print_name env target_name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
+      group (print_meta meta ^^ string "const" ^/^ print_name env target_name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
       nest 4 (break1 ^^ print_expr env max_int body) ^^ semi
-  | Enumeration { items; public; derives; _ } ->
+  | Enumeration { items; meta; derives; _ } ->
       group @@
       group (print_derives derives) ^/^
-      group (print_pub public ^^ string "enum" ^/^ print_name env target_name) ^/^
+      group (print_meta meta ^^ string "enum" ^/^ print_name env target_name) ^/^
       braces_with_nesting (
         separate_map (comma ^^ hardline) (fun (item_name, item_struct) ->
           group @@
@@ -492,13 +505,13 @@ let rec print_decl env (d: decl) =
           | None -> empty
           | Some item_struct -> break1 ^^ print_struct env item_struct
       ) items)
-  | Struct { fields; public; generic_params; _ } ->
+  | Struct { fields; meta; generic_params; _ } ->
       group @@
-      group (print_pub public ^^ string "struct" ^/^ print_name env target_name ^^ print_generic_params generic_params) ^/^
+      group (print_meta meta ^^ string "struct" ^/^ print_name env target_name ^^ print_generic_params generic_params) ^/^
       braces_with_nesting (print_struct env fields)
-  | Alias { generic_params; body; public; _ } ->
+  | Alias { generic_params; body; meta; _ } ->
       group @@
-      group (print_pub public ^^ string "type" ^/^ print_name env target_name  ^^ print_generic_params generic_params ^/^ equals) ^/^
+      group (print_meta meta ^^ string "type" ^/^ print_name env target_name  ^^ print_generic_params generic_params ^/^ equals) ^/^
       group (print_typ env body ^^ semi)
 
 and print_derives traits =
@@ -512,8 +525,8 @@ and print_derives traits =
   string ")]"
 
 and print_struct env fields =
-  separate_map (comma ^^ break1) (fun { name; typ; public } ->
-    group (group (print_pub public ^^ string name ^^ colon) ^/^ group (print_typ env typ))
+  separate_map (comma ^^ break1) (fun { name; typ; visibility } ->
+    group (group (print_visibility visibility ^^ string name ^^ colon) ^/^ group (print_typ env typ))
   ) fields
 
 let failures = ref 0

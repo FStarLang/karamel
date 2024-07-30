@@ -123,6 +123,13 @@ and open_var = {
 
 and atom_t = Atom.t [@ visitors.opaque]
 
+type visibility = Pub | PubCrate
+
+type meta = {
+  visibility: visibility option;
+  comment: string;
+}
+
 (* TODO: visitors incompatible with inline records *)
 type decl =
   | Function of {
@@ -131,32 +138,32 @@ type decl =
     parameters: binding list;
     return_type: typ;
     body: expr;
-    public: bool;
+    meta: meta;
     inline: bool;
   }
   | Constant of {
     name: name;
     typ: typ;
     body: expr;
-    public: bool;
+    meta: meta;
   }
   | Enumeration of {
     name: name;
     items: item list;
     derives: trait list;
-    public: bool;
+    meta: meta;
   }
   | Struct of {
     name: name;
     fields: struct_field list;
-    public: bool;
+    meta: meta;
     generic_params: generic_param list;
   }
   | Alias of {
     name: name;
     body: typ;
     generic_params: generic_param list;
-    public: bool;
+    meta: meta;
   }
 
 and item =
@@ -166,7 +173,7 @@ and item =
 and struct_field = {
   name: string;
   typ: typ;
-  public: bool;
+  visibility: visibility option;
 }
 
 and trait =
