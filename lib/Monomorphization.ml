@@ -417,14 +417,25 @@ let datatypes files =
 module Gen = struct
   let pending_defs = ref []
 
-  let gen_lid lid ts cgs =
-    let doc =
-      let open PPrint in
-      let open PrintAst in
-      separate_map underscore print_typ ts ^^
-      (if cgs = [] then empty else underscore ^^ separate_map underscore print_expr cgs)
-    in
-    fst lid, snd lid ^ KPrint.bsprintf "__%a" PrintCommon.pdoc doc
+  let short_names = ref false
+
+  let seen = Hashtbl.create 41
+
+  let gen_lid ((m, n) as lid) ts cgs =
+    if !short_names then
+      let hash = Hashtbl.hash (ts, cgs) in
+      let n = Printf.sprintf "%s_%02x" n (hash land 0xFF) in
+      let n = Idents.mk_fresh n (fun n -> Hashtbl.mem seen (m, n)) in
+      Hashtbl.add seen (m, n) ();
+      m, n
+    else
+      let doc =
+        let open PPrint in
+        let open PrintAst in
+        separate_map underscore print_typ ts ^^
+        (if cgs = [] then empty else underscore ^^ separate_map underscore print_expr cgs)
+      in
+      fst lid, snd lid ^ KPrint.bsprintf "__%a" PrintCommon.pdoc doc
 
   let register_def current_file original_lid cgs ts lid def =
     Hashtbl.add generated_lids (original_lid, cgs, ts) lid;
@@ -532,13 +543,14 @@ let functions files =
                 end else
                   (* The thunk allows registering the name before visiting the
                    * body, for polymorphic recursive functions. *)
-                  let name = Gen.gen_lid name ts cgs in
+                  let original_name = name in
+                  let name = Gen.gen_lid name ts (cgs @ cgs') in
                   let def () =
                     let ret = DeBruijn.(subst_ctn diff cgs (subst_tn ts ret)) in
                     assert (List.length cgs = n_cgs);
                     (* binders are the remaining binders after the cg-binders have been eliminated *)
                     let diff = List.length binders - List.length cgs in
-                    let _, binders = KList.split (List.length cgs + List.length cgs') binders in
+                    let cg_binders, binders = KList.split (List.length cgs + List.length cgs') binders in
                     let binders = List.map (fun { node; typ } ->
                       { node; typ = DeBruijn.(subst_ctn diff cgs (subst_tn ts typ)) }
                     ) binders in
@@ -555,7 +567,41 @@ let functions files =
                     let body = DeBruijn.(subst_n' (List.length binders) (subst_cen diff cgs (subst_ten ts body)) cgs') in
                     (* KPrint.bprintf "after substitution: body :%a\n\n" pexpr body; *)
                     let body = self#visit_expr env body in
-                    DFunction (cc, flags, 0, 0, ret, name, binders, body)
+                    let comment =
+                      if !Gen.short_names then
+                        let cg_binders, _ = KList.split n_cgs cg_binders in
+                        let pconst k e =
+                          match e.node with
+                          | EConstant (_, s) -> Buffer.add_string k s
+                          | _ -> failwith "impossible"
+                        in
+                        let cg_info = List.map2 (fun b e -> KPrint.bsprintf "- %s = %a" b.node.name pconst e) cg_binders cgs in
+                        let cg'_info =
+                          let traits = List.sort_uniq compare (List.concat_map (fun e ->
+                            match e.node with
+                            | EQualified (m, _) -> List.filter (fun p -> KString.starts_with p "{") m
+                            | _ -> []
+                          ) cgs') in
+                          if traits <> [] then
+                            KPrint.bsprintf "\nFurthermore, this instances features the following traits:\n%s"
+                              (String.concat "\n" (List.map (fun p -> "- " ^ p) traits))
+                          else
+                            ""
+                        in
+                        let comment = KPrint.bsprintf "A monomorphic instance of %a %s%a%s%s%s%s"
+                          plid original_name
+                          (if ts <> [] then "with types " else "")
+                          ptyps ts
+                          (if ts <> [] && cg_info <> [] then " and " else "")
+                          (if cg_info <> [] then "with const generics:\n" else "")
+                          (String.concat "\n" cg_info)
+                          cg'_info
+                        in
+                        [ Common.Comment comment ]
+                      else
+                        []
+                    in
+                    DFunction (cc, flags @ comment, 0, 0, ret, name, binders, body)
                   in
                   EQualified (Gen.register_def current_file lid (cgs @ cgs') ts name def)
 
