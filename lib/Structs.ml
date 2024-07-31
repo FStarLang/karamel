@@ -229,45 +229,54 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
         None
     ) (List.combine binders (args_are_structs @ (if ret_is_struct then [ false ] else []))) in
 
-    let body = self#visit_expr_w to_be_starred body in
-
-    (* Step 4: if the function now takes an extra argument for the output struct. *)
     let body =
-      if ret_is_struct then
-        let assign_into_ret e =
-          match e.node with
-          | EAbort _ ->
-              e
-          | _ ->
-              if ret_is_array then
-                with_type TUnit (EAssign (Option.get ret_atom, e))
-              else
-                with_type TUnit (EBufWrite (Option.get ret_atom, Helpers.zerou32, e))
-        in
-        (* Step 4.1: early-returns `return e` become `dst := e; return` *)
-        let body = (object
-          inherit [_] map
-          method! visit_EReturn _ e =
-            ESequence [
-              assign_into_ret e;
-              with_type e.typ (EReturn Helpers.eunit)
-            ]
-        end)#visit_expr_w () body in
-        (* Step 4.2: the overall value computed by the function is also assigned into the
-           destination. This relies on the invariant that functions are either in the style of 4.1
-           where returns in terminal position have been removed earlier (eurydice), or in
-           expression-style. *)
-        Helpers.nest_in_return_pos TUnit (fun _ e ->
-          match e.node with
-          | EWhile _ -> e
-            (* ret is a struct type, not unit -- therefore, it must be the case that this is an
-               unreachable loop -- bail *)
-          | EReturn _ -> e
-            (* handled above *)
-          | _ -> assign_into_ret e
-        ) body
-      else
-        body
+      match body.node with
+      | EApp (e, es) when ret_is_struct ->
+          (* Fast-path: the body is a single application node, meaning that the we can optimize and
+             directly pass our own destination parameter to the callee, rather than generating a
+             temporary that ends up memcpy'd into our own destination parameter. *)
+          self#rewrite_app to_be_starred e es ret_atom
+
+      | _ ->
+          (* General case: recursively visit *)
+          let body = self#visit_expr_w to_be_starred body in
+
+          (* Step 4: if the function now takes an extra argument for the output struct. *)
+          if ret_is_struct then
+            let assign_into_ret e =
+              match e.node with
+              | EAbort _ ->
+                  e
+              | _ ->
+                  if ret_is_array then
+                    with_type TUnit (EAssign (Option.get ret_atom, e))
+                  else
+                    with_type TUnit (EBufWrite (Option.get ret_atom, Helpers.zerou32, e))
+            in
+            (* Step 4.1: early-returns `return e` become `dst := e; return` *)
+            let body = (object
+              inherit [_] map
+              method! visit_EReturn _ e =
+                ESequence [
+                  assign_into_ret e;
+                  with_type e.typ (EReturn Helpers.eunit)
+                ]
+            end)#visit_expr_w () body in
+            (* Step 4.2: the overall value computed by the function is also assigned into the
+               destination. This relies on the invariant that functions are either in the style of 4.1
+               where returns in terminal position have been removed earlier (eurydice), or in
+               expression-style. *)
+            Helpers.nest_in_return_pos TUnit (fun _ e ->
+              match e.node with
+              | EWhile _ -> e
+                (* ret is a struct type, not unit -- therefore, it must be the case that this is an
+                   unreachable loop -- bail *)
+              | EReturn _ -> e
+                (* handled above *)
+              | _ -> assign_into_ret e
+            ) body
+          else
+            body
     in
     let body = DeBruijn.close_binders binders body in
     DFunction (cc, flags, n_cg, n, ret, lid, binders, body)

@@ -1,28 +1,30 @@
 (include_subdirs unqualified)
 
 (library
-  (name krml)
-  (libraries
-    ppx_deriving.std
-    ppx_deriving_yojson
-    zarith
-    pprint
-    unix
-    menhirLib
-    sedlex
-    process
-    fix
-    wasm
-    visitors.ppx
-    visitors.runtime
-    sedlex.ppx
-    uucp
-  )
-  (preprocess
-    (pps ppx_deriving.std ppx_deriving_yojson sedlex.ppx visitors.ppx)
-  )
-; Reinstate @39 once https://github.com/whitequark/ppx_deriving_yojson/issues/21
-; is fixed
-; VD: Fix @40 (only really needed for GenCtypes.ml)
-  (flags (:standard -warn-error -A -w @1-2@3-7@8..12@14..21@23..29-30@31..38-39-40-41@43@57))
-)
+ (name krml)
+ (libraries
+  ppx_deriving.std
+  ppx_deriving_yojson
+  zarith
+  pprint
+  unix
+  menhirLib
+  sedlex
+  process
+  fix
+  wasm
+  visitors.ppx
+  visitors.runtime
+  sedlex.ppx
+  uucp)
+ (preprocess
+  (pps ppx_deriving.std ppx_deriving_yojson sedlex.ppx visitors.ppx))
+ ; Reinstate @39 once https://github.com/whitequark/ppx_deriving_yojson/issues/21
+ ; is fixed
+ ; VD: Fix @40 (only really needed for GenCtypes.ml)
+ (flags
+  (:standard
+   -warn-error
+   -A
+   -w
+   @1-2@3-7@8..12@14..21@23..29-30@31..38-39-40-41@43@57)))
