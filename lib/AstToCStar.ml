@@ -248,7 +248,7 @@ let rec unit_to_void env e es extra =
     trivially as `(uint8_t)200 * (uint8_t)225 * (uint8_t)200 * (uint8_t)250`.
     (The effect of the casts is immediately undone by the promotion to int.)
   - (255uy `FStar.UInt8.add_mod` 1uy) / FStar.UInt8.div 2uy gives 0uy in F*, but
-    ((uint8_t) 255 * (uint8_t) 1) / (uint8_t) 2 gives 128 in C
+    ((uint8_t) 255 + (uint8_t) 1) / (uint8_t) 2 gives 128 in C
   - same kinds of issues with shifts, bitwise complement (which materializes
     "more bytes" in the intermediary expression), and so on.
 

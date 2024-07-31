@@ -289,14 +289,20 @@ let pure_builtin_lids = [
   [ "FStar"; "UInt128" ], "";
 ]
 
-let is_readonly_builtin_lid_ = ref (fun lid ->
+let is_readonly_builtin_lid_ = ref (fun lid _t ->
   List.exists (fun lid' ->
     let lid = Idents.string_of_lident lid in
     let lid' = Idents.string_of_lident lid' in
     KString.starts_with lid lid'
   ) pure_builtin_lids)
 
-let is_readonly_builtin_lid lid = !is_readonly_builtin_lid_ lid
+let is_readonly_builtin_lid e =
+  let lid = match e.node with
+    | EQualified lid
+    | ETApp ({ node = EQualified lid; _ }, _, _, _) -> lid
+    | _ -> failwith "not an lid"
+  in
+  !is_readonly_builtin_lid_ lid e.typ
 
 class ['self] closed_term_visitor = object (_: 'self)
   inherit [_] reduce
@@ -338,9 +344,11 @@ class ['self] readonly_visitor = object (self: 'self)
     | EPolyComp _
     | EOp _ ->
         List.for_all (self#visit_expr_w ()) es
-    | EQualified lid when is_readonly_builtin_lid lid ->
+    | EQualified _ 
+    when is_readonly_builtin_lid e ->
         List.for_all (self#visit_expr_w ()) es
-    | ETApp ({ node = EQualified lid; _ }, _, _, _) when is_readonly_builtin_lid lid ->
+    | ETApp ({ node = EQualified _; _ } as e, _, _, _)
+    when is_readonly_builtin_lid e ->
         List.for_all (self#visit_expr_w ()) es
     | _ ->
         false

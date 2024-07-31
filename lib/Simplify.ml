@@ -75,8 +75,8 @@ class ['self] safe_use = object (self: 'self)
   method! visit_EApp env e es =
     match e.node with
     | EOp _ -> super#visit_EApp env e es
-    | EQualified lid when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
-    | ETApp ({ node = EQualified lid; _ }, _, _, _) when Helpers.is_readonly_builtin_lid lid -> super#visit_EApp env e es
+    | EQualified _ when Helpers.is_readonly_builtin_lid e -> super#visit_EApp env e es
+    | ETApp ({ node = EQualified _; _ } as e, _, _, _) when Helpers.is_readonly_builtin_lid e -> super#visit_EApp env e es
     | _ -> self#unordered env (e :: es)
 
   method! visit_ELet env _ e1 e2 = self#sequential env e1 (Some e2)
