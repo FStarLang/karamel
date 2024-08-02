@@ -576,26 +576,13 @@ let functions files =
                           | _ -> failwith "impossible"
                         in
                         let cg_info = List.map2 (fun b e -> KPrint.bsprintf "- %s = %a" b.node.name pconst e) cg_binders cgs in
-                        let cg'_info =
-                          let traits = List.sort_uniq compare (List.concat_map (fun e ->
-                            match e.node with
-                            | EQualified (m, _) -> List.filter (fun p -> KString.starts_with p "{") m
-                            | _ -> []
-                          ) cgs') in
-                          if traits <> [] then
-                            KPrint.bsprintf "\nFurthermore, this instances features the following traits:\n%s"
-                              (String.concat "\n" (List.map (fun p -> "- " ^ p) traits))
-                          else
-                            ""
-                        in
-                        let comment = KPrint.bsprintf "A monomorphic instance of %a %s%a%s%s%s%s"
+                        let comment = KPrint.bsprintf "A monomorphic instance of %a %s%a%s%s%s"
                           plid original_name
                           (if ts <> [] then "with types " else "")
                           ptyps ts
                           (if ts <> [] && cg_info <> [] then " and " else "")
                           (if cg_info <> [] then "with const generics:\n" else "")
                           (String.concat "\n" cg_info)
-                          cg'_info
                         in
                         [ Common.Comment comment ]
                       else
