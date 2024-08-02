@@ -411,12 +411,14 @@ let datatypes files =
 
 (* Type monomorphization of functions. ****************************************)
 
-(* JP: TODO: share the functionality with type monomorphization... the call to
- * Hashtbl.find is in the visitor but the Gen functionality is clearly
- * outside... sigh. *)
+(* This module does two conceptually separate things.
+   - Given a polymorphic `lid` and concrete type arguments `ts` and expression arguments `cgs`, this
+     module picks a name and records that information in a global state.
+   - It also provides a queue of pending monomorphized definitions, that can be cleared when it is
+     time for those definitions to be inserted. *)
 module Gen = struct
-  let pending_defs = ref []
 
+  (* Name generation *)
   let short_names = ref false
 
   let seen = Hashtbl.create 41
@@ -436,6 +438,29 @@ module Gen = struct
         (if cgs = [] then empty else underscore ^^ separate_map underscore print_expr cgs)
       in
       fst lid, snd lid ^ KPrint.bsprintf "__%a" PrintCommon.pdoc doc
+
+  let gen_comment original_name ts cgs cg_binders =
+    if !short_names then
+      let pconst k e =
+        match e.node with
+        | EConstant (_, s) -> Buffer.add_string k s
+        | _ -> failwith "impossible"
+      in
+      let cg_info = List.map2 (fun b e -> KPrint.bsprintf "- %s = %a" b.node.name pconst e) cg_binders cgs in
+      let comment = KPrint.bsprintf "A monomorphic instance of %a %s%a%s%s%s"
+        plid original_name
+        (if ts <> [] then "with types " else "")
+        ptyps ts
+        (if ts <> [] && cg_info <> [] then " and " else "")
+        (if cg_info <> [] then "with const generics:\n" else "")
+        (String.concat "\n" cg_info)
+      in
+      [ Common.Comment comment ]
+    else
+      []
+
+  (* Pending definitions *)
+  let pending_defs = ref []
 
   let register_def current_file original_lid cgs ts lid def =
     Hashtbl.add generated_lids (original_lid, cgs, ts) lid;
@@ -568,25 +593,8 @@ let functions files =
                     (* KPrint.bprintf "after substitution: body :%a\n\n" pexpr body; *)
                     let body = self#visit_expr env body in
                     let comment =
-                      if !Gen.short_names then
-                        let cg_binders, _ = KList.split n_cgs cg_binders in
-                        let pconst k e =
-                          match e.node with
-                          | EConstant (_, s) -> Buffer.add_string k s
-                          | _ -> failwith "impossible"
-                        in
-                        let cg_info = List.map2 (fun b e -> KPrint.bsprintf "- %s = %a" b.node.name pconst e) cg_binders cgs in
-                        let comment = KPrint.bsprintf "A monomorphic instance of %a %s%a%s%s%s"
-                          plid original_name
-                          (if ts <> [] then "with types " else "")
-                          ptyps ts
-                          (if ts <> [] && cg_info <> [] then " and " else "")
-                          (if cg_info <> [] then "with const generics:\n" else "")
-                          (String.concat "\n" cg_info)
-                        in
-                        [ Common.Comment comment ]
-                      else
-                        []
+                      let cg_binders, _ = KList.split n_cgs cg_binders in
+                      Gen.gen_comment original_name ts cgs cg_binders
                     in
                     DFunction (cc, flags @ comment, 0, 0, ret, name, binders, body)
                   in
