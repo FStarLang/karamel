@@ -30,3 +30,5 @@ val to_c_name: ?kind:kind -> mapping -> Ast.lident -> string
 
 val pascal_case: string -> string
 val camel_case: string -> string
+
+val skip_prefix: Ast.lident -> bool
