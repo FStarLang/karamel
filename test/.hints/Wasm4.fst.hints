@@ -12,7 +12,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "404d1a8fb5d9087b8d7b8f51091aea66"
+      "96ba573c589b1f4a64cf2bc40b5db2b8"
     ],
     [
       "Wasm4.test",
@@ -21,7 +21,7 @@
       1,
       [ "@query", "assumption_Wasm4.t__uu___haseq" ],
       0,
-      "8dee348a3e59be3b93d4fd63475d0ede"
+      "69408e5dd7fae27bc136d63414e78b6d"
     ]
   ]
 ]
