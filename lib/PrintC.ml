@@ -291,8 +291,11 @@ and p_expr' curr = function
       p_stmts stmts
 
 and p_comment s =
-  (* TODO: escape *)
-  string "/* " ^^ nest 2 (flow space (words s)) ^^ string " */"
+  if s <> "" then
+    (* TODO: escape *)
+    string "/* " ^^ nest 2 (flow space (words s)) ^^ string " */"
+  else
+    empty
 
 
 and p_expr e = p_expr' 15 e
