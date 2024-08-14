@@ -206,6 +206,8 @@ let whitelisted_tapp e =
   | EQualified lid -> whitelisted_lid lid
   | _ -> false
 
+let no_return_type_lids = ref []
+
 let rec unit_to_void env e es extra =
   let mk_expr env e = mk_expr env false e in
   match es with
@@ -341,6 +343,11 @@ and mk_arith env e =
       else
         mk_expr env false e, true
 
+and return_type_not_needed e =
+  match e.node with
+  | EQualified lid when List.mem lid !no_return_type_lids -> true
+  | _ -> false
+
 and mk_expr env in_stmt e =
   let mk_expr env e = mk_expr env false e in
   match e.node with
@@ -361,8 +368,8 @@ and mk_expr env in_stmt e =
   | EApp ({ node = ETApp (e0, cgs, cgs', ts); _ }, es) when !Options.allow_tapps || whitelisted_tapp e0 ->
       (* Return type is oftentimes very useful when having to build a return value using e.g. a
          compound literal *)
-      let ret_t = CStar.Type (mk_type env (MonomorphizationState.resolve e.typ)) in
-      unit_to_void env e0 (cgs @ cgs' @ es) (List.map (fun t -> CStar.Type (mk_type env t)) ts @ [ ret_t ])
+      let ret_t = if return_type_not_needed e0 then [] else [ CStar.Type (mk_type env (MonomorphizationState.resolve e.typ)) ] in
+      unit_to_void env e0 (cgs @ cgs' @ es) (List.map (fun t -> CStar.Type (mk_type env t)) ts @ ret_t)
 
   | ETApp (e0, cgs, cgs', ts) when !Options.allow_tapps || whitelisted_tapp e0 ->
       let ret_t = CStar.Type (mk_type env (MonomorphizationState.resolve e.typ)) in
