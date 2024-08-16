@@ -681,7 +681,7 @@ Supported options:|}
   let ifdefs = AstToCStar.mk_ifdefs_set files in
   let macros = AstToCStar.mk_macros_set files in
 
-  let files = if Options.rust () then SimplifyRust.simplify files else files in
+  let files = if Options.rust () then SimplifyRust.simplify_ast files else files in
   let files = Simplify.simplify2 ifdefs files in
   let files = Inlining.mark_possibly_unused ifdefs files in
   let files = if Options.(!merge_variables <> No) then SimplifyMerge.simplify files else files in
@@ -751,7 +751,7 @@ Supported options:|}
       print PrintAst.print_files files;
     let files = AstToMiniRust.translate_files files in
     let files = OptimizeMiniRust.infer_mut_borrows files in
-    let files = RustMacroize.macroize files in
+    let files = SimplifyRust.macroize files in
     OutputRust.write_all files
 
   else
