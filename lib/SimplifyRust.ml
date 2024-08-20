@@ -9,6 +9,7 @@ let remove_push_pop_frame = object
   method! visit_EPopFrame _ = EUnit
 end
 
-let simplify files =
+let simplify_ast files =
   let files = remove_push_pop_frame#visit_files () files in
   files
+
