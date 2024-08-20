@@ -70,3 +70,7 @@ let macroize files =
     ) [] files
   in
   List.rev files
+
+let simplify_minirust files =
+  let files = macroize files in
+  files
