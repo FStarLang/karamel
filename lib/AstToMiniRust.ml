@@ -431,8 +431,8 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
   | TAny -> failwith "unexpected: [type] no casts in Low* -> Rust"
   | TBuf (t, b) ->
       if config.box then
-        (* MiniRust.box (Slice (translate_type_with_config env config t)) *)
-        Vec (translate_type_with_config env config t)
+        MiniRust.box (Slice (translate_type_with_config env config t))
+        (* Vec (translate_type_with_config env config t) *)
       else
         Ref (config.lifetime, borrow_kind_of_bool b, Slice (translate_type_with_config env config t))
   | TArray (t, c) -> Array (translate_type_with_config env config t, int_of_string (snd c))
@@ -542,24 +542,24 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
     | Heap -> false
   in
 
-  let optimize_size_one t = function
-    | MiniRust.Repeat(e_init, Constant (_, "1"))
-    | List [ e_init ] ->
-        (* We avoid going through the vec! macro which imposes that the argument
-           be copyable. Instead, we use push, which moves the element into
-           the vector.
-           TODO: it would be nice if we could simply get rid of this function,
-           and emit krml_vec! which would desugar properly in the case of size 1. *)
+  (* let optimize_size_one t = function *)
+  (*   | MiniRust.Repeat(e_init, Constant (_, "1")) *)
+  (*   | List [ e_init ] -> *)
+  (*       (1* We avoid going through the vec! macro which imposes that the argument *)
+  (*          be copyable. Instead, we use push, which moves the element into *)
+  (*          the vector. *)
+  (*          TODO: it would be nice if we could simply get rid of this function, *)
+  (*          and emit krml_vec! which would desugar properly in the case of size 1. *1) *)
 
-        (* let tmp = Vec::new(); *)
-        MiniRust.Let ({ name = "tmp"; typ = Vec t; mut = true }, Call (Name ["Vec"; "new"], [], []),
-          (* let _ = tmp.push(e_init); *)
-          Let ({ name = "_"; typ = Unit; mut = false }, MethodCall (Var 0, ["push"], [MiniRust.lift 1 e_init]),
-          (* tmp *)
-          Var 1))
-    | e_init ->
-        VecNew e_init
-  in
+  (*       (1* let tmp = Vec::new(); *1) *)
+  (*       MiniRust.Let ({ name = "tmp"; typ = Vec t; mut = true }, Call (Name ["Vec"; "new"], [], []), *)
+  (*         (1* let _ = tmp.push(e_init); *1) *)
+  (*         Let ({ name = "_"; typ = Unit; mut = false }, MethodCall (Var 0, ["push"], [MiniRust.lift 1 e_init]), *)
+  (*         (1* tmp *1) *)
+  (*         Var 1)) *)
+  (*   | e_init -> *)
+  (*       VecNew e_init *)
+  (* in *)
 
   match init.node with
   | EBufCreate (lifetime, e_init, len) ->
@@ -570,7 +570,7 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
       if to_array lifetime && H.is_const len then
         env, Array e_init, Array (t, H.assert_const len)
       else
-        env, optimize_size_one t e_init, Vec t
+        MiniRust.(env, box_new (Slice t) (slice_of_array e_init), box (Slice t))
   | EBufCreateL (lifetime, es) ->
       let t = translate_type env (Helpers.assert_tbuf_or_tarray init.typ) in
       let l = List.length es in
@@ -579,7 +579,7 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
       if to_array lifetime then
         env, Array e_init, Array (t, l)
       else
-        env, optimize_size_one t e_init, Vec t
+        MiniRust.(env, box_new (Slice t) (slice_of_array e_init), box (Slice t))
   | _ ->
       Warn.fatal_error "unexpected: non-bufcreate expression, got %a" PrintAst.Ops.pexpr init
 
@@ -923,6 +923,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         [ "copy_from_slice" ],
         [ Borrow (Shared, Index (src, H.range_with_len src_index len)) ])
   | EBufFill (dst, elt, len) ->
+      let t = translate_type env elt.typ in
       let env, dst = translate_expr env dst in
       let env, elt = translate_expr env elt in
       let env, len = translate_expr_with_type env len (Constant SizeT) in
@@ -935,7 +936,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         env, MethodCall (
           Index (dst, H.range_with_len (Constant (SizeT, "0")) len),
           [ "copy_from_slice" ],
-          [ Borrow (Shared, VecNew (Repeat (elt, len))) ])
+          [ Borrow (Shared, MiniRust.(box_new (Slice t) (slice_of_array (Repeat (elt, len))))) ])
   | EBufFree _ ->
       (* Rather than error out, we do nothing, as some functions may allocate then free. *)
       env, Unit

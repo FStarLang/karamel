@@ -163,6 +163,9 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
            argument. *)
         let known, e = infer env (KList.one targs) known (KList.one es) in
         known, Call (Name n, targs, [ e ])
+      else if n = ["Box"; "new"] then
+        let known, e = infer env (KList.one targs) known (KList.one es) in
+        known, Call (Name n, targs, [ e ])
       else if n = [ "lib"; "memzero0"; "memzero" ] then (
         (* Same as ignore above *)
         assert (List.length es = 2);
