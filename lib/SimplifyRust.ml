@@ -55,13 +55,23 @@ let unroll_loops = object
     | _ -> For (b, e1, e2)
 end 
 
-let macroize files =
+let remove_trailing_unit = object
+  inherit [_] map_expr as super
+  method! visit_Let _ b e1 e2 =
+    let e1 = super#visit_expr () e1 in
+    let e2 = super#visit_expr () e2 in
+    match e2 with
+    | Unit -> e1
+    | _ -> Let (b, e1, e2)
+end
+
+let map_funs f_map files =
   let files =
     List.fold_left (fun files (filename, decls) ->
       let decls = List.fold_left (fun decls decl ->
         match decl with
         | Function ({ body; _ } as f) ->
-          let body = unroll_loops#visit_expr () body in
+          let body = f_map () body in
           Function {f with body} :: decls
         | _ -> decl :: decls
       ) [] decls in
@@ -72,5 +82,6 @@ let macroize files =
   List.rev files
 
 let simplify_minirust files =
-  let files = macroize files in
+  let files = map_funs unroll_loops#visit_expr files in
+  let files = map_funs remove_trailing_unit#visit_expr files in
   files
