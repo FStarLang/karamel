@@ -837,16 +837,22 @@ let remove_trailing_unit = object
     | _ -> Let (b, e1, e2)
 end
 
-(* The Rust compiler will automatically insert borrows for split_at/split_at_mut *)
-let remove_split_at_borrow = object
+(* The Rust compiler will automatically insert borrows or dereferences
+   when required for methodcalls and field accesses *)
+let remove_auto_deref = object
   inherit [_] map_expr as super
   method! visit_MethodCall _ e1 n e2 =
     let e1 = super#visit_expr () e1 in
     let e2 = List.map (super#visit_expr ()) e2 in
-    match e1, n with
-    | Borrow (_, e), ["split_at"]
-    | Borrow (_, e), ["split_at_mut"] -> MethodCall (e, n, e2)
+    match e1 with
+    | Borrow (_, e) | Deref e -> MethodCall (e, n, e2)
     | _ -> MethodCall (e1, n, e2)
+
+  method! visit_Field _ e n t =
+    let e = super#visit_expr () e in
+    match e with
+    | Deref e -> Field (e, n, t)
+    | _ -> Field (e, n, t)
 end
 
 (* Rewrite eligible terms with the assign-op pattern.
@@ -882,6 +888,6 @@ let map_funs f_map files =
 let simplify_minirust files =
   let files = map_funs unroll_loops#visit_expr files in
   let files = map_funs remove_trailing_unit#visit_expr files in
-  let files = map_funs remove_split_at_borrow#visit_expr files in
+  let files = map_funs remove_auto_deref#visit_expr files in
   let files = map_funs rewrite_assign_op#visit_expr files in
   files
