@@ -849,6 +849,20 @@ let remove_split_at_borrow = object
     | _ -> MethodCall (e1, n, e2)
 end
 
+(* Rewrite eligible terms with the assign-op pattern.
+   Ex: x = x & y becomes x &= y *)
+let rewrite_assign_op = object
+  inherit [_] map_expr as super
+  method! visit_Assign _ e1 e2 t =
+    let e1 = super#visit_expr () e1 in
+    let e2 = super#visit_expr () e2 in
+    match e2 with
+    | Call (Operator o, ts, [ e_l; e_r ]) when e1 = e_l ->
+        assert (ts = []);
+        AssignOp (e1, o, e_r, t)
+    | _ -> Assign (e1, e2, t)
+end
+
 let map_funs f_map files =
   let files =
     List.fold_left (fun files (filename, decls) ->
@@ -869,4 +883,5 @@ let simplify_minirust files =
   let files = map_funs unroll_loops#visit_expr files in
   let files = map_funs remove_trailing_unit#visit_expr files in
   let files = map_funs remove_split_at_borrow#visit_expr files in
+  let files = map_funs rewrite_assign_op#visit_expr files in
   files
