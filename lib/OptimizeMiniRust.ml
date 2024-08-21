@@ -847,6 +847,12 @@ let remove_auto_deref = object
     match e1 with
     | Borrow (_, e) | Deref e -> MethodCall (e, n, e2)
     | _ -> MethodCall (e1, n, e2)
+
+  method! visit_Field _ e n t =
+    let e = super#visit_expr () e in
+    match e with
+    | Deref e -> Field (e, n, t)
+    | _ -> Field (e, n, t)
 end
 
 (* Rewrite eligible terms with the assign-op pattern.
