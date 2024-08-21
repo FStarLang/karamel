@@ -237,7 +237,11 @@ and print_expression_with_block env (e: expr): document =
 and print_statements env (e: expr): document =
   match e with
   | Let ({ typ = Unit; _ }, Unit, e2) ->
-      (* Special-case: if we have a unit (probably due to an erased node), we omit it *)
+      (* Special-case: if we have a unit (probably due to an erased node), we omit it.
+         Note, there already is a similar pass (Simplify.let_to_sequence) operating
+         on Ast, however, the Ast to MiniRust translation reintroduces unit statements,
+         e.g., when erasing push/pop_frame or free nodes. We thus need an additional
+         handling here *)
       print_statements (push env (`GoneUnit)) e2
   | Let ({ typ = Unit; _ }, e1, e2) ->
       print_expr env max_int e1 ^^ semi ^^ hardline ^^
