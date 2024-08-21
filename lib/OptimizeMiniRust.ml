@@ -197,7 +197,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       add_mut_var atom known, e3
 
   (* atom[e2] = e2 *)
-  | Assign (Index (Open { atom; _ } as e1, e2), e3, t) 
+  | Assign (Index (Open { atom; _ } as e1, e2), e3, t)
 
   (* Special-case when we perform a field assignment that comes from
      a slice. This is the only case where we use native Rust tuples.
@@ -303,7 +303,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
          AST node to indicate e.g. that the destination of `copy_from_slice` ought to be mutable, or
          we just bake that knowledge in right here. *)
       begin match m with
-      | [ "wrapping_add" ] | [ "wrapping_div" ] | [ "wrapping_mul" ] 
+      | [ "wrapping_add" ] | [ "wrapping_div" ] | [ "wrapping_mul" ]
       | [ "wrapping_neg" ] | [ "wrapping_rem" ] | [ "wrapping_shl" ]
       | [ "wrapping_shr" ] | [ "wrapping_sub" ]
       | [ "to_vec" ] ->
@@ -359,7 +359,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
           let known, e = infer env expected known e in
           known, (pat, e)
         ) known arms in
-      known, Match (e, arms) 
+      known, Match (e, arms)
 
   | Index (e1, e2) ->
       (* The cases where we perform an assignment on an index should be caught
@@ -370,7 +370,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       let known, e2 = infer env usize known e2 in
       known, Index (e1, e2)
 
-  (* Special case for array slices. This occurs, e.g., when calling a function with 
+  (* Special case for array slices. This occurs, e.g., when calling a function with
      a struct field *)
   | Field (Open { atom; _ }, "0", None) | Field (Open { atom; _}, "1", None) ->
       if is_mut_borrow expected then
@@ -572,7 +572,7 @@ let builtins : (name * typ list) list = [
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
      Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
   [ "lib"; "intvector_intrinsics"; "vec256_load32"], [u32];
-  [ "lib"; "intvector_intrinsics"; "vec256_load32s"], [u32; u32; u32; u32; u32; u32; u32; u32]; 
+  [ "lib"; "intvector_intrinsics"; "vec256_load32s"], [u32; u32; u32; u32; u32; u32; u32; u32];
   [ "lib"; "intvector_intrinsics"; "vec256_load32_be"], [Ref (None, Shared, Slice u8)];
   [ "lib"; "intvector_intrinsics"; "vec256_load32_le"], [Ref (None, Shared, Slice u8)];
   [ "lib"; "intvector_intrinsics"; "vec256_load64"], [u64];
@@ -621,7 +621,7 @@ let builtins : (name * typ list) list = [
      Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
 
   (* Lib.RandomBuffer_System *)
-  [ "lib"; "randombuffer_system"; "randombytes"], [Ref (None, Mut, Slice u8); u32]; 
+  [ "lib"; "randombuffer_system"; "randombytes"], [Ref (None, Mut, Slice u8); u32];
 
   (* LowStar.Endianness, little-endian *)
   [ "lowstar"; "endianness"; "load16_le" ], [Ref (None, Shared, Slice u8)];
@@ -647,7 +647,7 @@ let builtins : (name * typ list) list = [
   (* Vale assembly functions marked as extern. This should probably be handled earlier *)
   [ "vale"; "stdcalls_x64_sha"; "sha256_update"], [
     Ref (None, Mut, Slice u32); Ref (None, Shared, Slice u8); u32;
-    Ref (None, Shared, Slice u32)  
+    Ref (None, Shared, Slice u32)
   ];
   [ "vale"; "inline_x64_fadd_inline"; "add_scalar" ], [
     Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64); Ref (None, Shared, Slice u64)
@@ -726,7 +726,7 @@ let builtins : (name * typ list) list = [
       u64; Ref (None, Shared, Slice u64);
       Ref (None, Mut, Slice u64); Ref (None, Mut, Slice u64)
   ];
-    
+
 
 ]
 
@@ -836,6 +836,18 @@ let remove_trailing_unit = object
     | _ -> Let (b, e1, e2)
 end
 
+(* The Rust compiler will automatically insert borrows for split_at/split_at_mut *)
+let remove_split_at_borrow = object
+  inherit [_] map_expr as super
+  method! visit_MethodCall _ e1 n e2 =
+    let e1 = super#visit_expr () e1 in
+    let e2 = List.map (super#visit_expr ()) e2 in
+    match e1, n with
+    | Borrow (_, e), ["split_at"]
+    | Borrow (_, e), ["split_at_mut"] -> MethodCall (e, n, e2)
+    | _ -> MethodCall (e1, n, e2)
+end
+
 let map_funs f_map files =
   let files =
     List.fold_left (fun files (filename, decls) ->
@@ -855,4 +867,5 @@ let map_funs f_map files =
 let simplify_minirust files =
   let files = map_funs unroll_loops#visit_expr files in
   let files = map_funs remove_trailing_unit#visit_expr files in
+  let files = map_funs remove_split_at_borrow#visit_expr files in
   files
