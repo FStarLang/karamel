@@ -384,6 +384,11 @@ and print_expr env (context: int) (e: expr): document =
       paren_if mine @@
       group (print_expr env left e1 ^^ space ^^ equals ^^
         (nest 4 (break1 ^^ print_expr env right e2)))
+  | AssignOp (e1, o, e2, _) ->
+      let mine, left, right = 18, 17, 18 in
+      paren_if mine @@
+      group (print_expr env left e1 ^^ space ^^ print_op o ^^ equals ^^
+        (nest 4 (break1 ^^ print_expr env right e2)))
   | As (e1, e2) ->
       let mine = 7 in
       paren_if mine @@

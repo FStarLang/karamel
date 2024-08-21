@@ -260,6 +260,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       KPrint.bprintf "[infer-mut,assign] %a unsupported\n" PrintMiniRust.pexpr e;
       failwith "TODO: unknown assignment"
 
+  | AssignOp _ -> failwith "AssignOp nodes should only be introduced after mutability inference"
   | Var _
   | Array _
   | VecNew _
