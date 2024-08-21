@@ -420,7 +420,12 @@ and print_expr env (context: int) (e: expr): document =
       print_name env cons ^/^ braces_with_nesting (
         separate_map (comma ^^ break1) (fun (f, e) ->
           group @@
-          string f ^^ colon ^/^ group (print_expr env max_int e)
+          if string f = print_expr env max_int e then
+            (* If the field name is the same as the expression assigned to it
+               (typically, a variable name), we do not need to duplicate it *)
+            string f
+          else
+            string f ^^ colon ^/^ group (print_expr env max_int e)
         ) fields
       )
 
