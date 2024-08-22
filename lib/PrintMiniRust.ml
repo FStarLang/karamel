@@ -374,6 +374,8 @@ and print_expr env (context: int) (e: expr): document =
       group (string "if" ^/^ print_expr env max_int e1) ^/^
       print_block_expression env e2 ^^
       begin match e3 with
+      | Some (IfThenElse _ as e3) ->
+          break1 ^^ string "else" ^^ space ^^ print_block_or_if_expression env e3
       | Some e3 ->
           break1 ^^ string "else" ^/^ print_block_or_if_expression env e3
       | None ->
