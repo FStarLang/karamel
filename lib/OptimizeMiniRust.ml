@@ -869,6 +869,18 @@ let rewrite_assign_op = object
     | _ -> Assign (e1, e2, t)
 end
 
+(* Rewrite boolean expressions that are the negation of a condition *)
+let rewrite_nonminimal_bool = object
+  inherit [_] map_expr as super
+  method! visit_Call _ e tys args =
+    let e = super#visit_expr () e in
+    let args = List.map (super#visit_expr ()) args in
+    match e, tys, args with
+    | Operator Not, [], [ Call (Operator o, [], [e1; e2]) ] when Constant.is_comp_op o ->
+        Call (Operator (Constant.comp_neg o), [], [e1; e2])
+    | _ -> Call (e, tys, args)
+end
+
 let map_funs f_map files =
   let files =
     List.fold_left (fun files (filename, decls) ->
@@ -887,7 +899,10 @@ let map_funs f_map files =
 
 let simplify_minirust files =
   let files = map_funs unroll_loops#visit_expr files in
-  let files = map_funs remove_trailing_unit#visit_expr files in
   let files = map_funs remove_auto_deref#visit_expr files in
   let files = map_funs rewrite_assign_op#visit_expr files in
+  let files = map_funs rewrite_nonminimal_bool#visit_expr files in
+  (* We do this simplification last, as the previous passes might
+     have introduced unit statements *)
+  let files = map_funs remove_trailing_unit#visit_expr files in
   files
