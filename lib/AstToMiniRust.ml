@@ -542,21 +542,8 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
     | Heap -> false
   in
 
-  let optimize_size_one t = function
-    | MiniRust.Repeat(e_init, Constant (_, "1"))
-    | List [ e_init ] ->
-        (* We avoid going through the vec! macro which imposes that the argument
-           be copyable. Instead, we use push, which moves the element into
-           the vector.
-           TODO: it would be nice if we could simply get rid of this function,
-           and emit krml_vec! which would desugar properly in the case of size 1. *)
-
-        (* let tmp = Vec::new(); *)
-        MiniRust.Let ({ name = "tmp"; typ = Vec t; mut = true }, Call (Name ["Vec"; "new"], [], []),
-          (* let _ = tmp.push(e_init); *)
-          Let ({ name = "_"; typ = Unit; mut = false }, MethodCall (Var 0, ["push"], [MiniRust.lift 1 e_init]),
-          (* tmp *)
-          Var 1))
+  let optimize_size_one = function
+    | MiniRust.Repeat(e_init, Constant (_, "1")) -> MiniRust.VecNew (List [e_init])
     | e_init ->
         VecNew e_init
   in
@@ -570,7 +557,7 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
       if to_array lifetime && H.is_const len then
         env, Array e_init, Array (t, H.assert_const len)
       else
-        env, optimize_size_one t e_init, Vec t
+        env, optimize_size_one e_init, Vec t
   | EBufCreateL (lifetime, es) ->
       let t = translate_type env (Helpers.assert_tbuf_or_tarray init.typ) in
       let l = List.length es in
@@ -579,7 +566,7 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
       if to_array lifetime then
         env, Array e_init, Array (t, l)
       else
-        env, optimize_size_one t e_init, Vec t
+        env, optimize_size_one e_init, Vec t
   | _ ->
       Warn.fatal_error "unexpected: non-bufcreate expression, got %a" PrintAst.Ops.pexpr init
 
