@@ -336,6 +336,8 @@ Supported options:|}
       for private (static) functions that are not exposed in headers; this ensures \
       robust collision-avoidance in case your private function names collide with \
       one of the included system headers";
+    "-faggressive-inlining", Arg.Set Options.aggressive_inlining, " attempt to inline \
+      every variable for more compact code-generation";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)

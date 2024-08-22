@@ -117,7 +117,10 @@ let safe_pure_use e =
    uu____ in F*, or "scrut" if inserted by the pattern matches compilation
    phase), or that are of a type that cannot be copied (to hopefully skirt
    future failures). This phase assumes the mark field of each binder contains a
-   conservative approximation of the number of uses of that binder. *)
+   conservative approximation of the number of uses of that binder.
+
+   If the -faggressive-inlining option is provided, the inling is attempted
+   for every variable regardless of its name and type. *)
 let use_mark_to_inline_temporaries = object (self)
 
   inherit [_] map
@@ -126,7 +129,8 @@ let use_mark_to_inline_temporaries = object (self)
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
     let _, v = !(b.node.mark) in
-    if (b.node.attempt_inline ||
+    if (!Options.aggressive_inlining ||
+        b.node.attempt_inline ||
         Helpers.is_uu b.node.name ||
         b.node.name = "scrut" ||
         Structs.should_rewrite b.typ = NoCopies
