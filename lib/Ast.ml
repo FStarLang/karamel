@@ -347,6 +347,7 @@ and binder' = {
   meta: meta option;
   atom: atom_t;
     (** Only makes sense when opened! *)
+  attempt_inline: bool; (* Whether to attempt inlining, as if this was named uu__... *)
 }
 
 and binder =
