@@ -1,5 +1,5 @@
 /* Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-   Licensed under the Apache 2.0 License. */
+   Licensed under the Apache 2.0 and MIT Licenses. */
 
 #include "Prims.h"
 #include "FStar_Int32.h"
