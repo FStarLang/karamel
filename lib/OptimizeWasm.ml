@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (* Minimal cleanups on the generated Wasm code to compensate for our naïve
  * compilation scheme. *)

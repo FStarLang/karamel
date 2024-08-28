@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** Removing all traces of F* models and replacing them with built-in
  * definitions or abstract ones before re-checking the program as Low*. *)

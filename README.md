@@ -79,6 +79,6 @@ $ ./krml --help
 
 ## License
 
-KaRaMeL is released under the [Apache 2.0 license]; see `LICENSE` for more details.
+KaRaMeL is released under the [Apache 2.0 license] and MIT license; see `LICENSE-*` for more details.
 
 [Apache 2.0 license]: https://www.apache.org/licenses/LICENSE-2.0
