@@ -62,7 +62,7 @@ let rec mk_decl = function
 and mk_binders bs =
   List.map mk_binder bs
 
-and mk_binder { I.name; typ; mut } =
+and mk_binder { I.name; typ; mut; meta=_ } =
   Helpers.fresh_binder ~mut name (mk_typ typ)
 
 and mk_tfields fields =
