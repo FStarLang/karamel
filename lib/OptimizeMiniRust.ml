@@ -385,7 +385,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       known, e
 
   | Deref _ ->
-      failwith "TODO: Deref"
+      known, e
 
 (* We store here a list of builtins, with the types of their arguments.
    Type substitutions are currently not supported, functions with generic

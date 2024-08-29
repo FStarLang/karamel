@@ -828,7 +828,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let t = translate_type env b.typ in
       let is_owned_struct =
         match b.typ with
-        | TQualified lid when Idents.LidSet.mem lid env.heap_structs -> true
+        | TQualified lid when Idents.LidSet.mem lid env.heap_structs || Idents.LidSet.mem lid env.pointer_holding_structs -> true
         | _ -> false
       in
       (* TODO how does this play out with the new "translate as non-mut by
