@@ -129,6 +129,7 @@ and binder = {
   name: ident;
   typ: typ;
   mut: bool;
+  meta: flag list;
 }
 
 and ident =
@@ -164,7 +165,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 28
+let current_version: version = 31
 
 type file = string * program
   [@@deriving yojson]
