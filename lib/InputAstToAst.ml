@@ -62,8 +62,9 @@ let rec mk_decl = function
 and mk_binders bs =
   List.map mk_binder bs
 
-and mk_binder { I.name; typ; mut } =
-  Helpers.fresh_binder ~mut name (mk_typ typ)
+and mk_binder { I.name; typ; mut; meta } =
+  let attempt_inline = List.mem Inline meta in
+  Helpers.fresh_binder ~mut ~attempt_inline name (mk_typ typ)
 
 and mk_tfields fields =
   List.map (fun (name, (field, mut)) -> name, (mk_typ field, mut)) fields
