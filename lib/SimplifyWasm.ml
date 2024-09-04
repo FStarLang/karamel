@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (* Wasm-specific transformations that we perform now **************************)
 
@@ -171,7 +171,7 @@ let eta_expand = object
         let tret, targs = flatten_arrow t in
         let n = List.length targs in
         let binders, args = List.split (List.mapi (fun i t ->
-          with_type t { name = Printf.sprintf "x%d" i; mut = false; mark = ref Mark.default; meta = None; atom = Atom.fresh () },
+          with_type t { name = Printf.sprintf "x%d" i; mut = false; mark = ref Mark.default; meta = None; atom = Atom.fresh (); attempt_inline = false },
           { node = EBound (n - i - 1); typ = t }
         ) targs) in
         let body = { node = EApp (body, args); typ = tret } in

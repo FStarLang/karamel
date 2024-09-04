@@ -236,6 +236,13 @@ and print_expression_with_block env (e: expr): document =
 
 and print_statements env (e: expr): document =
   match e with
+  | Let ({ typ = Unit; _ }, Unit, e2) ->
+      (* Special-case: if we have a unit (probably due to an erased node), we omit it.
+         Note, there already is a similar pass (Simplify.let_to_sequence) operating
+         on Ast, however, the Ast to MiniRust translation reintroduces unit statements,
+         e.g., when erasing push/pop_frame or free nodes. We thus need an additional
+         handling here *)
+      print_statements (push env (`GoneUnit)) e2
   | Let ({ typ = Unit; _ }, e1, e2) ->
       print_expr env max_int e1 ^^ semi ^^ hardline ^^
       print_statements (push env (`GoneUnit)) e2
@@ -367,6 +374,8 @@ and print_expr env (context: int) (e: expr): document =
       group (string "if" ^/^ print_expr env max_int e1) ^/^
       print_block_expression env e2 ^^
       begin match e3 with
+      | Some (IfThenElse _ as e3) ->
+          break1 ^^ string "else" ^^ space ^^ print_block_or_if_expression env e3
       | Some e3 ->
           break1 ^^ string "else" ^/^ print_block_or_if_expression env e3
       | None ->
@@ -376,6 +385,11 @@ and print_expr env (context: int) (e: expr): document =
       let mine, left, right = 18, 17, 18 in
       paren_if mine @@
       group (print_expr env left e1 ^^ space ^^ equals ^^
+        (nest 4 (break1 ^^ print_expr env right e2)))
+  | AssignOp (e1, o, e2, _) ->
+      let mine, left, right = 18, 17, 18 in
+      paren_if mine @@
+      group (print_expr env left e1 ^^ space ^^ print_op o ^^ equals ^^
         (nest 4 (break1 ^^ print_expr env right e2)))
   | As (e1, e2) ->
       let mine = 7 in
@@ -413,7 +427,12 @@ and print_expr env (context: int) (e: expr): document =
       print_name env cons ^/^ braces_with_nesting (
         separate_map (comma ^^ break1) (fun (f, e) ->
           group @@
-          string f ^^ colon ^/^ group (print_expr env max_int e)
+          if string f = print_expr env max_int e then
+            (* If the field name is the same as the expression assigned to it
+               (typically, a variable name), we do not need to duplicate it *)
+            string f
+          else
+            string f ^^ colon ^/^ group (print_expr env max_int e)
         ) fields
       )
 

@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** Monormophization of data types, including tuples, then compilation of
  * pattern matches and of data types into structs & unions. *)
@@ -910,7 +910,8 @@ let rec compile_pattern env scrut pat expr =
         mut = false;
         mark = ref Mark.default;
         meta = None;
-        atom = b
+        atom = b;
+        attempt_inline = false;
       } in
       [], with_type expr.typ (ELet (b, scrut, close_binder b expr))
   | PWild ->

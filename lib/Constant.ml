@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** Machine integers. Don't repeat the same thing everywhere. *)
 
@@ -40,6 +40,21 @@ type op =
   | Comma
   | Neg
   [@@deriving yojson,show]
+
+(* Determines is this is a comparison operator *)
+let is_comp_op = function
+  | Eq | Neq | Lt | Lte | Gt | Gte -> true
+  | _ -> false
+
+(* Negates the comparison operator *)
+let comp_neg = function
+  | Eq -> Neq
+  | Neq -> Eq
+  | Lt -> Gte
+  | Lte -> Gt
+  | Gt -> Lte
+  | Gte -> Lt
+  | _ -> failwith "not a comparison operator"
 
 let unsigned_of_signed = function
   | Int8 -> UInt8

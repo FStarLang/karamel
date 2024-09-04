@@ -89,6 +89,8 @@ and expr =
   | Panic of string
   | IfThenElse of expr * expr * expr option
   | Assign of expr * expr * typ
+  (* In-place update with operator, for instance ^= for xor. *)
+  | AssignOp of expr * op * expr * typ
   | As of expr * typ
   | For of binding * expr * expr
   | While of expr * expr

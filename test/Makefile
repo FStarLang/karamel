@@ -60,7 +60,7 @@ ifneq ($(RECENT_GCC),"yes")
 endif
 
 CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased \
-  check-right-file count-deref check-global-init check-useless-alias
+  check-right-file count-deref check-global-init check-useless-alias check-inline-let
 ifneq ($(CRYPTO),)
   CRYPTO_WASM_FILES=Crypto.Symmetric.Chacha20.wasm-test
 endif
@@ -235,6 +235,11 @@ check-no-erased: $(OUTPUT_DIR)/Shifting.exe
 
 check-right-file: $(OUTPUT_DIR)/MonomorphizationSeparate2.exe
 	egrep -q 'typedef.*pair' $(OUTPUT_DIR)/MonomorphizationSeparate2.out/MonomorphizationSeparate1.h
+
+check-inline-let: $(OUTPUT_DIR)/InlineLet.exe
+	! grep foobar $(OUTPUT_DIR)/InlineLet.out/InlineLet.c
+	! grep temp_x $(OUTPUT_DIR)/InlineLet.out/InlineLet.c
+	! grep temp_y $(OUTPUT_DIR)/InlineLet.out/InlineLet.c
 
 clean:
 	rm -rf $(WEB_DIR) .output

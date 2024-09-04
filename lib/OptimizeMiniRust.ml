@@ -200,7 +200,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       add_mut_var atom known, e3
 
   (* atom[e2] = e2 *)
-  | Assign (Index (Open { atom; _ } as e1, e2), e3, t) 
+  | Assign (Index (Open { atom; _ } as e1, e2), e3, t)
 
   (* Special-case when we perform a field assignment that comes from
      a slice. This is the only case where we use native Rust tuples.
@@ -263,6 +263,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       KPrint.bprintf "[infer-mut,assign] %a unsupported\n" PrintMiniRust.pexpr e;
       failwith "TODO: unknown assignment"
 
+  | AssignOp _ -> failwith "AssignOp nodes should only be introduced after mutability inference"
   | Var _
   | Array _
   | VecNew _
@@ -306,7 +307,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
          AST node to indicate e.g. that the destination of `copy_from_slice` ought to be mutable, or
          we just bake that knowledge in right here. *)
       begin match m with
-      | [ "wrapping_add" ] | [ "wrapping_div" ] | [ "wrapping_mul" ] 
+      | [ "wrapping_add" ] | [ "wrapping_div" ] | [ "wrapping_mul" ]
       | [ "wrapping_neg" ] | [ "wrapping_rem" ] | [ "wrapping_shl" ]
       | [ "wrapping_shr" ] | [ "wrapping_sub" ]
       | [ "to_vec" ] ->
@@ -362,7 +363,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
           let known, e = infer env expected known e in
           known, (pat, e)
         ) known arms in
-      known, Match (e, arms) 
+      known, Match (e, arms)
 
   | Index (e1, e2) ->
       (* The cases where we perform an assignment on an index should be caught
@@ -373,7 +374,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       let known, e2 = infer env usize known e2 in
       known, Index (e1, e2)
 
-  (* Special case for array slices. This occurs, e.g., when calling a function with 
+  (* Special case for array slices. This occurs, e.g., when calling a function with
      a struct field *)
   | Field (Open { atom; _ }, "0", None) | Field (Open { atom; _}, "1", None) ->
       if is_mut_borrow expected then
@@ -387,7 +388,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       known, e
 
   | Deref _ ->
-      failwith "TODO: Deref"
+      known, e
 
 (* We store here a list of builtins, with the types of their arguments.
    Type substitutions are currently not supported, functions with generic
@@ -575,7 +576,7 @@ let builtins : (name * typ list) list = [
     [Name (["lib"; "intvector_intrinsics"; "vec256"], []);
      Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
   [ "lib"; "intvector_intrinsics"; "vec256_load32"], [u32];
-  [ "lib"; "intvector_intrinsics"; "vec256_load32s"], [u32; u32; u32; u32; u32; u32; u32; u32]; 
+  [ "lib"; "intvector_intrinsics"; "vec256_load32s"], [u32; u32; u32; u32; u32; u32; u32; u32];
   [ "lib"; "intvector_intrinsics"; "vec256_load32_be"], [Ref (None, Shared, Slice u8)];
   [ "lib"; "intvector_intrinsics"; "vec256_load32_le"], [Ref (None, Shared, Slice u8)];
   [ "lib"; "intvector_intrinsics"; "vec256_load64"], [u64];
@@ -624,7 +625,7 @@ let builtins : (name * typ list) list = [
      Name (["lib"; "intvector_intrinsics"; "vec256"], [])];
 
   (* Lib.RandomBuffer_System *)
-  [ "lib"; "randombuffer_system"; "randombytes"], [Ref (None, Mut, Slice u8); u32]; 
+  [ "lib"; "randombuffer_system"; "randombytes"], [Ref (None, Mut, Slice u8); u32];
 
   (* LowStar.Endianness, little-endian *)
   [ "lowstar"; "endianness"; "load16_le" ], [Ref (None, Shared, Slice u8)];
@@ -650,7 +651,7 @@ let builtins : (name * typ list) list = [
   (* Vale assembly functions marked as extern. This should probably be handled earlier *)
   [ "vale"; "stdcalls_x64_sha"; "sha256_update"], [
     Ref (None, Mut, Slice u32); Ref (None, Shared, Slice u8); u32;
-    Ref (None, Shared, Slice u32)  
+    Ref (None, Shared, Slice u32)
   ];
   [ "vale"; "inline_x64_fadd_inline"; "add_scalar" ], [
     Ref (None, Mut, Slice u64); Ref (None, Shared, Slice u64); Ref (None, Shared, Slice u64)
@@ -729,7 +730,7 @@ let builtins : (name * typ list) list = [
       u64; Ref (None, Shared, Slice u64);
       Ref (None, Mut, Slice u64); Ref (None, Mut, Slice u64)
   ];
-    
+
 
 ]
 
@@ -790,3 +791,121 @@ let infer_mut_borrows files =
     | x -> x
     ) decls
   ) (List.rev files)
+
+
+(* Transformations occuring on the MiniRust AST, after translation and mutability inference *)
+
+(* Loop unrolling introduces an implicit binder that does not interact well
+   with the substitutions occurring in mutability inference.
+   We perform it after the translation *)
+let unroll_loops = object
+  inherit [_] map_expr as super
+  method! visit_For _ b e1 e2 =
+    let e2 = super#visit_expr () e2 in
+
+    match e1 with
+    | Range (Some (Constant (UInt32, init as k_init) as e_init), Some (Constant (UInt32, max)), false)
+      when (
+        let init = int_of_string init in
+        let max = int_of_string max in
+        let n_loops = max - init in
+        n_loops <= !Options.unroll_loops
+      ) ->
+        let init = int_of_string init in
+        let max = int_of_string max in
+        let n_loops = max - init in
+
+        if n_loops = 0 then Unit
+
+        else if n_loops = 1 then subst e_init 0 e2
+
+        else Call (Name ["krml"; "unroll_for!"], [], [
+          Constant (CInt, string_of_int n_loops);
+          ConstantString b.name;
+          Constant k_init;
+          Constant (UInt32, "1");
+          e2
+        ])
+
+    | _ -> For (b, e1, e2)
+end
+
+let remove_trailing_unit = object
+  inherit [_] map_expr as super
+  method! visit_Let _ b e1 e2 =
+    let e1 = super#visit_expr () e1 in
+    let e2 = super#visit_expr () e2 in
+    match e2 with
+    | Unit -> e1
+    | _ -> Let (b, e1, e2)
+end
+
+(* The Rust compiler will automatically insert borrows or dereferences
+   when required for methodcalls and field accesses *)
+let remove_auto_deref = object
+  inherit [_] map_expr as super
+  method! visit_MethodCall _ e1 n e2 =
+    let e1 = super#visit_expr () e1 in
+    let e2 = List.map (super#visit_expr ()) e2 in
+    match e1 with
+    | Borrow (_, e) | Deref e -> MethodCall (e, n, e2)
+    | _ -> MethodCall (e1, n, e2)
+
+  method! visit_Field _ e n t =
+    let e = super#visit_expr () e in
+    match e with
+    | Deref e -> Field (e, n, t)
+    | _ -> Field (e, n, t)
+end
+
+(* Rewrite eligible terms with the assign-op pattern.
+   Ex: x = x & y becomes x &= y *)
+let rewrite_assign_op = object
+  inherit [_] map_expr as super
+  method! visit_Assign _ e1 e2 t =
+    let e1 = super#visit_expr () e1 in
+    let e2 = super#visit_expr () e2 in
+    match e2 with
+    | Call (Operator o, ts, [ e_l; e_r ]) when e1 = e_l ->
+        assert (ts = []);
+        AssignOp (e1, o, e_r, t)
+    | _ -> Assign (e1, e2, t)
+end
+
+(* Rewrite boolean expressions that are the negation of a condition *)
+let rewrite_nonminimal_bool = object
+  inherit [_] map_expr as super
+  method! visit_Call _ e tys args =
+    let e = super#visit_expr () e in
+    let args = List.map (super#visit_expr ()) args in
+    match e, tys, args with
+    | Operator Not, [], [ Call (Operator o, [], [e1; e2]) ] when Constant.is_comp_op o ->
+        Call (Operator (Constant.comp_neg o), [], [e1; e2])
+    | _ -> Call (e, tys, args)
+end
+
+let map_funs f_map files =
+  let files =
+    List.fold_left (fun files (filename, decls) ->
+      let decls = List.fold_left (fun decls decl ->
+        match decl with
+        | Function ({ body; _ } as f) ->
+          let body = f_map () body in
+          Function {f with body} :: decls
+        | _ -> decl :: decls
+      ) [] decls in
+      let decls = List.rev decls in
+      (filename, decls) :: files
+    ) [] files
+  in
+  List.rev files
+
+let simplify_minirust files =
+  let files = map_funs unroll_loops#visit_expr files in
+  let files = map_funs remove_auto_deref#visit_expr files in
+  let files = map_funs rewrite_assign_op#visit_expr files in
+  let files = map_funs rewrite_nonminimal_bool#visit_expr files in
+  (* We do this simplification last, as the previous passes might
+     have introduced unit statements *)
+  let files = map_funs remove_trailing_unit#visit_expr files in
+  files

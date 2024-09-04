@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** The internal, typed AST that we perform all transformations on. *)
 
@@ -347,6 +347,7 @@ and binder' = {
   meta: meta option;
   atom: atom_t;
     (** Only makes sense when opened! *)
+  attempt_inline: bool; (* Whether to attempt inlining, as if this was named uu__... *)
 }
 
 and binder =

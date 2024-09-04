@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** This module rewrites the original AST to send it into Low*, the subset we
  * know how to translate to C. *)
@@ -126,7 +126,11 @@ let use_mark_to_inline_temporaries = object (self)
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
     let _, v = !(b.node.mark) in
-    if (Helpers.is_uu b.node.name || b.node.name = "scrut" || Structs.should_rewrite b.typ = NoCopies) &&
+    if (b.node.attempt_inline ||
+        Helpers.is_uu b.node.name ||
+        b.node.name = "scrut" ||
+        Structs.should_rewrite b.typ = NoCopies
+       ) &&
       v = AtMost 1 && (
         is_readonly_c_expression e1 &&
         safe_readonly_use e2 ||

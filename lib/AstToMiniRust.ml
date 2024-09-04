@@ -542,24 +542,11 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
     | Heap -> false
   in
 
-  (* let optimize_size_one t = function *)
-  (*   | MiniRust.Repeat(e_init, Constant (_, "1")) *)
-  (*   | List [ e_init ] -> *)
-  (*       (1* We avoid going through the vec! macro which imposes that the argument *)
-  (*          be copyable. Instead, we use push, which moves the element into *)
-  (*          the vector. *)
-  (*          TODO: it would be nice if we could simply get rid of this function, *)
-  (*          and emit krml_vec! which would desugar properly in the case of size 1. *1) *)
-
-  (*       (1* let tmp = Vec::new(); *1) *)
-  (*       MiniRust.Let ({ name = "tmp"; typ = Vec t; mut = true }, Call (Name ["Vec"; "new"], [], []), *)
-  (*         (1* let _ = tmp.push(e_init); *1) *)
-  (*         Let ({ name = "_"; typ = Unit; mut = false }, MethodCall (Var 0, ["push"], [MiniRust.lift 1 e_init]), *)
-  (*         (1* tmp *1) *)
-  (*         Var 1)) *)
-  (*   | e_init -> *)
-  (*       VecNew e_init *)
-  (* in *)
+  (* let optimize_size_one = function
+    | MiniRust.Repeat(e_init, Constant (_, "1")) -> MiniRust.VecNew (List [e_init])
+    | e_init ->
+        VecNew e_init
+  in *)
 
   match init.node with
   | EBufCreate (lifetime, e_init, len) ->
@@ -841,7 +828,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let t = translate_type env b.typ in
       let is_owned_struct =
         match b.typ with
-        | TQualified lid when Idents.LidSet.mem lid env.heap_structs -> true
+        | TQualified lid when Idents.LidSet.mem lid env.heap_structs || Idents.LidSet.mem lid env.pointer_holding_structs -> true
         | _ -> false
       in
       (* TODO how does this play out with the new "translate as non-mut by

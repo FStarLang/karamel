@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** Definition of the input format. *)
 
@@ -129,6 +129,7 @@ and binder = {
   name: ident;
   typ: typ;
   mut: bool;
+  meta: flag list;
 }
 
 and ident =
@@ -164,7 +165,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 28
+let current_version: version = 31
 
 type file = string * program
   [@@deriving yojson]
