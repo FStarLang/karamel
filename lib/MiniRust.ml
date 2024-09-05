@@ -127,8 +127,14 @@ and open_var = {
 and atom_t = Atom.t [@ visitors.opaque]
 
 (* Smart constructors *)
-let box_new t e =
-  Call (Name ["Box"; "new"], [t], [e])
+let box_new (e: array_expr) =
+  let optimize_size_one = function
+    | Repeat(e_init, Constant (_, "1")) ->
+        VecNew (List [e_init])
+    | e_init ->
+        VecNew e_init
+  in
+  MethodCall (optimize_size_one e, ["into_boxed_slice"], [])
 
 (* e[..] *)
 let slice_of_array e =

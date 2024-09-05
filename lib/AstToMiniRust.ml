@@ -542,12 +542,6 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
     | Heap -> false
   in
 
-  (* let optimize_size_one = function
-    | MiniRust.Repeat(e_init, Constant (_, "1")) -> MiniRust.VecNew (List [e_init])
-    | e_init ->
-        VecNew e_init
-  in *)
-
   match init.node with
   | EBufCreate (lifetime, e_init, len) ->
       let t = translate_type env (Helpers.assert_tbuf_or_tarray init.typ) in
@@ -557,7 +551,7 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
       if to_array lifetime && H.is_const len then
         env, Array e_init, Array (t, H.assert_const len)
       else
-        MiniRust.(env, box_new (Slice t) (slice_of_array e_init), box (Slice t))
+        MiniRust.(env, box_new e_init, box (Slice t))
   | EBufCreateL (lifetime, es) ->
       let t = translate_type env (Helpers.assert_tbuf_or_tarray init.typ) in
       let l = List.length es in
@@ -566,7 +560,7 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
       if to_array lifetime then
         env, Array e_init, Array (t, l)
       else
-        MiniRust.(env, box_new (Slice t) (slice_of_array e_init), box (Slice t))
+        MiniRust.(env, box_new e_init, box (Slice t))
   | _ ->
       Warn.fatal_error "unexpected: non-bufcreate expression, got %a" PrintAst.Ops.pexpr init
 
@@ -910,7 +904,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         [ "copy_from_slice" ],
         [ Borrow (Shared, Index (src, H.range_with_len src_index len)) ])
   | EBufFill (dst, elt, len) ->
-      let t = translate_type env elt.typ in
+      (* let t = translate_type env elt.typ in *)
       let env, dst = translate_expr env dst in
       let env, elt = translate_expr env elt in
       let env, len = translate_expr_with_type env len (Constant SizeT) in
@@ -923,7 +917,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         env, MethodCall (
           Index (dst, H.range_with_len (Constant (SizeT, "0")) len),
           [ "copy_from_slice" ],
-          [ Borrow (Shared, MiniRust.(box_new (Slice t) (slice_of_array (Repeat (elt, len))))) ])
+          [ Borrow (Shared, MiniRust.(box_new (Repeat (elt, len)))) ])
   | EBufFree _ ->
       (* Rather than error out, we do nothing, as some functions may allocate then free. *)
       env, Unit
