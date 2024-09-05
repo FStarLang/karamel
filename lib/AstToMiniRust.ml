@@ -567,6 +567,8 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
 (* However, generally, we will have a type provided by the context that may
    necessitate the insertion of conversions *)
 and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env * MiniRust.expr =
+  (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
+
   let erase_lifetime_info = (object(self)
     inherit [_] MiniRust.DeBruijn.map
     method! visit_Ref env _ bk t = Ref (None, bk, self#visit_typ env t)
@@ -574,7 +576,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
   end)#visit_typ ()
   in
 
-  (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
+  (* Possibly convert expression x, known to have type t (per Rust), into
+     expected type t_ret (captured variable). *)
   let possibly_convert (x: MiniRust.expr) t: MiniRust.expr =
     (* KPrint.bprintf "possibly_convert: %a: %a <: %a\n" *)
     (*   PrintMiniRust.pexpr x *)
@@ -592,15 +595,19 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         (* The type annotations coming from Ast do not feature polymorphic binders in types, but we
            do retain them in our Function type -- so we need to relax the comparison here *)
         x
+
     (* More conversions due to box-ing types. *)
     | _, App (Name (["Box"], _), [Slice _]), Ref (_, k, Slice _) ->
-        Borrow (k, Deref x)
+        (* This happens automatically *)
+        Borrow (k, x)
     | _, Ref (_, _, Slice _), App (Name (["Box"], _), [Slice _]) ->
         MethodCall (Borrow (Shared, Deref x), ["into"], [])
     (* | _, Ref (_, Shared, Slice _), App (Name (["Box"], _), [Slice _]) -> *)
     (*     MethodCall (x, ["into"], []) *)
     | _, Vec _, App (Name (["Box"], _), [Slice _]) ->
         MethodCall (MethodCall (x, ["try_into"], []), ["unwrap"], [])
+    | _, Array _, App (Name (["Box"], _), [Slice _]) ->
+        Call (Name["Box"; "new"], [], [x])
 
     (* More conversions due to vec-ing types *)
     | _, Ref (_, _, Slice _), Vec _ ->

@@ -309,10 +309,10 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
          AST node to indicate e.g. that the destination of `copy_from_slice` ought to be mutable, or
          we just bake that knowledge in right here. *)
       begin match m with
-      | [ "wrapping_add" ] | [ "wrapping_div" ] | [ "wrapping_mul" ]
-      | [ "wrapping_neg" ] | [ "wrapping_rem" ] | [ "wrapping_shl" ]
-      | [ "wrapping_shr" ] | [ "wrapping_sub" ]
-      | [ "to_vec" ] ->
+      | [ "wrapping_add" | "wrapping_div" | "wrapping_mul"
+      |   "wrapping_neg" | "wrapping_rem" | "wrapping_shl"
+      |   "wrapping_shr" | "wrapping_sub"
+      |   "to_vec" | "into_boxed_slice" | "into" ] ->
           known, MethodCall (e1, m, e2)
       | ["split_at"] ->
           assert (List.length e2 = 1);
