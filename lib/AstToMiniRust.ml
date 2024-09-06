@@ -598,21 +598,23 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
 
     (* More conversions due to box-ing types. *)
     | _, App (Name (["Box"], _), [Slice _]), Ref (_, k, Slice _) ->
-        (* This happens automatically *)
         Borrow (k, x)
     | _, Ref (_, _, Slice _), App (Name (["Box"], _), [Slice _]) ->
+        (* COPY *)
         MethodCall (Borrow (Shared, Deref x), ["into"], [])
-    (* | _, Ref (_, Shared, Slice _), App (Name (["Box"], _), [Slice _]) -> *)
-    (*     MethodCall (x, ["into"], []) *)
     | _, Vec _, App (Name (["Box"], _), [Slice _]) ->
+        (* DEAD CODE -- no method try_into on Vec *)
         MethodCall (MethodCall (x, ["try_into"], []), ["unwrap"], [])
     | _, Array _, App (Name (["Box"], _), [Slice _]) ->
-        Call (Name["Box"; "new"], [], [x])
+        (* COPY *)
+        Call (Name ["Box"; "new"], [], [x])
 
     (* More conversions due to vec-ing types *)
     | _, Ref (_, _, Slice _), Vec _ ->
+        (* COPY *)
         MethodCall (x, ["to_vec"], [])
     | _, Array _, Vec _ ->
+        (* COPY *)
         Call (Name ["Vec"; "from"], [], [x])
 
     | _, Name (n, _), Name (n', _) when n = n' ->
