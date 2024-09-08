@@ -431,8 +431,8 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
   | TAny -> failwith "unexpected: [type] no casts in Low* -> Rust"
   | TBuf (t, b) ->
       if config.box then
-        (* MiniRust.box (Slice (translate_type_with_config env config t)) *)
-        Vec (translate_type_with_config env config t)
+        MiniRust.box (Slice (translate_type_with_config env config t))
+        (* Vec (translate_type_with_config env config t) *)
       else
         Ref (config.lifetime, borrow_kind_of_bool b, Slice (translate_type_with_config env config t))
   | TArray (t, c) -> Array (translate_type_with_config env config t, int_of_string (snd c))
@@ -542,12 +542,6 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
     | Heap -> false
   in
 
-  let optimize_size_one = function
-    | MiniRust.Repeat(e_init, Constant (_, "1")) -> MiniRust.VecNew (List [e_init])
-    | e_init ->
-        VecNew e_init
-  in
-
   match init.node with
   | EBufCreate (lifetime, e_init, len) ->
       let t = translate_type env (Helpers.assert_tbuf_or_tarray init.typ) in
@@ -557,7 +551,7 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
       if to_array lifetime && H.is_const len then
         env, Array e_init, Array (t, H.assert_const len)
       else
-        env, optimize_size_one e_init, Vec t
+        MiniRust.(env, box_new e_init, box (Slice t))
   | EBufCreateL (lifetime, es) ->
       let t = translate_type env (Helpers.assert_tbuf_or_tarray init.typ) in
       let l = List.length es in
@@ -566,13 +560,15 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
       if to_array lifetime then
         env, Array e_init, Array (t, l)
       else
-        env, optimize_size_one e_init, Vec t
+        MiniRust.(env, box_new e_init, box (Slice t))
   | _ ->
       Warn.fatal_error "unexpected: non-bufcreate expression, got %a" PrintAst.Ops.pexpr init
 
 (* However, generally, we will have a type provided by the context that may
    necessitate the insertion of conversions *)
 and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env * MiniRust.expr =
+  (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
+
   let erase_lifetime_info = (object(self)
     inherit [_] MiniRust.DeBruijn.map
     method! visit_Ref env _ bk t = Ref (None, bk, self#visit_typ env t)
@@ -580,7 +576,8 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
   end)#visit_typ ()
   in
 
-  (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
+  (* Possibly convert expression x, known to have type t (per Rust), into
+     expected type t_ret (captured variable). *)
   let possibly_convert (x: MiniRust.expr) t: MiniRust.expr =
     (* KPrint.bprintf "possibly_convert: %a: %a <: %a\n" *)
     (*   PrintMiniRust.pexpr x *)
@@ -598,20 +595,26 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         (* The type annotations coming from Ast do not feature polymorphic binders in types, but we
            do retain them in our Function type -- so we need to relax the comparison here *)
         x
+
     (* More conversions due to box-ing types. *)
     | _, App (Name (["Box"], _), [Slice _]), Ref (_, k, Slice _) ->
-        Borrow (k, Deref x)
+        Borrow (k, x)
     | _, Ref (_, _, Slice _), App (Name (["Box"], _), [Slice _]) ->
+        (* COPY *)
         MethodCall (Borrow (Shared, Deref x), ["into"], [])
-    (* | _, Ref (_, Shared, Slice _), App (Name (["Box"], _), [Slice _]) -> *)
-    (*     MethodCall (x, ["into"], []) *)
     | _, Vec _, App (Name (["Box"], _), [Slice _]) ->
+        (* DEAD CODE -- no method try_into on Vec *)
         MethodCall (MethodCall (x, ["try_into"], []), ["unwrap"], [])
+    | _, Array _, App (Name (["Box"], _), [Slice _]) ->
+        (* COPY *)
+        Call (Name ["Box"; "new"], [], [x])
 
     (* More conversions due to vec-ing types *)
     | _, Ref (_, _, Slice _), Vec _ ->
+        (* COPY *)
         MethodCall (x, ["to_vec"], [])
     | _, Array _, Vec _ ->
+        (* COPY *)
         Call (Name ["Vec"; "from"], [], [x])
 
     | _, Name (n, _), Name (n', _) when n = n' ->
@@ -910,6 +913,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         [ "copy_from_slice" ],
         [ Borrow (Shared, Index (src, H.range_with_len src_index len)) ])
   | EBufFill (dst, elt, len) ->
+      (* let t = translate_type env elt.typ in *)
       let env, dst = translate_expr env dst in
       let env, elt = translate_expr env elt in
       let env, len = translate_expr_with_type env len (Constant SizeT) in
@@ -922,7 +926,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         env, MethodCall (
           Index (dst, H.range_with_len (Constant (SizeT, "0")) len),
           [ "copy_from_slice" ],
-          [ Borrow (Shared, VecNew (Repeat (elt, len))) ])
+          [ Borrow (Shared, MiniRust.(box_new (Repeat (elt, len)))) ])
   | EBufFree _ ->
       (* Rather than error out, we do nothing, as some functions may allocate then free. *)
       env, Unit
