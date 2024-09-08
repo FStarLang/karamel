@@ -32,7 +32,7 @@ WORKDIR $HOME
 SHELL ["/bin/bash", "--login", "-c"]
 
 # Install OCaml
-ARG OCAML_VERSION=4.12.0
+ARG OCAML_VERSION=4.14.0
 RUN opam init --compiler=$OCAML_VERSION --disable-sandboxing 
 RUN opam env --set-switch | tee --append $HOME/.profile $HOME/.bashrc $HOME/.bash_profile
 # unsafe-yes necessary to handle automatic system dependency changes with depext
