@@ -1028,23 +1028,15 @@ and hoist_stmt loc e =
       nest lhs e.typ (mk (ELet (binder, e1, close_binder binder e2)))
 
   | EIfThenElse (e1, e2, e3) ->
-      if e.typ = TUnit then
-        let lhs, e1 = hoist_expr loc Unspecified e1 in
-        let e2 = hoist_stmt loc e2 in
-        let e3 = hoist_stmt loc e3 in
-        nest lhs e.typ (mk (EIfThenElse (e1, e2, e3)))
-      else
-        let lhs, e = hoist_expr loc Unspecified e in
-        nest lhs e.typ e
+      let lhs, e1 = hoist_expr loc Unspecified e1 in
+      let e2 = hoist_stmt loc e2 in
+      let e3 = hoist_stmt loc e3 in
+      nest lhs e.typ (mk (EIfThenElse (e1, e2, e3)))
 
   | ESwitch (e1, branches) ->
-      if e.typ = TUnit then
-        let lhs, e1 = hoist_expr loc Unspecified e1 in
-        let branches = List.map (fun (tag, e2) -> tag, hoist_stmt loc e2) branches in
-        nest lhs e.typ (mk (ESwitch (e1, branches)))
-      else
-        let lhs, e = hoist_expr loc Unspecified e in
-        nest lhs e.typ e
+      let lhs, e1 = hoist_expr loc Unspecified e1 in
+      let branches = List.map (fun (tag, e2) -> tag, hoist_stmt loc e2) branches in
+      nest lhs e.typ (mk (ESwitch (e1, branches)))
 
   | EFor (binder, e1, e2, e3, e4) ->
       assert (e.typ = TUnit);
