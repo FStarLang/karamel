@@ -1318,7 +1318,7 @@ let optimize files =
 let everything files =
   let map = build_scheme_map files in
   let files = (compile_simple_matches map)#visit_files () files in
-  let files = (compile_all_matches map)#visit_files () files in
+  let files = if Options.rust () then files else (compile_all_matches map)#visit_files () files in
   let files = remove_non_scalar_casts#visit_files () files in
   let files = remove_empty_structs files in
   map, files

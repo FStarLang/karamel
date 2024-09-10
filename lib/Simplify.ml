@@ -2056,9 +2056,9 @@ let simplify2 ifdefs (files: file list): file list =
    * let-bindings. Also removes occurrences of spinlock and the like. *)
   let files = optimize_lets ~ifdefs files in
   let files = if Options.wasm () then files else fixup_while_tests#visit_files () files in
-  let files = hoist#visit_files [] files in
+  let files = if Options.rust () then files else hoist#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
-  let files = if Options.wasm () then files else fixup_hoist#visit_files () files in
+  let files = if Options.wasm () || Options.rust () then files else fixup_hoist#visit_files () files in
   let files = if Options.wasm () || Options.rust () then files else let_if_to_assign#visit_files () files in
   let files = if Options.wasm () then files else hoist_bufcreate#visit_files ifdefs files in
   (* This phase relies on up-to-date mark information. TODO move up after
