@@ -1034,6 +1034,14 @@ and hoist_stmt loc e =
       let e3 = hoist_stmt loc e3 in
       nest lhs e.typ (mk (EIfThenElse (e1, e2, e3)))
 
+  | EMatch (f, e1, branches) ->
+      let lhs, e1 = hoist_expr loc Unspecified e1 in
+      let branches = List.map (fun (binders, p, e2) ->
+        let binders, e2 = open_binders binders e2 in
+        binders, p, close_binders binders (hoist_stmt loc e2)
+      ) branches in
+      nest lhs e.typ (mk (EMatch (f, e1, branches)))
+
   | ESwitch (e1, branches) ->
       let lhs, e1 = hoist_expr loc Unspecified e1 in
       let branches = List.map (fun (tag, e2) -> tag, hoist_stmt loc e2) branches in
@@ -1105,9 +1113,6 @@ and hoist_stmt loc e =
 
   | EComment (s, e, s') ->
       mk (EComment (s, hoist_stmt loc e, s'))
-
-  | EMatch _ ->
-      failwith "[hoist_t]: EMatch not properly desugared"
 
   | ETuple _ ->
       failwith "[hoist_t]: ETuple not properly desugared"
@@ -1185,6 +1190,18 @@ and hoist_expr loc pos e =
       else
         let b, body, cont = mk_named_binding "ite" t (EIfThenElse (e1, e2, e3)) in
         lhs1 @ [ b, body ], cont
+
+  | EMatch (f, e, branches) ->
+      (* Used only for the Rust backend -- we still want to hoist (it's good for
+         code quality) but we disable data types compilation on the basis that
+         Rust has proper data type support. *)
+      let lhs, e = hoist_expr loc Unspecified e in
+      let branches = List.map (fun (binders, p, e) ->
+        let binders, e = open_binders binders e in
+        let lhs, e = hoist_expr loc UnderConditional e in
+        binders, p, close_binders binders (nest lhs e.typ e)
+      ) branches in
+      lhs, mk (EMatch (f, e, branches))
 
   | ESwitch (e1, branches) ->
       let t = e.typ in
@@ -1354,9 +1371,6 @@ and hoist_expr loc pos e =
 
   | ETuple _ ->
       failwith "[hoist_t]: ETuple not properly desugared"
-
-  | EMatch _ ->
-      failwith "[hoist_t]: EMatch"
 
   | ESequence _ ->
       fatal_error "[hoist_t]: sequences should've been translated as let _ ="
@@ -1787,6 +1801,8 @@ let rec find_pushframe ifdefs (e: expr) =
       mk (EIfThenElse (e1, find_pushframe ifdefs e2, find_pushframe ifdefs e3))
   | ESwitch (e, branches) ->
       mk (ESwitch (e, List.map (fun (t, e) -> t, find_pushframe ifdefs e) branches))
+  | EMatch (f, e, branches) ->
+      mk (EMatch (f, e, List.map (fun (t, p, e) -> t, p, find_pushframe ifdefs e) branches))
   | _ ->
       e
 
@@ -2056,10 +2072,11 @@ let simplify2 ifdefs (files: file list): file list =
    * let-bindings. Also removes occurrences of spinlock and the like. *)
   let files = optimize_lets ~ifdefs files in
   let files = if Options.wasm () then files else fixup_while_tests#visit_files () files in
-  let files = if Options.rust () then files else hoist#visit_files [] files in
+  let files = hoist#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
   let files = if Options.wasm () || Options.rust () then files else fixup_hoist#visit_files () files in
   let files = if Options.wasm () || Options.rust () then files else let_if_to_assign#visit_files () files in
+  (* NB: could be disabled for Rust since the Rust checker will error out *)
   let files = if Options.wasm () then files else hoist_bufcreate#visit_files ifdefs files in
   (* This phase relies on up-to-date mark information. TODO move up after
      optimize_lets. *)

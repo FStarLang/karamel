@@ -97,7 +97,7 @@ and expr =
   | MethodCall of expr * name * expr list
   | Range of expr option * expr option * bool (* inclusive? *)
   | Struct of name * (string * expr) list
-  | Match of expr * (match_arm * expr) list
+  | Match of expr * match_arm list
 
   (* Place expressions *)
   | Var of db_index
@@ -112,12 +112,18 @@ and expr =
   | Operator of op
   | Deref of expr
 
-and match_arm = pat
+and match_arm = binding list * pat * expr
 
+(* FIXME: could not reuse constructors like Struct, Var, and Open, using
+   [@name "StructP"] to avoid conflicts -- this resulted in typing errors in
+   the generated visitors code *)
 and pat =
   | Literal of constant
   | Wildcard
-  | StructP of name (* TODO *)
+  (* A "struct pattern" per the Rust grammar that covers both Enum and Struct *)
+  | StructP of name * (string * pat) list
+  | VarP of db_index
+  | OpenP of open_var
 
 and open_var = {
   name: string;
@@ -220,6 +226,16 @@ module DeBruijn = struct
       let e1 = self#visit_expr env e1 in
       let e2 = self#visit_expr (self#extend env b) e2 in
       For (b, e1, e2)
+
+    method! visit_Match env e branches =
+      let e = self#visit_expr env e in
+      let branches = List.map (fun (bs, p, e) ->
+        let env = List.fold_left self#extend env bs in
+        let p = self#visit_pat env p in
+        let e = self#visit_expr env e in
+        bs, p, e
+      ) branches in
+      Match (e, branches)
   end
 
   class map_counting = object
@@ -236,6 +252,12 @@ module DeBruijn = struct
     inherit map_counting
     (* A local variable (one that is less than [i]) is unaffected;
        a free variable is lifted up by [k]. *)
+    method! visit_VarP i j =
+      if j < i then
+        VarP j
+      else
+        VarP (j + k)
+
     method! visit_Var i j =
       if j < i then
         Var j

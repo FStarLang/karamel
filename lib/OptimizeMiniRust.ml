@@ -91,7 +91,7 @@ let retrieve_pair_type = function
   | _ -> failwith "impossible: retrieve_pair_type"
 
 let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr =
-  KPrint.bprintf "[infer] %a @ %a\n" pexpr e ptyp expected;
+  (* KPrint.bprintf "[infer] %a @ %a\n" pexpr e ptyp expected; *)
   match e with
   | Borrow (k, e) ->
       (* If we expect this borrow to be a mutable borrow, then we make it a mutable borrow
@@ -361,9 +361,10 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
          we would need to add the expected type of the scrutinee to the Match node,
          similar to what is done for Assign and Field, in order to recurse on
          the scrutinee *)
-      let known, arms = List.fold_left_map (fun known (pat, e) ->
+      (* FIXME per comment above *)
+      let known, arms = List.fold_left_map (fun known (bs, pat, e) ->
           let known, e = infer env expected known e in
-          known, (pat, e)
+          known, (bs, pat, e)
         ) known arms in
       known, Match (e, arms)
 

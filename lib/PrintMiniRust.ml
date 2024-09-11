@@ -453,13 +453,16 @@ and print_expr env (context: int) (e: expr): document =
       paren_if mine @@
       group (star ^^ print_expr env mine e)
 
-  | Match (scrut, patexprs) ->
+  | Match (scrut, branches) ->
       group @@
       group (string "match" ^/^ print_expr env max_int scrut) ^/^ braces_with_nesting (
-        separate_map (comma ^^ break1) (fun (p, e) ->
+        separate_map (comma ^^ break1) (fun (bs, p, e) ->
+          let env = List.fold_left (fun env ({ name; _ }: MiniRust.binding) ->
+            push env (`Named (allocate_name env name))
+          ) env bs in
           group @@
           group (print_pat env p ^/^ string "=>") ^^ group (nest 2 (break1 ^^ print_expr env max_int e))
-      ) patexprs)
+      ) branches)
 
   | Open { name; _ } -> at ^^ string name
 
@@ -467,7 +470,14 @@ and print_pat env (p: pat) =
   match p with
   | Literal c -> print_constant c
   | Wildcard -> underscore
-  | StructP name -> print_name env name
+  | StructP (name, fields) ->
+      print_name env name ^^ braces_with_nesting (
+        separate_map (comma ^^ break1) (fun (name, pat) ->
+          group (group (string name ^^ colon) ^/^ group (print_pat env pat))
+        ) fields
+      )
+  | VarP v -> begin match lookup env v with `Named v -> string v | _ -> failwith "incorrect bound var in pattern" end
+  | OpenP { name; _ } -> at ^^ string name
 
 and print_array_expr env (e: array_expr) =
   match e with
