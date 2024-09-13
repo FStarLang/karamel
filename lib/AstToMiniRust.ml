@@ -567,7 +567,7 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
 (* However, generally, we will have a type provided by the context that may
    necessitate the insertion of conversions *)
 and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env * MiniRust.expr =
-  (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
+  KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e;
 
   let erase_lifetime_info = (object(self)
     inherit [_] MiniRust.DeBruijn.map
@@ -641,9 +641,10 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         if erase_lifetime_info t = erase_lifetime_info t_ret then
           x
         else
-          Warn.failwith "type mismatch;\n  e=%a\n  t=%a\n  t_ret=%a\n  x=%a"
+          Warn.failwith "type mismatch;\n  e=%a\n  t=%a (verbose: %s)\n  t_ret=%a\n  x=%a"
             PrintAst.Ops.pexpr e
-            PrintMiniRust.ptyp t PrintMiniRust.ptyp t_ret
+            PrintMiniRust.ptyp t (MiniRust.show_typ t)
+            PrintMiniRust.ptyp t_ret
             PrintMiniRust.pexpr x;
     end
   in
@@ -1173,9 +1174,10 @@ let bind_decl env (d: Ast.decl): env =
           (* These sets are mutually exclusive, so we don't box *and* introduce a
              lifetime at the same time *)
           let box = Idents.LidSet.mem lid env.heap_structs in
-          KPrint.bprintf "%a: lifetime=%b\n" PrintAst.Ops.plid lid (Idents.LidSet.mem lid env.pointer_holding_structs);
+          let lifetime = Idents.LidSet.mem lid env.pointer_holding_structs in
+          KPrint.bprintf "%a (FLAT): lifetime=%b box=%b\n" PrintAst.Ops.plid lid lifetime box;
           let lifetime =
-            if Idents.LidSet.mem lid env.pointer_holding_structs then
+            if lifetime then
               Some (MiniRust.Label "a")
             else
               None
@@ -1186,6 +1188,9 @@ let bind_decl env (d: Ast.decl): env =
           ) fields in
           { env with struct_fields = LidMap.add lid fields env.struct_fields }
       | Variant branches ->
+          let box = Idents.LidSet.mem lid env.heap_structs in
+          let lifetime = Idents.LidSet.mem lid env.pointer_holding_structs in
+          KPrint.bprintf "%a (VARIANT): lifetime=%b box=%b\n" PrintAst.Ops.plid lid lifetime box;
           List.fold_left (fun env (cons, fields) ->
             { env with struct_fields = LidMap.add (fst lid, snd lid ^ "_" ^
             cons) (List.map (fun (f, (t, _)) ->
