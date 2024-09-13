@@ -379,11 +379,11 @@ let wrapping_arithmetic = object (self)
         let e = mk_op (K.without_wrap op) unsigned_w in
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
-        let c e = { node = ECast (e, TInt unsigned_w); typ = TInt unsigned_w } in
+        let c e = { node = ECast (e, TInt unsigned_w); typ = TInt unsigned_w; meta = [] } in
         (** TODO: the second call to [c] is optional per the C semantics, but in
          * order to preserve typing, we have to insert it... maybe recognize
          * that pattern later on at the C emission level? *)
-        let unsigned_app = { node = EApp (e, [ c e1; c e2 ]); typ = TInt unsigned_w } in
+        let unsigned_app = { node = EApp (e, [ c e1; c e2 ]); typ = TInt unsigned_w; meta = [] } in
         ECast (unsigned_app, TInt w)
 
     | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), w), [ e1; e2 ] when K.is_unsigned w ->
@@ -432,7 +432,7 @@ let sequence_to_let = object (self)
     match List.rev es with
     | last :: first_fews ->
         (List.fold_left (fun cont e ->
-          { node = ELet (sequence_binding (), e, lift 1 cont); typ = last.typ }
+          { node = ELet (sequence_binding (), e, lift 1 cont); typ = last.typ; meta = [] }
         ) last first_fews).node
     | [] ->
         failwith "[sequence_to_let]: impossible (empty sequence)"
@@ -491,7 +491,7 @@ let let_if_to_assign = object (self)
   method private make_assignment lhs e1 =
     let nest_assign = nest_in_return_pos TUnit (fun i innermost -> {
       node = EAssign (DeBruijn.lift i lhs, innermost);
-      typ = TUnit
+      typ = TUnit; meta = []
     }) in
     match e1.node with
     | EIfThenElse (cond, e_then, e_else) ->
@@ -1122,7 +1122,7 @@ and hoist_stmt loc e =
 (* This function returns an expression that can be successfully translated as a
  * C* expression. *)
 and hoist_expr loc pos e =
-  let mk node = { node; typ = e.typ } in
+  let mk node = { node; typ = e.typ; meta = e.meta } in
   match e.node with
   | ETApp (e, cgs, cgs', ts) ->
       let lhs, e = hoist_expr loc Unspecified e in
@@ -1657,7 +1657,7 @@ let tail_calls =
 let rec hoist_bufcreate ifdefs (e: expr) =
   let hoist_bufcreate = hoist_bufcreate ifdefs in
   let under_pushframe = under_pushframe ifdefs in
-  let mk node = { node; typ = e.typ } in
+  let mk node = { node; typ = e.typ; meta = e.meta } in
   match e.node with
   | EMatch _ ->
       failwith "expected to run after match compilation"
@@ -1737,16 +1737,16 @@ let rec hoist_bufcreate ifdefs (e: expr) =
 and under_pushframe ifdefs (e: expr) =
   let hoist_bufcreate = hoist_bufcreate ifdefs in
   let under_pushframe = under_pushframe ifdefs in
-  let mk node = { node; typ = e.typ } in
+  let mk node = { node; typ = e.typ; meta = e.meta } in
   match e.node with
-  | ELet (b, { node = EIfThenElse ({ node = EQualified lid; _ } as e1, e2, e3); typ }, ek)
+  | ELet (b, { node = EIfThenElse ({ node = EQualified lid; _ } as e1, e2, e3); typ; meta = [] }, ek)
     when Idents.LidSet.mem lid ifdefs ->
       (* Do not hoist, since this if will turn into an ifdef which does NOT
          shorten the scope...! TODO this does not catch all ifdefs *)
       let e2 = under_pushframe e2 in
       let e3 = under_pushframe e3 in
       let ek = under_pushframe ek in
-      mk (ELet (b, { node = EIfThenElse (e1, e2, e3); typ }, ek))
+      mk (ELet (b, { node = EIfThenElse (e1, e2, e3); typ; meta = [] }, ek))
   | ELet (b, e1, e2) ->
       let b1, e1 = hoist_bufcreate e1 in
       let e2 = under_pushframe e2 in
@@ -1775,7 +1775,7 @@ and under_pushframe ifdefs (e: expr) =
  * code. This recursive routine is smarter and preserves the sequence of
  * let-bindings starting from the beginning of the scope. *)
 let rec find_pushframe ifdefs (e: expr) =
-  let mk node = { node; typ = e.typ } in
+  let mk node = { node; typ = e.typ; meta = e.meta } in
   match e.node with
   | ELet (b, ({ node = EPushFrame; _ } as e1), e2) ->
       mk (ELet (b, e1, under_pushframe ifdefs e2))

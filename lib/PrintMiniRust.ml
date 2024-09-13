@@ -184,6 +184,7 @@ let rec print_typ env (t: typ): document =
       let env = push_n_type env n in
       group @@
       group (parens (separate_map (comma ^^ break1) (print_typ env) ts)) ^/^
+      minus ^^ rangle ^^
       print_typ env t
   | Bound n ->
       begin try
