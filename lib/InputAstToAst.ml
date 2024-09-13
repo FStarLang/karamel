@@ -226,7 +226,7 @@ and mk_expr = function
   | I.EFun (bs, e, t) ->
       mk (EFun (mk_binders bs, mk_expr e, mk_typ t))
   | I.EComment (before, e, after) ->
-      mk (EComment (before, mk_expr e, after))
+      { (mk_expr e) with meta = [ CommentBefore before; CommentAfter after ] }
   | I.EStandaloneComment s ->
       mk (EStandaloneComment s)
   | I.EAddrOf e ->

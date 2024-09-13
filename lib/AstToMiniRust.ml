@@ -1041,8 +1041,6 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
   | ECast (e, t) ->
       let env, e = translate_expr env e in
       env, As (e, translate_type env t)
-  | EComment _ ->
-      failwith "TODO: EComment"
   | EStandaloneComment _ ->
       failwith "TODO: EStandaloneComment"
   | EAddrOf _e1 ->

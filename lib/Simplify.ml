@@ -1109,6 +1109,9 @@ and hoist_stmt loc e =
   | EMatch _ ->
       failwith "[hoist_t]: EMatch not properly desugared"
 
+  | EComment (s, e, s') ->
+      mk (EComment (s, hoist_stmt loc e, s'))
+
   | ETuple _ ->
       failwith "[hoist_t]: ETuple not properly desugared"
 
@@ -1148,6 +1151,10 @@ and hoist_expr loc pos e =
   | EAddrOf e ->
       let lhs, e = hoist_expr loc Unspecified e in
       lhs, mk (EAddrOf e)
+
+  | EComment (s, e, s') ->
+      let lhs, e = hoist_expr loc Unspecified e in
+      lhs, mk (EComment (s, e, s'))
 
   | EComment (s, e, s') ->
       let lhs, e = hoist_expr loc Unspecified e in

@@ -214,13 +214,13 @@ and print_let_binding (binder, e1) =
 
 and print_expr { node; typ; meta } =
   (* print_typ typ ^^ colon ^^ space ^^ parens @@ *)
-  begin match List.filter_map (function NodeComment s -> Some s (* | _ -> None*) ) meta with
-  | [] -> empty
-  | s -> string (String.concat "\n" s) ^^ break1
-  end ^^
+  begin match List.filter_map (function CommentBefore s -> Some s | _ -> None) meta,
+    List.filter_map (function CommentAfter s -> Some s | _ -> None) meta
+  with
+  | [], [] -> fun doc -> doc
+  | s, s' -> fun doc -> surround 2 1 (string (String.concat "\n" s)) doc (string (String.concat "\n" s'))
+  end @@
   match node with
-  | EComment (s, e, s') ->
-      surround 2 1 (string s) (print_expr e) (string s')
   | EStandaloneComment s ->
       surround 2 1 (string "/*") (string s) (string "*/")
   | EAny ->

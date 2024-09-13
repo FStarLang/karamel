@@ -121,7 +121,8 @@ and fields_t =
   (ident * (typ * bool)) list
 
 type node_meta =
-  | NodeComment of string
+  | CommentBefore of string
+  | CommentAfter of string
 
 and node_meta' = node_meta [@visitors.opaque] [@@deriving show]
 
@@ -288,7 +289,6 @@ type expr' =
      * ]}
      * The scope of the binder is the second, third and fourth expressions. *)
   | ECast of expr * typ_wo
-  | EComment of string * expr * string
   | EStandaloneComment of string
   | EAddrOf of expr
 
