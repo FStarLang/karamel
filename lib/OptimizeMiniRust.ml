@@ -91,7 +91,7 @@ let retrieve_pair_type = function
   | _ -> failwith "impossible: retrieve_pair_type"
 
 let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr =
-  (* KPrint.bprintf "[infer] %a @ %a\n" pexpr e ptyp expected; *)
+  KPrint.bprintf "[infer] %a @ %a\n" pexpr e ptyp expected;
   match e with
   | Borrow (k, e) ->
       (* If we expect this borrow to be a mutable borrow, then we make it a mutable borrow
@@ -746,8 +746,8 @@ let infer_mut_borrows files =
       let env, decls = List.fold_left (fun (env, decls) decl ->
         match decl with
         | Function ({ name; body; return_type; parameters; _ } as f) ->
-            (* KPrint.bprintf "[infer-mut] visiting %s\n%a\n" (String.concat "." name)
-              pdecl decl; *)
+            KPrint.bprintf "[infer-mut] visiting %s\n" (String.concat "." name);
+              (* pdecl decl; *)
             let atoms, body =
               List.fold_right (fun binder (atoms, e) ->
                 let a, e = open_ binder e in
@@ -893,8 +893,8 @@ let map_funs f_map files =
       let decls = List.fold_left (fun decls decl ->
         match decl with
         | Function ({ body; _ } as f) ->
-          let body = f_map () body in
-          Function {f with body} :: decls
+            let body = f_map () body in
+            Function {f with body} :: decls
         | _ -> decl :: decls
       ) [] decls in
       let decls = List.rev decls in
