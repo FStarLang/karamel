@@ -355,19 +355,22 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
          in known. *)
       known, e
 
-  | Match (e, arms) ->
-      (* For now, all pattern-matching occur on simple terms, e.g., an enum for an
-         alg, hence we do not mutify the scrutinee. If this happens to be needed,
-         we would need to add the expected type of the scrutinee to the Match node,
-         similar to what is done for Assign and Field, in order to recurse on
-         the scrutinee *)
-      (* FIXME per comment above + need to open binders in match branches + need
-         to mark some of those binders as mutable *)
-      let known, arms = List.fold_left_map (fun known (bs, pat, e) ->
-          let known, e = infer env expected known e in
-          known, (bs, pat, e)
-        ) known arms in
-      known, Match (e, arms)
+  | Match (e, t, arms) ->
+      (* We have the expected type of the scrutinee: recurse *)
+      let known, e = infer env t known e in
+      let known, arms = List.fold_left_map (fun known ((bs, _, _) as branch) ->
+        let atoms, pat, e = open_branch branch in
+        let known, e = infer env expected known e in
+        let rec collect_mut_fields known = function
+          | Wildcard | Literal _ -> known
+          | VarP _ -> known (* no such thing as mutable struct fields or variables in Low* *)
+          |  _ -> failwith "TODO"
+        in
+        let known = collect_mut_fields known pat in
+        let branch = close_branch atoms (bs, pat, e) in
+        known, branch
+      ) known arms in
+      known, Match (e, t, arms)
 
   | Index (e1, e2) ->
       (* The cases where we perform an assignment on an index should be caught

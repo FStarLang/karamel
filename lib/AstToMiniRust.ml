@@ -944,6 +944,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       failwith "TODO: ETuple"
 
   | EMatch (_, e, branches) ->
+      let t = translate_type env e.typ in
       let env, e = translate_expr env e in
       let branches = List.map (fun (binders, pat, e) ->
         let binders = List.map (fun (b: Ast.binder) ->
@@ -954,12 +955,13 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         let _, e = translate_expr env e in
         binders, pat, e
       ) branches in
-      env, Match (e, branches)
+      env, Match (e, t, branches)
 
   | ECons _ ->
       failwith "TODO: ECons"
 
   | ESwitch (scrut, patexprs) ->
+      let t = translate_type env e.typ in
       let env, scrut_ = translate_expr env scrut in
       let patexprs = List.map (fun (p, e) ->
         let p =
@@ -983,7 +985,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         else
           patexprs
       in
-      env, Match (scrut_, patexprs)
+      env, Match (scrut_, t, patexprs)
 
   | EEnum lid ->
       let name = lookup_type env (Helpers.assert_tlid e.typ) in

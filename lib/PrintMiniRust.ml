@@ -453,7 +453,7 @@ and print_expr env (context: int) (e: expr): document =
       paren_if mine @@
       group (star ^^ print_expr env mine e)
 
-  | Match (scrut, branches) ->
+  | Match (scrut, _, branches) ->
       group @@
       group (string "match" ^/^ print_expr env max_int scrut) ^/^ braces_with_nesting (
         separate_map (comma ^^ break1) (fun (bs, p, e) ->
