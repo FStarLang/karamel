@@ -1314,11 +1314,37 @@ let optimize files =
   let files = remove_unit_fields#visit_files () files in
   files
 
+(* For Rust, we leave `match` nodes in the AST -- Rust *does* have
+   pattern-matching, after all. However, F* code contains a lot of one-branch
+   matches, of the form `match e with _ -> ...` or `match e with { f = x; } ->
+   ...`. Therefore, for code quality, we replace the latter with `...` and the
+   former with `let x = e.f in ...`. *)
+let remove_one_branch_matches = object (self)
+
+  inherit [_] map as _super
+
+  method! visit_EMatch (_, _t as env) c scrut branches =
+    let scrut = self#visit_expr env scrut in
+    match branches with
+    | [ [], _, e ] ->
+        (* A match made of a single branch; e is always evaluated. *)
+        (self#visit_expr env e).node
+    | [ [ b ], { node = PBound _; _ }, e ] ->
+        (* match scrut with \ b. x -> e  ~~>  let x = scrut in e *)
+        ELet (b, scrut, self#visit_expr env e)
+    | [ [ b ], { node = PRecord ps; _ }, e ] ->
+        (* match scrut with \ b. { f = x } -> e  ~~>  let x = scrut.f in e *)
+        let f = Option.get (List.find_map (fun (f, x) -> match x.node with PBound _ -> Some f | _ -> None) ps) in
+        ELet (b, with_type b.typ (EField (scrut, f)), self#visit_expr env e)
+    | _ ->
+        EMatch (c, scrut, self#visit_branches env branches)
+end
+
 (* General compilation scheme *)
 let everything files =
   let map = build_scheme_map files in
   let files = (compile_simple_matches map)#visit_files () files in
-  let files = if Options.rust () then files else (compile_all_matches map)#visit_files () files in
+  let files = if Options.rust () then remove_one_branch_matches#visit_files () files else (compile_all_matches map)#visit_files () files in
   let files = remove_non_scalar_casts#visit_files () files in
   let files = remove_empty_structs files in
   map, files

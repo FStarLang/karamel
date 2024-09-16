@@ -221,7 +221,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       known, Assign (Index (e1, e2), e3, t)
 
   (* x.f[e2] = e3 *)
-  | Assign (Index (Field (_, f, st) as e1, e2), e3, t) ->
+  | Assign (Index (Field (_, f, st (* optional type *)) as e1, e2), e3, t) ->
       let known = add_mut_field st f known in
       let known, e2 = infer env usize known e2 in
       let known, e3 = infer env t known e3 in
@@ -361,7 +361,8 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
          we would need to add the expected type of the scrutinee to the Match node,
          similar to what is done for Assign and Field, in order to recurse on
          the scrutinee *)
-      (* FIXME per comment above *)
+      (* FIXME per comment above + need to open binders in match branches + need
+         to mark some of those binders as mutable *)
       let known, arms = List.fold_left_map (fun known (bs, pat, e) ->
           let known, e = infer env expected known e in
           known, (bs, pat, e)
