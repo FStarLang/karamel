@@ -187,7 +187,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
         known, Call (Name n, targs, [ e1; e2 ])
       ) else (
         KPrint.bprintf "[infer-mut,call] recursing on %s\n" (String.concat " :: " n);
-        failwith "TODO: recursion"
+        failwith "TODO: recursion or missing function"
       )
 
   | Call (Operator o, [], _) -> begin match o with

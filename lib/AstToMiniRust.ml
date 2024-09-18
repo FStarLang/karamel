@@ -1083,15 +1083,15 @@ and translate_pat env (p: Ast.pattern): MiniRust.pat =
   | PRecord fields ->
       (* Records (a.k.a. "flat") translate to Rust structs whose name is simply
          the name of the type. *)
-      let name = Helpers.assert_tlid p.typ in
-      let name = fst name @ [ snd name ] in
+      let name = lookup_type env (Helpers.assert_tlid p.typ) in
       StructP (name, List.map (fun (f, p) -> f, translate_pat env p) fields)
   | PCons (cons, pats) ->
       (* Constructors (a.k.a. "variants"); need to mention
          type_name::constructor, followed by fields (named) *)
-      let name = Helpers.assert_tlid p.typ in
-      let field_names = LidMap.find (fst name, snd name ^ "_" ^ cons) env.struct_fields in
-      let name = fst name @ [ snd name; cons ] in
+      let lid = Helpers.assert_tlid p.typ in
+      let name = lookup_type env lid in
+      let field_names = LidMap.find (fst lid, snd lid ^ "_" ^ cons) env.struct_fields in
+      let name = name @ [ cons ] in
       StructP (name, List.map2 (fun f p ->
         f.MiniRust.name, translate_pat env p
       ) field_names pats)
@@ -1194,10 +1194,13 @@ let bind_decl env (d: Ast.decl): env =
           let lifetime = Idents.LidSet.mem lid env.pointer_holding_structs in
           KPrint.bprintf "%a (VARIANT): lifetime=%b box=%b\n" PrintAst.Ops.plid lid lifetime box;
           List.fold_left (fun env (cons, fields) ->
-            { env with struct_fields = LidMap.add (fst lid, snd lid ^ "_" ^
-            cons) (List.map (fun (f, (t, _)) ->
+            (* TODO: change the type of keys to be either struct lid or variant lid * cons name *)
+            let cons_lid = fst lid, snd lid ^ "_" ^ cons in
+            let fields = List.map (fun (f, (t, _)) ->
               { MiniRust.name = f; visibility = Some Pub; typ = translate_type env t }
-            ) fields) env.struct_fields }
+            ) fields
+            in
+            { env with struct_fields = LidMap.add cons_lid fields env.struct_fields }
           ) env branches
       | _ ->
           env
