@@ -52,9 +52,12 @@ let assert_borrow = function
   | Ref (_, _, t) -> t
   | _ -> failwith "impossible: assert_borrow"
 
+let is_name (t: typ) = match t with Name _ -> true | _ -> false
+
 let assert_name (t: typ option) = match t with
   | Some (Name (n, _)) -> n
-  | _ -> failwith "impossible: assert_name"
+  | Some t -> Warn.failwith "impossible: assert_name %a" ptyp t
+  | None -> Warn.failwith "impossible: assert_name is None"
 
 let add_mut_var a known =
   (* KPrint.bprintf "%s is let mut\n" (Ast.show_atom_t a); *)
@@ -80,7 +83,10 @@ let make_mut_borrow = function
   | Ref (l, _, t) -> Ref (l, Mut, t)
   | Tuple [Ref (l1, _, t1); Ref (l2, _, t2)] -> Tuple [Ref (l1, Mut, t1); Ref (l2, Mut, t2)]
   | Vec t -> Vec t
-  | _ -> failwith "impossible: make_mut_borrow"
+  | App (Name (["Box"], []), [_]) as t -> t
+  | t ->
+      KPrint.bprintf "[make_mut_borrow] %a\n" ptyp t;
+      failwith "impossible: make_mut_borrow"
 
 let add_mut_field ty f known =
   let n = assert_name ty in
@@ -359,7 +365,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
          in known. *)
       known, e
 
-  | Match (e, t, arms) ->
+  | Match (e, t, arms) as e_match ->
       (* We have the expected type of the scrutinee: recurse *)
       let known, e = infer env t known e in
       let known, arms = List.fold_left_map (fun known ((bs, _, _) as branch) ->
@@ -411,34 +417,41 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
         let rec update_fields known pat (t: typ): known * pat =
           match pat with
           | StructP (name, fieldpats) ->
-              let n_struct = assert_name (Some t) in
-              let fields = NameMap.find n_struct known.structs in
-              (* Only works for structs right now -- TODO need to generalize
+              (* Only works for structs right now; this intentionally skips enums -- TODO need to generalize
                  `known.structs` to enums *)
-              let known, fieldpats = List.fold_left2 (fun (known, fieldpats) (f, pat) { name; typ; _ } ->
-                assert (f = name);
-                match pat with
-                | OpenP open_var ->
-                    let { atom; _ } = open_var in
-                    let mut = VarSet.mem atom known.r in
-                    let ref = match typ with Ref _ -> true | _ -> false in
-                    (* i., above *)
-                    let known = if mut then add_mut_field (Some t) f known else known in
-                    (* ii.b. *)
-                    let known = match e with Open { atom; _ } when mut -> add_mut_var atom known | _ -> known in
-                    (* ii.a *)
-                    let known = if ref then { known with p = VarSet.add atom known.p } else known in
-                    known, (f, OpenP open_var) :: fieldpats
-                | _ ->
-                    let known, pat = update_fields known pat typ in
-                    known, (f, pat) :: fieldpats
-              ) (known, []) fieldpats fields in
-              let fieldpats = List.rev fieldpats in
-              known, StructP (name, fieldpats)
+              if is_name t then
+                let n_struct = assert_name (Some t) in
+                let fields = NameMap.find n_struct known.structs in
+                let known, fieldpats = List.fold_left2 (fun (known, fieldpats) (f, pat) { name; typ; _ } ->
+                  assert (f = name);
+                  match pat with
+                  | OpenP open_var ->
+                      let { atom; _ } = open_var in
+                      let mut = VarSet.mem atom known.r in
+                      let ref = match typ with Ref _ -> true | _ -> false in
+                      KPrint.bprintf "In match:\n%a\nPattern variable %s: mut=%b, ref=%b\n"
+                        pexpr e_match open_var.name mut ref;
+                      (* i., above *)
+                      let known = if mut then add_mut_field (Some t) f known else known in
+                      (* ii.b. *)
+                      let known = match e with Open { atom; _ } when mut -> add_mut_var atom known | _ -> known in
+                      (* ii.a *)
+                      let known = if ref then { known with p = VarSet.add atom known.p } else known in
+                      known, (f, OpenP open_var) :: fieldpats
+                  | _ ->
+                      let known, pat = update_fields known pat typ in
+                      known, (f, pat) :: fieldpats
+                ) (known, []) fieldpats fields in
+                let fieldpats = List.rev fieldpats in
+                known, StructP (name, fieldpats)
+
+              else
+                (* Enum case; nothing to do *)
+                known, pat
 
           | Wildcard | Literal _ -> known, pat
           | OpenP _ -> known, pat (* no such thing as mutable struct fields or variables in Low* *)
-          |  _ -> failwith "TODO"
+          |  _ -> Warn.failwith "TODO: Match %a" ppat pat
         in
         let known, pat = update_fields known pat t in
         let bs = List.map2 (fun a b -> if VarSet.mem a known.p then { b with ref = true } else b) atoms bs in

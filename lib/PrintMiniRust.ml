@@ -588,4 +588,5 @@ let print_decls ns ds =
 
 let pexpr = printf_of_pprint (print_expr debug max_int)
 let ptyp = printf_of_pprint (print_typ debug)
+let ppat = printf_of_pprint (print_pat debug)
 let pdecl = printf_of_pprint (fun x -> snd (print_decl debug x))
