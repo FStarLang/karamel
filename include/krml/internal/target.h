@@ -215,6 +215,8 @@ inline static int32_t krml_time(void) {
 #elif defined(__GNUC__)
 /* deprecated attribute is not defined in GCC < 4.5. */
 #  define KRML_DEPRECATED(x)
+#elif defined(__SUNPRO_C)
+#  define KRML_DEPRECATED(x) __attribute__((deprecated(x)))
 #elif defined(_MSC_VER)
 #  define KRML_DEPRECATED(x) __declspec(deprecated(x))
 #endif
