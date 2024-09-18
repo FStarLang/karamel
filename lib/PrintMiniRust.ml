@@ -17,8 +17,12 @@ let is_expression_with_block e =
   | IfThenElse _ | For _ | While _ -> true
   | _ -> false
 
+type entry =
+ | Bound of binding
+ | GoneUnit
+
 type env = {
-  vars: [ `Named of string | `GoneUnit ] list;
+  vars: entry list;
   type_vars: string list;
   prefix: string list;
   debug: bool;
@@ -42,13 +46,16 @@ let lexical_conventions x =
   ) x;
   Buffer.contents dst
 
-let mk_uniq { vars; _ } x =
-  if not (List.mem (`Named x) vars) then
+let lookup env x =
+  List.find_map (fun (e: entry) -> match e with Bound b -> if b.name = x then Some b else None | _ -> None) env.vars
+
+let mk_uniq env x =
+  if lookup env x = None then
     x
   else
     let i = ref 0 in
     let attempt () = x ^ string_of_int !i in
-    while List.mem (`Named (attempt ())) vars do incr i done;
+    while lookup env (attempt ()) <> None do incr i done;
     attempt ()
 
 let avoid_keywords (x: string) =
@@ -68,7 +75,7 @@ let allocate_name env x =
 let push env x =
   let x =
     match x with
-    | `Named _ when List.mem x env.vars ->
+    | Bound b when lookup env b.name <> None ->
         failwith "impossible: unexpected shadowing, please call mk_uniq"
     | _ ->
         x
@@ -98,7 +105,8 @@ let lookup env x =
     List.nth env.vars x
   with Failure _ ->
     if env.debug then
-      `Named ("@" ^ string_of_int x)
+      (* This is used only for printing open terms in debugging messages *)
+      Bound { name = "@" ^ string_of_int x; typ = Name (["unknown"],[]); ref = false; mut = false }
     else
       Warn.fatal_error "internal error: unbound variable %d" x
 
@@ -111,8 +119,8 @@ let debug = { vars = []; prefix = []; debug = true; type_vars = []; globals = Na
 
 let print env =
   print_endline (String.concat ", " (List.map (function
-    | `Named x -> x
-    | `GoneUnit -> "–"
+    | Bound x -> x.name
+    | GoneUnit -> "–"
   ) env.vars))
 
 let is_uppercase c =
@@ -242,17 +250,17 @@ and print_statements env (e: expr): document =
          on Ast, however, the Ast to MiniRust translation reintroduces unit statements,
          e.g., when erasing push/pop_frame or free nodes. We thus need an additional
          handling here *)
-      print_statements (push env (`GoneUnit)) e2
+      print_statements (push env (GoneUnit)) e2
   | Let ({ typ = Unit; _ }, e1, e2) ->
       print_expr env max_int e1 ^^ semi ^^ hardline ^^
-      print_statements (push env (`GoneUnit)) e2
+      print_statements (push env (GoneUnit)) e2
   | Let ({ name; _ } as b, e1, e2) ->
       let name = allocate_name env name in
       let b = { b with name } in
       group (
         group (string "let" ^/^ print_binding env b ^/^ equals) ^^
         nest 4 (break 1 ^^ print_expr env max_int e1) ^^ semi) ^^ hardline ^^
-      print_statements (push env (`Named name)) e2
+      print_statements (push env (Bound b)) e2
   | _ ->
       print_expr env max_int e
 
@@ -361,8 +369,8 @@ and print_expr env (context: int) (e: expr): document =
   | Call (Name ["krml"; "unroll_for!"] as e, [], [ e1; ConstantString i; e3; e4; e5 ]) ->
       (* This works because the variable only appears in the body, other
          arguments are constants. *)
-      let i = allocate_name env i in
-      print_call (push env (`Named i)) e [] [ e1; ConstantString i; e3; e4; e5 ]
+      let i = { name = allocate_name env i; typ = usize; mut = true; ref = false } in
+      print_call (push env (Bound i)) e [] [ e1; ConstantString i.name; e3; e4; e5 ]
   | Call (e, ts, es) ->
       print_call env e ts es
   | Unit ->
@@ -400,7 +408,7 @@ and print_expr env (context: int) (e: expr): document =
       group @@
       (* Note: specifying the type of a pattern isn't supported, per rustc *)
       group (string "for" ^/^ string name ^/^ string "in" ^/^ print_expr env max_int e1) ^/^
-      let env = push env (`Named name) in
+      let env = push env (Bound { b with name }) in
       print_block_expression env e2
   | While (e1, e2) ->
       group @@
@@ -438,8 +446,8 @@ and print_expr env (context: int) (e: expr): document =
 
   | Var v ->
       begin match lookup env v with
-      | `Named x -> string x
-      | `GoneUnit -> print env; failwith "unexpected: unit-returning computation was let-bound and used"
+      | Bound b -> string b.name
+      | GoneUnit -> print env; failwith "unexpected: unit-returning computation was let-bound and used"
       end
 
   | Index (p, e) ->
@@ -457,8 +465,8 @@ and print_expr env (context: int) (e: expr): document =
       group @@
       group (string "match" ^/^ print_expr env max_int scrut) ^/^ braces_with_nesting (
         separate_map (comma ^^ break1) (fun (bs, p, e) ->
-          let env = List.fold_left (fun env ({ name; _ }: MiniRust.binding) ->
-            push env (`Named (allocate_name env name))
+          let env = List.fold_left (fun env (b: MiniRust.binding) ->
+            push env (Bound { b with name = allocate_name env b.name })
           ) env bs in
           group @@
           group (print_pat env p ^/^ string "=>") ^^ group (nest 2 (break1 ^^ print_expr env max_int e))
@@ -476,7 +484,14 @@ and print_pat env (p: pat) =
           group (group (string name ^^ colon) ^/^ group (print_pat env pat))
         ) fields
       )
-  | VarP v -> begin match lookup env v with `Named v -> string v | _ -> failwith "incorrect bound var in pattern" end
+  | VarP v ->
+      begin match lookup env v with
+      | Bound b ->
+          let ref = if b.ref then string "ref" ^^ break1 else empty in
+          let mut = if b.mut then string "mut" ^^ break1 else empty in
+          group (ref ^^ mut ^^ string b.name)
+      | _ -> failwith "incorrect bound var in pattern"
+      end
   | OpenP { name; _ } -> at ^^ string name
 
 and print_array_expr env (e: array_expr) =
@@ -513,7 +528,7 @@ let rec print_decl env (d: decl) =
   | Function { type_parameters; parameters; return_type; body; meta; inline; _ } ->
       assert (type_parameters = 0);
       let parameters = List.map (fun (b: binding) -> { b with name = allocate_name env b.name }) parameters in
-      let env = List.fold_left (fun env (b: binding) -> push env (`Named b.name)) env parameters in
+      let env = List.fold_left (fun env (b: binding) -> push env (Bound b)) env parameters in
       group @@
       group (group (print_inline_and_meta inline meta ^^ string "fn" ^/^ print_name env target_name) ^^
         parens_with_nesting (separate_map (comma ^^ break1) (print_binding env) parameters) ^^
