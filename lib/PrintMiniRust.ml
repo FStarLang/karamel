@@ -225,6 +225,16 @@ let print_op = function
   | Constant.BNot -> string "!"
   | op -> print_op op
 
+let rec is_ignored_pattern env = function
+  | Wildcard -> true
+  | VarP v ->
+      begin match lookup env v with
+      | Bound b -> b.name.[0] = '_'
+      | _ -> failwith "incorrect bound var in pattern"
+      end
+  | StructP (_, fields) -> List.for_all (fun (_, p) -> is_ignored_pattern env p) fields
+  | _ -> false
+
 (* print a block *and* the expression within it *)
 let rec print_block_expression env e =
   braces_with_nesting (print_statements env e)
@@ -479,10 +489,13 @@ and print_pat env (p: pat) =
   | Literal c -> print_constant c
   | Wildcard -> underscore
   | StructP (name, fields) ->
+      (* Not printing those ignored patterns makes a semantic difference! It prevents move-outs... *)
+      let ignored, fields = List.partition (fun (_, p) -> is_ignored_pattern env p) fields in
+      let trailing = if ignored <> [] then comma ^/^ dot ^^ dot else empty in
       print_name env name ^^ braces_with_nesting (
         separate_map (comma ^^ break1) (fun (name, pat) ->
           group (group (string name ^^ colon) ^/^ group (print_pat env pat))
-        ) fields
+        ) fields ^^ trailing
       )
   | VarP v ->
       begin match lookup env v with

@@ -494,6 +494,10 @@ let translate_lid env lid =
   else
     allocate name
 
+let translate_binder_name (b: Ast.binder) =
+  let open Ast in
+  if snd !(b.node.mark) = AtMost 0 then "_" ^ b.node.name else b.node.name
+          
 
 (* Trying to compile a *reference* to variable, who originates from a split of `v_base`, and whose
    original path in the tree is `path`. *)
@@ -948,7 +952,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let env, e = translate_expr env e in
       let branches = List.map (fun (binders, pat, e) ->
         let binders = List.map (fun (b: Ast.binder) ->
-          { MiniRust.name = b.node.name; typ = translate_type env b.typ; mut = false; ref = false }
+          { MiniRust.name = translate_binder_name b; typ = translate_type env b.typ; mut = false; ref = false }
         ) binders in
         let env = List.fold_left push env binders in
         let pat = translate_pat env pat in
@@ -1236,7 +1240,7 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
         | _ -> failwith "impossible"
       in
       let body, args = if parameters = [] then DeBruijn.subst Helpers.eunit 0 body, [] else body, args in
-      let parameters = List.map2 (fun typ a -> { MiniRust.mut = false; name = a.Ast.node.Ast.name; typ; ref = false }) parameters args in
+      let parameters = List.map2 (fun typ a -> { MiniRust.mut = false; name = translate_binder_name a; typ; ref = false }) parameters args in
       let env = List.fold_left push env parameters in
       let _, body = translate_expr_with_type env body return_type in
       let meta = translate_meta flags in
