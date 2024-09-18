@@ -800,7 +800,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let e1 = MiniRust.MethodCall (e_nearest , [split_at], [ index ]) in
       let t = translate_type env b.typ in
       let binding : MiniRust.binding * Splits.info =
-        { name = b.node.name; typ = Tuple [ t; t ]; mut = false },
+        { name = b.node.name; typ = Tuple [ t; t ]; mut = false; ref = false },
         { tree = Leaf; path = Some (v_base, path) }
       in
 
@@ -820,7 +820,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
 
       let env, e1, t = translate_array env false init in
       (* KPrint.bprintf "Let %s: %a\n" b.node.name PrintMiniRust.ptyp t; *)
-      let binding: MiniRust.binding = { name = b.node.name; typ = t; mut = false } in
+      let binding: MiniRust.binding = { name = b.node.name; typ = t; mut = false; ref = false } in
       let env = push env binding in
       env0, Let (binding, e1, snd (translate_expr_with_type env e2 t_ret))
 
@@ -852,7 +852,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         | _ ->
             e1, t
       in
-      let binding : MiniRust.binding = { name = b.node.name; typ = t; mut } in
+      let binding : MiniRust.binding = { name = b.node.name; typ = t; mut; ref = false} in
       let env = push env binding in
       env0, Let (binding, e1, snd (translate_expr_with_type env e2 t_ret))
 
@@ -948,7 +948,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let env, e = translate_expr env e in
       let branches = List.map (fun (binders, pat, e) ->
         let binders = List.map (fun (b: Ast.binder) ->
-          { MiniRust.name = b.node.name; typ = translate_type env b.typ; mut = false }
+          { MiniRust.name = b.node.name; typ = translate_type env b.typ; mut = false; ref = false }
         ) binders in
         let env = List.fold_left push env binders in
         let pat = translate_pat env pat in
@@ -1049,7 +1049,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
          insertion. Rust uses the OCaml convention (which I recall I did suggest
          to Graydon back in 2010). *)
       let unused = if unused then "_" else "" in
-      let binding: MiniRust.binding = { name = unused ^ b.node.name; typ = translate_type env b.typ; mut = false } in
+      let binding: MiniRust.binding = { name = unused ^ b.node.name; typ = translate_type env b.typ; mut = false; ref = false } in
       let env, e_start = translate_expr env e_start in
       let env, e_end = translate_expr env e_end in
       let _, e_body = translate_expr (push env binding) e_body in
@@ -1233,7 +1233,7 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
         | _ -> failwith "impossible"
       in
       let body, args = if parameters = [] then DeBruijn.subst Helpers.eunit 0 body, [] else body, args in
-      let parameters = List.map2 (fun typ a -> { MiniRust.mut = false; name = a.Ast.node.Ast.name; typ }) parameters args in
+      let parameters = List.map2 (fun typ a -> { MiniRust.mut = false; name = a.Ast.node.Ast.name; typ; ref = false }) parameters args in
       let env = List.fold_left push env parameters in
       let _, body = translate_expr_with_type env body return_type in
       let meta = translate_meta flags in

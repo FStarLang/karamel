@@ -60,7 +60,7 @@ let u32 = Constant UInt32
 let u64 = Constant UInt64
 let usize = Constant SizeT
 
-type binding = { name: string; typ: typ; mut: bool }
+type binding = { name: string; typ: typ; mut: bool; ref: bool (* only for pattern variables *) }
 [@@deriving show,
   visitors { variety = "map"; name = "map_binding";
     ancestors = [ "map_misc"; "map_typ" ] }]
@@ -315,6 +315,12 @@ let lift (k: int) (expr: expr): expr =
   else
     (new DeBruijn.lift k)#visit_expr 0 expr
 
+let lift_p (k: int) (pat: pat): pat =
+  if k = 0 then
+    pat
+  else
+    (new DeBruijn.lift k)#visit_pat 0 pat
+
 (* Close `a`, replacing it on the fly with `e2` in `e1` *)
 let close a e2 e1 =
   (new DeBruijn.close a e2)#visit_expr 0 e1
@@ -324,10 +330,10 @@ let close_p a e2 e1 =
   (new DeBruijn.close_p a e2)#visit_pat 0 e1
 
 let close_many bs e1 =
-  List.fold_left (fun e1 b -> close b (Var 0) e1) e1 bs
+  List.fold_left (fun e1 b -> close b (Var 0) (lift 1 e1)) e1 bs
 
 let close_many_p bs e1 =
-  List.fold_left (fun e1 b -> close_p b (VarP 0) e1) e1 bs
+  List.fold_left (fun e1 b -> close_p b (VarP 0) (lift_p 1 e1)) e1 bs
 
 let close_branch atoms (bs, p, e) =
   bs, close_many_p atoms p, close_many atoms e

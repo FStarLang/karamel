@@ -750,8 +750,8 @@ Supported options:|}
     if Options.debug "rs" then
       print PrintAst.print_files files;
     let files = AstToMiniRust.translate_files files in
-    (* let files = OptimizeMiniRust.infer_mut_borrows files in *)
-    (* let files = OptimizeMiniRust.simplify_minirust files in *)
+    let files = OptimizeMiniRust.infer_mut_borrows files in
+    let files = OptimizeMiniRust.simplify_minirust files in
     OutputRust.write_all files
 
   else

@@ -210,7 +210,7 @@ and print_generic_params params =
 let print_mut b =
   if b then string "mut" ^^ break1 else empty
 
-let print_binding env { mut; name; typ } =
+let print_binding env { mut; name; typ; _ } =
   group (print_mut mut ^^ string name ^^ colon ^/^ print_typ env typ)
 
 let print_op = function

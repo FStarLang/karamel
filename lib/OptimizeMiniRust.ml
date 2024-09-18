@@ -7,12 +7,15 @@
    everything was marked as mutable by default, a conservative, but suboptimal
    choice.
 
-   We proceed as follows. We carry two sets of variables:
+   We proceed as follows. We carry three sets of variables (all empty initially,
+   and all relying on the fact that atoms are globally unique to not have to
+   remove entries from those maps when the variables go out of scope):
    - V stands for mutable variables, i.e. the set of variables that need to
      marked as mut using `let mut x = ...`. A variable needs to be marked as mut
      if it is mutably-borrowed, i.e. if `&mut x` occurs.
    - R stands for mutable references, i.e. the set of variables that have type
-     `&mut T`. R is initially populated with function parameters.
+     `&mut T`.
+   - P stands for reference pattern variables -- see comment in EMatch case.
    This is the state of our transformation, and as such, we return an augmented
    state after performing our inference, so that the callee can mark variables
    accordingly.
@@ -42,6 +45,7 @@ type known = {
   structs: MiniRust.struct_field list NameMap.t;
   v: VarSet.t;
   r: VarSet.t;
+  p: VarSet.t;
 }
 
 let assert_borrow = function
@@ -361,12 +365,83 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       let known, arms = List.fold_left_map (fun known ((bs, _, _) as branch) ->
         let atoms, pat, e = open_branch branch in
         let known, e = infer env expected known e in
-        let rec collect_mut_fields known = function
-          | Wildcard | Literal _ -> known
-          | VarP _ -> known (* no such thing as mutable struct fields or variables in Low* *)
+        (* Given a pattern p of type t, and a known map:
+          i.  if the pattern contains f = x *and* x is in R, then the field f of
+              the struct type (provided by the context t) needs to be mutable --
+              this is the same as when we see x.f[0] = 1 -- field f needs to be
+              mutable (but not x!)
+          ii. if the pattern contains f = x *and* x is a borrow, then this is
+              going to be a move-out -- this is not the same behavior as a
+              let-binding. Since borrows do not implement Copy, we need to do
+              some extra work. Consider this example:
+
+              let mut a = [ 0; 32 ];
+              // This works (is x borrowed automatically?)
+              let f: Foo = Foo { x: &mut a };
+              f.x[0] = 1;
+              assert_eq!(f.x[0], 1);
+              // This doesn't (x is moved out of g and not put back in)
+              let g: Foo = Foo { x: &mut a };
+              match g {
+                  Foo { x } => {
+                    x[0] += 1;
+                    // Assert fails to type-check because g.x is moved out
+                    assert_eq!(g.x[0], 2);
+                  }
+              };
+              assert_eq!(a[0], 2);
+
+              this example can be fixed using a ref mut pattern (is this what
+              happens with field projection under the hood?):
+
+              let mut g: Foo = Foo { x: &mut a };
+              match g {
+                  Foo { ref mut x } => {
+                    x[0] += 1;
+                    // Lifetime of `x` ends, `g` becomes available again, but
+                    // `x` has type double-borrow!
+                    assert_eq!(g.x[0], 2);
+                  }
+              };
+              assert_eq!(a[0], 2);
+
+              So we need to do two things: ii.a. mark the field as a ref mut
+              pattern, and ii.b. mark the variable itself as mutable...
+        *)
+        let rec update_fields known pat (t: typ): known * pat =
+          match pat with
+          | StructP (name, fieldpats) ->
+              let n_struct = assert_name (Some t) in
+              let fields = NameMap.find n_struct known.structs in
+              (* Only works for structs right now -- TODO need to generalize
+                 `known.structs` to enums *)
+              let known, fieldpats = List.fold_left2 (fun (known, fieldpats) (f, pat) { name; typ; _ } ->
+                assert (f = name);
+                match pat with
+                | OpenP open_var ->
+                    let { atom; _ } = open_var in
+                    let mut = VarSet.mem atom known.r in
+                    let ref = match typ with Ref _ -> true | _ -> false in
+                    (* i., above *)
+                    let known = if mut then add_mut_field (Some t) f known else known in
+                    (* ii.b. *)
+                    let known = match e with Open { atom; _ } when mut -> add_mut_var atom known | _ -> known in
+                    (* ii.a *)
+                    let known = if ref then { known with p = VarSet.add atom known.p } else known in
+                    known, (f, OpenP open_var) :: fieldpats
+                | _ ->
+                    let known, pat = update_fields known pat typ in
+                    known, (f, pat) :: fieldpats
+              ) (known, []) fieldpats fields in
+              let fieldpats = List.rev fieldpats in
+              known, StructP (name, fieldpats)
+
+          | Wildcard | Literal _ -> known, pat
+          | OpenP _ -> known, pat (* no such thing as mutable struct fields or variables in Low* *)
           |  _ -> failwith "TODO"
         in
-        let known = collect_mut_fields known pat in
+        let known, pat = update_fields known pat t in
+        let bs = List.map2 (fun a b -> if VarSet.mem a known.p then { b with ref = true } else b) atoms bs in
         let branch = close_branch atoms (bs, pat, e) in
         known, branch
       ) known arms in
@@ -744,7 +819,7 @@ let builtins : (name * typ list) list = [
 let infer_mut_borrows files =
   (* Map.of_list is only available from OCaml 5.1 onwards *)
   let env = { seen = List.to_seq builtins |> NameMap.of_seq; structs = NameMap.empty } in
-  let known = { structs = NameMap.empty; v = VarSet.empty; r = VarSet.empty } in
+  let known = { structs = NameMap.empty; v = VarSet.empty; r = VarSet.empty; p = VarSet.empty } in
   let env, files =
     List.fold_left (fun (env, files) (filename, decls) ->
       let env, decls = List.fold_left (fun (env, decls) decl ->
