@@ -492,7 +492,7 @@ and print_pat env (p: pat) =
       (* Not printing those ignored patterns makes a semantic difference! It prevents move-outs... *)
       let ignored, fields = List.partition (fun (_, p) -> is_ignored_pattern env p) fields in
       let trailing = if ignored <> [] then comma ^/^ dot ^^ dot else empty in
-      print_name env name ^^ braces_with_nesting (
+      print_name env name ^^ if fields = [] then empty else break1 ^^ braces_with_nesting (
         separate_map (comma ^^ break1) (fun (name, pat) ->
           group (group (string name ^^ colon) ^/^ group (print_pat env pat))
         ) fields ^^ trailing

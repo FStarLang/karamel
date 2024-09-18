@@ -101,7 +101,7 @@ let retrieve_pair_type = function
   | _ -> failwith "impossible: retrieve_pair_type"
 
 let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr =
-  KPrint.bprintf "[infer] %a @ %a\n" pexpr e ptyp expected;
+  (* KPrint.bprintf "[infer] %a @ %a\n" pexpr e ptyp expected; *)
   match e with
   | Borrow (k, e) ->
       (* If we expect this borrow to be a mutable borrow, then we make it a mutable borrow
@@ -146,13 +146,13 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Let (b, e1, e2) ->
       (* KPrint.bprintf "[infer-mut,let] %a\n" pexpr e; *)
       let a, e2 = open_ b e2 in
-      KPrint.bprintf "[infer-mut,let] opened %s[%s]\n" b.name (show_atom_t a);
+      (* KPrint.bprintf "[infer-mut,let] opened %s[%s]\n" b.name (show_atom_t a); *)
       let known, e2 = infer env expected known e2 in
       let mut_var = want_mut_var a known in
       let mut_borrow = want_mut_borrow a known in
-      KPrint.bprintf "[infer-mut,let-done-e2] %s[%s]: %a let mut ? %b &mut ? %b\n" b.name
-        (show_atom_t a)
-        ptyp b.typ mut_var mut_borrow;
+      (* KPrint.bprintf "[infer-mut,let-done-e2] %s[%s]: %a let mut ? %b &mut ? %b\n" b.name *)
+      (*   (show_atom_t a) *)
+      (*   ptyp b.typ mut_var mut_borrow; *)
       let t1 = if mut_borrow then make_mut_borrow b.typ else b.typ in
       let known, e1 = infer env t1 known e1 in
       known, Let ({ b with mut = mut_var; typ = t1 }, e1, close a (Var 0) (lift 1 e2))
@@ -365,7 +365,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
          in known. *)
       known, e
 
-  | Match (e_scrut, t, arms) as e_match ->
+  | Match (e_scrut, t, arms) as _e_match ->
       (* We have the expected type of the scrutinee: recurse *)
       let known, e = infer env t known e_scrut in
       let known, arms = List.fold_left_map (fun known ((bs, _, _) as branch) ->
@@ -428,9 +428,14 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
                   | OpenP open_var ->
                       let { atom; _ } = open_var in
                       let mut = VarSet.mem atom known.r in
-                      let ref = match typ with Ref _ -> true | _ -> mut (* something mutated relying on an implicit conversion to ref *) in
-                      KPrint.bprintf "In match:\n%a\nPattern variable %s: mut=%b, ref=%b\n"
-                        pexpr e_match open_var.name mut ref;
+                      let ref = match typ with
+                        | App (Name (["Box"], []), [_]) | Vec _ | Ref _ ->
+                            true (* prevent a move-out, again *)
+                        | _ ->
+                            mut (* something mutated relying on an implicit conversion to ref *)
+                      in
+                      (* KPrint.bprintf "In match:\n%a\nPattern variable %s: mut=%b, ref=%b\n" *)
+                      (*   pexpr e_match open_var.name mut ref; *)
                       (* i., above *)
                       let known = if mut then add_mut_field (Some t) f known else known in
                       (* ii.b. *)
@@ -438,7 +443,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
                         | Open { atom; _ } when mut -> add_mut_var atom known
                         | Deref (Open { atom; _ }) when mut -> add_mut_borrow atom known
                         | _ ->
-                            KPrint.bprintf "%a is not open or deref\n" pexpr e;
+                            (* KPrint.bprintf "%a is not open or deref\n" pexpr e; *)
                             known
                       in
                       (* ii.a *)
@@ -848,8 +853,7 @@ let infer_mut_borrows files =
       let env, decls = List.fold_left (fun (env, decls) decl ->
         match decl with
         | Function ({ name; body; return_type; parameters; _ } as f) ->
-            KPrint.bprintf "[infer-mut] visiting %s\n" (String.concat "." name);
-              (* pdecl decl; *)
+            (* KPrint.bprintf "[infer-mut] visiting %s\n" (String.concat "." name); *)
             let atoms, body =
               List.fold_right (fun binder (atoms, e) ->
                 let a, e = open_ binder e in
