@@ -1240,7 +1240,7 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
         | _ -> failwith "impossible"
       in
       let body, args = if parameters = [] then DeBruijn.subst Helpers.eunit 0 body, [] else body, args in
-      let parameters = List.map2 (fun typ a -> { MiniRust.mut = false; name = translate_binder_name a; typ; ref = false }) parameters args in
+      let parameters = List.map2 (fun typ a -> { MiniRust.mut = false; name = a.Ast.node.Ast.name; typ; ref = false }) parameters args in
       let env = List.fold_left push env parameters in
       let _, body = translate_expr_with_type env body return_type in
       let meta = translate_meta flags in
