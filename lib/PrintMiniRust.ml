@@ -484,6 +484,10 @@ and print_expr env (context: int) (e: expr): document =
 
   | Open { name; _ } -> at ^^ string name
 
+and print_data_type_name env = function
+  | `Struct name -> print_name env name
+  | `Variant (name, cons) -> print_name env (name @ [ cons ])
+
 and print_pat env (p: pat) =
   match p with
   | Literal c -> print_constant c
@@ -492,7 +496,13 @@ and print_pat env (p: pat) =
       (* Not printing those ignored patterns makes a semantic difference! It prevents move-outs... *)
       let ignored, fields = List.partition (fun (_, p) -> is_ignored_pattern env p) fields in
       let trailing = if ignored <> [] then comma ^/^ dot ^^ dot else empty in
-      print_name env name ^^ if fields = [] then empty else break1 ^^ braces_with_nesting (
+      print_data_type_name env name ^^
+      if fields = [] && ignored <> [] then
+        break1 ^^ braces_with_nesting (dot ^^ dot)
+      else if fields = [] then
+        empty
+      else
+        break1 ^^ braces_with_nesting (
         separate_map (comma ^^ break1) (fun (name, pat) ->
           group (group (string name ^^ colon) ^/^ group (print_pat env pat))
         ) fields ^^ trailing
@@ -560,7 +570,7 @@ let rec print_decl env (d: decl) =
           group @@
           string item_name ^^ match item_struct with
           | None -> empty
-          | Some item_struct -> break1 ^^ print_struct env item_struct
+          | Some item_struct -> break1 ^^ braces_with_nesting (print_struct env item_struct)
       ) items)
   | Struct { fields; meta; generic_params; _ } ->
       group @@

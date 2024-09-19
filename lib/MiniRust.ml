@@ -121,7 +121,7 @@ and pat =
   | Literal of constant
   | Wildcard
   (* A "struct pattern" per the Rust grammar that covers both Enum and Struct *)
-  | StructP of name * (string * pat) list
+  | StructP of ([ `Struct of name | `Variant of name * string ] [@ opaque]) * (string * pat) list
   | VarP of db_index
   | OpenP of open_var
 

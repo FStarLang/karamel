@@ -981,7 +981,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
               MiniRust.Literal c
           | SEnum lid ->
               let name = lookup_type env (Helpers.assert_tlid scrut.Ast.typ) in
-              StructP (name @ [ snd lid ], [])
+              StructP (`Variant (name, snd lid), [])
           | SWild ->
               Wildcard
         in
@@ -1096,15 +1096,14 @@ and translate_pat env (p: Ast.pattern): MiniRust.pat =
       (* Records (a.k.a. "flat") translate to Rust structs whose name is simply
          the name of the type. *)
       let name = lookup_type env (Helpers.assert_tlid p.typ) in
-      StructP (name, List.map (fun (f, p) -> f, translate_pat env p) fields)
+      StructP (`Struct name, List.map (fun (f, p) -> f, translate_pat env p) fields)
   | PCons (cons, pats) ->
       (* Constructors (a.k.a. "variants"); need to mention
          type_name::constructor, followed by fields (named) *)
       let lid = Helpers.assert_tlid p.typ in
       let name = lookup_type env lid in
       let field_names = DataTypeMap.find (`Variant (lid, cons)) env.struct_fields in
-      let name = name @ [ cons ] in
-      StructP (name, List.map2 (fun f p ->
+      StructP (`Variant (name, cons), List.map2 (fun f p ->
         f.MiniRust.name, translate_pat env p
       ) field_names pats)
   | PUnit -> failwith "TODO: PUnit"

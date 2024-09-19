@@ -423,11 +423,9 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
         let rec update_fields known pat (t: typ): known * pat =
           match pat with
           | StructP (name, fieldpats) ->
-              (* Only works for structs right now; this intentionally skips enums -- TODO need to generalize
-                 `known.structs` to enums *)
-              if is_name t then
-                let n_struct = assert_name (Some t) in
-                let fields = DataTypeMap.find (`Struct n_struct) known.structs in
+              (* If it's not in the map, it's an enum. *)
+              if DataTypeMap.mem name known.structs then
+                let fields = DataTypeMap.find name known.structs in
                 let known, fieldpats = List.fold_left2 (fun (known, fieldpats) (f, pat) { name; typ; _ } ->
                   assert (f = name);
                   match pat with
