@@ -191,7 +191,7 @@ type decl =
 
 and item =
   (* Not supporting tuples yet *)
-  name * struct_field list option
+  string * struct_field list option
 
 and struct_field = {
   name: string;

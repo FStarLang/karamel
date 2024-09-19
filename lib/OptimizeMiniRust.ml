@@ -34,15 +34,20 @@ open MiniRust
 open PrintMiniRust
 
 module NameMap = Map.Make(Name)
+module DataTypeMap = Map.Make(struct
+  type t = [ `Struct of Name.t | `Variant of Name.t * string ]
+  let compare = compare
+end)
 module VarSet = Set.Make(Atom)
 
 type env = {
   seen: typ list NameMap.t;
-  structs: MiniRust.struct_field list NameMap.t;
+  (* A map from Rust name to the list of fields for that struct. *)
+  structs: MiniRust.struct_field list DataTypeMap.t;
 }
 
 type known = {
-  structs: MiniRust.struct_field list NameMap.t;
+  structs: MiniRust.struct_field list DataTypeMap.t;
   v: VarSet.t;
   r: VarSet.t;
   p: VarSet.t;
@@ -88,13 +93,14 @@ let make_mut_borrow = function
       KPrint.bprintf "[make_mut_borrow] %a\n" ptyp t;
       failwith "impossible: make_mut_borrow"
 
+(* Only works for struct types. *)
 let add_mut_field ty f known =
   let n = assert_name ty in
-  let fields = NameMap.find n known.structs in
+  let fields = DataTypeMap.find (`Struct n) known.structs in
   (* Update the mutability of the field element *)
   let fields = List.map (fun (sf: MiniRust.struct_field) ->
     if sf.name = f then {sf with typ = make_mut_borrow sf.typ} else sf) fields in
-  {known with structs = NameMap.add n fields known.structs}
+  {known with structs = DataTypeMap.add (`Struct n) fields known.structs}
 
 let retrieve_pair_type = function
   | Tuple [e1; e2] -> assert (e1 = e2); e1
@@ -360,7 +366,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Struct (name, _es) ->
       (* The declaration of the struct should have been traversed beforehand, hence
          it should be in the map *)
-      let _fields_mut = NameMap.find name known.structs in
+      let _fields_mut = DataTypeMap.find (`Struct name) known.structs in
       (* TODO: This should be modified depending on the current struct
          in known. *)
       known, e
@@ -421,7 +427,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
                  `known.structs` to enums *)
               if is_name t then
                 let n_struct = assert_name (Some t) in
-                let fields = NameMap.find n_struct known.structs in
+                let fields = DataTypeMap.find (`Struct n_struct) known.structs in
                 let known, fieldpats = List.fold_left2 (fun (known, fieldpats) (f, pat) { name; typ; _ } ->
                   assert (f = name);
                   match pat with
@@ -846,8 +852,8 @@ let builtins : (name * typ list) list = [
 
 let infer_mut_borrows files =
   (* Map.of_list is only available from OCaml 5.1 onwards *)
-  let env = { seen = List.to_seq builtins |> NameMap.of_seq; structs = NameMap.empty } in
-  let known = { structs = NameMap.empty; v = VarSet.empty; r = VarSet.empty; p = VarSet.empty } in
+  let env = { seen = List.to_seq builtins |> NameMap.of_seq; structs = DataTypeMap.empty } in
+  let known = { structs = DataTypeMap.empty; v = VarSet.empty; r = VarSet.empty; p = VarSet.empty } in
   let env, files =
     List.fold_left (fun (env, files) (filename, decls) ->
       let env, decls = List.fold_left (fun (env, decls) decl ->
@@ -884,7 +890,13 @@ let infer_mut_borrows files =
             let env = { seen = NameMap.add name (List.map (fun (x: binding) -> x.typ) parameters) env.seen; structs = known.structs } in
             env, Function { f with body; parameters } :: decls
         | Struct ({name; fields; _}) ->
-          {env with structs = NameMap.add name fields env.structs}, decl :: decls
+            { env with structs = DataTypeMap.add (`Struct name) fields env.structs }, decl :: decls
+        | Enumeration { name; items; _ } ->
+            List.fold_left (fun (env: env) (cons, fields) ->
+              match fields with
+              | None -> env
+              | Some fields -> { env with structs = DataTypeMap.add (`Variant (name, cons)) fields env.structs }
+            ) env items, decl :: decls
         | _ ->
             env, decl :: decls
       ) (env, []) decls in
@@ -896,7 +908,13 @@ let infer_mut_borrows files =
   (* We traverse all declarations again, and update the structure decls
      with the new mutability info *)
   List.map (fun (filename, decls) -> filename, List.map (function
-    | Struct ({ name; _ } as s) -> Struct { s with fields = NameMap.find name env.structs }
+    | Struct ({ name; _ } as s) -> Struct { s with fields = DataTypeMap.find (`Struct name) env.structs }
+    | Enumeration s  ->
+        Enumeration { s with items = List.map (fun (cons, fields) ->
+          cons, match fields with
+            | None -> None
+            | Some _ -> Some (DataTypeMap.find (`Variant (s.name, cons)) env.structs)
+        ) s.items }
     | x -> x
     ) decls
   ) (List.rev files)

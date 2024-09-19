@@ -334,6 +334,11 @@ module NameSet = Set.Make(struct
   let compare = compare
 end)
 
+module DataTypeMap = Map.Make(struct
+  type t = [ `Struct of Ast.lident | `Variant of Ast.lident * string ]
+  let compare = compare
+end)
+
 type env = {
   decls: (MiniRust.name * MiniRust.typ) LidMap.t;
   global_scope: NameSet.t;
@@ -342,7 +347,8 @@ type env = {
   prefix: string list;
   heap_structs: Idents.LidSet.t;
   pointer_holding_structs: Idents.LidSet.t;
-  struct_fields: MiniRust.struct_field list LidMap.t;
+  (* A map from lid (type name) to the list of fields for that struct. *)
+  struct_fields: MiniRust.struct_field list DataTypeMap.t;
   location: location;
 }
 
@@ -352,7 +358,7 @@ let empty heap_structs pointer_holding_structs = {
   types = LidMap.empty;
   vars = [];
   prefix = [];
-  struct_fields = LidMap.empty;
+  struct_fields = DataTypeMap.empty;
   heap_structs;
   pointer_holding_structs;
   location = empty_loc;
@@ -524,10 +530,10 @@ let lookup_split (env: env) (v_base: MiniRust.db_index) (path: Splits.root_or_pa
   in
   find 0 env.vars
 
-
+(* Only valid for a struct. *)
 let field_type env (e: Ast.expr) f =
   let t_lid = Helpers.assert_tlid e.typ in
-  let struct_fields = LidMap.find t_lid env.struct_fields in
+  let struct_fields = DataTypeMap.find (`Struct t_lid) env.struct_fields in
   (List.find (fun (sf: MiniRust.struct_field) -> sf.name = f) struct_fields).typ
 
 (* Translate an expression, and take the annotated original type to be the
@@ -962,6 +968,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       env, Match (e, t, branches)
 
   | ECons _ ->
+      (* ECons = variant type *)
       failwith "TODO: ECons"
 
   | ESwitch (scrut, patexprs) ->
@@ -996,8 +1003,9 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       env, Name (name @ [ snd lid ])
 
   | EFlat fields ->
+      (* EFlat = struct type *)
       let t_lid = Helpers.assert_tlid e.typ in
-      let struct_fields = LidMap.find t_lid env.struct_fields in
+      let struct_fields = DataTypeMap.find (`Struct t_lid) env.struct_fields in
       let env, fields = List.fold_left (fun (env, fields) (f, e) ->
         let f = Option.get f in
         let ret_t = (List.find (fun (sf: MiniRust.struct_field) -> sf.name = f) struct_fields).typ in
@@ -1094,7 +1102,7 @@ and translate_pat env (p: Ast.pattern): MiniRust.pat =
          type_name::constructor, followed by fields (named) *)
       let lid = Helpers.assert_tlid p.typ in
       let name = lookup_type env lid in
-      let field_names = LidMap.find (fst lid, snd lid ^ "_" ^ cons) env.struct_fields in
+      let field_names = DataTypeMap.find (`Variant (lid, cons)) env.struct_fields in
       let name = name @ [ cons ] in
       StructP (name, List.map2 (fun f p ->
         f.MiniRust.name, translate_pat env p
@@ -1192,19 +1200,18 @@ let bind_decl env (d: Ast.decl): env =
             let f = Option.get f in
             { MiniRust.name = f; visibility = Some Pub; typ = translate_type_with_config env { box; lifetime } t }
           ) fields in
-          { env with struct_fields = LidMap.add lid fields env.struct_fields }
+          { env with struct_fields = DataTypeMap.add (`Struct lid) fields env.struct_fields }
       | Variant branches ->
           let box = Idents.LidSet.mem lid env.heap_structs in
           let lifetime = Idents.LidSet.mem lid env.pointer_holding_structs in
           KPrint.bprintf "%a (VARIANT): lifetime=%b box=%b\n" PrintAst.Ops.plid lid lifetime box;
           List.fold_left (fun env (cons, fields) ->
-            (* TODO: change the type of keys to be either struct lid or variant lid * cons name *)
-            let cons_lid = fst lid, snd lid ^ "_" ^ cons in
+            let cons_lid = `Variant (lid, cons) in
             let fields = List.map (fun (f, (t, _)) ->
               { MiniRust.name = f; visibility = Some Pub; typ = translate_type env t }
             ) fields
             in
-            { env with struct_fields = LidMap.add cons_lid fields env.struct_fields }
+            { env with struct_fields = DataTypeMap.add cons_lid fields env.struct_fields }
           ) env branches
       | _ ->
           env
@@ -1277,11 +1284,11 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
               None
           in
           let generic_params = match lifetime with Some l -> [ MiniRust.Lifetime l ] | None -> [] in
-          let fields = LidMap.find lid env.struct_fields in
+          let fields = DataTypeMap.find (`Struct lid) env.struct_fields in
           Some (Struct { name; meta; fields; generic_params })
       | Enum idents ->
           (* No need to do name binding here since there are entirely resolved via the type name. *)
-          let items = List.map (fun i -> [ snd i ], None) idents in
+          let items = List.map (fun i -> snd i, None) idents in
           Some (Enumeration { name; meta; items; derives = [ PartialEq; Clone; Copy ] })
       | Abbrev t ->
           let has_inner_pointer = (object
@@ -1301,7 +1308,7 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
           Some (Alias { name; meta; body = t; generic_params })
       | Variant branches ->
           let items = List.map (fun (cons, fields) ->
-            [ cons ], Some (List.map (fun (f, (t, _mut)) ->
+            cons, Some (List.map (fun (f, (t, _mut)) ->
               { name = f; typ = translate_type env t; MiniRust.visibility = None }
             ) fields)
           ) branches in

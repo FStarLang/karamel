@@ -558,7 +558,7 @@ let rec print_decl env (d: decl) =
       braces_with_nesting (
         separate_map (comma ^^ hardline) (fun (item_name, item_struct) ->
           group @@
-          print_name env item_name ^^ match item_struct with
+          string item_name ^^ match item_struct with
           | None -> empty
           | Some item_struct -> break1 ^^ print_struct env item_struct
       ) items)
