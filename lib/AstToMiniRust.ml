@@ -1320,7 +1320,7 @@ let identify_path_components_rev filename =
       start := i + 1
     end
   done;
-  if !start <> String.length filename - 1 then
+  if !start <> String.length filename - 1 || String.length filename = 1 then
     components := String.sub filename !start (String.length filename - !start) :: !components;
   !components
 
@@ -1434,6 +1434,7 @@ let translate_files files =
   let failures = ref 0 in
   let env, files = List.fold_left (fun (env, files) (f, decls) ->
     let prefix = List.map String.lowercase_ascii (identify_path_components_rev f) in
+    assert (prefix <> []);
     let prefix = compress_prefix (List.rev prefix) in
     if Options.debug "rs" then
       KPrint.bprintf "Translating file %s\n" (String.concat "::" prefix);
