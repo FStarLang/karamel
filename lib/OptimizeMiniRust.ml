@@ -886,6 +886,15 @@ let rewrite_nonminimal_bool = object
     | _ -> Call (e, tys, args)
 end
 
+let remove_deref_addrof = object
+  inherit [_] map_expr as super
+  method! visit_Deref _ e =
+    let e = super#visit_expr () e in
+    match e with
+    | Borrow (_, e) -> e
+    | _ -> Deref e
+end
+
 let map_funs f_map files =
   let files =
     List.fold_left (fun files (filename, decls) ->
@@ -907,6 +916,7 @@ let simplify_minirust files =
   let files = map_funs remove_auto_deref#visit_expr files in
   let files = map_funs rewrite_assign_op#visit_expr files in
   let files = map_funs rewrite_nonminimal_bool#visit_expr files in
+  let files = map_funs remove_deref_addrof#visit_expr files in
   (* We do this simplification last, as the previous passes might
      have introduced unit statements *)
   let files = map_funs remove_trailing_unit#visit_expr files in
