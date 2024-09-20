@@ -1218,6 +1218,15 @@ let bind_decl env (d: Ast.decl): env =
 let translate_meta flags =
   let comments = List.filter_map (function Common.Comment c -> Some c | _ -> None) flags in
   let comments = List.filter ((<>) "") comments in
+  let comments = comments @
+    (* There is no notion of workspace visibility. *)
+    if List.mem Common.Workspace flags then
+      [ "ATTENTION: this function is public, but is intended for internal use \
+        within this workspace; callers should not rely on the availability of this \
+        function, or its behavior!" ]
+    else
+      []
+  in
   let visibility =
     if List.mem Common.Private flags then
       None
@@ -1271,12 +1280,12 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
       None
 
   | DType (lid, flags, _, _, decl) ->
-      (* creative naming for the lifetime *)
       let name = lookup_type env lid in
       let meta = translate_meta flags in
       match decl with
       | Flat _ ->
           let lifetime =
+            (* creative naming for the lifetime *)
             if Idents.LidSet.mem lid env.pointer_holding_structs then
               Some (MiniRust.Label "a")
             else
