@@ -46,6 +46,12 @@ type env = {
   structs: MiniRust.struct_field list DataTypeMap.t;
 }
 
+let debug env =
+  KPrint.bprintf "OptimizeMiniRust -- ENV DEBUG\n";
+  NameMap.iter (fun n t ->
+    KPrint.bprintf "%s: %a\n" (String.concat "::" n) ptyps t
+  ) env.seen
+
 type known = {
   structs: MiniRust.struct_field list DataTypeMap.t;
   v: VarSet.t;
@@ -193,6 +199,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
         known, Call (Name n, targs, [ e1; e2 ])
       ) else (
         KPrint.bprintf "[infer-mut,call] recursing on %s\n" (String.concat " :: " n);
+        debug env;
         failwith "TODO: recursion or missing function"
       )
 
@@ -828,19 +835,19 @@ let builtins : (name * typ list) list = [
 
   (* TODO: These functions are recursive, and should be handled properly.
      For now, we hardcode their expected type and mutability in HACL *)
-  [ "hacl"; "bignum"; "bn_karatsuba_mul_uint32"], [
+  [ "bignum"; "bignum"; "bn_karatsuba_mul_uint32"], [
       u32; Ref (None, Shared, Slice u32); Ref (None, Shared, Slice u32);
       Ref (None, Mut, Slice u32); Ref (None, Mut, Slice u32)
   ];
-  [ "hacl"; "bignum"; "bn_karatsuba_mul_uint64"], [
+  [ "bignum"; "bignum"; "bn_karatsuba_mul_uint64"], [
       u64; Ref (None, Shared, Slice u64); Ref (None, Shared, Slice u64);
       Ref (None, Mut, Slice u64); Ref (None, Mut, Slice u64)
   ];
-  [ "hacl"; "bignum"; "bn_karatsuba_sqr_uint32"], [
+  [ "bignum"; "bignum"; "bn_karatsuba_sqr_uint32"], [
       u32; Ref (None, Shared, Slice u32);
       Ref (None, Mut, Slice u32); Ref (None, Mut, Slice u32)
   ];
-  [ "hacl"; "bignum"; "bn_karatsuba_sqr_uint64"], [
+  [ "bignum"; "bignum"; "bn_karatsuba_sqr_uint64"], [
       u64; Ref (None, Shared, Slice u64);
       Ref (None, Mut, Slice u64); Ref (None, Mut, Slice u64)
   ];
@@ -857,7 +864,7 @@ let infer_mut_borrows files =
       let env, decls = List.fold_left (fun (env, decls) decl ->
         match decl with
         | Function ({ name; body; return_type; parameters; _ } as f) ->
-            (* KPrint.bprintf "[infer-mut] visiting %s\n" (String.concat "." name); *)
+            KPrint.bprintf "[infer-mut] visiting %s\n" (String.concat "::" name);
             let atoms, body =
               List.fold_right (fun binder (atoms, e) ->
                 let a, e = open_ binder e in

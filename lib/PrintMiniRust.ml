@@ -27,6 +27,7 @@ type env = {
   prefix: string list;
   debug: bool;
   globals: name NameMap.t;
+  workspace: bool;
 }
 
 let lexical_conventions x =
@@ -113,9 +114,9 @@ let lookup env x =
 let lookup_type env x =
   List.nth env.type_vars x
 
-let fresh prefix = { vars = []; prefix; debug = false; type_vars = []; globals = NameMap.empty }
+let fresh prefix = { workspace = !Options.crates <> []; vars = []; prefix; debug = false; type_vars = []; globals = NameMap.empty }
 
-let debug = { vars = []; prefix = []; debug = true; type_vars = []; globals = NameMap.empty }
+let debug = { workspace = !Options.crates <> []; vars = []; prefix = []; debug = true; type_vars = []; globals = NameMap.empty }
 
 let print env =
   print_endline (String.concat ", " (List.map (function
@@ -129,15 +130,23 @@ let is_uppercase c =
 let print_name env n =
   let n = try NameMap.find n env.globals with Not_found -> n in
   let n =
-    if List.length n > List.length env.prefix && fst (KList.split (List.length env.prefix) n) = env.prefix then
-      snd (KList.split (List.length env.prefix) n)
-    else if is_uppercase (List.hd n).[0] || List.hd n = "krml" then
-      (* TODO: uppercase means it's a reference to Rust stdlib and outside the
-         crate, therefore doesn't need the crate:: prefix *)
-      n
+    if env.workspace then
+      (* Simple criterion when using a workspace *)
+      if List.hd env.prefix = List.hd n then
+        "crate" :: List.tl n
+      else
+        n
     else
-      (* Absolute reference, restart from crate top *)
-      "crate" :: n
+      (* XXX this seems gnarly, do better? *)
+      if List.length n > List.length env.prefix && fst (KList.split (List.length env.prefix) n) = env.prefix then
+        snd (KList.split (List.length env.prefix) n)
+      else if is_uppercase (List.hd n).[0] || List.hd n = "krml" then
+        (* TODO: uppercase means it's a reference to Rust stdlib and outside the
+           crate, therefore doesn't need the crate:: prefix *)
+        n
+      else
+        (* Absolute reference, restart from crate top *)
+        "crate" :: n
   in
   group (separate_map (colon ^^ colon) string n)
 
@@ -547,6 +556,7 @@ let print_meta = print_inline_and_meta false
 
 let rec print_decl env (d: decl) =
   let env, target_name = register_global env (name_of_decl d) in
+  let target_name = [ KList.last target_name ] in
   env, match d with
   | Function { type_parameters; parameters; return_type; body; meta; inline; _ } ->
       assert (type_parameters = 0);
@@ -626,5 +636,6 @@ let print_decls ns ds =
 
 let pexpr = printf_of_pprint (print_expr debug max_int)
 let ptyp = printf_of_pprint (print_typ debug)
+let ptyps = printf_of_pprint (separate_map (comma ^^ break1) (print_typ debug))
 let ppat = printf_of_pprint (print_pat debug)
 let pdecl = printf_of_pprint (fun x -> snd (print_decl debug x))

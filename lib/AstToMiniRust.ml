@@ -500,6 +500,11 @@ let translate_lid env lid =
   else
     allocate name
 
+let translate_lid env lid =
+  let env, name = translate_lid env lid in
+  KPrint.bprintf "%a --> %s\n" PrintAst.plid lid (String.concat "::" name);
+  env, name
+
 let translate_binder_name (b: Ast.binder) =
   let open Ast in
   if snd !(b.node.mark) = AtMost 0 then "_" ^ b.node.name else b.node.name
@@ -1446,11 +1451,21 @@ let translate_files files =
     List.iter (KPrint.bprintf "  %a\n" PrintAst.Ops.plid) (Idents.LidSet.elements heap_structs)
   end;
 
+  let crate_of = Inlining.mk_crate_of files in
+
   let failures = ref 0 in
   let env, files = List.fold_left (fun (env, files) (f, decls) ->
-    let prefix = List.map String.lowercase_ascii (identify_path_components_rev f) in
-    assert (prefix <> []);
-    let prefix = compress_prefix (List.rev prefix) in
+    let crate = Option.map String.lowercase_ascii (crate_of f) in
+    let prefix =
+      let prefix = List.map String.lowercase_ascii (identify_path_components_rev f) in
+      assert (prefix <> []);
+      let prefix = compress_prefix (List.rev prefix) in
+      match crate with
+      | Some crate ->
+          crate :: List.tl prefix
+      | None ->
+          prefix
+    in
     if Options.debug "rs" then
       KPrint.bprintf "Translating file %s\n" (String.concat "::" prefix);
     let total = List.length decls in

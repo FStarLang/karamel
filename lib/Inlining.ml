@@ -196,16 +196,20 @@ module StringMap = Map.Make(String)
 
 (* After bundling, map filenames to crates *)
 let mk_crate_of files =
-  List.fold_left (fun map (file, _) ->
-    StringMap.add file (List.find_map (fun (crate, members, _) ->
-      let crate = KList.one (KList.one crate) in
-      if List.exists (fun p -> Bundle.pattern_matches_file p file) members then begin
-        KPrint.bprintf "File %s goes into crate %s\n" file crate;
-        Some crate
-      end else
-        None
-    ) (List.rev !Options.crates)) map
-  ) StringMap.empty files
+  let map =
+    List.fold_left (fun map (file, _) ->
+      StringMap.add file (List.find_map (fun (crate, members, _) ->
+        let crate = KList.one (KList.one crate) in
+        if List.exists (fun p -> Bundle.pattern_matches_file p file) members then begin
+          KPrint.bprintf "File %s goes into crate %s\n" file crate;
+          Some crate
+        end else
+          None
+      ) (List.rev !Options.crates)) map
+    ) StringMap.empty files
+  in
+  fun f -> 
+    StringMap.find f map
 
 (** This phase is concerned with three whole-program, cross-compilation-unit
     analyses, performed ina single pass:
@@ -318,8 +322,8 @@ let cross_call_analysis files =
   let cross_crate name1 name2 =
     let file1 = file_of name1 in
     let file2 = file_of name2 in
-    let crate1 = Option.bind file1 (fun file1 -> StringMap.find file1 crate_of) in
-    let crate2 = Option.bind file2 (fun file2 -> StringMap.find file2 crate_of) in
+    let crate1 = Option.bind file1 crate_of in
+    let crate2 = Option.bind file2 crate_of in
     let should_drop = function
       | Some f -> Drop.file f
       | None -> false
