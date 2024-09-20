@@ -12,7 +12,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "efb05702df26eb7f50153c4099facd71"
+      "fb2b177813b2a3e393b44db70d3a82c1"
     ],
     [
       "VariableMerge.test",
@@ -34,7 +34,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "6a2f919f3a2d383541fee58afa512e73"
+      "b52bd595c5dd153242c75f47e12880f5"
     ],
     [
       "VariableMerge.test1",
@@ -56,7 +56,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "bd22d39c0ab0aff2bd54fd5aca5fb961"
+      "07bf0defe6bf7b3a4ffc151bef5d3863"
     ],
     [
       "VariableMerge.test2",
@@ -78,7 +78,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "dc1cc10629c1ecbf45d09378da717e8f"
+      "c00d8479743fac48f20afee767263b21"
     ],
     [
       "VariableMerge.main",
@@ -101,7 +101,7 @@
         "typing_FStar.Monotonic.HyperStack.get_tip"
       ],
       0,
-      "f26e24240d1ed7323a895f5e11cb4257"
+      "c3895719e4811675a0ba4f67dc6303f1"
     ]
   ]
 ]

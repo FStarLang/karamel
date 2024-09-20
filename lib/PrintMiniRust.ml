@@ -556,25 +556,25 @@ let print_meta = print_inline_and_meta false
 
 let rec print_decl env (d: decl) =
   let env, target_name = register_global env (name_of_decl d) in
-  let target_name = [ KList.last target_name ] in
+  let target_name = KList.last target_name in
   env, match d with
   | Function { type_parameters; parameters; return_type; body; meta; inline; _ } ->
       assert (type_parameters = 0);
       let parameters = List.map (fun (b: binding) -> { b with name = allocate_name env b.name }) parameters in
       let env = List.fold_left (fun env (b: binding) -> push env (Bound b)) env parameters in
       group @@
-      group (group (print_inline_and_meta inline meta ^^ string "fn" ^/^ print_name env target_name) ^^
+      group (group (print_inline_and_meta inline meta ^^ string "fn" ^/^ string target_name) ^^
         parens_with_nesting (separate_map (comma ^^ break1) (print_binding env) parameters) ^^
         (match return_type with | Unit -> empty | _ -> space ^^ arrow ^^ (nest 4 (break1 ^^ print_typ env return_type)))) ^/^
       print_block_expression env body
   | Constant { typ; body; meta; _ } ->
       group @@
-      group (print_meta meta ^^ string "const" ^/^ print_name env target_name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
+      group (print_meta meta ^^ string "const" ^/^ string target_name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
       nest 4 (break1 ^^ print_expr env max_int body) ^^ semi
   | Enumeration { items; meta; derives; _ } ->
       group @@
       group (print_derives derives) ^/^
-      group (print_meta meta ^^ string "enum" ^/^ print_name env target_name) ^/^
+      group (print_meta meta ^^ string "enum" ^/^ string target_name) ^/^
       braces_with_nesting (
         separate_map (comma ^^ hardline) (fun (item_name, item_struct) ->
           group @@
@@ -584,11 +584,11 @@ let rec print_decl env (d: decl) =
       ) items)
   | Struct { fields; meta; generic_params; _ } ->
       group @@
-      group (print_meta meta ^^ string "struct" ^/^ print_name env target_name ^^ print_generic_params generic_params) ^/^
+      group (print_meta meta ^^ string "struct" ^/^ string target_name ^^ print_generic_params generic_params) ^/^
       braces_with_nesting (print_struct env fields)
   | Alias { generic_params; body; meta; _ } ->
       group @@
-      group (print_meta meta ^^ string "type" ^/^ print_name env target_name  ^^ print_generic_params generic_params ^/^ equals) ^/^
+      group (print_meta meta ^^ string "type" ^/^ string target_name  ^^ print_generic_params generic_params ^/^ equals) ^/^
       group (print_typ env body ^^ semi)
 
 and print_derives traits =
