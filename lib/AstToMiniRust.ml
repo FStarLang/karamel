@@ -500,10 +500,10 @@ let translate_lid env lid =
   else
     allocate name
 
-let translate_lid env lid =
-  let env, name = translate_lid env lid in
-  KPrint.bprintf "%a --> %s\n" PrintAst.plid lid (String.concat "::" name);
-  env, name
+(* let translate_lid env lid = *)
+(*   let env, name = translate_lid env lid in *)
+(*   KPrint.bprintf "%a --> %s\n" PrintAst.plid lid (String.concat "::" name); *)
+(*   env, name *)
 
 let translate_binder_name (b: Ast.binder) =
   let open Ast in

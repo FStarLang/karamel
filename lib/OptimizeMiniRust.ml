@@ -864,7 +864,7 @@ let infer_mut_borrows files =
       let env, decls = List.fold_left (fun (env, decls) decl ->
         match decl with
         | Function ({ name; body; return_type; parameters; _ } as f) ->
-            KPrint.bprintf "[infer-mut] visiting %s\n" (String.concat "::" name);
+            (* KPrint.bprintf "[infer-mut] visiting %s\n" (String.concat "::" name); *)
             let atoms, body =
               List.fold_right (fun binder (atoms, e) ->
                 let a, e = open_ binder e in
