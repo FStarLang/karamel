@@ -2081,7 +2081,6 @@ let simplify2 ifdefs (files: file list): file list =
   let files = functional_updates#visit_files false files in
   let files = functional_updates#visit_files true files in
   let files = let_to_sequence#visit_files () files in
-PPrint.(Print.(print (PrintAst.print_files files ^^ hardline)));
   files
 
 let debug env =

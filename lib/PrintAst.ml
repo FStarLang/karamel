@@ -158,7 +158,8 @@ and print_flag = function
   | Workspace ->
       string "workspace"
 
-and print_binder { typ; node = { name; mut; meta; mark; _ }; _ } =
+and print_binder { typ; node = { name; mut; meta; mark; _ }; meta = node_meta } =
+  print_node_meta node_meta @@
   let o, u = !mark in
   (if mut then string "mutable" ^^ break 1 else empty) ^^
   group (group (string name ^^ lparen ^^ string (Mark.show_occurrence o) ^^ comma ^^
@@ -214,14 +215,17 @@ and print_let_binding (binder, e1) =
   group (group (string "let" ^/^ print_binder binder ^/^ equals) ^^
   jump (print_expr e1))
 
-and print_expr { node; typ; meta } =
-  (* print_typ typ ^^ colon ^^ space ^^ parens @@ *)
+and print_node_meta meta = 
   begin match List.filter_map (function CommentBefore s -> Some s | _ -> None) meta,
     List.filter_map (function CommentAfter s -> Some s | _ -> None) meta
   with
   | [], [] -> fun doc -> doc
   | s, s' -> fun doc -> surround 2 1 (string (String.concat "\n" s)) doc (string (String.concat "\n" s'))
-  end @@
+  end
+
+and print_expr { node; typ; meta } =
+  (* print_typ typ ^^ colon ^^ space ^^ parens @@ *)
+  print_node_meta meta @@
   match node with
   | EStandaloneComment s ->
       surround 2 1 (string "/*") (string s) (string "*/")
