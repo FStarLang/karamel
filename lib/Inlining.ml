@@ -192,6 +192,25 @@ let inline_analysis files =
   in
   must_inline, must_disappear
 
+module StringMap = Map.Make(String)
+
+(* After bundling, map filenames to crates *)
+let mk_crate_of files =
+  let map =
+    List.fold_left (fun map (file, _) ->
+      StringMap.add file (List.find_map (fun (crate, members, _) ->
+        let crate = KList.one (KList.one crate) in
+        if List.exists (fun p -> Bundle.pattern_matches_file p file) members then begin
+          KPrint.bprintf "File %s goes into crate %s\n" file crate;
+          Some crate
+        end else
+          None
+      ) (List.rev !Options.crates)) map
+    ) StringMap.empty files
+  in
+  fun f -> 
+    StringMap.find f map
+
 (** This phase is concerned with three whole-program, cross-compilation-unit
     analyses, performed ina single pass:
     - assign correct visibility to declarations in the presence of bundling,
@@ -204,9 +223,10 @@ let inline_analysis files =
 let cross_call_analysis files =
 
   let file_of = Bundle.mk_file_of files in
+  let crate_of = mk_crate_of files in
 
   let module T = struct
-    type visibility = Private | Internal | Public
+    type visibility = Private | Internal | Workspace | Public
     type inlining = Nope | Inline | StaticInline
     type info = {
       visibility: visibility;
@@ -272,17 +292,11 @@ let cross_call_analysis files =
     | Private -> Buffer.add_string b "Private"
     | Internal -> Buffer.add_string b "Internal"
     | Public -> Buffer.add_string b "Public"
+    | Workspace -> Buffer.add_string b "Workspace"
   in
 
   (* T.Visibility forms a trivial lattice where Private <= Internal <= Public *)
-  let lub v v' =
-    match v, v' with
-    | Private, _ -> v'
-    | _, Private -> v
-    | Internal, _ -> v'
-    | _, Internal -> v
-    | _ -> Public
-  in
+  let lub: visibility -> visibility -> visibility = max in
 
   (* Set a lower a bound on the visibility of `lid`. *)
   let raise lid v =
@@ -302,6 +316,24 @@ let cross_call_analysis files =
     with Not_found ->
       (* External type currently modeled as an lid without a definition (sigh) *)
       ()
+  in
+
+  (* Is this a call across crate within the same workspace? *)
+  let cross_crate name1 name2 =
+    let file1 = file_of name1 in
+    let file2 = file_of name2 in
+    let crate1 = Option.bind file1 crate_of in
+    let crate2 = Option.bind file2 crate_of in
+    let should_drop = function
+      | Some f -> Drop.file f
+      | None -> false
+    in
+    let r = crate1 <> None && crate2 <> None && crate1 <> crate2 && not (should_drop file1 || should_drop file2) in
+    if r && Options.debug "visibility-fixpoint" then
+      KPrint.bprintf "[visibility-fixpoint] cross-crate from %a (%s) to %a (%s)\n"
+        plid name1 (Option.value ~default:"<none>" crate1)
+        plid name2 (Option.value ~default:"<none>" crate2);
+    r
   in
 
   (* Is this a call across compilation units? *)
@@ -365,6 +397,11 @@ let cross_call_analysis files =
              scope for this definition to compile. *)
           if cross_call lid name then
             raise name Internal;
+          (* Using the multiple-crate, workspace feature of Rust code-gen. This
+             is a call across crates belonging to the same workspace -- the
+             definition needs to be visible across the whole workspace. *)
+          if cross_crate lid name && !Options.crates <> [] then
+            raise name Workspace;
           (* Types that appear in prototypes (i.e., `not in_body`) must be
              raised to the level of visibility of the current definition.
              Types that appear in static inline function definitions (lhs of the
@@ -427,6 +464,9 @@ let cross_call_analysis files =
              least through an internal header. *)
           if cross_call lid name then
             raise name Internal;
+          (* See above *)
+          if cross_crate lid name then
+            raise name Workspace;
           (* Mutually recursive calls require the prototype to be in scope, at
              least through the internal header. *)
           if not (LidSet.mem name !seen) then
@@ -506,6 +546,8 @@ let cross_call_analysis files =
         let flags = add_if (info.visibility = Private) Common.Private flags in
         let flags = remove_if (info.visibility <> Internal) Common.Internal flags in
         let flags = add_if (info.visibility = Internal) Common.Internal flags in
+        let flags = remove_if (info.visibility <> Workspace) Common.Workspace flags in
+        let flags = add_if (info.visibility = Workspace) Common.Workspace flags in
         if Options.wasm () then
           (* We override the previous logic in the case of WASM *)
           let flags = remove_if info.wasm_mutable Common.Internal flags in

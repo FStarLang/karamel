@@ -248,7 +248,12 @@ Supported options:|}
       " don't prepend the module name to declarations from module matching this \
       pattern";
     "-bundle", Arg.String (fun s -> prepend Options.bundle (Parsers.bundle s)), " \
-      group modules into a single C translation unit (see above)";
+      group F* modules into a single C translation unit or Rust file (see above)";
+    "-crate", Arg.String (fun s -> prepend Options.crates (Parsers.bundle s)), " \
+      adopt a Cargo workspace and group Rust files into a single sub-crate of \
+      that workspace (see above) -- no empty left-hand side allowed, and note \
+      that the right-hand side matches Rust file names (which may be the product \
+      of bundling), NOT F* module sources";
     "-drop", Arg.String (fun s ->
       used_drop := true;
       List.iter (prepend Options.drop) (Parsers.drop s)),

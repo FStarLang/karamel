@@ -12,7 +12,7 @@
         "lemma_FStar.HyperStack.ST.lemma_same_refs_in_stack_regions_intro"
       ],
       0,
-      "8e9a2ce22a6c5248384404d7ddd9a83f"
+      "bdc895ffe7dc52b12ef08e068d96d4b8"
     ],
     [
       "FunPtr.main",
@@ -27,7 +27,7 @@
         "typing_tok_C.EXIT_SUCCESS@tok"
       ],
       0,
-      "ae972fc01abe9959cf5dd6ce8e91c62b"
+      "34c6ae12e41356b5bc19a00005fcb6b8"
     ]
   ]
 ]

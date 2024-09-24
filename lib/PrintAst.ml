@@ -155,6 +155,8 @@ and print_flag = function
       string "__attribute__((unused))"
   | Target s ->
       string ("__attribute__((target = "^s^"))")
+  | Workspace ->
+      string "workspace"
 
 and print_binder { typ; node = { name; mut; meta; mark; _ }} =
   let o, u = !mark in

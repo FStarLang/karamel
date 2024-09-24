@@ -35,6 +35,7 @@ let ldopts: string list ref = ref []
 (* Note: do not populate this field directly but rather do it in Karamel.ml
  * behind the "Options.minimal" test. *)
 let bundle: Bundle.t list ref = ref []
+let crates: Bundle.t list ref = ref []
 let library: Bundle.pat list ref = ref []
 let hand_written: Bundle.pat list ref = ref []
 let debug_modules: string list ref = ref []

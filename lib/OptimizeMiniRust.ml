@@ -7,12 +7,15 @@
    everything was marked as mutable by default, a conservative, but suboptimal
    choice.
 
-   We proceed as follows. We carry two sets of variables:
+   We proceed as follows. We carry three sets of variables (all empty initially,
+   and all relying on the fact that atoms are globally unique to not have to
+   remove entries from those maps when the variables go out of scope):
    - V stands for mutable variables, i.e. the set of variables that need to
      marked as mut using `let mut x = ...`. A variable needs to be marked as mut
      if it is mutably-borrowed, i.e. if `&mut x` occurs.
    - R stands for mutable references, i.e. the set of variables that have type
-     `&mut T`. R is initially populated with function parameters.
+     `&mut T`.
+   - P stands for reference pattern variables -- see comment in EMatch case.
    This is the state of our transformation, and as such, we return an augmented
    state after performing our inference, so that the callee can mark variables
    accordingly.
@@ -31,26 +34,41 @@ open MiniRust
 open PrintMiniRust
 
 module NameMap = Map.Make(Name)
+module DataTypeMap = Map.Make(struct
+  type t = [ `Struct of Name.t | `Variant of Name.t * string ]
+  let compare = compare
+end)
 module VarSet = Set.Make(Atom)
 
 type env = {
   seen: typ list NameMap.t;
-  structs: MiniRust.struct_field list NameMap.t;
+  (* A map from Rust name to the list of fields for that struct. *)
+  structs: MiniRust.struct_field list DataTypeMap.t;
 }
 
+let debug env =
+  KPrint.bprintf "OptimizeMiniRust -- ENV DEBUG\n";
+  NameMap.iter (fun n t ->
+    KPrint.bprintf "%s: %a\n" (String.concat "::" n) ptyps t
+  ) env.seen
+
 type known = {
-  structs: MiniRust.struct_field list NameMap.t;
+  structs: MiniRust.struct_field list DataTypeMap.t;
   v: VarSet.t;
   r: VarSet.t;
+  p: VarSet.t;
 }
 
 let assert_borrow = function
   | Ref (_, _, t) -> t
   | _ -> failwith "impossible: assert_borrow"
 
+let is_name (t: typ) = match t with Name _ -> true | _ -> false
+
 let assert_name (t: typ option) = match t with
   | Some (Name (n, _)) -> n
-  | _ -> failwith "impossible: assert_name"
+  | Some t -> Warn.failwith "impossible: assert_name %a" ptyp t
+  | None -> Warn.failwith "impossible: assert_name is None"
 
 let add_mut_var a known =
   (* KPrint.bprintf "%s is let mut\n" (Ast.show_atom_t a); *)
@@ -76,22 +94,26 @@ let make_mut_borrow = function
   | Ref (l, _, t) -> Ref (l, Mut, t)
   | Tuple [Ref (l1, _, t1); Ref (l2, _, t2)] -> Tuple [Ref (l1, Mut, t1); Ref (l2, Mut, t2)]
   | Vec t -> Vec t
-  | _ -> failwith "impossible: make_mut_borrow"
+  | App (Name (["Box"], []), [_]) as t -> t
+  | t ->
+      KPrint.bprintf "[make_mut_borrow] %a\n" ptyp t;
+      failwith "impossible: make_mut_borrow"
 
+(* Only works for struct types. *)
 let add_mut_field ty f known =
   let n = assert_name ty in
-  let fields = NameMap.find n known.structs in
+  let fields = DataTypeMap.find (`Struct n) known.structs in
   (* Update the mutability of the field element *)
   let fields = List.map (fun (sf: MiniRust.struct_field) ->
     if sf.name = f then {sf with typ = make_mut_borrow sf.typ} else sf) fields in
-  {known with structs = NameMap.add n fields known.structs}
+  {known with structs = DataTypeMap.add (`Struct n) fields known.structs}
 
 let retrieve_pair_type = function
   | Tuple [e1; e2] -> assert (e1 = e2); e1
   | _ -> failwith "impossible: retrieve_pair_type"
 
 let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr =
-  KPrint.bprintf "[infer] %a @ %a\n" pexpr e ptyp expected;
+  (* KPrint.bprintf "[infer] %a @ %a\n" pexpr e ptyp expected; *)
   match e with
   | Borrow (k, e) ->
       (* If we expect this borrow to be a mutable borrow, then we make it a mutable borrow
@@ -140,9 +162,9 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       let known, e2 = infer env expected known e2 in
       let mut_var = want_mut_var a known in
       let mut_borrow = want_mut_borrow a known in
-      (* KPrint.bprintf "[infer-mut,let-done-e2] %s[%s]: %a let mut ? %b &mut ? %b\n" b.name
-        (show_atom_t a)
-        ptyp b.typ mut_var mut_borrow; *)
+      (* KPrint.bprintf "[infer-mut,let-done-e2] %s[%s]: %a let mut ? %b &mut ? %b\n" b.name *)
+      (*   (show_atom_t a) *)
+      (*   ptyp b.typ mut_var mut_borrow; *)
       let t1 = if mut_borrow then make_mut_borrow b.typ else b.typ in
       let known, e1 = infer env t1 known e1 in
       known, Let ({ b with mut = mut_var; typ = t1 }, e1, close a (Var 0) (lift 1 e2))
@@ -177,7 +199,8 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
         known, Call (Name n, targs, [ e1; e2 ])
       ) else (
         KPrint.bprintf "[infer-mut,call] recursing on %s\n" (String.concat " :: " n);
-        failwith "TODO: recursion"
+        debug env;
+        failwith "TODO: recursion or missing function"
       )
 
   | Call (Operator o, [], _) -> begin match o with
@@ -221,7 +244,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       known, Assign (Index (e1, e2), e3, t)
 
   (* x.f[e2] = e3 *)
-  | Assign (Index (Field (_, f, st) as e1, e2), e3, t) ->
+  | Assign (Index (Field (_, f, st (* optional type *)) as e1, e2), e3, t) ->
       let known = add_mut_field st f known in
       let known, e2 = infer env usize known e2 in
       let known, e3 = infer env t known e3 in
@@ -350,22 +373,118 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Struct (name, _es) ->
       (* The declaration of the struct should have been traversed beforehand, hence
          it should be in the map *)
-      let _fields_mut = NameMap.find name known.structs in
+      let _fields_mut = DataTypeMap.find (`Struct name) known.structs in
       (* TODO: This should be modified depending on the current struct
          in known. *)
       known, e
 
-  | Match (e, arms) ->
-      (* For now, all pattern-matching occur on simple terms, e.g., an enum for an
-         alg, hence we do not mutify the scrutinee. If this happens to be needed,
-         we would need to add the expected type of the scrutinee to the Match node,
-         similar to what is done for Assign and Field, in order to recurse on
-         the scrutinee *)
-      let known, arms = List.fold_left_map (fun known (pat, e) ->
-          let known, e = infer env expected known e in
-          known, (pat, e)
-        ) known arms in
-      known, Match (e, arms)
+  | Match (e_scrut, t, arms) as _e_match ->
+      (* We have the expected type of the scrutinee: recurse *)
+      let known, e = infer env t known e_scrut in
+      let known, arms = List.fold_left_map (fun known ((bs, _, _) as branch) ->
+        let atoms, pat, e = open_branch branch in
+        let known, e = infer env expected known e in
+        (* Given a pattern p of type t, and a known map:
+          i.  if the pattern contains f = x *and* x is in R, then the field f of
+              the struct type (provided by the context t) needs to be mutable --
+              this is the same as when we see x.f[0] = 1 -- field f needs to be
+              mutable (but not x!)
+          ii. if the pattern contains f = x *and* x is a borrow, then this is
+              going to be a move-out -- this is not the same behavior as a
+              let-binding. Since borrows do not implement Copy, we need to do
+              some extra work. Consider this example:
+
+              let mut a = [ 0; 32 ];
+              // This works (is x borrowed automatically?)
+              let f: Foo = Foo { x: &mut a };
+              f.x[0] = 1;
+              assert_eq!(f.x[0], 1);
+              // This doesn't (x is moved out of g and not put back in)
+              let g: Foo = Foo { x: &mut a };
+              match g {
+                  Foo { x } => {
+                    x[0] += 1;
+                    // Assert fails to type-check because g.x is moved out
+                    assert_eq!(g.x[0], 2);
+                  }
+              };
+              assert_eq!(a[0], 2);
+
+              this example can be fixed using a ref mut pattern (is this what
+              happens with field projection under the hood?):
+
+              let mut g: Foo = Foo { x: &mut a };
+              match g {
+                  Foo { ref mut x } => {
+                    x[0] += 1;
+                    // Lifetime of `x` ends, `g` becomes available again, but
+                    // `x` has type double-borrow!
+                    assert_eq!(g.x[0], 2);
+                  }
+              };
+              assert_eq!(a[0], 2);
+
+              So we need to do two things: ii.a. mark the field as a ref mut
+              pattern, and ii.b. mark the variable itself as mutable...
+        *)
+        let rec update_fields known pat (t: typ): known * pat =
+          match pat with
+          | StructP (name, fieldpats) ->
+              (* If it's not in the map, it's an enum. *)
+              if DataTypeMap.mem name known.structs then
+                let fields = DataTypeMap.find name known.structs in
+                let known, fieldpats = List.fold_left2 (fun (known, fieldpats) (f, pat) { name; typ; _ } ->
+                  assert (f = name);
+                  match pat with
+                  | OpenP open_var ->
+                      let { atom; _ } = open_var in
+                      let mut = VarSet.mem atom known.r in
+                      let ref = match typ with
+                        | App (Name (["Box"], []), [_]) | Vec _ | Ref _ ->
+                            true (* prevent a move-out, again *)
+                        | _ ->
+                            mut (* something mutated relying on an implicit conversion to ref *)
+                      in
+                      (* KPrint.bprintf "In match:\n%a\nPattern variable %s: mut=%b, ref=%b\n" *)
+                      (*   pexpr e_match open_var.name mut ref; *)
+                      (* i., above *)
+                      let known = if mut then add_mut_field (Some t) f known else known in
+                      (* ii.b. *)
+                      let known = match e_scrut with
+                        | Open { atom; _ } when mut -> add_mut_var atom known
+                        | Deref (Open { atom; _ }) when mut -> add_mut_borrow atom known
+                        | _ ->
+                            (* KPrint.bprintf "%a is not open or deref\n" pexpr e; *)
+                            known
+                      in
+                      (* ii.a *)
+                      let known = if ref then { known with p = VarSet.add atom known.p } else known in
+                      known, (f, OpenP open_var) :: fieldpats
+                  | _ ->
+                      let known, pat = update_fields known pat typ in
+                      known, (f, pat) :: fieldpats
+                ) (known, []) fieldpats fields in
+                let fieldpats = List.rev fieldpats in
+                known, StructP (name, fieldpats)
+
+              else
+                (* Enum case; nothing to do *)
+                known, pat
+
+          | Wildcard | Literal _ -> known, pat
+          | OpenP _ -> known, pat (* no such thing as mutable struct fields or variables in Low* *)
+          |  _ -> Warn.failwith "TODO: Match %a" ppat pat
+        in
+        let known, pat = update_fields known pat t in
+        let bs = List.map2 (fun a b ->
+          let ref = VarSet.mem a known.p in
+          let mut = VarSet.mem a known.r in
+          { b with ref; mut }
+        ) atoms bs in
+        let branch = close_branch atoms (bs, pat, e) in
+        known, branch
+      ) known arms in
+      known, Match (e, t, arms)
 
   | Index (e1, e2) ->
       (* The cases where we perform an assignment on an index should be caught
@@ -716,19 +835,19 @@ let builtins : (name * typ list) list = [
 
   (* TODO: These functions are recursive, and should be handled properly.
      For now, we hardcode their expected type and mutability in HACL *)
-  [ "hacl"; "bignum"; "bn_karatsuba_mul_uint32"], [
+  [ "bignum"; "bignum"; "bn_karatsuba_mul_uint32"], [
       u32; Ref (None, Shared, Slice u32); Ref (None, Shared, Slice u32);
       Ref (None, Mut, Slice u32); Ref (None, Mut, Slice u32)
   ];
-  [ "hacl"; "bignum"; "bn_karatsuba_mul_uint64"], [
+  [ "bignum"; "bignum"; "bn_karatsuba_mul_uint64"], [
       u64; Ref (None, Shared, Slice u64); Ref (None, Shared, Slice u64);
       Ref (None, Mut, Slice u64); Ref (None, Mut, Slice u64)
   ];
-  [ "hacl"; "bignum"; "bn_karatsuba_sqr_uint32"], [
+  [ "bignum"; "bignum"; "bn_karatsuba_sqr_uint32"], [
       u32; Ref (None, Shared, Slice u32);
       Ref (None, Mut, Slice u32); Ref (None, Mut, Slice u32)
   ];
-  [ "hacl"; "bignum"; "bn_karatsuba_sqr_uint64"], [
+  [ "bignum"; "bignum"; "bn_karatsuba_sqr_uint64"], [
       u64; Ref (None, Shared, Slice u64);
       Ref (None, Mut, Slice u64); Ref (None, Mut, Slice u64)
   ];
@@ -738,15 +857,14 @@ let builtins : (name * typ list) list = [
 
 let infer_mut_borrows files =
   (* Map.of_list is only available from OCaml 5.1 onwards *)
-  let env = { seen = List.to_seq builtins |> NameMap.of_seq; structs = NameMap.empty } in
-  let known = { structs = NameMap.empty; v = VarSet.empty; r = VarSet.empty } in
+  let env = { seen = List.to_seq builtins |> NameMap.of_seq; structs = DataTypeMap.empty } in
+  let known = { structs = DataTypeMap.empty; v = VarSet.empty; r = VarSet.empty; p = VarSet.empty } in
   let env, files =
     List.fold_left (fun (env, files) (filename, decls) ->
       let env, decls = List.fold_left (fun (env, decls) decl ->
         match decl with
         | Function ({ name; body; return_type; parameters; _ } as f) ->
-            (* KPrint.bprintf "[infer-mut] visiting %s\n%a\n" (String.concat "." name)
-              pdecl decl; *)
+            (* KPrint.bprintf "[infer-mut] visiting %s\n" (String.concat "::" name); *)
             let atoms, body =
               List.fold_right (fun binder (atoms, e) ->
                 let a, e = open_ binder e in
@@ -777,7 +895,13 @@ let infer_mut_borrows files =
             let env = { seen = NameMap.add name (List.map (fun (x: binding) -> x.typ) parameters) env.seen; structs = known.structs } in
             env, Function { f with body; parameters } :: decls
         | Struct ({name; fields; _}) ->
-          {env with structs = NameMap.add name fields env.structs}, decl :: decls
+            { env with structs = DataTypeMap.add (`Struct name) fields env.structs }, decl :: decls
+        | Enumeration { name; items; _ } ->
+            List.fold_left (fun (env: env) (cons, fields) ->
+              match fields with
+              | None -> env
+              | Some fields -> { env with structs = DataTypeMap.add (`Variant (name, cons)) fields env.structs }
+            ) env items, decl :: decls
         | _ ->
             env, decl :: decls
       ) (env, []) decls in
@@ -789,7 +913,13 @@ let infer_mut_borrows files =
   (* We traverse all declarations again, and update the structure decls
      with the new mutability info *)
   List.map (fun (filename, decls) -> filename, List.map (function
-    | Struct ({ name; _ } as s) -> Struct { s with fields = NameMap.find name env.structs }
+    | Struct ({ name; _ } as s) -> Struct { s with fields = DataTypeMap.find (`Struct name) env.structs }
+    | Enumeration s  ->
+        Enumeration { s with items = List.map (fun (cons, fields) ->
+          cons, match fields with
+            | None -> None
+            | Some _ -> Some (DataTypeMap.find (`Variant (s.name, cons)) env.structs)
+        ) s.items }
     | x -> x
     ) decls
   ) (List.rev files)
@@ -901,8 +1031,8 @@ let map_funs f_map files =
       let decls = List.fold_left (fun decls decl ->
         match decl with
         | Function ({ body; _ } as f) ->
-          let body = f_map () body in
-          Function {f with body} :: decls
+            let body = f_map () body in
+            Function {f with body} :: decls
         | _ -> decl :: decls
       ) [] decls in
       let decls = List.rev decls in
