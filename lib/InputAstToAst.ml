@@ -9,7 +9,7 @@ open Common
 module I = InputAst
 
 let mk (type a) (node: a): a with_type =
-  { node; typ = TAny }
+  { node; typ = TAny; meta = [] }
 
 let rec binders_of_pat p =
   let open I in
@@ -147,13 +147,13 @@ and mk_expr = function
   | I.EApp (I.ETApp (I.EQualified ([ "Steel"; "Reference" ], "null"), [ t ]), [ I.EUnit ])
   | I.EApp (I.ETApp (I.EQualified ([ "C"; "Nullity" ], "null"), [ t ]), [ I.EUnit ])
   | I.EBufNull t ->
-      { node = EBufNull; typ = TBuf (mk_typ t, false) }
+      { node = EBufNull; typ = TBuf (mk_typ t, false); meta = [] }
 
   | I.EApp (I.ETApp (I.EQualified ( [ "LowStar"; "Monotonic"; "Buffer" ], "is_null"), [ t; _; _ ]), [ e ])
   | I.EApp (I.ETApp (I.EQualified ( [ "Steel"; "Reference" ], "is_null"), [ t ]), [ e ]) ->
       mk (EApp (mk (EPolyComp (K.PEq, TBuf (mk_typ t, false))), [
         mk_expr e;
-        { node = EBufNull; typ = TBuf (mk_typ t, false) }]))
+        { node = EBufNull; typ = TBuf (mk_typ t, false); meta = [] }]))
 
   | I.EApp (e, es) ->
       mk (EApp (mk_expr e, List.map mk_expr es))
@@ -211,22 +211,22 @@ and mk_expr = function
   | I.EAbortS s ->
       mk (EAbort (None, Some s))
   | I.EAbortT (s, t) ->
-      { node = EAbort (Some (mk_typ t), Some s); typ = mk_typ t }
+      { node = EAbort (Some (mk_typ t), Some s); typ = mk_typ t; meta = [] }
   | I.EReturn e ->
       mk (EReturn (mk_expr e))
   | I.EFlat (tname, fields) ->
-      { node = EFlat (mk_fields fields); typ = mk_typ tname }
+      { node = EFlat (mk_fields fields); typ = mk_typ tname; meta = [] }
   | I.EField (tname, e, field) ->
       let e = { (mk_expr e) with typ = mk_typ tname } in
       mk (EField (e, field))
   | I.ETuple es ->
       mk (ETuple (List.map mk_expr es))
   | I.ECons (lid, id, es) ->
-      { node = ECons (id, List.map mk_expr es); typ = mk_typ lid }
+      { node = ECons (id, List.map mk_expr es); typ = mk_typ lid; meta = [] }
   | I.EFun (bs, e, t) ->
       mk (EFun (mk_binders bs, mk_expr e, mk_typ t))
   | I.EComment (before, e, after) ->
-      mk (EComment (before, mk_expr e, after))
+      { (mk_expr e) with meta = [ CommentBefore before; CommentAfter after ] }
   | I.EStandaloneComment s ->
       mk (EStandaloneComment s)
   | I.EAddrOf e ->

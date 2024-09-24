@@ -893,9 +893,6 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | ETuple _ | EMatch _ | ECons _ ->
       invalid_arg "should've been desugared before"
 
-  | EComment (_, e, _) ->
-      mk_expr env locals e
-
   | ESequence es ->
       let locals, es = fold (mk_expr env) locals es in
       locals, CF.Sequence es

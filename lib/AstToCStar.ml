@@ -349,6 +349,16 @@ and return_type_not_needed e =
   | _ -> false
 
 and mk_expr env in_stmt e =
+  (* Wrap in comment node if need be. *)
+  let meta = match e.node with ELet (b, _, _) -> b.meta @ e.meta | _ -> e.meta in
+  begin match List.filter_map (function CommentBefore s -> Some s | _ -> None) meta,
+    List.filter_map (function CommentAfter s -> Some s | _ -> None) meta
+  with
+  | [], [] -> fun e -> e
+  | s, s' -> fun e -> CStar.InlineComment (String.concat "\n" s, e, String.concat "\n" s')
+  end @@
+
+  (* Actual translation. *)
   let mk_expr env e = mk_expr env false e in
   match e.node with
   | EBound var ->
@@ -429,9 +439,6 @@ and mk_expr env in_stmt e =
       ) fields)
   | EField (expr, field) ->
       CStar.Field (mk_expr env expr, field)
-
-  | EComment (s, e, s') ->
-      CStar.InlineComment (s, mk_expr env e, s')
 
   | EAddrOf e ->
       CStar.AddrOf (mk_expr env e)
@@ -660,10 +667,6 @@ and mk_stmts env e ret_type =
 
     | EReturn e ->
         mk_as_return env e acc Must
-
-    | EComment (s, e, s') ->
-        let env, stmts = collect (env, CStar.Comment s :: acc) return_pos e in
-        env, CStar.Comment s' :: stmts
 
     | EStandaloneComment s ->
         env, maybe_return (CStar.Comment s :: acc)

@@ -71,7 +71,7 @@ let pwild = with_type TAny PWild
 
 let mk_op op w =
   { node = EOp (op, w);
-    typ = type_of_op op w }
+    typ = type_of_op op w; meta = [] }
 
 (* @0 < <finish> *)
 let mk_lt w finish =
@@ -160,13 +160,13 @@ let unused_binding = sequence_binding
 let mk_binding ?(mut=false) name t =
   let b = fresh_binder name t in
   { b with node = { b.node with mut } },
-  { node = EOpen (b.node.name, b.node.atom); typ = t }
+  { node = EOpen (b.node.name, b.node.atom); typ = t; meta = [] }
 
 (** Generates "let [[name]]: [[t]] = [[e]] in [[name]]" *)
 let mk_named_binding name t e =
   let b, ref = mk_binding name t in
   b,
-  { node = e; typ = t },
+  { node = e; typ = t; meta = [] },
   ref
 
 
@@ -411,7 +411,7 @@ let rec is_initializer_constant e =
   match e with
   | { node = EAddrOf { node = EQualified _; _ }; _ } ->
       true
-  | { node = EQualified _; typ = t } ->
+  | { node = EQualified _; typ = t; _ } ->
       is_address t
   | { node = EEnum _; _ } ->
       true
@@ -688,7 +688,7 @@ let rec strip_cast e =
 let rec nest bs t e2 =
   match bs with
   | (b, e1) :: bs ->
-      { node = ELet (b, e1, close_binder b (nest bs t e2)); typ = t }
+      { node = ELet (b, e1, close_binder b (nest bs t e2)); typ = t; meta = [] }
   | [] ->
       e2
 
@@ -715,22 +715,22 @@ let rec nest_in_return_pos i typ f e =
   match e.node with
   | ELet (b, e1, e2) ->
       let e2 = nest_in_return_pos (i + 1) typ f e2 in
-      { node = ELet (b, e1, e2); typ }
+      { node = ELet (b, e1, e2); typ; meta = [] }
   | EIfThenElse (e1, e2, e3) ->
       let e2 = nest_in_return_pos i typ f e2 in
       let e3 = nest_in_return_pos i typ f e3 in
-      { node = EIfThenElse (e1, e2, e3); typ }
+      { node = EIfThenElse (e1, e2, e3); typ; meta = [] }
   | ESwitch (e, branches) ->
       let branches = List.map (fun (t, e) ->
         t, nest_in_return_pos i typ f e
       ) branches in
-      { node = ESwitch (e, branches); typ }
+      { node = ESwitch (e, branches); typ; meta = [] }
   | EMatch (c, e, branches) ->
       { node =
         EMatch (c, e, List.map (fun (bs, p, e) ->
           bs, p, nest_in_return_pos (i + List.length bs) typ f e
         ) branches);
-        typ }
+        typ; meta = [] }
   | ESequence es ->
       let l = List.length es in
       { node = ESequence (List.mapi (fun j e ->
@@ -738,7 +738,7 @@ let rec nest_in_return_pos i typ f e =
             nest_in_return_pos i typ f e
           else
             e
-        ) es); typ }
+        ) es); typ; meta = [] }
   | _ ->
       f i e
 

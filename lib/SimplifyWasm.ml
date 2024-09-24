@@ -172,9 +172,9 @@ let eta_expand = object
         let n = List.length targs in
         let binders, args = List.split (List.mapi (fun i t ->
           with_type t { name = Printf.sprintf "x%d" i; mut = false; mark = ref Mark.default; meta = None; atom = Atom.fresh (); attempt_inline = false },
-          { node = EBound (n - i - 1); typ = t }
+          { node = EBound (n - i - 1); typ = t; meta = [] }
         ) targs) in
-        let body = { node = EApp (body, args); typ = tret } in
+        let body = { node = EApp (body, args); typ = tret; meta = [] } in
         DFunction (None, flags, 0, 0, tret, name, binders, body)
     | _ ->
         DGlobal (flags, name, n, t, body)

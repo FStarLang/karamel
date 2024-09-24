@@ -234,7 +234,7 @@ let close_branch bs p e =
 let opening_binder b =
   let a = Atom.fresh () in
   let b = { b with node = { b.node with atom = a } } in
-  b, subst { node = EOpen (b.node.name, a); typ = b.typ } 0
+  b, subst { node = EOpen (b.node.name, a); typ = b.typ; meta = [] } 0
 
 let open_binder b e1 =
   let b, f = opening_binder b in
@@ -254,7 +254,7 @@ let open_branch bs pat expr =
   List.fold_right (fun binder (bs, pat, expr) ->
     let b, expr = open_binder binder expr in
     let pat =
-      subst_p { node = POpen (b.node.name, b.node.atom); typ = b.typ } 0 pat
+      subst_p { node = POpen (b.node.name, b.node.atom); typ = b.typ; meta = [] } 0 pat
     in
     b :: bs, pat, expr
   ) bs ([], pat, expr)

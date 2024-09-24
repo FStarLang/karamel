@@ -339,9 +339,6 @@ and check' env t e =
         Warn.maybe_fatal_error ("", NotLowStarCast e);
       c (infer env e)
 
-  | EComment (_, e, _) ->
-      check env t e
-
   | ELet (binder, body, cont) ->
       let t' = check_or_infer (locate env (In binder.node.name)) binder.typ body in
       binder.typ <- t';
@@ -832,9 +829,6 @@ and infer' env e =
         infer env e
       ) branches in
       t
-
-  | EComment (_, e, _) ->
-      infer env e
 
   | EFun (binders, e, t_ret) ->
       let env = List.fold_left push env binders in

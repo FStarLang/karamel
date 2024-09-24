@@ -91,17 +91,6 @@ let rec memoize_inline map visit lid =
  * boolean, return a function from an [lid] to its body where inlining has been
  * performed. *)
 let mk_inliner files criterion =
-  let debug_inline = Options.debug "inline" in
-  let wrap_comment lid term =
-    if debug_inline then
-      EComment (
-        KPrint.bsprintf "start inlining %a" plid lid,
-        term,
-        KPrint.bsprintf "end inlining %a" plid lid)
-    else
-      term.node
-  in
-
   (* Build a map suitable for the [memoize_inline] combinator. *)
   let map = Helpers.build_map files (fun map -> function
     | DGlobal (_, name, _, _, body)
@@ -121,7 +110,7 @@ let mk_inliner files criterion =
            * meaning we may pass more arguments to safe_substitution than the
            * function definition takes. Safe_substitution just drops them and
            * this results in typing errors later on. *)
-          wrap_comment lid (Helpers.safe_substitution es (recurse lid) t)
+          (Helpers.safe_substitution es (recurse lid) t).node
       | _ ->
           EApp (self#visit_expr_w () e, es)
     method! visit_EQualified (_, t) lid =
