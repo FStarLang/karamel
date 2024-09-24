@@ -241,6 +241,12 @@ check-inline-let: $(OUTPUT_DIR)/InlineLet.exe
 	! grep temp_x $(OUTPUT_DIR)/InlineLet.out/InlineLet.c
 	! grep temp_y $(OUTPUT_DIR)/InlineLet.out/InlineLet.c
 
+check-comment: $(OUTPUT_DIR)/Comment.exe
+	grep -q XXX1 $(OUTPUT_DIR)/Comment.out/Comment.c && \
+	grep -q XXX2 $(OUTPUT_DIR)/Comment.out/Comment.c && \
+	grep -q XXX3 $(OUTPUT_DIR)/Comment.out/Comment.c && \
+	true
+
 clean:
 	rm -rf $(WEB_DIR) .output
 
