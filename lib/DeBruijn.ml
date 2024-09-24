@@ -99,14 +99,21 @@ let subst_no_open (e2: expr) (i: int) (e1: expr) =
 
 class subst (e2: expr) = object
   (* The environment [i] is the variable that we are looking for. *)
-  inherit map_counting
+  inherit map_counting as super
+
   (* The target variable [i] is replaced with [t2]. Any other
-     variable is unaffected. *)
-  method! visit_EBound (i, _) j =
-    if j = i then
-      (lift i e2).node
-    else
-      EBound (if j < i then j else j-1)
+     variable is unaffected. We override visit_expr to be able to preserve meta
+     information. *)
+  method! visit_expr ((i, _) as env) e =
+    match e.node with
+    | EBound j ->
+      if j = i then
+        let e2 = lift i e2 in
+        { e2 with meta = e2.meta @ e.meta }
+      else
+        { e with node = EBound (if j < i then j else j-1) }
+    | _ ->
+        super#visit_expr env e
 end
 
 let subst (e2: expr) (i: int) (e1: expr) =

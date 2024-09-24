@@ -138,6 +138,8 @@ let use_mark_to_inline_temporaries = object (self)
         safe_pure_use e2
       ) (* || is_readonly_and_variable_free_c_expression e1 && b.node.mut *)
     then
+      (* Don't drop a potentially useful comment into the ether *)
+      let e1 = { e1 with meta = e1.meta @ b.meta } in
       (DeBruijn.subst e1 0 e2).node
     else
       ELet (b, e1, e2)
