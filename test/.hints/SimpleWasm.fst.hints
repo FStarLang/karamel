@@ -20,7 +20,7 @@
         "typing_FStar.Monotonic.HyperStack.get_hmap"
       ],
       0,
-      "b55050d7e24fab3175fd0843706a2a8f"
+      "7a91f3d09e36e16b6f94c4fb20002ff3"
     ],
     [
       "SimpleWasm.main",
@@ -37,7 +37,7 @@
         "typing_tok_C.EXIT_SUCCESS@tok"
       ],
       0,
-      "4d2dc0a2f1f686ea8c9436b5eb3f71ed"
+      "70eb7f68ca0b9acc9130427c5e8d7fc6"
     ]
   ]
 ]

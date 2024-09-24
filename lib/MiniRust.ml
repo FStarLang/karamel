@@ -60,7 +60,7 @@ let u32 = Constant UInt32
 let u64 = Constant UInt64
 let usize = Constant SizeT
 
-type binding = { name: string; typ: typ; mut: bool }
+type binding = { name: string; typ: typ; mut: bool; ref: bool (* only for pattern variables *) }
 [@@deriving show,
   visitors { variety = "map"; name = "map_binding";
     ancestors = [ "map_misc"; "map_typ" ] }]
@@ -97,7 +97,7 @@ and expr =
   | MethodCall of expr * name * expr list
   | Range of expr option * expr option * bool (* inclusive? *)
   | Struct of name * (string * expr) list
-  | Match of expr * (match_arm * expr) list
+  | Match of expr * typ * match_arm list
 
   (* Place expressions *)
   | Var of db_index
@@ -112,12 +112,18 @@ and expr =
   | Operator of op
   | Deref of expr
 
-and match_arm = pat
+and match_arm = binding list * pat * expr
 
+(* FIXME: could not reuse constructors like Struct, Var, and Open, using
+   [@name "StructP"] to avoid conflicts -- this resulted in typing errors in
+   the generated visitors code *)
 and pat =
   | Literal of constant
   | Wildcard
-  | StructP of name (* TODO *)
+  (* A "struct pattern" per the Rust grammar that covers both Enum and Struct *)
+  | StructP of ([ `Struct of name | `Variant of name * string ] [@ opaque]) * (string * pat) list
+  | VarP of db_index
+  | OpenP of open_var
 
 and open_var = {
   name: string;
@@ -185,7 +191,7 @@ type decl =
 
 and item =
   (* Not supporting tuples yet *)
-  name * struct_field list option
+  string * struct_field list option
 
 and struct_field = {
   name: string;
@@ -220,6 +226,16 @@ module DeBruijn = struct
       let e1 = self#visit_expr env e1 in
       let e2 = self#visit_expr (self#extend env b) e2 in
       For (b, e1, e2)
+
+    method! visit_Match env e t branches =
+      let e = self#visit_expr env e in
+      let branches = List.map (fun (bs, p, e) ->
+        let env = List.fold_left self#extend env bs in
+        let p = self#visit_pat env p in
+        let e = self#visit_expr env e in
+        bs, p, e
+      ) branches in
+      Match (e, t, branches)
   end
 
   class map_counting = object
@@ -236,6 +252,12 @@ module DeBruijn = struct
     inherit map_counting
     (* A local variable (one that is less than [i]) is unaffected;
        a free variable is lifted up by [k]. *)
+    method! visit_VarP i j =
+      if j < i then
+        VarP j
+      else
+        VarP (j + k)
+
     method! visit_Var i j =
       if j < i then
         Var j
@@ -253,6 +275,16 @@ module DeBruijn = struct
         Open v
   end
 
+  class close_p (a: Atom.t) (e: pat) = object
+    inherit map_counting
+
+    method! visit_OpenP i ({ atom; _ } as v) =
+      if Atom.equal a atom then
+        (new lift i)#visit_pat 0 e
+      else
+        OpenP v
+  end
+
   class subst e2 = object
     inherit map_counting
 
@@ -261,6 +293,16 @@ module DeBruijn = struct
         (new lift i)#visit_expr 0 e2
       else
         Var (if j < i then j else j - 1)
+  end
+
+  class subst_p e2 = object
+    inherit map_counting
+
+    method! visit_VarP i j =
+      if j = i then
+        (new lift i)#visit_pat 0 e2
+      else
+        VarP (if j < i then j else j - 1)
   end
 
 end
@@ -273,19 +315,57 @@ let lift (k: int) (expr: expr): expr =
   else
     (new DeBruijn.lift k)#visit_expr 0 expr
 
+let lift_p (k: int) (pat: pat): pat =
+  if k = 0 then
+    pat
+  else
+    (new DeBruijn.lift k)#visit_pat 0 pat
+
 (* Close `a`, replacing it on the fly with `e2` in `e1` *)
 let close a e2 e1 =
   (new DeBruijn.close a e2)#visit_expr 0 e1
 
+(* Close `a`, replacing it on the fly with `p2` in `p1` *)
+let close_p a e2 e1 =
+  (new DeBruijn.close_p a e2)#visit_pat 0 e1
+
+let close_many bs e1 =
+  List.fold_left (fun e1 b -> close b (Var 0) (lift 1 e1)) e1 bs
+
+let close_many_p bs e1 =
+  List.fold_left (fun e1 b -> close_p b (VarP 0) (lift_p 1 e1)) e1 bs
+
+let close_branch atoms (bs, p, e) =
+  bs, close_many_p atoms p, close_many atoms e
+
 (* Substitute `e2` for bound variable `i` in `e1` *)
 let subst e2 i e1 =
   (new DeBruijn.subst e2)#visit_expr i e1
+
+(* Substitute `p2` for bound pattern variable `i` in `p1` *)
+let subst_p e2 i e1 =
+  (new DeBruijn.subst_p e2)#visit_pat i e1
 
 (* Open b in e2, replacing occurrences of a bound variable with the
    corresponding atom. *)
 let open_ (b: binding) e2 =
   let atom = Atom.fresh () in
   atom, subst (Open { atom; name = b.name }) 0 e2
+
+let open_many binders term =
+  List.fold_right (fun binder (acc, term) ->
+    let atom, term = open_ binder term in
+    atom :: acc, term
+  ) binders ([], term)
+
+let open_branch (bs, pat, expr) =
+  List.fold_right (fun binder (bs, pat, expr) ->
+    let b, expr = open_ binder expr in
+    let pat =
+      subst_p (OpenP { name = binder.name; atom = b }) 0 pat
+    in
+    b :: bs, pat, expr
+  ) bs ([], pat, expr)
 
 (* Helpers *)
 

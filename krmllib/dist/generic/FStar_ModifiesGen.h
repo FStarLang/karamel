@@ -14,11 +14,7 @@
 
 typedef void *FStar_ModifiesGen_aloc_t;
 
-#define FStar_ModifiesGen_Loc 0
-
-typedef uint8_t FStar_ModifiesGen_loc_;
-
-typedef FStar_ModifiesGen_loc_ FStar_ModifiesGen_loc;
+typedef void *FStar_ModifiesGen_loc;
 
 typedef void *FStar_ModifiesGen_loc_includes;
 
