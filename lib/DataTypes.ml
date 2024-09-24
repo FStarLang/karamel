@@ -511,17 +511,17 @@ let compile_simple_matches (map, enums) = object(self)
   method! visit_expr_w env x =
     let node = self#visit_expr' (env, x.typ) x.node in
     let typ = self#visit_typ env x.typ in
-    { node; typ; meta = [] }
+    { node; typ; meta = x.meta }
 
   method! visit_pattern_w env x =
     let node = self#visit_pattern' (env, x.typ) x.node in
     let typ = self#visit_typ env x.typ in
-    { node; typ; meta = [] }
+    { node; typ; meta = x.meta }
 
   method! visit_with_type f (env, _) x =
       let node = f (env, x.typ) x.node in
       let typ = self#visit_typ env x.typ in
-      { node; typ; meta = [] }
+      { node; typ; meta = x.meta }
 
   method! visit_TQualified _ lid =
     match Hashtbl.find map lid with

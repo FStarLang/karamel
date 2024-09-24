@@ -1111,9 +1111,6 @@ and hoist_stmt loc e =
   | EContinue ->
       mk EContinue
 
-  | EComment (s, e, s') ->
-      mk (EComment (s, hoist_stmt loc e, s'))
-
   | ETuple _ ->
       failwith "[hoist_t]: ETuple not properly desugared"
 
@@ -1153,14 +1150,6 @@ and hoist_expr loc pos e =
   | EAddrOf e ->
       let lhs, e = hoist_expr loc Unspecified e in
       lhs, mk (EAddrOf e)
-
-  | EComment (s, e, s') ->
-      let lhs, e = hoist_expr loc Unspecified e in
-      lhs, mk (EComment (s, e, s'))
-
-  | EComment (s, e, s') ->
-      let lhs, e = hoist_expr loc Unspecified e in
-      lhs, mk (EComment (s, e, s'))
 
   | EIgnore e ->
       let lhs, e = hoist_expr loc Unspecified e in
@@ -1429,23 +1418,23 @@ let rec fixup_return_pos e =
    * because it's valid for if nodes to appear in terminal position (idem for
    * switch nodes).
    * *)
-  with_type e.typ (match e.node with
-  | ELet (_, ({ node = (EIfThenElse _ | ESwitch _ | EMatch _); _ } as e), { node = EBound 0; _ }) ->
-      (fixup_return_pos e).node
-  | ELet (_, ({ node = (EIfThenElse _ | ESwitch _ | EMatch _); _ } as e),
-    { node = ECast ({ node = EBound 0; _ }, t); _ }) ->
-      (nest_in_return_pos t (fun _ e -> with_type t (ECast (e, t))) (fixup_return_pos e)).node
-  | EIfThenElse (e1, e2, e3) ->
-      EIfThenElse (e1, fixup_return_pos e2, fixup_return_pos e3)
-  | ESwitch (e1, branches) ->
-      ESwitch (e1, List.map (fun (t, e) -> t, fixup_return_pos e) branches)
-  | EMatch (f, e1, branches) ->
-      EMatch (f, e1, List.map (fun (bs, pat, e) -> bs, pat, fixup_return_pos e) branches)
-  | ELet (b, e1, e2) ->
-      ELet (b, e1, fixup_return_pos e2)
-  | e ->
-      e
-  )
+  { e with node = match e.node with
+    | ELet (_, ({ node = (EIfThenElse _ | ESwitch _ | EMatch _); _ } as e), { node = EBound 0; _ }) ->
+        (fixup_return_pos e).node
+    | ELet (_, ({ node = (EIfThenElse _ | ESwitch _ | EMatch _); _ } as e),
+      { node = ECast ({ node = EBound 0; _ }, t); _ }) ->
+        (nest_in_return_pos t (fun _ e -> with_type t (ECast (e, t))) (fixup_return_pos e)).node
+    | EIfThenElse (e1, e2, e3) ->
+        EIfThenElse (e1, fixup_return_pos e2, fixup_return_pos e3)
+    | ESwitch (e1, branches) ->
+        ESwitch (e1, List.map (fun (t, e) -> t, fixup_return_pos e) branches)
+    | EMatch (f, e1, branches) ->
+        EMatch (f, e1, List.map (fun (bs, pat, e) -> bs, pat, fixup_return_pos e) branches)
+    | ELet (b, e1, e2) ->
+        ELet (b, e1, fixup_return_pos e2)
+    | e ->
+        e
+  }
 
 (* TODO: figure out if we want to ignore the other cases for performance
  * reasons. *)
@@ -2092,6 +2081,7 @@ let simplify2 ifdefs (files: file list): file list =
   let files = functional_updates#visit_files false files in
   let files = functional_updates#visit_files true files in
   let files = let_to_sequence#visit_files () files in
+PPrint.(Print.(print (PrintAst.print_files files ^^ hardline)));
   files
 
 let debug env =
