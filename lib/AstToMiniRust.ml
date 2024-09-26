@@ -582,7 +582,7 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
 (* However, generally, we will have a type provided by the context that may
    necessitate the insertion of conversions *)
 and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env * MiniRust.expr =
-  (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
+  KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e;
 
   let erase_lifetime_info = (object(self)
     inherit [_] MiniRust.DeBruijn.map
@@ -737,7 +737,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       assert (cgs @ cgs' = []);
       let es =
         match es with
-        | [ { typ = TUnit; node } ] -> assert (node = EUnit); []
+        | [ { typ = TUnit; node; _ } ] -> assert (node = EUnit); []
         | _ -> es
       in
       let env, e = translate_expr env e in
@@ -755,7 +755,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
   | EApp (e0, es) ->
       let es =
         match es with
-        | [ { typ = TUnit; node } ] -> assert (node = EUnit); []
+        | [ { typ = TUnit; node; _ } ] -> assert (node = EUnit); []
         | _ -> es
       in
       let env, e0 = translate_expr env e0 in
@@ -1074,8 +1074,6 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
   | ECast (e, t) ->
       let env, e = translate_expr env e in
       env, As (e, translate_type env t)
-  | EComment _ ->
-      failwith "TODO: EComment"
   | EStandaloneComment _ ->
       failwith "TODO: EStandaloneComment"
   | EAddrOf _e1 ->

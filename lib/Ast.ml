@@ -120,12 +120,18 @@ and branch_t =
 and fields_t =
   (ident * (typ * bool)) list
 
+type node_meta =
+  | CommentBefore of string
+  | CommentAfter of string
+
+and node_meta' = node_meta [@visitors.opaque] [@@deriving show]
 
 (* This type, by virtue of being separated from the recursive definition of expr
  * and pattern, generates no implementation. We provide our own below. *)
 type 'a with_type = {
   node: 'a;
-  mutable typ: typ
+  mutable typ: typ;
+  meta: node_meta' list;
     (** Filled in by [Checker] *)
 }
   [@@deriving show]
@@ -163,7 +169,7 @@ class ['self] map_typ_adapter = object (self: 'self)
     fun f (env, _) x ->
       let typ = self#visit_typ env x.typ in
       let node = f (env, typ) x.node in
-      { node; typ }
+      { node; typ; meta = x.meta }
 end
 
 class ['self] iter_typ_adapter = object (self: 'self)
@@ -283,7 +289,6 @@ type expr' =
      * ]}
      * The scope of the binder is the second, third and fourth expressions. *)
   | ECast of expr * typ_wo
-  | EComment of string * expr * string
   | EStandaloneComment of string
   | EAddrOf of expr
 
@@ -381,7 +386,7 @@ class ['self] map_expr_adapter = object (self: 'self)
     fun f env x ->
       let typ = self#visit_typ env x.typ in
       let node = f (env, typ) x.node in
-      { node; typ }
+      { node; typ; meta = x.meta }
 
   method visit_expr_w env e =
     self#visit_expr (env, e.typ) e
@@ -679,7 +684,7 @@ let map_decls f files =
   List.map (fun (file, decls) -> file, List.map f decls) files
 
 let with_type typ node =
-  { typ; node }
+  { typ; node; meta = [] }
 
 let flatten_tapp t =
   let rec flatten_tapp cgs t =

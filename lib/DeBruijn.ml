@@ -99,14 +99,21 @@ let subst_no_open (e2: expr) (i: int) (e1: expr) =
 
 class subst (e2: expr) = object
   (* The environment [i] is the variable that we are looking for. *)
-  inherit map_counting
+  inherit map_counting as super
+
   (* The target variable [i] is replaced with [t2]. Any other
-     variable is unaffected. *)
-  method! visit_EBound (i, _) j =
-    if j = i then
-      (lift i e2).node
-    else
-      EBound (if j < i then j else j-1)
+     variable is unaffected. We override visit_expr to be able to preserve meta
+     information. *)
+  method! visit_expr ((i, _) as env) e =
+    match e.node with
+    | EBound j ->
+      if j = i then
+        let e2 = lift i e2 in
+        { e2 with meta = e2.meta @ e.meta }
+      else
+        { e with node = EBound (if j < i then j else j-1) }
+    | _ ->
+        super#visit_expr env e
 end
 
 let subst (e2: expr) (i: int) (e1: expr) =
@@ -234,7 +241,7 @@ let close_branch bs p e =
 let opening_binder b =
   let a = Atom.fresh () in
   let b = { b with node = { b.node with atom = a } } in
-  b, subst { node = EOpen (b.node.name, a); typ = b.typ } 0
+  b, subst { node = EOpen (b.node.name, a); typ = b.typ; meta = [] } 0
 
 let open_binder b e1 =
   let b, f = opening_binder b in
@@ -254,7 +261,7 @@ let open_branch bs pat expr =
   List.fold_right (fun binder (bs, pat, expr) ->
     let b, expr = open_binder binder expr in
     let pat =
-      subst_p { node = POpen (b.node.name, b.node.atom); typ = b.typ } 0 pat
+      subst_p { node = POpen (b.node.name, b.node.atom); typ = b.typ; meta = [] } 0 pat
     in
     b :: bs, pat, expr
   ) bs ([], pat, expr)

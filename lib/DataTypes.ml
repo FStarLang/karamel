@@ -137,7 +137,7 @@ let remove_unused_type_arguments files =
             chop (kept + 1) (i + 1) (def, binders, ret)
           else
             let def = DeBruijn.subst_te TAny (n - i - 1) def in
-            let binders = List.map (fun { node; typ } -> { node; typ = DeBruijn.subst_t TAny (n - i - 1) typ }) binders in
+            let binders = List.map (fun { node; typ; _ } -> { node; typ = DeBruijn.subst_t TAny (n - i - 1) typ; meta = [] }) binders in
             let ret = DeBruijn.subst_t TAny (n - i - 1) ret in
             chop kept (i + 1) (def, binders, ret)
       in
@@ -511,17 +511,17 @@ let compile_simple_matches (map, enums) = object(self)
   method! visit_expr_w env x =
     let node = self#visit_expr' (env, x.typ) x.node in
     let typ = self#visit_typ env x.typ in
-    { node; typ }
+    { node; typ; meta = x.meta }
 
   method! visit_pattern_w env x =
     let node = self#visit_pattern' (env, x.typ) x.node in
     let typ = self#visit_typ env x.typ in
-    { node; typ }
+    { node; typ; meta = x.meta }
 
   method! visit_with_type f (env, _) x =
       let node = f (env, x.typ) x.node in
       let typ = self#visit_typ env x.typ in
-      { node; typ }
+      { node; typ; meta = x.meta }
 
   method! visit_TQualified _ lid =
     match Hashtbl.find map lid with

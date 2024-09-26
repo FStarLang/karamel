@@ -138,6 +138,8 @@ let use_mark_to_inline_temporaries = object (self)
         safe_pure_use e2
       ) (* || is_readonly_and_variable_free_c_expression e1 && b.node.mut *)
     then
+      (* Don't drop a potentially useful comment into the ether *)
+      let e1 = { e1 with meta = e1.meta @ b.meta } in
       (DeBruijn.subst e1 0 e2).node
     else
       ELet (b, e1, e2)
@@ -379,11 +381,11 @@ let wrapping_arithmetic = object (self)
         let e = mk_op (K.without_wrap op) unsigned_w in
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
-        let c e = { node = ECast (e, TInt unsigned_w); typ = TInt unsigned_w } in
+        let c e = { node = ECast (e, TInt unsigned_w); typ = TInt unsigned_w; meta = [] } in
         (** TODO: the second call to [c] is optional per the C semantics, but in
          * order to preserve typing, we have to insert it... maybe recognize
          * that pattern later on at the C emission level? *)
-        let unsigned_app = { node = EApp (e, [ c e1; c e2 ]); typ = TInt unsigned_w } in
+        let unsigned_app = { node = EApp (e, [ c e1; c e2 ]); typ = TInt unsigned_w; meta = [] } in
         ECast (unsigned_app, TInt w)
 
     | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), w), [ e1; e2 ] when K.is_unsigned w ->
@@ -432,7 +434,7 @@ let sequence_to_let = object (self)
     match List.rev es with
     | last :: first_fews ->
         (List.fold_left (fun cont e ->
-          { node = ELet (sequence_binding (), e, lift 1 cont); typ = last.typ }
+          { node = ELet (sequence_binding (), e, lift 1 cont); typ = last.typ; meta = [] }
         ) last first_fews).node
     | [] ->
         failwith "[sequence_to_let]: impossible (empty sequence)"
@@ -491,7 +493,7 @@ let let_if_to_assign = object (self)
   method private make_assignment lhs e1 =
     let nest_assign = nest_in_return_pos TUnit (fun i innermost -> {
       node = EAssign (DeBruijn.lift i lhs, innermost);
-      typ = TUnit
+      typ = TUnit; meta = []
     }) in
     match e1.node with
     | EIfThenElse (cond, e_then, e_else) ->
@@ -1111,9 +1113,6 @@ and hoist_stmt loc e =
   | EContinue ->
       mk EContinue
 
-  | EComment (s, e, s') ->
-      mk (EComment (s, hoist_stmt loc e, s'))
-
   | ETuple _ ->
       failwith "[hoist_t]: ETuple not properly desugared"
 
@@ -1127,7 +1126,7 @@ and hoist_stmt loc e =
 (* This function returns an expression that can be successfully translated as a
  * C* expression. *)
 and hoist_expr loc pos e =
-  let mk node = { node; typ = e.typ } in
+  let mk node = { node; typ = e.typ; meta = e.meta } in
   match e.node with
   | ETApp (e, cgs, cgs', ts) ->
       let lhs, e = hoist_expr loc Unspecified e in
@@ -1153,10 +1152,6 @@ and hoist_expr loc pos e =
   | EAddrOf e ->
       let lhs, e = hoist_expr loc Unspecified e in
       lhs, mk (EAddrOf e)
-
-  | EComment (s, e, s') ->
-      let lhs, e = hoist_expr loc Unspecified e in
-      lhs, mk (EComment (s, e, s'))
 
   | EIgnore e ->
       let lhs, e = hoist_expr loc Unspecified e in
@@ -1425,23 +1420,23 @@ let rec fixup_return_pos e =
    * because it's valid for if nodes to appear in terminal position (idem for
    * switch nodes).
    * *)
-  with_type e.typ (match e.node with
-  | ELet (_, ({ node = (EIfThenElse _ | ESwitch _ | EMatch _); _ } as e), { node = EBound 0; _ }) ->
-      (fixup_return_pos e).node
-  | ELet (_, ({ node = (EIfThenElse _ | ESwitch _ | EMatch _); _ } as e),
-    { node = ECast ({ node = EBound 0; _ }, t); _ }) ->
-      (nest_in_return_pos t (fun _ e -> with_type t (ECast (e, t))) (fixup_return_pos e)).node
-  | EIfThenElse (e1, e2, e3) ->
-      EIfThenElse (e1, fixup_return_pos e2, fixup_return_pos e3)
-  | ESwitch (e1, branches) ->
-      ESwitch (e1, List.map (fun (t, e) -> t, fixup_return_pos e) branches)
-  | EMatch (f, e1, branches) ->
-      EMatch (f, e1, List.map (fun (bs, pat, e) -> bs, pat, fixup_return_pos e) branches)
-  | ELet (b, e1, e2) ->
-      ELet (b, e1, fixup_return_pos e2)
-  | e ->
-      e
-  )
+  { e with node = match e.node with
+    | ELet (_, ({ node = (EIfThenElse _ | ESwitch _ | EMatch _); _ } as e), { node = EBound 0; _ }) ->
+        (fixup_return_pos e).node
+    | ELet (_, ({ node = (EIfThenElse _ | ESwitch _ | EMatch _); _ } as e),
+      { node = ECast ({ node = EBound 0; _ }, t); _ }) ->
+        (nest_in_return_pos t (fun _ e -> with_type t (ECast (e, t))) (fixup_return_pos e)).node
+    | EIfThenElse (e1, e2, e3) ->
+        EIfThenElse (e1, fixup_return_pos e2, fixup_return_pos e3)
+    | ESwitch (e1, branches) ->
+        ESwitch (e1, List.map (fun (t, e) -> t, fixup_return_pos e) branches)
+    | EMatch (f, e1, branches) ->
+        EMatch (f, e1, List.map (fun (bs, pat, e) -> bs, pat, fixup_return_pos e) branches)
+    | ELet (b, e1, e2) ->
+        ELet (b, e1, fixup_return_pos e2)
+    | e ->
+        e
+  }
 
 (* TODO: figure out if we want to ignore the other cases for performance
  * reasons. *)
@@ -1673,7 +1668,7 @@ let tail_calls =
 let rec hoist_bufcreate ifdefs (e: expr) =
   let hoist_bufcreate = hoist_bufcreate ifdefs in
   let under_pushframe = under_pushframe ifdefs in
-  let mk node = { node; typ = e.typ } in
+  let mk node = { node; typ = e.typ; meta = e.meta } in
   match e.node with
   | EMatch _ ->
       failwith "expected to run after match compilation"
@@ -1753,16 +1748,16 @@ let rec hoist_bufcreate ifdefs (e: expr) =
 and under_pushframe ifdefs (e: expr) =
   let hoist_bufcreate = hoist_bufcreate ifdefs in
   let under_pushframe = under_pushframe ifdefs in
-  let mk node = { node; typ = e.typ } in
+  let mk node = { node; typ = e.typ; meta = e.meta } in
   match e.node with
-  | ELet (b, { node = EIfThenElse ({ node = EQualified lid; _ } as e1, e2, e3); typ }, ek)
+  | ELet (b, { node = EIfThenElse ({ node = EQualified lid; _ } as e1, e2, e3); typ; meta = [] }, ek)
     when Idents.LidSet.mem lid ifdefs ->
       (* Do not hoist, since this if will turn into an ifdef which does NOT
          shorten the scope...! TODO this does not catch all ifdefs *)
       let e2 = under_pushframe e2 in
       let e3 = under_pushframe e3 in
       let ek = under_pushframe ek in
-      mk (ELet (b, { node = EIfThenElse (e1, e2, e3); typ }, ek))
+      mk (ELet (b, { node = EIfThenElse (e1, e2, e3); typ; meta = [] }, ek))
   | ELet (b, e1, e2) ->
       let b1, e1 = hoist_bufcreate e1 in
       let e2 = under_pushframe e2 in
@@ -1791,7 +1786,7 @@ and under_pushframe ifdefs (e: expr) =
  * code. This recursive routine is smarter and preserves the sequence of
  * let-bindings starting from the beginning of the scope. *)
 let rec find_pushframe ifdefs (e: expr) =
-  let mk node = { node; typ = e.typ } in
+  let mk node = { node; typ = e.typ; meta = e.meta } in
   match e.node with
   | ELet (b, ({ node = EPushFrame; _ } as e1), e2) ->
       mk (ELet (b, e1, under_pushframe ifdefs e2))

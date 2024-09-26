@@ -349,6 +349,16 @@ and return_type_not_needed e =
   | _ -> false
 
 and mk_expr env in_stmt e =
+  (* Wrap in comment node if need be. *)
+  let meta = match e.node with ELet (b, _, _) -> b.meta @ e.meta | _ -> e.meta in
+  begin match List.filter_map (function CommentBefore s -> Some s | _ -> None) meta,
+    List.filter_map (function CommentAfter s -> Some s | _ -> None) meta
+  with
+  | [], [] -> fun e -> e
+  | s, s' -> fun e -> CStar.InlineComment (String.concat "\n" s, e, String.concat "\n" s')
+  end @@
+
+  (* Actual translation. *)
   let mk_expr env e = mk_expr env false e in
   match e.node with
   | EBound var ->
@@ -430,9 +440,6 @@ and mk_expr env in_stmt e =
   | EField (expr, field) ->
       CStar.Field (mk_expr env expr, field)
 
-  | EComment (s, e, s') ->
-      CStar.InlineComment (s, mk_expr env e, s')
-
   | EAddrOf e ->
       CStar.AddrOf (mk_expr env e)
 
@@ -469,16 +476,22 @@ and mk_stmts env e ret_type =
         acc
     in
 
+    let comment meta =
+      match List.filter_map (function CommentBefore c -> Some c | _ -> None) meta with
+      | [] -> []
+      | s -> [ CStar.Comment (String.concat "\n" s) ]
+    in
+
     match e.node with
-    | ELet (binder, e1, e2) ->
-        let env, binder = mk_and_push_binder env binder Local (Some e1) [ e2 ]
+    | ELet (b, e1, e2) ->
+        let env, binder = mk_and_push_binder env b Local (Some e1) [ e2 ]
         and e1 = mk_expr env false e1 in
-        let acc = CStar.Decl (binder, e1) :: acc in
+        let acc = CStar.Decl (binder, e1) :: comment (e.meta @ b.meta) @ acc in
         collect (env, acc) return_pos e2
 
     | EWhile (e1, e2) ->
-        let e = CStar.While (mk_expr env false e1, mk_block env Not e2) in
-        env, maybe_return (e :: acc)
+        let e' = CStar.While (mk_expr env false e1, mk_block env Not e2) in
+        env, maybe_return (e' :: comment e.meta @ acc)
 
     | EFor (binder,
       ({ node = EConstant ((K.UInt32 | K.SizeT), init as k_init); _ } as e_init),
@@ -507,12 +520,12 @@ and mk_stmts env e ret_type =
         let n_loops = (max - init + incr - 1) / incr in
 
         if n_loops = 0 then
-          env, maybe_return acc
+          env, maybe_return (comment e.meta @ acc)
 
         else if n_loops = 1 then
           let body = DeBruijn.subst e_init 0 body in
           let body = mk_block env Not body in
-          env, (Block body) :: acc
+          env, (CStar.Block body) :: comment e.meta @ acc
 
         else begin
           assert (n_loops <= 16);
@@ -521,7 +534,7 @@ and mk_stmts env e ret_type =
 
           env, maybe_return (CStar.Ignore (Call (
             Macro (["KRML_MAYBE"], "FOR" ^ string_of_int n_loops),
-            [ Var name; Constant k_init; Constant k_max; Constant k_incr; Stmt body ])) :: acc)
+            [ Var name; Constant k_init; Constant k_max; Constant k_incr; Stmt body ])) :: comment e.meta @ acc)
         end
 
 
@@ -534,7 +547,7 @@ and mk_stmts env e ret_type =
         let e2 = mk_expr env' false e2 in
         let e3 = KList.last (mk_block env' Not e3) in
         let e4 = mk_block env' Not e4 in
-        let e =
+        let e' =
           if is_solo_assignment then
             let e1 = match mk_block env Not e1 with
               | [ e1 ] -> `Stmt e1
@@ -546,11 +559,11 @@ and mk_stmts env e ret_type =
             let e1 = mk_expr env false e1 in
             CStar.For (`Decl (binder, e1), e2, e3, e4)
         in
-        env', maybe_return (e :: acc)
+        env', maybe_return (e' :: comment e.meta @ acc)
 
     | EIfThenElse (e1, e2, e3) ->
         begin try
-          env, mk_ifdef env return_pos acc e1 e2 e3
+          env, mk_ifdef env return_pos (comment e.meta @ acc) e1 e2 e3
         with NotIfDef ->
           (* Early return optimization. It is sometimes more idiomatic in C to write:
            *
@@ -571,21 +584,21 @@ and mk_stmts env e ret_type =
            *)
           if not !Options.no_return_else || return_pos = Not then
             (* No optimization *)
-            let e = CStar.IfThenElse (false,
+            let e' = CStar.IfThenElse (false,
               mk_expr env false e1,
               mk_block env return_pos e2,
               mk_block env return_pos e3
             ) in
-            env, e :: acc
+            env, e' :: comment e.meta @ acc
           else
             (* no_return_else && return_pos <> Not,
              *   i.e. optimization enabled; we are in return position *)
-            let e = CStar.IfThenElse (false,
+            let e' = CStar.IfThenElse (false,
               mk_expr env false e1,
               mk_block env Must e2,
               []
             ) in
-            collect (env, e :: acc) return_pos e3
+            collect (env, e' :: comment e.meta @ acc) return_pos e3
         end
 
     | ESequence es ->
@@ -593,17 +606,17 @@ and mk_stmts env e ret_type =
         KList.fold_lefti (fun i (_, acc) e ->
           let return_pos = if i = n - 1 then return_pos else Not in
           collect (env, acc) return_pos e
-        ) (env, acc) es
+        ) (env, (comment e.meta @ acc)) es
 
     | EAssign (e1, _) when is_array e1.typ ->
         assert false
 
     | EAssign (e1, e2) ->
-        let e = CStar.Assign (mk_expr env false e1, mk_type env e1.typ, mk_expr env false e2) in
-        env, maybe_return (e :: acc)
+        let e' = CStar.Assign (mk_expr env false e1, mk_type env e1.typ, mk_expr env false e2) in
+        env, maybe_return (e' :: comment e.meta @ acc)
 
     | EBufBlit (e1, e2, e3, e4, e5) ->
-        let e = CStar.BufBlit (
+        let e' = CStar.BufBlit (
           mk_type env (assert_tbuf_or_tarray e1.typ),
           mk_expr env false e1,
           mk_expr env false e2,
@@ -611,34 +624,34 @@ and mk_stmts env e ret_type =
           mk_expr env false e4,
           mk_expr env false e5
         ) in
-        env, maybe_return (e :: acc)
+        env, maybe_return (e' :: comment e.meta @ acc)
 
     | EBufWrite (e1, e2, e3) ->
-        let e = CStar.BufWrite (
+        let e' = CStar.BufWrite (
           mk_expr env false e1,
           mk_expr env false e2,
           mk_expr env false e3
         ) in
-        env, maybe_return (e :: acc)
+        env, maybe_return (e' :: comment e.meta @ acc)
 
     | EBufFill (e1, e2, e3) ->
-        let e = CStar.BufFill (
+        let e' = CStar.BufFill (
           mk_type env (assert_tbuf e1.typ),
           mk_expr env false e1,
           mk_expr env false e2,
           mk_expr env false e3
         ) in
-        env, maybe_return (e :: acc)
+        env, maybe_return (e' :: comment e.meta @ acc)
 
     | EBufFree e ->
-        let e = CStar.BufFree (mk_type env (assert_tbuf e.typ), mk_expr env false e) in
-        env, maybe_return (e :: acc)
+        let e' = CStar.BufFree (mk_type env (assert_tbuf e.typ), mk_expr env false e) in
+        env, maybe_return (e' :: comment e.meta @ acc)
 
     | EMatch _ ->
         fatal_error "[AstToCStar.collect EMatch]: not implemented"
 
     | EAbort (_, s) ->
-        env, CStar.Abort (Option.value ~default:"" s) :: acc
+        env, CStar.Abort (Option.value ~default:"" s) :: comment e.meta @ acc
 
     | ESwitch (e, branches) ->
         let default, branches =
@@ -656,41 +669,37 @@ and mk_stmts env e ret_type =
             | SEnum lid -> `Ident lid
             | _ -> failwith "impossible"),
             mk_block env return_pos e
-          ) branches, default) :: acc
+          ) branches, default) :: comment e.meta @ acc
 
     | EReturn e ->
-        mk_as_return env e acc Must
-
-    | EComment (s, e, s') ->
-        let env, stmts = collect (env, CStar.Comment s :: acc) return_pos e in
-        env, CStar.Comment s' :: stmts
+        mk_as_return env e (comment e.meta @ acc) Must
 
     | EStandaloneComment s ->
-        env, maybe_return (CStar.Comment s :: acc)
+        env, maybe_return (CStar.Comment s :: comment e.meta @ acc)
 
     | EIgnore e ->
         let env, s = mk_ignored_stmt env e in
-        env, maybe_return (s @ acc)
+        env, maybe_return (s @ comment e.meta @ acc)
 
     | EBreak ->
-        env, CStar.Break :: acc
+        env, CStar.Break :: comment e.meta @ acc
 
     | EContinue ->
-        env, CStar.Continue :: acc
+        env, CStar.Continue :: comment e.meta @ acc
 
     | EPushFrame ->
-        env, acc
+        env, comment e.meta @ acc
 
     | _ when return_pos <> Not ->
-        mk_as_return env e acc return_pos
+        mk_as_return env e (comment e.meta @ acc) return_pos
 
     | _ ->
         (* This is a specialized instance of `mk_as_return` when return_pos = Not *)
         if is_readonly_c_expression e then
-          env, acc
+          env, comment e.meta @ acc
         else
-          let e = CStar.Ignore (mk_expr env true e) in
-          env, e :: acc
+          let e' = CStar.Ignore (mk_expr env true e) in
+          env, e' :: comment e.meta @ acc
 
   and mk_block env return_pos e =
     List.rev (snd (collect (reset_block env, []) return_pos e))

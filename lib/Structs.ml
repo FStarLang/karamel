@@ -741,9 +741,6 @@ let to_addr is_struct =
     | ECast (e, t) ->
         w (ECast (to_addr false e, t))
 
-    | EComment (s, e, s') ->
-        w (EComment (s, to_addr false e, s'))
-
     | ESequence _
     | ETuple _
     | EMatch _

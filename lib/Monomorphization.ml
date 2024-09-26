@@ -676,8 +676,8 @@ let functions files =
                     (* binders are the remaining binders after the cg-binders have been eliminated *)
                     let diff = List.length binders - List.length cgs in
                     let _cg_binders, binders = KList.split (List.length cgs + List.length cgs') binders in
-                    let binders = List.map (fun { node; typ } ->
-                      { node; typ = DeBruijn.(subst_ctn diff cgs (subst_tn ts typ)) }
+                    let binders = List.map (fun { node; typ; _ } ->
+                      { node; typ = DeBruijn.(subst_ctn diff cgs (subst_tn ts typ)); meta = [] }
                     ) binders in
                     (* KPrint.bprintf "about to substitute:\n  e=%a\n  cgs=%a\n cgs'=%a\n  ts=%a\n  head type=%a\n%a\n" *)
                     (*   pexpr e *)
