@@ -315,7 +315,7 @@ WasmTrap.wasm-test: NEGATIVE = true
 	echo 'fn main () { let r = main_ (); if r != 0 { println!("main_ returned: {}\\n", r); panic!() } }' >> $@
 
 %.rust-test: $(OUTPUT_DIR)/%.rs
-	rustc $< && ./$*
+	rustc $< -o $*.exe && ./$*.exe
 
 rust: $(RUST_FILES) $(patsubst Rust%.fst,rust%.rust-test,$(filter-out Rust1.fst Rust2.fst Rust3.fst,$(wildcard Rust*.fst)))
 

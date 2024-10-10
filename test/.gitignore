@@ -1,3 +1,4 @@
 .cache
 .depend
 .output
+*.exe
