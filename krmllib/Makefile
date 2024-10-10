@@ -51,7 +51,7 @@ FSTAR = $(RUNLIM) $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules --cache_
 # location of ulib.
 ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
   FStar.UInt128.fst FStar.Date.fsti \
-    FStar.HyperStack.IO.fst FStar.IO.fst FStar.Int.Cast.Full.fst \
+    FStar.HyperStack.IO.fst FStar.IO.fsti FStar.Int.Cast.Full.fst \
     FStar.Bytes.fsti FStar.Dyn.fsti LowStar.Printf.fst LowStar.Endianness.fst
 
 .PHONY: clean clean-c
