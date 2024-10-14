@@ -207,7 +207,7 @@ let expand_prefixes s =
   else
     s
 
-(* Fills in fstar{,_home,_options} *)
+(* Fills in fstar{,_home,_lib,_options}. *)
 let detect_fstar () =
   detect_karamel_if ();
 
@@ -215,28 +215,30 @@ let detect_fstar () =
     KPrint.bprintf "%s⚙ KaRaMeL will drive F*.%s Here's what we found:\n" Ansi.blue Ansi.reset;
 
   begin try
-    let r = Sys.getenv "FSTAR_HOME" in
+    let r = Sys.getenv "FSTAR_EXE" in
+    fstar := r;
+    fstar_home := d (d !fstar);
     if not !Options.silent then
-      KPrint.bprintf "read FSTAR_HOME via the environment\n";
+      KPrint.bprintf "read FSTAR_EXE via the environment; assuming FSTAR_HOME=%s\n" !fstar_home
+  with Not_found -> try
+    let r = Sys.getenv "FSTAR_HOME" in
     fstar_home := r;
-    fstar := r ^^ "bin" ^^ "fstar.exe"
+    fstar := r ^^ "bin" ^^ "fstar.exe";
+    if not !Options.silent then
+      KPrint.bprintf "read FSTAR_HOME via the environment; FSTAR_EXE=%s\n" !fstar
   with Not_found -> try
     fstar := read_one_line "which" [| "fstar.exe" |];
     fstar_home := d (d !fstar);
     if not !Options.silent then
       KPrint.bprintf "FSTAR_HOME is %s (via fstar.exe in PATH)\n" !fstar_home
   with _ ->
-    fatal_error "Did not find fstar.exe in PATH and FSTAR_HOME is not set"
+    fatal_error "Did not find fstar.exe in PATH and FSTAR_HOME/FSTAR_EXE are not set"
   end;
 
-  let fstar_ulib = !fstar_home ^^ "ulib" in
-  if not (Sys.file_exists fstar_ulib && Sys.is_directory fstar_ulib) ; then begin
-    if not !Options.silent then
-      KPrint.bprintf "F* library not found in ulib; falling back to lib/fstar\n";
-    fstar_lib := !fstar_home ^^ "lib" ^^ "fstar"
-  end else begin
-    fstar_lib := fstar_ulib
-  end;
+  (* Ask F* for the location of its library *)
+  fstar_lib := read_one_line !fstar [| "--locate_lib" |];
+  if not !Options.silent then
+    KPrint.bprintf "F* library: %s\n" !fstar_lib;
 
   if success "which" [| "cygpath" |] then begin
     fstar := read_one_line "cygpath" [| "-m"; !fstar |];

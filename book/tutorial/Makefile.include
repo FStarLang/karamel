@@ -4,21 +4,11 @@
 
 BIGNUM_HOME ?= .
 
-# Where is F* ?
-ifndef FSTAR_HOME
-  FSTAR_EXE=$(shell which fstar.exe)
-  ifneq ($(FSTAR_EXE),)
-    # Assuming that fstar.exe is in some ..../bin directory
-    FSTAR_HOME=$(dir $(FSTAR_EXE))/..
-  else
-    $(error "fstar.exe not found, please install FStar")
-  endif
-endif
-export FSTAR_HOME
-
 ifeq (,$(KRML_HOME))
   $(error KRML_HOME is not defined)
 endif
+
+include $(KRML_HOME)/locate_fstar.mk
 
 # I prefer to always check all fst files in the source directories; otherwise,
 # it's too easy to add a new file only to find out later that it's not being

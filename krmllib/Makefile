@@ -13,13 +13,7 @@ all: verify-all compile-all
 # Verification & extraction                                                    #
 ################################################################################
 
-ifdef FSTAR_HOME
-  # Assume there is a F* source tree
-  FSTAR_EXE=$(FSTAR_HOME)/bin/fstar.exe
-else
-  # Assume F* in the PATH
-  FSTAR_EXE=fstar.exe
-endif
+include ../locate_fstar.mk
 
 EXTRACT_DIR = .extract
 

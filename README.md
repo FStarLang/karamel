@@ -48,9 +48,10 @@ make via homebrew, and invoke `gmake` instead of `make`.
 
 `$ opam install ppx_deriving_yojson zarith pprint "menhir>=20161115" sedlex process fix "wasm>=2.0.0" visitors ctypes-foreign ctypes uucp`
 
-Next, make sure you have an up-to-date F\*, and that you ran `make` in the
-`ulib/ml` directory of F\*. The `fstar.exe` executable should be on your PATH
-and `FSTAR_HOME` should point to the directory where F\* is installed.
+Next, make sure you have an up-to-date F\*, either as a binary package
+or that you have built it by running `make`. The `fstar.exe` executable
+should be on your PATH, or you may set the variable `FSTAR_EXE` to its
+location.
 
 To build just run `make` from this directory.
 

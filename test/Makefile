@@ -5,18 +5,9 @@ ifeq (3.81,$(MAKE_VERSION))
     install make, then invoke gmake instead of make)
 endif
 
-ifdef FSTAR_HOME
-  # Assume there is a F* source tree
-  FSTAR_EXE=$(FSTAR_HOME)/bin/fstar.exe
-else
-  FSTAR_EXE=$(shell which fstar.exe)
-  ifeq ($(FSTAR_EXE),)
-    $(error "fstar.exe not found, please install F*")
-  endif
-  # Assume F* in the PATH, in some ..../bin directory
-  FSTAR_HOME=$(dir FSTAR_EXE)/..
-endif
+include ../locate_fstar.mk
 
+ifdef FSTAR_HOME
 CRYPTO = $(shell \
   if test -d $(FSTAR_HOME)/examples/low-level/crypto ; \
   then echo $(FSTAR_HOME)/examples/low-level/crypto ; \
@@ -24,6 +15,7 @@ CRYPTO = $(shell \
   then echo $(FSTAR_HOME)/share/fstar/examples/low-level/crypto ; \
   fi \
 )
+endif
 
 ifneq ($(CRYPTO),)
   CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
