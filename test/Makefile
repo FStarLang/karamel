@@ -60,7 +60,9 @@ ifneq ($(RECENT_GCC),"yes")
 endif
 
 CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased \
-  check-right-file count-deref check-global-init check-useless-alias check-inline-let
+  check-right-file count-deref check-global-init check-useless-alias check-inline-let \
+  check-comment check-ignore
+
 ifneq ($(CRYPTO),)
   CRYPTO_WASM_FILES=Crypto.Symmetric.Chacha20.wasm-test
 endif
@@ -246,6 +248,9 @@ check-comment: $(OUTPUT_DIR)/Comment.exe
 	grep -q XXX2 $(OUTPUT_DIR)/Comment.out/Comment.c && \
 	grep -q XXX3 $(OUTPUT_DIR)/Comment.out/Comment.c && \
 	true
+
+check-ignore: $(OUTPUT_DIR)/KrmlTrue.exe
+	! grep -q IGNORE $(OUTPUT_DIR)/KrmlTrue.out/KrmlTrue.c
 
 clean:
 	rm -rf $(WEB_DIR) .output
