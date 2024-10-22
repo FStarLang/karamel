@@ -207,7 +207,7 @@ let use_mark_to_remove_or_ignore final = object (self)
       (* Definitely unused, except we can't generate let _ = ignore (bufcreate
          ...) -- this is a bad idea, as it'll force the hoisting phase to hoist
          the bufcreate back into a let-binding, which will then be named "buf". *)
-      else if not (is_bufcreate e1) then
+      else if not (is_bufcreate e1) && Helpers.is_value e1 then
         ELet ({ node = { b.node with meta = Some MetaSequence }; typ = TUnit; meta = []},
           push_ignore e1,
           e2)
