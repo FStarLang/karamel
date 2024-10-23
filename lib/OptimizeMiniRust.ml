@@ -113,7 +113,8 @@ let retrieve_pair_type = function
   | _ -> failwith "impossible: retrieve_pair_type"
 
 let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr =
-  (* KPrint.bprintf "[infer] %a @ %a\n" pexpr e ptyp expected; *)
+  if Options.debug "rs-mut" then
+    KPrint.bprintf "[infer] %a @ %a\n" pexpr e ptyp expected;
   match e with
   | Borrow (k, e) ->
       (* If we expect this borrow to be a mutable borrow, then we make it a mutable borrow
@@ -243,7 +244,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       let known, e3 = infer env t known e3 in
       known, Assign (Index (e1, e2), e3, t)
 
-  (* x.f[e2] = e3 *)
+  (* (x.f)[e2] = e3 *)
   | Assign (Index (Field (_, f, st (* optional type *)) as e1, e2), e3, t) ->
       let known = add_mut_field st f known in
       let known, e2 = infer env usize known e2 in
@@ -262,7 +263,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Assign (Field (_, "1", None), _, _) ->
       failwith "TODO: assignment on slice"
 
-  (* (atom.f)[e2] = e3 *)
+  (* (atom[e2]).f = e3 *)
   | Assign (Field (Index ((Open {atom; _} as e1), e2), f, st), e3, t) ->
       let known = add_mut_borrow atom known in
       let known, e2 = infer env usize known e2 in
@@ -284,8 +285,15 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
       let known, e4 = infer env t known e4 in
       known, Assign (Index (Borrow (Mut, Index (Borrow (Mut, e1), e2)), e3), e4, t)
 
+  (* (&(atom.f))[e1] = e2 *)
+  | Assign (Index (Borrow (_, Field (Open {atom; _} as e1, f, t)), e2), e3, t1) ->
+      let known = add_mut_var atom known in 
+      let known, e2 = infer env usize known e2 in
+      let known, e3 = infer env usize known e3 in
+      known, Assign (Index (Borrow (Mut, Field (e1, f, t)), e2), e3, t1)
+
   | Assign _ ->
-      KPrint.bprintf "[infer-mut,assign] %a unsupported\n" pexpr e;
+      KPrint.bprintf "[infer-mut,assign] %a unsupported %s\n" pexpr e (show_expr e);
       failwith "TODO: unknown assignment"
 
   | AssignOp _ -> failwith "AssignOp nodes should only be introduced after mutability inference"
@@ -373,7 +381,7 @@ let rec infer (env: env) (expected: typ) (known: known) (e: expr): known * expr 
   | Struct (name, _es) ->
       (* The declaration of the struct should have been traversed beforehand, hence
          it should be in the map *)
-      let _fields_mut = DataTypeMap.find (`Struct name) known.structs in
+      let _fields_mut = DataTypeMap.find name known.structs in
       (* TODO: This should be modified depending on the current struct
          in known. *)
       known, e
@@ -864,7 +872,8 @@ let infer_mut_borrows files =
       let env, decls = List.fold_left (fun (env, decls) decl ->
         match decl with
         | Function ({ name; body; return_type; parameters; _ } as f) ->
-            (* KPrint.bprintf "[infer-mut] visiting %s\n" (String.concat "::" name); *)
+            if Options.debug "rs-mut" then
+              KPrint.bprintf "[infer-mut] visiting %s\n" (String.concat "::" name);
             let atoms, body =
               List.fold_right (fun binder (atoms, e) ->
                 let a, e = open_ binder e in

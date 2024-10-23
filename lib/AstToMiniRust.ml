@@ -453,6 +453,7 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
       begin try
         Name (lookup_type env lid, generic_params)
       with Not_found ->
+        KPrint.bprintf "Type name not found: %a\n" PrintAst.plid lid;
         Name (translate_unknown_lid lid, generic_params)
       end
   | TArrow _ ->
@@ -582,7 +583,7 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
 (* However, generally, we will have a type provided by the context that may
    necessitate the insertion of conversions *)
 and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env * MiniRust.expr =
-  KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e;
+  (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
 
   let erase_lifetime_info = (object(self)
     inherit [_] MiniRust.DeBruijn.map
@@ -972,9 +973,16 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       ) branches in
       env, Match (e, t, branches)
 
-  | ECons _ ->
+  | ECons (cons, es) ->
       (* ECons = variant type *)
-      failwith "TODO: ECons"
+      let t_lid = Helpers.assert_tlid e.typ in
+      let variant_fields = DataTypeMap.find (`Variant (t_lid, cons)) env.struct_fields in
+      let env, fields = List.fold_left2 (fun (env, fields) e (f: MiniRust.struct_field) ->
+        let env, e = translate_expr_with_type env e f.typ in
+        env, (f.name, e) :: fields
+      ) (env, []) es variant_fields in
+      env, Struct (`Variant (lookup_type env t_lid, cons), List.rev fields)
+
 
   | ESwitch (scrut, patexprs) ->
       let t = translate_type env e.typ in
@@ -1017,7 +1025,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         let env, e = translate_expr_with_type env e ret_t in
         env, (f, e) :: fields
       ) (env, []) fields in
-      env, Struct (lookup_type env t_lid, List.rev fields)
+      env, Struct (`Struct (lookup_type env t_lid), List.rev fields)
 
   | EField (e, f) ->
       let env, e_ = translate_expr env e in
@@ -1030,8 +1038,12 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       failwith "TODO: EContinue"
   | EReturn _ ->
       failwith "TODO: EReturn"
-  | EWhile _ ->
-      failwith "TODO: EWhile"
+  | EWhile (e1, e2) ->
+      (* See below *)
+      let env0 = env in
+      let env, e1 = translate_expr env e1 in
+      let _, e2 = translate_expr env e2 in
+      env0, While (e1, e2)
 
   (* The introduction of the unroll_loops macro requires a "fake" binder
      for the iterated value, which messes up with variable substitutions
@@ -1105,7 +1117,12 @@ and translate_pat env (p: Ast.pattern): MiniRust.pat =
          type_name::constructor, followed by fields (named) *)
       let lid = Helpers.assert_tlid p.typ in
       let name = lookup_type env lid in
-      let field_names = DataTypeMap.find (`Variant (lid, cons)) env.struct_fields in
+      let field_names =
+        try DataTypeMap.find (`Variant (lid, cons)) env.struct_fields
+        with Not_found ->
+          KPrint.bprintf "ERROR: variant %s of %a not found\n" cons PrintAst.plid lid;
+          raise Not_found
+      in
       StructP (`Variant (name, cons), List.map2 (fun f p ->
         f.MiniRust.name, translate_pat env p
       ) field_names pats)
@@ -1183,15 +1200,22 @@ let bind_decl env (d: Ast.decl): env =
       push_decl env lid (name, make_poly (translate_type env t) type_parameters)
 
   | DType (lid, _flags, _, _, decl) ->
-      let env, name = translate_lid env lid in
-      let env = push_type env lid name in
+      let env, name =
+        if LidMap.mem lid env.types then
+          (* Name already assigned thanks to a forward declaration *)
+          env, lookup_type env lid
+        else
+          let env, name = translate_lid env lid in
+          let env = push_type env lid name in
+          env, name
+      in
       match decl with
       | Flat fields ->
           (* These sets are mutually exclusive, so we don't box *and* introduce a
              lifetime at the same time *)
           let box = Idents.LidSet.mem lid env.heap_structs in
           let lifetime = Idents.LidSet.mem lid env.pointer_holding_structs in
-          KPrint.bprintf "%a (FLAT): lifetime=%b box=%b\n" PrintAst.Ops.plid lid lifetime box;
+          KPrint.bprintf "%a (FLAT): lifetime=%b box=%b --> %s\n" PrintAst.Ops.plid lid lifetime box (String.concat "::" name);
           let lifetime =
             if lifetime then
               Some (MiniRust.Label "a")
@@ -1206,7 +1230,7 @@ let bind_decl env (d: Ast.decl): env =
       | Variant branches ->
           let box = Idents.LidSet.mem lid env.heap_structs in
           let lifetime = Idents.LidSet.mem lid env.pointer_holding_structs in
-          KPrint.bprintf "%a (VARIANT): lifetime=%b box=%b\n" PrintAst.Ops.plid lid lifetime box;
+          KPrint.bprintf "%a (VARIANT): lifetime=%b box=%b --> %s\n" PrintAst.Ops.plid lid lifetime box (String.concat "::" name);
           List.fold_left (fun env (cons, fields) ->
             let cons_lid = `Variant (lid, cons) in
             let fields = List.map (fun (f, (t, _)) ->
@@ -1324,9 +1348,11 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
             ) fields)
           ) branches in
           Some (Enumeration { name; meta; items = items; derives = [] })
-      | Union _
-      | Forward _ ->
+      | Union _ ->
           Warn.failwith "TODO: Ast.DType (%a)\n" PrintAst.Ops.plid lid
+      | Forward _ ->
+          (* Nothing to translate here *)
+          None
 
 let identify_path_components_rev filename =
   let components = ref [] in

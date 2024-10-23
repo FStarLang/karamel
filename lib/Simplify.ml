@@ -1361,8 +1361,12 @@ and hoist_expr loc pos e =
       ) fields) in
       List.flatten lhs, mk (EFlat fields)
 
-  | ECons _ ->
-      failwith "[hoist_t]: ECons, why?"
+  | ECons (cons, fields) ->
+      let lhs, fields = List.split (List.map (fun expr ->
+        let lhs, expr = hoist_expr loc Unspecified expr in
+        lhs, expr
+      ) fields) in
+      List.flatten lhs, mk (ECons (cons, fields))
 
   | ETuple _ ->
       failwith "[hoist_t]: ETuple not properly desugared"

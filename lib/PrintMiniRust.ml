@@ -452,7 +452,7 @@ and print_expr env (context: int) (e: expr): document =
 
   | Struct (cons, fields) ->
       group @@
-      print_name env cons ^/^ braces_with_nesting (
+      print_data_type_name env cons ^/^ braces_with_nesting (
         separate_map (comma ^^ break1) (fun (f, e) ->
           group @@
           if string f = print_expr env max_int e then

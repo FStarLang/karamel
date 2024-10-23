@@ -96,7 +96,7 @@ and expr =
   | While of expr * expr
   | MethodCall of expr * name * expr list
   | Range of expr option * expr option * bool (* inclusive? *)
-  | Struct of name * (string * expr) list
+  | Struct of struct_name * (string * expr) list
   | Match of expr * typ * match_arm list
 
   (* Place expressions *)
@@ -120,10 +120,14 @@ and match_arm = binding list * pat * expr
 and pat =
   | Literal of constant
   | Wildcard
-  (* A "struct pattern" per the Rust grammar that covers both Enum and Struct *)
-  | StructP of ([ `Struct of name | `Variant of name * string ] [@ opaque]) * (string * pat) list
+  | StructP of struct_name * (string * pat) list
   | VarP of db_index
   | OpenP of open_var
+
+(* In the Rust grammar, both variants and structs are covered by the struct
+  case. We disambiguate between the two *)
+and struct_name =
+  [ `Struct of name | `Variant of name * string ] [@ opaque]
 
 and open_var = {
   name: string;
