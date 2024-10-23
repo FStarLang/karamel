@@ -564,6 +564,7 @@ Supported options:|}
    * checking it. Note that bundling calls [drop_unused] already to do a first
    * round of unused code elimination! *)
   let files = Bundles.make_bundles files in
+    print PrintAst.print_files files;
   let has_spinlock = List.exists (fun (_, ds) ->
     List.exists (fun d ->
       fst (Ast.lid_of_decl d) = [ "Steel"; "SpinLock" ]
