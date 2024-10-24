@@ -178,8 +178,24 @@ let rec infer_expr (env: env) infer_function (expected: typ) (known: known) (e: 
       env, known, Let ({ b with mut = mut_var; typ = t1 }, e1, close a (Var 0) (lift 1 e2))
 
   | Call (Name n, targs, es) ->
-      let env, _ = infer_function env n in
-      if NameMap.mem n env.seen then
+      if n = ["lowstar";"ignore";"ignore"] then
+        (* Since we do not have type-level substitutions in MiniRust, we special-case ignore here.
+           Ideally, it would be added to builtins with `Bound 0` as a suitable type for the
+           argument. *)
+        let env, known, e = infer_expr env infer_function (KList.one targs) known (KList.one es) in
+        env, known, Call (Name n, targs, [ e ])
+      else if n = ["Box"; "new"] then
+        let env, known, e = infer_expr env infer_function (KList.one targs) known (KList.one es) in
+        env, known, Call (Name n, targs, [ e ])
+      else if n = [ "lib"; "memzero0"; "memzero" ] then
+        (* Same as ignore above *)
+        let e1, e2 = KList.two es in
+        let env, known, e1 = infer_expr env infer_function (Ref (None, Mut, Slice (KList.one targs))) known e1 in
+        let env, known, e2 = infer_expr env infer_function u32 known e2 in
+        env, known, Call (Name n, targs, [ e1; e2 ])
+      else
+        (* Ensure this is visited *)
+        let env, _ = infer_function env n in
         (* TODO: substitute targs in ts -- for now, we assume we don't have a type-polymorphic
            function that gets instantiated with a reference type *)
         let ts = NameMap.find n env.seen in
@@ -190,27 +206,6 @@ let rec infer_expr (env: env) infer_function (expected: typ) (known: known) (e: 
         in
         let es = List.rev es in
         env, known, Call (Name n, targs, es)
-      else if n = ["lowstar";"ignore";"ignore"] then
-        (* Since we do not have type-level substitutions in MiniRust, we special-case ignore here.
-           Ideally, it would be added to builtins with `Bound 0` as a suitable type for the
-           argument. *)
-        let env, known, e = infer_expr env infer_function (KList.one targs) known (KList.one es) in
-        env, known, Call (Name n, targs, [ e ])
-      else if n = ["Box"; "new"] then
-        let env, known, e = infer_expr env infer_function (KList.one targs) known (KList.one es) in
-        env, known, Call (Name n, targs, [ e ])
-      else if n = [ "lib"; "memzero0"; "memzero" ] then (
-        (* Same as ignore above *)
-        assert (List.length es = 2);
-        let e1, e2 = KList.two es in
-        let env, known, e1 = infer_expr env infer_function (Ref (None, Mut, Slice (KList.one targs))) known e1 in
-        let env, known, e2 = infer_expr env infer_function u32 known e2 in
-        env, known, Call (Name n, targs, [ e1; e2 ])
-      ) else (
-        KPrint.bprintf "[infer_expr-mut,call] uncaught issue with on %s\n" (String.concat " :: " n);
-        debug env;
-        failwith "FIXME"
-      )
 
   | Call (Operator o, [], _) ->
       (* Most operators are wrapping and were translated to a methodcall.
