@@ -201,7 +201,7 @@ let mk_crate_of files =
     StringMap.find f map
 
 (** This phase is concerned with three whole-program, cross-compilation-unit
-    analyses, performed ina single pass:
+    analyses, performed in a single pass:
     - assign correct visibility to declarations in the presence of bundling,
       static-header, mutually-recursive definitions, stackinline,
       inline_for_extraction, the friend mechanism, and the krmlinit_globals

@@ -223,6 +223,8 @@ let unused private_count_table lid ts (i: int) =
   unused_i i &&
   implies (i = 0) (List.exists not (List.init (List.length ts) unused_i))
 
+(* TODO: this is not a fixed point computation, meaning some opportunities for
+   unused parameter elimination are missed *)
 let remove_unused_parameters = object (self)
   inherit [_] map
 
