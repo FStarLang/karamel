@@ -514,7 +514,11 @@ and print_pat env (p: pat) =
       else
         break1 ^^ braces_with_nesting (
         separate_map (comma ^^ break1) (fun (name, pat) ->
-          group (group (string name ^^ colon) ^/^ group (print_pat env pat))
+          match pat with
+          | VarP v when match lookup env v with Bound b -> b.name = name | _ -> false ->
+              print_pat env pat
+          | _ ->
+              group (group (string name ^^ colon) ^/^ group (print_pat env pat))
         ) fields ^^ trailing
       )
   | VarP v ->

@@ -274,10 +274,10 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
       failwith "TODO: Call"
 
   (* atom = e3 *)
-  | Assign (Open { atom; _ }, e3, t) ->
+  | Assign (Open { atom; _ } as e1, e3, t) ->
       (* KPrint.bprintf "[infer_expr-mut,assign] %a\n" pexpr e; *)
       let known, e3 = infer_expr env valuation t known e3 in
-      add_mut_var atom known, e3
+      add_mut_var atom known, Assign (e1, e3, t)
 
   (* atom[e2] = e2 *)
   | Assign (Index (Open { atom; _ } as e1, e2), e3, t)

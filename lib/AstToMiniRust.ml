@@ -697,8 +697,13 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       env, Operator o
   | EQualified lid ->
       begin try
-        let name, t = lookup_decl env lid in
-        env, possibly_convert (Name name) t
+        match lid with
+        | [ "C" ], "_zero_for_deref" ->
+            (* CInt for Rust means no suffix -- rustc will convert to usize or u32 *)
+            env, Constant (CInt, "0")
+        | _ ->
+            let name, t = lookup_decl env lid in
+            env, possibly_convert (Name name) t
       with Not_found ->
         (* External -- TODO: make sure external definitions are properly added
            to the scope *)
@@ -971,6 +976,12 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         let _, e = translate_expr env e in
         binders, pat, e
       ) branches in
+      let branches =
+        if not (List.exists (fun (_, p, _) -> p = MiniRust.Wildcard) branches) then
+          branches @ [ [], Wildcard, Panic "Incomplete pattern matching" ]
+        else
+          branches
+      in
       env, Match (e, t, branches)
 
   | ECons (cons, es) ->
