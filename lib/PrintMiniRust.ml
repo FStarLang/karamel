@@ -587,8 +587,9 @@ let rec print_decl env (d: decl) =
           | None -> empty
           | Some item_struct -> break1 ^^ braces_with_nesting (print_struct env item_struct)
       ) items)
-  | Struct { fields; meta; generic_params; _ } ->
+  | Struct { fields; meta; generic_params; derives; _ } ->
       group @@
+      group (print_derives derives) ^/^
       group (print_meta meta ^^ string "struct" ^/^ string target_name ^^ print_generic_params generic_params) ^/^
       braces_with_nesting (print_struct env fields)
   | Alias { generic_params; body; meta; _ } ->

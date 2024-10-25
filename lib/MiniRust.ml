@@ -184,6 +184,7 @@ type decl =
   | Struct of {
     name: name;
     fields: struct_field list;
+    derives: trait list;
     meta: meta;
     generic_params: generic_param list;
   }
