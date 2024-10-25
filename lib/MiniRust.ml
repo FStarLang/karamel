@@ -179,6 +179,7 @@ type decl =
     items: item list;
     derives: trait list;
     meta: meta;
+    generic_params: generic_param list;
   }
   | Struct of {
     name: name;

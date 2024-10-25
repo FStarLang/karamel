@@ -576,10 +576,10 @@ let rec print_decl env (d: decl) =
       group @@
       group (print_meta meta ^^ string "const" ^/^ string target_name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
       nest 4 (break1 ^^ print_expr env max_int body) ^^ semi
-  | Enumeration { items; meta; derives; _ } ->
+  | Enumeration { items; meta; derives; generic_params; _ } ->
       group @@
       group (print_derives derives) ^/^
-      group (print_meta meta ^^ string "enum" ^/^ string target_name) ^/^
+      group (print_meta meta ^^ string "enum" ^/^ string target_name ^^ print_generic_params generic_params) ^/^
       braces_with_nesting (
         separate_map (comma ^^ hardline) (fun (item_name, item_struct) ->
           group @@

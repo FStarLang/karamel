@@ -1242,10 +1242,16 @@ let bind_decl env (d: Ast.decl): env =
           let box = Idents.LidSet.mem lid env.heap_structs in
           let lifetime = Idents.LidSet.mem lid env.pointer_holding_structs in
           KPrint.bprintf "%a (VARIANT): lifetime=%b box=%b --> %s\n" PrintAst.Ops.plid lid lifetime box (String.concat "::" name);
+          let lifetime =
+            if lifetime then
+              Some (MiniRust.Label "a")
+            else
+              None
+          in
           List.fold_left (fun env (cons, fields) ->
             let cons_lid = `Variant (lid, cons) in
             let fields = List.map (fun (f, (t, _)) ->
-              { MiniRust.name = f; visibility = Some Pub; typ = translate_type env t }
+              { MiniRust.name = f; visibility = Some Pub; typ = translate_type_with_config env { box; lifetime } t }
             ) fields
             in
             { env with struct_fields = DataTypeMap.add cons_lid fields env.struct_fields }
@@ -1335,7 +1341,7 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
       | Enum idents ->
           (* No need to do name binding here since there are entirely resolved via the type name. *)
           let items = List.map (fun i -> snd i, None) idents in
-          Some (Enumeration { name; meta; items; derives = [ PartialEq; Clone; Copy ] })
+          Some (Enumeration { name; meta; items; derives = [ PartialEq; Clone; Copy ]; generic_params = [] })
       | Abbrev t ->
           let has_inner_pointer = (object
             inherit [_] Ast.reduce
@@ -1353,12 +1359,20 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
           let t = translate_type_with_config env { default_config with lifetime } t in
           Some (Alias { name; meta; body = t; generic_params })
       | Variant branches ->
-          let items = List.map (fun (cons, fields) ->
-            cons, Some (List.map (fun (f, (t, _mut)) ->
-              { name = f; typ = translate_type env t; MiniRust.visibility = None }
-            ) fields)
+          let lifetime =
+            (* creative naming for the lifetime *)
+            if Idents.LidSet.mem lid env.pointer_holding_structs then
+              Some (MiniRust.Label "a")
+            else
+              None
+          in
+          let generic_params = match lifetime with Some l -> [ MiniRust.Lifetime l ] | None -> [] in
+          let items = List.map (fun (cons, _) ->
+            let fields = DataTypeMap.find (`Variant (lid, cons)) env.struct_fields in
+            let fields = List.map (fun (x: MiniRust.struct_field) -> { x with visibility = None }) fields in
+            cons, Some fields
           ) branches in
-          Some (Enumeration { name; meta; items = items; derives = [] })
+          Some (Enumeration { name; meta; items = items; derives = []; generic_params })
       | Union _ ->
           Warn.failwith "TODO: Ast.DType (%a)\n" PrintAst.Ops.plid lid
       | Forward _ ->
