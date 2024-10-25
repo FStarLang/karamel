@@ -1024,7 +1024,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
 
   | EEnum lid ->
       let name = lookup_type env (Helpers.assert_tlid e.typ) in
-      env, Name (name @ [ snd lid ])
+      env, Struct (`Variant (name, snd lid), [])
 
   | EFlat fields ->
       (* EFlat = struct type *)

@@ -496,7 +496,7 @@ and print_expr env (context: int) (e: expr): document =
 
 and print_data_type_name env = function
   | `Struct name -> print_name env name
-  | `Variant (name, cons) -> print_name env (name @ [ cons ])
+  | `Variant (name, cons) -> print_name env name ^^ string "::" ^^ string cons
 
 and print_pat env (p: pat) =
   match p with
