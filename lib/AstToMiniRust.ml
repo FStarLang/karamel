@@ -1372,7 +1372,7 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
             let fields = List.map (fun (x: MiniRust.struct_field) -> { x with visibility = None }) fields in
             cons, Some fields
           ) branches in
-          Some (Enumeration { name; meta; items = items; derives = []; generic_params })
+          Some (Enumeration { name; meta; items; derives = [ PartialEq; Clone; Copy ]; generic_params })
       | Union _ ->
           Warn.failwith "TODO: Ast.DType (%a)\n" PrintAst.Ops.plid lid
       | Forward _ ->
@@ -1400,6 +1400,8 @@ let compute_struct_info files =
       match decl with
       | Ast.DType (lid, _, _, _, Flat fields) ->
           Idents.LidMap.add lid fields acc
+      | Ast.DType (lid, _, _, _, Variant branches) ->
+          Idents.LidMap.add lid (List.concat_map (fun (_, fields) -> List.map (fun (c, f) -> Some c, f) fields) branches) acc
       | _ ->
           acc
     ) acc decls
