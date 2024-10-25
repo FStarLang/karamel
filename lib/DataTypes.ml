@@ -203,7 +203,7 @@ let build_scheme_map files =
           Hashtbl.add map lid ToEnum (* logic replicated in Monomorphization *)
         else if List.length branches = 1 then
           Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
-        else if List.length non_constant = 1 then
+        else if List.length non_constant = 1 && not (Options.rust ()) then
           Hashtbl.add map lid (ToFlatTaggedUnion branches)
         else
           Hashtbl.add map lid (ToTaggedUnion branches);
