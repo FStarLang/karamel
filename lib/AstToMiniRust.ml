@@ -467,7 +467,9 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
       let t, ts = Helpers.flatten_arrow t in
       let ts = match ts with [ TUnit ] -> [] | _ -> ts in
       Function (0, List.map (translate_type_with_config env config) ts, translate_type_with_config env config t)
-  | TApp _ -> failwith "TODO: TApp"
+  | TApp ((["Pulse"; "Lib"; "Slice"], "slice"), [ t ]) ->
+      Ref (None, Shared, Slice (translate_type_with_config env config t))
+  | TApp _ -> failwith (KPrint.bsprintf "TODO: TApp %a" PrintAst.ptyp t)
   | TBound i -> Bound i
   | TTuple _ -> failwith "TODO: TTuple"
   | TAnonymous _ -> failwith "unexpected: we don't compile data types going to Rust"
@@ -734,6 +736,51 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let w = Helpers.assert_tint (List.hd es).typ in
       let env, es = translate_expr_list env es in
       env, possibly_convert (MethodCall (List.hd es, [ H.wrapping_operator o ], List.tl es)) (Constant w)
+
+  (* BEGIN PULSE BUILTINS *)
+
+  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "from_array"); _ }, [], [], [ t ]); _ }, [e1; _e2]) ->
+      let env, e1 = translate_expr env e1 in
+      let t = translate_type env t in
+      env, possibly_convert e1 (Ref (None, Shared, Slice t))
+
+  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "op_Array_Access"); _ }, [], [], _); _ }, [e1; e2]) ->
+      let env, e1 = translate_expr env e1 in
+      let env, e2 = translate_expr env e2 in
+      env, Index (e1, e2)
+
+  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "op_Array_Assignment"); _ }, [], [], t); _ }, [ e1; e2; e3]) ->
+      let env, e1 = translate_expr env e1 in
+      let env, e2 = translate_expr env e2 in
+      let env, e3 = translate_expr env e3 in
+      env, Assign (Index (e1, e2), e3, translate_type env (KList.one t))
+
+  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "split"); _ }, [], [], [t]); _ }, [e1; e2]) ->
+      let env, e1 = translate_expr env e1 in
+      let env, e2 = translate_expr env e2 in
+      let t = translate_type env t in
+      let b: MiniRust.binding = {
+        name = "actual_pair";
+        typ = Tuple [ Ref (None, Shared, Slice t); Ref (None, Shared, Slice t) ];
+        mut = false;
+        ref = false
+      } in
+      let ret_lid = Helpers.assert_tlid e.typ in
+      (* FIXME super unpleasant mismatch because there's a custom pair type in Pulse *)
+      env, Let (b,
+        MethodCall (e1, ["split_at"], [ e2 ]),
+        Struct (`Struct (lookup_type env ret_lid), [ "fst", Field (Var 0, "0", None); "snd", Field (Var 0, "1", None) ]))
+
+  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "copy"); _ }, [], [], _); _ }, [e1; e2]) ->
+      let env, e1 = translate_expr env e1 in
+      let env, e2 = translate_expr env e2 in
+      env, MethodCall (e1, ["copy_from_slice"], [ e2 ])
+
+  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "len"); _ }, [], [], _); _ }, [e1]) ->
+      let env, e1 = translate_expr env e1 in
+      env, MethodCall (e1, ["len"], [])
+
+  (* END PULSE BUILTINS *)
 
   | EApp ({ node = EQualified ([ "LowStar"; "BufferOps" ], s); _ }, e1 :: _) when KString.starts_with s "op_Bang_Star__" ->
       let env, e1 = translate_expr env e1 in
@@ -1575,6 +1622,13 @@ let translate_files files =
       KPrint.bprintf "Translating file %s\n" (String.concat "::" prefix);
     let total = List.length decls in
     let env = { env with prefix } in
+
+    (* Step 0: filter stuff with builtin treatment *)
+    let decls = List.filter (fun d ->
+      match Ast.lid_of_decl d with
+      | ["Pulse"; "Lib"; "Slice"], ("from_array" | "op_Array_Access" | "op_Array_Assignment" | "split" | "copy") -> false
+      | _ -> true
+    ) decls in
 
     (* Step 1: bind all declarations and add them to the environment with their types *)
     let env = List.fold_left (fun env d ->

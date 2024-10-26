@@ -96,6 +96,7 @@ let distill ts =
 (* Get the type of the arguments of `name`, based on the current state of
    `valuation` *)
 let lookup env valuation name =
+  (* KPrint.bprintf "lookup: %a\n" PrintMiniRust.pname name; *)
   let ts = NameMap.find name env.signatures in
   adjust ts (valuation name)
 
@@ -397,7 +398,7 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
       | [ "wrapping_add" | "wrapping_div" | "wrapping_mul"
       |   "wrapping_neg" | "wrapping_rem" | "wrapping_shl"
       |   "wrapping_shr" | "wrapping_sub"
-      |   "to_vec" | "into_boxed_slice" | "into" ] ->
+      |   "to_vec" | "into_boxed_slice" | "into" | "len" ] ->
           known, MethodCall (e1, m, e2)
       | ["split_at"] ->
           assert (List.length e2 = 1);
@@ -408,17 +409,22 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
             known, MethodCall (e1, ["split_at_mut"], [e2])
           else
             known, MethodCall (e1, m, [e2])
-      | ["copy_from_slice"] -> begin match e1 with
+      | ["copy_from_slice"] ->
+          assert (List.length e2 = 1);
+          begin match e1 with
           | Index (dst, range) ->
-            assert (List.length e2 = 1);
-            (* We do not have access to the types of e1 and e2. However, the concrete
-               type should not matter during mut infer_exprence, we thus use Unit as a default *)
-            let known, dst = infer_expr env valuation (Ref (None, Mut, Unit)) known dst in
-            let known, e2 = infer_expr env valuation (Ref (None, Shared, Unit)) known (List.hd e2) in
-            known, MethodCall (Index (dst, range), m, [e2])
-          (* The AstToMiniRust translation should always introduce an index
-              as the left argument of copy_from_slice *)
-          | _ -> failwith "ill-formed copy_from_slice"
+              (* We do not have access to the types of e1 and e2. However, the concrete
+                 type should not matter during mut infer_exprence, we thus use Unit as a default *)
+              let known, dst = infer_expr env valuation (Ref (None, Mut, Unit)) known dst in
+              let known, e2 = infer_expr env valuation (Ref (None, Shared, Unit)) known (List.hd e2) in
+              known, MethodCall (Index (dst, range), m, [e2])
+          | _ ->
+              (* The other form stems from Pulse.Lib.Slice which, here, puts an
+                  actual slice on the left-hand side. *)
+              let e2 = KList.one e2 in
+              let known, e1 = infer_expr env valuation (Ref (None, Mut, Slice Unit)) known e1 in
+              let known, e2 = infer_expr env valuation (Ref (None, Mut, Slice Unit)) known e2 in
+              known, MethodCall (e1, m, [e2])
           end
       | [ "push" ] -> begin match e1 with
           | Open {atom; _} -> add_mut_var atom known, MethodCall (e1, m, e2)

@@ -407,6 +407,10 @@ let make_abstract (name, decls) =
   name, List.filter_map (function
     | DType (_, _, _, _, Abbrev _) as t ->
         Some t
+    | DType ((_, "slice_pair"), _, _, _, _) as t when Options.rust () ->
+        (* FIXME remove this hack once Tahina exhibits a repro as to why he
+           can't use actual pairs *)
+        Some t
     | DType _ ->
         None
     | DGlobal (_, name, _, _, _) when KString.starts_with (snd name) "op_" ->
@@ -434,7 +438,12 @@ let is_model name =
       "C_Compat_String";
       "FStar_String";
       "Steel_SpinLock"
-    ]
+    ] || (
+      Options.rust () &&
+      List.mem name [
+        "Pulse_Lib_Slice"
+      ]
+    )
 
 (* We have several different treatments. *)
 let prepare files =
