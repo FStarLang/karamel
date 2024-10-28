@@ -460,7 +460,7 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
       begin try
         Name (lookup_type env lid, generic_params)
       with Not_found ->
-        KPrint.bprintf "Type name not found: %a\n" PrintAst.plid lid;
+        (* KPrint.bprintf "Type name not found: %a\n" PrintAst.plid lid; *)
         Name (translate_unknown_lid lid, generic_params)
       end
   | TArrow _ ->
@@ -1214,11 +1214,13 @@ let is_handled_primitively = function
   | _ ->
       false
 
-let compute_derives heap_structs _pointer_holding_structs files =
+let compute_derives heap_structs pointer_holding_structs files =
+  (* A map from lid to Ast definition, of type decl *)
   let definitions = List.fold_left (fun map (_, decls) ->
     List.fold_left (fun map decl -> LidMap.add (Ast.lid_of_decl decl) decl map) map decls
   ) LidMap.empty files in
 
+  (* The bottom element of our lattice *)
   let everything = TraitSet.of_list [ MiniRust.PartialEq; Clone; Copy ] in
 
   let module F = Fix.Fix.ForOrderedType(struct
@@ -1232,19 +1234,28 @@ let compute_derives heap_structs _pointer_holding_structs files =
   end) in
 
   let equations lid valuation =
-    let traits = object
-        inherit [_] Ast.reduce
-        method zero = everything
-        method plus = TraitSet.inter
-        method! visit_TQualified _ lid =
-          valuation lid
-      end#visit_decl () (LidMap.find lid definitions)
-    in
-    if LidSet.mem lid heap_structs then
-      (* If this type will contain a Box<...> then it cannot have trait copy. *)
-      TraitSet.diff traits (TraitSet.of_list [ MiniRust.Copy ])
+    if not (LidMap.mem lid definitions) then
+      everything
     else
-      traits
+      let traits = object
+          inherit [_] Ast.reduce
+          method zero = everything
+          method plus = TraitSet.inter
+          method! visit_TQualified _ lid =
+            valuation lid
+        end#visit_decl () (LidMap.find lid definitions)
+      in
+      let traits = 
+        if LidSet.mem lid heap_structs || LidSet.mem lid pointer_holding_structs then
+          (* If this type will contain a Box<...> then it cannot have trait copy. *)
+          TraitSet.diff traits (TraitSet.of_list [ MiniRust.Copy ])
+        else
+          traits
+      in
+      if LidSet.mem lid pointer_holding_structs then
+        TraitSet.diff traits (TraitSet.of_list [ MiniRust.Clone ])
+      else
+        traits
   in
 
   F.lfp equations
