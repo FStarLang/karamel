@@ -342,7 +342,7 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
 
   (* (&(atom.f))[e1] = e2 *)
   | Assign (Index (Borrow (_, Field (Open {atom; _} as e1, f, t)), e2), e3, t1) ->
-      let known = add_mut_var atom known in 
+      let known = add_mut_var atom known in
       let known, e2 = infer_expr env valuation usize known e2 in
       let known, e3 = infer_expr env valuation usize known e3 in
       known, Assign (Index (Borrow (Mut, Field (e1, f, t)), e2), e3, t1)
@@ -952,10 +952,8 @@ let infer_mut_borrows files =
           Hashtbl.add structs (`Struct name) fields
       | Enumeration { name; items; _ } ->
           List.iter (fun (cons, fields) ->
-            match fields with
-            | None -> ()
-            | Some fields ->
-                Hashtbl.add structs (`Variant (name, cons)) fields
+            Option.value fields ~default:[] |>
+            Hashtbl.add structs (`Variant (name, cons))
           ) items
       | _ ->
           ()
@@ -986,7 +984,7 @@ let infer_mut_borrows files =
     `valuation`, compute which of the parameters in this function need to be
     mutable borrows. *)
   let rhs name valuation =
-    if NameMap.mem name builtins then 
+    if NameMap.mem name builtins then
       (* No computation needed for builtins, the information is readily available *)
       distill (NameMap.find name builtins)
     else
