@@ -287,6 +287,7 @@ Supported options:|}
     "", Arg.Unit (fun _ -> ()), " ";
     "-by-ref", Arg.String (fun s -> prepend Options.by_ref (Parsers.lid s)), " \
       pass the given struct type by reference, always";
+    "-fno-box", Arg.Set Options.no_box, "  don't generate Box (Rust only)";
     "-fbuiltin-uint128", Arg.Set Options.builtin_uint128, "  target compiler \
       supports arithmetic operators for uint128 -- this is NON PORTABLE, \
       works only with GCC/Clang";

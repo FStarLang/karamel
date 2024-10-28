@@ -167,6 +167,7 @@ type decl =
     body: expr;
     meta: meta;
     inline: bool;
+    generic_params: generic_param list;
   }
   | Constant of {
     name: name;

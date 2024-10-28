@@ -468,7 +468,7 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
       let ts = match ts with [ TUnit ] -> [] | _ -> ts in
       Function (0, List.map (translate_type_with_config env config) ts, translate_type_with_config env config t)
   | TApp ((["Pulse"; "Lib"; "Slice"], "slice"), [ t ]) ->
-      Ref (None, Shared, Slice (translate_type_with_config env config t))
+      Ref (config.lifetime, Shared, Slice (translate_type_with_config env config t))
   | TApp _ -> failwith (KPrint.bsprintf "TODO: TApp %a" PrintAst.ptyp t)
   | TBound i -> Bound i
   | TTuple _ -> failwith "TODO: TTuple"
@@ -1275,8 +1275,16 @@ let bind_decl env trait_valuation (d: Ast.decl): env =
         else
           args
       in
+      let needs_lifetime = List.exists (function
+          | Ast.TQualified lid -> LidSet.mem lid env.pointer_holding_structs
+          | _ -> false
+      ) (t :: (List.map (fun (b: Ast.binder) -> b.typ) args))
+      in
+      let lifetime = if needs_lifetime then Some (MiniRust.Label "a") else None in
+      let config = { default_config with lifetime } in
+
       let parameters = List.map (fun (b: Ast.binder) ->
-        translate_type env b.typ
+        translate_type_with_config env config b.typ
       ) args in
       let is_likely_heap_allocation =
         KString.exists (snd lid) "new" ||
@@ -1291,7 +1299,7 @@ let bind_decl env trait_valuation (d: Ast.decl): env =
         | _ ->
             false
         in
-        translate_type_with_config env { default_config with box } t
+        translate_type_with_config env { config with box } t
       in
       push_decl env lid (name, Function (type_parameters, parameters, return_type))
 
@@ -1397,10 +1405,18 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
   match d with
   | DFunction (_, _, _, _, _, lid, _, _) when is_handled_primitively lid ->
       None
-  | DFunction (_cc, flags, n_cgs, type_parameters, _t, lid, args, body) ->
-      assert (type_parameters = 0 && n_cgs = 0);
+  | DFunction (_cc, flags, n_cgs, type_parameters, ret_t, lid, args, body) ->
       if Options.debug "rs" then
         KPrint.bprintf "Ast.DFunction (%a)\n" PrintAst.Ops.plid lid;
+      assert (type_parameters = 0 && n_cgs = 0);
+      let needs_lifetime = List.exists (function
+          | Ast.TQualified lid -> LidSet.mem lid env.pointer_holding_structs
+          | _ -> false
+      ) (ret_t :: (List.map (fun (x: Ast.binder) -> x.typ) args))
+      in
+      let lifetime = if needs_lifetime then Some (MiniRust.Label "a") else None in
+      let generic_params = match lifetime with Some l -> [ MiniRust.Lifetime l ] | None -> [] in
+
       let name, parameters, return_type =
         match lookup_decl env lid with
         | name, Function (_, parameters, return_type) -> name, parameters, return_type
@@ -1412,7 +1428,7 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
       let _, body = translate_expr_with_type env body return_type in
       let meta = translate_meta flags in
       let inline = List.mem Common.Inline flags in
-      Some (MiniRust.Function { type_parameters; parameters; return_type; body; name; meta; inline })
+      Some (MiniRust.Function { type_parameters; parameters; return_type; body; name; meta; inline; generic_params })
 
   | DGlobal (flags, lid, _, _t, e) ->
       let name, typ = lookup_decl env lid in
@@ -1454,11 +1470,16 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
           Some (Enumeration { name; meta; items; derives; generic_params = [] })
       | Abbrev t ->
           let has_inner_pointer = (object
-            inherit [_] Ast.reduce
+            inherit [_] Ast.reduce as super
             method zero = false
             method plus = (||)
             method! visit_TBuf _ _ _ = true
             method! visit_TQualified _ lid = Idents.LidSet.mem lid env.pointer_holding_structs
+            method! visit_TApp env lid ts =
+              if lid = (["Pulse"; "Lib"; "Slice"], "slice") then
+                true
+              else
+                super#visit_TApp env lid ts
           end)#visit_typ () t in
           let lifetime, generic_params =
             if has_inner_pointer then
@@ -1579,7 +1600,12 @@ let compute_struct_info files =
           end)#visit_fields_t_opt () fields
         in
         let directly_contains_pointers =
-          List.exists (fun (_, (t, _)) -> match t with Ast.TBuf _ -> true | _ -> false) fields
+          List.exists (fun (_, (t, _)) ->
+            match t with
+            | Ast.TBuf _ -> true
+            | TApp ((["Pulse"; "Lib"; "Slice"], "slice"), [ _ ]) -> true
+            | _ -> false
+          ) fields
         in
         directly_contains_pointers || recursively_contains_pointers
     in
@@ -1593,9 +1619,12 @@ let compute_struct_info files =
 
   (* The base case of the fixpoint is structs that are *not returned* and still contain
      pointers. We backpropagate starting from that. *)
-  let with_inner_pointers = struct_fixpoint (fun lid -> not (Idents.LidSet.mem lid returned)) in
+  let with_inner_pointers = struct_fixpoint (fun lid ->
+    if !Options.no_box then true else not (Idents.LidSet.mem lid returned)
+  ) in
   (* This one eliminates structs that are in the returned-set but do not contain pointers. *)
   let returned = struct_fixpoint (fun lid -> Idents.LidSet.mem lid returned) in
+  let returned = if !Options.no_box then LidSet.empty else returned in
 
   assert Idents.LidSet.(is_empty (inter with_inner_pointers returned));
 

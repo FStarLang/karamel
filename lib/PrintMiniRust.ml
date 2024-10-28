@@ -566,12 +566,12 @@ let rec print_decl env (d: decl) =
   let env, target_name = register_global env (name_of_decl d) in
   let target_name = KList.last target_name in
   env, match d with
-  | Function { type_parameters; parameters; return_type; body; meta; inline; _ } ->
+  | Function { type_parameters; parameters; return_type; body; meta; inline; generic_params; _ } ->
       assert (type_parameters = 0);
       let parameters = List.map (fun (b: binding) -> { b with name = allocate_name env b.name }) parameters in
       let env = List.fold_left (fun env (b: binding) -> push env (Bound b)) env parameters in
       group @@
-      group (group (print_inline_and_meta inline meta ^^ string "fn" ^/^ string target_name) ^^
+      group (group (print_inline_and_meta inline meta ^^ string "fn" ^/^ string target_name ^^ print_generic_params generic_params) ^^
         parens_with_nesting (separate_map (comma ^^ break1) (print_binding env) parameters) ^^
         (match return_type with | Unit -> empty | _ -> space ^^ arrow ^^ (nest 4 (break1 ^^ print_typ env return_type)))) ^/^
       print_block_expression env body
@@ -588,6 +588,7 @@ let rec print_decl env (d: decl) =
           group @@
           string item_name ^^ match item_struct with
           | None -> empty
+          | Some [] -> empty
           | Some item_struct -> break1 ^^ braces_with_nesting (print_struct env item_struct)
       ) items)
   | Struct { fields; meta; generic_params; derives; _ } ->
