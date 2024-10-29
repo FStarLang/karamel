@@ -995,8 +995,17 @@ let infer_mut_borrows files =
 
   let valuation = F.lfp rhs in
 
-  (* We traverse all declarations again, and update the decls
-     with the new mutability info *)
+  (* lfp does not actually perform any computation.
+    We now apply the valuation to all functions to compute mutability inference. *)
+  let files = List.map (fun (filename, decls) -> filename, List.map (function
+    | Function _ as decl ->
+        infer_function env valuation decl
+    | x -> x
+    ) decls
+  ) (List.rev files) in
+
+  (* We can finally update the struct and enumeration fields mutability
+     based on the information computed during inference on functions *)
   List.map (fun (filename, decls) -> filename, List.map (function
     | Struct ({ name; _ } as s) -> Struct { s with fields = Hashtbl.find structs (`Struct name) }
     | Enumeration s  ->
@@ -1005,9 +1014,6 @@ let infer_mut_borrows files =
             | None -> None
             | Some _ -> Some (Hashtbl.find structs (`Variant (s.name, cons)))
         ) s.items }
-    | Function _ as decl ->
-        (* TODO: this is running the computation one too many times *)
-        infer_function env valuation decl
     | x -> x
     ) decls
   ) (List.rev files)
