@@ -645,6 +645,7 @@ let print_decls ns ds =
   separate (hardline ^^ hardline) ds ^^ hardline
 
 let pname = printf_of_pprint (print_name debug)
+let pdataname = printf_of_pprint (print_data_type_name debug)
 let pexpr = printf_of_pprint (print_expr debug max_int)
 let ptyp = printf_of_pprint (print_typ debug)
 let ptyps = printf_of_pprint (separate_map (comma ^^ break1) (print_typ debug))
