@@ -249,8 +249,9 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
         let known, e = infer_expr env valuation (KList.one targs) known (KList.one es) in
         known, Call (Name n, targs, [ e ])
       else if n = ["Box"; "new"] then
-        let known, e = infer_expr env valuation (KList.one targs) known (KList.one es) in
-        known, Call (Name n, targs, [ e ])
+        (* FIXME: we no longer have the type handy so we can't recursively
+           descend on KList.one es *)
+        known, Call (Name n, targs, es)
       else if n = [ "lib"; "memzero0"; "memzero" ] then
         (* Same as ignore above *)
         let e1, e2 = KList.two es in
@@ -373,19 +374,29 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
   | Operator _ ->
       known, e
 
-  | Array (List es) ->
-      let t_elt = match expected with Array (t, _) -> t | _ -> failwith "impossible" in
-      let known, es = List.fold_left (fun (known, es) e ->
-        let known, e = infer_expr env valuation t_elt known e in
-        known, e :: es
-      ) (known, []) es in
-      let es = List.rev es in
-      known, Array (List es)
+  | Array (List es) as e0 ->
+      (* FIXME: we are sometimes recursively called with not enough type
+         information from the copy_from_slice case, below *)
+      if expected <> Unit then
+        let t_elt = match expected with Slice t | Array (t, _) -> t | _ -> failwith (KPrint.bsprintf "impossible: %a" ptyp expected) in
+        let known, es = List.fold_left (fun (known, es) e ->
+          let known, e = infer_expr env valuation t_elt known e in
+          known, e :: es
+        ) (known, []) es in
+        let es = List.rev es in
+        known, Array (List es)
+      else
+        known, e0
 
-  | Array (Repeat (e, n)) ->
-      let t_elt = match expected with Array (t, _) -> t | _ -> failwith "impossible" in
-      let known, e = infer_expr env valuation t_elt known e in
-      known, Array (Repeat (e, n))
+  | Array (Repeat (e, n)) as e0 ->
+      (* FIXME: we are sometimes recursively called with not enough type
+         information from the copy_from_slice case, below *)
+      if expected <> Unit then
+        let t_elt = match expected with Slice t | Array (t, _) -> t | _ -> failwith (KPrint.bsprintf "impossible: %a" ptyp expected) in
+        let known, e = infer_expr env valuation t_elt known e in
+        known, Array (Repeat (e, n))
+      else
+        known, e0
 
   | IfThenElse (e1, e2, e3) ->
       let known, e1 = infer_expr env valuation bool known e1 in

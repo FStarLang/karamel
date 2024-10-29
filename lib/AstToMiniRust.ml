@@ -631,7 +631,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         (* DEAD CODE -- no method try_into on Vec *)
         MethodCall (MethodCall (x, ["try_into"], []), ["unwrap"], [])
     | _, Array _, App (Name (["Box"], _), [Slice _]) ->
-        (* COPY *)
+        (* COPY (remember that Box::new does not take any type argument) *)
         Call (Name ["Box"; "new"], [], [x])
 
     (* More conversions due to vec-ing types *)
