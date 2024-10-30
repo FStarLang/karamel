@@ -43,6 +43,11 @@ module DataTypeMap = Map.Make(DataType)
 module VarSet = Set.Make(Atom)
 module IntSet = Set.Make(Int)
 
+module TraitSet = Set.Make(struct
+  type t = MiniRust.trait
+  let compare = compare
+end)
+
 (* Because of (possibly mutual) recursion, we need to express mutability
    inference as a fixed point computation. To each top-level function name, we
    map a property, which is the set of parameters that have to be promoted to
@@ -459,7 +464,7 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
                   actual slice on the left-hand side. *)
               let e2 = KList.one e2 in
               let known, e1 = infer_expr env valuation (Ref (None, Mut, Slice Unit)) known e1 in
-              let known, e2 = infer_expr env valuation (Ref (None, Mut, Slice Unit)) known e2 in
+              let known, e2 = infer_expr env valuation (Ref (None, Shared, Slice Unit)) known e2 in
               known, MethodCall (e1, m, [e2])
           end
       | [ "push" ] -> begin match e1 with
@@ -552,8 +557,8 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
                       | _ ->
                           mut (* something mutated relying on an implicit conversion to ref *)
                     in
-                    (* KPrint.bprintf "In match:\n%a\nPattern variable %s: mut=%b, ref=%b\n" *)
-                    (*   pexpr e_match open_var.name mut ref; *)
+                    KPrint.bprintf "In match:\n%a\nPattern variable %s: mut=%b, ref=%b\n"
+                      pexpr _e_match open_var.name mut ref;
                     (* i., above *)
                     if mut then add_mut_field struct_name f;
                     (* ii.b. *)
@@ -608,7 +613,6 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
   (* Special case for array slices. This occurs, e.g., when calling a function with
      a struct field *)
   | Field (Open { atom; name }, "0", None) | Field (Open { atom; name }, "1", None) ->
-      KPrint.bprintf "%s!!!\n" name;
       if is_mut_borrow expected then
         add_mut_borrow atom known, e
       else
@@ -1186,6 +1190,77 @@ let map_funs f_map files =
   in
   List.rev files
 
+let compute_derives files =
+  (* A map from lid to Ast definition, of type decl *)
+  let definitions = List.fold_left (fun map (_, decls) ->
+    List.fold_left (fun map decl -> NameMap.add (name_of_decl decl) decl map) map decls
+  ) NameMap.empty files in
+
+  (* The bottom element of our lattice *)
+  let everything = TraitSet.of_list [ MiniRust.PartialEq; Clone; Copy ] in
+
+  let module F = Fix.Fix.ForOrderedType(struct
+    type t = name
+    let compare = compare
+  end)(struct
+    type property = TraitSet.t
+    let bottom = everything
+    let equal = (=)
+    let is_maximal _ = false
+  end) in
+
+  let equations lid valuation =
+    match NameMap.find_opt lid definitions with
+    | None -> everything
+    | Some decl ->
+        let traits_visitor = object(self)
+          inherit [_] reduce_typ as super
+          method zero = everything
+          method plus = TraitSet.inter
+          method! visit_tname _ lid _ =
+            valuation lid
+          method! visit_Ref _ _lifetime m t =
+            self#plus (self#visit_typ () t) (if m = Mut then TraitSet.singleton PartialEq else everything)
+          method! visit_Vec _ t =
+            self#plus (self#visit_typ () t) (TraitSet.of_list [ PartialEq; Clone ])
+          method! visit_App _ t ts =
+            match t with
+            | Name (["Box"], []) ->
+                self#plus (self#visit_typ () (KList.one ts)) (TraitSet.of_list [ PartialEq; Clone ])
+            | _ ->
+                super#visit_App () t ts
+        end in
+        let traits t = traits_visitor#visit_typ () t in
+        match decl with
+        | Function _ -> failwith "impossible"
+        | Constant _ -> failwith "impossible"
+        | Alias _  -> TraitSet.empty
+        | Struct { fields; _ } ->
+            let ts = List.map (fun (sf: struct_field) -> traits sf.typ) fields in
+            List.fold_left TraitSet.inter everything ts
+        | Enumeration { items; _ } ->
+            let ts = List.concat_map (fun (_cons, fields) ->
+              match fields with
+              | Some fields ->
+                  List.map (fun sf -> traits sf.typ) fields
+              | None ->
+                  []
+            ) items in
+            List.fold_left TraitSet.inter everything ts
+  in
+
+  F.lfp equations
+
+let add_derives valuation files =
+  let to_list ts = List.of_seq (TraitSet.to_seq ts) in
+  List.map (fun (f, decls) ->
+    f, List.map (function
+      | Struct s -> Struct { s with derives = to_list (valuation s.name) }
+      | Enumeration s -> Enumeration { s with derives = to_list (valuation s.name) }
+      | d -> d
+    ) decls
+  ) files
+
 let simplify_minirust files =
   let files = map_funs unroll_loops#visit_expr files in
   let files = map_funs remove_auto_deref#visit_expr files in
@@ -1195,4 +1270,5 @@ let simplify_minirust files =
   (* We do this simplification last, as the previous passes might
      have introduced unit statements *)
   let files = map_funs remove_trailing_unit#visit_expr files in
+  let files = add_derives (compute_derives files) files in
   files

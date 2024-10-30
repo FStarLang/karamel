@@ -62,8 +62,7 @@ let usize = Constant SizeT
 
 type binding = { name: string; typ: typ; mut: bool; ref: bool (* only for pattern variables *) }
 [@@deriving show,
-  visitors { variety = "map"; name = "map_binding";
-    ancestors = [ "map_misc"; "map_typ" ] }]
+  visitors { variety = "map"; name = "map_binding"; ancestors = [ "map_misc"; "map_typ" ] }]
 
 (* Top-level declarations *)
 
