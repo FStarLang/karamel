@@ -612,7 +612,7 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
 
   (* Special case for array slices. This occurs, e.g., when calling a function with
      a struct field *)
-  | Field (Open { atom; name }, "0", None) | Field (Open { atom; name }, "1", None) ->
+  | Field (Open { atom; _ }, "0", None) | Field (Open { atom; _ }, "1", None) ->
       if is_mut_borrow expected then
         add_mut_borrow atom known, e
       else
@@ -1174,6 +1174,21 @@ let remove_deref_addrof = object
     | _ -> Deref e
 end
 
+let cleanup_splits = object(self)
+  inherit [_] map_expr as super
+  method! visit_Match _ e_scrut t branches =
+    match t with
+    | Tuple [ _; _ ] ->
+        let bs, p, e = KList.one branches in
+        let b1, b2 = KList.two bs in
+        assert (match p with TupleP _ -> true | _ -> false);
+        Let (b1, Field (e_scrut, "0", None),
+        Let (b2, Field (lift 1 e_scrut, "1", None),
+        self#visit_expr () e))
+    | _ ->
+        super#visit_Match () e_scrut t branches
+end
+
 let map_funs f_map files =
   let files =
     List.fold_left (fun files (filename, decls) ->
@@ -1260,6 +1275,10 @@ let add_derives valuation files =
       | d -> d
     ) decls
   ) files
+
+let cleanup_minirust files =
+  let files = map_funs cleanup_splits#visit_expr files in
+  files
 
 let simplify_minirust files =
   let files = map_funs unroll_loops#visit_expr files in
