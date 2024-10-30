@@ -574,8 +574,12 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
               let fieldpats = List.rev fieldpats in
               known, StructP (name, fieldpats)
 
-(*           | TupleP ps -> *)
-(*               let known = List.fold_left (fun known t *)
+          | TupleP ps ->
+              let known, ps = List.fold_left (fun (known, ps) p ->
+                let known, p = update_fields known p in
+                known, p :: ps
+              ) (known, []) ps in
+              known, TupleP (List.rev ps)
 
           | Wildcard | Literal _ -> known, pat
           | OpenP _ -> known, pat (* no such thing as mutable struct fields or variables in Low* *)
@@ -624,7 +628,7 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
         let known, e = infer_expr env valuation t known e in
         known, e :: es
       ) (known, []) es t_elt in
-      known, Tuple es
+      known, Tuple (List.rev es)
 
 
 let empty: known = { v = VarSet.empty; r = VarSet.empty; p = VarSet.empty }
