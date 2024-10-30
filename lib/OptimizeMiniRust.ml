@@ -164,7 +164,8 @@ let add_mut_field (n: DataType.t) f =
     if sf.name = f then {sf with typ = make_mut_borrow sf.typ} else sf) fields in
   Hashtbl.replace structs n fields
 
-let retrieve_pair_type = function
+let retrieve_pair_type (t: typ) =
+  match t with
   | Tuple [e1; e2] -> assert (e1 = e2); e1
   | _ -> failwith "impossible: retrieve_pair_type"
 
@@ -573,6 +574,9 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
               let fieldpats = List.rev fieldpats in
               known, StructP (name, fieldpats)
 
+(*           | TupleP ps -> *)
+(*               let known = List.fold_left (fun known t *)
+
           | Wildcard | Literal _ -> known, pat
           | OpenP _ -> known, pat (* no such thing as mutable struct fields or variables in Low* *)
           |  _ -> Warn.failwith "TODO: Match %a" ppat pat
@@ -613,6 +617,15 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
 
   | Deref _ ->
       known, e
+
+  | Tuple es ->
+      let t_elt = match expected with Tuple t -> t | _ -> failwith "impossible" in
+      let known, es = List.fold_left2 (fun (known, es) e t ->
+        let known, e = infer_expr env valuation t known e in
+        known, e :: es
+      ) (known, []) es t_elt in
+      known, Tuple es
+
 
 let empty: known = { v = VarSet.empty; r = VarSet.empty; p = VarSet.empty }
 

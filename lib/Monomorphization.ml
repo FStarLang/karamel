@@ -432,7 +432,7 @@ let monomorphize_data_types map = object(self)
       if Options.debug "data-types-traversal" then
         KPrint.bprintf "decl %a\n" plid (lid_of_decl d);
       match d with
-      | DType (lid, _, 0, 0, Abbrev (TTuple args)) when not (Hashtbl.mem state (tuple_lid, args, [])) ->
+      | DType (lid, _, 0, 0, Abbrev (TTuple args)) when not (Options.rust ()) && not (Hashtbl.mem state (tuple_lid, args, [])) ->
           Hashtbl.remove map lid;
           if Options.debug "monomorphization" then
             KPrint.bprintf "%a abbreviation for %a\n" plid lid ptyp (TApp (tuple_lid, args));
@@ -514,13 +514,19 @@ let monomorphize_data_types map = object(self)
       super#visit_DType env name flags n d
 
   method! visit_ETuple under_ref es =
-    EFlat (List.mapi (fun i e -> Some (self#field_at i), self#visit_expr under_ref e) es)
+    if not (Options.rust ()) then
+      EFlat (List.mapi (fun i e -> Some (self#field_at i), self#visit_expr under_ref e) es)
+    else
+      super#visit_ETuple under_ref es
 
   method! visit_PTuple under_ref pats =
-    PRecord (List.mapi (fun i p -> self#field_at i, self#visit_pattern under_ref p) pats)
+    if not (Options.rust ()) then
+      PRecord (List.mapi (fun i p -> self#field_at i, self#visit_pattern under_ref p) pats)
+    else
+      super#visit_PTuple under_ref pats
 
   method! visit_TTuple under_ref ts =
-    if not (has_variables ts) && not (has_cg_array ts) then
+    if not (Options.rust ()) && not (has_variables ts) && not (has_cg_array ts) then
       TQualified (self#visit_node under_ref (tuple_lid, ts, []))
     else
       super#visit_TTuple under_ref ts

@@ -36,7 +36,7 @@ type typ =
   | Unit [@name "tunit"]
   | Function of int * typ list * typ
   | Name of name * generic_param list [@name "tname"]
-  | Tuple of typ list
+  | Tuple of typ list [@name "ttuple"]
   | App of typ * typ list
   | Bound of db_index
 [@@deriving show,
@@ -98,6 +98,7 @@ and expr =
   | Range of expr option * expr option * bool (* inclusive? *)
   | Struct of struct_name * (string * expr) list
   | Match of expr * typ * match_arm list
+  | Tuple of expr list
 
   (* Place expressions *)
   | Var of db_index
@@ -120,6 +121,7 @@ and match_arm = binding list * pat * expr
 and pat =
   | Literal of constant
   | Wildcard
+  | TupleP of pat list
   | StructP of struct_name * (string * pat) list
   | VarP of db_index
   | OpenP of open_var

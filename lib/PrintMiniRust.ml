@@ -497,6 +497,9 @@ and print_expr env (context: int) (e: expr): document =
 
   | Open { name; _ } -> at ^^ string name
 
+  | Tuple es ->
+      parens_with_nesting (separate_map comma (print_expr env max_int) es)
+
 and print_data_type_name env = function
   | `Struct name -> print_name env name
   | `Variant (name, cons) -> print_name env name ^^ string "::" ^^ string cons
@@ -533,6 +536,8 @@ and print_pat env (p: pat) =
       | _ -> failwith "incorrect bound var in pattern"
       end
   | OpenP { name; _ } -> at ^^ string name
+  | TupleP ps ->
+      parens_with_nesting (separate_map comma (print_pat env) ps)
 
 and print_array_expr env (e: array_expr) =
   match e with

@@ -1115,9 +1115,6 @@ and hoist_stmt loc e =
   | EContinue ->
       mk EContinue
 
-  | ETuple _ ->
-      failwith "[hoist_t]: ETuple not properly desugared"
-
   | ESequence _ ->
       failwith "[hoist_t]: sequences should've been translated as let _ ="
 
@@ -1370,8 +1367,9 @@ and hoist_expr loc pos e =
       ) fields) in
       List.flatten lhs, mk (ECons (cons, fields))
 
-  | ETuple _ ->
-      failwith "[hoist_t]: ETuple not properly desugared"
+  | ETuple es ->
+      let lhs, es = List.split (List.map (hoist_expr loc Unspecified) es) in
+      List.flatten lhs, mk (ETuple es)
 
   | ESequence _ ->
       fatal_error "[hoist_t]: sequences should've been translated as let _ ="

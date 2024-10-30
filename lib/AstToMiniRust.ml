@@ -471,7 +471,7 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
       Ref (config.lifetime, Shared, Slice (translate_type_with_config env config t))
   | TApp _ -> failwith (KPrint.bsprintf "TODO: TApp %a" PrintAst.ptyp t)
   | TBound i -> Bound i
-  | TTuple _ -> failwith "TODO: TTuple"
+  | TTuple ts -> Tuple (List.map (translate_type_with_config env config) ts)
   | TAnonymous _ -> failwith "unexpected: we don't compile data types going to Rust"
   | TCgArray _ -> failwith "Impossible: TCgArray"
   | TCgApp _ -> failwith "Impossible: TCgApp"
@@ -755,21 +755,10 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let env, e3 = translate_expr env e3 in
       env, Assign (Index (e1, e2), e3, translate_type env (KList.one t))
 
-  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "split"); _ }, [], [], [t]); _ }, [e1; e2]) ->
+  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "split"); _ }, [], [], [_]); _ }, [e1; e2]) ->
       let env, e1 = translate_expr env e1 in
       let env, e2 = translate_expr env e2 in
-      let t = translate_type env t in
-      let b: MiniRust.binding = {
-        name = "actual_pair";
-        typ = Tuple [ Ref (None, Shared, Slice t); Ref (None, Shared, Slice t) ];
-        mut = false;
-        ref = false
-      } in
-      let ret_lid = Helpers.assert_tlid e.typ in
-      (* FIXME super unpleasant mismatch because there's a custom pair type in Pulse *)
-      env, Let (b,
-        MethodCall (e1, ["split_at"], [ e2 ]),
-        Struct (`Struct (lookup_type env ret_lid), [ "fst", Field (Var 0, "0", None); "snd", Field (Var 0, "1", None) ]))
+      env, MethodCall (e1, ["split_at"], [ e2 ])
 
   | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "copy"); _ }, [], [], _); _ }, [e1; e2]) ->
       let env, e1 = translate_expr env e1 in
@@ -1015,8 +1004,12 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
   | EPopFrame ->
       failwith "unexpected: EPopFrame"
 
-  | ETuple _ ->
-      failwith "TODO: ETuple"
+  | ETuple es ->
+      let env, es = List.fold_left (fun (env, es) e ->
+        let env, e = translate_expr env e in
+        env, e :: es
+      ) (env, []) es in
+      env, Tuple (List.rev es)
 
   | EMatch (_, e, branches) ->
       let t = translate_type env e.typ in
@@ -1194,7 +1187,8 @@ and translate_pat env (p: Ast.pattern): MiniRust.pat =
   | PUnit -> failwith "TODO: PUnit"
   | PBool _ -> failwith "TODO: PBool"
   | PEnum _ -> failwith "TODO: PEnum"
-  | PTuple _ -> failwith "TODO: PTuple"
+  | PTuple ps ->
+      TupleP (List.map (translate_pat env) ps)
   | PDeref _ -> failwith "TODO: PDeref"
 
 let make_poly (t: MiniRust.typ) n: MiniRust.typ =
