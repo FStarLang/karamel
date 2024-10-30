@@ -498,7 +498,7 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
               the struct type (provided by the context t) needs to be mutable --
               this is the same as when we see x.f[0] = 1 -- field f needs to be
               mutable (but not x!)
-          ii. if the pattern contains f = x *and* x is a borrow, then this is
+          ii. if the pattern contains f = x *and* x is a /mutable/ borrow, then this is
               going to be a move-out -- this is not the same behavior as a
               let-binding. Since borrows do not implement Copy, we need to do
               some extra work. Consider this example:
@@ -547,7 +547,7 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
                     let { atom; _ } = open_var in
                     let mut = VarSet.mem atom known.r in
                     let ref = match typ with
-                      | App (Name (["Box"], []), [_]) | Vec _ | Ref _ ->
+                      | App (Name (["Box"], []), [_]) | Vec _ | Ref (_, Mut, _) ->
                           true (* prevent a move-out, again *)
                       | _ ->
                           mut (* something mutated relying on an implicit conversion to ref *)

@@ -1,7 +1,7 @@
 (* A minimalistic representation of Rust *)
 
 module Name = struct
-  type t = string list
+  type t = string list [@@ deriving show ]
   let compare = compare
 end
 
@@ -12,7 +12,7 @@ type borrow_kind = borrow_kind_ [@ opaque ]
 and constant = Constant.t [@ opaque ]
 and width = Constant.width [@ opaque ]
 and op = Constant.op [@ opaque ]
-and name = Name.t [@ opaque ]
+and name = Name.t [@ visitors.opaque ]
 
 (* Some design choices.
    - We don't intend to perform any deep semantic transformations on this Rust

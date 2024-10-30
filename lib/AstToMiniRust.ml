@@ -1254,6 +1254,9 @@ let compute_derives heap_structs pointer_holding_structs files =
 
   F.lfp equations
 
+let is_contained t =
+  let t = KList.last t in
+  List.exists (fun t' -> KString.starts_with t t') !Options.contained
 
 (* In Rust, like in C, all the declarations from the current module are in
  * scope immediately. This requires us to duplicate a little bit of work. *)
@@ -1278,7 +1281,11 @@ let bind_decl env trait_valuation (d: Ast.decl): env =
       let config = { default_config with lifetime } in
 
       let parameters = List.map (fun (b: Ast.binder) ->
-        translate_type_with_config env config b.typ
+        match translate_type_with_config env config b.typ with
+        | Ref (_, m, (Slice (Name (t, _ :: _)) as slice_t)) when is_contained t ->
+            MiniRust.Ref (Some (Label "b"), m, slice_t)
+        | t ->
+            t
       ) args in
       let is_likely_heap_allocation =
         KString.exists (snd lid) "new" ||
@@ -1415,6 +1422,12 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
         match lookup_decl env lid with
         | name, Function (_, parameters, return_type) -> name, parameters, return_type
         | _ -> failwith "impossible"
+      in
+      let generic_params =
+        if List.exists (function MiniRust.Ref (l, _, _) when l <> lifetime -> true | _ -> false) parameters then
+          MiniRust.Lifetime (Label "b") :: generic_params
+        else
+          generic_params
       in
       let body, args = if parameters = [] then DeBruijn.subst Helpers.eunit 0 body, [] else body, args in
       let parameters = List.map2 (fun typ a -> { MiniRust.mut = false; name = a.Ast.node.Ast.name; typ; ref = false }) parameters args in
