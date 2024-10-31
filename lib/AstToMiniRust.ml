@@ -511,7 +511,7 @@ let translate_lid env lid =
 let translate_binder_name (b: Ast.binder) =
   let open Ast in
   if snd !(b.node.mark) = AtMost 0 then "_" ^ b.node.name else b.node.name
-          
+
 
 (* Trying to compile a *reference* to variable, who originates from a split of `v_base`, and whose
    original path in the tree is `path`. *)
@@ -889,7 +889,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let t = translate_type env b.typ in
       let is_owned_struct =
         match b.typ with
-        | TQualified lid when Idents.LidSet.mem lid env.heap_structs || Idents.LidSet.mem lid env.pointer_holding_structs -> true
+        | TQualified lid when Idents.LidSet.mem lid env.heap_structs -> true
         | _ -> false
       in
       (* TODO how does this play out with the new "translate as non-mut by
