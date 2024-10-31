@@ -290,6 +290,7 @@ Supported options:|}
     "-fno-box", Arg.Set Options.no_box, "  don't generate Box (Rust only)";
     "-fcontained-type", Arg.String (fun s -> Options.contained := s :: !Options.contained), "  \
       type passed by reference with a different lifetime";
+    "-fkeep-tuples", Arg.Set Options.keep_tuples, "  do not monomorphize tuples";
     "-fbuiltin-uint128", Arg.Set Options.builtin_uint128, "  target compiler \
       supports arithmetic operators for uint128 -- this is NON PORTABLE, \
       works only with GCC/Clang";
