@@ -135,7 +135,7 @@ let add_mut_var a known =
   { known with v = VarSet.add a known.v }
 
 let add_mut_borrow a known =
-  KPrint.bprintf "%s is &mut\n" (Ast.show_atom_t a);
+  (* KPrint.bprintf "%s is &mut\n" (Ast.show_atom_t a); *)
   { known with r = VarSet.add a known.r }
 
 let want_mut_var a known =
@@ -162,7 +162,6 @@ let rec make_mut_borrow = function
 
 (* Only works for struct types. *)
 let add_mut_field (n: DataType.t) f =
-  KPrint.bprintf "field %s of type %a is mutable\n" f pdataname n;
   let fields = Hashtbl.find structs n in
   (* Update the mutability of the field element *)
   let fields = List.map (fun (sf: MiniRust.struct_field) ->
@@ -240,9 +239,10 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
       let known, e2 = infer_expr env valuation expected known e2 in
       let mut_var = want_mut_var a known in
       let mut_borrow = want_mut_borrow a known in
-      KPrint.bprintf "[infer_expr-mut,let-done-e2] %s[%s]: %a let mut ? %b &mut ? %b\n" b.name
+      (* KPrint.bprintf "[infer_expr-mut,let-done-e2] %s[%s]: %a let mut ? %b &mut ? %b\n" b.name
         (show_atom_t a)
         ptyp b.typ mut_var mut_borrow;
+      *)
       let t1 = if mut_borrow then make_mut_borrow b.typ else b.typ in
       let known, e1 = infer_expr env valuation t1 known e1 in
       known, Let ({ b with mut = mut_var; typ = t1 }, e1, close a (Var 0) (lift 1 e2))
@@ -480,7 +480,6 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
       known, Range (e1, e2, b)
 
   | Struct (name, es) ->
-      KPrint.bprintf "%a\n" pdataname name;
       (* The declaration of the struct should have been traversed beforehand, hence
          it should be in the map *)
       let fields_mut = Hashtbl.find structs name in
@@ -557,8 +556,8 @@ let rec infer_expr (env: env) valuation (expected: typ) (known: known) (e: expr)
                       | _ ->
                           mut (* something mutated relying on an implicit conversion to ref *)
                     in
-                    KPrint.bprintf "In match:\n%a\nPattern variable %s: mut=%b, ref=%b\n"
-                      pexpr _e_match open_var.name mut ref;
+                    (* KPrint.bprintf "In match:\n%a\nPattern variable %s: mut=%b, ref=%b\n"
+                      pexpr _e_match open_var.name mut ref; *)
                     (* i., above *)
                     if mut then add_mut_field struct_name f;
                     (* ii.b. *)
