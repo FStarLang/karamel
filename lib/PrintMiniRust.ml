@@ -452,17 +452,20 @@ and print_expr env (context: int) (e: expr): document =
 
   | Struct (cons, fields) ->
       group @@
-      print_name env cons ^/^ braces_with_nesting (
-        separate_map (comma ^^ break1) (fun (f, e) ->
-          group @@
-          if string f = print_expr env max_int e then
-            (* If the field name is the same as the expression assigned to it
-               (typically, a variable name), we do not need to duplicate it *)
-            string f
-          else
-            string f ^^ colon ^/^ group (print_expr env max_int e)
-        ) fields
-      )
+      print_data_type_name env cons ^^ (
+        match cons with
+        | `Variant _ when fields = [] -> empty
+        | _ -> break 1 ^^ braces_with_nesting (
+            separate_map (comma ^^ break1) (fun (f, e) ->
+              group @@
+              if string f = print_expr env max_int e then
+                (* If the field name is the same as the expression assigned to it
+                   (typically, a variable name), we do not need to duplicate it *)
+                string f
+              else
+                string f ^^ colon ^/^ group (print_expr env max_int e)
+            ) fields
+      ))
 
   | Var v ->
       begin match lookup env v with
@@ -494,9 +497,12 @@ and print_expr env (context: int) (e: expr): document =
 
   | Open { name; _ } -> at ^^ string name
 
+  | Tuple es ->
+      parens_with_nesting (separate_map comma (print_expr env max_int) es)
+
 and print_data_type_name env = function
   | `Struct name -> print_name env name
-  | `Variant (name, cons) -> print_name env (name @ [ cons ])
+  | `Variant (name, cons) -> print_name env name ^^ string "::" ^^ string cons
 
 and print_pat env (p: pat) =
   match p with
@@ -514,7 +520,11 @@ and print_pat env (p: pat) =
       else
         break1 ^^ braces_with_nesting (
         separate_map (comma ^^ break1) (fun (name, pat) ->
-          group (group (string name ^^ colon) ^/^ group (print_pat env pat))
+          match pat with
+          | VarP v when match lookup env v with Bound b -> b.name = name | _ -> false ->
+              print_pat env pat
+          | _ ->
+              group (group (string name ^^ colon) ^/^ group (print_pat env pat))
         ) fields ^^ trailing
       )
   | VarP v ->
@@ -526,6 +536,8 @@ and print_pat env (p: pat) =
       | _ -> failwith "incorrect bound var in pattern"
       end
   | OpenP { name; _ } -> at ^^ string name
+  | TupleP ps ->
+      parens_with_nesting (separate_map comma (print_pat env) ps)
 
 and print_array_expr env (e: array_expr) =
   match e with
@@ -559,12 +571,12 @@ let rec print_decl env (d: decl) =
   let env, target_name = register_global env (name_of_decl d) in
   let target_name = KList.last target_name in
   env, match d with
-  | Function { type_parameters; parameters; return_type; body; meta; inline; _ } ->
+  | Function { type_parameters; parameters; return_type; body; meta; inline; generic_params; _ } ->
       assert (type_parameters = 0);
       let parameters = List.map (fun (b: binding) -> { b with name = allocate_name env b.name }) parameters in
       let env = List.fold_left (fun env (b: binding) -> push env (Bound b)) env parameters in
       group @@
-      group (group (print_inline_and_meta inline meta ^^ string "fn" ^/^ string target_name) ^^
+      group (group (print_inline_and_meta inline meta ^^ string "fn" ^/^ string target_name ^^ print_generic_params generic_params) ^^
         parens_with_nesting (separate_map (comma ^^ break1) (print_binding env) parameters) ^^
         (match return_type with | Unit -> empty | _ -> space ^^ arrow ^^ (nest 4 (break1 ^^ print_typ env return_type)))) ^/^
       print_block_expression env body
@@ -572,19 +584,21 @@ let rec print_decl env (d: decl) =
       group @@
       group (print_meta meta ^^ string "const" ^/^ string target_name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
       nest 4 (break1 ^^ print_expr env max_int body) ^^ semi
-  | Enumeration { items; meta; derives; _ } ->
+  | Enumeration { items; meta; derives; generic_params; _ } ->
       group @@
       group (print_derives derives) ^/^
-      group (print_meta meta ^^ string "enum" ^/^ string target_name) ^/^
+      group (print_meta meta ^^ string "enum" ^/^ string target_name ^^ print_generic_params generic_params) ^/^
       braces_with_nesting (
         separate_map (comma ^^ hardline) (fun (item_name, item_struct) ->
           group @@
           string item_name ^^ match item_struct with
           | None -> empty
+          | Some [] -> empty
           | Some item_struct -> break1 ^^ braces_with_nesting (print_struct env item_struct)
       ) items)
-  | Struct { fields; meta; generic_params; _ } ->
+  | Struct { fields; meta; generic_params; derives; _ } ->
       group @@
+      group (print_derives derives) ^/^
       group (print_meta meta ^^ string "struct" ^/^ string target_name ^^ print_generic_params generic_params) ^/^
       braces_with_nesting (print_struct env fields)
   | Alias { generic_params; body; meta; _ } ->
@@ -635,6 +649,8 @@ let print_decls ns ds =
     ) env.globals;
   separate (hardline ^^ hardline) ds ^^ hardline
 
+let pname = printf_of_pprint (print_name debug)
+let pdataname = printf_of_pprint (print_data_type_name debug)
 let pexpr = printf_of_pprint (print_expr debug max_int)
 let ptyp = printf_of_pprint (print_typ debug)
 let ptyps = printf_of_pprint (separate_map (comma ^^ break1) (print_typ debug))

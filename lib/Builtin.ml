@@ -434,7 +434,12 @@ let is_model name =
       "C_Compat_String";
       "FStar_String";
       "Steel_SpinLock"
-    ]
+    ] || (
+      Options.rust () &&
+      List.mem name [
+        "Pulse_Lib_Slice"
+      ]
+    )
 
 (* We have several different treatments. *)
 let prepare files =

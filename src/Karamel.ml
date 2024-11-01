@@ -287,6 +287,10 @@ Supported options:|}
     "", Arg.Unit (fun _ -> ()), " ";
     "-by-ref", Arg.String (fun s -> prepend Options.by_ref (Parsers.lid s)), " \
       pass the given struct type by reference, always";
+    "-fno-box", Arg.Set Options.no_box, "  don't generate Box (Rust only)";
+    "-fcontained-type", Arg.String (fun s -> Options.contained := s :: !Options.contained), "  \
+      type passed by reference with a different lifetime";
+    "-fkeep-tuples", Arg.Set Options.keep_tuples, "  do not monomorphize tuples";
     "-fbuiltin-uint128", Arg.Set Options.builtin_uint128, "  target compiler \
       supports arithmetic operators for uint128 -- this is NON PORTABLE, \
       works only with GCC/Clang";
@@ -755,6 +759,7 @@ Supported options:|}
     if Options.debug "rs" then
       print PrintAst.print_files files;
     let files = AstToMiniRust.translate_files files in
+    let files = OptimizeMiniRust.cleanup_minirust files in
     let files = OptimizeMiniRust.infer_mut_borrows files in
     let files = OptimizeMiniRust.simplify_minirust files in
     OutputRust.write_all files

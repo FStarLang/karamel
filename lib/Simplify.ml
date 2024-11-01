@@ -223,6 +223,8 @@ let unused private_count_table lid ts (i: int) =
   unused_i i &&
   implies (i = 0) (List.exists not (List.init (List.length ts) unused_i))
 
+(* TODO: this is not a fixed point computation, meaning some opportunities for
+   unused parameter elimination are missed *)
 let remove_unused_parameters = object (self)
   inherit [_] map
 
@@ -1113,9 +1115,6 @@ and hoist_stmt loc e =
   | EContinue ->
       mk EContinue
 
-  | ETuple _ ->
-      failwith "[hoist_t]: ETuple not properly desugared"
-
   | ESequence _ ->
       failwith "[hoist_t]: sequences should've been translated as let _ ="
 
@@ -1361,11 +1360,16 @@ and hoist_expr loc pos e =
       ) fields) in
       List.flatten lhs, mk (EFlat fields)
 
-  | ECons _ ->
-      failwith "[hoist_t]: ECons, why?"
+  | ECons (cons, fields) ->
+      let lhs, fields = List.split (List.map (fun expr ->
+        let lhs, expr = hoist_expr loc Unspecified expr in
+        lhs, expr
+      ) fields) in
+      List.flatten lhs, mk (ECons (cons, fields))
 
-  | ETuple _ ->
-      failwith "[hoist_t]: ETuple not properly desugared"
+  | ETuple es ->
+      let lhs, es = List.split (List.map (hoist_expr loc Unspecified) es) in
+      List.flatten lhs, mk (ETuple es)
 
   | ESequence _ ->
       fatal_error "[hoist_t]: sequences should've been translated as let _ ="

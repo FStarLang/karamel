@@ -1,7 +1,7 @@
 (* A minimalistic representation of Rust *)
 
 module Name = struct
-  type t = string list
+  type t = string list [@@ deriving show ]
   let compare = compare
 end
 
@@ -12,7 +12,7 @@ type borrow_kind = borrow_kind_ [@ opaque ]
 and constant = Constant.t [@ opaque ]
 and width = Constant.width [@ opaque ]
 and op = Constant.op [@ opaque ]
-and name = Name.t [@ opaque ]
+and name = Name.t [@ visitors.opaque ]
 
 (* Some design choices.
    - We don't intend to perform any deep semantic transformations on this Rust
@@ -36,7 +36,7 @@ type typ =
   | Unit [@name "tunit"]
   | Function of int * typ list * typ
   | Name of name * generic_param list [@name "tname"]
-  | Tuple of typ list
+  | Tuple of typ list [@name "ttuple"]
   | App of typ * typ list
   | Bound of db_index
 [@@deriving show,
@@ -62,8 +62,7 @@ let usize = Constant SizeT
 
 type binding = { name: string; typ: typ; mut: bool; ref: bool (* only for pattern variables *) }
 [@@deriving show,
-  visitors { variety = "map"; name = "map_binding";
-    ancestors = [ "map_misc"; "map_typ" ] }]
+  visitors { variety = "map"; name = "map_binding"; ancestors = [ "map_misc"; "map_typ" ] }]
 
 (* Top-level declarations *)
 
@@ -96,8 +95,9 @@ and expr =
   | While of expr * expr
   | MethodCall of expr * name * expr list
   | Range of expr option * expr option * bool (* inclusive? *)
-  | Struct of name * (string * expr) list
+  | Struct of struct_name * (string * expr) list
   | Match of expr * typ * match_arm list
+  | Tuple of expr list
 
   (* Place expressions *)
   | Var of db_index
@@ -120,10 +120,15 @@ and match_arm = binding list * pat * expr
 and pat =
   | Literal of constant
   | Wildcard
-  (* A "struct pattern" per the Rust grammar that covers both Enum and Struct *)
-  | StructP of ([ `Struct of name | `Variant of name * string ] [@ opaque]) * (string * pat) list
+  | TupleP of pat list
+  | StructP of struct_name * (string * pat) list
   | VarP of db_index
   | OpenP of open_var
+
+(* In the Rust grammar, both variants and structs are covered by the struct
+  case. We disambiguate between the two *)
+and struct_name =
+  [ `Struct of name | `Variant of name * string ] [@ opaque]
 
 and open_var = {
   name: string;
@@ -163,6 +168,7 @@ type decl =
     body: expr;
     meta: meta;
     inline: bool;
+    generic_params: generic_param list;
   }
   | Constant of {
     name: name;
@@ -175,10 +181,12 @@ type decl =
     items: item list;
     derives: trait list;
     meta: meta;
+    generic_params: generic_param list;
   }
   | Struct of {
     name: name;
     fields: struct_field list;
+    derives: trait list;
     meta: meta;
     generic_params: generic_param list;
   }

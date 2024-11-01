@@ -45,6 +45,9 @@ type backend = C | Rust | Wasm
 let backend = ref C
 let wasm () = !backend = Wasm
 let rust () = !backend = Rust
+let no_box = ref false
+let contained: string list ref = ref []
+let keep_tuples = ref false
 
 let static_header: Bundle.pat list ref = ref []
 let minimal = ref false
