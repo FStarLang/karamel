@@ -407,10 +407,6 @@ let make_abstract (name, decls) =
   name, List.filter_map (function
     | DType (_, _, _, _, Abbrev _) as t ->
         Some t
-    | DType ((_, "slice_pair"), _, _, _, _) as t when Options.rust () ->
-        (* FIXME remove this hack once Tahina exhibits a repro as to why he
-           can't use actual pairs *)
-        Some t
     | DType _ ->
         None
     | DGlobal (_, name, _, _, _) when KString.starts_with (snd name) "op_" ->
