@@ -1005,6 +1005,12 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       env, Tuple (List.rev es)
 
   | EMatch (_, e, branches) ->
+      let is_struct =
+        List.length branches > 0 &&
+        match e.typ with
+        | TQualified lid when DataTypeMap.mem (`Struct lid) env.struct_fields -> true
+        | _ -> false
+      in
       let t = translate_type env e.typ in
       let env, e = translate_expr env e in
       let branches = List.map (fun (binders, pat, e) ->
@@ -1018,7 +1024,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       ) branches in
       let branches =
         let is_tuple = match t with Tuple _ when List.length branches > 0 -> true | _ -> false in
-        if not (List.exists (fun (_, p, _) -> p = MiniRust.Wildcard) branches) && not (is_tuple) then
+        if not (List.exists (fun (_, p, _) -> p = MiniRust.Wildcard) branches) && not (is_tuple) && not (is_struct) then
           branches @ [ [], Wildcard, Panic "Incomplete pattern matching" ]
         else
           branches
