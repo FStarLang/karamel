@@ -609,7 +609,7 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
     (*   PrintMiniRust.ptyp t *)
     (*   PrintMiniRust.ptyp t_ret; *)
     begin match x, t, t_ret with
-    | _, (MiniRust.Vec _ | Array _), Ref (_, k, Slice _) ->
+    | _, (App (Name (["Box"], _), [Slice _]) | MiniRust.Vec _ | Array _), Ref (_, k, Slice _) ->
         Borrow (k, x)
     | Constant (w, x), Constant UInt32, Constant SizeT ->
         assert (w = Constant.UInt32);
@@ -622,8 +622,6 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         x
 
     (* More conversions due to box-ing types. *)
-    | _, App (Name (["Box"], _), [Slice _]), Ref (_, k, Slice _) ->
-        Borrow (k, x)
     | _, Ref (_, _, Slice _), App (Name (["Box"], _), [Slice _]) ->
         (* COPY *)
         MethodCall (Borrow (Shared, Deref x), ["into"], [])
