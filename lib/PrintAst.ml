@@ -247,7 +247,7 @@ and print_expr env { node; typ; meta } =
   | EIgnore e ->
       print_app string "ignore" (print_expr env) [ e ]
   | EBound v ->
-      at ^^ int v
+      string (lookup env v) ^^ at ^^ int v
   | EOpen (name, _) ->
       bang ^^ string name
   | EQualified lident ->
