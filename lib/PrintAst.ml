@@ -27,7 +27,8 @@ let print_app x = print_app_ "😱" x
 let print_cg_app x = print_app_ "□" x
 
 type env = string list
-let push env x = x :: env
+let push env x = x.node.name :: env
+let push_n = List.fold_left push
 let lookup env n =
   (* Need to print open terms for debug *)
   Option.value ~default:"" (List.nth_opt env n)
@@ -266,7 +267,7 @@ and print_expr env { node; typ; meta } =
       ) (e, ts) (fun e -> brackets (brackets (print_expr env e))) (es @ es')
   | ELet (binder, e1, e2) ->
       group (print_let_binding env (binder, e1) ^/^ string "in") ^^ hardline ^^
-      group (print_expr env e2)
+      group (print_expr (push env binder)  e2)
   | EIfThenElse (e1, e2, e3) ->
       string "if" ^/^ print_expr env e1 ^/^ string "then" ^^
       jump (print_expr env e2) ^/^ string "else" ^^
@@ -322,11 +323,12 @@ and print_expr env { node; typ; meta } =
       string "while" ^^ langle ^^ print_typ typ ^^ rangle ^/^ parens_with_nesting (print_expr env e1) ^/^
       braces_with_nesting (print_expr env e2)
   | EFor (binder, e1, e2, e3, e4) ->
+      let env1 = push env binder in
       string "for" ^/^ parens_with_nesting (
         print_let_binding env (binder, e1) ^^
         semi ^/^
-        separate_map (semi ^^ break1) (print_expr env) [ e2; e3 ]) ^/^
-      braces_with_nesting (print_expr env e4)
+        separate_map (semi ^^ break1) (print_expr env1) [ e2; e3 ]) ^/^
+      braces_with_nesting (print_expr env1 e4)
   | EBufCreateL (l, es) ->
       print_lifetime l ^/^
       string "newbuf" ^/^ braces_with_nesting (flow (comma ^^ break1) (List.map (print_expr env)es))
@@ -350,7 +352,7 @@ and print_expr env { node; typ; meta } =
       string "fun" ^/^ parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders
       ) ^/^ colon ^^ group (print_typ t) ^/^ braces_with_nesting (
-        print_expr env body
+        print_expr (push_n env binders) body
       )
   | EAddrOf e ->
       ampersand ^^ parens_with_nesting (print_expr env e)
@@ -383,7 +385,7 @@ and print_branch env (binders, pat, expr) =
     group (separate_map (comma ^^ break 1) print_binder binders) ^^
     dot ^^ space ^/^
     group (print_pat pat ^^ space ^^ arrow)
-  ) ^/^ jump ~indent:4 (print_expr env expr)
+  ) ^/^ jump ~indent:4 (print_expr (push_n env binders) expr)
 
 and print_pat p =
   (* print_typ p.typ ^^ colon ^^ space ^^ *)
