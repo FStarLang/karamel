@@ -84,7 +84,7 @@ module NameGen = struct
 
   let print_extra = function
     | Cg cgs -> separate_map underscore print_cg cgs
-    | Expr (n_cgs, cgs, _) -> separate_map underscore print_expr (fst (KList.split n_cgs cgs))
+    | Expr (n_cgs, cgs, _) -> separate_map underscore (print_expr empty_env) (fst (KList.split n_cgs cgs))
 
   (* An informative comment in case the short name option is chosen. *)
   let gen_comment original_name ts extra =
@@ -139,7 +139,7 @@ module NameGen = struct
           match extra with
             | Expr (n_cgs, es, _bs) ->
                 string "(expr)" ^/^ string (string_of_int n_cgs) ^/^ string "const generics, followed by trait method impl arguments" ^^ hardline ^^
-                separate_map hardline print_expr es
+                separate_map hardline (print_expr empty_env) es
             | Cg cgs ->
                 string "(type) const generics" ^^ hardline ^^ separate_map hardline print_cg cgs
           ));
