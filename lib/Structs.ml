@@ -76,6 +76,27 @@ let analyze_function_type policy t =
   | t ->
       Warn.fatal_error "analyze_function_type: %a is not a function type" ptyp t
 
+let collect_externals files =
+  List.fold_left (fun acc (_, decls) ->
+    List.fold_left (fun acc decl ->
+      match decl with
+      | DExternal _ as d -> Idents.LidSet.add (lid_of_decl d) acc
+      | _ -> acc
+    ) acc decls
+  ) Idents.LidSet.empty files
+
+(* TODO: determine whether the criterion "this is an external function that is
+   used in a type-polymorphic way" is more general than just a hardcoded
+   blocklist
+   TODO: determine whether the criterion above would help with the
+   LowStar.Ignore special-case, below *)
+let is_poly_external _externals e =
+  match e.node with
+  | ETApp ({ node = EQualified lid; _ }, _, _, _ :: _) ->
+      lid = (["Eurydice"], "slice_index")
+  | _ ->
+      false
+
 (* A comment about the insertion of const pointers. Declaring variables with a
  * const qualifier exposes us to some risk of undefined behavior if someone
  * casts the const qualifier away. See comments in LowStar.ConstBuffer.
@@ -86,12 +107,12 @@ let analyze_function_type policy t =
 
 (* Rewrite functions and expressions to take and possibly return struct
  * pointers. This transformation is entirely type-based. *)
-let pass_by_ref (should_rewrite: _ -> policy) = object (self)
+let pass_by_ref (externals: Idents.LidSet.t) (should_rewrite: _ -> policy) = object (self)
 
   (* We open all the parameters of a function; then, we pass down as the
    * environment the list of atoms that correspond to by-ref parameters. These
    * will have to be "starred". *)
-  inherit [_] map
+  inherit [_] map as super
 
   (* Rewrite a function type to take and possibly return struct pointers. *)
   method private rewrite_function_type (ret_policy, args_policies) t =
@@ -112,6 +133,11 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     in
     Helpers.fold_arrow args ret
 
+  (* Because this is a type-rewriting phase, we need to *both* abort the
+     expression rewriting, THEN disable the type-rewriting in visit_TArrow *)
+  method! visit_expr_w env e =
+    if is_poly_external externals e then e else super#visit_expr_w env e
+
   (* This method rewrites an application node [e args] into [let x = args in e &args]. It
    * exhibits three behaviors.
    * - If the function is not struct-returning, then no further transformations
@@ -123,6 +149,9 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
    *   function returns [let x = e in f &x &dst], which has type [unit], and it is
    *   up to the caller to wrap this in a way that preserves the type. *)
   method private rewrite_app to_be_starred e args dest =
+    if is_poly_external externals e then
+      raise NotLowStar;
+
     let t, _ = Helpers.flatten_arrow e.typ in
 
     (* Determine using our computed table which of the arguments and the
@@ -418,6 +447,7 @@ let check_for_illegal_copies files =
 
 let pass_by_ref files =
   let is_struct = mk_is_struct files in
+  let externals = collect_externals files in
   let should_rewrite_base = function
     (* The Steel SpinLock type is a type that violates the value semantics of
        Low*. Its low-level implementation, using pthread, relies on the address
@@ -481,7 +511,7 @@ let pass_by_ref files =
         r
   in
   should_rewrite_ := should_rewrite;
-  let files = (pass_by_ref should_rewrite)#visit_files [] files in
+  let files = (pass_by_ref externals should_rewrite)#visit_files [] files in
   files
 
 let hidden_visibility =
