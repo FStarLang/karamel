@@ -136,9 +136,7 @@ let pass_by_ref (externals: Idents.LidSet.t) (should_rewrite: _ -> policy) = obj
   (* Because this is a type-rewriting phase, we need to *both* abort the
      expression rewriting, THEN disable the type-rewriting in visit_TArrow *)
   method! visit_expr_w env e =
-    match e.node with
-    | EApp (e0, _) when is_poly_external externals e0 -> e
-    | _ -> super#visit_expr_w env e
+    if is_poly_external externals e then e else super#visit_expr_w env e
 
   (* This method rewrites an application node [e args] into [let x = args in e &args]. It
    * exhibits three behaviors.
