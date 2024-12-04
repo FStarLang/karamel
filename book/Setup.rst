@@ -37,6 +37,7 @@ script for that purpose:
 For a nix flake based install use
 
 .. code-block:: bash
+
   $ nix shell 
 
 In any case, remember to export suitable values for the ``FSTAR_HOME`` and
