@@ -155,6 +155,9 @@ and mk_expr = function
         mk_expr e;
         { node = EBufNull; typ = TBuf (mk_typ t, false); meta = [] }]))
 
+  | I.EApp (I.ETApp (I.EQualified ([ "FStar"; "Pervasives" ], "false_elim"), [ t ]), [ I.EUnit ]) ->
+      mk (EAbort (Some (mk_typ t), Some "provably unreachable code: did an unverified caller violate a precondition?"))
+
   | I.EApp (e, es) ->
       mk (EApp (mk_expr e, List.map mk_expr es))
   | I.ETApp (I.EOp ((K.Eq | K.Neq as op), _), [ t ]) ->
