@@ -114,9 +114,14 @@ $(MINI_DIR):
 $(GENERIC_DIR):
 	mkdir -p $@
 
+local_krml_home := $(realpath $(CURDIR)/..)
+ifeq ($(OS),Windows_NT)
+  local_krml_home := $(shell cygpath -m "$(local_krml_home)")
+endif
+
 # Everything in the universe
 $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../_build/default/src/Karamel.exe
-	KRML_HOME=$(shell pwd)/.. \
+	KRML_HOME="$(local_krml_home)" \
 	../krml $(KRML_ARGS) -tmpdir $(GENERIC_DIR) \
 	  -warn-error +9+11 \
 	  $(MACHINE_INTS) \
@@ -133,7 +138,7 @@ $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c
 # Minimalistic build (just machine integers and endianness)
 $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar_uint128*.h) ../_build/default/src/Karamel.exe
 	mkdir -p $(dir $@)
-	KRML_HOME=$(shell pwd)/.. \
+	KRML_HOME="$(local_krml_home)" \
 	../krml $(KRML_ARGS) -tmpdir $(MINI_DIR) \
 	  $(MACHINE_INTS) \
 	  $(addprefix -add-include , \
@@ -153,7 +158,7 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar
 # FStar.UInt64 shares the same bundle name, meaning that
 # FStar_UInt128_Verified.h can be dropped in any of the two krmllibs above.
 $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) ../_build/default/src/Karamel.exe
-	KRML_HOME=$(shell pwd)/.. \
+	KRML_HOME="$(local_krml_home)" \
 	../krml $(KRML_ARGS) -tmpdir $(UINT128_DIR) \
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"krml/internal/types.h"' '"krml/internal/target.h"') \
 	  -bundle FStar.UInt64[rename=FStar_UInt_8_16_32_64] \
@@ -178,5 +183,5 @@ compile-all: compile-dist-generic $(MINI_DIR)/Makefile.include $(UINT128_DIR)/Ma
 
 .PHONY: compile-dist-%
 compile-dist-%: dist/%/Makefile.include
-	KRML_HOME=$(shell pwd)/.. \
+	KRML_HOME="$(local_krml_home)" \
 	$(MAKE) -C dist/$* -f Makefile.basic
