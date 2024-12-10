@@ -114,7 +114,7 @@ $(MINI_DIR):
 $(GENERIC_DIR):
 	mkdir -p $@
 
-local_krml_home := $(realpath $(CURDIR)/..)
+local_krml_home := $(realpath $(shell pwd)/..)
 ifeq ($(OS),Windows_NT)
   local_krml_home := $(shell cygpath -m "$(local_krml_home)")
 endif
