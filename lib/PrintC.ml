@@ -85,7 +85,9 @@ let rec p_type_spec = function
   | Enum (name, tags) ->
       group (string "enum" ^/^
       (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
-      braces_with_nesting (separate_map (comma ^^ break1) string tags)
+      braces_with_nesting (separate_map (comma ^^ break1) (fun (id, v) ->
+        string id ^^ match v with None -> empty | Some v -> space ^^ equals ^^ space ^^ int v
+      ) tags)
 
 and p_qualifier = function
   | Const -> string "const"
@@ -196,6 +198,14 @@ and defeat_Wparentheses op e prec =
   | _ ->
       prec
 
+and p_constant w s =
+  let suffix = match w with
+    | K.UInt64 -> string "ULL"
+    | UInt32 | UInt16 | UInt8 | SizeT -> string "U"
+    | _ -> empty
+  in
+  string s ^^ suffix
+
 and p_expr' curr = function
   | Op1 (op, e1) ->
       let mine = prec_of_op1 op in
@@ -226,12 +236,7 @@ and p_expr' curr = function
   | Literal s ->
       dquote ^^ string s ^^ dquote
   | Constant (w, s) ->
-      let suffix = match w with
-        | UInt64 -> string "ULL"
-        | UInt32 | UInt16 | UInt8 | SizeT -> string "U"
-        | _ -> empty
-      in
-      string s ^^ suffix
+      p_constant w s
   | Name s ->
       string s
   | Cast (t, e) ->

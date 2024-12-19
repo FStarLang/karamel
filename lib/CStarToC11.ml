@@ -287,7 +287,7 @@ let rec mk_spec_and_decl m name qs (t: typ) (k: C.declarator -> C.declarator):
   | Qualified l ->
       qs, Named (mk_pretty_type (to_c_name ~kind:Type m l)), k (Ident name)
   | Enum tags ->
-      let tags = List.map (to_c_name m) tags in
+      let tags = List.map (fun (lid, v) -> to_c_name m lid, v) tags in
       qs, Enum (None, tags), k (Ident name)
   | Bool ->
       let bool = if !Options.microsoft then "BOOLEAN" else "bool" in
@@ -1121,8 +1121,10 @@ let wrap_verbatim lid flags d =
   []
 
 let enum_as_macros cases =
-  let lines: string list = List.mapi (fun i c ->
-    KPrint.bsprintf "#define %s %d" c i
+  let lines: string list = List.mapi (fun i (c, v) ->
+    match v with
+    | None -> KPrint.bsprintf "#define %s %d" c i
+    | Some i -> KPrint.bsprintf "#define %s %d" c i
   ) cases in
   String.concat "\n" lines
 
@@ -1271,14 +1273,14 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
             (* Note: EEnum translates as just a name -- so we don't have to
              * change use-sites, they directly resolve as the macro. *)
             let t =
-              if List.length cases <= 0xff then
+              if List.length cases <= 0xff && List.for_all (function (_, Some i) when i <= 0xff -> true | _ -> false) cases then
                 K.UInt8
-              else if List.length cases <= 0xffff then
+              else if List.length cases <= 0xffff && List.for_all (function (_, Some i) when i <= 0xffff -> true | _ -> false) cases  then
                 K.UInt16
               else
                 failwith (KPrint.bsprintf "Too many cases for enum %s" name)
             in
-            let cases = List.map (to_c_name m) cases in
+            let cases = List.map (fun (lid, v) -> to_c_name m lid, v) cases in
             wrap_verbatim name flags (Text (enum_as_macros cases)) @
             let qs, spec, decl = mk_spec_and_declarator_t m name (Int t) in
             [ Decl ([], (qs, spec, None, Some Typedef, { maybe_unused = false; target = None }, [ decl, None, None ]))]

@@ -1513,7 +1513,7 @@ let record_toplevel_names = object (self)
     if not (Hashtbl.mem forward name) then
       self#record env ~is_type:true ~is_external:false flags name;
     match def with
-    | Enum lids -> List.iter (self#record env ~is_type:true ~is_external:false flags) lids
+    | Enum lids -> List.iter (fun (lid, _) -> self#record env ~is_type:true ~is_external:false flags lid) lids
     | Forward _ -> Hashtbl.add forward name ()
     | _ -> ()
 end

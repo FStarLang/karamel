@@ -326,11 +326,13 @@ let allocate_tag enums preferred_lid tags =
 let field_for_tag = "tag"
 let field_for_union = "val"
 
+type map = (lident, scheme) Hashtbl.t * ((lident * int option) list, lident) Hashtbl.t
+
 (* This does two things:
  * - deal with the simple compilation schemes (not tagged union)
  * - pre-allocate types for tags for the next phase (tagged union compilation)
  *)
-let compile_simple_matches (map, enums) = object(self)
+let compile_simple_matches ((map, enums): map) = object(self)
 
   inherit [_] map
 
@@ -447,7 +449,7 @@ let compile_simple_matches (map, enums) = object(self)
         ] @ fields)
 
   method private allocate_enum_lid lid branches =
-    let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
+    let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons, None) branches in
     (* Pre-allocate the named type for this type's tags. Has to be done
      * here so that the enum declaration is inserted in the right spot.
      * *)
@@ -474,7 +476,7 @@ let compile_simple_matches (map, enums) = object(self)
             ignore (self#allocate_enum_lid lid branches);
             DType (lid, flags, 0, 0, Variant branches)
         | ToEnum ->
-            let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
+            let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons, None) branches in
             begin match allocate_tag enums lid tags with
             | Found other_lid ->
                 DType (lid, flags, 0, 0, Abbrev (TQualified other_lid))
@@ -987,7 +989,7 @@ let compile_all_matches (map, enums) = object (self)
   inherit [_] map
 
   method private tag_and_val_type lid branches =
-    let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
+    let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons, None) branches in
     let structs = List.filter_map (fun (cons, fields) ->
       let fields = List.map (fun (f, t) -> Some f, t) fields in
       match List.length fields with
