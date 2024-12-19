@@ -5,8 +5,11 @@
 PROJECT_HOME ?= .
 
 ifeq (,$(KRML_HOME))
-  # assuming test/sepcomp/b
-  KRML_HOME=$(CURDIR)/../../..
+  # assuming test/sepcomp/a
+  KRML_HOME := $(realpath $(CURDIR)/../../..)
+endif
+ifeq ($(OS),Windows_NT)
+  KRML_HOME := $(shell cygpath -m "$(KRML_HOME)")
 endif
 export KRML_HOME
 
