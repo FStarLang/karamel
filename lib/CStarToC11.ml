@@ -1273,12 +1273,21 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
             (* Note: EEnum translates as just a name -- so we don't have to
              * change use-sites, they directly resolve as the macro. *)
             let t =
-              if List.length cases <= 0xff && List.for_all (function (_, Some i) when i <= 0xff -> true | _ -> false) cases then
+              if List.length cases <= 0xff && List.for_all (function (_, Some i) -> i <= 0xff | _ -> true) cases then
                 K.UInt8
-              else if List.length cases <= 0xffff && List.for_all (function (_, Some i) when i <= 0xffff -> true | _ -> false) cases  then
+              else if List.length cases <= 0xffff && List.for_all (function (_, Some i) -> i <= 0xffff | _ -> true) cases  then
                 K.UInt16
               else
-                failwith (KPrint.bsprintf "Too many cases for enum %s" name)
+                let l = List.length cases in
+                let cmp x y =
+                  match x, y with
+                  | (_, Some x), (_, Some y) -> compare x y
+                  | (_, Some _), _ -> 1
+                  | _, (_, Some _) -> -1
+                  | _ -> 0
+                in
+                let max = match snd (List.hd (List.sort cmp cases)) with Some v -> string_of_int v | None -> "None" in
+                failwith (KPrint.bsprintf "Too many cases for enum %s: %d cases, max is %s" name l max)
             in
             let cases = List.map (fun (lid, v) -> to_c_name m lid, v) cases in
             wrap_verbatim name flags (Text (enum_as_macros cases)) @
