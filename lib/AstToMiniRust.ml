@@ -1420,8 +1420,9 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
           let derives = [] in
           Some (Struct { name; meta; fields; generic_params; derives })
       | Enum idents ->
+          (* TODO: enum cases with set values *)
           (* No need to do name binding here since there are entirely resolved via the type name. *)
-          let items = List.map (fun i -> snd i, None) idents in
+          let items = List.map (fun (i, v) -> assert (v = None); snd i, None) idents in
           let derives = [] in
           Some (Enumeration { name; meta; items; derives; generic_params = [] })
       | Abbrev t ->

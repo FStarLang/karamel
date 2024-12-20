@@ -115,7 +115,7 @@ let populate_env files =
       | DType (lid, _, _, _, typ) ->
           let env = match typ with
           | Enum tags ->
-              List.fold_left (fun env tag ->
+              List.fold_left (fun env (tag, _) ->
                 { env with enums = M.add tag lid env.enums }
               ) env tags
           | _ ->
@@ -502,7 +502,7 @@ and check_case env c t =
         checker_error env "scrutinee has type %a but tag %a does not belong to \
           this type" plid lid plid tag
   | SEnum tag, TAnonymous (Enum tags) ->
-      if not (List.mem tag tags) then
+      if not (List.exists (fun (tag', _) -> tag' = tag) tags) then
         checker_error env "scrutinee has type %a but tag %a does not belong to \
           this type" ptyp t plid tag
   | SConstant (w, _), TInt w' ->
@@ -818,7 +818,8 @@ and infer' env e =
       begin try
         TQualified (M.find tag env.enums)
       with Not_found ->
-        TAnonymous (Enum [ tag ])
+        (* TODO: figure out how this happens? *)
+        TAnonymous (Enum [ tag, None ])
       end
 
   | ESwitch (e1, branches) ->

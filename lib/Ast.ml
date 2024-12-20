@@ -104,7 +104,7 @@ and type_def =
   | Abbrev of typ
   | Flat of fields_t_opt
   | Variant of branches_t
-  | Enum of lident list
+  | Enum of (lident * int option) list
   | Union of (ident * typ) list
   | Forward of forward_kind
 
