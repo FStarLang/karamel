@@ -1280,6 +1280,10 @@ let remove_empty_structs files =
         LidSet.empty
   end)#visit_files () files in
 
+  let files = List.map (fun (f, decls) ->
+    f, List.filter (fun d -> not (LidSet.mem (lid_of_decl d) empty_structs)) decls
+  ) files in
+
   (object
 
     inherit [_] map as super
