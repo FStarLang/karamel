@@ -146,6 +146,7 @@ let ensure_fresh env name body cont =
         !r
   in
   mk_fresh name (fun tentative ->
+    List.mem tentative GlobalNames.keywords ||
     tricky_shadowing_see_comment_above tentative body 0 ||
     List.exists (fun cont -> tricky_shadowing_see_comment_above tentative (Some cont) 1) cont ||
     List.mem tentative env.in_block ||
