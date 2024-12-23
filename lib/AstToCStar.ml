@@ -146,6 +146,7 @@ let ensure_fresh env name body cont =
         !r
   in
   mk_fresh name (fun tentative ->
+    List.mem tentative GlobalNames.keywords ||
     tricky_shadowing_see_comment_above tentative body 0 ||
     List.exists (fun cont -> tricky_shadowing_see_comment_above tentative (Some cont) 1) cont ||
     List.mem tentative env.in_block ||
@@ -486,6 +487,7 @@ and mk_stmts env e ret_type =
     | ELet (b, e1, e2) ->
         let env, binder = mk_and_push_binder env b Local (Some e1) [ e2 ]
         and e1 = mk_expr env false e1 in
+        KPrint.bprintf "pushed %s; now %s\n" b.node.name (String.concat ", " env.names);
         let acc = CStar.Decl (binder, e1) :: comment (e.meta @ b.meta) @ acc in
         collect (env, acc) return_pos e2
 

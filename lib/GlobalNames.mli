@@ -32,3 +32,5 @@ val pascal_case: string -> string
 val camel_case: string -> string
 
 val skip_prefix: Ast.lident -> bool
+
+val keywords: string list
