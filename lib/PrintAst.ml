@@ -89,8 +89,10 @@ and print_type_def = function
 
   | Enum tags ->
       string "enum" ^/^
-        braces_with_nesting (separate_map (comma ^^ break1) (fun lid ->
-          string (string_of_lident lid)
+        braces_with_nesting (separate_map (comma ^^ break1) (fun (lid, value) ->
+          string (string_of_lident lid) ^^ match value with
+          | None -> empty
+          | Some value -> space ^^ equals ^^ break1 ^^ int value
         ) tags)
 
   | Union fields ->
@@ -450,6 +452,7 @@ module Ops = struct
   let pplb = printf_of_pprint_pretty (print_let_binding empty_env)
   let plbs buf lbs = List.iter (fun lb -> plb buf lb; Buffer.add_string buf " ") lbs
   let pplbs buf lbs = List.iter (fun lb -> pplb buf lb; Buffer.add_string buf "\n") lbs
+  let pconst = printf_of_pprint print_constant
 end
 
 include Ops

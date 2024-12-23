@@ -14,7 +14,7 @@ type type_spec =
       (** Note: the option allows for zero-sized structs (GCC's C, C++) but as
        * of 2017/05/14 we never generate these. *)
   | Union of ident option * declaration list option
-  | Enum of ident option * ident list
+  | Enum of ident option * (ident * int option) list
     (** not encoding all the invariants here *)
   [@@deriving show]
 

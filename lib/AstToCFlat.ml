@@ -353,7 +353,10 @@ let populate env files =
     List.fold_left (fun env decl ->
       match decl with
       | DType (_, _, _, _, Enum idents) ->
-          KList.fold_lefti (fun i env ident ->
+          if List.exists (fun (_, v) -> v <> None) idents then
+            assert (List.for_all (fun (_, v) -> v <> None) idents);
+          KList.fold_lefti (fun i env (ident, v) ->
+            let i = Option.value ~default:i v in
             assert (i < 256);
             { env with enums = LidMap.add ident i env.enums }
           ) env idents
