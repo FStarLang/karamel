@@ -84,7 +84,7 @@ obj:
 	mkdir $@
 
 %.checked: | obj
-	$(FSTAR) $(OTHERFLAGS) $< && \
+	$(FSTAR)  --z3version 4.13.3 $(OTHERFLAGS) $< && \
 	touch $@
 
 verify-all: $(ALL_CHECKED_FILES)
