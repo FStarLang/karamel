@@ -298,6 +298,17 @@ let monomorphize_data_types map = object(self)
             TQualified chosen_lid
     end)#visit_typ () t
 
+  (* We need to renormalize entries in the map for the Checker module. For
+     instance, the map might contain `t (u v) -> t0` and `u v -> u0`, but at
+     this stage, we will have a type error when trying to compare  `t (u v)` and
+     `t u0`, since the latter does not appear in the map. *)
+  method private renormalize_entry (n, ts, cgs) chosen_lid =
+    (* We do this on the fly to make sure that types that appear in ts have
+       themselves been renormalized. *)
+    let ts' = List.map resolve_deep ts in
+    if not (Hashtbl.mem state (n, ts', cgs)) then
+      Hashtbl.add state (n, ts', cgs) (Black, chosen_lid)
+
   (* Compute the name of a given node in the graph. *)
   method private lid_of (n: node) =
     let lid, ts, cgs = n in
@@ -340,6 +351,7 @@ let monomorphize_data_types map = object(self)
           (* For tuples, we immediately know how to generate a definition. *)
           let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
           self#record (DType (chosen_lid, [ Common.Private ] @ flag, 0, 0, Flat fields));
+          self#renormalize_entry n chosen_lid;
           Hashtbl.replace state n (Black, chosen_lid)
         end else begin
           (* This specific node has not been visited yet. *)
@@ -352,6 +364,7 @@ let monomorphize_data_types map = object(self)
           begin match Hashtbl.find map lid with
           | exception Not_found ->
               (* Unknown, external non-polymorphic lid, e.g. Prims.int *)
+              self#renormalize_entry n chosen_lid;
               Hashtbl.replace state n (Black, chosen_lid)
           | flags, ((Variant _ | Flat _ | Union _) as def) when under_ref && not (Hashtbl.mem seen_declarations lid) ->
               (* Because this looks up a definition in the global map, the
@@ -382,10 +395,12 @@ let monomorphize_data_types map = object(self)
               let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
               let branches = self#visit_branches_t under_ref branches in
               self#record (DType (chosen_lid, flag @ flags, 0, 0, Variant branches));
+              self#renormalize_entry n chosen_lid;
               Hashtbl.replace state n (Black, chosen_lid)
           | flags, Flat fields ->
               let fields = self#visit_fields_t_opt under_ref (subst fields) in
               self#record (DType (chosen_lid, flag @ flags, 0, 0, Flat fields));
+              self#renormalize_entry n chosen_lid;
               Hashtbl.replace state n (Black, chosen_lid)
           | flags, Union fields ->
               let fields = List.map (fun (f, t) ->
@@ -394,13 +409,16 @@ let monomorphize_data_types map = object(self)
                 f, t
               ) fields in
               self#record (DType (chosen_lid, flag @ flags, 0, 0, Union fields));
+              self#renormalize_entry n chosen_lid;
               Hashtbl.replace state n (Black, chosen_lid)
           | flags, Abbrev t ->
               let t = DeBruijn.subst_tn args t in
               let t = self#visit_typ under_ref t in
               self#record (DType (chosen_lid, flag @ flags, 0, 0, Abbrev t));
+              self#renormalize_entry n chosen_lid;
               Hashtbl.replace state n (Black, chosen_lid)
           | _ ->
+              self#renormalize_entry n chosen_lid;
               Hashtbl.replace state n (Black, chosen_lid)
           end
         end;
