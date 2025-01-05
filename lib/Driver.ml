@@ -268,7 +268,16 @@ let detect_fstar () =
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
   (* This is a superset of the needed modules... some will be dropped very early
    * on in Karamel.ml *)
-  fstar_options := (!fstar_lib ^^ "FStar.UInt128.fst") :: !fstar_options;
+
+  (* Try to locate and pass FStar.UInt128 *)
+  let fstar_locate_file f =
+    try read_one_line !fstar [| "--locate_file"; f |]
+    with
+    | _ ->
+      Warn.fatal_error "Could not locate file %s, is F* properly installed?" f
+  in
+  fstar_options := fstar_locate_file "FStar.UInt128.fst" :: !fstar_options;
+
   fstar_options := (!runtime_dir ^^ "WasmSupport.fst") :: !fstar_options;
   if not !Options.silent then
     KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
