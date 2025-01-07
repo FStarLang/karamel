@@ -372,12 +372,22 @@ and mk_for_loop name qs t init test incr body =
 
 (* Takes e_array of type (Buf t). e_size = size of the array, in number of
    elements *)
-and mk_initializer t e_array e_size e_value: C.stmt =
+and mk_initializer ~null_check t e_array e_size e_value: C.stmt =
   (* KPrint.bprintf "element_size is: %s\n" (C11.show_expr e_size); *) 
   (* KPrint.bprintf "t is: %s\n" (C11.show_type_name t); *) 
+  let if_not_null e: C.stmt =
+    if null_check then
+      if !Options.curly_braces then
+        If (Op2 (K.Neq, e_array, Name "NULL"), Compound [ e ])
+      else
+        If (Op2 (K.Neq, e_array, Name "NULL"), e)
+    else
+      e
+  in
   match e_size with
   | C.Constant (_, "1")
   | C.Cast (_, C.Constant (_, "1")) ->
+      if_not_null @@
       Expr (Op2 (K.Assign, Index (e_array, Constant (K.UInt32, "0")), e_value))
 
   | _ ->
@@ -385,6 +395,7 @@ and mk_initializer t e_array e_size e_value: C.stmt =
       | C.Constant (_, s)
       | C.Cast (_, C.Constant (_, s)) when int_of_string s = 0 ->
           (* KPrint.bprintf "need memset 0\n"; *)
+          if_not_null @@
           mk_memset t e_array e_size (C.Constant (K.UInt8, "0"))
 
       | C.Name "Lib_IntVector_Intrinsics_vec128_zero"
@@ -394,14 +405,17 @@ and mk_initializer t e_array e_size e_value: C.stmt =
              allocating simd state. Under the hood, the C memset will use suitable instructions to
              go fast. *)
           (* KPrint.bprintf "need memset 1\n"; *)
+          if_not_null @@
           mk_memset t e_array e_size (C.Constant (K.UInt8, "0"))
 
       | C.Constant (K.UInt8, _)
       | C.Cast (_, C.Constant (K.UInt8, _)) ->
           (* KPrint.bprintf "need memset 2\n"; *)
+          if_not_null @@
           mk_memset t e_array e_size e_value
 
       | _ ->
+          if_not_null @@
           mk_for_loop "_i" [] (Int K.UInt32) zero
             (Op2 (K.Lt, Name "_i", e_size))
             (Op1 (K.PreIncr, Name "_i"))
@@ -501,7 +515,7 @@ and mk_eternal_bufcreate m buf (t: CStar.typ) init size =
         mk_malloc m t size, []
     | _ ->
         mk_malloc m t size,
-        [ mk_initializer (mk_type m t) (mk_expr m buf) size (mk_expr m init) ]
+        [ mk_initializer ~null_check:true (mk_type m t) (mk_expr m buf) size (mk_expr m init) ]
   in
   mk_check_size m t size, e, extra_stmt
 
@@ -678,7 +692,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       let qs, spec, decl = mk_spec_and_declarator m binder.name t in
       let extra_stmt: C.stmt list =
         if needs_init then
-          [ mk_initializer (mk_type m (assert_pointer t)) (Name binder.name) n_elements init ]
+          [ mk_initializer ~null_check:false (mk_type m (assert_pointer t)) (Name binder.name) n_elements init ]
         else
           []
       in
@@ -753,7 +767,8 @@ and mk_stmt m (stmt: stmt): C.stmt list =
         let size = mk_expr m size in
         let stmt_init = mk_stmt m (Decl ({ name = name_init; typ = t_elt }, init)) in
         let stmt_assign = [ Expr (Assign (mk_expr m e1, mk_malloc m t_elt size)) ] in
-        let stmt_fill = mk_initializer (mk_type m t_elt) (mk_expr m e1) size (mk_expr m (Var name_init)) in
+        (* GC'd allocation, not null-checking this -- this is LEGACY *)
+        let stmt_fill = mk_initializer ~null_check:false (mk_type m t_elt) (mk_expr m e1) size (mk_expr m (Var name_init)) in
         stmt_init @
         stmt_assign @
         [ stmt_fill ]
@@ -791,7 +806,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
 
   | BufFill (t, buf, v, size) ->
       (* Again, assuming that these are non-effectful. *)
-      [ mk_initializer (mk_type m t) (mk_expr m buf) (mk_expr m size) (mk_expr m v) ]
+      [ mk_initializer ~null_check:false (mk_type m t) (mk_expr m buf) (mk_expr m size) (mk_expr m v) ]
 
   | BufFree (t, e) ->
       [ Expr (mk_free t (mk_expr m e)) ]
