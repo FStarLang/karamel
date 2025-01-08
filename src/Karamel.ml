@@ -6,10 +6,10 @@
 module Time = struct
   let t = ref None
 
-  let start () =
+  let _start () =
     t := Some (Unix.times ())
 
-  let tick buf () =
+  let _tick buf () =
     let t' = Unix.times () in
     let diff = t'.Unix.tms_cutime -. (Option.get !t).Unix.tms_cutime +.
       t'.Unix.tms_utime -. (Option.get !t).Unix.tms_utime
@@ -416,6 +416,11 @@ Supported options:|}
     Printf.printf "KaRaMeL version: %s\n" Version.version;
     exit 0
   end;
+
+  let _c_files = ClangToAst.read_file () in
+  exit 1
+
+  (*
 
   if not !found_file ||
      List.length !fst_files = 0 && List.length !filenames = 0 ||
@@ -829,3 +834,5 @@ Supported options:|}
     if !arg_skip_linking then
       exit 0;
     Driver.link remaining_c_files !o_files
+
+  *)

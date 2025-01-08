@@ -16,9 +16,10 @@
   visitors.ppx
   visitors.runtime
   sedlex.ppx
+  clangml
   uucp)
  (preprocess
-  (pps ppx_deriving.std ppx_deriving_yojson sedlex.ppx visitors.ppx))
+  (pps refl.ppx ppx_deriving.std ppx_deriving_yojson sedlex.ppx visitors.ppx))
  ; Reinstate @39 once https://github.com/whitequark/ppx_deriving_yojson/issues/21
  ; is fixed
  ; VD: Fix @40 (only really needed for GenCtypes.ml)
