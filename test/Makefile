@@ -7,6 +7,8 @@ endif
 
 FSTAR_EXE ?= fstar.exe
 
+# Note: these files have been moved in the F* repo in Dec 2023,
+# so this has not been tested in a while.
 ifdef FSTAR_HOME
 CRYPTO = $(shell \
   if test -d $(FSTAR_HOME)/examples/low-level/crypto ; \
