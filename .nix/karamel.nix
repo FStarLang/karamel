@@ -33,7 +33,6 @@ in
 
     outputs = ["out" "home"];
 
-    FSTAR_HOME = fstar;
     GIT_REV = version;
 
     configurePhase = "export KRML_HOME=$(pwd)";
@@ -58,9 +57,6 @@ in
     passthru = {
       lib = ocamlPackages.buildDunePackage {
         GIT_REV = version;
-        # the Makefile expects `FSTAR_HOME` to be or `fstar.exe` to be
-        # in PATH, but this is not useful for buulding the library
-        FSTAR_HOME = "dummy";
         inherit version propagatedBuildInputs;
         nativeBuildInputs = with ocamlPackages; [menhir];
         pname = "krml";
