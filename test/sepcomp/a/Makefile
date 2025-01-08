@@ -38,12 +38,7 @@ include Makefile.include
 # - --cache_checked_modules to rely on a pre-built ulib and krmllib
 # - --cache_dir, to avoid polluting our generated build artifacts outside o
 
-ifdef FSTAR_HOME
-  FSTAR_EXE=$(FSTAR_HOME)/bin/fstar.exe
-else
-  FSTAR_EXE=fstar.exe
-endif
-
+FSTAR_EXE ?= fstar.exe
 FSTAR_NO_FLAGS = $(FSTAR_EXE) \
   --odir obj --cache_checked_modules $(FSTAR_INCLUDES) --cmi \
   --already_cached 'Prims FStar LowStar C Spec.Loops TestLib WasmSupport' --warn_error '+241@247+285' \
@@ -141,7 +136,7 @@ obj/%.krml:
 # F* --> C
 # --------
 
-KRML=$(KRML_HOME)/krml
+KRML=$(KRML_HOME)/krml -fstar $(FSTAR_EXE)
 
 # Note: the implementation of the intrinsic uses external linkage, but you could
 # easily turn this file into a .h, use -add-include '"Impl_Bignum_Intrinsics.h"'

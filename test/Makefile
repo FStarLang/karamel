@@ -5,18 +5,9 @@ ifeq (3.81,$(MAKE_VERSION))
     install make, then invoke gmake instead of make)
 endif
 
-ifdef FSTAR_HOME
-  # Assume there is a F* source tree
-  FSTAR_EXE=$(FSTAR_HOME)/bin/fstar.exe
-else
-  FSTAR_EXE=$(shell which fstar.exe)
-  ifeq ($(FSTAR_EXE),)
-    $(error "fstar.exe not found, please install F*")
-  endif
-  # Assume F* in the PATH, in some ..../bin directory
-  FSTAR_HOME=$(dir FSTAR_EXE)/..
-endif
+FSTAR_EXE ?= fstar.exe
 
+ifdef FSTAR_HOME
 CRYPTO = $(shell \
   if test -d $(FSTAR_HOME)/examples/low-level/crypto ; \
   then echo $(FSTAR_HOME)/examples/low-level/crypto ; \
@@ -24,13 +15,14 @@ CRYPTO = $(shell \
   then echo $(FSTAR_HOME)/share/fstar/examples/low-level/crypto ; \
   fi \
 )
+endif
 
 ifneq ($(CRYPTO),)
   CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 endif
 TEST_OPTS	= -warn-error @4 -verbose -skip-makefiles
 KRML_BIN	= ../_build/default/src/Karamel.exe
-KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
+KRML		= $(KRML_BIN) -fstar $(FSTAR_EXE) $(KOPTS) $(TEST_OPTS)
 
 # TODO: disambiguate between broken tests that arguably should work (maybe
 # HigherOrder6?) and helper files that are required for multiple-module tests
