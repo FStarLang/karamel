@@ -26,6 +26,7 @@ and width = K.width [@ visitors.opaque]
 and lifetime = Common.lifetime [@ visitors.opaque]
 and constant = K.t [@ visitors.opaque]
 and ident = string [@ visitors.opaque]
+and z = Z.t [@ opaque]
 and poly_comp = K.poly_comp [@ visitors.opaque] [@ show.opaque]
 and forward_kind = Common.forward_kind [@ visitors.opaque]
 and lident = ident list * ident [@ visitors.opaque]
@@ -104,7 +105,7 @@ and type_def =
   | Abbrev of typ
   | Flat of fields_t_opt
   | Variant of branches_t
-  | Enum of (lident * int option) list
+  | Enum of (lident * z option) list
   | Union of (ident * typ) list
   | Forward of forward_kind
 

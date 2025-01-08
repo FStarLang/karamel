@@ -326,7 +326,7 @@ let allocate_tag enums preferred_lid tags =
 let field_for_tag = "tag"
 let field_for_union = "val"
 
-type map = (lident, scheme) Hashtbl.t * ((lident * int option) list, lident) Hashtbl.t
+type map = (lident, scheme) Hashtbl.t * ((lident * Z.t option) list, lident) Hashtbl.t
 
 (* This does two things:
  * - deal with the simple compilation schemes (not tagged union)
