@@ -178,11 +178,9 @@ let detect_karamel () =
     if not !Options.silent then
       KPrint.bprintf "%sKaRaMeL home is:%s %s\n" Ansi.underline Ansi.reset krml_home;
 
-    if try Sys.is_directory (krml_home ^^ ".git") with Sys_error _ -> false then begin
-      let cwd = Sys.getcwd () in
-      Sys.chdir krml_home;
-      krml_rev := String.sub (read_one_line "git" [| "rev-parse"; "HEAD" |]) 0 8;
-      Sys.chdir cwd
+    krml_rev := begin
+      try String.sub Version.version 0 12
+      with Invalid_argument _ -> Version.version
     end;
 
     krmllib_dir := krml_home ^^ "krmllib";
@@ -250,16 +248,13 @@ let detect_fstar () =
       KPrint.bprintf "%sfstar lib converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_lib
   end;
 
-  if try Sys.is_directory (!fstar_home ^^ ".git") with Sys_error _ -> false then begin
-    let cwd = Sys.getcwd () in
-    Sys.chdir !fstar_home;
-    let branch = read_one_line "git" [| "rev-parse"; "--abbrev-ref"; "HEAD" |] in
-    fstar_rev := String.sub (read_one_line "git" [| "rev-parse"; "HEAD" |]) 0 8;
-    let color = if branch = "master" then Ansi.green else Ansi.orange in
-    if not !Options.silent then
-      KPrint.bprintf "fstar is on %sbranch %s%s\n" color branch Ansi.reset;
-    Sys.chdir cwd
-  end;
+  (* As fstar.exe path is known, use fstar.exe --version flag *)
+  let fstar_version_output = Process.read_stdout !fstar [| "--version" |] in
+  (* fstar.exe --version currently yields a few lines,
+     one is of the form commit=<git revision> *)
+  fstar_rev := List.hd (KList.filter_map
+    (fun s -> if KString.starts_with s "commit=" then Some (String.sub s (String.length "commit=") 12) else None)
+    fstar_version_output);
 
   let fstar_includes = List.map expand_prefixes !Options.includes in
   fstar_options := [
