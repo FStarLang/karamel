@@ -1,7 +1,7 @@
 #include <inttypes.h>
 
 void test(uint32_t *st, uint32_t y, uint32_t z) {
-  uint32_t x = y;
+  uint32_t x = y + z;
 }
 
 

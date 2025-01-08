@@ -16,11 +16,18 @@ let add_var env var = {vars = var :: env.vars }
 
 let find_var env var = EBound (KList.index (fun x -> x = var) env.vars)
 
-let extract_width = function | TInt w -> w | _ -> failwith "not an integer type"
-
 let get_id_name (dname: declaration_name) = match dname with
   | IdentifierName s -> s
   | _ -> failwith "only supporting identifiers"
+
+let translate_binop (kind: Clang__Clang__ast.binary_operator_kind) : K.op = match kind with
+  | Add -> Add
+  (* TODO: How to distinguish between Xor and BXor? Likely need typing info from operands *)
+  | Xor -> BXor
+  | Or -> BOr
+  | Shl -> BShiftL
+  | Shr -> BShiftR
+  | _ -> failwith "translate_binop"
 
 let translate_typ_name = function
   | "uint32_t" -> Helpers.uint32
@@ -33,33 +40,67 @@ let rec translate_typ (typ: qual_type) = match typ.desc with
   | BuiltinType _ -> failwith "builtin type"
   | _ -> failwith "not pointer type"
 
-let translate_expr (env: env) (t: typ) (e: expr) = match e.desc with
-  | IntegerLiteral (Int n) -> EConstant (extract_width t, string_of_int n)
+(* Translate expression [e], with expected type [t] *)
+let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc with
+  | IntegerLiteral (Int n) -> EConstant (Helpers.assert_tint t, string_of_int n)
+  | BoolLiteral _ -> failwith "translate_expr: bool literal"
+  | UnaryOperator _ -> failwith "translate_expr: unary operator"
+
+  | BinaryOperator {lhs; kind = Assign; rhs} ->
+      (* TODO: Fix types *)
+      let _lhs = translate_expr env Helpers.uint32 lhs in
+      let _rhs = translate_expr env Helpers.uint32 rhs in
+
+      failwith "translate_expr: assignment"
+
+  | BinaryOperator {lhs; kind; rhs} ->
+      (* TODO: Should infer/retrieve type of operands *)
+      let lhs = translate_expr env Helpers.uint32 lhs in
+      let rhs = translate_expr env Helpers.uint32 rhs in
+      let kind = translate_binop kind in
+      let op : Ast.expr = with_type TAny (EOp (kind, UInt32)) in
+      (* TODO: Retrieve correct type for operator *)
+      EApp (op, [lhs; rhs])
+
   | DeclRef {name; _} -> get_id_name name |> find_var env
+  | ArraySubscript {base; index} ->
+      let base = translate_expr env (TBuf (t, false)) base in
+      let index = translate_expr env (TInt SizeT) index in
+      (* Is this only called on rvalues? Otherwise, might need EBufWrite *)
+      EBufRead (base, index)
+
   | _ -> failwith "translate_expr"
+
+and translate_expr (env: env) (t: typ) (e: expr) : Ast.expr =
+  Ast.with_type t (translate_expr' env t e)
 
 let translate_vardecl (env: env) (vdecl: var_decl_desc) : env * binder * Ast.expr =
   let name = vdecl.var_name in
   let typ = translate_typ vdecl.var_type in
   match vdecl.var_init with
   | None -> failwith "Variable declarations without definitions are not supported"
-  | Some e -> add_var env name, Helpers.fresh_binder name typ, Ast.with_type typ (translate_expr env typ e)
+  | Some e -> add_var env name, Helpers.fresh_binder name typ, translate_expr env typ e
 
-let rec translate_stmt (env: env) (s: stmt_desc) : expr' = match s with
+let rec translate_stmt' (env: env) (t: typ) (s: stmt_desc) : expr' = match s with
   | Compound l -> begin match l with
     | [] -> EUnit
     | hd :: tl -> match hd.desc with
       | Decl [{desc = Var vdecl; _ }] ->
           let env', b, e = translate_vardecl env vdecl in
-          ELet (b, e, Ast.with_type TUnit (translate_stmt env' (Compound tl)))
+          ELet (b, e, translate_stmt env' t (Compound tl))
       | Decl [_] -> failwith "This decl is not a var declaration"
       | Decl _ -> failwith "multiple decls"
       | stmt -> ELet (
         Helpers.sequence_binding (),
-        Ast.with_type TUnit (translate_stmt env stmt),
-        Ast.with_type TUnit (translate_stmt (add_var env "_") (Compound tl)))
+        translate_stmt env TUnit stmt,
+        translate_stmt (add_var env "_") t (Compound tl))
    end
-  | _ -> EUnit
+  | Decl _ -> failwith "translate_stmt: decl"
+  | Expr e -> translate_expr' env t e
+  | _ -> failwith "translate_stmt"
+
+and translate_stmt (env: env) (t: typ) (s: stmt_desc) : Ast.expr =
+  Ast.with_type t (translate_stmt' env t s)
 
 let translate_param (p: parameter) : binder * string =
   let p = p.desc in
@@ -81,8 +122,11 @@ let translate_fundecl (fdecl: function_decl) =
   (* To adopt a DeBruijn representation, the list must be reversed to
    have the last binder as the first element of the environment *)
   let env = {vars = List.rev vars} in
-  let body = match fdecl.body with | None -> EUnit | Some s -> translate_stmt env s.desc in
-  let decl = Ast.(DFunction (None, [], 0, 0, ret_type, ([], name), args, with_type ret_type body)) in
+  let body = match fdecl.body with
+    | None -> Helpers.eunit
+    | Some s -> translate_stmt env ret_type s.desc
+  in
+  let decl = Ast.(DFunction (None, [], 0, 0, ret_type, ([], name), args, body)) in
   KPrint.bprintf "Resulting decl %a\n" PrintAst.pdecl decl;
   decl
 
@@ -91,7 +135,7 @@ let translate_decl (decl: decl) = match decl.desc with
   | Function fdecl ->
     let name = get_id_name fdecl.name in
     Printf.printf "Translating function %s\n" name;
-    if name = "test" then (* || name = "quarter_round" then *)
+    if name = "test" || name = "quarter_round" then
       Some (translate_fundecl fdecl)
     else None
   | _ -> None
