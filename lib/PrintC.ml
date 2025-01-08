@@ -86,7 +86,18 @@ let rec p_type_spec = function
       group (string "enum" ^/^
       (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
       braces_with_nesting (separate_map (comma ^^ break1) (fun (id, v) ->
-        string id ^^ match v with None -> empty | Some v -> space ^^ equals ^^ space ^^ int v
+        let suffix =
+          match v with
+          | Some v ->
+              (* Some notes. 1) Must Z.of_string in the unlikely event that krml is running on a
+                 32-bit machine. 2) This assert may be tripped as there is currently no code to
+                 automatically decline -fenum for constants that don't fit. 3)  *)
+              if not Z.(leq v (of_string "0xffffffff") && gt v (of_string "-0xffffffff")) then
+                failwith ("Cannot use C11 enum for " ^ Option.value ~default:"???" name  ^ " since the value of one of the constants may exceed the size of int");
+              space ^^ equals ^^ space ^^ PrintAst.z v
+          | None -> empty
+        in
+        string id ^^ suffix
       ) tags)
 
 and p_qualifier = function

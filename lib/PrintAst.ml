@@ -13,6 +13,8 @@ open Common
 let arrow = string "->"
 let lambda = fancystring "λ" 1
 
+let z x = string (Z.to_string x)
+
 let print_app_ empty f head g arguments =
   group (
     f head ^^ jump (
@@ -92,7 +94,7 @@ and print_type_def = function
         braces_with_nesting (separate_map (comma ^^ break1) (fun (lid, value) ->
           string (string_of_lident lid) ^^ match value with
           | None -> empty
-          | Some value -> space ^^ equals ^^ break1 ^^ int value
+          | Some value -> space ^^ equals ^^ break1 ^^ z value
         ) tags)
 
   | Union fields ->
