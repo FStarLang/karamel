@@ -14,10 +14,11 @@ let empty_env = {vars = []}
 
 let add_var env var = {vars = var :: env.vars }
 
-(* TODO: Handle fully qualified names/namespaces/different files *)
+(* TODO: Handle fully qualified names/namespaces/different files. *)
 let find_var env var =
   try EBound (KList.index (fun x -> x = var) env.vars) with
   (* This variable is not a local var *)
+  (* TODO: More robust check, likely need env for top-level decls *)
   | Not_found -> EQualified ([], var)
 
 let get_id_name (dname: declaration_name) = match dname with
@@ -30,16 +31,61 @@ let get_id_name (dname: declaration_name) = match dname with
   | LiteralOperatorName _ -> failwith "literal operator name"
   | UsingDirectiveName -> failwith "using directive"
 
+let is_assign_op (kind: Clang__Clang__ast.binary_operator_kind) = match kind with
+  | Assign | AddAssign | MulAssign | DivAssign | RemAssign
+  | SubAssign | ShlAssign | ShrAssign | AndAssign
+  | XorAssign | OrAssign -> true
+  | _ -> false
+
+let assign_to_bop (kind: Clang__Clang__ast.binary_operator_kind) : Ast.expr =
+  let op = match kind with
+  (* TODO: Might need to disambiguate for pointer arithmetic *)
+  | AddAssign -> K.Add
+  | MulAssign -> Mult
+  | DivAssign -> Div
+  | RemAssign -> Mod
+  | SubAssign -> Sub
+  | ShlAssign -> BShiftL
+  | ShrAssign -> BShiftR
+  | AndAssign -> BAnd
+  (* TODO: Disambiguate *)
+  | XorAssign -> BXor
+  | OrAssign -> BOr
+  | _ -> failwith "not an assign op"
+  in
+  (* TODO: Infer width and type from types of operands *)
+  Ast.with_type Helpers.uint32 (EOp (op, UInt32))
+
 let translate_binop (kind: Clang__Clang__ast.binary_operator_kind) : K.op = match kind with
+  | PtrMemD | PtrMemI -> failwith "translate_binop: ptr mem"
+  | Mul | Div | Rem -> failwith " translate_binop: arith expr"
+
+  (* TODO: Might need to disambiguate for pointer arithmetic *)
   | Add -> Add
+  | Sub -> Sub
+
+  | Shl -> BShiftL
+  | Shr -> BShiftR
+
+  | Cmp | LT | GT | LE | GE | EQ | NE -> failwith "translate_binop: boolcomp"
+
+  | And -> BAnd
   (* TODO: How to distinguish between Xor and BXor? Likely need typing info from operands *)
   | Xor -> BXor
   | Or -> BOr
-  | Shl -> BShiftL
-  | Shr -> BShiftR
-  | _ -> failwith "translate_binop"
+
+  | LAnd | LOr -> failwith "translate_binop: logical ops"
+
+  | Assign | AddAssign | MulAssign | DivAssign | RemAssign
+  | SubAssign | ShlAssign | ShrAssign | AndAssign
+  | XorAssign | OrAssign ->
+      failwith "Assign operators should have been previously rewritten"
+
+  | Comma -> failwith "translate_binop: comma"
+  | InvalidBinaryOperator -> failwith "translate_binop: invalid binop"
 
 let translate_typ_name = function
+  | "size_t" -> Helpers.usize
   | "uint32_t" -> Helpers.uint32
   | s ->
       Printf.printf "type name %s is unsupported\n" s;
@@ -48,6 +94,17 @@ let translate_typ_name = function
 let translate_builtin_typ (t: Clang__Clang__ast.builtin_type) = match t with
   | Void -> TUnit
   | UInt -> TInt UInt32 (* TODO: How to retrieve exact width? *)
+  | UShort -> failwith "translate_builtin_typ: ushort"
+  | ULong -> TInt UInt32
+  | ULongLong -> failwith "translate_builtin_typ: ulonglong"
+  | UInt128 -> failwith "translate_builtin_typ: uint128"
+
+  | Short
+  | Int
+  | Long
+  | LongLong
+  | Int128 -> failwith "translate_builtin_typ: signed int"
+
   | Pointer -> failwith "translate_builtin_typ: pointer"
   | _ -> failwith "translate_builtin_typ: unsupported builtin type"
 
@@ -107,6 +164,17 @@ let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc wit
       | _ -> EAssign (lhs, rhs)
       end
 
+  | BinaryOperator {lhs; kind; rhs} when is_assign_op kind ->
+      let lhs_ty = typ_of_expr lhs in
+      let lhs = translate_expr env (typ_of_expr lhs) lhs in
+      let rhs = translate_expr env (typ_of_expr rhs) rhs in
+      let rhs = Ast.with_type TUnit (EAssign (lhs, Ast.with_type lhs_ty (EApp (assign_to_bop kind, [lhs; rhs])))) in
+      begin match lhs.node with
+      (* Special-case rewriting for buffer assignments *)
+      | EBufRead (base, index) -> EBufWrite (base, index, rhs)
+      | _ -> EAssign (lhs, rhs)
+      end
+
   | BinaryOperator {lhs; kind; rhs} ->
       let lhs_ty = typ_of_expr lhs in
       let lhs = translate_expr env lhs_ty lhs in
@@ -128,7 +196,11 @@ let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc wit
       let args = List.map (fun x -> translate_expr env (typ_of_expr x) x) args in
       EApp (callee, args)
 
-  | Cast _ -> failwith "translate_expr: cast"
+  | Cast {qual_type; operand; _} ->
+      (* Format.printf "Cast %a@."  Clang.Expr.pp e; *)
+      let typ = translate_typ qual_type in
+      let e = translate_expr env (typ_of_expr operand) operand in
+      ECast (e, typ)
 
   | ArraySubscript {base; index} ->
       let base = translate_expr env (TBuf (t, false)) base in
@@ -137,6 +209,8 @@ let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc wit
       EBufRead (base, index)
 
   | ConditionalOperator _ -> failwith "translate_expr: conditional operator"
+  | Paren _ -> failwith "translate_expr: paren"
+  | SizeOfPack _ -> failwith "translate_expr: size_of"
 
   | _ -> failwith "translate_expr: unsupported expression"
 
@@ -151,6 +225,8 @@ let translate_vardecl (env: env) (vdecl: var_decl_desc) : env * binder * Ast.exp
   | Some e -> add_var env name, Helpers.fresh_binder name typ, translate_expr env typ e
 
 let rec translate_stmt' (env: env) (t: typ) (s: stmt_desc) : expr' = match s with
+  | Null -> failwith "translate_stmt: null"
+
   | Compound l -> begin match l with
     | [] -> EUnit
     | hd :: tl -> match hd.desc with
@@ -164,9 +240,42 @@ let rec translate_stmt' (env: env) (t: typ) (s: stmt_desc) : expr' = match s wit
         translate_stmt env TUnit stmt,
         translate_stmt (add_var env "_") t (Compound tl))
    end
+
+  | For  _ -> failwith "translate_stmt: for"
+  | ForRange _ -> failwith "translate_stmt: for range"
+  | If _ -> failwith "translate_stmt: if"
+
+  | Switch _ -> failwith "translate_stmt: switch"
+  | Case _ -> failwith "translate_stmt: case"
+  | Default _ -> failwith "translate_stmt: default"
+
+  | While _ -> failwith "translate_stmt: while"
+  | Do { body; cond } ->
+    (* The do statements first executes the body before behaving as a while loop.
+       We thus translate it as a sequence of the body and the corresponding while loop *)
+    let body = translate_stmt env t body.desc in
+    let cond = translate_expr env TBool cond in
+    ELet (
+      Helpers.sequence_binding (),
+      body,
+      Ast.with_type TUnit (EWhile (cond, body))
+    )
+
+  | Label _ -> failwith "translate_stmt: label"
+  | Goto _ -> failwith "translate_stmt: goto"
+  | IndirectGoto _ -> failwith "translate_stmt: indirect goto"
+
+  | Continue -> failwith "translate_stmt: continue"
+  | Break -> failwith "translate_stmt: break"
+  | Asm _ -> failwith "translate_stmt: asm"
+  | Return _ -> failwith "translate_stmt: return"
+
   | Decl _ -> failwith "translate_stmt: decl"
   | Expr e -> translate_expr' env t e
-  | _ -> failwith "translate_stmt"
+
+  | Try _ -> failwith "translate_stmt: try"
+  | AttributedStmt _ -> failwith "translate_stmt: AttributedStmt"
+  | UnknownStmt _ -> failwith "translate_stmt: UnknownStmt"
 
 and translate_stmt (env: env) (t: typ) (s: stmt_desc) : Ast.expr =
   Ast.with_type t (translate_stmt' env t s)
@@ -199,18 +308,29 @@ let translate_fundecl (fdecl: function_decl) =
   (* KPrint.bprintf "Resulting decl %a\n" PrintAst.pdecl decl; *)
   decl
 
-
+(* TODO: Builtins might not be needed with a cleaner support for multiple files *)
 let builtins = [
   (* Functions from inttypes.h *)
-  "imaxabs"; "imaxdiv"; "strtoimax"; "strtoumax"; "wcstoimax"; "wcstoumax"
+  "imaxabs"; "imaxdiv"; "strtoimax"; "strtoumax"; "wcstoimax"; "wcstoumax";
+  (* From string.h *)
+  "__sputc"; "_OSSwapInt16"; "_OSSwapInt32"; "_OSSwapInt64";
+  (* Krml functions. TODO: Should be handled as multifile *)
+  "krml_time";
 ]
 
+(* Returning an option is only a hack to make progress.
+   TODO: Proper handling of  decls *)
 let translate_decl (decl: decl) = match decl.desc with
   | Function fdecl ->
     let name = get_id_name fdecl.name in
-    Printf.printf "Translating function %s\n" name;
     (* TODO: How to handle libc? *)
-    if List.mem name builtins then None else Some (translate_fundecl fdecl)
+    let loc = Clang.Ast.location_of_node decl |> Clang.Ast.concrete_of_source_location File in
+    let file_loc = loc.filename in
+    (* TODO: Support multiple files *)
+    if file_loc = "test.c" then (
+        Printf.printf "Translating function %s\n" name;
+        Some (translate_fundecl fdecl)
+    ) else None
   | _ -> None
 
 let read_file () =
