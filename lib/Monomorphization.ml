@@ -286,7 +286,7 @@ let monomorphize_data_types map = object(self)
         | exception Not_found ->
             let args = List.map (self#visit_typ false) args in
             TTuple args
-        | _, chosen_lid ->
+        | _, chosen_lid, _ ->
             TQualified chosen_lid
 
       method! visit_TApp () lid args =
@@ -294,7 +294,7 @@ let monomorphize_data_types map = object(self)
         | exception Not_found ->
             let args = List.map (self#visit_typ false) args in
             TApp (lid, args)
-        | _, chosen_lid ->
+        | _, chosen_lid, _ ->
             TQualified chosen_lid
     end)#visit_typ () t
 
@@ -307,7 +307,7 @@ let monomorphize_data_types map = object(self)
        themselves been renormalized. *)
     let ts' = List.map resolve_deep ts in
     if not (Hashtbl.mem state (n, ts', cgs)) then
-      Hashtbl.add state (n, ts', cgs) (Black, chosen_lid)
+      Hashtbl.add state (n, ts', cgs) (Black, chosen_lid, true)
 
   (* Compute the name of a given node in the graph. *)
   method private lid_of (n: node) =
@@ -346,16 +346,16 @@ let monomorphize_data_types map = object(self)
           KPrint.bprintf "visiting %a: Not_found\n" ptyp (fold_tapp n);
         let chosen_lid, flag = self#lid_of n in
         if lid = tuple_lid then begin
-          Hashtbl.add state n (Gray, chosen_lid);
+          Hashtbl.add state n (Gray, chosen_lid, false);
           let args = List.map (self#visit_typ under_ref) args in
           (* For tuples, we immediately know how to generate a definition. *)
           let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
           self#record (DType (chosen_lid, [ Common.Private ] @ flag, 0, 0, Flat fields));
           self#renormalize_entry n chosen_lid;
-          Hashtbl.replace state n (Black, chosen_lid)
+          Hashtbl.replace state n (Black, chosen_lid, false)
         end else begin
           (* This specific node has not been visited yet. *)
-          Hashtbl.add state n (Gray, chosen_lid);
+          Hashtbl.add state n (Gray, chosen_lid, false);
 
           let subst fields = List.map (fun (field, (t, m)) ->
             field, (DeBruijn.subst_ctn' cgs (DeBruijn.subst_tn args t), m)
@@ -365,7 +365,7 @@ let monomorphize_data_types map = object(self)
           | exception Not_found ->
               (* Unknown, external non-polymorphic lid, e.g. Prims.int *)
               self#renormalize_entry n chosen_lid;
-              Hashtbl.replace state n (Black, chosen_lid)
+              Hashtbl.replace state n (Black, chosen_lid, false)
           | flags, ((Variant _ | Flat _ | Union _) as def) when under_ref && not (Hashtbl.mem seen_declarations lid) ->
               (* Because this looks up a definition in the global map, the
                  definitions are reordered according to the traversal order, which
@@ -396,12 +396,12 @@ let monomorphize_data_types map = object(self)
               let branches = self#visit_branches_t under_ref branches in
               self#record (DType (chosen_lid, flag @ flags, 0, 0, Variant branches));
               self#renormalize_entry n chosen_lid;
-              Hashtbl.replace state n (Black, chosen_lid)
+              Hashtbl.replace state n (Black, chosen_lid, false)
           | flags, Flat fields ->
               let fields = self#visit_fields_t_opt under_ref (subst fields) in
               self#record (DType (chosen_lid, flag @ flags, 0, 0, Flat fields));
               self#renormalize_entry n chosen_lid;
-              Hashtbl.replace state n (Black, chosen_lid)
+              Hashtbl.replace state n (Black, chosen_lid, false)
           | flags, Union fields ->
               let fields = List.map (fun (f, t) ->
                 let t = DeBruijn.subst_tn args t in
@@ -410,20 +410,20 @@ let monomorphize_data_types map = object(self)
               ) fields in
               self#record (DType (chosen_lid, flag @ flags, 0, 0, Union fields));
               self#renormalize_entry n chosen_lid;
-              Hashtbl.replace state n (Black, chosen_lid)
+              Hashtbl.replace state n (Black, chosen_lid, false)
           | flags, Abbrev t ->
               let t = DeBruijn.subst_tn args t in
               let t = self#visit_typ under_ref t in
               self#record (DType (chosen_lid, flag @ flags, 0, 0, Abbrev t));
               self#renormalize_entry n chosen_lid;
-              Hashtbl.replace state n (Black, chosen_lid)
+              Hashtbl.replace state n (Black, chosen_lid, false)
           | _ ->
               self#renormalize_entry n chosen_lid;
-              Hashtbl.replace state n (Black, chosen_lid)
+              Hashtbl.replace state n (Black, chosen_lid, false)
           end
         end;
         chosen_lid
-    | Gray, chosen_lid ->
+    | Gray, chosen_lid, _ ->
         if Options.debug "data-types-traversal" then
           KPrint.bprintf "visiting %a: Gray\n" ptyp (fold_tapp n);
         begin match Hashtbl.find map lid with
@@ -435,7 +435,7 @@ let monomorphize_data_types map = object(self)
             self#record (DType (chosen_lid, flags, 0, 0, Forward FStruct))
         end;
         chosen_lid
-    | Black, chosen_lid ->
+    | Black, chosen_lid, _ ->
         if Options.debug "data-types-traversal" then
           KPrint.bprintf "visiting %a: Black\n" ptyp (fold_tapp n);
         chosen_lid
