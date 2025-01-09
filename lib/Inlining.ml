@@ -401,7 +401,7 @@ let cross_call_analysis files =
 
         method! visit_TApp () name ts =
           match Hashtbl.find_opt MonomorphizationState.state (name, ts, []) with
-          | Some (_, lid) ->
+          | Some (_, lid, _) ->
               self#visit_TQualified () lid
           | None ->
               self#visit_TQualified () name;
@@ -409,14 +409,14 @@ let cross_call_analysis files =
 
         method! visit_TTuple () ts =
           match Hashtbl.find_opt MonomorphizationState.state (tuple_lid, ts, []) with
-          | Some (_, lid) ->
+          | Some (_, lid, _) ->
               self#visit_TQualified () lid
           | None ->
               super#visit_TTuple () ts
 
         method! visit_TCgApp () name ts =
           match Hashtbl.find_opt MonomorphizationState.state (flatten_tapp (TCgApp (name, ts))) with
-          | Some (_, lid) ->
+          | Some (_, lid, _) ->
               self#visit_TQualified () lid
           | None ->
               super#visit_TCgApp () name ts
