@@ -119,7 +119,7 @@ and typ =
   | Bool
   | Struct of (ident option * typ) list
       (** In support of anonymous unions. *)
-  | Enum of (lident * int option) list
+  | Enum of (lident * Ast.z option) list
   | Union of (ident * typ) list
   | Const of typ
       (* note: when we have restrict, or MinLength, extend this to be a

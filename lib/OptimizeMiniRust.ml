@@ -1116,7 +1116,7 @@ let remove_trailing_unit = object
     let e1 = super#visit_expr () e1 in
     let e2 = super#visit_expr () e2 in
     match e2 with
-    | Unit -> e1
+    | Unit when b.typ = Unit -> e1
     | _ -> Let (b, e1, e2)
 end
 
