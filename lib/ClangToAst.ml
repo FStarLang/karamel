@@ -14,11 +14,21 @@ let empty_env = {vars = []}
 
 let add_var env var = {vars = var :: env.vars }
 
-let find_var env var = EBound (KList.index (fun x -> x = var) env.vars)
+(* TODO: Handle fully qualified names/namespaces/different files *)
+let find_var env var =
+  try EBound (KList.index (fun x -> x = var) env.vars) with
+  (* This variable is not a local var *)
+  | Not_found -> EQualified ([], var)
 
 let get_id_name (dname: declaration_name) = match dname with
   | IdentifierName s -> s
-  | _ -> failwith "only supporting identifiers"
+  | ConstructorName _ -> failwith "constructor"
+  | DestructorName _ -> failwith "destructor"
+  | ConversionFunctionName _ -> failwith "conversion function"
+  | DeductionGuideName _ -> failwith "deduction guide"
+  | OperatorName _ -> failwith "operator name"
+  | LiteralOperatorName _ -> failwith "literal operator name"
+  | UsingDirectiveName -> failwith "using directive"
 
 let translate_binop (kind: Clang__Clang__ast.binary_operator_kind) : K.op = match kind with
   | Add -> Add
@@ -31,26 +41,66 @@ let translate_binop (kind: Clang__Clang__ast.binary_operator_kind) : K.op = matc
 
 let translate_typ_name = function
   | "uint32_t" -> Helpers.uint32
-  | _ -> failwith "unsupported name"
+  | s ->
+      Printf.printf "type name %s is unsupported\n" s;
+      failwith "unsupported name"
+
+let translate_builtin_typ (t: Clang__Clang__ast.builtin_type) = match t with
+  | Void -> TUnit
+  | UInt -> TInt UInt32 (* TODO: How to retrieve exact width? *)
+  | Pointer -> failwith "translate_builtin_typ: pointer"
+  | _ -> failwith "translate_builtin_typ: unsupported builtin type"
 
 let rec translate_typ (typ: qual_type) = match typ.desc with
   | Pointer typ -> TBuf (translate_typ typ, false)
+
+  | LValueReference _ -> failwith "translate_typ: lvalue reference"
+  | RValueReference _ -> failwith "translate_typ: rvalue reference"
+  | ConstantArray _ -> failwith "translate_typ: constant array"
+  | Enum _ -> failwith "translate_typ: enum"
+
+  | FunctionType {result; parameters; _} ->
+      let ret_typ = translate_typ result in
+      begin match parameters with
+      | None -> TArrow (TUnit, ret_typ)
+      | Some params ->
+          (* Not handling variadic parameters *)
+          assert (not (params.variadic));
+          let ts = List.map
+            (fun (p: parameter) -> translate_typ p.desc.qual_type)
+            params.non_variadic
+          in
+          Helpers.fold_arrow ts ret_typ
+      end
+
+  | Record  _ -> failwith "translate_typ: record"
+
+
   | Typedef {name; _} -> get_id_name name |> translate_typ_name
-  | BuiltinType Void -> TUnit
-  | BuiltinType UInt -> TInt UInt32 (* How to retrieve exact width? *)
-  | BuiltinType Pointer -> failwith "builtin pointer"
-  | BuiltinType _ -> failwith "builtin type"
-  | _ -> failwith "not pointer type"
+
+  | BuiltinType t -> translate_builtin_typ t
+
+  | _ -> failwith "translate_typ: unsupported type"
+
+(* Takes a Clangml expression [e], and retrieves the corresponding karamel Ast type *)
+let typ_of_expr (e: expr) : typ = Clang.Type.of_node e |> translate_typ
 
 (* Translate expression [e], with expected type [t] *)
 let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc with
   | IntegerLiteral (Int n) -> EConstant (Helpers.assert_tint t, string_of_int n)
+
+  | FloatingLiteral _ -> failwith "translate_expr: floating literal"
+  | StringLiteral _ -> failwith "translate_expr: string literal"
+  | CharacterLiteral _ -> failwith "translate_expr character literal"
+  | ImaginaryLiteral _ -> failwith "translate_expr: imaginary literal"
   | BoolLiteral _ -> failwith "translate_expr: bool literal"
+  | NullPtrLiteral -> failwith "translate_expr: null ptr literal"
+
   | UnaryOperator _ -> failwith "translate_expr: unary operator"
 
   | BinaryOperator {lhs; kind = Assign; rhs} ->
-      let lhs = translate_expr env (Clang.Type.of_node lhs |> translate_typ) lhs in
-      let rhs = translate_expr env (Clang.Type.of_node rhs |> translate_typ) rhs in
+      let lhs = translate_expr env (typ_of_expr lhs) lhs in
+      let rhs = translate_expr env (typ_of_expr rhs) rhs in
       begin match lhs.node with
       (* Special-case rewriting for buffer assignments *)
       | EBufRead (base, index) -> EBufWrite (base, index, rhs)
@@ -58,9 +108,9 @@ let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc wit
       end
 
   | BinaryOperator {lhs; kind; rhs} ->
-      let lhs_ty = Clang.Type.of_node lhs |> translate_typ in
+      let lhs_ty = typ_of_expr lhs in
       let lhs = translate_expr env lhs_ty lhs in
-      let rhs = translate_expr env (Clang.Type.of_node rhs |> translate_typ) rhs in
+      let rhs = translate_expr env (typ_of_expr rhs) rhs in
       let kind = translate_binop kind in
       (* TODO: Likely need a "assert_tint_or_tbool" *)
       let lhs_w = Helpers.assert_tint lhs_ty in
@@ -69,13 +119,26 @@ let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc wit
       EApp (op, [lhs; rhs])
 
   | DeclRef {name; _} -> get_id_name name |> find_var env
+
+  | Call {callee; args} ->
+      (* In C, a function type is a pointer. We need to strip it to retrieve
+         the standard arrow abstraction *)
+      let fun_typ = Helpers.assert_tbuf (typ_of_expr callee) in
+      let callee = translate_expr env fun_typ callee in
+      let args = List.map (fun x -> translate_expr env (typ_of_expr x) x) args in
+      EApp (callee, args)
+
+  | Cast _ -> failwith "translate_expr: cast"
+
   | ArraySubscript {base; index} ->
       let base = translate_expr env (TBuf (t, false)) base in
       let index = translate_expr env (TInt SizeT) index in
       (* Is this only called on rvalues? Otherwise, might need EBufWrite *)
       EBufRead (base, index)
 
-  | _ -> failwith "translate_expr"
+  | ConditionalOperator _ -> failwith "translate_expr: conditional operator"
+
+  | _ -> failwith "translate_expr: unsupported expression"
 
 and translate_expr (env: env) (t: typ) (e: expr) : Ast.expr =
   Ast.with_type t (translate_expr' env t e)
@@ -133,17 +196,21 @@ let translate_fundecl (fdecl: function_decl) =
     | Some s -> translate_stmt env ret_type s.desc
   in
   let decl = Ast.(DFunction (None, [], 0, 0, ret_type, ([], name), args, body)) in
-  KPrint.bprintf "Resulting decl %a\n" PrintAst.pdecl decl;
+  (* KPrint.bprintf "Resulting decl %a\n" PrintAst.pdecl decl; *)
   decl
 
+
+let builtins = [
+  (* Functions from inttypes.h *)
+  "imaxabs"; "imaxdiv"; "strtoimax"; "strtoumax"; "wcstoimax"; "wcstoumax"
+]
 
 let translate_decl (decl: decl) = match decl.desc with
   | Function fdecl ->
     let name = get_id_name fdecl.name in
     Printf.printf "Translating function %s\n" name;
-    if name = "test" || name = "quarter_round" then
-      Some (translate_fundecl fdecl)
-    else None
+    (* TODO: How to handle libc? *)
+    if List.mem name builtins then None else Some (translate_fundecl fdecl)
   | _ -> None
 
 let read_file () =

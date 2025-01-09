@@ -41,4 +41,28 @@ void quarter_round(uint32_t *st, uint32_t a, uint32_t b, uint32_t c, uint32_t d)
   st[b] = std22;
 }
 
+static inline void double_round(uint32_t *st)
+{
+  quarter_round(st, 0U, 4U, 8U, 12U);
+  quarter_round(st, 1U, 5U, 9U, 13U);
+  quarter_round(st, 2U, 6U, 10U, 14U);
+  quarter_round(st, 3U, 7U, 11U, 15U);
+  quarter_round(st, 0U, 5U, 10U, 15U);
+  quarter_round(st, 1U, 6U, 11U, 12U);
+  quarter_round(st, 2U, 7U, 8U, 13U);
+  quarter_round(st, 3U, 4U, 9U, 14U);
+}
 
+static inline void rounds(uint32_t *st)
+{
+  double_round(st);
+  double_round(st);
+  double_round(st);
+  double_round(st);
+  double_round(st);
+  double_round(st);
+  double_round(st);
+  double_round(st);
+  double_round(st);
+  double_round(st);
+}
