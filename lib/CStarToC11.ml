@@ -1136,10 +1136,14 @@ let wrap_verbatim lid flags d =
   []
 
 let enum_as_macros cases =
+  (* Since enums do not support arithmetic operations, we have no issues with
+    integer promotion and need not concern ourselves with suffixes or e.g. a
+    constant being promoted to a large signed type unintentionally. *)
   let lines: string list = List.mapi (fun i (c, v) ->
     match v with
     | None -> KPrint.bsprintf "#define %s %d" c i
-    | Some i -> KPrint.bsprintf "#define %s %d" c i
+    | Some v ->
+        KPrint.bsprintf "#define %s %s" c (Z.to_string v)
   ) cases in
   String.concat "\n" lines
 
@@ -1287,22 +1291,36 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
         | Enum cases when !Options.short_enums ->
             (* Note: EEnum translates as just a name -- so we don't have to
              * change use-sites, they directly resolve as the macro. *)
+            let max_value, min_value =
+              let custom_values = List.filter_map snd cases in
+              let custom_values = List.sort compare custom_values in
+              print_endline (String.concat ", " (List.map Z.to_string custom_values));
+              max
+                (* conservative if we allow signed values *)
+                (if custom_values <> [] then KList.last custom_values else Z.zero)
+                (Z.of_int (List.length cases)),
+              if custom_values <> [] then List.hd custom_values else Z.zero
+            in
+            KPrint.bprintf "max_value=%s, min_value=%s\n" (Z.to_string max_value) (Z.to_string min_value);
             let t =
-              if List.length cases <= 0xff && List.for_all (function (_, Some i) -> i <= 0xff | _ -> true) cases then
+              if Z.(geq min_value zero && leq max_value (of_string "0xff")) then
                 K.UInt8
-              else if List.length cases <= 0xffff && List.for_all (function (_, Some i) -> i <= 0xffff | _ -> true) cases  then
+              else if Z.(geq min_value zero && leq max_value (of_string "0xffff")) then
                 K.UInt16
+              else if Z.(geq min_value zero && leq max_value (of_string "0xffffffff")) then
+                K.UInt32
+              else if Z.(geq min_value zero && leq max_value (of_string "0xffffffffffffffff")) then
+                K.UInt64
+              else if Z.(geq min_value (of_string "-0x7e") && leq max_value (of_string "0x7f")) then
+                K.Int8
+              else if Z.(geq min_value (of_string "-0x7ffe") && leq max_value (of_string "0x7fff")) then
+                K.Int16
+              else if Z.(geq min_value (of_string "-0x7ffffffe") && leq max_value (of_string "0x7fffffff")) then
+                K.Int32
+              else if Z.(geq min_value (of_string "-0x7ffffffffffffffe") && leq max_value (of_string "0x7fffffffffffffff")) then
+                K.Int64
               else
-                let l = List.length cases in
-                let cmp x y =
-                  match x, y with
-                  | (_, Some x), (_, Some y) -> compare x y
-                  | (_, Some _), _ -> 1
-                  | _, (_, Some _) -> -1
-                  | _ -> 0
-                in
-                let max = match snd (List.hd (List.sort cmp cases)) with Some v -> string_of_int v | None -> "None" in
-                failwith (KPrint.bsprintf "Too many cases for enum %s: %d cases, max is %s" name l max)
+                failwith "TODO: support for negative enum values"
             in
             let cases = List.map (fun (lid, v) -> to_c_name m lid, v) cases in
             wrap_verbatim name flags (Text (enum_as_macros cases)) @
