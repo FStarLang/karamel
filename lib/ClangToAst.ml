@@ -58,11 +58,14 @@ let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc wit
       end
 
   | BinaryOperator {lhs; kind; rhs} ->
-      let lhs = translate_expr env (Clang.Type.of_node lhs |> translate_typ) lhs in
+      let lhs_ty = Clang.Type.of_node lhs |> translate_typ in
+      let lhs = translate_expr env lhs_ty lhs in
       let rhs = translate_expr env (Clang.Type.of_node rhs |> translate_typ) rhs in
       let kind = translate_binop kind in
-      (* TODO: Retrieve correct type for operator? *)
-      let op : Ast.expr = with_type TAny (EOp (kind, UInt32)) in
+      (* TODO: Likely need a "assert_tint_or_tbool" *)
+      let lhs_w = Helpers.assert_tint lhs_ty in
+      let op_type = Helpers.type_of_op kind (Helpers.assert_tint lhs_ty) in
+      let op : Ast.expr = with_type op_type (EOp (kind, lhs_w)) in
       EApp (op, [lhs; rhs])
 
   | DeclRef {name; _} -> get_id_name name |> find_var env
