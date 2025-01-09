@@ -19,7 +19,7 @@ git clone --branch $FSTAR_BRANCH https://github.com/FStarLang/FStar "$FSTAR_HOME
 opam install --deps-only "$FSTAR_HOME/fstar.opam"
 OTHERFLAGS='--admit_smt_queries true' make -j 24 -C "$FSTAR_HOME"
 
-sudo "$FSTAR_HOME/bin/get_fstar_z3.sh" "/usr/local/bin"
+sudo "$FSTAR_HOME/.scripts/get_fstar_z3.sh" "/usr/local/bin"
 
 # Install other deps
 "$build_home"/install-other-deps.sh
