@@ -37,6 +37,8 @@ let rec translate_typ (typ: qual_type) = match typ.desc with
   | Pointer typ -> TBuf (translate_typ typ, false)
   | Typedef {name; _} -> get_id_name name |> translate_typ_name
   | BuiltinType Void -> TUnit
+  | BuiltinType UInt -> TInt UInt32 (* How to retrieve exact width? *)
+  | BuiltinType Pointer -> failwith "builtin pointer"
   | BuiltinType _ -> failwith "builtin type"
   | _ -> failwith "not pointer type"
 
@@ -47,19 +49,20 @@ let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc wit
   | UnaryOperator _ -> failwith "translate_expr: unary operator"
 
   | BinaryOperator {lhs; kind = Assign; rhs} ->
-      (* TODO: Fix types *)
-      let _lhs = translate_expr env Helpers.uint32 lhs in
-      let _rhs = translate_expr env Helpers.uint32 rhs in
-
-      failwith "translate_expr: assignment"
+      let lhs = translate_expr env (Clang.Type.of_node lhs |> translate_typ) lhs in
+      let rhs = translate_expr env (Clang.Type.of_node rhs |> translate_typ) rhs in
+      begin match lhs.node with
+      (* Special-case rewriting for buffer assignments *)
+      | EBufRead (base, index) -> EBufWrite (base, index, rhs)
+      | _ -> EAssign (lhs, rhs)
+      end
 
   | BinaryOperator {lhs; kind; rhs} ->
-      (* TODO: Should infer/retrieve type of operands *)
-      let lhs = translate_expr env Helpers.uint32 lhs in
-      let rhs = translate_expr env Helpers.uint32 rhs in
+      let lhs = translate_expr env (Clang.Type.of_node lhs |> translate_typ) lhs in
+      let rhs = translate_expr env (Clang.Type.of_node rhs |> translate_typ) rhs in
       let kind = translate_binop kind in
+      (* TODO: Retrieve correct type for operator? *)
       let op : Ast.expr = with_type TAny (EOp (kind, UInt32)) in
-      (* TODO: Retrieve correct type for operator *)
       EApp (op, [lhs; rhs])
 
   | DeclRef {name; _} -> get_id_name name |> find_var env
