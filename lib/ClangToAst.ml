@@ -99,8 +99,9 @@ let translate_builtin_typ (t: Clang__Clang__ast.builtin_type) = match t with
   | ULongLong -> failwith "translate_builtin_typ: ulonglong"
   | UInt128 -> failwith "translate_builtin_typ: uint128"
 
+  | Int -> TInt Int32 (* TODO: Retrieve exact width *)
+
   | Short
-  | Int
   | Long
   | LongLong
   | Int128 -> failwith "translate_builtin_typ: signed int"
@@ -142,6 +143,15 @@ let rec translate_typ (typ: qual_type) = match typ.desc with
 (* Takes a Clangml expression [e], and retrieves the corresponding karamel Ast type *)
 let typ_of_expr (e: expr) : typ = Clang.Type.of_node e |> translate_typ
 
+(* Check whether a given Clang expression is a memcpy callee *)
+let is_memcpy (e: expr) = match e.desc with
+  | DeclRef { name; _ } ->
+      let name = get_id_name name in
+      name = "__builtin___memcpy_chk"
+  | _ -> false
+
+
+
 (* Translate expression [e], with expected type [t] *)
 let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc with
   | IntegerLiteral (Int n) -> EConstant (Helpers.assert_tint t, string_of_int n)
@@ -168,7 +178,8 @@ let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc wit
       let lhs_ty = typ_of_expr lhs in
       let lhs = translate_expr env (typ_of_expr lhs) lhs in
       let rhs = translate_expr env (typ_of_expr rhs) rhs in
-      let rhs = Ast.with_type TUnit (EAssign (lhs, Ast.with_type lhs_ty (EApp (assign_to_bop kind, [lhs; rhs])))) in
+      (* Rewrite the rhs into the compound expression, using the underlying operator *)
+      let rhs = Ast.with_type lhs_ty (EApp (assign_to_bop kind, [lhs; rhs])) in
       begin match lhs.node with
       (* Special-case rewriting for buffer assignments *)
       | EBufRead (base, index) -> EBufWrite (base, index, rhs)
@@ -188,10 +199,29 @@ let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc wit
 
   | DeclRef {name; _} -> get_id_name name |> find_var env
 
+  | Call {callee; args} when is_memcpy callee ->
+      (* Format.printf "Trying to translate memcpy %a@." Clang.Expr.pp e; *)
+      begin match args with
+      (* We are assuming here that this is __builtin___memcpy_chk.
+         This function has a fourth argument, corresponding to the number of bytes
+         remaining in dst. We omit it during the translation *)
+      | [dst; src; len; _] ->
+          let dst = translate_expr env (typ_of_expr dst) dst in
+          let src = translate_expr env (typ_of_expr src) src in
+          begin match len.desc with
+          | BinaryOperator {lhs; kind = Mul; rhs = { desc = UnaryExpr {kind = SizeOf; _}; _}} ->
+              let len = translate_expr env Helpers.usize lhs in
+              EBufBlit (src, Helpers.zerou32, dst, Helpers.zerou32, len)
+          | _ -> failwith "ill-formed memcpy"
+          end
+      | _ -> failwith "memcpy does not have the right number of arguments"
+      end
+
   | Call {callee; args} ->
       (* In C, a function type is a pointer. We need to strip it to retrieve
          the standard arrow abstraction *)
       let fun_typ = Helpers.assert_tbuf (typ_of_expr callee) in
+      (* Format.printf "Trying to translate function call %a@." Clang.Expr.pp callee; *)
       let callee = translate_expr env fun_typ callee in
       let args = List.map (fun x -> translate_expr env (typ_of_expr x) x) args in
       EApp (callee, args)
@@ -210,9 +240,10 @@ let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc wit
 
   | ConditionalOperator _ -> failwith "translate_expr: conditional operator"
   | Paren _ -> failwith "translate_expr: paren"
-  | SizeOfPack _ -> failwith "translate_expr: size_of"
 
-  | _ -> failwith "translate_expr: unsupported expression"
+  | _ ->
+    Format.printf "Trying to translate expression %a@." Clang.Expr.pp e;
+    failwith "translate_expr: unsupported expression"
 
 and translate_expr (env: env) (t: typ) (e: expr) : Ast.expr =
   Ast.with_type t (translate_expr' env t e)
@@ -254,7 +285,8 @@ let rec translate_stmt' (env: env) (t: typ) (s: stmt_desc) : expr' = match s wit
     (* The do statements first executes the body before behaving as a while loop.
        We thus translate it as a sequence of the body and the corresponding while loop *)
     let body = translate_stmt env t body.desc in
-    let cond = translate_expr env TBool cond in
+    (* TODO: Likely need to translate int conditions to boolean expressions *)
+    let cond = translate_expr env (typ_of_expr cond) cond in
     ELet (
       Helpers.sequence_binding (),
       body,
