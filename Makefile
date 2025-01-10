@@ -14,30 +14,14 @@ include $(visitors_root)/Makefile.preprocess
 
 .PHONY: all minimal clean test pre krmllib install
 
-ifeq ($(OS),Windows_NT)
-  OCAMLPATH_SEP=;
-else
-  OCAMLPATH_SEP=:
-endif
+FSTAR_EXE ?= fstar.exe
 
 all: minimal krmllib
 
-ifdef FSTAR_HOME
-  OCAMLPATH:=$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/lib
-else
-  FSTAR_EXE=$(shell which fstar.exe)
-  ifneq ($(FSTAR_EXE),)
-    FSTAR_HOME=$(dir $(FSTAR_EXE))/..
-    OCAMLPATH:=$(OCAMLPATH)$(OCAMLPATH_SEP)$(FSTAR_HOME)/lib
-  else
-    # If we are just trying to do a minimal build, we don't need F*.
-    ifneq ($(MAKECMDGOALS),minimal)
-      $(error "fstar.exe not found, please install FStar")
-    endif
-  endif
-endif
-export FSTAR_HOME
-export OCAMLPATH
+# If we are just trying to do a minimal build, we don't need F*.
+# Note: lazy assignment so this does not warn if fstar.exe is not there
+# (e.g. on a minimal build or cleaning)
+FSTAR_OCAMLENV = $(shell $(FSTAR_EXE) --ocamlenv)
 
 minimal: lib/AutoConfig.ml lib/Version.ml
 	dune build
@@ -74,8 +58,9 @@ test: all
 
 # Auto-detection
 pre:
-	@ocamlfind query fstar.lib >/dev/null 2>&1 || \
-	  { echo "Didn't find fstar.lib via ocamlfind or in FSTAR_HOME (which is: $(FSTAR_HOME)); run $(MAKE) -C $(FSTAR_HOME)"; exit 1; }
+	@eval "$(FSTAR_OCAMLENV)" && \
+	ocamlfind query fstar.lib >/dev/null 2>&1 || \
+	  { echo "Didn't find fstar.lib via ocamlfind; is F* properly installed? (FSTAR_EXE = $(FSTAR_EXE))"; exit 1; }
 
 
 install: all

@@ -45,8 +45,7 @@ module P = Process
  * understood as a cyclic dependency on our own [Output] module. *)
 
 (** These three variables filled in by [detect_fstar] *)
-let fstar = ref ""
-let fstar_home = ref ""
+let fstar = Options.fstar
 let fstar_lib = ref ""
 let fstar_rev = ref "<unknown>"
 let fstar_options = ref []
@@ -202,63 +201,50 @@ let detect_karamel_if () =
 let expand_prefixes s =
   if KString.starts_with s "FSTAR_LIB" then
     !fstar_lib ^^ KString.chop s "FSTAR_LIB"
-  else if KString.starts_with s "FSTAR_HOME" then
-    !fstar_home ^^ KString.chop s "FSTAR_HOME"
   else
     s
 
-(* Fills in fstar{,_home,_options} *)
+(* Fills in fstar{,_lib,_options}. Does NOT read any environment variables. *)
 let detect_fstar () =
   detect_karamel_if ();
 
   if not !Options.silent then
     KPrint.bprintf "%s⚙ KaRaMeL will drive F*.%s Here's what we found:\n" Ansi.blue Ansi.reset;
 
-  begin try
-    let r = Sys.getenv "FSTAR_HOME" in
-    if not !Options.silent then
-      KPrint.bprintf "read FSTAR_HOME via the environment\n";
-    fstar_home := r;
-    fstar := r ^^ "bin" ^^ "fstar.exe"
-  with Not_found -> try
-    fstar := read_one_line "which" [| "fstar.exe" |];
-    fstar_home := d (d !fstar);
-    if not !Options.silent then
-      KPrint.bprintf "FSTAR_HOME is %s (via fstar.exe in PATH)\n" !fstar_home
-  with _ ->
-    fatal_error "Did not find fstar.exe in PATH and FSTAR_HOME is not set"
+  (* Try to resolve fstar to an absolute path. This is just so the
+     full path appears in logs. *)
+  if not (KString.starts_with !fstar "/") then begin
+    try fstar := read_one_line "which" [| !fstar |]
+    with _ -> ()
   end;
 
-  let fstar_ulib = !fstar_home ^^ "ulib" in
-  if not (Sys.file_exists fstar_ulib && Sys.is_directory fstar_ulib) ; then begin
-    if not !Options.silent then
-      KPrint.bprintf "F* library not found in ulib; falling back to lib/fstar\n";
-    fstar_lib := !fstar_home ^^ "lib" ^^ "fstar"
-  end else begin
-    fstar_lib := fstar_ulib
+  if not !Options.silent then
+    KPrint.bprintf "Using fstar.exe = %s\n" !fstar;
+
+  (* Ask F* for the location of its library *)
+  begin try fstar_lib := read_one_line !fstar [| "--locate_lib" |]
+  with | _ ->
+    fatal_error "Could not locate F* library: %s --locate_lib failed" !fstar
   end;
+  if not !Options.silent then
+    KPrint.bprintf "F* library root: %s\n" !fstar_lib;
 
   if success "which" [| "cygpath" |] then begin
     fstar := read_one_line "cygpath" [| "-m"; !fstar |];
     if not !Options.silent then
       KPrint.bprintf "%sfstar converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar;
-    fstar_home := read_one_line "cygpath" [| "-m"; !fstar_home |];
-    if not !Options.silent then
-      KPrint.bprintf "%sfstar home converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_home;
     fstar_lib := read_one_line "cygpath" [| "-m"; !fstar_lib |];
     if not !Options.silent then
       KPrint.bprintf "%sfstar lib converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_lib
   end;
 
-  if try Sys.is_directory (!fstar_home ^^ ".git") with Sys_error _ -> false then begin
-    let cwd = Sys.getcwd () in
-    Sys.chdir !fstar_home;
-    let branch = read_one_line "git" [| "rev-parse"; "--abbrev-ref"; "HEAD" |] in
-    fstar_rev := String.sub (read_one_line "git" [| "rev-parse"; "HEAD" |]) 0 8;
-    let color = if branch = "master" then Ansi.green else Ansi.orange in
+  (* Record F* version, as output by the executable. *)
+  begin try
+    let lines = Process.read_stdout !fstar [| "--version" |] in
+    fstar_rev := String.trim (String.concat " " lines);
     if not !Options.silent then
-      KPrint.bprintf "fstar is on %sbranch %s%s\n" color branch Ansi.reset;
-    Sys.chdir cwd
+      KPrint.bprintf "%sfstar version:%s %s\n" Ansi.underline Ansi.reset !fstar_rev
+  with | _ -> ()
   end;
 
   let fstar_includes = List.map expand_prefixes !Options.includes in
@@ -268,7 +254,16 @@ let detect_fstar () =
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
   (* This is a superset of the needed modules... some will be dropped very early
    * on in Karamel.ml *)
-  fstar_options := (!fstar_lib ^^ "FStar.UInt128.fst") :: !fstar_options;
+
+  (* Locate and pass FStar.UInt128 *)
+  let fstar_locate_file f =
+    try read_one_line !fstar [| "--locate_file"; f |]
+    with
+    | _ ->
+      Warn.fatal_error "Could not locate file %s, is F* properly installed?" f
+  in
+  fstar_options := fstar_locate_file "FStar.UInt128.fst" :: !fstar_options;
+
   fstar_options := (!runtime_dir ^^ "WasmSupport.fst") :: !fstar_options;
   if not !Options.silent then
     KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);

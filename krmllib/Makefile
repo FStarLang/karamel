@@ -13,13 +13,7 @@ all: verify-all compile-all
 # Verification & extraction                                                    #
 ################################################################################
 
-ifdef FSTAR_HOME
-  # Assume there is a F* source tree
-  FSTAR_EXE=$(FSTAR_HOME)/bin/fstar.exe
-else
-  # Assume F* in the PATH
-  FSTAR_EXE=fstar.exe
-endif
+FSTAR_EXE ?= fstar.exe
 
 EXTRACT_DIR = .extract
 
@@ -98,7 +92,7 @@ $(EXTRACT_DIR)/%.krml: | .depend
 # We don't extract LowStar.Lib as everything is generic data structures that
 # need to be specialized based on their usage from client code.
 KRML_ARGS += -fparentheses -fcurly-braces -fno-shadow -header copyright-header.txt \
-  -minimal -skip-compilation -extract-uints \
+  -fstar $(FSTAR_EXE) -minimal -skip-compilation -extract-uints \
   -bundle 'LowStar.Lib.\*'
 
 MACHINE_INTS = \
