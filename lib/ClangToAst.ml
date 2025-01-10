@@ -75,11 +75,14 @@ let translate_unop (kind: Clang__Clang__ast.unary_operator_kind) : K.op = match 
 
 let translate_binop (kind: Clang__Clang__ast.binary_operator_kind) : K.op = match kind with
   | PtrMemD | PtrMemI -> failwith "translate_binop: ptr mem"
-  | Mul | Div | Rem -> failwith " translate_binop: arith expr"
 
-  (* TODO: Might need to disambiguate for pointer arithmetic *)
+  (* Disambiguation for pointer arithmetic must be done when calling translate_binop:
+     This is a deeper rewriting than just disambiguating between two K.op *)
   | Add -> Add
   | Sub -> Sub
+  | Mul -> Mult
+
+  | Div | Rem -> failwith " translate_binop: arith expr"
 
   | Shl -> BShiftL
   | Shr -> BShiftR
@@ -110,6 +113,7 @@ let translate_binop (kind: Clang__Clang__ast.binary_operator_kind) : K.op = matc
 
 let translate_typ_name = function
   | "size_t" -> Helpers.usize
+  | "uint8_t" -> Helpers.uint8
   | "uint32_t" -> Helpers.uint32
   | s ->
       Printf.printf "type name %s is unsupported\n" s;
@@ -230,11 +234,17 @@ let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc wit
       let lhs = translate_expr env lhs_ty lhs in
       let rhs = translate_expr env (typ_of_expr rhs) rhs in
       let kind = translate_binop kind in
-      (* TODO: Likely need a "assert_tint_or_tbool" *)
-      let lhs_w = Helpers.assert_tint lhs_ty in
-      let op_type = Helpers.type_of_op kind (Helpers.assert_tint lhs_ty) in
-      let op : Ast.expr = with_type op_type (EOp (kind, lhs_w)) in
-      EApp (op, [lhs; rhs])
+      (* In case of pointer arithmetic, we need to perform a rewriting into EBufSub/Diff *)
+      begin match lhs_ty, kind with
+      | TBuf _, Add -> EBufSub (lhs, rhs)
+      | TBuf _, Sub -> EBufDiff (lhs, rhs)
+      | _ ->
+        (* TODO: Likely need a "assert_tint_or_tbool" *)
+        let lhs_w = Helpers.assert_tint lhs_ty in
+        let op_type = Helpers.type_of_op kind (Helpers.assert_tint lhs_ty) in
+        let op : Ast.expr = with_type op_type (EOp (kind, lhs_w)) in
+        EApp (op, [lhs; rhs])
+      end
 
   | DeclRef {name; _} -> get_id_name name |> find_var env
 
@@ -413,13 +423,13 @@ let translate_fundecl (fdecl: function_decl) =
    TODO: Proper handling of  decls *)
 let translate_decl (decl: decl) = match decl.desc with
   | Function fdecl ->
-    let name = get_id_name fdecl.name in
     (* TODO: How to handle libc? *)
     let loc = Clang.Ast.location_of_node decl |> Clang.Ast.concrete_of_source_location File in
     let file_loc = loc.filename in
     (* TODO: Support multiple files *)
     if file_loc = "test.c" then (
-        (* Printf.printf "Translating function %s\n" name; *)
+        (* let name = get_id_name fdecl.name in
+           Printf.printf "Translating function %s\n" name; *)
         Some (translate_fundecl fdecl)
     ) else None
   | _ -> None
