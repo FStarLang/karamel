@@ -183,7 +183,8 @@ let write_c files internal_headers (deps: Bundles.all_deps Bundles.StringMap.t) 
       my_h ^^ hardline ^^ hardline ^^
       includes
     in
-    write_one (name ^ ".c") prefix program empty;
+    let ext = if !Options.cuda then ".cu" else ".c" in
+    write_one (name ^ ext) prefix program empty;
     name
   ) files
 
