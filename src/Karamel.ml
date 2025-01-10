@@ -202,6 +202,7 @@ Supported options:|}
         let flav = Options.compiler_flavor_of_string s in
         Options.cc_flavor := Some flav), " C compiler flavor; normally autodetected, \
         can be set to 'gcc', 'clang', 'compcert', 'msvc' or 'generic'";
+    "-cuda", Arg.Set Options.cuda, " CUDA mode";
     "-m32", Arg.Set Options.m32, " turn on 32-bit cross-compiling";
     "-fsopt", Arg.String (prepend Options.fsopts), " option to pass to F* (use \
       -fsopts to pass a comma-separated list of values)";
