@@ -1301,7 +1301,6 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
                 (Z.of_int (List.length cases)),
               if custom_values <> [] then List.hd custom_values else Z.zero
             in
-            KPrint.bprintf "max_value=%s, min_value=%s\n" (Z.to_string max_value) (Z.to_string min_value);
             let t =
               if Z.(geq min_value zero && leq max_value (of_string "0xff")) then
                 K.UInt8
