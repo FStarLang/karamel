@@ -51,19 +51,7 @@ FSTAR_EXTRACT = --extract 'OCaml:-* +Spec'
 # - --cache_checked_modules to rely on a pre-built ulib and krmllib
 # - --cache_dir, to avoid polluting our generated build artifacts outside o
 
-# Where is F* ?
-ifndef FSTAR_HOME
-  FSTAR_EXE=$(shell which fstar.exe)
-  ifneq ($(FSTAR_EXE),)
-    # Assuming that fstar.exe is in some ..../bin directory
-    FSTAR_HOME=$(dir $(FSTAR_EXE))/..
-  else
-    $(error "fstar.exe not found, please install FStar")
-  endif
-endif
-export FSTAR_HOME
-
-FSTAR_NO_FLAGS = $(FSTAR_HOME)/bin/fstar.exe $(FSTAR_HINTS) \
+FSTAR_NO_FLAGS = $(FSTAR_EXE) $(FSTAR_HINTS) \
   --odir obj --cache_checked_modules $(FSTAR_INCLUDES) --cmi \
   --already_cached 'Prims FStar LowStar C Spec.Loops TestLib WasmSupport' --warn_error '+241@247+285' \
   --cache_dir obj --hint_dir hints
@@ -234,9 +222,9 @@ dist/libbignum.a: dist/Makefile.basic
 # First complication... no comment.
 # NOTE: if F* was installed via opam, then this is redundant
 ifeq ($(OS),Windows_NT)
-  export OCAMLPATH := $(FSTAR_HOME)/lib;$(OCAMLPATH)
+  export OCAMLPATH := $(shell $(FSTAR_EXE) --locate_ocaml);$(OCAMLPATH)
 else
-  export OCAMLPATH := $(FSTAR_HOME)/lib:$(OCAMLPATH)
+  export OCAMLPATH := $(shell $(FSTAR_EXE) --locate_ocaml):$(OCAMLPATH)
 endif
 
 # Second complication: F* generates a list of ML files in the reverse linking

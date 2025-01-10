@@ -136,9 +136,6 @@ The default arguments are: %s
 All include directories and paths supports special prefixes:
   - if a path starts with FSTAR_LIB, this will expand to wherever F*'s ulib
     directory is
-  - if a path starts with FSTAR_HOME, this will expand to wherever the source
-    checkout of F* is (this does not always exist, e.g. in the case of an OPAM
-    setup)
 
 The compiler switches turn on the following options.
   [-cc gcc] (default) adds [%s]
@@ -192,6 +189,8 @@ Supported options:|}
   in
   let spec = [
     (* KaRaMeL as a driver *)
+    "-fstar", Arg.Set_string Options.fstar, " fstar.exe to use; defaults to \
+      'fstar.exe'";
     "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), \
       compcert, g++, clang, msvc";
     "-m32", Arg.Set Options.m32, " turn on 32-bit cross-compiling";

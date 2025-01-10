@@ -16,6 +16,7 @@ let no_prefix: Bundle.pat list ref = ref Bundle.[
   Module [ "C"; "Compat"; "Endianness" ];
   Module [ "LowStar"; "Endianness" ]
 ]
+let fstar = ref "fstar.exe" (* F* command to use *)
 (* krmllib.h now added directly in Output.ml so that it appears before the first
  * #ifdef *)
 let add_include: (include_ * string) list ref = ref [ ]

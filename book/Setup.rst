@@ -40,7 +40,7 @@ For a nix flake based install use
 
   $ nix shell 
 
-In any case, remember to export suitable values for the ``FSTAR_HOME`` and
+In any case, remember to export suitable values for the ``FSTAR_EXE`` and
 ``KRML_HOME`` environment variables once you're done.
 
 We strongly recommend using the `fstar-mode.el
