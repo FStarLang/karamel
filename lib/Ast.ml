@@ -720,3 +720,7 @@ let flags_of_decl = function
       flags
 
 let tuple_lid = [ "K" ], ""
+
+let fst3 (x, _, _) = x
+let snd3 (_, y, _) = y
+let thd3 (_, _, z) = z
