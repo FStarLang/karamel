@@ -132,11 +132,17 @@ let use_mark_to_inline_temporaries = object (self)
         b.node.name = "scrut" ||
         Structs.should_rewrite b.typ = NoCopies
        ) &&
-      v = AtMost 1 && (
-        is_readonly_c_expression e1 &&
-        safe_readonly_use e2 ||
-        safe_pure_use e2
-      ) (* || is_readonly_and_variable_free_c_expression e1 && b.node.mut *)
+        (v = AtMost 1 && (
+          is_readonly_c_expression e1 &&
+          safe_readonly_use e2 ||
+          safe_pure_use e2
+        ) ||
+        is_readonly_and_variable_free_c_expression e1 && not b.node.mut)
+    (* b.node.mut is an approximation of "the address of this variable is taken"
+       -- TODO this is somewhat incompatible with the phase that changes size-1
+       arrays into variables who address is taken, so we should also check beore
+       inlining that the address of this variable is not taken... this is
+       starting to be quite an expensive check! *)
     then
       (* Don't drop a potentially useful comment into the ether *)
       let e1 = { e1 with meta = e1.meta @ b.meta } in
