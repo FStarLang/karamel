@@ -178,6 +178,12 @@ let is_memcpy (e: expr) = match e.desc with
       name = "__builtin___memcpy_chk"
   | _ -> false
 
+(* Simple heuristics to detect whether a loop condition is always false, in this case we can omit the loop.
+   TODO: Should probably check for absence of side-effects in condition evaluation *)
+let is_trivial_false (e: Ast.expr) = match e.node with
+  (* e != e is always false *)
+  | EApp ({node = EOp (Neq, _); _ }, [e1; e2]) when e1 = e2 -> true
+  | _ -> false
 
 
 (* Translate expression [e], with expected type [t] *)
@@ -309,6 +315,7 @@ let translate_vardecl (env: env) (vdecl: var_decl_desc) : env * binder * Ast.exp
   let name = vdecl.var_name in
   let typ = translate_typ vdecl.var_type in
   match vdecl.var_init with
+  (* Note: This can happen if, for instance, a C definition could not be found *)
   | None -> failwith "Variable declarations without definitions are not supported"
   | Some e -> add_var env name, Helpers.fresh_binder name typ, translate_expr env typ e
 
@@ -367,10 +374,11 @@ let rec translate_stmt' (env: env) (t: typ) (s: stmt_desc) : expr' = match s wit
         Helpers.mk_neq cond (Helpers.zero w)
       | _ -> failwith "incorrect type for while condition"
     in
-    ESequence [
-      body;
-      Ast.with_type TUnit (EWhile (cond, body))
-    ]
+    if is_trivial_false cond then body.node else
+      ESequence [
+        body;
+        Ast.with_type TUnit (EWhile (cond, body))
+      ]
 
   | Label _ -> failwith "translate_stmt: label"
   | Goto _ -> failwith "translate_stmt: goto"
@@ -416,7 +424,7 @@ let translate_fundecl (fdecl: function_decl) =
     | Some s -> translate_stmt env ret_type s.desc
   in
   let decl = Ast.(DFunction (None, [], 0, 0, ret_type, ([], name), args, body)) in
-  (* KPrint.bprintf "Resulting decl %a\n" PrintAst.pdecl decl; *)
+  KPrint.bprintf "Resulting decl %a\n" PrintAst.pdecl decl;
   decl
 
 (* Returning an option is only a hack to make progress.
