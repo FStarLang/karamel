@@ -406,7 +406,7 @@ let translate_fundecl (fdecl: function_decl) =
     | Some s -> translate_stmt env ret_type s.desc
   in
   let decl = Ast.(DFunction (None, [], 0, 0, ret_type, ([], name), args, body)) in
-  KPrint.bprintf "Resulting decl %a\n" PrintAst.pdecl decl;
+  (* KPrint.bprintf "Resulting decl %a\n" PrintAst.pdecl decl; *)
   decl
 
 (* Returning an option is only a hack to make progress.
@@ -419,7 +419,7 @@ let translate_decl (decl: decl) = match decl.desc with
     let file_loc = loc.filename in
     (* TODO: Support multiple files *)
     if file_loc = "test.c" then (
-        Printf.printf "Translating function %s\n" name;
+        (* Printf.printf "Translating function %s\n" name; *)
         Some (translate_fundecl fdecl)
     ) else None
   | _ -> None
@@ -428,7 +428,7 @@ let read_file () =
   let command_line_args = ["-DKRML_UNROLL_MAX 0"] in
   let ast = parse_file ~command_line_args "test.c" in
   (* Format.printf "@[%a@]@." (Refl.pp [%refl: Clang.Ast.translation_unit] []) ast; *)
-  Printf.printf "Trying file %s\n" ast.desc.filename;
+  (* Printf.printf "Trying file %s\n" ast.desc.filename; *)
   let decls = List.filter_map translate_decl ast.desc.items in
   let files = ["test", decls] in
   let files = Simplify.sequence_to_let#visit_files () files in
