@@ -4,6 +4,15 @@
 
 void test(uint32_t *st, uint32_t y, uint32_t z) {
   uint32_t x = y + z;
+
+  int num = 0;
+  int sum = 0;
+
+  // for loop terminates when count exceeds num
+  for(int count = 1; count < num; count++)
+  {
+      sum += count;
+  }
 }
 
 
@@ -69,18 +78,18 @@ static inline void rounds(uint32_t *st)
   double_round(st);
 }
 
-static inline void chacha20_core(uint32_t *k, uint32_t *ctx, uint32_t ctr)
-{
-  memcpy(k, ctx, 16U * sizeof (uint32_t));
-  uint32_t ctr_u32 = ctr;
-  k[12U] = k[12U] + ctr_u32;
-  rounds(k);
-  KRML_MAYBE_FOR16(i,
-    0U,
-    16U,
-    1U,
-    uint32_t x = k[i] + ctx[i];
-    uint32_t *os = k;
-    os[i] = x;);
-  k[12U] = k[12U] + ctr_u32;
-}
+// static inline void chacha20_core(uint32_t *k, uint32_t *ctx, uint32_t ctr)
+// {
+//   memcpy(k, ctx, 16U * sizeof (uint32_t));
+//   uint32_t ctr_u32 = ctr;
+//   k[12U] = k[12U] + ctr_u32;
+//   rounds(k);
+//   KRML_MAYBE_FOR16(i,
+//     0U,
+//     32U,
+//     1U,
+//     uint32_t x = k[i] + ctx[i];
+//     uint32_t *os = k;
+//     os[i] = x;);
+//   k[12U] = k[12U] + ctr_u32;
+// }

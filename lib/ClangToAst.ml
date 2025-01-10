@@ -56,6 +56,23 @@ let assign_to_bop (kind: Clang__Clang__ast.binary_operator_kind) : Ast.expr =
   (* TODO: Infer width and type from types of operands *)
   Ast.with_type Helpers.uint32 (EOp (op, UInt32))
 
+let translate_unop (kind: Clang__Clang__ast.unary_operator_kind) : K.op = match kind with
+  | PostInc -> PostIncr
+  | PostDec -> PostDecr
+  | PreInc -> PreIncr
+  | PreDec -> PreDecr
+  | AddrOf -> failwith "translate_unop: addrof"
+  | Deref -> failwith "translate_unop: deref"
+  | Plus -> failwith "translate_unop: plus"
+  | Minus -> failwith "translate_unop: minus"
+  | Not -> failwith "translate_unop: not"
+  | LNot -> failwith "translate_unop: lnot"
+  | Real -> failwith "translate_unop: real"
+  | Imag -> failwith "translate_unop: imag"
+  | Extension -> failwith "translate_unop: extension"
+  | Coawait -> failwith "translate_unop: coawait"
+  | InvalidUnaryOperator -> failwith "translate_unop: invalid unop"
+
 let translate_binop (kind: Clang__Clang__ast.binary_operator_kind) : K.op = match kind with
   | PtrMemD | PtrMemI -> failwith "translate_binop: ptr mem"
   | Mul | Div | Rem -> failwith " translate_binop: arith expr"
@@ -67,7 +84,14 @@ let translate_binop (kind: Clang__Clang__ast.binary_operator_kind) : K.op = matc
   | Shl -> BShiftL
   | Shr -> BShiftR
 
-  | Cmp | LT | GT | LE | GE | EQ | NE -> failwith "translate_binop: boolcomp"
+  | Cmp -> failwith "translate_binop: cmp"
+
+  | LT -> Lt
+  | GT -> Gt
+  | LE -> Lte
+  | GE -> Gte
+  | EQ -> Eq
+  | NE -> Neq
 
   | And -> BAnd
   (* TODO: How to distinguish between Xor and BXor? Likely need typing info from operands *)
@@ -163,7 +187,22 @@ let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc wit
   | BoolLiteral _ -> failwith "translate_expr: bool literal"
   | NullPtrLiteral -> failwith "translate_expr: null ptr literal"
 
-  | UnaryOperator _ -> failwith "translate_expr: unary operator"
+  | UnaryOperator {kind = PostInc; operand = { desc = DeclRef {name; _}; _ }} ->
+      (* This is a special case for loop increments. The current Karamel
+         extraction pipeline only supports a specific case of loops *)
+      let var_name = get_id_name name in
+      (* TODO: Retrieve correct width *)
+      let w = K.UInt32 in
+      let t = TInt w in
+      let v = find_var env var_name in
+      (* We rewrite `name++` into `name := name + 1` *)
+      EAssign (
+        Ast.with_type t v,
+        Ast.with_type t (EApp (Helpers.mk_op K.Add w, [Ast.with_type t v; Helpers.one w]))
+      )
+
+  | UnaryOperator _ ->
+      failwith "translate_expr: unary operator"
 
   | BinaryOperator {lhs; kind = Assign; rhs} ->
       let lhs = translate_expr env (typ_of_expr lhs) lhs in
@@ -206,9 +245,17 @@ let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc wit
          This function has a fourth argument, corresponding to the number of bytes
          remaining in dst. We omit it during the translation *)
       | [dst; src; len; _] ->
-          let dst = translate_expr env (typ_of_expr dst) dst in
-          let src = translate_expr env (typ_of_expr src) src in
+          (* TODO: The type returned by clangml for the arguments is void*.
+             Hardcoding it to TBuf uint32 to make progress, but to fix
+
+             In particular, clang-analyzer is able to find the correct type.
+             If we cannot get it through clangml, we could alternatively retrieve the type
+             from the sizeof multiplication
+          *)
+          let dst = translate_expr env (TBuf (Helpers.uint32, false)) dst in
+          let src = translate_expr env (TBuf (Helpers.uint32, false)) src in
           begin match len.desc with
+          (* We recognize the case `len = lhs * sizeof (_)` *)
           | BinaryOperator {lhs; kind = Mul; rhs = { desc = UnaryExpr {kind = SizeOf; _}; _}} ->
               let len = translate_expr env Helpers.usize lhs in
               EBufBlit (src, Helpers.zerou32, dst, Helpers.zerou32, len)
@@ -272,7 +319,22 @@ let rec translate_stmt' (env: env) (t: typ) (s: stmt_desc) : expr' = match s wit
         translate_stmt (add_var env "_") t (Compound tl))
    end
 
-  | For  _ -> failwith "translate_stmt: for"
+  | For {init; condition_variable; cond; inc; body} ->
+      assert (condition_variable = None);
+      begin match init, cond, inc with
+      | Some init, Some cond, Some inc ->
+          begin match init.desc with
+          | Decl [{desc = Var vdecl; _}] ->
+            let env, b, init = translate_vardecl env vdecl in
+            let cond = translate_expr env (typ_of_expr cond) cond in
+            let inc = translate_stmt env TUnit inc.desc in
+            let body = translate_stmt env t body.desc in
+            EFor (b, init, cond, inc, body)
+          | _ -> failwith "loop variable must be declared in for loop initializer"
+          end
+      | _ -> failwith "translation of for loops requires initialize, condition, and increment"
+      end
+
   | ForRange _ -> failwith "translate_stmt: for range"
   | If _ -> failwith "translate_stmt: if"
 
@@ -286,12 +348,19 @@ let rec translate_stmt' (env: env) (t: typ) (s: stmt_desc) : expr' = match s wit
        We thus translate it as a sequence of the body and the corresponding while loop *)
     let body = translate_stmt env t body.desc in
     (* TODO: Likely need to translate int conditions to boolean expressions *)
-    let cond = translate_expr env (typ_of_expr cond) cond in
-    ELet (
-      Helpers.sequence_binding (),
-      body,
+    let cond_ty = typ_of_expr cond in
+    let cond = translate_expr env cond_ty cond in
+    let cond = match cond_ty with
+      | TBool -> cond
+      | TInt w ->
+        (* If we have an integer expression [e], the condition is equivalent to `e != 0` *)
+        Helpers.mk_neq cond (Helpers.zero w)
+      | _ -> failwith "incorrect type for while condition"
+    in
+    ESequence [
+      body;
       Ast.with_type TUnit (EWhile (cond, body))
-    )
+    ]
 
   | Label _ -> failwith "translate_stmt: label"
   | Goto _ -> failwith "translate_stmt: goto"
@@ -337,18 +406,8 @@ let translate_fundecl (fdecl: function_decl) =
     | Some s -> translate_stmt env ret_type s.desc
   in
   let decl = Ast.(DFunction (None, [], 0, 0, ret_type, ([], name), args, body)) in
-  (* KPrint.bprintf "Resulting decl %a\n" PrintAst.pdecl decl; *)
+  KPrint.bprintf "Resulting decl %a\n" PrintAst.pdecl decl;
   decl
-
-(* TODO: Builtins might not be needed with a cleaner support for multiple files *)
-let builtins = [
-  (* Functions from inttypes.h *)
-  "imaxabs"; "imaxdiv"; "strtoimax"; "strtoumax"; "wcstoimax"; "wcstoumax";
-  (* From string.h *)
-  "__sputc"; "_OSSwapInt16"; "_OSSwapInt32"; "_OSSwapInt64";
-  (* Krml functions. TODO: Should be handled as multifile *)
-  "krml_time";
-]
 
 (* Returning an option is only a hack to make progress.
    TODO: Proper handling of  decls *)
@@ -366,11 +425,13 @@ let translate_decl (decl: decl) = match decl.desc with
   | _ -> None
 
 let read_file () =
-  let ast = parse_file "test.c" in
+  let command_line_args = ["-DKRML_UNROLL_MAX 0"] in
+  let ast = parse_file ~command_line_args "test.c" in
   (* Format.printf "@[%a@]@." (Refl.pp [%refl: Clang.Ast.translation_unit] []) ast; *)
   Printf.printf "Trying file %s\n" ast.desc.filename;
   let decls = List.filter_map translate_decl ast.desc.items in
   let files = ["test", decls] in
+  let files = Simplify.sequence_to_let#visit_files () files in
   let files = AstToMiniRust.translate_files files in
   let files = OptimizeMiniRust.cleanup_minirust files in
   let files = OptimizeMiniRust.infer_mut_borrows files in
