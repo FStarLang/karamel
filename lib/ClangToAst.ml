@@ -189,6 +189,9 @@ let is_trivial_false (e: Ast.expr) = match e.node with
   | EApp ({node = EOp (Neq, _); _ }, [e1; e2]) when e1 = e2 -> true
   | _ -> false
 
+let extract_sizeof_ty = function
+  | ArgumentExpr _ -> failwith "ArgumentExpr not supported"
+  | ArgumentType ty -> translate_typ ty
 
 (* Translate expression [e], with expected type [t] *)
 let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc with
@@ -266,21 +269,22 @@ let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc wit
          remaining in dst. We omit it during the translation *)
       | [dst; src; len; _] ->
           (* TODO: The type returned by clangml for the arguments is void*.
-             Hardcoding it to TBuf uint32 to make progress, but to fix
+             However, clang-analyzer is able to find the correct type, so it should be possible to get the correct type through clangml
 
-             In particular, clang-analyzer is able to find the correct type.
-             If we cannot get it through clangml, we could alternatively retrieve the type
-             from the sizeof multiplication
+             In the meantime, we extract it from the sizeof call
           *)
-          let dst = translate_expr env (TBuf (Helpers.uint32, false)) dst in
-          let src = translate_expr env (TBuf (Helpers.uint32, false)) src in
-          begin match len.desc with
+          let len, ty = match len.desc with
           (* We recognize the case `len = lhs * sizeof (_)` *)
-          | BinaryOperator {lhs; kind = Mul; rhs = { desc = UnaryExpr {kind = SizeOf; _}; _}} ->
-              let len = translate_expr env Helpers.usize lhs in
-              EBufBlit (src, Helpers.zerou32, dst, Helpers.zerou32, len)
-          | _ -> failwith "ill-formed memcpy"
-          end
+            | BinaryOperator {lhs; kind = Mul; rhs = { desc = UnaryExpr {kind = SizeOf; argument}; _}} ->
+                let len = translate_expr env Helpers.usize lhs in
+                let ty = extract_sizeof_ty argument in
+                len, ty
+            | _ -> failwith "ill-formed memcpy"
+          in
+          let dst = translate_expr env (TBuf (ty, false)) dst in
+          let src = translate_expr env (TBuf (ty, false)) src in
+          EBufBlit (src, Helpers.zerou32, dst, Helpers.zerou32, len)
+
       | _ -> failwith "memcpy does not have the right number of arguments"
       end
 
