@@ -81,8 +81,8 @@ let translate_binop (kind: Clang__Clang__ast.binary_operator_kind) : K.op = matc
   | Add -> Add
   | Sub -> Sub
   | Mul -> Mult
-
-  | Div | Rem -> failwith " translate_binop: arith expr"
+  | Div -> Div
+  | Rem -> Mod
 
   | Shl -> BShiftL
   | Shr -> BShiftR
@@ -142,7 +142,11 @@ let rec translate_typ (typ: qual_type) = match typ.desc with
 
   | LValueReference _ -> failwith "translate_typ: lvalue reference"
   | RValueReference _ -> failwith "translate_typ: rvalue reference"
-  | ConstantArray _ -> failwith "translate_typ: constant array"
+
+  (* ConstantArray is a constant-size array. If we refine the AstToMiniRust analysis,
+    we could extract array length information here *)
+  | ConstantArray { element; _} -> TBuf (translate_typ element, false)
+
   | Enum _ -> failwith "translate_typ: enum"
 
   | FunctionType {result; parameters; _} ->
@@ -311,12 +315,25 @@ let rec translate_expr' (env: env) (t: typ) (e: expr) : expr' = match e.desc wit
 and translate_expr (env: env) (t: typ) (e: expr) : Ast.expr =
   Ast.with_type t (translate_expr' env t e)
 
+let extract_constarray_size (ty: qual_type) = match ty.desc with
+  | ConstantArray {size; _} -> Helpers.mk_uint32 size
+  | _ -> failwith "Type is not a ConstantArray"
+
 let translate_vardecl (env: env) (vdecl: var_decl_desc) : env * binder * Ast.expr =
   let name = vdecl.var_name in
   let typ = translate_typ vdecl.var_type in
   match vdecl.var_init with
   (* Note: This can happen if, for instance, a C definition could not be found *)
-  | None -> failwith "Variable declarations without definitions are not supported"
+  | None ->
+        Format.printf "Variable %s has no body@." name;
+        failwith "Variable declarations without definitions are not supported"
+  | Some {desc = InitList l; _} ->
+        let size = extract_constarray_size vdecl.var_type in
+        (* For now, only support arrays with one element initializer *)
+        assert (List.length l = 1);
+        let e = translate_expr env (Helpers.assert_tbuf typ) (List.hd l) in
+        (* TODO: Arrays are not on stack if at top-level *)
+        add_var env name, Helpers.fresh_binder name typ, Ast.with_type typ (EBufCreate (Common.Stack, e, size))
   | Some e -> add_var env name, Helpers.fresh_binder name typ, translate_expr env typ e
 
 let rec translate_stmt' (env: env) (t: typ) (s: stmt_desc) : expr' = match s with
@@ -324,6 +341,10 @@ let rec translate_stmt' (env: env) (t: typ) (s: stmt_desc) : expr' = match s wit
 
   | Compound l -> begin match l with
     | [] -> EUnit
+    | [{desc = Decl [{desc = Var vdecl; _ }]; _}] ->
+        let _, b, e = translate_vardecl env vdecl in
+        ELet (b, e, Helpers.eunit)
+    | [stmt] -> translate_stmt' env TUnit stmt.desc
     | hd :: tl -> match hd.desc with
       | Decl [{desc = Var vdecl; _ }] ->
           let env', b, e = translate_vardecl env vdecl in
@@ -353,7 +374,17 @@ let rec translate_stmt' (env: env) (t: typ) (s: stmt_desc) : expr' = match s wit
       end
 
   | ForRange _ -> failwith "translate_stmt: for range"
-  | If _ -> failwith "translate_stmt: if"
+  | If {init; condition_variable; cond; then_branch; else_branch} ->
+      (* These two fields should be specific to C++ *)
+      assert (init = None);
+      assert (condition_variable = None);
+      let cond = translate_expr env (typ_of_expr cond) cond in
+      let then_b = translate_stmt env TUnit then_branch.desc in
+      let else_b = match else_branch with
+        | None -> Helpers.eunit
+        | Some el -> translate_stmt env TUnit el.desc
+      in
+      EIfThenElse (cond, then_b, else_b)
 
   | Switch _ -> failwith "translate_stmt: switch"
   | Case _ -> failwith "translate_stmt: case"
@@ -387,7 +418,12 @@ let rec translate_stmt' (env: env) (t: typ) (s: stmt_desc) : expr' = match s wit
   | Continue -> failwith "translate_stmt: continue"
   | Break -> failwith "translate_stmt: break"
   | Asm _ -> failwith "translate_stmt: asm"
-  | Return _ -> failwith "translate_stmt: return"
+
+  (* TODO: Should this be an EReturn ? If so, need to support Return constructs in MiniRust *)
+  | Return eo -> begin match eo with
+        | None -> EUnit
+        | Some e -> translate_expr' env (typ_of_expr e) e
+    end
 
   | Decl _ -> failwith "translate_stmt: decl"
   | Expr e -> translate_expr' env t e
@@ -424,7 +460,7 @@ let translate_fundecl (fdecl: function_decl) =
     | Some s -> translate_stmt env ret_type s.desc
   in
   let decl = Ast.(DFunction (None, [], 0, 0, ret_type, ([], name), args, body)) in
-  KPrint.bprintf "Resulting decl %a\n" PrintAst.pdecl decl;
+  (* KPrint.bprintf "Resulting decl %a\n" PrintAst.pdecl decl; *)
   decl
 
 (* Returning an option is only a hack to make progress.
