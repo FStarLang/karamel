@@ -32,8 +32,6 @@ include Makefile.include
 # Definition of F* flags
 # ----------------------
 
-FSTAR_HINTS ?= --use_hints --use_hint_hashes --record_hints
-
 # This flag controls what gets extracted to OCaml. Generally, we don't extract
 # the FStar namespace since it's already extracted and packaged as the ocamlfind
 # package fstar.lib. Here, unlike in -bundle, +Spec matches both Spec and
@@ -51,10 +49,10 @@ FSTAR_EXTRACT = --extract 'OCaml:-* +Spec'
 # - --cache_checked_modules to rely on a pre-built ulib and krmllib
 # - --cache_dir, to avoid polluting our generated build artifacts outside o
 
-FSTAR_NO_FLAGS = $(FSTAR_EXE) $(FSTAR_HINTS) \
+FSTAR_NO_FLAGS = $(FSTAR_EXE) --ext context_pruning \
   --odir obj --cache_checked_modules $(FSTAR_INCLUDES) --cmi \
   --already_cached 'Prims FStar LowStar C Spec.Loops TestLib WasmSupport' --warn_error '+241@247+285' \
-  --cache_dir obj --hint_dir hints
+  --cache_dir obj
 
 # Initial dependency analysis
 # ---------------------------
@@ -92,9 +90,6 @@ FSTAR = $(FSTAR_NO_FLAGS) $(OTHERFLAGS)
 
 # Creating these directories via a make rule, rather than rely on F* creating
 # them, as two calls to F* might race.
-hints:
-	mkdir $@
-
 obj:
 	mkdir $@
 
@@ -119,7 +114,7 @@ obj:
 # Note: F* will not change the mtime of a checked file if it is
 # up-to-date (checksum matches, file unchanged), but this will confuse
 # make and result in endless rebuilds. So, we touch that file.
-%.checked: | hints obj
+%.checked: | obj
 	$(FSTAR) $< $(FSTAR_FLAGS) && touch -c $@
 
 # Extraction
