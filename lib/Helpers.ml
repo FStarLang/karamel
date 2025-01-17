@@ -27,6 +27,7 @@ end
 
 (* Creating AST nodes *********************************************************)
 
+let uint8 = TInt K.UInt8
 let uint32 = TInt K.UInt32
 let usize = TInt K.SizeT
 
