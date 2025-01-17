@@ -70,7 +70,6 @@ NEGATIVE	= false
 WEB_DIR		?= web
 CACHE_DIR	= .cache
 OUTPUT_DIR	= .output
-HINTS_DIR	= .hints
 
 ifneq ($(CRYPTO),)
   INCLUDE_CRYPTO=--include $(CRYPTO)
@@ -79,7 +78,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
   --include hello-system --include ../krmllib/compat --include ../krmllib/obj \
   --include ../krmllib --include ../runtime \
-  $(INCLUDE_CRYPTO) --include ../book --include ../book/notfslit --use_hints --record_hints \
+  $(INCLUDE_CRYPTO) --include ../book --include ../book/notfslit --ext context_pruning \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274
@@ -109,11 +108,8 @@ endif
 
 include .depend
 
-$(HINTS_DIR):
-	mkdir -p $@
-
-$(CACHE_DIR)/%.checked: | .depend $(HINTS_DIR)
-	$(FSTAR) $(OTHERFLAGS) --hint_file $(HINTS_DIR)/$*.hints $< && \
+$(CACHE_DIR)/%.checked: | .depend
+	$(FSTAR) $(OTHERFLAGS) $< && \
 	touch $@
 
 $(OUTPUT_DIR)/%.krml: | .depend

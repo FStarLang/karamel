@@ -34,12 +34,13 @@ typedef void *FStar_Pervasives_ambient;
 #define FStar_Pervasives_Reify 9
 #define FStar_Pervasives_NormDebug 10
 #define FStar_Pervasives_UnfoldOnly 11
-#define FStar_Pervasives_UnfoldFully 12
-#define FStar_Pervasives_UnfoldAttr 13
-#define FStar_Pervasives_UnfoldQual 14
-#define FStar_Pervasives_UnfoldNamespace 15
-#define FStar_Pervasives_Unmeta 16
-#define FStar_Pervasives_Unascribe 17
+#define FStar_Pervasives_UnfoldOnce 12
+#define FStar_Pervasives_UnfoldFully 13
+#define FStar_Pervasives_UnfoldAttr 14
+#define FStar_Pervasives_UnfoldQual 15
+#define FStar_Pervasives_UnfoldNamespace 16
+#define FStar_Pervasives_Unmeta 17
+#define FStar_Pervasives_Unascribe 18
 
 typedef uint8_t FStar_Pervasives_norm_step_tags;
 
@@ -48,6 +49,7 @@ typedef struct FStar_Pervasives_norm_step_s
   FStar_Pervasives_norm_step_tags tag;
   union {
     Prims_list__Prims_string *case_UnfoldOnly;
+    Prims_list__Prims_string *case_UnfoldOnce;
     Prims_list__Prims_string *case_UnfoldFully;
     Prims_list__Prims_string *case_UnfoldAttr;
     Prims_list__Prims_string *case_UnfoldQual;
@@ -83,6 +85,11 @@ extern bool FStar_Pervasives_uu___is_UnfoldOnly(FStar_Pervasives_norm_step proje
 
 extern Prims_list__Prims_string
 *FStar_Pervasives___proj__UnfoldOnly__item___0(FStar_Pervasives_norm_step projectee);
+
+extern bool FStar_Pervasives_uu___is_UnfoldOnce(FStar_Pervasives_norm_step projectee);
+
+extern Prims_list__Prims_string
+*FStar_Pervasives___proj__UnfoldOnce__item___0(FStar_Pervasives_norm_step projectee);
 
 extern bool FStar_Pervasives_uu___is_UnfoldFully(FStar_Pervasives_norm_step projectee);
 
@@ -131,6 +138,8 @@ extern FStar_Pervasives_norm_step FStar_Pervasives_nbe;
 extern FStar_Pervasives_norm_step FStar_Pervasives_reify_;
 
 extern FStar_Pervasives_norm_step FStar_Pervasives_delta_only(Prims_list__Prims_string *s);
+
+extern FStar_Pervasives_norm_step FStar_Pervasives_delta_once(Prims_list__Prims_string *s);
 
 extern FStar_Pervasives_norm_step FStar_Pervasives_delta_fully(Prims_list__Prims_string *s);
 

@@ -22,7 +22,7 @@ UINT128_DIR = dist/uint128
 MINI_DIR = dist/minimal
 
 #332 is turning abstract keyword usage into a fatal error
-FSTAR_OPTIONS += --record_hints --use_hints --odir $(EXTRACT_DIR) \
+FSTAR_OPTIONS += --ext context_pruning --odir $(EXTRACT_DIR) \
   --warn_error @332
   # --use_extracted_interfaces
 
@@ -37,7 +37,6 @@ ifneq ($(RESOURCEMONITOR),)
 endif
 
 FSTAR = $(RUNLIM) $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules --cache_dir obj \
-  --hint_dir hints \
   $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
   --already_cached 'Prims FStar -FStar.Krml.Endianness LowStar -LowStar.Lib'
 
