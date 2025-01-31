@@ -283,8 +283,9 @@ let direct_dependencies_with_internal files file_of =
       match file_of callee with
       | Some f when f <> fst file && not (Helpers.is_primitive callee) ->
           let is_internal = LidSet.mem callee internal in
-          KPrint.bprintf "In file %s, reference to %a (in %sheader %s)\n"
-            (fst file) PrintAst.plid callee (if is_internal then "internal " else "") f;
+          if Options.debug "dependencies" then
+            KPrint.bprintf "In file %s, reference to %a (in %sheader %s)\n"
+              (fst file) PrintAst.plid callee (if is_internal then "internal " else "") f;
           if is_internal then
             { empty_deps with internal = StringSet.singleton f }
           else
@@ -293,16 +294,16 @@ let direct_dependencies_with_internal files file_of =
           empty_deps
     in
     let is_inline_static lid = List.exists (fun p -> Bundle.pattern_matches_lid p lid) !Options.static_header in
-    let header_deps which = object
+    let header_deps which = object(self)
       inherit (record_everything gen_dep) as super
 
+      method private concerns_us flags =
+        match which with
+        | `Public -> not (List.mem Common.Internal flags) && not (List.mem Common.Private flags)
+        | `Internal ->  List.mem Common.Internal flags
+
       method! visit_DFunction env cc flags n_cgs n ret name binders body =
-        let concerns_us =
-          match which with
-          | `Public -> not (List.mem Common.Internal flags) && not (List.mem Common.Private flags)
-          | `Internal ->  List.mem Common.Internal flags
-        in
-        if concerns_us then
+        if self#concerns_us flags then
           if is_inline_static name then
             super#visit_DFunction env cc flags n_cgs n ret name binders body
           else
@@ -312,24 +313,37 @@ let direct_dependencies_with_internal files file_of =
           super#zero
 
       method! visit_DType env name flags n_cgs n def =
-        let concerns_us =
-          match which with
-          | `Public -> not (List.mem Common.Internal flags) && not (List.mem Common.Private flags)
-          | `Internal ->  List.mem Common.Internal flags
-        in
         let is_c_abstract_struct = List.mem Common.AbstractStruct flags in
-        if concerns_us then
+        if self#concerns_us flags then
           if is_c_abstract_struct then
             super#visit_DType env name flags n_cgs n (Abbrev TUnit)
           else
             super#visit_DType env name flags n_cgs n def
         else
           super#zero
+
+      method! visit_DGlobal env flags name n t body =
+        if self#concerns_us flags then
+          if is_inline_static name then
+            super#visit_DGlobal env flags name n t body
+          else
+            super#visit_DGlobal env flags name n t Helpers.eunit
+        else
+          super#zero
     end in
     let deps = {
-      h = (KPrint.bprintf "PUBLIC %s\n" (fst file); header_deps `Public)#visit_file () file;
-      internal_h = (KPrint.bprintf "INTERNAL %s\n" (fst file); header_deps `Internal)#visit_file () file;
-      c = (KPrint.bprintf "C %s\n" (fst file); new record_everything gen_dep)#visit_file () file;
+      h = (
+        if Options.debug "dependencies" then
+          KPrint.bprintf "PUBLIC %s\n" (fst file);
+        (header_deps `Public)#visit_file () file);
+      internal_h = (
+        if Options.debug "dependencies" then
+          KPrint.bprintf "INTERNAL %s\n" (fst file);
+        (header_deps `Internal)#visit_file () file);
+      c = (
+        if Options.debug "dependencies" then
+          KPrint.bprintf "C %s\n" (fst file);
+        (new record_everything gen_dep)#visit_file () file);
     } in
 
     if not (StringSet.is_empty deps.h.internal) then
