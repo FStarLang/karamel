@@ -192,7 +192,7 @@ let write_h files public_headers (deps: Bundles.all_deps Bundles.StringMap.t) =
           let internal_headers = List.map (fun f -> "internal/" ^ f) internal in
           let headers =
             if Bundles.StringSet.mem name public_headers then
-              ("../" ^ name) :: internal_headers
+              ("../" ^ name) :: public @ internal_headers
             else
               public @ internal_headers
           in
