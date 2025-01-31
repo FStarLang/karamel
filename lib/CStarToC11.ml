@@ -1522,19 +1522,18 @@ let mk_headers (map: GlobalNames.mapping)
   ) [] files in
   List.rev headers
 
-let drop_empty_headers deps headers: Bundles.deps Bundles.StringMap.t =
+let drop_empty_headers deps headers: Bundles.all_deps Bundles.StringMap.t =
   let open Bundles in
   (* Refine dependencies to ignore now-gone empty headers. *)
-  let not_dropped_internal f = List.exists (function
-    | (name, C.Internal _) when f = name -> true
-    | _ -> false
-  ) headers in
-  let not_dropped_public f = List.exists (function
-    | (name, Public _) when f = name -> true
-    | _ -> false
-  ) headers in
-  StringMap.map (fun { internal; public } -> {
+  let kept_internal = List.filter_map (function (name, C.Internal _) -> Some name | _ -> None) headers in
+  let kept_public = List.filter_map (function (name, C.Public _) -> Some name | _ -> None) headers in
+  let not_dropped_internal f = List.mem f kept_internal in
+  let not_dropped_public f = List.mem f kept_public in
+  let filter_dep { internal; public } = {
     internal = StringSet.filter not_dropped_internal internal;
     public = StringSet.filter not_dropped_public public
-  }) deps
+  } in
+  StringMap.map (fun { h; internal_h; c } ->
+    { h = filter_dep h; internal_h = filter_dep internal_h; c = filter_dep c }
+  ) deps
 

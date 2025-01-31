@@ -140,14 +140,15 @@ let maybe_create_internal_dir h =
   if List.exists (function (_, C11.Internal _) -> true | _ -> false) h then
     create_subdir "internal"
 
-let write_c files internal_headers deps =
+let write_c files internal_headers (deps: Bundles.all_deps Bundles.StringMap.t) =
   Driver.detect_fstar_if ();
   Driver.detect_karamel_if ();
   List.map (fun file ->
     let name, program = file in
-    let deps = Bundles.StringMap.find name deps in
-    let deps = List.of_seq (Bundles.StringSet.to_seq deps.Bundles.internal) in
-    let deps = List.map (fun f -> "internal/" ^ f) deps in
+    let all_deps = Bundles.StringMap.find name deps in
+    let internal_deps = List.of_seq (Bundles.StringSet.to_seq all_deps.Bundles.c.Bundles.internal) in
+    let public_deps = List.of_seq (Bundles.StringSet.to_seq all_deps.Bundles.c.Bundles.public) in
+    let deps = List.map (fun f -> "internal/" ^ f) internal_deps @ public_deps in
     let includes = includes_for ~is_c:true name deps in
     let header = string (header ()) ^^ hardline ^^ hardline in
     let internal = if Bundles.StringSet.mem name internal_headers then "internal/" else "" in
@@ -170,10 +171,14 @@ let write_c files internal_headers deps =
     name
   ) files
 
-let write_h files public_headers deps =
+let write_h files public_headers (deps: Bundles.all_deps Bundles.StringMap.t) =
   List.map (fun file ->
     let name, program = file in
-    let { Bundles.public; internal } = Bundles.StringMap.find name deps in
+    let all_deps = Bundles.StringMap.find name deps in
+    let { Bundles.public; internal } = match program with
+      | C11.Internal _ -> all_deps.Bundles.internal_h
+      | C11.Public _ -> all_deps.Bundles.h
+    in
     let public = List.of_seq (Bundles.StringSet.to_seq public) in
     let internal = List.of_seq (Bundles.StringSet.to_seq internal) in
     let original_name = name in
