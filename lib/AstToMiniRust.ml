@@ -594,9 +594,9 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
 and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env * MiniRust.expr =
   (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
 
-  let erase_lifetime_info = (object(self)
+  let erase_lifetime_and_borrow_kind_info = (object(self)
     inherit [_] MiniRust.DeBruijn.map
-    method! visit_Ref env _ bk t = Ref (None, bk, self#visit_typ env t)
+    method! visit_Ref env _ _ t = Ref (None, Shared, self#visit_typ env t)
     method! visit_tname _ n _ = Name (n, [])
   end)#visit_typ ()
   in
@@ -662,8 +662,11 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         (* If we reach this case, we perform one last try by erasing the lifetime
            information in both terms. This is useful to handle, e.g., implicit lifetime
            annotations or annotations up to alpha-conversion.
-           Note, this is sound as lifetime mismatches will be caught by the Rust compiler *)
-        if erase_lifetime_info t = erase_lifetime_info t_ret then
+           Note, this is sound as lifetime mismatches will be caught by the Rust compiler.
+           We similarly erase borrow kind information, which should only mismatch when relying
+           on external, assumed declarations: these will be handled during mutability inference,
+           and also rechecked by the Rust compiler. *)
+        if erase_lifetime_and_borrow_kind_info t = erase_lifetime_and_borrow_kind_info t_ret then
           x
         else
           Warn.failwith "type mismatch;\n  e=%a\n  t=%a (verbose: %s)\n  t_ret=%a\n  x=%a"
