@@ -1248,6 +1248,7 @@ let compute_derives files =
         match decl with
         | Function _ -> failwith "impossible"
         | Constant _ -> failwith "impossible"
+        | Assumed _ -> failwith "impossible"
         | Alias _  -> TraitSet.empty
         | Struct { fields; _ } ->
             let ts = List.map (fun (sf: struct_field) -> traits sf.typ) fields in

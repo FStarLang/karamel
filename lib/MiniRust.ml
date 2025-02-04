@@ -196,6 +196,14 @@ type decl =
     generic_params: generic_param list;
     meta: meta;
   }
+  (* We need to keep assumed/external functions to perform mutability inference
+     at the MiniRust level. However, these nodes will not be printed at code
+     generation *)
+  | Assumed of {
+    name: name;
+    parameters: typ list;
+    return_type: typ;
+  }
 
 and item =
   (* Not supporting tuples yet *)
@@ -383,7 +391,8 @@ let name_of_decl (d: decl) =
   | Enumeration { name; _ }
   | Struct { name; _ }
   | Function { name; _ }
-  | Constant { name; _ } ->
+  | Constant { name; _ }
+  | Assumed {name; _ } ->
       name
 
 let zero_usize: expr = Constant (Constant.SizeT, "0")
