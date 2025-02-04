@@ -669,6 +669,8 @@ let infer_function (env: env) valuation (d: decl): decl =
          the traversal does not add or remove any bindings, but only increases the
          mutability, we can do a direct replacement instead of a more complex merge *)
       Function { f with body; parameters }
+  (* Assumed functions already have their mutability specified, we skip them *)
+  | Assumed _ -> d
   | _ ->
       assert false
 
@@ -1021,6 +1023,8 @@ let infer_mut_borrows files =
         List.filter_map (function
           | Function { parameters; name; _ } ->
               Some (name, List.map (fun (p: MiniRust.binding) -> p.typ) parameters)
+          | Assumed { name; parameters; _ } ->
+              Some (name, parameters)
           | _ ->
               None
         ) decls) files))
@@ -1044,6 +1048,7 @@ let infer_mut_borrows files =
     else
       match infer_function env valuation (NameMap.find name definitions) with
       | Function { parameters; _ } -> distill (List.map (fun (b: MiniRust.binding) -> b.typ) parameters)
+      | Assumed { parameters; _ } -> distill parameters
       | _ -> failwith "impossible"
   in
 

@@ -1400,8 +1400,13 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
       let meta = translate_meta flags in
       Some (MiniRust.Constant { name; typ; body; meta })
 
-  | DExternal _ ->
-      None
+  | DExternal (_, _, _, _, lid, _, _) ->
+      let name, parameters, return_type =
+        match lookup_decl env lid with
+        | name, Function (_, parameters, return_type) -> name, parameters, return_type
+        | _ -> failwith " impossible"
+      in
+      Some (MiniRust.Assumed { name; parameters; return_type })
 
   | DType (lid, flags, _, _, decl) ->
       let name = lookup_type env lid in
