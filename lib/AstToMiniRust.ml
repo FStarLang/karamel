@@ -416,17 +416,24 @@ let translate_unknown_lid (m, n) =
   let m = compress_prefix m in
   List.map String.lowercase_ascii m @ [ n ]
 
-let borrow_kind_of_bool _b: MiniRust.borrow_kind =
-  Shared
+let borrow_kind_of_bool b: MiniRust.borrow_kind =
+  if b then Shared (* Constant pointer case *)
+  else Mut
 
 type config = {
   box: bool;
   lifetime: MiniRust.lifetime option;
+  (* Rely on the Ast type to set borrow mutability.
+     Should always be set to false to correctly infer
+     mutability in a later pass, except when translating
+    external (assumed) declarations *)
+  keep_mut: bool;
 }
 
 let default_config = {
   box = false;
   lifetime = None;
+  keep_mut = false;
 }
 
 let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): MiniRust.typ =
@@ -440,7 +447,7 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
         MiniRust.box (Slice (translate_type_with_config env config t))
         (* Vec (translate_type_with_config env config t) *)
       else
-        Ref (config.lifetime, borrow_kind_of_bool b, Slice (translate_type_with_config env config t))
+        Ref (config.lifetime, (if config.keep_mut then borrow_kind_of_bool b else Shared), Slice (translate_type_with_config env config t))
   | TArray (t, c) -> Array (translate_type_with_config env config t, int_of_string (snd c))
   | TQualified lid ->
       let generic_params =
@@ -1272,7 +1279,7 @@ let bind_decl env (d: Ast.decl): env =
 
   | DExternal (_, _, _, type_parameters, lid, t, _param_names) ->
       let name = translate_unknown_lid lid in
-      push_decl env lid (name, make_poly (translate_type env t) type_parameters)
+      push_decl env lid (name, make_poly (translate_type_with_config env {default_config with keep_mut = true} t) type_parameters)
 
   | DType (lid, _flags, _, _, decl) ->
       let env, name =
@@ -1299,7 +1306,7 @@ let bind_decl env (d: Ast.decl): env =
           in
           let fields = List.map (fun (f, (t, _m)) ->
             let f = Option.get f in
-            { MiniRust.name = f; visibility = Some Pub; typ = translate_type_with_config env { box; lifetime } t }
+            { MiniRust.name = f; visibility = Some Pub; typ = translate_type_with_config env { box; lifetime; keep_mut = false } t }
           ) fields in
           { env with
             struct_fields = DataTypeMap.add (`Struct lid) fields env.struct_fields }
@@ -1316,7 +1323,7 @@ let bind_decl env (d: Ast.decl): env =
           List.fold_left (fun env (cons, fields) ->
             let cons_lid = `Variant (lid, cons) in
             let fields = List.map (fun (f, (t, _)) ->
-              { MiniRust.name = f; visibility = Some Pub; typ = translate_type_with_config env { box; lifetime } t }
+              { MiniRust.name = f; visibility = Some Pub; typ = translate_type_with_config env { box; lifetime; keep_mut = false } t }
             ) fields
             in
             { env with
