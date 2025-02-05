@@ -101,7 +101,8 @@ let distill ts =
 (* Get the type of the arguments of `name`, based on the current state of
    `valuation` *)
 let lookup env valuation name =
-  (* KPrint.bprintf "lookup: %a\n" PrintMiniRust.pname name; *)
+  if not (NameMap.mem name env.signatures) then
+    KPrint.bprintf "ERROR looking up: %a\n" PrintMiniRust.pname name;
   let ts = NameMap.find name env.signatures in
   adjust ts (valuation name)
 
