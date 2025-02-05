@@ -303,6 +303,10 @@ let direct_dependencies_with_internal files file_of =
         | `Internal ->  List.mem Common.Internal flags
 
       method! visit_DFunction env cc flags n_cgs n ret name binders body =
+        (* KPrint.bprintf "function %a: concern us=%b %b %b \n" *)
+        (*   PrintAst.Ops.plid name *)
+        (*   (self#concerns_us flags) *)
+        (*   (List.mem Common.Internal flags) (List.mem Common.Private flags); *)
         if self#concerns_us flags then
           if is_inline_static name then
             super#visit_DFunction env cc flags n_cgs n ret name binders body
