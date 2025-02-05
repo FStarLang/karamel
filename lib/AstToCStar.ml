@@ -210,7 +210,7 @@ let whitelisted_tapp e =
 let no_return_type_lids = ref []
 
 let rec unit_to_void env e es extra =
-  let mk_expr env e = mk_expr env false e in
+  let mk_expr env e = mk_expr env false false e in
   match es with
   | [ { node = EUnit; _ } ] ->
       CStar.Call (mk_expr env e, [] @ extra)
@@ -313,13 +313,22 @@ and is_arith op w =
 (* As an optimization, this function returns a boolean indicating whether the
    arithmetic expression was "atomic", i.e. something that certainly doesn't
    have extra bits beyond the intended width of the type. Globals, results of
-   function calls, anything not an arithmetic operation, really, is atomic. *)
+   function calls, anything not an arithmetic operation, really, is atomic.
+
+   We now also return a boolean indicating whether this expression was widened
+   (per the compilation strategy above).
+   - In C, we rely on implicit narrowing conversions, and let the (wider)
+     arithmetic expression be { assigned, returned, passed } at a narrow type.
+   - In C++, initializer lists are intended to disallow this beahvior, so if the
+     boolean is true, if we are in C++, and if we are under an initializer list
+     (mostly, EBufCreateL and/or ECons a.k.a. initializer lists for arrays and
+     structs), then we narrow-cast, relying on the third boolean. *)
 and mk_arith env e =
   let mask_if is_atomic w e = if is_atomic then e else mask w e in
   match e.node with
   | EApp ({ node = EOp (op, w); _ }, [ e1; e2 ]) when is_arith op w ->
-      let e1, a1 = mk_arith env e1 in
-      let e2, a2 = mk_arith env e2 in
+      let e1, a1, w1 = mk_arith env e1 in
+      let e2, a2, w2 = mk_arith env e2 in
       begin match op with
       | Add | AddW | Sub | SubW | Mult | MultW | BOr | BAnd | BXor | BNot | BShiftL ->
           CStar.Call (Op op, [ e1; e2 ])
@@ -329,27 +338,27 @@ and mk_arith env e =
           CStar.Call (Op op, [ mask_if a1 w e1; e2 ])
       | _ ->
           assert false
-      end, false
+      end, false, w1 || w2
   | EConstant _ ->
       (* Constants are emitted with the U suffix which preserves the invariant
          that every subexpression operates over unsigned int until the final
          cast, or until a mask is needed to preserve semantics. *)
-      mk_expr env false e, true
+      mk_expr env false false e, true, false (* C++: a constant that is wider than the intended type, but in an initializer list, is ok *)
   | _ ->
       (* Something else. Who knows? Maybe a function call, a field reference, a
          variable, a global... which will be upcast into `int`, which is *not*
          what we want! (See compilation strategy above.). We cast. *)
       if e.typ = TInt UInt16 || e.typ = TInt UInt8 then
-        CStar.Cast (mk_expr env false e, Int UInt32), true
+        CStar.Cast (mk_expr env false false e, Int UInt32), true, true
       else
-        mk_expr env false e, true
+        mk_expr env false false e, true, false
 
 and return_type_not_needed e =
   match e.node with
   | EQualified lid when List.mem lid !no_return_type_lids -> true
   | _ -> false
 
-and mk_expr env in_stmt e =
+and mk_expr env in_stmt under_initializer_list e =
   (* Wrap in comment node if need be. *)
   let meta = match e.node with ELet (b, _, _) -> b.meta @ e.meta | _ -> e.meta in
   begin match List.filter_map (function CommentBefore s -> Some s | _ -> None) meta,
@@ -360,7 +369,7 @@ and mk_expr env in_stmt e =
   end @@
 
   (* Actual translation. *)
-  let mk_expr env e = mk_expr env false e in
+  let mk_expr env u e = mk_expr env false u e in
   match e.node with
   | EBound var ->
       CStar.Var (find env var)
@@ -387,7 +396,11 @@ and mk_expr env in_stmt e =
       unit_to_void env e0 (cgs @ cgs') (List.map (fun t -> CStar.Type (mk_type env t)) ts @ [ ret_t ])
 
   | EApp ({ node = EOp (op, w); _ }, [ _; _ ]) when is_arith op w ->
-      fst (mk_arith env e)
+      let e', _, widened = mk_arith env e in
+      if !Options.cxx_compat && under_initializer_list && widened then
+        Cast (e', mk_type env e.typ)
+      else
+        e'
 
   | EApp (e, es) ->
       (* Functions that only take a unit take no argument. *)
@@ -404,15 +417,15 @@ and mk_expr env in_stmt e =
       else
         call
   | EBufCreate (l, e1, e2) ->
-      CStar.BufCreate (l, mk_expr env e1, mk_expr env e2)
+      CStar.BufCreate (l, mk_expr env false e1, mk_expr env false e2)
   | EBufCreateL (l, es) ->
-      CStar.BufCreateL (l, List.map (mk_expr env) es)
+      CStar.BufCreateL (l, List.map (mk_expr env true) es)
   | EBufRead (e1, e2) ->
-      CStar.BufRead (mk_expr env e1, mk_expr env e2)
+      CStar.BufRead (mk_expr env false e1, mk_expr env false e2)
   | EBufSub (e1, e2) ->
-      CStar.BufSub (mk_expr env e1, mk_expr env e2)
+      CStar.BufSub (mk_expr env false e1, mk_expr env false e2)
   | EBufDiff (e1, e2) ->
-      CStar.Call (CStar.Op K.Sub, [mk_expr env e1; mk_expr env e2])
+      CStar.Call (CStar.Op K.Sub, [mk_expr env false e1; mk_expr env false e2])
   | EOp (o, _) ->
       CStar.Op o
   | EPolyComp (c, _) ->
@@ -421,7 +434,7 @@ and mk_expr env in_stmt e =
          scalar type in C that is supported by C's equality comparison. *)
       CStar.Op (K.op_of_poly_comp c)
   | ECast (e, t) ->
-      CStar.Cast (mk_expr env e, mk_type env t)
+      CStar.Cast (mk_expr env false e, mk_type env t)
   | EAbort (t, s) ->
       let t = match t with Some t -> t | None -> e.typ in
       CStar.EAbort (mk_type env t, Option.value ~default:"" s)
@@ -436,13 +449,13 @@ and mk_expr env in_stmt e =
   | EFlat fields ->
       let name = match e.typ with TQualified lid -> Some lid | _ -> None in
       CStar.Struct (name, List.map (fun (name, expr) ->
-        name, mk_expr env expr
+        name, mk_expr env true expr
       ) fields)
   | EField (expr, field) ->
-      CStar.Field (mk_expr env expr, field)
+      CStar.Field (mk_expr env false expr, field)
 
   | EAddrOf e ->
-      CStar.AddrOf (mk_expr env e)
+      CStar.AddrOf (mk_expr env false e)
 
   | EBufNull ->
       CStar.BufNull
@@ -459,9 +472,9 @@ and mk_ignored_stmt env e =
     let s =
       match e.typ with
       | TUnit ->
-          CStar.Ignore (mk_expr env true e)
+          CStar.Ignore (mk_expr env true false e)
       | _ ->
-          CStar.Ignore (CStar.Cast (mk_expr env true e, CStar.Void))
+          CStar.Ignore (CStar.Cast (mk_expr env true false e, CStar.Void))
     in
     env, [s]
 
@@ -486,12 +499,12 @@ and mk_stmts env e ret_type =
     match e.node with
     | ELet (b, e1, e2) ->
         let env, binder = mk_and_push_binder env b Local (Some e1) [ e2 ]
-        and e1 = mk_expr env false e1 in
+        and e1 = mk_expr env false false e1 in
         let acc = CStar.Decl (binder, e1) :: comment (e.meta @ b.meta) @ acc in
         collect (env, acc) return_pos e2
 
     | EWhile (e1, e2) ->
-        let e' = CStar.While (mk_expr env false e1, mk_block env Not e2) in
+        let e' = CStar.While (mk_expr env false false e1, mk_block env Not e2) in
         env, maybe_return (e' :: comment e.meta @ acc)
 
     | EFor (binder,
@@ -545,7 +558,7 @@ and mk_stmts env e ret_type =
         let is_solo_assignment = binder.node.meta = Some MetaSequence in
         (* TODO: shouldn't e1 be added here? *)
         let env', binder = mk_and_push_binder env binder Local (Some e1) [ e2; e3; e4 ] in
-        let e2 = mk_expr env' false e2 in
+        let e2 = mk_expr env' false false e2 in
         let e3 = KList.last (mk_block env' Not e3) in
         let e4 = mk_block env' Not e4 in
         let e' =
@@ -557,7 +570,7 @@ and mk_stmts env e ret_type =
             in
             CStar.For (e1, e2, e3, e4)
           else
-            let e1 = mk_expr env false e1 in
+            let e1 = mk_expr env false false e1 in
             CStar.For (`Decl (binder, e1), e2, e3, e4)
         in
         env', maybe_return (e' :: comment e.meta @ acc)
@@ -586,7 +599,7 @@ and mk_stmts env e ret_type =
           if not !Options.no_return_else || return_pos = Not then
             (* No optimization *)
             let e' = CStar.IfThenElse (false,
-              mk_expr env false e1,
+              mk_expr env false false e1,
               mk_block env return_pos e2,
               mk_block env return_pos e3
             ) in
@@ -595,7 +608,7 @@ and mk_stmts env e ret_type =
             (* no_return_else && return_pos <> Not,
              *   i.e. optimization enabled; we are in return position *)
             let e' = CStar.IfThenElse (false,
-              mk_expr env false e1,
+              mk_expr env false false e1,
               mk_block env Must e2,
               []
             ) in
@@ -613,39 +626,39 @@ and mk_stmts env e ret_type =
         assert false
 
     | EAssign (e1, e2) ->
-        let e' = CStar.Assign (mk_expr env false e1, mk_type env e1.typ, mk_expr env false e2) in
+        let e' = CStar.Assign (mk_expr env false false e1, mk_type env e1.typ, mk_expr env false false e2) in
         env, maybe_return (e' :: comment e.meta @ acc)
 
     | EBufBlit (e1, e2, e3, e4, e5) ->
         let e' = CStar.BufBlit (
           mk_type env (assert_tbuf_or_tarray e1.typ),
-          mk_expr env false e1,
-          mk_expr env false e2,
-          mk_expr env false e3,
-          mk_expr env false e4,
-          mk_expr env false e5
+          mk_expr env false false e1,
+          mk_expr env false false e2,
+          mk_expr env false false e3,
+          mk_expr env false false e4,
+          mk_expr env false false e5
         ) in
         env, maybe_return (e' :: comment e.meta @ acc)
 
     | EBufWrite (e1, e2, e3) ->
         let e' = CStar.BufWrite (
-          mk_expr env false e1,
-          mk_expr env false e2,
-          mk_expr env false e3
+          mk_expr env false false e1,
+          mk_expr env false false e2,
+          mk_expr env false false e3
         ) in
         env, maybe_return (e' :: comment e.meta @ acc)
 
     | EBufFill (e1, e2, e3) ->
         let e' = CStar.BufFill (
           mk_type env (assert_tbuf e1.typ),
-          mk_expr env false e1,
-          mk_expr env false e2,
-          mk_expr env false e3
+          mk_expr env false false e1,
+          mk_expr env false false e2,
+          mk_expr env false false e3
         ) in
         env, maybe_return (e' :: comment e.meta @ acc)
 
     | EBufFree e ->
-        let e' = CStar.BufFree (mk_type env (assert_tbuf e.typ), mk_expr env false e) in
+        let e' = CStar.BufFree (mk_type env (assert_tbuf e.typ), mk_expr env false false e) in
         env, maybe_return (e' :: comment e.meta @ acc)
 
     | EMatch _ ->
@@ -663,7 +676,7 @@ and mk_stmts env e ret_type =
           | [] -> None
           | _ -> failwith "impossible"
         in
-        env, CStar.Switch (mk_expr env false e,
+        env, CStar.Switch (mk_expr env false false e,
           List.map (fun (lid, e) ->
             (match lid with
             | SConstant k -> `Int k
@@ -699,7 +712,7 @@ and mk_stmts env e ret_type =
         if is_readonly_c_expression e then
           env, comment e.meta @ acc
         else
-          let e' = CStar.Ignore (mk_expr env true e) in
+          let e' = CStar.Ignore (mk_expr env true false e) in
           env, e' :: comment e.meta @ acc
 
   and mk_block env return_pos e =
@@ -716,7 +729,7 @@ and mk_stmts env e ret_type =
       let env, s = mk_ignored_stmt env e in
       env, maybe_return_nothing (s @ acc)
     else
-      env, CStar.Return (Some (mk_expr env false e)) :: acc
+      env, CStar.Return (Some (mk_expr env false false e)) :: acc
 
   and mk_ifdef env return_pos acc e1 e2 e3 =
     try
@@ -924,7 +937,7 @@ and mk_declaration m env d: (CStar.decl * _) option =
         macro,
         flags,
         mk_type env t,
-        mk_expr env false body), [])
+        mk_expr env false false body), [])
 
   | DExternal (cc, flags, _, n, name, t, pp) ->
       if LidSet.mem name env.ifdefs || n > 0 then
