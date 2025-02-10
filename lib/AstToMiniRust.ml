@@ -594,9 +594,15 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
 and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env * MiniRust.expr =
   (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
 
-  let erase_lifetime_and_borrow_kind_info = (object(self)
+  let erase_borrow_kind_info = (object(self)
     inherit [_] MiniRust.DeBruijn.map
-    method! visit_Ref env _ _ t = Ref (None, Shared, self#visit_typ env t)
+    method! visit_Ref env a _ t = Ref (a, Shared, self#visit_typ env t)
+  end)#visit_typ ()
+  in
+
+  let erase_lifetime_info = (object(self)
+    inherit [_] MiniRust.DeBruijn.map
+    method! visit_Ref env _ bk t = Ref (None, bk, self#visit_typ env t)
     method! visit_tname _ n _ = Name (n, [])
   end)#visit_typ ()
   in
@@ -608,7 +614,10 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
     (*   PrintMiniRust.pexpr x *)
     (*   PrintMiniRust.ptyp t *)
     (*   PrintMiniRust.ptyp t_ret; *)
-    begin match x, t, t_ret with
+     (* Mutable borrows were only included for external definitions.
+        We erase them here; they will be handled during mutability inference, which will
+	be rechecked by the Rust compiler *)
+    begin match x, erase_borrow_kind_info t, erase_borrow_kind_info t_ret with
     | _, (MiniRust.App (Name (["Box"], _), [Slice _]) | MiniRust.Vec _ | Array _), Ref (_, k, Slice _) ->
         Borrow (k, x)
     | Constant (w, x), Constant UInt32, Constant SizeT ->
@@ -660,17 +669,14 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         (* If we reach this case, we perform one last try by erasing the lifetime
            information in both terms. This is useful to handle, e.g., implicit lifetime
            annotations or annotations up to alpha-conversion.
-           Note, this is sound as lifetime mismatches will be caught by the Rust compiler.
-           We similarly erase borrow kind information, which should only mismatch when relying
-           on external, assumed declarations: these will be handled during mutability inference,
-           and also rechecked by the Rust compiler. *)
-        if erase_lifetime_and_borrow_kind_info t = erase_lifetime_and_borrow_kind_info t_ret then
+           Note, this is sound as lifetime mismatches will be caught by the Rust compiler. *)
+        if erase_lifetime_info t = erase_lifetime_info t_ret then
           x
         else
-          Warn.failwith "type mismatch;\n  e=%a\n  t=%a (verbose: %s)\n  t_ret=%a\n  x=%a"
+          Warn.failwith "type mismatch;\n  e=%a\n  t=%a (verbose: %s)\n  t_ret=%a (verbose: %s)\n  x=%a"
             PrintAst.Ops.pexpr e
             PrintMiniRust.ptyp t (MiniRust.show_typ t)
-            PrintMiniRust.ptyp t_ret
+            PrintMiniRust.ptyp t_ret (MiniRust.show_typ t_ret)
             PrintMiniRust.pexpr x;
     end
   in

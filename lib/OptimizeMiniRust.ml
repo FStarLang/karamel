@@ -1025,7 +1025,8 @@ let infer_mut_borrows files =
           | Function { parameters; name; _ } ->
               Some (name, List.map (fun (p: MiniRust.binding) -> p.typ) parameters)
           | Assumed { name; parameters; _ } ->
-              Some (name, parameters)
+	      if List.exists (fun (n, _) -> n = name) builtins then None
+              else Some (name, parameters)
           | _ ->
               None
         ) decls) files))
