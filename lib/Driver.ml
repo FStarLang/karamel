@@ -6,34 +6,40 @@
 
 open Warn
 
-(* Abstracting over - (dash) for msvc. vs. gcc-like. *)
+(** These three filled in by [detect_cc] and others *)
+let cc = ref ""
+let cc_args = ref []
+let cc_flavor = ref Options.Generic
+
+(* Abstracting over - (dash) for msvc. vs. gcc-like. This module
+ reads cc_flavor. *)
 module Dash = struct
   let i dir =
-    if !Options.cc = "msvc" then
+    if !cc_flavor = MSVC then
       [ "/I"; dir ]
     else
       [ "-I"; dir ]
 
   let c file =
-    if !Options.cc = "msvc" then
+    if !cc_flavor = MSVC then
       [ "/c"; file ]
     else
       [ "-c"; file ]
 
   let d opt =
-    if !Options.cc = "msvc" then
+    if !cc_flavor = MSVC then
       "/D" ^ opt
     else
       "-D" ^ opt
 
   let o_obj file =
-    if !Options.cc = "msvc" then
+    if !cc_flavor = MSVC then
       [ "/Fo:"; file ]
     else
       [ "-o"; file ]
 
   let o_exe file =
-    if !Options.cc = "msvc" then
+    if !cc_flavor = MSVC then
       [ "/Fe:"; file ]
     else
       [ "-o"; file ]
@@ -43,6 +49,8 @@ end
 module P = Process
 (* Note: don't open [Process], otherwise any reference to [Output] will be
  * understood as a cyclic dependency on our own [Output] module. *)
+
+let cc_flavor_callback = ref (fun (_ : Options.compiler_flavor) -> ())
 
 (** These three variables filled in by [detect_fstar] *)
 let fstar = Options.fstar
@@ -56,10 +64,6 @@ let runtime_dir = ref ""
 let include_dir = ref ""
 let misc_dir = ref ""
 let krml_rev = ref "<unknown>"
-
-(** These two filled in by [detect_gcc] and others *)
-let cc = ref ""
-let cc_args = ref []
 
 (** The base tools *)
 let readlink = ref ""
@@ -339,41 +343,46 @@ let run_fstar verify skip_extract skip_translate files =
       exit 0;
     !Options.tmpdir ^^ "out.krml"
 
-let detect_gnu flavor =
-  if not !Options.silent then
-    KPrint.bprintf "%s⚙ KaRaMeL will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
-  let rec search = function
-    | fmt :: rest ->
-        let cmd = KPrint.bsprintf fmt flavor in
-        if success "which" [| cmd |] then
-          cc := cmd
-        else
-          search rest
-    | [] ->
-        Warn.fatal_error "gcc not found in path!";
+let detect_compiler_flavor cc =
+  let is_gcc () =
+    try
+      (* If cc points to gcc, cc --version will say "cc version ...", instead of
+      gcc. So use -v instead, but that prints to stderr. *)
+      let rc = Process.run cc [| "-v" |] in
+      let lines = rc.stderr in
+      List.exists (fun l -> KString.starts_with l "gcc version") lines
+    with | _ -> false
   in
-  let crosscc = if !Options.m32 then format_of_string "i686-w64-mingw32-%s" else format_of_string "x86_64-w64-mingw32-%s" in
-  search [ "%s-10"; "%s-9"; "%s-8"; "%s-7"; "%s-6"; "%s-5"; crosscc; "%s" ];
-
-  if not !Options.silent then
-    KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !cc;
-
-  if !Options.m32 then
-    cc_args := "-m32" :: !cc_args;
-  if not !Options.silent then
-    KPrint.bprintf "%s%s options are:%s %s\n" Ansi.underline !cc Ansi.reset
-      (String.concat " " !cc_args)
-
-
-let detect_compcert () =
-  if success "which" [| "ccomp" |] then
-    cc := "ccomp"
-  else
-    Warn.fatal_error "ccomp not found in path!"
-
+  let is_clang () =
+    try
+      let lines = Process.read_stdout cc [| "--version" |] in
+      List.exists (fun l -> KString.exists l "clang version") lines
+    with | _ -> false
+  in
+  let is_compcert () =
+    try
+      let lines = Process.read_stdout cc [| "--version" |] in
+      List.exists (fun l -> KString.exists l "CompCert") lines
+    with | _ -> false
+  in
+  let is_msvc () =
+    try
+      let rc = Process.run cc [| |] in
+      let lines = rc.stderr in
+      List.exists (fun l -> KString.exists l "Microsoft") lines
+    with | _ -> false
+  in
+  if is_gcc ()           then Options.GCC
+  else if is_clang ()    then Options.Clang
+  else if is_compcert () then Options.Compcert
+  else if is_msvc ()     then Options.MSVC
+  else (
+    Warn.maybe_fatal_error ("detect_compiler_flavor", UnrecognizedCCompiler cc);
+    Generic
+  )
 
 let fill_cc_args () =
-  (** For the side-effect of filling in [Options.include] *)
+  (** For the side-effect of filling in [Options.includes] *)
   detect_karamel_if ();
 
   cc_args :=
@@ -383,26 +392,83 @@ let fill_cc_args () =
     @ List.rev !Options.ccopts
     @ !cc_args
 
+(* Sets cc, cc_flavor *)
+let auto_detect_cc () =
+  (* !cc can be relative or absolute, `which` handles both. *)
+  if not (success "which" [| !cc |]) then
+    Warn.fatal_error "C compiler '%s' not found!" !cc;
+
+  if not !Options.silent then begin
+    (* If not absolute print realpath too *)
+    let real =
+      if KString.starts_with !cc "/" then
+        ""
+      else
+        match
+          read_one_line !readlink [| "-f"; read_one_line "which" [| !cc |] |]
+        with
+        | exception _ -> " (couldn't resolve?)"
+        | s -> " (= " ^ s ^ ")"
+    in
+    KPrint.bprintf "%scc is:%s %s%s\n" Ansi.underline Ansi.reset !cc real
+  end;
+  match !Options.cc_flavor with
+  | Some f -> cc_flavor := f
+  | None ->   cc_flavor := detect_compiler_flavor !cc
+
+let detect_cc () =
+  detect_base_tools_if ();
+
+  if not !Options.silent then
+    KPrint.bprintf "%s⚙ KaRaMeL will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+
+  (* Use Options.cc if passed, otherwise CC from env, otherwise "cc" *)
+  let cc_name =
+    if !Options.cc <> ""
+    then !Options.cc
+    else
+      match Sys.getenv "CC" with
+      | s -> s
+      | exception _ -> "cc"
+  in
+
+  if cc_name = "msvc" then (
+    (* We special-case "msvc" and use this wrapper script to find it
+       and set its environment up, it's not really feasible to
+       just find the cl.exe *)
+    KPrint.bprintf "%scc is:%s MSVC (will use cl-wrapper script)\n" Ansi.underline Ansi.reset;
+    cc := !misc_dir ^^ "cl-wrapper.bat";
+    cc_flavor := MSVC
+  ) else (
+    (* Otherwise cc_name is a normal command or path like gcc/clang,
+       auto-detect its flavor. *)
+    cc := cc_name;
+    auto_detect_cc ()
+  );
+
+  if not !Options.silent then
+    KPrint.bprintf "%scc flavor is:%s %s\n" Ansi.underline Ansi.reset
+      (Options.string_of_compiler_flavor !cc_flavor);
+
+  (* Now that we detected the flavor, call this callback to
+     right default arguments for the compiler filled in. *)
+  !cc_flavor_callback !cc_flavor;
+
+  fill_cc_args ();
+
+  if !cc_flavor = GCC && !Options.m32 then
+    cc_args := "-m32" :: !cc_args;
+
+  if not !Options.silent then
+    KPrint.bprintf "%scc options are:%s %s\n" Ansi.underline Ansi.reset
+      (String.concat " " !cc_args)
 
 let detect_cc_if () =
-  fill_cc_args ();
   if !cc = "" then
-    match !Options.cc with
-    | "gcc" ->
-        detect_gnu "gcc"
-    | "compcert" ->
-        detect_compcert ()
-    | "g++" ->
-        detect_gnu "g++"
-    | "clang" ->
-        detect_gnu "clang"
-    | "msvc" ->
-        cc := !misc_dir ^^ "cl-wrapper.bat";
-    | _ ->
-        fatal_error "Unrecognized value for -cc: %s" !Options.cc
+    detect_cc ()
 
 let o_of_c f =
-  let dot_o = if !Options.cc = "msvc" then ".obj" else ".o" in
+  let dot_o = if !cc_flavor = MSVC then ".obj" else ".o" in
   !Options.tmpdir ^^ Filename.chop_suffix (Filename.basename f) ".c" ^ dot_o
 
 
