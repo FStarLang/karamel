@@ -6,7 +6,7 @@
   };
 
   outputs = { self, fstar, flake-utils, nixpkgs }:
-    flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
+    flake-utils.lib.eachDefaultSystem (system:
       let
         fstarPackages = fstar.packages.${system};
         pkgs = import nixpkgs { inherit system; };
