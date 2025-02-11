@@ -606,8 +606,8 @@ let rec print_decl env (d: decl) =
       group (print_meta meta ^^ string "type" ^/^ string target_name  ^^ print_generic_params generic_params ^/^ equals) ^/^
       group (print_typ env body ^^ semi)
   (* Assumed declarations correspond to externals, which were propagated for mutability inference purposes.
-     We do not emit them *)
-  | Assumed _ -> empty
+     They should have been filtered out during the MiniRust cleanup *)
+  | Assumed _ -> failwith "Assumed declaration remaining"
 
 and print_derives traits =
   group @@
