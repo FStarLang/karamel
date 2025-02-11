@@ -1297,4 +1297,12 @@ let simplify_minirust files =
      have introduced unit statements *)
   let files = map_funs remove_trailing_unit#visit_expr files in
   let files = add_derives (compute_derives files) files in
+
+  (* Remove Assumed definitions, and filter empty files to avoid spurious code generation *)
+  let files = List.filter_map (fun (x, l) ->
+      (* Filter out assumed declarations *)
+      match List.filter (function | Assumed _ -> false | _ -> true) l with
+      | [] -> None (* No declaration left, we do not keep this file *)
+      | l -> Some (x, l)
+    ) files in
   files
