@@ -460,6 +460,8 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
       let t, ts = Helpers.flatten_arrow t in
       let ts = match ts with [ TUnit ] -> [] | _ -> ts in
       Function (0, List.map (translate_type_with_config env config) ts, translate_type_with_config env config t)
+  | TApp ((["Pulse"; "Lib"; "MutableSlice"], "slice"), [ t ]) ->
+      Ref (config.lifetime, Mut, Slice (translate_type_with_config env config t))
   | TApp ((["Pulse"; "Lib"; "Slice"], "slice"), [ t ]) ->
       Ref (config.lifetime, Shared, Slice (translate_type_with_config env config t))
   | TApp _ -> failwith (KPrint.bsprintf "TODO: TApp %a" PrintAst.ptyp t)
@@ -732,26 +734,39 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
 
   (* BEGIN PULSE BUILTINS *)
 
+  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "MutableSlice"], "from_array"); _ }, [], [], [ t ]); _ }, [e1; _e2]) ->
+      let env, e1 = translate_expr env e1 in
+      let t = translate_type env t in
+      env, possibly_convert e1 (Ref (None, Mut, Slice t))
+
   | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "from_array"); _ }, [], [], [ t ]); _ }, [e1; _e2]) ->
       let env, e1 = translate_expr env e1 in
       let t = translate_type env t in
       env, possibly_convert e1 (Ref (None, Shared, Slice t))
 
+  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "MutableSlice"], "op_Array_Access"); _ }, [], [], _); _ }, [e1; e2])
   | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "op_Array_Access"); _ }, [], [], _); _ }, [e1; e2]) ->
       let env, e1 = translate_expr env e1 in
       let env, e2 = translate_expr env e2 in
       env, Index (e1, e2)
 
-  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "op_Array_Assignment"); _ }, [], [], t); _ }, [ e1; e2; e3]) ->
+  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "MutableSlice"], "op_Array_Assignment"); _ }, [], [], t); _ }, [ e1; e2; e3]) ->
       let env, e1 = translate_expr env e1 in
       let env, e2 = translate_expr env e2 in
       let env, e3 = translate_expr env e3 in
       env, Assign (Index (e1, e2), e3, translate_type env (KList.one t))
 
+  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "MutableSlice"], "split"); _ }, [], [], [_]); _ }, [e1; e2])
   | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "split"); _ }, [], [], [_]); _ }, [e1; e2]) ->
       let env, e1 = translate_expr env e1 in
       let env, e2 = translate_expr env e2 in
       env, MethodCall (e1, ["split_at"], [ e2 ])
+
+  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "MutableSlice"], "subslice"); _ }, [], [], [_]); _ }, [e1; e2; e3]) ->
+      let env, e1 = translate_expr env e1 in
+      let env, e2 = translate_expr env e2 in
+      let env, e3 = translate_expr env e3 in
+      env, Borrow (Mut, Index (e1, Range (Some e2, Some e3, false)))
 
   | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "subslice"); _ }, [], [], [_]); _ }, [e1; e2; e3]) ->
       let env, e1 = translate_expr env e1 in
@@ -759,11 +774,12 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let env, e3 = translate_expr env e3 in
       env, Borrow (Shared, Index (e1, Range (Some e2, Some e3, false)))
 
-  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "copy"); _ }, [], [], _); _ }, [e1; e2]) ->
+  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "MutableSlice"], "copy"); _ }, [], [], _); _ }, [e1; e2]) ->
       let env, e1 = translate_expr env e1 in
       let env, e2 = translate_expr env e2 in
       env, MethodCall (e1, ["copy_from_slice"], [ e2 ])
 
+  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "MutableSlice"], "len"); _ }, [], [], _); _ }, [e1])
   | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "len"); _ }, [], [], _); _ }, [e1]) ->
       let env, e1 = translate_expr env e1 in
       env, MethodCall (e1, ["len"], [])
@@ -1441,6 +1457,8 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
             method! visit_TApp env lid ts =
               if lid = (["Pulse"; "Lib"; "Slice"], "slice") then
                 true
+              else if lid = (["Pulse"; "Lib"; "MutableSlice"], "slice") then
+                true 
               else
                 super#visit_TApp env lid ts
           end)#visit_typ () t in
@@ -1566,6 +1584,7 @@ let compute_struct_info files =
           List.exists (fun (_, (t, _)) ->
             match t with
             | Ast.TBuf _ -> true
+            | TApp ((["Pulse"; "Lib"; "MutableSlice"], "slice"), [ _ ])
             | TApp ((["Pulse"; "Lib"; "Slice"], "slice"), [ _ ]) -> true
             | _ -> false
           ) fields
@@ -1628,7 +1647,8 @@ let translate_files files =
     (* Step 0: filter stuff with builtin treatment *)
     let decls = List.filter (fun d ->
       match Ast.lid_of_decl d with
-      | ["Pulse"; "Lib"; "Slice"], ("from_array" | "op_Array_Access" | "op_Array_Assignment" | "split" | "copy") -> false
+      | ["Pulse"; "Lib"; "MutableSlice"], ("from_array" | "op_Array_Access" | "op_Array_Assignment" | "split" | "copy")
+      | ["Pulse"; "Lib"; "Slice"], ("from_array" | "op_Array_Access" | "split") -> false
       | _ -> true
     ) decls in
 

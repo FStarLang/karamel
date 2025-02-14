@@ -437,7 +437,8 @@ let is_model name =
     ] || (
       Options.rust () &&
       List.mem name [
-        "Pulse_Lib_Slice"
+        "Pulse_Lib_MutableSlice";
+        "Pulse_Lib_Slice";
       ]
     )
 
