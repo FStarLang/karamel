@@ -767,6 +767,12 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       let env, e2 = translate_expr env e2 in
       env, MethodCall (e1, ["split_at"], [ e2 ])
 
+  | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "subslice"); _ }, [], [], [_]); _ }, [e1; e2; e3]) ->
+      let env, e1 = translate_expr env e1 in
+      let env, e2 = translate_expr env e2 in
+      let env, e3 = translate_expr env e3 in
+      env, Borrow (Shared, Index (e1, Range (Some e2, Some e3, false)))
+
   | EApp ({ node = ETApp ({ node = EQualified (["Pulse"; "Lib"; "Slice"], "copy"); _ }, [], [], _); _ }, [e1; e2]) ->
       let env, e1 = translate_expr env e1 in
       let env, e2 = translate_expr env e2 in
