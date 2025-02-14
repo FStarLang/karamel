@@ -83,9 +83,9 @@ obj:
 verify-all: $(ALL_CHECKED_FILES)
 
 $(EXTRACT_DIR)/%.krml: | .depend
-	$(FSTAR) $(OTHERFLAGS) --codegen krml \
+	$(FSTAR) $< --codegen krml \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
-	  $(notdir $(subst .checked,,$<)) && \
+	  --krmloutput $@ && \
 	touch -c $@
 
 # We don't extract LowStar.Lib as everything is generic data structures that
