@@ -402,10 +402,9 @@ and check' env t e =
       check_array_index env e3;
       c TUnit
 
-  | EBufBlit (b1, i1, b2, i2, len) ->
-      let t1, c1 = infer_buffer env b1 in
-      check_mut env "blit" c1;
-      check env (TBuf (t1, false)) b2;
+  | EBufBlit (b1 (* source *), i1, b2 (* destination *), i2, len) ->
+      let t1, _ = infer_buffer env b1 in  (* source can be const *)
+      check env (TBuf (t1, false)) b2;    (* destination must be non-const *)
       check_array_index env i1;
       check_array_index env i2;
       check_array_index env len;
@@ -713,10 +712,9 @@ and infer' env e =
       check_array_index env e3;
       TUnit
 
-  | EBufBlit (b1, i1, b2, i2, len) ->
-      let t1, c = infer_buffer env b1 in
-      check_mut env "blit" c;
-      check env (TBuf (t1, c)) b2;
+  | EBufBlit (b1 (* source *), i1, b2 (* destination *), i2, len) ->
+      let t1, _ = infer_buffer env b1 in  (* source can be const *)
+      check env (TBuf (t1, false)) b2;    (* destination must be non-const *)
       check_array_index env i1;
       check_array_index env i2;
       check_array_index env len;
