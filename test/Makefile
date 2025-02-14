@@ -115,7 +115,8 @@ $(CACHE_DIR)/%.checked: | .depend
 $(OUTPUT_DIR)/%.krml: | .depend
 	$(FSTAR) $(OTHERFLAGS) --codegen krml \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
-	  $(notdir $(subst .checked,,$<))
+	  --krmloutput $@ \
+	  $<
 
 ###############
 # Regular (C) #

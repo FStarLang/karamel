@@ -113,27 +113,19 @@ obj:
 # Extraction
 # ----------
 
-# A few mismatches here between the dependencies present in the .depend and the
-# expected F* invocation. In .depend:
-#
-# obj/Bignum_Impl.ml: obj/Bignum.Impl.fst.checked ... more dependencies ...
-#
-# But F* wants (remember that F* searches for source files anywhere on the
-# include path):
-#
-# fstar Bignum.Impl.fst --extract_module BigNum.Impl
-#
-# We use basename because we may also extract krml files from .fsti.checked
-# files (not true for OCaml, we don't extract mlis from fstis).
 .PRECIOUS: obj/%.ml
 obj/%.ml:
-	$(FSTAR) $(notdir $(subst .checked,,$<)) --codegen OCaml \
+	$(FSTAR) $< --codegen OCaml \
 	--extract_module $(basename $(notdir $(subst .checked,,$<)))
 
+# By default, krml extraction in F* will extract every module into a
+# single out.krml file. Make sure to extract the single module we want
+# to get a single-properly named file.
 .PRECIOUS: obj/%.krml
 obj/%.krml:
-	$(FSTAR) $(notdir $(subst .checked,,$<)) --codegen krml \
-	--extract_module $(basename $(notdir $(subst .checked,,$<)))
+	$(FSTAR) $< --codegen krml \
+	--extract_module $(basename $(notdir $(subst .checked,,$<))) \
+	--krmloutput $@
 
 # F* --> C
 # --------
