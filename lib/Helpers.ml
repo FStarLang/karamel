@@ -28,7 +28,9 @@ end
 (* Creating AST nodes *********************************************************)
 
 let uint8 = TInt K.UInt8
+let uint16 = TInt K.UInt16
 let uint32 = TInt K.UInt32
+let uint64 = TInt K.UInt64
 let usize = TInt K.SizeT
 
 let type_of_op op w =
@@ -346,7 +348,7 @@ class ['self] readonly_visitor = object (self: 'self)
     | EPolyComp _
     | EOp _ ->
         List.for_all (self#visit_expr_w ()) es
-    | EQualified _ 
+    | EQualified _
     when is_readonly_builtin_lid e ->
         List.for_all (self#visit_expr_w ()) es
     | ETApp ({ node = EQualified _; _ } as e, _, _, _)
