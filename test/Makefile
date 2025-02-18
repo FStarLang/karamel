@@ -25,8 +25,8 @@ ifneq ($(CRYPTO),)
   CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 endif
 TEST_OPTS	= -warn-error @4 -skip-makefiles
-KRML_BIN	= ../_build/default/src/Karamel.exe
-KRML		= $(KRML_BIN) -fstar $(FSTAR_EXE) $(KOPTS) $(TEST_OPTS)
+KRML_EXE	= ../out/bin/krml
+KRML		= $(KRML_EXE) -fstar $(FSTAR_EXE) $(KOPTS) $(TEST_OPTS)
 
 # TODO: disambiguate between broken tests that arguably should work (maybe
 # HigherOrder6?) and helper files that are required for multiple-module tests
@@ -79,7 +79,7 @@ endif
 FSTAR		= $(FSTAR_EXE) \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
   --include hello-system --include ../krmllib/compat --include ../krmllib/obj \
-  --include ../krmllib --include ../runtime \
+  --include ../krmllib --include ../krmllib/runtime \
   $(INCLUDE_CRYPTO) --include ../book --include ../book/notfslit --ext optimize_let_vc \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
   --trivial_pre_for_unannotated_effectful_fns false \
@@ -104,7 +104,7 @@ ifndef NODEPEND
 .depend: .FORCE
 	$(call run-with-log, \
 	  $(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
-	    $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*$(comma)-Prims' -o $@ \
+	    $(BROKEN) ../krmllib/runtime/WasmSupport.fst --extract 'krml:*$(comma)-Prims' -o $@ \
 	  ,[DEPEND],\
 	  .depend)
 
@@ -131,7 +131,7 @@ $(OUTPUT_DIR)/%.krml: | .depend
 # Regular (C) #
 ###############
 
-$(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_BIN)
+$(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_EXE)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) \
 	  -o $@ $(filter %.krml,$^) \
         -skip-compilation $(filter %.krml,$^) \
@@ -140,7 +140,7 @@ $(OUTPUT_DIR)/AggressiveInline.exe: EXTRA := $(EXTRA) -faggressive-inlining
 $(OUTPUT_DIR)/Malloca.exe: EXTRA := $(EXTRA) -warn-error -6 # Uses VLAs
 
 .PRECIOUS: $(OUTPUT_DIR)/%.exe
-$(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_BIN)
+$(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_EXE)
 	$(call run-with-log, \
 	  $(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
 	    -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack$(comma)\* \
@@ -323,7 +323,7 @@ $(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Ctypes2.exe $(addprefix $(LOWLEVEL_
 # All WASM targets get the -wasm flag; some specific targets may override
 # NEGATIVE for negative tests.
 .PRECIOUS: $(OUTPUT_DIR)/%.wasm
-$(OUTPUT_DIR)/%.wasm: $(ALL_KRML_FILES) $(KRML_BIN)
+$(OUTPUT_DIR)/%.wasm: $(ALL_KRML_FILES) $(KRML_EXE)
 	$(call run-with-log,$(KRML) -minimal -bundle WasmSupport= -bundle 'FStar.*' -bundle Prims \
 	  -bundle C -bundle C.Endianness -bundle C.Nullity -bundle C.String \
 	  -bundle TestLib \
@@ -347,7 +347,7 @@ WasmTrap.wasm-test: NEGATIVE = true
 ########
 
 .PRECIOUS: %.rs
-%.rs: $(ALL_KRML_FILES) $(KRML_BIN)
+%.rs: $(ALL_KRML_FILES) $(KRML_EXE)
 	$(call run-with-log,$(KRML) -minimal -bundle $(notdir $(subst rust,Rust,$*))=\* \
 	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)\
 	  ,[KRML-RS] $(basename $*),$*)

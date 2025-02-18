@@ -11,6 +11,11 @@ let cc = ref ""
 let cc_args = ref []
 let cc_flavor = ref Options.Generic
 
+let getenv_or var default =
+  match Sys.getenv var with
+  | "" | exception _ -> default
+  | s -> s
+
 (* Abstracting over - (dash) for msvc. vs. gcc-like. This module
  reads cc_flavor. *)
 module Dash = struct
@@ -59,6 +64,7 @@ let fstar_rev = ref "<unknown>"
 let fstar_options = ref []
 
 (** By [detect_karamel] *)
+let krml = ref ""
 let krmllib_dir = ref ""
 let runtime_dir = ref ""
 let include_dir = ref ""
@@ -142,50 +148,24 @@ let detect_base_tools_if () =
   if !readlink = "" then
     detect_base_tools ()
 
-
 (** Fills in *_dir, and fills in [Options.includes]. *)
 let detect_karamel () =
-  detect_base_tools_if ();
+  (* Find oneself. *)
+  krml := Sys.executable_name;
 
-  if AutoConfig.krmllib_dir <> "" && try ignore (Sys.getenv "KRML_HOME"); false with Not_found -> true then begin
-    krmllib_dir := AutoConfig.krmllib_dir;
-    runtime_dir := AutoConfig.runtime_dir;
-    include_dir := AutoConfig.include_dir;
-    misc_dir := AutoConfig.misc_dir
-  end else begin
+  if not !Options.silent then
+    KPrint.bprintf "%sKaRaMeL executable is:%s %s\n" Ansi.underline Ansi.reset !krml;
 
-    if not !Options.silent then
-      KPrint.bprintf "%sKaRaMeL called via:%s %s\n" Ansi.underline Ansi.reset Sys.argv.(0);
+  (* root of the installation *)
+  let root = d (d !krml) in
+  (* The environment variables below are used to prevent the autodetection when
+  building krmllib locally, since krml is not yet installed in its final
+  location where it can find these directories. *)
+  krmllib_dir := getenv_or "KRML_LIBDIR"     (root ^^ "lib" ^^ "krml");
+  include_dir := getenv_or "KRML_INCLUDEDIR" (root ^^ "include" ^^ "krml");
+  misc_dir    := getenv_or "KRML_MISCDIR"    (root ^^ "share" ^^ "krml" ^^ "misc");
 
-    let krml_home =
-      begin try
-        Sys.getenv "KRML_HOME"
-      with Not_found -> try
-        let real_krml =
-          let me = Sys.argv.(0) in
-          if Sys.os_type = "Win32" && not (Filename.is_relative me) then
-            me
-          else
-            try read_one_line !readlink [| "-f"; read_one_line "which" [| me |] |]
-            with _ -> fatal_error "Could not compute full krml path"
-        in
-        (* src/_build/default/Karamel.exe *)
-        if not !Options.silent then
-          KPrint.bprintf "%sthe Karamel executable is:%s %s\n" Ansi.underline Ansi.reset real_krml;
-        read_one_line !readlink [| "-f"; d real_krml ^^ ".." ^^ ".." ^^ ".." |]
-      with _ ->
-        fatal_error "Could not compute krml_home"
-      end
-    in
-    if not !Options.silent then
-      KPrint.bprintf "%sKaRaMeL home is:%s %s\n" Ansi.underline Ansi.reset krml_home;
-
-    krmllib_dir := krml_home ^^ "krmllib";
-    runtime_dir := krml_home ^^ "runtime";
-    include_dir := krml_home ^^ "include";
-    misc_dir := krml_home ^^ "misc"
-
-  end;
+  runtime_dir := !krmllib_dir ^^ "runtime";
 
   (* The first one for the C compiler, the second one for F* *)
   Options.includes := !include_dir :: !Options.includes @ [ !krmllib_dir ]
@@ -418,10 +398,7 @@ let detect_cc () =
   let cc_name =
     if !Options.cc <> ""
     then !Options.cc
-    else
-      match Sys.getenv "CC" with
-      | s -> s
-      | exception _ -> "cc"
+    else getenv_or "CC" "cc"
   in
 
   if cc_name = "msvc" then (

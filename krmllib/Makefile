@@ -19,6 +19,11 @@ all: verify-all compile-all
 
 FSTAR_EXE ?= fstar.exe
 
+# Default to ../krml, make sure to export it to children invocations (e.g. the
+# Makefiles in dist/*)
+KRML_EXE ?= ../krml
+export KRML_EXE
+
 EXTRACT_DIR = .extract
 
 GENERIC_DIR = dist/generic
@@ -30,7 +35,7 @@ FSTAR_OPTIONS += --ext optimize_let_vc --odir $(EXTRACT_DIR) \
   --warn_error @332
   # --use_extracted_interfaces
 
-INCLUDE_PATHS = ../runtime
+INCLUDE_PATHS = runtime
 
 # Passing RESOURCEMONITOR=1 to this Makefile will create .runlim files
 # throughout the tree with resource information. The $(RUNLIM) variable
@@ -46,7 +51,7 @@ FSTAR = $(RUNLIM) $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_dir obj \
 
 # Note: not compatible with the OPAM layout until fstar can be queried for the
 # location of ulib.
-ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
+ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard runtime/*.fst) \
   FStar.UInt128.fst FStar.Date.fsti \
     FStar.HyperStack.IO.fst FStar.IO.fsti FStar.Int.Cast.Full.fst \
     FStar.Bytes.fsti FStar.Dyn.fsti LowStar.Printf.fst LowStar.Endianness.fst
@@ -123,7 +128,7 @@ endif
 # Everything in the universe.
 $(GENERIC_DIR)/Makefile.include $(GENERIC_DIR)/Makefile.basic &: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../_build/default/src/Karamel.exe
 	KRML_HOME="$(local_krml_home)" \
-	../krml $(KRML_ARGS) -tmpdir $(GENERIC_DIR) \
+	$(KRML_EXE) $(KRML_ARGS) -tmpdir $(GENERIC_DIR) \
 	  -warn-error +9+11 \
 	  $(MACHINE_INTS) \
 	  $(addprefix -add-include ,'<inttypes.h>' '"krmllib.h"' '"krml/internal/compat.h"' '"krml/internal/target.h"') \
@@ -140,7 +145,7 @@ $(GENERIC_DIR)/Makefile.include $(GENERIC_DIR)/Makefile.basic &: $(ALL_KRML_FILE
 $(MINI_DIR)/Makefile.include $(MINI_DIR)/Makefile.basic &: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar_uint128*.h) ../_build/default/src/Karamel.exe
 	mkdir -p $(dir $@)
 	KRML_HOME="$(local_krml_home)" \
-	../krml $(KRML_ARGS) -tmpdir $(MINI_DIR) \
+	$(KRML_EXE) $(KRML_ARGS) -tmpdir $(MINI_DIR) \
 	  $(MACHINE_INTS) \
 	  $(addprefix -add-include , \
 	    '<inttypes.h>' '<stdbool.h>' \
@@ -160,7 +165,7 @@ $(MINI_DIR)/Makefile.include $(MINI_DIR)/Makefile.basic &: $(ALL_KRML_FILES) | $
 # FStar_UInt128_Verified.h can be dropped in any of the two krmllibs above.
 $(UINT128_DIR)/Makefile.include $(UINT128_DIR)/Makefile.basic &: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) ../_build/default/src/Karamel.exe
 	KRML_HOME="$(local_krml_home)" \
-	../krml $(KRML_ARGS) -tmpdir $(UINT128_DIR) \
+	$(KRML_EXE) $(KRML_ARGS) -tmpdir $(UINT128_DIR) \
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"krml/internal/types.h"' '"krml/internal/target.h"') \
 	  -bundle FStar.UInt64[rename=FStar_UInt_8_16_32_64] \
 	  -bundle FStar.UInt128=[rename=FStar_UInt128_Verified] \
