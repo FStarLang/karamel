@@ -1,16 +1,5 @@
-# Including a Makefile from the visitors package, but making sure
-# to give decent errors.
-
 # make src/Ast.processed.ml
-_:=$(shell ocamlfind query)
-ifneq ($(.SHELLSTATUS),0)
-_: $(error "'ocamlfind query' failed, please install OCaml and put it in your PATH)
-endif
-visitors_root:=$(shell ocamlfind query visitors)
-ifneq ($(.SHELLSTATUS),0)
-_: $(error "'ocamlfind query visitors' failed, please 'opam install visitors')
-endif
-include $(visitors_root)/Makefile.preprocess
+include visitors.mk
 
 .PHONY: all minimal clean test pre krmllib install
 
