@@ -83,7 +83,7 @@ obj:
 verify-all: $(ALL_CHECKED_FILES)
 
 $(EXTRACT_DIR)/%.krml: | .depend
-	$(FSTAR) $< --codegen krml \
+	$(FSTAR) $(OTHERFLAGS) $< --codegen krml \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
 	  -o $@ && \
 	touch -c $@
