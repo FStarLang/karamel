@@ -3,8 +3,6 @@ module TotalLoops
 open FStar
 open FStar.Buffer
 open FStar.HyperStack.ST
-module UInt32 = FStar.UInt32
-module UInt64 = FStar.UInt64
 
 let rec fib
   (x: nat)

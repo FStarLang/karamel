@@ -4,14 +4,9 @@ module LowStar.Lib.AssocList
 
 module B = LowStar.Buffer
 module HS = FStar.HyperStack
-module G = FStar.Ghost
-module L = FStar.List.Tot
-module U32 = FStar.UInt32
 module ST = FStar.HyperStack.ST
 
 module M = FStar.Map
-module LL2 = LowStar.Lib.LinkedList2
-module LL1 = LowStar.Lib.LinkedList
 
 open FStar.HyperStack.ST
 open LowStar.BufferOps

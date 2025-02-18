@@ -5,7 +5,6 @@ open FStar.UInt
 open FStar.HyperStack.ST
 
 module B = LowStar.Buffer
-module M = LowStar.Modifies
 module U16 = FStar.UInt16
 module U32 = FStar.UInt32
 module U128 = FStar.UInt128

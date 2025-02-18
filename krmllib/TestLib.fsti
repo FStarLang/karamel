@@ -3,7 +3,6 @@ module TestLib
 open FStar.HyperStack.ST
 open LowStar.Buffer
 
-module HS = FStar.HyperStack
 module Buffer = LowStar.Buffer
 
 (** Some test routines *)

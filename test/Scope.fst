@@ -5,7 +5,6 @@ open FStar.Int32
 open FStar.HyperStack.ST
 open TestLib
 
-module B = FStar.Buffer
 
 let foo (): Stack bool (fun _ -> true) (fun h0 _ h1 -> h0 == h1) =
   true

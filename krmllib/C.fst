@@ -2,7 +2,6 @@ module C
 
 open FStar.HyperStack.ST
 
-module HS = FStar.HyperStack
 module U8 = FStar.UInt8
 
 // This module contains a series of bindings that already exist in C. It receives

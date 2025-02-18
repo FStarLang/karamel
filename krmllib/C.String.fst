@@ -1,10 +1,7 @@
 module C.String
 
-module U8 = FStar.UInt8
 module U32 = FStar.UInt32
 
-module B = LowStar.Buffer
-module M = LowStar.Modifies
 
 open FStar.HyperStack.ST
 

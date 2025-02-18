@@ -37,9 +37,6 @@ let (!*) (#a: Type) (p: pointer a):
   (ensures (fun h0 x h1 -> B.live h1 p /\ x == B.get h0 p 0 /\ h1 == h0)) =
   B.index p 0ul
 
-module U32 = FStar.UInt32
-module Seq = FStar.Seq
-module Heap = FStar.Heap
 
 (* Two pointers with different reads are disjoint *)
 

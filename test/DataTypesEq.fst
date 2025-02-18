@@ -1,6 +1,5 @@
 module DataTypesEq
 
-module SoBuggy = FStar.HyperStack.ST
 
 type t =
   | A: UInt32.t -> t

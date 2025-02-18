@@ -13,7 +13,6 @@ module SystemNative
 module S = FStar.Seq
 module B = FStar.Buffer
 module U8 = FStar.UInt8
-module I32 = FStar.UInt8
 module U32 = FStar.UInt32
 
 (* Strings *******************************************************************)

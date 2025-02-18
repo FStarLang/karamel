@@ -1,5 +1,4 @@
 module B
-module U32 = FStar.UInt32
 module U64 = FStar.UInt64
 module Cast = FStar.Int.Cast
 module A = A.Top

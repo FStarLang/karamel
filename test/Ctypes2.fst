@@ -4,8 +4,6 @@ open FStar.Mul
 open FStar.UInt
 open FStar.HyperStack.ST
 
-module M = LowStar.Modifies
-module U16 = FStar.UInt16
 module U32 = FStar.UInt32
 
 open Ctypes1

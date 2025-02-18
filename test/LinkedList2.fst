@@ -4,7 +4,6 @@ module B = FStar.Buffer
 module CN = C.Nullity
 module HS = FStar.HyperStack
 module G = FStar.Ghost
-module L = FStar.List.Tot
 module U32 = FStar.UInt32
 module MO = FStar.Modifies
 
