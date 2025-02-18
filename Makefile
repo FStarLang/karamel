@@ -32,7 +32,7 @@ lib/AutoConfig.ml:
 	  echo "let misc_dir = \"\";;" >> $@; \
 	fi
 
-.PHONY: src/Version.ml
+.PHONY: lib/Version.ml
 lib/Version.ml:
 	@echo "let version = \"$(shell git rev-parse HEAD || echo ${GIT_REV})\"" > $@
 

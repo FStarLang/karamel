@@ -63,7 +63,6 @@ let krmllib_dir = ref ""
 let runtime_dir = ref ""
 let include_dir = ref ""
 let misc_dir = ref ""
-let krml_rev = ref "<unknown>"
 
 (** The base tools *)
 let readlink = ref ""
@@ -180,13 +179,6 @@ let detect_karamel () =
     in
     if not !Options.silent then
       KPrint.bprintf "%sKaRaMeL home is:%s %s\n" Ansi.underline Ansi.reset krml_home;
-
-    if try Sys.is_directory (krml_home ^^ ".git") with Sys_error _ -> false then begin
-      let cwd = Sys.getcwd () in
-      Sys.chdir krml_home;
-      krml_rev := String.sub (read_one_line "git" [| "rev-parse"; "HEAD" |]) 0 8;
-      Sys.chdir cwd
-    end;
 
     krmllib_dir := krml_home ^^ "krmllib";
     runtime_dir := krml_home ^^ "runtime";
