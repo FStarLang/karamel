@@ -8,25 +8,21 @@ endif
 FSTAR_EXE ?= fstar.exe
 
 TEST_OPTS	= -warn-error @4 -verbose -skip-makefiles
-KRML_BIN	= ../../_build/default/src/Karamel.exe
+KRML_BIN	= ../../../_build/default/src/Karamel.exe
 KRML		= $(KRML_BIN) -fstar $(FSTAR_EXE) $(KOPTS) $(TEST_OPTS)
 CACHE_DIR	= .cache
 FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --cache_dir $(CACHE_DIR) \
-  --include ../../krmllib/compat --include ../../krmllib/obj \
-  --include ../../krmllib --include ../../runtime \
+  --include ../../../krmllib/compat --include ../../../krmllib/obj \
+  --include ../../../krmllib --include ../../../runtime \
+  --include .. \
   --ext context_pruning \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274
 SED=$(shell which gsed >/dev/null 2>&1 && echo gsed || echo sed)
 
-all: rusttest.rust-test impl
-
-impl:
-	+$(MAKE) -C $@
-
-.PHONY: impl
+all: aux.rust-test
 
 FSTAR_FILES=$(wildcard *.fst *.fsti)
 
@@ -61,10 +57,8 @@ $(CACHE_DIR)/%.checked: | .depend
 
 .PRECIOUS: %.rs
 %.rs: $(ALL_KRML_FILES) $(KRML_BIN)
-	$(KRML) -minimal -bundle AuxA+AuxB=[rename=Aux,rename-prefix] -bundle $(notdir $(subst rust,Rust,$*))=\* \
+	$(KRML) -minimal -bundle AuxA+AuxB=\*[rename=Aux,rename-prefix] \
 	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)
-	$(SED) -i 's/\(patterns..\)/\1\nmod aux; mod lowstar { pub mod ignore { pub fn ignore<T>(_x: T) {}}}\n/' $@
-	echo 'fn main () { let r = main_ (); if r != 0 { println!("main_ returned: {}\\n", r); panic!() } }' >> $@
 
 %.rust-test: %.rs
-	rustc $< -o $*.exe && ./$*.exe
+	rustc --crate-type rlib $< -o $*.rlib
