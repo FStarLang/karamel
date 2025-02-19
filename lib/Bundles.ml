@@ -254,8 +254,8 @@ let empty_deps = { internal = StringSet.empty; public = StringSet.empty }
 let drop_dinstinction { internal; public } =
   List.of_seq (StringSet.to_seq (StringSet.union internal public))
 
-class record_everything gen_dep = object
-  inherit [_] reduce
+class record_everything (gen_dep: ?constructor:unit -> lident -> _) = object(self)
+  inherit [_] reduce as super
   method plus { internal = i1; public = p1 } { internal = i2; public = p2 } =
     { internal = StringSet.union i1 i2; public = StringSet.union p1 p2 }
   method zero = empty_deps
@@ -265,6 +265,14 @@ class record_everything gen_dep = object
     gen_dep lid
   method! visit_TApp () lid _ =
     gen_dep lid
+  method! visit_EFlat ((_, t) as env) fields =
+    match t with
+    | TQualified lid ->
+        self#plus
+          (gen_dep ~constructor:() lid)
+          (super#visit_EFlat env fields)
+    | _ ->
+        super#visit_EFlat env fields
 end
 
 let direct_dependencies_with_internal files file_of =
@@ -278,15 +286,24 @@ let direct_dependencies_with_internal files file_of =
     ) set decls
   ) LidSet.empty files in
 
+  let c_abstract_struct = List.fold_left (fun set (_, decls) ->
+    List.fold_left (fun set decl ->
+      if List.mem Common.AbstractStruct (Ast.flags_of_decl decl) then
+        LidSet.add (Ast.lid_of_decl decl) set
+      else
+        set
+    ) set decls
+  ) LidSet.empty files in
+
   List.fold_left (fun by_file file ->
-    let gen_dep (callee: lident) =
+    let gen_dep ?constructor (callee: lident) =
       match file_of callee with
       | Some f when f <> fst file && not (Helpers.is_primitive callee) ->
           let is_internal = LidSet.mem callee internal in
           if Options.debug "dependencies" then
             KPrint.bprintf "In file %s, reference to %a (in %sheader %s)\n"
               (fst file) PrintAst.plid callee (if is_internal then "internal " else "") f;
-          if is_internal then
+          if is_internal || constructor = Some () && LidSet.mem callee c_abstract_struct then
             { empty_deps with internal = StringSet.singleton f }
           else
             { empty_deps with public = StringSet.singleton f }
@@ -318,11 +335,15 @@ let direct_dependencies_with_internal files file_of =
 
       method! visit_DType env name flags n_cgs n def =
         let is_c_abstract_struct = List.mem Common.AbstractStruct flags in
-        if self#concerns_us flags then
-          if is_c_abstract_struct then
+        if is_c_abstract_struct then
+          (* In `header_deps`, a C abstract struct always concerns us because it appears both in the
+             public (forward declaration, no body) and in the internal header (actual declaration). *)
+          if which = `Public then
             super#visit_DType env name flags n_cgs n (Abbrev TUnit)
           else
             super#visit_DType env name flags n_cgs n def
+        else if self#concerns_us flags then
+          super#visit_DType env name flags n_cgs n def
         else
           super#zero
 
