@@ -83,7 +83,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274
 
-all: $(FILES) rust $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test
+all: $(FILES) rust $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test rust-val-test
 
 # Needs node
 wasm: $(WASM_FILES)
@@ -265,6 +265,10 @@ ctypes-test: $(LOWLEVEL_DIR)/Client.native
 sepcomp-test:
 	+$(MAKE) -C sepcomp
 .PHONY: sepcomp-test
+
+rust-val-test:
+	+$(MAKE) -C rust-val
+.PHONY: rust-val-test
 
 CTYPES_HAND_WRITTEN_FILES=Client.ml Makefile
 
