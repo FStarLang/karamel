@@ -114,8 +114,7 @@ obj:
 
 .PRECIOUS: obj/%.ml
 obj/%.ml:
-	$(FSTAR) $< --codegen OCaml \
-	--extract_module $(basename $(notdir $(subst .checked,,$<)))
+	$(FSTAR) $< --codegen OCaml
 
 # By default, krml extraction in F* will extract every module into a
 # single out.krml file. Make sure to extract the single module we want
