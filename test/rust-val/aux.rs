@@ -8,3 +8,8 @@ pub fn foo(x: bool) -> bool
 {
     return !x;
 }
+
+pub fn bar(x: bool) -> bool
+{
+    return x;
+}

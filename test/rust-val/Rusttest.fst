@@ -9,7 +9,9 @@ let test2 (b: B.buffer bool) : HST.Stack bool
   (fun _ _ _ -> True)
 =
   let x = B.index b C._zero_for_deref in
-  AuxA.foo x
+  let r1 = AuxA.foo x in
+  let r2 = AuxB.bar x in
+  r1 && r2
 
 let main_ () : HST.Stack I32.t
   (fun _ -> True)
