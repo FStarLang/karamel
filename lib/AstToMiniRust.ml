@@ -416,17 +416,24 @@ let translate_unknown_lid (m, n) =
   let m = compress_prefix m in
   List.map String.lowercase_ascii m @ [ n ]
 
-let borrow_kind_of_bool _b: MiniRust.borrow_kind =
-  Shared
+let borrow_kind_of_bool b: MiniRust.borrow_kind =
+  if b then Shared (* Constant pointer case *)
+  else Mut
 
 type config = {
   box: bool;
   lifetime: MiniRust.lifetime option;
+  (* Rely on the Ast type to set borrow mutability.
+     Should always be set to false to correctly infer
+     mutability in a later pass, except when translating
+    external (assumed) declarations *)
+  keep_mut: bool;
 }
 
 let default_config = {
   box = false;
   lifetime = None;
+  keep_mut = false;
 }
 
 let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): MiniRust.typ =
@@ -440,7 +447,7 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
         MiniRust.box (Slice (translate_type_with_config env config t))
         (* Vec (translate_type_with_config env config t) *)
       else
-        Ref (config.lifetime, borrow_kind_of_bool b, Slice (translate_type_with_config env config t))
+        Ref (config.lifetime, (if config.keep_mut then borrow_kind_of_bool b else Shared), Slice (translate_type_with_config env config t))
   | TArray (t, c) -> Array (translate_type_with_config env config t, int_of_string (snd c))
   | TQualified lid ->
       let generic_params =
@@ -587,6 +594,12 @@ and translate_array (env: env) is_toplevel (init: Ast.expr): env * MiniRust.expr
 and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env * MiniRust.expr =
   (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
 
+  let erase_borrow_kind_info = (object(self)
+    inherit [_] MiniRust.DeBruijn.map
+    method! visit_Ref env a _ t = Ref (a, Shared, self#visit_typ env t)
+  end)#visit_typ ()
+  in
+
   let erase_lifetime_info = (object(self)
     inherit [_] MiniRust.DeBruijn.map
     method! visit_Ref env _ bk t = Ref (None, bk, self#visit_typ env t)
@@ -601,8 +614,11 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
     (*   PrintMiniRust.pexpr x *)
     (*   PrintMiniRust.ptyp t *)
     (*   PrintMiniRust.ptyp t_ret; *)
-    begin match x, t, t_ret with
-    | _, (MiniRust.Vec _ | Array _), Ref (_, k, Slice _) ->
+     (* Mutable borrows were only included for external definitions.
+        We erase them here; they will be handled during mutability inference, which will
+	be rechecked by the Rust compiler *)
+    begin match x, erase_borrow_kind_info t, erase_borrow_kind_info t_ret with
+    | _, (MiniRust.App (Name (["Box"], _), [Slice _]) | MiniRust.Vec _ | Array _), Ref (_, k, Slice _) ->
         Borrow (k, x)
     | Constant (w, x), Constant UInt32, Constant SizeT ->
         assert (w = Constant.UInt32);
@@ -615,8 +631,6 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         x
 
     (* More conversions due to box-ing types. *)
-    | _, App (Name (["Box"], _), [Slice _]), Ref (_, k, Slice _) ->
-        Borrow (k, x)
     | _, Ref (_, _, Slice _), App (Name (["Box"], _), [Slice _]) ->
         (* COPY *)
         MethodCall (Borrow (Shared, Deref x), ["into"], [])
@@ -655,14 +669,14 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
         (* If we reach this case, we perform one last try by erasing the lifetime
            information in both terms. This is useful to handle, e.g., implicit lifetime
            annotations or annotations up to alpha-conversion.
-           Note, this is sound as lifetime mismatches will be caught by the Rust compiler *)
+           Note, this is sound as lifetime mismatches will be caught by the Rust compiler. *)
         if erase_lifetime_info t = erase_lifetime_info t_ret then
           x
         else
-          Warn.failwith "type mismatch;\n  e=%a\n  t=%a (verbose: %s)\n  t_ret=%a\n  x=%a"
+          Warn.failwith "type mismatch;\n  e=%a\n  t=%a (verbose: %s)\n  t_ret=%a (verbose: %s)\n  x=%a"
             PrintAst.Ops.pexpr e
             PrintMiniRust.ptyp t (MiniRust.show_typ t)
-            PrintMiniRust.ptyp t_ret
+            PrintMiniRust.ptyp t_ret (MiniRust.show_typ t_ret)
             PrintMiniRust.pexpr x;
     end
   in
@@ -1278,7 +1292,7 @@ let bind_decl env (d: Ast.decl): env =
 
   | DExternal (_, _, _, type_parameters, lid, t, _param_names) ->
       let name = translate_unknown_lid lid in
-      push_decl env lid (name, make_poly (translate_type env t) type_parameters)
+      push_decl env lid (name, make_poly (translate_type_with_config env {default_config with keep_mut = true} t) type_parameters)
 
   | DType (lid, _flags, _, _, decl) ->
       let env, name =
@@ -1305,7 +1319,7 @@ let bind_decl env (d: Ast.decl): env =
           in
           let fields = List.map (fun (f, (t, _m)) ->
             let f = Option.get f in
-            { MiniRust.name = f; visibility = Some Pub; typ = translate_type_with_config env { box; lifetime } t }
+            { MiniRust.name = f; visibility = Some Pub; typ = translate_type_with_config env { box; lifetime; keep_mut = false } t }
           ) fields in
           { env with
             struct_fields = DataTypeMap.add (`Struct lid) fields env.struct_fields }
@@ -1322,7 +1336,7 @@ let bind_decl env (d: Ast.decl): env =
           List.fold_left (fun env (cons, fields) ->
             let cons_lid = `Variant (lid, cons) in
             let fields = List.map (fun (f, (t, _)) ->
-              { MiniRust.name = f; visibility = Some Pub; typ = translate_type_with_config env { box; lifetime } t }
+              { MiniRust.name = f; visibility = Some Pub; typ = translate_type_with_config env { box; lifetime; keep_mut = false } t }
             ) fields
             in
             { env with
@@ -1406,8 +1420,13 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
       let meta = translate_meta flags in
       Some (MiniRust.Constant { name; typ; body; meta })
 
-  | DExternal _ ->
-      None
+  | DExternal (_, _, _, _, lid, _, _) ->
+      let name, parameters, return_type =
+        match lookup_decl env lid with
+        | name, Function (_, parameters, return_type) -> name, parameters, return_type
+        | _ -> failwith " impossible"
+      in
+      Some (MiniRust.Assumed { name; parameters; return_type })
 
   | DType (lid, flags, _, _, decl) ->
       let name = lookup_type env lid in

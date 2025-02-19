@@ -5,7 +5,6 @@ open FStar.HyperStack.ST
 
 module U64 = FStar.UInt64
 module U8 = FStar.UInt8
-module SZ = FStar.SizeT
 
 let main () = C.EXIT_SUCCESS // dummy
 

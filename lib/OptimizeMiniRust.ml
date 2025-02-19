@@ -101,7 +101,8 @@ let distill ts =
 (* Get the type of the arguments of `name`, based on the current state of
    `valuation` *)
 let lookup env valuation name =
-  (* KPrint.bprintf "lookup: %a\n" PrintMiniRust.pname name; *)
+  if not (NameMap.mem name env.signatures) then
+    KPrint.bprintf "ERROR looking up: %a\n" PrintMiniRust.pname name;
   let ts = NameMap.find name env.signatures in
   adjust ts (valuation name)
 
@@ -669,6 +670,8 @@ let infer_function (env: env) valuation (d: decl): decl =
          the traversal does not add or remove any bindings, but only increases the
          mutability, we can do a direct replacement instead of a more complex merge *)
       Function { f with body; parameters }
+  (* Assumed functions already have their mutability specified, we skip them *)
+  | Assumed _ -> d
   | _ ->
       assert false
 
@@ -1021,6 +1024,9 @@ let infer_mut_borrows files =
         List.filter_map (function
           | Function { parameters; name; _ } ->
               Some (name, List.map (fun (p: MiniRust.binding) -> p.typ) parameters)
+          | Assumed { name; parameters; _ } ->
+	      if List.exists (fun (n, _) -> n = name) builtins then None
+              else Some (name, parameters)
           | _ ->
               None
         ) decls) files))
@@ -1044,6 +1050,7 @@ let infer_mut_borrows files =
     else
       match infer_function env valuation (NameMap.find name definitions) with
       | Function { parameters; _ } -> distill (List.map (fun (b: MiniRust.binding) -> b.typ) parameters)
+      | Assumed { parameters; _ } -> distill parameters
       | _ -> failwith "impossible"
   in
 
@@ -1248,6 +1255,7 @@ let compute_derives files =
         match decl with
         | Function _ -> failwith "impossible"
         | Constant _ -> failwith "impossible"
+        | Assumed _ -> failwith "impossible"
         | Alias _  -> TraitSet.empty
         | Struct { fields; _ } ->
             let ts = List.map (fun (sf: struct_field) -> traits sf.typ) fields in
@@ -1289,4 +1297,12 @@ let simplify_minirust files =
      have introduced unit statements *)
   let files = map_funs remove_trailing_unit#visit_expr files in
   let files = add_derives (compute_derives files) files in
+
+  (* Remove Assumed definitions, and filter empty files to avoid spurious code generation *)
+  let files = List.filter_map (fun (x, l) ->
+      (* Filter out assumed declarations *)
+      match List.filter (function | Assumed _ -> false | _ -> true) l with
+      | [] -> None (* No declaration left, we do not keep this file *)
+      | l -> Some (x, l)
+    ) files in
   files
