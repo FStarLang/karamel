@@ -35,6 +35,7 @@ and raw_error =
   | IfDefOnGlobal of lident
   | NotLowStarCast of expr
   | LibraryPointerAmbiguity of lident * expr
+  | UnrecognizedCCompiler of string
 
 and location =
   string

@@ -65,7 +65,6 @@ let _ =
   let js_files = ref [] in
   let fst_files = ref [] in
   let filenames = ref [] in
-  let p k = String.concat " " (Array.to_list (List.assoc k (Options.default_options ()))) in
   let usage = Printf.sprintf
 {|KaRaMeL: from a ML-like subset to C
 
@@ -137,12 +136,11 @@ All include directories and paths supports special prefixes:
   - if a path starts with FSTAR_LIB, this will expand to wherever F*'s ulib
     directory is
 
-The compiler switches turn on the following options.
-  [-cc gcc] (default) adds [%s]
-  [-cc clang] adds [%s]
-  [-cc g++] adds [%s]
-  [-cc msvc] adds [%s]
-  [-cc compcert] adds [%s]
+Karamel will also enable some default options according to the the flavor of C
+compiler being used.
+%s
+If the compiler flavor cannot be detected (and you ignore this error) no flags
+will be added. You can force a flavor with the -ccflavor option.
 
 The [-fc89] option triggers [-fnoanonymous-unions], [-fnocompound-literals] and
 [-fc89-scope]. It also changes the invocations above to use [-std=c89]. Note
@@ -162,11 +160,13 @@ Supported options:|}
     ) !Options.bundle @ List.concat_map (fun p ->
       [ "-drop"; Bundle.string_of_pattern p ]
     ) !Options.drop))
-    (p "gcc")
-    (p "clang")
-    (p "g++")
-    (p "msvc")
-    (p "compcert")
+    (
+      let open Options in
+      let flavors = [GCC; Clang; Compcert; MSVC] in
+      let p k = String.concat " " (Array.to_list (Options.default_options k)) in
+      String.concat "\n" (
+      List.map (fun k -> KPrint.bsprintf "  For %s adds [%s]" (Options.string_of_compiler_flavor k) (p k)) flavors)
+    )
   in
   let found_file = ref false in
   let used_drop = ref false in
@@ -191,8 +191,12 @@ Supported options:|}
     (* KaRaMeL as a driver *)
     "-fstar", Arg.Set_string Options.fstar, " fstar.exe to use; defaults to \
       'fstar.exe'";
-    "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), \
-      compcert, g++, clang, msvc";
+    "-cc", Arg.Set_string Options.cc, " compiler to use; default is 'cc', \
+      you can also set the CC environment variable";
+    "-ccflavor", Arg.String (fun s ->
+        let flav = Options.compiler_flavor_of_string s in
+        Options.cc_flavor := Some flav), " C compiler flavor; normally autodetected, \
+        can be set to 'gcc', 'clang', 'compcert', 'msvc' or 'generic'";
     "-m32", Arg.Set Options.m32, " turn on 32-bit cross-compiling";
     "-fsopt", Arg.String (prepend Options.fsopts), " option to pass to F* (use \
       -fsopts to pass a comma-separated list of values)";
@@ -484,14 +488,6 @@ Supported options:|}
     Options.c89_std := true;
     Options.ccopts := Driver.Dash.d "KRML_VERIFIED_UINT128" :: !Options.ccopts
   end;
-
-  (* Then, bring in the "default options" for each compiler. *)
-  let ccopts = !Options.ccopts in
-  Options.ccopts := [];
-  Arg.parse_argv ~current:(ref 0)
-    (Array.append [| Sys.argv.(0) |] (List.assoc !Options.cc (Options.default_options ())))
-    spec anon_fun usage;
-  Options.ccopts := ccopts @ !Options.ccopts;
 
   (* Then refine that based on the user's preferences. *)
   if !arg_warn_error <> "" then
@@ -826,6 +822,20 @@ Supported options:|}
 
     if !arg_skip_compilation then
       exit 0;
+
+    let cc_flavor_callback (k : Options.compiler_flavor) : unit =
+      (* With the compiler flavor detected, add the default options for the compiler.
+         We just call the option parser again to process the default_options. *)
+      let ccopts = !Options.ccopts in
+      Options.ccopts := [];
+      Arg.parse_argv ~current:(ref 0)
+        (Array.append [| Sys.argv.(0) |] (Options.default_options k))
+        spec anon_fun usage;
+      Options.ccopts := ccopts @ !Options.ccopts;
+    in
+
+    Driver.cc_flavor_callback := cc_flavor_callback;
+
     let remaining_c_files = Driver.compile (List.map fst files) !c_files in
 
     if !arg_skip_linking then
