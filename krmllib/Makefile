@@ -36,7 +36,7 @@ ifneq ($(RESOURCEMONITOR),)
   RUNLIM = runlim -p -o $@.runlim
 endif
 
-FSTAR = $(RUNLIM) $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules --cache_dir obj \
+FSTAR = $(RUNLIM) $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_dir obj \
   $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
   --already_cached 'Prims FStar -FStar.Krml.Endianness LowStar -LowStar.Lib'
 
@@ -64,7 +64,7 @@ FSTAR_EXTRACT+=-FStar.Stubs # This namespace is for interfaces into the compiler
 ifndef NODEPEND
 ifndef MAKE_RESTARTS
 .depend: .FORCE obj
-	$(FSTAR) $(OTHERFLAGS) --extract '$(FSTAR_EXTRACT)' --dep full $(ROOTS) --output_deps_to $@
+	$(FSTAR) $(OTHERFLAGS) --extract '$(FSTAR_EXTRACT)' --dep full $(ROOTS) -o $@
 
 .PHONY: .FORCE
 .FORCE:
@@ -77,15 +77,15 @@ obj:
 	mkdir $@
 
 %.checked: | obj
-	$(FSTAR) $(OTHERFLAGS) $< && \
+	$(FSTAR) $(OTHERFLAGS) -c $< -o $@ && \
 	touch $@
 
 verify-all: $(ALL_CHECKED_FILES)
 
 $(EXTRACT_DIR)/%.krml: | .depend
-	$(FSTAR) $(OTHERFLAGS) --codegen krml \
+	$(FSTAR) $(OTHERFLAGS) $< --codegen krml \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
-	  $(notdir $(subst .checked,,$<)) && \
+	  -o $@ && \
 	touch -c $@
 
 # We don't extract LowStar.Lib as everything is generic data structures that
