@@ -492,9 +492,8 @@ let cross_call_analysis files =
           (visit true)#visit_expr_w () e
       | DExternal (_, _, _, _, _, t, _) ->
           (visit false)#visit_typ () t
-      | DType (_, flags, _, _, d) ->
-          if not (List.mem Common.AbstractStruct flags) then
-            (visit false)#visit_type_def () d
+      | DType (_, _, _, _, d) ->
+          (visit false)#visit_type_def () d
       end;
       seen := LidSet.add lid !seen
     ) decls

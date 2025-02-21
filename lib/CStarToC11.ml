@@ -1391,9 +1391,9 @@ let either f1 f2 x =
   | [] -> f2 x
   | l -> l
 
-let if_private_or_abstract_struct f d =
+let if_private f d =
   let flags = flags_of_decl d in
-  if List.mem Private flags || List.mem AbstractStruct flags then
+  if List.mem Private flags then
     f d
   else
     []
@@ -1404,8 +1404,9 @@ let if_public f d =
   else
     []
 
-let if_internal f d =
-  if List.mem Internal (flags_of_decl d) then
+let if_internal_or_abstract_struct f d =
+  let flags = flags_of_decl d in
+  if List.mem Internal flags || List.mem AbstractStruct flags then
     (* let _ = KPrint.bprintf "%a is internal\n" PrintAst.Ops.plid (lid_of_decl d) in *)
     f d
   else
@@ -1448,7 +1449,7 @@ let mk_file m decls =
       none
       (either
         (mk_function_or_global_body m)
-        (if_private_or_abstract_struct (mk_type_or_external m C))))
+        (if_private (mk_type_or_external m C))))
     decls
 
 let mk_files (map: GlobalNames.mapping) files =
@@ -1500,10 +1501,10 @@ let mk_public_header (m: GlobalNames.mapping) decls =
 (* Private part if not already a static header, empty otherwise. *)
 let mk_internal_header (m: GlobalNames.mapping) decls =
   List.concat_map
-    (if_internal (
+    (if_internal_or_abstract_struct (
       (if_header_inline_static m
         (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
-        (either (mk_function_or_global_stub m) (mk_type_or_external m H)))))
+        (either (mk_function_or_global_stub m) (mk_type_or_external m C)))))
     decls
 
 let mk_headers (map: GlobalNames.mapping)
