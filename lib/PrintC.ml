@@ -272,6 +272,12 @@ and p_expr' curr = function
       let e1 = p_expr' left e1 in
       let e2 = p_expr' right e2 in
       paren_if curr mine (group (e1 ^/^ equals) ^^ jump e2)
+  | CompoundAssign (e1, op, e2) ->
+      let mine, left, right = 14, 13, 14 in
+      let right = defeat_Wparentheses op e2 right in
+      let e1 = p_expr' left e1 in
+      let e2 = p_expr' right e2 in
+      paren_if curr mine (group (e1 ^/^ print_op op ^^ equals) ^^ jump e2)
   | Call (e, es) ->
       let mine, left, arg = 1, 1, 14 in
       let e = p_expr' left e in

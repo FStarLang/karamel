@@ -52,7 +52,7 @@ and expr =
   | Member of expr * expr
   | MemberP of expr * expr
   | Assign of expr * expr
-    (** not covering *=, +=, etc. *)
+  | CompoundAssign of expr * K.op * expr (* x op= y, op is binary. *)
   | Call of expr * expr list
   | Name of ident
   | Cast of type_name * expr
