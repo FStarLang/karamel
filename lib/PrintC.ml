@@ -267,6 +267,24 @@ and p_expr' curr = function
       let e1 = p_expr' left e1 in
       let e2 = p_expr' right e2 in
       paren_if curr mine (e1 ^^ lbracket ^^ e2 ^^ rbracket)
+  | Assign (e1, Op2 (op, e2, e3)) ->
+      if e1 = e2 && List.mem op [Add; Sub; Mult; Div]
+      then
+        let mine, right = 14, 14 in
+        let e1 = p_expr' mine e1 in
+        let e3 = p_expr' right e3 in
+        paren_if curr mine (group (e1 ^/^ print_op op ^^ equals) ^^ jump e3)
+      else if e1 = e3 && List.mem op [Add; Mult]
+      then
+        let mine, right = 14, 14 in
+        let e1 = p_expr' mine e1 in
+        let e2 = p_expr' right e2 in
+        paren_if curr mine (group (e1 ^/^ print_op op ^^ equals) ^^ jump e2)
+      else
+        let mine, left, right = 14, 13, 14 in
+        let e1 = p_expr' left e1 in
+        let e2 = p_expr' right (Op2 (op, e2, e3)) in
+        paren_if curr mine (group (e1 ^/^ equals) ^^ jump e2)
   | Assign (e1, e2) ->
       let mine, left, right = 14, 13, 14 in
       let e1 = p_expr' left e1 in
