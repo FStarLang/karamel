@@ -15,3 +15,6 @@ $(OUTPUT_DIR)/Example_Slice.c: $(addprefix $(OUTPUT_DIR)/,\
 $(OUTPUT_DIR)/Example_Unreachable.c: $(addprefix $(OUTPUT_DIR)/,\
 	FStar_Pervasives.krml \
 	FStar_Pervasives_Native.krml)
+
+# Inline enough so the augmented assignments actually kick in
+$(OUTPUT_DIR)/CompoundAssignment.c: KRML_FLAGS += -faggressive-inlining
