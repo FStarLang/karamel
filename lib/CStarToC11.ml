@@ -408,7 +408,7 @@ and mk_initializer ~null_check t e_array e_size e_value: C.stmt =
   | C.Constant (_, "1")
   | C.Cast (_, C.Constant (_, "1")) ->
       if_not_null @@
-      Expr (Op2 (K.Assign, Index (e_array, Constant (K.UInt32, "0")), e_value))
+      Expr (Op2 (K.Assign, Deref e_array, e_value))
 
   | _ ->
       match e_value with
