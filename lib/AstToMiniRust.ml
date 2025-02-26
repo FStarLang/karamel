@@ -412,8 +412,30 @@ let compress_prefix prefix =
 
 (* Types *)
 
+(* This is the name translation facility for things that are missing from the scope; typically,
+   external definitions that are to be implemented by hand.
+
+   Some background (current as of Feb 2025): things that *do* have a definition end up with Rust
+   name crate::foo::bar where `foo` is the file that the definition got assigned to, and `bar` is
+   the last component of the `lident`. So, for instance, if Hacl.Streaming.Keccak.hash_len ends up
+   in Rust *file* hash_sha3.rs, then it becomes crate::hash_sha3::hash_len and is emitted as `fn
+   hash_len` within that file. The environment knows about this. Notably, this means that
+   rename-prefix is completely ignored for Rust, for good reason -- there is a better namespacing
+   story.
+
+   Now for things that are completely external (e.g. assumed library, like LowStar.Endianness), this
+   is a different story -- how do we meaningfully steer the name generation towards the naming
+   scheme we *would like*?
+
+   So, here, for things that do not get the nice Rust namespacing, we *do* honor rename-prefix to
+   give the user a little more control over how things get emitted when they don't have definitions
+   in scope.*)
 let translate_unknown_lid (m, n) =
-  let m = compress_prefix m in
+  let m =
+    match GlobalNames.rename_prefix (m, n) with
+    | Some m -> [ m ]
+    | None -> compress_prefix m
+  in
   List.map String.lowercase_ascii m @ [ n ]
 
 let borrow_kind_of_bool b: MiniRust.borrow_kind =
@@ -483,7 +505,7 @@ let translate_type env = translate_type_with_config env default_config
 (* Expressions *)
 
 (* Allocate a target Rust name for a definition named `lid` pertaining to file
-   (i.e. future rust module) `prefix`.
+   (i.e. future rust module) `env.prefix`.
 
    We do something super simple: we only retain the last component of `lid` and
    prefix it with the current namespace. This ensures that at Rust

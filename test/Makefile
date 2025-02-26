@@ -74,7 +74,7 @@ OUTPUT_DIR	= .output
 ifneq ($(CRYPTO),)
   INCLUDE_CRYPTO=--include $(CRYPTO)
 endif
-FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
+FSTAR		= $(FSTAR_EXE) \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
   --include hello-system --include ../krmllib/compat --include ../krmllib/obj \
   --include ../krmllib --include ../runtime \
@@ -83,7 +83,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274
 
-all: $(FILES) rust $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test
+all: $(FILES) rust $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test rust-val-test
 
 # Needs node
 wasm: $(WASM_FILES)
@@ -99,7 +99,7 @@ ifndef MAKE_RESTARTS
 ifndef NODEPEND
 .depend: .FORCE
 	$(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
-	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*,-Prims' --output_deps_to $@
+	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*,-Prims' -o $@
 
 .PHONY: .FORCE
 .FORCE:
@@ -109,13 +109,14 @@ endif
 include .depend
 
 $(CACHE_DIR)/%.checked: | .depend
-	$(FSTAR) $(OTHERFLAGS) $< && \
+	$(FSTAR) $(OTHERFLAGS) -c $< -o $@ && \
 	touch $@
 
 $(OUTPUT_DIR)/%.krml: | .depend
 	$(FSTAR) $(OTHERFLAGS) --codegen krml \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
-	  $(notdir $(subst .checked,,$<))
+	  -o $@ \
+	  $<
 
 ###############
 # Regular (C) #
@@ -265,6 +266,10 @@ ctypes-test: $(LOWLEVEL_DIR)/Client.native
 sepcomp-test:
 	+$(MAKE) -C sepcomp
 .PHONY: sepcomp-test
+
+rust-val-test:
+	+$(MAKE) -C rust-val
+.PHONY: rust-val-test
 
 CTYPES_HAND_WRITTEN_FILES=Client.ml Makefile
 
