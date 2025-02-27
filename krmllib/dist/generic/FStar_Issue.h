@@ -46,6 +46,8 @@ FStar_Issue_range_of_issue(FStar_Issue_issue i);
 
 extern Prims_list__Prims_string *FStar_Issue_context_of_issue(FStar_Issue_issue i);
 
+extern FStar_Pprint_document FStar_Issue_issue_to_doc(FStar_Issue_issue i);
+
 extern Prims_string FStar_Issue_render_issue(FStar_Issue_issue i);
 
 extern FStar_Issue_issue

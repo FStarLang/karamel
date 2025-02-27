@@ -248,7 +248,7 @@ let monomorphize_data_types map = object(self)
   (* Current file, for warning purposes. *)
   val mutable current_file = ""
   (* Possibly populated with something relevant *)
-  val mutable best_hint: node * lident = (dummy_lid, [], []), dummy_lid
+  val mutable best_hint: node * lident * flag list = (dummy_lid, [], []), dummy_lid, []
   (* For forward references, a map from lid to its pending monomorphizations
      (type arguments) *)
   val pending_monomorphizations: (lident, (typ list * cg list)) Hashtbl.t = Hashtbl.create 41
@@ -314,15 +314,15 @@ let monomorphize_data_types map = object(self)
     let lid, ts, cgs = n in
     if ts = [] && cgs = [] then
       lid, []
-    else if fst best_hint = n then
-      snd best_hint, []
+    else if fst3 best_hint = n then
+      snd3 best_hint, []
     else
       let name, flags = NameGen.gen_lid lid ts (Cg cgs) in
       if Options.debug "monomorphization" then
         KPrint.bprintf "No hint provided for %a\n  current best hint: %a -> %a\n  picking: %a\n"
           ptyp (fold_tapp (lid, ts, []))
-          ptyp (fold_tapp (fst best_hint))
-          plid (snd best_hint)
+          ptyp (fold_tapp (fst3 best_hint))
+          plid (snd3 best_hint)
           plid name;
       name, flags
 
@@ -345,6 +345,7 @@ let monomorphize_data_types map = object(self)
         if Options.debug "data-types-traversal" then
           KPrint.bprintf "visiting %a: Not_found\n" ptyp (fold_tapp n);
         let chosen_lid, flag = self#lid_of n in
+        let flag = if fst3 best_hint = n then thd3 best_hint @ flag else flag in
         if lid = tuple_lid then begin
           Hashtbl.add state n (Gray, chosen_lid, false);
           let args = List.map (self#visit_typ under_ref) args in
@@ -450,16 +451,16 @@ let monomorphize_data_types map = object(self)
       if Options.debug "data-types-traversal" then
         KPrint.bprintf "decl %a\n" plid (lid_of_decl d);
       match d with
-      | DType (lid, _, 0, 0, Abbrev (TTuple args)) when not !Options.keep_tuples && not (Hashtbl.mem state (tuple_lid, args, [])) ->
+      | DType (lid, flags, 0, 0, Abbrev (TTuple args)) when not !Options.keep_tuples && not (Hashtbl.mem state (tuple_lid, args, [])) ->
           Hashtbl.remove map lid;
           if Options.debug "monomorphization" then
             KPrint.bprintf "%a abbreviation for %a\n" plid lid ptyp (TApp (tuple_lid, args));
-          best_hint <- (tuple_lid, args, []), lid;
+          best_hint <- (tuple_lid, args, []), lid, flags;
           ignore (self#visit_node false (tuple_lid, args, []));
           Hashtbl.add seen_declarations lid ();
           self#clear ()
 
-      | DType (lid, _, 0, 0, Abbrev ((TApp _ | TCgApp _) as t)) when not (Hashtbl.mem state (flatten_tapp t)) ->
+      | DType (lid, flags, 0, 0, Abbrev ((TApp _ | TCgApp _) as t)) when not (Hashtbl.mem state (flatten_tapp t)) ->
           (* We have not yet monomorphized this type, and conveniently, we have
              a type abbreviation that provides us with a name hint! We simply
              ditch the type abbreviation and replace it with a monomorphization
@@ -478,9 +479,9 @@ let monomorphize_data_types map = object(self)
           let abbrev_for_gc_type = Hashtbl.mem map hd && List.mem Common.GcType (fst (Hashtbl.find map hd)) in
 
           if abbrev_for_gc_type then
-            best_hint <- (hd, args, cgs), (fst lid, snd lid ^ "_gc")
+            best_hint <- (hd, args, cgs), (fst lid, snd lid ^ "_gc"), flags
           else
-            best_hint <- (hd, args, cgs), lid;
+            best_hint <- (hd, args, cgs), lid, flags;
 
           ignore (self#visit_node false (hd, args, cgs));
 
