@@ -23,7 +23,7 @@ let filter_includes which file (includes: (Options.include_ * string) list) =
     | COnly file', h when file = file' && which = C->
         (* KPrint.bprintf "--- C Match %s: include %s\n" file h; *)
         Some h
-    | All, h when which = H ->
+    | All, h when which = H || which = InternalH ->
         (* KPrint.bprintf "--- All Match %s: include %s\n" file h; *)
         Some h
     | _i, _h ->
