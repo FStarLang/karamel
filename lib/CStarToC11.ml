@@ -995,6 +995,10 @@ and mk_expr m (e: expr): C.expr =
   | Call (Op o, [ e1; e2 ]) ->
       Op2 (o, mk_expr m e1, mk_expr m e2)
 
+  | Call (Op o, args) ->
+      failwith @@ "weird: operator " ^ K.show_op o ^ " with " ^
+        string_of_int (List.length args) ^ " arguments"
+
   | Comma (e1, e2) ->
       Op2 (K.Comma, mk_expr m e1, mk_expr m e2)
 
@@ -1120,8 +1124,9 @@ and mk_expr m (e: expr): C.expr =
   | Any ->
       Cast (([], Void, Pointer ([], Ident "")), zero)
 
-  | Op _ ->
-      failwith "[mk_expr m]: op should've been caught"
+  | Op op ->
+      let open Constant in
+      failwith ("[mk_expr m]: op should've been caught earlier: " ^ show_op op)
 
   | Bool b ->
       Bool b
