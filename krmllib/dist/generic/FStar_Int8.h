@@ -20,6 +20,8 @@ extern krml_checked_int_t FStar_Int8___proj__Mk__item__v(int8_t projectee);
 
 extern krml_checked_int_t FStar_Int8_v(int8_t x);
 
+typedef void *FStar_Int8_fits;
+
 extern int8_t FStar_Int8_int_to_t(krml_checked_int_t x);
 
 extern int8_t FStar_Int8_zero;

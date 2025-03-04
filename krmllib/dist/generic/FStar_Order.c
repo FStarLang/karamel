@@ -6,6 +6,8 @@
 
 #include "FStar_Order.h"
 
+#include "Prims.h"
+
 bool FStar_Order_uu___is_Lt(FStar_Order_order projectee)
 {
   switch (projectee)

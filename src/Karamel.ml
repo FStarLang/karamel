@@ -179,7 +179,12 @@ Supported options:|}
         | Some h ->
             COnly h, i
         | None ->
-            HeaderOnly h, i
+            begin match Filename.chop_suffix_opt ~suffix:".h" h with
+            | Some h ->
+                InternalOnly h, i
+            | None ->
+                HeaderOnly h, i
+            end
         end
     | [ i ] -> All, i
     | _ -> failwith ("Invalid -add-[early-|]include argument: " ^ s)

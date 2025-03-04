@@ -7,7 +7,6 @@
 #ifndef __FStar_Order_H
 #define __FStar_Order_H
 
-#include "Prims.h"
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"

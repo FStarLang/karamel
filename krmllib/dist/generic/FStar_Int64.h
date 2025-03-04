@@ -20,6 +20,8 @@ extern krml_checked_int_t FStar_Int64___proj__Mk__item__v(int64_t projectee);
 
 extern krml_checked_int_t FStar_Int64_v(int64_t x);
 
+typedef void *FStar_Int64_fits;
+
 extern int64_t FStar_Int64_int_to_t(krml_checked_int_t x);
 
 extern int64_t FStar_Int64_zero;

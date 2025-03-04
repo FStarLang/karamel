@@ -20,6 +20,8 @@ extern krml_checked_int_t FStar_Int16___proj__Mk__item__v(int16_t projectee);
 
 extern krml_checked_int_t FStar_Int16_v(int16_t x);
 
+typedef void *FStar_Int16_fits;
+
 extern int16_t FStar_Int16_int_to_t(krml_checked_int_t x);
 
 extern int16_t FStar_Int16_zero;
