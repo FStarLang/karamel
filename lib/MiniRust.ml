@@ -93,6 +93,7 @@ and expr =
   | As of expr * typ
   | For of binding * expr * expr
   | While of expr * expr
+  | Return of expr
   | MethodCall of expr * name * expr list
   | Range of expr option * expr option * bool (* inclusive? *)
   | Struct of struct_name * (string * expr) list
