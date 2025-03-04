@@ -194,7 +194,7 @@ and prec_of_op1 op =
   match op with
   | PreDecr | PreIncr | Not | BNot | Neg -> 2
   | PostDecr | PostIncr -> 1
-  | _ -> raise (Invalid_argument "prec_of_op1")
+  | _ -> raise (Invalid_argument ("prec_of_op1 " ^ show_op op))
 
 and is_prefix op =
   let open Constant in
