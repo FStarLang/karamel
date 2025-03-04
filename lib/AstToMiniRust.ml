@@ -1136,8 +1136,9 @@ and translate_expr_with_type (env: env) (e: Ast.expr) (t_ret: MiniRust.typ): env
       failwith "TODO: EBreak"
   | EContinue ->
       failwith "TODO: EContinue"
-  | EReturn _ ->
-      failwith "TODO: EReturn"
+  | EReturn e ->
+      let env, e = translate_expr env e in
+      env, Return e
   | EWhile (e1, e2) ->
       (* See below *)
       let env0 = env in
