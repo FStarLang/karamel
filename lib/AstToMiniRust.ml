@@ -719,7 +719,9 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
       let e =
         begin match info.path with
         | None -> possibly_convert (Var v) typ
-        | Some (v_base, p) -> lookup_split env (v_base + v + 1) (Path p)
+        | Some (v_base, p) ->
+            let etyp = translate_type env e.typ in
+            possibly_convert (lookup_split env (v_base + v + 1) (Path p)) etyp
         end
       in
 
