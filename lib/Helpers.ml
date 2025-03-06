@@ -90,14 +90,16 @@ let mk_lt_usize =
   mk_lt K.SizeT
 
 (* @0 <- @0 + 1ul *)
-let mk_incr w =
+let mk_incr_e w e =
   let t = TInt w in
   with_type TUnit (
     EAssign (with_type t (
       EBound 0), with_type t (
       EApp (mk_op K.Add w, [
         with_type t (EBound 0);
-        one w ]))))
+        e ]))))
+
+let mk_incr w = mk_incr_e w (one w)
 
 let mk_incr32 = mk_incr K.UInt32
 
