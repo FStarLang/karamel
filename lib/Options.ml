@@ -1,7 +1,7 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
 (* Licensed under the Apache 2.0 and MIT Licenses. *)
 
-type include_ = All | HeaderOnly of string | COnly of string
+type include_ = All | InternalOnly of string | HeaderOnly of string | COnly of string
 
 type compiler_flavor =
   | Generic
@@ -27,6 +27,7 @@ let compiler_flavor_of_string = function
 
 let pinc b = function
   | All -> Buffer.add_string b "*"
+  | InternalOnly h
   | HeaderOnly h -> Buffer.add_string b h; Buffer.add_string b ".h"
   | COnly h -> Buffer.add_string b h; Buffer.add_string b ".c"
 

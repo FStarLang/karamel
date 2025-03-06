@@ -434,6 +434,8 @@ and print_expr env (context: int) (e: expr): document =
       group @@
       string "while" ^/^ print_expr env max_int e1 ^/^
       print_expression_with_block env e2
+  | Return e ->
+      group (string "return" ^/^ print_expr env max_int e)
   | MethodCall (e, path, es) ->
       let mine = 2 in
       paren_if mine @@

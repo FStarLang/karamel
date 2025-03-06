@@ -223,9 +223,17 @@ let cross_call_analysis files =
       inlining: inlining;
       wasm_mutable: bool;
       wasm_needs_getter: bool;
+      abstract_struct: bool;
     }
   end in
   let open T in
+
+  let pvis b = function
+    | Private -> Buffer.add_string b "Private"
+    | Internal -> Buffer.add_string b "Internal"
+    | Public -> Buffer.add_string b "Public"
+    | Workspace -> Buffer.add_string b "Workspace"
+  in
 
   (* We associate to each declaration some initial information. Three fields may
      change after initially filling the map:
@@ -238,14 +246,19 @@ let cross_call_analysis files =
   let info_map = Helpers.build_map files (fun map d ->
     let f = flags_of_decl d in
     let name = lid_of_decl d in
+    let abstract_struct = List.mem Common.AbstractStruct f in
     let visibility =
-      if List.mem Common.Private f then
-        Private
-      else if List.mem Common.Internal f then
+      if List.mem Common.Internal f || abstract_struct then
+        (* C abstract structs start at internal, since their body is going to be in the internal
+           header. *)
         Internal
+      else if List.mem Common.Private f then
+        Private
       else
         Public
     in
+    if Options.debug "visibility-fixpoint" then
+      KPrint.bprintf "[initial visibility] %a: %a\n" plid name pvis visibility;
     let inlining =
       let is_static_inline = Helpers.is_static_header name in
       let is_inline = List.mem Common.Inline f || List.mem Common.MustInline f in
@@ -269,20 +282,13 @@ let cross_call_analysis files =
     in
     let wasm_needs_getter = false in
     let callers = LidSet.empty in
-    Hashtbl.add map (lid_of_decl d) { visibility; inlining; wasm_mutable; wasm_needs_getter; callers }
+    Hashtbl.add map (lid_of_decl d) { visibility; inlining; wasm_mutable; wasm_needs_getter; callers; abstract_struct }
   ) in
 
   (* We keep track of the declarations we have seen so far. Since the
      declarations are quasi-topologically ordered, a forward reference to
      another function indicates that there is mutual recursion. *)
   let seen = ref LidSet.empty in
-
-  let pvis b = function
-    | Private -> Buffer.add_string b "Private"
-    | Internal -> Buffer.add_string b "Internal"
-    | Public -> Buffer.add_string b "Public"
-    | Workspace -> Buffer.add_string b "Workspace"
-  in
 
   (* T.Visibility forms a trivial lattice where Private <= Internal <= Public *)
   let lub: visibility -> visibility -> visibility = max in
@@ -301,6 +307,10 @@ let cross_call_analysis files =
   let record_call_from_to caller callee =
     try
       let info = Hashtbl.find info_map callee in
+      if Options.debug "visibility-fixpoint" then
+        KPrint.bprintf "[visibility-fixpoint] recording cross-call from %a (%s) to %a (%s)\n"
+          plid caller (Option.value ~default:"<none>" (file_of caller))
+          plid callee (Option.value ~default:"<none>" (file_of callee));
       Hashtbl.replace info_map callee { info with callers = LidSet.add caller info.callers }
     with Not_found ->
       (* External type currently modeled as an lid without a definition (sigh) *)
@@ -492,9 +502,8 @@ let cross_call_analysis files =
           (visit true)#visit_expr_w () e
       | DExternal (_, _, _, _, _, t, _) ->
           (visit false)#visit_typ () t
-      | DType (_, flags, _, _, d) ->
-          if not (List.mem Common.AbstractStruct flags) then
-            (visit false)#visit_type_def () d
+      | DType (_, _flags, _, _, d) ->
+          (visit false)#visit_type_def () d
       end;
       seen := LidSet.add lid !seen
     ) decls
@@ -514,7 +523,13 @@ let cross_call_analysis files =
     if not (Hashtbl.mem info_map lid) then
       Warn.fatal_error "No equation for %a" plid lid;
     let info = Hashtbl.find info_map lid in
-    LidSet.fold (fun caller v -> lub v (valuation caller)) info.callers info.visibility
+    let adjust caller =
+      if (Hashtbl.find info_map caller).abstract_struct then
+        Internal
+      else
+        valuation caller
+    in
+    LidSet.fold (fun caller v -> lub v (adjust caller)) info.callers info.visibility
   ) in
 
   (* Adjust definitions based on `info_map` updated with fixpoint *)
@@ -522,13 +537,21 @@ let cross_call_analysis files =
     f, List.map (fun d ->
       let lid = lid_of_decl d in
       let info = Hashtbl.find info_map lid in
+      let old_vis = info.visibility in
+      (* Fixpoint computation *)
       let info = { info with visibility = valuation (lid_of_decl d) } in
+      (* C abstract structs are treated as internal for the purposes of visibility computation,
+         but the convention is that they end up being marked as public for CStarToC11 to do the
+         right thing. (This may need fixing.) *)
+      let info = { info with visibility = if info.abstract_struct then Public else info.visibility } in
       if Options.debug "visibility-fixpoint" then
-        KPrint.bprintf "[adjustment]: %a: %a, wasm: mut %b getter %b\n"
-          plid lid pvis info.visibility info.wasm_mutable info.wasm_needs_getter;
+        KPrint.bprintf "[adjustment]: %a: %a --> %a, wasm: mut %b getter %b\n"
+          plid lid pvis old_vis pvis info.visibility info.wasm_mutable info.wasm_needs_getter;
+
       let remove_if cond flag flags = if cond then List.filter ((<>) flag) flags else flags in
       let add_if cond flag flags = if cond && not (List.mem flag flags) then flag :: flags else flags in
       let adjust flags =
+
         let flags = remove_if (info.inlining = Nope) Common.Inline flags in
         let flags = remove_if (info.inlining = Nope) Common.MustInline flags in
         let flags = remove_if (info.visibility <> Private) Common.Private flags in
