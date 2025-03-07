@@ -33,8 +33,9 @@ let width_to_string = function
   | Bool -> "bool"
   | SizeT -> if !Options.linux_ints then "size_t" else "size"
   | PtrdiffT -> if !Options.linux_ints then "ptrdiff_t" else "ptrdiff"
-  | Float32 -> "float32"
-  | Float64 -> "float64"
+  | Float16 -> "half"
+  | Float32 -> if !Options.cuda then "float" else "float32"
+  | Float64 -> if !Options.cuda then "double" else "float64"
 
 let print_width w =
   string (width_to_string w) ^^
