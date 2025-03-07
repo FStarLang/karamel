@@ -13,6 +13,7 @@ type width =
   | CInt (** Checked signed integers. *)
   | SizeT | PtrdiffT
   | Float32 | Float64 (** Floating point numbers. *)
+  | Float16
   [@@deriving yojson,show]
 
 type t = width * string
