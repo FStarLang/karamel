@@ -64,7 +64,7 @@ module Sizes = struct
         A64
     | UInt32 | Int32 | Float32 ->
         A32
-    | UInt16 | Int16 ->
+    | UInt16 | Int16 | Float16 ->
         A16
     | UInt8 | Int8 ->
         A8
