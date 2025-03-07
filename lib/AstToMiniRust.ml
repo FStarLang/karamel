@@ -1567,8 +1567,11 @@ let compute_struct_info files boxed_types =
     method! visit_DFunction _ _ _ _ _ ret_t _ _ _ =
       match ret_t with
       | TQualified lid -> Idents.LidSet.singleton lid
-      | _ -> boxed_types
+      | _ -> Idents.LidSet.empty
   end)#visit_files () files in
+
+  (* Add types annotated as *must box* *)
+  let returned = Idents.LidSet.union boxed_types returned in
 
   (* Transitive closure: all the types that appear as part of a returned type. *)
   let returned =
