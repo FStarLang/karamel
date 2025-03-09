@@ -58,6 +58,13 @@ let early_includes_for which file =
   else
     mk_includes includes ^^ hardline ^^ hardline
 
+let very_early_includes_for which file =
+  let includes = filter_includes which file !Options.add_very_early_include in
+  if includes = [] then
+    empty
+  else
+    mk_includes includes ^^ hardline ^^ hardline
+
 let invocation (): string =
   KPrint.bsprintf
 {|
@@ -104,6 +111,7 @@ let prefix_suffix which original_name name =
     string (header ()) ^^ hardline ^^ hardline ^^
     string (Printf.sprintf "#ifndef __%s_H" macro_name) ^^ hardline ^^
     string (Printf.sprintf "#define __%s_H" macro_name) ^^ hardline ^^
+    hardline ^^ very_early_includes_for which original_name ^^
     (if !Options.extern_c then hardline ^^ if_cpp (string "extern \"C\" {") else empty) ^^
     hardline ^^
     early_includes_for which original_name ^^
