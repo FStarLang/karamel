@@ -290,13 +290,14 @@ and p_expr' curr = function
       (* We always parenthesize compound literals no matter what, because GCC
        * parses an application of a function to a compound literal as an n-ary
        * application. *)
-      parens_with_nesting (
-        (if !Options.cxx_compat then
-          string "CLITERAL" ^^ parens (p_type_name t)
-        else
-          parens (p_type_name t)) ^^
-        braces_with_nesting (separate_map (comma ^^ break1) p_init init)
-      )
+      if !Options.cxx_compat then
+       string "CLITERAL" ^^ parens (p_type_name t ^^ comma ^^ string "CFIELDS" ^^
+       parens (braces_with_nesting (separate_map (comma ^^ break1) p_init init)))
+      else
+        parens_with_nesting (
+          parens (p_type_name t) ^^
+          braces_with_nesting (separate_map (comma ^^ break1) p_init init)
+        )
   | MemberAccess (expr, member) ->
       p_expr' 1 expr ^^ dot ^^ string member
   | MemberAccessPointer (expr, member) ->
@@ -319,7 +320,10 @@ and p_expr e = p_expr' 15 e
 and p_init (i: init) =
   match i with
   | Designated (designator, i) ->
-      group (p_designator designator ^^ space ^^ equals ^^ space ^^ p_init i)
+      if !Options.cxx_compat then
+        string "CFIELD" ^^ parens (p_designator designator ^^ comma ^^ space ^^ p_init i)
+      else
+        p_designator designator ^^ space ^^ equals ^^ space ^^ p_init i
   | InitExpr e ->
       p_expr' 14 e
   | Initializer inits ->

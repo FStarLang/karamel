@@ -45,6 +45,7 @@ let fstar = ref "fstar.exe" (* F* command to use *)
 let add_include: (include_ * string) list ref = ref [ ]
 let add_include_tmh = ref false
 let add_early_include: (include_ * string) list ref = ref [ ]
+let add_very_early_include: (include_ * string) list ref = ref [ ]
 let warn_error = ref "+1@2@3+4..8@9+10@11+12..18@19+20..22+24..25@26..28"
 let tmpdir = ref "."
 let includes: string list ref = ref []
