@@ -1540,7 +1540,12 @@ let identify_path_components_rev filename =
     components := String.sub filename !start (String.length filename - !start) :: !components;
   !components
 
-let compute_struct_info files =
+(* Compute information about the struct types in the program.
+   In particular, determine whether pointers inside a struct
+   type should be `Box`es or borrows.
+   The [boxed_types] argument corresponds to types explicitly
+   annotated as boxed during C to Rust translation *)
+let compute_struct_info files boxed_types =
   (* A table from lid to fields, for all the structs in the program. *)
   let struct_map = List.fold_left (fun acc (_, decls) ->
     List.fold_left (fun acc decl ->
@@ -1564,6 +1569,9 @@ let compute_struct_info files =
       | TQualified lid -> Idents.LidSet.singleton lid
       | _ -> Idents.LidSet.empty
   end)#visit_files () files in
+
+  (* Add types annotated as *must box* *)
+  let returned = Idents.LidSet.union boxed_types returned in
 
   (* Transitive closure: all the types that appear as part of a returned type. *)
   let returned =
@@ -1650,8 +1658,8 @@ let compute_struct_info files =
 
   returned, with_inner_pointers
 
-let translate_files files =
-  let heap_structs, pointer_holding_structs = compute_struct_info files in
+let translate_files_with_boxed_types files boxed_types =
+  let heap_structs, pointer_holding_structs = compute_struct_info files boxed_types in
   if Options.debug "rs-structs" then begin
     KPrint.bprintf "The following types are understood to be heap-allocated:\n";
     List.iter (KPrint.bprintf "  %a\n" PrintAst.Ops.plid) (Idents.LidSet.elements heap_structs)
@@ -1728,3 +1736,5 @@ let translate_files files =
     KPrint.bprintf "%s%d total errors%s\n" Ansi.red !failures Ansi.reset;
 
   List.rev files
+
+let translate_files files = translate_files_with_boxed_types files Idents.LidSet.empty

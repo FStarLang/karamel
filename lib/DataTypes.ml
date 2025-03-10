@@ -239,15 +239,18 @@ let build_scheme_map files =
         | _ ->
             ()
   end)#visit_files () files;
-  map, Hashtbl.create 41
+  map, Hashtbl.create 41, Hashtbl.create 41
 
 (** Second thing: handle the trivial case of a data type definition with only
  * tags (it's just an enum) and the trivial case of a type definition with one
  * branch (it's just a flat record), i.e. the first two cases of [scheme] *)
 
-let mk_tag_lid type_lid cons =
-  let prefix, _ = type_lid in
-  prefix, cons
+let find_tag_lid tag_remap lid cons =
+  try
+    let tag_type = Hashtbl.find tag_remap lid in 
+    fst tag_type, cons
+  with Not_found ->
+    Warn.fatal_error "The tag type of type %a was not found" plid lid
 
 let try_mk_switch c e branches =
   (* TODO if the last case is a PWild then make it the default case of the
@@ -314,25 +317,47 @@ type cached_lid =
 
 (* We cache sets of tags assigned to a given enum so that there's no collisions
  * in the global scope. *)
-let allocate_tag enums preferred_lid tags =
-  match Hashtbl.find enums tags with
-  | lid ->
-      Found lid
+let allocate_tag (enums: ((ident * Z.t option) list, lident) Hashtbl.t) (tag_remap: _) lid
+  preferred_tag_lid (tags_without_prefix: (string * _) list)
+=
+  (* Tags need to retain a long name, otherwise, Checker will confuse identical tags across types.
+     But, we hash-cons them without the prefix, on the basis that monomorphized instances of the
+     same data type need to share the same type for the tag rather than duplicate the tag type in
+     every module. *)
+  let tags_with_prefix = List.map (fun (tag, value) -> ((fst preferred_tag_lid, tag), value)) tags_without_prefix in
+  match Hashtbl.find enums tags_without_prefix with
+  | tag_lid ->
+      (* KPrint.bprintf "for tags %s, found %a\n" *)
+      (*   (String.concat ", " (List.map fst tags_without_prefix)) *)
+      (*   plid tag_lid; *)
+      if not (Hashtbl.mem tag_remap lid) then
+        Hashtbl.add tag_remap lid tag_lid;
+      Found tag_lid
   | exception Not_found ->
-      Hashtbl.add enums tags preferred_lid;
+      (* KPrint.bprintf "for tags %s, NOT found, preferred=%a\n" *)
+      (*   (String.concat ", " (List.map fst tags_without_prefix)) *)
+      (*   plid preferred_tag_lid; *)
+      Hashtbl.add enums tags_without_prefix preferred_tag_lid;
+      Hashtbl.add tag_remap lid preferred_tag_lid;
       (* Private will be removed, if needed, by the cross-call analysis. *)
-      Fresh (DType (preferred_lid, [ Common.Private ], 0, 0, Enum tags))
+      Fresh (DType (preferred_tag_lid, [ Common.Private ], 0, 0, Enum tags_with_prefix))
 
 let field_for_tag = "tag"
 let field_for_union = "val"
 
-type map = (lident, scheme) Hashtbl.t * ((lident * Z.t option) list, lident) Hashtbl.t
+type map =
+  (* Compilation scheme for each data type *)
+  (lident, scheme) Hashtbl.t *
+  (* Hash-consing the tag types -- so that all instances of a monomorphized type share the same tag type. *)
+  ((ident * Z.t option) list, lident) Hashtbl.t *
+  (* The name of the type that declares the tags of a given data type. *)
+  (lident, lident) Hashtbl.t
 
 (* This does two things:
  * - deal with the simple compilation schemes (not tagged union)
  * - pre-allocate types for tags for the next phase (tagged union compilation)
  *)
-let compile_simple_matches ((map, enums): map) = object(self)
+let compile_simple_matches ((map, enums, tag_remap): map) = object(self)
 
   inherit [_] map
 
@@ -401,7 +426,7 @@ let compile_simple_matches ((map, enums): map) = object(self)
         ECons (cons, List.map (self#visit_expr_w ()) args)
     | ToEnum ->
         assert (List.length args = 0);
-        EEnum (mk_tag_lid lid cons)
+        EEnum (find_tag_lid tag_remap lid cons)
     | ToFlat names ->
         EFlat (List.map2 (fun n e -> Some n, self#visit_expr_w () e) names args)
     | ToFlatTaggedUnion branches ->
@@ -414,7 +439,7 @@ let compile_simple_matches ((map, enums): map) = object(self)
             List.map2 (fun (f, _) e -> Some f, self#visit_expr_w () e) fields args
         in
         EFlat ([
-          Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons))
+          Some field_for_tag, with_type t_tag (EEnum (find_tag_lid tag_remap lid cons))
         ] @ fields)
 
   method! visit_PCons (_, typ) cons args =
@@ -432,7 +457,7 @@ let compile_simple_matches ((map, enums): map) = object(self)
         PCons (cons, List.map (self#visit_pattern_w ()) args)
     | ToEnum ->
         assert (List.length args = 0);
-        PEnum (mk_tag_lid lid cons)
+        PEnum (find_tag_lid tag_remap lid cons)
     | ToFlat names ->
         PRecord (List.map2 (fun n e -> n, self#visit_pattern_w () e) names args)
     | ToFlatTaggedUnion branches ->
@@ -445,16 +470,16 @@ let compile_simple_matches ((map, enums): map) = object(self)
             List.map2 (fun (f, _) e -> f, self#visit_pattern_w () e) fields args
         in
         PRecord ([
-          field_for_tag, with_type t_tag (PEnum (mk_tag_lid lid cons))
+          field_for_tag, with_type t_tag (PEnum (find_tag_lid tag_remap lid cons))
         ] @ fields)
 
   method private allocate_enum_lid lid branches =
-    let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons, None) branches in
+    let tags = List.map (fun (cons, _) -> cons, None) branches in
     (* Pre-allocate the named type for this type's tags. Has to be done
      * here so that the enum declaration is inserted in the right spot.
      * *)
     let preferred_lid = fst lid, snd lid ^ "_tags" in
-    match allocate_tag enums preferred_lid tags with
+    match allocate_tag enums tag_remap lid preferred_lid tags with
     | Found tag_lid ->
         tag_lid
     | Fresh decl ->
@@ -476,8 +501,8 @@ let compile_simple_matches ((map, enums): map) = object(self)
             ignore (self#allocate_enum_lid lid branches);
             DType (lid, flags, 0, 0, Variant branches)
         | ToEnum ->
-            let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons, None) branches in
-            begin match allocate_tag enums lid tags with
+            let tags = List.map (fun (cons, _) -> cons, None) branches in
+            begin match allocate_tag enums tag_remap lid lid tags with
             | Found other_lid ->
                 DType (lid, flags, 0, 0, Abbrev (TQualified other_lid))
             | Fresh decl ->
@@ -984,12 +1009,12 @@ let field_names_of_cons cons branches =
 
 (* Fifth step: implement the general transformation of data types into tagged
  * unions. *)
-let compile_all_matches (map, enums) = object (self)
+let compile_all_matches (map, enums, tag_remap) = object (self)
 
   inherit [_] map
 
   method private tag_and_val_type lid branches =
-    let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons, None) branches in
+    let tags = List.map (fun (cons, _) -> cons, None) branches in
     let structs = List.filter_map (fun (cons, fields) ->
       let fields = List.map (fun (f, t) -> Some f, t) fields in
       match List.length fields with
@@ -1008,7 +1033,7 @@ let compile_all_matches (map, enums) = object (self)
     ) branches in
     let preferred_lid = fst lid, snd lid ^ "_tags" in
     let tag_lid =
-      match allocate_tag enums preferred_lid tags with
+      match allocate_tag enums tag_remap lid preferred_lid tags with
       | Found lid -> lid
       | Fresh _ ->
           (* pre-allocated by the previous phase *)
@@ -1048,7 +1073,7 @@ let compile_all_matches (map, enums) = object (self)
     (** This is sound because we rely on left-to-right, lazy semantics for
      * pattern-matching. So, we read the "right" field from the union only
      * after we've ascertained that we're in the right case. *)
-    PRecord ([ field_for_tag, with_type t_tag (PEnum (mk_tag_lid lid cons)) ] @
+    PRecord ([ field_for_tag, with_type t_tag (PEnum (find_tag_lid tag_remap lid cons)) ] @
     match List.length fields with
     | 0 ->
         []
@@ -1070,7 +1095,7 @@ let compile_all_matches (map, enums) = object (self)
     let record_expr = EFlat (List.combine field_names exprs) in
     let t_tag, t_val = self#tag_and_val_type lid branches in
     EFlat (
-      [ Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons)) ] @
+      [ Some field_for_tag, with_type t_tag (EEnum (find_tag_lid tag_remap lid cons)) ] @
       match List.length exprs with
       | 0 ->
           []
@@ -1128,7 +1153,7 @@ let is_tagged_union map lid =
 
 (* Sixth step: if the compiler supports it, use C11 anonymous structs. *)
 
-let anonymous_unions (map, _) = object (self)
+let anonymous_unions (map, _, _) = object (self)
   inherit [_] map as super
 
   method! visit_EField env e f =
