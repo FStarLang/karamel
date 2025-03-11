@@ -785,6 +785,28 @@ let to_addr is_struct =
       DFunction (cc, flags, n_cgs, n, ret, lid, binders, to_addr false body)
   end
 
+module FieldMap = Map.Make(struct
+  type t = lident * string
+  let compare = compare
+end)
+
+let build_field_to_type_map = object(_self)
+  inherit [_] reduce
+
+  method private zero = FieldMap.empty
+  method private plus = FieldMap.union (fun _ _ _ -> assert false)
+
+  method visit_DType () name _ _ _ def =
+    match def with
+    | Flat fields ->
+        List.fold_left (fun m (f, (t, _)) ->
+          match f with
+          | Some f -> FieldMap.add (name, f) t m
+          | None -> m
+        ) FieldMap.empty fields
+    | _ ->
+        FieldMap.empty
+end
 
 (* For C89 *)
 class remove_literals = object (self)
@@ -793,40 +815,43 @@ class remove_literals = object (self)
   method private mk_path (e: expr) (fields: (ident * typ) list) =
     List.fold_left (fun acc (f, t) -> with_type t (EField (acc, f))) e fields
 
-  method private explode (acc: expr list) (path: (ident * typ) list) (e: expr) (dst: expr): expr list =
+  method private explode map (acc: expr list) (path: (ident * typ) list) (e: expr) (dst: expr): expr list =
     match e.node with
     | EFlat fields ->
+        let t_flat = e.typ in
         List.fold_left (fun acc (f, e) ->
           let f = Option.get f in
-          self#explode acc ((f, e.typ) :: path) e dst
+          (* Important because of subtyping, e.g. over const-ness *)
+          let t = FieldMap.find (Helpers.assert_tlid t_flat, f) map in
+          self#explode map acc ((f, t) :: path) e dst
         ) acc fields
     | _ ->
-        let e = self#visit_expr_w () e in
+        let e = self#visit_expr_w map e in
         with_type TUnit (EAssign (self#mk_path dst (List.rev path), e)) :: acc
 
-  method! visit_ELet ((_, t) as env) b e1 e2 =
+  method! visit_ELet ((map, t) as env) b e1 e2 =
     match e1.node with
     | EFlat fields ->
         let fields = List.map (fun (f, e) -> f, DeBruijn.lift 1 e) fields in
         let x = with_type b.typ (EBound 0) in
         ELet (b, Helpers.any, with_type t (ESequence (
-          List.rev (self#visit_expr_w () e2 ::
-            self#explode [] [] (with_type e1.typ (EFlat fields)) x))))
+          List.rev (self#visit_expr_w map e2 ::
+            self#explode map [] [] (with_type e1.typ (EFlat fields)) x))))
     | _ ->
         super#visit_ELet env b e1 e2
 
-  method! visit_EFlat (_, t) fields =
+  method! visit_EFlat (map, t) fields =
     let b, x = Helpers.mk_binding "lit" t in
     ELet (b, Helpers.any, DeBruijn.close_binder b (with_type t (ESequence (
-      List.rev (x :: self#explode [] [] (with_type t (EFlat fields)) x)))))
+      List.rev (x :: self#explode map [] [] (with_type t (EFlat fields)) x)))))
 
-  method visit_fields_t_opt _ fields =
+  method visit_fields_t_opt map fields =
     (* All fields become mutable with this transformation *)
-    List.map (fun (f, (t, _)) -> f, (self#visit_typ () t, true)) fields
+    List.map (fun (f, (t, _)) -> f, (self#visit_typ map t, true)) fields
 end
 
 let remove_literals files =
-  (new remove_literals)#visit_files () files
+  (new remove_literals)#visit_files (build_field_to_type_map#visit_files () files) files
 
 (* Debug any intermediary AST as follows: *)
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
