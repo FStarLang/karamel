@@ -274,6 +274,15 @@ and print_statements env (e: expr): document =
   | Let ({ typ = Unit; _ }, e1, e2) ->
       print_expr env max_int e1 ^^ semi ^^ hardline ^^
       print_statements (push env (GoneUnit)) e2
+  | Let ({ name; _ } as b, Empty, e2) ->
+      (* Special-case: this is a variable declaration without a definition *)
+      let name = allocate_name env name in
+      let b = { b with name } in
+      group (
+        string "let" ^/^ print_binding env b ^^ semi
+      ) ^^ hardline ^^
+      print_statements (push env (Bound b)) e2
+
   | Let ({ name; _ } as b, e1, e2) ->
       let name = allocate_name env name in
       let b = { b with name } in
@@ -501,6 +510,8 @@ and print_expr env (context: int) (e: expr): document =
 
   | Tuple es ->
       parens_with_nesting (separate_map comma (print_expr env max_int) es)
+
+  | Empty -> failwith "empty expression is not under a let binding"
 
 and print_data_type_name env = function
   | `Struct name -> print_name env name

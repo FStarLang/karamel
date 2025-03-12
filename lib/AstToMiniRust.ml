@@ -760,8 +760,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
       env, Constant (Bool, string_of_bool b)
   | EString s ->
       env, ConstantString s
-  | EAny ->
-      failwith "unexpected: [expr] no casts in Low* -> Rust"
+  | EAny -> env, Empty
   | EAbort (_, s) ->
       env, Panic (Stdlib.Option.value ~default:"" s)
   | EIgnore _ ->

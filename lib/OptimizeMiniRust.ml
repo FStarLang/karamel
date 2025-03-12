@@ -382,6 +382,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
   | ConstantString _
   | Unit
   | Panic _
+  | Empty
   | Operator _ ->
       known, e
 
