@@ -75,11 +75,24 @@ let rec p_type_spec = function
       | None ->
           empty)
   | Struct (name, decls) ->
+      (* If this is a tagged union, we name the union U, then generate the fancy constructor
+         using a macro *)
+      let decls, extra =
+        match decls with
+        | Some [ _, _, _, _, _, [ Ident "tag", _, _ ] as tag_decl;
+            qs, Union (_, cases), is, ss, ex, ([ Ident "val", _, _ ] as val_decl) ] when
+          !Options.cxx17_compat ->
+            Some [ tag_decl; qs, Union (Some "U", cases), is, ss, ex, val_decl ],
+            hardline ^^ string "KRML_UNION_CONSTRUCTOR" ^^ parens (string (Option.get name))
+        | _ ->
+            decls, empty
+      in
       group (string "struct" ^/^
       (match name with Some name -> string name | None -> empty)) ^^
       (match decls with
       | Some decls ->
-          break1 ^^ braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
+          break1 ^^ braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^
+          semi)) decls ^^ extra)
       | None ->
           empty)
   | Enum (name, tags) ->
@@ -291,7 +304,11 @@ and p_expr' curr = function
        * parses an application of a function to a compound literal as an n-ary
        * application. *)
       parens_with_nesting (
-        (if !Options.cxx_compat then
+        (if !Options.cxx17_compat then
+          (* C++17 initializer syntax T { ..., ... } *)
+          p_type_name t
+        else if !Options.cxx_compat then
+          (* CLITERAL works either in C++20 or C11 mode *)
           string "CLITERAL" ^^ parens (p_type_name t)
         else
           parens (p_type_name t)) ^^
@@ -305,6 +322,8 @@ and p_expr' curr = function
       surround 2 1 (p_comment s) (p_expr' curr e) (p_comment s')
   | Stmt stmts ->
       p_stmts stmts
+  | CxxInitializerList init ->
+      p_init init
 
 and p_comment s =
   if s <> "" then
@@ -318,6 +337,9 @@ and p_expr e = p_expr' 15 e
 
 and p_init (i: init) =
   match i with
+  | Designated (Dot _, i) when !Options.cxx17_compat ->
+      (* C++17-only syntax: skip designators *)
+      p_init i
   | Designated (designator, i) ->
       group (p_designator designator ^^ space ^^ equals ^^ space ^^ p_init i)
   | InitExpr e ->
@@ -333,6 +355,7 @@ and p_init (i: init) =
 
 and p_designator = function
   | Dot ident ->
+      (* C++20/C11 syntax *)
       dot ^^ string ident
   | Bracket i ->
       lbracket ^^ int i ^^ rbracket

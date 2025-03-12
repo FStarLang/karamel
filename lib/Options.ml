@@ -105,6 +105,7 @@ let microsoft = ref false
 let extern_c = ref false
 let short_names = ref true
 let cxx_compat = ref false
+let cxx17_compat = ref false
 
 let extract_uints = ref false
 let builtin_uint128 = ref false
