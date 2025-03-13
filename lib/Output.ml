@@ -101,9 +101,12 @@ let prefix_suffix which original_name name =
   Driver.detect_fstar_if ();
   Driver.detect_karamel_if ();
   let if_cpp doc =
-    string "#if defined(__cplusplus)" ^^ hardline ^^
-    doc ^^ hardline ^^
-    string "#endif" ^^ hardline
+    if !Options.cxx17_compat then
+      empty
+    else
+      string "#if defined(__cplusplus)" ^^ hardline ^^
+      doc ^^ hardline ^^
+      string "#endif" ^^ hardline
   in
   let macro_name = String.map (function '/' -> '_' | c -> c) name in
   (* KPrint.bprintf "- add_early_includes: %s\n" original_name; *)

@@ -1085,8 +1085,18 @@ and mk_expr m (e: expr): C.expr =
 
 and mk_compound_literal m name fields =
   let name = to_c_name m name in
-  (* TODO really properly specify C's type_name! *)
-  CompoundLiteral (([], Named name, Ident ""), fields_as_initializer_list m fields)
+  match fields with
+  | [ Some "tag", e1; Some "val", Struct (_, [ Some case, e2 ]) ] when !Options.cxx17_compat ->
+      (* Hack that generates foo_s(tag, &foo_s::U::case_bar, value ...) *)
+      let name = name ^ "_s" in
+      Call (Name name, [
+        mk_expr m e1;
+        Address (Name (name ^ "::U::" ^ case));
+        CxxInitializerList (struct_as_initializer m e2)
+      ])
+  | _ ->
+      (* TODO really properly specify C's type_name! *)
+      CompoundLiteral (([], Named name, Ident ""), fields_as_initializer_list m fields)
 
 and struct_as_initializer m = function
   | Struct (_, fields) ->
