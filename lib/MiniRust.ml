@@ -113,6 +113,9 @@ and expr =
   | Operator of op
   | Deref of expr
 
+  (* Represents the absence of expression in a let-binding *)
+  | Empty
+
 and match_arm = binding list * pat * expr
 
 (* FIXME: could not reuse constructors like Struct, Var, and Open, using
