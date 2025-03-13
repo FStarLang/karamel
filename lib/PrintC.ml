@@ -308,8 +308,8 @@ and p_expr' curr = function
           (* C++17 initializer syntax T { ..., ... } *)
           p_type_name t
         else if !Options.cxx_compat then
-          (* CLITERAL works either in C++20 or C11 mode *)
-          string "CLITERAL" ^^ parens (p_type_name t)
+          (* KRML_CLITERAL works either in C++20 or C11 mode *)
+          string "KRML_CLITERAL" ^^ parens (p_type_name t)
         else
           parens (p_type_name t)) ^^
         braces_with_nesting (separate_map (comma ^^ break1) p_init init)
