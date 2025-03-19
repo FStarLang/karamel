@@ -242,6 +242,6 @@ obj/specs-test.exe: $(ALL_CMX_FILES) obj/Specs_Driver.cmx
 
 CFLAGS += -I dist -I $(KRML_HOME)/include
 
-tests/c-tests.exe: dist/libbignum.a tests/c-tests.o
+tests/c-tests.exe: tests/c-tests.o dist/libbignum.a
 	$(CC) $^ -o $@
 
