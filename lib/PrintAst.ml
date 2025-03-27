@@ -46,7 +46,7 @@ let rec print_decl = function
       parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders
       ) ^^ colon ^/^ print_typ typ) ^/^ braces_with_nesting (
-        print_expr empty_env body
+        print_expr (push_n empty_env binders) body
       )
 
   | DExternal (cc, flags, n_cg, n, name, typ, _) ->
@@ -177,7 +177,7 @@ and print_binder { typ; node = { name; mut; meta; mark; _ }; meta = node_meta } 
   let o, u = !mark in
   (if mut then string "mutable" ^^ break 1 else empty) ^^
   group (group (string name ^^ lparen ^^ string (Mark.show_occurrence o) ^^ comma ^^
-  string (Mark.show_usage u) ^^ comma ^^ space ^^ print_meta meta ^^
+  (match u with AtMost u -> if u = max_int then utf8string "∞" else int u) ^^ comma ^^ space ^^ print_meta meta ^^
   rparen ^^ colon) ^/^
   nest 2 (print_typ typ))
 
