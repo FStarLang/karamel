@@ -241,7 +241,7 @@ and p_expr' curr = function
       let right = defeat_Wparentheses op e2 right in
       let e1 = p_expr' left e1 in
       let e2 = p_expr' right e2 in
-      paren_if curr mine (e1 ^/^ print_op op ^^ jump e2)
+      paren_if curr mine (group (e1 ^/^ print_op op) ^^ group (jump e2))
   | Index (e1, e2) ->
       let mine, left, right = 1, 1, 15 in
       let e1 = p_expr' left e1 in
