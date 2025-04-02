@@ -1065,7 +1065,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
         ) binders in
         let env = List.fold_left push env binders in
         let pat = translate_pat env pat in
-        let _, e = translate_expr env fn_t_ret e in
+        let _, e = translate_expr_with_type env fn_t_ret e t_ret in
         binders, pat, e
       ) branches in
       let branches =
@@ -1102,7 +1102,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
           | SWild ->
               Wildcard
         in
-        [], p, snd (translate_expr env fn_t_ret e)
+        [], p, snd (translate_expr_with_type env fn_t_ret e t_ret)
       ) patexprs in
       (* Meh. We can't detect complete pattern matches, but we can't detect
          incomplete ones either. Unreachable wildcards are a warning, incomplete
