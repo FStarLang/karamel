@@ -11,7 +11,7 @@
         fstarPackages = fstar.packages.${system};
         pkgs = import nixpkgs { inherit system; };
         karamel = pkgs.callPackage ./.nix/karamel.nix {
-          inherit (fstarPackages) fstar ocamlPackages z3;
+          inherit (fstarPackages) fstar z3;
           version = self.rev or "dirty";
         };
       in {
