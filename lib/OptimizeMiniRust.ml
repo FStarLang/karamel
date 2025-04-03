@@ -1136,6 +1136,23 @@ let remove_trailing_unit = object
     | _ -> Let (b, e1, e2)
 end
 
+(* Remove trivial branchings *)
+let simplify_trivial_branching = object
+  inherit [_] map_expr as super
+  method! visit_IfThenElse _ cond e1 e2 =
+    let cond = super#visit_expr () cond in
+    let e1 = super#visit_expr () e1 in
+    let e2 = Option.map (super#visit_expr ()) e2 in
+    match cond with
+    | Constant (Bool, "true") -> e1
+    | Constant (Bool, "false") ->
+        begin match e2 with
+        | Some e2 -> e2
+        | None -> Unit
+        end
+    | _ -> IfThenElse (cond, e1, e2)
+end
+
 (* The Rust compiler will automatically insert borrows or dereferences
    when required for methodcalls and field accesses *)
 let remove_auto_deref = object
@@ -1305,6 +1322,7 @@ let simplify_minirust files =
   (* We do this simplification last, as the previous passes might
      have introduced unit statements *)
   let files = map_funs remove_trailing_unit#visit_expr files in
+  let files = map_funs simplify_trivial_branching#visit_expr files in
   let files = add_derives (compute_derives files) files in
 
   (* Remove Assumed definitions, and filter empty files to avoid spurious code generation *)
