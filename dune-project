@@ -1,4 +1,4 @@
-(lang dune 3.5)
+(lang dune 3.13)
 (name karamel)
-(using menhir 2.0)
+(using menhir 3.0)
 
