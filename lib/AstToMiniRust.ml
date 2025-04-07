@@ -1199,7 +1199,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
         combination with possibly_convert -- it compiles &x to &[x] where a copy
         of x is inserted into a slice, meaning further modifications affect a copy
         of x, not x itself *)
-      failwith "Unexpected: EAddrOf"
+      Warn.fatal_error "Unexpected: EAddrOf -- %a" PrintAst.Ops.pexpr _e1
       (* PREVIOUSLY: *)
       (* let env, e1_ = translate_expr env e1 in *)
       (* env, possibly_convert (Borrow (Mut, e1_)) (Ref (None, Mut, translate_type env e1.typ)) *)
