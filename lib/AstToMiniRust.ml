@@ -583,7 +583,16 @@ let rec translate_expr (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) : env *
   translate_expr_with_type env fn_t_ret e (translate_type env e.typ)
 
 and translate_expr_list (env: env) (fn_t_ret: MiniRust.typ) (es: Ast.expr list) : env * MiniRust.expr list =
-  List.fold_left (fun (env, acc) e -> let env, e = translate_expr env fn_t_ret e in env, acc @ [e]) (env, []) es
+  let env, acc =
+    List.fold_left (fun (env, acc) e -> let env, e = translate_expr env fn_t_ret e in env, e :: acc) (env, []) es
+  in
+  env, List.rev acc
+
+and translate_expr_list_with_types (env: env) (fn_t_ret: MiniRust.typ) (es: Ast.expr list) ts : env * MiniRust.expr list =
+  let env, acc =
+    List.fold_left2 (fun (env, acc) e t -> let env, e = translate_expr_with_type env fn_t_ret e t in env, e :: acc) (env, []) es ts
+  in
+  env, List.rev acc
 
 and translate_array (env: env) (fn_t_ret: MiniRust.typ) is_toplevel (init: Ast.expr): env * MiniRust.expr * MiniRust.typ =
   let to_array = function
@@ -639,9 +648,9 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
     (*   PrintMiniRust.pexpr x *)
     (*   PrintMiniRust.ptyp t *)
     (*   PrintMiniRust.ptyp t_ret; *)
-     (* Mutable borrows were only included for external definitions.
-        We erase them here; they will be handled during mutability inference, which will
-	be rechecked by the Rust compiler *)
+    (* Mutable borrows were only included for external definitions.
+       We erase them here; they will be handled during mutability inference, which will
+       be rechecked by the Rust compiler *)
     begin match x, erase_borrow_kind_info t, erase_borrow_kind_info t_ret with
     | _, (MiniRust.App (Name (["Box"], _), [Slice _]) | MiniRust.Vec _ | Array _), Ref (_, k, Slice _) ->
         Borrow (k, x)
@@ -841,13 +850,13 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
       end
 
   | EApp (e0, es) ->
-      let es =
+      let es, ts =
         match es with
-        | [ { typ = TUnit; node; _ } ] -> assert (node = EUnit); []
-        | _ -> es
+        | [ { typ = TUnit; node; _ } ] -> assert (node = EUnit); [], []
+        | _ -> es, snd (Helpers.flatten_arrow e0.typ)
       in
       let env, e0 = translate_expr env fn_t_ret e0 in
-      let env, es = translate_expr_list env fn_t_ret es in
+      let env, es = translate_expr_list_with_types env fn_t_ret es (List.map (translate_type env) ts) in
       env, possibly_convert (Call (e0, [], es)) (translate_type env e.typ)
 
   | ETApp (_, _, _, _) ->
@@ -1189,8 +1198,13 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
       let _, e_body = translate_expr (push env binding) fn_t_ret e_body in
       env0, For (binding, Range (Some e_start, Some e_end, false), e_body)
   | ECast (e, t) ->
-      let env, e = translate_expr env fn_t_ret e in
-      env, As (e, translate_type env t)
+      begin match t with
+      | TInt _ | TBool ->
+          let env, e = translate_expr env fn_t_ret e in
+          env, As (e, translate_type env t)
+      | _ ->
+          translate_expr_with_type env fn_t_ret e (translate_type env t)
+      end
   | EStandaloneComment _ ->
       failwith "TODO: EStandaloneComment"
   | EAddrOf _e1 ->
