@@ -551,12 +551,16 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
 
               So we need to do two things: ii.a. mark the field as a ref mut
               pattern, and ii.b. mark the variable itself as mutable...
+
+              In case of a ref pattern, we also need to update the body
+              of the branch, to replace all occurences of the field by
+              a dereference of the field.
         *)
-        let rec update_fields (known: known) pat: known * pat =
+        let rec update_fields (known: known) pat e : known * pat * expr =
           match pat with
           | StructP (name as struct_name, fieldpats) ->
               let fields = Hashtbl.find structs name in
-              let known, fieldpats = List.fold_left2 (fun (known, fieldpats) (f, pat) { name; typ; _ } ->
+              let known, fieldpats, e = List.fold_left2 (fun (known, fieldpats, e) (f, pat) { name; typ; _ } ->
                 assert (f = name);
                 match pat with
                 | OpenP open_var ->
@@ -582,26 +586,35 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
                     in
                     (* ii.a *)
                     let known = if ref then { known with p = VarSet.add atom known.p } else known in
-                    known, (f, OpenP open_var) :: fieldpats
+
+                    (* Helper to replace all occurences of variable open_var by a dereference of open_var *)
+                    let add_deref = object
+                      inherit [_] map_expr
+                        method! visit_Open _ v =
+                          if v = open_var then Deref (Open v) else Open v
+                    end in
+
+                    let e = if ref && match typ with | Ref _ -> true | _ -> false then add_deref#visit_expr () e else e in
+                    known, (f, OpenP open_var) :: fieldpats, e
                 | _ ->
-                    let known, pat = update_fields known pat in
-                    known, (f, pat) :: fieldpats
-              ) (known, []) fieldpats fields in
+                    let known, pat, e = update_fields known pat e in
+                    known, (f, pat) :: fieldpats, e
+              ) (known, [], e) fieldpats fields in
               let fieldpats = List.rev fieldpats in
-              known, StructP (name, fieldpats)
+              known, StructP (name, fieldpats), e
 
           | TupleP ps ->
-              let known, ps = List.fold_left (fun (known, ps) p ->
-                let known, p = update_fields known p in
-                known, p :: ps
-              ) (known, []) ps in
-              known, TupleP (List.rev ps)
+              let known, ps , e= List.fold_left (fun (known, ps, e) p ->
+                let known, p, e = update_fields known p e in
+                known, p :: ps, e
+              ) (known, [], e) ps in
+              known, TupleP (List.rev ps), e
 
-          | Wildcard | Literal _ -> known, pat
-          | OpenP _ -> known, pat (* no such thing as mutable struct fields or variables in Low* *)
+          | Wildcard | Literal _ -> known, pat, e
+          | OpenP _ -> known, pat, e (* no such thing as mutable struct fields or variables in Low* *)
           |  _ -> Warn.failwith "TODO: Match %a" ppat pat
         in
-        let known, pat = update_fields known pat in
+        let known, pat, e = update_fields known pat e in
         let bs = List.map2 (fun a b ->
           let ref = VarSet.mem a known.p in
           let mut = VarSet.mem a known.r in
