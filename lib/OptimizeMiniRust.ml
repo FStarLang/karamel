@@ -151,12 +151,15 @@ let is_mut_borrow = function
   | Tuple [Ref (_, Mut, _); Ref (_, Mut, _)] -> true
   | _ -> false
 
+(* Returns a boolean for the case where an array has been implicitly converted to a mutable borrow,
+   meaning that the *variable* itself needs to be let-mut so that Rust can infer the `&mut`
+   implicitly. *)
 let rec make_mut_borrow = function
-  | Ref (l, _, t) -> Ref (l, Mut, t)
-  | Tuple [Ref (l1, _, t1); Ref (l2, _, t2)] -> Tuple [Ref (l1, Mut, t1); Ref (l2, Mut, t2)]
-  | Vec t -> Vec t
-  | App (Name (["Box"], []), [_]) as t -> t
-  | Array (t, n) -> Array (make_mut_borrow t, n)
+  | Ref (l, _, t) -> Ref (l, Mut, t), false
+  | Tuple [Ref (l1, _, t1); Ref (l2, _, t2)] -> Tuple [Ref (l1, Mut, t1); Ref (l2, Mut, t2)], false
+  | Vec t -> Vec t, false
+  | App (Name (["Box"], []), [_]) as t -> t, false
+  | Array (t, n) -> Array (t, n), true
   | t ->
       KPrint.bprintf "[make_mut_borrow] %a\n" ptyp t;
       failwith "impossible: make_mut_borrow"
@@ -166,7 +169,7 @@ let add_mut_field (n: DataType.t) f =
   let fields = Hashtbl.find structs n in
   (* Update the mutability of the field element *)
   let fields = List.map (fun (sf: MiniRust.struct_field) ->
-    if sf.name = f then {sf with typ = make_mut_borrow sf.typ} else sf) fields in
+    if sf.name = f then {sf with typ = fst (make_mut_borrow sf.typ) } else sf) fields in
   Hashtbl.replace structs n fields
 
 let retrieve_pair_type (t: typ) =
@@ -244,13 +247,12 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       let known, e2 = infer_expr env valuation return_expected expected known e2 in
       let mut_var = want_mut_var a known in
       let mut_borrow = want_mut_borrow a known in
-      (* KPrint.bprintf "[infer_expr-mut,let-done-e2] %s[%s]: %a let mut ? %b &mut ? %b\n" b.name
-        (show_atom_t a)
-        ptyp b.typ mut_var mut_borrow;
-      *)
-      let t1 = if mut_borrow then make_mut_borrow b.typ else b.typ in
+      (* KPrint.bprintf "[infer_expr-mut,let-done-e2] %s[%s]: %a let mut ? %b &mut ? %b\n" b.name *)
+      (*   (show_atom_t a) *)
+      (*   ptyp b.typ mut_var mut_borrow; *)
+      let t1, mut_var' = if mut_borrow then make_mut_borrow b.typ else b.typ, false in
       let known, e1 = infer_expr env valuation return_expected t1 known e1 in
-      known, Let ({ b with mut = mut_var; typ = t1 }, e1, close a (Var 0) (lift 1 e2))
+      known, Let ({ b with mut = mut_var || mut_var'; typ = t1 }, e1, close a (Var 0) (lift 1 e2))
 
   | Call (Name n, targs, es) ->
       if n = ["lowstar";"ignore";"ignore"] then
@@ -667,8 +669,8 @@ let infer_function (env: env) valuation (d: decl): decl =
           let e = close atom (Var 0) (lift 1 e) in
           (* KPrint.bprintf "[infer-mut] closed %s[%s]\n%a\n" binder.name (show_atom_t atom) pexpr e; *)
           let mut = want_mut_var atom known in
-          let typ = if want_mut_borrow atom known then make_mut_borrow binder.typ else binder.typ in
-          { binder with mut; typ } :: parameters, e
+          let typ, mut' = if want_mut_borrow atom known then make_mut_borrow binder.typ else binder.typ, false in
+          { binder with mut = mut || mut'; typ } :: parameters, e
         ) ([], body) parameters atoms
       in
       let parameters = List.rev parameters in
