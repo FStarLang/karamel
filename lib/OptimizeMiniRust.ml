@@ -302,6 +302,16 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
   (* atom = e3 *)
   | Assign (Open { atom; _ } as e1, e3, t) ->
       (* KPrint.bprintf "[infer_expr-mut,assign] %a\n" pexpr e; *)
+      (* If the atom has been marked as a mutable variable which is a mutable borrow
+        during mutability inference, we need to propagate this information to the
+        right-hand side, as the tagged type in the Assign node is not modified.
+
+        Note, we should do something similar for more complex assignments below,
+        but this would require retypechecking the current term.
+      *)
+      let t =
+        if want_mut_borrow atom known then fst (make_mut_borrow t) else t
+      in
       let known, e3 = infer_expr env valuation return_expected t known e3 in
       add_mut_var atom known, Assign (e1, e3, t)
 
