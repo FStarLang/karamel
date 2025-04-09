@@ -127,7 +127,7 @@ let use_mark_to_inline_temporaries = object (self)
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
     let _, v = !(b.node.mark) in
-    if (b.node.attempt_inline ||
+    if ((b.node.attempt_inline && not (Options.rust ())) ||
         Helpers.is_uu b.node.name ||
         b.node.name = "scrut" ||
         Structs.should_rewrite b.typ = NoCopies
