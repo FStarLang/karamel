@@ -140,7 +140,7 @@ let print_name env n =
       (* XXX this seems gnarly, do better? *)
       if List.length n > List.length env.prefix && fst (KList.split (List.length env.prefix) n) = env.prefix then
         snd (KList.split (List.length env.prefix) n)
-      else if is_uppercase (List.hd n).[0] || List.hd n = "krml" then
+      else if is_uppercase (List.hd n).[0] || List.hd n = "krml" || List.hd n = "std" then
         (* TODO: uppercase means it's a reference to Rust stdlib and outside the
            crate, therefore doesn't need the crate:: prefix *)
         n
