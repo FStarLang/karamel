@@ -479,7 +479,7 @@ let cross_call_analysis files =
              closely and make inline
              functions no externally-visible (which would result in a linking
              error for us). *)
-          if cross_call lid name then
+          if cross_call lid name && not (Options.rust ()) then
             maybe_strip_inline name;
           (* Unrelated to visibility: WASM can't handle cross-module references
              to mutable globals. We mark this definition as needing a getter. *)
