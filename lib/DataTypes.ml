@@ -1178,6 +1178,8 @@ let anonymous_unions (map, _, _) = object (self)
     | [ Some f1, t1; Some f2, t2 ], TQualified lid when
       f1 = field_for_tag && f2 = field_for_union &&
       is_tagged_union map lid ->
+        (* No need to visit t1, it's a tag. *)
+        let t2 = self#visit_expr (env, t2.typ) t2 in
         EFlat [ Some f1, t1; None, t2 ]
     | _ ->
         EFlat (self#visit_fields_e_opt_w env fields)
