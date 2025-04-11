@@ -28,4 +28,4 @@ ARG CI_BRANCH=master
 RUN --mount=type=secret,id=DZOMO_GITHUB_TOKEN eval $(opam env) && DZOMO_GITHUB_TOKEN=$(sudo cat /run/secrets/DZOMO_GITHUB_TOKEN) .docker/build/build-standalone.sh $CI_THREADS $CI_BRANCH
 
 WORKDIR $HOME
-ENV KRML_HOME $HOME/karamel
+ENV KRML_HOME=$HOME/karamel
