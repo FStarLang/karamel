@@ -271,6 +271,15 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
         let known, e1 = infer_expr env valuation return_expected (Ref (None, Mut, Slice (KList.one targs))) known e1 in
         let known, e2 = infer_expr env valuation return_expected u32 known e2 in
         known, Call (Name n, targs, [ e1; e2 ])
+      else if n = [ "std"; "slice"; "from_slice" ] then
+        let e1 = KList.one es in
+        let t = KList.one targs in
+        if is_mut_borrow expected then
+          let known, e1 = infer_expr env valuation return_expected (Ref (None, Mut, t)) known e1 in
+          known, Call (Name [ "std"; "slice"; "from_mut" ], [ t ], [ e1 ])
+        else
+          let known, e1 = infer_expr env valuation return_expected (Ref (None, Shared, t)) known e1 in
+          known, Call (Name [ "std"; "slice"; "from_slice" ], [ t ], [ e1 ])
       else
         (* TODO: substitute targs in ts -- for now, we assume we don't have a type-polymorphic
            function that gets instantiated with a reference type *)
@@ -1059,7 +1068,7 @@ let infer_mut_borrows files =
           | Function { parameters; name; _ } ->
               Some (name, List.map (fun (p: MiniRust.binding) -> p.typ) parameters)
           | Assumed { name; parameters; _ } ->
-	      if List.exists (fun (n, _) -> n = name) builtins then None
+              if List.exists (fun (n, _) -> n = name) builtins then None
               else Some (name, parameters)
           | _ ->
               None
