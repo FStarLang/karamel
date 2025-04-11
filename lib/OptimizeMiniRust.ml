@@ -1118,10 +1118,10 @@ let infer_mut_borrows files =
     We now apply the valuation to all functions to compute mutability inference. *)
   let files = List.map (fun (filename, decls) -> filename, List.map (function
     | Function _ as decl ->
-        (* /We need to perform the inference twice to handle function parameters
+        (* We need to perform the inference twice to handle function parameters
            that are becoming mutable borrows, and that are assigned to in the function.
 
-           The first execution will update the functino type to mark the parameter as
+           The first execution will update the function type to mark the parameter as
            a mutable variable of type mutable borrow.
            The second execution will use this information when building the initial
            `known` set, forcing expressions assigned to the mutable parameter to
