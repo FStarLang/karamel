@@ -685,17 +685,32 @@ let infer_function (env: env) valuation (d: decl): decl =
   | Function ({ name; body; return_type; parameters; _ } as f) ->
       if Options.debug "rs-mut" then
         KPrint.bprintf "[infer-mut] visiting %s\n" (String.concat "::" name);
-      let atoms, body =
-        List.fold_right (fun binder (atoms, e) ->
+      let atoms, known, body =
+        List.fold_right (fun binder (atoms, known, e) ->
           let a, e = open_ binder e in
+          (* Populate the `known` map with information about function parameters.
+             We need this in case function parameters are themselves mutable, and
+             assigned to:
+
+            Consider the program
+            fn f(mut x: &mut [u32]) {
+              x = e;
+            }
+            When performing inference on `e`, we need to propagate that
+            the expected return type is a mutable borrow, hence the need for
+            `x` to initially be in the `r` set capturing variables that are
+            expected to be mutable borrows.
+          *)
+
+          let known = if is_mut_borrow binder.typ then add_mut_borrow a known else known in
           (* KPrint.bprintf "[infer-mut] opened %s[%s]\n%a\n" binder.name (show_atom_t a) pexpr e; *)
-          a :: atoms, e
-        ) parameters ([], body)
+          a :: atoms, known, e
+        ) parameters ([], empty, body)
       in
       (* KPrint.bprintf "[infer-mut] done opening %s\n%a\n" (String.concat "." name)
         pexpr body; *)
       (* Start the analysis with the current state of struct mutability *)
-      let known, body = infer_expr env valuation return_type return_type empty body in
+      let known, body = infer_expr env valuation return_type return_type known body in
       let parameters, body =
         List.fold_left2 (fun (parameters, e) (binder: binding) atom ->
           let e = close atom (Var 0) (lift 1 e) in
@@ -1103,6 +1118,16 @@ let infer_mut_borrows files =
     We now apply the valuation to all functions to compute mutability inference. *)
   let files = List.map (fun (filename, decls) -> filename, List.map (function
     | Function _ as decl ->
+        (* /We need to perform the inference twice to handle function parameters
+           that are becoming mutable borrows, and that are assigned to in the function.
+
+           The first execution will update the functino type to mark the parameter as
+           a mutable variable of type mutable borrow.
+           The second execution will use this information when building the initial
+           `known` set, forcing expressions assigned to the mutable parameter to
+           be mutable borrows.
+        *)
+        let decl = infer_function env valuation decl in
         infer_function env valuation decl
     | x -> x
     ) decls
