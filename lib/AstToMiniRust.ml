@@ -769,7 +769,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
       env, Constant (Bool, string_of_bool b)
   | EString s ->
       env, ConstantString s
-  | EAny -> env, Empty
+  | EAny -> failwith "Unexpected EAny"
   | EAbort (_, s) ->
       env, Panic (Stdlib.Option.value ~default:"" s)
   | EIgnore _ ->
@@ -924,7 +924,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
       } in
       let env = push_with_info env binding in
 
-      env0, Let (fst binding, e1, snd (translate_expr_with_type env fn_t_ret e2 t_ret))
+      env0, Let (fst binding, Some e1, snd (translate_expr_with_type env fn_t_ret e2 t_ret))
 
   | ELet (b, ({ node = EBufCreate _ | EBufCreateL _; _ } as init), e2) ->
       (* Keep initial environment to return after translation *)
@@ -934,13 +934,16 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
       (* KPrint.bprintf "Let %s: %a\n" b.node.name PrintMiniRust.ptyp t; *)
       let binding: MiniRust.binding = { name = b.node.name; typ = t; mut = false; ref = false } in
       let env = push env binding in
-      env0, Let (binding, e1, snd (translate_expr_with_type env fn_t_ret e2 t_ret))
+      env0, Let (binding, Some e1, snd (translate_expr_with_type env fn_t_ret e2 t_ret))
 
   | ELet (b, e1, e2) ->
       (* Keep initial environment to return after translation *)
       let env0 = env in
 
-      let env, e1 = translate_expr env fn_t_ret e1 in
+      let env, e1 = match e1.node with
+        | EAny -> env, None
+        | _ -> let env, e1 = translate_expr env fn_t_ret e1 in env, Some e1
+      in
       let t = translate_type env b.typ in
       let is_owned_struct =
         match b.typ with
@@ -959,8 +962,8 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
          this is certain to fail. In that case, we instead borrow the struct. Note that structs
          cannot be mutated in place in Low*, so it's ok to borrow instead of copy. *)
       let e1, t = match e1 with
-        | (Field _ | Index _) when is_owned_struct ->
-            MiniRust.(Borrow (Shared, e1), Ref (None, Shared, t))
+        | Some (Field _ | Index _ as e1) when is_owned_struct ->
+            MiniRust.(Some (Borrow (Shared, e1)), Ref (None, Shared, t))
         | _ ->
             e1, t
       in
@@ -1419,7 +1422,7 @@ let translate_meta flags =
     comment = String.concat "\n" comments;
   }
 
-let translate_decl env (d: Ast.decl): MiniRust.decl option =
+let translate_decl env derives (d: Ast.decl): MiniRust.decl option =
   let env = locate env (Ast.lid_of_decl d) in
   match d with
   | DFunction (_, _, _, _, _, lid, _, _) when is_handled_primitively lid ->
@@ -1483,6 +1486,7 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
   | DType (lid, flags, _, _, decl) ->
       let name = lookup_type env lid in
       let meta = translate_meta flags in
+      let derives = Option.value ~default:[] (LidMap.find_opt lid derives) in
       match decl with
       | Flat _ ->
           let lifetime =
@@ -1494,13 +1498,11 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
           in
           let generic_params = match lifetime with Some l -> [ MiniRust.Lifetime l ] | None -> [] in
           let fields = DataTypeMap.find (`Struct lid) env.struct_fields in
-          let derives = [] in
           Some (Struct { name; meta; fields; generic_params; derives })
       | Enum idents ->
           (* TODO: enum cases with set values *)
           (* No need to do name binding here since there are entirely resolved via the type name. *)
           let items = List.map (fun (i, v) -> assert (v = None); snd i, None) idents in
-          let derives = [] in
           Some (Enumeration { name; meta; items; derives; generic_params = [] })
       | Abbrev t ->
           let has_inner_pointer = (object
@@ -1537,7 +1539,6 @@ let translate_decl env (d: Ast.decl): MiniRust.decl option =
             let fields = List.map (fun (x: MiniRust.struct_field) -> { x with visibility = None }) fields in
             cons, Some fields
           ) branches in
-          let derives = [] in
           Some (Enumeration { name; meta; items; derives; generic_params })
       | Union _ ->
           Warn.failwith "TODO: Ast.DType (%a)\n" PrintAst.Ops.plid lid
@@ -1677,7 +1678,17 @@ let compute_struct_info files boxed_types =
 
   returned, with_inner_pointers
 
-let translate_files_with_boxed_types files boxed_types =
+type metadata = {
+  boxed_types: LidSet.t;
+  derives: MiniRust.trait list LidMap.t;
+}
+
+let empty_metadata = {
+  boxed_types = LidSet.empty;
+  derives = LidMap.empty;
+}
+
+let translate_files_with_metadata files { boxed_types; derives } =
   let heap_structs, pointer_holding_structs = compute_struct_info files boxed_types in
   if Options.debug "rs-structs" then begin
     KPrint.bprintf "The following types are understood to be heap-allocated:\n";
@@ -1729,7 +1740,7 @@ let translate_files_with_boxed_types files boxed_types =
        lookup_decl or lookup_type *)
     let decls = List.map (fun d ->
       try
-        translate_decl env d
+        translate_decl env derives d
       with e ->
         incr failures;
         KPrint.bprintf "%sERROR translating %a: %s%s\n%s\n" Ansi.red
@@ -1756,4 +1767,4 @@ let translate_files_with_boxed_types files boxed_types =
 
   List.rev files
 
-let translate_files files = translate_files_with_boxed_types files Idents.LidSet.empty
+let translate_files files = translate_files_with_metadata files empty_metadata
