@@ -1233,14 +1233,18 @@ end
 let cleanup_splits = object(self)
   inherit [_] map_expr as super
   method! visit_Match _ e_scrut t branches =
-    match t with
-    | Tuple [ _; _ ] ->
-        let bs, p, e = KList.one branches in
-        let b1, b2 = KList.two bs in
+    match t, branches with
+    | Tuple [ _; _ ], [[b1; b2], p, e] ->
         assert (match p with TupleP _ -> true | _ -> false);
         Let (b1, Field (e_scrut, "0", None),
         Let (b2, Field (lift 1 e_scrut, "1", None),
         self#visit_expr () e))
+    | Tuple [ _; _ ], [[b1], TupleP [ VarP _; Wildcard ], e] ->
+        Let (b1, Field (e_scrut, "0", None),
+        self#visit_expr () e)
+    | Tuple [ _; _ ], [[b2], TupleP [ Wildcard; VarP _ ], e] ->
+        Let (b2, Field (e_scrut, "1", None),
+        self#visit_expr () e)
     | _ ->
         super#visit_Match () e_scrut t branches
 end
