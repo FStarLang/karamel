@@ -1641,13 +1641,16 @@ let compute_struct_info files boxed_types =
               self#plus (valuation lid) (super#visit_TApp env lid ts)
           end)#visit_fields_t_opt () fields
         in
-        let directly_contains_pointers =
-          List.exists (fun (_, (t, _)) ->
-            match t with
-            | Ast.TBuf _ -> true
-            | TApp ((["Pulse"; "Lib"; "Slice"], "slice"), [ _ ]) -> true
-            | _ -> false
-          ) fields
+        let directly_contains_pointers = (object(_)
+            inherit [_] Ast.reduce as super
+            method zero = false
+            method plus = (||)
+            method! visit_TBuf _ _ _ = true
+            method! visit_TApp env lid ts =
+              match lid, ts with
+              | (["Pulse"; "Lib"; "Slice"], "slice"), [ _ ] -> true
+              | _ -> super#visit_TApp env lid ts
+          end)#visit_fields_t_opt () fields
         in
         directly_contains_pointers || recursively_contains_pointers
     in
