@@ -75,7 +75,7 @@ let one l =
 let two l =
   match l with
   | [ x; y ] -> (x, y)
-  | _ -> invalid_arg ("one: argument is of length " ^ string_of_int (List.length l))
+  | _ -> invalid_arg ("two: argument is of length " ^ string_of_int (List.length l))
 
 (* NOTE: provided by {!Stdlib.List} in OCaml 5.1. *)
 let is_empty = function
