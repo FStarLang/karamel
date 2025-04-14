@@ -534,6 +534,12 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       let known, e = infer_expr env valuation return_expected t known e_scrut in
       let known, arms = List.fold_left_map (fun known ((bs, _, _) as branch) ->
         let atoms, pat, e = open_branch branch in
+        (* We populate the set known with all the atom fields which
+           were already marked as ref or mut *)
+        let known = List.fold_left2 (fun known atom b -> { known with
+          p = if b.ref then VarSet.add atom known.p else known.p;
+          r = if b.mut then VarSet.add atom known.r else known.r;
+        }) known atoms bs in
         let known, e = infer_expr env valuation return_expected expected known e in
         (* Given a pattern p of type t, and a known map:
           i.  if the pattern contains f = x *and* x is in R, then the field f of
@@ -591,6 +597,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
                 match pat with
                 | OpenP open_var ->
                     let { atom; _ } = open_var in
+                    let is_ref = VarSet.mem atom known.p in
                     let mut = VarSet.mem atom known.r in
                     let ref = match typ with
                       | App (Name (["Box"], []), [_]) | Vec _ | Ref (_, Mut, _) ->
@@ -620,7 +627,8 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
                           if v = open_var then Deref (Open v) else Open v
                     end in
 
-                    let e = if ref && match typ with | Ref _ -> true | _ -> false then add_deref#visit_expr () e else e in
+                    (* We only perform the rewriting if the field was not already ref *)
+                    let e = if ref && not is_ref && match typ with | Ref _ -> true | _ -> false then add_deref#visit_expr () e else e in
                     known, (f, OpenP open_var) :: fieldpats, e
                 | _ ->
                     let known, pat, e = update_fields known pat e in
@@ -1125,16 +1133,22 @@ let infer_mut_borrows files =
     We now apply the valuation to all functions to compute mutability inference. *)
   let files = List.map (fun (filename, decls) -> filename, List.map (function
     | Function _ as decl ->
-        (* We need to perform the inference twice to handle function parameters
-           that are becoming mutable borrows, and that are assigned to in the function.
+        infer_function env valuation decl
+    | x -> x
+    ) decls
+  ) (List.rev files) in
 
-           The first execution will update the function type to mark the parameter as
-           a mutable variable of type mutable borrow.
-           The second execution will use this information when building the initial
-           `known` set, forcing expressions assigned to the mutable parameter to
-           be mutable borrows.
-        *)
-        let decl = infer_function env valuation decl in
+  (* We need to perform the inference twice to handle function parameters
+     that are becoming mutable borrows, and that are assigned to in the function.
+
+     The first execution will update the function type to mark the parameter as
+     a mutable variable of type mutable borrow.
+     The second execution will use this information when building the initial
+     `known` set, forcing expressions assigned to the mutable parameter to
+     be mutable borrows.
+  *)
+  let files = List.map (fun (filename, decls) -> filename, List.map (function
+    | Function _ as decl ->
         infer_function env valuation decl
     | x -> x
     ) decls
