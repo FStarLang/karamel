@@ -80,7 +80,7 @@ and expr =
   | Borrow of borrow_kind * expr
   | Constant of constant
   | ConstantString of string
-  | Let of binding * expr * expr
+  | Let of binding * expr option * expr
   | Call of expr * typ list * expr list
     (** Note that this representation admits empty argument lists -- as opposed
         to Ast which always takes unit *)
@@ -112,9 +112,6 @@ and expr =
   (* Operator expressions *)
   | Operator of op
   | Deref of expr
-
-  (* Represents the absence of expression in a let-binding *)
-  | Empty
 
 and match_arm = binding list * pat * expr
 
@@ -223,6 +220,7 @@ and trait =
   | PartialEq
   | Clone
   | Copy
+  | Custom of string
 
 (* Some visitors for name management *)
 
@@ -238,7 +236,7 @@ module DeBruijn = struct
 
     (* We list all binding nodes and feed those binders to the environment *)
     method! visit_Let env b e1 e2 =
-      let e1 = self#visit_expr env e1 in
+      let e1 = Option.map (self#visit_expr env) e1 in
       let e2 = self#visit_expr (self#extend env b) e2 in
       Let (b, e1, e2)
 

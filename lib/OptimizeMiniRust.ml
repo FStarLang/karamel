@@ -251,7 +251,12 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       (*   (show_atom_t a) *)
       (*   ptyp b.typ mut_var mut_borrow; *)
       let t1, mut_var' = if mut_borrow then make_mut_borrow b.typ else b.typ, false in
-      let known, e1 = infer_expr env valuation return_expected t1 known e1 in
+      let known, e1 = match e1 with
+        | Some e1 ->
+            let known, e1 = infer_expr env valuation return_expected t1 known e1 in
+            known, Some e1
+        | None -> known, None
+      in
       known, Let ({ b with mut = mut_var || mut_var'; typ = t1 }, e1, close a (Var 0) (lift 1 e2))
 
   | Call (Name n, targs, es) ->
@@ -410,7 +415,6 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
   | ConstantString _
   | Unit
   | Panic _
-  | Empty
   | Operator _ ->
       known, e
 
@@ -1209,10 +1213,10 @@ end
 let remove_trailing_unit = object
   inherit [_] map_expr as super
   method! visit_Let _ b e1 e2 =
-    let e1 = super#visit_expr () e1 in
+    let e1 = Option.map (super#visit_expr ()) e1 in
     let e2 = super#visit_expr () e2 in
-    match e2 with
-    | Unit when b.typ = Unit -> e1
+    match e1, e2 with
+    | Some e1, Unit when b.typ = Unit -> e1
     | _ -> Let (b, e1, e2)
 end
 
@@ -1294,8 +1298,8 @@ let cleanup_splits = object(self)
         let bs, p, e = KList.one branches in
         let b1, b2 = KList.two bs in
         assert (match p with TupleP _ -> true | _ -> false);
-        Let (b1, Field (e_scrut, "0", None),
-        Let (b2, Field (lift 1 e_scrut, "1", None),
+        Let (b1, Some (Field (e_scrut, "0", None)),
+        Let (b2, Some (Field (lift 1 e_scrut, "1", None)),
         self#visit_expr () e))
     | _ ->
         super#visit_Match () e_scrut t branches
@@ -1383,8 +1387,8 @@ let add_derives valuation files =
   let to_list ts = List.of_seq (TraitSet.to_seq ts) in
   List.map (fun (f, decls) ->
     f, List.map (function
-      | Struct s -> Struct { s with derives = to_list (valuation s.name) }
-      | Enumeration s -> Enumeration { s with derives = to_list (valuation s.name) }
+      | Struct s -> Struct { s with derives = s.derives @ to_list (valuation s.name) }
+      | Enumeration s -> Enumeration { s with derives = s.derives @ to_list (valuation s.name) }
       | d -> d
     ) decls
   ) files
