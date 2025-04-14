@@ -472,7 +472,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       |   "wrapping_shr" | "wrapping_sub"
       |   "to_vec" | "into_boxed_slice" | "into" | "len" ] ->
           known, MethodCall (e1, m, e2)
-      | ["split_at"] ->
+      | ["split_at"] | ["split_at_mut"] ->
           assert (List.length e2 = 1);
           let known, e2 = infer_expr env valuation return_expected usize known (List.hd e2) in
           let t1 = retrieve_pair_type expected in
