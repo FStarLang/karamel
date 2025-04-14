@@ -391,6 +391,13 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       let known, e3 = infer_expr env valuation return_expected usize known e3 in
       known, Assign (Index (Borrow (Mut, Field (e1, f, t)), e2), e3, t1)
 
+  (* ( *atom)[e2] = e3 *)
+  | Assign (Index (Deref (Open {atom; _} as e1), e2), e3, t) ->
+      let known = add_mut_borrow atom known in
+      let known, e2 = infer_expr env valuation return_expected usize known e2 in
+      let known, e3 = infer_expr env valuation return_expected usize known e3 in
+      known, Assign (Index (Deref e1, e2), e3, t)
+
   | Assign _ ->
       KPrint.bprintf "[infer_expr-mut,assign] %a unsupported %s\n" pexpr e (show_expr e);
       failwith "TODO: unknown assignment"
