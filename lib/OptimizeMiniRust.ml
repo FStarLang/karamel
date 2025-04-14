@@ -606,7 +606,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
                 match pat with
                 | OpenP open_var ->
                     let { atom; _ } = open_var in
-                    let is_ref = VarSet.mem atom known.p in
+                    let was_ref = VarSet.mem atom known.p in
                     let mut = VarSet.mem atom known.r in
                     let ref = match typ with
                       | App (Name (["Box"], []), [_]) | Vec _ | Ref (_, Mut, _) ->
@@ -637,7 +637,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
                     end in
 
                     (* We only perform the rewriting if the field was not already ref *)
-                    let e = if ref && not is_ref && match typ with | Ref _ -> true | _ -> false then add_deref#visit_expr () e else e in
+                    let e = if ref && not was_ref && match typ with | Ref _ -> true | _ -> false then add_deref#visit_expr () e else e in
                     known, (f, OpenP open_var) :: fieldpats, e
                 | _ ->
                     let known, pat, e = update_fields known pat e in
