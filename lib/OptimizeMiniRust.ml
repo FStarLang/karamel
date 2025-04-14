@@ -285,6 +285,11 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
         else
           let known, e1 = infer_expr env valuation return_expected (Ref (None, Shared, t)) known e1 in
           known, Call (Name [ "std"; "slice"; "from_slice" ], [ t ], [ e1 ])
+      else if n = [ "std"; "slice"; "from_mut" ] then
+        let e1 = KList.one es in
+        let t = KList.one targs in
+        let known, e1 = infer_expr env valuation return_expected (Ref (None, Mut, t)) known e1 in
+        known, Call (Name [ "std"; "slice"; "from_mut" ], [ t ], [ e1 ])
       else
         (* TODO: substitute targs in ts -- for now, we assume we don't have a type-polymorphic
            function that gets instantiated with a reference type *)
@@ -316,6 +321,16 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
   (* atom = e3 *)
   | Assign (Open { atom; _ } as e1, e3, t) ->
       (* KPrint.bprintf "[infer_expr-mut,assign] %a\n" pexpr e; *)
+      (* If the atom has been marked as a mutable variable which is a mutable borrow
+        during mutability inference, we need to propagate this information to the
+        right-hand side, as the tagged type in the Assign node is not modified.
+
+        Note, we should do something similar for more complex assignments below,
+        but this would require retypechecking the current term.
+      *)
+      let t =
+        if want_mut_borrow atom known then fst (make_mut_borrow t) else t
+      in
       let known, e3 = infer_expr env valuation return_expected t known e3 in
       add_mut_var atom known, Assign (e1, e3, t)
 
@@ -385,6 +400,13 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       let known, e2 = infer_expr env valuation return_expected usize known e2 in
       let known, e3 = infer_expr env valuation return_expected usize known e3 in
       known, Assign (Index (Borrow (Mut, Field (e1, f, t)), e2), e3, t1)
+
+  (* ( *atom)[e2] = e3 *)
+  | Assign (Index (Deref (Open {atom; _} as e1), e2), e3, t) ->
+      let known = add_mut_borrow atom known in
+      let known, e2 = infer_expr env valuation return_expected usize known e2 in
+      let known, e3 = infer_expr env valuation return_expected usize known e3 in
+      known, Assign (Index (Deref e1, e2), e3, t)
 
   | Assign _ ->
       KPrint.bprintf "[infer_expr-mut,assign] %a unsupported %s\n" pexpr e (show_expr e);
@@ -466,7 +488,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       |   "wrapping_shr" | "wrapping_sub"
       |   "to_vec" | "into_boxed_slice" | "into" | "len" ] ->
           known, MethodCall (e1, m, e2)
-      | ["split_at"] ->
+      | ["split_at"] | ["split_at_mut"] ->
           assert (List.length e2 = 1);
           let known, e2 = infer_expr env valuation return_expected usize known (List.hd e2) in
           let t1 = retrieve_pair_type expected in
@@ -521,6 +543,12 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       let known, e = infer_expr env valuation return_expected t known e_scrut in
       let known, arms = List.fold_left_map (fun known ((bs, _, _) as branch) ->
         let atoms, pat, e = open_branch branch in
+        (* We populate the set known with all the atom fields which
+           were already marked as ref or mut *)
+        let known = List.fold_left2 (fun known atom b -> { known with
+          p = if b.ref then VarSet.add atom known.p else known.p;
+          r = if b.mut then VarSet.add atom known.r else known.r;
+        }) known atoms bs in
         let known, e = infer_expr env valuation return_expected expected known e in
         (* Given a pattern p of type t, and a known map:
           i.  if the pattern contains f = x *and* x is in R, then the field f of
@@ -578,6 +606,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
                 match pat with
                 | OpenP open_var ->
                     let { atom; _ } = open_var in
+                    let was_ref = VarSet.mem atom known.p in
                     let mut = VarSet.mem atom known.r in
                     let ref = match typ with
                       | App (Name (["Box"], []), [_]) | Vec _ | Ref (_, Mut, _) ->
@@ -607,7 +636,8 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
                           if v = open_var then Deref (Open v) else Open v
                     end in
 
-                    let e = if ref && match typ with | Ref _ -> true | _ -> false then add_deref#visit_expr () e else e in
+                    (* We only perform the rewriting if the field was not already ref *)
+                    let e = if ref && not was_ref && match typ with | Ref _ -> true | _ -> false then add_deref#visit_expr () e else e in
                     known, (f, OpenP open_var) :: fieldpats, e
                 | _ ->
                     let known, pat, e = update_fields known pat e in
@@ -679,17 +709,32 @@ let infer_function (env: env) valuation (d: decl): decl =
   | Function ({ name; body; return_type; parameters; _ } as f) ->
       if Options.debug "rs-mut" then
         KPrint.bprintf "[infer-mut] visiting %s\n" (String.concat "::" name);
-      let atoms, body =
-        List.fold_right (fun binder (atoms, e) ->
+      let atoms, known, body =
+        List.fold_right (fun binder (atoms, known, e) ->
           let a, e = open_ binder e in
+          (* Populate the `known` map with information about function parameters.
+             We need this in case function parameters are themselves mutable, and
+             assigned to:
+
+            Consider the program
+            fn f(mut x: &mut [u32]) {
+              x = e;
+            }
+            When performing inference on `e`, we need to propagate that
+            the expected return type is a mutable borrow, hence the need for
+            `x` to initially be in the `r` set capturing variables that are
+            expected to be mutable borrows.
+          *)
+
+          let known = if is_mut_borrow binder.typ then add_mut_borrow a known else known in
           (* KPrint.bprintf "[infer-mut] opened %s[%s]\n%a\n" binder.name (show_atom_t a) pexpr e; *)
-          a :: atoms, e
-        ) parameters ([], body)
+          a :: atoms, known, e
+        ) parameters ([], empty, body)
       in
       (* KPrint.bprintf "[infer-mut] done opening %s\n%a\n" (String.concat "." name)
         pexpr body; *)
       (* Start the analysis with the current state of struct mutability *)
-      let known, body = infer_expr env valuation return_type return_type empty body in
+      let known, body = infer_expr env valuation return_type return_type known body in
       let parameters, body =
         List.fold_left2 (fun (parameters, e) (binder: binding) atom ->
           let e = close atom (Var 0) (lift 1 e) in
@@ -1095,6 +1140,22 @@ let infer_mut_borrows files =
 
   (* lfp does not actually perform any computation.
     We now apply the valuation to all functions to compute mutability inference. *)
+  let files = List.map (fun (filename, decls) -> filename, List.map (function
+    | Function _ as decl ->
+        infer_function env valuation decl
+    | x -> x
+    ) decls
+  ) (List.rev files) in
+
+  (* We need to perform the inference twice to handle function parameters
+     that are becoming mutable borrows, and that are assigned to in the function.
+
+     The first execution will update the function type to mark the parameter as
+     a mutable variable of type mutable borrow.
+     The second execution will use this information when building the initial
+     `known` set, forcing expressions assigned to the mutable parameter to
+     be mutable borrows.
+  *)
   let files = List.map (fun (filename, decls) -> filename, List.map (function
     | Function _ as decl ->
         infer_function env valuation decl
