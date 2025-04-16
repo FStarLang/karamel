@@ -1397,7 +1397,7 @@ let bind_decl env (d: Ast.decl): env =
       | _ ->
           env
 
-let translate_meta flags =
+let translate_meta attributes flags =
   let comments = List.filter_map (function Common.Comment c -> Some c | _ -> None) flags in
   let comments = List.filter ((<>) "") comments in
   let comments = comments @
@@ -1420,9 +1420,17 @@ let translate_meta flags =
   {
     MiniRust.visibility;
     comment = String.concat "\n" comments;
+    attributes
   }
 
-let translate_decl env derives (d: Ast.decl): MiniRust.decl option =
+type metadata = {
+  boxed_types: LidSet.t;
+  derives: MiniRust.trait list LidMap.t;
+  attributes: string list LidMap.t;
+}
+
+let translate_decl env { derives; attributes; _ } (d: Ast.decl): MiniRust.decl option =
+  let attributes = Option.value ~default:[] (LidMap.find_opt (Ast.lid_of_decl d) attributes) in
   let env = locate env (Ast.lid_of_decl d) in
   match d with
   | DFunction (_, _, _, _, _, lid, _, _) when is_handled_primitively lid ->
@@ -1454,7 +1462,7 @@ let translate_decl env derives (d: Ast.decl): MiniRust.decl option =
       let parameters = List.map2 (fun typ a -> { MiniRust.mut = false; name = a.Ast.node.Ast.name; typ; ref = false }) parameters args in
       let env = List.fold_left push env parameters in
       let _, body = translate_expr_with_type env return_type body return_type in
-      let meta = translate_meta flags in
+      let meta = translate_meta attributes flags in
       let inline = List.mem Common.Inline flags in
       Some (MiniRust.Function { type_parameters; parameters; return_type; body; name; meta; inline; generic_params })
 
@@ -1472,7 +1480,7 @@ let translate_decl env derives (d: Ast.decl): MiniRust.decl option =
         | _ ->
             snd (translate_expr env Unit e)
       in
-      let meta = translate_meta flags in
+      let meta = translate_meta attributes flags in
       Some (MiniRust.Constant { name; typ; body; meta })
 
   | DExternal (_, _, _, _, lid, _, _) ->
@@ -1485,7 +1493,7 @@ let translate_decl env derives (d: Ast.decl): MiniRust.decl option =
 
   | DType (lid, flags, _, _, decl) ->
       let name = lookup_type env lid in
-      let meta = translate_meta flags in
+      let meta = translate_meta attributes flags in
       let derives = Option.value ~default:[] (LidMap.find_opt lid derives) in
       match decl with
       | Flat _ ->
@@ -1681,18 +1689,14 @@ let compute_struct_info files boxed_types =
 
   returned, with_inner_pointers
 
-type metadata = {
-  boxed_types: LidSet.t;
-  derives: MiniRust.trait list LidMap.t;
-}
-
 let empty_metadata = {
   boxed_types = LidSet.empty;
   derives = LidMap.empty;
+  attributes = LidMap.empty;
 }
 
-let translate_files_with_metadata files { boxed_types; derives } =
-  let heap_structs, pointer_holding_structs = compute_struct_info files boxed_types in
+let translate_files_with_metadata files metadata =
+  let heap_structs, pointer_holding_structs = compute_struct_info files metadata.boxed_types in
   if Options.debug "rs-structs" then begin
     KPrint.bprintf "The following types are understood to be heap-allocated:\n";
     List.iter (KPrint.bprintf "  %a\n" PrintAst.Ops.plid) (Idents.LidSet.elements heap_structs)
@@ -1743,7 +1747,7 @@ let translate_files_with_metadata files { boxed_types; derives } =
        lookup_decl or lookup_type *)
     let decls = List.map (fun d ->
       try
-        translate_decl env derives d
+        translate_decl env metadata d
       with e ->
         incr failures;
         KPrint.bprintf "%sERROR translating %a: %s%s\n%s\n" Ansi.red
