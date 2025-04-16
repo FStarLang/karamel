@@ -315,6 +315,7 @@ WasmTrap.wasm-test: NEGATIVE = true
 	echo 'fn main () { let r = main_ (); if r != 0 { println!("main_ returned: {}\\n", r); panic!() } }' >> $@
 
 $(OUTPUT_DIR)/rustpair.rs: KOPTS+=-fkeep-tuples
+$(OUTPUT_DIR)/rustptrfield.rs: KOPTS+=-fkeep-tuples
 
 %.rust-test: $(OUTPUT_DIR)/%.rs
 	rustc $< -o $*.exe && ./$*.exe
