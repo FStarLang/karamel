@@ -157,6 +157,7 @@ type visibility = Pub | PubCrate
 type meta = {
   visibility: visibility option;
   comment: string;
+  attributes: string list;
 }
 
 (* TODO: visitors incompatible with inline records *)
@@ -187,6 +188,8 @@ type decl =
   | Struct of {
     name: name;
     fields: struct_field list;
+    (* FIXME: why have a distinguished list of derives rather than shoving them in the (new)
+       attributes field of meta? *)
     derives: trait list;
     meta: meta;
     generic_params: generic_param list;

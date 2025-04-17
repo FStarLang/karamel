@@ -571,14 +571,19 @@ let print_visibility v =
   | Some Pub -> string "pub" ^^ break1
   | Some PubCrate -> string "pub(crate)" ^^ break1
 
-let print_inline_and_meta inline { visibility; comment } =
+let print_inline_and_meta inline { visibility; comment; attributes } =
   let inline = if inline then string "#[inline]" ^^ break1 else empty in
   let comment =
     if comment <> "" then
       string "/**" ^^ hardline ^^ string (String.trim comment) ^^ hardline ^^ string "*/" ^^ hardline
     else empty
   in
-  comment ^^ group (inline ^^ print_visibility visibility)
+  let attributes = if attributes = [] then empty else
+    separate_map hardline (fun attr ->
+      group (sharp ^^ brackets (string attr))
+    ) attributes ^^ hardline
+  in
+  comment ^^ group (inline ^^ attributes ^^ print_visibility visibility)
 
 let print_meta = print_inline_and_meta false
 
@@ -614,7 +619,7 @@ let rec print_decl env (d: decl) =
   | Struct { fields; meta; generic_params; derives; _ } ->
       group @@
       group (print_derives derives) ^/^
-      group (print_meta meta ^^ string "struct" ^/^ string target_name ^^ print_generic_params generic_params) ^/^
+      group (print_meta meta ^^ group (string "struct" ^/^ string target_name ^^ print_generic_params generic_params)) ^/^
       braces_with_nesting (print_struct env fields)
   | Alias { generic_params; body; meta; _ } ->
       group @@
