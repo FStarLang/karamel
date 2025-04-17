@@ -127,8 +127,12 @@ let print env =
 let is_uppercase c =
   'A' <= c && c <= 'Z'
 
+let lexical_conventions_at_last n =
+  let source_prefix, source_final = KList.split_at_last n in
+  source_prefix @ [ avoid_keywords (lexical_conventions source_final) ]
+
 let print_name env n =
-  let n = try NameMap.find n env.globals with Not_found -> n in
+  let n = try NameMap.find n env.globals with Not_found -> lexical_conventions_at_last n in
   let n =
     if env.workspace then
       (* Simple criterion when using a workspace *)
