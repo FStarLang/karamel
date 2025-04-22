@@ -315,9 +315,6 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
         failwith "TODO: operator not supported"
     end
 
-  | Call _ ->
-      failwith "TODO: Call"
-
   (* atom = e3 *)
   | Assign (Open { atom; _ } as e1, e3, t) ->
       (* KPrint.bprintf "[infer_expr-mut,assign] %a\n" pexpr e; *)
@@ -413,6 +410,15 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       failwith "TODO: unknown assignment"
 
   | AssignOp _ -> failwith "AssignOp nodes should only be introduced after mutability infer_exprence"
+  | Call _
+    (* This catches the Call case where the head is neither an operator nor a toplevel function,
+       meaning we do not have type information available. (The MiniRust AST is not typed.)
+
+       What we do here is suboptimal: we do not infer anything regarding mutability -- we don't even
+       recursively visit the arguments (which would be useful, say, if one of the arguments was
+       itself a call to a toplevel function!), since we do not have type information.
+
+       At least this prevents hard errors for things that would otherwise compile. *)
   | Var _
   | VecNew _
   | Name _

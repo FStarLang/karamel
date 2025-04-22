@@ -204,8 +204,9 @@ let rec print_typ env (t: typ): document =
   | Function (n, ts, t) ->
       let env = push_n_type env n in
       group @@
+      string "fn" ^/^
       group (parens (separate_map (comma ^^ break1) (print_typ env) ts)) ^/^
-      minus ^^ rangle ^^
+      minus ^^ rangle ^/^
       print_typ env t
   | Bound n ->
       begin try
