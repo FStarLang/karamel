@@ -1582,6 +1582,8 @@ let compute_struct_info files boxed_types =
           Idents.LidMap.add lid fields acc
       | Ast.DType (lid, _, _, _, Variant branches) ->
           Idents.LidMap.add lid (List.concat_map (fun (_, fields) -> List.map (fun (c, f) -> Some c, f) fields) branches) acc
+      | Ast.DType (lid, _, _, _, Abbrev t) ->
+          Idents.LidMap.add lid [ None, (t, false) ] acc
       | _ ->
           acc
     ) acc decls

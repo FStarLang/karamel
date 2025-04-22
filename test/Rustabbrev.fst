@@ -1,4 +1,4 @@
-module RustAbbrev
+module Rustabbrev
 
 noeq type foo = {
   b: LowStar.Buffer.buffer bool;
