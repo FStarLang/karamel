@@ -1,4 +1,4 @@
-module RustFn
+module Rustfn
 
 module U32 = FStar.UInt32
 
