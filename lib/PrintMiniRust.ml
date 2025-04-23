@@ -362,6 +362,7 @@ and print_expr env (context: int) (e: expr): document =
   in
   let print_call env e ts es =
     let mine = 4 in
+    let left = 2 in (* This needs to less than Field, to disambiguate a field function call (x.f)() from a method call x.f(). *)
     let tapp =
       if ts = [] then
         empty
@@ -369,7 +370,7 @@ and print_expr env (context: int) (e: expr): document =
         colon ^^ colon ^^ angles (separate_map (comma ^^ break1) (print_typ env) ts)
     in
     paren_if mine @@
-    group (print_expr env mine e ^^ tapp ^^ parens_with_nesting (
+    group (print_expr env left e ^^ tapp ^^ parens_with_nesting (
       separate_map (comma ^^ break1) (print_expr env max_int) es))
   in
   match e with
@@ -494,7 +495,9 @@ and print_expr env (context: int) (e: expr): document =
       paren_if mine @@
       print_expr env mine p ^^ group (brackets (print_expr env max_int e))
   | Field (e, s, _) ->
-      group (print_expr env 3 e ^^ dot ^^ string s)
+      let mine = 3 in
+      paren_if mine @@
+      group (print_expr env mine e ^^ dot ^^ string s)
   | Deref e ->
       let mine = 6 in
       paren_if mine @@
