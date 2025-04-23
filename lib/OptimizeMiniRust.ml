@@ -1369,6 +1369,8 @@ let compute_derives files =
             self#plus (self#visit_typ () t) (if m = Mut then TraitSet.singleton PartialEq else everything)
           method! visit_Vec _ t =
             self#plus (self#visit_typ () t) (TraitSet.of_list [ PartialEq; Clone ])
+          method! visit_Function _ _ _ _ =
+            everything
           method! visit_App _ t ts =
             match t with
             | Name (["Box"], []) ->
