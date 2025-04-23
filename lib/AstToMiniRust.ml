@@ -458,6 +458,10 @@ let default_config = {
   keep_mut = false;
 }
 
+let is_contained t =
+  let t = KList.last t in
+  List.exists (fun t' -> KString.starts_with t t') !Options.contained
+
 let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): MiniRust.typ =
   match t with
   | TInt w -> Constant w
@@ -488,7 +492,17 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
   | TArrow _ ->
       let t, ts = Helpers.flatten_arrow t in
       let ts = match ts with [ TUnit ] -> [] | _ -> ts in
-      Function (0, List.map (translate_type_with_config env config) ts, translate_type_with_config env config t)
+      let translate_parameter_type t =
+        match translate_type_with_config env config t with
+        | Ref (_, m, (Slice (Name (t, _ :: _)) as slice_t)) when is_contained t ->
+            (* Unlike top-level declarations (where we use 'b), we omit the lifetime name here.
+               Writing an explicit lifetime name here would also require adding a for<'b>.
+               By omitting the lifetime name, Rust will automatically do this. *)
+            MiniRust.Ref (None, m, slice_t)
+        | t ->
+            t
+      in
+      Function (0, List.map translate_parameter_type ts, translate_type_with_config env config t)
   | TApp ((["Pulse"; "Lib"; "Slice"], "slice"), [ t ]) ->
       Ref (config.lifetime, Shared, Slice (translate_type_with_config env config t))
   | TApp _ -> failwith (KPrint.bsprintf "TODO: TApp %a" PrintAst.ptyp t)
@@ -1277,10 +1291,6 @@ let is_handled_primitively = function
       KString.starts_with s "op_Star_Equals__"
   | _ ->
       false
-
-let is_contained t =
-  let t = KList.last t in
-  List.exists (fun t' -> KString.starts_with t t') !Options.contained
 
 (* In Rust, like in C, all the declarations from the current module are in
  * scope immediately. This requires us to duplicate a little bit of work. *)
