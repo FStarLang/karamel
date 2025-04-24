@@ -372,6 +372,15 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
   | Assign (Field (_, "1", None), _, _) ->
       failwith "TODO: assignment on slice"
 
+  (* (atom[e2]).f[e4][e5] = e3 *)
+  | Assign (Index (Index (Field (Index ((Open {atom; _} as e1), e2), f, st), e4), e5), e3, t) ->
+      let known = add_mut_borrow atom known in
+      let known, e2 = infer_expr env valuation return_expected usize known e2 in
+      let known, e3 = infer_expr env valuation return_expected t known e3 in
+      let known, e4 = infer_expr env valuation return_expected usize known e4 in
+      let known, e5 = infer_expr env valuation return_expected usize known e5 in
+      known, Assign (Index (Index (Field (Index (e1, e2), f, st), e4), e5), e3, t)
+
   (* (atom[e2]).f = e3 *)
   | Assign (Field (Index ((Open {atom; _} as e1), e2), f, st), e3, t) ->
       let known = add_mut_borrow atom known in
