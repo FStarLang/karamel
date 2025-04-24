@@ -701,6 +701,9 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       ) (known, []) es t_elt in
       known, Tuple (List.rev es)
 
+  | Break | Continue ->
+      known, e
+
 
 let empty: known = { v = VarSet.empty; r = VarSet.empty; p = VarSet.empty }
 

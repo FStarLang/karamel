@@ -1149,9 +1149,9 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
       env, possibly_convert (Field (e_, f, Some t)) (field_type env e f)
 
   | EBreak ->
-      failwith "TODO: EBreak"
+      env, Break
   | EContinue ->
-      failwith "TODO: EContinue"
+      env, Continue
   | EReturn e ->
       let env, e = translate_expr_with_type env fn_t_ret e fn_t_ret in
       env, Return e

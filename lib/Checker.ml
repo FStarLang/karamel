@@ -662,7 +662,7 @@ and infer' env e =
       let t1 = infer (locate env Then) e2 in
       let t2 = infer (locate env Else) e3 in
       check_eqtype env t1 t2;
-      t1
+      (if t1 = TAny then t2 else t1)
 
   | ESequence es ->
       begin match List.rev es with
@@ -755,7 +755,9 @@ and infer' env e =
   | EWhile (e1, e2) ->
       check env TBool e1;
       let t = infer env e2 in
-      if t = TUnit || t = TAny then
+      if t = TUnit then
+        TUnit
+      else if t = TAny then
         TAny (* loops that end in return can be typed with TAny *)
       else
         checker_error env "%a, while loop is neither tany or tunit" ploc env.location

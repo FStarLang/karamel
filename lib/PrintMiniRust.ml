@@ -515,6 +515,9 @@ and print_expr env (context: int) (e: expr): document =
   | Tuple es ->
       parens_with_nesting (separate_map comma (print_expr env max_int) es)
 
+  | Break -> string "break"
+  | Continue -> string "continue"
+
 and print_data_type_name env = function
   | `Struct name -> print_name env name
   | `Variant (name, cons) -> print_name env name ^^ string "::" ^^ string cons
