@@ -276,7 +276,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
         let known, e1 = infer_expr env valuation return_expected (Ref (None, Mut, Slice (KList.one targs))) known e1 in
         let known, e2 = infer_expr env valuation return_expected u32 known e2 in
         known, Call (Name n, targs, [ e1; e2 ])
-      else if n = [ "std"; "slice"; "from_slice" ] then
+      else if n = [ "std"; "slice"; "from_ref" ] then
         let e1 = KList.one es in
         let t = KList.one targs in
         if is_mut_borrow expected then
@@ -284,7 +284,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
           known, Call (Name [ "std"; "slice"; "from_mut" ], [ t ], [ e1 ])
         else
           let known, e1 = infer_expr env valuation return_expected (Ref (None, Shared, t)) known e1 in
-          known, Call (Name [ "std"; "slice"; "from_slice" ], [ t ], [ e1 ])
+          known, Call (Name [ "std"; "slice"; "from_ref" ], [ t ], [ e1 ])
       else if n = [ "std"; "slice"; "from_mut" ] then
         let e1 = KList.one es in
         let t = KList.one targs in
