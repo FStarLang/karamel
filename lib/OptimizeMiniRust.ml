@@ -475,10 +475,12 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       known, As (e, t)
 
   | For (b, e1, e2) ->
+      let known, e1 = infer_expr env valuation return_expected bool known e1 in
       let known, e2 = infer_expr env valuation return_expected Unit known e2 in
       known, For (b, e1, e2)
 
   | While (e1, e2) ->
+      let known, e1 = infer_expr env valuation return_expected bool known e1 in
       let known, e2 = infer_expr env valuation return_expected Unit known e2 in
       known, While (e1, e2)
 
