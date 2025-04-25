@@ -391,8 +391,15 @@ and print_expr env (context: int) (e: expr): document =
   | Call (Operator o, ts, [ e1; e2 ]) ->
       assert (ts = []);
       let mine, left, right = prec_of_op2 o in
+      let e1 =
+        (* Stupid syntax conflict where 0 as u32 < e2 is looked ahead as the beginning of a type
+           application *)
+        match o, e1 with
+        | (Lt | Lte), As _ -> parens (print_expr env left e1)
+        | _ -> print_expr env left e1
+      in
       paren_if mine @@
-      group (print_expr env left e1 ^/^
+      group (e1 ^/^
         (nest 4 (print_op o) ^/^ print_expr env right e2))
   | Call (Operator o, ts, [ e1 ]) ->
       assert (ts = []);

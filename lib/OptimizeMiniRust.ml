@@ -68,7 +68,7 @@ let structs: (DataType.t, MiniRust.struct_field list) Hashtbl.t =
    signatures will need to be augmented with information from the valuation to
    get the intended type. *)
 type env = {
-  signatures: typ list NameMap.t;
+  signatures: (typ list * typ) NameMap.t;
 }
 
 (* Promote a reference to mutable *)
@@ -100,15 +100,18 @@ let distill ts =
 
 (* Get the type of the arguments of `name`, based on the current state of
    `valuation` *)
-let lookup env valuation name =
+let lookup_full env valuation name =
   if not (NameMap.mem name env.signatures) then
     KPrint.bprintf "ERROR looking up: %a\n" PrintMiniRust.pname name;
-  let ts = NameMap.find name env.signatures in
-  adjust ts (valuation name)
+  let ts, ret_t = NameMap.find name env.signatures in
+  adjust ts (valuation name), ret_t
+
+let lookup env valuation name =
+  fst (lookup_full env valuation name)
 
 let debug env valuation =
   KPrint.bprintf "OptimizeMiniRust -- ENV DEBUG\n";
-  NameMap.iter (fun n t ->
+  NameMap.iter (fun n (t, _) ->
     let t = adjust t (valuation n) in
     KPrint.bprintf "%s: %a\n" (String.concat "::" n) ptyps t
   ) env.signatures
@@ -416,15 +419,28 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
   | Assign (Index (Borrow (_, Field (Open {atom; _} as e1, f, t)), e2), e3, t1) ->
       let known = add_mut_var atom known in
       let known, e2 = infer_expr env valuation return_expected usize known e2 in
-      let known, e3 = infer_expr env valuation return_expected usize known e3 in
+      let known, e3 = infer_expr env valuation return_expected t1 known e3 in
       known, Assign (Index (Borrow (Mut, Field (e1, f, t)), e2), e3, t1)
 
   (* ( *atom)[e2] = e3 *)
   | Assign (Index (Deref (Open {atom; _} as e1), e2), e3, t) ->
       let known = add_mut_borrow atom known in
       let known, e2 = infer_expr env valuation return_expected usize known e2 in
-      let known, e3 = infer_expr env valuation return_expected usize known e3 in
+      let known, e3 = infer_expr env valuation return_expected t known e3 in
       known, Assign (Index (Deref e1, e2), e3, t)
+
+  (* (f(...))[e2] = e3 *)
+  | Assign (Index (Call (Name f, _, _) as e1, e2), e3, t1) ->
+      let _, t = lookup_full env valuation f in
+      if not (is_mut_borrow t) then begin
+        KPrint.bprintf "[infer_expr-mut,assign] %a unsupported %s\n" pexpr e (show_expr e);
+        failwith "TODO: function call return type inference"
+      end;
+      (* TODO: something for e1 *)
+      let known, e2 = infer_expr env valuation return_expected usize known e2 in
+      let known, e3 = infer_expr env valuation return_expected usize known e3 in
+      known, Assign (Index (e1, e2), e3, t1)
+
 
   | Assign _ ->
       KPrint.bprintf "[infer_expr-mut,assign] %a unsupported %s\n" pexpr e (show_expr e);
@@ -1122,16 +1138,19 @@ let infer_mut_borrows files =
     ) decls
   ) files;
 
+  let tunit: typ = Unit in
+
   (* When inside a function body, we only care about the type of the parameters. *)
   let env = {
-    signatures = NameMap.of_seq (List.to_seq (builtins @
+    (* FIXME: get rid of builtins *)
+    signatures = NameMap.of_seq (List.to_seq (List.map (fun (n, t) -> (n, (t, tunit))) builtins @
       List.concat_map (fun (_, decls) ->
         List.filter_map (function
-          | Function { parameters; name; _ } ->
-              Some (name, List.map (fun (p: MiniRust.binding) -> p.typ) parameters)
-          | Assumed { name; parameters; _ } ->
+          | Function { parameters; name; return_type; _ } ->
+              Some (name, (List.map (fun (p: MiniRust.binding) -> p.typ) parameters, return_type))
+          | Assumed { name; parameters; return_type; _ } ->
               if List.exists (fun (n, _) -> n = name) builtins then None
-              else Some (name, parameters)
+              else Some (name, (parameters, return_type))
           | _ ->
               None
         ) decls) files))
