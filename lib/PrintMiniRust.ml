@@ -444,8 +444,13 @@ and print_expr env (context: int) (e: expr): document =
       let env = push env (Bound { b with name }) in
       print_block_expression env e2
   | While (e1, e2) ->
+      let start =
+        match e1 with
+        | Constant (_, "true") -> string "loop"
+        | _ -> string "while" ^/^ print_expr env max_int e1
+      in
       group @@
-      string "while" ^/^ print_expr env max_int e1 ^/^
+      start ^/^ 
       print_expression_with_block env e2
   | Return e ->
       group (string "return" ^/^ print_expr env max_int e)
