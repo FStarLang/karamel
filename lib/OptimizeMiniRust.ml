@@ -302,14 +302,23 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
         let es = List.rev es in
         known, Call (Name n, targs, es)
 
-  | Call (Operator o, [], _) ->
+  | Call (Operator o, [], es) ->
       (* Most operators are wrapping and were translated to a methodcall.
          We list the few remaining ones here *)
       begin match o with
       | Add | Sub
       | BOr | BAnd | BXor | BNot
       | Eq | Neq | Lt | Lte | Gt | Gte
-      | And | Or | Xor | Not -> known, e
+      | And | Or | Xor | Not ->
+          let known, es = List.fold_left (fun (known, es) e ->
+            (* HACK: no known expected type here but we do know that there are no expected mutable
+               borrows in the types of the arguments to operators (and we don't rely on traits to
+               implement that, I think...?) *)
+            let known, e = infer_expr env valuation return_expected Unit known e in
+            known, e::es
+          ) (known, []) es in
+          let es = List.rev es in
+          known, Call (Operator o, [], es)
       | _ ->
         KPrint.bprintf "[infer_expr-mut,call] %a not supported\n" pexpr e;
         failwith "TODO: operator not supported"
