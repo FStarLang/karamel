@@ -316,6 +316,7 @@ WasmTrap.wasm-test: NEGATIVE = true
 
 $(OUTPUT_DIR)/rustpair.rs: KOPTS+=-fkeep-tuples
 $(OUTPUT_DIR)/rustptrfield.rs: KOPTS+=-fkeep-tuples
+$(OUTPUT_DIR)/rustamblifetime.rs: KOPTS+=-fkeep-tuples -fno-box
 
 %.rust-test: $(OUTPUT_DIR)/%.rs
 	rustc $< -o $*.exe && ./$*.exe
