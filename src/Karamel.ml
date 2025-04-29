@@ -626,7 +626,7 @@ Supported options:|}
       abbrev k___chosen_internal_name = foo
     stemming from the monomorphization then elimination of type bar x = | Foo of foo
   *)
-  let files = Inlining.inline_type_abbrevs ~just_auto_generated:true files in
+  let files = Inlining.inline_type_abbrevs files in
   if !arg_print_pattern then
     print PrintAst.print_files files;
   let has_errors, files = Checker.check_everything files in
