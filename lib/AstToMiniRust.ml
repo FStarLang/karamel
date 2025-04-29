@@ -1292,6 +1292,20 @@ let is_handled_primitively = function
   | _ ->
       false
 
+let has_pointer env =
+  (object
+    inherit [_] Ast.reduce as super
+    method zero = false
+    method plus = (||)
+    method! visit_TBuf _ _ _ = true
+    method! visit_TQualified _ lid = Idents.LidSet.mem lid env.pointer_holding_structs
+    method! visit_TApp env lid ts =
+      if lid = (["Pulse"; "Lib"; "Slice"], "slice") then
+        true
+      else
+        super#visit_TApp env lid ts
+  end)#visit_typ ()
+
 (* In Rust, like in C, all the declarations from the current module are in
  * scope immediately. This requires us to duplicate a little bit of work. *)
 let bind_decl env (d: Ast.decl): env =
@@ -1306,11 +1320,7 @@ let bind_decl env (d: Ast.decl): env =
         else
           args
       in
-      let needs_lifetime = List.exists (function
-          | Ast.TQualified lid -> LidSet.mem lid env.pointer_holding_structs
-          | _ -> false
-      ) (t :: (List.map (fun (b: Ast.binder) -> b.typ) args))
-      in
+      let needs_lifetime = has_pointer env t in
       let lifetime = if needs_lifetime then Some (MiniRust.Label "a") else None in
       let config = { default_config with lifetime } in
 
@@ -1449,11 +1459,7 @@ let translate_decl env { derives; attributes; _ } (d: Ast.decl): MiniRust.decl o
       if Options.debug "rs" then
         KPrint.bprintf "Ast.DFunction (%a)\n" PrintAst.Ops.plid lid;
       assert (type_parameters = 0 && n_cgs = 0);
-      let needs_lifetime = List.exists (function
-          | Ast.TQualified lid -> LidSet.mem lid env.pointer_holding_structs
-          | _ -> false
-      ) (ret_t :: (List.map (fun (x: Ast.binder) -> x.typ) args))
-      in
+      let needs_lifetime = has_pointer env ret_t in
       let lifetime = if needs_lifetime then Some (MiniRust.Label "a") else None in
       let generic_params = match lifetime with Some l -> [ MiniRust.Lifetime l ] | None -> [] in
 
@@ -1523,18 +1529,7 @@ let translate_decl env { derives; attributes; _ } (d: Ast.decl): MiniRust.decl o
           let items = List.map (fun (i, v) -> assert (v = None); snd i, None) idents in
           Some (Enumeration { name; meta; items; derives; generic_params = [] })
       | Abbrev t ->
-          let has_inner_pointer = (object
-            inherit [_] Ast.reduce as super
-            method zero = false
-            method plus = (||)
-            method! visit_TBuf _ _ _ = true
-            method! visit_TQualified _ lid = Idents.LidSet.mem lid env.pointer_holding_structs
-            method! visit_TApp env lid ts =
-              if lid = (["Pulse"; "Lib"; "Slice"], "slice") then
-                true
-              else
-                super#visit_TApp env lid ts
-          end)#visit_typ () t in
+          let has_inner_pointer = has_pointer env t in
           let lifetime, generic_params =
             if has_inner_pointer then
               Some (MiniRust.Label "a"), [ MiniRust.Lifetime (Label "a") ]
