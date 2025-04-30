@@ -341,6 +341,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
           known, arg :: args
         ) (known, []) args arg_tys
       in
+      let args = List.rev args in
       known, Call (fld, [], args)
     | _ ->
       known, e
