@@ -666,6 +666,7 @@ let print_decl env d =
 
 let print_decls ns ds =
   let env = fresh ns in
+  let env, _ = register_global env ["krml"; "unroll_for!"] in
   let env, ds = List.fold_left (fun (env, ds) d ->
     let env, d = print_decl env d in
     env, d :: ds
