@@ -99,8 +99,13 @@ and expr =
   | Struct of struct_name * (string * expr) list
   | Match of expr * typ * match_arm list
   | Tuple of expr list
-  | Break
+  | Break of label option
   | Continue
+  | Block of label option * expr
+    (** The printer inserts blocks as needed to make the resulting code parseable -- one should
+        generally not need to manually insert blocks in MiniRust, except to:
+          1. control the lifetime of objects -- this allows shortening scopes, or
+          2. labeling a block to allow label breaks afterwards *)
 
   (* Place expressions *)
   | Var of db_index
@@ -114,6 +119,8 @@ and expr =
   (* Operator expressions *)
   | Operator of op
   | Deref of expr
+
+and label = string
 
 and match_arm = binding list * pat * expr
 

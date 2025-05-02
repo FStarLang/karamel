@@ -527,8 +527,14 @@ and print_expr env (context: int) (e: expr): document =
   | Tuple es ->
       parens_with_nesting (separate_map comma (print_expr env max_int) es)
 
-  | Break -> string "break"
   | Continue -> string "continue"
+
+  | Break None -> string "break"
+  | Break (Some label) -> group (string "break" ^/^ string label)
+
+  | Block (label, e) ->
+      (match label with None -> empty | Some label -> string label ^/^ colon ^^ break1) ^^
+      print_block_expression env e
 
 and print_data_type_name env = function
   | `Struct name -> print_name env name

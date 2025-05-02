@@ -1149,7 +1149,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
       env, possibly_convert (Field (e_, f, Some t)) (field_type env e f)
 
   | EBreak ->
-      env, Break
+      env, Break None
   | EContinue ->
       env, Continue
   | EReturn e ->
