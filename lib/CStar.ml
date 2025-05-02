@@ -39,6 +39,7 @@ and stmt =
   | Assign of expr * typ * expr
     (** Destination (i.e. Var), Source *)
   | Switch of expr * ([`Ident of lident | `Int of K.t] * block) list * block option
+    (** `break`s need to be explicit here, otherwise, this is a fall-through case *)
   | BufWrite of expr * expr * expr
     (** First expression has to be a [Bound] or [Open]. *)
   | BufBlit of typ * expr * expr * expr * expr * expr

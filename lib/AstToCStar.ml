@@ -682,7 +682,13 @@ and mk_stmts env e ret_type =
             | SConstant k -> `Int k
             | SEnum lid -> `Ident lid
             | _ -> failwith "impossible"),
-            mk_block env return_pos e
+            let stmts =
+              mk_block env return_pos e
+            in
+            match KList.last stmts with
+            | Return _ -> stmts
+            | _ -> stmts @ [ Break ]
+            | exception _ -> [ Break ]
           ) branches, default) :: comment e.meta @ acc
 
     | EReturn e ->

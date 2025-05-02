@@ -821,13 +821,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
             (match ident with
             | `Ident ident -> Name (to_c_name m ident)
             | `Int k -> Constant k),
-            let block = mk_stmts m block in
-            if List.length block > 0 then
-              match KList.last block with
-              | Return _ -> Compound block
-              | _ -> Compound (block @ [ Break ])
-            else
-              Compound [ Break ]
+            Compound (mk_stmts m block)
           ) branches,
           match default with
           | Some block ->
