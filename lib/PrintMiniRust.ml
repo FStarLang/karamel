@@ -666,6 +666,9 @@ let print_decl env d =
 
 let print_decls ns ds =
   let env = fresh ns in
+  (* We cannot call `register_globals` to register `unroll_for!`, as the ! character is
+     considered invalid and will be replaced by a median point. We thus do it manually *)
+  let env = { env with globals = NameMap.add ["krml"; "unroll_for!"] ["krml"; "unroll_for!"] env.globals } in
   let env, ds = List.fold_left (fun (env, ds) d ->
     let env, d = print_decl env d in
     env, d :: ds
