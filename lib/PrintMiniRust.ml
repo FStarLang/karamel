@@ -201,13 +201,16 @@ let rec print_typ env (t: typ): document =
   | Array (t, n) -> group (brackets (print_typ env t ^^ semi ^/^ int n))
   | Slice t -> group (brackets (print_typ env t))
   | Unit -> parens empty
-  | Function (n, ts, t) ->
-      let env = push_n_type env n in
+  | Function (n, [], ts, t) ->
+    let env = push_n_type env n in
       group @@
       string "fn" ^/^
       group (parens (separate_map (comma ^^ break1) (print_typ env) ts)) ^/^
       minus ^^ rangle ^/^
       print_typ env t
+  | Function (n, lt, ts, t) ->
+    group (string "for" ^^ langle ^^ separate_map (comma ^^ break1) print_lifetime lt ^^ rangle) ^/^
+      print_typ env (Function (n, [], ts, t))
   | Bound n ->
       begin try
         string (lookup_type env n)
