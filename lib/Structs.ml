@@ -264,6 +264,7 @@ let pass_by_ref (externals: Idents.LidSet.t) (should_rewrite: _ -> policy) = obj
           (* Fast-path: the body is a single application node, meaning that the we can optimize and
              directly pass our own destination parameter to the callee, rather than generating a
              temporary that ends up memcpy'd into our own destination parameter. *)
+          let es = List.map (self#visit_expr_w to_be_starred) es in
           self#rewrite_app to_be_starred e es ret_atom
 
       | _ ->
