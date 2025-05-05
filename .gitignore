@@ -15,3 +15,7 @@ karamel-nofstar.opam
 lib/AutoConfig.ml
 *.orig
 .exrc
+*.cmd
+*.err
+*.output
+*.time
