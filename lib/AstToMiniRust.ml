@@ -462,6 +462,20 @@ let is_contained t =
   let t = KList.last t in
   List.exists (fun t' -> KString.starts_with t t') !Options.contained
 
+let has_pointer env =
+  (object
+    inherit [_] Ast.reduce as super
+    method zero = false
+    method plus = (||)
+    method! visit_TBuf _ _ _ = true
+    method! visit_TQualified _ lid = Idents.LidSet.mem lid env.pointer_holding_structs
+    method! visit_TApp env lid ts =
+      if lid = (["Pulse"; "Lib"; "Slice"], "slice") then
+        true
+      else
+        super#visit_TApp env lid ts
+  end)#visit_typ ()
+
 let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): MiniRust.typ =
   match t with
   | TInt w -> Constant w
@@ -492,6 +506,14 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
   | TArrow _ ->
       let t, ts = Helpers.flatten_arrow t in
       let ts = match ts with [ TUnit ] -> [] | _ -> ts in
+      let needs_lifetime = has_pointer env t in
+      (* We need to find a fresh lifetime -- struct foo<'a> { a: for<'a> ... } is an error. *)
+      (* Function pointers refer to global functions so they can't refer to the enclosing lifetime anyhow. *)
+      let new_lifetime =
+        MiniRust.Label (match config.lifetime with
+          | Some (MiniRust.Label n) -> n ^ "1"
+          | None -> "a") in
+      let config = { config with lifetime = if needs_lifetime then Some new_lifetime else None } in
       let translate_parameter_type t =
         match translate_type_with_config env config t with
         | Ref (_, m, (Slice (Name (t, _ :: _)) as slice_t)) when is_contained t ->
@@ -502,7 +524,8 @@ let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): Min
         | t ->
             t
       in
-      Function (0, List.map translate_parameter_type ts, translate_type_with_config env config t)
+      Function (0, Option.to_list config.lifetime,
+        List.map translate_parameter_type ts, translate_type_with_config env config t)
   | TApp ((["Pulse"; "Lib"; "Slice"], "slice"), [ t ]) ->
       Ref (config.lifetime, Shared, Slice (translate_type_with_config env config t))
   | TApp _ -> failwith (KPrint.bsprintf "TODO: TApp %a" PrintAst.ptyp t)
@@ -651,6 +674,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
   let erase_lifetime_info = (object(self)
     inherit [_] MiniRust.DeBruijn.map
     method! visit_Ref env _ bk t = Ref (None, bk, self#visit_typ env t)
+    method! visit_Function env _ _ ts t = Function (0, [], List.map (self#visit_typ env) ts, self#visit_typ env t)
     method! visit_tname _ n _ = Name (n, [])
   end)#visit_typ ()
   in
@@ -673,7 +697,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
         Constant (SizeT, x)
     | _, Constant UInt32, Constant SizeT ->
         As (x, Constant SizeT)
-    | _, Function (_, ts, t), Function (_, ts', t') when ts = ts' && t = t' ->
+    | _, Function (_, _, ts, t), Function (_, _, ts', t') when ts = ts' && t = t' ->
         (* The type annotations coming from Ast do not feature polymorphic binders in types, but we
            do retain them in our Function type -- so we need to relax the comparison here *)
         x
@@ -1277,9 +1301,9 @@ and translate_pat env (p: Ast.pattern): MiniRust.pat =
 
 let make_poly (t: MiniRust.typ) n: MiniRust.typ =
   match t with
-  | Function (n', ts, t) ->
+  | Function (n', lt, ts, t) ->
       assert (n' = 0);
-      Function (n, ts, t)
+      Function (n, lt, ts, t)
   | _ ->
       (* Constants aren't supposed to be polymorphic *)
       assert (n = 0);
@@ -1291,20 +1315,6 @@ let is_handled_primitively = function
       KString.starts_with s "op_Star_Equals__"
   | _ ->
       false
-
-let has_pointer env =
-  (object
-    inherit [_] Ast.reduce as super
-    method zero = false
-    method plus = (||)
-    method! visit_TBuf _ _ _ = true
-    method! visit_TQualified _ lid = Idents.LidSet.mem lid env.pointer_holding_structs
-    method! visit_TApp env lid ts =
-      if lid = (["Pulse"; "Lib"; "Slice"], "slice") then
-        true
-      else
-        super#visit_TApp env lid ts
-  end)#visit_typ ()
 
 (* In Rust, like in C, all the declarations from the current module are in
  * scope immediately. This requires us to duplicate a little bit of work. *)
@@ -1322,6 +1332,7 @@ let bind_decl env (d: Ast.decl): env =
       in
       let needs_lifetime = has_pointer env t in
       let lifetime = if needs_lifetime then Some (MiniRust.Label "a") else None in
+      let lifetimes = Option.to_list lifetime in
       let config = { default_config with lifetime } in
 
       let parameters = List.map (fun (b: Ast.binder) ->
@@ -1346,7 +1357,7 @@ let bind_decl env (d: Ast.decl): env =
         in
         translate_type_with_config env { config with box } t
       in
-      push_decl env lid (name, Function (type_parameters, parameters, return_type))
+      push_decl env lid (name, Function (type_parameters, lifetimes, parameters, return_type))
 
   | DGlobal (_flags, lid, _, t, e) ->
       let typ = match e.node with
@@ -1465,7 +1476,7 @@ let translate_decl env { derives; attributes; _ } (d: Ast.decl): MiniRust.decl o
 
       let name, parameters, return_type =
         match lookup_decl env lid with
-        | name, Function (_, parameters, return_type) -> name, parameters, return_type
+        | name, Function (_, _, parameters, return_type) -> name, parameters, return_type
         | _ -> failwith "impossible"
       in
       let generic_params =
@@ -1502,7 +1513,7 @@ let translate_decl env { derives; attributes; _ } (d: Ast.decl): MiniRust.decl o
   | DExternal (_, _, _, _, lid, _, _) ->
       let name, parameters, return_type =
         match lookup_decl env lid with
-        | name, Function (_, parameters, return_type) -> name, parameters, return_type
+        | name, Function (_, _, parameters, return_type) -> name, parameters, return_type
         | _ -> failwith " impossible"
       in
       Some (MiniRust.Assumed { name; parameters; return_type })
@@ -1651,16 +1662,18 @@ let compute_struct_info files boxed_types =
             inherit [_] Ast.reduce as super
             method zero = false
             method plus = (||)
+            method! visit_TArrow _ _ _ = self#zero
             method! visit_TQualified _ lid =
               valuation lid
             method! visit_TApp env lid ts =
               self#plus (valuation lid) (super#visit_TApp env lid ts)
           end)#visit_fields_t_opt () fields
         in
-        let directly_contains_pointers = (object(_)
+        let directly_contains_pointers = (object(self)
             inherit [_] Ast.reduce as super
             method zero = false
             method plus = (||)
+            method! visit_TArrow _ _ _ = self#zero
             method! visit_TBuf _ _ _ = true
             method! visit_TApp env lid ts =
               match lid, ts with

@@ -175,8 +175,8 @@ let add_mut_field (n: DataType.t) f =
 (* Update mutability of the arguments in a function type. *)
 let update_mut_args_fn_typ (t: typ) new_arg_tys : typ =
   match t with
-  | Function (i, old_arg_tys, old_ret_ty) ->
-    Function (i, List.map2 (fun old_arg new_arg ->
+  | Function (i, lt, old_arg_tys, old_ret_ty) ->
+    Function (i, lt, List.map2 (fun old_arg new_arg ->
       if is_mut_borrow new_arg then fst (make_mut_borrow old_arg) else old_arg)
       old_arg_tys new_arg_tys, old_ret_ty)
   | _ -> t
@@ -335,7 +335,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
     let fields = Hashtbl.find structs (`Struct (assert_name st)) in
     let field = List.find (fun fld -> fld.name = f) fields in
     begin match field.typ with
-    | Function (_, arg_tys, _) ->
+    | Function (_, _, arg_tys, _) ->
       let known, args = List.fold_left2 (fun (known, args) arg arg_ty ->
           let known, arg = infer_expr env valuation return_expected arg_ty known arg in
           known, arg :: args
@@ -1409,7 +1409,7 @@ let compute_derives files =
             self#plus (self#visit_typ () t) (if m = Mut then TraitSet.singleton PartialEq else everything)
           method! visit_Vec _ t =
             self#plus (self#visit_typ () t) (TraitSet.of_list [ PartialEq; Clone ])
-          method! visit_Function _ _ _ _ =
+          method! visit_Function _ _ _ _ _ =
             everything
           method! visit_App _ t ts =
             match t with
