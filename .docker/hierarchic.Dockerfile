@@ -10,7 +10,7 @@ WORKDIR $HOME/karamel
 RUN opam depext ctypes-foreign uucp
 RUN opam install ctypes-foreign uucp
 RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
-RUN sudo apt-get install -y nodejs rust-all
+RUN sudo apt-get install -y nodejs rust-all time
 
 # CI dependencies: sphinx (for the docs)
 # sudo pip3 because of https://bugs.launchpad.net/ubuntu/+source/bash/+bug/1588562
