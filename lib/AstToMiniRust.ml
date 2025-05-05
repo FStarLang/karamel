@@ -1662,16 +1662,18 @@ let compute_struct_info files boxed_types =
             inherit [_] Ast.reduce as super
             method zero = false
             method plus = (||)
+            method! visit_TArrow _ _ _ = self#zero
             method! visit_TQualified _ lid =
               valuation lid
             method! visit_TApp env lid ts =
               self#plus (valuation lid) (super#visit_TApp env lid ts)
           end)#visit_fields_t_opt () fields
         in
-        let directly_contains_pointers = (object(_)
+        let directly_contains_pointers = (object(self)
             inherit [_] Ast.reduce as super
             method zero = false
             method plus = (||)
+            method! visit_TArrow _ _ _ = self#zero
             method! visit_TBuf _ _ _ = true
             method! visit_TApp env lid ts =
               match lid, ts with
