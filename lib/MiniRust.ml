@@ -34,7 +34,7 @@ type typ =
   | Array of typ * int [@name "tarray"]
   | Slice of typ (* always appears underneath Ref *)
   | Unit [@name "tunit"]
-  | Function of int * typ list * typ
+  | Function of int * lifetime list * typ list * typ
   | Name of name * generic_param list [@name "tname"]
   | Tuple of typ list [@name "ttuple"]
   | App of typ * typ list
