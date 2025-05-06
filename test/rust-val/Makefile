@@ -49,7 +49,7 @@ endif
 include .depend
 
 $(CACHE_DIR)/%.checked: | .depend
-	$(call run-with-log,$(FSTAR) $(OTHERFLAGS) $< && touch $@\,[RUSTVAL_VERIFY] $*,$(CACHE_DIR)/$*)
+	$(call run-with-log,$(FSTAR) $(OTHERFLAGS) $< && touch $@,[RUSTVAL_VERIFY] $*,$(CACHE_DIR)/$*)
 
 %.krml: | .depend
 	$(call run-with-log,$(FSTAR) $(OTHERFLAGS) --codegen krml \
