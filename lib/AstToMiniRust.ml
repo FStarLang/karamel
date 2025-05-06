@@ -855,6 +855,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
         | [ { typ = TUnit; node; _ } ] -> assert (node = EUnit); [], []
         | _ -> es, snd (Helpers.flatten_arrow e0.typ)
       in
+      (* KPrint.bprintf "Translating arguments to call %a\n" PrintAst.Ops.pexpr e0; *)
       let env, e0 = translate_expr env fn_t_ret e0 in
       let env, es = translate_expr_list_with_types env fn_t_ret es (List.map (translate_type env) ts) in
       env, possibly_convert (Call (e0, [], es)) (translate_type env e.typ)

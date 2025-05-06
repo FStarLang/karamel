@@ -380,6 +380,15 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       let known, e3 = infer_expr env valuation return_expected t known e3 in
       known, Assign (Index (Borrow (Mut, e1), e2), e3, t)
 
+  | Assign (Field (Open { atom; _ }, "0", None) as e1, e2, t)
+  | Assign (Field (Open { atom; _ }, "1", None) as e1, e2, t) ->
+      (* Confusion here (see above) between mutability of the atom and mutability of its fields --
+         FIXME *)
+      let known = add_mut_var atom known in
+      let t = match t with Ref (l, _, t) -> Ref (l, Mut, t) | _ -> t in
+      let known, e2 = infer_expr env valuation return_expected t known e2 in
+      known, Assign (e1, e2, t)
+
   | Assign (Field (_, "0", None), _, _)
   | Assign (Field (_, "1", None), _, _) ->
       failwith "TODO: assignment on slice"
@@ -437,6 +446,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
         failwith "TODO: function call return type inference"
       end;
       (* TODO: something for e1 *)
+      let known, e1 = infer_expr env valuation return_expected t known e1 in
       let known, e2 = infer_expr env valuation return_expected usize known e2 in
       let known, e3 = infer_expr env valuation return_expected usize known e3 in
       known, Assign (Index (e1, e2), e3, t1)
