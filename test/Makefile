@@ -1,3 +1,5 @@
+include ../Makefile.common
+
 RECENT_GCC	= $(shell [ "$$(gcc -dumpversion | cut -c -1)" -ge 5 ] && echo yes)
 
 ifeq (3.81,$(MAKE_VERSION))
@@ -22,7 +24,7 @@ endif
 ifneq ($(CRYPTO),)
   CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 endif
-TEST_OPTS	= -warn-error @4 -verbose -skip-makefiles
+TEST_OPTS	= -warn-error @4 -skip-makefiles
 KRML_BIN	= ../_build/default/src/Karamel.exe
 KRML		= $(KRML_BIN) -fstar $(FSTAR_EXE) $(KOPTS) $(TEST_OPTS)
 
@@ -95,11 +97,16 @@ everything: all
 
 # Use F*'s dependency mechanism and fill out the missing rules.
 
+comma := ,
+
 ifndef MAKE_RESTARTS
 ifndef NODEPEND
 .depend: .FORCE
-	$(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
-	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*,-Prims' -o $@
+	$(call run-with-log, \
+	  $(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
+	    $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*$(comma)-Prims' -o $@ \
+	  ,[DEPEND],\
+	  .depend)
 
 .PHONY: .FORCE
 .FORCE:
@@ -109,14 +116,16 @@ endif
 include .depend
 
 $(CACHE_DIR)/%.checked: | .depend
-	$(FSTAR) $(OTHERFLAGS) -c $< -o $@ && \
-	touch $@
+	$(call run-with-log,$(FSTAR) $(OTHERFLAGS) -c $< -o $@ && touch $@,[VERIFY] $*,$(CACHE_DIR)/$*)
 
 $(OUTPUT_DIR)/%.krml: | .depend
-	$(FSTAR) $(OTHERFLAGS) --codegen krml \
-	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
-	  -o $@ \
-	  $<
+	$(call run-with-log, \
+	  $(FSTAR) $(OTHERFLAGS) --codegen krml \
+	    --extract_module $(basename $(notdir $(subst .checked,,$<))) \
+	    -o $@ \
+	    $< \
+	 ,[EXTRACT] $*,\
+	  $(OUTPUT_DIR)/$*) 
 
 ###############
 # Regular (C) #
@@ -129,12 +138,14 @@ $(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_BIN)
 
 .PRECIOUS: $(OUTPUT_DIR)/%.exe
 $(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_BIN)
-	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
-	  -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack,\*
+	$(call run-with-log, \
+	  $(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
+	    -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack$(comma)\* \
+	,[KRML] $*,$(OUTPUT_DIR)/$*)
 
 .SECONDEXPANSION:
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe
-	@(if $(NEGATIVE); then ! $^; else $^; fi) && echo "\033[01;32m✔\033[00m [TEST,$*]" || (echo "\033[01;31m✘\033[00m [TEST,$*]" && false)
+	@(if $(NEGATIVE); then ! $^; else $^; fi) && echo -e "\033[01;32m✔\033[00m [TEST,$*]" || (echo -e "\033[01;31m✘\033[00m [TEST,$*]" && false)
 
 ifeq ($(OS),Windows_NT)
   HELLOSYSTEM_LDOPTS = -ldopts -lws2_32
@@ -172,7 +183,7 @@ $(OUTPUT_DIR)/Ctypes2.exe: EXTRA = -ctypes 'Ctypes2,Ctypes4' \
   -bundle 'Ctypes3+Ctypes4=[rename=Lowlevel]' \
   -bundle 'Ctypes2=' \
   -bundle 'Ctypes1=' \
-  -bundle '*,WindowsHack[rename=Leftovers]' \
+  -bundle '*$(comma)WindowsHack[rename=Leftovers]' \
   -no-prefix 'Ctypes4' -skip-compilation
 $(OUTPUT_DIR)/Failwith.exe: EXTRA = -ccopts -Wno-deprecated-declarations,-Wno-infinite-recursion
 $(OUTPUT_DIR)/VariableMerge.exe: EXTRA = -fmerge aggressive
@@ -286,11 +297,12 @@ $(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Ctypes2.exe $(addprefix $(LOWLEVEL_
 # NEGATIVE for negative tests.
 .PRECIOUS: $(OUTPUT_DIR)/%.wasm
 $(OUTPUT_DIR)/%.wasm: $(ALL_KRML_FILES) $(KRML_BIN)
-	$(KRML) -minimal -bundle WasmSupport= -bundle 'FStar.*' -bundle Prims \
+	$(call run-with-log,$(KRML) -minimal -bundle WasmSupport= -bundle 'FStar.*' -bundle Prims \
 	  -bundle C -bundle C.Endianness -bundle C.Nullity -bundle C.String \
 	  -bundle TestLib \
-	  -bundle $(subst _,.,$*)=WindowsHack,\* \
-	  -backend wasm $(EXTRA) -tmpdir $@ $(JSFILES) -no-prefix $* $(filter %.krml,$^)
+	  -bundle $(subst _,.,$*)=WindowsHack$(comma)\* \
+	  -backend wasm $(EXTRA) -tmpdir $@ $(JSFILES) -no-prefix $* $(filter %.krml,$^)\
+	  ,[KRML-WASM] $*,$(OUTPUT_DIR)/$*)
 	[ x$(JSFILES) != x ] && cp $(JSFILES) $@ || true
 
 %.wasm-test: $(OUTPUT_DIR)/%.wasm
@@ -309,13 +321,15 @@ WasmTrap.wasm-test: NEGATIVE = true
 
 .PRECIOUS: %.rs
 %.rs: $(ALL_KRML_FILES) $(KRML_BIN)
-	$(KRML) -minimal -bundle $(notdir $(subst rust,Rust,$*))=\* \
-	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)
+	$(call run-with-log,$(KRML) -minimal -bundle $(notdir $(subst rust,Rust,$*))=\* \
+	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)\
+	  ,[KRML-RS] $(basename $*),$*)
 	$(SED) -i 's/\(patterns..\)/\1\nmod lowstar { pub mod ignore { pub fn ignore<T>(_x: T) {}}}\n/' $@
 	echo 'fn main () { let r = main_ (); if r != 0 { println!("main_ returned: {}\\n", r); panic!() } }' >> $@
 
 $(OUTPUT_DIR)/rustpair.rs: KOPTS+=-fkeep-tuples
 $(OUTPUT_DIR)/rustptrfield.rs: KOPTS+=-fkeep-tuples
+$(OUTPUT_DIR)/rustamblifetime.rs: KOPTS+=-fkeep-tuples -fno-box
 
 %.rust-test: $(OUTPUT_DIR)/%.rs
 	rustc $< -o $*.exe && ./$*.exe

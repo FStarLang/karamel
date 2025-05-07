@@ -201,12 +201,16 @@ let rec print_typ env (t: typ): document =
   | Array (t, n) -> group (brackets (print_typ env t ^^ semi ^/^ int n))
   | Slice t -> group (brackets (print_typ env t))
   | Unit -> parens empty
-  | Function (n, ts, t) ->
-      let env = push_n_type env n in
+  | Function (n, [], ts, t) ->
+    let env = push_n_type env n in
       group @@
+      string "fn" ^/^
       group (parens (separate_map (comma ^^ break1) (print_typ env) ts)) ^/^
-      minus ^^ rangle ^^
+      minus ^^ rangle ^/^
       print_typ env t
+  | Function (n, lt, ts, t) ->
+    group (string "for" ^^ langle ^^ separate_map (comma ^^ break1) print_lifetime lt ^^ rangle) ^/^
+      print_typ env (Function (n, [], ts, t))
   | Bound n ->
       begin try
         string (lookup_type env n)
@@ -361,6 +365,7 @@ and print_expr env (context: int) (e: expr): document =
   in
   let print_call env e ts es =
     let mine = 4 in
+    let left = 2 in (* This needs to less than Field, to disambiguate a field function call (x.f)() from a method call x.f(). *)
     let tapp =
       if ts = [] then
         empty
@@ -368,7 +373,7 @@ and print_expr env (context: int) (e: expr): document =
         colon ^^ colon ^^ angles (separate_map (comma ^^ break1) (print_typ env) ts)
     in
     paren_if mine @@
-    group (print_expr env mine e ^^ tapp ^^ parens_with_nesting (
+    group (print_expr env left e ^^ tapp ^^ parens_with_nesting (
       separate_map (comma ^^ break1) (print_expr env max_int) es))
   in
   match e with
@@ -505,7 +510,9 @@ and print_expr env (context: int) (e: expr): document =
       paren_if mine @@
       print_expr env mine p ^^ group (brackets (print_expr env max_int e))
   | Field (e, s, _) ->
-      group (print_expr env 3 e ^^ dot ^^ string s)
+      let mine = 3 in
+      paren_if mine @@
+      group (print_expr env mine e ^^ dot ^^ string s)
   | Deref e ->
       let mine = 6 in
       paren_if mine @@
@@ -677,6 +684,9 @@ let print_decl env d =
 
 let print_decls ns ds =
   let env = fresh ns in
+  (* We cannot call `register_globals` to register `unroll_for!`, as the ! character is
+     considered invalid and will be replaced by a median point. We thus do it manually *)
+  let env = { env with globals = NameMap.add ["krml"; "unroll_for!"] ["krml"; "unroll_for!"] env.globals } in
   let env, ds = List.fold_left (fun (env, ds) d ->
     let env, d = print_decl env d in
     env, d :: ds

@@ -16,7 +16,8 @@ RUN apt-get update && \
       opam \
       python3 \
       python3-distutils \
-      rust-all
+      rust-all \
+      time
 
 
 # Create a new user and give them sudo rights

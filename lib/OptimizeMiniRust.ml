@@ -175,6 +175,22 @@ let add_mut_field (n: DataType.t) f =
     if sf.name = f then {sf with typ = fst (make_mut_borrow sf.typ) } else sf) fields in
   Hashtbl.replace structs n fields
 
+(* Update mutability of the arguments in a function type. *)
+let update_mut_args_fn_typ (t: typ) new_arg_tys : typ =
+  match t with
+  | Function (i, lt, old_arg_tys, old_ret_ty) ->
+    Function (i, lt, List.map2 (fun old_arg new_arg ->
+      if is_mut_borrow new_arg then fst (make_mut_borrow old_arg) else old_arg)
+      old_arg_tys new_arg_tys, old_ret_ty)
+  | _ -> t
+
+(* Update mutability of the arguments in a function pointer field. *)
+let update_mut_args_fn_field (n: DataType.t) fn new_arg_tys =
+  let fields = Hashtbl.find structs n in
+  let fields = List.map (fun (sf: MiniRust.struct_field) ->
+    if sf.name = fn then {sf with typ = update_mut_args_fn_typ sf.typ new_arg_tys } else sf) fields in
+  Hashtbl.replace structs n fields
+
 let retrieve_pair_type (t: typ) =
   match t with
   | Tuple [e1; e2] -> assert (e1 = e2); e1
@@ -327,8 +343,21 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
         failwith "TODO: operator not supported"
     end
 
-  | Call _ ->
-      failwith "TODO: Call"
+  | Call (Field (_, f, st) as fld, [], args) ->
+    let fields = Hashtbl.find structs (`Struct (assert_name st)) in
+    let field = List.find (fun fld -> fld.name = f) fields in
+    begin match field.typ with
+    | Function (_, _, arg_tys, _) ->
+      let known, args = List.fold_left2 (fun (known, args) arg arg_ty ->
+          let known, arg = infer_expr env valuation return_expected arg_ty known arg in
+          known, arg :: args
+        ) (known, []) args arg_tys
+      in
+      let args = List.rev args in
+      known, Call (fld, [], args)
+    | _ ->
+      known, e
+    end
 
   (* atom = e3 *)
   | Assign (Open { atom; _ } as e1, e3, t) ->
@@ -457,6 +486,15 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       failwith "TODO: unknown assignment"
 
   | AssignOp _ -> failwith "AssignOp nodes should only be introduced after mutability infer_exprence"
+  | Call _
+    (* This catches the Call case where the head is neither an operator nor a toplevel function,
+       meaning we do not have type information available. (The MiniRust AST is not typed.)
+
+       What we do here is suboptimal: we do not infer anything regarding mutability -- we don't even
+       recursively visit the arguments (which would be useful, say, if one of the arguments was
+       itself a call to a toplevel function!), since we do not have type information.
+
+       At least this prevents hard errors for things that would otherwise compile. *)
   | Var _
   | VecNew _
   | Name _
@@ -579,6 +617,14 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       let known, es = List.fold_left2 (fun (known, es) (fn, e) (f: struct_field) ->
         assert (fn = f.name);
         let known, e = infer_expr env valuation return_expected f.typ known e in
+
+        (* If f is a function pointer field, update its argument types' mutabilities. *)
+        begin match f.typ, e with
+        | Function _, Name func ->
+          let fn_arg_tys = lookup env valuation func in
+          update_mut_args_fn_field name fn fn_arg_tys
+        | _ -> () end;
+
         known, (fn, e) :: es
       ) (known, []) es fields_mut in
       let es = List.rev es in
@@ -1415,6 +1461,8 @@ let compute_derives files =
             self#plus (self#visit_typ () t) (if m = Mut then TraitSet.singleton PartialEq else everything)
           method! visit_Vec _ t =
             self#plus (self#visit_typ () t) (TraitSet.of_list [ PartialEq; Clone ])
+          method! visit_Function _ _ _ _ _ =
+            everything
           method! visit_App _ t ts =
             match t with
             | Name (["Box"], []) ->

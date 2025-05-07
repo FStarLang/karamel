@@ -550,12 +550,12 @@ let compile_simple_matches ((map, enums, tag_remap): map) = object(self)
       let typ = self#visit_typ env x.typ in
       { node; typ; meta = x.meta }
 
-  method! visit_TQualified _ lid =
+  method! visit_TQualified env lid =
     match Hashtbl.find map lid with
     | exception Not_found ->
         TQualified lid
     | Eliminate t ->
-        t
+        self#visit_typ env t
     | _ ->
         TQualified lid
 

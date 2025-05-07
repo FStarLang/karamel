@@ -4,6 +4,7 @@
   removeReferencesTo,
   stdenv,
   symlinks,
+  time,
   version,
   which,
   z3,
@@ -24,7 +25,7 @@
     visitors
     uucp
   ];
-  nativeBuildInputs = [fstar removeReferencesTo symlinks which z3] ++ (with ocamlPackages; [ocaml dune_3 findlib menhir]);
+  nativeBuildInputs = [fstar removeReferencesTo symlinks time which z3] ++ (with ocamlPackages; [ocaml dune_3 findlib menhir]);
 in
   stdenv.mkDerivation {
     inherit version pname propagatedBuildInputs nativeBuildInputs;
