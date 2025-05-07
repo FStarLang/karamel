@@ -270,6 +270,39 @@ module Splits = struct
 
   let empty = { tree = Leaf; path = None }
 
+  (* Unlocks better comparisons in many cases *)
+  let norm e =
+    let exception NotConstant in
+    let rec norm (e: MiniRust.expr) =
+      (* This function assumes no overflow on index comparisons... FIXME *)
+      match e with
+      | As (e, _) ->
+          norm e
+      | MethodCall (e1, [ "wrapping_add" ], [ e2 ])
+      | Call (Operator (Add | AddW), _, [ e1; e2 ]) ->
+          norm e1 + norm e2
+      | MethodCall (e1, [ "wrapping_mul" ], [ e2 ])
+      | Call (Operator (Mult | MultW), _, [ e1; e2 ]) ->
+          norm e1 * norm e2
+      | MethodCall (e1, [ "wrapping_sub" ], [ e2 ])
+      | Call (Operator (Sub | SubW), _, [ e1; e2 ]) ->
+          norm e1 - norm e2
+      | MethodCall (e1, [ "wrapping_div" ], [ e2 ])
+      | Call (Operator (Div | DivW), _, [ e1; e2 ]) ->
+          norm e1 / norm e2
+      | Constant (_, c) ->
+          int_of_string c
+      | _ ->
+          raise NotConstant
+    in
+    try
+      match e with
+      | Constant i -> Constant i
+      | Add ((_, e), i) ->
+          Constant (norm e + i)
+    with NotConstant ->
+      e
+
   (* The variable with `info` is being split at `index` *)
   let split loc l info index: info * path * MiniRust.expr =
     let rec split tree index ofs =
@@ -277,6 +310,8 @@ module Splits = struct
       | Leaf ->
           Node (index, Leaf, Leaf), [], ofs
       | Node (index', t1, t2) ->
+          let index = norm index in
+          let index' = norm index' in
           if gte loc index index' then
             let t2, path, ofs = split t2 index (sub loc index index') in
             Node (index', t1, t2), Right :: path, ofs
@@ -737,6 +772,11 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
     | Borrow (k, e) , Ref (_, _, t), Ref (_, _, Slice t') when t = t' ->
         Borrow (k, Array (List [ e ]))
 
+    | _, App (Name (["Aligned"], _), _), Ref (_, k, Slice _) ->
+        Borrow (k, Index (x, Range (None, None, false)))
+    | _, App (Name (["Aligned"], _), _), _ ->
+        x
+
     | _ ->
         (* If we reach this case, we perform one last try by erasing the lifetime
            information in both terms. This is useful to handle, e.g., implicit lifetime
@@ -972,6 +1012,17 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
       let env, e1, t = translate_array env fn_t_ret false init in
       (* KPrint.bprintf "Let %s: %a\n" b.node.name PrintMiniRust.ptyp t; *)
       let binding: MiniRust.binding = { name = b.node.name; typ = t; mut = false; ref = false } in
+      let binding, e1 = match List.find_map (function Ast.Align n -> Some n | _ -> None) b.node.meta with
+        | Some align ->
+            OutputRust.use_aligned := true;
+            let align_arg = "A" ^ string_of_int align in
+            let b = binding in
+            let b = { b with typ = App (Name (["Aligned"], []), [ Name ([align_arg], []); b.typ ]) } in
+            let e1 = MiniRust.Call (Name ["Aligned"], [], [ e1 ]) in
+            b, e1
+        | None ->
+            binding, e1
+      in
       let env = push env binding in
       env0, Let (binding, Some e1, snd (translate_expr_with_type env fn_t_ret e2 t_ret))
 
@@ -1006,7 +1057,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
         | _ ->
             e1, t
       in
-      let binding : MiniRust.binding = { name = b.node.name; typ = t; mut; ref = false} in
+      let binding : MiniRust.binding = { name = b.node.name; typ = t; mut; ref = false } in
       let env = push env binding in
       env0, Let (binding, e1, snd (translate_expr_with_type env fn_t_ret e2 t_ret))
 

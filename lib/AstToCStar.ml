@@ -555,7 +555,7 @@ and mk_stmts env e ret_type =
     | EFor (binder, e1, e2, e3, e4) ->
         (* Note: the arguments to mk_and_push_binder are solely for the purpose
          * of avoiding name collisions. *)
-        let is_solo_assignment = binder.node.meta = Some MetaSequence in
+        let is_solo_assignment = List.mem MetaSequence binder.node.meta in
         (* TODO: shouldn't e1 be added here? *)
         let env', binder = mk_and_push_binder env binder Local (Some e1) [ e2; e3; e4 ] in
         let e2 = mk_expr env' false false e2 in

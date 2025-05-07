@@ -127,7 +127,7 @@ let use_mark_to_inline_temporaries = object (self)
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
     let _, v = !(b.node.mark) in
-    if (b.node.attempt_inline ||
+    if (List.mem AttemptInline b.node.meta ||
         Helpers.is_uu b.node.name ||
         b.node.name = "scrut" ||
         Structs.should_rewrite b.typ = NoCopies
@@ -452,32 +452,33 @@ let sequence_to_let = object (self)
 
 end
 
+let is_sequence = List.mem MetaSequence
+
 let let_to_sequence = object (self)
 
   inherit [_] map
 
   method! visit_ELet env b e1 e2 =
-    match b.node.meta with
-    | Some MetaSequence ->
-        let e1 = self#visit_expr env e1 in
-        let _, e2 = open_binder b e2 in
-        let e2 = self#visit_expr env e2 in
-        begin match e1.node, e2.node with
-        | _, EUnit ->
-            (* let _ = e1 in () *)
-            e1.node
-        | ECast ({ node = EUnit; _ }, _), _
-        | EUnit, _ ->
-            (* let _ = () in e2 *)
-            e2.node
-        | _, ESequence es ->
-            ESequence (e1 :: es)
-        | _ ->
-            ESequence [e1; e2]
-        end
-    | None ->
-        let e2 = self#visit_expr env e2 in
-        ELet (b, e1, e2)
+    if is_sequence b.node.meta then
+      let e1 = self#visit_expr env e1 in
+      let _, e2 = open_binder b e2 in
+      let e2 = self#visit_expr env e2 in
+      begin match e1.node, e2.node with
+      | _, EUnit ->
+          (* let _ = e1 in () *)
+          e1.node
+      | ECast ({ node = EUnit; _ }, _), _
+      | EUnit, _ ->
+          (* let _ = () in e2 *)
+          e2.node
+      | _, ESequence es ->
+          ESequence (e1 :: es)
+      | _ ->
+          ESequence [e1; e2]
+      end
+    else
+      let e2 = self#visit_expr env e2 in
+      ELet (b, e1, e2)
 
 end
 
@@ -519,8 +520,8 @@ let let_if_to_assign = object (self)
         invalid_arg "make_assignment"
 
   method! visit_ELet (_, t) b e1 e2 =
-    match e1.node, b.node.meta with
-    | (EIfThenElse _ | ESwitch _), None ->
+    match e1.node with
+    | (EIfThenElse _ | ESwitch _) when not (is_sequence b.node.meta) ->
         (* [b] holds the return value of the conditional *)
         let b = mark_mut b in
         let e = self#make_assignment (with_type b.typ (EBound 0)) (DeBruijn.lift 1 e1) in
@@ -756,7 +757,7 @@ let misc_cosmetic = object (self)
         match e1.node, e2.node with
         | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
             { node = EBufWrite (e4, e4_index, { node = EFlat fields; _ }); _ })
-          when b'.node.meta = Some MetaSequence &&
+          when is_sequence b'.node.meta &&
           List.exists (fun (f, x) -> f <> None && x.node = EBound 1) fields &&
           Mark.is_atmost 2 (snd !(b.node.mark)) ->
 
@@ -801,8 +802,8 @@ let misc_cosmetic = object (self)
         *)
         | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
             { node = ELet (b'', { node = EBufWrite (e4, e4_index, { node = EFlat fields; _ }); _ }, e5); _ })
-          when b'.node.meta = Some MetaSequence &&
-          b''.node.meta = Some MetaSequence &&
+          when is_sequence b'.node.meta &&
+          is_sequence b''.node.meta &&
           List.exists (fun (f, x) -> f <> None && x.node = EBound 1) fields &&
           Mark.is_atmost 2 (snd !(b.node.mark)) ->
 
@@ -852,7 +853,7 @@ let misc_cosmetic = object (self)
         *)
         | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
             { node = EAssign (e4, { node = EBound 1; _ }); _ })
-          when b'.node.meta = Some MetaSequence &&
+          when is_sequence b'.node.meta &&
           Mark.is_atmost 2 (snd !(b.node.mark)) ->
 
             (* KPrint.bprintf "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
@@ -871,7 +872,7 @@ let misc_cosmetic = object (self)
         | EAny, ELet (b',
             { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
             { node = ELet (b'', { node = EAssign (e4, { node = EBound 1; _ }); _ }, e5); _ })
-          when b'.node.meta = Some MetaSequence &&
+          when is_sequence b'.node.meta &&
           Mark.is_atmost 2 (snd !(b.node.mark)) ->
 
             (* KPrint.bprintf "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
@@ -1061,7 +1062,7 @@ and hoist_stmt loc e =
       assert (e.typ = TUnit);
       (* The semantics is that [e1] is evaluated once, so it's fine to hoist any
        * let-bindings it generates. *)
-      let lhs1, e1 = hoist_expr loc (if binder.node.meta = Some MetaSequence then UnderStmtLet else Unspecified) e1 in
+      let lhs1, e1 = hoist_expr loc (if is_sequence binder.node.meta then UnderStmtLet else Unspecified) e1 in
       let binder, s = opening_binder binder in
       let e2 = s e2 and e3 = s e3 and e4 = s e4 in
       (* [e2] and [e3], however, are evaluated at each loop iteration! *)
@@ -1227,11 +1228,11 @@ and hoist_expr loc pos e =
         [], mk (EWhile (e1, e2))
       else
         let b = fresh_binder "_" TUnit in
-        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
         [ b, mk (EWhile (e1, e2)) ], mk EUnit
 
   | EFor (binder, e1, e2, e3, e4) ->
-      let lhs1, e1 = hoist_expr loc (if binder.node.meta = Some MetaSequence then UnderStmtLet else Unspecified) e1 in
+      let lhs1, e1 = hoist_expr loc (if is_sequence binder.node.meta then UnderStmtLet else Unspecified) e1 in
       let binder, s = opening_binder binder in
       let e2 = s e2 and e3 = s e3 and e4 = s e4 in
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
@@ -1250,7 +1251,7 @@ and hoist_expr loc pos e =
         lhs1, mk (EFor (binder, e1, s (nest lhs2 e2.typ e2), s (nest lhs3 e3.typ e3), s e4))
       else
         let b = fresh_binder "_" TUnit in
-        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
         lhs1 @ [ b, mk (EFor (binder, e1, s (nest lhs2 e2.typ e2), s (nest lhs3 e3.typ e3), s e4)) ], mk EUnit
 
   | EFun (binders, expr, t) ->
@@ -1266,7 +1267,7 @@ and hoist_expr loc pos e =
         lhs1 @ lhs2, mk (EAssign (e1, e2))
       else
         let b = fresh_binder "_" TUnit in
-        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
         lhs1 @ lhs2 @ [ b, mk (EAssign (e1, e2)) ], mk EUnit
 
   | EBufCreate (l, e1, e2) ->
@@ -1303,7 +1304,7 @@ and hoist_expr loc pos e =
         lhs, mk (EBufWrite (e1, e2, e3))
       else
         let b = fresh_binder "_" TUnit in
-        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
         lhs @ [ b, mk (EBufWrite (e1, e2, e3)) ], mk EUnit
 
   | EBufBlit (e1, e2, e3, e4, e5) ->
@@ -1317,7 +1318,7 @@ and hoist_expr loc pos e =
         lhs, mk (EBufBlit (e1, e2, e3, e4, e5))
       else
         let b = fresh_binder "_" TUnit in
-        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
         lhs @ [ b, mk (EBufBlit (e1, e2, e3, e4, e5)) ], mk EUnit
 
   | EBufFill (e1, e2, e3) ->
@@ -1329,7 +1330,7 @@ and hoist_expr loc pos e =
         lhs, mk (EBufFill (e1, e2, e3))
       else
         let b = fresh_binder "_" TUnit in
-        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
         lhs @ [ b, mk (EBufFill (e1, e2, e3)) ], mk EUnit
 
   | EBufFree e ->
@@ -1338,7 +1339,7 @@ and hoist_expr loc pos e =
         lhs, mk (EBufFree e)
       else
         let b = fresh_binder "_" TUnit in
-        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
         lhs @ [ b, mk (EBufFree e) ], mk EUnit
 
   | EBufSub (e1, e2) ->
