@@ -163,6 +163,7 @@ let rec make_mut_borrow = function
   | Vec t -> Vec t, false
   | App (Name (["Box"], []), [_]) as t -> t, false
   | Array (t, n) -> Array (t, n), true
+  | App (Name (["Aligned"], _), _) as t -> t, true
   | t ->
       KPrint.bprintf "[make_mut_borrow] %a\n" ptyp t;
       failwith "impossible: make_mut_borrow"
@@ -285,7 +286,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
            argument. *)
         let known, e = infer_expr env valuation return_expected (KList.one targs) known (KList.one es) in
         known, Call (Name n, targs, [ e ])
-      else if n = ["Box"; "new"] then
+      else if n = ["Box"; "new"] || n = ["Aligned"] then
         (* FIXME: we no longer have the type handy so we can't recursively
            descend on KList.one es *)
         known, Call (Name n, targs, es)

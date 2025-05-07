@@ -350,10 +350,9 @@ and binder' = {
   name: ident;
   mut: bool;
   mark: valuation ref;
-  meta: meta option;
+  meta: meta list;
   atom: atom_t;
     (** Only makes sense when opened! *)
-  attempt_inline: bool; (* Whether to attempt inlining, as if this was named uu__... *)
 }
 
 and binder =
@@ -361,6 +360,8 @@ and binder =
 
 and meta =
   | MetaSequence
+  | AttemptInline
+  | Align of int (* in bytes *)
 
 and match_flavor = | Checked | Unchecked
 

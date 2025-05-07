@@ -177,15 +177,17 @@ and print_binder { typ; node = { name; mut; meta; mark; _ }; meta = node_meta } 
   let o, u = !mark in
   (if mut then string "mutable" ^^ break 1 else empty) ^^
   group (group (string name ^^ lparen ^^ string (Mark.show_occurrence o) ^^ comma ^^
-  (match u with AtMost u -> if u = max_int then utf8string "∞" else int u) ^^ comma ^^ space ^^ print_meta meta ^^
+  (match u with AtMost u -> if u = max_int then utf8string "∞" else int u) ^^ comma ^^ space ^^ separate_map comma print_meta meta ^^
   rparen ^^ colon) ^/^
   nest 2 (print_typ typ))
 
 and print_meta = function
-  | Some MetaSequence ->
+  | MetaSequence ->
       semi
-  | None ->
-      empty
+  | Align i ->
+      string "aligned" ^^ parens (int i)
+  | AttemptInline ->
+      string "inline"
 
 and print_typ_paren = function
   | TArrow _ as t ->

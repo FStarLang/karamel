@@ -11,6 +11,8 @@ let directives = ref (String.trim {|
 #![allow(unreachable_patterns)]
 |})
 
+let use_aligned = ref false
+
 let rust_name f = f ^ ".rs"
 
 let write_file file =
@@ -25,6 +27,7 @@ let write_file file =
     Utils.with_open_out_bin filename (fun oc ->
       let doc =
         string !directives ^^ hardline ^^ hardline ^^
+        (if !use_aligned then string "use aligned::*;" ^^ hardline ^^ hardline else empty) ^^
         PrintMiniRust.print_decls prefix decls
       in
       PPrint.ToChannel.pretty 0.95 100 oc doc
