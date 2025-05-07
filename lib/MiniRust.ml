@@ -99,6 +99,8 @@ and expr =
   | Struct of struct_name * (string * expr) list
   | Match of expr * typ * match_arm list
   | Tuple of expr list
+  | Break
+  | Continue
 
   (* Place expressions *)
   | Var of db_index
