@@ -210,6 +210,13 @@ type decl =
     parameters: typ list;
     return_type: typ;
   }
+  | Static of {
+    name: name;
+    typ: typ;
+    body: expr;
+    meta: meta;
+    mut: bool;
+  }
 
 and item =
   (* Not supporting tuples yet *)
@@ -399,7 +406,8 @@ let name_of_decl (d: decl) =
   | Struct { name; _ }
   | Function { name; _ }
   | Constant { name; _ }
-  | Assumed {name; _ } ->
+  | Assumed {name; _ }
+  | Static {name; _ } ->
       name
 
 let zero_usize: expr = Constant (Constant.SizeT, "0")
