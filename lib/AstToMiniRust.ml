@@ -1510,9 +1510,11 @@ type metadata = {
   boxed_types: LidSet.t;
   derives: MiniRust.trait list LidMap.t;
   attributes: string list LidMap.t;
+  static: LidSet.t;
+  no_mangle: LidSet.t;
 }
 
-let translate_decl env { derives; attributes; _ } (d: Ast.decl): MiniRust.decl option =
+let translate_decl env { derives; attributes; static; no_mangle; _ } (d: Ast.decl): MiniRust.decl option =
   let attributes = Option.value ~default:[] (LidMap.find_opt (Ast.lid_of_decl d) attributes) in
   let env = locate env (Ast.lid_of_decl d) in
   match d with
@@ -1560,7 +1562,11 @@ let translate_decl env { derives; attributes; _ } (d: Ast.decl): MiniRust.decl o
             snd (translate_expr env Unit e)
       in
       let meta = translate_meta attributes flags in
-      Some (MiniRust.Constant { name; typ; body; meta })
+      let meta = if LidSet.mem lid no_mangle then { meta with attributes = "no_mangle" :: meta.attributes } else meta in
+      if LidSet.mem lid static then
+        Some (MiniRust.Static { name; typ; body; meta; mut = false })
+      else
+        Some (MiniRust.Constant { name; typ; body; meta })
 
   | DExternal (_, _, _, _, lid, _, _) ->
       let name, parameters, return_type =
@@ -1765,6 +1771,8 @@ let empty_metadata = {
   boxed_types = LidSet.empty;
   derives = LidMap.empty;
   attributes = LidMap.empty;
+  static = LidSet.empty;
+  no_mangle = LidSet.empty;
 }
 
 let translate_files_with_metadata files metadata =

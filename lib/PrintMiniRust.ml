@@ -650,6 +650,10 @@ let rec print_decl env (d: decl) =
   (* Assumed declarations correspond to externals, which were propagated for mutability inference purposes.
      They should have been filtered out during the MiniRust cleanup *)
   | Assumed _ -> failwith "Assumed declaration remaining"
+  | Static { typ; body; meta; mut; _ } ->
+      group @@
+      group (print_meta meta ^^ string "static" ^/^ print_mut mut ^/^ string target_name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
+      nest 4 (break1 ^^ print_expr env max_int body) ^^ semi
 
 and print_derives traits =
   group @@
