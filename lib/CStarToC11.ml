@@ -1102,7 +1102,7 @@ and struct_as_initializer m = function
   | Struct (_, fields) ->
       Initializer (fields_as_initializer_list m fields)
   | e ->
-      InitExpr (mk_expr m e)
+      to_initializer m e
 
 and fields_as_initializer_list m fields =
   List.map (function
