@@ -800,7 +800,7 @@ class remove_literals tbl = object (self)
         List.fold_left (fun acc (f, e1) ->
           let f = Option.get f in
           let t_f = try Hashtbl.find tbl (Helpers.assert_tlid e.typ, f) with _ ->
-            KPrint.bprintf "NOT FOUND %a.%s\n" ptyp e.typ f; e.typ in
+            KPrint.bprintf "NOT FOUND %a.%s\n" ptyp e.typ f; e1.typ in
           self#explode acc ((f, t_f) :: path) e1 dst
         ) acc fields
     | _ ->
