@@ -663,6 +663,13 @@ let remove_unit_buffers = object (self)
     | _ ->
       super#visit_EBufFree env e1
 
+  method! visit_EAddrOf env e1 =
+    match e1.typ with
+    | TUnit (* | TAny *) ->
+        EUnit
+    | _ ->
+      super#visit_EAddrOf env e1
+
   method! visit_EApp env e1 es =
     match e1.node, es with
     | EQualified ([ "LowStar"; "BufferOps" ], s), { typ = TBuf (TUnit, _); _ } :: _ when
