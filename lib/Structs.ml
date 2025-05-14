@@ -788,7 +788,7 @@ let to_addr is_struct =
 
 
 (* For C89 *)
-class remove_literals = object (self)
+class remove_literals tbl = object (self)
   inherit [_] map as super
 
   method private mk_path (e: expr) (fields: (ident * typ) list) =
@@ -797,9 +797,11 @@ class remove_literals = object (self)
   method private explode (acc: expr list) (path: (ident * typ) list) (e: expr) (dst: expr): expr list =
     match e.node with
     | EFlat fields ->
-        List.fold_left (fun acc (f, e) ->
+        List.fold_left (fun acc (f, e1) ->
           let f = Option.get f in
-          self#explode acc ((f, e.typ) :: path) e dst
+          let t_f = try Hashtbl.find tbl (Helpers.assert_tlid e.typ, f) with _ ->
+            KPrint.bprintf "NOT FOUND %a.%s\n" ptyp e.typ f; e.typ in
+          self#explode acc ((f, t_f) :: path) e1 dst
         ) acc fields
     | _ ->
         let e = self#visit_expr_w () e in
@@ -826,8 +828,19 @@ class remove_literals = object (self)
     List.map (fun (f, (t, _)) -> f, (self#visit_typ () t, true)) fields
 end
 
+let build_remove_literals_map files =
+  Helpers.build_map files (fun tbl decl ->
+    match decl with
+    | DType (name, _, _, _, Flat fields) ->
+        List.iter (function
+          | Some f, (t, _) -> Hashtbl.add tbl (name, f) t
+          | _ -> ()
+        ) fields
+    | _ -> ()
+  )
+
 let remove_literals files =
-  (new remove_literals)#visit_files () files
+  (new remove_literals (build_remove_literals_map files))#visit_files () files
 
 (* Debug any intermediary AST as follows: *)
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)
