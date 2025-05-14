@@ -270,6 +270,39 @@ module Splits = struct
 
   let empty = { tree = Leaf; path = None }
 
+  (* Unlocks better comparisons in many cases *)
+  let norm e =
+    let exception NotConstant in
+    let rec norm (e: MiniRust.expr) =
+      (* This function assumes no overflow on index comparisons... FIXME *)
+      match e with
+      | As (e, _) ->
+          norm e
+      | MethodCall (e1, [ "wrapping_add" ], [ e2 ])
+      | Call (Operator (Add | AddW), _, [ e1; e2 ]) ->
+          norm e1 + norm e2
+      | MethodCall (e1, [ "wrapping_mul" ], [ e2 ])
+      | Call (Operator (Mult | MultW), _, [ e1; e2 ]) ->
+          norm e1 * norm e2
+      | MethodCall (e1, [ "wrapping_sub" ], [ e2 ])
+      | Call (Operator (Sub | SubW), _, [ e1; e2 ]) ->
+          norm e1 - norm e2
+      | MethodCall (e1, [ "wrapping_div" ], [ e2 ])
+      | Call (Operator (Div | DivW), _, [ e1; e2 ]) ->
+          norm e1 / norm e2
+      | Constant (_, c) ->
+          int_of_string c
+      | _ ->
+          raise NotConstant
+    in
+    try
+      match e with
+      | Constant i -> Constant i
+      | Add ((_, e), i) ->
+          Constant (norm e + i)
+    with NotConstant ->
+      e
+
   (* The variable with `info` is being split at `index` *)
   let split loc l info index: info * path * MiniRust.expr =
     let rec split tree index ofs =
@@ -277,6 +310,8 @@ module Splits = struct
       | Leaf ->
           Node (index, Leaf, Leaf), [], ofs
       | Node (index', t1, t2) ->
+          let index = norm index in
+          let index' = norm index' in
           if gte loc index index' then
             let t2, path, ofs = split t2 index (sub loc index index') in
             Node (index', t1, t2), Right :: path, ofs
@@ -737,6 +772,11 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
     | Borrow (k, e) , Ref (_, _, t), Ref (_, _, Slice t') when t = t' ->
         Borrow (k, Array (List [ e ]))
 
+    | _, App (Name (["Aligned"], _), _), Ref (_, k, Slice _) ->
+        Borrow (k, Index (x, Range (None, None, false)))
+    | _, App (Name (["Aligned"], _), _), _ ->
+        x
+
     | _ ->
         (* If we reach this case, we perform one last try by erasing the lifetime
            information in both terms. This is useful to handle, e.g., implicit lifetime
@@ -893,6 +933,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
         | [ { typ = TUnit; node; _ } ] -> assert (node = EUnit); [], []
         | _ -> es, snd (Helpers.flatten_arrow e0.typ)
       in
+      (* KPrint.bprintf "Translating arguments to call %a\n" PrintAst.Ops.pexpr e0; *)
       let env, e0 = translate_expr env fn_t_ret e0 in
       let env, es = translate_expr_list_with_types env fn_t_ret es (List.map (translate_type env) ts) in
       env, possibly_convert (Call (e0, [], es)) (translate_type env e.typ)
@@ -971,6 +1012,17 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
       let env, e1, t = translate_array env fn_t_ret false init in
       (* KPrint.bprintf "Let %s: %a\n" b.node.name PrintMiniRust.ptyp t; *)
       let binding: MiniRust.binding = { name = b.node.name; typ = t; mut = false; ref = false } in
+      let binding, e1 = match List.find_map (function Ast.Align n -> Some n | _ -> None) b.node.meta with
+        | Some align ->
+            OutputRust.use_aligned := true;
+            let align_arg = "A" ^ string_of_int align in
+            let b = binding in
+            let b = { b with typ = App (Name (["Aligned"], []), [ Name ([align_arg], []); b.typ ]) } in
+            let e1 = MiniRust.Call (Name ["Aligned"], [], [ e1 ]) in
+            b, e1
+        | None ->
+            binding, e1
+      in
       let env = push env binding in
       env0, Let (binding, Some e1, snd (translate_expr_with_type env fn_t_ret e2 t_ret))
 
@@ -1005,7 +1057,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
         | _ ->
             e1, t
       in
-      let binding : MiniRust.binding = { name = b.node.name; typ = t; mut; ref = false} in
+      let binding : MiniRust.binding = { name = b.node.name; typ = t; mut; ref = false } in
       let env = push env binding in
       env0, Let (binding, e1, snd (translate_expr_with_type env fn_t_ret e2 t_ret))
 
@@ -1187,9 +1239,9 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
       env, possibly_convert (Field (e_, f, Some t)) (field_type env e f)
 
   | EBreak ->
-      failwith "TODO: EBreak"
+      env, Break
   | EContinue ->
-      failwith "TODO: EContinue"
+      env, Continue
   | EReturn e ->
       let env, e = translate_expr_with_type env fn_t_ret e fn_t_ret in
       env, Return e
@@ -1255,7 +1307,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
       else
         let t1 = translate_type env e1.typ in
         let env, e1 = translate_expr env fn_t_ret e1 in
-        env, Call (Name ["std"; "slice"; "from_slice"], [ t1 ], [ Borrow (Shared, e1) ])
+        env, Call (Name ["std"; "slice"; "from_ref"], [ t1 ], [ Borrow (Shared, e1) ])
         (* This should not be generated by krml on the basis that the
            compilation scheme below (left for reference) is incorrect, in
           combination with possibly_convert -- it compiles &x to &[x] where a copy
@@ -1458,9 +1510,11 @@ type metadata = {
   boxed_types: LidSet.t;
   derives: MiniRust.trait list LidMap.t;
   attributes: string list LidMap.t;
+  static: LidSet.t;
+  no_mangle: LidSet.t;
 }
 
-let translate_decl env { derives; attributes; _ } (d: Ast.decl): MiniRust.decl option =
+let translate_decl env { derives; attributes; static; no_mangle; _ } (d: Ast.decl): MiniRust.decl option =
   let attributes = Option.value ~default:[] (LidMap.find_opt (Ast.lid_of_decl d) attributes) in
   let env = locate env (Ast.lid_of_decl d) in
   match d with
@@ -1508,7 +1562,11 @@ let translate_decl env { derives; attributes; _ } (d: Ast.decl): MiniRust.decl o
             snd (translate_expr env Unit e)
       in
       let meta = translate_meta attributes flags in
-      Some (MiniRust.Constant { name; typ; body; meta })
+      let meta = if LidSet.mem lid no_mangle then { meta with attributes = "no_mangle" :: meta.attributes } else meta in
+      if LidSet.mem lid static then
+        Some (MiniRust.Static { name; typ; body; meta; mut = false })
+      else
+        Some (MiniRust.Constant { name; typ; body; meta })
 
   | DExternal (_, _, _, _, lid, _, _) ->
       let name, parameters, return_type =
@@ -1713,6 +1771,8 @@ let empty_metadata = {
   boxed_types = LidSet.empty;
   derives = LidMap.empty;
   attributes = LidMap.empty;
+  static = LidSet.empty;
+  no_mangle = LidSet.empty;
 }
 
 let translate_files_with_metadata files metadata =

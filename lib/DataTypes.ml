@@ -936,9 +936,8 @@ let rec compile_pattern env scrut pat expr =
         name = i;
         mut = false;
         mark = ref Mark.default;
-        meta = None;
+        meta = [];
         atom = b;
-        attempt_inline = false;
       } in
       [], with_type expr.typ (ELet (b, scrut, close_binder b expr))
   | PWild ->

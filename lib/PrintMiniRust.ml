@@ -396,8 +396,15 @@ and print_expr env (context: int) (e: expr): document =
   | Call (Operator o, ts, [ e1; e2 ]) ->
       assert (ts = []);
       let mine, left, right = prec_of_op2 o in
+      let e1 =
+        (* Stupid syntax conflict where 0 as u32 < e2 is looked ahead as the beginning of a type
+           application *)
+        match o, e1 with
+        | (Lt | Lte), As _ -> parens (print_expr env left e1)
+        | _ -> print_expr env left e1
+      in
       paren_if mine @@
-      group (print_expr env left e1 ^/^
+      group (e1 ^/^
         (nest 4 (print_op o) ^/^ print_expr env right e2))
   | Call (Operator o, ts, [ e1 ]) ->
       assert (ts = []);
@@ -449,8 +456,13 @@ and print_expr env (context: int) (e: expr): document =
       let env = push env (Bound { b with name }) in
       print_block_expression env e2
   | While (e1, e2) ->
+      let start =
+        match e1 with
+        | Constant (_, "true") -> string "loop"
+        | _ -> string "while" ^/^ print_expr env max_int e1
+      in
       group @@
-      string "while" ^/^ print_expr env max_int e1 ^/^
+      start ^/^ 
       print_expression_with_block env e2
   | Return e ->
       group (string "return" ^/^ print_expr env max_int e)
@@ -521,6 +533,9 @@ and print_expr env (context: int) (e: expr): document =
 
   | Tuple es ->
       parens_with_nesting (separate_map comma (print_expr env max_int) es)
+
+  | Break -> string "break"
+  | Continue -> string "continue"
 
 and print_data_type_name env = function
   | `Struct name -> print_name env name
@@ -635,6 +650,10 @@ let rec print_decl env (d: decl) =
   (* Assumed declarations correspond to externals, which were propagated for mutability inference purposes.
      They should have been filtered out during the MiniRust cleanup *)
   | Assumed _ -> failwith "Assumed declaration remaining"
+  | Static { typ; body; meta; mut; _ } ->
+      group @@
+      group (print_meta meta ^^ string "static" ^/^ print_mut mut ^/^ string target_name ^^ colon ^/^ print_typ env typ ^/^ equals) ^^
+      nest 4 (break1 ^^ print_expr env max_int body) ^^ semi
 
 and print_derives traits =
   group @@
