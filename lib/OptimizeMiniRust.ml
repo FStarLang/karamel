@@ -395,6 +395,13 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       let known, e3 = infer_expr env valuation return_expected t known e3 in
       known, Assign (Index (e1, e2), e3, t)
 
+  (* *atom = e2 *)
+  | Assign (Deref (Open {atom; _}) as e1, e2, t) ->
+      (* KPrint.bprintf "[infer_expr-mut,assign] %a\n" pexpr e; *)
+      let known = add_mut_borrow atom known in
+      let known, e2 = infer_expr env valuation return_expected t known e2 in
+      known, Assign (e1, e2, t)
+
   (* (x.f)[e2] = e3 *)
   | Assign (Index (Field (_, f, st (* optional type *)) as e1, e2), e3, t) ->
       add_mut_field (`Struct (assert_name st)) f;
