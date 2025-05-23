@@ -1674,8 +1674,9 @@ let compute_struct_info files boxed_types =
       | _ -> Idents.LidSet.empty
   end)#visit_files () files in
 
-  (* Add types annotated as *must box* *)
-  let returned = Idents.LidSet.union boxed_types returned in
+  (* Add types annotated as *must box*. If the no_box option is enabled, we remove the
+   base case, only keeping explicitly specified boxed_types *)
+  let returned = if !Options.no_box then boxed_types else LidSet.union boxed_types returned in
 
   (* Transitive closure: all the types that appear as part of a returned type. *)
   let returned =
@@ -1751,12 +1752,9 @@ let compute_struct_info files boxed_types =
 
   (* The base case of the fixpoint is structs that are *not returned* and still contain
      pointers. We backpropagate starting from that. *)
-  let with_inner_pointers = struct_fixpoint (fun lid ->
-    if !Options.no_box then true else not (Idents.LidSet.mem lid returned)
-  ) in
+  let with_inner_pointers = struct_fixpoint (fun lid -> not (Idents.LidSet.mem lid returned)) in
   (* This one eliminates structs that are in the returned-set but do not contain pointers. *)
   let returned = struct_fixpoint (fun lid -> Idents.LidSet.mem lid returned) in
-  let returned = if !Options.no_box then LidSet.empty else returned in
 
   assert Idents.LidSet.(is_empty (inter with_inner_pointers returned));
 
