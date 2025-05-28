@@ -16,6 +16,7 @@
   visitors.ppx
   visitors.runtime
   sedlex.ppx
+  str
   uucp)
  (preprocess
   (pps ppx_deriving.std ppx_deriving_yojson sedlex.ppx visitors.ppx))
