@@ -1304,7 +1304,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
             let max_value, min_value =
               let custom_values = List.filter_map snd cases in
               let custom_values = List.sort compare custom_values in
-              print_endline (String.concat ", " (List.map Z.to_string custom_values));
+              (* print_endline (String.concat ", " (List.map Z.to_string custom_values)); *)
               max
                 (* conservative if we allow signed values *)
                 (if custom_values <> [] then KList.last custom_values else Z.zero)

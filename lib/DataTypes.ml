@@ -1323,6 +1323,19 @@ let remove_empty_structs files =
 
     inherit [_] map as super
 
+    method! visit_TApp _ lid ts =
+      if LidSet.mem lid empty_structs then
+        TUnit
+      else
+        super#visit_TApp () lid ts
+
+    method! visit_TCgApp _ t cg =
+      let lid, _, _ = flatten_tapp (TCgApp (t, cg)) in
+      if LidSet.mem lid empty_structs then
+        TUnit
+      else
+        super#visit_TCgApp () t cg
+
     method! visit_TQualified _ lid =
       if LidSet.mem lid empty_structs then
         TUnit
