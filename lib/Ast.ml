@@ -698,7 +698,7 @@ let flatten_tapp t =
     | TQualified lid ->
         lid, [], List.rev cgs
     | _ ->
-        invalid_arg "flatten_tapp"
+        invalid_arg ("flatten_tapp: " ^ show_typ t)
   in
   flatten_tapp [] t
 
