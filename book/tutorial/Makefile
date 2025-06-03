@@ -48,7 +48,7 @@ FSTAR_EXTRACT = --extract 'OCaml:-* +Spec'
 #   inline_for_extraction in the presence of interfaces
 # - --cache_dir, to place checked files there
 
-FSTAR_NO_FLAGS = $(FSTAR_EXE) --ext context_pruning \
+FSTAR_NO_FLAGS = $(FSTAR_EXE) --ext optimize_let_vc \
   --odir obj $(FSTAR_INCLUDES) --cmi \
   --already_cached 'Prims FStar LowStar C Spec.Loops TestLib WasmSupport' --warn_error '+241@247+285' \
   --cache_dir obj

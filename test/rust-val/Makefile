@@ -17,7 +17,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --cache_dir $(CACHE_DIR) \
   --include ../../krmllib/compat --include ../../krmllib/obj \
   --include ../../krmllib --include ../../runtime \
-  --ext context_pruning \
+  --ext optimize_let_vc \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274

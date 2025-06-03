@@ -80,7 +80,7 @@ FSTAR		= $(FSTAR_EXE) \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
   --include hello-system --include ../krmllib/compat --include ../krmllib/obj \
   --include ../krmllib --include ../runtime \
-  $(INCLUDE_CRYPTO) --include ../book --include ../book/notfslit --ext context_pruning \
+  $(INCLUDE_CRYPTO) --include ../book --include ../book/notfslit --ext optimize_let_vc \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274
