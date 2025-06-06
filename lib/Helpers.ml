@@ -707,7 +707,8 @@ let safe_substitution es e t =
    * definition. *)
   let bs, es = KList.fold_lefti (fun i (bs, es) e ->
     if not (is_value e) then
-      let x, atom = mk_binding (Printf.sprintf "x%d" i) e.typ in
+      let t, mut = (* decay *) match e.typ with TArray (t, _) -> TBuf (t, false), true | _ -> e.typ, false in
+      let x, atom = mk_binding ~mut (Printf.sprintf "x%d" i) t in
       (x, e) :: bs, atom :: es
     else
       bs, e :: es
