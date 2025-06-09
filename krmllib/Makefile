@@ -24,7 +24,7 @@ UINT128_DIR = dist/uint128
 MINI_DIR = dist/minimal
 
 #332 is turning abstract keyword usage into a fatal error
-FSTAR_OPTIONS += --ext context_pruning --odir $(EXTRACT_DIR) \
+FSTAR_OPTIONS += --ext optimize_let_vc --odir $(EXTRACT_DIR) \
   --warn_error @332
   # --use_extracted_interfaces
 
