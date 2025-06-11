@@ -16,6 +16,7 @@ fi
 # Install F*
 [[ -n "$FSTAR_HOME" ]]
 git clone --branch $FSTAR_BRANCH https://github.com/FStarLang/FStar "$FSTAR_HOME"
+opam update
 opam install --deps-only "$FSTAR_HOME/fstar.opam"
 OTHERFLAGS='--admit_smt_queries true' make -j 24 -C "$FSTAR_HOME"
 
