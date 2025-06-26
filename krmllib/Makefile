@@ -1,3 +1,5 @@
+include ../Makefile.common
+
 # This file is only to verify KaRaMeL as a library, i.e. to place all
 # *.checked files in this directory instead of a cache. This
 # is to allow users to directly pick from these .checked files instead
@@ -22,7 +24,7 @@ UINT128_DIR = dist/uint128
 MINI_DIR = dist/minimal
 
 #332 is turning abstract keyword usage into a fatal error
-FSTAR_OPTIONS += --ext context_pruning --odir $(EXTRACT_DIR) \
+FSTAR_OPTIONS += --ext optimize_let_vc --odir $(EXTRACT_DIR) \
   --warn_error @332
   # --use_extracted_interfaces
 
@@ -77,16 +79,15 @@ obj:
 	mkdir $@
 
 %.checked: | obj
-	$(FSTAR) $(OTHERFLAGS) -c $< -o $@ && \
-	touch $@
+	$(call run-with-log,$(FSTAR) $(OTHERFLAGS) -c $< -o $@ && touch $@,[VERIFY] $(basename $*),$*)
 
 verify-all: $(ALL_CHECKED_FILES)
 
 $(EXTRACT_DIR)/%.krml: | .depend
-	$(FSTAR) $(OTHERFLAGS) $< --codegen krml \
+	$(call run-with-log,$(FSTAR) $(OTHERFLAGS) $< --codegen krml \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
-	  -o $@ && \
-	touch -c $@
+	  -o $@ && touch -c $@\
+	  ,[EXTRACT-KRML] $*,$(EXTRACT_DIR)/$*)
 
 # We don't extract LowStar.Lib as everything is generic data structures that
 # need to be specialized based on their usage from client code.

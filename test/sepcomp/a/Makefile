@@ -1,3 +1,5 @@
+include ../../../Makefile.common
+
 #############################
 # This is the main Makefile #
 #############################
@@ -62,7 +64,9 @@ FSTAR_ROOTS = $(wildcard $(addsuffix /*.fsti,$(SOURCE_DIRS))) \
 ifndef MAKE_RESTARTS
 obj/.depend: .FORCE
 	mkdir -p obj
-	$(FSTAR_NO_FLAGS) --dep full $(notdir $(FSTAR_ROOTS)) $(FSTAR_EXTRACT) -o $@
+	$(call run-with-log,\
+	  $(FSTAR_NO_FLAGS) --dep full $(notdir $(FSTAR_ROOTS)) $(FSTAR_EXTRACT) -o $@\
+	  ,[SEPCOMP_DEPEND],obj/.depend)
 
 .PHONY: .FORCE
 .FORCE:
@@ -105,23 +109,29 @@ obj:
 # up-to-date (checksum matches, file unchanged), but this will confuse
 # make and result in endless rebuilds. So, we touch that file.
 %.checked: | obj
-	$(FSTAR) $(FSTAR_FLAGS) -c $< -o $@ && touch -c $@
+	$(call run-with-log,\
+	  $(FSTAR) $(FSTAR_FLAGS) -c $< -o $@ && touch -c $@\
+	  ,[SEPCOMP_VERIFY] $(basename $*),$*)
 
 # Extraction
 # ----------
 
 .PRECIOUS: obj/%.ml
 obj/%.ml:
-	$(FSTAR) $< --codegen OCaml
+	$(call run-with-log,\
+	  $(FSTAR) $< --codegen OCaml\
+	  ,[SEPCOMP_EXTRACT_OCAML] $(basename $*),$*)
 
 # By default, krml extraction in F* will extract every module into a
 # single out.krml file. Make sure to extract the single module we want
 # to get a single-properly named file.
 .PRECIOUS: obj/%.krml
 obj/%.krml:
-	$(FSTAR) $< --codegen krml \
-	--extract_module $(basename $(notdir $(subst .checked,,$<))) \
-	-o $@
+	$(call run-with-log,\
+	  $(FSTAR) $< --codegen krml \
+	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
+	  -o $@\
+	  ,[SEPCOMP_EXTRACT_KRML] $(basename $*),$*)
 
 # F* --> C
 # --------

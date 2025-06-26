@@ -550,12 +550,12 @@ let compile_simple_matches ((map, enums, tag_remap): map) = object(self)
       let typ = self#visit_typ env x.typ in
       { node; typ; meta = x.meta }
 
-  method! visit_TQualified _ lid =
+  method! visit_TQualified env lid =
     match Hashtbl.find map lid with
     | exception Not_found ->
         TQualified lid
     | Eliminate t ->
-        t
+        self#visit_typ env t
     | _ ->
         TQualified lid
 
@@ -662,6 +662,13 @@ let remove_unit_buffers = object (self)
         EUnit
     | _ ->
       super#visit_EBufFree env e1
+
+  method! visit_EAddrOf env e1 =
+    match e1.typ with
+    | TUnit (* | TAny *) ->
+        EUnit
+    | _ ->
+      super#visit_EAddrOf env e1
 
   method! visit_EApp env e1 es =
     match e1.node, es with
@@ -936,9 +943,8 @@ let rec compile_pattern env scrut pat expr =
         name = i;
         mut = false;
         mark = ref Mark.default;
-        meta = None;
+        meta = [];
         atom = b;
-        attempt_inline = false;
       } in
       [], with_type expr.typ (ELet (b, scrut, close_binder b expr))
   | PWild ->
@@ -1178,6 +1184,8 @@ let anonymous_unions (map, _, _) = object (self)
     | [ Some f1, t1; Some f2, t2 ], TQualified lid when
       f1 = field_for_tag && f2 = field_for_union &&
       is_tagged_union map lid ->
+        (* No need to visit t1, it's a tag. *)
+        let t2 = self#visit_expr_w env t2 in
         EFlat [ Some f1, t1; None, t2 ]
     | _ ->
         EFlat (self#visit_fields_e_opt_w env fields)
@@ -1314,6 +1322,19 @@ let remove_empty_structs files =
   (object
 
     inherit [_] map as super
+
+    method! visit_TApp _ lid ts =
+      if LidSet.mem lid empty_structs then
+        TUnit
+      else
+        super#visit_TApp () lid ts
+
+    method! visit_TCgApp _ t cg =
+      let lid, _, _ = flatten_tapp (TCgApp (t, cg)) in
+      if LidSet.mem lid empty_structs then
+        TUnit
+      else
+        super#visit_TCgApp () t cg
 
     method! visit_TQualified _ lid =
       if LidSet.mem lid empty_structs then

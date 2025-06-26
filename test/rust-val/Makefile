@@ -1,3 +1,5 @@
+include ../../Makefile.common
+
 RECENT_GCC	= $(shell [ "$$(gcc -dumpversion | cut -c -1)" -ge 5 ] && echo yes)
 
 ifeq (3.81,$(MAKE_VERSION))
@@ -15,7 +17,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --cache_dir $(CACHE_DIR) \
   --include ../../krmllib/compat --include ../../krmllib/obj \
   --include ../../krmllib --include ../../runtime \
-  --ext context_pruning \
+  --ext optimize_let_vc \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274
@@ -47,13 +49,13 @@ endif
 include .depend
 
 $(CACHE_DIR)/%.checked: | .depend
-	$(FSTAR) $(OTHERFLAGS) $< && \
-	touch $@
+	$(call run-with-log,$(FSTAR) $(OTHERFLAGS) $< && touch $@,[RUSTVAL_VERIFY] $*,$(CACHE_DIR)/$*)
 
 %.krml: | .depend
-	$(FSTAR) $(OTHERFLAGS) --codegen krml \
+	$(call run-with-log,$(FSTAR) $(OTHERFLAGS) --codegen krml \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
-	  $(notdir $(subst .checked,,$<))
+	  $(notdir $(subst .checked,,$<))\
+	  ,[RUSTVAL_EXTRACT_KRML] $(basename $*),$*)
 
 ########
 # Rust #

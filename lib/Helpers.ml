@@ -105,8 +105,11 @@ let mk_incr32 = mk_incr K.UInt32
 
 let mk_incr_usize = mk_incr K.SizeT
 
+let assert_tint_or_tbool t =
+  match t with TInt w -> w | TBool -> Bool | t -> Warn.fatal_error "Not an int/bool: %a" ptyp t
+
 let mk_neq e1 e2 =
-  with_type TBool (EApp (mk_op K.Neq K.UInt32, [ e1; e2 ]))
+  with_type TBool (EApp (mk_op K.Neq (assert_tint_or_tbool e1.typ), [ e1; e2 ]))
 
 let mk_not e1 =
   with_type TBool (EApp (mk_op K.Not K.Bool, [ e1 ]))
@@ -146,7 +149,7 @@ let mk_deref t ?(const=false) e =
 (* Binder nodes ***************************************************************)
 
 let fresh_binder ?(mut=false) ?(attempt_inline=false) name typ =
-  with_type typ { name; mut; mark = ref Mark.default; meta = None; attempt_inline; atom = Atom.fresh () }
+  with_type typ { name; mut; mark = ref Mark.default; meta = (if attempt_inline then [ AttemptInline ] else []); atom = Atom.fresh () }
 
 let mark_mut b =
   { b with node = { b.node with mut = true }}
@@ -155,9 +158,8 @@ let sequence_binding () = with_type TUnit {
   name = "_";
   mut = false;
   mark = ref Mark.default;
-  meta = Some MetaSequence;
+  meta = [ MetaSequence ];
   atom = Atom.fresh ();
-  attempt_inline = false;
 }
 
 let unused_binding = sequence_binding
