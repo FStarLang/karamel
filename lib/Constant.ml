@@ -66,9 +66,9 @@ let unsigned_of_signed = function
   | Float32 | Float64 -> raise (Invalid_argument "unsigned_of_signed")
 
 let is_signed = function
-  | Int8 | Int16 | Int32 | Int64 | CInt | PtrdiffT | Float32 | Float64 -> true
+  | Int8 | Int16 | Int32 | Int64 | CInt | PtrdiffT -> true
   | UInt8 | UInt16 | UInt32 | UInt64 | SizeT -> false
-  | Bool -> raise (Invalid_argument "is_signed")
+  | Bool | Float32 | Float64 -> raise (Invalid_argument "is_signed")
 
 let is_unsigned w = not (is_signed w)
 
