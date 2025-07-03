@@ -1,0 +1,134 @@
+name: CI
+on:
+  push:
+    branches-ignore:
+    - _**
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    container: mtzguido/dev-base
+    steps:
+      - run: echo "HOME=/home/user" >> $GITHUB_ENV
+      - uses: mtzguido/set-opam-env@master
+
+      - uses: actions/checkout@master
+        id: checkout-fstar
+        with:
+          path: FStar
+          repository: FStarLang/FStar
+          ref: master
+
+      - name: Try fetch built F*
+        id: cache-fstar
+        uses: actions/cache/restore@v4
+        with:
+          path: FStar
+          key: FStar-${{ runner.os }}-${{ runner.arch }}-${{ steps.checkout-fstar.outputs.commit }}
+
+      - name: Build F*
+        if: steps.cache-fstar.outputs.cache-hit != 'true'
+        run: |
+          make -C FStar ADMIT=1 -skj$(nproc)
+
+      - name: Save built F*
+        if: steps.cache-fstar.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: FStar
+          key: FStar-${{ runner.os }}-${{ runner.arch }}-${{ steps.checkout-fstar.outputs.commit }}
+
+      - run: echo "FSTAR_EXE=$(pwd)/FStar/bin/fstar.exe" >> $GITHUB_ENV
+      - run: echo "FSTAR_HOME=$(pwd)/FStar" >> $GITHUB_ENV
+      - run: echo "PATH=$(pwd)/FStar/bin:$PATH" >> $GITHUB_ENV
+
+      - uses: actions/checkout@master
+        with:
+          path: karamel
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 16
+
+      - run: echo "KRML_HOME=$(pwd)/karamel" >> $GITHUB_ENV
+
+      - name: Karamel CI
+        working-directory: karamel
+        run: |
+          . $HOME/.cargo/env
+          export OCAMLRUNPARAM=b
+          make -kj$(nproc)
+          make -kj$(nproc) -C test everything
+
+      - name: Build book
+        working-directory: karamel
+        run: |
+          sudo apt-get install -y python3-sphinx python3-sphinx-rtd-theme
+          make -C book html
+
+      - name: Upload book artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: karamel/book/_build
+          name: book
+
+  # This is checked in parallel with no F* around. It checks that the
+  # krllib snapshot builds, on several systems.
+  build-krmllib:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-22.04
+          - ubuntu-24.04
+          - macos-13
+          - macos-14
+          - macos-15
+        cc:
+          - gcc
+          - clang
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@master
+      - name: Build the checked-in krmllib
+        run: |
+          export KRML_HOME=$(pwd)
+          export CC=${{matrix.cc}}
+          make -kj$(nproc) -C krmllib/dist/generic -f Makefile.basic
+
+  # A single no-op job to use for branch protection
+  ciok:
+    runs-on: ubuntu-latest
+    needs:
+      - build-and-test
+      - build-krmllib
+    steps:
+      - run: true
+
+  publish_book:
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/master' }}
+    needs: build-and-test
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions/download-artifact@v4
+        with:
+          name: book
+          path: book/_build
+
+      - name: Configure git
+        run: |
+          git config --global user.name "Dzomo, the Everest Yak"
+          git config --global user.email "24394600+dzomo@users.noreply.github.com"
+
+      - run: .scripts/publish_tutorial.sh
+        env:
+          DZOMO_GITHUB_TOKEN: ${{secrets.DZOMO_GITHUB_TOKEN}}
