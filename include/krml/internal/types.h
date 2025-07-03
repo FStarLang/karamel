@@ -21,6 +21,8 @@ typedef uint16_t FStar_UInt16_t, FStar_UInt16_t_;
 typedef int16_t FStar_Int16_t, FStar_Int16_t_;
 typedef uint8_t FStar_UInt8_t, FStar_UInt8_t_;
 typedef int8_t FStar_Int8_t, FStar_Int8_t_;
+typedef float float32;
+typedef double float64;
 
 /* Only useful when building krmllib, because it's in the dependency graph of
  * FStar.Int.Cast. */
