@@ -1406,15 +1406,16 @@ and hoist_expr loc pos e =
 
 (* TODO: figure out if we want to ignore the other cases for performance
  * reasons. *)
-let hoist = object
+class hoist = object
   inherit [_] map as super
 
   method! visit_file loc file =
     super#visit_file Loc.(File (fst file) :: loc) file
 
   method! visit_DFunction loc cc flags n_cgs n ret name binders expr =
+    (* FYI: there is an improved version of this pass in Eurydice that can handle constants that may
+       emit let-bindings. Backport it here? *)
     let loc = Loc.(InTop name :: loc) in
-    (* TODO: no nested let-bindings in top-level value declarations either *)
     let binders, expr = open_binders binders expr in
     let expr = hoist_stmt loc expr in
     let expr = close_binders binders expr in
@@ -2084,7 +2085,7 @@ let simplify2 ifdefs (files: file list): file list =
    * let-bindings. Also removes occurrences of spinlock and the like. *)
   let files = optimize_lets ~ifdefs files in
   let files = if Options.wasm () then files else fixup_while_tests#visit_files () files in
-  let files = hoist#visit_files [] files in
+  let files = (new hoist)#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
   let files = if Options.wasm () then files else fixup_hoist#visit_files () files in
   (* Disabled in Rust because this results in uninitialized variables *)
