@@ -14,8 +14,6 @@
 
 typedef void *FStar_List_Tot_Base_memP;
 
-typedef void *FStar_List_Tot_Base_for_allP;
-
 typedef void *FStar_List_Tot_Base_no_repeats_p;
 
 typedef void *FStar_List_Tot_Base_strict_suffix_of;
