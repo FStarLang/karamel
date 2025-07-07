@@ -136,6 +136,8 @@ $(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_BIN)
 	  -o $@ $(filter %.krml,$^) \
         -skip-compilation $(filter %.krml,$^) \
 
+$(OUTPUT_DIR)/AggressiveInline.exe: EXTRA := $(EXTRA) -faggressive-inlining
+
 .PRECIOUS: $(OUTPUT_DIR)/%.exe
 $(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(call run-with-log, \
@@ -244,6 +246,11 @@ check-inline-let: $(OUTPUT_DIR)/InlineLet.exe
 	! grep foobar $(OUTPUT_DIR)/InlineLet.out/InlineLet.c
 	! grep temp_x $(OUTPUT_DIR)/InlineLet.out/InlineLet.c
 	! grep temp_y $(OUTPUT_DIR)/InlineLet.out/InlineLet.c
+
+check-aggressive-inline: $(OUTPUT_DIR)/AggressiveInline.exe
+	! grep foobar $(OUTPUT_DIR)/AggressiveInline.out/AggressiveInline.c
+	! grep temp_x $(OUTPUT_DIR)/AggressiveInline.out/AggressiveInline.c
+	! grep temp_y $(OUTPUT_DIR)/AggressiveInline.out/AggressiveInline.c
 
 check-comment: $(OUTPUT_DIR)/Comment.exe
 	grep -q XXX1 $(OUTPUT_DIR)/Comment.out/Comment.c && \
