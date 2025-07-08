@@ -8,10 +8,10 @@ type t = width * string
 
 and width =
   | UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64
-  | Float32 | Float64 (** Floating point numbers. *)
   | Bool
   | CInt (** Checked signed integers. *)
   | SizeT | PtrdiffT
+  | Float32 | Float64 (** Floating point numbers. *)
 
 let bytes_of_width (w: width) =
   match w with
