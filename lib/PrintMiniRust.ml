@@ -171,6 +171,8 @@ let string_of_width (w: Constant.width) =
   | Constant.SizeT -> "usize"
   | Constant.CInt -> ""
   | Constant.PtrdiffT -> failwith "unexpected: ptrdifft"
+  | Constant.Float32 -> "f32"
+  | Constant.Float64 -> "f64"
 
 let print_borrow_kind k =
   match k with

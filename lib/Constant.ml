@@ -11,6 +11,7 @@ and width =
   | Bool
   | CInt (** Checked signed integers. *)
   | SizeT | PtrdiffT
+  | Float32 | Float64 (** Floating point numbers. *)
 
 let bytes_of_width (w: width) =
   match w with
@@ -61,12 +62,13 @@ let unsigned_of_signed = function
   | Int16 -> UInt16
   | Int32 -> UInt32
   | Int64 -> UInt64
-  | CInt | UInt8 | UInt16 | UInt32 | UInt64 | SizeT | PtrdiffT | Bool -> raise (Invalid_argument "unsigned_of_signed")
+  | CInt | UInt8 | UInt16 | UInt32 | UInt64 | SizeT | PtrdiffT | Bool
+  | Float32 | Float64 -> raise (Invalid_argument "unsigned_of_signed")
 
 let is_signed = function
   | Int8 | Int16 | Int32 | Int64 | CInt | PtrdiffT -> true
   | UInt8 | UInt16 | UInt32 | UInt64 | SizeT -> false
-  | Bool -> raise (Invalid_argument "is_signed")
+  | Bool | Float32 | Float64 -> raise (Invalid_argument "is_signed")
 
 let is_unsigned w = not (is_signed w)
 
