@@ -355,6 +355,8 @@ Supported options:|}
       for private (static) functions that are not exposed in headers; this ensures \
       robust collision-avoidance in case your private function names collide with \
       one of the included system headers";
+    "-faggressive-inlining", Arg.Set Options.aggressive_inlining, " attempt to inline \
+      every variable for more compact code-generation";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
@@ -669,7 +671,7 @@ Supported options:|}
       let files = Simplify.sequence_to_let#visit_files () files in
       let files = Simplify.optimize_lets files in
       let files = SimplifyWasm.simplify1 files in
-      let files = Simplify.hoist#visit_files [] files in
+      let files = (new Simplify.hoist)#visit_files [] files in
       let files = Structs.in_memory files in
       (* This one near the end because [in_memory] generates new EBufCreate's that
        * need to be desugared into EBufCreate Any + EBufWrite. See e2ceb92e. *)
