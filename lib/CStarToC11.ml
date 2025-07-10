@@ -229,10 +229,15 @@ let trim_trailing_zeros l =
     | l -> List.rev l
   in
 
-  match l with
-  | Initializer [] -> Initializer []
-  | Initializer l -> Initializer (trim_trailing_zeros (List.rev l))
-  | l -> l
+  let rec main l =
+    match l with
+    | Initializer [] -> Initializer []
+    | Initializer l -> Initializer (List.map main (trim_trailing_zeros (List.rev l)))
+    | Designated (d, init) -> Designated (d, main init)
+    | InitExpr l -> InitExpr l
+  in
+
+  main l
 
 let workaround_gcc_bug53119_fml t init =
   let rec array_nesting = function

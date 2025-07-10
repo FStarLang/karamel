@@ -1366,7 +1366,7 @@ and hoist_expr loc pos e =
 
   | EFlat fields ->
       let lhs, fields = List.split (List.map (fun (ident, expr) ->
-        let lhs, expr = hoist_expr loc Unspecified expr in
+        let lhs, expr = hoist_expr loc (if pos = UnderStmtLet then UnderStmtLet else Unspecified) expr in
         lhs, (ident, expr)
       ) fields) in
       List.flatten lhs, mk (EFlat fields)
