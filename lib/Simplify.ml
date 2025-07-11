@@ -985,7 +985,8 @@ type pos =
 (* Enforce short-circuiting semantics for boolean operators; in C, this means
  * erroring out, and in Wasm, this means nesting let-bindings for the rhs
  * underneath. *)
-let rec flag_short_circuit loc t e0 es =
+let rec flag_short_circuit tbl loc t e0 es =
+  let hoist_expr = hoist_expr tbl in
   let lhs0, e0 = hoist_expr loc Unspecified e0 in
   let lhss, es = List.split (List.map (hoist_expr loc Unspecified) es) in
   match e0.node, es, lhss with
@@ -1016,24 +1017,27 @@ let rec flag_short_circuit loc t e0 es =
    be hoisted depend on the type; if it's an array of pointers, yes, we host. If
    it's an array of arrays, we leave initializer lists in order to fill storage.
    *)
-and maybe_hoist_initializer loc t e =
+and maybe_hoist_initializer tbl loc t e =
+  let hoist_expr = hoist_expr tbl in
   match e.node with
   | EBufCreate _ when Helpers.is_array t ->
       failwith "expected EBufCreateL here"
   | EBufCreateL (l, es) when Helpers.is_array t ->
-      let lhs, es = List.split (List.map (maybe_hoist_initializer loc (Helpers.assert_tarray t)) es) in
+      let lhs, es = List.split (List.map (maybe_hoist_initializer tbl loc (Helpers.assert_tarray t)) es) in
       let lhs = List.flatten lhs in
       lhs, with_type t (EBufCreateL (l, es))
   | _ ->
       hoist_expr loc Unspecified e
 
-and hoist_stmt loc e =
+and hoist_stmt tbl loc e =
+  let hoist_stmt = hoist_stmt tbl in
+  let hoist_expr = hoist_expr tbl in
   let mk = with_type e.typ in
   match e.node with
   | EApp (e0, es) ->
       (* A call is allowed in terminal position regardless of whether it has
        * type unit (generates a statement) or not (generates a [EReturn expr]). *)
-      let lhs, e = flag_short_circuit loc e.typ e0 es in
+      let lhs, e = flag_short_circuit tbl loc e.typ e0 es in
       nest lhs e.typ e
 
   | ELet (binder, e1, e2) ->
@@ -1135,7 +1139,9 @@ and hoist_stmt loc e =
 
 (* This function returns an expression that can be successfully translated as a
  * C* expression. *)
-and hoist_expr loc pos e =
+and hoist_expr tbl loc pos e =
+  let hoist_expr = hoist_expr tbl in
+  let hoist_stmt = hoist_stmt tbl in
   let mk node = { node; typ = e.typ; meta = e.meta } in
   match e.node with
   | ETApp (e, cgs, cgs', ts) ->
@@ -1168,7 +1174,7 @@ and hoist_expr loc pos e =
       lhs, mk (EIgnore e)
 
   | EApp (e0, es) ->
-      flag_short_circuit loc e.typ e0 es
+      flag_short_circuit tbl loc e.typ e0 es
 
   | ELet (binder, e1, e2) ->
       let lhs1, e1 = hoist_expr loc UnderStmtLet e1 in
@@ -1277,7 +1283,7 @@ and hoist_expr loc pos e =
   | EBufCreate (l, e1, e2) ->
       let t = e.typ in
       let lhs1, e1 = hoist_expr loc Unspecified e1 in
-      let lhs2, e2 = maybe_hoist_initializer loc (Helpers.assert_tbuf_or_tarray t) e2 in
+      let lhs2, e2 = maybe_hoist_initializer tbl loc (Helpers.assert_tbuf_or_tarray t) e2 in
       if pos = UnderStmtLet then
         lhs1 @ lhs2, mk (EBufCreate (l, e1, e2))
       else
@@ -1286,7 +1292,7 @@ and hoist_expr loc pos e =
 
   | EBufCreateL (l, es) ->
       let t = e.typ in
-      let lhs, es = List.split (List.map (maybe_hoist_initializer loc (Helpers.assert_tbuf_or_tarray t)) es) in
+      let lhs, es = List.split (List.map (maybe_hoist_initializer tbl loc (Helpers.assert_tbuf_or_tarray t)) es) in
       let lhs = List.flatten lhs in
       if pos = UnderStmtLet then
         lhs, mk (EBufCreateL (l, es))
@@ -1366,7 +1372,11 @@ and hoist_expr loc pos e =
 
   | EFlat fields ->
       let lhs, fields = List.split (List.map (fun (ident, expr) ->
-        let lhs, expr = hoist_expr loc (if pos = UnderStmtLet then UnderStmtLet else Unspecified) expr in
+        let is_array = match e.typ, ident with
+          | TQualified lid, Some ident -> Helpers.is_array (Hashtbl.find tbl (lid, ident)) 
+          | _ -> false
+        in
+        let lhs, expr = hoist_expr loc (if pos = UnderStmtLet && is_array then UnderStmtLet else Unspecified) expr in
         lhs, (ident, expr)
       ) fields) in
       List.flatten lhs, mk (EFlat fields)
@@ -1409,6 +1419,19 @@ and hoist_expr loc pos e =
 class hoist = object
   inherit [_] map as super
 
+  val field_types = Hashtbl.create 42
+
+  method! visit_DType _ name flags n_cgs n def =
+    match def with
+    | Flat fields ->
+        List.iter (function
+          | Some f, (t, _) -> Hashtbl.add field_types (name, f) t
+          | _ -> ()
+        ) fields
+    | _ -> ()
+    ; ;
+    DType (name, flags, n_cgs, n, def)
+
   method! visit_file loc file =
     super#visit_file Loc.(File (fst file) :: loc) file
 
@@ -1417,7 +1440,7 @@ class hoist = object
        emit let-bindings. Backport it here? *)
     let loc = Loc.(InTop name :: loc) in
     let binders, expr = open_binders binders expr in
-    let expr = hoist_stmt loc expr in
+    let expr = hoist_stmt field_types loc expr in
     let expr = close_binders binders expr in
     DFunction (cc, flags, n_cgs, n, ret, name, binders, expr)
 end
