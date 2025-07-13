@@ -57,7 +57,7 @@ endif
 
 CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased \
   check-right-file count-deref check-global-init check-useless-alias check-inline-let \
-  check-comment check-ignore
+  check-comment check-ignore check-aggressive-inline
 
 ifneq ($(CRYPTO),)
   CRYPTO_WASM_FILES=Crypto.Symmetric.Chacha20.wasm-test
