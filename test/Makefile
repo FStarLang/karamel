@@ -57,7 +57,7 @@ endif
 
 CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased \
   check-right-file count-deref check-global-init check-useless-alias check-inline-let \
-  check-comment check-ignore check-aggressive-inline
+  check-comment check-ignore check-aggressive-inline check-malloca
 
 ifneq ($(CRYPTO),)
   CRYPTO_WASM_FILES=Crypto.Symmetric.Chacha20.wasm-test
@@ -137,6 +137,7 @@ $(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_BIN)
         -skip-compilation $(filter %.krml,$^) \
 
 $(OUTPUT_DIR)/AggressiveInline.exe: EXTRA := $(EXTRA) -faggressive-inlining
+$(OUTPUT_DIR)/Malloca.exe: EXTRA := $(EXTRA) -warn-error -6 # Uses VLAs
 
 .PRECIOUS: $(OUTPUT_DIR)/%.exe
 $(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_BIN)
@@ -251,6 +252,11 @@ check-aggressive-inline: $(OUTPUT_DIR)/AggressiveInline.exe
 	! grep foobar $(OUTPUT_DIR)/AggressiveInline.out/AggressiveInline.c
 	! grep temp_x $(OUTPUT_DIR)/AggressiveInline.out/AggressiveInline.c
 	! grep temp_y $(OUTPUT_DIR)/AggressiveInline.out/AggressiveInline.c
+
+check-malloca: $(OUTPUT_DIR)/Malloca.exe
+	# Check that a single call to f remains.
+	N=$$(grep 'f()' $(OUTPUT_DIR)/Malloca.out/Malloca.c | wc -l) && \
+	  if [[ $$N -ne 1 ]]; then echo "Malloca.c seems to have several calls to f" >&2; false; fi
 
 check-comment: $(OUTPUT_DIR)/Comment.exe
 	grep -q XXX1 $(OUTPUT_DIR)/Comment.out/Comment.c && \
