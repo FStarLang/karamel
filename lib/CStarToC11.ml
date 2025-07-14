@@ -535,18 +535,24 @@ and ensure_array_l t inits =
   | _ ->
       t
 
-and ensure_array m t expr =
+(* Returns
+   - C* array type
+   - C* initializer
+   - C* num elems
+   - C11 (translated) size of elem
+ *)
+and ensure_array m (t : CStar.typ) (expr : CStar.expr) : CStar.typ * CStar.expr * CStar.expr * C.expr =
   let mul x y = C.Op2 (K.Mult, x, y) in
   match t, expr with
-  | Pointer t, BufCreate ((Stack | Eternal), init, size)  ->
-      let t, init, size' = ensure_array m t init in
-      Array (t, size), init, mul (mk_expr m size) size'
-  | Array (t, l), BufCreate ((Stack | Eternal), init, size) ->
-      assert (l = size);
-      let t, init, size' = ensure_array m t init in
-      Array (t, size), init, mul (mk_expr m size) size'
+  | Pointer t, BufCreate ((Stack | Eternal), init, len)  ->
+      let _, init, len', size' = ensure_array m t init in
+      Array (t, len), init, len, mul (mk_expr m len') size'
+  | Array (t, l), BufCreate ((Stack | Eternal), init, len) ->
+      assert (l = len);
+      let _, init, len', size' = ensure_array m t init in
+      Array (t, len), init, len, mul (mk_expr m len') size'
   | _ ->
-      t, expr, C.Sizeof (C.Type (mk_type m t))
+      t, expr, CStar.Constant (K.UInt8, "1"), C.Sizeof (C.Type (mk_type m t))
 
 and decay_array t =
   match t with
@@ -641,14 +647,53 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       (* In the case where this is a buffer creation in the C* meaning, then we
        * declare a fixed-length array; this is an "upcast" from pointer type to
        * array type, in the C sense. *)
-      let t, init, size = ensure_array m binder.typ rhs in
-      (* TODO: make ensure_array return both *)
-      let n_elements = match size with
-        | C.Op2 (K.Mult, outer_size, _) -> outer_size
-        | _ -> failwith "impossible, see ensure_array"
+      let t, init, n_elements, e_size = ensure_array m binder.typ rhs in
+
+      let rebind_n_elements, cstar_n_elements, n_elements =
+        (* If the length expression is complex, then assign it to a local
+           variable and use that. Otherwise we would duplicate it, potentially
+           affecting the meaning. *)
+        let rec is_pure e =
+          match e with
+          | Constant _ | Var _ | Macro _ | Qualified _
+          | BufRead _ | BufSub _ | BufNull
+          | Op _ | Bool _  | Type _ | StringLiteral _
+          | Any ->
+            true
+
+          | Call _ | BufCreate _ | BufCreateL _ | Stmt _ | EAbort _ ->
+            false
+
+          (* just descend *)
+          | Cast (e, _)
+          | InlineComment (_, e, _)
+          | Field (e, _)
+          | AddrOf e ->
+            is_pure e
+          | Struct (_, fs) ->
+            List.for_all (fun (_, e) -> is_pure e) fs
+          | Comma (e1, e2) ->
+            is_pure e1 && is_pure e2
+        in
+        if is_pure n_elements then
+          [], n_elements, mk_expr m n_elements
+        else
+          let name_init = "_arraylen" ^ fresh () in
+          let no_extra = { maybe_unused = false; target = None } in
+          let stmt_init : C.stmt = C.Decl ([], Int SizeT, None, None, no_extra, [(Ident name_init, None, Some (InitExpr (mk_expr m n_elements)))]) in
+          [stmt_init], CStar.Var name_init, C.Name name_init
+      in
+      (* Having rebound n_elements, make sure that `t` uses this expression
+         for its size, instead of the original one. Otherwise the declaration
+         for the array will contain it. *)
+      let t =
+        match t with
+        | Array (et, _len) -> Array (et, cstar_n_elements)
+        | t -> t
       in
 
-      (* KPrint.bprintf "size is: %s\n" (C11.show_expr size); *)
+      (* KPrint.bprintf "n_elements is: %s\n" (C11.show_expr n_elements); *)
+      (* KPrint.bprintf "e_size is: %s\n" (C11.show_expr e_size); *)
       let alignment = mk_alignment m (assert_array t) in
       let is_constant = match n_elements with Constant _ -> true | _ -> false in
       let use_alloca = not is_constant && !Options.alloca_if_vla in
@@ -682,7 +727,8 @@ and mk_stmt m (stmt: stmt): C.stmt list =
               use of alloca, which krml cannot yet align\n%s\n"
               (show_stmt stmt)
           else
-            let bytes = mk_alloc_cast m (assert_pointer t) (C.Call (C.Name "alloca", [ size ])) in
+            let mul x y = C.Op2 (K.Mult, x, y) in
+            let bytes = mk_alloc_cast m (assert_pointer t) (C.Call (C.Name "alloca", [ mul n_elements e_size ])) in
             assert (maybe_init = None);
             decay_array t, Some (InitExpr bytes)
         else
@@ -697,6 +743,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
           []
       in
       let decl: C.stmt list = [ Decl (qs, spec, None, None, { maybe_unused = false; target = None }, [ decl, alignment, maybe_init ]) ] in
+      rebind_n_elements @
       mk_check_size m (assert_pointer binder.typ) n_elements @
       decl @
       extra_stmt
@@ -1162,7 +1209,7 @@ let strengthen_array m t expr =
   | BufCreateL (_, es) ->
       ensure_array_l t es
   | BufCreate _ ->
-      let t, _, _ = ensure_array m t expr in
+      let t, _, _, _ = ensure_array m t expr in
       t
   | _ ->
       t
