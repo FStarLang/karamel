@@ -357,7 +357,7 @@ let make_abstract_function_or_global = function
         Some (DExternal (cc, flags, n_cgs, n, name, t, List.map (fun x -> x.node.name) bs))
       else
         None
-  | DGlobal (flags, name, n, t, body) when not (List.mem Common.Macro flags) ->
+  | DGlobal (flags, name, n, t, body) ->
       let open PrintAst.Ops in
       (* So it's pretty frustrating to have to pattern-match on expressions that we know will be
          simplified later. But sadly, -library'ing must happen very early on, as successful bundling

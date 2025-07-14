@@ -212,27 +212,30 @@ let bytes_in = function
  * initializers guarantee for missing fields that they're initialized as if they
  * had static storage duration, i.e. with zero.). For prettyness, leave at least
  * one zero, unless the array was empty to start with (admissible with globals). *)
-let is_zero = function
-  | InitExpr (C11.Constant (_, "0")) -> true
-  | InitExpr (C11.Cast (_, Constant (_, "0"))) -> true
+let is_zero_expr = function
+  | C11.Constant (_, "0") -> true
+  | C11.Cast (_, Constant (_, "0")) -> true
   | _ -> false
 
-let trim_trailing_zeros l =
-  let rec all_zeros = function
-    | Initializer inits -> List.for_all all_zeros inits
-    | init -> is_zero init
-  in
+let rec is_zero = function
+  | InitExpr e -> is_zero_expr e
+  | Designated (_, i) -> is_zero i
+  | Initializer is -> List.for_all is_zero is
 
-  let rec trim_trailing_zeros: C11.init list -> C11.init list = function
-    | hd :: tl when all_zeros hd -> trim_trailing_zeros tl
+let rec trim_trailing_zeros l =
+  match l with
+  | Initializer [] -> Initializer []
+  | InitExpr e -> InitExpr e
+  | Designated (d, init) -> Designated (d, trim_trailing_zeros init)
+  | Initializer l -> Initializer (List.map trim_trailing_zeros (chop_zeros l))
+
+and chop_zeros is =
+  let chop_zeros = function
+    | hd :: tl when is_zero hd -> chop_zeros tl
     | [] -> [ InitExpr (C11.Constant (K.UInt32, "0")) ]
     | l -> List.rev l
   in
-
-  match l with
-  | Initializer [] -> Initializer []
-  | Initializer l -> Initializer (trim_trailing_zeros (List.rev l))
-  | l -> l
+  chop_zeros (List.rev is)
 
 let workaround_gcc_bug53119_fml t init =
   let rec array_nesting = function
@@ -719,7 +722,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
 
   | Decl (binder, e) ->
       let qs, spec, decl = mk_spec_and_declarator m binder.name binder.typ in
-      let init: init option = match e with Any -> None | _ -> Some (struct_as_initializer m e) in
+      let init: init option = match e with Any -> None | _ -> Some (trim_trailing_zeros (struct_as_initializer m e)) in
       [ Decl (qs, spec, None, None, { maybe_unused = false; target = None }, [ decl, None, init ]) ]
 
   | IfThenElse (false, e, b1, b2) ->
@@ -1021,7 +1024,7 @@ and mk_expr m (e: expr): C.expr =
 
   | Constant (w, c) ->
       (* See discussion in AstToCStar.ml, around mk_arith. *)
-      if K.is_unsigned w && w <> SizeT then
+      if not (Constant.is_float w) && K.is_unsigned w && w <> SizeT then
         Constant (w, c)
       else
         (* Not sure what to do with signed integer types. TBD. Mostly trying to

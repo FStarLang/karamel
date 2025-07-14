@@ -302,8 +302,8 @@ and mask w e =
   | UInt16 -> CStar.Call (Op K.BAnd, [ e; Constant (UInt32, "0xFFFF") ])
   | _ -> e
 
-and is_arith op w =
-  w <> K.Bool && K.is_unsigned w && match op with
+and is_integer_arith op w =
+  w <> K.Bool && not (Constant.is_float w) && K.is_unsigned w && match op with
   | K.Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
   | BOr | BAnd | BXor | BShiftL | BShiftR | BNot ->
       true
@@ -326,7 +326,7 @@ and is_arith op w =
 and mk_arith env e =
   let mask_if is_atomic w e = if is_atomic then e else mask w e in
   match e.node with
-  | EApp ({ node = EOp (op, w); _ }, [ e1; e2 ]) when is_arith op w ->
+  | EApp ({ node = EOp (op, w); _ }, [ e1; e2 ]) when is_integer_arith op w ->
       let e1, a1, w1 = mk_arith env e1 in
       let e2, a2, w2 = mk_arith env e2 in
       begin match op with
@@ -395,7 +395,7 @@ and mk_expr env in_stmt under_initializer_list e =
       let ret_t = CStar.Type (mk_type env (MonomorphizationState.resolve e.typ)) in
       unit_to_void env e0 (cgs @ cgs') (List.map (fun t -> CStar.Type (mk_type env t)) ts @ [ ret_t ])
 
-  | EApp ({ node = EOp (op, w); _ }, [ _; _ ]) when is_arith op w ->
+  | EApp ({ node = EOp (op, w); _ }, [ _; _ ]) when is_integer_arith op w ->
       let e', _, widened = mk_arith env e in
       if !Options.cxx_compat && under_initializer_list && widened then
         Cast (e', mk_type env e.typ)
