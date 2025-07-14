@@ -649,9 +649,33 @@ and mk_stmt m (stmt: stmt): C.stmt list =
        * array type, in the C sense. *)
       let t, init, n_elements, e_size = ensure_array m binder.typ rhs in
 
-      let is_constant = match n_elements with Constant _ -> true | _ -> false in
       let rebind_n_elements, cstar_n_elements, n_elements =
-        if is_constant then
+        (* If the length expression is complex, then assign it to a local
+           variable and use that. Otherwise we would duplicate it, potentially
+           affecting the meaning. *)
+        let rec is_pure e =
+          match e with
+          | Constant _ | Var _ | Macro _ | Qualified _
+          | BufRead _ | BufSub _ | BufNull
+          | Op _ | Bool _  | Type _ | StringLiteral _
+          | Any ->
+            true
+
+          | Call _ | BufCreate _ | BufCreateL _ | Stmt _ | EAbort _ ->
+            false
+
+          (* just descend *)
+          | Cast (e, _)
+          | InlineComment (_, e, _)
+          | Field (e, _)
+          | AddrOf e ->
+            is_pure e
+          | Struct (_, fs) ->
+            List.for_all (fun (_, e) -> is_pure e) fs
+          | Comma (e1, e2) ->
+            is_pure e1 && is_pure e2
+        in
+        if is_pure n_elements then
           [], n_elements, mk_expr m n_elements
         else
           let name_init = "_arraylen" ^ fresh () in
@@ -671,6 +695,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       (* KPrint.bprintf "n_elements is: %s\n" (C11.show_expr n_elements); *)
       (* KPrint.bprintf "e_size is: %s\n" (C11.show_expr e_size); *)
       let alignment = mk_alignment m (assert_array t) in
+      let is_constant = match n_elements with Constant _ -> true | _ -> false in
       let use_alloca = not is_constant && !Options.alloca_if_vla in
       let (maybe_init, needs_init): C.init option * _ = match init, n_elements with
         | _, Constant (_, "0") (* zero-sized array... legal for malloc *)
