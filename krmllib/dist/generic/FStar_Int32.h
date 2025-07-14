@@ -52,6 +52,8 @@ extern int32_t FStar_Int32_shift_left(int32_t a, uint32_t s);
 
 extern bool FStar_Int32_eq(int32_t a, int32_t b);
 
+extern bool FStar_Int32_ne(int32_t a, int32_t b);
+
 extern bool FStar_Int32_gt(int32_t a, int32_t b);
 
 extern bool FStar_Int32_gte(int32_t a, int32_t b);
