@@ -1376,7 +1376,13 @@ and hoist_expr tbl loc pos e =
           | TQualified lid, Some ident -> Helpers.is_array (Hashtbl.find tbl (lid, ident)) 
           | _ -> false
         in
-        let lhs, expr = hoist_expr loc (if pos = UnderStmtLet && is_array then UnderStmtLet else Unspecified) expr in
+        (* The rationale is that one must NOT hoist "ebufcreate" nodes that encode array
+           initializers (otherwise, array-to-pointer conversion, a.k.a. decay, kicks in, and this
+           does not do what is intended. The usage of UnderStmtLet is slightly unfortunate because
+           in the (unlikely) event that an initializer is a for-loop or an if-then-else, then it
+           will be preserved, but we already went through is_suitable_initializer earlier so this
+           should not happen. *)
+        let lhs, expr = hoist_expr loc (if is_array then UnderStmtLet else Unspecified) expr in
         lhs, (ident, expr)
       ) fields) in
       List.flatten lhs, mk (EFlat fields)
