@@ -52,6 +52,8 @@ extern int16_t FStar_Int16_shift_left(int16_t a, uint32_t s);
 
 extern bool FStar_Int16_eq(int16_t a, int16_t b);
 
+extern bool FStar_Int16_ne(int16_t a, int16_t b);
+
 extern bool FStar_Int16_gt(int16_t a, int16_t b);
 
 extern bool FStar_Int16_gte(int16_t a, int16_t b);

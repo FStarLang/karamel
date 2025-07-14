@@ -208,10 +208,18 @@ let bytes_in = function
   | Qualified ([ "Lib"; "IntVector"; "Intrinsics" ], "vec32") -> Some (32 / 8)
   | _ -> None
 
-(* Trim all trailing zeroes from an initializer list (per the C standard, static
- * initializers guarantee for missing fields that they're initialized as if they
- * had static storage duration, i.e. with zero.). For prettyness, leave at least
- * one zero, unless the array was empty to start with (admissible with globals). *)
+(* https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3088.pdf 6.7.10
+
+  The goal of this function is to generate an initializer list that is i) compact and ii) sensible.
+
+  For compactness, it appears that owing to §20 and §22 above, one can just omit remaining fields /
+  indices when their initial value is zero (since they are initialized as if they had static storage
+  duration).
+
+  For sensibility, we don't want to be *too* smart and e.g. omit the last field of a struct if it
+  statically known to be zero; we also want to emit { 0 } for subarrays, not {} which is C++/C23
+  syntax for default (i.e. zero) initialization.
+*)
 let is_zero_expr = function
   | C11.Constant (_, "0") -> true
   | C11.Cast (_, Constant (_, "0")) -> true
@@ -219,7 +227,7 @@ let is_zero_expr = function
 
 let rec is_zero = function
   | InitExpr e -> is_zero_expr e
-  | Designated (_, i) -> is_zero i
+  | Designated (_, _i) -> false (* too smart: is_zero i *)
   | Initializer is -> List.for_all is_zero is
 
 let rec trim_trailing_zeros l =
@@ -230,7 +238,7 @@ let rec trim_trailing_zeros l =
   | Initializer l -> Initializer (List.map trim_trailing_zeros (chop_zeros l))
 
 and chop_zeros is =
-  let chop_zeros = function
+  let rec chop_zeros = function
     | hd :: tl when is_zero hd -> chop_zeros tl
     | [] -> [ InitExpr (C11.Constant (K.UInt32, "0")) ]
     | l -> List.rev l
