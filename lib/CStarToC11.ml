@@ -14,6 +14,12 @@ let is_primitive = Helpers.is_primitive
 
 let zero = C.Constant (K.UInt8, "0")
 
+let cmul x y =
+  match x, y with
+  | C.Constant (_, "1"), _ -> y
+  | _, C.Constant (_, "1") -> x
+  | _ -> C.Op2 (K.Mult, x, y)
+
 let is_array = function Array _ -> true | _ -> false
 let is_var = function Var _ -> true | _ -> false
 let is_call = function
@@ -553,15 +559,14 @@ and ensure_array_l t inits =
    - C11 (translated) size of elem
  *)
 and ensure_array m (t : CStar.typ) (expr : CStar.expr) : CStar.typ * CStar.expr * CStar.expr * C.expr =
-  let mul x y = C.Op2 (K.Mult, x, y) in
   match t, expr with
   | Pointer t, BufCreate ((Stack | Eternal), init, len)  ->
       let _, init, len', size' = ensure_array m t init in
-      Array (t, len), init, len, mul (mk_expr m len') size'
+      Array (t, len), init, len, cmul (mk_expr m len') size'
   | Array (t, l), BufCreate ((Stack | Eternal), init, len) ->
       assert (l = len);
       let _, init, len', size' = ensure_array m t init in
-      Array (t, len), init, len, mul (mk_expr m len') size'
+      Array (t, len), init, len, cmul (mk_expr m len') size'
   | _ ->
       t, expr, CStar.Constant (K.UInt8, "1"), C.Sizeof (C.Type (mk_type m t))
 
@@ -672,6 +677,10 @@ and mk_stmt m (stmt: stmt): C.stmt list =
           | Any ->
             true
 
+          (* Calls in general we take as impure, but operators
+             are pure. *)
+          | Call (Op _, args) -> List.for_all is_pure args
+
           | Call _ | BufCreate _ | BufCreateL _ | Stmt _ | EAbort _ ->
             false
 
@@ -738,8 +747,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
               use of alloca, which krml cannot yet align\n%s\n"
               (show_stmt stmt)
           else
-            let mul x y = C.Op2 (K.Mult, x, y) in
-            let bytes = mk_alloc_cast m (assert_pointer t) (C.Call (C.Name "alloca", [ mul n_elements e_size ])) in
+            let bytes = mk_alloc_cast m (assert_pointer t) (C.Call (C.Name "alloca", [ cmul n_elements e_size ])) in
             assert (maybe_init = None);
             decay_array t, Some (InitExpr bytes)
         else
