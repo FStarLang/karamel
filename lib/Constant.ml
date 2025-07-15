@@ -47,6 +47,10 @@ let is_comp_op = function
   | Eq | Neq | Lt | Lte | Gt | Gte -> true
   | _ -> false
 
+let is_float = function
+  | Float32 | Float64 -> true
+  | _ -> false
+
 (* Negates the comparison operator *)
 let comp_neg = function
   | Eq -> Neq
