@@ -67,6 +67,8 @@ and type_scheme = {
 (* The visitor of types composes with the misc. visitor. *)
 and typ =
   | TInt of width
+      (** this constructor includes also **floating points** for historical
+       * reason. *)
   | TBool
   | TUnit
   | TAny
