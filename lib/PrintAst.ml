@@ -236,7 +236,7 @@ and print_node_meta meta =
     List.filter_map (function CommentAfter s -> Some s | _ -> None) meta
   with
   | [], [] -> fun doc -> doc
-  | s, s' -> fun doc -> surround 2 1 (string (String.concat "\n" s)) doc (string (String.concat "\n" s'))
+  | s, s' -> fun doc -> surround 2 1 (string (String.concat "\n ++" s)) doc (string (String.concat "\n ++" s'))
   end
 
 and print_expr env { node; typ; meta } =
@@ -272,6 +272,7 @@ and print_expr env { node; typ; meta } =
         print_app (print_expr env) e (fun t -> group (langle ^/^ print_typ t ^/^ rangle)) ts
       ) (e, ts) (fun e -> brackets (brackets (print_expr env e))) (es @ es')
   | ELet (binder, e1, e2) ->
+      print_node_meta binder.meta @@
       group (print_let_binding env (binder, e1) ^/^ string "in") ^^ hardline ^^
       group (print_expr (push env binder)  e2)
   | EIfThenElse (e1, e2, e3) ->

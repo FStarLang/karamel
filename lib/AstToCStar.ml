@@ -365,7 +365,8 @@ and mk_expr env in_stmt under_initializer_list e =
     List.filter_map (function CommentAfter s -> Some s | _ -> None) meta
   with
   | [], [] -> fun e -> e
-  | s, s' -> fun e -> CStar.InlineComment (String.concat "\n" s, e, String.concat "\n" s')
+  | s, s' -> fun e_ ->
+      CStar.InlineComment (String.concat "\n" s, e_, String.concat "\n" s')
   end @@
 
   (* Actual translation. *)
@@ -712,8 +713,10 @@ and mk_stmts env e ret_type =
         if is_readonly_c_expression e then
           env, comment e.meta @ acc
         else
+          let comments = comment e.meta in
+          let e = { e with meta = List.filter (function CommentBefore _ -> false | _ -> true) e.meta } in
           let e' = CStar.Ignore (mk_expr env true false e) in
-          env, e' :: comment e.meta @ acc
+          env, e' :: comments @ acc
 
   and mk_block env return_pos e =
     List.rev (snd (collect (reset_block env, []) return_pos e))

@@ -325,13 +325,13 @@ and p_expr' curr = function
   | CxxInitializerList init ->
       p_init init
 
+(* statement-level comment *)
 and p_comment s =
   if s <> "" then
     (* TODO: escape *)
-    string "/* " ^^ nest 2 (flow space (words s)) ^^ string " */"
+    string "/* " ^^ nest 2 (separate_map hardline string (String.split_on_char '\n' s)) ^^ string " */"
   else
     empty
-
 
 and p_expr e = p_expr' 15 e
 
@@ -476,6 +476,7 @@ and p_stmt (s: stmt) =
 
 and p_stmts stmts = separate_map hardline p_stmt stmts
 
+(* This is for toplevel comments *)
 let p_comments cs =
   separate_map hardline (fun c -> string ("/**\n" ^ c ^ "\n*/")) cs ^^
   if List.length cs > 0 then hardline else empty
