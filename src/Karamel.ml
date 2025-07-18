@@ -374,6 +374,9 @@ Supported options:|}
       struct transformations";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-dwasm", Arg.Set arg_print_wasm, " pretty-print the output Wasm";
+    "-dbacktrace", Arg.Unit (fun () ->
+       Printexc.record_backtrace true;
+       Options.backtrace := true), " print a stack trace on errors";
     "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific \
       comma-separated list of values; currently supported: \
       inline,bundle,reachability,c-calls,c-names,wasm-calls,wasm-memory,wasm,force-c,cflat";

@@ -229,6 +229,8 @@ let maybe_fatal_error error =
   | CError ->
       KPrint.beprintf "%a" perr error;
       KPrint.beprintf "Warning %d is fatal, exiting.\n" errno;
+      if !Options.backtrace then
+        KPrint.beprintf "Stack trace:\n%s\n" (Printexc.get_backtrace ());
       exit 255
   | CWarning ->
       if not (S.mem error !emitted_warnings) then begin

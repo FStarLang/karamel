@@ -66,6 +66,7 @@ let library: Bundle.pat list ref = ref []
 let hand_written: Bundle.pat list ref = ref []
 let debug_modules: string list ref = ref []
 let debug s = List.exists ((=) s) !debug_modules
+let backtrace : bool ref = ref false
 
 type backend = C | Rust | Wasm
 let backend = ref C

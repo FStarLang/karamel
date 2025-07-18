@@ -382,7 +382,7 @@ let populate env files =
           with e ->
             KPrint.beprintf "[AstToC♭] can't compute the layout of %a:\n%s\n%s"
               PrintAst.plid lid (Printexc.to_string e)
-              (if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "");
+              (if !Options.backtrace then Printexc.get_backtrace () ^ "\n" else "");
             env
           end
       | _ ->
@@ -709,9 +709,8 @@ and mk_expr_or_bail (env: env) (locals: locals) (e: expr): locals * CF.expr =
         Hashtbl.replace errors !current_lid (s :: Hashtbl.find errors !current_lid)
       else
         Hashtbl.add errors !current_lid [ s ];
-      let bt = if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "" in
-      let msg = KPrint.bsprintf "%a: compilation error turned to runtime failure\n%s%s"
-        plid !current_lid s bt
+      let msg = KPrint.bsprintf "%a: compilation error turned to runtime failure\n%s"
+        plid !current_lid s
       in
       mk_expr env locals (Helpers.with_unit (EAbort (None, Some msg)))
 
@@ -1125,7 +1124,7 @@ let mk_module env decls =
       flush stderr;
       KPrint.beprintf "[AstToC♭] skipping %s%a%s:\n%s\n%s"
         Ansi.underline PrintAst.plid (lid_of_decl d) Ansi.reset (Printexc.to_string e)
-        (if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "");
+        (if !Options.backtrace then Printexc.get_backtrace () ^ "\n" else "");
       env, decls
   ) (env, []) decls in
   env, List.rev decls

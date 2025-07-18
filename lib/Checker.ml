@@ -173,7 +173,7 @@ and check_program env r (name, decls) =
     | CheckerError e ->
         r := true;
         flush stdout;
-        if Options.debug "backtraces" then
+        if !Options.backtrace then
           Printexc.print_backtrace stderr;
         KPrint.beprintf "Cannot re-check %a as valid Low* and will not extract it.  \
           If %a is not meant to be extracted, consider marking it as Ghost, \
