@@ -480,7 +480,7 @@ and check' env t e =
           checker_error env "Not a record (2) %a" ptyp t
       end
 
-  | ESwitch (scrut, branches) ->
+  | ESwitch (_, scrut, branches) ->
       let t_scrut = expand_abbrev env (infer env scrut) in
       List.iter (fun (c, e) ->
         check_case (locate env (Branch c)) c t_scrut;
@@ -822,7 +822,7 @@ and infer' env e =
         TAnonymous (Enum [ tag, None ])
       end
 
-  | ESwitch (e1, branches) ->
+  | ESwitch (_, e1, branches) ->
       let t_scrut = expand_abbrev env (infer env e1) in
       let t = infer_and_check_eq env (fun (c, e) ->
         let env = locate env (Branch c) in

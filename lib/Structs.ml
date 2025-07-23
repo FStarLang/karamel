@@ -760,10 +760,10 @@ let to_addr is_struct =
     | EBufNull ->
         w EBufNull
 
-    | ESwitch (e, branches) ->
+    | ESwitch (c, e, branches) ->
         let e = to_addr false e in
         let branches = List.map (fun (lid, e) -> lid, to_addr false e) branches in
-        w (ESwitch (e, branches))
+        w (ESwitch (c, e, branches))
 
     | EReturn e ->
         assert (not (is_struct e.typ));

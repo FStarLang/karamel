@@ -335,7 +335,7 @@ class ['self] readonly_visitor = object (self: 'self)
   method! visit_EBufBlit _ _ _ _ _ _ = false
   method! visit_EBufFill _ _ _ _ = false
   method! visit_EBufFree _ _ = false
-  method! visit_ESwitch _ _ _ = false
+  method! visit_ESwitch _ _ _ _ = false
   method! visit_EReturn _ _ = false
   method! visit_EContinue _ = false
   method! visit_EAbort _ _ _ = false
@@ -727,11 +727,11 @@ let rec nest_in_return_pos i typ f e =
       let e2 = nest_in_return_pos i typ f e2 in
       let e3 = nest_in_return_pos i typ f e3 in
       { node = EIfThenElse (e1, e2, e3); typ; meta = [] }
-  | ESwitch (e, branches) ->
+  | ESwitch (c, e, branches) ->
       let branches = List.map (fun (t, e) ->
         t, nest_in_return_pos i typ f e
       ) branches in
-      { node = ESwitch (e, branches); typ; meta = [] }
+      { node = ESwitch (c, e, branches); typ; meta = [] }
   | EMatch (c, e, branches) ->
       { node =
         EMatch (c, e, List.map (fun (bs, p, e) ->

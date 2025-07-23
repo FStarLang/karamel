@@ -269,7 +269,7 @@ type expr' =
   | EMatch of match_flavor * expr * branches
   | ECons of ident * expr list
 
-  | ESwitch of expr * (switch_case * expr) list
+  | ESwitch of match_flavor * expr * (switch_case * expr) list
   | EEnum of lident
   | EFlat of fields_e_opt
   | EField of expr * ident

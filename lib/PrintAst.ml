@@ -349,12 +349,13 @@ and print_expr env { node; typ; meta } =
       parens_with_nesting (separate_map (comma ^^ break1) (print_expr env) es)
   | EEnum lid ->
       string (string_of_lident lid)
-  | ESwitch (e, branches) ->
-      string "switch" ^^ space ^^ print_expr env e ^/^ braces_with_nesting (
+  | ESwitch (c, e, branches) ->
+      let c = if c = Unchecked then string "UNCHECKED " else empty in
+      group (c ^^ string "switch" ^^ space ^^ print_expr env e ^/^ braces_with_nesting (
         separate_map hardline (fun (lid, e) ->
           string "case" ^^ space ^^ print_case lid ^^ colon ^^
           nest 2 (hardline ^^ print_expr env e)
-        ) branches)
+        ) branches))
   | EFun (binders, body, t) ->
       string "fun" ^/^ parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders

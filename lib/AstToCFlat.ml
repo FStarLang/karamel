@@ -911,7 +911,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
           locals, CF.Assign (assert_var e1, e2)
       end
 
-  | ESwitch (e, branches) ->
+  | ESwitch (_, e, branches) ->
       let s = size_of env (snd (List.hd branches)).typ in
       let locals, e = mk_expr env locals e in
       let default, branches = List.partition (function (SWild, _) -> true | _ -> false) branches in

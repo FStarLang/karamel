@@ -84,7 +84,7 @@ class ['self] safe_use = object (self: 'self)
   (* All of the cases below could be refined with a more precise analysis that makes sure that
      *every* path in the control-flow is safe. *)
   method! visit_EIfThenElse env e _ _ = self#sequential env e None
-  method! visit_ESwitch env e _ = self#sequential env e None
+  method! visit_ESwitch env _ e _ = self#sequential env e None
   method! visit_EWhile env e _ = self#sequential env e None
   method! visit_EFor env _ e _ _ _ = self#sequential env e None
   method! visit_EMatch env _ e _ = self#sequential env e None
@@ -514,11 +514,11 @@ let let_if_to_assign = object (self)
         let e_else = nest_assign (self#visit_expr_w () e_else) in
         with_unit (EIfThenElse (cond, e_then, e_else))
 
-    | ESwitch (e, branches) ->
+    | ESwitch (c, e, branches) ->
         let branches = List.map (fun (tag, e) ->
           tag, nest_assign (self#visit_expr_w () e)
         ) branches in
-        with_unit (ESwitch (e, branches))
+        with_unit (ESwitch (c, e, branches))
 
     | _ ->
         invalid_arg "make_assignment"
@@ -1061,10 +1061,10 @@ and hoist_stmt tbl loc e =
       ) branches in
       nest lhs e.typ (mk (EMatch (f, e1, branches)))
 
-  | ESwitch (e1, branches) ->
+  | ESwitch (c, e1, branches) ->
       let lhs, e1 = hoist_expr loc Unspecified e1 in
       let branches = List.map (fun (tag, e2) -> tag, hoist_stmt loc e2) branches in
-      nest lhs e.typ (mk (ESwitch (e1, branches)))
+      nest lhs e.typ (mk (ESwitch (c, e1, branches)))
 
   | EFor (binder, e1, e2, e3, e4) ->
       assert (e.typ = TUnit);
@@ -1214,7 +1214,7 @@ and hoist_expr tbl loc pos e =
       ) branches in
       lhs, mk (EMatch (f, e, branches))
 
-  | ESwitch (e1, branches) ->
+  | ESwitch (c, e1, branches) ->
       let t = e.typ in
       let lhs, e1 = hoist_expr loc Unspecified e1 in
       let branches = List.map (fun (tag, e) ->
@@ -1223,9 +1223,9 @@ and hoist_expr tbl loc pos e =
         nest lhs e.typ e
       ) branches in
       if pos = UnderStmtLet || pos = UnderConditional then
-        lhs, mk (ESwitch (e1, branches))
+        lhs, mk (ESwitch (c, e1, branches))
       else
-        let b, body, cont = mk_named_binding "sw" t (ESwitch (e1, branches)) in
+        let b, body, cont = mk_named_binding "sw" t (ESwitch (c, e1, branches)) in
         lhs @ [ b, body ], cont
 
   | EWhile (e1, e2) ->
@@ -1473,8 +1473,8 @@ let rec fixup_return_pos e =
         (nest_in_return_pos t (fun _ e -> with_type t (ECast (e, t))) (fixup_return_pos e)).node
     | EIfThenElse (e1, e2, e3) ->
         EIfThenElse (e1, fixup_return_pos e2, fixup_return_pos e3)
-    | ESwitch (e1, branches) ->
-        ESwitch (e1, List.map (fun (t, e) -> t, fixup_return_pos e) branches)
+    | ESwitch (c, e1, branches) ->
+        ESwitch (c, e1, List.map (fun (t, e) -> t, fixup_return_pos e) branches)
     | EMatch (f, e1, branches) ->
         EMatch (f, e1, List.map (fun (bs, pat, e) -> bs, pat, fixup_return_pos e) branches)
     | ELet (b, e1, e2) ->
@@ -1602,9 +1602,9 @@ let tail_calls =
             fail_if_self_call e1;
             ELet (b, e1, make_tail_calls e2)
 
-        | ESwitch (e, branches) ->
+        | ESwitch (c, e, branches) ->
             fail_if_self_call e;
-            ESwitch (e, List.map (fun (case, e) -> case, make_tail_calls e) branches)
+            ESwitch (c, e, List.map (fun (case, e) -> case, make_tail_calls e) branches)
 
         | EIfThenElse (e1, e2, e3) ->
             fail_if_self_call e1;
@@ -1723,14 +1723,14 @@ let rec hoist_bufcreate ifdefs (e: expr) =
       let b3, e3 = hoist_bufcreate e3 in
       b2 @ b3, mk (EIfThenElse (e1, e2, e3))
 
-  | ESwitch (e, branches) ->
+  | ESwitch (c, e, branches) ->
       let bs, branches = List.fold_left (fun (bss, branches) (t, e) ->
         let bs, e = hoist_bufcreate e in
         bs @ bss, (t, e) :: branches
       ) ([], []) branches in
       let bs = List.rev bs in
       let branches = List.rev branches in
-      bs, mk (ESwitch (e, branches))
+      bs, mk (ESwitch (c, e, branches))
 
   | EWhile (e1, e2) ->
       let bs, e2 = hoist_bufcreate e2 in
@@ -1841,8 +1841,8 @@ let rec find_pushframe ifdefs (e: expr) =
   (* Descend into conditionals that are in return position. *)
   | EIfThenElse (e1, e2, e3) ->
       mk (EIfThenElse (e1, find_pushframe ifdefs e2, find_pushframe ifdefs e3))
-  | ESwitch (e, branches) ->
-      mk (ESwitch (e, List.map (fun (t, e) -> t, find_pushframe ifdefs e) branches))
+  | ESwitch (c, e, branches) ->
+      mk (ESwitch (c, e, List.map (fun (t, e) -> t, find_pushframe ifdefs e) branches))
   | EMatch (f, e, branches) ->
       mk (EMatch (f, e, List.map (fun (t, p, e) -> t, p, find_pushframe ifdefs e) branches))
   | _ ->

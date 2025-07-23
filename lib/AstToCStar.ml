@@ -668,7 +668,7 @@ and mk_stmts env e ret_type =
     | EAbort (_, s) ->
         env, CStar.Abort (Option.value ~default:"" s) :: comment e.meta @ acc
 
-    | ESwitch (e, branches) ->
+    | ESwitch (c, e, branches) ->
         let default, branches =
           List.partition (function (SWild, _) -> true | _ -> false) branches
         in
@@ -677,7 +677,7 @@ and mk_stmts env e ret_type =
           | [] -> None
           | _ -> failwith "impossible"
         in
-        env, CStar.Switch (mk_expr env false false e,
+        env, CStar.Switch (c, mk_expr env false false e,
           List.map (fun (lid, e) ->
             (match lid with
             | SConstant k -> `Int k

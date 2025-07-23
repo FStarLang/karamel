@@ -258,7 +258,7 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
       let d1, u, e1 = merge env u e1 in
       d1, u, w (EBufFree e1)
 
-  | ESwitch (e, es) ->
+  | ESwitch (c, e, es) ->
       let ds, us, es = List.fold_left (fun (ds, us, es) (c, e) ->
         let d, u, e = merge env u e in
         d :: ds, u :: us, (c, e) :: es
@@ -267,7 +267,7 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
       let u = KList.reduce S.union us in
       let d, u, e = merge env u e in
       let d = KList.reduce S.inter (d :: ds) in
-      d, u, w (ESwitch (e, es))
+      d, u, w (ESwitch (c, e, es))
 
   | EFlat fieldexprs ->
       let fs, es = List.split fieldexprs in

@@ -1190,7 +1190,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
       env, Struct (`Variant (lookup_type env t_lid, cons), List.rev fields)
 
 
-  | ESwitch (scrut, patexprs) ->
+  | ESwitch (_, scrut, patexprs) ->
       let t = translate_type env e.typ in
       let env, scrut_ = translate_expr env fn_t_ret scrut in
       let patexprs = List.map (fun (p, e) ->

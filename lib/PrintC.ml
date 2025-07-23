@@ -464,10 +464,15 @@ and p_stmt (s: stmt) =
           group (string "case" ^/^ p_expr e ^^ colon) ^^ nest 2 (
            hardline ^^ p_stmt s
           )
-        ) branches ^^ hardline ^^
-          string "default:" ^^ nest 2 (
-           hardline ^^ p_stmt default
-          )
+        ) branches ^^ (
+          if default = Compound [] then
+            empty
+          else
+            hardline ^^
+            string "default:" ^^ nest 2 (
+             hardline ^^ p_stmt default
+            )
+        )
       )
   | Break ->
      string "break" ^^ semi

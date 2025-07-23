@@ -262,7 +262,8 @@ let try_mk_switch c e branches =
   (* TODO if the last case is a PWild then make it the default case of the
    * switch *)
   try
-    ESwitch (e, List.map (fun (_, pat, e) ->
+    let c = if !Options.unchecked_matches then Unchecked else Checked in
+    ESwitch (c, e, List.map (fun (_, pat, e) ->
       match pat.node with
       | PEnum lid -> SEnum lid, e
       | PConstant k -> SConstant k, e

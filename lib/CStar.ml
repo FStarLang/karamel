@@ -38,7 +38,7 @@ and stmt =
      * iteration expression. *)
   | Assign of expr * typ * expr
     (** Destination (i.e. Var), Source *)
-  | Switch of expr * ([`Ident of lident | `Int of K.t] * block) list * block option
+  | Switch of Ast.match_flavor * expr * ([`Ident of lident | `Int of K.t] * block) list * block option
   | BufWrite of expr * expr * expr
     (** First expression has to be a [Bound] or [Open]. *)
   | BufBlit of typ * expr * expr * expr * expr * expr

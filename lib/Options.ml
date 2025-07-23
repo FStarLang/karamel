@@ -160,6 +160,7 @@ let drop: Bundle.pat list ref = ref []
 
 (* Use for rust and eurydice *)
 let allow_tapps = ref false
+let unchecked_matches = ref false
 
 (* Rust only: foo_bar_baz.fst gets emitted as foo/bar_baz.fst with depth=1 and
    foo/bar/baz.fst with depth = 2 (you get the idea). *)

@@ -149,7 +149,7 @@ and vars_of_stmt m = function
       end
   | Assign (e, _, e') ->
       S.union (vars_of m e) (vars_of m e')
-  | Switch (e, cs, b) ->
+  | Switch (_, e, cs, b) ->
       KList.reduce S.union ([
         vars_of m e;
         match b with Some b -> vars_of_block m b | None -> S.empty
@@ -880,7 +880,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
   | While (e1, e2) ->
       [ While (mk_expr m e1, mk_compound_if (mk_stmts m e2) false) ]
 
-  | Switch (e, branches, default) ->
+  | Switch (c, e, branches, default) ->
       [ Switch (
           mk_expr m e,
           List.map (fun (ident, block) ->
@@ -895,16 +895,18 @@ and mk_stmt m (stmt: stmt): C.stmt list =
             else
               Compound [ Break ]
           ) branches,
-          match default with
-          | Some block ->
+          match default, c with
+          | Some block, _ ->
               Compound (mk_stmts m block)
-          | _ ->
+          | None, Checked ->
               let p = if !Options.c89_std then "KRML_HOST_PRINTF" else "KRML_HOST_EPRINTF" in
               Compound [
                 Expr (Call (Name p, [
                   Literal "KaRaMeL incomplete match at %s:%d\\n"; Name "__FILE__"; Name "__LINE__"  ]));
                 Expr (Call (Name "KRML_HOST_EXIT", [ Constant (K.UInt8, "253") ]))
               ]
+          | None, Unchecked ->
+              Compound []
       )]
 
   | Abort s ->
