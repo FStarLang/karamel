@@ -193,6 +193,10 @@ let one_non_constant_branch branches =
   ) branches in
   KList.one non_constant
 
+(* In addition to the scheme (above), we thread two additional maps throughout the compilation of
+   data types: the first one maps a set of identifiers and enum value to a type declaration, and is
+   useful to deduplicate tag declarations that are identical; the second one records that, should an
+   identical declaration be found, the latter type becomes and alias for the former. *)
 let build_scheme_map files =
   let map = build_map files (fun map -> function
     | DType (lid, _, _, 0, Variant branches) ->
@@ -217,6 +221,8 @@ let build_scheme_map files =
         | _ ->
             ()
         end
+    | DType (lid, _, _, 0, Enum _) ->
+        Hashtbl.add map lid ToEnum
     | DType (lid, _, _, 0, Flat [ _, (t, _) ]) when not (Helpers.is_array t) ->
         Hashtbl.add map lid (Eliminate t)
     | _ ->
