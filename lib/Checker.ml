@@ -465,14 +465,14 @@ and check' env t e =
       | lid, ts, cgs when kind env lid = Some Record ->
           let fieldtyps = assert_flat env (lookup_type env lid) in
           let fieldtyps = List.map (fun (field, (typ, m)) ->
-            field, (DeBruijn.subst_tn ts (DeBrujin.subst_ctn' cgs typ), m)
+            field, (DeBruijn.subst_tn ts (DeBruijn.subst_ctn' cgs typ), m)
           ) fieldtyps in
           check_fields_opt env fieldexprs fieldtyps
 
       | lid, ts, cgs when kind env lid = Some Union ->
           let fieldtyps = assert_union env (lookup_type env lid) in
           let fieldtyps = List.map (fun (field, typ) ->
-            field, DeBruijn.subst_tn ts (DeBrujin.subst_ctn' cgs typ)
+            field, DeBruijn.subst_tn ts (DeBruijn.subst_ctn' cgs typ)
           ) fieldtyps in
           check_union env fieldexprs fieldtyps
 
