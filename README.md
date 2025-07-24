@@ -3,7 +3,7 @@ KaRaMeL
 
 | Linux  |
 |---------|
-| [![Build and Deploy](https://github.com/FStarLang/karamel/actions/workflows/linux-x64-hierarchic.yaml/badge.svg)](https://github.com/FStarLang/karamel/actions/workflows/linux-x64-hierarchic.yaml) |
+[![CI](https://github.com/FStarLang/karamel/actions/workflows/ci.yml/badge.svg)](https://github.com/FStarLang/karamel/actions/workflows/ci.yml)
 
 KaRaMeL (formerly known as KReMLin) is a tool that extracts an F\* program to
 readable C code: K&R meets ML!
