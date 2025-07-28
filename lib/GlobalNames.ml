@@ -319,14 +319,14 @@ let target_c_name ~attempt_shortening ?(kind=Other) lid =
 let to_c_name m (lid, kind) =
   try
     (* If a regular identifier is not found, it may be the case that it was registered as a macro. *)
-    let lid = if false && not (Hashtbl.mem m (lid, kind)) && kind = Other then lid, Macro else lid, kind in
+    let lid = if not (Hashtbl.mem m (lid, kind)) && kind = Other then lid, Macro else lid, kind in
     let r = fst (Hashtbl.find m lid) in
-    KPrint.bprintf "%a --> %s\n" plid (fst lid) r;
+    (* KPrint.bprintf "%a --> %s\n" plid (fst lid) r; *)
     r
   with Not_found ->
     (* Note: this happens for external types which are not retained as DType
        nodes and therefore are not recorded in the initial name-assignment
        phase. *)
     let r = Idents.to_c_identifier (fst (target_c_name ~kind ~attempt_shortening:false lid)) in
-    KPrint.bprintf "%a !!! %s\n" plid lid r;
+    (* KPrint.bprintf "%a !!! %s\n" plid lid r; *)
     r
