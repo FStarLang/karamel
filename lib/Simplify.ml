@@ -1520,9 +1520,9 @@ class scope_helpers = object (self)
     let is_private = self#is_private_scope flags lident in
     let local_scope = Hashtbl.find local_scopes current_file in
     let attempt_shortening = is_private && not is_external in
-    let target = GlobalNames.target_c_name ~attempt_shortening ~kind lident in
+    let target = GlobalNames.target_c_name ~kind ~attempt_shortening lident in
     (* KPrint.bprintf "%a --> %s\n" plid lident (fst target); *)
-    let c_name = GlobalNames.extend global_scope local_scope is_private lident target in
+    let c_name = GlobalNames.extend global_scope local_scope is_private (lident, kind) target in
     if not is_private then
       Hashtbl.add original_of_c_name c_name lident
 end
@@ -1554,7 +1554,7 @@ let record_toplevel_names = object (self)
     if not (Hashtbl.mem forward name) then
       self#record env ~is_type:true ~is_external:false flags name;
     match def with
-    | Enum lids -> List.iter (fun (lid, _) -> self#record env ~is_type:true ~is_external:false flags lid) lids
+    | Enum lids -> List.iter (fun (lid, _) -> self#record env ~is_type:false ~is_external:false flags lid) lids
     | Forward _ -> Hashtbl.add forward name ()
     | _ -> ()
 end

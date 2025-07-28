@@ -60,7 +60,7 @@ let assert_var m =
   | Var v ->
       v
   | Qualified v ->
-      to_c_name m v
+      to_c_name m (v, Other)
   | e -> Warn.fatal_error
       "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = \n%s is not a var"
       (show_expr e)
@@ -72,7 +72,7 @@ let rec vars_of m = function
       S.singleton v
   | Qualified v
   | Macro v ->
-      S.singleton (to_c_name m v)
+      S.singleton (to_c_name m (v, Other))
   | Constant _
   | Bool _
   | StringLiteral _
@@ -302,9 +302,10 @@ let rec mk_spec_and_decl m name qs (t: typ) (k: C.declarator -> C.declarator):
   | Void ->
       qs, Void, k (Ident name)
   | Qualified l ->
-      qs, Named (mk_pretty_type (to_c_name ~kind:Type m l)), k (Ident name)
+      qs, Named (mk_pretty_type (to_c_name m (l, Type))), k (Ident name)
   | Enum tags ->
-      let tags = List.map (fun (lid, v) -> to_c_name m lid, v) tags in
+      (* Important: the tags of an enum live in the value namespace, not the type namespace. *)
+      let tags = List.map (fun (lid, v) -> to_c_name m (lid, Other), v) tags in
       qs, Enum (None, tags), k (Ident name)
   | Bool ->
       let bool = if !Options.microsoft then "BOOLEAN" else "bool" in
@@ -885,7 +886,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
           mk_expr m e,
           List.map (fun (ident, block) ->
             (match ident with
-            | `Ident ident -> Name (to_c_name m ident)
+            | `Ident ident -> Name (to_c_name m (ident, Other))
             | `Int k -> Constant k),
             let block = mk_stmts m block in
             if List.length block > 0 then
@@ -1081,9 +1082,10 @@ and mk_expr m (e: expr): C.expr =
   | Var ident ->
       Name ident
 
-  | Qualified ident
+  | Qualified ident ->
+      Name (to_c_name m (ident, Other))
   | Macro ident ->
-      Name (to_c_name m ident)
+      Name (to_c_name m (ident, Macro))
 
   | Constant (w, c) ->
       (* See discussion in AstToCStar.ml, around mk_arith. *)
@@ -1150,7 +1152,7 @@ and mk_expr m (e: expr): C.expr =
 
 
 and mk_compound_literal m name fields =
-  let name = to_c_name m name in
+  let name = to_c_name m (name, Type) in
   match fields with
   | [ Some "tag", e1; Some "val", Struct (_, [ Some case, e2 ]) ] when !Options.cxx17_compat ->
       (* Hack that generates foo_s(tag, &foo_s::U::case_bar, value ...) *)
@@ -1245,7 +1247,7 @@ let mk_function_or_global_body m (d: decl): C.declaration_or_function list =
       if is_primitive name then
         []
       else
-        let name = to_c_name m name in
+        let name = to_c_name m (name, Other) in
         begin try
           let static = if List.exists ((=) Private) flags then Some Static else None in
           let inline =
@@ -1272,7 +1274,7 @@ let mk_function_or_global_body m (d: decl): C.declaration_or_function list =
       if is_primitive name || macro then
         []
       else
-        let name = to_c_name m name in
+        let name = to_c_name m (name, Other) in
         let t = strengthen_array m t expr in
         let alignment = if is_array t then mk_alignment m (assert_array t) else None in
         let t = if List.mem (Common.Const "") flags then CStar.Const t else t in
@@ -1309,7 +1311,7 @@ let mk_function_or_global_stub m (d: decl): C.declaration_or_function list =
       if is_primitive name then
         []
       else
-        let name = to_c_name m name in
+        let name = to_c_name m (name, Other) in
         begin try
           let parameters = List.map (fun { name; typ } -> name, typ) parameters in
           let qs, spec, decl = mk_spec_and_declarator_f m cc name return_type parameters in
@@ -1326,7 +1328,7 @@ let mk_function_or_global_stub m (d: decl): C.declaration_or_function list =
       if is_primitive name || macro then
         []
       else
-        let name = to_c_name m name in
+        let name = to_c_name m (name, Other) in
         let t = strengthen_array m t expr in
         let t = if List.mem (Common.Const "") flags then CStar.Const t else t in
         let qs, spec, decl = mk_spec_and_declarator m name t in
@@ -1353,16 +1355,16 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
   in
   match d with
   | TypeForward (name, flags, k) ->
-      let name = to_c_name m name in
+      let name = to_c_name m (name, Type) in
       mk_forward_decl name flags k
   | Type (name, Struct _, flags) when w = H && List.mem AbstractStruct flags ->
-      let name = to_c_name m name in
+      let name = to_c_name m (name, Type) in
       mk_forward_decl name flags FStruct
   | Type (name, t, flags) ->
       if is_primitive name || (is_inline_static && declared_in_library name) then
         []
       else begin
-        let name = to_c_name m name in
+        let name = to_c_name m (name, Type) in
         match t with
         | Enum cases when !Options.short_enums ->
             (* Note: EEnum translates as just a name -- so we don't have to
@@ -1397,7 +1399,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
               else
                 failwith "TODO: support for negative enum values"
             in
-            let cases = List.map (fun (lid, v) -> to_c_name m lid, v) cases in
+            let cases = List.map (fun (lid, v) -> to_c_name m (lid, Other), v) cases in
             wrap_verbatim name flags (Text (enum_as_macros cases)) @
             let qs, spec, decl = mk_spec_and_declarator_t m name (Int t) in
             [ Decl ([], (qs, spec, None, Some Typedef, { maybe_unused = false; target = None }, [ decl, None, None ]))]
@@ -1412,7 +1414,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
       then
         []
       else
-        let name = to_c_name m name in
+        let name = to_c_name m (name, Other) in
         let missing_names = List.length ts - List.length pp in
         let arg_names =
           if missing_names >= 0 then
@@ -1437,13 +1439,13 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
       then
         []
       else
-        let name = to_c_name m name in
+        let name = to_c_name m (name, Other) in
         let qs, spec, decl = mk_spec_and_declarator m name t in
         wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, Some Extern, { maybe_unused = false; target = None }, [ decl, None, None ])))
 
   | Global (name, macro, flags, _, body) when macro && not (is_inline_static && declared_in_library name) ->
       (* Macros behave like types, they ought to be declared once. *)
-      let name = to_c_name m name in
+      let name = to_c_name m (name, Other) in
       wrap_verbatim name flags (Macro (mk_comments flags, name, mk_expr m body))
 
   | Function _ | Global _ ->
@@ -1495,7 +1497,7 @@ let if_header_inline_static m f1 f2 d =
   let is_inline_static =
     List.exists (fun p ->
       (* Only things that end up in headers are in the reverse-map. *)
-      Hashtbl.mem m lid &&
+      (Hashtbl.mem m (lid, GlobalNames.Other) || Hashtbl.mem m (lid, GlobalNames.Type)) &&
       Bundle.pattern_matches_lid p lid)
     !Options.static_header ||
     List.mem lid [
@@ -1516,7 +1518,7 @@ let if_header_inline_static m f1 f2 d =
     f2 d
 
 (* Building a .c file *)
-let mk_file m decls =
+let mk_file (m: GlobalNames.mapping) decls =
   (* In the C file, we put function bodies, global bodies, and type
    * definitions and external definitions that were private to the file only.
    * *)

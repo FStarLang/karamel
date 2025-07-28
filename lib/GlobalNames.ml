@@ -316,11 +316,17 @@ let target_c_name ~attempt_shortening ?(kind=Other) lid =
   let formatted_name = if kind = Macro then String.uppercase_ascii formatted_name else formatted_name in
   formatted_name, non_modular_renaming
 
-let to_c_name m lid =
+let to_c_name m (lid, kind) =
   try
-    fst (Hashtbl.find m lid)
+    (* If a regular identifier is not found, it may be the case that it was registered as a macro. *)
+    let lid = if false && not (Hashtbl.mem m (lid, kind)) && kind = Other then lid, Macro else lid, kind in
+    let r = fst (Hashtbl.find m lid) in
+    KPrint.bprintf "%a --> %s\n" plid (fst lid) r;
+    r
   with Not_found ->
     (* Note: this happens for external types which are not retained as DType
        nodes and therefore are not recorded in the initial name-assignment
        phase. *)
-    Idents.to_c_identifier (fst (target_c_name ~kind:(snd lid) ~attempt_shortening:false (fst lid)))
+    let r = Idents.to_c_identifier (fst (target_c_name ~kind ~attempt_shortening:false lid)) in
+    KPrint.bprintf "%a !!! %s\n" plid lid r;
+    r
