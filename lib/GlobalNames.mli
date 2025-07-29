@@ -3,18 +3,28 @@
 
 type t
 
-type mapping = (Ast.lident, Ast.ident * bool) Hashtbl.t
+type kind = Macro | Type | Other
+
+(* Each name lives in one of three namespaces: macros, types, or other identifiers. Any two
+   namespaces conflict with one another, except for types and other identifiers. *)
+type mapping = (Ast.lident * kind, Ast.ident * bool) Hashtbl.t
 
 (** Allocate a new (mutable) table for a given C scope of top-level declarations. *)
 val create: unit -> t
 
-(** `extend t name c_name` tries to associate `c_name` to `name` in the table
- * `t`. If case there is a name conflict or `c_name` is an invalid C identifier,
- * a suitable replacement name based on `c_name` will be chosen. *)
-val extend: t -> t -> bool -> Ast.lident -> (string * bool) -> string
+(** Given:
+  - a global mapping, meaning names that are externally-visible (to a given krml run)
+  - a local mapping, for names that are local to this file only,
+  - a flag that indicates whether the name is local
+  - a source name in a particular namespace
+  - the result of a call to `target_c_name`
+  the `extend` function returns a C name that is guaranteed to not cause conflicts, and modifies the
+  global and local mappings accordingly. *)
+val extend: t -> t -> bool -> Ast.lident * kind -> (string * bool) -> string
 
-(** `lookup t name fallback` recalls the C name associated to `name` in `t`. *)
-val lookup: t -> Ast.lident -> string option
+(** `lookup t name fallback` recalls the name associated to `name` in `t`, or returns `None`; unlike
+    `to_c_name`, should the name not be in the map, the function does not make a default choice *)
+val lookup: t -> Ast.lident * kind -> string option
 
 val mapping: t -> mapping
 
@@ -22,11 +32,11 @@ val dump: t -> unit
 
 val clone: t -> t
 
-type kind = Macro | Type | Other
-
 val target_c_name: attempt_shortening:bool -> ?kind:kind -> Ast.lident -> string * bool
 
-val to_c_name: ?kind:kind -> mapping -> Ast.lident -> string
+(* Lookup a name, providing a built-in, deterministic, C-compatible fallback name for `lident`s that
+   are not mapped. *)
+val to_c_name: mapping -> Ast.lident * kind -> string
 
 val pascal_case: string -> string
 val camel_case: string -> string

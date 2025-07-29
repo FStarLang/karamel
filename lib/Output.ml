@@ -245,7 +245,7 @@ let write_def m c_files =
       List.iter (function
         | Ast.DFunction (_, flags, _, _, _, name, _, _)
           when not (List.mem Common.Private flags) ->
-            let name = GlobalNames.to_c_name m name in
+            let name = GlobalNames.to_c_name m (name, Other) in
             KPrint.bfprintf oc "  %s\n" name
         | _ -> ()
       ) decls
@@ -256,7 +256,9 @@ let write_renamings (m: GlobalNames.mapping) =
   create_subdir "clients";
   let dst = in_tmp_dir "clients/krmlrenamings.h" in
   with_open_out_bin dst (fun oc ->
-    Hashtbl.iter (fun original_name (new_name, non_modular_renaming) ->
+    (* Another imprecision here: this strategy won't work if two names live in `Type` and `Other`
+       namespaces, *and* share the same name, *and* are both subject to non-modular renamings. *)
+    Hashtbl.iter (fun (original_name, _) (new_name, non_modular_renaming) ->
       (* Note: there is a slight imprecision here. If the original name WOULD
          HAVE BEEN renamed because of a name collision, then this renaming map
          will be incorrect. We would to track two maps in GlobalNames, the

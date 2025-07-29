@@ -953,10 +953,12 @@ and mk_declaration m env d: (CStar.decl * _) option =
         Some (CStar.External (name, add_cc (mk_type env t), flags, pp), [])
 
   | DType (name, flags, _, _, Forward k) ->
-      Some (CStar.TypeForward (name, flags, k), [ GlobalNames.to_c_name m name ])
+      (* XXX why is every other name converted to a C name in CStarToC11, except for these two cases
+         here? *)
+      Some (CStar.TypeForward (name, flags, k), [ GlobalNames.to_c_name m (name, Type) ])
 
   | DType (name, flags, 0, 0, def) ->
-      Some (CStar.Type (name, mk_type_def env def, flags), [ GlobalNames.to_c_name m name ] )
+      Some (CStar.Type (name, mk_type_def env def, flags), [ GlobalNames.to_c_name m (name, Type) ] )
 
   | DType _ ->
       None

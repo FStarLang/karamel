@@ -174,7 +174,7 @@ let rec runtime_type (env: env) (t: typ): runtime_type =
           Unknown
       | LEnum -> Int A32
       | LBuiltin (_, s) -> Int s
-      | _ -> Layout (GlobalNames.to_c_name env.names lid)
+      | _ -> Layout (GlobalNames.to_c_name env.names (lid, Type))
       end
   | TAnonymous (Union branches) ->
       Union (List.map (fun (_, t) -> runtime_type env t) branches)
@@ -548,11 +548,11 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
         ) fields
     | EString s ->
         write_le dst ofs Helpers.uint32 (Z.of_int (Hashtbl.hash s));
-        let name = GlobalNames.to_c_name env.names lid in
+        let name = GlobalNames.to_c_name env.names (lid, Other) in
         [ CF.BufWrite (CF.GetGlobal name, ofs, CF.StringLiteral s, A32) ]
     | EQualified lid' ->
-        let name = GlobalNames.to_c_name env.names lid in
-        let name' = GlobalNames.to_c_name env.names lid' in
+        let name = GlobalNames.to_c_name env.names (lid, Other) in
+        let name' = GlobalNames.to_c_name env.names (lid', Other) in
         (* This is to disable constant string initializers sharing -- we write a
          * dummy value. *)
         write_le dst ofs Helpers.uint32 (Z.of_int (Hashtbl.hash name'));
@@ -661,7 +661,7 @@ and mk_addr env e =
       | TBuf _ -> ()
       | TQualified lid -> assert (is_lflat (LidMap.find lid env.layouts))
       | _ -> () end;
-      let name = GlobalNames.to_c_name env.names lid in
+      let name = GlobalNames.to_c_name env.names (lid, Other) in
       CF.GetGlobal name
   | EAbort _ ->
       mk_expr_no_locals env e
@@ -757,7 +757,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | EApp ({ node = EQualified ident; _ }, es) ->
       let locals, es = fold (mk_expr env) locals es in
-      locals, CF.CallFunc (GlobalNames.to_c_name env.names ident, es)
+      locals, CF.CallFunc (GlobalNames.to_c_name env.names (ident, Other), es)
 
   | EApp _ ->
       failwith "unsupported application"
@@ -769,7 +769,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.Constant (K.UInt32, string_of_int (LidMap.find v env.enums))
 
   | EQualified v ->
-      locals, CF.GetGlobal (GlobalNames.to_c_name env.names v)
+      locals, CF.GetGlobal (GlobalNames.to_c_name env.names (v, Other))
 
   | EBufCreate (l, e_init, e_len) ->
       if not (e_init.node = EAny) then
@@ -1036,7 +1036,7 @@ let mk_decl env (d: decl): env * CF.decl list =
       ) ([], env) args in
       let locals = List.rev_append scratch_locals locals in
       current_lid := name;
-      let name = GlobalNames.to_c_name env.names name in
+      let name = GlobalNames.to_c_name env.names (name, Other) in
 
       (* Interlude: generate a wrapper, possibly *)
       let wrapper () = mk_wrapper name (List.length args) locals in
@@ -1072,13 +1072,13 @@ let mk_decl env (d: decl): env * CF.decl list =
         env, []
       end else
         let env, body, post_init = mk_global env name body in
-        let name = GlobalNames.to_c_name env.names name in
+        let name = GlobalNames.to_c_name env.names (name, Other) in
         env, [
           CF.Global (name, size, body, post_init, public)
         ]
 
   | DExternal (_, _, _, _, lid, t, _) ->
-      let name = GlobalNames.to_c_name env.names lid in
+      let name = GlobalNames.to_c_name env.names (lid, Other) in
       match t with
       | TArrow _ ->
           let ret, args = Helpers.flatten_arrow t in
@@ -1131,7 +1131,7 @@ let mk_module env decls =
 
 let mk_layouts env =
   `Assoc (LidMap.fold (fun lid layout acc ->
-    (GlobalNames.to_c_name env.names lid, layout_to_yojson layout) :: acc
+    (GlobalNames.to_c_name env.names (lid, Type), layout_to_yojson layout) :: acc
   ) env.layouts [])
 
 let report_failures () =
