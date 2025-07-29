@@ -953,6 +953,8 @@ and mk_declaration m env d: (CStar.decl * _) option =
         Some (CStar.External (name, add_cc (mk_type env t), flags, pp), [])
 
   | DType (name, flags, _, _, Forward k) ->
+      (* XXX why is every other name converted to a C name in CStarToC11, except for these two cases
+         here? *)
       Some (CStar.TypeForward (name, flags, k), [ GlobalNames.to_c_name m (name, Type) ])
 
   | DType (name, flags, 0, 0, def) ->
@@ -977,7 +979,6 @@ and mk_type_def env d: CStar.typ =
       failwith "Variant should've been desugared at this stage"
 
   | Enum tags ->
-      (* TODO run through GlobalNames here?? *)
       CStar.Enum tags
 
   | Union fields ->

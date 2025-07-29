@@ -1508,21 +1508,25 @@ class scope_helpers = object (self)
   method private is_private_scope flags lident =
     List.mem Common.Private flags && not (Helpers.is_static_header lident)
 
-  method private record (global_scope, local_scopes) ~is_type ~is_external flags lident =
-    let kind =
+  (* FIXME: there are too many overlapping flags for this function --
+     just do `Type | `External | `Other | `EnumCase *)
+  method private record (global_scope, local_scopes) ~is_type ~is_external ?(is_enum=false) flags lident =
+    let kind_name, kind_scope =
       if is_type then
-        GlobalNames.Type
+        GlobalNames.(Type, Type)
+      else if is_enum then
+        Other, (if !Options.short_enums then Macro else Other)
       else if List.mem Common.Macro flags || List.mem Common.IfDef flags then
-        Macro
+        Macro, Macro
       else
-        Other
+        Other, Other
     in
     let is_private = self#is_private_scope flags lident in
     let local_scope = Hashtbl.find local_scopes current_file in
     let attempt_shortening = is_private && not is_external in
-    let target = GlobalNames.target_c_name ~kind ~attempt_shortening lident in
-    (* KPrint.bprintf "%a --> %s\n" plid lident (fst target); *)
-    let c_name = GlobalNames.extend global_scope local_scope is_private (lident, kind) target in
+    let target = GlobalNames.target_c_name ~kind:kind_name ~attempt_shortening lident in
+    (* KPrint.bprintf "%a (enum: %b) --> %s\n" plid lident is_enum (fst target); *)
+    let c_name = GlobalNames.extend global_scope local_scope is_private (lident, kind_scope) target in
     if not is_private then
       Hashtbl.add original_of_c_name c_name lident
 end
@@ -1554,7 +1558,9 @@ let record_toplevel_names = object (self)
     if not (Hashtbl.mem forward name) then
       self#record env ~is_type:true ~is_external:false flags name;
     match def with
-    | Enum lids -> List.iter (fun (lid, _) -> self#record env ~is_type:false ~is_external:false flags lid) lids
+    | Enum lids -> List.iter (fun (lid, _) ->
+        self#record env ~is_type:false ~is_external:false ~is_enum:true flags lid
+      ) lids
     | Forward _ -> Hashtbl.add forward name ()
     | _ -> ()
 end
