@@ -1111,8 +1111,10 @@ and subtype env t1 t2 =
       true
   | TCgArray (t1, l1), TCgArray (t2, l2) when subtype env t1 t2 && l1 = l2 ->
       true
+  | TBuf (t1, _), TCgArray (t2, _)
   | TCgArray (t1, _), TBuf (t2, _) when subtype env t1 t2 ->
       true
+  | TBuf (t1, _), TArray (t2, _)
   | TArray (t1, _), TBuf (t2, _) when subtype env t1 t2 ->
       true
   | TBuf (t1, b1), TBuf (t2, b2) when subtype env t1 t2 && (b1 <= b2) ->
