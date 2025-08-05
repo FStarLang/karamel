@@ -129,7 +129,8 @@ and p_type_declarator d =
     | Ident n ->
         string n
     | Array (qs, d, s) ->
-        p_noptr d ^^ lbracket ^^ p_qualifiers_break qs ^^ p_expr s ^^ rbracket
+        let s = match s with Some s -> p_expr s | None -> empty in
+        p_noptr d ^^ lbracket ^^ p_qualifiers_break qs ^^ s ^^ rbracket
     | Function (cc, d, params) ->
         let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
         let params =
