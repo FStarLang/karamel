@@ -811,7 +811,7 @@ and mk_return_type env = function
   | TInt w ->
       CStar.Int w
   | TArray (t, k) ->
-      CStar.Array (mk_type env t, CStar.Constant k)
+      CStar.Array (mk_type env t, Some (CStar.Constant k))
   | TBuf (t, true) ->
       CStar.(Pointer (Const (mk_type env t)))
   | TBuf (t, false) ->
@@ -830,11 +830,17 @@ and mk_return_type env = function
       CStar.Function (None, mk_return_type env ret, List.map (mk_type env) args)
   | TBound _ ->
       fatal_error "Internal failure: no TBound here"
-  | TApp (lid, _) ->
+  | TApp (lid, ts) ->
+     begin
+      match ts with
+      | [ t ] when lid = (["Eurydice"], "derefed_slice") ->
+        CStar.Array (mk_type env t, None)
+      | _ ->
       if !Options.allow_tapps || whitelisted_lid lid then
         CStar.Qualified lid
       else
         raise_error (ExternalTypeApp lid)
+     end
   | TTuple _ ->
       fatal_error "Internal failure: TTuple not desugared here"
   | TAnonymous t ->

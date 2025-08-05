@@ -113,7 +113,7 @@ and typ =
   | Pointer of typ
   | Void
   | Qualified of lident
-  | Array of typ * expr
+  | Array of typ * expr option
   | Function of calling_convention option * typ * typ list
       (** Return type, arguments *)
   | Bool
