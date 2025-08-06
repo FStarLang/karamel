@@ -286,8 +286,9 @@ let rec mk_spec_and_decl m name qs (t: typ) (k: C.declarator -> C.declarator):
       (* F* guarantees that the initial size of arrays is always something
        * reasonable (i.e. <4GB). *)
       let size = match size with
-        | Constant k -> C.Constant k
-        | _ -> mk_expr m size
+        | Some (Constant k) -> Some (C.Constant k)
+        | Some size -> Some (mk_expr m size)
+        | None -> None
       in
       mk_spec_and_decl m name qs t (fun d -> Array ([], k d, size))
   | Function (cc, t, ts) ->
@@ -549,7 +550,7 @@ and ensure_array_l t inits =
   assert (List.for_all (function BufCreate _ -> false | _ -> true) inits);
   match t with
   | Pointer t ->
-      Array (t, (Constant (K.uint32_of_int (List.length inits))))
+      Array (t, Some (Constant (K.uint32_of_int (List.length inits))))
   | _ ->
       t
 
@@ -563,11 +564,11 @@ and ensure_array m (t : CStar.typ) (expr : CStar.expr) : CStar.typ * CStar.expr 
   match t, expr with
   | Pointer t, BufCreate ((Stack | Eternal), init, len)  ->
       let _, init, len', size' = ensure_array m t init in
-      Array (t, len), init, len, cmul (mk_expr m len') size'
+      Array (t, Some len), init, len, cmul (mk_expr m len') size'
   | Array (t, l), BufCreate ((Stack | Eternal), init, len) ->
-      assert (l = len);
+      assert (l = Some len);
       let _, init, len', size' = ensure_array m t init in
-      Array (t, len), init, len, cmul (mk_expr m len') size'
+      Array (t, Some len), init, len, cmul (mk_expr m len') size'
   | _ ->
       t, expr, CStar.Constant (K.UInt8, "1"), C.Sizeof (C.Type (mk_type m t))
 
@@ -709,7 +710,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
          for the array will contain it. *)
       let t =
         match t with
-        | Array (et, _len) -> Array (et, cstar_n_elements)
+        | Array (et, Some _len) -> Array (et, Some cstar_n_elements)
         | t -> t
       in
 
