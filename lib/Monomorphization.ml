@@ -212,6 +212,10 @@ let has_variables ts =
       inherit [_] reduce
       method zero = false
       method plus = (||)
+      method! visit_CgVar _ _ =
+        true
+      method! visit_TCgArray _ _ _ =
+        true
       method! visit_TBound _ _ =
         true
     end)#visit_TApp () ([], "") ts
@@ -359,7 +363,7 @@ let monomorphize_data_types map = object(self)
           Hashtbl.add state n (Gray, chosen_lid, false);
 
           let subst fields = List.map (fun (field, (t, m)) ->
-            field, (DeBruijn.subst_ctn' cgs (DeBruijn.subst_tn args t), m)
+            field, (DeBruijn.subst_tn args (DeBruijn.subst_ctn' cgs t), m)
           ) fields in
           assert (not (Hashtbl.mem map lid) || not (has_variables args) && not (has_cg_variables cgs));
           begin match Hashtbl.find map lid with
@@ -561,10 +565,11 @@ let monomorphize_data_types map = object(self)
 
   method! visit_TCgApp under_ref t cg =
     let lid, ts, cgs = flatten_tapp (TCgApp (t, cg)) in
-    if Hashtbl.mem map lid && not (has_variables ts) && not (has_cg_variables cgs) then
+    if Hashtbl.mem map lid && not (has_variables (List.map (DeBruijn.subst_ctn' cgs) ts)) && not (has_cg_variables cgs) then
       TQualified (self#visit_node under_ref (lid, ts, cgs))
     else
-      super#visit_TCgApp under_ref t cg
+      let ts = List.map (self#visit_typ under_ref) ts in
+      fold_tapp (lid, ts, cgs)
 
   method! visit_TBuf _ t const =
     TBuf (self#visit_typ true t, const)
