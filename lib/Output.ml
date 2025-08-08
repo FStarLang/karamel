@@ -124,7 +124,7 @@ let prefix_suffix which original_name name =
     hardline ^^
     (if !Options.extern_c then if_cpp (string "}") else empty) ^^ hardline ^^
     string (Printf.sprintf "#define %s_H_DEFINED" macro_name) ^^ hardline ^^
-    string (Printf.sprintf "#endif /* %s_H /*" macro_name)
+    string (Printf.sprintf "#endif /* %s_H */" macro_name)
   in
   prefix, suffix
 
