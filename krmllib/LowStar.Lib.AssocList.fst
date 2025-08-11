@@ -5,8 +5,6 @@ module LowStar.Lib.AssocList
 module B = LowStar.Buffer
 module HS = FStar.HyperStack
 module G = FStar.Ghost
-module L = FStar.List.Tot
-module U32 = FStar.UInt32
 module ST = FStar.HyperStack.ST
 
 module M = FStar.Map
@@ -181,11 +179,13 @@ let rec remove_all_ #t_k #t_v hd l k =
   end
 #pop-options
 
+#push-options "--fuel 1"
 let remove_all #_ #_ ll k =
   let open LL2 in
   let hd, v = remove_all_ !*ll.ptr !*ll.v k in
   ll.ptr *= hd;
   ll.v *= v
+#pop-options
 
 /// Clearing (resetting)
 /// --------------------

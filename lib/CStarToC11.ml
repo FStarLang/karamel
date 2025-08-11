@@ -14,6 +14,12 @@ let is_primitive = Helpers.is_primitive
 
 let zero = C.Constant (K.UInt8, "0")
 
+let cmul x y =
+  match x, y with
+  | C.Constant (_, "1"), _ -> y
+  | _, C.Constant (_, "1") -> x
+  | _ -> C.Op2 (K.Mult, x, y)
+
 let is_array = function Array _ -> true | _ -> false
 let is_var = function Var _ -> true | _ -> false
 let is_call = function
@@ -54,7 +60,7 @@ let assert_var m =
   | Var v ->
       v
   | Qualified v ->
-      to_c_name m v
+      to_c_name m (v, Other)
   | e -> Warn.fatal_error
       "TODO: for (int i = 0, t tmp = e1; i < ...; ++i) tmp[i] = \n%s is not a var"
       (show_expr e)
@@ -66,7 +72,7 @@ let rec vars_of m = function
       S.singleton v
   | Qualified v
   | Macro v ->
-      S.singleton (to_c_name m v)
+      S.singleton (to_c_name m (v, Other))
   | Constant _
   | Bool _
   | StringLiteral _
@@ -208,31 +214,42 @@ let bytes_in = function
   | Qualified ([ "Lib"; "IntVector"; "Intrinsics" ], "vec32") -> Some (32 / 8)
   | _ -> None
 
-(* Trim all trailing zeroes from an initializer list (per the C standard, static
- * initializers guarantee for missing fields that they're initialized as if they
- * had static storage duration, i.e. with zero.). For prettyness, leave at least
- * one zero, unless the array was empty to start with (admissible with globals). *)
-let is_zero = function
-  | InitExpr (C11.Constant (_, "0")) -> true
-  | InitExpr (C11.Cast (_, Constant (_, "0"))) -> true
+(* https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3088.pdf 6.7.10
+
+  The goal of this function is to generate an initializer list that is i) compact and ii) sensible.
+
+  For compactness, it appears that owing to §20 and §22 above, one can just omit remaining fields /
+  indices when their initial value is zero (since they are initialized as if they had static storage
+  duration).
+
+  For sensibility, we don't want to be *too* smart and e.g. omit the last field of a struct if it
+  statically known to be zero; we also want to emit { 0 } for subarrays, not {} which is C++/C23
+  syntax for default (i.e. zero) initialization.
+*)
+let is_zero_expr = function
+  | C11.Constant (_, "0") -> true
+  | C11.Cast (_, Constant (_, "0")) -> true
   | _ -> false
 
-let trim_trailing_zeros l =
-  let rec all_zeros = function
-    | Initializer inits -> List.for_all all_zeros inits
-    | init -> is_zero init
-  in
+let rec is_zero = function
+  | InitExpr e -> is_zero_expr e
+  | Designated (_, _i) -> false (* too smart: is_zero i *)
+  | Initializer is -> List.for_all is_zero is
 
-  let rec trim_trailing_zeros: C11.init list -> C11.init list = function
-    | hd :: tl when all_zeros hd -> trim_trailing_zeros tl
+let rec trim_trailing_zeros l =
+  match l with
+  | Initializer [] -> Initializer []
+  | InitExpr e -> InitExpr e
+  | Designated (d, init) -> Designated (d, trim_trailing_zeros init)
+  | Initializer l -> Initializer (List.map trim_trailing_zeros (chop_zeros l))
+
+and chop_zeros is =
+  let rec chop_zeros = function
+    | hd :: tl when is_zero hd -> chop_zeros tl
     | [] -> [ InitExpr (C11.Constant (K.UInt32, "0")) ]
     | l -> List.rev l
   in
-
-  match l with
-  | Initializer [] -> Initializer []
-  | Initializer l -> Initializer (trim_trailing_zeros (List.rev l))
-  | l -> l
+  chop_zeros (List.rev is)
 
 let workaround_gcc_bug53119_fml t init =
   let rec array_nesting = function
@@ -269,8 +286,9 @@ let rec mk_spec_and_decl m name qs (t: typ) (k: C.declarator -> C.declarator):
       (* F* guarantees that the initial size of arrays is always something
        * reasonable (i.e. <4GB). *)
       let size = match size with
-        | Constant k -> C.Constant k
-        | _ -> mk_expr m size
+        | Some (Constant k) -> Some (C.Constant k)
+        | Some size -> Some (mk_expr m size)
+        | None -> None
       in
       mk_spec_and_decl m name qs t (fun d -> Array ([], k d, size))
   | Function (cc, t, ts) ->
@@ -285,9 +303,10 @@ let rec mk_spec_and_decl m name qs (t: typ) (k: C.declarator -> C.declarator):
   | Void ->
       qs, Void, k (Ident name)
   | Qualified l ->
-      qs, Named (mk_pretty_type (to_c_name ~kind:Type m l)), k (Ident name)
+      qs, Named (mk_pretty_type (to_c_name m (l, Type))), k (Ident name)
   | Enum tags ->
-      let tags = List.map (fun (lid, v) -> to_c_name m lid, v) tags in
+      (* Important: the tags of an enum live in the value namespace, not the type namespace. *)
+      let tags = List.map (fun (lid, v) -> to_c_name m (lid, Other), v) tags in
       qs, Enum (None, tags), k (Ident name)
   | Bool ->
       let bool = if !Options.microsoft then "BOOLEAN" else "bool" in
@@ -531,22 +550,27 @@ and ensure_array_l t inits =
   assert (List.for_all (function BufCreate _ -> false | _ -> true) inits);
   match t with
   | Pointer t ->
-      Array (t, (Constant (K.uint32_of_int (List.length inits))))
+      Array (t, Some (Constant (K.uint32_of_int (List.length inits))))
   | _ ->
       t
 
-and ensure_array m t expr =
-  let mul x y = C.Op2 (K.Mult, x, y) in
+(* Returns
+   - C* array type
+   - C* initializer
+   - C* num elems
+   - C11 (translated) size of elem
+ *)
+and ensure_array m (t : CStar.typ) (expr : CStar.expr) : CStar.typ * CStar.expr * CStar.expr * C.expr =
   match t, expr with
-  | Pointer t, BufCreate ((Stack | Eternal), init, size)  ->
-      let t, init, size' = ensure_array m t init in
-      Array (t, size), init, mul (mk_expr m size) size'
-  | Array (t, l), BufCreate ((Stack | Eternal), init, size) ->
-      assert (l = size);
-      let t, init, size' = ensure_array m t init in
-      Array (t, size), init, mul (mk_expr m size) size'
+  | Pointer t, BufCreate ((Stack | Eternal), init, len)  ->
+      let _, init, len', size' = ensure_array m t init in
+      Array (t, Some len), init, len, cmul (mk_expr m len') size'
+  | Array (t, l), BufCreate ((Stack | Eternal), init, len) ->
+      assert (l = Some len);
+      let _, init, len', size' = ensure_array m t init in
+      Array (t, Some len), init, len, cmul (mk_expr m len') size'
   | _ ->
-      t, expr, C.Sizeof (C.Type (mk_type m t))
+      t, expr, CStar.Constant (K.UInt8, "1"), C.Sizeof (C.Type (mk_type m t))
 
 and decay_array t =
   match t with
@@ -641,14 +665,57 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       (* In the case where this is a buffer creation in the C* meaning, then we
        * declare a fixed-length array; this is an "upcast" from pointer type to
        * array type, in the C sense. *)
-      let t, init, size = ensure_array m binder.typ rhs in
-      (* TODO: make ensure_array return both *)
-      let n_elements = match size with
-        | C.Op2 (K.Mult, outer_size, _) -> outer_size
-        | _ -> failwith "impossible, see ensure_array"
+      let t, init, n_elements, e_size = ensure_array m binder.typ rhs in
+
+      let rebind_n_elements, cstar_n_elements, n_elements =
+        (* If the length expression is complex, then assign it to a local
+           variable and use that. Otherwise we would duplicate it, potentially
+           affecting the meaning. *)
+        let rec is_pure e =
+          match e with
+          | Constant _ | Var _ | Macro _ | Qualified _
+          | BufRead _ | BufSub _ | BufNull
+          | Op _ | Bool _  | Type _ | StringLiteral _
+          | Any ->
+            true
+
+          (* Calls in general we take as impure, but operators
+             are pure. *)
+          | Call (Op _, args) -> List.for_all is_pure args
+
+          | Call _ | BufCreate _ | BufCreateL _ | Stmt _ | EAbort _ ->
+            false
+
+          (* just descend *)
+          | Cast (e, _)
+          | InlineComment (_, e, _)
+          | Field (e, _)
+          | AddrOf e ->
+            is_pure e
+          | Struct (_, fs) ->
+            List.for_all (fun (_, e) -> is_pure e) fs
+          | Comma (e1, e2) ->
+            is_pure e1 && is_pure e2
+        in
+        if is_pure n_elements then
+          [], n_elements, mk_expr m n_elements
+        else
+          let name_init = "_arraylen" ^ fresh () in
+          let no_extra = { maybe_unused = false; target = None } in
+          let stmt_init : C.stmt = C.Decl ([], Int SizeT, None, None, no_extra, [(Ident name_init, None, Some (InitExpr (mk_expr m n_elements)))]) in
+          [stmt_init], CStar.Var name_init, C.Name name_init
+      in
+      (* Having rebound n_elements, make sure that `t` uses this expression
+         for its size, instead of the original one. Otherwise the declaration
+         for the array will contain it. *)
+      let t =
+        match t with
+        | Array (et, Some _len) -> Array (et, Some cstar_n_elements)
+        | t -> t
       in
 
-      (* KPrint.bprintf "size is: %s\n" (C11.show_expr size); *)
+      (* KPrint.bprintf "n_elements is: %s\n" (C11.show_expr n_elements); *)
+      (* KPrint.bprintf "e_size is: %s\n" (C11.show_expr e_size); *)
       let alignment = mk_alignment m (assert_array t) in
       let is_constant = match n_elements with Constant _ -> true | _ -> false in
       let use_alloca = not is_constant && !Options.alloca_if_vla in
@@ -682,7 +749,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
               use of alloca, which krml cannot yet align\n%s\n"
               (show_stmt stmt)
           else
-            let bytes = mk_alloc_cast m (assert_pointer t) (C.Call (C.Name "alloca", [ size ])) in
+            let bytes = mk_alloc_cast m (assert_pointer t) (C.Call (C.Name "alloca", [ cmul n_elements e_size ])) in
             assert (maybe_init = None);
             decay_array t, Some (InitExpr bytes)
         else
@@ -697,6 +764,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
           []
       in
       let decl: C.stmt list = [ Decl (qs, spec, None, None, { maybe_unused = false; target = None }, [ decl, alignment, maybe_init ]) ] in
+      rebind_n_elements @
       mk_check_size m (assert_pointer binder.typ) n_elements @
       decl @
       extra_stmt
@@ -719,7 +787,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
 
   | Decl (binder, e) ->
       let qs, spec, decl = mk_spec_and_declarator m binder.name binder.typ in
-      let init: init option = match e with Any -> None | _ -> Some (struct_as_initializer m e) in
+      let init: init option = match e with Any -> None | _ -> Some (trim_trailing_zeros (struct_as_initializer m e)) in
       [ Decl (qs, spec, None, None, { maybe_unused = false; target = None }, [ decl, None, init ]) ]
 
   | IfThenElse (false, e, b1, b2) ->
@@ -819,7 +887,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
           mk_expr m e,
           List.map (fun (ident, block) ->
             (match ident with
-            | `Ident ident -> Name (to_c_name m ident)
+            | `Ident ident -> Name (to_c_name m (ident, Other))
             | `Int k -> Constant k),
             let block = mk_stmts m block in
             if List.length block > 0 then
@@ -1015,13 +1083,14 @@ and mk_expr m (e: expr): C.expr =
   | Var ident ->
       Name ident
 
-  | Qualified ident
+  | Qualified ident ->
+      Name (to_c_name m (ident, Other))
   | Macro ident ->
-      Name (to_c_name m ident)
+      Name (to_c_name m (ident, Macro))
 
   | Constant (w, c) ->
       (* See discussion in AstToCStar.ml, around mk_arith. *)
-      if K.is_unsigned w && w <> SizeT then
+      if not (Constant.is_float w) && K.is_unsigned w && w <> SizeT then
         Constant (w, c)
       else
         (* Not sure what to do with signed integer types. TBD. Mostly trying to
@@ -1084,15 +1153,25 @@ and mk_expr m (e: expr): C.expr =
 
 
 and mk_compound_literal m name fields =
-  let name = to_c_name m name in
-  (* TODO really properly specify C's type_name! *)
-  CompoundLiteral (([], Named name, Ident ""), fields_as_initializer_list m fields)
+  let name = to_c_name m (name, Type) in
+  match fields with
+  | [ Some "tag", e1; Some "val", Struct (_, [ Some case, e2 ]) ] when !Options.cxx17_compat ->
+      (* Hack that generates foo_s(tag, &foo_s::U::case_bar, value ...) *)
+      let name = name ^ "_s" in
+      Call (Name name, [
+        mk_expr m e1;
+        Address (Name (name ^ "::U::" ^ case));
+        CxxInitializerList (struct_as_initializer m e2)
+      ])
+  | _ ->
+      (* TODO really properly specify C's type_name! *)
+      CompoundLiteral (([], Named name, Ident ""), fields_as_initializer_list m fields)
 
 and struct_as_initializer m = function
   | Struct (_, fields) ->
       Initializer (fields_as_initializer_list m fields)
   | e ->
-      InitExpr (mk_expr m e)
+      to_initializer m e
 
 and fields_as_initializer_list m fields =
   List.map (function
@@ -1152,7 +1231,7 @@ let strengthen_array m t expr =
   | BufCreateL (_, es) ->
       ensure_array_l t es
   | BufCreate _ ->
-      let t, _, _ = ensure_array m t expr in
+      let t, _, _, _ = ensure_array m t expr in
       t
   | _ ->
       t
@@ -1169,7 +1248,7 @@ let mk_function_or_global_body m (d: decl): C.declaration_or_function list =
       if is_primitive name then
         []
       else
-        let name = to_c_name m name in
+        let name = to_c_name m (name, Other) in
         begin try
           let static = if List.exists ((=) Private) flags then Some Static else None in
           let inline =
@@ -1196,7 +1275,7 @@ let mk_function_or_global_body m (d: decl): C.declaration_or_function list =
       if is_primitive name || macro then
         []
       else
-        let name = to_c_name m name in
+        let name = to_c_name m (name, Other) in
         let t = strengthen_array m t expr in
         let alignment = if is_array t then mk_alignment m (assert_array t) else None in
         let t = if List.mem (Common.Const "") flags then CStar.Const t else t in
@@ -1233,7 +1312,7 @@ let mk_function_or_global_stub m (d: decl): C.declaration_or_function list =
       if is_primitive name then
         []
       else
-        let name = to_c_name m name in
+        let name = to_c_name m (name, Other) in
         begin try
           let parameters = List.map (fun { name; typ } -> name, typ) parameters in
           let qs, spec, decl = mk_spec_and_declarator_f m cc name return_type parameters in
@@ -1250,7 +1329,7 @@ let mk_function_or_global_stub m (d: decl): C.declaration_or_function list =
       if is_primitive name || macro then
         []
       else
-        let name = to_c_name m name in
+        let name = to_c_name m (name, Other) in
         let t = strengthen_array m t expr in
         let t = if List.mem (Common.Const "") flags then CStar.Const t else t in
         let qs, spec, decl = mk_spec_and_declarator m name t in
@@ -1277,16 +1356,16 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
   in
   match d with
   | TypeForward (name, flags, k) ->
-      let name = to_c_name m name in
+      let name = to_c_name m (name, Type) in
       mk_forward_decl name flags k
   | Type (name, Struct _, flags) when w = H && List.mem AbstractStruct flags ->
-      let name = to_c_name m name in
+      let name = to_c_name m (name, Type) in
       mk_forward_decl name flags FStruct
   | Type (name, t, flags) ->
       if is_primitive name || (is_inline_static && declared_in_library name) then
         []
       else begin
-        let name = to_c_name m name in
+        let name = to_c_name m (name, Type) in
         match t with
         | Enum cases when !Options.short_enums ->
             (* Note: EEnum translates as just a name -- so we don't have to
@@ -1294,7 +1373,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
             let max_value, min_value =
               let custom_values = List.filter_map snd cases in
               let custom_values = List.sort compare custom_values in
-              print_endline (String.concat ", " (List.map Z.to_string custom_values));
+              (* print_endline (String.concat ", " (List.map Z.to_string custom_values)); *)
               max
                 (* conservative if we allow signed values *)
                 (if custom_values <> [] then KList.last custom_values else Z.zero)
@@ -1321,7 +1400,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
               else
                 failwith "TODO: support for negative enum values"
             in
-            let cases = List.map (fun (lid, v) -> to_c_name m lid, v) cases in
+            let cases = List.map (fun (lid, v) -> to_c_name m (lid, Macro), v) cases in
             wrap_verbatim name flags (Text (enum_as_macros cases)) @
             let qs, spec, decl = mk_spec_and_declarator_t m name (Int t) in
             [ Decl ([], (qs, spec, None, Some Typedef, { maybe_unused = false; target = None }, [ decl, None, None ]))]
@@ -1336,7 +1415,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
       then
         []
       else
-        let name = to_c_name m name in
+        let name = to_c_name m (name, Other) in
         let missing_names = List.length ts - List.length pp in
         let arg_names =
           if missing_names >= 0 then
@@ -1361,13 +1440,13 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
       then
         []
       else
-        let name = to_c_name m name in
+        let name = to_c_name m (name, Other) in
         let qs, spec, decl = mk_spec_and_declarator m name t in
         wrap_verbatim name flags (Decl (mk_comments flags, (qs, spec, None, Some Extern, { maybe_unused = false; target = None }, [ decl, None, None ])))
 
   | Global (name, macro, flags, _, body) when macro && not (is_inline_static && declared_in_library name) ->
       (* Macros behave like types, they ought to be declared once. *)
-      let name = to_c_name m name in
+      let name = to_c_name m (name, Other) in
       wrap_verbatim name flags (Macro (mk_comments flags, name, mk_expr m body))
 
   | Function _ | Global _ ->
@@ -1391,9 +1470,9 @@ let either f1 f2 x =
   | [] -> f2 x
   | l -> l
 
-let if_private_or_abstract_struct f d =
+let if_private f d =
   let flags = flags_of_decl d in
-  if List.mem Private flags || List.mem AbstractStruct flags then
+  if List.mem Private flags then
     f d
   else
     []
@@ -1404,8 +1483,9 @@ let if_public f d =
   else
     []
 
-let if_internal f d =
-  if List.mem Internal (flags_of_decl d) then
+let if_internal_or_abstract_struct f d =
+  let flags = flags_of_decl d in
+  if List.mem Internal flags || List.mem AbstractStruct flags then
     (* let _ = KPrint.bprintf "%a is internal\n" PrintAst.Ops.plid (lid_of_decl d) in *)
     f d
   else
@@ -1418,7 +1498,7 @@ let if_header_inline_static m f1 f2 d =
   let is_inline_static =
     List.exists (fun p ->
       (* Only things that end up in headers are in the reverse-map. *)
-      Hashtbl.mem m lid &&
+      (Hashtbl.mem m (lid, GlobalNames.Other) || Hashtbl.mem m (lid, GlobalNames.Type) || Hashtbl.mem m (lid, GlobalNames.Macro)) &&
       Bundle.pattern_matches_lid p lid)
     !Options.static_header ||
     List.mem lid [
@@ -1439,7 +1519,7 @@ let if_header_inline_static m f1 f2 d =
     f2 d
 
 (* Building a .c file *)
-let mk_file m decls =
+let mk_file (m: GlobalNames.mapping) decls =
   (* In the C file, we put function bodies, global bodies, and type
    * definitions and external definitions that were private to the file only.
    * *)
@@ -1448,7 +1528,7 @@ let mk_file m decls =
       none
       (either
         (mk_function_or_global_body m)
-        (if_private_or_abstract_struct (mk_type_or_external m C))))
+        (if_private (mk_type_or_external m C))))
     decls
 
 let mk_files (map: GlobalNames.mapping) files =
@@ -1500,10 +1580,10 @@ let mk_public_header (m: GlobalNames.mapping) decls =
 (* Private part if not already a static header, empty otherwise. *)
 let mk_internal_header (m: GlobalNames.mapping) decls =
   List.concat_map
-    (if_internal (
+    (if_internal_or_abstract_struct (
       (if_header_inline_static m
         (mk_static (either (mk_function_or_global_body m) (mk_type_or_external m ~is_inline_static:true C)))
-        (either (mk_function_or_global_stub m) (mk_type_or_external m H)))))
+        (either (mk_function_or_global_stub m) (mk_type_or_external m C)))))
     decls
 
 let mk_headers (map: GlobalNames.mapping)
@@ -1522,19 +1602,18 @@ let mk_headers (map: GlobalNames.mapping)
   ) [] files in
   List.rev headers
 
-let drop_empty_headers deps headers: Bundles.deps Bundles.StringMap.t =
+let drop_empty_headers deps headers: Bundles.all_deps Bundles.StringMap.t =
   let open Bundles in
   (* Refine dependencies to ignore now-gone empty headers. *)
-  let not_dropped_internal f = List.exists (function
-    | (name, C.Internal _) when f = name -> true
-    | _ -> false
-  ) headers in
-  let not_dropped_public f = List.exists (function
-    | (name, Public _) when f = name -> true
-    | _ -> false
-  ) headers in
-  StringMap.map (fun { internal; public } -> {
+  let kept_internal = List.filter_map (function (name, C.Internal _) -> Some name | _ -> None) headers in
+  let kept_public = List.filter_map (function (name, C.Public _) -> Some name | _ -> None) headers in
+  let not_dropped_internal f = List.mem f kept_internal in
+  let not_dropped_public f = List.mem f kept_public in
+  let filter_dep { internal; public } = {
     internal = StringSet.filter not_dropped_internal internal;
     public = StringSet.filter not_dropped_public public
-  }) deps
+  } in
+  StringMap.map (fun { h; internal_h; c } ->
+    { h = filter_dep h; internal_h = filter_dep internal_h; c = filter_dep c }
+  ) deps
 

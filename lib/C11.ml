@@ -40,7 +40,7 @@ and declarator_and_inits =
 and declarator =
   | Ident of ident
   | Pointer of qualifier list * declarator
-  | Array of qualifier list * declarator * expr
+  | Array of qualifier list * declarator * expr option
   | Function of calling_convention option * declarator * params
 
 and expr =
@@ -63,10 +63,14 @@ and expr =
   | CompoundLiteral of type_name * init list
   | MemberAccess of expr * ident
   | MemberAccessPointer of expr * ident
+  (* The three cases below are NOT in the C grammar *)
   | InlineComment of string * expr * string
   | Type of type_name
   | Stmt of stmt list
-    (** note: last three in the C grammar *)
+  (* Not in the C grammar either; encode a C++ initializer list that appears in expression position
+     so as to rely on an implicit constructor *)
+  | CxxInitializerList of init
+    
 
 (** this is a WILD approximation of the notion of "type name" in C _and_ a hack
  * because there's the invariant that the ident found at the bottom of the

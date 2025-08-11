@@ -173,7 +173,7 @@ and check_program env r (name, decls) =
     | CheckerError e ->
         r := true;
         flush stdout;
-        if Options.debug "backtraces" then
+        if !Options.backtrace then
           Printexc.print_backtrace stderr;
         KPrint.beprintf "Cannot re-check %a as valid Low* and will not extract it.  \
           If %a is not meant to be extracted, consider marking it as Ghost, \
@@ -402,10 +402,9 @@ and check' env t e =
       check_array_index env e3;
       c TUnit
 
-  | EBufBlit (b1, i1, b2, i2, len) ->
-      let t1, c1 = infer_buffer env b1 in
-      check_mut env "blit" c1;
-      check env (TBuf (t1, false)) b2;
+  | EBufBlit (b1 (* source *), i1, b2 (* destination *), i2, len) ->
+      let t1, _ = infer_buffer env b1 in  (* source can be const *)
+      check env (TBuf (t1, false)) b2;    (* destination must be non-const *)
       check_array_index env i1;
       check_array_index env i2;
       check_array_index env len;
@@ -466,14 +465,14 @@ and check' env t e =
       | lid, ts, cgs when kind env lid = Some Record ->
           let fieldtyps = assert_flat env (lookup_type env lid) in
           let fieldtyps = List.map (fun (field, (typ, m)) ->
-            field, (DeBruijn.subst_ctn' cgs (DeBruijn.subst_tn ts typ), m)
+            field, (DeBruijn.subst_tn ts (DeBruijn.subst_ctn' cgs typ), m)
           ) fieldtyps in
           check_fields_opt env fieldexprs fieldtyps
 
       | lid, ts, cgs when kind env lid = Some Union ->
           let fieldtyps = assert_union env (lookup_type env lid) in
           let fieldtyps = List.map (fun (field, typ) ->
-            field, DeBruijn.subst_ctn' cgs (DeBruijn.subst_tn ts typ)
+            field, DeBruijn.subst_tn ts (DeBruijn.subst_ctn' cgs typ)
           ) fieldtyps in
           check_union env fieldexprs fieldtyps
 
@@ -663,7 +662,7 @@ and infer' env e =
       let t1 = infer (locate env Then) e2 in
       let t2 = infer (locate env Else) e3 in
       check_eqtype env t1 t2;
-      t1
+      (if t1 = TAny then t2 else t1)
 
   | ESequence es ->
       begin match List.rev es with
@@ -713,10 +712,9 @@ and infer' env e =
       check_array_index env e3;
       TUnit
 
-  | EBufBlit (b1, i1, b2, i2, len) ->
-      let t1, c = infer_buffer env b1 in
-      check_mut env "blit" c;
-      check env (TBuf (t1, c)) b2;
+  | EBufBlit (b1 (* source *), i1, b2 (* destination *), i2, len) ->
+      let t1, _ = infer_buffer env b1 in  (* source can be const *)
+      check env (TBuf (t1, false)) b2;    (* destination must be non-const *)
       check_array_index env i1;
       check_array_index env i2;
       check_array_index env len;
@@ -757,7 +755,9 @@ and infer' env e =
   | EWhile (e1, e2) ->
       check env TBool e1;
       let t = infer env e2 in
-      if t = TUnit || t = TAny then
+      if t = TUnit then
+        TUnit
+      else if t = TAny then
         TAny (* loops that end in return can be typed with TAny *)
       else
         checker_error env "%a, while loop is neither tany or tunit" ploc env.location
@@ -876,7 +876,7 @@ and find_field env t field =
       end
   | lid, ts, cgs ->
       let t, mut = find_field_from_def env (lookup_type env lid) field in
-      Some (DeBruijn.(subst_ctn' cgs (subst_tn ts t), mut))
+      Some (DeBruijn.(subst_tn ts (subst_ctn' cgs t), mut))
 
 and find_field_from_def env def field =
   try begin match def with
@@ -1111,8 +1111,10 @@ and subtype env t1 t2 =
       true
   | TCgArray (t1, l1), TCgArray (t2, l2) when subtype env t1 t2 && l1 = l2 ->
       true
+  | TBuf (t1, _), TCgArray (t2, _)
   | TCgArray (t1, _), TBuf (t2, _) when subtype env t1 t2 ->
       true
+  | TBuf (t1, _), TArray (t2, _)
   | TArray (t1, _), TBuf (t2, _) when subtype env t1 t2 ->
       true
   | TBuf (t1, b1), TBuf (t2, b2) when subtype env t1 t2 && (b1 <= b2) ->

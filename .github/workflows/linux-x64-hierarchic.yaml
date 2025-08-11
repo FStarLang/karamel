@@ -16,7 +16,7 @@ jobs:
         run: |
           echo "CI_INITIAL_TIMESTAMP=$(date '+%s')" >> $GITHUB_ENV
       - name: Check out repo        
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Identify the base FStar branch and the notification channel
         run: |
           echo "FSTAR_BRANCH=$(jq -c -r '.BranchName' .docker/build/config.json)" >> $GITHUB_ENV
@@ -41,7 +41,7 @@ jobs:
           DZOMO_GITHUB_TOKEN: ${{ secrets.DZOMO_GITHUB_TOKEN }}
       - name: Archive build log
         if: ${{ always() }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: log
           path: log.txt

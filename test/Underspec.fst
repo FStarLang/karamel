@@ -1,7 +1,6 @@
 module Underspec
 
 open FStar.HyperStack.ST
-module U32 = FStar.UInt32
 
 (* Checking that the *_underspec operators actually extract and run
 properly. *)

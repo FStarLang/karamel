@@ -28,7 +28,9 @@ end
 (* Creating AST nodes *********************************************************)
 
 let uint8 = TInt K.UInt8
+let uint16 = TInt K.UInt16
 let uint32 = TInt K.UInt32
+let uint64 = TInt K.UInt64
 let usize = TInt K.SizeT
 
 let type_of_op op w =
@@ -88,21 +90,26 @@ let mk_lt_usize =
   mk_lt K.SizeT
 
 (* @0 <- @0 + 1ul *)
-let mk_incr w =
+let mk_incr_e w e =
   let t = TInt w in
   with_type TUnit (
     EAssign (with_type t (
       EBound 0), with_type t (
       EApp (mk_op K.Add w, [
         with_type t (EBound 0);
-        one w ]))))
+        e ]))))
+
+let mk_incr w = mk_incr_e w (one w)
 
 let mk_incr32 = mk_incr K.UInt32
 
 let mk_incr_usize = mk_incr K.SizeT
 
+let assert_tint_or_tbool t =
+  match t with TInt w -> w | TBool -> Bool | t -> Warn.fatal_error "Not an int/bool: %a" ptyp t
+
 let mk_neq e1 e2 =
-  with_type TBool (EApp (mk_op K.Neq K.UInt32, [ e1; e2 ]))
+  with_type TBool (EApp (mk_op K.Neq (assert_tint_or_tbool e1.typ), [ e1; e2 ]))
 
 let mk_not e1 =
   with_type TBool (EApp (mk_op K.Not K.Bool, [ e1 ]))
@@ -142,7 +149,7 @@ let mk_deref t ?(const=false) e =
 (* Binder nodes ***************************************************************)
 
 let fresh_binder ?(mut=false) ?(attempt_inline=false) name typ =
-  with_type typ { name; mut; mark = ref Mark.default; meta = None; attempt_inline; atom = Atom.fresh () }
+  with_type typ { name; mut; mark = ref Mark.default; meta = (if attempt_inline then [ AttemptInline ] else []); atom = Atom.fresh () }
 
 let mark_mut b =
   { b with node = { b.node with mut = true }}
@@ -151,9 +158,8 @@ let sequence_binding () = with_type TUnit {
   name = "_";
   mut = false;
   mark = ref Mark.default;
-  meta = Some MetaSequence;
+  meta = [ MetaSequence ];
   atom = Atom.fresh ();
-  attempt_inline = false;
 }
 
 let unused_binding = sequence_binding
@@ -346,7 +352,7 @@ class ['self] readonly_visitor = object (self: 'self)
     | EPolyComp _
     | EOp _ ->
         List.for_all (self#visit_expr_w ()) es
-    | EQualified _ 
+    | EQualified _
     when is_readonly_builtin_lid e ->
         List.for_all (self#visit_expr_w ()) es
     | ETApp ({ node = EQualified _; _ } as e, _, _, _)

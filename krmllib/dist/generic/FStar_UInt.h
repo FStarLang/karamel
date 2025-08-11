@@ -89,6 +89,8 @@ FStar_UInt_mod(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b)
 
 extern bool FStar_UInt_eq(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
+extern bool FStar_UInt_ne(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
+
 extern bool FStar_UInt_gt(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
 extern bool FStar_UInt_gte(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);

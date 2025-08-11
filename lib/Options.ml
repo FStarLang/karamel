@@ -1,10 +1,33 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
 (* Licensed under the Apache 2.0 and MIT Licenses. *)
 
-type include_ = All | HeaderOnly of string | COnly of string
+type include_ = All | InternalOnly of string | HeaderOnly of string | COnly of string
+
+type compiler_flavor =
+  | Generic
+  | GCC
+  | Clang
+  | Compcert
+  | MSVC
+
+let string_of_compiler_flavor = function
+  | Generic -> "generic"
+  | GCC -> "gcc"
+  | Clang -> "clang"
+  | Compcert -> "compcert"
+  | MSVC -> "msvc"
+
+let compiler_flavor_of_string = function
+  | "generic" -> Generic
+  | "gcc" -> GCC
+  | "clang" -> Clang
+  | "compcert" -> Compcert
+  | "msvc" -> MSVC
+  | s -> failwith ("unrecognized compiler flavor: " ^ s)
 
 let pinc b = function
   | All -> Buffer.add_string b "*"
+  | InternalOnly h
   | HeaderOnly h -> Buffer.add_string b h; Buffer.add_string b ".h"
   | COnly h -> Buffer.add_string b h; Buffer.add_string b ".c"
 
@@ -22,13 +45,15 @@ let fstar = ref "fstar.exe" (* F* command to use *)
 let add_include: (include_ * string) list ref = ref [ ]
 let add_include_tmh = ref false
 let add_early_include: (include_ * string) list ref = ref [ ]
-let warn_error = ref "+1@2@3+4..8@9+10@11+12..18@19+20..22+24..25@26@27"
+let add_very_early_include: (include_ * string) list ref = ref [ ]
+let warn_error = ref "+1@2@3+4..8@9+10@11+12..18@19+20..22+24..25@26..28"
 let tmpdir = ref "."
 let includes: string list ref = ref []
 let verbose = ref false
 let silent = ref false
 let exe_name = ref ""
-let cc = ref "gcc"
+let cc = ref ""
+let cc_flavor : compiler_flavor option ref = ref None
 let m32 = ref false
 let fsopts: string list ref = ref []
 let ccopts: string list ref = ref []
@@ -41,6 +66,7 @@ let library: Bundle.pat list ref = ref []
 let hand_written: Bundle.pat list ref = ref []
 let debug_modules: string list ref = ref []
 let debug s = List.exists ((=) s) !debug_modules
+let backtrace : bool ref = ref false
 
 type backend = C | Rust | Wasm
 let backend = ref C
@@ -80,6 +106,8 @@ let microsoft = ref false
 let extern_c = ref false
 let short_names = ref true
 let cxx_compat = ref false
+let cxx17_compat = ref false
+let aggressive_inlining = ref false
 
 let extract_uints = ref false
 let builtin_uint128 = ref false
@@ -91,8 +119,8 @@ let c89_std = ref false
 let c89_scope = ref false
 
 (* A set of extra command-line arguments one gets for free depending on the
- * value of -cc *)
-let default_options () =
+ * detected C compiler. *)
+let default_options (k : compiler_flavor) =
   (* Note: the 14.04 versions of Ubuntu rely on the presence of _BSD_SOURCE to
    * enable the macros in endian.h; future versions use _DEFAULT_SOURCE which is
    * enabled by default, it seems, but there are talks of issuing a warning if
@@ -108,21 +136,20 @@ let default_options () =
   let gcc_options = Array.append gcc_like_options
     [| "-ccopt"; if !c89_std then "-std=c89" else "-std=c11" |]
   in
-  [
-    "gcc", gcc_options;
-    "clang", gcc_options;
-    "g++", gcc_like_options;
-    "compcert", [|
+  match k with
+  | GCC | Clang ->
+    if !cxx_compat
+    then gcc_like_options
+    else gcc_options
+  | Compcert -> [|
       "-warn-error"; "@6@8";
       "-fnostruct-passing"; "-fnoanonymous-unions";
       "-ccopts"; "-g,-D_BSD_SOURCE,-D_DEFAULT_SOURCE";
-    |];
-    "msvc", [|
+    |]
+  | MSVC -> [|
       "-warn-error"; "+6"; "-falloca"
-    |];
-    "", [| |]
-  ]
-
+    |]
+  | Generic -> [| |]
 
 (** Drop is now deprecated and there is not a single situation left that calls
     for it. If you must implement something with macros or static inline (i.e.,

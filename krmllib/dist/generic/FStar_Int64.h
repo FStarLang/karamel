@@ -20,6 +20,8 @@ extern krml_checked_int_t FStar_Int64___proj__Mk__item__v(int64_t projectee);
 
 extern krml_checked_int_t FStar_Int64_v(int64_t x);
 
+typedef void *FStar_Int64_fits;
+
 extern int64_t FStar_Int64_int_to_t(krml_checked_int_t x);
 
 extern int64_t FStar_Int64_zero;
@@ -49,6 +51,8 @@ extern int64_t FStar_Int64_shift_right(int64_t a, uint32_t s);
 extern int64_t FStar_Int64_shift_left(int64_t a, uint32_t s);
 
 extern bool FStar_Int64_eq(int64_t a, int64_t b);
+
+extern bool FStar_Int64_ne(int64_t a, int64_t b);
 
 extern bool FStar_Int64_gt(int64_t a, int64_t b);
 

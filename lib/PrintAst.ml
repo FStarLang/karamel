@@ -46,7 +46,7 @@ let rec print_decl = function
       parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders
       ) ^^ colon ^/^ print_typ typ) ^/^ braces_with_nesting (
-        print_expr empty_env body
+        print_expr (push_n empty_env binders) body
       )
 
   | DExternal (cc, flags, n_cg, n, name, typ, _) ->
@@ -177,15 +177,17 @@ and print_binder { typ; node = { name; mut; meta; mark; _ }; meta = node_meta } 
   let o, u = !mark in
   (if mut then string "mutable" ^^ break 1 else empty) ^^
   group (group (string name ^^ lparen ^^ string (Mark.show_occurrence o) ^^ comma ^^
-  string (Mark.show_usage u) ^^ comma ^^ space ^^ print_meta meta ^^
+  (match u with AtMost u -> if u = max_int then utf8string "∞" else int u) ^^ comma ^^ space ^^ separate_map comma print_meta meta ^^
   rparen ^^ colon) ^/^
   nest 2 (print_typ typ))
 
 and print_meta = function
-  | Some MetaSequence ->
+  | MetaSequence ->
       semi
-  | None ->
-      empty
+  | Align i ->
+      string "aligned" ^^ parens (int i)
+  | AttemptInline ->
+      string "inline"
 
 and print_typ_paren = function
   | TArrow _ as t ->
@@ -234,7 +236,7 @@ and print_node_meta meta =
     List.filter_map (function CommentAfter s -> Some s | _ -> None) meta
   with
   | [], [] -> fun doc -> doc
-  | s, s' -> fun doc -> surround 2 1 (string (String.concat "\n" s)) doc (string (String.concat "\n" s'))
+  | s, s' -> fun doc -> surround 2 1 (string (String.concat "\n ++" s)) doc (string (String.concat "\n ++" s'))
   end
 
 and print_expr env { node; typ; meta } =
@@ -270,6 +272,7 @@ and print_expr env { node; typ; meta } =
         print_app (print_expr env) e (fun t -> group (langle ^/^ print_typ t ^/^ rangle)) ts
       ) (e, ts) (fun e -> brackets (brackets (print_expr env e))) (es @ es')
   | ELet (binder, e1, e2) ->
+      print_node_meta binder.meta @@
       group (print_let_binding env (binder, e1) ^/^ string "in") ^^ hardline ^^
       group (print_expr (push env binder)  e2)
   | EIfThenElse (e1, e2, e3) ->

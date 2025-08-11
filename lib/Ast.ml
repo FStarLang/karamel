@@ -67,6 +67,8 @@ and type_scheme = {
 (* The visitor of types composes with the misc. visitor. *)
 and typ =
   | TInt of width
+      (** this constructor includes also **floating points** for historical
+       * reason. *)
   | TBool
   | TUnit
   | TAny
@@ -350,10 +352,9 @@ and binder' = {
   name: ident;
   mut: bool;
   mark: valuation ref;
-  meta: meta option;
+  meta: meta list;
   atom: atom_t;
     (** Only makes sense when opened! *)
-  attempt_inline: bool; (* Whether to attempt inlining, as if this was named uu__... *)
 }
 
 and binder =
@@ -361,6 +362,8 @@ and binder =
 
 and meta =
   | MetaSequence
+  | AttemptInline
+  | Align of int (* in bytes *)
 
 and match_flavor = | Checked | Unchecked
 
@@ -697,7 +700,7 @@ let flatten_tapp t =
     | TQualified lid ->
         lid, [], List.rev cgs
     | _ ->
-        invalid_arg "flatten_tapp"
+        invalid_arg ("flatten_tapp: " ^ show_typ t)
   in
   flatten_tapp [] t
 

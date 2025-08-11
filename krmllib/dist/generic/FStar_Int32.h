@@ -20,6 +20,8 @@ extern krml_checked_int_t FStar_Int32___proj__Mk__item__v(int32_t projectee);
 
 extern krml_checked_int_t FStar_Int32_v(int32_t x);
 
+typedef void *FStar_Int32_fits;
+
 extern int32_t FStar_Int32_int_to_t(krml_checked_int_t x);
 
 extern int32_t FStar_Int32_zero;
@@ -49,6 +51,8 @@ extern int32_t FStar_Int32_shift_right(int32_t a, uint32_t s);
 extern int32_t FStar_Int32_shift_left(int32_t a, uint32_t s);
 
 extern bool FStar_Int32_eq(int32_t a, int32_t b);
+
+extern bool FStar_Int32_ne(int32_t a, int32_t b);
 
 extern bool FStar_Int32_gt(int32_t a, int32_t b);
 

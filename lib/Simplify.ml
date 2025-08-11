@@ -118,7 +118,10 @@ let safe_pure_use e =
    uu____ in F*, or "scrut" if inserted by the pattern matches compilation
    phase), or that are of a type that cannot be copied (to hopefully skirt
    future failures). This phase assumes the mark field of each binder contains a
-   conservative approximation of the number of uses of that binder. *)
+   conservative approximation of the number of uses of that binder.
+
+   If the -faggressive-inlining option is provided, the inling is attempted
+   for every variable regardless of its name and type. *)
 let use_mark_to_inline_temporaries = object (self)
 
   inherit [_] map
@@ -127,7 +130,8 @@ let use_mark_to_inline_temporaries = object (self)
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
     let _, v = !(b.node.mark) in
-    if (b.node.attempt_inline ||
+    if (!Options.aggressive_inlining ||
+        List.mem AttemptInline b.node.meta ||
         Helpers.is_uu b.node.name ||
         b.node.name = "scrut" ||
         Structs.should_rewrite b.typ = NoCopies
@@ -452,32 +456,33 @@ let sequence_to_let = object (self)
 
 end
 
+let is_sequence = List.mem MetaSequence
+
 let let_to_sequence = object (self)
 
   inherit [_] map
 
   method! visit_ELet env b e1 e2 =
-    match b.node.meta with
-    | Some MetaSequence ->
-        let e1 = self#visit_expr env e1 in
-        let _, e2 = open_binder b e2 in
-        let e2 = self#visit_expr env e2 in
-        begin match e1.node, e2.node with
-        | _, EUnit ->
-            (* let _ = e1 in () *)
-            e1.node
-        | ECast ({ node = EUnit; _ }, _), _
-        | EUnit, _ ->
-            (* let _ = () in e2 *)
-            e2.node
-        | _, ESequence es ->
-            ESequence (e1 :: es)
-        | _ ->
-            ESequence [e1; e2]
-        end
-    | None ->
-        let e2 = self#visit_expr env e2 in
-        ELet (b, e1, e2)
+    if is_sequence b.node.meta then
+      let e1 = self#visit_expr env e1 in
+      let _, e2 = open_binder b e2 in
+      let e2 = self#visit_expr env e2 in
+      begin match e1.node, e2.node with
+      | _, EUnit ->
+          (* let _ = e1 in () *)
+          e1.node
+      | ECast ({ node = EUnit; _ }, _), _
+      | EUnit, _ ->
+          (* let _ = () in e2 *)
+          e2.node
+      | _, ESequence es ->
+          ESequence (e1 :: es)
+      | _ ->
+          ESequence [e1; e2]
+      end
+    else
+      let e2 = self#visit_expr env e2 in
+      ELet (b, e1, e2)
 
 end
 
@@ -519,8 +524,8 @@ let let_if_to_assign = object (self)
         invalid_arg "make_assignment"
 
   method! visit_ELet (_, t) b e1 e2 =
-    match e1.node, b.node.meta with
-    | (EIfThenElse _ | ESwitch _), None ->
+    match e1.node with
+    | (EIfThenElse _ | ESwitch _) when not (is_sequence b.node.meta) ->
         (* [b] holds the return value of the conditional *)
         let b = mark_mut b in
         let e = self#make_assignment (with_type b.typ (EBound 0)) (DeBruijn.lift 1 e1) in
@@ -756,7 +761,7 @@ let misc_cosmetic = object (self)
         match e1.node, e2.node with
         | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
             { node = EBufWrite (e4, e4_index, { node = EFlat fields; _ }); _ })
-          when b'.node.meta = Some MetaSequence &&
+          when is_sequence b'.node.meta &&
           List.exists (fun (f, x) -> f <> None && x.node = EBound 1) fields &&
           Mark.is_atmost 2 (snd !(b.node.mark)) ->
 
@@ -801,8 +806,8 @@ let misc_cosmetic = object (self)
         *)
         | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
             { node = ELet (b'', { node = EBufWrite (e4, e4_index, { node = EFlat fields; _ }); _ }, e5); _ })
-          when b'.node.meta = Some MetaSequence &&
-          b''.node.meta = Some MetaSequence &&
+          when is_sequence b'.node.meta &&
+          is_sequence b''.node.meta &&
           List.exists (fun (f, x) -> f <> None && x.node = EBound 1) fields &&
           Mark.is_atmost 2 (snd !(b.node.mark)) ->
 
@@ -852,7 +857,7 @@ let misc_cosmetic = object (self)
         *)
         | EAny, ELet (b', { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
             { node = EAssign (e4, { node = EBound 1; _ }); _ })
-          when b'.node.meta = Some MetaSequence &&
+          when is_sequence b'.node.meta &&
           Mark.is_atmost 2 (snd !(b.node.mark)) ->
 
             (* KPrint.bprintf "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
@@ -871,7 +876,7 @@ let misc_cosmetic = object (self)
         | EAny, ELet (b',
             { node = EApp (e3, [ { node = EAddrOf ({ node = EBound 0; _ }); _ } ]); _ },
             { node = ELet (b'', { node = EAssign (e4, { node = EBound 1; _ }); _ }, e5); _ })
-          when b'.node.meta = Some MetaSequence &&
+          when is_sequence b'.node.meta &&
           Mark.is_atmost 2 (snd !(b.node.mark)) ->
 
             (* KPrint.bprintf "MATCHED: %a" pexpr (with_unit (ELet (b, e1, e2))); *)
@@ -980,7 +985,8 @@ type pos =
 (* Enforce short-circuiting semantics for boolean operators; in C, this means
  * erroring out, and in Wasm, this means nesting let-bindings for the rhs
  * underneath. *)
-let rec flag_short_circuit loc t e0 es =
+let rec flag_short_circuit tbl loc t e0 es =
+  let hoist_expr = hoist_expr tbl in
   let lhs0, e0 = hoist_expr loc Unspecified e0 in
   let lhss, es = List.split (List.map (hoist_expr loc Unspecified) es) in
   match e0.node, es, lhss with
@@ -1011,24 +1017,27 @@ let rec flag_short_circuit loc t e0 es =
    be hoisted depend on the type; if it's an array of pointers, yes, we host. If
    it's an array of arrays, we leave initializer lists in order to fill storage.
    *)
-and maybe_hoist_initializer loc t e =
+and maybe_hoist_initializer tbl loc t e =
+  let hoist_expr = hoist_expr tbl in
   match e.node with
   | EBufCreate _ when Helpers.is_array t ->
       failwith "expected EBufCreateL here"
   | EBufCreateL (l, es) when Helpers.is_array t ->
-      let lhs, es = List.split (List.map (maybe_hoist_initializer loc (Helpers.assert_tarray t)) es) in
+      let lhs, es = List.split (List.map (maybe_hoist_initializer tbl loc (Helpers.assert_tarray t)) es) in
       let lhs = List.flatten lhs in
       lhs, with_type t (EBufCreateL (l, es))
   | _ ->
       hoist_expr loc Unspecified e
 
-and hoist_stmt loc e =
+and hoist_stmt tbl loc e =
+  let hoist_stmt = hoist_stmt tbl in
+  let hoist_expr = hoist_expr tbl in
   let mk = with_type e.typ in
   match e.node with
   | EApp (e0, es) ->
       (* A call is allowed in terminal position regardless of whether it has
        * type unit (generates a statement) or not (generates a [EReturn expr]). *)
-      let lhs, e = flag_short_circuit loc e.typ e0 es in
+      let lhs, e = flag_short_circuit tbl loc e.typ e0 es in
       nest lhs e.typ e
 
   | ELet (binder, e1, e2) ->
@@ -1061,7 +1070,7 @@ and hoist_stmt loc e =
       assert (e.typ = TUnit);
       (* The semantics is that [e1] is evaluated once, so it's fine to hoist any
        * let-bindings it generates. *)
-      let lhs1, e1 = hoist_expr loc (if binder.node.meta = Some MetaSequence then UnderStmtLet else Unspecified) e1 in
+      let lhs1, e1 = hoist_expr loc (if is_sequence binder.node.meta then UnderStmtLet else Unspecified) e1 in
       let binder, s = opening_binder binder in
       let e2 = s e2 and e3 = s e3 and e4 = s e4 in
       (* [e2] and [e3], however, are evaluated at each loop iteration! *)
@@ -1130,7 +1139,9 @@ and hoist_stmt loc e =
 
 (* This function returns an expression that can be successfully translated as a
  * C* expression. *)
-and hoist_expr loc pos e =
+and hoist_expr tbl loc pos e =
+  let hoist_expr = hoist_expr tbl in
+  let hoist_stmt = hoist_stmt tbl in
   let mk node = { node; typ = e.typ; meta = e.meta } in
   match e.node with
   | ETApp (e, cgs, cgs', ts) ->
@@ -1163,7 +1174,7 @@ and hoist_expr loc pos e =
       lhs, mk (EIgnore e)
 
   | EApp (e0, es) ->
-      flag_short_circuit loc e.typ e0 es
+      flag_short_circuit tbl loc e.typ e0 es
 
   | ELet (binder, e1, e2) ->
       let lhs1, e1 = hoist_expr loc UnderStmtLet e1 in
@@ -1227,11 +1238,11 @@ and hoist_expr loc pos e =
         [], mk (EWhile (e1, e2))
       else
         let b = fresh_binder "_" TUnit in
-        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
         [ b, mk (EWhile (e1, e2)) ], mk EUnit
 
   | EFor (binder, e1, e2, e3, e4) ->
-      let lhs1, e1 = hoist_expr loc (if binder.node.meta = Some MetaSequence then UnderStmtLet else Unspecified) e1 in
+      let lhs1, e1 = hoist_expr loc (if is_sequence binder.node.meta then UnderStmtLet else Unspecified) e1 in
       let binder, s = opening_binder binder in
       let e2 = s e2 and e3 = s e3 and e4 = s e4 in
       let lhs2, e2 = hoist_expr loc Unspecified e2 in
@@ -1250,7 +1261,7 @@ and hoist_expr loc pos e =
         lhs1, mk (EFor (binder, e1, s (nest lhs2 e2.typ e2), s (nest lhs3 e3.typ e3), s e4))
       else
         let b = fresh_binder "_" TUnit in
-        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
         lhs1 @ [ b, mk (EFor (binder, e1, s (nest lhs2 e2.typ e2), s (nest lhs3 e3.typ e3), s e4)) ], mk EUnit
 
   | EFun (binders, expr, t) ->
@@ -1266,13 +1277,13 @@ and hoist_expr loc pos e =
         lhs1 @ lhs2, mk (EAssign (e1, e2))
       else
         let b = fresh_binder "_" TUnit in
-        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
         lhs1 @ lhs2 @ [ b, mk (EAssign (e1, e2)) ], mk EUnit
 
   | EBufCreate (l, e1, e2) ->
       let t = e.typ in
       let lhs1, e1 = hoist_expr loc Unspecified e1 in
-      let lhs2, e2 = maybe_hoist_initializer loc (Helpers.assert_tbuf_or_tarray t) e2 in
+      let lhs2, e2 = maybe_hoist_initializer tbl loc (Helpers.assert_tbuf_or_tarray t) e2 in
       if pos = UnderStmtLet then
         lhs1 @ lhs2, mk (EBufCreate (l, e1, e2))
       else
@@ -1281,7 +1292,7 @@ and hoist_expr loc pos e =
 
   | EBufCreateL (l, es) ->
       let t = e.typ in
-      let lhs, es = List.split (List.map (maybe_hoist_initializer loc (Helpers.assert_tbuf_or_tarray t)) es) in
+      let lhs, es = List.split (List.map (maybe_hoist_initializer tbl loc (Helpers.assert_tbuf_or_tarray t)) es) in
       let lhs = List.flatten lhs in
       if pos = UnderStmtLet then
         lhs, mk (EBufCreateL (l, es))
@@ -1303,7 +1314,7 @@ and hoist_expr loc pos e =
         lhs, mk (EBufWrite (e1, e2, e3))
       else
         let b = fresh_binder "_" TUnit in
-        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
         lhs @ [ b, mk (EBufWrite (e1, e2, e3)) ], mk EUnit
 
   | EBufBlit (e1, e2, e3, e4, e5) ->
@@ -1317,7 +1328,7 @@ and hoist_expr loc pos e =
         lhs, mk (EBufBlit (e1, e2, e3, e4, e5))
       else
         let b = fresh_binder "_" TUnit in
-        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
         lhs @ [ b, mk (EBufBlit (e1, e2, e3, e4, e5)) ], mk EUnit
 
   | EBufFill (e1, e2, e3) ->
@@ -1329,7 +1340,7 @@ and hoist_expr loc pos e =
         lhs, mk (EBufFill (e1, e2, e3))
       else
         let b = fresh_binder "_" TUnit in
-        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
         lhs @ [ b, mk (EBufFill (e1, e2, e3)) ], mk EUnit
 
   | EBufFree e ->
@@ -1338,7 +1349,7 @@ and hoist_expr loc pos e =
         lhs, mk (EBufFree e)
       else
         let b = fresh_binder "_" TUnit in
-        let b = { b with node = { b.node with meta = Some MetaSequence }} in
+        let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
         lhs @ [ b, mk (EBufFree e) ], mk EUnit
 
   | EBufSub (e1, e2) ->
@@ -1361,7 +1372,17 @@ and hoist_expr loc pos e =
 
   | EFlat fields ->
       let lhs, fields = List.split (List.map (fun (ident, expr) ->
-        let lhs, expr = hoist_expr loc Unspecified expr in
+        let is_array = match e.typ, ident with
+          | TQualified lid, Some ident -> Helpers.is_array (Hashtbl.find tbl (lid, ident)) 
+          | _ -> false
+        in
+        (* The rationale is that one must NOT hoist "ebufcreate" nodes that encode array
+           initializers (otherwise, array-to-pointer conversion, a.k.a. decay, kicks in, and this
+           does not do what is intended. The usage of UnderStmtLet is slightly unfortunate because
+           in the (unlikely) event that an initializer is a for-loop or an if-then-else, then it
+           will be preserved, but we already went through is_suitable_initializer earlier so this
+           should not happen. *)
+        let lhs, expr = hoist_expr loc (if is_array then UnderStmtLet else Unspecified) expr in
         lhs, (ident, expr)
       ) fields) in
       List.flatten lhs, mk (EFlat fields)
@@ -1401,17 +1422,31 @@ and hoist_expr loc pos e =
 
 (* TODO: figure out if we want to ignore the other cases for performance
  * reasons. *)
-let hoist = object
+class hoist = object
   inherit [_] map as super
+
+  val field_types = Hashtbl.create 42
+
+  method! visit_DType _ name flags n_cgs n def =
+    match def with
+    | Flat fields ->
+        List.iter (function
+          | Some f, (t, _) -> Hashtbl.add field_types (name, f) t
+          | _ -> ()
+        ) fields
+    | _ -> ()
+    ; ;
+    DType (name, flags, n_cgs, n, def)
 
   method! visit_file loc file =
     super#visit_file Loc.(File (fst file) :: loc) file
 
   method! visit_DFunction loc cc flags n_cgs n ret name binders expr =
+    (* FYI: there is an improved version of this pass in Eurydice that can handle constants that may
+       emit let-bindings. Backport it here? *)
     let loc = Loc.(InTop name :: loc) in
-    (* TODO: no nested let-bindings in top-level value declarations either *)
     let binders, expr = open_binders binders expr in
-    let expr = hoist_stmt loc expr in
+    let expr = hoist_stmt field_types loc expr in
     let expr = close_binders binders expr in
     DFunction (cc, flags, n_cgs, n, ret, name, binders, expr)
 end
@@ -1473,21 +1508,25 @@ class scope_helpers = object (self)
   method private is_private_scope flags lident =
     List.mem Common.Private flags && not (Helpers.is_static_header lident)
 
-  method private record (global_scope, local_scopes) ~is_type ~is_external flags lident =
-    let kind =
+  (* FIXME: there are too many overlapping flags for this function --
+     just do `Type | `External | `Other | `EnumCase *)
+  method private record (global_scope, local_scopes) ~is_type ~is_external ?(is_enum=false) flags lident =
+    let kind_name, kind_scope =
       if is_type then
-        GlobalNames.Type
+        GlobalNames.(Type, Type)
+      else if is_enum then
+        Other, (if !Options.short_enums then Macro else Other)
       else if List.mem Common.Macro flags || List.mem Common.IfDef flags then
-        Macro
+        Macro, Macro
       else
-        Other
+        Other, Other
     in
     let is_private = self#is_private_scope flags lident in
     let local_scope = Hashtbl.find local_scopes current_file in
     let attempt_shortening = is_private && not is_external in
-    let target = GlobalNames.target_c_name ~attempt_shortening ~kind lident in
-    (* KPrint.bprintf "%a --> %s\n" plid lident (fst target); *)
-    let c_name = GlobalNames.extend global_scope local_scope is_private lident target in
+    let target = GlobalNames.target_c_name ~kind:kind_name ~attempt_shortening lident in
+    (* KPrint.bprintf "%a (enum: %b) --> %s\n" plid lident is_enum (fst target); *)
+    let c_name = GlobalNames.extend global_scope local_scope is_private (lident, kind_scope) target in
     if not is_private then
       Hashtbl.add original_of_c_name c_name lident
 end
@@ -1519,7 +1558,9 @@ let record_toplevel_names = object (self)
     if not (Hashtbl.mem forward name) then
       self#record env ~is_type:true ~is_external:false flags name;
     match def with
-    | Enum lids -> List.iter (fun (lid, _) -> self#record env ~is_type:true ~is_external:false flags lid) lids
+    | Enum lids -> List.iter (fun (lid, _) ->
+        self#record env ~is_type:false ~is_external:false ~is_enum:true flags lid
+      ) lids
     | Forward _ -> Hashtbl.add forward name ()
     | _ -> ()
 end
@@ -2079,7 +2120,7 @@ let simplify2 ifdefs (files: file list): file list =
    * let-bindings. Also removes occurrences of spinlock and the like. *)
   let files = optimize_lets ~ifdefs files in
   let files = if Options.wasm () then files else fixup_while_tests#visit_files () files in
-  let files = hoist#visit_files [] files in
+  let files = (new hoist)#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
   let files = if Options.wasm () then files else fixup_hoist#visit_files () files in
   (* Disabled in Rust because this results in uninitialized variables *)

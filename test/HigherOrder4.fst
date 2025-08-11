@@ -4,7 +4,6 @@ module B = LowStar.Buffer
 module HS = FStar.HyperStack
 module HST = FStar.HyperStack.ST
 module M = LowStar.Modifies
-module U32 = FStar.UInt32
 module I32 = FStar.Int32
 
 open LowStar.BufferOps

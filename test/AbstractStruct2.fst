@@ -4,7 +4,7 @@ module B = LowStar.Buffer
 
 open FStar.HyperStack.ST
 
-[@@CAbstractStruct]
+[@CAbstractStruct]
 noeq
 type handle = {
   something: bool;

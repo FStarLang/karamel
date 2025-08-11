@@ -34,7 +34,7 @@ type typ =
   | Array of typ * int [@name "tarray"]
   | Slice of typ (* always appears underneath Ref *)
   | Unit [@name "tunit"]
-  | Function of int * typ list * typ
+  | Function of int * lifetime list * typ list * typ
   | Name of name * generic_param list [@name "tname"]
   | Tuple of typ list [@name "ttuple"]
   | App of typ * typ list
@@ -80,7 +80,7 @@ and expr =
   | Borrow of borrow_kind * expr
   | Constant of constant
   | ConstantString of string
-  | Let of binding * expr * expr
+  | Let of binding * expr option * expr
   | Call of expr * typ list * expr list
     (** Note that this representation admits empty argument lists -- as opposed
         to Ast which always takes unit *)
@@ -93,11 +93,14 @@ and expr =
   | As of expr * typ
   | For of binding * expr * expr
   | While of expr * expr
+  | Return of expr
   | MethodCall of expr * name * expr list
   | Range of expr option * expr option * bool (* inclusive? *)
   | Struct of struct_name * (string * expr) list
   | Match of expr * typ * match_arm list
   | Tuple of expr list
+  | Break
+  | Continue
 
   (* Place expressions *)
   | Var of db_index
@@ -156,6 +159,7 @@ type visibility = Pub | PubCrate
 type meta = {
   visibility: visibility option;
   comment: string;
+  attributes: string list;
 }
 
 (* TODO: visitors incompatible with inline records *)
@@ -186,6 +190,8 @@ type decl =
   | Struct of {
     name: name;
     fields: struct_field list;
+    (* FIXME: why have a distinguished list of derives rather than shoving them in the (new)
+       attributes field of meta? *)
     derives: trait list;
     meta: meta;
     generic_params: generic_param list;
@@ -195,6 +201,21 @@ type decl =
     body: typ;
     generic_params: generic_param list;
     meta: meta;
+  }
+  (* We need to keep assumed/external functions to perform mutability inference
+     at the MiniRust level. However, these nodes will not be printed at code
+     generation *)
+  | Assumed of {
+    name: name;
+    parameters: typ list;
+    return_type: typ;
+  }
+  | Static of {
+    name: name;
+    typ: typ;
+    body: expr;
+    meta: meta;
+    mut: bool;
   }
 
 and item =
@@ -211,6 +232,7 @@ and trait =
   | PartialEq
   | Clone
   | Copy
+  | Custom of string
 
 (* Some visitors for name management *)
 
@@ -226,7 +248,7 @@ module DeBruijn = struct
 
     (* We list all binding nodes and feed those binders to the environment *)
     method! visit_Let env b e1 e2 =
-      let e1 = self#visit_expr env e1 in
+      let e1 = Option.map (self#visit_expr env) e1 in
       let e2 = self#visit_expr (self#extend env b) e2 in
       Let (b, e1, e2)
 
@@ -383,7 +405,9 @@ let name_of_decl (d: decl) =
   | Enumeration { name; _ }
   | Struct { name; _ }
   | Function { name; _ }
-  | Constant { name; _ } ->
+  | Constant { name; _ }
+  | Assumed {name; _ }
+  | Static {name; _ } ->
       name
 
 let zero_usize: expr = Constant (Constant.SizeT, "0")

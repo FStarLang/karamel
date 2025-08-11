@@ -217,7 +217,23 @@ let make_bundles files =
 (* A more refined version of direct_dependencies (found above), which
    distinguishes between internal and public dependencies. Keeps less dependency
    information, too, since it does not need to generate precise error messages.
-   To be used after Inlining has run. *)
+   To be used after Inlining has run.
+
+   We do not run this on the C grammar (which would presumably be simpler,
+   because by then we would have built both flavors of headers + C files),
+   because it does not distinguish between lids and ids, and also because the
+   grammar is convoluted and makes it hard to access the "name" of a
+   declaration.
+   
+   So instead, we anticipate and rely on the fact that:
+   - to compute the dependencies of the public header, one needs to visit public
+     (not internal, not private) functions and type declarations, and
+     - skip the body of functions unless they are "static header", and
+     - skip the body of type declarations marked as C abstract structs
+   - to compute the dependencies of the internal header, same deal
+   - to compute the dependencies of the C header, same deal except all bodies
+     are visited
+*)
 
 module StringSet = Set.Make(String)
 module LidSet = Idents.LidSet
@@ -227,10 +243,37 @@ type deps = {
   public: StringSet.t;
 }
 
+type all_deps = {
+  h: deps;
+  internal_h: deps;
+  c: deps;
+}
+
 let empty_deps = { internal = StringSet.empty; public = StringSet.empty }
 
 let drop_dinstinction { internal; public } =
   List.of_seq (StringSet.to_seq (StringSet.union internal public))
+
+class record_everything (gen_dep: ?constructor:unit -> lident -> _) = object(self)
+  inherit [_] reduce as super
+  method plus { internal = i1; public = p1 } { internal = i2; public = p2 } =
+    { internal = StringSet.union i1 i2; public = StringSet.union p1 p2 }
+  method zero = empty_deps
+  method! visit_EQualified _ lid =
+    gen_dep lid
+  method! visit_TQualified _ lid =
+    gen_dep lid
+  method! visit_TApp () lid _ =
+    gen_dep lid
+  method! visit_EFlat ((_, t) as env) fields =
+    match t with
+    | TQualified lid ->
+        self#plus
+          (gen_dep ~constructor:() lid)
+          (super#visit_EFlat env fields)
+    | _ ->
+        super#visit_EFlat env fields
+end
 
 let direct_dependencies_with_internal files file_of =
   (* Set of decls marked as internal *)
@@ -243,33 +286,96 @@ let direct_dependencies_with_internal files file_of =
     ) set decls
   ) LidSet.empty files in
 
+  let c_abstract_struct = List.fold_left (fun set (_, decls) ->
+    List.fold_left (fun set decl ->
+      if List.mem Common.AbstractStruct (Ast.flags_of_decl decl) then
+        LidSet.add (Ast.lid_of_decl decl) set
+      else
+        set
+    ) set decls
+  ) LidSet.empty files in
+
   List.fold_left (fun by_file file ->
-    let gen_dep (callee: lident) =
+    let gen_dep ?constructor (callee: lident) =
       match file_of callee with
       | Some f when f <> fst file && not (Helpers.is_primitive callee) ->
-          (* KPrint.bprintf "In file %s, reference to %a (in file %s)\n" *)
-          (*   (fst file) PrintAst.plid callee f; *)
-          if LidSet.mem callee internal then
+          let is_internal = LidSet.mem callee internal in
+          if Options.debug "dependencies" then
+            KPrint.bprintf "In file %s, reference to %a (in %sheader %s)\n"
+              (fst file) PrintAst.plid callee (if is_internal then "internal " else "") f;
+          if is_internal || constructor = Some () && LidSet.mem callee c_abstract_struct then
             { empty_deps with internal = StringSet.singleton f }
           else
             { empty_deps with public = StringSet.singleton f }
       | _ ->
           empty_deps
     in
-    let deps =
-      (object
-        inherit [_] reduce
-        method plus { internal = i1; public = p1 } { internal = i2; public = p2 } =
-          { internal = StringSet.union i1 i2; public = StringSet.union p1 p2 }
-        method zero = empty_deps
-        method! visit_EQualified _ lid =
-          gen_dep lid
-        method! visit_TQualified _ lid =
-          gen_dep lid
-        method! visit_TApp _ lid _ =
-          gen_dep lid
-      end)#visit_file () file
-    in
+    let is_inline_static lid = List.exists (fun p -> Bundle.pattern_matches_lid p lid) !Options.static_header in
+    let header_deps which = object(self)
+      inherit (record_everything gen_dep) as super
+
+      method private concerns_us flags =
+        match which with
+        | `Public -> not (List.mem Common.Internal flags) && not (List.mem Common.Private flags)
+        | `Internal ->  List.mem Common.Internal flags
+
+      method! visit_DFunction env cc flags n_cgs n ret name binders body =
+        (* KPrint.bprintf "function %a: concern us=%b %b %b \n" *)
+        (*   PrintAst.Ops.plid name *)
+        (*   (self#concerns_us flags) *)
+        (*   (List.mem Common.Internal flags) (List.mem Common.Private flags); *)
+        if self#concerns_us flags then
+          if is_inline_static name then
+            super#visit_DFunction env cc flags n_cgs n ret name binders body
+          else
+            (* ill-typed, but convenient *)
+            super#visit_DFunction env cc flags n_cgs n ret name binders Helpers.eunit
+        else
+          super#zero
+
+      method! visit_DType env name flags n_cgs n def =
+        let is_c_abstract_struct = List.mem Common.AbstractStruct flags in
+        if is_c_abstract_struct then
+          (* In `header_deps`, a C abstract struct always concerns us because it appears both in the
+             public (forward declaration, no body) and in the internal header (actual declaration). *)
+          if which = `Public then
+            super#visit_DType env name flags n_cgs n (Abbrev TUnit)
+          else
+            super#visit_DType env name flags n_cgs n def
+        else if self#concerns_us flags then
+          super#visit_DType env name flags n_cgs n def
+        else
+          super#zero
+
+      method! visit_DGlobal env flags name n t body =
+        if self#concerns_us flags then
+          if is_inline_static name then
+            super#visit_DGlobal env flags name n t body
+          else
+            super#visit_DGlobal env flags name n t Helpers.eunit
+        else
+          super#zero
+    end in
+    let deps = {
+      h = (
+        if Options.debug "dependencies" then
+          KPrint.bprintf "PUBLIC %s\n" (fst file);
+        (header_deps `Public)#visit_file () file);
+      internal_h = (
+        if Options.debug "dependencies" then
+          KPrint.bprintf "INTERNAL %s\n" (fst file);
+        (header_deps `Internal)#visit_file () file);
+      c = (
+        if Options.debug "dependencies" then
+          KPrint.bprintf "C %s\n" (fst file);
+        (new record_everything gen_dep)#visit_file () file);
+    } in
+
+    if not (StringSet.is_empty deps.h.internal) then
+      Warn.fatal_error "Unexpected: %s depends on some internal headers: %s\n"
+        (fst file)
+        (String.concat ", " (List.of_seq (StringSet.to_seq deps.h.internal)));
+       
     StringMap.add (fst file) deps by_file
   ) StringMap.empty files
 

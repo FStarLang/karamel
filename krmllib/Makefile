@@ -1,3 +1,5 @@
+include ../Makefile.common
+
 # This file is only to verify KaRaMeL as a library, i.e. to place all
 # *.checked files in this directory instead of a cache. This
 # is to allow users to directly pick from these .checked files instead
@@ -22,7 +24,7 @@ UINT128_DIR = dist/uint128
 MINI_DIR = dist/minimal
 
 #332 is turning abstract keyword usage into a fatal error
-FSTAR_OPTIONS += --ext context_pruning --odir $(EXTRACT_DIR) \
+FSTAR_OPTIONS += --ext optimize_let_vc --odir $(EXTRACT_DIR) \
   --warn_error @332
   # --use_extracted_interfaces
 
@@ -36,7 +38,7 @@ ifneq ($(RESOURCEMONITOR),)
   RUNLIM = runlim -p -o $@.runlim
 endif
 
-FSTAR = $(RUNLIM) $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules --cache_dir obj \
+FSTAR = $(RUNLIM) $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_dir obj \
   $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
   --already_cached 'Prims FStar -FStar.Krml.Endianness LowStar -LowStar.Lib'
 
@@ -64,7 +66,7 @@ FSTAR_EXTRACT+=-FStar.Stubs # This namespace is for interfaces into the compiler
 ifndef NODEPEND
 ifndef MAKE_RESTARTS
 .depend: .FORCE obj
-	$(FSTAR) $(OTHERFLAGS) --extract '$(FSTAR_EXTRACT)' --dep full $(ROOTS) --output_deps_to $@
+	$(FSTAR) $(OTHERFLAGS) --extract '$(FSTAR_EXTRACT)' --dep full $(ROOTS) -o $@
 
 .PHONY: .FORCE
 .FORCE:
@@ -77,16 +79,15 @@ obj:
 	mkdir $@
 
 %.checked: | obj
-	$(FSTAR) $(OTHERFLAGS) $< && \
-	touch $@
+	$(call run-with-log,$(FSTAR) $(OTHERFLAGS) -c $< -o $@ && touch $@,[VERIFY] $(basename $*),$*)
 
 verify-all: $(ALL_CHECKED_FILES)
 
 $(EXTRACT_DIR)/%.krml: | .depend
-	$(FSTAR) $(OTHERFLAGS) --codegen krml \
+	$(call run-with-log,$(FSTAR) $(OTHERFLAGS) $< --codegen krml \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
-	  $(notdir $(subst .checked,,$<)) && \
-	touch -c $@
+	  -o $@ && touch -c $@\
+	  ,[EXTRACT-KRML] $*,$(EXTRACT_DIR)/$*)
 
 # We don't extract LowStar.Lib as everything is generic data structures that
 # need to be specialized based on their usage from client code.

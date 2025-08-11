@@ -1,4 +1,2 @@
 (menhir
- (modules KParser)
- (flags --explain --dump)
- (infer true))
+ (modules KParser))
