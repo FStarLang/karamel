@@ -112,8 +112,8 @@ let prefix_suffix which original_name name =
   (* KPrint.bprintf "- add_early_includes: %s\n" original_name; *)
   let prefix =
     string (header ()) ^^ hardline ^^ hardline ^^
-    string (Printf.sprintf "#ifndef __%s_H" macro_name) ^^ hardline ^^
-    string (Printf.sprintf "#define __%s_H" macro_name) ^^ hardline ^^
+    string (Printf.sprintf "#ifndef %s_H" macro_name) ^^ hardline ^^
+    string (Printf.sprintf "#define %s_H" macro_name) ^^ hardline ^^
     very_early_includes_for which original_name ^^
     (if !Options.extern_c then hardline ^^ if_cpp (string "extern \"C\" {") else empty) ^^
     hardline ^^
@@ -123,8 +123,8 @@ let prefix_suffix which original_name name =
   let suffix =
     hardline ^^
     (if !Options.extern_c then if_cpp (string "}") else empty) ^^ hardline ^^
-    string (Printf.sprintf "#define __%s_H_DEFINED" macro_name) ^^ hardline ^^
-    string "#endif"
+    string (Printf.sprintf "#define %s_H_DEFINED" macro_name) ^^ hardline ^^
+    string (Printf.sprintf "#endif /* %s_H */" macro_name)
   in
   prefix, suffix
 

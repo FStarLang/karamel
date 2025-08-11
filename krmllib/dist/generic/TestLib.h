@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __TestLib_H
-#define __TestLib_H
+#ifndef TestLib_H
+#define TestLib_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -59,5 +59,5 @@ extern void
 TestLib_print_cycles_per_round(TestLib_cycles uu___, TestLib_cycles uu___1, uint32_t uu___2);
 
 
-#define __TestLib_H_DEFINED
-#endif
+#define TestLib_H_DEFINED
+#endif /* TestLib_H */

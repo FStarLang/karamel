@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_BitVector_H
-#define __FStar_BitVector_H
+#ifndef FStar_BitVector_H
+#define FStar_BitVector_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -72,5 +72,5 @@ extern Prims_list__bool
 );
 
 
-#define __FStar_BitVector_H_DEFINED
-#endif
+#define FStar_BitVector_H_DEFINED
+#endif /* FStar_BitVector_H */

@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __LowStar_Printf_H
-#define __LowStar_Printf_H
+#ifndef LowStar_Printf_H
+#define LowStar_Printf_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -74,5 +74,5 @@ LowStar_Printf_test2(
 extern void LowStar_Printf_test3(uint64_t m, uint32_t l, bool *x);
 
 
-#define __LowStar_Printf_H_DEFINED
-#endif
+#define LowStar_Printf_H_DEFINED
+#endif /* LowStar_Printf_H */

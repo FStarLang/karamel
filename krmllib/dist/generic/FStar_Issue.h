@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Issue_H
-#define __FStar_Issue_H
+#ifndef FStar_Issue_H
+#define FStar_Issue_H
 
 #include "FStar_String.h"
 #include "FStar_Bytes.h"
@@ -60,5 +60,5 @@ FStar_Issue_mk_issue_doc(
 );
 
 
-#define __FStar_Issue_H_DEFINED
-#endif
+#define FStar_Issue_H_DEFINED
+#endif /* FStar_Issue_H */

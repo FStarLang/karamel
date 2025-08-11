@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Pprint_H
-#define __FStar_Pprint_H
+#ifndef FStar_Pprint_H
+#define FStar_Pprint_H
 
 #include "FStar_Issue.h"
 #include <inttypes.h>
@@ -259,5 +259,5 @@ FStar_Pprint_pretty_string(
 extern Prims_string FStar_Pprint_render(FStar_Pprint_document uu___);
 
 
-#define __FStar_Pprint_H_DEFINED
-#endif
+#define FStar_Pprint_H_DEFINED
+#endif /* FStar_Pprint_H */

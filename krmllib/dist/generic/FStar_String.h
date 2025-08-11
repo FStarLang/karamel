@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_String_H
-#define __FStar_String_H
+#ifndef FStar_String_H
+#define FStar_String_H
 
 #include "FStar_BitVector.h"
 #include <inttypes.h>
@@ -82,5 +82,5 @@ FStar_String_substring(
 extern FStar_Char_char FStar_String_get(Prims_string uu___, krml_checked_int_t uu___1);
 
 
-#define __FStar_String_H_DEFINED
-#endif
+#define FStar_String_H_DEFINED
+#endif /* FStar_String_H */

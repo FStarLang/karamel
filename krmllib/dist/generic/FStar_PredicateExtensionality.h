@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_PredicateExtensionality_H
-#define __FStar_PredicateExtensionality_H
+#ifndef FStar_PredicateExtensionality_H
+#define FStar_PredicateExtensionality_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -17,5 +17,5 @@ typedef void *FStar_PredicateExtensionality_predicate;
 typedef void *FStar_PredicateExtensionality_peq;
 
 
-#define __FStar_PredicateExtensionality_H_DEFINED
-#endif
+#define FStar_PredicateExtensionality_H_DEFINED
+#endif /* FStar_PredicateExtensionality_H */

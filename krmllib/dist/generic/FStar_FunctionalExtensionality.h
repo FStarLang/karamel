@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_FunctionalExtensionality_H
-#define __FStar_FunctionalExtensionality_H
+#ifndef FStar_FunctionalExtensionality_H
+#define FStar_FunctionalExtensionality_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -31,5 +31,5 @@ typedef void *FStar_FunctionalExtensionality_restricted_g_t;
 typedef void *FStar_FunctionalExtensionality_op_Hat_Subtraction_Greater_Greater;
 
 
-#define __FStar_FunctionalExtensionality_H_DEFINED
-#endif
+#define FStar_FunctionalExtensionality_H_DEFINED
+#endif /* FStar_FunctionalExtensionality_H */

@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Heap_H
-#define __FStar_Heap_H
+#ifndef FStar_Heap_H
+#define FStar_Heap_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -17,5 +17,5 @@ typedef void *FStar_Heap_trivial_rel;
 typedef void *FStar_Heap_trivial_preorder;
 
 
-#define __FStar_Heap_H_DEFINED
-#endif
+#define FStar_Heap_H_DEFINED
+#endif /* FStar_Heap_H */

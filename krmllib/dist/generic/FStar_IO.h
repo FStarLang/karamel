@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_IO_H
-#define __FStar_IO_H
+#ifndef FStar_IO_H
+#define FStar_IO_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -75,5 +75,5 @@ extern void FStar_IO_write_string(FStar_IO_fd_write uu___, Prims_string uu___1);
 extern bool FStar_IO_debug_print_string(Prims_string uu___);
 
 
-#define __FStar_IO_H_DEFINED
-#endif
+#define FStar_IO_H_DEFINED
+#endif /* FStar_IO_H */

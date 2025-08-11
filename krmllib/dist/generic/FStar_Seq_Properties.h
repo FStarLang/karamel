@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Seq_Properties_H
-#define __FStar_Seq_Properties_H
+#ifndef FStar_Seq_Properties_H
+#define FStar_Seq_Properties_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -31,5 +31,5 @@ typedef void *FStar_Seq_Properties_explode_and;
 typedef void *FStar_Seq_Properties_pointwise_and;
 
 
-#define __FStar_Seq_Properties_H_DEFINED
-#endif
+#define FStar_Seq_Properties_H_DEFINED
+#endif /* FStar_Seq_Properties_H */

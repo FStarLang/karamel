@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_ErasedLogic_H
-#define __FStar_ErasedLogic_H
+#ifndef FStar_ErasedLogic_H
+#define FStar_ErasedLogic_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -17,5 +17,5 @@ typedef void *FStar_ErasedLogic_sig_;
 typedef void *FStar_ErasedLogic_ex;
 
 
-#define __FStar_ErasedLogic_H_DEFINED
-#endif
+#define FStar_ErasedLogic_H_DEFINED
+#endif /* FStar_ErasedLogic_H */

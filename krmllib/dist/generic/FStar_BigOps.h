@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_BigOps_H
-#define __FStar_BigOps_H
+#ifndef FStar_BigOps_H
+#define FStar_BigOps_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -35,5 +35,5 @@ typedef void *FStar_BigOps_pairwise_or_;
 typedef void *FStar_BigOps_pairwise_or;
 
 
-#define __FStar_BigOps_H_DEFINED
-#endif
+#define FStar_BigOps_H_DEFINED
+#endif /* FStar_BigOps_H */

@@ -1,8 +1,8 @@
 /* Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
    Licensed under the Apache 2.0 and MIT Licenses. */
 
-#ifndef __KRML_TARGET_H
-#define __KRML_TARGET_H
+#ifndef KRML_HEADER_TARGET_H
+#define KRML_HEADER_TARGET_H
 
 #include <assert.h>
 #include <inttypes.h>
@@ -428,4 +428,4 @@ inline static int32_t krml_time(void) {
 #else
 #  define KRML_MAYBE_FOR16(i, z, n, k, x) KRML_ACTUAL_FOR(i, z, n, k, x)
 #endif
-#endif
+#endif /* KRML_HEADER_TARGET_H */

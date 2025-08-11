@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_NormSteps_H
-#define __FStar_NormSteps_H
+#ifndef FStar_NormSteps_H
+#define FStar_NormSteps_H
 
 #include "FStar_String.h"
 #include <inttypes.h>
@@ -127,5 +127,5 @@ extern FStar_NormSteps_norm_step FStar_NormSteps_unmeta;
 extern FStar_NormSteps_norm_step FStar_NormSteps_unascribe;
 
 
-#define __FStar_NormSteps_H_DEFINED
-#endif
+#define FStar_NormSteps_H_DEFINED
+#endif /* FStar_NormSteps_H */

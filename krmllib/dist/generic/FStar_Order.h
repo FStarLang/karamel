@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Order_H
-#define __FStar_Order_H
+#ifndef FStar_Order_H
+#define FStar_Order_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -45,5 +45,5 @@ krml_checked_int_t FStar_Order_int_of_order(FStar_Order_order uu___);
 FStar_Order_order FStar_Order_compare_int(krml_checked_int_t i, krml_checked_int_t j);
 
 
-#define __FStar_Order_H_DEFINED
-#endif
+#define FStar_Order_H_DEFINED
+#endif /* FStar_Order_H */

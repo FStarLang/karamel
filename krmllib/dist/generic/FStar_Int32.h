@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Int32_H
-#define __FStar_Int32_H
+#ifndef FStar_Int32_H
+#define FStar_Int32_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -69,5 +69,5 @@ extern Prims_string FStar_Int32_to_string(int32_t uu___);
 extern int32_t FStar_Int32_of_string(Prims_string uu___);
 
 
-#define __FStar_Int32_H_DEFINED
-#endif
+#define FStar_Int32_H_DEFINED
+#endif /* FStar_Int32_H */

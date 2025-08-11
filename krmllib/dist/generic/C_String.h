@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __C_String_H
-#define __C_String_H
+#ifndef C_String_H
+#define C_String_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -23,5 +23,5 @@ extern uint32_t C_String_strlen(Prims_string uu___);
 extern void C_String_memcpy(uint8_t *uu___, Prims_string uu___1, uint32_t uu___2);
 
 
-#define __C_String_H_DEFINED
-#endif
+#define C_String_H_DEFINED
+#endif /* C_String_H */

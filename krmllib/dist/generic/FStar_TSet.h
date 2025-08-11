@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_TSet_H
-#define __FStar_TSet_H
+#ifndef FStar_TSet_H
+#define FStar_TSet_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -19,5 +19,5 @@ typedef void *FStar_TSet_equal;
 typedef void *FStar_TSet_subset;
 
 
-#define __FStar_TSet_H_DEFINED
-#endif
+#define FStar_TSet_H_DEFINED
+#endif /* FStar_TSet_H */

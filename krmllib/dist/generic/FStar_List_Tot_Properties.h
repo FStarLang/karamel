@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_List_Tot_Properties_H
-#define __FStar_List_Tot_Properties_H
+#ifndef FStar_List_Tot_Properties_H
+#define FStar_List_Tot_Properties_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -15,5 +15,5 @@
 typedef void *FStar_List_Tot_Properties_total_order;
 
 
-#define __FStar_List_Tot_Properties_H_DEFINED
-#endif
+#define FStar_List_Tot_Properties_H_DEFINED
+#endif /* FStar_List_Tot_Properties_H */

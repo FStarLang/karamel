@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Pervasives_H
-#define __FStar_Pervasives_H
+#ifndef FStar_Pervasives_H
+#define FStar_Pervasives_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -93,5 +93,5 @@ typedef void *FStar_Pervasives_all_trivial;
 typedef void *FStar_Pervasives_inversion;
 
 
-#define __FStar_Pervasives_H_DEFINED
-#endif
+#define FStar_Pervasives_H_DEFINED
+#endif /* FStar_Pervasives_H */
