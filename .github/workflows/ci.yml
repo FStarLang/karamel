@@ -1,0 +1,150 @@
+name: CI
+on:
+  push:
+    branches-ignore:
+    - _**
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      nocache:
+        description: Do not use stored OPAM cache
+        type: boolean
+        default: false
+  schedule:
+    - cron: '0 0 * * *'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Z3 with script
+        run: |
+          wget https://raw.githubusercontent.com/FStarLang/FStar/refs/heads/master/.scripts/get_fstar_z3.sh -O get_fstar_z3.sh
+          chmod +x get_fstar_z3.sh
+          ./get_fstar_z3.sh /usr/local/bin
+       # If these fail, stop right now.
+      - run: which z3-4.8.5
+      - run: which z3-4.13.3
+
+      - name: Setup ocaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+           ocaml-compiler: 4.14.2
+
+      - uses: actions/checkout@master
+        with:
+          path: karamel
+
+      # We keep the OPAM state fully cached between runs, and rely on OPAM to
+      # update itself. This means we don't build F* again if it doesn't change.
+      # The nightly build will start from scratch.
+      - name: Try restore OPAM state
+        if: ${{ inputs.nocache != 'true' && github.event_name != 'schedule' }}
+        uses: actions/cache/restore@v4
+        with:
+          path: _opam
+          key: opam-${{ runner.os }}-${{ runner.arch }}
+
+      # Build F* master.
+      - run: opam update
+      - run: opam pin -n fstar --dev-repo
+      - run: opam install fstar
+
+      # Install karamel deps
+      - run: opam install --deps-only karamel/karamel.opam
+      - run: opam install ctypes ctypes-foreign # not in deps?
+
+      - name: Save OPAM state
+        uses: actions/cache/save@v4
+        with:
+          path: _opam
+          key: opam-${{ runner.os }}-${{ runner.arch }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 16
+
+      - run: echo "KRML_HOME=$(pwd)/karamel" >> $GITHUB_ENV
+
+      - name: Karamel CI
+        working-directory: karamel
+        run: |
+          eval $(opam env)
+          . $HOME/.cargo/env
+          export OCAMLRUNPARAM=b
+          make -kj$(nproc)
+          make -kj$(nproc) -C test everything
+
+      - name: Build book
+        working-directory: karamel
+        run: |
+          eval $(opam env)
+          sudo apt-get install -y python3-sphinx python3-sphinx-rtd-theme
+          make -C book html
+
+      - name: Upload book artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: karamel/book/_build
+          name: book
+
+  # This is checked in parallel with no F* around. It checks that the
+  # krllib snapshot builds, on several systems.
+  build-krmllib:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-22.04
+          - ubuntu-24.04
+          - macos-13
+          - macos-14
+          - macos-15
+        cc:
+          - gcc
+          - clang
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@master
+      - name: Build the checked-in krmllib
+        run: |
+          export KRML_HOME=$(pwd)
+          export CC=${{matrix.cc}}
+          make -kj$(nproc) -C krmllib/dist/generic -f Makefile.basic
+
+  # A single no-op job to use for branch protection
+  ciok:
+    runs-on: ubuntu-latest
+    if: ${{ cancelled() || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'failure') }}
+    needs:
+      - build-and-test
+      - build-krmllib
+    steps:
+      # Note: this only runs when a dependency fails. If they all succeed,
+      # this jobs is skipped, which counts as a success.
+      # https://github.com/actions/runner/issues/2566
+      - run: exit 1
+
+  publish_book:
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/master' }}
+    needs: build-and-test
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions/download-artifact@v4
+        with:
+          name: book
+          path: book/_build
+
+      - name: Configure git
+        run: |
+          git config --global user.name "Dzomo, the Everest Yak"
+          git config --global user.email "24394600+dzomo@users.noreply.github.com"
+
+      - run: .scripts/publish_tutorial.sh
+        env:
+          DZOMO_GITHUB_TOKEN: ${{secrets.DZOMO_GITHUB_TOKEN}}
