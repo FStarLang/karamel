@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_ModifiesGen_H
-#define KRML_HEADER_FStar_ModifiesGen_H
+#ifndef FStar_ModifiesGen_H
+#define FStar_ModifiesGen_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -25,5 +25,5 @@ typedef void *FStar_ModifiesGen_modifies;
 typedef void *FStar_ModifiesGen_does_not_contain_addr;
 
 
-#define KRML_HEADER_FStar_ModifiesGen_H_DEFINED
-#endif /* KRML_HEADER_FStar_ModifiesGen_H */
+#define FStar_ModifiesGen_H_DEFINED
+#endif /* FStar_ModifiesGen_H */

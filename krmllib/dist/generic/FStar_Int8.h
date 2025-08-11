@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_Int8_H
-#define KRML_HEADER_FStar_Int8_H
+#ifndef FStar_Int8_H
+#define FStar_Int8_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -69,5 +69,5 @@ extern Prims_string FStar_Int8_to_string(int8_t uu___);
 extern int8_t FStar_Int8_of_string(Prims_string uu___);
 
 
-#define KRML_HEADER_FStar_Int8_H_DEFINED
-#endif /* KRML_HEADER_FStar_Int8_H */
+#define FStar_Int8_H_DEFINED
+#endif /* FStar_Int8_H */

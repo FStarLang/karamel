@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_GSet_H
-#define KRML_HEADER_FStar_GSet_H
+#ifndef FStar_GSet_H
+#define FStar_GSet_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -21,5 +21,5 @@ typedef void *FStar_GSet_disjoint;
 typedef void *FStar_GSet_subset;
 
 
-#define KRML_HEADER_FStar_GSet_H_DEFINED
-#endif /* KRML_HEADER_FStar_GSet_H */
+#define FStar_GSet_H_DEFINED
+#endif /* FStar_GSet_H */

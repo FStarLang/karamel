@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_Date_H
-#define KRML_HEADER_FStar_Date_H
+#ifndef FStar_Date_H
+#define FStar_Date_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -30,5 +30,5 @@ FStar_Date_addTimeSpan(FStar_Date_dateTime uu___, FStar_Date_timeSpan uu___1);
 extern bool FStar_Date_greaterDateTime(FStar_Date_dateTime uu___, FStar_Date_dateTime uu___1);
 
 
-#define KRML_HEADER_FStar_Date_H_DEFINED
-#endif /* KRML_HEADER_FStar_Date_H */
+#define FStar_Date_H_DEFINED
+#endif /* FStar_Date_H */

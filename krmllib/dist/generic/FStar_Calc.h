@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_Calc_H
-#define KRML_HEADER_FStar_Calc_H
+#ifndef FStar_Calc_H
+#define FStar_Calc_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -19,5 +19,5 @@ typedef void *FStar_Calc_calc_chain_compatible;
 typedef void *FStar_Calc_calc_pack;
 
 
-#define KRML_HEADER_FStar_Calc_H_DEFINED
-#endif /* KRML_HEADER_FStar_Calc_H */
+#define FStar_Calc_H_DEFINED
+#endif /* FStar_Calc_H */

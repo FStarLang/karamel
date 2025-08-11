@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_Bytes_H
-#define KRML_HEADER_FStar_Bytes_H
+#ifndef FStar_Bytes_H
+#define FStar_Bytes_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -146,5 +146,5 @@ extern FStar_Bytes_bytes FStar_Bytes_of_buffer(uint32_t l, uint8_t *buf);
 extern void FStar_Bytes_store_bytes(FStar_Bytes_bytes src, uint8_t *dst);
 
 
-#define KRML_HEADER_FStar_Bytes_H_DEFINED
-#endif /* KRML_HEADER_FStar_Bytes_H */
+#define FStar_Bytes_H_DEFINED
+#endif /* FStar_Bytes_H */

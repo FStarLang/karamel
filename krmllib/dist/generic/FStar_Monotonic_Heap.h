@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_Monotonic_Heap_H
-#define KRML_HEADER_FStar_Monotonic_Heap_H
+#ifndef FStar_Monotonic_Heap_H
+#define FStar_Monotonic_Heap_H
 
 #include "FStar_Bytes.h"
 #include <inttypes.h>
@@ -78,5 +78,5 @@ extern void
 **FStar_Monotonic_Heap_ref_of(FStar_Monotonic_Heap_heap_rec h, FStar_Monotonic_Heap_aref_ a);
 
 
-#define KRML_HEADER_FStar_Monotonic_Heap_H_DEFINED
-#endif /* KRML_HEADER_FStar_Monotonic_Heap_H */
+#define FStar_Monotonic_Heap_H_DEFINED
+#endif /* FStar_Monotonic_Heap_H */

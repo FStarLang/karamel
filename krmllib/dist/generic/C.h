@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_C_H
-#define KRML_HEADER_C_H
+#ifndef C_H
+#define C_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -25,5 +25,5 @@ extern bool uu___is_EXIT_FAILURE(exit_code projectee);
 extern void print_bytes(uint8_t *b, uint32_t len);
 
 
-#define KRML_HEADER_C_H_DEFINED
-#endif /* KRML_HEADER_C_H */
+#define C_H_DEFINED
+#endif /* C_H */

@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Attributes_H
-#define __FStar_Attributes_H
+#ifndef FStar_Attributes_H
+#define FStar_Attributes_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -92,5 +92,5 @@ bool
 FStar_Attributes_uu___is_CNoInline(FStar_Attributes___internal_ocaml_attributes projectee);
 
 
-#define __FStar_Attributes_H_DEFINED
-#endif
+#define FStar_Attributes_H_DEFINED
+#endif /* FStar_Attributes_H */

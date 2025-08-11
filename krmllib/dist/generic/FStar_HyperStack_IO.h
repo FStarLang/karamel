@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_HyperStack_IO_H
-#define KRML_HEADER_FStar_HyperStack_IO_H
+#ifndef FStar_HyperStack_IO_H
+#define FStar_HyperStack_IO_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -15,5 +15,5 @@
 extern void FStar_HyperStack_IO_print_string(Prims_string s);
 
 
-#define KRML_HEADER_FStar_HyperStack_IO_H_DEFINED
-#endif /* KRML_HEADER_FStar_HyperStack_IO_H */
+#define FStar_HyperStack_IO_H_DEFINED
+#endif /* FStar_HyperStack_IO_H */

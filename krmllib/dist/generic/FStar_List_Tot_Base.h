@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_List_Tot_Base_H
-#define KRML_HEADER_FStar_List_Tot_Base_H
+#ifndef FStar_List_Tot_Base_H
+#define FStar_List_Tot_Base_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -25,5 +25,5 @@ KRML_DEPRECATED("This function was misnamed: Please use 'strict_suffix_of'")
 typedef void *FStar_List_Tot_Base_strict_prefix_of;
 
 
-#define KRML_HEADER_FStar_List_Tot_Base_H_DEFINED
-#endif /* KRML_HEADER_FStar_List_Tot_Base_H */
+#define FStar_List_Tot_Base_H_DEFINED
+#endif /* FStar_List_Tot_Base_H */

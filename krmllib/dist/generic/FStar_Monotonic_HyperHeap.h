@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_Monotonic_HyperHeap_H
-#define KRML_HEADER_FStar_Monotonic_HyperHeap_H
+#ifndef FStar_Monotonic_HyperHeap_H
+#define FStar_Monotonic_HyperHeap_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -15,5 +15,5 @@
 typedef void *FStar_Monotonic_HyperHeap_rid;
 
 
-#define KRML_HEADER_FStar_Monotonic_HyperHeap_H_DEFINED
-#endif /* KRML_HEADER_FStar_Monotonic_HyperHeap_H */
+#define FStar_Monotonic_HyperHeap_H_DEFINED
+#endif /* FStar_Monotonic_HyperHeap_H */

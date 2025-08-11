@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_Map_H
-#define KRML_HEADER_FStar_Map_H
+#ifndef FStar_Map_H
+#define FStar_Map_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -19,5 +19,5 @@ typedef void *FStar_Map_has_dom;
 typedef void *FStar_Map_equal;
 
 
-#define KRML_HEADER_FStar_Map_H_DEFINED
-#endif /* KRML_HEADER_FStar_Map_H */
+#define FStar_Map_H_DEFINED
+#endif /* FStar_Map_H */

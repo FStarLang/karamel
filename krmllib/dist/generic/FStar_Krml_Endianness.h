@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_Krml_Endianness_H
-#define KRML_HEADER_FStar_Krml_Endianness_H
+#ifndef FStar_Krml_Endianness_H
+#define FStar_Krml_Endianness_H
 
 #include "FStar_BitVector.h"
 #include <inttypes.h>
@@ -128,5 +128,5 @@ KRML_DEPRECATED("FStar.Endianness.be_of_seq_uint64")
 extern Prims_list__uint8_t *FStar_Krml_Endianness_be_of_seq_uint64(Prims_list__uint64_t *s);
 
 
-#define KRML_HEADER_FStar_Krml_Endianness_H_DEFINED
-#endif /* KRML_HEADER_FStar_Krml_Endianness_H */
+#define FStar_Krml_Endianness_H_DEFINED
+#endif /* FStar_Krml_Endianness_H */

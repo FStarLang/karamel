@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_C_Loops_H
-#define KRML_HEADER_C_Loops_H
+#ifndef C_Loops_H
+#define C_Loops_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -36,5 +36,5 @@ typedef void *C_Loops_repeat_range_body_interp;
 typedef void (*C_Loops_repeat_range_body_impl)(uint32_t x0);
 
 
-#define KRML_HEADER_C_Loops_H_DEFINED
-#endif /* KRML_HEADER_C_Loops_H */
+#define C_Loops_H_DEFINED
+#endif /* C_Loops_H */

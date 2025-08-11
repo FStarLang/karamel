@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_Math_Lib_H
-#define KRML_HEADER_FStar_Math_Lib_H
+#ifndef FStar_Math_Lib_H
+#define FStar_Math_Lib_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -40,5 +40,5 @@ extern krml_checked_int_t
 FStar_Math_Lib_op_Plus_Percent(krml_checked_int_t a, krml_checked_int_t p);
 
 
-#define KRML_HEADER_FStar_Math_Lib_H_DEFINED
-#endif /* KRML_HEADER_FStar_Math_Lib_H */
+#define FStar_Math_Lib_H_DEFINED
+#endif /* FStar_Math_Lib_H */

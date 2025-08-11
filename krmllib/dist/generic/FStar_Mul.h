@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_Mul_H
-#define KRML_HEADER_FStar_Mul_H
+#ifndef FStar_Mul_H
+#define FStar_Mul_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -15,5 +15,5 @@
 extern krml_checked_int_t FStar_Mul_op_Star(krml_checked_int_t x0, krml_checked_int_t x1);
 
 
-#define KRML_HEADER_FStar_Mul_H_DEFINED
-#endif /* KRML_HEADER_FStar_Mul_H */
+#define FStar_Mul_H_DEFINED
+#endif /* FStar_Mul_H */

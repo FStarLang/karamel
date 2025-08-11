@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_LowStar_Monotonic_Buffer_H
-#define KRML_HEADER_LowStar_Monotonic_Buffer_H
+#ifndef LowStar_Monotonic_Buffer_H
+#define LowStar_Monotonic_Buffer_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -15,5 +15,5 @@
 typedef void *LowStar_Monotonic_Buffer_loc_disjoint;
 
 
-#define KRML_HEADER_LowStar_Monotonic_Buffer_H_DEFINED
-#endif /* KRML_HEADER_LowStar_Monotonic_Buffer_H */
+#define LowStar_Monotonic_Buffer_H_DEFINED
+#endif /* LowStar_Monotonic_Buffer_H */

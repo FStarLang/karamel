@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_Int64_H
-#define KRML_HEADER_FStar_Int64_H
+#ifndef FStar_Int64_H
+#define FStar_Int64_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -69,5 +69,5 @@ extern Prims_string FStar_Int64_to_string(int64_t uu___);
 extern int64_t FStar_Int64_of_string(Prims_string uu___);
 
 
-#define KRML_HEADER_FStar_Int64_H_DEFINED
-#endif /* KRML_HEADER_FStar_Int64_H */
+#define FStar_Int64_H_DEFINED
+#endif /* FStar_Int64_H */

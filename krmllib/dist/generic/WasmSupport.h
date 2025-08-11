@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_WasmSupport_H
-#define KRML_HEADER_WasmSupport_H
+#ifndef WasmSupport_H
+#define WasmSupport_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -29,5 +29,5 @@ uint64_t WasmSupport_betole64(uint64_t x);
 void WasmSupport_memzero(uint8_t *x, uint32_t len, uint32_t sz);
 
 
-#define KRML_HEADER_WasmSupport_H_DEFINED
-#endif /* KRML_HEADER_WasmSupport_H */
+#define WasmSupport_H_DEFINED
+#endif /* WasmSupport_H */

@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_HyperStack_ST_H
-#define KRML_HEADER_FStar_HyperStack_ST_H
+#ifndef FStar_HyperStack_ST_H
+#define FStar_HyperStack_ST_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -19,5 +19,5 @@ typedef void *FStar_HyperStack_ST_ex_rid;
 typedef void *FStar_HyperStack_ST_witnessed;
 
 
-#define KRML_HEADER_FStar_HyperStack_ST_H_DEFINED
-#endif /* KRML_HEADER_FStar_HyperStack_ST_H */
+#define FStar_HyperStack_ST_H_DEFINED
+#endif /* FStar_HyperStack_ST_H */

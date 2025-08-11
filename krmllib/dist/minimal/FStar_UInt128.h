@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_FStar_UInt128_H
-#define KRML_HEADER_FStar_UInt128_H
+#ifndef FStar_UInt128_H
+#define FStar_UInt128_H
 
 #include <inttypes.h>
 #include <stdbool.h>
@@ -74,5 +74,5 @@ static inline FStar_UInt128_uint128 FStar_UInt128_mul32(uint64_t x, uint32_t y);
 static inline FStar_UInt128_uint128 FStar_UInt128_mul_wide(uint64_t x, uint64_t y);
 
 
-#define KRML_HEADER_FStar_UInt128_H_DEFINED
-#endif /* KRML_HEADER_FStar_UInt128_H */
+#define FStar_UInt128_H_DEFINED
+#endif /* FStar_UInt128_H */

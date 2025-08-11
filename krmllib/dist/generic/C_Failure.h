@@ -4,8 +4,8 @@
 */
 
 
-#ifndef KRML_HEADER_C_Failure_H
-#define KRML_HEADER_C_Failure_H
+#ifndef C_Failure_H
+#define C_Failure_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -15,5 +15,5 @@
 extern bool C_Failure_whatever(void);
 
 
-#define KRML_HEADER_C_Failure_H_DEFINED
-#endif /* KRML_HEADER_C_Failure_H */
+#define C_Failure_H_DEFINED
+#endif /* C_Failure_H */
