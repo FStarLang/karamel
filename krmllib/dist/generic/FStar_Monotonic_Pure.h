@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Monotonic_Pure_H
-#define __FStar_Monotonic_Pure_H
+#ifndef KRML_HEADER_FStar_Monotonic_Pure_H
+#define KRML_HEADER_FStar_Monotonic_Pure_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -15,5 +15,5 @@
 typedef void *FStar_Monotonic_Pure_is_monotonic;
 
 
-#define __FStar_Monotonic_Pure_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_Monotonic_Pure_H_DEFINED
+#endif /* KRML_HEADER_FStar_Monotonic_Pure_H */

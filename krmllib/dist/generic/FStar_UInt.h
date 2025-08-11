@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_UInt_H
-#define __FStar_UInt_H
+#ifndef KRML_HEADER_FStar_UInt_H
+#define KRML_HEADER_FStar_UInt_H
 
 #include "FStar_BitVector.h"
 #include <inttypes.h>
@@ -135,5 +135,5 @@ extern krml_checked_int_t FStar_UInt_zero_extend(krml_checked_int_t n, krml_chec
 extern krml_checked_int_t FStar_UInt_one_extend(krml_checked_int_t n, krml_checked_int_t a);
 
 
-#define __FStar_UInt_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_UInt_H_DEFINED
+#endif /* KRML_HEADER_FStar_UInt_H */

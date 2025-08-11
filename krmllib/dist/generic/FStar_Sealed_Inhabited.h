@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Sealed_Inhabited_H
-#define __FStar_Sealed_Inhabited_H
+#ifndef KRML_HEADER_FStar_Sealed_Inhabited_H
+#define KRML_HEADER_FStar_Sealed_Inhabited_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -15,5 +15,5 @@
 typedef void *FStar_Sealed_Inhabited_is_sealed;
 
 
-#define __FStar_Sealed_Inhabited_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_Sealed_Inhabited_H_DEFINED
+#endif /* KRML_HEADER_FStar_Sealed_Inhabited_H */

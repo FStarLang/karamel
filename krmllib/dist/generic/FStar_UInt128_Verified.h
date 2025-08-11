@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_UInt128_Verified_H
-#define __FStar_UInt128_Verified_H
+#ifndef KRML_HEADER_FStar_UInt128_Verified_H
+#define KRML_HEADER_FStar_UInt128_Verified_H
 
 #include "FStar_UInt_8_16_32_64.h"
 #include <inttypes.h>
@@ -342,5 +342,5 @@ static inline FStar_UInt128_uint128 FStar_UInt128_mul_wide(uint64_t x, uint64_t 
 }
 
 
-#define __FStar_UInt128_Verified_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_UInt128_Verified_H_DEFINED
+#endif /* KRML_HEADER_FStar_UInt128_Verified_H */

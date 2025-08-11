@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __LowStar_Endianness_H
-#define __LowStar_Endianness_H
+#ifndef KRML_HEADER_LowStar_Endianness_H
+#define KRML_HEADER_LowStar_Endianness_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -21,5 +21,5 @@ static inline void store128_be(uint8_t *x0, FStar_UInt128_uint128 x1);
 static inline FStar_UInt128_uint128 load128_be(uint8_t *x0);
 
 
-#define __LowStar_Endianness_H_DEFINED
-#endif
+#define KRML_HEADER_LowStar_Endianness_H_DEFINED
+#endif /* KRML_HEADER_LowStar_Endianness_H */

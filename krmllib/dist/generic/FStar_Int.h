@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Int_H
-#define __FStar_Int_H
+#ifndef KRML_HEADER_FStar_Int_H
+#define KRML_HEADER_FStar_Int_H
 
 #include "FStar_BitVector.h"
 #include <inttypes.h>
@@ -137,5 +137,5 @@ FStar_Int_shift_arithmetic_right(
 );
 
 
-#define __FStar_Int_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_Int_H_DEFINED
+#endif /* KRML_HEADER_FStar_Int_H */

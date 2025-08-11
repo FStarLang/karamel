@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Seq_Base_H
-#define __FStar_Seq_Base_H
+#ifndef KRML_HEADER_FStar_Seq_Base_H
+#define KRML_HEADER_FStar_Seq_Base_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -15,5 +15,5 @@
 typedef void *FStar_Seq_Base_equal;
 
 
-#define __FStar_Seq_Base_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_Seq_Base_H_DEFINED
+#endif /* KRML_HEADER_FStar_Seq_Base_H */

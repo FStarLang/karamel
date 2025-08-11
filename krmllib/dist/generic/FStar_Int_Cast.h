@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Int_Cast_H
-#define __FStar_Int_Cast_H
+#ifndef KRML_HEADER_FStar_Int_Cast_H
+#define KRML_HEADER_FStar_Int_Cast_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -157,5 +157,5 @@ extern uint16_t FStar_Int_Cast_int64_to_uint16(int64_t x);
 extern uint8_t FStar_Int_Cast_int64_to_uint8(int64_t x);
 
 
-#define __FStar_Int_Cast_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_Int_Cast_H_DEFINED
+#endif /* KRML_HEADER_FStar_Int_Cast_H */

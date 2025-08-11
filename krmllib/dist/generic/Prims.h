@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __Prims_H
-#define __Prims_H
+#ifndef KRML_HEADER_Prims_H
+#define KRML_HEADER_Prims_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -43,5 +43,5 @@ extern Prims_string Prims_string_of_int(krml_checked_int_t x0);
 typedef void *Prims_prop;
 
 
-#define __Prims_H_DEFINED
-#endif
+#define KRML_HEADER_Prims_H_DEFINED
+#endif /* KRML_HEADER_Prims_H */

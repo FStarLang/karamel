@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_All_H
-#define __FStar_All_H
+#ifndef KRML_HEADER_FStar_All_H
+#define KRML_HEADER_FStar_All_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -21,5 +21,5 @@ typedef void *FStar_All_all_post;
 typedef void *FStar_All_all_wp;
 
 
-#define __FStar_All_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_All_H_DEFINED
+#endif /* KRML_HEADER_FStar_All_H */

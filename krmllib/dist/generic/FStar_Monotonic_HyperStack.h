@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Monotonic_HyperStack_H
-#define __FStar_Monotonic_HyperStack_H
+#ifndef KRML_HEADER_FStar_Monotonic_HyperStack_H
+#define KRML_HEADER_FStar_Monotonic_HyperStack_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -17,5 +17,5 @@ typedef void *FStar_Monotonic_HyperStack_mem;
 extern void *FStar_Monotonic_HyperStack_root;
 
 
-#define __FStar_Monotonic_HyperStack_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_Monotonic_HyperStack_H_DEFINED
+#endif /* KRML_HEADER_FStar_Monotonic_HyperStack_H */

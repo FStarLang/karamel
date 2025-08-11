@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Preorder_H
-#define __FStar_Preorder_H
+#ifndef KRML_HEADER_FStar_Preorder_H
+#define KRML_HEADER_FStar_Preorder_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -27,5 +27,5 @@ typedef void *FStar_Preorder_preorder;
 typedef void *FStar_Preorder_stable;
 
 
-#define __FStar_Preorder_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_Preorder_H_DEFINED
+#endif /* KRML_HEADER_FStar_Preorder_H */

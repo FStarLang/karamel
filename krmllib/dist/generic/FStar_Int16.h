@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Int16_H
-#define __FStar_Int16_H
+#ifndef KRML_HEADER_FStar_Int16_H
+#define KRML_HEADER_FStar_Int16_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -65,5 +65,5 @@ extern Prims_string FStar_Int16_to_string(int16_t uu___);
 extern int16_t FStar_Int16_of_string(Prims_string uu___);
 
 
-#define __FStar_Int16_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_Int16_H_DEFINED
+#endif /* KRML_HEADER_FStar_Int16_H */

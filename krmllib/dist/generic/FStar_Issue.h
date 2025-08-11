@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Issue_H
-#define __FStar_Issue_H
+#ifndef KRML_HEADER_FStar_Issue_H
+#define KRML_HEADER_FStar_Issue_H
 
 #include "FStar_String.h"
 #include "FStar_Bytes.h"
@@ -58,5 +58,5 @@ FStar_Issue_mk_issue_doc(
 );
 
 
-#define __FStar_Issue_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_Issue_H_DEFINED
+#endif /* KRML_HEADER_FStar_Issue_H */

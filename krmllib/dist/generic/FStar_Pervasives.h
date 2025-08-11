@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Pervasives_H
-#define __FStar_Pervasives_H
+#ifndef KRML_HEADER_FStar_Pervasives_H
+#define KRML_HEADER_FStar_Pervasives_H
 
 #include "FStar_String.h"
 #include "FStar_BitVector.h"
@@ -356,5 +356,5 @@ extern bool
 FStar_Pervasives_uu___is_CNoInline(FStar_Pervasives___internal_ocaml_attributes projectee);
 
 
-#define __FStar_Pervasives_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_Pervasives_H_DEFINED
+#endif /* KRML_HEADER_FStar_Pervasives_H */

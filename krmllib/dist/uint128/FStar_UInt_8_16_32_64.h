@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_UInt_8_16_32_64_H
-#define __FStar_UInt_8_16_32_64_H
+#ifndef KRML_HEADER_FStar_UInt_8_16_32_64_H
+#define KRML_HEADER_FStar_UInt_8_16_32_64_H
 
 #include <inttypes.h>
 #include <stdbool.h>
@@ -35,5 +35,5 @@ static KRML_NOINLINE uint64_t FStar_UInt64_gte_mask(uint64_t a, uint64_t b)
 }
 
 
-#define __FStar_UInt_8_16_32_64_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_UInt_8_16_32_64_H_DEFINED
+#endif /* KRML_HEADER_FStar_UInt_8_16_32_64_H */

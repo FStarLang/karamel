@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_UInt_8_16_32_64_H
-#define __FStar_UInt_8_16_32_64_H
+#ifndef KRML_HEADER_FStar_UInt_8_16_32_64_H
+#define KRML_HEADER_FStar_UInt_8_16_32_64_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -207,5 +207,5 @@ extern uint8_t FStar_UInt8_of_string(Prims_string uu___);
 typedef uint8_t FStar_UInt8_byte;
 
 
-#define __FStar_UInt_8_16_32_64_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_UInt_8_16_32_64_H_DEFINED
+#endif /* KRML_HEADER_FStar_UInt_8_16_32_64_H */

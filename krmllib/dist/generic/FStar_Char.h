@@ -4,8 +4,8 @@
 */
 
 
-#ifndef __FStar_Char_H
-#define __FStar_Char_H
+#ifndef KRML_HEADER_FStar_Char_H
+#define KRML_HEADER_FStar_Char_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -27,5 +27,5 @@ extern FStar_Char_char FStar_Char_lowercase(FStar_Char_char uu___);
 extern FStar_Char_char FStar_Char_uppercase(FStar_Char_char uu___);
 
 
-#define __FStar_Char_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_Char_H_DEFINED
+#endif /* KRML_HEADER_FStar_Char_H */

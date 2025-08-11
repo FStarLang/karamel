@@ -235,7 +235,7 @@ Supported options:|}
       "  prepend #include the-argument to every generated file, before krmllib.h";
     "-add-include", Arg.String (fun s ->
       prepend Options.add_include (parse_include s)), " prepend #include \
-      the-argument to every generated file, after the #define __FOO_H";
+      the-argument to every generated file, after the #define FOO_H";
     "-add-include-tmh", Arg.Set Options.add_include_tmh, "  append #include \
       <FILE.tmh>, where FILE is the current basename";
     "-minimal", Arg.Set Options.minimal, "  do not prepend #include \"krmllib.h\"; do \
