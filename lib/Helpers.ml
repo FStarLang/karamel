@@ -440,7 +440,7 @@ let rec is_initializer_constant e =
 
 let assert_tlid t =
   (* We only have nominal typing for variants. *)
-  match t with TQualified lid -> lid | _ -> assert false
+  match t with TQualified lid -> lid | _ -> Warn.fatal_error "Not a tlid: %a" ptyp t
 
 let assert_tbuf t =
   match t with TBuf (t, _) -> t | t -> Warn.fatal_error "Not a buffer: %a" ptyp t
